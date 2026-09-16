@@ -19,7 +19,7 @@ function actionManualNpc(userData, pcId, sheets) {
       const found = acc && findAccountRow_(acc, String(userData.account).trim());
       const oldCharId = found ? String(found.row[COL.ACC.PC] || "") : "";
       if (oldCharId && sheets.pc.getDataRange().getValues().some(r => String(r[COL.PC.ID]) === oldCharId)) {
-        return JSON.stringify({ success: false, message: "此帳號已有進行中的聖杯戰爭——請用「繼續遊戲」接續，或先在選單開新局清除舊檔。" });
+        return JSON.stringify({ success: false, message: "這個帳號已經有一場進行中的聖杯戰爭。用「繼續戰爭」接下去，或回選單開新局清掉舊的。" });
       }
     } catch (e) { } // 檢查失敗不擋創角(優雅降級)，寧可放行也不要卡死正常玩家
   }
@@ -687,7 +687,7 @@ ${FX_MENU_}
 {"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"男/女/異 擇一","align":"如 混沌・善","background":"限20字","npc_intent":"萌點一句(不限反差)·限18字·務必寫完整一句話不可斷在句意未完處","personality":"四格頓號","look":"三格頓號(每句限${TRAIT_SEG_HINT_}字)","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"自取的招式名","r":"A","fx":"對應效果碼"},{"n":"自取的招式名","r":"B","fx":"對應效果碼"}],"traits":[{"n":"人類"}]}`;
       const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${clsUnset ? "未指定(請依描述判斷)" : cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
       if (!aiBrief || !aiBrief.realName || !aiBrief.six) {
-        return JSON.stringify({ success: false, message: "英靈之座的迴響中斷——召喚失敗，請稍候再試一次。" });
+        return JSON.stringify({ success: false, message: "英靈之座的迴響斷了，召喚沒有成功。稍後再試一次。" });
       }
       if (clsUnset) cls = VALID_CLS.includes(String(aiBrief.cls)) ? String(aiBrief.cls) : "Saber"; // AI 依描述判斷的職階；非法值才退回 Saber
       realName = String(aiBrief.realName || trueName || (cls + "從者")).replace(/[<>&"'`]/g, "").trim().slice(0, 20) || (cls + "從者");

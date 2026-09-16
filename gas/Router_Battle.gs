@@ -399,7 +399,7 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🗝️ 雙從者：若指定出戰從者(userData.servant/servantId)則用之，否則取第一個在世從者。（全文見 CODE_NOTES.md）
   const atkIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   if (useNp && atkIdx !== -1 && !npReleasable_(rowToCombatant_(pcData[atkIdx]))) {
-    return JSON.stringify({ success: false, message: "此從者的寶具為【常駐型】（已自動生效），並非可解放的攻擊寶具——請以普攻／令咒作戰（施放技術已被動化、每擊自動擲）。" });
+    return JSON.stringify({ success: false, message: "這位從者的寶具是常駐型的，已經一直生效，沒有可以解放的那一下。用普攻或令咒作戰吧。" });
   }
   if (atkIdx === -1) return JSON.stringify({ success: false, message: "你尚未召喚從者，無從者可出戰。" });
   // 🌟 多寶具選定索引 ＋ 🔋 解放寶具自動全開出力：兩者隨 fate_battle 一起送來，省去單獨 set_np_choice／set_servant_output 往返。
@@ -470,7 +470,7 @@ function actionFateBattle(userData, pcId, sheets) {
 
   const isFateBattle = myGameId.indexOf("g_") === 0;
   if (isFateBattle && getAp_(myGameId, pcData) < 1) {
-    return JSON.stringify({ success: false, needRest: true, message: "行動點已耗盡，從者也需喘息——請『歇息』恢復後再戰。" });
+    return JSON.stringify({ success: false, needRest: true, message: "行動點用完了，從者也需要喘口氣。先歇息，恢復了再戰。" });
   }
 
   // 🤝 盟友不可攻擊：須先撕毀盟約
@@ -518,7 +518,7 @@ function actionFateBattle(userData, pcId, sheets) {
   }
 
   // 戰鬥確定開打 → 耗 1 AP（推進 2 小時）。（全文見 CODE_NOTES.md）
-  const battleAp = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動點已耗盡，從者也需喘息——請『歇息』恢復後再戰。", { isFate: isFateBattle, skipWrite: true }).ap;
+  const battleAp = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動點用完了，從者也需要喘口氣。先歇息，恢復了再戰。", { isFate: isFateBattle, skipWrite: true }).ap;
 
   // ⚔️ 交手即削好感：拔劍相向直接 −5（不勞 AI 判定）。只削既有交情列、不憑空建列(萍水相逢者本就 0)。
   try { raiseBond_(sheets, myGameId, String(pcData[pIdx][COL.PC.NAME]), String(pcData[nIdx][COL.PC.NAME]), -5, pcData); } catch (e) { }
@@ -1397,7 +1397,7 @@ function actionSummonHorror(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "深淵海怪已在場，無需重複召喚。" });
   }
   const isFate = gameId.indexOf("g_") === 0;
-  if (isFate && getAp_(gameId, pcData) < 1) return JSON.stringify({ success: false, message: "行動點不足——召喚深淵海怪需 1 AP。" });
+  if (isFate && getAp_(gameId, pcData) < 1) return JSON.stringify({ success: false, message: "行動點不夠。召喚深淵海怪要 1 點。" });
   // ⚖️ 刻意不設「出力 100%」閘(與戰鬥內解放的差異)：戰鬥中解放要全開是「臨戰瞬間灌注」的張力；戰前召喚是不趕時間的儀式詠唱(出力檔本就免費即時可調·設閘只是無意義的點擊摩擦)。
   const prana = npPranaCost_(npEffectiveRank_(svC));
   const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0, mHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
@@ -1408,7 +1408,7 @@ function actionSummonHorror(userData, pcId, sheets) {
   // 🐙 設肉身 12h（變身態·單一狀態源）
   pcData[svIdx][COL.PC.MEMORY] = summonHorror_(pcData[svIdx][COL.PC.MEMORY], gameId);
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
-  const _horrorApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動點不足——召喚深淵海怪需 1 AP。", { isFate: isFate });
+  const _horrorApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動點不夠。召喚深淵海怪要 1 點。", { isFate: isFate });
   const ap = _horrorApr.ap, clock = _horrorApr.clock;
   const aiPrompt = servantCard_(pcData[svIdx]) +
     `【系統·螺湮城教本·已解放】御主號令「${svName}」翻開螺湮城教本，自深淵召出觸手巨獸「深淵海怪」（肉身 ${HORROR_SHIELD_HP}）常駐身側——只要魔力供養不絕，海怪便持續以身擋傷、每回合再生、並肩撕咬敵手，本體防禦亦升至對城規模；代價是每小時抽 ${HORROR_HOURLY_UPKEEP} 魔、每個交鋒回合另抽 ${HORROR_UPKEEP} 魔維持，共用魔力見底時海怪將先行沉回深淵。\n` +

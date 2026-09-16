@@ -155,7 +155,7 @@ function handleGameAction(userData) {
   if (!LOCK_EXEMPT_ACTIONS_[action]) {
     try {
       _mutex = LockService.getScriptLock();
-      if (!_mutex.tryLock(8000)) return JSON.stringify({ success: false, message: "上一個動作尚在結算中——請稍候片刻再操作。" });
+      if (!_mutex.tryLock(8000)) return JSON.stringify({ success: false, message: "上一個動作還在結算，稍等一下再按。" });
     } catch (e) { _mutex = null; } // 取鎖機制本身異常 → 照舊執行(不因鎖壞掉癱瘓遊戲)
   }
   try {

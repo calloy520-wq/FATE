@@ -271,7 +271,7 @@ let plainTextContext = cleanText;
         const _co = data.cohabitOffer;
         const _coN = String(_co.name), _coNEsc = escapeHtml(_coN);
         optionsHtml += `<div style="background:rgba(180,140,90,0.14); border:1px solid #9a7a4a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e8c8a0; font-size:12.5px; margin-bottom:6px;">🏠 你和「${_coNEsc}」的關係已經夠深了——要邀她搬來一起住嗎？</div>`
+          + `<div style="color:#e8c8a0; font-size:12.5px; margin-bottom:6px;">🏠 你和「${_coNEsc}」的關係已經夠深了，要邀她搬來一起住嗎？</div>`
           + `<div style="display:flex; gap:8px;">`
           + `<button class="btn-option" style="flex:1;" onclick="kanshouInviteCohabit('${_coN.replace(/'/g, "\\'")}','${String(_co.id || '').replace(/'/g, "\\'")}')">邀她同住</button>`
           + `<button class="btn-option" style="flex:1;" onclick="this.closest('div').parentElement.remove()">現在還不用</button>`
@@ -299,8 +299,8 @@ let plainTextContext = cleanText;
       //   2026-07「拍照改手機、不用等」：手機沒有底片，拍完立刻存進相簿、立刻能看。
       if (data.photoResult) {
         const pr = data.photoResult;
-        const prTxt = pr.ok ? `📷 咔嚓——拍下了，已經存進相簿。`
-          : pr.reason === 'cap' ? '📷 相簿已滿(100張)——去相簿刪幾張舊照片才能再拍。'
+        const prTxt = pr.ok ? `📷 咔嚓。拍下了，已經存進相簿。`
+          : pr.reason === 'cap' ? '📷 相簿滿了（100 張）。去刪幾張舊的才能再拍。'
           : pr.reason === 'nobody' ? '📷 身邊沒有可拍的人。' : '📷 這一張沒拍成。';
         optionsHtml += `<div style="color:#9a917f; font-size:11px; padding:4px 2px 8px;">${prTxt}</div>`;
         // 📣 走查抓到的軟卡點：相簿滿只有文字、沒有下一步——補直達鈕。
@@ -319,7 +319,7 @@ let plainTextContext = cleanText;
       if (data.folkOffer && data.folkOffer.name) {
         const fkName = String(data.folkOffer.name);
         optionsHtml += `<div style="background:rgba(90,140,100,0.14); border:1px solid #4a8a5a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#a0e0b0; font-size:12.5px; margin-bottom:6px;">🧑 你認識了「${escapeHtml(fkName)}」——要繼續往來、讓對方成為記得你的人嗎？(不用也沒關係，這個人仍會留在這座城裡)</div>`
+          + `<div style="color:#a0e0b0; font-size:12.5px; margin-bottom:6px;">🧑 你認識了「${escapeHtml(fkName)}」。要繼續往來，讓對方成為記得你的人嗎？(不用也沒關係，這個人仍會留在這座城裡)</div>`
           + `<button class="btn-option" style="width:100%;" onclick="kanshouAcceptInvite('${fkName.replace(/'/g, "\\'")}')">和${escapeHtml(fkName)}往來下去</button>`
           + `</div>`;
       }
@@ -483,7 +483,7 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
       + '<div style="overflow-y:auto;min-height:0;">'
       + '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 這個世界裡的人 (<span id="kc-count">0</span>)</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">直接邀一個人來這座城生活——之後她會過自己的日子，去她所在的地方就能找到她。</div>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">直接邀一個人來這座城生活。之後她會過自己的日子，去她所在的地方就能找到她。</div>'
       + '<div id="kc-master-box"></div>'
       + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">駐留清單</div>'
       + '<div id="kc-party-list"></div>'
@@ -560,7 +560,7 @@ let plainTextContext = cleanText;
         + '<span style="flex:1;color:' + (pinned ? '#ffd9a0' : '#e8d8e0') + ';font-size:13px;line-height:1.5;">' + (pinned ? '★ ' : '') + escapeHtml(text) + '</span>'
         + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'' + (pinned ? 'unpin' : 'pin') + '\',\'' + tEsc + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" title="' + (pinned ? '取消釘選' : '釘選·永不遺忘') + '" style="padding:4px 7px;background:' + (pinned ? '#6a5a3a' : '#3a3a44') + ';color:#ffd9a0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (pinned ? '📌' : '☆') + '</button>'
         + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'del\',\'' + tEsc + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" title="刪除這條回憶" style="padding:4px 7px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🗑</button></div>';
-    }).join('') : '<div style="color:#888;padding:12px 6px;font-size:13px;">（還沒有值得銘記的回憶——去一起經歷些什麼吧，重要的瞬間她都會記得。）</div>';
+    }).join('') : '<div style="color:#888;padding:12px 6px;font-size:13px;">（還沒有值得記下的回憶。去一起經歷些什麼，重要的瞬間她都會記得。）</div>';
     ov.innerHTML = '<div style="width:min(440px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(232,184,204,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e8b8cc;">💞 與「' + escapeHtml(name) + '」的共同回憶</b>'
       + '<button onclick="document.getElementById(\'km-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
@@ -652,7 +652,7 @@ let plainTextContext = cleanText;
           + '">' + kcPaceLabel_(m) + '</button>';
       }).join('') + '</div>'
       + '<div style="color:#7a6e90;font-size:11px;margin-bottom:12px;">' + (cur === 0
-        ? '時間不會自己走——她們不會換地方、約定也不會到。用下面的按鈕推它。'
+        ? '時間不會自己走，她們不會換地方，約定也不會到。用下面的按鈕推它。'
         : '聊得正起勁就切 ⏸；想讓一天過去就調大或用下面的按鈕。') + '</div>'
       + '<button onclick="kcTimeClose_();kanshouNextStage()" style="width:100%;text-align:left;padding:9px 11px;margin-bottom:6px;background:#261e30;color:#dcc8ec;border:1px solid #4a3a6a;border-radius:8px;cursor:pointer;font-size:13px;">⏰ 跳到下一個時段</button>'
       + '<button onclick="kcTimeClose_();kanshouSetDateTime()" style="width:100%;text-align:left;padding:9px 11px;margin-bottom:6px;background:#261e30;color:#dcc8ec;border:1px solid #4a3a6a;border-radius:8px;cursor:pointer;font-size:13px;">📅 直接指定日期與時刻…</button>'
@@ -677,7 +677,7 @@ let plainTextContext = cleanText;
       (c.year || 2005) + '/' + (c.month || 12) + '/' + (c.day || 20), 12);
     if (d === null) return;
     var m = String(d).match(/^\s*(\d{4})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*$/);
-    if (!m) { alert('格式看不懂——請用「年/月/日」，例 2006/1/1。'); return; }
+    if (!m) { alert('看不懂這個格式。請用「年/月/日」，例如 2006/1/1。'); return; }
     var hh = await customPrompt_('幾點？（0~23）', '9', 2);
     if (hh === null) return;
     var H = parseInt(hh); if (isNaN(H) || H < 0 || H > 23) { alert('時刻請填 0~23。'); return; }
@@ -1067,7 +1067,7 @@ let plainTextContext = cleanText;
     } catch (e) { alert('連線受阻，請稍後再試。'); return null; }
   }
   async function kanshouAddRegion() {
-    var name = await customPrompt_('開一個新的大區叫什麼？\n\n（可以是一座城、一個國家、一片海岸——底下再放你自己的地點。例：泰國、海邊小鎮）', '', 16);
+    var name = await customPrompt_('開一個新的大區叫什麼？\n\n（可以是一座城、一個國家、一片海岸，底下再放你自己的地點。例如：泰國、海邊小鎮）', '', 16);
     if (name === null) return;
     name = String(name).trim(); if (!name) { alert('名字不能空白。'); return; }
     var desc = await customPrompt_('「' + name + '」是什麼樣的地方？（一句話，可留空）', '', 24);
@@ -1107,7 +1107,7 @@ let plainTextContext = cleanText;
       await kwWorldOp_({ op: 'loc_own', entryName: name, own: '' }, '收店中…');
     } else if (pick === 'region') {
       var opts = [{ k: '', label: '（不屬於任何大區·走出來的地方）' }].concat(regions.map(function (r) { return { k: r.name, label: r.name }; }));
-      if (regions.length === 0) { alert('你還沒有自己開的大區——先在分區列按「➕ 新大區」。'); return; }
+      if (regions.length === 0) { alert('你還沒有自己開的大區。先在分區列按「➕ 新大區」。'); return; }
       var rg = await kcChoose_('把「' + name + '」搬到哪一區？', opts);
       if (rg === null) return;
       await kwWorldOp_({ op: 'loc_region', entryName: name, region: rg }, '搬家中…');
@@ -1201,7 +1201,7 @@ let plainTextContext = cleanText;
     //   名單(getKanshouPeopleList_ 以 isExact 標在不在場)，要濾 isExact 才是真「在場」——舊版只看
     //   length，世界裡永遠有人＝這道門形同虛設(比照拍照面板的寫法)。後端★【提議撲空】仍是保底。
     var _pvHere = (localNPCs || []).filter(function (p) { return p && p.isExact; });
-    if (!_pvHere.length) { alert('身邊沒有同伴可以邀。先去找她——或自己用地圖移動過去。'); return; }
+    if (!_pvHere.length) { alert('身邊沒有同伴可以邀。先去找她，或自己用地圖移過去。'); return; }
     showGamePane('chat');
     await send('（笑著問）要不要一起去「' + name + '」看看？', false, { proposeMove: name });
   }
@@ -1473,7 +1473,7 @@ let plainTextContext = cleanText;
       + '<div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:12px;">' + chips + '</div>'
       + (photos.length
         ? '<div style="display:flex; gap:14px; flex-wrap:wrap; justify-content:center;">' + photos.map(kcAlbumCardHtml_).join('') + '</div>'
-        : '<div style="color:#8a8298; font-size:12px; text-align:center; padding:30px 0;">還沒有照片——輸入列的 📷 按鈕可以拍下此刻。</div>');
+        : '<div style="color:#8a8298; font-size:12px; text-align:center; padding:30px 0;">還沒有照片。輸入列的 📷 可以拍下此刻。</div>');
   }
   function kcAlbumSetFilter_(n) { kcAlbumFilter_ = n; kcAlbumRender_(); }
   function kanshouCloseAlbum_() { var ov = document.getElementById('kc-album-overlay'); if (ov) ov.remove(); }
@@ -1513,8 +1513,8 @@ let plainTextContext = cleanText;
       + '<div style="color:#d8b070; font-weight:bold; font-size:16px;">⚙ 說書人設定</div>'
       + '<button onclick="kanshouCloseStyle_()" style="background:none; border:1px solid #6a5a40; border-radius:8px; color:#d8c8a8; font-size:13px; padding:4px 12px; cursor:pointer;">✕ 關閉</button>'
       + '</div>'
-      + '<div style="color:#8a7e64; font-size:11.5px; margin-bottom:12px; line-height:1.7;">說書人「怎麼寫」的那幾段，交給你決定。每一格留白＝用預設；改成你的句子就照你的寫；關掉＝整段不送。'
-      + '<br>數值、關係、在場的人這些事實不在這裡——那些是系統裁定的，不是口味。</div>'
+      + '<div style="color:#8a7e64; font-size:11.5px; margin-bottom:12px; line-height:1.7;">說書人「怎麼寫」的那幾段交給你決定。留白就用預設，寫上你的句子就照你的來，關掉那一段就完全不送。'
+      + '<br>好感、關係、誰在場這些事實不在這裡，那些由系統決定，不是口味問題。</div>'
       + '<div id="kc-style-body" style="color:#8a8298; font-size:12px;">讀取中……</div></div>';
     document.body.appendChild(ov);
     await ksLoad_();
@@ -1542,7 +1542,7 @@ let plainTextContext = cleanText;
           + '</div>'
           + '<textarea id="ks-txt-' + m.key + '" maxlength="' + _ksMax_ + '" rows="3" placeholder="' + escapeHtml(m.def) + '" oninput="ksCount_(\'' + m.key + '\')" style="width:100%; box-sizing:border-box; margin-top:6px; background:#1d1a16; color:#e8dcc4; border:1px solid #4a4034; border-radius:6px; padding:6px 8px; font-size:12px; line-height:1.6; resize:vertical;"' + (m.on ? '' : ' disabled') + '>' + escapeHtml(m.text || '') + '</textarea>'
           + '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">'
-          + '<span id="ks-cnt-' + m.key + '" style="color:#6e6a5a; font-size:11px;">' + (m.text ? m.text.length : 0) + ' / ' + _ksMax_ + '　留白＝用預設（灰字）</span>'
+          + '<span id="ks-cnt-' + m.key + '" style="color:#6e6a5a; font-size:11px;">' + (m.text ? m.text.length : 0) + ' / ' + _ksMax_ + '　留白就用灰字那句</span>'
           + '<span>'
           + (m.custom ? '<button onclick="ksReset_(\'' + m.key + '\')" style="background:none; border:1px solid #6a5a40; border-radius:7px; color:#b8a888; font-size:11.5px; padding:3px 9px; cursor:pointer; margin-right:6px;">還原預設</button>' : '')
           + '<button onclick="ksSave_(\'' + m.key + '\')" style="background:#4a3c24; border:1px solid #a08850; border-radius:7px; color:#f0e0b8; font-size:11.5px; padding:3px 11px; cursor:pointer;">儲存</button>'
@@ -1554,7 +1554,7 @@ let plainTextContext = cleanText;
   }
   function ksCount_(key) {
     var t = document.getElementById('ks-txt-' + key), c = document.getElementById('ks-cnt-' + key);
-    if (t && c) c.textContent = t.value.length + ' / ' + _ksMax_ + '　留白＝用預設（灰字）';
+    if (t && c) c.textContent = t.value.length + ' / ' + _ksMax_ + '　留白就用灰字那句';
   }
   async function ksSend_(payload) {
     var res = await withProcessing_('儲存中…', function () {
@@ -1575,7 +1575,7 @@ let plainTextContext = cleanText;
   }
   function ksReset_(key) { return ksSend_({ key: key, reset: true }); }
   async function ksResetAll_() {
-    if (!await customConfirm_('把所有段落都還原成預設？你改過的句子會全部清掉。')) return;
+    if (!await customConfirm_('要把所有段落都還原成預設嗎？你改過的句子會全部清掉。')) return;
     return ksSend_({ resetAll: true });
   }
 
@@ -1613,7 +1613,7 @@ let plainTextContext = cleanText;
     var body = document.getElementById('kc-world-body'); if (!body) return;
     if (!_kwRows_.length) {
       body.innerHTML = '<div style="color:#6e8a84; padding:20px 4px; line-height:1.9;">還沒有東西。<br>'
-        + '玩下去就會長出來——去一個地圖上沒有的地方、認識新的人、聊出只有你們懂的事，都會被記在這裡。</div>';
+        + '玩下去就會長出來。去一個地圖上沒有的地方、認識新的人、聊出只有你們懂的事，都會記在這裡。</div>';
       return;
     }
     var groups = [['人物', '🧑 這座城裡的人'], ['設定', '📖 這座城的事']];
@@ -1730,14 +1730,14 @@ let plainTextContext = cleanText;
         : (b < KC_CONFESS_BOND_
           ? '<div style="padding:8px 12px;margin-bottom:7px;color:#7a7086;font-size:11.5px;border:1px dashed rgba(140,120,160,.35);border-radius:8px;">🔒 <b>向她告白</b>　好感達到 ' + KC_CONFESS_BOND_ + ' 才開得了口（目前 ' + b + '）</div>'
           : row("kanshouConfess('" + safeN + "','" + safeId + "')", '💗', '向她告白',
-            '說出口就成立——你們從此是戀人（她本人要在場）', '230,120,160')))
+            '說出口就成立，你們從此是戀人（她本人要在場）', '230,120,160')))
       // 🏠 同居：主要入口是【剛成為戀人】那一刻跳的一次性泡泡(見 data.cohabitOffer)，平時完全不顯示。
       //   這裡只在「已經是戀人但還沒同住」這個唯一還有意義的窗口留一條靜默備援——否則玩家在泡泡按了
       //   「現在還不用」之後就永遠邀不了了(跨階只發生一次、不會再跳)。已同住則改顯示狀態、不再是入口。
       + (cohabit
         ? '<div style="padding:8px 12px;color:#e8c8a0;font-size:12px;border:1px dashed rgba(180,140,90,.5);border-radius:8px;">🏠 <b>同居中</b>　你們已經住在一起了</div>'
         : (b >= KC_COHABIT_BOND_
-          ? row("kanshouInviteCohabit('" + safeN + "','" + safeId + "')", '🏠', '邀她同住', '關係已經夠深了——隨時可以開口（她本人要在場）', '180,140,90')
+          ? row("kanshouInviteCohabit('" + safeN + "','" + safeId + "')", '🏠', '邀她同住', '關係已經夠深了，隨時可以開口（她本人要在場）', '180,140,90')
           : ''))
       + '</div>';
     ov.style.display = 'flex';
@@ -1979,15 +1979,15 @@ let plainTextContext = cleanText;
           // 🔰 第一次進來(歷史是空的)才會看到：鑑賞沒有 ❓教學 入口(那顆在 top-navbar，applyModeUI 在
           //   鑑賞把整條藏了、內容也全是聖杯戰爭的事)，所以新手怎麼玩只能由這裡講。
           //   ⚠ 這裡點名的每一顆按鈕都必須真的存在——寫一顆不存在的鈕比不寫更誤導人。
-          story.innerHTML = `<div class="msg-ai"><b>【日常】</b>歡迎來到聖杯戰爭結束之後的冬木。這裡沒有戰鬥、沒有輸贏，你只是住在這座城裡的一個人——想做什麼都可以，慢慢來。<br><br>`
-            + `<b style="color:#e0a0bc;">✍️ 怎麼玩</b><br>在最下面的輸入框直接打你想做的事、想說的話（台詞直接打就行，會照原句演出來），說書人會把它接著演成劇情。不知道做什麼就點【命運的抉擇】，或直接輸入 1～4。<br><br>`
-            + `<b style="color:#e0a0bc;">👥 邀請</b>（時鐘左邊）<br>這座城一開始只有你。把想見的人請進來，之後她會過自己的日子、有自己的去向。<br><br>`
-            + `<b style="color:#e0a0bc;">🗺️ 地圖</b><br>出門走走。要在同一個地方才見得到面，撲空很正常——她可能只是今天去了別處。<br><br>`
-            + `<b style="color:#e0a0bc;">⏰ 時鐘</b>（可以點）<br>調時間流速、快轉到某個時段；旁邊那顆推進到下一個時段，深夜按下去就是睡到天亮。<br><br>`
+          story.innerHTML = `<div class="msg-ai"><b>【日常】</b>歡迎來到聖杯戰爭結束之後的冬木。這裡沒有戰鬥，也沒有輸贏。你只是住在這座城裡的一個人，想做什麼都可以。<br><br>`
+            + `<b style="color:#e0a0bc;">✍️ 怎麼玩</b><br>在最下面的輸入框打你想做的事、想說的話。台詞直接打，會照你的原句演出來。不知道做什麼就點【命運的抉擇】，或直接輸入 1～4。<br><br>`
+            + `<b style="color:#e0a0bc;">👥 邀請</b>（時鐘左邊）<br>這座城一開始只有你。把想見的人請進來，之後她會過自己的日子，有自己的去向。<br><br>`
+            + `<b style="color:#e0a0bc;">🗺️ 地圖</b><br>出門走走。要在同一個地方才見得到面。撲空很正常，她可能只是今天去了別處。<br><br>`
+            + `<b style="color:#e0a0bc;">⏰ 時鐘</b>（可以點）<br>調時間走多快，或直接快轉到某個時段。旁邊那顆推到下一個時段，深夜按下去就是睡到天亮。<br><br>`
             + `<b style="color:#e0a0bc;">👤 標籤</b><br>同伴卡上有 📜詳細狀態｜💞關係（稱呼・共同回憶・告白・同居）｜📅相約｜🤝牽手。<br><br>`
-            + `<b style="color:#e0a0bc;">＋ 更多</b><br>📚 相簿（輸入列 📷 拍下的照片收在這）、🌍 這個世界（你們走出來的地方、認識的人）、⚙ 說書人設定（覺得文筆不對味，可以自己改）。<br><br>`
-            + `<b style="color:#e0a0bc;">🔥 主動掌握</b><br>熄滅＝你主導節奏；亮起＝對方依自己的個性主動推進。<br><br>`
-            + `好感只會從相處裡長出來——聊天、赴約、一起做點什麼。日子還長。</div>`;
+            + `<b style="color:#e0a0bc;">＋ 更多</b><br>📚 相簿收著你拍的照片，🌍 這個世界記著你們走出來的地方和認識的人，⚙ 說書人設定可以改敘事的口味。<br><br>`
+            + `<b style="color:#e0a0bc;">🔥 主動掌握</b><br>熄滅的時候由你主導節奏。亮起來，對方會依自己的個性主動推進。<br><br>`
+            + `好感只會從相處裡長出來。聊天、赴約、一起做點什麼都算。日子還長。</div>`;
         }
         story.scrollTop = story.scrollHeight;
         syncData(true);

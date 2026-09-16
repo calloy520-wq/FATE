@@ -387,7 +387,7 @@
         + '　• 對話歷史、相簿裡的照片\n'
         + '　• 你走出來的地方與世界帳本\n\n'
         + '【不會動】英靈殿（含你在工房鑄的原創英靈）與聖杯戰爭那一邊。\n'
-        + '刪掉之後救不回來——確定嗎？')) return false;
+        + '刪掉之後救不回來。確定嗎？')) return false;
       const typed = await customPrompt_('最後確認：請輸入你的帳號名稱「' + acct + '」以繼續。', '', 30);
       if (typed === null) return false;
       if (String(typed).trim() !== acct.trim()) { alert('名稱不符，已取消。'); return false; }
@@ -609,9 +609,9 @@
         + (eco.workshop ? '<div>' + (eco.atHome ? '🏠 工房' : '🔯 陣地') + '　<b style="color:#9ac0e8;">+' + eco.workshop + '</b></div>' : '')
         + '<div style="color:#c99;">維持費　<b>−' + eco.drain + '</b>' + (eco.output ? '　<small>(出力 ' + eco.output + '%' + (eco.outputLabel ? '·' + eco.outputLabel : '') + ')</small>' : '') + '</div>'
         + '<div style="border-top:1px solid rgba(120,120,160,.3);margin-top:6px;padding-top:6px;">淨值　<b style="color:' + netCol + ';font-size:16px;">' + (net > 0 ? '+' : '') + net + ' /時</b></div>'
-        + (net < 0 ? '<div style="color:#e06a6a;font-size:11.5px;margin-top:4px;">⚠ 入不敷出——宜搶靈脈／設陣地／降出力／補魔</div>' : '')
+        + (net < 0 ? '<div style="color:#e06a6a;font-size:11.5px;margin-top:4px;">入不敷出。去搶靈脈、設陣地、調低出力，或補魔</div>' : '')
         + '</div>';
-    } else { h += '<p style="color:#816e54;">尚無供魔資料——先進行一個動作即可刷新。</p>'; }
+    } else { h += '<p style="color:#816e54;">還沒有供魔資料。先做一個動作就會出現。</p>'; }
     h += '<div style="color:#7ec8ff;font-size:12px;margin:14px 0 6px;">🔋 靈基出力（供魔強度·切換出力需等待約2秒刷新）<span style="color:#6a7a90;">　※解放寶具自動全開</span></div>';
     (myServants || []).forEach(function (s) {
       var sn = String(s.name).replace(/'/g, '');
@@ -669,7 +669,7 @@
       btns += `<button class="btn-option" onclick="incite()">🎭 挑撥離間<small style="opacity:.65;">（煽動兩方反目·耗1AP）</small></button>`;
     }
     if (!btns) {
-      oc.innerHTML = w.choices.slip ? `<div id="enc-bubbles" style="color:#9aa8b8;font-size:12px;padding:2px 8px;">💨 他們正分心——此刻悄悄離開不會被追擊。</div>` : (oc.querySelector('#enc-bubbles') ? '' : oc.innerHTML);
+      oc.innerHTML = w.choices.slip ? `<div id="enc-bubbles" style="color:#9aa8b8;font-size:12px;padding:2px 8px;">💨 他們正分心。這時候悄悄離開不會被追。</div>` : (oc.querySelector('#enc-bubbles') ? '' : oc.innerHTML);
       return;
     }
     oc.innerHTML = `<div id="enc-bubbles">`
@@ -779,11 +779,11 @@
         };
         acts = '<button onclick="servantStrike(\'' + safe + '\', false)" title="' + st.hint + '" style="flex:2; min-width:110px; font-size:12.5px; padding:8px 4px; background:linear-gradient(90deg,rgba(' + st.rgb + ',.34),rgba(' + st.rgb + ',.16)); color:' + st.col + '; border:1px solid rgb(' + st.rgb + '); border-radius:7px; cursor:pointer; font-weight:bold;">' + st.emo + ' ' + st.name + '</button>'
           + (_npPas
-            ? '<button disabled title="此從者的寶具為【常駐型】（如十二試煉／治癒結界）——已自動生效，並非可解放的攻擊寶具" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(90,80,60,.18); color:#8a7f6a; border:1px solid #5a5040; border-radius:7px; cursor:not-allowed; font-weight:bold; opacity:.75;">💥 常駐</button>'
+            ? '<button disabled title="這位從者的寶具是常駐型的（像十二試煉、治癒結界），一直都生效，沒有可以解放的那一下" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(90,80,60,.18); color:#8a7f6a; border:1px solid #5a5040; border-radius:7px; cursor:not-allowed; font-weight:bold; opacity:.75;">💥 常駐</button>'
             : '<button onclick="servantStrike(\'' + safe + '\', true)" title="解放寶具（僅付底費' + (_npPlus ? '；要超載請先點亮右側 ＋/＋＋ 檔位' : '') + '）" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:rgba(212,175,55,.15); color:#e7c873; border:1px solid #d4af37; border-radius:7px; cursor:pointer; font-weight:bold;">💥 寶具' + (npTierArmed === 'p1' ? '·🔥＋' : npTierArmed === 'p2' ? '·🩸＋＋' : '') + '</button>'
               + (_npPlus >= 1 ? _tierBtn('p1', '🔥＋', '超載灌注 ×' + _npM1 + '（總耗 ' + (_npP * 2) + '·反噬30%隨機扣血）——再按一次取消', '#ffab5e') : '')
               + (_npPlus >= 2 ? _tierBtn('p2', '🩸＋＋', '極限灌注 ×' + _npCap + '（總耗 ' + (_npP * 3) + '·反噬65%隨機扣血）——再按一次取消', '#ff7a6a') : ''))
-          + '<button onclick="toggleSealArm()" title="' + (sealArmed ? '令咒蓄勢中——下一記 普攻/主動/寶具 將必中＋威力×1.5；再按一次取消蓄勢(不耗令咒)' : '令咒・絕對命令：按下蓄勢(免費)，下一記 普攻/主動/寶具 自動帶上必中＋×1.5') + '" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:' + (sealArmed ? 'rgba(200,120,240,.38)' : 'rgba(176,108,208,.15)') + '; color:' + (sealArmed ? '#f0d0ff' : '#c79be8') + '; border:1px solid ' + (sealArmed ? '#d09af0' : '#b06cd0') + '; border-radius:7px; cursor:pointer; font-weight:bold;' + (sealArmed ? ' box-shadow:0 0 10px rgba(200,120,240,.65); text-shadow:0 0 6px rgba(240,200,255,.8);' : '') + '">' + (sealArmed ? '❖ 蓄勢中' : '❖ 令咒') + '</button>';
+          + '<button onclick="toggleSealArm()" title="' + (sealArmed ? '令咒蓄勢中。下一記出手必中，威力 ×1.5；再按一次可以取消，不會燒掉令咒' : '令咒・絕對命令：按下蓄勢(免費)，下一記 普攻/主動/寶具 自動帶上必中＋×1.5') + '" style="flex:1; min-width:72px; font-size:12px; padding:8px 4px; background:' + (sealArmed ? 'rgba(200,120,240,.38)' : 'rgba(176,108,208,.15)') + '; color:' + (sealArmed ? '#f0d0ff' : '#c79be8') + '; border:1px solid ' + (sealArmed ? '#d09af0' : '#b06cd0') + '; border-radius:7px; cursor:pointer; font-weight:bold;' + (sealArmed ? ' box-shadow:0 0 10px rgba(200,120,240,.65); text-shadow:0 0 6px rgba(240,200,255,.8);' : '') + '">' + (sealArmed ? '❖ 蓄勢中' : '❖ 令咒') + '</button>';
         if (myCanRB && myServants.length < 2 && myMasterSeals > 0) {
           acts += '<button onclick="ruleBreakSteal(\'' + safe + '\',\'' + String(f.id).replace(/'/g, '') + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>';
         }
@@ -813,7 +813,7 @@
         + foeChip(s) + foeGhost('（其主已殞）') + foePanel(s)
         + '</div>';
     });
-    if (!foes.length && !allies.length) h += '<div style="flex:1 0 100%; text-align:center; color:#6a5f80; font-size:11.5px; padding:1px 0 5px;">此地暫無敵蹤——可偵查、補魔整備，或往地圖移動</div>';
+    if (!foes.length && !allies.length) h += '<div style="flex:1 0 100%; text-align:center; color:#6a5f80; font-size:11.5px; padding:1px 0 5px;">這裡暫時沒有敵蹤，可以偵查、補魔整備，或往地圖移動</div>';
     // 底部固定行動（永遠可見）：💧補魔／💕羈絆 在左側狀態面板，此列只留戰場即時行動
     h += chip('🔍 偵查', 'scout()', '127,199,199');
     h += chip('🍱 整備', 'prepMeal()', '210,170,90');
@@ -852,7 +852,7 @@
     // 🩸 強撐：沒 AP 又被困時的保命解（不燒令咒、不推進時間），每日一次
     html += '<div style="border-top:1px dashed rgba(160,80,80,0.3); margin:6px 0 8px; padding-top:8px;"></div>'
       + '<button onclick="secondWind()" style="display:block;width:100%;text-align:left;padding:10px;background:rgba(165,60,60,0.14);color:#e8dcc0;border:1px solid #a04040;border-radius:8px;cursor:pointer;">'
-      + '<b style="color:#e08a8a;">🩸 燃燒生命強撐</b>　<span style="font-size:12px;color:#c89a9a;">透支生命換 +4 行動力（扣血約 20%、不耗 AP、可重複）——沒 AP 又走不了時的保命解，血燒乾就撐不住</span></button>';
+      + '<b style="color:#e08a8a;">🩸 燃燒生命強撐</b>　<span style="font-size:12px;color:#c89a9a;">燃燒生命換 4 點行動力（扣掉約 20% 的血，不耗行動力、可以重複）。沒 AP 又走不了時的保命解，血燒乾就撐不住</span></button>';
     showHistoryOverlay(html);
   }
   // 🩸 燃燒生命強撐：扣血換 AP（每日一次）
@@ -874,7 +874,7 @@
   // 🛏️ 休息 N 小時：補 2×N AP、回血回魔（按時數比例）、世界自走
   async function rest(hours) {
     const foe = localFoeServantName();
-    if (foe && !await customConfirm_('⚠ 此地有敵從者「' + foe + '」！\n\n就地休息＝酣睡防備全失，最易遭夜襲重擊（重則靈基崩潰、敗北）。\n強烈建議先擊退敵人或轉往安全處。\n\n仍要在此休息？')) return;
+    if (foe && !await customConfirm_('⚠ 此地有敵從者「' + foe + '」！\n\n在這裡睡下去等於完全卸下防備，最容易被夜襲重擊，嚴重的話靈基會崩潰。\n建議先把敵人趕走，或換個安全的地方。\n\n仍要在此休息？')) return;
     if (!beginAction()) return;
     var ov = document.getElementById('history-overlay');
     if (ov) ov.style.display = 'none';
@@ -1004,12 +1004,12 @@
   // 🏃 撤退突圍：列出鄰近可退往的地點，選一個殺出重圍（travelTo 帶 retreat=true·敵必追擊）。
   function promptRetreat() {
     var locs = (nearbyLocations || []).filter(function (l) { return l && l.name; });
-    if (!locs.length) { alert('四下無明確可退之路——先靠近其他地點再撤，或直接於地圖點選目的地（有敵時亦會轉為撤退）。'); return; }
+    if (!locs.length) { alert('附近沒有明確的退路。先靠近別的地點再撤，或直接在地圖上點目的地。'); return; }
     var btns = locs.map(function (l) {
       var nm = String(l.name).replace(/'/g, '');
       return '<button onclick="retreatTo(\'' + nm + '\')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid #c0872e;background:rgba(200,120,70,.14);color:#e8c8a8;font-weight:bold;">🏃 退往「' + escapeHtml(l.name) + '」</button>';
     }).join('');
-    showHistoryOverlay('<h3 style="margin:0 0 6px;color:#e0a080;">🏃 撤退突圍——退往何處？</h3><div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">此地有敵、無法從容離去。選一個方向殺出重圍——對方必定追擊，成敗當場見真章（耗 2AP）。</div>' + btns);
+    showHistoryOverlay('<h3 style="margin:0 0 6px;color:#e0a080;">🏃 撤退突圍：退往何處？</h3><div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">此地有敵、無法從容離去。選一個方向殺出重圍——對方必定追擊，成敗當場見真章（耗 2AP）。</div>' + btns);
   }
   function retreatTo(name) {
     try { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; } catch (e) {}
@@ -1050,7 +1050,7 @@
           + '" style="' + _btnCss + 'margin:4px 3px 0;background:rgba(220,170,80,.16);color:#f0d090;border:1px solid #c0922e;">'
           + escapeHtml(o.icon || '') + ' ' + escapeHtml(o.label || '') + '</button>';
       }).join('');
-      story.insertAdjacentHTML('beforeend', '<div class="msg-ai" style="align-self:center;color:#f0d8a8;font-size:12.5px;text-align:center;border:1px solid rgba(' + accent + ',0.5);border-radius:8px;padding:9px 12px;background:rgba(' + bg + ',0.55);"><b>⚠️ 「' + escapeHtml(res.foeName || '對方') + '」的真名即將出鞘</b><br><small style="color:#c8b48a;">這一擊躲不掉，只能決定怎麼接——</small><br>' + btn + '</div>');
+      story.insertAdjacentHTML('beforeend', '<div class="msg-ai" style="align-self:center;color:#f0d8a8;font-size:12.5px;text-align:center;border:1px solid rgba(' + accent + ',0.5);border-radius:8px;padding:9px 12px;background:rgba(' + bg + ',0.55);"><b>⚠️ 「' + escapeHtml(res.foeName || '對方') + '」的真名即將出鞘</b><br><small style="color:#c8b48a;">這一擊躲不掉，只能決定怎麼接。</small><br>' + btn + '</div>');
       story.scrollTop = story.scrollHeight;
       return true;
     } else return false;
@@ -1443,16 +1443,16 @@
       return `對魔力：減免「魔術」傷害約 −${Math.round(red * 100)}%（B階以上有加成下限55%、A階以上80%；敵為 Caster／魔力放出／神代時生效）；擋術不擋肉體。`;
     },
     ride: m => `騎乘：駕馭一切坐騎，命中 +${Math.round(2 * m)}。`,
-    first_strike: m => `直感：戰鬥第六感，先機——命中與迴避 +${Math.round(3 * m)}。`,
+    first_strike: m => `直感：戰鬥的第六感，搶得先機。命中與迴避 +${Math.round(3 * m)}。`,
     analyze: m => `心眼：洞察破綻，命中與迴避 +${Math.round(3 * m)}。`,
     // 🐛→✅ 這三則原本各自掛了一個通用代稱(「怪力」「魔力放出」「投影魔術」)，跟 popup 標題已顯示的
     //   角色實際技能名重複、讀來像兩個名字打架——改成純機制敘述，不再另掛一個名字。機率同步跟 SKILL_PROC_ 改30%。
-    str_up: m => `激發膂力，瞬間爆發怪力。每次交鋒有 30% 機率自動全效發動＝該擊傷害 +${Math.round(8 * m) + 14}（免耗魔、不必手動）；未發動則該擊無此加成。`,
-    burst: m => `灌注魔力、瞬間爆發。每次交鋒有 30% 機率自動全效發動＝該擊傷害 ×${(1 + 0.45 * m).toFixed(2)}（免耗魔、不必手動）；未發動則該擊無此加成。`,
+    str_up: m => `激發膂力，瞬間爆發怪力。每次交鋒有三成機率自己全力發動，那一擊傷害 +${Math.round(8 * m) + 14}。不耗魔力，也不必手動按；沒發動的那一擊就沒有這個加成。`,
+    burst: m => `灌注魔力、瞬間爆發。每次交鋒有三成機率自己全力發動，那一擊傷害 ×${(1 + 0.45 * m).toFixed(2)}。不耗魔力，也不必手動按；沒發動的那一擊就沒有這個加成。`,
     morale: m => `勇猛／卡里斯瑪（被動）：與生俱來的統率氣場，傷害 +${Math.round(3 * m)}（敵「透化」可免疫；每擊自動生效）。`,
     evade_ranged: m => `避矢加護：對 Archer 遠程的迴避 +${Math.round(6 * m)}。`,
     divine_core: m => `神核：女神之軀，受傷 −${Math.round(18 * m)}%（破魔可無視）。`,
-    mad: m => `狂化：理智換力量——傷害 +${Math.round(14 * m)}，代價是每小時魔力維持費 ×1.5（不佔戰鬥命中／迴避，代價全記在供魔負擔上）。`,
+    mad: m => `狂化：拿理智換力量。傷害 +${Math.round(14 * m)}，代價是每小時的魔力維持費變成 1.5 倍；不影響命中與迴避，帳全算在供魔上。`,
     // 🐛→✅ 「半效」跟引擎(Engine_Fate.gs `red *= 0.3`)對不上——實際打到剩三成、不是五成，凌駕幅度更強。
     divine_age: m => `神代魔術：魔力傷 +${Math.round(12 * m)}，且使敵「對魔力」僅剩三成效力(凌駕但非無效)。`,
     wind_strike: m => `風王鐵鎚：不可視之風的斬擊，傷害 +${Math.round(6 * m)}。`,
@@ -1461,12 +1461,12 @@
     tsubame: () => '秘劍・燕返：蓄勢的絕技一閃——【每場戰鬥僅第 1 回合】發動：敵迴避 −5、普攻命中則傷害 ×2.3（第 2、3 回合不觸發）。寶具解放走一般真名解放結算、無額外疊乘。',
     gae_bolg: () => '刺穿死棘之槍：逆因果的必中刺擊——寶具解放時直接命中。唯【高幸運】(改寫命運)、【直感／心眼】(預感)、【變化】(化形)能搏得一線閃避。',
     survive: () => '戰鬥續行：受致命傷仍能硬撐一次（HP 留 1）；遭「破戒／破魔」則失效。',
-    lovespot: () => '愛之痣：臉上魅惑之痣令來犯者一瞬分神——攻向你的敵人命中 −1。',
+    lovespot: () => '愛之痣：臉上的魅惑之痣讓來犯者分神一瞬。攻向你的敵人命中 −1。',
     clear_mind: () => '透化：清澈靜穆之心，免疫敵方勇猛／領袖氣質的精神威壓。',
     self_mod: () => '自我改造（被動）：已改造定型的軀體構造，命中 +2、傷害 +3（每擊自動生效）。',
     tactics: () => '軍略：用兵之才，寶具威力 +15%。',
     anti_magic_lance: () => '破魔紅薔薇：雙槍破魔，無視神核護甲；致命時敵無法續行／復活／令咒脫離。',
-    rule_breaker: () => '破戒全咒：斬斷契約與救贖——致命一擊下，敵無法戰鬥續行／十二試煉復活／令咒脫離。',
+    rule_breaker: () => '破戒全咒：斬斷契約，也斬斷救贖。被它致命一擊的敵人，沒辦法續戰、沒辦法靠十二試煉復活，也沒辦法用令咒脫離。',
     // 🐛→✅ 舊版寫死「11 次」，只對種子赫拉克勒斯正確——工房/AI生成從者固定3命(【試煉】3)、
     //   尼祿等敵方持有者各自有專屬命數，改吃 showSkillDesc 傳來的實際 lives(未傳→退回11預設)。
     god_hand: (m, rank, lives) => `十二試煉：不死之軀，靈基崩解前自死亡歸來（${Number.isFinite(lives) ? lives : 11} 次，每次回 20% 靈基）。`,
@@ -1480,12 +1480,12 @@
     // 🐛→✅ 同上 str_up/burst 那批漏改的一則：舊版寫死「詠唱『Trace on』連續投影名劍齊射」，是Emiya專屬台詞——
     //   任何自創從者只要底層機制選 projection(如哆啦A夢的「四次元口袋」)都會顯示這句，跟角色完全對不上。
     //   改成純機制敘述，不綁死特定角色的招式台詞。
-    projection: () => '灌注技藝、連續施展精妙手法。每次交鋒有 30% 機率自動全效發動＝該擊命中+2、追加傷害（依寶具階級·免耗魔、不必手動）；未發動則該擊無此加成。',
+    projection: () => '灌注技藝、連續施展精妙手法。每次交鋒有三成機率自己全力發動，那一擊命中 +2 並追加傷害（依寶具階級）。不耗魔力，也不必手動按；沒發動的那一擊就沒有這個加成。',
     rho_aias: m => `概念護盾（七天盾・羅・埃亞斯等）：只對【敵寶具解放】的一擊反應性展開，受傷 ×${(1 - 0.40 * m).toFixed(2)}（依階級）；普通攻擊不觸發。我方展開每次耗御主 30 魔，魔力不足則張不開；唯超位階概念寶具（乖離劍等）可貫穿。`,
     rune: m => `原初符文：可選三種運用——護符減傷(受傷 ×${(1 - 0.10 * m).toFixed(2)})／符文灼擊增傷(+${Math.round(10 * m)})／涓流回血(每回合約${(2.5 * m).toFixed(1)}%上限HP，上限30)，戰前自選一種。`,
     regen: m => `治癒（回復魔藥／狐之治癒等）：常駐自癒——每回合涓流回復約 ${(2.5 * m).toFixed(1)}% 上限體力（上限30），持久戰越拖越穩。`,
     shapeshift: m => `變化：化形流轉滑開致命一擊，迴避 +${Math.round(3 * m)}。`,
-    solo: () => '單獨行動：無須御主供魔亦可獨立行動一段時間——御主陣亡／令咒耗盡時免「靈基透支」倒數消滅，改靠靈基殘存硬撐(魔力極為有限，通常不夠再放一次寶具)。',
+    solo: () => '單獨行動：不靠御主供魔也能撐一段時間。御主陣亡或令咒耗盡時不會進入消滅倒數，改用靈基殘存硬撐，但魔力很少，通常不夠再放一次寶具。',
     // 🐛→✅ 舊版寫死顯示 ×0.74(僅C階正確)，跟引擎 DEF_FX_.territory 已隨階級縮放(r=>1-0.26*r，EX實際×0.48)對不上——改成吃階級參數即時算。
     territory: m => `陣地作成：以魔術防壁／結界自守，受傷 ×${(1 - 0.26 * m).toFixed(2)}（依階級·補償低耐久）；遭超位階概念貫穿則失效。`,
     home_field: m => `主場·陣地結界：在【自己佈設的陣地】迎戰、且隊上有陣地作成從者時，全隊額外受傷 ×${(1 - 0.16 * m).toFixed(2)}（依陣地作成階級·EX 空中庭園級最強）。引敵入陣地決戰的主場優勢——法師的堡壘連盟友一併庇護；遭超位階概念(乖離劍等)仍會被碾穿。`,
@@ -1526,7 +1526,7 @@
     '神格': '神之血脈／權能——效果同「神性」：寶具威力 ×1.02〜1.2（依自身神格階級），但會被「神殺」類效果剋制。',
     '神靈': '神之血脈／權能——效果同「神性」：寶具威力 ×1.02〜1.2（依自身神格階級），但會被「神殺」類效果剋制。',
     '龍': '龍之血脈或屬性——會被特定剋龍技能(如無毀湖光)放大傷害。',
-    '人類': '凡人之軀——因不帶「神性」類標籤而天生不受神殺剋制(並非此標籤本身有防護效果)。',
+    '人類': '凡人之軀。因為沒有神性，所以神殺對他無效；這不是這個標籤本身有防護。',
     '巨人': '純敘事風味標籤，目前無對應戰鬥數值。',
     '猛獸': '純敘事風味標籤，目前無對應戰鬥數值。',
     '王': '純敘事風味標籤，目前無對應戰鬥數值(軍略／卡里斯瑪類加成需另外持有對應技能才會生效，與此標籤無關)。'
@@ -1534,7 +1534,7 @@
   function showSkillDesc(name, fx, rank, extra) {
     var desc;
     if (fx === 'trait') {
-      desc = TRAIT_DESC[name] || '特性標記：純敘事風味用途——除「神性／神格／神靈」與「龍」等少數關鍵字外，不影響戰鬥數值計算。';
+      desc = TRAIT_DESC[name] || '特性標記多半只是風味。除了神性與龍這幾個關鍵字，其餘不影響戰鬥數值。';
     } else if (FX_DESC[fx]) {
       var mul = rankVal_(rank) / 30; // 對齊後端 rankMul_
       desc = FX_DESC[fx](mul, rank, extra); // extra：god_hand 專用實際剩餘命數，其餘 fx 忽略此參數
@@ -1578,10 +1578,10 @@
   function showSynergyInfo(on, master, peak) {
     var html = '<h3 style="margin:0 0 8px; color:#cdbbe6;">🐕 變容 · 主從契合</h3>'
       + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">'
-      + '恩奇都以神代粘土之軀「變容」——六圍隨御主的供魔與契合浮動，<b>玩家無法手動控制</b>，由當前御主決定：<br><br>'
+      + '恩奇都以神代粘土之軀變容。六圍會隨御主的供魔與契合浮動，<b>玩家無法手動控制</b>，由當前御主決定：<br><br>'
       + '<b style="color:#7ec8ff;">✨ 與「' + master + '」結契 → 全盛（' + peak + '）</b><br>'
       + '<span style="color:#8a8296;">· 其餘御主 → 維持削弱基線</span><br><br>'
-      + (on ? '<span style="color:#7ec8ff;">目前：全盛發動中 ✨</span>' : '<span style="color:#b58a8a;">目前：基線狀態——需「' + master + '」為御主方能全盛。</span>')
+      + (on ? '<span style="color:#7ec8ff;">目前：全盛發動中 ✨</span>' : '<span style="color:#b58a8a;">目前是基線狀態，需要「' + master + '」為御主方能全盛。</span>')
       + '</div>';
     showHistoryOverlay(html);
   }
@@ -1616,14 +1616,14 @@
   function openTutorial() {
     var html = '<h3 style="margin:0 0 10px; color:#e7c873;">❓ 新手教學・快速上手</h3>'
       + '<div style="color:#cfc3d8; font-size:13.5px; line-height:1.85;">'
-      + '<b style="color:#e7c873;">🎯 目標</b>　' + KC_DEADLINE_DAYS_ + ' 天內擊敗其他御主的從者、活到最後即可奪得聖杯。<br><br>'
-      + '<b style="color:#7ec8ff;">🔷 魔力池</b>　你與從者共用同一池魔力，從者出力越高、解放寶具都在燒它——快見底就靠靈脈/休息回魔，別讓它扣到底（會燒血）。點頂部「🔮 魔力」看收支細節。<br><br>'
-      + '<b style="color:#c79be8;">❖ 令咒</b>　御主卡片上 3 道絕對命令，每道限用一次，留給真正危急的時刻（治從者傷／逼魔力全滿／強行脫離險境）。<br><br>'
-      + '<b style="color:#c9b885;">⏳ 行動力（AP）</b>　每天固定額度，移動／戰鬥／休息都要花，額度見底就得休息推進到隔天——別忘了 ' + KC_DEADLINE_DAYS_ + ' 天倒數在跑。<br><br>'
-      + '<b style="color:#7ec8ff;">🔋 靈基出力</b>　從者的供魔強度旋鈕（省著走／一般／全開），越高戰力越強但越耗魔池，唯有全開才能解放寶具。放完寶具會自動回落，不必手動關。<br><br>'
-      + '<b style="color:#e0574a;">⚔️ 戰鬥</b>　移動到同地敵人身邊即可「攻擊」；血量歸零分勝負。從者卡上還有 💧補魔／🩹治療／💕羈絆／🛏️休息／👕換裝／⚔️武裝 等常用按鈕，各有不同資源代價，點按鈕上的說明文字都會講清楚。<br><br>'
-      + '<b style="color:#4fd0b0;">🤝 結盟</b>　與其他御主可提議結盟、暫免交戰。<br><br>'
-      + '<span style="color:#6a7a90; font-size:12px;">想查更細的公式或某個標籤的效果，直接點畫面上對應的名字/圖示（大多可點開說明）。這份教學隨時能從頂部「❓ 教學」重開。</span>'
+      + '<b style="color:#e7c873;">🎯 目標</b>　' + KC_DEADLINE_DAYS_ + ' 天內打倒其他御主的從者，活到最後就能奪得聖杯。<br><br>'
+      + '<b style="color:#7ec8ff;">🔷 魔力池</b>　你和從者共用一池魔力。從者出力越高、放寶具，都在燒它。快見底就去靈脈或休息回魔，別讓它扣到底，那會開始燒血。頂部的「🔮 魔力」看得到收支。<br><br>'
+      + '<b style="color:#c79be8;">❖ 令咒</b>　御主卡片上有 3 道絕對命令，每道只能用一次。留給真的危急的時候：治從者的傷、把魔力逼回全滿、或強行脫離險境。<br><br>'
+      + '<b style="color:#c9b885;">⏳ 行動力（AP）</b>　每天固定額度，移動、戰鬥、休息都要花。用完就得休息到隔天，而 ' + KC_DEADLINE_DAYS_ + ' 天的倒數一直在跑。<br><br>'
+      + '<b style="color:#7ec8ff;">🔋 靈基出力</b>　從者要你供多少魔力：省著走、一般、全開。開越大越能打，也越耗魔力；要放寶具一定得全開。放完會自動降回來，不用手動關。<br><br>'
+      + '<b style="color:#e0574a;">⚔️ 戰鬥</b>　移動到敵人所在的地方就能出手，血量歸零分勝負。從者卡上還有補魔、治療、羈絆、休息、換裝、武裝這些按鈕，各自要付的代價不同，按鈕上的說明都會講。<br><br>'
+      + '<b style="color:#4fd0b0;">🤝 結盟</b>　可以向其他御主提議結盟，暫時不打。<br><br>'
+      + '<span style="color:#6a7a90; font-size:12px;">想知道更細的規則，點畫面上的名字或圖示，大多都能點開說明。這份教學隨時能從頂部的「❓ 教學」再打開。</span>'
       + '</div>';
     showHistoryOverlay(html);
   }
@@ -1631,9 +1631,9 @@
   function showManaHelp() {
     var html = '<h3 style="margin:0 0 8px; color:#7ec8ff;">🔷 魔力</h3>'
       + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">'
-      + '這是你跟從者共用的一個池子——從者出力越高、寶具解放，吃你的魔力就越兇。<br><br>'
-      + '💧 快沒了先靠靈脈或休息自然回魔；急用可以「補魔」硬擠回滿，但會永久扣迴路上限（−' + KC_MANA_CIRC_CUT_ + '）與血上限（−' + KC_MANA_HP_CUT_ + '），別常用。<br><br>'
-      + '⚠️ 真的見底時，缺口會直接燒你跟從者的血——記得別讓它掉到底。'
+      + '這是你跟從者共用的池子。從者出力越高、放寶具，吃你的魔力就越兇。<br><br>'
+      + '💧 快沒了先靠靈脈或休息慢慢回；急用可以「補魔」硬擠回滿，但會永久扣掉迴路上限（−' + KC_MANA_CIRC_CUT_ + '）與血上限（−' + KC_MANA_HP_CUT_ + '），別常用。<br><br>'
+      + '真的見底時，缺口會直接燒你跟從者的血。別讓它掉到底。'
       + '</div>';
     showHistoryOverlay(html);
   }
@@ -1853,12 +1853,12 @@
           + skillGroupLabel_('特殊技能', specialSkillPills)
           + (traitPills ? ('<div style="margin-top:1px;">' + traitPills + '</div>') : '')
           + (s.canIdealRealm ? ('<div style="margin-top:4px;"><span onclick="event.stopPropagation();showIdealRealm()" style="display:inline-block; cursor:pointer; font-size:10px; border:1px solid #c0a24e; color:#ffe6a8; background:rgba(255,212,121,.14); border-radius:10px; padding:2px 8px; white-space:nowrap;">🛡️ 理想鄉·自動護盾</span></div>') : '')
-          + ((skillPills || traitPills) ? '<div style="color:#6a5f80; font-size:9.5px; margin-top:2px;">👆 點標籤看效果' + ((s.mageRealm && s.mageRealm.has) || (s.skills || []).some(function (k) { return k.fx === 'rune'; }) ? '；✨發亮的可點開挑選' : '') + (hasActiveSkill ? '；<span style="color:#7ec8ff;">🎲施放技術＝每次交鋒 30% 自動全效發動（被動·免耗魔）</span>' : '') + '</div>' : '')
+          + ((skillPills || traitPills) ? '<div style="color:#6a5f80; font-size:9.5px; margin-top:2px;">👆 點標籤看效果' + ((s.mageRealm && s.mageRealm.has) || (s.skills || []).some(function (k) { return k.fx === 'rune'; }) ? '；✨發亮的可點開挑選' : '') + (hasActiveSkill ? '；<span style="color:#7ec8ff;">🎲 施放技術：每次交鋒有三成機率自己全力發動，不必按也不耗魔</span>' : '') + '</div>' : '')
           + '<div style="margin-top:5px;">寶具 ' + npPillsHtml(s) + '</div>'
           + ((pc && pc.mode === 'kanshou') || (dual && !isActive) ? '' :
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + (dual ? '<div style="flex:1 0 100%; color:#9a8fae; font-size:10px;">下列動作對「' + s.name + '」生效：</div>' : '')
-              + '<button onclick="event.stopPropagation();manaSupply()" title="補魔：硬擠魔術迴路回滿共用魔力池。⚠永久代價：血上限−' + KC_MANA_HP_CUT_ + '、迴路−' + KC_MANA_CIRC_CUT_ + '。孤注一擲，過度=慢性自盡。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
+              + '<button onclick="event.stopPropagation();manaSupply()" title="補魔：硬擠魔術迴路，把魔力池灌回滿。永久的代價是血上限 −' + KC_MANA_HP_CUT_ + '、迴路−' + KC_MANA_CIRC_CUT_ + '。孤注一擲，過度=慢性自盡。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
               + '<button onclick="event.stopPropagation();openBondMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(224,138,170,0.16); color:#e08aaa; border:1px solid #b06c84; border-radius:6px; cursor:pointer;">💕 羈絆</button>'
               // 🐛→✅ 令咒鈕挪去御主卡，這裡原本的位置改放「靈基修復」——消費共用魔力池為從者療傷、不燃令咒、可重複使用。
               + '<button onclick="event.stopPropagation();spiritRepair()" title="靈基修復：引動共用魔力池為從者療傷，回復部分體力（不燃令咒、可重複使用；魔力池不足則無法發動）。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(70,150,110,0.18); color:#7ee0a8; border:1px solid #3a8a5a; border-radius:6px; cursor:pointer;">🩹 治療</button>'
@@ -1977,7 +1977,7 @@
     if (!(pc && pc.mode === 'kanshou')) {
       var foeHere = (localNPCs || []).some(function (n) { return n.isExact && (n.faction === '敵御主' || n.faction === '敵從者'); });
       html += '<div style="color:#7fb88f; font-size:12px; font-weight:bold; margin:12px 0 6px;">🏕️ 此地經營</div>';
-      if (foeHere) html += '<div style="color:#d65c5c; font-size:11px; margin-bottom:6px;">⚔ 此地有敵蹤——交戰請至「故事」頁的戰爭行動列；卸防經營恐遭突襲。</div>';
+      if (foeHere) html += '<div style="color:#d65c5c; font-size:11px; margin-bottom:6px;">⚔ 這裡有敵蹤。要動手請到「故事」頁的行動列；在這裡卸下防備可能被突襲。</div>';
       html += '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">'
         + '<button class="btn" style="flex:1; min-width:90px; font-size:11.5px; padding:7px 4px; border-color:#5a8a6a; color:#8fd0a0;" onclick="setWorkshop()" title="於此地佈設工房／陣地，提升駐留時的供魔收入">🏕️ 設置陣地</button>'
         + '<button class="btn" style="flex:1; min-width:90px; font-size:11.5px; padding:7px 4px; border-color:#8a7a4a; color:#d0c080;" onclick="scavenge()" title="搜索此地補給：回復御主魔力，偶有所獲或察覺敵蹤">🔍 搜索物資</button>'
@@ -2181,7 +2181,7 @@
     if (r.homeRepel) {
       let a = '<div style="border:1px solid rgba(90,170,110,0.5);border-radius:9px;padding:10px 12px;margin:6px 0;background:rgba(20,34,24,0.55);font-size:12px;">';
       a += '<div style="font-weight:bold;margin-bottom:5px;color:#8fd6a0;">🏰 主場·陣地反擊（陣地作成 ' + r.homeRank + '）</div>';
-      a += '<div style="color:#bfe0c8;font-size:11.5px;line-height:1.6;">結界示警——「' + r.svName + '」從容起身，反手將潛入的「' + r.enemyName + '」擊退驅離　<b style="color:#8fd6a0;">敵 −' + r.backDmg + '</b>，我方毫髮無傷。</div>';
+      a += '<div style="color:#bfe0c8;font-size:11.5px;line-height:1.6;">結界示警。「' + r.svName + '」從容起身，反手將潛入的「' + r.enemyName + '」擊退驅離　<b style="color:#8fd6a0;">敵 −' + r.backDmg + '</b>，我方毫髮無傷。</div>';
       a += '<div style="color:#c9a878;font-size:10.5px;margin-top:4px;">🔋 御主耗 ' + r.wardCost + ' 魔維持結界運作</div>';
       a += '</div>';
       story.insertAdjacentHTML('beforeend', a);
@@ -2251,7 +2251,7 @@
       } else h += '<div class="np-release-banner">💥 真名解放！' + (r.overload > 1.25 ? ' 🔥灌魔超載×' + r.overload.toFixed(2) : '') + '</div>';
     }
     h += '<div style="color:#e7c873;font-weight:bold;margin-bottom:5px;">⚔️ ' + r.atk + (r.useSeal ? ' ❖令咒' : '') + (r.useNp ? ' 💥寶具' : '') + (r.skill ? ' <span style="color:#7ec8ff;">' + (r.skill.icon || '⚡') + r.skill.name + '</span>' : '') + ' ⚔ ' + r.def + '　<span style="color:#9a8;font-size:11px;font-weight:normal;">' + r.rounds.length + ' 回合交鋒</span></div>';
-    if (r.homeField) h += '<div style="color:#8fd6a0;font-size:10.5px;margin-bottom:3px;padding:3px 7px;border:1px solid #4e8a5e;border-radius:5px;background:rgba(60,120,80,.14);">🏰 主場·陣地決戰（陣地作成 ' + r.homeField + '）——我方全員承結界庇護·受創大減</div>';
+    if (r.homeField) h += '<div style="color:#8fd6a0;font-size:10.5px;margin-bottom:3px;padding:3px 7px;border:1px solid #4e8a5e;border-radius:5px;background:rgba(60,120,80,.14);">🏰 主場·陣地決戰（陣地作成 ' + r.homeField + '）。我方全員受結界庇護，受創大減</div>';
     if (r.backlash) h += '<div style="color:#ff7a6a;font-size:10.5px;margin-bottom:3px;padding:3px 7px;border:1px solid #a04040;border-radius:5px;background:rgba(140,40,40,.16);">⚡🩸 過載反噬！御主魔術迴路暴走 <b>−' + r.backlash.dmg + ' HP</b>（' + r.backlash.hp + '/' + r.backlash.hpMax + '）——迴路灼痛、強撐住了意識</div>';
     if (r.skill) h += '<div style="color:#7ec8ff;font-size:10.5px;margin-bottom:3px;">🎲 施放技術「' + r.skill.name + '」自動發動（30% 被動）：' + (r.skill.desc || '') + '</div>';
     // 🌟 寶具對轟
@@ -2319,7 +2319,7 @@
     if (r.destroyed) h += '<div style="color:#d65c5c;font-weight:bold;margin-top:2px;">💀 「' + r.destroyed + '」靈基崩潰·消滅！' + (r.victory ? '　🏆 聖杯已近！' : (r.defeat ? '　御主敗北……' : '')) + '</div>';
     else if (r.sealEscaped) h += '<div style="color:#c79be8;margin-top:2px;">❖ 敵令咒緊急脫離、遁走</div>';
     else if (r.godRevived) h += '<div style="color:#d4af37;margin-top:2px;">✨ 十二試煉·自死亡歸來</div>';
-    if (r.telegraph) h += '<div style="color:#ffcf6a;font-weight:bold;margin-top:4px;padding:5px 8px;border:1px solid #c0872e;border-radius:6px;background:rgba(200,120,40,.15);font-size:12px;line-height:1.5;">⚠️ 寶具預兆！「' + r.telegraph + '」真名解放蓄勢待發——<b>下次接觸必傾瀉而出</b>。留魔開理想鄉結界／寶具對衝／速速脫離！</div>';
+    if (r.telegraph) h += '<div style="color:#ffcf6a;font-weight:bold;margin-top:4px;padding:5px 8px;border:1px solid #c0872e;border-radius:6px;background:rgba(200,120,40,.15);font-size:12px;line-height:1.5;">⚠️ 寶具預兆！「' + r.telegraph + '」的真名正在蓄勢，<b>下次接觸就會傾瀉而出</b>。留點魔力開結界、拿寶具對衝，或趁現在脫離。</div>';
     if (r.idealRealm) h += '<div style="text-align:center;margin:5px 0;padding:7px 8px;border:1px solid #d4b45a;border-radius:7px;background:radial-gradient(ellipse at center,rgba(255,220,120,.18),rgba(40,32,14,.4));line-height:1.5;"><div style="color:#cbab52;font-size:9.5px;letter-spacing:2.5px;">AVALON</div><div style="color:#ffe28f;font-weight:bold;font-size:13px;text-shadow:0 0 8px rgba(255,205,110,.5);">🛡️ 理想鄉·完全隔絕！</div><div style="color:#c9b878;font-size:11px;margin-top:2px;">「' + r.idealRealm.foe + '」的究極真名解放被「' + r.idealRealm.saber + '」的無敵結界盡數湮滅（耗 100 魔）</div></div>';
     if (!r.destroyed && !r.sealEscaped) { h += '<div style="color:#9a8bb0;font-size:10px;margin-top:3px;">敵 ' + r.def + '</div>'; h += hpbar(r.defHp, r.defHpMax, '#d0473f'); }
     if (r.party && r.party.length) {
@@ -2376,7 +2376,7 @@
       return '<button onclick="pickNpAndStrike(' + i + ',\'' + String(npcName).replace(/'/g, '') + '\',\'' + String(sv.name).replace(/'/g, '') + '\',' + (useSeal ? 'true' : 'false') + ')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid ' + (on ? '#e7c873' : '#5a4a2a') + ';background:' + (on ? 'rgba(212,175,55,.18)' : 'rgba(45,38,24,.5)') + ';color:#e8dcc0;"><b style="color:#e7c873;">💥 ' + o.n + '</b>' + (on ? '　<small style="color:#9a8;">·上次所選</small>' : '') + '<br><small style="color:#bcae90;">' + o.desc + '　〔' + o.scale + '〕</small></button>';
     }).join('');
     var html = '<h3 style="margin:0 0 6px;color:#e7c873;">💥 解放哪一個寶具？</h3>'
-      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">「' + sv.name + '」擁有複數寶具——挑選此戰要真名解放的那一個。不同寶具尺度／效果各異（單體必中 vs 範圍殲滅…）。</div>'
+      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">「' + sv.name + '」有不只一件寶具。挑這一戰要解放的那一個，它們的規模與效果都不一樣。</div>'
       + btns;
     showHistoryOverlay(html);
   }
@@ -2412,7 +2412,7 @@
       _npOverload = /\+|EX/i.test(_oNpr) ? (npTierArmed || false) : undefined;
     } else if (useSeal) {
       // ❖ 令咒普攻(蓄勢消費或互動選單直發·普攻原本無確認)：燃令咒是大事，補一個確認防誤耗——取消則不出擊、蓄勢保留。
-      if (!await customConfirm_('❖ 這記普攻將燃燒一道令咒‧絕對命令——必中＋威力 ×1.5（餘 ' + myMasterSeals + ' 道）。\n\n確定出擊？（取消＝不出擊' + (sealArmed ? '、蓄勢保留' : '') + '）')) return;
+      if (!await customConfirm_('❖ 這一擊會燒掉一道令咒。必中，威力 ×1.5（還剩  ' + myMasterSeals + ' 道）。\n\n確定出擊？（取消就是不出擊' + (sealArmed ? '、蓄勢保留' : '') + '）')) return;
     }
     if (!beginAction()) return;
     // ❖ 蓄勢熄燈：所有確認已過、此擊確定帶令咒出手（中途取消不會走到這裡，蓄勢保留）
@@ -2526,7 +2526,7 @@
     customBtn.style.cssText = 'width:100%;padding:9px;background:rgba(90,90,120,0.2);color:#c9c0d8;border:1px solid #5a5a7a;border-radius:8px;cursor:pointer;font-size:12px;margin-bottom:8px;';
     customBtn.onclick = async function () {
       closeOutfitPicker_();
-      var t = await customPrompt_('輸入自訂裝扮（限 40 字）\n留空＝恢復原本裝束。', cur || '', 40);
+      var t = await customPrompt_('輸入想換的裝扮（限 40 字）\n留空就換回原本的裝束。', cur || '', 40);
       if (t !== null) submitOutfit_(name, true, t);
     };
     var cancelBtn = document.createElement('button');
@@ -2594,9 +2594,9 @@
     { fx: 'self_mod', n: '自我改造', d: '改造己身，命中與傷害小幅穩定提升' }
   ];
   const RUNE_MODES_JS = [
-    { mode: 'def', n: '減傷', d: '護符結界——受到的傷害減免（穩健·預設）' },
-    { mode: 'dmg', n: '增傷', d: '符文灼擊——己方造成的傷害提升（進攻）' },
-    { mode: 'regen', n: '回血', d: '治癒符文——每回合回復一截體力（持久）' }
+    { mode: 'def', n: '減傷', d: '護符結界：受到的傷害減輕（穩健，預設）' },
+    { mode: 'dmg', n: '增傷', d: '符文灼擊：自己打出去的傷害提升（進攻）' },
+    { mode: 'regen', n: '回血', d: '治癒符文：每回合回一點體力（持久）' }
   ];
 
   // 🔮 魔境的智慧：點標籤→在說明 popup 裡挑 1 門通用 A 階武技；選定後標籤即顯示（如 魔境的智慧（千里眼A））。
@@ -2607,7 +2607,7 @@
       return '<button onclick="pickSelectable(\'set_mage_realm\',\'' + svName + '\',{fx:\'' + o.fx + '\'})" style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:9px 11px;border-radius:8px;cursor:pointer;border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + ';background:' + (on ? 'rgba(110,180,220,.25)' : 'rgba(40,50,65,.4)') + ';color:' + (on ? '#bfe3ff' : '#c8d4e0') + ';"><b>' + o.n + ' A</b>' + (on ? '　✓ 運起中' : '') + '<br><small style="color:#9aa6c0;">' + o.d + '</small></button>';
     }).join('');
     var html = '<h3 style="margin:0 0 6px;color:#9fd0ff;">✨ ' + t + '</h3>'
-      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">通曉常見武技——挑選 <b>1 門通用 A 階被動</b>運於己身，戰鬥即時生效；可隨時更換。</div>'
+      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">通曉常見武技。挑 <b>1 門通用 A 階被動</b>用在自己身，戰鬥即時生效；可隨時更換。</div>'
       + btns
       + (curFx ? '<button onclick="pickSelectable(\'set_mage_realm\',\'' + svName + '\',{fx:\'\'})" style="display:block;width:100%;padding:8px;margin-top:2px;border-radius:8px;cursor:pointer;border:1px solid #6a4a4a;background:rgba(60,40,40,.4);color:#c08a8a;">✕ 收起武技（清除）</button>' : '');
     showHistoryOverlay(html);
@@ -2619,7 +2619,7 @@
       return '<button onclick="pickSelectable(\'set_rune_mode\',\'' + svName + '\',{mode:\'' + o.mode + '\'})" style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:9px 11px;border-radius:8px;cursor:pointer;border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + ';background:' + (on ? 'rgba(110,180,220,.25)' : 'rgba(40,50,65,.4)') + ';color:' + (on ? '#bfe3ff' : '#c8d4e0') + ';"><b>' + o.n + '</b>' + (on ? '　✓ 運用中' : '') + '<br><small style="color:#9aa6c0;">' + o.d + '</small></button>';
     }).join('');
     var html = '<h3 style="margin:0 0 6px;color:#9fd0ff;">🔯 原初符文</h3>'
-      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">神代的原初符文可隨意刻劃——選定此戰要如何運用符文之力，戰鬥即時生效；可隨時更換。</div>'
+      + '<div style="color:#cfc3d8;font-size:13px;line-height:1.7;margin-bottom:10px;">神代的原初符文可以隨意刻劃。選這一戰要怎麼用它，戰鬥中立刻生效，隨時可以改。</div>'
       + btns;
     showHistoryOverlay(html);
   }
@@ -2761,7 +2761,7 @@
 
   // 💧 補魔：御主硬擠魔術迴路回滿共用魔力池——但永久燒蝕(血上限−15、迴路−3)。孤注一擲的回魔。
   async function manaSupply() {
-    if (!await customConfirm_('💧 補魔：御主硬擠魔術迴路，將共用魔力池一口氣回滿。\n\n⚠ 代價【永久】：生命上限 −15、魔術迴路 −3 條（迴路↓會讓魔力池上限縮小、回魔變慢、禮裝變弱）。\n這是燃迴路續契約的孤注一擲——過度依賴等於慢性自盡。\n\n（想省代價：靠靈脈/陣地/休息自然回魔。注意：池見底會被動燃血、缺口÷2 由御主血量獨自承擔。）\n\n確定補魔？')) return;
+    if (!await customConfirm_('💧 補魔：御主硬擠魔術迴路，將共用魔力池一口氣回滿。\n\n⚠ 代價【永久】：生命上限 −15、魔術迴路 −3 條（迴路↓會讓魔力池上限縮小、回魔變慢、禮裝變弱）。\n這是燒迴路換契約的孤注一擲，用多了等於慢性自盡。\n\n（想省代價：靠靈脈/陣地/休息自然回魔。注意：池見底會被動燃血、缺口÷2 由御主血量獨自承擔。）\n\n確定補魔？')) return;
     const foe = localFoeServantName();
     if (foe && !await customConfirm_('⚠ 此地有敵從者「' + foe + '」！\n\n補魔時門戶大開，極可能遭其趁隙突襲重擊你的從者（重則靈基崩潰、敗北）。\n建議先擊退敵人或轉往安全處。\n\n仍要在此補魔？')) return;
     await runSimpleAction_({
@@ -2801,7 +2801,7 @@
 
   // 💕 羈絆選單（純按鈕，無對話框）：每種每遊戲日限一次、跨日重置
   const BOND_MENU = [
-    ['together', '💕 相處', '與從者共度一段時光——AI 依當下時段與心境即興（閒話／共餐／特訓／夜談自然浮現）'],
+    ['together', '💕 相處', '跟從者待一段時間。會依當下的時段與心情自然發展，閒話、共餐、特訓或夜談都可能'],
   ];
   function openBondMenu() {
     let html = '<h3 style="margin:0 0 6px;color:#e08aaa;">💕 與從者相伴</h3>'
@@ -3000,7 +3000,7 @@
   function dojoFallbackHtml_(mode) {
     return mode === 'victory'
       ? '聖杯戰爭終於落幕，你贏得了這場聖杯戰爭！<br>藤村大河老師與伊莉雅都在為你鼓掌喝彩！<br><span style="color:#9a8fb0; font-size:12px;">（可隨時前往鑑賞，從英靈殿召喚同伴共度和平時光。）</span>'
-      : '聖杯戰爭已然落幕，你的靈基化作了星塵。<br>但別氣餒——藤村大河老師的特訓，能讓下一場聖杯戰爭走得更遠！<br><span style="color:#9a8fb0; font-size:12px;">（敗北的存檔已封存於戰史，可重啟新的一局。）</span>';
+      : '聖杯戰爭已然落幕，你的靈基化作了星塵。<br>不過別急著走。藤村老師的特訓，能讓你下一場走得更遠。<br><span style="color:#9a8fb0; font-size:12px;">這一局已經收進戰史，隨時可以重新開始。</span>';
   }
   // 掀開老虎道場 → 生成 AI 講評/祝賀填入卡片（一次 AI 呼叫·只在 game-over 收場，失敗則退回罐頭文案）
   //   mode='victory' 時：用祝賀 prompt、完成後按鈕走 dojoBackToMenu()(沿用既有勝利流程，不強制 reload)。
@@ -3020,7 +3020,7 @@
       const res = await gasRun(payload);
       if (res && res.success && res.text && body) {
         var t = aiHtml_(String(res.text).replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n'));
-        var tailNote = mode === 'victory' ? '（可隨時前往鑑賞，從英靈殿召喚同伴共度和平時光。）' : '（敗北的存檔已封存於戰史，可重啟新的一局。）';
+        var tailNote = mode === 'victory' ? '（可隨時前往鑑賞，從英靈殿召喚同伴共度和平時光。）' : '這一局已經收進戰史，隨時可以重新開始。';
         body.innerHTML = t + '<div style="color:#9a8fb0; font-size:12px; margin-top:12px;">' + tailNote + '</div>';
       } else if (body) { body.innerHTML = dojoFallbackHtml_(mode); }
     } catch (e) { if (body) body.innerHTML = dojoFallbackHtml_(mode); }

@@ -486,7 +486,7 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   var hero = heroes.find(function (r) { return String(r[COL.HERO.ID]) === heroId; });
   if (!hero) return JSON.stringify({ success: false, message: "英靈庫查無此英靈。" });
   // 衛宮士郎-Master：玩家本人就是這個位置，不開放召喚。
-  if (heroId === '衛宮士郎-Master') return JSON.stringify({ success: false, message: "無法召喚——這個位置由你自己擔任。" });
+  if (heroId === '衛宮士郎-Master') return JSON.stringify({ success: false, message: "無法召喚，這個位置由你自己擔任。" });
   if (KANSHOU_SUMMON_BLOCKED_IDS_.indexOf(heroId) !== -1) return JSON.stringify({ success: false, message: "這位英靈暫時不開放召喚。" });
   var heroName = KANSHOU_CASUAL_NAME_[heroId] || String(hero[COL.HERO.NAME] || "從者"); // 🏷️ 鑑賞訊息/查重用日常稱呼
   // 男性可被召喚，但不會被actionEnterKanshou自動預先鋪墊進世界(見該函式SEX!=='男'過濾)，只能靠玩家在這裡主動召喚。
@@ -977,7 +977,7 @@ function actionKanshouSetSex(userData, pcId, sheets) {
         String(r[COL.PC.SEX]) === "男" && !String(r[COL.PC.ID]).startsWith("DEAD_");
     });
     if (hasMaleCompanion) {
-      return JSON.stringify({ success: false, message: "這個世界裡已經有男性同伴存在——僅支援男女／女女配對，此存檔無法切換為男性。" });
+      return JSON.stringify({ success: false, message: "這個世界裡已經有男性同伴了。目前只支援男女與女女的配對，這個存檔沒辦法改成男性。" });
     }
   }
   var oldSex = String(data[i][COL.PC.SEX] || "");

@@ -145,7 +145,7 @@ function actionManaSupply(userData, pcId, sheets) {
 
   const isFateMana = myGameId.indexOf("g_") === 0;
   if (isFateMana && getAp_(myGameId, pcData) < 1) {
-    return JSON.stringify({ success: false, needRest: true, message: "行動力不足以行補魔之儀——請『休息』恢復後再來。" });
+    return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，沒辦法進行補魔。先休息，恢復了再來。" });
   }
   const oldCirc = masterCircuits_(pcData[pIdx]);
   if (oldCirc <= CIRC_FLOOR) {
@@ -174,7 +174,7 @@ function actionManaSupply(userData, pcId, sheets) {
   pcData[pIdx][COL.PC.MEMORY] = setOvercharge_(pcData[pIdx][COL.PC.MEMORY], newMpMax);
   const mpMax = newMpMax; // 給下方敘述沿用
 
-  const _manaApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以行補魔之儀——請『休息』恢復後再來。", { isFate: isFateMana, skipWrite: true });
+  const _manaApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，沒辦法進行補魔。先休息，恢復了再來。", { isFate: isFateMana, skipWrite: true });
   const manaAp = _manaApr.ap, manaClock = _manaApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 3, pcData);
@@ -212,7 +212,7 @@ function actionSpiritRepair(userData, pcId, sheets) {
 
   const isFateMana = myGameId.indexOf("g_") === 0;
   if (isFateMana && getAp_(myGameId, pcData) < 1) {
-    return JSON.stringify({ success: false, needRest: true, message: "行動力不足以行靈基修復之儀——請『休息』恢復後再來。" });
+    return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，沒辦法修復靈基。先休息，恢復了再來。" });
   }
 
   const svMaxHp = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 450;
@@ -229,7 +229,7 @@ function actionSpiritRepair(userData, pcId, sheets) {
   pcData[svIdx][COL.PC.HP] = svHp + healed;
   pcData[pIdx][COL.PC.MP] = mp - cost;
 
-  const _repApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以行靈基修復之儀——請『休息』恢復後再來。", { isFate: isFateMana, skipWrite: true });
+  const _repApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，沒辦法修復靈基。先休息，恢復了再來。", { isFate: isFateMana, skipWrite: true });
   const repAp = _repApr.ap, repClock = _repApr.clock;
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);

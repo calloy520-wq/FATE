@@ -55,7 +55,7 @@ function continueGame() {
 
 async function newGameFlow() {
   if (accountLoginRes && accountLoginRes.hasGame) {
-    if (!await customConfirm_('⚠️ 開啟新的聖杯戰爭會【清除】你目前的存檔（御主、從者、戰況全部消失）。\n確定要重新開始嗎？')) return;
+    if (!await customConfirm_('開啟新的聖杯戰爭會清掉你現在的存檔：御主、從者、戰況全部消失。\n確定要重新開始嗎？')) return;
     try {
       var res = await withProcessing_('清除舊的聖杯戰爭…', () => gasRun({ action: 'account_new_game', acctName: currentAccount }));
       if (!res || !res.success) { alert((res && res.message) || '清檔失敗。'); return; }
@@ -162,7 +162,7 @@ let masterRoll = null;  // 玩家選中接受的那一個
 var _fateRolling = false;
 async function rollFate() {
   if (_fateRolling) return;
-  if (masterRolls.length) { alert('三份命運已經在下面了——挑一個接受，或直接締結令咒（不挑＝系統隨機給）。'); return; }
+  if (masterRolls.length) { alert('三份命運已經在下面了。挑一個接受，或直接締結令咒，不挑就隨機給你一份。'); return; }
   _fateRolling = true;
   var box = document.getElementById('fate-roll-box');
   if (box) box.textContent = '正在測定…';
@@ -171,7 +171,7 @@ async function rollFate() {
     masterRolls = (res && res.rolls) || [];
     masterRoll = masterRolls[0] || null;
   } catch (e) {
-    if (box) box.textContent = '測定失敗——直接締結令咒也行，系統會隨機給。';
+    if (box) box.textContent = '測定沒成功。直接締結令咒也行，會隨機給你一份。';
     return;
   } finally { _fateRolling = false; }
   renderFateRolls();
@@ -182,7 +182,7 @@ function selectFateRoll(i) {
 function renderFateRolls() {
   var box = document.getElementById('fate-roll-box');
   if (!box) return;
-  if (!masterRolls.length) { box.innerHTML = '不測也行 —— 留空＝系統隨機給一份'; return; }
+  if (!masterRolls.length) { box.innerHTML = '不測也行，留空就隨機給你一份'; return; }
   var cards = masterRolls.map(function (roll, i) {
     var sel = (roll === masterRoll);
     return '<div onclick="selectFateRoll(' + i + ')" style="cursor:pointer; border:1px solid ' + (sel ? '#e7c873' : '#5a4a2a') + '; background:' + (sel ? 'rgba(231,200,115,0.12)' : 'transparent') + '; border-radius:6px; padding:6px 8px; margin-bottom:6px; text-align:left;">'
@@ -355,7 +355,7 @@ function renderHeroList() {
     : heroesData.filter(function (h) { return h.cls === selectedSummonClass; });
   if (!list.length) {
     box.innerHTML = custom
-      ? '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">尚無玩家原創英靈——用下方「🛠️ 自訂英靈工房」打造第一位吧！</p>'
+      ? '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">還沒有自己造的英靈。用下面的「🛠️ 自訂英靈工房」做第一位吧。</p>'
       : '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">此職階英靈殿暫無資料，可改選其他職階，或用下方「🖋️ 自訂生成」召喚。</p>';
     return;
   }
@@ -365,7 +365,7 @@ function renderHeroList() {
     var unclaimed = custom && h.src === 'ai_gen' && !h.creator; // 🖐 印記功能上線前鑄的無主原創→可認領
     return '<div style="display:flex; gap:4px; margin-bottom:5px;">'
       + '<button class="btn" style="flex:1; min-width:0; text-align:left; border-color:#d4af37; color:#e8dcc0; padding:8px 10px;" onclick="lockBtn(event, function(){return summonByHero(\'' + id + '\');})"><b>' + h.name + '</b>' + ((all || custom) && h.cls ? ' <small style="color:#9a7b4f;">' + h.cls + '</small>' : '') + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</button>'
-      + (mine ? '<button class="btn" title="修改這名英靈（僅創造者本人）——改的是範本，之後召喚生效" style="flex:none; width:44px; border-color:#6a8ac0; color:#8fb0e8; padding:0;" onclick="forgeEdit(\'' + id + '\')">✏️</button>' : '')
+      + (mine ? '<button class="btn" title="修改這名英靈（只有作者本人能改）。改的是範本，之後召喚才會生效" style="flex:none; width:44px; border-color:#6a8ac0; color:#8fb0e8; padding:0;" onclick="forgeEdit(\'' + id + '\')">✏️</button>' : '')
       + (unclaimed ? '<button class="btn" title="認領：這名原創英靈是「創造者印記」功能上線前鑄的、目前無主——認領後你就是創造者、可修改" style="flex:none; width:44px; border-color:#8a7a4a; color:#c9b885; padding:0;" onclick="lockBtn(event, function(){return claimHero(\'' + id + '\');})">🖐</button>' : '')
       + '</div>';
   }).join('');
@@ -438,7 +438,7 @@ var FORGE_FLAT_FX = { god_hand: 25, survive: 25, tsubame: 60, zabaniya: 25, gae_
 // ⚠ 曾把命中/常駐傷害收斂成「大中小」分類，後來復原：first_strike/analyze 是【攻守雙修的先機】(命中+迴避皆加、會被無欲封)而 aim/ride 是【純進攻】(不加迴避、免疫無欲封鎖)，硬套大中小會把這條機制線抹掉。拆回各自獨立命名，機制差異寫進各自 label 裡。
 var FORGE_FX_GROUPS = [
   { t: '⚔️ 命中系', items: [
-    ['first_strike', '直感（先機·命中+迴避+·會被無欲封）'], ['analyze', '心眼（＝直感同效·擇一）'],
+    ['first_strike', '直感（先機·命中+迴避+·會被無欲封）'], ['analyze', '心眼（與直感同效，兩者擇一）'],
     ['aim', '千里眼（命中+·幅度大·純進攻·免疫無欲封鎖）'], ['ride', '騎乘（命中+·幅度小·純進攻）'],
     ['self_mod', '自我改造（命中＋傷害小幅+）'], ['petrify', '魔眼·石化（大削敵迴避·剋閃避流）']
   ]},
@@ -572,7 +572,7 @@ function renderForgeWorks_() {
       + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</div>'
       + btnHtml + '</div>';
   };
-  var hxml = '<div style="color:#8fb0e8; font-size:12px; margin-bottom:6px;">📚 我的作品（點 ✏️ 修改——改的是範本，之後召喚生效）</div>';
+  var hxml = '<div style="color:#8fb0e8; font-size:12px; margin-bottom:6px;">📚 我的作品（點 ✏️ 修改。改的是範本，之後召喚才會生效）</div>';
   hxml += mine.length ? mine.map(function (h) {
     var id = String(h.id).replace(/'/g, '');
     return row(h, '<button class="btn" style="flex:none; width:52px; border-color:#6a8ac0; color:#8fb0e8;" onclick="forgeEdit(\'' + id + '\')">✏️<br><small style="font-size:9px;">修改</small></button>');
@@ -754,7 +754,7 @@ function refreshSkillBtn_(i) {
     var flat = !!FORGE_FLAT_FX[fx];
     r.disabled = flat;
     r.style.opacity = flat ? '.35' : '1';
-    r.title = flat ? '此效果為二元固定價——引擎不讀階級，選哪階都一樣' : '';
+    r.title = flat ? '這個效果沒有階級差別，選哪一階都一樣' : '';
   }
 }
 var _skPickGroup = -1; // 🗂️ 手風琴：目前展開的效果組(-1=全收攏)

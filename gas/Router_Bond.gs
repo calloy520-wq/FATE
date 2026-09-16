@@ -204,7 +204,7 @@ function actionBond(userData, pcId, sheets) {
   const masterName = pcData[pIdx][COL.PC.NAME];
 
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以從容相處——請『休息』恢復後再來。" });
+  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，沒辦法好好相處。先休息，恢復了再來。" });
 
   // 日限檢查
   const clk = getClock_(myGameId, pcData);
@@ -221,7 +221,7 @@ function actionBond(userData, pcId, sheets) {
   usedToday = getBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day);
 
   // ⏳ 相處耗 1 AP＝推進 1 小時（2026-07 玩家定案·與令咒/偵查同級：相處也要花時間）🔧 bondAp 非Fate局故意留 null(不同於其餘呼叫點的 AP_PER_DAY 預設)——鑑賞局本就不耗AP，維持原本區別，不硬套 chargeApOrReject_ 的通用預設值。
-  const _bondApr = isFate ? chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以從容相處——請『休息』恢復後再來。", { isFate: true, skipWrite: true }) : { ap: null, clock: "" };
+  const _bondApr = isFate ? chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，沒辦法好好相處。先休息，恢復了再來。", { isFate: true, skipWrite: true }) : { ap: null, clock: "" };
   const bondAp = _bondApr.ap, bondClock = _bondApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
@@ -365,7 +365,7 @@ function actionProposeAlliance(userData, pcId, sheets) {
   if (isAllied_(pcData[mIdx])) return JSON.stringify({ success: false, message: `你已與「${pcData[mIdx][COL.PC.NAME]}」結盟。` });
 
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以交涉——請休息恢復。" });
+  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，沒辦法交涉。先休息恢復。" });
 
   const aliveFoes = aliveEnemyServants_(sheets, myGameId, pcData);
   const w = allianceWillingness_(pcData[mIdx], aliveFoes);
@@ -373,7 +373,7 @@ function actionProposeAlliance(userData, pcId, sheets) {
   const masterName = String(pcData[mIdx][COL.PC.NAME]);
   const lean = masterPersonaLean_(pcData[mIdx]);
 
-  const _allianceApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以交涉——請休息恢復。", { isFate: isFate });
+  const _allianceApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，沒辦法交涉。先休息恢復。", { isFate: isFate });
   const ap = _allianceApr.ap, clock = _allianceApr.clock;
   const clk = getClock_(myGameId, pcData); const day = clk ? clk.day : 1;
 
@@ -491,21 +491,21 @@ function actionAllyBond(userData, pcId, sheets) {
     && isAllied_(r) && String(r[COL.PC.LOC]).trim() === myLoc;
   let aIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && _allyHere(r)) : -1;
   if (aIdx === -1) aIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && _allyHere(r));
-  if (aIdx === -1) return JSON.stringify({ success: false, message: "此地沒有可交流的盟友——須與盟友同處一地。" });
+  if (aIdx === -1) return JSON.stringify({ success: false, message: "這裡沒有可以往來的盟友。要跟盟友在同一個地方才行。" });
 
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足以從容相處——請『休息』恢復後再來。" });
+  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，沒辦法好好相處。先休息，恢復了再來。" });
 
   const _allyBondDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
   const _abMem = String(pcData[aIdx][COL.PC.MEMORY] || "");
   const _abm = _abMem.match(/【交流日】(\d+)/);
-  if (_abm && parseInt(_abm[1]) === _allyBondDay) return JSON.stringify({ success: false, message: "今日已與此盟友交流過了——來日方長，改日再敘。" });
+  if (_abm && parseInt(_abm[1]) === _allyBondDay) return JSON.stringify({ success: false, message: "今天已經跟這位盟友相處過了。來日方長，改天再敘。" });
 
   const masterName = String(pcData[pIdx][COL.PC.NAME]);
   const allyName = String(pcData[aIdx][COL.PC.NAME]);
   const allyIsMaster = String(pcData[aIdx][COL.PC.FACTION]) === "敵御主";
 
-  const _allyBondApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足以從容相處——請『休息』恢復後再來。", { isFate: isFate });
+  const _allyBondApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，沒辦法好好相處。先休息，恢復了再來。", { isFate: isFate });
   const ap = _allyBondApr.ap, clock = _allyBondApr.clock;
 
   // ⚔️ 卸防突襲：與盟友交流時門戶大開，同地若有「未結盟」敵從者→趁隙重擊我方從者。（全文見 CODE_NOTES.md）
@@ -575,15 +575,15 @@ function actionCourtEnemy(userData, pcId, sheets) {
     if (npcId && String(r[COL.PC.ID]) === npcId) return true;
     return npcKey && nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1;
   });
-  if (tIdx === -1) return JSON.stringify({ success: false, message: "此地沒有可示好的敵御主——示好只對敵御主進行（好感由整組御主＋從者共用），須與對方同處一地。" });
+  if (tIdx === -1) return JSON.stringify({ success: false, message: "這裡沒有可以示好的敵御主。示好只對敵御主，而且要跟對方在同一個地方；好感是他們整組共用的。" });
 
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不足——請『休息』恢復後再來。" });
+  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠。先休息，恢復了再來。" });
 
   // 每名敵人每日一次（【示好日】<day> 存對方列）
   const _mem = String(pcData[tIdx][COL.PC.MEMORY] || "");
   const _cm = _mem.match(/【示好日】(\d+)/);
-  if (_cm && parseInt(_cm[1]) === _courtDay) return JSON.stringify({ success: false, message: "今日已向此人示好過了——來日方長，改日再敘。" });
+  if (_cm && parseInt(_cm[1]) === _courtDay) return JSON.stringify({ success: false, message: "今天已經向這個人示好過了。來日方長，改天再說。" });
 
   const targetName = String(pcData[tIdx][COL.PC.NAME]);
   const targetIsMaster = String(pcData[tIdx][COL.PC.FACTION]) === "敵御主";
@@ -604,7 +604,7 @@ function actionCourtEnemy(userData, pcId, sheets) {
   pcData[tIdx][COL.PC.MEMORY] = _mem.replace(/｜?【示好日】\d+/g, "") + "｜【示好日】" + _courtDay;
   sheets.pc.getRange(tIdx + 1, 1, 1, pcData[tIdx].length).setValues([pcData[tIdx]]);
 
-  const _courtApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不足——請『休息』恢復後再來。", { isFate: isFate });
+  const _courtApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠。先休息，恢復了再來。", { isFate: isFate });
   const ap = _courtApr.ap, clock = _courtApr.clock;
 
   const card = targetIsMaster ? enemyMasterCard_(pcData[tIdx]) : servantCard_(pcData[tIdx]);
@@ -626,7 +626,7 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  if (!canRuleBreak_(pcData, pIdx, myGameId)) return JSON.stringify({ success: false, message: "你不具破戒全咒之力——須召喚 Caster（美狄亞）或持有破戒禮裝。" });
+  if (!canRuleBreak_(pcData, pIdx, myGameId)) return JSON.stringify({ success: false, message: "你沒有破戒全咒的力量。要召喚美狄亞，或帶著破戒的禮裝。" });
   const svCount = pcData.filter(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")).length;
   if (svCount >= 2) return JSON.stringify({ success: false, message: "你已同時駕馭兩名從者，靈魂的負荷已達極限，無法再奪。" });
   let seals = getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]);
