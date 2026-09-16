@@ -66,6 +66,22 @@
 | 【初次】 | `【初次】事件:absDay,事件:absDay,…`（存儲上限`KANSHOU_FIRSTS_CAP_`=20筆） | 同伴列 | 💞 結構化「第一次」帳（`kanshouGetFirsts_`/`kanshouStampFirst_`，冪等·只記最早那次）。蓋戳點：牽手／同居／同床／約會（赴約成立·準時遲到皆算）／各式橋段（以事件名當 key·僅非拒絕分支）。每回合取最早`KANSHOU_FIRSTS_SHOW_`=5筆進提示詞當既定事實；同月同日撞上則另跳「週年」加強句 |
 | 【關係階】 | `【關係階】N`（1=點頭之交…5=戀人·IntTag 預設0） | 同伴列 | 💗 歷來最高關係階（`kanshouRelRank_`）。只升不降，用來偵測「這回合剛跨階」→注入質變提示。**刻意看 BOND 不看 REL_TAG**（玩家自訂稱呼後 REL_TAG 不再等於梯度字面，跨階演出不該因此消失） |
 | 【帳號】 | `【帳號】acctName` | — | 人工檢視辨識（非驗證，歸屬走帳號表） |
+| 【相處】 | `【相處】N`（IntTag） | 同伴列 | `KANSHOU_MET_COUNT_TAG_`：同地回合累計，`kanshouKnownTier_` 算「她對你的知情度」(初識/混熟/老交情) |
+| 【眼中的你】 | `【眼中的你】句／句`（≤3 條·各≤14 字） | 同伴列 | `KANSHOU_NOTED_TAG_`：AI `noticed` 落地（只記會改變之後怎麼對玩家的發現），`kanshouKnownOfYou_` 讀進在場卡 |
+| 【時間流速】 | `【時間流速】分`（0/10/20/30） | 玩家列 | `KANSHOU_PACE_TAG_`：`actionKanshouSetPace` 寫、`kanshouPaceOf_` 讀 |
+| 【設定已補】 | `【設定已補】1` | 玩家列 | `KANSHOU_BACKFILL_DONE_TAG_`：創角 AI 擴寫只跑一次的閘 |
+| 【昨夜道別】 | `【昨夜道別】同伴名` | 玩家列 | `KANSHOU_NIGHT_PART_TAG_`：結束一天時身邊的人，隔天引子用完即清 |
+| 【夜未眠】 | `【夜未眠】absDay` | 玩家列 | `KANSHOU_NIGHT_SCENE_TAG_`：兩段式就寢第一段（人釘在房裡、時間照流），第二次按睡覺才真 endDay |
+| 【主動日】 | `【主動日】absDay` | 玩家列 | `KANSHOU_INITIATIVE_DAY_TAG_`：她主動來找的當日鎖 |
+| 【橋段日】 | `【橋段日】absDay` | 同伴列 | `KANSHOU_SCENE_DAY_TAG_`：夜襲「別有用心」加分的當日鎖 |
+| 【夜訪日】 | `【夜訪日】absDay` | 玩家列 | `KANSHOU_KNOCK_DAY_TAG_`：深夜訪客擲骰當日鎖（結束一天可被按很多次） |
+| 【夜訪客】 | `【夜訪客】同伴名` | 玩家列 | `KANSHOU_NIGHT_GUEST_TAG_`：這一晚敲門進來的是誰，在場來由「她剛敲了你的門」讀它 |
+| 【好感底線】 | `【好感底線】N` | 同伴列 | `KANSHOU_BOND_FLOOR_TAG_`：棘輪——到過的階不會被 AI 扣回去 |
+| 【冷卻日】 | `【冷卻日】absDay` | 同伴列 | `KANSHOU_CHILL_DAY_TAG_`：被冒犯後當天的冷淡（`pChillStr`） |
+| 【同居解除】 | `【同居解除】1` | 同伴列 | `KANSHOU_COHABIT_END_TAG_`：搬走那回合的一次性事實（`kanshouCohabitEndStr`） |
+| 【醒著陪同】 | `【醒著陪同】地點` | 同伴列 | `KANSHOU_AWAKE_HERE_TAG_`：深夜 0~8 在這個地點她是醒著的（夜訪客／陪你熬夜），否則 `pSleepStr` 判熟睡 |
+| 【同居問過】 | `【同居問過】absDay` | 同伴列 | `KANSHOU_COHABIT_ASKED_TAG_`：同居泡泡同一天只問一次 |
+| 【戀人】 | `【戀人】1` | 同伴列 | `KANSHOU_LOVER_TAG_`：告白牆的唯一鑰匙；`kanshouIsLover_` 讀 |
 | 【快速貼圖】 | `【快速貼圖】text1,text2,...`（逗號分隔） | **玩家列** | `kanshouGetQuickPhrases_`/`SetQuickPhrases_`：玩家自訂快速輸入貼圖(2026-07新增)，上限`KANSHOU_QUICK_PHRASE_CAP_=8`句，跟內建4個(害羞/小聲/苦笑/臉紅，2026-07同月再縮減，純前端寫死)分開存 |
 | 【換裝】【口吻】【小動作】 | — | 同伴列 | 鑑賞**讀取**（`getOutfit_`/persona），寫入屬 solo/persona 生態、非鑑賞獨有 |
 
