@@ -381,26 +381,9 @@ function enemyCanAffordNp_(pcData, svIdx, gameId, prana) {
   return { afford: maxPay >= prana, masterIdx: mi };
 }
 
-// 🎌 御主參戰風格（與前端「御主戰法」三段藥丸同鍵）：御主替從者分擔戰損的比例。
-var STANCE_SHARE_ = { stealth: 0.0, normal: 0.05, open: 0.10 };
-function stanceShareOf_(stance) { var s = STANCE_SHARE_[String(stance || "")]; return (typeof s === 'number') ? s : STANCE_SHARE_.normal; }
-// 🩸 傷害轉移：從者剛吃了 dmg(fateStrike_ 已寫入從者HP＋sheet)，御主依風格「討回」share 比例替其承受——從者HP回補 shared、御主HP扣 shared，兩列即刻寫回 sheet(與 backlash/drainForNp_ 同一套逐事件寫法)。
-function applyMasterStanceShare_(sheets, pcData, svIdx, masterIdx, dmg, share) {
-  if (!share || share <= 0 || dmg <= 0 || svIdx < 0 || masterIdx < 0 || svIdx === masterIdx) return 0;
-  if (String(pcData[svIdx][COL.PC.ID]).startsWith("DEAD_")) return 0;
-  var mHp = parseInt(pcData[masterIdx][COL.PC.HP]) || 0;
-  if (mHp <= 1) return 0;
-  var shared = Math.min(Math.round(dmg * share), mHp - 1);
-  if (shared <= 0) return 0;
-  var svMax = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 999999;
-  pcData[svIdx][COL.PC.HP] = Math.min(svMax, (parseInt(pcData[svIdx][COL.PC.HP]) || 0) + shared);
-  pcData[masterIdx][COL.PC.HP] = mHp - shared;
-  if (!BATTLE_DEFER_WRITE_) {
-    sheets.pc.getRange(svIdx + 1, COL.PC.HP + 1).setValue(pcData[svIdx][COL.PC.HP]);
-    sheets.pc.getRange(masterIdx + 1, COL.PC.HP + 1).setValue(pcData[masterIdx][COL.PC.HP]);
-  }
-  return shared;
-}
+// 🎌 2026-09 玩家定案「御主不要上戰場…都改成指揮從者對打就好」：御主替從者分擔戰損的整組
+//    （STANCE_SHARE_／stanceShareOf_／applyMasterStanceShare_）已移除。stance 仍在，但只剩
+//    「怎麼接近敵人」的敘事意義（見 Router_Movement.gs arriveStanceNotice_），不再動任何血量。
 
 function actionFateBattle(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
@@ -747,10 +730,6 @@ function actionFateBattle(userData, pcId, sheets) {
     return null;
   };
 
-  // 🎌 御主參戰風格：御主替從者分擔本戰所受傷害的比例(後方支援0%/見機行事5%/正大光明10%)。masterShared 累計實際分擔血量(供戰報)。
-  const _stanceShare = stanceShareOf_(userData.stance);
-  let masterShared = 0;
-
   let knockedOut = [], victory = false, defeat = false, dreamPrompt = "", destroyedName = "", sealEscaped = false, sealNote = "", godRevived = false, godNote = "";
   let enemyNpSpent = false; // 敵寶具一場限一次
   let npTeleHandled = false; // 🔮 本次按鍵的「預告/發動」決策一次即止(rounds loop 多回合勿重複蓄勢)
@@ -818,8 +797,6 @@ function actionFateBattle(userData, pcId, sheets) {
         if (pHit.knocked) knockedOut.push(pHit.knocked);
         if (pHit.godRevived) { godRevived = true; godNote = pHit.godNote; }
         if (pHit.defeat) { defeat = true; victory = false; dreamPrompt = pHit.dreamPrompt; }
-        // 🎌 御主參戰風格·對轟回震也替從者分擔(非致命時)。（全文見 CODE_NOTES.md）
-        else if (!pHit.knocked && spill > 0) { const _shC = applyMasterStanceShare_(sheets, pcData, atkIdx, pIdx, spill, _stanceShare); if (_shC) masterShared += _shC; }
       }
       let enemyNpName = ""; try { enemyNpName = String(npProfile_(enemyC0).name || enemyC0.np || "").split(/[（(／]/)[0].trim(); } catch (e) { }
       clash = {
@@ -1078,8 +1055,6 @@ function actionFateBattle(userData, pcId, sheets) {
           if (es.sealEscaped) { sealEscaped = true; sealNote = es.sealNote; }
           if (es.godRevived) { godRevived = true; godNote = es.godNote; }
           if (es.defeat) { defeat = true; victory = false; dreamPrompt = es.dreamPrompt; }
-          // 🎌 御主參戰風格·替從者分擔：只在從者挨了非致命一擊時，御主討回 share 比例的傷勢自己扛。
-          else if (!es.knocked && es.hit && rl.eDmg > 0) { const _sh = applyMasterStanceShare_(sheets, pcData, ctgt, pIdx, rl.eDmg, _stanceShare); if (_sh) { masterShared += _sh; rl.masterShared = (rl.masterShared || 0) + _sh; } }
         }
       }
     }
@@ -1098,8 +1073,6 @@ function actionFateBattle(userData, pcId, sheets) {
         if (pds.sealEscaped) { sealEscaped = true; sealNote = pds.sealNote; }
         if (pds.godRevived) { godRevived = true; godNote = pds.godNote; }
         if (pds.defeat) { defeat = true; victory = false; dreamPrompt = pds.dreamPrompt; }
-        // 🎌 御主參戰風格·連協防這記也替從者分擔(非致命時)
-        else if (!pds.knocked && pds.hit && rl.pactDef.dmg > 0) { const _sh2 = applyMasterStanceShare_(sheets, pcData, ctgt2, pIdx, rl.pactDef.dmg, _stanceShare); if (_sh2) { masterShared += _sh2; rl.masterShared = (rl.masterShared || 0) + _sh2; } }
       }
     }
 
@@ -1109,7 +1082,7 @@ function actionFateBattle(userData, pcId, sheets) {
 
   // 戰報摘要（含寶具對轟的傷害）
   const totalDealt = rounds.reduce((s, r) => s + (r.strikes || []).reduce((a, k) => a + (k.pDmg || 0), 0), 0) + (clash ? (clash.eDmgTaken || 0) : 0);
-  // 受創含敵盟協防那記(rl.pactDef.dmg)——否則「受創X − 御主替扛Y」對不上從者實際血量掉幅(協防傷也走 masterShared)。
+  // 受創含敵盟協防那記(rl.pactDef.dmg)——否則戰報的「受創X」對不上從者實際血量掉幅。
   const totalTaken = rounds.reduce((s, r) => s + (r.eDmg || 0) + (r.pactDef && r.pactDef.hit ? (r.pactDef.dmg || 0) : 0), 0) + (clash ? (clash.pDmgTaken || 0) : 0);
   const nRounds = rounds.length;
   // 開場對轟或寶具一擊定生死時，回合迴圈在第一圈開頭就 break、rounds 為空。
@@ -1239,33 +1212,25 @@ function actionFateBattle(userData, pcId, sheets) {
   const _ourFiredAll_ = rounds.reduce((a, r) => a.concat((r.strikes || []).reduce((b, k) => b.concat(k.pFired || []), [])), []);
   const _foeFiredAll_ = rounds.reduce((a, r) => a.concat(r.eFired || []), []);
   // 旗標格式是「${誰}·${效果}」(見 fxDmgApply_)，而反擊回合的 fired 是把攻守兩邊的效果混在同一個陣列——
-  // 只比對效果名會把我方御主的體術讀成「敵御主也下場了」。一律連名字一起比。
+  // 只比對效果名會把我方御主的魔術支援讀成「敵御主也出手了」。一律連名字一起比。
   const _fxHitBy_ = (arr, who, kw) => arr.some(t => String(t).indexOf(String(who) + '·' + kw) >= 0);
-  const ourMeleeFired = _fxHitBy_(_ourFiredAll_, atkC.name, '御主體術');
   const ourMagicFired = _fxHitBy_(_ourFiredAll_, atkC.name, '御主魔術');
-  const foeMeleeFired = _fxHitBy_(_foeFiredAll_, defC.name, '御主體術');
   const foeMagicFired = _fxHitBy_(_foeFiredAll_, defC.name, '御主魔術');
   // 🔮 敵反擊解放寶具的真名——同一種「GAS算出來卻沒告訴AI」的漏餵，比照上面 extraFired 補一個對稱收集。
   const enemyNpRoundNotes = rounds.filter(r => r.eNp && r.eNpName).map(r =>
     `第${r.n}回合「${defC.name}」反擊解放真名【${r.eNpName}】${r.eHit ? `命中「${r.eTarget}」` : '，卻被躲開落空'}`
   ).join('；');
-  // 御主自身血量上限：以身相代的傷勢輕重要對著「御主的身體」量，不是從者的。
-  const masterHpMaxRef_ = Math.max(1, parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 1);
   var _mjBits = [];
-  if (ourMeleeFired) _mjBits.push('親自出手體術助拳');
-  if (ourMagicFired) _mjBits.push('暗中引動自身魔術支援');
+  if (ourMagicFired) _mjBits.push('自後方引動魔術為『' + atkC.name + '』添力');
+  // 🎌 御主的位置（每場【必給】）：御主【不上戰場】——他在後方指揮與供魔，這一戰的每一擊都是從者打的。
+  //    stance 只是他站得多前、藏得多好，不是他有沒有動手。
   var _masterJoinLine = (_stanceKey === 'open'
-    ? `【御主參戰·正大光明】御主與『${atkC.name}』並肩立於陣前，直面敵手、共擔鋒鏑——該掩護時挺身補位，從者被震退時一把扶住穩住重心，兩人互為犄角、一同進退。`
+    ? `【御主·正大光明】御主毫不掩飾地立在從者身後可見之處下令，戰意寫在臉上——但【不近身、不出手】，交鋒是『${atkC.name}』的事。`
     : _stanceKey === 'stealth'
-      ? `【御主參戰·後方支援】御主據守後方掩蔽處，穩定供魔、冷靜判讀戰況並下令指揮——不入近身險境，卻是這場交鋒的中樞，切勿寫成御主缺席。`
-      : `【御主參戰·見機行事】御主守在戰線側後方、讀著戰況伺機介入——該掩護時上前補位、該退則果斷，與從者一攻一守、彼此呼應。`)
-    + (_mjBits.length ? `這一戰御主${_mjBits.join('，並')}，攻勢不全是『${atkC.name}』一人之力。` : '')
-    + (masterShared > 0 ? (() => {
-      const _sev = dmgSeverityWord_(masterShared, masterHpMaxRef_);
-      return _sev === '擦傷'
-        ? `更替『${atkC.name}』擋下了一記——★輕輕帶過即可（側身一擋、伸手一撥、被餘波掃到而踉蹌），只是擦傷，別寫成悲壯的捨身重傷。`
-        : `更以身替『${atkC.name}』硬扛下這一擊、自身${_sev}——★具體演出這記「以身相代」的畫面（撲上以身卸力、擋在身前吃下這一擊、或接住被打飛的從者），傷得${_sev === '重創' ? '很重、幾乎站不住' : '不輕'}，別只丟一個數字。`;
-    })() : '')
+      ? `【御主·後方支援】御主據守後方掩蔽處，穩定供魔、冷靜判讀戰況並下令指揮——不入戰圈，卻是這場交鋒的中樞，切勿寫成御主缺席。`
+      : `【御主·見機行事】御主守在戰線側後方讀著戰況、適時下令，該退則果斷拉開距離——【不近身、不出手】。`)
+    + `★【鐵律】御主不參與物理交鋒：不可寫御主揮拳/持械/格擋/替從者擋下攻擊/以身相代，也不可讓御主因交鋒受傷。御主能動用的只有【指令、魔力、令咒】。`
+    + (_mjBits.length ? `這一戰御主${_mjBits.join('，並')}。` : '');
     + `★御主的招式只能依御主卡上實際列出的魔術系統／體術，卡上沒寫的技術一律不可捏造（改寫成呼喊指令、眼神示意、肢體掩護等不需特定技術的參與方式）。`;
 
   const BATTLE_WORDS_ = ['170~230', '220~290', '280~360', '340~440'];
@@ -1295,7 +1260,7 @@ function actionFateBattle(userData, pcId, sheets) {
     if (skillFired) SC_FIGHT.push(`『${atkC.name}』的技術「${_fullSkill.name}」自然而發、順勢加持了攻勢。`);
     if (horrorFired) SC_FIGHT.push(`我方術師以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持。`);
     if (_masterJoinLine) SC_FIGHT.push(_masterJoinLine);
-    if (foeMeleeFired || foeMagicFired) SC_FIGHT.push(`對面御主也親自下場（${[foeMeleeFired ? '體術助陣' : '', foeMagicFired ? '暗中引動魔術' : ''].filter(Boolean).join('、')}）——敵方的攻勢不全是「${defC.name}」一人所為。`);
+    if (foeMagicFired) SC_FIGHT.push(`對面御主也自後方引動魔術為「${defC.name}」添力——敵方的攻勢不全是從者一人所為（對面御主同樣【不近身】）。`);
     if (battery && battery.usedBattery && battery.bledMaster) SC_FIGHT.push(`御主燃燒生命力硬扛魔力缺口為從者頂上，魔術迴路過載灼痛難當（餘 ${battery.masterHp}/${battery.masterHpMax} HP）——★迴路透支的內在灼痛虛脫，非流血外傷。`);
     if (extraFired.length) SC_FIGHT.push(`戰局關鍵轉折：${extraFired.join('；')}。`);
     // ✨ 禮裝這一戰真的起了作用 → 用它自己的 flavor 給畫面（理想鄉另有專屬 SC_PEAK，不重複講）
@@ -1359,7 +1324,6 @@ function actionFateBattle(userData, pcId, sheets) {
   const report = {
     atk: atkLabel, def: defC.name, rounds: rounds, dual: dualAttack, allyAssist: allyAssistName,
     useNp: useNp, npName: npName, useSeal: useSeal, totalDealt: totalDealt, totalTaken: totalTaken,
-    masterShared: masterShared, // 🎌 御主參戰風格·本戰替從者分擔的血量(0＝後方支援或未觸發)→前端戰報卡
     overload: (useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.01) ? +atkC.npOverloadMul.toFixed(2) : 0, // 🔥 灌魔超載倍率→前端橫幅
     overcharge: !!(useNp && atkC.overcharge), // 🔥 本發吃到補魔過充
     backlash: backlash, // ⚡🩸 過載反噬 {dmg,hp,hpMax}→前端紅幅(不致死·純資源傷害)

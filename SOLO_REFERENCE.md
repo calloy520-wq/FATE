@@ -446,7 +446,12 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 
 ## 14. 戰鬥改版（2026-07·御主參戰／被動技／撤退／全戰報卡）
 
-- **① 御主參戰風格·替從者分擔戰損**（`STANCE_SHARE_`＝{stealth:0, normal:.05, open:.10}·`stanceShareOf_`／`applyMasterStanceShare_`·Router_Battle）：`actionFateBattle` 讀 `userData.stance` 得 share。每當從者挨了**非致命**一擊（主戰輪敵反擊／敵盟協防／開場對轟回震），御主「討回」`round(dmg×share)` 替扛——從者HP回補、御主HP扣（保底1·不因分擔而死；御主≤1則無力再擋），兩列即刻寫回 sheet（比照 backlash/drainForNp_ 逐事件寫）。累計 `masterShared` 進戰報 `report.masterShared`＋敘述句＋前端「🎌御主參戰：替扛 −X HP」＋御主血條（陣前）。**單一真實來源**：share 值後端為準、前端 `STANCES[k].share` 僅顯示。
+- **① ~~御主參戰風格·替從者分擔戰損~~（2026-09 整組移除）**：玩家「御主不要上戰場好了 感覺好怪喔 都改成指揮從者對打就好」。
+  `STANCE_SHARE_`／`stanceShareOf_`／`applyMasterStanceShare_` 與四個呼叫點全數刪除，回傳欄位 `masterShared`、前端戰報那行、藥丸上的分擔 % 一併清掉。
+  **御主從此不會因為交鋒掉血**（電池燃血／補魔／令咒反噬不受影響，那是資源代價不是戰鬥）。
+  `stance` 三段藥丸留著，但只剩「怎麼接近敵人」的意義（`arriveStanceNotice_` 決定對方察不察覺），並定調戰報裡御主站得多前。
+  連帶：`injectMasterMeleeSupport_`／`master_melee` fx 也拔了——御主體術不再變成從者的傷害加成，體術階位只進 `masterCard_` 當演出依據。
+  **刻意保留** `injectMasterMagicSupport_`／`master_magic`（限 Caster）：那是御主在後方施術支援，不是上戰場。
 - **② 主動技→被動 30%**（`rollSkill_`·Router_Battle｜移除 `tinyActiveSkill_`/drain/`⚡主動`鈕）：施放技術（burst/str_up/projection）不再手動、不扣魔、無微效保底——改**每一擊獨立擲 `SKILL_PROC_` 機率自動全效發動**（現行 0.3，2026-07 玩家回饋原 0.5 太強下修·rounds 迴圈＋開場對轟各自擲）。`skillFired` 記本戰是否至少發動一次→敘述＋戰報 `report.skill{name,icon,desc}`。前端刪 `activeSkillOfActive_`／`⚡主動` 鈕／`useSkill` 全鏈；從者卡標籤與 popup 說明改純機制敘述(不再另掛跟角色實際技能名重複的通用代稱)。
 - **③ 撤退按鈕**：見 §12「撤離追擊／🏃撤退」。核心＝有敵封鎖 plain move（`needRetreat`）＋撤退必追擊（GAS 判勝負）。
 - **④ 全戰鬥須有 GAS 戰報卡**（玩家鐵則：所有落血皆 GAS 算·不容 AI 亂掰數字）。`renderFateBattleReport` 新增／補全卡型：
@@ -498,7 +503,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 
 **戰鬥引擎**：
 - `hasCausalityNp_`(Engine_Fate.gs) 掃整個永久技能列表找 `causality` 旗標，沒管「這次實際解放的是哪個寶具」——斯卡哈雙寶具其一是Gáe Bolg(因果律)、另一是Gate of Skye(無此機制)，選了後者仍被判定必殺。改成只看 `npProfile_(c).fx`(這次實際選定的寶具)。連帶修正 `offenseTier_` 的 `pierceFx` 清單同款問題(gae_bolg從清單移除，改完全交給既有的npProfile_判定)。
-- `applyMasterStanceShare_`(御主參戰分擔) 在從者剛被打死的同一擊仍會觸發，對已標記 `DEAD_` 的列回補HP、白扣御主HP——3個呼叫點都補 `!knocked` 判斷，函式本身也加一道防禦性補查。
+- ~~`applyMasterStanceShare_`(御主參戰分擔) 在從者剛被打死的同一擊仍會觸發…~~（2026-09 整個機制移除後此坑消失，留著記錄當時的形狀：「同一擊裡先判死、再回補」這種順序錯誤，在任何轉嫁/回補機制裡都會重演）。
 - 斬首戰術分支從沒套用 `BATTLE_DEFER_WRITE_` 批次寫回，雙從者斬首失敗最壞觸發5+次個別Sheets寫入——改成跟主戰鬥路徑同一套，分支結尾一次整表寫回。
 - `actionFateBattle` 的 `spendAp_` 呼叫沒傳 `skipWrite`，跟斬首分支(現已批次)或主路徑的收尾整表寫回都會把AP值重複送一次——補 `skipWrite=true`。
 - **`rankVal('-')` 誤算成比E還低**（玩家實測抓到，2026-07 後續補上）：佐佐木小次郎的寶具六圍官方未給階級，種子資料誠實標成 `'-'`(注解稱「rankVal()仍保底吃E運算」)。但 `rankVal()` 舊版邏輯是「先去掉+/-算基礎字母、再另外用+/-次數算加減修正」——裸 `'-'` 去掉+/-後找不到字母、退回E的10沒錯，但同一個 `'-'` 字元又被當「減號修飾」再扣一次3，變成7、比真正的E(10)還低，跟注解講的不符。傷害/魔力費用兩處門檻表剛好7跟10落同一格所以沒事，但 `Router_Battle.gs` 兩處(774/1033行)判斷「敵人有沒有寶具能放」的 `rankVal(...)>=10` 直接被跌破——佐佐木被玩家操控時放寶具正常，但他若當敵方NPC出場，會被引擎誤判成沒有寶具、永遠不會對玩家解放真名，違背「每個從者都配得到寶具」的設計初衷。改成 `rankVal()` 內：去掉+/-後若完全沒有字母(沒東西可修飾)，直接回傳E基準、不套加減。另外 `Engine_Fate.gs` 戰報「寶具骰(-)=26」這個顯示也一併順手修：沒字母時顯示改印`E`，不再吐出看起來像顯示壞掉的裸符號。

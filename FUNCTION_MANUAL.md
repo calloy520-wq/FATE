@@ -444,9 +444,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 御主參戰風格（三式：後方支援／見機行事／正大光明）
 
-- `STANCE_SHARE_`（var）— 三種「御主參戰風格」對應的傷害分擔比例表 `{stealth:0, normal:0.05, open:0.10}`。
-- `stanceShareOf_(stance)` — 查 `STANCE_SHARE_`，未知值回退 `normal`。
-- `applyMasterStanceShare_(sheets, pcData, svIdx, masterIdx, dmg, share)` — 把從者這擊挨的傷害依 `share` 比例轉嫁一部分到御主身上(御主 HP 保底 1、不會被分擔致死)，回傳實際轉嫁量供戰報 `masterShared` 顯示。三處呼叫點皆補 `!knocked` 判斷，避免對已標記死亡的列重複回補血/白扣。
+- ~~`STANCE_SHARE_`／`stanceShareOf_`／`applyMasterStanceShare_`~~（2026-09 移除）— 曾是「御主參戰風格」的傷害分擔（御主替從者扛 0/5/10%）。玩家定案「御主不要上戰場」後整組刪除：御主不再因交鋒掉血，`stance` 只剩「怎麼接近敵人」的敘事意義。
 
 #### 工具
 
@@ -527,7 +525,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 御主支援注入
 
-- `injectMasterMeleeSupport_(c, masterMemory)` — 把御主【體術】階級以 master_melee fx 注入我方從者 skills（不限職階；已存在則略過；空則不注入）。
+- ~~`injectMasterMeleeSupport_`~~（2026-09 移除·原簽名 `(c, masterMemory)`）— 曾把御主【體術】階級以 `master_melee` fx 注入從者傷害。隨「御主不上戰場」刪除；體術階位從此只進 `masterCard_` 當演出依據。
 - `injectMasterMagicSupport_(c, masterMemory)` — 把御主【魔術】階級以 master_magic fx 注入——僅當 c 是 Caster 才注入（體術管近戰、魔術限 Caster，避免無腦疊加）。
 - `injectMasterSupportFor_(c, pcData, myGameId, row, isEnemy)`（實際定義於 Engine_Fate.gs，Router_Battle.gs 2026-07 稽核抓到重複而抽出）— 找到硬連結御主 MEMORY 後呼叫上兩支的共用外殼，取代原本我方/敵方視角各寫3遍、共6處幾乎相同的「找御主→注兩種支援」樣板。`isEnemy=false`：`row` 本身即御主列，直接讀其 MEMORY；`isEnemy=true`：`row` 是敵從者列，走既有 `enemyMasterMemoryFor_` 查其硬連結御主 MEMORY，查無則不注入。**2026-07 再稽核補完**：`Router_Movement.gs`的`playerAmbushOnEnemy_`(趁隙偷襲)/`enemyAmbushOnServant_`(陣地反擊分支＋真突襲分支)共3處原本仍手刻雙支呼叫，已一併改用此共用函式。
 

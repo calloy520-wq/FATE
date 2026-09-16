@@ -228,20 +228,12 @@ var SKILL_FX_ = {
   divine_age: { passive: true, zh: '神代魔術', dmgAdd: function (r) { return Math.round(12 * r); } }, // 使敵對魔力半效之交互 仍明碼
   wind_strike: { passive: true, zh: '風王鐵鎚', dmgAdd: function (r) { return Math.round(6 * r); } },
   crafting: { passive: true, zh: '道具作成', note: '(備妥之器)', dmgAdd: function (r) { return Math.round(8 * r); } },
-  master_melee: { passive: true, zh: '御主體術', dmgAdd: function (r) { return Math.round(7 * r); } },
   // 🔮 御主魔術支援：同量級，但僅注入 Caster 出擊時(體術管近戰、魔術管施法，對應不同陣容)。
   master_magic: { passive: true, zh: '御主魔術', dmgAdd: function (r) { return Math.round(7 * r); } }
 };
 function skillFxVal_(v, r, c) { return (typeof v === 'function') ? v(r, c) : v; }
-function injectMasterMeleeSupport_(c, masterMemory) {
-  var melee = getMasterMelee_(masterMemory);
-  if (!melee || !c) return c;
-  c.skills = (c.skills || []);
-  if (!c.skills.some(function (s) { return s && s.fx === 'master_melee'; })) {
-    c.skills = c.skills.concat([{ n: '御主體術', r: melee, fx: 'master_melee' }]);
-  }
-  return c;
-}
+// 🥋 2026-09 玩家定案「御主不要上戰場」：injectMasterMeleeSupport_／master_melee fx 已移除。
+//    御主的體術階位從此只進 masterCard_ 當演出依據，不再變成從者的傷害加成（見 CODE_NOTES）。
 function injectMasterMagicSupport_(c, masterMemory) {
   if (!c || String(c.cls) !== 'Caster') return c;
   var magicRank = getMasterMagicRank_(masterMemory);
@@ -252,11 +244,10 @@ function injectMasterMagicSupport_(c, masterMemory) {
   }
   return c;
 }
-// 🥋🔮 御主體術＋魔術支援·合併入口（Router_Battle.gs 2026-07 稽核抓到 5 處重複而抽出）：isEnemy=false → row 本身就是御主列，直接讀其 MEMORY(供我方視角：defC 我方從者受擊/atkC…（全文見 CODE_NOTES.md）
+// 🔮 御主魔術支援·入口（體術那半 2026-09 隨「御主不上戰場」移除）（Router_Battle.gs 2026-07 稽核抓到 5 處重複而抽出）：isEnemy=false → row 本身就是御主列，直接讀其 MEMORY(供我方視角：defC 我方從者受擊/atkC…（全文見 CODE_NOTES.md）
 function injectMasterSupportFor_(c, pcData, myGameId, row, isEnemy) {
   var mem = isEnemy ? enemyMasterMemoryFor_(pcData, myGameId, row) : (row ? row[COL.PC.MEMORY] : null);
   if (!mem) return c;
-  injectMasterMeleeSupport_(c, mem);
   injectMasterMagicSupport_(c, mem);
   return c;
 }
@@ -636,8 +627,6 @@ function resolveFateBattle_(atk, def, opts) {
   base = fxDmgApply_(base, winner, loser, 'divine_age', fired);
   base = fxDmgApply_(base, winner, loser, 'wind_strike', fired);
   base = fxDmgApply_(base, winner, loser, 'crafting', fired);
-  // 🥋 御主體術參戰（見 injectMasterMeleeSupport_ 注入來源）：玩家/敵方兩側皆會注入——玩家側走FACTION==="從者" 門檻(比照禮裝 injectMysticBuff_)，敵從者則由 Router_Battl…（全文見 CODE_NOTES.md）
-  base = fxDmgApply_(base, winner, loser, 'master_melee', fired);
   base = fxDmgApply_(base, winner, loser, 'master_magic', fired);
   if (hasFx_(winner, 'tsubame') && !opts.np && (opts.round || 1) === 1) { base = Math.round(base * 2.3); fired.push(winner.name + '·' + fxName_(winner, 'tsubame', '秘劍・燕返') + '(三方位同斬)'); }
   // 🗡️ 無毀的湖光(weapon_steal／蘭斯洛特·Arondight)：湖之妖精所託的魔劍，對具「龍」屬性之敵解放秘藏威能，傷害×1.5

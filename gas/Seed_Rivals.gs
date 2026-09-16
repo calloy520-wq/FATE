@@ -130,7 +130,7 @@ function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   row[COL.PC.INTENT] = String(mr[COL.MASTER.MOE] || "");
   row[COL.PC.FACTION] = faction; row[COL.PC.RANK] = "御主";
   row[COL.PC.ALIGN] = String(mr[COL.MASTER.ALIGN] || "").trim();
-  // 體術/魔術階位需寫進 MEMORY，masterCard_ 與 injectMasterMeleeSupport_/injectMasterMagicSupport_ 才讀得到。
+  // 體術/魔術階位需寫進 MEMORY，masterCard_ 與 injectMasterMagicSupport_ 才讀得到（體術現只供演出）。
   row[COL.PC.MEMORY] = `【願望】${mr[COL.MASTER.WISH] || ""}｜【魔術】${mr[COL.MASTER.MAGIC] || ""}｜【迴路】${circuits}｜【體術】${mr[COL.MASTER.MELEE] || ""}｜【魔術階位】${mr[COL.MASTER.MAGIC_RANK] || ""}`;
   row[COL.PC.GAME_ID] = gameId;
   return row;

@@ -1902,21 +1902,19 @@
     if (name === 'map') renderMapPane();
     if (name === 'status') refreshFateTags();
   }
-  // 🎌 御主參戰風格（常駐三段藥丸·存 localStorage·免 round-trip）：一鍵決定兩件事——
-  //   ①接敵敘事基調(抵達演出定調；撤退追擊已改「按撤退鈕必追」，非此處風格影響機率)；
-  //   ②戰鬥中御主替從者【分擔傷害】的比例(share)。
-  //   後方支援=躲後方(0%分擔·最難被察覺)；見機行事=相機補位(5%)；正大光明=立於陣前共擔(10%·最易被察覺)。
-  //   share 由後端 STANCE_SHARE_ 為準，此處僅供 UI 顯示。
+  // 🎌 御主行動姿態（常駐三段藥丸·存 localStorage·免 round-trip）：只決定【你怎麼接近敵人】——
+  //   影響抵達時對方是否察覺、以及戰報裡御主站得多前(arriveStanceNotice_／_masterJoinLine)。
+  //   ⚠ 2026-09 玩家定案「御主不要上戰場」後，這裡【不再有任何數值效果】：分擔傷害整組已移除，
+  //   御主不會因為交鋒掉血。別再把 share 這類欄位加回來。
   var STANCES = {
-    stealth: { icon: '🛡️', label: '後方支援', color: '#8a7fc0', share: 0 },
-    normal:  { icon: '👁️', label: '見機行事', color: '#9fb0c0', share: 5 },
-    open:    { icon: '🔥', label: '正大光明', color: '#d08a5a', share: 10 }
+    stealth: { icon: '🛡️', label: '後方支援', color: '#8a7fc0' },
+    normal:  { icon: '👁️', label: '見機行事', color: '#9fb0c0' },
+    open:    { icon: '🔥', label: '正大光明', color: '#d08a5a' }
   };
   function getStance() { var s = localStorage.getItem('fate_stance'); return STANCES[s] ? s : 'normal'; }
   function setStance(s) { if (!STANCES[s]) return; localStorage.setItem('fate_stance', s); paintStancePill_(); }
   function paintStancePill_() {
     var cur = getStance();
-    var _sp = document.getElementById('stance-share-pct'); if (_sp && STANCES[cur]) _sp.textContent = STANCES[cur].share;
     Object.keys(STANCES).forEach(function (k) {
       var el = document.getElementById('stance-' + k); if (!el) return;
       var st = STANCES[k], on = k === cur;
@@ -1932,9 +1930,8 @@
       var st = STANCES[k], on = k === cur;
       return '<button id="stance-' + k + '" onclick="setStance(\'' + k + '\')" style="flex:1; font-size:11px; padding:5px 2px; cursor:pointer; border:1px solid ' + (on ? st.color : '#3a3550') + '; background:' + (on ? 'rgba(255,255,255,.07)' : 'transparent') + '; color:' + (on ? st.color : '#6a6580') + '; border-radius:6px; font-weight:' + (on ? 'bold' : 'normal') + ';">' + st.icon + ' ' + st.label + '</button>';
     }).join('');
-    var _shareNow = STANCES[cur] ? STANCES[cur].share : 5;
     return '<div style="margin-bottom:8px; padding:6px 7px; background:rgba(20,18,32,.4); border:1px solid #2e2a44; border-radius:7px;">'
-      + '<div style="color:#8a8298; font-size:10.5px; margin-bottom:4px;">🎌 御主參戰風格 <small style="opacity:.6;">· 御主替從者分擔戰損 <span id="stance-share-pct">' + _shareNow + '</span>%、並定調接敵/撤離追擊</small></div>'
+      + '<div style="color:#8a8298; font-size:10.5px; margin-bottom:4px;">🎌 御主行動姿態 <small style="opacity:.6;">· 決定接近敵人時對方察不察覺得到你（御主不參與交鋒）</small></div>'
       + '<div style="display:flex; gap:4px;">' + segs + '</div></div>';
   }
 
@@ -2308,7 +2305,6 @@
     h += '<div style="border-top:1px solid rgba(212,175,55,0.25);margin-top:6px;padding-top:5px;">';
     h += '<div style="color:#9aa6c8;font-size:10.5px;">本戰：我方造成 <b style="color:#ffae6a;">' + (r.totalDealt || 0) + '</b>　受創 <b style="color:#e06a6a;">' + (r.totalTaken || 0) + '</b></div>';
     // 🎌 御主參戰風格·替從者分擔戰損（正大光明/見機行事才會 >0；GAS 已把這份傷勢轉到御主身上）
-    if (r.masterShared > 0) h += '<div style="color:#e0b060;font-size:10.5px;margin-top:2px;">🎌 御主參戰：立於陣前替從者硬扛 <b style="color:#e06a6a;">−' + r.masterShared + '</b> HP（從者少受這份傷）</div>';
     // 🔋 御主電池：寶具魔力不足，抽御主血／魔供能
     if (r.battery) {
       const b = r.battery;
@@ -2332,8 +2328,8 @@
       h += '<div style="color:#9a8bb0;font-size:10px;margin-top:2px;">我 ' + r.atk + '</div>' + hpbar(r.atkHp, r.atkHpMax, '#5cb85c');
     }
     // 🔋 御主焚血供能／🎌 御主參戰分擔戰損時，秀御主血條（讓御主付出的代價可見）
-    if (((r.battery && r.battery.bledMaster) || r.masterShared > 0) && r.masterHpMax) {
-      h += '<div style="color:#e0a0d0;font-size:10px;margin-top:2px;">御主' + ((r.battery && r.battery.bledMaster) ? '（電池）' : '（陣前）') + '</div>' + hpbar(r.masterHp, r.masterHpMax, '#d0473f');
+    if (r.battery && r.battery.bledMaster && r.masterHpMax) {
+      h += '<div style="color:#e0a0d0;font-size:10px;margin-top:2px;">御主（電池）</div>' + hpbar(r.masterHp, r.masterHpMax, '#d0473f');
     }
     h += '</div></div>';
     story.insertAdjacentHTML('beforeend', h);
