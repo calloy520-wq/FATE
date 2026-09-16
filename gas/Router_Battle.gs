@@ -24,10 +24,10 @@ function fateStrike_(sheets, pcData, atkC, tgtIdx, opts, ctx) {
   var defC = rowToCombatant_(pcData[tgtIdx]);
   if (String(pcData[tgtIdx][COL.PC.FACTION]) === "從者" && ctx && ctx.pIdx >= 0) {
     injectMysticBuff_(defC, pcData[ctx.pIdx][COL.PC.MEMORY]); injectHomeField_(defC, ctx && ctx.homeField);
-    injectMasterSupportFor_(defC, pcData, ctx.myGameId, pcData[ctx.pIdx], false); // 🥋🔮 御主體術/魔術參戰（守方時亦生效）
+    injectMasterSupportFor_(defC, pcData, ctx.myGameId, pcData[ctx.pIdx], false); // 🔮 御主的魔術支援（守方時亦生效）
     defC._shieldMp = parseInt(pcData[ctx.pIdx][COL.PC.MP]) || 0;
   } else if (String(pcData[tgtIdx][COL.PC.FACTION]) === "敵從者" && ctx && ctx.myGameId) {
-    // 🥋🔮 敵從者防守時同樣吃「自己御主」的體術/魔術支援(讀硬連結敵御主)，讓敵御主的能力也反應在戰報傷害上。
+    // 🔮 敵從者防守時同樣吃「自己御主」的魔術支援(讀硬連結敵御主)，讓敵御主的能力也反應在戰報傷害上。
     injectMasterSupportFor_(defC, pcData, ctx.myGameId, pcData[tgtIdx], true);
   }
   // 🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS。
@@ -485,7 +485,7 @@ function actionFateBattle(userData, pcId, sheets) {
   const homeField = homeTerritoryRank_(pcData, pIdx, myGameId); // 🏰 於自己陣地決戰＋隊有陣地作成→主場結界階級(否則"")
   const atkC = rowToCombatant_(pcData[atkIdx]);
   injectMysticBuff_(atkC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（含開場對轟攻防）
-  injectMasterSupportFor_(atkC, pcData, myGameId, pcData[pIdx], false); // 🥋🔮 御主體術/魔術參戰（開場對轟）
+  injectMasterSupportFor_(atkC, pcData, myGameId, pcData[pIdx], false); // 🔮 御主的魔術支援（開場對轟）
   injectHomeField_(atkC, homeField);                    // 🏰 主場·陣地結界（僅玩家於自己陣地決戰）
   const defC = rowToCombatant_(pcData[nIdx]);
 
@@ -744,7 +744,7 @@ function actionFateBattle(userData, pcId, sheets) {
   let clashFired = [];
   if (useNp && targetIsFoeServant && !String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) {
     const enemyC0 = rowToCombatant_(pcData[nIdx]);
-    // 🥋🔮 對轟中 enemyC0 稍後會反過來當攻方(ePow，見下)，補上其硬連結敵御主的體術/魔術支援。
+    // 🔮 對轟中 enemyC0 稍後會反過來當攻方(ePow，見下)，補上其硬連結敵御主的魔術支援。
     injectMasterSupportFor_(enemyC0, pcData, myGameId, pcData[nIdx], true);
     enemyC0.npChoice = bestNpChoice_(enemyC0.name, enemyC0.cls);
     const enemyHasNp = !!String(pcData[nIdx][COL.PC.MARTIAL] || "").trim() && rankVal(enemyC0.six["寶具"] || "-") >= 10;
@@ -876,7 +876,7 @@ function actionFateBattle(userData, pcId, sheets) {
       if (String(pcData[nIdx][COL.PC.ID]).startsWith("DEAD_")) break;
       const sC = rowToCombatant_(pcData[sidx]);
       injectMysticBuff_(sC, pcData[pIdx][COL.PC.MEMORY]);  // ✨ 御主禮裝被動加持我方從者（每回合出擊）
-      injectMasterSupportFor_(sC, pcData, myGameId, pcData[pIdx], false); // 🥋🔮 御主體術/魔術參戰（每回合出擊）
+      injectMasterSupportFor_(sC, pcData, myGameId, pcData[pIdx], false); // 🔮 御主的魔術支援（每回合出擊）
       injectHomeField_(sC, homeField);                     // 🏰 主場·陣地結界
       const isActive = (sidx === atkIdx);
       // npOverloadMul/overcharge 只設在 atkC 上、不存進 MEMORY，而 sC 是每回合重新建的新物件讀不到——除了對轟分支直接用 atkC 外，一般路徑(多數情況)都走這條每回合迴圈用 sC 結算，需手動複製過去，否則玩家已付超載代價卻吃不到超載倍率/過充加成。
@@ -984,7 +984,7 @@ function actionFateBattle(userData, pcId, sheets) {
       }
       if (!String(pcData[ctgt][COL.PC.ID]).startsWith("DEAD_")) {
         const enemyNow = rowToCombatant_(pcData[nIdx]);
-        // 🥋🔮 敵從者本回合出擊(對玩家)：補上其硬連結敵御主的體術/魔術支援，讓敵御主的能力真的算進傷害。
+        // 🔮 敵從者本回合出擊(對玩家)：補上其硬連結敵御主的魔術支援，讓敵御主的能力真的算進傷害。
         injectMasterSupportFor_(enemyNow, pcData, myGameId, pcData[nIdx], true);
         enemyNow.npChoice = bestNpChoice_(enemyNow.name, enemyNow.cls); // 🌟 敵解放/預告用最強攻擊寶具(如吉爾掏乖離劍·非預設王財)
         // 🔥 敵人也會解放寶具！殘血越急越想拼、暗殺/狂戰系更愛搏命；開寶具則全力(不打折)
@@ -1174,7 +1174,7 @@ function actionFateBattle(userData, pcId, sheets) {
   const npOpeningStrike = (!clash && useNp && rounds[0]) ? rounds[0].strikes.find(function (k) { return k.by === atkC.name; }) : null;
   const npMissed = !!(npOpeningStrike && !npOpeningStrike.pHit);
 
-  // 🎌 御主參戰風格·並肩感（每場【必給】·2026-07 玩家回饋「御主扣血卻沒一起上陣的感覺」）：御主體術/魔術/分擔血量這三個訊號若都沒觸發(常見：御主無體術魔術數值＋見機行事5%小傷攤成0)，AI 完全收不到「御主在場」的訊號→只演從者孤軍奮戰。
+  // 🎌 御主的姿態·每場【必給】：AI 收不到「御主在場」的訊號就只會演從者獨角戲（為什麼→CODE_NOTES.md）。
   var _stanceKey = String(userData.stance || 'normal');
 
   // 🔋 出力自動還原：系統自動幫玩家推到全開放寶具，卻從來不幫忙關——全開每小時耗魔是一般檔的兩倍，
@@ -1207,7 +1207,7 @@ function actionFateBattle(userData, pcId, sheets) {
   _mcSeen_(clashFired);
   rounds.forEach(r => (r.strikes || []).forEach(k => _mcSeen_(k.pFired)));
   rounds.forEach(r => { _mcSeen_(r.eFired); _mcSeen_(r.pactDef && r.pactDef.fired); });
-  // 🥋🔮 御主體術/魔術參戰：跟上面同一種「有記錄沒講給AI聽」的落差——這兩個 fx 每擊都可能悄悄加傷害，卻從沒被塞進 aiPrompt，AI 完全不知道御主動手了，只能憑空演出御主在旁乾看/捏著寶石不出手的空氣戲。
+  // 🔮 御主的魔術支援：這個 fx 每擊都可能悄悄加傷害，要講給 AI 聽，否則它只能演御主在旁乾看（為什麼→CODE_NOTES.md）。
   const _ourFiredAll_ = rounds.reduce((a, r) => a.concat((r.strikes || []).reduce((b, k) => b.concat(k.pFired || []), [])), []);
   const _foeFiredAll_ = rounds.reduce((a, r) => a.concat(r.eFired || []), []);
   // 旗標格式是「${誰}·${效果}」(見 fxDmgApply_)，而反擊回合的 fired 是把攻守兩邊的效果混在同一個陣列——
@@ -1243,7 +1243,7 @@ function actionFateBattle(userData, pcId, sheets) {
       : `【御主·見機行事】御主守在戰線側後方讀著戰況、適時下令，該退則果斷拉開距離——【不近身、不出手】。`)
     + `★【鐵律】御主不參與物理交鋒：不可寫御主揮拳/持械/格擋/替從者擋下攻擊/以身相代，也不可讓御主因交鋒受傷。御主能動用的只有【指令、魔力、令咒】。`
     + (_mjBits.length ? `這一戰御主${_mjBits.join('，並')}。` : '')
-    + `★御主的招式只能依御主卡上實際列出的魔術系統／體術，卡上沒寫的技術一律不可捏造（改寫成呼喊指令、眼神示意、肢體掩護等不需特定技術的參與方式）。`
+    + `★御主若動用魔術，只能用御主卡上實際列出的魔術系統，卡上沒寫的一律不可捏造（改寫成呼喊指令、眼神示意等不需特定技術的參與方式）。卡上的體術只用在【戰圈之外】：站位、閃開波及、接住從者，不可用來與敵交手。`
     + _masterCatchLine_;
 
   const BATTLE_WORDS_ = ['170~230', '220~290', '280~360', '340~440'];

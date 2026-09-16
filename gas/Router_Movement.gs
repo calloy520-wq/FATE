@@ -1078,7 +1078,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
   }
   const enemyC = rowToCombatant_(pcData[eIdx]);
   const svC = rowToCombatant_(pcData[svIdx]);
-  // 🥋🔮 突襲主角是 enemyC(攻方)：補上其硬連結敵御主的體術/魔術支援。
+  // 🔮 突襲主角是 enemyC(攻方)：補上其硬連結敵御主的魔術支援。
   injectMasterSupportFor_(enemyC, pcData, gameId, pcData[eIdx], true);
   // 🎯 敵AI自動施展招牌施放技術(免費·戰鬥本色)：還原單層歸屬前這些是免費被動的敵方偷襲威力。
   const probe = resolveFateBattle_(enemyC, svC, { ambush: true, skill: servantActiveSkill_(enemyC) });

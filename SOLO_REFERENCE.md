@@ -207,10 +207,14 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 - **回魔 `applyRegen_`**（共用池）：重算上限；income(迴路供給＋靈脈＋工房＋Σ從者魔力×0.15)×mult − Σ(從者 drain×outputTier drainMul)；御主/從者 HP 自我修復 5%/hr×avalon1.6。御主乾涸→強制全從者降出力20%＋從者靈基崩解流血。⚠ `applyRegen_` 與 HUD `playerServantEconomy_` 須同一套算式，改一個要一起動。
 - **敵御主電池**：`masterToNpcRow_` MP 走與玩家御主同一條 `masterPoolMax_(迴路, rankVal(契約英靈魔力階))`＝迴路×10＋從者魔力×2（沒有 fakeMasterRow_，也沒有「80+rankVal×2」）。敵寶具同吃 `enemyCanAffordNp_`＋`drainForNp_`。masterless 敵：一般英靈寶具啞火；持 `fx:'solo'`（單獨行動）者靠 `INDEPENDENT_ACTION_RESERVE`(60) 硬撐。敵御主 `refillMastersDaily_`（worldTick 每次跑，新的一天回滿·MEMORY 記【回魔日】）。
 
-### 御主體術/魔術支援傷害
+### 御主的魔術支援傷害（體術那半 2026-09 已移除）
 - MEMORY【體術】（E~A rank）/【魔術階位】（E~A rank，限 Caster 生效）。`getMasterMelee_`/`getMasterMagicRank_`（Core_Settings）。
-- 複用禮裝注入模式：`injectMasterMeleeSupport_`/`injectMasterMagicSupport_`（Engine_Fate）把 `{fx:'master_melee'/'master_magic', r}` 注入戰鬥單位 skills，走 `SKILL_FX_.master_melee/master_magic`（`dmgAdd:7*rankMul_(r)`·量級同 wind_strike/crafting·凡人不喧賓奪主）。
-- 玩家側＋敵側皆接戰鬥：`fateStrike_` 守方分支對「敵從者」用 `enemyMasterMemoryFor_`(Router_Bond) 反查敵御主 MEMORY 注入。體術/魔術發動的 `fired[]` 標籤（御主體術/御主魔術）也餵進 aiPrompt。
+- **⚠ 2026-09 玩家定案「御主不要上戰場…都改成指揮從者對打就好」**：`injectMasterMeleeSupport_` 與 `SKILL_FX_.master_melee` 整組移除，
+  【體術】從此**只進 `masterCard_` 當演出依據、不再變成傷害**，而且戰報鐵律把它框在戰圈之外（站位、閃開波及、接住從者，不可與敵交手）。
+  留下的只有 `injectMasterMagicSupport_`（`{fx:'master_magic', r}`→`SKILL_FX_.master_magic`，`dmgAdd:7*rankMul_(r)`·量級同 wind_strike/crafting·凡人不喧賓奪主），
+  而且只在 Caster 出擊時注入——那是後方詠唱、不是近身。
+- 玩家側＋敵側皆接戰鬥：`fateStrike_` 守方分支對「敵從者」用 `enemyMasterMemoryFor_`(Router_Bond) 反查敵御主 MEMORY 注入。魔術發動的 `fired[]` 標籤（御主魔術）也餵進 aiPrompt。
+- 探針 `master_off.js`（19 條）：御主整場不掉血、鐵律在場、體術被框在戰圈外、「接住從者」那一拍會在挨重手時出現且從不亂觸發。
 
 ### 主要 fx 機制（現行）
 - **施放技術（被動化·2026-07）**：`servantActiveSkill_(c)` 只給 3 種原作真·施放技術 `burst 魔力放出`/`str_up 怪力`/`projection 投影`（fx 只活在此層·下修 projection 見 SKILL_FX_）。無按鈕、免耗魔——`rollSkill_`（Router_Battle）每次交鋒 `SKILL_PROC_ = 0.3`（30%；玩家回饋 50% 太強下修）機率自動【全效】發動，未中則該擊無此加成；持有者兩者機率互斥不疊加。敵AI 恆走全效免費（`servantActiveSkill_` 直接餵 `resolveFateBattle_({skill:...})`，不經 50% 骰）。前端「🎲」技能膠囊點開只顯示發動方式說明（`showActiveSkillInfo`），非操作按鈕。常駐被動 `morale 卡里斯瑪`/`aim 千里眼`/`self_mod 自我改造` 不在此列。
