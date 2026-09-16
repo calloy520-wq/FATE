@@ -627,6 +627,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 御主 avatar 設定（隨時可改）
 
+- `actionKanshouSetPace(userData, pcId, sheets)`（action `kanshou_set_pace`，2026-09 新增）— 設定時間流速（每回合幾分鐘，只收 `KANSHOU_PACE_OPTIONS_`=[0,10,20,30]，0＝暫停），寫進玩家列 MEMORY 的【時間流速】標記。搭配 `kanshouPaceOf_(memory)`／`kanshouHourPerAction_(memory)`（唯一讀取入口，查無/不合法回預設 10）與 `kanshouHoursUntilDateTime_(curDay, curHour, y, m, d, hh)`（指定日期時刻→差幾小時，**只能往前**，往回回 0）。原本寫死的 `KANSHOU_HOUR_PER_ACTION_` 常數已移除。
 - `actionKanshouSetSex(userData, pcId, sheets)` — 切換御主性別（限男/女）；切男時檢查世界內是否已有男性從者（避免男男配對）；真換時重置 PHYSICAL 為中性預設。
 - `actionKanshouSetName(userData, pcId, sheets)` — 改御主名字（≤16 字）；關係併入從者自己列，改名不影響羈絆。
 - `actionKanshouSetHomeName(userData, pcId, sheets)` — 改「家」顯示名（≤12 字），寫進 MEMORY【住所】標記（`setKanshouHomeName_`）。

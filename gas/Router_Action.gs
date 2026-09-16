@@ -22,6 +22,7 @@ const ActionRouter = {
   "kanshou_world": actionKanshouWorld,        // 🌍 世界帳本面板：list/pin/unpin/del(玩家看得到、管得動)
   "kanshou_summon_hero": actionKanshouSummonHero, // 🌹 慾海同伴唯一入口：直接從英靈庫召喚，不需先在solo贏得戰爭
   "kanshou_set_sex": actionKanshouSetSex,
+  "kanshou_set_pace": actionKanshouSetPace,
   "kanshou_set_name": actionKanshouSetName,
   "kanshou_set_home_name": actionKanshouSetHomeName,
   "kanshou_add_quick_phrase": actionKanshouAddQuickPhrase, // 🎀 快速輸入貼圖·玩家自訂新增(2026-07新增)
@@ -441,7 +442,8 @@ function buildTagsPayload_(sheets, pcId, preData) {
     if (_w && _w.loc === String(m[COL.PC.LOC] || "").trim()) encWin = { type: _w.type, choices: encounterChoices_(_w.type) };
   }
   // 🗺️ myLoc：玩家此刻所在地。
-  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences), myPlaces: myPlaces, myRegions: myRegions, regionCap: KANSHOU_REGION_CAP_, encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || ""),
+  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences), myPlaces: myPlaces, myRegions: myRegions, regionCap: KANSHOU_REGION_CAP_,
+      pace: isFateCtx ? 0 : kanshouPaceOf_(m[COL.PC.MEMORY]), encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || ""),
     // 🌙 夜未眠(Gallery.gs KANSHOU_NIGHT_SCENE_TAG_)：HUD 那顆鈕要據此把「🌙睡覺」換成「🌅睡到天亮」。
     nightScene: (typeof KANSHOU_NIGHT_SCENE_TAG_ !== 'undefined'
       && KANSHOU_NIGHT_SCENE_TAG_.get(m[COL.PC.MEMORY]) === (parseInt(m[COL.PC.DAY]) || 0)) || undefined };

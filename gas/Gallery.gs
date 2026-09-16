@@ -890,6 +890,20 @@ function kanshouWorldPayload_(gid) {
 }
 
 // ⚧ 切換後日談御主 avatar 的性別（隨時可改；只動 SEX 欄，不影響從者/歷史）。
+// ⏰ 設定時間流速（每回合幾分鐘，0＝暫停）。存玩家列 MEMORY，設一次就記住。
+function actionKanshouSetPace(userData, pcId, sheets) {
+  const want = parseInt(userData.pace);
+  if (KANSHOU_PACE_OPTIONS_.indexOf(want) < 0) return JSON.stringify({ success: false, message: "不支援這個流速。" });
+  const kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」
+  const data = kpc.getDataRange().getValues();
+  const idx = kanshouPcIdx_(data, pcId);
+  if (idx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  try {
+    kpc.getRange(idx + 1, COL.PC.MEMORY + 1).setValue(KANSHOU_PACE_TAG_.set(data[idx][COL.PC.MEMORY], want));
+  } catch (e) { return JSON.stringify({ success: false, message: "設定失敗，請稍後再試。" }); }
+  return JSON.stringify({ success: true, pace: want });
+}
+
 function actionKanshouSetSex(userData, pcId, sheets) {
   var newSex = String(userData.pcSex || "").trim();
   if (newSex !== "男" && newSex !== "女") return JSON.stringify({ success: false, message: "性別僅限 男／女。" });
@@ -1338,8 +1352,27 @@ function kanshouHoursUntilBand_(curHour, targetStartHour) {
   return diff;
 }
 // ⏰ 時間隨玩家動作自然流動：一般 AI 敘事回合每次推進幾小時(讓「到處跑卻永遠停在6點」的凍結感消失)。
-const KANSHOU_HOUR_PER_ACTION_ = 1 / 6; // 每動作推進10分鐘(2026-07 玩家「問個菜色都中午了」→半小時太兇)。真要快轉用「⏩下一階段」。
+// ⏰ 時間流速（2026-09 玩家定案）：一個回合不是一段固定的時間——「早安。」是三秒，一起吃頓飯是
+//    四十分鐘，固定任何數字對其中一種永遠是錯的。所以把旋鈕交給玩家：他才知道這一幕多長。
+//    0＝暫停(時間完全不動)。存在玩家列 MEMORY，設一次就記住。
+const KANSHOU_PACE_OPTIONS_ = [0, 10, 20, 30];
+const KANSHOU_PACE_DEFAULT_ = 10;
+var KANSHOU_PACE_TAG_ = makeIntTag_('時間流速', KANSHOU_PACE_DEFAULT_);
+// 這一局的流速：回傳「每回合幾分鐘」。查無/不合法一律回預設，絕不讓時鐘壞掉。
+function kanshouPaceOf_(memory) {
+  const v = KANSHOU_PACE_TAG_.get(memory);
+  return (KANSHOU_PACE_OPTIONS_.indexOf(v) >= 0) ? v : KANSHOU_PACE_DEFAULT_;
+}
+function kanshouHourPerAction_(memory) { return kanshouPaceOf_(memory) / 60; }
 const KANSHOU_DAY_LAST_HOUR_ = 23;
+// 📅 算「從現在」到「某年某月某日某時刻」要跳幾小時。只能往前——往回會讓已經發生的事的時間戳
+//    錯亂(約定存絕對日、好感棘輪、相簿日期、節慶完成標記、初見日都是單向的)。往回一律回 0。
+function kanshouHoursUntilDateTime_(curDay, curHour, y, m, d, hh) {
+  const startOff = kanshouDoyOffset_(KANSHOU_CAL_START_MONTH_, KANSHOU_CAL_START_DAY_);
+  const tgtAbs = (parseInt(y) - KANSHOU_CAL_START_YEAR_) * 365 + kanshouDoyOffset_(parseInt(m), parseInt(d)) - startOff + 1;
+  const diff = (tgtAbs - curDay) * 24 + (parseFloat(hh) - curHour);
+  return diff > 0 ? diff : 0;
+}
 // 小時(可含 .5)→「HH:MM」，支援半小時刻度。
 function kanshouFmtHM_(h) {
   var hh = Math.floor(h);
@@ -1928,6 +1961,7 @@ function actionPlay_(userData, pcId, sheets) {
   let jumpFest = null; // 🎊 有跳到節慶時記著，餵進下方提示詞當氛圍靈感(見★【氛圍靈感·非強制】)
 
   const _myGid_ = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
+  const _paceHour_ = kanshouHourPerAction_(pc[COL.PC.MEMORY]); // ⏰ 每回合推進幾小時(0＝暫停，玩家自己設)
   // 🆕 玩家自己指定一個新地方(前端「去別的地方…」自由輸入)：查不到就當場把它加進這一局的世界，
   //    走過去，並讓 AI 第一次描述它是什麼樣的地方。世界從此多一格，之後可以再回來、可以約在那裡。
   let kanshouNewPlaceStr = "";
@@ -2027,7 +2061,7 @@ function actionPlay_(userData, pcId, sheets) {
     }
   }
   // ⏳ 這回合是否發生「時間跳躍」——單一真實來源。
-  const kanshouTimeJumped_ = !!(userData.endDay === true || userData.jumpBand || userData.jumpFestival || (parseFloat(userData.advanceHours) || 0) > 0);
+  const kanshouTimeJumped_ = !!(userData.endDay === true || userData.jumpBand || userData.jumpFestival || userData.setDateTime || (parseFloat(userData.advanceHours) || 0) > 0);
 
   // 📅 相約(玩家在同伴卡點「相約」→前端帶promiseMeet{name,loc})：只能跟「此刻在場」的同伴約、地點限公開清單(不含玩家私室)；成立→她列MEMORY蓋【約定】明日:地點(新約蓋舊約)，約定日她的行程骰被釘在該地點(見kanshouPromisePin_呼叫端)，赴約/爽約每回合結算(見下方【依約相會】)。
   let _pendingProposal = null; // {type:'promise'|'hold', idx, loc?, name?}
@@ -2300,7 +2334,7 @@ function actionPlay_(userData, pcId, sheets) {
   else if (userData.jumpBand) { const _rb = KANSHOU_TIME_BANDS_.find(b => b.key === String(userData.jumpBand)); if (_rb) _reHourAfter = _rb.startHour; }
   else if (parseFloat(userData.advanceHours) > 0) _reHourAfter = ((curHour + parseFloat(userData.advanceHours)) % 24 + 24) % 24;
   else if (userData.jumpFestival) _reHourAfter = 6; // 跳節慶恆落在前一天清晨6點(kanshouHoursUntilDate_ 的落點)
-  else if (curHour < KANSHOU_DAY_LAST_HOUR_) _reHourAfter = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + KANSHOU_HOUR_PER_ACTION_);
+  else if (curHour < KANSHOU_DAY_LAST_HOUR_ && _paceHour_ > 0) _reHourAfter = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + _paceHour_);
   const kanshouReBand_ = timeBand_(_reHourAfter);
   // 🗑️ 2026-09 情境橋段三層注入(地點×時段／同居日常／節慶 → 寫死的 ambient 句)已整批移除。
   //    那是「選單感」最重的一塊：同一個地點同一個時段，永遠是同一句話開場。
@@ -2429,6 +2463,11 @@ function actionPlay_(userData, pcId, sheets) {
     }
     // ⏰「跳到時段」：跟跳到節慶互斥判斷同一順位，advanceHours/jumpFestival都沒指定時才輪到它。
     let jumpBand = null;
+    // 📅 直接設定日期與時刻：算出差幾小時再丟進同一條管線(跟跳時段/跳節慶同款「單一真實來源」)。
+    if (!advanceHours && !jumpFest && userData.setDateTime && typeof userData.setDateTime === 'object') {
+      const _sd = userData.setDateTime;
+      advanceHours = kanshouHoursUntilDateTime_(curDay, curHour, _sd.year, _sd.month, _sd.day, _sd.hour);
+    }
     if (!advanceHours && !jumpFest && userData.jumpBand) {
       jumpBand = KANSHOU_TIME_BANDS_.find(b => b.key === String(userData.jumpBand)) || null;
       if (jumpBand) advanceHours = kanshouHoursUntilBand_(curHour, jumpBand.startHour);
@@ -2461,9 +2500,9 @@ function actionPlay_(userData, pcId, sheets) {
   }
   // ⏰ 時間隨動作流動：一般 AI 敘事回合(非結束一天/非時段跳躍)每次推進 KANSHOU_HOUR_PER_ACTION_ 小時，讓聊天/移動/拍照/橋段等按鍵都會讓時鐘往前走，消除「到處跑卻永遠6點」的凍結感。
   let kanshouBandCrossed_ = false; // 被動流動跨過時段邊界→下方「作息自然告辭」用
-  if (!kanshouClockMoved_ && curHour < KANSHOU_DAY_LAST_HOUR_) {
+  if (!kanshouClockMoved_ && curHour < KANSHOU_DAY_LAST_HOUR_ && _paceHour_ > 0) {
     const _pbBand = timeBand_(curHour);
-    curHour = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + KANSHOU_HOUR_PER_ACTION_);
+    curHour = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + _paceHour_);
     pcData[pcIndex][COL.PC.HOUR] = curHour;
     dirtyPcRows.add(pcIndex);
     kanshouBandCrossed_ = timeBand_(curHour) !== _pbBand;
