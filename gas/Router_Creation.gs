@@ -609,8 +609,14 @@ function actionSummonServant(userData, pcId, sheets) {
         const _nameMatches = hrows.filter(r => String(r[COL.HERO.NAME]).includes(trueName) || trueName.includes(String(r[COL.HERO.NAME])));
         hero = (reqCls && _nameMatches.find(r => String(r[COL.HERO.CLS]) === reqCls)) || _nameMatches[0] || null;
       } else {
-        // 隨機召喚：全英靈殿(含玩家原創 ai_gen)均勻抽。
-        let pool = reqCls ? hrows.filter(r => r[COL.HERO.CLS] === reqCls) : hrows;
+        // 🎲 隨機召喚：排除【這一局在場的】那組正典英靈——選第五次就不會搶第五次的人（見 CODE_NOTES）。
+        const _taken = {};
+        (warName === '4th' ? FATE_4TH_ROSTER : warName === '5th' ? FATE_5TH_ROSTER : []).forEach(r => { if (r && r.hero) _taken[String(r.hero)] = 1; });
+        let pool = hrows.filter(r => !_taken[String(r[COL.HERO.ID])]);
+        if (reqCls) pool = pool.filter(r => String(r[COL.HERO.CLS]) === reqCls);
+        // 🧱 空池防呆：排除＋職階兩道篩下來可能一個不剩，退回不排除再抽——寧可跟敵陣撞同一位
+        //    (既有的 playerServantName 機制會把敵方那組換掉)，也不要讓召喚整條路無聲失敗。
+        if (!pool.length) pool = reqCls ? hrows.filter(r => String(r[COL.HERO.CLS]) === reqCls) : hrows;
         if (pool.length) hero = pool[Math.floor(Math.random() * pool.length)];
       }
     }

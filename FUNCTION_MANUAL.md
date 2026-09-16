@@ -310,7 +310,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `actionClaimHero(userData, pcId, sheets)` — 認領無主原創英靈(action="claim_hero")。僅 `ai_gen` 且無 `persona.creator` 者可認領，先到先得。**副作用**：寫 PERSONA 格＋清快取。
 - `actionSaveHero(userData, pcId, sheets)` — 工房存檔(action="save_hero")。**修改模式**(帶 heroId)：僅創造者可改、真名不可改、`御主↔戰鬥職階`破壞性切換需 `confirmMasterConvert` 二次確認、演出欄非空覆寫/空保留、寶具英文名沿用舊值、重算日常快取，整列 setValues。**製造模式**：`parseForgeBuild_`＋重名擋→AI 補玩家沒填的演出欄與寶具英文名(`callGeminiAPI`，失敗不擋)→`recordOriginalHero_` 鑄入。**副作用**：改/寫英靈殿列＋清快取。
-- `actionSummonServant(userData, pcId, sheets)` — 召喚從者(寫進御主自己 game_id 實例、設同行)。已有從者則擋。三條尋敵路徑：heroId 指定／trueName 比對(同名多職階優先 match reqCls)／隨機抽；`custDesc` 自訂描述強制走 AI 原創。**種子路徑**：讀寫死六圍/技能/persona，血 `150+耐久×6`、MP=0(出力電池制靠御主供魔)、god_hand 復活命數處理、`stampPersonaFlavor_` 存口吻/小動作。**AI 路徑**：`callGeminiAPI` 生完整六圍(帶 fx)＋技能，`sanitizeSix_`/`sanitizeSkills_` 清洗，np 規模剝城/界/神→對軍，缺 realName/six 視為失敗中止；不重名則 `recordOriginalHero_` 寫回英靈殿。落列後：重算御主共用魔力池(`masterPoolMax_`)並補滿(只寫 MP/MAX_MP 兩格)；`seedRivalsForGame_` 一次性鋪敵方御主×從者；回召喚登場 `summonPrompt`。**副作用**：appendRow 從者列、寫御主 MP、鋪敵、可能寫英靈殿。
+- `actionSummonServant(userData, pcId, sheets)` — 召喚從者(寫進御主自己 game_id 實例、設同行)。已有從者則擋。三條尋敵路徑：heroId 指定／trueName 比對(同名多職階優先 match reqCls)／隨機抽(**2026-09：排除這一局在場的那組正典陣容**——`warName` 取 `FATE_4TH_ROSTER`/`FATE_5TH_ROSTER` 的 `hero` 當 ID 黑名單，chaos 不排；兩道篩空了退回不排除，見 `CODE_NOTES`)；`custDesc` 自訂描述強制走 AI 原創。**種子路徑**：讀寫死六圍/技能/persona，血 `150+耐久×6`、MP=0(出力電池制靠御主供魔)、god_hand 復活命數處理、`stampPersonaFlavor_` 存口吻/小動作。**AI 路徑**：`callGeminiAPI` 生完整六圍(帶 fx)＋技能，`sanitizeSix_`/`sanitizeSkills_` 清洗，np 規模剝城/界/神→對軍，缺 realName/six 視為失敗中止；不重名則 `recordOriginalHero_` 寫回英靈殿。落列後：重算御主共用魔力池(`masterPoolMax_`)並補滿(只寫 MP/MAX_MP 兩格)；`seedRivalsForGame_` 一次性鋪敵方御主×從者；回召喚登場 `summonPrompt`。**副作用**：appendRow 從者列、寫御主 MP、鋪敵、可能寫英靈殿。
 
 ---
 
