@@ -797,18 +797,15 @@ let plainTextContext = cleanText;
   var KC_LOCATIONS_ = [
     { name: '我的房間', region: 'home', isRoom: true }, // 顯示層併進「家」分頁·isRoom保留特殊性
 
-    { name: '客廳', region: 'home' }, { name: '廚房', region: 'home' },
-    { name: '浴室', region: 'home' }, { name: '庭院', region: 'home' },
-    { name: '和室', region: 'home' },
+    { name: '客廳', region: 'home' }, { name: '浴室', region: 'home' }, { name: '和室', region: 'home' },
 
     { name: '河邊小徑', region: 'shinzan' }, { name: '古老神社', region: 'shinzan' },
     { name: '社區公園', region: 'shinzan' }, { name: '便利商店', region: 'shinzan' },
     { name: '咖啡廳', region: 'fuyuki' }, { name: '書店二樓', region: 'fuyuki', bands: ['清晨', '午後', '黃昏'] },
-    { name: '屋頂花園', region: 'fuyuki' }, { name: '商店街', region: 'fuyuki' },
+    { name: '商店街', region: 'fuyuki' },
     { name: '摩天輪', region: 'fuyuki', bands: ['清晨', '午後', '黃昏', '夜'] }, { name: '水族館', region: 'fuyuki', bands: ['清晨', '午後'] },
     { name: '深夜賓館', region: 'fuyuki', bands: ['黃昏', '夜', '深夜'] },
-    { name: '老道場', region: 'dojo' }, { name: '山間小徑', region: 'dojo' },
-    { name: '隱藏溫泉', region: 'dojo' }, { name: '廢棄神社', region: 'dojo' },
+    { name: '廢棄神社', region: 'dojo' },
     { name: '夜景展望台', region: 'dojo', bands: ['黃昏', '夜', '深夜'] }, { name: '情侶溫泉套房', region: 'dojo', bands: ['黃昏', '夜', '深夜'] },
 
     { name: '隱蔽的工房', region: 'visit' }, { name: '島嶼道場', region: 'visit' },
@@ -898,13 +895,33 @@ let plainTextContext = cleanText;
     var homeLabel = (pc && pc.homeName) ? pc.homeName : '我家';
     var _curBand = (kcClock && kcClock.band) ? kcClock.band : '清晨'; // 🎭 橋段徽章判「現在正好是這時段」高亮用
     // 🗾 分區切換列：按鈕群組，當前分區高亮，點擊只切換下方地點清單(不影響已在場敘事)。
-    var tabsHtml = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">' + KC_REGIONS_.map(function (rg) {
+    // 🗾 分區＝內建鏡射 ∪ 玩家自己開的大區(後端 myRegions 下傳)。自訂區天生就是一般公共區。
+    var _myRegions = (window._lastTags && window._lastTags.myRegions) || [];
+    var _regionCap = (window._lastTags && window._lastTags.regionCap) || 12;
+    var _allRegions = KC_REGIONS_.concat(_myRegions.map(function (r) {
+      return { id: r.id, name: r.name, desc: r.desc, mine: true };
+    }));
+    var tabsHtml = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">' + _allRegions.map(function (rg) {
       var active = rg.id === kcActiveRegion_;
       var label = (rg.id === 'home' ? '🏠 ' : '') + escapeHtml(rg.id === 'home' ? homeLabel : rg.name);
       return '<button onclick="kcSwitchRegion_(\'' + rg.id + '\')" style="flex:1;min-width:70px;padding:6px 4px;font-size:11.5px;border-radius:7px;cursor:pointer;'
         + (active ? 'background:#4a2f4a;color:#f0c8e0;border:1px solid #b06aa0;font-weight:bold;' : 'background:#201a28;color:#9a8bb0;border:1px solid #3a2f48;')
         + '">' + label + '</button>';
-    }).join('') + '</div>';
+    }).join('')
+      + (_myRegions.length < _regionCap
+        ? '<button onclick="kanshouAddRegion()" title="開一個新的大區（可以是一座城、一個國家…）" style="flex:1;min-width:70px;padding:6px 4px;font-size:11.5px;border-radius:7px;cursor:pointer;background:#1e2a24;color:#bfe0cf;border:1px dashed #4a7a5f;">➕ 新大區</button>'
+        : '')
+      + '</div>'
+      // 🗾 站在自己開的大區上時，給它的改名/收掉入口（自由增減：開得出來就收得掉）
+      + (function () {
+        var _rg = _allRegions.filter(function (r) { return r.mine && r.id === kcActiveRegion_; })[0];
+        if (!_rg) return '';
+        var _q = function (v) { return String(v).replace(/'/g, "\\'"); };
+        return '<div style="text-align:right;margin:-4px 0 6px;font-size:11px;">'
+          + (_rg.desc ? '<span style="color:#7a8a80;float:left;">' + escapeHtml(_rg.desc) + '</span>' : '')
+          + '<span onclick="kanshouRenameRegion(\'' + _q(_rg.name) + '\')" style="cursor:pointer;color:#a0c0b0;">✏️ 改名</span>'
+          + '<span onclick="kanshouDelRegion(\'' + _q(_rg.name) + '\')" style="cursor:pointer;color:#c08a8a;margin-left:10px;">🗑 收掉這區</span></div>';
+      })();
     // 🆕 自由指定新地方：地圖不再是能去的地方的全部清單，只是「已經知道的」清單。
     var newPlaceHtml = '<div style="display:flex;gap:6px;margin-bottom:6px;">'
       + '<button onclick="kanshouGoNewPlace()" style="flex:1;text-align:left;padding:8px 10px;background:#1e2a24;color:#bfe0cf;border:1px dashed #4a7a5f;border-radius:8px;cursor:pointer;font-size:13px;">'
@@ -924,7 +941,9 @@ let plainTextContext = cleanText;
     (_kcCur || []).forEach(function (c) { if (c.promise && c.promise.loc) { promiseByLoc[c.promise.loc] = promiseByLoc[c.promise.loc] || []; promiseByLoc[c.promise.loc].push(c); } });
     // 🗺️ 靜態地圖 ∪ 自己走出來的地方(後端 myPlaces 下傳，鏡射常數長不出來)。
     var _myPlaces = (window._lastTags && window._lastTags.myPlaces) || [];
-    var _allLocs = KC_LOCATIONS_.concat(_myPlaces.map(function (p) { return { name: p.name, region: 'mine', desc: p.desc }; }));
+    var _allLocs = KC_LOCATIONS_.concat(_myPlaces.map(function (p) {
+      return { name: p.name, region: p.region || 'mine', desc: p.desc, mine: true, own: p.own || "" };
+    }));
     var locBtns = _allLocs.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
       var label = l.isRoom ? kcRoomLabel_(l.name) : l.name;
       var cnt = locCounts[l.name] || 0;
@@ -952,12 +971,14 @@ let plainTextContext = cleanText;
       }
       return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
         + '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
-        + '<span style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">📍 ' + escapeHtml(label) + _scBadge + (_pmBadge ? ' ' + _pmBadge : '') + '</span>'
+        + '<span style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">' + (l.own ? '🏪' : '📍') + ' ' + escapeHtml(label)
+        + (l.own ? '<span style="color:#e0c090;font-size:10px;">你的' + escapeHtml(l.own) + '</span>' : '') + _scBadge + (_pmBadge ? ' ' + _pmBadge : '') + '</span>'
         + (cnt ? '<span style="color:#e0a0bc;font-size:11px;">👤' + cnt + '</span>' : '')
         + '</button>'
         // 🐛→✅ 2026-07 前後端鏡射稽核：私人房間(isRoom)在後端是 region 'room'，相約/邀同去一律
         //   不受理(見 Gallery.gs _pmLocOk/_pvLocOk)——這顆 👋 按下去必然被拒、還會拿到「還沒熟到能
         //   登門」這種對不上的理由。永遠不會成功的按鈕就不要長出來（同地圖上鎖住的地點）。
+        + (l.mine ? '<button onclick="kanshouPlaceMenu(\'' + String(l.name).replace(/'/g, "\\'") + '\')" title="這個地方是你開出來的：可以開店、搬到別區、或刪掉" style="padding:8px 9px;background:#1e2a24;color:#8fc0a0;border:1px solid #3e6a50;border-radius:8px;cursor:pointer;">⋯</button>' : '')
         + (l.isRoom ? ''
           : '<button onclick="kanshouProposeMove(\'' + l.name + '\')" title="邀同伴一起去「' + escapeHtml(label) + '」" style="padding:8px 9px;background:#2a2038;color:#e0c090;border:1px solid #5a4a3a;border-radius:8px;cursor:pointer;font-size:13px;">👋</button>')
         + '</div>';
@@ -966,6 +987,97 @@ let plainTextContext = cleanText;
   }
 
   // 🧹 原本掛在☰抽屜裡的彈窗(ensureKcMapOverlay_/closeKcMapOverlay/openKanshouMap)已被「🗺️地圖」分頁取代——kcMapListHtml_ 現在直接由 Script.html 的 renderMapPane() 渲染進 #map-pane-content，彈窗整條一併移除，不留兩套平行入口。
+
+  // 🗾 大區與地方的自由增減：全部走同一支後端 action(kanshou_world 的各個 op)。
+  //    成功後回傳的 payload 會帶新的 regions/rows，直接刷新 tags 快取＋重繪地圖。
+  async function kwWorldOp_(payload, busyMsg) {
+    if (!pc || !pc.id) { alert('尚未進入後日談。'); return null; }
+    try {
+      const res = await withProcessing_(busyMsg || '處理中…', () => gasRun(
+        Object.assign({ action: 'kanshou_world', pcId: pc.id, acctName: currentAccount }, payload)));
+      if (!res || !res.success) { alert((res && res.message) || '操作失敗。'); return null; }
+      // 地圖那一區的資料來源是 tags 快取裡的 myPlaces/myRegions，就地更新免再打一趟
+      try {
+        if (window._lastTags) {
+          window._lastTags.myRegions = (res.regions || []).filter(function (r) { return r.mine; });
+          window._lastTags.myPlaces = (res.rows || []).filter(function (r) { return r.kind === '地點'; })
+            .map(function (r) { return { name: r.name, desc: r.text || '', region: r.region || '', own: r.own || '' }; });
+        }
+      } catch (e) { }
+      try { var el = document.getElementById('kc-map-list'); if (el) el.innerHTML = kcMapListHtml_(); } catch (e) { }
+      return res;
+    } catch (e) { alert('連線受阻，請稍後再試。'); return null; }
+  }
+  async function kanshouAddRegion() {
+    var name = await customPrompt_('開一個新的大區叫什麼？\n\n（可以是一座城、一個國家、一片海岸——底下再放你自己的地點。例：泰國、海邊小鎮）', '', 16);
+    if (name === null) return;
+    name = String(name).trim(); if (!name) { alert('名字不能空白。'); return; }
+    var desc = await customPrompt_('「' + name + '」是什麼樣的地方？（一句話，可留空）', '', 24);
+    if (desc === null) desc = '';
+    await kwWorldOp_({ op: 'rg_add', name: name, text: String(desc).trim() }, '開一個新大區…');
+  }
+  async function kanshouRenameRegion(cur) {
+    var name = await customPrompt_('把「' + cur + '」改成什麼名字？', cur, 16);
+    if (name === null) return;
+    name = String(name).trim(); if (!name) { alert('名字不能空白。'); return; }
+    await kwWorldOp_({ op: 'rg_rename', name: cur, newName: name }, '改名中…');
+  }
+  async function kanshouDelRegion(cur) {
+    if (!await customConfirm_('收掉大區「' + cur + '」？\n\n底下的地方【不會】消失，它們會回到「走出來的地方」那一區。')) return;
+    var res = await kwWorldOp_({ op: 'rg_del', name: cur }, '收掉這一區…');
+    if (res) { kcActiveRegion_ = 'mine'; try { var el = document.getElementById('kc-map-list'); if (el) el.innerHTML = kcMapListHtml_(); } catch (e) { } }
+  }
+  // ⋯ 一個「你開出來的地方」能做的事：開店/改營業內容/收店、搬到別區、刪掉。
+  async function kanshouPlaceMenu(name) {
+    var places = (window._lastTags && window._lastTags.myPlaces) || [];
+    var here = places.filter(function (p) { return p.name === name; })[0] || {};
+    var regions = ((window._lastTags && window._lastTags.myRegions) || []).slice();
+    var pick = await kcChoose_('「' + name + '」', [
+      { k: 'own', label: here.own ? '🏪 改營業內容（現在是「' + here.own + '」）' : '🏪 在這裡開店' },
+      here.own ? { k: 'close', label: '🚪 收掉這家店（地方留著）' } : null,
+      { k: 'region', label: '🗾 搬到別的大區' },
+      { k: 'del', label: '🗑 把這個地方刪掉' }
+    ].filter(Boolean));
+    if (!pick) return;
+    if (pick === 'own') {
+      var biz = await customPrompt_('你在「' + name + '」做什麼？\n\n（例：小吃、按摩、賣雜貨、花店——不會有錢的數字，只影響大家怎麼跟你互動）', here.own || '', 12);
+      if (biz === null) return;
+      biz = String(biz).trim(); if (!biz) { alert('營業內容不能空白（要收店請選「收掉這家店」）。'); return; }
+      await kwWorldOp_({ op: 'loc_own', name: name, own: biz }, '開店中…');
+    } else if (pick === 'close') {
+      if (!await customConfirm_('收掉「' + name + '」這家店？地方會留著，只是不再是你的店。')) return;
+      await kwWorldOp_({ op: 'loc_own', name: name, own: '' }, '收店中…');
+    } else if (pick === 'region') {
+      var opts = [{ k: '', label: '（不屬於任何大區·走出來的地方）' }].concat(regions.map(function (r) { return { k: r.name, label: r.name }; }));
+      if (regions.length === 0) { alert('你還沒有自己開的大區——先在分區列按「➕ 新大區」。'); return; }
+      var rg = await kcChoose_('把「' + name + '」搬到哪一區？', opts);
+      if (rg === null) return;
+      await kwWorldOp_({ op: 'loc_region', name: name, region: rg }, '搬家中…');
+    } else if (pick === 'del') {
+      if (!await customConfirm_('把「' + name + '」從這座城裡刪掉？\n\n（之後就去不了了，AI 也不會再記得這個地方。）')) return;
+      await kwWorldOp_({ op: 'del', kind: '地點', name: name }, '刪除中…');
+    }
+  }
+  // 小選單：回傳選中的 k，取消回 null（比一連串 confirm 好讀）
+  function kcChoose_(title, opts) {
+    return new Promise(function (resolve) {
+      var ov = ensureOverlay_('kc-choose', { zIndex: 10030, extraStyle: 'padding:18px;' });
+      ov.innerHTML = '<div style="width:min(340px,92vw);background:#1d1722;border:1px solid #4a3a6a;border-radius:12px;padding:14px;">'
+        + '<div style="color:#e0c8f0;font-size:14px;margin-bottom:10px;">' + escapeHtml(title) + '</div>'
+        + opts.map(function (o, i) {
+          return '<button data-k="' + i + '" style="width:100%;text-align:left;padding:9px 11px;margin-bottom:6px;background:#261e30;color:#dcc8ec;border:1px solid #4a3a6a;border-radius:8px;cursor:pointer;font-size:13px;">' + escapeHtml(o.label) + '</button>';
+        }).join('')
+        + '<button data-k="cancel" style="width:100%;padding:8px;margin-top:2px;background:#2a2438;color:#9a8bb0;border:none;border-radius:8px;cursor:pointer;">取消</button></div>';
+      ov.style.display = 'flex';
+      ov.querySelectorAll('button').forEach(function (b) {
+        b.onclick = function () {
+          ov.style.display = 'none';
+          var k = b.getAttribute('data-k');
+          resolve(k === 'cancel' ? null : opts[parseInt(k)].k);
+        };
+      });
+    });
+  }
 
   // 🏠 改名「家」：寫進後端 MEMORY【住所】標記(kanshou_set_home_name)，成功後同步更新本地 pc.homeName＋重繪清單，不必整頁重整或重打 sync。
   async function kanshouRenameHome() {
@@ -990,12 +1102,29 @@ let plainTextContext = cleanText;
   // 🧭 自由前往一個還不存在的地方：後端查無就當場把它加進這一局的世界(見 Gallery.gs kanshouNewPlaceStr)，
   //    AI 第一次描述它，並用 world_note 把樣貌記下來，之後地圖上就有這一格。
   async function kanshouGoNewPlace() {
-    var name = prompt('想去哪裡？（說個地名就好，這座城會多出這個地方）');
+    var name = await customPrompt_('想去哪裡？（說個地名就好，這座城會多出這個地方）', '', 16);
     if (name === null) return;
     name = String(name).replace(/[<>&"\'`｜【】\[\]★]/g, '').trim().slice(0, 16);
     if (!name) return;
+    // 🗾 開在哪一區？站在某一區的分頁上就預設開在那裡（在「家」就是新增一個家中空間）。
+    //    只有一區可選時不問，直接用（少一次點擊）。
+    var region = '';
+    var _rgOpts = KC_REGIONS_.filter(function (r) { return r.id === 'home'; })
+      .concat(((window._lastTags && window._lastTags.myRegions) || []));
+    if (_rgOpts.length) {
+      var pick = await kcChoose_('「' + name + '」開在哪裡？', [{ k: '', label: '（就在這座城裡·走出來的地方）' }]
+        .concat(_rgOpts.map(function (r) { return { k: r.name, label: (r.id === 'home' ? '🏠 ' : '🗾 ') + r.name }; })));
+      if (pick === null) return;
+      region = pick;
+    }
+    var own = '';
+    if (await customConfirm_('「' + name + '」是你自己要開的店嗎？\n\n（選「否」就只是個普通的地方）')) {
+      own = await customPrompt_('你在這裡做什麼？（例：小吃、按摩、賣雜貨、花店）\n不會有錢的數字，只影響大家怎麼跟你互動。', '', 12);
+      if (own === null) own = '';
+      own = String(own).trim();
+    }
     showGamePane('chat');
-    await send('📍 走向了「' + name + '」。', false, { newPlace: name });
+    await send('📍 走向了「' + name + '」。', false, { newPlace: name, newPlaceRegion: region, newPlaceOwn: own });
   }
 
   async function kanshouMoveTo(name) {

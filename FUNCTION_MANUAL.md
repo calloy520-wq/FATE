@@ -232,6 +232,9 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
   - `kanshouWorldRow_(a, rowNum)` — 一列陣列 → 一個帳本條目。讀與寫回填快取共用這份對應（欄位長相的單一真實來源）。
   - `kanshouWorldRead_(gameId)` / `kanshouWorldBust_(gameId)` — 讀這一局的帳本（走 CacheService，每回合都要讀）／作廢快取。
   - `kanshouWorldWrite_(gameId, entries, curDay)` — **唯一寫入點**：清洗→去重→更新或新增→淘汰→整批寫回→**把快取換成新內容**（不是作廢：同一次執行裡後面還會有人讀，作廢等於逼它再整表讀一次）。
+  - `kanshouRegionsFor_(gameId)` / `kanshouFindRegion_(gameId, idOrName)` — 這一局有哪些大區＝內建 `KANSHOU_REGIONS_` ∪ 玩家自己開的（帳本 kind=`大區`）。⚠ 自訂大區天生就是一般公共區：所有行為判斷都寫成「不是 room／不是 visit」的否定形式，陌生 id 自動落在「一般」那一邊。
+  - `kanshouWorldSet_(gameId, kind, name, col, val)` — 改帳本某一列的某一欄；大區改名／地點搬區／開店收店共用。
+  - `kanshouWorldPayload_(gid)` — 面板要的東西一次給齊（條目＋大區＋上限）；`list` 與每個 op 都回這同一包。
   - `kanshouWorldDrop_(gameId, kind, name)` — 從帳本拿掉一條（同類同名），回傳有沒有真的刪到。面板的「刪掉」與「常民升格成正式同伴之後清掉帳本那條」共用這一支（不清會變成同一個人兩份真相）。
   - `kanshouWorldEvictees_(d, gid, added, curDay)` — **純函式**，只回答「該砍哪幾列」（`{'r列索引':1,'a新列序':1}`）：每類超過 `KANSHOU_WORLD_CAP_` 就砍「最久沒被提到、提及次數也最少」的，★釘選永不驅逐。刻意不自己讀表——寫入端手上已經有整張表了。
   - `kanshouWorldFeed_(rows, curLoc, presentNames, userMsg, curDay)` — **不是全餵**：算相關性分數排序取前 `KANSHOU_WORLD_FEED_MAX_` 條。

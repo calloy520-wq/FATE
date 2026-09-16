@@ -42,9 +42,13 @@ function sanitizeAiData_(aiData) {
   // 🌍 world_note 是 AI 唯一能新增「世界內容」的管道，所以邊界要擋在最外層：只收合法類別、限筆數。
   //    逐欄的字元清洗與長度在 kanshouWorldWrite_ 裡做(那裡是唯一寫入點)，這裡只擋結構。
   if (aiData.world_note !== undefined) {
+    // ⚠ 只留白名單那四欄再往下送：AI 回傳的物件是整包穿過去的，不重建的話它可以塞
+    //    {own:"按摩"} 自己宣告「這家店是玩家的」、或把地點塞進別人的大區。
+    //    region/own 只有玩家自己的動作寫得到(開店/開區)，那條路不經過這裡。
     aiData.world_note = (Array.isArray(aiData.world_note) ? aiData.world_note : [])
       .filter(w => w && typeof w === 'object' && KANSHOU_WORLD_KINDS_.indexOf(String(w.kind || "").trim()) >= 0)
-      .slice(0, KANSHOU_WORLD_WRITE_MAX_);
+      .slice(0, KANSHOU_WORLD_WRITE_MAX_)
+      .map(w => ({ kind: w.kind, name: w.name, text: w.text, sex: w.sex }));
   }
   // 🛡️ ★指令／〈演出卡〉被原樣抄進敘事：solo(narrateWithState_) 早有這道濾網，鑑賞這條路徑漏掉了。
   //    先把真實換行轉成 <br> 再過濾——濾網掃到下一個「<」為止，沒有 <br> 的話會把整段吃光。
@@ -821,6 +825,46 @@ function actionKanshouWorld(userData, pcId, sheets) {
   if (!gid) return JSON.stringify({ success: false, message: "查無這一局的世界編號。" });
 
   const op = String(userData.op || "list").trim();
+
+  // 🗾 大區與地點的「自由增減」：開一個區／改名／收掉、把地點搬到某一區、開店／收店。
+  //    全部住在這支既有的帳本管理 action 裡(它本來就在做 pin/unpin/del)，不另開路由。
+  if (['rg_add', 'rg_rename', 'rg_del', 'loc_region', 'loc_own'].indexOf(op) >= 0) {
+    try {
+      const nm = kanshouSanitizeTagValue_(userData.name, 16);
+      if (!nm) return JSON.stringify({ success: false, message: "名字不能空白。" });
+      if (op === 'rg_add') {
+        const regions = kanshouRegionsFor_(gid);
+        if (regions.some(r => r.name === nm)) return JSON.stringify({ success: false, message: "已經有同名的大區了。" });
+        if (regions.filter(r => r.mine).length >= KANSHOU_REGION_CAP_) {
+          return JSON.stringify({ success: false, message: `自己開的大區最多 ${KANSHOU_REGION_CAP_} 個，先收掉一個再開。` });
+        }
+        const rid = 'rg_' + Date.now().toString(36);
+        kanshouWorldWrite_(gid, [{ kind: KANSHOU_REGION_KIND_, name: nm, text: kanshouSanitizeTagValue_(userData.text, 24), region: rid }], parseInt(data[meIdx][COL.PC.DAY]) || 1);
+      } else if (op === 'rg_rename') {
+        const newNm = kanshouSanitizeTagValue_(userData.newName, 16);
+        if (!newNm) return JSON.stringify({ success: false, message: "新名字不能空白。" });
+        if (!kanshouWorldSet_(gid, KANSHOU_REGION_KIND_, nm, KW_.NAME, newNm)) return JSON.stringify({ success: false, message: "找不到這個大區。" });
+      } else if (op === 'rg_del') {
+        // ⚠ 收掉一個區之前，先把底下的地點放回「走出來的地方」——不然它們會變成
+        //    指向一個不存在的區的孤兒（地圖上那一格從此點不到）。
+        const rg = kanshouFindRegion_(gid, nm);
+        if (!rg || !rg.mine) return JSON.stringify({ success: false, message: "只能收掉自己開的大區。" });
+        kanshouWorldRead_(gid).filter(r => r.kind === '地點' && r.region === rg.id)
+          .forEach(r => { try { kanshouWorldSet_(gid, '地點', r.name, KW_.REGION, ""); } catch (e) { } });
+        if (!kanshouWorldDrop_(gid, KANSHOU_REGION_KIND_, nm)) return JSON.stringify({ success: false, message: "找不到這個大區。" });
+      } else if (op === 'loc_region') {
+        const rg = String(userData.region || "").trim() ? kanshouFindRegion_(gid, userData.region) : null;
+        if (!kanshouWorldSet_(gid, '地點', nm, KW_.REGION, rg ? rg.id : "")) return JSON.stringify({ success: false, message: "這個地方不是你走出來的，改不了分區。" });
+      } else if (op === 'loc_own') {
+        // 營業內容留空＝收店。地點本身不動，只是不再是你的店。
+        if (!kanshouWorldSet_(gid, '地點', nm, KW_.OWN, kanshouSanitizeTagValue_(userData.own, 12))) {
+          return JSON.stringify({ success: false, message: "這個地方不是你走出來的，沒辦法在這裡開店。" });
+        }
+      }
+    } catch (e) { return JSON.stringify({ success: false, message: "操作失敗，請稍後再試。" }); }
+    return JSON.stringify(kanshouWorldPayload_(gid));
+  }
+
   if (op !== 'list') {
     if (['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "參數不完整。" });
     const kind = String(userData.kind || "").trim();
@@ -843,10 +887,21 @@ function actionKanshouWorld(userData, pcId, sheets) {
     } catch (e) { return JSON.stringify({ success: false, message: "操作失敗，請稍後再試。" }); }
   }
 
-  const rows = kanshouWorldRead_(gid).map(r => ({ kind: r.kind, name: r.name, text: r.text, sex: r.sex, pin: r.pin, seen: r.seen, hits: r.hits }));
+  return JSON.stringify(kanshouWorldPayload_(gid));
+}
+
+// 面板要的東西一次給齊：條目＋大區＋上限。list 與每一個 op 都回這同一包(前端只要認一種形狀)。
+function kanshouWorldPayload_(gid) {
+  const all = kanshouWorldRead_(gid);
+  const rows = all.filter(r => r.kind !== KANSHOU_REGION_KIND_)
+    .map(r => ({ kind: r.kind, name: r.name, text: r.text, sex: r.sex, pin: r.pin, seen: r.seen, hits: r.hits, region: r.region, own: r.own }));
   // 釘選的排前面，其次照「最後被提到」由新到舊——跟提示詞的相關性排序不同，那是給 AI 的，這是給人看的。
   rows.sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.seen - a.seen);
-  return JSON.stringify({ success: true, rows: rows, caps: KANSHOU_WORLD_CAP_ });
+  return {
+    success: true, rows: rows, caps: KANSHOU_WORLD_CAP_,
+    regions: kanshouRegionsFor_(gid).map(r => ({ id: r.id, name: r.name, desc: r.desc || "", mine: !!r.mine })),
+    regionCap: KANSHOU_REGION_CAP_
+  };
 }
 
 // ⚧ 切換後日談御主 avatar 的性別（隨時可改；只動 SEX 欄，不影響從者/歷史）。
@@ -1012,8 +1067,23 @@ const KANSHOU_REGIONS_ = [
 //    ⚠ 查地點一律走這兩支，別再直接 .find(KANSHOU_LOCATIONS_)，否則自己走出來的地方會查無、被當成非法目的地。
 function kanshouLocationsFor_(gameId) {
   const mine = kanshouWorldRead_(gameId).filter(r => r.kind === '地點' && r.name)
-    .map(r => ({ name: r.name, region: 'mine', desc: r.text || "", mine: true }));
+    .map(r => ({ name: r.name, region: r.region || 'mine', desc: r.text || "", mine: true, own: r.own || "" }));
   return mine.length ? KANSHOU_LOCATIONS_.concat(mine) : KANSHOU_LOCATIONS_;
+}
+
+// 🗾 這一局有哪些大區＝內建幾區 ∪ 玩家自己開的。
+// ⚠ 自訂大區【天生就是一般公共區】：所有行為判斷都寫成「不是 room／不是 visit」的形式
+//    (不巧遇、要好感才能登門…)，所以一個陌生的區 id 自動落在「一般」那一邊，不必改任何行為邏輯。
+function kanshouRegionsFor_(gameId) {
+  const mine = kanshouWorldRead_(gameId)
+    .filter(r => r.kind === KANSHOU_REGION_KIND_ && r.name)
+    .map(r => ({ id: r.region || ('rg_' + r.name), name: r.name, desc: r.text || "", mine: true }));
+  return mine.length ? KANSHOU_REGIONS_.concat(mine) : KANSHOU_REGIONS_;
+}
+function kanshouFindRegion_(gameId, idOrName) {
+  const v = String(idOrName || "").trim();
+  if (!v) return null;
+  return kanshouRegionsFor_(gameId).find(r => r.id === v || r.name === v) || null;
 }
 function kanshouFindLoc_(gameId, name) {
   const n = String(name || "").trim();
@@ -1025,6 +1095,11 @@ function kanshouFindLoc_(gameId, name) {
 function kanshouLocContextForAI_(locName, homeName, gameId) {
   const loc = kanshouFindLoc_(gameId, locName);
   if (!loc) return "";
+  // 🏪 你自己的店/攤位：這是最需要先講清楚的一件事——不講的話 AI 會把你演成上門的客人。
+  const ownStr = loc.own ? `這是【你自己開的】${loc.own}「${loc.name}」，你是這裡的主人；客人會上門，你招呼、你做事` : "";
+  if (ownStr) return ownStr + (loc.desc ? `（${loc.desc}）` : "");
+  const rgCustom = (loc.region && String(loc.region).indexOf('rg_') === 0) ? kanshouFindRegion_(gameId, loc.region) : null;  // 內建區走下面的 switch
+  if (rgCustom) return `${rgCustom.name}${rgCustom.desc ? `（${rgCustom.desc}）` : ""}的「${loc.name}」${loc.desc ? `：${loc.desc}` : ""}`;
   if (loc.region === 'mine') return loc.desc || "這座城裡你們自己走出來的地方";
   switch (loc.region) {
     case 'room': return `你自己的家「${homeName}」的私人房間`;
@@ -1041,9 +1116,7 @@ const KANSHOU_LOCATIONS_ = [
   { name: '我的房間', region: 'room', desc: '安穩靜謐、只屬於自己的房間。', noEncounter: true, isRoom: true },
 
   { name: '客廳', region: 'home', desc: '沙發與電視的日常起居空間。', noEncounter: true },
-  { name: '廚房', region: 'home', desc: '飄著飯菜香、鍋碗交錯的小廚房。', noEncounter: true },
   { name: '浴室', region: 'home', desc: '水氣氤氳、放鬆卸下一天疲憊的地方。', noEncounter: true },
-  { name: '庭院', region: 'home', desc: '老日式庭院，草木扶疏、四季各有風景。', noEncounter: true },
   { name: '和室', region: 'home', desc: '鋪著榻榻米的和室，同居人的寢間。', noEncounter: true },
 
   { name: '河邊小徑', region: 'shinzan', desc: '晨昏都靜謐的河堤小徑，水聲潺潺。' },
@@ -1053,15 +1126,10 @@ const KANSHOU_LOCATIONS_ = [
 
   { name: '咖啡廳', region: 'fuyuki', desc: '磨豆香氣繚繞的小巧咖啡館。' },
   { name: '書店二樓', region: 'fuyuki', desc: '安靜得只聽見翻頁聲的二樓書架間。', bands: ['清晨', '午後', '黃昏'] },
-  { name: '屋頂花園', region: 'fuyuki', desc: '高樓頂上的一方綠意，能望見整座城市。' },
   { name: '商店街', region: 'fuyuki', desc: '人聲鼎沸的商店街，攤販林立。' },
   { name: '摩天輪', region: 'fuyuki', desc: '入夜會點燈的摩天輪，是情侶間熱門的約會景點。', bands: ['清晨', '午後', '黃昏', '夜'] },
   { name: '水族館', region: 'fuyuki', desc: '館內盡是幽藍燈光，水母缸前總擠著竊竊私語的情侶。', bands: ['清晨', '午後'] },
   { name: '深夜賓館', region: 'fuyuki', desc: '招牌亮著曖昧的霓虹燈，房間隔音很好，沒有人會多問一句。', noEncounter: true, dateOnly: true, bands: ['黃昏', '夜', '深夜'] },
-
-  { name: '老道場', region: 'dojo', desc: '木地板與竹刀氣味的老道場。' },
-  { name: '山間小徑', region: 'dojo', desc: '林蔭遮天、只聞鳥鳴的山間小路。' },
-  { name: '隱藏溫泉', region: 'dojo', desc: '深藏山林間、鮮少人知的一方溫泉。' },
   { name: '廢棄神社', region: 'dojo', desc: '荒草蔓生、早已無人祭拜的廢棄神社。' },
   { name: '夜景展望台', region: 'dojo', desc: '能俯瞰整座冬木市萬家燈火的高地，晚風正好，兩人並肩無語也不尷尬。', bands: ['黃昏', '夜', '深夜'] },
   { name: '情侶溫泉套房', region: 'dojo', desc: '只租給兩人的溫泉旅館房間，一拉上紙門，外頭的世界就與你們無關了。', noEncounter: true, dateOnly: true, bands: ['黃昏', '夜', '深夜'] },
@@ -1470,20 +1538,28 @@ const KANSHOU_ALBUM_CAP_ = 100;
 // 反轉：試算表從【AI 讀的選單】變成【AI 寫的帳本】。發明會出問題只是因為沒落盤；
 // 落了盤，發明就不是雜訊，是在蓋世界。詳見 KANSHOU_REFERENCE.md §「世界帳本」。
 var KANSHOU_WORLD_KINDS_ = ['地點', '人物', '設定'];
+// 🗾 大區(玩家自訂的分區，如「泰國」「海邊小鎮」)刻意【不】放進上面那張表：
+//    ①那張表驅動 AI 能寫哪些 kind——大區只有玩家能開，不讓 AI 自己生一個國家出來。
+//    ②那張表也驅動淘汰——大區是結構，被淘汰會讓底下的地點變孤兒，所以永不淘汰。
+var KANSHOU_REGION_KIND_ = '大區';
+var KANSHOU_REGION_CAP_ = 12;
 // 各類上限：超量時淘汰「最久沒被提到」的那些，釘選的永不驅逐(同 memoir 的政策)。
 var KANSHOU_WORLD_CAP_ = { '地點': 40, '人物': 24, '設定': 30 };
 var KANSHOU_WORLD_FEED_MAX_ = 6;   // 一回合最多餵回幾條(人物＋設定)——帳本會長大，這是唯一的煞車
 var KANSHOU_WORLD_WRITE_MAX_ = 2;  // AI 一回合最多寫幾條
 var KANSHOU_WORLD_TEXT_MAX_ = 40;
 // 性別只有「人物」類用得到，但升格成正式同伴時它是必要的(肢體互動依【性別】欄)，所以存在表上而非事後猜。
-var KW_ = { GID: 0, KIND: 1, NAME: 2, TEXT: 3, SEX: 4, BORN: 5, SEEN: 6, HITS: 7, PIN: 8 };
+// ⚠ COL 是位置索引：新欄位一律【接在最後】，絕不插在中間(插了整表位移)。
+//    REGION：這個地點屬於哪一區(kind=地點 才有意義；空＝走出來的地方)。
+//    OWN：這個地方是不是你的、你在這裡做什麼(空＝不是你的；有值＝營業內容，如「小吃」「按摩」)。
+var KW_ = { GID: 0, KIND: 1, NAME: 2, TEXT: 3, SEX: 4, BORN: 5, SEEN: 6, HITS: 7, PIN: 8, REGION: 9, OWN: 10 };
 
 function kanshouWorldSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName('鑑賞世界');
   if (!sh) {
     sh = ss.insertSheet('鑑賞世界');
-    sh.appendRow(['遊戲ID', '類別', '名稱', '內容', '性別', '建立日', '最後提及日', '提及次數', '釘選']);
+    sh.appendRow(['遊戲ID', '類別', '名稱', '內容', '性別', '建立日', '最後提及日', '提及次數', '釘選', '大區', '我的']);
   }
   return sh;
 }
@@ -1493,7 +1569,8 @@ function kanshouWorldRow_(a, rowNum) {
   return {
     kind: String(a[KW_.KIND] || ""), name: String(a[KW_.NAME] || ""), text: String(a[KW_.TEXT] || ""),
     sex: String(a[KW_.SEX] || ""), born: parseInt(a[KW_.BORN]) || 0, seen: parseInt(a[KW_.SEEN]) || 0,
-    hits: parseInt(a[KW_.HITS]) || 0, pin: String(a[KW_.PIN] || "") === '★', row: rowNum
+    hits: parseInt(a[KW_.HITS]) || 0, pin: String(a[KW_.PIN] || "") === '★',
+    region: String(a[KW_.REGION] || ""), own: String(a[KW_.OWN] || ""), row: rowNum
   };
 }
 
@@ -1545,7 +1622,10 @@ function kanshouWorldWrite_(gameId, entries, curDay) {
   entries.slice(0, KANSHOU_WORLD_WRITE_MAX_).forEach(e => {
     if (!e) return;
     const kind = String(e.kind || "").trim();
-    if (KANSHOU_WORLD_KINDS_.indexOf(kind) < 0) return;
+    // 大區也走這支寫入(同一套清洗/去重/快取)，但它【不在】KANSHOU_WORLD_KINDS_ 裡——
+    // 那張表管的是「AI 能寫哪些 kind」與「哪些 kind 會被淘汰」，大區兩者皆非。
+    // AI 走不到這裡：sanitizeAiData_ 在上游就只放行那三種 kind。
+    if (KANSHOU_WORLD_KINDS_.indexOf(kind) < 0 && kind !== KANSHOU_REGION_KIND_) return;
     // ⚠ world_note 是【AI 產的】、不經過 sanitizeUserData_，所以清洗要在這裡做完：
     //    ①斷字/偽造標記字元 ②開頭的公式引導字元(寫進儲存格會被 Google Sheet 當公式執行)
     //    ——相簿的 photo_caption 當初就是為了同一件事補的，這裡不能漏。
@@ -1553,7 +1633,10 @@ function kanshouWorldWrite_(gameId, entries, curDay) {
     const name = _f(e.name).slice(0, 20), text = _f(e.text).slice(0, KANSHOU_WORLD_TEXT_MAX_);
     if (!name && !text) return;
     const sex = (['男', '女', '異'].indexOf(String(e.sex || "").trim()) >= 0) ? String(e.sex).trim() : "";
-    clean.push({ kind: kind, name: name || text.slice(0, 12), text: text, sex: sex });
+    clean.push({
+      kind: kind, name: name || text.slice(0, 12), text: text, sex: sex,
+      region: _f(e.region).slice(0, 24), own: _f(e.own).slice(0, 12)
+    });
   });
   if (!clean.length) return 0;
 
@@ -1575,6 +1658,8 @@ function kanshouWorldWrite_(gameId, entries, curDay) {
     if (hit !== undefined) {
       if (c.text) d[hit][KW_.TEXT] = c.text;
       if (c.sex && !String(d[hit][KW_.SEX] || "").trim()) d[hit][KW_.SEX] = c.sex;
+      if (c.region && !String(d[hit][KW_.REGION] || "").trim()) d[hit][KW_.REGION] = c.region;
+      if (c.own && !String(d[hit][KW_.OWN] || "").trim()) d[hit][KW_.OWN] = c.own;
       d[hit][KW_.SEEN] = day;
       d[hit][KW_.HITS] = (parseInt(d[hit][KW_.HITS]) || 0) + 1;
       wrote++; touched = true;
@@ -1582,6 +1667,7 @@ function kanshouWorldWrite_(gameId, entries, curDay) {
     }
     const row = []; row[KW_.GID] = gid; row[KW_.KIND] = c.kind; row[KW_.NAME] = c.name; row[KW_.TEXT] = c.text;
     row[KW_.SEX] = c.sex; row[KW_.BORN] = day; row[KW_.SEEN] = day; row[KW_.HITS] = 1; row[KW_.PIN] = "";
+    row[KW_.REGION] = c.region; row[KW_.OWN] = c.own;
     added.push(row); wrote++;
   });
 
@@ -1610,6 +1696,24 @@ function kanshouWorldWrite_(gameId, entries, curDay) {
     try { CacheService.getScriptCache().put('KW_' + gid, JSON.stringify(mineNow), 120); } catch (e2) { }
   } catch (e) { kanshouWorldBust_(gid); return 0; }
   return wrote;
+}
+
+// 改帳本某一列的某一欄（改名／搬區／開店收店共用）。回傳有沒有改到。
+function kanshouWorldSet_(gameId, kind, name, col, val) {
+  const gid = String(gameId || ""), k = String(kind || "").trim(), n = String(name || "").trim();
+  if (!gid || !k || !n) return false;
+  try {
+    const sh = kanshouWorldSheet_();
+    const d = sh.getDataRange().getValues();
+    for (let r = 1; r < d.length; r++) {
+      if (String(d[r][KW_.GID]) !== gid || String(d[r][KW_.KIND]) !== k) continue;
+      if (String(d[r][KW_.NAME]).trim() !== n) continue;
+      sh.getRange(r + 1, col + 1).setValue(val);
+      kanshouWorldBust_(gid);
+      return true;
+    }
+  } catch (e) { }
+  return false;
 }
 
 // 從帳本拿掉一條（同類同名）。面板的「刪掉」與「常民升格成正式同伴」共用這一支。
@@ -1664,7 +1768,8 @@ function kanshouWorldFeed_(rows, curLoc, presentNames, userMsg, curDay) {
   const loc = String(curLoc || ""), msg = String(userMsg || "");
   const names = (presentNames || []).map(n => String(n || "").trim()).filter(Boolean);
   const day = parseInt(curDay) || 0;
-  const scored = rows.filter(r => r.kind !== '地點').map(r => {
+  // 地點不餵回(它的脈絡由★【地點釘死】那行給)；大區是結構、不是要敘述的事實。
+  const scored = rows.filter(r => r.kind !== '地點' && r.kind !== KANSHOU_REGION_KIND_).map(r => {
     const hay = r.name + '｜' + r.text;
     let sc = 0;
     if (r.pin) sc += 100;
@@ -1848,9 +1953,19 @@ function actionPlay_(userData, pcId, sheets) {
     if (kanshouFindLoc_(_myGid_, _newPlaceRaw)) {
       userData.moveTarget = _newPlaceRaw;               // 其實已經存在 → 當成一般移動
     } else {
-      kanshouWorldWrite_(_myGid_, [{ kind: '地點', name: _newPlaceRaw, text: "" }], curDay);
+      // 🗾 玩家可以指定這個新地方在哪一區(自訂大區或內建區，如把它開在「家」裡＝家中新空間)，
+      //    也可以一併宣告「這是我開的店」——三個需求同一條路徑，見 CODE_NOTES.md。
+      const _npRegion = kanshouFindRegion_(_myGid_, userData.newPlaceRegion);
+      const _npOwn = kanshouSanitizeTagValue_(userData.newPlaceOwn, 12);
+      kanshouWorldWrite_(_myGid_, [{
+        kind: '地點', name: _newPlaceRaw, text: "",
+        region: _npRegion ? _npRegion.id : "", own: _npOwn
+      }], curDay);
       userData.moveTarget = _newPlaceRaw;
-      kanshouNewPlaceStr = `\n★【第一次來到這裡】：「${_newPlaceRaw}」這個地方，玩家今天才第一次走進來——它長什麼樣、有什麼聲音氣味、平常是誰在這裡，由你當場決定並寫出來。★決定好之後【務必】用 world_note 記一條 {kind:"地點", name:"${_newPlaceRaw}", text:"一句話的樣貌"}，這樣它才會永遠留在這座城裡。`;
+      const _npWhere = _npRegion ? `它在「${_npRegion.name}」${_npRegion.desc ? `（${_npRegion.desc}）` : ""}。` : "";
+      kanshouNewPlaceStr = _npOwn
+        ? `\n★【你的店今天開張】：「${_newPlaceRaw}」是玩家【自己開的】${_npOwn}，今天第一天。${_npWhere}店裡長什麼樣、招牌什麼味道、客人怎麼上門，由你當場決定並寫出來——玩家是這裡的主人，不是客人。★決定好之後【務必】用 world_note 記一條 {kind:"地點", name:"${_newPlaceRaw}", text:"一句話的樣貌"}。`
+        : `\n★【第一次來到這裡】：「${_newPlaceRaw}」這個地方，玩家今天才第一次走進來——${_npWhere}它長什麼樣、有什麼聲音氣味、平常是誰在這裡，由你當場決定並寫出來。★決定好之後【務必】用 world_note 記一條 {kind:"地點", name:"${_newPlaceRaw}", text:"一句話的樣貌"}，這樣它才會永遠留在這座城裡。`;
     }
   }
   const moveTarget0_ = kanshouFindLoc_(_myGid_, userData.moveTarget);

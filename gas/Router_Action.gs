@@ -425,10 +425,15 @@ function buildTagsPayload_(sheets, pcId, preData) {
   }
   // 🗺️ 玩家自己走出來的地方(世界帳本「地點」類)：內建地圖是靜態鏡射(KC_LOCATIONS_)，長不出這些，
   //    所以後端算好逐項清單下傳，前端才畫得出「你走出來的地方」那一區。
-  var myPlaces = [];
+  var myPlaces = [], myRegions = [];
   if (gameId && gameId.indexOf("k_") === 0) {
-    try { myPlaces = kanshouWorldRead_(gameId).filter(function (r) { return r.kind === '地點' && r.name; })
-      .map(function (r) { return { name: r.name, desc: r.text || "" }; }); } catch (e) { }
+    try {
+      myPlaces = kanshouWorldRead_(gameId).filter(function (r) { return r.kind === '地點' && r.name; })
+        .map(function (r) { return { name: r.name, desc: r.text || "", region: r.region || "", own: r.own || "" }; });
+      // 🗾 玩家自己開的大區：地圖的分區列要靠它才畫得出來(內建那幾區是前端靜態鏡射)。
+      myRegions = kanshouRegionsFor_(gameId).filter(function (r) { return r.mine; })
+        .map(function (r) { return { id: r.id, name: r.name, desc: r.desc || "" }; });
+    } catch (e) { }
   }
   // 🎯 撞見敵人的可反應窗口（趁隙/挑撥/溜走）：僅 solo 且窗口 loc＝目前所在地時給前端，供顯示情境按鈕。
   var encWin = null;
@@ -437,7 +442,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
     if (_w && _w.loc === String(m[COL.PC.LOC] || "").trim()) encWin = { type: _w.type, choices: encounterChoices_(_w.type) };
   }
   // 🗺️ myLoc：玩家此刻所在地。
-  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences), myPlaces: myPlaces, encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || ""),
+  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, servantSlots: servants.length, locationCounts: locationCounts, unlockedResidences: Object.keys(unlockedResidences), myPlaces: myPlaces, myRegions: myRegions, regionCap: KANSHOU_REGION_CAP_, encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || ""),
     // 🌙 夜未眠(Gallery.gs KANSHOU_NIGHT_SCENE_TAG_)：HUD 那顆鈕要據此把「🌙睡覺」換成「🌅睡到天亮」。
     nightScene: (typeof KANSHOU_NIGHT_SCENE_TAG_ !== 'undefined'
       && KANSHOU_NIGHT_SCENE_TAG_.get(m[COL.PC.MEMORY]) === (parseInt(m[COL.PC.DAY]) || 0)) || undefined };
