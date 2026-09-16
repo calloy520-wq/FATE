@@ -9,7 +9,7 @@
 
 | 檔 | 函式數 | 職責 |
 |---|---|---|
-| **Router_Action.gs** | 12（＋ActionRouter 67 action） | 後端總分流器：`sanitizeUserData_`→`ActionRouter`→`handleGameAction`；鎖／14 日時限／`_state` 夾帶 |
+| **Router_Action.gs** | 12（＋ActionRouter 69 action） | 後端總分流器：`sanitizeUserData_`→`ActionRouter`→`handleGameAction`；鎖／14 日時限／`_state` 夾帶 |
 | **Router_Bond.gs** | 28 | 羈絆／令咒／結盟／示好交涉／破戒奪僕／主從硬連結 |
 | **Router_Narrative.gs** | 11 | SOLO 輕量敘事引擎（`narrateWithState_`／虛假之夢／老虎道場） |
 | **Router_Persona.gs** | 12 | 演出依據卡（`servantCard_`／`masterCard_`／`performanceNote_`…，show-don't-tell 載體） |
@@ -20,7 +20,7 @@
 | **Engine_Combat.gs** | 4 | 兩軌共用 LLM 調用（`callGeminiAPI`）＋`doGet` |
 | **Engine_Fate.gs** | 38 | 純數值戰鬥核心（D20／六圍／fx／寶具規模矩陣） |
 | **Mystic_Code.gs** | 8 | 起始禮裝被動化（`injectMysticBuff_`／`MC_COMBAT_`） |
-| **Gallery.gs** | 109 | 鑑賞（慾海）全軌＋`actionPlay`＋`nsfwBaseRules`（紅線①） |
+| **Gallery.gs** | 119 | 鑑賞（慾海）全軌＋`actionPlay`＋`nsfwBaseRules`（紅線①） |
 | **Core_Settings.gs** | 69 | 金鑰／模型常數／`COL` schema／數值公式／MEMORY 封裝／地理雷達 |
 | **Time_World.gs** | 22 | 世界時鐘／AP／`worldTick_` NPC 模擬迴圈 |
 | **Seed_Codex.gs** | 7 | 英靈殿種子＋人設回填 |
@@ -30,10 +30,10 @@
 | **History_Sync.gs** | 7 | 戰記寫入／軌跡摘要 |
 | **Index.html** | 0 | 載入殼（依序載 Style／Script／Script_Kanshou／Script_Onboarding） |
 | **Script.html** | 135 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
-| **Script_Kanshou.html** | 98 | 鑑賞（慾海）SPA |
+| **Script_Kanshou.html** | 108 | 鑑賞（慾海）SPA |
 | **Script_Onboarding.html** | 51 | 開局（登入／創角／召喚） |
 
-> ActionRouter 目前註冊 **67 個 action**，全部對應真實 handler、無缺漏（見下 Router_Action.gs 段完整對照表）。
+> ActionRouter 目前註冊 **69 個 action**，全部對應真實 handler、無缺漏（見下 Router_Action.gs 段完整對照表）。
 
 ---
 
@@ -49,7 +49,7 @@
 
 後端總分流器：唯一輸入防線 `sanitizeUserData_` → dispatch 表 `ActionRouter` → `handleGameAction`，並集中處理鎖／14 日時限攔截／`_state` 夾帶。共 **12 個函式** ＋ 4 張常數表。
 
-#### 🔹 ActionRouter 註冊表（目前註冊 67 個 action）
+#### 🔹 ActionRouter 註冊表（目前註冊 69 個 action）
 
 `"action字串": handler` 完整對照（依原碼順序）：
 
@@ -73,6 +73,8 @@
 | `kanshou_set_name` | `actionKanshouSetName` | 設同伴名 |
 | `kanshou_set_home_name` | `actionKanshouSetHomeName` | 設住處名 |
 | `kanshou_set_pace` | `actionKanshouSetPace` | ⏱ 時間流速（每回合 0/10/20/30 分） |
+| `kanshou_get_style` | `actionKanshouGetStyle` | 🎨 說書人設定面板：讀整張風格表（預設＋玩家版） |
+| `kanshou_set_style` | `actionKanshouSetStyle` | 🎨 改一格／還原一格／全部還原 |
 | `kanshou_add_quick_phrase` | `actionKanshouAddQuickPhrase` | 新增玩家自訂快速貼圖(2026-07新增，≤12字，上限8句) |
 | `kanshou_delete_quick_phrase` | `actionKanshouDeleteQuickPhrase` | 刪除玩家自訂快速貼圖 |
 | `prep_meal` | `actionPrepMeal` | 準備餐點 |
@@ -642,6 +644,14 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 御主 avatar 設定（隨時可改）
 
 - `actionKanshouSetPace(userData, pcId, sheets)`（action `kanshou_set_pace`，2026-09 新增）— 設定時間流速（每回合幾分鐘，只收 `KANSHOU_PACE_OPTIONS_`=[0,10,20,30]，0＝暫停），寫進玩家列 MEMORY 的【時間流速】標記。搭配 `kanshouPaceOf_(memory)`／`kanshouHourPerAction_(memory)`（唯一讀取入口，查無/不合法回預設 10）與 `kanshouHoursUntilDateTime_(curDay, curHour, y, m, d, hh)`（指定日期時刻→差幾小時，**只能往前**，往回回 0）。原本寫死的 `KANSHOU_HOUR_PER_ACTION_` 常數已移除。
+- `KANSHOU_STYLE_MODULES_`（常數·2026-09）— 🎨 說書人風格 12 段模組表 `{key,name,slot,def}`（sys 7 段進 nsfwBaseRules、user 5 段進 USER prompt）；`def` 就是原本寫死的那句。`KANSHOU_STYLE_TEXT_MAX_`(300)／`KS_`（分頁欄位 GID/KEY/TEXT/ON）。
+- `kanshouStyleModule_(key)` / `kanshouStyleDefault_(key)` — 查模組／取預設（`dialogue` 的預設是 `dialogueFormatRule_()`，所以預設要從這支拿、不能直接讀 `def`）。
+- `kanshouStyleSheet_()` — 取/建「鑑賞風格」分頁。
+- `kanshouStyleRead_(gameId)` / `kanshouStyleBust_(gameId)` / `kanshouStyleWrite_(gameId, key, row)` — 這一局的風格覆寫 `{key:{text,on}}` 讀（快取 `KS_<gid>` 120 秒）／清快取／寫一格（`row=null`＝刪列＝回預設）。
+- `kanshouStyle_(styles, key, vars)` — 組 prompt 的唯一讀口：玩家版 → 關閉＝'' → 預設，代入 `{玩家}{代名詞}{篇幅}{主動掌握}{推進}`。
+- `kanshouStyleClean_(text)` — 玩家文字清洗：只擋長度與空白，**不剝 ｜【】**。
+- `actionKanshouGetStyle(userData, pcId, sheets)`（action `kanshou_get_style`）— 回 `modules[]{key,name,slot,def,text,on,custom}`＋`max`。
+- `actionKanshouSetStyle(userData, pcId, sheets)`（action `kanshou_set_style`）— `{key,styleText,on}` 改一格／`{key,reset}` 還原一格／`{resetAll}` 全部還原；空文字＋開啟＝刪列。
 - `actionKanshouSetSex(userData, pcId, sheets)` — 切換御主性別（限男/女）；切男時檢查世界內是否已有男性從者（避免男男配對）；真換時重置 PHYSICAL 為中性預設。
 - `actionKanshouSetName(userData, pcId, sheets)` — 改御主名字（≤16 字）；關係併入從者自己列，改名不影響羈絆。
 - `actionKanshouSetHomeName(userData, pcId, sheets)` — 改「家」顯示名（≤12 字），寫進 MEMORY【住所】標記（`setKanshouHomeName_`）。
@@ -649,7 +659,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
 
 - `dialogueFormatRule_()` — 鑑賞軌的對話與敘事格式規則（口/喉發聲進「」台詞、每句台詞冠說話者名、看得見動作走敘事、只用單層「」）。**唯一呼叫點＝ `nsfwBaseRules` 第3條**。⚠ **2026-09 更正：solo 的 `miniSystem` 並【不】呼叫這支**（全樹只有 `nsfwBaseRules` 第3條一個呼叫點），文件長期寫成「兩軌共用」是錯的。而且**不該改成共用**——這支的具體例子是 NSFW 的（喘息／吸吮／舔啜／啪啪／交合處水聲），灌進鎖 SFW 的 solo 軌是污染。solo 自己那條是刻意的精簡版（冠名＋單層「」＋動作走敘事），少掉的「玩家台詞照原句寫、禁轉述」在 solo 也用不到——solo 是純按鍵、玩家根本不打字。
-- `buildDefaultSystemPrompt(includeOptions)` — 鑑賞系統提示詞（`nsfwBaseRules` ＋ 輸出範本）。⚠ 2026-09 拿掉了第一個參數 `includeMasterNote`：`master_note`（經歷滾動側寫）整組移除，經歷改回固定事實（見 `KANSHOU_REFERENCE.md` §「經歷改回固定」）。`Engine_Combat.gs` 的無參數 fallback 呼叫不受影響。
+- `buildDefaultSystemPrompt(includeOptions, styles)` — 鑑賞系統提示詞（`nsfwBaseRules` ＋ 輸出範本）。2026-09 `nsfwBaseRules` 改陣列組裝＋動態編號，風格段走 `kanshouStyle_(styles, key)`；`styles` 缺省＝全部預設＝與舊字串逐字相同。⚠ 2026-09 拿掉了第一個參數 `includeMasterNote`：`master_note`（經歷滾動側寫）整組移除，經歷改回固定事實（見 `KANSHOU_REFERENCE.md` §「經歷改回固定」）。`Engine_Combat.gs` 的無參數 fallback 呼叫不受影響。
   - 🔴 內含 `nsfwBaseRules`（函式內 const，非獨立函式）— 慾海演化核心紅線常數，後日談敘事鐵律 6 條；連同 `specificRules`(【慾海律令】現 7 條，**2026-07 新增第6條「options 只能建議在場人物/當下場景真能做到的動作」**修「AI選項建議移動/呼喚不在場者、玩家點了做不到」的bug；**五度改版再新增第7條「appearance_extras只在劇情真有穿脫/更衣動作才填新值、不准自行合理化改寫」**，修「玩家用👕換裝手動設定裝扮，下一回合被AI默默改回別的」——schema _note的「沒變化留空」對這個模型是弱信號，明文規則才夠強；**同批再補「appearance_extras只能寫衣物本身，禁止寫成所在環境/姿勢」**，修「泡溫泉→移動到商店街，裝扮卻卡在『在水下』」的變種bug)＋範本 JSON 一起回傳。**紅線①：一律不可改（specificRules 可改，非紅線本體）。**
 - `getKanshouPeopleList_(pcId, curL, allPcData)` — 鑑賞自算精簡「同地人物」清單（只 id/name/isExact），不借 solo 的 getLocalPeopleList（那多算 12 欄）。
 
@@ -1282,7 +1292,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `KC_QUICK_PHRASES_BUILTIN_`（4個固定內建貼圖：害羞/小聲/苦笑/臉紅，2026-07同月再縮減，原本8個）／`KC_QUICK_PHRASE_CAP_ = 8`（鏡像後端`KANSHOU_QUICK_PHRASE_CAP_`，此為玩家自訂上限，跟內建顆數無關）／`_kcQuickPhrases`（玩家自訂部分，`enterKanshou()`成功時載入）（2026-07「表情包文字也想自訂」新增）— `renderKcQuickPhrases_()` 把內建4個＋`_kcQuickPhrases`合併渲染進 `#kc-quick-phrases`(原本Index.html寫死8顆按鈕，改成JS動態渲染)，末尾附一顆「⚙️自訂」開管理面板。`kanshouOpenQuickPhraseManager()`（`ensureOverlay_('kqp-overlay',...)`）列出玩家自訂貼圖＋刪除鈕＋新增輸入框(≤12字)；`kanshouAddQuickPhrase()`/`kanshouDeleteQuickPhrase(text)` 打對應action、更新`_kcQuickPhrases`後重繪列與面板。
 - `send(customMsg, isSilent=false, opts={})` — **鑑賞聊天引擎，唯一 `action:'play'` 呼叫點**；本檔/Script.html 所有互動最終都經此送出。2026-07 重構：23 位置參數→單一 `opts` 物件（`moveTarget`/`lookAround`/`endDay`/`advanceHours`/`jumpFestival`/`jumpBand`/`skipKnockCheck`/`dismissGuest`/`moveWithCompanion`/`promiseMeet`/`cohabitInvite`/`cohabitInviteId`/`handHoldId`/`inviteResident`/`proposeMove`/`takePhoto`/`showPhoto`/`photoIntent`/`handHold`/`loaderCaptions` 等；`cohabitAccept`/`promiseAccept` 已隨GAS主動邀同居/邀約機制於八度改版一併移除）；前兩位置參數保留（選項鈕 `send(text,true)`）。忙碌鎖用 `btn.disabled`；數字 1–4 映射 `currentOptions`。呼叫 `gasRun`，消費回應：更新 `localNPCs`/`nearbyLocations`/`kcClock`(→`renderMapPane`)/`clock`(→`updateClock`)/`statusString`(→`updateUI`)；渲染各式「必點泡泡」（`moveProposal`/`promiseWait`/`nightGuest`/`cohabitOffer`/`photoResult`/`encounterOffer`/`options`【命運的抉擇】），有泡泡自動 `scrollIntoView`；插入說書人敘事＋`proposalResult`/`promiseSettle` 系統通知條；約定變動時背景重抓 `kanshou_companions` 刷 `_kcCur`；末尾 `refreshFateTags(data.tags)`＋重繪地圖人數徽章。失敗不炸整局（`success:false` 走灰字提示）。
 
-- `ensureOverlay_(id, opts)`（2026-07 稽核抽出，全檔共用）— 共用「取得或建立全螢幕遮罩容器」殼：`getElementById`沒有就`createElement('div')`設`id`+`style.cssText`(position:fixed/inset:0/背景遮罩/置中)+背景點擊關閉+`appendChild(document.body)`，取代多個彈窗函式(`kanshouOpenMemoir`/`kanshouPickBand_`/`kanshouTakePhoto`/`kanshouOpenRelTag`/`openKanshouFestivals`/`kanshouPickLocation_`等)各自手寫的同款8~11行骨架。`opts:{zIndex,dim,extraStyle,onBgClick}`——`onBgClick`只在需要擋「忙碌中不可關」的面板才傳。
+- `ensureOverlay_(id, opts)`（2026-07 稽核抽出，全檔共用）
+- `openKanshouStyle()` / `kanshouCloseStyle_()` / `ksLoad_()` / `ksRender_()` / `ksCount_(key)` / `ksSend_(payload)` / `ksSave_(key)` / `ksToggle_(key, on)` / `ksReset_(key)` / `ksResetAll_()`（2026-09 新增）— 🎨 ☰「⚙ 說書人設定」面板：`kanshou_get_style` 讀整張表、每段文字框（placeholder＝預設句）＋啟用開關＋儲存／還原，底部全部還原（`customConfirm_`）；全部經 `ksSend_`→`kanshou_set_style`（`withProcessing_` 讀條）後重抓。模組級狀態 `_ksMods_`／`_ksMax_`。— 共用「取得或建立全螢幕遮罩容器」殼：`getElementById`沒有就`createElement('div')`設`id`+`style.cssText`(position:fixed/inset:0/背景遮罩/置中)+背景點擊關閉+`appendChild(document.body)`，取代多個彈窗函式(`kanshouOpenMemoir`/`kanshouPickBand_`/`kanshouTakePhoto`/`kanshouOpenRelTag`/`openKanshouFestivals`/`kanshouPickLocation_`等)各自手寫的同款8~11行骨架。`opts:{zIndex,dim,extraStyle,onBgClick}`——`onBgClick`只在需要擋「忙碌中不可關」的面板才傳。
 - `_showOverlayLoading_(overlayId, ensureOpts, boxOpts)`（2026-07 稽核抽出，建於`ensureOverlay_`之上）— 合併原本`_kmShowLoading_`/`_kpShowLoading_`兩支幾乎逐行相同的「ensure overlay→塞讀條HTML→display:flex」，兩處呼叫改帶各自的id/title。
 
 #### 同伴面板（駐留清單 / 召喚）

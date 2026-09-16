@@ -1497,6 +1497,88 @@ let plainTextContext = cleanText;
     } catch (e) { var b2 = document.getElementById('kc-album-body'); if (b2) b2.textContent = '讀取失敗。'; }
   }
   // ═══ 🌍 世界帳本面板 ═══
+  // 🎨 ⚙ 說書人設定：風格層交給玩家。每一格顯示預設句、可改成自己的、可整段關掉、可還原。
+  //   事實與技術契約不在這裡（GAS 裁定、JSON、在場驗證都不交），只有「怎麼寫」的口味。
+  var _ksMods_ = [], _ksMax_ = 300;
+  function kanshouCloseStyle_() { var o = document.getElementById('kc-style-overlay'); if (o) o.remove(); }
+  async function openKanshouStyle() {
+    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
+    var drawer = document.getElementById('action-drawer'); if (drawer) drawer.classList.remove('open');
+    kanshouCloseStyle_();
+    var ov = document.createElement('div');
+    ov.id = 'kc-style-overlay';
+    ov.style.cssText = 'position:fixed; inset:0; z-index:9000; background:rgba(14,16,20,.93); overflow-y:auto; padding:18px 14px 40px;';
+    ov.innerHTML = '<div style="max-width:760px; margin:0 auto;">'
+      + '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">'
+      + '<div style="color:#d8b070; font-weight:bold; font-size:16px;">⚙ 說書人設定</div>'
+      + '<button onclick="kanshouCloseStyle_()" style="background:none; border:1px solid #6a5a40; border-radius:8px; color:#d8c8a8; font-size:13px; padding:4px 12px; cursor:pointer;">✕ 關閉</button>'
+      + '</div>'
+      + '<div style="color:#8a7e64; font-size:11.5px; margin-bottom:12px; line-height:1.7;">說書人「怎麼寫」的那幾段，交給你決定。每一格留白＝用預設；改成你的句子就照你的寫；關掉＝整段不送。'
+      + '<br>數值、關係、在場的人這些事實不在這裡——那些是系統裁定的，不是口味。</div>'
+      + '<div id="kc-style-body" style="color:#8a8298; font-size:12px;">讀取中……</div></div>';
+    document.body.appendChild(ov);
+    await ksLoad_();
+  }
+  async function ksLoad_() {
+    try {
+      var res = await gasRun({ action: 'kanshou_get_style', pcId: pc.id, acctName: currentAccount });
+      if (!res || !res.success) { var b = document.getElementById('kc-style-body'); if (b) b.textContent = (res && res.message) || '讀取失敗。'; return; }
+      _ksMods_ = res.modules || []; _ksMax_ = res.max || 300;
+      ksRender_();
+    } catch (e) { var b2 = document.getElementById('kc-style-body'); if (b2) b2.textContent = '讀取失敗。'; }
+  }
+  function ksRender_() {
+    var body = document.getElementById('kc-style-body'); if (!body) return;
+    var html = '';
+    var groups = [['sys', '🖋 說書人守則（每回合都帶）'], ['user', '🎬 這一幕的框架']];
+    groups.forEach(function (g) {
+      html += '<div style="color:#d8b070; font-size:13px; font-weight:bold; margin:14px 0 7px;">' + g[1] + '</div>';
+      _ksMods_.filter(function (m) { return m.slot === g[0]; }).forEach(function (m) {
+        var state = !m.on ? '<span style="color:#c08a8a;">已關閉</span>' : (m.custom ? '<span style="color:#d8b070;">你的版本</span>' : '<span style="color:#6e8a84;">預設</span>');
+        html += '<div id="ks-row-' + m.key + '" style="background:rgba(56,48,36,.35); border:1px solid ' + (m.custom ? '#a08850' : (m.on ? '#4a4034' : '#6a4a4a')) + '; border-radius:8px; padding:9px 11px; margin-bottom:8px;' + (m.on ? '' : 'opacity:.75;') + '">'
+          + '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">'
+          + '<div style="color:#e8d8b8; font-size:13px; font-weight:bold;">' + escapeHtml(m.name) + ' <span style="font-size:11px; font-weight:normal;">' + state + '</span></div>'
+          + '<label style="color:#b8a888; font-size:11.5px; cursor:pointer; white-space:nowrap;"><input type="checkbox" ' + (m.on ? 'checked' : '') + ' onchange="ksToggle_(\'' + m.key + '\', this.checked)" style="vertical-align:middle;"> 啟用</label>'
+          + '</div>'
+          + '<textarea id="ks-txt-' + m.key + '" maxlength="' + _ksMax_ + '" rows="3" placeholder="' + escapeHtml(m.def) + '" oninput="ksCount_(\'' + m.key + '\')" style="width:100%; box-sizing:border-box; margin-top:6px; background:#1d1a16; color:#e8dcc4; border:1px solid #4a4034; border-radius:6px; padding:6px 8px; font-size:12px; line-height:1.6; resize:vertical;"' + (m.on ? '' : ' disabled') + '>' + escapeHtml(m.text || '') + '</textarea>'
+          + '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">'
+          + '<span id="ks-cnt-' + m.key + '" style="color:#6e6a5a; font-size:11px;">' + (m.text ? m.text.length : 0) + ' / ' + _ksMax_ + '　留白＝用預設（灰字）</span>'
+          + '<span>'
+          + (m.custom ? '<button onclick="ksReset_(\'' + m.key + '\')" style="background:none; border:1px solid #6a5a40; border-radius:7px; color:#b8a888; font-size:11.5px; padding:3px 9px; cursor:pointer; margin-right:6px;">還原預設</button>' : '')
+          + '<button onclick="ksSave_(\'' + m.key + '\')" style="background:#4a3c24; border:1px solid #a08850; border-radius:7px; color:#f0e0b8; font-size:11.5px; padding:3px 11px; cursor:pointer;">儲存</button>'
+          + '</span></div></div>';
+      });
+    });
+    html += '<div style="text-align:right; margin-top:14px;"><button onclick="ksResetAll_()" style="background:none; border:1px solid #6a4a4a; border-radius:8px; color:#c08a8a; font-size:12px; padding:5px 12px; cursor:pointer;">全部還原預設</button></div>';
+    body.innerHTML = html;
+  }
+  function ksCount_(key) {
+    var t = document.getElementById('ks-txt-' + key), c = document.getElementById('ks-cnt-' + key);
+    if (t && c) c.textContent = t.value.length + ' / ' + _ksMax_ + '　留白＝用預設（灰字）';
+  }
+  async function ksSend_(payload) {
+    var res = await withProcessing_('儲存中…', function () {
+      return gasRun(Object.assign({ action: 'kanshou_set_style', pcId: pc.id, acctName: currentAccount }, payload));
+    });
+    if (!res || !res.success) { alert((res && res.message) || '儲存失敗。'); return false; }
+    await ksLoad_();
+    return true;
+  }
+  function ksSave_(key) {
+    var t = document.getElementById('ks-txt-' + key);
+    var m = _ksMods_.find(function (x) { return x.key === key; });
+    return ksSend_({ key: key, styleText: t ? t.value : '', on: m ? m.on : true });
+  }
+  function ksToggle_(key, on) {
+    var t = document.getElementById('ks-txt-' + key);
+    return ksSend_({ key: key, styleText: t ? t.value : '', on: !!on });
+  }
+  function ksReset_(key) { return ksSend_({ key: key, reset: true }); }
+  async function ksResetAll_() {
+    if (!await customConfirm_('把所有段落都還原成預設？你改過的句子會全部清掉。')) return;
+    return ksSend_({ resetAll: true });
+  }
+
   // 帳本原本只有 AI 寫得到、玩家看不到——而淘汰政策裡的「★釘選永不淘汰」根本沒有入口能設定。
   // 這個面板把「看得到」與「管得動」一起補上：釘選想永久留著的、刪掉 AI 亂記的。
   var _kwBusy_ = false, _kwRows_ = [];

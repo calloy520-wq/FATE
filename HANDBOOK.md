@@ -28,13 +28,13 @@
 GAS Web App (doGet→Index.html·HTML Service)
   └─ google.script.run.handleGameAction(json) → Router_Action.gs 分流器
        ├─ 數值引擎：Engine_Fate(戰鬥) / Time_World(時間·經濟) 全在 GAS
-       ├─ Google Sheets（唯一資料庫·6 靜態＋3 動態分頁，2026-07 精簡自 13 分頁）
+       ├─ Google Sheets（唯一資料庫·6 靜態＋4 動態分頁，2026-07 精簡自 13 分頁）
        └─ UrlFetchApp → OpenRouter（google/gemini-*·只做敘述）  ← Engine_Combat.callGeminiAPI
 ```
 - API key 存 GAS **Script Properties**（不進代碼）。
 - 前端 `Index.html`(殼) 內嵌 `Style.html`(CSS) ＋ `Script.html`(全部前端 JS·單一 SPA)。
 
-## 3. 資料層（試算表 6 靜態分頁 `FATE_SHEET_DEFS`＋3 動態分頁：鑑賞眾生／鑑賞世界／相簿，2026-07 精簡自 13 分頁）
+## 3. 資料層（試算表 6 靜態分頁 `FATE_SHEET_DEFS`＋4 動態分頁：鑑賞眾生／鑑賞世界／鑑賞風格／相簿，2026-07 精簡自 13 分頁）
 
 `Setup_FateWorld.gs` 冪等建表（缺就補、含則略）。分頁：**坤圖**(地圖)／**眾生**(solo參戰者·一列一人)／**英靈殿**(種子從者範本，2026-07起兼職鑑賞daily欄位快取)／**御主殿**(solo專用·種子敵御主範本)／**帳號**／**歷史暫存**(逐句對話·solo/kanshou共用同一張，靠pcId前綴隔離)。另有 **鑑賞眾生** 分頁（慾海活動角色，`getKanshouPcSheet_` 動態建、schema複製自「眾生」但物理獨立，與戰爭主表完全隔離）。
 
@@ -65,7 +65,7 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 
 ## 4. 檔案地圖
 
-📖 **檔案地圖已移到 `CODE_MAP.md`**（一頁式：每檔行數／函式數／職責／何時要動它＋全 67 action 對照＋資料驅動表索引）。
+📖 **檔案地圖已移到 `CODE_MAP.md`**（一頁式：每檔行數／函式數／職責／何時要動它＋全 69 action 對照＋資料驅動表索引）。
 逐函式細節見 `FUNCTION_MANUAL.md`。**這裡刻意不再維護第二份檔案清單**——先前那份的行數與歸屬已隨多次搬檔漂掉（例如 `actionPlay` 早已從 `Router_Narrative.gs` 搬到 `Gallery.gs`），兩份並存只會騙下一個失憶的我。本章往下只留「拆檔慣例」這種不會隨行數變動的架構決策。
 
 ### 4.1 檔案拆分慣例（2026-07 定案·未來新增檔案照這個模式，別重新發明）

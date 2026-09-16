@@ -543,6 +543,19 @@ r 欄＝該寶具真實官方階級，缺 r 者(恩奇都/EMIYA)retreat 至六�
 公式卻散在召喚兩支＋`Seed_Rivals` 三處各寫一遍，而 `fateMaxHpMp_` 只剩 `maxStatsForRow_` 在叫、那支又是死分支的殘骸。
 砍掉 `maxStatsForRow_` 後它變成孤兒，死碼掃描才叫出來。修法不是刪掉了事：把三處重複的真公式收進同一支，單一真實來源。
 
+### `KANSHOU_STYLE_MODULES_` / `kanshouStyle_` / `buildDefaultSystemPrompt` 陣列組裝　<sub>Gallery.gs · 風格層</sub>
+
+玩家：「其實我應該直接在這裡打造一個類似酒館就好？！」→「符合自由 玩家自己決定增減」。
+先把鑑賞 prompt 量了一遍再切：事實（GAS 裁定）與技術契約（JSON／分段／在場驗證）約 2500 字不交——交了玩家一改就壞整局；
+「怎麼寫」的口味約 840 字、12 段，交。
+- **預設留在 `.gs`、不搬進試算表**：十三支掃描器只看 `.gs`，搬走＝`check_prompt`／`check_pronoun` 對這 12 段失明。
+  表上只放玩家真的改過的列（存空文字＋開啟＝刪列），所以一格不改的玩家在試算表上是零列。
+- **nsfwBaseRules 改陣列組裝、動態編號**：關掉一段其餘自動補號，AI 看到的永遠是 1..N 連號；
+  預設一格不改時輸出與舊字串逐字相同（`scratchpad/style/baseline_prompt.txt` 對 diff 為空），這是紅線①流程的「先量後改」。
+- **佔位符叫 `{代名詞}` 不叫 `{他她}`**：`check_pronoun.py` 把字面他／她當寫死代名詞抓，第一版就被它抓出 8 處——它抓得對，預設句裡本來就不該出現。
+- **不剝 ｜【】**：這張表不是 MEMORY，剝了玩家連「【】」都不能拿來當強調；`style.js` 釘住注入 `｜【同居】1` 進風格表不會蓋出任何 MEMORY 標記。
+- **`dialogue` 的預設是函式不是字串**（`dialogueFormatRule_()`），所以預設一律從 `kanshouStyleDefault_` 拿；直接讀 `def` 會拿到空字串、整段消失。
+
 ### `sanitizeAiData_`　<sub>Gallery.gs:27</sub>
 
 🛡️→✅ 2026-07 邊界稽核：options 是原樣轉發給前端、一個字串長一顆按鈕的欄位，卻從沒設過上限。schema 要 4 個，但模型失控時回 50 個 × 每個上百字，前端就照單全收長出一整片按鈕牆。輸入當不可信：這裡一併夾好數量與長度，前端不必再各自防。

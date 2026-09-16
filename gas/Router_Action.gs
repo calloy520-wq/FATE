@@ -23,6 +23,8 @@ const ActionRouter = {
   "kanshou_summon_hero": actionKanshouSummonHero, // 🌹 慾海同伴唯一入口：直接從英靈庫召喚，不需先在solo贏得戰爭
   "kanshou_set_sex": actionKanshouSetSex,
   "kanshou_set_pace": actionKanshouSetPace,
+  "kanshou_get_style": actionKanshouGetStyle, // 🎨 說書人設定面板：讀整張風格表(預設＋玩家版)
+  "kanshou_set_style": actionKanshouSetStyle, // 🎨 改一格／還原一格／全部還原
   "kanshou_set_name": actionKanshouSetName,
   "kanshou_set_home_name": actionKanshouSetHomeName,
   "kanshou_add_quick_phrase": actionKanshouAddQuickPhrase, // 🎀 快速輸入貼圖·玩家自訂新增(2026-07新增)

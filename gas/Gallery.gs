@@ -564,6 +564,7 @@ function actionKanshouReset(userData, pcId, sheets) {
   try { purgeHistoryForPcIds_(purgedIds); } catch (e) { }
   try { kanshouPurgeByGame_(kanshouAlbumSheet_(), 0, gid, null); } catch (e) { }
   try { kanshouPurgeByGame_(kanshouWorldSheet_(), KW_.GID, gid, null); kanshouWorldBust_(gid); } catch (e) { }
+  try { kanshouPurgeByGame_(kanshouStyleSheet_(), KS_.GID, gid, null); kanshouStyleBust_(gid); } catch (e) { }
 
   // 最後才解除帳號連結：前面任何一步炸掉，連結還在、玩家至少回得去原本的世界。
   try {
@@ -1034,7 +1035,7 @@ function dialogueFormatRule_() {
 //    而且「一路上發生了什麼」現在是世界帳本的工作，它是【追加＋淘汰】、不是反覆重寫——
 //    留著這條等於用一個更差的機制做同一件事。經歷從此是固定事實：創角時生成一次，
 //    之後只有玩家能透過逆天改命改。這是 2026-07「性格四格/萌點不再交給 AI」那次的最後一塊。
-function buildDefaultSystemPrompt(includeOptions) {
+function buildDefaultSystemPrompt(includeOptions, styles) {
   const _physicalState = "此刻臉上看得到的神色·眼神/臉色/表情(第三人稱·≤15字)·不寫動作劇情·沒變就留空";
 
   // appearance_extras(原 outfit_change)：角色當下實際穿著與配飾，AI 依劇情如實更新，寫回持久的【換裝】記錄。2026-09 小道具機制移除後，配飾類事實回歸由這一欄承接。
@@ -1077,17 +1078,22 @@ function buildDefaultSystemPrompt(includeOptions) {
   // 🔠 對話格式規則：2026-09 起只剩鑑賞在用——那套含喘息/吸吮的例子是 NSFW 取向，solo 是 SFW 戰鬥敘事，改用 miniSystem 內的短版。
 
   // 🔴 NSFW(慾海模式)：本回合聚焦當下的近身互動(情慾/調情/鋪陳皆可)，雜務(物品/金錢/陣營/任務/招募/地圖/戰鬥數值/身世)完全不追蹤、不輸出，鐵律文字大幅精簡，盡量交給AI自行判斷。
-  const nsfwBaseRules = `後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家·禁上帝視角。鐵律：
-1. 承接玩家最新動作與台詞【語氣照原樣】(疑問就疑問、吐槽就吐槽)·【動作與台詞只有玩家能決定】：不替玩家加動作、不替玩家開口、不改寫成轉述(感受不在此限)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。
-2. 每3~4句 <br><br> 分段。
-3. ${dialogueFormatRule_()}
-4. 依玩家輸入【確實推演往下走·不停滯敷衍】——答不答應由對方的[個性]×[好感]決定(順從/猶豫/半推半就/婉拒皆可)，玩家不能替對方決定反應。
-5. 繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)。
-6. 肢體互動依雙方【性別】欄自然呈現。
-7. 萌點/語癖/專屬稱呼自然滲入、偶爾點到即可·同一個不重複用。
-8. 卡片上的裝扮＝既定事實，直到劇情真讓那個人換裝為止——不因為跟這幕不搭就自行改寫或省略。
-9. 敘事只寫這個世界裡看得到聽得到的：好感數字、關係階級、系統/回合/選項/欄位名一律不進 narration，也不報幕宣告任何變化——要表現就用神情、語氣與彼此的距離。
-10. 聚焦當下近身互動·只輸出合法JSON(各欄怎麼填見下方輸出範本)。`;
+  // 風格段（筆觸／主權／對話格式／推演／連貫／萌點／不出戲）由 kanshouStyle_ 供給：玩家版→關閉→預設。
+  //    鐵律照陣列順序動態編號，關掉一段其餘自動補號；預設值全部一格不改時，輸出與舊版寫死的字串逐字相同。
+  const _st = k => kanshouStyle_(styles, k);
+  const rules = [
+    _st('agency'),
+    '每3~4句 <br><br> 分段。',
+    _st('dialogue'),
+    _st('drive'),
+    _st('continuity'),
+    '肢體互動依雙方【性別】欄自然呈現。',
+    _st('moe'),
+    '卡片上的裝扮＝既定事實，直到劇情真讓那個人換裝為止——不因為跟這幕不搭就自行改寫或省略。',
+    _st('immersion'),
+    '聚焦當下近身互動·只輸出合法JSON(各欄怎麼填見下方輸出範本)。'
+  ].filter(Boolean);
+  const nsfwBaseRules = _st('voice') + '鐵律：\n' + rules.map((r, i) => (i + 1) + '. ' + r).join('\n');
 
 const specificRules = "";
 
@@ -1626,6 +1632,148 @@ var KANSHOU_WORLD_TEXT_MAX_ = 40;
 // ⚠ COL 是位置索引：新欄位一律【接在最後】，絕不插在中間(插了整表位移)。
 //    REGION：這個地點屬於哪一區(kind=地點 才有意義；空＝走出來的地方)。
 //    OWN：這個地方是不是你的、你在這裡做什麼(空＝不是你的；有值＝營業內容，如「小吃」「按摩」)。
+// 🎨 風格層：說書人「怎麼寫」的那幾段交給玩家（2026-09 玩家定案「符合自由 玩家自己決定增減」）。
+//    事實（GAS 裁定）、技術契約（JSON／分段／在場驗證）不交；只有筆觸／主權／推演／視角／篇幅／收尾這類
+//    「口味」才在這張表上。每一格的預設值就是原本寫死在提示詞裡的那句，所以玩家一格都不改＝現況零差異。
+//    slot：sys＝進系統提示詞（nsfwBaseRules 那串鐵律）、user＝進 USER prompt 對應位置。
+//    文字裡的 {玩家}／{代名詞} 在組裝時代入玩家名與代名詞(他/她/TA)；{篇幅} 代入這回合算出的字數區間。
+//    ⚠ 預設值故意留在 .gs 而不搬進試算表：check_prompt／check_pronoun 這些掃描器只看 .gs。（理由見 CODE_NOTES）
+var KANSHOU_STYLE_MODULES_ = [
+  { key: 'voice',      name: '筆觸',     slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家·禁上帝視角。' },
+  { key: 'agency',     name: '玩家主權', slot: 'sys',  def: '承接玩家最新動作與台詞【語氣照原樣】(疑問就疑問、吐槽就吐槽)·【動作與台詞只有玩家能決定】：不替玩家加動作、不替玩家開口、不改寫成轉述(感受不在此限)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。' },
+  { key: 'dialogue',   name: '對話格式', slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
+  { key: 'drive',      name: '推演',     slot: 'sys',  def: '依玩家輸入【確實推演往下走·不停滯敷衍】——答不答應由對方的[個性]×[好感]決定(順從/猶豫/半推半就/婉拒皆可)，玩家不能替對方決定反應。' },
+  { key: 'continuity', name: '情緒連貫', slot: 'sys',  def: '繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)。' },
+  { key: 'moe',        name: '萌點用法', slot: 'sys',  def: '萌點/語癖/專屬稱呼自然滲入、偶爾點到即可·同一個不重複用。' },
+  { key: 'immersion',  name: '不出戲',   slot: 'sys',  def: '敘事只寫這個世界裡看得到聽得到的：好感數字、關係階級、系統/回合/選項/欄位名一律不進 narration，也不報幕宣告任何變化——要表現就用神情、語氣與彼此的距離。' },
+  { key: 'world',      name: '世界觀',   slot: 'user', def: '★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。' },
+  { key: 'pov',        name: '視角',     slot: 'user', def: '★【視角鎖定】：「你」＝玩家『{玩家}』本人·旁白【不可】用「我」(只有角色引號內的台詞用得到)。同伴外貌只取材各人自己那份資料。' },
+  { key: 'feel',       name: '你的感受', slot: 'user', def: '★【你也是這座城裡的一個人】：『{玩家}』不是攝影機——【用{代名詞}的角度感受這個世界】：此刻的觸感/冷熱/氣味/聲音、{代名詞}【真正】的情緒(不是表現出來的那個)、性格帶來的反應底色(見【玩家資料·旁白用】)，沉默也要有理由。{代名詞}看不見自己的臉，卻感覺得到臉發燙、喉嚨發緊——【寫感覺得到的，不寫看不到的外觀】。' },
+  { key: 'length',     name: '篇幅',     slot: 'user', def: '★【篇幅】：narration 寫 {篇幅} 字，【不可少於下限】——寫不滿就加互動與真實反應，別靠環境描寫充數。' },
+  { key: 'ending',     name: '收尾',     slot: 'user', def: '🚨【收尾{主動掌握}】：{推進}最後一句留給被搭話的人——用其答話或神情收尾，並拋出一個玩家接得住的話題(問句/邀約/此刻在意的事)，停在等玩家回應的那一刻。沒有別人在場才收在「你」身上。' }
+];
+var KANSHOU_STYLE_TEXT_MAX_ = 300;
+var KS_ = { GID: 0, KEY: 1, TEXT: 2, ON: 3 };
+
+function kanshouStyleModule_(key) {
+  return KANSHOU_STYLE_MODULES_.find(m => m.key === key) || null;
+}
+// 預設值的唯一出口：dialogue 那格的預設是一支函式，不是字串，所以不能直接讀 def。
+function kanshouStyleDefault_(key) {
+  if (key === 'dialogue') return dialogueFormatRule_();
+  const m = kanshouStyleModule_(key);
+  return m ? m.def : '';
+}
+
+function kanshouStyleSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName('鑑賞風格');
+  if (!sh) {
+    sh = ss.insertSheet('鑑賞風格');
+    sh.appendRow(['遊戲ID', '模組', '文字', '開關']);
+  }
+  return sh;
+}
+
+// 這一局的風格覆寫：{key: {text, on}}。每回合都要讀，走快取；唯一寫入點 kanshouStyleWrite_ 自己清快取。
+function kanshouStyleRead_(gameId) {
+  const gid = String(gameId || "");
+  if (!gid) return {};
+  const cache = CacheService.getScriptCache();
+  const key = 'KS_' + gid;
+  try { const c = cache.get(key); if (c) return JSON.parse(c); } catch (e) { }
+  const out = {};
+  try {
+    const d = kanshouStyleSheet_().getDataRange().getValues();
+    for (let i = 1; i < d.length; i++) {
+      if (String(d[i][KS_.GID]) !== gid) continue;
+      const k = String(d[i][KS_.KEY] || "");
+      if (!kanshouStyleModule_(k)) continue;
+      out[k] = { text: String(d[i][KS_.TEXT] || ""), on: String(d[i][KS_.ON] || "") !== '0' };
+    }
+  } catch (e) { }
+  try { cache.put(key, JSON.stringify(out), 120); } catch (e) { }
+  return out;
+}
+function kanshouStyleBust_(gameId) {
+  try { CacheService.getScriptCache().remove('KS_' + String(gameId || "")); } catch (e) { }
+}
+// 寫一格：text 空＝用預設、on=false＝整段不送。row=null 代表「刪掉這一列＝回到預設」。
+function kanshouStyleWrite_(gameId, key, row) {
+  const gid = String(gameId || "");
+  if (!gid || !kanshouStyleModule_(key)) return false;
+  const sh = kanshouStyleSheet_();
+  const d = sh.getDataRange().getValues();
+  let hit = -1;
+  for (let r = 1; r < d.length; r++) {
+    if (String(d[r][KS_.GID]) === gid && String(d[r][KS_.KEY]) === key) { hit = r; break; }
+  }
+  if (!row) {
+    if (hit > 0) sh.deleteRow(hit + 1);
+  } else {
+    const vals = [gid, key, String(row.text || ""), row.on === false ? '0' : '1'];
+    if (hit > 0) sh.getRange(hit + 1, 1, 1, vals.length).setValues([vals]);
+    else sh.appendRow(vals);
+  }
+  kanshouStyleBust_(gid);
+  return true;
+}
+// 組 prompt 時的唯一讀口：玩家版 → 關閉＝'' → 預設。vars 代入 {玩家}{代名詞}{篇幅} 這類佔位。
+function kanshouStyle_(styles, key, vars) {
+  const m = kanshouStyleModule_(key);
+  if (!m) return '';
+  const o = (styles || {})[key];
+  let t;
+  if (o && o.on === false) t = '';
+  else if (o && String(o.text || "").trim()) t = String(o.text);
+  else t = kanshouStyleDefault_(key);
+  if (vars && t) Object.keys(vars).forEach(k => { t = t.split('{' + k + '}').join(String(vars[k] == null ? '' : vars[k])); });
+  return t;
+}
+// 玩家給的文字：不剝 ｜【】（這不是 MEMORY，它自己一張表），只擋長度與空白。
+function kanshouStyleClean_(text) {
+  return String(text || "").replace(/\r/g, "").trim().slice(0, KANSHOU_STYLE_TEXT_MAX_);
+}
+
+// 🎨 ⚙ 說書人設定面板的後端：get 回整張表（含預設與生效版）、set 改一格／還原一格／全部還原。
+function actionKanshouGetStyle(userData, pcId, sheets) {
+  const kpc = sheets.pc;
+  const data = kpc.getDataRange().getValues();
+  const meIdx = kanshouPcIdx_(data, pcId);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  const gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  const styles = kanshouStyleRead_(gid);
+  const modules = KANSHOU_STYLE_MODULES_.map(m => {
+    const o = styles[m.key] || null;
+    return { key: m.key, name: m.name, slot: m.slot, def: kanshouStyleDefault_(m.key),
+      text: o ? o.text : "", on: o ? o.on !== false : true, custom: !!(o && String(o.text || "").trim()) };
+  });
+  return JSON.stringify({ success: true, modules: modules, max: KANSHOU_STYLE_TEXT_MAX_ });
+}
+function actionKanshouSetStyle(userData, pcId, sheets) {
+  const kpc = sheets.pc;
+  const data = kpc.getDataRange().getValues();
+  const meIdx = kanshouPcIdx_(data, pcId);
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  const gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  if (!gid) return JSON.stringify({ success: false, message: "查無這一局的世界編號。" });
+  try {
+    if (userData.resetAll) {
+      KANSHOU_STYLE_MODULES_.forEach(m => kanshouStyleWrite_(gid, m.key, null));
+      return JSON.stringify({ success: true });
+    }
+    const key = String(userData.key || "").trim();
+    if (!kanshouStyleModule_(key)) return JSON.stringify({ success: false, message: "沒有這個模組。" });
+    if (userData.reset) { kanshouStyleWrite_(gid, key, null); return JSON.stringify({ success: true }); }
+    const text = kanshouStyleClean_(userData.styleText);
+    const on = String(userData.on) !== 'false' && userData.on !== false && String(userData.on) !== '0';
+    // 文字空又開著＝跟預設一樣，不留列（表上只放真的有改的）。
+    if (!text && on) kanshouStyleWrite_(gid, key, null);
+    else kanshouStyleWrite_(gid, key, { text: text, on: on });
+    return JSON.stringify({ success: true });
+  } catch (e) { return JSON.stringify({ success: false, message: "儲存失敗，請稍後再試。" }); }
+}
+
 var KW_ = { GID: 0, KIND: 1, NAME: 2, TEXT: 3, SEX: 4, BORN: 5, SEEN: 6, HITS: 7, PIN: 8, REGION: 9, OWN: 10 };
 
 function kanshouWorldSheet_() {
@@ -3265,23 +3413,28 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   //    一個會變的東西插在中間，它後面全部作廢。天氣/時間原本卡在第 5 行，把整份 user prompt
   //    的可快取前綴砍到只剩 48%。唯二的例外是 🚨【收尾】與★【在場名單】：它們雖然穩定，但
   //    recency 對它們特別重要（實測過「事實寫在 20 行以前就會被 AI 當成沒發生」），故仍壓在最後。
-  const prompt = `★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。
+  // 🎨 玩家版說書人風格（缺列＝預設，預設＝原本寫死的那句）。
+  const _styles_ = kanshouStyleRead_(_myGid_);
+  const _styleVars_ = { '玩家': pcName, '代名詞': _mePron_, '篇幅': _kanshouTargetWords_,
+    '主動掌握': driveOn ? '·主動掌握' : '', '推進': driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : '' };
+  const _sty_ = k => kanshouStyle_(_styles_, k, _styleVars_);
+  const prompt = `${_sty_('world')}
 ${PROMPT_REL}
 ★【這個世界有誰】：①【正式同伴】＝下方【在場人物】的卡，只有他們算好感，每人這回合都要真實存在(沒被搭話的給個動作即可)，沒列卡的同伴不准出現或開口，有【專屬稱呼】就叫暱稱。②【常民】＝【這個世界已經確立的事】名單上的人，可出現可開口、不算好感。③【路人】不具名，隨手寫、不必記。玩家專一對著一個人時其他人背景輕描；不在場的人一句話交代去向。
 ★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，但沒寫進去的下回合就不存在。一回合最多 2 筆，只記之後真的還會用到的，已在名單上的不必重寫。world_note 只記【這座城有什麼】(地點＝多一個去得了的地方｜人物＝這個人還會再出現｜設定＝這座城的規矩或風景)；你們之間發生的事記進那個人的 memory。
-★【視角鎖定】：「你」＝玩家『${pcName}』本人·旁白【不可】用「我」(只有角色引號內的台詞用得到)。同伴外貌只取材各人自己那份資料。
-★【你也是這座城裡的一個人】：『${pcName}』不是攝影機——【用${_mePron_}的角度感受這個世界】：此刻的觸感/冷熱/氣味/聲音、${_mePron_}【真正】的情緒(不是表現出來的那個)、性格帶來的反應底色(見【玩家資料·旁白用】)，沉默也要有理由。${_mePron_}看不見自己的臉，卻感覺得到臉發燙、喉嚨發緊——【寫感覺得到的，不寫看不到的外觀】。
+${_sty_('pov')}
+${_sty_('feel')}
 
 【玩家資料·旁白用】(只給旁白寫「你」的內心用·在場的人沒讀過這張卡)：名字:${pcName} 【性別:${pc[COL.PC.SEX]}】${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? ` 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${_meFlavorStr_}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}${_meMoeStr_}
 ${PROMPT_PARTY_SYSTEM}
 ${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性；玩家只是日常時不憑空推進情慾${_intimacyLines_.indexOf('\n') >= 0 ? '（多人各依各自好感，不共用同階）' : ''}：\n${_intimacyLines_}\n` : ''}
-★【篇幅】：narration 寫 ${_kanshouTargetWords_} 字，【不可少於下限】——寫不滿就加互動與真實反應，別靠環境描寫充數。
+${_sty_('length')}
 ★★【地點釘死】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
 ${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}${kanshouInitStr}
 ★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}・${kanshouWeather_(curDay)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依此刻的時段寫；本回合只寫這十分鐘內的片段，時間推進由系統宣告。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·禁讓對方開口或出現。` : ""}
 
 ${npcDialoguePrompt}${_earlierDigest_ ? `\n★【稍早做過的事】：${_earlierDigest_}——都已發生過，需要時自然呼應，別重演。` : ""}
-🚨【收尾${driveOn ? '·主動掌握' : ''}】：${driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : ''}最後一句留給被搭話的人——用其答話或神情收尾，並拋出一個玩家接得住的話題(問句/邀約/此刻在意的事)，停在等玩家回應的那一刻。沒有別人在場才收在「你」身上。
+${_sty_('ending')}
 ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與路人照常可以出現）。'}
 
 接著往下演，玩家這一步是：『${finalUserMsg}${_settledTail_}』`;
@@ -3300,7 +3453,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
       }));
     }
 
-    const _sysPrompt = buildDefaultSystemPrompt(userData.optionsOn !== false);
+    const _sysPrompt = buildDefaultSystemPrompt(userData.optionsOn !== false, _styles_);
     const aiResponseRaw = callGeminiAPI(prompt, _sysPrompt, aiConfig);
     // 🛡️→✅ 2026-07 邊界稽核：模型偶爾會回【截斷的 JSON】(吐到 max token 就斷)或純文字道歉，這在真實運行中是常態、不是例外。
     let aiData;

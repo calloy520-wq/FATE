@@ -1177,7 +1177,7 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 ---
 
 ## 📎 主要常數速查（都在 `gas/Gallery.gs`）
-`KANSHOU_REL_TIER_`(五階) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_PACE_OPTIONS_`(0/10/20/30 分鐘·玩家自選流速) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · ~~`KANSHOU_SCENE_EVENTS_`~~(橋段庫·2026-09 已整組砍除) · `KANSHOU_ALBUM_CAP_`(100)（`KANSHOU_FILM_PER_DAY_`已隨底片制拍照改手機一起刪除，見上方拍照/相簿章節） · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
+`KANSHOU_REL_TIER_`(五階) · `KANSHOU_STYLE_MODULES_`(12 段說書人風格·玩家可改) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_PACE_OPTIONS_`(0/10/20/30 分鐘·玩家自選流速) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · ~~`KANSHOU_SCENE_EVENTS_`~~(橋段庫·2026-09 已整組砍除) · `KANSHOU_ALBUM_CAP_`(100)（`KANSHOU_FILM_PER_DAY_`已隨底片制拍照改手機一起刪除，見上方拍照/相簿章節） · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
 
 
 ---
@@ -1512,6 +1512,41 @@ schema 教 AI 寫 `"1. [主動]…"`，而 `data.options` 是**原樣**長成按
 
 
 ---
+
+## 🎨 說書人風格交給玩家（2026-09）
+
+玩家：「其實我應該直接在這裡打造一個類似酒館就好？！」→「好 稽核跑完就往這個方向做 符合自由 玩家自己決定增減！」
+
+**邊界（量出來的）**：鑑賞一回合 prompt 約 3600 字＝事實·GAS 裁定 ~1280（不交）／技術契約 ~1200（不交）／資料 ~283／**風格 ~840 字·12 段（交給玩家）**。
+交的只有「怎麼寫」的口味；「發生了什麼」（好感、在場、地點、時間）與「怎麼回」（JSON、分段、在場驗證）一律不交。
+
+**模組表** `KANSHOU_STYLE_MODULES_`（Gallery.gs·資料驅動，加一段＝往表加一列）：
+
+| key | 名稱 | slot | 預設＝原本寫死的那句 |
+|---|---|---|---|
+| voice | 筆觸 | sys | 「後日談敘事核心·輕小說筆觸…」（nsfwBaseRules 開頭） |
+| agency | 玩家主權 | sys | 鐵律 1 動作與台詞只有玩家能決定 |
+| dialogue | 對話格式 | sys | `dialogueFormatRule_()`（預設是函式，所以走 `kanshouStyleDefault_`） |
+| drive | 推演 | sys | 鐵律 4 |
+| continuity | 情緒連貫 | sys | 鐵律 5 |
+| moe | 萌點用法 | sys | 鐵律 7 |
+| immersion | 不出戲 | sys | 鐵律 9 |
+| world | 世界觀 | user | ★世界觀＝和平的現代冬木市… |
+| pov | 視角 | user | ★【視角鎖定】（`{玩家}` 佔位） |
+| feel | 你的感受 | user | ★【你也是這座城裡的一個人】（`{玩家}`／`{代名詞}`） |
+| length | 篇幅 | user | ★【篇幅】（`{篇幅}`＝這回合查表算出的區間） |
+| ending | 收尾 | user | 🚨【收尾】（`{主動掌握}`／`{推進}` 隨 driveOn） |
+
+留死不交：鐵律 2 `<br><br>`、6 性別欄、8 裝扮既定、10 JSON、整個 finalJson、親密尺度、地點釘死、這個世界有誰、world_note 規則、此刻、在場來由、角色一致性。
+
+- **資料層**：新分頁 `鑑賞風格` `[遊戲ID, 模組, 文字, 開關]`（`KS_`）。缺列＝預設；文字空＝預設；開關 `0`＝整段不送。表上只放真的改過的列（存空文字＋開啟＝刪列）。快取 `KS_<gid>` 120 秒，比照世界帳本 `KW_`；歸零重來一併清掉。
+- **讀取**：`kanshouStyleRead_(gid)` → `{key:{text,on}}`；組 prompt 唯一讀口 `kanshouStyle_(styles, key, vars)`：玩家版 → 關閉＝'' → 預設，並代入 `{玩家}{代名詞}{篇幅}{主動掌握}{推進}`。
+- **接線**：`buildDefaultSystemPrompt(includeOptions, styles)` 的 `nsfwBaseRules` 改成**陣列組裝＋動態編號**（關掉一段其餘自動補號）；`actionPlay` 的 USER prompt 五段改讀區域閉包 `_sty_`（＝`kanshouStyle_(_styles_, key, _styleVars_)`）。**預設一格不改時，SYSTEM＋USER 逐字等於改版前**（`scratchpad/style/baseline_prompt.txt` diff 為空）。
+- **動作**：`kanshou_get_style`（回 `modules[]{key,name,slot,def,text,on,custom}`＋`max`）／`kanshou_set_style`（`{key,styleText,on}`／`{key,reset}`／`{resetAll}`）。文字上限 `KANSHOU_STYLE_TEXT_MAX_`=300；**不剝 ｜【】**（這不是 MEMORY，它自己一張表；`sanitizeUserData_` 只擋控制字元與公式前導）。
+- **UI**：☰ →「⚙ 說書人設定」（`openKanshouStyle`·Script_Kanshou.html）：每段 名稱／狀態（預設·你的版本·已關閉）／文字框（placeholder＝預設句）／啟用開關／儲存／還原預設；底部全部還原；字數計。
+- **紅線①流程**：改前 `_audit.js` 存基線 → 改後 diff 零差異 → `style.js` 32 條（預設零差異／改一段只動那段／關一段整段消失且鐵律重新編號／單格與全部還原／兩帳號互不污染／注入 `=SUM ｜【同居】1 <b>` 不切壞 MEMORY／300 字上限／不存在的模組被拒／歸零清風格）→ `known.js`／`k_sex2.js`／`k_cd.js`／`audit_all.js` 零退化。
+- ⚠ **佔位符刻意叫 `{代名詞}` 不叫 `{他她}`**：`check_pronoun.py` 會把字面「他／她」當寫死代名詞抓出來，而它抓得對——預設句裡不該出現任何一個。
+- ⚠ **預設值留在 `.gs`、不搬進試算表**：十三支掃描器只看 `.gs`，搬走等於讓 `check_prompt`／`check_pronoun` 對這 12 段失明。
 
 ## §「後日談歸零重來」（2026-09）
 

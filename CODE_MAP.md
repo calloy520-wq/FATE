@@ -24,7 +24,7 @@ bash check.sh
 # nsfwBaseRules 有沒有被動到（紅線①已取消禁區：可改，但改前量現況、改後跑全套探針——這行只是提醒你「有動到就要走那套流程」，不再要求 exit 1）
 git diff -- gas/Gallery.gs | grep -E "^[+-]" | grep -v "^+++\|^---" | grep -i "nsfwBaseRules"; echo "exit:$?"
 
-# 死碼掃描（全 445 函式，正常應只吐 removeAllTriggers）
+# 死碼掃描（全 455 函式，正常應只吐 removeAllTriggers）
 grep -hoE "^function [A-Za-z0-9_]+" gas/*.gs | sed 's/function //' | sort -u | while read f; do
   [ "$(grep -rhoE "\b${f}\b" gas/ | wc -l)" -le 1 ] && echo "$f"; done; true   # ← true 收尾，否則末次判偽會吐 exit 1
 ```
@@ -186,7 +186,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 ---
 
-## §4 全 67 action → handler → 檔
+## §4 全 69 action → handler → 檔
 
 | action | handler | 檔 | | action | handler | 檔 |
 |---|---|---|---|---|---|---|
@@ -199,6 +199,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 | create | actionManualNpc | Router_Creation | | spirit_repair | actionSpiritRepair | Router_Economy |
 | kanshou_reset | actionKanshouReset | Gallery | | kanshou_world | actionKanshouWorld | Gallery |
 | kanshou_set_pace | actionKanshouSetPace | Gallery | | roll_fate | actionRollFate | Core_Settings |
+| kanshou_get_style | actionKanshouGetStyle | Gallery | | kanshou_set_style | actionKanshouSetStyle | Gallery |
 | np_respond | actionNpRespond | Router_Battle | | | | |
 | backfill_master_ai | actionBackfillMasterAi | Router_Creation | | bond | actionBond | Router_Bond |
 | summon_servant | actionSummonServant | Router_Creation | | use_seal | actionUseSeal | Router_Bond |
@@ -235,6 +236,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 | 敵營局面選項 | `FACTION_ENCOUNTER_CHOICES_` | Router_Movement |
 | 出力檔／符文／參戰風格 | `OUTPUT_TIERS_` / `RUNE_MODES_` / `STANCE_SHARE_` | Core_Settings / Router_Battle |
 | 鑑賞地圖／節慶／關係階／住處池 | `KANSHOU_LOCATIONS_` `KANSHOU_FESTIVALS_` `KANSHOU_REL_TIER_` `KANSHOU_GENERIC_HOME_POOL_` | Gallery |
+| 說書人風格（玩家可改的 12 段） | `KANSHOU_STYLE_MODULES_`（key/name/slot/def；加一段＝加一列，UI 與 get/set 自動吃）· 分頁「鑑賞風格」`KS_` | Gallery |
 | ~~鑑賞橋段觸發(四層)~~ | `KANSHOU_SCENE_EVENTS_`/`KANSHOU_FESTIVAL_EVENTS_`/`KANSHOU_LOCATION_EVENTS_`/`KANSHOU_COHABIT_EVENTS_`/`KANSHOU_PROPS_` **2026-09 已整批砍除**（事件自由：地點×時段發生什麼由 AI 即興，節慶只給「今天是 X」事實） | — |
 | 鑑賞「第一次」／關係質變 | `kanshouStampFirst_`(加蓋戳點) `kanshouRelTierLabel_`(階數→階名) | Gallery |
 | dispatcher 行為 | `OWNERSHIP_CHECK_EXEMPT_` `LOCK_EXEMPT_ACTIONS_` `STATE_AFTER_ACTIONS` `KANSHOU_BLOCKED_ACTIONS_` | Router_Action |
@@ -260,8 +262,8 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 ## §7 現況（2026-07）
 
-- 24 檔・後端 445 函式・67 action
+- 24 檔・後端 455 函式・69 action
 - **死碼 0**（僅 `removeAllTriggers` 無呼叫點＝刻意保留的編輯器手動工具）
-- 67 action 全部有真實 handler 且皆可從前端到達（`set_mage_realm`/`set_rune_mode` 走 `pickSelectable(action,…)` 動態帶入）
+- 69 action 全部有真實 handler 且皆可從前端到達（`set_mage_realm`/`set_rune_mode` 走 `pickSelectable(action,…)` 動態帶入）
 - 連續 3 輪稽核乾淨收斂 → `SOLO_REFERENCE.md` §25
 - `full`（九州全模擬）停用中；兩軌皆無經濟/生活層、無戰記/排行榜
