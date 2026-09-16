@@ -44,14 +44,8 @@
 
       <button class="btn" style="width:100%; padding:9px; border-color:#777; color:#999; font-size:12px;" onclick="logoutAccount()">🚪 登出</button>
     </div>
-    <!-- 🌍 世界：型態×場次原本是兩屏四次點擊，合成一屏三顆。 -->
-    <div id="scr-warmode" style="display:none; width:300px;">
-      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">闖進哪一場聖杯戰爭？</p>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWorld('canon','5th')">🏆 <b>第五次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">stay night・正典八組為敵，你是追加的第九位參戰者</small></button>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="chooseWorld('canon','4th')">⚔️ <b>第四次聖杯戰爭</b><br><small style="color:#9a7b4f; font-weight:normal;">Fate/Zero・正典七組為敵（切嗣＋Saber、時臣＋吉爾伽美什…）</small></button>
-      <button class="btn" style="width:100%; margin-bottom:10px; padding:12px; text-align:left;" onclick="chooseWorld('chaos','chaos')">🎲 <b>混亂模式</b><br><small style="color:#9a7b4f; font-weight:normal;">御主×從者隨機洗牌配對，每局敵方陣容都不同</small></button>
-      <button class="btn" style="width:100%; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-warmode').style.display='none';document.getElementById('scr-menu').style.display='block';">← 返回</button>
-    </div>
+    <!-- 🌍 2026-09：「闖進哪一場聖杯戰爭」整屏拿掉——預設第五次，第四次/混亂收進創角頁
+         「▸ 自己設定」裡的 #s-war（玩家「一路按就可以直接開始」）。機制沒砍，只是不擋在路上。 -->
     <div id="scr-master" style="display:none; width:300px;">
       <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:8px;">扮演哪一位正典御主？</p>
       <div id="master-pick-list" style="max-height:300px; overflow-y:auto;"></div>
@@ -73,6 +67,12 @@
 
       <button type="button" id="ms-adv-toggle" class="btn" style="width:100%; margin-top:10px; padding:7px; border-color:#6a5a44; color:#9a7b4f; font-size:12px;" onclick="toggleMasterAdv()">▸ 自己設定（外貌·身世·願望·禮裝·天賦）</button>
       <div id="ms-adv" style="display:none; margin-top:10px;">
+        <!-- ⚔️ 哪一場戰爭：預設第五次，換場次＝換敵方陣容(seedRivalsForGame_)。 -->
+        <select id="s-war" class="std-select" style="width:100%; box-sizing:border-box; margin-bottom:8px;" onchange="setWarFromSelect_()">
+          <option value="5th" selected>🏆 第五次聖杯戰爭（預設·Fate/stay night 陣容）</option>
+          <option value="4th">⚔️ 第四次聖杯戰爭（Fate/Zero 陣容）</option>
+          <option value="chaos">🎲 混亂模式（御主×從者隨機洗牌配對）</option>
+        </select>
         <input type="text" id="s-appear" class="std-in" placeholder="外貌：紅褐短髮的高中生" maxlength="30" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
         <input type="text" id="s-standing" class="std-in" placeholder="身世：沒落魔術名門末裔" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
         <input type="text" id="s-wish" class="std-in" placeholder="願望：拯救某個人" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
@@ -90,12 +90,22 @@
       </div>
 
       <button type="button" class="btn" style="width:100%; margin-top:10px; padding:7px; border-color:#6a5a44; color:#9a7b4f; font-size:12px;" onclick="openCanonMasterPick()">🎭 或者：扮演一位正典御主</button>
-      <button class="btn" style="width:100%; margin-top:8px; border-color:#777; color:#999; font-size:12px; padding:6px;" onclick="document.getElementById('step-name').style.display='none';document.getElementById('scr-warmode').style.display='block';">← 返回</button>
+      <button class="btn" style="width:100%; margin-top:8px; border-color:#777; color:#999; font-size:12px; padding:6px;" onclick="document.getElementById('step-name').style.display='none';document.getElementById('scr-menu').style.display='block';">← 返回</button>
     </div>
     <!-- 📿 召喚從者：三條路（挑名冊／一句話／自己捏）2026-09 收進同一屏，不再用分頁藏。 -->
     <div id="step-summon" style="display:none; width:320px;">
       <p style="text-align:center; color:var(--gold-accent); font-size:16px; font-weight:bold; margin-bottom:10px;">📿 召喚從者</p>
 
+      <!-- 🚪 三選一的門：整屏原本把「挑名冊／隨機／一句話生成／工房」四條路一次攤開(玩家：「這裡最亂」)。
+           先問怎麼召，選了才展開那一區。 -->
+      <div id="sum-gate">
+        <p style="text-align:center; color:#816e54; font-size:12px; margin:0 0 10px;">令咒已經締結。現在，決定誰會回應你的呼喚。</p>
+        <button type="button" class="btn" style="width:100%; margin-bottom:8px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="lockBtn(event, function(){ return sumMode_('random'); })">🎲 <b>交給聖杯決定</b><br><small style="color:#9a7b4f; font-weight:normal;">最接近原作——你不挑，是對方回應了你</small></button>
+        <button type="button" class="btn" style="width:100%; margin-bottom:8px; padding:12px; text-align:left; border-color:#9a7b4f; color:#c9a86a;" onclick="sumMode_('pick')">📜 <b>自己挑一位</b><br><small style="color:#816e54; font-weight:normal;">從英靈殿名冊指定，設定最完整</small></button>
+        <button type="button" class="btn" style="width:100%; padding:12px; text-align:left; border-color:#a06cd0; color:#c79be8;" onclick="sumMode_('create')">🖋️ <b>自己造一位</b><br><small style="color:#816e54; font-weight:normal;">一句話生成，或逐格自己捏</small></button>
+      </div>
+
+      <div id="sum-pick" style="display:none;">
       <div style="color:#c9a86a; font-size:13px; font-weight:bold; margin-bottom:6px;">① 從英靈殿挑一位 <span style="font-weight:normal; color:#816e54; font-size:11.5px;">· 最快，設定全現成</span></div>
       <!-- 🎴 七正職階：等寬不換行、flex 置中（第 7 個 Berserker 自動置中） -->
       <div id="summon-class-grid" style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:6px;">
@@ -115,10 +125,10 @@
       <div id="hero-list" style="max-height:180px; overflow-y:auto; margin:0 0 6px; padding:4px; background:rgba(0,0,0,0.18); border:1px solid rgba(212,175,55,0.25); border-radius:6px;">
         <p style="color:#816e54; font-size:12px; text-align:center; padding:12px 0;">↑ 選一個職階，或按「全部英靈殿」</p>
       </div>
-      <button class="btn" style="width:100%; padding:8px; font-size:13px; border-color:#9a7b4f; color:#9a7b4f;" onclick="lockBtn(event, summonRandom)">🎲 隨機召喚一位</button>
+      <button type="button" class="btn" style="width:100%; padding:7px; font-size:12px; border-color:#777; color:#999;" onclick="sumMode_('')">← 換一種方式</button>
+      </div>
 
-      <div style="border-top:1px solid rgba(212,175,55,0.18); margin:14px 0 10px;"></div>
-
+      <div id="sum-create" style="display:none;">
       <div style="color:#c79be8; font-size:13px; font-weight:bold; margin-bottom:4px;">② 一句話生一位 <span style="font-weight:normal; color:#816e54; font-size:11.5px;">· 講個大概，其餘 AI 補</span></div>
       <textarea id="s-desc" class="std-in" maxlength="120" placeholder="如：手持巨鎌、沉默寡言的死神少女" style="width:100%; box-sizing:border-box; height:44px; resize:none; font-family:inherit;"></textarea>
       <!-- 🧹 職階/來源預設收合——兩者皆有合理預設(不限/完全原創)，想細調才展開。 -->
@@ -145,6 +155,8 @@
       <button class="btn" style="width:100%; margin-top:6px; padding:9px; border-color:#a06cd0; color:#c79be8;" onclick="lockBtn(event, summonByDesc)">🖋️ 生成並召喚</button>
 
       <button type="button" class="btn" style="width:100%; margin-top:14px; padding:8px; font-size:12px; border-color:#6a8ac0; color:#8fb0e8;" onclick="openForge('summon')">▸ 🛠️ 逐格自己捏（工房）<span style="font-weight:normal; opacity:.75;">· 六圍/技能/寶具/人格全部你定</span></button>
+      <button type="button" class="btn" style="width:100%; margin-top:8px; padding:7px; font-size:12px; border-color:#777; color:#999;" onclick="sumMode_('')">← 換一種方式</button>
+      </div>
     </div>
     <!-- 🛠️ 自訂英靈工房：2026-09 從「三分頁 × 19 欄」收成單頁 7 組——只留真的會進戰鬥引擎／計費的欄位。
          外貌·個性·自稱·萌點·口吻·小動作·陣營·身世 八欄砍掉，改由最下面那句「一句描述」給 AI，不填就 AI 全補。 -->

@@ -64,7 +64,9 @@ async function newGameFlow() {
     } catch (e) { alert('清檔失敗，連線受阻。'); return; }
   }
   document.getElementById('scr-menu').style.display = 'none';
-  document.getElementById('scr-warmode').style.display = 'block';
+  // 🚪 2026-09「一路按就可以直接開始」：不再先問哪一場戰爭，預設第五次直接進創角；
+  //   第四次/混亂在創角頁的「▸ 自己設定」裡改（#s-war → setWarFromSelect_）。
+  chooseWorld('canon', '5th');
 }
 
 // 📜正史 / 🎲混亂 → 戰爭 → 扮演方式 → 創角
@@ -72,7 +74,7 @@ var warMode = 'canon';
 var currentWar = '5th';
 var playedMaster = '';
 function showOnly_(id) {
-  ['scr-warmode', 'scr-master', 'step-name'].forEach(function (s) {
+  ['scr-master', 'step-name'].forEach(function (s) {
     var el = document.getElementById(s); if (el) el.style.display = (s === id) ? 'block' : 'none';
   });
 }
@@ -88,16 +90,28 @@ function chooseWorld(mode, war) {
   }
   showOnly_('step-name');
 }
+// ⚔️ 創角頁「自己設定」裡的場次切換：沿用 chooseWorld 的同一組變數，只是不切畫面。
+function setWarFromSelect_() {
+  var el = document.getElementById('s-war');
+  var v = (el && el.value) || '5th';
+  warMode = (v === 'chaos') ? 'chaos' : 'canon';
+  currentWar = v;
+  playedMaster = '';
+  if (warMode === 'canon' && !_mastersPrefetch[currentWar]) {
+    _mastersPrefetch[currentWar] = gasRun({ action: 'get_masters', war: currentWar });
+  }
+}
+
 // ▸ 自己設定：御主的選填欄位預設收起來，點開才出現。
 function toggleMasterAdv() {
   var box = document.getElementById('ms-adv'), btn = document.getElementById('ms-adv-toggle');
   if (!box) return;
   var open = box.style.display === 'none';
   box.style.display = open ? 'block' : 'none';
-  if (btn) btn.textContent = (open ? '▾' : '▸') + ' 自己設定（外貌·身世·願望·禮裝·天賦）';
+  if (btn) btn.textContent = (open ? '▾' : '▸') + ' 自己設定（場次·外貌·身世·願望·禮裝·天賦）';
 }
 function openCanonMasterPick() {
-  if (warMode !== 'canon') { alert('混亂模式沒有正典陣容可扮演——請自訂御主，或退回上一步改選正史。'); return; }
+  if (warMode !== 'canon') { alert('混亂模式沒有正典陣容可扮演——請自訂御主，或在「自己設定」裡把場次改回正史。'); return; }
   loadCanonMasters();
 }
 async function loadCanonMasters() {
@@ -378,6 +392,21 @@ async function doSummon(payload) {
 }
 function summonByHero(id) { return doSummon({ heroId: id }); }
 // 🗑️ summonByName(真名文字召喚)已移除——正典英靈改走職階英靈殿挑選、其餘走自訂生成(summonByDesc)。
+// 🚪 召喚三選一：random 直接召、pick/create 展開對應那一區、'' 回到門口。
+function sumMode_(mode) {
+  var gate = document.getElementById('sum-gate');
+  var pick = document.getElementById('sum-pick');
+  var make = document.getElementById('sum-create');
+  if (gate) gate.style.display = (mode === 'pick' || mode === 'create') ? 'none' : 'block';
+  if (pick) pick.style.display = (mode === 'pick') ? 'block' : 'none';
+  if (make) make.style.display = (mode === 'create') ? 'block' : 'none';
+  if (mode !== 'random') return;
+  // ⚠ 先清掉名冊分頁殘留的職階：玩家可能先點過「自己挑」瀏覽過職階再退回來按隨機，
+  //   不清的話這個「完全隨機」會被悄悄鎖死在那個職階（同款坑見 summonByDesc 的註解）。
+  selectedSummonClass = '';
+  return summonRandom();
+}
+
 function summonRandom() { return doSummon({ cls: (selectedSummonClass && selectedSummonClass !== '__all__') ? selectedSummonClass : '' }); }
 function summonByDesc() {
   var d = (document.getElementById('s-desc') && document.getElementById('s-desc').value.trim()) || '';

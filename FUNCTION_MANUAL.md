@@ -31,7 +31,7 @@
 | **Index.html** | 0 | 載入殼（依序載 Style／Script／Script_Kanshou／Script_Onboarding） |
 | **Script.html** | 135 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
 | **Script_Kanshou.html** | 108 | 鑑賞（慾海）SPA |
-| **Script_Onboarding.html** | 51 | 開局（登入／創角／召喚） |
+| **Script_Onboarding.html** | 57 | 開局（登入／創角／召喚） |
 
 > ActionRouter 目前註冊 **69 個 action**，全部對應真實 handler、無缺漏（見下 Router_Action.gs 段完整對照表）。
 
@@ -1388,14 +1388,14 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 ---
 
 ### Script_Onboarding.html
-登入／創角／召喚 開局流程（2026-07 從 Script.html 拆出）。**51 個函式**。註：`showProcessing`/`hideProcessing` 是例外——雖定義在本檔，但 `Script.html` 的全域 `beginAction()`/`endAction()`(幾乎每個遊戲內動作都會經過)實際上呼叫這兩者，並非「開局跑一次、`startGame` 後不再用」，見下方死碼註記 #1 更正。
+登入／創角／召喚 開局流程（2026-07 從 Script.html 拆出）。**57 個函式**。註：`showProcessing`/`hideProcessing` 是例外——雖定義在本檔，但 `Script.html` 的全域 `beginAction()`/`endAction()`(幾乎每個遊戲內動作都會經過)實際上呼叫這兩者，並非「開局跑一次、`startGame` 後不再用」，見下方死碼註記 #1 更正。
 
-流程：帳號登入→新局/續玩→戰爭模式(正史/混亂)→戰爭(4th/5th)→扮演方式(自創/正典)→命運測定→締約創角→召喚從者→進主畫面。模組級狀態：`warMode='canon'`/`currentWar='5th'`/`playedMaster`/`_mastersPrefetch`(正典御主預取)、`masterRolls`/`masterRoll`(命運測定)、`heroesData`/`selectedSummonClass`(召喚名冊)、工房 `_forgeInit`/`_forgeEditId`/`_forgeFrom`/`_skPickSlot`/`_skPickGroup`。常數：`FATE_MAGICS_`/`FATE_ORIGINS_`(擲命池)、工房計價表 `FORGE_PTS`/`FORGE_BUDGET=340`/`FORGE_CLS_BONUS`/`FORGE_SK_PTS(_BIG/_SMALL)`/`FORGE_SK_TRACK`/`FORGE_FLAT_FX`/`FORGE_FX_GROUPS`/`FORGE_FX`/`FORGE_CLS_HINT`（皆鏡射後端·改後端記得同步）。
+流程（2026-09 再簡化）：帳號登入→新局/續玩→**直接進創角**(預設第五次·場次改在「▸ 自己設定」的 `#s-war`)→締約創角→**召喚三選一**(🎲交給聖杯決定／📜自己挑一位／🖋️自己造一位)→進主畫面。模組級狀態：`warMode='canon'`/`currentWar='5th'`/`playedMaster`/`_mastersPrefetch`(正典御主預取)、`masterRolls`/`masterRoll`(命運測定)、`heroesData`/`selectedSummonClass`(召喚名冊)、工房 `_forgeInit`/`_forgeEditId`/`_forgeFrom`/`_skPickSlot`/`_skPickGroup`。常數：`FATE_MAGICS_`/`FATE_ORIGINS_`(擲命池)、工房計價表 `FORGE_PTS`/`FORGE_BUDGET=340`/`FORGE_CLS_BONUS`/`FORGE_SK_PTS(_BIG/_SMALL)`/`FORGE_SK_TRACK`/`FORGE_FLAT_FX`/`FORGE_FX_GROUPS`/`FORGE_FX`/`FORGE_CLS_HINT`（皆鏡射後端·改後端記得同步）。
 
 #### 登入 / 選單
 - `accountLogin()` — 帳號登入（`account_login`）；存 `currentAccount`/`accountLoginRes`/localStorage；切到主選單，依 `hasGame` 顯示續玩鈕。
 - `continueGame()` — 續玩：組 `pc`（`mode:'solo'`）；`needsSummon`→回召喚頁`loadHeroes`；否則 `startGame(true)`。
-- `newGameFlow()` — 開新局：有存檔先確認清檔（`account_new_game`）→進戰爭模式選擇屏。
+- `newGameFlow()` — 開新局：有存檔先確認清檔（`account_new_game`）→直接 `chooseWorld('canon','5th')` 進創角（2026-09「一路按就開始」：不再先問哪一場）。
 
 #### 選戰爭模式 / 戰爭 / 扮演方式
 - `showOnly_(id)` — 開局分屏切換器（warmode/war/role/master/name/detail 只顯示一個）。
@@ -1427,6 +1427,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `renderHeroList()` — 渲染英靈列表（依職階/全部/玩家原創過濾，濾掉鑑賞限定 `cls==='御主'`）；召喚鈕→`summonByHero`，原創本人✏️→`forgeEdit`，無主🖐→`claimHero`。
 - `doSummon(payload)` — **召喚共用底層**（`summon_servant`）；成功存 `pc.servant`/`window._summonScene`→`startGame(false)`。
 - `summonByHero(id)` — 點名英靈召喚 → `doSummon({heroId})`。
+- `sumMode_(mode)`（2026-09 新增）— 🚪 召喚三選一的門：`'random'` 清掉名冊殘留職階後直接 `summonRandom()`、`'pick'`/`'create'` 展開對應區塊、`''` 回門口。
+- `setWarFromSelect_()`（2026-09 新增）— 創角頁「自己設定」裡的場次切換：改 `warMode`/`currentWar` 並背景預取該場正典御主名單（不切畫面，故登記在 `check_wait.py` 的 `BACKGROUND`）。
 - `summonRandom()` — 隨機召喚 → `doSummon({cls})`。
 - `summonByDesc()` — 描述召喚原創從者 → `doSummon({desc, origin, cls})`（`origin` 讀自 `toggleSummonAdvanced()` 展開的來源選項，非只有 desc/cls 兩欄）。
 - `toggleSummonAdvanced()` — 展開/收合自訂召喚表單的「進階選項（指定職階／角色來源）」區塊，鏡射 `toggleForgeAdvanced`。
