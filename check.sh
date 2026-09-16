@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # check.sh — 一行驗證所有 .gs 語法 ＋ Script.html 內嵌 JS ＋ Index.html/Style.html 標籤配對。改完代碼必跑。
 # 用法：bash check.sh   （從 repo 根目錄）
-#       另跑十一支不變式掃描：check_prompt(提示詞)／check_mirror(前後端常數)／check_wiring(接線)／
+#       另跑十二支不變式掃描：check_prompt(提示詞)／check_mirror(前後端常數)／check_wiring(接線)／
 #       check_render(敘事排版↔XSS)／check_simp(簡體字)／check_memory(solo 敘事記憶)／
 #       check_pronoun(寫死的性別代名詞)／check_cards(點名↔角色卡)／check_undef(未宣告識別字)／
-#       check_docs(文件↔代碼)／check_wait(等待畫面)。
+#       check_docs(文件↔代碼)／check_wait(等待畫面)／check_ui(前端 runtime)。
 # 原因：.gs 不是 node 認的副檔名，需複製成 .js 才能 node --check；
 #       Script.html 是單一 <script> 包裹，去頭尾才是純 JS。CI 不檢查 .html JS，故本地必驗。
 #       Index.html/Style.html 沒有單一 <script> 殼可以剝、驗不了JS，但漏刪一個開頭 <div> 沒同步刪
@@ -79,6 +79,9 @@ if python3 "$ROOT/check_docs.py"; then :; else fail=1; fi
 
 # ⏳ 等待畫面（按下去畫面靜止一兩秒、沒有任何訊息——玩家只會以為沒按到，然後再按一次）
 if python3 "$ROOT/check_wait.py"; then :; else fail=1; fi
+
+# 🖥️ 前端 runtime 冒煙（語法對 ≠ 跑得動；.html 的 JS 不進 CI，這裡是唯一防線）
+if node "$ROOT/check_ui.js"; then :; else fail=1; fi
 
 echo "──────────────"
 if [ "$fail" = 0 ]; then echo "✅ 全部通過"; else echo "❌ 有語法錯誤，勿 push"; fi
