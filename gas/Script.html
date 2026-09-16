@@ -227,6 +227,10 @@
   var KC_DEADLINE_DAYS_ = 14;   // 鏡像後端 FATE_DEADLINE_DAYS_
   var KC_MANA_CIRC_CUT_ = 3;    // 鏡像後端 MANA_CIRC_CUT_
   var KC_MANA_HP_CUT_ = 15;     // 鏡像後端 MANA_HP_CUT_
+  var KC_HORROR_SHIELD_HP_ = 300;   // 鏡像後端 HORROR_SHIELD_HP（海怪肉身上限）
+  var KC_HORROR_REGEN_ = 10;        // 鏡像後端 HORROR_REGEN（每回合肉身再生）
+  var KC_HORROR_UPKEEP_ = 10;       // 鏡像後端 HORROR_UPKEEP（每交鋒回合抽魔）
+  var KC_HORROR_HOURLY_UPKEEP_ = 8; // 鏡像後端 HORROR_HOURLY_UPKEEP（每小時抽魔）
   let myMasterSeals = 0;  // 令咒餘量
   let myMasterOutfit = ''; // 👕 御主本人當前換裝（鑑賞：與從者outfit同款機制，供「換裝」按鈕預填）
   // ❖ 令咒·蓄勢開關：按❖發亮＝蓄勢(免費·可取消)，下一次攻擊自動帶上令咒(必中×1.5)並熄滅；非攻擊動作不消耗，蓄勢保留。
@@ -956,7 +960,7 @@
   }
   // 🌊 解除召喚·深淵海怪：免費即時送回深淵，止住每小時維持費（重召須再付全額寶具魔力）。
   async function dismissHorror() {
-    if (!await customConfirm_('🌊 解除召喚：讓深淵海怪沉回深淵？\n\n・立即停止每小時 8 魔的維持費\n・失去 護盾擋傷／回合再生／並肩追擊／對城防禦\n・要再召喚須重付全額寶具魔力')) return;
+    if (!await customConfirm_('🌊 解除召喚：讓深淵海怪沉回深淵？\n\n・立即停止每小時 ' + KC_HORROR_HOURLY_UPKEEP_ + ' 魔的維持費\n・失去 護盾擋傷／回合再生／並肩追擊／對城防禦\n・要再召喚須重付全額寶具魔力')) return;
     if (!beginAction()) return;
     const story = document.getElementById('story');
     try {
@@ -1501,7 +1505,7 @@
     enuma: () => '世人啊、冀以鎖繫神明 Enuma Elish：對界寶具，恩奇都化身天之楔的概念級一擊——反星球/人類破壞行為而增幅，可匹敵乖離劍；6 階最高概念，碾穿一切結界與對魔力/神核。',
     gob: () => '王之財寶：投射寶具洪流——解放寶具時即時重創（物理，不受對魔力）。',
     zabaniya: () => '妄想心音：暗殺系寶具，奪心一擊——寶具解放時傷害大幅提升且追加固定重創。',
-    summon_horror: () => '螺湮城教本（變身·深淵海怪）：解放寶具或【戰前召喚】自深淵召出觸手巨獸，進入變身態——魔力供養多久、海怪就在多久（無期限）。① 海怪以肉身(300)在前擋傷、潰散後才傷本體；② 每回合自深淵再生 +10；③ 並肩追擊敵手（每交鋒回合抽御主 10 魔）；④ 本體防禦升至對城規模。維持費＝每小時 8 魔；共用池見底時海怪先沉回深淵（御主不為牠燃血）。可隨時「解除召喚」止耗，重召須再付全額寶具魔力。',
+    summon_horror: () => '螺湮城教本（變身·深淵海怪）：解放寶具或【戰前召喚】自深淵召出觸手巨獸，進入變身態——魔力供養多久、海怪就在多久（無期限）。① 海怪以肉身(' + KC_HORROR_SHIELD_HP_ + ')在前擋傷、潰散後才傷本體；② 每回合自深淵再生 +' + KC_HORROR_REGEN_ + '；③ 並肩追擊敵手（每交鋒回合抽御主 ' + KC_HORROR_UPKEEP_ + ' 魔）；④ 本體防禦升至對城規模。維持費＝每小時 ' + KC_HORROR_HOURLY_UPKEEP_ + ' 魔；共用池見底時海怪先沉回深淵（御主不為牠燃血）。可隨時「解除召喚」止耗，重召須再付全額寶具魔力。',
     wealth: () => '黃金律：王之財寶的無盡供能——自身瀕死(HP≤20%)時解放寶具，觸發「絕境取乖離劍」的處決級一擊。',
     golden_fleece: () => '金羊毛 Argon Coin（第二寶具·EX）：科爾基斯的金羊毛皮，擲於地面可召喚昔日看守它的巨龍。然美狄亞身為 Caster，並無召喚幻想種之力——此戰終究未能駕馭。純傳說門面／演出，無戰鬥數值。',
     // 🐛→✅ 舊版顯示範圍「×1.3〜1.83」跟引擎(Engine_Fate.gs「E→1.17、C→1.5、B→1.67、A→1.83、EX→2.0」)兩端都對不上，低估了極端值。
@@ -1865,8 +1869,8 @@
               + '<button onclick="event.stopPropagation();openRestMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(120,120,160,0.16); color:#a9a9d8; border:1px solid #5a5a8a; border-radius:6px; cursor:pointer;">🛏️ 休息</button>'
               + '<button onclick="event.stopPropagation();changeOutfit(\'' + safeN + '\')" title="換裝：自訂從者當前服裝穿著，AI 敘述依此描寫（只換衣不換人·五官/髮色/體態不變）。免費即時、留空恢復本相。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(150,110,190,0.16); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👕 換裝</button>'
               + '<button onclick="event.stopPropagation();changeWeapon(\'' + safeN + '\')" title="武裝：自訂從者的武器與戰鬥方式（如 雙持大劍、鎖鏈鐮刀），敘述以此為準——不受職階慣例或原典習慣綁。免費即時、留空恢復自然演出。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(190,140,90,0.16); color:#e0b080; border:1px solid #a07a4a; border-radius:6px; cursor:pointer;">⚔️ 武裝</button>'
-              + (s.canSummonHorror ? '<button onclick="event.stopPropagation();summonHorror(\'' + safeN + '\')" title="戰前召喚：翻開螺湮城教本，自深淵召出「深淵海怪」進入變身態（無期限·魔力供養制）——海怪以身擋傷、每回合再生、並肩追擊，本體防禦升至對城規模。付寶具魔力＋耗 1AP；在場期間每小時抽 8 魔、每交鋒回合另抽 10 魔維持，池見底時海怪先沉回深淵。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(90,70,150,0.2); color:#a99ae0; border:1px solid #6a5ab0; border-radius:6px; cursor:pointer;">🐙 召喚海怪</button>' : '')
-              + (s.horror ? '<button onclick="event.stopPropagation();dismissHorror()" title="解除召喚：把深淵海怪送回深淵——免費、即時、不耗 AP，立刻止住每小時 8 魔的維持費。要再召喚須重付全額寶具魔力。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(70,90,120,0.2); color:#8aa8d0; border:1px solid #4a6a9a; border-radius:6px; cursor:pointer;">🌊 解除海怪</button>' : '')
+              + (s.canSummonHorror ? '<button onclick="event.stopPropagation();summonHorror(\'' + safeN + '\')" title="戰前召喚：翻開螺湮城教本，自深淵召出「深淵海怪」進入變身態（無期限·魔力供養制）——海怪以身擋傷、每回合再生、並肩追擊，本體防禦升至對城規模。付寶具魔力＋耗 1AP；在場期間每小時抽 ' + KC_HORROR_HOURLY_UPKEEP_ + ' 魔、每交鋒回合另抽 ' + KC_HORROR_UPKEEP_ + ' 魔維持，池見底時海怪先沉回深淵。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(90,70,150,0.2); color:#a99ae0; border:1px solid #6a5ab0; border-radius:6px; cursor:pointer;">🐙 召喚海怪</button>' : '')
+              + (s.horror ? '<button onclick="event.stopPropagation();dismissHorror()" title="解除召喚：把深淵海怪送回深淵——免費、即時、不耗 AP，立刻止住每小時 ' + KC_HORROR_HOURLY_UPKEEP_ + ' 魔的維持費。要再召喚須重付全額寶具魔力。" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(70,90,120,0.2); color:#8aa8d0; border:1px solid #4a6a9a; border-radius:6px; cursor:pointer;">🌊 解除海怪</button>' : '')
               + '</div>')
           + '</div>';
       };
