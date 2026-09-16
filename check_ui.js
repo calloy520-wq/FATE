@@ -21,14 +21,20 @@ const ENTRIES = [
   'send', 'openCompanions', 'openKanshouAlbum', 'openKanshouWorld', 'openKanshouStyle', 'openKanshouTime',
   'kanshouSetPace', 'kanshouSetDateTime', 'kanshouAddRegion', 'kanshouDelRegion',
   'kanshouPlaceMenu', 'kanshouGoNewPlace', 'kanshouNextStage', 'kanshouEndDay',
-  'kcMapListHtml_', 'kcChoose_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing'
+  'kcMapListHtml_', 'kcChoose_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',
+  'sumMode_', 'setWarFromSelect_', 'newGameFlow'
 ];
 // 這些面板會被真的叫起來一次（不能拋例外）
 const RENDERS = [
   ['kcMapListHtml_', () => ctx.kcMapListHtml_()],
   ['openKanshouTime', () => ctx.openKanshouTime()],
   ['kcChoose_', () => ctx.kcChoose_('t', [{ k: 'a', label: 'a' }])],
-  ['aiHtml_', () => ctx.aiHtml_('一句<br>兩句')]
+  ['aiHtml_', () => ctx.aiHtml_('一句<br>兩句')],
+  // 🚪 召喚三選一的門（2026-09 新增）：三種模式都切一遍。random 會真的打後端，這裡不碰。
+  ['sumMode_(pick)', () => { ctx.sumMode_('pick'); return disp('sum-gate') === 'none' && disp('sum-pick') === 'block' && disp('sum-create') === 'none'; }],
+  ['sumMode_(create)', () => { ctx.sumMode_('create'); return disp('sum-gate') === 'none' && disp('sum-pick') === 'none' && disp('sum-create') === 'block'; }],
+  ['sumMode_(回門口)', () => { ctx.sumMode_(''); return disp('sum-gate') === 'block' && disp('sum-pick') === 'none' && disp('sum-create') === 'none'; }],
+  ['setWarFromSelect_', () => ctx.setWarFromSelect_()]
 ];
 
 function makeCtx(extraSrc) {
@@ -69,6 +75,8 @@ function makeCtx(extraSrc) {
   for (const f of FILES) vm.runInContext(strip(f), ctx, { filename: f });
   if (extraSrc) vm.runInContext(extraSrc, ctx, { filename: 'inject' });
   ctx.gasRun = async () => ({ success: true, regions: [], rows: [] });
+  // 🚪 召喚三選一的門：三個 div 先造出來，sumMode_ 的顯示切換才驗得到（元素不存在時它會靜靜什麼都不做）。
+  ['sum-gate', 'sum-pick', 'sum-create', 'war-note'].forEach(id => { const el = doc.createElement('div'); el.id = id; doc.body.appendChild(el); });
   ctx.kcClock = { band: '午後', hour: 14, label: '2005/12/20 14:00 午後', year: 2005, month: 12, day: 20 };
   ctx.window._lastTags = {
     pace: 10, myRegions: [{ id: 'rg_1', name: '泰國', desc: '熱' }],
@@ -84,7 +92,9 @@ try { ctx = makeCtx(); } catch (e) {
   process.exit(1);
 }
 ENTRIES.forEach(n => { if (typeof ctx[n] !== 'function') bad.push('叫不到 ' + n + '()'); });
-RENDERS.forEach(([n, fn]) => { try { fn(); } catch (e) { bad.push(n + '() 拋例外：' + e.message); } });
+const disp = id => { const el = ctx.document.getElementById(id); return el && el.style ? el.style.display : '(查無此元素)'; };
+// 回 false 的當成「跑得動但結果不對」——顯示切換這種事沒有例外可抓，只能看結果。
+RENDERS.forEach(([n, fn]) => { try { if (fn() === false) bad.push(n + ' 跑得動，但畫面狀態不對'); } catch (e) { bad.push(n + '() 拋例外：' + e.message); } });
 
 // 🧪 自我退化測試：注入一個會把面板打爆的覆寫，這支必須叫。
 //    不會叫的掃描器比沒有更糟——它給你「已經有防線」的錯覺。
