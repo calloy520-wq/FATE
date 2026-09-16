@@ -669,7 +669,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouHeroIdByName_(heroName)` — 由真名/短名反查 SEED id（短名優先、再 `kanshouNameCandidates_` 候選比對）。
 - `kanshouResidenceUnlocked_(pcData, residenceName, gameId)` — 拜訪私宅門檻：屋主本局已入駐且好感≥`KANSHOU_VISIT_BOND_`(40) 才解鎖。前後端共用單一真相。**七度改版**：改用`kanshouGetHeroHome_`讀住處(手寫豪邸+隨機分配住處皆吃得到，原本只認`KANSHOU_HERO_HOME_`)。
 - `kanshouLocHasPendingPromise_(pcData, loc, curDay, gameId)`（2026-07 新增）— 該地點是否有任一同伴的未過期(`day>=curDay`)約定指向這裡；`actionPlay_` 移動攔截用它豁免已成立約定的私宅解鎖檢查（防「好感賽跑後跌破門檻＝必爽約」的死亡螺旋）。
-- `kanshouRollDailyLocation_(heroName, hour, cohabit, memory)` — 幫不在身邊的英靈骰當下去哪：同居版（深夜回和室/清晨賴床/夜間家中公共空間）vs 一般版（深夜/清晨大機率回登記住處）；保底池排除 room/visit 分區。**七度改版新增第4參數`memory`(選填)**：深夜/清晨homeBias分支改呼叫`kanshouGetHeroHome_(heroId, memory)`，讓隨機分配住處的英靈也回得了家；省略`memory`時只吃`KANSHOU_HERO_HOME_`手寫豪邸(向後相容)。
+- `kanshouRollDailyLocation_(heroName, hour, cohabit, memory, gameId)`（2026-09 簽名加 `gameId`——沒有它就看不見玩家自己開的地方）— 幫不在身邊的英靈骰當下去哪：同居版（深夜回和室/清晨賴床/夜間家中公共空間）vs 一般版（深夜/清晨大機率回登記住處）；池子＝內建 ∪ 玩家自己開的地方，排除 room/visit/dateOnly。**🐛→✅ 2026-09 牢籠改偏好**：原本 `pool = haunts.length ? haunts : 全部地點`，有 `KANSHOU_LOCATION_TAGS_` 綁定就【只】從綁定裡挑——9/10 的角色這輩子只會出現在單一地點，而且保底池只有內建地點、沒人會出現在玩家自己開的地方。改成「老地方多放 `KANSHOU_HAUNT_WEIGHT_`(=6) 份進整個世界的池子」：實測老地方仍佔 31%、但會去 16 種地方、玩家新開的地方也有 9%。地點被砍掉就當沒那條偏好（`all.indexOf(h) < 0` 直接略過），所以砍任何地點都不會讓誰沒去處。`KANSHOU_HAUNT_WEIGHT_` 設 0＝完全隨機。**七度改版新增第4參數`memory`(選填)**：深夜/清晨homeBias分支改呼叫`kanshouGetHeroHome_(heroId, memory)`，讓隨機分配住處的英靈也回得了家；省略`memory`時只吃`KANSHOU_HERO_HOME_`手寫豪邸(向後相容)。
 
 #### 日曆·時鐘·天氣（純算·多為確定性）
 

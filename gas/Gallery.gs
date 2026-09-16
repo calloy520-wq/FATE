@@ -643,7 +643,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
     return KANSHOU_STARTER_IDS_.indexOf(String(r[COL.HERO.ID])) !== -1;
   });
   var starterRows = starterHeroes.map(function (hero) {
-    return heroToKanshouRow_(hero, gameId, kanshouRollDailyLocation_(String(hero[COL.HERO.NAME]), 6), 1);
+    return heroToKanshouRow_(hero, gameId, kanshouRollDailyLocation_(String(hero[COL.HERO.NAME]), 6, false, '', gameId), 1);
   });
   if (starterRows.length) {
     kpc.getRange(kpc.getLastRow() + 1, 1, starterRows.length, pcColCount).setValues(starterRows);
@@ -1157,6 +1157,10 @@ const KANSHOU_SUMMON_BLOCKED_IDS_ = ['斯卡哈-Assassin', '伊莉雅-Caster', '
 // 🏘️ 開局起始住民(2026-07玩家定案)：只有這4位一開始就「活在這座城裡」，其餘靠巧遇結識後才入駐。
 const KANSHOU_STARTER_IDS_ = ['藤村大河-Master', '遠坂凜-Master', '間桐櫻黑化-Master', '阿爾托莉雅-Saber'];
 // 地點×角色 氛圍標籤(資料驅動，往陣列塞一筆 SEED_SERVANTS 的 id 就能加，不動抽選邏輯)：查無標籤或抽不中標籤池時退回全女性保底池KANSHOU_ENCOUNTER_FEMALE_IDS_；不含KANSHOU_SUMMON_BLOCKED_IDS_裡暫時移出的id，避免巧遇到根本無法被正式召喚入駐的人。
+// 🎯 常去的地點在行程池裡多放幾份＝更常在那裡遇到她，但哪裡都可能去。
+//    設 0＝完全隨機(誰都沒有固定去處)；數字越大越像「她的老地方」。
+var KANSHOU_HAUNT_WEIGHT_ = 6;
+// 📍 每個人的老地方(偏好，不是牢籠)：找她的時候「去那裡碰碰運氣」用。
 const KANSHOU_LOCATION_TAGS_ = {
   '河邊小徑': ['斯卡哈-Lancer', '美杜莎-Rider'],
   '商店街': ['美遊-Saber', '藤村大河-Master'],
@@ -1261,7 +1265,7 @@ function kanshouLocHasPendingPromise_(pcData, loc, curDay, gameId) {
   });
 }
 // 同住人深夜/清晨睡不著出門走走的機率，獨立於一般英靈的homeBias，資料只存一處。
-function kanshouRollDailyLocation_(heroName, hour, cohabit, memory) {
+function kanshouRollDailyLocation_(heroName, hour, cohabit, memory, gameId) {
   const heroId = kanshouHeroIdByName_(heroName);
   if (hour !== undefined && hour !== null) {
     const band = timeBand_(hour);
@@ -1281,7 +1285,16 @@ function kanshouRollDailyLocation_(heroName, hour, cohabit, memory) {
   }
   const haunts = heroId ? Object.keys(KANSHOU_LOCATION_TAGS_).filter(loc => KANSHOU_LOCATION_TAGS_[loc].includes(heroId)) : [];
   // 🌙 全地點保底池排除'room'(玩家自己的房間)跟'visit'(別人登記的住處，見KANSHOU_HERO_HOME_)兩個分區——不同行的英靈不該隨機骰進玩家臥室或別人家裡，那裡只能靠「拜訪」主動走進去，不是隨機亂晃能撞到的地方；否則沒有haunts標籤/沒有登記住處的英靈可能隨機骰進遠坂邸這種別人的家，跟夜襲/賴床叫醒橋段「LOC剛好等於某人家」的判定衝突，觸發在錯的人身上。
-  const pool = haunts.length ? haunts : KANSHOU_LOCATIONS_.filter(l => l.region !== 'room' && l.region !== 'visit' && !l.dateOnly).map(l => l.name);
+  // 🗺️ 池子＝【整個世界】(內建 ∪ 玩家自己開的地方)。常去的地點只是多放幾份進池子＝更常遇到，
+  //    不再是「這輩子只會出現在那裡」。理由見 CODE_NOTES.md。
+  const all = kanshouLocationsFor_(gameId)
+    .filter(l => l.region !== 'room' && l.region !== 'visit' && !l.dateOnly).map(l => l.name);
+  if (!all.length) return KANSHOU_COHABIT_ROOM_;
+  const pool = all.slice();
+  haunts.forEach(h => {
+    if (all.indexOf(h) < 0) return;                 // 那個地點被砍掉了就當沒這條偏好，不會沒去處
+    for (let i = 0; i < KANSHOU_HAUNT_WEIGHT_; i++) pool.push(h);
+  });
   return pool[Math.floor(Math.random() * pool.length)];
 }
 // 真正的西曆年/月/日(每年固定365天、不算閏年，遊戲用途夠精準)，只抓3年區間(見actionPlay的advanceHours上限)不追求無限年份。
@@ -2452,7 +2465,7 @@ function actionPlay_(userData, pcId, sheets) {
     allEstablished.forEach(r => {
       const idx = pcData.indexOf(r);
       // 優先序：同床過夜(留玩家房間) > 今天有約(釘約定地點守著) > 照常骰行程(同居者走同居版)。curDay已是隔天。
-      pcData[idx][COL.PC.LOC] = intimateNightNames.includes(r[COL.PC.NAME]) ? kanshouMyRoomLoc_ : (kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY]));
+      pcData[idx][COL.PC.LOC] = intimateNightNames.includes(r[COL.PC.NAME]) ? kanshouMyRoomLoc_ : (kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY], _myGid_));
       dirtyPcRows.add(idx);
     });
     finalUserMsg = `【一天結束】夜幕降臨，${intimateNightNames.length ? `跟『${intimateNightNames.join('、')}』一起` : ""}回到房間安頓下來，今天到此為止，明天又是新的一天。`;
@@ -2482,7 +2495,7 @@ function actionPlay_(userData, pcId, sheets) {
         const idx = pcData.indexOf(r);
         if (String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) return;
         // 今天有約→釘在約定地點守著；沒約→照常骰(同居者走同居版)。curDay已是推進後的日期。
-        pcData[idx][COL.PC.LOC] = kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY]);
+        pcData[idx][COL.PC.LOC] = kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY], _myGid_);
         dirtyPcRows.add(idx);
       });
       const newDate = kanshouAbsDayToDate_(curDay);
@@ -2591,7 +2604,7 @@ function actionPlay_(userData, pcId, sheets) {
         const _ppNs = _pendingProposal.names || [String(_pendingProposal.name || pcData[_pendingProposal.idx][COL.PC.NAME] || "")];
         if (_ppNs.some(n => n && kanshouNameCandidates_(_nm).includes(String(n)))) return;
       }
-      const _newLoc = String(kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(_nm, curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY]) || "").trim();
+      const _newLoc = String(kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(_nm, curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY], _myGid_) || "").trim();
       if (_newLoc && _newLoc !== String(curL || "").trim()) {
         pcData[i][COL.PC.LOC] = _newLoc;
         dirtyPcRows.add(i);
@@ -3322,7 +3335,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
           if (!exitName) return;
           const eIdx = pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(exitName) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim());
           if (eIdx === -1) return;
-          let dest = kanshouRollDailyLocation_(pcData[eIdx][COL.PC.NAME], curHour, kanshouIsCohabit_(pcData[eIdx]), pcData[eIdx][COL.PC.MEMORY]);
+          let dest = kanshouRollDailyLocation_(pcData[eIdx][COL.PC.NAME], curHour, kanshouIsCohabit_(pcData[eIdx]), pcData[eIdx][COL.PC.MEMORY], _myGid_);
           if (String(dest || "").trim() === String(curL || "").trim()) {
             const eHeroId = kanshouHeroIdByName_(pcData[eIdx][COL.PC.NAME]);
             const eHome = kanshouGetHeroHome_(eHeroId, pcData[eIdx][COL.PC.MEMORY]);
