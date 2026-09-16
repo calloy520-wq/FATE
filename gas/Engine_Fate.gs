@@ -265,10 +265,10 @@ function combatProfile_(c) {
 // ⚡🛡 技能 fx 戰鬥效果「格式表」（資料驅動）：把散落的主動技 if 鏈＋線性被動加成收成一張表，要加/調技能＝改一列，引擎(servantActiveSkill_＋fxHitAdd_/fxDmgApply_)自動吃。
 var SKILL_FX_ = {
   // ⚡ 施放技術（burst/str_up/projection）：已被動化——戰時每擊 SKILL_PROC_ 機率自動全效發動(見 Router_Battle rollSkill_)，不再手動開關
-  burst: { active: true, prio: 1, mpPct: 0.15, icon: '💥', zh: '魔力放出', dmgMul: function (r) { return 1 + 0.45 * r; }, descFn: function (ht, dm) { return '本戰傷害 ×' + dm.toFixed(2) + '（灌注魔力放出）'; } },
-  str_up: { active: true, prio: 2, mpPct: 0.12, icon: '💪', zh: '怪力', dmgAdd: function (r) { return Math.round(8 * r) + 14; }, descFn: function (ht, dm, da) { return '本戰傷害 +' + da + '（激發怪力）'; } },
+  burst: { active: true, prio: 1, mpPct: 0.15, icon: '💥', zh: '魔力放出', scene: '魔力自兵刃與四肢爆散而出、每一擊都帶著炸裂般的推力', dmgMul: function (r) { return 1 + 0.45 * r; }, descFn: function (ht, dm) { return '本戰傷害 ×' + dm.toFixed(2) + '（灌注魔力放出）'; } },
+  str_up: { active: true, prio: 2, mpPct: 0.12, icon: '💪', zh: '怪力', scene: '膂力驟然暴漲、一擊便把地面砸出裂痕', dmgAdd: function (r) { return Math.round(8 * r) + 14; }, descFn: function (ht, dm, da) { return '本戰傷害 +' + da + '（激發怪力）'; } },
   // 投影魔術數值已對齊同表 burst/str_up 量級(battle_sim 模擬過，開關勝率差距不超過 ~30 個百分點)。
-  projection: { active: true, prio: 3, mpPct: 0.12, icon: '🗡️', zh: '投影魔術', hit: 2, dmgAdd: function (r, c) { return 5 + Math.round(rankVal((c.six && c.six['寶具']) || 'C') * 0.12); }, descFn: function (ht, dm, da) { return '本戰命中+' + ht + '、傷害+' + da + '（連續投影名劍齊射）'; } },
+  projection: { active: true, prio: 3, mpPct: 0.12, icon: '🗡️', zh: '投影魔術', scene: '憑空凝出兵裝、隨手就是一柄新的利器', hit: 2, dmgAdd: function (r, c) { return 5 + Math.round(rankVal((c.six && c.six['寶具']) || 'C') * 0.12); }, descFn: function (ht, dm, da) { return '本戰命中+' + ht + '、傷害+' + da + '（連續投影名劍齊射）'; } },
   // 🛡 常駐被動（每擊自動·免費）：resolveFateBattle_ 於其原位置呼 fxHitAdd_/fxDmgApply_ 套用(順序/標籤與改前一致)
   aim: { passive: true, zh: '千里眼', hitAdd: function (r) { return Math.round(4 * r); } },
   self_mod: { passive: true, zh: '自我改造', hitAdd: 2, dmgAdd: 3, silent: true }, // 傷害段靜默(命中段已列一次)
@@ -312,7 +312,7 @@ function servantActiveSkill_(c) {
     var ht = e.hit != null ? Math.round(skillFxVal_(e.hit, r, c)) : 0;
     var dm = e.dmgMul != null ? skillFxVal_(e.dmgMul, r, c) : 1.0;
     var da = e.dmgAdd != null ? Math.round(skillFxVal_(e.dmgAdd, r, c)) : 0;
-    return { id: fx, name: fxName_(c, fx, e.zh), icon: e.icon, mpPct: e.mpPct, hit: ht, dmgMul: dm, dmgAdd: da, desc: e.descFn(ht, dm, da) };
+    return { id: fx, name: fxName_(c, fx, e.zh), scene: e.scene || '', icon: e.icon, mpPct: e.mpPct, hit: ht, dmgMul: dm, dmgAdd: da, desc: e.descFn(ht, dm, da) };
   }
   return null; // 無真·施放技術者→無此被動增益（戰力全在常駐被動＋寶具）
 }

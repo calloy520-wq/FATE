@@ -214,6 +214,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
   留下的只有 `injectMasterMagicSupport_`（`{fx:'master_magic', r}`→`SKILL_FX_.master_magic`，`dmgAdd:7*rankMul_(r)`·量級同 wind_strike/crafting·凡人不喧賓奪主），
   而且只在 Caster 出擊時注入——那是後方詠唱、不是近身。
 - 玩家側＋敵側皆接戰鬥：`fateStrike_` 守方分支對「敵從者」用 `enemyMasterMemoryFor_`(Router_Bond) 反查敵御主 MEMORY 注入。魔術發動的 `fired[]` 標籤（御主魔術）也餵進 aiPrompt。
+- **🎬 技能只給畫面不給名字（2026-09 玩家「只有放寶具需要念出來！或是令咒」）**：交鋒分鏡不再寫技能名，改餵 `SKILL_FX_[fx].scene`（burst／str_up／projection 各一句畫面）；戰鬥續行／斬斷救贖改畫面句；收尾鐵律「技能不喊名，唯二可以喊出口的是真名解放與令咒」。`master_off.js` 釘四條（現 23 條）。
 - **教學卡也要跟著改**：`openTutorial()` 補一段「🎌 你的位置」——御主不上戰場、敵人的刀砍不到你、姿態只影響敘事怎麼寫你。⚠ **不可以寫成「打起來不會掉血」**：魔力不夠又要放寶具時仍會燒御主的血當電池（`drainForNp_`，2 血換 1 魔、血剩 1 就停；連血都墊不夠會【整個被擋下】並給訊息）。第一版就是這樣寫錯的，探針 `battery.js`（7 條）把三種情況都量過才改對。規則改了教學沒改，玩家會以為自己也要挨打。`check_ui.js` 把這段釘住（真的把教學卡畫出來對字）。
 - 探針 `master_off.js`（19 條）：御主整場不掉血、鐵律在場、體術被框在戰圈外、「接住從者」那一拍會在挨重手時出現且從不亂觸發。
 

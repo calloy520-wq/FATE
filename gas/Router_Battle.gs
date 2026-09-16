@@ -1257,12 +1257,15 @@ function actionFateBattle(userData, pcId, sheets) {
     if (pactDefName) SC_OPEN.push(`敵方盟友「${pactDefName}」（與「${defC.name}」的御主締有密約）並肩馳援——你攻其一，兩敵同禦。`);
     if (atkC.cls === 'Caster') SC_OPEN.push(`『${atkC.name}』是 Caster：此戰以魔術轟擊為主、非肉搏，勿讓其上前近戰。`);
     // ── 交鋒：過程中發生的事 ──
-    if (skillFired) SC_FIGHT.push(`『${atkC.name}』的技術「${_fullSkill.name}」自然而發、順勢加持了攻勢。`);
+    // 🎬 技能只給【畫面】不給名字（玩家：「不要一直看到技能名稱跑出來，我要看到的是對戰畫面」）——見 CODE_NOTES
+    if (skillFired) SC_FIGHT.push(`『${atkC.name}』這幾擊格外兇猛：${_fullSkill.scene || '身法與力道都比平時更狠'}——寫成畫面帶過，不點名這是什麼技能。`);
     if (horrorFired) SC_FIGHT.push(`我方術師以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持。`);
     if (_masterJoinLine) SC_FIGHT.push(_masterJoinLine);
     if (foeMagicFired) SC_FIGHT.push(`對面御主也自後方引動魔術為「${defC.name}」添力——敵方的攻勢不全是從者一人所為（對面御主同樣【不近身】）。`);
     if (battery && battery.usedBattery && battery.bledMaster) SC_FIGHT.push(`御主燃燒生命力硬扛魔力缺口為從者頂上，魔術迴路過載灼痛難當（餘 ${battery.masterHp}/${battery.masterHpMax} HP）——★迴路透支的內在灼痛虛脫，非流血外傷。`);
-    if (extraFired.length) SC_FIGHT.push(`戰局關鍵轉折：${extraFired.join('；')}。`);
+    if (extraFired.length) SC_FIGHT.push(`戰局關鍵轉折：${extraFired.map(t => String(t)
+      .replace(/·戰鬥續行$/, '挨了本該致命的一擊卻硬是站住了、還沒倒')
+      .replace(/·斬斷救贖.*$/, '原本能免死的手段這一次被硬生生打穿了')).join('；')}。★這兩種都寫成畫面，不點出機制或技能名。`);
     // ✨ 禮裝這一戰真的起了作用 → 用它自己的 flavor 給畫面（理想鄉另有專屬 SC_PEAK，不重複講）
     if (mysticFired && !idealRealmFired) {
       const _mcNow = MYSTIC_CODES[getMystic_(pcData[pIdx][COL.PC.MEMORY])];
@@ -1317,7 +1320,8 @@ function actionFateBattle(userData, pcId, sheets) {
       `${roundsBrief}\n${_exchangeWord_}。${finalLine}\n` +
       `── 分鏡(依序演成畫面) ──\n` +
       _scene('開場', SC_OPEN) + _scene('交鋒', SC_FIGHT) + _scene('高潮', SC_PEAK) + _scene('收束', SC_END) +
-      `★把上面的分鏡演成一場【${_wordRange} 字】的交鋒：依分鏡順序推進，技能與寶具演其威能。`;
+      `★把上面的分鏡演成一場【${_wordRange} 字】的交鋒：依分鏡順序推進，寶具演其威能。\n` +
+      `★【技能不喊名】直感、心眼、騎乘、魔力放出、怪力這類技能【只能化成動作與畫面】（劍先到、一步搶先、魔力自劍身爆散），旁白不點名、角色不喊招、不加書名號。【唯二可以喊出口的】：寶具真名解放、令咒。`;
   }
 
   // 📊 給前端的多回合視覺戰報
