@@ -62,17 +62,15 @@ var TRAIT_LABELS_ = ['外貌本相', '氣質舉止'];
 var QUAD_EMPTY_ = ['', '無',
   '外貌出眾', '外貌平凡', '舉止從容', '卸下心防時的柔軟一面', '卸下心防的私密一面',
   '沉著表象', '堅定內裡', '珍視之物', '厭惡之事', '通曉魔術', '深藏心事'];
-// 🫶 我方從者「此刻對你」的階段表：種子的 toMaster 是【剛締約時的距離感】，不是永久設定。
-//    每次呼叫 AI 都是全新的一次，卡片寫死什麼它就演什麼——關係早就推進了、態度欄還停在原廠，
-//    角色就永遠出不來（玩家 2026-09 原話）。好感 ≥45 起由這張表接手，之後一階一階往上走。
-//    ⚠ <45 刻意退回種子底色：剛締約時每個人的距離感本來就不一樣（EMIYA 嘴硬、美杜莎護主），
-//      那是角色特色；一旦真的建立起關係，就不該再由原廠設定說了算。
+// 🫶 我方從者「此刻對你」的【位移句】：好感只負責「偏離了多少」，角色是誰仍由種子的 toMaster 說了算。
+//    ⚠ 每一句都寫成【對前一句的修正】、不是一個完整的態度——這樣接在任何種子句後面都成立，
+//      也才不會有「這一階該怎麼演」被表格定死。整句怎麼組見 bondStance_。
 //    ⚠ 只有【我方從者】走這條。敵從者卡上那句講的是他跟【他自己的御主】的關係，跟你的好感無關。
 var BOND_STANCE_ = [
-  { min: 85, s: '已經把你看得比自己重，藏也藏不住' },
-  { min: 70, s: '打從心底信任你，只給你看的那一面已經露出來了' },
-  { min: 55, s: '真心認可你是自己的御主，願意把後背交給你' },
-  { min: 45, s: '開始把你當一回事，語氣鬆了一些' }
+  { min: 85, s: '早就名存實亡，只是誰都沒說破' },
+  { min: 70, s: '對你早已破了例，而且不打算收回' },
+  { min: 55, s: '這只是表面了，實際上已經願意把後背交給你' },
+  { min: 45, s: '對著你的時候，這份底色鬆了一些' }
 ];
 // 🫶 敵方（敵御主／敵從者）卡的「此刻對你」：他們對你的好感【會動】——求愛、挑撥、交涉結盟都在改
 //    `COL.PC.BOND`，但卡片原本從不講這件事，於是不管你們之間發生過什麼，AI 每次都照原廠的敵意演。
@@ -84,12 +82,15 @@ function foeStanceNote_(row) {
     return favorWord_(bondFavor_(row));
   } catch (e) { return ''; }
 }
+// 種子句【永遠留著】，好感只在後面補一句位移——這是「角色不會在關係變好時變成同一個人」的唯一保證。
 function bondStance_(bond, seedStance) {
-  var b = parseInt(bond);
+  var seed = String(seedStance || '').trim();
+  var b = parseInt(bond), shift = '';
   if (!isNaN(b)) {
-    for (var i = 0; i < BOND_STANCE_.length; i++) if (b >= BOND_STANCE_[i].min) return BOND_STANCE_[i].s;
+    for (var i = 0; i < BOND_STANCE_.length; i++) if (b >= BOND_STANCE_[i].min) { shift = BOND_STANCE_[i].s; break; }
   }
-  return seedStance || '';
+  if (!seed) return shift;
+  return shift ? `${seed}——不過${shift}` : seed;
 }
 function quadLabeled_(raw, labels, skipNone) {
   var parts = String(raw || "").split('、');
@@ -120,11 +121,11 @@ function performanceNote_(names) {
   var list = (names || []).filter(Boolean);
   if (!list.length) return "";
   return `★本則登場：${list.join('、')}——上面那幾張卡是【內化用的核心特質】，不是台詞、不是人物簡介：\n`
-    + `　不要讓角色或旁白把自己的性格、願望、萌點、關係階段講出來或拿來評論，也不要照著條列逐項演一遍。\n`
+    + `　不要讓角色或旁白把自己的性格、願望、關係階段講出來或拿來評論，也不要照著條列逐項演一遍。\n`
     + `　要做的是【推演】：有這樣特質的人，在此刻這個處境下，會做出什麼具體舉動、用什麼語氣、選擇說什麼或不說什麼。\n`;
 }
 
-// 🎭 從者「演出依據」卡：真名/職階/個性/對御主/口吻(含自稱)/萌點/招牌動作/六圍/技能/寶具壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』內化演出（只當背景、不准說嘴）。
+// 🎭 從者「演出依據」卡：真名/職階/個性/對御主/口吻(含自稱)/招牌動作/六圍/技能/寶具壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』內化演出（只當背景、不准說嘴）。
 function servantCard_(row, opts) {
   if (!row) return "";
   var skipClose = !!(opts && opts.skipClose);
@@ -134,9 +135,8 @@ function servantCard_(row, opts) {
     var cls = String(row[COL.PC.RANK] || "");
     var mem = String(row[COL.PC.MEMORY] || "");
     var rowSpeech = getPersonaSpeech_(mem), rowTic = getPersonaTic_(mem);
-    var rowMoe = String(row[COL.PC.INTENT] || "");
     // 召喚時已複製 speech/tic 到列上 → 平常不必查英靈殿；缺任一項(舊局/鑑賞封存重建)才退回即時查表(已走快取)。
-    var p = (rowSpeech && rowTic && rowMoe) ? {} : codexPersona_(name, cls);
+    var p = (rowSpeech && rowTic) ? {} : codexPersona_(name, cls);
     var fp = p.firstP || (mem.match(/第一人稱「([^」]*)」/) || [])[1] || "我";
     // 排除字元集用 `｜|【`(兩種 pipe 都排)，跟 getPersonaSpeech_/getPersonaTic_ 一致，避免尾端吃進雜訊字元。
     var toM = p.toMaster || (mem.match(/對(?:自己)?御主：([^｜|【]*)/) || [])[1] || "";
@@ -144,7 +144,6 @@ function servantCard_(row, opts) {
     var persona = p.words ? String(p.words).replace(/・/g, "、") : prefArr.slice(0, 4).join('、');
     var np = String(row[COL.PC.MARTIAL] || "");
     var speech = rowSpeech || p.speech || "";
-    var moe = rowMoe || p.moe || "";
     var tic = rowTic || p.tic || "";
     // persona.look 召喚時已複製進 row.TRAIT(parseTraitsHelper)，跟 fp/toM/persona 一樣退回讀列，別讓 p 變空物件時這格靜默消失。
     var look = String(p.look ? looksToTraitParts_(p.look) : (row[COL.PC.TRAIT] || ""));
@@ -171,7 +170,6 @@ function servantCard_(row, opts) {
       (speech || fpNote ? `｜口吻：${fpNote}${speech}` : "") +
       (stance ? `｜${isMine ? '此刻對你' : '對自己御主的態度'}：${stance}` : "") +
       (foeStance ? `｜此刻對你：${foeStance}` : "") +
-      (moe && !foe ? `｜萌點(情境對了才浮現一次)：${moe}` : "") +
       (tic && !foe ? `｜小動作：${tic}` : "") +
       (look ? traitLabeled_(look, false) : "") +
       (back ? `｜身世：${back}` : "") +
@@ -188,18 +186,17 @@ function servantCard_(row, opts) {
   } catch (e) { return ""; }
 }
 
-// 🎭 御主「演出依據」卡（精簡）：讓 AI 知道玩家御主是誰(性別/性格/特徵/願望/萌點)，以便 portray 互動。
+// 🎭 御主「演出依據」卡（精簡）：讓 AI 知道玩家御主是誰(性別/性格/特徵/願望)，以便 portray 互動。
 function masterCard_(row) {
   if (!row) return "";
   try {
     var name = String(row[COL.PC.NAME] || "御主");
     var sex = String(row[COL.PC.SEX] || "");
-    var moe = String(row[COL.PC.INTENT] || "").trim();
     var wish = (String(row[COL.PC.MEMORY] || "").match(/【願望】([^｜|【\n]*)/) || [])[1] || "";
     // 過濾掉建角未填的通用預設值(無資訊量)，只顯示真實身世。
     var back = String(row[COL.PC.BACK] || "").trim();
     if (back === "來歷不明的魔術師") back = "";
-    // 體術/魔術是能力描述(非願望/個性/萌點字面)，不受 show-don't-tell 限制，可直接陳述；
+    // 體術/魔術是能力描述(非願望/個性字面)，不受 show-don't-tell 限制，可直接陳述；
     var melee = getMasterMelee_(row[COL.PC.MEMORY]);
     var magic = getMasterMagic_(row[COL.PC.MEMORY]);
     var magicRank = getMasterMagicRank_(row[COL.PC.MEMORY]);
@@ -209,7 +206,6 @@ function masterCard_(row) {
     return `〈御主「${name}」·演出依據〉` + (sex ? `性別${sex}` : "") +
       quadLabeled_(row[COL.PC.PREF], PREF_LABELS_, true) +
       traitLabeled_(row[COL.PC.TRAIT], true) +
-      (moe && moe !== "（待揭曉）" ? `｜萌點(情境對了才浮現一次·用神情語氣帶，別重複同一個動作)：${moe}` : "") +
       (back ? `｜身世：${back}` : "") +
       (origin ? `｜出身：${origin}` : "") +
       (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
@@ -236,13 +232,12 @@ function sealGenderFact_(masterSex, svSex, svName) {
   return `★【性別】御主為${mSex}性${mNote}、「${svName}」為${sSex}性${sNote}。`;
 }
 
-// 🎭 敵御主「演出依據」卡（精簡）：戰鬥現場若敵御主本人在場(同地)，讓 AI 依其性格給反應/台詞，別讓對方全程沉默——只塞夠判斷語氣與萌點的精簡片段(性格全4項/特徵/萌點)，不塞六圍/寶具/全份人設。
+// 🎭 敵御主「演出依據」卡（精簡）：戰鬥現場若敵御主本人在場(同地)，讓 AI 依其性格給反應/台詞，別讓對方全程沉默——只塞夠判斷語氣的精簡片段(性格全4項/特徵)，不塞六圍/寶具/全份人設。
 function enemyMasterCard_(row, opts) {
   if (!row) return "";
   var skipClose = !!(opts && opts.skipClose);
   try {
     var name = String(row[COL.PC.NAME] || "敵御主");
-    var moe = String(row[COL.PC.INTENT] || "").trim();
     var back = String(row[COL.PC.BACK] || "").split("。外貌：")[0].trim();
     if (back === "魔術師") back = ""; // masterToNpcRow_ 的無資料預設值，塞卡無資訊量
     var wish = (String(row[COL.PC.MEMORY] || "").match(/【願望】([^｜|【\n]*)/) || [])[1] || "";
@@ -259,7 +254,6 @@ function enemyMasterCard_(row, opts) {
     return `〈敵御主「${name}」·演出依據〉` + (eSex ? `性別${eSex}` : "") +
       quadLabeled_(row[COL.PC.PREF], PREF_LABELS_, true) +
       traitLabeled_(row[COL.PC.TRAIT], true) +
-      (moe ? `｜萌點(僅供內化)：${moe}` : "") +
       (back ? `｜身世(僅內化)：${back.slice(0, 60)}` : "") +
       (align ? `｜陣營：${align}` : "") +
       (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +

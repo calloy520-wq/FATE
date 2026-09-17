@@ -46,7 +46,7 @@
 > 5. 對話歷史是已經結束的既定事實，只供語氣連貫；這一回合的新事件只有當前指令。
 > 6. 凡標【已裁定】的事實與【當前狀態】都必須在畫面上看得出來，怎麼表現依個性。
 > 7. 衣著照角色卡寫，【此刻裝扮】最優先，卡上沒寫的不自己加（戰鬥可寫破損、不得升級成裸身）。
-> 8. 表演總則：性格／萌點／六圍／技能只演出來，不當台詞也不由旁白點破；正典角色照原作認知演；羈絆低→戒備矜持、高→漸親近。
+> 8. 表演總則：性格／六圍／技能只演出來，不當台詞也不由旁白點破；正典角色照原作認知演；羈絆低→戒備矜持、高→漸親近。
 > 9. 只輸出 JSON：`{"narration":"…"}`，不要其他欄位、不要 Markdown。
 
 `narrateWithState_`（Router_Narrative.gs）：在 `promptText` 前掛 `stateBrief`（御主/在場從者當前狀態，**只給白話** `hpStateWord_`/`mpStateWord_`、不給數字）＋ `buildTrajectoryDigest_` 軌跡摘要，帶 `getGameHistoryBatchRaw(pcId, 6)` **最近 6 筆＝3 個按鍵** 當 chatHistory，呼叫 `callGeminiAPI(stateBrief+promptText, miniSystem, aiConfig)`（`model: AI_MODEL`, `temperature:0.85`, `max_tokens:720`，`longForm` 時 2000）。解析失敗回 `null`→`actionNarrateOnly` 退回罐頭句。存歷史時玩家側存的是 `narrateMemoryLine_(promptText)`（抓【戰報/系統/…】事件行成一句「這回合發生的事」，抓不到才退回 `cleanNarrateEcho_`）。
@@ -55,7 +55,7 @@
 幾乎每個「有敘事」的 handler 都會把這兩張卡串進 `aiPrompt` 開頭，作為「演出依據」。
 
 `servantCard_(row)` 組出：
-> 〈${name}·${cls}·演出依據〉對自己御主的態度：${toM}｜性格四格｜口吻：${fpNote}${speech}｜萌點：…｜小動作：…｜特徵三格｜…｜寶具「${np}」。
+> 〈${name}·${cls}·核心特質·內化用〉性格四格｜口吻：${fpNote}${speech}｜此刻對你：${種子底色}——不過${好感位移句}｜小動作：…｜特徵兩格｜…｜寶具「${np}」。
 >
 > （2026-09：自稱不再自成一欄。`fpNote` 只在自稱有特色時才出現＝`自稱「吾」・`；是尋常的「我」或狂化標記就不印。旁白改第二人稱後，原本那句「(旁白的「我」永遠是玩家)」註記已拆掉。）
 > 收尾（2026-09 起）：`performanceNote_([name])` 一句「★本則登場：${name}——依真名與性格演出。」（多人同場時一次點名全部；`skipClose` 時不加）。舊的「★依「${name}」真名與上述性格/口吻演出（show, don't tell）…依羈絆高低調親疏」長句已拆掉，同一件事改由 `miniSystem` 第 8 條統管、不再每張卡重複。
@@ -308,7 +308,7 @@
 ### `actionBackfillMasterAi`（action `backfill_master_ai`）
 非阻塞背景呼叫，只補 4 敘事欄，走 `callGeminiAPI` 拿結構化 JSON（非敘事文字）。系統提示詞關鍵行：
 > ★【演出而非說明】願望與身世只作為設定底層，不要在 background 裡直接複述願望字面。
-> ★npc_intent：一句讓人喜歡上這位御主的萌點，**18 字內講完一句完整的話**。可以是反差、也可以只是討喜的外觀或小習慣。（另有 ★【語言】鐵律：全程繁體中文、不夾英文字母）
+> （★npc_intent 萌點欄 2026-09 整組退休，已從這支提示詞移除。另有 ★【語言】鐵律：全程繁體中文、不夾英文字母）
 > ★background：限20字，呼應其身世／財力，禁出現具體物品名。
 > ★【勿輸出數值】戰力數值、HP/MP 一律由系統裁定，prompt【不要】輸出任何數值欄位；也不要輸出地點。
 > ★【輸出】合法 JSON、禁 Markdown：（附 schema）
@@ -322,10 +322,10 @@
   > ★【外貌 look】剛好 3 短句頓號分隔：外貌本相／氣質舉止／此刻裝扮。★【語言】除 JSON 欄位名與 cls 代碼外一律繁體中文。
   > ★【特性 traits】1~3 個…(如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。
   > ★【演出而非說明】personality 與寶具只作底層，勿直接複述字面。
-  > ★np：寶具名＋一句威能簡述；規模上限【對軍】（對城/對界/對神為種子英靈專屬，寫了也會被降）。★npc_intent：**18 字內講完一句完整的話**，可以是反差、也可以只是討喜的外觀或小習慣。★sex 從 男／女／異 擇一。
+  > ★np：寶具名＋一句威能簡述；規模上限【對軍】（對城/對界/對神為種子英靈專屬，寫了也會被降）。★sex 從 男／女／異 擇一。
   > ★【輸出】合法 JSON、禁 Markdown：（附 schema）
   成功後 `recordOriginalHero_` 把新原創英靈寫回英靈殿供之後重用（純寫入，非 AI）。
-- **🛠️ 工房**不在這支——住在 `actionSaveHero`（action `save_hero`，見 §11）：`userData.build` 是玩家親手定好的全部數值，AI 只補演出側寫（`personality/look/background/npc_intent/npEn…`，玩家有填就用玩家的），失敗不擋鑄造。
+- **🛠️ 工房**不在這支——住在 `actionSaveHero`（action `save_hero`，見 §11）：`userData.build` 是玩家親手定好的全部數值，AI 只補演出側寫（`personality/look/background/npEn…`，玩家有填就用玩家的），失敗不擋鑄造。
 - **各分支皆會**再組一份 `summonPrompt`（含 `servantCard_`）走 `narrate_only` 敘事召喚初遇場景：
   > ★以 Fate／TYPE-MOON 筆觸描寫所在地的燈火與氛圍，聚焦御主與從者最初的試探、對話與張力（依上方角色背景內化演出，禁止複述設定字面、禁止用外貌代替名字）。場景留下懸念、讓玩家想以行動回應。
   > ★禁止替御主做決定、禁止詢問玩家想做什麼、禁止介紹玩家自身身份、禁止新增任何地圖或NPC。
@@ -393,7 +393,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 與 `narrate_only` 的關鍵差異：`actionPlay` **自己從零組完整 prompt**（不假手 caller），且**直接呼叫 `callGeminiAPI(prompt, buildDefaultSystemPrompt(userData.optionsOn !== false), aiConfig)`**——第二參數是鑑賞專屬系統提示詞（`nsfwBaseRules`＋★【輸出範本】finalJson），指令分「系統」「user」兩層，結構與 `narrate_only` 相同。
 
 組裝的事實類別：
-- **在場人物完整卡**（身世/狀態/性格/特徵/萌點/關係與好感，`PROMPT_PARTY_SYSTEM`；solo 另帶六圍/氣血，鑑賞不帶）——⚠ **2026-07 §91「駐留制」改版**：`partyRows`/`partyMembers`已不是「同行隊伍」而是**當前地點的所有已存在角色**（`LOC===curL`，按好感排序取前3張詳細卡，超過3人的第4位以後只是不進這回合的詳細卡，人不會消失也不影響劇情觸發判定），卡片標籤字面已從「同行夥伴」改為「在場人物」（`partyDetailsArr`/`PROMPT_PARTY_SYSTEM`），玩家按鍵移動不再強拉任何人同步；只有AI敘事內容講「一起移動」時才會同步當時已在場的人。
+- **在場人物完整卡**（身世/狀態/性格/特徵/關係與好感，`PROMPT_PARTY_SYSTEM`；solo 另帶六圍/氣血，鑑賞不帶）——⚠ **2026-07 §91「駐留制」改版**：`partyRows`/`partyMembers`已不是「同行隊伍」而是**當前地點的所有已存在角色**（`LOC===curL`，按好感排序取前3張詳細卡，超過3人的第4位以後只是不進這回合的詳細卡，人不會消失也不影響劇情觸發判定），卡片標籤字面已從「同行夥伴」改為「在場人物」（`partyDetailsArr`/`PROMPT_PARTY_SYSTEM`），玩家按鍵移動不再強拉任何人同步；只有AI敘事內容講「一起移動」時才會同步當時已在場的人。
 - 玩家自身卡、近期歷史（最近 6 筆原始訊息／3輪，`getGameHistoryBatchRaw`，走 `aiConfig.chatHistory` 而非塞進 prompt 字面）
 - **🧹 2026-07 玩家定案「砍掉同地路人、開放世界無結界」**：舊版「同地路人」清單（`allLocals`/`displayPeople`）＋其好感階梯行為指令（`resistPrompt`，死仇→摯友七級）＋場景第三方交叉羈絆整套刪除。改走 `★【這個世界有誰】`（正式同伴／常民（世界帳本升格）／路人三分，路人可描寫但不具名不追蹤）；`backgroundCrowdStr` 現為**空字串**（內容已併入該區塊，變數只留形狀）。
 - **🚪🏠 2026-07 新增「巧遇開關」＋可改名的「家」移動選項**：`kanshouEncounterStr`(巧遇系統例外提示詞注入)現受`encounterOn`(讀`userData.encounter`，前端「出門走走」面板一顆checkbox、localStorage持久化)閘門，關閉時移動/原地問「還有誰」兩個擲骰點都不會觸發，但不影響已在場的`【邂逅中】`對象持續互動。`KANSHOU_LOCATIONS_`（2026-07已擴充到**50個地點**、非10個，見 `FUNCTION_MANUAL.md`）外新增一個不在清單內、顯示名稱可由玩家自訂(MEMORY`【住所】`標記，預設「家」)的私人地點——`isHomeMove`比對成立時恆不擲骰(私人空間永不巧遇陌生人)，其餘寫LOC/清`【邂逅中】`的邏輯與一般地點一致。詳見 `SOLO_REFERENCE.md` §44。
@@ -462,7 +462,7 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | `parley` | `actionParley`（Router_Bond.gs） | **是** 三種各自一段 ★【100~150 字】：`chat` 依性格×當前好感的真實反應／`intel` 把掀開的名字與地點**逐字**釘進提示詞（沒新情報時明講「不可捏造任何人名或地點」）／`yield` 成功演收手的理由並收在背影消失、失敗演一觸即發 |
 | `faction_ambush` | `actionFactionAmbush`（Router_Movement.gs） | **是** ★【80~140 字】趁隙奇襲；只剩玩家時另填 `buildVictoryDreamPrompt_` |
 | `incite` | `actionIncite`（Router_Movement.gs） | **是** 成功 ★【80~140 字】煽風點火／落空 ★【70~120 字】 |
-| `save_hero` | `actionSaveHero`（Router_Creation.gs） | **是**（結構化 JSON）：工房鑄造，玩家定數值、AI 只補 `personality/look/background/npc_intent/npEn` 側寫，失敗不擋 |
+| `save_hero` | `actionSaveHero`（Router_Creation.gs） | **是**（結構化 JSON）：工房鑄造，玩家定數值、AI 只補 `personality/look/background/npEn` 側寫，失敗不擋 |
 | `claim_hero` | `actionClaimHero`（Router_Creation.gs） | 否（把他人原創英靈收進自己名冊） |
 | `roll_fate` | `actionRollFate`（Core_Settings.gs） | 否（一次回三份天賦候選） |
 | `outfit`／`weapon` | `actionSetOutfit`／`actionSetWeapon`（Router_Economy.gs） | 否（寫 MEMORY，之後由角色卡餵 AI） |

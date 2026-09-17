@@ -287,14 +287,12 @@ function actionUpdateFate(userData, pcId, sheets) {
     }
   }
 
-  // 🔵 只准改 4 種敘事欄（個性/特徵/身世/萌點）；數值(六圍/迴路/禮裝)與寶具(martial)一律不可改——GAS 掌數值鐵則。
-  let targetCol = fateType === 'trait' ? COL.PC.TRAIT : fateType === 'pref' ? COL.PC.PREF : fateType === 'back' ? COL.PC.BACK : fateType === 'intent' ? COL.PC.INTENT : -1;
-  if (targetCol === -1) return JSON.stringify({ success: false, message: "此欄位不可修改（只能改個性／特徵／身世／萌點，數值與寶具一律鎖死）。" });
-  if (fateType === 'intent' && String(pcData[pIdx][COL.PC.ID]) !== String(pcId)) {
-    return JSON.stringify({ success: false, message: "同伴的萌點由AI自行體會，不開放查看或修改。" });
-  }
-  // 🔴 命格欄位直寫入表格，需自行把關長度：身世/萌點 單格 30；個性/特徵 為 4 格頓號拼接、給較寬上限
-  var cap = fateType === 'back' ? 80 : fateType === 'intent' ? 30 : 130; // 經歷(back)放寬到80配合AI滾動
+  // 🔵 只准改 3 種敘事欄（個性/特徵/身世）；數值(六圍/迴路/禮裝)與寶具(martial)一律不可改——GAS 掌數值鐵則。
+  //    ⚠ 'intent'(萌點) 2026-09 整組退休，路由一併拔除——玩家「萌不萌是玩家的事情，我們只給性格」。
+  let targetCol = fateType === 'trait' ? COL.PC.TRAIT : fateType === 'pref' ? COL.PC.PREF : fateType === 'back' ? COL.PC.BACK : -1;
+  if (targetCol === -1) return JSON.stringify({ success: false, message: "此欄位不可修改（只能改個性／特徵／身世，數值與寶具一律鎖死）。" });
+  // 🔴 命格欄位直寫入表格，需自行把關長度：身世 單格 80；個性/特徵 為頓號拼接、給較寬上限
+  var cap = fateType === 'back' ? 80 : 130; // 經歷(back)放寬到80配合AI滾動
   pcData[pIdx][targetCol] = String(fateValue || "").slice(0, cap);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 

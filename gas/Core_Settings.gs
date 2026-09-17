@@ -396,9 +396,6 @@ function setMageRealmPick_(memory, fx) {
 var PRONOUN_ = { '男': '他', '女': '她' };
 function pron_(sex) { return PRONOUN_[String(sex || '').trim()] || 'TA'; }
 
-// 萌點(INTENT 欄)落地上限：七個寫入點全部走 clampMoe_，別再各自寫 slice 數字。
-var MOE_STORE_MAX_ = 30;
-function clampMoe_(text) { return String(text || "").slice(0, MOE_STORE_MAX_); }
 
 // 短句(外貌/性格)的落地硬上限與提示詞對 AI 宣告的字數，所有生成短句的提示詞都要把 TRAIT_SEG_HINT_ 講出來。
 var TRAIT_SEG_MAX_ = 30;
@@ -530,7 +527,7 @@ function buildPlayerStatusString(selfRow, relMem = "") {
     selfRow[COL.PC.HP], selfRow[COL.PC.MP], "", "", "", "", "",
     "", "", "", "", "", safeMemory, safeRelMem, selfRow[COL.PC.FACTION],
     selfRow[COL.PC.RANK], selfRow[COL.PC.ALIGN], selfRow[COL.PC.CONTRIB], selfRow[COL.PC.BACK], "",
-    selfRow[COL.PC.INTENT], selfRow[COL.PC.MARTIAL], ""
+    "", selfRow[COL.PC.MARTIAL], ""   // 第25格原為萌點，已棄用；位置索引不動，永遠送空字串
   ].join('§');
 }
 
@@ -556,7 +553,7 @@ function getHeroCodexCached() {
 
 // 御主殿比照坤圖靜態化：唯二寫入點(upgradeMasterCodex_/seedFateCodex_)只在版本升級/首次建表時執行，無玩家動作(如工房)會新增列，試算表只是 SEED_MASTERS(Seed_Codex.gs) 的多餘拷貝。
 function getMasterCodexCached() {
-  return [["御主ID", "姓名", "性別", "外貌", "魔術系統", "魔術迴路", "體術", "魔術階位", "居所", "願望", "人格", "戰爭", "來源", "身世", "萌點"]]
+  return [["御主ID", "姓名", "性別", "外貌", "魔術系統", "魔術迴路", "體術", "魔術階位", "居所", "願望", "人格", "戰爭", "來源", "身世", "(棄用·原萌點)"]]
     .concat(SEED_MASTERS.map(masterToCodexRow_));
 }
 

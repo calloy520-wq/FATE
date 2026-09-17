@@ -89,7 +89,6 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
   // 🎴 五圍已棄欄：戰鬥吃六圍 SIX。
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp;
-  row[COL.PC.INTENT] = clampMoe_(persona.moe); // 🎴 敵從者也複製萌點(原漏，servantCard_ 曾要靠即時查表補)
   row[COL.PC.FACTION] = faction; row[COL.PC.RANK] = cls;
   row[COL.PC.ALIGN] = hero[COL.HERO.ALIGN] || "中立";
   row[COL.PC.MARTIAL] = hero[COL.HERO.NP] || "寶具";
@@ -127,7 +126,7 @@ function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   var hp = masterMaxHpMp_(circuits).hp, mp = masterPoolMax_(circuits, rankVal(heroMagicRank || 'C'));
   row[COL.PC.HP] = hp; row[COL.PC.MP] = mp;
   row[COL.PC.MAX_HP] = hp; row[COL.PC.MAX_MP] = mp;
-  row[COL.PC.INTENT] = String(mr[COL.MASTER.MOE] || "");
+  row[COL.PC.INTENT] = "";   // 萌點欄已棄用，永遠留空
   row[COL.PC.FACTION] = faction; row[COL.PC.RANK] = "御主";
   row[COL.PC.ALIGN] = String(mr[COL.MASTER.ALIGN] || "").trim();
   // 體術/魔術階位需寫進 MEMORY，masterCard_ 與 injectMasterMagicSupport_ 才讀得到（體術現只供演出）。

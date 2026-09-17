@@ -52,7 +52,7 @@ function actionManualNpc(userData, pcId, sheets) {
   // getMapDataCached 直接讀 FATE_MAP_SEED 常數(零 I/O、恆非空)，不必靠 sheets.map 是否存在來決定要不要退回保底地名。
   const validMapNames = getMapDataCached(sheets).slice(1).map(r => String(r[COL.MAP.NAME]).trim()).filter(n => n !== "" && !n.includes('-'));
 
-  // 開局非阻塞：create 不叫 AI，秒寫種子值進場；AI 生成的背景/特徵/個性/萌點由 actionBackfillMasterAi 背景補上。
+  // 開局非阻塞：create 不叫 AI，秒寫種子值進場；AI 生成的背景/特徵/個性由 actionBackfillMasterAi 背景補上。
   try {
     // 🎴 御主(凡人魔術師)初始數值：HP/MP 依魔術迴路(財力/身世決定)推算——御主是凡人，遠低於英靈從者。
     // 🎲 玩家沒測定命運就由 GAS 擲一份（創角 UI 明說「留空＝隨機天賦」）——舊版留空會讓
@@ -98,7 +98,7 @@ function actionManualNpc(userData, pcId, sheets) {
     newRow[COL.PC.MAX_HP] = masterStats.hp; newRow[COL.PC.MAX_MP] = masterStats.mp;
     newRow[COL.PC.FACTION] = "無"; newRow[COL.PC.RANK] = "御主";
     newRow[COL.PC.CONTRIB] = 0; newRow[COL.PC.ALIGN] = "中立";
-    newRow[COL.PC.INTENT] = "（待揭曉）";
+    newRow[COL.PC.INTENT] = "";   // 萌點欄已棄用，永遠留空
     newRow[COL.PC.GAME_ID] = gameId;
     sheets.pc.appendRow(newRow);
 
@@ -134,12 +134,11 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
 ★【格式鐵律】traits 【恰好2段】、personality 【恰好4段】，只用頓號「、」分隔，【絕對不要用句號「。」或半形句點】，每段是一個【簡短詞組】(不是完整句子)、限${TRAIT_SEG_HINT_}字內寫完，每段內部也【不要】再用頓號列舉多項；禁數字標籤。
 - traits：外貌、氣質舉止。${finalSex === '女' ? BUST_NOTE_ : ''}
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物
-★npc_intent：一句讓人喜歡上這位御主的萌點，**18 字內講完一句完整的話**。可以是反差、也可以只是討喜的外觀或小習慣。${MOE_BAN_}
 ★background：限20字，呼應其身世／財力，禁出現具體物品名。
 ★【勿輸出數值】戰力數值、HP/MP 一律由系統裁定，prompt【不要】輸出任何數值欄位；也不要輸出地點。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"background":"限20字","traits":"兩格頓號字串","personality":"四格頓號字串","npc_intent":"結合御主身分的獨特可愛萌點(不限反差)·限18字·務必寫完整一句話不可斷在句意未完處"}`;
+{"background":"限20字","traits":"兩格頓號字串","personality":"四格頓號字串"}`;
 
   try {
     // 🔴 ignoreLaw: true，把節慶跟天氣隔絕在創建室外
@@ -151,7 +150,6 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
     if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
     if (aiBrief.traits) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, traitParts_(row[COL.PC.TRAIT]).join('、'), TRAIT_SLOTS_));
     if (aiBrief.personality) sheets.pc.getRange(wIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
-    if (aiBrief.npc_intent) sheets.pc.getRange(wIdx + 1, COL.PC.INTENT + 1).setValue(clampMoe_(aiBrief.npc_intent));
     return JSON.stringify({ success: true });
   } catch (e) {
     return JSON.stringify({ success: false, message: "背景補生成失敗（已保留種子設定）" });
@@ -195,7 +193,7 @@ function actionGetHeroes(userData, pcId, sheets) {
         let six = {}, sk = [], tr = []; try { six = JSON.parse(r[COL.HERO.SIX] || "{}"); } catch (e) { } try { sk = JSON.parse(r[COL.HERO.SKILLS] || "[]"); } catch (e) { } try { tr = JSON.parse(r[COL.HERO.TRAITS] || "[]"); } catch (e) { }
         h.detail = { six: six, skills: sk, align: String(r[COL.HERO.ALIGN] || "中立"),
           traits: (Array.isArray(tr) ? tr : []).map(t => String((t && t.n) || t)).join("、"), // 編輯預填用：陣列→頓號字串，比照 cf-traits 輸入格式
-          look: String(pj.look || ""), pref: String(pj.words || ""), moe: String(pj.moe || ""), fp: String(pj.firstP || ""),
+          look: String(pj.look || ""), pref: String(pj.words || ""), fp: String(pj.firstP || ""),
           toMaster: String(pj.toMaster || ""), speech: String(pj.speech || ""), tic: String(pj.tic || ""), back: String(pj.back || ""), weapon: String(pj.weapon || "") };
       }
       return h;
@@ -253,7 +251,6 @@ var FX_MENU_ = "【可用技能效果碼 fx】挑契合此英靈的，沒對應�
 
 // 📝 創角提示詞的共用零件（御主生成／從者召喚兩支各寫一份的那些長句子，收在這裡講一次）。
 var BUST_NOTE_ = '外貌段要具體寫到身形與胸部，用自然敘述句(如「胸前豐盈」「身形纖瘦」)，不要「巨乳」這種孤立標籤——這句玩家看得到。';
-var MOE_BAN_ = '【禁】拿聖杯戰爭的機制專有詞(令咒/寶具/魔術迴路/從者/職階)當裝飾湊萌點——那些詞在本作有精確意義，真的合理相關才准出現；改用生活化情境(手作/習慣/小癖好)。';
 
 // 🎭 創角「來源三分類」(origin)→ 角色框定 frame ＋ 技能命名規則 skill。
 function originGuide_(origin) {
@@ -322,19 +319,18 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   var personaWordsClean = String(personaWords || "").replace(/[<>&"'`]/g, "").trim().slice(0, 200);
   var persona = JSON.stringify({
     words: personaWordsClean, firstP: String(px.firstP || "") || "我", toMaster: String(px.toMaster || ""),
-    look: String(px.look || ""), moe: String(px.moe || ""), speech: String(px.speech || ""), tic: String(px.tic || ""), back: String(px.back || ""),
+    look: String(px.look || ""), speech: String(px.speech || ""), tic: String(px.tic || ""), back: String(px.back || ""),
     // 🔑 creator＝編輯權限綁定(actionSaveHero edit 分支靠 pj.creator===acct 擋非本人)；weapon＝武裝敘述。
     weapon: String(px.weapon || ""), creator: String(px.creator || "")
   });
   // 工房角色創造當下就順手轉好日常版(DAILY_LOOK/DAILY_WORDS)寫進英靈殿，跟種子英靈不同(那 25 人的日常版是 Seed_Codex.gs persona.daily* 手寫欄位，getDailyHeroFields_ 只負責讀、沒有補算路徑)——之後第一次被召喚進鑑賞就直接有現成版本，不必等召喚當下才轉。
-  var dailyMoe = translateMoeToDaily_(name, cls, String(px.moe || ""));
   // translateLookToDaily_ 一次呼叫同時產出三段式 look(外貌本相/氣質舉止/日常口氣) 與獨立的 outfit(日常穿搭)。
   var dailyLookRes = translateLookToDaily_(name, cls, String(px.look || ""), String(px.firstP || ""), String(px.speech || ""), sex);
   // 🚫 私密一面(原 dailyLook 第4段)已整組退休，性格生成不再需要那個去重 hint。
   var dailyWords = translatePersonalityToDaily_(name, cls, personaWordsClean);
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
-    np || "", persona, align || "中立", "[]", "ai_gen", dailyLookRes.look, dailyWords, dailyMoe, dailyLookRes.outfit]);
+    np || "", persona, align || "中立", "[]", "ai_gen", dailyLookRes.look, dailyWords, "", dailyLookRes.outfit]);
   try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { } // 種子表已變動→清快取，下次讀到新從者
   return true;
 }
@@ -422,7 +418,7 @@ function parseForgeBuild_(build, reqCls) {
   out.sex = ["男", "女", "異"].includes(String(build.sex)) ? String(build.sex) : "異";
   const _fClean = (v, n) => String(v || "").replace(/[<>&"'`｜【】\n\r\t]/g, "").trim().slice(0, n);
   out.fp = _fClean(build.fp, 4); out.toM = _fClean(build.toMaster, 20); out.speech = _fClean(build.speech, 40);
-  out.tic = _fClean(build.tic, 30); out.moe = _fClean(build.moe, 18); out.back = _fClean(build.back, 28);
+  out.tic = _fClean(build.tic, 30); out.back = _fClean(build.back, 28);
   out.align = ALIGNS_.includes(String(build.align)) ? String(build.align) : "中立";
   out.look = _fClean(build.look, 60); out.pref = _fClean(build.pref, 60);
   const _segs = v => v ? v.split(/[、,，]/).filter(Boolean).length : 0;
@@ -524,20 +520,19 @@ function actionSaveHero(userData, pcId, sheets) {
     data[idx][COL.HERO.SKILLS] = JSON.stringify(pb.skills);
     data[idx][COL.HERO.NP] = np; data[idx][COL.HERO.ALIGN] = pb.align;
     data[idx][COL.HERO.TRAITS] = JSON.stringify(pb.traits);
-    const newWords = keep(pb.pref, pj.words), newLook = keep(pb.look, pj.look), newMoe = keep(pb.moe, pj.moe);
+    const newWords = keep(pb.pref, pj.words), newLook = keep(pb.look, pj.look);
     const newFp = keep(pb.fp, pj.firstP) || "我", newSpeech = keep(pb.speech, pj.speech);
     data[idx][COL.HERO.PERSONA] = JSON.stringify({
       words: newWords, firstP: newFp, toMaster: keep(pb.toM, pj.toMaster),
-      look: newLook, moe: newMoe, speech: newSpeech,
+      look: newLook, speech: newSpeech,
       tic: keep(pb.tic, pj.tic), back: keep(pb.back, pj.back), weapon: keep(pb.weapon, pj.weapon), creator: pj.creator
     });
     // 外貌/性格改了，先前快取的日常版本會跟新設定對不上——重新轉一次，不留舊資料。
-    const dailyMoeVal = translateMoeToDaily_(build.name, pb.cls, newMoe);
     const dailyLookRes = translateLookToDaily_(build.name, pb.cls, newLook, newFp, newSpeech, pb.sex);
     data[idx][COL.HERO.DAILY_LOOK] = dailyLookRes.look;
     data[idx][COL.HERO.DAILY_OUTFIT] = dailyLookRes.outfit;
     data[idx][COL.HERO.DAILY_WORDS] = translatePersonalityToDaily_(build.name, pb.cls, newWords);
-    data[idx][COL.HERO.DAILY_MOE] = dailyMoeVal;
+    data[idx][COL.HERO.DAILY_MOE] = '';   // 🚫 萌點退休：改鑄時一併洗掉舊值
     hs.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
     try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
     return JSON.stringify({ success: true, edited: true, message: `「${build.name}」的靈基已重鑄——之後召喚皆用新設定（已在場的分身不追改）。` });
@@ -553,8 +548,8 @@ function actionSaveHero(userData, pcId, sheets) {
   let flavor = null;
   try {
     flavor = JSON.parse(callGeminiAPI(
-      `【真名】：${pb.name}\n【職階】：${pb.cls}\n【性別】：${pb.sex}\n【玩家描述】：${pb.desc || "無"}${pb.look ? `\n【外貌(${pb.lookFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.look}` : ""}${pb.pref ? `\n【個性(${pb.prefFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.pref}` : ""}${pb.fp ? `\n【自稱(玩家已定)】：${pb.fp}` : ""}${pb.speech ? `\n【口吻(玩家已定)】：${pb.speech}` : ""}${pb.moe ? `\n【萌點(玩家已定·照抄勿改)】：${pb.moe}` : ""}${pb.back ? `\n【身世(玩家已定·照抄勿改)】：${pb.back}` : ""}${pb.weapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${pb.weapon}` : ""}${isMasterCls ? "" : `\n【技能】：${pb.skills.map(s => s.n).join("、") || "無"}\n【寶具】：${pb.npName}${pb.npDesc ? `（${pb.npDesc}）` : ""}`}`,
-      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名${_ogF.pnote}${isMasterCls ? "御主(鑑賞限定·不參與戰鬥)" : "從者"}的設定，你【只】負責補完演出側寫${isMasterCls ? "" : "與寶具英文真名"}，【嚴禁】輸出任何數值/階級/技能設定。★【語言】除${isMasterCls ? "" : " npEn 欄與"} JSON 欄位名本身外，所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★personality【恰好4段】、look【恰好2段】，皆【只用頓號「、」分隔·絕對不要用句號「。」或半形句點·每段是簡短詞組非完整句子·限${TRAIT_SEG_HINT_}字內寫完·段內不再用頓號列舉】。★輸出合法 JSON、禁 Markdown：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌兩短句頓號分隔（第一句五官髮色/身形/衣著印象，第二句必須是不含服裝字眼的純氣質詞）","background":"生平一句·限20字","npc_intent":"一句萌點(不限反差)·限18字·務必寫完整一句話不可斷在句意未完處","firstP":"台詞自稱(我/吾/俺/本王…·限4字)","toMaster":"對自己御主的態度(限20字)","speech":"口吻(限40字·如 古風敬語、句尾帶「呢」、簡短冷淡)","tic":"招牌小動作(限30字·具體可見的身體動作，不寫心情)"${isMasterCls ? "" : `,"npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"`}}`,
+      `【真名】：${pb.name}\n【職階】：${pb.cls}\n【性別】：${pb.sex}\n【玩家描述】：${pb.desc || "無"}${pb.look ? `\n【外貌(${pb.lookFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.look}` : ""}${pb.pref ? `\n【個性(${pb.prefFull ? "玩家已定·照抄勿改" : "玩家核心設定·擴寫成四短句·勿改本意"})】：${pb.pref}` : ""}${pb.fp ? `\n【自稱(玩家已定)】：${pb.fp}` : ""}${pb.speech ? `\n【口吻(玩家已定)】：${pb.speech}` : ""}${pb.back ? `\n【身世(玩家已定·照抄勿改)】：${pb.back}` : ""}${pb.weapon ? `\n【武裝(以此為準·勿依職階/原典改寫)】：${pb.weapon}` : ""}${isMasterCls ? "" : `\n【技能】：${pb.skills.map(s => s.n).join("、") || "無"}\n【寶具】：${pb.npName}${pb.npDesc ? `（${pb.npDesc}）` : ""}`}`,
+      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名${_ogF.pnote}${isMasterCls ? "御主(鑑賞限定·不參與戰鬥)" : "從者"}的設定，你【只】負責補完演出側寫${isMasterCls ? "" : "與寶具英文真名"}，【嚴禁】輸出任何數值/階級/技能設定。★【語言】除${isMasterCls ? "" : " npEn 欄與"} JSON 欄位名本身外，所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母。玩家標「照抄勿改」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫、【嚴禁】偏離或覆蓋其本意。★personality【恰好4段】、look【恰好2段】，皆【只用頓號「、」分隔·絕對不要用句號「。」或半形句點·每段是簡短詞組非完整句子·限${TRAIT_SEG_HINT_}字內寫完·段內不再用頓號列舉】。★輸出合法 JSON、禁 Markdown：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌兩短句頓號分隔（第一句五官髮色/身形/衣著印象，第二句必須是不含服裝字眼的純氣質詞）","background":"生平一句·限20字","firstP":"台詞自稱(我/吾/俺/本王…·限4字)","toMaster":"對自己御主的態度(限20字)","speech":"口吻(限40字·如 古風敬語、句尾帶「呢」、簡短冷淡)","tic":"招牌小動作(限30字·具體可見的身體動作，不寫心情)"${isMasterCls ? "" : `,"npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"`}}`,
       { temperature: 0.85, ignoreLaw: true }));
   } catch (e) { flavor = null; }
   // AI 補的演出欄位：玩家有填就用玩家的，沒填才拿這份（工房 UI 只剩一句描述，這幾格全靠 AI 從描述推）
@@ -563,12 +558,11 @@ function actionSaveHero(userData, pcId, sheets) {
   const np = isMasterCls ? "" : `${pb.npName}${fNpEn ? " " + fNpEn : ""}（${pb.npScale} ${pb.npR}）${pb.npDesc ? "·" + pb.npDesc : ""}`;
   const finalLook = pb.lookFull ? pb.look : (String((flavor && flavor.look) || "").trim() || pb.look);
   const finalPref = pb.prefFull ? pb.pref : (String((flavor && flavor.personality) || "").trim() || pb.pref);
-  const moe = pb.moe || clampMoe_(flavor && flavor.npc_intent);
   const back = pb.back || String((flavor && flavor.background) || "").slice(0, 28);
   let wasCreated;
   try {
     wasCreated = recordOriginalHero_(pb.name, pb.cls, pb.sex, JSON.stringify(pb.six), pb.classSkills, pb.skills, pb.traits, np, finalPref || "", pb.align,
-      { look: finalLook, moe: moe, firstP: pb.fp || _fv('firstP', 4), toMaster: pb.toM || _fv('toMaster', 20),
+      { look: finalLook, firstP: pb.fp || _fv('firstP', 4), toMaster: pb.toM || _fv('toMaster', 20),
         speech: pb.speech || _fv('speech', 40), tic: pb.tic || _fv('tic', 30), back: back, weapon: pb.weapon, creator: acct });
   } catch (e) { return JSON.stringify({ success: false, message: "寫入英靈殿失敗：" + e.message }); }
   if (!wasCreated) return JSON.stringify({ success: false, message: `「${pb.name}」剛被搶先鑄造同名英靈，請換一個真名再試一次。` });
@@ -653,7 +647,6 @@ function actionSummonServant(userData, pcId, sheets) {
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(persona.look), "外貌出眾、舉止從容", TRAIT_SLOTS_);
       let svPref = String(persona.words || "").replace(/・/g, "、");
-      let svMoe = clampMoe_(persona.moe);
       let svBack = persona.back ? String(persona.back).slice(0, 28) : `${cls}・${realName}`;
       svPref = enrichPersonalityLikesDislikes_(realName, cls, svPref);
       row[COL.PC.PREF] = parseTraitsHelper(svPref, "沉著表象、堅定內裡、珍視之物、厭惡之事");
@@ -666,7 +659,6 @@ function actionSummonServant(userData, pcId, sheets) {
         var ghLives = (ghSkill.lives != null) ? ghSkill.lives : (String(hero[COL.HERO.SOURCE]) === 'ai_gen' ? 3 : null);
         if (ghLives != null) row[COL.PC.MEMORY] += '｜【試煉】' + ghLives;
       }
-      row[COL.PC.INTENT] = svMoe;
       row[COL.PC.BACK] = svBack;
     } else {
       // 🌀 名冊查無 → AI 即時生成「第一級從者」：含真實六圍階級＋帶 fx 的技能（吃得到標籤）🎭 自訂描述且玩家未指定職階(reqCls空)→職階交給 AI 依描述判斷，不再死綁 Saber。
@@ -675,7 +667,7 @@ function actionSummonServant(userData, pcId, sheets) {
       const _og = originGuide_(origin); // 🎭 三分類→角色框定＋技能命名(僅自訂描述路徑生效)
       const sysOverride = `你是《命運停駐之夜》的英靈召喚核心。玩家御主召喚出一名「從者（Servant）」${clsUnset ? "" : `，職階為「${cls}」`}。${custDesc ? _og.frame : (trueName ? `指定真名為「${trueName}」，請忠於該英靈的傳說與性格（可跨作品：動漫／遊戲／神話／歷史皆可）。` : "請挑選一位契合此職階、知名的歷史或傳說英靈。")}
 
-★【語言】除 JSON 欄位名本身與 cls 職階代碼(如 Saber/Archer)這類系統代碼外，所有輸出內容(真名/技能招式名/背景/性格/外貌/萌點等)一律使用繁體中文，不得夾雜英文或其他語言字母；玩家描述若含英文人名/詞彙，請意譯或音譯成中文寫入，不要原樣照抄英文。
+★【語言】除 JSON 欄位名本身與 cls 職階代碼(如 Saber/Archer)這類系統代碼外，所有輸出內容(真名/技能招式名/背景/性格/外貌等)一律使用繁體中文，不得夾雜英文或其他語言字母；玩家描述若含英文人名/詞彙，請意譯或音譯成中文寫入，不要原樣照抄英文。
 ${clsUnset ? "★【職階 cls】玩家未指定職階——請依描述判斷最契合的職階，從 Saber(劍)/Archer(弓)/Lancer(槍)/Rider(騎乘)/Caster(魔術)/Assassin(暗殺)/Berserker(狂化) 擇一填入 JSON 的 \"cls\" 欄(填英文全名)。\n" : ""}★【六圍 six】筋力/耐久/敏捷/魔力/幸運/寶具各給一階(E~EX，可加 +)，有強有弱、貼合傳說。這是足以角逐聖杯的英靈，別因為原創或跨作品就保守低估：至少兩項 A 以上、寶具階通常 B 以上(純輔助型除外)，幸運可以是唯一明顯偏弱的一項。狂化者直接填【狂化後】的數值(狂化傷害加成由系統另計，別再自行灌水)，筋力或耐久該有一項衝到 A 以上。
 ★【技能帶 fx】skills(固有技能 2~3 個)，每個含 {"n":"技能名","r":"階級","fx":"效果碼"}。職階慣例技能(如 Saber/Lancer/Archer 的對魔力、Rider 的騎乘、Caster 的陣地/道具作成、Assassin 的氣息遮斷、Berserker 的狂化)由系統依職階自動附贈，這裡【不需要你生成】、專心給這名英靈"個人"的招牌技能就好。
 ★【技能命名】n 是【顯示名】、fx 才是機制(兩者脫鉤)。${custDesc ? _og.skill : '★技能名忠於該角色原著既有的招式/技能名(對魔力／直感／庫夫林「蓋・波爾克」…)，直接沿用勿重編亂加花名。'}
@@ -683,10 +675,10 @@ ${FX_MENU_}
 ★【特性 traits】1~3 個，{"n":"特性名"}（如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。
 ★【演出而非說明】personality 與寶具只作底層，勿直接複述字面。personality 剛好 4 短句頓號分隔、每句限${TRAIT_SEG_HINT_}字內寫完：日常表象、真實內裡、喜歡的事物、討厭的事物。
 ★【外貌 look】剛好 2 短句頓號分隔，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝；若為女性：外貌段要具體寫到身形與胸部，用自然敘述句(如「胸前豐盈」「身形纖瘦」)，不要「巨乳」這種孤立標籤——這句玩家看得到)]、[氣質舉止]。
-★np：寶具名＋一句威能簡述；規模上限【對軍】——對城/對界/對神為種子英靈專屬，寫了也會被系統降為對軍，簡述請勿誇稱斬城滅界。★npc_intent：一句讓人喜歡上這名英靈的萌點，**18 字內講完一句完整的話**。可以是反差、也可以只是討喜的外觀或小習慣。${MOE_BAN_}也別拿寶具名湊字數。★sex 從 男／女／異 擇一。
+★np：寶具名＋一句威能簡述；規模上限【對軍】——對城/對界/對神為種子英靈專屬，寫了也會被系統降為對軍，簡述請勿誇稱斬城滅界。★sex 從 男／女／異 擇一。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"男/女/異 擇一","align":"如 混沌・善","background":"限20字","npc_intent":"萌點一句(不限反差)·限18字·務必寫完整一句話不可斷在句意未完處","personality":"四格頓號","look":"兩格頓號(每句限${TRAIT_SEG_HINT_}字)","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"自取的招式名","r":"A","fx":"對應效果碼"},{"n":"自取的招式名","r":"B","fx":"對應效果碼"}],"traits":[{"n":"人類"}]}`;
+{"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"男/女/異 擇一","align":"如 混沌・善","background":"限20字","personality":"四格頓號","look":"兩格頓號(每句限${TRAIT_SEG_HINT_}字)","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"自取的招式名","r":"A","fx":"對應效果碼"},{"n":"自取的招式名","r":"B","fx":"對應效果碼"}],"traits":[{"n":"人類"}]}`;
       const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${clsUnset ? "未指定(請依描述判斷)" : cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
       if (!aiBrief || !aiBrief.realName || !aiBrief.six) {
         return JSON.stringify({ success: false, message: "英靈之座的迴響斷了，召喚沒有成功。稍後再試一次。" });
@@ -709,7 +701,6 @@ ${FX_MENU_}
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.look, "外貌出眾、舉止從容", TRAIT_SLOTS_);
       row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
-      row[COL.PC.INTENT] = clampMoe_(aiBrief.npc_intent);
       row[COL.PC.MEMORY] = `第一人稱「我」｜對御主：初締約·尚在觀察`; // 與種子路徑對稱(原漏寫→servantCard_ 演出資訊變薄)
       row[COL.PC.SIX] = JSON.stringify(aiSix);
       row[COL.PC.TAGS] = JSON.stringify({ skills: tagSkillKind_(aiCSkills, 'class').concat(tagSkillKind_(aiSkills, 'skill')), traits: aiTraits });
@@ -720,7 +711,7 @@ ${FX_MENU_}
       const svBackAi = aiBrief.background ? String(aiBrief.background).slice(0, 40) : `${cls} 職階的英靈`; // 補防呆上限，比照其他AI生成路徑
       row[COL.PC.BACK] = svBackAi;
       // 不重名的原創從者寫回英靈殿(含六圍/技能fx/特性)，日後可重用。
-      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { moe: clampMoe_(aiBrief.npc_intent), back: svBackAi, look: String(aiBrief.look || "").replace(/[<>&"'`]/g, "").slice(0, 80), creator: String(userData.acctName || "").trim() }); } catch (e) { }
+      try { recordOriginalHero_(realName, cls, sex, row[COL.PC.SIX], aiCSkills, aiSkills, aiTraits, np, aiBrief.personality, align, { back: svBackAi, look: String(aiBrief.look || "").replace(/[<>&"'`]/g, "").slice(0, 80), creator: String(userData.acctName || "").trim() }); } catch (e) { }
     }
 
     row[COL.PC.ID] = newId;

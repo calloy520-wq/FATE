@@ -1093,8 +1093,8 @@ JSON 固定開銷（三人在場）：典型 757 字 ／ 欄位全滿 1,057 字
 ### 🧠 記憶全景（AI 每回合看得到什麼·寫回什麼·多久一次）— 2026-07 整理·2026-09 稽核修正過期處
 **AI 每回合看得到（組進 prompt）**：
 - **近期對話**：`getGameHistoryBatchRaw(pcId, 6)` 滑動窗（6筆＝3輪，更早的靠下面的持久欄接力）。
-- **玩家**：性格(PREF)／特徵(TRAIT)／裝扮／**經歷(BACK·固定事實·AI 只讀不寫·≤80字)**／位置（地點活動表已隨預寫池砍除）／肉體(PHYSICAL)。⚠ **玩家萌點(INTENT)絕不餵**（紅線②）——2026-07 二度改版後 AI 連「盲寫」都不准了，性格/萌點創角時 `actionBackfillKanshouAi` 寫一次定案，遊戲中只有玩家自己改命能動，AI 完全不碰。**2026-07 四度改版拔掉雙修技巧(身體記憶)**：沒UI也沒使用規則的孤兒欄位，見上方finalJson欄位說明。
-- **每位在場 NPC**（`partyDetailsArr` 一行一人）：身世(BACK)／裝扮／性格／特徵／日常風味／**萌點(有餵·標「僅供內化」，與玩家不同)**／當前活動／**同居狀態**(`kanshouIsCohabit_`判定·2026-07 稽核補：已同居者額外標註「她現在與你同住一處」，讓AI語氣能自然帶同居的日常親近感、不是每次都當作客處理)／共同回憶(MEMOIR)／與玩家的約定／關係 tag＋好感＋相處記憶＋階調＋「你在她眼中」(知情度＋noticed)；NSFW 區另帶 肉體＋專屬稱呼(REL_MEM)。（聊天天花板、REL_MEM 態度欄、當前活動欄都已移除）
+- **玩家**：性格(PREF)／特徵(TRAIT)／裝扮／**經歷(BACK·固定事實·AI 只讀不寫·≤80字)**／位置（地點活動表已隨預寫池砍除）／肉體(PHYSICAL)。⚠ 萌點(INTENT) 2026-09 整組退休、兩邊都不再有這個欄位；性格創角時 `actionBackfillKanshouAi` 寫一次定案，遊戲中只有玩家自己改命能動，AI 完全不碰。**2026-07 四度改版拔掉雙修技巧(身體記憶)**：沒UI也沒使用規則的孤兒欄位，見上方finalJson欄位說明。
+- **每位在場 NPC**（`partyDetailsArr` 一行一人）：身世(BACK)／裝扮／性格／特徵／日常風味／**同居狀態**(`kanshouIsCohabit_`判定·2026-07 稽核補：已同居者額外標註「她現在與你同住一處」，讓AI語氣能自然帶同居的日常親近感、不是每次都當作客處理)／共同回憶(MEMOIR)／與玩家的約定／關係 tag＋好感＋相處記憶＋階調＋「你在她眼中」(知情度＋noticed)；NSFW 區另帶 肉體＋專屬稱呼(REL_MEM)。（聊天天花板、REL_MEM 態度欄、當前活動欄都已移除）
 
 **AI 寫回（GAS 落地）**：
 - **每回合**：`physical_state`/`appearance_extras`(原outfit_change)→PHYSICAL·【換裝】；`mutual_nicknames`→REL_MEM；`memory` 里程碑→MEMOIR(cap10·★釘選不驅逐)；`noticed`→MEMORY【眼中的你】；`world_note`→世界帳本；`rel_changes`→BOND；`npc_exit`→LOC。（`attitude`、proposals 泡泡都已不存在）
@@ -1130,7 +1130,7 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 
 - **唯一引擎入口 `send(customMsg, isSilent, opts)`＝`action:'play'`**（2026-07 重構：原 22+ 位置參數收進單一 opts 物件，payload 不變零速度影響）。移動/相約/拍照/牽手/同居/敲門/橋段**沒有各自的 action**，全靠 opts 夾旗標：`moveTarget`/`moveWithCompanion`/`promiseMeet`/`takePhoto`+`photoIntent`/`showPhoto`/`handHold`/`cohabitInvite`/`cohabitInviteId`/`handHoldId`/`skipKnockCheck`/`dismissGuest`/`lookAround`/`inviteResident`/`endDay`/`advanceHours`/`jumpBand`/`jumpFestival`/`loaderCaptions`。
 - **回饋條 `proposalResult`** 涵蓋 相約/牽手/同去/同居 四型＋**撲空含「她似乎在○○」位置提示**；**`promiseSettle`（獨立通道）** 涵蓋 赴約成功/爽約過期 結算通知（與提議結果並發時各自顯示·見教訓區「單一回饋槽」）；相簿滿的 `photoResult` 附直達鈕（📚開相簿）——「撲空/婉拒/卡住」一律要有下一步，別讓玩家對著空氣猜。
-- **改命同伴卡**（2026-07 第二輪稽核修）：`update_fate` 名字比對原硬性要求 `IS_PARTY==='同行'`，但鑑賞列從不寫該欄→同伴卡改命鈕恆「查無此人」；現比照 `update_rel_tag` 給 `k_` 世界豁免（同世界名字直配），改同伴的 個性/特徵/身世 是合法自訂。**萌點例外(2026-07 再修)**：同伴/NPC的萌點改成「真正內化」——`intent-box`(Index.html)在非自己卡片整格連改命鈕都隱藏，`actionUpdateFate` 也擋掉 `fateType==='intent'` 且目標非自己的請求，玩家從此看不到也改不了同伴萌點，只留給AI演出參考。（2026-07 二度改版：玩家自己卡的性格鎖快取 `_kcPrefLocks` 已隨性格鎖系統整組刪除）
+- **改命同伴卡**（2026-07 第二輪稽核修）：`update_fate` 名字比對原硬性要求 `IS_PARTY==='同行'`，但鑑賞列從不寫該欄→同伴卡改命鈕恆「查無此人」；現比照 `update_rel_tag` 給 `k_` 世界豁免（同世界名字直配），改同伴的 個性/特徵/身世 是合法自訂。⚠ **萌點那條路整條不存在了(2026-09)**：`intent-box`／`fate-btn-intent`／`fateType==='intent'` 全線拔除。（2026-07 二度改版：玩家自己卡的性格鎖快取 `_kcPrefLocks` 已隨性格鎖系統整組刪除）
 - **獨立 action**：`kanshou_companions`／`get_heroes`／`kanshou_summon_hero`／`get_album`／`album_delete`／`update_rel_tag`／`kanshou_set_nickname`（2026-07 五度改版新增·專屬稱呼手動鎖定，bond≥80）／`kanshou_memoir_op`／`kanshou_set_home_name`／`kanshou_set_name`／`kanshou_set_sex`／`enter_kanshou`／`backfill_kanshou_ai`。
 - **函式分組**：地圖移動(`kcMapListHtml_`/`kanshouMoveTo`/`kanshouProposeMove`/`kanshouLookAround`)、同伴面板(`openCompanions`/`renderKcHeroList_`/`kanshouOpenBondHub`→`kanshouOpenRelTag`)、召喚(`kanshouSummonHero`)、回憶(`kanshouOpenMemoir`/`kanshouMemoirOp`)、約定(`kanshouPromiseMeet`/`kanshouWaitForPromise`)、拍照相簿(`kanshouTakePhoto`/`openKanshouAlbum`)、時鐘(`kanshouEndDay`/`kanshouNextStage`/`kanshouJumpBand`/`kanshouJumpFestival`)。
 - **泡泡 UI**（`send()` 內依回傳欄位組）：移動同意(`moveProposal`)、深夜訪客善後(`nightGuest`)、同居邀請(`cohabitOffer`)、巧遇結識(`encounterOffer`)、等待約定(`promiseWait`)、拍照結果(`photoResult`)、地圖人數徽章(`_lastTags.locationCounts`)。
@@ -1224,7 +1224,7 @@ system 1700 → 1724 字。
 `_traitSpeech` 判斷「兩者相同就不印口吻」——那個 workaround 現在整段拆掉了。
 
 現況：
-- **特徵 3 格** = 外貌本相／氣質舉止／卸下心防的私密一面。⚠ 2026-09 起**第三格不再送進提示詞**（見下方「私密一面停送」）；`TRAIT_SLOTS_` 仍是 3，資料照存。`formatTrait` 只送 `[外貌氣質]`，第3格照舊只在獨處時走 `traitPrivateOf_` 併進萌點。
+- **特徵 2 格** = 外貌本相／氣質舉止。⚠ 原第三格「卸下心防的私密一面」2026-09 整組退休（`TRAIT_SLOTS_` 已收成 2），`formatTrait` 只送 `[外貌氣質]`。
 - **口吻**永遠印（來源：MEMORY【口吻】→`dailySpeechByName_` 退回英靈殿 `DAILY_LOOK` 第3段）。
 - **`dailyLook` 仍是 4 段**（外貌／氣質／**日常口吻**／私密面）——第3段是口吻的唯一來源，`parts.length>=4` 三處硬依賴不動。
   種子庫 17 個零資訊量的「自稱我・」前綴刪掉，6 個有特色的（俺／拙者／吾／余／我們／本小姐）保留在口吻裡。
@@ -1543,7 +1543,7 @@ schema 教 AI 寫 `"1. [主動]…"`，而 `data.options` 是**原樣**長成按
 | dialogue | 對話格式 | sys | `dialogueFormatRule_()`（預設是函式，所以走 `kanshouStyleDefault_`） |
 | drive | 推演 | sys | 鐵律 4 |
 | continuity | 情緒連貫 | sys | 鐵律 5 |
-| moe | 萌點用法 | sys | 鐵律 7 |
+| moe | 語癖與稱呼 | sys | 鐵律 7 |（key 仍叫 moe：那是玩家設定的對位欄，改了玩家改過的那格會對不回來）
 | immersion | 不出戲 | sys | 鐵律 9 |
 | world | 世界觀 | user | ★世界觀＝和平的現代冬木市… |
 | pov | 視角 | user | ★【視角鎖定】（`{玩家}` 佔位） |
@@ -1591,7 +1591,7 @@ schema 教 AI 寫 `"1. [主動]…"`，而 `data.options` 是**原樣**長成按
 作法：`_spotlight_` 從**玩家自己這一步的文字**裡找出被點名的同伴（走既有的 `kanshouNameCandidates_` 別名橋，
 短名也算），被點名的拿完整卡，同場其他人只拿「此刻的情境」那幾欄
 （名字／性別／在場來由／裝扮／**口吻**／現況／同居／約定／你在他眼中／關係好感），
-砍掉 性格／特徵／招牌小動作／經歷／萌點／共同回憶——**下一回合被點名時就全部回來**。
+砍掉 性格／特徵／招牌小動作／經歷／共同回憶——**下一回合被點名時就全部回來**。
 ⚠ **口吻刻意留著**：背景的人也可能被要求給一句反應，那一句還是要像那個人。
 ⚠ **沒點名任何人就全部給完整卡**（維持原行為）：猜錯的代價是那個人當場失格，不值得賭。
 量測：三人同場、點名一人 → 706 → 464 字（**−34%**）。探針 `kspot.js`。
@@ -2310,3 +2310,18 @@ solo 那側掛在 `solo_all.js` 尾巴（24 顆按鍵跑完一起掃）。現況
 純段落圖示（✍️）登記在 `TUT_NOT_A_BUTTON`。退化確認：把 🗺️ 改成不存在的 🛸，它確實會叫。
 ⚠ **切段的收尾用結構不用文案**：第一版切到「日子還長」為止——那是一句語氣話，2026-09 重寫時就被刪了，
 切點跟著失效、整段只會剩開頭幾個字，掃描器安靜地少看好幾顆鈕。現在切到模板字串真正的結尾 `</div>`。
+
+## 🚫 萌點整組退休（2026-09）
+
+玩家：「萌點不該由我們定義⋯我們應該只要給性格 萌不萌 是玩家的事情」。**鑑賞這邊受影響的地方**：
+
+- 【在場人物】那一行不再有 `萌點(僅供內化)`，【玩家資料·旁白用】那一行也不再有。
+  每人每回合少 ~14 字，三人在場約省 45 字。
+- 創角提示詞（`KANSHOU_MASTER_GEN_SYS`）拔掉 `npc_intent` 欄與整段「★【萌點怎麼寫】」，
+  後者改寫成一句通用的「★【設定怎麼用】以下設定是給你內化的素材，禁複述字面」。
+- `translateMoeToDaily_`（戰時萌點→日常萌點的 AI 轉譯）整支刪除；`COL.HERO.DAILY_MOE` 棄用。
+- 說書人風格模組 `moe` 改名「**語癖與稱呼**」，只管口癖/專屬稱呼。
+  ⚠ **key 仍叫 `moe`**：那是玩家設定存在試算表上的對位欄，改 key ＝玩家改過的那一格對不回來。
+- 同伴卡的改命鈕本來就沒有萌點那顆（2026-07 起隱藏），現在連後端路由 `fateType==='intent'` 也拔了。
+
+完整清單與機器防線見 `SOLO_REFERENCE.md` §萌點整組退休。

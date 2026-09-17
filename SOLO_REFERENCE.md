@@ -12,7 +12,7 @@
 | 規則 | 說明 |
 |---|---|
 | **慾海禁區** | `nsfwBaseRules`（演化核心，定義在 `Gallery.gs`）＋整套 NSFW 機制**一律不可改**。只能改 SFW 的 gating／名冊。改鄰近處後跑 `git diff -- gas/Gallery.gs \| grep -c nsfwBaseRules` 確認常數本體 0 改動（grep 可能因 context 行出現假陽性，須逐行核對 `+`/`-` 兩側是否真的動到常數）。 |
-| **show-don't-tell** | 敘事禁止直接寫出角色的 願望／個性／萌點 字面。只能用神態動作演出（`servantCard_` 鐵則一二三 已強制）。 |
+| **show-don't-tell** | 敘事禁止直接寫出角色的 願望／個性 字面（萌點 2026-09 整組退休）。只能用神態動作演出（`servantCard_` 鐵則一二三 已強制）。 |
 | **model id** | 本模型的 exact id 不可出現在 commit／PR／程式碼／任何 push 進 repo 的東西（見 CLAUDE.md 紅線④）。 |
 | **branch** | 只在 `claude/traditional-chinese-chat-q8ptho` 開發。 |
 
@@ -78,7 +78,7 @@
 PC(眾生):
   ID0 NAME1 SEX2 BACK3(身世) STATUS4(外顯) TRAIT5 LOC6 PREF7(個性)
   HP8 MP9 MAX_HP10 MAX_MP11
-  MEMORY12 INTENT13(萌點) FACTION14 RANK15(職階) CONTRIB16 ALIGN17
+  MEMORY12 INTENT13(棄用·原萌點) FACTION14 RANK15(職階) CONTRIB16 ALIGN17
   PHYSICAL18(肉體·NSFW) MARTIAL19(寶具) GAME_ID20 SIX21(六圍JSON) TAGS22(技能JSON) SEEN23(戰爭迷霧)
   關係欄(這名 NPC 對本世界御主。御主自己這一列留空)：
     BOND24(好感0-100) REL_TAG25(關係標籤) IS_PARTY26(同行旗標"同行"/"") MEMOIR27 REL_MEM28
@@ -88,7 +88,7 @@ PC(眾生):
   死欄(恆空·佔位不刪)：MONEY33 UPKEEP_WEEK34 ROOM35
 HERO(英靈殿): ID0 CLS1 NAME2(真名) SEX3 SIX4 CLASS_SKILLS5 SKILLS6 TRAITS7 NP8 PERSONA9(JSON) ALIGN10 WARS11 SOURCE12
               DAILY_LOOK13 DAILY_WORDS14 DAILY_MOE15 DAILY_OUTFIT16 (13-16＝鑑賞用日常版，與戰時 PERSONA 分開存)
-MASTER(御主殿): ID0 NAME1 SEX2 APPEAR3 MAGIC4 CIRCUITS5 MELEE6 MAGIC_RANK7 HOME8 WISH9 PERSONA10 WAR11 SOURCE12 BACK13(身世) MOE14(萌點) ALIGN15(陣營)
+MASTER(御主殿): ID0 NAME1 SEX2 APPEAR3 MAGIC4 CIRCUITS5 MELEE6 MAGIC_RANK7 HOME8 WISH9 PERSONA10 WAR11 SOURCE12 BACK13(身世) MOE14(棄用·原萌點) ALIGN15(陣營)
 MAP(坤圖): REGION0 NAME1 TYPE2 COORD3 DESC4 PARENT5 WAR6(''=通用/'4th'/'5th' 限定該戰爭)
 ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccountToKanshouPc_ 專責讀寫)
 ```
@@ -109,8 +109,8 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 |---|---|---|
 | check_name / check_sheets / account_login / account_new_game | Account/Setup 系 | 登入／建帳號／開新局／手動補分頁 |
 | create | actionManualNpc | 御主創角。**🚀 非阻塞：不叫 AI**——用玩家種子值＋GAS 算的數值（HP/MP/game_id/迴路/令咒/模式/戰爭/扮演 MEMORY）＋起始禮裝秒寫入。落點確定性選（偏好新都）。（舊「手動建 NPC」的 !isCreate 分支已整段刪除，不是死碼仍在）。**🛡️ 帳號重入防呆**：帳號若已連結一局活著的遊戲(帳號表 `COL.ACC.PC` 存在且對應列仍在)則拒絕再建——防 `create` 異常被呼叫第二次時 `linkAccountToPc_` 覆寫連結指標、悄悄孤兒化舊角色＋已召喚的從者(英靈殿範本不受影響·僅帳號視角看不到那局進度)。合法的 `newGameFlow` 本就先呼叫 `account_new_game` 清連結才會走到這裡，不受影響。 |
-| backfill_master_ai | actionBackfillMasterAi | 🚀 御主敘事非阻塞補生成：create 後前端 `backfillMasterAi(seed)`（不 await·趁挑從者空檔）呼叫，AI 補 背景/特徵/個性/萌點，只單格 setValue 更新 4 敘事欄（BACK/TRAIT/PREF/INTENT）。失敗＝保留種子。 |
-| update_fate | actionUpdateFate | 逆天改命：玩家改自己 4 敘事欄（個性/特徵/身世/萌點），數值/寶具不可改。**萌點例外(2026-07)**：`fateType==='intent'` 且目標非自己(`pcData[pIdx][COL.PC.ID]!==pcId`)一律拒絕——同伴/NPC的萌點「真正內化」給AI演出參考，玩家不可查看也不可竄改(前端`intent-box`對非自己卡片整格連改命鈕都隱藏，這裡是後端防線)。 |
+| backfill_master_ai | actionBackfillMasterAi | 🚀 御主敘事非阻塞補生成：create 後前端 `backfillMasterAi(seed)`（不 await·趁挑從者空檔）呼叫，AI 補 背景/特徵/個性，只單格 setValue 更新 3 敘事欄（BACK/TRAIT/PREF）。失敗＝保留種子。 |
+| update_fate | actionUpdateFate | 逆天改命：玩家改自己 3 敘事欄（個性/特徵/身世），數值/寶具不可改。⚠ `fateType==='intent'`（萌點）2026-09 隨萌點整組退休，路由已拔除，前端也不再有那顆鈕。 |
 | summon_servant | actionSummonServant | 召喚從者（英靈殿抓真名/六圍/技能→眾生列）。種子英靈直接用寫死 persona、不叫 AI；名冊查無才走 AI 即時生成。敘事8格：個性(PREF)讀 `persona.words`、特徵(TRAIT)讀 `persona.look`（經 `looksToTraitParts_` 切成 3 格 外貌/氣質/卸下心防私密一面；2026-09 前是 4 格、第3格是自稱）。AI 生成走 `sanitizeSix_`（EX 最多2項·超額降A）/`sanitizeSkills_`（fx 非 `ALLOWED_FX_` 白名單→清空·階級 regex·數量帽）雙重防呆；缺 realName/six 中止不寫表。**🐛→✅ 2026-07 職階技能改 GAS 直接指派**：舊版讓 AI 自己生 `classSkills`(prompt 只講「貼合職階慣例」)，玩家實測抓到一名 Berserker 除了正常的「狂化」外還多一個像符文/道具作成系的「召喚騎士」——AI 額外發明了一個不屬於該職階原型的技能，軟性建議擋不住。改為比照工房 `parseForgeBuild_`：`aiCSkills = FORGE_CLS_SKILLS_[cls] || []` 直接指派、不再問 AI，prompt 也移除 classSkills 請求(只留固有技能 skills 2~3個)，徹底杜絕跑題，AI 專心生角色個人技能即可。**🌀 2026-07 六圍下限保底 `bumpSixToFloor_`**：舊版只擋「太強」沒擋「太弱」——AI 常自己抓不準力度，玩家實測抓到「AI自訂從者也太弱」，光靠 prompt 措辭「務必有強有弱」擋不住。改為 GAS 硬性補強：算完(六圍+`aiSkills`，**不含** `aiCSkills` 職階技能，比照工房不計費)低於工房同款 `FORGE_FLOOR_`(=340，對齊 `FORGE_BUDGET`)就把最弱一項六圍逐階往上補，直到達標或撞 EX≤2 上限為止；`align` 也補上跟工房一致的 `ALIGNS_` 白名單驗證(舊版 `aiBrief.align||"中立"` 沒驗證，AI 可能吐出九宮格外的怪陣營字串)。**技能 `{n,r,fx}` 中 n(顯示名)與 fx(機制)脫鉤**：`sanitizeSkills_` 保留 AI 取的 n(截10字)、獨立驗 fx；戰報靠 `fxName_` 讀該從者自己的 n 顯示、不會張冠李戴。**🎭 三分類 `origin`**(前端 `s-origin`／`cf-origin`·helper `originGuide_(origin)`→`{frame,skill,pnote}`)：`fate`=Fate正史(技能忠原著招式名)／`anime`=其他動漫畫知名角色(技能取該角色招牌招式名，如悟空→龜派氣功)／`original`=完全原創(自取像寶具的花名·空=此)。自訂生成(summonByDesc)吃 `frame`(角色框定)+`skill`(技能命名)；工房(summonByForge/save_hero)技能名玩家自己打·只吃 `pnote`(AI 補人格忠實度)。**⚔️ 自訂生成職階獨立選擇 `s-cls`**：不吃上方瀏覽名冊用的 `selectedSummonClass`(曾誤共用→玩家點過職階分頁瀏覽後再自訂生成，職階被悄悄鎖死、跟描述無關)；不選(空字串)時 `reqCls` 亦空，`clsUnset` 成立→職階交給 AI 依描述判斷(回傳 JSON `cls` 欄，非法值才退回 Saber)，不再死綁 Saber。**🏷️ 技能來源標記 `tagSkillKind_(arr,kind)`**(Router_Creation.gs)：寫入 TAGS 前把 classSkills/skills 分別打 `kind:'class'/'skill'` 再合併——4 個寫入點(此函式 hero 分支/AI生成分支、Seed_Codex.gs 種子英靈、Seed_Rivals.gs 敵方鋪陳)皆已改用；純顯示欄位，`hasFx_`/`fxName_` 只認 fx/r 不受影響。前端 `buildSvCard`(Script.html) 據此把技能分三卡「職階技能／固有技能(依 `rankVal_` 階級高→低排序)／特殊技能(`SELECTABLE_FX` 可選效果)」，寶具維持原樣不動；`skillBucket_` 對缺 `kind` 的舊角色(合併時未標記)退回 `CLASS_SKILL_FX_HEUR_`(鏡射 `FORGE_CLS_SKILLS_`) fx 代碼猜測，猜不中一律落固有技能。**🎨 2026-07 AI 自訂生成分支補外貌生成**：舊版這條路徑完全不叫AI生成外貌，`TRAIT` 恆套通用預設「外貌出眾、舉止從容…」，得靠玩家事後逆天改命補——現在 schema 補 `look`(4格頓號同工房格式，女性角色明確要求含身形/胸圍具體描寫)，`parseTraitsHelper(aiBrief.look, 同款預設)` 寫進 TRAIT，且傳進 `recordOriginalHero_` 的 `pExtra.look` 供日後重召/日常版轉換(`translateLookToDaily_`)使用，不再永遠停在通用預設。 |
 | save_hero / claim_hero | actionSaveHero / actionClaimHero | 🛠️ 工房（純製造/修改·不直接召喚）：create（AI 補 persona·蓋 `persona.creator` 印記）或 edit（帶 heroId·僅創造者·真名不可改）。驗證走 `parseForgeBuild_`（單一真實來源·六圍預算340·技能/規模計價·正典擋；計價本體已抽成共用 `forgeCost_`，與上方 `summon_servant` 的六圍下限保底 `bumpSixToFloor_` 共用同一套算式，見該列）。claim_hero＝認領無主原創英靈。召喚走玩家原創專區→hero 分支實體化。**🔑 creator 綁定**：`recordOriginalHero_` 是唯一寫入點，persona 存 `creator`(＝acctName)＋`weapon`；工房與自訂生成(summon custDesc)兩路都傳 creator，edit 分支靠 `pj.creator===acct` 擋非本人。(曾漏寫→creator 恆空使無人能改·已補) **🎭 2026-07 工房補上特性(traits)欄位**：舊版工房恆傳空陣列(玩家手捏角色永遠沒特性、只有AI生成從者才有)——玩家想比照捏「賽亞人/人造人」這類其他作品梗，現開放 `cf-traits` 自由文字欄(頓號分隔·上限4個·單則截8字)，`parseForgeBuild_` 解析成 `out.traits`，create/edit 兩分支都寫回 `COL.HERO.TRAITS`。刻意不進 `FORGE_BUDGET` 計費、不設白名單——這組標籤本來就只有「神性/神格/神靈」與「龍」兩組關鍵字被 `Engine_Fate.gs` 讀到有實際效果，其餘(含清單外任何名稱)純敘事風味，`Script.html` 的 `TRAIT_DESC` 已同步改成誠實描述。 | 
 | get_heroes / get_masters | actionGetHeroes/Masters | 創角選單列出可選英靈/正典御主（正典御主資料前端可預取加速） |
@@ -357,7 +357,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
   - `SEED_SERVANTS`（**25 筆**＝20 騎＋5 位 `cls:'御主'`／`wars:['客串']` 的鑑賞客串：遠坂凜／伊莉雅絲菲爾／間桐櫻／衛宮士郎／藤村大河）：4th/5th 正典14騎（阿爾托莉雅-Saber/EMIYA-Archer/庫丘林-Lancer/美杜莎-Rider/美狄亞-Caster/佐佐木小次郎-Assassin/赫拉克勒斯-Berserker/吉爾伽美什-Archer/迪盧木多-Lancer/伊斯坎達爾-Rider/吉爾德萊-Caster/百貌哈桑-Assassin/咒腕之哈桑-Assassin/蘭斯洛特-Berserker）＋鑑賞客串6騎（斯卡哈-Lancer/斯卡哈-Assassin/恩奇都-Lancer/美遊-Saber/小黑-Archer/伊莉雅-Caster）。每筆 id/cls/realName/wars/gender/six/classSkills/skills/traits/np/align/persona（{firstP,words,toMaster,speech,moe,tic}）。
     - ⚠ **戰爭僅認 `4th`/`5th`**（`fake` 偽聖杯戰爭開局選項＋整套 `FATE_FAKE_ROSTER` 已移除）。chaos 亂鬥靠 `wars` 含 `'客串'` 排除，非硬編碼名單。
     - 單寶具種子的簽名概念 fx 必須掛進 skills（庫丘林 gae_bolg/EMIYA ubw/佐佐木 tsubame/阿爾托莉雅·美遊 excalibur）——只寫 np 字串＝只有規模、沒有概念位階。
-  - `SEED_MASTERS`（15名）：id/name/sex/appearance/magic/circuits/melee/magic_rank/home/wish/persona（4段頓號=表象・內裡・喜歡・厭惡，被 masterCard_ 拆解·結構不可動，v67前全數只寫3段、喜歡欄位缺失已補齊）/back(身世)/moe(萌點)。
+  - `SEED_MASTERS`（15名）：id/name/sex/appearance/magic/circuits/melee/magic_rank/home/wish/persona（4段頓號=表象・內裡・喜歡・厭惡，被 masterCard_ 拆解·結構不可動，v67前全數只寫3段、喜歡欄位缺失已補齊）/back(身世)。⚠ `moe` 欄 2026-09 整組退休。
     - ⚠ **萌點(moe/INTENT)≠只能是反差萌**：泛指任何讓人喜歡上這角色的特色，可以是反差(表面X其實Y)，也可以是單純討喜的外觀/行為/習慣(巨乳/雙馬尾/大食/路痴等)——v67前全站(AI brief生成prompt/每回合演出卡標籤/工房UI文字)都寫死成「反差萌」，逼AI每次都硬套反差句型，已全面鬆綁措辭(見 Gallery.gs/Router_Creation.gs/Router_Persona.gs/Script.html)。
   - `servantToHeroRow_`/`masterToCodexRow_`：物件→分頁列。⚠ 2026-09 瘦身：PERSONA 欄不再重複收 daily 四欄（各有專欄，`HERO_PERSONA_OWN_COL_` 剔除；英靈殿 −18%），御主殿「居所」「屆次」改寫空字串（零讀取，欄位保留）。`check_seed.py` 盯著這兩條。
   - `seedFateCodex_(ss)`：英靈殿/御主殿為空才灌（冪等）。版本 `CODEX_PERSONA_VER`（現行版號見檔頂），升版觸發 `upgradeCodexPersonas_`（英靈殿整列覆寫+孤兒清理·只刪 source==='seed'）＋`upgradeMasterCodex_`（御主殿整列重寫）。
@@ -365,7 +365,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 - **主從 synergy `masterSynergySix_(name,six,memory)`**（Core_Settings）：讀從者 MEMORY【御主】名，特定組合回全盛六圍。目前只 **恩奇都↔銀狼**（原作真御主·恩奇都平時為削弱基線）。擴充往該表加。
 - **Seed_Rivals.gs**（開局鋪敵）：
   - `seedRivalsForGame_`：依 war(4th/5th/chaos) 鋪敵御主+敵從者；移除玩家扮演那組。chaos hPool 含玩家原創 ai_gen（Fisher-Yates 均勻抽）。
-  - `masterToNpcRow_`：御主殿列→敵御主眾生列。TRAIT←外貌(mAppear)、PREF←persona、BACK←身世、INTENT←萌點、MEMORY=【願望】|【魔術】|【體術】|【魔術階位】|【迴路】。
+  - `masterToNpcRow_`：御主殿列→敵御主眾生列。TRAIT←外貌(mAppear)、PREF←persona、BACK←身世、INTENT←永遠空字串(萌點已退休)、MEMORY=【願望】|【魔術】|【體術】|【魔術階位】|【迴路】。
   - `heroToNpcRow_`：英靈殿列→敵從者眾生列（god_hand 讀 `lives` 覆寫【試煉】）。
   - 正史真名擋名（禁玩家搶角）＝`actionManualNpc` 內聯的 `_canonServantHit`／`_canonMasterHit`（直接掃 SEED_SERVANTS／SEED_MASTERS；沒有 canonHeroNames_ 這支函式）。`FATE_4TH_ROSTER`/`FATE_5TH_ROSTER` 各自 `loc` 欄決定敵出生點（非讀 COL.MASTER.HOME）。
 - **正典劇情插針系統已退役**（無 Seed_Canon.gs·`checkCanonPins_`/`CANON_PINS`/`spawnGilgamesh_` 皆已刪）。MEMORY【路線】【史】成無用遺留。
@@ -432,8 +432,8 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 
 - `codexPersona_(name)`：從英靈殿 PERSONA 撈細緻人設（firstP/words/toMaster/speech/moe/tic）。
 - `servantCard_(row)`（Router_Persona.gs）：壓成「〈角色背景·僅供內化〉」段塞進 narration prompt。**鐵則一**＝當背景揣摩；**鐵則二**＝設定字眼禁直述/說嘴；**鐵則三**＝依羈絆調親疏。含**狂化偵測**（persona.speech/firstP 含 狂化/無法言語/**僅**咆哮/不語 → 加「禁說完整句、只咆哮」·赫拉克勒斯/蘭斯洛特命中·刻意用「僅咆哮」而非裸「咆哮」，讓「時而文雅、時而癲狂咆哮」的吉爾·德·萊斯這類會說話的角色不誤中）。**自稱已不自成一欄**（2026-09）：尋常的「我」沒有資訊量直接不提，有特色（吾／俺／拙者／余…）才併進【口吻】講一次，狂化者的 fp 是「（狂化·僅咆哮）」這種標記也不提——旁白改第二人稱「你」後，視角混淆的根因本身消失了。
-- `masterCard_(row)`：御主演出依據卡（名/性別/性格/特徵/願望/萌點/體術/魔術）。**御主有聲**：可依性格給台詞，但**不替御主拍板戰略抉擇**（出戰/結盟/移動/補魔由玩家按鍵）、不逼問、不快轉。
-- `enemyMasterCard_(row)`：敵御主精簡演出卡（性格取前4/特徵取前3/萌點/身世/體術/魔術，不塞六圍/寶具）。NPC 不受「不可替玩家決定」限制。只在敵御主本人同地在場時注入（`enemyMasterIdx_`＋位置比對）；`actionFateBattle` aiPrompt 加**關係錨**（「此敵御主正是 defC 的契約御主」）＋**戰局實況錨點**（用算好的 HP比例/傷害交換組白話戰況給 AI，讓敵御主反應對得上場面）。正典人物優先調用原作認知、卡片僅錨點。
+- `masterCard_(row)`：御主演出依據卡（名/性別/性格/特徵/願望/體術/魔術）。**御主有聲**：可依性格給台詞，但**不替御主拍板戰略抉擇**（出戰/結盟/移動/補魔由玩家按鍵）、不逼問、不快轉。
+- `enemyMasterCard_(row)`：敵御主精簡演出卡（性格取前4/特徵取前3/身世/體術/魔術，不塞六圍/寶具）。NPC 不受「不可替玩家決定」限制。只在敵御主本人同地在場時注入（`enemyMasterIdx_`＋位置比對）；`actionFateBattle` aiPrompt 加**關係錨**（「此敵御主正是 defC 的契約御主」）＋**戰局實況錨點**（用算好的 HP比例/傷害交換組白話戰況給 AI，讓敵御主反應對得上場面）。正典人物優先調用原作認知、卡片僅錨點。
 - **開放世界**（無「同地路人」機制）：solo 同地角色一律純文字（無金色互動連結·整套 `openInteractMenu` 互動選單死碼已刪）。鑑賞路人＝純氛圍背景人煙（`backgroundCrowdStr`·不具名·不追蹤好感）。能被指名/記好感的只有同行隊伍成員。
 - `enemyAmbushOnServant_`：卸防（補魔/羈絆/共處/休息/結盟）時同地未結盟敵從者的反應。陣地(homeRank)優先→反擊擊退。無陣地時依該敵從者職階/性格擲局面：狂化(無法言語)/暗殺(本色即偷襲)必定突襲；其餘職階多數突襲、有機會落「按兵不動」或「試探性接觸」(皆無戰鬥·`peaceful:true`，5個呼叫端與前端戰報卡共用同一支函式的回傳判斷 `homeRepel||peaceful`)。回 `report`＋`foeCard`。
 - `raiseBond_`(升既有·帶 preData)／`bumpBond_`(無則建)／`bondFavor_`(讀好感傾向)；讀好感值直接 `row[COL.PC.BOND]`（沒有 getBond_）。`extractWish_`、`buildDreamPrompt_`（敗北虛假之夢·`cause==='timeout'`＝時限夢）、`buildVictoryDreamPrompt_`（勝利真夢·不露破綻）。
@@ -489,7 +489,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 - **令咒透支倒數**：敵從者燃最後令咒脫離（無 `fx:'solo'`）→`stampDoom_` 寫【靈基透支】死線（day*24+hour+`SEAL_DOOM_HOURS`=3）。`worldTick_` 到期 `DEAD_`＋風聞。收掉最後敵從者→`victory:true`。御主戰死也連坐同款倒數（masterless 敵從者）。單獨行動者免倒數。**🐛→✅ 2026-07 玩家指正「令咒脫離本主也該一起走」**：撤離時舊版只在「本主剛好與從者同地」才把御主一起搬到 `newLoc`，遠端御主完全不動——玩家指正「令咒＝命令英靈帶著御主強制拖離戰鬥」，不是從者自己逃、御主留在原地。已改成一律把硬連結本主也搬去 `newLoc`（`Router_Battle.gs` 令咒脫離分支）。**這順便補上一個連鎖問題**：敵從者在 `Time_World.gs` 的世界自走裡沒有獨立移動機會(只有敵御主會擲骰移位、順便帶走同地從者)——舊版一旦因令咒脫離被拆散，兩人就再也碰不到面；改成一律同行後，這對主從不會再因這個事件永久失散。
 - **喪失從者的敵御主**：敵從者死亡時 `markMasterLostServant_` 在同地敵御主 MEMORY 寫【喪失從者】。前端演出形單影隻。
 - **敘事連續記憶 `lastAiContext`**（模組級·最近 AI 文≤300字）：`narrate`/play 更新；`travelTo` 在 foe 時當「前情」塞進抵達提示（承接逃跑後再遇）。
-- **逆天改命**：`openFateEdit`/`saveFate`→`actionUpdateFate`。只准改 4 敘事欄（back 經歷 80／intent 萌點 30／trait、pref 整串 130——不是逐格截），數值與寶具鎖死。**特徵3格**＝外貌/氣質舉止/卸下心防的私密一面（末格＝鑑賞親密種子）；個性4格＝日常表象/真實內裡/喜歡/討厭。⚠ 舊局存的是四格（第3格曾是「自稱與口氣」），讀表一律走 `traitParts_`／前端 `traitSegs_` 就地剝掉那格，不改存進表裡的值。`saveFate` 不再寫死 f1~f4，改成「視窗排幾個輸入框就拼幾格」。`parseTraitsHelper`(Core_Settings) 切割前先把 句號→頓號 正規化（防 AI 誤用句號分隔黏預設殘料）。
+- **逆天改命**：`openFateEdit`/`saveFate`→`actionUpdateFate`。只准改 3 敘事欄（back 經歷 80／trait、pref 整串 130——不是逐格截），數值與寶具鎖死。**特徵3格**＝外貌/氣質舉止/卸下心防的私密一面（末格＝鑑賞親密種子）；個性4格＝日常表象/真實內裡/喜歡/討厭。⚠ 舊局存的是四格（第3格曾是「自稱與口氣」），讀表一律走 `traitParts_`／前端 `traitSegs_` 就地剝掉那格，不改存進表裡的值。`saveFate` 不再寫死 f1~f4，改成「視窗排幾個輸入框就拼幾格」。`parseTraitsHelper`(Core_Settings) 切割前先把 句號→頓號 正規化（防 AI 誤用句號分隔黏預設殘料）。
 - **全域等待遮罩**：`beginAction(msg)`→`showProcessing`，`endAction`→`hideProcessing`。**忙碌鎖**：`send()` 的 `if(btn.disabled) return` 涵蓋所有入口（防連點並發 lost-update）。
 - **九州殘留**：前端九州 UI 按鈕仍在但 mode 隱藏＋未知 action 優雅回錯誤，無害；孤兒 helper（transferMoney 等）留著無害。系統錯誤訊息已改貼世界觀的柔性文案（非 F12/技術術語）。
 
@@ -818,7 +818,7 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
 - 🫶 **敵方卡也會動了（2026-09 凍結資料稽核）**：`foeStanceNote_` 補上「此刻對你」——求愛/挑撥/結盟都在改
   敵方的 `COL.PC.BOND`，但兩張敵方卡原本從不講，AI 只好一直照原廠敵意演。結盟優先、中性不送。
 - 🧠 **卡片是內化用、不是人物簡介**：標頭改「核心特質·內化用」，`performanceNote_` 明講不要把設定唸出來、要推演行為。
-- 🗡️ **`servantCard_(row, {foe:true})`**：敵方卡不送 萌點／小動作（「熟了才看得到的一面」，
+- 🗡️ **`servantCard_(row, {foe:true})`**：敵方卡不送 小動作（「熟了才看得到的一面」，
   戰場上的對手本來就不該有）。呼叫端＝Router_Battle 的〔敵方出戰者〕〔敵御主之護衛從者〕〔敵方盟友從者〕
   三處；我方／盟友／羈絆場景維持完整卡。敵方卡每張再省 36 字。
 
@@ -839,10 +839,7 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
 ### 🔢 字數上限：說 N、砍 N＋緩衝（2026-09 全面稽核第十一輪）
 所有「GAS 硬砍字串」的地方，提示詞都必須把那個數字講給 AI 聽。硬砍本身是靜默的——
 AI 不知道上限就會寫滿，然後被砍在句意未完處，綠燈、零錯誤、玩家看到半句話。
-- **萌點（`COL.PC.INTENT`）**：提示詞宣告 18 字、落地 `clampMoe_` 砍 30（`MOE_STORE_MAX_`）。
-  七個寫入點原本各自手寫 slice 數字，其中兩處是 18（英靈殿重召 `actionSummonServant`、
-  `Seed_Rivals.gs` 複製敵從者），而 `recordOriginalHero_` 是用 30 存的——**存 30、讀 18**，
-  AI 原創英靈的萌點在重召或被當敵從者時靜默腰斬。全部收進 `clampMoe_`。
+- ~~**萌點（`COL.PC.INTENT`）**~~：2026-09 萌點整組退休，這條連同 `clampMoe_`／`MOE_STORE_MAX_` 一併移除。
 - **四格短句（外貌 TRAIT／性格 PREF）**：`parseTraitsHelper` 每格砍 `TRAIT_SEG_MAX_`(30)，
   但稽核前**沒有一支提示詞提過這個數字**。新增 `TRAIT_SEG_HINT_`(14)，六處生成四格的提示詞全部帶上。
   14 是量出來的：`Seed_Codex.gs` 25 位種子從者手寫 dailyLook 四格實測 4~16 字（平均 9.2/6.2/12.2/10.2）。
@@ -1328,3 +1325,43 @@ solo 這邊補上的入口：帳號登入、開新局清檔、翻正典御主名
 
 ⚠ **順手學到的**：跑一輪「所有探針」很便宜（幾分鐘），而且會抓到**探針自己過期**——
 這輪就有三支因為我改了簽名/刪了常數而靜靜壞掉。改完代碼把全套探針掃一遍，比只跑 check.sh 多看見一層。
+
+## 🫶 「此刻對你」＝種子底色 ＋ 好感位移（2026-09）
+
+`servantCard_` 的這一格原本是 `BOND_STANCE_` **整句取代**種子的 `toMaster`。量出來的後果：
+好感 ≥45 之後，25 位從者的態度句變成**同一句話**——吉爾伽美什「打從心底信任你」、
+已喪失言語的赫拉克勒斯「露出只給你看的那一面」、黑櫻的佔有慾被換成信任。
+**角色的區別度剛好在關係開始好看的那一刻整個消失**，而且零錯誤訊息。
+
+現在 `bondStance_(bond, seedStance)` 是疊加：種子句永遠留著，好感只在後面補一句
+**位移句**（`BOND_STANCE_` 四階，每一句都寫成「對前一句的修正」，所以接在任何種子句後面都成立）。
+
+```
+好感 20  視為雜種，命令聽不聽全看自己高不高興
+好感 45  視為雜種，…——不過對著你的時候，這份底色鬆了一些
+好感 70  視為雜種，…——不過對你早已破了例，而且不打算收回
+好感 90  視為雜種，…——不過早就名存實亡，只是誰都沒說破
+```
+
+⚠ **機器擋**：`check_seed.py` 第⑨條盯的是**結構**——階梯的值必須先落進變數、最後的 `return`
+必須同時帶著種子參數（會跟著 `var seed = String(seedStance…)` 這種別名走）與那個變數。
+有人改回 `return BOND_STANCE_[i].s` 就會叫。退化測試已注入確認。
+探針 `seed3.js` 另補一條功能面的：同一好感、不同角色，態度句不可以相同。
+
+## 🚫 萌點整組退休（2026-09）
+
+玩家：「萌點不該由我們定義⋯我們應該只要給性格 萌不萌 是玩家的事情」。
+
+拔掉的東西：種子的 `moe`／`dailyMoe`／`SEED_MASTERS.moe`、三張卡（`servantCard_`／
+`masterCard_`／`enemyMasterCard_`）的萌點欄、鑑賞【在場人物】與【玩家資料】兩行的
+`萌點(僅供內化)`、創角的 `npc_intent`（solo 御主／鑑賞御主／AI 從者／工房四處）、
+`translateMoeToDaily_`、`clampMoe_`／`MOE_STORE_MAX_`／`MOE_BAN_`、逆天改命的
+`intent` 路由與前端 `intent-box`／`fate-btn-intent`／`cf-moe`。
+
+⚠ **欄位不刪**（COL 是位置索引）：`PC.INTENT`／`HERO.DAILY_MOE`／`MASTER.MOE` 三格永遠寫
+空字串，已登記進 `check_seed.py` 的 `DEAD_COL_ALLOW`。`buildPlayerStatusString` 第 25 格
+也照樣佔位送空字串，別把它抽掉（前端是照索引讀的）。
+`CODEX_PERSONA_VER` 升 **v78**：舊局已經存進去的萌點，在升級路徑裡一併洗掉。
+
+⚠ `check_seed.py` 第⑩條擋復發：任何**代碼行**出現 `萌點`／`npc_intent`／`clampMoe_`…，
+或去**讀**那三格欄位，就會叫。註解與墓碑（同行寫著「棄用／退休／已移除」）放行。

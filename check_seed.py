@@ -12,8 +12,14 @@
    ⚠ COL 是位置索引，欄位本身【不刪】(刪了整表位移)——所以刻意棄用的登記進 DEAD_COL_ALLOW。
 ③ 同一列存兩份：daily 四欄各有專欄，PERSONA JSON 不可以再收一份（單一真實來源）。
 ④ 抽不到的種子：既不在 solo 對戰池、也不在鑑賞的召喚/巧遇/起手任一池——整筆設定沒有出口。
+⑨ 階段表整句取代角色欄：好感/階級表本來只該說「偏離了多少」，寫成一句完整的態度就會【蓋掉】
+   種子的角色底色——實測好感≥45 之後 25 位從者的「此刻對你」變成同一句話，吉爾伽美什會
+   「打從心底信任你」、狂化的赫拉克勒斯會「露出只給你看的那一面」。角色的區別度在關係
+   開始好看的那一刻整個消失，而且零錯誤訊息。
+⑩ 退休的欄位長回來：萌點 2026-09 整組退休（玩家「萌不萌是玩家的事情，我們只給性格」）。
+   這種「概念砍掉、某個角落又寫回去」的復發最難發現——COL 欄位還在，寫進去不會報錯。
 """
-import os, re, sys
+import os, re, sys, tempfile
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 GAS = os.path.join(ROOT, 'gas')
@@ -39,6 +45,9 @@ DEAD_COL_ALLOW = {
     'PC.UPKEEP_WEEK': '同上，生活層週開銷已不存在',
     'PC.ROOM': '同上，房東房客世界觀已砍',
     'MAP.REGION': '坤圖靜態化後改直讀 FATE_MAP_SEED，母區域走名稱比對不走這格',
+    'PC.INTENT': '2026-09 萌點整組退休（玩家「萌不萌是玩家的事情」），永遠寫空字串；COL 是位置索引，欄位不刪',
+    'HERO.DAILY_MOE': '同上，鑑賞的日常萌點一併退休',
+    'MASTER.MOE': '同上，御主殿的萌點欄一併退休',
 }
 # 永遠抽不到但刻意的（玩家自己關的）。解封時把這一行刪掉即可。
 UNREACHABLE_ALLOW = {
@@ -254,6 +263,71 @@ def check_unreachable(bad, seed_src, gallery, rivals):
     return len(sids)
 
 
+# ⑨ 好感階段表不可以整句取代種子的角色底色。
+#    這條盯的是「疊加」這個結構：階梯的值必須先落進一個變數，最後的 return 必須同時帶上
+#    種子參數與那個變數——只要有人把它改回 `return LADDER[i].s`，這裡就會叫。
+STANCE_LADDERS = [('BOND_STANCE_', 'bondStance_')]
+
+
+def check_stance_additive(bad, persona_src):
+    n = 0
+    for tbl, fn in STANCE_LADDERS:
+        m = re.search(r"function %s\(([^)]*)\)\s*\{(.*?)\n\}" % re.escape(fn), persona_src, re.S)
+        if not m:
+            bad.append("查無 %s：「好感只說偏離多少、不取代角色底色」這條規則沒人守了" % fn)
+            continue
+        params = [x.strip() for x in m.group(1).split(',') if x.strip()]
+        body = m.group(2)
+        if len(params) < 2:
+            bad.append("%s 沒有收種子態度參數：那就只剩階段表說了算" % fn)
+            continue
+        seed_param = params[1]
+        # 種子參數常先被正規化成區域變數（var seed = String(seedStance || '')）——跟著別名走，
+        # 否則掃描器會逼人把程式寫成它認得的樣子，那是本末倒置。
+        seed_names = {seed_param} | set(re.findall(r"(?:var|let|const)\s+(\w+)\s*=[^\n;]*\b%s\b" % re.escape(seed_param), m.group(2)))
+        n += len(re.findall(r"\{\s*min:", re.search(r"var %s\s*=\s*\[(.*?)\];" % re.escape(tbl), persona_src, re.S).group(1))) if re.search(r"var %s\s*=\s*\[(.*?)\];" % re.escape(tbl), persona_src, re.S) else 0
+        # 階梯的值不可以直接 return（那就是取代）
+        if re.search(r"return\s+%s\[[^\]]+\]\.s" % re.escape(tbl), body):
+            bad.append("%s 直接 return %s 的字串＝整句取代種子態度：好感一過門檻，所有角色會講同一句話" % (fn, tbl))
+            continue
+        # 最後必須有一個同時帶著【種子】與【階梯值】的回傳
+        holder = re.search(r"(\w+)\s*=\s*%s\[[^\]]+\]\.s" % re.escape(tbl), body)
+        if not holder:
+            bad.append("%s 沒把 %s 的值接進變數：認不出它是疊加還是取代" % (fn, tbl))
+            continue
+        hv = holder.group(1)
+        if not [r for r in re.findall(r"return ([^\n;]+)", body) if any(sn in r for sn in seed_names) and hv in r]:
+            bad.append("%s 的回傳沒有同時帶上種子態度(%s)與位移句(%s)：高好感時角色底色會被吃掉" % (fn, seed_param, hv))
+    return n
+
+
+# ⑩ 萌點已整組退休，不准從任何角落長回來。
+#    ⚠ 只看【代碼行】：註解與墓碑（標著「棄用」「退休」「已移除」）本來就會提到它，全掃會整排誤報。
+MOE_DEAD_WORDS = ('萌點', 'npc_intent', 'clampMoe_', 'translateMoeToDaily_', 'MOE_STORE_MAX_')
+MOE_TOMB = ('棄用', '退休', '已移除', '已刪', '不刪', '原萌點')
+
+
+def check_moe_retired(bad, paths):
+    n = 0
+    for p in paths:
+        for i, line in enumerate(read(p).split('\n'), 1):
+            stripped = line.strip()
+            if stripped.startswith('//') or stripped.startswith('*') or stripped.startswith('<!--'):
+                continue
+            if any(t in line for t in MOE_TOMB):
+                continue
+            hit = [w for w in MOE_DEAD_WORDS if w in line]
+            if hit:
+                bad.append("%s:%d 萌點已整組退休，這行又把它寫回來了：%s" % (os.path.basename(p), i, '／'.join(hit)))
+            # 讀取 INTENT 欄（寫空字串不算）
+            if 'COL.PC.INTENT' in line and not re.search(r"COL\.PC\.INTENT\]?\s*=\s*['\"]{2}", line):
+                bad.append("%s:%d 讀了已退休的萌點欄 COL.PC.INTENT" % (os.path.basename(p), i))
+            if 'COL.HERO.DAILY_MOE' in line and not re.search(r"COL\.HERO\.DAILY_MOE\]?\s*=\s*['\"]{2}", line):
+                bad.append("%s:%d 讀了已退休的日常萌點欄 COL.HERO.DAILY_MOE" % (os.path.basename(p), i))
+            n += 1
+    return n
+
+
 def main():
     bad = []
     seed_src = read(SEED)
@@ -268,6 +342,8 @@ def main():
     n_nm = check_name_has_cjk(bad, seed_src)
     n_bk = check_back_not_personality(bad, seed_src)
     n_seg = check_prompt_seg_counts(bad, gas_files())
+    n_stance = check_stance_additive(bad, read(os.path.join(GAS, 'Router_Persona.gs')))
+    n_line = check_moe_retired(bad, gas_files())
 
     # 🧪 自我退化測試：注入一個不存在的 fx，這支必須叫。
     probe = []
@@ -280,7 +356,6 @@ def main():
     _seg_before = len(probe)
     _tmp = os.path.join(GAS, 'Core_Settings.gs')
     check_prompt_seg_counts(probe, [_tmp])   # Core_Settings 本身沒有這些提示詞，下面改用注入檔
-    import tempfile
     with tempfile.NamedTemporaryFile('w', suffix='.gs', dir=GAS, delete=False, encoding='utf-8') as f:
         f.write("★【格式鐵律】traits 【恰好9段】、personality 【恰好4段】")
         _inj = f.name
@@ -288,12 +363,26 @@ def main():
         check_prompt_seg_counts(probe, [_inj])
     finally:
         os.unlink(_inj)
-    if len(probe) < 6 or len(probe) == before or len(probe) == _seg_before:
-        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名抓不到）')
+    _st_before = len(probe)
+    check_stance_additive(probe, "var BOND_STANCE_ = [{ min: 45, s: '注入' }];\n"
+                                 "function bondStance_(bond, seedStance) {\n"
+                                 "  for (var i = 0; i < BOND_STANCE_.length; i++) return BOND_STANCE_[i].s;\n"
+                                 "  return seedStance;\n}")
+    _moe_before = len(probe)
+    with tempfile.NamedTemporaryFile('w', suffix='.gs', dir=GAS, delete=False, encoding='utf-8') as f:
+        f.write("  card += `｜萌點：${moe}`;\n")
+        _inj2 = f.name
+    try:
+        check_moe_retired(probe, [_inj2])
+    finally:
+        os.unlink(_inj2)
+    if len(probe) < 8 or len(probe) == before or len(probe) == _seg_before \
+            or len(probe) == _st_before or len(probe) == _moe_before:
+        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名／取代式階段表／復活的萌點抓不到）')
         return 1
 
-    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、提示詞格數 %d 處、daily 專欄 %d 格（含自我退化測試）'
-          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_seg, n_own))
+    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、提示詞格數 %d 處、daily 專欄 %d 格、好感位移 %d 階、退休欄掃 %d 行（含自我退化測試）'
+          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_seg, n_own, n_stance, n_line))
     if bad:
         print('  ❌ %d 處「寫了但沒人吃」：' % len(bad))
         for b in bad:

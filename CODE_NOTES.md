@@ -116,7 +116,7 @@ MEMOIR(27)：鑑賞「共同回憶」——原 MAJOR_EVENT 死欄(讀寫端早�
 
 DAILY_LOOK/DAILY_WORDS：鑑賞用日常版外貌/性格，與戰時 PERSONA(look/words)分開存；懶惰快取，首次召喚進鑑賞才由AI轉換寫入(heroToKanshouRow_)，之後直接讀取不重複呼叫AI。空字串＝尚未轉換。附加尾端不動既有欄位位置(COL 是位置索引，見專案紀律)。
 
-DAILY_MOE：鑑賞用日常萌點，與戰時 PERSONA.moe(常靠戰爭/創傷撐出的沉重萌點)分開存——鑑賞世界沒發生過戰爭，改用輕量溫馨的日常版萌點，來源同上(translateMoeToDaily_)。
+DAILY_MOE(15)：**2026-09 起棄用**——萌點整組退休（玩家「萌不萌是玩家的事情，我們只給性格」），種子/工房一律寫空字串。COL 是位置索引，欄位留著不刪。
 
 DAILY_OUTFIT：服裝從 DAILY_LOOK 拆出獨立欄位，DAILY_LOOK 改為四段[外貌本相][氣質舉止][自稱口氣][私密一面]，對齊 PERSONA.traits/PREF 格式。SOLO(戰時 PERSONA.look) 獨立一套不受影響。
 
@@ -216,7 +216,7 @@ MEMORY 標記共用工廠：收斂 Router_Battle.gs/Router_Movement.gs 多組結
 
 🔮 魔境的智慧（斯卡哈專屬·玩家可選被動）：影之國女王通曉常見武技，玩家點選【1 個】通用 A 階被動標籤套用。只給「有階級的常見被動」——不含原初符文(她本有)、不含無階級特性、不含寶具/簽名級招式。存從者 MEMORY【魔境】fx。注入點：rowToCombatant_（戰鬥讀取時把選定標籤加進 skills，r 固定 A）。前端只對有 mage_realm 的從者露出選盤。
 
-### `MOE_STORE_MAX_` / `clampMoe_`　<sub>Core_Settings.gs</sub>
+### ~~`MOE_STORE_MAX_` / `clampMoe_`~~（2026-09 隨萌點整組移除）　<sub>Core_Settings.gs</sub>
 
 萌點(COL.PC.INTENT)的落地上限。所有提示詞一律對 AI 宣告「限18字·務必寫完整一句話不可斷在句意未完處」，落地卻留 30 字緩衝——AI 稍微超字數時不至於被砍在句意中間，這個「說 N 砍 N+緩衝」是本專案既有慣例。
 2026-09 稽核抓到的漏洞：七個寫入點各自手寫 slice 數字，其中五處是 30、兩處是 18（`actionSummonServant` 從英靈殿重召、`Seed_Rivals.gs` 複製敵從者）。而 `recordOriginalHero_` 把 AI 原創英靈的萌點是用 30 存進 persona 的——**存 30、讀 18**，同一句話在重召或被當敵從者時就會被腰斬成半句，而且是靜默的。這正是當年那三處註解「比照 slice(0,18) 腰斬修正」要修掉的形狀，只是漏了這兩處。根源解是把數字收成單一真實來源，而不是再補第三次。
@@ -636,7 +636,7 @@ r 欄＝該寶具真實官方階級，缺 r 者(恩奇都/EMIYA)retreat 至六�
 
 ### `KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_`　<sub>Gallery.gs:98</sub>
 
-🔤 translateLookToDaily_/translatePersonalityToDaily_/translateMoeToDaily_ 共用開場白：三者系統提示詞都以「你是《命運停駐之夜》的角色側寫顧問。★【語言】」起手。2026-09 稽核：原本三支各自在前綴後面再寫一次「所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母」，等於同一條規則在同一趟請求裡出現三份(callGeminiAPI 尾端還會無條件再補一次【語言鐵律】)——整句收進前綴、JSON 欄位名例外用括號併掉，三支的規則段只留各自真正不同的部分。
+🔤 translateLookToDaily_/translatePersonalityToDaily_（原本還有已移除的 translateMoeToDaily_）共用開場白：各支系統提示詞都以「你是《命運停駐之夜》的角色側寫顧問。★【語言】」起手。2026-09 稽核：原本三支各自在前綴後面再寫一次「所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母」，等於同一條規則在同一趟請求裡出現三份(callGeminiAPI 尾端還會無條件再補一次【語言鐵律】)——整句收進前綴、JSON 欄位名例外用括號併掉，三支的規則段只留各自真正不同的部分。
 
 ### `kanshouRecentDigest_` / `KANSHOU_DIGEST_ROUNDS_` / `KANSHOU_DIGEST_CAP_`　<sub>Gallery.gs</sub>
 
@@ -688,7 +688,7 @@ dailyMoeHint：私密一面與萌點是兩次獨立 AI 呼叫，容易各自發�
 
 🐛→✅ 稽核抓到：AI回傳的look段數從未驗證就直接持久化——下游dailySpeechByName_/heroToKanshouRow_都用裸split('、')[2]取第3段(日常口吻)，只檢查length>=4(非===4)，若AI吐出5段以上(氣質舉止的自然語句意外夾帶頓號很常見)，取到的會是被推移過的錯誤段落且不會崩潰、靜默錯用，還會被懶惰快取永久保留。比照parseTraitsHelper既有的四段式正規化(截斷多餘/補齊不足)在寫入源頭就鎖死4段，不留給每個下游各自防呆。
 
-### `translateMoeToDaily_`　<sub>Gallery.gs:171</sub>
+### ~~`translateMoeToDaily_`~~（2026-09 隨萌點整組移除）　<sub>Gallery.gs</sub>
 
 戰時萌點常靠戰爭/創傷撐出沉重反差，直接照搬到沒發生過聖杯戰爭的平行世界會顯得莫名沉重——改寫成輕量、會心一笑的日常萌點。只用在 AI 原創(ai_gen)英靈；canon 種子英靈已手寫死進persona.dailyMoe(見 Seed_Codex.gs)。🐛→✅ 萌點≠反差萌：萌點泛指任何讓人喜歡上這角色的特色，可能是反差(表面兇其實軟)，也可能只是單純討喜的外觀/行為/習慣(巨乳、雙馬尾、大食、路痴等)——之前這裡連措辭都寫死成「反差萌」，逼AI每次都硬套反差句型，見 SOLO_REFERENCE.md 相關章節。
 

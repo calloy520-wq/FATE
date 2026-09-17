@@ -160,7 +160,7 @@
       </div>
     </div>
     <!-- 🛠️ 自訂英靈工房：2026-09 從「三分頁 × 19 欄」收成單頁 7 組——只留真的會進戰鬥引擎／計費的欄位。
-         外貌·個性·自稱·萌點·口吻·小動作·陣營·身世 八欄砍掉，改由最下面那句「一句描述」給 AI，不填就 AI 全補。 -->
+         外貌·個性·自稱·口吻·小動作·陣營·身世 七欄砍掉，改由最下面那句「一句描述」給 AI，不填就 AI 全補。 -->
     <div id="step-forge" style="display:none;">
       <p style="text-align:center; color:#8fb0e8; font-size:16px; font-weight:bold; margin-bottom:2px;">🛠️ 自訂英靈工房</p>
       <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 10px;">每一格都你說了算，預算 <span id="forge-budget-txt">340</span> 點。留空的才交給說書人補<br>做好之後，回召喚頁的「🌟 我的原創」把人叫出來<br><span style="color:#8fb0e8;">用一句話生過的從者，也能在 📚 作品 裡重新捏過</span></p>
@@ -203,15 +203,14 @@
             <div style="color:#8fb0e8; font-size:12px; margin:0 0 5px;">這位英靈是誰（<b>全部選填</b>，留空的交給說書人補）</div>
             <input id="cf-look" class="std-in" maxlength="40" placeholder="外貌：黑長直髮的冷豔劍士" style="width:100%; box-sizing:border-box;">
             <input id="cf-pref" class="std-in" maxlength="40" placeholder="個性：外冷內熱，重視承諾" style="width:100%; box-sizing:border-box; margin-top:6px;">
-            <button type="button" class="btn" id="cf-adv-toggle" style="width:100%; margin-top:8px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleForgeAdvanced()">▸ 再細一點（自稱·口吻·小動作·萌點…）</button>
+            <button type="button" class="btn" id="cf-adv-toggle" style="width:100%; margin-top:8px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleForgeAdvanced()">▸ 再細一點（自稱·口吻·小動作·對御主…）</button>
             <div id="cf-drama" style="display:none; margin-top:6px;">
               <div style="display:flex; gap:5px;">
                 <input id="cf-fp" class="std-in" maxlength="4" placeholder="自稱：本王" style="flex:1; min-width:0;">
                 <select id="cf-align" class="std-in" style="flex:1; min-width:0;"><option>中立</option><option>秩序・善</option><option>秩序・中庸</option><option>秩序・惡</option><option>中立・善</option><option>中立・惡</option><option>混沌・善</option><option>混沌・中庸</option><option>混沌・惡</option></select>
               </div>
               <div style="display:flex; gap:5px; margin-top:5px;">
-                <input id="cf-tomaster" class="std-in" maxlength="20" placeholder="對御主：忠誠／傲慢" style="flex:1; min-width:0;">
-                <input id="cf-moe" class="std-in" maxlength="15" placeholder="萌點：嗜甜／怕黑" style="flex:1; min-width:0;">
+                <input id="cf-tomaster" class="std-in" maxlength="20" placeholder="對御主：忠誠／傲慢" style="width:100%; box-sizing:border-box;">
               </div>
               <input id="cf-speech" class="std-in" maxlength="40" placeholder="口吻：古風敬語／句尾帶「呢」" style="width:100%; box-sizing:border-box; margin-top:5px;">
               <div style="display:flex; gap:5px; margin-top:5px;">
@@ -416,13 +415,6 @@
         <div id="ui-status"
           style="font-size: 13px; line-height: 1.6; font-weight: bold; color: #332211; margin-top: 6px; word-break: break-word;">
           --</div>
-      </div>
-
-      <div id="intent-box" class="trait-box"
-        style="margin-top: 8px; background: rgba(128, 0, 128, 0.05); border: 1px solid #800080; position: relative;">
-        <span style="color: #800080;">—— 隱藏萌點 ——</span>
-        <b id="ui-intent">--</b>
-        <button id="fate-btn-intent" class="btn" style="position: absolute; right: 8px; top: 8px; padding: 2px 8px; font-size: 11px; border-color: #d4af37; color: #d4af37;" onclick="openFateEdit('intent')">改命</button>
       </div>
 
       <div class="trait-box" style="margin-top:8px; background: rgba(212,175,55,0.05); border: 1px solid #d4af37;">

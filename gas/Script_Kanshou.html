@@ -1271,7 +1271,7 @@ let plainTextContext = cleanText;
     } catch (e) { }
   }
 
-  // 🚀 已移除「召喚後背景AI深化」第二段呼叫：種子庫23位英靈已全數手寫完整的日常四段式外貌/性格/萌點/衣裝(見 heroToKanshouRow_/getDailyHeroFields_)，那顆深化只會多等一輪AI呼叫、拿可能更差的內容覆蓋，純粹拖速度——整條移除(actionBackfillKanshouServantAi 已刪)。
+  // 🚀 已移除「召喚後背景AI深化」第二段呼叫：種子庫23位英靈已全數手寫完整的日常外貌/性格/衣裝(見 heroToKanshouRow_/getDailyHeroFields_)，那顆深化只會多等一輪AI呼叫、拿可能更差的內容覆蓋，純粹拖速度——整條移除(actionBackfillKanshouServantAi 已刪)。
   async function kanshouSummonHero(heroId) {
     showProcessing('正在聯繫……', true);
     try {
@@ -1922,9 +1922,9 @@ let plainTextContext = cleanText;
   //   回傳 {name, sex, appearance, standing, persona}。
   // 🐛→✅ 性別鈕原本一點就直接送出整張表單(其他欄位來不及填就被提交)——改成純選取(點擊只切換高亮)，另加一顆「進入後日談」鈕才真正送出。
   // 🐛→✅ 2026-07 拆掉「留白創角」選項(玩家「鑑賞玩家要輸入姓名性別外貌個性，這樣就好，其他的
-  //   丟給AI去寫」)：舊版讓玩家選「留白、遊戲中讓AI慢慢認識我」，靠遊玩中零碎片段盲猜性格/萌點，
+  //   丟給AI去寫」)：舊版讓玩家選「留白、遊戲中讓AI慢慢認識我」，靠遊玩中零碎片段盲猜性格，
   //   寫得很爛——現在統一只剩「AI一次擴寫」這條路，玩家填姓名/性別/必填，外貌/個性可留空，
-  //   送出後直接呼叫 backfillKanshouAi 一次把外貌/個性/萌點/經歷寫完整。
+  //   送出後直接呼叫 backfillKanshouAi 一次把外貌/個性/經歷寫完整。
   function askKanshouSetup(defaultName) {
     return new Promise(function (resolve) {
       var selectedSex = '';
@@ -2012,8 +2012,8 @@ let plainTextContext = cleanText;
       // 🗺️ 寬螢幕三欄並排時 #pane-map 不需要點分頁才顯示，進場當下就先算一次(比照 solo 登入後 syncData 觸發的 renderMapPane 初次填色)。
       renderMapPane();
       // 🚀 2026-07 拆掉「留白創角」分流(玩家「其他的丟給AI去寫...AI只能改動經歷」)：創角一律
-      //   立即用玩家填的姓名/性別/外貌/個性一次擴寫完整(外貌/個性/萌點/經歷)，不再留白等遊戲中
-      //   慢慢猜——那個路徑正是「萌點AI亂寫」的根源。
+      //   立即用玩家填的姓名/性別/外貌/個性一次擴寫完整(外貌/個性/經歷)，不再留白等遊戲中
+      //   慢慢猜——那個路徑正是「性格 AI 亂寫」的根源。
       if (firstTimeSeed) backfillKanshouAi(firstTimeSeed);
       // 🧵 跟單機一樣：靠 pcId 從「歷史暫存」撈前塵對話，承接上次的後日談，不重開場
       const story = document.getElementById('story');
