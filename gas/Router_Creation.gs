@@ -261,16 +261,19 @@ function originGuide_(origin) {
   if (origin === 'fate') return {
     frame: '這是【Fate 系列的正史角色】，請依玩家描述【還原召喚這名英靈】，忠於其原著傳說、性格與能力。',
     skill: '★技能名【忠於該角色 Fate 原著既有的技能/招式名】(對魔力／魔力放出／直感／庫夫林「蓋・波爾克」…)，直接沿用原名；fx 照挑對應機制。',
+    np: '★寶具名【沿用這個角色本人在 Fate 原著的寶具真名】——同一部作品裡別人的寶具屬於別人。',
     pnote: '【Fate 系列正史角色】(演出/外貌/人格補完請忠於其原著)的'
   };
   if (origin === 'anime') return {
     frame: '這是【其他動漫／漫畫／遊戲的知名角色】，請依玩家描述【還原這名角色】，忠於其原著形象、性格與代表能力。',
     skill: '★技能名【取該角色原著的招牌招式／絕技名】(如 悟空→龜派氣功／瞬間移動、炭治郎→水之呼吸)，fx 照挑最接近的機制；原著招式找不到對應機制就挑最貼近者、名字仍用原著招式名。',
+    np: '★寶具名【取這個角色本人的最強招式／絕技名】(如 悟空→元氣玉、炭治郎→日之呼吸)——同一部作品裡別人的招式屬於別人。',
     pnote: '【其他動漫／漫畫／遊戲知名角色】(演出/外貌/人格補完請忠於其原著)的'
   };
   return { // original 或未指定
     frame: '這是玩家【自訂描述的原創英靈】，請依描述創作一位全新原創從者（可自取貼切真名），忠於描述的形象與氣質。',
     skill: '★技能名依角色形象【自取貼合的獨特招式名】(像寶具那樣有個性)，例 fx=str_up→「鬼之膂力」、fx=morale→「獅子之心」；⚠自取名請自成一格，與清單上其他 fx 的正史技能名區隔開來。',
+    np: '★寶具名依角色形象【自取】，與既有作品的招式名自成一格。',
     pnote: '原創'
   };
 }
@@ -673,16 +676,16 @@ function actionSummonServant(userData, pcId, sheets) {
 
 ★【語言】除 JSON 欄位名本身與 cls 職階代碼(如 Saber/Archer)這類系統代碼外，所有輸出內容(真名/技能招式名/背景/性格/外貌等)一律用中文字；玩家描述若含英文人名/詞彙，請意譯或音譯成中文寫入。
 ${clsUnset ? "★【職階 cls】玩家未指定職階——請依描述判斷最契合的職階，從 Saber(劍)/Archer(弓)/Lancer(槍)/Rider(騎乘)/Caster(魔術)/Assassin(暗殺)/Berserker(狂化) 擇一填入 JSON 的 \"cls\" 欄(填英文全名)。\n" : ""}★【六圍 six】筋力/耐久/敏捷/魔力/幸運/寶具各給一階(E~EX，可加 +)，有強有弱、貼合傳說。這是足以角逐聖杯的英靈，別因為原創或跨作品就保守低估：至少兩項 A 以上、寶具階通常 B 以上(純輔助型除外)，幸運可以是唯一明顯偏弱的一項。狂化者直接填【狂化後】的數值(狂化傷害加成由系統另計)，筋力或耐久該有一項衝到 A 以上。
-★【技能帶 fx】skills(固有技能 2~3 個)，每個含 {"n":"技能名","r":"階級","fx":"效果碼"}。職階慣例技能(如 Saber/Lancer/Archer 的對魔力、Rider 的騎乘、Caster 的陣地/道具作成、Assassin 的氣息遮斷、Berserker 的狂化)由系統依職階自動附贈，這裡【不需要你生成】、專心給這名英靈"個人"的招牌技能就好。
-★【技能命名】n 是【顯示名】、fx 才是機制(兩者脫鉤)。${custDesc ? _og.skill : '★技能名忠於該角色原著既有的招式/技能名(對魔力／直感／庫夫林「蓋・波爾克」…)，直接沿用原名。'}
+★【技能帶 fx】skills(固有技能 3~4 個)，每個含 {"n":"技能名","r":"階級","fx":"效果碼"}。職階慣例技能(如 Saber/Lancer/Archer 的對魔力、Rider 的騎乘、Caster 的陣地/道具作成、Assassin 的氣息遮斷、Berserker 的狂化)由系統依職階自動附贈，這裡【不需要你生成】、專心給這名英靈"個人"的招牌技能就好。
+★【技能命名】n 是【顯示名】、fx 才是機制(兩者脫鉤)。${custDesc ? _og.skill : '★技能名忠於該角色原著既有的招式/技能名(對魔力／直感／庫夫林「蓋・波爾克」…)，直接沿用原名——取【這個角色本人】的招式。'}
 ${FX_MENU_}
 ★【特性 traits】1~3 個，{"n":"特性名"}（如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。
 ★【演出而非說明】personality 與寶具只作底層，靠言行流露。personality 剛好 4 短句頓號分隔、每句限${TRAIT_SEG_HINT_}字內寫完：日常表象、真實內裡、喜歡的事物、討厭的事物。
 ★【外貌 look】剛好 2 短句頓號分隔，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝；若為女性：把身形與胸部寫進自然的敘述句裡，不用孤立的分類標籤——這句玩家看得到)]、[氣質]。${AURA_SPEC_}
-★np：寶具名＋一句威能簡述；規模上限【對軍】——對城/對界/對神為種子英靈專屬，寫了也會被系統降為對軍，簡述的威能請收在對軍這個規模內。★sex 從 男／女／異 擇一。
+★np：寶具名＋一句威能簡述。${custDesc ? _og.np : '★寶具名取【這個角色本人】的代表寶具／最強絕技名——同一部作品裡別人的招式屬於別人。'}規模上限【對軍】——對城/對界/對神為種子英靈專屬，寫了也會被系統降為對軍，簡述的威能請收在對軍這個規模內。★sex 從 男／女／異 擇一。
 
 ★【輸出】合法 JSON（純文字，無 Markdown）：
-{"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"男/女/異 擇一","align":"如 混沌・善","background":"限20字","personality":"四格頓號","look":"兩格頓號(每句限${TRAIT_SEG_HINT_}字)","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"自取的招式名","r":"A","fx":"對應效果碼"},{"n":"自取的招式名","r":"B","fx":"對應效果碼"}],"traits":[{"n":"人類"}]}`;
+{"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"男/女/異 擇一","align":"如 混沌・善","background":"限20字","personality":"四格頓號","look":"兩格頓號(每句限${TRAIT_SEG_HINT_}字)","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"技能名","r":"A","fx":"對應效果碼"},{"n":"技能名","r":"B","fx":"對應效果碼"},{"n":"技能名","r":"C","fx":"對應效果碼"}],"traits":[{"n":"人類"}]}`;
       const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${clsUnset ? "未指定(請依描述判斷)" : cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
       if (!aiBrief || !aiBrief.realName || !aiBrief.six) {
         return JSON.stringify({ success: false, message: "英靈之座沒有回應，等一下再試。" });
@@ -696,7 +699,7 @@ ${FX_MENU_}
       np = String(np).replace(/[<>&"'`]/g, "").replace(/對界|對城|對神/g, "對軍").replace(/【常駐寶具】/g, "").slice(0, 80);
       const aiSix = sanitizeSix_(aiBrief.six);
       const aiCSkills = FORGE_CLS_SKILLS_[cls] || [];
-      const aiSkills = sanitizeSkills_(aiBrief.skills, 3);       // prompt 要求 2~3 個
+      const aiSkills = sanitizeSkills_(aiBrief.skills, 4);       // prompt 要求 3~4 個（種子平均 3.6，舊值 2~3 讓模型都給下限）
       bumpSixToFloor_(aiSix, aiSkills, /對軍/.test(np) ? "對軍" : "對人");
       capSixToBudget_(aiSix, aiSkills, /對軍/.test(np) ? "對軍" : "對人", cls);
       const aiTraits = Array.isArray(aiBrief.traits) ? aiBrief.traits.filter(Boolean).slice(0, 4).map(t => ({ n: String((t && (t.n || t.名稱 || t.name)) || t).replace(/[<>&"'`]/g, "").slice(0, 8) })) : [];
