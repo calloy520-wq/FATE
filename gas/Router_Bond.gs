@@ -94,7 +94,7 @@ function actionUseSeal(userData, pcId, sheets) {
       : `御主此刻魔力確實所剩無幾，這道令咒補上了燃眉之急`;
     // 注入性別配對事實(sealGenderFact_，見Router_Persona.gs)，避免敘述誤寫成錯誤的插入視角；
     genderFactSeal = sealGenderFact_(String(pcData[pIdx][COL.PC.SEX] || ""), String(pcData[svIdx][COL.PC.SEX] || ""), svName);
-    activeActFact = `★令咒不會讓「${svName}」一開啟就自動被動地高潮完結——高潮是御主主動愛撫/操控其身體引發的，但被強制拉高的敏感度會讓她/他像被灌下大量媚藥般理智漸漸被本能淹沒，從抗拒的掙扎翻轉成情不自禁地主動索求更多快感(纏抱、催促、主動索吻索撫)，這份由被動翻轉成主動索求的瞬間才是失控的具體反差(不是天生如此、也不是單純被動挨弄)；令咒同時強化了御主的性能力，足以承接住這股瘋狂需索——御主自己的情慾與快感也要有實際鋪陳、貫穿全程可見，不能只在結尾硬塞一句「一起高潮」交代過去。★全篇只選1~2個關鍵轉折深入著墨(例如：從抗拒崩潰成主動索求的瞬間、雙方一起攀頂的瞬間)，寧可少寫幾個轉折但每個都寫得深入綿密，也不要把好幾個轉折都各用一兩句話帶過、寫成流水帳。`;
+    activeActFact = `★令咒不會讓「${svName}」一開啟就自動被動地高潮完結——高潮是御主主動愛撫/操控其身體引發的，但被強制拉高的敏感度會讓她/他像被灌下大量媚藥般理智漸漸被本能淹沒，從抗拒的掙扎翻轉成情不自禁地主動索求更多快感(纏抱、催促、主動索吻索撫)，這份由被動翻轉成主動索求的瞬間才是失控的具體反差(不是天生如此、也不是單純被動挨弄)；令咒同時強化了御主的性能力，足以承接住這股瘋狂需索——御主自己的情慾與快感也要有實際鋪陳、貫穿全程可見，不能只在結尾硬塞一句「一起高潮」交代過去。★全篇只選1~2個關鍵轉折深入著墨(例如：從抗拒崩潰成主動索求的瞬間、雙方一起攀頂的瞬間)，寧可少寫幾個轉折，每個都寫得深入綿密。`;
     pcData[pIdx][COL.PC.MP] = mpMaxSeal;
     if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     // 絕對命令跳過「同意」，好感是否足夠決定這是幸運還是致命：≥MANA_TRUST_BOND_→仍生效但只是「太浪費了」的調侃，複用既有「過充」機制當額外好處；<MANA_TRUST_BOND_→強制壓下意志，解除瞬間積怨反噬直接了結御主，複用既有「假夢→老虎道場」死亡流程(buildDreamPrompt_)不另開一套。
@@ -141,7 +141,7 @@ function actionUseSeal(userData, pcId, sheets) {
     const wishSeal = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
-      `★這一段放手寫得細膩動人、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫令咒的絕對強制壓下「${svName}」的意志、御主強制的這場親密的瞬間，還有被強制的屈辱。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常不會被輕易弄到失神)，而是令咒逼出的失控狀態與屈辱交織，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節。結尾寫御主高潮後在令咒的強制力隨效果消散的剎那，「${svName}」積壓的恨意與屈辱轟然引爆，直接抹殺御主——收在這記致命一擊揮下的瞬間即可，不必描寫死亡本身的細節。`;
+      `★這一段放手寫得細膩動人、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫令咒的絕對強制壓下「${svName}」的意志、御主強制的這場親密的瞬間，還有被強制的屈辱。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常不會被輕易弄到失神)，而是令咒逼出的失控狀態與屈辱交織，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，篇幅全部留給實際發生的細節。結尾寫御主高潮後在令咒的強制力隨效果消散的剎那，「${svName}」積壓的恨意與屈辱轟然引爆，直接抹殺御主——收在這記致命一擊揮下的瞬間即可，不必描寫死亡本身的細節。`;
     defeat = true;
     dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wishSeal, svName);
     report = { sealBacklash: true, svName: svName };
@@ -149,7 +149,7 @@ function actionUseSeal(userData, pcId, sheets) {
     aiPrompt = sealManaUnlocked
       ? (masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
         `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
-        `★這一段放手寫得細膩動人、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常從容不迫)，而是令咒逼出的失控狀態，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，不要用一句話帶過或摘要關鍵過程——把篇幅留給實際發生的細節，而非只在前後鋪陳。收在餘韻猶存的溫柔，勿寫成完結收尾句。`)
+        `★這一段放手寫得細膩動人、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常從容不迫)，而是令咒逼出的失控狀態，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，篇幅全部留給實際發生的細節。收在餘韻猶存的溫柔，停在還想再多待一會的地方。`)
       : masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx], { skipClose: true }) + performanceNote_([svName]) +
         `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
         `★【140~200 字】描寫令咒在手背灼亮、絕對命令權貫徹的瞬間——三道令咒是御主僅有的底牌，燒掉一道不是小事，讓這份重量落在御主的神情與「${svName}」的反應上。效果已由系統結算。\n`;
@@ -258,9 +258,9 @@ function actionBond(userData, pcId, sheets) {
           : "信任剛跨過門檻的起點——舉動應細微、克制，帶點自己都沒完全察覺的鬆動，不宜太大幅度";
         return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
           `【系統·羈絆里程碑·已裁定】御主『${masterName}』與從者「${svName}」相處之際，兩人的羈絆悄然邁過一道分水嶺（時值${band}）。\n` +
-          `★這不是尋常的${act.label}，而是關係質變的一瞬，量級是：${milestoneScale}——依「${svName}」的真名與性格，寫出屬於這位從者獨有的一個具體舉動或一句話（例如：卸下慣有的距離感、罕見地主動靠近、遞出從未給過的東西、換了個從未用過的稱呼——擇其中最貼合這位從者性格與上述量級的一種，不要套用泛用模板，也不要多選並列）。\n` +
-          `★【精煉100~160字】聚焦這一個瞬間，勿流水帳交代前後經過。\n` +
-          `★【show, don't tell】不可用抽象詞直接宣告關係起了什麼變化，也不可直述其願望／個性的設定字面，只憑神態與言行流露；停在意猶未盡的留白。\n` +
+          `★這不是尋常的${act.label}，而是關係質變的一瞬，量級是：${milestoneScale}——依「${svName}」的真名與性格，寫出屬於這位從者獨有的一個具體舉動或一句話（例如：卸下慣有的距離感、罕見地主動靠近、遞出從未給過的東西、換了個從未用過的稱呼——擇其中最貼合這位從者性格與上述量級的一種，只寫這一種）。\n` +
+          `★【精煉100~160字】整段就寫這一個瞬間。\n` +
+          `★【show, don't tell】關係起了什麼變化、以及其願望與個性，全部只憑神態與言行流露；停在意猶未盡的留白。\n` +
           `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
       }
       const bondTier = bondNow >= 90 ? "羈絆深厚，可以是夜深促膝的交心，或難得流露的親近隨性"
@@ -269,9 +269,9 @@ function actionBond(userData, pcId, sheets) {
         : "剛熟識不久，多是巡查歇腳的閒話家常，仍帶點客套";
       return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
         `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}、共度約莫一個小時的光景，兩人的羈絆又深了一分（時值${band}）。\n` +
-        `★【時間尺度】這是一段約一個小時的相處，寫出「有一段時光緩緩流過」的從容，勿寫成三言兩語的瞬間、也勿橫跨大半天。\n` +
+        `★【時間尺度】這是一段約一個小時的相處，寫出「有一段時光緩緩流過」的從容，範圍就收在這一個小時裡。\n` +
         `★依當前羈絆定調濃淡：${bondTier}。寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格與口吻，演出其獨有神態，點到為止留餘味。\n` +
-        `★【show, don't tell】用言行、神態、停頓去流露情感與性格，不可直述其願望／個性的設定字面；停在含蓄的留白。\n` +
+        `★【show, don't tell】情感、性格、願望全部用言行、神態、停頓去流露；停在含蓄的留白。\n` +
         `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
     }
   );
@@ -550,7 +550,7 @@ function actionAllyBond(userData, pcId, sheets) {
     : "";
   const aiPrompt = masterCard_(pcData[pIdx]) + allyCard + clarifyFact +
     `【系統·盟誼】御主『${masterName}』與盟友「${allyName}」${allyIsMaster ? '共處' : '交流'}，當前羈絆 ${after}/100。\n` +
-    `★Fate 筆觸【90~140字】寫一段此次共處的小品，自由發揮、勿每次都同一套說辭。語氣親疏【務必嚴格】貼合當前羈絆：${tier}。對方仍是「暫時」盟友，留一絲各自的算計與保留。show, don't tell。` +
+    `★Fate 筆觸【90~140字】寫一段此次共處的小品，自由發揮，每次換個說法。語氣親疏【務必嚴格】貼合當前羈絆：${tier}。對方仍是「暫時」盟友，留一絲各自的算計與保留。show, don't tell。` +
     (unlocked ? `（此次羈絆首度臻至深處，結尾可用一個眼神或半句未盡之言，含蓄點出情誼悄然越過了「暫時」的界線。）` : "");
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：bumpBond_/【摯交】標記/spendAp_ 皆已原地改回 pcData
   return JSON.stringify({ success: true, aiPrompt: aiPrompt, bond: after, unlocked: unlocked, ally: allyName, clock: clock, ap: ap, apMax: AP_PER_DAY, ambush: false, statusString: buildPlayerStatusString(pcData[pIdx]) });
@@ -640,7 +640,7 @@ function actionParley(userData, pcId, sheets) {
 
   const out = { success: true, target: targetName, bond: after, delta: delta, clock: clock, ap: ap, apMax: AP_PER_DAY, parleyType: type };
   const head = masterCard_(pcData[pIdx]) + '〔交涉對象·敵對陣營〕' + enemyMasterCard_(pcData[tIdx]);
-  const stay = `\n★「${targetName}」交涉後【仍留在原地】，並未離開這個場景——不可描寫那個人轉身離去、走遠或消失於視野，那不是這個動作發生的事。`;
+  const stay = `\n★「${targetName}」交涉後【仍留在原地】，並未離開這個場景——這一段結束時那個人還站在原地。`;
 
   if (type === 'chat') {
     out.aiPrompt = head +
@@ -666,8 +666,8 @@ function actionParley(userData, pcId, sheets) {
     out.aiPrompt = head +
       `【系統·交換情報·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』向敵對的「${targetName}」探聽戰局，對方願意透露（好感 ${before}→${after}／100）。\n` +
       (revealed.length
-        ? `★對方講出來的【就是這些，不可增減】：${listStr}。\n★【100~150 字】演出這場壓低聲音的交換：${tp}為什麼肯講、講的時候留了什麼保留或條件。名字與地點照上面逐字帶到，別自己補別人。`
-        : `★對方肯講，但講的你早就知道了。★【100~150 字】演出這份「白跑一趟」的微妙——${tp}說得誠懇，只是沒有新東西。不可捏造任何人名或地點。`) + stay;
+        ? `★對方講出來的【就是這些，原樣照用】：${listStr}。\n★【100~150 字】演出這場壓低聲音的交換：${tp}為什麼肯講、講的時候留了什麼保留或條件。名字與地點照上面逐字帶到，別自己補別人。`
+        : `★對方肯講，但講的你早就知道了。★【100~150 字】演出這份「白跑一趟」的微妙——${tp}說得誠懇，只是沒有新東西；整段不出現任何人名或地點。`) + stay;
   } else {
     // 🕊️ 請他退讓：成功＝對方與其從者今天離開這一格（＝舊制要結盟才有的「不被騷擾」，改成一次性）
     const chance = parleyYieldChance_(pcData[tIdx]);

@@ -78,22 +78,22 @@ function buildArrivePrompt_(a) {
   if (a.pursuit) NOW.push(a.pursuit.hitWho === 'us'
     ? `【撤離追擊·已裁定】自「${a.pursuit.enemyName}」的地盤抽身時被追上咬了一記（從者${dmgSeverityWord_(a.pursuit.dmg, a.pursuit.svHpMax || 1)}）——依上方追兵性格演出這記追擊與從者中招的反應，抵達時帶餘悸狼狽，非從容無事。`
     : `【撤離反咬·已裁定】「${a.pursuit.enemyName}」追來卻被從者回身逼退（追兵${dmgSeverityWord_(a.pursuit.dmg, a.pursuit.foeHpMax || 1)}）——我方從者演出斷後的餘裕，抵達時從容退場，非纏戰。`);
-  if (a.factionClash) NOW.push(`【撞見兩方敵人·已裁定】${a.factionClash.note}——雙方依性格反應，不可改寫局面、不可自行分出勝負、不可替玩家決定是否出手。`);
+  if (a.factionClash) NOW.push(`【撞見兩方敵人·已裁定】${a.factionClash.note}——雙方依性格反應；局面照上面寫的，勝負與出不出手都留給玩家下一步決定。`);
   // ── 在場：誰在這裡、什麼態度 ──
   const WHO = [];
   if (foes.length > 1) {
     const pairs = foes.filter(f => f.faction === '敵御主').map(f => `御主「${f.name}」${f.servant ? `↔從者「${f.servant}」` : '（已無從者）'}`)
       .concat(foes.filter(f => f.faction === '敵從者' && !foes.some(m => m.faction === '敵御主' && m.servant === f.name)).map(f => `從者「${f.name}」${f.master ? `↔御主「${f.master}」` : ''}`));
-    WHO.push(`【歸屬·勿張冠李戴】${pairs.join('；')}。各組從者只聽命於自己的御主，彼此可能也互為敵手。`);
+    WHO.push(`【歸屬·照這份對照表】${pairs.join('；')}。各組從者只聽命於自己的御主，彼此可能也互為敵手。`);
   }
   if (foes.length) WHO.push((a.preFoes || []).some(n => foes.find(f => f.name === n))
-    ? `【找上門】此地本就是敵方據守之處，是御主主動尋來——對方在自己的地盤上。${arriveStanceNotice_(stance, true)}讓敵方依其個性與立場開口、有反應，別當沉默佈景；是否動手由御主下令。`
-    : `【偶遇】雙方恰巧在此撞個正著。${arriveStanceNotice_(stance, false)}讓敵方依其個性與立場開口、有反應，別當沉默佈景；是否動手由御主下令。`);
+    ? `【找上門】此地本就是敵方據守之處，是御主主動尋來——對方在自己的地盤上。${arriveStanceNotice_(stance, true)}讓敵方依其個性與立場開口、有反應；是否動手由御主下令。`
+    : `【偶遇】雙方恰巧在此撞個正著。${arriveStanceNotice_(stance, false)}讓敵方依其個性與立場開口、有反應；是否動手由御主下令。`);
   if (a.foeMood) WHO.push(`【他們對你的溫度·已裁定的事實】${a.foeMood}`);
   foes.filter(f => f.faction === '敵御主' && f.lostServant).forEach(f =>
     WHO.push(`敵御主『${f.name}』已痛失從者（${f.lostServant}）、再無從者可驅使——讓其神情心境流露失恃（依個性：孤注一擲／惶然欲逃／不甘怨懟），切勿演成仍有從者隨侍。`));
   if (a.allyPeril) WHO.push(`【盟友告急·情報】盟友「${a.allyPeril.ally}」此刻正於「${a.allyPeril.loc}」與敵從者「${a.allyPeril.foe}」對上、情勢緊繃（結盟情報共享而得知）——可讓御主/從者有一句反應或掛心，但【是否馳援由玩家決定】，別替玩家起身趕路。`);
-  if (!foes.length && stance !== 'normal') WHO.push(`【御主的姿態】御主此刻以〔${stance === 'stealth' ? '潛行' : '張揚'}〕之姿行動——${stance === 'stealth' ? '壓低存在感、盡量不被察覺地接近或抽身' : '毫不掩飾、主動暴露行蹤'}。讓此姿態自然滲入現身與被察覺的方式，勿喧賓奪主。`);
+  if (!foes.length && stance !== 'normal') WHO.push(`【御主的姿態】御主此刻以〔${stance === 'stealth' ? '潛行' : '張揚'}〕之姿行動——${stance === 'stealth' ? '壓低存在感、盡量不被察覺地接近或抽身' : '毫不掩飾、主動暴露行蹤'}。讓此姿態自然滲入現身與被察覺的方式，輕輕帶過即可。`);
   // ── 怎麼演 ──
   const HOW = [foes.length
     ? '寫這片場地與一觸即發的對峙張力——交戰與否、勝負，都留待御主下令，禁止自行開打或分出勝負。'
@@ -627,7 +627,7 @@ function actionPrepMeal(userData, pcId, sheets) {
   var mealPrompt = masterCard_(pcData[pIdx]) + (_mealHasSv ? servantCard_(pcData[mealSvIdx]) : '') +
     (_mealHasSv
       ? `【系統·整備已裁定】御主與從者稍作整備、飽餐一頓——接下來一段時間內，從者的狀態比平常更穩、出手更準。\n★【60~100 字】演出這段戰前用餐、稍事休整的日常小品，依從者性格自然流露對這頓飯／這位御主的反應；語氣輕快不冗長。`
-      : `【系統·整備已裁定】御主獨自稍作整備、飽餐一頓。\n★【60~100 字】演出這段獨自用餐、稍事休整的片刻——此刻【身邊沒有從者】，不可讓任何從者出現或開口；語氣輕快不冗長。`);
+      : `【系統·整備已裁定】御主獨自稍作整備、飽餐一頓。\n★【60~100 字】演出這段獨自用餐、稍事休整的片刻——此刻【身邊沒有從者】，整段只有你一個人；語氣輕快。`);
   STATE_PRE_DATA_ = pcData;
   return JSON.stringify({
     success: true,
@@ -1033,7 +1033,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
         homeRepel: true, enemyName: eNm, svName: sNm, backDmg: backDmg, wardCost: wardCost, homeRank: homeRank,
         dmg: 0, destroyed: false, defeat: false, dreamPrompt: "", after: parseInt(pcData[svIdx][COL.PC.HP]) || 0,
         foeCard: eFoeCard,
-        repelNote: eFoeCard + `【系統·陣地反擊·已裁定】潛伏同地的敵從者「${eNm}」欲趁御主一行卸防時偷襲，然此地正是我方親手佈設的陣地——${homeRankScale}示警、機關迭起，「${sNm}」從容起身、反手將來犯者擊退驅離（敵受創 −${backDmg}），我方毫髮無傷（御主耗 ${wardCost} 魔維持結界運作）。\n★演出「潛入者反被主場結界與從者從容擊退」的優雅反制，結界的氣勢與規模需貼合上述描述——「${eNm}」依其性格可以有反應/一兩句話(不甘、譏諷、冷笑皆可，狂化者改用低吼/肢體)，別把入侵者寫成毫無聲息的純背景。`,
+        repelNote: eFoeCard + `【系統·陣地反擊·已裁定】潛伏同地的敵從者「${eNm}」欲趁御主一行卸防時偷襲，然此地正是我方親手佈設的陣地——${homeRankScale}示警、機關迭起，「${sNm}」從容起身、反手將來犯者擊退驅離（敵受創 −${backDmg}），我方毫髮無傷（御主耗 ${wardCost} 魔維持結界運作）。\n★演出「潛入者反被主場結界與從者從容擊退」的優雅反制，結界的氣勢與規模需貼合上述描述——「${eNm}」依其性格可以有反應/一兩句話(不甘、譏諷、冷笑皆可，狂化者改用低吼/肢體)，入侵者要有聲音。`,
         report: { homeRepel: true, ambush: false, enemyName: eNm, svName: sNm, backDmg: backDmg, wardCost: wardCost, homeRank: homeRank }
       };
     }

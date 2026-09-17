@@ -567,8 +567,8 @@ function actionFateBattle(userData, pcId, sheets) {
       asnPrompt = asnCardsStr + `【系統·斬首戰報·已裁定】御主號令${dualAsn ? '兩名從者齊撲' : `從者『${crit.name}』`}奇襲敵御主「${masterName}」。命運的骰子由『${crit.name}』擲出 20 — 大成功！撕開護衛從者「${guardName}」的防線、取下御主性命。御主既亡（凡人之軀·斃命，非靈基消滅）、魔力供給斷絕，` +
         (guardSurvived ? `然「${guardName}」憑一己神秘之力強行維繫靈基、瀕死重創卻未消散。` : `從者「${guardName}」失去供魔當場化作光點消散。`) +
         `${asnVictory ? '此為最後的敵對陣營——聖杯已然在握！' : ''}\n` +
-        `★描寫這萬中選一、石破天驚的斬首瞬間。【致命的手段由你依『${crit.name}』的職階與真名自行演出——法師為魔術一擊、近戰為兵刃、弓兵為遠程，勿假設特定方式】${dualAsn ? '，兩名從者夾擊、其中一人覷得破綻收尾' : ''}。勝負已由系統結算。\n` +
-        (guardSurvived ? `★「${guardName}」雖重創瀕死，【絕對禁止】描寫其消散或死亡。\n` : ``);
+        `★描寫這萬中選一、石破天驚的斬首瞬間。【致命的手段由你依『${crit.name}』的職階與真名自行演出——法師為魔術一擊、近戰為兵刃、弓兵為遠程】${dualAsn ? '，兩名從者夾擊、其中一人覷得破綻收尾' : ''}。勝負已由系統結算。\n` +
+        (guardSurvived ? `★「${guardName}」雖重創瀕死，這一段結束時仍站在場上。\n` : ``);
     } else {
       // 全部失手：護衛捨身格擋，反手 1.5 倍痛擊「每一名」參與斬首的從者
       const guardC = rowToCombatant_(pcData[assassinGuardIdx]);
@@ -627,7 +627,7 @@ function actionFateBattle(userData, pcId, sheets) {
       } else {
         asnPrompt = asnCardsStr + `【系統·斬首戰報·已裁定】御主號令${whoTxt}欲奇襲敵御主「${masterName}」，無人擲出 20（大成功）。護衛從者「${guardName}」如影攔在御主身前、硬生生擋下，並反手以 1.5 倍之力逐一痛擊（${rollsTxt}）。御主未能得手。\n` +
           `★描寫護衛捨身格擋、反噬重擊${dualAsn ? '、兩名從者同遭反震' : ''}的險惡瞬間。傷害已由系統結算。\n` +
-          `★未崩潰之從者最多重傷，【絕對禁止】描寫其死亡。\n` +
+          `★未崩潰之從者最多重傷，這一段結束時都還活著。\n` +
           ``;
       }
     }
@@ -1216,7 +1216,7 @@ function actionFateBattle(userData, pcId, sheets) {
   );
   const _catchSev_ = dmgSeverityWord_(_worstTaken_, _svMaxHp_);
   const _masterCatchLine_ = (_catchSev_ !== '擦傷' && !String(pcData[atkIdx][COL.PC.ID]).startsWith("DEAD_"))
-    ? `\n★【御主接住了從者】：『${atkC.name}』被那一擊掃得${_catchSev_ === '重創' ? '整個人往後飛出去' : '踉蹌失衡'}，御主【在那一擊落定之後】衝上前接住、扶穩、把人拉開——演出這一拍：手掌撐住的力道、對上的那一眼、一句短促的話。★這【不是】替從者擋下攻擊、不是以身相代：御主沒有挨到任何攻擊、也沒有受傷；接住之後從者立刻重新站定，交鋒繼續由從者打。`
+    ? `\n★【御主接住了從者】：『${atkC.name}』被那一擊掃得${_catchSev_ === '重創' ? '整個人往後飛出去' : '踉蹌失衡'}，御主【在那一擊落定之後】衝上前接住、扶穩、把人拉開——演出這一拍：手掌撐住的力道、對上的那一眼、一句短促的話。★御主是【在那一擊落定之後】才上前的：全程沒有挨到任何攻擊、也沒有受傷；接住之後從者立刻重新站定，交鋒繼續由從者打。`
     : '';
 
   var _mjBits = [];
@@ -1226,11 +1226,11 @@ function actionFateBattle(userData, pcId, sheets) {
   var _masterJoinLine = (_stanceKey === 'open'
     ? `【御主·正大光明】御主毫不掩飾地立在從者身後可見之處下令，戰意寫在臉上——但【不近身、不出手】，交鋒是『${atkC.name}』的事。`
     : _stanceKey === 'stealth'
-      ? `【御主·後方支援】御主據守後方掩蔽處，穩定供魔、冷靜判讀戰況並下令指揮——不入戰圈，卻是這場交鋒的中樞，切勿寫成御主缺席。`
+      ? `【御主·後方支援】御主據守後方掩蔽處，穩定供魔、冷靜判讀戰況並下令指揮——不入戰圈，卻是這場交鋒的中樞，整段都要看得到御主。`
       : `【御主·見機行事】御主守在戰線側後方讀著戰況、適時下令，該退則果斷拉開距離——【不近身、不出手】。`)
-    + `★【鐵律】御主不參與物理交鋒：不可寫御主揮拳/持械/格擋/替從者擋下攻擊/以身相代，也不可讓御主因交鋒受傷。御主能動用的只有【指令、魔力、令咒】。`
+    + `★【鐵律】御主留在戰圈之外、毫髮無傷：御主能動用的只有【指令、魔力、令咒】，交手全部交給從者。`
     + (_mjBits.length ? `這一戰御主${_mjBits.join('，並')}。` : '')
-    + `★御主若動用魔術，只能用御主卡上實際列出的魔術系統，卡上沒寫的一律不可捏造（改寫成呼喊指令、眼神示意等不需特定技術的參與方式）。卡上的體術只用在【戰圈之外】：站位、閃開波及、接住從者，不可用來與敵交手。`
+    + `★御主若動用魔術，只能用御主卡上實際列出的魔術系統，卡上沒寫的就改成呼喊指令、眼神示意等不需特定技術的參與方式。卡上的體術只用在【戰圈之外】：站位、閃開波及、接住從者。`
     + _masterCatchLine_;
 
   const BATTLE_WORDS_ = ['170~230', '220~290', '280~360', '340~440'];
@@ -1280,18 +1280,18 @@ function actionFateBattle(userData, pcId, sheets) {
       : `『${atkC.name}』高呼真名、解放了寶具【${_npZh}】${npMissed ? '——這一擊被「' + defC.name + '」避開了' : ''}。★讓${pron_(pcData[atkIdx][COL.PC.SEX])}【親口唸出這個真名】(中文真名與原名並呼)。`);
     if (useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) SC_PEAK.push(`【灌魔超載】御主${atkC.npOverloadMul >= 1.9 ? '把餘裕魔力盡數傾注' : '將大量魔力加壓灌注'}這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉）' : ''}——威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。演出這股灼熱光壓。`);
     if (idealRealmFired) SC_PEAK.push(`【理想鄉】「${idealRealmFoe}」傾盡全力解放了斬裂世界的究極真名，然而在觸及「${idealRealmSaber}」的剎那，全世界遙遠的理想鄉 Avalon 悄然展開——究極寶具的威能盡數湮滅於金色結界中，「${idealRealmSaber}」毫髮無傷。演出這一擋的神聖、靜謐與絕對。`);
-    if (foeNpResp) SC_PEAK.push(`「${defC.name}」沒有以真名相迎，而是${foeNpResp.icon}【${foeNpResp.label}】——${foeNpResp.note}${foeNpResp.ok ? '' : '（但沒接住）'}。★演出這記應對本身的判斷與姿態，別只寫我方的光。`);
+    if (foeNpResp) SC_PEAK.push(`「${defC.name}」沒有以真名相迎，而是${foeNpResp.icon}【${foeNpResp.label}】——${foeNpResp.note}${foeNpResp.ok ? '' : '（但沒接住）'}。★演出這記應對本身的判斷與姿態，兩邊都要有畫面。`);
     if (enemyNpRoundNotes) SC_PEAK.push(`${enemyNpRoundNotes}——這不是普通反擊而是寶具解放，讓「${defC.name}」展現寶具威能／可高呼真名，不可寫成尋常一擊。`);
     // ── 收束：勝負落定之後 ──
     if (backlash) SC_END.push(`【過載反噬】倍額魔力灌注的代價在解放後湧回——御主魔術迴路暴走灼身（−${backlash.dmg} HP），強撐住了意識。★純迴路過載的內在灼痛虛脫，非流血外傷。`);
-    if (godRevived) { let _gt = ""; try { const ghNow = getGodHandLives_(pcData[nIdx][COL.PC.MEMORY]); const ghBurn = Math.max(0, ghLivesStart - ghNow); if (ghBurn > 0) _gt = `★本戰共燒去 ${ghBurn} 條命、尚餘 ${ghNow}；「燒命數」與「倒地站起的次數」是兩回事(單擊可一口氣燒多命)，勿混寫成同一個數。`; } catch (e) { } SC_END.push(`十二試煉：${godNote}${_gt}`); }
+    if (godRevived) { let _gt = ""; try { const ghNow = getGodHandLives_(pcData[nIdx][COL.PC.MEMORY]); const ghBurn = Math.max(0, ghLivesStart - ghNow); if (ghBurn > 0) _gt = `★本戰共燒去 ${ghBurn} 條命、尚餘 ${ghNow}；「燒命數」與「倒地站起的次數」是兩回事(單擊可一口氣燒多命)，各講各的數。`; } catch (e) { } SC_END.push(`十二試煉：${godNote}${_gt}`); }
     if (sealEscaped) SC_END.push(`對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}★此撤離僅止於該從者及其本主，與在場其他御主／從者無關。`);
     if (destroyedName && targetIsFoeServant && enemyMasterRow && !isMasterTarget && !ourSideDestroyed) SC_END.push(`在場敵御主「${String(enemyMasterRow[COL.PC.NAME])}」親眼目睹自己契約的從者靈基崩潰、化作光點消散——失去從者＝失去依靠與這場戰爭的資格。★依其性格與身世演出這一刻的衝擊（崩潰/嘶喊/怔忡/強撐由性格定），非沉默背景板。`);
     if (destroyedName && !sealEscaped && !godRevived) SC_END.push(ourSideDestroyed
       ? `★【${_endRoundPhrase}】『${destroyedName}』已當場靈基崩潰消散——我方死局，「${defC.name}」仍存活。『${destroyedName}』此後只存在於其他人的反應裡，所有人的言行都建立在勝負已定之上。收在殞落這一擊與御主的震動反應。`
       : `★【${_endRoundPhrase}】「${defC.name}」${targetIsFoeServant ? '已當場靈基崩潰消散' : '已當場斃命——凡人之軀，沒有靈基消散的光點'}。其此後只存在於其他人的反應裡，所有人的言行都建立在勝負已定之上。收在終結這一擊與其後的餘韻${targetIsFoeServant ? '（喘息、確認勝負、望向消散的光點）' : '（喘息、確認斷氣、從者收勢）'}。`);
     if (!destroyedName && !sealEscaped && !godRevived) SC_END.push(
-      (_hpRatioNow <= 0.15 ? `「${defC.name}」已被打到命懸一線、站著全靠意志，但【還沒死】——勿描寫死亡／消滅／屍體，要讓這份瀕死在畫面上看得出來。`
+      (_hpRatioNow <= 0.15 ? `「${defC.name}」已被打到命懸一線、站著全靠意志，但【還沒死】——讓這份瀕死在畫面上看得出來，這一段結束時仍有呼吸。`
         : _hpRatioNow <= 0.4 ? `「${defC.name}」傷勢不輕、氣力已顯頹勢，但仍撐得住——勿描寫死亡／消滅／屍體。`
           : `「${defC.name}」尚有餘力，勿描寫死亡／消滅／屍體。`)
       + `雙方仍在交鋒中，下回合是否再戰由御主決定。`);

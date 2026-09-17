@@ -89,6 +89,10 @@ for ln, b in blocks:
 # ③ 正面指示不變式（見檔頭）。掃全 .gs，只看提示詞字串行。
 import os as _os
 HARD_BAN = re.compile(r'【禁[^】]*】|【嚴禁】|【不可】|絕不可|嚴禁')
+# 軟性否定：同一條原則，只是沒有【】包起來。要排掉三種假陽性——
+#   ①「要不要」是疑問不是禁令 ②「情不自禁」等成語 ③行尾的 // 註解（註解本來就會講禁了什麼）
+SOFT_BAN = re.compile(r'(?<!要)(不可|不要|不得|禁止|勿(?!論)|絕不|別讓|別再|別把|別只|別當|別靠|別急|別跳|別改|別拿)')
+SOFT_SKIP = ('情不自禁', '不禁')
 # 真的只能用否定寫的登記在這裡，鍵＝「檔名:出現的字樣」，值＝理由。目前一條都不需要。
 HARD_BAN_ALLOW = {}
 # 否定句 ＋ 同一子句裡的引號內容／(例…)：那個內容就是示範。
@@ -105,12 +109,22 @@ def scan_positive():
                 continue
             if '★' not in line and '【' not in line:
                 continue
-            for m in HARD_BAN.finditer(line):
+            code = line.split('//')[0] if '//' in line else line   # 行尾註解不算提示詞
+            # 風格模組表那幾行裡，只有 def: 會送進提示詞；name/hint 是面板上給玩家看的字。
+            code = re.sub(r"\b(?:name|hint)\s*:\s*'[^']*'", '', code)
+            for m in SOFT_BAN.finditer(code):
+                around = code[max(0, m.start() - 4):m.start() + 4]
+                if any(k in around for k in SOFT_SKIP):
+                    continue
+                if HARD_BAN_ALLOW.get(f + ':' + m.group(0)):
+                    continue
+                hits.append((f, ln, '否定式寫法「%s」——改成「要做什麼」的正面指示' % m.group(0)))
+            for m in HARD_BAN.finditer(code):
                 w = m.group(0)
                 if HARD_BAN_ALLOW.get(f + ':' + w):
                     continue
                 hits.append((f, ln, '硬禁令「%s」——改成「要做什麼」的正面指示' % w))
-            for m in NEG_EXAMPLE.finditer(line):
+            for m in NEG_EXAMPLE.finditer(code):
                 ex = m.group(1) or m.group(2)
                 if '${' in ex:      # 插值不是例句，是這一局真的要代進去的值
                     continue
@@ -148,5 +162,5 @@ if _pos:
     bad += len(_pos); print(f"  ❌ 提示詞裡還有否定式寫法：{len(_pos)} 處")
     for f, ln, why in _pos: print(f"     {f}:{ln} {why}")
 else:
-    print(f"  ✅ 提示詞全是正面指示（硬禁令 0、否定句零例句・含自我退化測試）")
+    print(f"  ✅ 提示詞全是正面指示（硬禁令與否定式寫法 0、否定句零例句・含自我退化測試）")
 sys.exit(1 if bad else 0)

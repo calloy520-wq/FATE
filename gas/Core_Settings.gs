@@ -463,7 +463,7 @@ function enrichPersonalityLikesDislikes_(name, cls, rawWords) {
       "依序對應[日常表象][真實內裡][喜歡的事物][討厭的事物]，但段數不足4段)，請延伸出貼合這些既有" +
       "特質、合理且具體的「喜歡的事物」與「討厭的事物」，補滿到4句。既有的短句必須一字不改、" +
       "原樣保留在原本的位置，只需要補上缺少的部分。補上的每句精簡收束、" + TRAIT_SEG_HINT_ + "字內寫完一句，避免堆疊多重子句。\n" +
-      "★只輸出最終4句、用「、」分隔，不要輸出任何說明、標籤、引號、前後綴。";
+      "★只輸出最終4句、用「、」分隔，整段就是這4句。";
     var prompt = "角色：" + name + "（" + cls + "）\n既有性格短句：" + words;
     var out = String(callGeminiAPI(prompt, sys, { temperature: 0.8, ignoreLaw: true, plainText: true }) || "").trim();
     return out || words;
