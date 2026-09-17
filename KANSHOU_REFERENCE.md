@@ -1190,7 +1190,7 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 ---
 
 ## 📎 主要常數速查（都在 `gas/Gallery.gs`）
-`KANSHOU_REL_TIER_`(五階) · `KANSHOU_STYLE_MODULES_`(13 段說書人風格·玩家可改)/`KANSHOU_STYLE_CATS_`(4 個面板分頁) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_PACE_OPTIONS_`(0/10/20/30 分鐘·玩家自選流速) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · ~~`KANSHOU_SCENE_EVENTS_`~~(橋段庫·2026-09 已整組砍除) · `KANSHOU_ALBUM_CAP_`(100)（`KANSHOU_FILM_PER_DAY_`已隨底片制拍照改手機一起刪除，見上方拍照/相簿章節） · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
+`KANSHOU_REL_TIER_`(五階) · `KANSHOU_STYLE_MODULES_`(14 段說書人風格·玩家可改)/`KANSHOU_STYLE_CATS_`(4 個面板分頁) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_PACE_OPTIONS_`(0/10/20/30 分鐘·玩家自選流速) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · ~~`KANSHOU_SCENE_EVENTS_`~~(橋段庫·2026-09 已整組砍除) · `KANSHOU_ALBUM_CAP_`(100)（`KANSHOU_FILM_PER_DAY_`已隨底片制拍照改手機一起刪除，見上方拍照/相簿章節） · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
 
 
 ---
@@ -2595,6 +2595,31 @@ solo 的戰鬥與日結算，`Account.gs` 的殘列清理只讀「眾生」。�
   `IS_PARTY` 鑑賞從不寫是已知的（改命走 `k_` 世界豁免）。
 - **AI 契約**：`rel_changes`／`npc_exit`／`intimacy_feedback`／`photo_caption`／`world_note` 逐欄有防線（見上一節）。
 - **前端出口**：`check_wiring` 的門檻→UI 對照全綠。
+
+## 🔞 尺度加重（2026-09）
+
+玩家「鑑賞的尺度也一起加重」。動的是 `nsfwBaseRules`（紅線①的演化核心），照規矩量了前後：
+
+**改之前量到的現況**：system 1737 字／user 1861 字／合計 3598；篇幅 480~620 字；
+鐵律 11 條；模型 `AI_MODEL`（gemini-3.5-flash-lite）。
+**最關鍵的發現是兩個缺口**：① 13 段風格模組裡**根本沒有管尺度的那一格**——鑑賞的「開放」一直只是
+「沒人叫它收斂」的副作用，沒有任何一條真的叫它寫開；② 鑑賞跟 solo 的一般敘事**共用 flash-lite**，
+補魔那三支 2026-09 已經換 grok 了，鑑賞還留在原地。
+
+**改了兩處**：
+1. 新增第 14 段模組 `lewd`（名稱「尺度」，`slot: 'sys'`、`cat: 'them'`，玩家可改可關，跟其餘 13 段同一套機制）。
+   預設值跟 solo 的 `LEWD_EXPLICIT_` 同一個語域（兩軌各自一份，**刻意不共用**——solo/kanshou 機制徹底隔離）。
+   接在鐵律「肢體互動依雙方【性別】欄自然呈現」之後：那條講誰對誰，這條講寫多開。
+2. `actionPlay` 的 `aiConfig.model` 由 `AI_MODEL` 換成 `LEWD_MODEL`（x-ai/grok-4.20）。
+   temperature 1.08／top_p 0.97／top_k 60 都沒動——那組是既有調校，這次只換模型。
+
+**改完量的**：system 1737→**1861**（+124）、user 1861 **不變**、合計 3722。
+鐵律 1~7 **逐字不變**，新的排第 8，舊的 8~11 順移成 9~12——原本正常的配對沒被改壞。
+臨時腳本做的重複子句檢查：84 條子句、去重後 84 條，**零重複**；
+關鍵詞各出現一次（器官 x1／體液 x1／肢體互動 x1），跟既有的對話格式那條（喘息/吸吮）沒有打架。
+
+探針 `style.js` 從 39 條擴到 43：模組數 13→14、預設鐵律 11→12 條、關一段後 10→11 條、
+補號斷言 10→11，另加一組「尺度那段」自己的（預設在第 8 條／關掉整段消失／換成玩家版）。
 
 ### 掃描器加寬（2026-09，跟 solo 補魔整修同一輪）
 
