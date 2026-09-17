@@ -373,21 +373,21 @@ function enemyCanAffordNp_(pcData, svIdx, gameId, prana) {
 
 function actionFateBattle(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
-  if (!npcName) return JSON.stringify({ success: false, message: "未指定攻擊目標。" });
+  if (!npcName) return JSON.stringify({ success: false, message: "沒選要打誰。" });
   const npcKey = nameLoose_(npcName);
   const useNp = !!userData.np;
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
-  if ((parseInt(pcData[pIdx][COL.PC.HP]) || 0) <= 0) return JSON.stringify({ success: false, message: "御主已然殞落，此局已結束。" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
+  if ((parseInt(pcData[pIdx][COL.PC.HP]) || 0) <= 0) return JSON.stringify({ success: false, message: "御主已經倒下，這一局結束了。" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
 
   // 🗝️ 雙從者：若指定出戰從者(userData.servant/servantId)則用之，否則取第一個在世從者。（全文見 CODE_NOTES.md）
   const atkIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
   if (useNp && atkIdx !== -1 && !npReleasable_(rowToCombatant_(pcData[atkIdx]))) {
-    return JSON.stringify({ success: false, message: "這位從者的寶具是常駐型的，已經一直生效，沒有可以解放的那一下。用普攻或令咒作戰吧。" });
+    return JSON.stringify({ success: false, message: "這個寶具一直在生效，沒有「解放」那一下。用普攻或令咒吧。" });
   }
-  if (atkIdx === -1) return JSON.stringify({ success: false, message: "你尚未召喚從者，無從者可出戰。" });
+  if (atkIdx === -1) return JSON.stringify({ success: false, message: "你還沒有從者。" });
   // 🌟 多寶具選定索引 ＋ 🔋 解放寶具自動全開出力：兩者隨 fate_battle 一起送來，省去單獨 set_np_choice／set_servant_output 往返。
   // 🔋 解放寶具時前端會把出力 100 一起送來蓋掉玩家原本的檔位——先記下來，戰後還原（見下方 _restoreOutput）。
   const _outputBefore = servantOutput_(pcData[atkIdx][COL.PC.MEMORY]);
@@ -397,9 +397,9 @@ function actionFateBattle(userData, pcId, sheets) {
   const _notMeAlive = function (r) { var f = String(r[COL.PC.FACTION] || ""); return (f === "敵從者" || f === "敵御主") && r[COL.PC.ID] != pcData[atkIdx][COL.PC.ID] && !String(r[COL.PC.ID]).startsWith("DEAD_") && (!myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId) && hasArrived_(r, _battleDay); };
   let nIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && _notMeAlive(r)) : -1;
   if (nIdx === -1) nIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && _notMeAlive(r));
-  if (nIdx === -1) return JSON.stringify({ success: false, message: "此世界查無此目標。" });
+  if (nIdx === -1) return JSON.stringify({ success: false, message: "找不到這個對象。" });
   if (String(pcData[pIdx][COL.PC.LOC]).trim() !== String(pcData[nIdx][COL.PC.LOC]).trim()) {
-    return JSON.stringify({ success: false, message: "對方不在你身邊，鞭長莫及。" });
+    return JSON.stringify({ success: false, message: "對方不在這裡。" });
   }
 
   // 🌟 敵方真名蓄勢待發 → 不再讓它混在三回合裡自動發動，停下來讓玩家選怎麼應對（獨立一拍）。
@@ -456,12 +456,12 @@ function actionFateBattle(userData, pcId, sheets) {
 
   const isFateBattle = myGameId.indexOf("g_") === 0;
   if (isFateBattle && getAp_(myGameId, pcData) < 1) {
-    return JSON.stringify({ success: false, needRest: true, message: "行動點用完了，從者也需要喘口氣。先歇息，恢復了再戰。" });
+    return JSON.stringify({ success: false, needRest: true, message: "行動力用完了，先休息。" });
   }
 
   // 🤝 盟友不可攻擊：須先撕毀盟約
   if (isAllied_(pcData[nIdx])) {
-    return JSON.stringify({ success: false, needBreakAlliance: true, blockAlly: String(pcData[nIdx][COL.PC.NAME]), message: `「${pcData[nIdx][COL.PC.NAME]}」是你的盟友——若要動手，須先『撕毀盟約』。` });
+    return JSON.stringify({ success: false, needBreakAlliance: true, blockAlly: String(pcData[nIdx][COL.PC.NAME]), message: `「${pcData[nIdx][COL.PC.NAME]}」是盟友。要打先撕毀盟約。` });
   }
 
   // 🐙 清逾時海怪殘影(戰前)：讓 atkC.horrorUp 與城防判定準確——單一真實來源不留過期字串
@@ -481,7 +481,7 @@ function actionFateBattle(userData, pcId, sheets) {
   if (useNp) {
     const atkOutput = servantOutput_(pcData[atkIdx][COL.PC.MEMORY]);
     if (atkOutput < 100) {
-      return JSON.stringify({ success: false, message: `寶具乃靈基全力之解放——須先將「${atkC.name}」的出力推到 100%（全開）並支付寶具底費，方能釋放真名。當前出力 ${atkOutput}%。` });
+      return JSON.stringify({ success: false, message: `要放寶具，先把「${atkC.name}」的出力開到 100%。現在是 ${atkOutput}%。` });
     }
     const npCostPre = npPranaCost_(npEffectiveRank_(atkC)); // 🎴 吃玩家所選寶具的官方階級(多寶具選項各自定價)，非概括六圍表寶具值
     const mMpPre = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
@@ -492,7 +492,7 @@ function actionFateBattle(userData, pcId, sheets) {
         pcData[pIdx][COL.PC.MP] = Math.max(mMpPre, npCostPre); // 令咒 materializes 缺口魔力→下游 drainForNp_ 只扣魔、不焚血
         npSealForced = true;
       } else {
-        return JSON.stringify({ success: false, needMana: true, canForceSeal: getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) > 0, message: `御主魔力已油盡燈枯——以血魔竭力相湊仍不足以供「${atkC.name}」解放寶具(需 ${npCostPre})，須先休整／補魔${getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) > 0 ? '，或燃令咒·絕對命令強開' : ''}。` });
+        return JSON.stringify({ success: false, needMana: true, canForceSeal: getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) > 0, message: `魔力不夠放「${atkC.name}」的寶具（要 ${npCostPre}）。先休息或補魔${getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) > 0 ? '，或燒令咒硬開' : ''}。` });
       }
     }
   }
@@ -500,11 +500,11 @@ function actionFateBattle(userData, pcId, sheets) {
   // ❖ 令咒·絕對命令（必中＋威力倍增）：消耗一道玩家令咒
   const useSeal = !!userData.seal;
   if (useSeal && getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]) <= 0) {
-    return JSON.stringify({ success: false, message: "你的令咒已用盡，無法施加絕對命令。" });
+    return JSON.stringify({ success: false, message: "令咒用盡了。" });
   }
 
   // 戰鬥確定開打 → 耗 1 AP（推進 2 小時）。（全文見 CODE_NOTES.md）
-  const battleAp = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動點用完了，從者也需要喘口氣。先歇息，恢復了再戰。", { isFate: isFateBattle, skipWrite: true }).ap;
+  const battleAp = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力用完了，先休息。", { isFate: isFateBattle, skipWrite: true }).ap;
 
   // ⚔️ 交手即削好感：拔劍相向直接 −5（不勞 AI 判定）。只削既有交情列、不憑空建列(萍水相逢者本就 0)。
   try { raiseBond_(sheets, myGameId, String(pcData[pIdx][COL.PC.NAME]), String(pcData[nIdx][COL.PC.NAME]), -5, pcData); } catch (e) { }
@@ -1363,7 +1363,7 @@ function actionFateBattle(userData, pcId, sheets) {
 function actionSummonHorror(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   const gameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const wantSv = String(userData.servant || "").trim();
   // 找持 summon_horror 的我方從者(指定優先·否則第一個具此力者)
@@ -1376,28 +1376,28 @@ function actionSummonHorror(userData, pcId, sheets) {
     if (wantSv && String(pcData[i][COL.PC.NAME]).trim() !== wantSv) continue; // 🐛→✅ 同上，精確相等取代子字串比對
     svIdx = i; break;
   }
-  if (svIdx === -1) return JSON.stringify({ success: false, message: "無能翻閱螺湮城教本的從者（需持此寶具的召喚師·如吉爾·德·萊斯）。" });
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "要有持螺湮城教本的從者才行。" });
   const svC = rowToCombatant_(pcData[svIdx]);
   const svName = String(pcData[svIdx][COL.PC.NAME]);
   // 已在場？先清逾時殘影再判
   const _hce = clearExpiredHorror_(pcData[svIdx][COL.PC.MEMORY], gameId, pcData);
   if (_hce.cleared) pcData[svIdx][COL.PC.MEMORY] = _hce.mem;
   if (horrorPresent_(pcData[svIdx][COL.PC.MEMORY], gameId, pcData)) {
-    return JSON.stringify({ success: false, message: "深淵海怪已在場，無需重複召喚。" });
+    return JSON.stringify({ success: false, message: "海怪已經在了。" });
   }
   const isFate = gameId.indexOf("g_") === 0;
-  if (isFate && getAp_(gameId, pcData) < 1) return JSON.stringify({ success: false, message: "行動點不夠。召喚深淵海怪要 1 點。" });
+  if (isFate && getAp_(gameId, pcData) < 1) return JSON.stringify({ success: false, message: "行動力不夠，召喚海怪要 1 點。" });
   // ⚖️ 刻意不設「出力 100%」閘(與戰鬥內解放的差異)：戰鬥中解放要全開是「臨戰瞬間灌注」的張力；戰前召喚是不趕時間的儀式詠唱(出力檔本就免費即時可調·設閘只是無意義的點擊摩擦)。
   const prana = npPranaCost_(npEffectiveRank_(svC));
   const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0, mHp = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
   if (mMp + Math.floor(Math.max(0, mHp - 1) / BATTERY_HP_PER_MP) < prana) {
-    return JSON.stringify({ success: false, message: `御主魔力不足以自深淵召出海怪（需 ${prana}）——須先休整／補魔。` });
+    return JSON.stringify({ success: false, message: `魔力不夠叫出海怪（要 ${prana}），先休息或補魔。` });
   }
   const battery = drainForNp_(sheets, pcData, svIdx, pIdx, prana);
   // 🐙 設肉身 12h（變身態·單一狀態源）
   pcData[svIdx][COL.PC.MEMORY] = summonHorror_(pcData[svIdx][COL.PC.MEMORY], gameId);
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
-  const _horrorApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動點不夠。召喚深淵海怪要 1 點。", { isFate: isFate });
+  const _horrorApr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動力不夠，召喚海怪要 1 點。", { isFate: isFate });
   const ap = _horrorApr.ap, clock = _horrorApr.clock;
   const aiPrompt = servantCard_(pcData[svIdx]) +
     `【系統·螺湮城教本·已解放】御主號令「${svName}」翻開螺湮城教本，自深淵召出觸手巨獸「深淵海怪」（肉身 ${HORROR_SHIELD_HP}）常駐身側——只要魔力供養不絕，海怪便持續以身擋傷、每回合再生、並肩撕咬敵手，本體防禦亦升至對城規模；代價是每小時抽 ${HORROR_HOURLY_UPKEEP} 魔、每個交鋒回合另抽 ${HORROR_UPKEEP} 魔維持，共用魔力見底時海怪將先行沉回深淵。\n` +
@@ -1413,7 +1413,7 @@ function actionSummonHorror(userData, pcId, sheets) {
 function actionDismissHorror(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   const gameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   // 找隊上「現有海怪在場」的從者
   let svIdx = -1;
@@ -1423,13 +1423,13 @@ function actionDismissHorror(userData, pcId, sheets) {
     if (String(pcData[i][COL.PC.ID]).startsWith("DEAD_")) continue;
     if (horrorPresent_(pcData[i][COL.PC.MEMORY], gameId, pcData)) { svIdx = i; break; }
   }
-  if (svIdx === -1) return JSON.stringify({ success: false, message: "深淵海怪並不在場，無可解除。" });
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "海怪不在場。" });
   const svName = String(pcData[svIdx][COL.PC.NAME]);
   pcData[svIdx][COL.PC.MEMORY] = clearHorrorShield_(pcData[svIdx][COL.PC.MEMORY]);
   sheets.pc.getRange(svIdx + 1, COL.PC.MEMORY + 1).setValue(pcData[svIdx][COL.PC.MEMORY]);
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：海怪標記清除已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({
-    success: true, message: `「深淵海怪」已沉回深淵（停止每小時 ${HORROR_HOURLY_UPKEEP} 魔的維持）。要再召喚須重付寶具魔力。`,
+    success: true, message: `海怪沉回去了，維持費停了。要再叫得重付寶具魔力。`,
     aiPrompt: `【系統·解除召喚】御主令「${svName}」撤去螺湮城教本所召的深淵海怪——那頭觸手巨獸緩緩崩解、化作濁流沉回深淵，戰場重歸沉寂。\n★【40~70 字】描寫海怪退場的一幕即可（氛圍收束、供魔負擔解除的微鬆），別替玩家決定下一步。`,
     statusString: buildPlayerStatusString(pcData[pIdx])
   });
@@ -1524,21 +1524,21 @@ function actionNpRespond(userData, pcId, sheets) {
   const choice = String(userData.response || "").trim();
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
-  if ((parseInt(pcData[pIdx][COL.PC.HP]) || 0) <= 0) return JSON.stringify({ success: false, message: "御主已然殞落，此局已結束。" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
+  if ((parseInt(pcData[pIdx][COL.PC.HP]) || 0) <= 0) return JSON.stringify({ success: false, message: "御主已經倒下，這一局結束了。" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
-  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可應對。" });
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你還沒有從者。" });
 
   const _alive = r => (String(r[COL.PC.FACTION]) === "敵從者") && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.GAME_ID] || "") === myGameId;
   const nKey = nameLoose_(npcName);
   const nIdx = pcData.findIndex(r => _alive(r) && nameLoose_(r[COL.PC.NAME]).indexOf(nKey) !== -1);
-  if (nIdx === -1) return JSON.stringify({ success: false, message: "此世界查無此目標。" });
+  if (nIdx === -1) return JSON.stringify({ success: false, message: "找不到這個對象。" });
   if (String(pcData[pIdx][COL.PC.LOC]).trim() !== String(pcData[nIdx][COL.PC.LOC]).trim()) {
-    return JSON.stringify({ success: false, message: "對方不在你身邊，這一擊落不到你頭上。" });
+    return JSON.stringify({ success: false, message: "對方不在這裡。" });
   }
   if (!getNpTelegraph_(pcData[nIdx][COL.PC.MEMORY])) {
-    return JSON.stringify({ success: false, message: "對方此刻並沒有蓄勢待發的真名。" });
+    return JSON.stringify({ success: false, message: "對方現在沒有要放寶具。" });
   }
 
   const me = rowToCombatant_(pcData[svIdx]);
@@ -1557,7 +1557,7 @@ function actionNpRespond(userData, pcId, sheets) {
   const opts = npResponseOptions_(ctx);
   if (!choice) return JSON.stringify({ success: false, needNpResponse: true, foeName: String(pcData[nIdx][COL.PC.NAME]), options: opts });
   const spec = NP_RESPONSE_[choice];
-  if (!spec || !opts.some(o => o.key === choice)) return JSON.stringify({ success: false, message: "此刻做不到這種應對。" });
+  if (!spec || !opts.some(o => o.key === choice)) return JSON.stringify({ success: false, message: "現在做不到。" });
 
   // 這一擊的威力：真名解放、必中（應對方式才是唯一變數）
   const rawDmg = Math.max(1, parseInt(resolveFateBattle_(foe, me, { np: true, forceHit: true }).damage) || 1);

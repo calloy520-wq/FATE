@@ -116,7 +116,7 @@ function handleGameAction(userData) {
   STATE_PRE_DATA_ = null; // 每次 dispatch 重置(防同執行環境內殘留)
   if (typeof userData === "string") {
     try { userData = JSON.parse(userData); }
-    catch (err) { return JSON.stringify({ success: false, message: "連線資料有誤，請重新整理頁面後再試一次。" }); }
+    catch (err) { return JSON.stringify({ success: false, message: "資料對不上，重新整理再試。" }); }
   }
   userData = sanitizeUserData_(userData);
 
@@ -133,20 +133,20 @@ function handleGameAction(userData) {
 
   const handler = ActionRouter[action];
   if (!handler) {
-    return JSON.stringify({ success: false, message: "找不到這個指令，請重新整理頁面後再試一次。" });
+    return JSON.stringify({ success: false, message: "沒有這個動作，重新整理再試。" });
   }
   // 🔒 稽核抓到系統性漏洞：get_tags/sync/fate_battle/bond/mana_supply…等近全部solo戰場action，long-standing只用裸findIndex信任前端傳來的pcId，完全沒反查「帳號」表確…（全文見 CODE_NOTES.md）
   if (pcId && !OWNERSHIP_CHECK_EXEMPT_[action] && !verifyPcOwnership_(userData.acctName, pcId)) {
-    return JSON.stringify({ success: false, message: "查無御主。" });
+    return JSON.stringify({ success: false, message: "找不到你的角色。" });
   }
   if (isKanshouCtx && KANSHOU_BLOCKED_ACTIONS_[action]) {
-    return JSON.stringify({ success: false, message: "慾海是純粹的約會後日談，沒有戰鬥／經濟機制。" });
+    return JSON.stringify({ success: false, message: "後日談沒有戰鬥。" });
   }
   // 🔒 稽核抓到：actionPlay_(Gallery.gs)因AI呼叫數秒~數十秒故意豁免全域鎖，改用CacheService鍵kplay_<pcId> 做自己的軟性互斥，只防「同pcId兩次play互撞」；但其餘kanshou sette…（全文見 CODE_NOTES.md）
   if (isKanshouCtx && action !== 'play' && !LOCK_EXEMPT_ACTIONS_[action]) {
     try {
       if (CacheService.getScriptCache().get("kplay_" + String(pcId || ""))) {
-        return JSON.stringify({ success: false, message: "上一步還在處理中，請稍候片刻再試一次。" });
+        return JSON.stringify({ success: false, message: "上一步還在跑，等一下。" });
       }
     } catch (e) { }
   }
@@ -155,7 +155,7 @@ function handleGameAction(userData) {
   if (!LOCK_EXEMPT_ACTIONS_[action]) {
     try {
       _mutex = LockService.getScriptLock();
-      if (!_mutex.tryLock(8000)) return JSON.stringify({ success: false, message: "上一個動作還在結算，稍等一下再按。" });
+      if (!_mutex.tryLock(8000)) return JSON.stringify({ success: false, message: "上一步還在算，等一下。" });
     } catch (e) { _mutex = null; } // 取鎖機制本身異常 → 照舊執行(不因鎖壞掉癱瘓遊戲)
   }
   try {
@@ -232,7 +232,7 @@ const KANSHOU_BLOCKED_ACTIONS_ = {
 function actionCheckName(userData, pcId, sheets) {
   // 🔴 userData.name 已在 sanitizeUserData_ 清成純中文；若清洗後為空，代表玩家輸入含非中文(英數/符號)，直接擋下
   if (!userData.name) {
-    return JSON.stringify({ invalidName: true, message: "名號僅限中文字，不可使用英文、數字或符號。" });
+    return JSON.stringify({ invalidName: true, message: "名字只能用中文字。" });
   }
   // 與 create(actionManualNpc) 一致——不擋跨局同名（game_id 實例化，玩家御主靠 pcId 認人，跨局撞名無害）。
   const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && cleanChineseName(m.name) === userData.name))
@@ -254,9 +254,9 @@ function actionGetFullStatus(userData, pcId, sheets) {
   const targetName = userData.targetName;
   const allPcData = sheets.pc.getDataRange().getValues();
   const myGameId = resolveCallerGameId_(allPcData, pcId);
-  if (myGameId === null) return JSON.stringify({ success: false, message: "查無此人" });
+  if (myGameId === null) return JSON.stringify({ success: false, message: "找不到這個人" });
   const tIdx = findPcRowIdx_(allPcData, myGameId, { name: targetName });
-  if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
+  if (tIdx === -1) return JSON.stringify({ success: false, message: "找不到這個人" });
   const row = allPcData[tIdx];
 
   const targetId = row[COL.PC.ID];
@@ -271,26 +271,26 @@ function actionUpdateFate(userData, pcId, sheets) {
   let pcData = sheets.pc.getDataRange().getValues();
   // 從者狀態(📜 狀態鈕)開的 openStatus 傳的是【名字】非 ID，故需接受 ID 或同行從者名字，且限本局 game_id(防跨局撞名／名字誤中敵方非同行者)。
   const myGameId = resolveCallerGameId_(pcData, pcId);
-  if (myGameId === null) return JSON.stringify({ success: false, message: "查無此人" });
+  if (myGameId === null) return JSON.stringify({ success: false, message: "找不到這個人" });
   const pIdx = pcData.findIndex(r => {
     if (String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
     if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) return false;
     if (r[COL.PC.ID] == targetId) return true; // ID 直配（御主自己／舊路徑）
     return String(r[COL.PC.NAME]) === String(targetId) && (myGameId.indexOf("k_") === 0 || String(r[COL.PC.IS_PARTY] || "") === "同行");
   });
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無此人" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到這個人" });
 
   if (String(pcData[pIdx][COL.PC.ID]) != String(pcId)) {
     // 關係併入眾生列，直接看這名角色自己的 IS_PARTY 欄(鑑賞豁免·同上)。
     if (myGameId.indexOf("k_") !== 0 && String(pcData[pIdx][COL.PC.IS_PARTY] || "") !== "同行") {
-      return JSON.stringify({ success: false, message: `僅能對同行的從者逆天改命！` });
+      return JSON.stringify({ success: false, message: `只能改跟你同行的從者。` });
     }
   }
 
   // 🔵 只准改 3 種敘事欄（個性/特徵/身世）；數值(六圍/迴路/禮裝)與寶具(martial)一律不可改——GAS 掌數值鐵則。
   //    ⚠ 'intent'(萌點) 2026-09 整組退休，路由一併拔除——玩家「萌不萌是玩家的事情，我們只給性格」。
   let targetCol = fateType === 'trait' ? COL.PC.TRAIT : fateType === 'pref' ? COL.PC.PREF : fateType === 'back' ? COL.PC.BACK : -1;
-  if (targetCol === -1) return JSON.stringify({ success: false, message: "此欄位不可修改（只能改個性／特徵／身世，數值與寶具一律鎖死）。" });
+  if (targetCol === -1) return JSON.stringify({ success: false, message: "這格改不了，只能改個性、特徵、身世。" });
   // 🔴 命格欄位直寫入表格，需自行把關長度：身世 單格 80；個性/特徵 為頓號拼接、給較寬上限
   var cap = fateType === 'back' ? 80 : 130; // 經歷(back)放寬到80配合AI滾動
   pcData[pIdx][targetCol] = String(fateValue || "").slice(0, cap);
@@ -484,7 +484,7 @@ function buildClientState_(sheets, pcId, preData) {
 }
 function actionSync(userData, pcId, sheets) {
   const st = buildClientState_(sheets, pcId);
-  if (!st) return JSON.stringify({ success: false, message: "查無此人" });
+  if (!st) return JSON.stringify({ success: false, message: "找不到這個人" });
   st.success = true;
   return JSON.stringify(st);
 }
@@ -492,18 +492,18 @@ function actionSync(userData, pcId, sheets) {
 // 關係併入眾生列——直接改這名 NPC 自己那一列的 REL_TAG 欄，不再查關係表。
 function actionUpdateRelTag(userData, pcId, sheets) {
   const { targetName, newTagText, targetId } = userData;
-  if (!newTagText || !String(newTagText).trim()) return JSON.stringify({ success: false, message: "稱呼不可為空。" });
+  if (!newTagText || !String(newTagText).trim()) return JSON.stringify({ success: false, message: "稱呼不能空白。" });
 
   const pcData = sheets.pc.getDataRange().getValues();
   // 光靠姓名+下方「同行」門檻不保證是「我這局」的同行者；不同局剛好有同名同行從者仍會被誤改，故需再比對呼叫者自己列的 game_id(myGameId 為空時放行，相容沒有 game_id 的舊資料)。
   const myGameId = resolveCallerGameId_(pcData, pcId);
-  if (myGameId === null) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
+  if (myGameId === null) return JSON.stringify({ success: false, message: "找不到這段關係。" });
   const tIdx = findPcRowIdx_(pcData, myGameId, { id: targetId, name: targetName });
-  if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
+  if (tIdx === -1) return JSON.stringify({ success: false, message: "找不到這段關係。" });
 
   // 🔵 solo 仍要求「同行的從者才能重新定義稱呼」；鑑賞無 IS_PARTY 概念，改稱呼是低風險設定、不要求同行。
   if (myGameId.indexOf("k_") !== 0 && String(pcData[tIdx][COL.PC.IS_PARTY] || "") !== "同行") {
-    return JSON.stringify({ success: false, message: "僅能為同行的從者重新定義這段關係。" });
+    return JSON.stringify({ success: false, message: "只能改跟你同行的從者。" });
   }
 
   const finalTag = String(newTagText).trim();
@@ -511,10 +511,10 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   const _presetTier = KANSHOU_REL_TIER_.find(t => t.label === finalTag) || null;
   const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;
   if (_presetTier && bond < (parseInt(_presetTier.min) || 0)) {
-    return JSON.stringify({ success: false, message: `「${finalTag}」要好感達到${_presetTier.min}才稱得上，目前${bond}。` });
+    return JSON.stringify({ success: false, message: `好感到 ${_presetTier.min} 才能叫「${finalTag}」，現在 ${bond}。` });
   }
   if (!_presetTier && bond < KANSHOU_CUSTOM_TAG_BOND_) {
-    return JSON.stringify({ success: false, message: `好感達到${KANSHOU_CUSTOM_TAG_BOND_}(戀人)才能自訂關係稱呼，目前${bond}。` });
+    return JSON.stringify({ success: false, message: `好感到 ${KANSHOU_CUSTOM_TAG_BOND_} 才能自己取稱呼，現在 ${bond}。` });
   }
 
   // 需同步寫回 pcData 的記憶體鏡射，才能安全交棒 STATE_PRE_DATA_(否則夾帶的 _state.people 會顯示舊稱呼)。
@@ -522,29 +522,29 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   sheets.pc.getRange(tIdx + 1, COL.PC.REL_TAG + 1).setValue(finalTag);
 
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：REL_TAG改寫已原地改回 pcData，dispatcher 夾 _state 免整表重讀
-  return JSON.stringify({ success: true, message: `羈絆已重新定義為「${finalTag}」。`, newTag: finalTag });
+  return JSON.stringify({ success: true, message: `改成「${finalTag}」了。`, newTag: finalTag });
 }
 
 // 🔒 2026-07 五度改版·專屬稱呼比照 update_rel_tag 同一套bond門檻+同一個injection風險，玩家手動設定後寫入【稱呼鎖】旗標，讓AI的rel_changes.mutual_nicknames不再自動覆寫(尊重玩家的手動選擇，同kanshouSyncRelTier_對自訂關係稱呼「一旦手動改過就不再被自動覆寫」的精神)。
 function actionSetNickname(userData, pcId, sheets) {
   const { targetName, newNickname, targetId } = userData;
-  if (!newNickname || !String(newNickname).trim()) return JSON.stringify({ success: false, message: "稱呼不可為空。" });
+  if (!newNickname || !String(newNickname).trim()) return JSON.stringify({ success: false, message: "稱呼不能空白。" });
 
   const pcData = sheets.pc.getDataRange().getValues();
   // 🔒 帳號歸屬驗證（2026-07 再稽核抓到的漏洞補上，見 resolveCallerGameId_ 說明）。
   const myGameId = resolveCallerGameId_(pcData, pcId);
-  if (myGameId === null) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
+  if (myGameId === null) return JSON.stringify({ success: false, message: "找不到這段關係。" });
   const tIdx = findPcRowIdx_(pcData, myGameId, { id: targetId, name: targetName });
-  if (tIdx === -1) return JSON.stringify({ success: false, message: "查無此段羈絆。" });
+  if (tIdx === -1) return JSON.stringify({ success: false, message: "找不到這段關係。" });
 
   const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;
   if (bond < KANSHOU_CUSTOM_TAG_BOND_) {
-    return JSON.stringify({ success: false, message: `好感達到${KANSHOU_CUSTOM_TAG_BOND_}(戀人)才能自訂專屬稱呼，目前${bond}。` });
+    return JSON.stringify({ success: false, message: `好感到 ${KANSHOU_CUSTOM_TAG_BOND_} 才能自己取稱呼，現在 ${bond}。` });
   }
 
   // 分隔符安全：清掉可能撞到REL_MEM組字格式的符號(｜全形/[]方括號)，避免污染後續欄位解析。
   const finalNick = sanitizeNickname_(newNickname);
-  if (!finalNick) return JSON.stringify({ success: false, message: "稱呼不可為空。" });
+  if (!finalNick) return JSON.stringify({ success: false, message: "稱呼不能空白。" });
 
   const oldRMem = String(pcData[tIdx][COL.PC.REL_MEM] || "");
   // 保留既有【態度】段(若有)，只覆寫【專屬稱呼】+補上【稱呼鎖】。
@@ -556,6 +556,6 @@ function actionSetNickname(userData, pcId, sheets) {
   sheets.pc.getRange(tIdx + 1, COL.PC.REL_MEM + 1).setValue(newRMem);
 
   STATE_PRE_DATA_ = pcData;
-  return JSON.stringify({ success: true, message: `專屬稱呼已設為「${finalNick}」。`, newNickname: finalNick });
+  return JSON.stringify({ success: true, message: `對方會叫你「${finalNick}」了。`, newNickname: finalNick });
 }
 

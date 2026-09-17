@@ -11,7 +11,7 @@ function actionManualNpc(userData, pcId, sheets) {
   //   appendRow 會拋出「Cannot read properties of null」這種對玩家毫無意義的原始JS例外訊息
   //   (雖有外層catch接住不至於整個request掛掉，但玩家看到的是天書，不知道該做什麼)。這是
   //   全新玩家第一個會呼叫的action，優先在此補上清楚指引，請他們找人跑一次check_sheets。
-  if (!sheets.pc) return JSON.stringify({ success: false, message: "試算表尚未建置完成，請聯繫管理者執行「檢查／建立試算表分頁」後再試一次。" });
+  if (!sheets.pc) return JSON.stringify({ success: false, message: "試算表還沒建好，請管理者先按「檢查／建立試算表分頁」。" });
   // 🛡️ 帳號重入防呆：此帳號若已連結一局活著的遊戲(charId 存在且非 DEAD_)，拒絕再建一次——否則 linkAccountToPc_ 會悄悄覆寫帳號的連結指標，把舊角色＋已召喚的從者孤兒化(英靈殿範本不受影響、但這局「進行中遊戲」從帳號視角消失，下次登入變成一場空的 needsSummon，玩家會以為角色跟從者憑空消失了)。
   if (userData.account) {
     try {
@@ -19,7 +19,7 @@ function actionManualNpc(userData, pcId, sheets) {
       const found = acc && findAccountRow_(acc, String(userData.account).trim());
       const oldCharId = found ? String(found.row[COL.ACC.PC] || "") : "";
       if (oldCharId && sheets.pc.getDataRange().getValues().some(r => String(r[COL.PC.ID]) === oldCharId)) {
-        return JSON.stringify({ success: false, message: "這個帳號已經有一場進行中的聖杯戰爭。用「繼續戰爭」接下去，或回選單開新局清掉舊的。" });
+        return JSON.stringify({ success: false, message: "這個帳號已經有一局在打。按「繼續戰爭」，或回選單開新局。" });
       }
     } catch (e) { } // 檢查失敗不擋創角(優雅降級)，寧可放行也不要卡死正常玩家
   }
@@ -30,7 +30,7 @@ function actionManualNpc(userData, pcId, sheets) {
 
   // 🔴 姓名已在 sanitizeUserData_ 清成純中文；若為空代表含非中文字元，直接擋下不寫表
   if (!finalName) {
-    return JSON.stringify({ success: false, message: "名號僅限中文字，不可使用英文、數字或符號。" });
+    return JSON.stringify({ success: false, message: "名字只能用中文字。" });
   }
 
   // 🔵 御主名號＝角色名。
@@ -39,8 +39,8 @@ function actionManualNpc(userData, pcId, sheets) {
   // 扮演正典御主(playedMaster) 是合法路徑，須排除於撞名擋下之外；驗證 playedMaster 對應真名剛好等於finalName 才放行，避免夾帶不相干 playedMaster id 繞過保護。
   const _playingThisCanon = userData.playedMaster && typeof SEED_MASTERS !== 'undefined'
     && SEED_MASTERS.some(m => m && String(m.id) === String(userData.playedMaster) && cleanChineseName(m.name) === finalName);
-  if (_canonMasterHit && !_playingThisCanon) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭中已知的御主——自創御主請另取名號；若想扮演此角，請用「扮演正典御主」入口。` });
-  if (_canonServantHit) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭中已知的英靈真名——自創御主請另取名號。` });
+  if (_canonMasterHit && !_playingThisCanon) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭裡的御主。想演這個人，走「扮演正典御主」；自創的話換個名字。` });
+  if (_canonServantHit) return JSON.stringify({ success: false, message: `「${finalName}」是英靈的真名，自創御主換個名字。` });
   // finalName 此時仍是 cleanChineseName 洗掉標點的畸形版本——還原成 SEED_MASTERS 原始正典真名(含標點)。
   if (_playingThisCanon) {
     const _canonMaster = SEED_MASTERS.find(m => m && String(m.id) === String(userData.playedMaster));
@@ -104,13 +104,13 @@ function actionManualNpc(userData, pcId, sheets) {
 
     if (userData.account) { try { linkAccountToPc_(userData.account, newId); } catch (e) { } }
     return JSON.stringify({ success: true, pcId: newId, gameId: gameId, message: `【聖杯】因果已定，『${finalName}』於「${spawnName}」締結令咒，成為御主。` });
-  } catch (e) { return JSON.stringify({ success: false, message: "建立失敗:" + e.message }); }
+  } catch (e) { return JSON.stringify({ success: false, message: "沒建成：" + e.message }); }
 }
 
 function actionBackfillMasterAi(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   const row = pcData[pIdx];
   const finalName = String(row[COL.PC.NAME] || ""), finalSex = String(row[COL.PC.SEX] || "異");
   // 表優先、前端只當補充：這幾格 create 當下就寫進列/MEMORY 了，前端漏送不該靜靜退化成「隨機」。
@@ -145,14 +145,14 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
     const aiBrief = JSON.parse(callGeminiAPI(promptStr, MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
     // backfill 豁免寫入鎖，pIdx 是 AI 呼叫前的列索引——期間若清殘列刪列會位移；寫回前重新以 ID 定位，列已被刪則放棄寫入。
     const wIdx = buildLiveIdIndex_(sheets.pc)[String(pcId)];
-    if (wIdx === undefined) return JSON.stringify({ success: false, message: "御主列已不存在（可能剛被清理）。" });
+    if (wIdx === undefined) return JSON.stringify({ success: false, message: "你的角色不見了，重新登入看看。" });
     // 單格寫回(不整列)：只覆蓋敘事欄，且僅在 AI 有給值時；數值/MEMORY/位置一律不碰。
     if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
     if (aiBrief.traits) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, traitParts_(row[COL.PC.TRAIT]).join('、'), TRAIT_SLOTS_));
     if (aiBrief.personality) sheets.pc.getRange(wIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
     return JSON.stringify({ success: true });
   } catch (e) {
-    return JSON.stringify({ success: false, message: "背景補生成失敗（已保留種子設定）" });
+    return JSON.stringify({ success: false, message: "補寫失敗，先用原本的。" });
   }
 }
 
@@ -413,11 +413,11 @@ function parseForgeBuild_(build, reqCls) {
   const isMasterCls = String(build.cls) === "御主";
   out.cls = isMasterCls ? "御主" : (VALID_CLS.includes(String(build.cls)) ? String(build.cls) : (reqCls || "Saber"));
   out.name = String(build.name || "").replace(/[<>&"'`]/g, "").trim().slice(0, 20);
-  if (!out.name) return { ok: false, message: "請為英靈取一個真名。" };
+  if (!out.name) return { ok: false, message: "先取一個真名。" };
   // SEED_SERVANTS 真名欄位是 `realName` 不是 `name`——用 `s.name` 會恆 undefined，撞名擋失效。
   if ((typeof SEED_SERVANTS !== "undefined" && SEED_SERVANTS.some(s => s && s.realName === out.name)) ||
       (typeof SEED_MASTERS !== "undefined" && SEED_MASTERS.some(m => m && m.name === out.name))) {
-    return { ok: false, message: `「${out.name}」是英靈殿正典角色——請從召喚頁上方「職階英靈殿」挑選召喚，或另取原創真名。` };
+    return { ok: false, message: `「${out.name}」是英靈殿裡的正典角色。從召喚頁的「職階英靈殿」召喚，或另取一個真名。` };
   }
   out.sex = ["男", "女", "異"].includes(String(build.sex)) ? String(build.sex) : "異";
   const _fClean = (v, n) => String(v || "").replace(/[<>&"'`｜【】\n\r\t]/g, "").trim().slice(0, n);
@@ -456,7 +456,7 @@ function parseForgeBuild_(build, reqCls) {
   const slotFee = out.skills.length > 3 ? 20 : 0; // 🎰 第4欄啟用費(有第4個技能條目即收·純演出標籤也占欄，訊息文字用)
   const total = cost.total;
   const clsBudget = FORGE_BUDGET + (FORGE_CLS_BONUS_[out.cls] || 0);
-  if (total > clsBudget) return { ok: false, message: `六圍 ${cost.spent}＋技能 ${cost.skillCost}${slotFee ? "(含第4欄+20)" : ""}＋規模「${out.npScale}」${cost.scaleCost ? `+${cost.scaleCost}` : "0"} ＝ ${total}，超過預算 ${clsBudget}${FORGE_CLS_BONUS_[out.cls] ? "(含狂化補正+" + FORGE_CLS_BONUS_[out.cls] + ")" : ""}——請調降六圍/技能階級或改對人規模。` };
+  if (total > clsBudget) return { ok: false, message: `六圍 ${cost.spent}＋技能 ${cost.skillCost}${slotFee ? "(含第4欄+20)" : ""}＋規模「${out.npScale}」${cost.scaleCost ? `+${cost.scaleCost}` : "0"} ＝ ${total}，超過預算 ${clsBudget}${FORGE_CLS_BONUS_[out.cls] ? "(含狂化補正+" + FORGE_CLS_BONUS_[out.cls] + ")" : ""}。調低六圍或技能階級，或改成對人規模。` };
   out.classSkills = FORGE_CLS_SKILLS_[out.cls] || [];
   out.npName = String(build.npName || "").replace(/[<>&"'`]/g, "").replace(/【常駐寶具】|對軍|對城|對界|對神/g, "").trim().slice(0, 20) || "無名寶具";
   out.npR = out.six["寶具"]; // 顯示階＝六圍寶具階(引擎本就只吃 six.寶具)
@@ -470,48 +470,48 @@ function parseForgeBuild_(build, reqCls) {
 function actionClaimHero(userData, pcId, sheets) {
   const acct = String(userData.acctName || "").trim();
   const heroId = String(userData.heroId || "").trim();
-  if (!acct || !heroId) return JSON.stringify({ success: false, message: "缺少帳號或英靈識別。" });
+  if (!acct || !heroId) return JSON.stringify({ success: false, message: "少了帳號或英靈資料。" });
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const hs = ss.getSheetByName("英靈殿");
-  if (!hs) return JSON.stringify({ success: false, message: "英靈殿不存在。" });
+  if (!hs) return JSON.stringify({ success: false, message: "找不到英靈殿。" });
   const data = hs.getDataRange().getValues();
   const idx = data.findIndex((r, i) => i > 0 && String(r[COL.HERO.ID]) === heroId);
-  if (idx < 0) return JSON.stringify({ success: false, message: "查無此英靈。" });
-  if (String(data[idx][COL.HERO.SOURCE]) !== "ai_gen") return JSON.stringify({ success: false, message: "正典種子英靈不可認領。" });
+  if (idx < 0) return JSON.stringify({ success: false, message: "找不到這位英靈。" });
+  if (String(data[idx][COL.HERO.SOURCE]) !== "ai_gen") return JSON.stringify({ success: false, message: "正典英靈不能認領。" });
   let pj = {}; try { pj = JSON.parse(data[idx][COL.HERO.PERSONA] || "{}"); } catch (e) { }
-  if (pj.creator) return JSON.stringify({ success: false, message: `「${data[idx][COL.HERO.NAME]}」已有創造者（${pj.creator}），不可認領。` });
+  if (pj.creator) return JSON.stringify({ success: false, message: `「${data[idx][COL.HERO.NAME]}」已經有主人了（${pj.creator}）。` });
   pj.creator = acct;
   data[idx][COL.HERO.PERSONA] = JSON.stringify(pj);
   hs.getRange(idx + 1, COL.HERO.PERSONA + 1).setValue(data[idx][COL.HERO.PERSONA]);
   try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
-  return JSON.stringify({ success: true, message: `「${data[idx][COL.HERO.NAME]}」已認領——現在你是這位英靈的創造者，可在工房修改。` });
+  return JSON.stringify({ success: true, message: `「${data[idx][COL.HERO.NAME]}」是你的了，可以在工房改。` });
 }
 
 function actionSaveHero(userData, pcId, sheets) {
   const acct = String(userData.acctName || "").trim();
-  if (!acct) return JSON.stringify({ success: false, message: "缺少帳號身分，請重新登入。" });
+  if (!acct) return JSON.stringify({ success: false, message: "不知道你是誰，重新登入。" });
   let build = null;
   try { build = (typeof userData.build === "string") ? JSON.parse(userData.build) : userData.build; } catch (e) { }
-  if (!build) return JSON.stringify({ success: false, message: "工房資料格式錯誤。" });
+  if (!build) return JSON.stringify({ success: false, message: "工房資料有問題。" });
   const heroId = String(userData.heroId || "").trim();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const hs = ss.getSheetByName("英靈殿");
-  if (!hs) return JSON.stringify({ success: false, message: "英靈殿不存在。" });
+  if (!hs) return JSON.stringify({ success: false, message: "找不到英靈殿。" });
 
   if (heroId) {
     // ── ✏️ 修改模式 ──
     const data = hs.getDataRange().getValues();
     const idx = data.findIndex((r, i) => i > 0 && String(r[COL.HERO.ID]) === heroId);
-    if (idx < 0) return JSON.stringify({ success: false, message: "查無此英靈。" });
-    if (String(data[idx][COL.HERO.SOURCE]) !== "ai_gen") return JSON.stringify({ success: false, message: "正典種子英靈不可修改。" });
+    if (idx < 0) return JSON.stringify({ success: false, message: "找不到這位英靈。" });
+    if (String(data[idx][COL.HERO.SOURCE]) !== "ai_gen") return JSON.stringify({ success: false, message: "正典英靈不能改。" });
     let pj = {}; try { pj = JSON.parse(data[idx][COL.HERO.PERSONA] || "{}"); } catch (e) { }
-    if (!pj.creator || pj.creator !== acct) return JSON.stringify({ success: false, message: "僅創造者本人可修改這名英靈。" });
+    if (!pj.creator || pj.creator !== acct) return JSON.stringify({ success: false, message: "只有創造者能改。" });
     build.name = String(data[idx][COL.HERO.NAME]); // 真名＝識別鍵，不可改
     const oldCls = String(data[idx][COL.HERO.CLS] || "");
     const pb = parseForgeBuild_(build, oldCls);
     if (!pb.ok) return JSON.stringify({ success: false, message: pb.message });
     if (pb.cls === "御主" && oldCls !== "御主" && !userData.confirmMasterConvert) {
-      return JSON.stringify({ success: false, needConfirmMasterConvert: true, message: `「${build.name}」目前是戰鬥職階「${oldCls}」——切換成「御主」會清空六圍／技能／寶具(不可逆，之後召喚都是純敘事款)，確定要這麼做嗎？` });
+      return JSON.stringify({ success: false, needConfirmMasterConvert: true, message: `「${build.name}」現在是「${oldCls}」職階。改成御主會清掉六圍、技能、寶具，改了不能回頭。確定？` });
     }
     // 寶具英文名沿用舊值（修改不重叫 AI）；御主職階無寶具，np 恆空字串。
     const oldNp = String(data[idx][COL.HERO.NP] || "");
@@ -539,14 +539,14 @@ function actionSaveHero(userData, pcId, sheets) {
     data[idx][COL.HERO.DAILY_MOE] = '';   // 🚫 萌點退休：改鑄時一併洗掉舊值
     hs.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
     try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
-    return JSON.stringify({ success: true, edited: true, message: `「${build.name}」的靈基已重鑄——之後召喚皆用新設定（已在場的分身不追改）。` });
+    return JSON.stringify({ success: true, edited: true, message: `「${build.name}」重鑄好了，下次召喚生效（已經在場的不會變）。` });
   }
 
   // ── 🛠️ 製造模式 ──
   const pb = parseForgeBuild_(build, "");
   if (!pb.ok) return JSON.stringify({ success: false, message: pb.message });
   const dup = getHeroCodexCached().slice(1).find(r => String(r[COL.HERO.NAME]).trim() === pb.name);
-  if (dup) return JSON.stringify({ success: false, message: `英靈殿已有「${pb.name}」——請換一個真名，或請其創造者修改。` });
+  if (dup) return JSON.stringify({ success: false, message: `英靈殿已經有「${pb.name}」了，換個真名，或請創造者改。` });
   const isMasterCls = pb.cls === "御主";
   const _ogF = originGuide_(String(userData.origin || "").trim()); // 🎭 工房三分類→AI 補人格時的忠實度(技能名玩家自己打·此處只管演出補完)
   let flavor = null;
@@ -568,9 +568,9 @@ function actionSaveHero(userData, pcId, sheets) {
     wasCreated = recordOriginalHero_(pb.name, pb.cls, pb.sex, JSON.stringify(pb.six), pb.classSkills, pb.skills, pb.traits, np, finalPref || "", pb.align,
       { look: finalLook, firstP: pb.fp || _fv('firstP', 4), toMaster: pb.toM || _fv('toMaster', 20),
         speech: pb.speech || _fv('speech', 40), tic: pb.tic || _fv('tic', 30), back: back, weapon: pb.weapon, creator: acct });
-  } catch (e) { return JSON.stringify({ success: false, message: "寫入英靈殿失敗：" + e.message }); }
-  if (!wasCreated) return JSON.stringify({ success: false, message: `「${pb.name}」剛被搶先鑄造同名英靈，請換一個真名再試一次。` });
-  return JSON.stringify({ success: true, created: true, name: pb.name, message: `「${pb.name}」已鑄入英靈殿——到召喚頁「🌟 玩家原創英靈」即可召喚；之後想調整可在該區「✏️ 修改」（僅你本人）。` });
+  } catch (e) { return JSON.stringify({ success: false, message: "沒存進英靈殿：" + e.message }); }
+  if (!wasCreated) return JSON.stringify({ success: false, message: `「${pb.name}」剛被別人搶先用了，換個真名。` });
+  return JSON.stringify({ success: true, created: true, name: pb.name, message: `「${pb.name}」進英靈殿了。到召喚頁的「🌟 我的原創」就能召喚；要改在「✏️ 修改」。` });
 }
 
 function actionSummonServant(userData, pcId, sheets) {
@@ -583,7 +583,7 @@ function actionSummonServant(userData, pcId, sheets) {
 
   const pcData = sheets.pc.getDataRange().getValues();
   const masterRow = pcData.find(r => r[COL.PC.ID] == pcId);
-  if (!masterRow) return JSON.stringify({ success: false, message: "找不到御主，請重新登入。" });
+  if (!masterRow) return JSON.stringify({ success: false, message: "找不到你的角色，重新登入。" });
   const pcName = masterRow[COL.PC.NAME];
   const pcLoc = masterRow[COL.PC.LOC] || "冬木·新都";
   const gameId = String(masterRow[COL.PC.GAME_ID] || "");
@@ -592,7 +592,7 @@ function actionSummonServant(userData, pcId, sheets) {
     String(r[COL.PC.FACTION]) === "從者" &&
     String(r[COL.PC.GAME_ID] || "") === gameId &&
     !String(r[COL.PC.ID]).startsWith("DEAD_"));
-  if (already) return JSON.stringify({ success: false, message: `你已締約從者「${already[COL.PC.NAME]}」，無法再召喚。` });
+  if (already) return JSON.stringify({ success: false, message: `你已經有從者「${already[COL.PC.NAME]}」了。` });
 
   // 戰役資訊（正史可自由奪取正典從者，被奪的那組會從對手名單移除）
   const warName = getWarName_(masterRow[COL.PC.MEMORY]);
@@ -685,7 +685,7 @@ ${FX_MENU_}
 {"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"男/女/異 擇一","align":"如 混沌・善","background":"限20字","personality":"四格頓號","look":"兩格頓號(每句限${TRAIT_SEG_HINT_}字)","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"自取的招式名","r":"A","fx":"對應效果碼"},{"n":"自取的招式名","r":"B","fx":"對應效果碼"}],"traits":[{"n":"人類"}]}`;
       const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${clsUnset ? "未指定(請依描述判斷)" : cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
       if (!aiBrief || !aiBrief.realName || !aiBrief.six) {
-        return JSON.stringify({ success: false, message: "英靈之座的迴響斷了，召喚沒有成功。稍後再試一次。" });
+        return JSON.stringify({ success: false, message: "英靈之座沒有回應，等一下再試。" });
       }
       if (clsUnset) cls = VALID_CLS.includes(String(aiBrief.cls)) ? String(aiBrief.cls) : "Saber"; // AI 依描述判斷的職階；非法值才退回 Saber
       realName = String(aiBrief.realName || trueName || (cls + "從者")).replace(/[<>&"'`]/g, "").trim().slice(0, 20) || (cls + "從者");
@@ -754,7 +754,7 @@ ${FX_MENU_}
       `★下一步由玩家自己決定：這一段只演此刻的光景與對話，收在等玩家行動的那一刻；登場的人與地點以上方給定的為限。`;
     return JSON.stringify({ success: true, servantName: realName, cls: cls, fromCodex: !!hero, summonPrompt: summonPrompt, message: `【聖杯】令咒迸發，${cls} 職階的從者「${realName}」應召而現，與『${pcName}』締結契約。其餘御主已在冬木各處備戰。` });
   } catch (e) {
-    return JSON.stringify({ success: false, message: "召喚失敗：" + e.message });
+    return JSON.stringify({ success: false, message: "沒召喚成：" + e.message });
   }
 }
 

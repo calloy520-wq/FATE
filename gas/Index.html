@@ -37,7 +37,7 @@
         <p style="color:#9a7f8c; font-size:10.5px; text-align:center; margin:0 0 9px;">聖杯戰爭之後的冬木。出門走走會遇見人，也可以請人來這座城住下</p>
         <button class="btn" style="width:100%; margin-bottom:7px; padding:12px; border-color:#c87896; color:#e8b8cc;" onclick="enterKanshou()">🌹 進入鑑賞</button>
         <!-- 🔄 有後日談存檔才長出來(accountLogin 依 res.kpcId 決定)：不用先進鑑賞才能重來。 -->
-        <button id="btn-kanshou-reset" class="btn" style="display:none; width:100%; margin-bottom:7px; padding:9px; border-color:#a05060; color:#d08090; font-size:12px;" onclick="menuKanshouReset()">🔄 後日談重來（清空這個帳號的鑑賞）</button>
+        <button id="btn-kanshou-reset" class="btn" style="display:none; width:100%; margin-bottom:7px; padding:9px; border-color:#a05060; color:#d08090; font-size:12px;" onclick="menuKanshouReset()">🔄 後日談重來</button>
         <button class="btn" style="width:100%; padding:7px; border-color:#6a8a5a; color:#9ac08a; font-size:11px;" onclick="devResyncCodex()" title="把英靈殿和場上的從者更新到最新版本">🔄 DEV：套用最新平衡到現有從者（寶具/標籤更新）</button>
         <button class="btn" style="width:100%; margin-top:7px; padding:7px; border-color:#8a6a5a; color:#c0a08a; font-size:11px;" onclick="devPurgeOrphans()">🧹 DEV：清殘列（刪孤兒戰局／加速操作）</button>
       </div>
@@ -347,7 +347,7 @@
   <div id="exit-confirm-overlay" class="modal-overlay">
     <div class="modal-scroll" style="text-align:center; padding-bottom:30px;">
       <h2 style="color:#800; margin-top:0;">⚠️ 離開冬木</h2>
-      <p style="color:#332211; font-size:16px;">確定要中斷連線、離開命運停駐之夜嗎？</p>
+      <p style="color:#332211; font-size:16px;">要離開了嗎？</p>
       <div style="display:flex; gap:15px; justify-content:center; margin-top:25px;">
         <button class="btn" style="flex:1; border-color:#2e8b57; color:#2e8b57; padding:12px;" onclick="cancelExit()">留下來</button>
         <button class="btn" style="flex:1; border-color:#800; color:#800; padding:12px;" onclick="confirmExit()">去意已決</button>

@@ -62,13 +62,13 @@ function actionUseSeal(userData, pcId, sheets) {
   const type = String(userData.sealType || "").trim(); // 'repair' | 'mana' | 'escape'
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   let seals = getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]);
-  if (seals <= 0) return JSON.stringify({ success: false, message: "你的令咒已經用盡，無法再施加絕對命令。" });
+  if (seals <= 0) return JSON.stringify({ success: false, message: "令咒用盡了。" });
 
   const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
-  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者，令咒無從施加。" });
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你還沒有從者。" });
   const svName = pcData[svIdx][COL.PC.NAME];
 
   BATTLE_DEFER_WRITE_ = true;
@@ -126,7 +126,7 @@ function actionUseSeal(userData, pcId, sheets) {
     effectMsg = `令咒干涉空間，將你與「${svName}」一同從險境中強行抽離，遁往「${newLoc}」。`;
   } else {
     BATTLE_DEFER_WRITE_ = false; // 提早return前先歸位旗標(此路徑尚未動過pcData，無需寫回)
-    return JSON.stringify({ success: false, message: "未知的令咒指令。" });
+    return JSON.stringify({ success: false, message: "沒有這種令咒用法。" });
   }
 
   // 扣令咒（寫回御主 MEMORY），脫離情況御主 LOC 已改、需用最新 row 再寫一次
@@ -193,18 +193,18 @@ var BOND_ACTS = {
 function actionBond(userData, pcId, sheets) {
   const type = String(userData.bondType || "").trim();
   const act = BOND_ACTS[type];
-  if (!act) return JSON.stringify({ success: false, message: "未知的羈絆互動。" });
+  if (!act) return JSON.stringify({ success: false, message: "沒有這種相處方式。" });
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const svIdx = findPlayerServantIdx_(pcData, myGameId, userData.servant, userData.servantId);
-  if (svIdx === -1) return JSON.stringify({ success: false, message: "你尚無從者可相伴。" });
+  if (svIdx === -1) return JSON.stringify({ success: false, message: "你還沒有從者。" });
   const svName = pcData[svIdx][COL.PC.NAME];
   const masterName = pcData[pIdx][COL.PC.NAME];
 
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，沒辦法好好相處。先休息，恢復了再來。" });
+  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，先休息。" });
 
   // 日限檢查
   const clk = getClock_(myGameId, pcData);
@@ -212,7 +212,7 @@ function actionBond(userData, pcId, sheets) {
   const band = clk ? timeBand_(clk.hour) : "夜";
   let usedToday = getBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day);
   if (usedToday.indexOf(type) >= 0) {
-    return JSON.stringify({ success: false, message: `今日已與「${svName}」${act.label}過了，來日方長，明日再敘。`, bondUsed: usedToday });
+    return JSON.stringify({ success: false, message: `今天已經跟「${svName}」${act.label}過了，明天再來。`, bondUsed: usedToday });
   }
 
   // 升羈絆＋寫回日限標記
@@ -221,7 +221,7 @@ function actionBond(userData, pcId, sheets) {
   usedToday = getBondUsedToday_(pcData[pIdx][COL.PC.MEMORY], day);
 
   // ⏳ 相處耗 1 AP＝推進 1 小時（2026-07 玩家定案·與令咒/偵查同級：相處也要花時間）🔧 bondAp 非Fate局故意留 null(不同於其餘呼叫點的 AP_PER_DAY 預設)——鑑賞局本就不耗AP，維持原本區別，不硬套 chargeApOrReject_ 的通用預設值。
-  const _bondApr = isFate ? chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，沒辦法好好相處。先休息，恢復了再來。", { isFate: true, skipWrite: true }) : { ap: null, clock: "" };
+  const _bondApr = isFate ? chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，先休息。", { isFate: true, skipWrite: true }) : { ap: null, clock: "" };
   const bondAp = _bondApr.ap, bondClock = _bondApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
@@ -349,7 +349,7 @@ function actionProposeAlliance(userData, pcId, sheets) {
   const npcKey = nameLoose_(npcName); // 去中點/空白·比照攻擊路徑
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   const _allianceDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1; // 🕰️ 尚未登場者不可交涉結盟
@@ -360,12 +360,12 @@ function actionProposeAlliance(userData, pcId, sheets) {
     // 🔍 診斷：照名字(loose)找這名敵御主(不限地點)，回報他實際在哪 vs 玩家在哪——不同地＝顯示過期。
     const anyIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && String(r[COL.PC.FACTION]) === "敵御主" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_"));
     const detail = anyIdx >= 0 ? `「${pcData[anyIdx][COL.PC.NAME]}」現在「${String(pcData[anyIdx][COL.PC.LOC]).trim()}」，你在「${myLoc}」` : `名冊查無「${npcName}」`;
-    return JSON.stringify({ success: false, message: `此地沒有可交涉的敵御主（${detail}）——須與對方同處一地才能交涉。` });
+    return JSON.stringify({ success: false, message: `這裡沒有能交涉的敵御主（${detail}），要在同一個地方才行。` });
   }
-  if (isAllied_(pcData[mIdx])) return JSON.stringify({ success: false, message: `你已與「${pcData[mIdx][COL.PC.NAME]}」結盟。` });
+  if (isAllied_(pcData[mIdx])) return JSON.stringify({ success: false, message: `你和「${pcData[mIdx][COL.PC.NAME]}」已經是盟友了。` });
 
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，沒辦法交涉。先休息恢復。" });
+  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，先休息。" });
 
   const aliveFoes = aliveEnemyServants_(sheets, myGameId, pcData);
   const w = allianceWillingness_(pcData[mIdx], aliveFoes);
@@ -373,7 +373,7 @@ function actionProposeAlliance(userData, pcId, sheets) {
   const masterName = String(pcData[mIdx][COL.PC.NAME]);
   const lean = masterPersonaLean_(pcData[mIdx]);
 
-  const _allianceApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，沒辦法交涉。先休息恢復。", { isFate: isFate });
+  const _allianceApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，先休息。", { isFate: isFate });
   const ap = _allianceApr.ap, clock = _allianceApr.clock;
   const clk = getClock_(myGameId, pcData); const day = clk ? clk.day : 1;
 
@@ -408,10 +408,10 @@ function actionProposeAlliance(userData, pcId, sheets) {
 function actionBreakAlliance(userData, pcId, sheets) {
   const npcName = String(userData.npcName || "").trim();
   const npcId = String(userData.npcId || "").trim();
-  if (!npcName) return JSON.stringify({ success: false, message: "請指定要撕毀盟約的對象。" });
+  if (!npcName) return JSON.stringify({ success: false, message: "要跟誰撕毀盟約？" });
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const targetIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && String(r[COL.PC.GAME_ID] || "") === myGameId) : -1;
   const targetName = targetIdx !== -1 ? String(pcData[targetIdx][COL.PC.NAME]) : "";
@@ -431,7 +431,7 @@ function actionBreakAlliance(userData, pcId, sheets) {
       broke++;
     }
   }
-  if (!broke) return JSON.stringify({ success: false, message: "你目前沒有與此人結盟。" });
+  if (!broke) return JSON.stringify({ success: false, message: "你們沒有結盟。" });
   // 一組同盟通常master+從者一起破，MEMORY 整欄一次寫回(取代逐列 setValues 的零散往返)
   const brokeMemCol = []; for (let z = 1; z < pcData.length; z++) brokeMemCol.push([pcData[z][COL.PC.MEMORY]]);
   sheets.pc.getRange(2, COL.PC.MEMORY + 1, brokeMemCol.length, 1).setValues(brokeMemCol);
@@ -486,7 +486,7 @@ function actionAllyBond(userData, pcId, sheets) {
   const npcKey = nameLoose_(npcName); // 去中點/空白
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   const _allyHere = (r) => (String(r[COL.PC.FACTION]) === "敵御主" || String(r[COL.PC.FACTION]) === "敵從者")
@@ -494,19 +494,19 @@ function actionAllyBond(userData, pcId, sheets) {
     && isAllied_(r) && String(r[COL.PC.LOC]).trim() === myLoc;
   let aIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && _allyHere(r)) : -1;
   if (aIdx === -1) aIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && _allyHere(r));
-  if (aIdx === -1) return JSON.stringify({ success: false, message: "這裡沒有可以往來的盟友。要跟盟友在同一個地方才行。" });
+  if (aIdx === -1) return JSON.stringify({ success: false, message: "盟友不在這裡，要在同一個地方才行。" });
 
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，沒辦法好好相處。先休息，恢復了再來。" });
+  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，先休息。" });
 
   const _allyBondDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
-  if (ALLY_BOND_DAY_TAG_.get(pcData[aIdx][COL.PC.MEMORY]) === _allyBondDay) return JSON.stringify({ success: false, message: "今天已經跟這位盟友相處過了。來日方長，改天再敘。" });
+  if (ALLY_BOND_DAY_TAG_.get(pcData[aIdx][COL.PC.MEMORY]) === _allyBondDay) return JSON.stringify({ success: false, message: "今天已經相處過了，明天再來。" });
 
   const masterName = String(pcData[pIdx][COL.PC.NAME]);
   const allyName = String(pcData[aIdx][COL.PC.NAME]);
   const allyIsMaster = String(pcData[aIdx][COL.PC.FACTION]) === "敵御主";
 
-  const _allyBondApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，沒辦法好好相處。先休息，恢復了再來。", { isFate: isFate });
+  const _allyBondApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，先休息。", { isFate: isFate });
   const ap = _allyBondApr.ap, clock = _allyBondApr.clock;
 
   // 🔒 蓋戳要在突襲分支之前：AP 已經扣掉，突襲會提早 return——戳記留在後面＝被突襲就能無限重按。（見 CODE_NOTES.md）
@@ -592,7 +592,7 @@ function actionParley(userData, pcId, sheets) {
   const npcKey = nameLoose_(npcName); // 去中點/空白
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   const _day = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
@@ -607,16 +607,16 @@ function actionParley(userData, pcId, sheets) {
     if (npcId && String(r[COL.PC.ID]) === npcId) return true;
     return npcKey && nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1;
   });
-  if (tIdx === -1) return JSON.stringify({ success: false, message: "這裡沒有可以交涉的敵御主。交涉只對敵御主，而且要跟對方在同一個地方；好感是他們整組共用的。" });
+  if (tIdx === -1) return JSON.stringify({ success: false, message: "這裡沒有敵御主，要在同一個地方才能交涉。" });
 
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠。先休息，恢復了再來。" });
+  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，先休息。" });
   if (getParleyDay_(pcData[tIdx][COL.PC.MEMORY], type) === _day) {
-    return JSON.stringify({ success: false, message: `今天已經跟這個人${act.label}過了。來日方長，改天再說。` });
+    return JSON.stringify({ success: false, message: `今天已經${act.label}過了，明天再說。` });
   }
   const fav = bondFavor_(pcData[tIdx]);
   if (act.minFav != null && fav < act.minFav) {
-    return JSON.stringify({ success: false, message: `「${String(pcData[tIdx][COL.PC.NAME])}」跟你還沒熟到會談這個。先多聊幾次吧。` });
+    return JSON.stringify({ success: false, message: `「${String(pcData[tIdx][COL.PC.NAME])}」跟你還沒熟到會談這個，先多聊幾次。` });
   }
 
   const targetName = String(pcData[tIdx][COL.PC.NAME]);
@@ -628,7 +628,7 @@ function actionParley(userData, pcId, sheets) {
   const before = parseInt(pcData[tIdx][COL.PC.BOND]) || 40;
 
   // ⏳ 扣 AP 與日限戳記【綁在一起】落地：中間任何一條 return 都不能繞過戳記（check_throttle 在盯）。
-  const _apr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠。先休息，恢復了再來。", { isFate: isFate, skipWrite: true });
+  const _apr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，先休息。", { isFate: isFate, skipWrite: true });
   const ap = _apr.ap, clock = _apr.clock;
   pcData[tIdx][COL.PC.MEMORY] = setParleyDay_(pcData[tIdx][COL.PC.MEMORY], type, _day);
 
@@ -709,25 +709,25 @@ function actionRuleBreakSteal(userData, pcId, sheets) {
   const npcKey = nameLoose_(npcName); // 🐛→✅ 比照攻擊/結盟/示好路徑：raw includes() 撞含中點/全形括號的名字(如「哈桑·薩巴赫（咒腕）」被 sanitizeUserData_ 剝成「哈桑薩巴赫咒腕」)會找不到人，改 npcId 優先＋nameLoose_ 退路
   let pcData = sheets.pc.getDataRange().getValues();
   const pIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  if (!canRuleBreak_(pcData, pIdx, myGameId)) return JSON.stringify({ success: false, message: "你沒有破戒全咒的力量。要召喚美狄亞，或帶著破戒的禮裝。" });
+  if (!canRuleBreak_(pcData, pIdx, myGameId)) return JSON.stringify({ success: false, message: "你沒有破戒全咒。要美狄亞，或帶破戒的禮裝。" });
   const svCount = pcData.filter(r => String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_")).length;
-  if (svCount >= 2) return JSON.stringify({ success: false, message: "你已同時駕馭兩名從者，靈魂的負荷已達極限，無法再奪。" });
+  if (svCount >= 2) return JSON.stringify({ success: false, message: "你已經有兩個從者了，帶不了第三個。" });
   let seals = getPlayerSeals_(pcData[pIdx][COL.PC.MEMORY]);
-  if (seals <= 0) return JSON.stringify({ success: false, message: "重新締約需燃燒一道令咒，但你的令咒已用盡。" });
+  if (seals <= 0) return JSON.stringify({ success: false, message: "重新締約要燒一道令咒，你的令咒用盡了。" });
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
   const _stealDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1; // 🕰️ 尚未登場者不可被斬契奪取
   const _stealHere = (r) => String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC]).trim() === myLoc && hasArrived_(r, _stealDay);
   let nIdx = npcId ? pcData.findIndex(r => String(r[COL.PC.ID]) === npcId && _stealHere(r)) : -1;
   if (nIdx === -1) nIdx = pcData.findIndex(r => nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1 && _stealHere(r));
-  if (nIdx === -1) return JSON.stringify({ success: false, message: "此地沒有這名敵從者。" });
+  if (nIdx === -1) return JSON.stringify({ success: false, message: "對方不在這裡。" });
   // 🤝 盟友不可奪：與 actionFateBattle 同一道閘門，若要奪須先撕毀盟約。
   if (isAllied_(pcData[nIdx])) {
-    return JSON.stringify({ success: false, message: `「${pcData[nIdx][COL.PC.NAME]}」是你的盟友——若要奪僕，須先『撕毀盟約』。` });
+    return JSON.stringify({ success: false, message: `「${pcData[nIdx][COL.PC.NAME]}」是盟友。要奪先撕毀盟約。` });
   }
   const hp = parseInt(pcData[nIdx][COL.PC.HP]) || 0, hpMax = parseInt(pcData[nIdx][COL.PC.MAX_HP]) || 1;
-  if (hp / hpMax >= 0.35) return JSON.stringify({ success: false, message: `「${pcData[nIdx][COL.PC.NAME]}」靈基仍旺（${Math.round(hp / hpMax * 100)}%），破戒奪僕無法奏效——須先在戰鬥中將其打殘至 35% 以下。` });
+  if (hp / hpMax >= 0.35) return JSON.stringify({ success: false, message: `「${pcData[nIdx][COL.PC.NAME]}」還有 ${Math.round(hp / hpMax * 100)}% 的血，打到 35% 以下才搶得走。` });
 
   const stolenName = String(pcData[nIdx][COL.PC.NAME]);
   const stolenCardForAi = servantCard_(pcData[nIdx]); // 🐛→✅ 換陣營字串前先取卡——陣營一改，servantCard_ 的敵我判斷可能跟著變調

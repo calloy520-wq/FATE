@@ -10,10 +10,10 @@
 // 🔵 帳號登入 → 選單
 async function accountLogin() {
   var name = (document.getElementById('in-account').value || '').trim();
-  if (!name) { alert('請輸入帳號名稱！'); return; }
+  if (!name) { alert('先打個帳號名。'); return; }
   try {
     var res = await withProcessing_('連結御主契約中…', () => gasRun({ action: 'account_login', acctName: name }));
-    if (!res || !res.success) { alert((res && res.message) || '登入失敗。'); return; }
+    if (!res || !res.success) { alert((res && res.message) || '沒登入成。'); return; }
     currentAccount = res.name;
     accountLoginRes = res;
     localStorage.setItem('fate_account', currentAccount);
@@ -24,14 +24,14 @@ async function accountLogin() {
     // 🌹 沒有後日談存檔就不長那顆鈕——長一顆按了只會說「查無」的鈕比沒有更糟。
     var _kr = document.getElementById('btn-kanshou-reset');
     if (_kr) _kr.style.display = res.kpcId ? 'block' : 'none';
-  } catch (e) { alert('連線受阻，請稍後再試。'); }
+  } catch (e) { alert('連不上，等一下再試。'); }
 }
 
 // 🔄 主選單版的「後日談歸零重來」：跟遊戲內設定那顆共用同一支核心(kanshouResetCore_)，
 //   只差清完之後不必整頁重載——這裡 pc 還沒載入，收掉按鈕、把旗標打掉就好。
 async function menuKanshouReset() {
   var kpcId = accountLoginRes && accountLoginRes.kpcId;
-  if (!kpcId) { alert('這個帳號目前沒有後日談存檔。'); return; }
+  if (!kpcId) { alert('這個帳號還沒有後日談。'); return; }
   var ok = await kanshouResetCore_(kpcId, currentAccount, false);
   if (!ok) return;
   accountLoginRes.kpcId = "";
@@ -40,7 +40,7 @@ async function menuKanshouReset() {
 }
 
 function continueGame() {
-  if (!accountLoginRes || !accountLoginRes.hasGame) { alert('目前沒有可繼續的存檔。'); return; }
+  if (!accountLoginRes || !accountLoginRes.hasGame) { alert('沒有可以接著玩的存檔。'); return; }
   pc = { id: accountLoginRes.pcId, name: accountLoginRes.pcName, sex: accountLoginRes.pcSex, mode: 'solo', account: currentAccount };
   localStorage.setItem('kyushu_v27', JSON.stringify(pc));
   // 🐛→✅ 後端不再把「締結御主契約後、還沒召喚從者」誤判成殘局清掉，改回 needsSummon 旗標——接回召喚從者頁，而不是直接進尚無從者的主畫面。
@@ -55,13 +55,13 @@ function continueGame() {
 
 async function newGameFlow() {
   if (accountLoginRes && accountLoginRes.hasGame) {
-    if (!await customConfirm_('開啟新的聖杯戰爭會清掉你現在的存檔：御主、從者、戰況全部消失。\n確定要重新開始嗎？')) return;
+    if (!await customConfirm_('開新的一局會清掉現在的存檔：御主、從者、戰況全部沒了。\n確定？')) return;
     try {
       var res = await withProcessing_('清除舊的聖杯戰爭…', () => gasRun({ action: 'account_new_game', acctName: currentAccount }));
-      if (!res || !res.success) { alert((res && res.message) || '清檔失敗。'); return; }
+      if (!res || !res.success) { alert((res && res.message) || '沒清成。'); return; }
       accountLoginRes.hasGame = false;
       document.getElementById('btn-resume').style.display = 'none';
-    } catch (e) { alert('清檔失敗，連線受阻。'); return; }
+    } catch (e) { alert('連不上，沒清成。'); return; }
   }
   document.getElementById('scr-menu').style.display = 'none';
   // 🚪 2026-09「一路按就可以直接開始」：不再先問哪一場戰爭，預設第五次直接進創角；
@@ -102,7 +102,7 @@ function setWarFromSelect_() {
   var _wn = document.getElementById('war-note');
   if (_wn) {
     if (playedMaster) {
-      _wn.textContent = '換了場次，剛才挑的正典御主已經取消。欄位裡的名字與設定留著，你可以直接拿來當自創御主（記得改個名字），或再挑一次。';
+      _wn.textContent = '換了場次，剛才選的正典御主取消了。欄位留著，改個名字就能當自創御主，或重選。';
       _wn.style.display = 'block';
     } else { _wn.style.display = 'none'; }
   }
@@ -121,7 +121,7 @@ function toggleMasterAdv() {
   if (btn) btn.textContent = (open ? '▾' : '▸') + ' 自己設定（場次·外貌·身世·願望·禮裝·天賦）';
 }
 function openCanonMasterPick() {
-  if (warMode !== 'canon') { alert('混亂模式沒有正典陣容可以扮演。請自訂御主，或到「自己設定」把場次改回正史。'); return; }
+  if (warMode !== 'canon') { alert('混亂模式沒有正典御主可以選。自己創一個，或把場次改回正史。'); return; }
   loadCanonMasters();
 }
 async function loadCanonMasters() {
@@ -130,7 +130,7 @@ async function loadCanonMasters() {
     res = await withProcessing_('翻閱正典名冊中…', () => (_mastersPrefetch[currentWar] || gasRun({ action: 'get_masters', war: currentWar })));
   } catch (e) {
     delete _mastersPrefetch[currentWar]; // 預取失敗(網路抖動)→丟掉壞快取、現場重抓一次
-    try { res = await withProcessing_('翻閱正典名冊中…', () => gasRun({ action: 'get_masters', war: currentWar })); } catch (e2) { alert('讀取正典御主失敗。'); return; }
+    try { res = await withProcessing_('翻閱正典名冊中…', () => gasRun({ action: 'get_masters', war: currentWar })); } catch (e2) { alert('讀不到正典御主。'); return; }
   }
   try {
     var list = (res && res.masters) || [];
@@ -140,9 +140,9 @@ async function loadCanonMasters() {
       return '<button class="btn" style="width:100%; text-align:left; margin-bottom:6px; border-color:#d4af37; color:#e8dcc0; padding:9px 10px;" onclick="pickCanonMaster(' + i + ')">'
         + '<b>' + m.name + '</b> <small style="color:#9a7b4f;">（正典從者：' + (m.servant || '').replace(/-.*$/, '') + '）</small>'
         + (m.wish ? '<br><small style="color:#9a8bb0;">願望：' + m.wish + '</small>' : '') + '</button>';
-    }).join('') || '<p style="color:#816e54; text-align:center; padding:14px 0;">查無正典御主資料。</p>';
+    }).join('') || '<p style="color:#816e54; text-align:center; padding:14px 0;">沒有正典御主的資料。</p>';
     showOnly_('scr-master');
-  } catch (e) { alert('讀取正典御主失敗。'); }
+  } catch (e) { alert('讀不到正典御主。'); }
 }
 function pickCanonMaster(i) {
   var m = (window._canonMasters || [])[i];
@@ -172,7 +172,7 @@ let masterRoll = null;  // 玩家選中接受的那一個
 var _fateRolling = false;
 async function rollFate() {
   if (_fateRolling) return;
-  if (masterRolls.length) { alert('三份命運已經在下面了。挑一個接受，或直接締結令咒，不挑就隨機給你一份。'); return; }
+  if (masterRolls.length) { alert('三份命運在下面了。挑一個，或直接締結令咒隨機拿一份。'); return; }
   _fateRolling = true;
   var box = document.getElementById('fate-roll-box');
   if (box) box.textContent = '正在測定…';
@@ -204,22 +204,22 @@ function renderFateRolls() {
 
 // 名號驗證（2026-09 起不再自成一屏，改由 createPC 在送出前呼叫一次）。回 true＝可用。
 async function checkNameOk_(name) {
-  if (!name) { alert("請輸入御主之名！"); return false; }
+  if (!name) { alert("先取個名字。"); return false; }
   // 🔴 名號限定純中文：擋英文、數字、符號、空白(後端 sanitizeUserData_ 仍會再擋一次)。
   //    扮演正典御主時名字可能含「·」等符號，由 playedMaster 放行。
   if (!playedMaster && /[^㐀-䶿一-鿿]/.test(name)) {
-    alert("名號僅限中文字，不可使用英文、數字、符號或空白。");
+    alert("名字只能用中文字。");
     return false;
   }
   if (playedMaster) return true;
   try {
     const res = await withProcessing_('驗證名號中…', () => gasRun({ action: "check_name", name: name }));
-    if (res.invalidName) { alert(res.message || "名號僅限中文字。"); return false; }
-    if (res.exists) { alert(res.message || '此名號是聖杯戰爭中已知的角色，請換一個名字。'); return false; }
+    if (res.invalidName) { alert(res.message || "名字只能用中文字。"); return false; }
+    if (res.exists) { alert(res.message || '這是聖杯戰爭裡已經有的名字，換一個。'); return false; }
     return true;
   } catch (e) {
     console.error(e);
-    alert("連線受阻，請稍後再試。");
+    alert("連不上，等一下再試。");
     return false;
   }
 }
@@ -232,7 +232,7 @@ async function checkNameOk_(name) {
       el = document.createElement('div');
       el.id = 'proc-overlay';
       el.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(8,6,12,0.82);';
-      el.innerHTML = '<div style="text-align:center;color:#e8dcc0;padding:24px;"><div style="width:48px;height:48px;margin:0 auto 16px;border:3px solid rgba(212,175,55,0.22);border-top-color:#d4af37;border-radius:50%;animation:procspin 0.9s linear infinite;"></div><div id="proc-msg" style="font-size:15px;letter-spacing:1px;color:#e7c873;font-weight:bold;"></div><div id="proc-hint" style="font-size:11.5px;color:#9a8bb0;margin-top:8px;">聖杯演算中，請稍候約 10～30 秒……</div></div>';
+      el.innerHTML = '<div style="text-align:center;color:#e8dcc0;padding:24px;"><div style="width:48px;height:48px;margin:0 auto 16px;border:3px solid rgba(212,175,55,0.22);border-top-color:#d4af37;border-radius:50%;animation:procspin 0.9s linear infinite;"></div><div id="proc-msg" style="font-size:15px;letter-spacing:1px;color:#e7c873;font-weight:bold;"></div><div id="proc-hint" style="font-size:11.5px;color:#9a8bb0;margin-top:8px;">聖杯演算中，大概 10 到 30 秒……</div></div>';
       document.body.appendChild(el);
       const st = document.createElement('style'); st.textContent = '@keyframes procspin{to{transform:rotate(360deg)}}'; document.head.appendChild(st);
     }
@@ -310,10 +310,10 @@ async function checkNameOk_(name) {
       document.getElementById('step-summon').style.display = 'block';
       loadHeroes();
     } else {
-      alert(data.message || "創角失敗，請重試。");
+      alert(data.message || "沒建成，再試一次。");
     }
   } catch(e) {
-    alert("投胎失敗");
+    alert("沒建成");
   } finally {
     hideProcessing();
   }
@@ -366,7 +366,7 @@ function renderHeroList() {
   if (!list.length) {
     box.innerHTML = custom
       ? '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">還沒有自己造的英靈。用下面的「🛠️ 自訂英靈工房」做第一位吧。</p>'
-      : '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">此職階英靈殿暫無資料，可改選其他職階，或用下方「🖋️ 自訂生成」召喚。</p>';
+      : '<p style="color:#816e54; font-size:12px; text-align:center; padding:14px 0;">這個職階還沒有人。換一個，或用下面的「🖋️ 自訂生成」。</p>';
     return;
   }
   box.innerHTML = list.map(function (h) {
@@ -392,10 +392,10 @@ async function doSummon(payload) {
       var _fscr = document.getElementById('step-forge'); if (_fscr) _fscr.style.display = 'none'; // 🛠️ 從工房屏召喚成功也收屏，防重開新局時疊影
       startGame(false);
     } else {
-      alert((data && data.message) || '召喚失敗，請重試。');
+      alert((data && data.message) || '沒召喚成，再試一次。');
     }
   } catch (e) {
-    alert('召喚失敗，連線受阻。');
+    alert('連不上，沒召喚成。');
   } finally {
     hideProcessing();
   }
@@ -420,7 +420,7 @@ function sumMode_(mode) {
 function summonRandom() { return doSummon({ cls: (selectedSummonClass && selectedSummonClass !== '__all__') ? selectedSummonClass : '' }); }
 function summonByDesc() {
   var d = (document.getElementById('s-desc') && document.getElementById('s-desc').value.trim()) || '';
-  if (!d) { alert('請先描述你想要的從者。'); return; }
+  if (!d) { alert('先說說你想要什麼樣的從者。'); return; }
   var og = (document.getElementById('s-origin') && document.getElementById('s-origin').value) || 'original'; // 🎭 角色來源三分類
   // 🐛→✅ 曾誤讀 selectedSummonClass(上方瀏覽名冊用的職階分頁)——玩家點過分頁瀏覽後再來這裡自訂生成，
   //   會被悄悄鎖死那個職階(不選就預設 Saber)，跟描述內容完全無關(玩家回報「難怪我自創一堆Saber」)。
@@ -586,13 +586,13 @@ function renderForgeWorks_() {
       + (h.np ? '<br><small style="color:#9a8bb0;">' + h.np + '</small>' : '') + '</div>'
       + btnHtml + '</div>';
   };
-  var hxml = '<div style="color:#8fb0e8; font-size:12px; margin-bottom:6px;">📚 我的作品（點 ✏️ 修改。改的是範本，之後召喚才會生效）</div>';
+  var hxml = '<div style="color:#8fb0e8; font-size:12px; margin-bottom:6px;">📚 我的作品（點 ✏️ 修改，下次召喚生效）</div>';
   hxml += mine.length ? mine.map(function (h) {
     var id = String(h.id).replace(/'/g, '');
     return row(h, '<button class="btn" style="flex:none; width:52px; border-color:#6a8ac0; color:#8fb0e8;" onclick="forgeEdit(\'' + id + '\')">✏️<br><small style="font-size:9px;">修改</small></button>');
   }).join('') : '<p style="color:#816e54; font-size:12px; text-align:center; padding:8px 0;">還沒有作品。切到「🛠️ 創造」打造第一位吧！</p>';
   if (unclaimed.length) {
-    hxml += '<div style="color:#c9b885; font-size:11.5px; margin:10px 0 6px;">🖐 無主原創（印記功能上線前鑄的·認領後可修改·先到先得）</div>'
+    hxml += '<div style="color:#c9b885; font-size:11.5px; margin:10px 0 6px;">🖐 還沒有主人的原創英靈（認領後可以改）</div>'
       + unclaimed.map(function (h) {
           var id = String(h.id).replace(/'/g, '');
           return row(h, '<button class="btn" style="flex:none; width:52px; border-color:#8a7a4a; color:#c9b885;" onclick="lockBtn(event, function(){return claimHero(\'' + id + '\');})">🖐<br><small style="font-size:9px;">認領</small></button>');
@@ -643,16 +643,16 @@ function forgeEdit(id) {
 async function claimHero(id) {
   var h = (heroesData || []).find(function (x) { return String(x.id) === String(id); });
   if (!h) return;
-  if (!await customConfirm_('🖐 認領「' + h.name + '」？\n\n這名原創英靈目前無主（創造者印記功能上線前鑄造）。\n認領後你就是她的創造者，可在工房修改；先到先得。')) return;
+  if (!await customConfirm_('🖐 認領「' + h.name + '」？\n\n這位原創英靈還沒有主人。認領後你就能在工房改，先到先得。')) return;
   try {
     var res = await withProcessing_('認領中…', () => gasRun({ action: 'claim_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', heroId: String(id), acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') }));
-    alert((res && res.message) || (res && res.success ? '已認領。' : '認領失敗。'));
+    alert((res && res.message) || (res && res.success ? '認領了。' : '沒認領成。'));
     if (res && res.success) {
       await loadHeroes(); renderHeroList(); renderForgeWorks_();
       // claimHero 也會改英靈殿的 creator 欄，比照 summonByForge：讓鑑賞同伴面板的快取失效
       try { if (typeof invalidateKanshouHeroCache === 'function') invalidateKanshouHeroCache(); } catch (e) { }
     }
-  } catch (e) { alert('認領失敗，連線受阻。'); }
+  } catch (e) { alert('連不上，沒認領成。'); }
 }
 function closeForge() {
   var f = document.getElementById('step-forge');
@@ -805,7 +805,7 @@ function renderSkillPick_() {
   };
   box.style.display = 'block';
   // 🪗 手風琴：無效果晶片＋七組標題列，點組才展開晶片、一次只開一組
-  var hx = '<div style="display:flex; align-items:center; margin:1px 0 5px;"><span style="flex:1; color:#8fb0e8; font-size:11px;">技能 ' + (_skPickSlot + 1) + '：先挑分類再挑效果（名字可自取·同效者擇一）</span>'
+  var hx = '<div style="display:flex; align-items:center; margin:1px 0 5px;"><span style="flex:1; color:#8fb0e8; font-size:11px;">技能 ' + (_skPickSlot + 1) + '：先挑分類，再挑效果。名字可以自己取。</span>'
     + '<button type="button" onclick="closeSkillPick()" style="border:1px solid #3a4a5a; background:none; color:#8a96b0; border-radius:6px; padding:2px 9px; font-size:12px; cursor:pointer;">✕</button></div>'
     + '<div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin-bottom:5px;">' + chip(FORGE_FX[0]) + '</div>';
   FORGE_FX_GROUPS.forEach(function (g, gi) {
@@ -883,16 +883,16 @@ function forgeBudget_() {
 }
 async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，不召喚)
   var nm = (document.getElementById('cf-name').value || '').trim();
-  if (!nm) { alert('請為英靈取一個真名。'); return; }
+  if (!nm) { alert('先取一個真名。'); return; }
   var cls = document.getElementById('cf-cls').value;
   var isMaster = (cls === '御主'); // 🌹 鑑賞限定：六圍/技能/寶具全部不需要，略過以下驗證
   var six = {}, skills = [];
   if (!isMaster) {
     var sum = forgeBudget_(); // 已含 對軍規模+20
     var _bgt = forgeClsBudget_();
-    if (sum > _bgt) { alert('總點數 ' + sum + '（含技能階級與寶具規模）超過預算 ' + _bgt + '，請調降六圍/技能階級或改對人規模。'); return; }
+    if (sum > _bgt) { alert('總點數 ' + sum + ' 超過預算 ' + _bgt + '。調低六圍或技能階級，或改成對人規模。'); return; }
     var exN = ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].filter(function (k) { return document.getElementById('cf-six-' + k).value === 'EX'; }).length;
-    if (exN > 2) { alert('EX 至多 2 項（與種子英靈同規）。'); return; }
+    if (exN > 2) { alert('EX 最多 2 項。'); return; }
     ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) { six[k] = document.getElementById('cf-six-' + k).value; });
     for (var i = 0; i < 4; i++) {
       var fx = document.getElementById('cf-sk' + i + '-fx').value;
@@ -926,7 +926,7 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
     //   這裡接住那個特殊回應，跳確認框，玩家按確定才帶著confirmMasterConvert重送一次。
     if (res && !res.success && res.needConfirmMasterConvert) {
       hideProcessing();
-      if (!await customConfirm_(res.message || '確定要把這名英靈切換成「御主」嗎？(會清空六圍/技能/寶具，不可逆)')) return;
+      if (!await customConfirm_(res.message || '把這位英靈改成「御主」？六圍、技能、寶具會清掉，改了不能回頭。')) return;
       showProcessing('正在重鑄靈基…');
       res = await gasRun({ action: 'save_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', build: JSON.stringify(build), origin: og, heroId: _forgeEditId || '', acctName: (typeof currentAccount !== 'undefined' ? currentAccount : ''), confirmMasterConvert: true });
     }
@@ -938,8 +938,8 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
       try { if (typeof invalidateKanshouHeroCache === 'function') invalidateKanshouHeroCache(); } catch (e) { }
       closeForge();
       if (_forgeFrom !== 'menu') selectSummonClass('__custom__'); // 召喚頁起點→直接展示 🌟 清單；主選單起點→回主選單
-    } else { alert((res && res.message) || '鑄造失敗，請重試。'); }
-  } catch (e) { alert('鑄造失敗，連線受阻。'); } finally { hideProcessing(); }
+    } else { alert((res && res.message) || '沒鑄成，再試一次。'); }
+  } catch (e) { alert('連不上，沒鑄成。'); } finally { hideProcessing(); }
 }
 
   function startGame(isRet) {

@@ -3902,5 +3902,5 @@ function actionAlbumDelete(userData, pcId, sheets) {
       return JSON.stringify({ success: true });
     }
   }
-  return JSON.stringify({ success: false, message: "查無此照片" });
+  return JSON.stringify({ success: false, message: "找不到這張照片" });
 }

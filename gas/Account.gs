@@ -75,11 +75,11 @@ function actionEndRun(userData, pcId, sheets) {
   var found = acc && acctName ? findAccountRow_(acc, acctName) : null;
   // 🔒 稽核抓到：原本純用pcId(格式"PC_"+時間戳，可預測)裸find，完全沒驗證acctName是否真的擁有這個pcId——等同任何人皆可猜/枚舉pcId替別人結束並清空整局存檔。
   if (!found || String(found.row[COL.ACC.PC] || "") !== String(pcId)) {
-    return JSON.stringify({ success: false, message: "查無御主。" });
+    return JSON.stringify({ success: false, message: "找不到你的角色。" });
   }
   var pcData = sheets.pc.getDataRange().getValues();
   var pIdx = pcData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主。" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色。" });
   var gameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
 
   var sv = findPlayerServant_(pcData, gameId);
@@ -93,10 +93,10 @@ function actionEndRun(userData, pcId, sheets) {
 // 登入：找不到就建立。回傳是否有可繼續的存檔。
 function actionAccountLogin(userData, pcId, sheets) {
   var name = String(userData.acctName || "").trim().slice(0, 20);
-  if (!name) return JSON.stringify({ success: false, message: "請輸入帳號名稱。" });
+  if (!name) return JSON.stringify({ success: false, message: "先打個帳號名。" });
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var acc = ss.getSheetByName("帳號");
-  if (!acc) return JSON.stringify({ success: false, message: "帳號表不存在，請重新整理。" });
+  if (!acc) return JSON.stringify({ success: false, message: "帳號表不見了，重新整理。" });
 
   // 🌹 鑑賞存檔狀態：主選單要據此決定顯不顯示「後日談歸零重來」(沒東西可清就不長那顆鈕)。
   var _kpcOf = function (n) { try { return getAccountKanshouPcId_(n) || ""; } catch (e) { return ""; } };
@@ -159,7 +159,7 @@ function actionAccountNewGame(userData, pcId, sheets) {
   var name = String(userData.acctName || "").trim().slice(0, 20);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var acc = ss.getSheetByName("帳號");
-  if (!acc) return JSON.stringify({ success: false, message: "帳號表不存在。" });
+  if (!acc) return JSON.stringify({ success: false, message: "帳號表不見了。" });
   var found = findAccountRow_(acc, name);
   if (!found) return JSON.stringify({ success: true }); // 沒帳號＝沒舊檔
 
@@ -185,9 +185,9 @@ function actionAccountNewGame(userData, pcId, sheets) {
 function actionPurgeOrphans(userData, pcId, sheets) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var pc = ss.getSheetByName("眾生");
-  if (!pc) return JSON.stringify({ success: false, message: "眾生表不存在。" });
+  if (!pc) return JSON.stringify({ success: false, message: "眾生表不見了。" });
   var all = pc.getDataRange().getValues();
-  if (all.length < 2) return JSON.stringify({ success: true, removed: 0, kept: 0, message: "眾生表無資料，無殘列可清。" });
+  if (all.length < 2) return JSON.stringify({ success: true, removed: 0, kept: 0, message: "沒有東西可以清。" });
   var header = all[0];
 
   // 1) 收集所有帳號「當前連結中」的御主 charId
@@ -228,7 +228,7 @@ function actionPurgeOrphans(userData, pcId, sheets) {
 
   return JSON.stringify({
     success: true, removed: removed, kept: kept.length,
-    message: "🧹 清殘列完成：眾生移除 " + removed + " 列（孤兒戰局／亡靈殘留），保留 " + kept.length + " 列。每次按鍵的整表掃描會更快。"
+    message: "🧹 清好了：刪掉 " + removed + " 列，留 " + kept.length + " 列。"
   });
 }
 
