@@ -1216,7 +1216,7 @@ function actionFateBattle(userData, pcId, sheets) {
   );
   const _catchSev_ = dmgSeverityWord_(_worstTaken_, _svMaxHp_);
   const _masterCatchLine_ = (_catchSev_ !== '擦傷' && !String(pcData[atkIdx][COL.PC.ID]).startsWith("DEAD_"))
-    ? `\n★【御主接住了從者】：『${atkC.name}』被那一擊掃得${_catchSev_ === '重創' ? '整個人往後飛出去' : '踉蹌失衡'}，御主【在那一擊落定之後】衝上前接住、扶穩、把人拉開——演出這一拍：手掌撐住的力道、對上的那一眼、一句短促的話。★御主是【在那一擊落定之後】才上前的：全程沒有挨到任何攻擊、也沒有受傷；接住之後從者立刻重新站定，交鋒繼續由從者打。`
+    ? `\n★【御主接住了從者】：『${atkC.name}』被那一擊掃得${_catchSev_ === '重創' ? '整個人往後飛出去' : '踉蹌失衡'}，御主在那一擊落定之後上前接住、扶穩。★御主毫髮無傷，從者隨即重新站定。`
     : '';
 
   var _mjBits = [];
@@ -1224,13 +1224,12 @@ function actionFateBattle(userData, pcId, sheets) {
   // 🎌 御主的位置（每場【必給】）：御主【不上戰場】——他在後方指揮與供魔，這一戰的每一擊都是從者打的。
   //    stance 只是他站得多前、藏得多好，不是他有沒有動手。
   var _masterJoinLine = (_stanceKey === 'open'
-    ? `【御主·正大光明】御主毫不掩飾地立在從者身後可見之處下令，戰意寫在臉上——但【不近身、不出手】，交鋒是『${atkC.name}』的事。`
+    ? `【御主·正大光明】御主立在從者身後可見之處下令，戰意寫在臉上。`
     : _stanceKey === 'stealth'
-      ? `【御主·後方支援】御主據守後方掩蔽處，穩定供魔、冷靜判讀戰況並下令指揮——不入戰圈，卻是這場交鋒的中樞，整段都要看得到御主。`
-      : `【御主·見機行事】御主守在戰線側後方讀著戰況、適時下令，該退則果斷拉開距離——【不近身、不出手】。`)
-    + `★【鐵律】御主留在戰圈之外、毫髮無傷：御主能動用的只有【指令、魔力、令咒】，交手全部交給從者。`
+      ? `【御主·後方支援】御主在後方掩蔽處供魔、判讀戰況、下令。`
+      : `【御主·見機行事】御主在戰線側後方讀戰況、下令。`)
+    + `★御主在戰圈之外、毫髮無傷：能用的只有指令、魔力、令咒與卡上列出的魔術；體術只用在站位、閃開波及、接住從者。交手是『${atkC.name}』的事。`
     + (_mjBits.length ? `這一戰御主${_mjBits.join('，並')}。` : '')
-    + `★御主若動用魔術，只能用御主卡上實際列出的魔術系統，卡上沒寫的就改成呼喊指令、眼神示意等不需特定技術的參與方式。卡上的體術只用在【戰圈之外】：站位、閃開波及、接住從者。`
     + _masterCatchLine_;
 
   const BATTLE_WORDS_ = ['170~230', '220~290', '280~360', '340~440'];
@@ -1255,31 +1254,31 @@ function actionFateBattle(userData, pcId, sheets) {
     if (dualAttack) SC_OPEN.push(`我方兩名從者並肩夾擊同一敵手。`);
     if (allyAssistName) SC_OPEN.push(`盟友從者「${allyAssistName}」依約自側翼掩護助攻。`);
     if (pactDefName) SC_OPEN.push(`敵方盟友「${pactDefName}」（與「${defC.name}」的御主締有密約）並肩馳援——你攻其一，兩敵同禦。`);
-    if (atkC.cls === 'Caster') SC_OPEN.push(`『${atkC.name}』是 Caster：此戰以魔術轟擊為主、非肉搏，勿讓其上前近戰。`);
+    if (atkC.cls === 'Caster') SC_OPEN.push(`『${atkC.name}』是 Caster：此戰以魔術轟擊為主，站遠處打。`);
     // ── 交鋒：過程中發生的事 ──
     // 🎬 技能只給【畫面】不給名字（玩家：「不要一直看到技能名稱跑出來，我要看到的是對戰畫面」）——見 CODE_NOTES
-    if (skillFired) SC_FIGHT.push(`『${atkC.name}』這幾擊格外兇猛：${_fullSkill.scene || '身法與力道都比平時更狠'}——寫成畫面帶過，不點名這是什麼技能。`);
+    if (skillFired) SC_FIGHT.push(`『${atkC.name}』這幾擊格外兇猛：${_fullSkill.scene || '身法與力道都比平時更狠'}。`);
     if (horrorFired) SC_FIGHT.push(`我方術師以螺湮城教本自深淵召出觸手巨獸「深淵海怪」，常駐戰場、每回合與本人並肩撕咬，靠御主魔力維持。`);
     if (_masterJoinLine) SC_FIGHT.push(_masterJoinLine);
-    if (foeMagicFired) SC_FIGHT.push(`對面御主也自後方引動魔術為「${defC.name}」添力——敵方的攻勢不全是從者一人所為（對面御主同樣【不近身】）。`);
+    if (foeMagicFired) SC_FIGHT.push(`對面御主也自後方引動魔術為「${defC.name}」添力——敵方的攻勢不全是從者一人所為，對面御主同樣留在戰圈外。`);
     if (battery && battery.usedBattery && battery.bledMaster) SC_FIGHT.push(`御主燃燒生命力硬扛魔力缺口為從者頂上，魔術迴路過載灼痛難當（餘 ${battery.masterHp}/${battery.masterHpMax} HP）——★迴路透支的內在灼痛虛脫，非流血外傷。`);
     if (extraFired.length) SC_FIGHT.push(`戰局關鍵轉折：${extraFired.map(t => String(t)
       .replace(/·戰鬥續行$/, '挨了本該致命的一擊卻硬是站住了、還沒倒')
-      .replace(/·斬斷救贖.*$/, '原本能免死的手段這一次被硬生生打穿了')).join('；')}。★這兩種都寫成畫面，不點出機制或技能名。`);
+      .replace(/·斬斷救贖.*$/, '原本能免死的手段這一次被硬生生打穿了')).join('；')}。`);
     // ✨ 禮裝這一戰真的起了作用 → 用它自己的 flavor 給畫面（理想鄉另有專屬 SC_PEAK，不重複講）
     if (mysticFired && !idealRealmFired) {
       const _mcNow = MYSTIC_CODES[getMystic_(pcData[pIdx][COL.PC.MEMORY])];
-      if (_mcNow && _mcNow.flavor) SC_FIGHT.push(`【禮裝·${_mcNow.name}】${_mcNow.flavor}★這是御主帶在身上的東西，這一戰確實起了作用——用畫面帶過一次即可，別報數字、別寫成它決定了勝負。`);
+      if (_mcNow && _mcNow.flavor) SC_FIGHT.push(`【禮裝·${_mcNow.name}】${_mcNow.flavor}★這是御主帶在身上的東西，這一戰起了一點作用——用畫面帶過一次即可。`);
     }
     // ── 高潮：這一戰最該被寫成畫面的那幾拍 ──
     if (useSeal) SC_PEAK.push(`御主燃燒一道令咒·絕對命令，強令此擊必中、引爆超限戰力。`);
     if (npSealForced) SC_PEAK.push(`【令咒強開寶具】御主魔力早已見底、血肉也湊不出真名解放所需，卻仍以令咒之力硬逼出這一擊——刻在手背的絕對命令化作純粹魔力補上枯竭的缺口。演出這股「以令咒硬點燃寶具」的悲壯。`);
     if (clash) SC_PEAK.push(`【寶具對轟】我方真名【${npName ? npName.zh : atkC.name}】 vs 敵方真名【${clash.enemyNpName || defC.name}】——雙方在同一刻高呼各自真名、正面對撞，這是這場戰鬥最戲劇性的瞬間。`);
     else if (useNp) SC_PEAK.push(_mad
-      ? `『${atkC.name}』解放了寶具【${_npZh}】${npMissed ? '——這一擊被「' + defC.name + '」避開了' : ''}。★${pron_(pcData[atkIdx][COL.PC.SEX])}已狂化、無法詠唱：解放是咆哮與本能的爆發，旁白可呈現真名與威能，但不讓${pron_(pcData[atkIdx][COL.PC.SEX])}開口唸出任何字句。`
+      ? `『${atkC.name}』解放了寶具【${_npZh}】${npMissed ? '——這一擊被「' + defC.name + '」避開了' : ''}。★${pron_(pcData[atkIdx][COL.PC.SEX])}已狂化：解放是咆哮與本能，真名由旁白帶出。`
       : `『${atkC.name}』高呼真名、解放了寶具【${_npZh}】${npMissed ? '——這一擊被「' + defC.name + '」避開了' : ''}。★讓${pron_(pcData[atkIdx][COL.PC.SEX])}【親口唸出這個真名】(中文真名與原名並呼)。`);
-    if (useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) SC_PEAK.push(`【灌魔超載】御主${atkC.npOverloadMul >= 1.9 ? '把餘裕魔力盡數傾注' : '將大量魔力加壓灌注'}這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉）' : ''}——威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。演出這股灼熱光壓。`);
-    if (idealRealmFired) SC_PEAK.push(`【理想鄉】「${idealRealmFoe}」傾盡全力解放了斬裂世界的究極真名，然而在觸及「${idealRealmSaber}」的剎那，全世界遙遠的理想鄉 Avalon 悄然展開——究極寶具的威能盡數湮滅於金色結界中，「${idealRealmSaber}」毫髮無傷。演出這一擋的神聖、靜謐與絕對。`);
+    if (useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) SC_PEAK.push(`【灌魔超載】御主${atkC.npOverloadMul >= 1.9 ? '把餘裕魔力盡數傾注' : '將大量魔力加壓灌注'}這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉）' : ''}——威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。`);
+    if (idealRealmFired) SC_PEAK.push(`【理想鄉】「${idealRealmFoe}」傾盡全力解放了斬裂世界的究極真名，然而在觸及「${idealRealmSaber}」的剎那，全世界遙遠的理想鄉 Avalon 悄然展開——究極寶具的威能盡數湮滅於金色結界中，「${idealRealmSaber}」毫髮無傷。`);
     if (foeNpResp) SC_PEAK.push(`「${defC.name}」沒有以真名相迎，而是${foeNpResp.icon}【${foeNpResp.label}】——${foeNpResp.note}${foeNpResp.ok ? '' : '（但沒接住）'}。★演出這記應對本身的判斷與姿態，兩邊都要有畫面。`);
     if (enemyNpRoundNotes) SC_PEAK.push(`${enemyNpRoundNotes}——這不是普通反擊而是寶具解放，讓「${defC.name}」展現寶具威能／可高呼真名，不可寫成尋常一擊。`);
     // ── 收束：勝負落定之後 ──
@@ -1291,15 +1290,15 @@ function actionFateBattle(userData, pcId, sheets) {
       ? `★【${_endRoundPhrase}】『${destroyedName}』已當場靈基崩潰消散——我方死局，「${defC.name}」仍存活。『${destroyedName}』此後只存在於其他人的反應裡，所有人的言行都建立在勝負已定之上。收在殞落這一擊與御主的震動反應。`
       : `★【${_endRoundPhrase}】「${defC.name}」${targetIsFoeServant ? '已當場靈基崩潰消散' : '已當場斃命——凡人之軀，沒有靈基消散的光點'}。其此後只存在於其他人的反應裡，所有人的言行都建立在勝負已定之上。收在終結這一擊與其後的餘韻${targetIsFoeServant ? '（喘息、確認勝負、望向消散的光點）' : '（喘息、確認斷氣、從者收勢）'}。`);
     if (!destroyedName && !sealEscaped && !godRevived) SC_END.push(
-      (_hpRatioNow <= 0.15 ? `「${defC.name}」已被打到命懸一線、站著全靠意志，但【還沒死】——讓這份瀕死在畫面上看得出來，這一段結束時仍有呼吸。`
-        : _hpRatioNow <= 0.4 ? `「${defC.name}」傷勢不輕、氣力已顯頹勢，但仍撐得住——勿描寫死亡／消滅／屍體。`
-          : `「${defC.name}」尚有餘力，勿描寫死亡／消滅／屍體。`)
+      (_hpRatioNow <= 0.15 ? `「${defC.name}」已被打到命懸一線、站著全靠意志，這一段結束時仍有呼吸。`
+        : _hpRatioNow <= 0.4 ? `「${defC.name}」傷勢不輕、氣力已顯頹勢，仍撐得住。`
+          : `「${defC.name}」尚有餘力。`)
       + `雙方仍在交鋒中，下回合是否再戰由御主決定。`);
-    if (_outputRestored) SC_END.push(`真名解放後，『${atkC.name}』的靈基出力自行回落到平時的檔位——★可帶一筆「那股滿溢的魔力退去、氣息沉靜下來」的餘韻，一句話即可，不必解釋機制。`);
-    if (npTelegraphed) SC_END.push(`⚠️「${defC.name}」的靈基驟然高鳴——真名解放的預兆正急速匯聚、殺意如實質般壓來，寶具即將出鞘卻【尚未發動】。★收在這股「山雨欲來、下一擊便是真名解放」的窒息壓迫，讓御主明白必須當機立斷。`);
+    if (_outputRestored) SC_END.push(`真名解放後，『${atkC.name}』的靈基出力自行回落到平時的檔位——★一筆帶過即可。`);
+    if (npTelegraphed) SC_END.push(`⚠️「${defC.name}」的寶具正在匯聚、【尚未發動】。★收在這個當口。`);
     if (!destroyedName && !sealEscaped && !godRevived) SC_END.push(_mad
-      ? `★戰後讓『${atkC.name}』以其已狂化的方式（低吼／肢體／神情）透出對這場交手的直覺判斷，不成篇整句台詞。`
-      : `★戰後讓『${atkC.name}』依性格給一句主觀反應（破綻、對方是否現底牌、自身傷勢、對敵手評價皆可）；連續回合換角度講，別重複同一種收尾。`);
+      ? `★收尾留一下『${atkC.name}』狂化後的反應，不成篇整句台詞。`
+      : `★收尾留一句『${atkC.name}』的反應，依其性格，每回合換個角度。`);
     // 攻守交換比轉白話（絕對數字 AI 用不上：敵方傷勢有 hpStateWord_、我方有【當前狀態】）。
     const _exchangeWord_ = (() => {
       if (!totalDealt && !totalTaken) return '這幾回合雙方互相試探、誰也沒能真正咬到對方';
@@ -1320,8 +1319,8 @@ function actionFateBattle(userData, pcId, sheets) {
       `${roundsBrief}\n${_exchangeWord_}。${finalLine}\n` +
       `── 分鏡(依序演成畫面) ──\n` +
       _scene('開場', SC_OPEN) + _scene('交鋒', SC_FIGHT) + _scene('高潮', SC_PEAK) + _scene('收束', SC_END) +
-      `★把上面的分鏡演成一場【${_wordRange} 字】的交鋒：依分鏡順序推進，寶具演其威能。\n` +
-      `★【技能不喊名】直感、心眼、騎乘、魔力放出、怪力這類技能【只能化成動作與畫面】（劍先到、一步搶先、魔力自劍身爆散），旁白不點名、角色不喊招、不加書名號。【唯二可以喊出口的】：寶具真名解放、令咒。`;
+      `★把上面的分鏡演成一場【${_wordRange} 字】的交鋒，依序推進。\n` +
+      `★【喊得出名字的只有兩樣】寶具真名解放與令咒；其餘技能一律化成動作與畫面。`;
   }
 
   // 📊 給前端的多回合視覺戰報

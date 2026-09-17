@@ -120,9 +120,7 @@ function traitLabeled_(raw, skipNone) {
 function performanceNote_(names) {
   var list = (names || []).filter(Boolean);
   if (!list.length) return "";
-  return `★本則登場：${list.join('、')}——上面那幾張卡是【內化用的核心特質】，不是台詞、不是人物簡介：\n`
-    + `　不要讓角色或旁白把自己的性格、願望、關係階段講出來或拿來評論，也不要照著條列逐項演一遍。\n`
-    + `　要做的是【推演】：有這樣特質的人，在此刻這個處境下，會做出什麼具體舉動、用什麼語氣、選擇說什麼或不說什麼。\n`;
+  return `★本則登場：${list.join('、')}。上面的卡是【內化用的素材】：推演這樣的人在此刻會做出什麼舉動、用什麼語氣。\n`;
 }
 
 // 🎭 從者「演出依據」卡：真名/職階/個性/對御主/口吻(含自稱)/招牌動作/六圍/技能/寶具壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』內化演出（只當背景、不准說嘴）。
@@ -214,7 +212,7 @@ function masterCard_(row) {
       //    它起作用的樣子(flavor)留給真的生效的那一戰講(見 Router_Battle 的【禮裝·】素材行)。
       (() => { const _mc = MYSTIC_CODES[getMystic_(row[COL.PC.MEMORY])]; return _mc ? `｜隨身禮裝：${_mc.name}` : ""; })() +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
-      `。御主＝玩家本人(旁白稱「你」)：依性格開口、有神態台詞，不是沉默的旁觀者；但下一步由玩家按鍵決定，收尾停在等你決定的當下。` +
+      `。御主＝玩家本人(旁白稱「你」)：有神態與台詞；下一步由玩家決定，收尾停在那裡。` +
       (playedCanon ? `「${name}」出自Fate正典，優先依你對${playedCanon.name}的認知演出，上方僅為錨點。` : "") + `\n`;
   } catch (e) { return ""; }
 }
@@ -263,7 +261,7 @@ function enemyMasterCard_(row, opts) {
       "。" +
       // 三條 ★ 併一條：正典優先與 show-don't-tell 已在 miniSystem 鐵律 8 講過，這裡只留它獨有的兩件事
       //   ——「本人在場、不是背景板」與「別劇透原作後續」。該有什麼情緒由那個人的個性決定，不預先框。
-      `★${pron_(row[COL.PC.SEX])}本人在場，不是沉默背景板——依其性格/身世給出神態或台詞；戰局勝負與傷害照系統裁定；台詞只講此刻這一戰知道的事。\n`;
+      `★${pron_(row[COL.PC.SEX])}本人在場，依其性格與身世給神態或台詞；勝負與傷害照系統裁定，台詞只講此刻這一戰知道的事。\n`;
   } catch (e) { return ""; }
 }
 
