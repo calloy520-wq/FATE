@@ -22,7 +22,8 @@ const ENTRIES = [
   'kanshouSetPace', 'kanshouSetDateTime', 'kanshouAddRegion', 'kanshouDelRegion',
   'kanshouPlaceMenu', 'kanshouGoNewPlace', 'kanshouNextStage', 'kanshouEndDay',
   'kcMapListHtml_', 'kcChoose_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',
-  'sumMode_', 'setWarFromSelect_', 'newGameFlow', 'openTutorial', 'kcAlbumCardHtml_'
+  'sumMode_', 'setWarFromSelect_', 'newGameFlow', 'openTutorial', 'kcAlbumCardHtml_',
+  'ksRender_', 'ksPick_', 'ksSave_', 'ksReset_', 'ksResetAll_'
 ];
 // 這些面板會被真的叫起來一次（不能拋例外）
 const RENDERS = [
@@ -40,6 +41,26 @@ const RENDERS = [
     return typeof h === 'string' && /她回頭的那一瞬/.test(h) && /遠坂凜/.test(h); }],
   // ❓ solo 的教學卡：真的畫出來，並確認「御主不上戰場」那段在（2026-09 戰鬥改版後補的，
   //   教學要跟規則對得上，不然玩家會以為自己也要挨打）。
+  // 🎨 ⚙ 說書人設定的三態（預設／自訂／關閉）：畫得出來，而且【預設句本體不可以出現在畫面上】。
+  //   那串字是提示詞，玩家看到就出戲——這裡餵一個帶 def 的模組物件當誘餌，
+  //   哪天有人把 placeholder=m.def 之類的寫法加回來，這條會當場叫。
+  ['ksRender_ 三態', () => {
+    const body = ctx.document.createElement('div'); body.id = 'kc-style-body'; ctx.document.body.appendChild(body);
+    ctx._ksMods_ = [
+      { key: 'voice', name: '筆觸', slot: 'sys', hint: '敘事的調子與人稱。', def: '【誘餌】這是提示詞本體，不可外洩。', text: '', on: true, custom: false },
+      { key: 'moe', name: '萌點用法', slot: 'sys', hint: '口癖要多常用。', def: '【誘餌2】', text: '少用一點。', on: true, custom: true },
+      { key: 'world', name: '世界觀', slot: 'user', hint: '這是什麼樣的世界。', def: '【誘餌3】', text: '', on: false, custom: false }
+    ];
+    ctx._ksEdit_ = {};
+    ctx.ksRender_();
+    const h = String(body.innerHTML);
+    if (/誘餌/.test(h)) return false;                                   // 預設句漏到畫面上
+    if (!/敘事的調子與人稱/.test(h) || !/少用一點/.test(h)) return false;  // 提示與玩家自己的字都要在
+    if (!/已關閉/.test(h) || !/自訂/.test(h) || !/預設/.test(h)) return false;
+    if ((h.match(/<textarea/g) || []).length !== 1) return false;       // 只有「自訂」那格開輸入框
+    ctx.ksPick_('voice', 'own'); const h2 = String(body.innerHTML);      // 按「自訂」＝本地打開輸入框
+    return (h2.match(/<textarea/g) || []).length === 2 && !/誘餌/.test(h2);
+  }],
   ['openTutorial', () => { let html = ''; const old = ctx.showHistoryOverlay; ctx.showHistoryOverlay = h => { html = String(h); };
     try { ctx.openTutorial(); } finally { ctx.showHistoryOverlay = old; }
     // ⚠ 不可以寫成「打起來不會掉血」——魔力見底時解放寶具仍會燒御主的血當電池（drainForNp_）。

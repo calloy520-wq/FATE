@@ -1637,22 +1637,23 @@ var KANSHOU_WORLD_TEXT_MAX_ = 40;
 //    事實（GAS 裁定）、技術契約（JSON／分段／在場驗證）不交；只有筆觸／主權／推演／視角／篇幅／收尾這類
 //    「口味」才在這張表上。每一格的預設值就是原本寫死在提示詞裡的那句，所以玩家一格都不改＝現況零差異。
 //    slot：sys＝進系統提示詞（nsfwBaseRules 那串鐵律）、user＝進 USER prompt 對應位置。
+//    hint：面板上給玩家看的一句話（這一段管什麼）。⚠ def 是提示詞本體，【不下傳前端】——見 CODE_NOTES。
 //    文字裡的 {玩家}／{代名詞} 在組裝時代入玩家名與代名詞(他/她/TA)；{篇幅} 代入這回合算出的字數區間。
 //    ⚠ 預設值故意留在 .gs 而不搬進試算表：check_prompt／check_pronoun 這些掃描器只看 .gs。（理由見 CODE_NOTES）
 var KANSHOU_STYLE_MODULES_ = [
-  { key: 'voice',      name: '筆觸',     slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家·禁上帝視角。' },
-  { key: 'agency',     name: '玩家主權', slot: 'sys',  def: '承接玩家最新動作與台詞【語氣照原樣】(疑問就疑問、吐槽就吐槽)·【動作與台詞只有玩家能決定】：不替玩家加動作、不替玩家開口、不改寫成轉述(感受不在此限)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。' },
-  { key: 'enact',      name: '演玩家這一步', slot: 'sys', def: 'narration【從玩家這一步演起】，別跳過它、別只當成已經發生的前提：把那一步撐成完整的一拍(具體的動作、距離、觸感、開口時的語氣與視線)，再往下接對方的反應。但【只擴寫玩家真的寫的那一步】——不補沒做的動作、沒說的話，也不改原意與語氣。' },
-  { key: 'dialogue',   name: '對話格式', slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
-  { key: 'drive',      name: '推演',     slot: 'sys',  def: '依玩家輸入【確實推演往下走·不停滯敷衍】——答不答應由對方的[個性]×[好感]決定(順從/猶豫/半推半就/婉拒皆可)，玩家不能替對方決定反應。' },
-  { key: 'continuity', name: '情緒連貫', slot: 'sys',  def: '繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)。' },
-  { key: 'moe',        name: '萌點用法', slot: 'sys',  def: '萌點/語癖/專屬稱呼自然滲入、偶爾點到即可·同一個不重複用。' },
-  { key: 'immersion',  name: '不出戲',   slot: 'sys',  def: '敘事只寫這個世界裡看得到聽得到的：好感數字、關係階級、系統/回合/選項/欄位名一律不進 narration，也不報幕宣告任何變化——要表現就用神情、語氣與彼此的距離。' },
-  { key: 'world',      name: '世界觀',   slot: 'user', def: '★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。' },
-  { key: 'pov',        name: '視角',     slot: 'user', def: '★【視角鎖定】：「你」＝玩家『{玩家}』本人·旁白【不可】用「我」(只有角色引號內的台詞用得到)。同伴外貌只取材各人自己那份資料。' },
-  { key: 'feel',       name: '你的感受', slot: 'user', def: '★【你也是這座城裡的一個人】：『{玩家}』不是攝影機——【用{代名詞}的角度感受這個世界】：此刻的觸感/冷熱/氣味/聲音、{代名詞}【真正】的情緒(不是表現出來的那個)、性格帶來的反應底色(見【玩家資料·旁白用】)，沉默也要有理由。{代名詞}看不見自己的臉，卻感覺得到臉發燙、喉嚨發緊——【寫感覺得到的，不寫看不到的外觀】。' },
-  { key: 'length',     name: '篇幅',     slot: 'user', def: '★【篇幅】：narration 寫 {篇幅} 字，【不可少於下限】——寫不滿就加互動與真實反應，別靠環境描寫充數。' },
-  { key: 'ending',     name: '收尾',     slot: 'user', def: '🚨【收尾{主動掌握}】：{推進}最後一句留給被搭話的人——用其答話或神情收尾，並拋出一個玩家接得住的話題(問句/邀約/此刻在意的事)，停在等玩家回應的那一刻。沒有別人在場才收在「你」身上。' }
+  { key: 'voice',      name: '筆觸',     hint: '敘事的調子與人稱——用什麼筆法寫、鏡頭站在誰身上。', slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家·禁上帝視角。' },
+  { key: 'agency',     name: '玩家主權', hint: '你的動作與台詞有多不可侵犯——說書人能不能替你補動作、替你開口。', slot: 'sys',  def: '承接玩家最新動作與台詞【語氣照原樣】(疑問就疑問、吐槽就吐槽)·【動作與台詞只有玩家能決定】：不替玩家加動作、不替玩家開口、不改寫成轉述(感受不在此限)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。' },
+  { key: 'enact',      name: '演玩家這一步', hint: '你寫的那一步要被演多細——撐成完整一拍，還是直接跳到對方的反應。', slot: 'sys', def: 'narration【從玩家這一步演起】，別跳過它、別只當成已經發生的前提：把那一步撐成完整的一拍(具體的動作、距離、觸感、開口時的語氣與視線)，再往下接對方的反應。但【只擴寫玩家真的寫的那一步】——不補沒做的動作、沒說的話，也不改原意與語氣。' },
+  { key: 'dialogue',   name: '對話格式', hint: '台詞怎麼排版——引號、換行、誰在說話怎麼標。', slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
+  { key: 'drive',      name: '推演',     hint: '劇情往前推的力道——對方答不答應你，由什麼決定。', slot: 'sys',  def: '依玩家輸入【確實推演往下走·不停滯敷衍】——答不答應由對方的[個性]×[好感]決定(順從/猶豫/半推半就/婉拒皆可)，玩家不能替對方決定反應。' },
+  { key: 'continuity', name: '情緒連貫', hint: '上一幕的情緒與親密程度怎麼接到這一幕。', slot: 'sys',  def: '繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)。' },
+  { key: 'moe',        name: '萌點用法', hint: '口癖、專屬稱呼、萌點要多常拿出來用。', slot: 'sys',  def: '萌點/語癖/專屬稱呼自然滲入、偶爾點到即可·同一個不重複用。' },
+  { key: 'immersion',  name: '不出戲',   hint: '系統面的東西（數值、關係階級、回合）能不能出現在敘述裡。', slot: 'sys',  def: '敘事只寫這個世界裡看得到聽得到的：好感數字、關係階級、系統/回合/選項/欄位名一律不進 narration，也不報幕宣告任何變化——要表現就用神情、語氣與彼此的距離。' },
+  { key: 'world',      name: '世界觀',   hint: '這座城市是什麼樣的世界、有沒有魔術與從者。', slot: 'user', def: '★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。' },
+  { key: 'pov',        name: '視角',     hint: '「你」指的是誰、旁白能不能用第一人稱。', slot: 'user', def: '★【視角鎖定】：「你」＝玩家『{玩家}』本人·旁白【不可】用「我」(只有角色引號內的台詞用得到)。同伴外貌只取材各人自己那份資料。' },
+  { key: 'feel',       name: '你的感受', hint: '要不要寫出你自己的感官與情緒，還是只當一台攝影機。', slot: 'user', def: '★【你也是這座城裡的一個人】：『{玩家}』不是攝影機——【用{代名詞}的角度感受這個世界】：此刻的觸感/冷熱/氣味/聲音、{代名詞}【真正】的情緒(不是表現出來的那個)、性格帶來的反應底色(見【玩家資料·旁白用】)，沉默也要有理由。{代名詞}看不見自己的臉，卻感覺得到臉發燙、喉嚨發緊——【寫感覺得到的，不寫看不到的外觀】。' },
+  { key: 'length',     name: '篇幅',     hint: '一回合大概寫多長、寫不滿的時候怎麼補。', slot: 'user', def: '★【篇幅】：narration 寫 {篇幅} 字，【不可少於下限】——寫不滿就加互動與真實反應，別靠環境描寫充數。' },
+  { key: 'ending',     name: '收尾',     hint: '每一段停在哪裡——留給誰的反應、要不要拋話題讓你接。', slot: 'user', def: '🚨【收尾{主動掌握}】：{推進}最後一句留給被搭話的人——用其答話或神情收尾，並拋出一個玩家接得住的話題(問句/邀約/此刻在意的事)，停在等玩家回應的那一刻。沒有別人在場才收在「你」身上。' }
 ];
 var KANSHOU_STYLE_TEXT_MAX_ = 300;
 var KS_ = { GID: 0, KEY: 1, TEXT: 2, ON: 3 };
@@ -1737,7 +1738,7 @@ function kanshouStyleClean_(text) {
   return String(text || "").replace(/\r/g, "").trim().slice(0, KANSHOU_STYLE_TEXT_MAX_);
 }
 
-// 🎨 ⚙ 說書人設定面板的後端：get 回整張表（含預設與生效版）、set 改一格／還原一格／全部還原。
+// 🎨 ⚙ 說書人設定面板的後端：get 回整張表（只給提示與玩家自己的字，不給預設本體）、set 改一格／還原一格／全部還原。
 function actionKanshouGetStyle(userData, pcId, sheets) {
   const kpc = sheets.pc;
   const data = kpc.getDataRange().getValues();
@@ -1747,7 +1748,7 @@ function actionKanshouGetStyle(userData, pcId, sheets) {
   const styles = kanshouStyleRead_(gid);
   const modules = KANSHOU_STYLE_MODULES_.map(m => {
     const o = styles[m.key] || null;
-    return { key: m.key, name: m.name, slot: m.slot, def: kanshouStyleDefault_(m.key),
+    return { key: m.key, name: m.name, slot: m.slot, hint: m.hint || "",
       text: o ? o.text : "", on: o ? o.on !== false : true, custom: !!(o && String(o.text || "").trim()) };
   });
   return JSON.stringify({ success: true, modules: modules, max: KANSHOU_STYLE_TEXT_MAX_ });
