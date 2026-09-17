@@ -1104,6 +1104,34 @@ function kanshouLocationsFor_(gameId) {
   return mine.length ? KANSHOU_LOCATIONS_.concat(mine) : KANSHOU_LOCATIONS_;
 }
 
+// 🧑↔🏠 這個名字是不是【地方】而不是人？AI 偶爾會把地點寫成 kind:'人物'（實測玩家看到
+//    「你認識了『風音的家』。要繼續往來…」——拿地名在問要不要結識一個人）。
+//    輸入當不可信：比對內建地點、玩家自己開的地方、玩家住所，以及「…的家/店/屋/館/亭/堂」這種地名尾巴。
+const KANSHOU_PLACE_SUFFIX_ = /(的家|的店|之家|宅邸|公寓|大樓|屋|館|亭|堂|苑|園|寺|社|樓|閣|城|站|所|廳|房|室|宅|邸)$/;
+function kanshouNameIsPlace_(name, gameId, homeName) {
+  const nm = String(name || "").trim();
+  if (!nm) return false;
+  if (homeName && nm === String(homeName).trim()) return true;
+  try {
+    if (kanshouLocationsFor_(gameId).some(l => String(l.name).trim() === nm)) return true;
+    if (kanshouRegionsFor_(gameId).some(r => String(r.name).trim() === nm)) return true;
+  } catch (e) { }
+  return KANSHOU_PLACE_SUFFIX_.test(nm);
+}
+
+// 🧹 把 AI 分錯類的 world_note 就地改判：名字其實是地方的「人物」條目改成「地點」。
+//    改判而不是丟掉——那個名字本身通常是有意義的新地方，丟了等於玩家白發明一次。
+function kanshouFixWorldKinds_(entries, gameId, homeName) {
+  if (!Array.isArray(entries)) return entries;
+  entries.forEach(function (w) {
+    if (!w || String(w.kind || "").trim() !== '人物') return;
+    if (!kanshouNameIsPlace_(w.name, gameId, homeName)) return;
+    w.kind = '地點';
+    w.sex = "";
+  });
+  return entries;
+}
+
 // 🗾 這一局有哪些大區＝內建幾區 ∪ 玩家自己開的。
 // ⚠ 自訂大區【天生就是一般公共區】：所有行為判斷都寫成「不是 room／不是 visit」的形式
 //    (不巧遇、要好感才能登門…)，所以一個陌生的區 id 自動落在「一般」那一邊，不必改任何行為邏輯。
@@ -1336,11 +1364,14 @@ function kanshouRollDailyLocation_(heroName, hour, cohabit, memory, gameId) {
     }
   }
   const haunts = heroId ? Object.keys(KANSHOU_LOCATION_TAGS_).filter(loc => KANSHOU_LOCATION_TAGS_[loc].includes(heroId)) : [];
-  // 🌙 全地點保底池排除'room'(玩家自己的房間)跟'visit'(別人登記的住處，見KANSHOU_HERO_HOME_)兩個分區——不同行的英靈不該隨機骰進玩家臥室或別人家裡，那裡只能靠「拜訪」主動走進去，不是隨機亂晃能撞到的地方；否則沒有haunts標籤/沒有登記住處的英靈可能隨機骰進遠坂邸這種別人的家，跟夜襲/賴床叫醒橋段「LOC剛好等於某人家」的判定衝突，觸發在錯的人身上。
-  // 🗺️ 池子＝【整個世界】(內建 ∪ 玩家自己開的地方)。常去的地點只是多放幾份進池子＝更常遇到，
-  //    不再是「這輩子只會出現在那裡」。理由見 CODE_NOTES.md。
+  // 🌙 全地點保底池排除三個分區：'room'(玩家臥室)、'home'(玩家家的客廳/浴室/和室)、'visit'(別人登記的住處)。
+  //    那些地方只能靠「拜訪」或邀約主動走進去，不是隨機亂晃能撞到的。
+  //    ⚠ 'home' 是 2026-09 補的——舊版只排掉臥室，客廳/浴室/和室還留在池子裡，實測非同居同伴
+  //    有 15.4% 的日常落點直接骰進玩家家（玩家實測：「我重開後 其他角色直接到我家客廳了」）。
+  //    同居者走上面自己的分支拿 home，不受這條影響。
+  // 🗺️ 池子＝【整個世界】(內建 ∪ 玩家自己開的地方)。常去的地點只是多放幾份進池子＝更常遇到。
   const all = kanshouLocationsFor_(gameId)
-    .filter(l => l.region !== 'room' && l.region !== 'visit' && !l.dateOnly).map(l => l.name);
+    .filter(l => KANSHOU_ROLL_EXCLUDE_REGIONS_.indexOf(l.region) < 0 && !l.dateOnly).map(l => l.name);
   if (!all.length) return KANSHOU_COHABIT_ROOM_;
   const pool = all.slice();
   haunts.forEach(h => {
@@ -1591,6 +1622,8 @@ function kanshouIsLover_(row) {
 // 🔒 登門拜訪私人住處(region:'visit')的好感門檻＝熟識的朋友(見 KANSHOU_REL_TIER_ 的40切點)。
 const KANSHOU_VISIT_BOND_ = 40;
 const KANSHOU_COHABIT_ROOM_ = '和室';
+// 日常落點保底池排除的分區（單一真實來源）：玩家的住處只有同居者與受邀者進得來。
+const KANSHOU_ROLL_EXCLUDE_REGIONS_ = ['room', 'home', 'visit'];
 function kanshouIsCohabit_(row) { return KANSHOU_COHABIT_TAG_.get(row[COL.PC.MEMORY]) > 0; }
 // 通用【tag】值淨化：清掉標籤分隔字元(,/:/｜/【/】)避免撐破 MEMORY 裡任何單值 tag 的格式(住所名…)，順手也清掉引號/角括號(防提示詞注入)。
 function kanshouSanitizeTagValue_(value, maxLen) {
@@ -3466,7 +3499,7 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   const prompt = `${_sty_('world')}
 ${PROMPT_REL}
 ★【這個世界有誰】：①【正式同伴】＝下方【在場人物】的卡，只有他們算好感，每人這回合都要真實存在(沒被搭話的給個動作即可)，沒列卡的同伴不准出現或開口，有【專屬稱呼】就叫暱稱。②【常民】＝【這個世界已經確立的事】名單上的人，可出現可開口、不算好感。③【路人】不具名，隨手寫、不必記。玩家專一對著一個人時其他人背景輕描；不在場的人一句話交代去向。
-★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，寫進去的下回合才存在。一回合最多 2 筆，只記【這座城有什麼】(地點/人物/設定)；你們之間發生的事記進那個人的 memory。
+★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，寫進去的下回合才存在。一回合最多 2 筆，只記【這座城有什麼】——地點＝多一個去得了的地方｜人物＝這個人還會再出現｜設定＝這座城的規矩或風景；你們之間發生的事記進那個人的 memory。
 ${_sty_('pov')}
 ${_sty_('feel')}
 
@@ -3774,6 +3807,11 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
 
     // 橋段邀請按鈕(夜襲/賴床/地點/節慶共用)：candidate在回合開頭(任何LOC寫入之前)就算好了，這裡直接沿用，不應該重算——重算會撞回「同行同伴LOC已被同步」的舊bug。
     const encounterOffer = kanshouEncounterHero ? { name: String(kanshouCasualOf_(kanshouEncounterHero)) } : undefined;
+    // 🧑↔🏠 AI 分錯類的先就地改判（名字其實是地方的「人物」→ 改成「地點」），
+    //    再往下給 folkOffer 與 kanshouWorldWrite_ 用——兩個消費端吃的是同一份，只改一次。
+    if (Array.isArray(aiData.world_note) && aiData.world_note.length) {
+      try { kanshouFixWorldKinds_(aiData.world_note, myGameId, getKanshouHomeName_(pcData[pcIndex][COL.PC.MEMORY], pcName)); } catch (e) { }
+    }
     // 🧑 這一回合 AI 新造了一個人 → 給玩家一顆「要不要深交」，跟巧遇那顆共用同一種泡泡。
     //    已經是正式同伴的不再問(否則每次提到都跳一次)。
     let folkOffer;
