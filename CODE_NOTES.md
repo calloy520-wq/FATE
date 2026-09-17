@@ -1147,10 +1147,6 @@ target 只能填真名(schema級約束，比事後再說一次更有效)。tag �
 
 地點橋段觸發表：她剛好在這個地點×時段吻合→把該事件的 ambient 當「此地此刻·情境事實」注入提示詞(2026-07 泡泡拆除後不再跳按鈕，見 kanshouSceneAmbientStr)。加新地點橋段＝這裡加一筆＋KANSHOU_SCENE_EVENTS_加對應事件，不動觸發邏輯。
 
-### `kanshouAsleepOutcomeStr_`　<sub>Gallery.gs</sub>
-
-🌙 深夜訪客「別有用心」的分寸判準(2026-07 泡泡拆除後，唯一呼叫點只剩深夜敲門那條)：好感決定這次能走到哪一階，不寫死台詞，具體怎麼演、講什麼話全交AI依角色性格發揮。切點沿用親密尺度五階既有的60(親吻擁抱)/80(無上限)兩個節點，跟其餘尺度判定同一套數字、單一來源。
-
 ### `KANSHOU_HERO_HOME_`　<sub>Gallery.gs</sub>
 
 修過的bug：kanshouRollDailyLocation_原本深夜/清晨的homeBias會直接回傳玩家自己家的房間，讓不在場的人溜進玩家家裡——改成每位英靈自己的住處(資料驅動，同KANSHOU_LOCATION_TAGS_寫法)，已同步登記進KANSHOU_LOCATIONS_(region:'visit')成為可造訪的真實地點；也是夜襲/賴床叫醒橋段候選地點的唯一真實來源(見actionPlay)。
@@ -1205,10 +1201,6 @@ memory選填：只有call site拿得到該英靈自己列的MEMORY時才傳，�
 
 🐛→✅ 稽核抓到：原本沒清掉｜/【/】等標籤分隔字元，玩家取名帶這些字元會撐壞這行MEMORY格式(讀取時regex在第一個｜就截斷，殘餘字變成脫隊在tag外的孤兒文字)。走 kanshouSanitizeTagValue_ 同款淨化。
 
-### `KANSHOU_KNOCK_CHANCE_`　<sub>Gallery.gs</sub>
-
-結束一天(準備就寢)時的機率事件：命中就【直接讓她進門】、本回合不推進日期。⚠ 2026-07 玩家「如果玩家沒按泡泡而是打對話呢？」——舊版是純早退零落盤的「開門/不予理會」待決泡泡，玩家改打字時「結束一天」的意圖會靜靜蒸發(日期沒推進、訪客沒到)，可是敘事已經寫了敲門聲，AI 同時收到「有人敲門」跟「她不在場不准開口」兩條矛盾指令。改成先落盤再給善後選項：她真的就在房裡，玩家想打字就打字，AI 照常演，之後想睡再按一次「結束一天」。
-
 ### `KANSHOU_MORNING_AFTER_TAG_`　<sub>Gallery.gs</sub>
 
 好感≥80觸發同床共枕的那次結束一天，順手記一筆「今晚共度良宵的對象」，下一回合(不論玩家做什麼)讀一次就清掉(一次性旗標)，餵進提示詞當【晨間餘韻】引子。刻意不斷言「一定發生了」，交給AI依上一回合實際演出內容判斷要不要接續。
@@ -1228,10 +1220,6 @@ memory選填：只有call site拿得到該英靈自己列的MEMORY時才傳，�
 ### `KANSHOU_SCENE_DAY_TAG_`　<sub>Gallery.gs</sub>
 
 🎭 橋段當日戳(存該同伴列MEMORY·absDay)：同一位同伴、同一天，只有第一次接受橋段才給KANSHOU_SCENE_BOND_ 好感——防「靠近她/叫醒她」按鈕在同地×時段吻合時每 0.5h 重覆刷 +3、繞過細水長流節奏。0=今天尚未經歷橋段。橋段敘事本身照演，只擋重覆加好感。
-
-### `KANSHOU_NIGHT_GUEST_TAG_`　<sub>Gallery.gs</sub>
-
-🚪 這次夜訪的客人姓名(存【玩家】列)：「送客」的唯一姓名來源——dismissGuest 是下一個 request才送來的，後端得記得是誰；刻意不吃 client 傳的名字。清除時機：任一種收場(留下過夜／送她回去／結束一天)都算這次來訪結束。
 
 ### `getKanshouAnnivFired_`　<sub>Gallery.gs</sub>
 
@@ -3191,10 +3179,6 @@ mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未
 
 依 region 補一句大分區脈絡，讓AI知道此刻身處何種場域。找不到(AI自創地點)就回空字串、不硬套。
 
-### `kanshouAsleepOutcomeStr_`　<sub>Gallery.gs</sub>
-
-把泛用住處池登記進 KANSHOU_LOCATIONS_(單一真實來源)，讓移動驗證/拜訪門檻/前端地圖等既有機制原樣吃到這些地點，不必為隨機分配的住處另開一套判斷邏輯。
-
 ### `kanshouGetHeroHome_`　<sub>Gallery.gs</sub>
 
 🏠 住處統一讀取入口：手寫專屬豪邸優先，查無才讀【住處】隨機分配記憶標記，兩者皆無才退回不可造訪的通用值(理論上七度改版後不該再發生，只保留給改版前已存在、尚未補分配的舊存檔)。
@@ -3206,14 +3190,6 @@ mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未
 ### `kanshouRollDailyLocation_`　<sub>Gallery.gs</sub>
 
 🏠 同居中：深夜大多回「和室」就寢(未命中=在外遊蕩的生活感)、清晨一半還在賴床、 夜間多在家中公共空間活動；白天(清晨/午後/黃昏未命中)照常走下方一般骰出門晃。
-
-### `KANSHOU_KNOCK_MIN_BOND_`　<sub>Gallery.gs</sub>
-
-🚪 深夜敲門的候選門檻：只有同居、或好感≥此值(親近的人)的同伴才會半夜登你家門——泛泛之交半夜跑來敲門跟「陌生人世界」設定矛盾。要更容易撞見改小、要只限同住改大即可。
-
-### `KANSHOU_KNOCK_DAY_TAG_`　<sub>Gallery.gs</sub>
-
-🚪 夜訪當日戳(存【玩家】列·absDay)：深夜訪客一天只登門一次。落盤化之後「結束一天」可能被按很多次(她進來了→玩家打字聊天→再按一次結束一天)，沒有這個鎖就會反覆擲骰、一晚來三個人。
 
 ### `KANSHOU_FIRST_MET_DAY_TAG_`　<sub>Gallery.gs</sub>
 
@@ -3333,10 +3309,6 @@ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查�
 
 ⏱️ 用「本回合結束時」的時刻算時段——氛圍句是給讀到這次回應的玩家看的，用回合開始的舊時刻會慢半拍(玩家實測：10:5x走進客廳沒跳、原地再點(已11:2x午後)才跳)。
 
-### `kanshouKnockGuestName`　<sub>Gallery.gs</sub>
-
-深夜訪客入內：把訪客接來玩家現在的位置，本回合可指名互動，不推進日期——玩家想睡再自己重新點一次「結束一天」即可。唯一觸發來源是上方擲骰(不再有玩家按「開門」這條路)。
-
 ### `kanshouIsAwakeWithMe_`　<sub>Gallery.gs</sub>
 
 🛏️ 她是剛敲門進來的，顯然醒著——若不標記，深夜(0~8點)在「我的房間」會被 pSleepStr判成熟睡，跟「她剛敲了門」直接矛盾。沿用既有 AWAKE_HERE 機制、不另立判斷。
@@ -3448,10 +3420,6 @@ AI 對關係標籤沒有任何寫入權（attitude 欄位已於 2026-07 整組�
 ### `_isPlainBody_`　<sub>Gallery.gs</sub>
 
 👕 玩家裝扮只在【玩家資料】那一行講一次（就在提示詞第二行）——舊版在這裡再送一次， 那是排版還很長的時代留下的補償，現在整份提示詞已經短很多，重複沒有意義。
-
-### `kanshouNightGuestStr`　<sub>Gallery.gs</sub>
-
-🚪 夜訪當下的【客觀事實】：玩家原本正要歇下、她這時候找上門，房裡還有誰。只陳述事實， 各人反應(牽手中那位吃味/尷尬/大方，還是根本樂見)一律交給 AI 依各自性格與好感演。
 
 ### `_kanshouMaxBond_`　<sub>Gallery.gs</sub>
 

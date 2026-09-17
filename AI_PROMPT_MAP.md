@@ -444,7 +444,6 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 
 | 機制 | 觸發資格(GAS) | 回應附帶欄位 | 玩家按鈕→下次 send() 旗標 |
 |---|---|---|---|
-| 深夜訪客 | 結束一天時 `KANSHOU_KNOCK_CHANCE_`(20%) 擲中、候選同居或好感≥`KANSHOU_KNOCK_MIN_BOND_`(60)、當日鎖【夜訪日】 | `nightGuest`（她已落盤到房裡、蓋【夜未眠】） | 🛏 一起睡＝純訊息不帶旗標／🚪 請她回去＝`{endDay:true, skipKnockCheck:true}`＋`dismissGuest` |
 | 移動同意 | 她答應同去 | `moveProposal` | 同意→`moveTarget`＋`moveWithCompanion` |
 | 同居邀請 | 好感首達 90 且在場、同日未問 | `cohabitOffer` | `cohabitInvite`＋`cohabitInviteId` |
 | 巧遇結識 | 移動/原地擲中、`encounterOn` | `encounterOffer` | `inviteResident` |
@@ -515,7 +514,7 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | `kanshouConfessStr` | 💗告白 | ★【告白·成立】/★【告白·被拒】/★【已經在一起了】 |
 | `kanshouInviteStr`/`kanshouEncounterStr` | 🤝結識巧遇對象／巧遇擲中 | ★【正式結識】/結識未成／巧遇事實 |
 | `kanshouHandHoldStr`/`kanshouHoldingStr` | 🤝牽手/✋放手／牽著走 | ★【牽起來了】/★【放手】 |
-| `kanshouNightGuestStr`/`kanshouKnockRaidStr`/`kanshouNightSceneStr`/`kanshouNightPartStr` | 深夜訪客／別有用心／夜未眠／夜裡道別 | ★【對方自己找來了】／★【夜裡道別】… |
+| `kanshouNightSceneStr`/`kanshouNightPartStr` | 夜未眠／夜裡道別 | ★【夜已深·門關上了】／★【夜裡道別】… |
 | `kanshouFestivalStr` | 日曆＝節慶當天／跳到前夕 | ★【今天是「X」】／★【節慶前夕】（只給事實，無習俗表） |
 | `kanshouTierCrossStr`/`kanshouFirstsAnnivStr`/`kanshouFirstsStr`/`kanshouAnnivStr` | 剛跨關係階／「第一次」週年／既定的第一次／相識紀念日 | 純事實＋show-don't-tell 護欄 |
 | `kanshouNewPlaceStr`/`_worldFeed_`/`kanshouWorldRosterStr` | 玩家走出新地點／世界帳本相關條目／常民名冊 | ★【要它之後還在就寫進 world_note】等 |

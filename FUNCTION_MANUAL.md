@@ -683,7 +683,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - ~~`KANSHOU_SCENE_EVENTS_`~~（2026-09 已砍）— 曾是橋段庫（共浴/膝枕/下廚/觀星＋同居日常 ambient）；預寫池整批移除，恆空的注入點也已刪。
 - `KANSHOU_NIGHT_RAID_HOUR_END_`(=5)、`KANSHOU_ASLEEP_HOUR_END_`(=8)（常數，2026-07 八度改版新增，取代 `KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`）— 同住人房間橋段改直接比對時刻：0~5點→夜襲、5~8點→賴床叫醒（不再依附 timeBand_ 的深夜/清晨切法，清晨band原本一路延伸到11點）；有效地點含她自己的家/`KANSHOU_COHABIT_ROOM_`(和室)/`'我的房間'`(玩家自己房間)。
 - ~~`KANSHOU_LOCATION_EVENTS_`~~／~~`KANSHOU_FESTIVAL_EVENTS_`~~（2026-09 已砍）— 曾是地點×時段／節慶橋段觸發表。
-- `kanshouAsleepOutcomeStr_(bond)`（2026-07 八度改版新增）— 夜襲類橋段(玩家主動夜襲/叫醒賴床、以及深夜訪客「被夜襲」鏡像版)共用的分寸判準：60以下＝趕人、60~79＝卡在親吻擁抱、80+＝無上限，不寫死台詞，具體演出交AI依角色性格發揮。切點沿用親密尺度五階既有的60/80。
 - `KANSHOU_HERO_HOME_`（常數）— 手寫專屬豪邸，僅7位種子英靈（region:'visit' 可造訪地點）。
 - `KANSHOU_GENERIC_HOME_POOL_`（常數，2026-07 七度改版新增）— 8間泛用住處(河畔小公寓/巷弄老屋/高塔套房/郊區透天/老街閣樓/街角公寓/靜巷租屋/河堤畔宅)，宣告時即用`.forEach(push)`動態併入`KANSHOU_LOCATIONS_`(region:'visit', generic:true)。供查無`KANSHOU_HERO_HOME_`專屬豪邸的英靈隨機分配用（玩家「新增的英靈會有住處嗎？種子庫直接隨機就好」）。
 - `kanshouGetHeroHome_(heroId, memory)`（2026-07 七度改版新增）— 住處統一讀取入口：`KANSHOU_HERO_HOME_`手寫豪邸優先，查無就讀該英靈自己列MEMORY的`【住處】`標記，兩者皆無才退回不可造訪的「自己的住處」。取代所有直接查`KANSHOU_HERO_HOME_[heroId]`的呼叫點。
@@ -711,23 +710,20 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### MEMORY 標記存取器（多標記共擠一格·全形｜分隔）
 
-- `KANSHOU_KNOCK_CHANCE_`(=0.2)、`KANSHOU_KNOCK_MIN_BOND_`(=60)（常數）— 結束一天敲門機率與候選門檻。
-- `KANSHOU_KNOCK_RAID_CHANCE_`(=0.5)（常數，2026-07 八度改版新增，玩家「能不能也設計一個被夜襲的橋段」）— 深夜訪客進門(擲骰命中·見 `KANSHOU_KNOCK_CHANCE_`)且訪客好感≥`KANSHOU_KNOCK_MIN_BOND_`時，這次來訪「別有用心」(夜襲鏡像版，共用`kanshouAsleepOutcomeStr_`)的機率。
 - `ALLY_BOND_DAY_TAG_`（`makeIntTag_('交流日', 0)`，2026-09 新增）— 盟友「今日已交流過」的戳記（每對象每日一次），`actionAllyBond` 讀寫的唯一出口；蓋戳必須早於卸防突襲那條提早 return 的路（見 CODE_NOTES）。
 - `KANSHOU_BOND_FLOOR_TAG_`（makeIntTag_ 好感底線·2026-07 新增）— 好感棘輪的高水位，只升不降（那正是「鎖住」本身）；見 `kanshouBondFloorOf_`。
 - `KANSHOU_CHILL_DAY_TAG_`／`KANSHOU_CHILL_MIN_DROP_`(3)／`KANSHOU_CHILL_DAYS_`(1)（2026-07 新增）— 🧊 好感【趨勢】。提示詞原本只給純量好感值，剛爬到 90 跟從 98 摔到 90 完全相同，冷落她毫無效果。只記「最近一次讓她不高興是哪一天」(absDay)，靠日期自然衰減。蓋戳兩處：爽約 -5、AI `rel_changes` 掉幅 ≥ MIN_DROP（**用 `change` 本身判定而非 `newFav-oldFav`**——棘輪把值夾在地板時兩者差 0，但她確實不高興過）。呈現在她自己的卡片（`pChillStr`，接在好感數字後）而非全域旁白，避免代名詞懸空。
 - `KANSHOU_COHABIT_END_TAG_`（makeIntTag_ 同居解除·2026-07 新增）— 跨函式傳事實用：`kanshouSyncRelTier_` 是共用 helper、看不到提示詞變數，蓋一次性旗標讓 `actionPlay_` 組 `kanshouCohabitEndStr` 時讀一次就清。
 - `KANSHOU_NIGHT_PART_TAG_`（makeTextTag_ 昨夜道別·2026-07 新增）— 與【晨間餘韻】同構的另一半：昨晚陪你到最後、卻沒留下的人（未達 80）。兩者互斥。
-- `KANSHOU_KNOCK_DAY_TAG_`／`KANSHOU_NIGHT_GUEST_TAG_`（2026-07）— 深夜訪客日戳／夜訪客姓名。（~~`KANSHOU_FESTIVAL_DONE_TAG_`~~ 已隨 2026-09 砍掉預寫橋段池一併移除。）
+（~~`KANSHOU_KNOCK_DAY_TAG_`~~／~~`KANSHOU_NIGHT_GUEST_TAG_`~~ 已隨 2026-09 砍掉深夜訪客一併移除；~~`KANSHOU_FESTIVAL_DONE_TAG_`~~ 已隨砍掉預寫橋段池一併移除。）
 - `KANSHOU_BACKFILL_DONE_TAG_`（makeIntTag_『設定已補』）— 創角敘事欄已經補過的章。蓋了之後 `actionBackfillKanshouAi` 只填還空著的格子，不再覆寫玩家玩出來/改命改過的內容。
 - `KANSHOU_MORNING_AFTER_TAG_`（makeTextTag_ 晨間餘韻）、`KANSHOU_SCENE_DAY_TAG_`（makeIntTag_ 橋段日·防同日重刷）、`KANSHOU_FIRST_MET_DAY_TAG_`（makeIntTag_ 初見日·紀念日）、`KANSHOU_APPT_BANDS_`（約定時段 午後14/黃昏18/夜20）。
 - `kanshouApptHour_(band)` — 約定時段→時刻（null=舊格式無時段）。
 - `kanshouGetPromise_` / `kanshouClearPromise_` / `kanshouSetPromise_(memory, absDay, loc, band, byHer)` — MEMORY【約定】absDay:band:loc 讀/清/寫（新約蓋舊、舊格式相容）。
 - `kanshouPromisePin_(row, absDay, curHour)` — 約定日把她 pin 到約定地：有時段=時刻前 10 分~+2h 內回地點、否則整天釘（相容）。
-- `KANSHOU_COHABIT_TAG_`（makeIntTag_ 同居）、`KANSHOU_HANDHOLD_TAG_`（makeTextTag_ 牽手·存玩家列單一對象）、`KANSHOU_AWAKE_HERE_TAG_`（makeTextTag_ 醒著陪同·2026-07新增·存該同伴列MEMORY·值＝她被判定醒著時所在的LOC）、`KANSHOU_COHABIT_BOND_`(90)、`KANSHOU_VISIT_BOND_`(40)、`KANSHOU_COHABIT_ROOM_`(和室)（常數）。
+- `KANSHOU_COHABIT_TAG_`（makeIntTag_ 同居）、`KANSHOU_HANDHOLD_TAG_`（makeTextTag_ 牽手·存玩家列單一對象）、`KANSHOU_AWAKE_HERE_TAG_`（makeTextTag_ 醒著陪同·存該同伴列MEMORY·值＝她被判定醒著時所在的LOC）、`KANSHOU_COHABIT_BOND_`(90)、`KANSHOU_VISIT_BOND_`(40)、`KANSHOU_COHABIT_ROOM_`(和室)（常數）。
 - `kanshouIsCohabit_(row)` — 該從者是否同居中。
 - `KANSHOU_FIRSTS_TAG_`／`kanshouGetFirsts_(memory)`／`kanshouStampFirst_(memory, key, absDay)`（2026-07 新增）— 💞 結構化「第一次」帳（存該同伴列 MEMORY`【初次】事件:absDay,…`）。`kanshouStampFirst_` 冪等：同 key 只記最早那次、滿 `KANSHOU_FIRSTS_CAP_`(20) 就不再收（既有的永不驅逐）；鍵名寫入前濾掉 `,:｜|【】`。蓋戳呼叫端：`actionPlay_` 的 cohabitInvite／post-AI 牽手接受分支／endDay 同床／`_settle` 赴約／roomEventAccept 非拒絕分支。讀取端：`actionPlay_` 的 `partyRows` 迴圈（取最早 `KANSHOU_FIRSTS_SHOW_`(5) 筆餵提示詞＋同月同日的週年偵測）。**加一種新的「第一次」＝呼叫端多一行 `kanshouStampFirst_`，helper 不必動。**
-- `KANSHOU_KNOCK_DAY_TAG_`（`makeIntTag_('夜訪日')`·存**玩家**列·absDay）／`KANSHOU_NIGHT_GUEST_TAG_`（`makeTextTag_('夜訪客')`·存**玩家**列·姓名）— 🚪 深夜訪客。前者一天只讓她登門一次（落盤化後「結束一天」可能被按很多次）；後者是「請她回去」(`dismissGuest`)的**唯一姓名來源**，刻意不吃 client 傳的名字。任一種收場（留下過夜／送她回去／單純結束一天）都會清掉後者。
 - `KANSHOU_COHABIT_ASKED_TAG_`（`makeIntTag_('同居問過')`·存該同伴列·**absDay 不是布林**）— 🏠 同居邀請泡泡的當日鎖。布林版玩家一旦改用打字，這個「一生一次」的邀請就永遠消失；完全不記又會退回被嫌煩的「每回合都跳」。舊存檔殘留的值 `1` 自然不等於當前 absDay，下次自動恢復詢問，不需遷移。
 - `PERSONA_SPEECH_TAG_`／`PERSONA_TIC_TAG_`（`makeTextTag_('口吻')`／`('小動作')`·Router_Persona.gs）— 🗣️ 2026-07 稽核：這兩個標記原本由 `stampPersonaFlavor_` 自己拼字串、**完全沒清洗**（speech 來源含工房 AI 生成的 dailyLook 第3段，AI 吐一個「【」就切壞整條 MEMORY）。改走工廠後一次拿到清洗＋replace-or-append；`getPersonaSpeech_`/`getPersonaTic_` 與 Router_Bond/Seed_Codex 的三處重複 regex 全部委派過來，全專案 4 份實作收斂成 1。
 - `KANSHOU_REL_RANK_TAG_`／`kanshouRelRank_(bond)`／`kanshouRelTierLabel_(rank)`（2026-07 新增）— 💗 關係階質變。`kanshouRelRank_` 把 BOND 換算成 1(點頭之交)~5(戀人) 的階數（反轉 `KANSHOU_REL_TIER_` 的高→低排序）；`【關係階】` 記當前階，**2026-07 改為雙向**（原本只升不降，於是降階時親密尺度悄悄收緊卻零敘事，玩家下一回合直接撞到「她突然不讓我碰了」；同居邀請的「一生一次」早就不靠這個 tag，有自己的 `KANSHOU_COHABIT_ASKED_TAG_`(absDay)＋`!kanshouIsCohabit_` 兩道獨立閘門，故改雙向是安全的）；`kanshouRelTierLabel_` 把階數換回階名（索引反轉，`KANSHOU_REL_TIER_` 仍是唯一真實來源）。跨階時只餵【事實】「某某從『A階』跨進『B階』」，不給寫好的文案。偵測在 `actionPlay_` 的 `partyRows` 迴圈（與紀念日同一趟）：首次見到靜靜記下當前階不報，之後升階才注入質變提示。**刻意看 BOND 不看 REL_TAG**——玩家自訂關係稱呼後 REL_TAG 不再等於梯度字面，跨階演出不該因此消失。
@@ -1332,8 +1328,6 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 #### 提議泡泡回應（同意/拒絕）
 - `kanshouConfirmMoveProposal(loc)` — 同意 AI 的移動提議（`moveTarget`＋`moveWithCompanion:true` 帶提議者同行）。
 - `kanshouDeclineMoveProposal()` — 拒絕移動提議（送普通續寫，原地不動）。
-- `kanshouSleepWithGuest()` — 深夜訪客善後「🛏 讓她留下」（`endDay:true`＋`skipKnockCheck`）：純結束一天，`intimateNightNames`（好感≥80 且此刻同地）本來就會把在場每一位都留下過夜。
-- `kanshouSendGuestHome()` — 深夜訪客善後「🚪 請她回去」（`endDay:true`＋`skipKnockCheck`＋**`dismissGuest:true`**）。⚠ 一定要帶 `dismissGuest`：她好感通常≥80 又已落盤在玩家所在地，不明講送客會被 `intimateNightNames` 直接留下過夜，這顆鍵會變成毫無作用。
   - ⚠ 取代已刪除的 `kanshouAnswerKnock`/`kanshouIgnoreKnock`：舊版是「開門/不予理會」的**待決泡泡**（後端純早退零落盤），玩家改用打字時整個「結束一天」的意圖會蒸發。現在是先落盤（她直接進門）再給善後選項。
 
 #### 相約 / 等待 / 選單

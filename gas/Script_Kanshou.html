@@ -44,7 +44,6 @@
     opts = opts || {};
     const moveTarget = opts.moveTarget || null, newPlace = opts.newPlace || null, lookAround = !!opts.lookAround, endDay = !!opts.endDay,
       advanceHours = opts.advanceHours || 0,
-      skipKnockCheck = !!opts.skipKnockCheck, dismissGuest = !!opts.dismissGuest,
       jumpBand = opts.jumpBand || null,
       loaderCaptions = opts.loaderCaptions || null, moveWithCompanion = !!opts.moveWithCompanion,
       promiseMeet = opts.promiseMeet || null, cohabitInvite = opts.cohabitInvite || null,
@@ -95,7 +94,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissGuest: dismissGuest || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined || undefined, handHold: handHold || undefined, handHoldId: handHoldId || undefined, cohabitInviteId: cohabitInviteId || undefined, confess: confess || undefined, confessId: confessId || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined || undefined, handHold: handHold || undefined, handHoldId: handHoldId || undefined, cohabitInviteId: cohabitInviteId || undefined, confess: confess || undefined, confessId: confessId || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -209,17 +208,6 @@ let plainTextContext = cleanText;
           + `<div style="color:#a8d0f0; font-size:12.5px; margin-bottom:6px;">📅 跟「${_pwn}」約的是 ${escapeHtml(String(_pw.apptLabel || ''))}，她還沒到。</div>`
           + `<button class="btn-option" style="width:100%;" onclick="kanshouWaitForPromise(${Number(_pw.targetHour) || 0})">⏳ 在這裡等她${_pw.waitLabel ? `（${escapeHtml(String(_pw.waitLabel))}）` : ''}</button></div>`;
       }
-      // 🚪 「睡覺時機率敲門」：跟moveProposal同款「不是敘事選項、是決定要不要真的觸發」
-      //   寫法，但這個是GAS機率觸發(結束一天前擲骰)，不是AI敘事判斷。
-      if (data.nightGuest) {
-        const gNameEsc = escapeHtml(String(data.nightGuest));
-        optionsHtml += `<div style="background:rgba(160,110,60,0.14); border:1px solid #8a6a3a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」這麼晚來了，就在門口。</div>`
-          + `<div style="display:flex; gap:8px;">`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouSleepWithGuest()">🛏 讓她進來</button>`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouSendGuestHome()">🚪 今晚先回去</button>`
-          + `</div></div>`;
-      }
       // 🤝 巧遇對象的「結識」邀請框：她此刻只是路人(不記好感·離開即散)，點了才正式入駐這座城。
       if (data.encounterOffer && data.encounterOffer.name) {
         const ivName = String(data.encounterOffer.name);
@@ -232,23 +220,23 @@ let plainTextContext = cleanText;
         currentOptions = data.options;
         // 🧱 【命運的抉擇】包進自己的 #ai-options-grid：「AI 選項顯示開關」只藏這個盒子。
         //   舊版開關直接 display:none 整個 options-container，把住在同一容器的所有「必點泡泡」
-        //   (前往/邀約/同居/敲門/橋段/結識)全部陪葬——玩家關了選項＝從此看不到任何泡泡(實測真兇)。
+        //   (前往/邀約/同居/橋段/結識)全部陪葬——玩家關了選項＝從此看不到任何泡泡(實測真兇)。
         optionsHtml += `<div id="ai-options-grid"${(typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? ' style="display:none"' : ''}>`;
         optionsHtml += `<div style="color: var(--gold-accent); font-weight: bold; border-bottom: 1px dashed rgba(212, 175, 55, 0.3); padding-bottom: 6px; margin-bottom: 8px;">【命運的抉擇】</div>`;
         optionsHtml += `<div class="options-grid">`;
         plainTextContext += `\n\n【命運的抉擇】\n`;
         data.options.forEach(optText => {
           // 🛡️ options是AI自由文字，唯一沒經過escapeHtml就塞進innerHTML的欄位——補上跟本檔
-          //   其餘AI字串(moveProposal/nightGuest 等)一致的跳脫。
+          //   其餘AI字串(moveProposal 等)一致的跳脫。
           optionsHtml += `<button class="btn-option" onclick="send('${optText.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}', true)">${escapeHtml(optText)}</button>`;
           plainTextContext += optText + `\n`;
         });
         optionsHtml += `</div></div>`;
       }
       if (optContainer) optContainer.innerHTML = optionsHtml;
-      // 📣 有「必須點的泡泡」(前往/邀約/同居/敲門/橋段/結識)時自動把它捲進視野——回應完只捲故事框、
+      // 📣 有「必須點的泡泡」(前往/邀約/同居/橋段/結識)時自動把它捲進視野——回應完只捲故事框、
       //   泡泡藏在頁面下方看不到＝玩家實測「哪裡有同意按鈕??」的真兇。一般選項不強制捲(維持閱讀位置)。
-      if (optContainer && (data.moveProposal || data.nightGuest || data.encounterOffer || data.promiseWait || data.cohabitOffer)) {
+      if (optContainer && (data.moveProposal || data.encounterOffer || data.promiseWait || data.cohabitOffer)) {
         try { optContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { }
       }
 
@@ -1109,26 +1097,6 @@ let plainTextContext = cleanText;
   }
   async function kanshouDeclineMoveProposal() {
     await send('這次還是先留在這裡好了。', false);
-  }
-
-  // 🚪 深夜訪客的【善後】選項——她【已經在房裡了】(後端擲骰命中時就把 LOC 落盤了)，這兩顆不是
-  //   「要不要發生」而是「這一夜怎麼收」。所以玩家完全可以無視它們直接打字聊天：她真的在場、
-  //   AI 照常演、日期沒推進，之後想睡再按一次「結束一天」(當日鎖 KANSHOU_KNOCK_DAY_TAG_ 擋著，
-  //   不會再來第二個人)——只是那時她會留下過夜，因為送客鍵只給這一次(玩家定案「就只要問一次」)。
-  //   ⚠ 這正是舊版「開門/不予理會」待決泡泡的病根，別再改回去。
-  async function kanshouSleepWithGuest() {
-    // 🌙 2026-07 玩家「留下就留下可以繼續聊…不拒絕、直接對話就是要她留下的意思」＋「不用拿掉，
-    //   只是不要跳到早上」＋「要讓玩家直覺一點，有些人就是喜歡按泡泡」。
-    //   夜襲命中時後端已經把這一夜切進【夜未眠】(見 Gallery.gs KANSHOU_NIGHT_SCENE_TAG_)，
-    //   所以「留下」不需要送任何旗標——★刻意【不帶 endDay】：帶了就會落到真正的結束一天、
-    //   一口氣跳到早上，跟按鈕上寫的「夜還很長」直接打架。這顆等同於玩家自己打字繼續，
-    //   泡泡派按鈕、打字派打字，兩邊落到同一個結果——這正是「直覺」的意思。
-    await send('（門關上了，這一夜還長）', false, {});
-  }
-  async function kanshouSendGuestHome() {
-    // ⚠ 一定要帶 dismissGuest：她好感通常≥80 又已落盤在你所在地，不明講送客的話會被 endDay 的
-    //   intimateNightNames 直接留下過夜——「請她回去」會變成完全沒作用(實測前抓到)。
-    await send('（送她回去之後，才和留下來的人一起歇下）', false, { endDay: true, skipKnockCheck: true, dismissGuest: true });
   }
 
   // 同伴名單變動後的局部刷新：只重抓「鑑賞眾生在場名單」這份小資料，不再重打 get_heroes，
