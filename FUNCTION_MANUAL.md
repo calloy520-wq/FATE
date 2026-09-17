@@ -1254,7 +1254,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `bond(type)` — 與從者相處增進羈絆（`bond`），處理里程碑/突襲/勝敗。
 - `openSealMenu()` — ❖令咒選單（絕對修復/強制補魔/緊急脫離）。
 - `useSeal(type)` — 施放令咒（`use_seal`）；`mana` 先過 `confirmSealMana_()`，兩分支 longForm、羈絆不夠可致死。
-- `confirmSealMana_()` — ⚡ 強制補魔確認框：拿現役從者的羈絆講明「本來就願意」或「令咒一散會殺了你，這一局就結束」。
+- `confirmSealMana_()` — ⚡ 強制補魔確認框（玩家定字）：羈絆 <`KC_MANA_TRUST_BOND_`「羈絆不夠，你確定要使用令咒強迫嗎？」／≥「是否消耗令咒無償補魔？」，你／妳依 `pc.sex`。
 - `resolveBlockCard_(res)` — 把後端擋下的動作(`needRest`/`needMana`/`needBreakAlliance`)轉成故事流內嵌卡片＋對應一鍵解決按鈕(secondWind/openRestMenu/forceSealNp_/manaSupply/breakAlliance)，取代舊版生硬的 `alert`。
 - `forceSealNp_()` — 燃令咒強制解放寶具(魔力不足也能放，必中×1.5)，重新呼叫 `servantStrike`。
 

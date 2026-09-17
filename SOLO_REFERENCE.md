@@ -116,7 +116,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 | get_heroes / get_masters | actionGetHeroes/Masters | 創角選單列出可選英靈/正典御主（正典御主資料前端可預取加速） |
 | get_tags | actionGetTags | 左側狀態面板資料（御主HP/MP/令咒/願望、從者陣列、供魔收支、禮裝、破戒能力）。核心 `buildTagsPayload_(sheets,pcId,preData)`（可吃已讀好的整表免重讀）；`sync`/夾帶 `_state` 已帶 `tags:` 同份 payload。 |
 | fate_battle | actionFateBattle | **核心戰鬥**：D20＋寶具＋令咒＋斬首＋雙從者＋協同強襲（見 §4）。多寶具選定、出力自動全開、令咒/超載檔位皆隨 fate_battle 夾帶（`userData` 的 servant/servantId/npChoice/seal/overload/stance 旗標；⚠ 主動技已被動化，後端不讀 `userData.skill`），省去單獨 round-trip。 |
-| use_seal | actionUseSeal | 令咒固定選單：修復/補魔/緊急脫離。（mana 分支：魔力滿擋下；羈絆 ≥`MANA_TRUST_BOND_`(60) 本來就願意＋過充；<60 反噬致死。前端 `confirmSealMana_` 按之前講明兩種結果）。**🐛→✅ 2026-07 修「脫離只搬一名從者」**：`escape` 分支舊版只搬 `findPlayerServantIdx_` 挑出的單一從者，破戒奪僕可讓玩家合法擁有兩名 `IS_PARTY==="同行"` 從者時，第二名完全不會被搬走(燃全局僅3道的令咒卻沒真正帶走全隊)——比照 `actionMove` 早就有的「搬所有同行成員」迴圈補上。 |
+| use_seal | actionUseSeal | 令咒固定選單：修復/補魔/緊急脫離。（mana 分支：魔力滿擋下；羈絆 ≥`MANA_TRUST_BOND_`(60) 本來就願意＋過充；<60 反噬致死。前端 `confirmSealMana_` 依羈絆給兩句確認）。**🐛→✅ 2026-07 修「脫離只搬一名從者」**：`escape` 分支舊版只搬 `findPlayerServantIdx_` 挑出的單一從者，破戒奪僕可讓玩家合法擁有兩名 `IS_PARTY==="同行"` 從者時，第二名完全不會被搬走(燃全局僅3道的令咒卻沒真正帶走全隊)——比照 `actionMove` 早就有的「搬所有同行成員」迴圈補上。 |
 | mana_supply | actionManaSupply | 補魔（燃迴路）：回滿共用池，永久代價 maxHP−15、迴路−3（地板迴路8/HP40）＋羈絆＋解鎖分支 500~600 字露骨＋存一次性【過充】token。**資格門檻**：從者 `BOND<MANA_TRUST_BOND_(60)` 或御主魔力 >`MANA_LOW_PCT_`(30%) 上限 → `declined` no-op（不耗AP/不燒/不動好感·純婉拒敘述）。前端 💧 鈕平常隱藏、達標才亮（`manaSupplyReady_`）。 |
 | spirit_repair | actionSpiritRepair | 🩹 靈基修復：消費共用魔力池為從者療傷（不燃令咒·可重複）。 |
 | set_servant_output | actionSetServantOutput | 🔋設從者出力檔（20/40/60/80/100，存 MEMORY【出力】）。免費即時不耗AP。決定戰力＋維持費；100% 才能放寶具。 |
@@ -1408,7 +1408,7 @@ solo 這邊補上的入口：帳號登入、開新局清檔、翻正典御主名
 
 | | 舊 | 新 |
 |---|---|---|
-| 令咒「⚡ 強制補魔」選單字 | 「魔力瞬間充盈到極限＋羈絆上升」（代碼裡沒有加羈絆；羈絆不夠是一鍵整局結束，沒確認框） | 「燒一道令咒，魔力回滿。羈絆不到 60 就是強迫。」＋ `confirmSealMana_`：拿現役從者的羈絆講明「本來就願意」或「令咒一散會殺了你，這一局就結束」 |
+| 令咒「⚡ 強制補魔」選單字 | 「魔力瞬間充盈到極限＋羈絆上升」（代碼裡沒有加羈絆；羈絆不夠是一鍵整局結束，沒確認框） | 「燒一道令咒，魔力回滿。羈絆不到 60 就是強迫。」＋ `confirmSealMana_`（玩家定字）：羈絆 <60「羈絆不夠，你確定要使用令咒強迫嗎？」／≥60「是否消耗令咒無償補魔？」（你／妳依 `pc.sex`） |
 | 令咒補魔·魔力滿 | 照樣發動，還塞給 AI「與魔力多寡無關、純粹是想要」（替玩家決定動機） | 擋下：「魔力是滿的，不用補。」（跟 💧 同一條線） |
 | 令咒補魔·提示詞 | 300 多字分鏡（「從抗拒翻轉成主動索求(纏抱、催促…)」「例如：…」「不必顧慮尺度」「不能只在結尾硬塞」「她/他」×5）＋「太浪費了」的評語 | 只給事實：燒了令咒、魔力回滿、羈絆數字與是否願意、令咒的效果（敏感度推高／御主性能力拉高／高潮由御主動作引發／兩邊的快感都在場）、性別事實、字數、收尾 |
 | 💧補魔·門檻 | 羈絆 ≥80 且 魔力 ≤10%（80 多數局到不了，10% 幾乎已在燒血——等於從來沒用過） | 羈絆 ≥60 且 魔力 ≤30%（`MANA_TRUST_BOND_`／`MANA_LOW_PCT_`，60 對齊羈絆里程碑 30/60/90） |

@@ -2861,13 +2861,10 @@
   // ⚡ 強制補魔的確認框：後端依羈絆分「本來就願意」／「強迫→令咒一散反噬致死」，兩種結果按之前都要看得到。
   async function confirmSealMana_() {
     var sv = activeServantObj_() || {};
-    var nm = String(sv.name || myActiveServant || '從者');
     var bond = parseInt(sv.bond) || 0;
-    var head = '⚡ 強制補魔\n\n燒一道令咒，魔力回滿。\n';
-    if (bond < KC_MANA_TRUST_BOND_) {
-      return customConfirm_(head + '「' + nm + '」的羈絆 ' + bond + '，不到 ' + KC_MANA_TRUST_BOND_ + '：這是強迫。\n令咒一散，「' + nm + '」會殺了你，這一局就結束。\n\n還是要燒？');
-    }
-    return customConfirm_(head + '「' + nm + '」的羈絆 ' + bond + '，本來就願意。\n\n燒嗎？');
+    var you = (pc && pc.sex === '女') ? '妳' : '你'; // 御主性別是資料
+    if (bond < KC_MANA_TRUST_BOND_) return customConfirm_('⚡ 強制補魔\n\n羈絆不夠，' + you + '確定要使用令咒強迫嗎？');
+    return customConfirm_('⚡ 強制補魔\n\n是否消耗令咒無償補魔？');
   }
 
   // ❖ 令咒選單（絕對命令需在戰鬥中對目標施放，這裡放自身向三招）
