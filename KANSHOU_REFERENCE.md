@@ -2562,7 +2562,7 @@ solo 的戰鬥與日結算，`Account.gs` 的殘列清理只讀「眾生」。�
 `Gallery.gs`／`Seed_Codex.gs` 碰得到，兩支都不寫 `DEAD_`。**那 34 處判斷一次都不會成立**，
 而且我還在稽核回覆裡把它當成一道「防線」講給玩家聽過。
 
-收成一支 `kanshouIsAlly_(row, gameId, loc)`：`Gallery.gs` 的 `startsWith("DEAD_")` 35 → 5
+收成一支 `kanshouIsAlly_(row, gameId, loc)`：`Gallery.gs` 裡 `DEAD_` 前綴的比對 35 → 5
 （剩下的是這支自己、御主列查找、自我排除、ID 前綴白名單——都是別的概念）。
 之後要加條件（例如「封存中的同伴」）改一處，不是 34 處。
 
