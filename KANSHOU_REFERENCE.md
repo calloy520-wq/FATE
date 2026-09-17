@@ -1190,7 +1190,7 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 ---
 
 ## 📎 主要常數速查（都在 `gas/Gallery.gs`）
-`KANSHOU_REL_TIER_`(五階) · `KANSHOU_STYLE_MODULES_`(14 段說書人風格·玩家可改)/`KANSHOU_STYLE_CATS_`(4 個面板分頁) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_PACE_OPTIONS_`(0/10/20/30 分鐘·玩家自選流速) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · ~~`KANSHOU_SCENE_EVENTS_`~~(橋段庫·2026-09 已整組砍除) · `KANSHOU_ALBUM_CAP_`(100)（`KANSHOU_FILM_PER_DAY_`已隨底片制拍照改手機一起刪除，見上方拍照/相簿章節） · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
+`KANSHOU_REL_TIER_`(五階) · `KANSHOU_STYLE_MODULES_`(15 段說書人風格·玩家可改)/`KANSHOU_STYLE_CATS_`(4 個面板分頁) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_PACE_OPTIONS_`(0/10/20/30 分鐘·玩家自選流速) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · ~~`KANSHOU_SCENE_EVENTS_`~~(橋段庫·2026-09 已整組砍除) · `KANSHOU_ALBUM_CAP_`(100)（`KANSHOU_FILM_PER_DAY_`已隨底片制拍照改手機一起刪除，見上方拍照/相簿章節） · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
 
 
 ---
@@ -2595,6 +2595,48 @@ solo 的戰鬥與日結算，`Account.gs` 的殘列清理只讀「眾生」。�
   `IS_PARTY` 鑑賞從不寫是已知的（改命走 `k_` 世界豁免）。
 - **AI 契約**：`rel_changes`／`npc_exit`／`intimacy_feedback`／`photo_caption`／`world_note` 逐欄有防線（見上一節）。
 - **前端出口**：`check_wiring` 的門檻→UI 對照全綠。
+
+## 📏 篇幅檔位＋分頁重排（2026-09）
+
+玩家「字數太多，他有點不知道該寫什麼」「說書人設定可以把字數獨立出來嗎，順便把上限也一起 300/500/700/900 這樣分類」。
+
+**篇幅本來玩家碰不到**：`KANSHOU_WORDS_` 依好感給底盤、這回合有大事再拉上限（300~400 ～ 700~900），
+`length` 那格只是**句子**，數字是 `{篇幅}` 代進去的。所以新增的是一個**選數字的控制**，不是再寫一段文字：
+
+- `KANSHOU_LEN_TIERS_`（自動／300／500／700／900）——**字數區間與 `max_tokens` 綁在同一列**。
+  ⚠ 只改字數不改 token 會被截斷成壞 JSON（JSON 欄位全滿的固定開銷約 1057 字）。
+- 新模組 `lenTier`，`kind: 'pick'`、`slot: 'none'`——面板畫成一排按鈕，且**不進任何提示詞**
+  （組裝一律照 key 點名，沒有人依 slot 迴圈，所以 `'none'` 是安全的）。選了就蓋掉自動表，`auto` 維持原行為。
+- 原本的 `length` 改名「篇幅的說法」——一格管數字、一格管講法，名字分開才不會兩個「篇幅」打架。
+
+**分頁 4 → 6**（15 段擠 4 頁太難找）：
+✍️ 文筆（筆觸·對話格式）｜📏 長度（篇幅·篇幅的說法·收尾）｜🎭 你（主權·演這一步·視角·感受）｜
+💞 對方（推演·情緒連貫·語癖）｜🔞 尺度（尺度）｜🌍 世界（不出戲·世界觀）。
+尺度獨立一頁——那是最常調的一格，不該埋在別人底下。
+
+⚠ **`_styles_` 的讀口要排在篇幅計算之前**：第一版把檔位寫在 `KANSHOU_WORDS_` 旁邊，
+但 `_styles_` 是在下面才宣告的，當場 `ReferenceError`（`check_undef` 看不到這種「宣告在後面」的時序問題，探針才抓到）。
+
+## 🎚️ 好感可以自己拉（2026-09）
+
+玩家「想要可以自由調整遊戲中角色的好感度」。一支 `set_bond` 服務兩軌（`pcId` 前綴分流，不開兩套）：
+鑑賞入口在同伴的「💞 關係」面板、solo 在從者卡的「💕 羈絆」選單。
+
+**鑑賞一定要走 `kanshouSyncRelTier_` 那個漏斗**——告白牆（沒告白的人夾在戀人門檻−1）與棘輪（高水位不回頭）
+是全鑑賞在吃的不變式，繞過去就壞。回傳【實際落定的值】與 `capped`，被夾住時 UI 要講出來。
+
+⚠ 踩到兩個坑，都是探針抓的：
+1. **棘輪只能往下調**。第一版在呼叫漏斗【之前】把地板寫成 `kanshouBondFloorOf_(want)`，
+   想調 100 時地板就變 100，剛好觸發漏斗那條「地板 ≥ 戀人門檻 ⇒ 蓋【戀人】」——**等於從後門繞過告白牆**，
+   100 原樣寫進去。往上一律交給漏斗自己算，這裡只在「玩家要調低」時把地板降下來。
+2. **光靠名字找不到人**。`npcName` 進 dispatcher 就被 `cleanChineseName` 洗過
+   （`Router_Action` 的 `CHINESE_NAME_FIELDS`），「阿爾托莉雅·潘德拉貢」的「·」會不見、
+   純拉丁真名（SABER／EMIYA）整個洗成空字串。所以 **id 優先、名字只當備援且要比洗過的**，
+   兩邊都認不出來時明講「少了指名的對象」，而不是靜靜回一句找不到。
+
+探針 `bond.js`（14 條）：solo 調上調下／夾 0~100／查無此人；鑑賞 50 不夾、100 被告白牆夾成 79、
+調得下去、只給拉丁名要擋下。另外把 `style.js` 的亂數釘死——它比對「提示詞逐字不變」，
+而 `actionPlay` 會擲骰生成約定/巧遇，隨機多一行就位移成偶發紅燈（實測 3 跑 1 紅）。
 
 ## 🔞 尺度加重（2026-09）
 

@@ -1660,6 +1660,20 @@ var KANSHOU_WORLD_TEXT_MAX_ = 40;
 //    cat：面板分頁（`KANSHOU_STYLE_CATS_`），只管畫面怎麼分類，跟 slot 無關。
 //    文字裡的 {玩家}／{代名詞} 在組裝時代入玩家名與代名詞(他/她/TA)；{篇幅} 代入這回合算出的字數區間。
 //    ⚠ 預設值故意留在 .gs 而不搬進試算表：check_prompt／check_pronoun 這些掃描器只看 .gs。（理由見 CODE_NOTES）
+// 📏 篇幅檔位（玩家可選）：字數區間與 token 上限綁同一列，改一格兩邊一起動。
+//    ⚠ tokens 要蓋得住「narration ＋ JSON 固定開銷」——欄位全滿時開銷約 1057 字，narration 超出去就被截斷成壞 JSON。
+//    auto＝沿用 KANSHOU_WORDS_ 那張依好感/大事的自動表（預設）。
+var KANSHOU_LEN_TIERS_ = [
+  { key: 'auto', label: '自動', words: '', tokens: 0 },
+  { key: '300', label: '300 字', words: '260~340', tokens: 1800 },
+  { key: '500', label: '500 字', words: '440~560', tokens: 2200 },
+  { key: '700', label: '700 字', words: '620~780', tokens: 2600 },
+  { key: '900', label: '900 字', words: '820~980', tokens: 3200 }
+];
+function kanshouLenTier_(key) {
+  return KANSHOU_LEN_TIERS_.find(t => t.key === String(key || 'auto')) || KANSHOU_LEN_TIERS_[0];
+}
+
 var KANSHOU_STYLE_MODULES_ = [
   { key: 'voice',      name: '筆觸',     hint: '敘事的調子與人稱——用什麼筆法寫、鏡頭站在誰身上。', slot: 'sys', cat: 'pen',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家·禁上帝視角。' },
   { key: 'agency',     name: '玩家主權', hint: '你的動作與台詞有多不可侵犯——說書人能不能替你補動作、替你開口。', slot: 'sys', cat: 'me',  def: '玩家的動作與台詞【只有玩家能決定】，語氣照原樣接下去(感受不在此限)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。' },
@@ -1669,21 +1683,24 @@ var KANSHOU_STYLE_MODULES_ = [
   { key: 'continuity', name: '情緒連貫', hint: '上一幕的情緒與親密程度怎麼接到這一幕。', slot: 'sys', cat: 'them',  def: '繼承歷史情緒與親密階；降溫只發生在被打斷/翻臉這類明確事件之後。' },
   // ⚠ key 仍叫 'moe'：萌點 2026-09 退休後這段只管語癖/稱呼，但 key 是玩家設定在試算表上的對位欄，改了＝玩家改過的那格對不回來。
   { key: 'moe',        name: '語癖與稱呼', hint: '口癖、專屬稱呼要多常拿出來用。', slot: 'sys', cat: 'them',  def: '語癖/專屬稱呼自然滲入、偶爾點到即可·同一個不重複用。' },
-  { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。', slot: 'sys', cat: 'them', def: '情慾場面放到最色，寫滿寫透：器官用本名，體液、聲音、氣味、溫度全部照實寫；衣服怎麼被解開、手先碰到哪裡、姿勢怎麼換、進出的節奏怎麼變，一個環節都攤開來寫；身體的反應寫具體——發抖、收緊、痙攣、失神，越到後面越失控。鏡頭貼著身體走，慢慢寫。' },
+  { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。', slot: 'sys', cat: 'lewd', def: '情慾場面放到最色，寫滿寫透：器官用本名，體液、聲音、氣味、溫度全部照實寫；衣服怎麼被解開、手先碰到哪裡、姿勢怎麼換、進出的節奏怎麼變，一個環節都攤開來寫；身體的反應寫具體——發抖、收緊、痙攣、失神，越到後面越失控。鏡頭貼著身體走，慢慢寫。' },
   { key: 'immersion',  name: '不出戲',   hint: '系統面的東西（數值、關係階級、回合）能不能出現在敘述裡。', slot: 'sys', cat: 'stage',  def: 'narration 只寫這個世界裡看得到聽得到的；好感、關係階級與任何系統變化，都用神情、語氣與彼此的距離去表現。' },
   { key: 'world',      name: '世界觀',   hint: '這座城市是什麼樣的世界、有沒有魔術與從者。', slot: 'user', cat: 'stage', def: '★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。' },
   { key: 'pov',        name: '視角',     hint: '「你」指的是誰、旁白能不能用第一人稱。', slot: 'user', cat: 'me', def: '★【視角鎖定】：「你」＝玩家『{玩家}』本人·旁白一律用「你」稱呼玩家，「我」留給角色引號內的台詞。同伴外貌只取材各人自己那份資料。' },
   { key: 'feel',       name: '你的感受', hint: '要不要寫出你自己的感官與情緒，還是只當一台攝影機。', slot: 'user', cat: 'me', def: '★【你也是這座城裡的一個人】：旁白從『{玩家}』的感官與【真正】的情緒寫起，性格帶來的反應底色見【玩家資料·旁白用】，沉默也要有理由。{代名詞}感覺得到自己的體溫與心跳，看不見自己的臉。' },
-  { key: 'length',     name: '篇幅',     hint: '一回合大概寫多長、寫不滿的時候怎麼補。', slot: 'user', cat: 'pen', def: '★【篇幅】：narration 寫 {篇幅} 字，下限是硬底線——字數靠互動與真實反應撐起來。' },
-  { key: 'ending',     name: '收尾',     hint: '每一段停在哪裡——留給誰的反應、要不要拋話題讓你接。', slot: 'user', cat: 'stage', def: '🚨【收尾{主動掌握}】：{推進}最後一句留給被搭話的人——用其答話或神情收尾，並拋出一個玩家接得住的話題(問句/邀約/此刻在意的事)，停在等玩家回應的那一刻。沒有別人在場才收在「你」身上。' }
+  { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依關係深淺與這回合有沒有大事自己調。', slot: 'none', cat: 'len', kind: 'pick', def: 'auto' },
+  { key: 'length',     name: '篇幅的說法', hint: '上面那個字數要怎麼講給說書人聽。', slot: 'user', cat: 'len', def: '★【篇幅】：narration 寫 {篇幅} 字，下限是硬底線——字數靠互動與真實反應撐起來。' },
+  { key: 'ending',     name: '收尾',     hint: '每一段停在哪裡——留給誰的反應、要不要拋話題讓你接。', slot: 'user', cat: 'len', def: '🚨【收尾{主動掌握}】：{推進}最後一句留給被搭話的人——用其答話或神情收尾，並拋出一個玩家接得住的話題(問句/邀約/此刻在意的事)，停在等玩家回應的那一刻。沒有別人在場才收在「你」身上。' }
 ];
 // 面板分頁：13 段排成一長排難選（玩家 2026-09「排版分類一下」），依【這段在管誰】分四類。
 // ⚠ 只影響 UI 分頁，跟 slot（進哪一段提示詞）是兩回事；提示詞組裝一律照 key 點名，不吃這張表的順序。
 var KANSHOU_STYLE_CATS_ = [
-  { key: 'pen',   name: '✍️ 文筆' },
-  { key: 'me',    name: '🎭 你' },
-  { key: 'them',  name: '💞 對方' },
-  { key: 'stage', name: '🌍 世界' }
+  { key: 'pen',   name: '✍️ 文筆' },   // 怎麼寫：筆觸、台詞排版
+  { key: 'len',   name: '📏 長度' },   // 寫多長、停在哪
+  { key: 'me',    name: '🎭 你' },     // 玩家這一側：主權、視角、感受
+  { key: 'them',  name: '💞 對方' },   // 對方這一側：推演、情緒、語癖
+  { key: 'lewd',  name: '🔞 尺度' },   // 情慾場面寫多開（獨立一頁，最常調的那格不用翻）
+  { key: 'stage', name: '🌍 世界' }    // 這座城與不出戲
 ];
 var KANSHOU_STYLE_TEXT_MAX_ = 300;
 var KS_ = { GID: 0, KEY: 1, TEXT: 2, ON: 3 };
@@ -1769,6 +1786,47 @@ function kanshouStyleClean_(text) {
 }
 
 // 🎨 ⚙ 說書人設定面板的後端：get 回整張表（只給提示與玩家自己的字，不給預設本體）、set 改一格／還原一格／全部還原。
+// 💞 直接把某人的好感／羈絆調成指定值（玩家自己拉的，不是劇情給的）。
+//    兩軌共用一支：鑑賞走 kanshouSyncRelTier_ 那個漏斗（告白牆與棘輪是全鑑賞在吃的不變式，繞過去會壞）；
+//    solo 沒有那兩條，直接夾 0~100 寫回。回傳【實際落定的值】——被漏斗夾住時玩家要看得到。
+function actionSetBond(userData, pcId, sheets) {
+  const want = Math.max(0, Math.min(100, parseInt(userData.bond) || 0));
+  const name = String(userData.npcName || userData.target || "").trim();
+  const npcId = String(userData.npcId || "").trim();
+  const isK = String(pcId || "").indexOf("KPC_") === 0;
+  const sh = sheets.pc;
+  const data = sh.getDataRange().getValues();
+  const meIdx = isK ? kanshouPcIdx_(data, pcId) : data.findIndex(r => String(r[COL.PC.ID]) === String(pcId));
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "找不到你的角色" });
+  const gid = String(data[meIdx][COL.PC.GAME_ID] || "");
+  // 🪪 id 優先、名字只當備援——而且備援要比【洗過的】名字：sanitizeUserData_ 會把姓名欄的「·」剝掉，
+  //    直接比字面的話「阿爾托莉雅·潘德拉貢」永遠對不上（同款坑見 CODE_NOTES 的長名同伴那條）。
+  const _clean = v => (typeof cleanChineseName === 'function' ? cleanChineseName(String(v || "")) : String(v || ""));
+  const wantName = _clean(name);
+  // ⚠ npcName 進 dispatcher 時已被 cleanChineseName 洗過（Router_Action 的 CHINESE_NAME_FIELDS），
+  //    純拉丁真名（SABER／EMIYA…）會被洗成空字串——這時只有 npcId 認得出人，講明比靜靜找不到好。
+  if (!npcId && !wantName && !name) return JSON.stringify({ success: false, message: "少了指名的對象。" });
+  const idx = data.findIndex((r, i) => i > 0 && i !== meIdx && String(r[COL.PC.GAME_ID] || "") === gid
+    && !String(r[COL.PC.ID]).startsWith("DEAD_")
+    && (npcId ? String(r[COL.PC.ID]) === npcId
+              : (String(r[COL.PC.NAME]) === name || (!!wantName && _clean(r[COL.PC.NAME]) === wantName))));
+  if (idx < 0) return JSON.stringify({ success: false, message: "找不到這個人。" });
+  data[idx][COL.PC.BOND] = want;
+  if (isK) {
+    // 棘輪在這裡【只往下調】：不然「調低」會被地板靜靜吃掉（零錯誤訊息的那種壞法）。
+    // ⚠ 往上一律交給 kanshouSyncRelTier_ 自己算——直接把地板寫到戀人門檻以上，
+    //    會觸發它那條「地板 ≥ 戀人門檻 ⇒ 蓋【戀人】」，等於從後門繞過告白牆（實測會把 100 原樣寫進去）。
+    const _oldFloor = KANSHOU_BOND_FLOOR_TAG_.get(data[idx][COL.PC.MEMORY]);
+    const _newFloor = kanshouBondFloorOf_(want);
+    if (_newFloor < _oldFloor) data[idx][COL.PC.MEMORY] = KANSHOU_BOND_FLOOR_TAG_.set(data[idx][COL.PC.MEMORY], _newFloor);
+    kanshouSyncRelTier_(data, idx);
+  }
+  const got = parseInt(data[idx][COL.PC.BOND]) || 0;
+  sh.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
+  return JSON.stringify({ success: true, name: String(data[idx][COL.PC.NAME]), bond: got, capped: got !== want,
+    tag: String(data[idx][COL.PC.REL_TAG] || "") });
+}
+
 function actionKanshouGetStyle(userData, pcId, sheets) {
   const kpc = sheets.pc;
   const data = kpc.getDataRange().getValues();
@@ -1778,7 +1836,8 @@ function actionKanshouGetStyle(userData, pcId, sheets) {
   const styles = kanshouStyleRead_(gid);
   const modules = KANSHOU_STYLE_MODULES_.map(m => {
     const o = styles[m.key] || null;
-    return { key: m.key, name: m.name, slot: m.slot, cat: m.cat, hint: m.hint || "",
+    return { key: m.key, name: m.name, slot: m.slot, cat: m.cat, hint: m.hint || "", kind: m.kind || 'text',
+      options: m.kind === 'pick' ? KANSHOU_LEN_TIERS_.map(t => ({ key: t.key, label: t.label })) : undefined,
       text: o ? o.text : "", on: o ? o.on !== false : true, custom: !!(o && String(o.text || "").trim()) };
   });
   return JSON.stringify({ success: true, modules: modules, cats: KANSHOU_STYLE_CATS_, max: KANSHOU_STYLE_TEXT_MAX_ });
@@ -3438,7 +3497,11 @@ function actionPlay_(userData, pcId, sheets) {
     || kanshouNightSceneStr || kanshouKnockRaidStr || kanshouCohabitStr || kanshouCohabitEndStr
     || kanshouPromiseMetStr || driveOn);
   const _kanshouWordRow_ = KANSHOU_WORDS_.find(t => _kanshouMaxBond_ >= t.min) || KANSHOU_WORDS_[KANSHOU_WORDS_.length - 1];
-  const _kanshouTargetWords_ = _kanshouBigBeat_ ? _kanshouWordRow_.big : _kanshouWordRow_.range;
+  // 🎨 玩家版說書人風格（缺列＝預設，預設＝原本寫死的那句）。讀口排在篇幅之前——篇幅檔位要吃它。
+  const _styles_ = kanshouStyleRead_(_myGid_);
+  // 玩家在「⚙ 說書人設定」選了檔位就蓋掉上面那張自動表；auto 維持原本依好感/大事的行為。
+  const _lenTier_ = kanshouLenTier_((_styles_['lenTier'] || {}).text);
+  const _kanshouTargetWords_ = _lenTier_.words || (_kanshouBigBeat_ ? _kanshouWordRow_.big : _kanshouWordRow_.range);
 
   if (_pendingProposal && !_settledVerdict) {
     const _ppName = String(_pendingProposal.name || (pcData[_pendingProposal.idx] || [])[COL.PC.NAME] || "對方");
@@ -3475,8 +3538,6 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   //    一個會變的東西插在中間，它後面全部作廢。天氣/時間原本卡在第 5 行，把整份 user prompt
   //    的可快取前綴砍到只剩 48%。唯二的例外是 🚨【收尾】與★【在場名單】：它們雖然穩定，但
   //    recency 對它們特別重要（實測過「事實寫在 20 行以前就會被 AI 當成沒發生」），故仍壓在最後。
-  // 🎨 玩家版說書人風格（缺列＝預設，預設＝原本寫死的那句）。
-  const _styles_ = kanshouStyleRead_(_myGid_);
   const _styleVars_ = { '玩家': pcName, '代名詞': _mePron_, '篇幅': _kanshouTargetWords_,
     '主動掌握': driveOn ? '·主動掌握' : '', '推進': driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : '' };
   const _sty_ = k => kanshouStyle_(_styles_, k, _styleVars_);
@@ -3504,7 +3565,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
   try {
     // 兩軌共用 AI_MODEL；被擋才自動換 FALLBACK_MODEL（Engine_Combat.gs 全域行為）。driveOn 只控敘事推進幅度、不換模型。
     const _timeJump = kanshouTimeJumped_;
-    let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: LEWD_MODEL, isNsfwMode: true, max_tokens: (_timeJump && partyRows.length === 0) ? 700 : 2400 };
+    let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: LEWD_MODEL, isNsfwMode: true, max_tokens: (_timeJump && partyRows.length === 0) ? 700 : (_lenTier_.tokens || 2400) };
 
     // 抓取近 6 筆原始歷史(3輪)，轉換為 API 格式。
     const recentHistoryRaw = getGameHistoryBatchRaw(pcId, _histWindow_);

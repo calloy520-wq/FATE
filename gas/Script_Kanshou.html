@@ -527,6 +527,21 @@ let plainTextContext = cleanText;
   //   回憶本身由 AI 在劇情里程碑時自動記下(每人保留最近10條，釘選的不佔淘汰名額)。
   var _kmBusy = false; // 💞讀條保護：面板開啟中/釘選刪除中的旗標，擋連點與競態(見 kanshouMemoirOp)。
   function kmSpinner_(msg) { return '<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:22px;color:#e8b8cc;font-size:13px;"><span class="km-spin" style="width:15px;height:15px;border:2px solid rgba(232,184,204,.3);border-top-color:#e8b8cc;border-radius:50%;display:inline-block;animation:kmspin .7s linear infinite;"></span>' + (msg || '處理中…') + '</div><style>@keyframes kmspin{to{transform:rotate(360deg)}}</style>'; }
+  // 🎚️ 調好感：輸入數字→後端夾過再回傳實際落定的值（被告白牆擋住時要講清楚，不能讓玩家以為沒反應）
+  async function kanshouSetBond(name, npcId, cur) {
+    const v = await customPrompt_('🎚️ 把「' + name + '」的好感調成？（0～100）', String(cur), 3);
+    if (v === null || String(v).trim() === '') return;
+    const n = parseInt(String(v).trim(), 10);
+    if (isNaN(n) || n < 0 || n > 100) { alert('填 0 到 100 的數字。'); return; }
+    const ov = document.getElementById('kbh-overlay'); if (ov) ov.style.display = 'none';
+    try {
+      const res = await withProcessing_('調整中…', () => gasRun({ action: 'set_bond', pcId: pc.id, acctName: currentAccount, npcName: name, npcId: npcId || '', bond: n }));
+      if (!res || !res.success) { alert((res && res.message) || '沒調成。'); return; }
+      alert('「' + name + '」的好感是 ' + res.bond + ' 了。' + (res.capped ? '\n告白之前最高就到這裡。' : ''));
+      _kcCur = []; // 清同伴快取，下次開面板重抓
+    } catch (e) { alert('沒調成。'); }
+  }
+
   async function kanshouOpenMemoir(name) {
     if (_kmBusy) return;
     var c = _kcCur.find(function (x) { return x.name === name; });
@@ -1555,6 +1570,21 @@ let plainTextContext = cleanText;
     });
     html += '</div>';
     _ksMods_.filter(function (m) { return m.cat === _ksCat_; }).forEach(function (m) {
+      // 📏 檔位型（篇幅）：一列按鈕選數字，沒有「自訂/關閉」那三態，也沒有文字框。
+      if (m.kind === 'pick') {
+        var cur = String(m.text || 'auto');
+        html += '<div style="background:rgba(56,48,36,.35); border:1px solid ' + (cur !== 'auto' ? '#a08850' : '#4a4034') + '; border-radius:8px; padding:9px 11px; margin-bottom:8px;">'
+          + '<div style="color:#e8d8b8; font-size:13px; font-weight:bold;">' + escapeHtml(m.name) + '</div>'
+          + '<div style="color:#8a7e64; font-size:11.5px; line-height:1.65; margin-top:3px;">' + escapeHtml(m.hint || '') + '</div>'
+          + '<div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:7px;">'
+          + (m.options || []).map(function (o) {
+            var on = String(o.key) === cur;
+            return '<button onclick="ksPick_(\'' + m.key + '\',\'' + o.key + '\')" style="flex:1 1 auto; background:' + (on ? '#4a3c24' : 'transparent')
+              + '; border:1px solid ' + (on ? '#a08850' : '#4a4034') + '; border-radius:7px; color:' + (on ? '#f0e0b8' : '#9a8e74')
+              + '; font-size:12px; font-weight:' + (on ? 'bold' : 'normal') + '; padding:5px 8px; cursor:pointer;">' + escapeHtml(o.label) + '</button>';
+          }).join('') + '</div></div>';
+        return;
+      }
       var mode = ksMode(m);
       var state = mode === 'off' ? '<span style="color:#c08a8a;">已關閉</span>'
         : (mode === 'own' ? '<span style="color:#d8b070;">自訂</span>' : '<span style="color:#6e8a84;">預設</span>');
@@ -1575,6 +1605,12 @@ let plainTextContext = cleanText;
     body.innerHTML = html;
   }
   function ksTab_(cat) { _ksCat_ = cat; ksRender_(); }
+  // 📏 檔位選一個就存（樂觀更新：先把畫面改掉，再背景寫回）
+  async function ksPick_(key, val) {
+    var m = _ksMods_.find(function (x) { return x.key === key; }); if (!m) return;
+    m.text = val; m.custom = val !== 'auto'; ksRender_();
+    try { await gasRun({ action: 'kanshou_set_style', pcId: pc.id, acctName: currentAccount, key: key, styleText: val }); } catch (e) { }
+  }
   // 三態的唯一判讀口。⚠「正在編輯」排最前面：關掉的那一段按【自訂】也要當場長出輸入框
   //   （三顆鈕是互斥狀態，按了沒反應＝死按鈕），存檔時一併把它開回來。
   function ksMode(m) { return _ksEdit_[m.key] ? 'own' : (!m.on ? 'off' : (m.custom ? 'own' : 'def')); }
@@ -1763,6 +1799,9 @@ let plainTextContext = cleanText;
         '目前：' + escapeHtml(String(curTag || '點頭之交')) + (curNickname ? '　專屬稱呼：' + escapeHtml(String(curNickname)) : '') + (b >= KC_CUSTOM_TAG_BOND_ ? '' : '　（自訂需好感 ' + KC_CUSTOM_TAG_BOND_ + '）'), '120,90,180')
       + row("kanshouOpenMemoir('" + safeN + "')", '💞', '共同回憶',
         '你們一起經歷過的重要瞬間　★釘選／🗑刪除', '200,120,150')
+      // 🎚️ 好感直接拉：玩家自己調，不是劇情給的。告白牆與棘輪仍由後端那個漏斗把關，夾住了會回報實際值。
+      + row("kanshouSetBond('" + safeN + "','" + safeId + "'," + b + ")", '🎚️', '調整好感',
+        '現在 ' + b + '　自己拉一個數字', '150,140,200')
       // 💗 告白：戀人這一階唯一的入口(好感被後端夾在 79)。三種狀態各自明講，不留「按了沒反應」的洞。
       + (lover
         ? '<div style="padding:8px 12px;margin-bottom:7px;color:#f0c0d8;font-size:12px;border:1px dashed rgba(240,140,180,.5);border-radius:8px;">💗 <b>交往中</b>　你們已經是戀人了</div>'
