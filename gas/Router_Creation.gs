@@ -61,8 +61,9 @@ function actionManualNpc(userData, pcId, sheets) {
     if (_fate) { circuits = _fate.circuits; magic = magic || _fate.magic; origin = origin || _fate.origin; melee = melee || _fate.melee; magicRank = magicRank || _fate.magicRank; }
     const safeCircuits = clampCircuits_(circuits);
     const masterStats = masterMaxHpMp_(safeCircuits || 30);
-    // 起始落點：確定性選一個有效冬木居所(偏好新都)，不需 AI；backfill 不動落點以免與移動競寫。
-    const spawnName = validMapNames.find(n => /新都/.test(n)) || validMapNames[0];
+    // 起始落點：避開這場戰爭的陣容站著的地方（舊版寫死「偏好新都」——而正典 5th 的伊莉雅＋赫拉克勒斯
+    //   與慎二＋吉爾伽美什就駐在新都，等於開局生在狂戰士頭上）。不需 AI；backfill 不動落點以免與移動競寫。
+    const spawnName = masterSpawnLoc_(validMapNames, userData.warMode === 'chaos' ? 'chaos' : (['4th', '5th'].indexOf(String(userData.war)) >= 0 ? String(userData.war) : '5th'));
 
     // 🛡️ 這幾格是玩家自由填寫的文字(sanitizeUserData_只截長度、不擋｜【】——那道清洗只鎖name/npcName等嚴格姓名欄位)，MEMORY是全欄位共用｜分隔的標記格式，比照setOutfit_/setWeapon_同款清洗，避免玩家文字裡剛好帶的｜【】把後面的【模式】【戰爭】【扮演】等系統標記截斷或偽造。
     const cleanTagText_ = (s, maxLen) => { const v = String(s || "").replace(/[｜【】\n\r\t]/g, ""); return maxLen ? v.slice(0, maxLen) : v; };

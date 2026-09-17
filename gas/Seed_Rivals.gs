@@ -135,6 +135,21 @@ function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   return row;
 }
 
+// 🏠 御主的落腳處：偏好清單裡第一個「這場戰爭的陣容沒佔用」的點。
+//    偏好清單只是順位，真正的安全來自 taken 那層——陣容改了落點自己會跟著讓開。
+var MASTER_SPAWN_PREF_ = ['衛宮宅', '冬木·商店街', '穗群原學園', '冬木·中央公園', '未遠川河畔'];
+function masterSpawnLoc_(validMapNames, war) {
+  var names = (validMapNames || []).filter(Boolean);
+  var taken = {};
+  var roster = (war === '4th') ? FATE_4TH_ROSTER : (war === '5th') ? FATE_5TH_ROSTER : [];
+  roster.forEach(function (r) { if (r && r.loc) taken[r.loc] = 1; });
+  var free = names.filter(function (n) { return !taken[n]; });
+  for (var i = 0; i < MASTER_SPAWN_PREF_.length; i++) {
+    if (free.indexOf(MASTER_SPAWN_PREF_[i]) >= 0) return MASTER_SPAWN_PREF_[i];
+  }
+  return free[0] || names[0] || '冬木·新都';
+}
+
 // 洗牌（GAS 端 Math.random 可用）
 function shuffle_(a) {
   for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
@@ -179,7 +194,12 @@ function seedRivalsForGame_(gameId, playerServantName, war, playedMaster) {
       var nm = String(r[COL.HERO.NAME]); if (seenHero[nm]) return false; seenHero[nm] = true; return true;
     });
     shuffle_(mPool); shuffle_(hPool);
-    var locPool = shuffle_(['冬木·深山町', '遠坂宅', '間桐宅', '言峰教會', '柳洞寺', '冬木·新都', '穗群原學園', '冬木·商店街']);
+    // 混亂的地點是當場洗的，創角時算不出來——改成反過來讓敵人避開玩家已經站著的那一格。
+    var playerLoc = '';
+    for (var pl = 1; pl < existing.length; pl++) {
+      if (String(existing[pl][COL.PC.GAME_ID] || "") === gameId && String(existing[pl][COL.PC.RANK]) === "御主") { playerLoc = String(existing[pl][COL.PC.LOC] || ""); break; }
+    }
+    var locPool = shuffle_(['冬木·深山町', '遠坂宅', '間桐宅', '言峰教會', '柳洞寺', '冬木·新都', '穗群原學園', '冬木·商店街'].filter(function (n) { return n !== playerLoc; }));
     var n = Math.min(7, mPool.length, hPool.length);
     // 🎲 隨機登場日：比照正史roster的登場機制(hasArrived_/setArriveDay_)；前 CHAOS_GUARANTEED_IMMEDIATE_ 組保證第1天就在(開局至少有東西可打)，其餘每組50%機率延後第2~5天登場。
     var CHAOS_GUARANTEED_IMMEDIATE_ = 3;

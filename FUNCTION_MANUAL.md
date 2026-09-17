@@ -1032,6 +1032,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `safeJson_(s, dflt)` — try/catch JSON.parse，失敗回 dflt。
 - `heroMagicRank_(heroRow)` — 讀英靈殿列六圍【魔力】階（給共用魔力池公式用），無則 C。
 - `shuffle_(a)` — Fisher-Yates 洗牌（GAS 端 Math.random）。
+- `masterSpawnLoc_(validMapNames, war)` — 🏠 開局落點：`MASTER_SPAWN_PREF_` 裡第一個「這場戰爭陣容沒佔用」的地圖點（舊版寫死偏好新都＝生在赫拉克勒斯頭上）。
 
 #### 戰爭迷霧
 - `markRivalsSeen_(sheets, pcId, preData)` — 玩家所在格若有未偵查、已登場的敵御主/敵從者，標記 SEEN=1（地圖點亮）；preData 就地標記＋SEEN 整欄一次寫回。
