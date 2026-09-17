@@ -5268,7 +5268,7 @@ ID 沿用 `KHV_` 前綴而不是另開一個：`Core_Settings.gs` 狀態同步�
 這些全是第一人稱真的感覺得到的。禁的是外觀，不是感受。
 
 **為什麼 `_meFlavorStr_`／`_meMoeStr_` 硬要複用同伴那組 helper**
-（`getPersonaSpeech_`／`getPersonaTic_`／`traitPrivateOf_`）：玩家列跟同伴列是**同一張 schema**，
+（`getPersonaSpeech_`／`getPersonaTic_`／~~`traitPrivateOf_`~~·2026-09 已移除）：玩家列跟同伴列是**同一張 schema**，
 萌點早就存在 `COL.PC.INTENT`（`actionBackfillKanshouAi` 一直有生成），只是從來沒印出來。
 另寫一套讀法＝同一個資料兩種讀法，日久必歪。
 
