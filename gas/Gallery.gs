@@ -259,9 +259,10 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   sRow[COL.PC.TRAIT] = parseTraitsHelper(traitSrc, "外貌出眾、舉止從容、卸下心防時的柔軟一面", TRAIT_SLOTS_);
   sRow[COL.PC.INTENT] = daily.moe || "";
   // 戰時 p.back 跟平行世界矛盾，優先讀 p.dailyBack。
+  // ⚠ 兩者都沒有就【留空】：卡片的「經歷」欄空了就不印（pBackStr），比塞一句泛用墊底話好——
+  //    那句對 25 位有名有姓的英靈零資訊量，還會擋掉 AI 自己補一段合理來歷的空間。
   sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28)
-    : p.back ? String(p.back).slice(0, 28)
-    : "生活在這座城鎮裡的普通身影，與你尚無深交";
+    : p.back ? String(p.back).slice(0, 28) : "";
   // 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回「日常便服」。
   var dailySpeechPart = dailyLookParts.length >= 4 ? dailyLookParts[2] : "";
   sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】在這座城裡剛結識的緣分，才剛開始。", dailySpeechPart, ""), daily.outfit || "日常便服");
@@ -3268,6 +3269,12 @@ function actionPlay_(userData, pcId, sheets) {
   let partyDetailsArr = [];
   const _presenceSeen_ = {};
   const _partyHeroCodex = partyMembers.length > 0 ? getHeroCodexCached() : null;
+  // 🔦 聚光燈：玩家這一步點名了誰，誰才拿完整的卡；同場其他人拿短卡（名字/裝扮/現況/口吻/關係）。
+  //    提示詞本來就寫著「玩家專一對著一個人時其他人背景輕描」——這是把那句話真的做出來。
+  //    ⚠ 沒點名任何人就【全部都給完整卡】（維持原行為）：猜錯的代價是那個人當場失格，不值得賭。
+  const _spotlight_ = userMsg
+    ? partyMembers.filter(n => kanshouNameCandidates_(String(n)).some(c => c && userMsg.indexOf(c) >= 0))
+    : [];
   partyMembers.forEach(pName => {
     const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && !String(row[COL.PC.ID]).startsWith("DEAD_") && sameGame(row));
     if (r) {
@@ -3354,7 +3361,9 @@ function actionPlay_(userData, pcId, sheets) {
         return "【你們從剛才就一直在這裡】——早已在場，接著這一刻往下寫";
       })();
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
-      partyDetailsArr.push(`【在場人物】名字:${pName}【性別:${String(r[COL.PC.SEX] || "").trim() || "異"}】｜__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? ` | 裝扮:${pOutfit}` : ""}${(() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? ` | 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${pFlavorStr}${pBackStr}${(() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })()}${pSleepStr ? ` | 現況:${pSleepStr}` : ""}${pCohabitStr}${pMemoirStr}${pPromiseStr}${pKnownStr} | 關係:${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pTierToneStr}${pChillStr})`);
+      // 🔦 背景輕描：這一步沒被點名的人只送「此刻的情境」那幾欄，性格/特徵/經歷/萌點/共同回憶下回合被點名時再給。
+      const _lit = !_spotlight_.length || _spotlight_.indexOf(pName) >= 0;
+      partyDetailsArr.push(`【在場人物】名字:${pName}【性別:${String(r[COL.PC.SEX] || "").trim() || "異"}】｜__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? ` | 裝扮:${pOutfit}` : ""}${_lit ? (() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? ` | 性格:${_p}` : ""; })() : ""}${_lit ? (() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })() : ""}${pSpeech ? ` | 口吻:${pSpeech}` : ""}${_lit && pTic ? ` | 招牌小動作:${pTic}` : ""}${_lit ? pBackStr : ""}${_lit ? (() => { const _mo = [pMoeStr, traitPrivateOf_(r[COL.PC.TRAIT])].filter(Boolean).join("／"); return _mo ? ` | 萌點(僅供內化):${_mo}` : ""; })() : ""}${pSleepStr ? ` | 現況:${pSleepStr}` : ""}${pCohabitStr}${_lit ? pMemoirStr : ""}${pPromiseStr}${pKnownStr} | 關係:${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pTierToneStr}${pChillStr})`);
     }
   });
   // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。

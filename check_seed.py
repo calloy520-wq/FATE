@@ -100,6 +100,34 @@ def check_name_has_cjk(bad, seed_src):
     return len(names)
 
 
+# 📖「經歷」不可以是「性格」的改寫：兩欄在同一張卡上並排送給 AI，講同一件事就是白付兩次的字，
+#    而玩家的原話是「給太多資料 AI 反而演不出來」。用 2-gram 重疊率量，≥40% 就當成改寫。
+#    經歷該放的是【事實】（他是誰／做什麼／和誰有關係），性格那格才放形容。
+BACK_DUP_MAX = 0.4
+
+
+def _grams(t):
+    t = re.sub(r'[、，。・()（）,\s]', '', str(t or ''))
+    return {t[i:i + 2] for i in range(len(t) - 1)}
+
+
+def check_back_not_personality(bad, seed_src):
+    n = 0
+    for m in re.finditer(r"id\s*:\s*'([^']+)'.*?dailyWords\s*:\s*'([^']*)'.*?dailyBack\s*:\s*'([^']*)'", seed_src, re.S):
+        sid, words, back = m.group(1), m.group(2), m.group(3)
+        if not back:
+            continue
+        n += 1
+        a, b = _grams(back), _grams(words)
+        if not a or not b:
+            continue
+        ov = len(a & b) / min(len(a), len(b))
+        if ov >= BACK_DUP_MAX:
+            bad.append("「%s」的經歷只是性格的改寫（重疊 %d%%）：%s —— 經歷放事實，形容留給性格那格"
+                       % (sid, round(ov * 100), back))
+    return n
+
+
 def check_hardcoded_names(bad, seed_src, files, extra=()):
     names = set(re.findall(r"realName\s*:\s*'([^']*)'", seed_src))
     ids = set(re.findall(r"\{\s*id\s*:\s*'([^']*)'", seed_src))   # id 不是真名（「衛宮士郎-Master」含著真名）
@@ -202,6 +230,7 @@ def main():
     n_tom = check_tomaster(bad, seed_src)
     n_lit = check_hardcoded_names(bad, seed_src, gas_files())
     n_nm = check_name_has_cjk(bad, seed_src)
+    n_bk = check_back_not_personality(bad, seed_src)
 
     # 🧪 自我退化測試：注入一個不存在的 fx，這支必須叫。
     probe = []
@@ -210,12 +239,13 @@ def main():
     before = len(probe)
     check_hardcoded_names(probe, seed_src, [], extra=[('(注入)', "if (name === '阿爾托莉雅') return [];")])
     check_name_has_cjk(probe, "realName:'EMIYA',")
-    if len(probe) < 4 or len(probe) == before:
+    check_back_not_personality(probe, "{ id:'測試-Saber', dailyWords:'隨性自來熟、重情義、釣魚與湊熱鬧、拐彎抹角的算計', dailyBack:'隨性愛湊熱鬧，重情義' }")
+    if len(probe) < 5 or len(probe) == before:
         print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名抓不到）')
         return 1
 
-    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、daily 專欄 %d 格（含自我退化測試）'
-          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_own))
+    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、daily 專欄 %d 格（含自我退化測試）'
+          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_own))
     if bad:
         print('  ❌ %d 處「寫了但沒人吃」：' % len(bad))
         for b in bad:
