@@ -526,7 +526,6 @@ function actionKanshouReset(userData, pcId, sheets) {
   // 鑑賞眾生：玩家自己那列也在這一局的 game_id 底下，一起清掉
   const purgedIds = kanshouPurgeByGame_(kpc, COL.PC.GAME_ID, gid, COL.PC.ID);
   try { purgeHistoryForPcIds_(purgedIds); } catch (e) { }
-  try { kanshouPurgeByGame_(kanshouAlbumSheet_(), 0, gid, null); } catch (e) { }
   try { kanshouPurgeByGame_(kanshouWorldSheet_(), KW_.GID, gid, null); kanshouWorldBust_(gid); } catch (e) { }
   try { kanshouPurgeByGame_(kanshouStyleSheet_(), KS_.GID, gid, null); kanshouStyleBust_(gid); } catch (e) { }
 
@@ -1582,7 +1581,6 @@ function kanshouIsCohabit_(row) { return KANSHOU_COHABIT_TAG_.get(row[COL.PC.MEM
 function kanshouSanitizeTagValue_(value, maxLen) {
   return String(value || "").replace(/[,:｜【】"'<>\n\r\t]/g, "").trim().slice(0, maxLen || 8);
 }
-// 📷 相簿(拍照收集)：手機拍照·2026-07 再修（玩家「拍照要改成手機、不用等」）——原本是寶麗來設定(每日底片限量+隔天沖洗)，玩家覺得手機沒有底片這種東西、拍完也該立刻能看，兩個限制都拔掉了。
 const KANSHOU_ALBUM_CAP_ = 100;
 // ═══════════════════════════════════════════════════════════════════
 // 🌍 世界帳本 —— AI 發明出來的東西，落盤的地方
@@ -2067,24 +2065,11 @@ function kanshouWorldFeed_(rows, curLoc, presentNames, userMsg, curDay) {
     : '';
   return `\n★【這個世界已經確立的事】：${line}。這些是你們一路玩出來的既定事實，需要時原樣承接。${folk}`;
 }
-function kanshouAlbumSheet_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sh = ss.getSheetByName('相簿');
-  if (!sh) { sh = ss.insertSheet('相簿'); sh.appendRow(['遊戲ID', '照片ID', '拍攝日', '時段', '地點', '天氣', '人物', '活動', '小敘述', '旗標', '髮色']); }
-  return sh;
-}
 const KANSHOU_HAIR_COLORS_ = [
   ['深紫', '#4a3a5e'], ['紫', '#7a5a9a'], ['金', '#e8c86a'], ['白髮', '#e8e4ea'], ['銀', '#d8d8e0'],
   ['黑', '#241f2e'], ['紅褐', '#8a4a34'], ['栗色', '#8a5a3a'], ['褐', '#6a4a34'], ['棕', '#6a4a34'],
   ['藍', '#4a6a9a'], ['粉', '#d88aa8'], ['青綠', '#5a9a8a'], ['綠', '#5a8a6a'], ['紅', '#b04a3a'], ['橙', '#c87a3a']
 ];
-function kanshouHairHex_(lookText) {
-  const s = String(lookText || "");
-  for (let i = 0; i < KANSHOU_HAIR_COLORS_.length; i++) {
-    if (s.indexOf(KANSHOU_HAIR_COLORS_[i][0]) >= 0) return KANSHOU_HAIR_COLORS_[i][1];
-  }
-  return '#5a4a3e';
-}
 const KANSHOU_ANNIV_MILESTONES_ = [7, 30, 100, 365];
 const KANSHOU_WEATHER_BY_SEASON_ = {
   winter: ['晴朗清冷', '陰天', '小雪紛飛', '雪後轉晴', '寒風凜冽'],
@@ -2780,7 +2765,7 @@ function actionPlay_(userData, pcId, sheets) {
   // ⏰ 時間隨動作流動：一般 AI 敘事回合(非結束一天/非時段跳躍)每次推進 kanshouHourPerAction_(memory) 小時(玩家自選流速)，讓聊天/移動/拍照/橋段等按鍵都會讓時鐘往前走，消除「到處跑卻永遠6點」的凍結感。
   let kanshouBandCrossed_ = false; // 被動流動跨過時段邊界→下方「作息自然告辭」用
   // 📱 拍照不算時間（2026-09）：真的用手機拍是一秒鐘的事，玩家常「拍一張、再拍一張」，每張走掉半小時下午就沒了。
-  if (!kanshouClockMoved_ && curHour < KANSHOU_DAY_LAST_HOUR_ && _paceHour_ > 0 && userData.takePhoto !== true) {
+  if (!kanshouClockMoved_ && curHour < KANSHOU_DAY_LAST_HOUR_ && _paceHour_ > 0) {
     const _pbBand = timeBand_(curHour);
     curHour = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + _paceHour_);
     pcData[pcIndex][COL.PC.HOUR] = curHour;
@@ -3150,58 +3135,6 @@ function actionPlay_(userData, pcId, sheets) {
     : "";
 
   // 📷 拍照(takePhoto)：手機拍照·2026-07 再修（玩家「拍照要改成手機、不用等」）——手機沒有底片這種東西，只驗相簿總容量；拍完立刻存進相簿、立刻能看，不再有「隔天沖洗」的等待。
-  let kanshouPhotoStr = "", kanshouPhotoPending_ = null, kanshouPhotoDenied_ = "";
-  if (userData.takePhoto === true) {
-    const _phIntent = String(userData.photoIntent || "").replace(/[<>&"'`｜【】]/g, "").slice(0, 60);
-    let _phCount = 0, _phCountErr = false;
-    try { const _ar = kanshouAlbumSheet_().getDataRange().getValues(); for (let i = 1; i < _ar.length; i++) { if (String(_ar[i][0]) === myGameId) _phCount++; } } catch (e) { _phCountErr = true; }
-    if (_phCountErr || _phCount >= KANSHOU_ALBUM_CAP_) {
-      kanshouPhotoDenied_ = 'cap';
-      kanshouPhotoStr = `\n★【相簿已滿】：玩家舉起手機，卻想起相簿已經放不下更多照片了——演出這份「回憶太滿」的感嘆即可。`;
-      finalUserMsg = `【玩家意圖】：舉起手機，卻想起相簿已經滿了。`;
-    } else {
-      // 指定拍誰：intent點名了哪些在場同伴(可多位)——只拍被點名的那些人；沒點名到任何人才算風景。
-      const _phNamedMembers = _phIntent ? partyMembers.filter(n => kanshouNameCandidates_(String(n)).some(c => _phIntent.indexOf(c) >= 0)) : [];
-      // 🤳 自拍：玩家自己也入鏡（2026-09）。沒人在場的自拍＝一個人的自拍，不算風景。
-      const _phSelfie = userData.selfie === true;
-      const _phScenery = !_phSelfie && (!partyMembers.length || (_phIntent && !_phNamedMembers.length));
-      const _phCaptionRule = `並【務必】在回應JSON中額外加一個欄位 "photo_caption"：同 narration 用第二人稱「你」稱玩家、寫一句30~60字的照片小敘述(純文字)，若拍到的是親密畫面也直接寫實描述，不用刻意隱晦帶過。`;
-      if (_phScenery) {
-        kanshouPhotoPending_ = { names: ['風景'], scenery: true };
-        kanshouPhotoStr = `\n★【拍照·風景】：玩家舉起手機${_phIntent ? `，想拍的是「${_phIntent}」，` : "，"}拍下此刻「${kanshouLocNameForAI_(curL)}」的一隅——鏡頭裡可以是街貓、狗兒、鳥雀、光影、不具名路人的背影等生活細節(依地點/時段/天氣自然想像${_phIntent ? "，以玩家想拍的東西為主角" : ""})；若有同伴在場，她們可以自然反應或亂入鏡頭邊角。${_phCaptionRule}`;
-        finalUserMsg = `【玩家意圖】：舉起手機，${_phIntent ? `拍下「${_phIntent}」` : "拍下眼前的光景"}。`;
-      } else {
-        // 點名了誰就只拍那(幾)位；沒點名(空手按)＝在場的人全部入鏡合照（2026-09 拿掉「前 3 位」的暗規則：
-        //   按鈕寫「大家的合照」，第四位卻被靜靜排除，介面在說謊）。
-        const _phTargets = _phNamedMembers.length ? _phNamedMembers : partyMembers.slice();
-        const _phSolo = _phTargets.length === 1;
-        if (_phSelfie) {
-          // 🤳 自拍：玩家在鏡頭裡。人物欄把玩家自己排第一，相簿篩選才找得到「有你的照片」。
-          kanshouPhotoPending_ = { names: [String(pcName)].concat(_phTargets), selfie: true };
-          kanshouPhotoStr = _phTargets.length
-            ? `\n★【自拍】：玩家舉起手機、鏡頭轉向自己這一側，要跟『${_phTargets.join('、')}』一起入鏡——對方要不要靠過來、靠多近、擺什麼表情，【依各自好感與性格】決定(好感低的可能只肯站在邊角、或伸手擋鏡頭；好感高的會貼上來)。玩家自己在畫面裡，這一張是「你們」的照片。${_phCaptionRule}`
-            : `\n★【自拍】：身邊沒有人，玩家舉起手機對著自己拍了一張——鏡頭裡是「${kanshouLocNameForAI_(curL)}」的背景和此刻的自己，可以帶一點獨處的心情。${_phCaptionRule}`;
-          finalUserMsg = `【玩家意圖】：舉起手機自拍${_phTargets.length ? `，要跟『${_phTargets.join('、')}』一起入鏡` : ''}。`;
-        } else {
-          kanshouPhotoPending_ = { names: _phTargets };
-          kanshouPhotoStr = `\n★【拍照】：玩家舉起手機，${_phSolo ? `單獨` : ``}拍下『${_phTargets.join('、')}』此刻的身影${_phTargets.length > 1 ? `(這是一張把她們一起框進來的合照)` : ``}——讓被拍的人依各自性格與好感演出被拍瞬間的反應(大方擺姿勢/害羞遮臉/嗔怪/渾然未覺皆可)${partyMembers.length > _phTargets.length ? `；在場其他沒被拍到的人可以自然旁觀或起鬨` : ``}。${_phCaptionRule}`;
-          finalUserMsg = `【玩家意圖】：舉起手機，拍下『${_phTargets.join('、')}』此刻的樣子。`;
-        }
-      }
-    }
-  }
-  let kanshouShowPhotoStr = "";
-  if (userData.showPhoto) {
-    try {
-      const _spRows = kanshouAlbumSheet_().getDataRange().getValues();
-      let _spRow = null;
-      for (let i = 1; i < _spRows.length; i++) { if (String(_spRows[i][0]) === myGameId && String(_spRows[i][1]) === String(userData.showPhoto).trim()) { _spRow = _spRows[i]; break; } }
-      if (_spRow) {
-        kanshouShowPhotoStr = `\n★【看照片】：玩家拿出手機把一張照片給在場的人看——照片內容：${String(_spRow[3])}的「${String(_spRow[4])}」、拍到的是『${String(_spRow[6])}』${_spRow[8] ? `(${String(_spRow[8])})` : ""}。讓在場的人依性格反應：照片裡是自己→害羞/得意/嫌拍得糊皆可；照片裡是別人→好奇評論，跟玩家關係深的人可以暗暗吃味。`;
-        finalUserMsg = `【玩家意圖】：拿出手機給在場的人看一張照片。`;
-      }
-    } catch (e) { }
-  }
   let partyDetailsArr = [];
   const _presenceSeen_ = {};
   const _partyHeroCodex = partyMembers.length > 0 ? getHeroCodexCached() : null;
@@ -3442,7 +3375,7 @@ ${PROMPT_PARTY_SYSTEM}
 ${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性；玩家只是日常時不憑空推進情慾${_intimacyLines_.indexOf('\n') >= 0 ? '（多人各依各自好感，不共用同階）' : ''}：\n${_intimacyLines_}\n` : ''}
 ${_sty_('length')}
 ★★【地點釘死】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
-${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouPhotoStr}${kanshouShowPhotoStr}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}
+${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}
 ★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}・${kanshouWeather_(curDay)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依此刻的時段寫；本回合只寫這十分鐘內的片段，時間推進由系統宣告。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·只活在你的回想裡。` : ""}
 
 ${npcDialoguePrompt}${_earlierDigest_ ? `\n★【稍早做過的事】：${_earlierDigest_}——都已發生過，需要時自然呼應，別重演。` : ""}
@@ -3480,31 +3413,6 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
 
     if (aiData._genFailed) {
       return JSON.stringify({ text: aiData.narration, options: aiData.options });
-    }
-
-    var kanshouPhotoResult_ = null;
-    if (kanshouPhotoPending_) {
-      try {
-        const _phCap = String(aiData.photo_caption || `${timeBand_(curHour)}的${String(curL || "")}，${kanshouPhotoPending_.names.join('、')}的身影。`)
-          .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, "")
-          .replace(/[<>&"'`｜【】]/g, "").slice(0, 90)
-          .replace(/^[=+\-@\t\r]+/, "");
-        const _phSubj = kanshouPhotoPending_.scenery ? null : pcData.find(r => String(r[COL.PC.NAME]).trim() === String((kanshouPhotoPending_.selfie ? kanshouPhotoPending_.names[1] : kanshouPhotoPending_.names[0]) || '').trim() && String(r[COL.PC.FACTION]) === "從者" && sameGame(r));
-        const _phHair = kanshouPhotoPending_.scenery ? '#7a9a6a' : kanshouHairHex_(_phSubj ? String(_phSubj[COL.PC.TRAIT] || "") : ""); // 風景照緞帶固定草綠
-        // 節慶旗標(相簿卡片會顯示)：原本讀 kanshouReFest_，那個區域變數隨情境橋段一起刪掉了，現場算。
-        const _phFest = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day);
-        const _phFlag = driveOn ? '親密' : (_phFest ? _phFest.name : '');
-        const _phId = 'PH_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
-        // 「活動」欄：原本填 kanshouLocActivity_(地點×人的寫死變體池)，那張表已隨預寫橋段整批移除。
-        // 相簿卡片從來沒有顯示過這一欄(kcAlbumCardHtml_ 只印 caption/日期/天氣/人物/旗標)，故留空。
-        // ⚠ 欄位本身保留不刪——COL 是位置索引，刪欄會位移整張相簿表(CLAUDE.md 工程準則)。
-        const _phRow = [myGameId, _phId, curDay, timeBand_(curHour), String(curL || ""), kanshouWeather_(curDay), kanshouPhotoPending_.names.join('、'), "", _phCap, _phFlag, _phHair];
-        kanshouAlbumSheet_().appendRow(_phRow);
-        // 📱 手機拍完當下就能看：卡片物件隨這回合回去，前端直接畫在對話裡，不必再打開相簿（玩家 2026-09）
-        kanshouPhotoResult_ = { ok: true, photo: kanshouPhotoObj_(_phRow) };
-      } catch (e) { kanshouPhotoResult_ = { ok: false, reason: 'error' }; }
-    } else if (kanshouPhotoDenied_) {
-      kanshouPhotoResult_ = { ok: false, reason: kanshouPhotoDenied_ };
     }
 
 
@@ -3797,7 +3705,6 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
       proposalResult: kanshouProposalResult_ || undefined,
       promiseSettle: kanshouPromiseSettle_.length ? kanshouPromiseSettle_ : undefined, // 📅 赴約/爽約結算通知陣列(獨立通道·不與提議結果搶單槽·可同時容納多筆)
       promiseWait: kanshouPromiseWait_ || undefined,
-      photoResult: kanshouPhotoResult_ || undefined,
       kanshouClock: kanshouClock,
       // 修過的bug：#clock-hud讀共用的updateClock(data.clock,...)，但data.clock在鑑賞這條路徑上從來沒被設過，導致HUD一直被當成「沒有clock」隱藏。
       clock: kanshouClock ? kanshouClock.label : ""
@@ -3808,46 +3715,4 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
   }
 }
 
-// 📷 相簿列 → 前端卡片物件。相簿面板與「拍完當下就看」共用這一個形狀，別各寫一份。
-function kanshouPhotoObj_(row) {
-  const d = parseInt(row[2]) || 0;
-  const dt = kanshouAbsDayToDate_(d);
-  return {
-    id: String(row[1]), day: d, dateLabel: `${dt.month}月${dt.day}日`, band: String(row[3]),
-    loc: String(row[4]), weather: String(row[5]), names: String(row[6]),
-    activity: String(row[7]), caption: String(row[8]), flag: String(row[9]),
-    hair: String(row[10])
-  };
-}
 
-function actionGetAlbum(userData, pcId, sheets) {
-  const pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = kanshouPcIdx_(pcData, pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, photos: [] });
-  const gid = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const rows = kanshouAlbumSheet_().getDataRange().getValues();
-  const photos = [];
-  for (let i = rows.length - 1; i >= 1; i--) {
-    if (String(rows[i][0]) !== gid) continue;
-    photos.push(kanshouPhotoObj_(rows[i]));
-  }
-  return JSON.stringify({ success: true, photos: photos, cap: KANSHOU_ALBUM_CAP_ });
-}
-// 刪照片：只能刪自己這局的(照片ID＋遊戲ID雙比對)，相簿滿了得騰位子才能再拍。
-function actionAlbumDelete(userData, pcId, sheets) {
-  const pcData = sheets.pc.getDataRange().getValues();
-  const pIdx = kanshouPcIdx_(pcData, pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
-  const gid = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  const pid = String(userData.photoId || "").trim();
-  if (!pid) return JSON.stringify({ success: false, message: "未指定照片" });
-  const sh = kanshouAlbumSheet_();
-  const rows = sh.getDataRange().getValues();
-  for (let i = 1; i < rows.length; i++) {
-    if (String(rows[i][0]) === gid && String(rows[i][1]) === pid) {
-      sh.deleteRow(i + 1);
-      return JSON.stringify({ success: true });
-    }
-  }
-  return JSON.stringify({ success: false, message: "找不到這張照片" });
-}

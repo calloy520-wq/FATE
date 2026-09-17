@@ -41,7 +41,6 @@
     const pos = start + text.length;
     el.setSelectionRange(pos, pos);
   }
-  var KC_ALBUM_CAP_ = 100;     // 鏡像後端 KANSHOU_ALBUM_CAP_（相簿滿了的那句訊息要用它，別再寫死）
   var KC_MEMOIR_CAP_ = 10;      // 鏡像後端 KANSHOU_MEMOIR_CAP_
   var KC_MEMOIR_PIN_CAP_ = 8;   // 鏡像後端 KANSHOU_MEMOIR_PIN_CAP_
   // ⚙️ 管理面板：列出玩家自訂的貼圖(內建4個不可刪、不列在這裡)＋新增輸入框。
@@ -59,8 +58,8 @@
       jumpBand = opts.jumpBand || null,
       loaderCaptions = opts.loaderCaptions || null, moveWithCompanion = !!opts.moveWithCompanion,
       promiseMeet = opts.promiseMeet || null, cohabitInvite = opts.cohabitInvite || null,
-      inviteResident = opts.inviteResident || null, proposeMove = opts.proposeMove || null, takePhoto = !!opts.takePhoto, selfie = !!opts.selfie,
-      showPhoto = opts.showPhoto || null, photoIntent = opts.photoIntent || null,
+      inviteResident = opts.inviteResident || null, proposeMove = opts.proposeMove || null, 
+      
       handHold = opts.handHold || null,
       // 🐛→✅ 稽核抓到：呼叫端(kanshouHandHold/kanshouInviteCohabit)一直有把 npcId 塞進 opts，
       //   但 send() 這裡沒解構、下面 gasRun payload 也沒轉發——兩個 id 從未離開過瀏覽器。
@@ -106,7 +105,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissGuest: dismissGuest || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined, takePhoto: takePhoto || undefined, selfie: selfie || undefined, showPhoto: showPhoto || undefined, photoIntent: photoIntent || undefined, handHold: handHold || undefined, handHoldId: handHoldId || undefined, cohabitInviteId: cohabitInviteId || undefined, confess: confess || undefined, confessId: confessId || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissGuest: dismissGuest || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined || undefined, handHold: handHold || undefined, handHoldId: handHoldId || undefined, cohabitInviteId: cohabitInviteId || undefined, confess: confess || undefined, confessId: confessId || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -230,20 +229,6 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouSleepWithGuest()">🛏 讓她進來</button>`
           + `<button class="btn-option" style="flex:1;" onclick="kanshouSendGuestHome()">🚪 今晚先回去</button>`
           + `</div></div>`;
-      }
-      // 📷 拍照結果小字回饋(敘事本身由AI演，這行只補機制數字：為何沒拍成)。
-      //   2026-07「拍照改手機、不用等」：手機沒有底片，拍完立刻存進相簿、立刻能看。
-      if (data.photoResult) {
-        const pr = data.photoResult;
-        const prTxt = pr.ok ? `📷 咔嚓，存進相簿了。`
-          : pr.reason === 'cap' ? '📷 相簿滿了，先刪幾張舊的。'
-          : pr.reason === 'nobody' ? '📷 身邊沒有可拍的人。' : '📷 這一張沒拍成。';
-        // 📱 手機拍完當下就能看（玩家 2026-09「拍照改成手機拍 當下能看」）：後端把卡片物件隨回合帶回，
-        //   這裡用相簿同一支 kcAlbumCardHtml_ 直接畫在對話裡，不必再點開 📚 相簿。
-        if (pr.ok && pr.photo) optionsHtml += '<div style="display:flex; justify-content:center; padding:6px 0 4px;">' + kcAlbumCardHtml_(pr.photo, { noDelete: true }) + '</div>';
-        optionsHtml += `<div style="color:#9a917f; font-size:11px; padding:4px 2px 8px;">${prTxt}</div>`;
-        // 📣 走查抓到的軟卡點：相簿滿只有文字、沒有下一步——補直達鈕。
-        if (!pr.ok && pr.reason === 'cap') optionsHtml += `<button class="btn-option" style="width:100%; margin-bottom:8px;" onclick="openKanshouAlbum()">📚 打開相簿</button>`;
       }
       // 🤝 巧遇對象的「結識」邀請框：她此刻只是路人(不記好感·離開即散)，點了才正式入駐這座城。
       if (data.encounterOffer && data.encounterOffer.name) {
@@ -1323,144 +1308,6 @@ let plainTextContext = cleanText;
     var cb = _kpCb; _kpCb = null;
     if (cb) cb(name);
   }
-  // 📷 拍照：手機拍下此刻，拍完立刻能看，沒有底片限制(2026-07「拍照要改成手機、不用等」)。
-  //   選單化沿用 2026-07 玩家要求比照相約改選單——prompt() 改成面板：
-  //   在場同伴一人一顆「拍她」、≥2人多一顆合照、風景一顆，另保留自由輸入(拍橘貓/夕陽等創意主題)。
-  //   intent 語義沿用後端既有判定：點名同伴→拍那位；''＝預設(有同伴合照前3、沒同伴風景)；
-  //   沒點名到任何人的文字→以該主題拍風景/生活照。
-  async function kanshouTakePhoto() {
-    var present = (localNPCs || []).filter(function (p) { return p.isExact; }).map(function (p) { return String(p.name); });
-    var ov = ensureOverlay_('kf-overlay', { zIndex: 10001, onBgClick: function (ov) { ov.style.display = 'none'; } });
-    var b = function (label, intentVal) {
-      return '<button onclick="kanshouShoot_(\'' + String(intentVal).replace(/'/g, '') + '\')" style="padding:6px 10px;background:rgba(200,120,150,0.16);color:#e8b0c8;border:1px solid #a06080;border-radius:8px;cursor:pointer;font-size:12.5px;">' + label + '</button>';
-    };
-    var sb = function (label, intentVal) {
-      return '<button onclick="kanshouShoot_(\'' + String(intentVal).replace(/'/g, '') + '\', true)" style="padding:6px 10px;background:rgba(150,120,200,0.16);color:#c8b0e8;border:1px solid #8060a0;border-radius:8px;cursor:pointer;font-size:12.5px;">' + label + '</button>';
-    };
-    var rows = '<div style="display:flex;flex-wrap:wrap;gap:6px;">'
-      + present.map(function (n) { return b('📷 拍「' + escapeHtml(n) + '」', n); }).join('')
-      + (present.length >= 2 ? b('👥 大家的合照', '') : '')
-      + b('🏞️ 眼前的風景', present.length ? '眼前的風景' : '')
-      + '</div>'
-      // 🤳 自拍：你也在鏡頭裡（2026-09）。一個人時就是一個人的自拍。
-      + '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">'
-      + present.map(function (n) { return sb('🤳 跟「' + escapeHtml(n) + '」自拍', n); }).join('')
-      + (present.length >= 2 ? sb('🤳 大家一起自拍', '') : '')
-      + (!present.length ? sb('🤳 自拍一張', '') : '')
-      + '</div>'
-      + '<div style="display:flex;gap:6px;margin-top:10px;">'
-      + '<input id="kf-input" placeholder="或指定想拍的：那隻橘貓、窗邊的夕陽…" style="flex:1;padding:6px 8px;background:#141019;color:#e8d8e0;border:1px solid rgba(232,184,204,.25);border-radius:8px;font-size:12.5px;">'
-      + '<button onclick="kanshouShoot_(document.getElementById(\'kf-input\').value)" style="padding:6px 12px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:8px;cursor:pointer;font-size:12.5px;">📷 拍</button></div>';
-    ov.innerHTML = '<div style="width:min(420px,92vw);background:#1d1722;border:1px solid rgba(232,184,204,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
-      + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e8b8cc;">📷 想拍什麼？</b>'
-      + '<button onclick="document.getElementById(\'kf-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + rows + '</div>';
-    ov.style.display = 'flex';
-  }
-  async function kanshouShoot_(intent, selfie) {
-    var ov = document.getElementById('kf-overlay');
-    if (ov) ov.style.display = 'none';
-    intent = String(intent || '').trim();
-    showGamePane('chat');
-    var line = selfie
-      ? (intent ? ('（舉起手機轉向自己這側，要跟「' + intent + '」一起自拍。）') : '（舉起手機，自拍一張。）')
-      : (intent ? ('（舉起手機，這張想拍的是「' + intent + '」。）') : '（舉起手機，拍下此刻的光景。）');
-    await send(line, false, { takePhoto: true, selfie: !!selfie, photoIntent: intent || null });
-  }
-  // 📷 拿照片給在場的人看(相簿卡片上的按鈕)：手機拍完立刻能看，隨時都能拿出來給人看。
-  async function kanshouShowPhoto(photoId) {
-    kanshouCloseAlbum_();
-    showGamePane('chat');
-    await send('（拿出手機，把一張照片給身邊的人看。）', false, { showPhoto: photoId });
-  }
-  async function kanshouDeletePhoto(photoId) {
-    if (!await customConfirm_('撕掉這張？')) return;
-    try {
-      const res = await withProcessing_('撕掉照片中…', () => gasRun({ action: 'album_delete', pcId: pc.id, acctName: currentAccount, photoId: photoId }));
-      if (res && res.success) openKanshouAlbum(); else alert((res && res.message) || '沒刪掉。');
-    } catch (e) { alert('沒刪掉。'); }
-  }
-  // 📚 相簿牆(A案色卡寶麗來)：時段色調×天氣覆疊×右上角髮色緞帶，人物篩選分頁。
-  var KC_ALBUM_BAND_BG_ = {
-    '清晨': ['#f4ecd0', '#d8c8a0'], '午後': ['#eae2cc', '#b8ac8c'], '黃昏': ['#f4d9a8', '#c8763e'],
-    '夜': ['#3a3856', '#232136'], '深夜': ['#2e2a44', '#141020']
-  };
-  function kcAlbumCardSvg_(p) {
-    var bg = KC_ALBUM_BAND_BG_[p.band] || ['#d8d0c0', '#a89880'];
-    var darkBand = (p.band === '夜' || p.band === '深夜');
-    var wx = '';
-    if (/雪/.test(p.weather)) {
-      var dots = [[26, 20, 1.3], [70, 10, 1], [120, 26, 1.2], [160, 14, 0.9], [45, 44, 1.1], [140, 52, 1.2], [95, 36, 0.9]];
-      wx = '<g fill="#fff" opacity="0.8">' + dots.map(function (d) { return '<circle cx="' + d[0] + '" cy="' + d[1] + '" r="' + d[2] + '"/>'; }).join('') + '</g>';
-    } else if (/雨/.test(p.weather)) {
-      var ln = [[30, 10], [70, 26], [110, 8], [150, 30], [50, 48], [130, 56]];
-      wx = '<g stroke="#cdd8e8" stroke-width="1" opacity="0.6">' + ln.map(function (d) { return '<line x1="' + d[0] + '" y1="' + d[1] + '" x2="' + (d[0] - 5) + '" y2="' + (d[1] + 14) + '"/>'; }).join('') + '</g>';
-    }
-    var gid = 'g' + String(p.id).replace(/[^A-Za-z0-9]/g, '');
-    return '<svg viewBox="0 0 180 110" width="100%" style="display:block;">'
-      + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="' + bg[0] + '"/><stop offset="100%" stop-color="' + bg[1] + '"/></linearGradient></defs>'
-      + '<rect width="180" height="110" fill="url(#' + gid + ')"/>'
-      + wx
-      + '<path d="M150 0 L180 0 L180 30 Z" fill="' + (p.hair || '#5a4a3e') + '"/>'
-      + '<text x="8" y="100" font-size="10" fill="' + (darkBand ? '#c8c4dc' : '#6a5a44') + '">📍 ' + escapeHtml(p.loc) + '・' + escapeHtml(p.band) + '</text>'
-      + '</svg>';
-  }
-  function kcAlbumCardHtml_(p, opts) {
-    opts = opts || {};   // { noDelete: true } ＝ 拍完當下畫在對話裡的那張：手滑撕掉太容易，而且對話裡那張會變假卡
-    // 2026-07「拍照改手機、不用等」：手機拍完立刻能看，不再有沖洗中狀態，一律顯示完整卡片。
-    var body = '<div style="font-size:11px; color:#5a5248; padding:7px 3px 6px; line-height:1.5;">' + escapeHtml(p.caption) + '</div>'
-      + '<div style="font-size:9px; color:#9a917f; padding:0 3px 6px;">📷 ' + escapeHtml(p.dateLabel) + '・' + escapeHtml(p.weather) + '｜' + escapeHtml(p.names) + (p.flag ? '・' + escapeHtml(p.flag) : '') + '</div>'
-      + '<div style="display:flex; gap:5px; padding:0 2px 7px;">'
-      + '<button onclick="kanshouShowPhoto(\'' + p.id + '\')" style="flex:1; font-size:10px; padding:3px 4px; background:rgba(90,140,100,0.14); color:#3a6a48; border:1px solid #6a9a7a; border-radius:5px; cursor:pointer;">👀 給在場的人看</button>'
-      + (opts.noDelete ? '' : ('<button onclick="kanshouDeletePhoto(\'' + p.id + '\')" style="font-size:10px; padding:3px 7px; background:rgba(160,60,60,0.1); color:#a04a4a; border:1px solid #b07a7a; border-radius:5px; cursor:pointer;">🗑️</button>'))
-      + '</div>';
-    return '<div style="background:#f5f2ea; padding:8px 8px 2px; border-radius:3px; box-shadow:0 4px 10px rgba(0,0,0,.45); width:186px;">'
-      + kcAlbumCardSvg_(p)
-      + body + '</div>';
-  }
-  var kcAlbumData_ = null, kcAlbumFilter_ = '';
-  function kcAlbumRender_() {
-    var box = document.getElementById('kc-album-body'); if (!box || !kcAlbumData_) return;
-    var photos = kcAlbumData_.photos.filter(function (p) { return !kcAlbumFilter_ || String(p.names).indexOf(kcAlbumFilter_) >= 0; });
-    var names = {};
-    kcAlbumData_.photos.forEach(function (p) { String(p.names).split('、').forEach(function (n) { n = n.trim(); if (n && !names[n]) names[n] = p.hair || '#5a4a3e'; }); });
-    var chips = '<button onclick="kcAlbumSetFilter_(\'\')" style="font-size:11px; padding:3px 9px; border-radius:10px; cursor:pointer; border:1px solid ' + (!kcAlbumFilter_ ? '#d4af37' : '#5a5470') + '; background:' + (!kcAlbumFilter_ ? 'rgba(212,175,55,.18)' : 'transparent') + '; color:#d8d0e0;">全部</button>';
-    Object.keys(names).forEach(function (n) {
-      var on = kcAlbumFilter_ === n;
-      chips += '<button onclick="kcAlbumSetFilter_(\'' + n.replace(/'/g, "\\'") + '\')" style="font-size:11px; padding:3px 9px; border-radius:10px; cursor:pointer; border:1px solid ' + (on ? '#d4af37' : '#5a5470') + '; background:' + (on ? 'rgba(212,175,55,.18)' : 'transparent') + '; color:#d8d0e0;"><span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:' + names[n] + '; margin-right:4px; vertical-align:middle;"></span>' + escapeHtml(n) + '</button>';
-    });
-    box.innerHTML = '<div style="color:#c9b8d8; font-size:11.5px; margin-bottom:8px;">📷 相簿 ' + kcAlbumData_.photos.length + '/' + kcAlbumData_.cap + ' 張</div>'
-      + '<div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:12px;">' + chips + '</div>'
-      + (photos.length
-        ? '<div style="display:flex; gap:14px; flex-wrap:wrap; justify-content:center;">' + photos.map(kcAlbumCardHtml_).join('') + '</div>'
-        : '<div style="color:#8a8298; font-size:12px; text-align:center; padding:30px 0;">還沒有照片。</div>');
-  }
-  function kcAlbumSetFilter_(n) { kcAlbumFilter_ = n; kcAlbumRender_(); }
-  function kanshouCloseAlbum_() { var ov = document.getElementById('kc-album-overlay'); if (ov) ov.remove(); }
-  async function openKanshouAlbum() {
-    if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
-    var drawer = document.getElementById('action-drawer'); if (drawer) drawer.classList.remove('open');
-    kanshouCloseAlbum_();
-    var ov = document.createElement('div');
-    ov.id = 'kc-album-overlay';
-    ov.style.cssText = 'position:fixed; inset:0; z-index:9000; background:rgba(16,12,24,.92); overflow-y:auto; padding:18px 14px 40px;';
-    ov.innerHTML = '<div style="max-width:900px; margin:0 auto;">'
-      + '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">'
-      + '<div style="color:#e0a0bc; font-weight:bold; font-size:16px;">📚 相簿</div>'
-      + '<button onclick="kanshouCloseAlbum_()" style="background:none; border:1px solid #6a5a7a; border-radius:8px; color:#c9b8d8; font-size:13px; padding:4px 12px; cursor:pointer;">✕ 關閉</button>'
-      + '</div><div id="kc-album-body" style="color:#8a8298; font-size:12px;">讀取中……</div></div>';
-    document.body.appendChild(ov);
-    try {
-      var res = await gasRun({ action: 'get_album', pcId: pc.id, acctName: currentAccount });
-      if (res && res.success) { kcAlbumData_ = res; kcAlbumFilter_ = ''; kcAlbumRender_(); }
-      else { var b = document.getElementById('kc-album-body'); if (b) b.textContent = '讀取失敗。'; }
-    } catch (e) { var b2 = document.getElementById('kc-album-body'); if (b2) b2.textContent = '讀取失敗。'; }
-  }
-  // ═══ 🌍 世界帳本面板 ═══
-  // 🎨 ⚙ 說書人設定：風格層交給玩家。每一格三態——預設／自訂／關閉。
-  //   ⚠ 面板【不顯示預設句本體】（那是提示詞，玩家看到只會出戲），只給一句「這段管什麼」。
-  //   事實與技術契約不在這裡（GAS 裁定、JSON、在場驗證都不交），只有「怎麼寫」的口味。
-  var _ksMods_ = [], _ksCats_ = [], _ksCat_ = '', _ksMax_ = 300, _ksEdit_ = {};
   function kanshouCloseStyle_() { var o = document.getElementById('kc-style-overlay'); if (o) o.remove(); }
   async function openKanshouStyle() {
     if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
@@ -1481,6 +1328,7 @@ let plainTextContext = cleanText;
     document.body.appendChild(ov);
     await ksLoad_();
   }
+  var _ksMods_ = [], _ksCats_ = [], _ksCat_ = '', _ksMax_ = 300, _ksEdit_ = {};
   async function ksLoad_() {
     try {
       var res = await gasRun({ action: 'kanshou_get_style', pcId: pc.id, acctName: currentAccount });
@@ -1996,7 +1844,7 @@ let plainTextContext = cleanText;
             + `<b style="color:#e0a0bc;">🗺️ 地圖</b><br>出門走走。要在同一個地方才見得到面，撲空很正常。<br><br>`
             + `<b style="color:#e0a0bc;">⏰ 時鐘</b>（可以點）<br>調時間走多快，或快轉到某個時段。旁邊那顆推到下一個時段，深夜按下去就睡到天亮。<br><br>`
             + `<b style="color:#e0a0bc;">👤 標籤</b><br>同伴卡上有 📜詳細狀態｜💞關係｜📅相約｜🤝牽手。<br><br>`
-            + `<b style="color:#e0a0bc;">＋ 更多</b><br>📚 相簿、🌍 這個世界、⚙ 說書人設定。<br><br>`
+            + `<b style="color:#e0a0bc;">＋ 更多</b><br>🌍 這個世界、⚙ 說書人設定。<br><br>`
             + `<b style="color:#e0a0bc;">🔥 主動掌握</b><br>熄滅時由你主導節奏；亮起來，對方會照自己的個性主動推進。</div>`;
         }
         story.scrollTop = story.scrollHeight;

@@ -34,7 +34,6 @@ GAS Web App (doGet→Index.html·HTML Service)
 - API key 存 GAS **Script Properties**（不進代碼）。
 - 前端 `Index.html`(殼) 內嵌 `Style.html`(CSS) ＋ `Script.html`(全部前端 JS·單一 SPA)。
 
-## 3. 資料層（試算表 6 靜態分頁 `FATE_SHEET_DEFS`＋4 動態分頁：鑑賞眾生／鑑賞世界／鑑賞風格／相簿，2026-07 精簡自 13 分頁）
 
 `Setup_FateWorld.gs` 冪等建表（缺就補、含則略）。分頁：**坤圖**(地圖)／**眾生**(solo參戰者·一列一人)／**英靈殿**(種子從者範本，2026-07起兼職鑑賞daily欄位快取)／**御主殿**(solo專用·種子敵御主範本)／**帳號**／**歷史暫存**(逐句對話·solo/kanshou共用同一張，靠pcId前綴隔離)。另有 **鑑賞眾生** 分頁（慾海活動角色，`getKanshouPcSheet_` 動態建、schema複製自「眾生」但物理獨立，與戰爭主表完全隔離）。
 

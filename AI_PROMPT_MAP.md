@@ -366,15 +366,12 @@
 | `kanshou_set_name` | 「✏改名」→`changeKanshouName()` | `actionKanshouSetName` | 否 |
 | `kanshou_set_sex` | 「⚧切換性別」→`changeKanshouSex()` | `actionKanshouSetSex` | 否 |
 | `kanshou_set_home_name` | 「出門走走」面板「家」改名 | `actionKanshouSetHomeName` | 否（寫 MEMORY【住所】標記） |
-| `get_album` | 📷相簿載入→`openKanshouAlbum()` | `actionGetAlbum` | 否（讀本局照片＋剩餘底片） |
-| `album_delete` | 相簿「刪照片」→`kanshouDeletePhoto(photoId)` | `actionAlbumDelete` | 否 |
 | `purge_orphans` | 主選單 DEV「🧹 清殘列」（Index.html） | `actionPurgeOrphans`（其實在 Account.gs） | 否 |
 | `dev_resync_codex` | 主選單 DEV「🔄 套用最新平衡」（Index.html） | `actionDevResyncCodex`（Seed 系統） | 否 |
 
 > ⚠ **2026-07 已砍**：舊版奪杯封存流程 `actionClaimGrail`（action `claim_grail`·寫「鑑賞」GAL 表的回憶散文）已整套刪除——ActionRouter 無此註冊、`gas/` 查無 handler，鑑賞改由「英靈殿直接召喚」(`enter_kanshou`＋`kanshou_summon_hero`)進入，不再需要先打贏戰爭奪杯封存。
 
 ### 其餘 Gallery.gs handler
-`actionEnterKanshou`／`actionKanshouCompanions`／`actionKanshouSummonHero`／`actionKanshouMemoirOp`／`actionKanshouSetSex`／`actionKanshouSetName`／`actionKanshouSetHomeName`／`actionGetAlbum`／`actionAlbumDelete` 皆純機制寫表/讀表，不叫 AI。之後的 kanshou 內對話走 `actionPlay`（§9），不在這幾個 action 內。
 
 ---
 
@@ -453,7 +450,6 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | 巧遇結識 | 移動/原地擲中、`encounterOn` | `encounterOffer` | `inviteResident` |
 | 等待約定 | 赴約撲空她還沒到 | `promiseWait` | `advanceHours`（跳到她抵達時刻） |
 
-`Script_Kanshou.html` 的 `send(customMsg, isSilent, opts)` 實際解構的 opts 鍵：`moveTarget`／`newPlace`／`lookAround`／`endDay`／`advanceHours`／`jumpFestival`／`skipKnockCheck`／`dismissGuest`／`jumpBand`／`loaderCaptions`／`moveWithCompanion`／`promiseMeet`／`cohabitInvite`／`inviteResident`／`proposeMove`／`takePhoto`／`showPhoto`／`photoIntent`／`handHold`／`handHoldId`／`cohabitInviteId`／`confess`／`confessId`。
 
 ---
 
@@ -496,7 +492,6 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 
 ## 附：純機制、完全不叫 AI 的 action 總表（快速核對用）
 
-`check_name`、`check_sheets`、`get_full_status`、`update_fate`、`get_tags`、`sync`、`update_rel_tag`、`create`、`get_heroes`、`get_masters`、`get_map_nodes`、`set_servant_output`、`set_mage_realm`、`set_rune_mode`、`outfit`、`weapon`、`account_login`、`account_new_game`、`end_run`、`purge_orphans`、`dev_resync_codex`、`enter_kanshou`、`kanshou_companions`、`kanshou_summon_hero`、`kanshou_memoir_op`、`kanshou_set_name`、`kanshou_set_sex`、`kanshou_set_home_name`（「出門走走」面板的「家」選項改名，寫進 MEMORY【住所】標記，見 `SOLO_REFERENCE.md` §44）、`get_album`、`album_delete`。（`leaderboard`／`get_victory_history`／`get_epic_history`／`war_chronicle`／`war_history_list`／`claim_grail`／`dev_seed_gallery` 已整套刪除，不再列於此。）
 
 （`set_servant_output`／`set_mage_realm`／`set_rune_mode`／`outfit`／`weapon` 這 5 個是戰鬥前的**純檔位切換**——性質等同選單勾選，不是敘事時刻，刻意不接 AI：接了反而每次調檔位都要多等一次生成、拖慢戰鬥節奏，也沒有畫面可演。)
 
@@ -521,7 +516,6 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | `kanshouInviteStr`/`kanshouEncounterStr` | 🤝結識巧遇對象／巧遇擲中 | ★【正式結識】/結識未成／巧遇事實 |
 | `kanshouHandHoldStr`/`kanshouHoldingStr` | 🤝牽手/✋放手／牽著走 | ★【牽起來了】/★【放手】 |
 | `kanshouNightGuestStr`/`kanshouKnockRaidStr`/`kanshouNightSceneStr`/`kanshouNightPartStr` | 深夜訪客／別有用心／夜未眠／夜裡道別 | ★【對方自己找來了】／★【夜裡道別】… |
-| `kanshouPhotoStr`/`kanshouShowPhotoStr` | 📷拍照(正常/風景/相簿滿)／看照片 | ★【拍照】/★【拍照·風景】/★【相簿已滿】/★【看照片】 |
 | `kanshouFestivalStr` | 日曆＝節慶當天／跳到前夕 | ★【今天是「X」】／★【節慶前夕】（只給事實，無習俗表） |
 | `kanshouTierCrossStr`/`kanshouFirstsAnnivStr`/`kanshouFirstsStr`/`kanshouAnnivStr` | 剛跨關係階／「第一次」週年／既定的第一次／相識紀念日 | 純事實＋show-don't-tell 護欄 |
 | `kanshouNewPlaceStr`/`_worldFeed_`/`kanshouWorldRosterStr` | 玩家走出新地點／世界帳本相關條目／常民名冊 | ★【要它之後還在就寫進 world_note】等 |
@@ -532,4 +526,3 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 
 ~~`kanshouRoomEventStr`（橋段 13 筆）／`kanshouJealousStr`（醋意 20%）／`pActivityStr`（地點活動）／★【節慶氛圍】／★【今日天氣】~~ 都已不存在。
 
-世界觀行同輪全面改寫(§112 詞彙清洗)：AI不再看到 從者/御主/英靈殿被召喚/職階，統一「這座城的普通居民」框架＋一句集中壓制句。新增純機制action：`get_album`(讀相簿)/`album_delete`(刪照片)——皆不叫AI。

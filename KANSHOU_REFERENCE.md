@@ -25,7 +25,6 @@
 - **KPC_ 前綴路由**：dispatcher（`handleGameAction`）見 `pcId` 以 `KPC_` 開頭 → `sheets.pc` 指向鑑賞眾生。solo 是 `PC_`。
 - **引擎硬擋**：`actionPlay` 開頭 `pcId` 非 `KPC_` 直接 return。
 - **輸入清洗**（2026-07 稽核補）：主對話 `message` 欄位嵌入提示詞前補 `｜【】` 分隔符清洗，防玩家用這幾個符號偽造 MEMORY 標記或偽造「★【...】」格式的假系統指令段（遊戲本身的真實系統指令就長這樣，不濾會讓兩者無法區分）。
-- **歸屬驗證**（2026-07 兩階段補洞後現況）：⚠ 舊版每個 kanshou handler 各自呼叫 `kanshouOwnedRowIdx_`(內部反查帳號表 KPC 欄)才敢信任 pcId；全面稽核先後抓到 `actionPlay`/`actionGetAlbum`/`actionAlbumDelete` 等多處漏掉這道驗證，形同可憑猜中/拿到的 `pcId` 冒名讀寫他人存檔。**這道驗證後來整個上移到 dispatcher**：`handleGameAction`（Router_Action.gs）在派發到任何 handler 之前，統一呼叫 `verifyPcOwnership_(acctName, pcId)`（Account.gs，反查帳號表 `COL.ACC.KPC`/`COL.ACC.PC`），白名單 `OWNERSHIP_CHECK_EXEMPT_` 外的動作一律先過這關。故 `kanshouOwnedRowIdx_` 已刪除，改為純索引查找版 `kanshouPcIdx_(data, pcId)`（Gallery.gs）——所有 kanshou handler 進來前 pcId 已保證屬於呼叫者，不必再反查一次帳號表(那是同一趟請求裡的第二次整表讀，純浪費)。**任何新增的 kanshou action handler，只要會讀寫 pcData，一律用 `kanshouPcIdx_` 換 index 即可（歸屬驗證由 dispatcher 保證，handler 不必自己再查帳號表）。**
 - **前綴白名單**：`KPC_`(御主 avatar)／`KHV_`(直接召喚同伴)／`DEAD_`；`KSV_` 是**舊奪杯封存邀請的遺留前綴**——封存管線已砍、不再產生新 `KSV_` 列，僅在 sync／`isKanshou` 判定保留向後相容識別（別當現行機制）。
 - 🐛→✅ **2026-09 跨帳號污染：名字一旦離開陣列就不帶 game_id 了**。鑑賞眾生是**全帳號共用一張表**，而每個人都從同一座英靈殿召喚——**撞名是常態，不是巧合**。
   `actionPlay_` 的「第一次同床」蓋章：上游 `allEstablished` 有 `sameGame(r)` 過濾沒錯，但 `intimateNightNames`
@@ -212,8 +211,6 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 
 三個都是「給 AI 一點確定性的氛圍素材，不強制劇情」的輕量花絮機制，各自獨立、互不依賴：
 
-- **天氣**：`KANSHOU_WEATHER_BY_SEASON_`＋`kanshouWeather_()`/`kanshouWeatherEmoji_()`——依當前日期算出的**當日固定值**(同一天問幾次都一樣，跨日才變)，注入每次提示詞的「★【今日天氣】」、時鐘 HUD 圖示、拍照時戳在照片上。
-- ~~**地點現況**（`KANSHOU_LOCATION_ACTIVITY_`＋`kanshouLocActivity_`）~~／~~**場景種子**（`KANSHOU_EVENT_SEEDS_`＋`kanshouRollEvent_`）~~ — **2026-09 兩張表連同函式整組移除**（見下方「事件自由」）：寫死的變體池＝把世界關進 22 張表裡，改由帳本記下真的發生過的事、其餘讓 AI 即興。相簿的「活動」欄從此留空（欄位保留不刪，COL 是位置索引）。
 
 ---
 
@@ -279,7 +276,6 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 | `cohabitOffer` 同居 | 邀她同住 | 現在還不用（純關 DOM·不送請求） | 今天不再問、**明天再問**（`KANSHOU_COHABIT_ASKED_TAG_` 存 absDay） |
 | `promiseWait` 等約定 | 等到約定前10分 | 無 | 自己慢慢等，約定 tag 早已落盤 |
 | `encounterOffer` 結識 | 結識她 | 無 | 緣分散了——這正是設計語意 |
-| `photoResult` | （純回饋） | — | — |
 
 **判準**：泡泡是**待決狀態的唯一出口** → 忽略就會壞（必須改成先落盤再給善後選項）；泡泡只是**已落盤狀態的捷徑** → 忽略無害。現況全部屬於後者。
 
@@ -367,7 +363,6 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 
 - **存儲**：`【約定】absDay:band:loc`（存**該同伴列**），同時只存一筆（新約蓋舊約）。舊格式 `【約定】day:loc`（無時段）**向後相容＝整天有效**。
 - **時段** `KANSHOU_APPT_BANDS_`：午後(14:00)／黃昏(18:00)／夜晚(20:00)；`kanshouApptHour_(band)` 回具體小時（null＝舊格式整天有效）。
-- **赴約結算**（`actionPlay` 內，**必須在 `partyRows` 組裝之前**——聊天/拍照/原地消磨三路才吃得到剛移過來的從者）：
   - **赴約**（`_pr.day === curDay` 且同地）→ 清約＋`BOND+5`（夾100）＋餵「依約相會」提示＋回 **`promiseSettle{type:'promise_met'}`** 前端亮「依約相會💕」通知條（2026-07 稽核補：原本赴約成功玩家零回饋）。
   - **爽約**（`_pr.day < curDay`）→ 清約＋`BOND-5`（夾0）＋寫一筆 memoir「我爽約了…讓她空等一場」＋回 **`promiseSettle{type:'promise_missed'}`** 通知條；在場才餵「爽約之後」提示（讓她流露被放鴿子的在意）。前端 `kanshouEndDay` 睡前若有今日之約會先跳警告。
   - 累加進 `kanshouPromiseMetStr` 餵 AI。⚠ **結算回饋走獨立通道 `promiseSettle`、不借用 `proposalResult` 單槽**（第二輪稽核三路同時撞到：post-AI 提議結果無條件覆寫單槽，同回合「爽約結算＋新提議成功」時結算通知被吞）——前端收到 `promiseSettle` 或 `proposalResult.type==='promise'` 任一都重抓 `kanshou_companions` 刷新 `_kcCur`（否則舊快取殘留已結算的約→假爽約警告）。
@@ -560,28 +555,15 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 
 ---
 
-## 📷 拍照／相簿
 
-**📱 2026-09 拍照四項優化（玩家「拍照方面有可以優化的地方嗎」→「做」）**：
-① **🤳 自拍**：拍照選單多一排「跟「X」自拍／大家一起自拍／自拍一張」，`send()` 帶 `selfie:true`；
-   後端 `names` 把玩家自己排第一（相簿篩選才找得到「有你的照片」），提示詞叫對方依好感決定靠不靠過來；一個人時是獨處自拍、不是風景。
    緞帶用第一位同伴的髮色（`names[1]`）。⚠ 提示詞不可以寫「她要不要靠過來」——`check_pronoun` 當場抓到，改「對方」。
 ② **合照拿掉「前 3 位」暗規則**：按鈕寫「大家的合照」，第四位卻被 `slice(0,3)` 靜靜排除。現在在場的人全部入鏡——
-   「在場」本來就受 `KANSHOU_PARTY_DETAIL_CAP_`（提示詞預算）約束，那是 AI 這回合看得到的人，不是拍照另砍。
-③ **拍照不推進時間**：真的用手機拍是一秒鐘的事，玩家常「拍一張、再拍一張」，每張走半小時下午就沒了。`takePhoto` 回合豁免被動流時。
-④ **對話裡的即時卡不放「撕掉」**：`kcAlbumCardHtml_(p, {noDelete:true})`——手滑就沒了，而且刪了對話裡那張還在、變假卡。相簿面板照舊。
 探針 `photo.js` 擴到 18 條。
 
-**📱 2026-09 拍完當下就看（玩家「拍照改成手機拍 當下能看」）**：原本拍完只回一行字「已存進相簿」，照片要點開 📚 才看得到。現在 `play` 回應的 `photoResult.photo` 直接帶卡片物件（`kanshouPhotoObj_(row)`，跟 `get_album` 同一支、同一個形狀），前端用相簿同一支 `kcAlbumCardHtml_` 畫在那回合的對話裡。探針 `photo.js`（8 條）＋ `check_ui` 釘卡片畫得出來。
 
-**⚠ 2026-07 拍照改「手機」（玩家「拍照要改成手機、不用等」）**：原本是寶麗來設定（每日底片限量`KANSHOU_FILM_PER_DAY_=3`＋隔天沖洗才看得到），玩家覺得手機沒有底片這種東西、拍完也該立刻能看——兩個限制都拔掉了：
-- **沒有每日張數上限**：只驗**相簿總容量** `KANSHOU_ALBUM_CAP_ = 100`（滿了要刪舊照才能再拍）。`kanshouFilmUsed_`/`kanshouFilmStamp_`/【底片】MEMORY tag 整組刪除。
-- **拍完立刻能看**：`actionGetAlbum` 不再回傳 `developed` 欄位，相簿卡片一律顯示完整內容，不再有「🎞️沖洗中……明天就能看了」的半成品卡；`showPhoto` 也不再檢查「還沒洗好」。
 - **色色時也不用隱晦**：`photo_caption` 的生成指示補一句「若拍到的是親密畫面也直接寫實描述，不用刻意隱晦帶過」。
 - 措辭全面從「相機」改「手機」（`kanshouPhotoStr`/`finalUserMsg`/UI 按鈕 title 等）。
 
-- 拍照落地在 **AI 成功後**（失敗不寫入，反正沒有底片可浪費）：AI 多吐 `photo_caption`，寫 `kanshouAlbumSheet_`。髮色從被拍者 TRAIT 現場解析（`KANSHOU_HAIR_COLORS_`）。**2026-07 稽核補**：`photo_caption` 寫入前補控制/零寬/雙向字元清洗＋公式引導字元阻擋（比照 `sanitizeUserData_` 同等保護），防 AI 輸出被利用來污染相簿列。
-- 前端：`kanshouTakePhoto`／`kanshouShowPhoto`(拿照片給在場者看)／`openKanshouAlbum`（`get_album`）／`kanshouDeletePhoto`（`album_delete`）。
 
 ---
 
@@ -616,7 +598,6 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
   舊存檔 MEMORY 裡殘留的 `【小道具】`／`【自訂道具】` 是**惰性資料**——MEMORY 一律經 tag helper 讀取、從不整串餵 AI 或下傳前端，
   沒有任何路徑會再讀到它們，故不寫遷移去改玩家資料。
 
-- `ensureOverlay_(id, opts)`／`_showOverlayLoading_(overlayId, ensureOpts, boxOpts)`（Script_Kanshou.html）— 前端共用「取得或建立全螢幕遮罩容器」／「顯示讀條」殼，取代11個彈窗函式（`kanshouOpenMemoir`/`kanshouOpenProps`/`kanshouOpenHypnosis`/`kanshouPickBand_`/`kanshouTakePhoto`/`kanshouOpenRelTag`/`openKanshouFestivals`/`kanshouPickLocation_`等）各自手寫的重複DOM建立樣板。
 
 ## 🤖 AI 管線
 
@@ -630,11 +611,8 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 6. **約定赴約結算（`_settle`）** ← ⚠ **必須在第7步之前**
 6.5 **「她主動」三型擲骰（visit/invite/want）** ← ⚠ **必須在第7步之前**（2026-07 矛盾掃描抓到）：`visit` 型會把她的 LOC 搬到你這裡，排在 partyRows 之後的話她沒有在場人物卡，AI 同時收到「她剛剛出現在這裡」與「只有【在場人物】可以開口」兩條打架的指令。這段需要的「誰此刻在你面前」是自己從 pcData 的 LOC 算的（`_hereRows`），不依賴 partyRows 這個變數。
 7. **partyRows/partyMembers 組裝**（同地在場名單、詳情卡 `partyDetailsArr`）
-8. 拍照（驗相簿容量 → 掛 `kanshouPhotoPending_`）
 9. 提示詞組裝（USER prompt，見下）
 10. `aiConfig` → 歷史餵入 → `callGeminiAPI`
-11. `sanitizeAiData_` → 各欄位落地（拍照/npc_exit/rel_changes/intimacy_feedback）→ 髒列窄讀重定位寫回 → `saveGameHistoryBatch`
-12. 回傳前端 key：`text/statusString/people/options/tags/moveProposal/encounterOffer/photoResult/promiseWait/proposalResult/promiseSettle/kanshouClock/clock`
 
 ### 系統提示詞 `buildDefaultSystemPrompt()`（**鑑賞專屬**，solo 走 `miniSystem`）
 `nsfwBaseRules`（⚠ **Gallery 函式內自己那份·非 Engine_Combat.gs 紅線·可改**）＋`★【輸出範本】`(finalJson)。`specificRules` 現為**空字串**（舊「慾海律令」5+1 條已整併進 nsfwBaseRules，見下方「specificRules 改成空字串」；return 形狀不動）。
@@ -828,7 +806,6 @@ prompt 組裝前收成 `_settledTail_` 接在 `finalUserMsg` 後面：
 裁定句一律由名字開頭（玩家原話：「『RIDER』同意交換聯絡方式」），這樣收尾鐵律裡那個「她」才有貼身的指涉對象。
 
 相約／同去／牽手三型的成敗都在 `_pendingProposal.accepted`，**一處集中轉成人話**（新增第四型會自動吃到）；
-同居／告白／結識在各自分支填。拍照／鬆手／開門這類「本來就沒有對方答不答應」的按鈕**刻意留空**，交給收尾鐵律。
 
 順手抓到一個真 bug：promise 型的 `_pendingProposal` 只有 `idx` 沒有 `name`，直接讀 `.name` 會印出空的『』
 ——比照 post-AI 落地那段的既有寫法，拿不到就回列上讀。
@@ -836,7 +813,6 @@ prompt 組裝前收成 `_settledTail_` 接在 `finalUserMsg` 後面：
 **脈絡量過了**（玩家問「按鈕有吃到全部的脈絡嗎? 歷史資料那些??」·探針 `scratchpad/sim/ctx.js`）：按鈕回合與純聊天回合走的是**同一條 `actionPlay_`**，拿到的脈絡完全一樣——歷史 6 筆(3 輪)、同一份 system(約 1810 字)、角色卡／五階／時鐘天氣地點／收尾鐵律一塊不缺；按鈕只是多帶一段 ★事實與收束句（user prompt 1498→約 2100 字）。唯一會變少的是**換幕縮窗**（移動／跳時段／結束一天只餵 2 筆＝1 輪），那是刻意的，防止被舊場景帶著跑。
 
 回歸探針 `scratchpad/sim/tail.js`（13 個情境·跑真的 `actionPlay_`·比對提示詞最後一行）：
-相約答應／同去答應婉拒／牽手答應婉拒／告白被拒成立已是戀人／同居婉拒再問／**結識100%成立**／拍照·鬆手不硬塞裁定。
 
 ⚠ **2026-07-28 玩家實測抓到的兩個 bug（同一批修）**：
 
@@ -1127,16 +1103,10 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 
 ## 🖥️ 前端地圖（`gas/Script_Kanshou.html` 為主）
 
-- **唯一引擎入口 `send(customMsg, isSilent, opts)`＝`action:'play'`**（2026-07 重構：原 22+ 位置參數收進單一 opts 物件，payload 不變零速度影響）。移動/相約/拍照/牽手/同居/敲門/橋段**沒有各自的 action**，全靠 opts 夾旗標：`moveTarget`/`moveWithCompanion`/`promiseMeet`/`takePhoto`+`photoIntent`/`showPhoto`/`handHold`/`cohabitInvite`/`cohabitInviteId`/`handHoldId`/`skipKnockCheck`/`dismissGuest`/`lookAround`/`inviteResident`/`endDay`/`advanceHours`/`jumpBand`/`jumpFestival`/`loaderCaptions`。
-- **回饋條 `proposalResult`** 涵蓋 相約/牽手/同去/同居 四型＋**撲空含「她似乎在○○」位置提示**；**`promiseSettle`（獨立通道）** 涵蓋 赴約成功/爽約過期 結算通知（與提議結果並發時各自顯示·見教訓區「單一回饋槽」）；相簿滿的 `photoResult` 附直達鈕（📚開相簿）——「撲空/婉拒/卡住」一律要有下一步，別讓玩家對著空氣猜。
 - **改命同伴卡**（2026-07 第二輪稽核修）：`update_fate` 名字比對原硬性要求 `IS_PARTY==='同行'`，但鑑賞列從不寫該欄→同伴卡改命鈕恆「查無此人」；現比照 `update_rel_tag` 給 `k_` 世界豁免（同世界名字直配），改同伴的 個性/特徵/身世 是合法自訂。⚠ **萌點那條路整條不存在了(2026-09)**：`intent-box`／`fate-btn-intent`／`fateType==='intent'` 全線拔除。（2026-07 二度改版：玩家自己卡的性格鎖快取 `_kcPrefLocks` 已隨性格鎖系統整組刪除）
-- **獨立 action**：`kanshou_companions`／`get_heroes`／`kanshou_summon_hero`／`get_album`／`album_delete`／`update_rel_tag`／`kanshou_set_nickname`（2026-07 五度改版新增·專屬稱呼手動鎖定，bond≥80）／`kanshou_memoir_op`／`kanshou_set_home_name`／`kanshou_set_name`／`kanshou_set_sex`／`enter_kanshou`／`backfill_kanshou_ai`。
-- **函式分組**：地圖移動(`kcMapListHtml_`/`kanshouMoveTo`/`kanshouProposeMove`/`kanshouLookAround`)、同伴面板(`openCompanions`/`renderKcHeroList_`/`kanshouOpenBondHub`→`kanshouOpenRelTag`)、召喚(`kanshouSummonHero`)、回憶(`kanshouOpenMemoir`/`kanshouMemoirOp`)、約定(`kanshouPromiseMeet`/`kanshouWaitForPromise`)、拍照相簿(`kanshouTakePhoto`/`openKanshouAlbum`)、時鐘(`kanshouEndDay`/`kanshouNextStage`/`kanshouJumpBand`/`kanshouJumpFestival`)。
-- **泡泡 UI**（`send()` 內依回傳欄位組）：移動同意(`moveProposal`)、深夜訪客善後(`nightGuest`)、同居邀請(`cohabitOffer`)、巧遇結識(`encounterOffer`)、等待約定(`promiseWait`)、拍照結果(`photoResult`)、地圖人數徽章(`_lastTags.locationCounts`)。
   - ⚠ **每加一顆泡泡都要先回答「玩家不點它、直接打字會怎樣？」**：泡泡是待決狀態的唯一出口→忽略就會壞（必須改成先落盤再給善後選項）；泡泡只是已落盤狀態的捷徑→忽略無害。現況全部屬於後者。
   - `cohabitOffer` 的 `KANSHOU_COHABIT_ASKED_TAG_` 存 **absDay 不是布林**：布林版玩家一旦改用打字，這個「一生一次」的邀請就永遠消失；完全不記又會退回被嫌煩的「每回合都跳」。同一位、同一天最多問一次，接受後靠 `!kanshouIsCohabit_` 自動停。
 - **前端鏡像常數**（後端為真實來源）：`KC_REGIONS_`/`KC_FESTIVALS_`/`KC_TIME_BANDS_`/`KC_LOCATIONS_`/`KC_APPT_BANDS_`。時鐘全域 `kcClock`（`Script.html`）。
-- **`Script.html`/`Index.html` 的鑑賞殘留**：`applyModeUI()` 總開關（依 isKanshou 切 topbar/輸入框/drive開關/photo-btn/快速輸入貼圖列/相簿抽屜/節慶抽屜）；同伴卡鑑賞按鈕列(📜詳細狀態／💞關係中樞／📅相約／🤝牽手↔✋放手，見 §同伴卡片按鈕)；`enterKanshou()` 入口。⚠ `Index.html` 的 `#victory-memoir` div 是**戰爭軌殘留**：奪杯回憶錄機制已砍，該 div 現只被清空/隱藏、不再填充（非鑑賞，別誤接鑑賞邏輯）。
 
 ---
 
@@ -1152,7 +1122,6 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 - **onclick 字串內的呼叫不算死碼**；`removeAllTriggers()` 零呼叫是 GAS 工具正常型態、非死碼。
 - **HTML 刪除先手算 div 開合平衡**再刪，避免刪頭忘刪尾崩整頁。
 - **泡泡(必點UI)別跟可關閉的東西同住一個容器**：「AI選項開關」曾整個 `options-container` display:none，所有泡泡(前往/邀約/同居/敲門/橋段/結識)陪葬——關掉選項的玩家**從沒見過任何泡泡**。現制：【命運的抉擇】包在 `#ai-options-grid` 小盒、開關只藏它；容器本身恆 flex(載入時強制恢復)。新泡泡一律放容器直下、別放進 grid。
-- **「先擋、再刪字」的順序會讓防線失效**：擋公式引導字元(`^[=+\-@]`)的那道必須是**最後一道** replace——它前面每一道清洗都還會再刪字元，刪掉開頭那個字之後，原本被擋在第二位的 `=` 就重新變成開頭。實測 `photo_caption` 打 `"=SUM(1+1)` 落地就是一格活的公式。`sanitizeUserData_` 與相簿 caption 兩處都犯過，已一起修。
 - **同一格欄位有兩條寫入路徑時，消毒要抽成一支**：REL_MEM 的 `[專屬稱呼]` 有「玩家手動」與「AI `mutual_nicknames`」兩條路，舊版只有手動那條消毒——AI 回 `"小可愛| [稱呼鎖]是"` 就能偽造出稱呼鎖。現在兩條都只走 `sanitizeNickname_`。
 - **前端渲染的順序＝資料就位的順序**：`updateClock` 讀 `kcClock`(判深夜) 與 `window._lastTags.nightScene`(判夜未眠) 決定那顆最常按的鈕寫哪個字；`send()` 與 `applyClientState` 兩處都曾把它排在這兩份資料**之前**，按鈕永遠慢一回合——按下🌙睡覺、夜未眠成立了鈕上卻沒變，玩家再按一次就真的睡掉。**任何讀 tags 的渲染，tags 必須先就位。**
 - **永遠不會成功的按鈕就不要長出來**：私人房間(`isRoom`)在後端是 region `'room'`、相約/邀同去一律不受理，前端卻照樣給 👋。比照地圖上鎖住的地點：不給、或給灰底🔒＋說明，別讓玩家按了才被拒。
@@ -1163,16 +1132,12 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 - **🫶 玩家提議（相約/牽手/同去）她答不答應＝GAS 依好感擲、AI 只演**（2026-07 由 AI 判定改 GAS 判定）：pre-AI 用 ~~`kanshouProposalAccepts_`~~（2026-09 已移除，三個提議一律成立） 依好感擲定 `_pendingProposal.accepted`（曲線：move base .55/slope .006、promise .30/.007、hold .10/.010，夾[.03,.97]——牽手最看好感、同去最隨和；2026-07-28 move base .45→.55，實測值見 `scratchpad/sim/odds.js`：同去好感 0/40/80 → 55%/79%/97%），★提議鐵律直接告訴 AI「她【答應/婉拒】了，只演她的反應、不可改寫決定」；post-AI 落地讀 `_pendingProposal.accepted`。**2026-07 三度改版**：`proposal_accept` schema 欄已整個刪除(不再保留相容佔位)。她主動提議約會(`kanshouPromiseOffer_`)＋同居(`kanshouCohabitOffer_`≥90)也已改成同一批 GAS 直接判定觸發，不再等 AI 自己開口。**紅線①核對過：nsfwBaseRules／慾海律令／driveStr／五階演化 0 改動。**
 - **通用錯誤文案是查案毒藥**：send()/saveFate 的 catch 已帶出 e.message(【原因】行)；後端 success:false 的 message 會演進故事流。別再寫吞掉真因的 alert。
 - **獨立事件別共用單一回饋槽**：赴約/爽約「結算」與相約/牽手/同去「提議結果」是兩條獨立事件流，舊版共用 `proposalResult` 單槽＝並發時後寫的吞掉先寫的(爽約通知無聲消失2.0)。現制：結算走 `promiseSettle`、提議走 `proposalResult`，前端各自出通知條。新回饋事件進來時先問「跟既有槽是同一條事件流嗎」，不是就開新欄位。
-- **後端早退回應別夾空集合**：敲門早退曾夾 `people: []` 把前端 `localNPCs` 快取洗空(泡泡期間拍照面板變無人)。早退＝沒人移動＝不帶 people；前端也只在 `Array.isArray(data.people)` 才更新快取(雙保險)。
 - **「下方/上方」方位詞會過期**：prompt 注入段引用其他規則時**用【規則名】不用方位**——注入點會搬家，方位詞跟著說謊(告辭/巧遇豁免句曾指「下方」而鐵律實在上方)。
-- **小模型會沿用剛出現的視覺詞、用到失去邏輯**（2026-07 玩家實測抓到）：某回合合理寫了「手機螢幕的光亮映照在她臉龐」(拍照後·螢幕當光源照在對方臉上，合理)，接下來幾回合卻沿用「螢幕」這個詞寫成「螢幕上顯現出我的驚呼/不解的表情」——變成用「螢幕」描寫**玩家自己**的表情，但第一人稱『我』根本看不到自己的臉，這個畫面邏輯上不成立。已在★【不替玩家腦補】結尾補一句：「『我』看不到自己的臉，禁止寫成『螢幕/鏡子顯現出我的表情』這類從外部看見自己臉的描述——我的反應只能透過動作/感受/台詞呈現」。這類「沿用剛用過的顯眼詞彙、用到脫離語境」的失誤模式值得留意，不只螢幕這一個詞可能發生。
   - **⚠ 同類 bug 第二例（2026-07 玩家實測「紫水晶眼眸是我的ㄟ，AI又拿去用」）**：玩家御主卡「氣質」特徵是「紫水晶眼眸」，跟美狄亞聊天時 AI 卻把「紫水晶般的眼眸」直接套在美狄亞身上——查證美狄亞自己的種子資料只有「紫色長髮」，從沒設定過紫水晶眼睛。跟螢幕那個 bug 同一種病根：【玩家命格】跟【在場人物】兩段的「特徵」在提示詞裡位置相近，小模型把剛讀到的玩家外貌詞彙錯誤沿用到同伴身上。同一句★【不替玩家腦補】結尾再加一句處理：「同伴的外貌只能取材自她自己的資料，禁止把玩家自己命格的外貌/氣質特徵挪用套在同伴身上」。
 - **假容量上限別憑空捏造**：2026-07 稽核抓到 `Script.html` 同伴卡片列表曾用寫死的「3」補畫「（空位）」佔位框，暗示「此地最多3位同伴」——但 §91 駐留制改版後同地點召喚無數量上限(`buildTagsPayload_` 只按 LOC 篩選)，這個「3」是介面上憑空捏造、跟後端規則脫鉤的假限制，已整段移除。加任何「剩餘X個」「上限N」這類顯示前，先確認後端真的有對應的數量約束，沒有就別顯示。
 - **審查攔截保底文字別讓它悄悄變成歷史**：`callGeminiAPI`(Engine_Combat.gs) 全部重試/審查攔截皆失敗時，回傳的是一組跟真正生成成功長相一模一樣的「保底文字」JSON——2026-07 抓到 `actionPlay`(Gallery.gs)/`narrateWithState_`(Router_Narrative.gs)舊版都會把這句「什麼都沒發生」的保底措辭原封不動存進 `saveGameHistoryBatch`，下次呼叫又把它當成上一輪的既定事實餵回AI，可能接續出跟實際劇情矛盾的敘事。已加 `_genFailed` 旗標讓兩處呼叫端辨識、失敗時完全跳過寫歷史。**任何新的敘事呼叫端要接 `callGeminiAPI` 並自己存歷史，記得先檢查這個旗標。**
 - **提示詞講的規則，代碼要真的照做**（2026-07 全面稽核抓到）：`rel_changes`/`intimacy_feedback.npcs[]` 寫入好感/外顯前，提示詞明講「只有【目前在場人物】才准變動」，但兩處寫入邏輯從沒真的檢查 `pcData[idx][COL.PC.LOC]` 是否等於 `curL`——AI 若因對話歷史殘留或幻覺提到不在場的人名，好感值一樣被悄悄寫入。同批也發現 `rel_changes` 的「單回合漲跌上限±5」只寫在提示詞裡，代碼只有 `sanitizeAiData_` 的 `[-100,100]` 粗夾，從沒真的把±5夾進去。兩處都已補上對應的程式碼檢查/夾值。**提示詞裡承諾的每一條護欄，都要回頭確認代碼是不是真的照做了，不能只靠告訴AI「請遵守」。**
 - **回饋通道只開一槽，同回合兩筆就吞一筆**（2026-07 稽核抓到）：`kanshouPromiseSettle_` 沿用了 `proposalResult` 那次改版學到的「獨立通道」教訓，卻自己還是單槽——玩家若同時有兩位同伴的約定在同一回合結算(如A赴約成功+B同時爽約)，`forEach` 跑兩輪，後跑的無條件覆寫前一筆，前一筆的通知條就消失(底層BOND/MEMORY寫入正常，只有UI通知被吞)。改成陣列，前端逐筆渲染。**同一件事「可能同時發生不只一次」時，回饋通道要用陣列，不要嫌麻煩用單一物件卡死自己。**
-- **「防偽造」helper 存在，不代表每個呼叫點都真的用了它**（2026-07 全面稽核·本輪最嚴重發現）：`kanshouOwnedRowIdx_` 明明就是為了防 `pcId` 被猜中/偽造而寫的，但 `actionPlay`／`actionGetAlbum`／`actionAlbumDelete` 三個高頻/高權限 handler 一路用裸 `pcData.findIndex` 繞過它，等於整套防禦形同虛設——而且是系統負擔最重、寫入面最廣的那個函式漏掉。**新增任何會讀寫 pcData 或私有資料的 handler，一律要主動去比對現有的歸屬驗證 helper 是否真的被呼叫，不能假設「這套機制存在＝全部路徑都受保護」。**
-- **`play` 故意豁免全域鎖，但「豁免鎖」不等於「不用防併發」**（2026-07 全面稽核·兩組獨立agent各自收斂到同一根因）：`actionPlay`(現為`actionPlay_`)的寫回機制是「整表快照→本回合全部改動只在記憶體→結尾整列覆寫」，若同一 pcId 的兩次呼叫執行窗口重疊(同帳號兩分頁/兩裝置同時操作、或聊天等AI回應時另開改命視窗存檔)，後flush的請求會用自己那份舊快照整列覆寫掉先flush者的所有改動。已用 `CacheService` 做「同一pcId」的軟性互斥(外層薄包裝 `actionPlay`，見上方執行階段順序第0步)：偵測到同pcId仍有一次在跑就直接拒絕待玩家稍候，不佔全域鎖、不影響其他玩家。**⚠ 已解除的相關限制（2026-07 拍照改手機後自然消失）**：舊版拍照的「寫相簿(立即/不可逆的`appendRow`)」與「扣底片(記憶體→回合尾端才flush)」曾是分離提交，中途有未接住的例外時可能出現免費照片+其他當回合狀態改動一併消失的風險；拔掉底片機制後這條路徑只剩單一的`appendRow`寫入，這個併發疑慮已經不存在，不需要再另外根治。
 - **字串前綴比對記得連 `indexOf` 的意義都要核對，不要只挑「有沒有寫」**（2026-07 稽核抓到）：`Router_Action.gs` 的 `_state` 隨動作回應夾帶機制原本只判斷 `String(pcId||"").indexOf("PC_")===0`——但 `"KPC_xxx".indexOf("PC_")` 結果是 `1` 不是 `0`，鑑賞被整個排除在外，即使 `update_fate`/`update_rel_tag` 兩個handler明明就是特地做給鑑賞共用、也確實有交棒`STATE_PRE_DATA_`，改命/改稱呼存檔後鑑賞玩家還是得白跑一趟整表`sync`。已補上 `isKanshouCtx` 條件放行(這兩個action是`isKanshouCtx`為真時唯一能走到這個判斷點的，其餘solo專屬action都在更早被`KANSHOU_BLOCKED_ACTIONS_`擋掉，改動安全)。
 - **給小模型的篇幅指示，沒數字的那端會被無視**（2026-07 玩家實測「好感高了字數還是100~200」）：`★【篇幅隨關係濃淡】`原本只有低好感端給了具體數字(200~300字)，高好感端只寫「越深越濃才放長寫細」這種沒有錨點的模糊話——`AI_MODEL`(gemini-3.5-flash-lite)這類小模型對沒有具體數字的指示執行力很弱，結果好感再高篇幅也沒跟著拉長。已補上熟識(350~450字)/親近以上(450~600字)的具體區間。**任何要求「隨程度增減」的提示詞，每一端都要給具體數字，不能一端有數字一端純形容詞。**
   **⚠ 2026-07 再修（玩家「字數一下很長一下很短」）**：即使兩端都給了數字區間，還是留了兩個變因給 AI 自己判斷：①要把好感數字bucket進哪個區間本身對小模型就不穩、②多人在場、各自好感不同時不知道該以誰為準——兩者疊加就是忽長忽短的根因。改成 GAS 直接算好一個**具體目標字數**（`_kanshouTargetWords_`，取在場好感最高者、沒人在場用最低檔：<40→250字／40~59→400字／60+→500字）直接指定，規則名也從`★【篇幅隨關係濃淡】`改成`★【篇幅指定】`（`driveStr`/schema 的`narration`欄描述同步改引用新名字）。AI 不必再自己做「好感→區間」的判斷，只需要照給定的數字寫，同名多人不同好感也有唯一答案。
@@ -1188,7 +1153,6 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 ---
 
 ## 📎 主要常數速查（都在 `gas/Gallery.gs`）
-`KANSHOU_REL_TIER_`(五階) · `KANSHOU_STYLE_MODULES_`(15 段說書人風格·玩家可改)/`KANSHOU_STYLE_CATS_`(4 個面板分頁) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_PACE_OPTIONS_`(0/10/20/30 分鐘·玩家自選流速) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · ~~`KANSHOU_SCENE_EVENTS_`~~(橋段庫·2026-09 已整組砍除) · `KANSHOU_ALBUM_CAP_`(100)（`KANSHOU_FILM_PER_DAY_`已隨底片制拍照改手機一起刪除，見上方拍照/相簿章節） · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
 
 
 ---
@@ -1237,7 +1201,6 @@ system 1700 → 1724 字。
 
 玩家：「全體 慢慢檢查一遍 看哪裡怪怪的，不可以出戲！重點的檢查鑑賞模式」
 
-做法：寫 `kscan.js` 把 10 種情境（房間／三人客廳／外出／問起不在場的人／告白／牽手／拍照／深夜／
 拜訪別人家／同居邀約）真正送出去的 system+user 全部收下來，再拿一份違和詞表掃全文。
 掃出來的東西**沒有一個是靠讀原始碼會發現的**——都得把提示詞真的組出來才看得見。
 
@@ -1681,7 +1644,6 @@ solo 的 `TRAIT_LABELS_` 砍成兩格。
 
 | | |
 |---|---|
-| **會清掉** | 鑑賞眾生（玩家自己那列＋所有同伴）／他們的對話歷史／相簿／世界帳本／帳號表的鑑賞連結 |
 | **不會動** | 英靈殿（含工房鑄的原創英靈——兩軌共用的資產）／solo 那一局的任何東西／**別的帳號的鑑賞** |
 
 清完解除 `COL.ACC.KPC` 連結，下次 `actionEnterKanshou` 查無連結就從頭建一個全新世界。
@@ -1705,7 +1667,6 @@ solo 的 `TRAIT_LABELS_` 砍成兩格。
 `purgeHistoryForPcIds_` 也一起批次化了——solo 的 `end_run` 走同一支，兩軌同時受惠。
 
 **探針 `reset.js`** 開兩個帳號各一局，驗四件事：別的帳號清不動／沒帶帳號名擋下／
-本人清得乾淨（眾生 5→0、歷史/相簿/世界帳本歸零、連結解除）／**另一個帳號與英靈殿一根寒毛沒動**。
 
 
 ---
@@ -1752,11 +1713,8 @@ solo 的 `TRAIT_LABELS_` 砍成兩格。
 
 抓到四件事，都已修。四件裡有三件是**綠燈、零錯誤訊息、玩家不會收到任何提示**的那種壞法。
 
-### ① 拍照整條路靜默壞掉（最嚴重）
 
 事件自由那輪砍掉預寫橋段池時，`kanshouLocActivity_`／`kanshouReFest_` 連同表一起刪了，
-但**相簿落地那段還在叫它們**——而那整段包在 `try/catch` 裡。結果：
-**拍照永遠失敗、相簿永遠存不進去**，玩家只會覺得「怎麼都沒存到」，後台沒有任何錯誤。
 
 修法：節慶旗標改用 `curDateObj_` 現場算（`KANSHOU_FESTIVALS_` 還在）；活動欄留空
 （**欄位保留不刪**——COL 是位置索引，刪欄會位移全表）。
@@ -1768,7 +1726,6 @@ solo 的 `TRAIT_LABELS_` 砍成兩格。
 
 `world_note` 是 **AI 產的、不經過 `sanitizeUserData_`**，而帳本的名稱/內容會直接寫進儲存格——
 開頭是 `=`／`+`／`-`／`@` 會被 Google Sheet 當公式執行（`=IMPORTXML(...)` 這類）。
-相簿的 `photo_caption` 當年就為了同一件事補過，這裡漏了。已在 `kanshouWorldWrite_` 的 `_f` 補上。
 探針 `sec2.js`。
 
 ### ③ 每按鍵整表讀 6 → 9 次（效能退化）
@@ -2154,7 +2111,6 @@ pool = 內建 ∪ 玩家自己開的地方（排除 room/visit/dateOnly）
 | `kanshouHoursUntilDateTime_(curDay, curHour, y, m, d, hh)` | 指定日期時刻→差幾小時。**只能往前，往回一律回 0** |
 | `userData.setDateTime` | 走既有 `advanceHours` 管線（跟跳時段/跳節慶同一條路） |
 
-**為什麼只能往前**：約定存絕對日、好感棘輪、相簿日期、節慶完成標記、初見日/紀念日
 全部是單向時間戳，往回調會讓「已經發生的事」錯亂。要重來有歸零那顆。
 
 **暫停時世界是真的凍住的**——她們不換地方、不會想睡、約定不會到。所以時鐘會顯示 **⏸**，
@@ -2298,12 +2254,10 @@ solo 那側掛在 `solo_all.js` 尾巴（24 顆按鍵跑完一起掃）。現況
   現在寫「城裡本來就住著幾個人。想見的人不在，從這裡請進來」。
 - **砍掉語氣句**：開場的「你只是住在這座城裡的一個人，想做什麼都可以」與結尾整段「好感只會從相處裡長出來…日子還長」全刪；
   每段只留「這顆鈕是幹嘛的」。字數 從 ~330 收到 ~215。
-- **＋ 更多 只列名字**：舊版三個項目各配一句形容（「📚 相簿收著你拍的照片」），改成「📚 相簿、🌍 這個世界、⚙ 說書人設定」。
 
 ⚠ **它點名的每一顆按鈕都必須真的存在**——寫一顆不存在的鈕比不寫更誤導人。
 2026-09 起這條由 `check_ui.js` 機器擋：抓出那段裡的控制項**圖示**，逐一確認介面別處真的有對應的
 `onclick`／抽屜項／`title`。⚠ 比對的是【圖示】不是整串字：圖示穩定，後面幾個字常為了語氣微調
-（教學寫「📚 相簿收著你拍的照片」、按鈕上是「📚 相簿」）；第一版比整串字，四條全誤報。
 純段落圖示（✍️）登記在 `TUT_NOT_A_BUTTON`。退化確認：把 🗺️ 改成不存在的 🛸，它確實會叫。
 ⚠ **切段的收尾用結構不用文案**：第一版切到「日子還長」為止——那是一句語氣話，2026-09 重寫時就被刪了，
 切點跟著失效、整段只會剩開頭幾個字，掃描器安靜地少看好幾顆鈕。現在切到模板字串真正的結尾 `</div>`。

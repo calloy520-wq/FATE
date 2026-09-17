@@ -40,7 +40,6 @@
 - `applyModeUI()`（Script.html）是模式總開關。solo 隱藏 full 專屬功能、收掉輸入框、顯示 `war-actions` 行動列。
 - **雙軌**（Index.html `scr-menu`）：🎴 純淨（單人聖杯戰爭·SFW）／🌹 慾海（鑑賞後日談·NSFW）。共用一張試算表＋核心資料，靠 帳號＋game_id 分流，不拆表。
 - **無戰記/排行榜/唯讀回顧視窗**：`showVictoryHistory`/`actionGetVictoryHistory`/`openLeaderboard`/`actionLeaderboard`/`incrementWin_`/`recordHistory_`/`recordWinSpeed_`＋「戰史」表、帳號表 WON/BEST_DAYS 欄 皆已移除。
-- **持久層（清檔不刪）**：帳號表、鑑賞眾生（動態建）、鑑賞世界／相簿（動態建）。（「鑑賞」封存表已整套移除，見 §2 分頁。）**會被清檔刪**：眾生（game_id）——NPC 對御主的關係已併入眾生列。
 - **補魔(solo)**：💧補魔 `actionManaSupply` 的解鎖分支與令咒·強制補魔（`actionUseSeal` 的 `mana`）是 solo 僅有的兩段露骨橋段（Fate 原作的魔力供給）；門檻、按鈕出現條件與提示詞見 §「💧 補魔整修（2026-09）」。
 - ⚠ **2026-09 砍掉 `actionRest` 的「非 FATE 舊版休養」死分支**：game_id 只有 `g_`(solo)／`k_`(鑑賞) 兩種前綴，而 `rest` 在 `KANSHOU_BLOCKED_ACTIONS_` 對鑑賞是擋掉的 → `isFateRest` 分支一定會 return，那段永遠走不到。但它裡面藏著兩個跨帳號洩漏：「同行」全回滿沒帶 game_id／`bystanderNames` 用地點掃全表、把別人那局在同名地點的角色名字一起端出來（且前端從來沒讀過這個欄位）。**死碼不是無害的，它是「哪天條件變了就直接生效」的地雷**；已換成一句明確的失敗。
 - 🤝 **盟約倒數（2026-09 補接線）**：盟約有效期是 `day <= until`（`breakStaleAlliances_` 判 `day > allyUntil_` 才破），
@@ -68,7 +67,6 @@
 - **FACTION**（COL.PC.FACTION 字串）：`御主`(玩家)、`從者`(玩家的)、`敵御主`、`敵從者`、`盟友御主`/`盟友從者`（前端 override，見 §8）。
 - **六圍階級制**：FATE 純六圍 SIX（STR/CON/AGI/INT/LUK 五圍已移除）。從者 HP 由 `servantMaxHp_(svNum_(SIX.耐久))`＝150＋耐久×6、MP 恆 0（出力電池制）；御主 HP/MP 走 `masterMaxHpMp_`/`masterPoolMax_`（迴路制）。（⚠ 舊 `fateMaxHpMp_`/`maxStatsForRow_` 已砍，2026-09）九州境界/物品/銀兩/門派 helper 全砍。
 - **提示詞已全清九州詞**（例外：`雙修技巧`＝NSFW MEMORY 機制保留；`凡人`作「人類御主」描述語保留）。
-- **分頁**（Setup_FateWorld.gs `FATE_SHEET_DEFS`，缺頁自動補、冪等）：坤圖(地圖)/眾生/英靈殿/御主殿/帳號/歷史暫存 **6 頁**＋動態建的 鑑賞眾生／鑑賞世界／相簿 3 張（⚠ 舊「鑑賞」封存分頁已隨 COL.GAL 移除，實體分頁若還在可手動刪）。時鐘/權柄/關係 併入眾生列；因果(事件log)/戰史/史紀 直接刪除、無替代。
 
 ### COL schema（索引讀取；定義在 `Core_Settings.gs` 開頭 `const COL`）
 
@@ -163,7 +161,6 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 
 | narrate_only | actionNarrateOnly | **AI 純說書**（solo 專用；GAS 算數值、AI 只演出）。`userData.longForm` 旗標→`max_tokens` 720→2000（補魔/令咒高好感解鎖分支的 500~600 字），模型不變。 |
 | tiger_dojo | actionTigerDojo | 🐯 賽後番外（敗北講評／勝利祝賀）。前端只送敗因【鍵】，文案查 `DOJO_CAUSE_` 五格表；**自帶說書人設定、不套 `miniSystem`**（戰場語氣跟輕鬆詼諧打架）、不讀表不帶歷史。 |
-| enter_kanshou / kanshou_* / backfill_kanshou_ai / get_album / album_delete | Gallery.gs | 進鑑賞後日談世界／同伴管理／共同回憶面板／相簿（詳見 `KANSHOU_REFERENCE.md`） |
 | end_run | actionEndRun | 結束本局（單純清理，不再封存）。（claim_grail 奪杯封存已移除） |
 | dev_resync_codex / purge_orphans | actionDevResyncCodex/PurgeOrphans | DEV：手動套最新平衡到現有從者／清孤兒列 |
 
@@ -297,7 +294,6 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 
 - **🔢 一個數只准存一處（2026-09 稽核再抓到三例）**：`check_mirror` 只盯 `KC_*` 常數，
   **UI 文字裡寫死的數字它看不到**——這是共同回憶 10/8 那個 bug 的同一條縫。這輪補的：
-  ① 相簿滿了的訊息寫死「100 張」→ 加 `KC_ALBUM_CAP_` 鏡射（掃描器自動發現，20 組）。
   ② 補魔確認框寫死「生命上限 −15、魔術迴路 −3」→ 改讀既有的 `KC_MANA_HP_CUT_`／`KC_MANA_CIRC_CUT_`
      （tooltip 早就在用了，這個確認框是漏網的第三份，而且是玩家按下去前最後看到的那句）。
   ③ 工房預算 340 存三處（後端函式內、`FORGE_FLOOR_`、Index.html 靜態文字）→ 收成檔案級
@@ -704,13 +700,11 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
 
 對 §22 全面重構的成果派5組agent交叉覆核：驗證重構diff正確性、覆核KANSHOU_REFERENCE.md過時內容、solo新一輪bug稽核、kanshou新一輪bug稽核、找更多整理機會。找到並修正以下真實問題：
 
-- **🔴 高嚴重度安全漏洞：5個kanshou handler完全跳過帳號歸屬驗證**——`actionBackfillKanshouAi`(Gallery.gs)、`actionGetFullStatus`/`actionUpdateFate`/`actionUpdateRelTag`/`actionSetNickname`(Router_Action.gs，solo+鑑賞共用handler)全部只用裸`pcData.find(r=>r[COL.PC.ID]==pcId)`信任傳入的pcId，鑑賞context下pcId(`KPC_`+建檔毫秒時間戳)可預測/枚舉，且帳號本身無密碼——猜中/取得任一鑑賞玩家的pcId即可冒名竄改其御主外貌/性格/萌點、任一同伴的個性/身世/萌點/關係稱呼/專屬稱呼，或讀出完整狀態。這比先前(§早期章節)記錄過的漏洞(僅涉及`actionPlay`/相簿)更嚴重，因為連`kanshouPcIdx_`（純索引查找；歸屬驗證已上移 dispatcher `verifyPcOwnership_`）這道既有防線都被繞過。已修：Router_Action.gs新增共用`resolveCallerGameId_(pcData, pcId)`——鑑賞(`KPC_`開頭)一律反查帳號表(`kanshouPcIdx_`（純索引查找；歸屬驗證已上移 dispatcher `verifyPcOwnership_`）)驗證歸屬失敗回`null`(呼叫端視同查無此人)；solo沿用原本裸find行為(零行為變化，帳號綁定在登入時已處理、不在本次範圍)。4支handler改用它；`actionBackfillKanshouAi`直接改用`kanshouPcIdx_`（純索引查找；歸屬驗證已上移 dispatcher `verifyPcOwnership_`）。**同步修前端**：`get_full_status`/`update_fate`/`update_rel_tag`/`kanshou_set_nickname`/`backfill_kanshou_ai`這5個action原本都沒有送`acctName`(其餘鑑賞action早就都有送)，後端新驗證需要它才能通過——已在`Script.html`(2處)/`Script_Kanshou.html`(3處)補上`acctName`欄位，否則後端修完前端沒跟進送值，會讓正常玩家也被擋下。
 - **🐛→✅ EMIYA的`ubw`(無限劍製)跟斯卡哈`gae_bolg`同款孿生bug**：`offenseTier_`(Engine_Fate.gs)的`pierceFx`無條件清單原本仍含`ubw`——EMIYA的『無限劍製』既是他的永久固有技能(投影魔術本體)、又是他兩個可選寶具之一，選擇較弱的『偽·螺旋劍』(fx:projection)時，`ubw`仍會被這份無條件清單掃到，誤判成帶概念4貫穿的無限劍製強度，讓Caladbolg II能不該地打穿`territory`/`divine_core`/`nullify_magic`等概念2防禦。已比照當年gae_bolg的修法，從`pierceFx`移除`ubw`，交給後段`npProfile_(c).fx`(按本次實際選定寶具判定)處理。連帶修`Router_Battle.gs`的God Hand嚴重度計算：`var ghScale = npAtkScale_(atkC)`只認永久技能字面、不看`npChoice`，改成`npProfile_(atkC).scale`(比照Engine_Fate.gs解放判定同款寫法)，避免玩家選較弱寶具時仍被判定成最強寶具規模去燒對方God Hand的命。
 - **🐛→✅ 鑑賞小道具/催眠指令3個handler漏帶`loc`在場驗證**：`actionKanshouSetProp`/`actionKanshouAddCustomProp`/`actionKanshouCastHypnosis`(Gallery.gs)呼叫`findPcRowIdx_`時，跟`promiseMeet`/`cohabitInvite`/`handHold`用的是同一支resolver，唯獨這3處沒帶`loc:curL`——沒驗證目標同伴此刻是否真的在場就能裝備/施展。已補上`loc: String(data[meIdx][COL.PC.LOC]||"")`，跟其餘親密向action驗證邏輯一致(`actionKanshouMemoirOp`共同回憶本就不需要在場、`actionKanshouDeleteCustomProp`是批次清全部同伴身上的道具，兩者刻意不帶loc)。
 - **補完§22兩處遺漏的批次收斂**：`Router_Movement.gs`的`playerAmbushOnEnemy_`(趁隙偷襲)、`enemyAmbushOnServant_`(陣地反擊分支＋真突襲分支)共3處仍手刻`injectMasterMeleeSupport_`+`injectMasterMagicSupport_`雙支呼叫，沒跟進`injectMasterSupportFor_`——已改用共用函式。`Router_Battle.gs`的`actionFateBattle`/`actionSummonHorror`共2處仍手刻AP門檻+扣費，沒跟進`chargeApOrReject_`——已改用共用函式(`actionSummonHorror`那處**不能**傳`skipWrite`，因為`drainForNp_`的整列寫回發生在AP扣款【之前】，DAY/HOUR/AP仍需自己的窄欄寫入，跟`actionFateBattle`「稍後還有一次整表寫回」的情境不同，誤傳skipWrite會讓AP扣款只留在記憶體、沒真的寫回試算表)。
 - **文件補註**：`chargeApOrReject_`(Core_Settings.gs)的`.reject`回傳路徑目前全部14處呼叫端都沒真的檢查過(因為呼叫前都已有獨立guard擋過)，屬於「預留但目前吃不到」的死路徑——已在函式註解明講，新呼叫點若打算只靠它擋門檻(不自帶前置guard)務必自己補`.reject`檢查。
 
-**KANSHOU_REFERENCE.md 過時內容已一併修正**（8類、約10處）：`minBond`欄位3處從「保留無讀取」訂正為「已整批物理刪除」；`KANSHOU_FILM_PER_DAY_`從常數速查表移除(拍照改手機後此常數已刪，文件原本自相矛盾)；`kanshouPickDate_`改過去式(八度改版已整支刪除)；補上`kanshouPickLocation_`改用獨立`#kloc-overlay`(解耦離`#kp-overlay`的隱性碰撞風險)；補上`findPcRowIdx_`/`kanshouMissStr_`/`formatFourSlot_`(已刪)/`kanshouDailyTranslateCall_`/`ensureOverlay_`/`_showOverlayLoading_`這幾支§22新增共用helper跟既有段落的關聯。
 
 **評估後判斷仍應維持現狀、本輪不動的項目**（供之後評估，非遺漏）：
 - `fateStrike_`(Router_Battle.gs)與斬首反噬分支的死亡結算合併——重新盤點後發現實際是**4處**(含`Router_Movement.gs`的`playerAmbushOnEnemy_`/`enemyAmbushOnServant_`各自的survive/god_hand簡化版)而非原認知的2處；`Router_Movement.gs`內部這2處可安全合併(結構最接近、無額外機制差異)，但`fateStrike_`本身承載的規則明顯更多(海怪護盾/整備餐/令咒脫離)，強行泛化風險仍偏高，暫不動。
@@ -1285,7 +1279,6 @@ solo 這邊補上的入口：帳號登入、開新局清檔、翻正典御主名
 - **`fuzz.js`（65 條路由 × 4 種爛 payload）** — 參數亂給不可以炸整局：全空／只有身分／鑑賞身分／亂型別
   （物件當名字、陣列當 id、數字當地點、字串當 JSON…）。判準三條：**不可以拋例外**（前端只會顯示「連線失敗」）、
   **回傳一定是 JSON**、**失敗一定要講原因**（玩家不能對著空氣）。現況全過；
-  「完全沒帶身分時靜靜失敗」的三支（`get_tags`／`get_album`／`tiger_dojo`）逐條登記在 `QUIET_OK` 並寫理由。
 - **`forge.js`（5 條）** — 🛠️ 創建英靈的計價：拿前端那份計價常數照它的公式算，跟後端 `forgeCost_` 比，
   隨機 400 組 build 逐筆對，外加三條邊界（第 4 個技能才收 20 欄位費、對軍規模 +20）。現況全對。
 - **`fxbase.js`（不是斷言探針，是基準線）** — 固定種子跑 10800 場，輸出逐場結果；重構前後比 md5。

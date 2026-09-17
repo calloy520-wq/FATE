@@ -3259,10 +3259,6 @@ mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未
 
 💗 告白成立＝交往中(存該同伴列MEMORY·【戀人】1)。這一格是好感 80 那道牆唯一的鑰匙：沒有它， kanshouSyncRelTier_ 會把好感夾在 79，於是戀人標籤/自訂稱呼/同居/最高階親密度全部進不去。
 
-### `kanshouAlbumSheet_`　<sub>Gallery.gs</sub>
-
-相簿分頁(lazy建表)。欄位位置索引：0遊戲ID/1照片ID/2拍攝日/3時段/4地點/5天氣/6人物(、連接)/7活動/8小敘述/9旗標(親密·節慶名)/10髮色hex
-
 ### `KANSHOU_HAIR_COLORS_`　<sub>Gallery.gs</sub>
 
 髮色解析：從角色TRAIT(dailyLook外貌段)文字抓色詞→hex——種子/工房新角色通吃(dailyLook建檔時必生成)、永遠零手工；順序敏感(深紫在紫前、紅褐在紅/褐前)，查無色詞退回中性深棕。
@@ -3433,14 +3429,6 @@ AI 對關係標籤沒有任何寫入權（attitude 欄位已於 2026-07 整組�
 
 🤝 牽手中·常駐氛圍：牽的對象此刻真的同地在場才提示(被時間推進骰走就不提)。這回合剛牽/放手的當下演出走 kanshouHandHoldStr，這條是「牽著手的後續回合」持續帶出親密感。
 
-### `_phNamedMembers`　<sub>Gallery.gs</sub>
-
-🏷️ 點名比對走候選橋：列是短名(SABER/櫻)，玩家打全名「拍阿爾托莉雅」也要命中，免得人像被誤判風景。
-
-### `kanshouShowPhotoStr`　<sub>Gallery.gs</sub>
-
-📷 看照片(showPhoto=照片ID)：手機拍完立刻能看，把照片拿給在場的人看——拍到自己→害羞/得意， 拍到別人→評論/暗暗吃味。
-
 ### `partyDetailsArr`　<sub>Gallery.gs</sub>
 
 📅 赴約/爽約結算已上移到 partyRows 之前(見上方)——她登場(pin到curL)必須先於在場名單計算， 否則「純聊天/拍照」路徑(不重骰位置)會讓 AI 拿到沒有她的在場卡。此處不再重複。
@@ -3493,10 +3481,6 @@ AI 對關係標籤沒有任何寫入權（attitude 欄位已於 2026-07 整組�
 
 鑑賞無戰鬥，御主的 HP/MP/MAX_HP/MAX_MP 這4欄從未寫入，故 prompt 不提血量/魔力數值或瀕死判斷(與世界觀規則「禁止血量/生命變化」一致——該禁令在下方 USER 世界觀＋演出而非說明兩行)。
 
-### `kanshouPhotoResult_`　<sub>Gallery.gs</sub>
-
-📷 拍照落地：AI成功回應才寫相簿(沒有底片，失敗也無所謂)。敘述吃AI的photo_caption， 沒吐就用「時段的地點·人物」模板保底；髮色從第一位被拍者的TRAIT現場解析(通吃工房新角色)。
-
 ### `_accepted`　<sub>Gallery.gs</sub>
 
 🫶 成敗由 GAS 於 pre-AI 依好感擲定(_pendingProposal.accepted)，不再讀 AI 的 proposal_accept——AI 只負責照裁定演出她的反應。(2026-07 由 AI 判定改 GAS 判定·kanshouProposalAccepts_)
@@ -3516,12 +3500,6 @@ appearance_extras：AI 如實回報的當下實際穿著/配飾，篩掉敷衍�
 ### `kanshouClock`　<sub>Gallery.gs</sub>
 
 時段按鈕/時段行動需要每回合都拿到最新時鐘，跟buildClientState_同一份kanshouClockInfo_， 不重複拼字串。
-
-### `actionGetAlbum`　<sub>Gallery.gs</sub>
-
-==========================================📷 相簿 actions（拍照本體在 actionPlay 的 takePhoto/showPhoto 分支，這裡只有讀取與刪除） ==========================================讀相簿：本局全部照片(新到舊)。手機拍完立刻能看，不再有沖洗中狀態。dateLabel後端算好(kanshouAbsDayToDate_)，前端零日曆邏輯。
-
-## `gas/History_Sync.gs`
 
 ### `safeContent`　<sub>History_Sync.gs</sub>
 

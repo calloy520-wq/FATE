@@ -18,11 +18,11 @@ const strip = f => fs.readFileSync(path.join(GAS, f), 'utf8')
 
 // 這些是玩家點得到的入口：少一個就是死按鈕
 const ENTRIES = [
-  'send', 'openCompanions', 'openKanshouAlbum', 'openKanshouWorld', 'openKanshouStyle', 'openKanshouTime',
+  'send', 'openCompanions', 'openKanshouWorld', 'openKanshouStyle', 'openKanshouTime',
   'kanshouSetPace', 'kanshouSetDateTime', 'kanshouAddRegion', 'kanshouDelRegion',
   'kanshouPlaceMenu', 'kanshouGoNewPlace', 'kanshouNextStage', 'kanshouEndDay',
   'kcMapListHtml_', 'kcChoose_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',
-  'sumMode_', 'setWarFromSelect_', 'pickWar', 'pickOrigin', 'newGameFlow', 'openTutorial', 'kcAlbumCardHtml_',
+  'sumMode_', 'setWarFromSelect_', 'pickWar', 'pickOrigin', 'newGameFlow', 'openTutorial',
   'ksRender_', 'ksTab_', 'ksPick_', 'ksSave_', 'ksReset_', 'ksResetAll_'
 ];
 // 這些面板會被真的叫起來一次（不能拋例外）
@@ -37,8 +37,6 @@ const RENDERS = [
   ['sumMode_(回門口)', () => { ctx.sumMode_(''); return disp('sum-gate') === 'block' && disp('sum-pick') === 'none' && disp('sum-create') === 'none'; }],
   ['setWarFromSelect_', () => ctx.setWarFromSelect_()],
   // 📱 拍完當下畫在對話裡的那張卡：後端 kanshouPhotoObj_ 給的形狀，前端 kcAlbumCardHtml_ 要畫得出來
-  ['kcAlbumCardHtml_', () => { const h = ctx.kcAlbumCardHtml_({ id: 'PH_1', day: 1, dateLabel: '12月20日', band: '黃昏', loc: '河堤', weather: '晴', names: '遠坂凜', activity: '', caption: '她回頭的那一瞬。', flag: '', hair: '#2a2a2a' });
-    return typeof h === 'string' && /她回頭的那一瞬/.test(h) && /遠坂凜/.test(h); }],
   // ❓ solo 的教學卡：真的畫出來，並確認「御主不上戰場」那段在（2026-09 戰鬥改版後補的，
   //   教學要跟規則對得上，不然玩家會以為自己也要挨打）。
   // 🎨 ⚙ 說書人設定的三態（預設／自訂／關閉）：畫得出來，而且【預設句本體不可以出現在畫面上】。

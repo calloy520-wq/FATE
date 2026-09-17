@@ -123,9 +123,7 @@ mcp__github__actions_get          method=get_workflow_run resource_id=<run_id>
 | ② 關係 | `KANSHOU_REL_TIER_` | 五階／`kanshouSyncRelTier_`／`kanshouIsLover_` 告白牆（好感天花板已移除） |
 | ③ handlers | `actionKanshouSummonHero` | 全部 `kanshou_*` action（召喚/貼圖/回憶/改名） |
 | ④ 演化核心 | `buildDefaultSystemPrompt` | `nsfwBaseRules` 在這裡：可改，先量後改再跑探針（紅線①） |
-| ⑤ 常數大宗 | `KANSHOU_REGIONS_` | 地圖／橋段／住處／時間曆法／約定／道具／相簿／天氣／別名 |
 | ⑥ 引擎 | `actionPlay` → `actionPlay_` | 🔥 **~1440 行巨獸**，鑑賞單回合全部意圖都在裡面 |
-| ⑦ 相簿 | `actionGetAlbum` | 讀／刪（拍照本體在 ⑥） |
 
 ### `Script.html`（3195 行・133 函式）依序
 `escapeHtml`（🔒唯一逃逸helper）→ `gasRun`/`beginAction`（通訊層）→ 全域狀態（`pc`/`myServants`/`myActiveServant`）→ `updateClock`/`updateEconomy`（HUD）→ `renderEncounterBubbles`/`renderWarActions`（戰爭行動列）→ `promptRetreat`/`retreatTo`/`travelTo`（移動撤退）→ `openFateEdit`（逆天改命）→ `FX_DESC`/`TRAIT_DESC`/`show*Desc`（說明 popup）→ `buildSvCard`（從者卡）→ `STANCES`/`setStance`（參戰風格）→ `refreshMapPane`/`buildMapSvg_`＋`LAYOUT`（地圖）→ `renderFateBattleReport`（戰報）→ `openNpReleasePicker`/`pickNpAndStrike`（寶具）→ `openOutfitPicker_`/`openMageRealmPicker`/`openRunePicker`（設定類）→ `openBondMenu`/`openSealMenu` → `openTigerDojo`（道場）→ `applyClientState`/`applyModeUI`（總開關）
