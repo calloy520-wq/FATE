@@ -1215,7 +1215,7 @@
       var locked = !!(lockKeys && activeLocks && activeLocks.indexOf(lockKeys[i]) !== -1);
       var valHtml = v
         ? '<span style="color:#332211;font-weight:bold;">' + escapeHtml(v) + '</span>'
-        : '<span style="color:#c3b898;font-weight:normal;">' + (isSelf ? (emptyLabel || '（AI 待補）') : '—') + '</span>';
+        : '<span style="color:#c3b898;font-weight:normal;">' + (isSelf ? (emptyLabel || '（還沒寫）') : '—') + '</span>';
       html += '<div style="display:flex;gap:8px;align-items:center;font-size:13px;line-height:1.5;">'
         + '<span style="color:#9a8f70;font-weight:normal;flex:0 0 3.4em;">' + labels[i] + '</span>'
         + '<span style="flex:1;">' + valHtml + '</span>'
@@ -1252,7 +1252,7 @@
     if (_backTitleEl) _backTitleEl.innerText = (_isKan && _selfCard) ? '—— 經歷 ——' : '—— 身分背景 ——';
     if (_isKan) {
       renderSegField_('ui-trait', s[2], ['外貌', '氣質'], null, null, _selfCard, '（待你改命填寫）');
-      renderSegField_('ui-pref', s[4], ['對外', '獨處', '喜歡', '討厭'], null, null, _selfCard, '（AI 待補）');
+      renderSegField_('ui-pref', s[4], ['對外', '獨處', '喜歡', '討厭'], null, null, _selfCard, '（還沒寫）');
     } else {
       setUI('ui-trait', s[2]);
       setUI('ui-pref', s[4]);

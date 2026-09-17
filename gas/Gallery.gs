@@ -444,15 +444,15 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   var heroId = String(userData.heroId || "").trim();
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   var me = data[meIdx];
   var gid = String(me[COL.PC.GAME_ID] || ""); var loc = String(me[COL.PC.LOC] || "冬木·深山町");
   var heroes = getHeroCodexCached();
   var hero = heroes.find(function (r) { return String(r[COL.HERO.ID]) === heroId; });
-  if (!hero) return JSON.stringify({ success: false, message: "英靈庫查無此英靈。" });
+  if (!hero) return JSON.stringify({ success: false, message: "找不到這個人。" });
   // 衛宮士郎-Master：玩家本人就是這個位置，不開放召喚。
-  if (heroId === '衛宮士郎-Master') return JSON.stringify({ success: false, message: "無法召喚，這個位置由你自己擔任。" });
-  if (KANSHOU_SUMMON_BLOCKED_IDS_.indexOf(heroId) !== -1) return JSON.stringify({ success: false, message: "這位英靈暫時不開放召喚。" });
+  if (heroId === '衛宮士郎-Master') return JSON.stringify({ success: false, message: "這位就是你自己。" });
+  if (KANSHOU_SUMMON_BLOCKED_IDS_.indexOf(heroId) !== -1) return JSON.stringify({ success: false, message: "這位現在還請不來。" });
   var heroName = KANSHOU_CASUAL_NAME_[heroId] || String(hero[COL.HERO.NAME] || "從者"); // 🏷️ 鑑賞訊息/查重用日常稱呼
   // 男性可被召喚，但不會被actionEnterKanshou自動預先鋪墊進世界(見該函式SEX!=='男'過濾)，只能靠玩家在這裡主動召喚。
   if (String(hero[COL.HERO.SOURCE]) === "ai_gen") {
@@ -510,18 +510,18 @@ function kanshouPurgeByGame_(sh, gidCol, gid, idCol) {
 //    一律驗「這個帳號登記的鑑賞角色是不是就是它」，否則任何人都能猜 id 清掉別人的存檔。
 function actionKanshouReset(userData, pcId, sheets) {
   const acctName = String(userData.acctName || "").trim();
-  if (!acctName) return JSON.stringify({ success: false, message: "未登入帳號。" });
+  if (!acctName) return JSON.stringify({ success: false, message: "還沒登入。" });
   const linked = getAccountKanshouPcId_(acctName);
   if (!linked || String(linked) !== String(pcId)) {
-    return JSON.stringify({ success: false, message: "查無你的後日談角色，無法重置。" });
+    return JSON.stringify({ success: false, message: "找不到你的後日談，沒東西可以歸零。" });
   }
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const kpc = getKanshouPcSheet_(ss);
   const data = kpc.getDataRange().getValues();
   const meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "查無你的後日談角色，無法重置。" });
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "找不到你的後日談，沒東西可以歸零。" });
   const gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  if (!gid) return JSON.stringify({ success: false, message: "這局沒有可辨識的世界編號，為安全起見不執行重置。" });
+  if (!gid) return JSON.stringify({ success: false, message: "這局的資料不完整，先不歸零。" });
 
   // 鑑賞眾生：玩家自己那列也在這一局的 game_id 底下，一起清掉
   const purgedIds = kanshouPurgeByGame_(kpc, COL.PC.GAME_ID, gid, COL.PC.ID);
@@ -537,12 +537,12 @@ function actionKanshouReset(userData, pcId, sheets) {
     if (found) acc.getRange(found.idx + 1, COL.ACC.KPC + 1).setValue("");
   } catch (e) { }
 
-  return JSON.stringify({ success: true, cleared: purgedIds.length, message: "後日談已歸零，下次進來是全新的世界。" });
+  return JSON.stringify({ success: true, cleared: purgedIds.length, message: "後日談歸零了，下次進來是全新的一局。" });
 }
 
 function actionEnterKanshou(userData, pcId, sheets) {
   var acctName = String(userData.acctName || "").trim();
-  if (!acctName) return JSON.stringify({ success: false, message: "未登入帳號。" });
+  if (!acctName) return JSON.stringify({ success: false, message: "還沒登入。" });
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var kpc = getKanshouPcSheet_(ss);            // 🌹 慾海專屬分頁
   var data = kpc.getDataRange().getValues();
@@ -657,7 +657,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
 function actionBackfillKanshouAi(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
   const pIdx = kanshouPcIdx_(pcData, pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   const row = pcData[pIdx];
   const finalName = String(row[COL.PC.NAME] || ""), finalSex = String(row[COL.PC.SEX] || "異");
   const appearance = String(userData.appearance || "").slice(0, 60), standing = String(userData.standing || "").slice(0, 60);
@@ -686,7 +686,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
     const aiBrief = JSON.parse(callGeminiAPI(promptStr, KANSHOU_MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
     // 🔒 競態修(比照 actionBackfillMasterAi)：backfill 豁免寫入鎖，pIdx 是 AI 呼叫【前】的列索引——寫回前重定位。
     const wIdx = buildLiveIdIndex_(sheets.pc)[String(pcId)];
-    if (wIdx === undefined) return JSON.stringify({ success: false, message: "御主列已不存在（可能剛被清理）。" });
+    if (wIdx === undefined) return JSON.stringify({ success: false, message: "你的角色不見了，重新進來看看。" });
     // 🔒 只補空的、不蓋已有的：第一次補完會蓋【設定已補】章，之後再跑就只填【現在還是空的】那幾格。
     //    沒有這道閘，對一個已經玩過的角色再跑一次 backfill 會把他整組洗掉——舊角色回來補新欄位
     //    (口吻/小動作)一定會踩到。詳見 CODE_NOTES.md。
@@ -713,7 +713,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
     }
     return JSON.stringify({ success: true });
   } catch (e) {
-    return JSON.stringify({ success: false, message: "背景補生成失敗（已保留種子設定）" });
+    return JSON.stringify({ success: false, message: "補寫失敗，先用原本的。" });
   }
 }
 
@@ -722,7 +722,7 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   var me = data[meIdx];
   var gid = String(me[COL.PC.GAME_ID] || "");
   var myLoc = String(me[COL.PC.LOC] || "");
@@ -766,10 +766,10 @@ function actionKanshouAddQuickPhrase(userData, pcId, sheets) {
   if (!text) return JSON.stringify({ success: false, message: "請輸入貼圖文字。" });
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   var phrases = kanshouGetQuickPhrases_(data[meIdx][COL.PC.MEMORY]);
-  if (phrases.indexOf(text) !== -1) return JSON.stringify({ success: false, message: "這句已經在你的快速貼圖裡了。" });
-  if (phrases.length >= KANSHOU_QUICK_PHRASE_CAP_) return JSON.stringify({ success: false, message: "自訂貼圖已達上限(" + KANSHOU_QUICK_PHRASE_CAP_ + "句)，先刪掉一些吧。" });
+  if (phrases.indexOf(text) !== -1) return JSON.stringify({ success: false, message: "這句已經有了。" });
+  if (phrases.length >= KANSHOU_QUICK_PHRASE_CAP_) return JSON.stringify({ success: false, message: "貼圖最多 " + KANSHOU_QUICK_PHRASE_CAP_ + " 句，先刪幾個。" });
   phrases.push(text);
   var newMemory = kanshouSetQuickPhrases_(data[meIdx][COL.PC.MEMORY], phrases);
   kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
@@ -778,10 +778,10 @@ function actionKanshouAddQuickPhrase(userData, pcId, sheets) {
 function actionKanshouDeleteQuickPhrase(userData, pcId, sheets) {
   var kpc = sheets.pc;
   var text = String(userData.text || "").trim();
-  if (!text) return JSON.stringify({ success: false, message: "參數不完整。" });
+  if (!text) return JSON.stringify({ success: false, message: "少了東西，再試一次。" });
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   var phrases = kanshouGetQuickPhrases_(data[meIdx][COL.PC.MEMORY]).filter(function (t) { return t !== text; });
   var newMemory = kanshouSetQuickPhrases_(data[meIdx][COL.PC.MEMORY], phrases);
   kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
@@ -795,10 +795,10 @@ function actionKanshouMemoirOp(userData, pcId, sheets) {
   var item = String(userData.item || "").replace(/[｜【】\[\]★]/g, "").trim();
   var targetName = String(userData.targetName || "").trim();
   var targetId = String(userData.targetId || "").trim();
-  if (!item || !targetName || ['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "參數不完整。" });
+  if (!item || !targetName || ['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "少了東西，再試一次。" });
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
   // 🐛→✅ 2026-09：id 優先、名字只當備援。美遊／小黑／伊莉雅(Caster install) 的全名 23~30 字，
   //   經 sanitizeUserData_ 的 NAME_MAX=20 一截就查無此人——釘選／刪除／關係／稱呼全失效。
@@ -806,11 +806,11 @@ function actionKanshouMemoirOp(userData, pcId, sheets) {
   if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這位同伴。" });
   var entries = String(data[tIdx][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean);
   var hit = entries.findIndex(function (e) { return e.replace(/^★/, "") === item; });
-  if (hit === -1) return JSON.stringify({ success: false, message: "找不到這條回憶(可能已被更新)。" });
+  if (hit === -1) return JSON.stringify({ success: false, message: "找不到這條回憶。" });
   if (op === 'del') entries.splice(hit, 1);
   else if (op === 'pin') {
     // 釘選上限刻意比總量少 2：釘滿會讓新回憶永遠擠不進來(理由見常數宣告處)。
-    if (entries.filter(function (e) { return e.charAt(0) === '★'; }).length >= KANSHOU_MEMOIR_PIN_CAP_) return JSON.stringify({ success: false, message: "釘選已達上限(" + KANSHOU_MEMOIR_PIN_CAP_ + "條)，先取消一些吧。" });
+    if (entries.filter(function (e) { return e.charAt(0) === '★'; }).length >= KANSHOU_MEMOIR_PIN_CAP_) return JSON.stringify({ success: false, message: "最多釘 " + KANSHOU_MEMOIR_PIN_CAP_ + " 條，先鬆開幾個。" });
     entries[hit] = '★' + entries[hit].replace(/^★/, "");
   }
   else entries[hit] = entries[hit].replace(/^★/, "");
@@ -826,9 +826,9 @@ function actionKanshouWorld(userData, pcId, sheets) {
   const kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」
   const data = kpc.getDataRange().getValues();
   const meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   const gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  if (!gid) return JSON.stringify({ success: false, message: "查無這一局的世界編號。" });
+  if (!gid) return JSON.stringify({ success: false, message: "這局的資料不完整。" });
 
   const op = String(userData.op || "list").trim();
 
@@ -840,45 +840,45 @@ function actionKanshouWorld(userData, pcId, sheets) {
       if (!nm) return JSON.stringify({ success: false, message: "名字不能空白。" });
       if (op === 'rg_add') {
         const regions = kanshouRegionsFor_(gid);
-        if (regions.some(r => r.name === nm)) return JSON.stringify({ success: false, message: "已經有同名的大區了。" });
+        if (regions.some(r => r.name === nm)) return JSON.stringify({ success: false, message: "已經有同名的地區了。" });
         if (regions.filter(r => r.mine).length >= KANSHOU_REGION_CAP_) {
-          return JSON.stringify({ success: false, message: `自己開的大區最多 ${KANSHOU_REGION_CAP_} 個，先收掉一個再開。` });
+          return JSON.stringify({ success: false, message: `地區最多開 ${KANSHOU_REGION_CAP_} 個，先收一個。` });
         }
         const rid = 'rg_' + Date.now().toString(36);
         kanshouWorldWrite_(gid, [{ kind: KANSHOU_REGION_KIND_, name: nm, text: kanshouSanitizeTagValue_(userData.text, 24), region: rid }], parseInt(data[meIdx][COL.PC.DAY]) || 1);
       } else if (op === 'rg_rename') {
         const newNm = kanshouSanitizeTagValue_(userData.newName, 16);
         if (!newNm) return JSON.stringify({ success: false, message: "新名字不能空白。" });
-        if (!kanshouWorldSet_(gid, KANSHOU_REGION_KIND_, nm, KW_.NAME, newNm)) return JSON.stringify({ success: false, message: "找不到這個大區。" });
+        if (!kanshouWorldSet_(gid, KANSHOU_REGION_KIND_, nm, KW_.NAME, newNm)) return JSON.stringify({ success: false, message: "找不到這個地區。" });
       } else if (op === 'rg_del') {
         // ⚠ 收掉一個區之前，先把底下的地點放回「走出來的地方」——不然它們會變成
         //    指向一個不存在的區的孤兒（地圖上那一格從此點不到）。
         const rg = kanshouFindRegion_(gid, nm);
-        if (!rg || !rg.mine) return JSON.stringify({ success: false, message: "只能收掉自己開的大區。" });
+        if (!rg || !rg.mine) return JSON.stringify({ success: false, message: "只能收自己開的地區。" });
         kanshouWorldRead_(gid).filter(r => r.kind === '地點' && r.region === rg.id)
           .forEach(r => { try { kanshouWorldSet_(gid, '地點', r.name, KW_.REGION, ""); } catch (e) { } });
-        if (!kanshouWorldDrop_(gid, KANSHOU_REGION_KIND_, nm)) return JSON.stringify({ success: false, message: "找不到這個大區。" });
+        if (!kanshouWorldDrop_(gid, KANSHOU_REGION_KIND_, nm)) return JSON.stringify({ success: false, message: "找不到這個地區。" });
       } else if (op === 'loc_region') {
         const rg = String(userData.region || "").trim() ? kanshouFindRegion_(gid, userData.region) : null;
-        if (!kanshouWorldSet_(gid, '地點', nm, KW_.REGION, rg ? rg.id : "")) return JSON.stringify({ success: false, message: "這個地方不是你走出來的，改不了分區。" });
+        if (!kanshouWorldSet_(gid, '地點', nm, KW_.REGION, rg ? rg.id : "")) return JSON.stringify({ success: false, message: "這不是你開的地方，搬不了。" });
       } else if (op === 'loc_own') {
         // 營業內容留空＝收店。地點本身不動，只是不再是你的店。
         if (!kanshouWorldSet_(gid, '地點', nm, KW_.OWN, kanshouSanitizeTagValue_(userData.own, 12))) {
-          return JSON.stringify({ success: false, message: "這個地方不是你走出來的，沒辦法在這裡開店。" });
+          return JSON.stringify({ success: false, message: "這不是你開的地方，開不了店。" });
         }
       }
-    } catch (e) { return JSON.stringify({ success: false, message: "操作失敗，請稍後再試。" }); }
+    } catch (e) { return JSON.stringify({ success: false, message: "沒成功，等一下再試。" }); }
     return JSON.stringify(kanshouWorldPayload_(gid));
   }
 
   if (op !== 'list') {
-    if (['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "參數不完整。" });
+    if (['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "少了東西，再試一次。" });
     const kind = String(userData.kind || "").trim();
     const name = String(userData.entryName || "").trim();
-    if (!kind || !name) return JSON.stringify({ success: false, message: "參數不完整。" });
+    if (!kind || !name) return JSON.stringify({ success: false, message: "少了東西，再試一次。" });
     try {
       if (op === 'del') {
-        if (!kanshouWorldDrop_(gid, kind, name)) return JSON.stringify({ success: false, message: "找不到這一條(可能已被淘汰)。" });
+        if (!kanshouWorldDrop_(gid, kind, name)) return JSON.stringify({ success: false, message: "找不到這一條。" });
       } else {
         const sh = kanshouWorldSheet_();
         const d = sh.getDataRange().getValues();
@@ -886,11 +886,11 @@ function actionKanshouWorld(userData, pcId, sheets) {
         for (let r = 1; r < d.length; r++) {
           if (String(d[r][KW_.GID]) === gid && String(d[r][KW_.KIND]) === kind && String(d[r][KW_.NAME]).trim() === name) { hit = r; break; }
         }
-        if (hit < 0) return JSON.stringify({ success: false, message: "找不到這一條(可能已被淘汰)。" });
+        if (hit < 0) return JSON.stringify({ success: false, message: "找不到這一條。" });
         sh.getRange(hit + 1, KW_.PIN + 1).setValue(op === 'pin' ? '★' : '');
         kanshouWorldBust_(gid);
       }
-    } catch (e) { return JSON.stringify({ success: false, message: "操作失敗，請稍後再試。" }); }
+    } catch (e) { return JSON.stringify({ success: false, message: "沒成功，等一下再試。" }); }
   }
 
   return JSON.stringify(kanshouWorldPayload_(gid));
@@ -914,31 +914,31 @@ function kanshouWorldPayload_(gid) {
 // ⏰ 設定時間流速（每回合幾分鐘，0＝暫停）。存玩家列 MEMORY，設一次就記住。
 function actionKanshouSetPace(userData, pcId, sheets) {
   const want = parseInt(userData.pace);
-  if (KANSHOU_PACE_OPTIONS_.indexOf(want) < 0) return JSON.stringify({ success: false, message: "不支援這個流速。" });
+  if (KANSHOU_PACE_OPTIONS_.indexOf(want) < 0) return JSON.stringify({ success: false, message: "沒有這個速度。" });
   const kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」
   const data = kpc.getDataRange().getValues();
   const idx = kanshouPcIdx_(data, pcId);
-  if (idx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (idx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   try {
     kpc.getRange(idx + 1, COL.PC.MEMORY + 1).setValue(KANSHOU_PACE_TAG_.set(data[idx][COL.PC.MEMORY], want));
-  } catch (e) { return JSON.stringify({ success: false, message: "設定失敗，請稍後再試。" }); }
+  } catch (e) { return JSON.stringify({ success: false, message: "沒存到，等一下再試。" }); }
   return JSON.stringify({ success: true, pace: want });
 }
 
 function actionKanshouSetSex(userData, pcId, sheets) {
   var newSex = String(userData.pcSex || "").trim();
-  if (newSex !== "男" && newSex !== "女") return JSON.stringify({ success: false, message: "性別僅限 男／女。" });
+  if (newSex !== "男" && newSex !== "女") return JSON.stringify({ success: false, message: "性別只能選男或女。" });
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
   var data = kpc.getDataRange().getValues();
   var i = kanshouPcIdx_(data, pcId);
-  if (i < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (i < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   if (newSex === "男") {
     var gid = String(data[i][COL.PC.GAME_ID] || "");
     var hasMaleCompanion = data.some(function (r, ri) {
       return ri !== i && kanshouIsAlly_(r, gid) && String(r[COL.PC.SEX]) === "男";
     });
     if (hasMaleCompanion) {
-      return JSON.stringify({ success: false, message: "這個世界裡已經有男性同伴了。目前只支援男女與女女的配對，這個存檔沒辦法改成男性。" });
+      return JSON.stringify({ success: false, message: "這局已經有男性同伴了，你沒辦法再改成男的。" });
     }
   }
   var oldSex = String(data[i][COL.PC.SEX] || "");
@@ -947,7 +947,7 @@ function actionKanshouSetSex(userData, pcId, sheets) {
   if (oldSex !== newSex) {
     kpc.getRange(i + 1, COL.PC.PHYSICAL + 1).setValue(JSON.stringify({ "狀態": "如常" }));
   }
-  return JSON.stringify({ success: true, pcSex: newSex, message: "已切換為「" + newSex + "」之身。" });
+  return JSON.stringify({ success: true, pcSex: newSex, message: "改成「" + newSex + "」了。" });
 }
 
 // ✏ 更改後日談御主 avatar 的名字（隨時可改）。pcId＝KPC_。
@@ -958,7 +958,7 @@ function actionKanshouSetName(userData, pcId, sheets) {
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   kpc.getRange(meIdx + 1, COL.PC.NAME + 1).setValue(newName);
   return JSON.stringify({ success: true, pcName: newName, message: "御主已改名為「" + newName + "」。" });
 }
@@ -970,7 +970,7 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」，見 actionKanshouSummonHero 同款註解
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   var newMemory = setKanshouHomeName_(data[meIdx][COL.PC.MEMORY], newName);
   kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
   return JSON.stringify({ success: true, homeName: newName, message: "住所已改名為「" + newName + "」。" });
@@ -1773,7 +1773,7 @@ function actionKanshouGetStyle(userData, pcId, sheets) {
   const kpc = sheets.pc;
   const data = kpc.getDataRange().getValues();
   const meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   const gid = String(data[meIdx][COL.PC.GAME_ID] || "");
   const styles = kanshouStyleRead_(gid);
   const modules = KANSHOU_STYLE_MODULES_.map(m => {
@@ -1787,9 +1787,9 @@ function actionKanshouSetStyle(userData, pcId, sheets) {
   const kpc = sheets.pc;
   const data = kpc.getDataRange().getValues();
   const meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "目前不在後日談世界中。" });
+  if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   const gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  if (!gid) return JSON.stringify({ success: false, message: "查無這一局的世界編號。" });
+  if (!gid) return JSON.stringify({ success: false, message: "這局的資料不完整。" });
   try {
     if (userData.resetAll) {
       KANSHOU_STYLE_MODULES_.forEach(m => kanshouStyleWrite_(gid, m.key, null));
@@ -3890,7 +3890,7 @@ function actionGetAlbum(userData, pcId, sheets) {
 function actionAlbumDelete(userData, pcId, sheets) {
   const pcData = sheets.pc.getDataRange().getValues();
   const pIdx = kanshouPcIdx_(pcData, pcId);
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   const gid = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const pid = String(userData.photoId || "").trim();
   if (!pid) return JSON.stringify({ success: false, message: "未指定照片" });

@@ -37,7 +37,7 @@
         <p style="color:#9a7f8c; font-size:10.5px; text-align:center; margin:0 0 9px;">聖杯戰爭之後的冬木。出門走走會遇見人，也可以請人來這座城住下</p>
         <button class="btn" style="width:100%; margin-bottom:7px; padding:12px; border-color:#c87896; color:#e8b8cc;" onclick="enterKanshou()">🌹 進入鑑賞</button>
         <!-- 🔄 有後日談存檔才長出來(accountLogin 依 res.kpcId 決定)：不用先進鑑賞才能重來。 -->
-        <button id="btn-kanshou-reset" class="btn" style="display:none; width:100%; margin-bottom:7px; padding:9px; border-color:#a05060; color:#d08090; font-size:12px;" onclick="menuKanshouReset()">🔄 後日談歸零重來（清空這個帳號的鑑賞）</button>
+        <button id="btn-kanshou-reset" class="btn" style="display:none; width:100%; margin-bottom:7px; padding:9px; border-color:#a05060; color:#d08090; font-size:12px;" onclick="menuKanshouReset()">🔄 後日談重來（清空這個帳號的鑑賞）</button>
         <button class="btn" style="width:100%; padding:7px; border-color:#6a8a5a; color:#9ac08a; font-size:11px;" onclick="devResyncCodex()" title="把英靈殿和場上的從者更新到最新版本">🔄 DEV：套用最新平衡到現有從者（寶具/標籤更新）</button>
         <button class="btn" style="width:100%; margin-top:7px; padding:7px; border-color:#8a6a5a; color:#c0a08a; font-size:11px;" onclick="devPurgeOrphans()">🧹 DEV：清殘列（刪孤兒戰局／加速操作）</button>
       </div>
@@ -338,7 +338,7 @@
         </div>
         <button class="btn" onclick="toggleFullScreen()">🖥️ 切換全螢幕模式</button>
         <!-- 🔄 只在鑑賞模式顯示(applyModeUI 掛顯示)：清掉這個帳號的整局後日談，不動英靈殿與 solo。 -->
-        <button class="btn" id="setting-kanshou-reset" style="display:none; border-color:#800; color:#800;" onclick="kanshouResetWithConfirm_()">🔄 後日談歸零重來</button>
+        <button class="btn" id="setting-kanshou-reset" style="display:none; border-color:#800; color:#800;" onclick="kanshouResetWithConfirm_()">🔄 後日談重來</button>
         <button class="btn" style="border-color:#800; color:#800;" onclick="logoutWithConfirm_()">🚪 離開冬木 (登出)</button>
       </div>
     </div>

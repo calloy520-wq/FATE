@@ -60,7 +60,7 @@
     html += _kcQuickPhrases.map(function (t) {
       return '<button class="kc-qp-btn" onclick="kcInsertPhrase(\'' + t.replace(/'/g, "\\'") + '\')">' + escapeHtml(t) + '</button>';
     }).join('');
-    html += '<button class="kc-qp-btn" onclick="kanshouOpenQuickPhraseManager()" title="新增/管理你自己的快速貼圖" style="opacity:.7;">⚙️自訂</button>';
+    html += '<button class="kc-qp-btn" onclick="kanshouOpenQuickPhraseManager()" title="管理你的快速貼圖" style="opacity:.7;">⚙️自訂</button>';
     box.innerHTML = html;
   }
   // ⚙️ 管理面板：列出玩家自訂的貼圖(內建4個不可刪、不列在這裡)＋新增輸入框。
@@ -75,7 +75,7 @@
     ov.innerHTML = '<div style="width:min(360px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(240,184,224,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#f0b8e0;">🎀 自訂快速貼圖</b>'
       + '<button onclick="document.getElementById(\'kqp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:8px;">內建4個(害羞/小聲等)固定不可刪；這裡新增的會排在後面，最多' + KC_QUICK_PHRASE_CAP_ + '句。</div>'
+      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:8px;">前面四個是內建的，自己加的排後面，最多 ' + KC_QUICK_PHRASE_CAP_ + ' 句。</div>'
       + rows
       + '<div style="display:flex;gap:5px;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">'
       + '<input id="kqp-new-text" maxlength="12" placeholder="新貼圖文字(≤12字，如：（想你了）)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
@@ -92,11 +92,11 @@
     _kqpBusy = true;
     try {
       const res = await withProcessing_('新增貼圖中…', () => gasRun({ action: 'kanshou_add_quick_phrase', pcId: pc.id, acctName: currentAccount, text: text }));
-      if (!res || !res.success) { alert((res && res.message) || '新增失敗。'); return; }
+      if (!res || !res.success) { alert((res && res.message) || '沒加上。'); return; }
       _kcQuickPhrases = res.quickPhrases || _kcQuickPhrases;
       renderKcQuickPhrases_();
       kanshouOpenQuickPhraseManager(); // 面板原地重繪
-    } catch (e) { alert('新增失敗。'); }
+    } catch (e) { alert('沒加上。'); }
     finally { _kqpBusy = false; }
   }
   async function kanshouDeleteQuickPhrase(text) {
@@ -104,11 +104,11 @@
     _kqpBusy = true;
     try {
       const res = await withProcessing_('刪除貼圖中…', () => gasRun({ action: 'kanshou_delete_quick_phrase', pcId: pc.id, acctName: currentAccount, text: text }));
-      if (!res || !res.success) { alert((res && res.message) || '刪除失敗。'); return; }
+      if (!res || !res.success) { alert((res && res.message) || '沒刪掉。'); return; }
       _kcQuickPhrases = res.quickPhrases || [];
       renderKcQuickPhrases_();
       kanshouOpenQuickPhraseManager(); // 面板原地重繪
-    } catch (e) { alert('刪除失敗。'); }
+    } catch (e) { alert('沒刪掉。'); }
     finally { _kqpBusy = false; }
   }
 
@@ -260,10 +260,10 @@ let plainTextContext = cleanText;
         const propLoc = String(data.moveProposal);
         const propLocEsc = escapeHtml(propLoc);
         optionsHtml += `<div style="background:rgba(160,110,60,0.14); border:1px solid #8a6a3a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">💭 提議前往「${propLocEsc}」</div>`
+          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">💭 她想去「${propLocEsc}」，一起？</div>`
           + `<div style="display:flex; gap:8px;">`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouConfirmMoveProposal('${propLoc.replace(/'/g, "\\'")}')">同意</button>`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclineMoveProposal()">拒絕</button>`
+          + `<button class="btn-option" style="flex:1;" onclick="kanshouConfirmMoveProposal('${propLoc.replace(/'/g, "\\'")}')">一起走</button>`
+          + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclineMoveProposal()">這次不了</button>`
           + `</div></div>`;
       }
       // 🏠 同居邀請·一生一次(玩家「同居做成泡泡問一次、完全隱藏才是正解」)：後端只在【剛跨進戀人】
@@ -272,50 +272,50 @@ let plainTextContext = cleanText;
         const _co = data.cohabitOffer;
         const _coN = String(_co.name), _coNEsc = escapeHtml(_coN);
         optionsHtml += `<div style="background:rgba(180,140,90,0.14); border:1px solid #9a7a4a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e8c8a0; font-size:12.5px; margin-bottom:6px;">🏠 你和「${_coNEsc}」的關係已經夠深了，要邀她搬來一起住嗎？</div>`
+          + `<div style="color:#e8c8a0; font-size:12.5px; margin-bottom:6px;">🏠 要不要問「${_coNEsc}」，搬來一起住？</div>`
           + `<div style="display:flex; gap:8px;">`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouInviteCohabit('${_coN.replace(/'/g, "\\'")}','${String(_co.id || '').replace(/'/g, "\\'")}')">邀她同住</button>`
-          + `<button class="btn-option" style="flex:1;" onclick="this.closest('div').parentElement.remove()">現在還不用</button>`
+          + `<button class="btn-option" style="flex:1;" onclick="kanshouInviteCohabit('${_coN.replace(/'/g, "\\'")}','${String(_co.id || '').replace(/'/g, "\\'")}')">問她</button>`
+          + `<button class="btn-option" style="flex:1;" onclick="this.closest('div').parentElement.remove()">先不要</button>`
           + `</div></div>`;
       }
       // 📅 到約定地點但她還沒動身：跳等待框——一鍵把時鐘推到她抵達的時刻(她提前 KANSHOU_APPT_LEAVE_EARLY_ 動身)。
       if (data.promiseWait) {
         const _pw = data.promiseWait, _pwn = escapeHtml(String(_pw.name || '她'));
         optionsHtml += `<div style="background:rgba(90,140,180,0.14); border:1px solid #4a7a9a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#a8d0f0; font-size:12.5px; margin-bottom:6px;">📅 離跟「${_pwn}」的約定還有一段時間（約定 ${escapeHtml(String(_pw.apptLabel || ''))}，她還沒到）</div>`
-          + `<button class="btn-option" style="width:100%;" onclick="kanshouWaitForPromise(${Number(_pw.targetHour) || 0})">⏳ 在這等到她來${_pw.waitLabel ? `（${escapeHtml(String(_pw.waitLabel))}）` : ''}</button></div>`;
+          + `<div style="color:#a8d0f0; font-size:12.5px; margin-bottom:6px;">📅 跟「${_pwn}」約的是 ${escapeHtml(String(_pw.apptLabel || ''))}，她還沒到。</div>`
+          + `<button class="btn-option" style="width:100%;" onclick="kanshouWaitForPromise(${Number(_pw.targetHour) || 0})">⏳ 在這裡等她${_pw.waitLabel ? `（${escapeHtml(String(_pw.waitLabel))}）` : ''}</button></div>`;
       }
       // 🚪 「睡覺時機率敲門」：跟moveProposal同款「不是敘事選項、是決定要不要真的觸發」
       //   寫法，但這個是GAS機率觸發(結束一天前擲骰)，不是AI敘事判斷。
       if (data.nightGuest) {
         const gNameEsc = escapeHtml(String(data.nightGuest));
         optionsHtml += `<div style="background:rgba(160,110,60,0.14); border:1px solid #8a6a3a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」深夜來訪，此刻人就在這裡。<span style="color:#9a8f78;">(不選也行，直接跟她說話就是要她留下的意思)</span></div>`
+          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」這麼晚來了，就在門口。<span style="color:#9a8f78;">直接跟她說話也算讓她進來。</span></div>`
           + `<div style="display:flex; gap:8px;">`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouSleepWithGuest()">🛏 讓她留下<br><span style="font-size:10px;opacity:.75;">夜還很長·想待多久都行</span></button>`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouSendGuestHome()">🚪 請她回去<br><span style="font-size:10px;opacity:.75;">送她回自己家睡·今晚到此為止</span></button>`
+          + `<button class="btn-option" style="flex:1;" onclick="kanshouSleepWithGuest()">🛏 讓她進來</button>`
+          + `<button class="btn-option" style="flex:1;" onclick="kanshouSendGuestHome()">🚪 今晚先回去</button>`
           + `</div></div>`;
       }
       // 📷 拍照結果小字回饋(敘事本身由AI演，這行只補機制數字：為何沒拍成)。
       //   2026-07「拍照改手機、不用等」：手機沒有底片，拍完立刻存進相簿、立刻能看。
       if (data.photoResult) {
         const pr = data.photoResult;
-        const prTxt = pr.ok ? `📷 咔嚓。這張已經存進相簿。`
-          : pr.reason === 'cap' ? '📷 相簿滿了（' + KC_ALBUM_CAP_ + ' 張）。去刪幾張舊的才能再拍。'
+        const prTxt = pr.ok ? `📷 咔嚓，存進相簿了。`
+          : pr.reason === 'cap' ? '📷 相簿滿了，先刪幾張舊的。'
           : pr.reason === 'nobody' ? '📷 身邊沒有可拍的人。' : '📷 這一張沒拍成。';
         // 📱 手機拍完當下就能看（玩家 2026-09「拍照改成手機拍 當下能看」）：後端把卡片物件隨回合帶回，
         //   這裡用相簿同一支 kcAlbumCardHtml_ 直接畫在對話裡，不必再點開 📚 相簿。
         if (pr.ok && pr.photo) optionsHtml += '<div style="display:flex; justify-content:center; padding:6px 0 4px;">' + kcAlbumCardHtml_(pr.photo, { noDelete: true }) + '</div>';
         optionsHtml += `<div style="color:#9a917f; font-size:11px; padding:4px 2px 8px;">${prTxt}</div>`;
         // 📣 走查抓到的軟卡點：相簿滿只有文字、沒有下一步——補直達鈕。
-        if (!pr.ok && pr.reason === 'cap') optionsHtml += `<button class="btn-option" style="width:100%; margin-bottom:8px;" onclick="openKanshouAlbum()">📚 打開相簿，刪幾張舊照片</button>`;
+        if (!pr.ok && pr.reason === 'cap') optionsHtml += `<button class="btn-option" style="width:100%; margin-bottom:8px;" onclick="openKanshouAlbum()">📚 打開相簿</button>`;
       }
       // 🤝 巧遇對象的「結識」邀請框：她此刻只是路人(不記好感·離開即散)，點了才正式入駐這座城。
       if (data.encounterOffer && data.encounterOffer.name) {
         const ivName = String(data.encounterOffer.name);
         optionsHtml += `<div style="background:rgba(90,140,100,0.14); border:1px solid #4a8a5a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#a0e0b0; font-size:12.5px; margin-bottom:6px;">🤝 「${escapeHtml(ivName)}」此刻只是萍水相逢……要交換聯絡方式、深交下去嗎？(不結識的話，離開這裡緣分就散了)</div>`
-          + `<button class="btn-option" style="width:100%;" onclick="kanshouAcceptInvite('${ivName.replace(/'/g, "\\'")}')">結識她</button>`
+          + `<div style="color:#a0e0b0; font-size:12.5px; margin-bottom:6px;">🤝 遇到「${escapeHtml(ivName)}」了。要不要跟她要個聯絡方式？</div>`
+          + `<button class="btn-option" style="width:100%;" onclick="kanshouAcceptInvite('${ivName.replace(/'/g, "\\'")}')">跟她要聯絡方式</button>`
           + `</div>`;
       }
       if (data.options && Array.isArray(data.options) && data.options.length > 0) {
@@ -353,31 +353,31 @@ let plainTextContext = cleanText;
         let _msg;
         if (_pr.miss) {
           // 撲空(她不在場)：附上她此刻在哪，玩家不必回地圖亂找(走查抓到的軟死路)。
-          _msg = _prIco + ' 「' + _nm + '」此刻不在這裡' + (_pr.where ? '，她似乎在「' + escapeHtml(String(_pr.where)) + '」。' : '。');
+          _msg = _prIco + ' 「' + _nm + '」不在這裡' + (_pr.where ? '，她好像在「' + escapeHtml(String(_pr.where)) + '」。' : '。');
         }
-        else if (_pr.ok && _pr.type === 'promise') _msg = '📅 <b>約定成立！</b>' + (_pr.today ? '今天' : '明天') + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」與「' + _nm + '」見面。準時或早到好感↑，遲到打折，放鴿子↓。';
-        else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 <b>牽手成功！</b>之後你移動到哪，「' + _nm + '」都會相伴同行(直到放手)。';
-        else if (_pr.ok && _pr.type === 'move') _msg = '🚶 <b>「' + _nm + '」答應一起去「' + escapeHtml(String(_pr.loc || '')) + '」！</b>點下方的「同意」，你們就一起動身。';
-        else if (_pr.type === 'move') _msg = '🚶 她沒有同行，你要自己去「' + escapeHtml(String(_pr.loc || '')) + '」的話，照常點地圖。';
-        else if (_pr.ok && _pr.type === 'cohabit') _msg = '🏠 <b>同居開始！</b>「' + _nm + '」搬來與你同住了。深夜她會回家的和室就寢，清晨可能賴床，晚間常在家中。';
+        else if (_pr.ok && _pr.type === 'promise') _msg = '📅 約好了：' + (_pr.today ? '今天' : '明天') + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」見「' + _nm + '」。別遲到。';
+        else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 牽起來了。「' + _nm + '」會跟著你走，直到你放手。';
+        else if (_pr.ok && _pr.type === 'move') _msg = '🚶 「' + _nm + '」說好，一起去「' + escapeHtml(String(_pr.loc || '')) + '」。點下面的「一起走」就出發。';
+        else if (_pr.type === 'move') _msg = '🚶 她沒跟。想自己去「' + escapeHtml(String(_pr.loc || '')) + '」就點地圖。';
+        else if (_pr.ok && _pr.type === 'cohabit') _msg = '🏠 「' + _nm + '」搬來了。以後晚上她多半在家，睡和室。';
         // 💗 告白：成立＝關係階質變(戀人這一階唯一的入口)。2026-09 起【說出口就成立】，
         //   後端只剩兩種結果——成立、或好感還沒到 KC_CONFESS_BOND_(60) 開不了口；
         //   不再有擲骰、冷卻、被拒扣好感，所以那兩條分支連同措辭一起拿掉。
-        else if (_pr.ok && _pr.type === 'confess') _msg = '💗 <b>她答應了！</b>你和「' + _nm + '」從這一刻起是戀人。好感的上限就此打開，關係稱呼與專屬稱呼也一併解鎖。';
-        else if (_pr.type === 'confess') _msg = '💔 話說不出口。你們之間還遠不到那個程度(好感要到 ' + KC_CONFESS_BOND_ + ')。這次沒有任何變動。';
-        else if (_pr.type === 'cohabit') _msg = '🏠 她沒有搬來。同住這一步需要非常深的信賴，好感還不到。';
+        else if (_pr.ok && _pr.type === 'confess') _msg = '💗 她答應了。你和「' + _nm + '」在一起了。';
+        else if (_pr.type === 'confess') _msg = '💔 話到嘴邊說不出口，你們還沒那麼熟。';
+        else if (_pr.type === 'cohabit') _msg = '🏠 她沒答應，還沒到能一起住的程度。';
         // 🤝 結識：2026-09 補上——它本來是唯一沒有回饋條的動作(icon 那一格的 '🤝' 早就在等它)。
-        else if (_pr.ok && _pr.type === 'invite') _msg = '🤝 <b>結識成功！</b>「' + _nm + '」從此住在這座城裡，有自己的行程，也開始記好感了。';
-        else if (_pr.type === 'invite') _msg = '🤝 ' + (_pr.already ? '「' + _nm + '」早就是你認識的人了。' : '這段緣分沒有接上——「' + _nm + '」已經離開了。');
+        else if (_pr.ok && _pr.type === 'invite') _msg = '🤝 跟「' + _nm + '」交換了聯絡方式。以後在城裡找得到她。';
+        else if (_pr.type === 'invite') _msg = '🤝 ' + (_pr.already ? '你們早就認識了。' : '「' + _nm + '」已經走了。');
         // 🐛→✅ 2026-07 逐按鍵稽核：地點不合法的兩種回報(promise_loc/move_loc)舊版沒有自己的分支，
         //   一路掉到最後那行 else，印出的是【「她」沒有讓你牽手】——玩家按的明明是相約/邀同去，
         //   卻收到一則牽手失敗通知，會去找一個不存在的問題。這兩型跟「她婉拒」無關，是地點的事。
         else if (_pr.type === 'promise_loc' || _pr.type === 'move_loc') {
           _msg = (_pr.type === 'promise_loc' ? '📅 ' : '🚶 ') + (_pr.sameSpot
-            ? '你們此刻【就在「' + escapeHtml(String(_pr.loc || '')) + '」】。不用約在自己站的地方，挑個別處吧。'
-            : '「' + escapeHtml(String(_pr.loc || '')) + '」此刻去不成(還沒熟到能登門、或那個時段沒開放)，換個地點或換個時段再試試。');
+            ? '你們現在就在「' + escapeHtml(String(_pr.loc || '')) + '」了，挑別的地方吧。'
+            : '「' + escapeHtml(String(_pr.loc || '')) + '」現在去不了，換個地方或晚點再試。');
         }
-        else _msg = _pr.type === 'promise' ? '📅 這次沒有約成。' : '🤝 沒有牽到手。';
+        else _msg = _pr.type === 'promise' ? '📅 沒約成。' : '🤝 她把手收回去了。';
         const _col = _pr.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
         story.insertAdjacentHTML('beforeend', `<div style="background:${_col};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_msg}</div>`);
       }
@@ -391,10 +391,10 @@ let plainTextContext = cleanText;
           // 📅 promise_byher＝她自己開口約的(見 Gallery.gs 她主動·invite)：約定是真的、地圖會標，
           //   但玩家從沒答應過，所以不去【不算爽約、不扣好感】——文案必須把這點講清楚。
           const _psMsg = _ps.type === 'promise_byher'
-            ? '📅 「' + _psNm + '」說了' + escapeHtml(String(_ps.when || '')) + escapeHtml(String(_ps.bandLabel || '')) + '在「' + _psLoc + '」等你。地圖上會標著這個約，去不去都由你；這是她單方面的邀約，沒去也不算你放鴿子。'
+            ? '📅 「' + _psNm + '」說了' + escapeHtml(String(_ps.when || '')) + escapeHtml(String(_ps.bandLabel || '')) + '在「' + _psLoc + '」等你。去不去都行，這是她自己說的，沒去不算放鴿子。'
             : _ps.type === 'promise_met'
-              ? '📅 <b>依約相會！</b>你守住了與「' + _psNm + '」在「' + _psLoc + '」的約定(好感↑)。'
-              : '📅 與「' + _psNm + '」在「' + _psLoc + '」見面的約定<b>過期了</b>。你沒有赴約，她有些在意(好感↓)。約定是一次性的，想再見就再約一次吧。';
+              ? '📅 你赴了跟「' + _psNm + '」在「' + _psLoc + '」的約。她記得。'
+              : '📅 跟「' + _psNm + '」在「' + _psLoc + '」的約過了，你沒去。她有點在意。想見就再約一次。';
           const _psCol = _ps.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
           story.insertAdjacentHTML('beforeend', `<div style="background:${_psCol};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_psMsg}</div>`);
         });
@@ -415,7 +415,7 @@ let plainTextContext = cleanText;
     } catch(e) {
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
       // 帶出真實錯誤(GAS 例外的 err.message 會進到這)，不再吞成無線索的通用文案。
-      alert("連結斷絕，連線無回應。" + (e && e.message ? "\n\n【原因】" + e.message : ""));
+      alert("連不上伺服器。" + (e && e.message ? "\n\n" + e.message : ""));
     } finally {
       input.disabled = false; btn.disabled = false; story.scrollTop = story.scrollHeight;
       if (!/Mobi|Android|iPhone/i.test(navigator.userAgent)) {
@@ -481,7 +481,7 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
       + '<div style="overflow-y:auto;min-height:0;">'
       + '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 這個世界裡的人 (<span id="kc-count">0</span>)</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">直接邀一個人來這座城生活。之後她會過自己的日子，去她所在的地方就能找到她。</div>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">把想見的人請進這座城。她會過自己的日子，想見面就去她在的地方。</div>'
       + '<div id="kc-master-box"></div>'
       + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">駐留清單</div>'
       + '<div id="kc-party-list"></div>'
@@ -502,7 +502,7 @@ let plainTextContext = cleanText;
       + '<div style="color:#cbb;font-size:12px;margin-bottom:6px;">你（御主）：<b style="color:#e8b8cc;">' + escapeHtml(pc.name || '—') + '</b> · <b style="color:#e8b8cc;">' + escapeHtml(pc.sex || '—') + '</b></div>'
       + '<div style="display:flex;gap:8px;">'
       + '<button onclick="changeKanshouName()" style="flex:1;padding:5px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">✏ 改名</button>'
-      + '<button onclick="changeKanshouSex()" style="flex:1;padding:5px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">⚧ 切換性別</button>'
+      + '<button onclick="changeKanshouSex()" style="flex:1;padding:5px;background:#5a3a4a;color:#e8b8cc;border:none;border-radius:6px;cursor:pointer;font-size:12px;">換性別</button>'
       + '</div></div>';
   }
 
@@ -539,7 +539,7 @@ let plainTextContext = cleanText;
         if (res && res.success) _kcCur = res.current || [];
       } catch (e) { } finally { _kmBusy = false; }
       c = _kcCur.find(function (x) { return x.name === name; });
-      if (!c) { var _ov = document.getElementById('km-overlay'); if (_ov) _ov.style.display = 'none'; alert('讀取回憶失敗，稍後再試。'); return; }
+      if (!c) { var _ov = document.getElementById('km-overlay'); if (_ov) _ov.style.display = 'none'; alert('讀不到回憶，等一下再試。'); return; }
     }
     // 🐛→✅ 玩家實測前主動抓到：這顆overlay若最先由本函式建立(常見)，就永遠沒有 _kmShowLoading_
     //   那份「操作中禁止點background關閉」的判斷——kanshouMemoirOp 執行中點背景關閉，request resolve
@@ -556,13 +556,13 @@ let plainTextContext = cleanText;
       var tEsc = String(text).replace(/'/g, "\\'");
       return '<div style="display:flex;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
         + '<span style="flex:1;color:' + (pinned ? '#ffd9a0' : '#e8d8e0') + ';font-size:13px;line-height:1.5;">' + (pinned ? '★ ' : '') + escapeHtml(text) + '</span>'
-        + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'' + (pinned ? 'unpin' : 'pin') + '\',\'' + tEsc + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" title="' + (pinned ? '取消釘選' : '釘選·永不遺忘') + '" style="padding:4px 7px;background:' + (pinned ? '#6a5a3a' : '#3a3a44') + ';color:#ffd9a0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (pinned ? '📌' : '☆') + '</button>'
+        + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'' + (pinned ? 'unpin' : 'pin') + '\',\'' + tEsc + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" title="' + (pinned ? '取消釘選' : '釘住，不會忘') + '" style="padding:4px 7px;background:' + (pinned ? '#6a5a3a' : '#3a3a44') + ';color:#ffd9a0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">' + (pinned ? '📌' : '☆') + '</button>'
         + '<button onclick="kanshouMemoirOp(\'' + String(name).replace(/'/g, '') + '\',\'del\',\'' + tEsc + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" title="刪除這條回憶" style="padding:4px 7px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🗑</button></div>';
     }).join('') : '<div style="color:#888;padding:12px 6px;font-size:13px;">（還沒有值得記下的回憶。去一起經歷些什麼，重要的瞬間她都會記得。）</div>';
     ov.innerHTML = '<div style="width:min(440px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(232,184,204,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e8b8cc;">💞 與「' + escapeHtml(name) + '」的共同回憶</b>'
       + '<button onclick="document.getElementById(\'km-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">重要瞬間由她自動記下(最多' + KC_MEMOIR_CAP_ + '條、舊的會淡忘)；★釘選的永不遺忘(上限' + KC_MEMOIR_PIN_CAP_ + ')。</div>'
+      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">她會自己記下重要的瞬間，太久的會淡掉。📌 釘住的不會忘。</div>'
       + rows + '</div>';
     ov.style.display = 'flex';
   }
@@ -575,16 +575,16 @@ let plainTextContext = cleanText;
   }
   async function kanshouMemoirOp(name, op, item, id) {
     if (_kmBusy) return;   // 💞讀條保護：上一個釘選/刪除還在跑就忽略連點，防重複送出/競態
-    if (op === 'del' && !await customConfirm_('確定刪掉這條回憶嗎？刪了她就真的忘了。')) return;
+    if (op === 'del' && !await customConfirm_('刪掉這條回憶？她就真的忘了。')) return;
     _kmBusy = true;
     _kmShowLoading_(name);  // 面板換成讀條，處理中不可再點
     try {
       const res = await gasRun({ action: 'kanshou_memoir_op', pcId: pc.id, acctName: currentAccount, targetName: name, targetId: id || '', op: op, item: item });
-      if (!res || !res.success) { alert((res && res.message) || '操作失敗。'); return; }
+      if (!res || !res.success) { alert((res && res.message) || '沒成功。'); return; }
       var c = _kcCur.find(function (x) { return x.name === name; });
       if (c) c.memoir = res.memoir || [];
       renderKcPartyList_();   // 卡片上的數量徽章同步
-    } catch (e) { alert('操作失敗。'); }
+    } catch (e) { alert('沒成功。'); }
     finally {
       _kmBusy = false;
       kanshouOpenMemoir(name); // 面板原地重繪(讀條收掉、顯示最新清單)
@@ -601,12 +601,12 @@ let plainTextContext = cleanText;
       var due = _kcCur.filter(function (c) { return c.promise; });
       if (!due.length) return '';
       var fmt = function (l) { return l.map(function (c) { return '「' + c.name + '」' + (c.promise.time || '') + '在「' + c.promise.loc + '」'; }).join('、'); };
-      if (kind === 'far') return '\n\n⚠ 快轉會直接跳過你手上的約定：' + fmt(due) + '\n這些約全部會變成爽約，她們會在意的(好感下降)！';
+      if (kind === 'far') return '\n\n⚠ 這樣會錯過跟 ' + fmt(due) + ' 的約，等於放她鴿子。';
       var today = kcClock.month + '/' + kcClock.dayOfMonth;
       var todayDue = due.filter(function (c) { return c.promise.date === today; });
       if (!todayDue.length) return '';
       // hour<6＝凌晨睡下醒來仍是【同一天】6點，今天的約還在、不會爽約。
-      if (kind === 'day') return kcClock.hour < 6 ? '' : '\n\n⚠ 今天還有沒赴的約：' + fmt(todayDue) + '\n現在睡下去就是爽約，她會在意的(好感下降)！';
+      if (kind === 'day') return kcClock.hour < 6 ? '' : '\n\n⚠ 今天還有約：' + fmt(todayDue) + '\n現在睡就是放她鴿子。';
       // 'band'：同日跳時段不直接判爽約，但會燒掉準時窗——窗後 2 小時就等同爽約(後端 _standUp)。
       var burn = todayDue.filter(function (c) {
         var m = String(c.promise.time || '').match(/(\d{1,2}):(\d{2})/);
@@ -614,7 +614,7 @@ let plainTextContext = cleanText;
         var ah = parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
         return targetHour > ah + 0.5 && kcClock.hour <= ah + 0.5;
       });
-      return burn.length ? '\n\n⚠ 快轉會錯過今天的約定時間：' + fmt(burn) + '\n過了就只能算遲到，拖太久等同爽約。' : '';
+      return burn.length ? '\n\n⚠ 會錯過約好的時間：' + fmt(burn) + '\n之後只能算遲到。' : '';
     } catch (e) { return ''; }
   }
 
@@ -624,7 +624,7 @@ let plainTextContext = cleanText;
     //   kcPromiseWarn_，三個時間推進入口共用一份。深夜按「下一階段」也走這裡，同樣被擋到。
     // 🌙 夜未眠中按下去＝這一夜收尾、睡到天亮；否則才是一般的「結束今天」。爽約警示兩種都要帶。
     var _inNight = !!(window._lastTags && window._lastTags.nightScene);
-    if (!await customConfirm_((_inNight ? '這一夜就到這裡，睡到天亮嗎？' : '結束今天，讓時間流動到明天嗎？') + kcPromiseWarn_('day'))) return;
+    if (!await customConfirm_((_inNight ? '就睡到天亮？' : '今天就到這裡？') + kcPromiseWarn_('day'))) return;
     showGamePane('chat');
     await send(_inNight ? '🌅 這一夜，就這樣過去了。' : '🌙 結束了這一天。', false, { endDay: true, loaderCaptions: ['夜色漸漸深了…', '一天的塵埃緩緩落定…', '悄悄迎向嶄新的一天…'] });
   }
@@ -641,7 +641,7 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="width:min(360px,92vw);background:#1d1722;border:1px solid #4a3a6a;border-radius:12px;padding:14px;">'
       + '<div style="color:#e0c8f0;font-size:14px;margin-bottom:3px;">⏰ 時間</div>'
       + '<div style="color:#9a8bb0;font-size:11.5px;margin-bottom:10px;">此刻 ' + escapeHtml(String(c.label || '')) + '</div>'
-      + '<div style="color:#cbbfe0;font-size:12px;margin-bottom:5px;">每次對話前進</div>'
+      + '<div style="color:#cbbfe0;font-size:12px;margin-bottom:5px;">每講一句話，時間走</div>'
       + '<div style="display:flex;gap:5px;margin-bottom:4px;">'
       + KC_PACE_OPTIONS_.map(function (m) {
         var on = (m === cur);
@@ -671,14 +671,14 @@ let plainTextContext = cleanText;
   // 📅 只能往前：往回會讓已經發生的事的時間戳錯亂(約定存絕對日、好感棘輪、相簿日期、初見日…)。
   async function kanshouSetDateTime() {
     var c = kcClock || {};
-    var d = await customPrompt_('要到哪一天？（格式：年/月/日，例 ' + (c.year || 2005) + '/' + (c.month || 12) + '/' + (c.day || 25) + '）\n只能往前，不能回到過去。',
+    var d = await customPrompt_('跳到哪一天？（年/月/日，例如 ' + (c.year || 2005) + '/' + (c.month || 12) + '/' + (c.day || 25) + '）\n只能往後跳。',
       (c.year || 2005) + '/' + (c.month || 12) + '/' + (c.day || 20), 12);
     if (d === null) return;
     var m = String(d).match(/^\s*(\d{4})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*$/);
-    if (!m) { alert('看不懂這個格式。請用「年/月/日」，例如 2006/1/1。'); return; }
+    if (!m) { alert('格式要像 2006/1/1。'); return; }
     var hh = await customPrompt_('幾點？（0~23）', '9', 2);
     if (hh === null) return;
-    var H = parseInt(hh); if (isNaN(H) || H < 0 || H > 23) { alert('時刻請填 0~23。'); return; }
+    var H = parseInt(hh); if (isNaN(H) || H < 0 || H > 23) { alert('填 0 到 23。'); return; }
     var payload = { year: parseInt(m[1]), month: parseInt(m[2]), day: parseInt(m[3]), hour: H };
     showGamePane('chat');
     await send('⏩ 讓時間流轉到 ' + payload.year + '/' + payload.month + '/' + payload.day + ' ' + H + ':00。', false,
@@ -689,7 +689,7 @@ let plainTextContext = cleanText;
     var _tb = KC_TIME_BANDS_.find(function (b) { return b.key === key; });
     var _w = kcPromiseWarn_('band', _tb ? _tb.startHour : undefined);
     // 沒有會被燒掉的約定就【不打斷】——這是高頻按鈕，無謂確認框比不警告更惹人厭。
-    if (_w && !await customConfirm_('讓時間流轉到「' + label + '」嗎？' + _w)) return;
+    if (_w && !await customConfirm_('跳到「' + label + '」？' + _w)) return;
     showGamePane('chat');
     await send('⏩ 讓時間悄悄流轉到了' + label + '。', false, { jumpBand: key, loaderCaptions: ['時光靜靜流轉…', '天色漸漸改變…'] });
   }
@@ -707,7 +707,7 @@ let plainTextContext = cleanText;
 
   // 🎊「跳到節慶」：不帶advanceHours(留0)，帶jumpFestival讓後端自己算「距離該節慶還有幾小時」(見Gallery.gs kanshouHoursUntilDate_)，前端不重算日期，單一真實來源在後端。
   async function kanshouJumpFestival(key, name) {
-    if (!await customConfirm_('要讓時間快轉到「' + name + '」嗎？(不在身邊的英靈會依新時刻重新分佈)' + kcPromiseWarn_('far'))) return;
+    if (!await customConfirm_('跳到「' + name + '」？' + kcPromiseWarn_('far'))) return;
     showGamePane('chat');
     await send('🎊 想快轉到「' + name + '」看看。', false, { jumpFestival: key, loaderCaptions: ['翻閱著行事曆…', '想著當天的種種安排…'] });
   }
@@ -720,7 +720,7 @@ let plainTextContext = cleanText;
       ov = ensureOverlay_('kc-festival-overlay', { zIndex: 9998, dim: 0.82, extraStyle: 'padding:18px;', onBgClick: function () { closeKanshouFestivals(); } });
       ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:360px;width:100%;padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);">'
         + '<h3 style="margin:0 0 4px;color:#e0b080;">🎊 快轉到節慶</h3>'
-        + '<div style="color:#9a8f70;font-size:11px;margin-bottom:10px;">快轉到下一次這個節日的【前一天】，讓你迎接節慶當天的到來；不在身邊的英靈會依新時刻重新分佈。</div>'
+        + '<div style="color:#9a8f70;font-size:11px;margin-bottom:10px;">跳到這個節日的前一天。</div>'
         + '<div style="display:flex; flex-wrap:wrap; gap:6px;">'
         + KC_FESTIVALS_.map(function (f) { return '<button class="btn" style="flex:1 0 30%;padding:8px 2px;font-size:12px;border-color:#8a6a4a;color:#e0b080;" onclick="closeKanshouFestivals();kanshouJumpFestival(\'' + f.key + '\',\'' + f.name + '\')">' + f.name + '</button>'; }).join('')
         + '</div>'
@@ -759,7 +759,7 @@ let plainTextContext = cleanText;
     box.innerHTML = _kcHeroesAvailable.map(function (h) {
       return '<div class="kc-hero-row" data-gender="' + escapeHtml(h.gender || '') + '" data-cls="' + escapeHtml(h.cls || '') + '" style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
         + '<span style="flex:1;color:#dfeaf2;">' + escapeHtml(h.name) + ' <small style="color:#8a7fa0;">(' + escapeHtml(h.cls || '') + (h.gender ? '・' + escapeHtml(h.gender) : '') + ')</small></span>'
-        + '<button onclick="kanshouSummonHero(\'' + String(h.id).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">召喚</button></div>';
+        + '<button onclick="kanshouSummonHero(\'' + String(h.id).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">請她來</button></div>';
     }).join('');
     var empty = document.getElementById('kc-hero-empty');
     if (empty) {
@@ -792,7 +792,7 @@ let plainTextContext = cleanText;
 
   async function openCompanions() {
     try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
-    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
+    if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
     try {
       var needHeroes = !_kcHeroesCacheReady;
       // ⏳ 這裡是兩趟 round-trip（同伴清單＋英靈殿），按下去到面板彈出中間一定要看得見在跑。
@@ -800,7 +800,7 @@ let plainTextContext = cleanText;
         gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount }),
         needHeroes ? gasRun({ action: 'get_heroes', pcId: pc.id }) : Promise.resolve(null)
       ]));
-      if (!res || !res.success) { alert((res && res.message) || '讀取同伴失敗。'); return; }
+      if (!res || !res.success) { alert((res && res.message) || '讀不到同伴。'); return; }
       _kcCur = res.current || [];
       if (needHeroes) {
         // 🎨 召喚清單重新對男性開放(不再全面性別封鎖)。衛宮士郎-Master仍用id特判擋掉(玩家自己的位置)；斯卡哈-Assassin/伊莉雅-Caster/恩奇都-Lancer額外濾掉——跟後端KANSHOU_SUMMON_BLOCKED_IDS_同一份名單，手動同步。
@@ -815,7 +815,7 @@ let plainTextContext = cleanText;
       renderKcHeroList_();
       renderKcPartyList_();
       document.getElementById('kc-overlay').style.display = 'flex';
-    } catch (e) { alert('讀取同伴失敗。'); }
+    } catch (e) { alert('讀不到同伴。'); }
   }
 
   // 🗾 出門走走·分區地圖：純氛圍用的分區/地點清單，僅供畫按鈕——實際合法地點驗證/巧遇抽選都在後端 Gallery.gs 的 KANSHOU_REGIONS_/KANSHOU_LOCATIONS_(唯一真實來源)，改地點記得同步。
@@ -965,7 +965,7 @@ let plainTextContext = cleanText;
         + '">' + label + '</button>';
     }).join('')
       + (_myRegions.length < _regionCap
-        ? '<button onclick="kanshouAddRegion()" title="開一個新的大區（可以是一座城、一個國家…）" style="flex:1;min-width:70px;padding:6px 4px;font-size:11.5px;border-radius:7px;cursor:pointer;background:#1e2a24;color:#bfe0cf;border:1px dashed #4a7a5f;">➕ 新大區</button>'
+        ? '<button onclick="kanshouAddRegion()" title="開一個新地區" style="flex:1;min-width:70px;padding:6px 4px;font-size:11.5px;border-radius:7px;cursor:pointer;background:#1e2a24;color:#bfe0cf;border:1px dashed #4a7a5f;">➕ 新地區</button>'
         : '')
       + '</div>'
       // 🗾 站在自己開的大區上時，給它的改名/收掉入口（自由增減：開得出來就收得掉）
@@ -983,7 +983,7 @@ let plainTextContext = cleanText;
       + '<button onclick="kanshouGoNewPlace()" style="flex:1;text-align:left;padding:8px 10px;background:#1e2a24;color:#bfe0cf;border:1px dashed #4a7a5f;border-radius:8px;cursor:pointer;font-size:13px;">'
       + '🧭 去別的地方…（自己說個地名，這座城就多一個地方）</button></div>'
       + (kcActiveRegion_ === 'mine' && !((window._lastTags && window._lastTags.myPlaces) || []).length
-        ? '<div style="color:#8a9a90;font-size:11.5px;padding:2px 2px 8px;">你走出來的地方會留在這裡，之後可以再回來、也可以約在那裡見面。</div>' : '');
+        ? '<div style="color:#8a9a90;font-size:11.5px;padding:2px 2px 8px;">你走出來的地方會留在這裡，之後可以再去，也可以約在那裡。</div>' : '');
     var renameHtml = (kcActiveRegion_ === 'home')
       ? '<div style="text-align:right;margin:-4px 0 6px;"><span onclick="kanshouRenameHome()" style="cursor:pointer;font-size:11px;color:#a07a90;">✏️ 幫「' + escapeHtml(homeLabel) + '」改名</span></div>'
       : '';
@@ -1008,7 +1008,7 @@ let plainTextContext = cleanText;
       var _pmBadge = _pmHere ? '<span style="color:#a8d0f0;font-size:10px;">📅 ' + escapeHtml(_pmHere[0].promise.date + (_pmHere[0].promise.time ? ' ' + _pmHere[0].promise.time.replace(/^\S+\s/, '') : '')) + (_pmHere.length > 1 ? ' +' + (_pmHere.length - 1) : '') + '</span>' : '';
       if (l.region === 'visit' && unlockedRes.indexOf(l.name) === -1) {
         return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
-          + '<button onclick="alert(\'跟這裡的主人還不夠熟，不好貿然登門。多在外頭相處、熟識(好感40)之後才好造訪。\')" '
+          + '<button onclick="alert(\'你們還沒熟到能直接上門。先在外面多見幾次面吧。\')" '
           + 'style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#1b1822;color:#6a6478;border:1px dashed #3a3348;border-radius:8px;cursor:not-allowed;font-size:13px;">'
           + '<span>🔒 ' + escapeHtml(label) + '</span>'
           + '<span style="font-size:10.5px;color:#7a7488;">尚未熟識</span>'
@@ -1019,7 +1019,7 @@ let plainTextContext = cleanText;
       if (l.bands && l.bands.indexOf(_curBand) === -1) {
         var _bandsTxt = l.bands.map(function (b) { return KC_BAND_SHORT_[b] || b; }).join('/');
         return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
-          + '<button onclick="alert(\'「' + escapeHtml(label).replace(/\'/g, "\\'") + '」現在還沒開放，只在' + _bandsTxt + '才營業，晚點再來看看吧。\')" '
+          + '<button onclick="alert(\'「' + escapeHtml(label).replace(/\'/g, "\\'") + '」現在沒開，' + _bandsTxt + '才開。\')" '
           + 'style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#1b1822;color:#6a6478;border:1px dashed #3a3348;border-radius:8px;cursor:not-allowed;font-size:13px;">'
           + '<span>🔒 ' + escapeHtml(label) + '</span>'
           + '<span style="font-size:10.5px;color:#7a7488;">' + escapeHtml(_bandsTxt) + '開放</span>'
@@ -1034,7 +1034,7 @@ let plainTextContext = cleanText;
         // 🐛→✅ 2026-07 前後端鏡射稽核：私人房間(isRoom)在後端是 region 'room'，相約/邀同去一律
         //   不受理(見 Gallery.gs _pmLocOk/_pvLocOk)——這顆 👋 按下去必然被拒、還會拿到「還沒熟到能
         //   登門」這種對不上的理由。永遠不會成功的按鈕就不要長出來（同地圖上鎖住的地點）。
-        + (l.mine ? '<button onclick="kanshouPlaceMenu(\'' + String(l.name).replace(/'/g, "\\'") + '\')" title="這個地方是你開出來的：可以開店、搬到別區、或刪掉" style="padding:8px 9px;background:#1e2a24;color:#8fc0a0;border:1px solid #3e6a50;border-radius:8px;cursor:pointer;">⋯</button>' : '')
+        + (l.mine ? '<button onclick="kanshouPlaceMenu(\'' + String(l.name).replace(/'/g, "\\'") + '\')" title="你開的地方：可以開店、搬區、或拿掉" style="padding:8px 9px;background:#1e2a24;color:#8fc0a0;border:1px solid #3e6a50;border-radius:8px;cursor:pointer;">⋯</button>' : '')
         + (l.isRoom ? ''
           : '<button onclick="kanshouProposeMove(\'' + l.name + '\')" title="邀同伴一起去「' + escapeHtml(label) + '」" style="padding:8px 9px;background:#2a2038;color:#e0c090;border:1px solid #5a4a3a;border-radius:8px;cursor:pointer;font-size:13px;">👋</button>')
         + '</div>';
@@ -1047,11 +1047,11 @@ let plainTextContext = cleanText;
   // 🗾 大區與地方的自由增減：全部走同一支後端 action(kanshou_world 的各個 op)。
   //    成功後回傳的 payload 會帶新的 regions/rows，直接刷新 tags 快取＋重繪地圖。
   async function kwWorldOp_(payload, busyMsg) {
-    if (!pc || !pc.id) { alert('尚未進入後日談。'); return null; }
+    if (!pc || !pc.id) { alert('還沒進後日談。'); return null; }
     try {
       const res = await withProcessing_(busyMsg || '處理中…', () => gasRun(
         Object.assign({ action: 'kanshou_world', pcId: pc.id, acctName: currentAccount }, payload)));
-      if (!res || !res.success) { alert((res && res.message) || '操作失敗。'); return null; }
+      if (!res || !res.success) { alert((res && res.message) || '沒成功。'); return null; }
       // 地圖那一區的資料來源是 tags 快取裡的 myPlaces/myRegions，就地更新免再打一趟
       try {
         if (window._lastTags) {
@@ -1062,15 +1062,15 @@ let plainTextContext = cleanText;
       } catch (e) { }
       try { var el = document.getElementById('kc-map-list'); if (el) el.innerHTML = kcMapListHtml_(); } catch (e) { }
       return res;
-    } catch (e) { alert('連線受阻，請稍後再試。'); return null; }
+    } catch (e) { alert('連不上，等一下再試。'); return null; }
   }
   async function kanshouAddRegion() {
-    var name = await customPrompt_('開一個新的大區叫什麼？\n\n（可以是一座城、一個國家、一片海岸，底下再放你自己的地點。例如：泰國、海邊小鎮）', '', 16);
+    var name = await customPrompt_('新的地區叫什麼？（例如：泰國、海邊小鎮）', '', 16);
     if (name === null) return;
     name = String(name).trim(); if (!name) { alert('名字不能空白。'); return; }
-    var desc = await customPrompt_('「' + name + '」是什麼樣的地方？（一句話，可留空）', '', 24);
+    var desc = await customPrompt_('「' + name + '」是什麼樣的地方？（可以不填）', '', 24);
     if (desc === null) desc = '';
-    await kwWorldOp_({ op: 'rg_add', entryName: name, text: String(desc).trim() }, '開一個新大區…');
+    await kwWorldOp_({ op: 'rg_add', entryName: name, text: String(desc).trim() }, '開新地區…');
   }
   async function kanshouRenameRegion(cur) {
     var name = await customPrompt_('把「' + cur + '」改成什麼名字？', cur, 16);
@@ -1079,7 +1079,7 @@ let plainTextContext = cleanText;
     await kwWorldOp_({ op: 'rg_rename', entryName: cur, newName: name }, '改名中…');
   }
   async function kanshouDelRegion(cur) {
-    if (!await customConfirm_('收掉大區「' + cur + '」？\n\n底下的地方【不會】消失，它們會回到「走出來的地方」那一區。')) return;
+    if (!await customConfirm_('收掉「' + cur + '」？裡面的地方會留著，只是搬回「走出來的地方」。')) return;
     var res = await kwWorldOp_({ op: 'rg_del', entryName: cur }, '收掉這一區…');
     if (res) { kcActiveRegion_ = 'mine'; try { var el = document.getElementById('kc-map-list'); if (el) el.innerHTML = kcMapListHtml_(); } catch (e) { } }
   }
@@ -1091,26 +1091,26 @@ let plainTextContext = cleanText;
     var pick = await kcChoose_('「' + name + '」', [
       { k: 'own', label: here.own ? '🏪 改營業內容（現在是「' + here.own + '」）' : '🏪 在這裡開店' },
       here.own ? { k: 'close', label: '🚪 收掉這家店（地方留著）' } : null,
-      { k: 'region', label: '🗾 搬到別的大區' },
+      { k: 'region', label: '🗾 搬到別的地區' },
       { k: 'del', label: '🗑 把這個地方刪掉' }
     ].filter(Boolean));
     if (!pick) return;
     if (pick === 'own') {
-      var biz = await customPrompt_('你在「' + name + '」做什麼？\n\n（例：小吃、按摩、賣雜貨、花店。不會有錢的數字，只影響大家怎麼跟你互動）', here.own || '', 12);
+      var biz = await customPrompt_('你在「' + name + '」做什麼？（例如：小吃、按摩、花店）', here.own || '', 12);
       if (biz === null) return;
-      biz = String(biz).trim(); if (!biz) { alert('營業內容不能空白（要收店請選「收掉這家店」）。'); return; }
+      biz = String(biz).trim(); if (!biz) { alert('寫一下你在做什麼吧。'); return; }
       await kwWorldOp_({ op: 'loc_own', entryName: name, own: biz }, '開店中…');
     } else if (pick === 'close') {
       if (!await customConfirm_('收掉「' + name + '」這家店？地方會留著，只是不再是你的店。')) return;
       await kwWorldOp_({ op: 'loc_own', entryName: name, own: '' }, '收店中…');
     } else if (pick === 'region') {
-      var opts = [{ k: '', label: '（不屬於任何大區·走出來的地方）' }].concat(regions.map(function (r) { return { k: r.name, label: r.name }; }));
-      if (regions.length === 0) { alert('你還沒有自己開的大區。先在分區列按「➕ 新大區」。'); return; }
+      var opts = [{ k: '', label: '（走出來的地方）' }].concat(regions.map(function (r) { return { k: r.name, label: r.name }; }));
+      if (regions.length === 0) { alert('你還沒開過地區，先按「➕ 新地區」。'); return; }
       var rg = await kcChoose_('把「' + name + '」搬到哪一區？', opts);
       if (rg === null) return;
       await kwWorldOp_({ op: 'loc_region', entryName: name, region: rg }, '搬家中…');
     } else if (pick === 'del') {
-      if (!await customConfirm_('把「' + name + '」從這座城裡刪掉？\n\n（之後就去不了了，AI 也不會再記得這個地方。）')) return;
+      if (!await customConfirm_('把「' + name + '」從這座城裡拿掉？之後就去不了了。')) return;
       await kwWorldOp_({ op: 'del', kind: '地點', entryName: name }, '刪除中…');
     }
   }
@@ -1142,15 +1142,15 @@ let plainTextContext = cleanText;
     if (name === null) return;
     name = name.trim();
     if (!name) { alert('名稱不能空白。'); return; }
-    if (name.length > 12) { alert('名稱請在12字以內。'); return; }
+    if (name.length > 12) { alert('名字最多 12 個字。'); return; }
     try {
       const res = await withProcessing_('改名中…', () => gasRun({ action: 'kanshou_set_home_name', pcId: pc.id, acctName: currentAccount, homeName: name }));
-      if (!res || !res.success) { alert((res && res.message) || '改名失敗。'); return; }
+      if (!res || !res.success) { alert((res && res.message) || '沒改成。'); return; }
       pc.homeName = res.homeName;
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       var listEl = document.getElementById('kc-map-list');
       if (listEl) listEl.innerHTML = kcMapListHtml_();
-    } catch (e) { alert('改名失敗。'); }
+    } catch (e) { alert('沒改成。'); }
   }
 
   // 移動走既有 send() 的 action:'play' 同一次round-trip(帶 moveTarget)，不另開一次網路請求；
@@ -1158,7 +1158,7 @@ let plainTextContext = cleanText;
   // 🧭 自由前往一個還不存在的地方：後端查無就當場把它加進這一局的世界(見 Gallery.gs kanshouNewPlaceStr)，
   //    AI 第一次描述它，並用 world_note 把樣貌記下來，之後地圖上就有這一格。
   async function kanshouGoNewPlace() {
-    var name = await customPrompt_('想去哪裡？（說個地名就好，這座城會多出這個地方）', '', 16);
+    var name = await customPrompt_('想去哪？說個地名就好。', '', 16);
     if (name === null) return;
     name = String(name).replace(/[<>&"\'`｜【】\[\]★]/g, '').trim().slice(0, 16);
     if (!name) return;
@@ -1174,8 +1174,8 @@ let plainTextContext = cleanText;
       region = pick;
     }
     var own = '';
-    if (await customConfirm_('「' + name + '」是你自己要開的店嗎？\n\n（選「否」就只是個普通的地方）')) {
-      own = await customPrompt_('你在這裡做什麼？（例：小吃、按摩、賣雜貨、花店）\n不會有錢的數字，只影響大家怎麼跟你互動。', '', 12);
+    if (await customConfirm_('「' + name + '」是你自己開的店嗎？')) {
+      own = await customPrompt_('你在這裡做什麼？（例如：小吃、按摩、花店）', '', 12);
       if (own === null) own = '';
       own = String(own).trim();
     }
@@ -1185,7 +1185,7 @@ let plainTextContext = cleanText;
 
   async function kanshouMoveTo(name) {
     // 🐛→✅ 地圖改分頁後，手機一次只顯示一個分頁，移動完敘事寫進「故事」分頁看不到——比照 solo 的 travelFromPane「先切分頁再送出動作」寫法，讓移動結果直接可見。
-    if (!await customConfirm_('確定要前往「' + name + '」嗎？')) return;
+    if (!await customConfirm_('去「' + name + '」？')) return;
     showGamePane('chat');
     await send('📍 走向了「' + name + '」，四處看看。', false, { moveTarget: name });
   }
@@ -1199,7 +1199,7 @@ let plainTextContext = cleanText;
     //   名單(getKanshouPeopleList_ 以 isExact 標在不在場)，要濾 isExact 才是真「在場」——舊版只看
     //   length，世界裡永遠有人＝這道門形同虛設(比照拍照面板的寫法)。後端★【提議撲空】仍是保底。
     var _pvHere = (localNPCs || []).filter(function (p) { return p && p.isExact; });
-    if (!_pvHere.length) { alert('身邊沒有同伴可以邀。先去找她，或自己用地圖移過去。'); return; }
+    if (!_pvHere.length) { alert('身邊沒有人可以邀。'); return; }
     showGamePane('chat');
     await send('（笑著問）要不要一起去「' + name + '」看看？', false, { proposeMove: name });
   }
@@ -1272,8 +1272,8 @@ let plainTextContext = cleanText;
       const res = await gasRun({ action: 'kanshou_summon_hero', pcId: pc.id, acctName: currentAccount, heroId: heroId });
       hideProcessing();
       if (res && res.success) { syncData(true); kcRefreshPartyOnly_(); }
-      else { alert((res && res.message) || '召喚失敗。'); }
-    } catch (e) { hideProcessing(); alert('召喚失敗。'); }
+      else { alert((res && res.message) || '沒請到。'); }
+    } catch (e) { hideProcessing(); alert('沒請到。'); }
   }
   // 🏷️ REL_TAG 從此只能由玩家在這裡手動改，AI只能在敘事裡表現認不認同(態度)、不再擅自覆寫。呼叫既有的 update_rel_tag(後端早就有，只是從未接過前端UI)。
   // 📅 相約：跟「此刻在場」的同伴約明天在某地見面(她明天會被行程釘在那裡等；赴約好感+、爽約好感−)。
@@ -1293,7 +1293,7 @@ let plainTextContext = cleanText;
     var _pmHere = String((window._lastTags && window._lastTags.myLoc) || '').trim();
     var pool = KC_LOCATIONS_.filter(function (l) { return !l.isRoom && l.name !== _pmHere && (l.region !== 'visit' || _pmUnlocked.indexOf(l.name) !== -1); });
     // 先選地點 → 再選時段 → 才送出(她約定時刻前10分到場；早到有「都早到」開場、遲到會唸你)
-    kanshouPickLocation_('📅 和「' + name + '」約在哪見面？', '下一步可選今天(尚未過去的時段)或明天；準時/早到赴約好感↑、遲到打折、放鴿子好感↓', pool, function (loc) {
+    kanshouPickLocation_('📅 和「' + name + '」約在哪見面？', '接著選今天或明天的哪個時段。別遲到。', pool, function (loc) {
       // 🕐 2026-07 六度改版：地點若有開放時段限制，只給相容的時段選——約在她開放時段外＝赴約時
       //   必被地點未開放擋在門外(後端 _pmLocOk 也同步擋這種組合，這裡先不給選)。
       var _locObj = KC_LOCATIONS_.find(function (l) { return l.name === loc; });
@@ -1425,11 +1425,11 @@ let plainTextContext = cleanText;
     await send('（拿出手機，把一張照片給身邊的人看。）', false, { showPhoto: photoId });
   }
   async function kanshouDeletePhoto(photoId) {
-    if (!await customConfirm_('確定撕掉這張照片？(不可復原)')) return;
+    if (!await customConfirm_('撕掉這張？')) return;
     try {
       const res = await withProcessing_('撕掉照片中…', () => gasRun({ action: 'album_delete', pcId: pc.id, acctName: currentAccount, photoId: photoId }));
-      if (res && res.success) openKanshouAlbum(); else alert((res && res.message) || '刪除失敗。');
-    } catch (e) { alert('刪除失敗。'); }
+      if (res && res.success) openKanshouAlbum(); else alert((res && res.message) || '沒刪掉。');
+    } catch (e) { alert('沒刪掉。'); }
   }
   // 📚 相簿牆(A案色卡寶麗來)：時段色調×天氣覆疊×右上角髮色緞帶，人物篩選分頁。
   var KC_ALBUM_BAND_BG_ = {
@@ -1484,12 +1484,12 @@ let plainTextContext = cleanText;
       + '<div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:12px;">' + chips + '</div>'
       + (photos.length
         ? '<div style="display:flex; gap:14px; flex-wrap:wrap; justify-content:center;">' + photos.map(kcAlbumCardHtml_).join('') + '</div>'
-        : '<div style="color:#8a8298; font-size:12px; text-align:center; padding:30px 0;">還沒有照片。輸入列的 📷 可以拍下此刻。</div>');
+        : '<div style="color:#8a8298; font-size:12px; text-align:center; padding:30px 0;">還沒有照片。按輸入列的 📷 拍一張。</div>');
   }
   function kcAlbumSetFilter_(n) { kcAlbumFilter_ = n; kcAlbumRender_(); }
   function kanshouCloseAlbum_() { var ov = document.getElementById('kc-album-overlay'); if (ov) ov.remove(); }
   async function openKanshouAlbum() {
-    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
+    if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
     var drawer = document.getElementById('action-drawer'); if (drawer) drawer.classList.remove('open');
     kanshouCloseAlbum_();
     var ov = document.createElement('div');
@@ -1514,7 +1514,7 @@ let plainTextContext = cleanText;
   var _ksMods_ = [], _ksCats_ = [], _ksCat_ = '', _ksMax_ = 300, _ksEdit_ = {};
   function kanshouCloseStyle_() { var o = document.getElementById('kc-style-overlay'); if (o) o.remove(); }
   async function openKanshouStyle() {
-    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
+    if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
     var drawer = document.getElementById('action-drawer'); if (drawer) drawer.classList.remove('open');
     kanshouCloseStyle_();
     _ksEdit_ = {}; _ksCat_ = '';
@@ -1526,8 +1526,8 @@ let plainTextContext = cleanText;
       + '<div style="color:#d8b070; font-weight:bold; font-size:16px;">⚙ 說書人設定</div>'
       + '<button onclick="kanshouCloseStyle_()" style="background:none; border:1px solid #6a5a40; border-radius:8px; color:#d8c8a8; font-size:13px; padding:4px 12px; cursor:pointer;">✕ 關閉</button>'
       + '</div>'
-      + '<div style="color:#8a7e64; font-size:11.5px; margin-bottom:12px; line-height:1.7;">說書人「怎麼寫」的那幾段交給你決定。每一段三選一：<b style="color:#b8a888;">預設</b>照原本的來、<b style="color:#b8a888;">自訂</b>寫你自己的句子、<b style="color:#b8a888;">關閉</b>那一段完全不送。'
-      + '<br>分成四類收在分頁裡，分頁上的數字＝那一類有幾段被你動過。好感、關係、誰在場這些事實不在這裡，那些由系統決定，不是口味問題。</div>'
+      + '<div style="color:#8a7e64; font-size:11.5px; margin-bottom:12px; line-height:1.7;">說書人怎麼寫，你來定。每一段可以用<b style="color:#b8a888;">預設</b>照原本的來、<b style="color:#b8a888;">自訂</b>寫你自己的句子、<b style="color:#b8a888;">關閉</b>那一段完全不送。'
+      + '<br>分頁上的數字是你改過幾段。</div>'
       + '<div id="kc-style-body" style="color:#8a8298; font-size:12px;">讀取中……</div></div>';
     document.body.appendChild(ov);
     await ksLoad_();
@@ -1624,7 +1624,7 @@ let plainTextContext = cleanText;
   var _kwBusy_ = false, _kwRows_ = [];
   function kanshouCloseWorld_() { var o = document.getElementById('kc-world-overlay'); if (o) o.remove(); }
   async function openKanshouWorld() {
-    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
+    if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
     var drawer = document.getElementById('action-drawer'); if (drawer) drawer.classList.remove('open');
     kanshouCloseWorld_();
     var ov = document.createElement('div');
@@ -1635,7 +1635,7 @@ let plainTextContext = cleanText;
       + '<div style="color:#8fd0c0; font-weight:bold; font-size:16px;">🌍 這個世界</div>'
       + '<button onclick="kanshouCloseWorld_()" style="background:none; border:1px solid #4a6a64; border-radius:8px; color:#a8ccc4; font-size:13px; padding:4px 12px; cursor:pointer;">✕ 關閉</button>'
       + '</div>'
-      + '<div style="color:#6e8a84; font-size:11.5px; margin-bottom:12px;">你們一路玩出來的地方、認識的人、確立過的事。📌 釘住的永遠不會被淘汰；覺得亂記的可以刪掉。</div>'
+      + '<div style="color:#6e8a84; font-size:11.5px; margin-bottom:12px;">你們一路走出來的地方、認識的人、說定的事。📌 釘住的不會忘；記錯的可以刪。</div>'
       + '<div id="kc-world-body" style="color:#8a8298; font-size:12px;">讀取中……</div></div>';
     document.body.appendChild(ov);
     await kwLoad_();
@@ -1676,7 +1676,7 @@ let plainTextContext = cleanText;
           + '<div style="color:#cfe6e0; font-size:13px;">' + (r.pin ? '📌 ' : '') + escapeHtml(r.name) + (r.sex ? '<span style="color:#7e9a94; font-size:11px;">（' + escapeHtml(r.sex) + '）</span>' : '') + '</div>'
           + (r.text ? '<div style="color:#8aa8a2; font-size:11.5px; margin-top:2px; word-break:break-all;">' + escapeHtml(r.text) + '</div>' : '')
           + '</div>'
-          + '<button title="' + (r.pin ? '取消釘選' : '釘住，永遠不被淘汰') + '" onclick="kwOp_(\'' + (r.pin ? 'unpin' : 'pin') + '\',\'' + esc(r.kind) + '\',\'' + esc(r.name) + '\')" style="flex:0 0 auto; background:none; border:1px solid #4a6a64; border-radius:7px; color:' + (r.pin ? '#e8c87a' : '#7e9a94') + '; font-size:13px; padding:3px 8px; cursor:pointer;">📌</button>'
+          + '<button title="' + (r.pin ? '取消釘選' : '釘住，不會忘') + '" onclick="kwOp_(\'' + (r.pin ? 'unpin' : 'pin') + '\',\'' + esc(r.kind) + '\',\'' + esc(r.name) + '\')" style="flex:0 0 auto; background:none; border:1px solid #4a6a64; border-radius:7px; color:' + (r.pin ? '#e8c87a' : '#7e9a94') + '; font-size:13px; padding:3px 8px; cursor:pointer;">📌</button>'
           + '<button title="刪掉這一條" onclick="kwOp_(\'del\',\'' + esc(r.kind) + '\',\'' + esc(r.name) + '\')" style="flex:0 0 auto; background:none; border:1px solid #6a4a4a; border-radius:7px; color:#c08a8a; font-size:13px; padding:3px 8px; cursor:pointer;">🗑</button>'
           + '</div>';
       });
@@ -1685,7 +1685,7 @@ let plainTextContext = cleanText;
   }
   async function kwOp_(op, kind, name) {
     if (_kwBusy_) return;   // 讀條保護：上一個還在跑就忽略連點(同 kanshouMemoirOp)
-    if (op === 'del' && !await customConfirm_('把「' + name + '」從這個世界刪掉嗎？\n(之後 AI 就不會再記得它了)')) return;
+    if (op === 'del' && !await customConfirm_('把「' + name + '」忘掉？之後就當沒這回事。')) return;
     _kwBusy_ = true;
     try { await kwLoad_(op, kind, name); } finally { _kwBusy_ = false; }
   }
@@ -1707,13 +1707,13 @@ let plainTextContext = cleanText;
   // 🏠 邀請同居：她在場+關係夠深(後端把關)→搬進「和室」——深夜大多回家就寢、清晨可能賴床、
   //   晚間常在家中活動，白天照常出門過自己的生活。
   async function kanshouInviteCohabit(name, npcId) {
-    if (!await customConfirm_('邀「' + name + '」搬來同住？\n(關係夠深就會答應；她本人要在場才問得出口)')) return;
+    if (!await customConfirm_('問「' + name + '」要不要搬來一起住？')) return;
     showGamePane('chat');
     await send('（鼓起勇氣，邀「' + name + '」搬來一起住。）', false, { cohabitInvite: name, cohabitInviteId: npcId || "" });
   }
   // 💗 告白：好感夠(KC_CONFESS_BOND_)就【必定成立】——2026-09 玩家「79 改成告白必定成功就好」，前端不預測、只送出意圖。
   async function kanshouConfess(name, npcId) {
-    if (!await customConfirm_('向「' + name + '」告白？\n(說出口就成立，你們從此是戀人。她本人要在場)')) return;
+    if (!await customConfirm_('跟「' + name + '」告白？')) return;
     showGamePane('chat');
     await send('（鼓起勇氣，向「' + name + '」告白。）', false, { confess: name, confessId: npcId || "" });
   }
@@ -1768,7 +1768,7 @@ let plainTextContext = cleanText;
       + (lover
         ? '<div style="padding:8px 12px;margin-bottom:7px;color:#f0c0d8;font-size:12px;border:1px dashed rgba(240,140,180,.5);border-radius:8px;">💗 <b>交往中</b>　你們已經是戀人了</div>'
         : (b < KC_CONFESS_BOND_
-          ? '<div style="padding:8px 12px;margin-bottom:7px;color:#7a7086;font-size:11.5px;border:1px dashed rgba(140,120,160,.35);border-radius:8px;">🔒 <b>向她告白</b>　好感達到 ' + KC_CONFESS_BOND_ + ' 才開得了口（目前 ' + b + '）</div>'
+          ? '<div style="padding:8px 12px;margin-bottom:7px;color:#7a7086;font-size:11.5px;border:1px dashed rgba(140,120,160,.35);border-radius:8px;">🔒 告白　好感到 ' + KC_CONFESS_BOND_ + ' 才說得出口（現在 ' + b + '）</div>'
           : row("kanshouConfess('" + safeN + "','" + safeId + "')", '💗', '向她告白',
             '說出口就成立，你們從此是戀人（她本人要在場）', '230,120,160')))
       // 🏠 同居：主要入口是【剛成為戀人】那一刻跳的一次性泡泡(見 data.cohabitOffer)，平時完全不顯示。
@@ -1797,14 +1797,14 @@ let plainTextContext = cleanText;
       var active = t.label === curTag;
       var lock = b < (parseInt(t.min) || 0);
       if (lock) {
-        return '<button disabled title="好感達到' + t.min + '才稱得上" style="width:100%;text-align:left;padding:8px 10px;margin-bottom:5px;font-size:13px;background:#1b1822;color:#6a6478;border:1px dashed #3a3348;border-radius:6px;cursor:not-allowed;">🔒 ' + t.label + '<span style="float:right;font-size:11px;">好感' + t.min + '</span></button>';
+        return '<button disabled title="好感到 ' + t.min + ' 才能用" style="width:100%;text-align:left;padding:8px 10px;margin-bottom:5px;font-size:13px;background:#1b1822;color:#6a6478;border:1px dashed #3a3348;border-radius:6px;cursor:not-allowed;">🔒 ' + t.label + '<span style="float:right;font-size:11px;">好感' + t.min + '</span></button>';
       }
       return '<button onclick="kanshouSetRelTag(\'' + safeN + '\',\'' + t.label + '\')" style="width:100%;text-align:left;padding:8px 10px;margin-bottom:5px;font-size:13px;background:' + (active ? '#6a4a9a' : '#2a2430') + ';color:' + (active ? '#fff' : '#dcc8ff') + ';border:1px solid rgba(180,140,255,.3);border-radius:6px;cursor:pointer;">' + t.label + (active ? '（目前）' : '') + '</button>';
     }).join('');
     // 🔒 自訂關係稱呼／專屬稱呼都會被字面塞進AI提示詞當既定事實，未達門檻前不給輸入框、只顯示鎖定說明。
     var customSection = unlocked
       ? ('<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">'
-        + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">自訂關係稱呼：填一個詞就好(像「小可愛」「寶貝」這種)，不要打完整句子，不然容易跟系統模板打架、AI 反而理解錯。</div>'
+        + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">自訂稱呼：填一個詞就好，像「小可愛」「寶貝」。</div>'
         + '<div style="display:flex;gap:5px;">'
         + '<input id="kr-custom" maxlength="20" placeholder="自訂稱呼" value="' + (isPreset ? '' : escapeHtml(curTag || '')) + '" style="flex:1;min-width:0;padding:6px;background:#2a2430;color:#eee;border:1px solid rgba(180,140,255,.3);border-radius:6px;font-size:12px;">'
         + '<button onclick="kanshouSetRelTagCustom(\'' + safeN + '\')" style="padding:6px 10px;background:#6a4a9a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">確定</button>'
@@ -1814,11 +1814,11 @@ let plainTextContext = cleanText;
         + '<input id="kr-nickname" maxlength="20" placeholder="專屬稱呼" value="' + escapeHtml(curNickname || '') + '" style="flex:1;min-width:0;padding:6px;background:#2a2430;color:#eee;border:1px solid rgba(180,140,255,.3);border-radius:6px;font-size:12px;">'
         + '<button onclick="kanshouSetNicknameCustom(\'' + safeN + '\')" style="padding:6px 10px;background:#6a4a9a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">確定</button>'
         + '</div></div>')
-      : ('<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);color:#7a7086;font-size:11.5px;">🔒 好感達到' + KC_CUSTOM_TAG_BOND_ + '(戀人)才能自訂關係稱呼／專屬稱呼，目前好感' + b + '。</div>');
+      : ('<div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);color:#7a7086;font-size:11.5px;">🔒 好感到 ' + KC_CUSTOM_TAG_BOND_ + ' 才能自己取稱呼（現在 ' + b + '）。</div>');
     ov.innerHTML = '<div style="width:min(360px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(180,140,255,.3);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#dcc8ff;">🏷️ 「' + escapeHtml(name) + '」的關係稱呼</b>'
       + '<button onclick="document.getElementById(\'kr-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:8px;">目前：' + escapeHtml(curTag || '從者') + '。選預設稱呼會跟著好感自動升降；打自訂稱呼會固定下來，之後不會再自動改變。</div>'
+      + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:8px;">目前：' + escapeHtml(curTag || '從者') + '。用預設的會跟著關係變；自己填的就固定了。</div>'
       + presetBtns
       + customSection
       + '</div>';
@@ -1857,7 +1857,7 @@ let plainTextContext = cleanText;
   }
   // ✏ 隨時更改後日談中「你（御主）」的名字
   async function changeKanshouName() {
-    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
+    if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
     var nm = await customPrompt_('御主新名字：', pc.name || '');
     if (nm === null) return;
     nm = String(nm).trim();
@@ -1872,12 +1872,12 @@ let plainTextContext = cleanText;
         localStorage.setItem('kyushu_v27', JSON.stringify(pc));
         var el = document.getElementById('ui-name'); if (el) el.innerText = pc.name;
         renderKcMasterBox_(); // 只改名字/性別，只重繪御主資訊框——不必整面板重開
-      } else { alert((res && res.message) || '改名失敗。'); }
-    } catch (e) { alert('改名失敗。'); }
+      } else { alert((res && res.message) || '沒改成。'); }
+    } catch (e) { alert('沒改成。'); }
   }
   // ⚧ 隨時切換後日談中「你（御主）」的性別
   async function changeKanshouSex() {
-    if (!pc || !pc.id) { alert('尚未進入後日談。'); return; }
+    if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
     const sex = await askKanshouSex();
     try {
       const res = await withProcessing_('切換中…', () => gasRun({ action: 'kanshou_set_sex', pcId: pc.id, acctName: currentAccount, pcSex: sex }));
@@ -1899,8 +1899,8 @@ let plainTextContext = cleanText;
       var ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);display:flex;align-items:center;justify-content:center;';
       ov.innerHTML = '<div style="background:#20141b;border:1px solid rgba(200,120,150,.5);border-radius:14px;padding:22px;width:84%;max-width:320px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);">'
-        + '<div style="color:#e0a0bc;font-weight:bold;font-size:15px;margin-bottom:6px;">🌹 後日談 · 你以什麼之身現身？</div>'
-        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:16px;">這是這個帳號常駐後日談裡「你（御主）」的性別。之後可在 👥 同伴面板隨時更改。</div>'
+        + '<div style="color:#e0a0bc;font-weight:bold;font-size:15px;margin-bottom:6px;">🌹 後日談 · 先選性別</div>'
+        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:16px;">你在後日談裡的性別，之後可以在 👥 改。</div>'
         + '<div style="display:flex;gap:10px;">'
         + '<button id="ksx-f" style="flex:1;padding:13px;background:linear-gradient(90deg,#7a4a6a,#5a3a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♀ 女</button>'
         + '<button id="ksx-m" style="flex:1;padding:13px;background:linear-gradient(90deg,#3a4a6a,#3a5a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♂ 男</button>'
@@ -1925,16 +1925,16 @@ let plainTextContext = cleanText;
       var ov = document.createElement('div');
       ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);display:flex;align-items:center;justify-content:center;padding:16px;';
       ov.innerHTML = '<div style="background:#20141b;border:1px solid rgba(200,120,150,.5);border-radius:14px;padding:22px;width:100%;max-width:340px;max-height:calc(100vh - 32px);overflow-y:auto;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);">'
-        + '<div style="color:#e0a0bc;font-weight:bold;font-size:15px;margin-bottom:6px;">🌹 後日談 · 設定你（御主）</div>'
-        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選擇性別、外貌與個性（後兩者可留空）。AI 會依你填的內容一次幫你擴寫成完整形象（想自己設定，之後在御主狀態頁點「改命」隨時可填/可改）。</div>'
+        + '<div style="color:#e0a0bc;font-weight:bold;font-size:15px;margin-bottom:6px;">🌹 後日談 · 你是誰</div>'
+        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選性別。外貌和個性可以先不填，之後都能改。</div>'
         + '<input id="ksu-name" maxlength="16" value="' + escapeHtml(defaultName || '') + '" placeholder="御主名" style="width:100%;box-sizing:border-box;padding:11px;background:#16101a;border:1px solid rgba(200,120,150,.4);border-radius:8px;color:#f0e0e8;font-size:14px;text-align:center;">'
         + '<div style="display:flex;gap:10px;margin-top:10px;">'
         + '<button id="ksu-f" style="flex:1;padding:13px;background:rgba(90,50,70,.35);color:#d8a8c0;border:2px solid transparent;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♀ 女</button>'
         + '<button id="ksu-m" style="flex:1;padding:13px;background:rgba(50,60,90,.35);color:#a8c0e0;border:2px solid transparent;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♂ 男</button>'
         + '</div>'
-        + '<textarea id="ksu-appear" maxlength="60" placeholder="外貌（選填·留空由AI幫你決定）" style="width:100%;box-sizing:border-box;margin-top:10px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
-        + '<textarea id="ksu-persona" maxlength="60" placeholder="個性方向（選填·留空由AI幫你決定）" style="width:100%;box-sizing:border-box;margin-top:8px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
-        + '<button id="ksu-simple" style="width:100%;box-sizing:border-box;margin-top:12px;padding:13px;background:linear-gradient(90deg,#7a4a6a,#5a3a6a);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:bold;cursor:pointer;">✨ 讓 AI 依你填的一次擴寫完整</button>'
+        + '<textarea id="ksu-appear" maxlength="60" placeholder="外貌（可以不填）" style="width:100%;box-sizing:border-box;margin-top:10px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
+        + '<textarea id="ksu-persona" maxlength="60" placeholder="個性（可以不填）" style="width:100%;box-sizing:border-box;margin-top:8px;padding:9px;background:#16101a;border:1px solid rgba(200,120,150,.3);border-radius:8px;color:#f0e0e8;font-size:13px;resize:none;height:40px;"></textarea>'
+        + '<button id="ksu-simple" style="width:100%;box-sizing:border-box;margin-top:12px;padding:13px;background:linear-gradient(90deg,#7a4a6a,#5a3a6a);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:bold;cursor:pointer;">✨ 就這樣，進去</button>'
         + '</div>';
       document.body.appendChild(ov);
       var fBtn = ov.querySelector('#ksu-f'), mBtn = ov.querySelector('#ksu-m');
@@ -1948,7 +1948,7 @@ let plainTextContext = cleanText;
       mBtn.onclick = function () { selectedSex = '男'; renderSexPick(); };
       ov.querySelector('#ksu-simple').onclick = async function () {
         if (selectedSex !== '女' && selectedSex !== '男') { alert('請先選擇性別。'); return; }
-        if (!await customConfirm_('要用「' + selectedSex + '」御主直接進入後日談嗎？\n\nAI 會依你填的外貌/個性一次幫你擴寫成完整形象。\n(之後在御主狀態頁點「改命」隨時可改)')) return;
+        if (!await customConfirm_('就用這個「' + selectedSex + '」進去？\n\n沒填的部分會替你補上，之後都能改。')) return;
         var nm = (ov.querySelector('#ksu-name').value || '').trim() || (defaultName || '御主');
         var appearance = (ov.querySelector('#ksu-appear').value || '').trim();
         var persona = (ov.querySelector('#ksu-persona').value || '').trim();
