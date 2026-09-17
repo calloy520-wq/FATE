@@ -57,6 +57,18 @@ function markMasterLostServant_(sheet, data, svIdx, cause) {
   } catch (e) { }
 }
 
+// ❖ 令咒·強制補魔的反噬結局：御主一定死，怎麼死依從者的陣營走。上面的先命中先算，查不到走最後一列。
+var SEAL_BACKLASH_ = [
+  { align: '惡', outcome: '榨乾', fact: '效果散去之後，「%s」沒有停手——反過來把御主的魔力與體力一起抽乾，御主在一波接一波的高潮裡斷了氣。', close: '收在御主連呼吸都交出去、再也撐不住的那一刻。' },
+  { align: '混沌', outcome: '榨乾', fact: '效果散去之後，「%s」索性順著這股失控要到底——一路榨到御主的魔力見底、心跳跟著停下。', close: '收在御主被要到最後、意識散開的那一刻。' },
+  { align: '', outcome: '了結', fact: '效果散去的瞬間，「%s」積壓的恨意引爆，殺了御主。', close: '收在令咒消散、「%s」揮下致命一擊的那一瞬。' }
+];
+function sealBacklash_(align, svName) {
+  var a = String(align || '');
+  var hit = SEAL_BACKLASH_.find(function (r) { return !r.align || a.indexOf(r.align) >= 0; }) || SEAL_BACKLASH_[SEAL_BACKLASH_.length - 1];
+  return { outcome: hit.outcome, fact: hit.fact.replace(/%s/g, svName), close: hit.close.replace(/%s/g, svName) };
+}
+
 // ❖ 玩家令咒（固定選單·絕對命令權）：修復／補魔／脫離（命中走 fate_battle 的 seal 旗標）
 function actionUseSeal(userData, pcId, sheets) {
   const type = String(userData.sealType || "").trim(); // 'repair' | 'mana' | 'escape'
@@ -73,7 +85,7 @@ function actionUseSeal(userData, pcId, sheets) {
 
   BATTLE_DEFER_WRITE_ = true;
   let effectMsg = "";
-  let sealManaUnlocked = false, sealManaKill = false; // 見下方 'mana' 分支
+  let sealManaUnlocked = false, sealManaKill = false, sealBack = null; // 見下方 'mana' 分支
   let genderFactSeal = "", sealManaFx = ""; // 見下方 'mana' 分支賦值，aiPrompt 組字在函式尾段共用區塊、需跨 if/else-if 存活
   if (type === "repair") {
     pcData[svIdx][COL.PC.HP] = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 480;
@@ -104,6 +116,7 @@ function actionUseSeal(userData, pcId, sheets) {
       effectMsg = `御主燒了一道令咒強制供魔，魔力回滿（下一發規格外寶具可無償超載）。「${svName}」的羈絆 ${bondForSeal}，本來就願意；御主仍拿三道令咒之一換了這場供魔，省下的是自己的身體。`;
     } else {
       sealManaKill = true;
+      sealBack = sealBacklash_(pcData[svIdx][COL.PC.ALIGN], svName); // 陣營決定「怎麼死」，結果一律是御主敗北
       effectMsg = `御主燒了一道令咒強制供魔，魔力回滿。「${svName}」的羈絆 ${bondForSeal}，還在 ${MANA_TRUST_BOND_} 之下——這是強迫，令咒壓住了反抗。`;
     }
   } else if (type === "escape") {
@@ -138,11 +151,11 @@ function actionUseSeal(userData, pcId, sheets) {
     if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     const wishSeal = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【已裁定】${effectMsg}效果散去的瞬間，「${svName}」積壓的恨意引爆，殺了御主。\n` +
-      `${genderFactSeal}★【500~600 字】寫這場被令咒壓制的供魔：「${svName}」內心一路抗拒，身體卻不受控制地迎合下去，御主就這樣得逞。${sealManaFx}收在令咒消散、「${svName}」揮下致命一擊的那一瞬。`;
+      `【已裁定】${effectMsg}${sealBack.fact}\n` +
+      `${genderFactSeal}★【500~600 字】寫這場被令咒壓制的供魔：「${svName}」內心一路抗拒，身體卻不受控制地迎合下去，御主就這樣得逞。${sealManaFx}${sealBack.close}`;
     defeat = true;
     dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wishSeal, svName);
-    report = { sealBacklash: true, svName: svName };
+    report = { sealBacklash: true, svName: svName, backlash: sealBack.outcome };
   } else {
     aiPrompt = sealManaUnlocked
       ? (masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +

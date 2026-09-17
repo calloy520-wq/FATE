@@ -2905,7 +2905,7 @@
     try {
       const rp = res.report || {};
       if (res.deadline) dojoCause = { cause: 'deadline' };
-      else if (rp.sealBacklash) dojoCause = { cause: 'seal_backlash', servantName: rp.svName || '' };
+      else if (rp.sealBacklash) dojoCause = { cause: rp.backlash === '榨乾' ? 'seal_drained' : 'seal_backlash', servantName: rp.svName || '' };
       else if (rp.ambush) dojoCause = { cause: 'ambush', foeName: rp.enemyName || '' };
       else if (rp.assassination) dojoCause = { cause: 'assassination' };
       else if (rp.def) dojoCause = { cause: 'battle', foeName: rp.def, useNp: !!rp.useNp, backlash: !!rp.backlash };
