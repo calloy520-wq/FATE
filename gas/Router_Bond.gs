@@ -92,7 +92,7 @@ function actionUseSeal(userData, pcId, sheets) {
     }
     genderFactSeal = sealGenderFact_(String(pcData[pIdx][COL.PC.SEX] || ""), String(pcData[svIdx][COL.PC.SEX] || ""), svName);
     // 令咒的加持是【雙方】的，跟羈絆無關；羈絆只決定抗拒還是迎合（玩家定案，見 CODE_NOTES）。
-    sealManaFx = `令咒同時強化了兩邊：「${svName}」的敏感度被推到遠超常態，御主的性能力也被拉高、承接得住。高潮由御主的動作引發，來得又多又失控。挑一兩個關鍵瞬間深寫，篇幅全給實際發生的細節。`;
+    sealManaFx = `令咒同時強化了兩邊：「${svName}」的敏感度被推到遠超常態，御主的性能力也被拉高、承接得住。高潮由御主的動作引發，來得又多又失控。${LEWD_EXPLICIT_}挑一兩個關鍵瞬間深寫，篇幅全給實際發生的細節。`;
     pcData[pIdx][COL.PC.MP] = mpMaxSeal;
     if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     // 絕對命令跳過「同意」，羈絆是否足夠決定這是幸運還是致命——理由見 CODE_NOTES。

@@ -410,6 +410,7 @@ function sumMode_(mode) {
   if (gate) gate.style.display = (mode === 'pick' || mode === 'create') ? 'none' : 'block';
   if (pick) pick.style.display = (mode === 'pick') ? 'block' : 'none';
   if (make) make.style.display = (mode === 'create') ? 'block' : 'none';
+  if (mode === 'create') { try { pickOrigin((document.getElementById('s-origin') || {}).value || 'original'); } catch (e) { } } // 亮起目前選的來源
   if (mode !== 'random') return;
   // ⚠ 先清掉名冊分頁殘留的職階：玩家可能先點過「自己挑」瀏覽過職階再退回來按隨機，
   //   不清的話這個「完全隨機」會被悄悄鎖死在那個職階（同款坑見 summonByDesc 的註解）。
@@ -418,6 +419,17 @@ function sumMode_(mode) {
 }
 
 function summonRandom() { return doSummon({ cls: (selectedSummonClass && selectedSummonClass !== '__all__') ? selectedSummonClass : '' }); }
+// 🎭 來源三分類：選中的那顆亮起來（值存在 hidden input，summonByDesc 照舊讀 s-origin）
+function pickOrigin(og) {
+  var h = document.getElementById('s-origin'); if (h) h.value = og;
+  Array.prototype.forEach.call(document.querySelectorAll('.s-og-btn'), function (b) {
+    var on = b.getAttribute('data-og') === og;
+    b.style.borderColor = on ? '#c79be8' : '#5a5a6a';
+    b.style.color = on ? '#e8dcc0' : '#8a8298';
+    b.style.background = on ? 'rgba(176,108,208,0.22)' : 'transparent';
+  });
+}
+
 function summonByDesc() {
   var d = (document.getElementById('s-desc') && document.getElementById('s-desc').value.trim()) || '';
   if (!d) { alert('先說說你想要什麼樣的從者。'); return; }

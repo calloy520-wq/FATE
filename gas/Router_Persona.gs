@@ -217,6 +217,9 @@ function masterCard_(row) {
   } catch (e) { return ""; }
 }
 
+// 🔞 補魔三支共用的尺度指示（solo 僅有的露骨橋段，單一真實來源）。
+var LEWD_EXPLICIT_ = '★寫得直白：身體的部位、動作、聲音、氣味與濕度都照實寫，用直接的詞，鏡頭推到最近。';
+
 // masterCard_ 內嵌的「性別${sex}」只是孤立事實標籤，沒教 AI 該怎麼據此裁定肢體互動，小模型便預設男性插入視角；這裡把配對事實算好直接餵給 AI。
 function sealGenderFact_(masterSex, svSex, svName) {
   var mRaw = String(masterSex || ""), sRaw = String(svSex || "");

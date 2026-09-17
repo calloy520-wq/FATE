@@ -142,7 +142,7 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
 
   try {
     // 🔴 ignoreLaw: true，把節慶跟天氣隔絕在創建室外
-    const aiBrief = JSON.parse(callGeminiAPI(promptStr, MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
+    const aiBrief = JSON.parse(callGeminiAPI(promptStr, MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true, model: CREATION_MODEL }));
     // backfill 豁免寫入鎖，pIdx 是 AI 呼叫前的列索引——期間若清殘列刪列會位移；寫回前重新以 ID 定位，列已被刪則放棄寫入。
     const wIdx = buildLiveIdIndex_(sheets.pc)[String(pcId)];
     if (wIdx === undefined) return JSON.stringify({ success: false, message: "你的角色不見了，重新登入看看。" });
@@ -557,7 +557,7 @@ function actionSaveHero(userData, pcId, sheets) {
     flavor = JSON.parse(callGeminiAPI(
       `【真名】：${pb.name}\n【職階】：${pb.cls}\n【性別】：${pb.sex}\n【玩家描述】：${pb.desc || "無"}${pb.look ? `\n【外貌(${pb.lookFull ? "玩家已定·照抄" : "玩家核心設定·擴寫成四短句·本意照舊"})】：${pb.look}` : ""}${pb.pref ? `\n【個性(${pb.prefFull ? "玩家已定·照抄" : "玩家核心設定·擴寫成四短句·本意照舊"})】：${pb.pref}` : ""}${pb.fp ? `\n【自稱(玩家已定)】：${pb.fp}` : ""}${pb.speech ? `\n【口吻(玩家已定)】：${pb.speech}` : ""}${pb.back ? `\n【身世(玩家已定·照抄)】：${pb.back}` : ""}${pb.weapon ? `\n【武裝(以此為準，蓋過職階慣例與原典)】：${pb.weapon}` : ""}${isMasterCls ? "" : `\n【技能】：${pb.skills.map(s => s.n).join("、") || "無"}\n【寶具】：${pb.npName}${pb.npDesc ? `（${pb.npDesc}）` : ""}`}`,
       `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名${_ogF.pnote}${isMasterCls ? "御主(鑑賞限定·不參與戰鬥)" : "從者"}的設定，你【只】負責補完演出側寫${isMasterCls ? "" : "與寶具英文真名"}，輸出欄位以下方 JSON 列出的為限。★【語言】除${isMasterCls ? "" : " npEn 欄與"} JSON 欄位名本身外，所有輸出內容一律用中文字。玩家標「照抄」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫，本意照舊。★${AURA_SPEC_}\n★personality【恰好4段】、look【恰好2段】，皆【只用頓號「、」分隔·每段是簡短詞組非完整句子·限${TRAIT_SEG_HINT_}字內寫完·段內不再用頓號列舉】。★輸出合法 JSON（純文字，無 Markdown）：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌兩短句頓號分隔（第一句五官髮色/身形/衣著印象，第二句是不含服裝字眼的氣質意象）","background":"生平一句·限20字","firstP":"台詞自稱(我/吾/俺/本王…·限4字)","toMaster":"對自己御主的態度(限20字)","speech":"口吻(限40字·如 古風敬語、句尾帶「呢」、簡短冷淡)","tic":"招牌小動作(限30字·具體可見的身體動作，不寫心情)"${isMasterCls ? "" : `,"npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"`}}`,
-      { temperature: 0.85, ignoreLaw: true }));
+      { temperature: 0.85, ignoreLaw: true, model: CREATION_MODEL }));
   } catch (e) { flavor = null; }
   // AI 補的演出欄位：玩家有填就用玩家的，沒填才拿這份（工房 UI 只剩一句描述，這幾格全靠 AI 從描述推）
   const _fv = (k, n) => String((flavor && flavor[k]) || "").replace(/[<>&"'`｜【】\n\r\t]/g, "").trim().slice(0, n);
@@ -679,6 +679,7 @@ ${clsUnset ? "★【職階 cls】玩家未指定職階——請依描述判斷�
 ★【技能帶 fx】skills(固有技能 3~4 個)，每個含 {"n":"技能名","r":"階級","fx":"效果碼"}。職階慣例技能(如 Saber/Lancer/Archer 的對魔力、Rider 的騎乘、Caster 的陣地/道具作成、Assassin 的氣息遮斷、Berserker 的狂化)由系統依職階自動附贈，這裡【不需要你生成】、專心給這名英靈"個人"的招牌技能就好。
 ★【技能命名】n 是【顯示名】、fx 才是機制(兩者脫鉤)。${custDesc ? _og.skill : '★技能名忠於該角色原著既有的招式/技能名(對魔力／直感／庫夫林「蓋・波爾克」…)，直接沿用原名——取【這個角色本人】的招式。'}
 ${FX_MENU_}
+★【年齡】這名英靈是成年人的樣貌與身量。
 ★【特性 traits】1~3 個，{"n":"特性名"}（如 王/龍/人類/神性/巨人/猛獸；有神性者會被神殺剋）。
 ★【演出而非說明】personality 與寶具只作底層，靠言行流露。personality 剛好 4 短句頓號分隔、每句限${TRAIT_SEG_HINT_}字內寫完：日常表象、真實內裡、喜歡的事物、討厭的事物。
 ★【外貌 look】剛好 2 短句頓號分隔，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝；若為女性：把身形與胸部寫進自然的敘述句裡，不用孤立的分類標籤——這句玩家看得到)]、[氣質]。${AURA_SPEC_}
@@ -686,7 +687,7 @@ ${FX_MENU_}
 
 ★【輸出】合法 JSON（純文字，無 Markdown）：
 {"realName":"英靈真名",${clsUnset ? '"cls":"Saber",' : ""}"sex":"男/女/異 擇一","align":"如 混沌・善","background":"限20字","personality":"四格頓號","look":"兩格頓號(每句限${TRAIT_SEG_HINT_}字)","np":"寶具名（簡述）","six":{"筋力":"B","耐久":"C","敏捷":"A","魔力":"D","幸運":"C","寶具":"B"},"skills":[{"n":"技能名","r":"A","fx":"對應效果碼"},{"n":"技能名","r":"B","fx":"對應效果碼"},{"n":"技能名","r":"C","fx":"對應效果碼"}],"traits":[{"n":"人類"}]}`;
-      const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${clsUnset ? "未指定(請依描述判斷)" : cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true }));
+      const aiBrief = JSON.parse(callGeminiAPI(`【職階】：${clsUnset ? "未指定(請依描述判斷)" : cls}\n【御主】：${pcName}${trueName ? `\n【指定真名】：${trueName}` : ""}${custDesc ? `\n【玩家自訂描述】：${custDesc}` : ""}`, sysOverride, { temperature: custDesc ? 0.85 : 0.6, ignoreLaw: true, model: CREATION_MODEL }));
       if (!aiBrief || !aiBrief.realName || !aiBrief.six) {
         return JSON.stringify({ success: false, message: "英靈之座沒有回應，等一下再試。" });
       }

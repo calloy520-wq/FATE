@@ -683,7 +683,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 {"background":"限20字","traits":"兩格頓號字串","personality":"四格頓號字串","speech":"講話的調調，限16字","tic":"招牌小動作，限16字","outfit":"一句日常穿搭"}`;
 
   try {
-    const aiBrief = JSON.parse(callGeminiAPI(promptStr, KANSHOU_MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));
+    const aiBrief = JSON.parse(callGeminiAPI(promptStr, KANSHOU_MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true, model: CREATION_MODEL }));
     // 🔒 競態修(比照 actionBackfillMasterAi)：backfill 豁免寫入鎖，pIdx 是 AI 呼叫【前】的列索引——寫回前重定位。
     const wIdx = buildLiveIdIndex_(sheets.pc)[String(pcId)];
     if (wIdx === undefined) return JSON.stringify({ success: false, message: "你的角色不見了，重新進來看看。" });
@@ -800,7 +800,7 @@ function actionKanshouMemoirOp(userData, pcId, sheets) {
   var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   var gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  // 🐛→✅ 2026-09：id 優先、名字只當備援。美遊／小黑／伊莉雅(Caster install) 的全名 23~30 字，
+  // 🐛→✅ 2026-09：id 優先、名字只當備援。當時在場的幾位全名 23~30 字，
   //   經 sanitizeUserData_ 的 NAME_MAX=20 一截就查無此人——釘選／刪除／關係／稱呼全失效。
   var tIdx = findPcRowIdx_(data, gid, { id: targetId, name: targetName, faction: "從者", nameCandidates: kanshouNameCandidates_ });
   if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這位同伴。" });
@@ -1226,15 +1226,14 @@ var KANSHOU_HAUNT_WEIGHT_ = 6;
 // 📍 每個人的老地方(偏好，不是牢籠)：找她的時候「去那裡碰碰運氣」用。
 const KANSHOU_LOCATION_TAGS_ = {
   '河邊小徑': ['斯卡哈-Lancer', '美杜莎-Rider'],
-  '商店街': ['美遊-Saber', '藤村大河-Master'],
+  '商店街': ['藤村大河-Master'],
   '古老神社': ['美狄亞-Caster'],
-  '社區公園': ['小黑-Archer', '伊莉雅絲菲爾-Master'],
+  '社區公園': ['伊莉雅絲菲爾-Master'],
   '咖啡廳': ['阿爾托莉雅-Saber'],
   '便利商店': ['遠坂凜-Master'],
   '書店二樓': ['美杜莎-Rider', '恩奇都-Lancer'],
   '廢棄神社': ['間桐櫻黑化-Master'],
-  '夜景展望台': ['斯卡哈-Assassin'],
-  '水族館': ['伊莉雅-Caster']
+  '夜景展望台': ['斯卡哈-Assassin']
 };
 // kanshouRollEncounter_ 的保底池：不寫名單，直接從種子算——【非男性】且不在排除表裡的都算數。
 // 寫死名單的老問題是「新增一位種子就得記得補進來」，忘了就變成召喚得到卻永遠巧遇不到（2026-09 稽核抓到三位）。
@@ -1267,7 +1266,6 @@ function kanshouAsleepOutcomeStr_(bond) {
 // 修過的bug：kanshouRollDailyLocation_原本深夜/清晨的homeBias會直接回傳玩家自己家的房間，讓不在場的人溜進玩家家裡——改成每位英靈自己的住處(資料驅動，同KANSHOU_LOCATION_TAGS_寫法)，…（全文見 CODE_NOTES.md）
 const KANSHOU_HERO_HOME_ = {
   '美狄亞-Caster': '隱蔽的工房', '斯卡哈-Lancer': '島嶼道場',
-  '美遊-Saber': '埃德費爾特宅邸', '小黑-Archer': '愛因茲貝倫城',
   '遠坂凜-Master': '遠坂邸', '伊莉雅絲菲爾-Master': '愛因茲貝倫城', '藤村大河-Master': '藤村家'
 };
 // 🏠 泛用住處池(七度改版新增)：沒有專屬豪邸的英靈隨機抽一間、終身持有。
@@ -2110,10 +2108,7 @@ const KANSHOU_CASUAL_NAME_ = {
   '間桐櫻黑化-Master': '櫻',
   '遠坂凜-Master': '凜',
   '藤村大河-Master': '大河',
-  '衛宮士郎-Master': '士郎',
-  // 真名「伊莉雅絲菲爾·馮·愛因茲貝倫」太長，卡片與訊息都塞不下；
-  // 括號寫法會被 kanshouNameCandidates_ 拆出「伊莉雅」，剛好與伊莉雅絲菲爾-Master 互斥（同一個人）。
-  '伊莉雅-Caster': '伊莉雅（魔法少女）'
+  '衛宮士郎-Master': '士郎'
 };
 // 全名↔短名雙向別名(名字比對的橋)：舊存檔列/歷史/AI 引用不論寫哪一種都對得上人。
 const KANSHOU_NAME_ALIAS_ = {

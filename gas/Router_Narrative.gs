@@ -128,7 +128,7 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
     temperature: 0.85,
     ignoreLaw: true,            // 不疊規矩表(節慶/天時)
     max_tokens: opts.maxTokens || 720, // 輕量敘事預設長度
-    model: opts.model || AI_MODEL,
+    model: opts.model || (opts.lewd ? LEWD_MODEL : AI_MODEL), // 🔞 補魔三支換一顆敢寫的（常數在用的時候才讀，別在載入當下求值）
     isNsfwMode: !!opts.isNsfw    // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
   };
   // 帶最近6筆歷史＝3個按鍵(miniSystem 已告知 AI：歷史是既定事實、不可重演)
@@ -191,7 +191,8 @@ function actionNarrateOnly(userData, pcId, sheets) {
 
   // 補魔/令咒的高好感解鎖分支要 500~600 字(平常 100~160)，720 tokens 會截斷——只加大上限，不換模型。
   const longForm = !!userData.longForm;
-const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw, maxTokens: longForm ? 2000 : 720 });
+  const lewd = !!userData.lewd; // 🔞 補魔三支：換一顆敢寫的模型（見 LEWD_MODEL）
+  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw || lewd, maxTokens: longForm ? 2000 : 720, lewd: lewd });
   if (narrationText === null) return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
   saveGameHistoryBatch(pcId, [
     { speaker: "player", content: narrateMemoryLine_(promptText) }, // 🧹 存洗淨摘要、非整串提示詞(否則重整歷史會把演出依據/★指令/素材全攤給玩家看)

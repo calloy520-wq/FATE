@@ -164,7 +164,7 @@ var SEED_SERVANTS = [
     dailyLook:'黑髮・沉穩、雨夜的石階，濕冷、話不多・語氣溫和有禮',
     dailyOutfit:'整潔的深色便服',
     dailyWords:'沉默寡言、待在背景照顧大家、安靜的角落、被張揚地感謝',dailyBack:'沉默溫和，默默攬下雜務'} },
-  // 客串保留：慾海鑑賞用的少數客串——斯卡哈/恩奇都/美遊/小黑/伊莉雅，其餘客串／偽聖杯陣容已清空。
+  // 客串保留：慾海鑑賞用的少數客串——斯卡哈/恩奇都，其餘客串／偽聖杯陣容已清空。
   { id:'恩奇都-Lancer', cls:'Lancer', realName:'恩奇都', wars:['客串'], gender:'無',
     // 基線＝非理想御主下的恩奇都(供魔不足)；與銀狼結契才回全盛全A·寶A++(masterSynergySix_)，此 synergy 僅供手動 MEMORY 標記【御主】銀狼 觸發(銀狼已無自動配對戰場)。
     six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'B',幸運:'-',寶具:'A'},
@@ -197,34 +197,6 @@ var SEED_SERVANTS = [
     dailyLook:'紫髮紅瞳・豐盈冷冽優雅、海風日曬與一點鹽、低冷簡短一針見血',
     dailyOutfit:'海灘度假風輕便穿搭',
     dailyWords:'深居簡出、骨子裡仍是潛行者、獨處的時光、無謂的張揚',dailyBack:'冷冽自持的女王，拒人千里'} },
-  { id:'美遊-Saber', cls:'Saber', realName:'美遊·埃德費爾特', wars:['客串'], gender:'女',
-    six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'C',幸運:'C',寶具:'A'},
-    classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
-    skills:[{n:'直感',r:'B',fx:'first_strike'},{n:'魔力放出',r:'B',fx:'burst'},{n:'沉著冷靜',r:'B',fx:'clear_mind'},{n:'誓約勝利之劍',r:'A',fx:'excalibur'}],
-    traits:[{n:'人類'},{n:'騎士'}], np:'誓約勝利之劍 Excalibur（對城 A·聖劍之光收束於劍尖·解放為撕裂大地、直貫蒼穹的金色巨炮）',
-    align:'秩序・善', persona:{firstP:'我',look:'黑髮藍裙・Saber install 的內斂少女、沉靜',words:'認真・背負宿命',toMaster:'認真盡責，沉默守護',speech:'寡言低語、不擅表達',tic:'垂眸淺應',
-    dailyLook:'黑髮・內斂、剛洗過的棉布，乾淨、低語不擅表達卻認真傾聽',
-    dailyOutfit:'藍色系簡約洋裝',
-    dailyWords:'寡言認真、背負著責任感、安穩的日子、辜負他人期待',dailyBack:'寡言認真卻有點笨拙'} },
-  { id:'小黑-Archer', cls:'Archer', realName:'克洛伊·馮·愛因茲貝倫', wars:['客串'], gender:'女',
-    six:{筋力:'C',耐久:'C',敏捷:'A',魔力:'B',幸運:'C',寶具:'B'},
-    classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'單獨行動',r:'B',fx:'solo'}],
-    skills:[{n:'投影魔術',r:'B',fx:'projection'},{n:'千里眼',r:'C',fx:'aim'}],
-    traits:[{n:'人類'}], np:'鶴翼三連 Triple-Linked Crane Wings（對人 B·投影干將・莫邪，雙劍交擊、三連必殺的劍技）',
-    align:'混沌・中庸', persona:{firstP:'本小姐',look:'褐膚白髮・Archer install 的活潑少女、促狹',words:'腹黑・好戰',toMaster:'又黏又愛逗弄，戰意旺盛',speech:'促狹挑釁、撒嬌耍賴',tic:'吐舌挑釁',
-    dailyLook:'褐膚白髮・活潑亮眼、曬過頭的午後與汽水、自稱本小姐・促狹挑釁偶爾撒嬌耍賴',
-    dailyOutfit:'活潑亮眼的休閒穿搭',
-    dailyWords:'愛捉弄人、好勝卻重感情、捉弄的樂趣、被人小看',dailyBack:'促狹好勝，嘴硬又黏人'} },
-  { id:'伊莉雅-Caster', cls:'Caster', realName:'伊莉雅絲菲爾·馮·愛因茲貝倫', wars:['客串'], gender:'女',
-    six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'A',幸運:'B',寶具:'B'},
-    classSkills:[{n:'陣地作成',r:'B',fx:'territory'},{n:'道具作成（魔杖・露比）',r:'C',fx:'crafting'}],
-    skills:[{n:'高速神言',r:'A',fx:'fast_cast'},{n:'魔力放出',r:'B',fx:'burst'},{n:'純真無垢',r:'A',fx:'clear_mind'}],
-    traits:[{n:'人類'}], np:'全彈發射・魔力炮 Quintett Feuer（多重魔力炮擊）',
-    align:'中立・善', persona:{firstP:'我',look:'白髮紅瞳・魔杖在手的魔法少女、元氣',words:'天真・善良',toMaster:'純真信賴，朝氣蓬勃',speech:'活潑直率、元氣滿滿',tic:'眼眶泛淚還硬撐',
-    dailyLook:'白髮紅瞳・元氣滿滿、剛出爐的甜點與奶油、活潑直率',
-    dailyOutfit:'可愛的日常打扮配手杖',
-    dailyWords:'天真爛漫、緊要關頭豁得出去、熱鬧開心的事、有人受欺負',dailyBack:'天真爛漫的魔法少女'} },
-  // 🌹 這3位是聖杯戰爭正典御主(非從者)，直接進英靈殿供鑑賞「直接召喚」。
   { id:'遠坂凜-Master', cls:'御主', realName:'遠坂凜', wars:['客串'], gender:'女',
     six:{}, classSkills:[], skills:[], traits:[], np:'',
     align:'中立・善', persona:{firstP:'我',look:'黑長雙馬尾・紅衣黑裙、傲然',words:'人前完美的優等生・刀子嘴豆腐心・厭惡示弱與失態',toMaster:'口是心非、嘴上嫌棄卻很上心',speech:'毒舌卻藏著關心',tic:'甩馬尾別過臉',back:'遠坂家長女（櫻是被送養的妹妹）、父親死於上屆聖杯戰爭',
@@ -317,7 +289,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(性格/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v79'; // v79：25 筆「氣質」從常態舞台指示（「背脊永遠打得筆直」）改寫成第一眼的氛圍意象（玩家：「可以用 雨後百合 類似這種的嗎? 帶點微微氣味?」）。
+var CODEX_PERSONA_VER = 'v80'; // v80：美遊／小黑／伊莉雅(Caster) 三筆移出種子庫——原作設定是孩子，而補魔與鑑賞是露骨橋段。升版號才會讓 upgradeCodexPersonas_ 把既有英靈殿裡那三列一併刪掉。
 // v78：萌點整組退休（玩家「萌不萌是玩家的事情」）——種子/卡片/創角/改命全線拔除，舊列的值一併洗掉。
 // v77：21 筆「氣質舉止」從純形容詞改寫成看得到的畫面（純形容詞比例 88%→12%）。
 // v76：私密一面整組退休（dailyLook 四段→三段、特徵三格→兩格）。v75：種子瘦身＋對御主態度正名——PERSONA 欄不再重複收 daily 四欄、

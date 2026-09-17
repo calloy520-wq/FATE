@@ -193,7 +193,7 @@ function actionManaSupply(userData, pcId, sheets) {
       const genderFactMana = sealGenderFact_(String(pcData[pIdx][COL.PC.SEX] || ""), String(pcData[svIdx][COL.PC.SEX] || ""), svName);
       return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
         `【已裁定】御主硬擠魔術迴路，為「${svName}」回滿共用魔力池（${restored}/${mpMax}）；迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}——御主拿自己的身體上限換了這場供魔。羈絆微升。「${svName}」的羈絆 ${bondForMana}，是真心託付。下一發規格外寶具可全力超載。\n` +
-        `${genderFactMana}★【500~600 字】寫這場供魔：魔力流動只是成因，全篇寫在肉體這一側——接觸、溫度、反應。這一場的節奏由「${svName}」掌控：英靈遠比常人強韌，何時攀頂由「${svName}」自己決定。御主剛燒過迴路，到最後是癱軟的那一方。「${svName}」在魔力上飽足了，肉體這一側還留著沒盡興的餘裕。挑一兩個關鍵瞬間深寫，篇幅全給實際發生的細節。收在餘韻猶存的溫柔。`;
+        `${genderFactMana}★【500~600 字】寫這場供魔：魔力流動只是成因，全篇寫在肉體這一側——接觸、溫度、反應。${LEWD_EXPLICIT_}這一場的節奏由「${svName}」掌控：英靈遠比常人強韌，何時攀頂由「${svName}」自己決定。御主剛燒過迴路，到最後是癱軟的那一方。「${svName}」在魔力上飽足了，肉體這一側還留著沒盡興的餘裕。挑一兩個關鍵瞬間深寫，篇幅全給實際發生的細節。收在餘韻猶存的溫柔。`;
     }
   );
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：迴路/血量上限燒蝕/MP回滿/raiseBond_/spendAp_/夜襲 皆已原地改回 pcData

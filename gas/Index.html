@@ -132,8 +132,19 @@
       <div id="sum-create" style="display:none;">
       <div style="color:#c79be8; font-size:13px; font-weight:bold; margin-bottom:4px;">說一句話，生一位 <span style="font-weight:normal; color:#816e54; font-size:11.5px;">講個大概就行，其餘交給說書人</span></div>
       <textarea id="s-desc" class="std-in" maxlength="120" placeholder="如：手持巨鎌、沉默寡言的死神少女" style="width:100%; box-sizing:border-box; height:44px; resize:none; font-family:inherit;"></textarea>
-      <!-- 🧹 職階/來源預設收合——兩者皆有合理預設(不限/完全原創)，想細調才展開。 -->
-      <button type="button" class="btn" id="s-adv-toggle" style="width:100%; margin-top:6px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleSummonAdvanced()">▸ 指定職階與角色來源（不指定也行）</button>
+      <!-- 🎭 來源三分類：決定 AI 從哪裡取技能名與寶具名，攤開來給玩家看（2026-09 玩家「要分類的明顯一點」）。
+           舊版收在「指定職階與角色來源」的收合選單裡、預設完全原創，玩家根本沒看到這排就按下生成。 -->
+      <div style="margin-top:8px;">
+        <div style="color:#c79be8; font-size:12px; font-weight:bold; margin-bottom:4px;">這是誰？<span style="font-weight:normal; color:#816e54; font-size:11px;">　決定技能名與寶具名從哪裡來</span></div>
+        <input type="hidden" id="s-origin" value="original">
+        <div id="s-origin-row" style="display:flex; gap:5px;">
+          <button type="button" class="btn s-og-btn" data-og="original" onclick="pickOrigin('original')" style="flex:1; padding:7px 3px; font-size:12px; line-height:1.35;">✨ 我自己的<br><span style="font-size:10px; opacity:.75;">技能寶具自取</span></button>
+          <button type="button" class="btn s-og-btn" data-og="fate" onclick="pickOrigin('fate')" style="flex:1; padding:7px 3px; font-size:12px; line-height:1.35;">🏆 Fate 角色<br><span style="font-size:10px; opacity:.75;">用正史的名字</span></button>
+          <button type="button" class="btn s-og-btn" data-og="anime" onclick="pickOrigin('anime')" style="flex:1; padding:7px 3px; font-size:12px; line-height:1.35;">📺 別部作品<br><span style="font-size:10px; opacity:.75;">用原著招式名</span></button>
+        </div>
+      </div>
+      <!-- 🧹 職階預設收合——有合理預設(不限)，想細調才展開。 -->
+      <button type="button" class="btn" id="s-adv-toggle" style="width:100%; margin-top:6px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleSummonAdvanced()">▸ 指定職階（不指定也行）</button>
       <div id="s-adv" style="display:none; margin-top:6px;">
         <!-- ⚔️ 職階：獨立於上方名冊的職階選擇，預設「不限」交給 AI 依描述判斷 -->
         <select id="s-cls" class="std-in" style="width:100%; box-sizing:border-box; margin-bottom:6px;">
@@ -145,12 +156,6 @@
           <option value="Caster">📖 Caster 魔術師</option>
           <option value="Assassin">🗡️ Assassin 暗殺者</option>
           <option value="Berserker">💢 Berserker 狂戰士</option>
-        </select>
-        <!-- 🎭 角色來源：決定 AI 怎麼取技能名(fate 正史招式名／anime 該角色招牌招式／original 自由發揮) -->
-        <select id="s-origin" class="std-in" style="width:100%; box-sizing:border-box;">
-          <option value="original" selected>🎭 來源：完全原創（技能名自由發揮）</option>
-          <option value="fate">🎭 Fate 正史角色（技能用正史招式名）</option>
-          <option value="anime">🎭 其他動漫畫角色（技能用該角色招牌招式）</option>
         </select>
       </div>
       <button class="btn" style="width:100%; margin-top:6px; padding:9px; border-color:#a06cd0; color:#c79be8;" onclick="lockBtn(event, summonByDesc)">🖋️ 生成並召喚</button>

@@ -16,6 +16,14 @@ const AI_MODEL = (function () {
 const FALLBACK_MODEL = (function () {
   return PropertiesService.getScriptProperties().getProperty('FALLBACK_MODEL') || 'x-ai/grok-4.20';
 })();
+// 創角/創英靈用更聰明的一顆：這是一次性的呼叫，生出來的設定卻整局都在被讀。
+const CREATION_MODEL = (function () {
+  return PropertiesService.getScriptProperties().getProperty('CREATION_MODEL') || 'google/gemini-3.5-flash';
+})();
+// 補魔三支（solo 僅有的露骨橋段）用的模型。
+const LEWD_MODEL = (function () {
+  return PropertiesService.getScriptProperties().getProperty('LEWD_MODEL') || 'x-ai/grok-4.20';
+})();
 
 // ==========================================
 // ★ 階段一：ORM 資料實體映射 (Data Mapping) 

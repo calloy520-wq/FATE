@@ -165,6 +165,12 @@
 
 埋入事實：令咒類型（修復/補魔/脫離）、效果訊息、剩餘令咒數、性別配對事實、令咒非自動高潮的機制澄清。`narrateWithState_`(Router_Narrative.gs)在`longForm`（原 `useDeepseek`）為真時`max_tokens`從720拉到2000，避免500~600字的長篇要求被截斷(一般呼叫不受影響)。
 
+### 分模型（2026-09）
+
+`AI_MODEL`(一般敘事·flash-lite)／`CREATION_MODEL`(創角四支·flash)／`LEWD_MODEL`(補魔三支·grok)／`FALLBACK_MODEL`(後援)。
+補魔走前端 `narrateExtra:{longForm:true, lewd:true}` → `narrate_only` 的 `userData.lewd` → `narrateWithState_` 選模型。
+三支的尺度指示共用 `LEWD_EXPLICIT_`（Router_Persona.gs）。細節見 SOLO_REFERENCE §分模型。
+
 ### `actionSummonServant` 的 AI 生成分支 — Router_Creation.gs
 
 **2026-09 整修**（玩家實測「技能太少」「寶具是克勞德的」，詳見 SOLO_REFERENCE §AI 生成從者整修）：

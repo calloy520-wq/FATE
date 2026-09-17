@@ -2786,7 +2786,7 @@
         if (res.statusString) { localStorage.setItem('kyushu_last_status', res.statusString); updateUI(res.statusString.split('§')); }
         updateClock(res.clock, res.ap, res.apMax);
       },
-      narrateExtra: res => res.unlocked ? { longForm: true } : undefined, // 🔥 高好感解鎖分支：敘述拉長到 500~600 字
+      narrateExtra: res => res.unlocked ? { longForm: true, lewd: true } : undefined, // 🔥 解鎖分支：拉長到 500~600 字＋換敢寫的模型
       onSuccessAfterNarrate: async res => { if (res.defeat) { await handleDefeat(res); } },
       failMsg: '沒補成。', catchMsg: '連不上。'
     });
@@ -2890,7 +2890,7 @@
       beforeCall: () => { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; },
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主手背的令咒灼然亮起……</div>`,
       payload: { action: 'use_seal', pcId: pc.id, sealType: type, servant: myActiveServant },
-      narrateExtra: res => res.unlocked ? { longForm: true } : undefined, // 🔥 強制補魔高/低好感兩分支皆拉長
+      narrateExtra: res => res.unlocked ? { longForm: true, lewd: true } : undefined, // 🔥 強制補魔兩分支皆拉長＋換敢寫的模型
       onSuccessAfterNarrate: async res => { if (res.defeat) { await handleDefeat(res); } }, // 🔥 好感不足的強制補魔可致死
       failMsg: '令咒未能發動。', catchMsg: '連線失敗，令咒未發動。'
     });
@@ -3245,7 +3245,7 @@ function applyModeUI() {
     try {
       // 🧹 isNsfw 旗標已拔——actionNarrateOnly 純看 pcId 路由(KPC_=NSFW)，前端傳了也被無視。
       // 🔥 opts.longForm：唯一會傳 true 的是 manaSupply()/useSeal() 的高好感解鎖分支(res.unlocked)。
-      const res = await gasRun({ action: "narrate_only", pcId: pc.id, promptText: promptText, longForm: !!(opts && opts.longForm), acctName: (pc && pc.account) || currentAccount });
+      const res = await gasRun({ action: "narrate_only", pcId: pc.id, promptText: promptText, longForm: !!(opts && opts.longForm), lewd: !!(opts && opts.lewd), acctName: (pc && pc.account) || currentAccount });
       document.getElementById(loadId)?.remove();
 
       if (res.success && res.text) {
