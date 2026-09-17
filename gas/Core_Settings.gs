@@ -404,10 +404,13 @@ function clampMoe_(text) { return String(text || "").slice(0, MOE_STORE_MAX_); }
 var TRAIT_SEG_MAX_ = 30;
 var TRAIT_SEG_HINT_ = 14;
 
-// 特徵格數：外貌本相／氣質舉止／卸下心防的私密一面。個性仍是四格(PREF_LABELS_)。
-var TRAIT_SLOTS_ = 3;
+// 特徵格數：外貌本相／氣質舉止。個性仍是四格(PREF_LABELS_)。
+// ⚠ 2026-09 從 3 格收成 2：第三格「卸下心防的私密一面」整組退休，理由見 CODE_NOTES『TRAIT_SLOTS_』。
+var TRAIT_SLOTS_ = 2;
+// dailyLook 的段數（外貌本相／氣質舉止／日常口氣）——比 TRAIT_SLOTS_ 多一段，那一段抽進【口吻】不進特徵格。
+var DAILY_LOOK_SLOTS_ = 3;
 
-// 讀特徵格的唯一入口：舊局存的是四格(第3格曾是「自稱與口氣」)，自稱併進【口吻】後那格退休，讀到就地剝掉。
+// 讀特徵格的唯一入口：舊局存的是三、四格(退休的「自稱與口氣」「私密一面」)，讀到就地剝掉。
 function traitParts_(raw) {
   var a = String(raw || "").split('、');
   if (a.length > TRAIT_SLOTS_) a.splice(2, a.length - TRAIT_SLOTS_);
@@ -443,13 +446,13 @@ function parseTraitsHelper(data, defaultStr, want) {
   return parts.slice(0, n).join("、");
 }
 
-// 種子 persona.look 結構是「N段外貌細節・・...、最後一段氣質詞」(如「金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀」)，段數因人而異(2~4段不等)，不能按「、」出現位置盲目分配(會把服裝等外貌細節錯位塞進[氣質舉止]、真正氣質詞被推擠到[私密面])。
+// 種子 persona.look 結構是「N段外貌細節・・...、最後一段氣質詞」(如「金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀」)，段數因人而異(2~4段不等)，不能按「、」出現位置盲目分配(會把服裝等外貌細節錯位塞進[氣質舉止])。
 function looksToTraitParts_(rawLook) {
   const segs = String(rawLook || "").split(/[・、]/).map(s => s.trim()).filter(s => s !== "");
   if (segs.length === 0) return "";
   const demeanor = segs.length > 1 ? segs.pop() : "從容";
   const appearance = segs.join("・");
-  return `${appearance}、${demeanor}、卸下心防時的柔軟一面`;
+  return `${appearance}、${demeanor}`;   // 特徵兩格：第三格「私密一面」2026-09 退休
 }
 
 // 種子庫 persona.words 幾乎全部只有2段，parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為「無」佔位，比玩家自建角色的紮實4格薄弱很多。

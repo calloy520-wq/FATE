@@ -329,9 +329,9 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   // 工房角色創造當下就順手轉好日常版(DAILY_LOOK/DAILY_WORDS)寫進英靈殿，跟種子英靈不同(那 25 人的日常版是 Seed_Codex.gs persona.daily* 手寫欄位，getDailyHeroFields_ 只負責讀、沒有補算路徑)——之後第一次被召喚進鑑賞就直接有現成版本，不必等召喚當下才轉。
   var dailyMoe = translateMoeToDaily_(name, cls, String(px.moe || ""));
   // translateLookToDaily_ 一次呼叫同時產出四段式 look(外貌本相/氣質舉止/日常口氣/私密一面) 與獨立的 outfit(日常穿搭)。
-  var dailyLookRes = translateLookToDaily_(name, cls, String(px.look || ""), String(px.firstP || ""), String(px.speech || ""), dailyMoe, sex);
-  // 私密一面(dailyLook 第4段)先算好、當 hint 傳給性格生成，避免日常性格跟私密一面又講一次。
-  var dailyWords = translatePersonalityToDaily_(name, cls, personaWordsClean, (String(dailyLookRes.look || "").split("、")[3] || ""));
+  var dailyLookRes = translateLookToDaily_(name, cls, String(px.look || ""), String(px.firstP || ""), String(px.speech || ""), sex);
+  // 🚫 私密一面(原 dailyLook 第4段)已整組退休，性格生成不再需要那個去重 hint。
+  var dailyWords = translatePersonalityToDaily_(name, cls, personaWordsClean);
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
     JSON.stringify(classSkills || []), JSON.stringify(skills || []), JSON.stringify(traits || []),
     np || "", persona, align || "中立", "[]", "ai_gen", dailyLookRes.look, dailyWords, dailyMoe, dailyLookRes.outfit]);
@@ -532,10 +532,10 @@ function actionSaveHero(userData, pcId, sheets) {
     });
     // 外貌/性格改了，先前快取的日常版本會跟新設定對不上——重新轉一次，不留舊資料。
     const dailyMoeVal = translateMoeToDaily_(build.name, pb.cls, newMoe);
-    const dailyLookRes = translateLookToDaily_(build.name, pb.cls, newLook, newFp, newSpeech, dailyMoeVal, pb.sex);
+    const dailyLookRes = translateLookToDaily_(build.name, pb.cls, newLook, newFp, newSpeech, pb.sex);
     data[idx][COL.HERO.DAILY_LOOK] = dailyLookRes.look;
     data[idx][COL.HERO.DAILY_OUTFIT] = dailyLookRes.outfit;
-    data[idx][COL.HERO.DAILY_WORDS] = translatePersonalityToDaily_(build.name, pb.cls, newWords, (String(dailyLookRes.look || "").split("、")[3] || ""));
+    data[idx][COL.HERO.DAILY_WORDS] = translatePersonalityToDaily_(build.name, pb.cls, newWords);
     data[idx][COL.HERO.DAILY_MOE] = dailyMoeVal;
     hs.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
     try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
@@ -650,7 +650,7 @@ function actionSummonServant(userData, pcId, sheets) {
 
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
-      row[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(persona.look), "外貌出眾、舉止從容、卸下心防時的柔軟一面", TRAIT_SLOTS_);
+      row[COL.PC.TRAIT] = parseTraitsHelper(looksToTraitParts_(persona.look), "外貌出眾、舉止從容", TRAIT_SLOTS_);
       let svPref = String(persona.words || "").replace(/・/g, "、");
       let svMoe = clampMoe_(persona.moe);
       let svBack = persona.back ? String(persona.back).slice(0, 28) : `${cls}・${realName}`;
@@ -706,7 +706,7 @@ ${FX_MENU_}
       const svHp = servantMaxHp_(svNum_(aiSix.耐久), aiCSkills.concat(aiSkills)), svMp = 0; // 🔋 出力電池制：從者無自有魔力池，出力檔存 MEMORY、預設 60 巡航
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
-      row[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.look, "外貌出眾、舉止從容、卸下心防時的柔軟一面", TRAIT_SLOTS_);
+      row[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.look, "外貌出眾、舉止從容", TRAIT_SLOTS_);
       row[COL.PC.PREF] = parseTraitsHelper(aiBrief.personality, "沉著表象、堅定內裡、珍視之物、厭惡之事");
       row[COL.PC.INTENT] = clampMoe_(aiBrief.npc_intent);
       row[COL.PC.MEMORY] = `第一人稱「我」｜對御主：初締約·尚在觀察`; // 與種子路徑對稱(原漏寫→servantCard_ 演出資訊變薄)

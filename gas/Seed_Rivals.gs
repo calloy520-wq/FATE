@@ -119,7 +119,7 @@ function masterToNpcRow_(mr, gameId, loc, faction, heroMagicRank) {
   row[COL.PC.BACK] = (mBack ? mBack : "魔術師") + (mAppear ? "。外貌：" + mAppear : "");
   row[COL.PC.STATUS] = JSON.stringify({ "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平靜" });
   // TRAIT 用 mAppear(外貌)而非 PERSONA，比照 heroToNpcRow_ 把外貌/性格分開兩欄，避免與 PREF 重複。
-  row[COL.PC.TRAIT] = parseTraitsHelper(mAppear, "外貌平凡、舉止從容、深藏心事", TRAIT_SLOTS_);
+  row[COL.PC.TRAIT] = parseTraitsHelper(mAppear, "外貌平凡、舉止從容", TRAIT_SLOTS_);
   row[COL.PC.LOC] = loc;
   row[COL.PC.PREF] = parseTraitsHelper(String(mr[COL.MASTER.PERSONA] || "").replace(/・/g, "、"), DEFAULT_PREF_FALLBACK_);
   // 敵御主與玩家御主同制：HP 看迴路(masterMaxHpMp_)，MP 走共用魔力池公式(masterPoolMax_＝迴路×10＋從者魔力×2)。

@@ -614,8 +614,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 2026-07 稽核：三支開場白完全相同的 system prompt 已抽成共用常數 `KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_`，try/callGeminiAPI/catch-fallback 殼子抽成共用 `kanshouDailyTranslateCall_(prompt, sys, apiOpts, resultMapper, fallbackValue)`，三支各自只保留自己的規則段落與 fallback；prompt 文字逐字不變。
 
-- `translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint, sex)` — AI 把戰時外貌轉成現代日常穿搭/外型（四短句 look＋一句 outfit），本相不變、戰甲換日常。失敗原樣退回。dailyMoeHint 傳入避免「私密一面」跟萌點撞。
-- `translatePersonalityToDaily_(name, cls, rawWords, lookPrivateHint)` — AI 把戰場語境性格短句（戰意/殺意）轉成日常等價說法、補滿四格；純個性核心原樣保留。失敗退回原值。
+- `translateLookToDaily_(name, cls, rawLook, firstP, speech, sex)` — AI 把戰時外貌轉成日常版 `{look, outfit}`。⚠ 2026-09 簽名少一個參數（`dailyMoeHint` 隨「私密一面」一起退休）；`look` 從**四短句改成三短句**（外貌本相／氣質舉止／日常口氣），出口一律 `parseTraitsHelper(..., DAILY_LOOK_SLOTS_)`。
+- `translatePersonalityToDaily_(name, cls, rawWords)` — AI 把戰場語境的性格短句轉成日常版四句。⚠ 2026-09 簽名少一個參數：`lookPrivateHint` 是用來跟「私密一面」去重的，那一格已整組退休。
 - `translateMoeToDaily_(name, cls, rawMoe)` — AI 把靠戰爭/創傷撐出的沉重反差萌改寫成輕量日常萌點（限 18/硬截 30 字）。只用於 ai_gen 英靈（canon 手寫死進 persona.dailyMoe）。
 - ✅ 這三個 translate* 皆呼叫 `callGeminiAPI`，本檔內無呼叫點但**確為活碼**：呼叫端在 `Router_Creation.gs` 的 `recordOriginalHero_`（工房鑄入）與 `actionSaveHero`（修改分支）——工房存檔時一次算好日常欄寫入 DAILY_*，鑑賞撈取（`getDailyHeroFields_`/`heroToKanshouRow_`）改純讀快取、不再呼叫 AI。
 
@@ -886,8 +886,9 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `cleanChineseName(s)` — 姓名限定純中文（CJK 含擴展 A），濾除英數符號 emoji，上限 10 字；全系統唯一真線。
 - `parseTraitsHelper(data, defaultStr, want?)` — 亂碼特徵粉碎器；正規化陣列/物件/字串、剝 AI 雞婆標籤與數字、句號→頓號，切成固定 `want` 格（省略＝4；TRAIT 一律傳 `TRAIT_SLOTS_`＝3）。缺格從 defaultStr 對應段補、再退「無」；defaultStr 的段數要跟 `want` 對齊，否則補出來的格會錯位。
-- `looksToTraitParts_(rawLook)` — 把種子 persona.look 拆成「末段＝氣質、其餘合併為外貌」，組出三格骨架（外貌／氣質／私密面佔位）餵給 `parseTraitsHelper`。2026-09 拿掉 firstP 參數：自稱已從特徵格退休、併進【口吻】。
-- `TRAIT_SLOTS_`（常數＝3）— 特徵格數：外貌本相／氣質舉止／卸下心防的私密一面。個性（PREF）仍是 4 格。
+- `looksToTraitParts_(rawLook)` — 把種子 persona.look 拆成「末段＝氣質、其餘合併為外貌」，組出**兩格**骨架餵給 `parseTraitsHelper`。⚠ 2026-09 不再補第三格「卸下心防時的柔軟一面」。
+- `TRAIT_SLOTS_`（常數＝**2**）— 特徵格數：外貌本相／氣質舉止。⚠ 2026-09 從 3 收成 2，第三格「卸下心防的私密一面」整組退休（理由見 `CODE_NOTES.md`『TRAIT_SLOTS_』）。舊局存的三、四格由 `traitParts_` 就地剝掉。
+- `DAILY_LOOK_SLOTS_`（常數＝3）— `dailyLook` 的段數（外貌本相／氣質舉止／日常口氣）。比 `TRAIT_SLOTS_` 多一段：第三段抽進 `【口吻】` 標記，不進特徵格。
 - `traitParts_(raw)` — **讀特徵格的唯一入口**：舊局存的是四格（第3格曾是「自稱與口氣」），自稱併進【口吻】後那格退休，長度 >3 就地剝掉 index 2。前端鏡射在 `Script.html` 的 `traitSegs_`，兩邊要一起改。
 - `enrichPersonalityLikesDislikes_(name, cls, rawWords)` — 種子 words 不足 4 段時呼叫 AI 延伸喜歡/討厭補滿（既有短句不改），已滿 4 段直接跳過。
 

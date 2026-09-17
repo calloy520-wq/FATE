@@ -120,7 +120,7 @@ function kanshouDailyTranslateCall_(prompt, sys, apiOpts, resultMapper, fallback
 }
 
 // 把戰時外貌(如「貼身黑色戰甲勁裝」)轉譯成現代日常穿搭/外型：本相不變、戰甲換成日常打扮；呼叫端(召喚/奪杯封存)僅一次性觸發，失敗時原樣退回戰時描述。
-function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint, sex) {
+function translateLookToDaily_(name, cls, rawLook, firstP, speech, sex) {
   var look = String(rawLook || "").trim();
   if (!look) return { look: "", outfit: "" };
   var figureHint = (sex === "女") ? "，若角色是成年女性、務必包含身形/胸部具體描寫，但要寫成自然的敘述句(如「胸前豐盈」「身形纖瘦」)、不要用「巨乳」這類生硬孤立的分類標籤直接呈現——這句話會顯示在玩家看得到的狀態欄位；「豐滿」單獨出現不夠明確，須明確扣連到胸部，不要只寫髮色瞳色就交差" : "";
@@ -128,12 +128,9 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint,
     "(前面數段是外貌本相與戰時攻防裝束，最後一段是整體氣質／神情)，以及這位角色的第一人稱自稱、說話語氣。" +
     "這是 Fate／聖杯戰爭的平行世界日常線，想像《衛宮家今天的餐桌風景》那種基調——換上現代日常穿搭，" +
     "但一看就知道是本人。請輸出兩樣東西：\n" +
-    "①look：日常版「外貌」四短句、頓號分隔，每句精簡收束、【每句限" + TRAIT_SEG_HINT_ + "字內寫完整一句話，超過會被截斷】、避免堆疊多重子句，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)" + figureHint + "]、" +
+    "①look：日常版「外貌」三短句、頓號分隔，每句精簡收束、【每句限" + TRAIT_SEG_HINT_ + "字內寫完整一句話，超過會被截斷】、避免堆疊多重子句，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)" + figureHint + "]、" +
     "[氣質舉止(依和平日常情境自然轉化，但性格底色不變，不可變成另一個人的氣質；【不可與下方口氣段用相同字眼重複描述】，例如兩段都寫「溫柔」「謙恭」)]、" +
-    "[日常口氣(依原本說話語氣「" + (speech || "無特別描述") + "」寫成的日常說話口氣；自稱「" + (firstP || "我") + "」若不是尋常的「我」，就把它寫進這一句，是「我」則不必提)]、" +
-    "[卸下心防的私密一面(這個角色只有放下戒備才會流露的一個具體、生活化、忠於其性格的小可愛面向，" +
-    "【必須用看得到的具體小動作或情境呈現(show-don't-tell)，禁止直接說出內心想法/動機/情感獨白——如「心裡一直惦記著…」「其實很在意…」這類直述寫法一律不允許】，也不要只是把性格或喜好換句話說(那屬於性格欄)，" +
-    "不可空泛或套用他人" + (dailyMoeHint ? "；這個角色的招牌萌點已經是「" + dailyMoeHint + "」，這一格【禁止】重複或換句話說同一件事，必須是完全不同的另一個生活切面(小動作/小習慣/情緒觸發點)" : "") + ")]。\n" +
+    "[日常口氣(依原本說話語氣「" + (speech || "無特別描述") + "」寫成的日常說話口氣；自稱「" + (firstP || "我") + "」若不是尋常的「我」，就把它寫進這一句，是「我」則不必提)]。\n" +
     "②outfit：一句這位角色今天的日常穿搭，保留原本服裝的色系/風格精神、換成現代日常款式，盡量貼近原味，" +
     "不要跟look的內容重複。\n" +
     "★輸出合法 JSON、禁 Markdown：{\"look\":\"四短句頓號分隔\",\"outfit\":\"一句日常穿搭\"}";
@@ -141,11 +138,11 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech, dailyMoeHint,
   return kanshouDailyTranslateCall_(prompt, sys, { temperature: 0.7, ignoreLaw: true }, function (raw) {
     var out = JSON.parse(raw || "{}");
     var rawOutLook = String(out.look || "").trim() || look;
-    return { look: parseTraitsHelper(rawOutLook, look), outfit: String(out.outfit || "").trim() };
+    return { look: parseTraitsHelper(rawOutLook, look, DAILY_LOOK_SLOTS_), outfit: String(out.outfit || "").trim() };
   }, { look: look, outfit: "" });
 }
 
-function translatePersonalityToDaily_(name, cls, rawWords, lookPrivateHint) {
+function translatePersonalityToDaily_(name, cls, rawWords) {
   var words = String(rawWords || "").trim();
   if (!words) return words;
   var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "玩家提供一位角色在聖杯戰爭(戰時)既有的性格短句" +
@@ -157,7 +154,6 @@ function translatePersonalityToDaily_(name, cls, rawWords, lookPrivateHint) {
     "②段數不足4段時，依既有特質延伸出貼合、具體、適合日常場景的「喜歡的事物」與「討厭的事物」" +
     "補滿4句。\n" +
     "③每句精簡收束、【每句限" + TRAIT_SEG_HINT_ + "字內寫完整一句話，超過會被截斷】、避免堆疊多重子句。\n" +
-    (lookPrivateHint ? "④這位角色的日常外貌欄已寫好一句「私密一面」：「" + lookPrivateHint + "」——你這4句性格【不要】跟它重複或換句話說同一件事，各自要是獨立的面向。\n" : "") +
     "★只輸出最終4句、用「、」分隔，不要輸出任何說明、標籤、引號、前後綴。";
   var prompt = "角色：" + name + "（" + cls + "）\n戰時性格短句：" + words;
   return kanshouDailyTranslateCall_(prompt, sys, { temperature: 0.75, ignoreLaw: true, plainText: true }, function (raw) {
@@ -255,8 +251,8 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   sRow[COL.PC.PREF] = parseTraitsHelper(daily.words, "沉著表象、堅定內裡、珍視之物、厭惡之事");
   var dailyLookParts = String(daily.look || "").split('、').map(function (s) { return s.trim(); }).filter(Boolean);
   // dailyLook 第3段是日常口吻(下面抽進【口吻】)，不進特徵格。
-  var traitSrc = dailyLookParts.length >= 4 ? [dailyLookParts[0], dailyLookParts[1], dailyLookParts[3]].join('、') : looksToTraitParts_(daily.look);
-  sRow[COL.PC.TRAIT] = parseTraitsHelper(traitSrc, "外貌出眾、舉止從容、卸下心防時的柔軟一面", TRAIT_SLOTS_);
+  var traitSrc = dailyLookParts.length >= DAILY_LOOK_SLOTS_ ? [dailyLookParts[0], dailyLookParts[1]].join('、') : looksToTraitParts_(daily.look);
+  sRow[COL.PC.TRAIT] = parseTraitsHelper(traitSrc, "外貌出眾、舉止從容", TRAIT_SLOTS_);
   sRow[COL.PC.INTENT] = daily.moe || "";
   // 戰時 p.back 跟平行世界矛盾，優先讀 p.dailyBack。
   // ⚠ 兩者都沒有就【留空】：卡片的「經歷」欄空了就不印（pBackStr），比塞一句泛用墊底話好——
@@ -264,7 +260,7 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28)
     : p.back ? String(p.back).slice(0, 28) : "";
   // 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回「日常便服」。
-  var dailySpeechPart = dailyLookParts.length >= 4 ? dailyLookParts[2] : "";
+  var dailySpeechPart = dailyLookParts.length >= DAILY_LOOK_SLOTS_ ? dailyLookParts[2] : "";
   sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】在這座城裡剛結識的緣分，才剛開始。", dailySpeechPart, ""), daily.outfit || "日常便服");
   // 🪞 記住她來自哪一筆種子：顯示名可能被改成日常稱呼，撞名守門要靠這個才認得出「同一個人」。
   sRow[COL.PC.MEMORY] = KANSHOU_SRC_TAG_.set(sRow[COL.PC.MEMORY], String(heroRow[COL.HERO.ID] || ""));
