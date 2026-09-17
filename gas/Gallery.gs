@@ -1855,8 +1855,17 @@ function actionKanshouSetStyle(userData, pcId, sheets) {
       return JSON.stringify({ success: true });
     }
     const key = String(userData.key || "").trim();
-    if (!kanshouStyleModule_(key)) return JSON.stringify({ success: false, message: "沒有這個模組。" });
+    const mod = kanshouStyleModule_(key);
+    if (!mod) return JSON.stringify({ success: false, message: "沒有這個模組。" });
     if (userData.reset) { kanshouStyleWrite_(gid, key, null); return JSON.stringify({ success: true }); }
+    // 📏 檔位型只收表上有的那幾個值。收了表外的字會：存得進去、回 success、面板沒有一顆亮著、
+    //    實際又靜靜當成 auto——零錯誤訊息的那種壞法。順便固定 on=true（檔位沒有「關閉」這個狀態）。
+    if (mod.kind === 'pick') {
+      const pick = String(userData.styleText || "").trim();
+      if (!KANSHOU_LEN_TIERS_.some(t => t.key === pick)) return JSON.stringify({ success: false, message: "沒有這個檔位。" });
+      kanshouStyleWrite_(gid, key, pick === KANSHOU_LEN_TIERS_[0].key ? null : { text: pick, on: true });
+      return JSON.stringify({ success: true });
+    }
     const text = kanshouStyleClean_(userData.styleText);
     const on = String(userData.on) !== 'false' && userData.on !== false && String(userData.on) !== '0';
     // 文字空又開著＝跟預設一樣，不留列（表上只放真的有改的）。
