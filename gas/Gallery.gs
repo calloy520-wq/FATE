@@ -265,6 +265,8 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   // 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回「日常便服」。
   var dailySpeechPart = dailyLookParts.length >= 4 ? dailyLookParts[2] : "";
   sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】在這座城裡剛結識的緣分，才剛開始。", dailySpeechPart, ""), daily.outfit || "日常便服");
+  // 🪞 記住她來自哪一筆種子：顯示名可能被改成日常稱呼，撞名守門要靠這個才認得出「同一個人」。
+  sRow[COL.PC.MEMORY] = KANSHOU_SRC_TAG_.set(sRow[COL.PC.MEMORY], String(heroRow[COL.HERO.ID] || ""));
   // PHYSICAL 留空，跟御主本人(actionEnterKanshou)一致，直到第一次 intimacy_feedback 才寫入；
   sRow[COL.PC.GAME_ID] = gameId;
   // REL_TAG(關係標籤)只是這裡設的起始值，之後全程只能透過actionUpdateRelTag(玩家UI手動操作)更改——AI對這欄位完全沒有寫入權限，不會被AI敘事悄悄帶偏。
@@ -501,14 +503,13 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   if (String(me[COL.PC.SEX]) === "男" && heroSex === "男") {
     return JSON.stringify({ success: false, message: "「" + heroName + "」暫時無法召喚——僅支援 男女／女女 配對。" });
   }
-  // 只能召喚一次——先找「此局是否已有這位英靈的列」，有的話代表她已經存在於這個世界，不重複建列。
-  var existingIdx = -1;
-  for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.GAME_ID] || "") !== gid || String(data[i][COL.PC.FACTION]) !== "從者" || String(data[i][COL.PC.ID]).startsWith("DEAD_")) continue;
-    // 🏷️ 跨名比對(短名列 vs 英靈殿全名)：候選集含別名橋，兩個方向都查。
-    if (kanshouNameCandidates_(String(data[i][COL.PC.NAME])).includes(heroName) || kanshouNameCandidates_(heroName).includes(String(data[i][COL.PC.NAME]))) { existingIdx = i; break; }
+  // 只能召喚一次，而且同一個人的兩種靈基不可以同時在場（斯卡哈 Lancer/Assassin、伊莉雅兩版）。
+  var clash = kanshouSummonClash_(data, gid, hero, heroName);
+  if (clash.name) {
+    return JSON.stringify({ success: false, message: clash.same
+      ? "「" + clash.name + "」已經存在於這個世界了，去找找人在哪裡吧。"
+      : "這個世界裡已經有「" + clash.name + "」了——同一位英靈只能有一種姿態在場。" });
   }
-  if (existingIdx >= 0) return JSON.stringify({ success: false, message: "「" + heroName + "」已經存在於這個世界了，去找找人在哪裡吧。" });
   kpc.appendRow(heroToKanshouRow_(hero, gid, loc, parseInt(me[COL.PC.DAY]) || 1));
   return JSON.stringify({ success: true, added: heroName, message: "「" + heroName + "」來到了你們身邊。" });
 }
@@ -1217,10 +1218,13 @@ function kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx) {
   return locKey;
 }
 // 暫時移出鑑賞的英靈id清單(單一來源)，召喚/巧遇/地點標籤/住處全部共用同一份。
-const KANSHOU_SUMMON_BLOCKED_IDS_ = ['斯卡哈-Assassin', '伊莉雅-Caster', '恩奇都-Lancer'];
+// 2026-09 玩家「想辦法讓他們可以召喚 巧遇吧」→ 清空。原本被擋的三位真正的問題是【撞名】
+// （斯卡哈有 Lancer/Assassin 兩種靈基、伊莉雅有 Master/Caster 兩個版本），封鎖只是繞過去；
+// 現在由下方 kanshouSummonClash_ 擋「同一個人同時在場」，兩種姿態各自都召喚得到，選一個。
+const KANSHOU_SUMMON_BLOCKED_IDS_ = [];
 // 🏘️ 開局起始住民(2026-07玩家定案)：只有這4位一開始就「活在這座城裡」，其餘靠巧遇結識後才入駐。
 const KANSHOU_STARTER_IDS_ = ['藤村大河-Master', '遠坂凜-Master', '間桐櫻黑化-Master', '阿爾托莉雅-Saber'];
-// 地點×角色 氛圍標籤(資料驅動，往陣列塞一筆 SEED_SERVANTS 的 id 就能加，不動抽選邏輯)：查無標籤或抽不中標籤池時退回全女性保底池KANSHOU_ENCOUNTER_FEMALE_IDS_；不含KANSHOU_SUMMON_BLOCKED_IDS_裡暫時移出的id，避免巧遇到根本無法被正式召喚入駐的人。
+// 地點×角色 氛圍標籤(資料驅動，往陣列塞一筆 SEED_SERVANTS 的 id 就能加，不動抽選邏輯)：查無標籤或抽不中標籤池時退回保底池 kanshouEncounterPool_()（非男性·資料驅動）；兩條路都會濾掉 KANSHOU_SUMMON_BLOCKED_IDS_，避免巧遇到根本無法被正式召喚入駐的人。
 // 🎯 常去的地點在行程池裡多放幾份＝更常在那裡遇到她，但哪裡都可能去。
 //    設 0＝完全隨機(誰都沒有固定去處)；數字越大越像「她的老地方」。
 var KANSHOU_HAUNT_WEIGHT_ = 6;
@@ -1232,11 +1236,26 @@ const KANSHOU_LOCATION_TAGS_ = {
   '社區公園': ['小黑-Archer', '伊莉雅絲菲爾-Master'],
   '咖啡廳': ['阿爾托莉雅-Saber'],
   '便利商店': ['遠坂凜-Master'],
-  '書店二樓': ['美杜莎-Rider'],
-  '廢棄神社': ['間桐櫻黑化-Master']
+  '書店二樓': ['美杜莎-Rider', '恩奇都-Lancer'],
+  '廢棄神社': ['間桐櫻黑化-Master'],
+  '夜景展望台': ['斯卡哈-Assassin'],
+  '水族館': ['伊莉雅-Caster']
 };
-// kanshouRollEncounter_的保底池：純女性名單(衛宮士郎-Master仍整個移出巧遇/召喚相關名單)。
-const KANSHOU_ENCOUNTER_FEMALE_IDS_ = ['阿爾托莉雅-Saber', '美杜莎-Rider', '美狄亞-Caster', '斯卡哈-Lancer', '美遊-Saber', '小黑-Archer', '遠坂凜-Master', '伊莉雅絲菲爾-Master', '間桐櫻黑化-Master', '藤村大河-Master'];
+// kanshouRollEncounter_ 的保底池：不寫名單，直接從種子算——【非男性】且不在排除表裡的都算數。
+// 寫死名單的老問題是「新增一位種子就得記得補進來」，忘了就變成召喚得到卻永遠巧遇不到（2026-09 稽核抓到三位）。
+// ⚠ 必須是函式、不能是頂層常數：SEED_SERVANTS 住在 Seed_Codex.gs，頂層求值時載入順序不保證（check_loadorder）。
+const KANSHOU_ENCOUNTER_EXCLUDE_IDS_ = ['衛宮士郎-Master'];   // 玩家本人的位置，不當巧遇對象
+var KANSHOU_ENCOUNTER_POOL_ = null;
+function kanshouEncounterPool_() {
+  if (!KANSHOU_ENCOUNTER_POOL_) {
+    KANSHOU_ENCOUNTER_POOL_ = SEED_SERVANTS.filter(function (h) {
+      return h && h.gender !== '男'
+        && KANSHOU_ENCOUNTER_EXCLUDE_IDS_.indexOf(h.id) < 0
+        && KANSHOU_SUMMON_BLOCKED_IDS_.indexOf(h.id) < 0;
+    }).map(function (h) { return h.id; });
+  }
+  return KANSHOU_ENCOUNTER_POOL_;
+}
 // 同地點AI詳細卡片上限(見actionPlay的partyRows)——同地點的人湊在一起時的prompt篇幅上限。
 const KANSHOU_PARTY_DETAIL_CAP_ = 5;
 // 世界概況(輕量版)名單上限——同伴一多，每回合都列全部人+所在地會讓提示詞無限膨脹，只取好感前幾位。
@@ -1296,8 +1315,9 @@ function addKanshouMet_(memory, name) {
 // 巧遇抽選共用邏輯(70%機率)：「出門走走」按鈕跟「原地問還有誰」共用同一套加權隨機。
 function kanshouRollEncounter_(locName, excludeIds) {
   const excl = excludeIds || [];
-  const tagPool = KANSHOU_LOCATION_TAGS_[locName] || [];
-  const basePool = tagPool.length ? tagPool : KANSHOU_ENCOUNTER_FEMALE_IDS_;
+  // 老地方池也要吃封鎖表——原本只有保底池吃，「召喚/巧遇共用同一份」那句註解對這條路是假的。
+  const tagPool = (KANSHOU_LOCATION_TAGS_[locName] || []).filter(id => !KANSHOU_SUMMON_BLOCKED_IDS_.includes(id));
+  const basePool = tagPool.length ? tagPool : kanshouEncounterPool_();
   const pool = basePool.filter(id => !excl.includes(id));
   if (!pool.length || Math.random() >= 0.7) return null;
   const pickId = pool[Math.floor(Math.random() * pool.length)];
@@ -2088,7 +2108,10 @@ const KANSHOU_CASUAL_NAME_ = {
   '間桐櫻黑化-Master': '櫻',
   '遠坂凜-Master': '凜',
   '藤村大河-Master': '大河',
-  '衛宮士郎-Master': '士郎'
+  '衛宮士郎-Master': '士郎',
+  // 真名「伊莉雅絲菲爾·馮·愛因茲貝倫（Caster install）」太長，卡片與訊息都塞不下；
+  // 括號寫法會被 kanshouNameCandidates_ 拆出「伊莉雅」，剛好與伊莉雅絲菲爾-Master 互斥（同一個人）。
+  '伊莉雅-Caster': '伊莉雅（魔法少女）'
 };
 // 全名↔短名雙向別名(名字比對的橋)：舊存檔列/歷史/AI 引用不論寫哪一種都對得上人。
 const KANSHOU_NAME_ALIAS_ = {
@@ -2102,6 +2125,27 @@ const KANSHOU_NAME_ALIAS_ = {
 };
 // 顯示用短名：有登記用短名，沒登記(工房原創/男性英靈等)維持原名。
 function kanshouCasualOf_(hero) { return (hero && (KANSHOU_CASUAL_NAME_[String(hero.id)] || hero.realName)) || ""; }
+// 🪞 同一個人不可以同時在場：斯卡哈有 Lancer/Assassin 兩種靈基、伊莉雅有 Master/Caster 兩個版本，
+//    顯示名看起來不一樣、真名（或來源種子）卻是同一個人。回 {name, same}：name＝已在場那位的顯示名
+//    （空字串＝沒衝突），same=true 代表就是同一筆種子（「已經召喚過了」），false 代表同一個人的另一種姿態。
+var KANSHOU_SRC_TAG_ = makeTextTag_('英靈源');
+function kanshouSummonClash_(data, gid, hero, heroName) {
+  var srcId = String(hero[COL.HERO.ID] || ""), real = String(hero[COL.HERO.NAME] || "").trim();
+  for (var i = 1; i < data.length; i++) {
+    var r = data[i];
+    if (String(r[COL.PC.GAME_ID] || "") !== gid || String(r[COL.PC.FACTION]) !== "從者" || String(r[COL.PC.ID]).startsWith("DEAD_")) continue;
+    var rowName = String(r[COL.PC.NAME] || "");
+    var rowSrc = KANSHOU_SRC_TAG_.get(String(r[COL.PC.MEMORY] || ""));
+    if (rowSrc && rowSrc === srcId) return { name: rowName, same: true };
+    if (rowSrc && real) {
+      var other = SEED_SERVANTS.find(function (h) { return h && h.id === rowSrc; });
+      if (other && String(other.realName).trim() === real) return { name: rowName, same: false };
+    }
+    // 🏷️ 舊列沒有【英靈源】戳記，退回跨名比對（候選集含別名橋，兩個方向都查）。
+    if (kanshouNameCandidates_(rowName).includes(heroName) || kanshouNameCandidates_(heroName).includes(rowName)) return { name: rowName, same: true };
+  }
+  return { name: "", same: false };
+}
 function kanshouNameCandidates_(fullName) {
   const s = String(fullName || "").trim();
   const m = s.match(/^(.*?)[（(]([^（()）]*)[）)]\s*$/);

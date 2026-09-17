@@ -810,7 +810,7 @@ let plainTextContext = cleanText;
       _kcCur = res.current || [];
       if (needHeroes) {
         // 🎨 召喚清單重新對男性開放(不再全面性別封鎖)。衛宮士郎-Master仍用id特判擋掉(玩家自己的位置)；斯卡哈-Assassin/伊莉雅-Caster/恩奇都-Lancer額外濾掉——跟後端KANSHOU_SUMMON_BLOCKED_IDS_同一份名單，手動同步。
-        var KC_SUMMON_BLOCKED_IDS_ = ['衛宮士郎-Master', '斯卡哈-Assassin', '伊莉雅-Caster', '恩奇都-Lancer'];
+        var KC_SUMMON_BLOCKED_IDS_ = ['衛宮士郎-Master'];   // 🪞 鏡射後端 KANSHOU_SUMMON_BLOCKED_IDS_(已清空)＋玩家自己的位置
         _kcHeroesAll = (heroRes && heroRes.success) ? (heroRes.heroes || []).filter(function (h) { return KC_SUMMON_BLOCKED_IDS_.indexOf(h.id) === -1; }) : [];
         _kcHeroesCacheReady = !!(heroRes && heroRes.success); // 讀取失敗不快取「空」，下次開面板會再試一次
       }

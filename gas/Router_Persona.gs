@@ -57,6 +57,25 @@ var TRAIT_LABELS_ = ['外貌本相', '氣質舉止', '卸下心防的私密一�
 var QUAD_EMPTY_ = ['', '無',
   '外貌出眾', '外貌平凡', '舉止從容', '卸下心防時的柔軟一面', '卸下心防的私密一面',
   '沉著表象', '堅定內裡', '珍視之物', '厭惡之事', '通曉魔術', '深藏心事'];
+// 🫶 我方從者「此刻對你」的階段表：種子的 toMaster 是【剛締約時的距離感】，不是永久設定。
+//    每次呼叫 AI 都是全新的一次，卡片寫死什麼它就演什麼——關係早就推進了、態度欄還停在原廠，
+//    角色就永遠出不來（玩家 2026-09 原話）。好感 ≥45 起由這張表接手，之後一階一階往上走。
+//    ⚠ <45 刻意退回種子底色：剛締約時每個人的距離感本來就不一樣（EMIYA 嘴硬、美杜莎護主），
+//      那是角色特色；一旦真的建立起關係，就不該再由原廠設定說了算。
+//    ⚠ 只有【我方從者】走這條。敵從者卡上那句講的是他跟【他自己的御主】的關係，跟你的好感無關。
+var BOND_STANCE_ = [
+  { min: 85, s: '已經把你看得比自己重，藏也藏不住' },
+  { min: 70, s: '打從心底信任你，只給你看的那一面已經露出來了' },
+  { min: 55, s: '真心認可你是自己的御主，願意把後背交給你' },
+  { min: 45, s: '開始把你當一回事，語氣鬆了一些' }
+];
+function bondStance_(bond, seedStance) {
+  var b = parseInt(bond);
+  if (!isNaN(b)) {
+    for (var i = 0; i < BOND_STANCE_.length; i++) if (b >= BOND_STANCE_[i].min) return BOND_STANCE_[i].s;
+  }
+  return seedStance || '';
+}
 function quadLabeled_(raw, labels, skipNone) {
   var parts = String(raw || "").split('、');
   var vals = [], filled = 0;
@@ -85,7 +104,9 @@ function traitLabeled_(raw, skipNone) {
 function performanceNote_(names) {
   var list = (names || []).filter(Boolean);
   if (!list.length) return "";
-  return `★本則登場：${list.join('、')}——依真名與性格演出。\n`;
+  return `★本則登場：${list.join('、')}——上面那幾張卡是【內化用的核心特質】，不是台詞、不是人物簡介：\n`
+    + `　不要讓角色或旁白把自己的性格、願望、萌點、關係階段講出來或拿來評論，也不要照著條列逐項演一遍。\n`
+    + `　要做的是【推演】：有這樣特質的人，在此刻這個處境下，會做出什麼具體舉動、用什麼語氣、選擇說什麼或不說什麼。\n`;
 }
 
 // 🎭 從者「演出依據」卡：真名/職階/個性/對御主/口吻(含自稱)/萌點/招牌動作/六圍/技能/寶具壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』內化演出（只當背景、不准說嘴）。
@@ -126,9 +147,13 @@ function servantCard_(row, opts) {
     // 自稱不再自成一欄：尋常的「我」沒有資訊量、直接不提，有特色才併進【口吻】講一次
     // (口吻本身已提過就不重複；狂化者的 fp 是「（狂化·僅咆哮）」這種標記、不是真的自稱，也不提)。
     var fpNote = (fp && fp !== "我" && !mad && !/自稱/.test(speech)) ? `自稱「${fp}」・` : "";
-    var card = `〈${name}·${cls}·演出依據〉對自己御主的態度：${toM || '依真名'}` +
-      (persona ? quadLabeled_(persona, PREF_LABELS_, false) : `｜性格：依真名`) +
+    // 我方從者的態度會隨羈絆走（見 BOND_STANCE_）；敵從者講的是他跟自己御主的關係，不吃你的好感。
+    var isMine = String(row[COL.PC.FACTION]) === "從者";
+    var stance = isMine ? bondStance_(row[COL.PC.BOND], toM) : (toM || '依真名');
+    var card = `〈${name}·${cls}·核心特質·內化用〉` +
+      (persona ? quadLabeled_(persona, PREF_LABELS_, false).replace(/^｜/, '') : `性格：依真名`) +
       (speech || fpNote ? `｜口吻：${fpNote}${speech}` : "") +
+      (stance ? `｜${isMine ? '此刻對你' : '對自己御主的態度'}：${stance}` : "") +
       (moe && !foe ? `｜萌點(情境對了才浮現一次)：${moe}` : "") +
       (tic && !foe ? `｜小動作：${tic}` : "") +
       (look ? traitLabeled_(look, false) : "") +

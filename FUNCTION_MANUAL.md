@@ -260,8 +260,9 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 演出卡（回傳一段塞進 narration prompt 的字串；show-don't-tell 禁複述設定字面）
 - `buildArrivePrompt_(a)` / `arriveStanceNotice_(stance, isSeek)`（2026-09 新增，`Router_Movement.gs`）— 🚶 **抵達敘事提示詞的單一真實來源**，從 `Script.html` 收回後端。分【抵達/此地】【剛發生】【在場】＋★怎麼演四段；篇幅查 `ARRIVE_WORDS_`（依追擊/撞見/有敵幾件事）；敵方演出卡上限 `ARRIVE_FOE_CARD_CAP_ = 4`。`actionMove` 回傳 `arrivePrompt`，前端只負責 `narrate(data.arrivePrompt)`。
-- `performanceNote_(names)` — 🎭 表演總則（單一真實來源）：show-don't-tell／正典認知覆蓋／羈絆親疏，內容對「這次同框的每一位角色」皆固定不變，只需講一次。`names` 傳入這場戲實際同框的所有真名；`servantCard_`/`enemyMasterCard_` 傳 `opts.skipClose:true` 時各自省略內建收尾，改由呼叫端組完所有角色卡後呼叫本函式統一收尾一次（2026-07 提示詞瘦身：避免多角色同框時每張卡各自重複一份逐字相同的收尾句）。
-- `servantCard_(row, opts?)` — 🎭 從者卡（我方/敵/盟友共用同一份）。真名/職階/對自己御主態度/四段個性/口吻（含自稱）/萌點/小動作/外貌三段（`looksToTraitParts_`）/身世/陣營/關係稱呼/換裝/武裝/寶具。⚠ 2026-09 自稱不再自成一欄：尋常的「我」沒有資訊量直接不提，有特色（吾／俺／拙者／余…）才併進【口吻】講一次；狂化者的 fp 是「（狂化·僅咆哮）」這種標記、也不提。`back` 的無資訊量過濾加收 `/職階英靈$/`（`Seed_Rivals.gs` 寫給敵從者的佔位字）。附 ★換裝、★武裝·絕對（禁依職階或原典武器習慣改寫）、★狂化·絕對（`mad` 偵測→禁台詞只咆哮）三條硬指令。`opts.skipClose:true` 時省略內建的 `performanceNote_` 收尾（多卡同框呼叫端用，見上）；不傳 opts（絕大多數單卡呼叫端）行為不變。缺欄位退回 `codexPersona_`。**CLAUDE.md 紅線②強制載體。**
+- `performanceNote_(names)` — 🎭 表演總則（單一真實來源）：show-don't-tell／正典認知覆蓋／羈絆親疏，內容對「這次同框的每一位角色」皆固定不變，只需講一次。`names` 傳入這場戲實際同框的所有真名；`servantCard_`/`enemyMasterCard_` 傳 `opts.skipClose:true` 時各自省略內建收尾，改由呼叫端組完所有角色卡後呼叫本函式統一收尾一次（2026-07 提示詞瘦身：避免多角色同框時每張卡各自重複一份逐字相同的收尾句）。 ⚠ 2026-09 改寫成【內化指令】：明講「這幾張卡是內化用的核心特質，不是台詞也不是人物簡介」，禁止角色/旁白把性格·願望·萌點·關係階段講出來或逐項演一遍，改成推演「有這樣特質的人在此刻會做出什麼舉動」。
+- `servantCard_(row, opts?)` — 🎭 從者卡（我方/敵/盟友共用同一份）。真名/職階/對自己御主態度/四段個性/口吻（含自稱）/萌點/小動作/外貌三段（`looksToTraitParts_`）/身世/陣營/關係稱呼/換裝/武裝/寶具。⚠ 2026-09 自稱不再自成一欄：尋常的「我」沒有資訊量直接不提，有特色（吾／俺／拙者／余…）才併進【口吻】講一次；狂化者的 fp 是「（狂化·僅咆哮）」這種標記、也不提。`back` 的無資訊量過濾加收 `/職階英靈$/`（`Seed_Rivals.gs` 寫給敵從者的佔位字）。附 ★換裝、★武裝·絕對（禁依職階或原典武器習慣改寫）、★狂化·絕對（`mad` 偵測→禁台詞只咆哮）三條硬指令。`opts.skipClose:true` 時省略內建的 `performanceNote_` 收尾（多卡同框呼叫端用，見上）；不傳 opts（絕大多數單卡呼叫端）行為不變。缺欄位退回 `codexPersona_`。**CLAUDE.md 紅線②強制載體。** ⚠ 2026-09：標頭改「核心特質·內化用」；態度欄拆成兩條路——**我方從者**（`FACTION==='從者'`）印「此刻對你」＝`bondStance_(BOND, 種子 toMaster)`，會隨羈絆一階一階往上走；**敵從者**維持「對自己御主的態度」（講的是他跟自己御主的關係，不吃玩家好感）。位置也從第一欄後移到口吻之後，降低權重。
+- `bondStance_(bond, seedStance)` / `BOND_STANCE_`（常數）— 我方從者「此刻對你」的好感階段表（85/70/55/45 四階）。好感 <45 或讀不到數字時退回種子的 `toMaster`（剛締約時的距離感，每個人不一樣）。加一階＝往表加一列。
 - `masterCard_(row)` — 🎭 御主卡（精簡）。性別/四段個性/四段特徵/萌點/身世/出身（`getMasterOrigin_`）/魔術系統+階/體術階/願望（僅供氛圍禁直述）。★可依性格給御主台詞反應，但**不可替玩家拍板戰略抉擇**（收尾不限問句，思索/備戰姿態/屏息對峙皆可，連續回合別重複同一種收尾）。讀 `getPlayedMaster_`→若扮演正典御主則提示 AI 調用原作形象。
 - `sealGenderFact_(masterSex, svSex, svName)` — 令咒補魔 NSFW 用性別配對事實（異/無按女性向處理）：女女→禁陽具插入描寫、無固定插入方；其餘→依各自實際性別合理呈現。與 kanshou Gallery.gs 邏輯類似但**完全獨立不共用**（紅線① solo/kanshou 隔離）。
 - `enemyMasterCard_(row, opts?)` — 🎭 敵御主卡（精簡）。戰鬥現場敵御主在場時給反應/台詞用；四段個性/特徵/萌點/身世（取「。外貌：」前段）/陣營/魔術/體術/願望。★正典人物優先調用原作形象、禁劇透未揭露身分；★非沉默背景板但勝負傷害不可改（此句為敵御主專屬行為準則，不受 skipClose 影響、恆常保留）。`opts.skipClose:true` 時省略「正典認知優先/show don't tell」那段（與同框的 `servantCard_` 一併併入同一次 `performanceNote_`）。與 masterCard_ 不同：AI 可自決其言行（NPC）。
@@ -618,7 +619,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `getDailyHeroFields_(heroRow, p)` — 純讀 HERO 列的 DAILY_LOOK/WORDS/MOE/OUTFIT 快取，查無退回原始戰時 look/words/moe（「・」→「、」）；不呼叫 AI。
 - `dailySpeechByName_(name, preHeroes)` — 由名字（經 `kanshouNameCandidates_` 別名橋比對）反查英靈殿 DAILY_LOOK 第 3 段（自稱與口氣）當日常安全版口吻，避免戰時口吻餵進鑑賞 AI。preHeroes 可傳入省重複整表解析。
-- `heroToKanshouRow_(heroRow, gameId, loc, curDay)` — 核心建列器：把 HERO 列轉成鑑賞 PC 列（KHV_ 前綴）。用日常稱呼當 NAME、讀日常版 look/words/moe/outfit、身世走 dailyBack→back→通用預設、起始 BOND=10「點頭之交」、不寫戰鬥欄/IS_PARTY/PHYSICAL。被召喚/起始住民/結識共用。**七度改版**：建列尾聲檢查`KANSHOU_HERO_HOME_[heroRow[COL.HERO.ID]]`，查無專屬豪邸就從`KANSHOU_GENERIC_HOME_POOL_`隨機抽一間、用`setKanshouHeroHome_`寫進`【住處】`記憶標記——這是新英靈唯一的建列入口，此處補一次即涵蓋召喚/起始住民/結識三條路徑。
+- `heroToKanshouRow_(heroRow, gameId, loc, curDay)` — 核心建列器：把 HERO 列轉成鑑賞 PC 列（KHV_ 前綴）。用日常稱呼當 NAME、讀日常版 look/words/moe/outfit、身世走 dailyBack→back→通用預設、起始 BOND=10「點頭之交」、不寫戰鬥欄/IS_PARTY/PHYSICAL。被召喚/起始住民/結識共用。**七度改版**：建列尾聲檢查`KANSHOU_HERO_HOME_[heroRow[COL.HERO.ID]]`，查無專屬豪邸就從`KANSHOU_GENERIC_HOME_POOL_`隨機抽一間、用`setKanshouHeroHome_`寫進`【住處】`記憶標記——這是新英靈唯一的建列入口，此處補一次即涵蓋召喚/起始住民/結識三條路徑。 ⚠ 2026-09 加蓋 `KANSHOU_SRC_TAG_`（【英靈源】＝來源種子 id），撞名守門靠它認人。
 
 #### 關係梯度·好感天花板（資料驅動）
 
@@ -634,7 +635,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 5 顆 KPC action（進場/召喚/面板/設定）
 
-- `actionKanshouSummonHero(userData, pcId, sheets)` — 從英靈庫召喚一位英靈「存在」於此後日談世界（不必先 solo 封存）。防線：擁有權驗證、士郎位置擋、`KANSHOU_SUMMON_BLOCKED_IDS_` 擋、ai_gen 僅創造者可召、不開放男男、同一位只召一次（跨名比對）。通過即 appendRow(`heroToKanshouRow_`)。
+- `actionKanshouSummonHero(userData, pcId, sheets)` — 從英靈庫召喚一位英靈「存在」於此後日談世界（不必先 solo 封存）。防線：擁有權驗證、士郎位置擋、`KANSHOU_SUMMON_BLOCKED_IDS_` 擋、ai_gen 僅創造者可召、不開放男男、同一位只召一次（跨名比對）。通過即 appendRow(`heroToKanshouRow_`)。 ⚠ 2026-09 查重改走 `kanshouSummonClash_`。
+- `kanshouSummonClash_(data, gid, hero, heroName)` / `KANSHOU_SRC_TAG_`（常數）— 撞名守門：回 `{name, same}`，`name` 空＝沒衝突；`same:true`＝同一筆種子（已召喚過），`false`＝同一個人的另一種靈基（斯卡哈 Lancer/Assassin、伊莉雅 Master/Caster）。比對順序：【英靈源】id → 同真名 → 舊列退回跨名比對。
 - `actionEnterKanshou(userData, pcId, sheets)`（2026-07新增：分支①②回應皆附`quickPhrases`欄，供前端渲染玩家自訂快速貼圖——🐛→✅ 再稽核抓到②原本漏帶，跟①不一致已補齊）— 進入常駐後日談世界（每帳號一個）。三分支：①帳號表已連結→接續（含全名→短名一次性遷移）②MEMORY【帳號】標記舊角色→補寫帳號表連結遷移③無存檔→需 needSetup 問名字/性別後新建御主列（KPC_ 前綴，開場「我的房間」Day1 06:00）＋入駐 `KANSHOU_STARTER_IDS_` 4 位起始住民。**🐛→✅ 稽核抓到**：pcName/appearance/persona 這條首建路徑原本完全沒設 backend 長度上限(只靠前端 maxlength 擋)，已補 pcName≤16／appearance・persona≤60，跟後續改名/改命路徑口徑一致。（2026-07 二度改版：兩個成功回應物件都拿掉 `prefLocks` 欄位，性格鎖系統整組刪除）
 - `actionBackfillKanshouAi(userData, pcId, sheets)`（2026-07 再稽核抓到漏洞：找列邏輯改用`kanshouPcIdx_(pcData, pcId)`（帳號歸屬由帳號表 KPC 欄在入口把關），取代原本裸`findIndex`信任傳入pcId的漏洞——鑑賞pcId可預測/枚舉，舊版可被冒名竄改任一玩家的敘事欄；前端`backfillKanshouAi`同步補送`acctName`）— 非阻塞背景補生成御主 **6** 個敘事欄（background/traits/personality/npc_intent/**speech**/**tic**/outfit；2026-09 新增 speech＝口吻、tic＝招牌小動作，落地走召喚同伴那支 `stampPersonaFlavor_`）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。**🐛→✅ 2026-09**：原本【無條件覆寫】那幾欄——對一個已經玩過/改命改過的角色再跑一次就整組洗掉，而舊角色要補新欄位一定得再跑一次。改成「第一次補完蓋 `KANSHOU_BACKFILL_DONE_TAG_`（【設定已補】）的章，之後只填還空著的格子」；MEMORY 上的三件事（衣裝/口吻/小動作）併成讀一次寫一次，沒東西可改就完全不寫。
 - `actionKanshouCompanions(userData, pcId, sheets)` — 列出本世界已存在的所有從者＋各自地點/關係標籤/**專屬稱呼(2026-07新增，`getNickname_`裸值)**/好感/是否同地/待赴約定/共同回憶/**`id`(2026-07 id 化重構新增)**，供玩家決定去找誰。無隊伍/人數上限。回傳另附**`quickPhrases`(2026-07新增，見`kanshouGetQuickPhrases_`)**供前端合併渲染玩家自訂快速貼圖。
@@ -674,7 +676,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_SUMMON_BLOCKED_IDS_`（常數）— 暫移出鑑賞的英靈 id（召喚/巧遇/住處共用單一來源）。
 - `KANSHOU_STARTER_IDS_`（常數）— 開局 4 位起始住民（大河/凜/櫻/SABER）。
 - `KANSHOU_LOCATION_TAGS_`（常數）— 地點×角色氛圍標籤，巧遇/行程骰加權用。
-- `KANSHOU_ENCOUNTER_FEMALE_IDS_`（常數）— 巧遇保底純女性池。
+- `kanshouEncounterPool_()` — 巧遇保底池（2026-09 由 ~~`KANSHOU_ENCOUNTER_FEMALE_IDS_`~~ 手寫名單改成資料驅動，該常數已移除）：從 `SEED_SERVANTS` 取【非男性】且不在 `KANSHOU_ENCOUNTER_EXCLUDE_IDS_`／`KANSHOU_SUMMON_BLOCKED_IDS_` 裡的 id，結果記在 `KANSHOU_ENCOUNTER_POOL_`。⚠ 必須是函式：`SEED_SERVANTS` 在別的檔，頂層求值載入順序不保證。
+- `KANSHOU_ENCOUNTER_EXCLUDE_IDS_`（常數）— 巧遇池的排除表（目前只有 `衛宮士郎-Master`＝玩家本人的位置）。
 - `KANSHOU_PARTY_DETAIL_CAP_`（常數=5）— 同地 AI 詳細卡片上限。
 
 #### 橋段庫（夜襲/共浴/節慶…資料驅動）
@@ -691,7 +694,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 巧遇·邂逅（MEMORY 標記 ＋ 抽選）
 
 - `getKanshouMetSet_(memory)` / `addKanshouMet_(memory, name)` — MEMORY【邂逅】逗號分隔巧遇過姓名清單（去重·僅氛圍參考）的讀/增。
-- `kanshouRollEncounter_(locName, excludeIds)` — 70% 機率加權抽巧遇對象（標籤池優先、退全女保底、排除已召喚者）；回 SEED_SERVANTS hero 或 null。
+- `kanshouRollEncounter_(locName, excludeIds)` — 70% 機率加權抽巧遇對象（標籤池優先、退保底池 `kanshouEncounterPool_()`、排除已召喚者）；回 SEED_SERVANTS hero 或 null。 ⚠ 2026-09：標籤池也會濾掉 `KANSHOU_SUMMON_BLOCKED_IDS_`（原本只有保底池濾，「召喚/巧遇共用同一份」對標籤這條路是假的）。
 - `kanshouHeroIdByName_(heroName)` — 由真名/短名反查 SEED id（短名優先、再 `kanshouNameCandidates_` 候選比對）。
 - `kanshouResidenceUnlocked_(pcData, residenceName, gameId)` — 拜訪私宅門檻：屋主本局已入駐且好感≥`KANSHOU_VISIT_BOND_`(40) 才解鎖。前後端共用單一真相。**七度改版**：改用`kanshouGetHeroHome_`讀住處(手寫豪邸+隨機分配住處皆吃得到，原本只認`KANSHOU_HERO_HOME_`)。
 - `kanshouLocHasPendingPromise_(pcData, loc, curDay, gameId)`（2026-07 新增）— 該地點是否有任一同伴的未過期(`day>=curDay`)約定指向這裡；`actionPlay_` 移動攔截用它豁免已成立約定的私宅解鎖檢查（防「好感賽跑後跌破門檻＝必爽約」的死亡螺旋）。
@@ -810,7 +813,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### HP / MP / 魔力池公式
 
 - `clampCircuits_(n)`（2026-07 稽核抽出）— 迴路骰子範圍夾值(12~50)共用函式，取代 `Router_Creation.gs`/`Seed_Rivals.gs` 兩處各自硬寫的 `Math.max(12,Math.min(50,...))`；`Script_Onboarding.html` 前端骰子UI跨執行環境不共用此函式，同款數字改動時需手動同步（已於該處補註解互相標記）。
-- `servantMaxHp_(conVal)` — 從者 HP 上限 150＋耐久數值×6（MP 恆 0：出力電池制）。三個建列點（召喚兩支＋`Seed_Rivals`）共用。（舊 `fateMaxHpMp_` 100+con×10/50+mag×10 是零呼叫者的殘骸，2026-09 換掉）
+- `servantMaxHp_(conVal, skills?)` — 從者 HP 上限 150＋耐久數值×6，再加 `hpBonusFromFx_(skills)`（MP 恆 0：出力電池制）。三個建列點（召喚兩支＋`Seed_Rivals`）都把 `classSkills.concat(skills)` 傳進來；`skills` 省略＝零加成（舊呼叫端行為不變）。
+- `hpBonusFromFx_(skills)` / `HP_BONUS_FX_`（常數）— 最大生命加成查表（fx → +HP，目前 `golden_fleece: 10`）。加一個效果＝往表加一列，三個建列點與 `resyncSummonedServants_` 的血上限重刷自動吃；`check_fx.py` 第三道比對表上的數字與 `FX_DESC` 說明。
 - `masterMaxHpMp_(circuits)` — 御主（凡人魔術師）HP(100+迴路×2)/MP(迴路×10)，迴路夾下限 1。
 - `masterPoolMax_(circuits, partyMagicVal)` — 共用魔力池上限＝迴路×10 ＋ 同隊從者魔力 rankVal 總和×2。
 - `dmgSeverityWord_(dmg, hpMax)`（2026-07 稽核抽出）— 傷害嚴重度中文詞分級（重創≥0.4／負傷≥0.15／擦傷），取代 `Router_Movement.gs` 三處(撤退追擊/休息突襲/陣營突襲)重複的同一條 ternary；`Router_Bond.gs` 的 `actionBond` 突襲提示原本沒有分級(硬寫死「重創」)，順手改用此函式補齊一致性。

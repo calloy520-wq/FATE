@@ -101,7 +101,14 @@ function buildTrajectoryDigest_(pcData, gameId, pcRow) {
 
 // FATE HP/MP 推算（無階級倍率）：耐久→HP、魔力→MP。
 // 從者 HP 上限：150 ＋ 耐久數值×6（MP 恆 0：出力電池制，從者無自有魔力池）。三個建列點共用這一條。
-function servantMaxHp_(conVal) { return 150 + (parseInt(conVal) || 0) * 6; }
+// 🩸 最大生命加成（fx → +HP）：加一個效果＝往表加一列，三個建列點與重刷自動吃。
+var HP_BONUS_FX_ = { golden_fleece: 10 };
+function hpBonusFromFx_(skills) {
+  var add = 0;
+  (skills || []).forEach(function (s) { if (s && HP_BONUS_FX_[s.fx]) add += HP_BONUS_FX_[s.fx]; });
+  return add;
+}
+function servantMaxHp_(conVal, skills) { return 150 + (parseInt(conVal) || 0) * 6 + hpBonusFromFx_(skills); }
 
 // 御主(凡人魔術師)HP/MP：唯一核心數值＝魔術迴路(財力/身世決定)。
 function clampCircuits_(n) { return Math.max(12, Math.min(50, parseInt(n) || 30)); }

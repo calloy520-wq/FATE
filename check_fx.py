@@ -17,6 +17,7 @@ import re, sys, os, math
 ROOT = os.path.dirname(os.path.abspath(__file__))
 BE = open(os.path.join(ROOT, 'gas/Engine_Fate.gs'), encoding='utf-8').read()
 FE = open(os.path.join(ROOT, 'gas/Script.html'), encoding='utf-8').read()
+CORE = open(os.path.join(ROOT, 'gas/Core_Settings.gs'), encoding='utf-8').read()
 
 
 def norm(x):
@@ -195,6 +196,32 @@ def scan_tune(extra_fe=''):
     return len(tune), checked, bad, silent
 
 
+# ══ 第三道：最大生命加成 HP_BONUS_FX_ ══
+# 這批不是每擊的算式、是召喚當下算進血上限的固定值（金羊毛 +10），上面兩道都掃不到它；
+# 而說明卡會把數字講給玩家聽，同一個數又存兩處。
+def scan_hp(extra_fe=''):
+    m = re.search(r'var HP_BONUS_FX_\s*=\s*\{([^}]*)\}', CORE)
+    if not m:
+        return None, []
+    tbl = {k: int(v) for k, v in re.findall(r'(\w+)\s*:\s*(\d+)', m.group(1))}
+    src = extra_fe + FE   # ⚠ 注入行要放【前面】：re.search 取第一個匹配，放後面會被原版蓋掉（這個坑踩過兩次）
+    out = []
+    for fx, hp in sorted(tbl.items()):
+        d = re.search(r'^\s*%s:\s*\([^)]*\)\s*=>\s*([\'"`])(.*?)\1' % re.escape(fx), src, re.M | re.S)
+        if not d:
+            out.append((fx, hp, '前端沒有這條說明'))
+        elif not re.search(r'(?<![\d])%d(?![\d])' % hp, d.group(2)):
+            out.append((fx, hp, '說明裡找不到 +%d' % hp))
+    return tbl, out
+
+
+hp_tbl, hp_bad = scan_hp()
+# 🔁 退化測試③：把說明裡的數字改掉，這道必須叫
+_probe3 = "\n    golden_fleece: () => '金羊毛：最大生命 +99。',\n"
+if hp_tbl and not scan_hp(_probe3)[1]:
+    print('❌ 自我退化測試失敗：最大生命加成那道改壞了也不會叫')
+    sys.exit(1)
+
 back, front, shared, bad, unsure = scan()
 # 🔁 自我退化測試：塞一條跟引擎不一樣的說明進去，這支掃描器必須叫得出來
 _probe = '\n    mad: m => `狂化：傷害 +${Math.round(99 * m)}。`,\n'
@@ -209,8 +236,14 @@ if not scan_tune(_probe2)[2]:
     print('❌ 自我退化測試失敗：係數表那道改壞了也不會叫')
     sys.exit(1)
 
-print('🧮 技能算式對照：後端 %d 條公式、前端 %d 條說明、兩邊都有的 %d 個；係數表 %d 格·對到說明 %d 條（含自我退化測試）'
-      % (len(back), len(front), len(shared), n_tune, n_tune_checked))
+print('🧮 技能算式對照：後端 %d 條公式、前端 %d 條說明、兩邊都有的 %d 個；係數表 %d 格·對到說明 %d 條；血上限加成 %d 格（含自我退化測試）'
+      % (len(back), len(front), len(shared), n_tune, n_tune_checked, len(hp_tbl or {})))
+if hp_bad:
+    print('  ❌ 最大生命加成跟說明對不上：')
+    for fx, hp, why in hp_bad:
+        print('     %s：HP_BONUS_FX_ 是 +%d，%s' % (fx, hp, why))
+    print('  → 改 HP_BONUS_FX_ 時 Script.html 的 FX_DESC 要跟著改。')
+    sys.exit(1)
 if tune_silent:
     print('  ⓘ 說明沒寫數字、無從對照（改了也不會叫，心裡有數就好）：' + '、'.join(tune_silent))
 if tune_bad:

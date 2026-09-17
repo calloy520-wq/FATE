@@ -646,7 +646,7 @@ function actionSummonServant(userData, pcId, sheets) {
       const persona = JSON.parse(hero[COL.HERO.PERSONA] || "{}");
 
       // 從者血厚：耐久越高越肉。🔋 出力電池制：從者無自有魔力池(MP欄置0)，靠御主供魔；出力檔存 MEMORY、預設 60 巡航。
-      const svHp = servantMaxHp_(svNum_(six.耐久)), svMp = 0;
+      const svHp = servantMaxHp_(svNum_(six.耐久), classSkills.concat(skills)), svMp = 0;
 
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
@@ -703,7 +703,7 @@ ${FX_MENU_}
       bumpSixToFloor_(aiSix, aiSkills, /對軍/.test(np) ? "對軍" : "對人");
       capSixToBudget_(aiSix, aiSkills, /對軍/.test(np) ? "對軍" : "對人", cls);
       const aiTraits = Array.isArray(aiBrief.traits) ? aiBrief.traits.filter(Boolean).slice(0, 4).map(t => ({ n: String((t && (t.n || t.名稱 || t.name)) || t).replace(/[<>&"'`]/g, "").slice(0, 8) })) : [];
-      const svHp = servantMaxHp_(svNum_(aiSix.耐久)), svMp = 0; // 🔋 出力電池制：從者無自有魔力池，出力檔存 MEMORY、預設 60 巡航
+      const svHp = servantMaxHp_(svNum_(aiSix.耐久), aiCSkills.concat(aiSkills)), svMp = 0; // 🔋 出力電池制：從者無自有魔力池，出力檔存 MEMORY、預設 60 巡航
       // 🎴 五圍已棄欄：戰鬥吃六圍 SIX，不再寫數值。
       row[COL.PC.HP] = svHp; row[COL.PC.MP] = svMp; row[COL.PC.MAX_HP] = svHp; row[COL.PC.MAX_MP] = svMp;
       row[COL.PC.TRAIT] = parseTraitsHelper(aiBrief.look, "外貌出眾、舉止從容、卸下心防時的柔軟一面", TRAIT_SLOTS_);

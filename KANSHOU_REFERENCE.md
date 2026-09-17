@@ -608,7 +608,8 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
   - **前端 UI**：玩家提議「上鎖比較快」——地圖按鈕比照未解鎖私宅的既有灰鎖樣式（🔒＋不可點＋alert 說明幾點開），不做完全隱藏。`KC_LOCATIONS_` 鏡射同一份 `bands`（改後端記得同步這裡）；`kanshouPromiseMeet` 選時段的面板也只列出跟選定地點相容的時段。
   - **已知小落差（非 bug，範疇取捨）**：非 `dateOnly` 地點的日常閒晃保底池（`kanshouRollDailyLocation_`）目前不比對 `bands`——極少數情況同伴可能被骰去玩家當下走不進去的地點，純屬「她剛好在，你正好碰不上」的日常感，不影響任何機制正確性，暫不處理。
 - **拜訪私宅**：好感≥`KANSHOU_VISIT_BOND_ = 40`（熟識朋友切點）才解鎖登門（`kanshouResidenceUnlocked_`）。
-- **巧遇**：`kanshouToggleEncounter_` 開關；女性保底池 `KANSHOU_ENCOUNTER_FEMALE_IDS_`；結識 `kanshouAcceptInvite`（`inviteResident`）。
+- **巧遇**：`kanshouToggleEncounter_` 開關；保底池 `kanshouEncounterPool_()`（2026-09 改資料驅動：`SEED_SERVANTS` 裡非男性 ∖ `KANSHOU_ENCOUNTER_EXCLUDE_IDS_` ∖ `KANSHOU_SUMMON_BLOCKED_IDS_`，新增種子自動進池）；結識 `kanshouAcceptInvite`（`inviteResident`）。
+- **召喚全開（2026-09）**：`KANSHOU_SUMMON_BLOCKED_IDS_` 清空，斯卡哈-Assassin／伊莉雅-Caster／恩奇都-Lancer 都召喚得到、也進了巧遇池與老地方（夜景展望台／水族館／書店二樓）。擋撞名的改由 `kanshouSummonClash_` 負責：**同一位英靈只能有一種姿態在場**（靠列上的【英靈源】`KANSHOU_SRC_TAG_` 比對來源種子 id，再比真名，舊列退回跨名比對）。伊莉雅-Caster 的日常稱呼是「伊莉雅（魔法少女）」——括號會被 `kanshouNameCandidates_` 拆出「伊莉雅」，剛好與伊莉雅絲菲爾-Master 互斥。
 - **牽手**：`kanshouHoldHand(name, npcId)`/`kanshouReleaseHand`（2026-07 id 化重構補 `npcId` 第二參數，單獨約會氛圍，`【牽手】` 存玩家列·值＝她的短名）。對象解析同 §約定 2.0 說明，改走共用 `findPcRowIdx_`（id 優先，查無才退回 `kanshouNameCandidates_`）。⚠ **2026-07 玩家「牽手太用力·每次都提·地理錯亂」重寫 `kanshouHoldingStr`**：舊版每回合強推「交握的溫度／並肩距離／別人也看得見」＝AI 每回合死抓著手講；且沒斷言「她此刻與你同處」＝AI 腦補成「她在○○等你、你跑進來」（明明牽著手寸步不離）。新版＝**背景資訊·別過度著墨**（偶爾輕帶一筆、重心放當下互動）＋明確斷言「她就在你身邊、和你同處一地、絕非在別處等你」。**生命週期不變式**（2026-07 玩家實測補齊）：① 跳時間重骰**豁免**牽手對象（不會憑空消失）；② 每回合算 `kanshouHeldName_` 時驗「她真的在場」——不同地點自動放手清標記（根治「隔空牽手/重逢自動牽手」）；③ `endDay` 睡覺一律放手；④ 對象名一律走 `kanshouNameCandidates_` 比對（別名/大小寫都認得）。
 - **🗑 小道具／催眠指令（2026-07 建·2026-09 整套移除）**：玩家「太複雜太沒用了」，後端 4 支 handler（`actionKanshouSetProp`／
   `AddCustomProp`／`CastHypnosis`／`DeleteCustomProp`）、7 顆常數、7 支 MEMORY helper、提示詞注入（`pPropStr`／`_ignoreBondLines`／

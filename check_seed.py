@@ -50,10 +50,36 @@ UNREACHABLE_ALLOW = {
 
 def check_ghost_fx(bad, seed_src, others):
     fxs = sorted(set(re.findall(r"fx\s*:\s*'([a-z_0-9]+)'", seed_src)))
-    ghosts = [f for f in fxs if not re.search(r"['\"]%s['\"]" % re.escape(f), others)]
+    # ⚠ 三種寫法都算「有人提到它」：引號字串、物件鍵（FX_DESC 的 `golden_fleece: () => …`）、屬性存取。
+    #   第一版只認引號，於是把有說明卡的 golden_fleece 誤報成幽靈——寧可漏抓也不要誤報，
+    #   真正的幽靈是「整棵樹一次都沒出現」。
+    def mentioned(f):
+        e = re.escape(f)
+        return re.search(r"['\"]%s['\"]" % e, others) or re.search(r"(?m)^\s*%s\s*:" % e, others) \
+            or re.search(r"\.%s\b" % e, others)
+    ghosts = [f for f in fxs if not mentioned(f)]
     for f in ghosts:
         bad.append("幽靈 fx「%s」：種子掛了這個技能，引擎裡一個字串都找不到（玩家看得到、按了沒反應）" % f)
     return len(fxs)
+
+
+# 🧭「對御主的態度」必須是一個【當下成立】的立場，不可以寫成隨時間變化或有條件分岔的劇情弧。
+#    玩家 2026-09：「應該要有一個核心，不要逐漸動搖這種模稜兩可的」。
+#    寫成弧線＝把劇情走向先告訴 AI（「初期保持距離，逐漸動搖」），它會照著演，
+#    而實際的關係深淺已經由好感/契約在管——等於兩個真實來源打架。
+TOMASTER_BAN_ = ['逐漸', '漸漸', '初期', '起初', '後來', '日後', '最終', '久了', '否則', '一旦', '；', ';']
+
+
+def check_tomaster(bad, seed_src):
+    n = 0
+    for m in re.finditer(r"id\s*:\s*'([^']+)'.*?toMaster\s*:\s*'([^']*)'", seed_src, re.S):
+        sid, val = m.group(1), m.group(2)
+        n += 1
+        hit = [w for w in TOMASTER_BAN_ if w in val]
+        if hit:
+            bad.append("「%s」的對御主態度寫成了劇情弧／分岔（%s）：%s —— 要一個當下成立的核心立場"
+                       % (sid, '、'.join(hit), val))
+    return n
 
 
 def check_dead_cols(bad, files):
@@ -134,16 +160,18 @@ def main():
     n_own = check_double_store(bad, seed_src)
     n_seed = check_unreachable(bad, seed_src, read(os.path.join(GAS, 'Gallery.gs')),
                                read(os.path.join(GAS, 'Seed_Rivals.gs')))
+    n_tom = check_tomaster(bad, seed_src)
 
     # 🧪 自我退化測試：注入一個不存在的 fx，這支必須叫。
     probe = []
     check_ghost_fx(probe, seed_src + "\n{n:'測試',r:'A',fx:'zzz_not_wired'},", others)
-    if not probe:
-        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx 抓不到）')
+    check_tomaster(probe, "{ id:'測試-Saber', persona:{toMaster:'起初疏離，逐漸動搖'} }")
+    if len(probe) < 2:
+        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度抓不到）')
         return 1
 
-    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、daily 專欄 %d 格（含自我退化測試）'
-          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_own))
+    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、daily 專欄 %d 格（含自我退化測試）'
+          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_own))
     if bad:
         print('  ❌ %d 處「寫了但沒人吃」：' % len(bad))
         for b in bad:

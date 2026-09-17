@@ -20,7 +20,7 @@ var SEED_SERVANTS = [
     skills:[{n:'直感',r:'A',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst'},{n:'領袖氣質',r:'B',fx:'morale'},
             {n:'風王鐵鎚',r:'A',fx:'wind_strike'},{n:'誓約勝利之劍',r:'A++',fx:'excalibur'}],
     traits:[{n:'王'},{n:'人類'},{n:'龍'}], np:'誓約勝利之劍 Excalibur（對城 A++·聚攏這片星球記憶中的光·凝於劍尖·解放為撕裂大地、直貫蒼穹的金色收束光炮）／全世界遙遠的理想鄉 Avalon（永世隔絕·無敵結界·守護持有者）',
-    align:'秩序・善', persona:{firstP:'我',look:'金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀',words:'騎士道・自我犧牲・壓抑的少女心',toMaster:'盡忠職守、初期保持距離，逐漸動搖',speech:'武人般簡潔鄭重、不擅言情',moe:'食量驚人卻吃相優雅',tic:'握劍時氣場驟冷',
+    align:'秩序・善', persona:{firstP:'我',look:'金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀',words:'騎士道・自我犧牲・壓抑的少女心',toMaster:'以騎士之禮盡忠，公私分明地隔著一步距離',speech:'武人般簡潔鄭重、不擅言情',moe:'食量驚人卻吃相優雅',tic:'握劍時氣場驟冷',
     dailyLook:'金髮碧眼・嬌小、端莊凜然帶親和、簡潔認真略靦腆、越想要的東西越裝作不在意',
     dailyOutfit:'藏青連身洋裝',
     dailyWords:'一絲不苟、對平凡日常滿是好奇、美食、恃強凌弱',dailyBack:'正直守序，生活規律自持',dailyMoe:'吃相優雅，份量驚人'} },
@@ -56,7 +56,7 @@ var SEED_SERVANTS = [
   { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'], gender:'女',
     six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A++',幸運:'B',寶具:'C'},
     classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
-    skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'}],
+    skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'},{n:'金羊毛 Argon Coin',r:'EX',fx:'golden_fleece'}],
     traits:[{n:'人類'}], np:'萬符必應破戒 Rule Breaker（規則破壞者 C·【非攻擊寶具】破除契約與術式，非攻擊手段）',
     // Rule Breaker 官方描述為妖異七彩短劍，非紅色——全專案命名已同步正名。
     align:'中立・惡', persona:{firstP:'我',look:'紫袍兜帽・持妖異七彩短劍的清麗魔女、疏離',words:'背叛的傷痕・渴望被信任',toMaster:'防備卻渴望真心相待',speech:'溫婉敬語、藏著試探',moe:'被真心對待會慌',tic:'摩挲手中的七彩短劍',
@@ -97,7 +97,7 @@ var SEED_SERVANTS = [
     skills:[{n:'黃金律',r:'A',fx:'wealth'},{n:'領袖氣質',r:'A+',fx:'morale'},{n:'神性',r:'B',fx:'divine'},
             {n:'王之財寶',r:'A',fx:'gob'},{n:'天之鎖',r:'B',fx:'chain'},{n:'全知全能之星 Sha Naqba Imuru',r:'EX',fx:'insight'}],
     traits:[{n:'神性'},{n:'王'}], np:'王之財寶 Gate of Babylon（對人 E~A++）／乖離劍 Ea（天地乖離·封藏的至高兵裝，傲慢時不出鞘）',
-    align:'混沌・善', persona:{firstP:'吾',look:'金髮赤瞳・金鎧加身的俊美王者、睥睨的威壓',words:'傲慢・收藏家',toMaster:'視為雜種、幾乎不從令，唯對少數有趣之人起興致',speech:'居高臨下、稱人「雜種」',moe:'傲慢底下的孤獨',tic:'金色波紋中抽出寶具',
+    align:'混沌・善', persona:{firstP:'吾',look:'金髮赤瞳・金鎧加身的俊美王者、睥睨的威壓',words:'傲慢・收藏家',toMaster:'視為雜種，命令聽不聽全看自己高不高興',speech:'居高臨下、稱人「雜種」',moe:'傲慢底下的孤獨',tic:'金色波紋中抽出寶具',
     dailyLook:'金髮赤瞳・俊美、走在街上像在視察領地、自稱吾・居高臨下卻難掩興致、越感興趣越裝作不屑',
     dailyOutfit:'奢華名牌休閒服',
     dailyWords:'傲慢自負、對新奇事物好奇、重機與稀奇玩具、平庸無趣之物',dailyBack:'傲氣十足的富家公子',dailyMoe:'記得每個人喜歡什麼，絕不承認'} },
@@ -129,7 +129,7 @@ var SEED_SERVANTS = [
     classSkills:[{n:'陣地作成',r:'B',fx:'territory'}],
     skills:[{n:'精神汙染',r:'A',fx:'mad'},{n:'螺湮城教本',r:'',fx:'summon_horror'}],
     traits:[{n:'人類'}], np:'螺湮城教本 Prelati\'s Spellbook（深淵召喚・召喚大海怪·【留存】海怪常駐戰場）',
-    align:'混沌・惡', persona:{firstP:'我',look:'捧巨書的清瘦貴族(無鬚無眉)、癲狂',words:'虔誠扭曲・對「聖女」的執念',toMaster:'與共鳴其瘋狂的御主引為摯友；否則貌合神離',speech:'時而文雅、時而癲狂咆哮',moe:'對「神不在場」的悲憤',tic:'淚流滿面的狂笑',
+    align:'混沌・惡', persona:{firstP:'我',look:'捧巨書的清瘦貴族(無鬚無眉)、癲狂',words:'虔誠扭曲・對「聖女」的執念',toMaster:'當成唯一聽得懂自己的知音，狂熱地傾訴',speech:'時而文雅、時而癲狂咆哮',moe:'對「神不在場」的悲憤',tic:'淚流滿面的狂笑',
     dailyLook:'清瘦貴族(無鬚無眉)・總抱著厚書、溫文帶神經質、談吐文雅入迷就激動、聊到敬重的人語氣會軟',
     dailyOutfit:'書卷氣的樸素便服',
     dailyWords:'溫文儒雅、虔誠到近乎執迷、談得來的人、話不投機的敷衍',dailyBack:'溫文儒雅的貴族書癡',dailyMoe:'讀起書來喊他都沒反應'} },
@@ -193,7 +193,7 @@ var SEED_SERVANTS = [
     skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'戰鬥續行',r:'A',fx:'survive'},{n:'原初符文',r:'B',fx:'rune'}],
     traits:[{n:'人類'}], np:'蹴穿死翔之槍 Gáe Bolg Alternative（對人 B+·影縫穿刺）',
     // 這個Assassin版是夏季活動限定泳裝造型(官方立繪為比基尼/沙灘裝)，外觀走海灘風而非暗殺潛行調性。
-    align:'中立・中庸', persona:{firstP:'我',look:'紫髮紅瞳・泳裝海灘造型的致命女王(夏日Assassin版)、冷冽',words:'影・潛行的女王',toMaster:'冷眼試探、出手無情，認可方鬆動',speech:'低冷簡短、一針見血',moe:'影中女王的致命優雅',tic:'融入暗影',
+    align:'中立・中庸', persona:{firstP:'我',look:'紫髮紅瞳・泳裝海灘造型的致命女王(夏日Assassin版)、冷冽',words:'影・潛行的女王',toMaster:'當成值得逗弄的獵物，冷眼試探、從不把話說滿',speech:'低冷簡短、一針見血',moe:'影中女王的致命優雅',tic:'融入暗影',
     dailyLook:'紫髮紅瞳・豐盈冷冽優雅、慵懶自在帶一絲警覺、低冷簡短一針見血、越被依賴越裝作事不關己',
     dailyOutfit:'海灘度假風輕便穿搭',
     dailyWords:'深居簡出、骨子裡仍是潛行者、獨處的時光、無謂的張揚',dailyBack:'冷冽自持的女王，拒人千里',dailyMoe:'偶爾流露女王般的小得意'} },
@@ -321,7 +321,9 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v74'; // v74：dailyLook 第3段正名為「日常口吻」——17 位自稱是「我」的前綴刪掉(零資訊量)，
+var CODEX_PERSONA_VER = 'v75'; // v75：種子瘦身＋對御主態度正名——PERSONA 欄不再重複收 daily 四欄、
+// 御主殿「居所/屆次」改空、四位的態度從劇情弧改成單一核心立場、金羊毛接上 HP_BONUS_FX_(+10)、
+// resync 一併重刷 MAX_HP。v74：dailyLook 第3段正名為「日常口吻」——17 位自稱是「我」的前綴刪掉(零資訊量)，
 // 6 位有特色的(俺／拙者／吾／余／我們／本小姐)保留。特徵格不再收自稱，見 CODE_NOTES.md『TRAIT_SLOTS_』。
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
@@ -412,6 +414,10 @@ function resyncSummonedServants_(ss) {
     }
     data[i][COL.PC.MARTIAL] = s.np || data[i][COL.PC.MARTIAL];
     data[i][COL.PC.SIX] = JSON.stringify(s.six);
+    // 六圍/技能刷新了，血上限也要跟上（耐久或 HP_BONUS_FX_ 一改，舊列否則永遠停在舊上限）。
+    var newMax = servantMaxHp_(svNum_(s.six && s.six["耐久"]), (s.classSkills || []).concat(s.skills || []));
+    data[i][COL.PC.MAX_HP] = newMax;
+    if ((parseInt(data[i][COL.PC.HP]) || 0) > newMax) data[i][COL.PC.HP] = newMax;
     data[i][COL.PC.TAGS] = JSON.stringify({ skills: tagSkillKind_(s.classSkills, 'class').concat(tagSkillKind_(s.skills, 'skill')), traits: s.traits || [] });
     n++;
   }

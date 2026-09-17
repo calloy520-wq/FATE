@@ -59,7 +59,7 @@ const TWEAK = {
     back: v => v.filter(x => x.id !== 'room')
   },
   'KC_SUMMON_BLOCKED_IDS_': {
-    why: '衛宮士郎-Master 是玩家自己的位置，只在前端召喚清單擋（後端不擋、也不該擋）',
+    why: '衛宮士郎-Master 是玩家自己的位置，前端從召喚清單裡濾掉；後端擋它的是 actionKanshouSummonHero 裡單獨那一條(訊息不一樣)，不在這張表上',
     front: v => v.filter(x => x !== '衛宮士郎-Master')
   },
 };
