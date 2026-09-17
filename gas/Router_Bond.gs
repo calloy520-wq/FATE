@@ -91,8 +91,8 @@ function actionUseSeal(userData, pcId, sheets) {
       return JSON.stringify({ success: false, message: "魔力是滿的，不用補。" });
     }
     genderFactSeal = sealGenderFact_(String(pcData[pIdx][COL.PC.SEX] || ""), String(pcData[svIdx][COL.PC.SEX] || ""), svName);
-    // 令咒的效果（事實）：敏感度被推到遠超常態、御主性能力被拉高；高潮由御主的動作引發，兩邊的快感都在場。
-    sealManaFx = `令咒把「${svName}」的敏感度推到遠超常態，理智被本能淹沒，抗拒翻成索求；高潮由御主的動作引發，來得又多又失控。御主的性能力也被令咒拉高，御主自己的快感貫穿全程。挑一兩個關鍵瞬間深寫，篇幅全給實際發生的細節。`;
+    // 令咒的加持是【雙方】的，跟羈絆無關；羈絆只決定抗拒還是迎合（玩家定案，見 CODE_NOTES）。
+    sealManaFx = `令咒同時強化了兩邊：「${svName}」的敏感度被推到遠超常態，御主的性能力也被拉高、承接得住。高潮由御主的動作引發，來得又多又失控。挑一兩個關鍵瞬間深寫，篇幅全給實際發生的細節。`;
     pcData[pIdx][COL.PC.MP] = mpMaxSeal;
     if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     // 絕對命令跳過「同意」，羈絆是否足夠決定這是幸運還是致命——理由見 CODE_NOTES。
@@ -139,7 +139,7 @@ function actionUseSeal(userData, pcId, sheets) {
     const wishSeal = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【已裁定】${effectMsg}效果散去的瞬間，「${svName}」積壓的恨意引爆，殺了御主。\n` +
-      `${genderFactSeal}★【500~600 字】寫這場被強迫的供魔：令咒壓下「${svName}」的意志，屈辱與失控交織。${sealManaFx}收在令咒消散、「${svName}」揮下致命一擊的那一瞬。`;
+      `${genderFactSeal}★【500~600 字】寫這場被令咒壓制的供魔：「${svName}」內心一路抗拒，身體卻不受控制地迎合下去，御主就這樣得逞。${sealManaFx}收在令咒消散、「${svName}」揮下致命一擊的那一瞬。`;
     defeat = true;
     dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wishSeal, svName);
     report = { sealBacklash: true, svName: svName };
@@ -147,7 +147,7 @@ function actionUseSeal(userData, pcId, sheets) {
     aiPrompt = sealManaUnlocked
       ? (masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
         `【已裁定】${effectMsg}\n` +
-        `${genderFactSeal}★【500~600 字】寫這場供魔：「${svName}」順著命令迎上來。${sealManaFx}收在餘韻猶存的溫柔。`)
+        `${genderFactSeal}★【500~600 字】寫這場供魔：「${svName}」迎上來，在令咒的加持裡比平常更放得開、更享受。${sealManaFx}收在餘韻猶存的溫柔。`)
       : masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx], { skipClose: true }) + performanceNote_([svName]) +
         `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
         `★【140~200 字】描寫令咒在手背灼亮、絕對命令權貫徹的瞬間——三道令咒是御主僅有的底牌，燒掉一道不是小事，讓這份重量落在御主的神情與「${svName}」的反應上。效果已由系統結算。\n`;
