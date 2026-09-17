@@ -33,6 +33,8 @@ problems = []
 # 沒有 UI 出口是合理的那些，一律要寫明理由——「忘了接」跟「不用接」從外面看長得一樣，
 # 只能靠人簽名區分。新增門檻常數時你會被迫做這個決定，這正是重點。
 NO_UI_NEEDED = {
+    'KANSHOU_LOVER_BOND_': '階級表 KANSHOU_REL_TIER_ 的具名別名(80＝戀人)，真正擋玩家的是引用它的那幾個門檻，各自有出口',
+    'KANSHOU_CLOSE_BOND_': '同上(60＝親近的人)：KANSHOU_CONFESS_BOND_／KANSHOU_KNOCK_MIN_BOND_ 都是它的別名，出口在那邊',
     'KANSHOU_PARTY_DETAIL_CAP_': '提示詞內部的篇幅上限，玩家看不到也不需要知道',
     'KANSHOU_WORLD_ROSTER_CAP_': '同上，餵 AI 的名冊長度上限',
     'KANSHOU_SCENE_BOND_': '橋段給的好感增量，不是門檻、沒有按鈕會被它擋',

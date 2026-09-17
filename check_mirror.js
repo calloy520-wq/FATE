@@ -102,8 +102,20 @@ function grabLiteral(text, kw, name) {
     if (end < 0) end = text.indexOf('\n', i);
   }
   if (end == null || end < 0) return { found: true, err: '找不到字面量結尾' };
-  const body = text.slice(i, end).replace(/\/\/[^\n]*/g, '');
-  try { return { found: true, value: eval('(' + body.trim().replace(/,\s*$/, '') + ')') }; }
+  let body = text.slice(i, end).replace(/\/\/[^\n]*/g, '').trim().replace(/,\s*$/, '');
+  // 🔗 一層別名：`const A_ = B_;`(B_ 是同檔另一個常數) 也要解得出來——
+  //    2026-09 把寫死的好感門檻改成從 KANSHOU_REL_TIER_ 推之後，這裡整排解析失敗。
+  //    只跟一跳、且只認【同檔已定義的常數/陣列取值】，避免把整個檔當程式跑。
+  let hops = 0;
+  while (/^[A-Za-z_$][\w$]*(\s*\[\s*\d+\s*\]\s*\.\s*[\w$]+)?$/.test(body) && hops++ < 4) {
+    const root = body.match(/^[A-Za-z_$][\w$]*/)[0];
+    const inner = grabLiteral(text, 'const', root) ;
+    if (!inner || inner.value === undefined) break;
+    const tail = body.slice(root.length);
+    try { body = JSON.stringify(eval('(' + JSON.stringify(inner.value) + ')' + tail)); }
+    catch (e) { break; }
+  }
+  try { return { found: true, value: eval('(' + body + ')') }; }
   catch (e) { return { found: true, err: '無法解析：' + e.message }; }
 }
 

@@ -94,6 +94,18 @@ function kanshouPcIdx_(data, pcId) {
   return -1;
 }
 
+// 🧑‍🤝‍🧑 鑑賞的「正式同伴」只有一個定義：這一局的、faction=從者 的列（可選再限定所在地點）。
+// ⚠ 鑑賞【沒有死亡】——`DEAD_` 前綴只有 solo 的戰鬥(Router_Battle/Movement)與日結算(Time_World)會寫，
+//    「鑑賞眾生」這張分頁沒有任何寫入端。這個條件曾經被抄了 34 遍、我還把它當成一道防線講出去過，
+//    實際上一次都不會成立。留在這一支裡當唯一的防呆，其餘呼叫點一律走這裡（單一真實來源）。
+function kanshouIsAlly_(row, gameId, loc) {
+  if (!row) return false;
+  if (String(row[COL.PC.FACTION]) !== "從者") return false;
+  if (gameId && String(row[COL.PC.GAME_ID] || "") !== String(gameId)) return false;
+  if (loc !== undefined && String(row[COL.PC.LOC] || "").trim() !== String(loc || "").trim()) return false;
+  return !String(row[COL.PC.ID]).startsWith("DEAD_");
+}
+
 function getKanshouPcSheet_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName("鑑賞眾生");
@@ -293,7 +305,11 @@ function kanshouSyncRelTier_(pcData, idx) {
 const KANSHOU_CUSTOM_TAG_BOND_ = 80;
 
 // ══ 💗 告白＝關係階的質變事件（2026-07 玩家「好感太絲滑、沒有一個交往的確定過程、人人都可以自然變成戀人」）═══════════════════════════════════════════════════════════════舊做法：好感爬到 80 就自動長出「戀人」這個標籤，沒有任何一刻是「你們決定在一起」。
-const KANSHOU_CONFESS_BOND_ = 60;      // 開得了口的最低好感(＝親近的人)；未達不給按鈕、後端也直接擋
+// 🫶 好感門檻一律【從 KANSHOU_REL_TIER_ 推】，不要再寫死數字：階級表改了門檻要跟著改，
+//    兩邊各寫一份就是同一個數存兩處（2026-09 稽核抓到三處寫死的 80/60）。
+const KANSHOU_LOVER_BOND_ = KANSHOU_REL_TIER_[0].min;   // 80＝戀人
+const KANSHOU_CLOSE_BOND_ = KANSHOU_REL_TIER_[1].min;   // 60＝親近的人
+const KANSHOU_CONFESS_BOND_ = KANSHOU_CLOSE_BOND_;      // 開得了口的最低好感(＝親近的人)；未達不給按鈕、後端也直接擋
 
 
 
@@ -713,7 +729,7 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   var myName = String(me[COL.PC.NAME] || "");
   var current = [];
   for (var i = 1; i < data.length; i++) {
-    if (String(data[i][COL.PC.GAME_ID] || "") === gid && String(data[i][COL.PC.FACTION]) === "從者" && !String(data[i][COL.PC.ID]).startsWith("DEAD_")) {
+    if (kanshouIsAlly_(data[i], gid)) {
       var loc = String(data[i][COL.PC.LOC] || "");
       // 面板需要顯示目前所在地點(玩家要精準知道去哪找她)、關係標籤＋好感(供玩家決定要不要改標籤)；isHere(是否跟玩家同地點)；locLabel：房間類地點的動態顯示名稱，見kanshouRoomDisplayName_。
       var _pm = kanshouGetPromise_(data[i][COL.PC.MEMORY]);
@@ -919,8 +935,7 @@ function actionKanshouSetSex(userData, pcId, sheets) {
   if (newSex === "男") {
     var gid = String(data[i][COL.PC.GAME_ID] || "");
     var hasMaleCompanion = data.some(function (r, ri) {
-      return ri !== i && String(r[COL.PC.GAME_ID] || "") === gid && String(r[COL.PC.FACTION]) === "從者" &&
-        String(r[COL.PC.SEX]) === "男" && !String(r[COL.PC.ID]).startsWith("DEAD_");
+      return ri !== i && kanshouIsAlly_(r, gid) && String(r[COL.PC.SEX]) === "男";
     });
     if (hasMaleCompanion) {
       return JSON.stringify({ success: false, message: "這個世界裡已經有男性同伴了。目前只支援男女與女女的配對，這個存檔沒辦法改成男性。" });
@@ -1245,8 +1260,8 @@ const KANSHOU_ASLEEP_HOUR_END_ = 8;
 const KANSHOU_NIGHT_RAID_HOUR_END_ = 5;
 // 🌙 深夜訪客「別有用心」的分寸判準(2026-07 泡泡拆除後，唯一呼叫點只剩深夜敲門那條)：好感決定這次能走到哪一階，不寫死台詞，具體怎麼演、講什麼話全交AI依角色性格發揮。
 function kanshouAsleepOutcomeStr_(bond) {
-  if (bond >= 80) return '兩人的關係已經很深，對方可以徹底卸下防備、主動迎合，這次能順著情境發展下去，不受親密尺度五階節奏限制';
-  if (bond >= 60) return '兩人已有一定好感，對方可能半推半就地放任靠近、甚至有點主動回應，但親密尺度五階此刻卡在「親吻擁抱」這一階，不宜真的推展到更進一步';
+  if (bond >= KANSHOU_LOVER_BOND_) return '兩人的關係已經很深，對方可以徹底卸下防備、主動迎合，這次能順著情境發展下去，不受親密尺度五階節奏限制';
+  if (bond >= KANSHOU_CLOSE_BOND_) return '兩人已有一定好感，對方可能半推半就地放任靠近、甚至有點主動回應，但親密尺度五階此刻卡在「親吻擁抱」這一階，不宜真的推展到更進一步';
   return '兩人好感還沒到能這樣的地步，對方會又驚又惱，甚至直接把人趕走，不會就此讓事情繼續下去';
 }
 // 修過的bug：kanshouRollDailyLocation_原本深夜/清晨的homeBias會直接回傳玩家自己家的房間，讓不在場的人溜進玩家家裡——改成每位英靈自己的住處(資料驅動，同KANSHOU_LOCATION_TAGS_寫法)，…（全文見 CODE_NOTES.md）
@@ -1314,7 +1329,7 @@ function kanshouHeroIdByName_(heroName) {
 function kanshouResidenceUnlocked_(pcData, residenceName, gameId) {
   if (!residenceName) return false;
   return pcData.some(function (r) {
-    if (String(r[COL.PC.FACTION]) !== "從者" || String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
+    if (!kanshouIsAlly_(r)) return false;
     if (gameId && String(r[COL.PC.GAME_ID] || "") !== gameId) return false;
     const hid = kanshouHeroIdByName_(String(r[COL.PC.NAME]));
     const home = kanshouGetHeroHome_(hid, r[COL.PC.MEMORY]);
@@ -1474,7 +1489,7 @@ function kanshouClockInfo_(pcRow) {
 
 // 結束一天(準備就寢)時的機率事件：命中就【直接讓她進門】、本回合不推進日期。
 const KANSHOU_KNOCK_CHANCE_ = 0.2;  // 每次「結束一天」的敲門機率
-const KANSHOU_KNOCK_MIN_BOND_ = 60;
+const KANSHOU_KNOCK_MIN_BOND_ = KANSHOU_CLOSE_BOND_;
 // 🌙 深夜訪客好感達門檻時，這次來訪帶「別有用心」夜襲鏡像版的機率——不是每次都這樣才有驚喜感。
 const KANSHOU_KNOCK_RAID_CHANCE_ = 0.5;
 
@@ -2120,7 +2135,7 @@ function kanshouSummonClash_(data, gid, hero, heroName) {
   var srcId = String(hero[COL.HERO.ID] || ""), real = String(hero[COL.HERO.NAME] || "").trim();
   for (var i = 1; i < data.length; i++) {
     var r = data[i];
-    if (String(r[COL.PC.GAME_ID] || "") !== gid || String(r[COL.PC.FACTION]) !== "從者" || String(r[COL.PC.ID]).startsWith("DEAD_")) continue;
+    if (String(r[COL.PC.GAME_ID] || "") !== gid || !kanshouIsAlly_(r)) continue;
     var rowName = String(r[COL.PC.NAME] || "");
     var rowSrc = KANSHOU_SRC_TAG_.get(String(r[COL.PC.MEMORY] || ""));
     if (rowSrc && rowSrc === srcId) return { name: rowName, same: true };
@@ -2282,16 +2297,14 @@ function actionPlay_(userData, pcId, sheets) {
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
 
   // 📸 回合【開始時】就跟玩家同地的人（名字快照）。
-  const kanshouWithMeAtStart_ = pcData.filter((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者"
-    && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_")
-    && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()).map(r => String(r[COL.PC.NAME]).trim());
+  const kanshouWithMeAtStart_ = pcData.filter((r, i) => i !== pcIndex && kanshouIsAlly_(r, myGameId, curL)).map(r => String(r[COL.PC.NAME]).trim());
 
   // 🚪 深夜訪客擲骰：必須排在【最前面】——它會取消本回合的 endDay，而 _reHourAfter(情境時段)與kanshouTimeJumped_(在場來由)都讀 endDay，晚一步算就會拿到「已經睡到清晨6點」的錯值。
   let kanshouNightGuest_ = "";
   let _knockGuestReq_ = "";
   if (userData.endDay === true && !userData.skipKnockCheck
     && KANSHOU_KNOCK_DAY_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]) !== curDay) {
-    const knockPool = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.LOC] || "").trim() !== curL && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && (kanshouIsCohabit_(r) || (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_KNOCK_MIN_BOND_));
+    const knockPool = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.LOC] || "").trim() !== curL && kanshouIsAlly_(r, myGameId) && (kanshouIsCohabit_(r) || (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_KNOCK_MIN_BOND_));
     if (knockPool.length && Math.random() < KANSHOU_KNOCK_CHANCE_) {
       kanshouNightGuest_ = String(knockPool[Math.floor(Math.random() * knockPool.length)][COL.PC.NAME]);
       pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_KNOCK_DAY_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], curDay);
@@ -2318,7 +2331,7 @@ function actionPlay_(userData, pcId, sheets) {
   // 🔍 她在哪(撲空提示用)：不限同地找她的列、回報 LOC——玩家本就能從同伴面板看到位置，非洩密。
   const _whereIsHer = (nm) => {
     const _n = String(nm || "").trim();
-    const _r = _n ? pcData.find((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_n)) : null;
+    const _r = _n ? pcData.find((r, i) => i !== pcIndex && kanshouIsAlly_(r, myGameId) && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_n)) : null;
     return _r ? String(_r[COL.PC.LOC] || "").trim() : "";
   };
   let kanshouPromiseStr = "";
@@ -2373,7 +2386,7 @@ function actionPlay_(userData, pcId, sheets) {
     // 提議對象＝此刻在場的【全部】同伴。
     const _pvIdxs = [];
     pcData.forEach((r, i) => {
-      if (i === pcIndex || String(r[COL.PC.FACTION]) !== "從者" || !sameGame(r) || String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (i === pcIndex || !kanshouIsAlly_(r, myGameId)) return;
       if (String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim()) return;
       _pvIdxs.push(i);
     });
@@ -2505,7 +2518,7 @@ function actionPlay_(userData, pcId, sheets) {
   let kanshouHeldName_ = KANSHOU_HANDHOLD_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]);
   // 🤝 不同地自動放手(不變量·玩家實測「她跑掉了卻還牽著、重逢自動續牽、移動硬拖人」)：牽手是「此刻牽著」的狀態——她因任何原因(作息/離場/舊版bug殘留)已不在你身邊，就自然鬆開。
   if (kanshouHeldName_) {
-    const _heldHere = pcData.some((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(kanshouHeldName_) && String(r[COL.PC.LOC] || "").trim() === String(pcData[pcIndex][COL.PC.LOC] || "").trim());
+    const _heldHere = pcData.some((r, i) => i !== pcIndex && kanshouIsAlly_(r, myGameId) && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(kanshouHeldName_) && String(r[COL.PC.LOC] || "").trim() === String(pcData[pcIndex][COL.PC.LOC] || "").trim());
     if (!_heldHere) {
       pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_HANDHOLD_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], '');
       kanshouHeldName_ = '';
@@ -2514,7 +2527,7 @@ function actionPlay_(userData, pcId, sheets) {
   }
   const kanshouArrivingNames_ = !moveTarget ? []
     : userData.moveWithCompanion
-      ? pcData.filter(r => r !== pc && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()).map(r => String(r[COL.PC.NAME]))
+      ? pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()).map(r => String(r[COL.PC.NAME]))
       : (kanshouHeldName_ ? [kanshouHeldName_] : []);
   function kanshouIsAwakeWithMe_(idx) {
     const row = pcData[idx];
@@ -2538,13 +2551,18 @@ function actionPlay_(userData, pcId, sheets) {
     const _ivActiveId = getKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
     const _ivHero = _ivActiveId ? SEED_SERVANTS.find(h => h.id === _ivActiveId) : null;
     const _ivMatch = _ivHero && kanshouNameCandidates_(_ivHero.realName).includes(_ivName);
-    const _ivAlready = _ivMatch && pcData.some((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_ivHero.realName));
+    const _ivAlready = _ivMatch && pcData.some((r, i) => i !== pcIndex && kanshouIsAlly_(r, myGameId) && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_ivHero.realName));
     const _ivMaleMale = _ivMatch && String(pc[COL.PC.SEX]) === "男" && String(_ivHero.gender) === "男";
     // 🚫 2026-09：常民「升格成正式同伴」整條移除——那顆泡泡砍了之後這裡沒有任何入口。
     //    AI 發明的人安靜地留在【常民】名單上，可出現可開口、不追蹤好感，這就是他們的位置。
     if (!_ivMatch || _ivAlready || _ivMaleMale) {
       kanshouInviteStr = kanshouMissStr_('invite', _ivName);
       finalUserMsg = `【玩家意圖】：想跟『${_ivName}』深交，卻發現緣分沒有接上。`;
+      // 🐛→✅ 2026-09 稽核：結識是【唯一】沒有回饋條的動作——相約/牽手/同行/同居/告白五種
+      //    成敗都會下傳 kanshouProposalResult_，只有這裡沒有，玩家得從敘述裡自己猜。
+      //    前端的 icon 對照表早就備好 '🤝' 這一格在等它了。
+      kanshouProposalResult_ = { ok: false, type: 'invite', name: _ivName,
+        already: !!_ivAlready, gone: !_ivMatch };
     } else {
       const _ivCodexRow = getHeroCodexCached().slice(1).find(r => String(r[COL.HERO.ID]) === String(_ivHero.id));
       if (_ivCodexRow) {
@@ -2556,6 +2574,7 @@ function actionPlay_(userData, pcId, sheets) {
         kanshouInviteStr = `\n★【正式結識】：你與『${kanshouCasualOf_(_ivHero)}』交換了聯絡方式，這段萍水相逢的緣分正式接上了——從今以後對方也是這座城裡你認識的人，會有自己的生活與去處。演出這一刻依對方性格的反應(大方/靦腆/意外皆可)，關係才剛起步、保持剛認識的分寸。`;
         finalUserMsg = `【玩家意圖】：鼓起勇氣向『${kanshouCasualOf_(_ivHero)}』提出想繼續深交、交換聯絡方式。`;
         _settledVerdict = `『${kanshouCasualOf_(_ivHero)}』同意交換聯絡方式，這段緣分正式接上了`;
+        kanshouProposalResult_ = { ok: true, type: 'invite', name: kanshouCasualOf_(_ivHero) };
       }
     }
   }
@@ -2578,7 +2597,7 @@ function actionPlay_(userData, pcId, sheets) {
   let kanshouKnockRaidStr = "";
   if (_knockGuestReq_) {
     const guestName = String(_knockGuestReq_).trim();
-    const guestIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(guestName) && String(r[COL.PC.LOC] || "").trim() !== curL && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+    const guestIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(guestName) && String(r[COL.PC.LOC] || "").trim() !== curL && kanshouIsAlly_(r, myGameId));
     if (guestIdx !== -1) {
       pcData[guestIdx][COL.PC.LOC] = curL;
       pcData[guestIdx][COL.PC.MEMORY] = KANSHOU_AWAKE_HERE_TAG_.set(pcData[guestIdx][COL.PC.MEMORY], curL);
@@ -2603,7 +2622,7 @@ function actionPlay_(userData, pcId, sheets) {
   let kanshouGuestSentHome_ = "";
   if (userData.dismissGuest) {
     const _dgName = KANSHOU_NIGHT_GUEST_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]);
-    const _dgIdx = _dgName ? pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_") && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_dgName)) : -1;
+    const _dgIdx = _dgName ? pcData.findIndex((r, i) => i !== pcIndex && kanshouIsAlly_(r, myGameId) && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_dgName)) : -1;
     if (_dgIdx !== -1) {
       pcData[_dgIdx][COL.PC.LOC] = kanshouGetHeroHome_(kanshouHeroIdByName_(String(pcData[_dgIdx][COL.PC.NAME])), pcData[_dgIdx][COL.PC.MEMORY]);
       pcData[_dgIdx][COL.PC.MEMORY] = KANSHOU_AWAKE_HERE_TAG_.set(pcData[_dgIdx][COL.PC.MEMORY], '');
@@ -2628,8 +2647,7 @@ function actionPlay_(userData, pcId, sheets) {
   // 🌙 兩段式就寢·第一段：按下「睡覺」時若身邊有羈絆已深(≥80)的人、且還沒進過深夜段落 →【不結束這一天】，改成把時間推到就寢時刻、進入「夜未眠」。
   let kanshouNightSceneNames_ = [];
   if (userData.endDay === true && !kanshouNightSceneOn_) {
-    kanshouNightSceneNames_ = pcData.filter((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者"
-      && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_")
+    kanshouNightSceneNames_ = pcData.filter((r, i) => i !== pcIndex && kanshouIsAlly_(r, myGameId)
       && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_KNOCK_MIN_BOND_
       && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()).map(r => String(r[COL.PC.NAME]).trim());
     if (kanshouNightSceneNames_.length) {
@@ -2654,8 +2672,8 @@ function actionPlay_(userData, pcId, sheets) {
     kanshouClockMoved_ = true;
     pcData[pcIndex][COL.PC.DAY] = curDay;
     pcData[pcIndex][COL.PC.HOUR] = curHour;
-    const allEstablished = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
-    intimateNightNames = allEstablished.filter(r => (parseInt(r[COL.PC.BOND]) || 0) >= 80 && String(r[COL.PC.LOC] || "").trim() === curL).map(r => r[COL.PC.NAME]);
+    const allEstablished = pcData.filter((r, idx) => idx !== pcIndex && kanshouIsAlly_(r, myGameId));
+    intimateNightNames = allEstablished.filter(r => (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_LOVER_BOND_ && String(r[COL.PC.LOC] || "").trim() === curL).map(r => r[COL.PC.NAME]);
     if (intimateNightNames.length) {
       pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], intimateNightNames.join('、'));
       // 💞 第一次同床：記在她那一列。
@@ -2722,7 +2740,7 @@ function actionPlay_(userData, pcId, sheets) {
       pcData[pcIndex][COL.PC.HOUR] = curHour;
       pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
       // ⏩ 這是玩家【主動按鈕跳時段/節慶】的刻意時間快轉——跟「每回合被動+0.5h流動」(§122，那條根本不重骰任何人)不同：玩家選擇快轉數小時，不在身邊的人依新時刻重骰去向，讓世界動起來。
-      const allEstablishedForTime = pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+      const allEstablishedForTime = pcData.filter((r, idx) => idx !== pcIndex && kanshouIsAlly_(r, myGameId));
       allEstablishedForTime.forEach(r => {
         const idx = pcData.indexOf(r);
         if (String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) return;
@@ -2755,17 +2773,17 @@ function actionPlay_(userData, pcId, sheets) {
   const curDateObj_ = kanshouAbsDayToDate_(_narrDay_);
 
   // 🎨 2026-07「為何偶遇沒有女性」玩家反映：此局已經正式召喚過的英靈(不論是否仍同行)不該又以「陌生人」身分重複出現(如SABER已同行時，路上不該再巧遇一位不具名的SABER)。
-  const kanshouEstablishedNames_ = new Set(pcData.filter((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r)).map(r => String(r[COL.PC.NAME]).trim()));
+  const kanshouEstablishedNames_ = new Set(pcData.filter((r, idx) => idx !== pcIndex && kanshouIsAlly_(r, myGameId)).map(r => String(r[COL.PC.NAME]).trim()));
   const kanshouExcludeIds_ = SEED_SERVANTS.filter(h => kanshouNameCandidates_(h.realName).some(c => kanshouEstablishedNames_.has(c))).map(h => h.id);
 
   // 移動時若目的地已經有established的人在，就不再另外擲一次陌生人巧遇(優先呈現熟人在場)。
-  const kanshouSomeoneAlreadyHere_ = pcData.some((r, idx) => idx !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(moveName || curL || "").trim());
+  const kanshouSomeoneAlreadyHere_ = pcData.some((r, idx) => idx !== pcIndex && kanshouIsAlly_(r, myGameId) && String(r[COL.PC.LOC] || "").trim() === String(moveName || curL || "").trim());
 
   // 合法地點時才寫入LOC＋抽選巧遇＋記錄邂逅名單。
   const kanshouPreMoveCompanions_ = !moveTarget ? []
     : userData.moveWithCompanion
-      ? pcData.filter(r => r !== pc && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim())
-      : (kanshouHeldName_ ? pcData.filter(r => r !== pc && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(kanshouHeldName_) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) : []);
+      ? pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim())
+      : (kanshouHeldName_ ? pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId) && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(kanshouHeldName_) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) : []);
   let kanshouEncounterHero = null, kanshouEncounterMetBefore = false, kanshouEncounterLocName = "";
   // 🗑️ 2026-09「氛圍靈感」種子池(KANSHOU_EVENT_SEEDS_)已移除：那是三類各七句的預寫小事件，
   //    20% 機率抽一句丟給 AI 當靈感。抽中什麼跟此刻的人、地、時、你們的歷史全都無關——
@@ -2827,7 +2845,7 @@ function actionPlay_(userData, pcId, sheets) {
   if (kanshouBandCrossed_) {
     const _lvNames = [];
     pcData.forEach((r, i) => {
-      if (i === pcIndex || String(r[COL.PC.FACTION]) !== "從者" || !sameGame(r) || String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+      if (i === pcIndex || !kanshouIsAlly_(r, myGameId)) return;
       if (String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim()) return;
       const _nm = String(r[COL.PC.NAME]);
       if (kanshouHeldName_ && kanshouNameCandidates_(_nm).includes(kanshouHeldName_)) return; // 牽手中＝她選擇留下
@@ -2855,7 +2873,7 @@ function actionPlay_(userData, pcId, sheets) {
   // 📅 豁免掉的約(人就在你身邊/她單方面約的)：先記名字，待 partyMembers 算出後依在場過濾成句。
   const kanshouApptWaivedArr_ = [];
   pcData.forEach((r, i) => {
-    if (i === pcIndex || String(r[COL.PC.FACTION]) !== "從者" || !sameGame(r) || String(r[COL.PC.ID]).startsWith("DEAD_")) return;
+    if (i === pcIndex || !kanshouIsAlly_(r, myGameId)) return;
     const _pr = kanshouGetPromise_(r[COL.PC.MEMORY]);
     if (!_pr) return;
     const _her = String(r[COL.PC.NAME]);
@@ -2941,8 +2959,7 @@ function actionPlay_(userData, pcId, sheets) {
     // 只在「玩家自己推進的普通回合」擲：時間跳躍/結束一天/深夜段落各有自己的節奏，硬插會打架。
     if (kanshouTimeJumped_ || kanshouNightSceneOn_ || kanshouNightGuest_ || kanshouEncounterHero) return;
     if (KANSHOU_INITIATIVE_DAY_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]) === curDay) return;
-    const _all = pcData.filter((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者"
-      && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+    const _all = pcData.filter((r, i) => i !== pcIndex && kanshouIsAlly_(r, myGameId));
     if (!_all.length) return;
     // 📉 節流：機率除以「手上未赴的約數」(玩家「有約的話機率再下降一點」)。0個=全速、1個=半速…（全文見 CODE_NOTES.md）
     const _pending = _all.filter(r => { const p = kanshouGetPromise_(r[COL.PC.MEMORY]); return p && p.day >= curDay; }).length;
@@ -3009,7 +3026,7 @@ function actionPlay_(userData, pcId, sheets) {
   })();
 
   // 「開放世界·背景人煙」設計：路人可自由描寫增添生活感，但不具名、不追蹤好感、不能被指名互動；真正能被指名、好感會被記錄的對象只有【在場人物】，判準是「LOC是否跟玩家目前位置一致」，不看IS_PARTY。
-  const partyRows = pcData.filter(r => r !== pc && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim())
+  const partyRows = pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim())
     .sort((a, b) => (parseInt(b[COL.PC.BOND]) || 0) - (parseInt(a[COL.PC.BOND]) || 0)).slice(0, KANSHOU_PARTY_DETAIL_CAP_);
   const partyMembers = partyRows.map(r => r[COL.PC.NAME]);
   // 🎊 節慶三態(2026-07 玩家「想要一個類似任務重點…沒去做的話 AI 可以很委婉地提醒，做過就完成不要再出現」)。
@@ -3035,7 +3052,7 @@ function actionPlay_(userData, pcId, sheets) {
 
   // 🌍 世界概況(輕量版·2026-07 玩家「NPC不知道彼此存在」)：只給名字＋大分區，不給精確地點/在幹嘛，純粹讓AI知道「這局還認識誰、大概在哪」以便自然閒聊提及——不是在場資料，不影響【在場驗證鐵律】(指名互動/追蹤好感仍只認同地點的partyRows)。
   const kanshouWorldRosterStr = (() => {
-    const _elsewhere = pcData.filter(r => r !== pc && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim())
+    const _elsewhere = pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId) && String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim())
       .sort((a, b) => (parseInt(b[COL.PC.BOND]) || 0) - (parseInt(a[COL.PC.BOND]) || 0)).slice(0, KANSHOU_WORLD_ROSTER_CAP_);
     if (!_elsewhere.length) return "";
     // 🎯 觸發收緊(2026-07 玩家「條件式區塊的觸發條件收緊」)：這段【唯一用途】是讓 AI 能正確回答「認不認識某某」，但它原本每回合都送(只要有人不在場就成立＝幾乎永遠)，等於絕大多數回合都在燒 200+字 講一件玩家沒問的事。
@@ -3246,7 +3263,7 @@ function actionPlay_(userData, pcId, sheets) {
     ? partyMembers.filter(n => kanshouNameCandidates_(String(n)).some(c => c && userMsg.indexOf(c) >= 0))
     : [];
   partyMembers.forEach(pName => {
-    const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && !String(row[COL.PC.ID]).startsWith("DEAD_") && sameGame(row));
+    const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && kanshouIsAlly_(row, myGameId));
     if (r) {
       // 🛡️ REL_TAG 是 BOND 的衍生值，組提示詞前對齊一次——寫入端各自負責同步，這裡是唯一的讀取端。
       const _pSyncIdx = pcData.indexOf(r);
@@ -3399,8 +3416,7 @@ function actionPlay_(userData, pcId, sheets) {
   })() : "";
 
   const kanshouNightGuestStr = kanshouNightGuest_ ? (() => {
-    const _others = pcData.filter((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && sameGame(r)
-      && !String(r[COL.PC.ID]).startsWith("DEAD_") && String(r[COL.PC.LOC] || "").trim() === curL
+    const _others = pcData.filter((r, i) => i !== pcIndex && kanshouIsAlly_(r, myGameId, curL)
       && String(r[COL.PC.NAME]).trim() !== kanshouNightGuest_.trim()).map(r => String(r[COL.PC.NAME]));
     return `\n★【夜訪·客觀事實】：你原本正準備歇下，『${kanshouNightGuest_}』就在這時候找上門、人已經進來了。`
       + (_others.length ? `此刻這裡還有『${_others.join('、')}』——她們原本也正要各自歇下，這一下全被打斷了。` : `此刻這裡只有你們兩人。`)
@@ -3591,7 +3607,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
         exitList.forEach(nm => {
           const exitName = String(nm || "").trim();
           if (!exitName) return;
-          const eIdx = pcData.findIndex((r, i) => i !== pcIndex && String(r[COL.PC.FACTION]) === "從者" && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r) && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(exitName) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim());
+          const eIdx = pcData.findIndex((r, i) => i !== pcIndex && kanshouIsAlly_(r, myGameId) && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(exitName) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim());
           if (eIdx === -1) return;
           let dest = kanshouRollDailyLocation_(pcData[eIdx][COL.PC.NAME], curHour, kanshouIsCohabit_(pcData[eIdx]), pcData[eIdx][COL.PC.MEMORY], _myGid_);
           if (String(dest || "").trim() === String(curL || "").trim()) {
@@ -3621,7 +3637,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
         if (!tNpc || tNpc === pcName || tNpc === "自己") return;
 
         // 羈絆已併入該 NPC 自己列（BOND/REL_TAG）——找不到該人此局的列就無可寫入。
-        const nIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(tNpc) && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+        const nIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(tNpc) && kanshouIsAlly_(r, myGameId));
         if (nIdx === -1) return;
         if (String(pcData[nIdx][COL.PC.LOC] || "").trim() !== String(curL || "").trim()) return;
         dirtyPcRows.add(nIdx);
@@ -3708,7 +3724,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
           const tName = String(nfb.name || "").trim();
           if (!tName || tName === pcName || tName === "自己") return;
           // 同款括號全名比對問題(見上方 kanshouNameCandidates_)，這裡也會影響每回合寫入失敗。
-          const targetIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(tName) && !String(r[COL.PC.ID]).startsWith("DEAD_") && sameGame(r));
+          const targetIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(tName) && kanshouIsAlly_(r, myGameId));
           if (targetIdx === -1) return;
           if (String(pcData[targetIdx][COL.PC.LOC] || "").trim() !== String(curL || "").trim()) return;
 
