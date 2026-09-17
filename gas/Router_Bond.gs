@@ -260,7 +260,7 @@ function actionBond(userData, pcId, sheets) {
           `【系統·羈絆里程碑·已裁定】御主『${masterName}』與從者「${svName}」相處之際，兩人的羈絆悄然邁過一道分水嶺（時值${band}）。\n` +
           `★這不是尋常的${act.label}，而是關係質變的一瞬，量級是：${milestoneScale}——依「${svName}」的真名與性格，寫出屬於這位從者獨有的一個具體舉動或一句話（例如：卸下慣有的距離感、罕見地主動靠近、遞出從未給過的東西、換了個從未用過的稱呼——擇其中最貼合這位從者性格與上述量級的一種，不要套用泛用模板，也不要多選並列）。\n` +
           `★【精煉100~160字】聚焦這一個瞬間，勿流水帳交代前後經過。\n` +
-          `★【show, don't tell】絕不可直白說出「羈絆加深了」「更信任了」等抽象詞，也絕不可直述其「願望／個性」設定字面，只憑神態與言行流露；停在意猶未盡的留白。\n` +
+          `★【show, don't tell】不可用抽象詞直接宣告關係起了什麼變化，也不可直述其願望／個性的設定字面，只憑神態與言行流露；停在意猶未盡的留白。\n` +
           `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
       }
       const bondTier = bondNow >= 90 ? "羈絆深厚，可以是夜深促膝的交心，或難得流露的親近隨性"
@@ -271,7 +271,7 @@ function actionBond(userData, pcId, sheets) {
         `【系統·羈絆已結算】御主『${masterName}』與從者「${svName}」${act.label}、共度約莫一個小時的光景，兩人的羈絆又深了一分（時值${band}）。\n` +
         `★【時間尺度】這是一段約一個小時的相處，寫出「有一段時光緩緩流過」的從容，勿寫成三言兩語的瞬間、也勿橫跨大半天。\n` +
         `★依當前羈絆定調濃淡：${bondTier}。寫一段【精煉 90~150 字、輕快不冗長】${svName} 與御主${act.frame}的小品。務必貼合上方「演出依據」中的性格與口吻，演出其獨有神態，點到為止留餘味。\n` +
-        `★【show, don't tell】用言行、神態、停頓去流露情感與性格，絕不可直白說出其「願望／個性」等設定詞；停在含蓄的留白。\n` +
+        `★【show, don't tell】用言行、神態、停頓去流露情感與性格，不可直述其願望／個性的設定字面；停在含蓄的留白。\n` +
         `★【鐵律】保持溫暖日常或戰友情誼的分寸，不踰矩。`;
     }
   );
@@ -540,13 +540,13 @@ function actionAllyBond(userData, pcId, sheets) {
   // 羈絆分級·嚴格控制親疏（盟友＝暫時利益結合，低羈絆務必冷淡，唯 90+ 才解鎖親近）
   const tier = after >= 90 ? "【羈絆深厚】可流露真切的信任與溫柔（守住性格內核、不踰矩，止於曖昧 fade，真親密不在此展開）"
     : after >= 70 ? "【羈絆漸增】有限度的信任、偶爾流露一絲真心，但仍保留戒備與分寸，不主動親暱"
-    : after >= 45 ? "【羈絆尚淺】純屬利益結盟：維持戒備、客套與算計，【絕不可】親近或交心，至多一閃而過的微妙交集"
+    : after >= 45 ? "【羈絆尚淺】純屬利益結盟：維持戒備、客套與算計，交情止於一閃而過的微妙交集"
     : "【幾無私交】冷淡、警惕、公事公辦，話語間滿是試探與保留";
   // 盟友從者→servantCard_(含狂化禁言等口吻，補〔盟友從者〕標籤跟其餘呼叫端一致)；
   const allyCard = allyIsMaster ? enemyMasterCard_(pcData[aIdx]) : ('〔盟友從者〕' + servantCard_(pcData[aIdx]));
   const allyTrueMaster = allyIsMaster ? "" : getServantMaster_(pcData[aIdx][COL.PC.MEMORY]);
   const clarifyFact = allyTrueMaster
-    ? `★【身分釐清】「${allyName}」真正締結契約的御主是「${allyTrueMaster}」，不是你——此刻只是暫時結盟的立場，${pron_(pcData[aIdx][COL.PC.SEX])}對你保持的是結盟該有的分寸、戲謔或算計，【嚴禁】寫成${pron_(pcData[aIdx][COL.PC.SEX])}真的向你效忠、聽命於你的令咒，或提及「契約仍在」之類只對其本主才成立的話語。\n`
+    ? `★【身分釐清】「${allyName}」真正締結契約的御主是「${allyTrueMaster}」，不是你——此刻只是暫時結盟的立場，${pron_(pcData[aIdx][COL.PC.SEX])}對你保持的是結盟該有的分寸、戲謔或算計；效忠、聽命於令咒、以及只對本主才成立的那些話語，都留給「${allyTrueMaster}」。\n`
     : "";
   const aiPrompt = masterCard_(pcData[pIdx]) + allyCard + clarifyFact +
     `【系統·盟誼】御主『${masterName}』與盟友「${allyName}」${allyIsMaster ? '共處' : '交流'}，當前羈絆 ${after}/100。\n` +

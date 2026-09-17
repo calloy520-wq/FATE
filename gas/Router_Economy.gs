@@ -246,7 +246,7 @@ function actionSpiritRepair(userData, pcId, sheets) {
       return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
         `【系統·靈基修復已結算】御主引動共用魔力池為「${svName}」療傷，傷勢明顯好轉（現況：${hpStateWord_(pcData[svIdx][COL.PC.HP], svMaxHp) || '已無大礙'}）。羈絆微升。\n` +
         `★【60~100 字】描寫這場療傷小品——魔力沿契約流向從者、傷勢緩緩平復的觸感與體溫，依「${svName}」性格與當前羈絆自然反應演出（不預設溫情，冷傲疏離者可淡然受之）。\n` +
-        `★【show, don't tell】用言行、神態去流露反應，不可直白說出其願望／個性等設定詞。`;
+        `★【show, don't tell】用言行、神態去流露反應，不可直述其願望／個性的設定字面。`;
     }
   );
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：HP回復/MP扣減/raiseBond_/spendAp_/夜襲 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀

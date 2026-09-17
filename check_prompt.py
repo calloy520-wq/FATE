@@ -3,6 +3,12 @@
 本 session 所有 bug 都是這三種的變體，寫成機器檢查免得再靠人眼：
   ① 代名詞「她」必須有指涉對象（自身插值、或插值的變數本身帶名字）
   ② 不可出現寫死的台詞（AI 會照抄——反例列舉/概念標籤/輸入判準除外）
+  ③ 提示詞一律【正面指示】：玩家 2026-09「LLM 會有重點還有語意問題，他有時候只會記憶重點、
+     忘記前面的禁——所以我們專注在要他做什麼，盡可能不要做禁止什麼」。兩件事一起擋：
+     (a) 硬禁令標記（【禁…】【嚴禁】【不可】絕不可）在提示詞裡一律 0，真的只能用否定寫的
+         登記進 HARD_BAN_ALLOW 並寫明理由；
+     (b) 否定句後面不可以再附上被禁的寫法當例句——那等於把那個寫法示範給模型看
+         （玩家原話「說越多它會越想歪」）。
 用法：python3 check_prompt.py   ← 有問題回傳非 0
 """
 import re, sys
@@ -79,6 +85,39 @@ for ln, b in blocks:
         if c == 'bad': quote.append((ln, q, b[:70]))
         elif c == 'pending': pend.append((ln, f'台詞「{q}」', why))
 
+
+# ③ 正面指示不變式（見檔頭）。掃全 .gs，只看提示詞字串行。
+import os as _os
+HARD_BAN = re.compile(r'【禁[^】]*】|【嚴禁】|【不可】|絕不可|嚴禁')
+# 真的只能用否定寫的登記在這裡，鍵＝「檔名:出現的字樣」，值＝理由。目前一條都不需要。
+HARD_BAN_ALLOW = {}
+# 否定句 ＋ 同一子句裡的引號內容／(例…)：那個內容就是示範。
+NEG_EXAMPLE = re.compile(r'(?:不可|不要|不得|別|勿|禁)[^\n。；]{0,40}?(?:「([^」\n]{2,24})」|[（(](?:例|如)[:：]?([^）)\n]{2,30})[）)])')
+
+def scan_positive():
+    hits = []
+    for f in sorted(_os.listdir('gas')):
+        if not f.endswith('.gs'):
+            continue
+        for ln, line in enumerate(open(_os.path.join('gas', f), encoding='utf-8').read().split('\n'), 1):
+            st = line.strip()
+            if st.startswith('//') or st.startswith('*'):
+                continue
+            if '★' not in line and '【' not in line:
+                continue
+            for m in HARD_BAN.finditer(line):
+                w = m.group(0)
+                if HARD_BAN_ALLOW.get(f + ':' + w):
+                    continue
+                hits.append((f, ln, '硬禁令「%s」——改成「要做什麼」的正面指示' % w))
+            for m in NEG_EXAMPLE.finditer(line):
+                ex = m.group(1) or m.group(2)
+                if '${' in ex:      # 插值不是例句，是這一局真的要代進去的值
+                    continue
+                hits.append((f, ln, '否定句後面附了例句「%s」——那是把被禁的寫法示範給模型看' % ex))
+    return hits
+
+
 print(f"🔍 提示詞不變式掃描：{len(blocks)} 個 ★ 區塊")
 bad = 0
 if pron:
@@ -94,4 +133,20 @@ else:
 if pend:
     print(f"  ⚠️ 已知待處理（不擋 CI）：{len(pend)} 處")
     for ln, what, why in pend: print(f"     L{ln}: {what} — {why}")
+
+_pos = scan_positive()
+# 🧪 自我退化測試：注入一行硬禁令＋一行「否定＋例句」，這兩條都必須被抓到。
+_probe_src = '  sys += `★【禁】寫成習慣動作(「背脊永遠打得筆直」)。`;'
+_probe = [x for x in [
+    ('inj', 1, '硬') if HARD_BAN.search(_probe_src) else None,
+    ('inj', 1, '例') if NEG_EXAMPLE.search(_probe_src) else None,
+] if x]
+if len(_probe) < 2:
+    print('  ❌ 正面指示掃描自身失效（注入的硬禁令／例句抓不到）")'.replace('")', ''))
+    sys.exit(1)
+if _pos:
+    bad += len(_pos); print(f"  ❌ 提示詞裡還有否定式寫法：{len(_pos)} 處")
+    for f, ln, why in _pos: print(f"     {f}:{ln} {why}")
+else:
+    print(f"  ✅ 提示詞全是正面指示（硬禁令 0、否定句零例句・含自我退化測試）")
 sys.exit(1 if bad else 0)

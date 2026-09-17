@@ -1288,8 +1288,8 @@ function actionFateBattle(userData, pcId, sheets) {
     if (sealEscaped) SC_END.push(`對面御主燃令咒、強行扯離重傷從者，敵已遁走不在場。${sealNote}★此撤離僅止於該從者及其本主，與在場其他御主／從者無關。`);
     if (destroyedName && targetIsFoeServant && enemyMasterRow && !isMasterTarget && !ourSideDestroyed) SC_END.push(`在場敵御主「${String(enemyMasterRow[COL.PC.NAME])}」親眼目睹自己契約的從者靈基崩潰、化作光點消散——失去從者＝失去依靠與這場戰爭的資格。★依其性格與身世演出這一刻的衝擊（崩潰/嘶喊/怔忡/強撐由性格定），非沉默背景板。`);
     if (destroyedName && !sealEscaped && !godRevived) SC_END.push(ourSideDestroyed
-      ? `★【${_endRoundPhrase}】『${destroyedName}』已當場靈基崩潰消散——我方死局，「${defC.name}」仍存活。【嚴禁】『${destroyedName}』此後繼續出手/存在於場上，也【嚴禁】御主問「接下來怎麼辦」這類彷彿未分曉的台詞。收在殞落這一擊與御主的震動反應。`
-      : `★【${_endRoundPhrase}】「${defC.name}」${targetIsFoeServant ? '已當場靈基崩潰消散' : '已當場斃命——凡人之軀，沒有靈基消散的光點'}。【嚴禁】其此後繼續出手/存在於場上，也【嚴禁】我方角色問「接下來怎麼辦」這類彷彿未分曉的台詞。收在終結這一擊與其後的餘韻${targetIsFoeServant ? '（喘息、確認勝負、望向消散的光點）' : '（喘息、確認斷氣、從者收勢）'}。`);
+      ? `★【${_endRoundPhrase}】『${destroyedName}』已當場靈基崩潰消散——我方死局，「${defC.name}」仍存活。『${destroyedName}』此後只存在於其他人的反應裡，所有人的言行都建立在勝負已定之上。收在殞落這一擊與御主的震動反應。`
+      : `★【${_endRoundPhrase}】「${defC.name}」${targetIsFoeServant ? '已當場靈基崩潰消散' : '已當場斃命——凡人之軀，沒有靈基消散的光點'}。其此後只存在於其他人的反應裡，所有人的言行都建立在勝負已定之上。收在終結這一擊與其後的餘韻${targetIsFoeServant ? '（喘息、確認勝負、望向消散的光點）' : '（喘息、確認斷氣、從者收勢）'}。`);
     if (!destroyedName && !sealEscaped && !godRevived) SC_END.push(
       (_hpRatioNow <= 0.15 ? `「${defC.name}」已被打到命懸一線、站著全靠意志，但【還沒死】——勿描寫死亡／消滅／屍體，要讓這份瀕死在畫面上看得出來。`
         : _hpRatioNow <= 0.4 ? `「${defC.name}」傷勢不輕、氣力已顯頹勢，但仍撐得住——勿描寫死亡／消滅／屍體。`

@@ -22,7 +22,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   // 規矩表(戰爭向提示詞)已移除，避免漏進慾海；config.ignoreLaw 保留只是相容鍵，已無實際作用。
   let systemContent = systemOverride || buildDefaultSystemPrompt();
   // 模型多半簡體語料偏多，光靠系統提示詞前段要求繁體仍會夾帶大陸用詞；在共用層尾端補強一句，兩軌都吃得到。
-  systemContent += "\n\n【語言鐵律】全程僅使用台灣繁體中文（正體字），嚴禁簡體字、嚴禁大陸慣用詞彙（如視頻/質量/軟件/信息/內存/屏幕等），一律使用台灣在地慣用語與正體字形。";
+  systemContent += "\n\n【語言鐵律】全程僅使用台灣繁體中文（正體字），一律使用台灣在地慣用語與正體中文字形。";
 
   // 組裝原生多輪 messages 陣列
   let apiMessages = [
