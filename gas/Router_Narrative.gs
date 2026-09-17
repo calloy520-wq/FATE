@@ -125,7 +125,7 @@ function stripLeakedScaffold_(text) {
 function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
   opts = opts || {};
   var aiConfig = {
-    temperature: 0.85,
+    temperature: opts.lewd ? 1.0 : 0.85, // 🔞 補魔三支放鬆一點，句子才不會一直落回同一組詞
     ignoreLaw: true,            // 不疊規矩表(節慶/天時)
     max_tokens: opts.maxTokens || 720, // 輕量敘事預設長度
     model: opts.model || (opts.lewd ? LEWD_MODEL : AI_MODEL), // 🔞 補魔三支換一顆敢寫的（常數在用的時候才讀，別在載入當下求值）
@@ -189,10 +189,10 @@ function actionNarrateOnly(userData, pcId, sheets) {
 8. 性格／六圍／技能只演出來。Fate 正典角色照原作認知演，卡上短句只是錨點。
 9. 只輸出 JSON：{"narration":"…"}。`;
 
-  // 補魔/令咒的高好感解鎖分支要 500~600 字(平常 100~160)，720 tokens 會截斷——只加大上限，不換模型。
+  // 補魔/令咒那三支要 800~1000 字(平常 100~160)，720 tokens 會截斷——加大上限，並換一顆敢寫的模型(LEWD_MODEL)。
   const longForm = !!userData.longForm;
   const lewd = !!userData.lewd; // 🔞 補魔三支：換一顆敢寫的模型（見 LEWD_MODEL）
-  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw || lewd, maxTokens: longForm ? 2000 : 720, lewd: lewd });
+  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw || lewd, maxTokens: longForm ? 3200 : 720, lewd: lewd });
   if (narrationText === null) return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
   saveGameHistoryBatch(pcId, [
     { speaker: "player", content: narrateMemoryLine_(promptText) }, // 🧹 存洗淨摘要、非整串提示詞(否則重整歷史會把演出依據/★指令/素材全攤給玩家看)

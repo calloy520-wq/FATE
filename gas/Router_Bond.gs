@@ -152,7 +152,7 @@ function actionUseSeal(userData, pcId, sheets) {
     const wishSeal = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【已裁定】${effectMsg}${sealBack.fact}\n` +
-      `${genderFactSeal}★【500~600 字】寫這場被令咒壓制的供魔：「${svName}」內心一路抗拒，身體卻不受控制地迎合下去，御主就這樣得逞。${sealManaFx}${sealBack.close}`;
+      `${genderFactSeal}★【800~1000 字】寫這場被令咒壓制的供魔：「${svName}」內心一路抗拒，身體卻不受控制地迎合下去，御主就這樣得逞。${sealManaFx}${sealBack.close}`;
     defeat = true;
     dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wishSeal, svName);
     report = { sealBacklash: true, svName: svName, backlash: sealBack.outcome };
@@ -160,7 +160,7 @@ function actionUseSeal(userData, pcId, sheets) {
     aiPrompt = sealManaUnlocked
       ? (masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
         `【已裁定】${effectMsg}\n` +
-        `${genderFactSeal}★【500~600 字】寫這場供魔：「${svName}」迎上來，在令咒的加持裡比平常更放得開、更享受。${sealManaFx}收在餘韻猶存的溫柔。`)
+        `${genderFactSeal}★【800~1000 字】寫這場供魔：「${svName}」迎上來，在令咒的加持裡比平常更放得開、更享受。${sealManaFx}收在餘韻猶存的溫柔。`)
       : masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx], { skipClose: true }) + performanceNote_([svName]) +
         `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
         `★【140~200 字】描寫令咒在手背灼亮、絕對命令權貫徹的瞬間——三道令咒是御主僅有的底牌，燒掉一道不是小事，讓這份重量落在御主的神情與「${svName}」的反應上。效果已由系統結算。\n`;

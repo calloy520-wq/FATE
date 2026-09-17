@@ -2786,7 +2786,7 @@
         if (res.statusString) { localStorage.setItem('kyushu_last_status', res.statusString); updateUI(res.statusString.split('§')); }
         updateClock(res.clock, res.ap, res.apMax);
       },
-      narrateExtra: res => res.unlocked ? { longForm: true, lewd: true } : undefined, // 🔥 解鎖分支：拉長到 500~600 字＋換敢寫的模型
+      narrateExtra: res => res.unlocked ? { longForm: true, lewd: true } : undefined, // 🔥 解鎖分支：拉長到 800~1000 字＋換敢寫的模型
       onSuccessAfterNarrate: async res => { if (res.defeat) { await handleDefeat(res); } },
       failMsg: '沒補成。', catchMsg: '連不上。'
     });
