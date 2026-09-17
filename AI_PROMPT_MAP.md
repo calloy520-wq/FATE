@@ -429,7 +429,7 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 > `${PROMPT_PARTY_SYSTEM}`（在場人物卡，含「你在她眼中」）＋`${_intimacyLines_}`（★【親密尺度】）
 > ★【篇幅】`${_kanshouTargetWords_}`（查 `KANSHOU_WORDS_`，「大事」旗標升檔）／★【地點釘死】
 > 條件片段（有才出現）：`kanshouNewPlaceStr`／`_worldFeed_`／`kanshouWorldRosterStr`／`kanshouEncounterStr`／`kanshouNightGuestStr`／`kanshouKnockRaidStr`／`kanshouAloneBondStr`／`kanshouNpcLeaveStr_`／`kanshouNightPartStr`／`kanshouVisitBlockedStr`／`kanshouTimeBlockedStr`／`kanshouPromiseStr`／`kanshouPromiseMetStr`／`kanshouCohabitStr`／`kanshouConfessStr`／`kanshouInviteStr`／`kanshouHandHoldStr`／`kanshouHoldingStr`／`kanshouApptTodoStr`／`kanshouApptWaivedStr`／`kanshouCohabitEndStr`／`kanshouNightSceneStr`
-> ★【此刻】（日期·時段併在同一行）＋`kanshouTierCrossStr`／`kanshouFirstsAnnivStr`／`kanshouFirstsStr`／`kanshouAnnivStr`
+> ★【此刻】（日期·時段併在同一行）＋`kanshouTierCrossStr`
 > ★【晨間餘韻·非強制】／★【昨夜對方走了·非強制】／`${npcDialoguePrompt}`／★【稍早做過的事】`${_earlierDigest_}`（`kanshouRecentDigest_`）
 > ★【在場】＋`${finalUserMsg}`（玩家這回合的動作：自己打的字標 `【玩家原話】：`、按鍵路徑標 `【玩家意圖】：`＝GAS 寫的摘要）＋`${_settledTail_}`（GAS 已裁定的結果）
 
@@ -516,7 +516,7 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | `kanshouHandHoldStr`/`kanshouHoldingStr` | 🤝牽手/✋放手／牽著走 | ★【牽起來了】/★【放手】 |
 | `kanshouNightSceneStr`/`kanshouNightPartStr` | 夜未眠／夜裡道別 | ★【夜已深·門關上了】／★【夜裡道別】… |
 | `kanshouFestivalStr` | 日曆＝節慶當天／跳到前夕 | ★【今天是「X」】／★【節慶前夕】（只給事實，無習俗表） |
-| `kanshouTierCrossStr`/`kanshouFirstsAnnivStr`/`kanshouFirstsStr`/`kanshouAnnivStr` | 剛跨關係階／「第一次」週年／既定的第一次／相識紀念日 | 純事實＋show-don't-tell 護欄 |
+| `kanshouTierCrossStr` | 剛跨關係階 | 純事實＋show-don't-tell 護欄 |
 | `kanshouNewPlaceStr`/`_worldFeed_`/`kanshouWorldRosterStr` | 玩家走出新地點／世界帳本相關條目／常民名冊 | ★【要它之後還在就寫進 world_note】等 |
 | `kanshouAloneBondStr` | 獨處時光(+3) | ★【獨處時光】 |
 | `kanshouVisitBlockedStr`/`kanshouTimeBlockedStr` | 想去未解鎖的住處／時間不對 | ★【撲空·地點未開放】… |

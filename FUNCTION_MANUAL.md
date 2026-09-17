@@ -638,7 +638,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionBackfillKanshouAi(userData, pcId, sheets)`（2026-07 再稽核抓到漏洞：找列邏輯改用`kanshouPcIdx_(pcData, pcId)`（帳號歸屬由帳號表 KPC 欄在入口把關），取代原本裸`findIndex`信任傳入pcId的漏洞——鑑賞pcId可預測/枚舉，舊版可被冒名竄改任一玩家的敘事欄；前端`backfillKanshouAi`同步補送`acctName`）— 非阻塞背景補生成御主 **6** 個敘事欄（background/traits/personality/npc_intent/**speech**/**tic**/outfit；2026-09 新增 speech＝口吻、tic＝招牌小動作，落地走召喚同伴那支 `stampPersonaFlavor_`）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。**🐛→✅ 2026-09**：原本【無條件覆寫】那幾欄——對一個已經玩過/改命改過的角色再跑一次就整組洗掉，而舊角色要補新欄位一定得再跑一次。改成「第一次補完蓋 `KANSHOU_BACKFILL_DONE_TAG_`（【設定已補】）的章，之後只填還空著的格子」；MEMORY 上的三件事（衣裝/口吻/小動作）併成讀一次寫一次，沒東西可改就完全不寫。
 - `actionKanshouWorld(userData, pcId, sheets)`（action `kanshou_world`）— 🌍 世界帳本面板：list/pin/unpin/del（帳本原本只有 AI 寫得到，這支補上玩家的讀與管，分工比照 `actionKanshouMemoirOp`）。
 - `kanshouRecentDigest_(pcId, windowRows)` — 把掉出 chatHistory 窗口的較早回合壓成一行「玩家做過什麼」事實摘要。
-- `getKanshouAnnivFired_(memory)` / `setKanshouAnnivFired_(memory, arr)` — MEMORY 已跳過的週年 absDay 清單讀/寫（同一週年只跳一次）。
 - `actionKanshouMemoirOp(userData, pcId, sheets)`（2026-07 稽核：找目標同伴列改委派 `findPcRowIdx_`，取代手刻迴圈，行為等價）— 共同回憶面板操作（op=pin/unpin/del）：釘選加 ★ 前綴（釘選上限 8）、刪除整條移除。玩家 UI 手動管理、AI 無權；帳號綁定＋同 gid 驗證。
 
 #### 御主 avatar 設定（隨時可改）
@@ -717,16 +716,15 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_NIGHT_PART_TAG_`（makeTextTag_ 昨夜道別·2026-07 新增）— 與【晨間餘韻】同構的另一半：昨晚陪你到最後、卻沒留下的人（未達 80）。兩者互斥。
 （~~`KANSHOU_KNOCK_DAY_TAG_`~~／~~`KANSHOU_NIGHT_GUEST_TAG_`~~ 已隨 2026-09 砍掉深夜訪客一併移除；~~`KANSHOU_FESTIVAL_DONE_TAG_`~~ 已隨砍掉預寫橋段池一併移除。）
 - `KANSHOU_BACKFILL_DONE_TAG_`（makeIntTag_『設定已補』）— 創角敘事欄已經補過的章。蓋了之後 `actionBackfillKanshouAi` 只填還空著的格子，不再覆寫玩家玩出來/改命改過的內容。
-- `KANSHOU_MORNING_AFTER_TAG_`（makeTextTag_ 晨間餘韻）、`KANSHOU_SCENE_DAY_TAG_`（makeIntTag_ 橋段日·防同日重刷）、`KANSHOU_FIRST_MET_DAY_TAG_`（makeIntTag_ 初見日·紀念日）、`KANSHOU_APPT_BANDS_`（約定時段 午後14/黃昏18/夜20）。
+- `KANSHOU_MORNING_AFTER_TAG_`（makeTextTag_ 晨間餘韻）、`KANSHOU_SCENE_DAY_TAG_`（makeIntTag_ 橋段日·防同日重刷）、`KANSHOU_APPT_BANDS_`（約定時段 午後14/黃昏18/夜20）。
 - `kanshouApptHour_(band)` — 約定時段→時刻（null=舊格式無時段）。
 - `kanshouGetPromise_` / `kanshouClearPromise_` / `kanshouSetPromise_(memory, absDay, loc, band, byHer)` — MEMORY【約定】absDay:band:loc 讀/清/寫（新約蓋舊、舊格式相容）。
 - `kanshouPromisePin_(row, absDay, curHour)` — 約定日把她 pin 到約定地：有時段=時刻前 10 分~+2h 內回地點、否則整天釘（相容）。
 - `KANSHOU_COHABIT_TAG_`（makeIntTag_ 同居）、`KANSHOU_HANDHOLD_TAG_`（makeTextTag_ 牽手·存玩家列單一對象）、`KANSHOU_AWAKE_HERE_TAG_`（makeTextTag_ 醒著陪同·存該同伴列MEMORY·值＝她被判定醒著時所在的LOC）、`KANSHOU_COHABIT_BOND_`(90)、`KANSHOU_VISIT_BOND_`(40)、`KANSHOU_COHABIT_ROOM_`(和室)（常數）。
 - `kanshouIsCohabit_(row)` — 該從者是否同居中。
-- `KANSHOU_FIRSTS_TAG_`／`kanshouGetFirsts_(memory)`／`kanshouStampFirst_(memory, key, absDay)`（2026-07 新增）— 💞 結構化「第一次」帳（存該同伴列 MEMORY`【初次】事件:absDay,…`）。`kanshouStampFirst_` 冪等：同 key 只記最早那次、滿 `KANSHOU_FIRSTS_CAP_`(20) 就不再收（既有的永不驅逐）；鍵名寫入前濾掉 `,:｜|【】`。蓋戳呼叫端：`actionPlay_` 的 cohabitInvite／post-AI 牽手接受分支／endDay 同床／`_settle` 赴約／roomEventAccept 非拒絕分支。讀取端：`actionPlay_` 的 `partyRows` 迴圈（取最早 `KANSHOU_FIRSTS_SHOW_`(5) 筆餵提示詞＋同月同日的週年偵測）。**加一種新的「第一次」＝呼叫端多一行 `kanshouStampFirst_`，helper 不必動。**
 - `KANSHOU_COHABIT_ASKED_TAG_`（`makeIntTag_('同居問過')`·存該同伴列·**absDay 不是布林**）— 🏠 同居邀請泡泡的當日鎖。布林版玩家一旦改用打字，這個「一生一次」的邀請就永遠消失；完全不記又會退回被嫌煩的「每回合都跳」。舊存檔殘留的值 `1` 自然不等於當前 absDay，下次自動恢復詢問，不需遷移。
 - `PERSONA_SPEECH_TAG_`／`PERSONA_TIC_TAG_`（`makeTextTag_('口吻')`／`('小動作')`·Router_Persona.gs）— 🗣️ 2026-07 稽核：這兩個標記原本由 `stampPersonaFlavor_` 自己拼字串、**完全沒清洗**（speech 來源含工房 AI 生成的 dailyLook 第3段，AI 吐一個「【」就切壞整條 MEMORY）。改走工廠後一次拿到清洗＋replace-or-append；`getPersonaSpeech_`/`getPersonaTic_` 與 Router_Bond/Seed_Codex 的三處重複 regex 全部委派過來，全專案 4 份實作收斂成 1。
-- `KANSHOU_REL_RANK_TAG_`／`kanshouRelRank_(bond)`／`kanshouRelTierLabel_(rank)`（2026-07 新增）— 💗 關係階質變。`kanshouRelRank_` 把 BOND 換算成 1(點頭之交)~5(戀人) 的階數（反轉 `KANSHOU_REL_TIER_` 的高→低排序）；`【關係階】` 記當前階，**2026-07 改為雙向**（原本只升不降，於是降階時親密尺度悄悄收緊卻零敘事，玩家下一回合直接撞到「她突然不讓我碰了」；同居邀請的「一生一次」早就不靠這個 tag，有自己的 `KANSHOU_COHABIT_ASKED_TAG_`(absDay)＋`!kanshouIsCohabit_` 兩道獨立閘門，故改雙向是安全的）；`kanshouRelTierLabel_` 把階數換回階名（索引反轉，`KANSHOU_REL_TIER_` 仍是唯一真實來源）。跨階時只餵【事實】「某某從『A階』跨進『B階』」，不給寫好的文案。偵測在 `actionPlay_` 的 `partyRows` 迴圈（與紀念日同一趟）：首次見到靜靜記下當前階不報，之後升階才注入質變提示。**刻意看 BOND 不看 REL_TAG**——玩家自訂關係稱呼後 REL_TAG 不再等於梯度字面，跨階演出不該因此消失。
+- `KANSHOU_REL_RANK_TAG_`／`kanshouRelRank_(bond)`／`kanshouRelTierLabel_(rank)`（2026-07 新增）— 💗 關係階質變。`kanshouRelRank_` 把 BOND 換算成 1(點頭之交)~5(戀人) 的階數（反轉 `KANSHOU_REL_TIER_` 的高→低排序）；`【關係階】` 記當前階，**2026-07 改為雙向**（原本只升不降，於是降階時親密尺度悄悄收緊卻零敘事，玩家下一回合直接撞到「她突然不讓我碰了」；同居邀請的「一生一次」早就不靠這個 tag，有自己的 `KANSHOU_COHABIT_ASKED_TAG_`(absDay)＋`!kanshouIsCohabit_` 兩道獨立閘門，故改雙向是安全的）；`kanshouRelTierLabel_` 把階數換回階名（索引反轉，`KANSHOU_REL_TIER_` 仍是唯一真實來源）。跨階時只餵【事實】「某某從『A階』跨進『B階』」，不給寫好的文案。偵測在 `actionPlay_` 的 `partyRows` 迴圈：首次見到靜靜記下當前階不報，之後升階才注入質變提示。**刻意看 BOND 不看 REL_TAG**——玩家自訂關係稱呼後 REL_TAG 不再等於梯度字面，跨階演出不該因此消失。
 - ~~`KANSHOU_COHABIT_EVENTS_`~~／~~`kanshouPlayerHomeLocs_`~~／~~`_sceneIsCohabit_`~~（2026-09 已砍）— 曾是同居日常橋段（第四層觸發）；同居現在只剩事實，日常由 AI 即興。
 - `kanshouIsAwakeWithMe_(idx)`（`actionPlay_`內部函式，2026-07 改吃`pcData`索引，原吃姓名字串）— 判定該同伴此刻是否醒著陪同(供夜襲/賴床叫醒的候選過濾＋`pSleepStr`熟睡提示排除用)：牽手中／這回合剛與玩家一起移動抵達＝true；否則讀`KANSHOU_AWAKE_HERE_TAG_`，若上次判定醒著時記的LOC仍等於她目前LOC也算true。判定為醒著就把她目前LOC寫回tag，否則清空——地點一變(離開/被重骰走)tag自動失效，不必額外收尾。**🐛→✅**：原本只認「這回合牽手/剛到」，一放手或下一回合就失效，會把明明還醒著互動的同伴誤判成熟睡，改成這個持久tag解決。
 - `KANSHOU_NOTED_TAG_`／`KANSHOU_NOTED_SEP_`／`KANSHOU_NOTED_CAP_`／`KANSHOU_NOTED_LEN_`／`kanshouKnownTier_(metCount)`／`kanshouKnownOfYou_(memory)`（2026-09 新增，`gas/Gallery.gs`）— 「她眼中的你」知情度。`kanshouKnownTier_` 查 `KANSHOU_FAMILIAR_TIERS_`（**與相處基調共用同一條軸、不另立門檻**）回初識/混熟/老交情；`kanshouKnownOfYou_` 回 `{tier, noted[]}`，`noted` 是 `【眼中的你】` 標記以 `／` 切開的清單（**分隔符不可用 `｜`/`【】`**，`makeTextTag_` 會剝掉）。掛在 `partyDetailsArr` 每人自己那行（`pKnownStr`），格式 `你在○眼中:<熟悉段>[·<筆記>]`——**沒筆記就只印熟悉段**。⚠ **刻意沒有「各段是什麼意思」的定義表**：初識/混熟/老交情 是模型天生就懂的詞，寫三段定義去教它＝玩家說的「追加設定、增加雜音」（第一版真的寫了 225 字，被擋下來砍掉）。
@@ -736,7 +734,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_LOVER_TAG_`（【戀人】標記）／`KANSHOU_CONFESS_BOND_`(60·開得了口的最低好感)／`kanshouIsLover_(row)`（她是不是你的戀人·單一判準，前後端與提示詞全走這支）。**2026-09 告白改成必定成功**（玩家「79 改成告白必定成功就好」）：好感達 60 且她在場，說出口就成立。連帶整組退休——~~`kanshouConfessAccepts_`~~（好感×相處次數擲骰）、~~`kanshouConfessWait_`~~、~~`KANSHOU_CONFESS_DAY_TAG_`~~（告白日）、~~`KANSHOU_CONFESS_COOLDOWN_`~~(3天冷卻)、~~`KANSHOU_CONFESS_SLOPE_`~~、~~`KANSHOU_CONFESS_FAMILIAR_MULT_`~~，以及被拒扣 3 點好感那條分支與前端的冷卻鎖（`confessWait` 欄位也不再下傳）。
 
 
-- `KANSHOU_ANNIV_MILESTONES_`（常數 [7,30,100,365]）— 相識紀念日里程碑。
 
 #### 輕量小事件·邂逅中·住所（MEMORY 標記）
 
