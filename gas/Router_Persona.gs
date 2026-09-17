@@ -47,6 +47,11 @@ var PREF_LABELS_ = ['日常表象', '真實內裡', '喜歡的事物', '討厭�
 // 🧹 標籤已經講了「討厭的事物」，值再寫一次「厭惡…」就是疊字（種子 16 處，AI 生成的也會這樣寫）。
 //    剝在【唯一的渲染出口】而不是去改每一筆資料：舊試算表的列不會因為改種子而更新，而 AI 隨時能再產一個。
 var QUAD_REDUNDANT_ = { '喜歡的事物': /^(熱衷|喜歡)[於的]?/, '討厭的事物': /^(厭惡|討厭)[於的]?/ };
+// 🩹 四格模板只有【四格都填滿】才成立：種子的 persona.words 常是「痛快・重義」這種價值觀清單，
+//    位置硬塞會讓標籤說謊（「喜歡的事物：壓抑的少女心」）。缺格就改用這裡登記的鬆散標籤，
+//    不貼位置、把值列出來就好——AI 自己判斷哪個是表象哪個是內裡。
+//    鍵＝該組標籤的第一格；沒登記的標籤組（如外貌三格，由 looksToTraitParts_ 保證對位）維持逐格貼。
+var QUAD_LOOSE_LABEL_ = { '日常表象': '性格' };
 var TRAIT_LABELS_ = ['外貌本相', '氣質舉止', '卸下心防的私密一面'];
 // skipNone=true 時該格若為空或字面「無」直接跳過不顯示(給御主卡/敵御主卡沿用既有的無資料防呆)；false 時保留全部4格(給 servantCard_ 用，段數不足時仍顯示「無」，不靜默漏項)。
 var QUAD_EMPTY_ = ['', '無',
@@ -54,16 +59,21 @@ var QUAD_EMPTY_ = ['', '無',
   '沉著表象', '堅定內裡', '珍視之物', '厭惡之事', '通曉魔術', '深藏心事'];
 function quadLabeled_(raw, labels, skipNone) {
   var parts = String(raw || "").split('、');
-  var out = "";
+  var vals = [], filled = 0;
   for (var i = 0; i < labels.length; i++) {
     var v = (parts[i] || "").trim();
     // ⚠ 空格判斷要在剝疊字【之前】先做一次：佔位字「厭惡之事」被剝成「之事」就認不出來了（見 CODE_NOTES）。
-    if (QUAD_EMPTY_.indexOf(v) >= 0) continue;
+    if (QUAD_EMPTY_.indexOf(v) >= 0) { vals.push(""); continue; }
     var re = QUAD_REDUNDANT_[labels[i]];
     if (re) v = v.replace(re, "").trim();
-    if (QUAD_EMPTY_.indexOf(v) >= 0) continue;
-    out += `｜${labels[i]}：${v}`;
+    if (QUAD_EMPTY_.indexOf(v) >= 0) { vals.push(""); continue; }
+    vals.push(v); filled++;
   }
+  // 缺格＝這組標籤對不上位，退成一行不貼標籤的清單（見下方常數）。
+  var loose = QUAD_LOOSE_LABEL_[labels[0]];
+  if (loose && filled && filled < labels.length) return `｜${loose}：${vals.filter(Boolean).join('、')}`;
+  var out = "";
+  for (var j = 0; j < vals.length; j++) if (vals[j]) out += `｜${labels[j]}：${vals[j]}`;
   return out;
 }
 

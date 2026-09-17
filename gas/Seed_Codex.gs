@@ -56,7 +56,7 @@ var SEED_SERVANTS = [
   { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'], gender:'女',
     six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A++',幸運:'B',寶具:'C'},
     classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
-    skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'},{n:'金羊毛 Argon Coin',r:'EX',fx:'golden_fleece'}],
+    skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'}],
     traits:[{n:'人類'}], np:'萬符必應破戒 Rule Breaker（規則破壞者 C·【非攻擊寶具】破除契約與術式，非攻擊手段）',
     // Rule Breaker 官方描述為妖異七彩短劍，非紅色——全專案命名已同步正名。
     align:'中立・惡', persona:{firstP:'我',look:'紫袍兜帽・持妖異七彩短劍的清麗魔女、疏離',words:'背叛的傷痕・渴望被信任',toMaster:'防備卻渴望真心相待',speech:'溫婉敬語、藏著試探',moe:'被真心對待會慌',tic:'摩挲手中的七彩短劍',
@@ -274,44 +274,50 @@ var SEED_SERVANTS = [
 var SEED_MASTERS = [
   // 第五次
   // circuits=27(官方數字，一般魔術師約20條)：他真正的弱項是迴路品質而非數量，此欄只管數量。
-  {id:'衛宮士郎-5th',  name:'衛宮士郎', gender:'男', appearance:'紅褐短髮的高中生，樸素襯衫',   war:'5th', align:'秩序・善', magic:'投影／強化',          circuits:27, melee:'D', magic_rank:'D', home:'冬木·深山町', wish:'成為正義的伙伴',          persona:'樂於助人的好好先生・扭曲的自我犧牲・熱衷修繕與張羅三餐・厭惡見死不救', back:'冬木大火倖存的孤兒、繼承切嗣的理想', moe:'自己滿身傷還先擔心別人'},
+  {id:'衛宮士郎-5th',  name:'衛宮士郎', gender:'男', appearance:'紅褐短髮的高中生，樸素襯衫', align:'秩序・善', magic:'投影／強化',          circuits:27, melee:'D', magic_rank:'D', wish:'成為正義的伙伴',          persona:'樂於助人的好好先生・扭曲的自我犧牲・熱衷修繕與張羅三餐・厭惡見死不救', back:'冬木大火倖存的孤兒、繼承切嗣的理想', moe:'自己滿身傷還先擔心別人'},
   // circuits=50：她的魔術回路質量遠超同齡水準，公認罕見。凜是姊姊，櫻才是被送養的妹妹。
-  {id:'遠坂凜-5th',    name:'遠坂凜', gender:'女', appearance:'黑長雙馬尾、紅衣黑裙，傲然',     war:'5th', align:'中立・善', magic:'寶石魔術',            circuits:50, melee:'C', magic_rank:'A', home:'遠坂宅',     wish:'見證聖杯・不負遠坂之名',  persona:'人前完美的優等生・刀子嘴豆腐心・收藏寶石・厭惡示弱與失態', back:'遠坂家長女（櫻是被送養的妹妹）、父親死於上屆聖杯戰爭', moe:'連家電都用不明白'},
+  {id:'遠坂凜-5th',    name:'遠坂凜', gender:'女', appearance:'黑長雙馬尾、紅衣黑裙，傲然', align:'中立・善', magic:'寶石魔術',            circuits:50, melee:'C', magic_rank:'A',     wish:'見證聖杯・不負遠坂之名',  persona:'人前完美的優等生・刀子嘴豆腐心・收藏寶石・厭惡示弱與失態', back:'遠坂家長女（櫻是被送養的妹妹）、父親死於上屆聖杯戰爭', moe:'連家電都用不明白'},
   // 慎二才是間桐家血親獨子，妹妹櫻才是被收養進來頂替魔術後嗣的那位。
-  {id:'間桐慎二-5th',  name:'間桐慎二', gender:'男', appearance:'藍髮神經質青年，刻薄表情',   war:'5th', align:'混沌・惡', magic:'魔術迴路微弱・依賴從者', circuits:15, melee:'E', magic_rank:'E', home:'間桐宅',     wish:'被認可・奪取勝利',        persona:'自信張揚的表象・自卑虛榮・眾人吹捧與凌駕他人的優越感・厭惡比自己強的人', back:'間桐血親獨子（櫻才是養女）、迴路微弱不被家族認可', moe:'色厲內荏一戳就破'},
+  {id:'間桐慎二-5th',  name:'間桐慎二', gender:'男', appearance:'藍髮神經質青年，刻薄表情', align:'混沌・惡', magic:'魔術迴路微弱・依賴從者', circuits:15, melee:'E', magic_rank:'E',     wish:'被認可・奪取勝利',        persona:'自信張揚的表象・自卑虛榮・眾人吹捧與凌駕他人的優越感・厭惡比自己強的人', back:'間桐血親獨子（櫻才是養女）、迴路微弱不被家族認可', moe:'色厲內荏一戳就破'},
   // wish：「到達根源」是他早已放棄的舊初衷，如今只剩逃脫死亡、把奪杯戰爭當餘生消遣。
-  {id:'間桐臟硯-5th',  name:'間桐臟硯', gender:'男', appearance:'乾癟矮小的千年老人，蟲蝕枯槁之軀', war:'5th', align:'混沌・惡', magic:'間桐之蟲術・吸血蟲・延命', circuits:40, melee:'E', magic_rank:'A', home:'間桐宅',     wish:'逃脫死亡（不老不死）・視奪杯為餘生消遣', persona:'老謀深算・對活下去的病態執著・蒐羅珍稀魔術與延命的活體材料・厭惡死亡與軟弱', back:'活了五百年的間桐始祖、視子孫為延命容器', moe:'陰森的耐性'},
-  {id:'葛木宗一郎-5th',name:'葛木宗一郎', gender:'男', appearance:'戴眼鏡的沉默教師，黑西裝', war:'5th', align:'秩序・中庸', magic:'體術（蛇之拳）・無魔術', circuits:10, melee:'A', magic_rank:'E', home:'柳洞寺',     wish:'無所求・守護所重視之人',     persona:'沉默盡責的教師・別無所求的絕對忠誠・教書育人與默默鍛鍊武藝・厭惡虛偽的言辭', back:'本是無名殺手，因其從者第一次有了「想守護之物」', moe:'不懂浪漫卻最深情'},
-  {id:'言峰綺禮-5th',  name:'言峰綺禮', gender:'男', appearance:'高大神父、黑色法衣，陰沉',   war:'5th', align:'混沌・惡', magic:'代行者・黑鍵',        circuits:25, melee:'A', magic_rank:'C', home:'言峰教會',   wish:'尋得能讓自己喜悅之物',    persona:'虔誠神父的假面・以他人痛苦為樂的空虛・與從者對飲時的閒談・厭惡平庸的善', back:'壓抑天性數十年，已在某位高傲英靈慫恿下坦然墮落', moe:'麻婆豆腐的意外執著'},
-  {id:'伊莉雅絲菲爾-5th',name:'伊莉雅絲菲爾', gender:'女', appearance:'紅眼白髮的幼小少女，毛領大衣',war:'5th', align:'中立・善',magic:'愛因茲貝倫煉金術・聖杯依代',    circuits:80, melee:'D', magic_rank:'A', home:'冬木·新都', wish:'完成聖杯的使命',          persona:'天真爛漫・哀傷的聖杯依代・被珍視疼愛的陪伴・厭惡孤獨', back:'人造人、被當作工具養大卻渴望親情', moe:'強顏歡笑的寂寞'},
+  {id:'間桐臟硯-5th',  name:'間桐臟硯', gender:'男', appearance:'乾癟矮小的千年老人，蟲蝕枯槁之軀', align:'混沌・惡', magic:'間桐之蟲術・吸血蟲・延命', circuits:40, melee:'E', magic_rank:'A',     wish:'逃脫死亡（不老不死）・視奪杯為餘生消遣', persona:'老謀深算・對活下去的病態執著・蒐羅珍稀魔術與延命的活體材料・厭惡死亡與軟弱', back:'活了五百年的間桐始祖、視子孫為延命容器', moe:'陰森的耐性'},
+  {id:'葛木宗一郎-5th',name:'葛木宗一郎', gender:'男', appearance:'戴眼鏡的沉默教師，黑西裝', align:'秩序・中庸', magic:'體術（蛇之拳）・無魔術', circuits:10, melee:'A', magic_rank:'E',     wish:'無所求・守護所重視之人',     persona:'沉默盡責的教師・別無所求的絕對忠誠・教書育人與默默鍛鍊武藝・厭惡虛偽的言辭', back:'本是無名殺手，因其從者第一次有了「想守護之物」', moe:'不懂浪漫卻最深情'},
+  {id:'言峰綺禮-5th',  name:'言峰綺禮', gender:'男', appearance:'高大神父、黑色法衣，陰沉', align:'混沌・惡', magic:'代行者・黑鍵',        circuits:25, melee:'A', magic_rank:'C',   wish:'尋得能讓自己喜悅之物',    persona:'虔誠神父的假面・以他人痛苦為樂的空虛・與從者對飲時的閒談・厭惡平庸的善', back:'壓抑天性數十年，已在某位高傲英靈慫恿下坦然墮落', moe:'麻婆豆腐的意外執著'},
+  {id:'伊莉雅絲菲爾-5th',name:'伊莉雅絲菲爾', gender:'女', appearance:'紅眼白髮的幼小少女，毛領大衣', align:'中立・善',magic:'愛因茲貝倫煉金術・聖杯依代',    circuits:80, melee:'D', magic_rank:'A', wish:'完成聖杯的使命',          persona:'天真爛漫・哀傷的聖杯依代・被珍視疼愛的陪伴・厭惡孤獨', back:'人造人、被當作工具養大卻渴望親情', moe:'強顏歡笑的寂寞'},
   // circuits=50：她本人的回路質量與凜同級(人類頂尖水準)，無限魔力來自聖杯泥附體(已在magic欄體現)，
   // 不該混進她自己的天賦數字。官方設定髮色為深紫色，黑化不因此變色。
-  {id:'間桐櫻(黑化)-5th',name:'間桐櫻', gender:'女', appearance:'深紫長髮、黑紅禮服，泛著陰冷寒意',war:'5th', align:'混沌・惡',magic:'聖杯之泥・無限魔力・蟲爪', circuits:50, melee:'E', magic_rank:'A', home:'間桐宅', wish:'獨佔所愛、將世界一同拖入黑暗', persona:'溫順乖巧的假面・被黑泥吞噬的佔有慾・香甜的點心與嚇人的怪談・厭惡傷害過自己的一切', back:'遠坂次女、送養間桐受蟲蝕十一年後黑化', moe:'可憐又可怖'},
+  {id:'間桐櫻(黑化)-5th',name:'間桐櫻', gender:'女', appearance:'深紫長髮、黑紅禮服，泛著陰冷寒意', align:'混沌・惡',magic:'聖杯之泥・無限魔力・蟲爪', circuits:50, melee:'E', magic_rank:'A', wish:'獨佔所愛、將世界一同拖入黑暗', persona:'溫順乖巧的假面・被黑泥吞噬的佔有慾・香甜的點心與嚇人的怪談・厭惡傷害過自己的一切', back:'遠坂次女、送養間桐受蟲蝕十一年後黑化', moe:'可憐又可怖'},
   // 第四次circuits=15/magic_rank=C：他的魔術回路數量少質量也差(原作明寫、故Saber供魔得靠愛麗絲)，真正殺傷力來自起源彈與戰術，「天才殺手·蹩腳魔術師」的反差不該被回路數字掩蓋。
-  {id:'衛宮切嗣-4th',  name:'衛宮切嗣', gender:'男', appearance:'黑髮疲憊的男人，風衣',   war:'4th', align:'中立・善', magic:'起源彈・固有時制御',    circuits:15, melee:'A', magic_rank:'C', home:'冬木·深山町', wish:'以聖杯拯救世界、終結戰爭',persona:'冷酷疲憊的魔術師殺手・為大義不擇手段・與家人共度的平靜日常・厭惡無謂的犧牲', back:'背負「拯救多數而犧牲少數」的覺悟參戰', moe:'冷酷算計下其實最痛恨殺戮'},
-  {id:'遠坂時臣-4th',  name:'遠坂時臣', gender:'男', appearance:'金棕髮的優雅紳士，名門做派',   war:'4th', align:'秩序・中庸', magic:'寶石魔術',            circuits:50, melee:'D', magic_rank:'A', home:'遠坂宅',     wish:'抵達「根源之渦」',        persona:'優雅從容的名門紳士・抵達根源的執念・珍稀寶石與名門的體面排場・厭惡粗鄙與失格', back:'遠坂當主、以正統之道召喚出契合自身的英靈', moe:'名門的迂腐可愛'},
+  {id:'衛宮切嗣-4th',  name:'衛宮切嗣', gender:'男', appearance:'黑髮疲憊的男人，風衣', align:'中立・善', magic:'起源彈・固有時制御',    circuits:15, melee:'A', magic_rank:'C', wish:'以聖杯拯救世界、終結戰爭',persona:'冷酷疲憊的魔術師殺手・為大義不擇手段・與家人共度的平靜日常・厭惡無謂的犧牲', back:'背負「拯救多數而犧牲少數」的覺悟參戰', moe:'冷酷算計下其實最痛恨殺戮'},
+  {id:'遠坂時臣-4th',  name:'遠坂時臣', gender:'男', appearance:'金棕髮的優雅紳士，名門做派', align:'秩序・中庸', magic:'寶石魔術',            circuits:50, melee:'D', magic_rank:'A',     wish:'抵達「根源之渦」',        persona:'優雅從容的名門紳士・抵達根源的執念・珍稀寶石與名門的體面排場・厭惡粗鄙與失格', back:'遠坂當主、以正統之道召喚出契合自身的英靈', moe:'名門的迂腐可愛'},
   // home=海特飯店(他實際據點，被切嗣炸毀之處)；circuits=65為時鐘塔科主等級，與韋伯拉開懸殊差距。
-  {id:'肯尼斯-4th',    name:'肯尼斯', gender:'男', appearance:'金髮高傲的年輕教授',     war:'4th', align:'秩序・惡', magic:'礦石科・流體操作',      circuits:65, melee:'C', magic_rank:'A', home:'海特飯店', wish:'榮譽與學術成就',          persona:'高傲的天才教授・極高的自尊・學術成就與未婚妻索菈的陪伴・厭惡被輕視', back:'時鐘塔天才講師、攜未婚妻索菈參戰', moe:'被打臉時的崩潰'},
+  {id:'肯尼斯-4th',    name:'肯尼斯', gender:'男', appearance:'金髮高傲的年輕教授', align:'秩序・惡', magic:'礦石科・流體操作',      circuits:65, melee:'C', magic_rank:'A', wish:'榮譽與學術成就',          persona:'高傲的天才教授・極高的自尊・學術成就與未婚妻索菈的陪伴・厭惡被輕視', back:'時鐘塔天才講師、攜未婚妻索菈參戰', moe:'被打臉時的崩潰'},
   // home=麥肯基宅(他借住深山町山丘老夫婦家)；circuits=15：原作明寫他是時鐘塔墊底資質。
-  {id:'韋伯·維爾維特-4th',name:'韋伯·維爾維特', gender:'男', appearance:'黑髮瘦小的少年魔術師',war:'4th', align:'中立・善',magic:'自我暗示・基礎魔術', circuits:15, melee:'E', magic_rank:'C', home:'麥肯基宅', wish:'證明自己的價值',          persona:'故作老成的少年・自卑卻好強・渴望獲得認可的實力・厭惡被當作無能', back:'時鐘塔末席學生、偷走觸媒召喚出羈絆深厚的英靈', moe:'口嫌體正直'},
+  {id:'韋伯·維爾維特-4th',name:'韋伯·維爾維特', gender:'男', appearance:'黑髮瘦小的少年魔術師', align:'中立・善',magic:'自我暗示・基礎魔術', circuits:15, melee:'E', magic_rank:'C', wish:'證明自己的價值',          persona:'故作老成的少年・自卑卻好強・渴望獲得認可的實力・厭惡被當作無能', back:'時鐘塔末席學生、偷走觸媒召喚出羈絆深厚的英靈', moe:'口嫌體正直'},
   // wish：他對聖杯毫無興趣，圖的是跟從者共享新奇殺戮的快感；home=澪標川下水道廢棄工房(實際據點)。
-  {id:'雨生龍之介-4th',name:'雨生龍之介', gender:'男', appearance:'輕浮的金髮青年，咧嘴而笑', war:'4th', align:'混沌・惡', magic:'無魔術・召喚術（外行）', circuits:10, melee:'C', magic_rank:'E', home:'碼頭倉庫', wish:'見識更新奇的殺戮・與從者共享獵奇的快感',persona:'輕浮開朗・天生純粹之惡・新奇獵奇的殺戮快感・厭惡無聊', back:'毫無魔術素養、誤打誤撞召喚出與自己瘋狂共鳴的英靈', moe:'毫無惡意的惡'},
-  {id:'言峰綺禮-4th',  name:'言峰綺禮', gender:'男', appearance:'尚未墮落的青年神父，壓抑',   war:'4th', align:'秩序・中庸', magic:'代行者・黑鍵',        circuits:25, melee:'A', magic_rank:'C', home:'言峰教會',   wish:'探求自身空虛的答案',      persona:'壓抑的青年神父・尚未墮落的空虛・說不出所以然卻感到安心的日常公務・厭惡虛假的自己', back:'奉命輔佐盟友魔術師、正逐步走向深淵', moe:'壓抑天性的痛苦掙扎'},
-  {id:'間桐雁夜-4th',  name:'間桐雁夜', gender:'男', appearance:'蟲蝕半白頭髮的憔悴男子',   war:'4th', align:'中立・善', magic:'間桐之蟲術',          circuits:15, melee:'D', magic_rank:'C', home:'間桐宅',     wish:'從間桐手中救出櫻',        persona:'憔悴悲憤・自我犧牲的執念・對櫻叔父般的疼惜・厭惡間桐家', back:'曾逃離間桐的男人、為救櫻重回家門植入蟲術', moe:'對櫻叔父般的疼惜（非生父）'}
+  {id:'雨生龍之介-4th',name:'雨生龍之介', gender:'男', appearance:'輕浮的金髮青年，咧嘴而笑', align:'混沌・惡', magic:'無魔術・召喚術（外行）', circuits:10, melee:'C', magic_rank:'E', wish:'見識更新奇的殺戮・與從者共享獵奇的快感',persona:'輕浮開朗・天生純粹之惡・新奇獵奇的殺戮快感・厭惡無聊', back:'毫無魔術素養、誤打誤撞召喚出與自己瘋狂共鳴的英靈', moe:'毫無惡意的惡'},
+  {id:'言峰綺禮-4th',  name:'言峰綺禮', gender:'男', appearance:'尚未墮落的青年神父，壓抑', align:'秩序・中庸', magic:'代行者・黑鍵',        circuits:25, melee:'A', magic_rank:'C',   wish:'探求自身空虛的答案',      persona:'壓抑的青年神父・尚未墮落的空虛・說不出所以然卻感到安心的日常公務・厭惡虛假的自己', back:'奉命輔佐盟友魔術師、正逐步走向深淵', moe:'壓抑天性的痛苦掙扎'},
+  {id:'間桐雁夜-4th',  name:'間桐雁夜', gender:'男', appearance:'蟲蝕半白頭髮的憔悴男子', align:'中立・善', magic:'間桐之蟲術',          circuits:15, melee:'D', magic_rank:'C',     wish:'從間桐手中救出櫻',        persona:'憔悴悲憤・自我犧牲的執念・對櫻叔父般的疼惜・厭惡間桐家', back:'曾逃離間桐的男人、為救櫻重回家門植入蟲術', moe:'對櫻叔父般的疼惜（非生父）'}
 ];
 
 // 從者物件 → 英靈殿列（順序＝COL.HERO）
+// daily 四欄各自有專欄(13~16)，PERSONA JSON 不再重複收一份——同一個值只存一處。
+// dailyBack 沒有專欄(鑑賞的「經歷」只有這一個出口)，所以它留在 JSON 裡。
+var HERO_PERSONA_OWN_COL_ = ['dailyLook', 'dailyWords', 'dailyMoe', 'dailyOutfit'];
 function servantToHeroRow_(s) {
   var p = s.persona || {};
+  var slim = {};
+  Object.keys(p).forEach(function (k) { if (HERO_PERSONA_OWN_COL_.indexOf(k) < 0) slim[k] = p[k]; });
   return [s.id, s.cls, s.realName, s.gender, JSON.stringify(s.six),
     JSON.stringify(s.classSkills), JSON.stringify(s.skills), JSON.stringify(s.traits),
-    s.np, JSON.stringify(s.persona), s.align, JSON.stringify(s.wars), 'seed',
+    s.np, JSON.stringify(slim), s.align, JSON.stringify(s.wars), 'seed',
     p.dailyLook || '', p.dailyWords || '', p.dailyMoe || '', p.dailyOutfit || ''];
 }
 // 御主物件 → 御主殿列（順序＝COL.MASTER；末兩欄 身世、萌點 為本版新增）
+// 「居所」「屆次」兩欄全樹零讀取(2026-09 稽核)，種子不再供值——COL 是位置索引，欄位留著不刪。
 function masterToCodexRow_(m) {
   return [m.id, m.name, m.gender, m.appearance, m.magic, m.circuits, m.melee,
-    m.magic_rank, m.home, m.wish, m.persona, m.war, 'seed', m.back || '', m.moe || '', m.align || ''];
+    m.magic_rank, '', m.wish, m.persona, '', 'seed', m.back || '', m.moe || '', m.align || ''];
 }
 
 // 種子人設版本：每次精緻化 persona(萌點/口吻) 就升一版，觸發既有英靈殿/御主殿升級

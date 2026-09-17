@@ -359,7 +359,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
     - 單寶具種子的簽名概念 fx 必須掛進 skills（庫丘林 gae_bolg/EMIYA ubw/佐佐木 tsubame/阿爾托莉雅·美遊 excalibur）——只寫 np 字串＝只有規模、沒有概念位階。
   - `SEED_MASTERS`（15名）：id/name/sex/appearance/magic/circuits/melee/magic_rank/home/wish/persona（4段頓號=表象・內裡・喜歡・厭惡，被 masterCard_ 拆解·結構不可動，v67前全數只寫3段、喜歡欄位缺失已補齊）/back(身世)/moe(萌點)。
     - ⚠ **萌點(moe/INTENT)≠只能是反差萌**：泛指任何讓人喜歡上這角色的特色，可以是反差(表面X其實Y)，也可以是單純討喜的外觀/行為/習慣(巨乳/雙馬尾/大食/路痴等)——v67前全站(AI brief生成prompt/每回合演出卡標籤/工房UI文字)都寫死成「反差萌」，逼AI每次都硬套反差句型，已全面鬆綁措辭(見 Gallery.gs/Router_Creation.gs/Router_Persona.gs/Script.html)。
-  - `servantToHeroRow_`/`masterToCodexRow_`：物件→分頁列。
+  - `servantToHeroRow_`/`masterToCodexRow_`：物件→分頁列。⚠ 2026-09 瘦身：PERSONA 欄不再重複收 daily 四欄（各有專欄，`HERO_PERSONA_OWN_COL_` 剔除；英靈殿 −18%），御主殿「居所」「屆次」改寫空字串（零讀取，欄位保留）。`check_seed.py` 盯著這兩條。
   - `seedFateCodex_(ss)`：英靈殿/御主殿為空才灌（冪等）。版本 `CODEX_PERSONA_VER`（現行版號見檔頂），升版觸發 `upgradeCodexPersonas_`（英靈殿整列覆寫+孤兒清理·只刪 source==='seed'）＋`upgradeMasterCodex_`（御主殿整列重寫）。
 - **傳播鏈（改 SEED 要升版否則不生效）**：召喚讀英靈殿 sheet→凍進眾生列。升 `CODEX_PERSONA_VER`→`seedFateCodex_`（版本不符才動）→`upgradeCodexPersonas_`＋`resyncSummonedServants_`（依真名+職階刷已召喚從者的寶具/六圍/標籤·不動 HP/MP/MEMORY/敘事）。換職階用遷移表 `SEED_RECLASSED_`（舊key→新key）。手動強制：DEV「🔄 套用最新平衡」→`dev_resync_codex`→`actionDevResyncCodex`。
 - **主從 synergy `masterSynergySix_(name,six,memory)`**（Core_Settings）：讀從者 MEMORY【御主】名，特定組合回全盛六圍。目前只 **恩奇都↔銀狼**（原作真御主·恩奇都平時為削弱基線）。擴充往該表加。
@@ -801,6 +801,12 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
   「不靜默漏項」——那是**為了開發者除錯，代價由每張卡的提示詞付**。要查漏欄請看試算表。
 - 🐛 **fallback 預設值被當成真資料**：「卸下心防的私密一面：**卸下心防時的柔軟一面**」標籤與值同義反覆
   （跟既有的 `back === cls+name` 過濾同一種形狀）。新增 `QUAD_EMPTY_` 清單一起濾掉。
+- 🐛 **四格標籤貼在只有 2~3 段的值上＝卡片說謊**（2026-09 種子瘦身抓到）：種子的 `persona.words`
+  25 筆沒有一筆是四段（「痛快・重義」「騎士道・自我犧牲・壓抑的少女心」是價值觀清單，不是表象/內裡/喜歡/討厭），
+  `parseTraitsHelper` 補滿四格後標籤照位置蓋上去，於是 AI 讀到「喜歡的事物：壓抑的少女心」「日常表象：狂化」。
+  `quadLabeled_` 改成 **all-or-nothing**：四格全是真值才逐格貼，缺一格就整組退成「性格：a、b、c」
+  （鬆散標籤走 `QUAD_LOOSE_LABEL_` 查表；外貌三格由 `looksToTraitParts_` 保證對位，刻意不登記、維持逐格貼）。
+  25 張從者卡總計 5,267 → 5,056 字，`cards.js` 探針釘住兩條路徑。
 - 🗡️ **`servantCard_(row, {foe:true})`**：敵方卡不送 萌點／小動作（「熟了才看得到的一面」，
   戰場上的對手本來就不該有）。呼叫端＝Router_Battle 的〔敵方出戰者〕〔敵御主之護衛從者〕〔敵方盟友從者〕
   三處；我方／盟友／羈絆場景維持完整卡。敵方卡每張再省 36 字。

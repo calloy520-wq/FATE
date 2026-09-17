@@ -4,7 +4,7 @@
 #       另跑十二支不變式掃描：check_prompt(提示詞)／check_mirror(前後端常數)／check_wiring(接線)／
 #       check_render(敘事排版↔XSS)／check_simp(簡體字)／check_memory(solo 敘事記憶)／
 #       check_pronoun(寫死的性別代名詞)／check_cards(點名↔角色卡)／check_undef(未宣告識別字)／
-#       check_docs(文件↔代碼)／check_wait(等待畫面)／check_ui(前端 runtime)。
+#       check_docs(文件↔代碼)／check_wait(等待畫面)／check_seed(種子庫)／check_ui(前端 runtime)。
 # 原因：.gs 不是 node 認的副檔名，需複製成 .js 才能 node --check；
 #       Script.html 是單一 <script> 包裹，去頭尾才是純 JS。CI 不檢查 .html JS，故本地必驗。
 #       Index.html/Style.html 沒有單一 <script> 殼可以剝、驗不了JS，但漏刪一個開頭 <div> 沒同步刪
@@ -91,6 +91,9 @@ if python3 "$ROOT/check_throttle.py"; then :; else fail=1; fi
 
 # 📦 載入順序（頂層初始化用到別的檔的常數＝那一刻可能還是 undefined，會被烤進字串裡）
 if python3 "$ROOT/check_loadorder.py"; then :; else fail=1; fi
+
+# 🌱 種子庫（設定寫了卻沒人吃：幽靈技能／死欄位／同一列存兩份／永遠抽不到的角色）
+if python3 "$ROOT/check_seed.py"; then :; else fail=1; fi
 
 # 🖥️ 前端 runtime 冒煙（語法對 ≠ 跑得動；.html 的 JS 不進 CI，這裡是唯一防線）
 if node "$ROOT/check_ui.js"; then :; else fail=1; fi

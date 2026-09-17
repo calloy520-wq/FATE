@@ -827,6 +827,31 @@ REL_TAG(關係標籤)只是這裡設的起始值，之後全程只能透過actio
 ④ 逐階級換算只能給名字就說了是 per-rank 的欄位，平坦值套上階級倍率會讓 3 生出 1，
    愛之痣的 −1 改成 −3 就叫不出來。每一條都是先看到「改壞了卻不叫」才發現的。
 
+### `quadLabeled_` / `QUAD_LOOSE_LABEL_`　<sub>Router_Persona.gs · 2026-09 種子瘦身</sub>
+
+四格模板（日常表象／真實內裡／喜歡的事物／討厭的事物）本來是**逐格貼標籤**，而種子的 `persona.words`
+25 筆**沒有一筆是四段**——全是「痛快・重義」「騎士道・自我犧牲・壓抑的少女心」這種價值觀清單。
+`parseTraitsHelper` 會拿 fallback 把它補滿四格，於是標籤照位置蓋上去，卡片就開始說謊：
+「喜歡的事物：壓抑的少女心」「日常表象：狂化」——AI 照著演，零錯誤訊息。
+
+改成 **all-or-nothing**：四格都是真值才逐格貼，缺一格就整組退成一行不貼標籤的「性格：a、b、c」。
+這同時是玩家要的「不要全部寫出來，給 AI 發揮空間」——表象與內裡讓 AI 自己判斷。
+⚠ 鬆散標籤走 `QUAD_LOOSE_LABEL_` 查表（鍵＝labels[0]），**不是寫死在函式裡**：
+外貌三格由 `looksToTraitParts_` 保證對位（第一段一定是外貌、第二段一定是氣質），那組缺格仍要逐格貼，
+所以它刻意不登記。加一組要走同一條規則就往表加一列。
+
+### `servantToHeroRow_` / `masterToCodexRow_`　<sub>Seed_Codex.gs · 2026-09 種子瘦身</sub>
+
+- **daily 四欄不再存兩份**：英靈殿列有 DAILY_LOOK/WORDS/MOE/OUTFIT 四個專欄，PERSONA 欄的 JSON 又原封
+  收了一份同樣的字。讀取端（`getDailyHeroFields_`）一律走專欄、從來不讀 JSON 裡那份——純粹是重複儲存，
+  25 列多 4,100 字元（整張英靈殿的 18%）。改成依 `HERO_PERSONA_OWN_COL_` 剔除。
+  ⚠ `dailyBack` **留在 JSON 裡**：它沒有專欄，鑑賞的「經歷」只有這一個出口（Gallery 的 `p.dailyBack`）。
+- **御主殿的「居所」「屆次」零讀取**：`COL.MASTER.HOME`／`.WAR` 全樹沒有任何讀取端（屆次是靠從者的
+  `WARS` 欄判定的）。種子不再供值，**欄位本身不刪**——COL 是位置索引，刪一欄整表位移。
+- **`golden_fleece` 是幽靈技能**：美狄亞掛著「金羊毛 Argon Coin EX」，但引擎裡一個字串都沒有、
+  `ALLOWED_FX_` 沒有、前端技能說明表也沒有——玩家看得到，按了什麼都不會發生。整條移除。
+  要恢復就得先給它 fx 實作，`check_seed.py` 會盯著。
+
 ### `QUAD_REDUNDANT_` / `quadLabeled_`
 
 標籤已經講了「討厭的事物」，值再寫一次「厭惡見死不救」就是疊字——種子裡 16 處（14 個 `厭惡`、2 個 `熱衷`），AI 生成的人格也會這樣寫。

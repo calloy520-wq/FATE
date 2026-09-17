@@ -253,7 +253,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouLocationsFor_(gameId)` / `kanshouFindLoc_(gameId, name)` — **查地點的唯一入口**＝內建地圖 ∪ 這一局自己走出來的地方。⚠ 別再直接 `.find(KANSHOU_LOCATIONS_)`，否則玩家走出來的地方會查無、被當成非法目的地。
 - `kanshouLocNameForAI_(locName)`（Gallery.gs）— 送進提示詞的地名。資料鍵「我的房間」是第一人稱，跟第二人稱旁白打架（旁白會照抄成「走進我的房間」）→ 對 AI 一律改寫成「你的房間」，**存表／比對／前端仍用原鍵**。四個把 `curL` 寫進提示詞的點都要走它。
 - `KANSHOU_CAL_START_YEAR_`（常數＝2005）— 鑑賞曆法的起算西元年。2026-09 前沒有這個常數、`year` 直接算成「第幾年」，開局顯示「1年12月20日」。週年是用 absDay 差算的、不吃 `.year`，改它只動顯示字串。
-- `quadLabeled_(raw, labels, skipNone)` — PREF/TRAIT 的「、」分段值逐格加標籤餵 AI（格數＝`labels.length`）。值落在 `QUAD_EMPTY_` 的整格不送。 ⚠ 2026-09 起會依 `QUAD_REDUNDANT_` 剝掉與標籤疊字的值前綴（`討厭的事物：厭惡見死不救`→`見死不救`）；剝完為空就整格跳過。**`QUAD_EMPTY_` 的判斷刻意做兩次（剝疊字前、後各一次）**——只在剝完之後判的話，佔位字「厭惡之事」會被剝成「之事」而逃過濾網（25 位種子從者全中，見 CODE_NOTES）。
+- `quadLabeled_(raw, labels, skipNone)` — PREF/TRAIT 的「、」分段值逐格加標籤餵 AI（格數＝`labels.length`）。值落在 `QUAD_EMPTY_` 的整格不送。 ⚠ 2026-09 起會依 `QUAD_REDUNDANT_` 剝掉與標籤疊字的值前綴（`討厭的事物：厭惡見死不救`→`見死不救`）；剝完為空就整格跳過。**`QUAD_EMPTY_` 的判斷刻意做兩次（剝疊字前、後各一次）**——只在剝完之後判的話，佔位字「厭惡之事」會被剝成「之事」而逃過濾網（25 位種子從者全中，見 CODE_NOTES）。 **⚠ 2026-09 改成 all-or-nothing**：只有【labels.length 格全是真值】才逐格貼標籤；缺任一格就整組退成 `QUAD_LOOSE_LABEL_` 登記的鬆散標籤（目前只有 PREF 那組→「性格」），值照樣剝疊字、用「、」串成一行。理由：種子的 `persona.words` 多半是「痛快・重義」這種價值觀清單，位置硬塞會讓標籤說謊（「喜歡的事物：壓抑的少女心」）。外貌三格由 `looksToTraitParts_` 保證對位，沒登記所以不受影響。
 - `traitLabeled_(raw, skipNone)` — 特徵格的專用出口＝`quadLabeled_(traitParts_(raw), TRAIT_LABELS_, skipNone)`。三張角色卡（`servantCard_`／`masterCard_`／`enemyMasterCard_`）共用，別在各處各修一次。⚠ `skipNone` 現已無實際作用（兩種呼叫端都走同一份 `QUAD_EMPTY_`），保留只為相容既有呼叫。
 - `QUAD_EMPTY_`（常數）— **無資訊量佔位字的唯一名單**：`parseTraitsHelper` 各 fallback 的每一格（外貌出眾/外貌平凡/舉止從容/卸下心防…/沉著表象/堅定內裡/珍視之物/厭惡之事/通曉魔術/深藏心事）。2026-09 補齊——漏收的佔位字會被當成真資料送進提示詞（實測一張敵從者卡曾同時夾帶「喜歡的事物：珍視之物」「討厭的事物：厭惡之事」「身世：Archer 職階英靈」三格純噪音）。新增 fallback 時要同步這裡。
 - `PREF_LABELS_` = [日常表象, 真實內裡, 喜歡的事物, 討厭的事物]；`TRAIT_LABELS_` = [外貌本相, 氣質舉止, 自稱與口氣, 卸下心防的私密一面]。
@@ -995,8 +995,10 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `SEED_RECLASSED_` — 換職階遷移表（舊 key→新 key，如吉爾·德·萊斯青鬍子綽號列→正名列）。**2026-07 已清除懸空的 `貞德｜Ruler→貞德｜Archer` 死映射**（新舊 key 皆查無此人，regulation 遺留），現僅剩 1 條活映射，見下方死碼註記已同步更新。
 
 #### 物件→列轉換
-- `servantToHeroRow_(s)` — 從者物件→英靈殿列（順序＝COL.HERO，含 4 個日常快取欄），source='seed'。
-- `masterToCodexRow_(m)` — 御主物件→御主殿列（順序＝COL.MASTER，末兩欄身世/萌點為本版新增）。
+- `servantToHeroRow_(s)` — 從者物件→英靈殿列（順序＝COL.HERO，含 4 個日常快取欄），source='seed'。⚠ 2026-09：PERSONA 欄寫的是**剔除過 `HERO_PERSONA_OWN_COL_` 的那份**（daily 四欄各有專欄，不再存兩份；`dailyBack` 沒有專欄所以留在 JSON 裡）。
+- `masterToCodexRow_(m)` — 御主物件→御主殿列（順序＝COL.MASTER，末兩欄身世/萌點為本版新增）。⚠ 2026-09：「居所」「屆次」兩格改寫空字串（全樹零讀取，種子也不再供值；欄位保留因 COL 是位置索引）。
+- `QUAD_LOOSE_LABEL_`（常數）— 四格模板對不上位時改用的鬆散標籤，鍵＝該組標籤的第一格（`{'日常表象': '性格'}`）。沒登記的標籤組維持逐格貼。
+- `HERO_PERSONA_OWN_COL_`（常數）— 已有專欄、不可以再塞進 PERSONA JSON 的 persona 鍵（dailyLook/dailyWords/dailyMoe/dailyOutfit）。
 
 #### 升級/重刷管線
 - `upgradeCodexPersonas_(ss)` — 升級既有英靈殿：整列依種子重寫（ID 對應、只刷 seed 英靈不動 ai_gen）＋補入新種子英靈＋淘汰孤兒（ID 不在 SEED_SERVANTS 且 source=='seed' 才刪，由下往上）。清 FATE_HERO_CODEX 快取。回更新筆數。
