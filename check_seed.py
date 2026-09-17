@@ -18,6 +18,7 @@
    開始好看的那一刻整個消失，而且零錯誤訊息。
 ⑩ 退休的欄位長回來：萌點 2026-09 整組退休（玩家「萌不萌是玩家的事情，我們只給性格」）。
    這種「概念砍掉、某個角落又寫回去」的復發最難發現——COL 欄位還在，寫進去不會報錯。
+⑪ 氣質格寫成常態舞台指示：「背脊永遠打得筆直」不是第一眼的氛圍，是叫 AI 每回合表演一個動作。
 """
 import os, re, sys, tempfile
 
@@ -328,6 +329,42 @@ def check_moe_retired(bad, paths):
     return n
 
 
+# ⑪ 氣質格＝第一眼的氛圍，不是叫 AI 每回合表演的常態動作。
+#    2026-09 v77 把 21 筆氣質從形容詞改寫成「看得到的畫面」，結果寫成了常態舞台指示
+#    （「背脊永遠打得筆直」「下巴總是微抬半分」），玩家一眼看穿：「這就是強迫 AI 這樣扮演吧」。
+#    兩件事一起擋：①種子裡不可再出現常態指令詞 ②每個生成這一格的提示詞都必須帶上 AURA_SPEC_
+#    （五處提示詞共用同一份規格＝單一真實來源；少接一處，那條路生出來的角色就會走回頭路）。
+AURA_BAN = ('永遠', '總是', '老是', '一律', '每次', '從不', '不停')
+AURA_SLOT_MARKS = ('[氣質', '外貌、氣質')
+
+
+def check_aura(bad, seed_src, paths):
+    segs = 0
+    for m in re.finditer(r"dailyLook:'([^']*)'", seed_src):
+        parts = m.group(1).split('、')
+        if len(parts) < 2:
+            continue
+        segs += 1
+        hit = [w for w in AURA_BAN if w in parts[1]]
+        if hit:
+            bad.append("氣質格寫成常態舞台指示（%s）：「%s」——那是叫 AI 每回合表演一個動作，不是第一眼的氛圍"
+                       % ('／'.join(hit), parts[1]))
+    wired = 0
+    for p in paths:
+        for i, line in enumerate(read(p).split('\n'), 1):
+            if line.strip().startswith('//'):
+                continue
+            if any(k in line for k in AURA_SLOT_MARKS):
+                if 'AURA_SPEC_' in line:
+                    wired += 1
+                else:
+                    bad.append("%s:%d 這條提示詞在叫 AI 寫氣質格，卻沒帶上 AURA_SPEC_：這條路生出來的角色會走回常態動作"
+                               % (os.path.basename(p), i))
+    if not wired:
+        bad.append("全樹沒有任何提示詞接上 AURA_SPEC_：氣質格的寫法規格沒人在用了")
+    return segs
+
+
 def main():
     bad = []
     seed_src = read(SEED)
@@ -344,6 +381,7 @@ def main():
     n_seg = check_prompt_seg_counts(bad, gas_files())
     n_stance = check_stance_additive(bad, read(os.path.join(GAS, 'Router_Persona.gs')))
     n_line = check_moe_retired(bad, gas_files())
+    n_aura = check_aura(bad, seed_src, gas_files())
 
     # 🧪 自我退化測試：注入一個不存在的 fx，這支必須叫。
     probe = []
@@ -368,6 +406,8 @@ def main():
                                  "function bondStance_(bond, seedStance) {\n"
                                  "  for (var i = 0; i < BOND_STANCE_.length; i++) return BOND_STANCE_[i].s;\n"
                                  "  return seedStance;\n}")
+    _aura_before = len(probe)
+    check_aura(probe, "dailyLook:'金髮碧眼、背脊永遠打得筆直、簡潔認真',", [])
     _moe_before = len(probe)
     with tempfile.NamedTemporaryFile('w', suffix='.gs', dir=GAS, delete=False, encoding='utf-8') as f:
         f.write("  card += `｜萌點：${moe}`;\n")
@@ -376,13 +416,13 @@ def main():
         check_moe_retired(probe, [_inj2])
     finally:
         os.unlink(_inj2)
-    if len(probe) < 8 or len(probe) == before or len(probe) == _seg_before \
-            or len(probe) == _st_before or len(probe) == _moe_before:
-        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名／取代式階段表／復活的萌點抓不到）')
+    if len(probe) < 9 or len(probe) == before or len(probe) == _seg_before \
+            or len(probe) == _st_before or len(probe) == _moe_before or len(probe) == _aura_before:
+        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名／取代式階段表／復活的萌點／常態舞台指示抓不到）')
         return 1
 
-    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、提示詞格數 %d 處、daily 專欄 %d 格、好感位移 %d 階、退休欄掃 %d 行（含自我退化測試）'
-          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_seg, n_own, n_stance, n_line))
+    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、提示詞格數 %d 處、daily 專欄 %d 格、好感位移 %d 階、退休欄掃 %d 行、氣質格 %d 筆（含自我退化測試）'
+          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_seg, n_own, n_stance, n_line, n_aura))
     if bad:
         print('  ❌ %d 處「寫了但沒人吃」：' % len(bad))
         for b in bad:

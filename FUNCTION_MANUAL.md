@@ -259,7 +259,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `quadLabeled_(raw, labels, skipNone)` — PREF/TRAIT 的「、」分段值逐格加標籤餵 AI（格數＝`labels.length`）。值落在 `QUAD_EMPTY_` 的整格不送。 ⚠ 2026-09 起會依 `QUAD_REDUNDANT_` 剝掉與標籤疊字的值前綴（`討厭的事物：厭惡見死不救`→`見死不救`）；剝完為空就整格跳過。**`QUAD_EMPTY_` 的判斷刻意做兩次（剝疊字前、後各一次）**——只在剝完之後判的話，佔位字「厭惡之事」會被剝成「之事」而逃過濾網（25 位種子從者全中，見 CODE_NOTES）。 **⚠ 2026-09 改成 all-or-nothing**：只有【labels.length 格全是真值】才逐格貼標籤；缺任一格就整組退成 `QUAD_LOOSE_LABEL_` 登記的鬆散標籤（目前只有 PREF 那組→「性格」），值照樣剝疊字、用「、」串成一行。理由：種子的 `persona.words` 多半是「痛快・重義」這種價值觀清單，位置硬塞會讓標籤說謊（「喜歡的事物：壓抑的少女心」）。外貌三格由 `looksToTraitParts_` 保證對位，沒登記所以不受影響。
 - `traitLabeled_(raw, skipNone)` — 特徵格的專用出口＝`quadLabeled_(traitParts_(raw), TRAIT_LABELS_, skipNone)`。三張角色卡（`servantCard_`／`masterCard_`／`enemyMasterCard_`）共用，別在各處各修一次。⚠ `skipNone` 現已無實際作用（兩種呼叫端都走同一份 `QUAD_EMPTY_`），保留只為相容既有呼叫。
 - `QUAD_EMPTY_`（常數）— **無資訊量佔位字的唯一名單**：`parseTraitsHelper` 各 fallback 的每一格（外貌出眾/外貌平凡/舉止從容/卸下心防…/沉著表象/堅定內裡/珍視之物/厭惡之事/通曉魔術/深藏心事）。2026-09 補齊——漏收的佔位字會被當成真資料送進提示詞（實測一張敵從者卡曾同時夾帶「喜歡的事物：珍視之物」「討厭的事物：厭惡之事」「身世：Archer 職階英靈」三格純噪音）。新增 fallback 時要同步這裡。
-- `PREF_LABELS_` = [日常表象, 真實內裡, 喜歡的事物, 討厭的事物]；`TRAIT_LABELS_` = [外貌本相, 氣質舉止, 自稱與口氣, 卸下心防的私密一面]。
+- `PREF_LABELS_` = [日常表象, 真實內裡, 喜歡的事物, 討厭的事物]；`TRAIT_LABELS_` = [外貌本相, 氣質]（後兩格「自稱與口氣」「卸下心防的私密一面」2026-09 已退休）。
 
 #### 演出卡（回傳一段塞進 narration prompt 的字串；show-don't-tell 禁複述設定字面）
 - `buildArrivePrompt_(a)` / `arriveStanceNotice_(stance, isSeek)`（2026-09 新增，`Router_Movement.gs`）— 🚶 **抵達敘事提示詞的單一真實來源**，從 `Script.html` 收回後端。分【抵達/此地】【剛發生】【在場】＋★怎麼演四段；篇幅查 `ARRIVE_WORDS_`（依追擊/撞見/有敵幾件事）；敵方演出卡上限 `ARRIVE_FOE_CARD_CAP_ = 4`。`actionMove` 回傳 `arrivePrompt`，前端只負責 `narrate(data.arrivePrompt)`。
@@ -306,6 +306,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `sanitizeSix_(o)` — 清洗六圍(6 鍵齊全、階級合法、缺補 C)；EX 級最多留 2 項，超額降 A(防全 EX 破台角色寫回英靈殿)。
 - `originGuide_(origin)` — 依創角來源選擇(`fate`/`anime`/`original`)回傳對應的 AI 敘事框架字串+技能命名規則+人設提示前綴，供 `actionSaveHero`/`actionSummonServant` 的 AI 補生成分支共用，讓自訂/AI 生成從者依其宣稱來源忠於原作而非一律當純原創處理。
 - `tagSkillKind_(arr, kind)` — 幫技能陣列每項蓋上 `kind:'class'|'skill'` 標記後併入 `TAGS`，讓前端能分辨「職階技能」與「個人技能」而不必自行猜 fx 碼。
+- `AURA_SPEC_` — 氣質格寫法規格（五處生成提示詞共用·單一真實來源）：第一眼撞見的氛圍意象、可帶淡氣味，**禁**常態舞台指示與孤立形容詞。`check_seed.py` 第⑪條驗每個氣質格提示詞都有接上它。
 - `recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, traits, np, personaWords, align, pExtra)` — **唯一寫進共用英靈殿的入口**。名字剝 HTML 斷字字元；同名或同 id(`name-cls`)已存則不收(防短名撞種子 id 被 `upgradeCodexPersonas_` 覆寫)。當場用 `translateLookToDaily_`/`translatePersonalityToDaily_` 產好日常版(DAILY_LOOK/OUTFIT/WORDS)寫入；DAILY_MOE 欄已棄用、一律寫空字串。**副作用**：appendRow 英靈殿＋清 `FATE_HERO_CODEX` 快取。
 - `FORGE_CLS_SKILLS_`（var）— 職階技能慣例表(工房自動附贈、不占 3 槽)。
 - `forgeCost_(six, skills, npScale)` — 工房單一計價函式(六圍成本+寶具規模加成+技能計價三軌`FLAT_FX_`/`SKILL_PTS_BIG_`/`SKILL_PTS_SMALL_`)，`parseForgeBuild_`(預算上限檢查)與 `bumpSixToFloor_`/`capSixToBudget_`(AI 生成六圍下限/上限修正)三處共用同一份計價邏輯。
