@@ -1189,7 +1189,7 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
 ---
 
 ## 📎 主要常數速查（都在 `gas/Gallery.gs`）
-`KANSHOU_REL_TIER_`(五階) · `KANSHOU_STYLE_MODULES_`(13 段說書人風格·玩家可改) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_PACE_OPTIONS_`(0/10/20/30 分鐘·玩家自選流速) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · ~~`KANSHOU_SCENE_EVENTS_`~~(橋段庫·2026-09 已整組砍除) · `KANSHOU_ALBUM_CAP_`(100)（`KANSHOU_FILM_PER_DAY_`已隨底片制拍照改手機一起刪除，見上方拍照/相簿章節） · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
+`KANSHOU_REL_TIER_`(五階) · `KANSHOU_STYLE_MODULES_`(13 段說書人風格·玩家可改)/`KANSHOU_STYLE_CATS_`(4 個面板分頁) · `KANSHOU_SCENE_BOND_`(3) · `KANSHOU_APPT_BANDS_`(午後14/黃昏18/夜20) · `KANSHOU_PACE_OPTIONS_`(0/10/20/30 分鐘·玩家自選流速) · `KANSHOU_TIME_BANDS_`(5時段) · `KANSHOU_LOCATIONS_`(合法地點白名單·AI location/move 驗證) · `KANSHOU_HERO_HOME_`(手寫專屬豪邸)/`KANSHOU_GENERIC_HOME_POOL_`(泛用住處池·8間·查無專屬豪邸者隨機分配) · ~~`KANSHOU_SCENE_EVENTS_`~~(橋段庫·2026-09 已整組砍除) · `KANSHOU_ALBUM_CAP_`(100)（`KANSHOU_FILM_PER_DAY_`已隨底片制拍照改手機一起刪除，見上方拍照/相簿章節） · `KANSHOU_KNOCK_CHANCE_`(0.2)/`KANSHOU_KNOCK_MIN_BOND_`(60) · `KANSHOU_COHABIT_BOND_`(90)/`KANSHOU_VISIT_BOND_`(40) · `KANSHOU_PARTY_DETAIL_CAP_`(5) · `KANSHOU_STARTER_IDS_`(開局起手池) · `KANSHOU_SUMMON_BLOCKED_IDS_`(暫不開放召喚)。
 
 
 ---
@@ -1566,12 +1566,15 @@ schema 教 AI 寫 `"1. [主動]…"`，而 `data.options` 是**原樣**長成按
 - **資料層**：新分頁 `鑑賞風格` `[遊戲ID, 模組, 文字, 開關]`（`KS_`）。缺列＝預設；文字空＝預設；開關 `0`＝整段不送。表上只放真的改過的列（存空文字＋開啟＝刪列）。快取 `KS_<gid>` 120 秒，比照世界帳本 `KW_`；歸零重來一併清掉。
 - **讀取**：`kanshouStyleRead_(gid)` → `{key:{text,on}}`；組 prompt 唯一讀口 `kanshouStyle_(styles, key, vars)`：玩家版 → 關閉＝'' → 預設，並代入 `{玩家}{代名詞}{篇幅}{主動掌握}{推進}`。
 - **接線**：`buildDefaultSystemPrompt(includeOptions, styles)` 的 `nsfwBaseRules` 改成**陣列組裝＋動態編號**（關掉一段其餘自動補號）；`actionPlay` 的 USER prompt 五段改讀區域閉包 `_sty_`（＝`kanshouStyle_(_styles_, key, _styleVars_)`）。**預設一格不改時，SYSTEM＋USER 逐字等於改版前**（`scratchpad/style/baseline_prompt.txt` diff 為空）。
-- **動作**：`kanshou_get_style`（回 `modules[]{key,name,slot,hint,text,on,custom}`＋`max`——**`def` 刻意不下傳**，見下）／`kanshou_set_style`（`{key,styleText,on}`／`{key,reset}`／`{resetAll}`）。文字上限 `KANSHOU_STYLE_TEXT_MAX_`=300；**不剝 ｜【】**（這不是 MEMORY，它自己一張表；`sanitizeUserData_` 只擋控制字元與公式前導）。
+- **動作**：`kanshou_get_style`（回 `modules[]{key,name,slot,cat,hint,text,on,custom}`＋`cats[]{key,name}`＋`max`——**`def` 刻意不下傳**，見下）／`kanshou_set_style`（`{key,styleText,on}`／`{key,reset}`／`{resetAll}`）。文字上限 `KANSHOU_STYLE_TEXT_MAX_`=300；**不剝 ｜【】**（這不是 MEMORY，它自己一張表；`sanitizeUserData_` 只擋控制字元與公式前導）。
 - **UI（2026-09 改三態）**：☰ →「⚙ 說書人設定」（`openKanshouStyle`·Script_Kanshou.html）：每段 名稱／狀態（預設·自訂·已關閉）／**一句 `hint`「這段管什麼」**／三顆鈕 **預設｜自訂｜關閉**；選「自訂」才長出文字框（中性 placeholder ＋ 字數計 ＋ 儲存），底部全部還原。
   - **🙈 預設句本體不顯示給玩家**（玩家：「把我的設定目前就是預設值 但是不要顯示內容給玩家看到」）：預設值就是調好的提示詞，貼在畫面上玩家會照著看、照著改，等於把敘事的骨架攤在桌上出戲。所以 `actionKanshouGetStyle` **改回 `hint` 不回 `def`**——連網路封包裡都沒有那串字；`KANSHOU_STYLE_MODULES_` 每列多一欄 `hint`（一句話講這段管什麼，不透露句子怎麼寫）。
   - **三態＝原本兩個控制項的合併**：舊版是「文字框（灰字＝預設）＋啟用勾選」，玩家要從灰字/黑字/勾沒勾去推自己現在是哪一種；灰字一拿掉那個介面就無法讀了。現在狀態是明講的一顆亮著的鈕：`ksMode(m)` 是唯一判讀口（關閉 → 自訂 → 預設）。
   - **按「自訂」不打後端**：只是本地 `_ksEdit_[key]=true` 把輸入框長出來，按【儲存】才送（守住每按鍵最少 round-trip）。留白存檔＝刪列＝回到預設，跟後端原本的規則同一條，沒有新特例。
-  - 🔒 機器擋：`check_ui.js` 的 `ksRender_ 三態` 會餵一個**帶 `def` 的誘餌模組**進去渲染，只要那串字出現在畫面 HTML 就當場叫（退化測試確認過會叫）；`style.js` 另有「get_style 不下傳預設句本體」「每個模組都有 hint」兩條。
+  - **🗂 四個分頁**（玩家：「那13段 這樣一長排 很難設定 排版分類一下」）：`KANSHOU_STYLE_CATS_`＝`✍️ 文筆`(voice/dialogue/length)｜`🎭 你`(agency/enact/pov/feel)｜`💞 對方`(drive/continuity/moe)｜`🌍 世界`(world/immersion/ending)。分類依【這段在管誰】，**跟 `slot` 是兩回事**（slot 是進哪一段提示詞）——舊版用 slot 當分組是拿技術欄位當 UI，玩家讀不出意思。
+    分頁表跟 `cat` 欄一起下傳，前端不寫死；加一類＝往 `KANSHOU_STYLE_CATS_` 加一列。
+    ⚠ 分頁會**把狀態藏起來**，所以每個分頁右上角有角標＝那一類有幾段不是預設；`style.js` 釘住「每段都歸在存在的分頁」「沒有空分頁」。
+  - 🔒 機器擋：`check_ui.js` 的 `ksRender_ 三態＋分頁` 會餵一個**帶 `def` 的誘餌模組**進去渲染，只要那串字出現在畫面 HTML 就當場叫（退化測試確認過會叫，改版後再測一次），並驗分頁列畫得出來、切頁真的換內容、別頁的東西不會漏到這一頁；`style.js` 另有「get_style 不下傳預設句本體」「每個模組都有 hint」兩條。
 - **紅線①流程**：改前 `_audit.js` 存基線 → 改後 diff 零差異 → `style.js` 32 條（預設零差異／改一段只動那段／關一段整段消失且鐵律重新編號／單格與全部還原／兩帳號互不污染／注入 `=SUM ｜【同居】1 <b>` 不切壞 MEMORY／300 字上限／不存在的模組被拒／歸零清風格）→ `known.js`／`k_sex2.js`／`k_cd.js`／`audit_all.js` 零退化。
 - ⚠ **佔位符刻意叫 `{代名詞}` 不叫 `{他她}`**：`check_pronoun.py` 會把字面「他／她」當寫死代名詞抓出來，而它抓得對——預設句裡不該出現任何一個。
 - ⚠ **預設值留在 `.gs`、不搬進試算表**：十三支掃描器只看 `.gs`，搬走等於讓 `check_prompt`／`check_pronoun` 對這 12 段失明。

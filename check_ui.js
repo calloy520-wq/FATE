@@ -23,7 +23,7 @@ const ENTRIES = [
   'kanshouPlaceMenu', 'kanshouGoNewPlace', 'kanshouNextStage', 'kanshouEndDay',
   'kcMapListHtml_', 'kcChoose_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',
   'sumMode_', 'setWarFromSelect_', 'newGameFlow', 'openTutorial', 'kcAlbumCardHtml_',
-  'ksRender_', 'ksPick_', 'ksSave_', 'ksReset_', 'ksResetAll_'
+  'ksRender_', 'ksTab_', 'ksPick_', 'ksSave_', 'ksReset_', 'ksResetAll_'
 ];
 // 這些面板會被真的叫起來一次（不能拋例外）
 const RENDERS = [
@@ -44,22 +44,29 @@ const RENDERS = [
   // 🎨 ⚙ 說書人設定的三態（預設／自訂／關閉）：畫得出來，而且【預設句本體不可以出現在畫面上】。
   //   那串字是提示詞，玩家看到就出戲——這裡餵一個帶 def 的模組物件當誘餌，
   //   哪天有人把 placeholder=m.def 之類的寫法加回來，這條會當場叫。
-  ['ksRender_ 三態', () => {
+  ['ksRender_ 三態＋分頁', () => {
     const body = ctx.document.createElement('div'); body.id = 'kc-style-body'; ctx.document.body.appendChild(body);
+    ctx._ksCats_ = [{ key: 'pen', name: '✍️ 文筆' }, { key: 'them', name: '💞 對方' }];
     ctx._ksMods_ = [
-      { key: 'voice', name: '筆觸', slot: 'sys', hint: '敘事的調子與人稱。', def: '【誘餌】這是提示詞本體，不可外洩。', text: '', on: true, custom: false },
-      { key: 'moe', name: '萌點用法', slot: 'sys', hint: '口癖要多常用。', def: '【誘餌2】', text: '少用一點。', on: true, custom: true },
-      { key: 'world', name: '世界觀', slot: 'user', hint: '這是什麼樣的世界。', def: '【誘餌3】', text: '', on: false, custom: false }
+      { key: 'voice', name: '筆觸', slot: 'sys', cat: 'pen', hint: '敘事的調子與人稱。', def: '【誘餌】這是提示詞本體，不可外洩。', text: '', on: true, custom: false },
+      { key: 'moe', name: '萌點用法', slot: 'sys', cat: 'them', hint: '口癖要多常用。', def: '【誘餌2】', text: '少用一點。', on: true, custom: true },
+      { key: 'drive', name: '推演', slot: 'sys', cat: 'them', hint: '對方答不答應由什麼決定。', def: '【誘餌3】', text: '', on: false, custom: false }
     ];
-    ctx._ksEdit_ = {};
+    ctx._ksEdit_ = {}; ctx._ksCat_ = '';
     ctx.ksRender_();
     const h = String(body.innerHTML);
     if (/誘餌/.test(h)) return false;                                   // 預設句漏到畫面上
-    if (!/敘事的調子與人稱/.test(h) || !/少用一點/.test(h)) return false;  // 提示與玩家自己的字都要在
-    if (!/已關閉/.test(h) || !/自訂/.test(h) || !/預設/.test(h)) return false;
-    if ((h.match(/<textarea/g) || []).length !== 1) return false;       // 只有「自訂」那格開輸入框
-    ctx.ksPick_('voice', 'own'); const h2 = String(body.innerHTML);      // 按「自訂」＝本地打開輸入框
-    return (h2.match(/<textarea/g) || []).length === 2 && !/誘餌/.test(h2);
+    if (!/✍️ 文筆/.test(h) || !/💞 對方/.test(h)) return false;          // 分頁列要畫得出來
+    if (!/敘事的調子與人稱/.test(h)) return false;                       // 第一頁的提示在
+    if (/口癖要多常用/.test(h)) return false;                           // 別頁的不該畫出來
+    if (!/>2</.test(h)) return false;                                   // 「對方」頁 2 段不是預設 → 角標 2
+    if ((h.match(/<textarea/g) || []).length !== 0) return false;
+    ctx.ksTab_('them'); const h2 = String(body.innerHTML);              // 切分頁
+    if (!/少用一點/.test(h2) || /敘事的調子與人稱/.test(h2)) return false;
+    if (!/已關閉/.test(h2) || !/自訂/.test(h2)) return false;
+    if ((h2.match(/<textarea/g) || []).length !== 1) return false;      // 只有「自訂」那格開輸入框
+    ctx.ksPick_('drive', 'own'); const h3 = String(body.innerHTML);     // 按「自訂」＝本地打開輸入框
+    return (h3.match(/<textarea/g) || []).length === 2 && !/誘餌/.test(h3);
   }],
   ['openTutorial', () => { let html = ''; const old = ctx.showHistoryOverlay; ctx.showHistoryOverlay = h => { html = String(h); };
     try { ctx.openTutorial(); } finally { ctx.showHistoryOverlay = old; }

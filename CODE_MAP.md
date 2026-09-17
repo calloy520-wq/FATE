@@ -236,7 +236,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 | 敵營局面選項 | `FACTION_ENCOUNTER_CHOICES_` | Router_Movement |
 | 出力檔／符文 | `OUTPUT_TIERS_` / `RUNE_MODES_` | Core_Settings |
 | 鑑賞地圖／節慶／關係階／住處池 | `KANSHOU_LOCATIONS_` `KANSHOU_FESTIVALS_` `KANSHOU_REL_TIER_` `KANSHOU_GENERIC_HOME_POOL_` | Gallery |
-| 說書人風格（玩家可改的 13 段） | `KANSHOU_STYLE_MODULES_`（key/name/hint/slot/def；加一段＝加一列，UI 與 get/set 自動吃。⚠ `def` 是提示詞本體、不下傳前端，玩家看到的是 `hint`）· 分頁「鑑賞風格」`KS_` | Gallery |
+| 說書人風格（玩家可改的 13 段） | `KANSHOU_STYLE_MODULES_`（key/name/hint/slot/cat/def；加一段＝加一列，UI 與 get/set 自動吃。⚠ `def` 是提示詞本體、不下傳前端，玩家看到的是 `hint`）＋面板分頁 `KANSHOU_STYLE_CATS_`（加一類＝加一列）· 試算表分頁「鑑賞風格」`KS_` | Gallery |
 | ~~鑑賞橋段觸發(四層)~~ | `KANSHOU_SCENE_EVENTS_`/`KANSHOU_FESTIVAL_EVENTS_`/`KANSHOU_LOCATION_EVENTS_`/`KANSHOU_COHABIT_EVENTS_`/`KANSHOU_PROPS_` **2026-09 已整批砍除**（事件自由：地點×時段發生什麼由 AI 即興，節慶只給「今天是 X」事實） | — |
 | 鑑賞「第一次」／關係質變 | `kanshouStampFirst_`(加蓋戳點) `kanshouRelTierLabel_`(階數→階名) | Gallery |
 | dispatcher 行為 | `OWNERSHIP_CHECK_EXEMPT_` `LOCK_EXEMPT_ACTIONS_` `STATE_AFTER_ACTIONS` `KANSHOU_BLOCKED_ACTIONS_` | Router_Action |
