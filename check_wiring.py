@@ -195,13 +195,15 @@ if dead:
 # 這裡記一個下限；真的刻意刪掉區塊時，請一併把這個數字調下來（強迫是個有意識的動作）。
 # ⚠ 這裡的計數方式跟 check_prompt.py 不同（那邊的 regex 會把同一行後面的 ★ 一起吃進 420 字尾巴裡），
 #   所以數字不一樣是正常的；重點是「不准無聲變少」。
-MIN_STAR_BLOCKS = 112   # 2026-09 刻意 -3：鑑賞提示詞去重（路人/焦點禮讓/演出而非說明/沒寫的就不存在/稱呼/動筆前確認 合併成 3 條）。前次 115
+MIN_STAR_BLOCKS = 160  # 2026-09 ★ regex 對齊 check_prompt（138→162），門檻跟著抬   # 2026-09 刻意 -3：鑑賞提示詞去重（路人/焦點禮讓/演出而非說明/沒寫的就不存在/稱呼/動筆前確認 合併成 3 條）。前次 115
 star = 0
 for l in BACK_ALL.split('\n'):
     t = l.strip()
     if t.startswith('//') or '★' not in l:
         continue
-    star += len(re.findall(r'★【[^】]{2,120}】', l))
+    # 跟 check_prompt 對齊（2026-09）：★ 與【之間允許一小段文字，
+    #   「★演出這段抵達【…】」這類本來一條都不算，等於這道門檻在守一個子集。
+    star += len(re.findall(r'★[^【\n]{0,14}【[^】]{2,120}】', l))
 if star < MIN_STAR_BLOCKS:
     problems.append(
         f'③ ★ 區塊只掃到 {star} 個，低於下限 {MIN_STAR_BLOCKS}——'

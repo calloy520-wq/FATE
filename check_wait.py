@@ -42,6 +42,11 @@ BACKGROUND = {
 INPLACE = {
     'runTigerDojo_': '道場畫面就地顯示「藤村老師正在翻你的戰報……」＋鎖住「下一步」鈕',
     'rollFate':      '測定卡片框就地顯示「正在測定…」＋_fateRolling 擋連點',
+    # 🐛→✅ 2026-09：這兩支本來是靠「往上 30 行」剛好看到開窗那段的「讀取中……」才過的，
+    #   收緊成【所屬函式範圍】之後當場現形。它們確實有就地指示，只是畫在【開窗的那一支】裡
+    #   （openKanshouStyle／openKanshouWorld 先把面板填成「讀取中……」，再 await 這一支去換內容）。
+    'ksLoad_':       '就地顯示：openKanshouStyle 先把 #kc-style-body 填成「讀取中……」，這支回來才換成內容',
+    'kwLoad_':       '就地顯示：openKanshouWorld 先把 #kc-world-body 填成「讀取中……」，這支回來才換成內容',
 }
 
 CALL = re.compile(r'\bgasRun\s*\(')
@@ -62,16 +67,19 @@ def scan(extra=None):
             if 'function gasRun' in line or line.strip().startswith('//'):
                 continue
             n += 1
-            fn = ''
+            fn, fn_line = '', max(0, i - 120)
             for j in range(i, max(0, i - 120), -1):
                 m = FUNC.search(lines[j])
                 if m:
-                    fn = m.group(1)
+                    fn, fn_line = m.group(1), j
                     break
             if fn in BACKGROUND or fn in INPLACE:
                 continue
-            # 往上 30 行(夠含括同一支 handler 的前置)找看得見的等待指示
-            if WAIT.search('\n'.join(lines[max(0, i - 30):i + 1])):
+            # 🐛→✅ 從【所屬函式的開頭】找到呼叫點，而不是往上數固定行數。
+            #   舊版是往上 30 行：於是「等待指示其實在隔壁函式裡、只是剛好落在視窗內」也算過，
+            #   而同一支函式只要多寫兩行就會把它推出視窗、當場由綠轉紅（2026-09 chooseWorld 實際踩到）。
+            #   也就是說那個綠燈從來不代表這一點真的被守住。函式範圍才是誠實的範圍。
+            if WAIT.search('\n'.join(lines[fn_line:i + 1])):
                 continue
             bad.append((f, i + 1, fn, line.strip()[:70]))
     return n, bad

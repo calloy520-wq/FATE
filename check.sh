@@ -15,6 +15,8 @@ GAS="$ROOT/gas"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 fail=0
+# 📉 所有掃描輸出同時留一份，最後給 check_floors.py 比對覆蓋數（見檔尾）
+exec > >(tee "$TMP/scan.log") 2>&1
 
 for f in "$GAS"/*.gs; do
   [ -e "$f" ] || continue
@@ -97,6 +99,11 @@ if python3 "$ROOT/check_seed.py"; then :; else fail=1; fi
 
 # 🖥️ 前端 runtime 冒煙（語法對 ≠ 跑得動；.html 的 JS 不進 CI，這裡是唯一防線）
 if node "$ROOT/check_ui.js"; then :; else fail=1; fi
+
+# 📉 覆蓋數不得無聲下降（吃上面那些掃描器【已經印出來】的數字，不重跑）
+#    掃描器可以一邊印綠燈、一邊悄悄少看一半——實際踩過兩次（check_wait 的 30 行視窗、
+#    check_prompt 的 ★ regex）。數字合理長大時跑 `python3 check_floors.py --bless` 收基線。
+if python3 "$ROOT/check_floors.py" < "$TMP/scan.log"; then :; else fail=1; fi
 
 echo "──────────────"
 if [ "$fail" = 0 ]; then echo "✅ 全部通過"; else echo "❌ 有語法錯誤，勿 push"; fi
