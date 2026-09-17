@@ -31,6 +31,7 @@ const ALIAS = {
   'KC_HORROR_UPKEEP_': 'HORROR_UPKEEP',
   'KC_HORROR_HOURLY_UPKEEP_': 'HORROR_HOURLY_UPKEEP',
   'KC_PARLEY_': 'PARLEY_ACTS_',
+  'KC_TRAIT_SLOTS_': 'TRAIT_SLOTS_',
 };
 // 純前端常數：沒有後端對應是**設計如此**，每一條都要寫清楚為什麼，否則就是漏了鏡射。
 const FRONTEND_ONLY = {

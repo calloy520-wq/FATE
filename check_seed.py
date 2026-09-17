@@ -128,6 +128,42 @@ def check_back_not_personality(bad, seed_src):
     return n
 
 
+# 🔢 創角提示詞裡寫的【格數】必須等於吃它的那張表的格數：
+#    prompt 叫 AI 寫 3 段、`parseTraitsHelper(..., TRAIT_SLOTS_)` 只收 2 段＝第 3 段靜靜被丟掉，
+#    玩家花了 token 生成、也在卡上看不到，而且零錯誤訊息。2026-09 把特徵從 3 格收成 2 格時，
+#    六處提示詞（御主創角／常民升格／人格編織者／AI 生成從者／日常外貌轉換）全都還寫著舊數字。
+SEG_SPECS = [
+    (r"traits\s*【恰好(\d+)段】", 'TRAIT_SLOTS_'),
+    (r"personality\s*【恰好(\d+)段】", 'PREF'),
+    (r"look【恰好(\d+)段】", 'TRAIT_SLOTS_'),
+    (r"【外貌 look】剛好\s*(\d+)\s*短句", 'TRAIT_SLOTS_'),
+    (r"日常版「外貌」(三|四|二|兩)短句", 'DAILY_LOOK_SLOTS_'),
+]
+CN_NUM = {'二': 2, '兩': 2, '三': 3, '四': 4}
+
+
+def check_prompt_seg_counts(bad, files):
+    core = read(os.path.join(GAS, 'Core_Settings.gs'))
+    want = {
+        'TRAIT_SLOTS_': int(re.search(r"var TRAIT_SLOTS_\s*=\s*(\d+)", core).group(1)),
+        'DAILY_LOOK_SLOTS_': int(re.search(r"var DAILY_LOOK_SLOTS_\s*=\s*(\d+)", core).group(1)),
+        'PREF': len(re.findall(r"'[^']+'", re.search(r"var PREF_LABELS_\s*=\s*\[([^\]]*)\]",
+                                                     read(os.path.join(GAS, 'Router_Persona.gs'))).group(1))),
+    }
+    n = 0
+    for path in files:
+        t = read(path)
+        for pat, key in SEG_SPECS:
+            for m in re.finditer(pat, t):
+                raw = m.group(1)
+                got = CN_NUM.get(raw, None) or int(raw) if raw.isdigit() else CN_NUM.get(raw)
+                n += 1
+                if got != want[key]:
+                    bad.append("%s 的提示詞叫 AI 寫 %s 段，但 %s 只收 %d 段——多的那幾段會被靜靜丟掉"
+                               % (os.path.basename(path), raw, key, want[key]))
+    return n
+
+
 def check_hardcoded_names(bad, seed_src, files, extra=()):
     names = set(re.findall(r"realName\s*:\s*'([^']*)'", seed_src))
     ids = set(re.findall(r"\{\s*id\s*:\s*'([^']*)'", seed_src))   # id 不是真名（「衛宮士郎-Master」含著真名）
@@ -231,6 +267,7 @@ def main():
     n_lit = check_hardcoded_names(bad, seed_src, gas_files())
     n_nm = check_name_has_cjk(bad, seed_src)
     n_bk = check_back_not_personality(bad, seed_src)
+    n_seg = check_prompt_seg_counts(bad, gas_files())
 
     # 🧪 自我退化測試：注入一個不存在的 fx，這支必須叫。
     probe = []
@@ -240,12 +277,23 @@ def main():
     check_hardcoded_names(probe, seed_src, [], extra=[('(注入)', "if (name === '阿爾托莉雅') return [];")])
     check_name_has_cjk(probe, "realName:'EMIYA',")
     check_back_not_personality(probe, "{ id:'測試-Saber', dailyWords:'隨性自來熟、重情義、釣魚與湊熱鬧、拐彎抹角的算計', dailyBack:'隨性愛湊熱鬧，重情義' }")
-    if len(probe) < 5 or len(probe) == before:
+    _seg_before = len(probe)
+    _tmp = os.path.join(GAS, 'Core_Settings.gs')
+    check_prompt_seg_counts(probe, [_tmp])   # Core_Settings 本身沒有這些提示詞，下面改用注入檔
+    import tempfile
+    with tempfile.NamedTemporaryFile('w', suffix='.gs', dir=GAS, delete=False, encoding='utf-8') as f:
+        f.write("★【格式鐵律】traits 【恰好9段】、personality 【恰好4段】")
+        _inj = f.name
+    try:
+        check_prompt_seg_counts(probe, [_inj])
+    finally:
+        os.unlink(_inj)
+    if len(probe) < 6 or len(probe) == before or len(probe) == _seg_before:
         print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名抓不到）')
         return 1
 
-    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、daily 專欄 %d 格（含自我退化測試）'
-          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_own))
+    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、提示詞格數 %d 處、daily 專欄 %d 格（含自我退化測試）'
+          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_seg, n_own))
     if bad:
         print('  ❌ %d 處「寫了但沒人吃」：' % len(bad))
         for b in bad:

@@ -133,7 +133,7 @@ function translateLookToDaily_(name, cls, rawLook, firstP, speech, sex) {
     "[日常口氣(依原本說話語氣「" + (speech || "無特別描述") + "」寫成的日常說話口氣；自稱「" + (firstP || "我") + "」若不是尋常的「我」，就把它寫進這一句，是「我」則不必提)]。\n" +
     "②outfit：一句這位角色今天的日常穿搭，保留原本服裝的色系/風格精神、換成現代日常款式，盡量貼近原味，" +
     "不要跟look的內容重複。\n" +
-    "★輸出合法 JSON、禁 Markdown：{\"look\":\"四短句頓號分隔\",\"outfit\":\"一句日常穿搭\"}";
+    "★輸出合法 JSON、禁 Markdown：{\"look\":\"三短句頓號分隔\",\"outfit\":\"一句日常穿搭\"}";
   var prompt = "角色：" + name + "（" + cls + "）\n戰時外貌描述：" + look;
   return kanshouDailyTranslateCall_(prompt, sys, { temperature: 0.7, ignoreLaw: true }, function (raw) {
     var out = JSON.parse(raw || "{}");
@@ -703,8 +703,8 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 
 ★【語言】除 JSON 欄位名本身外，所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母；玩家描述若含英文人名/詞彙，請意譯或音譯成中文寫入。
 ★【萌點怎麼寫】萌點/設定是【給你內化的素材】，禁複述字面：情境對了才讓它自然浮現一次·不必每回合硬塞·連續回合勿重複同一個具體動作(牽涉隨身物品時尤忌每次都靠「摸/看一眼」交差)。
-★【格式鐵律】traits 【恰好3段】、personality 【恰好4段】，只用頓號「、」分隔，【絕對不要用句號「。」或半形句點】，每段是一個【簡短詞組】(不是完整句子)，每段內部也【不要】再用頓號列舉多項；禁數字標籤。
-- traits：外貌、氣質舉止、卸下心防的私密一面。${finalSex === '女' ? BUST_NOTE_ : ''}格式範例(只示範斷句，內容一律依玩家給的性別與描述重寫)：「(外貌)、(氣質舉止)、(獨處時的小動作)」
+★【格式鐵律】traits 【恰好2段】、personality 【恰好4段】，只用頓號「、」分隔，【絕對不要用句號「。」或半形句點】，每段是一個【簡短詞組】(不是完整句子)，每段內部也【不要】再用頓號列舉多項；禁數字標籤。
+- traits：外貌、氣質舉止。${finalSex === '女' ? BUST_NOTE_ : ''}格式範例(只示範斷句，內容一律依玩家給的性別與描述重寫)：「(外貌)、(氣質舉止)」
 - personality：日常表象、真實內裡、喜歡的事物、討厭的事物。格式範例(只示範斷句)：「(表象)、(內裡)、(喜歡的)、(討厭的)」
 ★npc_intent：一句讓人喜歡上這個人的萌點，**18 字內講完一句完整的話**。可以是反差、也可以只是討喜的外觀或小習慣(雙馬尾、大食、路痴之類)。★語氣溫馨正面、看了會心一笑，【禁】靠創傷/自卑/孤獨/悲劇宿命撐——這裡是輕鬆的日常後日談。【禁】拿聖杯戰爭專有詞(令咒/寶具/魔術迴路/從者/職階)湊萌點：這個平行世界從沒發生過那場戰爭，那些詞在這裡沒有來由。
 ★speech：${pron_(finalSex)}講話的調調，限16字、【禁】完整句子(例：句子短、不太用形容詞、被問心事會先岔開)。這是給 AI 演這個人的依據，不是給玩家看的。
@@ -715,7 +715,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 ★【勿輸出數值】戰力數值一律不需要，也不要輸出地點。
 
 ★【輸出】合法 JSON、禁 Markdown：
-{"background":"限20字","traits":"三格頓號字串","personality":"四格頓號字串","npc_intent":"結合此人身分的獨特可愛萌點(不限反差)，一句話","speech":"講話的調調，限16字","tic":"招牌小動作，限16字","outfit":"一句日常穿搭"}`;
+{"background":"限20字","traits":"兩格頓號字串","personality":"四格頓號字串","npc_intent":"結合此人身分的獨特可愛萌點(不限反差)，一句話","speech":"講話的調調，限16字","tic":"招牌小動作，限16字","outfit":"一句日常穿搭"}`;
 
   try {
     const aiBrief = JSON.parse(callGeminiAPI(promptStr, KANSHOU_MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true }));

@@ -839,6 +839,21 @@ REL_TAG(關係標籤)只是這裡設的起始值，之後全程只能透過actio
 在此刻這個處境下會做出什麼具體舉動、用什麼語氣、選擇說什麼或不說什麼。
 卡片標頭也一起從「演出依據」改成「核心特質·內化用」。
 
+### 創角提示詞的格數（`check_prompt_seg_counts`）　<sub>check_seed.py · 2026-09</sub>
+
+把特徵從 3 格收成 2 格之後，玩家一句「創角的部分確認一下有沒有符合目前的設定」，
+查出**六處提示詞還寫著舊數字**：御主創角（`MASTER_GEN_SYS`）／常民升格／人格編織者／
+AI 生成從者／日常外貌轉換，加上前端逆天改命的三格輸入框與 `traitSegs_` 的 `3`。
+
+失敗的形狀很典型：prompt 叫 AI 寫 3 段、`parseTraitsHelper(..., TRAIT_SLOTS_)` 只收 2 段
+→ **第 3 段靜靜被丟掉**。玩家花 token 生成、卡上看不到、零錯誤訊息。
+
+改成機器擋：`check_prompt_seg_counts` 把提示詞裡寫的格數（`traits 【恰好N段】`、
+`【外貌 look】剛好 N 短句`、`日常版「外貌」N短句`…）逐處對照 `TRAIT_SLOTS_` /
+`DAILY_LOOK_SLOTS_` / `PREF_LABELS_.length`，對不上就叫。
+⚠ 前端那份也一起釘：新增 `KC_TRAIT_SLOTS_` 鏡射 `TRAIT_SLOTS_`（`check_mirror` 盯著），
+`traitSegs_`／逆天改命視窗／`renderSegField_` 全部改吃它，不再各寫一個 `3`。
+
 ### `TRAIT_SLOTS_`（私密一面退休）　<sub>Core_Settings.gs · 2026-09</sub>
 
 玩家先問「私密一面是不是不太需要，太難表演了」，接著看了內容本身：
