@@ -34,6 +34,7 @@ BACKGROUND = {
     'kcRefreshPartyOnly_': '背景局部刷新：跟在已經有回饋的動作後面',
     'renderMapPane':      '地圖重繪：只有無快取那一支發網路，該支自己包了遮罩',
     'kcRefreshAfterPromise_': '背景局部刷新：約定有變動時重抓同伴清單，玩家正在讀剛出爐的敘述',
+    'chooseWorld':        '背景預取：選完戰爭進創角頁時先抓該場的正典御主名單，玩家接著在打名字、沒有在等它（跟 setWarFromSelect_ 是同一件事的另一個入口）',
     'setWarFromSelect_': '背景預取：換場次時先抓該場的正典御主名單，玩家還在打名字、沒有在等它（切下拉選單當場就變，沒有靜止的畫面）',
 }
 

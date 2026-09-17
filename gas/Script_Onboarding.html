@@ -77,6 +77,8 @@ function showOnly_(id) {
   ['scr-master', 'step-name'].forEach(function (s) {
     var el = document.getElementById(s); if (el) el.style.display = (s === id) ? 'block' : 'none';
   });
+  // ⚔️ 進創角頁就把目前那一場戰爭亮起來（三顆按鈕是常駐的，沒亮＝玩家看不出現在選的是哪場）
+  if (id === 'step-name') { try { pickWar(currentWar || '5th'); } catch (e) { } }
 }
 var _mastersPrefetch = {}; // ⚡ 正典御主名單預取：war → Promise
 // 🌍 型態×場次原本是兩屏四次點擊，2026-09 合成一屏三顆按鈕、一次選定。
@@ -91,6 +93,20 @@ function chooseWorld(mode, war) {
   showOnly_('step-name');
 }
 // ⚔️ 創角頁「自己設定」裡的場次切換：沿用 chooseWorld 的同一組變數，只是不切畫面。
+// ⚔️ 三顆常駐按鈕選戰爭：值寫進 hidden #s-war，其餘照舊走 setWarFromSelect_（單一真實來源）
+function pickWar(v) {
+  var h = document.getElementById('s-war');
+  var changed = !h || String(h.value) !== String(v);
+  if (h) h.value = v;
+  Array.prototype.forEach.call(document.querySelectorAll('.s-war-btn'), function (b) {
+    var on = b.getAttribute('data-war') === v;
+    b.style.borderColor = on ? 'var(--gold-accent)' : '#5a4a34';
+    b.style.color = on ? '#f0e0b8' : '#9a8e74';
+    b.style.background = on ? 'rgba(212,175,55,.16)' : 'transparent';
+  });
+  if (changed) setWarFromSelect_(); // 只有真的換過才跑——進畫面時的初次上色不算「換了場次」
+}
+
 function setWarFromSelect_() {
   var el = document.getElementById('s-war');
   var v = (el && el.value) || '5th';

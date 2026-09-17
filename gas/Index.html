@@ -62,18 +62,23 @@
           <option value="異">異</option>
         </select>
       </div>
+      <!-- ⚔️ 哪一場戰爭：2026-09 從「▸ 自己設定」的下拉選單拉出來成常駐按鈕列（玩家要選混亂模式得先點開再拉選單，等於看不到）。
+           值仍存 #s-war（改成 hidden），setWarFromSelect_ 的讀法不變。 -->
+      <div style="margin:0 0 10px;">
+        <div style="color:var(--gold-accent); font-size:12px; font-weight:bold; margin-bottom:4px;">哪一場戰爭？<span style="font-weight:normal; color:#816e54; font-size:11px;">　決定敵方陣容</span></div>
+        <input type="hidden" id="s-war" value="5th">
+        <div id="s-war-row" style="display:flex; gap:5px;">
+          <button type="button" class="btn s-war-btn" data-war="5th" onclick="pickWar('5th')" style="flex:1; padding:7px 3px; font-size:12px; line-height:1.35;">🏆 第五次<br><span style="font-size:10px; opacity:.75;">Fate/SN</span></button>
+          <button type="button" class="btn s-war-btn" data-war="4th" onclick="pickWar('4th')" style="flex:1; padding:7px 3px; font-size:12px; line-height:1.35;">⚔️ 第四次<br><span style="font-size:10px; opacity:.75;">Fate/Zero</span></button>
+          <button type="button" class="btn s-war-btn" data-war="chaos" onclick="pickWar('chaos')" style="flex:1; padding:7px 3px; font-size:12px; line-height:1.35;">🎲 混亂<br><span style="font-size:10px; opacity:.75;">每局都不一樣</span></button>
+        </div>
+        <div id="war-note" style="display:none; color:#c08a6a; font-size:11px; margin-top:6px; line-height:1.6;"></div>
+      </div>
       <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 12px;">其餘不填也行，會照你的名字補齊。</p>
       <button id="create-btn" class="btn" style="width:100%; padding:11px;" onclick="lockBtn(event, () => createPC(event))">⚜️ 締結令咒</button>
 
       <button type="button" id="ms-adv-toggle" class="btn" style="width:100%; margin-top:10px; padding:7px; border-color:#6a5a44; color:#9a7b4f; font-size:12px;" onclick="toggleMasterAdv()">▸ 自己設定（外貌·身世·願望·禮裝·天賦）</button>
       <div id="ms-adv" style="display:none; margin-top:10px;">
-        <!-- ⚔️ 哪一場戰爭：預設第五次，換場次＝換敵方陣容(seedRivalsForGame_)。 -->
-        <select id="s-war" class="std-select" style="width:100%; box-sizing:border-box; margin-bottom:8px;" onchange="setWarFromSelect_()">
-          <option value="5th" selected>🏆 第五次聖杯戰爭（預設·Fate/stay night 陣容）</option>
-          <option value="4th">⚔️ 第四次聖杯戰爭（Fate/Zero 陣容）</option>
-          <option value="chaos">🎲 混亂模式（御主與從者隨機配對，每局都不一樣）</option>
-        </select>
-        <div id="war-note" style="display:none; color:#c08a6a; font-size:11px; margin:-4px 0 8px; line-height:1.6;"></div>
         <input type="text" id="s-appear" class="std-in" placeholder="外貌：紅褐短髮的高中生" maxlength="30" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
         <input type="text" id="s-standing" class="std-in" placeholder="身世：沒落魔術名門末裔" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
         <input type="text" id="s-wish" class="std-in" placeholder="願望：拯救某個人" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:8px;">

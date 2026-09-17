@@ -22,7 +22,7 @@ const ENTRIES = [
   'kanshouSetPace', 'kanshouSetDateTime', 'kanshouAddRegion', 'kanshouDelRegion',
   'kanshouPlaceMenu', 'kanshouGoNewPlace', 'kanshouNextStage', 'kanshouEndDay',
   'kcMapListHtml_', 'kcChoose_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',
-  'sumMode_', 'setWarFromSelect_', 'newGameFlow', 'openTutorial', 'kcAlbumCardHtml_',
+  'sumMode_', 'setWarFromSelect_', 'pickWar', 'pickOrigin', 'newGameFlow', 'openTutorial', 'kcAlbumCardHtml_',
   'ksRender_', 'ksTab_', 'ksPick_', 'ksSave_', 'ksReset_', 'ksResetAll_'
 ];
 // 這些面板會被真的叫起來一次（不能拋例外）
@@ -44,6 +44,14 @@ const RENDERS = [
   // 🎨 ⚙ 說書人設定的三態（預設／自訂／關閉）：畫得出來，而且【預設句本體不可以出現在畫面上】。
   //   那串字是提示詞，玩家看到就出戲——這裡餵一個帶 def 的模組物件當誘餌，
   //   哪天有人把 placeholder=m.def 之類的寫法加回來，這條會當場叫。
+  // ⚔️ 創角頁三顆常駐戰爭鈕：叫得起來、值真的寫進 hidden #s-war（拉出下拉選單那次改的，2026-09）
+  ['pickWar 三顆戰爭鈕', () => {
+    const h = ctx.document.createElement('input'); h.id = 's-war'; h.value = '5th'; ctx.document.body.appendChild(h);
+    ctx.pickWar('chaos');
+    const got = (ctx.document.getElementById('s-war') || {}).value;
+    if (got !== 'chaos') throw new Error('選了混亂，#s-war 卻是 ' + got);
+    ctx.pickWar('5th');
+  }],
   ['ksRender_ 三態＋分頁', () => {
     const body = ctx.document.createElement('div'); body.id = 'kc-style-body'; ctx.document.body.appendChild(body);
     ctx._ksCats_ = [{ key: 'pen', name: '✍️ 文筆' }, { key: 'them', name: '💞 對方' }];
