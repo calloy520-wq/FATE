@@ -252,7 +252,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
   - `kanshouWorldEvictees_(d, gid, added, curDay)` — **純函式**，只回答「該砍哪幾列」（`{'r列索引':1,'a新列序':1}`）：每類超過 `KANSHOU_WORLD_CAP_` 就砍「最久沒被提到、提及次數也最少」的，★釘選永不驅逐。刻意不自己讀表——寫入端手上已經有整張表了。
   - `kanshouWorldFeed_(rows, curLoc, presentNames, userMsg, curDay)` — **不是全餵**：算相關性分數排序取前 `KANSHOU_WORLD_FEED_MAX_` 條。
   - `kanshouWorldSame_(a, b)` — bigram 近義比對。⚠ **只用在近期迴聲（最近兩天）**，不掃全表：句型相近但語意不同的事實太常見，掃全表會把世界愈合併愈空。
-  - `kanshouFolkToRow_(name, desc, sex, gameId, loc, curDay)` — 帳本的常民升格成正式同伴列。刻意留白（不叫 AI 補一整份設定），ID 沿用 `KHV_` 前綴（三處白名單都認它）。
 - `kanshouLocationsFor_(gameId)` / `kanshouFindLoc_(gameId, name)` — **查地點的唯一入口**＝內建地圖 ∪ 這一局自己走出來的地方。⚠ 別再直接 `.find(KANSHOU_LOCATIONS_)`，否則玩家走出來的地方會查無、被當成非法目的地。
 - `kanshouLocNameForAI_(locName)`（Gallery.gs）— 送進提示詞的地名。資料鍵「我的房間」是第一人稱，跟第二人稱旁白打架（旁白會照抄成「走進我的房間」）→ 對 AI 一律改寫成「你的房間」，**存表／比對／前端仍用原鍵**。四個把 `curL` 寫進提示詞的點都要走它。
 - `KANSHOU_CAL_START_YEAR_`（常數＝2005）— 鑑賞曆法的起算西元年。2026-09 前沒有這個常數、`year` 直接算成「第幾年」，開局顯示「1年12月20日」。週年是用 absDay 差算的、不吃 `.year`，改它只動顯示字串。

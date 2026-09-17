@@ -318,15 +318,6 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="width:100%;" onclick="kanshouAcceptInvite('${ivName.replace(/'/g, "\\'")}')">結識她</button>`
           + `</div>`;
       }
-      // 🧑 這回合 AI 新造了一個人(店員/鄰居/老同學…)：要不要讓他/她變成會記得你的人？
-      //    不點的話那個人仍留在世界帳本裡、之後還會出現，只是不追蹤好感與關係。
-      if (data.folkOffer && data.folkOffer.name) {
-        const fkName = String(data.folkOffer.name);
-        optionsHtml += `<div style="background:rgba(90,140,100,0.14); border:1px solid #4a8a5a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#a0e0b0; font-size:12.5px; margin-bottom:6px;">🧑 你認識了「${escapeHtml(fkName)}」。要繼續往來，讓對方成為記得你的人嗎？(不用也沒關係，這個人仍會留在這座城裡)</div>`
-          + `<button class="btn-option" style="width:100%;" onclick="kanshouAcceptInvite('${fkName.replace(/'/g, "\\'")}')">和${escapeHtml(fkName)}往來下去</button>`
-          + `</div>`;
-      }
       if (data.options && Array.isArray(data.options) && data.options.length > 0) {
         currentOptions = data.options;
         // 🧱 【命運的抉擇】包進自己的 #ai-options-grid：「AI 選項顯示開關」只藏這個盒子。
@@ -347,7 +338,7 @@ let plainTextContext = cleanText;
       if (optContainer) optContainer.innerHTML = optionsHtml;
       // 📣 有「必須點的泡泡」(前往/邀約/同居/敲門/橋段/結識)時自動把它捲進視野——回應完只捲故事框、
       //   泡泡藏在頁面下方看不到＝玩家實測「哪裡有同意按鈕??」的真兇。一般選項不強制捲(維持閱讀位置)。
-      if (optContainer && (data.moveProposal || data.nightGuest || data.encounterOffer || data.folkOffer || data.promiseWait || data.cohabitOffer)) {
+      if (optContainer && (data.moveProposal || data.nightGuest || data.encounterOffer || data.promiseWait || data.cohabitOffer)) {
         try { optContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { }
       }
 
