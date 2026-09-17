@@ -30,6 +30,7 @@ const ALIAS = {
   'KC_HORROR_REGEN_': 'HORROR_REGEN',
   'KC_HORROR_UPKEEP_': 'HORROR_UPKEEP',
   'KC_HORROR_HOURLY_UPKEEP_': 'HORROR_HOURLY_UPKEEP',
+  'KC_PARLEY_': 'PARLEY_ACTS_',
 };
 // 純前端常數：沒有後端對應是**設計如此**，每一條都要寫清楚為什麼，否則就是漏了鏡射。
 const FRONTEND_ONLY = {
@@ -57,6 +58,12 @@ const TWEAK = {
     why: '同上：前端沒有獨立的 room 分頁，後端有（併進 home）；分頁名稱/說明是各自的顯示文案，id 才是判準',
     skip: ['name', 'desc'],
     back: v => v.filter(x => x.id !== 'room')
+  },
+  'KC_PARLEY_': {
+    why: '前端多的全是顯示欄位（icon/tip/pre 都是 UI 文案）；判準是【三種交涉的 key 與 label 兩邊一致】——'
+      + '後端加一種交涉、前端沒跟著加，那顆鈕就不存在（反過來則是按下去查無此交涉）',
+    front: v => Object.keys(v).reduce((o, k) => (o[k] = { label: v[k].label }, o), {}),
+    back: v => Object.keys(v).reduce((o, k) => (o[k] = { label: v[k].label }, o), {})
   },
   'KC_SUMMON_BLOCKED_IDS_': {
     why: '衛宮士郎-Master 是玩家自己的位置，前端從召喚清單裡濾掉；後端擋它的是 actionKanshouSummonHero 裡單獨那一條(訊息不一樣)，不在這張表上',

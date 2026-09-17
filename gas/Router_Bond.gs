@@ -557,7 +557,36 @@ function actionAllyBond(userData, pcId, sheets) {
 }
 
 // 🕊️ 示好／交涉：對同地【未結盟的敵御主】釋出善意、慢慢養好感(BOND)。
-function actionCourtEnemy(userData, pcId, sheets) {
+// 🕊️ 交涉選單（對同地敵御主）：一張表，加一列＝多一個選項，下面的引擎不動。
+// 📓 為什麼是表不是三支函式 → CODE_NOTES.md『PARLEY_ACTS_』。
+var PARLEY_ACTS_ = {
+  chat:  { label: '閒聊',     minFav: null, bond: [6, 3] },
+  intel: { label: '交換情報', minFav: 0.15, bond: [2, 3] },
+  yield: { label: '讓開一步', minFav: null, bond: [0, 3] }
+};
+var PARLEY_DAY_TAG_ = makeTextTag_('交涉日');
+// 每種交涉各自每日一次：值是 "chat:5,intel:5" 這種小表，共用同一個標記不佔三格。
+function getParleyDay_(memory, type) {
+  var m = String(PARLEY_DAY_TAG_.get(memory) || '').split(',').find(function (x) { return x.split(':')[0] === type; });
+  return m ? (parseInt(m.split(':')[1]) || 0) : 0;
+}
+function setParleyDay_(memory, type, day) {
+  var cur = String(PARLEY_DAY_TAG_.get(memory) || '').split(',').filter(function (x) { return x && x.split(':')[0] !== type; });
+  cur.push(type + ':' + (parseInt(day) || 0));
+  return PARLEY_DAY_TAG_.set(memory, cur.join(','));
+}
+// 「讓開一步」的成敗：好感為主、性格微調。務實者好說話、孤高／瘋狂者難談。
+function parleyYieldChance_(row) {
+  var lean = masterPersonaLean_(row);
+  var w = 0.3 + bondFavor_(row) * 0.45 + (lean.pragmatic ? 0.15 : 0) - (lean.loner ? 0.2 : 0);
+  return Math.max(0.05, Math.min(0.9, w));
+}
+
+// 🕊️ 交涉：對同地【未結盟的敵御主】做一件當場就結算的事（閒聊／交換情報／請他退讓）。
+function actionParley(userData, pcId, sheets) {
+  const type = String(userData.parleyType || 'chat').trim();
+  const act = PARLEY_ACTS_[type];
+  if (!act) return JSON.stringify({ success: false, message: "沒有這種交涉。" });
   const npcName = String(userData.npcName || "").trim();
   const npcId = String(userData.npcId || "").trim();
   const npcKey = nameLoose_(npcName); // 去中點/空白
@@ -566,7 +595,7 @@ function actionCourtEnemy(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const myLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
-  const _courtDay = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
+  const _day = parseInt(pcData[pIdx][COL.PC.DAY]) || 1;
   // 🔧 比照攻擊/結盟路徑：先 npcId 精準配、再 nameLoose_ fallback——含全形括號名(如「哈桑·薩巴赫（咒腕）」)
   const tIdx = pcData.findIndex(function (r) {
     if (String(r[COL.PC.FACTION]) !== "敵御主") return false; // 🕊️ 只跟敵御主交涉(好感整組共用·會連坐養其從者)
@@ -574,50 +603,103 @@ function actionCourtEnemy(userData, pcId, sheets) {
     if (String(r[COL.PC.ID]).startsWith("DEAD_")) return false;
     if (isAllied_(r)) return false;
     if (String(r[COL.PC.LOC]).trim() !== myLoc) return false;
-    if (!hasArrived_(r, _courtDay)) return false;
+    if (!hasArrived_(r, _day)) return false;
     if (npcId && String(r[COL.PC.ID]) === npcId) return true;
     return npcKey && nameLoose_(r[COL.PC.NAME]).indexOf(npcKey) !== -1;
   });
-  if (tIdx === -1) return JSON.stringify({ success: false, message: "這裡沒有可以示好的敵御主。示好只對敵御主，而且要跟對方在同一個地方；好感是他們整組共用的。" });
+  if (tIdx === -1) return JSON.stringify({ success: false, message: "這裡沒有可以交涉的敵御主。交涉只對敵御主，而且要跟對方在同一個地方；好感是他們整組共用的。" });
 
   const isFate = myGameId.indexOf("g_") === 0;
   if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠。先休息，恢復了再來。" });
-
-  // 每名敵人每日一次（【示好日】<day> 存對方列）
-  const _mem = String(pcData[tIdx][COL.PC.MEMORY] || "");
-  const _cm = _mem.match(/【示好日】(\d+)/);
-  if (_cm && parseInt(_cm[1]) === _courtDay) return JSON.stringify({ success: false, message: "今天已經向這個人示好過了。來日方長，改天再說。" });
-
-  const targetName = String(pcData[tIdx][COL.PC.NAME]);
-  const targetIsMaster = String(pcData[tIdx][COL.PC.FACTION]) === "敵御主";
-  const lean = masterPersonaLean_(pcData[tIdx]);
-  // 依性格定升幅：務實者領情快、孤狼/瘋狂者慢熱。地板 +2（總不至於毫無鬆動）。
-  let delta = 6 + (lean.pragmatic ? 4 : 0) - (lean.loner ? 3 : 0);
-  delta = Math.max(2, delta + Math.floor(Math.random() * 3));
-  const before = parseInt(pcData[tIdx][COL.PC.BOND]) || 40;
-  const after = bumpBond_(sheets, pcData, tIdx, delta, true); // 內含 0-100 夾值＋寫回 BOND 格(記憶體)
-  var _partnerName = targetIsMaster ? getMasterServant_(pcData[tIdx][COL.PC.MEMORY]) : getServantMaster_(pcData[tIdx][COL.PC.MEMORY]);
-  if (_partnerName) {
-    var _pFac = targetIsMaster ? "敵從者" : "敵御主";
-    var _pIdx = pcData.findIndex(function (r) { return String(r[COL.PC.FACTION]) === _pFac && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && nameLoose_(r[COL.PC.NAME]) === nameLoose_(_partnerName); });
-    if (_pIdx !== -1) bumpBond_(sheets, pcData, _pIdx, delta);
+  if (getParleyDay_(pcData[tIdx][COL.PC.MEMORY], type) === _day) {
+    return JSON.stringify({ success: false, message: `今天已經跟這個人${act.label}過了。來日方長，改天再說。` });
+  }
+  const fav = bondFavor_(pcData[tIdx]);
+  if (act.minFav != null && fav < act.minFav) {
+    return JSON.stringify({ success: false, message: `「${String(pcData[tIdx][COL.PC.NAME])}」跟你還沒熟到會談這個。先多聊幾次吧。` });
   }
 
-  // 標記今日已示好（每敵每日一次）
-  pcData[tIdx][COL.PC.MEMORY] = _mem.replace(/｜?【示好日】\d+/g, "") + "｜【示好日】" + _courtDay;
-  sheets.pc.getRange(tIdx + 1, 1, 1, pcData[tIdx].length).setValues([pcData[tIdx]]);
+  const targetName = String(pcData[tIdx][COL.PC.NAME]);
+  const lean = masterPersonaLean_(pcData[tIdx]);
+  const tp = pron_(pcData[tIdx][COL.PC.SEX]);   // 敵御主有男有女，代名詞一律依資料（check_pronoun 在盯）
+  // 依性格定升幅：務實者領情快、孤狼/瘋狂者慢熱。地板 +2（總不至於毫無鬆動）。
+  let delta = act.bond[0] + (lean.pragmatic ? 4 : 0) - (lean.loner ? 3 : 0);
+  delta = Math.max(act.bond[0] > 0 ? 2 : 0, delta + Math.floor(Math.random() * act.bond[1]));
+  const before = parseInt(pcData[tIdx][COL.PC.BOND]) || 40;
 
-  const _courtApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠。先休息，恢復了再來。", { isFate: isFate });
-  const ap = _courtApr.ap, clock = _courtApr.clock;
+  // ⏳ 扣 AP 與日限戳記【綁在一起】落地：中間任何一條 return 都不能繞過戳記（check_throttle 在盯）。
+  const _apr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠。先休息，恢復了再來。", { isFate: isFate, skipWrite: true });
+  const ap = _apr.ap, clock = _apr.clock;
+  pcData[tIdx][COL.PC.MEMORY] = setParleyDay_(pcData[tIdx][COL.PC.MEMORY], type, _day);
 
-  const card = targetIsMaster ? enemyMasterCard_(pcData[tIdx]) : servantCard_(pcData[tIdx]);
-  const aiPrompt = masterCard_(pcData[pIdx]) + '〔示好對象·敵對陣營〕' + card +
-    `【系統·示好／交涉·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』在刀鋒之外向敵對的「${targetName}」釋出善意（好感 ${before}→${after}／100）。\n` +
-    `★【100~150 字】演出這番示好、與對方【依其性格×當前好感】的真實反應：${lean.loner ? '孤高／激烈者多半冷淡、譏諷或半信半疑，只鬆動一絲' : lean.pragmatic ? '務實者會權衡利害、順水推舟地緩和態度' : '依其性格自然回應'}——但仍分屬敵對，留一分保留與算計，別演成一下就交心。數值系統已經算完，只演反應、不另定成敗。` +
-    (after >= 90 ? '\n★此刻情誼已臻莫逆——收在一個彼此心照不宣、卻仍隔著立場的微妙瞬間。' : '') +
-    `\n★「${targetName}」示好後【仍留在原地】，並未離開這個場景——收在對方態度鬆動、但仍按兵不動的瞬間即可，不可描寫那個人轉身離去、走遠或消失於視野，那不是這個動作發生的事。`;
-  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：bumpBond_/【示好日】/spendAp_ 皆已原地改回 pcData
-  return JSON.stringify({ success: true, aiPrompt: aiPrompt, target: targetName, bond: after, delta: delta, clock: clock, ap: ap, apMax: AP_PER_DAY, statusString: buildPlayerStatusString(pcData[pIdx]) });
+  // 好感：整組共用（示好御主會連坐養其從者）
+  const after = bumpBond_(sheets, pcData, tIdx, delta, true);
+  var _partnerName = getMasterServant_(pcData[tIdx][COL.PC.MEMORY]);
+  var _pIdx = _partnerName ? pcData.findIndex(function (r) { return String(r[COL.PC.FACTION]) === "敵從者" && String(r[COL.PC.GAME_ID] || "") === myGameId && !String(r[COL.PC.ID]).startsWith("DEAD_") && nameLoose_(r[COL.PC.NAME]) === nameLoose_(_partnerName); }) : -1;
+  if (_pIdx !== -1 && delta) bumpBond_(sheets, pcData, _pIdx, delta, true);
+
+  const out = { success: true, target: targetName, bond: after, delta: delta, clock: clock, ap: ap, apMax: AP_PER_DAY, parleyType: type };
+  const head = masterCard_(pcData[pIdx]) + '〔交涉對象·敵對陣營〕' + enemyMasterCard_(pcData[tIdx]);
+  const stay = `\n★「${targetName}」交涉後【仍留在原地】，並未離開這個場景——不可描寫那個人轉身離去、走遠或消失於視野，那不是這個動作發生的事。`;
+
+  if (type === 'chat') {
+    out.aiPrompt = head +
+      `【系統·閒聊·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』在刀鋒之外向敵對的「${targetName}」搭話（好感 ${before}→${after}／100）。\n` +
+      `★【100~150 字】演出這番搭話、與對方【依其性格×當前好感】的真實反應：${lean.loner ? '孤高／激烈者多半冷淡、譏諷或半信半疑，只鬆動一絲' : lean.pragmatic ? '務實者會權衡利害、順水推舟地緩和態度' : '依其性格自然回應'}——但仍分屬敵對，留一分保留與算計，別演成一下就交心。數值系統已經算完，只演反應、不另定成敗。` +
+      (after >= 90 ? '\n★此刻情誼已臻莫逆——收在一個彼此心照不宣、卻仍隔著立場的微妙瞬間。' : '') + stay;
+  } else if (type === 'intel') {
+    // 📜 交換情報：當場掀開最多 2 名還沒偵查過的敵人（＝舊制要結盟才有的 allyIntel，改成一次性）
+    const revealed = [];
+    for (let i = 1; i < pcData.length && revealed.length < 2; i++) {
+      const r = pcData[i];
+      if (String(r[COL.PC.GAME_ID] || "") !== myGameId || String(r[COL.PC.ID]).startsWith("DEAD_")) continue;
+      const f = String(r[COL.PC.FACTION]);
+      if (f !== "敵御主" && f !== "敵從者") continue;
+      if (i === tIdx || String(r[COL.PC.SEEN] || "")) continue;
+      if (!hasArrived_(r, _day)) continue;
+      r[COL.PC.SEEN] = "1";
+      revealed.push({ name: String(r[COL.PC.NAME]), loc: String(r[COL.PC.LOC] || "").trim() });
+    }
+    out.revealed = revealed;
+    const listStr = revealed.length ? revealed.map(x => `「${x.name}」在「${x.loc}」`).join('、') : "";
+    out.message = revealed.length ? `情報到手：${listStr}。` : `${tp}把知道的都講了，但你早就摸清這些了。`;
+    out.aiPrompt = head +
+      `【系統·交換情報·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』向敵對的「${targetName}」探聽戰局，對方願意透露（好感 ${before}→${after}／100）。\n` +
+      (revealed.length
+        ? `★對方講出來的【就是這些，不可增減】：${listStr}。\n★【100~150 字】演出這場壓低聲音的交換：${tp}為什麼肯講、講的時候留了什麼保留或條件。名字與地點照上面逐字帶到，別自己補別人。`
+        : `★對方肯講，但講的你早就知道了。★【100~150 字】演出這份「白跑一趟」的微妙——${tp}說得誠懇，只是沒有新東西。不可捏造任何人名或地點。`) + stay;
+  } else {
+    // 🕊️ 請他退讓：成功＝對方與其從者今天離開這一格（＝舊制要結盟才有的「不被騷擾」，改成一次性）
+    const chance = parleyYieldChance_(pcData[tIdx]);
+    const okYield = Math.random() < chance;
+    out.yielded = okYield;
+    if (okYield) {
+      let dest = "";
+      try {
+        const md = getMapDataCached(sheets) || [];
+        const names = md.slice(1).map(r => String(r[COL.MAP.NAME] || "").trim()).filter(n => n && n !== myLoc);
+        if (names.length) dest = names[Math.floor(Math.random() * names.length)];
+      } catch (e) { }
+      if (dest) {
+        pcData[tIdx][COL.PC.LOC] = dest;
+        if (_pIdx !== -1) pcData[_pIdx][COL.PC.LOC] = dest;
+      }
+      out.dest = dest;
+      out.message = `「${targetName}」讓開了${dest ? `，往「${dest}」去了` : ''}。`;
+      out.aiPrompt = head +
+        `【系統·讓步已達成·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』請「${targetName}」今天別在這裡起衝突，對方收手了${dest ? `，帶著自己的從者往「${dest}」的方向離開` : ''}（好感 ${before}→${after}／100）。\n` +
+        `★【100~150 字】演出${tp}收手的理由——${lean.pragmatic ? '務實者是算過划不來' : lean.loner ? '孤高／瘋狂者是此刻懶得動手，語氣仍帶輕蔑' : '依其性格自然回應'}。這不是求饒也不是示弱，是各退一步；留一句下次不會再讓的伏筆。★${tp}【確實離開了這個場景】，收在${tp}背影消失的那一刻。`;
+    } else {
+      out.message = `「${targetName}」不肯讓。`;
+      out.aiPrompt = head +
+        `【系統·讓步遭拒·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』請「${targetName}」今天別在這裡起衝突，對方拒絕了（好感 ${before}→${after}／100）。\n` +
+        `★【100~150 字】演出${tp}不肯讓的那一瞬：${lean.loner ? '孤高／瘋狂者的回絕帶著嘲諷或看好戲的興味' : lean.pragmatic ? '務實者的回絕是冷靜的盤算——他還沒打算放過這個機會' : '依其性格回絕的瞬間'}。氣氛一觸即發，但本回合不開打。` + stay;
+    }
+  }
+  sheets.pc.getRange(1, 1, pcData.length, pcData[0].length).setValues(pcData);
+  out.statusString = buildPlayerStatusString(pcData[pIdx]);
+  STATE_PRE_DATA_ = pcData; // ⚡ 交棒：好感/日限戳記/退讓移位/spendAp_ 皆已原地改回 pcData
+  return JSON.stringify(out);
 }
 
 // 🗝️ 破戒奪僕：對「打殘(HP<35%)的敵從者」斬契奪為第二從者（需破戒之力＋燃一道令咒；上限 2 名從者）

@@ -207,7 +207,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 | get_masters | actionGetMasters | Router_Creation | | propose_alliance | actionProposeAlliance | Router_Bond |
 | save_hero | actionSaveHero | Router_Creation | | break_alliance | actionBreakAlliance | Router_Bond |
 | claim_hero | actionClaimHero | Router_Creation | | ally_bond | actionAllyBond | Router_Bond |
-| fate_battle | actionFateBattle | Router_Battle | | court_enemy | actionCourtEnemy | Router_Bond |
+| fate_battle | actionFateBattle | Router_Battle | | parley | actionParley | Router_Bond |
 | summon_horror_beast | actionSummonHorror | Router_Battle | | move | actionMove | Router_Movement |
 | dismiss_horror_beast | actionDismissHorror | Router_Battle | | rest | actionRest | Router_Movement |
 | get_tags | actionGetTags | Router_Action | | scout | actionScout | Router_Movement |

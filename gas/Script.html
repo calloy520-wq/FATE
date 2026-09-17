@@ -792,9 +792,15 @@
           acts += '<button onclick="ruleBreakSteal(\'' + safe + '\',\'' + String(f.id).replace(/'/g, '') + '\')" title="破戒奪僕：對打殘(HP<35%)的敵從者斬契奪為第二從者，燃一道令咒" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(176,108,208,.16); color:#d0a0e8; border:1px solid #8a5fb0; border-radius:7px; cursor:pointer; font-weight:bold;">⛓ 破戒奪僕 <small style="opacity:.7;">須打殘至35%＋燃令咒</small></button>';
         }
       }
-      // 🕊️ 示好：只對【敵御主】交涉（好感由整組御主＋從者共用，示好御主會連坐養其從者）——從者不設此鈕
+      // 🕊️ 交涉：只對【敵御主】（好感由整組御主＋從者共用，跟御主交涉會連坐養其從者）——從者不設此鈕
       if (f.faction === '敵御主') {
-        acts += '<button onclick="courtEnemy(\'' + safe + '\',\'' + String(f.id).replace(/'/g, '') + '\')" title="示好：慢慢養這一組(御主＋從者)對你的好感（好感高→遇敵態度和緩、更易結盟、挑撥更靈、趁隙更狠、撤離不被追擊）。每日一次、耗 1AP。" style="flex:1 0 100%; font-size:12px; padding:7px; background:rgba(210,160,90,.14); color:#e0c088; border:1px solid #b0863f; border-radius:7px; cursor:pointer; font-weight:bold;">🕊️ 示好 <small style="opacity:.7;">養好感·耗1AP·每日一次</small></button>';
+        const fid = String(f.id).replace(/'/g, '');
+        acts += Object.keys(KC_PARLEY_).map(function (k) {
+          const a = KC_PARLEY_[k];
+          return '<button onclick="parley(\'' + k + '\',\'' + safe + '\',\'' + fid + '\')" title="' + a.tip
+            + '" style="flex:1 1 30%; min-width:96px; font-size:12px; padding:7px 4px; background:rgba(210,160,90,.14); color:#e0c088; border:1px solid #b0863f; border-radius:7px; cursor:pointer; font-weight:bold;">'
+            + a.icon + ' ' + a.label + '</button>';
+        }).join('');
       }
       return '<div style="grid-column:1 / -1; padding:5px 2px 2px; display:flex; gap:5px; flex-wrap:wrap;">' + acts + '</div>';
     };
@@ -2723,13 +2729,22 @@
       failMsg: '挑撥不成。'
     });
   }
-  // 🕊️ 示好／交涉：對未結盟敵人養好感（GAS 依性格定升幅，AI 只演反應）
-  async function courtEnemy(npcName, npcId) {
+  // 🕊️ 交涉：對同地未結盟的敵御主做一件【當場就結算】的事（鏡射後端 PARLEY_ACTS_）
+  const KC_PARLEY_ = {
+    chat:  { label: '閒聊',     icon: '💬', tip: '搭話養好感（好感高→遇敵態度和緩、更易交涉、挑撥更靈、撤離不被追擊）。每日一次、耗 1AP。', pre: '御主在刀鋒之外，向「N」遞出一分善意……' },
+    intel: { label: '交換情報', icon: '📜', tip: '探聽戰局：當場掀開最多 2 名還沒偵查過的敵人在哪。需要對方【略有好感】。每日一次、耗 1AP。', pre: '御主壓低聲音，向「N」探聽戰局……' },
+    yield: { label: '讓開一步', icon: '🕊️', tip: '請對方今天別在這裡起衝突。成功＝對方帶著自己的從者離開這一格。成敗看好感與對方性格。每日一次、耗 1AP。', pre: '御主開口，請「N」今天讓開這一步……' }
+  };
+  async function parley(type, npcName, npcId) {
+    const a = KC_PARLEY_[type]; if (!a) return;
     await runSimpleAction_({
-      preMsg: `<div class="msg-player"><b>【系統】：</b>御主在刀鋒之外，向「${npcName}」遞出一分善意……</div>`,
-      payload: { action: 'court_enemy', pcId: pc.id, npcName: npcName, npcId: npcId || "", acctName: (pc && pc.account) || currentAccount },
-      onSuccess: res => updateClock(res.clock, res.ap, res.apMax),
-      failMsg: '此刻無法示好。'
+      preMsg: `<div class="msg-player"><b>【系統】：</b>${a.pre.replace('N', npcName)}</div>`,
+      payload: { action: 'parley', parleyType: type, pcId: pc.id, npcName: npcName, npcId: npcId || "", acctName: (pc && pc.account) || currentAccount },
+      onSuccess: res => {
+        updateClock(res.clock, res.ap, res.apMax);
+        if (res.message) addMsg('system', res.message);
+      },
+      failMsg: `此刻無法${a.label}。`
     });
   }
   // 🤝 交涉結盟（系統判定成敗，AI 演出）

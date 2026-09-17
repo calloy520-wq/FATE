@@ -459,7 +459,7 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | `summon_horror_beast` | `actionSummonHorror`（Router_Battle.gs） | **是**：海怪召喚（獨立血條，`horrorShieldView_`） |
 | `dismiss_horror_beast` | `actionDismissHorror`（Router_Battle.gs） | **是** ★【40~70 字】 |
 | `spirit_repair` | `actionSpiritRepair`（Router_Economy.gs） | **是** ★【60~100 字】（見 §5） |
-| `court_enemy` | `actionCourtEnemy`（Router_Bond.gs） | **是** ★【100~150 字】示好交涉：對方依性格×當前好感真實反應（`favorWord_` 給好感白話） |
+| `parley` | `actionParley`（Router_Bond.gs） | **是** 三種各自一段 ★【100~150 字】：`chat` 依性格×當前好感的真實反應／`intel` 把掀開的名字與地點**逐字**釘進提示詞（沒新情報時明講「不可捏造任何人名或地點」）／`yield` 成功演收手的理由並收在背影消失、失敗演一觸即發 |
 | `faction_ambush` | `actionFactionAmbush`（Router_Movement.gs） | **是** ★【80~140 字】趁隙奇襲；只剩玩家時另填 `buildVictoryDreamPrompt_` |
 | `incite` | `actionIncite`（Router_Movement.gs） | **是** 成功 ★【80~140 字】煽風點火／落空 ★【70~120 字】 |
 | `save_hero` | `actionSaveHero`（Router_Creation.gs） | **是**（結構化 JSON）：工房鑄造，玩家定數值、AI 只補 `personality/look/background/npc_intent/npEn` 側寫，失敗不擋 |

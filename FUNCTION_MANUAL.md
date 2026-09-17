@@ -191,7 +191,10 @@
 
 #### 🕊️ 示好／交涉
 - `favorWord_(fav)` — 好感值→一句白話事實（不含演法，怎麼表現交給 AI），不上不下回空字串。
-- `actionCourtEnemy(...)` — 對同地未結盟敵御主+其硬連結從者示好（`court_enemy`）。GAS 依 `masterPersonaLean_`+`bondFavor_`裁定好感增量，日限一次；不靠 AI 判定成敗，AI 只演交涉過程。交棒。
+- `actionParley(userData, pcId, sheets)` — 🕊️ 交涉（2026-09 取代 ~~`actionCourtEnemy`~~，該函式已移除）：對同地【未結盟敵御主】做一件**當場就結算**的事，種類由 `PARLEY_ACTS_` 一張表決定（加一列＝多一個選項，引擎不動）。三種：`chat` 閒聊（好感 +2~11，依性格定升幅，連坐養其從者）／`intel` 交換情報（需對方好感 ≥0.15，當場把最多 2 名未偵查敵人的 `SEEN` 掀開並回報名字與位置）／`yield` 讓開一步（`parleyYieldChance_` 擲：成功＝對方與其從者移離這一格）。共用前置：同地、已登場、未結盟、1 AP、**每種各自每日一次**（`PARLEY_DAY_TAG_`／`getParleyDay_`／`setParleyDay_`，值是 `chat:5,intel:5` 這種小表）。⚠ 扣 AP 與日限戳記綁在一起落地，中間任何 return 都繞不過（`check_throttle`）。
+- `PARLEY_ACTS_`（常數）— 交涉種類表：`{label, minFav, bond:[底, 骰面]}`。前端 `KC_PARLEY_` 鏡射它的 key 與 label。
+- `parleyYieldChance_(row)` — 讓開一步的成功率：`0.3 + 好感傾向×0.45 ＋務實 0.15 −孤高 0.2`，夾在 [0.05, 0.9]。
+- `getParleyDay_(memory, type)` / `setParleyDay_(memory, type, day)` / `PARLEY_DAY_TAG_`（常數）— 每種交涉各自的每日一次戳記，共用同一個 `【交涉日】` 標記不佔三格。
 
 #### 🗝️ 破戒奪僕
 - `actionRuleBreakSteal(...)` — 對打殘（HP<35%）同地敵從者斬契奪為第二從者。閘門：`canRuleBreak_`（Caster 美狄亞或破戒禮裝）＋從者數<2＋令咒>0＋已登場＋非盟友＋HP<35%。轉陣營「從者」、HP 回半、清舊主殘留標記（【御主】/【寶具預告】/【盟約至】/【靈基透支】）＋蓋【破戒奪取】，扣一道令咒，`raiseBond_` +10。交棒。
