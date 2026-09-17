@@ -310,7 +310,7 @@ async function checkNameOk_(name) {
       document.getElementById('step-summon').style.display = 'block';
       loadHeroes();
     } else {
-      alert(data.message || "沒建成，再試一次。");
+      alert(data.message || "沒建成。");
     }
   } catch(e) {
     alert("沒建成");
@@ -392,7 +392,7 @@ async function doSummon(payload) {
       var _fscr = document.getElementById('step-forge'); if (_fscr) _fscr.style.display = 'none'; // 🛠️ 從工房屏召喚成功也收屏，防重開新局時疊影
       startGame(false);
     } else {
-      alert((data && data.message) || '沒召喚成，再試一次。');
+      alert((data && data.message) || '沒召喚成。');
     }
   } catch (e) {
     alert('連不上，沒召喚成。');
@@ -643,7 +643,7 @@ function forgeEdit(id) {
 async function claimHero(id) {
   var h = (heroesData || []).find(function (x) { return String(x.id) === String(id); });
   if (!h) return;
-  if (!await customConfirm_('🖐 認領「' + h.name + '」？\n\n這位原創英靈還沒有主人。認領後你就能在工房改，先到先得。')) return;
+  if (!await customConfirm_('🖐 認領「' + h.name + '」？\n\n這位原創英靈還沒有主人。認領後你就能在工房改。')) return;
   try {
     var res = await withProcessing_('認領中…', () => gasRun({ action: 'claim_hero', pcId: (typeof pc !== 'undefined' && pc && pc.id) || '', heroId: String(id), acctName: (typeof currentAccount !== 'undefined' ? currentAccount : '') }));
     alert((res && res.message) || (res && res.success ? '認領了。' : '沒認領成。'));
@@ -938,7 +938,7 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
       try { if (typeof invalidateKanshouHeroCache === 'function') invalidateKanshouHeroCache(); } catch (e) { }
       closeForge();
       if (_forgeFrom !== 'menu') selectSummonClass('__custom__'); // 召喚頁起點→直接展示 🌟 清單；主選單起點→回主選單
-    } else { alert((res && res.message) || '沒鑄成，再試一次。'); }
+    } else { alert((res && res.message) || '沒鑄成。'); }
   } catch (e) { alert('連不上，沒鑄成。'); } finally { hideProcessing(); }
 }
 

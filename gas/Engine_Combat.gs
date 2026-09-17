@@ -115,7 +115,7 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
 function aiFallbackNarration_(isBlocked) {
   return isBlocked
     ? "🌸交纏的氣息還未散去，肌膚滾燙如火——下一幕卻被濃郁的水氣徹底吞沒，什麼都看不清了，請再嘗試一次。"
-    : "🌫️【因果紊亂】命運的絲線在此刻忽地紊亂——這段因果暫時無法讀出，請稍後再試一次。";
+    : "🌫️【因果紊亂】命運的絲線忽地紊亂，這段因果暫時讀不出來。";
 }
 // _genFailed 旗標：這組是失敗保底文字、不是真正生成的敘事，讓呼叫端(narrateWithState_/actionPlay_)能辨識出來、不要把它當成既定劇情事實存進歷史——否則下次呼叫會把「什麼都沒發生」的保底措辭誤當上一輪的真實進展餵回AI，可能接續出跟實際劇情矛盾的敘事。
 function aiFallbackData_(isBlocked) {

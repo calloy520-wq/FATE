@@ -537,7 +537,7 @@ function actionKanshouReset(userData, pcId, sheets) {
     if (found) acc.getRange(found.idx + 1, COL.ACC.KPC + 1).setValue("");
   } catch (e) { }
 
-  return JSON.stringify({ success: true, cleared: purgedIds.length, message: "後日談歸零了，下次進來是全新的一局。" });
+  return JSON.stringify({ success: true, cleared: purgedIds.length, message: "後日談歸零了。" });
 }
 
 function actionEnterKanshou(userData, pcId, sheets) {
@@ -778,7 +778,7 @@ function actionKanshouAddQuickPhrase(userData, pcId, sheets) {
 function actionKanshouDeleteQuickPhrase(userData, pcId, sheets) {
   var kpc = sheets.pc;
   var text = String(userData.text || "").trim();
-  if (!text) return JSON.stringify({ success: false, message: "少了東西，再試一次。" });
+  if (!text) return JSON.stringify({ success: false, message: "少了東西。" });
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
@@ -795,7 +795,7 @@ function actionKanshouMemoirOp(userData, pcId, sheets) {
   var item = String(userData.item || "").replace(/[｜【】\[\]★]/g, "").trim();
   var targetName = String(userData.targetName || "").trim();
   var targetId = String(userData.targetId || "").trim();
-  if (!item || !targetName || ['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "少了東西，再試一次。" });
+  if (!item || !targetName || ['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "少了東西。" });
   var data = kpc.getDataRange().getValues();
   var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
@@ -872,10 +872,10 @@ function actionKanshouWorld(userData, pcId, sheets) {
   }
 
   if (op !== 'list') {
-    if (['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "少了東西，再試一次。" });
+    if (['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "少了東西。" });
     const kind = String(userData.kind || "").trim();
     const name = String(userData.entryName || "").trim();
-    if (!kind || !name) return JSON.stringify({ success: false, message: "少了東西，再試一次。" });
+    if (!kind || !name) return JSON.stringify({ success: false, message: "少了東西。" });
     try {
       if (op === 'del') {
         if (!kanshouWorldDrop_(gid, kind, name)) return JSON.stringify({ success: false, message: "找不到這一條。" });
@@ -3857,7 +3857,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
     });
 
   } catch (e) {
-    return JSON.stringify({ success: false, message: "系統暫時發生錯誤，請再試一次。" });
+    return JSON.stringify({ success: false, message: "出錯了。" });
   }
 }
 

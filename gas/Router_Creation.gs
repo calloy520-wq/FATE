@@ -39,7 +39,7 @@ function actionManualNpc(userData, pcId, sheets) {
   // 扮演正典御主(playedMaster) 是合法路徑，須排除於撞名擋下之外；驗證 playedMaster 對應真名剛好等於finalName 才放行，避免夾帶不相干 playedMaster id 繞過保護。
   const _playingThisCanon = userData.playedMaster && typeof SEED_MASTERS !== 'undefined'
     && SEED_MASTERS.some(m => m && String(m.id) === String(userData.playedMaster) && cleanChineseName(m.name) === finalName);
-  if (_canonMasterHit && !_playingThisCanon) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭裡的御主。想演這個人，走「扮演正典御主」；自創的話換個名字。` });
+  if (_canonMasterHit && !_playingThisCanon) return JSON.stringify({ success: false, message: `「${finalName}」是聖杯戰爭裡的御主，要用這個名字走「扮演正典御主」。` });
   if (_canonServantHit) return JSON.stringify({ success: false, message: `「${finalName}」是英靈的真名，自創御主換個名字。` });
   // finalName 此時仍是 cleanChineseName 洗掉標點的畸形版本——還原成 SEED_MASTERS 原始正典真名(含標點)。
   if (_playingThisCanon) {
@@ -570,7 +570,7 @@ function actionSaveHero(userData, pcId, sheets) {
         speech: pb.speech || _fv('speech', 40), tic: pb.tic || _fv('tic', 30), back: back, weapon: pb.weapon, creator: acct });
   } catch (e) { return JSON.stringify({ success: false, message: "沒存進英靈殿：" + e.message }); }
   if (!wasCreated) return JSON.stringify({ success: false, message: `「${pb.name}」剛被別人搶先用了，換個真名。` });
-  return JSON.stringify({ success: true, created: true, name: pb.name, message: `「${pb.name}」進英靈殿了。到召喚頁的「🌟 我的原創」就能召喚；要改在「✏️ 修改」。` });
+  return JSON.stringify({ success: true, created: true, name: pb.name, message: `「${pb.name}」進英靈殿了，在召喚頁的「🌟 我的原創」。` });
 }
 
 function actionSummonServant(userData, pcId, sheets) {

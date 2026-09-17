@@ -178,7 +178,7 @@
       // 🧱 後端明確失敗(success:false)或缺敘事文字時：把真實 message 演進故事流，不再拿不存在的
       //   data.text 去 split 炸進 catch、被通用「連結斷絕」吃掉真因(失敗不炸整局)。
       if (!data || data.success === false || typeof data.text !== 'string') {
-        story.insertAdjacentHTML('beforeend', '<div class="loading-text">⚠ ' + escapeHtml(String((data && data.message) || '系統暫時沒有回應，請再試一次。')) + '</div>');
+        story.insertAdjacentHTML('beforeend', '<div class="loading-text">⚠ ' + escapeHtml(String((data && data.message) || '沒有回應。')) + '</div>');
         story.scrollTop = story.scrollHeight;
         return;
       }
@@ -290,7 +290,7 @@ let plainTextContext = cleanText;
       if (data.nightGuest) {
         const gNameEsc = escapeHtml(String(data.nightGuest));
         optionsHtml += `<div style="background:rgba(160,110,60,0.14); border:1px solid #8a6a3a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」這麼晚來了，就在門口。<span style="color:#9a8f78;">直接跟她說話也算讓她進來。</span></div>`
+          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">🚪 「${gNameEsc}」這麼晚來了，就在門口。</div>`
           + `<div style="display:flex; gap:8px;">`
           + `<button class="btn-option" style="flex:1;" onclick="kanshouSleepWithGuest()">🛏 讓她進來</button>`
           + `<button class="btn-option" style="flex:1;" onclick="kanshouSendGuestHome()">🚪 今晚先回去</button>`
@@ -355,11 +355,11 @@ let plainTextContext = cleanText;
           // 撲空(她不在場)：附上她此刻在哪，玩家不必回地圖亂找(走查抓到的軟死路)。
           _msg = _prIco + ' 「' + _nm + '」不在這裡' + (_pr.where ? '，她好像在「' + escapeHtml(String(_pr.where)) + '」。' : '。');
         }
-        else if (_pr.ok && _pr.type === 'promise') _msg = '📅 約好了：' + (_pr.today ? '今天' : '明天') + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」見「' + _nm + '」。別遲到。';
-        else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 牽起來了。「' + _nm + '」會跟著你走，直到你放手。';
+        else if (_pr.ok && _pr.type === 'promise') _msg = '📅 約好了：' + (_pr.today ? '今天' : '明天') + escapeHtml(String(_pr.bandLabel || '')) + '在「' + escapeHtml(String(_pr.loc || '')) + '」見「' + _nm + '」。';
+        else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 牽起來了。「' + _nm + '」會跟著你走。';
         else if (_pr.ok && _pr.type === 'move') _msg = '🚶 「' + _nm + '」說好，一起去「' + escapeHtml(String(_pr.loc || '')) + '」。點下面的「一起走」就出發。';
-        else if (_pr.type === 'move') _msg = '🚶 她沒跟。想自己去「' + escapeHtml(String(_pr.loc || '')) + '」就點地圖。';
-        else if (_pr.ok && _pr.type === 'cohabit') _msg = '🏠 「' + _nm + '」搬來了。以後晚上她多半在家，睡和室。';
+        else if (_pr.type === 'move') _msg = '🚶 她沒跟。';
+        else if (_pr.ok && _pr.type === 'cohabit') _msg = '🏠 「' + _nm + '」搬來了，晚上會在家。';
         // 💗 告白：成立＝關係階質變(戀人這一階唯一的入口)。2026-09 起【說出口就成立】，
         //   後端只剩兩種結果——成立、或好感還沒到 KC_CONFESS_BOND_(60) 開不了口；
         //   不再有擲骰、冷卻、被拒扣好感，所以那兩條分支連同措辭一起拿掉。
@@ -367,15 +367,15 @@ let plainTextContext = cleanText;
         else if (_pr.type === 'confess') _msg = '💔 話到嘴邊說不出口，你們還沒那麼熟。';
         else if (_pr.type === 'cohabit') _msg = '🏠 她沒答應，還沒到能一起住的程度。';
         // 🤝 結識：2026-09 補上——它本來是唯一沒有回饋條的動作(icon 那一格的 '🤝' 早就在等它)。
-        else if (_pr.ok && _pr.type === 'invite') _msg = '🤝 跟「' + _nm + '」交換了聯絡方式。以後在城裡找得到她。';
+        else if (_pr.ok && _pr.type === 'invite') _msg = '🤝 跟「' + _nm + '」交換了聯絡方式。';
         else if (_pr.type === 'invite') _msg = '🤝 ' + (_pr.already ? '你們早就認識了。' : '「' + _nm + '」已經走了。');
         // 🐛→✅ 2026-07 逐按鍵稽核：地點不合法的兩種回報(promise_loc/move_loc)舊版沒有自己的分支，
         //   一路掉到最後那行 else，印出的是【「她」沒有讓你牽手】——玩家按的明明是相約/邀同去，
         //   卻收到一則牽手失敗通知，會去找一個不存在的問題。這兩型跟「她婉拒」無關，是地點的事。
         else if (_pr.type === 'promise_loc' || _pr.type === 'move_loc') {
           _msg = (_pr.type === 'promise_loc' ? '📅 ' : '🚶 ') + (_pr.sameSpot
-            ? '你們現在就在「' + escapeHtml(String(_pr.loc || '')) + '」了，挑別的地方吧。'
-            : '「' + escapeHtml(String(_pr.loc || '')) + '」現在去不了，換個地方或晚點再試。');
+            ? '你們現在就在「' + escapeHtml(String(_pr.loc || '')) + '」了。'
+            : '「' + escapeHtml(String(_pr.loc || '')) + '」現在去不了。');
         }
         else _msg = _pr.type === 'promise' ? '📅 沒約成。' : '🤝 她把手收回去了。';
         const _col = _pr.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
@@ -391,10 +391,10 @@ let plainTextContext = cleanText;
           // 📅 promise_byher＝她自己開口約的(見 Gallery.gs 她主動·invite)：約定是真的、地圖會標，
           //   但玩家從沒答應過，所以不去【不算爽約、不扣好感】——文案必須把這點講清楚。
           const _psMsg = _ps.type === 'promise_byher'
-            ? '📅 「' + _psNm + '」說了' + escapeHtml(String(_ps.when || '')) + escapeHtml(String(_ps.bandLabel || '')) + '在「' + _psLoc + '」等你。去不去都行，這是她自己說的，沒去不算放鴿子。'
+            ? '📅 「' + _psNm + '」說了' + escapeHtml(String(_ps.when || '')) + escapeHtml(String(_ps.bandLabel || '')) + '在「' + _psLoc + '」等你。去不去都行。'
             : _ps.type === 'promise_met'
-              ? '📅 你赴了跟「' + _psNm + '」在「' + _psLoc + '」的約。她記得。'
-              : '📅 跟「' + _psNm + '」在「' + _psLoc + '」的約過了，你沒去。她有點在意。想見就再約一次。';
+              ? '📅 你赴了跟「' + _psNm + '」在「' + _psLoc + '」的約。'
+              : '📅 跟「' + _psNm + '」在「' + _psLoc + '」的約過了，你沒去。';
           const _psCol = _ps.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
           story.insertAdjacentHTML('beforeend', `<div style="background:${_psCol};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_psMsg}</div>`);
         });
@@ -481,7 +481,7 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
       + '<div style="overflow-y:auto;min-height:0;">'
       + '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 這個世界裡的人 (<span id="kc-count">0</span>)</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">把想見的人請進這座城。她會過自己的日子，想見面就去她在的地方。</div>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">把想見的人請進這座城，她會過自己的日子。</div>'
       + '<div id="kc-master-box"></div>'
       + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">駐留清單</div>'
       + '<div id="kc-party-list"></div>'
@@ -601,12 +601,12 @@ let plainTextContext = cleanText;
       var due = _kcCur.filter(function (c) { return c.promise; });
       if (!due.length) return '';
       var fmt = function (l) { return l.map(function (c) { return '「' + c.name + '」' + (c.promise.time || '') + '在「' + c.promise.loc + '」'; }).join('、'); };
-      if (kind === 'far') return '\n\n⚠ 這樣會錯過跟 ' + fmt(due) + ' 的約，等於放她鴿子。';
+      if (kind === 'far') return '\n\n⚠ 這樣會錯過跟 ' + fmt(due) + ' 的約。';
       var today = kcClock.month + '/' + kcClock.dayOfMonth;
       var todayDue = due.filter(function (c) { return c.promise.date === today; });
       if (!todayDue.length) return '';
       // hour<6＝凌晨睡下醒來仍是【同一天】6點，今天的約還在、不會爽約。
-      if (kind === 'day') return kcClock.hour < 6 ? '' : '\n\n⚠ 今天還有約：' + fmt(todayDue) + '\n現在睡就是放她鴿子。';
+      if (kind === 'day') return kcClock.hour < 6 ? '' : '\n\n⚠ 今天還有約：' + fmt(todayDue);
       // 'band'：同日跳時段不直接判爽約，但會燒掉準時窗——窗後 2 小時就等同爽約(後端 _standUp)。
       var burn = todayDue.filter(function (c) {
         var m = String(c.promise.time || '').match(/(\d{1,2}):(\d{2})/);
@@ -614,7 +614,7 @@ let plainTextContext = cleanText;
         var ah = parseInt(m[1], 10) + parseInt(m[2], 10) / 60;
         return targetHour > ah + 0.5 && kcClock.hour <= ah + 0.5;
       });
-      return burn.length ? '\n\n⚠ 會錯過約好的時間：' + fmt(burn) + '\n之後只能算遲到。' : '';
+      return burn.length ? '\n\n⚠ 會錯過約好的時間：' + fmt(burn) : '';
     } catch (e) { return ''; }
   }
 
@@ -983,7 +983,7 @@ let plainTextContext = cleanText;
       + '<button onclick="kanshouGoNewPlace()" style="flex:1;text-align:left;padding:8px 10px;background:#1e2a24;color:#bfe0cf;border:1px dashed #4a7a5f;border-radius:8px;cursor:pointer;font-size:13px;">'
       + '🧭 去別的地方…（自己說個地名，這座城就多一個地方）</button></div>'
       + (kcActiveRegion_ === 'mine' && !((window._lastTags && window._lastTags.myPlaces) || []).length
-        ? '<div style="color:#8a9a90;font-size:11.5px;padding:2px 2px 8px;">你走出來的地方會留在這裡，之後可以再去，也可以約在那裡。</div>' : '');
+        ? '<div style="color:#8a9a90;font-size:11.5px;padding:2px 2px 8px;">你走出來的地方會留在這裡。</div>' : '');
     var renameHtml = (kcActiveRegion_ === 'home')
       ? '<div style="text-align:right;margin:-4px 0 6px;"><span onclick="kanshouRenameHome()" style="cursor:pointer;font-size:11px;color:#a07a90;">✏️ 幫「' + escapeHtml(homeLabel) + '」改名</span></div>'
       : '';
@@ -1008,7 +1008,7 @@ let plainTextContext = cleanText;
       var _pmBadge = _pmHere ? '<span style="color:#a8d0f0;font-size:10px;">📅 ' + escapeHtml(_pmHere[0].promise.date + (_pmHere[0].promise.time ? ' ' + _pmHere[0].promise.time.replace(/^\S+\s/, '') : '')) + (_pmHere.length > 1 ? ' +' + (_pmHere.length - 1) : '') + '</span>' : '';
       if (l.region === 'visit' && unlockedRes.indexOf(l.name) === -1) {
         return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
-          + '<button onclick="alert(\'你們還沒熟到能直接上門。先在外面多見幾次面吧。\')" '
+          + '<button onclick="alert(\'你們還沒熟到能直接上門。\')" '
           + 'style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#1b1822;color:#6a6478;border:1px dashed #3a3348;border-radius:8px;cursor:not-allowed;font-size:13px;">'
           + '<span>🔒 ' + escapeHtml(label) + '</span>'
           + '<span style="font-size:10.5px;color:#7a7488;">尚未熟識</span>'
@@ -1079,7 +1079,7 @@ let plainTextContext = cleanText;
     await kwWorldOp_({ op: 'rg_rename', entryName: cur, newName: name }, '改名中…');
   }
   async function kanshouDelRegion(cur) {
-    if (!await customConfirm_('收掉「' + cur + '」？裡面的地方會留著，只是搬回「走出來的地方」。')) return;
+    if (!await customConfirm_('收掉「' + cur + '」？裡面的地方會搬回「走出來的地方」。')) return;
     var res = await kwWorldOp_({ op: 'rg_del', entryName: cur }, '收掉這一區…');
     if (res) { kcActiveRegion_ = 'mine'; try { var el = document.getElementById('kc-map-list'); if (el) el.innerHTML = kcMapListHtml_(); } catch (e) { } }
   }
@@ -1110,7 +1110,7 @@ let plainTextContext = cleanText;
       if (rg === null) return;
       await kwWorldOp_({ op: 'loc_region', entryName: name, region: rg }, '搬家中…');
     } else if (pick === 'del') {
-      if (!await customConfirm_('把「' + name + '」從這座城裡拿掉？之後就去不了了。')) return;
+      if (!await customConfirm_('把「' + name + '」從這座城裡拿掉？')) return;
       await kwWorldOp_({ op: 'del', kind: '地點', entryName: name }, '刪除中…');
     }
   }
@@ -1293,7 +1293,7 @@ let plainTextContext = cleanText;
     var _pmHere = String((window._lastTags && window._lastTags.myLoc) || '').trim();
     var pool = KC_LOCATIONS_.filter(function (l) { return !l.isRoom && l.name !== _pmHere && (l.region !== 'visit' || _pmUnlocked.indexOf(l.name) !== -1); });
     // 先選地點 → 再選時段 → 才送出(她約定時刻前10分到場；早到有「都早到」開場、遲到會唸你)
-    kanshouPickLocation_('📅 和「' + name + '」約在哪見面？', '接著選今天或明天的哪個時段。別遲到。', pool, function (loc) {
+    kanshouPickLocation_('📅 和「' + name + '」約在哪見面？', '接著選今天或明天的哪個時段。', pool, function (loc) {
       // 🕐 2026-07 六度改版：地點若有開放時段限制，只給相容的時段選——約在她開放時段外＝赴約時
       //   必被地點未開放擋在門外(後端 _pmLocOk 也同步擋這種組合，這裡先不給選)。
       var _locObj = KC_LOCATIONS_.find(function (l) { return l.name === loc; });
@@ -1484,7 +1484,7 @@ let plainTextContext = cleanText;
       + '<div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:12px;">' + chips + '</div>'
       + (photos.length
         ? '<div style="display:flex; gap:14px; flex-wrap:wrap; justify-content:center;">' + photos.map(kcAlbumCardHtml_).join('') + '</div>'
-        : '<div style="color:#8a8298; font-size:12px; text-align:center; padding:30px 0;">還沒有照片。按輸入列的 📷 拍一張。</div>');
+        : '<div style="color:#8a8298; font-size:12px; text-align:center; padding:30px 0;">還沒有照片。</div>');
   }
   function kcAlbumSetFilter_(n) { kcAlbumFilter_ = n; kcAlbumRender_(); }
   function kanshouCloseAlbum_() { var ov = document.getElementById('kc-album-overlay'); if (ov) ov.remove(); }
@@ -1685,7 +1685,7 @@ let plainTextContext = cleanText;
   }
   async function kwOp_(op, kind, name) {
     if (_kwBusy_) return;   // 讀條保護：上一個還在跑就忽略連點(同 kanshouMemoirOp)
-    if (op === 'del' && !await customConfirm_('把「' + name + '」忘掉？之後就當沒這回事。')) return;
+    if (op === 'del' && !await customConfirm_('把「' + name + '」忘掉？')) return;
     _kwBusy_ = true;
     try { await kwLoad_(op, kind, name); } finally { _kwBusy_ = false; }
   }
@@ -1900,7 +1900,7 @@ let plainTextContext = cleanText;
       ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);display:flex;align-items:center;justify-content:center;';
       ov.innerHTML = '<div style="background:#20141b;border:1px solid rgba(200,120,150,.5);border-radius:14px;padding:22px;width:84%;max-width:320px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);">'
         + '<div style="color:#e0a0bc;font-weight:bold;font-size:15px;margin-bottom:6px;">🌹 後日談 · 先選性別</div>'
-        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:16px;">你在後日談裡的性別，之後可以在 👥 改。</div>'
+        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:16px;">你在後日談裡的性別。</div>'
         + '<div style="display:flex;gap:10px;">'
         + '<button id="ksx-f" style="flex:1;padding:13px;background:linear-gradient(90deg,#7a4a6a,#5a3a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♀ 女</button>'
         + '<button id="ksx-m" style="flex:1;padding:13px;background:linear-gradient(90deg,#3a4a6a,#3a5a6a);color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♂ 男</button>'
@@ -1926,7 +1926,7 @@ let plainTextContext = cleanText;
       ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.74);display:flex;align-items:center;justify-content:center;padding:16px;';
       ov.innerHTML = '<div style="background:#20141b;border:1px solid rgba(200,120,150,.5);border-radius:14px;padding:22px;width:100%;max-width:340px;max-height:calc(100vh - 32px);overflow-y:auto;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.6);">'
         + '<div style="color:#e0a0bc;font-weight:bold;font-size:15px;margin-bottom:6px;">🌹 後日談 · 你是誰</div>'
-        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選性別。外貌和個性可以先不填，之後都能改。</div>'
+        + '<div style="color:#9a8f70;font-size:11px;line-height:1.7;margin-bottom:14px;">取個名字、選性別。外貌和個性可以先不填。</div>'
         + '<input id="ksu-name" maxlength="16" value="' + escapeHtml(defaultName || '') + '" placeholder="御主名" style="width:100%;box-sizing:border-box;padding:11px;background:#16101a;border:1px solid rgba(200,120,150,.4);border-radius:8px;color:#f0e0e8;font-size:14px;text-align:center;">'
         + '<div style="display:flex;gap:10px;margin-top:10px;">'
         + '<button id="ksu-f" style="flex:1;padding:13px;background:rgba(90,50,70,.35);color:#d8a8c0;border:2px solid transparent;border-radius:9px;font-size:15px;font-weight:bold;cursor:pointer;">♀ 女</button>'
@@ -1948,7 +1948,7 @@ let plainTextContext = cleanText;
       mBtn.onclick = function () { selectedSex = '男'; renderSexPick(); };
       ov.querySelector('#ksu-simple').onclick = async function () {
         if (selectedSex !== '女' && selectedSex !== '男') { alert('請先選擇性別。'); return; }
-        if (!await customConfirm_('就用這個「' + selectedSex + '」進去？\n\n沒填的部分會替你補上，之後都能改。')) return;
+        if (!await customConfirm_('就用這個「' + selectedSex + '」進去？\n\n沒填的部分會替你補上。')) return;
         var nm = (ov.querySelector('#ksu-name').value || '').trim() || (defaultName || '御主');
         var appearance = (ov.querySelector('#ksu-appear').value || '').trim();
         var persona = (ov.querySelector('#ksu-persona').value || '').trim();

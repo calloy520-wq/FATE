@@ -18,7 +18,7 @@ function actionSetServantOutput(userData, pcId, sheets) {
   const svName = pcData[svIdx][COL.PC.NAME];
   return JSON.stringify({
     success: true, output: want, label: t.label,
-    message: `「${svName}」的出力調到 ${want}%（${t.label}）。${want >= 100 ? '能放寶具了，但很耗魔。' : (want <= 20 ? '最省魔，但放不了寶具。' : '')}`,
+    message: `「${svName}」的出力調到 ${want}%（${t.label}）。`,
     economy: playerServantEconomy_(sheets, pcId, pcData) // 樂觀更新只吃 economy；不再算前端會丟棄的 statusString(省一次整表讀)
   });
 }
@@ -145,11 +145,11 @@ function actionManaSupply(userData, pcId, sheets) {
 
   const isFateMana = myGameId.indexOf("g_") === 0;
   if (isFateMana && getAp_(myGameId, pcData) < 1) {
-    return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，先休息。" });
+    return JSON.stringify({ success: false, needRest: true, message: "行動力不夠。" });
   }
   const oldCirc = masterCircuits_(pcData[pIdx]);
   if (oldCirc <= CIRC_FLOOR) {
-    return JSON.stringify({ success: false, message: `你的迴路只剩 ${oldCirc} 條，再擠會斷。用靈脈、陣地或休息回魔吧。` });
+    return JSON.stringify({ success: false, message: `你的迴路只剩 ${oldCirc} 條，再擠會斷。` });
   }
   // 永久代價：迴路−3、血量上限−15（各有地板）——補魔燒身是「賭上未來換這一發」的重決定，非廉價回魔。
   const circCut = MANA_CIRC_CUT_;
@@ -172,7 +172,7 @@ function actionManaSupply(userData, pcId, sheets) {
   pcData[pIdx][COL.PC.MEMORY] = setOvercharge_(pcData[pIdx][COL.PC.MEMORY], newMpMax);
   const mpMax = newMpMax; // 給下方敘述沿用
 
-  const _manaApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，先休息。", { isFate: isFateMana, skipWrite: true });
+  const _manaApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠。", { isFate: isFateMana, skipWrite: true });
   const manaAp = _manaApr.ap, manaClock = _manaApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   raiseBond_(sheets, myGameId, pcData[pIdx][COL.PC.NAME], svName, 3, pcData);
@@ -210,7 +210,7 @@ function actionSpiritRepair(userData, pcId, sheets) {
 
   const isFateMana = myGameId.indexOf("g_") === 0;
   if (isFateMana && getAp_(myGameId, pcData) < 1) {
-    return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，先休息。" });
+    return JSON.stringify({ success: false, needRest: true, message: "行動力不夠。" });
   }
 
   const svMaxHp = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 450;
@@ -227,7 +227,7 @@ function actionSpiritRepair(userData, pcId, sheets) {
   pcData[svIdx][COL.PC.HP] = svHp + healed;
   pcData[pIdx][COL.PC.MP] = mp - cost;
 
-  const _repApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，先休息。", { isFate: isFateMana, skipWrite: true });
+  const _repApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠。", { isFate: isFateMana, skipWrite: true });
   const repAp = _repApr.ap, repClock = _repApr.clock;
   sheets.pc.getRange(svIdx + 1, 1, 1, pcData[svIdx].length).setValues([pcData[svIdx]]);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);

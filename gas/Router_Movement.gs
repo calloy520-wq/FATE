@@ -130,7 +130,7 @@ function actionMove(userData, pcId, sheets) {
   const moveGameId = String(allPcData[pIdx][COL.PC.GAME_ID] || "");
   const isFateMove = moveGameId.indexOf("g_") === 0;
   if (isFateMove && getAp_(moveGameId, allPcData) < 2) {
-    return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，遠行要 2 點。先休息。", clock: clockLabel_(moveGameId, allPcData), ap: getAp_(moveGameId, allPcData), apMax: AP_PER_DAY });
+    return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，遠行要 2 點。", clock: clockLabel_(moveGameId, allPcData), ap: getAp_(moveGameId, allPcData), apMax: AP_PER_DAY });
   }
 
   // 💨 撤離追擊(一點點)：從「有活敵從者」的格子離開時，較快的敵從者可能咬一記離別追擊。
@@ -611,12 +611,12 @@ function actionPrepMeal(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   var myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   var isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，先休息。" });
+  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠。" });
   var clk = getClock_(myGameId, pcData);
   if (!clk) return JSON.stringify({ success: false, message: "現在整備不了。" });
   var nowAbs = clk.day * 24 + clk.hour;
   pcData[pIdx][COL.PC.MEMORY] = stampMeal_(pcData[pIdx][COL.PC.MEMORY], nowAbs + MEAL_BUFF_HOURS);
-  var _mealApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，先休息。", { isFate: isFate, skipWrite: true });
+  var _mealApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠。", { isFate: isFate, skipWrite: true });
   var ap = _mealApr.ap, clock = _mealApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   // 🎬 aiPrompt 讓 AI 演出這段整備場景，而非只回罐頭 message。
@@ -1131,7 +1131,7 @@ function actionSecondWind(userData, pcId, sheets) {
   const maxHp = parseInt(pcData[pIdx][COL.PC.MAX_HP]) || 120;
   const cur = parseInt(pcData[pIdx][COL.PC.HP]) || 0;
   const cost = Math.max(10, Math.round(maxHp * 0.20));
-  if (cur <= cost) return JSON.stringify({ success: false, needRest: true, noSecondWind: true, message: "你太虛弱了，再燒會死。休息，或用令咒脫離。" });
+  if (cur <= cost) return JSON.stringify({ success: false, needRest: true, noSecondWind: true, message: "你太虛弱了，再燒會死。" });
   pcData[pIdx][COL.PC.HP] = cur - cost;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   const ap = grantAp_(myGameId, 4, pcData, sheets);
@@ -1180,13 +1180,13 @@ function actionSetWorkshop(userData, pcId, sheets) {
   const loc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
   if (!loc) return JSON.stringify({ success: false, message: "這裡設不了陣地。" });
   if (getWorkshop_(pcData[pIdx][COL.PC.MEMORY]) === loc) return JSON.stringify({ success: false, message: `「${loc}」已經是你的陣地了。` });
-  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，先休息。" });
+  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠。" });
   // 🔮 布設陣地的勞動：灌注魔力築起結界／機關／術式，須御主純魔 ≥ WORKSHOP_MANA_COST
   const mMp = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
-  if (isFate && mMp < WORKSHOP_MANA_COST) return JSON.stringify({ success: false, message: `設陣地要 ${WORKSHOP_MANA_COST} 魔，你只有 ${mMp}。先補魔或休息。` });
+  if (isFate && mMp < WORKSHOP_MANA_COST) return JSON.stringify({ success: false, message: `設陣地要 ${WORKSHOP_MANA_COST} 魔，你只有 ${mMp}。` });
   if (isFate) pcData[pIdx][COL.PC.MP] = Math.max(0, mMp - WORKSHOP_MANA_COST);
   pcData[pIdx][COL.PC.MEMORY] = setWorkshopMemory_(pcData[pIdx][COL.PC.MEMORY], loc);
-  const _wsApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，先休息。", { isFate: isFate, skipWrite: true });
+  const _wsApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠。", { isFate: isFate, skipWrite: true });
   const ap = _wsApr.ap, clock = _wsApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]); // MP＋MEMORY＋AP 一起寫回
   // 🎬 AI 演出：布設陣地的勞作（有陣地作成 Caster→其親手築結界；否則御主張設簡易營地）。給事實素材、少下指令。
@@ -1196,7 +1196,7 @@ function actionSetWorkshop(userData, pcId, sheets) {
     `【系統·陣地佈設·已裁定】御主一行於「${loc}」紮下陣地——${csName ? `「${csName}」以陣地作成之能，在此地` : '御主親手在此地'}布設層層魔術結界、暗藏機關與監視術式，御主傾注了可觀的魔力為根基。自此這裡成為我方的堡壘：駐留可加速供魔回復，於此迎戰享主場結界庇護，敵人潛入亦難越雷池。\n` +
     `★【90~140 字】演出這場「築起陣地」的勞作——${csName ? `「${csName}」施展術式、鋪設結界的專注與魔力流轉，法師將一方土地化為己身堡壘的過程` : '御主費心張設營地與警戒的辛勞'}；落在完工後那份「這裡是我們的據點了」的踏實與底氣。`;
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：MP扣減/陣地標記/spendAp_ 皆已原地改回 pcData，dispatcher 夾 _state 免整表重讀
-  return JSON.stringify({ success: true, message: `在「${loc}」設好陣地了，花了 ${WORKSHOP_MANA_COST} 魔。待著回魔更快，在這裡打有主場優勢。`, aiPrompt: wsPrompt, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId, pcData) : null });
+  return JSON.stringify({ success: true, message: `在「${loc}」設好陣地了，花了 ${WORKSHOP_MANA_COST} 魔。`, aiPrompt: wsPrompt, clock: clock, ap: ap, apMax: AP_PER_DAY, economy: isFate ? playerServantEconomy_(sheets, pcId, pcData) : null });
 }
 
 // 🔍 搜索物資：偵查鄰近敵蹤為主，順手撿拾零星魔力（耗 1 AP）⚠ 反「無痛回魔」：每地的散逸魔力有限，搜刮一次即枯竭——同地重搜只得殘渣。
@@ -1217,7 +1217,7 @@ function actionScavenge(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const isFate = myGameId.indexOf("g_") === 0;
-  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，先休息。" });
+  if (isFate && getAp_(myGameId, pcData) < 1) return JSON.stringify({ success: false, needRest: true, message: "行動力不夠。" });
   // 🔋 撿拾零星魔力：基礎 ~10% 上限；同地已搜刮過→枯竭、僅得殘渣 ~3%。靠移動探索換取、非站樁刷魔。
   const mpMax = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 80;
   const cur = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
@@ -1227,7 +1227,7 @@ function actionScavenge(userData, pcId, sheets) {
   const gain = Math.max(0, Math.min(mpMax, cur + Math.round(mpMax * rate)) - cur);
   pcData[pIdx][COL.PC.MP] = cur + gain;
   if (!depleted && curLoc) pcData[pIdx][COL.PC.MEMORY] = addScavengedLoc_(pcData[pIdx][COL.PC.MEMORY], curLoc);
-  const _scavApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，先休息。", { isFate: isFate, skipWrite: true });
+  const _scavApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠。", { isFate: isFate, skipWrite: true });
   const ap = _scavApr.ap, clock = _scavApr.clock;
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
   // 35% 機率察覺鄰近敵蹤（揭露一名最近的未偵查敵）——搜索的真正價值在情報。（全文見 CODE_NOTES.md）
@@ -1269,7 +1269,7 @@ function actionScout(userData, pcId, sheets) {
   const myGameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
   const isFateScout = myGameId.indexOf("g_") === 0;
   if (isFateScout && getAp_(myGameId, pcData) < 1) {
-    return JSON.stringify({ success: false, needRest: true, message: "行動力不夠，先休息。" });
+    return JSON.stringify({ success: false, needRest: true, message: "行動力不夠。" });
   }
   const curLoc = String(pcData[pIdx][COL.PC.LOC] || "").trim();
   // 附近地點（含當前）作為偵查範圍
@@ -1295,7 +1295,7 @@ function actionScout(userData, pcId, sheets) {
     (loc === curLoc ? revealedHere : revealedNear).push(String(pcData[i][COL.PC.NAME]) + (loc === curLoc ? "" : "（" + loc + "）"));
   }
 
-  const _scoutApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠，先休息。", { isFate: isFateScout });
+  const _scoutApr = chargeApOrReject_(myGameId, 1, pcData, sheets, "行動力不夠。", { isFate: isFateScout });
   const scoutAp = _scoutApr.ap, scoutClock = _scoutApr.clock;
 
   const revealed = revealedHere.concat(revealedNear);
