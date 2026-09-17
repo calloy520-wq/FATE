@@ -23,7 +23,7 @@ const ENTRIES = [
   'kanshouPlaceMenu', 'kanshouGoNewPlace', 'kanshouNextStage', 'kanshouEndDay',
   'kcMapListHtml_', 'kcChoose_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',
   'sumMode_', 'setWarFromSelect_', 'pickWar', 'pickOrigin', 'newGameFlow', 'openTutorial',
-  'ksRender_', 'ksTab_', 'ksPick_', 'ksSave_', 'ksReset_', 'ksResetAll_'
+  'ksRender_', 'ksTier_', 'ksPick_', 'ksSave_', 'ksReset_', 'ksResetAll_'
 ];
 // 這些面板會被真的叫起來一次（不能拋例外）
 const RENDERS = [
@@ -50,29 +50,30 @@ const RENDERS = [
     if (got !== 'chaos') throw new Error('選了混亂，#s-war 卻是 ' + got);
     ctx.pickWar('5th');
   }],
-  ['ksRender_ 三態＋分頁', () => {
+  // 🎨 ⚙ 說書人設定：只剩【尺度】(三態)與【篇幅】(檔位)兩格。
+  //   ⚠ 這條同時釘兩件事：①預設句本體不可以漏到畫面上（那是提示詞，玩家看到就出戲）；
+  //   ②篇幅那排鈕要真的呼叫檔位那支——ksPick_ 曾經被宣告兩次，後者把前者整個蓋掉，
+  //   於是按檔位變成送「關閉」，畫面照常、零錯誤訊息。所以這裡比對的是【送出去的 payload】。
+  ['ksRender_ 尺度三態＋篇幅檔位', () => {
     const body = ctx.document.createElement('div'); body.id = 'kc-style-body'; ctx.document.body.appendChild(body);
-    ctx._ksCats_ = [{ key: 'pen', name: '✍️ 文筆' }, { key: 'them', name: '💞 對方' }];
     ctx._ksMods_ = [
-      { key: 'voice', name: '筆觸', slot: 'sys', cat: 'pen', hint: '敘事的調子與人稱。', def: '【誘餌】這是提示詞本體，不可外洩。', text: '', on: true, custom: false },
-      { key: 'moe', name: '萌點用法', slot: 'sys', cat: 'them', hint: '口癖要多常用。', def: '【誘餌2】', text: '少用一點。', on: true, custom: true },
-      { key: 'drive', name: '推演', slot: 'sys', cat: 'them', hint: '對方答不答應由什麼決定。', def: '【誘餌3】', text: '', on: false, custom: false }
+      { key: 'lewd', name: '尺度', slot: 'sys', hint: '情慾場面寫多開。', def: '【誘餌】這是提示詞本體，不可外洩。', text: '', on: true, custom: false },
+      { key: 'lenTier', name: '篇幅', slot: 'none', kind: 'pick', hint: '一回合寫多長。', def: 'auto', text: 'auto', on: true, custom: false,
+        options: [{ key: 'auto', label: '自動' }, { key: '500', label: '500 字' }] }
     ];
-    ctx._ksEdit_ = {}; ctx._ksCat_ = '';
+    ctx._ksEdit_ = {};
     ctx.ksRender_();
     const h = String(body.innerHTML);
     if (/誘餌/.test(h)) return false;                                   // 預設句漏到畫面上
-    if (!/✍️ 文筆/.test(h) || !/💞 對方/.test(h)) return false;          // 分頁列要畫得出來
-    if (!/敘事的調子與人稱/.test(h)) return false;                       // 第一頁的提示在
-    if (/口癖要多常用/.test(h)) return false;                           // 別頁的不該畫出來
-    if (!/>2</.test(h)) return false;                                   // 「對方」頁 2 段不是預設 → 角標 2
+    if (!/情慾場面寫多開/.test(h) || !/一回合寫多長/.test(h)) return false; // 兩格都在
+    if (!/500 字/.test(h)) return false;                                // 檔位鈕畫得出來
     if ((h.match(/<textarea/g) || []).length !== 0) return false;
-    ctx.ksTab_('them'); const h2 = String(body.innerHTML);              // 切分頁
-    if (!/少用一點/.test(h2) || /敘事的調子與人稱/.test(h2)) return false;
-    if (!/已關閉/.test(h2) || !/自訂/.test(h2)) return false;
-    if ((h2.match(/<textarea/g) || []).length !== 1) return false;      // 只有「自訂」那格開輸入框
-    ctx.ksPick_('drive', 'own'); const h3 = String(body.innerHTML);     // 按「自訂」＝本地打開輸入框
-    return (h3.match(/<textarea/g) || []).length === 2 && !/誘餌/.test(h3);
+    ctx.ksPick_('lewd', 'own'); const h2 = String(body.innerHTML);      // 按「自訂」＝本地打開輸入框
+    if ((h2.match(/<textarea/g) || []).length !== 1 || /誘餌/.test(h2)) return false;
+    // 📏 檔位：攔下 gasRun 看真的送了什麼
+    let sent = null; const old = ctx.gasRun; ctx.gasRun = p => { sent = p; return Promise.resolve({ success: true }); };
+    try { ctx.ksTier_('lenTier', '500'); } finally { ctx.gasRun = old; }
+    return !!sent && sent.key === 'lenTier' && sent.styleText === '500' && sent.on !== false;
   }],
   ['openTutorial', () => { let html = ''; const old = ctx.showHistoryOverlay; ctx.showHistoryOverlay = h => { html = String(h); };
     try { ctx.openTutorial(); } finally { ctx.showHistoryOverlay = old; }

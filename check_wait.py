@@ -27,7 +27,7 @@ WAIT = re.compile(
 # 允許沒有等待畫面的呼叫點：{函式名: 理由}
 BACKGROUND = {
     'manaSetOutput':      '樂觀更新：openManaPanel() 當場重畫新檔位，玩家看到的就是結果',
-    'ksPick_':            '樂觀更新：篇幅檔位按下去就重畫成選中的那顆，玩家看到的就是結果（下一回合才吃到）',
+    'ksTier_':            '樂觀更新：篇幅檔位按下去就重畫成選中的那顆，玩家看到的就是結果（下一回合才吃到）',
     'setServantOutput':   '樂觀更新：轉盤當場改外觀，失敗才 alert＋syncData 校正',
     'syncData':           '背景同步：不是玩家按出來的，且多半吃 __pendingState 不發網路',
     'refreshFateTags':    '背景標籤刷新：呼叫端多半已帶 prefetched，且都在別人的遮罩底下',

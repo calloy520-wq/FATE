@@ -1238,7 +1238,7 @@ let plainTextContext = cleanText;
     if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
     var drawer = document.getElementById('action-drawer'); if (drawer) drawer.classList.remove('open');
     kanshouCloseStyle_();
-    _ksEdit_ = {}; _ksCat_ = '';
+    _ksEdit_ = {};
     var ov = document.createElement('div');
     ov.id = 'kc-style-overlay';
     ov.style.cssText = 'position:fixed; inset:0; z-index:9000; background:rgba(14,16,20,.93); overflow-y:auto; padding:18px 14px 40px;';
@@ -1247,37 +1247,24 @@ let plainTextContext = cleanText;
       + '<div style="color:#d8b070; font-weight:bold; font-size:16px;">⚙ 說書人設定</div>'
       + '<button onclick="kanshouCloseStyle_()" style="background:none; border:1px solid #6a5a40; border-radius:8px; color:#d8c8a8; font-size:13px; padding:4px 12px; cursor:pointer;">✕ 關閉</button>'
       + '</div>'
-      + '<div style="color:#8a7e64; font-size:11.5px; margin-bottom:12px; line-height:1.7;">說書人怎麼寫，你來定。每一段可以用<b style="color:#b8a888;">預設</b>照原本的來、<b style="color:#b8a888;">自訂</b>寫你自己的句子、<b style="color:#b8a888;">關閉</b>那一段完全不送。'
-      + '<br>分頁上的數字是你改過幾段。</div>'
+      + '<div style="color:#8a7e64; font-size:11.5px; margin-bottom:12px; line-height:1.7;">尺度可以用<b style="color:#b8a888;">預設</b>照原本的來、<b style="color:#b8a888;">自訂</b>寫你自己的句子、<b style="color:#b8a888;">關閉</b>那一段完全不送。</div>'
       + '<div id="kc-style-body" style="color:#8a8298; font-size:12px;">讀取中……</div></div>';
     document.body.appendChild(ov);
     await ksLoad_();
   }
-  var _ksMods_ = [], _ksCats_ = [], _ksCat_ = '', _ksMax_ = 300, _ksEdit_ = {};
+  var _ksMods_ = [], _ksMax_ = 300, _ksEdit_ = {};
   async function ksLoad_() {
     try {
       var res = await gasRun({ action: 'kanshou_get_style', pcId: pc.id, acctName: currentAccount });
       if (!res || !res.success) { var b = document.getElementById('kc-style-body'); if (b) b.textContent = (res && res.message) || '讀取失敗。'; return; }
-      _ksMods_ = res.modules || []; _ksCats_ = res.cats || []; _ksMax_ = res.max || 300;
+      _ksMods_ = res.modules || []; _ksMax_ = res.max || 300;
       ksRender_();
     } catch (e) { var b2 = document.getElementById('kc-style-body'); if (b2) b2.textContent = '讀取失敗。'; }
   }
   function ksRender_() {
     var body = document.getElementById('kc-style-body'); if (!body) return;
-    if (!_ksCats_.some(function (c) { return c.key === _ksCat_; })) _ksCat_ = (_ksCats_[0] || {}).key || '';
-    // 分頁列：亮著的是現在這一頁，右上角小數字＝那一類有幾段不是預設（收進分頁後狀態才不會被藏起來）。
-    var html = '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:11px;">';
-    _ksCats_.forEach(function (c) {
-      var act = c.key === _ksCat_;
-      var n = _ksMods_.filter(function (m) { return m.cat === c.key && ksMode(m) !== 'def'; }).length;
-      html += '<button onclick="ksTab_(\'' + c.key + '\')" style="flex:1 1 auto; background:' + (act ? '#4a3c24' : 'rgba(56,48,36,.35)')
-        + '; border:1px solid ' + (act ? '#a08850' : '#4a4034') + '; border-radius:8px; color:' + (act ? '#f0e0b8' : '#9a8e74')
-        + '; font-size:12.5px; font-weight:' + (act ? 'bold' : 'normal') + '; padding:6px 10px; cursor:pointer;">' + escapeHtml(c.name)
-        + (n ? ' <span style="background:#a08850; color:#241e14; border-radius:9px; font-size:10.5px; font-weight:bold; padding:0 5px;">' + n + '</span>' : '')
-        + '</button>';
-    });
-    html += '</div>';
-    _ksMods_.filter(function (m) { return m.cat === _ksCat_; }).forEach(function (m) {
+    var html = '';
+    _ksMods_.forEach(function (m) {
       // 📏 檔位型（篇幅）：一列按鈕選數字，沒有「自訂/關閉」那三態，也沒有文字框。
       if (m.kind === 'pick') {
         var cur = String(m.text || 'auto');
@@ -1287,7 +1274,7 @@ let plainTextContext = cleanText;
           + '<div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:7px;">'
           + (m.options || []).map(function (o) {
             var on = String(o.key) === cur;
-            return '<button onclick="ksPick_(\'' + m.key + '\',\'' + o.key + '\')" style="flex:1 1 auto; background:' + (on ? '#4a3c24' : 'transparent')
+            return '<button onclick="ksTier_(\'' + m.key + '\',\'' + o.key + '\')" style="flex:1 1 auto; background:' + (on ? '#4a3c24' : 'transparent')
               + '; border:1px solid ' + (on ? '#a08850' : '#4a4034') + '; border-radius:7px; color:' + (on ? '#f0e0b8' : '#9a8e74')
               + '; font-size:12px; font-weight:' + (on ? 'bold' : 'normal') + '; padding:5px 8px; cursor:pointer;">' + escapeHtml(o.label) + '</button>';
           }).join('') + '</div></div>';
@@ -1312,9 +1299,10 @@ let plainTextContext = cleanText;
     html += '<div style="text-align:right; margin-top:14px;"><button onclick="ksResetAll_()" style="background:none; border:1px solid #6a4a4a; border-radius:8px; color:#c08a8a; font-size:12px; padding:5px 12px; cursor:pointer;">全部還原預設</button></div>';
     body.innerHTML = html;
   }
-  function ksTab_(cat) { _ksCat_ = cat; ksRender_(); }
   // 📏 檔位選一個就存（樂觀更新：先把畫面改掉，再背景寫回）
-  async function ksPick_(key, val) {
+  // ⚠ 名字【不可以】叫 ksPick_：下面三態那顆也叫 ksPick_，函式宣告會被後者整個蓋掉，
+  //   於是按篇幅檔位會走進三態那支、當成「關閉」送出去——畫面照常、零錯誤訊息。
+  async function ksTier_(key, val) {
     var m = _ksMods_.find(function (x) { return x.key === key; }); if (!m) return;
     m.text = val; m.custom = val !== 'auto'; ksRender_();
     try { await gasRun({ action: 'kanshou_set_style', pcId: pc.id, acctName: currentAccount, key: key, styleText: val }); } catch (e) { }

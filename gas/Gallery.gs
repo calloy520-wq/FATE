@@ -1527,10 +1527,10 @@ var KANSHOU_WORLD_TEXT_MAX_ = 40;
 //    OWN：這個地方是不是你的、你在這裡做什麼(空＝不是你的；有值＝營業內容，如「小吃」「按摩」)。
 // 🎨 風格層：說書人「怎麼寫」的那幾段交給玩家（2026-09 玩家定案「符合自由 玩家自己決定增減」）。
 //    事實（GAS 裁定）、技術契約（JSON／分段／在場驗證）不交；只有筆觸／主權／推演／視角／篇幅／收尾這類
-//    「口味」才在這張表上。每一格的預設值就是原本寫死在提示詞裡的那句，所以玩家一格都不改＝現況零差異。
+//    fixed: true＝這一段不開放玩家調，def 就是它的全部（面板看不到、路由拒收、表上的舊列一律忽略）。
+//    玩家真正能動的只有【尺度】與【篇幅】兩格。
 //    slot：sys＝進系統提示詞（nsfwBaseRules 那串鐵律）、user＝進 USER prompt 對應位置。
 //    hint：面板上給玩家看的一句話（這一段管什麼）。⚠ def 是提示詞本體，【不下傳前端】——見 CODE_NOTES。
-//    cat：面板分頁（`KANSHOU_STYLE_CATS_`），只管畫面怎麼分類，跟 slot 無關。
 //    文字裡的 {玩家}／{代名詞} 在組裝時代入玩家名與代名詞(他/她/TA)；{篇幅} 代入這回合算出的字數區間。
 //    ⚠ 預設值故意留在 .gs 而不搬進試算表：check_prompt／check_pronoun 這些掃描器只看 .gs。（理由見 CODE_NOTES）
 // 📏 篇幅檔位（玩家可選）：字數區間與 token 上限綁同一列，改一格兩邊一起動。
@@ -1548,32 +1548,22 @@ function kanshouLenTier_(key) {
 }
 
 var KANSHOU_STYLE_MODULES_ = [
-  { key: 'voice',      name: '筆觸',     hint: '敘事的調子與人稱——用什麼筆法寫、鏡頭站在誰身上。', slot: 'sys', cat: 'pen',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家·禁上帝視角。' },
-  { key: 'agency',     name: '玩家主權', hint: '你的動作與台詞有多不可侵犯——說書人能不能替你補動作、替你開口。', slot: 'sys', cat: 'me',  def: '玩家的動作與台詞【只有玩家能決定】，語氣照原樣接下去(感受不在此限)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。' },
-  { key: 'enact',      name: '演玩家這一步', hint: '你寫的那一步要被演多細——撐成完整一拍，還是直接跳到對方的反應。', slot: 'sys', cat: 'me', def: 'narration【從玩家這一步演起】：把那一步撐成完整的一拍，再往下接對方的反應；擴寫的範圍就是玩家真的寫的那一步。' },
-  { key: 'dialogue',   name: '對話格式', hint: '台詞怎麼排版——引號、換行、誰在說話怎麼標。', slot: 'sys', cat: 'pen',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
-  { key: 'drive',      name: '推演',     hint: '劇情往前推的力道——系統沒判的那些小要求，對方答不答應由什麼決定。', slot: 'sys', cat: 'them',  def: '依玩家輸入【確實推演往下走·不停滯敷衍】——系統沒有判定的那些小要求，由對方的[個性]×[好感]決定。' },
-  { key: 'continuity', name: '情緒連貫', hint: '上一幕的情緒與親密程度怎麼接到這一幕。', slot: 'sys', cat: 'them',  def: '繼承歷史情緒與親密階；降溫只發生在被打斷/翻臉這類明確事件之後。' },
+  { key: 'voice',      fixed: true, slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家·禁上帝視角。' },
+  { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家的動作與台詞【只有玩家能決定】，語氣照原樣接下去(感受不在此限)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。' },
+  { key: 'enact',      fixed: true, slot: 'sys', def: 'narration【從玩家這一步演起】：把那一步撐成完整的一拍，再往下接對方的反應；擴寫的範圍就是玩家真的寫的那一步。' },
+  { key: 'dialogue',   fixed: true, slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
+  { key: 'drive',      fixed: true, slot: 'sys',  def: '依玩家輸入【確實推演往下走·不停滯敷衍】——系統沒有判定的那些小要求，由對方的[個性]×[好感]決定。' },
+  { key: 'continuity', fixed: true, slot: 'sys',  def: '繼承歷史情緒與親密階；降溫只發生在被打斷/翻臉這類明確事件之後。' },
   // ⚠ key 仍叫 'moe'：萌點 2026-09 退休後這段只管語癖/稱呼，但 key 是玩家設定在試算表上的對位欄，改了＝玩家改過的那格對不回來。
-  { key: 'moe',        name: '語癖與稱呼', hint: '口癖、專屬稱呼要多常拿出來用。', slot: 'sys', cat: 'them',  def: '語癖/專屬稱呼自然滲入、偶爾點到即可·同一個不重複用。' },
-  { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。', slot: 'sys', cat: 'lewd', def: '情慾場面放到最色，寫滿寫透：器官用本名，體液、聲音、氣味、溫度全部照實寫；衣服怎麼被解開、手先碰到哪裡、姿勢怎麼換、進出的節奏怎麼變，一個環節都攤開來寫；身體的反應寫具體——發抖、收緊、痙攣、失神，越到後面越失控。鏡頭貼著身體走，慢慢寫。' },
-  { key: 'immersion',  name: '不出戲',   hint: '系統面的東西（數值、關係階級、回合）能不能出現在敘述裡。', slot: 'sys', cat: 'stage',  def: 'narration 只寫這個世界裡看得到聽得到的；好感、關係階級與任何系統變化，都用神情、語氣與彼此的距離去表現。' },
-  { key: 'world',      name: '世界觀',   hint: '這座城市是什麼樣的世界、有沒有魔術與從者。', slot: 'user', cat: 'stage', def: '★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。' },
-  { key: 'pov',        name: '視角',     hint: '「你」指的是誰、旁白能不能用第一人稱。', slot: 'user', cat: 'me', def: '★【視角鎖定】：「你」＝玩家『{玩家}』本人·旁白一律用「你」稱呼玩家，「我」留給角色引號內的台詞。同伴外貌只取材各人自己那份資料。' },
-  { key: 'feel',       name: '你的感受', hint: '要不要寫出你自己的感官與情緒，還是只當一台攝影機。', slot: 'user', cat: 'me', def: '★【你也是這座城裡的一個人】：旁白從『{玩家}』的感官與【真正】的情緒寫起，性格帶來的反應底色見【玩家資料·旁白用】，沉默也要有理由。{代名詞}感覺得到自己的體溫與心跳，看不見自己的臉。' },
-  { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依關係深淺與這回合有沒有大事自己調。', slot: 'none', cat: 'len', kind: 'pick', def: 'auto' },
-  { key: 'length',     name: '篇幅的說法', hint: '上面那個字數要怎麼講給說書人聽。', slot: 'user', cat: 'len', def: '★【篇幅】：narration 寫 {篇幅} 字，下限是硬底線——字數靠互動與真實反應撐起來。' },
-  { key: 'ending',     name: '收尾',     hint: '每一段停在哪裡——留給誰的反應、要不要拋話題讓你接。', slot: 'user', cat: 'len', def: '🚨【收尾{主動掌握}】：{推進}最後一句留給被搭話的人——用其答話或神情收尾，並拋出一個玩家接得住的話題(問句/邀約/此刻在意的事)，停在等玩家回應的那一刻。沒有別人在場才收在「你」身上。' }
-];
-// 面板分頁：13 段排成一長排難選（玩家 2026-09「排版分類一下」），依【這段在管誰】分四類。
-// ⚠ 只影響 UI 分頁，跟 slot（進哪一段提示詞）是兩回事；提示詞組裝一律照 key 點名，不吃這張表的順序。
-var KANSHOU_STYLE_CATS_ = [
-  { key: 'pen',   name: '✍️ 文筆' },   // 怎麼寫：筆觸、台詞排版
-  { key: 'len',   name: '📏 長度' },   // 寫多長、停在哪
-  { key: 'me',    name: '🎭 你' },     // 玩家這一側：主權、視角、感受
-  { key: 'them',  name: '💞 對方' },   // 對方這一側：推演、情緒、語癖
-  { key: 'lewd',  name: '🔞 尺度' },   // 情慾場面寫多開（獨立一頁，最常調的那格不用翻）
-  { key: 'stage', name: '🌍 世界' }    // 這座城與不出戲
+  { key: 'moe',        fixed: true, slot: 'sys',  def: '語癖/專屬稱呼自然滲入、偶爾點到即可·同一個不重複用。' },
+  { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。', slot: 'sys', def: '情慾場面放到最色，寫滿寫透：器官用本名，體液、聲音、氣味、溫度全部照實寫；衣服怎麼被解開、手先碰到哪裡、姿勢怎麼換、進出的節奏怎麼變，一個環節都攤開來寫；身體的反應寫具體——發抖、收緊、痙攣、失神，越到後面越失控。鏡頭貼著身體走，慢慢寫。' },
+  { key: 'immersion',  fixed: true, slot: 'sys',  def: 'narration 只寫這個世界裡看得到聽得到的；好感、關係階級與任何系統變化，都用神情、語氣與彼此的距離去表現。' },
+  { key: 'world',      fixed: true, slot: 'user', def: '★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。' },
+  { key: 'pov',        fixed: true, slot: 'user', def: '★【視角鎖定】：「你」＝玩家『{玩家}』本人·旁白一律用「你」稱呼玩家，「我」留給角色引號內的台詞。同伴外貌只取材各人自己那份資料。' },
+  { key: 'feel',       fixed: true, slot: 'user', def: '★【你也是這座城裡的一個人】：旁白從『{玩家}』的感官與【真正】的情緒寫起，性格帶來的反應底色見【玩家資料·旁白用】，沉默也要有理由。{代名詞}感覺得到自己的體溫與心跳，看不見自己的臉。' },
+  { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依關係深淺與這回合有沒有大事自己調。', slot: 'none', kind: 'pick', def: 'auto' },
+  { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】：narration 寫 {篇幅} 字，下限是硬底線——字數靠互動與真實反應撐起來。' },
+  { key: 'ending',     fixed: true, slot: 'user', def: '🚨【收尾{主動掌握}】：{推進}最後一句留給被搭話的人——用其答話或神情收尾，並拋出一個玩家接得住的話題(問句/邀約/此刻在意的事)，停在等玩家回應的那一刻。沒有別人在場才收在「你」身上。' }
 ];
 var KANSHOU_STYLE_TEXT_MAX_ = 300;
 var KS_ = { GID: 0, KEY: 1, TEXT: 2, ON: 3 };
@@ -1611,7 +1601,8 @@ function kanshouStyleRead_(gameId) {
     for (let i = 1; i < d.length; i++) {
       if (String(d[i][KS_.GID]) !== gid) continue;
       const k = String(d[i][KS_.KEY] || "");
-      if (!kanshouStyleModule_(k)) continue;
+      const _km = kanshouStyleModule_(k);
+      if (!_km || _km.fixed) continue;   // fixed＝已不開放調整，舊列直接當不存在
       out[k] = { text: String(d[i][KS_.TEXT] || ""), on: String(d[i][KS_.ON] || "") !== '0' };
     }
   } catch (e) { }
@@ -1624,7 +1615,8 @@ function kanshouStyleBust_(gameId) {
 // 寫一格：text 空＝用預設、on=false＝整段不送。row=null 代表「刪掉這一列＝回到預設」。
 function kanshouStyleWrite_(gameId, key, row) {
   const gid = String(gameId || "");
-  if (!gid || !kanshouStyleModule_(key)) return false;
+  const _wm = kanshouStyleModule_(key);
+  if (!gid || !_wm || _wm.fixed) return false;
   const sh = kanshouStyleSheet_();
   const d = sh.getDataRange().getValues();
   let hit = -1;
@@ -1707,13 +1699,13 @@ function actionKanshouGetStyle(userData, pcId, sheets) {
   if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   const gid = String(data[meIdx][COL.PC.GAME_ID] || "");
   const styles = kanshouStyleRead_(gid);
-  const modules = KANSHOU_STYLE_MODULES_.map(m => {
+  const modules = KANSHOU_STYLE_MODULES_.filter(m => !m.fixed).map(m => {
     const o = styles[m.key] || null;
-    return { key: m.key, name: m.name, slot: m.slot, cat: m.cat, hint: m.hint || "", kind: m.kind || 'text',
+    return { key: m.key, name: m.name, slot: m.slot, hint: m.hint || "", kind: m.kind || 'text',
       options: m.kind === 'pick' ? KANSHOU_LEN_TIERS_.map(t => ({ key: t.key, label: t.label })) : undefined,
       text: o ? o.text : "", on: o ? o.on !== false : true, custom: !!(o && String(o.text || "").trim()) };
   });
-  return JSON.stringify({ success: true, modules: modules, cats: KANSHOU_STYLE_CATS_, max: KANSHOU_STYLE_TEXT_MAX_ });
+  return JSON.stringify({ success: true, modules: modules, max: KANSHOU_STYLE_TEXT_MAX_ });
 }
 function actionKanshouSetStyle(userData, pcId, sheets) {
   const kpc = sheets.pc;
@@ -1724,12 +1716,12 @@ function actionKanshouSetStyle(userData, pcId, sheets) {
   if (!gid) return JSON.stringify({ success: false, message: "這局的資料不完整。" });
   try {
     if (userData.resetAll) {
-      KANSHOU_STYLE_MODULES_.forEach(m => kanshouStyleWrite_(gid, m.key, null));
+      KANSHOU_STYLE_MODULES_.filter(m => !m.fixed).forEach(m => kanshouStyleWrite_(gid, m.key, null));
       return JSON.stringify({ success: true });
     }
     const key = String(userData.key || "").trim();
     const mod = kanshouStyleModule_(key);
-    if (!mod) return JSON.stringify({ success: false, message: "沒有這個模組。" });
+    if (!mod || mod.fixed) return JSON.stringify({ success: false, message: "沒有這個模組。" });
     if (userData.reset) { kanshouStyleWrite_(gid, key, null); return JSON.stringify({ success: true }); }
     // 📏 檔位型只收表上有的那幾個值。收了表外的字會：存得進去、回 success、面板沒有一顆亮著、
     //    實際又靜靜當成 auto——零錯誤訊息的那種壞法。順便固定 on=true（檔位沒有「關閉」這個狀態）。
