@@ -155,7 +155,9 @@ const tutorial = (() => {
   const src = fs.readFileSync(path.join(GAS, 'Script_Kanshou.html'), 'utf8');
   const i = src.indexOf('<b>【日常】</b>');
   if (i < 0) return { block: '', icons: [] };
-  const j = src.indexOf('日子還長', i);
+  // ⚠ 收尾用【結構】不用語氣句：舊版切到「日子還長」為止，那是一句文案，玩家一句話就改掉了，
+  //    切點跟著失效、整段只剩開頭幾個字，掃描器會安靜地少看好幾顆鈕。`</div>` 是模板字串的真正結尾。
+  const j = src.indexOf('</div>', i);
   const block = src.slice(i, j < 0 ? i + 4000 : j);
   const icons = [...new Set((block.match(/[\u{1F300}-\u{1FAFF}\u2699\u26A0\u270D\u2795\uFF0B][\uFE0F]?/gu) || [])
     .map(x => x.replace(/\uFE0F/g, '')))].filter(x => !TUT_NOT_A_BUTTON.has(x) && !TUT_NOT_A_BUTTON.has(x + '\uFE0F'));
