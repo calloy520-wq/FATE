@@ -3203,10 +3203,6 @@ mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未
 
 有時段才寫 band:，無則沿用舊格式。★byHer 旗標只在有 band 時才附加——沒有 band 的舊格式是單段 loc，硬加會被解析成 band='loc'、loc='1'，整筆約定壞掉。
 
-### `KANSHOU_HANDHOLD_TAG_`　<sub>Gallery.gs</sub>
-
-🤝 牽手(存玩家列·單一對象)：選定的同行對象，移動時她若同地就一定跟著走(優先但不獨佔——睡覺仍看好感80+全部，見結束一天邏輯)。放手=清空。她只是「優先帶走」的標記，不影響她的獨立生活。
-
 ### `KANSHOU_LOVER_TAG_`　<sub>Gallery.gs</sub>
 
 💗 告白成立＝交往中(存該同伴列MEMORY·【戀人】1)。這一格是好感 80 那道牆唯一的鑰匙：沒有它， kanshouSyncRelTier_ 會把好感夾在 79，於是戀人標籤/自訂稱呼/同居/最高階親密度全部進不去。
@@ -3289,10 +3285,6 @@ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查�
 
 🏠 邀請同居(同伴卡「同居」鈕→cohabitInvite=name)：她在場＋好感≥門檻→蓋【同居】標記(行程骰改走同居版)；好感未達→依性格婉拒、不動任何數值；不在場→撲空。
 
-### `kanshouHandHoldStr`　<sub>Gallery.gs</sub>
-
-🤝 牽手/放手(同伴卡「牽手」鈕→handHold=name；放手→handHold='__release__')：牽的對象存玩家MEMORY，移動時她若同地就一定跟著走(見 kanshouPreMoveCompanions_)。牽手要她此刻在場才牽得成。
-
 ### `_reHourAfter`　<sub>Gallery.gs</sub>
 
 ⏱️ 用「本回合結束時」的時刻算時段——氛圍句是給讀到這次回應的玩家看的，用回合開始的舊時刻會慢半拍(玩家實測：10:5x走進客廳沒跳、原地再點(已11:2x午後)才跳)。
@@ -3364,10 +3356,6 @@ AI 對關係標籤沒有任何寫入權（attitude 欄位已於 2026-07 整組�
 ### `kanshouTierCrossStr`　<sub>Gallery.gs</sub>
 
 刻意不報幕(不出現數值/階級名詞)，只讓那份轉變自然發生在她的態度與距離感裡。
-
-### `kanshouHoldingStr`　<sub>Gallery.gs</sub>
-
-🤝 牽手中·常駐氛圍：牽的對象此刻真的同地在場才提示(被時間推進骰走就不提)。這回合剛牽/放手的當下演出走 kanshouHandHoldStr，這條是「牽著手的後續回合」持續帶出親密感。
 
 ### `partyDetailsArr`　<sub>Gallery.gs</sub>
 

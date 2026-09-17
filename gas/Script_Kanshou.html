@@ -49,12 +49,9 @@
       promiseMeet = opts.promiseMeet || null, cohabitInvite = opts.cohabitInvite || null,
       inviteResident = opts.inviteResident || null, proposeMove = opts.proposeMove || null, 
       
-      handHold = opts.handHold || null,
-      // 🐛→✅ 稽核抓到：呼叫端(kanshouHandHold/kanshouInviteCohabit)一直有把 npcId 塞進 opts，
-      //   但 send() 這裡沒解構、下面 gasRun payload 也沒轉發——兩個 id 從未離開過瀏覽器。
-      //   後端 Gallery.gs 的 userData.handHoldId/cohabitInviteId 永遠讀到空字串，「2026-07 id 優先」
-      //   那次重構在這兩條路徑上等於沒生效，一直靠姓名比對 fallback(同名/短名別名撞車時會找錯人)。
-      handHoldId = opts.handHoldId || null, cohabitInviteId = opts.cohabitInviteId || null,
+      // 🐛→✅ 稽核抓到：呼叫端一直有把 npcId 塞進 opts，但 send() 這裡沒解構、gasRun payload 也沒轉發
+      //   ——id 從未離開過瀏覽器，「2026-07 id 優先」那次重構在這條路徑上等於沒生效。
+      cohabitInviteId = opts.cohabitInviteId || null,
       confess = opts.confess || null, confessId = opts.confessId || null;
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
@@ -94,7 +91,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined || undefined, handHold: handHold || undefined, handHoldId: handHoldId || undefined, cohabitInviteId: cohabitInviteId || undefined, confess: confess || undefined, confessId: confessId || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined || undefined, cohabitInviteId: cohabitInviteId || undefined, confess: confess || undefined, confessId: confessId || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -244,7 +241,7 @@ let plainTextContext = cleanText;
       // 🛡️ 過 aiHtml_(Script.html)：整段 escape 擋 self-XSS，但把提示詞要求的 <br> 分段標籤放回來
       //   （linkCandidates 替換出來的 html 值本就等於純文字名稱，不受影響）。
       story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${aiHtml_(displayText.trim())}</div>`);
-      // 📅🤝 相約/牽手成不成立的明確回饋(後端 proposalResult)——插一條系統通知條，玩家不必再從敘述猜。
+      // 📅 相約/同去成不成立的明確回饋(後端 proposalResult)——插一條系統通知條，玩家不必再從敘述猜。
       if (data.proposalResult) {
         const _pr = data.proposalResult, _nm = escapeHtml(String(_pr.name || '她'));
         const _prIco = _pr.type === 'promise' ? '📅' : _pr.type === 'cohabit' ? '🏠' : _pr.type === 'move' ? '🚶' : _pr.type === 'confess' ? '💗' : '🤝';
@@ -268,8 +265,8 @@ let plainTextContext = cleanText;
         else if (_pr.ok && _pr.type === 'invite') _msg = '🤝 跟「' + _nm + '」交換了聯絡方式。';
         else if (_pr.type === 'invite') _msg = '🤝 ' + (_pr.already ? '你們早就認識了。' : '「' + _nm + '」已經走了。');
         // 🐛→✅ 2026-07 逐按鍵稽核：地點不合法的兩種回報(promise_loc/move_loc)舊版沒有自己的分支，
-        //   一路掉到最後那行 else，印出的是【「她」沒有讓你牽手】——玩家按的明明是相約/邀同去，
-        //   卻收到一則牽手失敗通知，會去找一個不存在的問題。這兩型跟「她婉拒」無關，是地點的事。
+        //   一路掉到最後那行 else，印出的是別種動作的失敗通知，玩家會去找一個不存在的問題。
+        //   這兩型跟「她婉拒」無關，是地點的事。
         else if (_pr.type === 'promise_loc' || _pr.type === 'move_loc') {
           _msg = (_pr.type === 'promise_loc' ? '📅 ' : '🚶 ') + (_pr.sameSpot
             ? '你們現在就在「' + escapeHtml(String(_pr.loc || '')) + '」了。'
@@ -1421,15 +1418,6 @@ let plainTextContext = cleanText;
     try { await kwLoad_(op, kind, name); } finally { _kwBusy_ = false; }
   }
 
-  // 🤝 牽手/放手：牽了誰，移動就帶她一起走(她本人要在場才牽得成)。睡覺仍看好感80+全部(不獨佔)。
-  async function kanshouHoldHand(name, npcId) {
-    showGamePane('chat');
-    await send('（自然地牽起「' + name + '」的手。）', false, { handHold: name, handHoldId: npcId || "" });
-  }
-  async function kanshouReleaseHand() {
-    showGamePane('chat');
-    await send('（輕輕鬆開了牽著的手。）', false, { handHold: '__release__' });
-  }
   // 🤝 結識巧遇對象：後端驗證她確實是【邂逅中】的那位才建列入駐(從此活在這座城裡·有行程有好感)。
   async function kanshouAcceptInvite(name) {
     showGamePane('chat');
@@ -1756,7 +1744,7 @@ let plainTextContext = cleanText;
             + `<b style="color:#e0a0bc;">👥 邀請</b>（時鐘左邊）<br>城裡本來就住著幾個人。想見的人不在，從這裡請進來。<br><br>`
             + `<b style="color:#e0a0bc;">🗺️ 地圖</b><br>出門走走。要在同一個地方才見得到面，撲空很正常。<br><br>`
             + `<b style="color:#e0a0bc;">⏰ 時鐘</b>（可以點）<br>調時間走多快，或快轉到某個時段。旁邊那顆推到下一個時段，深夜按下去就睡到天亮。<br><br>`
-            + `<b style="color:#e0a0bc;">👤 標籤</b><br>同伴卡上有 📜詳細狀態｜💞關係｜📅相約｜🤝牽手。<br><br>`
+            + `<b style="color:#e0a0bc;">👤 標籤</b><br>同伴卡上有 📜詳細狀態｜💞關係｜📅相約。<br><br>`
             + `<b style="color:#e0a0bc;">＋ 更多</b><br>🌍 這個世界、⚙ 說書人設定。<br><br>`
             + `<b style="color:#e0a0bc;">🔥 主動掌握</b><br>熄滅時由你主導節奏；亮起來，對方會照自己的個性主動推進。</div>`;
         }

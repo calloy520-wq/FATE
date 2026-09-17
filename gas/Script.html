@@ -1829,9 +1829,6 @@
             //   沒有隊伍容量要騰，不需要「請走」這種按鈕。
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="kanshouPromiseMeet(\'' + safeN + '\',\'' + String(s.id || '').replace(/'/g, '') + '\')" title="約她明天在哪見面" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(90,140,180,0.18); color:#a8d0f0; border:1px solid #4a7a9a; border-radius:6px; cursor:pointer;">📅 相約</button>'
-            + (s.held
-              ? '<button onclick="kanshouReleaseHand()" title="放開她的手" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.28); color:#f0c0d4; border:1px solid #b06888; border-radius:6px; cursor:pointer;">✋ 放手</button>'
-              : '<button onclick="kanshouHoldHand(\'' + safeN + '\',\'' + String(s.id || '').replace(/'/g, '') + '\')" title="牽她的手，之後你去哪她跟到哪" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">🤝 牽手</button>')
             + '</div>'
             + '</div>';
         }

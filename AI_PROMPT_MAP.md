@@ -513,7 +513,6 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | `kanshouCohabitStr`/`kanshouCohabitEndStr` | 🏠邀請同居(成立/婉拒/已同居/撲空)／搬走 | ★【同居開始】/★【同居·婉拒】/★【已在同居】… |
 | `kanshouConfessStr` | 💗告白 | ★【告白·成立】/★【告白·被拒】/★【已經在一起了】 |
 | `kanshouInviteStr`/`kanshouEncounterStr` | 🤝結識巧遇對象／巧遇擲中 | ★【正式結識】/結識未成／巧遇事實 |
-| `kanshouHandHoldStr`/`kanshouHoldingStr` | 🤝牽手/✋放手／牽著走 | ★【牽起來了】/★【放手】 |
 | `kanshouNightSceneStr`/`kanshouNightPartStr` | 夜未眠／夜裡道別 | ★【夜已深·門關上了】／★【夜裡道別】… |
 | `kanshouFestivalStr` | 日曆＝節慶當天／跳到前夕 | ★【今天是「X」】／★【節慶前夕】（只給事實，無習俗表） |
 | `kanshouTierCrossStr` | 剛跨關係階 | 純事實＋show-don't-tell 護欄 |
