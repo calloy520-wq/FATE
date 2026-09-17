@@ -70,17 +70,21 @@ def main():
         print('📉 覆蓋數：已收下基線（%d 支掃描器、%d 個數字）' % (len(now), sum(len(v) for v in now.values())))
         return 0
 
-    drops, gone = [], []
+    drops, gone, fmt = [], [], []
     for k, old in base.items():
         if k not in now:
             gone.append(k)
             continue
         cur = now[k]
+        # ⚠ 位置比對遇到「那一行多印/少印一個數字」會整排位移、把不同意義的數字拿來比
+        #   （2026-09 給 check_docs 加了錨點計數，當場誤報「1074 → 589」）。
+        #   數字【個數】變了就直接說是格式變動，別假裝某一格掉了。
+        if len(cur) != len(old):
+            fmt.append((k, len(old), len(cur)))
+            continue
         for i, o in enumerate(old):
-            if i < len(cur) and cur[i] < o:
+            if cur[i] < o:
                 drops.append((k, i + 1, o, cur[i]))
-        if len(cur) < len(old):
-            drops.append((k, 0, len(old), len(cur)))
 
     print('📉 覆蓋數不得無聲下降：比對 %d 支掃描器、%d 個數字'
           % (len(base), sum(len(v) for v in base.values())))
@@ -88,11 +92,15 @@ def main():
         print('  ❌ 這些掃描器的抬頭不見了（被砍掉？改格式？）：')
         for k in gone:
             print('     %s' % k)
+    if fmt:
+        print('  ⚠ 這些掃描器那一行的數字個數變了（格式變動，不是覆蓋率下降）：')
+        for k, o, c in fmt:
+            print('     %s　%d 個數字 → %d 個' % (k, o, c))
     if drops:
         print('  ❌ 檢查到的點變少了（掃描器還是綠的，但它少看了東西）：')
         for k, i, o, c in drops:
-            print('     %s　第 %s 個數字 %d → %d' % (k, i or '?', o, c))
-    if gone or drops:
+            print('     %s　第 %d 個數字 %d → %d' % (k, i, o, c))
+    if gone or drops or fmt:
         print('  → 真的是代碼變少（砍功能）造成的，跑 `python3 check_floors.py --bless` 收下新基線；')
         print('     否則就是掃描器悄悄漏看了——先查它為什麼少看。')
         return 1

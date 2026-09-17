@@ -130,6 +130,29 @@ def scan_consts(names, extra_line=None):
     return cited, ghosts
 
 
+# 📓 CODE_NOTES 的錨點（### `名字`）——這個形式上面兩道都看不到（沒有括號、也不是全大寫常數）。
+#    2026-09 當場清出 14 個指向「代碼全樹 0 次出現」的條目（actionCourtEnemy、OFFENSIVE_NP_ATK_FX_…）。
+#    錨點對不上＝那段歷史等於消失（CLAUDE.md 紀律那條講的就是這件事），而且比沒有更誤導。
+#    判準刻意用「全樹 0 次」而不是「有沒有宣告」——宣告形式太多種，用出現次數才不會誤報。
+NOTES_DOC = 'CODE_NOTES.md'
+NOTES_ANCHOR = re.compile(r'(?m)^### `([A-Za-z_$][\w$]*)`')
+
+
+def scan_notes(extra_line=None):
+    path = os.path.join(ROOT, NOTES_DOC)
+    if not os.path.exists(path):
+        return 0, []
+    text = open(path, encoding='utf-8').read()
+    if extra_line:
+        text += '\n' + extra_line
+    src = ''
+    for f in (sorted(glob.glob(os.path.join(ROOT, 'gas', '*.gs'))) +
+              sorted(glob.glob(os.path.join(ROOT, 'gas', '*.html')))):
+        src += open(f, encoding='utf-8').read()
+    anchors = NOTES_ANCHOR.findall(text)
+    return len(anchors), sorted({a for a in anchors if a not in src})
+
+
 def main():
     names = declared()
     cited, ghosts = scan(names)
@@ -147,8 +170,19 @@ def main():
         print('📚 文件↔代碼：❌ 常數那道失效（注入的幽靈常數抓不到）')
         return 1
 
-    print('📚 文件↔代碼對照：%d 個函式點名、%d 個常數點名（只查 %s）、代碼宣告 %d 個名字（含自我退化測試）'
-          % (cited, c_cited, CONST_DOC, len(names)))
+    n_anchor, n_ghost = scan_notes()
+    if not scan_notes('### `thisAnchorIsGone_`')[1]:
+        print('📚 文件↔代碼：❌ CODE_NOTES 那道失效（注入的幽靈錨點抓不到）')
+        return 1
+
+    print('📚 文件↔代碼對照：%d 個函式點名、%d 個常數點名（只查 %s）、%d 個 CODE_NOTES 錨點、代碼宣告 %d 個名字（含自我退化測試）'
+          % (cited, c_cited, CONST_DOC, n_anchor, len(names)))
+    if n_ghost:
+        print('  ❌ CODE_NOTES 掛著代碼全樹已經找不到的名字：')
+        for a in n_ghost:
+            print('     ### `%s`' % a)
+        print('  → 那段歷史的錨點對不上，等於消失了。砍掉那條，或把錨點改成現在的名字。')
+        return 1
     if c_ghosts:
         print('  ❌ 索引裡列著代碼已經沒有的常數：')
         for d, i, n in c_ghosts:
