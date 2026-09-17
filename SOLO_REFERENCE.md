@@ -41,7 +41,7 @@
 - **雙軌**（Index.html `scr-menu`）：🎴 純淨（單人聖杯戰爭·SFW）／🌹 慾海（鑑賞後日談·NSFW）。共用一張試算表＋核心資料，靠 帳號＋game_id 分流，不拆表。
 - **無戰記/排行榜/唯讀回顧視窗**：`showVictoryHistory`/`actionGetVictoryHistory`/`openLeaderboard`/`actionLeaderboard`/`incrementWin_`/`recordHistory_`/`recordWinSpeed_`＋「戰史」表、帳號表 WON/BEST_DAYS 欄 皆已移除。
 - **持久層（清檔不刪）**：帳號表、鑑賞眾生（動態建）、鑑賞世界／相簿（動態建）。（「鑑賞」封存表已整套移除，見 §2 分頁。）**會被清檔刪**：眾生（game_id）——NPC 對御主的關係已併入眾生列。
-- **補魔(solo)**：`actionManaSupply` 走 narrate_only（SFW，曖昧 fade、點到為止）。
+- **補魔(solo)**：💧補魔 `actionManaSupply` 的解鎖分支與令咒·強制補魔（`actionUseSeal` 的 `mana`）是 solo 僅有的兩段露骨橋段（Fate 原作的魔力供給）；門檻、按鈕出現條件與提示詞見 §「💧 補魔整修（2026-09）」。
 - ⚠ **2026-09 砍掉 `actionRest` 的「非 FATE 舊版休養」死分支**：game_id 只有 `g_`(solo)／`k_`(鑑賞) 兩種前綴，而 `rest` 在 `KANSHOU_BLOCKED_ACTIONS_` 對鑑賞是擋掉的 → `isFateRest` 分支一定會 return，那段永遠走不到。但它裡面藏著兩個跨帳號洩漏：「同行」全回滿沒帶 game_id／`bystanderNames` 用地點掃全表、把別人那局在同名地點的角色名字一起端出來（且前端從來沒讀過這個欄位）。**死碼不是無害的，它是「哪天條件變了就直接生效」的地雷**；已換成一句明確的失敗。
 - 🤝 **盟約倒數（2026-09 補接線）**：盟約有效期是 `day <= until`（`breakStaleAlliances_` 判 `day > allyUntil_` 才破），
   但盟友卡上原本只寫「休兵」二字——**玩家被一條看不見的倒數管著**，三日後盟約靜靜破裂。
@@ -116,8 +116,8 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 | get_heroes / get_masters | actionGetHeroes/Masters | 創角選單列出可選英靈/正典御主（正典御主資料前端可預取加速） |
 | get_tags | actionGetTags | 左側狀態面板資料（御主HP/MP/令咒/願望、從者陣列、供魔收支、禮裝、破戒能力）。核心 `buildTagsPayload_(sheets,pcId,preData)`（可吃已讀好的整表免重讀）；`sync`/夾帶 `_state` 已帶 `tags:` 同份 payload。 |
 | fate_battle | actionFateBattle | **核心戰鬥**：D20＋寶具＋令咒＋斬首＋雙從者＋協同強襲（見 §4）。多寶具選定、出力自動全開、令咒/超載檔位皆隨 fate_battle 夾帶（`userData` 的 servant/servantId/npChoice/seal/overload/stance 旗標；⚠ 主動技已被動化，後端不讀 `userData.skill`），省去單獨 round-trip。 |
-| use_seal | actionUseSeal | 令咒固定選單：修復/補魔/緊急脫離。（mana 分支依好感分流，見 §4 補魔）。**🐛→✅ 2026-07 修「脫離只搬一名從者」**：`escape` 分支舊版只搬 `findPlayerServantIdx_` 挑出的單一從者，破戒奪僕可讓玩家合法擁有兩名 `IS_PARTY==="同行"` 從者時，第二名完全不會被搬走(燃全局僅3道的令咒卻沒真正帶走全隊)——比照 `actionMove` 早就有的「搬所有同行成員」迴圈補上。 |
-| mana_supply | actionManaSupply | 補魔（燃迴路）：回滿共用池，永久代價 maxHP−15、迴路−3（地板迴路8/HP40）＋羈絆＋SFW fade＋存一次性【過充】token。**資格門檻**：從者 `BOND<MANA_TRUST_BOND_(80)` 或御主魔力 >10% 上限 → `declined` no-op（不耗AP/不燒/不動好感·純婉拒敘述）。 |
+| use_seal | actionUseSeal | 令咒固定選單：修復/補魔/緊急脫離。（mana 分支：魔力滿擋下；羈絆 ≥`MANA_TRUST_BOND_`(60) 本來就願意＋過充；<60 反噬致死。前端 `confirmSealMana_` 按之前講明兩種結果）。**🐛→✅ 2026-07 修「脫離只搬一名從者」**：`escape` 分支舊版只搬 `findPlayerServantIdx_` 挑出的單一從者，破戒奪僕可讓玩家合法擁有兩名 `IS_PARTY==="同行"` 從者時，第二名完全不會被搬走(燃全局僅3道的令咒卻沒真正帶走全隊)——比照 `actionMove` 早就有的「搬所有同行成員」迴圈補上。 |
+| mana_supply | actionManaSupply | 補魔（燃迴路）：回滿共用池，永久代價 maxHP−15、迴路−3（地板迴路8/HP40）＋羈絆＋解鎖分支 500~600 字露骨＋存一次性【過充】token。**資格門檻**：從者 `BOND<MANA_TRUST_BOND_(60)` 或御主魔力 >`MANA_LOW_PCT_`(30%) 上限 → `declined` no-op（不耗AP/不燒/不動好感·純婉拒敘述）。前端 💧 鈕平常隱藏、達標才亮（`manaSupplyReady_`）。 |
 | spirit_repair | actionSpiritRepair | 🩹 靈基修復：消費共用魔力池為從者療傷（不燃令咒·可重複）。 |
 | set_servant_output | actionSetServantOutput | 🔋設從者出力檔（20/40/60/80/100，存 MEMORY【出力】）。免費即時不耗AP。決定戰力＋維持費；100% 才能放寶具。 |
 | set_mage_realm | actionSetMageRealm | 🔮可選借得技能：玩家點選 1 個 `mageRealmPool_` 通用 A 階被動 fx，存 MEMORY【魔境】fx（空＝清除）。`rowToCombatant_` 戰鬥注入。只接受持 `mage_realm` 的從者。 |
@@ -1401,6 +1401,24 @@ solo 這邊補上的入口：帳號登入、開新局清檔、翻正典御主名
 
 ⚠ 順手修掉一個我自己前一輪造成的重複字：`miniSystem` 鐵律 1 變成「旁白**旁白**一律用…」。
 ⚠ 有九條探針在 grep 舊措辭，全部改成對新句子斷言（意思不變，只換字串）。
+
+## 💧 補魔整修（2026-09）
+
+玩家：「SOLO 的令咒補魔是不是怪怪的？」拆開看，solo 有兩個補魔，兩支都有問題：
+
+| | 舊 | 新 |
+|---|---|---|
+| 令咒「⚡ 強制補魔」選單字 | 「魔力瞬間充盈到極限＋羈絆上升」（代碼裡沒有加羈絆；羈絆不夠是一鍵整局結束，沒確認框） | 「燒一道令咒，魔力回滿。羈絆不到 60 就是強迫。」＋ `confirmSealMana_`：拿現役從者的羈絆講明「本來就願意」或「令咒一散會殺了你，這一局就結束」 |
+| 令咒補魔·魔力滿 | 照樣發動，還塞給 AI「與魔力多寡無關、純粹是想要」（替玩家決定動機） | 擋下：「魔力是滿的，不用補。」（跟 💧 同一條線） |
+| 令咒補魔·提示詞 | 300 多字分鏡（「從抗拒翻轉成主動索求(纏抱、催促…)」「例如：…」「不必顧慮尺度」「不能只在結尾硬塞」「她/他」×5）＋「太浪費了」的評語 | 只給事實：燒了令咒、魔力回滿、羈絆數字與是否願意、令咒的效果（敏感度推高／御主性能力拉高／高潮由御主動作引發／兩邊的快感都在場）、性別事實、字數、收尾 |
+| 💧補魔·門檻 | 羈絆 ≥80 且 魔力 ≤10%（80 多數局到不了，10% 幾乎已在燒血——等於從來沒用過） | 羈絆 ≥60 且 魔力 ≤30%（`MANA_TRUST_BOND_`／`MANA_LOW_PCT_`，60 對齊羈絆里程碑 30/60/90） |
+| 💧補魔·按鈕 | 三個出口常駐（從者卡／🔮魔力面板／戰鬥缺魔卡），按了多半是婉拒 | 平常隱藏，達標才出現、發亮（`manaSupplyBtn_`＝`manaSupplyReady_` 過了才畫，tagGlow 動畫）。魔力說明改成暗示：「要是羈絆過了 60、魔力又掉到 30% 以下……從者卡上會亮起一顆平常沒有的鈕。」 |
+
+**保留的設計（玩家定案）**：羈絆不到 60 就用令咒強制補魔＝令咒一散反噬致死。原作味，留；但按之前必須看得到後果。
+**兩個補魔的分工（玩家定案）**：令咒有限（三道），羈絆夠時用令咒是最划算的回魔；真的想補魔、令咒又捨不得，就 💧 犧牲上限。提示詞照這個講：令咒那支「御主仍拿三道令咒之一換了這場供魔，省下的是自己的身體」；💧 那支「御主拿自己的身體上限換了這場供魔」。
+
+**掃描器順手補的兩個盲點**（這段提示詞就是靠它們漏網的）：`check_prompt` 的 SOFT_BAN 加 `不必／不能／別演`（`能不能` 是疑問，排掉），當場抓到 21 處舊寫法全改正面；`check_pronoun` 不再放行 `她/他`（那仍是替角色定性別）。
+探針 `mana.js`（23 條）：魔力滿擋下不扣令咒／羈絆 59 致死＋HP 0＋sealBacklash／羈絆 60 本來就願意／💧 三種門檻組合／提示詞沒有舊評語與否定。
 
 ## 🗣️ UI 文案口語化（2026-09，跟鑑賞同一輪）
 

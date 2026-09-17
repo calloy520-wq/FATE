@@ -1061,7 +1061,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
           homeRepel: false, peaceful: true, kind: 'observe', enemyName: eNm2, svName: svNm2,
           dmg: 0, destroyed: false, defeat: false, dreamPrompt: "", after: parseInt(pcData[svIdx][COL.PC.HP]) || 0,
           foeCard: foeCard2,
-          repelNote: foeCard2 + performanceNote_([eNm2]) + `【系統·卸防時刻·已裁定】潛伏同地的敵從者「${eNm2}」其實已窺見這破綻，卻按兵不動、只是冷眼旁觀——似乎另有盤算，此刻並未出手。\n★演出「${svNm2}」一行渾然不覺、或事後驚覺曾被窺伺的一絲寒意(依性格擇一)；「${eNm2}」依其性格演出這份按兵不動的姿態與神情/隻言片語即可，不必開打。`,
+          repelNote: foeCard2 + performanceNote_([eNm2]) + `【系統·卸防時刻·已裁定】潛伏同地的敵從者「${eNm2}」其實已窺見這破綻，卻按兵不動、只是冷眼旁觀——似乎另有盤算，此刻並未出手。\n★演出「${svNm2}」一行渾然不覺、或事後驚覺曾被窺伺的一絲寒意(依性格擇一)；「${eNm2}」依其性格演出這份按兵不動的姿態與神情/隻言片語即可。`,
           report: { peaceful: true, kind: 'observe', enemyName: eNm2, svName: svNm2 }
         };
       }
@@ -1071,7 +1071,7 @@ function enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, baseMul, preferSvId
         homeRepel: false, peaceful: true, kind: 'probe', enemyName: eNm2, svName: svNm2,
         dmg: 0, destroyed: false, defeat: false, dreamPrompt: "", after: parseInt(pcData[svIdx][COL.PC.HP]) || 0,
         foeCard: foeCard2, bondAfter: afterBond,
-        repelNote: foeCard2 + performanceNote_([eNm2]) + `【系統·卸防時刻·已裁定】潛伏同地的敵從者「${eNm2}」現身，卻沒有動手——帶著幾分戒心，像是想試探些什麼${(() => { const _w = favorWord_(afterBond / 100); return _w ? "（" + _w + "）" : ""; })()}。\n★演出這場短暫、帶著猜忌與算計的試探性接觸(一兩句交鋒或對峙即可)：兩邊都清楚此刻並非開戰時機，「${eNm2}」依其性格留下一絲若有似無的試探或警告，不必開打、也不必交心。`,
+        repelNote: foeCard2 + performanceNote_([eNm2]) + `【系統·卸防時刻·已裁定】潛伏同地的敵從者「${eNm2}」現身，卻沒有動手——帶著幾分戒心，像是想試探些什麼${(() => { const _w = favorWord_(afterBond / 100); return _w ? "（" + _w + "）" : ""; })()}。\n★演出這場短暫、帶著猜忌與算計的試探性接觸(一兩句交鋒或對峙即可)：兩邊都清楚此刻並非開戰時機，「${eNm2}」依其性格留下一絲若有似無的試探或警告。`,
         report: { peaceful: true, kind: 'probe', enemyName: eNm2, svName: svNm2, bondAfter: afterBond }
       };
     }

@@ -74,7 +74,7 @@ function actionUseSeal(userData, pcId, sheets) {
   BATTLE_DEFER_WRITE_ = true;
   let effectMsg = "";
   let sealManaUnlocked = false, sealManaKill = false; // 見下方 'mana' 分支
-  let genderFactSeal = "", activeActFact = ""; // 見下方 'mana' 分支賦值，aiPrompt 組字在函式尾段共用區塊、需跨 if/else-if 存活
+  let genderFactSeal = "", sealManaFx = ""; // 見下方 'mana' 分支賦值，aiPrompt 組字在函式尾段共用區塊、需跨 if/else-if 存活
   if (type === "repair") {
     pcData[svIdx][COL.PC.HP] = parseInt(pcData[svIdx][COL.PC.MAX_HP]) || 480;
     pcData[svIdx][COL.PC.STATUS] = JSON.stringify({ "衣服": "靈基重塑", "姿勢": "昂然而立", "負面": "無", "顏面": "神采奕奕" });
@@ -84,29 +84,27 @@ function actionUseSeal(userData, pcId, sheets) {
     if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     effectMsg = `令咒迸發，重塑「${svName}」的靈基——體力回滿、傷勢一掃而空，御主魔力儲備亦充盈如初。`;
   } else if (type === "mana") {
-    // 🔋 出力電池制：令咒灌頂回充御主魔力儲備(供魔源)，而非從者(從者無池)
-    const oldMpSeal = parseInt(pcData[pIdx][COL.PC.MP]) || 0;
+    // 🔋 出力電池制：令咒灌頂回充御主魔力儲備(供魔源)，而非從者(從者無池)。魔力已滿就擋，跟 💧補魔同一條線。
     const mpMaxSeal = parseInt(pcData[pIdx][COL.PC.MAX_MP]) || 240;
-    // 明講真實魔力狀態給 AI，避免它在魔力其實已滿時仍腦補「魔力見底」當強逼理由
-    const manaWasFull = oldMpSeal >= mpMaxSeal;
-    const manaFact = manaWasFull
-      ? `御主此刻魔力其實早已充盈滿溢，動用這道令咒與魔力多寡無關、純粹是想要`
-      : `御主此刻魔力確實所剩無幾，這道令咒補上了燃眉之急`;
-    // 注入性別配對事實(sealGenderFact_，見Router_Persona.gs)，避免敘述誤寫成錯誤的插入視角；
+    if ((parseInt(pcData[pIdx][COL.PC.MP]) || 0) >= mpMaxSeal) {
+      BATTLE_DEFER_WRITE_ = false;
+      return JSON.stringify({ success: false, message: "魔力是滿的，不用補。" });
+    }
     genderFactSeal = sealGenderFact_(String(pcData[pIdx][COL.PC.SEX] || ""), String(pcData[svIdx][COL.PC.SEX] || ""), svName);
-    activeActFact = `★令咒不會讓「${svName}」一開啟就自動被動地高潮完結——高潮是御主主動愛撫/操控其身體引發的，但被強制拉高的敏感度會讓她/他像被灌下大量媚藥般理智漸漸被本能淹沒，從抗拒的掙扎翻轉成情不自禁地主動索求更多快感(纏抱、催促、主動索吻索撫)，這份由被動翻轉成主動索求的瞬間才是失控的具體反差(不是天生如此、也不是單純被動挨弄)；令咒同時強化了御主的性能力，足以承接住這股瘋狂需索——御主自己的情慾與快感也要有實際鋪陳、貫穿全程可見，不能只在結尾硬塞一句「一起高潮」交代過去。★全篇只選1~2個關鍵轉折深入著墨(例如：從抗拒崩潰成主動索求的瞬間、雙方一起攀頂的瞬間)，寧可少寫幾個轉折，每個都寫得深入綿密。`;
+    // 令咒的效果（事實）：敏感度被推到遠超常態、御主性能力被拉高；高潮由御主的動作引發，兩邊的快感都在場。
+    sealManaFx = `令咒把「${svName}」的敏感度推到遠超常態，理智被本能淹沒，抗拒翻成索求；高潮由御主的動作引發，來得又多又失控。御主的性能力也被令咒拉高，御主自己的快感貫穿全程。挑一兩個關鍵瞬間深寫，篇幅全給實際發生的細節。`;
     pcData[pIdx][COL.PC.MP] = mpMaxSeal;
     if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
-    // 絕對命令跳過「同意」，好感是否足夠決定這是幸運還是致命：≥MANA_TRUST_BOND_→仍生效但只是「太浪費了」的調侃，複用既有「過充」機制當額外好處；<MANA_TRUST_BOND_→強制壓下意志，解除瞬間積怨反噬直接了結御主，複用既有「假夢→老虎道場」死亡流程(buildDreamPrompt_)不另開一套。
+    // 絕對命令跳過「同意」，羈絆是否足夠決定這是幸運還是致命——理由見 CODE_NOTES。
     const bondForSeal = parseInt(pcData[svIdx][COL.PC.BOND]) || 0;
     if (bondForSeal >= MANA_TRUST_BOND_) {
       pcData[pIdx][COL.PC.MEMORY] = setOvercharge_(pcData[pIdx][COL.PC.MEMORY], mpMaxSeal); // 複用既有「下一發規格外寶具可無償超載」機制
       if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
       sealManaUnlocked = true;
-      effectMsg = `令咒化作一道灌頂的魔力洪流，強化了從者的敏感度與御主的性能力（${manaFact}）——其實「${svName}」根本不必勞動令咒也會欣然應允，這道絕對命令用得有些太浪費了；但既已發動，如果什麼都不做就太浪費了（魔力依舊洶湧灌注，下一發規格外寶具可無償超載解放）。`;
+      effectMsg = `御主燒了一道令咒強制供魔，魔力回滿（下一發規格外寶具可無償超載）。「${svName}」的羈絆 ${bondForSeal}，本來就願意；御主仍拿三道令咒之一換了這場供魔，省下的是自己的身體。`;
     } else {
       sealManaKill = true;
-      effectMsg = `令咒的絕對強制壓下了「${svName}」滿心的抗拒，令咒限制了從者反抗並提高敏感度、強化御主性能力（${manaFact}）——但這份屈從只是暫時的。`;
+      effectMsg = `御主燒了一道令咒強制供魔，魔力回滿。「${svName}」的羈絆 ${bondForSeal}，還在 ${MANA_TRUST_BOND_} 之下——這是強迫，令咒壓住了反抗。`;
     }
   } else if (type === "escape") {
     const oldLoc = String(pcData[pIdx][COL.PC.LOC]).trim();
@@ -140,16 +138,16 @@ function actionUseSeal(userData, pcId, sheets) {
     if (!BATTLE_DEFER_WRITE_) sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
     const wishSeal = extractWish_(pcData[pIdx][COL.PC.MEMORY]);
     aiPrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-      `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
-      `★這一段放手寫得細膩動人、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫令咒的絕對強制壓下「${svName}」的意志、御主強制的這場親密的瞬間，還有被強制的屈辱。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常不會被輕易弄到失神)，而是令咒逼出的失控狀態與屈辱交織，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，篇幅全部留給實際發生的細節。結尾寫御主高潮後在令咒的強制力隨效果消散的剎那，「${svName}」積壓的恨意與屈辱轟然引爆，直接抹殺御主——收在這記致命一擊揮下的瞬間即可，不必描寫死亡本身的細節。`;
+      `【已裁定】${effectMsg}效果散去的瞬間，「${svName}」積壓的恨意引爆，殺了御主。\n` +
+      `${genderFactSeal}★【500~600 字】寫這場被強迫的供魔：令咒壓下「${svName}」的意志，屈辱與失控交織。${sealManaFx}收在令咒消散、「${svName}」揮下致命一擊的那一瞬。`;
     defeat = true;
     dreamPrompt = buildDreamPrompt_(pcData[pIdx][COL.PC.NAME], wishSeal, svName);
     report = { sealBacklash: true, svName: svName };
   } else {
     aiPrompt = sealManaUnlocked
       ? (masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-        `【系統·令咒·強制補魔已裁定】${effectMsg}\n` +
-        `★這一段放手寫得細膩動人、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫「${svName}」帶著點無奈笑意迎向這道其實多此一舉的令咒、順勢配合這場親密。${genderFactSeal}★令咒的強制效果讓「${svName}」的敏感度被硬生生提高至遠超常態，過程中確實地多次高潮——這並非她/他天生的反應(英靈本比常人強韌、平常從容不迫)，而是令咒逼出的失控狀態，務必寫出這份反差。${activeActFact}聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，篇幅全部留給實際發生的細節。收在餘韻猶存的溫柔，停在還想再多待一會的地方。`)
+        `【已裁定】${effectMsg}\n` +
+        `${genderFactSeal}★【500~600 字】寫這場供魔：「${svName}」順著命令迎上來。${sealManaFx}收在餘韻猶存的溫柔。`)
       : masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx], { skipClose: true }) + performanceNote_([svName]) +
         `【系統·令咒已發動，已裁定】御主燃燒一道令咒。${effectMsg}（餘 ${seals} 道令咒）\n` +
         `★【140~200 字】描寫令咒在手背灼亮、絕對命令權貫徹的瞬間——三道令咒是御主僅有的底牌，燒掉一道不是小事，讓這份重量落在御主的神情與「${svName}」的反應上。效果已由系統結算。\n`;
@@ -645,7 +643,7 @@ function actionParley(userData, pcId, sheets) {
   if (type === 'chat') {
     out.aiPrompt = head +
       `【系統·閒聊·已裁定】御主『${String(pcData[pIdx][COL.PC.NAME])}』在刀鋒之外向敵對的「${targetName}」搭話（好感 ${before}→${after}／100）。\n` +
-      `★【100~150 字】演出這番搭話、與對方【依其性格×當前好感】的真實反應：${lean.loner ? '孤高／激烈者多半冷淡、譏諷或半信半疑，只鬆動一絲' : lean.pragmatic ? '務實者會權衡利害、順水推舟地緩和態度' : '依其性格自然回應'}——但仍分屬敵對，留一分保留與算計，別演成一下就交心。數值系統已經算完，只演反應、不另定成敗。` +
+      `★【100~150 字】演出這番搭話、與對方【依其性格×當前好感】的真實反應：${lean.loner ? '孤高／激烈者多半冷淡、譏諷或半信半疑，只鬆動一絲' : lean.pragmatic ? '務實者會權衡利害、順水推舟地緩和態度' : '依其性格自然回應'}——但仍分屬敵對，留一分保留與算計。數值系統已經算完，只演反應、不另定成敗。` +
       (after >= 90 ? '\n★此刻情誼已臻莫逆——收在一個彼此心照不宣、卻仍隔著立場的微妙瞬間。' : '') + stay;
   } else if (type === 'intel') {
     // 📜 交換情報：當場掀開最多 2 名還沒偵查過的敵人（＝舊制要結盟才有的 allyIntel，改成一次性）

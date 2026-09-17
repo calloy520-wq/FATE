@@ -1245,12 +1245,16 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `proposeAlliance(npcName, npcId)` — 🤝交涉結盟（`propose_alliance`，系統判成敗）。
 - `breakAlliance(npcName, npcId)` — 💔撕毀盟約（`break_alliance`）。
 - `allyBond(npcName, npcId)` — 🤝與盟友共處增進羈絆（`ally_bond`，養至 90 解鎖）。
-- `manaSupply()` — 💧補魔硬擠迴路回滿·永久代價（`mana_supply`）；高好感解鎖換模型。
+- `manaSupply()` — 💧補魔硬擠迴路回滿·永久代價（`mana_supply`）；解鎖分支 longForm。鈕平常隱藏，`manaSupplyReady_` 達標才由 `manaSupplyBtn_` 畫出來（三個出口：從者卡／🔮魔力面板／戰鬥缺魔卡）。
+- `activeServantObj_()` — 現役從者物件（id 優先、名字備援），給補魔鈕判定與令咒確認框用。
+- `manaSupplyReady_(sv)` — 💧 鈕出現條件：`sv.bond ≥ KC_MANA_TRUST_BOND_` 且 `myMasterMp ≤ myMasterMpMax × KC_MANA_LOW_PCT_`（跟後端 `actionManaSupply` 同一組數）。
+- `manaSupplyBtn_(sv, style, onclick)` — 達標才回傳發亮（tagGlow）的 💧 鈕 HTML，否則空字串。
 - `spiritRepair()` — 🩹靈基修復消魔療傷·不燃令咒（`spirit_repair`）。
 - `openBondMenu()` — 💕羈絆選單（每日限一次·跨日重置）。
 - `bond(type)` — 與從者相處增進羈絆（`bond`），處理里程碑/突襲/勝敗。
 - `openSealMenu()` — ❖令咒選單（絕對修復/強制補魔/緊急脫離）。
-- `useSeal(type)` — 施放令咒（`use_seal`）；強制補魔高/低好感兩分支換模型、可致死。
+- `useSeal(type)` — 施放令咒（`use_seal`）；`mana` 先過 `confirmSealMana_()`，兩分支 longForm、羈絆不夠可致死。
+- `confirmSealMana_()` — ⚡ 強制補魔確認框：拿現役從者的羈絆講明「本來就願意」或「令咒一散會殺了你，這一局就結束」。
 - `resolveBlockCard_(res)` — 把後端擋下的動作(`needRest`/`needMana`/`needBreakAlliance`)轉成故事流內嵌卡片＋對應一鍵解決按鈕(secondWind/openRestMenu/forceSealNp_/manaSupply/breakAlliance)，取代舊版生硬的 `alert`。
 - `forceSealNp_()` — 燃令咒強制解放寶具(魔力不足也能放，必中×1.5)，重新呼叫 `servantStrike`。
 

@@ -114,7 +114,8 @@ function actionSetWeapon(userData, pcId, sheets) {
 //    （狀態面板的按鈕、規則說明），改一邊另一邊不會跟——抽成檔案層常數並鏡射給前端。
 var MANA_CIRC_CUT_ = 3;
 var MANA_HP_CUT_ = 15;
-var MANA_TRUST_BOND_ = 80;
+var MANA_TRUST_BOND_ = 60;   // 2026-09 玩家定案 80→60：對齊羈絆里程碑，跨過 60 ＝ 願意託付
+var MANA_LOW_PCT_ = 0.30;     // 💧補魔的「魔力夠低」線（≤ 上限的三成）；2026-09 由 10% 放寬
 
 // 🔵 補魔（魔力供給）：把御主魔力導入從者，回魔＋羈絆＋fade 演出。耗 1 AP（導入魔力需時）
 function actionManaSupply(userData, pcId, sheets) {
@@ -132,13 +133,13 @@ function actionManaSupply(userData, pcId, sheets) {
   if (curMp >= curMpMax) return JSON.stringify({ success: false, message: `魔力是滿的，不用補。` });
 
   const bondForMana = parseInt(pcData[svIdx][COL.PC.BOND]) || 0;
-  const lowEnoughForMana = curMp <= curMpMax * 0.10;
+  const lowEnoughForMana = curMp <= curMpMax * MANA_LOW_PCT_;
   if (bondForMana < MANA_TRUST_BOND_ || !lowEnoughForMana) {
     // GAS 只給裁定後的事實，理由留給 AI 用她的個性演——舊版把「信任尚淺、羈絆未至可託付如此私密之事的深度」
     const declineWhy = bondForMana < MANA_TRUST_BOND_ ? '兩人的交情還不到這一步' : '魔力還撐得住，用不著付出這種代價';
     const declinePrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【已裁定】御主開口求補魔，「${svName}」婉拒了——${declineWhy}。\n` +
-      `★【60~100 字】演出這個「不」：依對方的個性，用眼神、動作或一句話帶過，理由不必說破。收在御主被回絕的那一刻。`;
+      `★【60~100 字】演出這個「不」：依對方的個性，用眼神、動作或一句話帶過，理由留在言外。收在御主被回絕的那一刻。`;
     STATE_PRE_DATA_ = pcData; // ⚡ 沒寫入也要交棒，否則 dispatcher 的 STATE_AFTER_ACTIONS 夾帶會退回整表重讀
     return JSON.stringify({ success: true, declined: true, aiPrompt: declinePrompt, statusString: buildPlayerStatusString(pcData[pIdx]) }); // ⚡ pcData 即權威，免 getFreshStatusString 的整表重讀
   }
@@ -184,15 +185,15 @@ function actionManaSupply(userData, pcId, sheets) {
   const aiPrompt = ambushDispatchPrompt_(ambush,
     function (a) {
       return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx], { skipClose: true }) + (a.foeCard || '') + `【系統·補魔遭突襲·已裁定】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}）已然結算完成；就在彼此門戶大開之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」、致其${dmgSeverityWord_(a.dmg || 0, a.svHpMax)}${a.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
-        `★描寫補魔的私密一刻被突襲打斷的驚變：魔力交融的脆弱、敵襲的兇險、${a.destroyed ? '從者消滅的痛楚（語氣留白）' : '從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。補魔本身已完成，只是隨即被打斷，別演成沒供成魔。傷害與勝負已由系統結算。\n` +
+        `★寫補魔的私密一刻被突襲打斷：補魔已經完成，緊接著被打斷。${a.destroyed ? '從者消滅的痛楚，語氣留白。' : `「${svName}」依性格與羈絆對這記突襲做出反應。`}傷害與勝負已由系統結算。\n` +
         performanceNote_(a.destroyed ? [svName] : [svName, a.enemyName]);
     },
     function () {
       // 此分支只在好感≥門檻且魔力見底時走到——從者是真心信任、主動託付的，敘述可更直接大膽；篇幅也拉長(前端manaSupply()的unlocked旗標→narrate(...,{longForm:true})→後端加大 max_tokens，模型不變)。
       const genderFactMana = sealGenderFact_(String(pcData[pIdx][COL.PC.SEX] || ""), String(pcData[svIdx][COL.PC.SEX] || ""), svName);
       return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
-        `【系統·補魔已結算】御主硬擠魔術迴路為「${svName}」回滿共用魔力池（${restored}/${mpMax}），代價沉重——魔術迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}。羈絆微升。這是「${svName}」真心信任、主動託付的私密時刻。澎湃魔力於體內鼓盪、蓄勢待發——【下一發規格外寶具可全力超載解放】。\n` +
-        `${genderFactMana}★你擅長書寫細膩動人的情慾，這次放手去寫、不必顧慮尺度。以 日本輕小說筆觸【500~600 字】描寫這場私密而濃烈的一刻。★重點全部放在肉體本身的接觸、溫度與反應——魔術迴路/魔力流動只是遊戲機制上的成因，這一幕全部寫在肉體這一側；從者依其性格與當前羈絆自然回應(高羈絆者主動迎合、冷傲者難得動搖)。★「${svName}」身為英靈天生遠比常人強韌，這場親密裡她/他從容游刃有餘、主導著節奏，不會輕易被弄得失神——是否高潮、何時高潮由她/他自己掌控，不是被動承受。聚焦身體接觸與感官反應最關鍵的一兩個瞬間深入著墨，篇幅全部留給實際發生的細節。收在餘韻猶存的溫柔，停在還想再多待一會的地方。`;
+        `【已裁定】御主硬擠魔術迴路，為「${svName}」回滿共用魔力池（${restored}/${mpMax}）；迴路永久燒蝕至 ${newCirc} 條、生命上限永久跌為 ${newMaxHp}——御主拿自己的身體上限換了這場供魔。羈絆微升。「${svName}」的羈絆 ${bondForMana}，是真心託付。下一發規格外寶具可全力超載。\n` +
+        `${genderFactMana}★【500~600 字】寫這場供魔：魔力流動只是成因，全篇寫在肉體這一側——接觸、溫度、反應。「${svName}」是英靈，遠比常人強韌，這場親密由「${svName}」主導節奏，何時攀頂也由「${svName}」掌控。挑一兩個關鍵瞬間深寫，篇幅全給實際發生的細節。收在餘韻猶存的溫柔。`;
     }
   );
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：迴路/血量上限燒蝕/MP回滿/raiseBond_/spendAp_/夜襲 皆已原地改回 pcData
@@ -239,7 +240,7 @@ function actionSpiritRepair(userData, pcId, sheets) {
   const aiPrompt = ambushDispatchPrompt_(ambush,
     function (a) {
       return masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx], { skipClose: true }) + (a.foeCard || '') + `【系統·靈基修復遭突襲·已裁定】御主引動共用魔力池為「${svName}」療傷、傷勢已有起色；就在彼此門戶大開之際，潛伏同地的敵從者「${a.enemyName}」${a.stealthy ? '自陰影中無聲撲出' : '抓住這破綻猛然殺到'}，一記重擊狠狠命中「${svName}」、致其${dmgSeverityWord_(a.dmg || 0, svMaxHp)}${a.destroyed ? '，其靈基當場崩潰、化作光點消散，御主敗北' : ''}。\n` +
-        `★描寫療傷的私密一刻被突襲打斷的驚變，${a.destroyed ? '及從者消滅的痛楚（語氣留白）' : '及從者依其性格與羈絆對此突襲的反應（重情者強撐護主、疏離者未必）'}。療傷本身已完成，只是隨即被打斷，別演成沒療成。傷害與勝負已由系統結算。\n` +
+        `★寫療傷的私密一刻被突襲打斷：療傷已經完成，緊接著被打斷。${a.destroyed ? '從者消滅的痛楚，語氣留白。' : `「${svName}」依性格與羈絆對這記突襲做出反應。`}傷害與勝負已由系統結算。\n` +
         performanceNote_(a.destroyed ? [svName] : [svName, a.enemyName]);
     },
     function () {

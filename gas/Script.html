@@ -227,11 +227,14 @@
   var KC_DEADLINE_DAYS_ = 14;   // 鏡像後端 FATE_DEADLINE_DAYS_
   var KC_MANA_CIRC_CUT_ = 3;    // 鏡像後端 MANA_CIRC_CUT_
   var KC_MANA_HP_CUT_ = 15;     // 鏡像後端 MANA_HP_CUT_
+  var KC_MANA_TRUST_BOND_ = 60; // 鏡像後端 MANA_TRUST_BOND_（補魔／強制補魔的信任門檻）
+  var KC_MANA_LOW_PCT_ = 0.30;  // 鏡像後端 MANA_LOW_PCT_（補魔鈕出現的魔力線：≤ 上限三成）
   var KC_HORROR_SHIELD_HP_ = 300;   // 鏡像後端 HORROR_SHIELD_HP（海怪肉身上限）
   var KC_HORROR_REGEN_ = 10;        // 鏡像後端 HORROR_REGEN（每回合肉身再生）
   var KC_HORROR_UPKEEP_ = 10;       // 鏡像後端 HORROR_UPKEEP（每交鋒回合抽魔）
   var KC_HORROR_HOURLY_UPKEEP_ = 8; // 鏡像後端 HORROR_HOURLY_UPKEEP（每小時抽魔）
   let myMasterSeals = 0;  // 令咒餘量
+  let myMasterMp = 0, myMasterMpMax = 0; // 御主魔力池（補魔鈕出現與否用）
   let myMasterOutfit = ''; // 👕 御主本人當前換裝（鑑賞：與從者outfit同款機制，供「換裝」按鈕預填）
   // ❖ 令咒·蓄勢開關：按❖發亮＝蓄勢(免費·可取消)，下一次攻擊自動帶上令咒(必中×1.5)並熄滅；非攻擊動作不消耗，蓄勢保留。
   let sealArmed = false;
@@ -624,7 +627,8 @@
         + [20, 60, 100].map(function (o) { var on = (o === _co); var f = OUTPUT_FX_JS[o] || {}; return '<button onclick="manaSetOutput(\'' + sn + '\',' + o + ')" title="' + (OUT_LABEL_JS[o] || '') + '：傷害' + (f.dmg || '') + '·命中' + (f.hit || '') + '·維持費' + (f.drain || '') + (o === 100 ? '·可解放寶具' : '') + '" style="flex:1;font-size:11px;padding:6px 0;border-radius:5px;cursor:pointer;border:1px solid ' + (on ? '#7ec8ff' : '#3a4a5a') + ';background:' + (on ? 'rgba(110,180,220,.3)' : 'rgba(40,50,65,.4)') + ';color:' + (on ? '#bfe3ff' : '#7a8aa0') + ';font-weight:' + (on ? 'bold' : 'normal') + ';">' + o + (o === 100 ? '💥' : '') + '</button>'; }).join('')
         + '</div></div>';
     });
-    h += '<div style="margin-top:10px;"><button onclick="closeHistoryOverlay();manaSupply();" style="width:100%;padding:10px;font-size:12px;background:rgba(80,130,200,.18);color:#7fb0e8;border:1px solid #4a6fa0;border-radius:6px;cursor:pointer;">💧 補魔（硬擠迴路回滿魔力池·永久代價 血上限−' + KC_MANA_HP_CUT_ + '/迴路−' + KC_MANA_CIRC_CUT_ + '）</button></div>';
+    var _mbtn = manaSupplyBtn_(activeServantObj_(), 'width:100%;padding:10px;font-size:12px;background:rgba(80,130,200,.18);color:#7fb0e8;border:1px solid #4a6fa0;border-radius:6px;cursor:pointer;', 'closeHistoryOverlay();manaSupply();');
+    if (_mbtn) h += '<div style="margin-top:10px;">' + _mbtn + '</div>';
     showHistoryOverlay(h);
   }
   // 🔋 魔力面板內調出力：樂觀更新＋背景存檔＋重繪面板(即時反饋·不必關窗)
@@ -1044,7 +1048,7 @@
       accent = '126,150,220'; bg = '14,20,38';
       btn = (res.canForceSeal ? '<button onclick="forceSealNp_()" style="' + _btnCss + 'margin-right:6px;background:rgba(200,120,240,.22);color:#e0b0ff;border:1px solid #b06cd0;">❖ 燃令咒·強開寶具</button>' : '')
         + '<button onclick="openRestMenu()" style="' + _btnCss + 'margin-right:6px;background:rgba(169,169,216,.2);color:#c9c0e8;border:1px solid #8a7fc0;">🛏️ 休整回魔</button>'
-        + '<button onclick="manaSupply()" style="' + _btnCss + 'background:rgba(126,150,220,.2);color:#9ec8ff;border:1px solid #4e92c0;">💧 補魔 <small style="opacity:.7;">永久代價</small></button>';
+        + manaSupplyBtn_(activeServantObj_(), _btnCss + 'background:rgba(126,150,220,.2);color:#9ec8ff;border:1px solid #4e92c0;', 'manaSupply()');
     } else if (res.needBreakAlliance) {
       const nm = String(res.blockAlly || '').replace(/'/g, "\\'");
       accent = '200,100,110'; bg = '32,16,18';
@@ -1631,7 +1635,7 @@
     var html = '<h3 style="margin:0 0 8px; color:#7ec8ff;">🔷 魔力</h3>'
       + '<div style="color:#cfc3d8; font-size:14px; line-height:1.9;">'
       + '這是你跟從者共用的池子。從者出力越高、放寶具，吃你的魔力就越兇。<br><br>'
-      + '💧 快沒了先靠靈脈或休息慢慢回；急用可以「補魔」硬擠回滿，但會永久扣掉迴路上限（−' + KC_MANA_CIRC_CUT_ + '）與血上限（−' + KC_MANA_HP_CUT_ + '）。<br><br>'
+      + '💧 快沒了先靠靈脈或休息慢慢回。<br>要是羈絆過了 ' + KC_MANA_TRUST_BOND_ + '、魔力又掉到 ' + Math.round(KC_MANA_LOW_PCT_ * 100) + '% 以下……從者卡上會亮起一顆平常沒有的鈕。<br><br>'
       + '真的見底時，缺口會直接燒你跟從者的血。'
       + '</div>';
     showHistoryOverlay(html);
@@ -1705,6 +1709,7 @@
       myBondUsed = t.bondUsed || [];
       myMystic = t.mystic || null;
       myMasterSeals = Math.max(0, m.seals || 0);
+      myMasterMp = parseInt(m.mpNum) || 0; myMasterMpMax = parseInt(m.mpMax) || 0;
       myMasterOutfit = m.outfit || '';
       myCanRB = !!t.canRuleBreak;
       // 出戰中從者：若無或已陣亡 → 預設第一個
@@ -1857,7 +1862,7 @@
           + ((pc && pc.mode === 'kanshou') || (dual && !isActive) ? '' :
               '<div style="margin-top:7px; display:flex; gap:5px; flex-wrap:wrap;">'
               + (dual ? '<div style="flex:1 0 100%; color:#9a8fae; font-size:10px;">下列動作對「' + s.name + '」生效：</div>' : '')
-              + '<button onclick="event.stopPropagation();manaSupply()" title="補魔：硬擠迴路把魔力灌滿，永久扣血上限 −' + KC_MANA_HP_CUT_ + '、迴路 −' + KC_MANA_CIRC_CUT_ + '" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;">💧 補魔</button>'
+              + manaSupplyBtn_(s, 'flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(80,130,200,0.18); color:#7fb0e8; border:1px solid #4a6fa0; border-radius:6px; cursor:pointer;', 'event.stopPropagation();manaSupply()')
               + '<button onclick="event.stopPropagation();openBondMenu()" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(224,138,170,0.16); color:#e08aaa; border:1px solid #b06c84; border-radius:6px; cursor:pointer;">💕 羈絆</button>'
               // 🐛→✅ 令咒鈕挪去御主卡，這裡原本的位置改放「靈基修復」——消費共用魔力池為從者療傷、不燃令咒、可重複使用。
               + '<button onclick="event.stopPropagation();spiritRepair()" title="療傷：用魔力池替從者回血，可重複用" style="flex:1; min-width:60px; font-size:11px; padding:5px 4px; background:rgba(70,150,110,0.18); color:#7ee0a8; border:1px solid #3a8a5a; border-radius:6px; cursor:pointer;">🩹 治療</button>'
@@ -2841,12 +2846,36 @@
     });
   }
 
+  function activeServantObj_() {
+    return myServants.find(function (x) { return (myActiveServantId && String(x.id) === String(myActiveServantId)) || x.name === myActiveServant; }) || null;
+  }
+  // 💧 補魔鈕只在後端會答應的時候出現：羈絆 ≥ 門檻、魔力 ≤ 上限三成（跟 actionManaSupply 同一組數）。平常藏著，出現就發亮。
+  function manaSupplyReady_(sv) {
+    var bond = parseInt(sv && sv.bond) || 0;
+    return bond >= KC_MANA_TRUST_BOND_ && myMasterMpMax > 0 && myMasterMp <= myMasterMpMax * KC_MANA_LOW_PCT_;
+  }
+  function manaSupplyBtn_(sv, style, onclick) {
+    if (!manaSupplyReady_(sv)) return '';
+    return '<button onclick="' + onclick + '" title="補魔：硬擠迴路把魔力灌滿，永久扣血上限 −' + KC_MANA_HP_CUT_ + '、迴路 −' + KC_MANA_CIRC_CUT_ + '" style="' + style + 'animation:tagGlow 1.6s ease-in-out infinite;">💧 補魔 <small style="opacity:.7;">永久代價</small></button>';
+  }
+  // ⚡ 強制補魔的確認框：後端依羈絆分「本來就願意」／「強迫→令咒一散反噬致死」，兩種結果按之前都要看得到。
+  async function confirmSealMana_() {
+    var sv = activeServantObj_() || {};
+    var nm = String(sv.name || myActiveServant || '從者');
+    var bond = parseInt(sv.bond) || 0;
+    var head = '⚡ 強制補魔\n\n燒一道令咒，魔力回滿。\n';
+    if (bond < KC_MANA_TRUST_BOND_) {
+      return customConfirm_(head + '「' + nm + '」的羈絆 ' + bond + '，不到 ' + KC_MANA_TRUST_BOND_ + '：這是強迫。\n令咒一散，「' + nm + '」會殺了你，這一局就結束。\n\n還是要燒？');
+    }
+    return customConfirm_(head + '「' + nm + '」的羈絆 ' + bond + '，本來就願意。\n\n燒嗎？');
+  }
+
   // ❖ 令咒選單（絕對命令需在戰鬥中對目標施放，這裡放自身向三招）
   function openSealMenu() {
     const opts = [
       // 🐛→✅ 「絕對修復」跟從者卡的「靈基修復」是不同東西：這個燃令咒、一次性、效果更強(雙方全滿)。
       ['repair', '❖ 絕對修復', '燃令咒·從者體力回滿＋御主魔力池回滿（一次性絕對命令，效果強於靈基修復）'],
-      ['mana', '⚡ 強制補魔', '魔力瞬間充盈到極限＋羈絆上升'],
+      ['mana', '⚡ 強制補魔', '燒一道令咒，魔力回滿。羈絆不到 ' + KC_MANA_TRUST_BOND_ + ' 就是強迫。'],
       ['escape', '🌀 緊急脫離', '與從者一同強行撤離險境'],
     ];
     let html = '<h3 style="margin:0 0 6px;color:#c79be8;">❖ 令咒・絕對命令</h3>'
@@ -2859,6 +2888,7 @@
   }
 
   async function useSeal(type) {
+    if (type === 'mana' && !await confirmSealMana_()) return;
     await runSimpleAction_({
       beforeCall: () => { var ov = document.getElementById('history-overlay'); if (ov) ov.style.display = 'none'; },
       preMsg: `<div class="msg-player"><b>【系統】：</b>御主手背的令咒灼然亮起……</div>`,

@@ -25,7 +25,7 @@
 import re, sys, glob
 
 SKIP_FILES = {'gas/Seed_Codex.gs'}
-COMPOUND = r'(?:他人|他處|他方|他鄉|他者|其他|其它|他們|她們|她/他|他/她)'
+COMPOUND = r'(?:他人|他處|他方|他鄉|他者|其他|其它|他們|她們)'
 # 真正已知性別、寫死是對的
 ALLOW = {
     ('gas/Router_Persona.gs', '進入她'):
