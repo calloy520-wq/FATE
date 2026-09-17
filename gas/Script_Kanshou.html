@@ -31,16 +31,6 @@
     if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
     document.getElementById(loadId)?.remove();
   }
-  function kcInsertPhrase(text) {
-    const el = document.getElementById('u-in');
-    if (!el) return;
-    const start = el.selectionStart ?? el.value.length;
-    const end = el.selectionEnd ?? el.value.length;
-    el.value = el.value.slice(0, start) + text + el.value.slice(end);
-    el.focus();
-    const pos = start + text.length;
-    el.setSelectionRange(pos, pos);
-  }
   var KC_MEMOIR_CAP_ = 10;      // 鏡像後端 KANSHOU_MEMOIR_CAP_
   var KC_MEMOIR_PIN_CAP_ = 8;   // 鏡像後端 KANSHOU_MEMOIR_PIN_CAP_
   // ⚙️ 管理面板：列出玩家自訂的貼圖(內建4個不可刪、不列在這裡)＋新增輸入框。
@@ -53,7 +43,7 @@
   async function send(customMsg, isSilent = false, opts = {}) {
     opts = opts || {};
     const moveTarget = opts.moveTarget || null, newPlace = opts.newPlace || null, lookAround = !!opts.lookAround, endDay = !!opts.endDay,
-      advanceHours = opts.advanceHours || 0, jumpFestival = opts.jumpFestival || null,
+      advanceHours = opts.advanceHours || 0,
       skipKnockCheck = !!opts.skipKnockCheck, dismissGuest = !!opts.dismissGuest,
       jumpBand = opts.jumpBand || null,
       loaderCaptions = opts.loaderCaptions || null, moveWithCompanion = !!opts.moveWithCompanion,
@@ -105,7 +95,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpFestival: jumpFestival || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissGuest: dismissGuest || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined || undefined, handHold: handHold || undefined, handHoldId: handHoldId || undefined, cohabitInviteId: cohabitInviteId || undefined, confess: confess || undefined, confessId: confessId || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, skipKnockCheck: skipKnockCheck || undefined, dismissGuest: dismissGuest || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, cohabitInvite: cohabitInvite || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined || undefined, handHold: handHold || undefined, handHoldId: handHoldId || undefined, cohabitInviteId: cohabitInviteId || undefined, confess: confess || undefined, confessId: confessId || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -528,8 +518,8 @@ let plainTextContext = cleanText;
 
   // 📅 時間推進前的約定警示（三個入口共用）：爽約是玩家唯一會【真的虧到】的機制性懲罰
   //   (-5 好感 ＋ 寫進共同回憶)。⚠ 2026-07 人類邏輯稽核：舊版只有「結束一天」警示，破壞力最大的
-  //   「跳到節慶」(可能一口氣跨好幾個月、手上所有約定必然全滅)卻零提示——保護程度跟危險程度顛倒。
-  //   kind: 'day'(跨到明天) | 'band'(同日跳時段·只燒準時窗) | 'far'(跳節慶·跨多天全滅)
+  //   破壞力最大的那種(一口氣跨好幾個月、手上所有約定必然全滅)本來零提示——保護程度跟危險程度顛倒。
+  //   kind: 'day'(跨到明天) | 'band'(同日跳時段·只燒準時窗) | 'far'(跨多天·全滅)
   function kcPromiseWarn_(kind, targetHour) {
     try {
       if (!kcClock || !kcClock.month || !Array.isArray(_kcCur) || !_kcCur.length) return '';
@@ -588,8 +578,7 @@ let plainTextContext = cleanText;
         ? '時間不會自己走，她們不會換地方，約定也不會到。用下面的按鈕推它。'
         : '聊得正起勁就切 ⏸；想讓一天過去就調大或用下面的按鈕。') + '</div>'
       + '<button onclick="kcTimeClose_();kanshouNextStage()" style="width:100%;text-align:left;padding:9px 11px;margin-bottom:6px;background:#261e30;color:#dcc8ec;border:1px solid #4a3a6a;border-radius:8px;cursor:pointer;font-size:13px;">⏰ 跳到下一個時段</button>'
-      + '<button onclick="kcTimeClose_();kanshouSetDateTime()" style="width:100%;text-align:left;padding:9px 11px;margin-bottom:6px;background:#261e30;color:#dcc8ec;border:1px solid #4a3a6a;border-radius:8px;cursor:pointer;font-size:13px;">📅 直接指定日期與時刻…</button>'
-      + '<button onclick="kcTimeClose_();openKanshouFestivals()" style="width:100%;text-align:left;padding:9px 11px;margin-bottom:10px;background:#261e30;color:#dcc8ec;border:1px solid #4a3a6a;border-radius:8px;cursor:pointer;font-size:13px;">🎊 跳到某個節慶…</button>'
+      + '<button onclick="kcTimeClose_();kanshouSetDateTime()" style="width:100%;text-align:left;padding:9px 11px;margin-bottom:10px;background:#261e30;color:#dcc8ec;border:1px solid #4a3a6a;border-radius:8px;cursor:pointer;font-size:13px;">📅 直接指定日期與時刻…</button>'
       + '<button onclick="kcTimeClose_()" style="width:100%;padding:8px;background:#2a2438;color:#9a8bb0;border:none;border-radius:8px;cursor:pointer;">關閉</button></div>';
     ov.style.display = 'flex';
   }
@@ -639,32 +628,6 @@ let plainTextContext = cleanText;
     var next = KC_TIME_BANDS_[(idx + 1 + KC_TIME_BANDS_.length) % KC_TIME_BANDS_.length];
     await kanshouJumpBand(next.key, next.name);
   }
-
-  // 🎊「跳到節慶」：不帶advanceHours(留0)，帶jumpFestival讓後端自己算「距離該節慶還有幾小時」(見Gallery.gs kanshouHoursUntilDate_)，前端不重算日期，單一真實來源在後端。
-  async function kanshouJumpFestival(key, name) {
-    if (!await customConfirm_('跳到「' + name + '」？' + kcPromiseWarn_('far'))) return;
-    showGamePane('chat');
-    await send('🎊 想快轉到「' + name + '」看看。', false, { jumpFestival: key, loaderCaptions: ['翻閱著行事曆…', '想著當天的種種安排…'] });
-  }
-
-  // 🎊 從地圖頁常駐區塊搬進＋抽屜(比照kc-overlay同款專屬彈窗寫法)，用完即關、不佔地圖頁版面。
-  function openKanshouFestivals() {
-    try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
-    var ov = document.getElementById('kc-festival-overlay');
-    if (!ov) {
-      ov = ensureOverlay_('kc-festival-overlay', { zIndex: 9998, dim: 0.82, extraStyle: 'padding:18px;', onBgClick: function () { closeKanshouFestivals(); } });
-      ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:360px;width:100%;padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);">'
-        + '<h3 style="margin:0 0 4px;color:#e0b080;">🎊 快轉到節慶</h3>'
-        + '<div style="color:#9a8f70;font-size:11px;margin-bottom:10px;">跳到這個節日的前一天。</div>'
-        + '<div style="display:flex; flex-wrap:wrap; gap:6px;">'
-        + KC_FESTIVALS_.map(function (f) { return '<button class="btn" style="flex:1 0 30%;padding:8px 2px;font-size:12px;border-color:#8a6a4a;color:#e0b080;" onclick="closeKanshouFestivals();kanshouJumpFestival(\'' + f.key + '\',\'' + f.name + '\')">' + f.name + '</button>'; }).join('')
-        + '</div>'
-        + '<button onclick="closeKanshouFestivals()" style="margin-top:14px;width:100%;padding:10px;background:#4a3a6a;color:#fff;border:none;border-radius:8px;cursor:pointer;">關閉</button>'
-        + '</div>';
-    }
-    ov.style.display = 'flex';
-  }
-  function closeKanshouFestivals() { var ov = document.getElementById('kc-festival-overlay'); if (ov) ov.style.display = 'none'; }
 
   // 篩選下拉選單本身只跟 _kcHeroesAll(英靈庫全清單)有關，內容跟 get_heroes 一樣少變——只在
   // 英靈庫清單真的重抓時(見 openCompanions)才重建這裡，換篩選只呼叫 applyKcHeroFilter_ 切 CSS。
@@ -770,13 +733,7 @@ let plainTextContext = cleanText;
     // 🗺️ 這一區不是靜態地圖，是玩出來的：地點來自後端下傳的 myPlaces(世界帳本)，不在 KC_LOCATIONS_ 裡。
     { id: 'mine', name: '走出來的地方', desc: '你自己找到的地方' }
   ];
-  // 🎊「跳到節慶」：純供按鈕文字用的mirror，真正的節慶天數/換算邏輯只在後端 KANSHOU_FESTIVALS_(唯一真實來源)，改節慶記得同步。
-  var KC_FESTIVALS_ = [
-    { key: 'newyear', name: '新年初一' }, { key: 'valentine', name: '情人節' },
-    { key: 'qixi', name: '七夕' }, { key: 'midautumn', name: '中秋節' },
-    { key: 'xmas', name: '聖誕節' }, { key: 'nye', name: '跨年夜' }
-  ];
-  // ⏰ 跳到時段(GAS算差幾小時，kanshouHoursUntilBand_ 唯一真實來源)。純顯示用 mirror，跟 KC_FESTIVALS_ 同一種寫法——改時段記得同步後端 KANSHOU_TIME_BANDS_。
+  // ⏰ 跳到時段(GAS算差幾小時，kanshouHoursUntilBand_ 唯一真實來源)。純顯示用 mirror，改時段記得同步後端 KANSHOU_TIME_BANDS_。
   var KC_TIME_BANDS_ = [
     // startHour 鏡射後端 KANSHOU_TIME_BANDS_（唯一真實來源在 Gallery.gs），供約定警示算目標時刻。
     { key: '清晨', name: '清晨', label: '☀️清晨', startHour: 5 }, { key: '午後', name: '午後', label: '🌤️午後', startHour: 11 },

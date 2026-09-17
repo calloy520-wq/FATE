@@ -678,11 +678,11 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_ENCOUNTER_EXCLUDE_IDS_`（常數）— 巧遇池的排除表（目前只有 `衛宮士郎-Master`＝玩家本人的位置）。
 - `KANSHOU_PARTY_DETAIL_CAP_`（常數=5）— 同地 AI 詳細卡片上限。
 
-#### 橋段庫（夜襲/共浴/節慶…資料驅動）
+#### 橋段庫（夜襲/共浴…資料驅動）
 
-- ~~`KANSHOU_SCENE_EVENTS_`~~（2026-09 已砍）— 曾是橋段庫（共浴/膝枕/下廚/觀星＋節慶＋同居日常 ambient）；預寫池整批移除後 `kanshouSceneAmbientStr` 恆空。
+- ~~`KANSHOU_SCENE_EVENTS_`~~（2026-09 已砍）— 曾是橋段庫（共浴/膝枕/下廚/觀星＋同居日常 ambient）；預寫池整批移除，恆空的注入點也已刪。
 - `KANSHOU_NIGHT_RAID_HOUR_END_`(=5)、`KANSHOU_ASLEEP_HOUR_END_`(=8)（常數，2026-07 八度改版新增，取代 `KANSHOU_HOUSEMATE_ROOM_EVENTS_BY_BAND_`）— 同住人房間橋段改直接比對時刻：0~5點→夜襲、5~8點→賴床叫醒（不再依附 timeBand_ 的深夜/清晨切法，清晨band原本一路延伸到11點）；有效地點含她自己的家/`KANSHOU_COHABIT_ROOM_`(和室)/`'我的房間'`(玩家自己房間)。
-- ~~`KANSHOU_LOCATION_EVENTS_`~~／~~`KANSHOU_FESTIVAL_EVENTS_`~~（2026-09 已砍）— 曾是地點×時段／節慶橋段觸發表。節慶現只送「今天是 X」事實（`kanshouFestivalStr`）。
+- ~~`KANSHOU_LOCATION_EVENTS_`~~／~~`KANSHOU_FESTIVAL_EVENTS_`~~（2026-09 已砍）— 曾是地點×時段／節慶橋段觸發表。
 - `kanshouAsleepOutcomeStr_(bond)`（2026-07 八度改版新增）— 夜襲類橋段(玩家主動夜襲/叫醒賴床、以及深夜訪客「被夜襲」鏡像版)共用的分寸判準：60以下＝趕人、60~79＝卡在親吻擁抱、80+＝無上限，不寫死台詞，具體演出交AI依角色性格發揮。切點沿用親密尺度五階既有的60/80。
 - `KANSHOU_HERO_HOME_`（常數）— 手寫專屬豪邸，僅7位種子英靈（region:'visit' 可造訪地點）。
 - `KANSHOU_GENERIC_HOME_POOL_`（常數，2026-07 七度改版新增）— 8間泛用住處(河畔小公寓/巷弄老屋/高塔套房/郊區透天/老街閣樓/街角公寓/靜巷租屋/河堤畔宅)，宣告時即用`.forEach(push)`動態併入`KANSHOU_LOCATIONS_`(region:'visit', generic:true)。供查無`KANSHOU_HERO_HOME_`專屬豪邸的英靈隨機分配用（玩家「新增的英靈會有住處嗎？種子庫直接隨機就好」）。
@@ -698,19 +698,16 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouLocHasPendingPromise_(pcData, loc, curDay, gameId)`（2026-07 新增）— 該地點是否有任一同伴的未過期(`day>=curDay`)約定指向這裡；`actionPlay_` 移動攔截用它豁免已成立約定的私宅解鎖檢查（防「好感賽跑後跌破門檻＝必爽約」的死亡螺旋）。
 - `kanshouRollDailyLocation_(heroName, hour, cohabit, memory, gameId)`（2026-09 簽名加 `gameId`——沒有它就看不見玩家自己開的地方）— 幫不在身邊的英靈骰當下去哪：同居版（深夜回和室/清晨賴床/夜間家中公共空間）vs 一般版（深夜/清晨大機率回登記住處）；池子＝內建 ∪ 玩家自己開的地方，排除 room/visit/dateOnly。**🐛→✅ 2026-09 牢籠改偏好**：原本 `pool = haunts.length ? haunts : 全部地點`，有 `KANSHOU_LOCATION_TAGS_` 綁定就【只】從綁定裡挑——9/10 的角色這輩子只會出現在單一地點，而且保底池只有內建地點、沒人會出現在玩家自己開的地方。改成「老地方多放 `KANSHOU_HAUNT_WEIGHT_`(=6) 份進整個世界的池子」：實測老地方仍佔 31%、但會去 16 種地方、玩家新開的地方也有 9%。地點被砍掉就當沒那條偏好（`all.indexOf(h) < 0` 直接略過），所以砍任何地點都不會讓誰沒去處。`KANSHOU_HAUNT_WEIGHT_` 設 0＝完全隨機。**七度改版新增第4參數`memory`(選填)**：深夜/清晨homeBias分支改呼叫`kanshouGetHeroHome_(heroId, memory)`，讓隨機分配住處的英靈也回得了家；省略`memory`時只吃`KANSHOU_HERO_HOME_`手寫豪邸(向後相容)。
 
-#### 日曆·時鐘·天氣（純算·多為確定性）
+#### 日曆·時鐘（純算·多為確定性）
 
-- `KANSHOU_CAL_START_MONTH_/DAY_`、`KANSHOU_DAYS_IN_MONTH_`、`KANSHOU_FESTIVALS_`（常數）— 曆法起點（Day1=12/20）、每月天數、6 個節慶定義。
+- `KANSHOU_CAL_START_MONTH_/DAY_`、`KANSHOU_DAYS_IN_MONTH_`（常數）— 曆法起點（Day1=12/20）、每月天數。（~~`KANSHOU_FESTIVALS_`~~ 2026-09 已隨節慶整組移除。）
 - `kanshouDoyOffset_(month, day)` — 某月日距當年 1/1 的天數（0-based）。
 - `kanshouAbsDayToDate_(absDay)` — absDay→{year,month,day}（固定 365 天/年）。
-- `kanshouHoursUntilDate_(curDay, curHour, targetMonth, targetDay)` — 算到「節慶前一天早 6 點」的小時數（錯過自動算明年）。
 - `KANSHOU_TIME_BANDS_`（常數）— 5 時段跳躍分界（清晨5/午後11/黃昏17/夜20/深夜0）。
 - `kanshouHoursUntilBand_(curHour, targetStartHour)` — 算到目標時段起點的小時數（已在該時段跳下一次）。
 - `KANSHOU_DAY_LAST_HOUR_`(=23)（常數）。~~`KANSHOU_HOUR_PER_ACTION_`~~ 已移除，改 `kanshouHourPerAction_(memory)`（見 `actionKanshouSetPace`）。
 - `kanshouFmtHM_(h)` — 小時（可含 .5）→「HH:MM」。
-- `kanshouWeatherEmoji_(w)` — 天氣文字→小圖示（降水優先）。
 - `kanshouClockInfo_(pcRow)` — 組時鐘資訊物件（day/hour/band/weather/month/dayOfMonth/label 實際年月日）；HUD/actionPlay 共用。
-- `KANSHOU_WEATHER_BY_SEASON_`（常數）+ `kanshouWeather_(absDay)` — 依月份查季節池、依日數確定性雜湊挑天氣（純敘事·不存表·冪等）。
 
 #### MEMORY 標記存取器（多標記共擠一格·全形｜分隔）
 
@@ -721,7 +718,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_CHILL_DAY_TAG_`／`KANSHOU_CHILL_MIN_DROP_`(3)／`KANSHOU_CHILL_DAYS_`(1)（2026-07 新增）— 🧊 好感【趨勢】。提示詞原本只給純量好感值，剛爬到 90 跟從 98 摔到 90 完全相同，冷落她毫無效果。只記「最近一次讓她不高興是哪一天」(absDay)，靠日期自然衰減。蓋戳兩處：爽約 -5、AI `rel_changes` 掉幅 ≥ MIN_DROP（**用 `change` 本身判定而非 `newFav-oldFav`**——棘輪把值夾在地板時兩者差 0，但她確實不高興過）。呈現在她自己的卡片（`pChillStr`，接在好感數字後）而非全域旁白，避免代名詞懸空。
 - `KANSHOU_COHABIT_END_TAG_`（makeIntTag_ 同居解除·2026-07 新增）— 跨函式傳事實用：`kanshouSyncRelTier_` 是共用 helper、看不到提示詞變數，蓋一次性旗標讓 `actionPlay_` 組 `kanshouCohabitEndStr` 時讀一次就清。
 - `KANSHOU_NIGHT_PART_TAG_`（makeTextTag_ 昨夜道別·2026-07 新增）— 與【晨間餘韻】同構的另一半：昨晚陪你到最後、卻沒留下的人（未達 80）。兩者互斥。
-- `KANSHOU_KNOCK_DAY_TAG_`／`KANSHOU_NIGHT_GUEST_TAG_`（2026-07）— 深夜訪客日戳／夜訪客姓名。（~~`KANSHOU_FESTIVAL_DONE_TAG_`~~ 已隨 2026-09 砍掉預寫橋段池一併移除：節慶只剩「今天是什麼日子」這個事實，不再追蹤「做過沒有」。）
+- `KANSHOU_KNOCK_DAY_TAG_`／`KANSHOU_NIGHT_GUEST_TAG_`（2026-07）— 深夜訪客日戳／夜訪客姓名。（~~`KANSHOU_FESTIVAL_DONE_TAG_`~~ 已隨 2026-09 砍掉預寫橋段池一併移除。）
 - `KANSHOU_BACKFILL_DONE_TAG_`（makeIntTag_『設定已補』）— 創角敘事欄已經補過的章。蓋了之後 `actionBackfillKanshouAi` 只填還空著的格子，不再覆寫玩家玩出來/改命改過的內容。
 - `KANSHOU_MORNING_AFTER_TAG_`（makeTextTag_ 晨間餘韻）、`KANSHOU_SCENE_DAY_TAG_`（makeIntTag_ 橋段日·防同日重刷）、`KANSHOU_FIRST_MET_DAY_TAG_`（makeIntTag_ 初見日·紀念日）、`KANSHOU_APPT_BANDS_`（約定時段 午後14/黃昏18/夜20）。
 - `kanshouApptHour_(band)` — 約定時段→時刻（null=舊格式無時段）。
@@ -1291,7 +1288,6 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 #### 聊天引擎與 loading
 - `showProgressLoader_(loadId, captions)` — 插入「跑條」loading（推進時間類動作用），文字每 1.1s 輪播直到 AI 回應；設 `progressTimer`。
 - `hideProgressLoader_(loadId)` — 清 `progressTimer` 並移除跑條 DOM。
-- `kcInsertPhrase(text)`（2026-07 新增）— 快速輸入貼圖列(`#kc-quick-phrases`，鑑賞限定)的 onclick 目標：把文字插入 `#u-in` 游標處並聚焦，不呼叫 `send()`，純粹幫玩家把括號註記(害羞/小聲等)打進輸入框，仍要玩家自己按傳送。
 
 - `ensureOverlay_(id, opts)`（2026-07 稽核抽出，全檔共用）
 - `_showOverlayLoading_(overlayId, ensureOpts, boxOpts)`（2026-07 稽核抽出，建於`ensureOverlay_`之上）— 合併原本`_kmShowLoading_`/`_kpShowLoading_`兩支幾乎逐行相同的「ensure overlay→塞讀條HTML→display:flex」，兩處呼叫改帶各自的id/title。
@@ -1317,13 +1313,10 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `_kmShowLoading_(name)` — 把 `#km-overlay` 內容換成讀條（不存在則先建）。
 - `kanshouMemoirOp(name, op, item, id)`（2026-09 加第 4 參數 id，送 `targetId`） — 釘選/取消/刪除回憶（`kanshou_memoir_op`）；`_kmBusy` 擋連點；完成後原地重繪並同步卡片數量徽章。
 
-#### 時間推進 / 節慶
+#### 時間推進
 - `kanshouEndDay()` — 結束一天（`endDay:true` 走 `send`）；睡前先掃 `_kcCur` 今天未赴的約做爽約警示確認框。
 - `kanshouJumpBand(key, label)` — 跳到指定時段（`jumpBand`，後端算差幾小時）。
 - `kanshouNextStage()` — 「下一階段」單鈕：依 `KC_TIME_BANDS_` 順推；深夜→轉呼 `kanshouEndDay`。
-- `kanshouJumpFestival(key, name)` — 快轉到節慶（`jumpFestival`，後端算天數）；帶確認框。
-- `openKanshouFestivals()` — 惰性建/開節慶快轉彈窗 `#kc-festival-overlay`（`KC_FESTIVALS_` 生成鈕）。
-- `closeKanshouFestivals()` — 隱藏節慶彈窗。
 
 #### 地圖 / 分區 / 移動
 - `kcSceneBadge_(locName, curBand, curHour)` — 依 `KC_SLEEP_HINTS_`（前端僅存的住處熟睡徽章表，2026-09 由 `KC_LOCATION_EVENTS_` 改名）產單一地點的 🌙 徽章（`hourEnd` 比對 `curHour`；橋段觸發表已砍，只剩熟睡類）。
@@ -1456,7 +1449,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 ## 死碼 / 可疑處（精簡）
 
 1. **`showProcessing`/`hideProcessing`（Onboarding）已確認非「僅開局用」**：不是與 Script.html 重複定義撞名，而是唯一定義在本檔、卻被 `Script.html` 全域 `beginAction()`/`endAction()`(幾乎每個遊戲內動作都會經過，遠在 `startGame` 之後)實際呼叫——本檔「只在開局跑一次」的框架敘述本身不準確，這兩個函式其實貫穿整個遊戲迴圈。（原本的「疑似重複定義」問題已釐清：全專案只有一份定義，沒有撞名。）
-3. **鏡射表手動同步風險**：`KC_LOCATIONS_`/`KC_SLEEP_HINTS_`/`KC_FESTIVALS_`/`KC_APPT_BANDS_`/`KC_SUMMON_BLOCKED_IDS_`（Kanshou）與 `FORGE_*` 全套計價（Onboarding）皆為後端鏡像，程式碼註解多處自陳「改後端記得同步這裡」。屬設計上的雙寫，非 bug，但為易漂移點。
+3. **鏡射表手動同步風險**：`KC_LOCATIONS_`/`KC_SLEEP_HINTS_`/`KC_APPT_BANDS_`/`KC_SUMMON_BLOCKED_IDS_`（Kanshou）與 `FORGE_*` 全套計價（Onboarding）皆為後端鏡像，程式碼註解多處自陳「改後端記得同步這裡」。屬設計上的雙寫，非 bug，但為易漂移點。
 4. **`kanshouEndDay` 爽約警示依賴 `_kcCur`/`kcClock` 已載**：若玩家未曾開過同伴面板、`_kcCur` 為空，警示會靜默略過（程式已註明「盡力而為，後端結算通知條保底」）——非錯誤，但屬已知的「盡力而為」降級。
 5. **`plainTextContext`/`lastAiContext`（send 內）**：組出後只賦值給全域 `lastAiContext`，本檔未再消費；推測由 Script.html 其他功能（如選項/歷史）讀取，屬跨檔耦合。
 6. **註解自陳的已刪碼**：Kanshou 多處註明「舊彈窗 `ensureKcMapOverlay_`/`openKanshouMap`、`actionBackfillKanshouServantAi`、`get_tags` 額外 round-trip」已移除——確認現存檔內無殘留呼叫，清理乾淨。

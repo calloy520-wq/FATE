@@ -428,8 +428,8 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 > 【玩家資料·旁白用】（只給旁白寫「你」的內心用·在場的人沒讀過這張卡）
 > `${PROMPT_PARTY_SYSTEM}`（在場人物卡，含「你在她眼中」）＋`${_intimacyLines_}`（★【親密尺度】）
 > ★【篇幅】`${_kanshouTargetWords_}`（查 `KANSHOU_WORDS_`，「大事」旗標升檔）／★【地點釘死】
-> 條件片段（有才出現）：`kanshouNewPlaceStr`／`_worldFeed_`／`kanshouWorldRosterStr`／`kanshouEncounterStr`／`kanshouNightGuestStr`／`kanshouKnockRaidStr`／`kanshouAloneBondStr`／`kanshouNpcLeaveStr_`／`kanshouNightPartStr`／`kanshouVisitBlockedStr`／`kanshouTimeBlockedStr`／`kanshouPromiseStr`／`kanshouPromiseMetStr`／`kanshouCohabitStr`／`kanshouConfessStr`／`kanshouInviteStr`／`kanshouHandHoldStr`／`kanshouHoldingStr`／`kanshouPhotoStr`／`kanshouShowPhotoStr`／`kanshouFestivalStr`／`kanshouApptTodoStr`／`kanshouApptWaivedStr`／`kanshouCohabitEndStr`／`kanshouNightSceneStr`／`kanshouInitStr`
-> ★【此刻】（日期·時段·天氣 `kanshouWeather_(curDay)` 併在同一行）＋`kanshouTierCrossStr`／`kanshouFirstsAnnivStr`／`kanshouFirstsStr`／`kanshouAnnivStr`
+> 條件片段（有才出現）：`kanshouNewPlaceStr`／`_worldFeed_`／`kanshouWorldRosterStr`／`kanshouEncounterStr`／`kanshouNightGuestStr`／`kanshouKnockRaidStr`／`kanshouAloneBondStr`／`kanshouNpcLeaveStr_`／`kanshouNightPartStr`／`kanshouVisitBlockedStr`／`kanshouTimeBlockedStr`／`kanshouPromiseStr`／`kanshouPromiseMetStr`／`kanshouCohabitStr`／`kanshouConfessStr`／`kanshouInviteStr`／`kanshouHandHoldStr`／`kanshouHoldingStr`／`kanshouApptTodoStr`／`kanshouApptWaivedStr`／`kanshouCohabitEndStr`／`kanshouNightSceneStr`
+> ★【此刻】（日期·時段併在同一行）＋`kanshouTierCrossStr`／`kanshouFirstsAnnivStr`／`kanshouFirstsStr`／`kanshouAnnivStr`
 > ★【晨間餘韻·非強制】／★【昨夜對方走了·非強制】／`${npcDialoguePrompt}`／★【稍早做過的事】`${_earlierDigest_}`（`kanshouRecentDigest_`）
 > ★【在場】＋`${finalUserMsg}`（玩家這回合的動作：自己打的字標 `【玩家原話】：`、按鍵路徑標 `【玩家意圖】：`＝GAS 寫的摘要）＋`${_settledTail_}`（GAS 已裁定的結果）
 
@@ -519,9 +519,9 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | `kanshouFestivalStr` | 日曆＝節慶當天／跳到前夕 | ★【今天是「X」】／★【節慶前夕】（只給事實，無習俗表） |
 | `kanshouTierCrossStr`/`kanshouFirstsAnnivStr`/`kanshouFirstsStr`/`kanshouAnnivStr` | 剛跨關係階／「第一次」週年／既定的第一次／相識紀念日 | 純事實＋show-don't-tell 護欄 |
 | `kanshouNewPlaceStr`/`_worldFeed_`/`kanshouWorldRosterStr` | 玩家走出新地點／世界帳本相關條目／常民名冊 | ★【要它之後還在就寫進 world_note】等 |
-| `kanshouAloneBondStr`/`kanshouInitStr` | 獨處時光(+3)／她主動 | ★【獨處時光】／★【對方開口約你】 |
+| `kanshouAloneBondStr` | 獨處時光(+3) | ★【獨處時光】 |
 | `kanshouVisitBlockedStr`/`kanshouTimeBlockedStr` | 想去未解鎖的住處／時間不對 | ★【撲空·地點未開放】… |
-| ★【此刻】 | 恆帶 | 日期・時段・`kanshouWeather_(curDay)` 確定性天氣併在同一行（無獨立【今日天氣】標籤） |
+| ★【此刻】 | 恆帶 | 日期・時段併在同一行 |
 | `_earlierDigest_` | 歷史窗外還有更早回合 | ★【稍早做過的事】（`kanshouRecentDigest_`） |
 
 ~~`kanshouRoomEventStr`（橋段 13 筆）／`kanshouJealousStr`（醋意 20%）／`pActivityStr`（地點活動）／★【節慶氛圍】／★【今日天氣】~~ 都已不存在。

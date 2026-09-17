@@ -1343,14 +1343,6 @@ const KANSHOU_CAL_START_MONTH_ = 12, KANSHOU_CAL_START_DAY_ = 20;
 // 那個年份不存在於任何世界裡，玩家的時鐘與送給 AI 的日期都在講一個假年份。
 const KANSHOU_CAL_START_YEAR_ = 2005;
 const KANSHOU_DAYS_IN_MONTH_ = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-const KANSHOU_FESTIVALS_ = [
-  { key: 'newyear', name: '新年初一', month: 1, day: 1 },
-  { key: 'valentine', name: '情人節', month: 2, day: 14 },
-  { key: 'qixi', name: '七夕', month: 7, day: 7 },
-  { key: 'midautumn', name: '中秋節', month: 9, day: 15 },
-  { key: 'xmas', name: '聖誕節', month: 12, day: 25 },
-  { key: 'nye', name: '跨年夜', month: 12, day: 31 }
-];
 // 某月日距離「當年1/1」是第幾天(0-based)，供年/月/日互換共用。
 function kanshouDoyOffset_(month, day) {
   let off = 0;
@@ -1367,19 +1359,8 @@ function kanshouAbsDayToDate_(absDay) {
   while (doy >= KANSHOU_DAYS_IN_MONTH_[month]) { doy -= KANSHOU_DAYS_IN_MONTH_[month]; month++; }
   return { year: year, month: month + 1, day: doy + 1 };
 }
-// 算「從現在」到「下一次」某月日前一天早上6點的小時數(2026-07玩家定案：提前一天抵達，讓敘事能帶出「明天才是節慶」的期待感，而非直接落在節慶當天)。
-function kanshouHoursUntilDate_(curDay, curHour, targetMonth, targetDay) {
-  const startOff = kanshouDoyOffset_(KANSHOU_CAL_START_MONTH_, KANSHOU_CAL_START_DAY_);
-  const curDoy = (startOff + (curDay - 1)) % 365;
-  const targetDoy = kanshouDoyOffset_(targetMonth, targetDay) - 1; // 節慶前一天
-  let deltaDays = targetDoy - curDoy;
-  if (deltaDays < 0) deltaDays += 365;
-  let hours = deltaDays * 24 + 6 - curHour;
-  if (hours <= 0) hours += 365 * 24;
-  return hours;
-}
 
-// 「跳到時段」：GAS算好差幾小時再丟進既有advanceHours管線，跟跳到節慶(kanshouHoursUntilDate_)同一種「單一真實來源在後端」寫法。
+// 「跳到時段」：GAS算好差幾小時再丟進既有advanceHours管線，單一真實來源在後端。
 const KANSHOU_TIME_BANDS_ = [
   { key: '清晨', label: '清晨', startHour: 5 },
   { key: '午後', label: '午後', startHour: 11 },
@@ -1407,7 +1388,7 @@ function kanshouPaceOf_(memory) {
 function kanshouHourPerAction_(memory) { return kanshouPaceOf_(memory) / 60; }
 const KANSHOU_DAY_LAST_HOUR_ = 23;
 // 📅 算「從現在」到「某年某月某日某時刻」要跳幾小時。只能往前——往回會讓已經發生的事的時間戳
-//    錯亂(約定存絕對日、好感棘輪、相簿日期、節慶完成標記、初見日都是單向的)。往回一律回 0。
+//    錯亂(約定存絕對日、好感棘輪、初見日都是單向的)。往回一律回 0。
 function kanshouHoursUntilDateTime_(curDay, curHour, y, m, d, hh) {
   const startOff = kanshouDoyOffset_(KANSHOU_CAL_START_MONTH_, KANSHOU_CAL_START_DAY_);
   const tgtAbs = (parseInt(y) - KANSHOU_CAL_START_YEAR_) * 365 + kanshouDoyOffset_(parseInt(m), parseInt(d)) - startOff + 1;
@@ -1421,28 +1402,15 @@ function kanshouFmtHM_(h) {
   if (mm >= 60) { hh += 1; mm -= 60; }
   return ("0" + hh).slice(-2) + ":" + ("0" + mm).slice(-2);
 }
-// 天氣文字→小圖示(HUD時鐘旁顯示用)。降水優先判定，再晴，再陰，再風。
-function kanshouWeatherEmoji_(w) {
-  w = String(w || "");
-  if (/雪/.test(w)) return '❄️';
-  if (/雷/.test(w)) return '⛈️';
-  if (/雨/.test(w)) return '🌧️';
-  if (/霧/.test(w)) return '🌫️';
-  if (/晴|日|爽|和/.test(w)) return '☀️';
-  if (/陰|雲/.test(w)) return '☁️';
-  if (/風/.test(w)) return '🌬️';
-  return '☀️';
-}
 // 「跳到時段」＋「時段行動」按鈕都需要前端知道現在幾點——這裡統一格式化成單一真實來源，buildClientState_/actionPlay的回應都呼叫這支，不各自重複拼字串。
 function kanshouClockInfo_(pcRow) {
   const day = parseInt(pcRow[COL.PC.DAY]) || 1;
   const hour = (pcRow[COL.PC.HOUR] === "" || pcRow[COL.PC.HOUR] == null) ? 8 : (parseFloat(pcRow[COL.PC.HOUR]) || 0);
   const band = timeBand_(hour);
   const d = kanshouAbsDayToDate_(day);
-  const wx = kanshouWeather_(day);
   const loc = String(pcRow[COL.PC.LOC] || "").trim();
   // month/dayOfMonth：前端「睡前爽約警示」要跟同伴 promise.date('M/D') 比對今天日期用。
-  return { day: day, hour: hour, band: band, weather: wx, month: d.month, dayOfMonth: d.day, label: (loc ? "📍" + loc + "　" : "") + d.year + "年" + d.month + "月" + d.day + "日・" + kanshouFmtHM_(hour) + "・" + band + "・" + kanshouWeatherEmoji_(wx) + wx };
+  return { day: day, hour: hour, band: band, month: d.month, dayOfMonth: d.day, label: (loc ? "📍" + loc + "　" : "") + d.year + "年" + d.month + "月" + d.day + "日・" + kanshouFmtHM_(hour) + "・" + band };
 }
 
 // 結束一天(準備就寢)時的機率事件：命中就【直接讓她進門】、本回合不推進日期。
@@ -2071,18 +2039,6 @@ const KANSHOU_HAIR_COLORS_ = [
   ['藍', '#4a6a9a'], ['粉', '#d88aa8'], ['青綠', '#5a9a8a'], ['綠', '#5a8a6a'], ['紅', '#b04a3a'], ['橙', '#c87a3a']
 ];
 const KANSHOU_ANNIV_MILESTONES_ = [7, 30, 100, 365];
-const KANSHOU_WEATHER_BY_SEASON_ = {
-  winter: ['晴朗清冷', '陰天', '小雪紛飛', '雪後轉晴', '寒風凜冽'],
-  spring: ['風和日麗', '花瓣隨風', '細雨綿綿', '多雲舒爽'],
-  summer: ['烈日當空', '晴朗悶熱', '午後雷陣雨', '蟬鳴燥熱'],
-  autumn: ['秋高氣爽', '涼風習習', '陰天微涼', '細雨薄霧']
-};
-function kanshouWeather_(absDay) {
-  const d = kanshouAbsDayToDate_(absDay);
-  const season = (d.month === 12 || d.month <= 2) ? 'winter' : d.month <= 5 ? 'spring' : d.month <= 8 ? 'summer' : 'autumn';
-  const pool = KANSHOU_WEATHER_BY_SEASON_[season];
-  return pool[((absDay * 1103515245 + 12345) >>> 16) % pool.length];
-}
 // 🏷️ MEMORY標記存取器【邂逅中】：這次到訪、還留在場邊可持續互動的巧遇對象(存hero id，單一值)——跟永久性的【邂逅】(邂逅過的名單，不會清除)不同，這個是「這次到訪期間」的暫時狀態，玩家移動離開該地點時清除(換地點＝這段緣分結束，下次到訪重新擲)。
 function getKanshouActiveEncounter_(memory) {
   const m = String(memory || "").match(/【邂逅中】([^｜【】]*)/);
@@ -2226,7 +2182,6 @@ function actionPlay_(userData, pcId, sheets) {
   let curL = pc[COL.PC.LOC];
   let curDay = parseInt(pc[COL.PC.DAY]) || 1;
   let curHour = (pc[COL.PC.HOUR] === "" || pc[COL.PC.HOUR] == null) ? 8 : (parseFloat(pc[COL.PC.HOUR]) || 0);
-  let jumpFest = null; // 🎊 有跳到節慶時記著，餵進下方提示詞當氛圍靈感(見★【氛圍靈感·非強制】)
 
   const _myGid_ = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const _paceHour_ = kanshouHourPerAction_(pc[COL.PC.MEMORY]); // ⏰ 每回合推進幾小時(0＝暫停，玩家自己設)
@@ -2326,7 +2281,7 @@ function actionPlay_(userData, pcId, sheets) {
     }
   }
   // ⏳ 這回合是否發生「時間跳躍」——單一真實來源。
-  const kanshouTimeJumped_ = !!(userData.endDay === true || userData.jumpBand || userData.jumpFestival || userData.setDateTime || (parseFloat(userData.advanceHours) || 0) > 0);
+  const kanshouTimeJumped_ = !!(userData.endDay === true || userData.jumpBand || userData.setDateTime || (parseFloat(userData.advanceHours) || 0) > 0);
 
   // 📅 相約(玩家在同伴卡點「相約」→前端帶promiseMeet{name,loc})：只能跟「此刻在場」的同伴約、地點限公開清單(不含玩家私室)；成立→她列MEMORY蓋【約定】明日:地點(新約蓋舊約)，約定日她的行程骰被釘在該地點(見kanshouPromisePin_呼叫端)，赴約/爽約每回合結算(見下方【依約相會】)。
   let _pendingProposal = null; // {type:'promise'|'hold', idx, loc?, name?}
@@ -2590,13 +2545,8 @@ function actionPlay_(userData, pcId, sheets) {
   if (userData.endDay === true) _reHourAfter = 6;
   else if (userData.jumpBand) { const _rb = KANSHOU_TIME_BANDS_.find(b => b.key === String(userData.jumpBand)); if (_rb) _reHourAfter = _rb.startHour; }
   else if (parseFloat(userData.advanceHours) > 0) _reHourAfter = ((curHour + parseFloat(userData.advanceHours)) % 24 + 24) % 24;
-  else if (userData.jumpFestival) _reHourAfter = 6; // 跳節慶恆落在前一天清晨6點(kanshouHoursUntilDate_ 的落點)
   else if (curHour < KANSHOU_DAY_LAST_HOUR_ && _paceHour_ > 0) _reHourAfter = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + _paceHour_);
   const kanshouReBand_ = timeBand_(_reHourAfter);
-  // 🗑️ 2026-09 情境橋段三層注入(地點×時段／同居日常／節慶 → 寫死的 ambient 句)已整批移除。
-  //    那是「選單感」最重的一塊：同一個地點同一個時段，永遠是同一句話開場。
-  //    現在此地此刻發生什麼，交給 AI 依【地點／時段／天氣／在場的人／你們的歷史】自己生。
-  const kanshouSceneAmbientStr = "";
 
   let kanshouKnockGuestName = "";
   let kanshouKnockRaidStr = "";
@@ -2721,18 +2671,14 @@ function actionPlay_(userData, pcId, sheets) {
     finalUserMsg = `【一天結束】夜幕降臨，${intimateNightNames.length ? `跟『${intimateNightNames.join('、')}』一起` : ""}回到房間安頓下來，今天到此為止，明天又是新的一天。`;
   } else {
     let advanceHours = Math.max(0, Math.min(parseFloat(userData.advanceHours) || 0, 24 * 365 * 3)); // parseFloat：支援「跳到約定前10分」的小數時數
-    if (!advanceHours && userData.jumpFestival) {
-      jumpFest = KANSHOU_FESTIVALS_.find(f => f.key === String(userData.jumpFestival)) || null;
-      if (jumpFest) advanceHours = kanshouHoursUntilDate_(curDay, curHour, jumpFest.month, jumpFest.day);
-    }
-    // ⏰「跳到時段」：跟跳到節慶互斥判斷同一順位，advanceHours/jumpFestival都沒指定時才輪到它。
+    // ⏰「跳到時段」：advanceHours/setDateTime 都沒指定時才輪到它。
     let jumpBand = null;
-    // 📅 直接設定日期與時刻：算出差幾小時再丟進同一條管線(跟跳時段/跳節慶同款「單一真實來源」)。
-    if (!advanceHours && !jumpFest && userData.setDateTime && typeof userData.setDateTime === 'object') {
+    // 📅 直接設定日期與時刻：算出差幾小時再丟進同一條管線(跟跳時段同款「單一真實來源」)。
+    if (!advanceHours && userData.setDateTime && typeof userData.setDateTime === 'object') {
       const _sd = userData.setDateTime;
       advanceHours = kanshouHoursUntilDateTime_(curDay, curHour, _sd.year, _sd.month, _sd.day, _sd.hour);
     }
-    if (!advanceHours && !jumpFest && userData.jumpBand) {
+    if (!advanceHours && userData.jumpBand) {
       jumpBand = KANSHOU_TIME_BANDS_.find(b => b.key === String(userData.jumpBand)) || null;
       if (jumpBand) advanceHours = kanshouHoursUntilBand_(curHour, jumpBand.startHour);
     }
@@ -2744,7 +2690,7 @@ function actionPlay_(userData, pcId, sheets) {
       pcData[pcIndex][COL.PC.DAY] = curDay;
       pcData[pcIndex][COL.PC.HOUR] = curHour;
       pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
-      // ⏩ 這是玩家【主動按鈕跳時段/節慶】的刻意時間快轉——跟「每回合被動+0.5h流動」(§122，那條根本不重骰任何人)不同：玩家選擇快轉數小時，不在身邊的人依新時刻重骰去向，讓世界動起來。
+      // ⏩ 這是玩家【主動按鈕跳時段】的刻意時間快轉——跟「每回合被動+0.5h流動」(§122，那條根本不重骰任何人)不同：玩家選擇快轉數小時，不在身邊的人依新時刻重骰去向，讓世界動起來。
       const allEstablishedForTime = pcData.filter((r, idx) => idx !== pcIndex && kanshouIsAlly_(r, myGameId));
       allEstablishedForTime.forEach(r => {
         const idx = pcData.indexOf(r);
@@ -2755,9 +2701,7 @@ function actionPlay_(userData, pcId, sheets) {
       });
       const newDate = kanshouAbsDayToDate_(curDay);
       const _jumpSceneBreak = `（★這是時間快轉後的【全新場景·換幕】：直接寫此刻新時段的當下光景，整段從這個新時段的第一秒寫起，上一段的動作與對話都已經過去了。若剛才在一起的人此刻已依作息離開，就自然演出你獨自或身邊換了人的當下。）`;
-      finalUserMsg = (jumpFest
-        ? `【時間推進】時間一路快轉，明天就是${jumpFest.name}了——此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`
-        : jumpBand
+      finalUserMsg = (jumpBand
           ? `【時間推進】時間悄悄流轉到了${jumpBand.label}，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`
           : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`) + _jumpSceneBreak;
     }
@@ -2963,15 +2907,6 @@ function actionPlay_(userData, pcId, sheets) {
   const partyRows = pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim())
     .sort((a, b) => (parseInt(b[COL.PC.BOND]) || 0) - (parseInt(a[COL.PC.BOND]) || 0)).slice(0, KANSHOU_PARTY_DETAIL_CAP_);
   const partyMembers = partyRows.map(r => r[COL.PC.NAME]);
-  // 🎊 節慶三態(2026-07 玩家「想要一個類似任務重點…沒去做的話 AI 可以很委婉地提醒，做過就完成不要再出現」)。
-  // 🎊 節慶：只講「今天是什麼日子」這個事實。2026-09 砍掉 KANSHOU_FESTIVAL_EVENTS_——
-  //    那張表規定了每個節慶「老規矩是做什麼」、還追蹤有沒有「達成」，等於把節日變成待辦清單。
-  //    日子是世界事實(留)，怎麼過是你們的事(砍)。
-  const kanshouFestivalStr = (() => {
-    const _f = KANSHOU_FESTIVALS_.find(f => f.month === curDateObj_.month && f.day === curDateObj_.day);
-    if (_f) return `\n★【今天是「${_f.name}」】：這座城會有這個日子該有的樣子。要不要過、怎麼過，由你們自己決定——讓它從街景與對話裡自然透出來，行程留給玩家。`;
-    return jumpFest ? `\n★【節慶前夕】：明天就是「${jumpFest.name}」，街頭已有前夕的氣氛——自然帶入即可、不報幕。` : "";
-  })();
 
   const kanshouApptTodoStr = kanshouApptTodoArr_.length
     ? `\n★【今天的約·尚未赴】：${kanshouApptTodoArr_.map(t => `${t.at ? t.at + '於' : ''}「${t.loc}」見『${t.name}』`).join('；')}——這是今天確實還沒完成的事，不是背景設定。${kanshouApptTodoArr_.some(t => partyMembers.indexOf(t.name) !== -1) ? `其中人就在你面前的那位，若情境合適可由她自然提起(確認/催一下/嘴上說不急都行)。` : `對方此刻不在你身邊，只能寫成你自己記著這件事，人要真的在場才開得了口。`}`
@@ -3005,7 +2940,7 @@ function actionPlay_(userData, pcId, sheets) {
     }).join('、');
     return `\n★【世界概況·這座城裡認識的人】：玩家與在場的人都確實認識以下這些人，此刻分處異地，大略所在：${_list}。玩家若直接問起「認不認識/聽過某某」，只要名字(不分大小寫，英文名任何大小寫寫法都算同一人)出現在這份名單裡，被問到的那個人就【確實認識、要肯定回答「是」】，可以自然帶一句對方大概在哪／大概是怎樣的人；名單上的名字都是同一座城裡認識的人，聽到就照認識的樣子回應；名單外的名字才是真的沒聽過，可以照實說不認識。★認識歸認識，登場仍以【在場驗證鐵律】為準：只有此刻真的同地點的人才算在場，這裡能做的只有口頭上確認認識這個人。`;
   })();
-  // 📅 初見日戳＋相識紀念日：同地即相識——沒戳過的在場同伴當下蓋【初見日】(冪等，之後只讀不改)；已有戳的算相識天數，命中里程碑(7/30/100/365天)就收進紀念日提示(當天內重複對話會重複提及，跟節慶氛圍同一種「全天有效的氛圍線」設計，AI自然不會每句都講)。
+  // 📅 初見日戳＋相識紀念日：同地即相識——沒戳過的在場同伴當下蓋【初見日】(冪等，之後只讀不改)；已有戳的算相識天數，命中里程碑(7/30/100/365天)就收進紀念日提示(當天內重複對話會重複提及，全天有效的氛圍線，AI自然不會每句都講)。
   let kanshouAloneBondStr = "";
   if (partyRows.length === 1 && !kanshouTimeJumped_) {
     const _alIdx = pcData.indexOf(partyRows[0]);
@@ -3314,7 +3249,6 @@ function actionPlay_(userData, pcId, sheets) {
     { min: -100, range: '300~400', big: '450~580' }
   ];
   // 「大事」不靠猜——這些區塊本回合有沒有組出字串，GAS 自己最清楚。加新橋段就往這串加一個旗標。
-  //    節慶刻意不在這串：它只是「今天是什麼日子」的事實，不是一幕戲（見 CODE_NOTES）。
   const _kanshouBigBeat_ = !!(kanshouConfessStr || kanshouTierCrossStr || kanshouFirstsAnnivStr
     || kanshouNightSceneStr || kanshouKnockRaidStr || kanshouCohabitStr || kanshouCohabitEndStr
     || kanshouPromiseMetStr || driveOn);
@@ -3375,8 +3309,8 @@ ${PROMPT_PARTY_SYSTEM}
 ${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性；玩家只是日常時不憑空推進情慾${_intimacyLines_.indexOf('\n') >= 0 ? '（多人各依各自好感，不共用同階）' : ''}：\n${_intimacyLines_}\n` : ''}
 ${_sty_('length')}
 ★★【地點釘死】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
-${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouSceneAmbientStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouFestivalStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}
-★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}・${kanshouWeather_(curDay)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依此刻的時段寫；本回合只寫這十分鐘內的片段，時間推進由系統宣告。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·只活在你的回想裡。` : ""}
+${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouNightGuestStr}${kanshouKnockRaidStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouHandHoldStr}${kanshouHoldingStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}
+★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依此刻的時段寫；本回合只寫這十分鐘內的片段，時間推進由系統宣告。${kanshouTierCrossStr}${kanshouFirstsAnnivStr}${kanshouFirstsStr}${kanshouAnnivStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·只活在你的回想裡。` : ""}
 
 ${npcDialoguePrompt}${_earlierDigest_ ? `\n★【稍早做過的事】：${_earlierDigest_}——都已發生過，需要時自然呼應，別重演。` : ""}
 ${_sty_('ending')}
@@ -3647,7 +3581,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
 
     curL = pcData[pcIndex][COL.PC.LOC];
 
-    // 橋段邀請按鈕(夜襲/賴床/地點/節慶共用)：candidate在回合開頭(任何LOC寫入之前)就算好了，這裡直接沿用，不應該重算——重算會撞回「同行同伴LOC已被同步」的舊bug。
+    // 橋段邀請按鈕(夜襲/賴床/地點共用)：candidate在回合開頭(任何LOC寫入之前)就算好了，這裡直接沿用，不應該重算——重算會撞回「同行同伴LOC已被同步」的舊bug。
     const encounterOffer = kanshouEncounterHero ? { name: String(kanshouCasualOf_(kanshouEncounterHero)) } : undefined;
     // 🧑↔🏠 AI 分錯類的先就地改判（名字其實是地方的「人物」→ 改成「地點」），
     //    再往下給 kanshouWorldWrite_ 用——寫進帳本的就是改判後的這一份。

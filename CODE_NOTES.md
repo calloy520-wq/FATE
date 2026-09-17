@@ -1147,14 +1147,6 @@ target 只能填真名(schema級約束，比事後再說一次更有效)。tag �
 
 地點橋段觸發表：她剛好在這個地點×時段吻合→把該事件的 ambient 當「此地此刻·情境事實」注入提示詞(2026-07 泡泡拆除後不再跳按鈕，見 kanshouSceneAmbientStr)。加新地點橋段＝這裡加一筆＋KANSHOU_SCENE_EVENTS_加對應事件，不動觸發邏輯。
 
-### `KANSHOU_FESTIVAL_EVENTS_`　<sub>Gallery.gs</sub>
-
-節慶橋段觸發表：日曆走到節慶當天(KANSHOU_FESTIVALS_的month/day)×時段吻合×玩家所在地有同伴→注入該事件的 ambient 情境事實。key對齊KANSHOU_FESTIVALS_.key。
-
-🎊 節慶【不限時段·不限地點】(2026-07)：bands 欄位保留但【已不再被讀取】——留著當文件，日後想恢復時段限定不必重寫結構。時刻限制改由 ambient 文字本身寫成任何時刻都成立來取代。
-
-🎯 doneLoc/todo＝「今天該做的事」(2026-07 玩家「想要一個類似任務重點」)：doneLoc＝完成這件習俗的地點(陣列·任一個都算)；todo＝那件事本身，只拿來組委婉提醒。完成判定由 GAS 自己看事實(玩家人在 doneLoc ＋ 身邊有同伴)，不問 AI、不加按鈕。
-
 ### `kanshouAsleepOutcomeStr_`　<sub>Gallery.gs</sub>
 
 🌙 深夜訪客「別有用心」的分寸判準(2026-07 泡泡拆除後，唯一呼叫點只剩深夜敲門那條)：好感決定這次能走到哪一階，不寫死台詞，具體怎麼演、講什麼話全交AI依角色性格發揮。切點沿用親密尺度五階既有的60(親吻擁抱)/80(無上限)兩個節點，跟其餘尺度判定同一套數字、單一來源。
@@ -1198,10 +1190,6 @@ memory選填：只有call site拿得到該英靈自己列的MEMORY時才傳，�
 ### `KANSHOU_CAL_START_MONTH_`　<sub>Gallery.gs</sub>
 
 真正的西曆年/月/日(每年固定365天、不算閏年，遊戲用途夠精準)，只抓3年區間(見actionPlay的advanceHours上限)不追求無限年份。Day1固定對應12月20日——過幾天日常後 12/25 聖誕、12/31跨年接連到來，新玩家開局就撞得到節慶橋段(見 KANSHOU_FESTIVAL_EVENTS_)。
-
-### `kanshouHoursUntilDate_`　<sub>Gallery.gs</sub>
-
-算「從現在」到「下一次」某月日前一天早上6點的小時數(2026-07玩家定案：提前一天抵達，讓敘事能帶出「明天才是節慶」的期待感，而非直接落在節慶當天)。已經錯過這次(節慶前一天6點已過)就自動算成明年(hours<=0時+365天)。
 
 ### `KANSHOU_TIME_BANDS_`　<sub>Gallery.gs</sub>
 
@@ -3262,10 +3250,6 @@ mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未
 ### `KANSHOU_HAIR_COLORS_`　<sub>Gallery.gs</sub>
 
 髮色解析：從角色TRAIT(dailyLook外貌段)文字抓色詞→hex——種子/工房新角色通吃(dailyLook建檔時必生成)、永遠零手工；順序敏感(深紫在紫前、紅褐在紅/褐前)，查無色詞退回中性深棕。
-
-### `KANSHOU_WEATHER_BY_SEASON_`　<sub>Gallery.gs</sub>
-
-☁️ 今日天氣(純敘事·不存表)：依月份查季節池、依日數確定性雜湊挑一項——同一天永遠同一個天氣、 跨日自然換，零round-trip零寫入。
 
 ### `KANSHOU_EVENT_SEEDS_`　<sub>Gallery.gs</sub>
 

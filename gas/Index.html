@@ -300,14 +300,11 @@
     </div>
     <div id="action-drawer">
       <button class="drawer-item" onclick="triggerDrawerAction('status')"><i>👤</i><span>查看狀態</span></button>
-      <button class="drawer-item" id="drawer-festival" onclick="openKanshouFestivals()" style="display:none;"><i>🎊</i><span>快轉節慶</span></button>
-      <button class="drawer-item" id="drawer-album" onclick="openKanshouAlbum()" style="display:none;"><i>📚</i><span>相簿</span></button>
       <button class="drawer-item" id="drawer-world" onclick="openKanshouWorld()" style="display:none;"><i>🌍</i><span>這個世界</span></button>
       <button class="drawer-item" id="drawer-style" onclick="openKanshouStyle()" style="display:none;"><i>⚙</i><span>說書人設定</span></button>
       <button class="drawer-item" onclick="triggerDrawerAction('settings')"><i>⚙️</i><span>系統設定</span></button>
     </div>
 
-    <div id="kc-quick-phrases" style="display:none;"></div>
     <div id="input-bar">
       <div class="pill-wrapper">
         <button id="plus-trigger" class="plus-btn" onclick="toggleActionDrawer()">＋</button>
@@ -315,7 +312,6 @@
         <label title="🔥 亮起時，對方會依自己的個性主動推進，你想閃也閃不掉。熄滅就由你主導。" style="color: #ff6b6b; font-size: 14px; margin-right: 5px; margin-left: 2px; cursor: pointer; display: flex; align-items: center; white-space: nowrap; font-weight: bold;">
           <input type="checkbox" id="drive-mode-toggle" style="accent-color: #ff6b6b; margin-right: 3px;">🔥
         </label>
-        <button id="photo-btn" onclick="kanshouTakePhoto()" title="📷 拍下此刻，拍完馬上看得到。按下去會問你想拍什麼，留空就拍眼前的人或景色" style="display:none; background:none; border:1px solid #6a5a7a; border-radius:8px; color:#c9b8d8; font-size:15px; padding:4px 8px; cursor:pointer; margin-right:4px;">📷</button>
         <input id="u-in" maxlength="300" placeholder="說點什麼，或做點什麼…" onkeypress="if(event.key==='Enter')send()">
         <button id="send-btn" class="send-trigger" onclick="send()">傳送</button>
       </div>
