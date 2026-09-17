@@ -91,19 +91,19 @@ function buildArrivePrompt_(a) {
     : `【偶遇】雙方恰巧在此撞個正著。${arriveStanceNotice_(stance, false)}讓敵方依其個性與立場開口、有反應；是否動手由御主下令。`);
   if (a.foeMood) WHO.push(`【他們對你的溫度·已裁定的事實】${a.foeMood}`);
   foes.filter(f => f.faction === '敵御主' && f.lostServant).forEach(f =>
-    WHO.push(`敵御主『${f.name}』已痛失從者（${f.lostServant}）、再無從者可驅使——讓其神情心境流露失恃（依個性：孤注一擲／惶然欲逃／不甘怨懟），切勿演成仍有從者隨侍。`));
+    WHO.push(`敵御主『${f.name}』已痛失從者（${f.lostServant}）、再無從者可驅使——讓其神情心境流露失恃，依個性決定是哪一種。`));
   if (a.allyPeril) WHO.push(`【盟友告急·情報】盟友「${a.allyPeril.ally}」此刻正於「${a.allyPeril.loc}」與敵從者「${a.allyPeril.foe}」對上、情勢緊繃（結盟情報共享而得知）——可讓御主/從者有一句反應或掛心，但【是否馳援由玩家決定】，別替玩家起身趕路。`);
   if (!foes.length && stance !== 'normal') WHO.push(`【御主的姿態】御主此刻以〔${stance === 'stealth' ? '潛行' : '張揚'}〕之姿行動——${stance === 'stealth' ? '壓低存在感、盡量不被察覺地接近或抽身' : '毫不掩飾、主動暴露行蹤'}。讓此姿態自然滲入現身與被察覺的方式，輕輕帶過即可。`);
   // ── 怎麼演 ──
   const HOW = [foes.length
-    ? '寫這片場地與一觸即發的對峙張力——交戰與否、勝負，都留待御主下令，禁止自行開打或分出勝負。'
+    ? '寫這片場地與一觸即發的對峙張力——交戰與否、勝負，都留待御主下令。'
     : '寫這片場地與此刻的喘息：巡查、警戒或鬆一口氣，暗示「可偵查四周或轉往他處」。'];
   if (!foes.length) HOW.push('此地此刻並無其他已知角色在場——環境照寫；這一段的互動對象只有御主與隨行從者。');
   if (a.svName) HOW.push(`從者「${a.svName}」隨行在側，依其個性開口、有反應（至少一句台詞），別寫成御主獨自一人的自言自語。`);
   if (a.hasContext) HOW.push(foes.length
     ? '承接上一則敘事：若眼前敵人正是方才對手，即是一路追上或再度狹路相逢——非初見（對方可能仍帶著傷或怒）。'
-    : '承接上一則敘事：依上一戰的勝負與當前血量定調（勿臆測）——大勝→餘勇或警戒；慘勝→疲憊仍挺立；敗逃→狼狽負傷，別演成若無其事。');
-  HOW.push('忌套語與雷同結構（動作→台詞→轉身），每次換感官切入點與詞彙。不可逼問玩家，停在決策前的留白讓玩家以按鍵回應。');
+    : '承接上一則敘事：依上一戰的勝負與當前血量定調——大勝→餘勇或警戒；慘勝→疲憊仍挺立；敗逃→狼狽負傷。');
+  HOW.push('每次換一個感官切入點與一組詞彙。停在決策前的留白，讓玩家以按鍵回應。');
   const sec = (t, arr) => arr.length ? `【${t}】\n` + arr.map(x => '· ' + x).join('\n') + '\n' : '';
   const words = ARRIVE_WORDS_[Math.min(NOW.length + (foes.length ? 1 : 0) + (foes.length >= 3 ? 1 : 0), ARRIVE_WORDS_.length - 1)];
   return (a.masterCard || '') + (a.servantCard ? '【我方從者】' + a.servantCard : '') + (a.foeCards ? '【在場敵方·非我方】' + a.foeCards : '')

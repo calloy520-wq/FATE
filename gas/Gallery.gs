@@ -123,7 +123,7 @@ function kanshouDailyTranslateCall_(prompt, sys, apiOpts, resultMapper, fallback
 function translateLookToDaily_(name, cls, rawLook, firstP, speech, sex) {
   var look = String(rawLook || "").trim();
   if (!look) return { look: "", outfit: "" };
-  var figureHint = (sex === "女") ? "，若角色是成年女性、務必把身形與胸部寫進自然的敘述句裡，不用生硬孤立的分類標籤——這句話會顯示在玩家看得到的狀態欄位；形容胸部時須明確扣連到胸部，不要只寫髮色瞳色就交差" : "";
+  var figureHint = (sex === "女") ? "，若角色是成年女性、務必把身形與胸部寫進自然的敘述句裡——這句話會顯示在玩家看得到的狀態欄位；形容胸部時須明確扣連到胸部" : "";
   var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "玩家提供一段用「、」或「・」分隔的角色戰時外貌描述" +
     "(前面數段是外貌本相與戰時攻防裝束，最後一段是整體氣質／神情)，以及這位角色的第一人稱自稱、說話語氣。" +
     "這是 Fate／聖杯戰爭的平行世界日常線，想像《衛宮家今天的餐桌風景》那種基調——換上現代日常穿搭，" +
@@ -341,7 +341,7 @@ const KANSHOU_RAPPORT_TONE_ = {
   },
   '很喜歡': {
     '初識': '事實：喜歡跑在相處前面，連本人都還沒跟上。',
-    '老交情': '事實：不藏了，明著在等你先開口；但絕不會自己先告白。'
+    '老交情': '事實：不藏了，明著在等你先開口——最後那一句要你來說。'
   },
   '交往中': {
     '初識': '事實：已經在交往，但認識還沒多久。',
@@ -992,9 +992,9 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 // 🔠 對話與敘事格式·全遊戲【單一真實來源】：solo 的 miniSystem(Router_Narrative.gs) 與鑑賞的nsfwBaseVars(本檔 nsfwBaseRules 第3條) 都呼叫這一支，杜絕兩處各改一半又不一致(工程準則·單一真實來源)。
 function dialogueFormatRule_() {
   return `對話格式(輕小說筆觸)：
-①口/喉聲音(話語+喘息/輕吟/悶哼/笑聲/吸吮/舔啜/咀嚼/吞嚥)都寫進單層「」(例：「唔……啾，好甜」)，禁（輕哼）括號描述、禁轉旁白。
-②每句台詞前冠說話者名(例：櫻「風音學姐……」)，跨回合不認錯人，喘息混台詞算同一人名下。★玩家台詞免冠名、直接「……」，且照原句一字不動地寫進去。
-③肢體動作與非口部聲響(啪啪/環境音)一律走敘事、絕不進「」；只用單層「」禁巢狀『』；背景描述精簡，篇幅留給互動。`;
+①口/喉聲音(話語+喘息/輕吟/悶哼/笑聲/吸吮/舔啜/咀嚼/吞嚥)都寫進單層「」。
+②每句台詞前冠說話者名，跨回合不認錯人，喘息混台詞算同一人名下。★玩家台詞免冠名、直接「……」，且照原句一字不動地寫進去。
+③肢體動作與非口部聲響(啪啪/環境音)一律走敘事；引號只用單層「」；背景描述精簡，篇幅留給互動。`;
 }
 
 // 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。
@@ -1005,33 +1005,33 @@ function dialogueFormatRule_() {
 //    留著這條等於用一個更差的機制做同一件事。經歷從此是固定事實：創角時生成一次，
 //    之後只有玩家能透過逆天改命改。這是 2026-07「性格四格/萌點不再交給 AI」那次的最後一塊。
 function buildDefaultSystemPrompt(includeOptions, styles) {
-  const _physicalState = "此刻臉上看得到的神色·眼神/臉色/表情(第三人稱·≤15字)·不寫動作劇情·沒變就留空";
+  const _physicalState = "此刻臉上看得到的神色(第三人稱·≤15字)·沒變就留空";
 
   // appearance_extras(原 outfit_change)：角色當下實際穿著與配飾，AI 依劇情如實更新，寫回持久的【換裝】記錄。2026-09 小道具機制移除後，配飾類事實回歸由這一欄承接。
-  const _appearanceExtras = "穿著與配飾(第三人稱·≤20字·名詞短語如「浴巾」「貓耳髮箍」「全裸」)·禁動作句與場景姿勢·沒換就留空";
+  const _appearanceExtras = "穿著與配飾(第三人稱·≤20字·名詞短語)·沒換就留空";
 
   const _physicalStateRef = "同上";
   const _appearanceExtrasRef = "同上";
 
   const finalJson = {
     // 強制思維鏈：放範本第一位讓模型先自省再寫敘事。
-    "inner_monologue": "【不顯示·約50字·先判這個再寫 narration】第三人稱總結【被搭話的那個人】此刻的真實狀態([性格]vs[情緒身體])＋【玩家這個人】真正的感受(依其性格/經歷·不是表現出來的那個)·承接歷史·只算【在場人物】名單上的人",
+    "inner_monologue": "【不顯示·約50字·先判這個再寫 narration】第三人稱總結【被搭話的那個人】此刻的真實狀態([性格]vs[情緒身體])＋【玩家這個人】真正的感受(依其性格與經歷)·承接歷史·只算【在場人物】名單上的人",
     "narration": "劇情(第二人稱「你」＝玩家·字數照下方【篇幅】·下限是硬底線)",
     // 🗺️ 2026-07 移動改「同意泡泡」制(見§134)；2026-07再修（玩家實測「AI一直提議移動、頭痛」）：move_proposal 欄位整個砍掉，AI 不再有任何管道自己決定要不要換場景/換去哪。
     "npc_exit": "本回合告辭離場者的真名陣列·narration須演出那個人離開·否則[]",
-    "options": ["固定4條·各≤20字·就本回合 narration 出題·只出在場者此刻真做得到的動作·不含換地點·四條走向要不同(主動/被動/接續/反差)"],
+    "options": ["固定4條·各≤20字·就本回合 narration 出題·只出在場者此刻真做得到的動作·不含換地點·四條走向各不相同(主動/被動/接續/反差)"],
     "intimacy_feedback": {
       "player": {
         "physical_state": _physicalState,
         "appearance_extras": _appearanceExtras
       },
       "npcs": [{
-        "name": "NPC真名·不填暱稱/稱號/台詞/地名",
+        "name": "NPC真名",
         "physical_state": _physicalStateRef,
         "appearance_extras": _appearanceExtrasRef,
         "mutual_nicknames": "本回合真的叫出口的暱稱·否則「無」",
         "memory": "里程碑(告白/初牽手/難忘約會/重要約定)才寫≤30字·同 narration 用第二人稱「你」稱玩家·其餘填「無」·同一事只記一次",
-        "noticed": "≤14字·只記【會改變之後怎麼對玩家】的發現·喜好習慣瑣事與卡上已有的一律不記·多數回合填「無」"
+        "noticed": "≤14字·只記【會改變之後怎麼對玩家】的發現·多數回合填「無」"
       }]
     },
     // 🌍 世界帳本的入口：AI 這一回合發明了什麼，自己寫下來，GAS 幫它記住。
@@ -1059,7 +1059,7 @@ function buildDefaultSystemPrompt(includeOptions, styles) {
     _st('continuity'),
     '肢體互動依雙方【性別】欄自然呈現。',
     _st('moe'),
-    '卡片上的裝扮＝既定事實，直到劇情真讓那個人換裝為止——不因為跟這幕不搭就自行改寫或省略。',
+    '卡片上的裝扮＝既定事實，照著寫，直到劇情真讓那個人換裝為止。',
     _st('immersion'),
     '聚焦當下近身互動·只輸出合法JSON(各欄怎麼填見下方輸出範本)。'
   ].filter(Boolean);
@@ -1631,17 +1631,17 @@ var KANSHOU_WORLD_TEXT_MAX_ = 40;
 //    ⚠ 預設值故意留在 .gs 而不搬進試算表：check_prompt／check_pronoun 這些掃描器只看 .gs。（理由見 CODE_NOTES）
 var KANSHOU_STYLE_MODULES_ = [
   { key: 'voice',      name: '筆觸',     hint: '敘事的調子與人稱——用什麼筆法寫、鏡頭站在誰身上。', slot: 'sys', cat: 'pen',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家·禁上帝視角。' },
-  { key: 'agency',     name: '玩家主權', hint: '你的動作與台詞有多不可侵犯——說書人能不能替你補動作、替你開口。', slot: 'sys', cat: 'me',  def: '承接玩家最新動作與台詞【語氣照原樣】(疑問就疑問、吐槽就吐槽)·【動作與台詞只有玩家能決定】：不替玩家加動作、不替玩家開口、不改寫成轉述(感受不在此限)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。' },
-  { key: 'enact',      name: '演玩家這一步', hint: '你寫的那一步要被演多細——撐成完整一拍，還是直接跳到對方的反應。', slot: 'sys', cat: 'me', def: 'narration【從玩家這一步演起】：把那一步撐成完整的一拍(具體的動作、距離、觸感、開口時的語氣與視線)，再往下接對方的反應。但【只擴寫玩家真的寫的那一步】——不補沒做的動作、沒說的話，也不改原意與語氣。' },
+  { key: 'agency',     name: '玩家主權', hint: '你的動作與台詞有多不可侵犯——說書人能不能替你補動作、替你開口。', slot: 'sys', cat: 'me',  def: '玩家的動作與台詞【只有玩家能決定】，語氣照原樣接下去(感受不在此限)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。' },
+  { key: 'enact',      name: '演玩家這一步', hint: '你寫的那一步要被演多細——撐成完整一拍，還是直接跳到對方的反應。', slot: 'sys', cat: 'me', def: 'narration【從玩家這一步演起】：把那一步撐成完整的一拍，再往下接對方的反應；擴寫的範圍就是玩家真的寫的那一步。' },
   { key: 'dialogue',   name: '對話格式', hint: '台詞怎麼排版——引號、換行、誰在說話怎麼標。', slot: 'sys', cat: 'pen',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
-  { key: 'drive',      name: '推演',     hint: '劇情往前推的力道——對方答不答應你，由什麼決定。', slot: 'sys', cat: 'them',  def: '依玩家輸入【確實推演往下走·不停滯敷衍】——答不答應由對方的[個性]×[好感]決定(順從/猶豫/半推半就/婉拒皆可)，玩家不能替對方決定反應。' },
-  { key: 'continuity', name: '情緒連貫', hint: '上一幕的情緒與親密程度怎麼接到這一幕。', slot: 'sys', cat: 'them',  def: '繼承歷史情緒與親密階·絕不無故重置(降溫只因被打斷/翻臉等明確事件)。' },
+  { key: 'drive',      name: '推演',     hint: '劇情往前推的力道——對方答不答應你，由什麼決定。', slot: 'sys', cat: 'them',  def: '依玩家輸入【確實推演往下走·不停滯敷衍】——答不答應由對方的[個性]×[好感]決定。' },
+  { key: 'continuity', name: '情緒連貫', hint: '上一幕的情緒與親密程度怎麼接到這一幕。', slot: 'sys', cat: 'them',  def: '繼承歷史情緒與親密階；降溫只發生在被打斷/翻臉這類明確事件之後。' },
   // ⚠ key 仍叫 'moe'：萌點 2026-09 退休後這段只管語癖/稱呼，但 key 是玩家設定在試算表上的對位欄，改了＝玩家改過的那格對不回來。
   { key: 'moe',        name: '語癖與稱呼', hint: '口癖、專屬稱呼要多常拿出來用。', slot: 'sys', cat: 'them',  def: '語癖/專屬稱呼自然滲入、偶爾點到即可·同一個不重複用。' },
-  { key: 'immersion',  name: '不出戲',   hint: '系統面的東西（數值、關係階級、回合）能不能出現在敘述裡。', slot: 'sys', cat: 'stage',  def: '敘事只寫這個世界裡看得到聽得到的：好感數字、關係階級、系統/回合/選項/欄位名一律不進 narration，也不報幕宣告任何變化——要表現就用神情、語氣與彼此的距離。' },
+  { key: 'immersion',  name: '不出戲',   hint: '系統面的東西（數值、關係階級、回合）能不能出現在敘述裡。', slot: 'sys', cat: 'stage',  def: 'narration 只寫這個世界裡看得到聽得到的；好感、關係階級與任何系統變化，都用神情、語氣與彼此的距離去表現。' },
   { key: 'world',      name: '世界觀',   hint: '這座城市是什麼樣的世界、有沒有魔術與從者。', slot: 'user', cat: 'stage', def: '★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。' },
-  { key: 'pov',        name: '視角',     hint: '「你」指的是誰、旁白能不能用第一人稱。', slot: 'user', cat: 'me', def: '★【視角鎖定】：「你」＝玩家『{玩家}』本人·旁白旁白一律用「你」稱呼玩家，「我」留給角色引號內的台詞。同伴外貌只取材各人自己那份資料。' },
-  { key: 'feel',       name: '你的感受', hint: '要不要寫出你自己的感官與情緒，還是只當一台攝影機。', slot: 'user', cat: 'me', def: '★【你也是這座城裡的一個人】：『{玩家}』不是攝影機——【用{代名詞}的角度感受這個世界】：此刻的觸感/冷熱/氣味/聲音、{代名詞}【真正】的情緒(不是表現出來的那個)、性格帶來的反應底色(見【玩家資料·旁白用】)，沉默也要有理由。{代名詞}看不見自己的臉，卻感覺得到臉發燙、喉嚨發緊——【寫感覺得到的，不寫看不到的外觀】。' },
+  { key: 'pov',        name: '視角',     hint: '「你」指的是誰、旁白能不能用第一人稱。', slot: 'user', cat: 'me', def: '★【視角鎖定】：「你」＝玩家『{玩家}』本人·旁白一律用「你」稱呼玩家，「我」留給角色引號內的台詞。同伴外貌只取材各人自己那份資料。' },
+  { key: 'feel',       name: '你的感受', hint: '要不要寫出你自己的感官與情緒，還是只當一台攝影機。', slot: 'user', cat: 'me', def: '★【你也是這座城裡的一個人】：旁白從『{玩家}』的感官與【真正】的情緒寫起，性格帶來的反應底色見【玩家資料·旁白用】，沉默也要有理由。{代名詞}感覺得到自己的體溫與心跳，看不見自己的臉。' },
   { key: 'length',     name: '篇幅',     hint: '一回合大概寫多長、寫不滿的時候怎麼補。', slot: 'user', cat: 'pen', def: '★【篇幅】：narration 寫 {篇幅} 字，下限是硬底線——字數靠互動與真實反應撐起來。' },
   { key: 'ending',     name: '收尾',     hint: '每一段停在哪裡——留給誰的反應、要不要拋話題讓你接。', slot: 'user', cat: 'stage', def: '🚨【收尾{主動掌握}】：{推進}最後一句留給被搭話的人——用其答話或神情收尾，並拋出一個玩家接得住的話題(問句/邀約/此刻在意的事)，停在等玩家回應的那一刻。沒有別人在場才收在「你」身上。' }
 ];
@@ -2589,7 +2589,7 @@ function actionPlay_(userData, pcId, sheets) {
         if (KANSHOU_SCENE_DAY_TAG_.get(pcData[guestIdx][COL.PC.MEMORY]) !== curDay) {
           pcData[guestIdx][COL.PC.BOND] = Math.min(100, _kgBond + KANSHOU_SCENE_BOND_);
           kanshouSyncRelTier_(pcData, guestIdx);
-          kanshouKnockRaidStr += `（這樣一段特別的相處，讓你們的關係又近了一些——好感已由系統上調，敘事勿再另計。）`;
+          kanshouKnockRaidStr += `（這樣一段特別的相處，讓你們的關係又近了一些——好感已由系統上調，敘事照這份心情走就好。）`;
         }
         pcData[guestIdx][COL.PC.MEMORY] = KANSHOU_SCENE_DAY_TAG_.set(pcData[guestIdx][COL.PC.MEMORY], curDay);
       }
@@ -3306,7 +3306,7 @@ function actionPlay_(userData, pcId, sheets) {
       if (_pdPr && _pdPr.day >= curDay) {
         const _pdWhen = _pdPr.day === curDay ? "今天稍後" : _pdPr.day === curDay + 1 ? "明天" : (_pdPr.day - curDay) + "天後";
         const _pdBandL = _pdPr.band ? ((KANSHOU_APPT_BANDS_.find(b => b.band === _pdPr.band) || {}).label || _pdPr.band) : "";
-        pPromiseStr = ` | 與玩家的約定:${_pdWhen}${_pdBandL}在「${_pdPr.loc}」見面——對方記得這個約，聊到相關話題時自然帶著這份期待/在意，但勿每回合主動提起`;
+        pPromiseStr = ` | 與玩家的約定:${_pdWhen}${_pdBandL}在「${_pdPr.loc}」見面——對方記得這個約，聊到相關話題時自然帶著這份期待/在意`;
       }
       // 明講方向的「她/他是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍對方。
       const pPresenceStr = (() => {
@@ -3465,7 +3465,7 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   const prompt = `${_sty_('world')}
 ${PROMPT_REL}
 ★【這個世界有誰】：①【正式同伴】＝下方【在場人物】的卡，只有他們算好感，每人這回合都要真實存在(沒被搭話的給個動作即可)，沒列卡的同伴不准出現或開口，有【專屬稱呼】就叫暱稱。②【常民】＝【這個世界已經確立的事】名單上的人，可出現可開口、不算好感。③【路人】不具名，隨手寫、不必記。玩家專一對著一個人時其他人背景輕描；不在場的人一句話交代去向。
-★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，但沒寫進去的下回合就不存在。一回合最多 2 筆，只記之後真的還會用到的，已在名單上的不必重寫。world_note 只記【這座城有什麼】(地點＝多一個去得了的地方｜人物＝這個人還會再出現｜設定＝這座城的規矩或風景)；你們之間發生的事記進那個人的 memory。
+★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，寫進去的下回合才存在。一回合最多 2 筆，只記【這座城有什麼】(地點/人物/設定)；你們之間發生的事記進那個人的 memory。
 ${_sty_('pov')}
 ${_sty_('feel')}
 

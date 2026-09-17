@@ -135,7 +135,7 @@ function actionManaSupply(userData, pcId, sheets) {
   const lowEnoughForMana = curMp <= curMpMax * 0.10;
   if (bondForMana < MANA_TRUST_BOND_ || !lowEnoughForMana) {
     // GAS 只給裁定後的事實，理由留給 AI 用她的個性演——舊版把「信任尚淺、羈絆未至可託付如此私密之事的深度」
-    const declineWhy = bondForMana < MANA_TRUST_BOND_ ? '兩人的交情還不到這一步' : '魔力還沒到非付出這種代價不可的地步';
+    const declineWhy = bondForMana < MANA_TRUST_BOND_ ? '兩人的交情還不到這一步' : '魔力還撐得住，用不著付出這種代價';
     const declinePrompt = masterCard_(pcData[pIdx]) + servantCard_(pcData[svIdx]) +
       `【已裁定】御主開口求補魔，「${svName}」婉拒了——${declineWhy}。\n` +
       `★【60~100 字】演出這個「不」：依對方的個性，用眼神、動作或一句話帶過，理由不必說破。收在御主被回絕的那一刻。`;

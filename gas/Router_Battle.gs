@@ -1280,7 +1280,7 @@ function actionFateBattle(userData, pcId, sheets) {
     if (useNp && atkC.npOverloadMul && atkC.npOverloadMul > 1.25) SC_PEAK.push(`【灌魔超載】御主${atkC.npOverloadMul >= 1.9 ? '把餘裕魔力盡數傾注' : '將大量魔力加壓灌注'}這一發真名解放${atkC.overcharge ? '（方才補魔蓄積的澎湃魔力一併傾瀉）' : ''}——威能被推至${atkC.npOverloadMul >= 1.9 ? '極限、化作規格外的毀滅光輝' : '遠超尋常的輝度'}。`);
     if (idealRealmFired) SC_PEAK.push(`【理想鄉】「${idealRealmFoe}」傾盡全力解放了斬裂世界的究極真名，然而在觸及「${idealRealmSaber}」的剎那，全世界遙遠的理想鄉 Avalon 悄然展開——究極寶具的威能盡數湮滅於金色結界中，「${idealRealmSaber}」毫髮無傷。`);
     if (foeNpResp) SC_PEAK.push(`「${defC.name}」沒有以真名相迎，而是${foeNpResp.icon}【${foeNpResp.label}】——${foeNpResp.note}${foeNpResp.ok ? '' : '（但沒接住）'}。★演出這記應對本身的判斷與姿態，兩邊都要有畫面。`);
-    if (enemyNpRoundNotes) SC_PEAK.push(`${enemyNpRoundNotes}——這不是普通反擊而是寶具解放，讓「${defC.name}」展現寶具威能／可高呼真名，不可寫成尋常一擊。`);
+    if (enemyNpRoundNotes) SC_PEAK.push(`${enemyNpRoundNotes}——這是寶具解放，讓「${defC.name}」展現寶具威能／可高呼真名。`);
     // ── 收束：勝負落定之後 ──
     if (backlash) SC_END.push(`【過載反噬】倍額魔力灌注的代價在解放後湧回——御主魔術迴路暴走灼身（−${backlash.dmg} HP），強撐住了意識。★純迴路過載的內在灼痛虛脫，非流血外傷。`);
     if (godRevived) { let _gt = ""; try { const ghNow = getGodHandLives_(pcData[nIdx][COL.PC.MEMORY]); const ghBurn = Math.max(0, ghLivesStart - ghNow); if (ghBurn > 0) _gt = `★本戰共燒去 ${ghBurn} 條命、尚餘 ${ghNow}；「燒命數」與「倒地站起的次數」是兩回事(單擊可一口氣燒多命)，各講各的數。`; } catch (e) { } SC_END.push(`十二試煉：${godNote}${_gt}`); }

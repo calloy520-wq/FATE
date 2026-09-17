@@ -88,6 +88,7 @@ for ln, b in blocks:
 
 # ③ 正面指示不變式（見檔頭）。掃全 .gs，只看提示詞字串行。
 import os as _os
+_LITERAL = re.compile(r"`([^`]*)`|'([^'\\n]*)'|\"([^\"\\n]*)\"")
 HARD_BAN = re.compile(r'【禁[^】]*】|【嚴禁】|【不可】|絕不可|嚴禁')
 # 軟性否定：同一條原則，只是沒有【】包起來。要排掉三種假陽性——
 #   ①「要不要」是疑問不是禁令 ②「情不自禁」等成語 ③行尾的 // 註解（註解本來就會講禁了什麼）
@@ -95,23 +96,64 @@ SOFT_BAN = re.compile(r'(?<!要)(不可|不要|不得|禁止|勿(?!論)|絕不|�
 SOFT_SKIP = ('情不自禁', '不禁')
 # 真的只能用否定寫的登記在這裡，鍵＝「檔名:出現的字樣」，值＝理由。目前一條都不需要。
 HARD_BAN_ALLOW = {}
+# 這兩類字串不是提示詞：①種子庫是角色資料 ②`message:` 是給玩家看的錯誤訊息，本來就該說「不行」。
+PROMPT_SKIP_FILES = {'Seed_Codex.gs'}
+PLAYER_MSG = re.compile(r'\bmessage\s*:')
 # 否定句 ＋ 同一子句裡的引號內容／(例…)：那個內容就是示範。
 NEG_EXAMPLE = re.compile(r'(?:不可|不要|不得|別|勿|禁)[^\n。；]{0,40}?(?:「([^」\n]{2,24})」|[（(](?:例|如)[:：]?([^）)\n]{2,30})[）)])')
+
+
+def _prompt_lines(path):
+    """回傳 [(行號, 提示詞文字, 原始整行)]。
+    ⚠ 幾乎所有提示詞本體都住在【跨數十行的樣板字串】裡（nsfwBaseRules 整包就是），
+    只做單行引號比對會整批看不到——這個坑 check_pronoun 踩過一次，這裡不再踩第二次。
+    作法：先掃一遍反引號的奇偶，標出哪些行在樣板字串【裡面】；裡面的整行都算提示詞文字，
+    外面的才退回單行引號抽取。行尾 // 註解一律先切掉。"""
+    src = open(path, encoding='utf-8').read()
+    inside, out, depth = False, [], 0
+    for ln, line in enumerate(src.split('\n'), 1):
+        st = line.strip()
+        started_inside = inside
+        # 先算這一行結束後還在不在樣板字串裡。
+        # ⚠ 只數【不在單/雙引號裡】的反引號——引號裡的反引號是資料不是語法，
+        #    數進去奇偶就會歪掉，之後整段程式碼會被誤判成提示詞（第一版就是這樣誤報 4 處）。
+        i, q = 0, ''
+        while i < len(line):
+            c = line[i]
+            if c == '\\':
+                i += 2
+                continue
+            if q:
+                if c == q:
+                    q = ''
+            elif c in ('"', "'"):
+                if not inside:
+                    q = c
+            elif c == '`':
+                inside = not inside
+            i += 1
+        if st.startswith('//') or st.startswith('*'):
+            continue
+        if started_inside or '`' in line:
+            text = line.split('//')[0] if (not started_inside and '//' in line) else line
+        else:
+            text = line.split('//')[0] if '//' in line else line
+            text = re.sub(r"\b(?:name|hint)\s*:\s*'[^']*'", '', text)
+            text = '｜'.join(''.join(t) for t in _LITERAL.findall(text))
+        out.append((ln, text, line))
+    return out
+
 
 def scan_positive():
     hits = []
     for f in sorted(_os.listdir('gas')):
-        if not f.endswith('.gs'):
+        if not f.endswith('.gs') or f in PROMPT_SKIP_FILES:
             continue
-        for ln, line in enumerate(open(_os.path.join('gas', f), encoding='utf-8').read().split('\n'), 1):
-            st = line.strip()
-            if st.startswith('//') or st.startswith('*'):
+        for ln, code, raw in _prompt_lines(_os.path.join('gas', f)):
+            if PLAYER_MSG.search(raw):
                 continue
-            if '★' not in line and '【' not in line:
+            if len(re.findall(r'[\u4e00-\u9fff]', code)) < 8:
                 continue
-            code = line.split('//')[0] if '//' in line else line   # 行尾註解不算提示詞
-            # 風格模組表那幾行裡，只有 def: 會送進提示詞；name/hint 是面板上給玩家看的字。
-            code = re.sub(r"\b(?:name|hint)\s*:\s*'[^']*'", '', code)
             for m in SOFT_BAN.finditer(code):
                 around = code[max(0, m.start() - 4):m.start() + 4]
                 if any(k in around for k in SOFT_SKIP):
@@ -127,6 +169,9 @@ def scan_positive():
             for m in NEG_EXAMPLE.finditer(code):
                 ex = m.group(1) or m.group(2)
                 if '${' in ex:      # 插值不是例句，是這一局真的要代進去的值
+                    continue
+                # 結構佔位（「(外貌)、(氣質)」）示範的是【斷句形狀】不是內容，不會固化畫面
+                if not re.sub(r'[（(][^）)]*[）)]|[、，,／/·\s]', '', ex):
                     continue
                 hits.append((f, ln, '否定句後面附了例句「%s」——那是把被禁的寫法示範給模型看' % ex))
     return hits
