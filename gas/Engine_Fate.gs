@@ -422,7 +422,7 @@ function servantNpOptions_(name, cls) {
     { n: '世人啊、冀以鎖繫神明 Enuma Elish', scale: '對界', fx: 'enuma', desc: '對界·天之楔·反星球/人類破壞行為增幅，可匹敵乖離劍的概念級一擊' },
     { n: '民之睿智 Age of Babylon', scale: '對軍', fx: 'gob', desc: '對軍·自大地召出萬千劍槍鎖齊射（用法類王之財寶·可抵銷之）' }
   ];
-  if (name === '伊斯坎達爾（征服王）') return [
+  if (name === '伊斯坎達爾') return [
     { n: '王之軍勢 Ionioi Hetairoi', r: 'EX', scale: '對軍', fx: '', kind: 'barrier', lingers: true, desc: '對軍·固有結界召喚萬軍亂踏' },
     { n: '神威的車輪 Gordius Wheel', r: 'A+', scale: '對人', fx: '', desc: '對人·雷神戰車的單騎衝鋒' }
   ];

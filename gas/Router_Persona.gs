@@ -69,6 +69,16 @@ var BOND_STANCE_ = [
   { min: 55, s: '真心認可你是自己的御主，願意把後背交給你' },
   { min: 45, s: '開始把你當一回事，語氣鬆了一些' }
 ];
+// 🫶 敵方（敵御主／敵從者）卡的「此刻對你」：他們對你的好感【會動】——求愛、挑撥、交涉結盟都在改
+//    `COL.PC.BOND`，但卡片原本從不講這件事，於是不管你們之間發生過什麼，AI 每次都照原廠的敵意演。
+//    ⚠ 刻意只在【真的偏離中性】時才回一句（`favorWord_` 中性回空字串）：沒發生過什麼就不必多送一行。
+//    ⚠ 結盟排最前面——盟約期間「敵意」那句會說謊。
+function foeStanceNote_(row) {
+  try {
+    if (isAllied_(row)) return '目前與你結盟，暫時不敵對（盟約有期限，也可能被打破）';
+    return favorWord_(bondFavor_(row));
+  } catch (e) { return ''; }
+}
 function bondStance_(bond, seedStance) {
   var b = parseInt(bond);
   if (!isNaN(b)) {
@@ -150,10 +160,12 @@ function servantCard_(row, opts) {
     // 我方從者的態度會隨羈絆走（見 BOND_STANCE_）；敵從者講的是他跟自己御主的關係，不吃你的好感。
     var isMine = String(row[COL.PC.FACTION]) === "從者";
     var stance = isMine ? bondStance_(row[COL.PC.BOND], toM) : (toM || '依真名');
+    var foeStance = isMine ? '' : foeStanceNote_(row);   // 敵方：他對【你】的態度（會動，中性時不送）
     var card = `〈${name}·${cls}·核心特質·內化用〉` +
       (persona ? quadLabeled_(persona, PREF_LABELS_, false).replace(/^｜/, '') : `性格：依真名`) +
       (speech || fpNote ? `｜口吻：${fpNote}${speech}` : "") +
       (stance ? `｜${isMine ? '此刻對你' : '對自己御主的態度'}：${stance}` : "") +
+      (foeStance ? `｜此刻對你：${foeStance}` : "") +
       (moe && !foe ? `｜萌點(情境對了才浮現一次)：${moe}` : "") +
       (tic && !foe ? `｜小動作：${tic}` : "") +
       (look ? traitLabeled_(look, false) : "") +
@@ -248,6 +260,7 @@ function enemyMasterCard_(row, opts) {
       (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
       (melee ? `｜體術：${melee}階` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
+      ((function () { var fs = foeStanceNote_(row); return fs ? `｜此刻對你：${fs}` : ""; })()) +
       "。" +
       // 三條 ★ 併一條：正典優先與 show-don't-tell 已在 miniSystem 鐵律 8 講過，這裡只留它獨有的兩件事
       //   ——「本人在場、不是背景板」與「別劇透原作後續」。該有什麼情緒由那個人的個性決定，不預先框。

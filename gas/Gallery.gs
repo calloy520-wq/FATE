@@ -2100,7 +2100,8 @@ function setKanshouHomeName_(memory, name) {
   const safe = kanshouSanitizeTagValue_(name, 12) || "我家";
   return (cleaned ? cleaned + "｜" : "") + "【住所】" + safe;
 }
-// 部分英靈殿角色的 realName 帶括號附註(如「克洛伊·馮·愛因茲貝倫（Archer install）」)，AI 敘事自然只會用括號前後其中一段稱呼TA，但 rel_changes[].target 等比對要求逐字完全相符——會悄悄比對失敗、整條被跳過。
+// 英靈殿的 realName 是正式真名，長到 AI 敘事只會挑一段來稱呼 TA，但 rel_changes[].target 等比對要求逐字完全相符——會悄悄比對失敗、整條被跳過。所以鑑賞一律用這張日常稱呼表。
+// （2026-09 已把真名裡的元資料括號清掉：「（Caster install）」「（征服王）」這種是版本註記/別名，不是名字的一部分。）
 const KANSHOU_CASUAL_NAME_ = {
   '阿爾托莉雅-Saber': 'SABER',
   '美杜莎-Rider': 'RIDER',
@@ -2109,7 +2110,7 @@ const KANSHOU_CASUAL_NAME_ = {
   '遠坂凜-Master': '凜',
   '藤村大河-Master': '大河',
   '衛宮士郎-Master': '士郎',
-  // 真名「伊莉雅絲菲爾·馮·愛因茲貝倫（Caster install）」太長，卡片與訊息都塞不下；
+  // 真名「伊莉雅絲菲爾·馮·愛因茲貝倫」太長，卡片與訊息都塞不下；
   // 括號寫法會被 kanshouNameCandidates_ 拆出「伊莉雅」，剛好與伊莉雅絲菲爾-Master 互斥（同一個人）。
   '伊莉雅-Caster': '伊莉雅（魔法少女）'
 };

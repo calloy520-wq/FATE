@@ -82,6 +82,45 @@ def check_tomaster(bad, seed_src):
     return n
 
 
+# 🏷️ 代碼裡拿【真名】做逐字比對的地方（寶具選項、Avalon 專屬判定…），種子改名了就會靜靜失效：
+#    那些 if 永遠不成立、選項整條消失，沒有錯誤訊息。2026-09 把真名裡的元資料括號
+#    （「（Caster install）」「（征服王）」）清掉時，Engine_Fate 兩處 `name === '…'` 就是這個形狀。
+#    規則：比對用的字面量若【是某個真名的一部分、或包住某個真名，卻不等於任何一個真名】＝過期了。
+NAME_LIT_ALLOW = set()
+
+
+# 🈶 真名裡【必須有中文字】：`cleanChineseName` 會把非中日韓字元整個剝掉，
+#    純拉丁字母的真名（試過把 EMIYA 的真名改成「EMIYA」）會被洗成空字串——
+#    於是「未指定攻擊目標」、名字比對整條靜默失效，而且看起來只是「那個按鍵沒反應」。
+def check_name_has_cjk(bad, seed_src):
+    names = re.findall(r"realName\s*:\s*'([^']*)'", seed_src)
+    for n in names:
+        if not re.search(r'[\u3400-\u4dbf\u4e00-\u9fff]', n):
+            bad.append("真名「%s」沒有半個中文字：cleanChineseName 會把它洗成空字串，名字比對會整條靜默失效" % n)
+    return len(names)
+
+
+def check_hardcoded_names(bad, seed_src, files, extra=()):
+    names = set(re.findall(r"realName\s*:\s*'([^']*)'", seed_src))
+    ids = set(re.findall(r"\{\s*id\s*:\s*'([^']*)'", seed_src))   # id 不是真名（「衛宮士郎-Master」含著真名）
+    n = 0
+    srcs = [(os.path.basename(p), read(p)) for p in files if os.path.basename(p) != 'Seed_Codex.gs']
+    srcs += list(extra)
+    for path, t in srcs:
+        for m in re.finditer(r"[!=]==\s*'([^']{2,40})'", t):
+            lit = m.group(1)
+            if lit in NAME_LIT_ALLOW or lit in ids or not re.search(r'[\u4e00-\u9fff A-Za-z]', lit):
+                continue
+            if lit in names:
+                n += 1
+                continue
+            near = [x for x in names if (lit in x or x in lit)]
+            if near:
+                bad.append("%s 的 `=== '%s'` 對不上任何真名（最接近：%s）——種子改名了，那條比對已經永遠不成立"
+                           % (path, lit, '／'.join(sorted(near)[:2])))
+    return n
+
+
 def check_dead_cols(bad, files):
     core = read(os.path.join(GAS, 'Core_Settings.gs'))
     # COL 的各張子表：  HERO: { ID: 0, CLS: 1, ... },
@@ -161,17 +200,22 @@ def main():
     n_seed = check_unreachable(bad, seed_src, read(os.path.join(GAS, 'Gallery.gs')),
                                read(os.path.join(GAS, 'Seed_Rivals.gs')))
     n_tom = check_tomaster(bad, seed_src)
+    n_lit = check_hardcoded_names(bad, seed_src, gas_files())
+    n_nm = check_name_has_cjk(bad, seed_src)
 
     # 🧪 自我退化測試：注入一個不存在的 fx，這支必須叫。
     probe = []
     check_ghost_fx(probe, seed_src + "\n{n:'測試',r:'A',fx:'zzz_not_wired'},", others)
     check_tomaster(probe, "{ id:'測試-Saber', persona:{toMaster:'起初疏離，逐漸動搖'} }")
-    if len(probe) < 2:
-        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度抓不到）')
+    before = len(probe)
+    check_hardcoded_names(probe, seed_src, [], extra=[('(注入)', "if (name === '阿爾托莉雅') return [];")])
+    check_name_has_cjk(probe, "realName:'EMIYA',")
+    if len(probe) < 4 or len(probe) == before:
+        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名抓不到）')
         return 1
 
-    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、daily 專欄 %d 格（含自我退化測試）'
-          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_own))
+    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、daily 專欄 %d 格（含自我退化測試）'
+          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_own))
     if bad:
         print('  ❌ %d 處「寫了但沒人吃」：' % len(bad))
         for b in bad:
