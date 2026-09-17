@@ -1434,10 +1434,18 @@ solo 這邊補上的入口：帳號登入、開新局清檔、翻正典御主名
 
 | 常數 | 預設 | 用在哪 |
 |---|---|---|
-| `AI_MODEL` | `google/gemini-3.5-flash-lite` | 一般敘事（每按鍵一段） |
+| `AI_MODEL` | `x-ai/grok-4.20` | 一般敘事（每按鍵一段）＋鑑賞 |
 | `CREATION_MODEL` | `google/gemini-3.5-flash` | 創角／創英靈四支：solo 御主創角、工房 persona 補完、AI 生成從者、鑑賞御主創角 |
 | `LEWD_MODEL` | `x-ai/grok-4.20` | 補魔三支（solo 僅有的露骨橋段） |
-| `FALLBACK_MODEL` | `x-ai/grok-4.20` | 被審查擋下或重試全敗時的後援（原有） |
+| `FALLBACK_MODEL` | `google/gemini-3.5-flash` | 被審查擋下或重試全敗時的後援 |
+
+**2026-09 玩家定案「全部改成走 grok 最快了」**（原本的問題是「要怎麼區分 grok 和 gemini」——
+敘事整層統一成同一顆，就沒有要分的東西）。`AI_MODEL` 由 flash-lite 換成 grok。
+⚠ **後援必須跟主力不同顆**：`Engine_Combat` 的換模型條件是 `fallbackName !== modelName`，
+兩邊填同一顆的話整條後援路徑會**靜靜失效**——被審查擋下就沒有第二次機會了。
+主力換 grok 的同時，`FALLBACK_MODEL` 由 grok 換成 `google/gemini-3.5-flash`。
+創角仍留在 gemini flash（玩家先前指名「創角要用比較聰明的 gemini 閃光」）。
+探針 `mana.js` 釘了三條：一般敘事走 `AI_MODEL`、後援跟主力不同顆、創角與補魔各自指名不同顆。
 
 - **創角為什麼值得換好一點的**：那是一次性呼叫，生出來的六圍／技能／寶具／人設卻整局都在被讀。
 - **補魔怎麼換過去**：前端解鎖分支的 `narrateExtra` 由 `{longForm:true}` 改成 `{longForm:true, lewd:true}` →

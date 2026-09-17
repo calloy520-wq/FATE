@@ -10,11 +10,14 @@ const OPENROUTER_API_KEY = (function () {
 })();
 const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
 // 兩軌共用同一顆主力模型；被審查擋下或重試全敗時，callGeminiAPI 自動換後援再打一輪（見 Engine_Combat.gs）。
+// 2026-09 玩家定案「全部改成走 grok 最快」：敘事整層換 grok，玩家就不用去分哪一段是誰寫的。
 const AI_MODEL = (function () {
-  return PropertiesService.getScriptProperties().getProperty('MODEL') || 'google/gemini-3.5-flash-lite';
+  return PropertiesService.getScriptProperties().getProperty('MODEL') || 'x-ai/grok-4.20';
 })();
+// ⚠ 後援必須跟主力【不同顆】：Engine_Combat 的換模型條件是 fallbackName !== modelName，
+//    兩邊填一樣的話整條後援路徑會靜靜失效（被審查擋下就沒有第二次機會了）。
 const FALLBACK_MODEL = (function () {
-  return PropertiesService.getScriptProperties().getProperty('FALLBACK_MODEL') || 'x-ai/grok-4.20';
+  return PropertiesService.getScriptProperties().getProperty('FALLBACK_MODEL') || 'google/gemini-3.5-flash';
 })();
 // 創角/創英靈用更聰明的一顆：這是一次性的呼叫，生出來的設定卻整局都在被讀。
 const CREATION_MODEL = (function () {
