@@ -899,6 +899,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `parseVisibleStatus(rawStatus)` — 解析外顯狀態 JSON → {衣服/姿勢/負面/顏面}，失敗則把原字串當顏面。
 - `buildVisibleStatusString(rawStatus)` — 組人眼可讀的外顯狀態串（濾掉「無」與健康類詞），空則回「氣息平穩」。
 - `mergePhysicalStatus(oldJson, newVal)` — 合併 physical_state（現只單一「狀態」鍵）；解析失敗當空物件確保 newVal 一定套用。
+- `kanshouRestBody_(pcData, idx)` — 睡一覺回到如常：把該列 `PHYSICAL` 設回 `{"狀態":"如常"}`。唯一呼叫點＝鑑賞的【一天結束】（玩家本人＋所有正式同伴，各自 `dirtyPcRows.add`）。⚠ 肉體狀態是「此刻」的東西：AI 沒吐 `physical_state` 的回合不會覆寫它，不清就會一路跟著人走好幾天。
 - `buildPlayerStatusString(selfRow, relMem)` — 組 `§` 分隔的下傳狀態串；MEMORY/relMem 內 `|` 轉義為 `@@@`；慾海(K系id)以肉體狀態填外顯格、solo 留空；含九州廢欄占位。已移除 `getFreshStatusString`(整表重讀版)——各 handler 改直接對記憶體中的 pcData 呼叫 `buildPlayerStatusString`，省一次整表讀。
 
 #### 靜態種子表快取

@@ -496,6 +496,11 @@ function buildVisibleStatusString(rawStatus) {
 }
 
 // physical_state 已簡化成單一「狀態」欄，不再有器官專屬鍵，單純覆寫這一鍵即可、無跨鍵合併需求。
+// 🩸 睡一覺回到如常：肉體狀態是「此刻」的東西，不該跨夜跟著人走（呼叫端＝鑑賞的【一天結束】）。
+function kanshouRestBody_(pcData, idx) {
+  if (idx < 0 || !pcData[idx]) return;
+  pcData[idx][COL.PC.PHYSICAL] = JSON.stringify({ "狀態": "如常" });
+}
 function mergePhysicalStatus(oldJson, newVal) {
   let oldObj;
   try { oldObj = JSON.parse(oldJson || "{}"); } catch (e) { oldObj = {}; }
