@@ -578,8 +578,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
         success: true,
         pcId: linkedKpcId, pcName: String(data[r][COL.PC.NAME] || acctName),
         pcSex: String(data[r][COL.PC.SEX] || "異"), loc: loc,
-        homeName: getKanshouHomeName_(data[r][COL.PC.MEMORY], String(data[r][COL.PC.NAME] || acctName)),
-        quickPhrases: kanshouGetQuickPhrases_(data[r][COL.PC.MEMORY])
+        homeName: getKanshouHomeName_(data[r][COL.PC.MEMORY], String(data[r][COL.PC.NAME] || acctName))
       });
     }
     // 連結指向的列不存在(手動整理試算表等邊角情況)→ 當作沒有存檔，往下走新建流程。
@@ -595,8 +594,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
         success: true,
         pcId: migId, pcName: String(data[m][COL.PC.NAME] || acctName),
         pcSex: String(data[m][COL.PC.SEX] || "異"), loc: String(data[m][COL.PC.LOC] || "冬木·深山町"),
-        homeName: getKanshouHomeName_(data[m][COL.PC.MEMORY], String(data[m][COL.PC.NAME] || acctName)),
-        quickPhrases: kanshouGetQuickPhrases_(data[m][COL.PC.MEMORY])
+        homeName: getKanshouHomeName_(data[m][COL.PC.MEMORY], String(data[m][COL.PC.NAME] || acctName))
       });
     }
   }
@@ -740,55 +738,17 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       current.push({ id: String(data[i][COL.PC.ID]), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), nickname: getNickname_(data[i][COL.PC.REL_MEM]), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
     }
   }
-  return JSON.stringify({ success: true, current: current, quickPhrases: kanshouGetQuickPhrases_(me[COL.PC.MEMORY]) });
+  return JSON.stringify({ success: true, current: current });
 }
 
-// 🎀 快速輸入貼圖·玩家自訂(2026-07「表情包文字也想自訂」，同月再縮減內建數量)：4個內建貼圖(害羞/小聲/苦笑/臉紅)寫死在Script_Kanshou.html(KC_QUICK_PHRASES_BUILTIN_)純前端顯示，這裡只管玩家自己額外新增的——存玩家列MEMORY【快速貼圖】text1,text2,...，逗號分隔比照【自訂道具】同款寫法。
+
+// 💞 共同回憶面板操作(釘選/取消釘選/刪除)——比照 update_rel_tag「玩家 UI 手動管理、AI 無權」精神。
 // 💞 共同回憶的兩個上限。原本是寫死在三處的魔術數字（後端總量、後端釘選、前端說明文字），
 // 改一個地方另外兩個不會跟著動——UI 會靜靜說謊。抽成常數並鏡射給前端，check_mirror.js 才盯得到。
 // ⚠ 釘選上限刻意比總量少 2：釘滿就會讓新回憶永遠擠不進來。
 const KANSHOU_MEMOIR_CAP_ = 10;
 const KANSHOU_MEMOIR_PIN_CAP_ = 8;
-const KANSHOU_QUICK_PHRASE_CAP_ = 8;
-function kanshouGetQuickPhrases_(memory) {
-  const m = String(memory || "").match(/【快速貼圖】([^｜【】]*)/);
-  if (!m || !m[1]) return [];
-  return m[1].split(',').filter(Boolean);
-}
-function kanshouSetQuickPhrases_(memory, arr) {
-  const cleared = String(memory || "").replace(/｜?【快速貼圖】[^｜【】]*/g, "").replace(/｜｜/g, "｜").replace(/^｜|｜$/g, "");
-  if (!arr || !arr.length) return cleared;
-  return (cleared ? cleared + "｜" : "") + "【快速貼圖】" + arr.join(',');
-}
-function actionKanshouAddQuickPhrase(userData, pcId, sheets) {
-  var kpc = sheets.pc;
-  var text = kanshouSanitizeTagValue_(userData.text, 12);
-  if (!text) return JSON.stringify({ success: false, message: "請輸入貼圖文字。" });
-  var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
-  var phrases = kanshouGetQuickPhrases_(data[meIdx][COL.PC.MEMORY]);
-  if (phrases.indexOf(text) !== -1) return JSON.stringify({ success: false, message: "這句已經有了。" });
-  if (phrases.length >= KANSHOU_QUICK_PHRASE_CAP_) return JSON.stringify({ success: false, message: "貼圖最多 " + KANSHOU_QUICK_PHRASE_CAP_ + " 句，先刪幾個。" });
-  phrases.push(text);
-  var newMemory = kanshouSetQuickPhrases_(data[meIdx][COL.PC.MEMORY], phrases);
-  kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
-  return JSON.stringify({ success: true, quickPhrases: phrases });
-}
-function actionKanshouDeleteQuickPhrase(userData, pcId, sheets) {
-  var kpc = sheets.pc;
-  var text = String(userData.text || "").trim();
-  if (!text) return JSON.stringify({ success: false, message: "少了東西。" });
-  var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
-  var phrases = kanshouGetQuickPhrases_(data[meIdx][COL.PC.MEMORY]).filter(function (t) { return t !== text; });
-  var newMemory = kanshouSetQuickPhrases_(data[meIdx][COL.PC.MEMORY], phrases);
-  kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
-  return JSON.stringify({ success: true, quickPhrases: phrases });
-}
 
-// 💞 共同回憶面板操作(釘選/取消釘選/刪除)——比照 update_rel_tag「玩家 UI 手動管理、AI 無權」精神。
 function actionKanshouMemoirOp(userData, pcId, sheets) {
   var kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」
   var op = String(userData.op || "").trim();

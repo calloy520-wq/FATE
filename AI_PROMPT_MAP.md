@@ -491,7 +491,6 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | `kanshou_set_pace` | `actionKanshouSetPace`（Gallery.gs） | 否（時間流速 0/10/20/30） |
 | `kanshou_get_style`／`kanshou_set_style` | `actionKanshouGetStyle`／`actionKanshouSetStyle`（Gallery.gs） | 否（⚙ 說書人設定：讀／改 12 段風格模組，見 `KANSHOU_REFERENCE.md` §說書人風格交給玩家） |
 | `kanshou_set_nickname` | `actionSetNickname`（Router_Action.gs） | 否（專屬稱呼，bond≥80） |
-| `kanshou_add_quick_phrase`／`kanshou_delete_quick_phrase` | `actionKanshouAddQuickPhrase`／`actionKanshouDeleteQuickPhrase`（Gallery.gs） | 否（快速貼圖） |
 
 ---
 

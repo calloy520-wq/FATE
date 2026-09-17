@@ -31,8 +31,6 @@
     if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
     document.getElementById(loadId)?.remove();
   }
-
-  // 🎀 快速輸入貼圖：點下去把括號註記塞進輸入框游標處(不送出)，玩家自己決定要不要送。
   function kcInsertPhrase(text) {
     const el = document.getElementById('u-in');
     if (!el) return;
@@ -43,74 +41,11 @@
     const pos = start + text.length;
     el.setSelectionRange(pos, pos);
   }
-  // 🎀 4個內建快速貼圖(固定不可刪，2026-07再縮減)＋玩家自訂(2026-07「表情包文字也想自訂」新增，存後端
-  //   MEMORY【快速貼圖】，上限KANSHOU_QUICK_PHRASE_CAP_=8句，見Gallery.gs)。
-  var KC_QUICK_PHRASES_BUILTIN_ = ['（害羞）', '（小聲）', '（苦笑）', '（臉紅）'];
-  var KC_QUICK_PHRASE_CAP_ = 8; // 鏡像後端 KANSHOU_QUICK_PHRASE_CAP_(Gallery.gs)，改後端記得同步這裡
   var KC_ALBUM_CAP_ = 100;     // 鏡像後端 KANSHOU_ALBUM_CAP_（相簿滿了的那句訊息要用它，別再寫死）
   var KC_MEMOIR_CAP_ = 10;      // 鏡像後端 KANSHOU_MEMOIR_CAP_
   var KC_MEMOIR_PIN_CAP_ = 8;   // 鏡像後端 KANSHOU_MEMOIR_PIN_CAP_
-  var _kcQuickPhrases = []; // 玩家自訂的部分，enterKanshou()成功時載入
-  function renderKcQuickPhrases_() {
-    var box = document.getElementById('kc-quick-phrases');
-    if (!box) return;
-    var html = KC_QUICK_PHRASES_BUILTIN_.map(function (t) {
-      return '<button class="kc-qp-btn" onclick="kcInsertPhrase(\'' + t.replace(/'/g, "\\'") + '\')">' + escapeHtml(t) + '</button>';
-    }).join('');
-    html += _kcQuickPhrases.map(function (t) {
-      return '<button class="kc-qp-btn" onclick="kcInsertPhrase(\'' + t.replace(/'/g, "\\'") + '\')">' + escapeHtml(t) + '</button>';
-    }).join('');
-    html += '<button class="kc-qp-btn" onclick="kanshouOpenQuickPhraseManager()" title="管理你的快速貼圖" style="opacity:.7;">⚙️自訂</button>';
-    box.innerHTML = html;
-  }
   // ⚙️ 管理面板：列出玩家自訂的貼圖(內建4個不可刪、不列在這裡)＋新增輸入框。
-  function kanshouOpenQuickPhraseManager() {
-    var ov = ensureOverlay_('kqp-overlay', { zIndex: 10001, onBgClick: function (ov) { if (!_kqpBusy) ov.style.display = 'none'; } });
-    var rows = _kcQuickPhrases.map(function (t) {
-      var safeT = t.replace(/'/g, "\\'");
-      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
-        + '<span style="flex:1;color:#f0b8e0;font-size:13px;">' + escapeHtml(t) + '</span>'
-        + '<button onclick="kanshouDeleteQuickPhrase(\'' + safeT + '\')" style="padding:3px 8px;background:#4a3038;color:#e09999;border:none;border-radius:6px;cursor:pointer;font-size:11px;">🗑刪除</button></div>';
-    }).join('') || '<div style="color:#8a7fa0;font-size:12px;padding:6px 4px;">還沒有自訂貼圖。</div>';
-    ov.innerHTML = '<div style="width:min(360px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(240,184,224,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
-      + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#f0b8e0;">🎀 自訂快速貼圖</b>'
-      + '<button onclick="document.getElementById(\'kqp-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:8px;">前面四個是內建的，自己加的排後面，最多 ' + KC_QUICK_PHRASE_CAP_ + ' 句。</div>'
-      + rows
-      + '<div style="display:flex;gap:5px;align-items:center;margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.1);">'
-      + '<input id="kqp-new-text" maxlength="12" placeholder="新貼圖文字(≤12字，如：（想你了）)" style="flex:1;min-width:0;padding:5px 6px;background:#2a2430;color:#eee;border:1px solid rgba(240,184,224,.3);border-radius:6px;font-size:12px;">'
-      + '<button onclick="kanshouAddQuickPhrase()" style="padding:5px 10px;background:#a05088;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">新增</button>'
-      + '</div></div>';
-    ov.style.display = 'flex';
-  }
   var _kqpBusy = false;
-  async function kanshouAddQuickPhrase() {
-    if (_kqpBusy) return;
-    var el = document.getElementById('kqp-new-text');
-    var text = el ? el.value.trim() : '';
-    if (!text) { alert('請輸入貼圖文字。'); return; }
-    _kqpBusy = true;
-    try {
-      const res = await withProcessing_('新增貼圖中…', () => gasRun({ action: 'kanshou_add_quick_phrase', pcId: pc.id, acctName: currentAccount, text: text }));
-      if (!res || !res.success) { alert((res && res.message) || '沒加上。'); return; }
-      _kcQuickPhrases = res.quickPhrases || _kcQuickPhrases;
-      renderKcQuickPhrases_();
-      kanshouOpenQuickPhraseManager(); // 面板原地重繪
-    } catch (e) { alert('沒加上。'); }
-    finally { _kqpBusy = false; }
-  }
-  async function kanshouDeleteQuickPhrase(text) {
-    if (_kqpBusy) return;
-    _kqpBusy = true;
-    try {
-      const res = await withProcessing_('刪除貼圖中…', () => gasRun({ action: 'kanshou_delete_quick_phrase', pcId: pc.id, acctName: currentAccount, text: text }));
-      if (!res || !res.success) { alert((res && res.message) || '沒刪掉。'); return; }
-      _kcQuickPhrases = res.quickPhrases || [];
-      renderKcQuickPhrases_();
-      kanshouOpenQuickPhraseManager(); // 面板原地重繪
-    } catch (e) { alert('沒刪掉。'); }
-    finally { _kqpBusy = false; }
-  }
 
   // 🧰 2026-07 重構：原本 23 個位置參數(呼叫端一長串 null 極易錯位)改成單一 opts 物件；
   //   前兩個位置參數(customMsg, isSilent)保留——選項按鈕 send(text, true) 用法不變。
@@ -2033,8 +1968,6 @@ let plainTextContext = cleanText;
       document.getElementById('setup').style.display = 'none';
       document.getElementById('game').style.display = 'flex';
       applyModeUI();
-      _kcQuickPhrases = res.quickPhrases || [];
-      renderKcQuickPhrases_();
       // 🔥 舊「自動勾NSFW開關」已拔——NSFW 早改由 pcId(KPC_)路由決定、與勾選格無關；該勾選格已重生為「主動掌握」開關(亮=同伴主動出擊)，預設熄滅=矜持模式(玩家主導)。
       var _dt = document.getElementById('drive-mode-toggle'); if (_dt) _dt.checked = false;
       document.getElementById('ui-name').innerText = pc.name;

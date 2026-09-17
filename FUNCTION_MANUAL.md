@@ -75,8 +75,6 @@
 | `kanshou_set_pace` | `actionKanshouSetPace` | ⏱ 時間流速（每回合 0/10/20/30 分） |
 | `kanshou_get_style` | `actionKanshouGetStyle` | 🎨 說書人設定面板：讀整張風格表（預設＋玩家版） |
 | `kanshou_set_style` | `actionKanshouSetStyle` | 🎨 改一格／還原一格／全部還原 |
-| `kanshou_add_quick_phrase` | `actionKanshouAddQuickPhrase` | 新增玩家自訂快速貼圖(2026-07新增，≤12字，上限8句) |
-| `kanshou_delete_quick_phrase` | `actionKanshouDeleteQuickPhrase` | 刪除玩家自訂快速貼圖 |
 | `prep_meal` | `actionPrepMeal` | 準備餐點 |
 | `get_full_status` | `actionGetFullStatus` | 查某角完整狀態字串 |
 | `update_fate` | `actionUpdateFate` | 逆天改命（4 敘事欄） |
@@ -640,9 +638,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `actionKanshouSummonHero(userData, pcId, sheets)` — 從英靈庫召喚一位英靈「存在」於此後日談世界（不必先 solo 封存）。防線：擁有權驗證、士郎位置擋、`KANSHOU_SUMMON_BLOCKED_IDS_` 擋、ai_gen 僅創造者可召、不開放男男、同一位只召一次（跨名比對）。通過即 appendRow(`heroToKanshouRow_`)。 ⚠ 2026-09 查重改走 `kanshouSummonClash_`。
 - `kanshouSummonClash_(data, gid, hero, heroName)` / `KANSHOU_SRC_TAG_`（常數）— 撞名守門：回 `{name, same}`，`name` 空＝沒衝突；`same:true`＝同一筆種子（已召喚過），`false`＝同一個人的另一種靈基（斯卡哈 Lancer/Assassin、伊莉雅 Master/Caster）。比對順序：【英靈源】id → 同真名 → 舊列退回跨名比對。
-- `actionEnterKanshou(userData, pcId, sheets)`（2026-07新增：分支①②回應皆附`quickPhrases`欄，供前端渲染玩家自訂快速貼圖——🐛→✅ 再稽核抓到②原本漏帶，跟①不一致已補齊）— 進入常駐後日談世界（每帳號一個）。三分支：①帳號表已連結→接續（含全名→短名一次性遷移）②MEMORY【帳號】標記舊角色→補寫帳號表連結遷移③無存檔→需 needSetup 問名字/性別後新建御主列（KPC_ 前綴，開場「我的房間」Day1 06:00）＋入駐 `KANSHOU_STARTER_IDS_` 4 位起始住民。**🐛→✅ 稽核抓到**：pcName/appearance/persona 這條首建路徑原本完全沒設 backend 長度上限(只靠前端 maxlength 擋)，已補 pcName≤16／appearance・persona≤60，跟後續改名/改命路徑口徑一致。（2026-07 二度改版：兩個成功回應物件都拿掉 `prefLocks` 欄位，性格鎖系統整組刪除）
 - `actionBackfillKanshouAi(userData, pcId, sheets)`（2026-07 再稽核抓到漏洞：找列邏輯改用`kanshouPcIdx_(pcData, pcId)`（帳號歸屬由帳號表 KPC 欄在入口把關），取代原本裸`findIndex`信任傳入pcId的漏洞——鑑賞pcId可預測/枚舉，舊版可被冒名竄改任一玩家的敘事欄；前端`backfillKanshouAi`同步補送`acctName`）— 非阻塞背景補生成御主 **6** 個敘事欄（background/traits/personality/npc_intent/**speech**/**tic**/outfit；2026-09 新增 speech＝口吻、tic＝招牌小動作，落地走召喚同伴那支 `stampPersonaFlavor_`）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。**🐛→✅ 2026-09**：原本【無條件覆寫】那幾欄——對一個已經玩過/改命改過的角色再跑一次就整組洗掉，而舊角色要補新欄位一定得再跑一次。改成「第一次補完蓋 `KANSHOU_BACKFILL_DONE_TAG_`（【設定已補】）的章，之後只填還空著的格子」；MEMORY 上的三件事（衣裝/口吻/小動作）併成讀一次寫一次，沒東西可改就完全不寫。
-- `actionKanshouCompanions(userData, pcId, sheets)` — 列出本世界已存在的所有從者＋各自地點/關係標籤/**專屬稱呼(2026-07新增，`getNickname_`裸值)**/好感/是否同地/待赴約定/共同回憶/**`id`(2026-07 id 化重構新增)**，供玩家決定去找誰。無隊伍/人數上限。回傳另附**`quickPhrases`(2026-07新增，見`kanshouGetQuickPhrases_`)**供前端合併渲染玩家自訂快速貼圖。
 - `actionKanshouWorld(userData, pcId, sheets)`（action `kanshou_world`）— 🌍 世界帳本面板：list/pin/unpin/del（帳本原本只有 AI 寫得到，這支補上玩家的讀與管，分工比照 `actionKanshouMemoirOp`）。
 - `kanshouRecentDigest_(pcId, windowRows)` — 把掉出 chatHistory 窗口的較早回合壓成一行「玩家做過什麼」事實摘要。
 - `getKanshouAnnivFired_(memory)` / `setKanshouAnnivFired_(memory, arr)` — MEMORY 已跳過的週年 absDay 清單讀/寫（同一週年只跳一次）。
@@ -748,8 +744,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouAppendUnique_(oldStr, newLine, opt)`（2026-09 新增，`gas/Gallery.gs`；`opt = {sep, cap, maxLen, pin}`）— append→去重→上限的**共用引擎**，共同回憶（`processMemoir_` 現已降為一層包裝：`{sep:'｜', cap, maxLen:40, pin:true}`）與「她眼中的你」（`{sep:'／', cap:6, maxLen:14}`）共用。去重含**雙字組 0.6 相似度**比對最近 3 條（防同一件事換句話說重記）；`pin:true` 時★釘選永不驅逐，否則單純留最近 cap 條。寫入值一律先剝 `｜|【】[]★` 與分隔符本身、再截 `maxLen`。
 - `KANSHOU_MET_COUNT_TAG_`／`KANSHOU_FAMILIAR_TIERS_`／`KANSHOU_RAPPORT_BOND_TIERS_`／`KANSHOU_RAPPORT_TONE_`／`kanshouRapportTone_(bond, metCount, isLover)`（2026-07 新增，`gas/Gallery.gs`；**同月加第三參數 `isLover`**）— 相處基調 2D 表。`【相處】N` 每個對話回合對每位在場者 +1（`kanshouTimeJumped_` 時不加）；查 好感4段 × 熟悉度3段 → **一句既定事實**（開頭一律「事實：」），查無回空字串（刻意留白＝那一格不給指令，15 格只填 11 格）。`isLover` 為真時直接走第五排 `'交往中'`、不再看好感段（上面四排全是「還沒在一起」的溫度，尤其「等你先開口」交往後再演就變成她失憶）。掛在 `partyDetailsArr` 每人自己那行，取代舊的 1D `pTierToneStr`。⚠ **只寫事實、不寫演技**：不得出現未指涉代詞（「這件事」）或替角色決定的微動作（「愣一下」「打呵欠」）——前者小模型解不開會自己編，後者讓所有角色套同一套表情。交棒句（怎麼表現依她個性）寫在 `PROMPT_REL` 的【角色一致性】★ 一次。兩者已由 `check_wiring.py` ⑤ 機器擋（`check_prompt.py` 只掃 ★ 行、看不到資料表）。
 - `KANSHOU_LOVER_TAG_`（【戀人】標記）／`KANSHOU_CONFESS_BOND_`(60·開得了口的最低好感)／`kanshouIsLover_(row)`（她是不是你的戀人·單一判準，前後端與提示詞全走這支）。**2026-09 告白改成必定成功**（玩家「79 改成告白必定成功就好」）：好感達 60 且她在場，說出口就成立。連帶整組退休——~~`kanshouConfessAccepts_`~~（好感×相處次數擲骰）、~~`kanshouConfessWait_`~~、~~`KANSHOU_CONFESS_DAY_TAG_`~~（告白日）、~~`KANSHOU_CONFESS_COOLDOWN_`~~(3天冷卻)、~~`KANSHOU_CONFESS_SLOPE_`~~、~~`KANSHOU_CONFESS_FAMILIAR_MULT_`~~，以及被拒扣 3 點好感那條分支與前端的冷卻鎖（`confessWait` 欄位也不再下傳）。
-- `kanshouGetQuickPhrases_(memory)` / `kanshouSetQuickPhrases_(memory, arr)`（2026-07「表情包文字也想自訂」新增）— 玩家列 MEMORY【快速貼圖】text1,text2,... 讀/整批寫，純文字清單(不像自訂道具需要子欄位)。跟前端寫死的4個內建貼圖(害羞/小聲/苦笑/臉紅，2026-07同月再縮減)分開存，`actionKanshouCompanions`/`actionEnterKanshou`(兩條有效回傳路徑：①帳號表已連結、②舊版MEMORY標記一次性遷移——**🐛→✅ 再稽核抓到②原本漏帶**，跟①不一致已補齊)回傳時一併附上供前端合併渲染。
-- `actionKanshouAddQuickPhrase(userData, pcId, sheets)` / `actionKanshouDeleteQuickPhrase(userData, pcId, sheets)`（2026-07 新增，action名`kanshou_add_quick_phrase`/`kanshou_delete_quick_phrase`）— 新增/刪除玩家自訂快速貼圖，`kanshouPcIdx_`找列；新增檢查重複＋上限`KANSHOU_QUICK_PHRASE_CAP_=8`句，`text`用`kanshouSanitizeTagValue_(userData.text,12)`清洗；刪除按文字完全比對移除。皆回傳`quickPhrases`最新清單。
 
 #### 相簿（拍照·手機·2026-07 再修）
 
@@ -1314,7 +1308,6 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `showProgressLoader_(loadId, captions)` — 插入「跑條」loading（推進時間類動作用），文字每 1.1s 輪播直到 AI 回應；設 `progressTimer`。
 - `hideProgressLoader_(loadId)` — 清 `progressTimer` 並移除跑條 DOM。
 - `kcInsertPhrase(text)`（2026-07 新增）— 快速輸入貼圖列(`#kc-quick-phrases`，鑑賞限定)的 onclick 目標：把文字插入 `#u-in` 游標處並聚焦，不呼叫 `send()`，純粹幫玩家把括號註記(害羞/小聲等)打進輸入框，仍要玩家自己按傳送。
-- `KC_QUICK_PHRASES_BUILTIN_`（4個固定內建貼圖：害羞/小聲/苦笑/臉紅，2026-07同月再縮減，原本8個）／`KC_QUICK_PHRASE_CAP_ = 8`（鏡像後端`KANSHOU_QUICK_PHRASE_CAP_`，此為玩家自訂上限，跟內建顆數無關）／`_kcQuickPhrases`（玩家自訂部分，`enterKanshou()`成功時載入）（2026-07「表情包文字也想自訂」新增）— `renderKcQuickPhrases_()` 把內建4個＋`_kcQuickPhrases`合併渲染進 `#kc-quick-phrases`(原本Index.html寫死8顆按鈕，改成JS動態渲染)，末尾附一顆「⚙️自訂」開管理面板。`kanshouOpenQuickPhraseManager()`（`ensureOverlay_('kqp-overlay',...)`）列出玩家自訂貼圖＋刪除鈕＋新增輸入框(≤12字)；`kanshouAddQuickPhrase()`/`kanshouDeleteQuickPhrase(text)` 打對應action、更新`_kcQuickPhrases`後重繪列與面板。
 - `send(customMsg, isSilent=false, opts={})` — **鑑賞聊天引擎，唯一 `action:'play'` 呼叫點**；本檔/Script.html 所有互動最終都經此送出。2026-07 重構：23 位置參數→單一 `opts` 物件（`moveTarget`/`lookAround`/`endDay`/`advanceHours`/`jumpFestival`/`jumpBand`/`skipKnockCheck`/`dismissGuest`/`moveWithCompanion`/`promiseMeet`/`cohabitInvite`/`cohabitInviteId`/`handHoldId`/`inviteResident`/`proposeMove`/`takePhoto`/`showPhoto`/`photoIntent`/`handHold`/`loaderCaptions` 等；`cohabitAccept`/`promiseAccept` 已隨GAS主動邀同居/邀約機制於八度改版一併移除）；前兩位置參數保留（選項鈕 `send(text,true)`）。忙碌鎖用 `btn.disabled`；數字 1–4 映射 `currentOptions`。呼叫 `gasRun`，消費回應：更新 `localNPCs`/`nearbyLocations`/`kcClock`(→`renderMapPane`)/`clock`(→`updateClock`)/`statusString`(→`updateUI`)；渲染各式「必點泡泡」（`moveProposal`/`promiseWait`/`nightGuest`/`cohabitOffer`/`photoResult`/`encounterOffer`/`options`【命運的抉擇】），有泡泡自動 `scrollIntoView`；插入說書人敘事＋`proposalResult`/`promiseSettle` 系統通知條；約定變動時背景重抓 `kanshou_companions` 刷 `_kcCur`；末尾 `refreshFateTags(data.tags)`＋重繪地圖人數徽章。失敗不炸整局（`success:false` 走灰字提示）。
 
 - `ensureOverlay_(id, opts)`（2026-07 稽核抽出，全檔共用）

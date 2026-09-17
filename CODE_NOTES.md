@@ -1059,10 +1059,6 @@ isHere(是否跟玩家同地點)；locLabel：房間類地點的動態顯示名�
 
 🗑 2026-09 小道具/催眠整套移除後，本函式不再下傳 propBond/propCap/propCatalogCap 與 customProps；回傳只剩同伴清單＋quickPhrases。目錄上限尤其重要：滿了才在送出時被拒，面板上原本完全看不出來。**不讓前端自己寫死 80**——前端手抄後端常數是這個專案犯過的錯，改了一邊另一邊就走鐘；由這裡下傳，KANSHOU_PROP_EQUIP_BOND_ 永遠是唯一真相。
 
-### `KANSHOU_QUICK_PHRASE_CAP_`　<sub>Gallery.gs</sub>
-
-🎀 快速輸入貼圖·玩家自訂(2026-07「表情包文字也想自訂」，同月再縮減內建數量)：4個內建貼圖(害羞/小聲/苦笑/臉紅)寫死在Script_Kanshou.html(KC_QUICK_PHRASES_BUILTIN_)純前端顯示，這裡只管玩家自己額外新增的——存玩家列MEMORY【快速貼圖】text1,text2,...，逗號分隔比照【自訂道具】同款寫法。純文字清單(不像道具需要強度/部位等子欄位)，點下去一樣只是把文字塞進輸入框游標處(不送出)，玩家自己決定要不要送——後端只負責存/取這份清單。
-
 ### `actionKanshouMemoirOp`　<sub>Gallery.gs</sub>
 
 💞 共同回憶面板操作(釘選/取消釘選/刪除)——比照 update_rel_tag「玩家 UI 手動管理、AI 無權」精神。釘選=條目加 ★ 前綴(processMemoir_ 淘汰舊條目時永不驅逐★)；刪除=整條移除。op: 'pin'|'unpin'|'del'；item=條目原文(不含★)。帳號歸屬已由 dispatcher 統一驗過，這裡只需索引查找同 gid 的列。

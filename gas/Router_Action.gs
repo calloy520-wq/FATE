@@ -28,8 +28,6 @@ const ActionRouter = {
   "set_bond": actionSetBond,                  // 💞 直接把某人的好感/羈絆調成指定值（兩軌共用，pcId 前綴分流）
   "kanshou_set_name": actionKanshouSetName,
   "kanshou_set_home_name": actionKanshouSetHomeName,
-  "kanshou_add_quick_phrase": actionKanshouAddQuickPhrase, // 🎀 快速輸入貼圖·玩家自訂新增(2026-07新增)
-  "kanshou_delete_quick_phrase": actionKanshouDeleteQuickPhrase, // 🗑 刪除玩家自訂的快速貼圖
   "prep_meal": actionPrepMeal,
   "get_full_status": actionGetFullStatus,
   "update_fate": actionUpdateFate,

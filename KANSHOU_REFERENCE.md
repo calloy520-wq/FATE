@@ -82,7 +82,6 @@
 | 【醒著陪同】 | `【醒著陪同】地點` | 同伴列 | `KANSHOU_AWAKE_HERE_TAG_`：深夜 0~8 在這個地點她是醒著的（夜訪客／陪你熬夜），否則 `pSleepStr` 判熟睡 |
 | 【同居問過】 | `【同居問過】absDay` | 同伴列 | `KANSHOU_COHABIT_ASKED_TAG_`：同居泡泡同一天只問一次 |
 | 【戀人】 | `【戀人】1` | 同伴列 | `KANSHOU_LOVER_TAG_`：告白牆的唯一鑰匙；`kanshouIsLover_` 讀 |
-| 【快速貼圖】 | `【快速貼圖】text1,text2,...`（逗號分隔） | **玩家列** | `kanshouGetQuickPhrases_`/`SetQuickPhrases_`：玩家自訂快速輸入貼圖(2026-07新增)，上限`KANSHOU_QUICK_PHRASE_CAP_=8`句，跟內建4個(害羞/小聲/苦笑/臉紅，2026-07同月再縮減，純前端寫死)分開存 |
 | 【換裝】【口吻】【小動作】 | — | 同伴列 | 鑑賞**讀取**（`getOutfit_`/persona），寫入屬 solo/persona 生態、非鑑賞獨有 |
 
 ---
@@ -1138,7 +1137,6 @@ FALLBACK_MODEL = x-ai/grok-4.20                (屬性 FALLBACK_MODEL)  ← 被�
   - `cohabitOffer` 的 `KANSHOU_COHABIT_ASKED_TAG_` 存 **absDay 不是布林**：布林版玩家一旦改用打字，這個「一生一次」的邀請就永遠消失；完全不記又會退回被嫌煩的「每回合都跳」。同一位、同一天最多問一次，接受後靠 `!kanshouIsCohabit_` 自動停。
 - **前端鏡像常數**（後端為真實來源）：`KC_REGIONS_`/`KC_FESTIVALS_`/`KC_TIME_BANDS_`/`KC_LOCATIONS_`/`KC_APPT_BANDS_`。時鐘全域 `kcClock`（`Script.html`）。
 - **`Script.html`/`Index.html` 的鑑賞殘留**：`applyModeUI()` 總開關（依 isKanshou 切 topbar/輸入框/drive開關/photo-btn/快速輸入貼圖列/相簿抽屜/節慶抽屜）；同伴卡鑑賞按鈕列(📜詳細狀態／💞關係中樞／📅相約／🤝牽手↔✋放手，見 §同伴卡片按鈕)；`enterKanshou()` 入口。⚠ `Index.html` 的 `#victory-memoir` div 是**戰爭軌殘留**：奪杯回憶錄機制已砍，該 div 現只被清空/隱藏、不再填充（非鑑賞，別誤接鑑賞邏輯）。
-- **🎀 快速輸入貼圖**（2026-07 新增，玩家「打符號會不會被砍掉？可以加類似罐頭訊息的貼圖嗎，點下去幫玩家輸入好(不送出)就是塞進對話框」；同月再追加「內建8句想改玩家自訂」＋「內建句數想減少」）：查證後**玩家輸入從前端到後端全程沒有任何地方會過濾/剝除文字**(`send()` 直接讀 `input.value`；後端 `const userMsg = userData.message || ""` 原樣轉送)，玩家誤以為被砍掉的是「AI輸出narration不寫括號」——那是 `dialogueFormatRule_` 故意禁止 AI 自己用（輕哼）（嬌喘）這類括號描述聲音，跟玩家打字輸入無關，兩者是不同機制。現況：`Index.html` 輸入列上方只留空容器 `#kc-quick-phrases`(鑑賞限定，`applyModeUI()` 切 `display:flex`/`none`)，內容改由 `Script_Kanshou.html` 的 `renderKcQuickPhrases_()` 動態渲染——`KC_QUICK_PHRASES_BUILTIN_` 4顆固定內建短句(害羞/小聲/苦笑/臉紅，2026-07再縮減，純前端寫死不可刪)＋玩家自訂 `_kcQuickPhrases`(來自後端`kanshouGetQuickPhrases_`，見上方 MEMORY 表格)＋一顆「⚙️自訂」管理鈕。`kcInsertPhrase(text)` 把文字插入 `#u-in` 游標處並聚焦，**不呼叫 send()**、純粹幫忙打字，玩家仍要自己按傳送。要改內建句子改 `KC_QUICK_PHRASES_BUILTIN_` 陣列即可；玩家自訂走 `kanshou_add_quick_phrase`/`kanshou_delete_quick_phrase` action（上限見 `KANSHOU_QUICK_PHRASE_CAP_`），不涉及任何提示詞邏輯。
 
 ---
 
@@ -1801,7 +1799,6 @@ CLAUDE.md 寫著「別把多餘 round-trip 或重複整表讀回加回來」—�
 （第一次是歸零重來那顆：「輸入名字後 就消失了 不知道有沒有在執行」。）
 
 **鑑賞這邊補上等待畫面的入口**：同伴面板（👥，**兩趟 round-trip**，原本按下去到面板彈出中間完全沒反應）、
-快速貼圖新增/刪除、家改名、御主改名、切換性別、關係稱呼、專屬稱呼、撕照片。全部走共用的
 `withProcessing_('…中…', () => gasRun(...))`。
 
 **刻意不擋畫面的**：`backfillKanshouAi`（進場後補完御主設定）。它非阻塞是對的——玩家已經可以開始玩，

@@ -723,18 +723,15 @@ Seed_Codex.gs 頂部 `CODEX_PERSONA_VER` 的註解只留當前版號一行簡述
 
 ## 24. 再稽核輪（2026-07·玩家「繼續檢查整體代碼」）
 
-移除內建跳蛋+新增道具效果欄/快速貼圖自訂功能上線後，玩家要求再全面檢查一輪。派5組agent分頭掃鑑賞層(Gallery.gs)／戰鬥引擎／世界模擬層／前端HTML／資料層+其餘檔案，找到並修正以下真實問題：
 
 - **🔴 高嚴重度安全漏洞：`resolveCallerGameId_`(§23新增) solo分支查無此列時回傳`""`而非`null`**——4個呼叫端(`actionGetFullStatus`/`actionUpdateFate`/`actionUpdateRelTag`/`actionSetNickname`)都只用`myGameId===null`判斷拒絕；`""`是falsy但**不是**null，會逃過拒絕檢查，讓下游`findPcRowIdx_`/handler自己手寫的`if(myGameId && ...)`過濾條件整個失效(gid為空字串視同不限定game_id)，退化成跨全局姓名/id搜尋——捏造任意不存在的pcId＋猜中目標角色名，即可讀出任何玩家的完整狀態，甚至竄改任意受害者從者的性格/身世/關係稱呼。已修：查無此列一律回`null`強制拒絕；「找到列但其GAME_ID欄本身是空字串」(舊資料相容)才維持回傳`""`。
 - **🔴 高嚴重度：`actionEndRun`(Account.gs，結束本局/棄局)完全沒驗證acctName是否真的擁有傳入的pcId**——純用可預測格式(`"PC_"+Date.now()`)的裸find，任何人皆可猜/枚舉pcId替別人結束並清空整局存檔(純破壞性、非讀寫竊取)。已修：改比對帳號表`COL.ACC.PC`實際連結的charId，不符直接拒絕。
 - **🐛→✅ `actionAccountNewGame`(開新局)自行重寫一份刪除迴圈，沒像`purgeGameData_`一樣同步清「歷史暫存」表**——開新局是最常見的棄局路徑，一直漏清導致歷史表持續累積孤兒列。已改共用`purgeGameData_`；gid為空的孤兒charId(無對應game_id世界)情況另外補一次`purgeHistoryForPcIds_`。
 - **🐛→✅ 自訂道具／催眠指令同名互相覆寫**：`actionKanshouAddCustomProp`與`actionKanshouCastHypnosis`(Gallery.gs)共用同一份【自訂道具】清單、都直接拿玩家輸入字串當id——一般道具同名撞進已存在的催眠指令會靜默解除`ignoreBond`(無視好感門檻)且清空原本part/effect；反過來催眠指令同名撞進一般道具會靜默關閉該道具的無視好感效果。已改成偵測到同名但屬於另一命名空間時直接拒絕並提示換名，不再靜默覆寫。
 - **🐛→✅ 美杜莎`petrify`跟斯卡哈`gae_bolg`/EMIYA`ubw`(§23)同款孿生bug第三例**：`offenseTier_`的`pierceFx`無條件清單原本仍含`petrify`——美杜莎的『魔眼』永久技能fx也是petrify，同時petrify又是她兩個可選寶具之一(他者封印·鮮血神殿)，選了另一個(貝勒羅豐)時仍會被無條件清單掃到誤判成帶概念3貫穿。已移除，交給`npProfile_(c).fx`按實際選定寶具判定；`offenseTier_`外的petrify判定(迴避減益/瀕死乘隙加成)是她「魔眼」被動本身、不受寶具選擇影響，維持`hasFx_`原樣不動。
-- **🐛→✅ `actionEnterKanshou`(Gallery.gs)分支②(舊版MEMORY【帳號】標記一次性遷移)漏回傳`quickPhrases`**：跟分支①不一致，走這條遷移路徑的老玩家當次登入會看不到已存的自訂快速貼圖(資料沒真的遺失，下次一般登入走分支①即恢復正常)。已補齊。
 - **⚡ 效能：12處`getAp_(gameId)`呼叫端手上明明已有剛讀好的pcData卻沒傳第二參數**——`Router_Bond.gs`(4處)/`Router_Movement.gs`(6處)/`Router_Economy.gs`(2處)，導致`getClock_`又整表重讀一次「眾生」表，違反CLAUDE.md「整表只讀一次下傳」準則。已全數補上`pcData`第二參數。
 - **⚡ 效能：`Router_Movement.gs`5處`chargeApOrReject_`呼叫沒傳`skipWrite`，跟同函式內另一次pcData[pIdx]整列寫回疊加成同一列兩次Sheets I/O**(`actionPrepMeal`/`actionFactionAmbush`即`playerAmbushOnEnemy_`呼叫端/`actionIncite`/`actionSetWorkshop`/`actionScavenge`)。已補`skipWrite:true`，讓單次整列寫回一次到位(`actionPrepMeal`/`actionSetWorkshop`/`actionScavenge`原本是「先整列寫回(帶舊AP)、chargeApOrReject_才扣AP」的順序，順手一併重排成「先扣AP、最終狀態再整列寫回」)。
 
-**驗證後判斷無問題、維持現狀的範圍**：鑑賞層`kanshouPcIdx_`（純索引查找；歸屬驗證已上移 dispatcher `verifyPcOwnership_`）已覆蓋全部handler無遺漏；快速貼圖sanitize/cap與前端一致；`Router_Economy.gs`/`Router_Movement.gs`已無房東房客/經濟殘留死碼；`Mystic_Code.gs`除以零/NaN邊界皆有擋；前後端XSS(escapeHtml)/acctName傳輸/UI一致性核對後皆正常；資料層(Seed_Codex/Seed_Rivals/History_Sync/Setup_FateWorld/Router_Persona/Router_Creation)既有🐛→✅修補註記皆核對一致，無新發現。
 
 `bash check.sh` 全過、`nsfwBaseRules` 紅線未觸及。
 
@@ -1255,7 +1252,6 @@ solo 這邊補上的入口：帳號登入、開新局清檔、翻正典御主名
 - **`misc.js`（34 條）** — 從沒被碰過的唯讀與工具類：`check_name`（撞正典要擋、純英數要擋）、
   `roll_fate`（三份候選、欄位一致、真的會變）、`get_heroes`／`get_masters`（兩場名單不一樣、場次亂填不炸）、
   `get_map_nodes`、`get_full_status`（**含跨局隔離：查不到別人那一局的從者**）、
-  鑑賞同伴面板與快速貼圖（重複／空白／上限／刪不存在的都要有交代）、`album_delete`、
   `end_run`（**猜別人的 pcId 結束不了別人的局、拿別的帳號也不行**，本人結束後整局清光且不波及別人）。
 - **`seals.js`（16 條）** — 令咒帳：開局三道、未知指令不可偷扣、每用一次剛好扣一道、
   回傳的 `seals` 跟表上一致、脫離要把御主與從者一起挪走、用盡要擋且不會扣成負數、還沒召喚從者就用要擋。

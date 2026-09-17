@@ -219,7 +219,6 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 | narrate_only／tiger_dojo | actionNarrateOnly／actionTigerDojo | Router_Narrative | | faction_ambush | actionFactionAmbush | Router_Movement |
 | dev_resync_codex | actionDevResyncCodex | Seed_Codex | | incite | actionIncite | Router_Movement |
 
-**🌹 全在 `Gallery.gs`**：`play`(→`actionPlay_`)｜`enter_kanshou`｜`backfill_kanshou_ai`｜`kanshou_companions`｜`kanshou_summon_hero`｜`kanshou_memoir_op`｜`kanshou_set_sex`／`_set_name`／`_set_home_name`｜`kanshou_add_quick_phrase`／`_delete_quick_phrase`｜`get_album`｜`album_delete`
 
 ---
 
