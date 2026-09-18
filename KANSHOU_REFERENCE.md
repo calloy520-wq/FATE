@@ -190,7 +190,7 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 | `chatHistory` | 玩家輸入＋AI narration **全文** | `_histWindow_`＝6 則（3 輪）；剛換場景/剛跳時間砍到 2 則 | 約 2,300 字，佔整份 payload 四成 |
 | ★【再往前的經過】 | 掉出窗口的較早回合，**只取玩家做過的事** | `KANSHOU_DIGEST_ROUNDS_`＝8 輪、每則 `KANSHOU_DIGEST_CAP_`＝22 字 | 約 145 字 |
 
-`kanshouRecentDigest_(pcId, windowRows)` 從同一張「歷史暫存」表往回多讀，扣掉已經進 chatHistory 的那幾則，
+~~那支摘要函式~~（2026-09 已移除）從同一張「歷史暫存」表往回多讀，扣掉已經進 chatHistory 的那幾則，
 把更早的**玩家側輸入**串成一行。**不收 AI 的 narration**——那壓不了，也不該由 GAS 改寫別人寫的字。
 兩者共用同一個 `_histWindow_`，不各算各的（各算各的就會重疊或漏接）。
 
