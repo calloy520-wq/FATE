@@ -41,14 +41,33 @@
 | 欄 | 索引 | 鑑賞用途 |
 |---|---|---|
 | `MEMORY` | 12 | 所有中文方括號標記共用 cell（見下表），大量讀寫 |
-| `LOC` | 6 | **鑑賞「是否同地在場」的唯一判準**（取代 IS_PARTY）。行程骰每回合寫回 |
-| `BOND` | 24 | 好感。獨處+3／AI rel_changes 加減／玩家自己拉（`set_bond`） |
-| `REL_TAG` | 25 | 五階關係標籤。GAS 自動升降（`kanshouSyncRelTier_`），**AI 無寫入權**、玩家 UI 手動改（`update_rel_tag`，自訂文字需 bond≥80） |
-| `REL_MEM` | 28 | 關係專屬記憶／專屬稱呼／態度／稱呼鎖。AI 寫回；專屬稱呼另可由玩家經 `kanshou_set_nickname` 手動鎖定（bond≥80） |
+| `LOC` | 6 | **這一幕在哪**。同行者跟著玩家走，每回合同步成玩家的 LOC（衍生值，不是在場判準） |
+| `BOND` | 24 | ~~好感~~ 2026-09 整組砍除，鑑賞不讀不寫（solo 仍用） |
+| `REL_TAG` | 25 | 關係稱呼。**AI 每回合自己維護**（`rel_changes[].rel_tag`）；玩家自己打過一次就鎖（【關係鎖】） |
+| `REL_MEM` | 28 | 專屬稱呼＋兩把鎖（`KANSHOU_LOCKS_`：稱呼鎖／關係鎖）。組裝只走 `kanshouRelMemBuild_` 這一支 |
 | `MEMOIR` | 27 | **共同回憶**（見專節）。原 `MAJOR_EVENT` 死欄復用 |
 | `NAME/SEX/PREF/TRAIT/BACK/FACTION/GAME_ID/ID` | — | 組敘事卡片、sameGame 過濾、前綴判定 |
 
-⚠ **`IS_PARTY`(26) 鑑賞刻意不讀不寫**（改用 LOC 判在場）；solo 仍用，兩軌並存。
+⚠ **`IS_PARTY`(26) 鑑賞刻意不讀不寫**；solo 仍用，兩軌並存。
+
+### 🫂 同行制（2026-09 玩家定案）
+玩家原話：「我可以指定 AI（類似牽手同行，他必須回應我）跟我一起，其他 AI 也可以出現，但就是很薄的背景板」。
+
+| 層 | 誰決定 | 拿到什麼 |
+|---|---|---|
+| **同行**（上限 `KANSHOU_PARTY_MAX_` = 3） | 玩家指定，一直跟著直到拿掉 | 完整人格卡（`partyDetailsArr`）＋這回合必定回應 |
+| **背景板** | 世界帳本「人物」類 | 名字＋一句話，可出現可開口，不追蹤 |
+| **路人** | AI 隨手寫 | 不具名 |
+
+- **唯一判準**：`KANSHOU_PARTY_TAG_`（`【同行】` 存**玩家列** MEMORY、逗號分隔 id）。`kanshouGetParty_` / `kanshouSetParty_` 成對；
+  **只認 id**——「鑑賞眾生」是全帳號共用表，名字會撞。
+- **LOC 變成衍生值**：`partyRows` 組完就把每位同行者的 LOC 同步成玩家的 `curL`，讀 LOC 的地方（地圖、住處）才不會各說各話。
+- **在場來由**（`pPresenceStr`）只剩三句：剛結伴走到／時間流轉後仍在身邊／從剛才就一直在這裡——同行者不存在「原本就在這裡」。
+- **入口**：`kanshou_party`（`actionKanshouParty`，op = `add`/`drop`/`clear`）；前端在 👥 面板每張卡上的 `＋同行／−離開`，
+  滿了就 disabled。召喚一個人**還有位子就直接站進來**（`actionKanshouSummonHero` 尾端）。
+- **舊存檔遷移**：`actionPlay` 第一次看到玩家列沒有 `【同行】` 標記時，把此刻同場的人收進名單（上限內）。
+  判準是「寫過沒有」（`makeTextTag_().has`）不是「值空不空」——玩家自己按清空是空值，不會被重新種回去。
+- 探針 `party.js`（20 條，含把 `partyRows` 改回 LOC 比對的退化測試）。
 ⚠ **死欄`MONEY`(33)/`UPKEEP_WEEK`(34)/`ROOM`(35) 恆空**、鑑賞無讀寫端——**不可刪欄**（COL 是位置索引，刪了後面全錯位）。
 
 ### MEMORY 標記全表（工廠 `makeIntTag_`/`makeTextTag_` 在 `Core_Settings.gs`；多標記以全形 `｜` 分隔共用一 cell）
@@ -448,7 +467,7 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 3. UI 按鈕意圖落地（同去提議/橋段 offer+accept）
 5. **跳時間/advanceHours**（重骰全世界去向、換幕鐵律）
 6.5 **「她主動」三型擲骰（visit/invite/want）** ← ⚠ **必須在第7步之前**（2026-07 矛盾掃描抓到）：`visit` 型會把她的 LOC 搬到你這裡，排在 partyRows 之後的話她沒有在場人物卡，AI 同時收到「她剛剛出現在這裡」與「只有【在場人物】可以開口」兩條打架的指令。這段需要的「誰此刻在你面前」是自己從 pcData 的 LOC 算的（`_hereRows`），不依賴 partyRows 這個變數。
-7. **partyRows/partyMembers 組裝**（同地在場名單、詳情卡 `partyDetailsArr`）
+7. **partyRows/partyMembers 組裝**（同行名單 → 詳情卡 `partyDetailsArr`；順手把同行者 LOC 同步成玩家的）
 9. 提示詞組裝（USER prompt，見下）
 10. `aiConfig` → 歷史餵入 → `callGeminiAPI`
 

@@ -33,6 +33,7 @@
   }
   var KC_MEMOIR_CAP_ = 10;      // 鏡像後端 KANSHOU_MEMOIR_CAP_
   var KC_MEMOIR_PIN_CAP_ = 8;   // 鏡像後端 KANSHOU_MEMOIR_PIN_CAP_
+  var KC_PARTY_MAX_ = 3;        // 鏡像後端 KANSHOU_PARTY_MAX_
   // ⚙️ 管理面板：列出玩家自訂的貼圖(內建4個不可刪、不列在這裡)＋新增輸入框。
   var _kqpBusy = false;
 
@@ -310,9 +311,9 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
       + '<div style="overflow-y:auto;min-height:0;">'
       + '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 這個世界裡的人 (<span id="kc-count">0</span>)</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">把想見的人請進這座城，她會過自己的日子。</div>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">🫂 同行的人一路跟著你，每一幕都在場。最多 ' + KC_PARTY_MAX_ + ' 位。</div>'
       + '<div id="kc-master-box"></div>'
-      + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">駐留清單</div>'
+      + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">駐留清單（<span id="kc-party-n">0</span>/' + KC_PARTY_MAX_ + ' 同行中）</div>'
       + '<div id="kc-party-list"></div>'
       + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🌹 邀人加入</div>'
       + '<div id="kc-filters"></div>'
@@ -342,14 +343,38 @@ let plainTextContext = cleanText;
     if (countEl) countEl.textContent = _kcCur.length;
     var box = document.getElementById('kc-party-list');
     if (!box) return;
-    box.innerHTML = _kcCur.length ? _kcCur.map(function (c) {
+    // 🫂 同行的人排在前面：這份清單的第一件事是「此刻誰在我身邊」。
+    var _sorted = _kcCur.slice().sort(function (a, b) { return (b.party ? 1 : 0) - (a.party ? 1 : 0); });
+    var _pn = _kcCur.filter(function (x) { return x.party; }).length;
+    var pnEl = document.getElementById('kc-party-n');
+    if (pnEl) pnEl.textContent = _pn;
+    box.innerHTML = _kcCur.length ? _sorted.map(function (c) {
       // 💞 回憶鈕：有回憶亮粉色並帶數量，還沒有就灰階(仍可點開看空狀態說明)。
       var memCount = (c.memoir || []).length;
-      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
-        + '<span style="flex:1;color:#e8d8e0;">🌹 ' + escapeHtml(c.name) + (c.tag ? ' <small style="color:#8a7fa0;">(' + escapeHtml(c.tag) + ')</small>' : '') + '<br><small style="color:#7a9fa0;">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + '</small>' + '</span>'
+      var full = !c.party && _pn >= KC_PARTY_MAX_;
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);' + (c.party ? 'background:rgba(180,140,220,.08);' : '') + '">'
+        + '<span style="flex:1;color:#e8d8e0;">' + (c.party ? '🫂' : '🌹') + ' ' + escapeHtml(c.name) + (c.tag ? ' <small style="color:#8a7fa0;">(' + escapeHtml(c.tag) + ')</small>' : '') + '<br><small style="color:' + (c.party ? '#c0a8e0' : '#7a9fa0') + ';">' + (c.party ? '就在你身邊' : '📍 ' + escapeHtml(c.locLabel || c.loc || '不明')) + '</small>' + '</span>'
+        + '<button onclick="kanshouPartyOp(\'' + String(c.id || '').replace(/'/g, '') + '\',\'' + (c.party ? 'drop' : 'add') + '\')"' + (full ? ' disabled title="同行已滿 ' + KC_PARTY_MAX_ + ' 位"' : '') + ' style="padding:4px 8px;background:' + (c.party ? '#4a3a6a' : (full ? '#2e2e34' : '#3a4a3a')) + ';color:' + (c.party ? '#dcc8ff' : (full ? '#666' : '#a8dca8')) + ';border:none;border-radius:6px;cursor:' + (full ? 'not-allowed' : 'pointer') + ';font-size:12px;">' + (c.party ? '−離開' : '＋同行') + '</button>'
         + '<button onclick="kanshouOpenMemoir(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:' + (memCount ? '#5a3a4a' : '#3a3a44') + ';color:' + (memCount ? '#e8b8cc' : '#999') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">💞回憶' + (memCount ? '(' + memCount + ')' : '') + '</button>'
         + '<button onclick="kanshouOpenRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\',\'' + String(c.nickname || '').replace(/'/g, '') + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
     }).join('') : '<div style="color:#888;padding:6px;">（這座城裡你還誰都不認識，從下方邀一個人來吧）</div>';
+  }
+
+  // 🫂 同行／離開：誰跟著你走。上限 KC_PARTY_MAX_ 位，同行的人每一幕都在場、每回合都會回應你。
+  var _kpBusy = false;
+  async function kanshouPartyOp(id, op) {
+    if (_kpBusy) return;
+    if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
+    _kpBusy = true;
+    try {
+      const res = await withProcessing_(op === 'add' ? '請他過來…' : '讓他先去忙…',
+        () => gasRun({ action: 'kanshou_party', pcId: pc.id, acctName: currentAccount, npcId: id, op: op }));
+      if (!res || !res.success) { alert((res && res.message) || '沒成功。'); return; }
+      var ids = res.party || [];
+      _kcCur.forEach(function (x) { x.party = ids.indexOf(String(x.id)) >= 0; });
+      renderKcPartyList_();
+    } catch (e) { alert('沒成功。'); }
+    finally { _kpBusy = false; }
   }
 
   // 💞 共同回憶面板：看她跟你一路走來的回憶；★釘選=永不被新回憶擠掉(上限 KC_MEMOIR_PIN_CAP_)；🗑=刪掉不想留的。

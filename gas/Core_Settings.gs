@@ -340,6 +340,8 @@ function makeTextTag_(tagName) {
   var reSet = new RegExp('【' + tagName + '】[^｜|【]*');   // 字元類與 reGet 對齊(舊版漏了半形 |)
   return {
     get: function (memory) { var m = String(memory || '').match(reGet); return m ? m[1].trim() : ''; },
+    // 「寫過沒有」跟「值是不是空的」是兩件事：空值(【X】)仍然算寫過。
+    has: function (memory) { return reSet.test(String(memory || '')); },
     set: function (memory, val) {
       var s = String(memory || '');
       // 🛡️ 寫入值一律先剝掉 MEMORY 的結構字元：｜是標記分隔符、【】是標記邊界，混進值裡會把整條MEMORY 切錯格(後面所有標記靜默失效或被誤讀)。

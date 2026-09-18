@@ -21,6 +21,7 @@ const ActionRouter = {
   "kanshou_memoir_op": actionKanshouMemoirOp, // 💞 共同回憶面板：釘選/取消釘選/刪除(玩家UI手動管理)
   "kanshou_world": actionKanshouWorld,        // 🌍 世界帳本面板：list/pin/unpin/del(玩家看得到、管得動)
   "kanshou_summon_hero": actionKanshouSummonHero, // 🌹 慾海同伴唯一入口：直接從英靈庫召喚，不需先在solo贏得戰爭
+  "kanshou_party": actionKanshouParty,     // 🫂 加入/離開同行（誰在這一幕裡）
   "kanshou_set_sex": actionKanshouSetSex,
   "kanshou_get_style": actionKanshouGetStyle, // 🎨 說書人設定面板：讀整張風格表(預設＋玩家版)
   "kanshou_set_style": actionKanshouSetStyle, // 🎨 改一格／還原一格／全部還原

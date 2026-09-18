@@ -362,6 +362,7 @@
 | `backfill_kanshou_ai` | `enter_kanshou` 首次建檔後前端背景呼叫 | `actionBackfillKanshouAi` | **是**（結構化 JSON，補鑑賞御主敘事欄） |
 | `kanshou_companions` | 抽屜「👥 後日談同伴」→`openCompanions()` | `actionKanshouCompanions` | 否 |
 | `kanshou_summon_hero` | 駐留清單「召喚」→`kanshouSummonHero(heroId)` | `actionKanshouSummonHero` | 否（2026-07「加入這個世界的感覺」定案後只能召喚一次，沒有「請走」/隊伍容量概念了） |
+| `kanshou_party` | 駐留清單每張卡「＋同行／−離開」→`kanshouPartyOp(id, op)` | `actionKanshouParty` | 否（純名單增減，下一次 `play` 才體現在【在場人物】） |
 | `kanshou_memoir_op` | 💞共同回憶面板「📌釘選/☆/🗑」→`kanshouMemoirOp(name,op,text)` | `actionKanshouMemoirOp` | 否（玩家手動管理回憶） |
 | `kanshou_set_name` | 「✏改名」→`changeKanshouName()` | `actionKanshouSetName` | 否 |
 | `kanshou_set_sex` | 「⚧切換性別」→`changeKanshouSex()` | `actionKanshouSetSex` | 否 |
