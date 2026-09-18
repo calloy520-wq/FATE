@@ -486,7 +486,7 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | `roll_fate` | `actionRollFate`（Core_Settings.gs） | 否（一次回三份天賦候選） |
 | `outfit`／`weapon` | `actionSetOutfit`／`actionSetWeapon`（Router_Economy.gs） | 否（寫 MEMORY，之後由角色卡餵 AI） |
 | `kanshou_reset` | `actionKanshouReset`（Gallery.gs） | 否（後日談歸零） |
-| `kanshou_world` | `actionWorld`（Gallery.gs） | 否（世界帳本 list/pin/unpin/del ＋ 大區 rg_add/rg_rename/rg_del ＋ 地點 loc_rename/loc_text/loc_region/loc_own） |
+| `world` | `actionWorld`（Gallery.gs） | 否（帳本面板·兩軌共用 list/pin/unpin/del ＋ 大區 rg_add/rg_rename/rg_del ＋ 地點 loc_rename/loc_text/loc_region/loc_own） |
 | `kanshou_set_pace` | `actionKanshouSetPace`（Gallery.gs） | 否（時間流速 0/10/20/30） |
 | `kanshou_get_style`／`kanshou_set_style` | `actionKanshouGetStyle`／`actionKanshouSetStyle`（Gallery.gs） | 否（⚙ 說書人設定：讀／改 12 段風格模組，見 `KANSHOU_REFERENCE.md` §說書人風格交給玩家） |
 | `kanshou_set_nickname` | `actionSetNickname`（Router_Action.gs） | 否（專屬稱呼，bond≥80） |

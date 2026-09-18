@@ -622,13 +622,13 @@ let plainTextContext = cleanText;
 
   // 🧹 原本掛在☰抽屜裡的彈窗(ensureKcMapOverlay_/closeKcMapOverlay/openKanshouMap)已被「🗺️地圖」分頁取代——kcMapListHtml_ 現在直接由 Script.html 的 renderMapPane() 渲染進 #map-pane-content，彈窗整條一併移除，不留兩套平行入口。
 
-  // 🗾 大區與地方的自由增減：全部走同一支後端 action(kanshou_world 的各個 op)。
+  // 🗾 大區與地方的自由增減：全部走同一支後端 action(world 的各個 op)。
   //    成功後回傳的 payload 會帶新的 regions/rows，直接刷新 tags 快取＋重繪地圖。
   async function kwWorldOp_(payload, busyMsg) {
     if (!pc || !pc.id) { alert('還沒進後日談。'); return null; }
     try {
       const res = await withProcessing_(busyMsg || '處理中…', () => gasRun(
-        Object.assign({ action: 'kanshou_world', pcId: pc.id, acctName: currentAccount }, payload)));
+        Object.assign({ action: 'world', pcId: pc.id, acctName: currentAccount }, payload)));
       if (!res || !res.success) { alert((res && res.message) || '沒成功。'); return null; }
       // 地圖那一區的資料來源是 tags 快取裡的 myPlaces/myRegions，就地更新免再打一趟
       try {
@@ -948,43 +948,47 @@ let plainTextContext = cleanText;
 
   // 帳本原本只有 AI 寫得到、玩家看不到——而淘汰政策裡的「★釘選永不淘汰」根本沒有入口能設定。
   // 這個面板把「看得到」與「管得動」一起補上：釘選想永久留著的、刪掉 AI 亂記的。
-  var _kwBusy_ = false, _kwRows_ = [];
-  function kanshouCloseWorld_() { var o = document.getElementById('kc-world-overlay'); if (o) o.remove(); }
-  async function openKanshouWorld() {
-    if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
+  // 🧭 兩軌共用同一個面板：抬頭、說明、分組全部由後端逐軌下傳(WORLD_SPEC_.panel)，
+  //    前端只負責畫——這裡自己判斷「現在是哪一軌」就會變成第二個真實來源。
+  var _kwBusy_ = false, _kwRows_ = [], _kwPanel_ = {};
+  function closeWorldPanel_() { var o = document.getElementById('kc-world-overlay'); if (o) o.remove(); }
+  async function openWorldPanel() {
+    if (!pc || !pc.id) { alert('還沒開始。'); return; }
     var drawer = document.getElementById('action-drawer'); if (drawer) drawer.classList.remove('open');
-    kanshouCloseWorld_();
+    closeWorldPanel_();
     var ov = document.createElement('div');
     ov.id = 'kc-world-overlay';
     ov.style.cssText = 'position:fixed; inset:0; z-index:9000; background:rgba(14,16,20,.93); overflow-y:auto; padding:18px 14px 40px;';
     ov.innerHTML = '<div style="max-width:760px; margin:0 auto;">'
       + '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">'
-      + '<div style="color:#8fd0c0; font-weight:bold; font-size:16px;">🌍 這個世界</div>'
-      + '<button onclick="kanshouCloseWorld_()" style="background:none; border:1px solid #4a6a64; border-radius:8px; color:#a8ccc4; font-size:13px; padding:4px 12px; cursor:pointer;">✕ 關閉</button>'
+      + '<div id="kc-world-title" style="color:#8fd0c0; font-weight:bold; font-size:16px;">讀取中……</div>'
+      + '<button onclick="closeWorldPanel_()" style="background:none; border:1px solid #4a6a64; border-radius:8px; color:#a8ccc4; font-size:13px; padding:4px 12px; cursor:pointer;">✕ 關閉</button>'
       + '</div>'
-      + '<div style="color:#6e8a84; font-size:11.5px; margin-bottom:12px;">你們一路走出來的地方、認識的人、說定的事。📌 釘住的不會忘；記錯的可以刪。</div>'
+      + '<div id="kc-world-hint" style="color:#6e8a84; font-size:11.5px; margin-bottom:12px;"></div>'
       + '<div id="kc-world-body" style="color:#8a8298; font-size:12px;">讀取中……</div></div>';
     document.body.appendChild(ov);
     await kwLoad_();
   }
   async function kwLoad_(op, kind, name) {
     try {
-      var res = await gasRun({ action: 'kanshou_world', pcId: pc.id, acctName: currentAccount,
+      var res = await gasRun({ action: 'world', pcId: pc.id, acctName: currentAccount,
         op: op || 'list', kind: kind || '', entryName: name || '' });
       if (!res || !res.success) { var b = document.getElementById('kc-world-body'); if (b) b.textContent = (res && res.message) || '讀取失敗。'; return; }
       _kwRows_ = res.rows || [];
+      _kwPanel_ = res.panel || {};
+      var ttl = document.getElementById('kc-world-title'); if (ttl) ttl.textContent = _kwPanel_.title || '🌍 這個世界';
+      var hnt = document.getElementById('kc-world-hint'); if (hnt) hnt.textContent = _kwPanel_.hint || '';
       kwRender_(res.caps || {});
     } catch (e) { var b2 = document.getElementById('kc-world-body'); if (b2) b2.textContent = '讀取失敗。'; }
   }
   function kwRender_(caps) {
     var body = document.getElementById('kc-world-body'); if (!body) return;
     if (!_kwRows_.length) {
-      body.innerHTML = '<div style="color:#6e8a84; padding:20px 4px; line-height:1.9;">還沒有東西。<br>'
-        + '玩下去就會長出來。去一個地圖上沒有的地方、認識新的人、聊出只有你們懂的事，都會記在這裡。</div>';
+      body.innerHTML = '<div style="color:#6e8a84; padding:20px 4px; line-height:1.9;">' + (_kwPanel_.empty || '還沒有東西。') + '</div>';
       return;
     }
-    var groups = [['人物', '🧑 這座城裡的人'], ['設定', '📖 這座城的事']];
-    var _locN = _kwRows_.filter(function (r) { return r.kind === '地點'; }).length;
+    var groups = _kwPanel_.groups || [];
+    var _locN = _kwPanel_.locNote ? _kwRows_.filter(function (r) { return r.kind === '地點'; }).length : 0;
     var html = _locN
       ? '<div style="background:rgba(40,56,52,.35); border:1px solid #3e6a60; border-radius:8px; padding:9px 11px; margin-bottom:6px; color:#8aa8a2; font-size:12px; line-height:1.7;">'
         + '🗺️ 你走出來的地方有 <b style="color:#cfe6e0;">' + _locN + '</b> 個，它們在<b style="color:#cfe6e0;">地圖的「走出來的地方」</b>那一區，'

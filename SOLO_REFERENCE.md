@@ -151,7 +151,11 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
   頂層就求值會拿到 `undefined` 然後照樣送進提示詞（`check_loadorder.py` 當場抓到這一次）。
 - 鑑賞那條路徑（`KPC_`）不送這一段、也不收：`actionNarrateOnly` 的 `isNsfw` 就是判準。
 
-探針 `saga.js`（21 條，含把「餵回」與「落盤」各拆掉一次的退化測試·會叫 8 紅）。
+**玩家管得動**：☰ 抽屜的「📜 戰記」（`openWorldPanel`／action `world`）——跟鑑賞的「🌍 這個世界」
+**是同一個面板**，抬頭、說明、空狀態、分組全部由後端 `WORLD_SPEC_[軌].panel` 下傳，前端只負責畫。
+📌 釘住的永不淘汰，AI 記錯的可以刪。
+
+探針 `saga.js`（32 條，含把「餵回」與「落盤」各拆掉一次的退化測試·會叫 8 紅）。
 
 ### 🧵 solo 的「記憶」怎麼運作（2026-09 大修，玩家：「有時候的對話還是牛頭不對馬嘴」）
 

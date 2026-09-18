@@ -18,7 +18,7 @@ const strip = f => fs.readFileSync(path.join(GAS, f), 'utf8')
 
 // 這些是玩家點得到的入口：少一個就是死按鈕
 const ENTRIES = [
-  'send', 'openCompanions', 'openKanshouWorld', 'openKanshouStyle',
+  'send', 'openCompanions', 'openWorldPanel', 'openKanshouStyle',
   'kanshouAddRegion', 'kanshouDelRegion',
   'kanshouPlaceMenu', 'kanshouGoNewPlace', 'kanshouNextStage', 'kanshouEndDay',
   'kcMapListHtml_', 'kcChoose_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',

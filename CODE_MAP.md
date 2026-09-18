@@ -195,7 +195,7 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 | end_run | actionEndRun | Account | | weapon | actionSetWeapon | Router_Economy |
 | purge_orphans | actionPurgeOrphans | Account | | mana_supply | actionManaSupply | Router_Economy |
 | create | actionManualNpc | Router_Creation | | spirit_repair | actionSpiritRepair | Router_Economy |
-| kanshou_reset | actionKanshouReset | Gallery | | kanshou_world | actionWorld | Gallery |
+| kanshou_reset | actionKanshouReset | Gallery | | world | actionWorld | Gallery |
 | kanshou_set_pace | actionKanshouSetPace | Gallery | | roll_fate | actionRollFate | Core_Settings |
 | kanshou_get_style | actionKanshouGetStyle | Gallery | | kanshou_set_style | actionKanshouSetStyle | Gallery |
 | np_respond | actionNpRespond | Router_Battle | | | | |

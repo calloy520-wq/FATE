@@ -3215,7 +3215,9 @@ function applyModeUI() {
   //   (topbar-solo 本就不含這排)，連同外層 .top-navbar 整條一起隱藏，免留一條空白窄條。
   var tNav = document.getElementById('top-navbar'); if (tNav) tNav.style.display = isKanshou ? 'none' : '';
   var ibar = document.getElementById('input-bar'); if (ibar) ibar.style.display = isKanshou ? '' : 'none';
-  var dwld = document.getElementById('drawer-world'); if (dwld) dwld.style.display = isKanshou ? '' : 'none';
+  // 🌍/📜 帳本面板兩軌都有：鑑賞是「這個世界」，solo 是「戰記」。抬頭與內容由後端下傳，這裡只切標籤。
+  var dwld = document.getElementById('drawer-world'); if (dwld) dwld.style.display = '';
+  var dwlbl = document.getElementById('drawer-world-label'); if (dwlbl) dwlbl.textContent = isKanshou ? '這個世界' : '戰記';
   var dsty = document.getElementById('drawer-style'); if (dsty) dsty.style.display = isKanshou ? '' : 'none';
   // 戰爭行動列：取代輸入框，只在戰爭模式顯示
   var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';

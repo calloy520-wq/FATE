@@ -67,7 +67,7 @@
 | `purge_orphans` | `actionPurgeOrphans` | 清孤兒列 |
 | `kanshou_companions` | `actionKanshouCompanions` | 鑑賞同伴清單 |
 | `kanshou_memoir_op` | `actionKanshouMemoirOp` | 共同回憶釘選/取消/刪除 |
-| `kanshou_world` | `actionWorld` | 🌍 世界帳本面板 list/pin/unpin/del |
+| `world` | `actionWorld` | 🌍/📜 帳本面板（兩軌共用）list/pin/unpin/del ＋ 大區與地點的增減 |
 | `kanshou_summon_hero` | `actionKanshouSummonHero` | 鑑賞同伴唯一入口·直召 |
 | `kanshou_party` | `actionKanshouParty` | 鑑賞同行名單 add/drop/clear |
 | `kanshou_set_sex` | `actionKanshouSetSex` | 設同伴性別 |
@@ -644,7 +644,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionKanshouSummonHero(userData, pcId, sheets)` — 從英靈庫召喚一位英靈「存在」於此後日談世界（不必先 solo 封存）。防線：擁有權驗證、士郎位置擋、`KANSHOU_SUMMON_BLOCKED_IDS_` 擋、ai_gen 僅創造者可召、不開放男男、同一位只召一次（跨名比對）。通過即 appendRow(`heroToKanshouRow_`)。 ⚠ 2026-09 查重改走 `kanshouSummonClash_`。
 - `kanshouSummonClash_(data, gid, hero, heroName)` / `KANSHOU_SRC_TAG_`（常數）— 撞名守門：回 `{name, same}`，`name` 空＝沒衝突；`same:true`＝同一筆種子（已召喚過），`false`＝同一個人的另一種靈基（斯卡哈 Lancer/Assassin、伊莉雅 Master/Caster）。比對順序：【英靈源】id → 同真名 → 舊列退回跨名比對。
 - `actionBackfillKanshouAi(userData, pcId, sheets)`（2026-07 再稽核抓到漏洞：找列邏輯改用`kanshouPcIdx_(pcData, pcId)`（帳號歸屬由帳號表 KPC 欄在入口把關），取代原本裸`findIndex`信任傳入pcId的漏洞——鑑賞pcId可預測/枚舉，舊版可被冒名竄改任一玩家的敘事欄；前端`backfillKanshouAi`同步補送`acctName`）— 非阻塞背景補生成御主 **6** 個敘事欄（background/traits/personality/npc_intent/**speech**/**tic**/outfit；2026-09 新增 speech＝口吻、tic＝招牌小動作，落地走召喚同伴那支 `stampPersonaFlavor_`）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。**🐛→✅ 2026-09**：原本【無條件覆寫】那幾欄——對一個已經玩過/改命改過的角色再跑一次就整組洗掉，而舊角色要補新欄位一定得再跑一次。改成「第一次補完蓋 `KANSHOU_BACKFILL_DONE_TAG_`（【設定已補】）的章，之後只填還空著的格子」；MEMORY 上的三件事（衣裝/口吻/小動作）併成讀一次寫一次，沒東西可改就完全不寫。
-- `actionWorld(userData, pcId, sheets)`（action `kanshou_world`）— 🌍 世界帳本面板：list/pin/unpin/del（帳本原本只有 AI 寫得到，這支補上玩家的讀與管，分工比照 `actionKanshouMemoirOp`）。
+- `actionWorld(userData, pcId, sheets)`（action `world`）— 🌍 世界帳本面板：list/pin/unpin/del（帳本原本只有 AI 寫得到，這支補上玩家的讀與管，分工比照 `actionKanshouMemoirOp`）。
 - `kanshouRecentDigest_(pcId, windowRows)` — 把掉出 chatHistory 窗口的較早回合壓成一行「玩家做過什麼」事實摘要。
 - `actionKanshouMemoirOp(userData, pcId, sheets)`（2026-07 稽核：找目標同伴列改委派 `findPcRowIdx_`，取代手刻迴圈，行為等價）— 共同回憶面板操作（op=pin/unpin/del）：釘選加 ★ 前綴（釘選上限 8）、刪除整條移除。玩家 UI 手動管理、AI 無權；帳號綁定＋同 gid 驗證。
 

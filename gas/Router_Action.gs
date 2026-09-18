@@ -19,7 +19,7 @@ const ActionRouter = {
   "purge_orphans": actionPurgeOrphans,
   "kanshou_companions": actionKanshouCompanions,
   "kanshou_memoir_op": actionKanshouMemoirOp, // 💞 共同回憶面板：釘選/取消釘選/刪除(玩家UI手動管理)
-  "kanshou_world": actionWorld,        // 🌍 世界帳本面板：list/pin/unpin/del(玩家看得到、管得動)
+  "world": actionWorld,        // 🌍 世界帳本面板：list/pin/unpin/del(玩家看得到、管得動)
   "kanshou_summon_hero": actionKanshouSummonHero, // 🌹 慾海同伴唯一入口：直接從英靈庫召喚，不需先在solo贏得戰爭
   "kanshou_party": actionKanshouParty,     // 🫂 加入/離開同行（誰在這一幕裡）
   "kanshou_set_sex": actionKanshouSetSex,

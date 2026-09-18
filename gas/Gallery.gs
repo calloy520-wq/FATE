@@ -786,7 +786,7 @@ function worldPayload_(gid) {
   // 釘選的排前面，其次照「最後被提到」由新到舊——跟提示詞的相關性排序不同，那是給 AI 的，這是給人看的。
   rows.sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.seen - a.seen);
   return {
-    success: true, rows: rows, caps: worldSpec_(gid).cap, textMax: worldSpec_(gid).textMax,
+    success: true, rows: rows, caps: worldSpec_(gid).cap, textMax: worldSpec_(gid).textMax, panel: worldSpec_(gid).panel,
     regions: kanshouRegionsFor_(gid).map(r => ({ id: r.id, name: r.name, desc: r.desc || "", mine: !!r.mine })),
     regionCap: KANSHOU_REGION_CAP_
   };
@@ -1269,6 +1269,14 @@ var WORLD_SPEC_ = {
     cap: { '地點': 60, '人物': 40, '設定': 50 },
     feedTitle: '這個世界已經確立的事',
     feedTail: '這些是你們一路玩出來的既定事實，需要時原樣承接。',
+    // 🖥️ 面板文案也逐軌登記：前端只負責畫，不自己判斷這一局是哪一軌。
+    panel: {
+      title: '🌍 這個世界',
+      hint: '你們一路走出來的地方、認識的人、說定的事。📌 釘住的不會忘；記錯的可以刪。',
+      empty: '還沒有東西。<br>玩下去就會長出來。去一個地圖上沒有的地方、認識新的人、聊出只有你們懂的事，都會記在這裡。',
+      groups: [['人物', '🧑 這座城裡的人'], ['設定', '📖 這座城的事']],
+      locNote: true   // 地點歸地圖，這裡只提醒一句它們在哪一區
+    },
     feedMax: 6,   // 一回合最多餵回幾條——帳本會長大，這是唯一的煞車
     atMax: 5,     // 掛在此刻這個地方(AT)的另外算，不跟上面搶名額
     writeMax: 3,  // AI 一回合最多寫幾條
@@ -1284,6 +1292,13 @@ var WORLD_SPEC_ = {
     cap: { '因果': 40 },
     feedTitle: '這一局已經發生的因果',
     feedTail: '這些是這一局真的發生過、還在影響現在的事，需要時原樣承接。',
+    panel: {
+      title: '📜 戰記',
+      hint: '這一局真的發生過、還在影響現在的事。📌 釘住的不會忘；記錯的可以刪。',
+      empty: '還沒有東西。<br>打下去就會長出來。誰殞落了、跟誰結了盟、教會開了什麼條件，都會記在這裡。',
+      groups: [['因果', '📜 這一局發生過的事']],
+      locNote: false
+    },
     feedMax: 5,
     atMax: 0,
     writeMax: 2,
