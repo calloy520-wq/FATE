@@ -70,12 +70,12 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
             throw new Error("Triggered_NSFW_Filter");
           }
           let text = choice.message.content;
-          if (plainText) { logCacheUsage_(model, result.usage, systemContent); return String(text || "").trim(); } // 散文模式：原樣回傳，不抽 {…}、不 JSON.parse
+          if (plainText) { logCacheUsage_(model, result.usage, systemContent, result); return String(text || "").trim(); } // 散文模式：原樣回傳，不抽 {…}、不 JSON.parse
           const s = text.indexOf('{');
           const e = text.lastIndexOf('}');
           text = text.substring(s, e + 1);
           JSON.parse(text);
-          logCacheUsage_(model, result.usage, systemContent);
+          logCacheUsage_(model, result.usage, systemContent, result);
           return text;
         } else { throw new Error("無效的選項結構"); }
       } catch (e) {
@@ -116,14 +116,18 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
 // 📊 提示詞快取命中率：GAS 這端唯一看得到的數字。system 那一塊每回合逐字相同(探針驗過)，
 //    命中時 cached_tokens 會接近它的長度；長期都是 0 就代表快取根本沒生效，別再往 system 搬東西。
 //    ⚠ 只寫 Logger（零 I/O）：真正好看的報表在 OpenRouter 的 Activity／Logs（用 session_id 分組）。
-function logCacheUsage_(model, usage, systemContent) {
+function logCacheUsage_(model, usage, systemContent, result) {
   try {
     var d = (usage && usage.prompt_tokens_details) || {};
     var hit = parseInt(d.cached_tokens) || 0, wrote = parseInt(d.cache_write_tokens) || 0;
     var pt = (usage && parseInt(usage.prompt_tokens)) || 0;
     var sys = String(systemContent || '');
-    Logger.log('[cache] ' + model + ' prompt=' + pt + ' cached=' + hit + ' write=' + wrote
-      + (pt ? ' hit=' + Math.round(100 * hit / pt) + '%' : '')
+    // 🔀 provider：OpenRouter 可能把同一顆模型分給不同上游，每換一家快取就是冷的。
+    //    黏著路由（session_id）要是沒生效，這一欄每次都會不一樣——那就是命中率上不去的根因。
+    var prov = (result && (result.provider || (result.usage && result.usage.provider))) || '?';
+    var disc = (usage && usage.cache_discount !== undefined) ? (' disc=' + usage.cache_discount) : '';
+    Logger.log('[cache] ' + model + '@' + prov + ' prompt=' + pt + ' cached=' + hit + ' write=' + wrote
+      + (pt ? ' hit=' + Math.round(100 * hit / pt) + '%' : '') + disc
       + ' sys=' + sys.length + '字/' + cheapHash_(sys));
   } catch (e) { }
 }
