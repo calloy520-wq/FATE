@@ -1761,6 +1761,312 @@ function actionPlay(userData, pcId, sheets) {
 }
 
 
+// ⏰ 這一回合時鐘怎麼走：結束一天／兩段式就寢／時段跳躍／每回合自然流動，四條路都在這裡。
+//    刻意收成一支：它們共用同一組「誰在場、幾點、哪一天、要演哪一句」，散在主流程裡時
+//    每一條都要自己防著另外三條已經動過時鐘（kanshouClockMoved_ 就是為此存在的）。
+//    ⚠ 會就地改 pcData 那一列與 userData.endDay（兩段式就寢會把這一按改成「不結束」），
+//      其餘異動一律從回傳值出去，呼叫端自己接。
+function kanshouAdvanceClock_(ctx) {
+  const userData = ctx.userData, pcData = ctx.pcData, pcIndex = ctx.pcIndex;
+  const myGameId = ctx.myGameId, sameGame = ctx.sameGame, partyMembers = ctx.partyMembers;
+  const dirtyPcRows = ctx.dirtyPcRows, _paceHour_ = ctx.paceHour;
+  const kanshouNightSceneOn_ = ctx.nightSceneOn;
+  let curDay = ctx.curDay, curHour = ctx.curHour, curL = ctx.curL, finalUserMsg = ctx.finalUserMsg;
+  const kanshouTimeJumped_ = !!(userData.endDay === true || userData.jumpBand || (parseFloat(userData.advanceHours) || 0) > 0);
+
+  // 結束一天／時段跳躍：忽略玩家打的文字，改用系統組好的合成訊息——複用整條既有敘事管線
+  //（在場驗證／規則／intimacy_feedback 全部照常跑），不另開一條平行路徑。
+  let intimateNightNames = [];
+  let kanshouNarrDay_ = null, kanshouNarrHour_ = null;
+  let kanshouClockMoved_ = false; // 結束一天/時段跳躍已自行設時鐘→標記，避免下方每回合流動又加一次
+  // 🌙 兩段式就寢·第一段：按下「睡覺」時身邊【有人在】、且還沒進過深夜段落 →【不結束這一天】，
+  //    改成把時間推到就寢時刻、進入「夜未眠」。2026-09 好感砍除後判準只剩「人在不在」這個事實。
+  let kanshouNightSceneNames_ = [];
+  if (userData.endDay === true && !kanshouNightSceneOn_) {
+    kanshouNightSceneNames_ = partyMembers.slice();
+    if (kanshouNightSceneNames_.length) {
+      userData.endDay = false;                       // 這一按不結束一天
+      pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NIGHT_SCENE_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], curDay);
+      if (timeBand_(curHour) !== '夜' && timeBand_(curHour) !== '深夜') curHour = KANSHOU_DAY_LAST_HOUR_;
+      kanshouClockMoved_ = true;
+      pcData[pcIndex][COL.PC.HOUR] = curHour;
+      finalUserMsg = `【玩家意圖】：夜深了，你和『${kanshouNightSceneNames_.join('、')}』留在這個房間裡，沒有要就此睡去的意思。`;
+    }
+  }
+  if (userData.endDay === true) {
+    // 🛏️ 結束一天＝睡到「即將到來的清晨6點」：凌晨(深夜0~5點)睡下→【同一天】的6點——跨日已在「夜→深夜(00:00)」那一步發生過了；晚上睡下才是隔天6點。
+    const _nightDay = curDay; // 同床發生在「睡下去」的那一天(遞增前)——【初次】記帳要記那天，不是醒來那天
+    // 🕰️→✅ 2026-07 玩家「那我按睡到天亮會有甚麼事情.....」：狀態必須推進到隔天 6:00(眾人重骰行程/日閘門全部依賴它)，但【這一回合要演的是睡下去的那個當下】。
+    pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NIGHT_SCENE_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], 0);
+    kanshouNarrDay_ = curDay;
+    // 敘事時刻＝「就寢的那一刻」，不是按下按鈕的那一刻。
+    kanshouNarrHour_ = (timeBand_(curHour) === '夜' || timeBand_(curHour) === '深夜') ? curHour : KANSHOU_DAY_LAST_HOUR_;
+    if (curHour >= 6) curDay = curDay + 1;
+    curHour = 6;
+    kanshouClockMoved_ = true;
+    pcData[pcIndex][COL.PC.DAY] = curDay;
+    pcData[pcIndex][COL.PC.HOUR] = curHour;
+    const allEstablished = pcData.filter((r, idx) => idx !== pcIndex && kanshouIsAlly_(r, myGameId));
+    // 🌙 誰留下過夜＝同行的人。那一夜怎麼過是 AI 的事。
+    intimateNightNames = partyMembers.slice();
+    if (intimateNightNames.length) {
+      pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], intimateNightNames.join('、'));
+      // 💞 第一次同床：記在她那一列。
+      // 🐛→✅ 2026-09 跨帳號污染：intimateNightNames 是【名字字串】，回頭掃 pcData 時只比名字。
+      //    但鑑賞眾生是【全帳號共用一張表】，而大家都從同一座英靈殿召喚——撞名是常態不是巧合。
+      //    實測兩個帳號各召一個 SABER，甲按睡覺會把「初次·同床」蓋到乙那一列上（見 crossgame.js）。
+      //    上游的 allEstablished 有 sameGame 過濾，但名字一旦離開那個陣列就不帶 game_id 了。
+      pcData.forEach((r, idx) => {
+        if (idx !== pcIndex && sameGame(r) && intimateNightNames.indexOf(r[COL.PC.NAME]) !== -1) {
+          dirtyPcRows.add(idx);
+        }
+      });
+    }
+    // 玩家自己不管白天晃到哪，結束一天一律強制拉回自己房間——「玩家永遠有路可退」的安全閥。
+    const kanshouMyRoomLoc_ = '我的房間';
+    pcData[pcIndex][COL.PC.LOC] = kanshouMyRoomLoc_;
+    dirtyPcRows.add(pcIndex);
+    // 🩸 肉體狀態也不跨夜：那一欄寫的是【此刻】的身體(腿還在發軟、指尖還在抖)，睡一覺就該回到如常。
+    //    AI 沒吐 physical_state 的回合不會覆寫它，不清就會一路跟著人走好幾天。
+    kanshouRestBody_(pcData, pcIndex);
+    allEstablished.forEach(r => { const _bi = pcData.indexOf(r); kanshouRestBody_(pcData, _bi); if (_bi >= 0) dirtyPcRows.add(_bi); });
+    curL = kanshouMyRoomLoc_;
+    finalUserMsg = `【一天結束】夜幕降臨，${intimateNightNames.length ? `跟『${intimateNightNames.join('、')}』一起` : ""}回到房間安頓下來，今天到此為止，明天又是新的一天。`;
+  } else {
+    let advanceHours = Math.max(0, Math.min(parseFloat(userData.advanceHours) || 0, 24 * 365 * 3)); // parseFloat：支援「跳到約定前10分」的小數時數
+    // ⏰「跳到下一個時段」：advanceHours 沒指定時才輪到它。
+    let jumpBand = null;
+    if (!advanceHours && userData.jumpBand) {
+      jumpBand = KANSHOU_TIME_BANDS_.find(b => b.key === String(userData.jumpBand)) || null;
+      if (jumpBand) advanceHours = kanshouHoursUntilBand_(curHour, jumpBand.startHour);
+    }
+    if (advanceHours > 0) {
+      const clk = { day: curDay, hour: curHour };
+      rollHours_(clk, advanceHours);
+      curDay = clk.day; curHour = clk.hour;
+      kanshouClockMoved_ = true;
+      pcData[pcIndex][COL.PC.DAY] = curDay;
+      pcData[pcIndex][COL.PC.HOUR] = curHour;
+      const newDate = kanshouAbsDayToDate_(curDay);
+      const _jumpSceneBreak = `（★這是時間快轉後的【全新場景·換幕】：直接寫此刻新時段的當下光景，整段從這個新時段的第一秒寫起，上一段的動作與對話都已經過去了。）`;
+      finalUserMsg = (jumpBand
+          ? `【時間推進】時間悄悄流轉到了${jumpBand.label}，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`
+          : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`) + _jumpSceneBreak;
+    }
+  }
+  // ⏰ 時間隨動作流動：一般 AI 敘事回合(非結束一天/非時段跳躍)每次推進 kanshouHourPerAction_(memory) 小時(玩家自選流速)，讓聊天/移動等按鍵都會讓時鐘往前走，消除「到處跑卻永遠6點」的凍結感。
+  if (!kanshouClockMoved_ && curHour < KANSHOU_DAY_LAST_HOUR_ && _paceHour_ > 0) {
+    curHour = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + _paceHour_);
+    pcData[pcIndex][COL.PC.HOUR] = curHour;
+    dirtyPcRows.add(pcIndex);
+  }
+  return {
+    curDay: curDay, curHour: curHour, curL: curL, finalUserMsg: finalUserMsg,
+    timeJumped: kanshouTimeJumped_, clockMoved: kanshouClockMoved_,
+    narrDay: kanshouNarrDay_, narrHour: kanshouNarrHour_,
+    intimateNightNames: intimateNightNames, nightSceneNames: kanshouNightSceneNames_
+  };
+}
+
+// 💬 專屬稱呼 → 卡片上那一小段（沒有稱呼就整段不印）。2026-09 從 actionPlay_ 內部提到檔案層，
+//    因為在場人物卡拆成 kanshouPartyCards_ 之後它變成跨函式共用。
+function relMemMemoryStr_(relMem) {
+  const nickMatch = String(relMem || "").match(/\[專屬稱呼\](.*?)(?=\| \[|$)/);
+  const nickTrim = nickMatch ? nickMatch[1].trim() : "";
+  return (nickTrim && nickTrim !== "無") ? ` [專屬稱呼:${nickTrim}]` : "";
+}
+// 🪪 在場人物卡：把同行的每一位壓成一句自然語言（沒有欄位名——卡片是 AI 拿來變成那個人的依據，
+//    遞一張資料庫欄位過去，回來的就是資料庫腔調）。聚光燈、在場來由抽抬頭、六格人設都在這裡。
+//    回 { text, spotlight }：text 直接進提示詞，spotlight 供呼叫端判斷這一步點名了誰。
+function kanshouPartyCards_(ctx) {
+  const pcData = ctx.pcData, pcId = ctx.pcId, myGameId = ctx.myGameId, userMsg = ctx.userMsg;
+  const partyMembers = ctx.partyMembers, moveTarget = ctx.moveTarget;
+  const kanshouTimeJumped_ = ctx.timeJumped, formatPref = ctx.formatPref, formatTrait = ctx.formatTrait;
+  let partyDetailsArr = [];
+  const _presenceSeen_ = {};
+  // 🔦 聚光燈：玩家這一步點名了誰，誰才拿完整的卡；同場其他人拿短卡（名字/裝扮/現況/關係）。
+  //    提示詞本來就寫著「玩家專一對著一個人時其他人背景輕描」——這是把那句話真的做出來。
+  //    ⚠ 沒點名任何人就【全部都給完整卡】（維持原行為）：猜錯的代價是那個人當場失格，不值得賭。
+  const _spotlight_ = userMsg
+    ? partyMembers.filter(n => kanshouNameCandidates_(String(n)).some(c => c && userMsg.indexOf(c) >= 0))
+    : [];
+  partyMembers.forEach(pName => {
+    const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && kanshouIsAlly_(row, myGameId));
+    if (r) {
+      const pOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👕 換裝：當前服裝穿著(換衣不換人；玩家UI設定或AI依appearance_extras更新)
+      // 鑑賞無戰鬥，HP/STATUS 恆定不變(已被 physical_state 取代)，不重複注入。
+      const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
+      // 怪癖/行為準則：召喚時已存進 MEMORY 的【小動作】【準則】標記，直接讀列。
+      const pQuirks = getPersonaQuirks_(r[COL.PC.MEMORY]);
+      const pLogic = getPersonaLogic_(r[COL.PC.MEMORY]);
+      // 🏷️ 關係稱呼：AI 每回合依你們的歷史自己維護（intimacy_feedback.npcs[].rel_tag），
+      //    玩家自己打過一次就鎖住歸玩家（【關係鎖】）。沒有值就整段不印。
+      const pRelTagStr = String(r[COL.PC.REL_TAG] || "").trim();
+      // 地點的「當下在做什麼」輕量引子(見上方KANSHOU_LOCATION_ACTIVITY_)，沒對照到的地點不加這句，AI自然發揮即可。
+      // 🗑️ 2026-09「她在這個地點正在做什麼」的寫死變體池(KANSHOU_LOCATION_ACTIVITY_)已移除——
+      //    那是 14 個地點各寫兩句的預寫橋段，同一個人同一地永遠那兩句。她此刻在做什麼，AI 依
+      //    地點/時段/天氣/她的個性自己決定就好，這裡不再給答案。
+      const pBackStr = (() => {
+        const _b = String(r[COL.PC.BACK] || "").trim();
+        if (!_b || _b === `${String(r[COL.PC.RANK] || "")}・${pName}` || /職階英靈$/.test(_b) || QUAD_EMPTY_.indexOf(_b) !== -1) return "";
+        return `${_b}。`;
+      })();
+      const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
+      // ★是玩家釘選標記(面板用)，餵AI時去掉、不外洩機制符號。
+      // 📝 你在對方眼中是什麼樣子：熟悉段(GAS 依相處次數算)＋對方這一路親自記下的幾條。
+      const _pKnown = kanshouKnownOfYou_(r[COL.PC.MEMORY]);
+      const pKnownStr = `${_pKnown.say}${_pKnown.noted.length ? `，${pron_(r[COL.PC.SEX])}注意到你${_pKnown.noted.join('、')}` : ''}。`;
+      const pMemoirStr = pMemoirRaw ? `你們一起走過：${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}。` : "";
+      // 明講方向的「她/他是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍對方。
+      // 🫂 在場者都是同行者，走到哪跟到哪——在場來由只剩「這一幕是怎麼開場的」。
+      const pPresenceStr = (() => {
+        if (moveTarget) return "【與你結伴一起來到】這裡(一路同行，此刻剛踏進這個場景)";
+        if (kanshouTimeJumped_) return "時間流轉之後，【依然在你身邊】(這段空白裡各自做了什麼，順著時段自然帶過)";
+        // 🗑️ 2026-09 玩家「你們從剛才就一直在這裡<< 這不用了吧?」：一般回合不講在場來由。
+        //    上一輪的敘事就在 chatHistory 裡、人也還在卡上，那句話沒有新資訊。
+        //    剛結伴走到／時間跳過之後才有——那兩種是 AI 猜不到、猜錯會演壞的事。
+        return "";
+      })();
+      _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
+      // 🔦 背景輕描：這一步沒被點名的人只送「此刻的情境」那幾欄，性格/特徵/經歷/共同回憶下回合被點名時再給。
+      const _lit = !_spotlight_.length || _spotlight_.indexOf(pName) >= 0;
+      partyDetailsArr.push(`【在場人物】${pName}，${String(r[COL.PC.SEX] || "").trim() || "異"}。__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${_lit ? (() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? `${_p}。` : ""; })() : ""}${_lit ? (() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })() : ""}${_lit && pQuirks ? `${pQuirks}。` : ""}${_lit && pLogic ? `${pLogic}。` : ""}${_lit ? pBackStr : ""}${_lit ? pMemoirStr : ""}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}。` : ""}${pMemStr}`);
+    }
+  });
+  // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。
+  const _presenceKeys_ = Object.keys(_presenceSeen_);
+  const _presenceShared_ = (_presenceKeys_.length === 1 && partyDetailsArr.length > 1) ? _presenceKeys_[0] : "";
+  const _partyCards_ = partyDetailsArr.map(t => _presenceShared_
+    ? t.replace(/__PRESENCE__[\s\S]*?__\/PRESENCE__/, "")
+    : t.replace(/__PRESENCE__([\s\S]*?)__\/PRESENCE__/, "$1"));
+  const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0
+    ? `【在你身邊的人】(穿著是此刻的衣服，長相體態不隨之改變)：${_presenceShared_ ? `\n${_presenceShared_}` : ""}\n${_partyCards_.join("\n")}`
+    : "目前這個地點沒有其他人，玩家是獨自行動的。";
+
+  return { text: PROMPT_PARTY_SYSTEM, spotlight: _spotlight_ };
+}
+
+// 📝 AI 回報的當下狀態落盤：玩家與每位在場者的 神色／穿著配飾／專屬稱呼／關係稱呼／
+//    共同回憶／她眼中的你。全部就地改 pcData 並把動到的列記進 dirtyPcRows，不自己寫表。
+//    ⚠ 這裡是 AI 唯一能改「人的狀態」的管道，所以敷衍用語過濾與長度裁切都擋在這一層。
+function kanshouApplyIntimacyFeedback_(ctx) {
+  const aiData = ctx.aiData, pcData = ctx.pcData, pcIndex = ctx.pcIndex;
+  const myGameId = ctx.myGameId, dirtyPcRows = ctx.dirtyPcRows;
+  const curL = ctx.curL, pcName = ctx.pcName;
+  if (!aiData.intimacy_feedback) return;
+
+    // 🔴 防禦機制：過濾掉 AI 偷懶不想更新狀態時的敷衍用語
+    const ignoreWords = ["維持現狀", "無變化", "不變", "維持", "同上", "保持現狀", "沒有變化"];
+
+    // physical_state 只管神色。
+    const sanitizePhysicalState = (rawState) => {
+      if (typeof rawState !== 'string') return "";
+      let val = rawState.trim();
+      if (!val || ignoreWords.includes(val)) return "";
+      if (val.length > 20) {
+        const cut = val.slice(0, 20);
+        const m = cut.match(/^[\s\S]*[，、。；！？]/); // 貪婪：取預算內最後一個標點為止
+        val = m ? m[0].replace(/[，、；]$/, "") : cut;  // 尾巴的逗號/頓號拿掉，句號驚嘆號保留
+      }
+      return ignoreWords.includes(val) ? "" : val;
+    };
+
+    const sanitizeAppearanceExtras = (rawOutfit) => {
+      if (typeof rawOutfit !== 'string') return "";
+      const val = rawOutfit.trim()
+        .replace(/^(剛?(換|穿|披|套|繫|着|著)上了?|換回了?|改穿了?)\s*/, "")
+        .replace(/^(一件|一身|一套|一襲)\s*/, "")
+        .replace(/[。！!，,]+$/, "").trim();
+      return (!val || ignoreWords.includes(val)) ? "" : val;
+    };
+
+
+    const processTags = (oldMem, regex, newTagStr, maxCount) => {
+      // 1. 取出舊標籤，拆成單項陣列(去頭部殘留的...、濾空白)
+      let oldStr = (oldMem.match(regex) || [])[1]?.trim() || "無";
+      let arr = (oldStr === "無" || oldStr === "")
+        ? []
+        : oldStr.replace(/^\.\.\./, "").split('、').map(x => x.trim()).filter(x => x !== "");
+
+      // 2. 把新進來的字串也拆成單項(AI 可能一次吐多個，如「唇瓣、頸部」)
+      let newItems = String(newTagStr || "").trim();
+      if (newItems && newItems !== "無") {
+        newItems.split('、').map(x => x.trim()).filter(x => x !== "").forEach(item => {
+          // 3. 逐項去重：只有陣列裡還沒有這一項，才加進去
+          if (!arr.includes(item)) arr.push(item);
+        });
+      }
+
+      // 4. 超過上限保留最新的 maxCount 項
+      if (arr.length === 0) return "無";
+      return (arr.length > maxCount ? arr.slice(-maxCount) : arr).join('、');
+    };
+
+    // 💞 共同回憶 與 📝 她眼中的你 共用同一支 append/去重/上限引擎（見 kanshouAppendUnique_）。
+    const processMemoir_ = (oldMemoir, newLine, maxCount) =>
+      kanshouAppendUnique_(oldMemoir, newLine, { sep: '｜', cap: maxCount, maxLen: 40, pin: true });
+
+    if (aiData.intimacy_feedback.player) {
+      const pfb = aiData.intimacy_feedback.player;
+      const pCleanState = sanitizePhysicalState(pfb.physical_state);
+      if (pCleanState) pcData[pcIndex][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[pcIndex][COL.PC.PHYSICAL], pCleanState);
+
+      const pAppearanceExtras = sanitizeAppearanceExtras(pfb.appearance_extras);
+      if (pAppearanceExtras) pcData[pcIndex][COL.PC.MEMORY] = setOutfit_(pcData[pcIndex][COL.PC.MEMORY], pAppearanceExtras);
+    }
+
+    if (Array.isArray(aiData.intimacy_feedback.npcs)) {
+      aiData.intimacy_feedback.npcs.forEach(nfb => {
+        if (!nfb || typeof nfb !== 'object') return;
+        const tName = String(nfb.name || "").trim();
+        if (!tName || tName === pcName || tName === "自己") return;
+        // 同款括號全名比對問題(見上方 kanshouNameCandidates_)，這裡也會影響每回合寫入失敗。
+        const targetIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(tName) && kanshouIsAlly_(r, myGameId));
+        if (targetIdx === -1) return;
+        if (String(pcData[targetIdx][COL.PC.LOC] || "").trim() !== String(curL || "").trim()) return;
+
+        dirtyPcRows.add(targetIdx);
+        const nCleanState = sanitizePhysicalState(nfb.physical_state);
+        if (nCleanState) pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], nCleanState);
+        const nAppearanceExtras = sanitizeAppearanceExtras(nfb.appearance_extras);
+        if (nAppearanceExtras) pcData[targetIdx][COL.PC.MEMORY] = setOutfit_(pcData[targetIdx][COL.PC.MEMORY], nAppearanceExtras);
+
+        // 羈絆記憶已併入該 NPC 自己列的 REL_MEM 欄，現在放專屬稱呼與兩把鎖。
+        let oldRMem = pcData[targetIdx][COL.PC.REL_MEM] || "";
+        const _locks = { nick: kanshouRelLocked_(oldRMem, 'nick'), tag: kanshouRelLocked_(oldRMem, 'tag') };
+        // 🔒 AI 給的稱呼一律先過 sanitizeNickname_(逐項消毒＋限長)——見該函式說明：這格能偽造欄位。
+        const _nickValue = _locks.nick
+          ? (getNickname_(oldRMem) || "無")
+          : processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/,
+            String(nfb.mutual_nicknames || "").split('、').map(sanitizeNickname_).filter(Boolean).join('、'), 3);
+        // 🗑 2026-07 態度不再落地（見 relMemMemoryStr_ 的說明：它是會自我鎖死的形容詞標籤）。
+        pcData[targetIdx][COL.PC.REL_MEM] = kanshouRelMemBuild_(_nickValue, _locks);
+
+        // 🏷️ 關係稱呼：2026-09 交給 AI——它讀過你們每一回合，比一個數字更知道你們現在是什麼。
+        //    ⚠ 這一格會被原樣塞進提示詞當既定事實(「她是你的○○」)，等於 AI 餵自己，所以只收
+        //    【真的有變】的回合，並走跟專屬稱呼同一個消毒口。玩家自己打過一次就鎖住，從此歸玩家。
+        if (!_locks.tag) {
+          const _aiTag = sanitizeNickname_(nfb.rel_tag);
+          if (_aiTag && _aiTag !== "無") pcData[targetIdx][COL.PC.REL_TAG] = _aiTag;
+        }
+
+        // 💞 共同回憶：AI 這回合若吐了里程碑 memory，append 進她自己列的 27 欄(最近 10 條、去重)。
+        if (nfb.memory && String(nfb.memory).trim() && String(nfb.memory).trim() !== "無") {
+          pcData[targetIdx][COL.PC.MEMOIR] = processMemoir_(pcData[targetIdx][COL.PC.MEMOIR], nfb.memory, KANSHOU_MEMOIR_CAP_);
+        }
+
+        // 📝 她眼中的你：AI 這回合若真的從玩家身上看出一件事，記進【她自己那列】的【眼中的你】。
+        //    存在她列上(不是玩家列)是關鍵——每個人各記各的，所以同一個玩家在不同人眼中確實會不一樣。
+        if (nfb.noticed && String(nfb.noticed).trim() && String(nfb.noticed).trim() !== "無") {
+          pcData[targetIdx][COL.PC.MEMORY] = KANSHOU_NOTED_TAG_.set(
+            pcData[targetIdx][COL.PC.MEMORY],
+            kanshouAppendUnique_(KANSHOU_NOTED_TAG_.get(pcData[targetIdx][COL.PC.MEMORY]), nfb.noticed,
+              { sep: KANSHOU_NOTED_SEP_, cap: KANSHOU_NOTED_CAP_, maxLen: KANSHOU_NOTED_LEN_ }));
+        }
+      });
+    }
+    }
+
 function actionPlay_(userData, pcId, sheets) {
   const userMsg = String(userData.message || "").replace(/[｜【】]/g, ""); // 📅 endDay 呼叫不一定會帶 message，防呆避免下方 .includes 炸掉
 
@@ -1868,108 +2174,20 @@ function actionPlay_(userData, pcId, sheets) {
     .filter(Boolean).slice(0, KANSHOU_PARTY_MAX_);
   const partyMembers = partyRows.map(r => String(r[COL.PC.NAME]));
 
-  // ⏳ 這回合是否發生「時間跳躍」——單一真實來源。
-  const kanshouTimeJumped_ = !!(userData.endDay === true || userData.jumpBand || (parseFloat(userData.advanceHours) || 0) > 0);
+  // ⏰ 時鐘：結束一天／兩段式就寢／時段跳躍／每回合流動四條路，全在 kanshouAdvanceClock_ 裡。
+  const _clk_ = kanshouAdvanceClock_({
+    userData: userData, pcData: pcData, pcIndex: pcIndex, myGameId: myGameId, sameGame: sameGame,
+    partyMembers: partyMembers, dirtyPcRows: dirtyPcRows, paceHour: _paceHour_,
+    nightSceneOn: kanshouNightSceneOn_, curDay: curDay, curHour: curHour, curL: curL, finalUserMsg: finalUserMsg
+  });
+  curDay = _clk_.curDay; curHour = _clk_.curHour; curL = _clk_.curL; finalUserMsg = _clk_.finalUserMsg;
+  const kanshouTimeJumped_ = _clk_.timeJumped;
+  const intimateNightNames = _clk_.intimateNightNames;
+  const kanshouNightSceneNames_ = _clk_.nightSceneNames;
 
-  // 🎭 情境氛圍(2026-07 玩家「橋段太過生硬」根治改版)：舊版是「跳按鈕→玩家點→GAS骰走向→AI照劇本演」的四段式 apparatus，選單感重、且同好感區間每次演出雷同(branches[].tag 是寫死的劇本)。
-  const kanshouSceneLoc_ = moveTarget ? moveName : curL;
-  let _reHourAfter = curHour;
-  if (userData.endDay === true) _reHourAfter = 6;
-  else if (userData.jumpBand) { const _rb = KANSHOU_TIME_BANDS_.find(b => b.key === String(userData.jumpBand)); if (_rb) _reHourAfter = _rb.startHour; }
-  else if (parseFloat(userData.advanceHours) > 0) _reHourAfter = ((curHour + parseFloat(userData.advanceHours)) % 24 + 24) % 24;
-  else if (curHour < KANSHOU_DAY_LAST_HOUR_ && _paceHour_ > 0) _reHourAfter = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + _paceHour_);
-  const kanshouReBand_ = timeBand_(_reHourAfter);
-
-  // 結束一天：忽略玩家打的文字，改用系統組好的合成訊息——複用actionPlay整條既有敘事管線(在場驗證/NSFW規則/intimacy_feedback全部照常跑)，不另開一條平行路徑。
-
-  let intimateNightNames = [];
-  // 🌙 昨夜道別(2026-07 玩家實測「好感沒80，牽手睡覺 NPC 會自己回家？
-  let kanshouNarrDay_ = null, kanshouNarrHour_ = null;
-  let kanshouClockMoved_ = false; // 結束一天/時段跳躍已自行設時鐘→標記，避免下方每回合流動又加一次
-  // 🌙 兩段式就寢·第一段：按下「睡覺」時身邊【有人在】、且還沒進過深夜段落 →【不結束這一天】，
-  //    改成把時間推到就寢時刻、進入「夜未眠」。2026-09 好感砍除後判準只剩「人在不在」這個事實。
-  let kanshouNightSceneNames_ = [];
-  if (userData.endDay === true && !kanshouNightSceneOn_) {
-    kanshouNightSceneNames_ = partyMembers.slice();
-    if (kanshouNightSceneNames_.length) {
-      userData.endDay = false;                       // 這一按不結束一天
-      pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NIGHT_SCENE_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], curDay);
-      if (timeBand_(curHour) !== '夜' && timeBand_(curHour) !== '深夜') curHour = KANSHOU_DAY_LAST_HOUR_;
-      kanshouClockMoved_ = true;
-      pcData[pcIndex][COL.PC.HOUR] = curHour;
-      finalUserMsg = `【玩家意圖】：夜深了，你和『${kanshouNightSceneNames_.join('、')}』留在這個房間裡，沒有要就此睡去的意思。`;
-    }
-  }
-  if (userData.endDay === true) {
-    // 🛏️ 結束一天＝睡到「即將到來的清晨6點」：凌晨(深夜0~5點)睡下→【同一天】的6點——跨日已在「夜→深夜(00:00)」那一步發生過了；晚上睡下才是隔天6點。
-    const _nightDay = curDay; // 同床發生在「睡下去」的那一天(遞增前)——【初次】記帳要記那天，不是醒來那天
-    // 🕰️→✅ 2026-07 玩家「那我按睡到天亮會有甚麼事情.....」：狀態必須推進到隔天 6:00(眾人重骰行程/日閘門全部依賴它)，但【這一回合要演的是睡下去的那個當下】。
-    pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NIGHT_SCENE_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], 0);
-    kanshouNarrDay_ = curDay;
-    // 敘事時刻＝「就寢的那一刻」，不是按下按鈕的那一刻。
-    kanshouNarrHour_ = (timeBand_(curHour) === '夜' || timeBand_(curHour) === '深夜') ? curHour : KANSHOU_DAY_LAST_HOUR_;
-    if (curHour >= 6) curDay = curDay + 1;
-    curHour = 6;
-    kanshouClockMoved_ = true;
-    pcData[pcIndex][COL.PC.DAY] = curDay;
-    pcData[pcIndex][COL.PC.HOUR] = curHour;
-    const allEstablished = pcData.filter((r, idx) => idx !== pcIndex && kanshouIsAlly_(r, myGameId));
-    // 🌙 誰留下過夜＝同行的人。那一夜怎麼過是 AI 的事。
-    intimateNightNames = partyMembers.slice();
-    if (intimateNightNames.length) {
-      pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], intimateNightNames.join('、'));
-      // 💞 第一次同床：記在她那一列。
-      // 🐛→✅ 2026-09 跨帳號污染：intimateNightNames 是【名字字串】，回頭掃 pcData 時只比名字。
-      //    但鑑賞眾生是【全帳號共用一張表】，而大家都從同一座英靈殿召喚——撞名是常態不是巧合。
-      //    實測兩個帳號各召一個 SABER，甲按睡覺會把「初次·同床」蓋到乙那一列上（見 crossgame.js）。
-      //    上游的 allEstablished 有 sameGame 過濾，但名字一旦離開那個陣列就不帶 game_id 了。
-      pcData.forEach((r, idx) => {
-        if (idx !== pcIndex && sameGame(r) && intimateNightNames.indexOf(r[COL.PC.NAME]) !== -1) {
-          dirtyPcRows.add(idx);
-        }
-      });
-    }
-    // 玩家自己不管白天晃到哪，結束一天一律強制拉回自己房間——「玩家永遠有路可退」的安全閥。
-    const kanshouMyRoomLoc_ = '我的房間';
-    pcData[pcIndex][COL.PC.LOC] = kanshouMyRoomLoc_;
-    dirtyPcRows.add(pcIndex);
-    // 🩸 肉體狀態也不跨夜：那一欄寫的是【此刻】的身體(腿還在發軟、指尖還在抖)，睡一覺就該回到如常。
-    //    AI 沒吐 physical_state 的回合不會覆寫它，不清就會一路跟著人走好幾天。
-    kanshouRestBody_(pcData, pcIndex);
-    allEstablished.forEach(r => { const _bi = pcData.indexOf(r); kanshouRestBody_(pcData, _bi); if (_bi >= 0) dirtyPcRows.add(_bi); });
-    curL = kanshouMyRoomLoc_;
-    finalUserMsg = `【一天結束】夜幕降臨，${intimateNightNames.length ? `跟『${intimateNightNames.join('、')}』一起` : ""}回到房間安頓下來，今天到此為止，明天又是新的一天。`;
-  } else {
-    let advanceHours = Math.max(0, Math.min(parseFloat(userData.advanceHours) || 0, 24 * 365 * 3)); // parseFloat：支援「跳到約定前10分」的小數時數
-    // ⏰「跳到下一個時段」：advanceHours 沒指定時才輪到它。
-    let jumpBand = null;
-    if (!advanceHours && userData.jumpBand) {
-      jumpBand = KANSHOU_TIME_BANDS_.find(b => b.key === String(userData.jumpBand)) || null;
-      if (jumpBand) advanceHours = kanshouHoursUntilBand_(curHour, jumpBand.startHour);
-    }
-    if (advanceHours > 0) {
-      const clk = { day: curDay, hour: curHour };
-      rollHours_(clk, advanceHours);
-      curDay = clk.day; curHour = clk.hour;
-      kanshouClockMoved_ = true;
-      pcData[pcIndex][COL.PC.DAY] = curDay;
-      pcData[pcIndex][COL.PC.HOUR] = curHour;
-      const newDate = kanshouAbsDayToDate_(curDay);
-      const _jumpSceneBreak = `（★這是時間快轉後的【全新場景·換幕】：直接寫此刻新時段的當下光景，整段從這個新時段的第一秒寫起，上一段的動作與對話都已經過去了。）`;
-      finalUserMsg = (jumpBand
-          ? `【時間推進】時間悄悄流轉到了${jumpBand.label}，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`
-          : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`) + _jumpSceneBreak;
-    }
-  }
-  // ⏰ 時間隨動作流動：一般 AI 敘事回合(非結束一天/非時段跳躍)每次推進 kanshouHourPerAction_(memory) 小時(玩家自選流速)，讓聊天/移動等按鍵都會讓時鐘往前走，消除「到處跑卻永遠6點」的凍結感。
-  if (!kanshouClockMoved_ && curHour < KANSHOU_DAY_LAST_HOUR_ && _paceHour_ > 0) {
-    curHour = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + _paceHour_);
-    pcData[pcIndex][COL.PC.HOUR] = curHour;
-    dirtyPcRows.add(pcIndex);
-  }
   // 供下方🕰️提示詞用，只算一次不重複呼叫。★讀敘事時鐘而非狀態時鐘——兩者只有 endDay 會不同。
-  const _narrDay_ = (kanshouNarrDay_ === null) ? curDay : kanshouNarrDay_;
-  const _narrHour_ = (kanshouNarrHour_ === null) ? curHour : kanshouNarrHour_;
+  const _narrDay_ = (_clk_.narrDay === null) ? curDay : _clk_.narrDay;
+  const _narrHour_ = (_clk_.narrHour === null) ? curHour : _clk_.narrHour;
   const curDateObj_ = kanshouAbsDayToDate_(_narrDay_);
 
   // 合法地點時才寫入 LOC。
@@ -1982,15 +2200,6 @@ function actionPlay_(userData, pcId, sheets) {
     dirtyPcRows.add(pcIndex);
   }
 
-
-  function relMemMemoryStr_(relMem) {
-    const s = String(relMem || "");
-    const nickMatch = s.match(/\[專屬稱呼\](.*?)(?=\| \[|$)/);
-    const nickTrim = nickMatch ? nickMatch[1].trim() : "";
-    const nickStr = (nickTrim && nickTrim !== "無") ? ` [專屬稱呼:${nickTrim}]` : "";
-    // 態度：NPC對御主當下的臨場態度(與好感分開追蹤，見慾海律令第5條)，讓AI下筆前看得到自己上一輪演的態度，不會忽冷忽熱亂跳。
-    return nickStr;
-  }
 
   // 「開放世界·背景人煙」設計：路人可自由描寫增添生活感，但不具名、不能被指名互動；真正能被指名、會被記錄的對象只有【在場人物】（＝上方的同行名單）。
   // 🗺️ LOC 只是「這一幕在哪」的衍生值：同行者跟著你走，地圖那些讀 LOC 的地方才不會各說各話。
@@ -2040,66 +2249,12 @@ function actionPlay_(userData, pcId, sheets) {
     ? `\n★【夜已深·門關上了】：這個房間此刻只剩你和『${(kanshouNightSceneNames_.length ? kanshouNightSceneNames_ : partyMembers).join('、')}』，外頭安靜下來，今晚不會再有別人進來，時間也不急著走。★這一段【還沒有結束】：這一夜什麼時候收，由玩家自己決定、系統會宣告；本回合只演此刻正在發生的這十分鐘，結尾一樣停在進行式、把下一步交還玩家。`
     : "";
 
-  let partyDetailsArr = [];
-  const _presenceSeen_ = {};
-  // 🔦 聚光燈：玩家這一步點名了誰，誰才拿完整的卡；同場其他人拿短卡（名字/裝扮/現況/關係）。
-  //    提示詞本來就寫著「玩家專一對著一個人時其他人背景輕描」——這是把那句話真的做出來。
-  //    ⚠ 沒點名任何人就【全部都給完整卡】（維持原行為）：猜錯的代價是那個人當場失格，不值得賭。
-  const _spotlight_ = userMsg
-    ? partyMembers.filter(n => kanshouNameCandidates_(String(n)).some(c => c && userMsg.indexOf(c) >= 0))
-    : [];
-  partyMembers.forEach(pName => {
-    const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && kanshouIsAlly_(row, myGameId));
-    if (r) {
-      const pOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👕 換裝：當前服裝穿著(換衣不換人；玩家UI設定或AI依appearance_extras更新)
-      // 鑑賞無戰鬥，HP/STATUS 恆定不變(已被 physical_state 取代)，不重複注入。
-      const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
-      // 怪癖/行為準則：召喚時已存進 MEMORY 的【小動作】【準則】標記，直接讀列。
-      const pQuirks = getPersonaQuirks_(r[COL.PC.MEMORY]);
-      const pLogic = getPersonaLogic_(r[COL.PC.MEMORY]);
-      // 🏷️ 關係稱呼：AI 每回合依你們的歷史自己維護（intimacy_feedback.npcs[].rel_tag），
-      //    玩家自己打過一次就鎖住歸玩家（【關係鎖】）。沒有值就整段不印。
-      const pRelTagStr = String(r[COL.PC.REL_TAG] || "").trim();
-      // 地點的「當下在做什麼」輕量引子(見上方KANSHOU_LOCATION_ACTIVITY_)，沒對照到的地點不加這句，AI自然發揮即可。
-      // 🗑️ 2026-09「她在這個地點正在做什麼」的寫死變體池(KANSHOU_LOCATION_ACTIVITY_)已移除——
-      //    那是 14 個地點各寫兩句的預寫橋段，同一個人同一地永遠那兩句。她此刻在做什麼，AI 依
-      //    地點/時段/天氣/她的個性自己決定就好，這裡不再給答案。
-      const pBackStr = (() => {
-        const _b = String(r[COL.PC.BACK] || "").trim();
-        if (!_b || _b === `${String(r[COL.PC.RANK] || "")}・${pName}` || /職階英靈$/.test(_b) || QUAD_EMPTY_.indexOf(_b) !== -1) return "";
-        return `${_b}。`;
-      })();
-      const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
-      // ★是玩家釘選標記(面板用)，餵AI時去掉、不外洩機制符號。
-      // 📝 你在對方眼中是什麼樣子：熟悉段(GAS 依相處次數算)＋對方這一路親自記下的幾條。
-      const _pKnown = kanshouKnownOfYou_(r[COL.PC.MEMORY]);
-      const pKnownStr = `${_pKnown.say}${_pKnown.noted.length ? `，${pron_(r[COL.PC.SEX])}注意到你${_pKnown.noted.join('、')}` : ''}。`;
-      const pMemoirStr = pMemoirRaw ? `你們一起走過：${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}。` : "";
-      // 明講方向的「她/他是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍對方。
-      // 🫂 在場者都是同行者，走到哪跟到哪——在場來由只剩「這一幕是怎麼開場的」。
-      const pPresenceStr = (() => {
-        if (moveTarget) return "【與你結伴一起來到】這裡(一路同行，此刻剛踏進這個場景)";
-        if (kanshouTimeJumped_) return "時間流轉之後，【依然在你身邊】(這段空白裡各自做了什麼，順著時段自然帶過)";
-        // 🗑️ 2026-09 玩家「你們從剛才就一直在這裡<< 這不用了吧?」：一般回合不講在場來由。
-        //    上一輪的敘事就在 chatHistory 裡、人也還在卡上，那句話沒有新資訊。
-        //    剛結伴走到／時間跳過之後才有——那兩種是 AI 猜不到、猜錯會演壞的事。
-        return "";
-      })();
-      _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
-      // 🔦 背景輕描：這一步沒被點名的人只送「此刻的情境」那幾欄，性格/特徵/經歷/共同回憶下回合被點名時再給。
-      const _lit = !_spotlight_.length || _spotlight_.indexOf(pName) >= 0;
-      partyDetailsArr.push(`【在場人物】${pName}，${String(r[COL.PC.SEX] || "").trim() || "異"}。__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${_lit ? (() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? `${_p}。` : ""; })() : ""}${_lit ? (() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })() : ""}${_lit && pQuirks ? `${pQuirks}。` : ""}${_lit && pLogic ? `${pLogic}。` : ""}${_lit ? pBackStr : ""}${_lit ? pMemoirStr : ""}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}。` : ""}${pMemStr}`);
-    }
+  // 🪪 在場人物卡（聚光燈／在場來由／六格人設）：見 kanshouPartyCards_。
+  const _cards_ = kanshouPartyCards_({
+    pcData: pcData, pcId: pcId, myGameId: myGameId, userMsg: userMsg, partyMembers: partyMembers,
+    moveTarget: moveTarget, timeJumped: kanshouTimeJumped_, formatPref: formatPref, formatTrait: formatTrait
   });
-  // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。
-  const _presenceKeys_ = Object.keys(_presenceSeen_);
-  const _presenceShared_ = (_presenceKeys_.length === 1 && partyDetailsArr.length > 1) ? _presenceKeys_[0] : "";
-  const _partyCards_ = partyDetailsArr.map(t => _presenceShared_
-    ? t.replace(/__PRESENCE__[\s\S]*?__\/PRESENCE__/, "")
-    : t.replace(/__PRESENCE__([\s\S]*?)__\/PRESENCE__/, "$1"));
-  const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0
-    ? `【在你身邊的人】(穿著是此刻的衣服，長相體態不隨之改變)：${_presenceShared_ ? `\n${_presenceShared_}` : ""}\n${_partyCards_.join("\n")}`
-    : "目前這個地點沒有其他人，玩家是獨自行動的。";
+  const PROMPT_PARTY_SYSTEM = _cards_.text;
 
   // 路人與缺席者是同一件事的兩面（誰只是背景／誰不在場），合成一條；能開口的名單在結尾講。
   const backgroundCrowdStr = "";  // 已併進下方 ★【這個世界有誰】；理由見 CODE_NOTES.md 同名條目
@@ -2262,118 +2417,11 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
 
 
 
-    if (aiData.intimacy_feedback) {
-      // 🔴 防禦機制：過濾掉 AI 偷懶不想更新狀態時的敷衍用語
-      const ignoreWords = ["維持現狀", "無變化", "不變", "維持", "同上", "保持現狀", "沒有變化"];
-
-      // physical_state 只管神色。
-      const sanitizePhysicalState = (rawState) => {
-        if (typeof rawState !== 'string') return "";
-        let val = rawState.trim();
-        if (!val || ignoreWords.includes(val)) return "";
-        if (val.length > 20) {
-          const cut = val.slice(0, 20);
-          const m = cut.match(/^[\s\S]*[，、。；！？]/); // 貪婪：取預算內最後一個標點為止
-          val = m ? m[0].replace(/[，、；]$/, "") : cut;  // 尾巴的逗號/頓號拿掉，句號驚嘆號保留
-        }
-        return ignoreWords.includes(val) ? "" : val;
-      };
-
-      const sanitizeAppearanceExtras = (rawOutfit) => {
-        if (typeof rawOutfit !== 'string') return "";
-        const val = rawOutfit.trim()
-          .replace(/^(剛?(換|穿|披|套|繫|着|著)上了?|換回了?|改穿了?)\s*/, "")
-          .replace(/^(一件|一身|一套|一襲)\s*/, "")
-          .replace(/[。！!，,]+$/, "").trim();
-        return (!val || ignoreWords.includes(val)) ? "" : val;
-      };
-
-
-      const processTags = (oldMem, regex, newTagStr, maxCount) => {
-        // 1. 取出舊標籤，拆成單項陣列(去頭部殘留的...、濾空白)
-        let oldStr = (oldMem.match(regex) || [])[1]?.trim() || "無";
-        let arr = (oldStr === "無" || oldStr === "")
-          ? []
-          : oldStr.replace(/^\.\.\./, "").split('、').map(x => x.trim()).filter(x => x !== "");
-
-        // 2. 把新進來的字串也拆成單項(AI 可能一次吐多個，如「唇瓣、頸部」)
-        let newItems = String(newTagStr || "").trim();
-        if (newItems && newItems !== "無") {
-          newItems.split('、').map(x => x.trim()).filter(x => x !== "").forEach(item => {
-            // 3. 逐項去重：只有陣列裡還沒有這一項，才加進去
-            if (!arr.includes(item)) arr.push(item);
-          });
-        }
-
-        // 4. 超過上限保留最新的 maxCount 項
-        if (arr.length === 0) return "無";
-        return (arr.length > maxCount ? arr.slice(-maxCount) : arr).join('、');
-      };
-
-      // 💞 共同回憶 與 📝 她眼中的你 共用同一支 append/去重/上限引擎（見 kanshouAppendUnique_）。
-      const processMemoir_ = (oldMemoir, newLine, maxCount) =>
-        kanshouAppendUnique_(oldMemoir, newLine, { sep: '｜', cap: maxCount, maxLen: 40, pin: true });
-
-      if (aiData.intimacy_feedback.player) {
-        const pfb = aiData.intimacy_feedback.player;
-        const pCleanState = sanitizePhysicalState(pfb.physical_state);
-        if (pCleanState) pcData[pcIndex][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[pcIndex][COL.PC.PHYSICAL], pCleanState);
-
-        const pAppearanceExtras = sanitizeAppearanceExtras(pfb.appearance_extras);
-        if (pAppearanceExtras) pcData[pcIndex][COL.PC.MEMORY] = setOutfit_(pcData[pcIndex][COL.PC.MEMORY], pAppearanceExtras);
-      }
-
-      if (Array.isArray(aiData.intimacy_feedback.npcs)) {
-        aiData.intimacy_feedback.npcs.forEach(nfb => {
-          if (!nfb || typeof nfb !== 'object') return;
-          const tName = String(nfb.name || "").trim();
-          if (!tName || tName === pcName || tName === "自己") return;
-          // 同款括號全名比對問題(見上方 kanshouNameCandidates_)，這裡也會影響每回合寫入失敗。
-          const targetIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(tName) && kanshouIsAlly_(r, myGameId));
-          if (targetIdx === -1) return;
-          if (String(pcData[targetIdx][COL.PC.LOC] || "").trim() !== String(curL || "").trim()) return;
-
-          dirtyPcRows.add(targetIdx);
-          const nCleanState = sanitizePhysicalState(nfb.physical_state);
-          if (nCleanState) pcData[targetIdx][COL.PC.PHYSICAL] = mergePhysicalStatus(pcData[targetIdx][COL.PC.PHYSICAL], nCleanState);
-          const nAppearanceExtras = sanitizeAppearanceExtras(nfb.appearance_extras);
-          if (nAppearanceExtras) pcData[targetIdx][COL.PC.MEMORY] = setOutfit_(pcData[targetIdx][COL.PC.MEMORY], nAppearanceExtras);
-
-          // 羈絆記憶已併入該 NPC 自己列的 REL_MEM 欄，現在放專屬稱呼與兩把鎖。
-          let oldRMem = pcData[targetIdx][COL.PC.REL_MEM] || "";
-          const _locks = { nick: kanshouRelLocked_(oldRMem, 'nick'), tag: kanshouRelLocked_(oldRMem, 'tag') };
-          // 🔒 AI 給的稱呼一律先過 sanitizeNickname_(逐項消毒＋限長)——見該函式說明：這格能偽造欄位。
-          const _nickValue = _locks.nick
-            ? (getNickname_(oldRMem) || "無")
-            : processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/,
-              String(nfb.mutual_nicknames || "").split('、').map(sanitizeNickname_).filter(Boolean).join('、'), 3);
-          // 🗑 2026-07 態度不再落地（見 relMemMemoryStr_ 的說明：它是會自我鎖死的形容詞標籤）。
-          pcData[targetIdx][COL.PC.REL_MEM] = kanshouRelMemBuild_(_nickValue, _locks);
-
-          // 🏷️ 關係稱呼：2026-09 交給 AI——它讀過你們每一回合，比一個數字更知道你們現在是什麼。
-          //    ⚠ 這一格會被原樣塞進提示詞當既定事實(「她是你的○○」)，等於 AI 餵自己，所以只收
-          //    【真的有變】的回合，並走跟專屬稱呼同一個消毒口。玩家自己打過一次就鎖住，從此歸玩家。
-          if (!_locks.tag) {
-            const _aiTag = sanitizeNickname_(nfb.rel_tag);
-            if (_aiTag && _aiTag !== "無") pcData[targetIdx][COL.PC.REL_TAG] = _aiTag;
-          }
-
-          // 💞 共同回憶：AI 這回合若吐了里程碑 memory，append 進她自己列的 27 欄(最近 10 條、去重)。
-          if (nfb.memory && String(nfb.memory).trim() && String(nfb.memory).trim() !== "無") {
-            pcData[targetIdx][COL.PC.MEMOIR] = processMemoir_(pcData[targetIdx][COL.PC.MEMOIR], nfb.memory, KANSHOU_MEMOIR_CAP_);
-          }
-
-          // 📝 她眼中的你：AI 這回合若真的從玩家身上看出一件事，記進【她自己那列】的【眼中的你】。
-          //    存在她列上(不是玩家列)是關鍵——每個人各記各的，所以同一個玩家在不同人眼中確實會不一樣。
-          if (nfb.noticed && String(nfb.noticed).trim() && String(nfb.noticed).trim() !== "無") {
-            pcData[targetIdx][COL.PC.MEMORY] = KANSHOU_NOTED_TAG_.set(
-              pcData[targetIdx][COL.PC.MEMORY],
-              kanshouAppendUnique_(KANSHOU_NOTED_TAG_.get(pcData[targetIdx][COL.PC.MEMORY]), nfb.noticed,
-                { sep: KANSHOU_NOTED_SEP_, cap: KANSHOU_NOTED_CAP_, maxLen: KANSHOU_NOTED_LEN_ }));
-          }
-        });
-      }
-    }
+    // 📝 神色／穿著／稱呼／回憶／她眼中的你 → 見 kanshouApplyIntimacyFeedback_。
+    kanshouApplyIntimacyFeedback_({
+      aiData: aiData, pcData: pcData, pcIndex: pcIndex, myGameId: myGameId,
+      dirtyPcRows: dirtyPcRows, curL: curL, pcName: pcName
+    });
 
     // 🌍 AI 這一回合發明的東西落盤——這是「自由」能成立的唯一原因：發明有人記，就不是雜訊。
     //    寫入點只有這一處(worldWrite_ 自己做去重/上限/淘汰)，別在別處各寫一份。

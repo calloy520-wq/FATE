@@ -96,6 +96,7 @@ if python3 "$ROOT/check_loadorder.py"; then :; else fail=1; fi
 
 # 🌱 種子庫（設定寫了卻沒人吃：幽靈技能／死欄位／同一列存兩份／永遠抽不到的角色）
 if python3 "$ROOT/check_seed.py"; then :; else fail=1; fi
+if python3 "$ROOT/check_ctx.py"; then :; else fail=1; fi
 
 # 🖥️ 前端 runtime 冒煙（語法對 ≠ 跑得動；.html 的 JS 不進 CI，這裡是唯一防線）
 if node "$ROOT/check_ui.js"; then :; else fail=1; fi

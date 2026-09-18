@@ -621,6 +621,17 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `getDailyHeroFields_(heroRow, p)` — 純讀 HERO 列的 DAILY_LOOK/WORDS/MOE/OUTFIT 快取，查無退回原始戰時 look/words/moe（「・」→「、」）；不呼叫 AI。
 （~~`dailySpeechByName_`~~ 已隨 2026-09 自稱/語癖退休移除；`DAILY_LOOK_SLOTS_` 同步 3→2，第 3 段「日常口氣」不再存在。）
+#### actionPlay_ 的四個階段（2026-09 拆分，行為零改動）
+`actionPlay_` 曾是 705 行的單一函式，佔 Gallery.gs 的 27%。拆成四段之後剩 442 行。
+⚠ 四支階段函式都吃**同一個 `ctx` 參數物件**，漏傳一個鍵在函式裡就是 `undefined`，
+而它們多半住在 `actionPlay_` 的 try/catch 裡——不會拋例外、不會有錯誤訊息（`curL` 真的漏過一次，
+`check.sh` 全綠、探針才抓到）。`check_ctx.py` 現在逐個呼叫端比對鍵。
+
+- `kanshouAdvanceClock_(ctx)` — ⏰ 這一回合時鐘怎麼走：結束一天／兩段式就寢／時段跳躍／每回合自然流動，四條路都在這裡。`ctx = {userData, pcData, pcIndex, myGameId, sameGame, partyMembers, dirtyPcRows, paceHour, nightSceneOn, curDay, curHour, curL, finalUserMsg}`；回 `{curDay, curHour, curL, finalUserMsg, timeJumped, clockMoved, narrDay, narrHour, intimateNightNames, nightSceneNames}`。⚠ 會就地改 `pcData` 那一列與 `userData.endDay`（兩段式就寢把這一按改成「不結束」）。
+- `kanshouPartyCards_(ctx)` — 🪪 在場人物卡：聚光燈（誰被點名拿完整卡）、在場來由抽抬頭、六格人設壓成一句自然語言。`ctx = {pcData, pcId, myGameId, userMsg, partyMembers, moveTarget, timeJumped, formatPref, formatTrait}`；回 `{text, spotlight}`。
+- `kanshouApplyIntimacyFeedback_(ctx)` — 📝 AI 回報的當下狀態落盤：玩家與每位在場者的 神色／穿著配飾／專屬稱呼／關係稱呼／共同回憶／她眼中的你。`ctx = {aiData, pcData, pcIndex, myGameId, dirtyPcRows, curL, pcName}`；就地改 `pcData` 並把動到的列記進 `dirtyPcRows`，不自己寫表。⚠ 這是 AI 唯一能改「人的狀態」的管道，敷衍用語過濾與長度裁切都擋在這一層。
+- `relMemMemoryStr_(relMem)` — 💬 專屬稱呼 → 卡片上那一小段（沒有稱呼就整段不印）。2026-09 從 `actionPlay_` 內部提到檔案層，因為在場人物卡拆出去之後變成跨函式共用。
+
 - `heroToKanshouRow_(heroRow, gameId, loc, curDay)` — 核心建列器：把 HERO 列轉成鑑賞 PC 列（KHV_ 前綴）。用日常稱呼當 NAME、讀日常版 look/words/moe/outfit、身世走 dailyBack→back→通用預設、起始 BOND=10「點頭之交」、不寫戰鬥欄/IS_PARTY/PHYSICAL。被召喚/起始住民共用。**七度改版**：建列尾聲檢查`KANSHOU_HERO_HOME_[heroRow[COL.HERO.ID]]`，查無專屬豪邸就從~~~~`KANSHOU_GENERIC_HOME_POOL_`~~~~隨機抽一間、用`setKanshouHeroHome_`寫進`【住處】`記憶標記——這是新英靈唯一的建列入口，此處補一次即涵蓋召喚與起始住民兩條路徑。 ⚠ 2026-09 加蓋 `KANSHOU_SRC_TAG_`（【英靈源】＝來源種子 id），撞名守門靠它認人。
 
 #### ~~關係梯度·好感天花板~~（2026-09 鑑賞好感整組砍除）

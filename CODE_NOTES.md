@@ -3088,9 +3088,12 @@ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查�
 
 吃到這個提示詞引子，不論這回合玩家做什麼(聊天/移動/購物皆可)。
 
-### `_reHourAfter`　<sub>Gallery.gs</sub>
+### ~~`_reHourAfter`~~（2026-09 已移除）　<sub>Gallery.gs</sub>
 
 ⏱️ 用「本回合結束時」的時刻算時段——氛圍句是給讀到這次回應的玩家看的，用回合開始的舊時刻會慢半拍(玩家實測：10:5x走進客廳沒跳、原地再點(已11:2x午後)才跳)。
+**它唯一的下游 `kanshouReBand_` 在氛圍句／橋段池整組砍除之後就沒有人讀了，
+這三行（`kanshouSceneLoc_`／`_reHourAfter`／`kanshouReBand_`）從此是算完就丟。
+2026-09 拆 `actionPlay_` 時當場抓到——`actionPlay_` 自己內部也長死碼。**
 
 ### `allEstablished`　<sub>Gallery.gs</sub>
 
