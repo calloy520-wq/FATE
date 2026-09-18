@@ -886,7 +886,7 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 
 // 🔠 對話格式·鑑賞【單一真實來源】：2026-09 起只剩鑑賞在用(solo 走 miniSystem 的短版)。這裡【只講格式】，不講該寫什麼。
 function dialogueFormatRule_() {
-  return `對話格式：單層「」只收嘴巴發得出的聲音(話語/笑聲/嘆息/悶哼)，每句前冠說話者的名字（就是括號前面那個名字本身），同一個人跨回合都用同一個名字；★玩家的台詞免冠名，可以擴寫成完整的一句、補上說這句話當下的動作與神態，語意跟原句一樣；擴寫的範圍就是這一句話。肢體動作與環境聲響留在引號外。★台詞與人物互動【佔 narration 七成以上】。`;
+  return `對話格式：單層「」只收嘴巴發得出的聲音(話語/笑聲/嘆息/悶哼)，每句前冠說話者的名字，用卡片開頭那個名字，同一個人跨回合都用同一個；★玩家的台詞免冠名，可以擴寫成完整的一句、補上說這句話當下的動作與神態，語意跟原句一樣；擴寫的範圍就是這一句話。肢體動作與環境聲響留在引號外。`;
 }
 
 // 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。
@@ -1313,25 +1313,24 @@ var KANSHOU_STYLE_MODULES_ = [
   { key: 'voice',      fixed: true, slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第一人稱「我」＝玩家，旁白只寫「我」看得到聽得到感覺得到的；在場的人各自用自己的名字稱呼。' },
   // 🗑️ 2026-09 大精簡：enact／drive／continuity／immersion／pov／feel 六格整組砍除——那些是筆法指導，
   //    不是「當下情況」也不是格式。agency 收下 enact 的那半句（玩家這一步怎麼接），一格講完。
-  { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家這一步做什麼、說什麼，由玩家的輸入決定；narration 從這一步演起，被搭話的人給出反應。' },
+  { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家這一步做什麼、說什麼，由玩家的輸入決定；narration 從這一步演起。' },
   // 📜 歷史是已經結束的事。2026-09 大精簡時隨 continuity 模組一起砍掉了（當時當成「筆法指導」），
   //    但它其實是【事實陳述】不是筆法——少了它，模型看到自己上一輪寫的 500 字就順著同一個調子
   //    把同一個場景再描述一次。玩家實測：四回合裡「米白色針織衫」出現 4 次、
   //    「如果塔上的草莓太甜…」一字不差重講一遍。solo 的 miniSystem 第 5 條一直都有這句。
-  { key: 'history',    fixed: true, slot: 'sys',  def: '上面的對話歷史是已經結束的事，只供語氣與細節連貫；這一回合要寫的，是玩家這一步【接下來】發生的那一段。' },
+  { key: 'history',    fixed: true, slot: 'sys',  def: '上面的對話歷史是已經結束的事，它讓你知道這一路走到哪裡了；這一回合要寫的，是玩家這一步【接下來】發生的那一段——新的動作、新的話、新的反應。' },
   // 🎬 卡上那幾句【分別是什麼】。卡片是自然語言、沒有欄位名，所以這一格只負責把每一句的
   //    意思講清楚，讓 AI 知道自己讀到的是哪一種事實。
   // ⚠ 2026-09 玩家兩次修正這一格的寫法，兩次都是同一個方向：
   //    ①「讓它們互相拉扯…這不用提示吧，他會一直拉扯，很怪」——無條件的演出指示會固化成每回合硬演；
   //    ②「告訴她意思、事實，不要教他該怎麼做」——所以這裡【只下定義，不給演法】。
   //    怎麼用、什麼時候用，交給模型自己判斷，這也正是這一軌「全靠 AI 即興」的前提。
-  { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，括號裡是性別；接下來的句子依序是：平常看得到的性格、熟了才看得到的那一面、喜歡的、討厭的、外貌與氣質、怪癖、做選擇的方式、在這座城裡的身分。名字後面另外接的那幾行是此刻的狀態：穿著、一起走過什麼、我在對方眼中的樣子、相處的深淺、關係的稱呼。★這兩種句子都只給你看，在場的人並不知道自己被這樣寫著——它們是你拿捏分寸的依據，讓它從稱呼、距離、眼神與舉動裡透出來。★卡上寫的是這個人【一直以來】的樣子，不是這一回合新發生的事。' },
+  { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，括號裡是性別，後面是這個人是什麼樣的人；名字後面另外接的那幾行是此刻的狀態。★卡上這些句子、還有【我自己】那張，都只給你看，在場的人並不知道自己被這樣寫著。★卡上寫的是【一直以來】的底色，不是這一回合發生的事。' },
   { key: 'dialogue',   fixed: true, slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
   { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。尺度一律跟著玩家推進到哪裡走。', slot: 'sys', def: '尺度跟著玩家走：玩家在聊天就好好聊天、把日常寫得有滋味；玩家真的伸出手了，才順著往下走。真進到情慾場面就寫滿寫透——器官用本名，體液、聲音、氣味、溫度全部照實寫，身體的反應寫具體。' },
   { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代冬木市，大家都是住在這裡的普通市民。' },
   { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依這回合有沒有大事調；隨意＝不給字數，平淡的一幕就讓它平淡。', slot: 'none', kind: 'pick', def: 'auto' },
   { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】這一段寫 {篇幅} 字。' },   // ⚠ 篇幅選「隨意」時整段不送，見 actionPlay_ 的 _sty_('length')
-  { key: 'ending',     fixed: true, slot: 'user', def: '🚨【收尾】最後一句留給被搭話的人，停在等玩家回應的那一刻。' }
 ];
 var KANSHOU_STYLE_TEXT_MAX_ = 300;
 var KS_ = { GID: 0, KEY: 1, TEXT: 2, ON: 3 };
@@ -2321,7 +2320,7 @@ function actionPlay_(userData, pcId, sheets) {
         : [];
       return _name + (_variants.length ? `(${_variants.join('/')}也是同一人)` : '') + '在' + kanshouLocNameForAI_(String(r[COL.PC.LOC] || ''));
     }).join('、');
-    return `\n★【這座城裡還有誰】：${_list}。我們都認識他們；玩家問起就照認識的樣子回答，也可以說出對方此刻在哪。★他們此刻【不在這一幕裡】，不會開口——要見面得真的走過去，或請對方過來（系統會宣告）。`;
+    return `\n★【這座城裡還有誰】：${_list}。我們都認識他們；玩家問起就照認識的樣子回答，也可以說出對方此刻在哪。★他們此刻各自在自己的地方，【不在這一幕的畫面裡】——要見面得真的走過去，或請對方過來（系統會宣告）。`;
   })();
   presentRows.forEach(r => {
     const _ri = pcData.indexOf(r);
@@ -2408,8 +2407,7 @@ function actionPlay_(userData, pcId, sheets) {
   const _lenLine_ = _lenTier_.free ? '' : null;
 
   const PROMPT_REL = `${backgroundCrowdStr}
-${nsfwMemories}${genderHintStr}
-🛑【角色一致性】：情慾裡生理反應可以有，說話做事仍照各自的個性。`;
+${nsfwMemories}${genderHintStr}`;
 
   // 有【專屬稱呼】就用暱稱取代真名；JSON 姓名欄不受影響、仍填真名。
   const npcDialoguePrompt = "";  // 名單/稱呼併入結尾的【在場名單】鐵律，見下方 prompt
@@ -2434,7 +2432,7 @@ ${nsfwMemories}${genderHintStr}
   const _sty_ = k => kanshouStyle_(_styles_, k, _styleVars_);
   const prompt = `${_sty_('world')}
 ${PROMPT_REL}
-★【誰在場】：【在我身邊的人】那份名單＝此刻在我身邊的人。被搭話、被牽涉到的人給出反應，其餘的人在場、做自己的事就好；有【專屬稱呼】就叫暱稱。【已經確立的事】名單上的人可出現可開口，其餘路人不具名。
+★【誰在場】：【在我身邊的人】那份名單＝此刻在我身邊的人；有【專屬稱呼】就叫暱稱。【已經確立的事】名單上的人可出現可開口，其餘路人不具名。
 ★【world_note】：這一步新出現的地方/人/規矩寫進去才會留下，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆；只長在某地的東西（田、雞、招牌、常客）的 at 填那個地名。
 
 【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${_meFlavorStr_}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
@@ -2442,10 +2440,9 @@ ${PROMPT_PARTY_LIVE}
 ${_lenLine_ === '' ? '' : _sty_('length')}
 ★【地點】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，這一幕就在這裡演完；換地方由系統宣告。${moveTarget ? '你們剛到，從抵達後的當下寫起。' : ''}
 ${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouNightSceneStr}
-★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}。這一幕就寫這十分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚就在這個房間裡過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
+★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這十分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚就在這個房間裡過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 
 ${npcDialoguePrompt}
-${_sty_('ending')}
 ${presentMembers.length ? '' : '★【在場】：這個地方只有你一個人（常民與路人照常可以出現）。'}
 
 接著往下演，玩家這一步是：『${finalUserMsg}』`;
