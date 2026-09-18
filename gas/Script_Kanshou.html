@@ -42,11 +42,11 @@
   //   死參數 combatData/dismissCurfew(機制已刪、payload 從未轉送)趁這刀一併移除。
   async function send(customMsg, isSilent = false, opts = {}) {
     opts = opts || {};
-    const moveTarget = opts.moveTarget || null, newPlace = opts.newPlace || null, lookAround = !!opts.lookAround, endDay = !!opts.endDay,
+    const moveTarget = opts.moveTarget || null, newPlace = opts.newPlace || null, endDay = !!opts.endDay,
       advanceHours = opts.advanceHours || 0,
       jumpBand = opts.jumpBand || null,
       loaderCaptions = opts.loaderCaptions || null, moveWithCompanion = !!opts.moveWithCompanion,
-      inviteResident = opts.inviteResident || null, proposeMove = opts.proposeMove || null;
+      proposeMove = opts.proposeMove || null;
       
       // 🐛→✅ 稽核抓到：呼叫端一直有把 npcId 塞進 opts，但 send() 這裡沒解構、gasRun payload 也沒轉發
       //   ——id 從未離開過瀏覽器，「2026-07 id 優先」那次重構在這條路徑上等於沒生效。
@@ -87,8 +87,7 @@
     }
 
     try {
-      const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, proposeMove: proposeMove || undefined || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -172,7 +171,7 @@
 let plainTextContext = cleanText;
 
       let optionsHtml = '';
-      // 🚶 同意/拒絕不是敘事選項文字，而是直接決定要不要真的觸發移動(重用既有moveTarget管線，含巧遇/留人重逢等效果)。
+      // 🚶 同意/拒絕不是敘事選項文字，而是直接決定要不要真的觸發移動(重用既有moveTarget管線)。
       if (data.moveProposal) {
         const propLoc = String(data.moveProposal);
         const propLocEsc = escapeHtml(propLoc);
@@ -183,19 +182,11 @@ let plainTextContext = cleanText;
           + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclineMoveProposal()">這次不了</button>`
           + `</div></div>`;
       }
-      // 🤝 巧遇對象的「結識」邀請框：她此刻只是路人(不記好感·離開即散)，點了才正式入駐這座城。
-      if (data.encounterOffer && data.encounterOffer.name) {
-        const ivName = String(data.encounterOffer.name);
-        optionsHtml += `<div style="background:rgba(90,140,100,0.14); border:1px solid #4a8a5a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#a0e0b0; font-size:12.5px; margin-bottom:6px;">🤝 遇到「${escapeHtml(ivName)}」了。要不要跟她要個聯絡方式？</div>`
-          + `<button class="btn-option" style="width:100%;" onclick="kanshouAcceptInvite('${ivName.replace(/'/g, "\\'")}')">跟她要聯絡方式</button>`
-          + `</div>`;
-      }
       if (data.options && Array.isArray(data.options) && data.options.length > 0) {
         currentOptions = data.options;
         // 🧱 【命運的抉擇】包進自己的 #ai-options-grid：「AI 選項顯示開關」只藏這個盒子。
         //   舊版開關直接 display:none 整個 options-container，把住在同一容器的所有「必點泡泡」
-        //   (前往/邀約/橋段/結識)全部陪葬——玩家關了選項＝從此看不到任何泡泡(實測真兇)。
+        //   (前往/邀約/橋段)全部陪葬——玩家關了選項＝從此看不到任何泡泡(實測真兇)。
         optionsHtml += `<div id="ai-options-grid"${(typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? ' style="display:none"' : ''}>`;
         optionsHtml += `<div style="color: var(--gold-accent); font-weight: bold; border-bottom: 1px dashed rgba(212, 175, 55, 0.3); padding-bottom: 6px; margin-bottom: 8px;">【命運的抉擇】</div>`;
         optionsHtml += `<div class="options-grid">`;
@@ -209,9 +200,9 @@ let plainTextContext = cleanText;
         optionsHtml += `</div></div>`;
       }
       if (optContainer) optContainer.innerHTML = optionsHtml;
-      // 📣 有「必須點的泡泡」(前往/邀約/橋段/結識)時自動把它捲進視野——回應完只捲故事框、
+      // 📣 有「必須點的泡泡」(前往/邀約/橋段)時自動把它捲進視野——回應完只捲故事框、
       //   泡泡藏在頁面下方看不到＝玩家實測「哪裡有同意按鈕??」的真兇。一般選項不強制捲(維持閱讀位置)。
-      if (optContainer && (data.moveProposal || data.encounterOffer)) {
+      if (optContainer && data.moveProposal) {
         try { optContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { }
       }
 
@@ -231,9 +222,6 @@ let plainTextContext = cleanText;
         else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 牽起來了。「' + _nm + '」會跟著你走。';
         else if (_pr.ok && _pr.type === 'move') _msg = '🚶 「' + _nm + '」說好，一起去「' + escapeHtml(String(_pr.loc || '')) + '」。點下面的「一起走」就出發。';
         else if (_pr.type === 'move') _msg = '🚶 她沒跟。';
-        // 🤝 結識：2026-09 補上——它本來是唯一沒有回饋條的動作(icon 那一格的 '🤝' 早就在等它)。
-        else if (_pr.ok && _pr.type === 'invite') _msg = '🤝 跟「' + _nm + '」交換了聯絡方式。';
-        else if (_pr.type === 'invite') _msg = '🤝 ' + (_pr.already ? '你們早就認識了。' : '「' + _nm + '」已經走了。');
         // 🐛→✅ 2026-07 逐按鍵稽核：地點不合法的回報(move_loc)舊版沒有自己的分支，
         //   一路掉到最後那行 else，印出的是別種動作的失敗通知，玩家會去找一個不存在的問題。
         //   這兩型跟「她婉拒」無關，是地點的事。
@@ -614,7 +602,7 @@ let plainTextContext = cleanText;
     } catch (e) { alert('讀不到同伴。'); }
   }
 
-  // 🗾 出門走走·分區地圖：純氛圍用的分區/地點清單，僅供畫按鈕——實際合法地點驗證/巧遇抽選都在後端 Gallery.gs 的 KANSHOU_REGIONS_/KANSHOU_LOCATIONS_(唯一真實來源)，改地點記得同步。
+  // 🗾 出門走走·分區地圖：純氛圍用的分區/地點清單，僅供畫按鈕——實際合法地點驗證在後端 Gallery.gs 的 KANSHOU_REGIONS_/KANSHOU_LOCATIONS_(唯一真實來源)，改地點記得同步。
   // 🕐 2026-07 六度改版新增 bands：純顯示用mirror(灰鎖UI判斷)，真正擋移動的門檻在後端
   //   KANSHOU_LOCATIONS_(見Gallery.gs同名常數註解)——改後端bands記得同步這裡，否則鎖圖示會跟
   //   實際能不能走進去對不上(同KANSHOU_LOCATIONS_/KC_LOCATIONS_過去漏同步過5個地點的教訓)。
@@ -719,14 +707,6 @@ let plainTextContext = cleanText;
     localStorage.setItem('kyushu_kanshou_region', id);
     var listEl = document.getElementById('kc-map-list');
     if (listEl) listEl.innerHTML = kcMapListHtml_();
-  }
-
-  // 🚪 巧遇開關：純前端偏好，跨裝置不同步(localStorage)，預設開啟(維持原行為)。
-  //   send() 每次都會讀這個值夾進 gasRun 的 encounter 欄位，後端 actionPlay 對應 encounterOn。
-  let kanshouEncounterOn = localStorage.getItem('kyushu_kanshou_encounter') !== 'false';
-  function kanshouToggleEncounter_(checked) {
-    kanshouEncounterOn = !!checked;
-    localStorage.setItem('kyushu_kanshou_encounter', kanshouEncounterOn);
   }
 
   // 🏠「家」從獨立釘選按鈕升級成跟其餘4區並列的分區分頁(我的房間+日式空間，見KC_LOCATIONS_)。分頁標籤沿用玩家自訂顯示名稱(後端【住所】標記/getKanshouHomeName_，預設「衛宮宅」)，改名鈕移到「家」分頁展開時才顯示。
@@ -937,7 +917,6 @@ let plainTextContext = cleanText;
   }
 
   // 移動走既有 send() 的 action:'play' 同一次round-trip(帶 moveTarget)，不另開一次網路請求；
-  // AI 會依後端算好的巧遇資訊直接把抵達場景/偶遇演出來，故不在此處另外插一句本地假訊息。
   // 🧭 自由前往一個還不存在的地方：後端查無就當場把它加進這一局的世界(見 Gallery.gs kanshouNewPlaceStr)，
   //    AI 第一次描述它，並用 world_note 把樣貌記下來，之後地圖上就有這一格。
   async function kanshouGoNewPlace() {
@@ -987,12 +966,7 @@ let plainTextContext = cleanText;
     await send('（笑著問）要不要一起去「' + name + '」看看？', false, { proposeMove: name });
   }
 
-  // 🔘 原本用關鍵字猜測是不是在問「這裡還有沒有其他人」，已改成這顆明確按鈕(lookAround:true)，後端不再靠猜文字語意——不移動、不換分頁，原地問。
-  async function kanshouLookAround() {
-    await send('👀 四處張望，看看還有沒有其他人在。', false, { lookAround: true });
-  }
-
-  // 🚶 同意時重用既有moveTarget管線(跟kanshouMoveTo同一條路，含巧遇/留人重逢等效果)，不另開移動程式碼；拒絕就當作一句普通續寫，原地不動。
+  // 🚶 同意時重用既有moveTarget管線(跟kanshouMoveTo同一條路)，不另開移動程式碼；拒絕就當作一句普通續寫，原地不動。
   async function kanshouConfirmMoveProposal(loc) {
     showGamePane('chat');
     // 🐛→✅ moveWithCompanion=true：告訴後端這是「她答應了你的同去邀約、要帶著受邀者一起走」，
@@ -1241,11 +1215,6 @@ let plainTextContext = cleanText;
     try { await kwLoad_(op, kind, name); } finally { _kwBusy_ = false; }
   }
 
-  // 🤝 結識巧遇對象：後端驗證她確實是【邂逅中】的那位才建列入駐(從此活在這座城裡·有行程有好感)。
-  async function kanshouAcceptInvite(name) {
-    showGamePane('chat');
-    await send('（鼓起勇氣，向「' + name + '」提出想繼續深交、交換聯絡方式。）', false, { inviteResident: name });
-  }
   // 🏷️ 關係稱呼面板(2026-07「那個關係也不要用彈窗吧...做一個專門的來處理??」，取代原本的prompt())：
   //   跟 KANSHOU_REL_TIER_(Gallery.gs) 鏡像的5階預設稱呼＋自訂輸入框。選預設會讓這格文字重新
   //   匹配某個梯度標籤，之後kanshouSyncRelTier_又會自動跟著好感升降；打自訂稱呼則固定下來、

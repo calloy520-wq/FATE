@@ -605,7 +605,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
   kpc.appendRow(mRow);
   linkAccountToKanshouPc_(acctName, mId); // 🔒 權威連結寫進帳號表
 
-  // 開場只入駐4位起始住民(2026-07玩家定案：大河/凜/櫻/SABER——「本來就住在這座城」感最強的幾位)，其餘女角不建列、不存在於世界，之後靠「出門走走」巧遇→玩家點「結識」才正式入駐(見kanshouEncounterStr/inviteResident)。
+  // 開場只入駐4位起始住民(2026-07玩家定案：大河/凜/櫻/SABER——「本來就住在這座城」感最強的幾位)，其餘女角不建列、不存在於世界，之後靠 🌟 召喚才入駐。
   var starterHeroes = getHeroCodexCached().slice(1).filter(function (r) {
     return KANSHOU_STARTER_IDS_.indexOf(String(r[COL.HERO.ID])) !== -1;
   });
@@ -701,7 +701,7 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       var loc = String(data[i][COL.PC.LOC] || "");
       // 面板需要顯示目前所在地點(玩家要精準知道去哪找她)、關係標籤＋好感(供玩家決定要不要改標籤)；isHere(是否跟玩家同地點)；locLabel：房間類地點的動態顯示名稱，見kanshouRoomDisplayName_。
       // memoir：共同回憶(27欄)原樣下傳(★前綴=玩家釘選)，供面板顯示/釘選/刪除。
-      // 🆔 2026-07「整體重構·id優先」：補id讓前端能存起來隨後續action(結識等)回傳，後端才有id可用、不必只靠名字(kanshouNameCandidates_別名表已處理大部分情況，但id才是真正杜絕撞名/前綴混淆的單一真實來源)。
+      // 🆔 2026-07「整體重構·id優先」：補id讓前端能存起來隨後續action回傳，後端才有id可用、不必只靠名字(kanshouNameCandidates_別名表已處理大部分情況，但id才是真正杜絕撞名/前綴混淆的單一真實來源)。
       current.push({ id: String(data[i][COL.PC.ID]), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), nickname: getNickname_(data[i][COL.PC.REL_MEM]), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
     }
   }
@@ -1025,7 +1025,7 @@ function kanshouLocationsFor_(gameId) {
 }
 
 // 🧑↔🏠 這個名字是不是【地方】而不是人？AI 偶爾會把地點寫成 kind:'人物'（實測玩家看到
-//    「你認識了『風音的家』。要繼續往來…」——拿地名在問要不要結識一個人）。
+//    「你認識了『風音的家』」——拿地名當成一個人）。
 //    輸入當不可信：比對內建地點、玩家自己開的地方、玩家住所，以及「…的家/店/屋/館/亭/堂」這種地名尾巴。
 const KANSHOU_PLACE_SUFFIX_ = /(的家|的店|之家|宅邸|公寓|大樓|屋|館|亭|堂|苑|園|寺|社|樓|閣|城|站|所|廳|房|室|宅|邸)$/;
 function kanshouNameIsPlace_(name, gameId, homeName) {
@@ -1061,7 +1061,7 @@ function kanshouFixWorldKinds_(entries, gameId, homeName, peopleNames) {
 
 // 🗾 這一局有哪些大區＝內建幾區 ∪ 玩家自己開的。
 // ⚠ 自訂大區【天生就是一般公共區】：所有行為判斷都寫成「不是 room／不是 visit」的形式
-//    (不巧遇、要好感才能登門…)，所以一個陌生的區 id 自動落在「一般」那一邊，不必改任何行為邏輯。
+//    (要好感才能登門…)，所以一個陌生的區 id 自動落在「一般」那一邊，不必改任何行為邏輯。
 function kanshouRegionsFor_(gameId) {
   const mine = kanshouWorldRead_(gameId)
     .filter(r => r.kind === KANSHOU_REGION_KIND_ && r.name)
@@ -1122,7 +1122,7 @@ const KANSHOU_LOCATIONS_ = [
   { name: '夜景展望台', region: 'dojo', desc: '能俯瞰整座冬木市萬家燈火的高地，晚風正好，兩人並肩無語也不尷尬。', bands: ['黃昏', '夜', '深夜'] },
   { name: '情侶溫泉套房', region: 'dojo', desc: '只租給兩人的溫泉旅館房間，一拉上紙門，外頭的世界就與你們無關了。', noEncounter: true, dateOnly: true, bands: ['黃昏', '夜', '深夜'] },
 
-  // 拜訪住處：只保留女性角色的住處，noEncounter:true(私人住處，恆不觸發陌生人巧遇)，name務必與下方KANSHOU_HERO_HOME_的值逐字一致，否則kanshouRollDailyLocation_骰到的地點對不上這裡。
+  // 拜訪住處：只保留女性角色的住處，noEncounter:true(私密場合，獨處時光那條線讀它)，name務必與下方KANSHOU_HERO_HOME_的值逐字一致，否則kanshouRollDailyLocation_骰到的地點對不上這裡。
   { name: '隱蔽的工房', region: 'visit', desc: '隱藏在巷尾、飄著藥草氣味的工房。', noEncounter: true },
   { name: '島嶼道場', region: 'visit', desc: '孤懸海上、只有濤聲相伴的道場。', noEncounter: true },
   { name: '埃德費爾特宅邸', region: 'visit', desc: '歐風古典的埃德費爾特家宅邸。', noEncounter: true },
@@ -1140,14 +1140,14 @@ function kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx) {
   if (locKey === '我的房間') return String(myName || "自己") + '的房間';
   return locKey;
 }
-// 暫時移出鑑賞的英靈id清單(單一來源)，召喚/巧遇/地點標籤/住處全部共用同一份。
-// 2026-09 玩家「想辦法讓他們可以召喚 巧遇吧」→ 清空。原本被擋的三位真正的問題是【撞名】
+// 暫時移出鑑賞的英靈id清單(單一來源)，召喚/地點標籤/住處全部共用同一份。
+// 2026-09 玩家「想辦法讓他們可以召喚」→ 清空。原本被擋的三位真正的問題是【撞名】
 // （斯卡哈有 Lancer/Assassin 兩種靈基、伊莉雅有 Master/Caster 兩個版本），封鎖只是繞過去；
 // 現在由下方 kanshouSummonClash_ 擋「同一個人同時在場」，兩種姿態各自都召喚得到，選一個。
 const KANSHOU_SUMMON_BLOCKED_IDS_ = [];
-// 🏘️ 開局起始住民(2026-07玩家定案)：只有這4位一開始就「活在這座城裡」，其餘靠巧遇結識後才入駐。
+// 🏘️ 開局起始住民(2026-07玩家定案)：只有這4位一開始就「活在這座城裡」，其餘靠 🌟 召喚入駐。
 const KANSHOU_STARTER_IDS_ = ['藤村大河-Master', '遠坂凜-Master', '間桐櫻黑化-Master', '阿爾托莉雅-Saber'];
-// 地點×角色 氛圍標籤(資料驅動，往陣列塞一筆 SEED_SERVANTS 的 id 就能加，不動抽選邏輯)：查無標籤或抽不中標籤池時退回保底池 kanshouEncounterPool_()（非男性·資料驅動）；兩條路都會濾掉 KANSHOU_SUMMON_BLOCKED_IDS_，避免巧遇到根本無法被正式召喚入駐的人。
+// 地點×角色 氛圍標籤(資料驅動，往陣列塞一筆 SEED_SERVANTS 的 id 就能加)：誰常待在哪，日常落點會多放幾份進池子。
 // 🎯 常去的地點在行程池裡多放幾份＝更常在那裡遇到她，但哪裡都可能去。
 //    設 0＝完全隨機(誰都沒有固定去處)；數字越大越像「她的老地方」。
 var KANSHOU_HAUNT_WEIGHT_ = 6;
@@ -1163,21 +1163,7 @@ const KANSHOU_LOCATION_TAGS_ = {
   '廢棄神社': ['間桐櫻黑化-Master'],
   '夜景展望台': ['斯卡哈-Assassin']
 };
-// kanshouRollEncounter_ 的保底池：不寫名單，直接從種子算——【非男性】且不在排除表裡的都算數。
-// 寫死名單的老問題是「新增一位種子就得記得補進來」，忘了就變成召喚得到卻永遠巧遇不到（2026-09 稽核抓到三位）。
-// ⚠ 必須是函式、不能是頂層常數：SEED_SERVANTS 住在 Seed_Codex.gs，頂層求值時載入順序不保證（check_loadorder）。
-const KANSHOU_ENCOUNTER_EXCLUDE_IDS_ = ['衛宮士郎-Master'];   // 玩家本人的位置，不當巧遇對象
 var KANSHOU_ENCOUNTER_POOL_ = null;
-function kanshouEncounterPool_() {
-  if (!KANSHOU_ENCOUNTER_POOL_) {
-    KANSHOU_ENCOUNTER_POOL_ = SEED_SERVANTS.filter(function (h) {
-      return h && h.gender !== '男'
-        && KANSHOU_ENCOUNTER_EXCLUDE_IDS_.indexOf(h.id) < 0
-        && KANSHOU_SUMMON_BLOCKED_IDS_.indexOf(h.id) < 0;
-    }).map(function (h) { return h.id; });
-  }
-  return KANSHOU_ENCOUNTER_POOL_;
-}
 // 同地點AI詳細卡片上限(見actionPlay的partyRows)——同地點的人湊在一起時的prompt篇幅上限。
 const KANSHOU_PARTY_DETAIL_CAP_ = 5;
 // 世界概況(輕量版)名單上限——同伴一多，每回合都列全部人+所在地會讓提示詞無限膨脹，只取好感前幾位。
@@ -1213,30 +1199,6 @@ function kanshouGetHeroHome_(heroId, memory) {
 function setKanshouHeroHome_(memory, homeName) {
   const cleaned = String(memory || "").replace(/｜?【住處】[^｜【】]*/g, "");
   return homeName ? (cleaned ? cleaned + "｜" : "") + "【住處】" + homeName : cleaned;
-}
-// 🏷️ MEMORY標記存取器【邂逅】：逗號分隔的巧遇過姓名清單，去重、僅供「似曾相識」氛圍參考——同行隊伍成員的好感/關係走既有 REL_TAG/BOND，這裡只記路人巧遇過誰，不重複記錄。
-function getKanshouMetSet_(memory) {
-  const m = String(memory || "").match(/【邂逅】([^｜【】]*)/);
-  return m ? m[1].split(',').map(s => s.trim()).filter(Boolean) : [];
-}
-function addKanshouMet_(memory, name) {
-  const s = String(memory || "");
-  const set = getKanshouMetSet_(s);
-  if (set.includes(name)) return s;
-  set.push(name);
-  const cleaned = s.replace(/｜?【邂逅】[^｜【】]*/g, "");
-  return (cleaned ? cleaned + "｜" : "") + "【邂逅】" + set.join(',');
-}
-// 巧遇抽選共用邏輯(70%機率)：「出門走走」按鈕跟「原地問還有誰」共用同一套加權隨機。
-function kanshouRollEncounter_(locName, excludeIds) {
-  const excl = excludeIds || [];
-  // 老地方池也要吃封鎖表——原本只有保底池吃，「召喚/巧遇共用同一份」那句註解對這條路是假的。
-  const tagPool = (KANSHOU_LOCATION_TAGS_[locName] || []).filter(id => !KANSHOU_SUMMON_BLOCKED_IDS_.includes(id));
-  const basePool = tagPool.length ? tagPool : kanshouEncounterPool_();
-  const pool = basePool.filter(id => !excl.includes(id));
-  if (!pool.length || Math.random() >= 0.7) return null;
-  const pickId = pool[Math.floor(Math.random() * pool.length)];
-  return SEED_SERVANTS.find(h => h.id === pickId) || null;
 }
 function kanshouHeroIdByName_(heroName) {
   // 短名優先(id 唯一對應，不受真名撞名影響)，再退回真名候選比對。
@@ -1883,19 +1845,6 @@ const KANSHOU_HAIR_COLORS_ = [
   ['黑', '#241f2e'], ['紅褐', '#8a4a34'], ['栗色', '#8a5a3a'], ['褐', '#6a4a34'], ['棕', '#6a4a34'],
   ['藍', '#4a6a9a'], ['粉', '#d88aa8'], ['青綠', '#5a9a8a'], ['綠', '#5a8a6a'], ['紅', '#b04a3a'], ['橙', '#c87a3a']
 ];
-// 🏷️ MEMORY標記存取器【邂逅中】：這次到訪、還留在場邊可持續互動的巧遇對象(存hero id，單一值)——跟永久性的【邂逅】(邂逅過的名單，不會清除)不同，這個是「這次到訪期間」的暫時狀態，玩家移動離開該地點時清除(換地點＝這段緣分結束，下次到訪重新擲)。
-function getKanshouActiveEncounter_(memory) {
-  const m = String(memory || "").match(/【邂逅中】([^｜【】]*)/);
-  return m ? m[1].trim() : "";
-}
-function setKanshouActiveEncounter_(memory, heroId) {
-  const s = String(memory || "");
-  if (/【邂逅中】[^｜【】]*/.test(s)) return s.replace(/【邂逅中】[^｜【】]*/, "【邂逅中】" + heroId);
-  return (s ? s + "｜" : "") + "【邂逅中】" + heroId;
-}
-function clearKanshouActiveEncounter_(memory) {
-  return String(memory || "").replace(/｜?【邂逅中】[^｜【】]*/g, "");
-}
 function getKanshouHomeName_(memory, playerName) {
   const m = String(memory || "").match(/【住所】([^｜【】]*)/);
   const nm = m ? m[1].trim() : "";
@@ -1970,7 +1919,6 @@ function kanshouNameCandidates_(fullName) {
 
 const KANSHOU_MISS_COPY_ = {
   move: { title: '提議撲空', body: (n) => `你想邀人一起去「${n}」，但此刻身邊沒有同伴——演出這份獨自的悵然即可(玩家可自己用地圖移動)。` },
-  invite: { title: '結識未成', body: (n) => `你想跟『${n}』深交下去，但這段緣分此刻不成立(對方已離開、或早已相識)——演出這份悵然即可。` }
 };
 function kanshouMissStr_(type, name) {
   const c = KANSHOU_MISS_COPY_[type];
@@ -1996,7 +1944,6 @@ function actionPlay_(userData, pcId, sheets) {
 
   if (String(pcId || "").indexOf("KPC_") !== 0) return JSON.stringify({ text: "此功能僅限鑑賞使用。", people: [] });
   const driveOn = (userData.drive === true || String(userData.drive) === "true");
-  const encounterOn = !(userData.encounter === false || String(userData.encounter) === "false");
 
   // 喜好與厭惡是常態情報，全面開放給 AI 參考🎯 送出時砍格(2026-07 玩家「性格四格／特徵四格分這麼細，AI 也沒辦法演出來」)：儲存仍是 4 格(逆天改命 UI／工房／solo 共用同一個 schema，動它是全面重構)，只精簡【送給 AI 的呈現】。
   const _qv = (v) => { const t = String(v || "").trim(); return QUAD_EMPTY_.indexOf(t) < 0 ? t : ""; };
@@ -2172,41 +2119,6 @@ function actionPlay_(userData, pcId, sheets) {
     return _awake;
   }
 
-  // 🤝 結識(巧遇→入駐)：巧遇對象只是路人(不記好感·離開即散)，玩家點「結識」(inviteResident=name)才正式建列入駐——驗證對象必須真的是【邂逅中】的那位(防直打API憑空加人)、且尚未入駐。
-  let kanshouInviteStr = "";
-  if (userData.inviteResident) {
-    const _ivName = String(userData.inviteResident).trim();
-    const _ivActiveId = getKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
-    const _ivHero = _ivActiveId ? SEED_SERVANTS.find(h => h.id === _ivActiveId) : null;
-    const _ivMatch = _ivHero && kanshouNameCandidates_(_ivHero.realName).includes(_ivName);
-    const _ivAlready = _ivMatch && pcData.some((r, i) => i !== pcIndex && kanshouIsAlly_(r, myGameId) && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(_ivHero.realName));
-    const _ivMaleMale = _ivMatch && String(pc[COL.PC.SEX]) === "男" && String(_ivHero.gender) === "男";
-    // 🚫 2026-09：常民「升格成正式同伴」整條移除——那顆泡泡砍了之後這裡沒有任何入口。
-    //    AI 發明的人安靜地留在【常民】名單上，可出現可開口、不追蹤好感，這就是他們的位置。
-    if (!_ivMatch || _ivAlready || _ivMaleMale) {
-      kanshouInviteStr = kanshouMissStr_('invite', _ivName);
-      finalUserMsg = `【玩家意圖】：想跟『${_ivName}』深交，卻發現緣分沒有接上。`;
-      // 🐛→✅ 2026-09 稽核：結識是【唯一】沒有回饋條的動作——相約/同行兩種
-      //    成敗都會下傳 kanshouProposalResult_，只有這裡沒有，玩家得從敘述裡自己猜。
-      //    前端的 icon 對照表早就備好 '🤝' 這一格在等它了。
-      kanshouProposalResult_ = { ok: false, type: 'invite', name: _ivName,
-        already: !!_ivAlready, gone: !_ivMatch };
-    } else {
-      const _ivCodexRow = getHeroCodexCached().slice(1).find(r => String(r[COL.HERO.ID]) === String(_ivHero.id));
-      if (_ivCodexRow) {
-        const _ivNewRow = heroToKanshouRow_(_ivCodexRow, myGameId, String(curL || "").trim(), curDay);
-        _pendingNewPcRow_ = _ivNewRow;
-        pcData.push(_ivNewRow); // 本回合就地生效：partyRows/在場卡片馬上抓得到她
-        pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]); // 她不再是「路人例外」，改走正式在場人物
-        dirtyPcRows.add(pcIndex);
-        kanshouInviteStr = `\n★【正式結識】：你與『${kanshouCasualOf_(_ivHero)}』交換了聯絡方式，這段萍水相逢的緣分正式接上了——從今以後對方也是這座城裡你認識的人，會有自己的生活與去處。演出這一刻依對方性格的反應(大方/靦腆/意外皆可)，關係才剛起步、保持剛認識的分寸。`;
-        finalUserMsg = `【玩家意圖】：鼓起勇氣向『${kanshouCasualOf_(_ivHero)}』提出想繼續深交、交換聯絡方式。`;
-        _settledVerdict = `『${kanshouCasualOf_(_ivHero)}』同意交換聯絡方式，這段緣分正式接上了`;
-        kanshouProposalResult_ = { ok: true, type: 'invite', name: kanshouCasualOf_(_ivHero) };
-      }
-    }
-  }
-
   // 🎭 情境氛圍(2026-07 玩家「橋段太過生硬」根治改版)：舊版是「跳按鈕→玩家點→GAS骰走向→AI照劇本演」的四段式 apparatus，選單感重、且同好感區間每次演出雷同(branches[].tag 是寫死的劇本)。
   const kanshouSceneLoc_ = moveTarget ? moveName : curL;
   let _reHourAfter = curHour;
@@ -2270,7 +2182,6 @@ function actionPlay_(userData, pcId, sheets) {
     const kanshouMyRoomLoc_ = '我的房間';
     pcData[pcIndex][COL.PC.LOC] = kanshouMyRoomLoc_;
     dirtyPcRows.add(pcIndex);
-    pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
     // 🌙 誰在你身邊、卻不留下過夜——用回合開始時的同地快照(kanshouWithMeAtStart_)扣掉留宿名單，而不是重新掃 LOC：這一行以上 intimateNightNames 已算完但人還沒被骰走，只有那份快照能回答「她剛才確實在你旁邊」。
     const _partNames = kanshouWithMeAtStart_.filter(n => intimateNightNames.indexOf(n) === -1);
     if (_partNames.length) {
@@ -2309,7 +2220,6 @@ function actionPlay_(userData, pcId, sheets) {
       kanshouClockMoved_ = true;
       pcData[pcIndex][COL.PC.DAY] = curDay;
       pcData[pcIndex][COL.PC.HOUR] = curHour;
-      pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
       // ⏩ 這是玩家【主動按鈕跳時段】的刻意時間快轉——跟「每回合被動+0.5h流動」(§122，那條根本不重骰任何人)不同：玩家選擇快轉數小時，不在身邊的人依新時刻重骰去向，讓世界動起來。
       const allEstablishedForTime = pcData.filter((r, idx) => idx !== pcIndex && kanshouIsAlly_(r, myGameId));
       allEstablishedForTime.forEach(r => {
@@ -2341,19 +2251,11 @@ function actionPlay_(userData, pcId, sheets) {
   const _narrHour_ = (kanshouNarrHour_ === null) ? curHour : kanshouNarrHour_;
   const curDateObj_ = kanshouAbsDayToDate_(_narrDay_);
 
-  // 🎨 2026-07「為何偶遇沒有女性」玩家反映：此局已經正式召喚過的英靈(不論是否仍同行)不該又以「陌生人」身分重複出現(如SABER已同行時，路上不該再巧遇一位不具名的SABER)。
-  const kanshouEstablishedNames_ = new Set(pcData.filter((r, idx) => idx !== pcIndex && kanshouIsAlly_(r, myGameId)).map(r => String(r[COL.PC.NAME]).trim()));
-  const kanshouExcludeIds_ = SEED_SERVANTS.filter(h => kanshouNameCandidates_(h.realName).some(c => kanshouEstablishedNames_.has(c))).map(h => h.id);
-
-  // 移動時若目的地已經有established的人在，就不再另外擲一次陌生人巧遇(優先呈現熟人在場)。
-  const kanshouSomeoneAlreadyHere_ = pcData.some((r, idx) => idx !== pcIndex && kanshouIsAlly_(r, myGameId) && String(r[COL.PC.LOC] || "").trim() === String(moveName || curL || "").trim());
-
-  // 合法地點時才寫入LOC＋抽選巧遇＋記錄邂逅名單。
+  // 合法地點時才寫入 LOC。
   const kanshouPreMoveCompanions_ = !moveTarget ? []
     : userData.moveWithCompanion
       ? pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim())
       : [];
-  let kanshouEncounterHero = null, kanshouEncounterMetBefore = false, kanshouEncounterLocName = "";
   // 🗑️ 2026-09「氛圍靈感」種子池(KANSHOU_EVENT_SEEDS_)已移除：那是三類各七句的預寫小事件，
   //    20% 機率抽一句丟給 AI 當靈感。抽中什麼跟此刻的人、地、時、你們的歷史全都無關——
   //    真正該當靈感的東西，AI 手上本來就有(在場者的個性、天氣、時段、世界帳本)。
@@ -2367,36 +2269,6 @@ function actionPlay_(userData, pcId, sheets) {
       pcData[nIdx][COL.PC.LOC] = curL;
       dirtyPcRows.add(nIdx);
     });
-    // 離開原地(換地點)＝上一段巧遇緣分結束，先清掉舊的【邂逅中】，這個新地點才重新擲一次巧遇。
-    pcData[pcIndex][COL.PC.MEMORY] = clearKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
-    kanshouEncounterLocName = moveName;
-    kanshouEncounterHero = (encounterOn && !moveTarget.noEncounter && !kanshouSomeoneAlreadyHere_) ? kanshouRollEncounter_(moveTarget.name, kanshouExcludeIds_) : null;
-    if (kanshouEncounterHero) {
-      pcData[pcIndex][COL.PC.MEMORY] = setKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY], kanshouEncounterHero.id);
-    }
-  } else {
-    const curLocDef = kanshouFindLoc_(_myGid_, curL);
-    if (curLocDef) {
-      const activeId = getKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY]);
-      if (activeId) {
-        kanshouEncounterLocName = curLocDef.name;
-        kanshouEncounterHero = SEED_SERVANTS.find(h => h.id === activeId) || null;
-      } else if (encounterOn && !curLocDef.noEncounter && !kanshouSomeoneAlreadyHere_ && userData.lookAround === true) {
-        // 前端明確的「看看四周」按鈕(lookAround:true)。
-        kanshouEncounterLocName = curLocDef.name;
-        kanshouEncounterHero = kanshouRollEncounter_(curLocDef.name, kanshouExcludeIds_);
-        if (kanshouEncounterHero) {
-          pcData[pcIndex][COL.PC.MEMORY] = setKanshouActiveEncounter_(pcData[pcIndex][COL.PC.MEMORY], kanshouEncounterHero.id);
-        }
-      }
-    }
-  }
-  if (kanshouEncounterHero) {
-    const nm = kanshouEncounterHero.realName;
-    kanshouEncounterMetBefore = getKanshouMetSet_(pcData[pcIndex][COL.PC.MEMORY]).includes(nm);
-    if (!kanshouEncounterMetBefore) {
-      pcData[pcIndex][COL.PC.MEMORY] = addKanshouMet_(pcData[pcIndex][COL.PC.MEMORY], nm);
-    }
   }
 
 
@@ -2650,16 +2522,6 @@ function actionPlay_(userData, pcId, sheets) {
     if (!_isPlainBody_(npcPhysicalObj)) nsfwMemories += `\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}`;
   });
 
-  // 巧遇者是還沒被召喚、沒有資料列的陌生人，明講「這次到訪期間的系統例外」，避免跟下方【在場驗證鐵律】(只有在場人物能被指名互動)打架，同時允許同一次到訪期間持續互動。
-  const kanshouEncounterStr = kanshouEncounterHero ? (() => {
-    const p = kanshouEncounterHero.persona || {};
-    const look = p.dailyLook || p.look || "";
-    const words = p.dailyWords || p.words || "";
-    const isMaleMale = String(pc[COL.PC.SEX]) === "男" && String(kanshouEncounterHero.gender) === "男";
-    const _encPron = pron_(kanshouEncounterHero.gender);
-    const friendshipOnly = isMaleMale ? "★對方與玩家同為男性，這段交流僅止於同性情誼／夥伴／損友式互動，不發展曖昧、戀愛或情慾內容，不做任何親密肢體接觸。" : "";
-    return `\n★【本回合系統指定巧遇——這次到訪期間持續有效的例外，不受【在場驗證鐵律】限制】：『${kanshouCasualOf_(kanshouEncounterHero)}』此刻恰好也在「${kanshouLocNameForAI_(kanshouEncounterLocName)}」，${kanshouEncounterMetBefore ? "是已經打過照面的熟面孔" : "是初次的邂逅"}——外貌氣質:${look}／日常個性:${words}。允許${_encPron}以真實姓名登場、持續互動，這段緣分在玩家離開這個地點前都有效，${_encPron}目前只是萍水相逢的路人：好感/關係不追蹤記錄；若情境合適，${_encPron}也可以自然道別離開。${friendshipOnly}`;
-  })() : "";
 
 
   const _kanshouMaxBond_ = partyRows.reduce((m, r) => Math.max(m, parseInt(r[COL.PC.BOND]) || 0), 0);
@@ -2734,7 +2596,7 @@ ${PROMPT_PARTY_SYSTEM}
 ${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性；玩家只是日常時不憑空推進情慾${_intimacyLines_.indexOf('\n') >= 0 ? '（多人各依各自好感，不共用同階）' : ''}：\n${_intimacyLines_}\n` : ''}
 ${_sty_('length')}
 ★★【地點釘死】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
-${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouProposeStr}${kanshouInviteStr}${kanshouNightSceneStr}
+${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouProposeStr}${kanshouNightSceneStr}
 ★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依此刻的時段寫；本回合只寫這十分鐘內的片段，時間推進由系統宣告。${kanshouTierCrossStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·只活在你的回想裡。` : ""}
 
 ${npcDialoguePrompt}${_earlierDigest_ ? `\n★【稍早做過的事】：${_earlierDigest_}——都已發生過，需要時自然呼應，別重演。` : ""}
@@ -2987,7 +2849,6 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
     curL = pcData[pcIndex][COL.PC.LOC];
 
     // 橋段邀請按鈕(夜襲/賴床/地點共用)：candidate在回合開頭(任何LOC寫入之前)就算好了，這裡直接沿用，不應該重算——重算會撞回「同行同伴LOC已被同步」的舊bug。
-    const encounterOffer = kanshouEncounterHero ? { name: String(kanshouCasualOf_(kanshouEncounterHero)) } : undefined;
     // 🧑↔🏠 AI 分錯類的先就地改判（名字其實是地方的「人物」→ 改成「地點」），
     //    再往下給 kanshouWorldWrite_ 用——寫進帳本的就是改判後的這一份。
     if (Array.isArray(aiData.world_note) && aiData.world_note.length) {
@@ -3000,7 +2861,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
     // 🚫 2026-09 砍掉「AI 新造的人 → 要不要深交」那顆泡泡（玩家：「照這個砍 巧遇留吧」）：
     //    AI 隨手發明的店員/鄰居本來就會留在【常民】名單裡、之後還會出現，只是不追蹤好感——
     //    升格這件事玩家沒有要求過，卻每次都被問一次，而且問錯過（拿地名問「要不要認識這個人」）。
-    //    新同伴一律由玩家自己加：👥 邀請（英靈殿）＋ 巧遇結識。
+    //    新同伴一律由玩家自己加：🌟 召喚（英靈殿）。
     const localPeopleList = getKanshouPeopleList_(pcId, curL, pcData);
 
     let finalResponseText = aiData.narration || "天地混沌，一片寂靜。";
@@ -3037,7 +2898,6 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
       options: aiData.options,
       tags: tagsPayload,
       moveProposal: moveProposal || undefined,
-      encounterOffer: encounterOffer,
       proposalResult: kanshouProposalResult_ || undefined,
       kanshouClock: kanshouClock,
       // 修過的bug：#clock-hud讀共用的updateClock(data.clock,...)，但data.clock在鑑賞這條路徑上從來沒被設過，導致HUD一直被當成「沒有clock」隱藏。

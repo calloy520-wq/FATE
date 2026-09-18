@@ -617,7 +617,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `getDailyHeroFields_(heroRow, p)` — 純讀 HERO 列的 DAILY_LOOK/WORDS/MOE/OUTFIT 快取，查無退回原始戰時 look/words/moe（「・」→「、」）；不呼叫 AI。
 - `dailySpeechByName_(name, preHeroes)` — 由名字（經 `kanshouNameCandidates_` 別名橋比對）反查英靈殿 DAILY_LOOK 第 3 段（自稱與口氣）當日常安全版口吻，避免戰時口吻餵進鑑賞 AI。preHeroes 可傳入省重複整表解析。
-- `heroToKanshouRow_(heroRow, gameId, loc, curDay)` — 核心建列器：把 HERO 列轉成鑑賞 PC 列（KHV_ 前綴）。用日常稱呼當 NAME、讀日常版 look/words/moe/outfit、身世走 dailyBack→back→通用預設、起始 BOND=10「點頭之交」、不寫戰鬥欄/IS_PARTY/PHYSICAL。被召喚/起始住民/結識共用。**七度改版**：建列尾聲檢查`KANSHOU_HERO_HOME_[heroRow[COL.HERO.ID]]`，查無專屬豪邸就從`KANSHOU_GENERIC_HOME_POOL_`隨機抽一間、用`setKanshouHeroHome_`寫進`【住處】`記憶標記——這是新英靈唯一的建列入口，此處補一次即涵蓋召喚/起始住民/結識三條路徑。 ⚠ 2026-09 加蓋 `KANSHOU_SRC_TAG_`（【英靈源】＝來源種子 id），撞名守門靠它認人。
+- `heroToKanshouRow_(heroRow, gameId, loc, curDay)` — 核心建列器：把 HERO 列轉成鑑賞 PC 列（KHV_ 前綴）。用日常稱呼當 NAME、讀日常版 look/words/moe/outfit、身世走 dailyBack→back→通用預設、起始 BOND=10「點頭之交」、不寫戰鬥欄/IS_PARTY/PHYSICAL。被召喚/起始住民共用。**七度改版**：建列尾聲檢查`KANSHOU_HERO_HOME_[heroRow[COL.HERO.ID]]`，查無專屬豪邸就從`KANSHOU_GENERIC_HOME_POOL_`隨機抽一間、用`setKanshouHeroHome_`寫進`【住處】`記憶標記——這是新英靈唯一的建列入口，此處補一次即涵蓋召喚與起始住民兩條路徑。 ⚠ 2026-09 加蓋 `KANSHOU_SRC_TAG_`（【英靈源】＝來源種子 id），撞名守門靠它認人。
 
 #### 關係梯度·好感天花板（資料驅動）
 
@@ -668,13 +668,11 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `KANSHOU_REGIONS_`（常數）— 大地圖分區清單（room/home/shinzan/fuyuki/dojo/visit），純 UI 分組。
 - `kanshouLocContextForAI_(locName, homeName, gameId)` — 依 region 補一句給 AI 的場域脈絡（自己房間/共用空間/別人住處/深山町…），AI 自創地點回空字串。
-- `KANSHOU_LOCATIONS_`（常數）— 全地點清單（name/region/desc/noEncounter/isRoom/dateOnly/bands），驗證/邏輯的唯一真相（前端另有一份純畫按鈕）。**2026-07 稽核刪除死碼欄位`minBond`**（原供已於八度改版移除的`kanshouPickDate_`選約會地點分級用，確認全檔零讀取點後整批移除，非試算表欄位不受COL規則約束）。`dateOnly`（情侶溫泉套房/深夜賓館這類約會限定私密地點，不進`kanshouRollDailyLocation_`日常閒晃保底池，這個用途仍在使用中）。**六度改版新增 `bands`**（省略＝全天候開放；`timeBand_`5段子集，管「現在幾點能不能去」）——目前書店二樓/水族館/摩天輪/深夜賓館/夜景展望台/情侶溫泉套房設限，其餘地點不設限。
+- `KANSHOU_LOCATIONS_`（常數）— 全地點清單（name/region/desc/noEncounter＝私密場合/isRoom/dateOnly/bands），驗證/邏輯的唯一真相（前端另有一份純畫按鈕）。**2026-07 稽核刪除死碼欄位`minBond`**（原供已於八度改版移除的`kanshouPickDate_`選約會地點分級用，確認全檔零讀取點後整批移除，非試算表欄位不受COL規則約束）。`dateOnly`（情侶溫泉套房/深夜賓館這類約會限定私密地點，不進`kanshouRollDailyLocation_`日常閒晃保底池，這個用途仍在使用中）。**六度改版新增 `bands`**（省略＝全天候開放；`timeBand_`5段子集，管「現在幾點能不能去」）——目前書店二樓/水族館/摩天輪/深夜賓館/夜景展望台/情侶溫泉套房設限，其餘地點不設限。
 - `kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx)` — 房間顯示名：「我的房間」→「(玩家名)的房間」，其餘原樣。（pcData/gameId/myIdx 現未使用。）
-- `KANSHOU_SUMMON_BLOCKED_IDS_`（常數）— 暫移出鑑賞的英靈 id（召喚/巧遇/住處共用單一來源）。
+- `KANSHOU_SUMMON_BLOCKED_IDS_`（常數）— 暫移出鑑賞的英靈 id（召喚/住處共用單一來源）。
 - `KANSHOU_STARTER_IDS_`（常數）— 開局 4 位起始住民（大河/凜/櫻/SABER）。
-- `KANSHOU_LOCATION_TAGS_`（常數）— 地點×角色氛圍標籤，巧遇/行程骰加權用。
-- `kanshouEncounterPool_()` — 巧遇保底池（2026-09 由 ~~`KANSHOU_ENCOUNTER_FEMALE_IDS_`~~ 手寫名單改成資料驅動，該常數已移除）：從 `SEED_SERVANTS` 取【非男性】且不在 `KANSHOU_ENCOUNTER_EXCLUDE_IDS_`／`KANSHOU_SUMMON_BLOCKED_IDS_` 裡的 id，結果記在 `KANSHOU_ENCOUNTER_POOL_`。⚠ 必須是函式：`SEED_SERVANTS` 在別的檔，頂層求值載入順序不保證。
-- `KANSHOU_ENCOUNTER_EXCLUDE_IDS_`（常數）— 巧遇池的排除表（目前只有 `衛宮士郎-Master`＝玩家本人的位置）。
+- `KANSHOU_LOCATION_TAGS_`（常數）— 地點×角色氛圍標籤，行程骰加權用。
 - `KANSHOU_PARTY_DETAIL_CAP_`（常數=5）— 同地 AI 詳細卡片上限。
 
 #### 橋段庫（夜襲/共浴…資料驅動）
@@ -686,14 +684,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_GENERIC_HOME_POOL_`（常數，2026-07 七度改版新增）— 8間泛用住處(河畔小公寓/巷弄老屋/高塔套房/郊區透天/老街閣樓/街角公寓/靜巷租屋/河堤畔宅)，宣告時即用`.forEach(push)`動態併入`KANSHOU_LOCATIONS_`(region:'visit', generic:true)。供查無`KANSHOU_HERO_HOME_`專屬豪邸的英靈隨機分配用（玩家「新增的英靈會有住處嗎？種子庫直接隨機就好」）。
 - `kanshouGetHeroHome_(heroId, memory)`（2026-07 七度改版新增）— 住處統一讀取入口：`KANSHOU_HERO_HOME_`手寫豪邸優先，查無就讀該英靈自己列MEMORY的`【住處】`標記，兩者皆無才退回不可造訪的「自己的住處」。取代所有直接查`KANSHOU_HERO_HOME_[heroId]`的呼叫點。
 - `setKanshouHeroHome_(memory, homeName)`（2026-07 七度改版新增）— 寫入`【住處】`標記，比照`setOutfit_`同款「清除舊值再整段append」寫法。
-
-#### 巧遇·邂逅（MEMORY 標記 ＋ 抽選）
-
-- `getKanshouMetSet_(memory)` / `addKanshouMet_(memory, name)` — MEMORY【邂逅】逗號分隔巧遇過姓名清單（去重·僅氛圍參考）的讀/增。
-- `kanshouRollEncounter_(locName, excludeIds)` — 70% 機率加權抽巧遇對象（標籤池優先、退保底池 `kanshouEncounterPool_()`、排除已召喚者）；回 SEED_SERVANTS hero 或 null。 ⚠ 2026-09：標籤池也會濾掉 `KANSHOU_SUMMON_BLOCKED_IDS_`（原本只有保底池濾，「召喚/巧遇共用同一份」對標籤這條路是假的）。
-- `kanshouHeroIdByName_(heroName)` — 由真名/短名反查 SEED id（短名優先、再 `kanshouNameCandidates_` 候選比對）。
-- `kanshouResidenceUnlocked_(pcData, residenceName, gameId)` — 拜訪私宅門檻：屋主本局已入駐且好感≥`KANSHOU_VISIT_BOND_`(40) 才解鎖。前後端共用單一真相。**七度改版**：改用`kanshouGetHeroHome_`讀住處(手寫豪邸+隨機分配住處皆吃得到，原本只認`KANSHOU_HERO_HOME_`)。
-- `kanshouRollDailyLocation_(heroName, hour, memory, gameId)`（2026-09 簽名加 `gameId`——沒有它就看不見玩家自己開的地方）— 幫不在身邊的英靈骰當下去哪：深夜/清晨大機率回登記住處，其餘時段從池子裡骰；池子＝內建 ∪ 玩家自己開的地方，排除 room/visit/dateOnly。**🐛→✅ 2026-09 牢籠改偏好**：原本 `pool = haunts.length ? haunts : 全部地點`，有 `KANSHOU_LOCATION_TAGS_` 綁定就【只】從綁定裡挑——9/10 的角色這輩子只會出現在單一地點，而且保底池只有內建地點、沒人會出現在玩家自己開的地方。改成「老地方多放 `KANSHOU_HAUNT_WEIGHT_`(=6) 份進整個世界的池子」：實測老地方仍佔 31%、但會去 16 種地方、玩家新開的地方也有 9%。地點被砍掉就當沒那條偏好（`all.indexOf(h) < 0` 直接略過），所以砍任何地點都不會讓誰沒去處。`KANSHOU_HAUNT_WEIGHT_` 設 0＝完全隨機。**`memory`(選填)**：深夜/清晨homeBias分支改呼叫`kanshouGetHeroHome_(heroId, memory)`，讓隨機分配住處的英靈也回得了家；省略`memory`時只吃`KANSHOU_HERO_HOME_`手寫豪邸(向後相容)。
 
 #### 日曆·時鐘（純算·多為確定性）
 
@@ -727,9 +717,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 
 
-#### 輕量小事件·邂逅中·住所（MEMORY 標記）
+#### 輕量小事件·住所（MEMORY 標記）
 
-- `getKanshouActiveEncounter_` / `setKanshouActiveEncounter_` / `clearKanshouActiveEncounter_(memory)` — MEMORY【邂逅中】（這次到訪暫時巧遇對象·存 hero id·換地點清除）讀/寫/清。
 - `getKanshouHomeName_(memory, playerName)` / `setKanshouHomeName_(memory, name)` — MEMORY【住所】家顯示名，未自訂預設「(玩家名)的家」/「我家」。**🐛→✅ 稽核抓到**：`setKanshouHomeName_`原本只裁長度、沒清標籤分隔字元，玩家取名帶`｜`會撐壞這行MEMORY格式；已改用`kanshouSanitizeTagValue_`(見上方小道具章節同款)。
 - `kanshouSanitizeTagValue_(value, maxLen)`（通用版：住所名等任何單值 tag 共用）— 清掉 MEMORY 單值 tag 共用的分隔字元(`,`/`:`/`｜`/`【`/`】`)＋引號/角括號，`maxLen`不帶預設8。任何要塞進單一`【tag】值`格式的自由輸入都該過這道，不要各自複製一份正則。
 
@@ -1306,13 +1295,11 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 #### 地圖 / 分區 / 移動
 - `kcSceneBadge_(locName, curBand, curHour)` — 依 `KC_SLEEP_HINTS_`（前端僅存的住處熟睡徽章表，2026-09 由 `KC_LOCATION_EVENTS_` 改名）產單一地點的 🌙 徽章（`hourEnd` 比對 `curHour`；橋段觸發表已砍，只剩熟睡類）。
 - `kcSwitchRegion_(id)` — 切分區分頁（存 localStorage）＋重繪 `#kc-map-list`。
-- `kanshouToggleEncounter_(checked)` — 巧遇開關切換（存 localStorage，`send` 每次讀進 `encounter`）。
 - `kcRoomLabel_(key)` — 「我的房間」→「<御主名>的房間」動態顯示名（鏡射後端 `kanshouRoomDisplayName_`）。
 - `kcMapListHtml_()` — **產整個地圖分頁 HTML**：分區切換列＋家改名鈕＋各地點鈕（人數徽章 `window._lastTags.locationCounts`、橋段徽章、鎖住的私人住處走🔒、**六度改版新增：時段未到的`bands`限定地點同樣走🔒**（比對`l.bands`跟`_curBand`）、移動鈕→`kanshouMoveTo`、邀同去👋→`kanshouProposeMove`）。由 Script.html `renderMapPane()` 塞進 `#map-pane-content`。
 - `kanshouRenameHome()` — 改「家」名（`kanshou_set_home_name`，寫後端 MEMORY【住所】）；成功更新 `pc.homeName`＋重繪。
 - `kanshouMoveTo(name)` — 自己移動到某地（確認框→切 chat 分頁→`send({moveTarget})`）。
 - `kanshouProposeMove(name)` — 邀同伴一起去（`proposeMove`，走確定性提議管線）；身邊無人(濾 `isExact`)前端先擋。
-- `kanshouLookAround()` — 明確「四處張望看還有沒有人」（`lookAround:true`，不移動不換分頁）。
 
 #### 提議泡泡回應（同意/拒絕）
 - `kanshouConfirmMoveProposal(loc)` — 同意 AI 的移動提議（`moveTarget`＋`moveWithCompanion:true` 帶提議者同行）。
@@ -1324,8 +1311,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouPickLoc_(name)` — 地點鈕點擊：關彈窗→執行 `_kpCb(name)`。
 
 
-#### 結識 / 關係
-- `kanshouAcceptInvite(name)` — 結識巧遇對象使其入駐（`inviteResident`）。
+#### 關係
 - `kanshouOpenBondHub(name, curTag, bond, curNickname, npcId)`（`confessWait`／`cohabit`／`lover` 三個殘參已隨各自的功能移除）— 💞 關係中樞分派面板：關係稱呼／共同回憶／調整好感。門檻數字走 `KC_*` 鏡射。
 - `kanshouOpenRelTag(name, curTag, bond, curNickname, npcId)`（2026-09 加第 5 參數：面板記住 `_krTargetId`，送出時帶 `targetId`——長名同伴靠名字會被 NAME_MAX 截斷）（2026-07 新增，原`kanshouEditRelTag`用native prompt()，玩家「那個關係也不要用彈窗吧」改成專屬面板；**五度改版新增`bond`/`curNickname`參數**）— 開`#kr-overlay`彈窗：`KC_REL_TIERS_`(鏡像Gallery.gs `KANSHOU_REL_TIER_`)5階預設稱呼各一顆按鈕(呼叫`kanshouSetRelTag`，永遠可選)＋自訂區塊。**bond<`KC_CUSTOM_TAG_BOND_`(80)時自訂區塊整個換成鎖定說明文字**；bond≥80才顯示「自訂關係稱呼」輸入框(`#kr-custom`，呼叫`kanshouSetRelTagCustom`)＋「專屬稱呼」輸入框(`#kr-nickname`，呼叫`kanshouSetNicknameCustom`)，並附「這格是填空的名詞，不要打完整句子」引導文案。選預設會讓文字重新匹配某梯度標籤(之後`kanshouSyncRelTier_`繼續自動跟好感升降)；打自訂稱呼會固定下來不再自動改動(既有行為，只換UI容器)。呼叫端傳入`bond`/`nickname`：Script.html卡片鈕用`s.bond`/`s.nickname`、Script_Kanshou.html同伴清單用`c.bond`/`c.nickname`。
 - `kanshouSetRelTag(name, tag)`（2026-07 新增）— 打`update_rel_tag`，成功→`syncData`＋`kcRefreshPartyOnly_`＋關閉`#kr-overlay`；`_krBusy`擋連點。

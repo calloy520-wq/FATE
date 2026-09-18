@@ -910,13 +910,6 @@ AI 生成從者／日常外貌轉換，加上前端逆天改命的三格輸入�
 給她日常稱呼「伊莉雅（魔法少女）」，括號寫法會被 `kanshouNameCandidates_` 拆出「伊莉雅」而互斥——
 這是刻意利用既有的別名橋，不是另寫一條特例。
 
-### `kanshouEncounterPool_`　<sub>Gallery.gs · 2026-09</sub>
-
-巧遇保底池原本是手寫名單 `KANSHOU_ENCOUNTER_FEMALE_IDS_`，於是「新增/解封一位種子卻忘了補進名單」
-＝那個人召喚得到、卻永遠巧遇不到（稽核當場三位中獎）。改成從 `SEED_SERVANTS` 算：
-非男性 ∖ 排除表 ∖ 封鎖表。⚠ **只能是函式不能是頂層常數**——`SEED_SERVANTS` 住在 `Seed_Codex.gs`，
-GAS 把所有 .gs 串成一個檔跑、載入順序看不到也控制不了（`check_loadorder.py` 就是在擋這個）。
-
 ### `quadLabeled_` / `QUAD_LOOSE_LABEL_`　<sub>Router_Persona.gs · 2026-09 種子瘦身</sub>
 
 四格模板（日常表象／真實內裡／喜歡的事物／討厭的事物）本來是**逐格貼標籤**，而種子的 `persona.words`
@@ -1149,14 +1142,6 @@ target 只能填真名(schema級約束，比事後再說一次更有效)。tag �
 
 🏠 泛用住處池(七度改版新增)：沒有專屬豪邸的英靈隨機抽一間、終身持有。純泛用命名(不影射任何特定角色背景)，跟手寫豪邸一樣登記進 KANSHOU_LOCATIONS_(region:'visit')成為可造訪的真實地點，共用同一套移動驗證/拜訪門檻，不必另開機制。generic:true 標記只供 heroToKanshouRow_篩選"可隨機分配"的候選池，不影響其餘既有邏輯(其餘地方一律當普通 visit 地點看待)。
 
-### `getKanshouMetSet_`　<sub>Gallery.gs</sub>
-
-🏷️ MEMORY標記存取器【邂逅】：逗號分隔的巧遇過姓名清單，去重、僅供「似曾相識」氛圍參考——同行隊伍成員的好感/關係走既有 REL_TAG/BOND，這裡只記路人巧遇過誰，不重複記錄。比照 getOutfit_/setOutfit_(Core_Settings.gs)同款「清除舊值再整段append」寫法。
-
-### `kanshouRollEncounter_`　<sub>Gallery.gs</sub>
-
-巧遇抽選共用邏輯(70%機率)：「出門走走」按鈕跟「原地問還有誰」共用同一套加權隨機。查無標籤地點退回全池保底。excludeIds：已正式召喚過的英靈已有真實好感記錄，不該又以「陌生人」身分重複出現，故排除在骰池外。
-
 ### `kanshouResidenceUnlocked_`　<sub>Gallery.gs</sub>
 
 🔒 拜訪私人住處門檻：跟屋主(KANSHOU_HERO_HOME_反查)在本局已入駐、且好感≥KANSHOU_VISIT_BOND_(熟識40)才解鎖登門——沒熟到一定程度不好貿然闖進人家家裡。單一真實來源，前端(buildTagsPayload_ unlockedResidences)跟後端移動攔截(actionPlay)共用這個判定。可跨聊天上限：靠赴約(kanshouPromiseMetStr +5·不吃chat ceiling)推過40。
@@ -1302,10 +1287,6 @@ herIdx：牽手 tag 寫在玩家列(idx)，但「第一次牽手」這筆帳要�
 ### `KANSHOU_ALBUM_CAP_`　<sub>Gallery.gs</sub>
 
 📷 相簿(拍照收集)：手機拍照·2026-07 再修（玩家「拍照要改成手機、不用等」）——原本是寶麗來設定(每日底片限量+隔天沖洗)，玩家覺得手機沒有底片這種東西、拍完也該立刻能看，兩個限制都拔掉了。只留每局相簿總容量 KANSHOU_ALBUM_CAP_ 張(滿了要刪舊照，避免試算表無限膨脹)。小敘述由AI在拍照當回合的回應JSON多吐photo_caption(同一次呼叫·零額外round-trip)，AI沒吐才用模板保底。
-
-### `getKanshouActiveEncounter_`　<sub>Gallery.gs</sub>
-
-🏷️ MEMORY標記存取器【邂逅中】：這次到訪、還留在場邊可持續互動的巧遇對象(存hero id，單一值)——跟永久性的【邂逅】(邂逅過的名單，不會清除)不同，這個是「這次到訪期間」的暫時狀態，玩家移動離開該地點時清除(換地點＝這段緣分結束，下次到訪重新擲)。比照 getOutfit_/setOutfit_ 同款寫法。
 
 ### `KANSHOU_CASUAL_NAME_`　<sub>Gallery.gs</sub>
 
@@ -3183,10 +3164,6 @@ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查�
 
 🧠→✅ 稽核抓到診斷錯誤：她【明明就在場】、是地點/時段組合不合法(住處未解鎖／該時段不開放)， 舊版卻一律回報「她不在身邊」，玩家會照著這句去找人而完全找不到問題在哪。分開兩種原因。
 
-### `encounterOn`　<sub>Gallery.gs</sub>
-
-巧遇開關：前端「出門走走」面板可關閉「路上巧遇陌生人」——只影響下方隨機巧遇擲骰，不影響已在場的【邂逅中】對象持續互動、也不影響同行隊伍成員。
-
 ### `_qv`　<sub>Gallery.gs</sub>
 
 🎯 [喜歡][討厭]不再送鑑賞(玩家實測「沒有特別的差異」)。空格與佔位字(QUAD_EMPTY_)整格不送，別拿「無」佔 AI 的注意力。
@@ -3254,10 +3231,6 @@ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查�
 ### `_jumpSceneBreak`　<sub>Gallery.gs</sub>
 
 ★換幕鐵律：時間快轉後是全新場景——AI 最容易犯的錯是接著把上一段(如剛才的牽手/對話)再演一次， 這裡明講禁止複述、直接寫新時段的當下。
-
-### `activeId`　<sub>Gallery.gs</sub>
-
-這次到訪還在場邊的巧遇對象(【邂逅中】)，只要人還沒隨著換地點離開，就持續讓AI知道可以繼續指名互動——不只是觸發那一瞬間的單回合permission，同一次到訪期間都有效。
 
 ### `relMemMemoryStr_`　<sub>Gallery.gs</sub>
 
