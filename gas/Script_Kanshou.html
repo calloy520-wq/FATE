@@ -1112,7 +1112,7 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="width:min(360px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(180,140,255,.3);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#dcc8ff;">🏷️ 「' + escapeHtml(name) + '」的關係稱呼</b>'
       + '<button onclick="document.getElementById(\'kr-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">你說她是你的什麼，她就是什麼。填一個詞，像「青梅竹馬」「同事」「戀人」。留白就是還沒取。</div>'
+      + '<div style="color:#8a7fa0;font-size:11px;margin-bottom:5px;">你說她是你的什麼，她就是什麼。填一個詞，像「青梅竹馬」「同事」「戀人」。清空再按確定＝拿掉這個稱呼，交還給說書人。</div>'
       + '<div style="display:flex;gap:5px;">'
       + '<input id="kr-custom" maxlength="20" placeholder="關係稱呼" value="' + escapeHtml(curTag || '') + '" style="flex:1;min-width:0;padding:6px;background:#2a2430;color:#eee;border:1px solid rgba(180,140,255,.3);border-radius:6px;font-size:12px;">'
       + '<button onclick="kanshouSetRelTagCustom(\'' + safeN + '\')" style="padding:6px 10px;background:#6a4a9a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">確定</button>'
@@ -1138,8 +1138,7 @@ let plainTextContext = cleanText;
   async function kanshouSetRelTagCustom(name) {
     var el = document.getElementById('kr-custom');
     var nt = el ? el.value.trim() : '';
-    if (!nt) { alert('關係稱呼不能空白。'); return; }
-    await kanshouSetRelTag(name, nt);
+    await kanshouSetRelTag(name, nt);   // 🧹 空白＝清掉這一格，交還給說書人
   }
   // 💬 專屬稱呼手動設定(2026-07五度改版)：比照 kanshouSetRelTag 同一套busy鎖+回應處理，走新的
   //   kanshou_set_nickname action(見Router_Action.gs actionSetNickname)。

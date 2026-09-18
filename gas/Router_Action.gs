@@ -477,7 +477,11 @@ function actionSync(userData, pcId, sheets) {
 // 關係併入眾生列——直接改這名 NPC 自己那一列的 REL_TAG 欄，不再查關係表。
 function actionUpdateRelTag(userData, pcId, sheets) {
   const { targetName, newTagText, targetId } = userData;
-  if (!newTagText || !String(newTagText).trim()) return JSON.stringify({ success: false, message: "稱呼不能空白。" });
+  // 🧹 空白＝清掉這一格。2026-09 起 REL_TAG 的預設值【就是空的】（見 heroToKanshouRow_），
+  //    空是合法狀態，UI 必須走得回去——否則玩家會被鎖在一個他不要的標籤上（實測：AI 把
+  //    提示詞裡的「純女女之愛」四個人全填了一遍，玩家清不掉）。清除同時解開【關係鎖】，
+  //    等於「撤回我的指定」，這一格回到交給 AI 維護的預設狀態。
+  const _clearing = !String(newTagText == null ? "" : newTagText).trim();
 
   const pcData = sheets.pc.getDataRange().getValues();
   // 光靠姓名+下方「同行」門檻不保證是「我這局」的同行者；不同局剛好有同名同行從者仍會被誤改，故需再比對呼叫者自己列的 game_id(myGameId 為空時放行，相容沒有 game_id 的舊資料)。
@@ -491,7 +495,7 @@ function actionUpdateRelTag(userData, pcId, sheets) {
     return JSON.stringify({ success: false, message: "只能改跟你同行的從者。" });
   }
 
-  const finalTag = String(newTagText).trim();
+  const finalTag = _clearing ? "" : String(newTagText).trim();
   // 🔒 自訂稱呼會被字面「TA是你的${tag}」原樣塞進 AI 提示詞當既定事實，低羈絆就打露骨自訂稱呼
   //    會讓 AI 照著演。solo 仍吃這道門檻；鑑賞 2026-09 好感整組砍除後沒有這個數字，稱呼全交玩家。
   if (myGameId.indexOf("k_") !== 0) {
@@ -507,7 +511,7 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   // 🔒 玩家自己打過就鎖住：從此 AI 不再改這一格（鑑賞的 intimacy_feedback.npcs[].rel_tag 會跳過）。
   {
     const _rm = String(pcData[tIdx][COL.PC.REL_MEM] || "");
-    const _newRm = kanshouRelMemBuild_(getNickname_(_rm), { nick: kanshouRelLocked_(_rm, 'nick'), tag: true });
+    const _newRm = kanshouRelMemBuild_(getNickname_(_rm), { nick: kanshouRelLocked_(_rm, 'nick'), tag: !_clearing });
     if (_newRm !== _rm) {
       pcData[tIdx][COL.PC.REL_MEM] = _newRm;
       sheets.pc.getRange(tIdx + 1, COL.PC.REL_MEM + 1).setValue(_newRm);
@@ -515,7 +519,7 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   }
 
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：REL_TAG改寫已原地改回 pcData，dispatcher 夾 _state 免整表重讀
-  return JSON.stringify({ success: true, message: `改成「${finalTag}」了。`, newTag: finalTag });
+  return JSON.stringify({ success: true, message: _clearing ? "關係稱呼清掉了。" : `改成「${finalTag}」了。`, newTag: finalTag });
 }
 
 // 🔒 專屬稱呼比照 update_rel_tag 同一套門檻與同一個 injection 風險；玩家手動設定後蓋【稱呼鎖】，AI 不再自動覆寫。
