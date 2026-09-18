@@ -120,7 +120,7 @@ mcp__github__actions_get          method=get_workflow_run resource_id=<run_id>
 | 區 | 起點錨（grep 這個） | 內容 |
 |---|---|---|
 | ① 資料層 | `sanitizeAiData_` | 帳號綁定／`kanshouPcIdx_`／鑑賞眾生表／日常版轉換 |
-| ② 關係 | `KANSHOU_REL_TIER_` | 五階／`kanshouSyncRelTier_`／`kanshouIsLover_` 告白牆（好感天花板已移除） |
+| ② 關係 | `KANSHOU_REL_TIER_` | 五階／`kanshouSyncRelTier_`（好感天花板與告白牆都已移除） |
 | ③ handlers | `actionKanshouSummonHero` | 全部 `kanshou_*` action（召喚/貼圖/回憶/改名） |
 | ④ 演化核心 | `buildDefaultSystemPrompt` | `nsfwBaseRules` 在這裡：可改，先量後改再跑探針（紅線①） |
 | ⑥ 引擎 | `actionPlay` → `actionPlay_` | 🔥 **~1440 行巨獸**，鑑賞單回合全部意圖都在裡面 |

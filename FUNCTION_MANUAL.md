@@ -623,13 +623,13 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `KANSHOU_REL_TIER_`（常數）— 好感→關係標籤 5 階梯度（80 戀人/60 親近/40 熟識/20 普通朋友/-100 點頭之交）；門檻借鑑賞既有 60/80 節點，單一來源。**2026-09 每階加 `ceiling` 欄**（這一階的肢體親密天花板）——原本提示詞裡另外硬寫一份五行對照表，同一組門檻存兩處。`check_wiring.py` 的 `TIER_TABLES` 盯著每階都要有相異的 `ceiling`。
 - `kanshouIntimacyLines_(bonds)`（2026-09 新增）— 依在場者的好感陣列，只吐出**實際用得到的那幾階**親密尺度（全表五行對小模型是四行雜訊）；沒人在場回空字串、整塊規則不送。
-- `kanshouSyncRelTier_(pcData, idx)` — BOND 變動後的下游同步總管，順序固定為 **⓪告白牆（含舊存檔補齊）** ①好感棘輪夾地板 ②REL_TAG 重算。⓪ 2026-07 新增：未 `kanshouIsLover_` 者好感一律夾在 `KANSHOU_REL_TIER_[0].min - 1`（79）——這裡是所有好感變動的唯一漏斗，夾一次等於全路徑都夾到（80 之上的戀人標籤・自訂稱呼・最高階親密度因此一起關在告白之後，不必逐項開門檻）；夾之前先補齊舊存檔（REL_TAG 已是「戀人」／`【好感底線】`≥80 任一成立就補蓋 `KANSHOU_LOVER_TAG_`，**刻意不拿「此刻 bond≥80」當證據**，那會讓 AI 的 +5 自己把牆拆了）。①必須最先：②③都讀 bond，讀到未夾的值會做出跟棘輪矛盾的降階。②只在現值仍等於某梯度字面時才覆寫（玩家手動改自訂稱呼後不再自動蓋回）。冪等。任何動 BOND 處之後補呼叫（目前 5 處全數有呼叫）。
+- `kanshouSyncRelTier_(pcData, idx)` — BOND 變動後的下游同步總管，順序固定為 ①好感棘輪夾地板 ②REL_TAG 重算。①必須最先：②讀 bond，讀到未夾的值會做出跟棘輪矛盾的降階。②只在現值仍等於某梯度字面時才覆寫（玩家手動改自訂稱呼後不再自動蓋回）。冪等。任何動 BOND 處之後補呼叫（目前 5 處全數有呼叫）。（~~告白牆~~ 2026-09 大瘦身已隨告白一併移除，好感不再被夾在 79。）
 - `kanshouBondFloorOf_(bond)`（2026-07 新增）— 好感棘輪的地板：回傳 bond 已跨過的最高門檻（門檻＝`KANSHOU_REL_TIER_` 的 min>0，即 20/40/60/80，由表推導不另寫數字）。**刻意寫成函式而非模組層常數**——它讀的表宣告在本檔後面，const 有 TDZ，模組層直接引用會炸。
 - `KANSHOU_CUSTOM_TAG_BOND_`（常數=80，2026-07 五度改版新增）— 自訂關係稱呼／專屬稱呼的解鎖門檻，跟親密尺度五階「80+無上限」同一個切點。`actionUpdateRelTag`/`actionSetNickname`(Router_Action.gs) 共用此常數。
 - `getNickname_(relMem)`（2026-07 五度改版新增）— 從 REL_MEM 裸取`[專屬稱呼]`值的共用小 helper（供 UI 顯示用；鏡射 `actionPlay_` 內部組提示詞用的 `relMemMemoryStr_`，但那支輸出完整格式化字串，這支只回裸值）。`actionKanshouCompanions`／servant 清單 builder 都吃這支。
 - `sanitizeNickname_(s)`（2026-07 邊界稽核新增）— 專屬稱呼寫入前的**唯一消毒口**：清掉 `|｜[]` ＋截 20 字。REL_MEM 是用 `| [欄名]值` 串成的單格字串，這格有兩條寫入路徑（玩家手動 `actionSetNickname`／AI 的 `intimacy_feedback.mutual_nicknames`），舊版只有手動那條消毒——AI 回一句 `"小可愛| [稱呼鎖]是"` 就能**偽造稱呼鎖**（玩家沒設過卻從此凍結、AI 自己也再改不動），且 AI 那條完全沒長度上限。兩條路徑現在都只走這支。
 - `KANSHOU_SCENE_BOND_`（常數=3）— 接受親密橋段給的好感，直接寫、不吃聊天上限。
-- ~~`kanshouRelChatCeiling_`~~（已移除）— **2026-09 整支移除（聊天瓶頸廢止）**。原本純聊天加好感被夾在 39/59/79/89 四道牆前，要靠約定赴約/親密橋段才跨得過。廢止理由：節奏本來就被 schema 的每回合上限（日常+1~2、重大+3~5）管著，這是疊在上面的第二層；而它真正的代價是在牆上叫 AI「維持細水長流、不要寫成關係大幅推進」＝**指示 AI 踩煞車**，跟「像正常 AI 聊天」的核心正面衝突。**告白牆（好感 79 封頂直到真的告白，`kanshouSyncRelTier_` 的 `_loverCap`）保留**——那是玩家要求的「交往要有一個確定的過程」。親密橋段門檻改用 `KANSHOU_SCENE_MIN_BOND_`（＝關係階表的熟識 40），不再借用這支函式取 39 這個魔術數字。
+- ~~`kanshouRelChatCeiling_`~~（已移除）— **2026-09 整支移除（聊天瓶頸廢止）**。原本純聊天加好感被夾在 39/59/79/89 四道牆前，要靠約定赴約/親密橋段才跨得過。廢止理由：節奏本來就被 schema 的每回合上限（日常+1~2、重大+3~5）管著，這是疊在上面的第二層；而它真正的代價是在牆上叫 AI「維持細水長流、不要寫成關係大幅推進」＝**指示 AI 踩煞車**，跟「像正常 AI 聊天」的核心正面衝突。（告白牆後來也在 2026-09 大瘦身時隨告白整組移除。）親密橋段門檻改用 `KANSHOU_SCENE_MIN_BOND_`（＝關係階表的熟識 40），不再借用這支函式取 39 這個魔術數字。
 
 #### 5 顆 KPC action（進場/召喚/面板/設定）
 
@@ -728,7 +728,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `_spotlight_`（`actionPlay_` 區域變數）— 🔦 聚光燈：從玩家這一步的 `userMsg` 裡找出被點名的同伴（走 `kanshouNameCandidates_` 別名橋，短名也算）。被點名的拿完整卡；同場其他人的卡砍掉 性格／特徵／招牌小動作／經歷／萌點／共同回憶，只留 名字／性別／在場來由／裝扮／**口吻**／現況／約定／你在他眼中／關係好感。⚠ **沒點名任何人＝全部都給完整卡**（維持原行為）。量測：三人同場、點名一人 706→464 字（−34%）。
 - `kanshouAppendUnique_(oldStr, newLine, opt)`（2026-09 新增，`gas/Gallery.gs`；`opt = {sep, cap, maxLen, pin}`）— append→去重→上限的**共用引擎**，共同回憶（`processMemoir_` 現已降為一層包裝：`{sep:'｜', cap, maxLen:40, pin:true}`）與「她眼中的你」（`{sep:'／', cap:6, maxLen:14}`）共用。去重含**雙字組 0.6 相似度**比對最近 3 條（防同一件事換句話說重記）；`pin:true` 時★釘選永不驅逐，否則單純留最近 cap 條。寫入值一律先剝 `｜|【】[]★` 與分隔符本身、再截 `maxLen`。
 - `KANSHOU_MET_COUNT_TAG_`／`KANSHOU_FAMILIAR_TIERS_`／`KANSHOU_RAPPORT_BOND_TIERS_`／`KANSHOU_RAPPORT_TONE_`／`kanshouRapportTone_(bond, metCount, isLover)`（2026-07 新增，`gas/Gallery.gs`；**同月加第三參數 `isLover`**）— 相處基調 2D 表。`【相處】N` 每個對話回合對每位在場者 +1（`kanshouTimeJumped_` 時不加）；查 好感4段 × 熟悉度3段 → **一句既定事實**（開頭一律「事實：」），查無回空字串（刻意留白＝那一格不給指令，15 格只填 11 格）。`isLover` 為真時直接走第五排 `'交往中'`、不再看好感段（上面四排全是「還沒在一起」的溫度，尤其「等你先開口」交往後再演就變成她失憶）。掛在 `partyDetailsArr` 每人自己那行，取代舊的 1D `pTierToneStr`。⚠ **只寫事實、不寫演技**：不得出現未指涉代詞（「這件事」）或替角色決定的微動作（「愣一下」「打呵欠」）——前者小模型解不開會自己編，後者讓所有角色套同一套表情。交棒句（怎麼表現依她個性）寫在 `PROMPT_REL` 的【角色一致性】★ 一次。兩者已由 `check_wiring.py` ⑤ 機器擋（`check_prompt.py` 只掃 ★ 行、看不到資料表）。
-- `KANSHOU_LOVER_TAG_`（【戀人】標記）／`KANSHOU_CONFESS_BOND_`(60·開得了口的最低好感)／`kanshouIsLover_(row)`（她是不是你的戀人·單一判準，前後端與提示詞全走這支）。**2026-09 告白改成必定成功**（玩家「79 改成告白必定成功就好」）：好感達 60 且她在場，說出口就成立。連帶整組退休——~~`kanshouConfessAccepts_`~~（好感×相處次數擲骰）、~~`kanshouConfessWait_`~~、~~`KANSHOU_CONFESS_DAY_TAG_`~~（告白日）、~~`KANSHOU_CONFESS_COOLDOWN_`~~(3天冷卻)、~~`KANSHOU_CONFESS_SLOPE_`~~、~~`KANSHOU_CONFESS_FAMILIAR_MULT_`~~，以及被拒扣 3 點好感那條分支與前端的冷卻鎖（`confessWait` 欄位也不再下傳）。
 
 
 
@@ -1335,8 +1334,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 #### 結識 / 關係
 - `kanshouAcceptInvite(name)` — 結識巧遇對象使其入駐（`inviteResident`）。
-- `kanshouConfess(name, npcId)`（2026-07 新增，`gas/Script_Kanshou.html`）— 💗 玩家發起告白（確認框 → `send(..., {confess:name, confessId:npcId})`）。前端不預測成敗、只送意圖，成敗由後端裁定（好感≥`KANSHOU_CONFESS_BOND_` 必成、不足即拒；~~`kanshouConfessAccepts_`~~ 擲骰與冷卻 2026-09 已移除）。入口在 `kanshouOpenBondHub` 第三列，三態各自渲染（好感未達 `KC_CONFESS_BOND_` 鎖／可告白按鈕／交往中狀態列），不留「按了才被拒」的洞。
-- `kanshouOpenBondHub(name, curTag, bond, curNickname, npcId, lover)`（2026-07 加 lover；`confessWait` 隨告白冷卻移除、`cohabit` 隨同居移除）— 💞 關係中樞分派面板：關係稱呼／共同回憶／調整好感／**告白**。`lover` 是逐人狀態，由 `buildTagsPayload_` 下傳（門檻數字則走 `KC_*` 鏡射）。
+- `kanshouOpenBondHub(name, curTag, bond, curNickname, npcId)`（`confessWait`／`cohabit`／`lover` 三個殘參已隨各自的功能移除）— 💞 關係中樞分派面板：關係稱呼／共同回憶／調整好感。門檻數字走 `KC_*` 鏡射。
 - `kanshouOpenRelTag(name, curTag, bond, curNickname, npcId)`（2026-09 加第 5 參數：面板記住 `_krTargetId`，送出時帶 `targetId`——長名同伴靠名字會被 NAME_MAX 截斷）（2026-07 新增，原`kanshouEditRelTag`用native prompt()，玩家「那個關係也不要用彈窗吧」改成專屬面板；**五度改版新增`bond`/`curNickname`參數**）— 開`#kr-overlay`彈窗：`KC_REL_TIERS_`(鏡像Gallery.gs `KANSHOU_REL_TIER_`)5階預設稱呼各一顆按鈕(呼叫`kanshouSetRelTag`，永遠可選)＋自訂區塊。**bond<`KC_CUSTOM_TAG_BOND_`(80)時自訂區塊整個換成鎖定說明文字**；bond≥80才顯示「自訂關係稱呼」輸入框(`#kr-custom`，呼叫`kanshouSetRelTagCustom`)＋「專屬稱呼」輸入框(`#kr-nickname`，呼叫`kanshouSetNicknameCustom`)，並附「這格是填空的名詞，不要打完整句子」引導文案。選預設會讓文字重新匹配某梯度標籤(之後`kanshouSyncRelTier_`繼續自動跟好感升降)；打自訂稱呼會固定下來不再自動改動(既有行為，只換UI容器)。呼叫端傳入`bond`/`nickname`：Script.html卡片鈕用`s.bond`/`s.nickname`、Script_Kanshou.html同伴清單用`c.bond`/`c.nickname`。
 - `kanshouSetRelTag(name, tag)`（2026-07 新增）— 打`update_rel_tag`，成功→`syncData`＋`kcRefreshPartyOnly_`＋關閉`#kr-overlay`；`_krBusy`擋連點。
 - `kanshouSetRelTagCustom(name)`（2026-07 新增）— 讀`#kr-custom`輸入框(空值擋)，呼叫`kanshouSetRelTag`。

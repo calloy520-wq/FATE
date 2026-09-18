@@ -1823,7 +1823,7 @@
             // 💞 關係中樞(2026-07 玩家「同伴卡片欄位太多…關係/回憶可以整合在一起」)：低頻
             //   入口(關係稱呼／共同回憶)收進這一顆，卡片按鈕 8→6(2-2-2)。面板本身
             //   kanshouOpenBondHub 住 Script_Kanshou.html，只做分派＋顯示三者現況，不改既有三個面板。
-            + '<button onclick="kanshouOpenBondHub(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\',' + (parseInt(s.bond) || 0) + ',\'' + String(s.nickname || '').replace(/'/g, '') + '\',\'' + String(s.id || '').replace(/'/g, '') + '\',' + (s.lover ? 'true' : 'false') + ')" title="稱呼、回憶、告白" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">💞 關係</button>'
+            + '<button onclick="kanshouOpenBondHub(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\',' + (parseInt(s.bond) || 0) + ',\'' + String(s.nickname || '').replace(/'/g, '') + '\',\'' + String(s.id || '').replace(/'/g, '') + '\')" title="稱呼、回憶、好感" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">💞 關係</button>'
             + '</div>'
             // 🆕 直接複用既有 kanshouOpenRelTag(Script_Kanshou.html)，不重寫新邏輯。召喚是一次性的、
             //   沒有隊伍容量要騰，不需要「請走」這種按鈕。

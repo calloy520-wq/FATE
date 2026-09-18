@@ -275,14 +275,6 @@ function kanshouBondFloorOf_(bond) {
 }
 function kanshouSyncRelTier_(pcData, idx) {
   let bond = parseInt(pcData[idx][COL.PC.BOND]) || 0;
-  // 💗 告白牆(2026-07 玩家「沒有一個交往的確定過程·人人都可以自然變成戀人」)：還沒告白成立的人，好感一律夾在【戀人門檻-1】。
-  const _loverCap = KANSHOU_REL_TIER_[0].min - 1;
-  if (!kanshouIsLover_(pcData[idx])
-    && (String(pcData[idx][COL.PC.REL_TAG] || "") === KANSHOU_REL_TIER_[0].label
-      || KANSHOU_BOND_FLOOR_TAG_.get(pcData[idx][COL.PC.MEMORY]) >= KANSHOU_REL_TIER_[0].min)) {
-    pcData[idx][COL.PC.MEMORY] = KANSHOU_LOVER_TAG_.set(pcData[idx][COL.PC.MEMORY], 1);
-  }
-  if (bond > _loverCap && !kanshouIsLover_(pcData[idx])) { bond = _loverCap; pcData[idx][COL.PC.BOND] = bond; }
   const _reachedWas = KANSHOU_BOND_FLOOR_TAG_.get(pcData[idx][COL.PC.MEMORY]);
   const _reachedNow = Math.max(_reachedWas, kanshouBondFloorOf_(bond));
   if (_reachedNow !== _reachedWas) pcData[idx][COL.PC.MEMORY] = KANSHOU_BOND_FLOOR_TAG_.set(pcData[idx][COL.PC.MEMORY], _reachedNow);
@@ -296,12 +288,9 @@ function kanshouSyncRelTier_(pcData, idx) {
 // 🔒 2026-07 五度改版·自訂關係稱呼／專屬稱呼門檻(玩家實測：低好感就塞露骨自訂稱呼，這段文字會被字面「TA是你的${tag}」原樣塞進提示詞當既定事實，AI因此無視好感天花板照樣演到底)——玩家指定門檻＝80(戀人)，跟親密尺度五階的「80+無上限」同一個切點，這樣一旦解鎖，尺度本來就已經全開，不會再有「好感沒到、卻被自訂文字撐開尺度」的倒掛狀況。
 const KANSHOU_CUSTOM_TAG_BOND_ = 80;
 
-// ══ 💗 告白＝關係階的質變事件（2026-07 玩家「好感太絲滑、沒有一個交往的確定過程、人人都可以自然變成戀人」）═══════════════════════════════════════════════════════════════舊做法：好感爬到 80 就自動長出「戀人」這個標籤，沒有任何一刻是「你們決定在一起」。
 // 🫶 好感門檻一律【從 KANSHOU_REL_TIER_ 推】，不要再寫死數字：階級表改了門檻要跟著改，
 //    兩邊各寫一份就是同一個數存兩處（2026-09 稽核抓到三處寫死的 80/60）。
-const KANSHOU_LOVER_BOND_ = KANSHOU_REL_TIER_[0].min;   // 80＝戀人
 const KANSHOU_CLOSE_BOND_ = KANSHOU_REL_TIER_[1].min;   // 60＝親近的人
-const KANSHOU_CONFESS_BOND_ = KANSHOU_CLOSE_BOND_;      // 開得了口的最低好感(＝親近的人)；未達不給按鈕、後端也直接擋
 
 
 
@@ -309,13 +298,14 @@ const KANSHOU_CONFESS_BOND_ = KANSHOU_CLOSE_BOND_;      // 開得了口的最低
 var KANSHOU_MET_COUNT_TAG_ = makeIntTag_('相處', 0);
 const KANSHOU_FAMILIAR_TIERS_ = [{ min: 150, key: '老交情' }, { min: 30, key: '混熟' }, { min: 0, key: '初識' }];
 // 好感四段（跟 KANSHOU_REL_TIER_ 的五階分開：那個是「稱謂」，這個是「該用什麼調子演」）。
-const KANSHOU_RAPPORT_BOND_TIERS_ = [{ min: 80, key: '很喜歡' }, { min: 50, key: '在意' }, { min: 20, key: '朋友' }, { min: 0, key: '陌生' }];
+// ⚠ 最高那一段直接讀 KANSHOU_REL_TIER_[0].min（80＝戀人）：同一個數只存一處，階級表改了這裡自動跟。
+const KANSHOU_RAPPORT_BOND_TIERS_ = [{ min: KANSHOU_REL_TIER_[0].min, key: '交往中' }, { min: 50, key: '在意' }, { min: 20, key: '朋友' }, { min: 0, key: '陌生' }];
 // 🎭 2D 基調表：[好感段][熟悉段] → **一句既定事實**，短到不能再短。
 const KANSHOU_RAPPORT_TONE_ = {
   '陌生': {
     '初識': '事實：你對這個人而言是陌生人，對方不談自己、不接受身體接觸。',
     '混熟': '事實：對方認得你，僅止於認得——家人／過去／感情這些不對你講。',
-    '老交情': '事實：很熟，但對你【沒有戀愛的意思】：曖昧、牽手、告白一律被擋回來，對方也不覺得可惜。'
+    '老交情': '事實：很熟，但對你【沒有戀愛的意思】：曖昧與示好一律被擋回來，對方也不覺得可惜。'
   },
   '朋友': {
     '老交情': '事實：老朋友，沒有心動的成分——曖昧的話會被當成玩笑接下去。'
@@ -324,20 +314,15 @@ const KANSHOU_RAPPORT_TONE_ = {
     '初識': '事實：對方喜歡你，但你們認識還太短，不會承認。',
     '老交情': '事實：對方喜歡你，卻說不出口——你若直接問，會被否認。'
   },
-  '很喜歡': {
-    '初識': '事實：喜歡跑在相處前面，連本人都還沒跟上。',
-    '老交情': '事實：不藏了，明著在等你先開口——最後那一句要你來說。'
-  },
   '交往中': {
-    '初識': '事實：已經在交往，但認識還沒多久。',
-    '混熟': '事實：交往中——親暱是日常。',
-    '老交情': '事實：交往很久了，親暱自然而然。'
+    '初識': '事實：喜歡跑在相處前面，連本人都還沒跟上。',
+    '混熟': '事實：在一起了——親暱是日常。',
+    '老交情': '事實：在一起很久了，親暱自然而然。'
   }
 };
 // 依好感＋相處次數查表，回傳那一格的基調句（查無＝留白，不輸出這個欄位）。
-function kanshouRapportTone_(bond, metCount, isLover) {
-  var b = isLover ? '交往中'
-    : (KANSHOU_RAPPORT_BOND_TIERS_.find(function (t) { return (parseInt(bond) || 0) >= t.min; }) || {}).key;
+function kanshouRapportTone_(bond, metCount) {
+  var b = (KANSHOU_RAPPORT_BOND_TIERS_.find(function (t) { return (parseInt(bond) || 0) >= t.min; }) || {}).key;
   var f = (KANSHOU_FAMILIAR_TIERS_.find(function (t) { return (parseInt(metCount) || 0) >= t.min; }) || {}).key;
   return (KANSHOU_RAPPORT_TONE_[b] || {})[f] || "";
 }
@@ -967,7 +952,7 @@ function buildDefaultSystemPrompt(includeOptions, styles) {
         "physical_state": _physicalStateRef,
         "appearance_extras": _appearanceExtrasRef,
         "mutual_nicknames": "本回合真的叫出口的暱稱·否則「無」",
-        "memory": "里程碑(告白/難忘約會/重要約定)才寫≤30字·同 narration 用第二人稱「你」稱玩家·其餘填「無」·同一事只記一次",
+        "memory": "里程碑(難忘約會/重要約定)才寫≤30字·同 narration 用第二人稱「你」稱玩家·其餘填「無」·同一事只記一次",
         "noticed": "≤14字·只記【會改變之後怎麼對玩家】的發現·多數回合填「無」"
       }]
     },
@@ -1454,11 +1439,6 @@ function kanshouPromisePin_(row, absDay, curHour) {
 }
 // 🌙 醒著陪同標記(存該同伴列MEMORY·地點值)：剛同意同去而醒著陪同的同伴，只要人還在同一個地點沒變動就持續視為醒著——否則離開再進來的下一回合，她會被誤判成剛好躺在自己家裡熟睡，儘管全程明明醒著陪在玩家身邊互動(玩家實測「離開又進去，敘事明明醒著卻還跳賴床泡泡」)。
 var KANSHOU_AWAKE_HERE_TAG_ = makeTextTag_('醒著陪同');
-var KANSHOU_LOVER_TAG_ = makeIntTag_('戀人', 0);
-// 💗 她是不是你的戀人(告白成立)。單一判準，前後端與提示詞全部走這支。
-function kanshouIsLover_(row) {
-  return !!KANSHOU_LOVER_TAG_.get(row[COL.PC.MEMORY]);
-}
 // 🔒 登門拜訪私人住處(region:'visit')的好感門檻＝熟識的朋友(見 KANSHOU_REL_TIER_ 的40切點)。
 const KANSHOU_VISIT_BOND_ = 40;
 // 日常落點保底池排除的分區（單一真實來源）：玩家的住處只有受邀者進得來。
@@ -1620,7 +1600,7 @@ function kanshouStyleClean_(text) {
 
 // 🎨 ⚙ 說書人設定面板的後端：get 回整張表（只給提示與玩家自己的字，不給預設本體）、set 改一格／還原一格／全部還原。
 // 💞 直接把某人的好感／羈絆調成指定值（玩家自己拉的，不是劇情給的）。
-//    兩軌共用一支：鑑賞走 kanshouSyncRelTier_ 那個漏斗（告白牆與棘輪是全鑑賞在吃的不變式，繞過去會壞）；
+//    兩軌共用一支：鑑賞走 kanshouSyncRelTier_ 那個漏斗（棘輪是全鑑賞在吃的不變式，繞過去會壞）；
 //    solo 沒有那兩條，直接夾 0~100 寫回。回傳【實際落定的值】——被漏斗夾住時玩家要看得到。
 function actionSetBond(userData, pcId, sheets) {
   const want = Math.max(0, Math.min(100, parseInt(userData.bond) || 0));
@@ -1647,8 +1627,7 @@ function actionSetBond(userData, pcId, sheets) {
   data[idx][COL.PC.BOND] = want;
   if (isK) {
     // 棘輪在這裡【只往下調】：不然「調低」會被地板靜靜吃掉（零錯誤訊息的那種壞法）。
-    // ⚠ 往上一律交給 kanshouSyncRelTier_ 自己算——直接把地板寫到戀人門檻以上，
-    //    會觸發它那條「地板 ≥ 戀人門檻 ⇒ 蓋【戀人】」，等於從後門繞過告白牆（實測會把 100 原樣寫進去）。
+    // ⚠ 往上一律交給 kanshouSyncRelTier_ 自己算。
     const _oldFloor = KANSHOU_BOND_FLOOR_TAG_.get(data[idx][COL.PC.MEMORY]);
     const _newFloor = kanshouBondFloorOf_(want);
     if (_newFloor < _oldFloor) data[idx][COL.PC.MEMORY] = KANSHOU_BOND_FLOOR_TAG_.set(data[idx][COL.PC.MEMORY], _newFloor);
@@ -2038,7 +2017,6 @@ function kanshouNameCandidates_(fullName) {
 const KANSHOU_MISS_COPY_ = {
   promise: { title: '相約撲空', body: (n) => `你想找『${n}』相約見面，但對方此刻並不在這裡——演出這份撲空的悵然即可，約定沒有成立。` },
   move: { title: '提議撲空', body: (n) => `你想邀人一起去「${n}」，但此刻身邊沒有同伴——演出這份獨自的悵然即可(玩家可自己用地圖移動)。` },
-  confess: { title: '告白撲空', body: (n) => `你鼓起勇氣要向『${n}』告白，才發現對方此刻並不在這裡——演出這份話沒說出口的悵然即可。` },
   invite: { title: '結識未成', body: (n) => `你想跟『${n}』深交下去，但這段緣分此刻不成立(對方已離開、或早已相識)——演出這份悵然即可。` }
 };
 function kanshouMissStr_(type, name) {
@@ -2261,43 +2239,6 @@ function actionPlay_(userData, pcId, sheets) {
     }
   }
 
-  // 💗 告白(關係中樞「向她告白」鈕→confess=name)：「當場裁定、當場落地」的管線——成敗由 kanshouConfessAccepts_ 依 好感×相處次數 擲定，AI 只演反應、不得改寫結果。
-  let kanshouConfessStr = "";
-  if (userData.confess) {
-    const _cfName = String(userData.confess).trim();
-    const _cfId = String(userData.confessId || "").trim();
-    const _cfIdx = _cfName ? findPcRowIdx_(pcData, _myGid_, { id: _cfId, name: _cfName, faction: "從者", loc: curL, excludeIdx: pcIndex, nameCandidates: kanshouNameCandidates_ }) : -1;
-    if (_cfIdx === -1) {
-      kanshouConfessStr = kanshouMissStr_('confess', _cfName);
-      finalUserMsg = `【玩家意圖】：想向『${_cfName}』告白，卻發現對方不在身邊。`;
-      kanshouProposalResult_ = { ok: false, miss: true, type: 'confess', name: _cfName, where: _whereIsHer(_cfName) };
-    } else {
-      const _cfHer = String(pcData[_cfIdx][COL.PC.NAME]);
-      const _cfBond = parseInt(pcData[_cfIdx][COL.PC.BOND]) || 0;
-      const _cfMet = KANSHOU_MET_COUNT_TAG_.get(pcData[_cfIdx][COL.PC.MEMORY]);
-      if (kanshouIsLover_(pcData[_cfIdx])) {
-        kanshouConfessStr = `\n★【已經在一起了】：你又向『${_cfHer}』說了一次喜歡——你們早就是戀人，這不是告白而是情話。演出對方依個性收下這句話的反應(嫌你肉麻／耳根紅／回敬一句皆可)。`;
-        finalUserMsg = `【玩家意圖】：又對『${_cfHer}』說了一次喜歡。`;
-        _settledVerdict = `『${_cfHer}』收下了這句情話，你們早就是戀人`;
-            } else if (_cfBond < KANSHOU_CONFESS_BOND_) {
-        kanshouConfessStr = `\n★【告白·被拒】：你向『${_cfHer}』告白了，但你們之間還遠不到那個程度——演出對方依個性拒絕的反應(錯愕／認真說我們還不夠了解彼此／笑著當成玩笑帶過皆可)，這次不成立。`;
-        finalUserMsg = `【玩家意圖】：鼓起勇氣向『${_cfHer}』告白。`;
-        _settledVerdict = `『${_cfHer}』沒有答應`;
-        kanshouProposalResult_ = { ok: false, type: 'confess', name: _cfHer };
-      } else {
-        // 💗 成立：先蓋【戀人】(告白牆的鑰匙)，再把好感推過門檻，最後照既有漏斗同步標籤/棘輪。
-        pcData[_cfIdx][COL.PC.MEMORY] = KANSHOU_LOVER_TAG_.set(pcData[_cfIdx][COL.PC.MEMORY], 1);
-        pcData[_cfIdx][COL.PC.BOND] = Math.max(_cfBond, KANSHOU_REL_TIER_[0].min);
-        kanshouSyncRelTier_(pcData, _cfIdx);
-        dirtyPcRows.add(_cfIdx);
-        kanshouProposalResult_ = { ok: true, type: 'confess', name: _cfHer };
-        kanshouConfessStr = `\n★【告白·成立】：『${_cfHer}』答應了——從這一刻起你們是戀人。演出對方點頭那一瞬間依個性的反應(眼眶紅／彆扭地別開臉／故作鎮定卻聲音在抖皆可)，並讓這一回合停在剛在一起的餘韻裡。★這是關係的質變，不是又一次閒聊。`;
-        finalUserMsg = `【玩家意圖】：鼓起勇氣向『${_cfHer}』告白。`;
-        _settledVerdict = `『${_cfHer}』答應了，你們成為戀人`;
-      }
-    }
-  }
-
   const kanshouArrivingNames_ = !moveTarget ? []
     : userData.moveWithCompanion
       ? pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()).map(r => String(r[COL.PC.NAME]))
@@ -2331,7 +2272,7 @@ function actionPlay_(userData, pcId, sheets) {
     if (!_ivMatch || _ivAlready || _ivMaleMale) {
       kanshouInviteStr = kanshouMissStr_('invite', _ivName);
       finalUserMsg = `【玩家意圖】：想跟『${_ivName}』深交，卻發現緣分沒有接上。`;
-      // 🐛→✅ 2026-09 稽核：結識是【唯一】沒有回饋條的動作——相約/同行/告白三種
+      // 🐛→✅ 2026-09 稽核：結識是【唯一】沒有回饋條的動作——相約/同行兩種
       //    成敗都會下傳 kanshouProposalResult_，只有這裡沒有，玩家得從敘述裡自己猜。
       //    前端的 icon 對照表早就備好 '🤝' 這一格在等它了。
       kanshouProposalResult_ = { ok: false, type: 'invite', name: _ivName,
@@ -2397,7 +2338,7 @@ function actionPlay_(userData, pcId, sheets) {
     pcData[pcIndex][COL.PC.DAY] = curDay;
     pcData[pcIndex][COL.PC.HOUR] = curHour;
     const allEstablished = pcData.filter((r, idx) => idx !== pcIndex && kanshouIsAlly_(r, myGameId));
-    intimateNightNames = allEstablished.filter(r => (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_LOVER_BOND_ && String(r[COL.PC.LOC] || "").trim() === curL).map(r => r[COL.PC.NAME]);
+    intimateNightNames = allEstablished.filter(r => (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_REL_TIER_[0].min && String(r[COL.PC.LOC] || "").trim() === curL).map(r => r[COL.PC.NAME]);
     if (intimateNightNames.length) {
       pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], intimateNightNames.join('、'));
       // 💞 第一次同床：記在她那一列。
@@ -2789,8 +2730,7 @@ function actionPlay_(userData, pcId, sheets) {
         : "";
       // 🤝 相處基調（2026-07 取代舊的 pTierToneStr）：舊版只看關係階、只在最低兩階出現，是這件事的退化 1D 版；現在改查 好感×相處次數 的 2D 表（見 KANSHOU_RAPPORT_TONE_）。
       const pMetCount = KANSHOU_MET_COUNT_TAG_.get(r[COL.PC.MEMORY]);
-      //   isLover：告白成立者直接走【交往中】那一排，不再看好感段（見 KANSHOU_LOVER_TAG_）。
-      const _rapport = kanshouRapportTone_(pBond, pMetCount, kanshouIsLover_(r));
+      const _rapport = kanshouRapportTone_(pBond, pMetCount);
       const pTierToneStr = _rapport ? `，${_rapport}` : "";
       // 地點的「當下在做什麼」輕量引子(見上方KANSHOU_LOCATION_ACTIVITY_)，沒對照到的地點不加這句，AI自然發揮即可。
       // 🗑️ 2026-09「她在這個地點正在做什麼」的寫死變體池(KANSHOU_LOCATION_ACTIVITY_)已移除——
@@ -2921,7 +2861,7 @@ function actionPlay_(userData, pcId, sheets) {
     { min: -100, range: '300~400', big: '450~580' }
   ];
   // 「大事」不靠猜——這些區塊本回合有沒有組出字串，GAS 自己最清楚。加新橋段就往這串加一個旗標。
-  const _kanshouBigBeat_ = !!(kanshouConfessStr || kanshouTierCrossStr
+  const _kanshouBigBeat_ = !!(kanshouTierCrossStr
     || kanshouNightSceneStr
     || kanshouPromiseMetStr || driveOn);
   const _kanshouWordRow_ = KANSHOU_WORDS_.find(t => _kanshouMaxBond_ >= t.min) || KANSHOU_WORDS_[KANSHOU_WORDS_.length - 1];
@@ -2981,7 +2921,7 @@ ${PROMPT_PARTY_SYSTEM}
 ${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性；玩家只是日常時不憑空推進情慾${_intimacyLines_.indexOf('\n') >= 0 ? '（多人各依各自好感，不共用同階）' : ''}：\n${_intimacyLines_}\n` : ''}
 ${_sty_('length')}
 ★★【地點釘死】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
-${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouNightSceneStr}
+${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouInviteStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouNightSceneStr}
 ★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依此刻的時段寫；本回合只寫這十分鐘內的片段，時間推進由系統宣告。${kanshouTierCrossStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·只活在你的回想裡。` : ""}
 
 ${npcDialoguePrompt}${_earlierDigest_ ? `\n★【稍早做過的事】：${_earlierDigest_}——都已發生過，需要時自然呼應，別重演。` : ""}

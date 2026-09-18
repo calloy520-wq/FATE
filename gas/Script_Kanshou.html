@@ -47,11 +47,10 @@
       jumpBand = opts.jumpBand || null,
       loaderCaptions = opts.loaderCaptions || null, moveWithCompanion = !!opts.moveWithCompanion,
       promiseMeet = opts.promiseMeet || null,
-      inviteResident = opts.inviteResident || null, proposeMove = opts.proposeMove || null, 
+      inviteResident = opts.inviteResident || null, proposeMove = opts.proposeMove || null;
       
       // 🐛→✅ 稽核抓到：呼叫端一直有把 npcId 塞進 opts，但 send() 這裡沒解構、gasRun payload 也沒轉發
       //   ——id 從未離開過瀏覽器，「2026-07 id 優先」那次重構在這條路徑上等於沒生效。
-      confess = opts.confess || null, confessId = opts.confessId || null;
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     // 🔥 主動掌握開關：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
@@ -90,7 +89,7 @@
 
     try {
       const encounterOn = (typeof kanshouEncounterOn !== 'undefined') ? kanshouEncounterOn : true;
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined || undefined, confess: confess || undefined, confessId: confessId || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, encounter: encounterOn, lookAround: lookAround || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, promiseMeet: promiseMeet || undefined, inviteResident: inviteResident || undefined, proposeMove: proposeMove || undefined || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -224,7 +223,7 @@ let plainTextContext = cleanText;
       // 📅 相約/同去成不成立的明確回饋(後端 proposalResult)——插一條系統通知條，玩家不必再從敘述猜。
       if (data.proposalResult) {
         const _pr = data.proposalResult, _nm = escapeHtml(String(_pr.name || '她'));
-        const _prIco = _pr.type === 'promise' ? '📅' : _pr.type === 'move' ? '🚶' : _pr.type === 'confess' ? '💗' : '🤝';
+        const _prIco = _pr.type === 'promise' ? '📅' : _pr.type === 'move' ? '🚶' : '🤝';
         let _msg;
         if (_pr.miss) {
           // 撲空(她不在場)：附上她此刻在哪，玩家不必回地圖亂找(走查抓到的軟死路)。
@@ -234,11 +233,6 @@ let plainTextContext = cleanText;
         else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 牽起來了。「' + _nm + '」會跟著你走。';
         else if (_pr.ok && _pr.type === 'move') _msg = '🚶 「' + _nm + '」說好，一起去「' + escapeHtml(String(_pr.loc || '')) + '」。點下面的「一起走」就出發。';
         else if (_pr.type === 'move') _msg = '🚶 她沒跟。';
-        // 💗 告白：成立＝關係階質變(戀人這一階唯一的入口)。2026-09 起【說出口就成立】，
-        //   後端只剩兩種結果——成立、或好感還沒到 KC_CONFESS_BOND_(60) 開不了口；
-        //   不再有擲骰、冷卻、被拒扣好感，所以那兩條分支連同措辭一起拿掉。
-        else if (_pr.ok && _pr.type === 'confess') _msg = '💗 她答應了。你和「' + _nm + '」在一起了。';
-        else if (_pr.type === 'confess') _msg = '💔 話到嘴邊說不出口，你們還沒那麼熟。';
         // 🤝 結識：2026-09 補上——它本來是唯一沒有回饋條的動作(icon 那一格的 '🤝' 早就在等它)。
         else if (_pr.ok && _pr.type === 'invite') _msg = '🤝 跟「' + _nm + '」交換了聯絡方式。';
         else if (_pr.type === 'invite') _msg = '🤝 ' + (_pr.already ? '你們早就認識了。' : '「' + _nm + '」已經走了。');
@@ -1400,12 +1394,6 @@ let plainTextContext = cleanText;
     showGamePane('chat');
     await send('（鼓起勇氣，向「' + name + '」提出想繼續深交、交換聯絡方式。）', false, { inviteResident: name });
   }
-  // 💗 告白：好感夠(KC_CONFESS_BOND_)就【必定成立】——2026-09 玩家「79 改成告白必定成功就好」，前端不預測、只送出意圖。
-  async function kanshouConfess(name, npcId) {
-    if (!await customConfirm_('跟「' + name + '」告白？')) return;
-    showGamePane('chat');
-    await send('（鼓起勇氣，向「' + name + '」告白。）', false, { confess: name, confessId: npcId || "" });
-  }
   // 🏷️ 關係稱呼面板(2026-07「那個關係也不要用彈窗吧...做一個專門的來處理??」，取代原本的prompt())：
   //   跟 KANSHOU_REL_TIER_(Gallery.gs) 鏡像的5階預設稱呼＋自訂輸入框。選預設會讓這格文字重新
   //   匹配某個梯度標籤，之後kanshouSyncRelTier_又會自動跟著好感升降；打自訂稱呼則固定下來、
@@ -1421,16 +1409,13 @@ let plainTextContext = cleanText;
   //   稱呼／專屬稱呼的文字會被字面塞進AI提示詞當既定事實，低好感就打露骨自訂內容會讓AI無視好感
   //   天花板照樣演到底，門檻切在跟親密尺度五階「80+無上限」同一個點，一解鎖尺度本就已經全開。
   var KC_CUSTOM_TAG_BOND_ = 80;
-  // 💗 告白門檻，鏡像 Gallery.gs 的 KANSHOU_CONFESS_BOND_(60=親近的人)。告白是【戀人】這一階唯一
-  //   的入口——好感被後端夾在 79，80 以上的東西(戀人標籤/自訂稱呼)全部關在告白之後。
-  var KC_CONFESS_BOND_ = 60;
   var _krBusy = false;
   // 💞 關係中樞(2026-07 玩家「同伴卡片欄位太多，關係/回憶可以整合在一起？這是最少按到的」)：
   //   同伴卡從 8 顆按鈕收斂成 6 顆(2-2-2)，把三個低頻入口收進這一顆。刻意做成「有摘要的分派面板」
   //   而非把三個面板硬合成一頁——三者的互動型態差很多(選標籤/管清單/送邀請)，硬合只會變成更長的
   //   捲動頁；分派面板既省卡片空間，又能在同一眼看到三者【目前的狀態】。
   //   ⚠ 既有面板(kanshouOpenRelTag/kanshouOpenMemoir)完全不動、原樣複用。
-  function kanshouOpenBondHub(name, curTag, bond, curNickname, npcId, lover) {
+  function kanshouOpenBondHub(name, curTag, bond, curNickname, npcId) {
     var ov = ensureOverlay_('kbh-overlay', { zIndex: 10001, onBgClick: function (ov) { ov.style.display = 'none'; } });
     var safeN = String(name).replace(/'/g, "\\'");
     var safeId = String(npcId || '').replace(/'/g, "\\'");
@@ -1454,13 +1439,6 @@ let plainTextContext = cleanText;
       // 🎚️ 好感直接拉：玩家自己調，不是劇情給的。告白牆與棘輪仍由後端那個漏斗把關，夾住了會回報實際值。
       + row("kanshouSetBond('" + safeN + "','" + safeId + "'," + b + ")", '🎚️', '調整好感',
         '現在 ' + b + '　自己拉一個數字', '150,140,200')
-      // 💗 告白：戀人這一階唯一的入口(好感被後端夾在 79)。三種狀態各自明講，不留「按了沒反應」的洞。
-      + (lover
-        ? '<div style="padding:8px 12px;margin-bottom:7px;color:#f0c0d8;font-size:12px;border:1px dashed rgba(240,140,180,.5);border-radius:8px;">💗 <b>交往中</b>　你們已經是戀人了</div>'
-        : (b < KC_CONFESS_BOND_
-          ? '<div style="padding:8px 12px;margin-bottom:7px;color:#7a7086;font-size:11.5px;border:1px dashed rgba(140,120,160,.35);border-radius:8px;">🔒 告白　好感到 ' + KC_CONFESS_BOND_ + ' 才說得出口（現在 ' + b + '）</div>'
-          : row("kanshouConfess('" + safeN + "','" + safeId + "')", '💗', '向她告白',
-            '說出口就成立，你們從此是戀人（她本人要在場）', '230,120,160')))
       + '</div>';
     ov.style.display = 'flex';
   }
