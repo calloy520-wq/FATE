@@ -1327,7 +1327,7 @@ var KANSHOU_STYLE_MODULES_ = [
   { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。', slot: 'sys', def: '情慾場面放到最色、寫滿寫透：器官用本名，體液、聲音、氣味、溫度全部照實寫，身體的反應寫具體。' },
   { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代冬木市，大家都是住在這裡的普通市民。' },
   { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依關係深淺與這回合有沒有大事自己調。', slot: 'none', kind: 'pick', def: 'auto' },
-  { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】narration 寫 {篇幅} 字，下限是硬底線。' },
+  { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】這一段寫 {篇幅} 字。' },
   { key: 'ending',     fixed: true, slot: 'user', def: '🚨【收尾】最後一句留給被搭話的人，停在等玩家回應的那一刻。' }
 ];
 var KANSHOU_STYLE_TEXT_MAX_ = 300;
@@ -1836,15 +1836,19 @@ function actionPlay_(userData, pcId, sheets) {
 
   // 喜好與厭惡是常態情報，全面開放給 AI 參考🎯 送出時砍格(2026-07 玩家「性格四格／特徵四格分這麼細，AI 也沒辦法演出來」)：儲存仍是 4 格(逆天改命 UI／工房／solo 共用同一個 schema，動它是全面重構)，只精簡【送給 AI 的呈現】。
   const _qv = (v) => { const t = String(v || "").trim(); return QUAD_EMPTY_.indexOf(t) < 0 ? t : ""; };
+  // 🗣️ 2026-09 玩家「有需要這麼生硬嗎？」：[表象]/[內裡]/[外貌氣質] 那幾個方括號是【我們自己的分欄符號】，
+  //    不是資料。模型讀「表面…骨子裡…」一樣懂，而卡片是它用來【變成那個人】的依據——
+  //    遞一張資料庫欄位過去，回來的就是資料庫腔調。字數幾乎沒變，只換講法。
   const formatPref = (str) => {
     const a = String(str || "").split('、');
-    return [_qv(a[0]) && `[表象]${_qv(a[0])}`, _qv(a[1]) && `[內裡]${_qv(a[1])}`].filter(Boolean).join(' ');
+    const _o = _qv(a[0]), _i = _qv(a[1]);
+    if (_o && _i) return `表面${_o}，骨子裡${_i}`;
+    return _o || _i || "";
   };
 
   const formatTrait = (str) => {
     const a = traitParts_(str);
-    const _look = [_qv(a[0]), _qv(a[1])].filter(Boolean).join('・');
-    return _look ? `[外貌氣質]${_look}` : "";
+    return [_qv(a[0]), _qv(a[1])].filter(Boolean).join('，');
   };
   // 🎯 2026-07 玩家「『私下對可愛小物多看兩眼還故作矜持』這個就是萌點就好，不一定要反差」：第4格[私下一面]與[萌點]本來就是同一種功能(她那份惹人喜歡的隱藏面)，種子資料裡的萌點還早就寫成反差句(「食量驚人卻吃相優雅」)——等於同一件事包了兩層、各寫一遍。
 
@@ -2131,14 +2135,14 @@ function actionPlay_(userData, pcId, sheets) {
       const pBackStr = (() => {
         const _b = String(r[COL.PC.BACK] || "").trim();
         if (!_b || _b === `${String(r[COL.PC.RANK] || "")}・${pName}` || /職階英靈$/.test(_b) || QUAD_EMPTY_.indexOf(_b) !== -1) return "";
-        return ` | 經歷:${_b}`;
+        return `${_b}。`;
       })();
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
       // ★是玩家釘選標記(面板用)，餵AI時去掉、不外洩機制符號。
       // 📝 你在對方眼中是什麼樣子：熟悉段(GAS 依相處次數算)＋對方這一路親自記下的幾條。
       const _pKnown = kanshouKnownOfYou_(r[COL.PC.MEMORY]);
-      const pKnownStr = ` | 你在${pron_(r[COL.PC.SEX])}眼中:${_pKnown.tier}${_pKnown.noted.length ? `·${_pKnown.noted.join('、')}` : ''}`;
-      const pMemoirStr = pMemoirRaw ? ` | 你們的共同回憶(你倆一路走來的點滴，敘事可自然承接呼應、但別生硬複述):${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}` : "";
+      const pKnownStr = `在${pron_(r[COL.PC.SEX])}眼中你還是${_pKnown.tier}${_pKnown.noted.length ? `，${_pKnown.noted.join('、')}` : ''}。`;
+      const pMemoirStr = pMemoirRaw ? `你們一起走過：${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}。` : "";
       // 📅 待赴約定(玩家追問「AI每次都看得到約定吧?」查出的缺口)：約成立到赴約之間的等待回合，AI 原本完全不知道有這個約——聊「期待明天嗎」她會一臉茫然、甚至另約衝突計畫。
       // 明講方向的「她/他是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍對方。
       // 🫂 在場者都是同行者，走到哪跟到哪——在場來由只剩「這一幕是怎麼開場的」。
@@ -2150,17 +2154,17 @@ function actionPlay_(userData, pcId, sheets) {
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
       // 🔦 背景輕描：這一步沒被點名的人只送「此刻的情境」那幾欄，性格/特徵/經歷/共同回憶下回合被點名時再給。
       const _lit = !_spotlight_.length || _spotlight_.indexOf(pName) >= 0;
-      partyDetailsArr.push(`【在場人物】名字:${pName}【性別:${String(r[COL.PC.SEX] || "").trim() || "異"}】｜__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? ` | 裝扮:${pOutfit}` : ""}${_lit ? (() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? ` | 性格:${_p}` : ""; })() : ""}${_lit ? (() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })() : ""}${pSpeech ? ` | 口吻:${pSpeech}` : ""}${_lit && pTic ? ` | 招牌小動作:${pTic}` : ""}${_lit ? pBackStr : ""}${_lit ? pMemoirStr : ""}${pKnownStr}${pRelTagStr ? ` | 關係:${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}` : ""}${pMemStr}`);
+      partyDetailsArr.push(`【在場人物】${pName}，${String(r[COL.PC.SEX] || "").trim() || "異"}。__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${_lit ? (() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? `${_p}。` : ""; })() : ""}${_lit ? (() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })() : ""}${pSpeech ? `說話${pSpeech}。` : ""}${_lit && pTic ? `${pTic}。` : ""}${_lit ? pBackStr : ""}${_lit ? pMemoirStr : ""}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}。` : ""}${pMemStr}`);
     }
   });
   // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。
   const _presenceKeys_ = Object.keys(_presenceSeen_);
   const _presenceShared_ = (_presenceKeys_.length === 1 && partyDetailsArr.length > 1) ? _presenceKeys_[0] : "";
   const _partyCards_ = partyDetailsArr.map(t => _presenceShared_
-    ? t.replace(/｜__PRESENCE__[\s\S]*?__\/PRESENCE__/, "")
-    : t.replace(/｜__PRESENCE__([\s\S]*?)__\/PRESENCE__/, " | 在場來由:$1"));
+    ? t.replace(/__PRESENCE__[\s\S]*?__\/PRESENCE__/, "")
+    : t.replace(/__PRESENCE__([\s\S]*?)__\/PRESENCE__/, "$1"));
   const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0
-    ? `【角色背景資料】(裝扮＝此刻穿的衣服，五官/髮色/體態不隨之改變)：${_presenceShared_ ? `\n★在場來由(以下每一位都一樣)：${_presenceShared_}` : ""}\n${_partyCards_.join("\n")}`
+    ? `【在你身邊的人】(穿著是此刻的衣服，長相體態不隨之改變)：${_presenceShared_ ? `\n${_presenceShared_}` : ""}\n${_partyCards_.join("\n")}`
     : "目前這個地點沒有其他人，玩家是獨自行動的。";
 
   // 路人與缺席者是同一件事的兩面（誰只是背景／誰不在場），合成一條；能開口的名單在結尾講。
@@ -2252,7 +2256,7 @@ ${PROMPT_REL}
 ★【誰在場】：【在場人物】的卡＝此刻在你身邊的人，每一位都要有反應；有【專屬稱呼】就叫暱稱。【已經確立的事】名單上的人可出現可開口，其餘路人不具名。
 ★【world_note】：這一步新出現的地方/人/規矩寫進去才會留下，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆；只長在某地的東西（田、雞、招牌、常客）的 at 填那個地名。
 
-【玩家資料·旁白用】(只給旁白寫「你」的內心用·在場的人沒讀過這張卡)：名字:${pcName} 【性別:${pc[COL.PC.SEX]}】${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? ` 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${_meFlavorStr_}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}
+【你自己】(只給旁白寫「你」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${_meFlavorStr_}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
 ${PROMPT_PARTY_SYSTEM}
 ${_sty_('length')}
 ★【地點】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，這一幕就在這裡演完；換地方由系統宣告。${moveTarget ? '你們剛到，從抵達後的當下寫起。' : ''}
