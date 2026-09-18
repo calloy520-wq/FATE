@@ -908,12 +908,13 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 // 🔴【鑑賞 AI 核心】buildDefaultSystemPrompt／actionPlaysolo 是按鍵+AI說故事，鑑賞是依角色資料自然演出(只有🔥點不點火這一個變因)——兩者共用callGeminiAPI(留在 Engine_Combat.gs)這個基礎設施，但系統提示詞組裝／敘事引擎各自獨立，跟本檔其餘鑑賞 action(召喚/進場/AI深化)集中一處，好查找。
 // ==========================================
 
-// 🔠 對話與敘事格式·全遊戲【單一真實來源】：solo 的 miniSystem(Router_Narrative.gs) 與鑑賞的nsfwBaseVars(本檔 nsfwBaseRules 第3條) 都呼叫這一支，杜絕兩處各改一半又不一致(工程準則·單一真實來源)。
+// 🔠 對話格式·鑑賞【單一真實來源】：2026-09 起只剩鑑賞在用(solo 走 miniSystem 的短版)。這裡【只講格式】，不講該寫什麼。
 function dialogueFormatRule_() {
-  return `對話格式(輕小說筆觸)：
-①口/喉聲音(話語+喘息/輕吟/悶哼/笑聲/吸吮/舔啜/咀嚼/吞嚥)都寫進單層「」。
-②每句台詞前冠說話者名，跨回合不認錯人，喘息混台詞算同一人名下。★玩家台詞免冠名、直接「……」，且照原句一字不動地寫進去。
-③肢體動作與非口部聲響(啪啪/環境音)一律走敘事；引號只用單層「」；背景描述精簡，篇幅留給互動。`;
+  return `對話格式：
+①單層「」裡【只放嘴巴發得出的聲音】：話語、喘息、輕吟、悶哼、笑聲、吸吮、舔啜、咀嚼、吞嚥。
+②每句台詞前冠說話者名，跨回合認同一個人，喘息混台詞算同一人名下。★玩家台詞免冠名、直接「……」，且照原句一字不動地寫進去。
+③肢體動作與非口部聲響(啪啪/環境音/衣物摩擦)走敘事，留在引號外。
+④★台詞與人物互動【佔整段 narration 七成以上】，其餘三成才是敘事。`;
 }
 
 // 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。
@@ -978,10 +979,9 @@ function buildDefaultSystemPrompt(includeOptions, styles) {
     _st('continuity'),
     '肢體互動依雙方【性別】欄自然呈現。',
     _st('lewd'),
-    _st('moe'),
     '卡片上的裝扮＝既定事實，照著寫，直到劇情真讓那個人換裝為止。',
     _st('immersion'),
-    '聚焦當下近身互動·只輸出合法JSON(各欄怎麼填見下方輸出範本)。'
+    '只輸出合法 JSON(各欄的格式見下方輸出範本)。'
   ].filter(Boolean);
   const nsfwBaseRules = _st('voice') + '鐵律：\n' + rules.map((r, i) => (i + 1) + '. ' + r).join('\n');
 
@@ -1413,21 +1413,19 @@ function kanshouLenTier_(key) {
 
 var KANSHOU_STYLE_MODULES_ = [
   { key: 'voice',      fixed: true, slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家·禁上帝視角。' },
-  { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家的動作與台詞【只有玩家能決定】，語氣照原樣接下去(感受不在此限)·被搭話的人本回合必給完整真實反應·優先接反轉/否定/突發情緒。' },
-  { key: 'enact',      fixed: true, slot: 'sys', def: 'narration【從玩家這一步演起】：把那一步撐成完整的一拍，再往下接對方的反應；擴寫的範圍就是玩家真的寫的那一步。' },
+  { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家的動作與台詞【只有玩家能決定】，語氣照原樣接下去(感受不在此限)·被搭話的人本回合都給出反應。' },
+  { key: 'enact',      fixed: true, slot: 'sys', def: 'narration【從玩家這一步演起】，再往下接對方的反應；範圍就是玩家真的寫的那一步。' },
   { key: 'dialogue',   fixed: true, slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
-  { key: 'drive',      fixed: true, slot: 'sys',  def: '依玩家輸入【確實推演往下走·不停滯敷衍】——系統沒有判定的那些小要求，由對方的[個性]×[好感]決定。' },
+  { key: 'drive',      fixed: true, slot: 'sys',  def: '系統沒有判定的那些小要求，答不答應由對方的[個性]×[好感]決定。' },
   { key: 'continuity', fixed: true, slot: 'sys',  def: '繼承歷史情緒與親密階；降溫只發生在被打斷/翻臉這類明確事件之後。' },
-  // ⚠ key 仍叫 'moe'：萌點 2026-09 退休後這段只管語癖/稱呼，但 key 是玩家設定在試算表上的對位欄，改了＝玩家改過的那格對不回來。
-  { key: 'moe',        fixed: true, slot: 'sys',  def: '語癖/專屬稱呼自然滲入、偶爾點到即可·同一個不重複用。' },
-  { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。', slot: 'sys', def: '情慾場面放到最色，寫滿寫透：器官用本名，體液、聲音、氣味、溫度全部照實寫；衣服怎麼被解開、手先碰到哪裡、姿勢怎麼換、進出的節奏怎麼變，一個環節都攤開來寫；身體的反應寫具體——發抖、收緊、痙攣、失神，越到後面越失控。鏡頭貼著身體走，慢慢寫。' },
-  { key: 'immersion',  fixed: true, slot: 'sys',  def: 'narration 只寫這個世界裡看得到聽得到的；好感、關係階級與任何系統變化，都用神情、語氣與彼此的距離去表現。' },
+  { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。', slot: 'sys', def: '情慾場面放到最色、寫滿寫透：器官用本名，體液、聲音、氣味、溫度全部照實寫，身體的反應寫具體。' },
+  { key: 'immersion',  fixed: true, slot: 'sys',  def: 'narration 只寫這個世界裡看得到聽得到的；好感、關係階級與任何系統數值留在系統裡。' },
   { key: 'world',      fixed: true, slot: 'user', def: '★世界觀＝和平的現代冬木市，大家都是住在這裡的普通市民，沒有魔術與從者。' },
   { key: 'pov',        fixed: true, slot: 'user', def: '★【視角鎖定】：「你」＝玩家『{玩家}』本人·旁白一律用「你」稱呼玩家，「我」留給角色引號內的台詞。同伴外貌只取材各人自己那份資料。' },
-  { key: 'feel',       fixed: true, slot: 'user', def: '★【你也是這座城裡的一個人】：旁白從『{玩家}』的感官與【真正】的情緒寫起，性格帶來的反應底色見【玩家資料·旁白用】，沉默也要有理由。{代名詞}感覺得到自己的體溫與心跳，看不見自己的臉。' },
+  { key: 'feel',       fixed: true, slot: 'user', def: '★【你也是這座城裡的一個人】：旁白從『{玩家}』的感官與情緒寫起，性格底色見【玩家資料·旁白用】。{代名詞}感覺得到自己的體溫與心跳，看得到自己的手，看不到自己的臉。' },
   { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依關係深淺與這回合有沒有大事自己調。', slot: 'none', kind: 'pick', def: 'auto' },
-  { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】：narration 寫 {篇幅} 字，下限是硬底線——字數靠互動與真實反應撐起來。' },
-  { key: 'ending',     fixed: true, slot: 'user', def: '🚨【收尾{主動掌握}】：{推進}最後一句留給被搭話的人——用其答話或神情收尾，並拋出一個玩家接得住的話題(問句/邀約/此刻在意的事)，停在等玩家回應的那一刻。沒有別人在場才收在「你」身上。' }
+  { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】：narration 寫 {篇幅} 字，下限是硬底線。' },
+  { key: 'ending',     fixed: true, slot: 'user', def: '🚨【收尾】：最後一句留給被搭話的人，停在等玩家回應的那一刻。沒有別人在場才收在「你」身上。' }
 ];
 var KANSHOU_STYLE_TEXT_MAX_ = 300;
 var KS_ = { GID: 0, KEY: 1, TEXT: 2, ON: 3 };
@@ -2557,11 +2555,11 @@ function actionPlay_(userData, pcId, sheets) {
     : "";
 
   const driveStr = driveOn ? `
-🔥【主動掌握】：尺度一律以【親密尺度五階】為準，這一段只講【怎麼寫】：①對方依自己的個性主動出擊，色度可以走在玩家前面——Dirty Talk、直白不迴避，允許範圍內盡量細膩露骨；②情慾場：大量生理特寫(絞緊/吸吮/痙攣/蜜液/水聲/啪啪)+斷續喘息破碎台詞。` : '';
+🔥【主動掌握】：尺度一律以【親密尺度五階】為準。在那個範圍內，對方依自己的個性【主動出擊】，色度可以走在玩家前面。` : '';
 
   const PROMPT_REL = `${backgroundCrowdStr}
 ${nsfwMemories}${genderHintStr}${driveStr}
-🛑【角色一致性】：情慾裡生理反應可以有，但說話做事仍照各自的個性，劇情推進不軟化誰。
+🛑【角色一致性】：情慾裡生理反應可以有，說話做事仍照各自的個性。
 🛑【誰說了算】：標「事實：」與標【成立】【被拒】【婉拒】【開始】的，都是系統已經判好的結果，照著演；怎麼表現才依那個人的個性。`;
 
   // 有【專屬稱呼】就用暱稱取代真名；JSON 姓名欄不受影響、仍填真名。
@@ -2581,12 +2579,11 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   //    一個會變的東西插在中間，它後面全部作廢。天氣/時間原本卡在第 5 行，把整份 user prompt
   //    的可快取前綴砍到只剩 48%。唯二的例外是 🚨【收尾】與★【在場名單】：它們雖然穩定，但
   //    recency 對它們特別重要（實測過「事實寫在 20 行以前就會被 AI 當成沒發生」），故仍壓在最後。
-  const _styleVars_ = { '玩家': pcName, '代名詞': _mePron_, '篇幅': _kanshouTargetWords_,
-    '主動掌握': driveOn ? '·主動掌握' : '', '推進': driveOn ? '大幅推進到位，該發生就發生，別在曖昧邊緣空轉。但仍' : '' };
+  const _styleVars_ = { '玩家': pcName, '代名詞': _mePron_, '篇幅': _kanshouTargetWords_ };
   const _sty_ = k => kanshouStyle_(_styles_, k, _styleVars_);
   const prompt = `${_sty_('world')}
 ${PROMPT_REL}
-★【這個世界有誰】：①【正式同伴】＝下方【在場人物】的卡，只有他們算好感，每人這回合都要真實存在(沒被搭話的給個動作即可)，沒列卡的同伴不准出現或開口，有【專屬稱呼】就叫暱稱。②【常民】＝【這個世界已經確立的事】名單上的人，可出現可開口、不算好感。③【路人】不具名，隨手寫。玩家專一對著一個人時其他人背景輕描；不在場的人一句話交代去向。
+★【這個世界有誰】：①【正式同伴】＝下方【在場人物】的卡，只有他們算好感，每人這回合都要真實存在(沒被搭話的給個動作即可)，沒列卡的同伴不准出現或開口，有【專屬稱呼】就叫暱稱。②【常民】＝【這個世界已經確立的事】名單上的人，可出現可開口、不算好感。③【路人】不具名，隨手寫。不在場的人一句話交代去向。
 ★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，寫進去的下回合才存在。一回合最多 2 筆，只記【這座城有什麼】——地點＝多一個去得了的地方｜人物＝這個人還會再出現｜設定＝這座城的規矩或風景；你們之間發生的事記進那個人的 memory。
 ${_sty_('pov')}
 ${_sty_('feel')}
@@ -2597,7 +2594,7 @@ ${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感
 ${_sty_('length')}
 ★★【地點釘死】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
 ${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouProposeStr}${kanshouNightSceneStr}
-★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依此刻的時段寫；本回合只寫這十分鐘內的片段，時間推進由系統宣告。${kanshouTierCrossStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·只活在你的回想裡。` : ""}
+★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★本回合只寫這十分鐘內的片段，時間推進由系統宣告。${kanshouTierCrossStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·只活在你的回想裡。` : ""}
 
 ${npcDialoguePrompt}${_earlierDigest_ ? `\n★【稍早做過的事】：${_earlierDigest_}——都已發生過，需要時自然呼應，別重演。` : ""}
 ${_sty_('ending')}

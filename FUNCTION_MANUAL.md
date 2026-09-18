@@ -659,7 +659,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
 
-- `dialogueFormatRule_()` — 鑑賞軌的對話與敘事格式規則（口/喉發聲進「」台詞、每句台詞冠說話者名、看得見動作走敘事、只用單層「」）。**唯一呼叫點＝ `nsfwBaseRules` 第3條**。⚠ **2026-09 更正：solo 的 `miniSystem` 並【不】呼叫這支**（全樹只有 `nsfwBaseRules` 第3條一個呼叫點），文件長期寫成「兩軌共用」是錯的。而且**不該改成共用**——這支的具體例子是 NSFW 的（喘息／吸吮／舔啜／啪啪／交合處水聲），灌進鎖 SFW 的 solo 軌是污染。solo 自己那條是刻意的精簡版（冠名＋單層「」＋動作走敘事），少掉的「玩家台詞照原句寫、禁轉述」在 solo 也用不到——solo 是純按鍵、玩家根本不打字。
+- `dialogueFormatRule_()` — 鑑賞軌的對話格式規則（單層「」只收嘴巴發得出的聲音、每句台詞冠說話者名、動作與非口部聲響走敘事、**台詞與人物互動佔整段 narration 七成以上**）。**2026-09 玩家定案：這裡只講格式，不講該寫什麼。****唯一呼叫點＝ `nsfwBaseRules` 第3條**。⚠ **2026-09 更正：solo 的 `miniSystem` 並【不】呼叫這支**（全樹只有 `nsfwBaseRules` 第3條一個呼叫點），文件長期寫成「兩軌共用」是錯的。而且**不該改成共用**——這支的具體例子是 NSFW 的（喘息／吸吮／舔啜／啪啪／交合處水聲），灌進鎖 SFW 的 solo 軌是污染。solo 自己那條是刻意的精簡版（冠名＋單層「」＋動作走敘事），少掉的「玩家台詞照原句寫、禁轉述」在 solo 也用不到——solo 是純按鍵、玩家根本不打字。
 - `buildDefaultSystemPrompt(includeOptions, styles)` — 鑑賞系統提示詞（`nsfwBaseRules` ＋ 輸出範本）。2026-09 `nsfwBaseRules` 改陣列組裝＋動態編號，風格段走 `kanshouStyle_(styles, key)`；`styles` 缺省＝全部預設＝與舊字串逐字相同。⚠ 2026-09 拿掉了第一個參數 `includeMasterNote`：`master_note`（經歷滾動側寫）整組移除，經歷改回固定事實（見 `KANSHOU_REFERENCE.md` §「經歷改回固定」）。`Engine_Combat.gs` 的無參數 fallback 呼叫不受影響。
   - 🔴 內含 `nsfwBaseRules`（函式內 const，非獨立函式）— 慾海演化核心紅線常數，後日談敘事鐵律 6 條；連同 `specificRules`(【慾海律令】現 7 條，**2026-07 新增第6條「options 只能建議在場人物/當下場景真能做到的動作」**修「AI選項建議移動/呼喚不在場者、玩家點了做不到」的bug；**五度改版再新增第7條「appearance_extras只在劇情真有穿脫/更衣動作才填新值、不准自行合理化改寫」**，修「玩家用👕換裝手動設定裝扮，下一回合被AI默默改回別的」——schema _note的「沒變化留空」對這個模型是弱信號，明文規則才夠強；**同批再補「appearance_extras只能寫衣物本身，禁止寫成所在環境/姿勢」**，修「泡溫泉→移動到商店街，裝扮卻卡在『在水下』」的變種bug)＋範本 JSON 一起回傳。**紅線①：一律不可改（specificRules 可改，非紅線本體）。**
 - `getKanshouPeopleList_(pcId, curL, allPcData)` — 鑑賞自算精簡「同地人物」清單（只 id/name/isExact），不借 solo 的 getLocalPeopleList（那多算 12 欄）。
