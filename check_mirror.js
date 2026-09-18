@@ -47,7 +47,6 @@ const FRONTEND_ONLY = {
 //   沒登記的差異一律當成走鐘擋下來。
 const TWEAK = {
   'KC_TIME_BANDS_': { skip: ['label'], why: '前端 label 前面掛 emoji，純顯示；key/startHour 才是判準' },
-  'KC_APPT_BANDS_': { skip: ['label'], why: '同上，前端 label 掛 emoji；band/hour 才是判準' },
   'KC_LOCATIONS_': {
     why: '① 前端把 room 併進 home 分頁顯示，真正的判準是 isRoom ② 後端在檔案載入時才把泛用住處池 push 進 '
       + 'KANSHOU_LOCATIONS_（單一真實來源），靜態讀字面量看不到那 8 間，這裡照同樣規則補上',

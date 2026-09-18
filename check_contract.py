@@ -53,7 +53,6 @@ ALLOW_RETURN = {
   'kanshou_set_nickname': {'newNickname'},
   'kanshou_summon_hero': {'added'},
   'update_rel_tag': {'newTag'},
-  'play': {'kanshouPromiseSettle_'},   # 解析雜訊，非真欄位
 }
 
 def body(fn):

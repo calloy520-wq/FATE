@@ -1161,10 +1161,6 @@ target 只能填真名(schema級約束，比事後再說一次更有效)。tag �
 
 🔒 拜訪私人住處門檻：跟屋主(KANSHOU_HERO_HOME_反查)在本局已入駐、且好感≥KANSHOU_VISIT_BOND_(熟識40)才解鎖登門——沒熟到一定程度不好貿然闖進人家家裡。單一真實來源，前端(buildTagsPayload_ unlockedResidences)跟後端移動攔截(actionPlay)共用這個判定。可跨聊天上限：靠赴約(kanshouPromiseMetStr +5·不吃chat ceiling)推過40。
 
-### `kanshouLocHasPendingPromise_`　<sub>Gallery.gs</sub>
-
-🐛→✅ 2026-07 稽核抓到的「必爽約陷阱」：約定成立當下有檢查地點解鎖(見actionPlay的_pmLocOk)，但約定成立後、赴約前若好感因其他事件跌破熟識(40)，屋主的私宅會重新上鎖——玩家想赴約走過去卻被kanshouVisitBlockedStr攔在門外，隔天還被系統判「爽約」倒扣好感，兩個機制都各自正確卻互相矛盾。已成立的約定若目的地正是這裡、且還沒過期(day>=curDay)，移動時豁免解鎖檢查——赴約優先於門檻。
-
 ### `kanshouRollDailyLocation_`　<sub>Gallery.gs</sub>
 
 同住人深夜/清晨睡不著出門走走的機率，獨立於一般英靈的homeBias，資料只存一處。
@@ -1291,21 +1287,9 @@ herIdx：牽手 tag 寫在玩家列(idx)，但「第一次牽手」這筆帳要�
 
 🐛→✅ 八度改版稽核抓到：夜襲/賴床叫醒新觸發點「玩家自己房間」＋pSleepStr的睡眠提示，都只看LOC×時刻，沒排除「她是這回合跟玩家一起走進來的(牽手/同意同去)」——牽著手走進房間的人明顯還醒著、正跟玩家互動，不該被判定成已經熟睡。跟kanshouPreMoveCompanions_同一套「帶人三態」判準(那個變數宣告在後面、此刻用不到)，這裡先算一次同名邏輯的姓名集合供本節共用。
 
-### `KANSHOU_APPT_BANDS_`　<sub>Gallery.gs</sub>
-
-📅 約定 2.0(存該同伴列MEMORY)：【約定】absDay:時段:地點＝「那天午後在X見」。同時只存一筆(新約蓋舊約)。band 為 KANSHOU_APPT_BANDS_ 之一(午後/黃昏/夜)；舊格式【約定】day:loc(無時段)向後相容＝整天有效。
-
-約定時刻表：她提前10分到場、準時窗=[時刻-10分, 時刻+30分]、之後~2h算遲到、整天沒去=爽約。排除清晨/深夜(約會不約6點或半夜)。UI 用 band key、顯示名見 label。
-
 ### `KANSHOU_SIDEWRITE_EVERY_`　<sub>Gallery.gs</sub>
 
 🌀 側寫節流：master_note(經歷)每回合都問會分散 AI 對敘事的注意力。改成每 N 回合才把master_note 放進 schema，其餘回合 AI 完全不知道有這回事、專心寫敘事。計數存玩家列 MEMORY——該列每回合本就必寫回(pcIndex 恆在 dirtyPcRows)，故零額外 round-trip。N=3 剛好貼齊 6筆/3輪 的歷史窗。
-
-### `KANSHOU_APPT_LEAVE_EARLY_`　<sub>Gallery.gs</sub>
-
-有時段的約定：她約定時刻前10分到場、待到時刻+2h(碰面窗過了自然離開，不整天空等)；無時段(舊)=整天釘。curHour 供時段判定；沒傳(舊呼叫)則退回整天釘、不破壞既有行為。
-
-⏰ 約定「該動身了」的提前量(小時)：到點前這麼久她就會自己前往約定地點。0.5＝提前30分，一個動作 10 分鐘，玩家還有約三步可以跟上。pin 窗口與「先走一步」共用這個數字。
 
 ### `KANSHOU_AWAKE_HERE_TAG_`　<sub>Gallery.gs</sub>
 
@@ -3169,10 +3153,6 @@ mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未
 
 階數(由低到高·kanshouRelRank_ 的回傳值)→ 該階名稱。KANSHOU_REL_TIER_ 是唯一真實來源， 這裡只做索引反轉，不另存一份文字。
 
-### `kanshouGetPromise_`　<sub>Gallery.gs</sub>
-
-🙋 byHer＝這個約是【她自己開口說的】、玩家從沒答應過。差別只有一個：沒赴約【不算爽約】(見 _standUp)。其餘時間×地點的結算完全共用，不另開路徑。
-
 ### `mid`　<sub>Gallery.gs</sub>
 
 有時段才寫 band:，無則沿用舊格式。★byHer 旗標只在有 band 時才附加——沒有 band 的舊格式是單段 loc，硬加會被解析成 band='loc'、loc='1'，整筆約定壞掉。
@@ -3247,10 +3227,6 @@ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查�
 
 📣 成立/婉拒/撲空的明確回饋(相約/牽手/同居/她主動邀約 共用)——pre-AI 撲空婉拒與 post-AI 判定都可能寫它，一回合只走一條路。宣告須在相約區塊「之前」，撲空案例才寫得進去。
 
-### `_pmId`　<sub>Gallery.gs</sub>
-
-🆔 2026-07「整體重構·id優先」：前端已補id(見actionKanshouCompanions/servants.push)，id對得上優先鎖定，找不到才退回kanshouNameCandidates_別名比對——同名/前綴混淆不再有機可乘。
-
 ### `_reHourAfter`　<sub>Gallery.gs</sub>
 
 ⏱️ 用「本回合結束時」的時刻算時段——氛圍句是給讀到這次回應的玩家看的，用回合開始的舊時刻會慢半拍(玩家實測：10:5x走進客廳沒跳、原地再點(已11:2x午後)才跳)。
@@ -3310,10 +3286,6 @@ AI 對關係標籤沒有任何寫入權（attitude 欄位已於 2026-07 整組�
 只記里程碑、日常填「無」不動；她在場時會被讀回在場卡(見 partyDetailsArr)餵給 AI 承接。
 
 含慾海角色前綴 KPC_(御主 avatar)／KSV_(封存邀請同伴)／KHV_(直接召喚同伴)，否則後日談的好感/肉體/衣服/親密狀態寫不回去。
-
-### `kanshouApptTodoStr`　<sub>Gallery.gs</sub>
-
-📌 今日待辦·約定(組在節慶之後、共用同一種「GAS 看得到的客觀事實」語氣)：只給時間地點對象， 要不要提、由誰提、怎麼提全交 AI。她在場時她自己提得起來；不在場就是玩家自己心裡記著這件事。
 
 ### `_tierBond`　<sub>Gallery.gs</sub>
 
