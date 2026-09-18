@@ -2450,13 +2450,19 @@ solo 的戰鬥與日結算，`Account.gs` 的殘列清理只讀「眾生」。�
 補上 `kind: 'pick'` 的專屬分支：只收 `KANSHOU_LEN_TIERS_` 有的 key，選回 `auto` 就刪列不留殘料，
 `on` 固定 true（檔位沒有「關閉」這個狀態）。探針 `style.js` 補兩條釘住。
 
-## 🎚️ 好感可以自己拉（2026-09）
+## 🎚️ ~~好感可以自己拉~~（2026-09 建，同年 9 月整組砍除）
+
+> **已移除**（玩家「Solo 不可以拉好感吧！」→「砍後上線」）：鑑賞的好感先砍，`set_bond` 只剩 solo；
+> 而 solo 是有輸贏的那一軌，羈絆卡著補魔解鎖／令咒強制／寶具選項，有一顆鈕能直接填 100，那條線就不用走了。
+> `actionSetBond` ＋ 路由 ＋ 從者卡的「🎚️ 調整羈絆」鈕（`soloSetBond`）整組拿掉。
+> 羈絆只剩正門：`actionBond`（💕 相伴，每遊戲日一次）。以下是它存在過的那段歷史。
+
 
 玩家「想要可以自由調整遊戲中角色的好感度」。一支 `set_bond` 服務兩軌（`pcId` 前綴分流，不開兩套）：
 鑑賞入口在同伴的「💞 關係」面板、solo 在從者卡的「💕 羈絆」選單。
 
 **鑑賞一定要走 `kanshouSyncRelTier_` 那個漏斗**——告白牆（沒告白的人夾在戀人門檻−1）與棘輪（高水位不回頭）
-2026-09 好感整組砍除後 `set_bond` **只服務 solo**，鑑賞那條路直接回「後日談沒有好感這個數字」。
+2026-09 好感整組砍除後 `set_bond` 一度**只服務 solo**，鑑賞那條路回「後日談沒有好感這個數字」；同年稍後 solo 那半也砍了，整支不再存在。
 
 ⚠ 當初踩到的坑仍然值得記：**光靠名字找不到人**。`npcName` 進 dispatcher 就被 `cleanChineseName` 洗過
 （`Router_Action` 的 `CHINESE_NAME_FIELDS`），「阿爾托莉雅·潘德拉貢」的「·」會不見、
@@ -2629,7 +2635,7 @@ solo 的戰鬥與日結算，`Account.gs` 的殘列清理只讀「眾生」。�
 - **關係稱呼**：只剩玩家自己打的字，沒有預設五階、沒有門檻。
   （同一輪稍後改成交給 AI 維護，見下一節——`kanshouFreshRelTag_` 這個過渡用的過濾器因此退場。）
 
-**solo 完全沒動**：`Router_Bond.gs` 的羈絆、`BOND_MILESTONES_`、`set_bond` 的 solo 路徑照舊。
+**solo 完全沒動**：`Router_Bond.gs` 的羈絆、`BOND_MILESTONES_` 照舊。
 自訂稱呼的 80 門檻在 solo 仍然成立（那段文字會被字面塞進提示詞），常數改名 `CUSTOM_TAG_BOND_`
 搬進 `Router_Bond.gs`——名字裡不該再有 `KANSHOU_`。
 

@@ -25,7 +25,6 @@ const ActionRouter = {
   "kanshou_set_sex": actionKanshouSetSex,
   "kanshou_get_style": actionKanshouGetStyle, // 🎨 說書人設定面板：讀整張風格表(預設＋玩家版)
   "kanshou_set_style": actionKanshouSetStyle, // 🎨 改一格／還原一格／全部還原
-  "set_bond": actionSetBond,                  // 💞 直接把某人的羈絆調成指定值（solo 限定；鑑賞已無好感）
   "kanshou_set_name": actionKanshouSetName,
   "kanshou_set_home_name": actionKanshouSetHomeName,
   "prep_meal": actionPrepMeal,

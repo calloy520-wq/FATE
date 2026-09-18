@@ -652,7 +652,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - ~~`actionKanshouSetPace`~~／~~`kanshouPaceOf_`~~／~~`KANSHOU_PACE_*`~~／~~`kanshouHoursUntilDateTime_`~~（2026-09 已砍）— 曾是時間流速旋鈕（每回合 0/10/20/30 分）與「直接指定日期與時刻」。推時間本來有五個入口，收成兩個（下一階段／結束一天）。每回合固定推進 `KANSHOU_MIN_PER_TURN_`(10) 分鐘，`kanshouHourPerAction_()` 不再吃參數。
 - `KANSHOU_LEN_TIERS_`（常數·2026-09）— 📏 篇幅檔位（自動/300/500/700/900），字數區間與 `max_tokens` 綁同一列。
-- `actionSetBond(userData, pcId, sheets)` — 🎚️ 把某人的好感/羈絆調成指定值（`set_bond`，兩軌共用·pcId 前綴分流）；鑑賞走 `kanshouSyncRelTier_` 漏斗，回傳實際落定值與 `capped`。
+- ~~`actionSetBond`~~（action `set_bond`）— 2026-09 已移除：「自己拉一個數字」那條捷徑跟 solo「羈絆一路經營出來」的骨架打架，鑑賞那邊本來就沒有好感。羈絆只剩正門 `actionBond`（相伴）。
 - `KANSHOU_STYLE_MODULES_`（常數·2026-09）— 🎨 說書人提示詞 15 段模組表 `{key,slot,def}`（sys 8 段進 nsfwBaseRules、user 5 段進 USER prompt）；`def` 就是原本寫死的那句。其中 13 段標 `fixed: true`＝不開放玩家調（面板看不到、`kanshouStyleWrite_`／`actionKanshouSetStyle` 拒收、`kanshouStyleRead_` 連表上的舊列都忽略），玩家真正能動的只有 `lewd`（尺度）與 `lenTier`（篇幅檔位）。`KANSHOU_STYLE_TEXT_MAX_`(300)／`KS_`（分頁欄位 GID/KEY/TEXT/ON）。
 - `kanshouStyleModule_(key)` / `kanshouStyleDefault_(key)` — 查模組／取預設（`dialogue` 的預設是 `dialogueFormatRule_()`，所以預設要從這支拿、不能直接讀 `def`）。
 - `kanshouStyleSheet_()` — 取/建「鑑賞風格」分頁。

@@ -1446,36 +1446,6 @@ function kanshouStyleClean_(text) {
 // 🎨 ⚙ 說書人設定面板的後端：get 回整張表（只給提示與玩家自己的字，不給預設本體）、set 改一格／還原一格／全部還原。
 // 💞 直接把某人的羈絆調成指定值（玩家自己拉的，不是劇情給的）。
 //    2026-09 起【只服務 solo】——鑑賞的好感整組砍除，那一軌沒有這個數字了。
-function actionSetBond(userData, pcId, sheets) {
-  const want = Math.max(0, Math.min(100, parseInt(userData.bond) || 0));
-  const name = String(userData.npcName || userData.target || "").trim();
-  const npcId = String(userData.npcId || "").trim();
-  const isK = String(pcId || "").indexOf("KPC_") === 0;
-  if (isK) return JSON.stringify({ success: false, message: "後日談沒有好感這個數字。" });
-  const sh = sheets.pc;
-  const data = sh.getDataRange().getValues();
-  const meIdx = data.findIndex(r => String(r[COL.PC.ID]) === String(pcId));
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "找不到你的角色" });
-  const gid = String(data[meIdx][COL.PC.GAME_ID] || "");
-  // 🪪 id 優先、名字只當備援——而且備援要比【洗過的】名字：sanitizeUserData_ 會把姓名欄的「·」剝掉，
-  //    直接比字面的話「阿爾托莉雅·潘德拉貢」永遠對不上（同款坑見 CODE_NOTES 的長名同伴那條）。
-  const _clean = v => (typeof cleanChineseName === 'function' ? cleanChineseName(String(v || "")) : String(v || ""));
-  const wantName = _clean(name);
-  // ⚠ npcName 進 dispatcher 時已被 cleanChineseName 洗過（Router_Action 的 CHINESE_NAME_FIELDS），
-  //    純拉丁真名（SABER／EMIYA…）會被洗成空字串——這時只有 npcId 認得出人，講明比靜靜找不到好。
-  if (!npcId && !wantName && !name) return JSON.stringify({ success: false, message: "少了指名的對象。" });
-  const idx = data.findIndex((r, i) => i > 0 && i !== meIdx && String(r[COL.PC.GAME_ID] || "") === gid
-    && !String(r[COL.PC.ID]).startsWith("DEAD_")
-    && (npcId ? String(r[COL.PC.ID]) === npcId
-              : (String(r[COL.PC.NAME]) === name || (!!wantName && _clean(r[COL.PC.NAME]) === wantName))));
-  if (idx < 0) return JSON.stringify({ success: false, message: "找不到這個人。" });
-  data[idx][COL.PC.BOND] = want;
-  const got = parseInt(data[idx][COL.PC.BOND]) || 0;
-  sh.getRange(idx + 1, 1, 1, data[idx].length).setValues([data[idx]]);
-  return JSON.stringify({ success: true, name: String(data[idx][COL.PC.NAME]), bond: got,
-    tag: String(data[idx][COL.PC.REL_TAG] || "") });
-}
-
 function actionKanshouGetStyle(userData, pcId, sheets) {
   const kpc = sheets.pc;
   const data = kpc.getDataRange().getValues();

@@ -2811,26 +2811,7 @@
       return '<button ' + (used ? 'disabled' : '') + ' onclick="bond(\'' + o[0] + '\')" style="display:block;width:100%;text-align:left;margin-bottom:8px;padding:10px;background:rgba(224,138,170,0.12);color:#e8dcc0;border:1px solid #b06c84;border-radius:8px;cursor:pointer;' + dis + '">'
         + '<b style="color:#e8aac0;">' + o[1] + (used ? '　<small style="color:#888;">（今日已敘）</small>' : '') + '</b><br><span style="font-size:12px;color:#9a8bb0;">' + o[2] + '</span></button>';
     }).join('');
-    // 🎚️ 直接拉羈絆：玩家自己調，不吃每日一次的限制（那條管的是「相伴」這個動作，不是數字本身）
-    var _sv = activeServantObj_();
-    if (_sv) html += '<button onclick="soloSetBond()" style="display:block;width:100%;text-align:left;margin-top:12px;padding:9px;background:rgba(150,140,200,0.12);color:#e8dcc0;border:1px solid #8a7fb0;border-radius:8px;cursor:pointer;">'
-      + '<b style="color:#b0a8e0;">🎚️ 調整羈絆</b><br><span style="font-size:12px;color:#9a8bb0;">「' + escapeHtml(String(_sv.name || '')) + '」現在 ' + (parseInt(_sv.bond) || 0) + '　自己拉一個數字</span></button>';
     showHistoryOverlay(html);
-  }
-  // 🎚️ 直接把現役從者的羈絆調成指定值（走跟鑑賞同一支 set_bond）
-  async function soloSetBond() {
-    const sv = activeServantObj_(); if (!sv) { alert('你還沒有從者。'); return; }
-    const v = await customPrompt_('🎚️ 把「' + sv.name + '」的羈絆調成？（0～100）', String(parseInt(sv.bond) || 0), 3);
-    if (v === null || String(v).trim() === '') return;
-    const n = parseInt(String(v).trim(), 10);
-    if (isNaN(n) || n < 0 || n > 100) { alert('填 0 到 100 的數字。'); return; }
-    closeHistoryOverlay();
-    try {
-      const res = await withProcessing_('調整中…', () => gasRun({ action: 'set_bond', pcId: pc.id, acctName: (pc && pc.account) || currentAccount, npcName: sv.name, npcId: sv.id || '', bond: n }));
-      if (!res || !res.success) { alert((res && res.message) || '沒調成。'); return; }
-      alert('「' + sv.name + '」的羈絆是 ' + res.bond + ' 了。');
-      await syncData();
-    } catch (e) { alert('沒調成。'); }
   }
   async function bond(type) {
     const foe = localFoeServantName();
