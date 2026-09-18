@@ -1263,14 +1263,9 @@ let plainTextContext = cleanText;
           // 🔰 第一次進來(歷史是空的)才會看到：鑑賞沒有 ❓教學 入口(那顆在 top-navbar，applyModeUI 在
           //   鑑賞把整條藏了、內容也全是聖杯戰爭的事)，所以新手怎麼玩只能由這裡講。
           //   ⚠ 這裡點名的每一顆按鈕都必須真的存在——寫一顆不存在的鈕比不寫更誤導人。
-          story.innerHTML = `<div class="msg-ai"><b>【日常】</b>聖杯戰爭結束後的冬木。沒有戰鬥，也沒有輸贏，怎麼過都可以。<br><br>`
-            + `<b style="color:#e0a0bc;">✍️ 怎麼玩</b><br>在最下面的輸入框打你想做的事、想說的話，台詞會照你的原句演。沒主意就點【命運的抉擇】，或直接輸入 1～4。<br><br>`
-            + `<b style="color:#e0a0bc;">👥 邀請</b>（時鐘左邊）<br>城裡本來就住著幾個人。想見的人不在，從這裡請進來。<br><br>`
-            + `<b style="color:#e0a0bc;">🗺️ 地圖</b><br>出門走走。要在同一個地方才見得到面，撲空很正常。<br><br>`
-            + `<b style="color:#e0a0bc;">⏰ 時鐘</b>（可以點）<br>調時間走多快，或快轉到某個時段。旁邊那顆推到下一個時段，深夜按下去就睡到天亮。<br><br>`
-            + `<b style="color:#e0a0bc;">👤 標籤</b><br>同伴卡上有 📜詳細狀態｜💞關係。<br><br>`
-            + `<b style="color:#e0a0bc;">＋ 更多</b><br>🌍 這個世界、⚙ 說書人設定。<br><br>`
-            + `<b style="color:#e0a0bc;">🔥 主動掌握</b><br>熄滅時由你主導節奏；亮起來，對方會照自己的個性主動推進。</div>`;
+          // 🔰 2026-09 玩家：「新手教學也砍光，就留一個先邀請人就好」。一片空白的開局，第一件事只有一件。
+          story.innerHTML = `<div class="msg-ai"><b>【日常】</b>聖杯戰爭結束後的冬木。<br><br>`
+            + `<b style="color:#e0a0bc;">👥 先邀一個人</b>（時鐘左邊）<br>選好誰跟你走，再開口。</div>`;
         }
         story.scrollTop = story.scrollHeight;
         syncData(true);

@@ -522,7 +522,9 @@ function actionEnterKanshou(userData, pcId, sheets) {
   mRow[COL.PC.DAY] = 1;
   mRow[COL.PC.HOUR] = 6;
   // 【帳號】標記保留供人工檢視試算表時辨識(非驗證用途，真正的歸屬判斷已走帳號表 KPC 欄位)。
-  mRow[COL.PC.MEMORY] = setOutfit_("【帳號】" + acctName + "｜【鑑賞後日談】這裡是平行世界的和平日常，與英靈相伴度過尋常時光。", "日常便服");
+  // 🫂 新局的同行名單從【空的】開始：先寫一個空標記，第一回合才不會走「舊存檔遷移」那條路
+  //    把同場的起始住民自動拉進來。玩家定案「一片空白，我召喚一個角色陪我說話」——誰在場由玩家選。
+  mRow[COL.PC.MEMORY] = kanshouSetParty_(setOutfit_("【帳號】" + acctName + "｜【鑑賞後日談】這裡是平行世界的和平日常，與英靈相伴度過尋常時光。", "日常便服"), []);
   mRow[COL.PC.GAME_ID] = gameId;
   // 比照 solo 創角(actionManualNpc)：先用玩家填的種子片段(或預設)秒寫非阻塞，AI 潤色由actionBackfillKanshouAi 於進場後背景補上(見下)。
   var kAppear = String(userData.appearance || "").trim().slice(0, 60);
