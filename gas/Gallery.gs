@@ -2035,7 +2035,7 @@ function kanshouPartyCards_(ctx) {
       + (_others.length ? `這個地方此刻還有：${_others.join('、')}（本來就在這裡）。` : '');
   })();
   const PROMPT_PARTY_LIVE = liveArr.length > 0
-    ? `【他們此刻】(穿著是此刻的衣服，長相體態不隨之改變)：${_whoStr_ ? `\n${_whoStr_}` : ""}${_presenceShared_ ? `\n${_presenceShared_}` : ""}\n${_liveCards_.join("\n")}`
+    ? `【他們此刻】：${_whoStr_ ? `\n${_whoStr_}` : ""}${_presenceShared_ ? `\n${_presenceShared_}` : ""}\n${_liveCards_.join("\n")}`
     : "現在沒有人跟你同行，這個地方也沒有別人，你是一個人。";
 
   return { stable: PROMPT_PARTY_STABLE, live: PROMPT_PARTY_LIVE };
