@@ -204,15 +204,16 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28)
     : p.back ? String(p.back).slice(0, 28) : "";
   // 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回「日常便服」。
-  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】在這座城裡剛結識的緣分，才剛開始。", p.quirks || "", p.logic || ""), daily.outfit || "日常便服");
+  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("", p.quirks || "", p.logic || ""), daily.outfit || "日常便服");
   // 🪞 記住她來自哪一筆種子：顯示名可能被改成日常稱呼，撞名守門要靠這個才認得出「同一個人」。
   sRow[COL.PC.MEMORY] = KANSHOU_SRC_TAG_.set(sRow[COL.PC.MEMORY], String(heroRow[COL.HERO.ID] || ""));
   // PHYSICAL 留空，跟御主本人(actionEnterKanshou)一致，直到第一次 intimacy_feedback 才寫入；
   sRow[COL.PC.GAME_ID] = gameId;
-  // REL_TAG(關係標籤)只是這裡設的起始值，之後全程只能透過actionUpdateRelTag(玩家UI手動操作)更改——AI對這欄位完全沒有寫入權限，不會被AI敘事悄悄帶偏。
+  // 🈳 關係兩格【刻意留空】：玩家「不能固定的東西，就不要在固定的資訊裡面」「我跟她不會一直
+  //    初次見面，也不會一直點頭之交」。寫死一個起始快照＝把某一刻的狀態當成永久設定存下來。
   sRow[COL.PC.BOND] = 0;
-  sRow[COL.PC.REL_TAG] = "點頭之交";
-  sRow[COL.PC.REL_MEM] = "初次相遇，緣分才剛開始";
+  sRow[COL.PC.REL_TAG] = "";
+  sRow[COL.PC.REL_MEM] = kanshouRelMemBuild_("無", {});
   return sRow;
 }
 
@@ -235,8 +236,8 @@ var KANSHOU_MET_COUNT_TAG_ = makeIntTag_('相處', 0);
 // ⚠ say 一律寫成【描述狀態】、避開第一人稱完整句：舊版寫「我們還只是初識」，
 //    那等於直接遞一句台詞過去，模型照著唸成「我們才剛認識沒多久」。見 CODE_NOTES。
 const KANSHOU_FAMILIAR_TIERS_ = [
-  { min: 150, key: '老交情', say: '相處已久' },
-  { min: 30, key: '混熟', say: '相處漸熟' },
+  { min: 50, key: '老交情', say: '相處已久' },
+  { min: 12, key: '混熟', say: '相處漸熟' },
   { min: 0, key: '初識', say: '相處還淺' }
 ];
 // 依相處次數查熟悉段（單一真實來源＝KANSHOU_FAMILIAR_TIERS_）。
@@ -921,7 +922,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
         "physical_state": _physicalStateRef,
         "appearance_extras": _appearanceExtrasRef,
         "mutual_nicknames": "這回合真的叫出口的暱稱·否則「無」",
-        "rel_tag": "≤8字·這個人現在是玩家的什麼·同上回合就「無」",
+        "rel_tag": "≤8字·關係這一步真的往前走了才填·這個人此刻成了玩家的什麼·平常「無」",
         "memory": "里程碑才寫·≤30字·第一人稱「我」·其餘「無」",
         "noticed": "≤14字·會改變之後怎麼對玩家的發現·其餘「無」"
       }]
@@ -1958,9 +1959,10 @@ function kanshouPartyCards_(ctx) {
       // 怪癖/行為準則：召喚時已存進 MEMORY 的【小動作】【準則】標記，直接讀列。
       const pQuirks = getPersonaQuirks_(r[COL.PC.MEMORY]);
       const pLogic = getPersonaLogic_(r[COL.PC.MEMORY]);
-      // 🏷️ 關係稱呼：AI 每回合依你們的歷史自己維護（intimacy_feedback.npcs[].rel_tag），
-      //    玩家自己打過一次就鎖住歸玩家（【關係鎖】）。沒有值就整段不印。
-      const pRelTagStr = String(r[COL.PC.REL_TAG] || "").trim();
+      // 🏷️ 關係稱呼：只有【玩家自己設過】的才送給 AI（＝上了【關係鎖】那格）。
+      //    AI 自己寫的仍然存著給面板顯示，但送回去就變成它讀自己上回合寫的字、然後決定要不要改
+      //    自己寫的字——自我鎖死的形容詞標籤，2026-07 的「態度」欄就是為此砍掉的。沒有值就整段不印。
+      const pRelTagStr = kanshouRelLocked_(r[COL.PC.REL_MEM], 'tag') ? String(r[COL.PC.REL_TAG] || "").trim() : "";
       // 地點的「當下在做什麼」輕量引子(見上方KANSHOU_LOCATION_ACTIVITY_)，沒對照到的地點不加這句，AI自然發揮即可。
       // 🗑️ 2026-09「她在這個地點正在做什麼」的寫死變體池(KANSHOU_LOCATION_ACTIVITY_)已移除——
       //    那是 14 個地點各寫兩句的預寫橋段，同一個人同一地永遠那兩句。她此刻在做什麼，AI 依
@@ -2126,9 +2128,10 @@ function kanshouApplyIntimacyFeedback_(ctx) {
         // 🗑 2026-07 態度不再落地（見 relMemMemoryStr_ 的說明：它是會自我鎖死的形容詞標籤）。
         pcData[targetIdx][COL.PC.REL_MEM] = kanshouRelMemBuild_(_nickValue, _locks);
 
-        // 🏷️ 關係稱呼：2026-09 交給 AI——它讀過你們每一回合，比一個數字更知道你們現在是什麼。
-        //    ⚠ 這一格會被原樣塞進提示詞當既定事實(「她是你的○○」)，等於 AI 餵自己，所以只收
-        //    【真的有變】的回合，並走跟專屬稱呼同一個消毒口。玩家自己打過一次就鎖住，從此歸玩家。
+        // 🏷️ 關係稱呼：AI 讀過你們每一回合，比一個數字更知道你們現在是什麼，所以由它寫。
+        //    ⚠ 寫進來的值【只給面板看、不送回提示詞】(見 kanshouPartyCards_ 的 pRelTagStr)——
+        //    送回去它就變成 AI 讀自己上回合寫的字，那是自我鎖死的形狀。玩家自己打過一次就鎖住，
+        //    從此歸玩家，而玩家設的那格【會】送給 AI(玩家的意志是輸入，AI 的輸出不該變成自己的輸入)。
         if (!_locks.tag) {
           const _aiTag = sanitizeNickname_(nfb.rel_tag);
           if (_aiTag && _aiTag !== "無") pcData[targetIdx][COL.PC.REL_TAG] = _aiTag;
