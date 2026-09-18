@@ -1031,11 +1031,11 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `verifyPcOwnership_(acctName, pcId)`（2026-07 系統性漏洞修補新增）— solo(`PC_`)／鑑賞(`KPC_`)共用的 pcId 歸屬驗證：反查帳號表確認 `pcId` 是否等於該帳號的 `COL.ACC.PC`（`PC_`）或 `COL.ACC.KPC`（`KPC_`）。由 `handleGameAction` 在 dispatch 前對所有非 `OWNERSHIP_CHECK_EXEMPT_` 的 action 統一呼叫，取代原本近 20 個 handler 各自裸 `findIndex` 信任前端 pcId 的系統性漏洞。
 - `findPcRowByCharId_(pcData, charId)`（2026-07 稽核抽出）— 找 ID 或 `"DEAD_"+ID` 匹配的列索引，取代 `actionAccountLogin`/`actionAccountNewGame` 兩處完全重複的同款 lambda。
 - `findPlayerServant_(pcData, gameId)` — 找玩家某 game_id 仍存活的從者列（排除 DEAD_），回 `{idx,row}` 或 null。
-- `purgeGameData_(sheets, gameId, accountName, preData, accIdx)` — 清某 game_id 整局眾生列（關係已併入列，刪列即刪）＋清這些 pcId 的歷史暫存列＋解除帳號連結。
+- `purgeGameData_(sheets, gameId, accountName, preData, accIdx)` — 清某 game_id 整局眾生列（關係已併入列，刪列即刪）＋清這些 pcId 的歷史暫存列＋**清世界帳本裡這一局的列**（2026-09 solo 開始寫因果後補的；鑑賞歸零那邊早就有）＋解除帳號連結。
 - `actionEndRun(userData, pcId, sheets)`（2026-07再稽核補歸屬驗證：比對帳號表`COL.ACC.PC`實際連結的charId是否等於傳入pcId，不符拒絕——原本純裸find可預測pcId、任何人可猜測替別人結束並清空整局存檔）— 奪杯/結束本局：只清理不封存（重逢改走鑑賞召喚），回從者真名。
 - `actionAccountLogin(userData, pcId, sheets)` — 登入：找不到就建立空帳號；有存檔則回可繼續狀態；含敗北殘局防呆（御主 HP=0 或已召喚從者已不在世→purge 並回 ended，needsSummon 判斷尚未召喚）。
 - `actionAccountNewGame(userData, pcId, sheets)`（2026-07再稽核：gid存在時改共用`purgeGameData_`——原本自行重寫一份刪除迴圈沒同步清「歷史暫存」表，開新局是最常見棄局路徑、一直漏清會累積孤兒歷史列；gid為空的孤兒charId情況維持單獨刪列+補一次`purgeHistoryForPcIds_`）— 開新局前清舊存檔（刪 game_id 整世界＋御主本人，charId 與 DEAD_charId 都查）＋解除連結。
-- `actionPurgeOrphans(userData, pcId, sheets)` — 清殘列：清無帳號連結的 game_id 世界＋DEAD_列（保守保留 game_id 空白列）；一次性整表 rewrite＋單次 deleteRows tail；結構性防線直接指名讀「眾生」表（防 KPC_ 誤清鑑賞表）。回 removed/kept。
+- `actionPurgeOrphans(userData, pcId, sheets)` — 清殘列：清無帳號連結的 game_id 世界＋DEAD_列（保守保留 game_id 空白列）；一次性整表 rewrite＋單次 deleteRows tail；結構性防線直接指名讀「眾生」表（防 KPC_ 誤清鑑賞表）。2026-09 起連帶掃世界帳本：gid 不屬於任何活躍戰局（眾生 ∪ 鑑賞眾生）的列一起清，數字併進 message。回 removed/kept。
 - `linkAccountToPc_(accountName, pcCharId)` — 創角後把新御主 charId 連結到帳號（有列則寫、無則 appendRow）。
 
 **函式數：10**

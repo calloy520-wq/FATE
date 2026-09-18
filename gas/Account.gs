@@ -56,6 +56,9 @@ function purgeGameData_(sheets, gameId, accountName, preData, accIdx) {
       }
     }
     try { purgeHistoryForPcIds_(purgedPcIds); } catch (e) { }
+    // 📜 這一局的因果帳本也一起清：solo 從 2026-09 起會往世界帳本寫「因果」，
+    //    不清的話每開一局就多一批永遠沒人讀的孤兒列（鑑賞歸零那邊早就有這一步）。
+    try { kanshouPurgeByGame_(worldSheet_(), KW_.GID, gameId, null); worldBust_(gameId); } catch (e) { }
   }
   if (accountName) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -225,10 +228,34 @@ function actionPurgeOrphans(userData, pcId, sheets) {
     if (tail > 0) pc.deleteRows(2 + kept.length, tail);
     try { purgeHistoryForPcIds_(removedIds); } catch (e) { }
   }
+  // 📜 帳本的孤兒列：gid 已經不在任何活躍戰局裡的（兩軌都掃——鑑賞的 gid 也走同一張表）。
+  var ledgerRemoved = 0;
+  try {
+    var kpcSheet = ss.getSheetByName("鑑賞眾生");
+    if (kpcSheet) {
+      var kd = kpcSheet.getDataRange().getValues();
+      for (var k = 1; k < kd.length; k++) {
+        var kg = String(kd[k][COL.PC.GAME_ID] || "");
+        if (kg && String(kd[k][COL.PC.ID]).indexOf("DEAD_") !== 0) liveGids[kg] = true;
+      }
+    }
+    var wsh = worldSheet_();
+    var wd = wsh.getDataRange().getValues();
+    var wkept = [];
+    for (var w = 1; w < wd.length; w++) {
+      var wg = String(wd[w][KW_.GID] || "");
+      if (!wg || liveGids[wg]) wkept.push(wd[w]); else ledgerRemoved++;
+    }
+    if (ledgerRemoved > 0) {
+      if (wkept.length) wsh.getRange(2, 1, wkept.length, wd[0].length).setValues(wkept);
+      var wtail = (wd.length - 1) - wkept.length;
+      if (wtail > 0) wsh.deleteRows(2 + wkept.length, wtail);
+    }
+  } catch (e) { }
 
   return JSON.stringify({
     success: true, removed: removed, kept: kept.length,
-    message: "🧹 清好了：刪掉 " + removed + " 列，留 " + kept.length + " 列。"
+    message: "🧹 清好了：刪掉 " + removed + " 列，留 " + kept.length + " 列" + (ledgerRemoved ? "；帳本清掉 " + ledgerRemoved + " 條孤兒" : "") + "。"
   });
 }
 

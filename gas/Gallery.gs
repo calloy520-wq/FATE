@@ -786,7 +786,7 @@ function worldPayload_(gid) {
   // 釘選的排前面，其次照「最後被提到」由新到舊——跟提示詞的相關性排序不同，那是給 AI 的，這是給人看的。
   rows.sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.seen - a.seen);
   return {
-    success: true, rows: rows, caps: worldSpec_(gid).cap, textMax: worldSpec_(gid).textMax, panel: worldSpec_(gid).panel,
+    success: true, rows: rows, caps: worldSpec_(gid).cap, panel: worldSpec_(gid).panel,
     regions: kanshouRegionsFor_(gid).map(r => ({ id: r.id, name: r.name, desc: r.desc || "", mine: !!r.mine })),
     regionCap: KANSHOU_REGION_CAP_
   };
