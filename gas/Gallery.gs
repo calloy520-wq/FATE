@@ -245,15 +245,24 @@ const KANSHOU_NOTED_LEN_ = 14;
 // 🤝 相處次數（存該同伴列 MEMORY）：跟你照過幾次面。2026-09 好感整組砍除後，這是唯一還在累積的
 //    關係軸——它只回答「你們見過幾次」這個事實，不回答「她多喜歡你」（那件事交給 AI 從歷史自己判斷）。
 var KANSHOU_MET_COUNT_TAG_ = makeIntTag_('相處', 0);
-const KANSHOU_FAMILIAR_TIERS_ = [{ min: 150, key: '老交情' }, { min: 30, key: '混熟' }, { min: 0, key: '初識' }];
+// say＝真的送進提示詞的那句話。原本直接把 key 代進「在她眼中你還是${key}」——
+// 「你還是初識」不成話（初識是狀態不是身分），而每一階要接的動詞本來就不一樣，
+// 硬用同一個句型只能挑一個最不彆扭的。一階一句，往表加一列就多一階。
+const KANSHOU_FAMILIAR_TIERS_ = [
+  { min: 150, key: '老交情', say: '你們是老交情了' },
+  { min: 30, key: '混熟', say: '你們已經混熟' },
+  { min: 0, key: '初識', say: '你們還只是初識' }
+];
 // 依相處次數查熟悉段（單一真實來源＝KANSHOU_FAMILIAR_TIERS_）。
-function kanshouKnownTier_(metCount) {
-  return (KANSHOU_FAMILIAR_TIERS_.find(function (t) { return (parseInt(metCount) || 0) >= t.min; }) || {}).key || '初識';
+function kanshouKnownTier_(metCount, field) {
+  var t = KANSHOU_FAMILIAR_TIERS_.find(function (x) { return (parseInt(metCount) || 0) >= x.min; }) || {};
+  return t[field || 'key'] || (field === 'say' ? '你們還只是初識' : '初識');
 }
 // 組一句「你在對方眼中」：熟悉段 ＋ 對方真的記下的那幾條（沒有就只有熟悉段）。
 function kanshouKnownOfYou_(memory) {
   var noted = String(KANSHOU_NOTED_TAG_.get(memory) || '').split(KANSHOU_NOTED_SEP_).map(function (x) { return x.trim(); }).filter(Boolean);
-  return { tier: kanshouKnownTier_(KANSHOU_MET_COUNT_TAG_.get(memory)), noted: noted };
+  var _m = KANSHOU_MET_COUNT_TAG_.get(memory);
+  return { tier: kanshouKnownTier_(_m), say: kanshouKnownTier_(_m, 'say'), noted: noted };
 }
 
 // 🧵 append→去重→上限 的共用引擎：共同回憶(MEMOIR 欄)與「她眼中的你」(MEMORY 標記)本來就是同一件事，
@@ -874,7 +883,7 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 
 // 🔠 對話格式·鑑賞【單一真實來源】：2026-09 起只剩鑑賞在用(solo 走 miniSystem 的短版)。這裡【只講格式】，不講該寫什麼。
 function dialogueFormatRule_() {
-  return `對話格式：單層「」只收嘴巴發得出的聲音(話語/喘息/悶哼/笑聲/吸吮/吞嚥)，每句前冠說話者名、跨回合認同一個人；★玩家的台詞免冠名、照原句一字不動。肢體動作與環境聲響留在引號外。★台詞與人物互動【佔 narration 七成以上】。`;
+  return `對話格式：單層「」只收嘴巴發得出的聲音(話語/喘息/悶哼/笑聲/吸吮/吞嚥)，每句前冠說話者名，同一個人跨回合都用同一個名字；★玩家的台詞免冠名、照原句一字不動。肢體動作與環境聲響留在引號外。★台詞與人物互動【佔 narration 七成以上】。`;
 }
 
 // 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。
@@ -890,15 +899,15 @@ function buildDefaultSystemPrompt(includeOptions, styles) {
   // appearance_extras(原 outfit_change)：角色當下實際穿著與配飾，AI 依劇情如實更新，寫回持久的【換裝】記錄。2026-09 小道具機制移除後，配飾類事實回歸由這一欄承接。
   const _appearanceExtras = "穿著與配飾·第三人稱·≤20字·沒換就留空";
 
-  const _physicalStateRef = "同上";
-  const _appearanceExtrasRef = "同上";
+  const _physicalStateRef = "這個人此刻臉上的神色·≤15字·沒變就留空";
+  const _appearanceExtrasRef = "這個人的穿著與配飾·≤20字·沒換就留空";
 
   // 🗑️ 2026-09 大精簡（玩家「我只要給 AI 當下情況就好」）：範本只留【欄位長相】，說明壓成短詞組。
   //    ⚠ inner_monologue（強制思維鏈·126 字）整欄砍掉：那是叫模型先自省再下筆的教法，不是格式，
   //    而它是整份提示詞裡最長的一條。
   const finalJson = {
     "narration": "劇情·第二人稱「你」＝玩家·長度見【篇幅】",
-    "npc_exit": "本回合離場者的真名·narration 要演出離開·否則 []",
+    "npc_exit": "本回合離場者·照卡上的名字寫·narration 要演出離開·否則 []",
     "options": ["4條·各≤20字·在場者此刻做得到的動作·走向各不相同"],
     "intimacy_feedback": {
       "player": {
@@ -906,7 +915,7 @@ function buildDefaultSystemPrompt(includeOptions, styles) {
         "appearance_extras": _appearanceExtras
       },
       "npcs": [{
-        "name": "真名",
+        "name": "照卡上的名字寫",
         "physical_state": _physicalStateRef,
         "appearance_extras": _appearanceExtrasRef,
         "mutual_nicknames": "這回合真的叫出口的暱稱·否則「無」",
@@ -1042,8 +1051,8 @@ function kanshouLocContextForAI_(locName, homeName, gameId) {
   if (rgCustom) return `${rgCustom.name}${rgCustom.desc ? `（${rgCustom.desc}）` : ""}的「${loc.name}」${loc.desc ? `：${loc.desc}` : ""}`;
   if (loc.region === 'mine') return loc.desc || "這座城裡你們自己走出來的地方";
   switch (loc.region) {
-    case 'room': return `你自己的家「${homeName}」的私人房間`;
-    case 'home': return `你自己的家「${homeName}」的共用空間`;
+    case 'room': return `「${homeName}」裡你自己的房間`;
+    case 'home': return `「${homeName}」的共用空間`;
     case 'shinzan': return `深山町（溫馨的住宅生活區）`;
     case 'fuyuki': return `冬木市中心（熱鬧的商業生活區）`;
     case 'dojo': return `山林（安靜神秘的郊野區）`;
@@ -1319,7 +1328,7 @@ function kanshouLenTier_(key) {
 }
 
 var KANSHOU_STYLE_MODULES_ = [
-  { key: 'voice',      fixed: true, slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家·禁上帝視角。' },
+  { key: 'voice',      fixed: true, slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家，旁白只寫「你」看得到聽得到感覺得到的。' },
   // 🗑️ 2026-09 大精簡：enact／drive／continuity／immersion／pov／feel 六格整組砍除——那些是筆法指導，
   //    不是「當下情況」也不是格式。agency 收下 enact 的那半句（玩家這一步怎麼接），一格講完。
   { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家的動作與台詞【只有玩家能決定】，照原句接下去；narration 從玩家這一步演起，被搭話的人都給出反應。' },
@@ -1841,9 +1850,10 @@ function actionPlay_(userData, pcId, sheets) {
   //    遞一張資料庫欄位過去，回來的就是資料庫腔調。字數幾乎沒變，只換講法。
   const formatPref = (str) => {
     const a = String(str || "").split('、');
-    const _o = _qv(a[0]), _i = _qv(a[1]);
-    if (_o && _i) return `表面${_o}，骨子裡${_i}`;
-    return _o || _i || "";
+    // ⚠ 別在這裡加「表面／骨子裡」那種標籤：①「表面」語意是【裝出來的】，但 SABER 是真的一絲不苟，
+    //    那個詞會把她演成在演戲；②第二格自己就帶著轉折（其實怕寂寞／越被道謝越兇／佔有慾冒頭時轉成撒嬌），
+    //    標籤是多的；③套上去會壞掉——「個性完美的優等生」「表面大姊頭般罩著大家」都不成話。
+    return [_qv(a[0]), _qv(a[1])].filter(Boolean).join('，');
   };
 
   const formatTrait = (str) => {
@@ -2141,7 +2151,7 @@ function actionPlay_(userData, pcId, sheets) {
       // ★是玩家釘選標記(面板用)，餵AI時去掉、不外洩機制符號。
       // 📝 你在對方眼中是什麼樣子：熟悉段(GAS 依相處次數算)＋對方這一路親自記下的幾條。
       const _pKnown = kanshouKnownOfYou_(r[COL.PC.MEMORY]);
-      const pKnownStr = `在${pron_(r[COL.PC.SEX])}眼中你還是${_pKnown.tier}${_pKnown.noted.length ? `，${_pKnown.noted.join('、')}` : ''}。`;
+      const pKnownStr = `${_pKnown.say}${_pKnown.noted.length ? `，${pron_(r[COL.PC.SEX])}注意到你${_pKnown.noted.join('、')}` : ''}。`;
       const pMemoirStr = pMemoirRaw ? `你們一起走過：${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}。` : "";
       // 📅 待赴約定(玩家追問「AI每次都看得到約定吧?」查出的缺口)：約成立到赴約之間的等待回合，AI 原本完全不知道有這個約——聊「期待明天嗎」她會一臉茫然、甚至另約衝突計畫。
       // 明講方向的「她/他是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍對方。
@@ -2149,7 +2159,10 @@ function actionPlay_(userData, pcId, sheets) {
       const pPresenceStr = (() => {
         if (moveTarget) return "【與你結伴一起來到】這裡(一路同行，此刻剛踏進這個場景)";
         if (kanshouTimeJumped_) return "時間流轉之後，【依然在你身邊】(這段空白裡各自做了什麼，順著時段自然帶過)";
-        return "【你們從剛才就一直在這裡】——早已在場，接著這一刻往下寫";
+        // 🗑️ 2026-09 玩家「你們從剛才就一直在這裡<< 這不用了吧?」：一般回合不講在場來由。
+        //    上一輪的敘事就在 chatHistory 裡、人也還在卡上，那句話沒有新資訊。
+        //    剛結伴走到／時間跳過之後才有——那兩種是 AI 猜不到、猜錯會演壞的事。
+        return "";
       })();
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
       // 🔦 背景輕描：這一步沒被點名的人只送「此刻的情境」那幾欄，性格/特徵/經歷/共同回憶下回合被點名時再給。
