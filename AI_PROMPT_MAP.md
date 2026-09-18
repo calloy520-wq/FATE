@@ -67,7 +67,7 @@
 
 - **🐛→✅ 2026-07 修「AI有時候會把對面角色的『我』當成敘事視角」(鑑賞回報案)**〔⚠ 2026-09 已由「旁白改第二人稱」從根源解掉，以下註記全部拆除，保留只為記錄當年的繞法〕：`fp`(自稱)未特別設定時 fallback 就是「我」——卡片原字面單純寫「自稱「我」」，跟「敘事旁白＝玩家的『我』」是同一個字，長提示詞中段容易讓 flash-lite 小模型混淆兩者。已把標籤改成明確限定「僅此角色自己台詞內用」；`Router_Narrative.gs` 的鑑賞(`isNsfwMode`)`PROMPT_REL` 額外在人物卡片後補一句「★【視角鎖定】」重申通篇「我」只能是玩家本人。**只動 servantCard_ 與 Router_Narrative.gs，`Engine_Combat.gs` 的 nsfwBaseRules 一字未碰**(`git diff -- gas/Engine_Combat.gs` 0改動)。
 
-若偵測狂化（persona.speech/firstP 含「狂化/無法言語/僅咆哮/不語」）另加：
+若偵測狂化（`servantIsMad_(row)`＝同一列 TAGS 的技能有 `fx:'mad'`；2026-09 前是比對 `persona.speech/firstP` 字串，語癖退休後改讀技能資料，附帶效果是所有 Berserker 都命中）另加：
 > ★【狂化·絕對】此從者已狂化、喪失言語：【嚴禁】說出任何完整句子或台詞，只能以低吼、咆哮、肢體與本能反應表達。
 
 `masterCard_(row)` 組出：

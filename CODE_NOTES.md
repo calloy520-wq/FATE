@@ -2896,13 +2896,13 @@ DAILY_LOOK/DAILY_WORDS 皆在進英靈殿前就保證非空(種子手寫或工�
 
 DAILY_OUTFIT：服裝跟外貌本相分開存，戰時 persona 無對應欄可退，沒快取到值就交給heroToKanshouRow_ 自己的「日常便服」保底，這裡純讀取不瞎猜。
 
-### `dailySpeechByName_`　<sub>Gallery.gs</sub>
+### ~~`dailySpeechByName_`~~（2026-09 已移除）　<sub>Gallery.gs</sub>
 
 actionPlay 組同伴命格時，MEMORY 查無【口吻】標記會退回這裡的日常安全版，而非戰時原始codexPersona_(name).speech(如狂化英靈「僅餘低吼」)——避免任何路徑把戰時口吻餵給鑑賞AI。
-
-### `heroes`　<sub>Gallery.gs</sub>
-
-preHeroes 可選：同一輪 actionPlay 可能對2~3位同伴各呼叫一次，呼叫端可在迴圈外先抓一次共用傳入，省重複整表解析；不傳則自己抓，行為不變。
+**2026-09 玩家「自稱和語癖這可以砍了，這不該是我們要求的？我們是要設定角色、讓 AI 演活他」——
+`persona.speech`／`firstP` 整組退休，這支連同它的預抓 `_partyHeroCodex`、以及 `dailyLook` 第 3 段
+（日常口氣）一起砍掉。語癖本來就跟性格欄講同一件事（凜的口吻「毒舌卻藏著關心」＝性格②刀子嘴豆腐心），
+是同一個事實存兩處。**
 
 ### `heroToKanshouRow_`　<sub>Gallery.gs</sub>
 
@@ -3120,9 +3120,10 @@ AI 對關係標籤沒有任何寫入權（attitude 欄位已於 2026-07 整組�
 
 📅 赴約/爽約結算已上移到 partyRows 之前(見上方)——她登場(pin到curL)必須先於在場名單計算， 否則「純聊天/拍照」路徑(不重骰位置)會讓 AI 拿到沒有她的在場卡。此處不再重複。
 
-### `_partyHeroCodex`　<sub>Gallery.gs</sub>
+### ~~`_partyHeroCodex`~~（2026-09 已移除）　<sub>Gallery.gs</sub>
 
 ⚡ 提速：dailySpeechByName_ 對每位同伴呼叫都會重新解析英靈殿快取字串，這裡在迴圈外先抓一次共用傳入，省掉重複整表解析。
+**唯一的消費者 `dailySpeechByName_` 隨語癖退休一起砍掉，這個預抓就沒有人用了。**
 
 ### `r`　<sub>Gallery.gs</sub>
 

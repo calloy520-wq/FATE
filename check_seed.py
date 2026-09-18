@@ -339,6 +339,38 @@ def check_moe_retired(bad, paths):
 PREF2_COND = re.compile(r'越.{0,8}越|.{0,8}時轉成|見.{0,6}就|被.{0,6}就|一.{0,5}就|只要.{0,6}就')
 
 
+# ⑬ 行為準則(persona.logic)＝這個人【做選擇的方式】，必須是一個取捨：把兩件都想要的東西擺在一起，
+#    說出最後放掉哪一個。寫成「重視朋友」「個性溫柔」那種單向形容詞等於沒寫——AI 遇到沒寫過的
+#    情境還是只能猜，而這一欄存在的理由就是要接住那些情境。
+#    盯的是【取捨語氣詞】：卻/但/還是/最後/反而/寧可/只/先/選/讓/放/挑/比。這組詞在中文裡就是
+#    「兩邊擺一起、選了一邊」的標記，缺了它幾乎不可能寫出取捨。順便擋兩件事：
+#    怪癖(persona.quirks)必須剛好兩格（一個習慣動作＋一個應付不來的領域，一格會退化成舊的 tic），
+#    以及「在這座城裡是誰」(dailyBack)要有身分/地點/關係的實詞——全是形容詞就是把性格再抄一遍
+#    （2026-09 逐筆檢查時 22 筆裡有 9 筆是這樣，只有 8 筆在做事）。
+LOGIC_TRADEOFF = re.compile(r'[卻但只先選讓放挑比]|還是|最後|反而|寧可')
+BACK_CONCRETE = re.compile(r'家|町|校|教|經營|工房|當家|妹妹|姊|兄|弟|女兒|兒子|老師|學生|住|店|舖|鋪|'
+                           r'獨子|養女|大小姐|打工|上班|顧店|代課|警衛|苗圃|道場|神社|公司|屋|廠')
+
+
+def check_logic(bad, seed_src):
+    n_logic = n_quirk = n_back = 0
+    for m in re.finditer(r"logic:'([^']*)'", seed_src):
+        n_logic += 1
+        if not LOGIC_TRADEOFF.search(m.group(1)):
+            bad.append("行為準則沒有取捨：「%s」——這一欄要把兩件都想要的東西擺在一起、說出放掉哪一個，"
+                       "單向形容詞接不住沒寫過的情境" % m.group(1))
+    for m in re.finditer(r"quirks:'([^']*)'", seed_src):
+        n_quirk += 1
+        if len([x for x in m.group(1).split('、') if x.strip()]) != 2:
+            bad.append("怪癖不是兩格：「%s」——一個看得見的習慣動作＋一個應付不來的領域" % m.group(1))
+    for m in re.finditer(r"dailyBack:'([^']*)'", seed_src):
+        n_back += 1
+        if not BACK_CONCRETE.search(m.group(1)):
+            bad.append("「在這座城裡是誰」寫成形容詞：「%s」——這一欄要身分/在哪/跟誰有關係，"
+                       "形容詞性格欄已經講過了；它同時是世界帳本的起點" % m.group(1))
+    return n_logic, n_quirk, n_back
+
+
 def check_pref2(bad, seed_src):
     segs = 0
     for m in re.finditer(r"dailyWords:'([^']*)'", seed_src):
@@ -406,6 +438,7 @@ def main():
     n_line = check_moe_retired(bad, gas_files())
     n_aura = check_aura(bad, seed_src, gas_files())
     n_pref2 = check_pref2(bad, seed_src)
+    n_logic, n_quirk, n_back = check_logic(bad, seed_src)
 
     # 🧪 自我退化測試：注入一個不存在的 fx，這支必須叫。
     probe = []
@@ -432,6 +465,8 @@ def main():
                                  "  return seedStance;\n}")
     _aura_before = len(probe)
     check_aura(probe, "dailyLook:'金髮碧眼、背脊永遠打得筆直、簡潔認真',", [])
+    _logic_before = len(probe)
+    check_logic(probe, "logic:'重視朋友'\nquirks:'撥髮'\ndailyBack:'溫柔而沉靜'")
     _pref2_before = len(probe)
     check_pref2(probe, "dailyWords:'測試、越被誇越兇、甲、乙'")
     _moe_before = len(probe)
@@ -442,14 +477,14 @@ def main():
         check_moe_retired(probe, [_inj2])
     finally:
         os.unlink(_inj2)
-    if len(probe) < 10 or len(probe) == before or len(probe) == _seg_before \
+    if len(probe) < 13 or len(probe) == before or len(probe) == _seg_before \
             or len(probe) == _st_before or len(probe) == _moe_before or len(probe) == _aura_before \
-            or len(probe) == _pref2_before:
-        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名／取代式階段表／復活的萌點／常態舞台指示／條件觸發性格抓不到）')
+            or len(probe) == _pref2_before or len(probe) == _logic_before:
+        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名／取代式階段表／復活的萌點／常態舞台指示／條件觸發性格／沒有取捨的準則抓不到）')
         return 1
 
-    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、提示詞格數 %d 處、daily 專欄 %d 格、好感位移 %d 階、退休欄掃 %d 行、氣質格 %d 筆、性格第二格 %d 筆（含自我退化測試）'
-          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_seg, n_own, n_stance, n_line, n_aura, n_pref2))
+    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、提示詞格數 %d 處、daily 專欄 %d 格、好感位移 %d 階、退休欄掃 %d 行、氣質格 %d 筆、性格第二格 %d 筆、行為準則 %d 條（怪癖 %d 格·城裡身分 %d 條）（含自我退化測試）'
+          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_seg, n_own, n_stance, n_line, n_aura, n_pref2, n_logic, n_quirk, n_back))
     if bad:
         print('  ❌ %d 處「寫了但沒人吃」：' % len(bad))
         for b in bad:

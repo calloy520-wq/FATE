@@ -194,8 +194,8 @@ function actionGetHeroes(userData, pcId, sheets) {
         let six = {}, sk = [], tr = []; try { six = JSON.parse(r[COL.HERO.SIX] || "{}"); } catch (e) { } try { sk = JSON.parse(r[COL.HERO.SKILLS] || "[]"); } catch (e) { } try { tr = JSON.parse(r[COL.HERO.TRAITS] || "[]"); } catch (e) { }
         h.detail = { six: six, skills: sk, align: String(r[COL.HERO.ALIGN] || "中立"),
           traits: (Array.isArray(tr) ? tr : []).map(t => String((t && t.n) || t)).join("、"), // 編輯預填用：陣列→頓號字串，比照 cf-traits 輸入格式
-          look: String(pj.look || ""), pref: String(pj.words || ""), fp: String(pj.firstP || ""),
-          toMaster: String(pj.toMaster || ""), speech: String(pj.speech || ""), tic: String(pj.tic || ""), back: String(pj.back || ""), weapon: String(pj.weapon || "") };
+          look: String(pj.look || ""), pref: String(pj.words || ""),
+          toMaster: String(pj.toMaster || ""), quirks: String(pj.quirks || ""), logic: String(pj.logic || ""), back: String(pj.back || ""), weapon: String(pj.weapon || "") };
       }
       return h;
     });
@@ -326,14 +326,14 @@ function recordOriginalHero_(name, cls, sex, sixJson, classSkills, skills, trait
   var px = pExtra || {};
   var personaWordsClean = String(personaWords || "").replace(/[<>&"'`]/g, "").trim().slice(0, 200);
   var persona = JSON.stringify({
-    words: personaWordsClean, firstP: String(px.firstP || "") || "我", toMaster: String(px.toMaster || ""),
-    look: String(px.look || ""), speech: String(px.speech || ""), tic: String(px.tic || ""), back: String(px.back || ""),
+    words: personaWordsClean, toMaster: String(px.toMaster || ""),
+    look: String(px.look || ""), quirks: String(px.quirks || ""), logic: String(px.logic || ""), back: String(px.back || ""),
     // 🔑 creator＝編輯權限綁定(actionSaveHero edit 分支靠 pj.creator===acct 擋非本人)；weapon＝武裝敘述。
     weapon: String(px.weapon || ""), creator: String(px.creator || "")
   });
   // 工房角色創造當下就順手轉好日常版(DAILY_LOOK/DAILY_WORDS)寫進英靈殿，跟種子英靈不同(那 25 人的日常版是 Seed_Codex.gs persona.daily* 手寫欄位，getDailyHeroFields_ 只負責讀、沒有補算路徑)——之後第一次被召喚進鑑賞就直接有現成版本，不必等召喚當下才轉。
-  // translateLookToDaily_ 一次呼叫同時產出三段式 look(外貌本相/氣質舉止/日常口氣) 與獨立的 outfit(日常穿搭)。
-  var dailyLookRes = translateLookToDaily_(name, cls, String(px.look || ""), String(px.firstP || ""), String(px.speech || ""), sex);
+  // translateLookToDaily_ 一次呼叫同時產出兩段式 look(外貌本相/氣質) 與獨立的 outfit(日常穿搭)。
+  var dailyLookRes = translateLookToDaily_(name, cls, String(px.look || ""), sex);
   // 🚫 私密一面(原 dailyLook 第4段)已整組退休，性格生成不再需要那個去重 hint。
   var dailyWords = translatePersonalityToDaily_(name, cls, personaWordsClean);
   hs.appendRow([name + "-" + cls, cls, name, sex || "異", sixJson || "{}",
@@ -425,8 +425,8 @@ function parseForgeBuild_(build, reqCls) {
   }
   out.sex = ["男", "女", "異"].includes(String(build.sex)) ? String(build.sex) : "異";
   const _fClean = (v, n) => String(v || "").replace(/[<>&"'`｜【】\n\r\t]/g, "").trim().slice(0, n);
-  out.fp = _fClean(build.fp, 4); out.toM = _fClean(build.toMaster, 20); out.speech = _fClean(build.speech, 40);
-  out.tic = _fClean(build.tic, 30); out.back = _fClean(build.back, 28);
+  out.toM = _fClean(build.toMaster, 20); out.quirks = _fClean(build.quirks, 40);
+  out.logic = _fClean(build.logic, 40); out.back = _fClean(build.back, 28);
   out.align = ALIGNS_.includes(String(build.align)) ? String(build.align) : "中立";
   out.look = _fClean(build.look, 60); out.pref = _fClean(build.pref, 60);
   const _segs = v => v ? v.split(/[、,，]/).filter(Boolean).length : 0;
@@ -529,14 +529,13 @@ function actionSaveHero(userData, pcId, sheets) {
     data[idx][COL.HERO.NP] = np; data[idx][COL.HERO.ALIGN] = pb.align;
     data[idx][COL.HERO.TRAITS] = JSON.stringify(pb.traits);
     const newWords = keep(pb.pref, pj.words), newLook = keep(pb.look, pj.look);
-    const newFp = keep(pb.fp, pj.firstP) || "我", newSpeech = keep(pb.speech, pj.speech);
     data[idx][COL.HERO.PERSONA] = JSON.stringify({
-      words: newWords, firstP: newFp, toMaster: keep(pb.toM, pj.toMaster),
-      look: newLook, speech: newSpeech,
-      tic: keep(pb.tic, pj.tic), back: keep(pb.back, pj.back), weapon: keep(pb.weapon, pj.weapon), creator: pj.creator
+      words: newWords, toMaster: keep(pb.toM, pj.toMaster), look: newLook,
+      quirks: keep(pb.quirks, pj.quirks), logic: keep(pb.logic, pj.logic),
+      back: keep(pb.back, pj.back), weapon: keep(pb.weapon, pj.weapon), creator: pj.creator
     });
     // 外貌/性格改了，先前快取的日常版本會跟新設定對不上——重新轉一次，不留舊資料。
-    const dailyLookRes = translateLookToDaily_(build.name, pb.cls, newLook, newFp, newSpeech, pb.sex);
+    const dailyLookRes = translateLookToDaily_(build.name, pb.cls, newLook, pb.sex);
     data[idx][COL.HERO.DAILY_LOOK] = dailyLookRes.look;
     data[idx][COL.HERO.DAILY_OUTFIT] = dailyLookRes.outfit;
     data[idx][COL.HERO.DAILY_WORDS] = translatePersonalityToDaily_(build.name, pb.cls, newWords);
@@ -556,8 +555,8 @@ function actionSaveHero(userData, pcId, sheets) {
   let flavor = null;
   try {
     flavor = JSON.parse(callGeminiAPI(
-      `【真名】：${pb.name}\n【職階】：${pb.cls}\n【性別】：${pb.sex}\n【玩家描述】：${pb.desc || "無"}${pb.look ? `\n【外貌(${pb.lookFull ? "玩家已定·照抄" : "玩家核心設定·擴寫成四短句·本意照舊"})】：${pb.look}` : ""}${pb.pref ? `\n【個性(${pb.prefFull ? "玩家已定·照抄" : "玩家核心設定·擴寫成四短句·本意照舊"})】：${pb.pref}` : ""}${pb.fp ? `\n【自稱(玩家已定)】：${pb.fp}` : ""}${pb.speech ? `\n【口吻(玩家已定)】：${pb.speech}` : ""}${pb.back ? `\n【身世(玩家已定·照抄)】：${pb.back}` : ""}${pb.weapon ? `\n【武裝(以此為準，蓋過職階慣例與原典)】：${pb.weapon}` : ""}${isMasterCls ? "" : `\n【技能】：${pb.skills.map(s => s.n).join("、") || "無"}\n【寶具】：${pb.npName}${pb.npDesc ? `（${pb.npDesc}）` : ""}`}`,
-      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名${_ogF.pnote}${isMasterCls ? "御主(鑑賞限定·不參與戰鬥)" : "從者"}的設定，你【只】負責補完演出側寫${isMasterCls ? "" : "與寶具英文真名"}，輸出欄位以下方 JSON 列出的為限。★【語言】除${isMasterCls ? "" : " npEn 欄與"} JSON 欄位名本身外，所有輸出內容一律用中文字。玩家標「照抄」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫，本意照舊。★${AURA_SPEC_}\n★personality【恰好4段】、look【恰好2段】，皆【只用頓號「、」分隔·每段是簡短詞組非完整句子·限${TRAIT_SEG_HINT_}字內寫完·段內不再用頓號列舉】。★輸出合法 JSON（純文字，無 Markdown）：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌兩短句頓號分隔（第一句五官髮色/身形/衣著印象，第二句是不含服裝字眼的氣質意象）","background":"生平一句·限20字","firstP":"台詞自稱(我/吾/俺/本王…·限4字)","toMaster":"對自己御主的態度(限20字)","speech":"口吻(限40字·如 古風敬語、句尾帶「呢」、簡短冷淡)","tic":"招牌小動作(限30字·具體可見的身體動作，不寫心情)"${isMasterCls ? "" : `,"npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"`}}`,
+      `【真名】：${pb.name}\n【職階】：${pb.cls}\n【性別】：${pb.sex}\n【玩家描述】：${pb.desc || "無"}${pb.look ? `\n【外貌(${pb.lookFull ? "玩家已定·照抄" : "玩家核心設定·擴寫成四短句·本意照舊"})】：${pb.look}` : ""}${pb.pref ? `\n【個性(${pb.prefFull ? "玩家已定·照抄" : "玩家核心設定·擴寫成四短句·本意照舊"})】：${pb.pref}` : ""}${pb.quirks ? `\n【怪癖(玩家已定)】：${pb.quirks}` : ""}${pb.logic ? `\n【做選擇的方式(玩家已定)】：${pb.logic}` : ""}${pb.back ? `\n【身世(玩家已定·照抄)】：${pb.back}` : ""}${pb.weapon ? `\n【武裝(以此為準，蓋過職階慣例與原典)】：${pb.weapon}` : ""}${isMasterCls ? "" : `\n【技能】：${pb.skills.map(s => s.n).join("、") || "無"}\n【寶具】：${pb.npName}${pb.npDesc ? `（${pb.npDesc}）` : ""}`}`,
+      `你是《命運停駐之夜》的英靈人格編織者。玩家已親手定好一名${_ogF.pnote}${isMasterCls ? "御主(鑑賞限定·不參與戰鬥)" : "從者"}的設定，你【只】負責補完演出側寫${isMasterCls ? "" : "與寶具英文真名"}，輸出欄位以下方 JSON 列出的為限。★【語言】除${isMasterCls ? "" : " npEn 欄與"} JSON 欄位名本身外，所有輸出內容一律用中文字。玩家標「照抄」的欄位原樣沿用；標「核心設定·擴寫」的欄位以玩家給的為靈魂擴寫，本意照舊。★${AURA_SPEC_}\n★personality【恰好4段】、look【恰好2段】，皆【只用頓號「、」分隔·每段是簡短詞組非完整句子·限${TRAIT_SEG_HINT_}字內寫完·段內不再用頓號列舉】。★輸出合法 JSON（純文字，無 Markdown）：{"personality":"日常表象、真實內裡、喜歡的事物、討厭的事物（四短句頓號分隔）","look":"外貌兩短句頓號分隔（第一句五官髮色/身形/衣著印象，第二句是不含服裝字眼的氣質意象）","background":"生平一句·限20字","toMaster":"對自己御主的態度(限20字)","quirks":"怪癖(限40字·兩件事頓號分隔·看得見的習慣動作，或應付不來的那個領域)","logic":"做選擇的方式(限40字·把兩件都想要的東西擺在一起，說出最後放掉的是哪一個)"${isMasterCls ? "" : `,"npEn":"寶具的英文真名讀法(拉丁字母·如 Excalibur 風格·限4個單字)"`}}`,
       { temperature: 0.85, ignoreLaw: true, model: CREATION_MODEL }));
   } catch (e) { flavor = null; }
   // AI 補的演出欄位：玩家有填就用玩家的，沒填才拿這份（工房 UI 只剩一句描述，這幾格全靠 AI 從描述推）
@@ -570,8 +569,8 @@ function actionSaveHero(userData, pcId, sheets) {
   let wasCreated;
   try {
     wasCreated = recordOriginalHero_(pb.name, pb.cls, pb.sex, JSON.stringify(pb.six), pb.classSkills, pb.skills, pb.traits, np, finalPref || "", pb.align,
-      { look: finalLook, firstP: pb.fp || _fv('firstP', 4), toMaster: pb.toM || _fv('toMaster', 20),
-        speech: pb.speech || _fv('speech', 40), tic: pb.tic || _fv('tic', 30), back: back, weapon: pb.weapon, creator: acct });
+      { look: finalLook, toMaster: pb.toM || _fv('toMaster', 20),
+        quirks: pb.quirks || _fv('quirks', 40), logic: pb.logic || _fv('logic', 40), back: back, weapon: pb.weapon, creator: acct });
   } catch (e) { return JSON.stringify({ success: false, message: "沒存進英靈殿：" + e.message }); }
   if (!wasCreated) return JSON.stringify({ success: false, message: `「${pb.name}」剛被別人搶先用了，換個真名。` });
   return JSON.stringify({ success: true, created: true, name: pb.name, message: `「${pb.name}」進英靈殿了，在召喚頁的「🌟 我的原創」。` });
@@ -658,7 +657,7 @@ function actionSummonServant(userData, pcId, sheets) {
       let svBack = persona.back ? String(persona.back).slice(0, 28) : `${cls}・${realName}`;
       svPref = enrichPersonalityLikesDislikes_(realName, cls, svPref);
       row[COL.PC.PREF] = parseTraitsHelper(svPref, "沉著表象、堅定內裡、珍視之物、厭惡之事");
-      row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || "保持距離"}`, persona.speech, persona.tic);
+      row[COL.PC.MEMORY] = stampPersonaFlavor_(`對御主：${persona.toMaster || "保持距離"}`, persona.quirks, persona.logic);
       if (persona.weapon) row[COL.PC.MEMORY] = setWeapon_(row[COL.PC.MEMORY], persona.weapon); // ⚔️ 工房原創的自定武裝·重召不掉
       row[COL.PC.SIX] = JSON.stringify(six);
       row[COL.PC.TAGS] = JSON.stringify({ skills: tagSkillKind_(classSkills, 'class').concat(tagSkillKind_(skills, 'skill')), traits: traits });

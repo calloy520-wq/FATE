@@ -418,7 +418,7 @@ var TRAIT_SEG_HINT_ = 14;
 // ⚠ 2026-09 從 3 格收成 2：第三格「卸下心防的私密一面」整組退休，理由見 CODE_NOTES『TRAIT_SLOTS_』。
 var TRAIT_SLOTS_ = 2;
 // dailyLook 的段數（外貌本相／氣質／日常口氣）——比 TRAIT_SLOTS_ 多一段，那一段抽進【口吻】不進特徵格。
-var DAILY_LOOK_SLOTS_ = 3;
+var DAILY_LOOK_SLOTS_ = 2;
 
 // 讀特徵格的唯一入口：舊局存的是三、四格(退休的「自稱與口氣」「私密一面」)，讀到就地剝掉。
 function traitParts_(raw) {

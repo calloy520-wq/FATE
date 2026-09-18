@@ -92,7 +92,7 @@ function heroToNpcRow_(hero, gameId, loc, faction) {
   row[COL.PC.FACTION] = faction; row[COL.PC.RANK] = cls;
   row[COL.PC.ALIGN] = hero[COL.HERO.ALIGN] || "中立";
   row[COL.PC.MARTIAL] = hero[COL.HERO.NP] || "寶具";
-  row[COL.PC.MEMORY] = stampPersonaFlavor_(`第一人稱「${persona.firstP || "我"}」｜對御主：${persona.toMaster || ""}`, persona.speech, persona.tic);
+  row[COL.PC.MEMORY] = stampPersonaFlavor_(`對御主：${persona.toMaster || ""}`, persona.quirks, persona.logic);
   row[COL.PC.SIX] = JSON.stringify(six);
   row[COL.PC.TAGS] = JSON.stringify({ skills: tagSkillKind_(classSkills, 'class').concat(tagSkillKind_(skills, 'skill')), traits: traits });
   // 復活命數：敵從者也要吃 god_hand 的 lives 覆寫(如尼祿3)，否則 getGodHandLives_ 誤套赫拉克勒斯專屬預設11。

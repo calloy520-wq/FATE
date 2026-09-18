@@ -127,20 +127,19 @@ function kanshouDailyTranslateCall_(prompt, sys, apiOpts, resultMapper, fallback
 }
 
 // 把戰時外貌(如「貼身黑色戰甲勁裝」)轉譯成現代日常穿搭/外型：本相不變、戰甲換成日常打扮；呼叫端(召喚/奪杯封存)僅一次性觸發，失敗時原樣退回戰時描述。
-function translateLookToDaily_(name, cls, rawLook, firstP, speech, sex) {
+function translateLookToDaily_(name, cls, rawLook, sex) {
   var look = String(rawLook || "").trim();
   if (!look) return { look: "", outfit: "" };
   var figureHint = (sex === "女") ? "，若角色是成年女性、務必把身形與胸部寫進自然的敘述句裡——這句話會顯示在玩家看得到的狀態欄位；形容胸部時須明確扣連到胸部" : "";
   var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "玩家提供一段用「、」或「・」分隔的角色戰時外貌描述" +
-    "(前面數段是外貌本相與戰時攻防裝束，最後一段是整體氣質／神情)，以及這位角色的第一人稱自稱、說話語氣。" +
+    "(前面數段是外貌本相與戰時攻防裝束，最後一段是整體氣質／神情)。" +
     "這是 Fate／聖杯戰爭的平行世界日常線，想像《衛宮家今天的餐桌風景》那種基調——換上現代日常穿搭，" +
     "但一看就知道是本人。請輸出兩樣東西：\n" +
-    "①look：日常版「外貌」三短句、頓號分隔，每句精簡收束、【每句限" + TRAIT_SEG_HINT_ + "字內寫完整一句話，超過會被截斷】、避免堆疊多重子句，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)" + figureHint + "]、" +
-    "[氣質(" + AURA_SPEC_ + "依和平日常情境自然轉化，但性格底色不變；用字與下方口氣段各自獨立)]、" +
-    "[日常口氣(依原本說話語氣「" + (speech || "無特別描述") + "」寫成的日常說話口氣；自稱「" + (firstP || "我") + "」若不是尋常的「我」，就把它寫進這一句，是「我」則不必提)]。\n" +
+    "①look：日常版「外貌」兩短句、頓號分隔，每句精簡收束、【每句限" + TRAIT_SEG_HINT_ + "字內寫完整一句話，超過會被截斷】、避免堆疊多重子句，依序為[外貌本相(髮色/瞳色/五官/體態等，不含服裝)" + figureHint + "]、" +
+    "[氣質(" + AURA_SPEC_ + "依和平日常情境自然轉化，但性格底色不變)]。\n" +
     "②outfit：一句這位角色今天的日常穿搭，保留原本服裝的色系/風格精神、換成現代日常款式，盡量貼近原味，" +
     "不要跟look的內容重複。\n" +
-    "★輸出合法 JSON（純文字，無 Markdown）：{\"look\":\"三短句頓號分隔\",\"outfit\":\"一句日常穿搭\"}";
+    "★輸出合法 JSON（純文字，無 Markdown）：{\"look\":\"兩短句頓號分隔\",\"outfit\":\"一句日常穿搭\"}";
   var prompt = "角色：" + name + "（" + cls + "）\n戰時外貌描述：" + look;
   return kanshouDailyTranslateCall_(prompt, sys, { temperature: 0.7, ignoreLaw: true }, function (raw) {
     var out = JSON.parse(raw || "{}");
@@ -178,17 +177,6 @@ function getDailyHeroFields_(heroRow, p) {
   return { look: existingLook || rawLook, words: existingWords || rawWords, outfit: existingOutfit };
 }
 
-function dailySpeechByName_(name, preHeroes) {
-  try {
-    var heroes = preHeroes || getHeroCodexCached();
-    // 🏷️ 候選橋比對：列可能是短名(SABER/櫻)、英靈殿是全名——精確比對會讓遺留列口吻靜默變空。
-    var h = heroes.find(function (r) { return kanshouNameCandidates_(String(r[COL.HERO.NAME]).trim()).includes(String(name).trim()) || kanshouNameCandidates_(String(name).trim()).includes(String(r[COL.HERO.NAME]).trim()); });
-    if (!h) return "";
-    var parts = String(h[COL.HERO.DAILY_LOOK] || "").split('、').map(function (s) { return s.trim(); }).filter(Boolean);
-    return parts.length >= 4 ? parts[2] : "";
-  } catch (e) { return ""; }
-}
-
 // 直接從英靈庫召喚進後日談，不必先在 solo 打贏封存。不帶戰鬥資料(SIX/TAGS/MARTIAL 留空，慾海無戰鬥)。
 function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   var pcColCount = Object.keys(COL.PC).length;
@@ -208,8 +196,7 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   var daily = getDailyHeroFields_(heroRow, p);
   sRow[COL.PC.PREF] = parseTraitsHelper(daily.words, "沉著表象、堅定內裡、珍視之物、厭惡之事");
   var dailyLookParts = String(daily.look || "").split('、').map(function (s) { return s.trim(); }).filter(Boolean);
-  // dailyLook 第3段是日常口吻(下面抽進【口吻】)，不進特徵格。
-  var traitSrc = dailyLookParts.length >= DAILY_LOOK_SLOTS_ ? [dailyLookParts[0], dailyLookParts[1]].join('、') : looksToTraitParts_(daily.look);
+  var traitSrc = dailyLookParts.length >= DAILY_LOOK_SLOTS_ ? dailyLookParts.slice(0, DAILY_LOOK_SLOTS_).join('、') : looksToTraitParts_(daily.look);
   sRow[COL.PC.TRAIT] = parseTraitsHelper(traitSrc, "外貌出眾、舉止從容", TRAIT_SLOTS_);
   // 戰時 p.back 跟平行世界矛盾，優先讀 p.dailyBack。
   // ⚠ 兩者都沒有就【留空】：卡片的「經歷」欄空了就不印（pBackStr），比塞一句泛用墊底話好——
@@ -217,8 +204,7 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
   sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28)
     : p.back ? String(p.back).slice(0, 28) : "";
   // 直接召喚無快照可帶，用該英靈自己的日常衣裝(daily.outfit)墊底，沒有才退回「日常便服」。
-  var dailySpeechPart = dailyLookParts.length >= DAILY_LOOK_SLOTS_ ? dailyLookParts[2] : "";
-  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】在這座城裡剛結識的緣分，才剛開始。", dailySpeechPart, ""), daily.outfit || "日常便服");
+  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("【鑑賞後日談·初見】在這座城裡剛結識的緣分，才剛開始。", p.quirks || "", p.logic || ""), daily.outfit || "日常便服");
   // 🪞 記住她來自哪一筆種子：顯示名可能被改成日常稱呼，撞名守門要靠這個才認得出「同一個人」。
   sRow[COL.PC.MEMORY] = KANSHOU_SRC_TAG_.set(sRow[COL.PC.MEMORY], String(heroRow[COL.HERO.ID] || ""));
   // PHYSICAL 留空，跟御主本人(actionEnterKanshou)一致，直到第一次 intimacy_feedback 才寫入；
@@ -568,15 +554,15 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 ★【格式鐵律】traits 【恰好2段】、personality 【恰好4段】，只用頓號「、」分隔，每段是一個【簡短詞組】，每段內部就寫一件事；不加數字標籤。
 - traits：外貌、氣質。${finalSex === '女' ? BUST_NOTE_ : ''}${AURA_SPEC_}格式範例(只示範斷句，內容一律依玩家給的性別與描述重寫)：「(外貌)、(氣質)」
 - personality：平常相處看得到的樣子、熟了才看得到的那一面、喜歡的事物、討厭的事物。格式範例(只示範斷句)：「(第一眼)、(熟了之後)、(喜歡的)、(討厭的)」
-★speech：${pron_(finalSex)}講話的調調，限16字，寫成短詞組。這是給 AI 演這個人的依據，玩家看不到。
-★tic：${pron_(finalSex)}的招牌小動作/小習慣，限16字(例：想事情時會摳袖口、聽人說話會微微偏頭)。★speech 與 tic 必須是【完全不同】的兩件事，各講各的。
+★quirks：${pron_(finalSex)}的怪癖，兩件事用頓號分隔、限24字。寫看得見的習慣動作，或是應付不來的那個領域(例：想事情時會摳袖口、對機器完全沒轍)。
+★logic：${pron_(finalSex)}做選擇的方式，限24字。把兩件${pron_(finalSex)}都想要的東西擺在一起，說出最後放掉的是哪一個(例：嘴上算的是得失，做的時候總是選重情義那邊)。
 ★background：限20字，【只寫來到冬木【以前】的來歷】，呼應其身世，不出現具體物品名，語氣平和溫馨，不涉及聖杯戰爭或任何戰爭史。
 ★【只寫來到冬木以前的來歷】：現在的工作、住處、同住的人、交往對象、養的動物、已經有的朋友，全部留給玩家在遊戲裡自己做出來（系統會逐項記錄）——這一格只寫來到冬木之前的來歷。
 ★outfit：一句今天的日常穿搭(限20字)，依外貌與個性方向自然搭配(如文靜者素雅、活潑者亮色休閒)，純日常便服/居家/外出風格，不含任何戰甲/武裝/戰鬥裝束字眼。
 ★【數值與地點由系統裁定】輸出欄位以下方 JSON 列出的為限。
 
 ★【輸出】合法 JSON（純文字，無 Markdown）：
-{"background":"限20字","traits":"兩格頓號字串","personality":"四格頓號字串","speech":"講話的調調，限16字","tic":"招牌小動作，限16字","outfit":"一句日常穿搭"}`;
+{"background":"限20字","traits":"兩格頓號字串","personality":"四格頓號字串","quirks":"怪癖兩件事頓號分隔，限24字","logic":"做選擇的方式，限24字","outfit":"一句日常穿搭"}`;
 
   try {
     const aiBrief = JSON.parse(callGeminiAPI(promptStr, KANSHOU_MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true, model: CREATION_MODEL }));
@@ -595,15 +581,15 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
     _put_(COL.PC.BACK, aiBrief.background && String(aiBrief.background).slice(0, 40), row[COL.PC.BACK]);
     _put_(COL.PC.TRAIT, aiBrief.traits && parseTraitsHelper(aiBrief.traits, traitParts_(row[COL.PC.TRAIT]).join('、'), TRAIT_SLOTS_), traitParts_(row[COL.PC.TRAIT]).join(''));
     _put_(COL.PC.PREF, aiBrief.personality && parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]), row[COL.PC.PREF]);
-    // MEMORY 上有三件事要寫(衣裝／口吻／小動作)——同一格，讀一次寫一次就好，別各寫各的。
-    // 衣裝：生成失敗/沒給值時種子預設「日常便服」繼續當保底。口吻/小動作走召喚同伴那支 stampPersonaFlavor_。
+    // MEMORY 上有三件事要寫(衣裝／怪癖／準則)——同一格，讀一次寫一次就好，別各寫各的。
+    // 衣裝：生成失敗/沒給值時種子預設「日常便服」繼續當保底。怪癖/準則走召喚同伴那支 stampPersonaFlavor_。
     {
       let liveMem = sheets.pc.getRange(wIdx + 1, COL.PC.MEMORY + 1).getValue();
       const before = String(liveMem);
       if (aiBrief.outfit && !(_topUp_ && getOutfit_(liveMem))) liveMem = setOutfit_(liveMem, aiBrief.outfit);
       liveMem = stampPersonaFlavor_(liveMem,
-        getPersonaSpeech_(liveMem) ? "" : String(aiBrief.speech || "").slice(0, 40),
-        getPersonaTic_(liveMem) ? "" : String(aiBrief.tic || "").slice(0, 40));
+        getPersonaQuirks_(liveMem) ? "" : String(aiBrief.quirks || "").slice(0, 40),
+        getPersonaLogic_(liveMem) ? "" : String(aiBrief.logic || "").slice(0, 40));
       liveMem = KANSHOU_BACKFILL_DONE_TAG_.set(liveMem, 1);
       if (String(liveMem) !== before) sheets.pc.getRange(wIdx + 1, COL.PC.MEMORY + 1).setValue(liveMem);
     }
@@ -939,6 +925,7 @@ function buildDefaultSystemPrompt(includeOptions, styles) {
   //    留下的 lewd 是玩家自己的旋鈕（☰⚙ 說書人設定），也是這一軌存在的理由。
   const rules = [
     _st('agency'),
+    _st('perform'),
     '每3~4句 <br><br> 分段。',
     _st('dialogue'),
     _st('lewd'),
@@ -1332,6 +1319,8 @@ var KANSHOU_STYLE_MODULES_ = [
   // 🗑️ 2026-09 大精簡：enact／drive／continuity／immersion／pov／feel 六格整組砍除——那些是筆法指導，
   //    不是「當下情況」也不是格式。agency 收下 enact 的那半句（玩家這一步怎麼接），一格講完。
   { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家的動作與台詞【只有玩家能決定】，照原句接下去；narration 從玩家這一步演起，被搭話的人都給出反應。' },
+  // 🎬 演法：卡片上那幾句沒有欄位名，這一格告訴 AI 拿到每一種句子要怎麼演（2026-09 玩家提案）。
+  { key: 'perform',    fixed: true, slot: 'sys',  def: '卡上那幾句是給你取景與拿捏分寸用的：外貌拆成鏡頭裡的細節；性格開頭兩句同時在場，一句在表面一句在底下，讓它們互相拉扯；喜歡與討厭是這個人的開關，話題碰到就給出明顯的情緒；做選擇的那一句，台詞守前半、行動走後半；怪癖在情緒起伏或想掩飾的時候浮出來。' },
   { key: 'dialogue',   fixed: true, slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
   { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。', slot: 'sys', def: '情慾場面放到最色、寫滿寫透：器官用本名，體液、聲音、氣味、溫度全部照實寫，身體的反應寫具體。' },
   { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代冬木市，大家都是住在這裡的普通市民。' },
@@ -1843,17 +1832,23 @@ function actionPlay_(userData, pcId, sheets) {
   if (String(pcId || "").indexOf("KPC_") !== 0) return JSON.stringify({ text: "此功能僅限鑑賞使用。", people: [] });
   const driveOn = (userData.drive === true || String(userData.drive) === "true");
 
-  // 喜好與厭惡是常態情報，全面開放給 AI 參考🎯 送出時砍格(2026-07 玩家「性格四格／特徵四格分這麼細，AI 也沒辦法演出來」)：儲存仍是 4 格(逆天改命 UI／工房／solo 共用同一個 schema，動它是全面重構)，只精簡【送給 AI 的呈現】。
+  // 🎯 2026-09 喜歡/討厭回到卡上：2026-07 砍掉是因為那兩格只是被列出來、AI 不知道要拿它們幹嘛。
+  //    現在鐵律那條「喜歡與討厭是這個人的開關，話題碰到就給出明顯的情緒」給了它們工作，才值得付那 33 字。
   const _qv = (v) => { const t = String(v || "").trim(); return QUAD_EMPTY_.indexOf(t) < 0 ? t : ""; };
   // 🗣️ 2026-09 玩家「有需要這麼生硬嗎？」：[表象]/[內裡]/[外貌氣質] 那幾個方括號是【我們自己的分欄符號】，
   //    不是資料。模型讀「表面…骨子裡…」一樣懂，而卡片是它用來【變成那個人】的依據——
   //    遞一張資料庫欄位過去，回來的就是資料庫腔調。字數幾乎沒變，只換講法。
   const formatPref = (str) => {
     const a = String(str || "").split('、');
-    // ⚠ 別在這裡加「表面／骨子裡」那種標籤：①「表面」語意是【裝出來的】，但 SABER 是真的一絲不苟，
-    //    那個詞會把她演成在演戲；②第二格自己就帶著轉折（其實怕寂寞／越被道謝越兇／佔有慾冒頭時轉成撒嬌），
-    //    標籤是多的；③套上去會壞掉——「個性完美的優等生」「表面大姊頭般罩著大家」都不成話。
-    return [_qv(a[0]), _qv(a[1])].filter(Boolean).join('，');
+    // ⚠ 別在這裡加「表面／骨子裡」「社交面具／內在核心」那種標籤：①「表面/面具」語意是【裝出來的】，
+    //    但 SABER 是真的一絲不苟，那個詞會把她演成在演戲；②第二格自己就帶著轉折；
+    //    ③套上去會壞掉——「個性完美的優等生」「表面大姊頭般罩著大家」都不成話。
+    //    喜歡/討厭則反過來：那兩個詞是中文本來就有的講法，不是欄位名，貼上去讀起來仍是一句話。
+    const like = _qv(a[2]).replace(QUAD_REDUNDANT_['喜歡'], "").trim();
+    const hate = _qv(a[3]).replace(QUAD_REDUNDANT_['討厭'], "").trim();
+    const core = [_qv(a[0]), _qv(a[1])].filter(Boolean).join('，');
+    const sw = [like ? `喜歡${like}` : "", hate ? `討厭${hate}` : ""].filter(Boolean).join('，');
+    return [core, sw].filter(Boolean).join('。');
   };
 
   const formatTrait = (str) => {
@@ -2118,7 +2113,6 @@ function actionPlay_(userData, pcId, sheets) {
   // 📷 拍照(takePhoto)：手機拍照·2026-07 再修（玩家「拍照要改成手機、不用等」）——手機沒有底片這種東西，只驗相簿總容量；拍完立刻存進相簿、立刻能看，不再有「隔天沖洗」的等待。
   let partyDetailsArr = [];
   const _presenceSeen_ = {};
-  const _partyHeroCodex = partyMembers.length > 0 ? getHeroCodexCached() : null;
   // 🔦 聚光燈：玩家這一步點名了誰，誰才拿完整的卡；同場其他人拿短卡（名字/裝扮/現況/口吻/關係）。
   //    提示詞本來就寫著「玩家專一對著一個人時其他人背景輕描」——這是把那句話真的做出來。
   //    ⚠ 沒點名任何人就【全部都給完整卡】（維持原行為）：猜錯的代價是那個人當場失格，不值得賭。
@@ -2131,10 +2125,9 @@ function actionPlay_(userData, pcId, sheets) {
       const pOutfit = getOutfit_(r[COL.PC.MEMORY]); // 👕 換裝：當前服裝穿著(換衣不換人；玩家UI設定或AI依appearance_extras更新)
       // 鑑賞無戰鬥，HP/STATUS 恆定不變(已被 physical_state 取代)，不重複注入。
       const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
-      // 口吻/招牌小動作(persona.speech/tic)：召喚時已存進 MEMORY 的【口吻】【小動作】標記，直接複用 getPersonaSpeech_/getPersonaTic_ 讀取，讓角色演出招牌語癖而非千篇一律。
-      const pSpeech = getPersonaSpeech_(r[COL.PC.MEMORY]) || dailySpeechByName_(pName, _partyHeroCodex);
-      const pTic = getPersonaTic_(r[COL.PC.MEMORY]);
-      const pFlavorStr = `${pSpeech ? ` | 口吻:${pSpeech}` : ""}${pTic ? ` | 招牌小動作:${pTic}` : ""}`;
+      // 怪癖/行為準則：召喚時已存進 MEMORY 的【小動作】【準則】標記，直接讀列。
+      const pQuirks = getPersonaQuirks_(r[COL.PC.MEMORY]);
+      const pLogic = getPersonaLogic_(r[COL.PC.MEMORY]);
       // 🏷️ 關係稱呼：AI 每回合依你們的歷史自己維護（intimacy_feedback.npcs[].rel_tag），
       //    玩家自己打過一次就鎖住歸玩家（【關係鎖】）。沒有值就整段不印。
       const pRelTagStr = String(r[COL.PC.REL_TAG] || "").trim();
@@ -2167,7 +2160,7 @@ function actionPlay_(userData, pcId, sheets) {
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
       // 🔦 背景輕描：這一步沒被點名的人只送「此刻的情境」那幾欄，性格/特徵/經歷/共同回憶下回合被點名時再給。
       const _lit = !_spotlight_.length || _spotlight_.indexOf(pName) >= 0;
-      partyDetailsArr.push(`【在場人物】${pName}，${String(r[COL.PC.SEX] || "").trim() || "異"}。__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${_lit ? (() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? `${_p}。` : ""; })() : ""}${_lit ? (() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })() : ""}${pSpeech ? `說話${pSpeech}。` : ""}${_lit && pTic ? `${pTic}。` : ""}${_lit ? pBackStr : ""}${_lit ? pMemoirStr : ""}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}。` : ""}${pMemStr}`);
+      partyDetailsArr.push(`【在場人物】${pName}，${String(r[COL.PC.SEX] || "").trim() || "異"}。__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${_lit ? (() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? `${_p}。` : ""; })() : ""}${_lit ? (() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })() : ""}${_lit && pQuirks ? `${pQuirks}。` : ""}${_lit && pLogic ? `${pLogic}。` : ""}${_lit ? pBackStr : ""}${_lit ? pMemoirStr : ""}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}。` : ""}${pMemStr}`);
     }
   });
   // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。
@@ -2199,12 +2192,12 @@ function actionPlay_(userData, pcId, sheets) {
       : "";
   }
 
-  // 🎭 玩家自己的 口吻／招牌小動作：跟【在場人物】那一行走【同一組 helper】，不另寫一套。
-  //    這三格以前只有同伴有，玩家那張卡是空的——所以 AI 演得出每一個同伴，就是演不出「你」。
+  // 🎭 玩家自己的 怪癖／行為準則：跟【在場人物】那一行走【同一組 helper】，不另寫一套。
+  //    這幾格以前只有同伴有，玩家那張卡是空的——所以 AI 演得出每一個同伴，就是演不出「你」。
   const _mePron_ = pron_(pc[COL.PC.SEX]);   // 御主性別是資料(可隨時切換)，代名詞不可寫死
-  const _meSpeech_ = getPersonaSpeech_(pc[COL.PC.MEMORY]);
-  const _meTic_ = getPersonaTic_(pc[COL.PC.MEMORY]);
-  const _meFlavorStr_ = `${_meSpeech_ ? ` | 口吻:${_meSpeech_}` : ""}${_meTic_ ? ` | 招牌小動作:${_meTic_}` : ""}`;
+  const _meQuirks_ = getPersonaQuirks_(pc[COL.PC.MEMORY]);
+  const _meLogic_ = getPersonaLogic_(pc[COL.PC.MEMORY]);
+  const _meFlavorStr_ = `${_meQuirks_ ? `${_meQuirks_}。` : ""}${_meLogic_ ? `${_meLogic_}。` : ""}`;
 
   // 🛡️ 比照Core_Settings.gs讀同一欄位(mergePhysicalStatus/parseVisibleStatus)的try/catch防呆——PHYSICAL理論上只會被JSON.stringify寫入，但COL是位置索引，欄位一旦錯位/被手動改壞，這裡若沒擋，該角色從此每回合都會拋錯、永遠好不了(見CLAUDE.md「邊界先擋」)。
   let pPhysicalObj = {}; try { pPhysicalObj = JSON.parse(pcData[pcIndex][COL.PC.PHYSICAL] || "{}"); } catch (e) { }

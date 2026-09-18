@@ -9,16 +9,23 @@
 //   AI 生成的 dailyLook 第3段】，AI 吐出一個【 就會把整條 MEMORY 切錯格、後面所有標記靜默失效。
 // 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 //   改走 makeTextTag_ 工廠：一次拿到清洗＋replace-or-append(冪等)，並消掉散落三處的重複 regex。
-var PERSONA_SPEECH_TAG_ = makeTextTag_('口吻');
-var PERSONA_TIC_TAG_ = makeTextTag_('小動作');
-function getPersonaSpeech_(memory) { return PERSONA_SPEECH_TAG_.get(memory); }
-function getPersonaTic_(memory) { return PERSONA_TIC_TAG_.get(memory); }
-// 把種子的口吻/小動作附加到既有 MEMORY 字串尾端(召喚建列時呼叫，僅在有值時才附加)。
-function stampPersonaFlavor_(memory, speech, tic) {
+var PERSONA_QUIRK_TAG_ = makeTextTag_('小動作');
+var PERSONA_LOGIC_TAG_ = makeTextTag_('準則');
+function getPersonaQuirks_(memory) { return PERSONA_QUIRK_TAG_.get(memory); }
+function getPersonaLogic_(memory) { return PERSONA_LOGIC_TAG_.get(memory); }
+// 把種子的怪癖/行為準則附加到既有 MEMORY 字串尾端(召喚建列時呼叫，僅在有值時才附加)。
+function stampPersonaFlavor_(memory, quirks, logic) {
   var s = String(memory || "");
-  if (speech) s = PERSONA_SPEECH_TAG_.set(s, String(speech).slice(0, 40));
-  if (tic) s = PERSONA_TIC_TAG_.set(s, String(tic).slice(0, 30));
+  if (quirks) s = PERSONA_QUIRK_TAG_.set(s, String(quirks).slice(0, 40));
+  if (logic) s = PERSONA_LOGIC_TAG_.set(s, String(logic).slice(0, 40));
   return s;
+}
+// 狂化＝喪失言語、只剩咆哮。讀技能 fx 'mad'(TAGS 就在同一列)，不再比對口吻字串。
+function servantIsMad_(row) {
+  try {
+    var tg = JSON.parse(row[COL.PC.TAGS] || "{}");
+    return (tg.skills || []).some(function (s) { return s && s.fx === 'mad'; });
+  } catch (e) { return false; }
 }
 
 function codexPersona_(name, cls) {
@@ -137,18 +144,17 @@ function servantCard_(row, opts) {
     var name = String(row[COL.PC.NAME] || "");
     var cls = String(row[COL.PC.RANK] || "");
     var mem = String(row[COL.PC.MEMORY] || "");
-    var rowSpeech = getPersonaSpeech_(mem), rowTic = getPersonaTic_(mem);
-    // 召喚時已複製 speech/tic 到列上 → 平常不必查英靈殿；缺任一項(舊局/鑑賞封存重建)才退回即時查表(已走快取)。
-    var p = (rowSpeech && rowTic) ? {} : codexPersona_(name, cls);
-    var fp = p.firstP || (mem.match(/第一人稱「([^」]*)」/) || [])[1] || "我";
-    // 排除字元集用 `｜|【`(兩種 pipe 都排)，跟 getPersonaSpeech_/getPersonaTic_ 一致，避免尾端吃進雜訊字元。
+    var rowQuirks = getPersonaQuirks_(mem), rowLogic = getPersonaLogic_(mem);
+    // 召喚時已複製 quirks/logic 到列上 → 平常不必查英靈殿；缺任一項(舊局/鑑賞封存重建)才退回即時查表(已走快取)。
+    var p = (rowQuirks && rowLogic) ? {} : codexPersona_(name, cls);
+    // 排除字元集用 `｜|【`(兩種 pipe 都排)，跟 getPersonaQuirks_/getPersonaLogic_ 一致，避免尾端吃進雜訊字元。
     var toM = p.toMaster || (mem.match(/對(?:自己)?御主：([^｜|【]*)/) || [])[1] || "";
     var prefArr = String(row[COL.PC.PREF] || "").split('、').filter(Boolean);
     var persona = p.words ? String(p.words).replace(/・/g, "、") : prefArr.slice(0, 4).join('、');
     var np = String(row[COL.PC.MARTIAL] || "");
-    var speech = rowSpeech || p.speech || "";
-    var tic = rowTic || p.tic || "";
-    // persona.look 召喚時已複製進 row.TRAIT(parseTraitsHelper)，跟 fp/toM/persona 一樣退回讀列，別讓 p 變空物件時這格靜默消失。
+    var quirks = rowQuirks || p.quirks || "";
+    var logic = rowLogic || p.logic || "";
+    // persona.look 召喚時已複製進 row.TRAIT(parseTraitsHelper)，跟 toM/persona 一樣退回讀列，別讓 p 變空物件時這格靜默消失。
     var look = String(p.look ? looksToTraitParts_(p.look) : (row[COL.PC.TRAIT] || ""));
     var outfit = getOutfit_(mem);              // 👕 玩家換裝：當前服裝穿著(疊在本相上·可清)
     var weapon = getWeapon_(mem);              // ⚔️ 玩家自定武裝：武器/戰鬥方式(蓋過職階慣例/原典習慣·可清)
@@ -159,21 +165,17 @@ function servantCard_(row, opts) {
     // 玩家自訂關係稱呼(🏷️關係鈕)：預設值「從者」無資訊量，只在玩家真的改過才顯示。
     var relTag = String(row[COL.PC.REL_TAG] || "").trim();
     if (relTag === "從者" || relTag === "無") relTag = "";
-    // 狂化偵測：喪失言語、只咆哮（如赫拉克勒斯、蘭斯洛特）。開膛手傑克等會說話的狂戰士不命中。
-    var mad = /狂化|無法言語|僅咆哮|不語/.test(speech + String(fp));
-    // 自稱不再自成一欄：尋常的「我」沒有資訊量、直接不提，有特色才併進【口吻】講一次
-    // (口吻本身已提過就不重複；狂化者的 fp 是「（狂化·僅咆哮）」這種標記、不是真的自稱，也不提)。
-    var fpNote = (fp && fp !== "我" && !mad && !/自稱/.test(speech)) ? `自稱「${fp}」・` : "";
+    var mad = servantIsMad_(row);
     // 我方從者的態度會隨羈絆走（見 BOND_STANCE_）；敵從者講的是他跟自己御主的關係，不吃你的好感。
     var isMine = String(row[COL.PC.FACTION]) === "從者";
     var stance = isMine ? bondStance_(row[COL.PC.BOND], toM) : (toM || '依真名');
     var foeStance = isMine ? '' : foeStanceNote_(row);   // 敵方：他對【你】的態度（會動，中性時不送）
     var card = `〈${name}·${cls}·核心特質·內化用〉` +
       (persona ? quadLabeled_(persona, PREF_LABELS_, false).replace(/^｜/, '') : `性格：依真名`) +
-      (speech || fpNote ? `｜口吻：${fpNote}${speech}` : "") +
       (stance ? `｜${isMine ? '此刻對你' : '對自己御主的態度'}：${stance}` : "") +
       (foeStance ? `｜此刻對你：${foeStance}` : "") +
-      (tic && !foe ? `｜小動作：${tic}` : "") +
+      (quirks && !foe ? `｜${quirks}` : "") +
+      (logic ? `｜做選擇時：${logic}` : "") +
       (look ? traitLabeled_(look, false) : "") +
       (back ? `｜身世：${back}` : "") +
       (align ? `｜陣營：${align}` : "") +

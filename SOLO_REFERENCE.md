@@ -357,8 +357,8 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
   （`refreshSkillRows_`/`clearSkillSlot_`）②六圍的標籤塞進 option 文字（`rankSel` 第 4 參數 `label`，
   **value 仍是純階級**，別讓顯示文字污染值）③演出頁的七個進階細節維持 `cf-drama` 收合。
   實測三頁預設高度：演出 166px／靈基 264px／寶具 176px，都在一個手機螢幕內。
-- `actionSaveHero` 的 flavor 補完 2026-09 加吐 `firstP`/`toMaster`/`speech`/`tic` 四格——那四格原本
-  沒有 AI fallback，留空就永遠是空的。
+- `actionSaveHero` 的 flavor 補完 2026-09 加吐 `toMaster`/`quirks`/`logic` 三格——那幾格原本
+  沒有 AI fallback，留空就永遠是空的。（~~`firstP`~~／~~`speech`~~ 已隨自稱/語癖退休移除。）
 - **🎲 命運測定改後端擲**（`rollMasterFate_`／`roll_fate` action）：舊版整套表與公式只在前端，
   玩家不按 🎲 就整組空白；新 UI 明說「留空＝隨機」，所以 `create` 沒收到 circuits 時自己擲一份。
   前端 🎲 改成一次要三份候選讓玩家挑（省掉三次 round-trip，也不再兩邊各存一份 12/50）。
@@ -379,7 +379,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 ## 5. 種子庫（英靈殿/御主殿）
 
 - **Seed_Codex.gs**：
-  - `SEED_SERVANTS`（**25 筆**＝20 騎＋5 位 `cls:'御主'`／`wars:['客串']` 的鑑賞客串：遠坂凜／伊莉雅絲菲爾／間桐櫻／衛宮士郎／藤村大河）：4th/5th 正典14騎（阿爾托莉雅-Saber/EMIYA-Archer/庫丘林-Lancer/美杜莎-Rider/美狄亞-Caster/佐佐木小次郎-Assassin/赫拉克勒斯-Berserker/吉爾伽美什-Archer/迪盧木多-Lancer/伊斯坎達爾-Rider/吉爾德萊-Caster/百貌哈桑-Assassin/咒腕之哈桑-Assassin/蘭斯洛特-Berserker）＋鑑賞客串6騎（斯卡哈-Lancer/斯卡哈-Assassin/恩奇都-Lancer/美遊-Saber/小黑-Archer/伊莉雅-Caster）。每筆 id/cls/realName/wars/gender/six/classSkills/skills/traits/np/align/persona（{firstP,words,toMaster,speech,moe,tic}）。
+  - `SEED_SERVANTS`（**25 筆**＝20 騎＋5 位 `cls:'御主'`／`wars:['客串']` 的鑑賞客串：遠坂凜／伊莉雅絲菲爾／間桐櫻／衛宮士郎／藤村大河）：4th/5th 正典14騎（阿爾托莉雅-Saber/EMIYA-Archer/庫丘林-Lancer/美杜莎-Rider/美狄亞-Caster/佐佐木小次郎-Assassin/赫拉克勒斯-Berserker/吉爾伽美什-Archer/迪盧木多-Lancer/伊斯坎達爾-Rider/吉爾德萊-Caster/百貌哈桑-Assassin/咒腕之哈桑-Assassin/蘭斯洛特-Berserker）＋鑑賞客串6騎（斯卡哈-Lancer/斯卡哈-Assassin/恩奇都-Lancer/美遊-Saber/小黑-Archer/伊莉雅-Caster）。每筆 id/cls/realName/wars/gender/six/classSkills/skills/traits/np/align/persona（{look,words,toMaster,quirks,logic,dailyLook,dailyOutfit,dailyWords,dailyBack}）。⚠ 2026-09 `firstP`/`speech`/`tic` 退休：`tic` 升級成兩格的 `quirks`，新增 `logic`（做選擇的方式），見 KANSHOU_REFERENCE §「六格人設」。
     - ⚠ **戰爭僅認 `4th`/`5th`**（`fake` 偽聖杯戰爭開局選項＋整套 `FATE_FAKE_ROSTER` 已移除）。chaos 亂鬥靠 `wars` 含 `'客串'` 排除，非硬編碼名單。
     - 單寶具種子的簽名概念 fx 必須掛進 skills（庫丘林 gae_bolg/EMIYA ubw/佐佐木 tsubame/阿爾托莉雅·美遊 excalibur）——只寫 np 字串＝只有規模、沒有概念位階。
   - `SEED_MASTERS`（15名）：id/name/sex/appearance/magic/circuits/melee/magic_rank/home/wish/persona（4段頓號=表象・內裡・喜歡・厭惡，被 masterCard_ 拆解·結構不可動，v67前全數只寫3段、喜歡欄位缺失已補齊）/back(身世)。⚠ `moe` 欄 2026-09 整組退休。

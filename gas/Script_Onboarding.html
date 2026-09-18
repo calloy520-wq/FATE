@@ -577,7 +577,7 @@ function forgeReset_() {
   ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'].forEach(function (k) { V('cf-six-' + k, 'E'); });
   for (var i = 0; i < 4; i++) { V('cf-sk' + i + '-fx', ''); V('cf-sk' + i + '-r', 'C'); V('cf-sk' + i + '-n', ''); }
   refreshSkillRows_();
-  ['cf-np-name', 'cf-np-desc', 'cf-weapon', 'cf-look', 'cf-pref', 'cf-desc', 'cf-fp', 'cf-tomaster', 'cf-speech', 'cf-tic', 'cf-back', 'cf-traits'].forEach(function (id) { V(id, ''); });
+  ['cf-np-name', 'cf-np-desc', 'cf-weapon', 'cf-look', 'cf-pref', 'cf-desc', 'cf-tomaster', 'cf-quirks', 'cf-logic', 'cf-back', 'cf-traits'].forEach(function (id) { V(id, ''); });
   V('cf-np-scale', '對人'); V('cf-align', '中立');
   closeSkillPick();
   forgeBudget_();
@@ -654,8 +654,8 @@ function forgeEdit(id) {
   V('cf-np-name', m ? m[1].trim() : npFallback); V('cf-np-scale', (m && m[2]) || '對人'); V('cf-np-desc', (m && m[3]) || '');
   V('cf-weapon', d.weapon);
   V('cf-look', d.look); V('cf-pref', d.pref);
-  V('cf-align', d.align || '中立'); V('cf-fp', d.fp); V('cf-tomaster', d.toMaster);
-  V('cf-speech', d.speech); V('cf-tic', d.tic); V('cf-back', d.back); V('cf-traits', d.traits);
+  V('cf-align', d.align || '中立'); V('cf-tomaster', d.toMaster);
+  V('cf-quirks', d.quirks); V('cf-logic', d.logic); V('cf-back', d.back); V('cf-traits', d.traits);
   refreshSkillRows_(); // 🎨 列的顯示/隱藏與晶片鈕標籤跟上預填值
   _skPickSlot = -1; renderSkillPick_();
   // 🧹 進階演出細節區塊只要有任一項既有資料就自動展開，別讓玩家編輯時漏看已存的設定
@@ -941,8 +941,8 @@ async function summonByForge() { // (名稱保留·行為＝存檔 save_hero，�
     look: _v('cf-look'), pref: _v('cf-pref'),
     weapon: isMaster ? '' : _v('cf-weapon'), desc: _v('cf-desc'),
     // 🎭 進階演出細節(選填·零數值·預設收合)：自稱/陣營/態度/口吻/小動作/萌點/身世——留空＝AI 補
-    fp: _v('cf-fp'), align: _v('cf-align'), toMaster: _v('cf-tomaster'),
-    speech: _v('cf-speech'), tic: _v('cf-tic'), back: _v('cf-back'),
+    align: _v('cf-align'), toMaster: _v('cf-tomaster'),
+    quirks: _v('cf-quirks'), logic: _v('cf-logic'), back: _v('cf-back'),
     traits: _v('cf-traits') // 🎭 純敘事風味標籤(頓號分隔·上限4個)，後端 parseForgeBuild_ 解析、不進預算計費
   };
   // 💾 工房＝純製造/修改：存英靈殿(save_hero)，召喚一律走「🌟 玩家原創」專區

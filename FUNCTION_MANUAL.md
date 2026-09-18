@@ -229,10 +229,12 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 演出依據卡建構器：跨戰鬥/移動/召喚/羈絆/結盟全域共用的「AI 演出依據」。共 **11 個函式** ＋ 2 個 label 陣列（`PREF_LABELS_`/`TRAIT_LABELS_`）。
 
-#### 口吻/小動作 MEMORY helper
-- `getPersonaSpeech_(memory)` — 讀【口吻】。
-- `getPersonaTic_(memory)` — 讀【小動作】。
-- `stampPersonaFlavor_(memory, speech, tic)` — 召喚建列時把種子口吻/小動作附加到 MEMORY 尾（有值才附，截 40/30）。
+#### 怪癖/準則 MEMORY helper
+- `getPersonaQuirks_(memory)` — 讀【小動作】（存的是怪癖兩格）。
+- `getPersonaLogic_(memory)` — 讀【準則】（做選擇的方式）。
+- `stampPersonaFlavor_(memory, quirks, logic)` — 召喚建列時把種子怪癖/準則附加到 MEMORY 尾（有值才附，各截 40）。
+- `servantIsMad_(row)` — 狂化判定：讀同一列 `COL.PC.TAGS` 的技能 `fx === 'mad'`。⚠ 2026-09 從比對口吻字串（`/狂化|無法言語|僅咆哮|不語/`）改成讀技能資料——語癖退休後那個字串來源沒了，而 `fx` 本來就是唯一真實來源。附帶效果：**所有 Berserker 都會命中**（職階自動附贈狂化 C），不再只有種子裡那兩位。
+（~~`getPersonaSpeech_`~~／~~`getPersonaTic_`~~ 已隨 2026-09 自稱/語癖退休改名為上面兩支。）
 - `codexPersona_(name, cls?)` — 查英靈殿人設 JSON（6h 快取）；優先「真名＋職階」吻合、找不到退回純真名比對（處理斯卡哈同真名跨職階）。供 `servantCard_` 在列上缺欄位時 fallback。
 
 #### 四段標籤化
@@ -618,7 +620,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 從英靈殿建列（進鑑賞世界）
 
 - `getDailyHeroFields_(heroRow, p)` — 純讀 HERO 列的 DAILY_LOOK/WORDS/MOE/OUTFIT 快取，查無退回原始戰時 look/words/moe（「・」→「、」）；不呼叫 AI。
-- `dailySpeechByName_(name, preHeroes)` — 由名字（經 `kanshouNameCandidates_` 別名橋比對）反查英靈殿 DAILY_LOOK 第 3 段（自稱與口氣）當日常安全版口吻，避免戰時口吻餵進鑑賞 AI。preHeroes 可傳入省重複整表解析。
+（~~`dailySpeechByName_`~~ 已隨 2026-09 自稱/語癖退休移除；`DAILY_LOOK_SLOTS_` 同步 3→2，第 3 段「日常口氣」不再存在。）
 - `heroToKanshouRow_(heroRow, gameId, loc, curDay)` — 核心建列器：把 HERO 列轉成鑑賞 PC 列（KHV_ 前綴）。用日常稱呼當 NAME、讀日常版 look/words/moe/outfit、身世走 dailyBack→back→通用預設、起始 BOND=10「點頭之交」、不寫戰鬥欄/IS_PARTY/PHYSICAL。被召喚/起始住民共用。**七度改版**：建列尾聲檢查`KANSHOU_HERO_HOME_[heroRow[COL.HERO.ID]]`，查無專屬豪邸就從~~~~`KANSHOU_GENERIC_HOME_POOL_`~~~~隨機抽一間、用`setKanshouHeroHome_`寫進`【住處】`記憶標記——這是新英靈唯一的建列入口，此處補一次即涵蓋召喚與起始住民兩條路徑。 ⚠ 2026-09 加蓋 `KANSHOU_SRC_TAG_`（【英靈源】＝來源種子 id），撞名守門靠它認人。
 
 #### ~~關係梯度·好感天花板~~（2026-09 鑑賞好感整組砍除）
@@ -712,10 +714,10 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 （~~`KANSHOU_KNOCK_DAY_TAG_`~~／~~`KANSHOU_NIGHT_GUEST_TAG_`~~ 已隨 2026-09 砍掉深夜訪客一併移除；~~`KANSHOU_FESTIVAL_DONE_TAG_`~~ 已隨砍掉預寫橋段池一併移除。）
 - `KANSHOU_BACKFILL_DONE_TAG_`（makeIntTag_『設定已補』）— 創角敘事欄已經補過的章。蓋了之後 `actionBackfillKanshouAi` 只填還空著的格子，不再覆寫玩家玩出來/改命改過的內容。
 - `KANSHOU_MORNING_AFTER_TAG_`（makeTextTag_ 晨間餘韻）、（~~`KANSHOU_SCENE_DAY_TAG_`~~ 已隨 2026-09 砍掉獨處加好感一併移除。）（~~`KANSHOU_APPT_BANDS_`~~ 已隨 2026-09 砍掉約定一併移除。）
-- `PERSONA_SPEECH_TAG_`／`PERSONA_TIC_TAG_`（`makeTextTag_('口吻')`／`('小動作')`·Router_Persona.gs）— 🗣️ 2026-07 稽核：這兩個標記原本由 `stampPersonaFlavor_` 自己拼字串、**完全沒清洗**（speech 來源含工房 AI 生成的 dailyLook 第3段，AI 吐一個「【」就切壞整條 MEMORY）。改走工廠後一次拿到清洗＋replace-or-append；`getPersonaSpeech_`/`getPersonaTic_` 與 Router_Bond/Seed_Codex 的三處重複 regex 全部委派過來，全專案 4 份實作收斂成 1。
+- `PERSONA_QUIRK_TAG_`／`PERSONA_LOGIC_TAG_`（`makeTextTag_('小動作')`／`('準則')`·Router_Persona.gs）— 🎭 角色演出兩格：怪癖（看得見的習慣／應付不來的領域·兩格頓號分隔）與行為準則（做選擇的方式）。`stampPersonaFlavor_(memory, quirks, logic)` 在召喚建列時蓋上，`getPersonaQuirks_`/`getPersonaLogic_` 讀回；Router_Bond 的 `masterPersonaLean_`、Seed_Codex 的升級路徑都委派過來，不另寫 regex。⚠ 走 `makeTextTag_` 工廠是為了清洗：這兩個標記 2026-07 之前自己拼字串、AI 吐一個「【」就切壞整條 MEMORY。（~~`PERSONA_SPEECH_TAG_`~~（口吻）已隨 2026-09 自稱/語癖退休一併移除；儲存鍵仍沿用『小動作』是為了不動既有存檔。）
 - ~~`KANSHOU_COHABIT_EVENTS_`~~／~~`kanshouPlayerHomeLocs_`~~／~~`_sceneIsCohabit_`~~（2026-09 已砍）— 曾是同居日常橋段（第四層觸發）；同居本身也已整組移除。
 - `KANSHOU_NOTED_TAG_`／`KANSHOU_NOTED_SEP_`／`KANSHOU_NOTED_CAP_`／`KANSHOU_NOTED_LEN_`／`kanshouKnownTier_(metCount)`／`kanshouKnownOfYou_(memory)`（2026-09 新增，`gas/Gallery.gs`）— 「她眼中的你」知情度。`kanshouKnownTier_` 查 `KANSHOU_FAMILIAR_TIERS_`（**與相處基調共用同一條軸、不另立門檻**）回初識/混熟/老交情；`kanshouKnownOfYou_` 回 `{tier, noted[]}`，`noted` 是 `【眼中的你】` 標記以 `／` 切開的清單（**分隔符不可用 `｜`/`【】`**，`makeTextTag_` 會剝掉）。掛在 `partyDetailsArr` 每人自己那行（`pKnownStr`），格式 `你在○眼中:<熟悉段>[·<筆記>]`——**沒筆記就只印熟悉段**。⚠ **刻意沒有「各段是什麼意思」的定義表**：初識/混熟/老交情 是模型天生就懂的詞，寫三段定義去教它＝玩家說的「追加設定、增加雜音」（第一版真的寫了 225 字，被擋下來砍掉）。
-- `_spotlight_`（`actionPlay_` 區域變數）— 🔦 聚光燈：從玩家這一步的 `userMsg` 裡找出被點名的同伴（走 `kanshouNameCandidates_` 別名橋，短名也算）。被點名的拿完整卡；同場其他人的卡砍掉 性格／特徵／招牌小動作／經歷／萌點／共同回憶，只留 名字／性別／在場來由／裝扮／**口吻**／現況／你在他眼中／關係好感。⚠ **沒點名任何人＝全部都給完整卡**（維持原行為）。量測：三人同場、點名一人 706→464 字（−34%）。
+- `_spotlight_`（`actionPlay_` 區域變數）— 🔦 聚光燈：從玩家這一步的 `userMsg` 裡找出被點名的同伴（走 `kanshouNameCandidates_` 別名橋，短名也算）。被點名的拿完整卡；同場其他人的卡砍掉 性格／特徵／招牌小動作／經歷／萌點／共同回憶，只留 名字／性別／在場來由／裝扮／現況／你在他眼中／關係好感。⚠ **沒點名任何人＝全部都給完整卡**（維持原行為）。量測：三人同場、點名一人 706→464 字（−34%）。
 - `kanshouAppendUnique_(oldStr, newLine, opt)`（2026-09 新增，`gas/Gallery.gs`；`opt = {sep, cap, maxLen, pin}`）— append→去重→上限的**共用引擎**，共同回憶（`processMemoir_` 現已降為一層包裝：`{sep:'｜', cap, maxLen:40, pin:true}`）與「她眼中的你」（`{sep:'／', cap:6, maxLen:14}`）共用。去重含**雙字組 0.6 相似度**比對最近 3 條（防同一件事換句話說重記）；`pin:true` 時★釘選永不驅逐，否則單純留最近 cap 條。寫入值一律先剝 `｜|【】[]★` 與分隔符本身、再截 `maxLen`。
 - `KANSHOU_MET_COUNT_TAG_`（makeIntTag_『相處』）／`KANSHOU_FAMILIAR_TIERS_`（老交情150+／混熟30+／初識）／`kanshouKnownTier_(metCount)` — 🤝 相處次數：跟你照過幾次面。2026-09 好感整組砍除後這是**唯一還在累積的關係軸**，只回答「見過幾次」這個事實，不回答「多喜歡你」（那件事交給 AI 從歷史自己判斷）。用途：「你在她眼中」的知情度分段、在場卡與世界概況的排序。每回合在 `partyRows` 迴圈 +1（跳時間的回合不加）。（~~`KANSHOU_RAPPORT_BOND_TIERS_`~~／~~`KANSHOU_RAPPORT_TONE_`~~／~~`kanshouRapportTone_`~~ 的 2D 基調表已隨好感一併移除。）
 
