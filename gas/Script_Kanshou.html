@@ -430,69 +430,13 @@ let plainTextContext = cleanText;
     await send(_inNight ? '🌅 這一夜，就這樣過去了。' : '🌙 結束了這一天。', false, { endDay: true, loaderCaptions: ['夜色漸漸深了…', '一天的塵埃緩緩落定…', '悄悄迎向嶄新的一天…'] });
   }
 
-  // ⏰ 直接選目標時段，GAS算好差幾小時(見Gallery.gs kanshouHoursUntilBand_)，走advanceHours管線。
-  // ⏰ 時間面板（2026-09 玩家定案）：流速由玩家自己決定——一個回合不是一段固定的時間。
-  //    ⏸暫停＝時間完全不動(她們不換地方、不會想睡、約定不會到)，所以時鐘會顯示 ⏸ 讓你看得出來。
-  var KC_PACE_OPTIONS_ = [0, 10, 20, 30];   // 🪞 鏡射 Gallery.gs KANSHOU_PACE_OPTIONS_
-  function kcPaceLabel_(m) { return m === 0 ? '⏸ 暫停' : m + ' 分'; }
-  function openKanshouTime() {
-    var cur = (window._lastTags && typeof window._lastTags.pace === 'number') ? window._lastTags.pace : 10;
-    var c = kcClock || {};
-    var ov = ensureOverlay_('kc-time', { zIndex: 10020, extraStyle: 'padding:18px;', onBgClick: function (o) { o.style.display = 'none'; } });
-    ov.innerHTML = '<div style="width:min(360px,92vw);background:#1d1722;border:1px solid #4a3a6a;border-radius:12px;padding:14px;">'
-      + '<div style="color:#e0c8f0;font-size:14px;margin-bottom:3px;">⏰ 時間</div>'
-      + '<div style="color:#9a8bb0;font-size:11.5px;margin-bottom:10px;">此刻 ' + escapeHtml(String(c.label || '')) + '</div>'
-      + '<div style="color:#cbbfe0;font-size:12px;margin-bottom:5px;">每講一句話，時間走</div>'
-      + '<div style="display:flex;gap:5px;margin-bottom:4px;">'
-      + KC_PACE_OPTIONS_.map(function (m) {
-        var on = (m === cur);
-        return '<button onclick="kanshouSetPace(' + m + ')" style="flex:1;padding:7px 2px;font-size:12px;border-radius:7px;cursor:pointer;'
-          + (on ? 'background:#4a2f4a;color:#f0c8e0;border:1px solid #b06aa0;font-weight:bold;' : 'background:#261e30;color:#9a8bb0;border:1px solid #3a2f48;')
-          + '">' + kcPaceLabel_(m) + '</button>';
-      }).join('') + '</div>'
-      + '<div style="color:#7a6e90;font-size:11px;margin-bottom:12px;">' + (cur === 0
-        ? '時間不會自己走，她們不會換地方，約定也不會到。用下面的按鈕推它。'
-        : '聊得正起勁就切 ⏸；想讓一天過去就調大或用下面的按鈕。') + '</div>'
-      + '<button onclick="kcTimeClose_();kanshouNextStage()" style="width:100%;text-align:left;padding:9px 11px;margin-bottom:6px;background:#261e30;color:#dcc8ec;border:1px solid #4a3a6a;border-radius:8px;cursor:pointer;font-size:13px;">⏰ 跳到下一個時段</button>'
-      + '<button onclick="kcTimeClose_();kanshouSetDateTime()" style="width:100%;text-align:left;padding:9px 11px;margin-bottom:10px;background:#261e30;color:#dcc8ec;border:1px solid #4a3a6a;border-radius:8px;cursor:pointer;font-size:13px;">📅 直接指定日期與時刻…</button>'
-      + '<button onclick="kcTimeClose_()" style="width:100%;padding:8px;background:#2a2438;color:#9a8bb0;border:none;border-radius:8px;cursor:pointer;">關閉</button></div>';
-    ov.style.display = 'flex';
-  }
-  function kcTimeClose_() { var o = document.getElementById('kc-time'); if (o) o.style.display = 'none'; }
-  async function kanshouSetPace(m) {
-    var res = await withProcessing_('設定中…', function () {
-      return gasRun({ action: 'kanshou_set_pace', pcId: pc.id, acctName: currentAccount, pace: m });
-    });
-    if (!res || !res.success) { alert((res && res.message) || '設定失敗。'); return; }
-    try { if (window._lastTags) window._lastTags.pace = res.pace; } catch (e) { }
-    try { updateClock(kcClock); } catch (e) { }
-    openKanshouTime();   // 原地重繪，讓選中的那顆亮起來
-  }
-  // 📅 只能往前：往回會讓已經發生的事的時間戳錯亂。
-  async function kanshouSetDateTime() {
-    var c = kcClock || {};
-    var d = await customPrompt_('跳到哪一天？（年/月/日，例如 ' + (c.year || 2005) + '/' + (c.month || 12) + '/' + (c.day || 25) + '）\n只能往後跳。',
-      (c.year || 2005) + '/' + (c.month || 12) + '/' + (c.day || 20), 12);
-    if (d === null) return;
-    var m = String(d).match(/^\s*(\d{4})\s*[\/\-.]\s*(\d{1,2})\s*[\/\-.]\s*(\d{1,2})\s*$/);
-    if (!m) { alert('格式要像 2006/1/1。'); return; }
-    var hh = await customPrompt_('幾點？（0~23）', '9', 2);
-    if (hh === null) return;
-    var H = parseInt(hh); if (isNaN(H) || H < 0 || H > 23) { alert('填 0 到 23。'); return; }
-    var payload = { year: parseInt(m[1]), month: parseInt(m[2]), day: parseInt(m[3]), hour: H };
-    showGamePane('chat');
-    await send('⏩ 讓時間流轉到 ' + payload.year + '/' + payload.month + '/' + payload.day + ' ' + H + ':00。', false,
-      { setDateTime: payload, loaderCaptions: ['時光靜靜流轉…', '日子一天天過去…'] });
-  }
-
+  // ⏰ 推時間只剩兩顆：「下一階段」與「結束一天」（2026-09 玩家把時間流速旋鈕與「直接指定日期
+  //   與時刻」都砍了——同一件事本來有五個入口）。下一階段固定照 清晨→午後→黃昏→夜→深夜→
+  //   (隔天)清晨 前進；深夜按下去自然就是睡過夜，直接重用 kanshouEndDay() 整套邏輯。
   async function kanshouJumpBand(key, label) {
     showGamePane('chat');
     await send('⏩ 讓時間悄悄流轉到了' + label + '。', false, { jumpBand: key, loaderCaptions: ['時光靜靜流轉…', '天色漸漸改變…'] });
   }
-
-  // ⏰ 精簡合併：原本「跳到時段(5選1)」＋「結束一天」兩顆按鈕合併成一顆「下一階段」，固定照
-  //   清晨→午後→黃昏→夜→深夜→(隔天)清晨的順序前進——深夜按下去自然就是睡過夜，直接重用
-  //   kanshouEndDay()整套邏輯(回房間/同床判定/敲門)，不必另外維護一套。
   async function kanshouNextStage() {
     var curBand = kcClock ? kcClock.band : '清晨';
     if (curBand === '深夜') { await kanshouEndDay(); return; }
@@ -589,9 +533,6 @@ let plainTextContext = cleanText;
   }
 
   // 🗾 出門走走·分區地圖：純氛圍用的分區/地點清單，僅供畫按鈕——實際合法地點驗證在後端 Gallery.gs 的 KANSHOU_REGIONS_/KANSHOU_LOCATIONS_(唯一真實來源)，改地點記得同步。
-  // 🕐 2026-07 六度改版新增 bands：純顯示用mirror(灰鎖UI判斷)，真正擋移動的門檻在後端
-  //   KANSHOU_LOCATIONS_(見Gallery.gs同名常數註解)——改後端bands記得同步這裡，否則鎖圖示會跟
-  //   實際能不能走進去對不上(同KANSHOU_LOCATIONS_/KC_LOCATIONS_過去漏同步過5個地點的教訓)。
   // 🏠 2026-07：「房間」獨立分頁併進「家」——深夜造訪不再靠玩家自家房間細分(改看她住處)，
   //   房間沒必要單獨一頁。「我的房間」的 region 在前端顯示層改掛 home(見 KC_LOCATIONS_)，但仍以
   //   isRoom:true 保留其特殊性(別人不會骰進來)；後端 KANSHOU_LOCATIONS_ 的 region
@@ -621,12 +562,12 @@ let plainTextContext = cleanText;
 
     { name: '河邊小徑', region: 'shinzan' }, { name: '古老神社', region: 'shinzan' },
     { name: '社區公園', region: 'shinzan' }, { name: '便利商店', region: 'shinzan' },
-    { name: '咖啡廳', region: 'fuyuki' }, { name: '書店二樓', region: 'fuyuki', bands: ['清晨', '午後', '黃昏'] },
+    { name: '咖啡廳', region: 'fuyuki' }, { name: '書店二樓', region: 'fuyuki' },
     { name: '商店街', region: 'fuyuki' },
-    { name: '摩天輪', region: 'fuyuki', bands: ['清晨', '午後', '黃昏', '夜'] }, { name: '水族館', region: 'fuyuki', bands: ['清晨', '午後'] },
-    { name: '深夜賓館', region: 'fuyuki', bands: ['黃昏', '夜', '深夜'] },
+    { name: '摩天輪', region: 'fuyuki' }, { name: '水族館', region: 'fuyuki' },
+    { name: '深夜賓館', region: 'fuyuki' },
     { name: '廢棄神社', region: 'dojo' },
-    { name: '夜景展望台', region: 'dojo', bands: ['黃昏', '夜', '深夜'] }, { name: '情侶溫泉套房', region: 'dojo', bands: ['黃昏', '夜', '深夜'] },
+    { name: '夜景展望台', region: 'dojo' }, { name: '情侶溫泉套房', region: 'dojo' },
 
     { name: '隱蔽的工房', region: 'visit' }, { name: '島嶼道場', region: 'visit' },
     { name: '埃德費爾特宅邸', region: 'visit' }, { name: '愛因茲貝倫城', region: 'visit' },
@@ -761,17 +702,6 @@ let plainTextContext = cleanText;
           + 'style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#1b1822;color:#6a6478;border:1px dashed #3a3348;border-radius:8px;cursor:not-allowed;font-size:13px;">'
           + '<span>🔒 ' + escapeHtml(label) + '</span>'
           + '<span style="font-size:10.5px;color:#7a7488;">尚未熟識</span>'
-          + '</button></div>';
-      }
-      // 🕐 2026-07 六度改版：時段限定地點——現在的時段不在她的開放時段內就灰鎖，比照上面拜訪住處
-      //   同一套UI(灰底虛線框+🔒+不可點)，避免玩家清晨走進「深夜賓館」撲了個空、讀起來很違和。
-      if (l.bands && l.bands.indexOf(_curBand) === -1) {
-        var _bandsTxt = l.bands.map(function (b) { return KC_BAND_SHORT_[b] || b; }).join('/');
-        return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
-          + '<button onclick="alert(\'「' + escapeHtml(label).replace(/\'/g, "\\'") + '」現在沒開，' + _bandsTxt + '才開。\')" '
-          + 'style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#1b1822;color:#6a6478;border:1px dashed #3a3348;border-radius:8px;cursor:not-allowed;font-size:13px;">'
-          + '<span>🔒 ' + escapeHtml(label) + '</span>'
-          + '<span style="font-size:10.5px;color:#7a7488;">' + escapeHtml(_bandsTxt) + '開放</span>'
           + '</button></div>';
       }
       return '<div style="display:flex;gap:6px;margin-bottom:6px;">'

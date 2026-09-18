@@ -18,8 +18,8 @@ const strip = f => fs.readFileSync(path.join(GAS, f), 'utf8')
 
 // 這些是玩家點得到的入口：少一個就是死按鈕
 const ENTRIES = [
-  'send', 'openCompanions', 'openKanshouWorld', 'openKanshouStyle', 'openKanshouTime',
-  'kanshouSetPace', 'kanshouSetDateTime', 'kanshouAddRegion', 'kanshouDelRegion',
+  'send', 'openCompanions', 'openKanshouWorld', 'openKanshouStyle',
+  'kanshouAddRegion', 'kanshouDelRegion',
   'kanshouPlaceMenu', 'kanshouGoNewPlace', 'kanshouNextStage', 'kanshouEndDay',
   'kcMapListHtml_', 'kcChoose_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',
   'sumMode_', 'setWarFromSelect_', 'pickWar', 'pickOrigin', 'newGameFlow', 'openTutorial',
@@ -28,7 +28,6 @@ const ENTRIES = [
 // 這些面板會被真的叫起來一次（不能拋例外）
 const RENDERS = [
   ['kcMapListHtml_', () => ctx.kcMapListHtml_()],
-  ['openKanshouTime', () => ctx.openKanshouTime()],
   ['kcChoose_', () => ctx.kcChoose_('t', [{ k: 'a', label: 'a' }])],
   ['aiHtml_', () => ctx.aiHtml_('一句<br>兩句')],
   // 🚪 召喚三選一的門（2026-09 新增）：三種模式都切一遍。random 會真的打後端，這裡不碰。

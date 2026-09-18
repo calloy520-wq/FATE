@@ -184,7 +184,7 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 
 ## ⏰ 時間系統
 
-- **每動作推進多少由玩家設**：`kanshouHourPerAction_(memory)`＝`kanshouPaceOf_(memory)/60`，選項 `KANSHOU_PACE_OPTIONS_ = [0,10,20,30]` 分鐘（0＝暫停・預設 `KANSHOU_PACE_DEFAULT_`=10），存玩家列 MEMORY【時間流速】，細節見 §⏰ 時間流速。（舊常數 `KANSHOU_HOUR_PER_ACTION_=1/6` 已不存在；2026-07 那次是從半小時改成 10 分鐘「問個菜色都中午了」）
+- **每動作固定推進 10 分鐘**：`kanshouHourPerAction_()`＝`KANSHOU_MIN_PER_TURN_/60`。（2026-09 玩家把流速旋鈕砍了——一個回合本來就不是一段固定的時間，交給玩家調只是把「說不準」變成一個要設定的東西。）
 - **五時段** `KANSHOU_TIME_BANDS_`：清晨(5)／午後(11)／黃昏(17)／夜晚(20)／深夜(0)。
 - **當日不跨日上限** `KANSHOU_DAY_LAST_HOUR_ = 23`；被動聊天每回合 `+1/6` 小時流動。
 - **曆法**：Day1 = 12/20（`KANSHOU_CAL_START_MONTH_/DAY_`），前端顯示西曆年月日。
@@ -1888,12 +1888,8 @@ pool = 內建 ∪ 玩家自己開的地方（排除 room/visit/dateOnly）
 
 | 東西 | 說明 |
 |---|---|
-| `KANSHOU_PACE_OPTIONS_` = [0,10,20,30] | 每回合前進幾分鐘；**0＝暫停** |
-| `KANSHOU_PACE_TAG_`（MEMORY【時間流速】） | 存玩家列，**設一次就記住** |
-| `kanshouPaceOf_(memory)` / `kanshouHourPerAction_(memory)` | 唯一讀取入口；查無/不合法一律回預設 10 |
-| `actionKanshouSetPace`（`kanshou_set_pace`） | 設定流速 |
-| `kanshouHoursUntilDateTime_(curDay, curHour, y, m, d, hh)` | 指定日期時刻→差幾小時。**只能往前，往回一律回 0** |
-| `userData.setDateTime` | 走既有 `advanceHours` 管線（跟跳時段/跳節慶同一條路） |
+| ~~`KANSHOU_PACE_*`~~／~~`kanshouPaceOf_`~~／~~`actionKanshouSetPace`~~ | 2026-09 已砍：流速旋鈕 |
+| ~~`kanshouHoursUntilDateTime_`~~／~~`userData.setDateTime`~~ | 2026-09 已砍：直接指定日期與時刻 |
 
 全部是單向時間戳，往回調會讓「已經發生的事」錯亂。要重來有歸零那顆。
 

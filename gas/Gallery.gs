@@ -763,18 +763,6 @@ function kanshouWorldPayload_(gid) {
 
 // ⚧ 切換後日談御主 avatar 的性別（隨時可改；只動 SEX 欄，不影響從者/歷史）。
 // ⏰ 設定時間流速（每回合幾分鐘，0＝暫停）。存玩家列 MEMORY，設一次就記住。
-function actionKanshouSetPace(userData, pcId, sheets) {
-  const want = parseInt(userData.pace);
-  if (KANSHOU_PACE_OPTIONS_.indexOf(want) < 0) return JSON.stringify({ success: false, message: "沒有這個速度。" });
-  const kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」
-  const data = kpc.getDataRange().getValues();
-  const idx = kanshouPcIdx_(data, pcId);
-  if (idx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
-  try {
-    kpc.getRange(idx + 1, COL.PC.MEMORY + 1).setValue(KANSHOU_PACE_TAG_.set(data[idx][COL.PC.MEMORY], want));
-  } catch (e) { return JSON.stringify({ success: false, message: "沒存到，等一下再試。" }); }
-  return JSON.stringify({ success: true, pace: want });
-}
 
 function actionKanshouSetSex(userData, pcId, sheets) {
   var newSex = String(userData.pcSex || "").trim();
@@ -1033,14 +1021,14 @@ const KANSHOU_LOCATIONS_ = [
   { name: '便利商店', region: 'shinzan', desc: '燈火通明、24小時營業的街角小店。' },
 
   { name: '咖啡廳', region: 'fuyuki', desc: '磨豆香氣繚繞的小巧咖啡館。' },
-  { name: '書店二樓', region: 'fuyuki', desc: '安靜得只聽見翻頁聲的二樓書架間。', bands: ['清晨', '午後', '黃昏'] },
+  { name: '書店二樓', region: 'fuyuki', desc: '安靜得只聽見翻頁聲的二樓書架間。' },
   { name: '商店街', region: 'fuyuki', desc: '人聲鼎沸的商店街，攤販林立。' },
-  { name: '摩天輪', region: 'fuyuki', desc: '入夜會點燈的摩天輪，是情侶間熱門的約會景點。', bands: ['清晨', '午後', '黃昏', '夜'] },
-  { name: '水族館', region: 'fuyuki', desc: '館內盡是幽藍燈光，水母缸前總擠著竊竊私語的情侶。', bands: ['清晨', '午後'] },
-  { name: '深夜賓館', region: 'fuyuki', desc: '招牌亮著曖昧的霓虹燈，房間隔音很好，沒有人會多問一句。', noEncounter: true, dateOnly: true, bands: ['黃昏', '夜', '深夜'] },
+  { name: '摩天輪', region: 'fuyuki', desc: '入夜會點燈的摩天輪，是情侶間熱門的約會景點。' },
+  { name: '水族館', region: 'fuyuki', desc: '館內盡是幽藍燈光，水母缸前總擠著竊竊私語的情侶。' },
+  { name: '深夜賓館', region: 'fuyuki', desc: '招牌亮著曖昧的霓虹燈，房間隔音很好，沒有人會多問一句。', noEncounter: true, dateOnly: true },
   { name: '廢棄神社', region: 'dojo', desc: '荒草蔓生、早已無人祭拜的廢棄神社。' },
-  { name: '夜景展望台', region: 'dojo', desc: '能俯瞰整座冬木市萬家燈火的高地，晚風正好，兩人並肩無語也不尷尬。', bands: ['黃昏', '夜', '深夜'] },
-  { name: '情侶溫泉套房', region: 'dojo', desc: '只租給兩人的溫泉旅館房間，一拉上紙門，外頭的世界就與你們無關了。', noEncounter: true, dateOnly: true, bands: ['黃昏', '夜', '深夜'] },
+  { name: '夜景展望台', region: 'dojo', desc: '能俯瞰整座冬木市萬家燈火的高地，晚風正好，兩人並肩無語也不尷尬。' },
+  { name: '情侶溫泉套房', region: 'dojo', desc: '只租給兩人的溫泉旅館房間，一拉上紙門，外頭的世界就與你們無關了。', noEncounter: true, dateOnly: true },
 
   // 拜訪住處：只保留女性角色的住處，noEncounter:true(私密場合，獨處時光那條線讀它)，name務必與下方KANSHOU_HERO_HOME_的值逐字一致，否則kanshouRollDailyLocation_骰到的地點對不上這裡。
   { name: '隱蔽的工房', region: 'visit', desc: '隱藏在巷尾、飄著藥草氣味的工房。', noEncounter: true },
@@ -1201,28 +1189,12 @@ function kanshouHoursUntilBand_(curHour, targetStartHour) {
   if (diff <= 0) diff += 24; // 已在該時段內也跳下一次，不回傳0
   return diff;
 }
-// ⏰ 時間隨玩家動作自然流動：一般 AI 敘事回合每次推進幾小時(讓「到處跑卻永遠停在6點」的凍結感消失)。
-// ⏰ 時間流速（2026-09 玩家定案）：一個回合不是一段固定的時間——「早安。」是三秒，一起吃頓飯是
-//    四十分鐘，固定任何數字對其中一種永遠是錯的。所以把旋鈕交給玩家：他才知道這一幕多長。
-//    0＝暫停(時間完全不動)。存在玩家列 MEMORY，設一次就記住。
-const KANSHOU_PACE_OPTIONS_ = [0, 10, 20, 30];
-const KANSHOU_PACE_DEFAULT_ = 10;
-var KANSHOU_PACE_TAG_ = makeIntTag_('時間流速', KANSHOU_PACE_DEFAULT_);
-// 這一局的流速：回傳「每回合幾分鐘」。查無/不合法一律回預設，絕不讓時鐘壞掉。
-function kanshouPaceOf_(memory) {
-  const v = KANSHOU_PACE_TAG_.get(memory);
-  return (KANSHOU_PACE_OPTIONS_.indexOf(v) >= 0) ? v : KANSHOU_PACE_DEFAULT_;
-}
-function kanshouHourPerAction_(memory) { return kanshouPaceOf_(memory) / 60; }
+// ⏰ 時間隨玩家動作自然流動：一般 AI 敘事回合每次推進 10 分鐘(讓「到處跑卻永遠停在6點」的凍結感消失)。
+//    ⚠ 2026-09 玩家把這個旋鈕砍了：一個回合本來就不是一段固定的時間，交給玩家調只是把
+//    「說不準」變成一個要設定的東西。想讓一天過去就按「下一階段」或「結束一天」。
+const KANSHOU_MIN_PER_TURN_ = 10;
+function kanshouHourPerAction_() { return KANSHOU_MIN_PER_TURN_ / 60; }
 const KANSHOU_DAY_LAST_HOUR_ = 23;
-// 📅 算「從現在」到「某年某月某日某時刻」要跳幾小時。只能往前——往回會讓已經發生的事的時間戳
-//    錯亂(約定存絕對日、好感棘輪都是單向的)。往回一律回 0。
-function kanshouHoursUntilDateTime_(curDay, curHour, y, m, d, hh) {
-  const startOff = kanshouDoyOffset_(KANSHOU_CAL_START_MONTH_, KANSHOU_CAL_START_DAY_);
-  const tgtAbs = (parseInt(y) - KANSHOU_CAL_START_YEAR_) * 365 + kanshouDoyOffset_(parseInt(m), parseInt(d)) - startOff + 1;
-  const diff = (tgtAbs - curDay) * 24 + (parseFloat(hh) - curHour);
-  return diff > 0 ? diff : 0;
-}
 // 小時(可含 .5)→「HH:MM」，支援半小時刻度。
 function kanshouFmtHM_(h) {
   var hh = Math.floor(h);
@@ -1860,7 +1832,7 @@ function actionPlay_(userData, pcId, sheets) {
   let curHour = (pc[COL.PC.HOUR] === "" || pc[COL.PC.HOUR] == null) ? 8 : (parseFloat(pc[COL.PC.HOUR]) || 0);
 
   const _myGid_ = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
-  const _paceHour_ = kanshouHourPerAction_(pc[COL.PC.MEMORY]); // ⏰ 每回合推進幾小時(0＝暫停，玩家自己設)
+  const _paceHour_ = kanshouHourPerAction_(); // ⏰ 每回合推進幾小時
   // 🆕 玩家自己指定一個新地方(前端「去別的地方…」自由輸入)：查不到就當場把它加進這一局的世界，
   //    走過去，並讓 AI 第一次描述它是什麼樣的地方。世界從此多一格，之後可以再回來、可以約在那裡。
   let kanshouNewPlaceStr = "";
@@ -1891,18 +1863,10 @@ function actionPlay_(userData, pcId, sheets) {
     kanshouVisitBlockedStr = `\n★【登門未果·私人住處】：你來到「${moveTarget0_.name}」門前，卻想起跟這裡的主人還沒熟到能這樣直接登門造訪——演出你在門外停步、終究沒敲門就轉身離開的猶豫即可(整段停在門外，只有你一個人)。`;
     moveTarget = null;
   }
-  // 🕐 2026-07 六度改版·時段限定地點門檻：跟上面私人住處同一套「擋在移動前、當作沒真的進去」寫法。
-  let kanshouTimeBlockedStr = "";
-  if (moveTarget && Array.isArray(moveTarget.bands) && moveTarget.bands.indexOf(timeBand_(curHour)) === -1) {
-    kanshouTimeBlockedStr = `\n★【撲空·地點未開放】：你來到「${moveTarget.name}」，卻發現此刻(${timeBand_(curHour)})根本還沒到營業/開放的時段——演出你意識到撲了個空、隨即轉身作罷即可(整段停在門外，只有你一個人)。`;
-    moveTarget = null;
-  }
   const moveName = moveTarget ? moveTarget.name : "";
   let finalUserMsg = kanshouVisitBlockedStr
     ? `【玩家意圖】：想直接登門造訪「${moveTarget0_.name}」。`
-    : kanshouTimeBlockedStr
-      ? `【玩家意圖】：走向了「${moveTarget0_.name}」，卻發現這時段還沒開放。`
-      : moveTarget
+    : moveTarget
         ? (userData.moveWithCompanion
           ? `【玩家意圖】：和身旁答應同行的人一起走向了「${moveName}」。`
           : `【玩家意圖】：走向了「${moveName}」，四處看看那裡有什麼、有沒有遇見誰。`)
@@ -1936,7 +1900,7 @@ function actionPlay_(userData, pcId, sheets) {
   const kanshouWithMeAtStart_ = pcData.filter((r, i) => i !== pcIndex && kanshouIsAlly_(r, myGameId, curL)).map(r => String(r[COL.PC.NAME]).trim());
 
   // ⏳ 這回合是否發生「時間跳躍」——單一真實來源。
-  const kanshouTimeJumped_ = !!(userData.endDay === true || userData.jumpBand || userData.setDateTime || (parseFloat(userData.advanceHours) || 0) > 0);
+  const kanshouTimeJumped_ = !!(userData.endDay === true || userData.jumpBand || (parseFloat(userData.advanceHours) || 0) > 0);
 
   // 🚶 玩家提議同去：pre-AI 記待判定，post-AI 落地成「前往」泡泡。
   let _pendingProposal = null; // {type:'move', idx, loc?, name?}
@@ -1958,7 +1922,7 @@ function actionPlay_(userData, pcId, sheets) {
     const _pvSameSpot = _pvLoc === String(curL || "").trim();
     const _pvLocOk = !!(_pvLocDef && _pvLocDef.region !== 'room' && !_pvSameSpot
       && (_pvLocDef.region !== 'visit' || kanshouResidenceUnlocked_(pcData, _pvLoc, _myGid_))
-      && (!_pvLocDef.bands || _pvLocDef.bands.indexOf(timeBand_(curHour)) !== -1));
+      );
     // 提議對象＝此刻在場的【全部】同伴。
     const _pvIdxs = [];
     pcData.forEach((r, i) => {
@@ -2089,13 +2053,8 @@ function actionPlay_(userData, pcId, sheets) {
     finalUserMsg = `【一天結束】夜幕降臨，${intimateNightNames.length ? `跟『${intimateNightNames.join('、')}』一起` : ""}回到房間安頓下來，今天到此為止，明天又是新的一天。`;
   } else {
     let advanceHours = Math.max(0, Math.min(parseFloat(userData.advanceHours) || 0, 24 * 365 * 3)); // parseFloat：支援「跳到約定前10分」的小數時數
-    // ⏰「跳到時段」：advanceHours/setDateTime 都沒指定時才輪到它。
+    // ⏰「跳到下一個時段」：advanceHours 沒指定時才輪到它。
     let jumpBand = null;
-    // 📅 直接設定日期與時刻：算出差幾小時再丟進同一條管線(跟跳時段同款「單一真實來源」)。
-    if (!advanceHours && userData.setDateTime && typeof userData.setDateTime === 'object') {
-      const _sd = userData.setDateTime;
-      advanceHours = kanshouHoursUntilDateTime_(curDay, curHour, _sd.year, _sd.month, _sd.day, _sd.hour);
-    }
     if (!advanceHours && userData.jumpBand) {
       jumpBand = KANSHOU_TIME_BANDS_.find(b => b.key === String(userData.jumpBand)) || null;
       if (jumpBand) advanceHours = kanshouHoursUntilBand_(curHour, jumpBand.startHour);
@@ -2425,7 +2384,7 @@ ${_sty_('feel')}
 ${PROMPT_PARTY_SYSTEM}
 ${_sty_('length')}
 ★★【地點釘死】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
-${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouProposeStr}${kanshouNightSceneStr}
+${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouProposeStr}${kanshouNightSceneStr}
 ★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★本回合只寫這十分鐘內的片段，時間推進由系統宣告。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚就在這個房間裡過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·只活在你的回想裡。` : ""}
 
 ${npcDialoguePrompt}${_earlierDigest_ ? `\n★【稍早做過的事】：${_earlierDigest_}——都已發生過，需要時自然呼應，別重演。` : ""}

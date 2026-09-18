@@ -564,12 +564,7 @@
         const inNight = !!(window._lastTags && window._lastTags.nightScene);
         hud.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">'
           + '<button class="btn" style="padding:3px 8px;font-size:11px;flex-shrink:0;border-color:#5a3a6a;color:#dcc8ff;" onclick="openCompanions()" title="請人來這座城">👥 邀請</button>'
-          // ⏰ 時鐘本身就是時間面板的入口；暫停時標出 ⏸，否則「怎麼都沒人來赴約」會被當成 bug
-          + (function () {
-            var _pc = (window._lastTags && typeof window._lastTags.pace === 'number') ? window._lastTags.pace : 10;
-            return '<span onclick="openKanshouTime()" title="時間流速與快轉" style="flex:1;min-width:0;cursor:pointer;">'
-              + (_pc === 0 ? '⏸ ' : '') + icon + ' ' + label + '</span>';
-          })()
+          + '<span style="flex:1;min-width:0;">' + icon + ' ' + label + '</span>'
           + '<button class="btn" style="padding:3px 8px;font-size:11px;flex-shrink:0;border-color:' + (inNight ? '#b07a4a' : isNight ? '#7a5a9a' : '#4a6a8a') + ';color:' + (inNight ? '#f0c090' : isNight ? '#c9a0e0' : '#8ac0e0') + ';" onclick="kanshouNextStage()" title="' + (inNight ? '這一夜到此為止，睡到天亮' : isNight ? '睡一晚到明天' : '推進到下一個時段') + '">' + (inNight ? '🌅 睡到天亮' : isNight ? '🌙 睡覺' : '⏰ 下一階段') + '</button>'
           + '</div>';
       } else {
