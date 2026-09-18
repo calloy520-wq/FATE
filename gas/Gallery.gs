@@ -1139,6 +1139,14 @@ const KANSHOU_PARTY_MAX_ = 3;
 //    滿了之後靠面板上的「🚪 請她離開這座城」（op:'evict'）騰位子——那顆鈕要是哪天砍了，
 //    這個數字要再放寬，否則世界會在滿員的那一刻永遠鎖死。
 const KANSHOU_WORLD_MAX_ = 8;
+// 🗜️ 逐字對話歷史的窗口（則數，2＝最近一個來回）。2026-09 從 4 砍成 2，理由是量出來的：
+//    穩定之後每回合送出去的東西裡，【玩家講的話 16 字、說書人自己上兩段寫的散文 1020 字】——
+//    1 比 64。模型在問「這一回合該長什麼樣」時，context 裡聲音最大的答案就是它自己剛寫的那兩塊，
+//    於是第 3 回合起開始逐字抄自己（玩家原話：「後面給太多資訊，AI 走不出來」）。
+//    砍成 2 之後它自己的散文從 1020→510 字、佔比 29%→17%。
+//    ⚠ 再往前的事情【不是消失】，走的是挑過的事實那三條路：世界帳本／共同回憶／她眼中的你。
+//    ⚠ 這個數字直接換敘事連貫感，調它之前先想清楚要換什麼。
+const KANSHOU_HIST_WINDOW_ = 2;
 var KANSHOU_PARTY_TAG_ = makeTextTag_('同行');
 function kanshouGetParty_(memory) {
   return String(KANSHOU_PARTY_TAG_.get(memory) || "").split(',').map(function (x) { return x.trim(); }).filter(Boolean);
@@ -2416,12 +2424,7 @@ ${nsfwMemories}${genderHintStr}`;
   const npcDialoguePrompt = "";  // 名單/稱呼併入結尾的【在場名單】鐵律，見下方 prompt
 
 
-  // 剛換場景/剛跳時間就砍短 chatHistory；摘要與 chatHistory 共用這個窗口值，不各算各的。
-  const _sceneCut = !!(moveTarget || kanshouTimeJumped_);
-  // 🗜️ 2026-09 大精簡：一般回合 6 → 4 筆（＝最近兩回合的逐字上下文）。
-  //    一則 narration 就 400~520 字，6 筆等於每回合重讀 1400 字散文；而「一路上發生過什麼」
-  //    現在由世界帳本／共同回憶／眼中的你承接——那些是挑過的事實，比逐字重播省得多。
-  const _histWindow_ = _sceneCut ? 2 : 4;
+  const _histWindow_ = KANSHOU_HIST_WINDOW_;
   // 🌍 世界帳本：讀出這一局玩出來的地方/人/設定，只餵跟此刻真的有關的那幾條(見 worldFeed_)。
   const _worldRows_ = worldRead_(myGameId);
   const _worldFeed_ = worldFeed_(myGameId, _worldRows_, curL, presentMembers, userMsg, curDay);
