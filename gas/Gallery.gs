@@ -9,7 +9,7 @@
 // ==========================================
 
 // 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
-// 防呆：AI 輸出寫入試算表前夾住異常值(幻覺型別跑掉)，只動範圍明確的數值欄位，單回合好感限 -100~+100。
+// 防呆：AI 輸出寫入試算表前夾住異常值(幻覺型別跑掉)，只動範圍明確的欄位：options 剝鷹架＋限筆數、world_note 只收合法類別。
 function sanitizeAiData_(aiData, gameId) {
   if (!aiData || typeof aiData !== "object" || Array.isArray(aiData)) {
     throw new Error("AI 回傳結構異常（非物件），已攔截避免污染資料。");
@@ -306,7 +306,6 @@ function kanshouRelMemBuild_(nickValue, locks) {
   });
   return out;
 }
-// 🫶 玩家主動提議(相約/同去)她答不答應——【GAS 依好感擲，AI 只演反應】(2026-07 由 AI 判定改為 GAS 判定)。
 // 🗑️ 2026-09 大精簡：★【稍早做過的事】那行摘要整組砍除（kanshouRecentDigest_／KANSHOU_DIGEST_ROUNDS_／
 //    KANSHOU_DIGEST_CAP_）。它把掉出 chatHistory 窗口的舊回合壓成一行「玩家做過什麼」，但那一行講的
 //    正是 chatHistory 已經在講的事，而且是壓過的版本——兩個真實來源，差的那個每回合多花 168 字。
@@ -363,7 +362,7 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
 // 進入慾海·後日談：每個帳號只有【一個】常駐後日談世界，點「進入鑑賞」直接回到這個世界。
 // 🧹 依 game_id 把某張表屬於這一局的列整批清掉。回傳被清掉那些列在 idCol 欄的值(供連帶清歷史)；
 //    idCol 傳 null 就只清不收。
-// ⚠ 刻意【不】逐列 deleteRow：在 GAS 裡那是一列一次 API 呼叫，同伴＋歷史＋相簿＋帳本加起來
+// ⚠ 刻意【不】逐列 deleteRow：在 GAS 裡那是一列一次 API 呼叫，同伴＋歷史＋帳本加起來
 //    可以慢到玩家以為當掉(玩家實測「輸入名字後就消失了，不知道有沒有在執行」)。
 //    改成「留下來的整批寫回、尾巴一次砍掉」——N 次呼叫變 2 次。同 actionPurgeOrphans 的寫法。
 function kanshouPurgeByGame_(sh, gidCol, gid, idCol) {
@@ -387,7 +386,7 @@ function kanshouPurgeByGame_(sh, gidCol, gid, idCol) {
 }
 
 // 🔄 鑑賞歸零重來：把這個帳號的整局後日談資料清掉，下次進鑑賞就是全新的世界。
-// 【會清掉】鑑賞眾生(玩家自己那列＋所有同伴)、他們的對話歷史、相簿、世界帳本、帳號表的鑑賞連結。
+// 【會清掉】鑑賞眾生(玩家自己那列＋所有同伴)、他們的對話歷史、世界帳本、帳號表的鑑賞連結。
 // 【不會動】英靈殿(含你在工房鑄的原創英靈——那是兩軌共用的資產)、solo 那一局的任何東西。
 // 🔒 授權比照 actionEndRun 那次稽核的修法：pcId 是可預測的時間戳，【不可】裸 find；
 //    一律驗「這個帳號登記的鑑賞角色是不是就是它」，否則任何人都能猜 id 清掉別人的存檔。
@@ -435,23 +434,6 @@ function actionEnterKanshou(userData, pcId, sheets) {
     for (var r = 1; r < data.length; r++) {
       if (String(data[r][COL.PC.ID]) !== linkedKpcId) continue;
       var loc = String(data[r][COL.PC.LOC] || "冬木·深山町");
-      // 🏷️ 日常稱呼一次性遷移(冪等)：既有列若還是正式全名(間桐櫻/伊莉雅絲菲爾/阿爾托莉雅·潘德拉貢…)
-      try {
-        var _cnMap = {};
-        for (var _cid in KANSHOU_CASUAL_NAME_) {
-          var _sd = SEED_SERVANTS.find(function (h) { return h.id === _cid; });
-          if (_sd && _sd.realName !== KANSHOU_CASUAL_NAME_[_cid]) _cnMap[_sd.realName] = KANSHOU_CASUAL_NAME_[_cid];
-        }
-        var _myGid = String(data[r][COL.PC.GAME_ID] || "");
-        for (var _cw = 1; _cw < data.length; _cw++) {
-          if (String(data[_cw][COL.PC.GAME_ID] || "") !== _myGid) continue;
-          if (String(data[_cw][COL.PC.FACTION]) !== "從者") continue; // 🛡️ 只正名 NPC——玩家 avatar 若自取名「遠坂凜」不得被強改
-          var _cwNm = String(data[_cw][COL.PC.NAME] || "");
-          if (_cnMap[_cwNm]) { data[_cw][COL.PC.NAME] = _cnMap[_cwNm]; kpc.getRange(_cw + 1, COL.PC.NAME + 1).setValue(_cnMap[_cwNm]); }
-        }
-      } catch (e) { }
-      // 🗺️ 舊存檔遷移：地圖搬進世界帳本那一版之前，這些地方寫死在代碼裡。種回去一格都不少。
-      kanshouSeedMap_(kpc, data, r, false);
       return JSON.stringify({
         success: true,
         pcId: linkedKpcId, pcName: String(data[r][COL.PC.NAME] || acctName),
@@ -468,7 +450,6 @@ function actionEnterKanshou(userData, pcId, sheets) {
       if (String(data[m][COL.PC.MEMORY] || "").indexOf(acctTag) === -1) continue;
       var migId = String(data[m][COL.PC.ID]);
       linkAccountToKanshouPc_(acctName, migId);
-      kanshouSeedMap_(kpc, data, m, false);
       return JSON.stringify({
         success: true,
         pcId: migId, pcName: String(data[m][COL.PC.NAME] || acctName),
@@ -529,7 +510,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
   }
 
   // 🌱 新局的地圖＝一片空白＋五個範例地方（可改名、可改樣子、可刪掉）。
-  kanshouSeedMap_(kpc, data, -1, true, mRow, kpc.getLastRow() - starterRows.length);
+  kanshouSeedMap_(kpc, data, -1, mRow, kpc.getLastRow() - starterRows.length);
   return JSON.stringify({
     success: true,
     pcId: mId, pcName: mName, pcSex: mSex, loc: loc2, homeName: getKanshouHomeName_(mRow[COL.PC.MEMORY], mName)
@@ -571,7 +552,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
     if (wIdx === undefined) return JSON.stringify({ success: false, message: "你的角色不見了，重新進來看看。" });
     // 🔒 只補空的、不蓋已有的：第一次補完會蓋【設定已補】章，之後再跑就只填【現在還是空的】那幾格。
     //    沒有這道閘，對一個已經玩過的角色再跑一次 backfill 會把他整組洗掉——舊角色回來補新欄位
-    //    (口吻/小動作)一定會踩到。詳見 CODE_NOTES.md。
+    //    (怪癖/準則)一定會踩到。詳見 CODE_NOTES.md。
     const _topUp_ = !!KANSHOU_BACKFILL_DONE_TAG_.get(row[COL.PC.MEMORY]);
     const _put_ = (col, val, curRaw) => {
       if (!val) return;
@@ -917,7 +898,7 @@ function buildDefaultSystemPrompt(includeOptions, styles) {
   // 🔠 對話格式規則：2026-09 起只剩鑑賞在用——那套含喘息/吸吮的例子是 NSFW 取向，solo 是 SFW 戰鬥敘事，改用 miniSystem 內的短版。
 
   // 🔴 NSFW(慾海模式)：本回合聚焦當下的近身互動(情慾/調情/鋪陳皆可)，雜務(物品/金錢/陣營/任務/招募/地圖/戰鬥數值/身世)完全不追蹤、不輸出，鐵律文字大幅精簡，盡量交給AI自行判斷。
-  // 風格段（筆觸／主權／對話格式／推演／連貫／語癖／不出戲）由 kanshouStyle_ 供給：玩家版→關閉→預設。
+  // 風格段（筆觸／主權／演法／對話格式／尺度／世界／篇幅／收尾）由 kanshouStyle_ 供給：玩家版→關閉→預設。
   //    鐵律照陣列順序動態編號，關掉一段其餘自動補號；預設值全部一格不改時，輸出與舊版寫死的字串逐字相同。
   const _st = k => kanshouStyle_(styles, k);
   // 🗑️ 2026-09 大精簡：鐵律只留【格式】。砍掉的是筆法指導——drive(小要求誰決定)、
@@ -1060,51 +1041,27 @@ const KANSHOU_STARTER_PLACES_ = [
   { name: '咖啡廳', region: 'fuyuki', text: '磨豆香氣繚繞的小巧咖啡館。' },
   { name: '夜景展望台', region: 'dojo', text: '能俯瞰整座城市萬家燈火的高地，晚風正好。' }
 ];
-// 🧳 舊存檔的地圖：這些地方原本寫死在 KANSHOU_LOCATIONS_ 裡，玩家的人和記憶都站在上面。
-//    搬進帳本時整批種回去，一格都不少——存檔換版本的那一刻不該有東西消失。
-//    之後它們跟範例地圖一樣可改可刪，這張表只在【一次性遷移】時被讀到。
-const KANSHOU_LEGACY_PLACES_ = [
-  { name: '客廳', region: 'home', text: '沙發與電視的日常起居空間。' },
-  { name: '浴室', region: 'home', text: '水氣氤氳、放鬆卸下一天疲憊的地方。' },
-  { name: '和室', region: 'home', text: '鋪著榻榻米的和室，安靜得聽得見風。' },
-  { name: '河邊小徑', region: 'shinzan', text: '晨昏都靜謐的河堤小徑，水聲潺潺。' },
-  { name: '古老神社', region: 'shinzan', text: '石階盡頭的老神社，香火氣息。' },
-  { name: '社區公園', region: 'shinzan', text: '孩子嬉鬧、長椅斑駁的社區公園。' },
-  { name: '便利商店', region: 'shinzan', text: '燈火通明、24小時營業的街角小店。' },
-  { name: '藤村家', region: 'shinzan', text: '熱鬧溫馨、時常傳出笑鬧聲的藤村家。' },
-  { name: '咖啡廳', region: 'fuyuki', text: '磨豆香氣繚繞的小巧咖啡館。' },
-  { name: '書店二樓', region: 'fuyuki', text: '安靜得只聽見翻頁聲的二樓書架間。' },
-  { name: '商店街', region: 'fuyuki', text: '人聲鼎沸的商店街，攤販林立。' },
-  { name: '摩天輪', region: 'fuyuki', text: '入夜會點燈的摩天輪，是情侶間熱門的約會景點。' },
-  { name: '水族館', region: 'fuyuki', text: '館內盡是幽藍燈光，水母缸前總擠著竊竊私語的情侶。' },
-  { name: '深夜賓館', region: 'fuyuki', text: '招牌亮著曖昧的霓虹燈，房間隔音很好，沒有人會多問一句。' },
-  { name: '遠坂邸', region: 'fuyuki', text: '老字號魔術師家系的遠坂邸。' },
-  { name: '廢棄神社', region: 'dojo', text: '荒草蔓生、早已無人祭拜的廢棄神社。' },
-  { name: '夜景展望台', region: 'dojo', text: '能俯瞰整座冬木市萬家燈火的高地，晚風正好，兩人並肩無語也不尷尬。' },
-  { name: '情侶溫泉套房', region: 'dojo', text: '只租給兩人的溫泉旅館房間，一拉上紙門，外頭的世界就與你們無關了。' }
-];
 // 🗺️ 地圖種子只種一次：判準是「寫過沒有」而不是「有沒有地方」——玩家把地圖清空是他的決定，
 //    不該下次進來又長回來（同 KANSHOU_PARTY_TAG_ 那條）。
 var KANSHOU_MAP_SEED_TAG_ = makeTextTag_('地圖');
 // 種地圖＋把「已經種過」寫回玩家那一列。rowIdx<0＝這一列是剛 append 的新局(用 newRow/newRowNum)。
-function kanshouSeedMap_(kpc, data, rowIdx, fresh, newRow, newRowNum) {
+function kanshouSeedMap_(kpc, data, rowIdx, newRow, newRowNum) {
   const row = (rowIdx >= 0) ? data[rowIdx] : newRow;
   if (!row) return;
   const gid = String(row[COL.PC.GAME_ID] || "");
   if (!gid) return;
-  const mem = kanshouSeedMapIfNew_(gid, row[COL.PC.MEMORY], fresh, parseInt(row[COL.PC.DAY]) || 1);
+  const mem = kanshouSeedMapIfNew_(gid, row[COL.PC.MEMORY], parseInt(row[COL.PC.DAY]) || 1);
   if (mem === row[COL.PC.MEMORY]) return;      // 種過了，什麼都不必寫
   row[COL.PC.MEMORY] = mem;
   try { kpc.getRange(((rowIdx >= 0) ? rowIdx : (newRowNum - 1)) + 1, COL.PC.MEMORY + 1).setValue(mem); } catch (e) { }
 }
-function kanshouSeedMapIfNew_(gameId, memory, fresh, curDay) {
+function kanshouSeedMapIfNew_(gameId, memory, curDay) {
   if (KANSHOU_MAP_SEED_TAG_.has(memory)) return memory;
-  const seeds = fresh ? KANSHOU_STARTER_PLACES_ : KANSHOU_LEGACY_PLACES_;
   try {
-    worldWrite_(gameId, seeds.map(x => ({ kind: '地點', name: x.name, text: x.text, region: x.region })),
-      parseInt(curDay) || 1, seeds.length);
+    worldWrite_(gameId, KANSHOU_STARTER_PLACES_.map(x => ({ kind: '地點', name: x.name, text: x.text, region: x.region })),
+      parseInt(curDay) || 1, KANSHOU_STARTER_PLACES_.length);
   } catch (e) { }
-  return KANSHOU_MAP_SEED_TAG_.set(memory, fresh ? '範例' : '舊版');
+  return KANSHOU_MAP_SEED_TAG_.set(memory, '範例');
 }
 // 🏷️ 送進提示詞的地名：資料鍵「我的房間」是第一人稱，跟第二人稱旁白打架(旁白會照抄成「走進我的房間」)。
 //    只改餵 AI 的字面，存表/比對一律仍用原鍵。
@@ -1139,12 +1096,6 @@ function kanshouSetParty_(memory, ids) {
 // 世界概況(輕量版)名單上限——同伴一多，每回合都列全部人+所在地會讓提示詞無限膨脹，只取好感前幾位。
 const KANSHOU_WORLD_ROSTER_CAP_ = 8;
 // 🪪 短名／真名 → 種子 id：短名優先(id 唯一對應，不受真名撞名影響)，再退回真名候選比對。
-function kanshouHeroIdByName_(heroName) {
-  const n = String(heroName || "").trim();
-  for (var cid in KANSHOU_CASUAL_NAME_) { if (KANSHOU_CASUAL_NAME_[cid] === n) return cid; }
-  const hero = SEED_SERVANTS.find(h => kanshouNameCandidates_(h.realName).includes(heroName));
-  return hero ? hero.id : null;
-}
 // 真正的西曆年/月/日(每年固定365天、不算閏年，遊戲用途夠精準)，只抓3年區間(見actionPlay的advanceHours上限)不追求無限年份。
 const KANSHOU_CAL_START_MONTH_ = 12, KANSHOU_CAL_START_DAY_ = 20;
 // 開局那年的西元年。原本沒有這個常數、year 直接算成「第幾年」，開局就顯示「1年12月20日」——
@@ -1212,19 +1163,10 @@ var KANSHOU_MORNING_AFTER_TAG_ = makeTextTag_('晨間餘韻');
 // 🌙 夜未眠(存玩家列·absDay)：2026-07 玩家「睡覺按鈕這裡有被夜襲判定+色色…要再切一段深夜的大戰時刻...?」。
 var KANSHOU_NIGHT_SCENE_TAG_ = makeIntTag_('夜未眠', 0);
 
-// 🙋 她主動(2026-07 玩家「泡泡用的應該也很少了…NPC 是不是就不太主動了？
-var KANSHOU_INITIATIVE_DAY_TAG_ = makeIntTag_('主動日', 0);
-// 📐 調校依據(2026-07 模擬 40 天實跑)：初版 BASE .006/PER_BOND .0002 打完整天會 39/40 天都有事，「每天都有」讀起來很腳本。
-// 🕘 只有「她自己走來找你」這條要看時鐘：另外兩種她本來就已經在你面前，幾點都不奇怪。
-// 🗑️ 2026-09 側寫節流(KANSHOU_SIDEWRITE_EVERY_/【側寫計數】)隨 master_note 一併移除。舊存檔殘留的標記是純孤兒資料，不影響任何邏輯。
-// 🌙 醒著陪同標記(存該同伴列MEMORY·地點值)：剛同意同去而醒著陪同的同伴，只要人還在同一個地點沒變動就持續視為醒著——否則離開再進來的下一回合，她會被誤判成剛好躺在自己家裡熟睡，儘管全程明明醒著陪在玩家身邊互動(玩家實測「離開又進去，敘事明明醒著卻還跳賴床泡泡」)。
-// 日常落點保底池排除的分區（單一真實來源）：玩家的住處只有受邀者進得來。
-// 整張池子空掉時的保底落點（理論上不會發生，但這支必須永遠回得出一個地名）。
 // 通用【tag】值淨化：清掉標籤分隔字元(,/:/｜/【/】)避免撐破 MEMORY 裡任何單值 tag 的格式(住所名…)，順手也清掉引號/角括號(防提示詞注入)。
 function kanshouSanitizeTagValue_(value, maxLen) {
   return String(value || "").replace(/[,:｜【】"'<>\n\r\t]/g, "").trim().slice(0, maxLen || 8);
 }
-const KANSHOU_ALBUM_CAP_ = 100;
 // ═══════════════════════════════════════════════════════════════════
 // 🌍 世界帳本 —— AI 發明出來的東西，落盤的地方
 // ═══════════════════════════════════════════════════════════════════
@@ -1551,7 +1493,6 @@ function worldWrite_(gameId, entries, curDay, max) {
     if (spec.kinds.indexOf(kind) < 0 && kind !== KANSHOU_REGION_KIND_) return;
     // ⚠ world_note 是【AI 產的】、不經過 sanitizeUserData_，所以清洗要在這裡做完：
     //    ①斷字/偽造標記字元 ②開頭的公式引導字元(寫進儲存格會被 Google Sheet 當公式執行)
-    //    ——相簿的 photo_caption 當初就是為了同一件事補的，這裡不能漏。
     const _f = v => String(v || "").replace(/[<>&"'`｜【】\[\]★\r\n\t]/g, "").replace(/^[=+\-@\t\r]+/, "").trim();
     const name = _f(e.name).slice(0, 20), text = _f(e.text).slice(0, spec.textMax);
     if (!name && !text) return;
@@ -1735,11 +1676,6 @@ function worldFeed_(gameId, rows, curLoc, presentNames, userMsg, curDay) {
     : '';
   return `\n★【${spec.feedTitle}】：${line}。${spec.feedTail}${folk}`;
 }
-const KANSHOU_HAIR_COLORS_ = [
-  ['深紫', '#4a3a5e'], ['紫', '#7a5a9a'], ['金', '#e8c86a'], ['白髮', '#e8e4ea'], ['銀', '#d8d8e0'],
-  ['黑', '#241f2e'], ['紅褐', '#8a4a34'], ['栗色', '#8a5a3a'], ['褐', '#6a4a34'], ['棕', '#6a4a34'],
-  ['藍', '#4a6a9a'], ['粉', '#d88aa8'], ['青綠', '#5a9a8a'], ['綠', '#5a8a6a'], ['紅', '#b04a3a'], ['橙', '#c87a3a']
-];
 function getKanshouHomeName_(memory, playerName) {
   const m = String(memory || "").match(/【住所】([^｜【】]*)/);
   const nm = m ? m[1].trim() : "";
@@ -1775,7 +1711,6 @@ const KANSHOU_NAME_ALIAS_ = {
   '衛宮士郎': ['士郎'], '士郎': ['衛宮士郎']
 };
 // 顯示用短名：有登記用短名，沒登記(工房原創/男性英靈等)維持原名。
-function kanshouCasualOf_(hero) { return (hero && (KANSHOU_CASUAL_NAME_[String(hero.id)] || hero.realName)) || ""; }
 // 🪞 同一個人不可以同時在場：斯卡哈有 Lancer/Assassin 兩種靈基、伊莉雅有 Master/Caster 兩個版本，
 //    顯示名看起來不一樣、真名（或來源種子）卻是同一個人。回 {name, same}：name＝已在場那位的顯示名
 //    （空字串＝沒衝突），same=true 代表就是同一筆種子（「已經召喚過了」），false 代表同一個人的另一種姿態。
@@ -1854,7 +1789,6 @@ function actionPlay_(userData, pcId, sheets) {
     const a = traitParts_(str);
     return [_qv(a[0]), _qv(a[1])].filter(Boolean).join('，');
   };
-  // 🎯 2026-07 玩家「『私下對可愛小物多看兩眼還故作矜持』這個就是萌點就好，不一定要反差」：第4格[私下一面]與[萌點]本來就是同一種功能(她那份惹人喜歡的隱藏面)，種子資料裡的萌點還早就寫成反差句(「食量驚人卻吃相優雅」)——等於同一件事包了兩層、各寫一遍。
 
 
   let pcData = sheets.pc.getDataRange().getValues();
@@ -2027,8 +1961,7 @@ function actionPlay_(userData, pcId, sheets) {
           : `【時間推進】${advanceHours}個小時悄悄過去，此刻是${newDate.year}年${newDate.month}月${newDate.day}日・${kanshouFmtHM_(curHour)}・${timeBand_(curHour)}。`) + _jumpSceneBreak;
     }
   }
-  // ⏰ 時間隨動作流動：一般 AI 敘事回合(非結束一天/非時段跳躍)每次推進 kanshouHourPerAction_(memory) 小時(玩家自選流速)，讓聊天/移動/拍照/橋段等按鍵都會讓時鐘往前走，消除「到處跑卻永遠6點」的凍結感。
-  // 📱 拍照不算時間（2026-09）：真的用手機拍是一秒鐘的事，玩家常「拍一張、再拍一張」，每張走掉半小時下午就沒了。
+  // ⏰ 時間隨動作流動：一般 AI 敘事回合(非結束一天/非時段跳躍)每次推進 kanshouHourPerAction_(memory) 小時(玩家自選流速)，讓聊天/移動等按鍵都會讓時鐘往前走，消除「到處跑卻永遠6點」的凍結感。
   if (!kanshouClockMoved_ && curHour < KANSHOU_DAY_LAST_HOUR_ && _paceHour_ > 0) {
     curHour = Math.min(KANSHOU_DAY_LAST_HOUR_, curHour + _paceHour_);
     pcData[pcIndex][COL.PC.HOUR] = curHour;
@@ -2107,12 +2040,9 @@ function actionPlay_(userData, pcId, sheets) {
     ? `\n★【夜已深·門關上了】：這個房間此刻只剩你和『${(kanshouNightSceneNames_.length ? kanshouNightSceneNames_ : partyMembers).join('、')}』，外頭安靜下來，今晚不會再有別人進來，時間也不急著走。★這一段【還沒有結束】：這一夜什麼時候收，由玩家自己決定、系統會宣告；本回合只演此刻正在發生的這十分鐘，結尾一樣停在進行式、把下一步交還玩家。`
     : "";
 
-  // 💗 關係質變：跨進新階的當下演一次。給的是「方向」不是台詞——具體怎麼表現交給 AI 依她性格拿捏。
-
-  // 📷 拍照(takePhoto)：手機拍照·2026-07 再修（玩家「拍照要改成手機、不用等」）——手機沒有底片這種東西，只驗相簿總容量；拍完立刻存進相簿、立刻能看，不再有「隔天沖洗」的等待。
   let partyDetailsArr = [];
   const _presenceSeen_ = {};
-  // 🔦 聚光燈：玩家這一步點名了誰，誰才拿完整的卡；同場其他人拿短卡（名字/裝扮/現況/口吻/關係）。
+  // 🔦 聚光燈：玩家這一步點名了誰，誰才拿完整的卡；同場其他人拿短卡（名字/裝扮/現況/關係）。
   //    提示詞本來就寫著「玩家專一對著一個人時其他人背景輕描」——這是把那句話真的做出來。
   //    ⚠ 沒點名任何人就【全部都給完整卡】（維持原行為）：猜錯的代價是那個人當場失格，不值得賭。
   const _spotlight_ = userMsg
@@ -2145,7 +2075,6 @@ function actionPlay_(userData, pcId, sheets) {
       const _pKnown = kanshouKnownOfYou_(r[COL.PC.MEMORY]);
       const pKnownStr = `${_pKnown.say}${_pKnown.noted.length ? `，${pron_(r[COL.PC.SEX])}注意到你${_pKnown.noted.join('、')}` : ''}。`;
       const pMemoirStr = pMemoirRaw ? `你們一起走過：${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}。` : "";
-      // 📅 待赴約定(玩家追問「AI每次都看得到約定吧?」查出的缺口)：約成立到赴約之間的等待回合，AI 原本完全不知道有這個約——聊「期待明天嗎」她會一臉茫然、甚至另約衝突計畫。
       // 明講方向的「她/他是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍對方。
       // 🫂 在場者都是同行者，走到哪跟到哪——在場來由只剩「這一幕是怎麼開場的」。
       const pPresenceStr = (() => {

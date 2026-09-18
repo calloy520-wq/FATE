@@ -680,7 +680,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouLocContextForAI_(locName, homeName, gameId)` — 依 region 補一句給 AI 的場域脈絡（自己房間/共用空間/別人住處/深山町…），AI 自創地點回空字串。
 - `KANSHOU_LOCATIONS_`（常數）— 內建地點清單，2026-09 起**只剩「我的房間」**（`isRoom`·結構性，刪不得）。這一局真正走得到的地方＝它 ∪ 世界帳本的「地點」類（`kanshouLocationsFor_`）。
 - `KANSHOU_STARTER_PLACES_`（常數，5 筆）— 新局開場種進世界帳本的範例地圖（可改名／改樣子／刪掉）。
-- `KANSHOU_LEGACY_PLACES_`（常數，18 筆）— 地圖搬進帳本之前寫死在代碼裡的那些地方；只在舊存檔的一次性遷移時被讀。
+（~~`KANSHOU_LEGACY_PLACES_`~~ 已於 2026-09 移除：地圖搬進帳本之前寫死在代碼裡的那 18 個地方，只在舊存檔的一次性遷移時被讀；玩家確認鑑賞存檔已清空，整條遷移路徑連同日常稱呼正名一併砍除。）
 - `KANSHOU_MAP_SEED_TAG_`（makeTextTag_ 地圖·存玩家列）— 地圖種子只種一次的戳記，判「寫過沒有」不是「有沒有地方」。
 - `WORLD_SPEC_`（常數）— 帳本引擎的**逐軌規格表**（`kanshou`／`solo`）：`sheet`／`kinds`／`cap`／`feedMax`／`atMax`／`writeMax`／`textMax`。加一軌＝往表加一列。
 - `worldTrack_(gameId)` / `worldSpec_(gameId)` — 由 game_id 前綴決定這一局屬於哪一軌（`g_`＝solo）並取出規格。
@@ -732,7 +732,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `KANSHOU_CASUAL_NAME_`（常數）— SEED id→日常短名/職階（SABER/RIDER/伊莉雅/櫻/凜/大河/士郎）。
 - `KANSHOU_NAME_ALIAS_`（常數）— 全名↔短名雙向別名表。
-- `kanshouCasualOf_(hero)` — 顯示用短名（有登記用短名、否則 realName）。
+（~~`kanshouCasualOf_`~~ 已於 2026-09 移除：全樹零呼叫。顯示用短名一律走 `KANSHOU_CASUAL_NAME_` 查表。）
 - `kanshouNameCandidates_(fullName)` — 產生比對候選集：全名/括號前後段＋日常別名＋拉丁大小寫三態。rel_changes/intimacy_feedback/npc_exit/名字比對全靠它容錯，是整檔跨名比對的地基。
 
 #### 🔴 核心敘事引擎

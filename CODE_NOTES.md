@@ -1172,9 +1172,11 @@ memory選填：只有call site拿得到該英靈自己列的MEMORY時才傳，�
 
 🌙 夜未眠(存玩家列·absDay)：2026-07 玩家「睡覺按鈕這裡有被夜襲判定+色色…要再切一段深夜的大戰時刻...?」。舊做法是按下「讓她留下」＝ endDay:true，於是【同一個回合】要同時演完深夜相處、收束到就寢、還要把整天結掉推進到隔天 6:00——按鈕上那行小字「直接到早上」就是自白。篇幅上限 500 字(_kanshouTargetWords_)塞不下，玩家也完全插不上手。改成兩段：第一次按＝進入這個狀態(時間停在就寢時刻、人釘在房裡、可無限回合推進)，第二次按＝真的睡到天亮。值＝進入的那一天，隔天自然失效，不必另寫清除。
 
-### `KANSHOU_INITIATIVE_DAY_TAG_`　<sub>Gallery.gs</sub>
+### ~~`KANSHOU_INITIATIVE_DAY_TAG_`~~（2026-09 已移除）　<sub>Gallery.gs</sub>
 
 🙋 她主動(2026-07 玩家「泡泡用的應該也很少了…NPC 是不是就不太主動了？」)。稽核結果：她主動的機制只剩「按睡覺時 20% 的深夜訪客」一條，一天 90 個回合裡有 89 個她永遠在等你先開口。舊的主動邀約/橋段泡泡全被拔掉，理由都是同一個——「條件成立就每回合跳，玩家嫌煩」。所以這批一律【不做泡泡】：GAS 擲骰→直接寫成既成事實→AI 演，中間沒有任何一句「你要不要？」。這正是深夜訪客不惹人厭的原因，照抄那個形狀。⚠ 閘門是【全域每日一次】不是每人每天一次——10 位同伴搶同一個名額，頻率跟 1 位完全一樣(玩家「不然如果 10 個 NPC 我不就天天約會」)。
+
+**2026-09 已移除：「她主動來找你」隨橋段池一起砍掉，這個當日鎖就沒有人蓋也沒有人讀了。**
 
 ### `actionPlay_`　<sub>Gallery.gs</sub>
 
@@ -1246,17 +1248,21 @@ herIdx：牽手 tag 寫在玩家列(idx)，但「第一次牽手」這筆帳要�
 
 🐛→✅ 八度改版稽核抓到：夜襲/賴床叫醒新觸發點「玩家自己房間」＋pSleepStr的睡眠提示，都只看LOC×時刻，沒排除「她是這回合跟玩家一起走進來的(牽手/同意同去)」——牽著手走進房間的人明顯還醒著、正跟玩家互動，不該被判定成已經熟睡。跟kanshouPreMoveCompanions_同一套「帶人三態」判準(那個變數宣告在後面、此刻用不到)，這裡先算一次同名邏輯的姓名集合供本節共用。
 
-### `KANSHOU_SIDEWRITE_EVERY_`　<sub>Gallery.gs</sub>
+### ~~`KANSHOU_SIDEWRITE_EVERY_`~~（2026-09 已移除）　<sub>Gallery.gs</sub>
 
 🌀 側寫節流：master_note(經歷)每回合都問會分散 AI 對敘事的注意力。改成每 N 回合才把master_note 放進 schema，其餘回合 AI 完全不知道有這回事、專心寫敘事。計數存玩家列 MEMORY——該列每回合本就必寫回(pcIndex 恆在 dirtyPcRows)，故零額外 round-trip。N=3 剛好貼齊 6筆/3輪 的歷史窗。
+
+**2026-09 已移除（隨 master_note 一併），舊存檔殘留的標記是純孤兒資料。**
 
 ### `kanshouSanitizeTagValue_`　<sub>Gallery.gs</sub>
 
 通用【tag】值淨化：清掉標籤分隔字元(,/:/｜/【/】)避免撐破 MEMORY 裡任何單值 tag 的格式(住所名等任何單值 tag)，順手也清掉引號/角括號(防止原樣塞進前端onclick屬性時破壞HTML)。maxLen不帶預設8。🐛→✅ 稽核比對 solo Router_Creation.gs 的同款清洗(cleanTagText_/_fClean)發現那邊多清\n\r\t(換行/tab)這裡沒清——雖不會撐破｜【】格式(regex排除集本就含隱式匹配換行)，但跟既有慣例對齊，一併補上。
 
-### `KANSHOU_ALBUM_CAP_`　<sub>Gallery.gs</sub>
+### ~~`KANSHOU_ALBUM_CAP_`~~（2026-09 已移除）　<sub>Gallery.gs</sub>
 
 📷 相簿(拍照收集)：手機拍照·2026-07 再修（玩家「拍照要改成手機、不用等」）——原本是寶麗來設定(每日底片限量+隔天沖洗)，玩家覺得手機沒有底片這種東西、拍完也該立刻能看，兩個限制都拔掉了。只留每局相簿總容量 KANSHOU_ALBUM_CAP_ 張(滿了要刪舊照，避免試算表無限膨脹)。小敘述由AI在拍照當回合的回應JSON多吐photo_caption(同一次呼叫·零額外round-trip)，AI沒吐才用模板保底。
+
+**2026-09 已移除：相簿／拍照整組砍掉之後，這個上限沒有人讀了，只剩註解在描述一個不存在的功能。**
 
 ### `KANSHOU_CASUAL_NAME_`　<sub>Gallery.gs</sub>
 
@@ -3004,9 +3010,11 @@ mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未
 
 依 region 補一句大分區脈絡，讓AI知道此刻身處何種場域。找不到(AI自創地點)就回空字串、不硬套。
 
-### `kanshouHeroIdByName_`　<sub>Gallery.gs</sub>
+### ~~`kanshouHeroIdByName_`~~（2026-09 已移除）　<sub>Gallery.gs</sub>
 
 依真名反查SEED_SERVANTS的hero物件(共用小helper，避免kanshouRollDailyLocation_/結束一天房間分配各自重複寫一次同款find邏輯)。
+
+**2026-09 已移除：全樹零呼叫。**
 
 ### `kanshouRollDailyLocation_`　<sub>Gallery.gs</sub>
 
@@ -3016,9 +3024,11 @@ mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未
 
 有時段才寫 band:，無則沿用舊格式。★byHer 旗標只在有 band 時才附加——沒有 band 的舊格式是單段 loc，硬加會被解析成 band='loc'、loc='1'，整筆約定壞掉。
 
-### `KANSHOU_HAIR_COLORS_`　<sub>Gallery.gs</sub>
+### ~~`KANSHOU_HAIR_COLORS_`~~（2026-09 已移除）　<sub>Gallery.gs</sub>
 
 髮色解析：從角色TRAIT(dailyLook外貌段)文字抓色詞→hex——種子/工房新角色通吃(dailyLook建檔時必生成)、永遠零手工；順序敏感(深紫在紫前、紅褐在紅/褐前)，查無色詞退回中性深棕。
+
+**2026-09 已移除：全樹零讀取。**
 
 ### `KANSHOU_EVENT_SEEDS_`　<sub>Gallery.gs</sub>
 
