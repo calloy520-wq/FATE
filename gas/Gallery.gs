@@ -152,7 +152,7 @@ function translatePersonalityToDaily_(name, cls, rawWords) {
   var words = String(rawWords || "").trim();
   if (!words) return words;
   var sys = KANSHOU_DAILY_TRANSLATE_SYS_PREFIX_ + "玩家提供一位角色在聖杯戰爭(戰時)既有的性格短句" +
-    "(用「、」分隔，依序對應[平常相處看得到的樣子][熟了才看得到的那一面][喜歡的事物][討厭的事物]，段數可能不足4段——" +
+    "(用「、」分隔，依序對應[個性][個性][喜歡的事物][討厭的事物]，段數可能不足4段——" +
     "這是正常的，種子資料本就只服務戰鬥)。這個角色現在要進入現代都市的和平日常生活，想像" +
     "《衛宮家今天的餐桌風景》那種基調——性格核心不變，只是活在和平日常裡，請你：\n" +
     "①若既有短句偏戰場語境(如「戰意」「殺意」「勝負」「殺戮」等)，轉譯成性格本質不變、但適合" +
@@ -542,7 +542,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 ★【設定怎麼用】以下設定是【給你內化的素材】：靠言行與神態流露，情境對了才浮現一次。
 ★【格式鐵律】traits 【恰好2段】、personality 【恰好4段】，只用頓號「、」分隔，每段是一個【簡短詞組】，每段內部就寫一件事；不加數字標籤。
 - traits：外貌、氣質。${finalSex === '女' ? BUST_NOTE_ : ''}${AURA_SPEC_}格式範例(只示範斷句，內容一律依玩家給的性別與描述重寫)：「(外貌)、(氣質)」
-- personality：平常相處看得到的樣子、熟了才看得到的那一面、喜歡的事物、討厭的事物。格式範例(只示範斷句)：「(第一眼)、(熟了之後)、(喜歡的)、(討厭的)」
+- personality：個性兩句(各講一件不同的事)、喜歡的事物、討厭的事物。格式範例(只示範斷句)：「(個性)、(個性)、(喜歡的)、(討厭的)」
 ★quirks：${pron_(finalSex)}的怪癖，兩件事用頓號分隔、限24字。寫看得見的習慣動作，或是應付不來的那個領域(例：想事情時會摳袖口、對機器完全沒轍)。
 ★logic：${pron_(finalSex)}做選擇的方式，限24字。把兩件${pron_(finalSex)}都想要的東西擺在一起，說出最後放掉的是哪一個(例：嘴上算的是得失，做的時候總是選重情義那邊)。
 ★background：限20字，【只寫來到冬木【以前】的來歷】，呼應其身世，不出現具體物品名，語氣平和溫馨，不涉及聖杯戰爭或任何戰爭史。
@@ -900,21 +900,20 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
   // 🐛→✅ 2026-09 舊值是「此刻臉上的神色」——神色每一秒都在變，卻被存進 PHYSICAL 欄又原封餵回去，
   //    於是變成固定綽號（實測：SABER 每一段都是「碧眼充滿好奇」、凜「微微揚眉」、櫻「溫柔微笑」）。
   //    這一格只收【跨回合還成立】的身體事實；神色留在 narration 裡當場寫，不存不餵。
-  const _physicalState = "會持續到下一刻的身體狀態(衣衫、痕跡、體液這類)·第三人稱·≤15字·沒有就留空";
+  const _physicalState = "會持續到下一刻的身體狀態(衣衫、痕跡、體液)·第三人稱·≤15字·沒有就留空";
 
   // appearance_extras(原 outfit_change)：角色當下實際穿著與配飾，AI 依劇情如實更新，寫回持久的【換裝】記錄。2026-09 小道具機制移除後，配飾類事實回歸由這一欄承接。
-  const _appearanceExtras = "穿著與配飾·第三人稱·≤20字·沒換就留空";
+  const _appearanceExtras = "穿著與配飾·第三人稱·≤20字·沒有就留空";
 
-  const _physicalStateRef = "這個人身上會持續到下一刻的狀態(衣衫、痕跡、體液這類)·≤15字·沒有就留空";
-  const _appearanceExtrasRef = "這個人的穿著與配飾·≤20字·沒換就留空";
+  const _physicalStateRef = "同上·這個人的";
+  const _appearanceExtrasRef = "同上·這個人的";
 
   // 🗑️ 2026-09 大精簡（玩家「我只要給 AI 當下情況就好」）：範本只留【欄位長相】，說明壓成短詞組。
   //    ⚠ inner_monologue（強制思維鏈·126 字）整欄砍掉：那是叫模型先自省再下筆的教法，不是格式，
   //    而它是整份提示詞裡最長的一條。
   const finalJson = {
-    "narration": "劇情·第一人稱「我」＝玩家·長度見【篇幅】",
-    "npc_exit": "本回合離場者·照卡上的名字寫·narration 要演出離開·否則 []",
-    "options": ["4條·各≤20字·【我】這一步做得到的動作·第一人稱·走向各不相同"],
+    "narration": "劇情",
+    "options": ["4條·各≤20字·【我】這一步做得到的動作·走向各不相同"],
     "intimacy_feedback": {
       "player": {
         "physical_state": _physicalState,
@@ -924,13 +923,13 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
         "name": "照卡上的名字寫",
         "physical_state": _physicalStateRef,
         "appearance_extras": _appearanceExtrasRef,
-        "mutual_nicknames": "這回合真的叫出口的暱稱·否則「無」",
-        "rel_tag": "≤8字·關係這一步真的往前走了才填·這個人此刻成了玩家的什麼·平常「無」",
-        "memory": "里程碑才寫·≤30字·第一人稱「我」·其餘「無」",
-        "noticed": "≤14字·會改變之後怎麼對玩家的發現·其餘「無」"
+        "mutual_nicknames": "這回合真的叫出口的暱稱·沒有就留空",
+        "rel_tag": "≤8字·關係這一步真的往前走了才填·這個人此刻成了玩家的什麼·沒有就留空",
+        "memory": "里程碑才寫·≤30字·第一人稱「我」·沒有就留空",
+        "noticed": "≤14字·會改變之後怎麼對玩家的發現·沒有就留空"
       }]
     },
-    "world_note": [{ "kind": "地點|人物|設定", "name": "一句話標題", "text": "≤" + WORLD_SPEC_.kanshou.textMax + "字", "sex": "kind=人物 才填 男/女/異", "at": "只長在某地就填那個地名·否則「無」" }],
+    "world_note": [{ "kind": "地點|人物|設定", "name": "一句話標題", "text": "≤" + WORLD_SPEC_.kanshou.textMax + "字", "sex": "kind=人物 才填 男/女/異", "at": "只長在某地就填那個地名·沒有就留空" }],
   };
   if (includeOptions === false) { delete finalJson.options; }
 
@@ -2447,7 +2446,7 @@ function actionPlay_(userData, pcId, sheets) {
   const _sty_ = k => kanshouStyle_(_styles_, k, _styleVars_);
   const prompt = `${_sty_('world')}
 ${PROMPT_REL}
-★【誰在場】：【在我身邊的人】那份名單＝此刻在我身邊的人；有【專屬稱呼】就叫暱稱。【已經確立的事】名單上的人可出現可開口，其餘路人不具名。
+★【誰在場】：有【專屬稱呼】就叫暱稱。【已經確立的事】名單上的人可出現可開口，其餘路人不具名。
 ★【world_note】：這一步新出現的地方/人/規矩寫進去才會留下，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆；只長在某地的東西（田、雞、招牌、常客）的 at 填那個地名。
 
 【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
@@ -2501,38 +2500,10 @@ ${PROMPT_BODY}
 
 
 
-    // 🚶‍♀️ 同伴自主離場(npc_exit)：AI 說某人這回合告辭了，就真的讓他走。
-    //    ⚠ 2026-09 在場改成【同地點】之後，只移出同行名單不夠——人還站在這裡就還在場，
-    //      「嘴上說走卻還在場」的違和會原封不動長回來。所以連 LOC 一起改到別的地方。
-    {
-      const exitList = Array.isArray(aiData.npc_exit) ? aiData.npc_exit : [];
-      if (exitList.length) {
-        const _spots = (_worldRows_ || []).filter(w => w && w.kind === '地點'
-          && String(w.name || '').trim() && String(w.name).trim() !== String(curL || '').trim());
-        let _pIds = kanshouGetParty_(pcData[pcIndex][COL.PC.MEMORY]);
-        const _before = _pIds.length;
-        exitList.forEach(nm => {
-          const exitName = String(nm || "").trim();
-          if (!exitName) return;
-          const eRow = presentRows.find(r => kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(exitName));
-          if (!eRow) return;
-          _pIds = _pIds.filter(id => id !== String(eRow[COL.PC.ID]));
-          // 走去哪：這一局地圖上隨便一個不是這裡的地方。沒有別的地方可去就留著（世界只有一格時）。
-          if (_spots.length) {
-            const _eIdx = pcData.indexOf(eRow);
-            if (_eIdx >= 0) {
-              pcData[_eIdx][COL.PC.LOC] = String(_spots[Math.floor(Math.random() * _spots.length)].name).trim();
-              dirtyPcRows.add(_eIdx);
-            }
-          }
-        });
-        if (_pIds.length !== _before) {
-          pcData[pcIndex][COL.PC.MEMORY] = kanshouSetParty_(pcData[pcIndex][COL.PC.MEMORY], _pIds);
-          dirtyPcRows.add(pcIndex);
-        }
-      }
-    }
-
+    // 🗑️ 2026-09 同伴自主離場(npc_exit)整組砍除（玩家定案）：它讓 AI 可以【不問玩家】就把人
+    //    移出同行名單、還把她送去別的地點。而誰跟著我走、誰留在哪裡，是玩家用面板那幾顆鈕決定的事
+    //    （玩家原話：「我需要這個角色可以跟我同行到 A，我 A 解散他，他會一直在 A」）——
+    //    兩把鑰匙開同一道門，其中一把還在 AI 手上。要她離開，敘事照樣寫得出來，只是位置不會被動。
     // 鑑賞無戰鬥：血量快照/stat_changes(外顯狀態刷新)/經濟層(物品/金錢/任務)皆不追蹤、不落地。
 
     {
