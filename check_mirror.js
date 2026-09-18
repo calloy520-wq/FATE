@@ -39,7 +39,6 @@ const FRONTEND_ONLY = {
   'KC_QUICK_PHRASES_BUILTIN_': '4 個內建貼圖純前端顯示，後端只管玩家自訂的那份',
   'KC_BAND_SHORT_': '時段名稱的短標籤，純 UI 排版用',
   'KC_ALBUM_BAND_BG_': '相簿卡片依時段的背景色，純樣式',
-  'KC_SLEEP_HINTS_': '地圖上的「她熟睡中」提示，純顯示——同一件事後端是 pSleepStr 每回合算好餵給 AI（KANSHOU_ASLEEP_HOUR_END_ 才是真實來源），不是一張對照表',
 };
 // 🔧 刻意的差異：前後端**本來就不該一模一樣**的地方。每一條都必須寫 why——
 //   這正是這支工具的價值所在：不是消滅差異，是逼每個差異都有人為它簽名。
@@ -47,14 +46,9 @@ const FRONTEND_ONLY = {
 const TWEAK = {
   'KC_TIME_BANDS_': { skip: ['label'], why: '前端 label 前面掛 emoji，純顯示；key/startHour 才是判準' },
   'KC_LOCATIONS_': {
-    why: '① 前端把 room 併進 home 分頁顯示，真正的判準是 isRoom ② 後端在檔案載入時才把泛用住處池 push 進 '
-      + 'KANSHOU_LOCATIONS_（單一真實來源），靜態讀字面量看不到那 8 間，這裡照同樣規則補上',
-    front: v => v.map(x => (x.isRoom ? Object.assign({}, x, { region: 'room' }) : x)),
-    back: (v, ctx) => v.concat(ctx.pool.map(h => ({ name: h.name, region: 'visit', desc: h.desc, noEncounter: true, generic: true })))
+    why: '前端把 room 併進 home 分頁顯示，真正的判準是 isRoom',
+    front: v => v.map(x => (x.isRoom ? Object.assign({}, x, { region: 'room' }) : x))
   },
-  // 前端這張表混了兩件事：① 橋段徽章（對後端 KANSHOU_LOCATION_EVENTS_）② 住處的「她熟睡中」徽章
-  //   （對後端所有住處＝手寫豪邸 KANSHOU_HERO_HOME_ 的值 ∪ 泛用住處池）。分開比，兩邊都要全中——
-  //   後端新增一位英靈的專屬豪邸卻忘了補前端，徽章就會靜靜不見，這正是要擋的。
   'KC_REGIONS_': {
     why: '同上：前端沒有獨立的 room 分頁，後端有（併進 home）；分頁名稱/說明是各自的顯示文案，id 才是判準',
     skip: ['name', 'desc'],
@@ -161,14 +155,6 @@ front.forEach(f => {
   let m; while ((m = re.exec(f.text))) names.add(m[1]);
 });
 
-// 有些後端表在載入時會被程式再加工（例：泛用住處池 push 進 KANSHOU_LOCATIONS_），
-//   靜態讀字面量看不到——把需要的原料先備好交給 TWEAK.back 自己補。
-const CTX = {
-  pool: (grabLiteral(backText, 'const', 'KANSHOU_GENERIC_HOME_POOL_').value || []),
-  heroHome: (grabLiteral(backText, 'const', 'KANSHOU_HERO_HOME_').value || {}),
-  cohabitRoom: grabLiteral(backText, 'const', 'KANSHOU_COHABIT_ROOM_').value,
-};
-
 let bad = 0, checked = 0, declared = 0;
 const problems = [];
 [...names].sort().forEach(fn => {
@@ -184,7 +170,7 @@ const problems = [];
   if (f.err || b.err) { problems.push(`${fn}：字面量解析失敗（前端:${f.err || '-'} / 後端:${b.err || '-'}）`); bad++; return; }
   const tw = TWEAK[fn] || {};
   const fv = tw.front ? tw.front(f.value) : f.value;
-  const bv = tw.back ? tw.back(b.value, CTX) : b.value;
+  const bv = tw.back ? tw.back(b.value) : b.value;
   let [pa, pb, keys] = project(fv, bv);
   if (tw.skip && Array.isArray(pa)) {
     const strip = arr => arr.map(o => { const r = Object.assign({}, o); tw.skip.forEach(k => delete r[k]); return r; });
@@ -201,28 +187,8 @@ const problems = [];
   }
 });
 
-// 🌙 住處熟睡徽章覆蓋：前端 atHome 那批必須剛好等於「後端所有住處」。
-//   後端多加一位英靈的專屬豪邸而忘了補前端 → 那間住處的熟睡徽章會靜靜不見（不會有任何錯誤）。
-(function () {
-  let fe = null;
-  // ⚠ 2026-09 抓到：這張表已改名 KC_LOCATION_EVENTS_ → KC_SLEEP_HINTS_（橋段那半隨預寫池砍掉、
-  //   只剩熟睡提示），而這裡還在找舊名字——找不到就靜靜 return，這道檢查等於死了一段時間。
-  //   找不到就【叫】，不要默默跳過：查無此表本身就是走鐘。
-  for (const file of front) { const g = grabLiteral(file.text, '(?:const|var|let)', 'KC_SLEEP_HINTS_'); if (g.found && g.value) { fe = g.value; break; } }
-  if (!fe) { checked++; bad++; problems.push('住處熟睡徽章覆蓋：前端找不到 KC_SLEEP_HINTS_（改名了？這道檢查會靜靜失效，所以直接報錯）'); return; }
-  const fHomes = Object.keys(fe).filter(k => fe[k].atHome).sort();
-  // 後端 pSleepStr 的熟睡地點＝她自己的住處 ∪ 同居房 ∪ 我的房間（見 Gallery.gs 的 _pAtHome）。
-  //   同居房名稱一樣從後端常數讀，不在這裡寫死。
-  const bHomes = [...new Set([...Object.values(CTX.heroHome), ...CTX.pool.map(h => h.name),
-    CTX.cohabitRoom, '我的房間'].filter(Boolean))].sort();
-  const missing = bHomes.filter(x => fHomes.indexOf(x) < 0);
-  const extra = fHomes.filter(x => bHomes.indexOf(x) < 0);
-  checked++;
-  if (missing.length || extra.length) {
-    bad++;
-    problems.push(`住處熟睡徽章覆蓋不全（KC_SLEEP_HINTS_ 的 atHome ↔ 後端所有住處）\n     前端少了：${missing.join('、') || '無'}\n     前端多了：${extra.join('、') || '無'}`);
-  }
-})();
+// 🗑️ 2026-09「住處熟睡徽章覆蓋」那道隨位置模擬整組退休：鑑賞不再有住處、不再有作息落點，
+//    KC_SLEEP_HINTS_／KANSHOU_HERO_HOME_ 兩端都已刪除，沒有東西可以對答案。
 
 // 🛠️ 工房能挑的效果 ↔ 後端收的白名單：註解本來就寫著「改後端 ALLOWED_FX_ 記得同步 FORGE_FX」，
 //    那種靠人記得的規則遲早會漏。漏的症狀是玩家捏完按存檔才被退貨（或某個效果永遠沒人選得到）。

@@ -46,8 +46,7 @@
     const moveTarget = opts.moveTarget || null, newPlace = opts.newPlace || null, endDay = !!opts.endDay,
       advanceHours = opts.advanceHours || 0,
       jumpBand = opts.jumpBand || null,
-      loaderCaptions = opts.loaderCaptions || null, moveWithCompanion = !!opts.moveWithCompanion,
-      proposeMove = opts.proposeMove || null;
+      loaderCaptions = opts.loaderCaptions || null;
       
       // 🐛→✅ 稽核抓到：呼叫端一直有把 npcId 塞進 opts，但 send() 這裡沒解構、gasRun payload 也沒轉發
       //   ——id 從未離開過瀏覽器，「2026-07 id 優先」那次重構在這條路徑上等於沒生效。
@@ -88,7 +87,7 @@
     }
 
     try {
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, moveWithCompanion: moveWithCompanion || undefined, proposeMove: proposeMove || undefined || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -172,17 +171,6 @@
 let plainTextContext = cleanText;
 
       let optionsHtml = '';
-      // 🚶 同意/拒絕不是敘事選項文字，而是直接決定要不要真的觸發移動(重用既有moveTarget管線)。
-      if (data.moveProposal) {
-        const propLoc = String(data.moveProposal);
-        const propLocEsc = escapeHtml(propLoc);
-        optionsHtml += `<div style="background:rgba(160,110,60,0.14); border:1px solid #8a6a3a; border-radius:8px; padding:8px 10px; margin-bottom:8px;">`
-          + `<div style="color:#e0c090; font-size:12.5px; margin-bottom:6px;">💭 她想去「${propLocEsc}」，一起？</div>`
-          + `<div style="display:flex; gap:8px;">`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouConfirmMoveProposal('${propLoc.replace(/'/g, "\\'")}')">一起走</button>`
-          + `<button class="btn-option" style="flex:1;" onclick="kanshouDeclineMoveProposal()">這次不了</button>`
-          + `</div></div>`;
-      }
       if (data.options && Array.isArray(data.options) && data.options.length > 0) {
         currentOptions = data.options;
         // 🧱 【命運的抉擇】包進自己的 #ai-options-grid：「AI 選項顯示開關」只藏這個盒子。
@@ -194,53 +182,19 @@ let plainTextContext = cleanText;
         plainTextContext += `\n\n【命運的抉擇】\n`;
         data.options.forEach(optText => {
           // 🛡️ options是AI自由文字，唯一沒經過escapeHtml就塞進innerHTML的欄位——補上跟本檔
-          //   其餘AI字串(moveProposal 等)一致的跳脫。
+          //   其餘AI字串一致的跳脫。
           optionsHtml += `<button class="btn-option" onclick="send('${optText.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}', true)">${escapeHtml(optText)}</button>`;
           plainTextContext += optText + `\n`;
         });
         optionsHtml += `</div></div>`;
       }
       if (optContainer) optContainer.innerHTML = optionsHtml;
-      // 📣 有「必須點的泡泡」(前往/邀約/橋段)時自動把它捲進視野——回應完只捲故事框、
-      //   泡泡藏在頁面下方看不到＝玩家實測「哪裡有同意按鈕??」的真兇。一般選項不強制捲(維持閱讀位置)。
-      if (optContainer && data.moveProposal) {
-        try { optContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) { }
-      }
-
       lastAiContext = plainTextContext;
       // 🛡️ 過 aiHtml_(Script.html)：整段 escape 擋 self-XSS，但把提示詞要求的 <br> 分段標籤放回來
       //   （linkCandidates 替換出來的 html 值本就等於純文字名稱，不受影響）。
       story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${aiHtml_(displayText.trim())}</div>`);
-      // 🚶 同去成不成立的明確回饋(後端 proposalResult)——插一條系統通知條，玩家不必再從敘述猜。
-      if (data.proposalResult) {
-        const _pr = data.proposalResult, _nm = escapeHtml(String(_pr.name || '她'));
-        const _prIco = _pr.type === 'move' ? '🚶' : '🤝';
-        let _msg;
-        if (_pr.miss) {
-          // 撲空(她不在場)：附上她此刻在哪，玩家不必回地圖亂找(走查抓到的軟死路)。
-          _msg = _prIco + ' 「' + _nm + '」不在這裡' + (_pr.where ? '，她好像在「' + escapeHtml(String(_pr.where)) + '」。' : '。');
-        }
-        else if (_pr.ok && _pr.type === 'hold') _msg = '🤝 牽起來了。「' + _nm + '」會跟著你走。';
-        else if (_pr.ok && _pr.type === 'move') _msg = '🚶 「' + _nm + '」說好，一起去「' + escapeHtml(String(_pr.loc || '')) + '」。點下面的「一起走」就出發。';
-        else if (_pr.type === 'move') _msg = '🚶 她沒跟。';
-        // 🐛→✅ 2026-07 逐按鍵稽核：地點不合法的回報(move_loc)舊版沒有自己的分支，
-        //   一路掉到最後那行 else，印出的是別種動作的失敗通知，玩家會去找一個不存在的問題。
-        //   這兩型跟「她婉拒」無關，是地點的事。
-        else if (_pr.type === 'move_loc') {
-          _msg = '🚶 ' + (_pr.sameSpot
-            ? '你們現在就在「' + escapeHtml(String(_pr.loc || '')) + '」了。'
-            : '「' + escapeHtml(String(_pr.loc || '')) + '」現在去不了。');
-        }
-        else _msg = '🚶 沒有成行。';
-        const _col = _pr.ok ? 'rgba(90,160,110,.14);border:1px solid #4a8a5a;color:#a8e0b8' : 'rgba(150,110,120,.14);border:1px solid #8a5a6a;color:#e0b0bc';
-        story.insertAdjacentHTML('beforeend', `<div style="background:${_col};border-radius:8px;padding:7px 10px;margin:4px 0;font-size:12.5px;">${_msg}</div>`);
-      }
       saveStoryLocal_(story);   // 修剪＋配額保護，見 Script.html saveStoryLocal_
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
-
-      // 🆕 地圖分頁的人數徽章讀的是window._lastTags.locationCounts(剛被上面refreshFateTags更新)，
-      //   這裡只是重繪既有DOM、不另打網路。
-      if (pc && pc.mode === 'kanshou') { try { const _kcml = document.getElementById('kc-map-list'); if (_kcml) _kcml.innerHTML = kcMapListHtml_(); } catch (e) {} }
 
     } catch(e) {
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -567,7 +521,6 @@ let plainTextContext = cleanText;
     { id: 'shinzan', name: '深山町', desc: '溫馨日常區' },
     { id: 'fuyuki', name: '冬木市中心', desc: '熱鬧生活區' },
     { id: 'dojo', name: '山林', desc: '安靜神秘區' },
-    { id: 'visit', name: '拜訪住處', desc: '同伴們各自的家' },
     // 🗺️ 這一區不是靜態地圖，是玩出來的：地點來自後端下傳的 myPlaces(世界帳本)，不在 KC_LOCATIONS_ 裡。
     { id: 'mine', name: '走出來的地方', desc: '你自己找到的地方' }
   ];
@@ -594,62 +547,8 @@ let plainTextContext = cleanText;
     { name: '廢棄神社', region: 'dojo' },
     { name: '夜景展望台', region: 'dojo' }, { name: '情侶溫泉套房', region: 'dojo' },
 
-    { name: '隱蔽的工房', region: 'visit' }, { name: '島嶼道場', region: 'visit' },
-    { name: '埃德費爾特宅邸', region: 'visit' }, { name: '愛因茲貝倫城', region: 'visit' },
-    { name: '遠坂邸', region: 'visit' }, { name: '藤村家', region: 'visit' },
-    // 🏠 2026-07 七度改版·泛用住處池(鏡像後端 KANSHOU_GENERIC_HOME_POOL_)：沒有專屬豪邸的英靈
-    //   隨機分配其中一間、終身持有(見Gallery.gs heroToKanshouRow_)。
-    { name: '河畔小公寓', region: 'visit' }, { name: '巷弄老屋', region: 'visit' },
-    { name: '高塔套房', region: 'visit' }, { name: '郊區透天', region: 'visit' },
-    { name: '老街閣樓', region: 'visit' }, { name: '街角公寓', region: 'visit' },
-    { name: '靜巷租屋', region: 'visit' }, { name: '河堤畔宅', region: 'visit' }
+    { name: '遠坂邸', region: 'fuyuki' }, { name: '藤村家', region: 'shinzan' }
   ];
-  // 🌙 熟睡提示(純前端顯示)：0~8 點登門她必定熟睡，後端 pSleepStr 每回合當既定事實餵給 AI，
-  //   這裡只是把同一件事標在地圖上，讓玩家知道「這個時間過去她在睡」。時刻切點對齊後端
-  //   KANSHOU_ASLEEP_HOUR_END_。
-  //   ⚠ 2026-09：這張表原本還兼「橋段觸發鏡像」(膝枕/下廚/共浴/觀星/溫泉同浴 五條)，
-  //     後端 KANSHOU_LOCATION_EVENTS_ 已隨預寫橋段池整批移除——地點×時段不再對應寫死的情境，
-  //     那五條徽章也一併拿掉，只留熟睡提示。
-  var KC_SLEEP_HINTS_ = {
-    // 🌙 後端 pSleepStr 的熟睡地點有兩種，語意不同、提示也該不同（原本共用「在她自己的家·登門
-    //   即可」那句，我的房間讀起來是錯的）：①她自己的住處 ②我的房間(她留宿/深夜過來)。
-    //   兩者都對齊後端 KANSHOU_ASLEEP_HOUR_END_ 的 0~8 點切點。
-    '我的房間': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true, note: '她若在你房裡過夜' },
-    // 🌙 她們各自的家：0~8點登門她必定熟睡(後端 pSleepStr 每回合當既定事實
-    //   餵給 AI)。時刻切點跟後端 KANSHOU_ASLEEP_HOUR_END_ 對齊。
-    //   對齊後端 KANSHOU_HERO_HOME_ 的所有住處值。徽章只在住處已解鎖時顯示(鎖住的走🔒分支)。
-    '隱蔽的工房': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
-    '島嶼道場': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
-    '愛因茲貝倫城': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
-    '遠坂邸': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
-    '藤村家': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
-    // 🏠 泛用住處池(七度改版)：同一套熟睡徽章，比照上面6間手寫豪邸逐一對應。
-    '河畔小公寓': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
-    '巷弄老屋': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
-    '高塔套房': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
-    '郊區透天': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
-    '老街閣樓': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
-    '街角公寓': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
-    '靜巷租屋': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true },
-    '河堤畔宅': { icon: '🌙', name: '她熟睡中', hourEnd: 8, atHome: true }
-  };
-  // 時段 key→精簡顯示(徽章用·免整串 emoji)。
-  var KC_BAND_SHORT_ = { '清晨': '清晨', '午後': '午後', '黃昏': '黃昏', '夜': '夜', '深夜': '深夜' };
-  // 組單一地點的橋段徽章 HTML(當前時段/時刻命中就高亮)；沒有橋段的地點回空字串。
-  //   hourEnd(住處熟睡專用)＝直接比對時刻(0~hourEnd點)，其餘橋段仍走bands比對時段key。
-  function kcSceneBadge_(locName, curBand, curHour) {
-    var ev = KC_SLEEP_HINTS_[locName];
-    if (!ev) return '';
-    var hitNow = (typeof ev.hourEnd === 'number') ? (typeof curHour === 'number' && curHour < ev.hourEnd) : ev.bands.indexOf(curBand) !== -1;
-    var bandsTxt = (typeof ev.hourEnd === 'number') ? ('0~' + ev.hourEnd + '點') : ev.bands.map(function (b) { return KC_BAND_SHORT_[b] || b; }).join('/');
-    var tip = ev.icon + ev.name + '·' + bandsTxt + (ev.atHome ? '(' + (ev.note || '在她自己的家·登門即可') + ')' : '') + '，她在場時場景會自然帶入這個情境；要不要理會、怎麼互動全由你決定';
-    var style = hitNow
-      ? 'background:rgba(224,160,188,.22);border:1px solid #c07090;color:#f0c0d4;'
-      : 'background:rgba(120,110,90,.14);border:1px solid #4a4438;color:#9a8f78;';
-    return '<span title="' + escapeHtml(tip) + '" style="' + style + 'font-size:9.5px;padding:1px 5px;border-radius:6px;white-space:nowrap;">'
-      + ev.icon + (hitNow ? '<b>' + escapeHtml(bandsTxt) + '</b>' : escapeHtml(bandsTxt)) + '</span>';
-  }
-
   // 目前選取的分區(純前端UI狀態，跨裝置不同步，比照kanshouEncounterOn用localStorage記住偏好)。
   var kcActiveRegion_ = localStorage.getItem('kyushu_kanshou_region') || 'home';
   // 🛡️ 舊 localStorage 可能存著已移除的 'room' 分頁 → 退回 'home'，免分頁空白。
@@ -669,7 +568,6 @@ let plainTextContext = cleanText;
   }
   function kcMapListHtml_() {
     var homeLabel = (pc && pc.homeName) ? pc.homeName : '我家';
-    var _curBand = (kcClock && kcClock.band) ? kcClock.band : '清晨'; // 🎭 橋段徽章判「現在正好是這時段」高亮用
     // 🗾 分區切換列：按鈕群組，當前分區高亮，點擊只切換下方地點清單(不影響已在場敘事)。
     // 🗾 分區＝內建鏡射 ∪ 玩家自己開的大區(後端 myRegions 下傳)。自訂區天生就是一般公共區。
     var _myRegions = (window._lastTags && window._lastTags.myRegions) || [];
@@ -707,11 +605,6 @@ let plainTextContext = cleanText;
     var renameHtml = (kcActiveRegion_ === 'home')
       ? '<div style="text-align:right;margin:-4px 0 6px;"><span onclick="kanshouRenameHome()" style="cursor:pointer;font-size:11px;color:#a07a90;">✏️ 幫「' + escapeHtml(homeLabel) + '」改名</span></div>'
       : '';
-    // 🆕 locCounts 夾帶在tags payload裡(見Router_Action.gs buildTagsPayload_)——每個英靈都各自散布在不同地點過自己的生活，這裡顯示各地點人數，幫助決定去哪裡找誰。
-    var locCounts = (window._lastTags && window._lastTags.locationCounts) || {};
-    // 🙋 跟kanshouMoveTo(自己走，無條件強制移動)不同，這顆👋走一般聊天訊息(不帶moveTarget)，交給AI依同伴個性當場決定答應或婉拒(見Gallery.gs★【玩家反向邀約】)。
-    // 🏠 私人住處(region:'visit')：屋主已入駐才進得去，沒入駐的灰掉、點了給提示不移動。
-    var unlockedRes = (window._lastTags && window._lastTags.unlockedResidences) || [];
     // 🗺️ 靜態地圖 ∪ 自己走出來的地方(後端 myPlaces 下傳，鏡射常數長不出來)。
     var _myPlaces = (window._lastTags && window._lastTags.myPlaces) || [];
     var _allLocs = KC_LOCATIONS_.concat(_myPlaces.map(function (p) {
@@ -719,28 +612,12 @@ let plainTextContext = cleanText;
     }));
     var locBtns = _allLocs.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
       var label = l.isRoom ? kcRoomLabel_(l.name) : l.name;
-      var cnt = locCounts[l.name] || 0;
-      var _scBadge = kcSceneBadge_(l.name, _curBand, kcClock && kcClock.hour); // 🎭 此地有橋段→標時段/時刻提醒(命中高亮)
-      if (l.region === 'visit' && unlockedRes.indexOf(l.name) === -1) {
-        return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
-          + '<button onclick="alert(\'你們還沒熟到能直接上門。\')" '
-          + 'style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#1b1822;color:#6a6478;border:1px dashed #3a3348;border-radius:8px;cursor:not-allowed;font-size:13px;">'
-          + '<span>🔒 ' + escapeHtml(label) + '</span>'
-          + '<span style="font-size:10.5px;color:#7a7488;">尚未熟識</span>'
-          + '</button></div>';
-      }
       return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
         + '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
         + '<span style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">' + (l.own ? '🏪' : '📍') + ' ' + escapeHtml(label)
-        + (l.own ? '<span style="color:#e0c090;font-size:10px;">你的' + escapeHtml(l.own) + '</span>' : '') + _scBadge + '</span>'
-        + (cnt ? '<span style="color:#e0a0bc;font-size:11px;">👤' + cnt + '</span>' : '')
+        + (l.own ? '<span style="color:#e0c090;font-size:10px;">你的' + escapeHtml(l.own) + '</span>' : '') + '</span>'
         + '</button>'
-        // 🐛→✅ 2026-07 前後端鏡射稽核：私人房間(isRoom)在後端是 region 'room'，邀同去一律
-        //   不受理(見 Gallery.gs _pmLocOk/_pvLocOk)——這顆 👋 按下去必然被拒、還會拿到「還沒熟到能
-        //   登門」這種對不上的理由。永遠不會成功的按鈕就不要長出來（同地圖上鎖住的地點）。
         + (l.mine ? '<button onclick="kanshouPlaceMenu(\'' + String(l.name).replace(/'/g, "\\'") + '\')" title="你開的地方：可以開店、搬區、或拿掉" style="padding:8px 9px;background:#1e2a24;color:#8fc0a0;border:1px solid #3e6a50;border-radius:8px;cursor:pointer;">⋯</button>' : '')
-        + (l.isRoom ? ''
-          : '<button onclick="kanshouProposeMove(\'' + l.name + '\')" title="邀同伴一起去「' + escapeHtml(label) + '」" style="padding:8px 9px;background:#2a2038;color:#e0c090;border:1px solid #5a4a3a;border-radius:8px;cursor:pointer;font-size:13px;">👋</button>')
         + '</div>';
     }).join('');
     return tabsHtml + renameHtml + newPlaceHtml + locBtns;
@@ -891,31 +768,6 @@ let plainTextContext = cleanText;
     if (!await customConfirm_('去「' + name + '」？')) return;
     showGamePane('chat');
     await send('📍 走向了「' + name + '」，四處看看。', false, { moveTarget: name });
-  }
-
-  // 🙋👋 玩家提議同去：帶 proposeMove 機制標記，走「確定性提議」管線(後端記待判定→GAS直接
-  //   裁定接受/婉拒→接受出「前往」泡泡、按同意才真的移動，AI只負責演反應)。2026-07 根因修復：舊版
-  //   只送一句閒聊、全押在AI自發填 move_proposal 上，Gemini 從不填→玩家從沒見過移動泡泡。跟
-  //   kanshouMoveTo(自己走)是兩條路。
-  async function kanshouProposeMove(name) {
-    // 🧱 身邊沒人直接在前端擋掉——不白跑一輪 AI 演撲空(省 round-trip)。localNPCs 是【全世界】同局
-    //   名單(getKanshouPeopleList_ 以 isExact 標在不在場)，要濾 isExact 才是真「在場」——舊版只看
-    //   length，世界裡永遠有人＝這道門形同虛設(比照拍照面板的寫法)。後端★【提議撲空】仍是保底。
-    var _pvHere = (localNPCs || []).filter(function (p) { return p && p.isExact; });
-    if (!_pvHere.length) { alert('身邊沒有人可以邀。'); return; }
-    showGamePane('chat');
-    await send('（笑著問）要不要一起去「' + name + '」看看？', false, { proposeMove: name });
-  }
-
-  // 🚶 同意時重用既有moveTarget管線(跟kanshouMoveTo同一條路)，不另開移動程式碼；拒絕就當作一句普通續寫，原地不動。
-  async function kanshouConfirmMoveProposal(loc) {
-    showGamePane('chat');
-    // 🐛→✅ moveWithCompanion=true：告訴後端這是「她答應了你的同去邀約、要帶著受邀者一起走」，
-    //   不是玩家自己單獨點地圖移動(那種不強制拖走任何人，見Gallery.gs同款註解)。
-    await send('好，一起去「' + loc + '」吧。', false, { moveTarget: loc, moveWithCompanion: true });
-  }
-  async function kanshouDeclineMoveProposal() {
-    await send('這次還是先留在這裡好了。', false);
   }
 
   async function kcRefreshPartyOnly_() {
