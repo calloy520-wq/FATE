@@ -911,7 +911,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
   const finalJson = {
     "narration": "劇情·第一人稱「我」＝玩家·長度見【篇幅】",
     "npc_exit": "本回合離場者·照卡上的名字寫·narration 要演出離開·否則 []",
-    "options": ["4條·各≤20字·在場者此刻做得到的動作·走向各不相同"],
+    "options": ["4條·各≤20字·【我】這一步做得到的動作·第一人稱·走向各不相同"],
     "intimacy_feedback": {
       "player": {
         "physical_state": _physicalState,
