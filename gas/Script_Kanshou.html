@@ -34,6 +34,7 @@
   var KC_MEMOIR_CAP_ = 10;      // 鏡像後端 KANSHOU_MEMOIR_CAP_
   var KC_MEMOIR_PIN_CAP_ = 8;   // 鏡像後端 KANSHOU_MEMOIR_PIN_CAP_
   var KC_PARTY_MAX_ = 3;        // 鏡像後端 KANSHOU_PARTY_MAX_
+  var KC_WORLD_TEXT_MAX_ = 60;  // 鏡像後端 KANSHOU_WORLD_TEXT_MAX_
   // ⚙️ 管理面板：列出玩家自訂的貼圖(內建4個不可刪、不列在這裡)＋新增輸入框。
   var _kqpBusy = false;
 
@@ -533,21 +534,10 @@ let plainTextContext = cleanText;
   // 🏠 房間分區(room)的name是穩定內部key，顯示名稱是動態算的(kcRoomLabel_)——跟後端
   // kanshouRoomDisplayName_同一套邏輯，見下方kcMapListHtml_。2026-07經濟/房東房客世界觀
   // 砍除後不再有可指派的客房，只剩玩家自己的房間。
+  // 🗺️ 內建地點只剩玩家自己的房間（鏡射後端 KANSHOU_LOCATIONS_）。其餘地方全部來自世界帳本
+  //   （後端 myPlaces 下傳），包含開局種進去的那五個範例——它們跟玩家自己開的地方沒有兩樣。
   var KC_LOCATIONS_ = [
-    { name: '我的房間', region: 'home', isRoom: true }, // 顯示層併進「家」分頁·isRoom保留特殊性
-
-    { name: '客廳', region: 'home' }, { name: '浴室', region: 'home' }, { name: '和室', region: 'home' },
-
-    { name: '河邊小徑', region: 'shinzan' }, { name: '古老神社', region: 'shinzan' },
-    { name: '社區公園', region: 'shinzan' }, { name: '便利商店', region: 'shinzan' },
-    { name: '咖啡廳', region: 'fuyuki' }, { name: '書店二樓', region: 'fuyuki' },
-    { name: '商店街', region: 'fuyuki' },
-    { name: '摩天輪', region: 'fuyuki' }, { name: '水族館', region: 'fuyuki' },
-    { name: '深夜賓館', region: 'fuyuki' },
-    { name: '廢棄神社', region: 'dojo' },
-    { name: '夜景展望台', region: 'dojo' }, { name: '情侶溫泉套房', region: 'dojo' },
-
-    { name: '遠坂邸', region: 'fuyuki' }, { name: '藤村家', region: 'shinzan' }
+    { name: '我的房間', region: 'home', isRoom: true } // 顯示層併進「家」分頁·isRoom保留特殊性
   ];
   // 目前選取的分區(純前端UI狀態，跨裝置不同步，比照kanshouEncounterOn用localStorage記住偏好)。
   var kcActiveRegion_ = localStorage.getItem('kyushu_kanshou_region') || 'home';
@@ -575,6 +565,14 @@ let plainTextContext = cleanText;
     var _allRegions = KC_REGIONS_.concat(_myRegions.map(function (r) {
       return { id: r.id, name: r.name, desc: r.desc, mine: true };
     }));
+    // 🗺️ 空的分頁不畫：地圖大部分是玩出來的，內建那幾區在新局裡是空的，列出來只是一排點不出東西的鈕。
+    //   家與「走出來的地方」永遠留著（家有你的房間；新地方預設落在那一區），站著的那一區也留著。
+    var _placeRegions = {};
+    KC_LOCATIONS_.forEach(function (l) { _placeRegions[l.isRoom ? 'home' : l.region] = 1; });
+    ((window._lastTags && window._lastTags.myPlaces) || []).forEach(function (p) { _placeRegions[p.region || 'mine'] = 1; });
+    _allRegions = _allRegions.filter(function (rg) {
+      return rg.id === 'home' || rg.id === 'mine' || rg.id === kcActiveRegion_ || rg.mine || _placeRegions[rg.id];
+    });
     var tabsHtml = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">' + _allRegions.map(function (rg) {
       var active = rg.id === kcActiveRegion_;
       var label = (rg.id === 'home' ? '🏠 ' : '') + escapeHtml(rg.id === 'home' ? homeLabel : rg.name);
@@ -670,13 +668,24 @@ let plainTextContext = cleanText;
     var here = places.filter(function (p) { return p.name === name; })[0] || {};
     var regions = ((window._lastTags && window._lastTags.myRegions) || []).slice();
     var pick = await kcChoose_('「' + name + '」', [
+      { k: 'rename', label: '✏️ 改名' },
+      { k: 'text', label: here.desc ? '📝 改寫這裡的樣子' : '📝 寫下這裡的樣子' },
       { k: 'own', label: here.own ? '🏪 改營業內容（現在是「' + here.own + '」）' : '🏪 在這裡開店' },
       here.own ? { k: 'close', label: '🚪 收掉這家店（地方留著）' } : null,
       { k: 'region', label: '🗾 搬到別的地區' },
       { k: 'del', label: '🗑 把這個地方刪掉' }
     ].filter(Boolean));
     if (!pick) return;
-    if (pick === 'own') {
+    if (pick === 'rename') {
+      var nn = await customPrompt_('「' + name + '」要改叫什麼？', name, 16);
+      if (nn === null) return;
+      nn = String(nn).trim(); if (!nn || nn === name) return;
+      await kwWorldOp_({ op: 'loc_rename', entryName: name, newName: nn }, '改名中…');
+    } else if (pick === 'text') {
+      var tx = await customPrompt_('「' + name + '」長什麼樣子？', here.desc || '', KC_WORLD_TEXT_MAX_);
+      if (tx === null) return;
+      await kwWorldOp_({ op: 'loc_text', entryName: name, text: String(tx).trim() }, '寫下來…');
+    } else if (pick === 'own') {
       var biz = await customPrompt_('你在「' + name + '」做什麼？（例如：小吃、按摩、花店）', here.own || '', 12);
       if (biz === null) return;
       biz = String(biz).trim(); if (!biz) { alert('寫一下你在做什麼吧。'); return; }

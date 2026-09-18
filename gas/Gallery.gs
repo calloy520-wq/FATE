@@ -43,7 +43,7 @@ function sanitizeAiData_(aiData) {
     aiData.world_note = (Array.isArray(aiData.world_note) ? aiData.world_note : [])
       .filter(w => w && typeof w === 'object' && KANSHOU_WORLD_KINDS_.indexOf(String(w.kind || "").trim()) >= 0)
       .slice(0, KANSHOU_WORLD_WRITE_MAX_)
-      .map(w => ({ kind: w.kind, name: w.name, text: w.text, sex: w.sex }));
+      .map(w => ({ kind: w.kind, name: w.name, text: w.text, sex: w.sex, at: w.at }));
   }
   // 🛡️ ★指令／〈演出卡〉被原樣抄進敘事：solo(narrateWithState_) 早有這道濾網，鑑賞這條路徑漏掉了。
   //    先把真實換行轉成 <br> 再過濾——濾網掃到下一個「<」為止，沒有 <br> 的話會把整段吃光。
@@ -472,6 +472,8 @@ function actionEnterKanshou(userData, pcId, sheets) {
           if (_cnMap[_cwNm]) { data[_cw][COL.PC.NAME] = _cnMap[_cwNm]; kpc.getRange(_cw + 1, COL.PC.NAME + 1).setValue(_cnMap[_cwNm]); }
         }
       } catch (e) { }
+      // 🗺️ 舊存檔遷移：地圖搬進世界帳本那一版之前，這些地方寫死在代碼裡。種回去一格都不少。
+      kanshouSeedMap_(kpc, data, r, false);
       return JSON.stringify({
         success: true,
         pcId: linkedKpcId, pcName: String(data[r][COL.PC.NAME] || acctName),
@@ -488,6 +490,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
       if (String(data[m][COL.PC.MEMORY] || "").indexOf(acctTag) === -1) continue;
       var migId = String(data[m][COL.PC.ID]);
       linkAccountToKanshouPc_(acctName, migId);
+      kanshouSeedMap_(kpc, data, m, false);
       return JSON.stringify({
         success: true,
         pcId: migId, pcName: String(data[m][COL.PC.NAME] || acctName),
@@ -538,12 +541,15 @@ function actionEnterKanshou(userData, pcId, sheets) {
     return KANSHOU_STARTER_IDS_.indexOf(String(r[COL.HERO.ID])) !== -1;
   });
   var starterRows = starterHeroes.map(function (hero) {
-    return heroToKanshouRow_(hero, gameId, loc, 1);
+    // 起始住民就落在玩家開局的地方（位置模擬拆掉後不再骰去向）。
+    return heroToKanshouRow_(hero, gameId, loc2, 1);
   });
   if (starterRows.length) {
     kpc.getRange(kpc.getLastRow() + 1, 1, starterRows.length, pcColCount).setValues(starterRows);
   }
 
+  // 🌱 新局的地圖＝一片空白＋五個範例地方（可改名、可改樣子、可刪掉）。
+  kanshouSeedMap_(kpc, data, -1, true, mRow, kpc.getLastRow() - starterRows.length);
   return JSON.stringify({
     success: true,
     pcId: mId, pcName: mName, pcSex: mSex, loc: loc2, homeName: getKanshouHomeName_(mRow[COL.PC.MEMORY], mName)
@@ -690,7 +696,7 @@ function actionKanshouWorld(userData, pcId, sheets) {
 
   // 🗾 大區與地點的「自由增減」：開一個區／改名／收掉、把地點搬到某一區、開店／收店。
   //    全部住在這支既有的帳本管理 action 裡(它本來就在做 pin/unpin/del)，不另開路由。
-  if (['rg_add', 'rg_rename', 'rg_del', 'loc_region', 'loc_own'].indexOf(op) >= 0) {
+  if (['rg_add', 'rg_rename', 'rg_del', 'loc_region', 'loc_own', 'loc_rename', 'loc_text'].indexOf(op) >= 0) {
     try {
       const nm = kanshouSanitizeTagValue_(userData.entryName, 16);
       if (!nm) return JSON.stringify({ success: false, message: "名字不能空白。" });
@@ -717,6 +723,26 @@ function actionKanshouWorld(userData, pcId, sheets) {
       } else if (op === 'loc_region') {
         const rg = String(userData.region || "").trim() ? kanshouFindRegion_(gid, userData.region) : null;
         if (!kanshouWorldSet_(gid, '地點', nm, KW_.REGION, rg ? rg.id : "")) return JSON.stringify({ success: false, message: "這不是你開的地方，搬不了。" });
+      } else if (op === 'loc_rename') {
+        // 📍 改名要連著搬：掛在這個地名底下的東西(AT)認的是【名字】，不跟著改就會全部變成孤兒。
+        const newNm = kanshouSanitizeTagValue_(userData.newName, 16);
+        if (!newNm) return JSON.stringify({ success: false, message: "新名字不能空白。" });
+        if (kanshouFindLoc_(gid, newNm)) return JSON.stringify({ success: false, message: "已經有同名的地方了。" });
+        if (!kanshouWorldSet_(gid, '地點', nm, KW_.NAME, newNm)) return JSON.stringify({ success: false, message: "這不是你開的地方，改不了名。" });
+        kanshouWorldRead_(gid).filter(r => String(r.at || "").trim() === nm)
+          .forEach(r => { try { kanshouWorldSet_(gid, r.kind, r.name, KW_.AT, newNm); } catch (e) { } });
+        // 人也跟著改：站在舊地名上的人列，LOC 還指著已經不存在的地方。
+        try {
+          for (let i = 1; i < data.length; i++) {
+            if (String(data[i][COL.PC.GAME_ID] || "") !== gid) continue;
+            if (String(data[i][COL.PC.LOC] || "").trim() !== nm) continue;
+            kpc.getRange(i + 1, COL.PC.LOC + 1).setValue(newNm);
+          }
+        } catch (e) { }
+      } else if (op === 'loc_text') {
+        if (!kanshouWorldSet_(gid, '地點', nm, KW_.TEXT, kanshouSanitizeTagValue_(userData.text, KANSHOU_WORLD_TEXT_MAX_))) {
+          return JSON.stringify({ success: false, message: "這不是你開的地方，改不了。" });
+        }
       } else if (op === 'loc_own') {
         // 營業內容留空＝收店。地點本身不動，只是不再是你的店。
         if (!kanshouWorldSet_(gid, '地點', nm, KW_.OWN, kanshouSanitizeTagValue_(userData.own, 12))) {
@@ -756,7 +782,7 @@ function actionKanshouWorld(userData, pcId, sheets) {
 function kanshouWorldPayload_(gid) {
   const all = kanshouWorldRead_(gid);
   const rows = all.filter(r => r.kind !== KANSHOU_REGION_KIND_)
-    .map(r => ({ kind: r.kind, name: r.name, text: r.text, sex: r.sex, pin: r.pin, seen: r.seen, hits: r.hits, region: r.region, own: r.own }));
+    .map(r => ({ kind: r.kind, name: r.name, text: r.text, sex: r.sex, pin: r.pin, seen: r.seen, hits: r.hits, region: r.region, own: r.own, at: r.at }));
   // 釘選的排前面，其次照「最後被提到」由新到舊——跟提示詞的相關性排序不同，那是給 AI 的，這是給人看的。
   rows.sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.seen - a.seen);
   return {
@@ -909,7 +935,7 @@ function buildDefaultSystemPrompt(includeOptions, styles) {
       }]
     },
     // 🌍 世界帳本的入口：AI 這一回合發明了什麼，自己寫下來，GAS 幫它記住。
-    "world_note": [{ "kind": "地點|人物|設定", "name": "地名/人名/一句話標題", "text": "≤40字·之後要當真的事實", "sex": "僅 kind=人物 時填 男/女/異" }],
+    "world_note": [{ "kind": "地點|人物|設定", "name": "地名/人名/一句話標題", "text": "≤" + KANSHOU_WORLD_TEXT_MAX_ + "字·之後要當真的事實", "sex": "僅 kind=人物 時填 男/女/異", "at": "這件事/這個人長在哪個地方就填那個地名·跟著整座城走就填「無」" }],
   };
   if (includeOptions === false) { delete finalJson.options; }
 
@@ -1046,32 +1072,66 @@ function kanshouLocContextForAI_(locName, homeName, gameId) {
     default: return "";
   }
 }
-// 🌸 鑑賞地點清單：純資料驅動的小陣列，不進 MAP 試算表(不跟solo共用坤圖)——之後要加/改地點只動這裡。
+// 🌸 內建地點只剩【你自己的房間】一格：它是結構性的(玩家永遠有路可退、isRoom 判私密場合)，
+//    刪不得也搬不得。其餘的地方全部住在世界帳本裡，開局種進去當範例——玩家改得動、也刪得掉。
+//    玩家原話：「我理想中的鑑賞應該是一片空白，但我可以跟 AI 慢慢搭建」＋「地圖保留一點點留個類似範例」。
 const KANSHOU_LOCATIONS_ = [
-  { name: '我的房間', region: 'room', desc: '安穩靜謐、只屬於自己的房間。', noEncounter: true, isRoom: true },
-
-  { name: '客廳', region: 'home', desc: '沙發與電視的日常起居空間。', noEncounter: true },
-  { name: '浴室', region: 'home', desc: '水氣氤氳、放鬆卸下一天疲憊的地方。', noEncounter: true },
-  { name: '和室', region: 'home', desc: '鋪著榻榻米的和室，安靜得聽得見風。', noEncounter: true },
-
-  { name: '河邊小徑', region: 'shinzan', desc: '晨昏都靜謐的河堤小徑，水聲潺潺。' },
-  { name: '古老神社', region: 'shinzan', desc: '石階盡頭的老神社，香火氣息。' },
-  { name: '社區公園', region: 'shinzan', desc: '孩子嬉鬧、長椅斑駁的社區公園。' },
-  { name: '便利商店', region: 'shinzan', desc: '燈火通明、24小時營業的街角小店。' },
-
-  { name: '咖啡廳', region: 'fuyuki', desc: '磨豆香氣繚繞的小巧咖啡館。' },
-  { name: '書店二樓', region: 'fuyuki', desc: '安靜得只聽見翻頁聲的二樓書架間。' },
-  { name: '商店街', region: 'fuyuki', desc: '人聲鼎沸的商店街，攤販林立。' },
-  { name: '摩天輪', region: 'fuyuki', desc: '入夜會點燈的摩天輪，是情侶間熱門的約會景點。' },
-  { name: '水族館', region: 'fuyuki', desc: '館內盡是幽藍燈光，水母缸前總擠著竊竊私語的情侶。' },
-  { name: '深夜賓館', region: 'fuyuki', desc: '招牌亮著曖昧的霓虹燈，房間隔音很好，沒有人會多問一句。', noEncounter: true, dateOnly: true },
-  { name: '廢棄神社', region: 'dojo', desc: '荒草蔓生、早已無人祭拜的廢棄神社。' },
-  { name: '夜景展望台', region: 'dojo', desc: '能俯瞰整座冬木市萬家燈火的高地，晚風正好，兩人並肩無語也不尷尬。' },
-  { name: '情侶溫泉套房', region: 'dojo', desc: '只租給兩人的溫泉旅館房間，一拉上紙門，外頭的世界就與你們無關了。', noEncounter: true, dateOnly: true },
-
-  { name: '遠坂邸', region: 'fuyuki', desc: '老字號魔術師家系的遠坂邸。' },
-  { name: '藤村家', region: 'shinzan', desc: '熱鬧溫馨、時常傳出笑鬧聲的藤村家。' }
+  { name: '我的房間', region: 'room', desc: '安穩靜謐、只屬於自己的房間。', isRoom: true }
 ];
+// 🌱 開局範例地圖：五個地方，一區一個當樣板。這些是【一般帳本條目】，跟玩家自己開的地方沒有兩樣。
+const KANSHOU_STARTER_PLACES_ = [
+  { name: '客廳', region: 'home', text: '沙發與電視的日常起居空間。' },
+  { name: '河邊小徑', region: 'shinzan', text: '晨昏都靜謐的河堤小徑，水聲潺潺。' },
+  { name: '商店街', region: 'fuyuki', text: '人聲鼎沸的商店街，攤販林立。' },
+  { name: '咖啡廳', region: 'fuyuki', text: '磨豆香氣繚繞的小巧咖啡館。' },
+  { name: '夜景展望台', region: 'dojo', text: '能俯瞰整座城市萬家燈火的高地，晚風正好。' }
+];
+// 🧳 舊存檔的地圖：這些地方原本寫死在 KANSHOU_LOCATIONS_ 裡，玩家的人和記憶都站在上面。
+//    搬進帳本時整批種回去，一格都不少——存檔換版本的那一刻不該有東西消失。
+//    之後它們跟範例地圖一樣可改可刪，這張表只在【一次性遷移】時被讀到。
+const KANSHOU_LEGACY_PLACES_ = [
+  { name: '客廳', region: 'home', text: '沙發與電視的日常起居空間。' },
+  { name: '浴室', region: 'home', text: '水氣氤氳、放鬆卸下一天疲憊的地方。' },
+  { name: '和室', region: 'home', text: '鋪著榻榻米的和室，安靜得聽得見風。' },
+  { name: '河邊小徑', region: 'shinzan', text: '晨昏都靜謐的河堤小徑，水聲潺潺。' },
+  { name: '古老神社', region: 'shinzan', text: '石階盡頭的老神社，香火氣息。' },
+  { name: '社區公園', region: 'shinzan', text: '孩子嬉鬧、長椅斑駁的社區公園。' },
+  { name: '便利商店', region: 'shinzan', text: '燈火通明、24小時營業的街角小店。' },
+  { name: '藤村家', region: 'shinzan', text: '熱鬧溫馨、時常傳出笑鬧聲的藤村家。' },
+  { name: '咖啡廳', region: 'fuyuki', text: '磨豆香氣繚繞的小巧咖啡館。' },
+  { name: '書店二樓', region: 'fuyuki', text: '安靜得只聽見翻頁聲的二樓書架間。' },
+  { name: '商店街', region: 'fuyuki', text: '人聲鼎沸的商店街，攤販林立。' },
+  { name: '摩天輪', region: 'fuyuki', text: '入夜會點燈的摩天輪，是情侶間熱門的約會景點。' },
+  { name: '水族館', region: 'fuyuki', text: '館內盡是幽藍燈光，水母缸前總擠著竊竊私語的情侶。' },
+  { name: '深夜賓館', region: 'fuyuki', text: '招牌亮著曖昧的霓虹燈，房間隔音很好，沒有人會多問一句。' },
+  { name: '遠坂邸', region: 'fuyuki', text: '老字號魔術師家系的遠坂邸。' },
+  { name: '廢棄神社', region: 'dojo', text: '荒草蔓生、早已無人祭拜的廢棄神社。' },
+  { name: '夜景展望台', region: 'dojo', text: '能俯瞰整座冬木市萬家燈火的高地，晚風正好，兩人並肩無語也不尷尬。' },
+  { name: '情侶溫泉套房', region: 'dojo', text: '只租給兩人的溫泉旅館房間，一拉上紙門，外頭的世界就與你們無關了。' }
+];
+// 🗺️ 地圖種子只種一次：判準是「寫過沒有」而不是「有沒有地方」——玩家把地圖清空是他的決定，
+//    不該下次進來又長回來（同 KANSHOU_PARTY_TAG_ 那條）。
+var KANSHOU_MAP_SEED_TAG_ = makeTextTag_('地圖');
+// 種地圖＋把「已經種過」寫回玩家那一列。rowIdx<0＝這一列是剛 append 的新局(用 newRow/newRowNum)。
+function kanshouSeedMap_(kpc, data, rowIdx, fresh, newRow, newRowNum) {
+  const row = (rowIdx >= 0) ? data[rowIdx] : newRow;
+  if (!row) return;
+  const gid = String(row[COL.PC.GAME_ID] || "");
+  if (!gid) return;
+  const mem = kanshouSeedMapIfNew_(gid, row[COL.PC.MEMORY], fresh, parseInt(row[COL.PC.DAY]) || 1);
+  if (mem === row[COL.PC.MEMORY]) return;      // 種過了，什麼都不必寫
+  row[COL.PC.MEMORY] = mem;
+  try { kpc.getRange(((rowIdx >= 0) ? rowIdx : (newRowNum - 1)) + 1, COL.PC.MEMORY + 1).setValue(mem); } catch (e) { }
+}
+function kanshouSeedMapIfNew_(gameId, memory, fresh, curDay) {
+  if (KANSHOU_MAP_SEED_TAG_.has(memory)) return memory;
+  const seeds = fresh ? KANSHOU_STARTER_PLACES_ : KANSHOU_LEGACY_PLACES_;
+  try {
+    kanshouWorldWrite_(gameId, seeds.map(x => ({ kind: '地點', name: x.name, text: x.text, region: x.region })),
+      parseInt(curDay) || 1, seeds.length);
+  } catch (e) { }
+  return KANSHOU_MAP_SEED_TAG_.set(memory, fresh ? '範例' : '舊版');
+}
 // 🏷️ 送進提示詞的地名：資料鍵「我的房間」是第一人稱，跟第二人稱旁白打架(旁白會照抄成「走進我的房間」)。
 //    只改餵 AI 的字面，存表/比對一律仍用原鍵。
 function kanshouLocNameForAI_(locName) {
@@ -1206,10 +1266,13 @@ var KANSHOU_WORLD_KINDS_ = ['地點', '人物', '設定'];
 var KANSHOU_REGION_KIND_ = '大區';
 var KANSHOU_REGION_CAP_ = 12;
 // 各類上限：超量時淘汰「最久沒被提到」的那些，釘選的永不驅逐(同 memoir 的政策)。
-var KANSHOU_WORLD_CAP_ = { '地點': 40, '人物': 24, '設定': 30 };
+var KANSHOU_WORLD_CAP_ = { '地點': 60, '人物': 40, '設定': 50 };
 var KANSHOU_WORLD_FEED_MAX_ = 6;   // 一回合最多餵回幾條(人物＋設定)——帳本會長大，這是唯一的煞車
-var KANSHOU_WORLD_WRITE_MAX_ = 2;  // AI 一回合最多寫幾條
-var KANSHOU_WORLD_TEXT_MAX_ = 40;
+// 📍 掛在此刻這個地方(AT)的條目另外算，不跟上面那 6 個搶名額：回到某個地方，那裡的東西就該在。
+//    仍然要有上限——一個地方堆了 20 條的話，提示詞會被它整個吃掉。
+var KANSHOU_WORLD_AT_MAX_ = 5;
+var KANSHOU_WORLD_WRITE_MAX_ = 3;  // AI 一回合最多寫幾條
+var KANSHOU_WORLD_TEXT_MAX_ = 60;
 // 性別只有「人物」類用得到，但升格成正式同伴時它是必要的(肢體互動依【性別】欄)，所以存在表上而非事後猜。
 // ⚠ COL 是位置索引：新欄位一律【接在最後】，絕不插在中間(插了整表位移)。
 //    REGION：這個地點屬於哪一區(kind=地點 才有意義；空＝走出來的地方)。
@@ -1418,14 +1481,15 @@ function actionKanshouSetStyle(userData, pcId, sheets) {
   } catch (e) { return JSON.stringify({ success: false, message: "儲存失敗，請稍後再試。" }); }
 }
 
-var KW_ = { GID: 0, KIND: 1, NAME: 2, TEXT: 3, SEX: 4, BORN: 5, SEEN: 6, HITS: 7, PIN: 8, REGION: 9, OWN: 10 };
+// ⚠ 欄是位置索引：要加欄一律接在最後，中間插一格會讓整張表錯位。
+var KW_ = { GID: 0, KIND: 1, NAME: 2, TEXT: 3, SEX: 4, BORN: 5, SEEN: 6, HITS: 7, PIN: 8, REGION: 9, OWN: 10, AT: 11 };
 
 function kanshouWorldSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName('鑑賞世界');
   if (!sh) {
     sh = ss.insertSheet('鑑賞世界');
-    sh.appendRow(['遊戲ID', '類別', '名稱', '內容', '性別', '建立日', '最後提及日', '提及次數', '釘選', '大區', '我的']);
+    sh.appendRow(['遊戲ID', '類別', '名稱', '內容', '性別', '建立日', '最後提及日', '提及次數', '釘選', '大區', '我的', '在哪']);
   }
   return sh;
 }
@@ -1436,7 +1500,8 @@ function kanshouWorldRow_(a, rowNum) {
     kind: String(a[KW_.KIND] || ""), name: String(a[KW_.NAME] || ""), text: String(a[KW_.TEXT] || ""),
     sex: String(a[KW_.SEX] || ""), born: parseInt(a[KW_.BORN]) || 0, seen: parseInt(a[KW_.SEEN]) || 0,
     hits: parseInt(a[KW_.HITS]) || 0, pin: String(a[KW_.PIN] || "") === '★',
-    region: String(a[KW_.REGION] || ""), own: String(a[KW_.OWN] || ""), row: rowNum
+    region: String(a[KW_.REGION] || ""), own: String(a[KW_.OWN] || ""),
+    at: String(a[KW_.AT] || ""), row: rowNum
   };
 }
 
@@ -1481,11 +1546,13 @@ function kanshouWorldSame_(a, b) {
 
 // 寫入：已存在(同類同名)就更新內容與「最後提及日」，否則新增；超量就淘汰最久沒被提到的。
 // entries = [{kind, name, text}]，回傳真的落盤的筆數。
-function kanshouWorldWrite_(gameId, entries, curDay) {
+// ⚠ max 預設是【給 AI 的煞車】(一回合最多幾筆)。GAS 自己種資料時傳 entries.length——
+//    那不是 AI 亂寫，分批送只會為了同一件事把整張表讀寫好幾趟。
+function kanshouWorldWrite_(gameId, entries, curDay, max) {
   const gid = String(gameId || "");
   if (!gid || !Array.isArray(entries) || !entries.length) return 0;
   const clean = [];
-  entries.slice(0, KANSHOU_WORLD_WRITE_MAX_).forEach(e => {
+  entries.slice(0, max || KANSHOU_WORLD_WRITE_MAX_).forEach(e => {
     if (!e) return;
     const kind = String(e.kind || "").trim();
     // 大區也走這支寫入(同一套清洗/去重/快取)，但它【不在】KANSHOU_WORLD_KINDS_ 裡——
@@ -1499,9 +1566,13 @@ function kanshouWorldWrite_(gameId, entries, curDay) {
     const name = _f(e.name).slice(0, 20), text = _f(e.text).slice(0, KANSHOU_WORLD_TEXT_MAX_);
     if (!name && !text) return;
     const sex = (['男', '女', '異'].indexOf(String(e.sex || "").trim()) >= 0) ? String(e.sex).trim() : "";
+    // 📍 at＝這條長在哪個地方（農場、雞、店裡的常客…）。只收這一局真的存在的地名，
+    //    AI 隨手寫個不存在的地方就當它沒填——不然那條會永遠餵不回來。
+    const atRaw = _f(e.at).slice(0, 24);
+    const at = (atRaw && atRaw !== '無' && kanshouFindLoc_(gid, atRaw)) ? atRaw : "";
     clean.push({
       kind: kind, name: name || text.slice(0, 12), text: text, sex: sex,
-      region: _f(e.region).slice(0, 24), own: _f(e.own).slice(0, 12)
+      region: _f(e.region).slice(0, 24), own: _f(e.own).slice(0, 12), at: at
     });
   });
   if (!clean.length) return 0;
@@ -1526,6 +1597,7 @@ function kanshouWorldWrite_(gameId, entries, curDay) {
       if (c.sex && !String(d[hit][KW_.SEX] || "").trim()) d[hit][KW_.SEX] = c.sex;
       if (c.region && !String(d[hit][KW_.REGION] || "").trim()) d[hit][KW_.REGION] = c.region;
       if (c.own && !String(d[hit][KW_.OWN] || "").trim()) d[hit][KW_.OWN] = c.own;
+      if (c.at) d[hit][KW_.AT] = c.at;
       d[hit][KW_.SEEN] = day;
       d[hit][KW_.HITS] = (parseInt(d[hit][KW_.HITS]) || 0) + 1;
       wrote++; touched = true;
@@ -1533,7 +1605,7 @@ function kanshouWorldWrite_(gameId, entries, curDay) {
     }
     const row = []; row[KW_.GID] = gid; row[KW_.KIND] = c.kind; row[KW_.NAME] = c.name; row[KW_.TEXT] = c.text;
     row[KW_.SEX] = c.sex; row[KW_.BORN] = day; row[KW_.SEEN] = day; row[KW_.HITS] = 1; row[KW_.PIN] = "";
-    row[KW_.REGION] = c.region; row[KW_.OWN] = c.own;
+    row[KW_.REGION] = c.region; row[KW_.OWN] = c.own; row[KW_.AT] = c.at;
     added.push(row); wrote++;
   });
 
@@ -1614,10 +1686,14 @@ function kanshouWorldEvictees_(d, gid, added, curDay) {
     for (let i = 1; i < d.length; i++) {
       if (String(d[i][KW_.GID]) !== gid || String(d[i][KW_.KIND]) !== kind) continue;
       if (String(d[i][KW_.PIN] || "") === '★') continue;
+      // 📍 有根的東西不會被忘掉：掛在某個地方(AT)或是玩家自己開的店(OWN)，
+      //    就算很久沒去，回去的時候它也得還在——玩家原話「我的農場、我的雞都應該要在」。
+      if (String(d[i][KW_.AT] || "").trim() || String(d[i][KW_.OWN] || "").trim()) continue;
       rows.push({ key: 'r' + i, seen: parseInt(d[i][KW_.SEEN]) || 0, hits: parseInt(d[i][KW_.HITS]) || 0 });
     }
     news.forEach((r, k) => {
       if (String(r[KW_.KIND]) !== kind) return;
+      if (String(r[KW_.AT] || "").trim() || String(r[KW_.OWN] || "").trim()) return;
       rows.push({ key: 'a' + k, seen: parseInt(r[KW_.SEEN]) || day, hits: parseInt(r[KW_.HITS]) || 1 });
     });
     if (rows.length <= cap) return;
@@ -1634,8 +1710,17 @@ function kanshouWorldFeed_(rows, curLoc, presentNames, userMsg, curDay) {
   const loc = String(curLoc || ""), msg = String(userMsg || "");
   const names = (presentNames || []).map(n => String(n || "").trim()).filter(Boolean);
   const day = parseInt(curDay) || 0;
+  // 📍 這個地方上的東西一律餵回來，不看分數也不占那 6 個名額——玩家回到 A 村莊，
+  //    他的農場和雞就該還在。這是「世界會留下痕跡」真正兌現的地方。
+  const rooted = loc ? rows.filter(r => r.kind !== KANSHOU_REGION_KIND_ && String(r.at || "").trim() === loc)
+    .sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.seen - a.seen).slice(0, KANSHOU_WORLD_AT_MAX_) : [];
+  const rootedKeys = rooted.map(r => r.kind + '｜' + r.name);
   // 地點不餵回(它的脈絡由★【地點釘死】那行給)；大區是結構、不是要敘述的事實。
-  const scored = rows.filter(r => r.kind !== '地點' && r.kind !== KANSHOU_REGION_KIND_).map(r => {
+  // 📍 有根的條目在【別的地方】不餵回——你的農場不會跟著你走到別的城鎮；
+  //    但玩家自己講到它的時候要認得，所以問到名字仍然放行。
+  const scored = rows.filter(r => r.kind !== '地點' && r.kind !== KANSHOU_REGION_KIND_
+    && rootedKeys.indexOf(r.kind + '｜' + r.name) < 0
+    && (!String(r.at || "").trim() || (msg && msg.indexOf(r.name) >= 0))).map(r => {
     const hay = r.name + '｜' + r.text;
     let sc = 0;
     if (r.pin) sc += 100;
@@ -1646,11 +1731,14 @@ function kanshouWorldFeed_(rows, curLoc, presentNames, userMsg, curDay) {
     sc += Math.min(r.hits, 5);
     return { r: r, sc: sc };
   }).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, KANSHOU_WORLD_FEED_MAX_);
-  if (!scored.length) return "";
-  const line = scored.map(x => x.r.kind === '人物'
+  const all = rooted.map(r => ({ r: r })).concat(scored);
+  if (!all.length) return "";
+  // 名字不在內容裡就補上：「我的農場」這種條目的名字本身就是玩家會叫出口的東西，
+  //   只餵內容的話 AI 看到的是「村口那塊地被你圈起來種菜」，講不出那是什麼。
+  const line = all.map(x => x.r.kind === '人物'
     ? `${x.r.name}${x.r.sex ? '【性別:' + x.r.sex + '】' : ''}(${x.r.text})`
-    : x.r.text).join('；');
-  const folk = scored.some(x => x.r.kind === '人物')
+    : (x.r.name && x.r.text.indexOf(x.r.name) < 0 ? `${x.r.name}(${x.r.text})` : x.r.text)).join('；');
+  const folk = all.some(x => x.r.kind === '人物')
     ? '其中標了【性別】的是這座城的常民——他們出現在合理的場合、開口、被寫進場景都可以，只是不追蹤好感與關係。'
     : '';
   return `\n★【這個世界已經確立的事】：${line}。這些是你們一路玩出來的既定事實，需要時原樣承接。${folk}`;
@@ -2167,7 +2255,7 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   const prompt = `${_sty_('world')}
 ${PROMPT_REL}
 ★【這個世界有誰】：①【同行】＝下方【在場人物】的卡，他們此刻【確實就在你身邊】，每一位這回合都要真實回應——被搭話的給完整反應，沒被搭話的也要有自己的動作；有【專屬稱呼】就叫暱稱。②【常民】＝【這個世界已經確立的事】名單上的人，可出現可開口。③【路人】不具名，隨手寫。
-★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，寫進去的下回合才存在。一回合最多 2 筆，只記【這座城有什麼】——地點＝多一個去得了的地方｜人物＝這個人還會再出現｜設定＝這座城的規矩或風景；你們之間發生的事記進那個人的 memory。
+★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，寫進去的下回合才存在。一回合最多 ${KANSHOU_WORLD_WRITE_MAX_} 筆，只記【這座城有什麼】——地點＝多一個去得了的地方｜人物＝這個人還會再出現｜設定＝這座城的規矩或風景；你們之間發生的事記進那個人的 memory。★蓋在某個地方、養在某個地方、只長在那裡的東西（田、雞、招牌、常客），at 欄填那個地名——玩家再回到那裡它就還在。
 ${_sty_('pov')}
 ${_sty_('feel')}
 
@@ -2361,7 +2449,15 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
 
     // 🌍 AI 這一回合發明的東西落盤——這是「自由」能成立的唯一原因：發明有人記，就不是雜訊。
     //    寫入點只有這一處(kanshouWorldWrite_ 自己做去重/上限/淘汰)，別在別處各寫一份。
+    // 🐛→✅ 2026-09：分錯類的改判(kanshouFixWorldKinds_)原本排在【落盤之後】，
+    //    它是就地改 aiData.world_note 的，改完已經沒有人會再讀——整道防線等於沒接上。
+    //    必須先改判、再落盤。
     if (Array.isArray(aiData.world_note) && aiData.world_note.length) {
+      try {
+        kanshouFixWorldKinds_(aiData.world_note, myGameId, getKanshouHomeName_(pcData[pcIndex][COL.PC.MEMORY], pcName),
+          pcData.filter(function (r) { return String(r[COL.PC.FACTION]) === '從者' && sameGame(r) && !String(r[COL.PC.ID]).startsWith('DEAD_'); })
+            .map(function (r) { return r[COL.PC.NAME]; }));
+      } catch (e) { }
       try { kanshouWorldWrite_(myGameId, aiData.world_note, curDay); } catch (e) { }
     }
 
@@ -2389,15 +2485,6 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
     curL = pcData[pcIndex][COL.PC.LOC];
 
     // 橋段邀請按鈕(夜襲/賴床/地點共用)：candidate在回合開頭(任何LOC寫入之前)就算好了，這裡直接沿用，不應該重算——重算會撞回「同行同伴LOC已被同步」的舊bug。
-    // 🧑↔🏠 AI 分錯類的先就地改判（名字其實是地方的「人物」→ 改成「地點」），
-    //    再往下給 kanshouWorldWrite_ 用——寫進帳本的就是改判後的這一份。
-    if (Array.isArray(aiData.world_note) && aiData.world_note.length) {
-      try {
-        kanshouFixWorldKinds_(aiData.world_note, myGameId, getKanshouHomeName_(pcData[pcIndex][COL.PC.MEMORY], pcName),
-          pcData.filter(function (r) { return String(r[COL.PC.FACTION]) === '從者' && sameGame(r) && !String(r[COL.PC.ID]).startsWith('DEAD_'); })
-            .map(function (r) { return r[COL.PC.NAME]; }));
-      } catch (e) { }
-    }
     // 🚫 2026-09 砍掉「AI 新造的人 → 要不要深交」那顆泡泡（玩家：「照這個砍 巧遇留吧」）：
     //    AI 隨手發明的店員/鄰居本來就會留在【常民】名單裡、之後還會出現，只是不追蹤好感——
     //    升格這件事玩家沒有要求過，卻每次都被問一次，而且問錯過（拿地名問「要不要認識這個人」）。

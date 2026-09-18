@@ -240,7 +240,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
   - `kanshouWorldSheet_()` — 分頁「鑑賞世界」（遊戲ID|類別|名稱|內容|性別|建立日|最後提及日|提及次數|釘選）。欄位索引在 `KW_`。
   - `kanshouWorldRow_(a, rowNum)` — 一列陣列 → 一個帳本條目。讀與寫回填快取共用這份對應（欄位長相的單一真實來源）。
   - `kanshouWorldRead_(gameId)` / `kanshouWorldBust_(gameId)` — 讀這一局的帳本（走 CacheService，每回合都要讀）／作廢快取。
-  - `kanshouWorldWrite_(gameId, entries, curDay)` — **唯一寫入點**：清洗→去重→更新或新增→淘汰→整批寫回→**把快取換成新內容**（不是作廢：同一次執行裡後面還會有人讀，作廢等於逼它再整表讀一次）。
+  - `kanshouWorldWrite_(gameId, entries, curDay, max?)` — **唯一寫入點**：清洗→去重→更新或新增→淘汰→整批寫回→**把快取換成新內容**（不是作廢：同一次執行裡後面還會有人讀，作廢等於逼它再整表讀一次）。
   - `kanshouRegionsFor_(gameId)` / `kanshouFindRegion_(gameId, idOrName)` — 這一局有哪些大區＝內建 `KANSHOU_REGIONS_` ∪ 玩家自己開的（帳本 kind=`大區`）。⚠ 自訂大區天生就是一般公共區：所有行為判斷都寫成「不是 room／不是 visit」的否定形式，陌生 id 自動落在「一般」那一邊。
   - `kanshouWorldSet_(gameId, kind, name, col, val)` — 改帳本某一列的某一欄；大區改名／地點搬區／開店收店共用。
   - `kanshouWorldPayload_(gid)` — 面板要的東西一次給齊（條目＋大區＋上限）；`list` 與每個 op 都回這同一包。
@@ -675,7 +675,13 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `KANSHOU_REGIONS_`（常數）— 大地圖分區清單（room/home/shinzan/fuyuki/dojo/visit），純 UI 分組。
 - `kanshouLocContextForAI_(locName, homeName, gameId)` — 依 region 補一句給 AI 的場域脈絡（自己房間/共用空間/別人住處/深山町…），AI 自創地點回空字串。
-- `KANSHOU_LOCATIONS_`（常數）— 全地點清單（name/region/desc/noEncounter＝私密場合/isRoom/dateOnly/bands），驗證/邏輯的唯一真相（前端另有一份純畫按鈕）。**2026-07 稽核刪除死碼欄位`minBond`**（原供已於八度改版移除的`kanshouPickDate_`選約會地點分級用，確認全檔零讀取點後整批移除，非試算表欄位不受COL規則約束）。`dateOnly`（情侶溫泉套房/深夜賓館這類約會限定私密地點，不進`kanshouRollDailyLocation_`日常閒晃保底池，這個用途仍在使用中）。**六度改版新增 `bands`**（省略＝全天候開放；`timeBand_`5段子集，管「現在幾點能不能去」）——目前書店二樓/水族館/摩天輪/深夜賓館/夜景展望台/情侶溫泉套房設限，其餘地點不設限。
+- `KANSHOU_LOCATIONS_`（常數）— 內建地點清單，2026-09 起**只剩「我的房間」**（`isRoom`·結構性，刪不得）。這一局真正走得到的地方＝它 ∪ 世界帳本的「地點」類（`kanshouLocationsFor_`）。
+- `KANSHOU_STARTER_PLACES_`（常數，5 筆）— 新局開場種進世界帳本的範例地圖（可改名／改樣子／刪掉）。
+- `KANSHOU_LEGACY_PLACES_`（常數，18 筆）— 地圖搬進帳本之前寫死在代碼裡的那些地方；只在舊存檔的一次性遷移時被讀。
+- `KANSHOU_MAP_SEED_TAG_`（makeTextTag_ 地圖·存玩家列）— 地圖種子只種一次的戳記，判「寫過沒有」不是「有沒有地方」。
+- `KANSHOU_WORLD_AT_MAX_`（常數=5）— 掛在此刻這個地方（`KW_.AT`）的條目一回合最多餵回幾條；不占 `KANSHOU_WORLD_FEED_MAX_` 的名額。
+- `kanshouSeedMap_(kpc, data, rowIdx, fresh, newRow, newRowNum)` — 種地圖＋把「已經種過」寫回玩家列；`rowIdx<0` 代表剛 append 的新局。
+- `kanshouSeedMapIfNew_(gameId, memory, fresh, curDay)` — 真正決定種哪一份（`fresh` → STARTER，否則 LEGACY）並回傳新的 MEMORY。
 - `kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx)` — 房間顯示名：「我的房間」→「(玩家名)的房間」，其餘原樣。（pcData/gameId/myIdx 現未使用。）
 - `KANSHOU_SUMMON_BLOCKED_IDS_`（常數）— 暫移出鑑賞的英靈 id（召喚/住處共用單一來源）。
 - `KANSHOU_STARTER_IDS_`（常數）— 開局 4 位起始住民（大河/凜/櫻/SABER）。
