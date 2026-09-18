@@ -187,6 +187,10 @@ function setBondUsedToday_(memory, day, type) {
 
 // 💞 羈絆里程碑：BOND 跨過門檻(30/60/90，各觸發一次)時，把當次「相處」升級成專屬一次性劇情。
 var BOND_MILESTONES_ = [30, 60, 90];
+// 🔒 自訂關係稱呼／專屬稱呼的羈絆門檻（solo 限定）：那段文字會被字面「TA是你的${tag}」原樣塞進
+//    提示詞當既定事實，羈絆還低就打露骨自訂稱呼，AI 會照著演。呼叫端在 Router_Action 的
+//    actionUpdateRelTag／actionSetNickname。鑑賞 2026-09 好感整組砍除後不吃這道門檻。
+var CUSTOM_TAG_BOND_ = 80;
 function getBondMilestonesFired_(memory) {
   var m = String(memory || "").match(/【羈絆里程碑】([\d,]*)/);
   return m && m[1] ? m[1].split(",").map(Number) : [];

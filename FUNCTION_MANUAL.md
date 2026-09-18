@@ -619,17 +619,24 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `dailySpeechByName_(name, preHeroes)` — 由名字（經 `kanshouNameCandidates_` 別名橋比對）反查英靈殿 DAILY_LOOK 第 3 段（自稱與口氣）當日常安全版口吻，避免戰時口吻餵進鑑賞 AI。preHeroes 可傳入省重複整表解析。
 - `heroToKanshouRow_(heroRow, gameId, loc, curDay)` — 核心建列器：把 HERO 列轉成鑑賞 PC 列（KHV_ 前綴）。用日常稱呼當 NAME、讀日常版 look/words/moe/outfit、身世走 dailyBack→back→通用預設、起始 BOND=10「點頭之交」、不寫戰鬥欄/IS_PARTY/PHYSICAL。被召喚/起始住民共用。**七度改版**：建列尾聲檢查`KANSHOU_HERO_HOME_[heroRow[COL.HERO.ID]]`，查無專屬豪邸就從`KANSHOU_GENERIC_HOME_POOL_`隨機抽一間、用`setKanshouHeroHome_`寫進`【住處】`記憶標記——這是新英靈唯一的建列入口，此處補一次即涵蓋召喚與起始住民兩條路徑。 ⚠ 2026-09 加蓋 `KANSHOU_SRC_TAG_`（【英靈源】＝來源種子 id），撞名守門靠它認人。
 
-#### 關係梯度·好感天花板（資料驅動）
+#### ~~關係梯度·好感天花板~~（2026-09 鑑賞好感整組砍除）
 
-- `KANSHOU_REL_TIER_`（常數）— 好感→關係標籤 5 階梯度（80 戀人/60 親近/40 熟識/20 普通朋友/-100 點頭之交）；門檻借鑑賞既有 60/80 節點，單一來源。**2026-09 每階加 `ceiling` 欄**（這一階的肢體親密天花板）——原本提示詞裡另外硬寫一份五行對照表，同一組門檻存兩處。`check_wiring.py` 的 `TIER_TABLES` 盯著每階都要有相異的 `ceiling`。
-- `kanshouIntimacyLines_(bonds)`（2026-09 新增）— 依在場者的好感陣列，只吐出**實際用得到的那幾階**親密尺度（全表五行對小模型是四行雜訊）；沒人在場回空字串、整塊規則不送。
-- `kanshouSyncRelTier_(pcData, idx)` — BOND 變動後的下游同步總管，順序固定為 ①好感棘輪夾地板 ②REL_TAG 重算。①必須最先：②讀 bond，讀到未夾的值會做出跟棘輪矛盾的降階。②只在現值仍等於某梯度字面時才覆寫（玩家手動改自訂稱呼後不再自動蓋回）。冪等。任何動 BOND 處之後補呼叫（目前 5 處全數有呼叫）。（~~告白牆~~ 2026-09 大瘦身已隨告白一併移除，好感不再被夾在 79。）
-- `kanshouBondFloorOf_(bond)`（2026-07 新增）— 好感棘輪的地板：回傳 bond 已跨過的最高門檻（門檻＝`KANSHOU_REL_TIER_` 的 min>0，即 20/40/60/80，由表推導不另寫數字）。**刻意寫成函式而非模組層常數**——它讀的表宣告在本檔後面，const 有 TDZ，模組層直接引用會炸。
-- `KANSHOU_CUSTOM_TAG_BOND_`（常數=80，2026-07 五度改版新增）— 自訂關係稱呼／專屬稱呼的解鎖門檻，跟親密尺度五階「80+無上限」同一個切點。`actionUpdateRelTag`/`actionSetNickname`(Router_Action.gs) 共用此常數。
+鑑賞不再有好感這個數字。連帶整組移除：~~`KANSHOU_REL_TIER_`~~（五階＋`ceiling` 親密尺度天花板）／
+~~`kanshouIntimacyLines_`~~／~~`kanshouSyncRelTier_`~~（棘輪＋自動標籤）／~~`kanshouBondFloorOf_`~~／
+~~`KANSHOU_CUSTOM_TAG_BOND_`~~／~~`KANSHOU_CLOSE_BOND_`~~／~~`KANSHOU_SCENE_BOND_`~~／
+~~`KANSHOU_SCENE_MIN_BOND_`~~／~~`KANSHOU_VISIT_BOND_`~~／~~`KANSHOU_RAPPORT_TONE_`~~ 一族／
+~~`KANSHOU_REL_RANK_TAG_`~~ 一族／~~`KANSHOU_BOND_FLOOR_TAG_`~~／~~`KANSHOU_CHILL_*`~~，
+以及 AI 的 `rel_changes` 欄位。`COL.PC.BOND` 欄位本身留著（COL 是位置索引，solo 仍在用）。
+
+- `kanshouFreshRelTag_(tag)`（2026-09 新增）— 關係稱呼的唯一讀口：舊存檔殘留的五階字面
+  （`KANSHOU_STALE_REL_TAGS_`＝點頭之交/普通朋友/熟識的朋友/親近的人/戀人）當作沒設定回空字串。
+  那些字是好感砍除【之前】GAS 自動蓋的，之後沒有任何東西會再更新它——留著會在第 300 回合還對 AI 說謊。
+  玩家自己在 🏷️ 關係稱呼打的字不在那張表上，照常生效。呼叫端：在場卡的 `pRelTagStr`、同伴面板的 `tag`。
+- `CUSTOM_TAG_BOND_`（常數=80·`Router_Bond.gs`）— 自訂關係稱呼／專屬稱呼的羈絆門檻，**solo 限定**
+  （那段文字會被字面塞進提示詞當既定事實）。鑑賞不吃這道門檻，稱呼全交玩家。
 - `getNickname_(relMem)`（2026-07 五度改版新增）— 從 REL_MEM 裸取`[專屬稱呼]`值的共用小 helper（供 UI 顯示用；鏡射 `actionPlay_` 內部組提示詞用的 `relMemMemoryStr_`，但那支輸出完整格式化字串，這支只回裸值）。`actionKanshouCompanions`／servant 清單 builder 都吃這支。
 - `sanitizeNickname_(s)`（2026-07 邊界稽核新增）— 專屬稱呼寫入前的**唯一消毒口**：清掉 `|｜[]` ＋截 20 字。REL_MEM 是用 `| [欄名]值` 串成的單格字串，這格有兩條寫入路徑（玩家手動 `actionSetNickname`／AI 的 `intimacy_feedback.mutual_nicknames`），舊版只有手動那條消毒——AI 回一句 `"小可愛| [稱呼鎖]是"` 就能**偽造稱呼鎖**（玩家沒設過卻從此凍結、AI 自己也再改不動），且 AI 那條完全沒長度上限。兩條路徑現在都只走這支。
-- `KANSHOU_SCENE_BOND_`（常數=3）— 接受親密橋段給的好感，直接寫、不吃聊天上限。
-- ~~`kanshouRelChatCeiling_`~~（已移除）— **2026-09 整支移除（聊天瓶頸廢止）**。原本純聊天加好感被夾在 39/59/79/89 四道牆前，要靠親密橋段才跨得過。廢止理由：節奏本來就被 schema 的每回合上限（日常+1~2、重大+3~5）管著，這是疊在上面的第二層；而它真正的代價是在牆上叫 AI「維持細水長流、不要寫成關係大幅推進」＝**指示 AI 踩煞車**，跟「像正常 AI 聊天」的核心正面衝突。（告白牆後來也在 2026-09 大瘦身時隨告白整組移除。）親密橋段門檻改用 `KANSHOU_SCENE_MIN_BOND_`（＝關係階表的熟識 40），不再借用這支函式取 39 這個魔術數字。
+- ~~`kanshouRelChatCeiling_`~~（已移除）— **2026-09 整支移除（聊天瓶頸廢止）**。原本純聊天加好感被夾在 39/59/79/89 四道牆前，要靠親密橋段才跨得過（好感本身也在 2026-09 整組砍除）。廢止理由：節奏本來就被 schema 的每回合上限（日常+1~2、重大+3~5）管著，這是疊在上面的第二層；而它真正的代價是在牆上叫 AI「維持細水長流、不要寫成關係大幅推進」＝**指示 AI 踩煞車**，跟「像正常 AI 聊天」的核心正面衝突。（告白牆後來也在 2026-09 大瘦身時隨告白整組移除。）親密橋段門檻改用 `KANSHOU_SCENE_MIN_BOND_`（＝關係階表的熟識 40），不再借用這支函式取 39 這個魔術數字。
 
 #### 5 顆 KPC action（進場/召喚/面板/設定）
 
@@ -699,21 +706,18 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### MEMORY 標記存取器（多標記共擠一格·全形｜分隔）
 
 - `ALLY_BOND_DAY_TAG_`（`makeIntTag_('交流日', 0)`，2026-09 新增）— 盟友「今日已交流過」的戳記（每對象每日一次），`actionAllyBond` 讀寫的唯一出口；蓋戳必須早於卸防突襲那條提早 return 的路（見 CODE_NOTES）。
-- `KANSHOU_BOND_FLOOR_TAG_`（makeIntTag_ 好感底線·2026-07 新增）— 好感棘輪的高水位，只升不降（那正是「鎖住」本身）；見 `kanshouBondFloorOf_`。
-- `KANSHOU_CHILL_DAY_TAG_`／`KANSHOU_CHILL_MIN_DROP_`(3)／`KANSHOU_CHILL_DAYS_`(1)（2026-07 新增）— 🧊 好感【趨勢】。提示詞原本只給純量好感值，剛爬到 90 跟從 98 摔到 90 完全相同，冷落她毫無效果。只記「最近一次讓她不高興是哪一天」(absDay)，靠日期自然衰減。蓋戳處：AI `rel_changes` 掉幅 ≥ MIN_DROP（**用 `change` 本身判定而非 `newFav-oldFav`**——棘輪把值夾在地板時兩者差 0，但她確實不高興過）。呈現在她自己的卡片（`pChillStr`，接在好感數字後）而非全域旁白，避免代名詞懸空。
-- `KANSHOU_NIGHT_PART_TAG_`（makeTextTag_ 昨夜道別·2026-07 新增）— 與【晨間餘韻】同構的另一半：昨晚陪你到最後、卻沒留下的人（未達 80）。兩者互斥。
+- `KANSHOU_NIGHT_PART_TAG_`（makeTextTag_ 昨夜道別）— 與【晨間餘韻】同構的另一半：昨晚陪你到最後、卻沒留在你房裡的人。兩者互斥。
 （~~`KANSHOU_KNOCK_DAY_TAG_`~~／~~`KANSHOU_NIGHT_GUEST_TAG_`~~ 已隨 2026-09 砍掉深夜訪客一併移除；~~`KANSHOU_FESTIVAL_DONE_TAG_`~~ 已隨砍掉預寫橋段池一併移除。）
 - `KANSHOU_BACKFILL_DONE_TAG_`（makeIntTag_『設定已補』）— 創角敘事欄已經補過的章。蓋了之後 `actionBackfillKanshouAi` 只填還空著的格子，不再覆寫玩家玩出來/改命改過的內容。
-- `KANSHOU_MORNING_AFTER_TAG_`（makeTextTag_ 晨間餘韻）、`KANSHOU_SCENE_DAY_TAG_`（makeIntTag_ 橋段日·防同日重刷）。（~~`KANSHOU_APPT_BANDS_`~~ 已隨 2026-09 砍掉約定一併移除。）
-- `KANSHOU_AWAKE_HERE_TAG_`（makeTextTag_ 醒著陪同·存該同伴列MEMORY·值＝她被判定醒著時所在的LOC）、`KANSHOU_VISIT_BOND_`(40)（常數）。（~~`KANSHOU_COHABIT_TAG_`~~／~~`KANSHOU_COHABIT_BOND_`~~／~~`KANSHOU_COHABIT_ROOM_`~~ 已隨 2026-09 砍掉同居一併移除。）
+- `KANSHOU_MORNING_AFTER_TAG_`（makeTextTag_ 晨間餘韻）、（~~`KANSHOU_SCENE_DAY_TAG_`~~ 已隨 2026-09 砍掉獨處加好感一併移除。）（~~`KANSHOU_APPT_BANDS_`~~ 已隨 2026-09 砍掉約定一併移除。）
+- `KANSHOU_AWAKE_HERE_TAG_`（makeTextTag_ 醒著陪同·存該同伴列MEMORY·值＝她被判定醒著時所在的LOC）（常數）。（~~`KANSHOU_COHABIT_TAG_`~~／~~`KANSHOU_COHABIT_BOND_`~~／~~`KANSHOU_COHABIT_ROOM_`~~ 已隨 2026-09 砍掉同居一併移除。）
 - `PERSONA_SPEECH_TAG_`／`PERSONA_TIC_TAG_`（`makeTextTag_('口吻')`／`('小動作')`·Router_Persona.gs）— 🗣️ 2026-07 稽核：這兩個標記原本由 `stampPersonaFlavor_` 自己拼字串、**完全沒清洗**（speech 來源含工房 AI 生成的 dailyLook 第3段，AI 吐一個「【」就切壞整條 MEMORY）。改走工廠後一次拿到清洗＋replace-or-append；`getPersonaSpeech_`/`getPersonaTic_` 與 Router_Bond/Seed_Codex 的三處重複 regex 全部委派過來，全專案 4 份實作收斂成 1。
-- `KANSHOU_REL_RANK_TAG_`／`kanshouRelRank_(bond)`／`kanshouRelTierLabel_(rank)`（2026-07 新增）— 💗 關係階質變。`kanshouRelRank_` 把 BOND 換算成 1(點頭之交)~5(戀人) 的階數（反轉 `KANSHOU_REL_TIER_` 的高→低排序）；`【關係階】` 記當前階，**2026-07 改為雙向**（原本只升不降，於是降階時親密尺度悄悄收緊卻零敘事，玩家下一回合直接撞到「她突然不讓我碰了」；沒有別的機制依賴它只升不降，故改雙向是安全的）；`kanshouRelTierLabel_` 把階數換回階名（索引反轉，`KANSHOU_REL_TIER_` 仍是唯一真實來源）。跨階時只餵【事實】「某某從『A階』跨進『B階』」，不給寫好的文案。偵測在 `actionPlay_` 的 `partyRows` 迴圈：首次見到靜靜記下當前階不報，之後升階才注入質變提示。**刻意看 BOND 不看 REL_TAG**——玩家自訂關係稱呼後 REL_TAG 不再等於梯度字面，跨階演出不該因此消失。
 - ~~`KANSHOU_COHABIT_EVENTS_`~~／~~`kanshouPlayerHomeLocs_`~~／~~`_sceneIsCohabit_`~~（2026-09 已砍）— 曾是同居日常橋段（第四層觸發）；同居本身也已整組移除。
 - `kanshouIsAwakeWithMe_(idx)`（`actionPlay_`內部函式，2026-07 改吃`pcData`索引，原吃姓名字串）— 判定該同伴此刻是否醒著陪同(供 `pSleepStr` 熟睡提示排除用)：這回合剛與玩家一起移動抵達＝true；否則讀`KANSHOU_AWAKE_HERE_TAG_`，若上次判定醒著時記的LOC仍等於她目前LOC也算true。判定為醒著就把她目前LOC寫回tag，否則清空——地點一變(離開/被重骰走)tag自動失效，不必額外收尾。**🐛→✅**：原本只認「這回合剛到」，下一回合就失效，會把明明還醒著互動的同伴誤判成熟睡，改成這個持久tag解決。
 - `KANSHOU_NOTED_TAG_`／`KANSHOU_NOTED_SEP_`／`KANSHOU_NOTED_CAP_`／`KANSHOU_NOTED_LEN_`／`kanshouKnownTier_(metCount)`／`kanshouKnownOfYou_(memory)`（2026-09 新增，`gas/Gallery.gs`）— 「她眼中的你」知情度。`kanshouKnownTier_` 查 `KANSHOU_FAMILIAR_TIERS_`（**與相處基調共用同一條軸、不另立門檻**）回初識/混熟/老交情；`kanshouKnownOfYou_` 回 `{tier, noted[]}`，`noted` 是 `【眼中的你】` 標記以 `／` 切開的清單（**分隔符不可用 `｜`/`【】`**，`makeTextTag_` 會剝掉）。掛在 `partyDetailsArr` 每人自己那行（`pKnownStr`），格式 `你在○眼中:<熟悉段>[·<筆記>]`——**沒筆記就只印熟悉段**。⚠ **刻意沒有「各段是什麼意思」的定義表**：初識/混熟/老交情 是模型天生就懂的詞，寫三段定義去教它＝玩家說的「追加設定、增加雜音」（第一版真的寫了 225 字，被擋下來砍掉）。
 - `_spotlight_`（`actionPlay_` 區域變數）— 🔦 聚光燈：從玩家這一步的 `userMsg` 裡找出被點名的同伴（走 `kanshouNameCandidates_` 別名橋，短名也算）。被點名的拿完整卡；同場其他人的卡砍掉 性格／特徵／招牌小動作／經歷／萌點／共同回憶，只留 名字／性別／在場來由／裝扮／**口吻**／現況／你在他眼中／關係好感。⚠ **沒點名任何人＝全部都給完整卡**（維持原行為）。量測：三人同場、點名一人 706→464 字（−34%）。
 - `kanshouAppendUnique_(oldStr, newLine, opt)`（2026-09 新增，`gas/Gallery.gs`；`opt = {sep, cap, maxLen, pin}`）— append→去重→上限的**共用引擎**，共同回憶（`processMemoir_` 現已降為一層包裝：`{sep:'｜', cap, maxLen:40, pin:true}`）與「她眼中的你」（`{sep:'／', cap:6, maxLen:14}`）共用。去重含**雙字組 0.6 相似度**比對最近 3 條（防同一件事換句話說重記）；`pin:true` 時★釘選永不驅逐，否則單純留最近 cap 條。寫入值一律先剝 `｜|【】[]★` 與分隔符本身、再截 `maxLen`。
-- `KANSHOU_MET_COUNT_TAG_`／`KANSHOU_FAMILIAR_TIERS_`／`KANSHOU_RAPPORT_BOND_TIERS_`／`KANSHOU_RAPPORT_TONE_`／`kanshouRapportTone_(bond, metCount, isLover)`（2026-07 新增，`gas/Gallery.gs`；**同月加第三參數 `isLover`**）— 相處基調 2D 表。`【相處】N` 每個對話回合對每位在場者 +1（`kanshouTimeJumped_` 時不加）；查 好感4段 × 熟悉度3段 → **一句既定事實**（開頭一律「事實：」），查無回空字串（刻意留白＝那一格不給指令，15 格只填 11 格）。`isLover` 為真時直接走第五排 `'交往中'`、不再看好感段（上面四排全是「還沒在一起」的溫度，尤其「等你先開口」交往後再演就變成她失憶）。掛在 `partyDetailsArr` 每人自己那行，取代舊的 1D `pTierToneStr`。⚠ **只寫事實、不寫演技**：不得出現未指涉代詞（「這件事」）或替角色決定的微動作（「愣一下」「打呵欠」）——前者小模型解不開會自己編，後者讓所有角色套同一套表情。交棒句（怎麼表現依她個性）寫在 `PROMPT_REL` 的【角色一致性】★ 一次。兩者已由 `check_wiring.py` ⑤ 機器擋（`check_prompt.py` 只掃 ★ 行、看不到資料表）。
+- `KANSHOU_MET_COUNT_TAG_`（makeIntTag_『相處』）／`KANSHOU_FAMILIAR_TIERS_`（老交情150+／混熟30+／初識）／`kanshouKnownTier_(metCount)` — 🤝 相處次數：跟你照過幾次面。2026-09 好感整組砍除後這是**唯一還在累積的關係軸**，只回答「見過幾次」這個事實，不回答「多喜歡你」（那件事交給 AI 從歷史自己判斷）。用途：「你在她眼中」的知情度分段、在場卡與世界概況的排序。每回合在 `partyRows` 迴圈 +1（跳時間的回合不加）。（~~`KANSHOU_RAPPORT_BOND_TIERS_`~~／~~`KANSHOU_RAPPORT_TONE_`~~／~~`kanshouRapportTone_`~~ 的 2D 基調表已隨好感一併移除。）
 
 
 

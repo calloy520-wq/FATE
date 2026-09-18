@@ -21,7 +21,6 @@ const ROOT = __dirname;
 
 // 後端名稱跟前端不是機械對應的少數幾個（歷史命名，不值得為了工具去改動用中的常數名）
 const ALIAS = {
-  'KC_REL_TIERS_': 'KANSHOU_REL_TIER_',   // 前端多了一個 S
   // solo 側的常數不叫 KANSHOU_*，靠 ALIAS 指過去
   'KC_DEADLINE_DAYS_': 'FATE_DEADLINE_DAYS_',
   'KC_MANA_CIRC_CUT_': 'MANA_CIRC_CUT_',
@@ -105,7 +104,7 @@ function grabLiteral(text, kw, name) {
   if (end == null || end < 0) return { found: true, err: '找不到字面量結尾' };
   let body = text.slice(i, end).replace(/\/\/[^\n]*/g, '').trim().replace(/,\s*$/, '');
   // 🔗 一層別名：`const A_ = B_;`(B_ 是同檔另一個常數) 也要解得出來——
-  //    2026-09 把寫死的好感門檻改成從 KANSHOU_REL_TIER_ 推之後，這裡整排解析失敗。
+  //    2026-09 把寫死的門檻改成從階級表推之後，這裡整排解析失敗。
   //    只跟一跳、且只認【同檔已定義的常數/陣列取值】，避免把整個檔當程式跑。
   let hops = 0;
   while (/^[A-Za-z_$][\w$]*(\s*\[\s*\d+\s*\]\s*\.\s*[\w$]+)?$/.test(body) && hops++ < 4) {

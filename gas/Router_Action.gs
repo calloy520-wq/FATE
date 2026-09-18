@@ -25,14 +25,14 @@ const ActionRouter = {
   "kanshou_set_pace": actionKanshouSetPace,
   "kanshou_get_style": actionKanshouGetStyle, // 🎨 說書人設定面板：讀整張風格表(預設＋玩家版)
   "kanshou_set_style": actionKanshouSetStyle, // 🎨 改一格／還原一格／全部還原
-  "set_bond": actionSetBond,                  // 💞 直接把某人的好感/羈絆調成指定值（兩軌共用，pcId 前綴分流）
+  "set_bond": actionSetBond,                  // 💞 直接把某人的羈絆調成指定值（solo 限定；鑑賞已無好感）
   "kanshou_set_name": actionKanshouSetName,
   "kanshou_set_home_name": actionKanshouSetHomeName,
   "prep_meal": actionPrepMeal,
   "get_full_status": actionGetFullStatus,
   "update_fate": actionUpdateFate,
   "update_rel_tag": actionUpdateRelTag,
-  "kanshou_set_nickname": actionSetNickname, // 🔒 2026-07 五度改版：專屬稱呼比照update_rel_tag同一套bond≥80門檻(見Gallery.gs KANSHOU_CUSTOM_TAG_BOND_)
+  "kanshou_set_nickname": actionSetNickname, // 🔒 專屬稱呼比照 update_rel_tag：solo 吃 CUSTOM_TAG_BOND_ 門檻，鑑賞無門檻
   "roll_fate": actionRollFate, // 🎲 命運測定：一次回三份候選（唯一真實來源在 Core_Settings.gs）
   "create": actionManualNpc, // 御主創角。
   "backfill_master_ai": actionBackfillMasterAi, // 🚀 開局非阻塞：create 後於召喚頁背景補御主敘事欄
@@ -354,7 +354,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
       hpNum: parseInt(s[COL.PC.HP]) || 0, hpMax: parseInt(s[COL.PC.MAX_HP]) || 0,
       mpNum: parseInt(s[COL.PC.MP]) || 0, mpMax: parseInt(s[COL.PC.MAX_MP]) || 0,
       output: servantOutput_(s[COL.PC.MEMORY]), outputLabel: outputTier_(servantOutput_(s[COL.PC.MEMORY])).label, // 🔋 靈基出力檔位
-      np: s[COL.PC.MARTIAL] || "寶具未顯現", bond: bond,
+      np: s[COL.PC.MARTIAL] || "寶具未顯現", bond: isFateCtx ? bond : undefined,
       six: six, skills: skills, traits: traits,
       // 🔮 魔境的智慧（斯卡哈）：前端露出可選被動盤。has＝持 mage_realm；pick＝已選 fx；pool＝可選清單
       mageRealm: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'mage_realm'; })
@@ -404,7 +404,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
   try { if (gameId && gameId.indexOf("g_") === 0 && mIdx >= 0) canRB = canRuleBreak_(pcData, mIdx, gameId); } catch (e) { }
   // 🗺️ 鑑賞地圖分頁按地點顯示人數，供玩家決定去哪找誰；只在鑑賞世界算(gameId以"k_"開頭)，solo無此概念。
   var locationCounts = {};
-  // 🔒 拜訪住處解鎖清單：跟屋主好感≥熟識(40)才能登門，前端據此把鎖住的住處灰掉(同一判定後端 actionPlay 也擋)。
+  // 🏠 拜訪住處清單：屋主已入駐就進得去（2026-09 好感砍除後不再有門檻）。
   var unlockedResidences = {};
   if (gameId && gameId.indexOf("k_") === 0) {
     pcData.forEach(function (r) {
@@ -413,7 +413,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
       if (l) locationCounts[l] = (locationCounts[l] || 0) + 1;
       var hid = kanshouHeroIdByName_(String(r[COL.PC.NAME]));
       var home = kanshouGetHeroHome_(hid, r[COL.PC.MEMORY]);
-      if (home && home !== '自己的住處' && (parseInt(r[COL.PC.BOND]) || 0) >= KANSHOU_VISIT_BOND_) unlockedResidences[home] = true;
+      if (home && home !== '自己的住處') unlockedResidences[home] = true;
     });
   }
   // 🗺️ 玩家自己走出來的地方(世界帳本「地點」類)：內建地圖是靜態鏡射(KC_LOCATIONS_)，長不出這些，
@@ -498,14 +498,13 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   }
 
   const finalTag = String(newTagText).trim();
-  // 🔒 2026-07 五度改版·自訂稱呼會被字面「TA是你的${tag}」原樣塞進AI提示詞當既定事實，玩家實測低好感就打露骨自訂稱呼會讓AI無視好感天花板照樣演到底——5階預設標籤(KANSHOU_REL_TIER_)本就由GAS依好感計算，不受此限；只擋「自訂文字不等於任一預設標籤」這條路徑。
-  const _presetTier = KANSHOU_REL_TIER_.find(t => t.label === finalTag) || null;
-  const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;
-  if (_presetTier && bond < (parseInt(_presetTier.min) || 0)) {
-    return JSON.stringify({ success: false, message: `好感到 ${_presetTier.min} 才能叫「${finalTag}」，現在 ${bond}。` });
-  }
-  if (!_presetTier && bond < KANSHOU_CUSTOM_TAG_BOND_) {
-    return JSON.stringify({ success: false, message: `好感到 ${KANSHOU_CUSTOM_TAG_BOND_} 才能自己取稱呼，現在 ${bond}。` });
+  // 🔒 自訂稱呼會被字面「TA是你的${tag}」原樣塞進 AI 提示詞當既定事實，低羈絆就打露骨自訂稱呼
+  //    會讓 AI 照著演。solo 仍吃這道門檻；鑑賞 2026-09 好感整組砍除後沒有這個數字，稱呼全交玩家。
+  if (myGameId.indexOf("k_") !== 0) {
+    const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;
+    if (bond < CUSTOM_TAG_BOND_) {
+      return JSON.stringify({ success: false, message: `羈絆到 ${CUSTOM_TAG_BOND_} 才能自己取稱呼，現在 ${bond}。` });
+    }
   }
 
   // 需同步寫回 pcData 的記憶體鏡射，才能安全交棒 STATE_PRE_DATA_(否則夾帶的 _state.people 會顯示舊稱呼)。
@@ -516,7 +515,7 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   return JSON.stringify({ success: true, message: `改成「${finalTag}」了。`, newTag: finalTag });
 }
 
-// 🔒 2026-07 五度改版·專屬稱呼比照 update_rel_tag 同一套bond門檻+同一個injection風險，玩家手動設定後寫入【稱呼鎖】旗標，讓AI的rel_changes.mutual_nicknames不再自動覆寫(尊重玩家的手動選擇，同kanshouSyncRelTier_對自訂關係稱呼「一旦手動改過就不再被自動覆寫」的精神)。
+// 🔒 專屬稱呼比照 update_rel_tag 同一套門檻與同一個 injection 風險；玩家手動設定後寫入【稱呼鎖】旗標，AI 不再自動覆寫。
 function actionSetNickname(userData, pcId, sheets) {
   const { targetName, newNickname, targetId } = userData;
   if (!newNickname || !String(newNickname).trim()) return JSON.stringify({ success: false, message: "稱呼不能空白。" });
@@ -528,9 +527,11 @@ function actionSetNickname(userData, pcId, sheets) {
   const tIdx = findPcRowIdx_(pcData, myGameId, { id: targetId, name: targetName });
   if (tIdx === -1) return JSON.stringify({ success: false, message: "找不到這段關係。" });
 
-  const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;
-  if (bond < KANSHOU_CUSTOM_TAG_BOND_) {
-    return JSON.stringify({ success: false, message: `好感到 ${KANSHOU_CUSTOM_TAG_BOND_} 才能自己取稱呼，現在 ${bond}。` });
+  if (myGameId.indexOf("k_") !== 0) {
+    const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;
+    if (bond < CUSTOM_TAG_BOND_) {
+      return JSON.stringify({ success: false, message: `羈絆到 ${CUSTOM_TAG_BOND_} 才能自己取稱呼，現在 ${bond}。` });
+    }
   }
 
   // 分隔符安全：清掉可能撞到REL_MEM組字格式的符號(｜全形/[]方括號)，避免污染後續欄位解析。

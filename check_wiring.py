@@ -33,12 +33,9 @@ problems = []
 # 沒有 UI 出口是合理的那些，一律要寫明理由——「忘了接」跟「不用接」從外面看長得一樣，
 # 只能靠人簽名區分。新增門檻常數時你會被迫做這個決定，這正是重點。
 NO_UI_NEEDED = {
-    'KANSHOU_LOVER_BOND_': '階級表 KANSHOU_REL_TIER_ 的具名別名(80＝戀人)，真正擋玩家的是引用它的那幾個門檻，各自有出口',
-    'KANSHOU_CLOSE_BOND_': '同上(60＝親近的人)：KANSHOU_CONFESS_BOND_／KANSHOU_KNOCK_MIN_BOND_ 都是它的別名，出口在那邊',
     'KANSHOU_PARTY_DETAIL_CAP_': '提示詞內部的篇幅上限，玩家看不到也不需要知道',
     'KANSHOU_WORLD_ROSTER_CAP_': '同上，餵 AI 的名冊長度上限',
     'KANSHOU_SCENE_BOND_': '橋段給的好感增量，不是門檻、沒有按鈕會被它擋',
-    'KANSHOU_SCENE_MIN_BOND_': '獨處親密橋段的觸發條件，由 GAS 在回合裡自動判定，玩家沒有按鈕會被它擋',
     'KANSHOU_KNOCK_MIN_BOND_': '敲門事件的觸發條件，隨機事件不是玩家主動按的按鈕',
     'KANSHOU_ALBUM_CAP_': '相簿上限，滿了是自動汰換舊照而非拒絕玩家',
     'KANSHOU_INIT_BASE_': '她主動的機率參數，非門檻',
@@ -54,7 +51,6 @@ NO_UI_NEEDED = {
 # 有些門檻不是「把數字下傳給前端」，而是後端直接算好結果下傳（逐項的解鎖清單之類），
 # 那比下傳數字更精準。這種要指名是靠哪個欄位接的，工具會確認那個欄位前後端都真的存在。
 DOWNLINKED_VIA = {
-    'KANSHOU_VISIT_BOND_': ('unlockedResidences', '逐地點的解鎖清單，比下傳門檻數字更精準（前端據此把未解鎖住處灰掉）'),
 }
 gate_re = re.compile(r'\b(KANSHOU_[A-Z0-9_]*(?:BOND|CAP)_)\s*=')
 gates = sorted(set(gate_re.findall(BACK_ALL)))
@@ -86,10 +82,11 @@ ENUM_TABLES = []
 # ── ②b 一張表自己就是各階 ＋ 每階必須有某個欄位 ─────────────────
 # (表常數, 必備欄位, 這個欄位在提示詞裡是做什麼的)
 # 漏一階＝那一階在提示詞裡靜靜消失（AI 看不到天花板、玩家覺得規則時靈時不靈）。
-TIER_TABLES = [
-    ('KANSHOU_REL_TIER_', 'ceiling', '親密尺度：好感落在這一階時，肢體親密的天花板'),
-    ('KANSHOU_WORDS_', 'range', '篇幅：好感落在這一階時，narration 的字數區間'),
-]
+# 🗑️ 2026-09 鑑賞的好感整組砍除：KANSHOU_REL_TIER_(親密尺度天花板) 與依好感分階的
+#    KANSHOU_WORDS_ 都已不存在（篇幅 auto 現在是單一組數字），這張表因此空著。
+#    ⚠ 空著【不代表這道檢查沒用】——solo 或日後任何「一張表自己就是各階」的查表加進來時，
+#    往這裡加一列就重新生效。
+TIER_TABLES = []
 
 
 def grab(name, text):
@@ -195,7 +192,7 @@ if dead:
 # 這裡記一個下限；真的刻意刪掉區塊時，請一併把這個數字調下來（強迫是個有意識的動作）。
 # ⚠ 這裡的計數方式跟 check_prompt.py 不同（那邊的 regex 會把同一行後面的 ★ 一起吃進 420 字尾巴裡），
 #   所以數字不一樣是正常的；重點是「不准無聲變少」。
-MIN_STAR_BLOCKS = 121  # 2026-09 大瘦身進行中：每砍一個功能就會少幾個 ★ 區塊，這道門檻跟著降
+MIN_STAR_BLOCKS = 119  # 2026-09 大瘦身進行中：每砍一個功能就會少幾個 ★ 區塊，這道門檻跟著降
 star = 0
 for l in BACK_ALL.split('\n'):
     t = l.strip()
@@ -216,7 +213,9 @@ if star < MIN_STAR_BLOCKS:
 #   ⓑ 替角色決定微動作：「愣一下／打呵欠／慌一下然後裝沒事」——12 格套同一套表情，
 #      凜和櫻會被演成同一個人（玩家原話：「這樣有模板·誰來演都一樣·那我多個角色不就沒有意義了」）。
 # 規則：這些表只寫【既定事實】（此刻什麼是真的／什麼不會發生），演法留給 AI。
-FACT_TABLES = ['KANSHOU_RAPPORT_TONE_']
+# 🗑️ 2026-09 KANSHOU_RAPPORT_TONE_(相處基調) 隨好感整組砍除，這張表因此空著——
+#    同上，日後再有「餵給 AI 的事實查表」就往這裡加一個名字。
+FACT_TABLES = []
 fact_cells = 0
 VAGUE = ['這件事', '那件事', '這種事', '那個意思', '這一切', '那件', '如此這般']
 ACTING = ['愣一下', '打呵欠', '慌一下', '臉紅', '嘟嘴', '歪頭', '眨眨眼', '吐舌']
