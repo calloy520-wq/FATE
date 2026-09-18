@@ -2373,8 +2373,13 @@ function actionPlay_(userData, pcId, sheets) {
       const npcSex = (npcSexRaw === "男" || npcSexRaw === "女") ? npcSexRaw : "女";
       if (playerSex === "女" && npcSex === "女") sameSexF.push(r[COL.PC.NAME]);
     });
+    // 🚻 講【身體本身】、兩邊一樣。舊寫法「做得到的是手指、舌頭與器物」讀起來像建議清單，
+    //    模型照樣自己長出一根來（玩家：「但是我也是女的欸！！！我拿什麼頂她阿」）。
+    //    ⚠ 中間版本寫過「兩腿之間沒有陰莖」，玩家當場擋下：「說不定他看到陰莖又只記得這個詞了」。
+    //      那個寫法鑽過了 check_prompt 的黑名單（「沒有」不在表上），卻違反它的精神——
+    //      CLAUDE.md 玩家原話「說越多它會越想歪」。點名不要的東西＝把它塞進模型腦裡。
     genderHintStr = sameSexF.length
-      ? `\n★【身體】：我跟${sameSexF.join("、")}都是女性的身體，兩腿之間沒有陰莖。要進入對方，靠的是手指、舌頭，或找得到的器物。`
+      ? `\n★【身體】：我跟${sameSexF.join("、")}都是女性的身體，彼此一樣。要進入對方，靠的是手指、舌頭，或找得到的器物。`
       : "";
   }
 
