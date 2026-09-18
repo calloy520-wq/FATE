@@ -891,6 +891,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 getter 內部委派 `makeTextTag_('迴路'|'魔術').get`（既有工廠，取代各自手寫的正則）。
 
+- `pronYou_(sex)`／`PRONOUN_YOU_`（2026-09 新增，`Core_Settings.gs`）— 第二人稱的字：中文的「你／妳」也分性別，別人**當面叫玩家**用的就是這個字。跟 `pron_` 同款從資料算、不在提示詞裡寫死；查無一律回「你」（它本來就兼作通用，猜錯性別比較傷）。
 - `getMasterCircuits_(memory)` — 讀御主魔術迴路（整數；補魔會改它，是唯一還在動的御主數值）。
 - `getMasterMagic_(memory)` — 讀御主魔術系統自由描述。
 - `masterMagicRankFromCircuits_(circuits)`（2026-09 新增，`Core_Settings.gs`）— 迴路→魔術階位（≥45 A／≥38 B／≥30 C／≥22 D／其餘 E）。`injectMasterMagicSupport_` 的唯一來源。

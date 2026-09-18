@@ -414,6 +414,11 @@ function setMageRealmPick_(memory, fx) {
 // 查無(含「異」「無」「」)一律退回中性「TA」——寧可中性，不要猜錯性別。
 var PRONOUN_ = { '男': '他', '女': '她' };
 function pron_(sex) { return PRONOUN_[String(sex || '').trim()] || 'TA'; }
+// 第二人稱的字：中文的「你／妳」也分性別，而別人【當面叫玩家】用的就是這個字。
+// 2026-09 玩家「NPC 叫玩家的 妳/你 要確實依照性別」——一樣從資料算，不在提示詞裡寫死。
+// 查無一律退回「你」：它在中文裡本來就兼作通用，猜錯性別比較傷。
+var PRONOUN_YOU_ = { '女': '妳' };
+function pronYou_(sex) { return PRONOUN_YOU_[String(sex || '').trim()] || '你'; }
 
 
 // 短句(外貌/性格)的落地硬上限與提示詞對 AI 宣告的字數，所有生成短句的提示詞都要把 TRAIT_SEG_HINT_ 講出來。

@@ -34,6 +34,7 @@
   var KC_MEMOIR_CAP_ = 10;      // 鏡像後端 KANSHOU_MEMOIR_CAP_
   var KC_MEMOIR_PIN_CAP_ = 8;   // 鏡像後端 KANSHOU_MEMOIR_PIN_CAP_
   var KC_PARTY_MAX_ = 3;        // 鏡像後端 KANSHOU_PARTY_MAX_
+  var KC_WORLD_MAX_ = 8;        // 鏡像後端 KANSHOU_WORLD_MAX_
   // ⚙️ 管理面板：列出玩家自訂的貼圖(內建4個不可刪、不列在這裡)＋新增輸入框。
   var _kqpBusy = false;
 
@@ -262,11 +263,11 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
       + '<div style="overflow-y:auto;min-height:0;">'
       + '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 這個世界裡的人 (<span id="kc-count">0</span>)</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">🫂 同行的人一路跟著你，每一幕都在場。最多 ' + KC_PARTY_MAX_ + ' 位。</div>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">📍 <b>站在同一個地方的人就在場</b>，會開口、會有反應。<br>🫂 同行＝她一路跟著你走（最多 ' + KC_PARTY_MAX_ + ' 位）；解散＝她留在你解散她的那個地方。<br>🚶去找＝你走過去　🙋叫來＝她走過來。</div>'
       + '<div id="kc-master-box"></div>'
       + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">駐留清單（<span id="kc-party-n">0</span>/' + KC_PARTY_MAX_ + ' 同行中）</div>'
       + '<div id="kc-party-list"></div>'
-      + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🌹 邀人加入</div>'
+      + '<div style="font-size:12px;color:#cbb;margin:12px 0 3px;">🌹 邀人加入（這座城最多住 ' + KC_WORLD_MAX_ + ' 個人）</div>'
       + '<div id="kc-filters"></div>'
       + '<div id="kc-hero-list"></div>'
       + '<div id="kc-hero-empty" style="color:#888;padding:6px;display:none;"></div>'
@@ -304,10 +305,14 @@ let plainTextContext = cleanText;
       var memCount = (c.memoir || []).length;
       var full = !c.party && _pn >= KC_PARTY_MAX_;
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);' + (c.party ? 'background:rgba(180,140,220,.08);' : '') + '">'
-        + '<span style="flex:1;color:#e8d8e0;">' + (c.party ? '🫂' : '🌹') + ' ' + escapeHtml(c.name) + (c.tag ? ' <small style="color:#8a7fa0;">(' + escapeHtml(c.tag) + ')</small>' : '') + '<br><small style="color:' + (c.party ? '#c0a8e0' : '#7a9fa0') + ';">' + (c.party ? '就在你身邊' : '📍 ' + escapeHtml(c.locLabel || c.loc || '不明')) + '</small>' + '</span>'
-        + '<button onclick="kanshouPartyOp(\'' + String(c.id || '').replace(/'/g, '') + '\',\'' + (c.party ? 'drop' : 'add') + '\')"' + (full ? ' disabled title="同行已滿 ' + KC_PARTY_MAX_ + ' 位"' : '') + ' style="padding:4px 8px;background:' + (c.party ? '#4a3a6a' : (full ? '#2e2e34' : '#3a4a3a')) + ';color:' + (c.party ? '#dcc8ff' : (full ? '#666' : '#a8dca8')) + ';border:none;border-radius:6px;cursor:' + (full ? 'not-allowed' : 'pointer') + ';font-size:12px;">' + (c.party ? '−離開' : '＋同行') + '</button>'
+        + '<span style="flex:1;color:#e8d8e0;">' + (c.party ? '🫂' : (c.isHere ? '👋' : '🌹')) + ' ' + escapeHtml(c.name) + (c.tag ? ' <small style="color:#8a7fa0;">(' + escapeHtml(c.tag) + ')</small>' : '') + '<br><small style="color:' + (c.isHere ? '#c0a8e0' : '#7a9fa0') + ';">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + (c.isHere ? '（就在你身邊' + (c.party ? '·同行中' : '') + '）' : '') + '</small>' + '</span>'
+        // 🚶 不在同一個地方時給兩個方向：去找她（走過去）／叫她過來（她走過來）。在場了就不必再問。
+        + (c.isHere ? '' : '<button onclick="kanshouGoTo(\'' + String(c.id || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#3a4a5a;color:#a8c8e0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🚶去找</button>'
+            + '<button onclick="kanshouPartyOp(\'' + String(c.id || '').replace(/'/g, '') + '\',\'bring\')" style="padding:4px 8px;background:#4a4a3a;color:#e0d8a8;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🙋叫來</button>')
+        + '<button onclick="kanshouPartyOp(\'' + String(c.id || '').replace(/'/g, '') + '\',\'' + (c.party ? 'drop' : 'add') + '\')"' + (full ? ' disabled title="同行已滿 ' + KC_PARTY_MAX_ + ' 位"' : '') + ' style="padding:4px 8px;background:' + (c.party ? '#4a3a6a' : (full ? '#2e2e34' : '#3a4a3a')) + ';color:' + (c.party ? '#dcc8ff' : (full ? '#666' : '#a8dca8')) + ';border:none;border-radius:6px;cursor:' + (full ? 'not-allowed' : 'pointer') + ';font-size:12px;" title="' + (c.party ? '離開同行：她會留在你解散她的那個地方' : '同行：她會一路跟著你走') + '">' + (c.party ? '−解散' : '＋同行') + '</button>'
         + '<button onclick="kanshouOpenMemoir(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:' + (memCount ? '#5a3a4a' : '#3a3a44') + ';color:' + (memCount ? '#e8b8cc' : '#999') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">💞回憶' + (memCount ? '(' + memCount + ')' : '') + '</button>'
-        + '<button onclick="kanshouOpenRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\',\'' + String(c.nickname || '').replace(/'/g, '') + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button></div>';
+        + '<button onclick="kanshouOpenRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\',\'' + String(c.nickname || '').replace(/'/g, '') + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button>'
+        + '<button onclick="kanshouEvict(\'' + String(c.id || '').replace(/'/g, '') + '\',\'' + String(c.name).replace(/'/g, '') + '\')" title="請她離開這座城，空出一個位子（回憶與關係會一起消失，不可復原）" style="padding:4px 6px;background:#4a2a2a;color:#d8a0a0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🚪</button></div>';
     }).join('') : '<div style="color:#888;padding:6px;">（這座城裡你還誰都不認識，從下方邀一個人來吧）</div>';
   }
 
@@ -318,14 +323,52 @@ let plainTextContext = cleanText;
     if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
     _kpBusy = true;
     try {
-      const res = await withProcessing_(op === 'add' ? '請他過來…' : '讓他先去忙…',
+      const _wait = op === 'add' ? '請他一起走…' : (op === 'bring' ? '請他過來…' : '讓他留在這裡…');
+      const res = await withProcessing_(_wait,
         () => gasRun({ action: 'kanshou_party', pcId: pc.id, acctName: currentAccount, npcId: id, op: op }));
       if (!res || !res.success) { alert((res && res.message) || '沒成功。'); return; }
       var ids = res.party || [];
       _kcCur.forEach(function (x) { x.party = ids.indexOf(String(x.id)) >= 0; });
+      // 🙋 叫來／＋同行 都會把人移到你這一幕；就地更新地點，不必重打一趟 companions。
+      if (op === 'bring' || op === 'add') {
+        var _me = _kcCur.find(function (x) { return String(x.id) === String(id); });
+        if (_me) { _me.loc = res.loc || _me.loc; _me.isHere = true; _me.locLabel = ''; }
+      }
       renderKcPartyList_();
     } catch (e) { alert('沒成功。'); }
     finally { _kpBusy = false; }
+  }
+
+  // 🚪 請她離開這座城：空出一個世界位子。不可復原，所以問兩次（第二次要打名字）。
+  async function kanshouEvict(id, name) {
+    if (_kpBusy) return;
+    if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
+    if (!confirm('請「' + name + '」離開這座城？\n\n她跟你的共同回憶、她眼中的你、關係稱呼都會一起消失，而且沒辦法復原。\n（之後可以從英靈殿重新請她來，但一切從頭開始。）')) return;
+    var typed = prompt('確定的話，把她的名字打一次：', '');
+    if (String(typed || '').trim() !== String(name).trim()) { if (typed !== null) alert('名字對不上，沒有動。'); return; }
+    _kpBusy = true;
+    try {
+      const res = await withProcessing_('送她離開…',
+        () => gasRun({ action: 'kanshou_party', pcId: pc.id, acctName: currentAccount, npcId: id, op: 'evict' }));
+      if (!res || !res.success) { alert((res && res.message) || '沒成功。'); return; }
+      _kcCur = _kcCur.filter(function (x) { return String(x.id) !== String(id); });
+      var ids2 = res.party || [];
+      _kcCur.forEach(function (x) { x.party = ids2.indexOf(String(x.id)) >= 0; });
+      renderKcPartyList_();
+      if (res.evicted) alert('「' + res.evicted + '」離開了這座城。');
+    } catch (e) { alert('沒成功。'); }
+    finally { _kpBusy = false; }
+  }
+
+  // 🚶 去找她：把她所在的地點當成這一步的目的地，走既有的移動管線（play + moveTarget）。
+  //    ⚠ 刻意不另開 action：移動的所有副作用（時鐘、同行者跟著走、換幕敘事）都在那條路上。
+  function kanshouGoTo(id) {
+    var c = _kcCur.find(function (x) { return String(x.id) === String(id); });
+    if (!c) { alert('找不到這個人。'); return; }
+    var dest = String(c.loc || '').trim();
+    if (!dest) { alert('不知道他在哪。'); return; }
+    closeKcOverlay();
+    send('我往' + dest + '走去。', false, { moveTarget: dest });
   }
 
   // 💞 共同回憶面板：看她跟你一路走來的回憶；★釘選=永不被新回憶擠掉(上限 KC_MEMOIR_PIN_CAP_)；🗑=刪掉不想留的。

@@ -235,16 +235,16 @@ var KANSHOU_MET_COUNT_TAG_ = makeIntTag_('相處', 0);
 // 「你還是初識」不成話（初識是狀態不是身分），而每一階要接的動詞本來就不一樣，
 // 硬用同一個句型只能挑一個最不彆扭的。一階一句，往表加一列就多一階。
 const KANSHOU_FAMILIAR_TIERS_ = [
-  { min: 150, key: '老交情', say: '你們是老交情了' },
-  { min: 30, key: '混熟', say: '你們已經混熟' },
-  { min: 0, key: '初識', say: '你們還只是初識' }
+  { min: 150, key: '老交情', say: '我們是老交情了' },
+  { min: 30, key: '混熟', say: '我們已經混熟' },
+  { min: 0, key: '初識', say: '我們還只是初識' }
 ];
 // 依相處次數查熟悉段（單一真實來源＝KANSHOU_FAMILIAR_TIERS_）。
 function kanshouKnownTier_(metCount, field) {
   var t = KANSHOU_FAMILIAR_TIERS_.find(function (x) { return (parseInt(metCount) || 0) >= x.min; }) || {};
-  return t[field || 'key'] || (field === 'say' ? '你們還只是初識' : '初識');
+  return t[field || 'key'] || (field === 'say' ? '我們還只是初識' : '初識');
 }
-// 組一句「你在對方眼中」：熟悉段 ＋ 對方真的記下的那幾條（沒有就只有熟悉段）。
+// 組一句「我在對方眼中」：熟悉段 ＋ 對方真的記下的那幾條（沒有就只有熟悉段）。
 function kanshouKnownOfYou_(memory) {
   var noted = String(KANSHOU_NOTED_TAG_.get(memory) || '').split(KANSHOU_NOTED_SEP_).map(function (x) { return x.trim(); }).filter(Boolean);
   var _m = KANSHOU_MET_COUNT_TAG_.get(memory);
@@ -326,6 +326,11 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   // 衛宮士郎-Master：玩家本人就是這個位置，不開放召喚。
   if (heroId === '衛宮士郎-Master') return JSON.stringify({ success: false, message: "這位就是你自己。" });
   if (KANSHOU_SUMMON_BLOCKED_IDS_.indexOf(heroId) !== -1) return JSON.stringify({ success: false, message: "這位現在還請不來。" });
+  // 🌍 世界人數上限：這座城裡住幾個人是有數的——人一多，「誰在哪」那份名單與在場卡都會失控。
+  var _pop = data.filter(function (r) { return kanshouIsAlly_(r, gid); }).length;
+  if (_pop >= KANSHOU_WORLD_MAX_) {
+    return JSON.stringify({ success: false, message: "這座城裡已經住了 " + KANSHOU_WORLD_MAX_ + " 個人。要請新的人來，得先讓一位離開。" });
+  }
   var heroName = KANSHOU_CASUAL_NAME_[heroId] || String(hero[COL.HERO.NAME] || "從者"); // 🏷️ 鑑賞訊息/查重用日常稱呼
   // 男性可被召喚，但不會被actionEnterKanshou自動預先鋪墊進世界(見該函式SEX!=='男'過濾)，只能靠玩家在這裡主動召喚。
   if (String(hero[COL.HERO.SOURCE]) === "ai_gen") {
@@ -501,9 +506,11 @@ function actionEnterKanshou(userData, pcId, sheets) {
   var starterHeroes = getHeroCodexCached().slice(1).filter(function (r) {
     return KANSHOU_STARTER_IDS_.indexOf(String(r[COL.HERO.ID])) !== -1;
   });
-  var starterRows = starterHeroes.map(function (hero) {
-    // 起始住民就落在玩家開局的地方（位置模擬拆掉後不再骰去向）。
-    return heroToKanshouRow_(hero, gameId, loc2, 1);
+  // 🗺️ 2026-09 玩家「全部人在客廳…我想要讓他們先分散出去」：起始住民各自落在不同的起始地點，
+  //    開局就有「要去找人」這件事。不夠分時才輪回玩家開局的地方。
+  var starterRows = starterHeroes.map(function (hero, i) {
+    var _spot = KANSHOU_STARTER_PLACES_[(i + 1) % KANSHOU_STARTER_PLACES_.length];
+    return heroToKanshouRow_(hero, gameId, (_spot && _spot.name) || loc2, 1);
   });
   if (starterRows.length) {
     kpc.getRange(kpc.getLastRow() + 1, 1, starterRows.length, pcColCount).setValues(starterRows);
@@ -773,6 +780,34 @@ function actionKanshouParty(userData, pcId, sheets) {
     const tIdx = npcId ? data.findIndex((r, i) => i > 0 && i !== meIdx && String(r[COL.PC.ID]) === npcId
       && String(r[COL.PC.GAME_ID] || "") === gid && kanshouIsAlly_(r, gid)) : -1;
     if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這個人。" });
+    // 🙋 叫她過來：把她移到你這一幕的地點。不動同行名單——她只是走過來了，不是從此跟著你。
+    //    跟「去找她」（前端直接走既有的移動）是一對，玩家兩個方向都走得通。
+    if (op === 'bring') {
+      const _here = String(data[meIdx][COL.PC.LOC] || "");
+      if (String(data[tIdx][COL.PC.LOC] || "") === _here) return JSON.stringify({ success: true, party: ids, loc: _here });
+      data[tIdx][COL.PC.LOC] = _here;
+      kpc.getRange(tIdx + 1, COL.PC.LOC + 1).setValue(_here);
+      STATE_PRE_DATA_ = data;
+      return JSON.stringify({ success: true, party: ids, loc: _here });
+    }
+    // 🚪 請她離開這座城：把這一列整個抽掉，世界人數就空出一格。
+    //    ⚠ 這是【不可逆】的——她的共同回憶、她眼中的你、關係稱呼全部跟著沒了。
+    //      前端要問過玩家才准送這個 op。對話歷史是玩家自己的、不動。
+    if (op === 'evict') {
+      const evName = String(data[tIdx][COL.PC.NAME] || "");
+      ids = ids.filter(x => x !== npcId);
+      const kept = [data[0]];
+      for (let r = 1; r < data.length; r++) { if (r !== tIdx) kept.push(data[r]); }
+      kpc.getRange(1, 1, data.length, data[0].length).clearContent();
+      kpc.getRange(1, 1, kept.length, kept[0].length).setValues(kept);
+      const mem2 = kanshouSetParty_(kept[kanshouPcIdx_(kept, pcId)][COL.PC.MEMORY], ids);
+      kept[kanshouPcIdx_(kept, pcId)][COL.PC.MEMORY] = mem2;
+      kpc.getRange(kanshouPcIdx_(kept, pcId) + 1, COL.PC.MEMORY + 1).setValue(mem2);
+      STATE_PRE_DATA_ = kept;
+      return JSON.stringify({ success: true, party: ids, evicted: evName });
+    }
+    // ⚠ 解散＝離開同行名單，【人留在當下這個地點】——不動 LOC 就是這個效果（玩家原話：
+    //    「我需要這個角色可以跟我同行到 A，我 A 解散他，他會一直在 A」）。
     if (op === 'drop') ids = ids.filter(x => x !== npcId);
     else if (op === 'add') {
       if (ids.indexOf(npcId) >= 0) return JSON.stringify({ success: true, party: ids });
@@ -850,7 +885,7 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 
 // 🔠 對話格式·鑑賞【單一真實來源】：2026-09 起只剩鑑賞在用(solo 走 miniSystem 的短版)。這裡【只講格式】，不講該寫什麼。
 function dialogueFormatRule_() {
-  return `對話格式：單層「」只收嘴巴發得出的聲音(話語/喘息/悶哼/笑聲/吸吮/吞嚥)，每句前冠說話者名，同一個人跨回合都用同一個名字；★玩家的台詞免冠名、照原句一字不動。肢體動作與環境聲響留在引號外。★台詞與人物互動【佔 narration 七成以上】。`;
+  return `對話格式：單層「」只收嘴巴發得出的聲音(話語/笑聲/嘆息/悶哼)，每句前冠說話者名，同一個人跨回合都用同一個名字；★玩家的台詞免冠名，可以依【我自己】那張卡擴寫成完整的一句、補上動作與神態，語意跟原句一樣。肢體動作與環境聲響留在引號外。★台詞與人物互動【佔 narration 七成以上】。`;
 }
 
 // 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。
@@ -873,7 +908,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
   //    ⚠ inner_monologue（強制思維鏈·126 字）整欄砍掉：那是叫模型先自省再下筆的教法，不是格式，
   //    而它是整份提示詞裡最長的一條。
   const finalJson = {
-    "narration": "劇情·第二人稱「你」＝玩家·長度見【篇幅】",
+    "narration": "劇情·第一人稱「我」＝玩家·長度見【篇幅】",
     "npc_exit": "本回合離場者·照卡上的名字寫·narration 要演出離開·否則 []",
     "options": ["4條·各≤20字·在場者此刻做得到的動作·走向各不相同"],
     "intimacy_feedback": {
@@ -887,7 +922,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
         "appearance_extras": _appearanceExtrasRef,
         "mutual_nicknames": "這回合真的叫出口的暱稱·否則「無」",
         "rel_tag": "≤8字·這個人現在是玩家的什麼·同上回合就「無」",
-        "memory": "里程碑才寫·≤30字·第二人稱「你」·其餘「無」",
+        "memory": "里程碑才寫·≤30字·第一人稱「我」·其餘「無」",
         "noticed": "≤14字·會改變之後怎麼對玩家的發現·其餘「無」"
       }]
     },
@@ -1023,9 +1058,9 @@ function kanshouLocContextForAI_(locName, homeName, gameId) {
   if (ownStr) return ownStr + (loc.desc ? `（${loc.desc}）` : "");
   const rgCustom = (loc.region && String(loc.region).indexOf('rg_') === 0) ? kanshouFindRegion_(gameId, loc.region) : null;  // 內建區走下面的 switch
   if (rgCustom) return `${rgCustom.name}${rgCustom.desc ? `（${rgCustom.desc}）` : ""}的「${loc.name}」${loc.desc ? `：${loc.desc}` : ""}`;
-  if (loc.region === 'mine') return loc.desc || "這座城裡你們自己走出來的地方";
+  if (loc.region === 'mine') return loc.desc || "這座城裡我們自己走出來的地方";
   switch (loc.region) {
-    case 'room': return `「${homeName}」裡你自己的房間`;
+    case 'room': return `「${homeName}」裡我自己的房間`;
     case 'home': return `「${homeName}」的共用空間`;
     case 'shinzan': return `深山町（溫馨的住宅生活區）`;
     case 'fuyuki': return `冬木市中心（熱鬧的商業生活區）`;
@@ -1033,7 +1068,7 @@ function kanshouLocContextForAI_(locName, homeName, gameId) {
     default: return "";
   }
 }
-// 🌸 內建地點只剩【你自己的房間】一格：它是結構性的(玩家永遠有路可退、isRoom 判私密場合)，
+// 🌸 內建地點只剩【我自己的房間】一格：它是結構性的(玩家永遠有路可退、isRoom 判私密場合)，
 //    刪不得也搬不得。其餘的地方全部住在世界帳本裡，開局種進去當範例——玩家改得動、也刪得掉。
 //    玩家原話：「我理想中的鑑賞應該是一片空白，但我可以跟 AI 慢慢搭建」＋「地圖保留一點點留個類似範例」。
 const KANSHOU_LOCATIONS_ = [
@@ -1069,10 +1104,11 @@ function kanshouSeedMapIfNew_(gameId, memory, curDay) {
   } catch (e) { }
   return KANSHOU_MAP_SEED_TAG_.set(memory, '範例');
 }
-// 🏷️ 送進提示詞的地名：資料鍵「我的房間」是第一人稱，跟第二人稱旁白打架(旁白會照抄成「走進我的房間」)。
-//    只改餵 AI 的字面，存表/比對一律仍用原鍵。
+// 🏷️ 送進提示詞的地名。⚠ 2026-09 旁白改回第一人稱「我」之後，資料鍵「我的房間」跟旁白同一個視角，
+//    不必再翻面（舊版會翻成「你的房間」，那是為了配合第二人稱旁白）。留著這支當唯一出口，
+//    以後若又有哪個地名跟旁白視角打架，改這裡一處就好。
 function kanshouLocNameForAI_(locName) {
-  return String(locName || "").trim() === '我的房間' ? '你的房間' : String(locName || "");
+  return String(locName || "");
 }
 // 🏠 房間顯示名稱：只剩玩家自己的房間，永遠顯示「(玩家名)的房間」。
 function kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx) {
@@ -1092,6 +1128,12 @@ const KANSHOU_STARTER_IDS_ = ['藤村大河-Master', '遠坂凜-Master', '間桐
 // ⚠ 存 id 不存名字：鑑賞眾生是全帳號共用一張表，大家都從同一座英靈殿召喚，撞名是常態不是巧合
 //    （同款坑見 CODE_NOTES 的「初次·同床蓋到別人那列」）。
 const KANSHOU_PARTY_MAX_ = 3;
+// 🌍 這個世界裡總共住幾個人。同行上限管「幾個人跟著你走」，這個管「城裡有幾個人」。
+//    刻意【不】另設在場上限：在場＝同地點，而人數本來就被這個數字封頂，少一個要維護的數字。
+// ⚠ 起始住民就佔了 4 位（KANSHOU_STARTER_IDS_），所以這個數字要留得下玩家自己邀的人。
+//    滿了之後靠面板上的「🚪 請她離開這座城」（op:'evict'）騰位子——那顆鈕要是哪天砍了，
+//    這個數字要再放寬，否則世界會在滿員的那一刻永遠鎖死。
+const KANSHOU_WORLD_MAX_ = 8;
 var KANSHOU_PARTY_TAG_ = makeTextTag_('同行');
 function kanshouGetParty_(memory) {
   return String(KANSHOU_PARTY_TAG_.get(memory) || "").split(',').map(function (x) { return x.trim(); }).filter(Boolean);
@@ -1190,7 +1232,7 @@ var WORLD_SPEC_ = {
     kinds: ['地點', '人物', '設定'],
     cap: { '地點': 60, '人物': 40, '設定': 50 },
     feedTitle: '這個世界已經確立的事',
-    feedTail: '這些是你們一路玩出來的既定事實，需要時原樣承接。',
+    feedTail: '這些是我們一路玩出來的既定事實，需要時原樣承接。',
     // 🖥️ 面板文案也逐軌登記：前端只負責畫，不自己判斷這一局是哪一軌。
     panel: {
       title: '🌍 這個世界',
@@ -1263,14 +1305,19 @@ function kanshouLenTier_(key) {
 }
 
 var KANSHOU_STYLE_MODULES_ = [
-  { key: 'voice',      fixed: true, slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第二人稱「你」＝玩家，旁白只寫「你」看得到聽得到感覺得到的。' },
+  { key: 'voice',      fixed: true, slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第一人稱「我」＝玩家，旁白只寫「我」看得到聽得到感覺得到的；在場的人各自用自己的名字稱呼。' },
   // 🗑️ 2026-09 大精簡：enact／drive／continuity／immersion／pov／feel 六格整組砍除——那些是筆法指導，
   //    不是「當下情況」也不是格式。agency 收下 enact 的那半句（玩家這一步怎麼接），一格講完。
-  { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家的動作與台詞【只有玩家能決定】，照原句接下去；narration 從玩家這一步演起，被搭話的人都給出反應。' },
-  // 🎬 演法：卡片上那幾句沒有欄位名，這一格告訴 AI 拿到每一種句子要怎麼演（2026-09 玩家提案）。
-  { key: 'perform',    fixed: true, slot: 'sys',  def: '卡上那幾句是給你取景與拿捏分寸用的：外貌拆成鏡頭裡的細節；性格開頭兩句同時在場，一句在表面一句在底下，讓它們互相拉扯；喜歡與討厭是這個人的開關，話題碰到就給出明顯的情緒；做選擇的那一句，台詞守前半、行動走後半；怪癖在情緒起伏或想掩飾的時候浮出來。' },
+  { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家這一步做什麼、說什麼，由玩家的輸入決定；narration 從這一步演起，被搭話的人給出反應。' },
+  // 🎬 卡上那幾句【分別是什麼】。卡片是自然語言、沒有欄位名，所以這一格只負責把每一句的
+  //    意思講清楚，讓 AI 知道自己讀到的是哪一種事實。
+  // ⚠ 2026-09 玩家兩次修正這一格的寫法，兩次都是同一個方向：
+  //    ①「讓它們互相拉扯…這不用提示吧，他會一直拉扯，很怪」——無條件的演出指示會固化成每回合硬演；
+  //    ②「告訴她意思、事實，不要教他該怎麼做」——所以這裡【只下定義，不給演法】。
+  //    怎麼用、什麼時候用，交給模型自己判斷，這也正是這一軌「全靠 AI 即興」的前提。
+  { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，每個人的句子依序是：名字與性別、平常看得到的性格、熟了才看得到的那一面、喜歡的、討厭的、外貌與氣質、怪癖、做選擇的方式、在這座城裡的身分。' },
   { key: 'dialogue',   fixed: true, slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
-  { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。', slot: 'sys', def: '情慾場面放到最色、寫滿寫透：器官用本名，體液、聲音、氣味、溫度全部照實寫，身體的反應寫具體。' },
+  { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。尺度一律跟著玩家推進到哪裡走。', slot: 'sys', def: '尺度跟著玩家走：玩家在聊天就好好聊天、把日常寫得有滋味；玩家真的伸出手了，才順著往下走。真進到情慾場面就寫滿寫透——器官用本名，體液、聲音、氣味、溫度全部照實寫，身體的反應寫具體。' },
   { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代冬木市，大家都是住在這裡的普通市民。' },
   { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依關係深淺與這回合有沒有大事自己調。', slot: 'none', kind: 'pick', def: 'auto' },
   { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】這一段寫 {篇幅} 字。' },
@@ -1919,7 +1966,7 @@ function kanshouPartyCards_(ctx) {
       // 📝 你在對方眼中是什麼樣子：熟悉段(GAS 依相處次數算)＋對方這一路親自記下的幾條。
       const _pKnown = kanshouKnownOfYou_(r[COL.PC.MEMORY]);
       const pKnownStr = `${_pKnown.say}${_pKnown.noted.length ? `，${pron_(r[COL.PC.SEX])}注意到你${_pKnown.noted.join('、')}` : ''}。`;
-      const pMemoirStr = pMemoirRaw ? `你們一起走過：${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}。` : "";
+      const pMemoirStr = pMemoirRaw ? `我們一起走過：${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}。` : "";
       // 明講方向的「她/他是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍對方。
       // 🫂 在場者都是同行者，走到哪跟到哪——在場來由只剩「這一幕是怎麼開場的」。
       const pPresenceStr = (() => {
@@ -1935,14 +1982,14 @@ function kanshouPartyCards_(ctx) {
       const _pPref = formatPref(r[COL.PC.PREF]), _pTrait = formatTrait(r[COL.PC.TRAIT]);
       stableArr.push(`【在場人物】${pName}，${String(r[COL.PC.SEX] || "").trim() || "異"}。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pQuirks ? `${pQuirks}。` : ""}${pLogic ? `${pLogic}。` : ""}${pBackStr}`);
       // 🔀 這個人【此刻】的樣子——每回合都可能動，留在 user。
-      const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}。` : ""}${pMemStr}`;
+      const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是我的${pRelTagStr}。` : ""}${pMemStr}`;
       liveArr.push(`${pName}：${_live}`);
     }
   });
   // 🧊 不變那半：進 system。順序＝同行名單的順序（加人是 append 到尾巴，所以加人不會動到
   //    前面幾張卡的前綴，快取照樣命中；只有移除中間某位才會從那個點斷掉）。
   const PROMPT_PARTY_STABLE = stableArr.length > 0
-    ? `【在你身邊的人】(以下是他們是誰；此刻穿什麼、和你走到哪一步，見下方【此刻】)：\n${stableArr.join("\n")}`
+    ? `【在我身邊的人】(以下是他們是誰；此刻穿什麼、和我走到哪一步，見下方【此刻】)：\n${stableArr.join("\n")}`
     : "";
   // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。
   const _presenceKeys_ = Object.keys(_presenceSeen_);
@@ -2212,8 +2259,7 @@ function actionPlay_(userData, pcId, sheets) {
   }
 
 
-  // 「開放世界·背景人煙」設計：路人可自由描寫增添生活感，但不具名、不能被指名互動；真正能被指名、會被記錄的對象只有【在場人物】（＝上方的同行名單）。
-  // 🗺️ LOC 只是「這一幕在哪」的衍生值：同行者跟著你走，地圖那些讀 LOC 的地方才不會各說各話。
+  // 🗺️ 同行者跟著你走：先把他們的 LOC 同步到這一幕的地點，下面算「誰在場」才算得準。
   partyRows.forEach(r => {
     const _pi = pcData.indexOf(r);
     if (_pi >= 0 && String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim()) {
@@ -2221,28 +2267,32 @@ function actionPlay_(userData, pcId, sheets) {
     }
   });
 
+  // 🫂 在場＝【站在同一個地點】的人（2026-09 玩家定案：「全部人在客廳但只有大河跟我說話」很錯亂）。
+  //    同行只決定「她會不會跟著你走」，不再決定「她在不在這一幕裡」——走到哪就遇到那裡的人。
+  //    ⚠ 沒有另設在場上限：世界人數本身就是上限（KANSHOU_WORLD_MAX_），少一個要維護的數字。
+  //    路人可自由描寫增添生活感，但不具名、不能被指名互動；能被指名、會被記錄的只有這份名單。
+  const presentRows = pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId, curL));
+  const presentMembers = presentRows.map(r => String(r[COL.PC.NAME]));
 
-  // 🌍 世界概況(輕量版·2026-07 玩家「NPC不知道彼此存在」)：只給名字，讓 AI 答得出「認不認識某某」。
-  //    2026-09 拆掉位置模擬後不再報位置——「大概在哪」已經不是這個世界裡存在的事實。
+
+  // 🌍 這座城裡還有誰、在哪：2026-09 玩家「我想找凜，他說他在凜的家，整個很錯亂」——
+  //    舊版只給名字不給地點，AI 只好自己編一個地方出來。地點現在是這個世界裡真的存在的事實，
+  //    每回合都送（世界上限 5 人，扣掉在場的最多剩 4 個名字，付得起）。
   const kanshouWorldRosterStr = (() => {
-    const _partyIdSet_ = partyRows.map(r => String(r[COL.PC.ID]));
-    const _elsewhere = pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId) && _partyIdSet_.indexOf(String(r[COL.PC.ID])) < 0)
+    const _hereIds = presentRows.map(r => String(r[COL.PC.ID]));
+    const _elsewhere = pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId) && _hereIds.indexOf(String(r[COL.PC.ID])) < 0)
       .sort((a, b) => KANSHOU_MET_COUNT_TAG_.get(b[COL.PC.MEMORY]) - KANSHOU_MET_COUNT_TAG_.get(a[COL.PC.MEMORY])).slice(0, KANSHOU_WORLD_ROSTER_CAP_);
     if (!_elsewhere.length) return "";
-    // 🎯 觸發收緊(2026-07 玩家「條件式區塊的觸發條件收緊」)：這段【唯一用途】是讓 AI 能正確回答「認不認識某某」，但它原本每回合都送，等於絕大多數回合都在燒 200+字 講一件玩家沒問的事。
-    const _rosterAsk = /認識|聽過|見過|知道|怎麼樣了|還好嗎/.test(userMsg)
-      || _elsewhere.some(r => kanshouNameCandidates_(String(r[COL.PC.NAME] || "")).some(c => c && userMsg.indexOf(c) >= 0));
-    if (!_rosterAsk) return "";
     const _list = _elsewhere.map(r => {
       const _name = String(r[COL.PC.NAME] || "");
       const _variants = /[A-Za-z]/.test(_name)
         ? [...new Set([_name.toUpperCase(), _name.charAt(0).toUpperCase() + _name.slice(1).toLowerCase(), _name.toLowerCase()])].filter(v => v !== _name)
         : [];
-      return _name + (_variants.length ? `(${_variants.join('/')}也是同一人)` : '');
+      return _name + (_variants.length ? `(${_variants.join('/')}也是同一人)` : '') + '在' + kanshouLocNameForAI_(String(r[COL.PC.LOC] || ''));
     }).join('、');
-    return `\n★【世界概況·這座城裡認識的人】：玩家與在場的人都確實認識以下這些人，此刻各自在別處過日子：${_list}。玩家若直接問起「認不認識/聽過某某」，只要名字(不分大小寫，英文名任何大小寫寫法都算同一人)出現在這份名單裡，被問到的那個人就【確實認識、要肯定回答「是」】，可以自然帶一句對方大概是怎樣的人；名單上的名字都是同一座城裡認識的人，聽到就照認識的樣子回應；名單外的名字才是真的沒聽過，可以照實說不認識。★認識歸認識，登場仍以【在場人物】那份名單為準，這裡能做的只有口頭上確認認識這個人。`;
+    return `\n★【這座城裡還有誰】：${_list}。我們都認識他們；玩家問起就照認識的樣子回答，也可以說出對方此刻在哪。★他們此刻【不在這一幕裡】，不會開口——要見面得真的走過去，或請對方過來（系統會宣告）。`;
   })();
-  partyRows.forEach(r => {
+  presentRows.forEach(r => {
     const _ri = pcData.indexOf(r);
     if (_ri < 0) return;
     // 🤝 相處計數 +1：這裡本來就是「對每位在場者逐一處理」的迴圈，每回合只跑一次，天然冪等，不必另外記日戳。
@@ -2254,15 +2304,15 @@ function actionPlay_(userData, pcId, sheets) {
   });
   // 🌅 兩條「昨夜」線都必須依【這回合她到底在不在場】過濾(2026-07 玩家「如果我直接移動呢....」)：旗標在回合開頭就讀掉了，但那時還不知道玩家這回合要去哪。
   const _morningHere_ = String(morningAfterNames || "").split('、').map(n => n.trim())
-    .filter(n => n && partyMembers.indexOf(n) !== -1).join('、');
+    .filter(n => n && presentMembers.indexOf(n) !== -1).join('、');
   // 🌙 深夜獨處(夜未眠)：只給「此刻是什麼場合」這個事實，怎麼發展全看玩家推進與她的個性。
   const kanshouNightSceneStr = (kanshouNightSceneOn_ || kanshouNightSceneNames_.length)
-    ? `\n★【夜已深·門關上了】：這個房間此刻只剩你和『${(kanshouNightSceneNames_.length ? kanshouNightSceneNames_ : partyMembers).join('、')}』，外頭安靜下來，今晚不會再有別人進來，時間也不急著走。★這一段【還沒有結束】：這一夜什麼時候收，由玩家自己決定、系統會宣告；本回合只演此刻正在發生的這十分鐘，結尾一樣停在進行式、把下一步交還玩家。`
+    ? `\n★【夜已深·門關上了】：這個房間此刻只剩你和『${(kanshouNightSceneNames_.length ? kanshouNightSceneNames_ : presentMembers).join('、')}』，外頭安靜下來，今晚不會再有別人進來，時間也不急著走。★這一段【還沒有結束】：這一夜什麼時候收，由玩家自己決定、系統會宣告；本回合只演此刻正在發生的這十分鐘，結尾一樣停在進行式、把下一步交還玩家。`
     : "";
 
   // 🪪 在場人物卡（聚光燈／在場來由／六格人設）：見 kanshouPartyCards_。
   const _cards_ = kanshouPartyCards_({
-    pcData: pcData, pcId: pcId, myGameId: myGameId, userMsg: userMsg, partyMembers: partyMembers,
+    pcData: pcData, pcId: pcId, myGameId: myGameId, userMsg: userMsg, partyMembers: presentMembers,
     moveTarget: moveTarget, timeJumped: kanshouTimeJumped_, formatPref: formatPref, formatTrait: formatTrait
   });
   const PROMPT_PARTY_LIVE = _cards_.live;   // 此刻的樣子留在 user；「他們是誰」進 system 吃快取
@@ -2339,7 +2389,7 @@ ${nsfwMemories}${genderHintStr}
   const _histWindow_ = _sceneCut ? 2 : 4;
   // 🌍 世界帳本：讀出這一局玩出來的地方/人/設定，只餵跟此刻真的有關的那幾條(見 worldFeed_)。
   const _worldRows_ = worldRead_(myGameId);
-  const _worldFeed_ = worldFeed_(myGameId, _worldRows_, curL, partyMembers, userMsg, curDay);
+  const _worldFeed_ = worldFeed_(myGameId, _worldRows_, curL, presentMembers, userMsg, curDay);
 
 
   // 🧊 排序原則：【穩定的放前面、每回合會變的放後面】——prompt cache 是逐 token 比對前綴，
@@ -2350,10 +2400,10 @@ ${nsfwMemories}${genderHintStr}
   const _sty_ = k => kanshouStyle_(_styles_, k, _styleVars_);
   const prompt = `${_sty_('world')}
 ${PROMPT_REL}
-★【誰在場】：【在你身邊的人】那份名單＝此刻在你身邊的人，每一位都要有反應；有【專屬稱呼】就叫暱稱。【已經確立的事】名單上的人可出現可開口，其餘路人不具名。
+★【誰在場】：【在我身邊的人】那份名單＝此刻在我身邊的人。被搭話、被牽涉到的人給出反應，其餘的人在場、做自己的事就好；有【專屬稱呼】就叫暱稱。【已經確立的事】名單上的人可出現可開口，其餘路人不具名。
 ★【world_note】：這一步新出現的地方/人/規矩寫進去才會留下，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆；只長在某地的東西（田、雞、招牌、常客）的 at 填那個地名。
 
-【你自己】(只給旁白寫「你」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${_meFlavorStr_}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
+【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${_meFlavorStr_}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
 ${PROMPT_PARTY_LIVE}
 ${_sty_('length')}
 ★【地點】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，這一幕就在這裡演完；換地方由系統宣告。${moveTarget ? '你們剛到，從抵達後的當下寫起。' : ''}
@@ -2362,14 +2412,14 @@ ${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouNightSceneSt
 
 ${npcDialoguePrompt}
 ${_sty_('ending')}
-${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與路人照常可以出現）。'}
+${presentMembers.length ? '' : '★【在場】：這個地方只有你一個人（常民與路人照常可以出現）。'}
 
 接著往下演，玩家這一步是：『${finalUserMsg}』`;
 
   try {
     // 🔞 鑑賞走 LEWD_MODEL（敢寫的那顆）；solo 走 AI_MODEL。被擋時的後援見 callGeminiAPI。
     const _timeJump = kanshouTimeJumped_;
-    let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: LEWD_MODEL, isNsfwMode: true, sessionId: 'k_' + myGameId, max_tokens: (_timeJump && partyRows.length === 0) ? 700 : (_lenTier_.tokens || 2400) };
+    let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: LEWD_MODEL, isNsfwMode: true, sessionId: 'k_' + myGameId, max_tokens: (_timeJump && presentRows.length === 0) ? 700 : (_lenTier_.tokens || 2400) };
 
     // 抓取近 6 筆原始歷史(3輪)，轉換為 API 格式。
     const recentHistoryRaw = getGameHistoryBatchRaw(pcId, _histWindow_);
@@ -2401,18 +2451,30 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
 
 
 
-    // 🚶‍♀️ 同伴自主離場(npc_exit)：AI 說某人這回合告辭了，就真的把他移出同行名單——下回合不在場，
-    //    解掉「嘴上說走卻還在場」的違和。玩家想要他回來，面板上再按一次＋同行。
+    // 🚶‍♀️ 同伴自主離場(npc_exit)：AI 說某人這回合告辭了，就真的讓他走。
+    //    ⚠ 2026-09 在場改成【同地點】之後，只移出同行名單不夠——人還站在這裡就還在場，
+    //      「嘴上說走卻還在場」的違和會原封不動長回來。所以連 LOC 一起改到別的地方。
     {
       const exitList = Array.isArray(aiData.npc_exit) ? aiData.npc_exit : [];
       if (exitList.length) {
+        const _spots = (_worldRows_ || []).filter(w => w && w.kind === '地點'
+          && String(w.name || '').trim() && String(w.name).trim() !== String(curL || '').trim());
         let _pIds = kanshouGetParty_(pcData[pcIndex][COL.PC.MEMORY]);
         const _before = _pIds.length;
         exitList.forEach(nm => {
           const exitName = String(nm || "").trim();
           if (!exitName) return;
-          const eRow = partyRows.find(r => kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(exitName));
-          if (eRow) _pIds = _pIds.filter(id => id !== String(eRow[COL.PC.ID]));
+          const eRow = presentRows.find(r => kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(exitName));
+          if (!eRow) return;
+          _pIds = _pIds.filter(id => id !== String(eRow[COL.PC.ID]));
+          // 走去哪：這一局地圖上隨便一個不是這裡的地方。沒有別的地方可去就留著（世界只有一格時）。
+          if (_spots.length) {
+            const _eIdx = pcData.indexOf(eRow);
+            if (_eIdx >= 0) {
+              pcData[_eIdx][COL.PC.LOC] = String(_spots[Math.floor(Math.random() * _spots.length)].name).trim();
+              dirtyPcRows.add(_eIdx);
+            }
+          }
         });
         if (_pIds.length !== _before) {
           pcData[pcIndex][COL.PC.MEMORY] = kanshouSetParty_(pcData[pcIndex][COL.PC.MEMORY], _pIds);
