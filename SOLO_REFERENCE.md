@@ -131,6 +131,28 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 | prep_meal | actionPrepMeal | 🍱整備·進食（戰前 buff）：耗1AP，御主 MEMORY 記`【整備至】<絕對小時>`，效期內從者出擊命中 +`MEAL_BUFF_BONUS`(2) 約 8 小時（`mealBuffActive_`→`resolveFateBattle_`）。有輕量 aiPrompt。**🐛→✅ 2026-09 整體稽核**：沒從者時 aiPrompt 仍寫死「御主與從者稍作整備」——沒附卡卻點名從者＝邀 AI 憑空生一個從者出來（同 `check_cards.py` 在擋的形狀），玩家會把它當成角色設定。已拆成有/無從者兩分支，無從者那支明寫「此刻身邊沒有從者，不可讓任何從者出現或開口」。 |
 | get_map_nodes | actionGetMapNodes | 地圖節點＋敵蹤（吃 SEEN 迷霧；有盟友全揭露）。算法抽成 `buildMapNodesPayload_(sheets,pcData,gid,loc)`（吃已讀好 pcData·零額外讀），`buildClientState_`/`actionMove` 夾帶 `mapNodes:`。用 `COL.MAP.WAR` 過濾非本局戰爭的節點。 |
 | move / rest / sync | actionMove/Rest/Sync | 移動(2AP)／休息(補AP+夢境)／資料同步 |
+### 📜 因果帳本（2026-09·玩家「SOLO 是不是可以自己做一個真正的世界書？」）
+
+**solo 真正在忘的不是設定，是這一局的因果。** 世界是定的（冬木、聖杯戰爭、七組御主從者），
+人和地點種子庫早就有了——再讓 AI 寫一次人物卡就是兩個真實來源打架。
+它會忘的是：第 3 天砍斷了誰、跟誰結過盟又翻臉、教會開過什麼條件、哪裡塌了。
+歷史只有 6 筆＝最近三個按鍵，第 10 天那些事一個字都不剩；戰報那邊 GAS 有數字，
+但「那一戰之後這個世界變成什麼樣」沒有人記。
+
+**存哪**：跟鑑賞同一個帳本引擎、同一張「世界帳本」分頁，靠 `game_id` 分流（`g_` ＝ solo）。
+規格在 `WORLD_SPEC_.solo`：只有一種 kind「**因果**」、上限 40 條、一回合寫 2 筆餵 5 條、每筆 ≤50 字。
+
+**接在哪**：`narrateWithState_`——solo 每一顆按鍵都走 `narrate_only`，那是唯一的關口。
+- **餵回**：`worldFeed_` 依相關性挑（釘選＋100／此刻地點＋40／在場從者名字＋30／這句話提到＋50／
+  最近 3 天＋20／提及次數），抬頭是 `★【這一局已經發生的因果】`。
+- **寫回**：AI 的 `world_note` 走 `sanitizeAiData_`（只放行這一軌的 kind、限筆數）再走 `worldWrite_`
+  （去重／上限／淘汰都在那裡），不另開一套。
+- **提示詞**：`sagaNoteRule_()`。⚠ 寫成**函式**而不是頂層樣板字串——`WORLD_SPEC_` 住在 `Gallery.gs`，
+  頂層就求值會拿到 `undefined` 然後照樣送進提示詞（`check_loadorder.py` 當場抓到這一次）。
+- 鑑賞那條路徑（`KPC_`）不送這一段、也不收：`actionNarrateOnly` 的 `isNsfw` 就是判準。
+
+探針 `saga.js`（21 條，含把「餵回」與「落盤」各拆掉一次的退化測試·會叫 8 紅）。
+
 ### 🧵 solo 的「記憶」怎麼運作（2026-09 大修，玩家：「有時候的對話還是牛頭不對馬嘴」）
 
 每顆按鈕都走同一條 `narrate_only`，AI 收到的東西固定是這個結構：

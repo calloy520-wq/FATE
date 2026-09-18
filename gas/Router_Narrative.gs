@@ -141,11 +141,13 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
   // 🩸 自動附「當前狀態」(御主＋在場從者 HP/MP)，敘事才連貫(剛被爆打後該寫狼狽、非沒事人)。
   var stateBrief = "";
   var trajectoryDigest = "";
+  var sagaFeed = "", sagaGid = "", sagaDay = 0;
   try {
     var stData = sheets.pc.getDataRange().getValues();
     var stIdx = stData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
     if (stIdx >= 0) {
       var stGid = String(stData[stIdx][COL.PC.GAME_ID] || "");
+      sagaGid = stGid;
       // 明講「共用魔力池·從者亦賴此維生」，避免 AI 把魔力誤認成御主專屬個人數值而演出從者事不關己。
       var _mw = hpStateWord_(stData[stIdx][COL.PC.HP], stData[stIdx][COL.PC.MAX_HP]);
       // 只給白話、不給數字：原本是「數字＋白話＋『勿複述數字』」三件一起送，
@@ -160,16 +162,45 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
       });
       stateBrief = '【當前狀態·供連貫演出】' + sParts.join('；') + '。\n';
       try { trajectoryDigest = buildTrajectoryDigest_(stData, stGid, stData[stIdx]); } catch (e2) { }
+      // 📜 這一局的因果：軌跡骨幹講的是「此刻的數字長什麼樣」，這一段講的是「一路上發生過什麼」。
+      //    歷史只有 6 筆＝最近三個按鍵，再往前的事在提示詞裡本來完全不存在。
+      try {
+        var _clk = getClock_(stGid, stData);
+        sagaDay = _clk ? _clk.day : 0;
+        sagaFeed = worldFeed_(stGid, worldRead_(stGid), String(stData[stIdx][COL.PC.LOC] || ""),
+          stData.filter(function (r) {
+            return String(r[COL.PC.FACTION]) === '從者' && String(r[COL.PC.GAME_ID] || "") === stGid && !String(r[COL.PC.ID]).startsWith('DEAD_');
+          }).map(function (r) { return String(r[COL.PC.NAME]); }), promptText, sagaDay);
+      } catch (e3) { }
     }
   } catch (e) { }
-  var systemWithTrajectory = trajectoryDigest ? (miniSystem + '\n' + trajectoryDigest) : miniSystem;
+  var systemWithTrajectory = miniSystem + (trajectoryDigest ? '\n' + trajectoryDigest : "") + sagaFeed;
   var raw = callGeminiAPI(stateBrief + promptText, systemWithTrajectory, aiConfig);
   try {
     var start = raw.indexOf('{'), end = raw.lastIndexOf('}');
     var data = JSON.parse(raw.substring(start, end + 1));
     if (data._genFailed) return null;
+    // 📜 AI 這一步記下的因果落盤。清洗走跟鑑賞同一支 sanitizeAiData_（只放行這一軌的 kind、限筆數），
+    //    寫入走同一支 worldWrite_（去重／上限／淘汰都在那裡），這裡不另開一套。
+    if (sagaGid) {
+      try {
+        var _sn = sanitizeAiData_({ world_note: data.world_note }, sagaGid).world_note;
+        if (Array.isArray(_sn) && _sn.length) worldWrite_(sagaGid, _sn, sagaDay);
+      } catch (e4) { }
+    }
     return stripLeakedScaffold_(data.narration) || "天地靜默，一片祥和。";
   } catch (e) { return null; }
+}
+
+// 📜 這一局的因果：solo 的世界是定的（冬木、聖杯戰爭、七組御主從者），人和地點種子庫早就有了，
+//    再讓 AI 寫一次就是兩個真實來源打架。它真正在忘的是【這一局發生過什麼】——歷史只有 6 筆＝
+//    最近三個按鍵，第 3 天砍斷了誰、跟誰結過盟又翻臉、教會開過什麼條件，第 10 天一個字都不剩。
+//    數字 GAS 有，「那一戰之後這個世界變成什麼樣」沒有人記。條數與字數走 WORLD_SPEC_.solo 單一來源。
+// ⚠ 寫成函式而不是頂層樣板字串：WORLD_SPEC_ 住在 Gallery.gs，GAS 把所有 .gs 串成一個檔跑、
+//    載入順序我們控制不了——頂層就求值會得到 undefined，然後照樣送進提示詞（零錯誤訊息）。
+function sagaNoteRule_() {
+  return `
+★【這一步真的改變了什麼就寫進 world_note】：局勢層級的事——誰殞落、誰結盟或翻臉、教會與協會開出什麼條件、哪裡塌了燒了、哪個身分被揭穿——記成一條，之後的回合你會再讀到它。一回合最多 ${WORLD_SPEC_.solo.writeMax} 筆，每筆 {"kind":"因果","name":"一句話標題","text":"≤${WORLD_SPEC_.solo.textMax}字·那件事留下的後果"}。來回過招的細節、心情起伏、數值增減，留在 narration 裡就好；這一步只是尋常往來的話，world_note 給空陣列。`;
 }
 
 function actionNarrateOnly(userData, pcId, sheets) {
@@ -187,7 +218,7 @@ function actionNarrateOnly(userData, pcId, sheets) {
 6. 標【已裁定】的事實與【當前狀態】都要在畫面上看得出來；怎麼表現依那個人的個性決定。
 7. 衣著照角色卡寫，【此刻裝扮】最優先（戰鬥可寫甲冑碎裂）。解除隱匿只顯現武器，與衣著無關。
 8. 性格／六圍／技能只演出來。Fate 正典角色照原作認知演，卡上短句只是錨點。
-9. 只輸出 JSON：{"narration":"…"}。`;
+9. 只輸出 JSON：{"narration":"…"${isNsfw ? '' : ',"world_note":[…]'}}。${isNsfw ? '' : sagaNoteRule_()}`;
 
   // 補魔/令咒那三支要 800~1000 字(平常 100~160)，720 tokens 會截斷——加大上限，並換一顆敢寫的模型(LEWD_MODEL)。
   const longForm = !!userData.longForm;

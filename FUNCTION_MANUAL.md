@@ -215,6 +215,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 敘事核心與清洗
 - `cleanNarrateEcho_(promptText)` — 把送 AI 的提示詞洗成玩家可見的簡短回顧（去演出卡〈〉/前綴〔〕/★指令/·素材/【標籤】，截 80 字），供歷史顯示。
 - `QUAD_EMPTY_`（常數） — 防禦性過濾：清掉 AI 誤 echo 的 ★指令與〈演出卡〉；**刻意不清【標籤】**（fallback 文案靠它當視覺標籤）。
+- `sagaNoteRule_()` — solo 的 ★【這一步真的改變了什麼就寫進 world_note】那段提示詞；條數／字數從 `WORLD_SPEC_.solo` 代入（刻意寫成函式：頂層求值會拿到跨檔的 undefined）。
 - `narrateWithState_(pcId, sheets, promptText, miniSystem, opts?)` — 🟢 共用敘事核心。組 aiConfig（temp 0.85、ignoreLaw、maxTokens 預設 720、model 預設 `AI_MODEL`）＋最近 2 筆歷史＋自動附「當前狀態」（御主/在場從者 HP/共用魔力池）＋`buildTrajectoryDigest_` 軌跡骨幹（同一次整表讀）→`callGeminiAPI`→解析 `{narration}`（過 `stripLeakedScaffold_`）；解析失敗回 null。⚠ `stripLeakedScaffold_` 2026-09 改了兩處：空白壓縮從 `\s{2,}` 收成只壓水平空白（原本連真實換行都吃掉），並把剝除指令後留下的三連以上 `<br>` 收斂回 `<br><br>`（否則玩家看到一塊莫名空白）。
 - `actionNarrateOnly(...)` — 輕量敘事補完 handler（結算已由 GAS 完成）。`isNsfw` 純看 pcId 是否 `KPC_`（不信前端旗標）。內含完整 `miniSystem` 鐵律（第二人稱「你」、**自己那條精簡版對話格式（不呼叫 `dialogueFormatRule_`，理由見該條）**、`<br><br>` 分段、show-don't-tell、依當前狀態不臆測勝敗、服裝依卡）。`longForm` 旗標→maxTokens 2000（補魔高好感解鎖分支用，模型不變）。存歷史時存 `narrateMemoryLine_` 摘要（非整串提示詞）。
 

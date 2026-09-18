@@ -1267,6 +1267,8 @@ var WORLD_SPEC_ = {
     sheet: '世界帳本',
     kinds: ['地點', '人物', '設定'],
     cap: { '地點': 60, '人物': 40, '設定': 50 },
+    feedTitle: '這個世界已經確立的事',
+    feedTail: '這些是你們一路玩出來的既定事實，需要時原樣承接。',
     feedMax: 6,   // 一回合最多餵回幾條——帳本會長大，這是唯一的煞車
     atMax: 5,     // 掛在此刻這個地方(AT)的另外算，不跟上面搶名額
     writeMax: 3,  // AI 一回合最多寫幾條
@@ -1280,6 +1282,8 @@ var WORLD_SPEC_ = {
     sheet: '世界帳本',
     kinds: ['因果'],
     cap: { '因果': 40 },
+    feedTitle: '這一局已經發生的因果',
+    feedTail: '這些是這一局真的發生過、還在影響現在的事，需要時原樣承接。',
     feedMax: 5,
     atMax: 0,
     writeMax: 2,
@@ -1772,7 +1776,7 @@ function worldFeed_(gameId, rows, curLoc, presentNames, userMsg, curDay) {
   const folk = all.some(x => x.r.kind === '人物')
     ? '其中標了【性別】的是這座城的常民——他們出現在合理的場合、開口、被寫進場景都可以，只是不追蹤好感與關係。'
     : '';
-  return `\n★【這個世界已經確立的事】：${line}。這些是你們一路玩出來的既定事實，需要時原樣承接。${folk}`;
+  return `\n★【${spec.feedTitle}】：${line}。${spec.feedTail}${folk}`;
 }
 const KANSHOU_HAIR_COLORS_ = [
   ['深紫', '#4a3a5e'], ['紫', '#7a5a9a'], ['金', '#e8c86a'], ['白髮', '#e8e4ea'], ['銀', '#d8d8e0'],

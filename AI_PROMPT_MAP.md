@@ -47,9 +47,14 @@
 > 6. 凡標【已裁定】的事實與【當前狀態】都必須在畫面上看得出來，怎麼表現依個性。
 > 7. 衣著照角色卡寫，【此刻裝扮】最優先，卡上沒寫的不自己加（戰鬥可寫破損、不得升級成裸身）。
 > 8. 表演總則：性格／六圍／技能只演出來，不當台詞也不由旁白點破；正典角色照原作認知演；羈絆低→戒備矜持、高→漸親近。
-> 9. 只輸出 JSON：`{"narration":"…"}`，不要其他欄位、不要 Markdown。
+> 9. 只輸出 JSON：`{"narration":"…","world_note":[…]}`（鑑賞那條路徑 `KPC_` 不帶 `world_note`）。
 
-`narrateWithState_`（Router_Narrative.gs）：在 `promptText` 前掛 `stateBrief`（御主/在場從者當前狀態，**只給白話** `hpStateWord_`/`mpStateWord_`、不給數字）＋ `buildTrajectoryDigest_` 軌跡摘要，帶 `getGameHistoryBatchRaw(pcId, 6)` **最近 6 筆＝3 個按鍵** 當 chatHistory，呼叫 `callGeminiAPI(stateBrief+promptText, miniSystem, aiConfig)`（`model: AI_MODEL`, `temperature:0.85`, `max_tokens:720`，`longForm` 時 2000）。解析失敗回 `null`→`actionNarrateOnly` 退回罐頭句。存歷史時玩家側存的是 `narrateMemoryLine_(promptText)`（抓【戰報/系統/…】事件行成一句「這回合發生的事」，抓不到才退回 `cleanNarrateEcho_`）。
+📜 **`sagaNoteRule_()`**（solo 限定，接在第 9 條後面）：★【這一步真的改變了什麼就寫進 world_note】——
+局勢層級的事記成一條因果（`{"kind":"因果","name":…,"text":…}`），條數與字數從 `WORLD_SPEC_.solo` 代入。
+落盤走 `sanitizeAiData_` → `worldWrite_`，跟鑑賞同一套。
+
+`narrateWithState_`（Router_Narrative.gs）：system 側依序是 `miniSystem` ＋ `buildTrajectoryDigest_`（此刻的數字長什麼樣）
+＋ `worldFeed_`（★【這一局已經發生的因果】·一路上發生過什麼）；user 側在 `promptText` 前掛 `stateBrief`（御主/在場從者當前狀態，**只給白話** `hpStateWord_`/`mpStateWord_`、不給數字）＋ `buildTrajectoryDigest_` 軌跡摘要，帶 `getGameHistoryBatchRaw(pcId, 6)` **最近 6 筆＝3 個按鍵** 當 chatHistory，呼叫 `callGeminiAPI(stateBrief+promptText, miniSystem, aiConfig)`（`model: AI_MODEL`, `temperature:0.85`, `max_tokens:720`，`longForm` 時 2000）。解析失敗回 `null`→`actionNarrateOnly` 退回罐頭句。存歷史時玩家側存的是 `narrateMemoryLine_(promptText)`（抓【戰報/系統/…】事件行成一句「這回合發生的事」，抓不到才退回 `cleanNarrateEcho_`）。
 
 ### `servantCard_` / `masterCard_`（Router_Persona.gs）
 幾乎每個「有敘事」的 handler 都會把這兩張卡串進 `aiPrompt` 開頭，作為「演出依據」。
