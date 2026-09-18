@@ -1825,7 +1825,7 @@ CI 不驗 .html JS，只有這裡驗得到。
 
 **玩家角色卡補厚（4 格 → 6~7 格）**
 補印 `萌點(僅供內化)`、`口吻`、`招牌小動作`，全部**複用同伴那一行的同一組 helper**
-（`getPersonaSpeech_`／`getPersonaTic_`／~~`traitPrivateOf_`~~·已移除／`COL.PC.INTENT`）。
+（~~`getPersonaSpeech_`~~／~~`getPersonaTic_`~~／~~`traitPrivateOf_`~~·已移除／`COL.PC.INTENT`）。
 ⚠ 萌點**本來就有存**（`actionBackfillKanshouAi` 一直在生成），只是從來沒印出來。
 口吻/小動作是新生成的：schema 加 `speech`／`tic` 兩欄，落地走召喚同伴那支 `stampPersonaFlavor_`。
 
