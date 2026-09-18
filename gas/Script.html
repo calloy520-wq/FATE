@@ -1723,7 +1723,7 @@
       var mButtonsLine = (pc && pc.mode === 'kanshou')
         ? ('<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="changeOutfit(\'' + String(m.name).replace(/'/g, '') + '\', true)" title="換裝：只換衣服，人不變。留空換回原本的" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👕 換裝</button>'
-            + '<button onclick="openStatus()" title="你的詳細狀態，可以改命" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
+            + '<button onclick="openStatus()" title="你的詳細狀態，可以改命" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 狀態</button>'
             + '</div>')
         : '';
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
@@ -1814,7 +1814,7 @@
             + kanshouStatusLines_(po)
             // 🚫 同伴的服裝改由AI依appearance_extras欄位自主更新(見Gallery.gs，2026-07原名outfit_change)，不再手動指定——changeOutfit()/actionSetOutfit本體保留未刪(仍供御主本人換裝與solo從者卡使用)，這裡只是不露出觸發同伴換裝的入口。
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
-            + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="「' + safeN + '」的詳細狀態，可以改命" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 詳細狀態</button>'
+            + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="「' + safeN + '」的詳細狀態，可以改命" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 狀態</button>'
             // 💞 關係中樞(2026-07 玩家「同伴卡片欄位太多…關係/回憶可以整合在一起」)：低頻
             //   入口(關係稱呼／共同回憶)收進這一顆，卡片按鈕 8→6(2-2-2)。面板本身
             //   kanshouOpenBondHub 住 Script_Kanshou.html，只做分派＋顯示現況，不改既有面板。
