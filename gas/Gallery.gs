@@ -885,7 +885,7 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 
 // 🔠 對話格式·鑑賞【單一真實來源】：2026-09 起只剩鑑賞在用(solo 走 miniSystem 的短版)。這裡【只講格式】，不講該寫什麼。
 function dialogueFormatRule_() {
-  return `對話格式：單層「」只收嘴巴發得出的聲音(話語/笑聲/嘆息/悶哼)，每句前冠說話者的名字（就是括號前面那個名字本身），同一個人跨回合都用同一個名字；★玩家的台詞免冠名，可以依【我自己】那張卡擴寫成完整的一句、補上動作與神態，語意跟原句一樣。肢體動作與環境聲響留在引號外。★台詞與人物互動【佔 narration 七成以上】。`;
+  return `對話格式：單層「」只收嘴巴發得出的聲音(話語/笑聲/嘆息/悶哼)，每句前冠說話者的名字（就是括號前面那個名字本身），同一個人跨回合都用同一個名字；★玩家的台詞免冠名，可以擴寫成完整的一句、補上說這句話當下的動作與神態，語意跟原句一樣；擴寫的範圍就是這一句話。肢體動作與環境聲響留在引號外。★台詞與人物互動【佔 narration 七成以上】。`;
 }
 
 // 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。
@@ -941,6 +941,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
   //    留下的 lewd 是玩家自己的旋鈕（☰⚙ 說書人設定），也是這一軌存在的理由。
   const rules = [
     _st('agency'),
+    _st('history'),
     _st('perform'),
     '每3~4句 <br><br> 分段。',
     _st('dialogue'),
@@ -1312,13 +1313,18 @@ var KANSHOU_STYLE_MODULES_ = [
   // 🗑️ 2026-09 大精簡：enact／drive／continuity／immersion／pov／feel 六格整組砍除——那些是筆法指導，
   //    不是「當下情況」也不是格式。agency 收下 enact 的那半句（玩家這一步怎麼接），一格講完。
   { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家這一步做什麼、說什麼，由玩家的輸入決定；narration 從這一步演起，被搭話的人給出反應。' },
+  // 📜 歷史是已經結束的事。2026-09 大精簡時隨 continuity 模組一起砍掉了（當時當成「筆法指導」），
+  //    但它其實是【事實陳述】不是筆法——少了它，模型看到自己上一輪寫的 500 字就順著同一個調子
+  //    把同一個場景再描述一次。玩家實測：四回合裡「米白色針織衫」出現 4 次、
+  //    「如果塔上的草莓太甜…」一字不差重講一遍。solo 的 miniSystem 第 5 條一直都有這句。
+  { key: 'history',    fixed: true, slot: 'sys',  def: '上面的對話歷史是已經結束的事，只供語氣與細節連貫；這一回合要寫的，是玩家這一步【接下來】發生的那一段。' },
   // 🎬 卡上那幾句【分別是什麼】。卡片是自然語言、沒有欄位名，所以這一格只負責把每一句的
   //    意思講清楚，讓 AI 知道自己讀到的是哪一種事實。
   // ⚠ 2026-09 玩家兩次修正這一格的寫法，兩次都是同一個方向：
   //    ①「讓它們互相拉扯…這不用提示吧，他會一直拉扯，很怪」——無條件的演出指示會固化成每回合硬演；
   //    ②「告訴她意思、事實，不要教他該怎麼做」——所以這裡【只下定義，不給演法】。
   //    怎麼用、什麼時候用，交給模型自己判斷，這也正是這一軌「全靠 AI 即興」的前提。
-  { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，括號裡是性別；接下來的句子依序是：平常看得到的性格、熟了才看得到的那一面、喜歡的、討厭的、外貌與氣質、怪癖、做選擇的方式、在這座城裡的身分。★卡上這些句子只給你看，在場的人並不知道自己被這樣寫著——讓它們從舉動、語氣與選擇裡透出來。' },
+  { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，括號裡是性別；接下來的句子依序是：平常看得到的性格、熟了才看得到的那一面、喜歡的、討厭的、外貌與氣質、怪癖、做選擇的方式、在這座城裡的身分。★卡上這些句子只給你看，在場的人並不知道自己被這樣寫著——讓它們從舉動、語氣與選擇裡透出來。★卡上寫的是這個人【一直以來】的樣子，不是這一回合新發生的事。' },
   { key: 'dialogue',   fixed: true, slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
   { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。尺度一律跟著玩家推進到哪裡走。', slot: 'sys', def: '尺度跟著玩家走：玩家在聊天就好好聊天、把日常寫得有滋味；玩家真的伸出手了，才順著往下走。真進到情慾場面就寫滿寫透——器官用本名，體液、聲音、氣味、溫度全部照實寫，身體的反應寫具體。' },
   { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代冬木市，大家都是住在這裡的普通市民。' },
@@ -1936,7 +1942,7 @@ function relMemMemoryStr_(relMem) {
 //    回 { text, spotlight }：text 直接進提示詞，spotlight 供呼叫端判斷這一步點名了誰。
 function kanshouPartyCards_(ctx) {
   const pcData = ctx.pcData, pcId = ctx.pcId, myGameId = ctx.myGameId, userMsg = ctx.userMsg;
-  const partyMembers = ctx.partyMembers, moveTarget = ctx.moveTarget;
+  const partyMembers = ctx.partyMembers, moveTarget = ctx.moveTarget, partyIdSet = ctx.partyIdSet || [];
   const kanshouTimeJumped_ = ctx.timeJumped, formatPref = ctx.formatPref, formatTrait = ctx.formatTrait;
   let stableArr = [], liveArr = [];
   const _presenceSeen_ = {};
@@ -1972,8 +1978,13 @@ function kanshouPartyCards_(ctx) {
       const pMemoirStr = pMemoirRaw ? `我們一起走過：${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}。` : "";
       // 明講方向的「她/他是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍對方。
       // 🫂 在場者都是同行者，走到哪跟到哪——在場來由只剩「這一幕是怎麼開場的」。
+      // 🫂 在場改成【同地點】之後，「剛走到」這件事只對【同行者】成立——本來就站在這裡的人
+      //    是你走進來時遇到的（2026-09 玩家：「我沒有跟她同行，我是去那個地點找她，劇情又變成一起」）。
+      const _isParty = partyIdSet.indexOf(String(r[COL.PC.ID])) >= 0;
       const pPresenceStr = (() => {
-        if (moveTarget) return "【與你結伴一起來到】這裡(一路同行，此刻剛踏進這個場景)";
+        if (moveTarget) return _isParty
+          ? "【與你結伴一起來到】這裡(一路同行，此刻剛踏進這個場景)"
+          : `你走進來的時候，【本來就在這裡】(${pron_(r[COL.PC.SEX])}在這裡做自己的事，是你找過來的)`;
         if (kanshouTimeJumped_) return "時間流轉之後，【依然在你身邊】(這段空白裡各自做了什麼，順著時段自然帶過)";
         // 🗑️ 2026-09 玩家「你們從剛才就一直在這裡<< 這不用了吧?」：一般回合不講在場來由。
         //    上一輪的敘事就在 chatHistory 裡、人也還在卡上，那句話沒有新資訊。
@@ -2000,9 +2011,21 @@ function kanshouPartyCards_(ctx) {
   const _liveCards_ = liveArr.map(t => _presenceShared_
     ? t.replace(/__PRESENCE__[\s\S]*?__\/PRESENCE__/, "")
     : t.replace(/__PRESENCE__([\s\S]*?)__\/PRESENCE__/, "$1"));
+  // 🫂 同行與在場是兩件事，講明白（2026-09 玩家：「是不是要『現在沒有同行人／目前地點有誰誰誰』這樣呢?」）
+  //    ⚠ 這一段留在 user：同行名單隨時會變，放 system 會把整段快取前綴拖下水。
+  const _partyHere_ = liveArr.map(x => String(x).split('：')[0])
+    .filter(n => partyIdSet.indexOf(String((pcData.find(r => String(r[COL.PC.NAME]).trim() === n) || [])[COL.PC.ID])) >= 0);
+  const _whoStr_ = (() => {
+    if (!liveArr.length) return '';
+    const _all = liveArr.map(x => String(x).split('：')[0]);
+    const _others = _all.filter(n => _partyHere_.indexOf(n) < 0);
+    if (!_partyHere_.length) return `現在沒有人跟你同行。這個地方此刻有：${_all.join('、')}（他們本來就在這裡）。`;
+    return `同行中：${_partyHere_.join('、')}（一路跟著你走）。`
+      + (_others.length ? `這個地方此刻還有：${_others.join('、')}（本來就在這裡）。` : '');
+  })();
   const PROMPT_PARTY_LIVE = liveArr.length > 0
-    ? `【他們此刻】(穿著是此刻的衣服，長相體態不隨之改變)：${_presenceShared_ ? `\n${_presenceShared_}` : ""}\n${_liveCards_.join("\n")}`
-    : "目前這個地點沒有其他人，玩家是獨自行動的。";
+    ? `【他們此刻】(穿著是此刻的衣服，長相體態不隨之改變)：${_whoStr_ ? `\n${_whoStr_}` : ""}${_presenceShared_ ? `\n${_presenceShared_}` : ""}\n${_liveCards_.join("\n")}`
+    : "現在沒有人跟你同行，這個地方也沒有別人，你是一個人。";
 
   return { stable: PROMPT_PARTY_STABLE, live: PROMPT_PARTY_LIVE };
 }
@@ -2316,6 +2339,7 @@ function actionPlay_(userData, pcId, sheets) {
   // 🪪 在場人物卡（聚光燈／在場來由／六格人設）：見 kanshouPartyCards_。
   const _cards_ = kanshouPartyCards_({
     pcData: pcData, pcId: pcId, myGameId: myGameId, userMsg: userMsg, partyMembers: presentMembers,
+    partyIdSet: partyRows.map(r => String(r[COL.PC.ID])),
     moveTarget: moveTarget, timeJumped: kanshouTimeJumped_, formatPref: formatPref, formatTrait: formatTrait
   });
   const PROMPT_PARTY_LIVE = _cards_.live;   // 此刻的樣子留在 user；「他們是誰」進 system 吃快取
