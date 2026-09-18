@@ -320,6 +320,12 @@ OpenRouter 額外採樣旋鈕(非OpenAI標準四件組)：不同底層模型支�
 
 max_tokens 是能直接省生成時間的旋鈕；鑑賞(kanshou) narration 目標字數較短，上限故比 solo 低。
 
+🗄️ 快取三個旋鈕，各自打的是不同 provider（2026-09 照原廠文件重寫；第一版是我沒查文件憑印象寫的，兩個名字都寫錯，記在這裡免得下一個失憶的我再錯一次）：
+- **system 那則的 `content` 是【陣列】不是字串**——OpenRouter 的明確快取斷點只認掛在 content part 上的 `cache_control:{type:'ephemeral'}`，沒有「頂層 payload.cache_control」這種欄位(第一版就是寫成頂層，送出去等於什麼都沒做)。斷點刻意只掛 system：那份規矩逐字不變，history/user 每回合都在變，掛了也是白掛。⚠ `systemContent` 這個【字串】變數要留著，logCacheUsage_ 算字數/hash 靠它，不要改成去讀 apiMessages[0].content。
+- **`x-grok-conv-id` 標頭**(第一版寫成我自己發明的 `x-session-id`)——xAI 文件寫得很清楚：Grok 是**自動快取、不吃 cache_control**，但快取條目【存在各別伺服器上】，同一個 conv-id 才會被路由到同一台。沒有它就只能靠自動前綴比對碰運氣，這正是實測連續四回合永遠只回 cached=128 的形狀。值用既有的 `config.sessionId`(`k_`+gameId／`s_`+pcId)——本來就是每位玩家一組、跨回合不變，正好是文件要的「穩定的 conversation id」。
+- **`prompt_cache_key`**：xAI 在 Responses API 用的快取鍵名，我們走的是 Chat Completions，留著是因為 OpenRouter 也認這個名字、不支援的一律忽略。
+⚠ 文件同時寫明快取是 **best-effort**：伺服器重啟／記憶體壓力都會清掉條目，而且 system 低於約 1024 token 本來就省不到什麼。所以這三個旋鈕是「把命中率從碰運氣拉高」，不是「保證命中」——看 `[cache]` 那行的 hit% 判斷，別預期它穩定。
+
 🐛→✅ 稽核抓到：跟上面temp/topP同一支函式裡卻用||而非!==undefined判斷，會把呼叫端刻意傳的0(如「只試一次不重試」)靜默吃成預設值——目前無人這樣傳、屬休眠地雷，比照上面已確立的寫法修正。
 
 ### `attemptWithModel_`　<sub>Engine_Combat.gs</sub>

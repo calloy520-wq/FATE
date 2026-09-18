@@ -25,8 +25,9 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   systemContent += "\n\n【語言鐵律】全程僅使用台灣繁體中文（正體字），一律使用台灣在地慣用語與正體中文字形。";
 
   // 組裝原生多輪 messages 陣列
+  // 📊 system 那則改用 content part 陣列，把快取斷點掛在這一份逐字不變的規矩上。
   let apiMessages = [
-    { role: "system", content: systemContent }
+    { role: "system", content: [{ type: "text", text: systemContent, cache_control: { type: "ephemeral" } }] }
   ];
 
   if (config.chatHistory && Array.isArray(config.chatHistory)) {
@@ -43,6 +44,8 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
     //    沒有它的話「要等偵測到快取命中才啟動」，每局開頭那幾回合都在賭。
     const payload = { model: model, messages: apiMessages, temperature: temp, top_p: topP, max_tokens: maxT, usage: { include: true } };
     if (config.sessionId) payload.session_id = String(config.sessionId).slice(0, 256);
+    // 📊 prompt_cache_key：xAI 在 Responses API 用它當快取鍵，OpenRouter 也吃這個名字。
+    if (config.sessionId) payload.prompt_cache_key = String(config.sessionId).slice(0, 256);
     if (config.top_k !== undefined) payload.top_k = config.top_k;
     if (config.repetition_penalty !== undefined) payload.repetition_penalty = config.repetition_penalty;
     if (config.presence_penalty !== undefined) payload.presence_penalty = config.presence_penalty;
@@ -50,7 +53,8 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
     if (!plainText) payload.response_format = { type: "json_object" };
     const options = {
       method: "post", contentType: "application/json",
-      headers: { "Authorization": "Bearer " + OPENROUTER_API_KEY },
+      headers: Object.assign({ "Authorization": "Bearer " + OPENROUTER_API_KEY },
+        config.sessionId ? { "x-grok-conv-id": String(config.sessionId).slice(0, 256) } : {}),
       payload: JSON.stringify(payload), muteHttpExceptions: true
     };
     for (let i = 0; i < retries; i++) {
@@ -141,7 +145,7 @@ function cheapHash_(str) {
 // 🛡️ 生成失敗時的統一保底：措辭與 _genFailed 旗標的【單一真實來源】。
 function aiFallbackNarration_(isBlocked) {
   return isBlocked
-    ? "🌸交纏的氣息還未散去，肌膚滾燙如火——下一幕卻被濃郁的水氣徹底吞沒，什麼都看不清了，請再嘗試一次。"
+    ? "🌸這一段說書人寫不了——按下輸入框旁邊的 🔥 再送一次，換一位敢寫的說書人接手。"
     : "🌫️【因果紊亂】命運的絲線忽地紊亂，這段因果暫時讀不出來。";
 }
 // _genFailed 旗標：這組是失敗保底文字、不是真正生成的敘事，讓呼叫端(narrateWithState_/actionPlay_)能辨識出來、不要把它當成既定劇情事實存進歷史——否則下次呼叫會把「什麼都沒發生」的保底措辭誤當上一輪的真實進展餵回AI，可能接續出跟實際劇情矛盾的敘事。

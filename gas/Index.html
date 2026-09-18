@@ -303,6 +303,12 @@
     <div id="input-bar">
       <div class="pill-wrapper">
         <button id="plus-trigger" class="plus-btn" onclick="toggleActionDrawer()">＋</button>
+        <!-- 🔥 說書人開關（2026-09 玩家「平常為 Gemini 3.5 Flash Lite，我自己點火再開」）：
+             滅＝便宜的那顆寫日常；亮＝換敢寫的那顆。⚠ 這顆只管【用哪個模型】，
+             尺度規則一律是「跟著玩家走」，跟這顆無關。 -->
+        <label title="🔥 亮起＝換一位敢寫的說書人（比較貴）。平常熄著就好；被擋下來的時候按亮再送一次。" style="color: #ff6b6b; font-size: 14px; margin-right: 5px; margin-left: 2px; cursor: pointer; display: flex; align-items: center; white-space: nowrap; font-weight: bold;">
+          <input type="checkbox" id="drive-mode-toggle" style="accent-color: #ff6b6b; margin-right: 3px;">🔥
+        </label>
         <input id="u-in" maxlength="300" placeholder="說點什麼，或做點什麼…" onkeypress="if(event.key==='Enter')send()">
         <button id="send-btn" class="send-trigger" onclick="send()">傳送</button>
       </div>

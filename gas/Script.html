@@ -3188,6 +3188,9 @@ function applyModeUI() {
   var uin = document.getElementById('u-in'); if (uin) uin.style.display = isKanshou ? '' : 'none';
   var sbtn = document.getElementById('send-btn'); if (sbtn) sbtn.style.display = isKanshou ? '' : 'none';
   // 🎴 solo 頂部＝查看/魔力/系統三鍵(取代地點)、底部輸入框整條隱藏(純按鍵)；慾海維持原本(頂部地點徽章＋底部輸入框＋NSFW開關)，零改動守紅線①。
+  // 🔥 說書人開關只在鑑賞露出（solo 沒有這個概念）。曾經整顆藏掉過，結果 drive 永遠鎖在 false。
+  var drv = document.getElementById('drive-mode-toggle');
+  if (drv) { var lab = drv.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
   var tSolo = document.getElementById('topbar-solo'); if (tSolo) tSolo.style.display = isKanshou ? 'none' : 'flex';
   var tKan = document.getElementById('topbar-kanshou'); if (tKan) tKan.style.display = isKanshou ? '' : 'none';
   // 🕰️ 2026-07 玩家「手機很長，切到地圖分頁點下一階段太麻煩」：👥邀請／⏰下一階段兩顆常駐鈕

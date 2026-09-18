@@ -29,7 +29,14 @@ const CREATION_MODEL = (function () {
 const LEWD_FALLBACK_MODEL = (function () {
   return PropertiesService.getScriptProperties().getProperty('LEWD_FALLBACK_MODEL') || '';
 })();
-// 🔞 敢寫的那顆：補魔三支（solo 僅有的露骨橋段）＋整個鑑賞軌都走它。
+// 🌹 鑑賞【平常】用的那顆：2026-09 玩家「不然就改回平常為 Gemini 3.5 Flash Lite，我自己點火再開」。
+//    日常聊天佔絕大多數回合，用便宜的那顆；要露骨時玩家自己按 🔥 切到 LEWD_MODEL。
+//    ⚠ 這是拿【敘事品質】換錢：Flash Lite 寫出來的東西比 Grok 平，而且碰到露骨內容會直接被擋。
+//      被擋時的提示詞要明講「按 🔥 再試一次」，別讓玩家看到一句莫名其妙的失敗訊息。
+const KANSHOU_MODEL = (function () {
+  return PropertiesService.getScriptProperties().getProperty('KANSHOU_MODEL') || 'google/gemini-3.5-flash-lite';
+})();
+// 🔞 敢寫的那顆：補魔三支（solo 僅有的露骨橋段）＋鑑賞【按了 🔥】的回合走它。
 const LEWD_MODEL = (function () {
   return PropertiesService.getScriptProperties().getProperty('LEWD_MODEL') || 'x-ai/grok-4.20';
 })();

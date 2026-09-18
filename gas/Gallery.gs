@@ -2155,6 +2155,8 @@ function actionPlay_(userData, pcId, sheets) {
   const userMsg = String(userData.message || "").replace(/[｜【】]/g, ""); // 📅 endDay 呼叫不一定會帶 message，防呆避免下方 .includes 炸掉
 
   if (String(pcId || "").indexOf("KPC_") !== 0) return JSON.stringify({ text: "此功能僅限鑑賞使用。", people: [] });
+  // 🔥 點火：這一回合用哪一顆模型（平常便宜的那顆／按了就換敢寫的那顆）。
+  const driveOn = (userData.drive === true || String(userData.drive) === "true");
 
   // 🎯 2026-09 喜歡/討厭回到卡上：2026-07 砍掉是因為那兩格只是被列出來、AI 不知道要拿它們幹嘛。
   //    現在鐵律那條「喜歡與討厭是這個人的開關，話題碰到就給出明顯的情緒」給了它們工作，才值得付那 33 字。
@@ -2446,9 +2448,11 @@ ${presentMembers.length ? '' : '★【在場】：這個地方只有你一個人
 接著往下演，玩家這一步是：『${finalUserMsg}』`;
 
   try {
-    // 🔞 鑑賞走 LEWD_MODEL（敢寫的那顆）；solo 走 AI_MODEL。被擋時的後援見 callGeminiAPI。
+    // 🔥 點火＝模型開關（2026-09 玩家定案）：平常走便宜的 KANSHOU_MODEL，按了才換敢寫的那顆。
+    //    ⚠ 這顆 🔥 跟 2026-09 稍早砍掉的那顆【不是同一件事】：那顆是尺度/推進幅度的開關，
+    //      它最後只剩一句指向已經不存在的機制；這顆只管用哪個模型，尺度一律「跟著玩家走」。
     const _timeJump = kanshouTimeJumped_;
-    let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: LEWD_MODEL, isNsfwMode: true, sessionId: 'k_' + myGameId, max_tokens: (_timeJump && presentRows.length === 0) ? 700 : (_lenTier_.tokens || 2400) };
+    let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: driveOn ? LEWD_MODEL : KANSHOU_MODEL, isNsfwMode: driveOn, sessionId: 'k_' + myGameId, max_tokens: (_timeJump && presentRows.length === 0) ? 700 : (_lenTier_.tokens || 2400) };
 
     // 抓取近 6 筆原始歷史(3輪)，轉換為 API 格式。
     const recentHistoryRaw = getGameHistoryBatchRaw(pcId, _histWindow_);

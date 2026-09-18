@@ -51,6 +51,9 @@
       
       // 🐛→✅ 稽核抓到：呼叫端一直有把 npcId 塞進 opts，但 send() 這裡沒解構、gasRun payload 也沒轉發
       //   ——id 從未離開過瀏覽器，「2026-07 id 優先」那次重構在這條路徑上等於沒生效。
+    // 🔥 說書人開關：亮＝這一回合換敢寫的那顆模型（只管模型，尺度規則不受影響）。
+    const driveToggle = document.getElementById('drive-mode-toggle');
+    const drive = !!(driveToggle && driveToggle.checked);
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
     let msg = customMsg || input.value.trim();
@@ -85,7 +88,7 @@
     }
 
     try {
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
