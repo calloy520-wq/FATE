@@ -897,12 +897,15 @@ function dialogueFormatRule_() {
 //    留著這條等於用一個更差的機制做同一件事。經歷從此是固定事實：創角時生成一次，
 //    之後只有玩家能透過逆天改命改。這是 2026-07「性格四格/萌點不再交給 AI」那次的最後一塊。
 function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
-  const _physicalState = "此刻臉上的神色·第三人稱·≤15字·沒變就留空";
+  // 🐛→✅ 2026-09 舊值是「此刻臉上的神色」——神色每一秒都在變，卻被存進 PHYSICAL 欄又原封餵回去，
+  //    於是變成固定綽號（實測：SABER 每一段都是「碧眼充滿好奇」、凜「微微揚眉」、櫻「溫柔微笑」）。
+  //    這一格只收【跨回合還成立】的身體事實；神色留在 narration 裡當場寫，不存不餵。
+  const _physicalState = "會持續到下一刻的身體狀態(衣衫、痕跡、體液這類)·第三人稱·≤15字·沒有就留空";
 
   // appearance_extras(原 outfit_change)：角色當下實際穿著與配飾，AI 依劇情如實更新，寫回持久的【換裝】記錄。2026-09 小道具機制移除後，配飾類事實回歸由這一欄承接。
   const _appearanceExtras = "穿著與配飾·第三人稱·≤20字·沒換就留空";
 
-  const _physicalStateRef = "這個人此刻臉上的神色·≤15字·沒變就留空";
+  const _physicalStateRef = "這個人身上會持續到下一刻的狀態(衣衫、痕跡、體液這類)·≤15字·沒有就留空";
   const _appearanceExtrasRef = "這個人的穿著與配飾·≤20字·沒換就留空";
 
   // 🗑️ 2026-09 大精簡（玩家「我只要給 AI 當下情況就好」）：範本只留【欄位長相】，說明壓成短詞組。
@@ -2363,22 +2366,22 @@ function actionPlay_(userData, pcId, sheets) {
       if (playerSex === "女" && npcSex === "女") sameSexF.push(r[COL.PC.NAME]);
     });
     genderHintStr = sameSexF.length
-      ? `\n★【性別配對】：${sameSexF.join("、")}(女女配對)：純女女之愛，以手指/舌頭/器物進行。`
+      ? `\n★【身體】：${sameSexF.join("、")}跟我一樣是女性的身體，做得到的是手指、舌頭與器物。`
       : "";
   }
 
-  // 🎭 玩家自己的 怪癖／行為準則：跟【在場人物】那一行走【同一組 helper】，不另寫一套。
-  //    這幾格以前只有同伴有，玩家那張卡是空的——所以 AI 演得出每一個同伴，就是演不出「你」。
   const _mePron_ = pron_(pc[COL.PC.SEX]);   // 御主性別是資料(可隨時切換)，代名詞不可寫死
-  const _meQuirks_ = getPersonaQuirks_(pc[COL.PC.MEMORY]);
-  const _meLogic_ = getPersonaLogic_(pc[COL.PC.MEMORY]);
-  const _meFlavorStr_ = `${_meQuirks_ ? `${_meQuirks_}。` : ""}${_meLogic_ ? `${_meLogic_}。` : ""}`;
+  // 🗑️ 2026-09 玩家卡的 怪癖／行為準則整組不再送（玩家實測：「髮尾戳臉頰」四段都演、
+  //    logic 整句被逐字唸了三次）。那兩格是【第二人稱時代】加的——當時 AI 演得出同伴、
+  //    演不出「你」；現在旁白是第一人稱、玩家自己打字決定做什麼，這兩格已經沒有工作了。
 
   // 🛡️ 比照Core_Settings.gs讀同一欄位(mergePhysicalStatus/parseVisibleStatus)的try/catch防呆——PHYSICAL理論上只會被JSON.stringify寫入，但COL是位置索引，欄位一旦錯位/被手動改壞，這裡若沒擋，該角色從此每回合都會拋錯、永遠好不了(見CLAUDE.md「邊界先擋」)。
   let pPhysicalObj = {}; try { pPhysicalObj = JSON.parse(pcData[pcIndex][COL.PC.PHYSICAL] || "{}"); } catch (e) { }
   if (Object.keys(pPhysicalObj).length === 0) pPhysicalObj = { "狀態": "如常" };
   const _isPlainBody_ = o => Object.keys(o).length === 1 && o["狀態"] === "如常"; // 預設值＝沒事，不必送
-  let nsfwMemories = `${_isPlainBody_(pPhysicalObj) ? "" : `\n[玩家『${pcName}』肉體]：${JSON.stringify(pPhysicalObj)}`}`;
+  // 🧵 餵回去的是【一句話】不是 JSON——原樣遞一個物件過去，回來的就是資料庫腔調。
+  const _bodyLine_ = o => Object.keys(o).map(k => String(o[k])).filter(Boolean).join('、');
+  let nsfwMemories = `${_isPlainBody_(pPhysicalObj) ? "" : `\n我此刻身上：${_bodyLine_(pPhysicalObj)}。`}`;
 
   // ⚡ 提速：跟上面 presentRowsForGender 是完全相同的 filter 條件，直接複用，省掉第二次整表掃描。
   let allPresentRows = presentRowsForGender;
@@ -2386,7 +2389,7 @@ function actionPlay_(userData, pcId, sheets) {
     let npcPhysicalObj = {}; try { npcPhysicalObj = JSON.parse(r[COL.PC.PHYSICAL] || "{}"); } catch (e) { }
     if (Object.keys(npcPhysicalObj).length === 0) npcPhysicalObj = { "狀態": "如常" };
     // 👕 裝扮已由【在場人物】那一行帶（同一個值不送兩次）；REL_MEM 的【專屬稱呼】同理走 pMemStr。
-    if (!_isPlainBody_(npcPhysicalObj)) nsfwMemories += `\n[${r[COL.PC.NAME]} 肉體]：${JSON.stringify(npcPhysicalObj)}`;
+    if (!_isPlainBody_(npcPhysicalObj)) nsfwMemories += `\n${r[COL.PC.NAME]}此刻身上：${_bodyLine_(npcPhysicalObj)}。`;
   });
 
 
@@ -2435,7 +2438,7 @@ ${PROMPT_REL}
 ★【誰在場】：【在我身邊的人】那份名單＝此刻在我身邊的人；有【專屬稱呼】就叫暱稱。【已經確立的事】名單上的人可出現可開口，其餘路人不具名。
 ★【world_note】：這一步新出現的地方/人/規矩寫進去才會留下，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆；只長在某地的東西（田、雞、招牌、常客）的 at 填那個地名。
 
-【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${_meFlavorStr_}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
+【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
 ${PROMPT_PARTY_LIVE}
 ${_lenLine_ === '' ? '' : _sty_('length')}
 ★【地點】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，這一幕就在這裡演完；換地方由系統宣告。${moveTarget ? '你們剛到，從抵達後的當下寫起。' : ''}
