@@ -428,7 +428,7 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 > 【玩家資料·旁白用】（只給旁白寫「你」的內心用·在場的人沒讀過這張卡）
 > `${PROMPT_PARTY_SYSTEM}`（在場人物卡，含「你在她眼中」）＋`${_intimacyLines_}`（★【親密尺度】）
 > ★【篇幅】`${_kanshouTargetWords_}`（查 `KANSHOU_WORDS_`，「大事」旗標升檔）／★【地點釘死】
-> 條件片段（有才出現）：`kanshouNewPlaceStr`／`_worldFeed_`／`kanshouWorldRosterStr`／`kanshouEncounterStr`／`kanshouNightGuestStr`／`kanshouKnockRaidStr`／`kanshouAloneBondStr`／`kanshouNpcLeaveStr_`／`kanshouNightPartStr`／`kanshouVisitBlockedStr`／`kanshouTimeBlockedStr`／`kanshouPromiseStr`／`kanshouPromiseMetStr`／`kanshouCohabitStr`／`kanshouConfessStr`／`kanshouInviteStr`／`kanshouHandHoldStr`／`kanshouHoldingStr`／`kanshouApptTodoStr`／`kanshouApptWaivedStr`／`kanshouCohabitEndStr`／`kanshouNightSceneStr`
+> 條件片段（有才出現）：`kanshouNewPlaceStr`／`_worldFeed_`／`kanshouWorldRosterStr`／`kanshouEncounterStr`／`kanshouAloneBondStr`／`kanshouNpcLeaveStr_`／`kanshouNightPartStr`／`kanshouVisitBlockedStr`／`kanshouTimeBlockedStr`／`kanshouPromiseStr`／`kanshouPromiseMetStr`／`kanshouConfessStr`／`kanshouInviteStr`／`kanshouApptTodoStr`／`kanshouApptWaivedStr`／`kanshouNightSceneStr`
 > ★【此刻】（日期·時段併在同一行）＋`kanshouTierCrossStr`
 > ★【晨間餘韻·非強制】／★【昨夜對方走了·非強制】／`${npcDialoguePrompt}`／★【稍早做過的事】`${_earlierDigest_}`（`kanshouRecentDigest_`）
 > ★【在場】＋`${finalUserMsg}`（玩家這回合的動作：自己打的字標 `【玩家原話】：`、按鍵路徑標 `【玩家意圖】：`＝GAS 寫的摘要）＋`${_settledTail_}`（GAS 已裁定的結果）
@@ -445,7 +445,6 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | 機制 | 觸發資格(GAS) | 回應附帶欄位 | 玩家按鈕→下次 send() 旗標 |
 |---|---|---|---|
 | 移動同意 | 她答應同去 | `moveProposal` | 同意→`moveTarget`＋`moveWithCompanion` |
-| 同居邀請 | 好感首達 90 且在場、同日未問 | `cohabitOffer` | `cohabitInvite`＋`cohabitInviteId` |
 | 巧遇結識 | 移動/原地擲中、`encounterOn` | `encounterOffer` | `inviteResident` |
 | 等待約定 | 赴約撲空她還沒到 | `promiseWait` | `advanceHours`（跳到她抵達時刻） |
 
@@ -510,7 +509,6 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 |---|---|---|
 | `kanshouPromiseStr`/`kanshouPromiseMetStr` | 📅相約成立/撲空·赴約/遲到/爽約結算 | ★【約定成立】/★【依約相會】/★【遲到赴約】/爽約事實 |
 | `kanshouApptTodoStr`/`kanshouApptWaivedStr` | 今天還有沒赴的約／人已在身邊免赴 | ★【今天的約·尚未赴】 |
-| `kanshouCohabitStr`/`kanshouCohabitEndStr` | 🏠邀請同居(成立/婉拒/已同居/撲空)／搬走 | ★【同居開始】/★【同居·婉拒】/★【已在同居】… |
 | `kanshouConfessStr` | 💗告白 | ★【告白·成立】/★【告白·被拒】/★【已經在一起了】 |
 | `kanshouInviteStr`/`kanshouEncounterStr` | 🤝結識巧遇對象／巧遇擲中 | ★【正式結識】/結識未成／巧遇事實 |
 | `kanshouNightSceneStr`/`kanshouNightPartStr` | 夜未眠／夜裡道別 | ★【夜已深·門關上了】／★【夜裡道別】… |

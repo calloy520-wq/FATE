@@ -1315,23 +1315,9 @@ herIdx：牽手 tag 寫在玩家列(idx)，但「第一次牽手」這筆帳要�
 
 ⏰ 約定「該動身了」的提前量(小時)：到點前這麼久她就會自己前往約定地點。0.5＝提前30分，一個動作 10 分鐘，玩家還有約三步可以跟上。pin 窗口與「先走一步」共用這個數字。
 
-### `KANSHOU_COHABIT_TAG_`　<sub>Gallery.gs</sub>
-
-🏠 同居(存該同伴列MEMORY·【同居】1)：好感≥KANSHOU_COHABIT_BOND_且本人在場才邀得成。同居後行程骰改走同居版(見kanshouRollDailyLocation_)：深夜85%回「和室」就寢(15%在外遊蕩)、清晨50%還在和室賴床、夜間75%在家中公共空間活動，白天照常出門過她自己的生活。
-
-### `KANSHOU_COHABIT_END_TAG_`　<sub>Gallery.gs</sub>
-
-🏠 同居剛被解除的一次性旗標(蓋在她那一列)：kanshouSyncRelTier_ 在好感跌破門檻時蓋，actionPlay_組提示詞時讀一次就清。存在的理由是跨函式傳事實——那支是共用 helper、看不到提示詞變數，而「她搬走了」這件事非說不可，否則就是本檔【在場驗證】自己禁的「不解釋就消失」。
-
 ### `KANSHOU_AWAKE_HERE_TAG_`　<sub>Gallery.gs</sub>
 
 🌙 醒著陪同標記(存該同伴列MEMORY·地點值)：牽手/剛同意同去而醒著陪同的同伴，即使之後放手、或玩家離開又走回來，只要人還在同一個地點沒變動，就持續視為醒著——否則放手的瞬間、或離開再進來的下一回合，她就會被誤判成剛好躺在自己家/和室裡熟睡，儘管全程明明醒著陪在玩家身邊互動(玩家實測「放開手馬上跳出賴床叫醒的泡泡」「離開又進去，敘事明明醒著卻還跳賴床泡泡」)。地點一變(她離開/被重骰走)就自然失效，不必手動清。
-
-### `KANSHOU_COHABIT_ASKED_TAG_`　<sub>Gallery.gs</sub>
-
-🏠 同居邀請「已問過」一次性標記(2026-07 玩家「同居做成泡泡問一次、完全隱藏才是正解」)：好感首次達 KANSHOU_COHABIT_BOND_ 且她在場時跳一次邀請泡泡，跳過就蓋章、之後永不再問。⚠ 刻意【不】綁在「跨進戀人」那一階——戀人是 80、同居門檻是 90，在 80 問會被後端以「關係還沒深到能同住」回絕，變成問了也沒用的假泡泡。
-
-🏠 同居邀請的當日戳(存該同伴列·absDay)：同一位、同一天最多問一次。刻意【不是】布林——布林版玩家一旦沒按泡泡就永遠問不到了(見 kanshouCohabitOffer_ 的說明)。舊存檔殘留的值 1會自然不等於當前 absDay，下次自動恢復詢問，不需遷移。
 
 ### `kanshouConfessAccepts_`　<sub>Gallery.gs</sub>
 
@@ -3280,10 +3266,6 @@ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查�
 ### `_pmId`　<sub>Gallery.gs</sub>
 
 🆔 2026-07「整體重構·id優先」：前端已補id(見actionKanshouCompanions/servants.push)，id對得上優先鎖定，找不到才退回kanshouNameCandidates_別名比對——同名/前綴混淆不再有機可乘。
-
-### `kanshouCohabitStr`　<sub>Gallery.gs</sub>
-
-🏠 邀請同居(同伴卡「同居」鈕→cohabitInvite=name)：她在場＋好感≥門檻→蓋【同居】標記(行程骰改走同居版)；好感未達→依性格婉拒、不動任何數值；不在場→撲空。
 
 ### `_reHourAfter`　<sub>Gallery.gs</sub>
 

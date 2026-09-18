@@ -267,7 +267,6 @@ function kanshouIntimacyLines_(bonds) {
 // 依當前BOND重算這一列的REL_TAG——但只在「目前這格文字仍等於某個梯度的字面」時才覆寫：玩家一旦透過actionUpdateRelTag手動改成清單外的自訂稱呼，這格文字就再也不匹配任何梯度，之後好感繼續變動也不會被自動蓋回去，尊重玩家的手動選擇。
 function kanshouBondFloorOf_(bond) {
   var ths = KANSHOU_REL_TIER_.map(function (t) { return t.min; })
-    .concat([KANSHOU_COHABIT_BOND_])
     .filter(function (m) { return m > 0; })
     .sort(function (a, b) { return a - b; });
   var f = 0;
@@ -279,26 +278,19 @@ function kanshouSyncRelTier_(pcData, idx) {
   // 💗 告白牆(2026-07 玩家「沒有一個交往的確定過程·人人都可以自然變成戀人」)：還沒告白成立的人，好感一律夾在【戀人門檻-1】。
   const _loverCap = KANSHOU_REL_TIER_[0].min - 1;
   if (!kanshouIsLover_(pcData[idx])
-    && (kanshouIsCohabit_(pcData[idx])
-      || String(pcData[idx][COL.PC.REL_TAG] || "") === KANSHOU_REL_TIER_[0].label
+    && (String(pcData[idx][COL.PC.REL_TAG] || "") === KANSHOU_REL_TIER_[0].label
       || KANSHOU_BOND_FLOOR_TAG_.get(pcData[idx][COL.PC.MEMORY]) >= KANSHOU_REL_TIER_[0].min)) {
     pcData[idx][COL.PC.MEMORY] = KANSHOU_LOVER_TAG_.set(pcData[idx][COL.PC.MEMORY], 1);
   }
   if (bond > _loverCap && !kanshouIsLover_(pcData[idx])) { bond = _loverCap; pcData[idx][COL.PC.BOND] = bond; }
   const _reachedWas = KANSHOU_BOND_FLOOR_TAG_.get(pcData[idx][COL.PC.MEMORY]);
-  // 🏠 已同居⇒地板至少是同居門檻。
-  const _reachedNow = Math.max(_reachedWas, kanshouBondFloorOf_(bond),
-    kanshouIsCohabit_(pcData[idx]) ? KANSHOU_COHABIT_BOND_ : 0);
+  const _reachedNow = Math.max(_reachedWas, kanshouBondFloorOf_(bond));
   if (_reachedNow !== _reachedWas) pcData[idx][COL.PC.MEMORY] = KANSHOU_BOND_FLOOR_TAG_.set(pcData[idx][COL.PC.MEMORY], _reachedNow);
   if (bond < _reachedNow) { bond = _reachedNow; pcData[idx][COL.PC.BOND] = bond; }
   const curTag = String(pcData[idx][COL.PC.REL_TAG] || "");
   if (KANSHOU_REL_TIER_.some(t => t.label === curTag)) {
     const tier = KANSHOU_REL_TIER_.find(t => bond >= t.min);
     if (tier && tier.label !== curTag) pcData[idx][COL.PC.REL_TAG] = tier.label;
-  }
-  if (kanshouIsCohabit_(pcData[idx]) && bond < KANSHOU_COHABIT_BOND_) {
-    pcData[idx][COL.PC.MEMORY] = KANSHOU_COHABIT_TAG_.set(pcData[idx][COL.PC.MEMORY], 0);
-    pcData[idx][COL.PC.MEMORY] = KANSHOU_COHABIT_END_TAG_.set(pcData[idx][COL.PC.MEMORY], 1);
   }
 }
 // 🔒 2026-07 五度改版·自訂關係稱呼／專屬稱呼門檻(玩家實測：低好感就塞露骨自訂稱呼，這段文字會被字面「TA是你的${tag}」原樣塞進提示詞當既定事實，AI因此無視好感天花板照樣演到底)——玩家指定門檻＝80(戀人)，跟親密尺度五階的「80+無上限」同一個切點，這樣一旦解鎖，尺度本來就已經全開，不會再有「好感沒到、卻被自訂文字撐開尺度」的倒掛狀況。
@@ -727,7 +719,7 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       var _pmDate = _pm ? kanshouAbsDayToDate_(_pm.day) : null;
       // memoir：共同回憶(27欄)原樣下傳(★前綴=玩家釘選)，供面板顯示/釘選/刪除。
       var _pmTime = _pm ? (KANSHOU_APPT_BANDS_.find(function (b) { return b.band === _pm.band; }) || {}).label : "";
-      // 🆔 2026-07「整體重構·id優先」：補id讓前端能存起來隨後續action(邀同居/相約/結識等)回傳，後端才有id可用、不必只靠名字(kanshouNameCandidates_別名表已處理大部分情況，但id才是真正杜絕撞名/前綴混淆的單一真實來源)。
+      // 🆔 2026-07「整體重構·id優先」：補id讓前端能存起來隨後續action(相約/結識等)回傳，後端才有id可用、不必只靠名字(kanshouNameCandidates_別名表已處理大部分情況，但id才是真正杜絕撞名/前綴混淆的單一真實來源)。
       current.push({ id: String(data[i][COL.PC.ID]), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || "點頭之交"), nickname: getNickname_(data[i][COL.PC.REL_MEM]), bond: parseInt(data[i][COL.PC.BOND]) || 0, loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, promise: _pm ? { loc: _pm.loc, date: _pmDate.month + '/' + _pmDate.day, time: _pmTime || '' } : null, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
     }
   }
@@ -1131,7 +1123,7 @@ const KANSHOU_LOCATIONS_ = [
 
   { name: '客廳', region: 'home', desc: '沙發與電視的日常起居空間。', noEncounter: true },
   { name: '浴室', region: 'home', desc: '水氣氤氳、放鬆卸下一天疲憊的地方。', noEncounter: true },
-  { name: '和室', region: 'home', desc: '鋪著榻榻米的和室，同居人的寢間。', noEncounter: true },
+  { name: '和室', region: 'home', desc: '鋪著榻榻米的和室，安靜得聽得見風。', noEncounter: true },
 
   { name: '河邊小徑', region: 'shinzan', desc: '晨昏都靜謐的河堤小徑，水聲潺潺。' },
   { name: '古老神社', region: 'shinzan', desc: '石階盡頭的老神社，香火氣息。' },
@@ -1289,35 +1281,25 @@ function kanshouLocHasPendingPromise_(pcData, loc, curDay, gameId) {
     return !!(p && p.day >= curDay && p.loc === loc);
   });
 }
-// 同住人深夜/清晨睡不著出門走走的機率，獨立於一般英靈的homeBias，資料只存一處。
-function kanshouRollDailyLocation_(heroName, hour, cohabit, memory, gameId) {
+// 依時段決定她這一刻大概在哪：深夜/清晨多半在自己的住處，其餘時段從整個世界的池子裡骰。
+function kanshouRollDailyLocation_(heroName, hour, memory, gameId) {
   const heroId = kanshouHeroIdByName_(heroName);
   if (hour !== undefined && hour !== null) {
     const band = timeBand_(hour);
-    if (cohabit) {
-      if (band === '深夜' && Math.random() < 0.85) return KANSHOU_COHABIT_ROOM_;
-      if (band === '清晨' && Math.random() < 0.5) return KANSHOU_COHABIT_ROOM_;
-      if (band === '夜' && Math.random() < 0.75) {
-        const homes = KANSHOU_LOCATIONS_.filter(l => l.region === 'home').map(l => l.name);
-        return homes[Math.floor(Math.random() * homes.length)];
-      }
-    } else {
-      const homeBias = band === '深夜' ? 0.85 : (band === '清晨' ? 0.5 : 0);
-      if (homeBias > 0 && Math.random() < homeBias) {
-        return kanshouGetHeroHome_(heroId, memory);
-      }
+    const homeBias = band === '深夜' ? 0.85 : (band === '清晨' ? 0.5 : 0);
+    if (homeBias > 0 && Math.random() < homeBias) {
+      return kanshouGetHeroHome_(heroId, memory);
     }
   }
   const haunts = heroId ? Object.keys(KANSHOU_LOCATION_TAGS_).filter(loc => KANSHOU_LOCATION_TAGS_[loc].includes(heroId)) : [];
   // 🌙 全地點保底池排除三個分區：'room'(玩家臥室)、'home'(玩家家的客廳/浴室/和室)、'visit'(別人登記的住處)。
   //    那些地方只能靠「拜訪」或邀約主動走進去，不是隨機亂晃能撞到的。
-  //    ⚠ 'home' 是 2026-09 補的——舊版只排掉臥室，客廳/浴室/和室還留在池子裡，實測非同居同伴
-  //    有 15.4% 的日常落點直接骰進玩家家（玩家實測：「我重開後 其他角色直接到我家客廳了」）。
-  //    同居者走上面自己的分支拿 home，不受這條影響。
+  //    ⚠ 'home' 是 2026-09 補的——舊版只排掉臥室，客廳/浴室/和室還留在池子裡，實測有 15.4% 的
+  //    日常落點直接骰進玩家家（玩家實測：「我重開後 其他角色直接到我家客廳了」）。
   // 🗺️ 池子＝【整個世界】(內建 ∪ 玩家自己開的地方)。常去的地點只是多放幾份進池子＝更常遇到。
   const all = kanshouLocationsFor_(gameId)
     .filter(l => KANSHOU_ROLL_EXCLUDE_REGIONS_.indexOf(l.region) < 0 && !l.dateOnly).map(l => l.name);
-  if (!all.length) return KANSHOU_COHABIT_ROOM_;
+  if (!all.length) return KANSHOU_ROLL_FALLBACK_LOC_;
   const pool = all.slice();
   haunts.forEach(h => {
     if (all.indexOf(h) < 0) return;                 // 那個地點被砍掉了就當沒這條偏好，不會沒去處
@@ -1470,15 +1452,8 @@ function kanshouPromisePin_(row, absDay, curHour) {
   if (ah === null || typeof curHour !== 'number') return p.loc; // 無時段或沒傳時→整天釘(相容)
   return (curHour >= ah - KANSHOU_APPT_LEAVE_EARLY_ && curHour < ah + 2) ? p.loc : null;
 }
-// 🏠 同居(存該同伴列MEMORY·【同居】1)：好感≥KANSHOU_COHABIT_BOND_且本人在場才邀得成。
-var KANSHOU_COHABIT_TAG_ = makeIntTag_('同居', 0);
-// 🏠 同居剛被解除的一次性旗標(蓋在她那一列)：kanshouSyncRelTier_ 在好感跌破門檻時蓋，actionPlay_組提示詞時讀一次就清。
-var KANSHOU_COHABIT_END_TAG_ = makeIntTag_('同居解除', 0);
-// 🌙 醒著陪同標記(存該同伴列MEMORY·地點值)：剛同意同去而醒著陪同的同伴，即使之後放手、或玩家離開又走回來，只要人還在同一個地點沒變動，就持續視為醒著——否則放手的瞬間、或離開再進來的下一回合，她就會被誤判成剛好躺在自己家/和室裡熟睡，儘管全程明明醒著陪在玩家身邊互動(玩家實測「放開手馬上跳出賴床叫醒的泡泡」「離開又進去，敘事明明醒著卻還跳賴床泡泡」)。
+// 🌙 醒著陪同標記(存該同伴列MEMORY·地點值)：剛同意同去而醒著陪同的同伴，只要人還在同一個地點沒變動就持續視為醒著——否則離開再進來的下一回合，她會被誤判成剛好躺在自己家裡熟睡，儘管全程明明醒著陪在玩家身邊互動(玩家實測「離開又進去，敘事明明醒著卻還跳賴床泡泡」)。
 var KANSHOU_AWAKE_HERE_TAG_ = makeTextTag_('醒著陪同');
-const KANSHOU_COHABIT_BOND_ = 90;
-// 🏠 同居邀請「已問過」一次性標記(2026-07 玩家「同居做成泡泡問一次、完全隱藏才是正解」)：好感首次達 KANSHOU_COHABIT_BOND_ 且她在場時跳一次邀請泡泡，跳過就蓋章、之後永不再問。
-var KANSHOU_COHABIT_ASKED_TAG_ = makeIntTag_('同居問過', 0);
 var KANSHOU_LOVER_TAG_ = makeIntTag_('戀人', 0);
 // 💗 她是不是你的戀人(告白成立)。單一判準，前後端與提示詞全部走這支。
 function kanshouIsLover_(row) {
@@ -1486,10 +1461,10 @@ function kanshouIsLover_(row) {
 }
 // 🔒 登門拜訪私人住處(region:'visit')的好感門檻＝熟識的朋友(見 KANSHOU_REL_TIER_ 的40切點)。
 const KANSHOU_VISIT_BOND_ = 40;
-const KANSHOU_COHABIT_ROOM_ = '和室';
-// 日常落點保底池排除的分區（單一真實來源）：玩家的住處只有同居者與受邀者進得來。
+// 日常落點保底池排除的分區（單一真實來源）：玩家的住處只有受邀者進得來。
 const KANSHOU_ROLL_EXCLUDE_REGIONS_ = ['room', 'home', 'visit'];
-function kanshouIsCohabit_(row) { return KANSHOU_COHABIT_TAG_.get(row[COL.PC.MEMORY]) > 0; }
+// 整張池子空掉時的保底落點（理論上不會發生，但這支必須永遠回得出一個地名）。
+const KANSHOU_ROLL_FALLBACK_LOC_ = '河邊小徑';
 // 通用【tag】值淨化：清掉標籤分隔字元(,/:/｜/【/】)避免撐破 MEMORY 裡任何單值 tag 的格式(住所名…)，順手也清掉引號/角括號(防提示詞注入)。
 function kanshouSanitizeTagValue_(value, maxLen) {
   return String(value || "").replace(/[,:｜【】"'<>\n\r\t]/g, "").trim().slice(0, maxLen || 8);
@@ -2063,7 +2038,6 @@ function kanshouNameCandidates_(fullName) {
 const KANSHOU_MISS_COPY_ = {
   promise: { title: '相約撲空', body: (n) => `你想找『${n}』相約見面，但對方此刻並不在這裡——演出這份撲空的悵然即可，約定沒有成立。` },
   move: { title: '提議撲空', body: (n) => `你想邀人一起去「${n}」，但此刻身邊沒有同伴——演出這份獨自的悵然即可(玩家可自己用地圖移動)。` },
-  cohabit: { title: '邀請撲空', body: (n) => `你想邀『${n}』搬來同住，但對方此刻並不在這裡——演出這份撲空的悵然即可。` },
   confess: { title: '告白撲空', body: (n) => `你鼓起勇氣要向『${n}』告白，才發現對方此刻並不在這裡——演出這份話沒說出口的悵然即可。` },
   invite: { title: '結識未成', body: (n) => `你想跟『${n}』深交下去，但這段緣分此刻不成立(對方已離開、或早已相識)——演出這份悵然即可。` }
 };
@@ -2287,40 +2261,7 @@ function actionPlay_(userData, pcId, sheets) {
     }
   }
 
-  let kanshouCohabitStr = "";
-  if (userData.cohabitInvite) {
-    const _chName = String(userData.cohabitInvite).trim();
-    // 🆔 2026-07「整體重構·id優先」：同上，id對得上優先鎖定，找不到才退回別名比對。
-    const _chId = String(userData.cohabitInviteId || "").trim();
-    const _chIdx = _chName ? findPcRowIdx_(pcData, _myGid_, { id: _chId, name: _chName, faction: "從者", loc: curL, excludeIdx: pcIndex, nameCandidates: kanshouNameCandidates_ }) : -1;
-    if (_chIdx === -1) {
-      kanshouCohabitStr = kanshouMissStr_('cohabit', _chName);
-      finalUserMsg = `【玩家意圖】：想邀『${_chName}』搬來一起住，卻發現對方不在身邊。`;
-      kanshouProposalResult_ = { ok: false, miss: true, type: 'cohabit', name: _chName, where: _whereIsHer(_chName) };
-    } else {
-      const _chRealName = String(pcData[_chIdx][COL.PC.NAME]);
-      if (kanshouIsCohabit_(pcData[_chIdx])) {
-        kanshouCohabitStr = `\n★【已在同居】：『${_chRealName}』早就跟你住在同一個屋簷下了——演出對方面對這個明知故問、依性格給的反應(好笑/沒好氣/趁機撒嬌皆可)。`;
-        finalUserMsg = `【玩家意圖】：又問了『${_chRealName}』要不要搬來一起住。`;
-        _settledVerdict = `『${_chRealName}』早就跟你住在同一個屋簷下了`;
-      } else if ((parseInt(pcData[_chIdx][COL.PC.BOND]) || 0) < KANSHOU_COHABIT_BOND_) {
-        kanshouCohabitStr = `\n★【同居·婉拒】：你邀『${_chRealName}』搬來同住，但你們的關係還沒深到能同住一個屋簷下——演出對方依性格婉拒的反應(害羞岔開/認真說還太早/打趣帶過皆可)，這件事沒有成立、也沒有任何數值變動。`;
-        finalUserMsg = `【玩家意圖】：鼓起勇氣邀『${_chRealName}』搬來一起住。`;
-        _settledVerdict = `『${_chRealName}』婉拒了同住`;
-        // 📣 走查抓到的資訊黑洞：舊版婉拒只有敘事、無機制回饋，玩家不知道是好感不足還是演出婉拒。
-        kanshouProposalResult_ = { ok: false, type: 'cohabit', name: _chRealName };
-      } else {
-        pcData[_chIdx][COL.PC.MEMORY] = KANSHOU_COHABIT_TAG_.set(pcData[_chIdx][COL.PC.MEMORY], 1);
-        dirtyPcRows.add(_chIdx);
-        kanshouProposalResult_ = { ok: true, type: 'cohabit', name: _chRealName };
-        kanshouCohabitStr = `\n★【同居開始】：『${_chRealName}』答應搬來與你同住了！從今以後對方深夜會回這個家的「和室」就寢、清晨可能還賴在被窩、晚間常在家中活動，白天依然過對方自己的生活——演出對方答應這一刻依性格的反應(欣喜/彆扭/故作平靜皆可)，這是關係的一大步。`;
-        finalUserMsg = `【玩家意圖】：鼓起勇氣邀『${_chRealName}』搬來一起住。`;
-        _settledVerdict = `『${_chRealName}』答應搬來同住了`;
-      }
-    }
-  }
-
-  // 💗 告白(關係中樞「向她告白」鈕→confess=name)：走跟同居同一條「當場裁定、當場落地」的管線——成敗由 kanshouConfessAccepts_ 依 好感×相處次數 擲定，AI 只演反應、不得改寫結果。
+  // 💗 告白(關係中樞「向她告白」鈕→confess=name)：「當場裁定、當場落地」的管線——成敗由 kanshouConfessAccepts_ 依 好感×相處次數 擲定，AI 只演反應、不得改寫結果。
   let kanshouConfessStr = "";
   if (userData.confess) {
     const _cfName = String(userData.confess).trim();
@@ -2390,7 +2331,7 @@ function actionPlay_(userData, pcId, sheets) {
     if (!_ivMatch || _ivAlready || _ivMaleMale) {
       kanshouInviteStr = kanshouMissStr_('invite', _ivName);
       finalUserMsg = `【玩家意圖】：想跟『${_ivName}』深交，卻發現緣分沒有接上。`;
-      // 🐛→✅ 2026-09 稽核：結識是【唯一】沒有回饋條的動作——相約/同行/同居/告白四種
+      // 🐛→✅ 2026-09 稽核：結識是【唯一】沒有回饋條的動作——相約/同行/告白三種
       //    成敗都會下傳 kanshouProposalResult_，只有這裡沒有，玩家得從敘述裡自己猜。
       //    前端的 icon 對照表早就備好 '🤝' 這一格在等它了。
       kanshouProposalResult_ = { ok: false, type: 'invite', name: _ivName,
@@ -2488,8 +2429,8 @@ function actionPlay_(userData, pcId, sheets) {
     curL = kanshouMyRoomLoc_;
     allEstablished.forEach(r => {
       const idx = pcData.indexOf(r);
-      // 優先序：同床過夜(留玩家房間) > 今天有約(釘約定地點守著) > 照常骰行程(同居者走同居版)。curDay已是隔天。
-      pcData[idx][COL.PC.LOC] = intimateNightNames.includes(r[COL.PC.NAME]) ? kanshouMyRoomLoc_ : (kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY], _myGid_));
+      // 優先序：同床過夜(留玩家房間) > 今天有約(釘約定地點守著) > 照常骰行程。curDay已是隔天。
+      pcData[idx][COL.PC.LOC] = intimateNightNames.includes(r[COL.PC.NAME]) ? kanshouMyRoomLoc_ : (kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, r[COL.PC.MEMORY], _myGid_));
       dirtyPcRows.add(idx);
     });
     finalUserMsg = `【一天結束】夜幕降臨，${intimateNightNames.length ? `跟『${intimateNightNames.join('、')}』一起` : ""}回到房間安頓下來，今天到此為止，明天又是新的一天。`;
@@ -2519,8 +2460,8 @@ function actionPlay_(userData, pcId, sheets) {
       allEstablishedForTime.forEach(r => {
         const idx = pcData.indexOf(r);
         if (String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim()) return;
-        // 今天有約→釘在約定地點守著；沒約→照常骰(同居者走同居版)。curDay已是推進後的日期。
-        pcData[idx][COL.PC.LOC] = kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY], _myGid_);
+        // 今天有約→釘在約定地點守著；沒約→照常骰。curDay已是推進後的日期。
+        pcData[idx][COL.PC.LOC] = kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(r[COL.PC.NAME], curHour, r[COL.PC.MEMORY], _myGid_);
         dirtyPcRows.add(idx);
       });
       const newDate = kanshouAbsDayToDate_(curDay);
@@ -2627,7 +2568,7 @@ function actionPlay_(userData, pcId, sheets) {
         const _ppNs = _pendingProposal.names || [String(_pendingProposal.name || pcData[_pendingProposal.idx][COL.PC.NAME] || "")];
         if (_ppNs.some(n => n && kanshouNameCandidates_(_nm).includes(String(n)))) return;
       }
-      const _newLoc = String(kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(_nm, curHour, kanshouIsCohabit_(r), r[COL.PC.MEMORY], _myGid_) || "").trim();
+      const _newLoc = String(kanshouPromisePin_(r, curDay, curHour) || kanshouRollDailyLocation_(_nm, curHour, r[COL.PC.MEMORY], _myGid_) || "").trim();
       if (_newLoc && _newLoc !== String(curL || "").trim()) {
         pcData[i][COL.PC.LOC] = _newLoc;
         dirtyPcRows.add(i);
@@ -2773,21 +2714,11 @@ function actionPlay_(userData, pcId, sheets) {
     }
   }
   const kanshouTierCrossLines_ = [];   // 💗 這回合剛跨進新關係階的人
-  const kanshouCohabitEndNames_ = []; // 🏠 這回合剛被解除同居的人
-  // 🏠 同居邀請泡泡(2026-07 玩家「同居做成泡泡問一次、完全隱藏才是正解」)：綁在【跨進戀人】那一刻——那正是「要不要住在一起」第一次成立的敘事時機，而且 KANSHOU_REL_RANK_TAG_ 只升不降，這個跨階天生只會發生一次，不必另外記「問過沒」。
-  let kanshouCohabitOffer_ = null;
   partyRows.forEach(r => {
     const _ri = pcData.indexOf(r);
     if (_ri < 0) return;
     const _tierBond = parseInt(r[COL.PC.BOND]) || 0;
     const _tierNow = kanshouRelRank_(_tierBond);
-    // 🏠 同居邀請·一生一次：好感首次達門檻(90)且尚未同住、也還沒問過 → 跳一次泡泡並蓋章。
-    if (!kanshouCohabitOffer_ && _tierBond >= KANSHOU_COHABIT_BOND_ && !kanshouIsCohabit_(r)
-      && KANSHOU_COHABIT_ASKED_TAG_.get(r[COL.PC.MEMORY]) !== curDay) {
-      kanshouCohabitOffer_ = { name: String(r[COL.PC.NAME]), id: String(r[COL.PC.ID] || "") };
-      pcData[_ri][COL.PC.MEMORY] = KANSHOU_COHABIT_ASKED_TAG_.set(pcData[_ri][COL.PC.MEMORY], curDay);
-      dirtyPcRows.add(_ri);
-    }
     const _tierWas = KANSHOU_REL_RANK_TAG_.get(r[COL.PC.MEMORY]);
     if (!_tierWas) {
       pcData[_ri][COL.PC.MEMORY] = KANSHOU_REL_RANK_TAG_.set(pcData[_ri][COL.PC.MEMORY], _tierNow);
@@ -2798,12 +2729,6 @@ function actionPlay_(userData, pcId, sheets) {
       const _up = _tierNow > _tierWas;
       if (_lbNow) kanshouTierCrossLines_.push(`『${String(r[COL.PC.NAME])}』從「${_lbWas}」${_up ? '跨進' : '退回'}「${_lbNow}」`);
       pcData[_ri][COL.PC.MEMORY] = KANSHOU_REL_RANK_TAG_.set(pcData[_ri][COL.PC.MEMORY], _tierNow);
-      dirtyPcRows.add(_ri);
-    }
-    // 🏠 她剛被解除同居(好感跌破門檻·kanshouSyncRelTier_ 蓋的一次性旗標)：讀一次就清。
-    if (KANSHOU_COHABIT_END_TAG_.get(r[COL.PC.MEMORY])) {
-      kanshouCohabitEndNames_.push(String(r[COL.PC.NAME]));
-      pcData[_ri][COL.PC.MEMORY] = KANSHOU_COHABIT_END_TAG_.set(pcData[_ri][COL.PC.MEMORY], 0);
       dirtyPcRows.add(_ri);
     }
     // 🤝 相處計數 +1：這裡本來就是「對每位在場者逐一處理」的迴圈，每回合只跑一次，天然冪等，不必另外記日戳。
@@ -2821,10 +2746,6 @@ function actionPlay_(userData, pcId, sheets) {
   // 🌙 深夜獨處(夜未眠)：只給「此刻是什麼場合」這個事實，怎麼發展全看玩家推進與她的個性。
   const kanshouNightSceneStr = (kanshouNightSceneOn_ || kanshouNightSceneNames_.length)
     ? `\n★【夜已深·門關上了】：這個房間此刻只剩你和『${(kanshouNightSceneNames_.length ? kanshouNightSceneNames_ : partyMembers).join('、')}』，外頭安靜下來，今晚不會再有別人進來，時間也不急著走。★這一段【還沒有結束】：這一夜什麼時候收，由玩家自己決定、系統會宣告；本回合只演此刻正在發生的這十分鐘，結尾一樣停在進行式、把下一步交還玩家。`
-    : "";
-  // 🏠 同居結束：只給事實，怎麼收由 AI 依她性格演——可以是她自己開口要搬、也可以是不告而別。
-  const kanshouCohabitEndStr = kanshouCohabitEndNames_.length
-    ? `\n★【對方不再住在這裡了】：『${kanshouCohabitEndNames_.join('、')}』已不再與你同住——這是這段關係走到現在的結果，不是意外。若對方此刻就在你面前，讓這件事在這回合被說開(對方提出要搬／你察覺對方東西收走了皆可)；★讓它以兩人之間的一段對話或一個發現的形式落地。`
     : "";
 
   // 💗 關係質變：跨進新階的當下演一次。給的是「方向」不是台詞——具體怎麼表現交給 AI 依她性格拿捏。
@@ -2880,7 +2801,7 @@ function actionPlay_(userData, pcId, sheets) {
         if (kanshouIsAwakeWithMe_(pcData.indexOf(r))) return "";
         const _pHomeHeroId = kanshouHeroIdByName_(pName);
         const _pHome = kanshouGetHeroHome_(_pHomeHeroId, r[COL.PC.MEMORY]);
-        const _pAtHome = (_pHome !== '自己的住處' && curL === _pHome) || (kanshouIsCohabit_(r) && curL === KANSHOU_COHABIT_ROOM_) || curL === '我的房間';
+        const _pAtHome = (_pHome !== '自己的住處' && curL === _pHome) || curL === '我的房間';
         if (!_pAtHome) return "";
         // 「我的房間」是【玩家】的房間，不是她家——措辭要跟著實際地點走。
         const _pWhere = (curL === '我的房間') ? "此刻人在你房裡" : "此刻在自己家";
@@ -2889,7 +2810,6 @@ function actionPlay_(userData, pcId, sheets) {
         if (curHour < KANSHOU_ASLEEP_HOUR_END_) return _pWhere + "、還沒起床";
         return "";
       })();
-      const pCohabitStr = kanshouIsCohabit_(r) ? " | 同居中:是(對方現在與你同住一處，語氣可依此帶著日常同居的親近感、不是作客)" : "";
       const pBackStr = (() => {
         const _b = String(r[COL.PC.BACK] || "").trim();
         if (!_b || _b === `${String(r[COL.PC.RANK] || "")}・${pName}` || /職階英靈$/.test(_b) || QUAD_EMPTY_.indexOf(_b) !== -1) return "";
@@ -2922,7 +2842,7 @@ function actionPlay_(userData, pcId, sheets) {
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
       // 🔦 背景輕描：這一步沒被點名的人只送「此刻的情境」那幾欄，性格/特徵/經歷/共同回憶下回合被點名時再給。
       const _lit = !_spotlight_.length || _spotlight_.indexOf(pName) >= 0;
-      partyDetailsArr.push(`【在場人物】名字:${pName}【性別:${String(r[COL.PC.SEX] || "").trim() || "異"}】｜__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? ` | 裝扮:${pOutfit}` : ""}${_lit ? (() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? ` | 性格:${_p}` : ""; })() : ""}${_lit ? (() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })() : ""}${pSpeech ? ` | 口吻:${pSpeech}` : ""}${_lit && pTic ? ` | 招牌小動作:${pTic}` : ""}${_lit ? pBackStr : ""}${pSleepStr ? ` | 現況:${pSleepStr}` : ""}${pCohabitStr}${_lit ? pMemoirStr : ""}${pPromiseStr}${pKnownStr} | 關係:${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pTierToneStr}${pChillStr})`);
+      partyDetailsArr.push(`【在場人物】名字:${pName}【性別:${String(r[COL.PC.SEX] || "").trim() || "異"}】｜__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? ` | 裝扮:${pOutfit}` : ""}${_lit ? (() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? ` | 性格:${_p}` : ""; })() : ""}${_lit ? (() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })() : ""}${pSpeech ? ` | 口吻:${pSpeech}` : ""}${_lit && pTic ? ` | 招牌小動作:${pTic}` : ""}${_lit ? pBackStr : ""}${pSleepStr ? ` | 現況:${pSleepStr}` : ""}${_lit ? pMemoirStr : ""}${pPromiseStr}${pKnownStr} | 關係:${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}(好感:${pBond}${pMemStr}${pTierToneStr}${pChillStr})`);
     }
   });
   // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。
@@ -3002,7 +2922,7 @@ function actionPlay_(userData, pcId, sheets) {
   ];
   // 「大事」不靠猜——這些區塊本回合有沒有組出字串，GAS 自己最清楚。加新橋段就往這串加一個旗標。
   const _kanshouBigBeat_ = !!(kanshouConfessStr || kanshouTierCrossStr
-    || kanshouNightSceneStr || kanshouCohabitStr || kanshouCohabitEndStr
+    || kanshouNightSceneStr
     || kanshouPromiseMetStr || driveOn);
   const _kanshouWordRow_ = KANSHOU_WORDS_.find(t => _kanshouMaxBond_ >= t.min) || KANSHOU_WORDS_[KANSHOU_WORDS_.length - 1];
   // 🎨 玩家版說書人風格（缺列＝預設，預設＝原本寫死的那句）。讀口排在篇幅之前——篇幅檔位要吃它。
@@ -3061,7 +2981,7 @@ ${PROMPT_PARTY_SYSTEM}
 ${_intimacyLines_ ? `★【親密尺度·最高優先】：肢體親密以好感為天花板，超過的那一步不會發生，怎麼擋下來依各人的個性；玩家只是日常時不憑空推進情慾${_intimacyLines_.indexOf('\n') >= 0 ? '（多人各依各自好感，不共用同階）' : ''}：\n${_intimacyLines_}\n` : ''}
 ${_sty_('length')}
 ★★【地點釘死】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，敘事不離開這裡——想去別處只能嘴上聊，真要換地方由系統宣告。${moveTarget ? '你們剛到，直接從抵達後的當下寫起、路程不演。' : ''}
-${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouCohabitStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouCohabitEndStr}${kanshouNightSceneStr}
+${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouEncounterStr}${kanshouAloneBondStr}${kanshouNpcLeaveStr_}${kanshouNightPartStr}${kanshouVisitBlockedStr}${kanshouTimeBlockedStr}${kanshouPromiseStr}${kanshouPromiseMetStr}${kanshouConfessStr}${kanshouInviteStr}${kanshouApptTodoStr}${kanshouApptWaivedStr}${kanshouNightSceneStr}
 ★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★光線/氣溫/作息一律依此刻的時段寫；本回合只寫這十分鐘內的片段，時間推進由系統宣告。${kanshouTierCrossStr}${intimateNightNames.length ? `\n★【入夜·好感達門檻】：『${intimateNightNames.join('、')}』與你羈絆已深(≥80)·今晚可自然發展到同床·依個性決定要不要跨出這步·不強制寫到底；未達門檻者各自安睡不越界。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}${_partedAway_ ? `\n★【昨夜對方走了·非強制】：昨晚陪你到最後的『${_partedAway_}』並沒有留下過夜·可自然帶一點昨夜餘溫未散的感覺·對方此刻【不在場】·只活在你的回想裡。` : ""}
 
 ${npcDialoguePrompt}${_earlierDigest_ ? `\n★【稍早做過的事】：${_earlierDigest_}——都已發生過，需要時自然呼應，別重演。` : ""}
@@ -3140,7 +3060,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
           if (!exitName) return;
           const eIdx = pcData.findIndex((r, i) => i !== pcIndex && kanshouIsAlly_(r, myGameId) && kanshouNameCandidates_(String(r[COL.PC.NAME])).includes(exitName) && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim());
           if (eIdx === -1) return;
-          let dest = kanshouRollDailyLocation_(pcData[eIdx][COL.PC.NAME], curHour, kanshouIsCohabit_(pcData[eIdx]), pcData[eIdx][COL.PC.MEMORY], _myGid_);
+          let dest = kanshouRollDailyLocation_(pcData[eIdx][COL.PC.NAME], curHour, pcData[eIdx][COL.PC.MEMORY], _myGid_);
           if (String(dest || "").trim() === String(curL || "").trim()) {
             const eHeroId = kanshouHeroIdByName_(pcData[eIdx][COL.PC.NAME]);
             const eHome = kanshouGetHeroHome_(eHeroId, pcData[eIdx][COL.PC.MEMORY]);
@@ -3370,7 +3290,6 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
       options: aiData.options,
       tags: tagsPayload,
       moveProposal: moveProposal || undefined,
-      cohabitOffer: kanshouCohabitOffer_ || undefined,
       encounterOffer: encounterOffer,
       proposalResult: kanshouProposalResult_ || undefined,
       promiseSettle: kanshouPromiseSettle_.length ? kanshouPromiseSettle_ : undefined, // 📅 赴約/爽約結算通知陣列(獨立通道·不與提議結果搶單槽·可同時容納多筆)
