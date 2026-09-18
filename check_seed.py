@@ -39,6 +39,8 @@ def gas_files(exclude=()):
 
 # 刻意棄用但欄位保留的（COL 是位置索引，寧棄用不刪欄）。加一條要寫清楚理由。
 DEAD_COL_ALLOW = {
+    'MASTER.MELEE': '2026-09 玩家「體術骰子不太需要，AI 會錯亂硬掰」：【體術】標記整組退休，欄位保留因 COL 是位置索引',
+    'MASTER.MAGIC_RANK': '2026-09 同上：魔術階位不再自成一顆骰，改由 masterMagicRankFromCircuits_ 從迴路推',
     'MASTER.HOME': '2026-09 稽核：全樹零讀取，種子已不再供值；欄位保留因 COL 是位置索引',
     'MASTER.WAR': '2026-09 稽核：全樹零讀取（屆次靠從者的 WARS 欄判定），種子已不再供值',
     'PC.MAX_MP': '出力電池制後從者無自有魔力池，欄位留著不刪',

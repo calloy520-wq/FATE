@@ -201,20 +201,16 @@ function masterCard_(row) {
     // 過濾掉建角未填的通用預設值(無資訊量)，只顯示真實身世。
     var back = String(row[COL.PC.BACK] || "").trim();
     if (back === "來歷不明的魔術師") back = "";
-    // 體術/魔術是能力描述(非願望/個性字面)，不受 show-don't-tell 限制，可直接陳述；
-    var melee = getMasterMelee_(row[COL.PC.MEMORY]);
+    // 魔術系統是能力描述(非願望/個性字面)，不受 show-don't-tell 限制，可直接陳述。
     var magic = getMasterMagic_(row[COL.PC.MEMORY]);
-    var magicRank = getMasterMagicRank_(row[COL.PC.MEMORY]);
-    var origin = getMasterOrigin_(row[COL.PC.MEMORY]);
+    var circuits = getMasterCircuits_(row[COL.PC.MEMORY]);
     var playedId = getPlayedMaster_(row[COL.PC.MEMORY]);
     var playedCanon = playedId && typeof SEED_MASTERS !== 'undefined' ? SEED_MASTERS.find(m => m && String(m.id) === playedId) : null;
     return `〈御主「${name}」·演出依據〉` + (sex ? `性別${sex}` : "") +
       quadLabeled_(row[COL.PC.PREF], PREF_LABELS_, true) +
       traitLabeled_(row[COL.PC.TRAIT], true) +
       (back ? `｜身世：${back}` : "") +
-      (origin ? `｜出身：${origin}` : "") +
-      (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
-      (melee ? `｜體術：${melee}階` : "") +
+      (magic ? `｜魔術系統：${magic}${circuits ? `(魔術迴路${circuits}條)` : ""}` : "") +
       // ✨ 禮裝一直沒進過任何提示詞——AI 因此只能把御主演成兩手空空的人。只給名字，
       //    它起作用的樣子(flavor)留給真的生效的那一戰講(見 Router_Battle 的【禮裝·】素材行)。
       (() => { const _mc = MYSTIC_CODES[getMystic_(row[COL.PC.MEMORY])]; return _mc ? `｜隨身禮裝：${_mc.name}` : ""; })() +
@@ -251,10 +247,8 @@ function enemyMasterCard_(row, opts) {
     var back = String(row[COL.PC.BACK] || "").split("。外貌：")[0].trim();
     if (back === "魔術師") back = ""; // masterToNpcRow_ 的無資料預設值，塞卡無資訊量
     var wish = (String(row[COL.PC.MEMORY] || "").match(/【願望】([^｜|【\n]*)/) || [])[1] || "";
-    // 體術/魔術是能力描述，不受 show-don't-tell 限制，可直接陳述。
-    var melee = getMasterMelee_(row[COL.PC.MEMORY]);
+    // 魔術系統是能力描述，不受 show-don't-tell 限制，可直接陳述。
     var magic = getMasterMagic_(row[COL.PC.MEMORY]);
-    var magicRank = getMasterMagicRank_(row[COL.PC.MEMORY]);
     // 陣營：跟servantCard_同款，種子/工房原創敵御主都填得完整，一直沒餵過AI，補上。
     var align = String(row[COL.PC.ALIGN] || "").trim();
     if (align === "中立") align = "";
@@ -266,8 +260,7 @@ function enemyMasterCard_(row, opts) {
       traitLabeled_(row[COL.PC.TRAIT], true) +
       (back ? `｜身世(僅內化)：${back.slice(0, 60)}` : "") +
       (align ? `｜陣營：${align}` : "") +
-      (magic ? `｜魔術系統：${magic}${magicRank ? `(${magicRank}階)` : ""}` : "") +
-      (melee ? `｜體術：${melee}階` : "") +
+      (magic ? `｜魔術系統：${magic}` : "") +
       (wish ? `｜願望(僅供氛圍、禁直述)：${wish}` : "") +
       ((function () { var fs = foeStanceNote_(row); return fs ? `｜此刻對你：${fs}` : ""; })()) +
       "。" +

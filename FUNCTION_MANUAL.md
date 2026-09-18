@@ -534,7 +534,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 御主支援注入
 
 - ~~`injectMasterMeleeSupport_`~~（2026-09 移除·原簽名 `(c, masterMemory)`）— 曾把御主【體術】階級以 `master_melee` fx 注入從者傷害。隨「御主不上戰場」刪除；體術階位從此只進 `masterCard_` 當演出依據。
-- `injectMasterMagicSupport_(c, masterMemory)` — 把御主【魔術】階級以 master_magic fx 注入——僅當 c 是 Caster 才注入（體術管近戰、魔術限 Caster，避免無腦疊加）。
+- `injectMasterMagicSupport_(c, masterMemory)` — 把御主魔術階位以 master_magic fx 注入——僅當 c 是 Caster 才注入。⚠ 2026-09 階位來源從【魔術階位】標記改成 `masterMagicRankFromCircuits_(getMasterCircuits_(...))`。
 - `injectMasterSupportFor_(c, pcData, myGameId, row, isEnemy)`（實際定義於 Engine_Fate.gs，Router_Battle.gs 2026-07 稽核抓到重複而抽出）— 找到硬連結御主 MEMORY 後呼叫上兩支的共用外殼，取代原本我方/敵方視角各寫3遍、共6處幾乎相同的「找御主→注兩種支援」樣板。`isEnemy=false`：`row` 本身即御主列，直接讀其 MEMORY；`isEnemy=true`：`row` 是敵從者列，走既有 `enemyMasterMemoryFor_` 查其硬連結御主 MEMORY，查無則不注入。**2026-07 再稽核補完**：`Router_Movement.gs`的`playerAmbushOnEnemy_`(趁隙偷襲)/`enemyAmbushOnServant_`(陣地反擊分支＋真突襲分支)共3處原本仍手刻雙支呼叫，已一併改用此共用函式。
 
 #### 技能 fx 表（線性加減乘·資料驅動）
@@ -760,8 +760,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `MODEL_URL` — OpenRouter chat/completions endpoint 常數。
 - `AI_MODEL` — 兩軌共用的唯一主力模型（預設 `google/gemini-3.5-flash-lite`）；ScriptProperty `MODEL` 優先。
 - `FALLBACK_MODEL` — 被審查擋下／重試全敗時的後援（預設 `x-ai/grok-4.20`）；ScriptProperty `FALLBACK_MODEL` 優先。由 `callGeminiAPI` 全域自動套用，呼叫端不必傳。
-- `rollMasterFate_()`（2026-09 新增，`Core_Settings.gs`）— 🎲 御主天賦（迴路/魔術系統/出身/體術/魔術階）的**唯一真實來源**，從 `Script_Onboarding.html` 搬進後端。`actionRollFate`（action `roll_fate`）一次回三份候選給前端挑；`actionManualNpc` 在玩家沒測定時自己擲一份。
-- `FATE_MAGICS_` / `FATE_ORIGINS_`（常數）— 魔術系統／出身名冊，供 `rollMasterFate_` 抽。前端已無副本。
+- `rollMasterFate_()`（2026-09 新增，`Core_Settings.gs`）— 🎲 御主天賦的**唯一真實來源**，從 `Script_Onboarding.html` 搬進後端。回 `{circuits, magic}` 兩格。`actionRollFate`（action `roll_fate`）一次回三份候選給前端挑；`actionManualNpc` 在玩家沒測定時自己擲一份。⚠ 2026-09 玩家「身分、體術、魔術骰子也不太需要…主要保留魔術迴路就好」：出身/體術/魔術階位三顆骰整組拿掉。
+- `FATE_MAGICS_`（常數）— 魔術系統名冊，供 `rollMasterFate_` 抽。前端已無副本。（~~`FATE_ORIGINS_`~~ 已隨出身骰退休，常數本體一併刪除。）
 - `COL` — 眾生/地圖/英靈殿/御主殿/帳號各表的**欄位位置索引 schema**（詳見 §COL；含已併入的關係/時鐘/權柄欄與 MONEY/UPKEEP_WEEK/ROOM/MEMOIR 等死欄占位）。
 - `RANK_VALUE` — Fate 六圍階級 E~EX → 數值對照表（10/20/30/40/50/60）。
 - `OUTPUT_TIERS_` — 從者出力檔位表 100/80/60/40/20 → {hit, dmgMul, drainMul, np, label}。
@@ -878,12 +878,12 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 御主自身能力標記（MEMORY【體術】/【魔術】/【魔術階位】/【出身】）
 
-2026-07 稽核：以下4個 getter 內部改委派 `makeTextTag_('體術'|'魔術'|'魔術階位'|'出身').get`（既有工廠，取代各自手寫的正則），簽名/行為不變。
+getter 內部委派 `makeTextTag_('迴路'|'魔術').get`（既有工廠，取代各自手寫的正則）。
 
-- `getMasterMelee_(memory)` — 讀御主體術 rank 字母/描述。
+- `getMasterCircuits_(memory)` — 讀御主魔術迴路（整數；補魔會改它，是唯一還在動的御主數值）。
 - `getMasterMagic_(memory)` — 讀御主魔術系統自由描述。
-- `getMasterMagicRank_(memory)` — 讀御主魔術階位 rank 字母（僅己方 Caster 出戰時生效）。
-- `getMasterOrigin_(memory)` — 讀御主 MEMORY【出身】(創角時玩家選的身世來歷，如「教會代行者出身」)。供 `masterCard_` 併入演出依據卡（2026-07 修：舊版創角時只寫入未曾讀取，玩家選的出身從此再也影響不到任何敘事，補上這條讀取線）。
+- `masterMagicRankFromCircuits_(circuits)`（2026-09 新增，`Core_Settings.gs`）— 迴路→魔術階位（≥45 A／≥38 B／≥30 C／≥22 D／其餘 E）。`injectMasterMagicSupport_` 的唯一來源。
+（~~`getMasterMelee_`~~／~~`getMasterMagicRank_`~~／~~`getMasterOrigin_`~~ 已隨 2026-09「體術/魔術階位/出身三顆骰退休」移除，見 CODE_NOTES 的三塊墓碑。）
 
 #### 地理雷達 / 在場清單
 
@@ -1332,7 +1332,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 ### Script_Onboarding.html
 登入／創角／召喚 開局流程（2026-07 從 Script.html 拆出）。**57 個函式**。註：`showProcessing`/`hideProcessing` 是例外——雖定義在本檔，但 `Script.html` 的全域 `beginAction()`/`endAction()`(幾乎每個遊戲內動作都會經過)實際上呼叫這兩者，並非「開局跑一次、`startGame` 後不再用」，見下方死碼註記 #1 更正。
 
-流程（2026-09 再簡化）：帳號登入→新局/續玩→**直接進創角**(預設第五次·場次改在「▸ 自己設定」的 `#s-war`)→締約創角→**召喚三選一**(🎲交給聖杯決定／📜自己挑一位／🖋️自己造一位)→進主畫面。模組級狀態：`warMode='canon'`/`currentWar='5th'`/`playedMaster`/`_mastersPrefetch`(正典御主預取)、`masterRolls`/`masterRoll`(命運測定)、`heroesData`/`selectedSummonClass`(召喚名冊)、工房 `_forgeInit`/`_forgeEditId`/`_forgeFrom`/`_skPickSlot`/`_skPickGroup`。常數：`FATE_MAGICS_`/`FATE_ORIGINS_`(擲命池)、工房計價表 `FORGE_PTS`/`FORGE_BUDGET=340`/`FORGE_CLS_BONUS`/`FORGE_SK_PTS(_BIG/_SMALL)`/`FORGE_SK_TRACK`/`FORGE_FLAT_FX`/`FORGE_FX_GROUPS`/`FORGE_FX`/`FORGE_CLS_HINT`（皆鏡射後端·改後端記得同步）。
+流程（2026-09 再簡化）：帳號登入→新局/續玩→**直接進創角**(預設第五次·場次改在「▸ 自己設定」的 `#s-war`)→締約創角→**召喚三選一**(🎲交給聖杯決定／📜自己挑一位／🖋️自己造一位)→進主畫面。模組級狀態：`warMode='canon'`/`currentWar='5th'`/`playedMaster`/`_mastersPrefetch`(正典御主預取)、`masterRolls`/`masterRoll`(命運測定)、`heroesData`/`selectedSummonClass`(召喚名冊)、工房 `_forgeInit`/`_forgeEditId`/`_forgeFrom`/`_skPickSlot`/`_skPickGroup`。常數：`FATE_MAGICS_`(擲命池；~~`FATE_ORIGINS_`~~ 已隨 2026-09 出身骰退休移除)、工房計價表 `FORGE_PTS`/`FORGE_BUDGET=340`/`FORGE_CLS_BONUS`/`FORGE_SK_PTS(_BIG/_SMALL)`/`FORGE_SK_TRACK`/`FORGE_FLAT_FX`/`FORGE_FX_GROUPS`/`FORGE_FX`/`FORGE_CLS_HINT`（皆鏡射後端·改後端記得同步）。
 
 #### 登入 / 選單
 - `accountLogin()` — 帳號登入（`account_login`）；存 `currentAccount`/`accountLoginRes`/localStorage；切到主選單，依 `hasGame` 顯示續玩鈕。

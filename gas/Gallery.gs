@@ -578,7 +578,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
       if (_topUp_ && String(curRaw || "").replace(/[、\s]/g, "")) return; // 補過了、而且這格已經有東西
       sheets.pc.getRange(wIdx + 1, col + 1).setValue(val);
     };
-    _put_(COL.PC.BACK, aiBrief.background && String(aiBrief.background).slice(0, 40), row[COL.PC.BACK]);
+    _put_(COL.PC.BACK, aiBrief.background && String(aiBrief.background).slice(0, 22), row[COL.PC.BACK]);
     _put_(COL.PC.TRAIT, aiBrief.traits && parseTraitsHelper(aiBrief.traits, traitParts_(row[COL.PC.TRAIT]).join('、'), TRAIT_SLOTS_), traitParts_(row[COL.PC.TRAIT]).join(''));
     _put_(COL.PC.PREF, aiBrief.personality && parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]), row[COL.PC.PREF]);
     // MEMORY 上有三件事要寫(衣裝／怪癖／準則)——同一格，讀一次寫一次就好，別各寫各的。

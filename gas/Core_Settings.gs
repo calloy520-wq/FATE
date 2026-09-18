@@ -19,9 +19,9 @@ const AI_MODEL = (function () {
 const FALLBACK_MODEL = (function () {
   return PropertiesService.getScriptProperties().getProperty('FALLBACK_MODEL') || 'google/gemini-3.5-flash';
 })();
-// 創角/創英靈用更聰明的一顆：這是一次性的呼叫，生出來的設定卻整局都在被讀。
+// 創角/創英靈：2026-09 玩家指定改回 flash-lite（欄位都有字數上限、格式固定，不需要更大的一顆）。
 const CREATION_MODEL = (function () {
-  return PropertiesService.getScriptProperties().getProperty('CREATION_MODEL') || 'google/gemini-3.5-flash';
+  return PropertiesService.getScriptProperties().getProperty('CREATION_MODEL') || 'google/gemini-3.5-flash-lite';
 })();
 // 補魔三支（solo 僅有的露骨橋段）用的模型。
 const LEWD_MODEL = (function () {
@@ -127,17 +127,17 @@ function clampCircuits_(n) { return Math.max(12, Math.min(50, parseInt(n) || 30)
 //   搬進後端：創角改成「不填就隨機」，前端沒送值時 create 必須自己擲得出來（舊版整套只在前端，
 //   留空＝那幾格永遠空白）。前端的 🎲 命運測定改成打這裡要三份候選，兩邊不再各存一份 12/50。
 var FATE_MAGICS_ = ['強化（近戰加成）', '投影／固有結界', '寶石魔術', '符文魔術', '鍊金術', '起源彈', '風魔術', '使魔操縱', '咒術／降靈', '禮裝製作'];
-var FATE_ORIGINS_ = ['自學成才的新興魔術師', '沒落名門的末裔', '名門魔術師世家', '異鄉來的旅人', '教會代行者出身', '被捲入的普通人', '魔術協會的研究者', '繼承詛咒血脈', '時鐘塔的留學生', '隱世魔術師的弟子'];
+// 🎲 2026-09 玩家「身分、體術、魔術骰子也不太需要，AI 都會錯亂開始硬寫亂掰，主要保留魔術迴路就好」：
+//    出身/體術/魔術階位三顆骰全部拿掉，只留迴路與魔術系統。
 function rollMasterFate_() {
   var pick = function (a) { return a[Math.floor(Math.random() * a.length)]; };
-  var rankOf = function () { var r = Math.random(); return r < 0.5 ? 'E' : r < 0.8 ? 'D' : r < 0.95 ? 'C' : 'B'; };
   var r = (Math.random() + Math.random()) / 2;   // 兩次平均＝中庸偏多、極端偏少
-  return {
-    circuits: clampCircuits_(Math.round(15 + r * 35)),
-    magic: pick(FATE_MAGICS_), origin: pick(FATE_ORIGINS_),
-    melee: rankOf(),      // 體術與魔術階各擲一次——兩條不相干的能力線
-    magicRank: rankOf()
-  };
+  return { circuits: clampCircuits_(Math.round(15 + r * 35)), magic: pick(FATE_MAGICS_) };
+}
+// 御主魔術階位：從迴路推，不再自成一顆骰。迴路是玩家唯一留著的那個數，也是補魔會動的那個數。
+function masterMagicRankFromCircuits_(circuits) {
+  var c = clampCircuits_(circuits);
+  return c >= 45 ? 'A' : c >= 38 ? 'B' : c >= 30 ? 'C' : c >= 22 ? 'D' : 'E';
 }
 // 前端 🎲 命運測定：一次要三份候選，玩家挑一個（省掉三次 round-trip）。
 function actionRollFate(userData, pcId, sheets) {
@@ -411,8 +411,8 @@ function pron_(sex) { return PRONOUN_[String(sex || '').trim()] || 'TA'; }
 
 
 // 短句(外貌/性格)的落地硬上限與提示詞對 AI 宣告的字數，所有生成短句的提示詞都要把 TRAIT_SEG_HINT_ 講出來。
-var TRAIT_SEG_MAX_ = 30;
-var TRAIT_SEG_HINT_ = 14;
+var TRAIT_SEG_MAX_ = 18;
+var TRAIT_SEG_HINT_ = 11;
 
 // 特徵格數：外貌本相／氣質。個性仍是四格(PREF_LABELS_)。
 // ⚠ 2026-09 從 3 格收成 2：第三格「卸下心防的私密一面」整組退休，理由見 CODE_NOTES『TRAIT_SLOTS_』。
@@ -598,18 +598,13 @@ function hasArrived_(row, currentDay) {
   return (parseInt(currentDay) || 1) >= getArriveDay_(row && row[COL.PC.MEMORY]);
 }
 
-// 御主自身能力標記：【體術】(rank字母，命運測定/種子皆保證合法)／【魔術】(自由描述文字)，創角/鋪敵時寫進御主自己的 MEMORY。
+// 御主自身能力標記：【迴路】(整數·補魔會改它)／【魔術】(魔術系統的自由描述文字)，創角/鋪敵時寫進御主自己的 MEMORY。
+//    ⚠ 2026-09【體術】【魔術階位】【出身】三個標記整組退休（見 rollMasterFate_）；
+//      舊存檔 MEMORY 裡殘留的那三段沒有人讀，是惰性文字。
 var MASTER_CIRCUITS_TAG_ = makeIntTag_('迴路', 30);   // 🔌 魔術迴路：讀寫的唯一出口(補魔會改它)
-var MASTER_MELEE_TAG_ = makeTextTag_('體術');
 var MASTER_MAGIC_TAG_ = makeTextTag_('魔術');
-// 御主魔術階位（rank字母）：跟體術同款「凡人自身能力」，只在己方出戰從者為 Caster(魔砲型)時才生效(injectMasterMagicSupport_ 內部判斷)——體術管近戰助拳、魔術階位管施法支援，避免疊在一起變成無腦雙倍加成。
-var MASTER_MAGIC_RANK_TAG_ = makeTextTag_('魔術階位');
-var MASTER_ORIGIN_TAG_ = makeTextTag_('出身');
 function getMasterCircuits_(memory) { return MASTER_CIRCUITS_TAG_.get(memory); }
-function getMasterMelee_(memory) { return MASTER_MELEE_TAG_.get(memory); }
 function getMasterMagic_(memory) { return MASTER_MAGIC_TAG_.get(memory); }
-function getMasterMagicRank_(memory) { return MASTER_MAGIC_RANK_TAG_.get(memory); }
-function getMasterOrigin_(memory) { return MASTER_ORIGIN_TAG_.get(memory); }
 
 // 關係已併入眾生表自身欄位(BOND/REL_TAG/IS_PARTY)，不再需要 relData 參數／跨表查找。
 function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {

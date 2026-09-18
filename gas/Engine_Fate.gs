@@ -283,11 +283,12 @@ var SKILL_FX_ = {
 };
 function skillFxVal_(v, r, c) { return (typeof v === 'function') ? v(r, c) : v; }
 // 🥋 2026-09 玩家定案「御主不要上戰場」：injectMasterMeleeSupport_／master_melee fx 已移除。
-//    御主的體術階位從此只進 masterCard_ 當演出依據，不再變成從者的傷害加成（見 CODE_NOTES）。
+//    ⚠ 同年稍後【體術】【魔術階位】兩個標記也整組退休，魔術支援的階位改從迴路推。
 function injectMasterMagicSupport_(c, masterMemory) {
   if (!c || String(c.cls) !== 'Caster') return c;
-  var magicRank = getMasterMagicRank_(masterMemory);
-  if (!magicRank) return c;
+  var circuits = getMasterCircuits_(masterMemory);
+  if (!circuits) return c;
+  var magicRank = masterMagicRankFromCircuits_(circuits);
   c.skills = (c.skills || []);
   if (!c.skills.some(function (s) { return s && s.fx === 'master_magic'; })) {
     c.skills = c.skills.concat([{ n: '御主魔術', r: magicRank, fx: 'master_magic' }]);

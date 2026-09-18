@@ -169,8 +169,8 @@ function pickCanonMaster(i) {
   var sx = document.getElementById('s-sex'); if (sx && ['男', '女', '異'].indexOf(m.sex) >= 0) sx.value = m.sex;
   var ap = document.getElementById('s-appear'); if (ap) ap.value = m.appear || '';
   var wi = document.getElementById('s-wish'); if (wi) wi.value = m.wish || '';
-  // 正典魔術帶進命運（circuits/melee/magicRank 給合理預設，仍可重新測定覆蓋）
-  masterRolls = [{ circuits: 40, magic: m.magic || '魔術', origin: '正典魔術師', melee: 'D', magicRank: 'C' }];
+  // 正典魔術帶進命運（circuits 給合理預設，仍可重新測定覆蓋）
+  masterRolls = [{ circuits: 40, magic: m.magic || '魔術' }];
   masterRoll = masterRolls[0];
   if (typeof renderFateRolls === 'function') renderFateRolls();
   // 扮演者名字可能含「·」等符號，createPC 會依 playedMaster 放行；回創角屏並把選填區展開讓玩家看到帶入的值。
@@ -212,8 +212,8 @@ function renderFateRolls() {
   var cards = masterRolls.map(function (roll, i) {
     var sel = (roll === masterRoll);
     return '<div onclick="selectFateRoll(' + i + ')" style="cursor:pointer; border:1px solid ' + (sel ? '#e7c873' : '#5a4a2a') + '; background:' + (sel ? 'rgba(231,200,115,0.12)' : 'transparent') + '; border-radius:6px; padding:6px 8px; margin-bottom:6px; text-align:left;">'
-      + (sel ? '✅ ' : '⚪ ') + '<b style="color:' + (sel ? '#e7c873' : '#bbb') + ';">測定 ' + (i + 1) + '</b>　迴路 <b style="color:#e7c873;">' + roll.circuits + '</b>　體術 <b style="color:#e7c873;">' + roll.melee + '</b>　魔術階位 <b style="color:#e7c873;">' + roll.magicRank + '</b>'
-      + '<br><span style="font-size:11px; color:#bbb;">' + roll.magic + '｜' + roll.origin + '</span></div>';
+      + (sel ? '✅ ' : '⚪ ') + '<b style="color:' + (sel ? '#e7c873' : '#bbb') + ';">測定 ' + (i + 1) + '</b>　魔術迴路 <b style="color:#e7c873;">' + roll.circuits + '</b> 條'
+      + '<br><span style="font-size:11px; color:#bbb;">' + roll.magic + '</span></div>';
   }).join('');
   box.innerHTML = cards + '<div style="font-size:11px; color:#888; text-align:center;">三份命運，點一個接受</div>';
 }
@@ -308,7 +308,7 @@ async function checkNameOk_(name) {
   try {
     const data = await gasRun({ action: "create", name, sex, appearance, standing, wish, account: currentAccount,
       warMode: warMode, war: currentWar, playedMaster: playedMaster, mystic: mystic,
-      magic: roll.magic || "", circuits: roll.circuits || "", origin: roll.origin || "", melee: roll.melee || "", magicRank: roll.magicRank || "" });
+      magic: roll.magic || "", circuits: roll.circuits || "" });
     if (data.success) {
       // 🔴 新角色一律清空所有舊暫存
       localStorage.removeItem('kyushu_recent_locs');
@@ -320,7 +320,7 @@ async function checkNameOk_(name) {
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       // 🚀 御主敘事(背景/特徵/個性/萌點)背景補生成：不 await，趁玩家在召喚頁挑從者的空檔跑，
       //    進遊戲前多半已就位；失敗則保留種子預設(優雅降級)。
-      backfillMasterAi({ appearance, standing, wish, magic: roll.magic || "", origin: roll.origin || "" });
+      backfillMasterAi({ appearance, standing, wish, magic: roll.magic || "" });
       // 御主締結完成 → 進入召喚從者步驟
       document.getElementById('step-name').style.display = 'none';
       document.getElementById('step-summon').style.display = 'block';
@@ -344,7 +344,7 @@ async function backfillMasterAi(seed) {
     const res = await gasRun({ action: 'backfill_master_ai', pcId: pc.id,
       acctName: (typeof currentAccount !== 'undefined' ? currentAccount : ''),
       appearance: seed.appearance || "", standing: seed.standing || "", wish: seed.wish || "",
-      magic: seed.magic || "", origin: seed.origin || "" });
+      magic: seed.magic || "" });
     if (res && res.success) {
       // 若玩家已進遊戲主畫面(手腳快)，刷新左側御主卡讓 AI 版背景/個性即時就位
       const gameEl = document.getElementById('game');

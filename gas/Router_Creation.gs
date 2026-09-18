@@ -24,7 +24,7 @@ function actionManualNpc(userData, pcId, sheets) {
     } catch (e) { } // 檢查失敗不擋創角(優雅降級)，寧可放行也不要卡死正常玩家
   }
   const newId = "PC_" + Date.now();
-  let { name, sex, identity, standing, wish, appearance, magic, circuits, origin, melee, magicRank } = userData;
+  let { name, sex, identity, standing, wish, appearance, magic, circuits } = userData;
   let finalName = name;
   const finalSex = sex;
 
@@ -55,10 +55,9 @@ function actionManualNpc(userData, pcId, sheets) {
   // 開局非阻塞：create 不叫 AI，秒寫種子值進場；AI 生成的背景/特徵/個性由 actionBackfillMasterAi 背景補上。
   try {
     // 🎴 御主(凡人魔術師)初始數值：HP/MP 依魔術迴路(財力/身世決定)推算——御主是凡人，遠低於英靈從者。
-    // 🎲 玩家沒測定命運就由 GAS 擲一份（創角 UI 明說「留空＝隨機天賦」）——舊版留空會讓
-    //   迴路/魔術/出身/體術整組空白，御主卡幾乎沒東西可演。
+    // 🎲 玩家沒測定命運就由 GAS 擲一份（創角 UI 明說「留空＝隨機天賦」）——留空會讓迴路/魔術空白。
     const _fate = circuits ? null : rollMasterFate_();
-    if (_fate) { circuits = _fate.circuits; magic = magic || _fate.magic; origin = origin || _fate.origin; melee = melee || _fate.melee; magicRank = magicRank || _fate.magicRank; }
+    if (_fate) { circuits = _fate.circuits; magic = magic || _fate.magic; }
     const safeCircuits = clampCircuits_(circuits);
     const masterStats = masterMaxHpMp_(safeCircuits || 30);
     // 起始落點：避開這場戰爭的陣容站著的地方（舊版寫死「偏好新都」——而正典 5th 的伊莉雅＋赫拉克勒斯
@@ -76,9 +75,6 @@ function actionManualNpc(userData, pcId, sheets) {
       wish ? `【願望】${cleanTagText_(wish, 40)}` : "",
       magic ? `【魔術】${cleanTagText_(magic, 20)}` : "",
       safeCircuits ? `【迴路】${cleanTagText_(safeCircuits)}` : "",
-      origin ? `【出身】${cleanTagText_(origin, 20)}` : "",
-      melee ? `【體術】${cleanTagText_(melee, 20)}` : "",
-      magicRank ? `【魔術階位】${cleanTagText_(magicRank, 20)}` : "",
       "【令咒】3",
       `【模式】${userData.warMode === 'chaos' ? 'chaos' : 'canon'}`,
       userData.warMode === 'chaos' ? "" : `【戰爭】${['4th', '5th'].indexOf(String(userData.war)) >= 0 ? userData.war : '5th'}`,
@@ -121,12 +117,11 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
   const standing = _pick(userData.standing, row[COL.PC.BACK]).slice(0, 40);
   const wish = _pick(userData.wish, extractWish_(_rowMem)).slice(0, 40);
   const magic = _pick(userData.magic, getMasterMagic_(_rowMem));
-  const origin = _pick(userData.origin, getMasterOrigin_(_rowMem));
 
   // getMapDataCached 直接讀 FATE_MAP_SEED 常數(零 I/O、恆非空)，不必靠 sheets.map 是否存在來決定要不要退回保底地名。
   const validMapNames = getMapDataCached(sheets).slice(1).map(r => String(r[COL.MAP.NAME]).trim()).filter(n => n !== "" && !n.includes('-'));
 
-  const promptStr = `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世／財力】：${standing || "隨機"}\n【願望】：${wish || "隨機"}\n【魔術系統】：${magic || "隨機"}\n【出身】：${origin || "隨機"}`;
+  const promptStr = `【御主】：名號『${finalName}』，性別『${finalSex}』\n【外貌】：${appearance || "隨機"}\n【身世／財力】：${standing || "隨機"}\n【願望】：${wish || "隨機"}\n【魔術系統】：${magic || "隨機"}`;
 
   const MASTER_GEN_SYS = `你是《命運停駐之夜》聖杯戰爭的角色生成核心，為玩家建立一位「御主（Master）」——參與第五次聖杯戰爭的現代魔術師，舞台是冬木市。請依玩家提供的姓名、性別、身世／財力、願望，生成合理且具戲劇張力的設定。
 
@@ -135,7 +130,7 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
 ★【格式鐵律】traits 【恰好2段】、personality 【恰好4段】，只用頓號「、」分隔，每段是一個【簡短詞組】(不是完整句子)、限${TRAIT_SEG_HINT_}字內寫完，每段內部就寫一件事；不加數字標籤。
 - traits：外貌、氣質。${finalSex === '女' ? BUST_NOTE_ : ''}${AURA_SPEC_}
 - personality：平常相處看得到的樣子、熟了才看得到的那一面、喜歡的事物、討厭的事物
-★background：限20字，呼應其身世／財力，寫處境與際遇。
+★background：限20字，呼應其身世／財力，寫處境與際遇，一句話收完。
 ★【數值由系統裁定】戰力數值、HP/MP 與地點都不歸你管，輸出欄位以下方 JSON 列出的為限。
 
 ★【輸出】合法 JSON（純文字，無 Markdown）：
@@ -148,7 +143,7 @@ function actionBackfillMasterAi(userData, pcId, sheets) {
     const wIdx = buildLiveIdIndex_(sheets.pc)[String(pcId)];
     if (wIdx === undefined) return JSON.stringify({ success: false, message: "你的角色不見了，重新登入看看。" });
     // 單格寫回(不整列)：只覆蓋敘事欄，且僅在 AI 有給值時；數值/MEMORY/位置一律不碰。
-    if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 40));
+    if (aiBrief.background) sheets.pc.getRange(wIdx + 1, COL.PC.BACK + 1).setValue(String(aiBrief.background).slice(0, 22));
     if (aiBrief.traits) sheets.pc.getRange(wIdx + 1, COL.PC.TRAIT + 1).setValue(parseTraitsHelper(aiBrief.traits, traitParts_(row[COL.PC.TRAIT]).join('、'), TRAIT_SLOTS_));
     if (aiBrief.personality) sheets.pc.getRange(wIdx + 1, COL.PC.PREF + 1).setValue(parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]));
     return JSON.stringify({ success: true });

@@ -282,17 +282,23 @@ AI 實際會誤加的標籤字。
 
 登場日：部分敵御主/敵從者可延後登場，不必開局就全員同時上場。資料驅動：Seed_Rivals.gs 的 roster項目可選填 arriveDay(第N天才登場)／arriveHint(登場前風聲用的自訂提示句)，未填＝第1天(對既有存檔/種子零影響)。hasArrived_(row,currentDay) 是「這名敵人現在算不算真的在世界裡」的單一真實來源，凡是同地互動／鎖定攻擊／世界自走／地圖敵蹤標示等皆應吃這道閘門——唯獨「剩餘敵從者總數」(aliveEnemyServants_，勝負判定用)刻意不吃，避免玩家靠「趕在對方出現前把其他人殺光」提前奪杯。
 
-### `MASTER_MELEE_TAG_`　<sub>Core_Settings.gs</sub>
+### ~~`MASTER_MELEE_TAG_`~~（2026-09 已移除）　<sub>Core_Settings.gs</sub>
 
 御主自身能力標記：【體術】(rank字母，命運測定/種子皆保證合法)／【魔術】(自由描述文字)，創角/鋪敵時寫進御主自己的 MEMORY。體術兩用途：① masterCard_/enemyMasterCard_ 讀出當演出依據(能力描述，不受show-don't-tell限制)；②Engine_Fate.gs 的 injectMasterMeleeSupport_ 讀 rank 字母算真實戰鬥加成。
 
-### `MASTER_MAGIC_RANK_TAG_`　<sub>Core_Settings.gs</sub>
+**2026-09 玩家「身分、體術、魔術骰子也不太需要…主要保留魔術迴路就好」：【體術】標記整組退休。它 2026-09 稍早就已經不再有戰鬥效果（`master_melee` fx 隨「御主不上戰場」移除），只剩御主卡上一行「體術：C階」——一個沒有任何機制的階級字母，正是會讓 AI 拿去硬掰的那種東西。**
+
+### ~~`MASTER_MAGIC_RANK_TAG_`~~（2026-09 已移除）　<sub>Core_Settings.gs</sub>
 
 御主魔術階位（rank字母）：跟體術同款「凡人自身能力」，只在己方出戰從者為 Caster(魔砲型)時才生效(injectMasterMagicSupport_ 內部判斷)——體術管近戰助拳、魔術階位管施法支援，避免疊在一起變成無腦雙倍加成。
 
-### `MASTER_ORIGIN_TAG_`　<sub>Core_Settings.gs</sub>
+**2026-09 隨體術一起退休，但它的機制留著：`injectMasterMagicSupport_`（我方從者是 Caster 時注入「御主魔術」fx）改讀 `masterMagicRankFromCircuits_(迴路)`。迴路是玩家唯一留著、而且補魔會動的那個數，拿它當單一真實來源比再擲一顆不相干的骰合理。**
+
+### ~~`MASTER_ORIGIN_TAG_`~~（2026-09 已移除）　<sub>Core_Settings.gs</sub>
 
 🐛→✅ 【出身】(玩家創角時選的出身背景)舊版只在 actionManualNpc 寫入，全專案查無任何讀取點——純寫入死資料，backfill 用的是當下 userData.origin(前端再送一次)而非這個持久化標記。補上跟體術/魔術/魔術階位同款讀取器，讓 masterCard_ 能把這份設定持續餵給 AI 當演出依據。
+
+**2026-09 隨體術一起退休。`FATE_ORIGINS_`（「沒落名門的末裔」「教會代行者出身」…）是十選一的隨機標籤，跟玩家自己填的身世／財力各說各話——AI 拿到兩份互相矛盾的來歷就會開始編。身世欄留著就夠了。**
 
 ### `getLocalPeopleList`　<sub>Core_Settings.gs</sub>
 
