@@ -860,7 +860,7 @@ function dialogueFormatRule_() {
 //    而且「一路上發生了什麼」現在是世界帳本的工作，它是【追加＋淘汰】、不是反覆重寫——
 //    留著這條等於用一個更差的機制做同一件事。經歷從此是固定事實：創角時生成一次，
 //    之後只有玩家能透過逆天改命改。這是 2026-07「性格四格/萌點不再交給 AI」那次的最後一塊。
-function buildDefaultSystemPrompt(includeOptions, styles) {
+function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
   const _physicalState = "此刻臉上的神色·第三人稱·≤15字·沒變就留空";
 
   // appearance_extras(原 outfit_change)：角色當下實際穿著與配飾，AI 依劇情如實更新，寫回持久的【換裝】記錄。2026-09 小道具機制移除後，配飾類事實回歸由這一欄承接。
@@ -916,8 +916,14 @@ function buildDefaultSystemPrompt(includeOptions, styles) {
 
 const specificRules = "";
 
+// 🧊 partyStable＝在場那幾位「是誰」（六格人設，整局不變），刻意放在 system：
+//    提示詞快取是逐 token 比對前綴，只有每回合逐字相同的東西放進來才吃得到折扣。
+//    ⚠ 位置在鐵律之後、輸出範本之前——換同伴時只會作廢這裡之後的那一段（含範本），
+//      一回合而已，而 Grok 的快取【寫入免費】，所以重建不花錢。
 // ⚠ 刻意【不】pretty-print：縮排與換行每回合都在付字，模型讀緊湊 JSON 一樣準。
-return nsfwBaseRules + "\n" + specificRules + "\n★【輸出範本】" + JSON.stringify(finalJson);
+return nsfwBaseRules + "\n" + specificRules
+  + (partyStable ? "\n" + partyStable : "")
+  + "\n★【輸出範本】" + JSON.stringify(finalJson);
 }
 
 function getKanshouPeopleList_(pcId, curL, allPcData) {
@@ -1882,14 +1888,11 @@ function kanshouPartyCards_(ctx) {
   const pcData = ctx.pcData, pcId = ctx.pcId, myGameId = ctx.myGameId, userMsg = ctx.userMsg;
   const partyMembers = ctx.partyMembers, moveTarget = ctx.moveTarget;
   const kanshouTimeJumped_ = ctx.timeJumped, formatPref = ctx.formatPref, formatTrait = ctx.formatTrait;
-  let partyDetailsArr = [];
+  let stableArr = [], liveArr = [];
   const _presenceSeen_ = {};
-  // 🔦 聚光燈：玩家這一步點名了誰，誰才拿完整的卡；同場其他人拿短卡（名字/裝扮/現況/關係）。
-  //    提示詞本來就寫著「玩家專一對著一個人時其他人背景輕描」——這是把那句話真的做出來。
-  //    ⚠ 沒點名任何人就【全部都給完整卡】（維持原行為）：猜錯的代價是那個人當場失格，不值得賭。
-  const _spotlight_ = userMsg
-    ? partyMembers.filter(n => kanshouNameCandidates_(String(n)).some(c => c && userMsg.indexOf(c) >= 0))
-    : [];
+  // 🗑️ 2026-09 聚光燈（沒被點名的人只送精簡卡）退休：六格人設搬進 system 吃快取之後，
+  //    system 必須每回合【逐字相同】，沒辦法再依這一步點名了誰逐回合修剪。
+  //    而且它反而更便宜——全給是 0.25 倍計費，修剪過的短卡是 1.0 倍。
   partyMembers.forEach(pName => {
     const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && kanshouIsAlly_(row, myGameId));
     if (r) {
@@ -1928,22 +1931,30 @@ function kanshouPartyCards_(ctx) {
         return "";
       })();
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
-      // 🔦 背景輕描：這一步沒被點名的人只送「此刻的情境」那幾欄，性格/特徵/經歷/共同回憶下回合被點名時再給。
-      const _lit = !_spotlight_.length || _spotlight_.indexOf(pName) >= 0;
-      partyDetailsArr.push(`【在場人物】${pName}，${String(r[COL.PC.SEX] || "").trim() || "異"}。__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${_lit ? (() => { const _p = formatPref(r[COL.PC.PREF]); return _p ? `${_p}。` : ""; })() : ""}${_lit ? (() => { const _t = formatTrait(r[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })() : ""}${_lit && pQuirks ? `${pQuirks}。` : ""}${_lit && pLogic ? `${pLogic}。` : ""}${_lit ? pBackStr : ""}${_lit ? pMemoirStr : ""}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}。` : ""}${pMemStr}`);
+      // 🧊 這個人【是誰】——整局不會變，所以它進 system 吃提示詞快取。
+      const _pPref = formatPref(r[COL.PC.PREF]), _pTrait = formatTrait(r[COL.PC.TRAIT]);
+      stableArr.push(`【在場人物】${pName}，${String(r[COL.PC.SEX] || "").trim() || "異"}。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pQuirks ? `${pQuirks}。` : ""}${pLogic ? `${pLogic}。` : ""}${pBackStr}`);
+      // 🔀 這個人【此刻】的樣子——每回合都可能動，留在 user。
+      const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是你的${pRelTagStr}。` : ""}${pMemStr}`;
+      liveArr.push(`${pName}：${_live}`);
     }
   });
+  // 🧊 不變那半：進 system。順序＝同行名單的順序（加人是 append 到尾巴，所以加人不會動到
+  //    前面幾張卡的前綴，快取照樣命中；只有移除中間某位才會從那個點斷掉）。
+  const PROMPT_PARTY_STABLE = stableArr.length > 0
+    ? `【在你身邊的人】(以下是他們是誰；此刻穿什麼、和你走到哪一步，見下方【此刻】)：\n${stableArr.join("\n")}`
+    : "";
   // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。
   const _presenceKeys_ = Object.keys(_presenceSeen_);
-  const _presenceShared_ = (_presenceKeys_.length === 1 && partyDetailsArr.length > 1) ? _presenceKeys_[0] : "";
-  const _partyCards_ = partyDetailsArr.map(t => _presenceShared_
+  const _presenceShared_ = (_presenceKeys_.length === 1 && liveArr.length > 1) ? _presenceKeys_[0] : "";
+  const _liveCards_ = liveArr.map(t => _presenceShared_
     ? t.replace(/__PRESENCE__[\s\S]*?__\/PRESENCE__/, "")
     : t.replace(/__PRESENCE__([\s\S]*?)__\/PRESENCE__/, "$1"));
-  const PROMPT_PARTY_SYSTEM = partyDetailsArr.length > 0
-    ? `【在你身邊的人】(穿著是此刻的衣服，長相體態不隨之改變)：${_presenceShared_ ? `\n${_presenceShared_}` : ""}\n${_partyCards_.join("\n")}`
+  const PROMPT_PARTY_LIVE = liveArr.length > 0
+    ? `【他們此刻】(穿著是此刻的衣服，長相體態不隨之改變)：${_presenceShared_ ? `\n${_presenceShared_}` : ""}\n${_liveCards_.join("\n")}`
     : "目前這個地點沒有其他人，玩家是獨自行動的。";
 
-  return { text: PROMPT_PARTY_SYSTEM, spotlight: _spotlight_ };
+  return { stable: PROMPT_PARTY_STABLE, live: PROMPT_PARTY_LIVE };
 }
 
 // 📝 AI 回報的當下狀態落盤：玩家與每位在場者的 神色／穿著配飾／專屬稱呼／關係稱呼／
@@ -2254,7 +2265,7 @@ function actionPlay_(userData, pcId, sheets) {
     pcData: pcData, pcId: pcId, myGameId: myGameId, userMsg: userMsg, partyMembers: partyMembers,
     moveTarget: moveTarget, timeJumped: kanshouTimeJumped_, formatPref: formatPref, formatTrait: formatTrait
   });
-  const PROMPT_PARTY_SYSTEM = _cards_.text;
+  const PROMPT_PARTY_LIVE = _cards_.live;   // 此刻的樣子留在 user；「他們是誰」進 system 吃快取
 
   // 路人與缺席者是同一件事的兩面（誰只是背景／誰不在場），合成一條；能開口的名單在結尾講。
   const backgroundCrowdStr = "";  // 已併進下方 ★【這個世界有誰】；理由見 CODE_NOTES.md 同名條目
@@ -2339,11 +2350,11 @@ ${nsfwMemories}${genderHintStr}
   const _sty_ = k => kanshouStyle_(_styles_, k, _styleVars_);
   const prompt = `${_sty_('world')}
 ${PROMPT_REL}
-★【誰在場】：【在場人物】的卡＝此刻在你身邊的人，每一位都要有反應；有【專屬稱呼】就叫暱稱。【已經確立的事】名單上的人可出現可開口，其餘路人不具名。
+★【誰在場】：【在你身邊的人】那份名單＝此刻在你身邊的人，每一位都要有反應；有【專屬稱呼】就叫暱稱。【已經確立的事】名單上的人可出現可開口，其餘路人不具名。
 ★【world_note】：這一步新出現的地方/人/規矩寫進去才會留下，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆；只長在某地的東西（田、雞、招牌、常客）的 at 填那個地名。
 
 【你自己】(只給旁白寫「你」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${_meFlavorStr_}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
-${PROMPT_PARTY_SYSTEM}
+${PROMPT_PARTY_LIVE}
 ${_sty_('length')}
 ★【地點】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，這一幕就在這裡演完；換地方由系統宣告。${moveTarget ? '你們剛到，從抵達後的當下寫起。' : ''}
 ${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouNightSceneStr}
@@ -2369,7 +2380,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
       }));
     }
 
-    const _sysPrompt = buildDefaultSystemPrompt(userData.optionsOn !== false, _styles_);
+    const _sysPrompt = buildDefaultSystemPrompt(userData.optionsOn !== false, _styles_, _cards_.stable);
     const aiResponseRaw = callGeminiAPI(prompt, _sysPrompt, aiConfig);
     // 🛡️→✅ 2026-07 邊界稽核：模型偶爾會回【截斷的 JSON】(吐到 max token 就斷)或純文字道歉，這在真實運行中是常態、不是例外。
     let aiData;
