@@ -2374,7 +2374,7 @@ function actionPlay_(userData, pcId, sheets) {
       if (playerSex === "女" && npcSex === "女") sameSexF.push(r[COL.PC.NAME]);
     });
     genderHintStr = sameSexF.length
-      ? `\n★【身體】：${sameSexF.join("、")}跟我一樣是女性的身體，做得到的是手指、舌頭與器物。`
+      ? `\n★【身體】：我跟${sameSexF.join("、")}都是女性的身體，兩腿之間沒有陰莖。要進入對方，靠的是手指、舌頭，或找得到的器物。`
       : "";
   }
 
@@ -2417,8 +2417,12 @@ function actionPlay_(userData, pcId, sheets) {
   // 🕊️ 「隨意」＝這一行整個不送：有數字在那裡，平淡的一幕也會被湊到那個數字。
   const _lenLine_ = _lenTier_.free ? '' : null;
 
-  const PROMPT_REL = `${backgroundCrowdStr}
-${nsfwMemories}${genderHintStr}`;
+  // 🧊 身體這兩塊【刻意壓在最後面】：★【身體】原本在 user 第 5 行、離結尾 18 行，
+  //    正好落在上面排序原則量出來的死角（事實寫在 20 行以前會被當成沒發生），
+  //    實測後果是玩家明明是女性身體，敘事照樣讓她「挺腰撞進去」。
+  //    身體狀態(nsfwMemories)同理——它每回合都在變，照排序原則本來就該在後面。
+  const PROMPT_BODY = `${nsfwMemories}${genderHintStr}`;
+  const PROMPT_REL = `${backgroundCrowdStr}`;
 
   // 有【專屬稱呼】就用暱稱取代真名；JSON 姓名欄不受影響、仍填真名。
   const npcDialoguePrompt = "";  // 名單/稱呼併入結尾的【在場名單】鐵律，見下方 prompt
@@ -2450,6 +2454,8 @@ ${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouNightSceneSt
 
 ${npcDialoguePrompt}
 ${presentMembers.length ? '' : '★【在場】：這個地方只有你一個人（常民與路人照常可以出現）。'}
+
+${PROMPT_BODY}
 
 接著往下演，玩家這一步是：『${finalUserMsg}』`;
 
