@@ -874,11 +874,7 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 
 // 🔠 對話格式·鑑賞【單一真實來源】：2026-09 起只剩鑑賞在用(solo 走 miniSystem 的短版)。這裡【只講格式】，不講該寫什麼。
 function dialogueFormatRule_() {
-  return `對話格式：
-①單層「」裡【只放嘴巴發得出的聲音】：話語、喘息、輕吟、悶哼、笑聲、吸吮、舔啜、咀嚼、吞嚥。
-②每句台詞前冠說話者名，跨回合認同一個人，喘息混台詞算同一人名下。★玩家台詞免冠名、直接「……」，且照原句一字不動地寫進去。
-③肢體動作與非口部聲響(啪啪/環境音/衣物摩擦)走敘事，留在引號外。
-④★台詞與人物互動【佔整段 narration 七成以上】，其餘三成才是敘事。`;
+  return `對話格式：單層「」只收嘴巴發得出的聲音(話語/喘息/悶哼/笑聲/吸吮/吞嚥)，每句前冠說話者名、跨回合認同一個人；★玩家的台詞免冠名、照原句一字不動。肢體動作與環境聲響留在引號外。★台詞與人物互動【佔 narration 七成以上】。`;
 }
 
 // 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。
@@ -943,7 +939,8 @@ function buildDefaultSystemPrompt(includeOptions, styles) {
 
 const specificRules = "";
 
-return nsfwBaseRules + "\n" + specificRules + "\n\n★【輸出範本】\n" + JSON.stringify(finalJson, null, 2);
+// ⚠ 刻意【不】pretty-print：縮排與換行每回合都在付字，模型讀緊湊 JSON 一樣準。
+return nsfwBaseRules + "\n" + specificRules + "\n★【輸出範本】" + JSON.stringify(finalJson);
 }
 
 function getKanshouPeopleList_(pcId, curL, allPcData) {
@@ -1330,8 +1327,8 @@ var KANSHOU_STYLE_MODULES_ = [
   { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。', slot: 'sys', def: '情慾場面放到最色、寫滿寫透：器官用本名，體液、聲音、氣味、溫度全部照實寫，身體的反應寫具體。' },
   { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代冬木市，大家都是住在這裡的普通市民。' },
   { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依關係深淺與這回合有沒有大事自己調。', slot: 'none', kind: 'pick', def: 'auto' },
-  { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】：narration 寫 {篇幅} 字，下限是硬底線。' },
-  { key: 'ending',     fixed: true, slot: 'user', def: '🚨【收尾】：最後一句留給被搭話的人，停在等玩家回應的那一刻。沒有別人在場才收在「你」身上。' }
+  { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】narration 寫 {篇幅} 字，下限是硬底線。' },
+  { key: 'ending',     fixed: true, slot: 'user', def: '🚨【收尾】最後一句留給被搭話的人，停在等玩家回應的那一刻。' }
 ];
 var KANSHOU_STYLE_TEXT_MAX_ = 300;
 var KS_ = { GID: 0, KEY: 1, TEXT: 2, ON: 3 };
@@ -2227,8 +2224,7 @@ function actionPlay_(userData, pcId, sheets) {
 
   const PROMPT_REL = `${backgroundCrowdStr}
 ${nsfwMemories}${genderHintStr}${driveStr}
-🛑【角色一致性】：情慾裡生理反應可以有，說話做事仍照各自的個性。
-🛑【誰說了算】：標【成立】的，都是系統已經判好的結果，照著演；怎麼表現才依那個人的個性。`;
+🛑【角色一致性】：情慾裡生理反應可以有，說話做事仍照各自的個性。`;
 
   // 有【專屬稱呼】就用暱稱取代真名；JSON 姓名欄不受影響、仍填真名。
   const npcDialoguePrompt = "";  // 名單/稱呼併入結尾的【在場名單】鐵律，見下方 prompt
@@ -2236,7 +2232,10 @@ ${nsfwMemories}${genderHintStr}${driveStr}
 
   // 剛換場景/剛跳時間就砍短 chatHistory；摘要與 chatHistory 共用這個窗口值，不各算各的。
   const _sceneCut = !!(moveTarget || kanshouTimeJumped_);
-  const _histWindow_ = _sceneCut ? 2 : 6;
+  // 🗜️ 2026-09 大精簡：一般回合 6 → 4 筆（＝最近兩回合的逐字上下文）。
+  //    一則 narration 就 400~520 字，6 筆等於每回合重讀 1400 字散文；而「一路上發生過什麼」
+  //    現在由世界帳本／共同回憶／眼中的你承接——那些是挑過的事實，比逐字重播省得多。
+  const _histWindow_ = _sceneCut ? 2 : 4;
   // 🌍 世界帳本：讀出這一局玩出來的地方/人/設定，只餵跟此刻真的有關的那幾條(見 worldFeed_)。
   const _worldRows_ = worldRead_(myGameId);
   const _worldFeed_ = worldFeed_(myGameId, _worldRows_, curL, partyMembers, userMsg, curDay);
@@ -2250,15 +2249,15 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   const _sty_ = k => kanshouStyle_(_styles_, k, _styleVars_);
   const prompt = `${_sty_('world')}
 ${PROMPT_REL}
-★【誰在場】：【在場人物】的卡＝此刻就在你身邊的人，每一位這回合都要有反應；有【專屬稱呼】就叫暱稱。【這個世界已經確立的事】名單上的人可出現可開口，其餘路人不具名。
-★【world_note】：這一步新出現的地方/人/規矩寫進去，下回合才存在，一回合最多 ${WORLD_SPEC_.kanshou.writeMax} 筆。只長在某個地方的東西（田、雞、招牌、常客），at 填那個地名。
+★【誰在場】：【在場人物】的卡＝此刻在你身邊的人，每一位都要有反應；有【專屬稱呼】就叫暱稱。【已經確立的事】名單上的人可出現可開口，其餘路人不具名。
+★【world_note】：這一步新出現的地方/人/規矩寫進去才會留下，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆；只長在某地的東西（田、雞、招牌、常客）的 at 填那個地名。
 
 【玩家資料·旁白用】(只給旁白寫「你」的內心用·在場的人沒讀過這張卡)：名字:${pcName} 【性別:${pc[COL.PC.SEX]}】${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? ` 性格:${_p}` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? ` | 特徵:${_t}` : ""; })()}${_meFlavorStr_}${myOutfit ? ` | 裝扮:${myOutfit}` : ""} | 經歷:${pc[COL.PC.BACK] || "剛搬來冬木市"}
 ${PROMPT_PARTY_SYSTEM}
 ${_sty_('length')}
 ★【地點】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，這一幕就在這裡演完；換地方由系統宣告。${moveTarget ? '你們剛到，從抵達後的當下寫起。' : ''}
 ${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouNightSceneStr}
-★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}(揣摩氛圍用·不報時)。★本回合只寫這十分鐘內的片段，時間推進由系統宣告。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚就在這個房間裡過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
+★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}。這一幕就寫這十分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚就在這個房間裡過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 
 ${npcDialoguePrompt}
 ${_sty_('ending')}
