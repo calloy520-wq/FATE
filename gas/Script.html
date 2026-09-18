@@ -1819,6 +1819,8 @@
             //   入口(關係稱呼／共同回憶)收進這一顆，卡片按鈕 8→6(2-2-2)。面板本身
             //   kanshouOpenBondHub 住 Script_Kanshou.html，只做分派＋顯示現況，不改既有面板。
             + '<button onclick="kanshouOpenBondHub(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\',\'' + String(s.nickname || '').replace(/'/g, '') + '\',\'' + String(s.id || '').replace(/'/g, '') + '\')" title="稱呼、回憶" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">💞 關係</button>'
+            // 🫂 同行／解散就畫在卡上——這是最常按的一顆，不該要玩家先去開「誰在哪」面板。
+            + '<button onclick="kanshouPartyOp(\'' + String(s.id || '').replace(/'/g, '') + '\',\'' + (s.party ? 'drop' : 'add') + '\')" title="' + (s.party ? '解散：她會留在你解散她的這個地方' : '同行：她會一路跟著你走') + '" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:' + (s.party ? 'rgba(160,120,220,0.18)' : 'rgba(120,180,120,0.14)') + '; color:' + (s.party ? '#dcc8ff' : '#a8dca8') + '; border:1px solid ' + (s.party ? '#6a4a9a' : '#4a7a4a') + '; border-radius:6px; cursor:pointer;">' + (s.party ? '🫂 解散' : '🫂 同行') + '</button>'
             + '</div>'
             // 🆕 直接複用既有 kanshouOpenRelTag(Script_Kanshou.html)，不重寫新邏輯。召喚是一次性的、
             //   沒有隊伍容量要騰，不需要「請走」這種按鈕。

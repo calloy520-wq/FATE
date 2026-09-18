@@ -333,6 +333,10 @@ function buildTagsPayload_(sheets, pcId, preData) {
 
   // 🗝️ 雙從者：收齊所有在世我方從者（servants 陣列）；servant＝第一個（向後相容）🌍 solo 靠 IS_PARTY==="同行" 過濾隊伍；鑑賞無「隊伍」概念，改用 LOC 是否與玩家目前位置一致，卡片只顯示同地點的英靈。
   let servants = [];
+  // 🫂 同行名單：鑑賞的從者卡要直接畫「同行／解散」，玩家才不必為了一顆鈕去開「誰在哪」面板
+  //    （2026-09 玩家：「應該要把同行放到左邊的詳細狀態跟關係那邊吧…不然我還要打開誰在哪這個畫面」）。
+  let _partyIds = [];
+  try { if (m) _partyIds = kanshouGetParty_(m[COL.PC.MEMORY]); } catch (e) { }
   pcData.forEach(s => {
     if (String(s[COL.PC.FACTION]) !== "從者" || String(s[COL.PC.GAME_ID] || "") !== gameId || String(s[COL.PC.ID]).startsWith("DEAD_")) return;
     if (isFateCtx ? (String(s[COL.PC.IS_PARTY] || "") !== "同行") : (String(s[COL.PC.LOC] || "").trim() !== String(m[COL.PC.LOC] || "").trim())) return;
@@ -347,6 +351,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
       name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
       tag: s[COL.PC.REL_TAG] || "從者", // 🏷️ 關係標籤(鑑賞卡片「🏷️關係」鈕預填用；solo不使用此欄)
       nickname: getNickname_(s[COL.PC.REL_MEM]), // 💬 專屬稱呼裸值(鑑賞卡片「🏷️關係」面板預填用)
+      party: _partyIds.indexOf(String(s[COL.PC.ID])) >= 0, // 🫂 她是不是跟著你走(鑑賞卡片的同行/解散鈕)
       // 預取狀態字串隨 state 一併帶回，前端切從者直接秒顯，免每次都打一趟 get_full_status round-trip。
       statusString: buildPlayerStatusString(s, String(s[COL.PC.REL_MEM] || "")),
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),
@@ -403,11 +408,15 @@ function buildTagsPayload_(sheets, pcId, preData) {
   try { if (gameId && gameId.indexOf("g_") === 0 && mIdx >= 0) canRB = canRuleBreak_(pcData, mIdx, gameId); } catch (e) { }
   // 🗺️ 玩家自己走出來的地方(世界帳本「地點」類)：內建地圖是靜態鏡射(KC_LOCATIONS_)，長不出這些，
   //    所以後端算好逐項清單下傳，前端才畫得出「你走出來的地方」那一區。
-  var myPlaces = [], myRegions = [];
+  var myPlaces = [], myRegions = [], myPeople = [];
   if (gameId && gameId.indexOf("k_") === 0) {
     try {
       myPlaces = worldRead_(gameId).filter(function (r) { return r.kind === '地點' && r.name; })
         .map(function (r) { return { name: r.name, desc: r.text || "", region: r.region || "", own: r.own || "" }; });
+      // 👥 誰在哪：地圖上每個地方要標「這裡有誰」——2026-09 玩家「開局4位直接不見…
+      //    是地點上沒有顯示這裡有人！」。在場＝同地點，所以地點旁邊不列人，玩家就看不出要去哪找。
+      myPeople = pcData.filter(function (r) { return kanshouIsAlly_(r, gameId); })
+        .map(function (r) { return { name: String(r[COL.PC.NAME] || ""), loc: String(r[COL.PC.LOC] || "") }; });
       // 🗾 玩家自己開的大區：地圖的分區列要靠它才畫得出來(內建那幾區是前端靜態鏡射)。
       myRegions = kanshouRegionsFor_(gameId).filter(function (r) { return r.mine; })
         .map(function (r) { return { id: r.id, name: r.name, desc: r.desc || "" }; });
@@ -420,7 +429,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
     if (_w && _w.loc === String(m[COL.PC.LOC] || "").trim()) encWin = { type: _w.type, choices: encounterChoices_(_w.type) };
   }
   // 🗺️ myLoc：玩家此刻所在地。
-  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, myPlaces: myPlaces, myRegions: myRegions, regionCap: KANSHOU_REGION_CAP_, worldTextMax: (gameId && gameId.indexOf("k_") === 0) ? worldSpec_(gameId).textMax : undefined,
+  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, myPlaces: myPlaces, myRegions: myRegions, myPeople: myPeople, regionCap: KANSHOU_REGION_CAP_, worldTextMax: (gameId && gameId.indexOf("k_") === 0) ? worldSpec_(gameId).textMax : undefined,
       encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || ""),
     // 🌙 夜未眠(Gallery.gs KANSHOU_NIGHT_SCENE_TAG_)：HUD 那顆鈕要據此把「🌙睡覺」換成「🌅睡到天亮」。
     nightScene: (typeof KANSHOU_NIGHT_SCENE_TAG_ !== 'undefined'

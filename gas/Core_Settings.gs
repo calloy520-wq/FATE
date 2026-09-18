@@ -422,8 +422,11 @@ function pronYou_(sex) { return PRONOUN_YOU_[String(sex || '').trim()] || '你';
 
 
 // 短句(外貌/性格)的落地硬上限與提示詞對 AI 宣告的字數，所有生成短句的提示詞都要把 TRAIT_SEG_HINT_ 講出來。
-var TRAIT_SEG_MAX_ = 18;
-var TRAIT_SEG_HINT_ = 11;
+// ⚠ 兩個數字要留一段距離：HINT 是講給 AI 聽的目標，MAX 是真的截。貼太近的話 AI 只要多寫兩個字
+//    就會被【切在句子中間】，玩家看到的是半截話（2026-09 玩家「外貌會被砍字」）。
+//    留 8 字的緩衝：小幅超出照樣完整，真的離譜才截。
+var TRAIT_SEG_MAX_ = 22;
+var TRAIT_SEG_HINT_ = 14;
 
 // 特徵格數：外貌本相／氣質。個性仍是四格(PREF_LABELS_)。
 // ⚠ 2026-09 從 3 格收成 2：第三格「卸下心防的私密一面」整組退休，理由見 CODE_NOTES『TRAIT_SLOTS_』。

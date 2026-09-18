@@ -605,7 +605,7 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       // 面板需要顯示目前所在地點(玩家要精準知道去哪找她)、關係標籤＋好感(供玩家決定要不要改標籤)；isHere(是否跟玩家同地點)；locLabel：房間類地點的動態顯示名稱，見kanshouRoomDisplayName_。
       // memoir：共同回憶(27欄)原樣下傳(★前綴=玩家釘選)，供面板顯示/釘選/刪除。
       // 🆔 2026-07「整體重構·id優先」：補id讓前端能存起來隨後續action回傳，後端才有id可用、不必只靠名字(kanshouNameCandidates_別名表已處理大部分情況，但id才是真正杜絕撞名/前綴混淆的單一真實來源)。
-      current.push({ id: String(data[i][COL.PC.ID]), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || ""), nickname: getNickname_(data[i][COL.PC.REL_MEM]), loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, party: partyIds.indexOf(String(data[i][COL.PC.ID])) >= 0, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
+      current.push({ id: String(data[i][COL.PC.ID]), srcId: KANSHOU_SRC_TAG_.get(String(data[i][COL.PC.MEMORY] || "")), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || ""), nickname: getNickname_(data[i][COL.PC.REL_MEM]), loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, party: partyIds.indexOf(String(data[i][COL.PC.ID])) >= 0, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
     }
   }
   return JSON.stringify({ success: true, current: current });
@@ -885,7 +885,7 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 
 // 🔠 對話格式·鑑賞【單一真實來源】：2026-09 起只剩鑑賞在用(solo 走 miniSystem 的短版)。這裡【只講格式】，不講該寫什麼。
 function dialogueFormatRule_() {
-  return `對話格式：單層「」只收嘴巴發得出的聲音(話語/笑聲/嘆息/悶哼)，每句前冠說話者名，同一個人跨回合都用同一個名字；★玩家的台詞免冠名，可以依【我自己】那張卡擴寫成完整的一句、補上動作與神態，語意跟原句一樣。肢體動作與環境聲響留在引號外。★台詞與人物互動【佔 narration 七成以上】。`;
+  return `對話格式：單層「」只收嘴巴發得出的聲音(話語/笑聲/嘆息/悶哼)，每句前冠說話者的名字（就是括號前面那個名字本身），同一個人跨回合都用同一個名字；★玩家的台詞免冠名，可以依【我自己】那張卡擴寫成完整的一句、補上動作與神態，語意跟原句一樣。肢體動作與環境聲響留在引號外。★台詞與人物互動【佔 narration 七成以上】。`;
 }
 
 // 只被鑑賞(慾海)呼叫——solo走完全獨立的 miniSystem。
@@ -1295,6 +1295,9 @@ var KANSHOU_REGION_CAP_ = 12;
 //    auto＝沿用 KANSHOU_WORDS_ 那張依好感/大事的自動表（預設）。
 var KANSHOU_LEN_TIERS_ = [
   { key: 'auto', label: '自動', words: '', tokens: 0 },
+  // 🕊️ 隨意：【篇幅】那一行整個不送，長短由 AI 依這一幕自己決定（2026-09 玩家「能夠讓他自由決定
+  //    字數嗎? 平淡就平淡?」——指定了 500 字，平淡的一幕就只能拿設定來湊滿）。
+  { key: 'free', label: '隨意', words: '', tokens: 2400, free: true },
   { key: '300', label: '300 字', words: '260~340', tokens: 1800 },
   { key: '500', label: '500 字', words: '440~560', tokens: 2200 },
   { key: '700', label: '700 字', words: '620~780', tokens: 2600 },
@@ -1315,12 +1318,12 @@ var KANSHOU_STYLE_MODULES_ = [
   //    ①「讓它們互相拉扯…這不用提示吧，他會一直拉扯，很怪」——無條件的演出指示會固化成每回合硬演；
   //    ②「告訴她意思、事實，不要教他該怎麼做」——所以這裡【只下定義，不給演法】。
   //    怎麼用、什麼時候用，交給模型自己判斷，這也正是這一軌「全靠 AI 即興」的前提。
-  { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，每個人的句子依序是：名字與性別、平常看得到的性格、熟了才看得到的那一面、喜歡的、討厭的、外貌與氣質、怪癖、做選擇的方式、在這座城裡的身分。' },
+  { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，括號裡是性別；接下來的句子依序是：平常看得到的性格、熟了才看得到的那一面、喜歡的、討厭的、外貌與氣質、怪癖、做選擇的方式、在這座城裡的身分。★卡上這些句子只給你看，在場的人並不知道自己被這樣寫著——讓它們從舉動、語氣與選擇裡透出來。' },
   { key: 'dialogue',   fixed: true, slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
   { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。尺度一律跟著玩家推進到哪裡走。', slot: 'sys', def: '尺度跟著玩家走：玩家在聊天就好好聊天、把日常寫得有滋味；玩家真的伸出手了，才順著往下走。真進到情慾場面就寫滿寫透——器官用本名，體液、聲音、氣味、溫度全部照實寫，身體的反應寫具體。' },
   { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代冬木市，大家都是住在這裡的普通市民。' },
-  { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依關係深淺與這回合有沒有大事自己調。', slot: 'none', kind: 'pick', def: 'auto' },
-  { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】這一段寫 {篇幅} 字。' },
+  { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依這回合有沒有大事調；隨意＝不給字數，平淡的一幕就讓它平淡。', slot: 'none', kind: 'pick', def: 'auto' },
+  { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】這一段寫 {篇幅} 字。' },   // ⚠ 篇幅選「隨意」時整段不送，見 actionPlay_ 的 _sty_('length')
   { key: 'ending',     fixed: true, slot: 'user', def: '🚨【收尾】最後一句留給被搭話的人，停在等玩家回應的那一刻。' }
 ];
 var KANSHOU_STYLE_TEXT_MAX_ = 300;
@@ -1980,7 +1983,7 @@ function kanshouPartyCards_(ctx) {
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
       // 🧊 這個人【是誰】——整局不會變，所以它進 system 吃提示詞快取。
       const _pPref = formatPref(r[COL.PC.PREF]), _pTrait = formatTrait(r[COL.PC.TRAIT]);
-      stableArr.push(`【在場人物】${pName}，${String(r[COL.PC.SEX] || "").trim() || "異"}。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pQuirks ? `${pQuirks}。` : ""}${pLogic ? `${pLogic}。` : ""}${pBackStr}`);
+      stableArr.push(`【在場人物】${pName}（${String(r[COL.PC.SEX] || "").trim() || "異"}）。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pQuirks ? `${pQuirks}。` : ""}${pLogic ? `${pLogic}。` : ""}${pBackStr}`);
       // 🔀 這個人【此刻】的樣子——每回合都可能動，留在 user。
       const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是我的${pRelTagStr}。` : ""}${pMemStr}`;
       liveArr.push(`${pName}：${_live}`);
@@ -2372,6 +2375,8 @@ function actionPlay_(userData, pcId, sheets) {
   // 玩家在「⚙ 說書人設定」選了檔位就蓋掉上面那張自動表；auto 維持原本依好感/大事的行為。
   const _lenTier_ = kanshouLenTier_((_styles_['lenTier'] || {}).text);
   const _kanshouTargetWords_ = _lenTier_.words || (_kanshouBigBeat_ ? _kanshouWordRow_.big : _kanshouWordRow_.range);
+  // 🕊️ 「隨意」＝這一行整個不送：有數字在那裡，平淡的一幕也會被湊到那個數字。
+  const _lenLine_ = _lenTier_.free ? '' : null;
 
   const PROMPT_REL = `${backgroundCrowdStr}
 ${nsfwMemories}${genderHintStr}
@@ -2405,7 +2410,7 @@ ${PROMPT_REL}
 
 【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${_meFlavorStr_}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
 ${PROMPT_PARTY_LIVE}
-${_sty_('length')}
+${_lenLine_ === '' ? '' : _sty_('length')}
 ★【地點】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，這一幕就在這裡演完；換地方由系統宣告。${moveTarget ? '你們剛到，從抵達後的當下寫起。' : ''}
 ${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouNightSceneStr}
 ★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}。這一幕就寫這十分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚就在這個房間裡過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
