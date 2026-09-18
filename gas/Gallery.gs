@@ -231,18 +231,18 @@ const KANSHOU_NOTED_LEN_ = 14;
 // 🤝 相處次數（存該同伴列 MEMORY）：跟你照過幾次面。2026-09 好感整組砍除後，這是唯一還在累積的
 //    關係軸——它只回答「你們見過幾次」這個事實，不回答「她多喜歡你」（那件事交給 AI 從歷史自己判斷）。
 var KANSHOU_MET_COUNT_TAG_ = makeIntTag_('相處', 0);
-// say＝真的送進提示詞的那句話。原本直接把 key 代進「在她眼中你還是${key}」——
-// 「你還是初識」不成話（初識是狀態不是身分），而每一階要接的動詞本來就不一樣，
-// 硬用同一個句型只能挑一個最不彆扭的。一階一句，往表加一列就多一階。
+// say＝真的送進提示詞的那句話。一階一句，往表加一列就多一階。
+// ⚠ say 一律寫成【描述狀態】、避開第一人稱完整句：舊版寫「我們還只是初識」，
+//    那等於直接遞一句台詞過去，模型照著唸成「我們才剛認識沒多久」。見 CODE_NOTES。
 const KANSHOU_FAMILIAR_TIERS_ = [
-  { min: 150, key: '老交情', say: '我們是老交情了' },
-  { min: 30, key: '混熟', say: '我們已經混熟' },
-  { min: 0, key: '初識', say: '我們還只是初識' }
+  { min: 150, key: '老交情', say: '相處已久' },
+  { min: 30, key: '混熟', say: '相處漸熟' },
+  { min: 0, key: '初識', say: '相處還淺' }
 ];
 // 依相處次數查熟悉段（單一真實來源＝KANSHOU_FAMILIAR_TIERS_）。
 function kanshouKnownTier_(metCount, field) {
   var t = KANSHOU_FAMILIAR_TIERS_.find(function (x) { return (parseInt(metCount) || 0) >= x.min; }) || {};
-  return t[field || 'key'] || (field === 'say' ? '我們還只是初識' : '初識');
+  return t[field || 'key'] || (field === 'say' ? '相處還淺' : '初識');
 }
 // 組一句「我在對方眼中」：熟悉段 ＋ 對方真的記下的那幾條（沒有就只有熟悉段）。
 function kanshouKnownOfYou_(memory) {
@@ -1324,7 +1324,7 @@ var KANSHOU_STYLE_MODULES_ = [
   //    ①「讓它們互相拉扯…這不用提示吧，他會一直拉扯，很怪」——無條件的演出指示會固化成每回合硬演；
   //    ②「告訴她意思、事實，不要教他該怎麼做」——所以這裡【只下定義，不給演法】。
   //    怎麼用、什麼時候用，交給模型自己判斷，這也正是這一軌「全靠 AI 即興」的前提。
-  { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，括號裡是性別；接下來的句子依序是：平常看得到的性格、熟了才看得到的那一面、喜歡的、討厭的、外貌與氣質、怪癖、做選擇的方式、在這座城裡的身分。★卡上這些句子只給你看，在場的人並不知道自己被這樣寫著——讓它們從舉動、語氣與選擇裡透出來。★卡上寫的是這個人【一直以來】的樣子，不是這一回合新發生的事。' },
+  { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，括號裡是性別；接下來的句子依序是：平常看得到的性格、熟了才看得到的那一面、喜歡的、討厭的、外貌與氣質、怪癖、做選擇的方式、在這座城裡的身分。名字後面另外接的那幾行是此刻的狀態：穿著、一起走過什麼、我在對方眼中的樣子、相處的深淺、關係的稱呼。★這兩種句子都只給你看，在場的人並不知道自己被這樣寫著——它們是你拿捏分寸的依據，讓它從稱呼、距離、眼神與舉動裡透出來。★卡上寫的是這個人【一直以來】的樣子，不是這一回合新發生的事。' },
   { key: 'dialogue',   fixed: true, slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
   { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。尺度一律跟著玩家推進到哪裡走。', slot: 'sys', def: '尺度跟著玩家走：玩家在聊天就好好聊天、把日常寫得有滋味；玩家真的伸出手了，才順著往下走。真進到情慾場面就寫滿寫透——器官用本名，體液、聲音、氣味、溫度全部照實寫，身體的反應寫具體。' },
   { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代冬木市，大家都是住在這裡的普通市民。' },
@@ -1996,7 +1996,7 @@ function kanshouPartyCards_(ctx) {
       const _pPref = formatPref(r[COL.PC.PREF]), _pTrait = formatTrait(r[COL.PC.TRAIT]);
       stableArr.push(`【在場人物】${pName}（${String(r[COL.PC.SEX] || "").trim() || "異"}）。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pQuirks ? `${pQuirks}。` : ""}${pLogic ? `${pLogic}。` : ""}${pBackStr}`);
       // 🔀 這個人【此刻】的樣子——每回合都可能動，留在 user。
-      const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是我的${pRelTagStr}。` : ""}${pMemStr}`;
+      const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是我的「${pRelTagStr}」。` : ""}${pMemStr}`;
       liveArr.push(`${pName}：${_live}`);
     }
   });
