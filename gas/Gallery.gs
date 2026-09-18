@@ -2347,7 +2347,7 @@ function actionPlay_(userData, pcId, sheets) {
     .filter(n => n && presentMembers.indexOf(n) !== -1).join('、');
   // 🌙 深夜獨處(夜未眠)：只給「此刻是什麼場合」這個事實，怎麼發展全看玩家推進與她的個性。
   const kanshouNightSceneStr = (kanshouNightSceneOn_ || kanshouNightSceneNames_.length)
-    ? `\n★【夜已深·門關上了】：這個房間此刻只剩你和『${(kanshouNightSceneNames_.length ? kanshouNightSceneNames_ : presentMembers).join('、')}』，外頭安靜下來，今晚不會再有別人進來，時間也不急著走。★這一段【還沒有結束】：這一夜什麼時候收，由玩家自己決定、系統會宣告；本回合只演此刻正在發生的這十分鐘，結尾一樣停在進行式、把下一步交還玩家。`
+    ? `\n★【夜已深·門關上了】：這個房間此刻只剩你和『${(kanshouNightSceneNames_.length ? kanshouNightSceneNames_ : presentMembers).join('、')}』，外頭安靜下來，今晚不會再有別人進來，時間也不急著走。★這一段【還沒有結束】：這一夜什麼時候收，由玩家自己決定、系統會宣告；本回合只演此刻正在發生的這 ${KANSHOU_MIN_PER_TURN_} 分鐘，結尾一樣停在進行式、把下一步交還玩家。`
     : "";
 
   // 🪪 在場人物卡（聚光燈／在場來由／六格人設）：見 kanshouPartyCards_。
@@ -2454,7 +2454,7 @@ ${PROMPT_PARTY_LIVE}
 ${_lenLine_ === '' ? '' : _sty_('length')}
 ★【地點】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，這一幕就在這裡演完；換地方由系統宣告。${moveTarget ? '你們剛到，從抵達後的當下寫起。' : ''}
 ${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouNightSceneStr}
-★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這十分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚就在這個房間裡過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
+★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚就在這個房間裡過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 
 ${npcDialoguePrompt}
 ${presentMembers.length ? '' : '★【在場】：這個地方只有你一個人（常民與路人照常可以出現）。'}
