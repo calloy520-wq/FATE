@@ -129,7 +129,8 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
     ignoreLaw: true,            // 不疊規矩表(節慶/天時)
     max_tokens: opts.maxTokens || 720, // 輕量敘事預設長度
     model: opts.model || (opts.lewd ? LEWD_MODEL : AI_MODEL), // 🔞 補魔三支換一顆敢寫的（常數在用的時候才讀，別在載入當下求值）
-    isNsfwMode: !!opts.isNsfw    // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
+    isNsfwMode: !!opts.isNsfw,   // NSFW 時讓 fallback 文案合理，但不啟用完整慾海規則
+    sessionId: 's_' + pcId       // 📊 OpenRouter 黏著路由：把同一位御主的連續請求釘在同一個端點
   };
   // 帶最近6筆歷史＝3個按鍵(miniSystem 已告知 AI：歷史是既定事實、不可重演)
   var recentHistoryRaw = getGameHistoryBatchRaw(pcId, 6);

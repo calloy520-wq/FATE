@@ -9,21 +9,27 @@ const OPENROUTER_API_KEY = (function () {
   return PropertiesService.getScriptProperties().getProperty('OPENROUTER_API_KEY') || '';
 })();
 const MODEL_URL = "https://openrouter.ai/api/v1/chat/completions";
-// 兩軌共用同一顆主力模型；被審查擋下或重試全敗時，callGeminiAPI 自動換後援再打一輪（見 Engine_Combat.gs）。
-// 2026-09 玩家定案「全部改成走 grok 最快」：敘事整層換 grok，玩家就不用去分哪一段是誰寫的。
+// 🎴 solo 主力：2026-09 玩家定案「SOLO 繼續 GEMINI、補魔換 GROK、鑑賞直接 GROK」——
+//    兩軌不再共用同一顆。solo 是 SFW 戰鬥敘事，Gemini 夠用也快；鑑賞與補魔走 LEWD_MODEL。
 const AI_MODEL = (function () {
-  return PropertiesService.getScriptProperties().getProperty('MODEL') || 'x-ai/grok-4.20';
+  return PropertiesService.getScriptProperties().getProperty('MODEL') || 'google/gemini-3.5-flash';
 })();
 // ⚠ 後援必須跟主力【不同顆】：Engine_Combat 的換模型條件是 fallbackName !== modelName，
 //    兩邊填一樣的話整條後援路徑會靜靜失效（被審查擋下就沒有第二次機會了）。
 const FALLBACK_MODEL = (function () {
-  return PropertiesService.getScriptProperties().getProperty('FALLBACK_MODEL') || 'google/gemini-3.5-flash';
+  return PropertiesService.getScriptProperties().getProperty('FALLBACK_MODEL') || 'x-ai/grok-4.20';
 })();
 // 創角/創英靈：2026-09 玩家指定改回 flash-lite（欄位都有字數上限、格式固定，不需要更大的一顆）。
 const CREATION_MODEL = (function () {
   return PropertiesService.getScriptProperties().getProperty('CREATION_MODEL') || 'google/gemini-3.5-flash-lite';
 })();
-// 補魔三支（solo 僅有的露骨橋段）用的模型。
+// 🔞 NSFW 專用後援：預設【不設】。主力已經是敢寫的那顆，被審查擋下時退回一般後援(gemini)
+//    只會再被擋一次——玩家白等一整輪重試，結果還是同一句失敗提示。真的找到第二顆敢寫的，
+//    再把 LEWD_FALLBACK_MODEL 這個指令碼屬性填上即可，程式碼不必改。
+const LEWD_FALLBACK_MODEL = (function () {
+  return PropertiesService.getScriptProperties().getProperty('LEWD_FALLBACK_MODEL') || '';
+})();
+// 🔞 敢寫的那顆：補魔三支（solo 僅有的露骨橋段）＋整個鑑賞軌都走它。
 const LEWD_MODEL = (function () {
   return PropertiesService.getScriptProperties().getProperty('LEWD_MODEL') || 'x-ai/grok-4.20';
 })();

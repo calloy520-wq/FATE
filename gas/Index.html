@@ -303,10 +303,6 @@
     <div id="input-bar">
       <div class="pill-wrapper">
         <button id="plus-trigger" class="plus-btn" onclick="toggleActionDrawer()">＋</button>
-        <!-- 🔥 主動掌握開關：舊 nsfw-mode-toggle 在「後端改由 pcId 路由決定 NSFW」後已成死旗標，重生為「同伴主動度」開關——滅=矜持模式(靠玩家推進)；亮=同伴依個性主動掌握節奏。只影響鑑賞敘事語氣，NSFW 與否仍由 pcId 決定、solo 不受影響。 -->
-        <label title="🔥 亮起時，對方會依自己的個性主動推進，你想閃也閃不掉。熄滅就由你主導。" style="color: #ff6b6b; font-size: 14px; margin-right: 5px; margin-left: 2px; cursor: pointer; display: flex; align-items: center; white-space: nowrap; font-weight: bold;">
-          <input type="checkbox" id="drive-mode-toggle" style="accent-color: #ff6b6b; margin-right: 3px;">🔥
-        </label>
         <input id="u-in" maxlength="300" placeholder="說點什麼，或做點什麼…" onkeypress="if(event.key==='Enter')send()">
         <button id="send-btn" class="send-trigger" onclick="send()">傳送</button>
       </div>

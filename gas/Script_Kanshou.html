@@ -52,9 +52,6 @@
       //   ——id 從未離開過瀏覽器，「2026-07 id 優先」那次重構在這條路徑上等於沒生效。
     const input = document.getElementById('u-in');
     const btn = document.getElementById('send-btn');
-    // 🔥 主動掌握開關：亮=同伴依個性主動掌握節奏；後端只在鑑賞(KPC_)時讀取，solo 無視。
-    const driveToggle = document.getElementById('drive-mode-toggle');
-    const drive = driveToggle ? driveToggle.checked : false;
     let msg = customMsg || input.value.trim();
 
     if (!msg) return;
@@ -87,7 +84,7 @@
     }
 
     try {
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -1241,8 +1238,6 @@ let plainTextContext = cleanText;
       document.getElementById('setup').style.display = 'none';
       document.getElementById('game').style.display = 'flex';
       applyModeUI();
-      // 🔥 舊「自動勾NSFW開關」已拔——NSFW 早改由 pcId(KPC_)路由決定、與勾選格無關；該勾選格已重生為「主動掌握」開關(亮=同伴主動出擊)，預設熄滅=矜持模式(玩家主導)。
-      var _dt = document.getElementById('drive-mode-toggle'); if (_dt) _dt.checked = false;
       document.getElementById('ui-name').innerText = pc.name;
       document.getElementById('ui-sex').innerText = pc.sex;
       setupHistoryPrevention();

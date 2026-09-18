@@ -864,7 +864,7 @@ function actionKanshouSetHomeName(userData, pcId, sheets) {
 
 
 // ==========================================
-// 🔴【鑑賞 AI 核心】buildDefaultSystemPrompt／actionPlaysolo 是按鍵+AI說故事，鑑賞是依角色資料自然演出(只有🔥點不點火這一個變因)——兩者共用callGeminiAPI(留在 Engine_Combat.gs)這個基礎設施，但系統提示詞組裝／敘事引擎各自獨立，跟本檔其餘鑑賞 action(召喚/進場/AI深化)集中一處，好查找。
+// 🔴【鑑賞 AI 核心】buildDefaultSystemPrompt／actionPlaysolo 是按鍵+AI說故事，鑑賞是依角色資料自然演出——兩者共用callGeminiAPI(留在 Engine_Combat.gs)這個基礎設施，但系統提示詞組裝／敘事引擎各自獨立，跟本檔其餘鑑賞 action(召喚/進場/AI深化)集中一處，好查找。
 // ==========================================
 
 // 🔠 對話格式·鑑賞【單一真實來源】：2026-09 起只剩鑑賞在用(solo 走 miniSystem 的短版)。這裡【只講格式】，不講該寫什麼。
@@ -1830,7 +1830,6 @@ function actionPlay_(userData, pcId, sheets) {
   const userMsg = String(userData.message || "").replace(/[｜【】]/g, ""); // 📅 endDay 呼叫不一定會帶 message，防呆避免下方 .includes 炸掉
 
   if (String(pcId || "").indexOf("KPC_") !== 0) return JSON.stringify({ text: "此功能僅限鑑賞使用。", people: [] });
-  const driveOn = (userData.drive === true || String(userData.drive) === "true");
 
   // 🎯 2026-09 喜歡/討厭回到卡上：2026-07 砍掉是因為那兩格只是被列出來、AI 不知道要拿它們幹嘛。
   //    現在鐵律那條「喜歡與討厭是這個人的開關，話題碰到就給出明顯的情緒」給了它們工作，才值得付那 33 字。
@@ -2221,7 +2220,7 @@ function actionPlay_(userData, pcId, sheets) {
   //    ⚠ 上限必須跟 max_tokens 一起看：JSON 固定開銷典型 757 字、欄位全滿 1057 字，narration 超出去就會被截斷成壞 JSON。
   const KANSHOU_WORDS_ = { range: '400~520', big: '600~750' };
   // 「大事」不靠猜——這些區塊本回合有沒有組出字串，GAS 自己最清楚。加新橋段就往這串加一個旗標。
-  const _kanshouBigBeat_ = !!(kanshouNightSceneStr || driveOn);
+  const _kanshouBigBeat_ = !!kanshouNightSceneStr;
   const _kanshouWordRow_ = KANSHOU_WORDS_;
   // 🎨 玩家版說書人風格（缺列＝預設，預設＝原本寫死的那句）。讀口排在篇幅之前——篇幅檔位要吃它。
   const _styles_ = kanshouStyleRead_(_myGid_);
@@ -2229,11 +2228,8 @@ function actionPlay_(userData, pcId, sheets) {
   const _lenTier_ = kanshouLenTier_((_styles_['lenTier'] || {}).text);
   const _kanshouTargetWords_ = _lenTier_.words || (_kanshouBigBeat_ ? _kanshouWordRow_.big : _kanshouWordRow_.range);
 
-  const driveStr = driveOn ? `
-🔥【主動掌握】：尺度一律以【親密尺度五階】為準。在那個範圍內，對方依自己的個性【主動出擊】，色度可以走在玩家前面。` : '';
-
   const PROMPT_REL = `${backgroundCrowdStr}
-${nsfwMemories}${genderHintStr}${driveStr}
+${nsfwMemories}${genderHintStr}
 🛑【角色一致性】：情慾裡生理反應可以有，說話做事仍照各自的個性。`;
 
   // 有【專屬稱呼】就用暱稱取代真名；JSON 姓名欄不受影響、仍填真名。
@@ -2276,9 +2272,9 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
 接著往下演，玩家這一步是：『${finalUserMsg}』`;
 
   try {
-    // 兩軌共用 AI_MODEL；被擋才自動換 FALLBACK_MODEL（Engine_Combat.gs 全域行為）。driveOn 只控敘事推進幅度、不換模型。
+    // 🔞 鑑賞走 LEWD_MODEL（敢寫的那顆）；solo 走 AI_MODEL。被擋時的後援見 callGeminiAPI。
     const _timeJump = kanshouTimeJumped_;
-    let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: LEWD_MODEL, isNsfwMode: true, max_tokens: (_timeJump && partyRows.length === 0) ? 700 : (_lenTier_.tokens || 2400) };
+    let aiConfig = { temperature: 1.08, top_p: 0.97, top_k: 60, repetition_penalty: 1.12, presence_penalty: 0.25, frequency_penalty: 0.25, retries: 1, model: LEWD_MODEL, isNsfwMode: true, sessionId: 'k_' + myGameId, max_tokens: (_timeJump && partyRows.length === 0) ? 700 : (_lenTier_.tokens || 2400) };
 
     // 抓取近 6 筆原始歷史(3輪)，轉換為 API 格式。
     const recentHistoryRaw = getGameHistoryBatchRaw(pcId, _histWindow_);

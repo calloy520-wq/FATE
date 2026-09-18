@@ -36,12 +36,13 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
   apiMessages.push({ role: "user", content: prompt || "" });
   // payload/options 的組裝在下方 attemptWithModel_，因每次重試/換模型都要用實際模型重建
 
-  // 判定為審查攔截時，下一次重試改用更含蓄的筆法指令；原樣重送對攔截無意義，一般網路錯誤則不降階。
-  const softenSuffix = `\n\n★【降階重試】上一次輸出未通過審查判定，請改用更含蓄典雅的筆法重新演繹本回合：以景喻情、意境留白，避免直白器官名稱與動作描寫，情慾僅以氛圍、情感與感官烘托表現，其餘JSON欄位規則不變。`;
-
   // 單一模型的完整重試迴圈包成內部函式，讓外層能在整組重試失敗後換模型再試一輪；
   function attemptWithModel_(model) {
-    const payload = { model: model, messages: apiMessages, temperature: temp, top_p: topP, max_tokens: maxT };
+    // 📊 usage.include：把 prompt_tokens_details（cached_tokens／cache_write_tokens）帶回來。
+    //    session_id：OpenRouter 的黏著路由靠它把同一局的連續請求釘在同一個端點——
+    //    沒有它的話「要等偵測到快取命中才啟動」，每局開頭那幾回合都在賭。
+    const payload = { model: model, messages: apiMessages, temperature: temp, top_p: topP, max_tokens: maxT, usage: { include: true } };
+    if (config.sessionId) payload.session_id = String(config.sessionId).slice(0, 256);
     if (config.top_k !== undefined) payload.top_k = config.top_k;
     if (config.repetition_penalty !== undefined) payload.repetition_penalty = config.repetition_penalty;
     if (config.presence_penalty !== undefined) payload.presence_penalty = config.presence_penalty;
@@ -52,7 +53,6 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
       headers: { "Authorization": "Bearer " + OPENROUTER_API_KEY },
       payload: JSON.stringify(payload), muteHttpExceptions: true
     };
-    let softened = false;
     for (let i = 0; i < retries; i++) {
       try {
         const res = UrlFetchApp.fetch(MODEL_URL, options);
@@ -70,22 +70,20 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
             throw new Error("Triggered_NSFW_Filter");
           }
           let text = choice.message.content;
-          if (plainText) return String(text || "").trim(); // 散文模式：原樣回傳，不抽 {…}、不 JSON.parse
+          if (plainText) { logCacheUsage_(model, result.usage); return String(text || "").trim(); } // 散文模式：原樣回傳，不抽 {…}、不 JSON.parse
           const s = text.indexOf('{');
           const e = text.lastIndexOf('}');
           text = text.substring(s, e + 1);
           JSON.parse(text);
+          logCacheUsage_(model, result.usage);
           return text;
         } else { throw new Error("無效的選項結構"); }
       } catch (e) {
         lastErrorMessage = e.message;
+        // 🚪 被審查擋下就不要原地重試：同一份輸入重送對攔截沒有意義（舊版還要空等 5×2 秒才換模型），
+        //    直接讓這顆模型收工、交給後援那一顆。一般連線錯誤才退避重試。
+        if (e.message === "Triggered_NSFW_Filter") break;
         if (i < retries - 1) {
-          if (e.message === "Triggered_NSFW_Filter" && !softened) {
-            softened = true;
-            apiMessages[0].content = systemContent + softenSuffix;
-            payload.messages = apiMessages;
-            options.payload = JSON.stringify(payload);
-          }
           Utilities.sleep(2000);
         }
       }
@@ -95,9 +93,13 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
 
   let apiResult = attemptWithModel_(modelName);
   // 後援是全域行為、不是某個呼叫端的特例——呼叫端不傳也一律有，才不會有哪條路徑被擋死就沒救。
-  const fallbackName = config.fallbackModel || FALLBACK_MODEL;
+  // ⚠ 唯一例外：NSFW 軌【被審查擋下】時走 LEWD_FALLBACK_MODEL（預設空＝不打第二輪）。
+  //    主力已經是敢寫的那顆，退回一般後援只會再被擋一次，玩家白等一整輪。
+  //    連線錯誤(非攔截)仍照舊走一般後援，那是真的可能換一顆就成功。
+  const _blockedOnce = lastErrorMessage.indexOf("Triggered_NSFW_Filter") >= 0;
+  const fallbackName = config.fallbackModel
+    || ((config.isNsfwMode && _blockedOnce) ? LEWD_FALLBACK_MODEL : FALLBACK_MODEL);
   if (apiResult === null && fallbackName && fallbackName !== modelName) {
-    apiMessages[0].content = systemContent; // 換模型前重置降階提示詞，不帶著上一顆模型加的 softenSuffix
     apiResult = attemptWithModel_(fallbackName);
   }
   if (apiResult !== null) return apiResult;
@@ -111,6 +113,19 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
 
   return JSON.stringify(aiFallbackData_(isBlocked));
 }
+// 📊 提示詞快取命中率：GAS 這端唯一看得到的數字。system 那一塊每回合逐字相同(探針驗過)，
+//    命中時 cached_tokens 會接近它的長度；長期都是 0 就代表快取根本沒生效，別再往 system 搬東西。
+//    ⚠ 只寫 Logger（零 I/O）：真正好看的報表在 OpenRouter 的 Activity／Logs（用 session_id 分組）。
+function logCacheUsage_(model, usage) {
+  try {
+    var d = (usage && usage.prompt_tokens_details) || {};
+    var hit = parseInt(d.cached_tokens) || 0, wrote = parseInt(d.cache_write_tokens) || 0;
+    var pt = (usage && parseInt(usage.prompt_tokens)) || 0;
+    Logger.log('[cache] ' + model + ' prompt=' + pt + ' cached=' + hit + ' write=' + wrote
+      + (pt ? ' hit=' + Math.round(100 * hit / pt) + '%' : ''));
+  } catch (e) { }
+}
+
 // 🛡️ 生成失敗時的統一保底：措辭與 _genFailed 旗標的【單一真實來源】。
 function aiFallbackNarration_(isBlocked) {
   return isBlocked
