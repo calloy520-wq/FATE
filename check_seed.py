@@ -329,6 +329,29 @@ def check_moe_retired(bad, paths):
     return n
 
 
+# ⑫ 性格第二格＝「熟了之後看得到的那一面」，是一種性情，不是條件觸發句、也不是設定註記。
+#    2026-09 玩家逐筆看卡時抓到：「越被道謝越兇」「佔有慾冒頭時轉成撒嬌」「見人逞強就坐不住」
+#    是【條件觸發句】——跟 2026-09 已經整格退休的「卸下心防的私密一面」同一個形狀，
+#    玩家原話是「模型只能硬塞，寫出來就尷尬」。同一批還抓到「多重人格意外和睦」
+#    「骨子裡仍是潛行者」——那是【旁觀者的設定註記】（在說她是什麼，不是說她怎麼對人）。
+#    ⚠ 只擋條件觸發句：那個形狀有明確的句法特徵，regex 抓得準。設定註記沒有句法特徵，
+#    硬抓只會誤報——那一類靠人讀，記在 SOLO/KANSHOU_REFERENCE 的判準裡。
+PREF2_COND = re.compile(r'越.{0,8}越|.{0,8}時轉成|見.{0,6}就|被.{0,6}就|一.{0,5}就|只要.{0,6}就')
+
+
+def check_pref2(bad, seed_src):
+    segs = 0
+    for m in re.finditer(r"dailyWords:'([^']*)'", seed_src):
+        parts = m.group(1).split('、')
+        if len(parts) < 2:
+            continue
+        segs += 1
+        if PREF2_COND.search(parts[1]):
+            bad.append("性格第二格寫成條件觸發句：「%s」——那要等情境對了才演得出來，"
+                       "寫成一種性情（刀子嘴豆腐心／放不下別人的事）模型每一回合都用得上" % parts[1])
+    return segs
+
+
 # ⑪ 氣質格＝第一眼的氛圍，不是叫 AI 每回合表演的常態動作。
 #    2026-09 v77 把 21 筆氣質從形容詞改寫成「看得到的畫面」，結果寫成了常態舞台指示
 #    （「背脊永遠打得筆直」「下巴總是微抬半分」），玩家一眼看穿：「這就是強迫 AI 這樣扮演吧」。
@@ -382,6 +405,7 @@ def main():
     n_stance = check_stance_additive(bad, read(os.path.join(GAS, 'Router_Persona.gs')))
     n_line = check_moe_retired(bad, gas_files())
     n_aura = check_aura(bad, seed_src, gas_files())
+    n_pref2 = check_pref2(bad, seed_src)
 
     # 🧪 自我退化測試：注入一個不存在的 fx，這支必須叫。
     probe = []
@@ -408,6 +432,8 @@ def main():
                                  "  return seedStance;\n}")
     _aura_before = len(probe)
     check_aura(probe, "dailyLook:'金髮碧眼、背脊永遠打得筆直、簡潔認真',", [])
+    _pref2_before = len(probe)
+    check_pref2(probe, "dailyWords:'測試、越被誇越兇、甲、乙'")
     _moe_before = len(probe)
     with tempfile.NamedTemporaryFile('w', suffix='.gs', dir=GAS, delete=False, encoding='utf-8') as f:
         f.write("  card += `｜萌點：${moe}`;\n")
@@ -416,13 +442,14 @@ def main():
         check_moe_retired(probe, [_inj2])
     finally:
         os.unlink(_inj2)
-    if len(probe) < 9 or len(probe) == before or len(probe) == _seg_before \
-            or len(probe) == _st_before or len(probe) == _moe_before or len(probe) == _aura_before:
-        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名／取代式階段表／復活的萌點／常態舞台指示抓不到）')
+    if len(probe) < 10 or len(probe) == before or len(probe) == _seg_before \
+            or len(probe) == _st_before or len(probe) == _moe_before or len(probe) == _aura_before \
+            or len(probe) == _pref2_before:
+        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名／取代式階段表／復活的萌點／常態舞台指示／條件觸發性格抓不到）')
         return 1
 
-    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、提示詞格數 %d 處、daily 專欄 %d 格、好感位移 %d 階、退休欄掃 %d 行、氣質格 %d 筆（含自我退化測試）'
-          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_seg, n_own, n_stance, n_line, n_aura))
+    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、提示詞格數 %d 處、daily 專欄 %d 格、好感位移 %d 階、退休欄掃 %d 行、氣質格 %d 筆、性格第二格 %d 筆（含自我退化測試）'
+          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_seg, n_own, n_stance, n_line, n_aura, n_pref2))
     if bad:
         print('  ❌ %d 處「寫了但沒人吃」：' % len(bad))
         for b in bad:
