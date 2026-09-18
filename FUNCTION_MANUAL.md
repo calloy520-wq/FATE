@@ -67,7 +67,7 @@
 | `purge_orphans` | `actionPurgeOrphans` | 清孤兒列 |
 | `kanshou_companions` | `actionKanshouCompanions` | 鑑賞同伴清單 |
 | `kanshou_memoir_op` | `actionKanshouMemoirOp` | 共同回憶釘選/取消/刪除 |
-| `kanshou_world` | `actionKanshouWorld` | 🌍 世界帳本面板 list/pin/unpin/del |
+| `kanshou_world` | `actionWorld` | 🌍 世界帳本面板 list/pin/unpin/del |
 | `kanshou_summon_hero` | `actionKanshouSummonHero` | 鑑賞同伴唯一入口·直召 |
 | `kanshou_party` | `actionKanshouParty` | 鑑賞同行名單 add/drop/clear |
 | `kanshou_set_sex` | `actionKanshouSetSex` | 設同伴性別 |
@@ -237,17 +237,17 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### 四段標籤化
 - `kanshouPurgeByGame_(sh, gidCol, gid, idCol)` — 依 game_id 刪掉某張表的整批列（由下往上刪避免索引位移），回傳被刪列的 id（供連帶清歷史）。三張表共用。
 - 🌍 **世界帳本**（Gallery.gs，見 `KANSHOU_REFERENCE.md` §「世界帳本」）：
-  - `kanshouWorldSheet_()` — 分頁「鑑賞世界」（遊戲ID|類別|名稱|內容|性別|建立日|最後提及日|提及次數|釘選）。欄位索引在 `KW_`。
-  - `kanshouWorldRow_(a, rowNum)` — 一列陣列 → 一個帳本條目。讀與寫回填快取共用這份對應（欄位長相的單一真實來源）。
-  - `kanshouWorldRead_(gameId)` / `kanshouWorldBust_(gameId)` — 讀這一局的帳本（走 CacheService，每回合都要讀）／作廢快取。
-  - `kanshouWorldWrite_(gameId, entries, curDay, max?)` — **唯一寫入點**：清洗→去重→更新或新增→淘汰→整批寫回→**把快取換成新內容**（不是作廢：同一次執行裡後面還會有人讀，作廢等於逼它再整表讀一次）。
+  - `worldSheet_()` — 分頁「鑑賞世界」（遊戲ID|類別|名稱|內容|性別|建立日|最後提及日|提及次數|釘選）。欄位索引在 `KW_`。
+  - `worldRow_(a, rowNum)` — 一列陣列 → 一個帳本條目。讀與寫回填快取共用這份對應（欄位長相的單一真實來源）。
+  - `worldRead_(gameId)` / `worldBust_(gameId)` — 讀這一局的帳本（走 CacheService，每回合都要讀）／作廢快取。
+  - `worldWrite_(gameId, entries, curDay, max?)` — **唯一寫入點**：清洗→去重→更新或新增→淘汰→整批寫回→**把快取換成新內容**（不是作廢：同一次執行裡後面還會有人讀，作廢等於逼它再整表讀一次）。
   - `kanshouRegionsFor_(gameId)` / `kanshouFindRegion_(gameId, idOrName)` — 這一局有哪些大區＝內建 `KANSHOU_REGIONS_` ∪ 玩家自己開的（帳本 kind=`大區`）。⚠ 自訂大區天生就是一般公共區：所有行為判斷都寫成「不是 room／不是 visit」的否定形式，陌生 id 自動落在「一般」那一邊。
-  - `kanshouWorldSet_(gameId, kind, name, col, val)` — 改帳本某一列的某一欄；大區改名／地點搬區／開店收店共用。
-  - `kanshouWorldPayload_(gid)` — 面板要的東西一次給齊（條目＋大區＋上限）；`list` 與每個 op 都回這同一包。
-  - `kanshouWorldDrop_(gameId, kind, name)` — 從帳本拿掉一條（同類同名），回傳有沒有真的刪到。面板的「刪掉」與「常民升格成正式同伴之後清掉帳本那條」共用這一支（不清會變成同一個人兩份真相）。
-  - `kanshouWorldEvictees_(d, gid, added, curDay)` — **純函式**，只回答「該砍哪幾列」（`{'r列索引':1,'a新列序':1}`）：每類超過 `KANSHOU_WORLD_CAP_` 就砍「最久沒被提到、提及次數也最少」的，★釘選永不驅逐。刻意不自己讀表——寫入端手上已經有整張表了。
-  - `kanshouWorldFeed_(rows, curLoc, presentNames, userMsg, curDay)` — **不是全餵**：算相關性分數排序取前 `KANSHOU_WORLD_FEED_MAX_` 條。
-  - `kanshouWorldSame_(a, b)` — bigram 近義比對。⚠ **只用在近期迴聲（最近兩天）**，不掃全表：句型相近但語意不同的事實太常見，掃全表會把世界愈合併愈空。
+  - `worldSet_(gameId, kind, name, col, val)` — 改帳本某一列的某一欄；大區改名／地點搬區／開店收店共用。
+  - `worldPayload_(gid)` — 面板要的東西一次給齊（條目＋大區＋上限）；`list` 與每個 op 都回這同一包。
+  - `worldDrop_(gameId, kind, name)` — 從帳本拿掉一條（同類同名），回傳有沒有真的刪到。面板的「刪掉」與「常民升格成正式同伴之後清掉帳本那條」共用這一支（不清會變成同一個人兩份真相）。
+  - `worldEvictees_(d, gid, added, curDay)` — **純函式**，只回答「該砍哪幾列」（`{'r列索引':1,'a新列序':1}`）：每類超過 `WORLD_SPEC_` 該軌的 `cap` 就砍「最久沒被提到、提及次數也最少」的，★釘選與有根的（`AT`／`OWN`）永不驅逐。刻意不自己讀表——寫入端手上已經有整張表了。
+  - `worldFeed_(gameId, rows, curLoc, presentNames, userMsg, curDay)` — **不是全餵**：算相關性分數排序取前 `feedMax` 條（`WORLD_SPEC_` 逐軌），掛在此刻這個地方的另外取前 `atMax` 條、不占名額。
+  - `worldSame_(a, b)` — bigram 近義比對。⚠ **只用在近期迴聲（最近兩天）**，不掃全表：句型相近但語意不同的事實太常見，掃全表會把世界愈合併愈空。
 - `kanshouLocationsFor_(gameId)` / `kanshouFindLoc_(gameId, name)` — **查地點的唯一入口**＝內建地圖 ∪ 這一局自己走出來的地方。⚠ 別再直接 `.find(KANSHOU_LOCATIONS_)`，否則玩家走出來的地方會查無、被當成非法目的地。
 - `kanshouLocNameForAI_(locName)`（Gallery.gs）— 送進提示詞的地名。資料鍵「我的房間」是第一人稱，跟第二人稱旁白打架（旁白會照抄成「走進我的房間」）→ 對 AI 一律改寫成「你的房間」，**存表／比對／前端仍用原鍵**。四個把 `curL` 寫進提示詞的點都要走它。
 - `KANSHOU_CAL_START_YEAR_`（常數＝2005）— 鑑賞曆法的起算西元年。2026-09 前沒有這個常數、`year` 直接算成「第幾年」，開局顯示「1年12月20日」。週年是用 absDay 差算的、不吃 `.year`，改它只動顯示字串。
@@ -643,7 +643,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionKanshouSummonHero(userData, pcId, sheets)` — 從英靈庫召喚一位英靈「存在」於此後日談世界（不必先 solo 封存）。防線：擁有權驗證、士郎位置擋、`KANSHOU_SUMMON_BLOCKED_IDS_` 擋、ai_gen 僅創造者可召、不開放男男、同一位只召一次（跨名比對）。通過即 appendRow(`heroToKanshouRow_`)。 ⚠ 2026-09 查重改走 `kanshouSummonClash_`。
 - `kanshouSummonClash_(data, gid, hero, heroName)` / `KANSHOU_SRC_TAG_`（常數）— 撞名守門：回 `{name, same}`，`name` 空＝沒衝突；`same:true`＝同一筆種子（已召喚過），`false`＝同一個人的另一種靈基（斯卡哈 Lancer/Assassin、伊莉雅 Master/Caster）。比對順序：【英靈源】id → 同真名 → 舊列退回跨名比對。
 - `actionBackfillKanshouAi(userData, pcId, sheets)`（2026-07 再稽核抓到漏洞：找列邏輯改用`kanshouPcIdx_(pcData, pcId)`（帳號歸屬由帳號表 KPC 欄在入口把關），取代原本裸`findIndex`信任傳入pcId的漏洞——鑑賞pcId可預測/枚舉，舊版可被冒名竄改任一玩家的敘事欄；前端`backfillKanshouAi`同步補送`acctName`）— 非阻塞背景補生成御主 **6** 個敘事欄（background/traits/personality/npc_intent/**speech**/**tic**/outfit；2026-09 新增 speech＝口吻、tic＝招牌小動作，落地走召喚同伴那支 `stampPersonaFlavor_`）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。**🐛→✅ 2026-09**：原本【無條件覆寫】那幾欄——對一個已經玩過/改命改過的角色再跑一次就整組洗掉，而舊角色要補新欄位一定得再跑一次。改成「第一次補完蓋 `KANSHOU_BACKFILL_DONE_TAG_`（【設定已補】）的章，之後只填還空著的格子」；MEMORY 上的三件事（衣裝/口吻/小動作）併成讀一次寫一次，沒東西可改就完全不寫。
-- `actionKanshouWorld(userData, pcId, sheets)`（action `kanshou_world`）— 🌍 世界帳本面板：list/pin/unpin/del（帳本原本只有 AI 寫得到，這支補上玩家的讀與管，分工比照 `actionKanshouMemoirOp`）。
+- `actionWorld(userData, pcId, sheets)`（action `kanshou_world`）— 🌍 世界帳本面板：list/pin/unpin/del（帳本原本只有 AI 寫得到，這支補上玩家的讀與管，分工比照 `actionKanshouMemoirOp`）。
 - `kanshouRecentDigest_(pcId, windowRows)` — 把掉出 chatHistory 窗口的較早回合壓成一行「玩家做過什麼」事實摘要。
 - `actionKanshouMemoirOp(userData, pcId, sheets)`（2026-07 稽核：找目標同伴列改委派 `findPcRowIdx_`，取代手刻迴圈，行為等價）— 共同回憶面板操作（op=pin/unpin/del）：釘選加 ★ 前綴（釘選上限 8）、刪除整條移除。玩家 UI 手動管理、AI 無權；帳號綁定＋同 gid 驗證。
 
@@ -679,7 +679,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_STARTER_PLACES_`（常數，5 筆）— 新局開場種進世界帳本的範例地圖（可改名／改樣子／刪掉）。
 - `KANSHOU_LEGACY_PLACES_`（常數，18 筆）— 地圖搬進帳本之前寫死在代碼裡的那些地方；只在舊存檔的一次性遷移時被讀。
 - `KANSHOU_MAP_SEED_TAG_`（makeTextTag_ 地圖·存玩家列）— 地圖種子只種一次的戳記，判「寫過沒有」不是「有沒有地方」。
-- `KANSHOU_WORLD_AT_MAX_`（常數=5）— 掛在此刻這個地方（`KW_.AT`）的條目一回合最多餵回幾條；不占 `KANSHOU_WORLD_FEED_MAX_` 的名額。
+- `WORLD_SPEC_`（常數）— 帳本引擎的**逐軌規格表**（`kanshou`／`solo`）：`sheet`／`kinds`／`cap`／`feedMax`／`atMax`／`writeMax`／`textMax`。加一軌＝往表加一列。
+- `worldTrack_(gameId)` / `worldSpec_(gameId)` — 由 game_id 前綴決定這一局屬於哪一軌（`g_`＝solo）並取出規格。
 - `kanshouSeedMap_(kpc, data, rowIdx, fresh, newRow, newRowNum)` — 種地圖＋把「已經種過」寫回玩家列；`rowIdx<0` 代表剛 append 的新局。
 - `kanshouSeedMapIfNew_(gameId, memory, fresh, curDay)` — 真正決定種哪一份（`fresh` → STARTER，否則 LEGACY）並回傳新的 MEMORY。
 - `kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx)` — 房間顯示名：「我的房間」→「(玩家名)的房間」，其餘原樣。（pcData/gameId/myIdx 現未使用。）

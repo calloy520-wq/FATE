@@ -10,7 +10,7 @@
 
 // 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 // 防呆：AI 輸出寫入試算表前夾住異常值(幻覺型別跑掉)，只動範圍明確的數值欄位，單回合好感限 -100~+100。
-function sanitizeAiData_(aiData) {
+function sanitizeAiData_(aiData, gameId) {
   if (!aiData || typeof aiData !== "object" || Array.isArray(aiData)) {
     throw new Error("AI 回傳結構異常（非物件），已攔截避免污染資料。");
   }
@@ -35,14 +35,14 @@ function sanitizeAiData_(aiData) {
       .filter(Boolean);
   }
   // 🌍 world_note 是 AI 唯一能新增「世界內容」的管道，所以邊界要擋在最外層：只收合法類別、限筆數。
-  //    逐欄的字元清洗與長度在 kanshouWorldWrite_ 裡做(那裡是唯一寫入點)，這裡只擋結構。
+  //    逐欄的字元清洗與長度在 worldWrite_ 裡做(那裡是唯一寫入點)，這裡只擋結構。
   if (aiData.world_note !== undefined) {
     // ⚠ 只留白名單那四欄再往下送：AI 回傳的物件是整包穿過去的，不重建的話它可以塞
     //    {own:"按摩"} 自己宣告「這家店是玩家的」、或把地點塞進別人的大區。
     //    region/own 只有玩家自己的動作寫得到(開店/開區)，那條路不經過這裡。
     aiData.world_note = (Array.isArray(aiData.world_note) ? aiData.world_note : [])
-      .filter(w => w && typeof w === 'object' && KANSHOU_WORLD_KINDS_.indexOf(String(w.kind || "").trim()) >= 0)
-      .slice(0, KANSHOU_WORLD_WRITE_MAX_)
+      .filter(w => w && typeof w === 'object' && worldSpec_(gameId).kinds.indexOf(String(w.kind || "").trim()) >= 0)
+      .slice(0, worldSpec_(gameId).writeMax)
       .map(w => ({ kind: w.kind, name: w.name, text: w.text, sex: w.sex, at: w.at }));
   }
   // 🛡️ ★指令／〈演出卡〉被原樣抄進敘事：solo(narrateWithState_) 早有這道濾網，鑑賞這條路徑漏掉了。
@@ -431,7 +431,7 @@ function actionKanshouReset(userData, pcId, sheets) {
   // 鑑賞眾生：玩家自己那列也在這一局的 game_id 底下，一起清掉
   const purgedIds = kanshouPurgeByGame_(kpc, COL.PC.GAME_ID, gid, COL.PC.ID);
   try { purgeHistoryForPcIds_(purgedIds); } catch (e) { }
-  try { kanshouPurgeByGame_(kanshouWorldSheet_(), KW_.GID, gid, null); kanshouWorldBust_(gid); } catch (e) { }
+  try { kanshouPurgeByGame_(worldSheet_(), KW_.GID, gid, null); worldBust_(gid); } catch (e) { }
   try { kanshouPurgeByGame_(kanshouStyleSheet_(), KS_.GID, gid, null); kanshouStyleBust_(gid); } catch (e) { }
 
   // 最後才解除帳號連結：前面任何一步炸掉，連結還在、玩家至少回得去原本的世界。
@@ -684,7 +684,7 @@ function actionKanshouMemoirOp(userData, pcId, sheets) {
 // 🌍 世界帳本面板：列出這一局玩出來的地方/人/設定，並讓玩家釘選(永不淘汰)或刪掉不想要的。
 // 帳本原本只有 AI 寫得到、玩家看不到——但淘汰政策裡的「★釘選永不驅逐」沒有任何入口能設定，
 // 等於做了一半。這支把讀與管一起補上(比照 actionKanshouMemoirOp 的分工)。
-function actionKanshouWorld(userData, pcId, sheets) {
+function actionWorld(userData, pcId, sheets) {
   const kpc = sheets.pc; // dispatcher 已指到「鑑賞眾生」
   const data = kpc.getDataRange().getValues();
   const meIdx = kanshouPcIdx_(data, pcId);
@@ -707,30 +707,30 @@ function actionKanshouWorld(userData, pcId, sheets) {
           return JSON.stringify({ success: false, message: `地區最多開 ${KANSHOU_REGION_CAP_} 個，先收一個。` });
         }
         const rid = 'rg_' + Date.now().toString(36);
-        kanshouWorldWrite_(gid, [{ kind: KANSHOU_REGION_KIND_, name: nm, text: kanshouSanitizeTagValue_(userData.text, 24), region: rid }], parseInt(data[meIdx][COL.PC.DAY]) || 1);
+        worldWrite_(gid, [{ kind: KANSHOU_REGION_KIND_, name: nm, text: kanshouSanitizeTagValue_(userData.text, 24), region: rid }], parseInt(data[meIdx][COL.PC.DAY]) || 1);
       } else if (op === 'rg_rename') {
         const newNm = kanshouSanitizeTagValue_(userData.newName, 16);
         if (!newNm) return JSON.stringify({ success: false, message: "新名字不能空白。" });
-        if (!kanshouWorldSet_(gid, KANSHOU_REGION_KIND_, nm, KW_.NAME, newNm)) return JSON.stringify({ success: false, message: "找不到這個地區。" });
+        if (!worldSet_(gid, KANSHOU_REGION_KIND_, nm, KW_.NAME, newNm)) return JSON.stringify({ success: false, message: "找不到這個地區。" });
       } else if (op === 'rg_del') {
         // ⚠ 收掉一個區之前，先把底下的地點放回「走出來的地方」——不然它們會變成
         //    指向一個不存在的區的孤兒（地圖上那一格從此點不到）。
         const rg = kanshouFindRegion_(gid, nm);
         if (!rg || !rg.mine) return JSON.stringify({ success: false, message: "只能收自己開的地區。" });
-        kanshouWorldRead_(gid).filter(r => r.kind === '地點' && r.region === rg.id)
-          .forEach(r => { try { kanshouWorldSet_(gid, '地點', r.name, KW_.REGION, ""); } catch (e) { } });
-        if (!kanshouWorldDrop_(gid, KANSHOU_REGION_KIND_, nm)) return JSON.stringify({ success: false, message: "找不到這個地區。" });
+        worldRead_(gid).filter(r => r.kind === '地點' && r.region === rg.id)
+          .forEach(r => { try { worldSet_(gid, '地點', r.name, KW_.REGION, ""); } catch (e) { } });
+        if (!worldDrop_(gid, KANSHOU_REGION_KIND_, nm)) return JSON.stringify({ success: false, message: "找不到這個地區。" });
       } else if (op === 'loc_region') {
         const rg = String(userData.region || "").trim() ? kanshouFindRegion_(gid, userData.region) : null;
-        if (!kanshouWorldSet_(gid, '地點', nm, KW_.REGION, rg ? rg.id : "")) return JSON.stringify({ success: false, message: "這不是你開的地方，搬不了。" });
+        if (!worldSet_(gid, '地點', nm, KW_.REGION, rg ? rg.id : "")) return JSON.stringify({ success: false, message: "這不是你開的地方，搬不了。" });
       } else if (op === 'loc_rename') {
         // 📍 改名要連著搬：掛在這個地名底下的東西(AT)認的是【名字】，不跟著改就會全部變成孤兒。
         const newNm = kanshouSanitizeTagValue_(userData.newName, 16);
         if (!newNm) return JSON.stringify({ success: false, message: "新名字不能空白。" });
         if (kanshouFindLoc_(gid, newNm)) return JSON.stringify({ success: false, message: "已經有同名的地方了。" });
-        if (!kanshouWorldSet_(gid, '地點', nm, KW_.NAME, newNm)) return JSON.stringify({ success: false, message: "這不是你開的地方，改不了名。" });
-        kanshouWorldRead_(gid).filter(r => String(r.at || "").trim() === nm)
-          .forEach(r => { try { kanshouWorldSet_(gid, r.kind, r.name, KW_.AT, newNm); } catch (e) { } });
+        if (!worldSet_(gid, '地點', nm, KW_.NAME, newNm)) return JSON.stringify({ success: false, message: "這不是你開的地方，改不了名。" });
+        worldRead_(gid).filter(r => String(r.at || "").trim() === nm)
+          .forEach(r => { try { worldSet_(gid, r.kind, r.name, KW_.AT, newNm); } catch (e) { } });
         // 人也跟著改：站在舊地名上的人列，LOC 還指著已經不存在的地方。
         try {
           for (let i = 1; i < data.length; i++) {
@@ -740,17 +740,17 @@ function actionKanshouWorld(userData, pcId, sheets) {
           }
         } catch (e) { }
       } else if (op === 'loc_text') {
-        if (!kanshouWorldSet_(gid, '地點', nm, KW_.TEXT, kanshouSanitizeTagValue_(userData.text, KANSHOU_WORLD_TEXT_MAX_))) {
+        if (!worldSet_(gid, '地點', nm, KW_.TEXT, kanshouSanitizeTagValue_(userData.text, worldSpec_(gid).textMax))) {
           return JSON.stringify({ success: false, message: "這不是你開的地方，改不了。" });
         }
       } else if (op === 'loc_own') {
         // 營業內容留空＝收店。地點本身不動，只是不再是你的店。
-        if (!kanshouWorldSet_(gid, '地點', nm, KW_.OWN, kanshouSanitizeTagValue_(userData.own, 12))) {
+        if (!worldSet_(gid, '地點', nm, KW_.OWN, kanshouSanitizeTagValue_(userData.own, 12))) {
           return JSON.stringify({ success: false, message: "這不是你開的地方，開不了店。" });
         }
       }
     } catch (e) { return JSON.stringify({ success: false, message: "沒成功，等一下再試。" }); }
-    return JSON.stringify(kanshouWorldPayload_(gid));
+    return JSON.stringify(worldPayload_(gid));
   }
 
   if (op !== 'list') {
@@ -760,9 +760,9 @@ function actionKanshouWorld(userData, pcId, sheets) {
     if (!kind || !name) return JSON.stringify({ success: false, message: "少了東西。" });
     try {
       if (op === 'del') {
-        if (!kanshouWorldDrop_(gid, kind, name)) return JSON.stringify({ success: false, message: "找不到這一條。" });
+        if (!worldDrop_(gid, kind, name)) return JSON.stringify({ success: false, message: "找不到這一條。" });
       } else {
-        const sh = kanshouWorldSheet_();
+        const sh = worldSheet_();
         const d = sh.getDataRange().getValues();
         let hit = -1;
         for (let r = 1; r < d.length; r++) {
@@ -770,23 +770,23 @@ function actionKanshouWorld(userData, pcId, sheets) {
         }
         if (hit < 0) return JSON.stringify({ success: false, message: "找不到這一條。" });
         sh.getRange(hit + 1, KW_.PIN + 1).setValue(op === 'pin' ? '★' : '');
-        kanshouWorldBust_(gid);
+        worldBust_(gid);
       }
     } catch (e) { return JSON.stringify({ success: false, message: "沒成功，等一下再試。" }); }
   }
 
-  return JSON.stringify(kanshouWorldPayload_(gid));
+  return JSON.stringify(worldPayload_(gid));
 }
 
 // 面板要的東西一次給齊：條目＋大區＋上限。list 與每一個 op 都回這同一包(前端只要認一種形狀)。
-function kanshouWorldPayload_(gid) {
-  const all = kanshouWorldRead_(gid);
+function worldPayload_(gid) {
+  const all = worldRead_(gid);
   const rows = all.filter(r => r.kind !== KANSHOU_REGION_KIND_)
     .map(r => ({ kind: r.kind, name: r.name, text: r.text, sex: r.sex, pin: r.pin, seen: r.seen, hits: r.hits, region: r.region, own: r.own, at: r.at }));
   // 釘選的排前面，其次照「最後被提到」由新到舊——跟提示詞的相關性排序不同，那是給 AI 的，這是給人看的。
   rows.sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.seen - a.seen);
   return {
-    success: true, rows: rows, caps: KANSHOU_WORLD_CAP_,
+    success: true, rows: rows, caps: worldSpec_(gid).cap, textMax: worldSpec_(gid).textMax,
     regions: kanshouRegionsFor_(gid).map(r => ({ id: r.id, name: r.name, desc: r.desc || "", mine: !!r.mine })),
     regionCap: KANSHOU_REGION_CAP_
   };
@@ -935,7 +935,7 @@ function buildDefaultSystemPrompt(includeOptions, styles) {
       }]
     },
     // 🌍 世界帳本的入口：AI 這一回合發明了什麼，自己寫下來，GAS 幫它記住。
-    "world_note": [{ "kind": "地點|人物|設定", "name": "地名/人名/一句話標題", "text": "≤" + KANSHOU_WORLD_TEXT_MAX_ + "字·之後要當真的事實", "sex": "僅 kind=人物 時填 男/女/異", "at": "這件事/這個人長在哪個地方就填那個地名·跟著整座城走就填「無」" }],
+    "world_note": [{ "kind": "地點|人物|設定", "name": "地名/人名/一句話標題", "text": "≤" + WORLD_SPEC_.kanshou.textMax + "字·之後要當真的事實", "sex": "僅 kind=人物 時填 男/女/異", "at": "這件事/這個人長在哪個地方就填那個地名·跟著整座城走就填「無」" }],
   };
   if (includeOptions === false) { delete finalJson.options; }
 
@@ -993,7 +993,7 @@ const KANSHOU_REGIONS_ = [
 //    2026-09 之前只有內建那 28 格，想去的地方不在裡面就等於不存在——這是「不夠自由」最直接的來源。
 //    ⚠ 查地點一律走這兩支，別再直接 .find(KANSHOU_LOCATIONS_)，否則自己走出來的地方會查無、被當成非法目的地。
 function kanshouLocationsFor_(gameId) {
-  const mine = kanshouWorldRead_(gameId).filter(r => r.kind === '地點' && r.name)
+  const mine = worldRead_(gameId).filter(r => r.kind === '地點' && r.name)
     .map(r => ({ name: r.name, region: r.region || 'mine', desc: r.text || "", mine: true, own: r.own || "" }));
   return mine.length ? KANSHOU_LOCATIONS_.concat(mine) : KANSHOU_LOCATIONS_;
 }
@@ -1037,7 +1037,7 @@ function kanshouFixWorldKinds_(entries, gameId, homeName, peopleNames) {
 // ⚠ 自訂大區【天生就是一般公共區】：行為判斷都寫成「不是 room」的形式，
 //    所以一個陌生的區 id 自動落在「一般」那一邊，不必改任何行為邏輯。
 function kanshouRegionsFor_(gameId) {
-  const mine = kanshouWorldRead_(gameId)
+  const mine = worldRead_(gameId)
     .filter(r => r.kind === KANSHOU_REGION_KIND_ && r.name)
     .map(r => ({ id: r.region || ('rg_' + r.name), name: r.name, desc: r.text || "", mine: true }));
   return mine.length ? KANSHOU_REGIONS_.concat(mine) : KANSHOU_REGIONS_;
@@ -1127,7 +1127,7 @@ function kanshouSeedMapIfNew_(gameId, memory, fresh, curDay) {
   if (KANSHOU_MAP_SEED_TAG_.has(memory)) return memory;
   const seeds = fresh ? KANSHOU_STARTER_PLACES_ : KANSHOU_LEGACY_PLACES_;
   try {
-    kanshouWorldWrite_(gameId, seeds.map(x => ({ kind: '地點', name: x.name, text: x.text, region: x.region })),
+    worldWrite_(gameId, seeds.map(x => ({ kind: '地點', name: x.name, text: x.text, region: x.region })),
       parseInt(curDay) || 1, seeds.length);
   } catch (e) { }
   return KANSHOU_MAP_SEED_TAG_.set(memory, fresh ? '範例' : '舊版');
@@ -1259,20 +1259,42 @@ const KANSHOU_ALBUM_CAP_ = 100;
 // 一條設定。所以玩家感覺到的是「全都有設定過」。
 // 反轉：試算表從【AI 讀的選單】變成【AI 寫的帳本】。發明會出問題只是因為沒落盤；
 // 落了盤，發明就不是雜訊，是在蓋世界。詳見 KANSHOU_REFERENCE.md §「世界帳本」。
-var KANSHOU_WORLD_KINDS_ = ['地點', '人物', '設定'];
+// 🧭 兩軌共用同一個帳本引擎，只有【規格】不同：能寫哪些類別、各類存幾條、一回合寫幾條餵幾條。
+//    加一軌＝往這張表加一列，引擎自動吃（判準是 game_id 前綴，那是實例化本來就有的東西）。
+//    ⚠ kinds 同時驅動三件事：AI 能寫哪些 kind、哪些 kind 會被淘汰、面板列哪些。
+var WORLD_SPEC_ = {
+  kanshou: {
+    sheet: '世界帳本',
+    kinds: ['地點', '人物', '設定'],
+    cap: { '地點': 60, '人物': 40, '設定': 50 },
+    feedMax: 6,   // 一回合最多餵回幾條——帳本會長大，這是唯一的煞車
+    atMax: 5,     // 掛在此刻這個地方(AT)的另外算，不跟上面搶名額
+    writeMax: 3,  // AI 一回合最多寫幾條
+    textMax: 60
+  },
+  // ⚔️ solo 的世界是定的（冬木、聖杯戰爭、七組御主從者），人和地點種子庫早就有了——
+  //    再讓 AI 寫一次人物卡就是兩個真實來源打架。solo 真正在忘的是【這一局的因果】：
+  //    歷史只有 6 筆＝最近三個按鍵，第 3 天砍斷了誰、跟誰結過盟又翻臉、教會開過什麼條件，
+  //    第 10 天一個字都不剩。戰報那邊 GAS 有數字，但「那一戰之後這個世界變成什麼樣」沒有人記。
+  solo: {
+    sheet: '世界帳本',
+    kinds: ['因果'],
+    cap: { '因果': 40 },
+    feedMax: 5,
+    atMax: 0,
+    writeMax: 2,
+    textMax: 50
+  }
+};
+// 這一局屬於哪一軌：game_id 前綴就是答案（solo 是 g_、鑑賞是 k_）。
+function worldTrack_(gameId) { return String(gameId || "").indexOf('g_') === 0 ? 'solo' : 'kanshou'; }
+function worldSpec_(gameId) { return WORLD_SPEC_[worldTrack_(gameId)] || WORLD_SPEC_.kanshou; }
 // 🗾 大區(玩家自訂的分區，如「泰國」「海邊小鎮」)刻意【不】放進上面那張表：
 //    ①那張表驅動 AI 能寫哪些 kind——大區只有玩家能開，不讓 AI 自己生一個國家出來。
 //    ②那張表也驅動淘汰——大區是結構，被淘汰會讓底下的地點變孤兒，所以永不淘汰。
 var KANSHOU_REGION_KIND_ = '大區';
 var KANSHOU_REGION_CAP_ = 12;
-// 各類上限：超量時淘汰「最久沒被提到」的那些，釘選的永不驅逐(同 memoir 的政策)。
-var KANSHOU_WORLD_CAP_ = { '地點': 60, '人物': 40, '設定': 50 };
-var KANSHOU_WORLD_FEED_MAX_ = 6;   // 一回合最多餵回幾條(人物＋設定)——帳本會長大，這是唯一的煞車
-// 📍 掛在此刻這個地方(AT)的條目另外算，不跟上面那 6 個搶名額：回到某個地方，那裡的東西就該在。
-//    仍然要有上限——一個地方堆了 20 條的話，提示詞會被它整個吃掉。
-var KANSHOU_WORLD_AT_MAX_ = 5;
-var KANSHOU_WORLD_WRITE_MAX_ = 3;  // AI 一回合最多寫幾條
-var KANSHOU_WORLD_TEXT_MAX_ = 60;
+// 各類上限、一回合寫幾條餵幾條，全部搬進上方 WORLD_SPEC_ 逐軌登記。
 // 性別只有「人物」類用得到，但升格成正式同伴時它是必要的(肢體互動依【性別】欄)，所以存在表上而非事後猜。
 // ⚠ COL 是位置索引：新欄位一律【接在最後】，絕不插在中間(插了整表位移)。
 //    REGION：這個地點屬於哪一區(kind=地點 才有意義；空＝走出來的地方)。
@@ -1484,18 +1506,24 @@ function actionKanshouSetStyle(userData, pcId, sheets) {
 // ⚠ 欄是位置索引：要加欄一律接在最後，中間插一格會讓整張表錯位。
 var KW_ = { GID: 0, KIND: 1, NAME: 2, TEXT: 3, SEX: 4, BORN: 5, SEEN: 6, HITS: 7, PIN: 8, REGION: 9, OWN: 10, AT: 11 };
 
-function kanshouWorldSheet_() {
+// 🗂️ 兩軌共用同一張帳本表（列與列之間靠遊戲ID分流，那是實例化本來就有的東西）。
+// ⚠ 分頁本來叫「鑑賞世界」，solo 也開始寫之後那個名字就在說謊了。就地改名而不是另開一張：
+//    另開會讓既有的鑑賞資料留在舊分頁上，等於玩家的世界整個不見。setName 是原地操作、資料不動。
+const WORLD_SHEET_NAME_ = '世界帳本';
+const WORLD_SHEET_LEGACY_NAME_ = '鑑賞世界';
+function worldSheet_() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sh = ss.getSheetByName('鑑賞世界');
-  if (!sh) {
-    sh = ss.insertSheet('鑑賞世界');
-    sh.appendRow(['遊戲ID', '類別', '名稱', '內容', '性別', '建立日', '最後提及日', '提及次數', '釘選', '大區', '我的', '在哪']);
-  }
+  let sh = ss.getSheetByName(WORLD_SHEET_NAME_);
+  if (sh) return sh;
+  const old = ss.getSheetByName(WORLD_SHEET_LEGACY_NAME_);
+  if (old) { try { old.setName(WORLD_SHEET_NAME_); } catch (e) { } return old; }
+  sh = ss.insertSheet(WORLD_SHEET_NAME_);
+  sh.appendRow(['遊戲ID', '類別', '名稱', '內容', '性別', '建立日', '最後提及日', '提及次數', '釘選', '大區', '我的', '在哪']);
   return sh;
 }
 
 // 一列 → 一個帳本條目。讀與寫回填快取共用同一份對應，欄位長相只有這裡說了算。
-function kanshouWorldRow_(a, rowNum) {
+function worldRow_(a, rowNum) {
   return {
     kind: String(a[KW_.KIND] || ""), name: String(a[KW_.NAME] || ""), text: String(a[KW_.TEXT] || ""),
     sex: String(a[KW_.SEX] || ""), born: parseInt(a[KW_.BORN]) || 0, seen: parseInt(a[KW_.SEEN]) || 0,
@@ -1505,8 +1533,8 @@ function kanshouWorldRow_(a, rowNum) {
   };
 }
 
-// 這一局的帳本。每回合都要讀，所以走快取；唯一的寫入點 kanshouWorldWrite_ 會自己把快取換成新內容。
-function kanshouWorldRead_(gameId) {
+// 這一局的帳本。每回合都要讀，所以走快取；唯一的寫入點 worldWrite_ 會自己把快取換成新內容。
+function worldRead_(gameId) {
   const gid = String(gameId || "");
   if (!gid) return [];
   const cache = CacheService.getScriptCache();
@@ -1514,24 +1542,24 @@ function kanshouWorldRead_(gameId) {
   try { const c = cache.get(key); if (c) return JSON.parse(c); } catch (e) { }
   let out = [];
   try {
-    const d = kanshouWorldSheet_().getDataRange().getValues();
+    const d = worldSheet_().getDataRange().getValues();
     for (let i = 1; i < d.length; i++) {
       if (String(d[i][KW_.GID]) !== gid) continue;
-      out.push(kanshouWorldRow_(d[i], i + 1));
+      out.push(worldRow_(d[i], i + 1));
     }
   } catch (e) { }
   try { cache.put(key, JSON.stringify(out), 120); } catch (e) { }
   return out;
 }
 
-function kanshouWorldBust_(gameId) {
+function worldBust_(gameId) {
   try { CacheService.getScriptCache().remove('KW_' + String(gameId || "")); } catch (e) { }
 }
 
 // 近義去重：同一件事 AI 換句話說會記成好幾條(memoir 實測過「超級洗畫面」)，同款 bigram 比對。
-// ⚠ 這道網【只用在近期迴聲】(見 kanshouWorldWrite_)，不掃全表：句型相近但語意不同的事實太常見
+// ⚠ 這道網【只用在近期迴聲】(見 worldWrite_)，不掃全表：句型相近但語意不同的事實太常見
 //    （「她喜歡在便利商店買關東煮」vs「…買茶葉蛋」bigram 重疊極高），拿去掃全表會把世界愈合併愈空。
-function kanshouWorldSame_(a, b) {
+function worldSame_(a, b) {
   const norm = t => String(t || "").replace(/[，。、！？…「」『』\s]/g, "");
   const A = norm(a), B = norm(b);
   if (!A || !B) return false;
@@ -1548,22 +1576,23 @@ function kanshouWorldSame_(a, b) {
 // entries = [{kind, name, text}]，回傳真的落盤的筆數。
 // ⚠ max 預設是【給 AI 的煞車】(一回合最多幾筆)。GAS 自己種資料時傳 entries.length——
 //    那不是 AI 亂寫，分批送只會為了同一件事把整張表讀寫好幾趟。
-function kanshouWorldWrite_(gameId, entries, curDay, max) {
+function worldWrite_(gameId, entries, curDay, max) {
   const gid = String(gameId || "");
   if (!gid || !Array.isArray(entries) || !entries.length) return 0;
+  const spec = worldSpec_(gid);
   const clean = [];
-  entries.slice(0, max || KANSHOU_WORLD_WRITE_MAX_).forEach(e => {
+  entries.slice(0, max || spec.writeMax).forEach(e => {
     if (!e) return;
     const kind = String(e.kind || "").trim();
-    // 大區也走這支寫入(同一套清洗/去重/快取)，但它【不在】KANSHOU_WORLD_KINDS_ 裡——
+    // 大區也走這支寫入(同一套清洗/去重/快取)，但它【不在】WORLD_SPEC_ 的 kinds 裡——
     // 那張表管的是「AI 能寫哪些 kind」與「哪些 kind 會被淘汰」，大區兩者皆非。
     // AI 走不到這裡：sanitizeAiData_ 在上游就只放行那三種 kind。
-    if (KANSHOU_WORLD_KINDS_.indexOf(kind) < 0 && kind !== KANSHOU_REGION_KIND_) return;
+    if (spec.kinds.indexOf(kind) < 0 && kind !== KANSHOU_REGION_KIND_) return;
     // ⚠ world_note 是【AI 產的】、不經過 sanitizeUserData_，所以清洗要在這裡做完：
     //    ①斷字/偽造標記字元 ②開頭的公式引導字元(寫進儲存格會被 Google Sheet 當公式執行)
     //    ——相簿的 photo_caption 當初就是為了同一件事補的，這裡不能漏。
     const _f = v => String(v || "").replace(/[<>&"'`｜【】\[\]★\r\n\t]/g, "").replace(/^[=+\-@\t\r]+/, "").trim();
-    const name = _f(e.name).slice(0, 20), text = _f(e.text).slice(0, KANSHOU_WORLD_TEXT_MAX_);
+    const name = _f(e.name).slice(0, 20), text = _f(e.text).slice(0, spec.textMax);
     if (!name && !text) return;
     const sex = (['男', '女', '異'].indexOf(String(e.sex || "").trim()) >= 0) ? String(e.sex).trim() : "";
     // 📍 at＝這條長在哪個地方（農場、雞、店裡的常客…）。只收這一局真的存在的地名，
@@ -1578,7 +1607,7 @@ function kanshouWorldWrite_(gameId, entries, curDay, max) {
   if (!clean.length) return 0;
 
   let sh, d;
-  try { sh = kanshouWorldSheet_(); d = sh.getDataRange().getValues(); } catch (e) { return 0; }
+  try { sh = worldSheet_(); d = sh.getDataRange().getValues(); } catch (e) { return 0; }
   const day = parseInt(curDay) || 0;
   const mine = [];
   for (let i = 1; i < d.length; i++) if (String(d[i][KW_.GID]) === gid) mine.push(i);
@@ -1587,10 +1616,10 @@ function kanshouWorldWrite_(gameId, entries, curDay, max) {
 
   clean.forEach(c => {
     // 同類同名＝同一個東西（名字是主鍵）；內容近義只當【近期迴聲】的防線，且只比對最近兩天寫的，
-    // 不掃全表——理由見 kanshouWorldSame_ 上方。
+    // 不掃全表——理由見 worldSame_ 上方。
     const hit = mine.find(i => String(d[i][KW_.KIND]) === c.kind && (
       String(d[i][KW_.NAME]).trim() === c.name ||
-      ((parseInt(d[i][KW_.SEEN]) || 0) >= day - 2 && kanshouWorldSame_(d[i][KW_.TEXT], c.text))
+      ((parseInt(d[i][KW_.SEEN]) || 0) >= day - 2 && worldSame_(d[i][KW_.TEXT], c.text))
     ));
     if (hit !== undefined) {
       if (c.text) d[hit][KW_.TEXT] = c.text;
@@ -1612,7 +1641,7 @@ function kanshouWorldWrite_(gameId, entries, curDay, max) {
   // 落盤：淘汰【併在這裡一起做】——手上已經有整張表了，不再為了淘汰多讀一次整表。
   //   留下來的整批寫回、尾巴一次砍掉（同 kanshouPurgeByGame_ 的樣式，不逐列 deleteRow）。
   try {
-    const dropSet = kanshouWorldEvictees_(d, gid, added, day);
+    const dropSet = worldEvictees_(d, gid, added, day);
     const kept = [];
     for (let i = 1; i < d.length; i++) if (!dropSet['r' + i]) kept.push(d[i]);
     const cols = d[0].length;
@@ -1627,27 +1656,27 @@ function kanshouWorldWrite_(gameId, entries, curDay, max) {
       sh.appendRow(r); live.push(r);
     });
     // 快取【換成新內容】而不是作廢：剛寫完的人最清楚表上現在長怎樣，作廢只會逼同一次執行裡
-    //   後面那支 kanshouWorldRead_ 再整表讀一次（每按鍵 round-trip 是紅線）。
+    //   後面那支 worldRead_ 再整表讀一次（每按鍵 round-trip 是紅線）。
     //   列號是算得出來的：留下來的依序接在表頭後面，新增的排在最尾。
     const mineNow = [];
-    for (let j = 0; j < live.length; j++) if (String(live[j][KW_.GID]) === gid) mineNow.push(kanshouWorldRow_(live[j], j + 2));
+    for (let j = 0; j < live.length; j++) if (String(live[j][KW_.GID]) === gid) mineNow.push(worldRow_(live[j], j + 2));
     try { CacheService.getScriptCache().put('KW_' + gid, JSON.stringify(mineNow), 120); } catch (e2) { }
-  } catch (e) { kanshouWorldBust_(gid); return 0; }
+  } catch (e) { worldBust_(gid); return 0; }
   return wrote;
 }
 
 // 改帳本某一列的某一欄（改名／搬區／開店收店共用）。回傳有沒有改到。
-function kanshouWorldSet_(gameId, kind, name, col, val) {
+function worldSet_(gameId, kind, name, col, val) {
   const gid = String(gameId || ""), k = String(kind || "").trim(), n = String(name || "").trim();
   if (!gid || !k || !n) return false;
   try {
-    const sh = kanshouWorldSheet_();
+    const sh = worldSheet_();
     const d = sh.getDataRange().getValues();
     for (let r = 1; r < d.length; r++) {
       if (String(d[r][KW_.GID]) !== gid || String(d[r][KW_.KIND]) !== k) continue;
       if (String(d[r][KW_.NAME]).trim() !== n) continue;
       sh.getRange(r + 1, col + 1).setValue(val);
-      kanshouWorldBust_(gid);
+      worldBust_(gid);
       return true;
     }
   } catch (e) { }
@@ -1656,17 +1685,17 @@ function kanshouWorldSet_(gameId, kind, name, col, val) {
 
 // 從帳本拿掉一條（同類同名）。面板的「刪掉」與「常民升格成正式同伴」共用這一支。
 // 回傳有沒有真的刪到。
-function kanshouWorldDrop_(gameId, kind, name) {
+function worldDrop_(gameId, kind, name) {
   const gid = String(gameId || ""), k = String(kind || "").trim(), n = String(name || "").trim();
   if (!gid || !k || !n) return false;
   try {
-    const sh = kanshouWorldSheet_();
+    const sh = worldSheet_();
     const d = sh.getDataRange().getValues();
     for (let r = 1; r < d.length; r++) {
       if (String(d[r][KW_.GID]) !== gid || String(d[r][KW_.KIND]) !== k) continue;
       if (String(d[r][KW_.NAME]).trim() !== n) continue;
       sh.deleteRow(r + 1);
-      kanshouWorldBust_(gid);
+      worldBust_(gid);
       return true;
     }
   } catch (e) { }
@@ -1676,12 +1705,13 @@ function kanshouWorldDrop_(gameId, kind, name) {
 // 淘汰政策（純函式，不碰試算表）：每一類超過上限就砍掉「最久沒被提到、提及次數也最少」的，
 // 釘選的永不驅逐。d＝整張表(含表頭)，added＝這次還沒落盤的新列；回傳 {'r列索引':1,'a新列序':1}。
 // ⚠ 只回答「該砍哪幾列」，由呼叫端一次寫回——別在這裡自己讀表，那就是多一次整表 round-trip。
-function kanshouWorldEvictees_(d, gid, added, curDay) {
+function worldEvictees_(d, gid, added, curDay) {
   const drop = {};
   const day = parseInt(curDay) || 0;
   const news = Array.isArray(added) ? added : [];
-  KANSHOU_WORLD_KINDS_.forEach(kind => {
-    const cap = KANSHOU_WORLD_CAP_[kind] || 30;
+  const _spec = worldSpec_(gid);
+  _spec.kinds.forEach(kind => {
+    const cap = _spec.cap[kind] || 30;
     const rows = [];
     for (let i = 1; i < d.length; i++) {
       if (String(d[i][KW_.GID]) !== gid || String(d[i][KW_.KIND]) !== kind) continue;
@@ -1705,15 +1735,16 @@ function kanshouWorldEvictees_(d, gid, added, curDay) {
 
 // 餵回去：帳本會長大，所以【不是全餵】——只挑跟此刻真的有關的，其餘留在表上等被叫到。
 // 相關＝①釘選 ②此刻地點提到它 ③在場者名字出現在內容裡 ④玩家這句話提到它 ⑤最近 3 天剛提過。
-function kanshouWorldFeed_(rows, curLoc, presentNames, userMsg, curDay) {
+function worldFeed_(gameId, rows, curLoc, presentNames, userMsg, curDay) {
   if (!Array.isArray(rows) || !rows.length) return "";
+  const spec = worldSpec_(gameId);
   const loc = String(curLoc || ""), msg = String(userMsg || "");
   const names = (presentNames || []).map(n => String(n || "").trim()).filter(Boolean);
   const day = parseInt(curDay) || 0;
   // 📍 這個地方上的東西一律餵回來，不看分數也不占那 6 個名額——玩家回到 A 村莊，
   //    他的農場和雞就該還在。這是「世界會留下痕跡」真正兌現的地方。
   const rooted = loc ? rows.filter(r => r.kind !== KANSHOU_REGION_KIND_ && String(r.at || "").trim() === loc)
-    .sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.seen - a.seen).slice(0, KANSHOU_WORLD_AT_MAX_) : [];
+    .sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.seen - a.seen).slice(0, spec.atMax) : [];
   const rootedKeys = rooted.map(r => r.kind + '｜' + r.name);
   // 地點不餵回(它的脈絡由★【地點釘死】那行給)；大區是結構、不是要敘述的事實。
   // 📍 有根的條目在【別的地方】不餵回——你的農場不會跟著你走到別的城鎮；
@@ -1730,7 +1761,7 @@ function kanshouWorldFeed_(rows, curLoc, presentNames, userMsg, curDay) {
     if (day && r.seen >= day - 3) sc += 20;
     sc += Math.min(r.hits, 5);
     return { r: r, sc: sc };
-  }).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, KANSHOU_WORLD_FEED_MAX_);
+  }).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, spec.feedMax);
   const all = rooted.map(r => ({ r: r })).concat(scored);
   if (!all.length) return "";
   // 名字不在內容裡就補上：「我的農場」這種條目的名字本身就是玩家會叫出口的東西，
@@ -1879,7 +1910,7 @@ function actionPlay_(userData, pcId, sheets) {
       //    也可以一併宣告「這是我開的店」——三個需求同一條路徑，見 CODE_NOTES.md。
       const _npRegion = kanshouFindRegion_(_myGid_, userData.newPlaceRegion);
       const _npOwn = kanshouSanitizeTagValue_(userData.newPlaceOwn, 12);
-      kanshouWorldWrite_(_myGid_, [{
+      worldWrite_(_myGid_, [{
         kind: '地點', name: _newPlaceRaw, text: "",
         region: _npRegion ? _npRegion.id : "", own: _npOwn
       }], curDay);
@@ -2241,9 +2272,9 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   const _sceneCut = !!(moveTarget || kanshouTimeJumped_);
   const _histWindow_ = _sceneCut ? 2 : 6;
   const _earlierDigest_ = kanshouRecentDigest_(pcId, _histWindow_);
-  // 🌍 世界帳本：讀出這一局玩出來的地方/人/設定，只餵跟此刻真的有關的那幾條(見 kanshouWorldFeed_)。
-  const _worldRows_ = kanshouWorldRead_(myGameId);
-  const _worldFeed_ = kanshouWorldFeed_(_worldRows_, curL, partyMembers, userMsg, curDay);
+  // 🌍 世界帳本：讀出這一局玩出來的地方/人/設定，只餵跟此刻真的有關的那幾條(見 worldFeed_)。
+  const _worldRows_ = worldRead_(myGameId);
+  const _worldFeed_ = worldFeed_(myGameId, _worldRows_, curL, partyMembers, userMsg, curDay);
 
 
   // 🧊 排序原則：【穩定的放前面、每回合會變的放後面】——prompt cache 是逐 token 比對前綴，
@@ -2255,7 +2286,7 @@ ${nsfwMemories}${genderHintStr}${driveStr}
   const prompt = `${_sty_('world')}
 ${PROMPT_REL}
 ★【這個世界有誰】：①【同行】＝下方【在場人物】的卡，他們此刻【確實就在你身邊】，每一位這回合都要真實回應——被搭話的給完整反應，沒被搭話的也要有自己的動作；有【專屬稱呼】就叫暱稱。②【常民】＝【這個世界已經確立的事】名單上的人，可出現可開口。③【路人】不具名，隨手寫。
-★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，寫進去的下回合才存在。一回合最多 ${KANSHOU_WORLD_WRITE_MAX_} 筆，只記【這座城有什麼】——地點＝多一個去得了的地方｜人物＝這個人還會再出現｜設定＝這座城的規矩或風景；你們之間發生的事記進那個人的 memory。★蓋在某個地方、養在某個地方、只長在那裡的東西（田、雞、招牌、常客），at 欄填那個地名——玩家再回到那裡它就還在。
+★【要它之後還在就寫進 world_note】：沒寫到的地方/人/這座城的規矩都可以當場創造，寫進去的下回合才存在。一回合最多 ${WORLD_SPEC_.kanshou.writeMax} 筆，只記【這座城有什麼】——地點＝多一個去得了的地方｜人物＝這個人還會再出現｜設定＝這座城的規矩或風景；你們之間發生的事記進那個人的 memory。★蓋在某個地方、養在某個地方、只長在那裡的東西（田、雞、招牌、常客），at 欄填那個地名——玩家再回到那裡它就還在。
 ${_sty_('pov')}
 ${_sty_('feel')}
 
@@ -2293,7 +2324,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
     try {
       const start = aiResponseRaw.indexOf('{');
       const end = aiResponseRaw.lastIndexOf('}');
-      aiData = sanitizeAiData_(JSON.parse(aiResponseRaw.substring(start, end + 1)));
+      aiData = sanitizeAiData_(JSON.parse(aiResponseRaw.substring(start, end + 1)), myGameId);
     } catch (e) {
       try { Logger.log("[actionPlay_ AI回應無法解析] " + String(aiResponseRaw).slice(0, 300)); } catch (e2) { }
       aiData = aiFallbackData_(false);
@@ -2448,7 +2479,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
     }
 
     // 🌍 AI 這一回合發明的東西落盤——這是「自由」能成立的唯一原因：發明有人記，就不是雜訊。
-    //    寫入點只有這一處(kanshouWorldWrite_ 自己做去重/上限/淘汰)，別在別處各寫一份。
+    //    寫入點只有這一處(worldWrite_ 自己做去重/上限/淘汰)，別在別處各寫一份。
     // 🐛→✅ 2026-09：分錯類的改判(kanshouFixWorldKinds_)原本排在【落盤之後】，
     //    它是就地改 aiData.world_note 的，改完已經沒有人會再讀——整道防線等於沒接上。
     //    必須先改判、再落盤。
@@ -2458,7 +2489,7 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
           pcData.filter(function (r) { return String(r[COL.PC.FACTION]) === '從者' && sameGame(r) && !String(r[COL.PC.ID]).startsWith('DEAD_'); })
             .map(function (r) { return r[COL.PC.NAME]; }));
       } catch (e) { }
-      try { kanshouWorldWrite_(myGameId, aiData.world_note, curDay); } catch (e) { }
+      try { worldWrite_(myGameId, aiData.world_note, curDay); } catch (e) { }
     }
 
     const pcColCount = Object.keys(COL.PC).length;

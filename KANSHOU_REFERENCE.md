@@ -467,6 +467,18 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
   `【小道具】`／`【自訂道具】` 是**惰性資料**——沒有任何路徑會再讀到它們，故不寫遷移去改玩家資料。
 
 
+## 🧭 帳本引擎正名成兩軌共用（2026-09）
+
+帳本從一開始就是通用的（只認 `game_id`），solo 要用它記「這一局的因果」時，`kanshou*` 前綴就在說謊了。
+
+- 分頁 `鑑賞世界` → **`世界帳本`**（`worldSheet_` 就地 `setName`，資料一列不動；另開新分頁會讓既有的鑑賞世界整個不見）。
+- 函式 `kanshouWorld*` → `world*`（`worldSheet_`／`worldRow_`／`worldRead_`／`worldBust_`／`worldSame_`／
+  `worldWrite_`／`worldSet_`／`worldDrop_`／`worldEvictees_`／`worldFeed_`／`worldPayload_`／`actionWorld`）。
+  **仍然是鑑賞的**那幾支（`kanshouLocationsFor_`／`kanshouRegionsFor_`／`kanshouWorldRosterStr`）名字沒動。
+- 規格搬進 `WORLD_SPEC_` **逐軌登記**：`sheet`／`kinds`／`cap`／`feedMax`／`atMax`／`writeMax`／`textMax`。
+  判準是 `worldTrack_(gameId)`——`g_` 開頭是 solo，其餘是鑑賞。加一軌＝往表加一列，引擎自動吃。
+- 前端不再手抄字數上限（`KC_WORLD_TEXT_MAX_` 已刪），改讀後端下傳的 `worldTextMax`。
+
 ## 🗺️ 地圖搬進世界帳本＋有根的東西（2026-09·鑑賞 2.0 ③④）
 
 玩家原話：「我理想中的鑑賞應該是一片空白，但我可以跟 AI 慢慢搭建……我如果在 A 村莊有農場跟小雞，
@@ -503,7 +515,7 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 `KANSHOU_WORLD_CAP_` 地點 40→**60**／人物 24→**40**／設定 30→**50**。
 
 ### 🐛→✅ 分錯類的改判本來沒接上
-`kanshouFixWorldKinds_`（把寫成「人物」的地名改判成「地點」）原本排在 `kanshouWorldWrite_` **之後**。
+`kanshouFixWorldKinds_`（把寫成「人物」的地名改判成「地點」）原本排在 `worldWrite_` **之後**。
 它是就地改 `aiData.world_note` 的，改完已經沒有人會再讀——整道防線等於沒接上，零錯誤訊息。已改成先改判、再落盤。
 
 ### 順手清掉
@@ -1240,17 +1252,17 @@ schema 教 AI 寫 `"1. [主動]…"`，而 `data.options` 是**原樣**長成按
 
 | helper | 做什麼 |
 |---|---|
-| `kanshouWorldRead_(gid)` | 讀這一局的帳本，走 CacheService（每回合都要讀） |
-| `kanshouWorldWrite_(gid, entries, day)` | 唯一寫入點：清洗 → 去重 → 更新/新增 → 淘汰 → 整批寫回 → **快取換成新內容**（不作廢，否則同一趟執行裡後面那支 read 又要整表讀一次） |
-| `kanshouWorldEvictees_(d, gid, added, day)` | 純函式，只回答「該砍哪幾列」：超過各類上限就砍「最久沒被提到、提及次數也最少」的；★釘選永不驅逐 |
-| `kanshouWorldRow_(a, rowNum)` | 一列 → 一個條目；讀與回填快取共用（欄位長相的單一真實來源） |
-| `kanshouWorldFeed_(rows, loc, names, msg, day)` | **不是全餵**：算相關性分數排序取前 6 |
-| `kanshouWorldSame_(a, b)` | bigram 近義比對，**只用在近期迴聲**（見下方⚠） |
+| `worldRead_(gid)` | 讀這一局的帳本，走 CacheService（每回合都要讀） |
+| `worldWrite_(gid, entries, day)` | 唯一寫入點：清洗 → 去重 → 更新/新增 → 淘汰 → 整批寫回 → **快取換成新內容**（不作廢，否則同一趟執行裡後面那支 read 又要整表讀一次） |
+| `worldEvictees_(d, gid, added, day)` | 純函式，只回答「該砍哪幾列」：超過各類上限就砍「最久沒被提到、提及次數也最少」的；★釘選永不驅逐 |
+| `worldRow_(a, rowNum)` | 一列 → 一個條目；讀與回填快取共用（欄位長相的單一真實來源） |
+| `worldFeed_(rows, loc, names, msg, day)` | **不是全餵**：算相關性分數排序取前 6 |
+| `worldSame_(a, b)` | bigram 近義比對，**只用在近期迴聲**（見下方⚠） |
 
 **相關性分數**：釘選 +100／此刻地點提到它 +40／在場者名字出現在內容裡 +30／
 玩家這句話提到它 +50／最近 3 天剛提過 +20／提及次數（上限 +5）。
 
-⚠ **`kanshouWorldSame_` 只比對最近兩天寫的，不掃全表。** 第一版掃全表，實測把
+⚠ **`worldSame_` 只比對最近兩天寫的，不掃全表。** 第一版掃全表，實測把
 「她喜歡在便利商店買關東煮」和「…買茶葉蛋」merge 成同一條——句型相近但語意不同的事實太常見，
 拿去掃全表會把世界愈合併愈空。門檻也從 0.6 提到 0.7。
 **mechanical 去重抓不到真正的語意複述**（實測「她討厭下雨」的兩種說法 bigram 只重疊 0.36），
@@ -1264,7 +1276,7 @@ schema 教 AI 寫 `"1. [主動]…"`，而 `data.options` 是**原樣**長成按
 ```
 
 一回合最多 2 筆。`sanitizeAiData_` 擋結構（合法類別、筆數），
-逐欄的字元清洗與長度在 `kanshouWorldWrite_` 做（唯一寫入點）。
+逐欄的字元清洗與長度在 `worldWrite_` 做（唯一寫入點）。
 
 籠子那句改成：
 > ★【可以發明，但發明完要記下來】：這是一座活的城，資料沒寫到的店家、路人、往事、習慣，
@@ -1314,7 +1326,7 @@ schema 教 AI 寫 `"1. [主動]…"`，而 `data.options` 是**原樣**長成按
 地點那一類會出現在地圖的「走出來的地方」，人物與設定在遊戲裡完全看不到。
 而且帳本有 `釘選` 欄、淘汰時會保護它，**卻沒有任何入口能設定**——做了一半。
 
-`actionKanshouWorld`（action `kanshou_world`，op = `list`／`pin`／`unpin`／`del`）
+`actionWorld`（action `kanshou_world`，op = `list`／`pin`／`unpin`／`del`）
 把「看得到」與「管得動」一起補上，分工比照 `actionKanshouMemoirOp`：
 
 - 三類分組列出（地點／人物／設定），各自標 `現有數 / 上限`
@@ -1590,7 +1602,7 @@ solo 的 `TRAIT_LABELS_` 砍成兩格。
 
 世界帳本第一版三支各自讀表：餵回讀一次、寫入讀一次、淘汰再讀一次。
 CLAUDE.md 寫著「別把多餘 round-trip 或重複整表讀回加回來」——修法見
-`CODE_NOTES.md` 的 `kanshouWorldWrite_` 條。現在 **7 次**（多出的 1 次是帳本寫入，無法省）。
+`CODE_NOTES.md` 的 `worldWrite_` 條。現在 **7 次**（多出的 1 次是帳本寫入，無法省）。
 探針 `perf2.js` 直接數 `getDataRange`/`setValues`。
 
 ### ④ 文件裡有 17 條幽靈條目
@@ -1708,7 +1720,7 @@ AI 當場造人 → 寫進帳本 → `folkOffer` 泡泡 → 下回合 AI 還記�
 **🐛→✅ 但抓到一個真 bug**：升格成正式同伴之後，帳本裡那條常民【沒有清掉】——
 同一個人變成**兩份真相**，同時出現在【在場人物】卡與【這個世界已經確立的事】名單裡，
 而帳本那句是升格當下的舊描述、之後永遠不會更新。
-已加共用的 `kanshouWorldDrop_(gid, kind, name)`，升格時清掉；面板的「刪掉」也改走同一支。
+已加共用的 `worldDrop_(gid, kind, name)`，升格時清掉；面板的「刪掉」也改走同一支。
 
 ### ② 地點歸地圖：不是兩個系統，是同一筆資料被展示兩次
 
@@ -1803,13 +1815,13 @@ options 四條各一行併成一行。
 新 kind `KANSHOU_REGION_KIND_ = '大區'`（上限 `KANSHOU_REGION_CAP_ = 12`）。
 它刻意**不在** `KANSHOU_WORLD_KINDS_` 裡，因為那張表管兩件事：①AI 能寫哪些 kind
 ②哪些 kind 會被淘汰——大區兩者皆非（AI 不能自己生一個國家；大區被淘汰會讓底下地點變孤兒）。
-⚠ 所以 `kanshouWorldWrite_` 的 kind 檢查要額外放行大區，這裡踩過一次。
+⚠ 所以 `worldWrite_` 的 kind 檢查要額外放行大區，這裡踩過一次。
 
 **區 id 為什麼是生成的、不是從名字拼的**：第一版用 `'rg_' + 區名`，
 一改名底下所有地點就指向一個不存在的區、全變孤兒。改成建立時生成 `rg_<timestamp36>`
 存在該列的 REGION 欄，改名只動 NAME。
 
-### 自由增減（全套 CRUD，住在既有的 `actionKanshouWorld` 裡，不另開路由）
+### 自由增減（全套 CRUD，住在既有的 `actionWorld` 裡，不另開路由）
 
 | op | 做什麼 |
 |---|---|
@@ -1820,8 +1832,8 @@ options 四條各一行併成一行。
 | `loc_own` | 開店／改營業內容／收店（留空＝收店，地方留著） |
 | `del`（既有） | 把地點整個刪掉 |
 
-共用 helper：`kanshouWorldSet_`（改某列某欄）／`kanshouWorldDrop_`（刪一列）。
-`kanshouWorldPayload_` 讓 `list` 與每個 op 回**同一種形狀**（條目＋大區＋上限），前端只認一種。
+共用 helper：`worldSet_`（改某列某欄）／`worldDrop_`（刪一列）。
+`worldPayload_` 讓 `list` 與每個 op 回**同一種形狀**（條目＋大區＋上限），前端只認一種。
 
 ### 🔒 AI 不能宣告「這家店是你的」
 
@@ -1899,7 +1911,7 @@ pool = 內建 ∪ 玩家自己開的地方（排除 room/visit/dateOnly）
 
 ⚠ 簽名變動：日常落點骰當時多收了一個 `gameId`（沒有它就看不見玩家自己開的地方），5 個呼叫點全部補上。整支已於 2026-09 移除。
 ——沒有 `gameId` 就看不見玩家自己開的地方。5 個呼叫點全部補上。
-效能不變（每按鍵整表讀仍是 7 次，`kanshouWorldRead_` 走快取）。
+效能不變（每按鍵整表讀仍是 7 次，`worldRead_` 走快取）。
 
 ---
 
@@ -2303,7 +2315,7 @@ AI 把玩家自己的住所寫成 `kind:"人物"`，GAS 就拿地名去問玩家
 - **GAS**（真正的防線，輸入當不可信）：新增 `kanshouNameIsPlace_()` ＋ `kanshouFixWorldKinds_()`，
   比對內建地點、玩家自己開的地方、大區名、玩家住所，以及地名尾巴（`的家/的店/宅邸/屋/館/寺/社/…`）。
   命中就**就地改判成 `地點`** 並清掉 `sex`——改判而不是丟掉，那個名字通常是有意義的新地方，丟了等於白發明一次。
-  接在 `folkOffer` 與 `kanshouWorldWrite_` **兩個消費端之前**，只改一次（單一真實來源）。
+  接在 `folkOffer` 與 `worldWrite_` **兩個消費端之前**，只改一次（單一真實來源）。
 
 探針 `wkind.js`（16 條）：7 個地名要被改判、5 個真人要留著、落點 0/3600 進玩家家、同居者仍回得了和室。
 

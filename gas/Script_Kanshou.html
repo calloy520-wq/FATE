@@ -34,7 +34,6 @@
   var KC_MEMOIR_CAP_ = 10;      // 鏡像後端 KANSHOU_MEMOIR_CAP_
   var KC_MEMOIR_PIN_CAP_ = 8;   // 鏡像後端 KANSHOU_MEMOIR_PIN_CAP_
   var KC_PARTY_MAX_ = 3;        // 鏡像後端 KANSHOU_PARTY_MAX_
-  var KC_WORLD_TEXT_MAX_ = 60;  // 鏡像後端 KANSHOU_WORLD_TEXT_MAX_
   // ⚙️ 管理面板：列出玩家自訂的貼圖(內建4個不可刪、不列在這裡)＋新增輸入框。
   var _kqpBusy = false;
 
@@ -682,7 +681,8 @@ let plainTextContext = cleanText;
       nn = String(nn).trim(); if (!nn || nn === name) return;
       await kwWorldOp_({ op: 'loc_rename', entryName: name, newName: nn }, '改名中…');
     } else if (pick === 'text') {
-      var tx = await customPrompt_('「' + name + '」長什麼樣子？', here.desc || '', KC_WORLD_TEXT_MAX_);
+      // 字數上限由後端下傳(worldTextMax)——前端手抄常數是這個專案犯過的錯，改了一邊另一邊就走鐘。
+      var tx = await customPrompt_('「' + name + '」長什麼樣子？', here.desc || '', (window._lastTags && window._lastTags.worldTextMax) || 60);
       if (tx === null) return;
       await kwWorldOp_({ op: 'loc_text', entryName: name, text: String(tx).trim() }, '寫下來…');
     } else if (pick === 'own') {

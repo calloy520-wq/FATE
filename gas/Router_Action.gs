@@ -19,7 +19,7 @@ const ActionRouter = {
   "purge_orphans": actionPurgeOrphans,
   "kanshou_companions": actionKanshouCompanions,
   "kanshou_memoir_op": actionKanshouMemoirOp, // 💞 共同回憶面板：釘選/取消釘選/刪除(玩家UI手動管理)
-  "kanshou_world": actionKanshouWorld,        // 🌍 世界帳本面板：list/pin/unpin/del(玩家看得到、管得動)
+  "kanshou_world": actionWorld,        // 🌍 世界帳本面板：list/pin/unpin/del(玩家看得到、管得動)
   "kanshou_summon_hero": actionKanshouSummonHero, // 🌹 慾海同伴唯一入口：直接從英靈庫召喚，不需先在solo贏得戰爭
   "kanshou_party": actionKanshouParty,     // 🫂 加入/離開同行（誰在這一幕裡）
   "kanshou_set_sex": actionKanshouSetSex,
@@ -407,7 +407,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
   var myPlaces = [], myRegions = [];
   if (gameId && gameId.indexOf("k_") === 0) {
     try {
-      myPlaces = kanshouWorldRead_(gameId).filter(function (r) { return r.kind === '地點' && r.name; })
+      myPlaces = worldRead_(gameId).filter(function (r) { return r.kind === '地點' && r.name; })
         .map(function (r) { return { name: r.name, desc: r.text || "", region: r.region || "", own: r.own || "" }; });
       // 🗾 玩家自己開的大區：地圖的分區列要靠它才畫得出來(內建那幾區是前端靜態鏡射)。
       myRegions = kanshouRegionsFor_(gameId).filter(function (r) { return r.mine; })
@@ -421,7 +421,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
     if (_w && _w.loc === String(m[COL.PC.LOC] || "").trim()) encWin = { type: _w.type, choices: encounterChoices_(_w.type) };
   }
   // 🗺️ myLoc：玩家此刻所在地。
-  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, myPlaces: myPlaces, myRegions: myRegions, regionCap: KANSHOU_REGION_CAP_,
+  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, myPlaces: myPlaces, myRegions: myRegions, regionCap: KANSHOU_REGION_CAP_, worldTextMax: (gameId && gameId.indexOf("k_") === 0) ? worldSpec_(gameId).textMax : undefined,
       encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || ""),
     // 🌙 夜未眠(Gallery.gs KANSHOU_NIGHT_SCENE_TAG_)：HUD 那顆鈕要據此把「🌙睡覺」換成「🌅睡到天亮」。
     nightScene: (typeof KANSHOU_NIGHT_SCENE_TAG_ !== 'undefined'
