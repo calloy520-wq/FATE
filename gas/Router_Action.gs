@@ -510,12 +510,21 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   // 需同步寫回 pcData 的記憶體鏡射，才能安全交棒 STATE_PRE_DATA_(否則夾帶的 _state.people 會顯示舊稱呼)。
   pcData[tIdx][COL.PC.REL_TAG] = finalTag;
   sheets.pc.getRange(tIdx + 1, COL.PC.REL_TAG + 1).setValue(finalTag);
+  // 🔒 玩家自己打過就鎖住：從此 AI 不再改這一格（鑑賞的 intimacy_feedback.npcs[].rel_tag 會跳過）。
+  {
+    const _rm = String(pcData[tIdx][COL.PC.REL_MEM] || "");
+    const _newRm = kanshouRelMemBuild_(getNickname_(_rm), { nick: kanshouRelLocked_(_rm, 'nick'), tag: true });
+    if (_newRm !== _rm) {
+      pcData[tIdx][COL.PC.REL_MEM] = _newRm;
+      sheets.pc.getRange(tIdx + 1, COL.PC.REL_MEM + 1).setValue(_newRm);
+    }
+  }
 
   STATE_PRE_DATA_ = pcData; // ⚡ 交棒：REL_TAG改寫已原地改回 pcData，dispatcher 夾 _state 免整表重讀
   return JSON.stringify({ success: true, message: `改成「${finalTag}」了。`, newTag: finalTag });
 }
 
-// 🔒 專屬稱呼比照 update_rel_tag 同一套門檻與同一個 injection 風險；玩家手動設定後寫入【稱呼鎖】旗標，AI 不再自動覆寫。
+// 🔒 專屬稱呼比照 update_rel_tag 同一套門檻與同一個 injection 風險；玩家手動設定後蓋【稱呼鎖】，AI 不再自動覆寫。
 function actionSetNickname(userData, pcId, sheets) {
   const { targetName, newNickname, targetId } = userData;
   if (!newNickname || !String(newNickname).trim()) return JSON.stringify({ success: false, message: "稱呼不能空白。" });
@@ -539,10 +548,8 @@ function actionSetNickname(userData, pcId, sheets) {
   if (!finalNick) return JSON.stringify({ success: false, message: "稱呼不能空白。" });
 
   const oldRMem = String(pcData[tIdx][COL.PC.REL_MEM] || "");
-  // 保留既有【態度】段(若有)，只覆寫【專屬稱呼】+補上【稱呼鎖】。
-  const attMatch = oldRMem.match(/\[態度\](.*?)(?=\| \[|$)/);
-  const attPart = attMatch ? `| [態度]${attMatch[1].trim()}` : "";
-  const newRMem = `[專屬稱呼]${finalNick}| [稱呼鎖]是${attPart}`;
+  // 🔒 覆寫【專屬稱呼】＋補上【稱呼鎖】；另一把鎖(關係)原樣留著——走共用組裝口，少接一把就會被洗掉。
+  const newRMem = kanshouRelMemBuild_(finalNick, { nick: true, tag: kanshouRelLocked_(oldRMem, 'tag') });
 
   pcData[tIdx][COL.PC.REL_MEM] = newRMem;
   sheets.pc.getRange(tIdx + 1, COL.PC.REL_MEM + 1).setValue(newRMem);

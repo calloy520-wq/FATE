@@ -628,10 +628,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 ~~`KANSHOU_REL_RANK_TAG_`~~ 一族／~~`KANSHOU_BOND_FLOOR_TAG_`~~／~~`KANSHOU_CHILL_*`~~，
 以及 AI 的 `rel_changes` 欄位。`COL.PC.BOND` 欄位本身留著（COL 是位置索引，solo 仍在用）。
 
-- `kanshouFreshRelTag_(tag)`（2026-09 新增）— 關係稱呼的唯一讀口：舊存檔殘留的五階字面
-  （`KANSHOU_STALE_REL_TAGS_`＝點頭之交/普通朋友/熟識的朋友/親近的人/戀人）當作沒設定回空字串。
-  那些字是好感砍除【之前】GAS 自動蓋的，之後沒有任何東西會再更新它——留著會在第 300 回合還對 AI 說謊。
-  玩家自己在 🏷️ 關係稱呼打的字不在那張表上，照常生效。呼叫端：在場卡的 `pRelTagStr`、同伴面板的 `tag`。
+- `KANSHOU_LOCKS_`（常數 `{nick:'稱呼鎖', tag:'關係鎖'}`）／`kanshouRelLocked_(relMem, which)`／`kanshouRelMemBuild_(nickValue, locks)`（2026-09 新增）— 🔒 兩把鎖：玩家自己打過【專屬稱呼】或【關係稱呼】，那一格就歸玩家，AI 從此不碰。兩把都存 REL_MEM 這一格。`kanshouRelMemBuild_` 是 **REL_MEM 的唯一組裝口**——⚠ 少接一把鎖，那把鎖下一回合就會被 AI 的寫入整格洗掉（舊版 `= nickPart` 正是這個形狀）。呼叫端：`actionPlay_` 的 `intimacy_feedback` 落地、`actionUpdateRelTag`（蓋 tag 鎖）、`actionSetNickname`（蓋 nick 鎖）。⚠ 這兩把鎖**只有玩家的 UI 動作會蓋**，AI 蓋不了自己的鎖。
 - `CUSTOM_TAG_BOND_`（常數=80·`Router_Bond.gs`）— 自訂關係稱呼／專屬稱呼的羈絆門檻，**solo 限定**
   （那段文字會被字面塞進提示詞當既定事實）。鑑賞不吃這道門檻，稱呼全交玩家。
 - `getNickname_(relMem)`（2026-07 五度改版新增）— 從 REL_MEM 裸取`[專屬稱呼]`值的共用小 helper（供 UI 顯示用；鏡射 `actionPlay_` 內部組提示詞用的 `relMemMemoryStr_`，但那支輸出完整格式化字串，這支只回裸值）。`actionKanshouCompanions`／servant 清單 builder 都吃這支。

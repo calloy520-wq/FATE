@@ -243,14 +243,6 @@ function heroToKanshouRow_(heroRow, gameId, loc, curDay) {
 // 玩家卡上的 性格[內裡]／經歷，過去是每個在場角色【無條件全知】。那份資料其實有兩種用途被混在一起：
 // ①寫玩家自己的內心與感受（★【你也是這座城裡的一個人】要用）②在場角色對玩家的認識——①該全知，②不該。
 // 拆法見 CODE_NOTES.md；這裡只放資料層。熟悉度那條線【GAS 自己算、不經過 AI】，所以擋得住。
-// 🏷️ 舊存檔殘留的五階關係字面：2026-09 好感砍除【之前】是 GAS 依好感自動蓋上去的，之後沒有任何
-//    東西會再更新它。留著會在第 300 回合還對 AI 說「她是你的點頭之交」——當作沒設定。
-//    玩家自己在 🏷️ 關係稱呼打的字不在這張表上，照常生效。
-const KANSHOU_STALE_REL_TAGS_ = ['點頭之交', '普通朋友', '熟識的朋友', '親近的人', '戀人'];
-function kanshouFreshRelTag_(tag) {
-  const t = String(tag || "").trim();
-  return KANSHOU_STALE_REL_TAGS_.indexOf(t) === -1 ? t : "";
-}
 var KANSHOU_NOTED_TAG_ = makeTextTag_('眼中的你');
 const KANSHOU_NOTED_SEP_ = '／';   // 不可用 ｜ 或 【】：makeTextTag_ 會把結構字元從值裡剝掉
 const KANSHOU_NOTED_CAP_ = 3;
@@ -308,6 +300,21 @@ function getNickname_(relMem) {
 // 💬 專屬稱呼寫入前的唯一消毒口。
 function sanitizeNickname_(s) {
   return String(s || "").trim().replace(/[|｜\[\]]/g, "").slice(0, 20);
+}
+// 🔒 玩家一旦自己打過，那一格就歸玩家——AI 從此不再碰它。稱呼與關係兩格各一把鎖，同一套寫法、
+//    同存 REL_MEM 這一格。⚠ 這兩把鎖【只有玩家的 UI 動作會蓋】，AI 自己蓋不了自己的鎖。
+const KANSHOU_LOCKS_ = { nick: '稱呼鎖', tag: '關係鎖' };
+function kanshouRelLocked_(relMem, which) {
+  return new RegExp('\\[' + KANSHOU_LOCKS_[which] + '\\]是').test(String(relMem || ""));
+}
+// 組回 REL_MEM：專屬稱呼本體 ＋ 還在的那幾把鎖。⚠ 這是 REL_MEM 的唯一組裝口——
+//    少接一把鎖，那把鎖下一回合就被 AI 的寫入整格洗掉（實測過的形狀：舊版直接 = nickPart）。
+function kanshouRelMemBuild_(nickValue, locks) {
+  let out = `[專屬稱呼]${nickValue || "無"}`;
+  Object.keys(KANSHOU_LOCKS_).forEach(function (k) {
+    if (locks && locks[k]) out += `| [${KANSHOU_LOCKS_[k]}]是`;
+  });
+  return out;
 }
 // 🫶 玩家主動提議(相約/同去)她答不答應——【GAS 依好感擲，AI 只演反應】(2026-07 由 AI 判定改為 GAS 判定)。
 // 🧠 摘要往回看幾輪、每則保留幾個字。
@@ -619,7 +626,7 @@ function actionKanshouCompanions(userData, pcId, sheets) {
       // 面板需要顯示目前所在地點(玩家要精準知道去哪找她)、關係標籤＋好感(供玩家決定要不要改標籤)；isHere(是否跟玩家同地點)；locLabel：房間類地點的動態顯示名稱，見kanshouRoomDisplayName_。
       // memoir：共同回憶(27欄)原樣下傳(★前綴=玩家釘選)，供面板顯示/釘選/刪除。
       // 🆔 2026-07「整體重構·id優先」：補id讓前端能存起來隨後續action回傳，後端才有id可用、不必只靠名字(kanshouNameCandidates_別名表已處理大部分情況，但id才是真正杜絕撞名/前綴混淆的單一真實來源)。
-      current.push({ id: String(data[i][COL.PC.ID]), name: String(data[i][COL.PC.NAME]), tag: kanshouFreshRelTag_(data[i][COL.PC.REL_TAG]), nickname: getNickname_(data[i][COL.PC.REL_MEM]), loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
+      current.push({ id: String(data[i][COL.PC.ID]), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || ""), nickname: getNickname_(data[i][COL.PC.REL_MEM]), loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
     }
   }
   return JSON.stringify({ success: true, current: current });
@@ -867,6 +874,7 @@ function buildDefaultSystemPrompt(includeOptions, styles) {
         "physical_state": _physicalStateRef,
         "appearance_extras": _appearanceExtrasRef,
         "mutual_nicknames": "本回合真的叫出口的暱稱·否則「無」",
+        "rel_tag": "≤8字·這個人現在是玩家的什麼(如 同事/鄰居/搭檔/戀人)·跟上回合一樣就填「無」",
         "memory": "里程碑(難忘約會/重要約定)才寫≤30字·同 narration 用第二人稱「你」稱玩家·其餘填「無」·同一事只記一次",
         "noticed": "≤14字·只記【會改變之後怎麼對玩家】的發現·多數回合填「無」"
       }]
@@ -2253,10 +2261,9 @@ function actionPlay_(userData, pcId, sheets) {
       const pSpeech = getPersonaSpeech_(r[COL.PC.MEMORY]) || dailySpeechByName_(pName, _partyHeroCodex);
       const pTic = getPersonaTic_(r[COL.PC.MEMORY]);
       const pFlavorStr = `${pSpeech ? ` | 口吻:${pSpeech}` : ""}${pTic ? ` | 招牌小動作:${pTic}` : ""}`;
-      // 🏷️ 關係稱呼：2026-09 好感砍除後這一格【只有玩家自己打得進去】（🏷️ 關係稱呼面板），
-      //    GAS 不再依任何數字自動改它。舊存檔殘留的五階字面(點頭之交…戀人)是上一版自動蓋的，
-      //    留著會在第 300 回合還對 AI 說謊——當作沒設定，讓 AI 從歷史自己判斷。
-      const pRelTagStr = kanshouFreshRelTag_(r[COL.PC.REL_TAG]);
+      // 🏷️ 關係稱呼：AI 每回合依你們的歷史自己維護（intimacy_feedback.npcs[].rel_tag），
+      //    玩家自己打過一次就鎖住歸玩家（【關係鎖】）。沒有值就整段不印。
+      const pRelTagStr = String(r[COL.PC.REL_TAG] || "").trim();
       // 地點的「當下在做什麼」輕量引子(見上方KANSHOU_LOCATION_ACTIVITY_)，沒對照到的地點不加這句，AI自然發揮即可。
       // 🗑️ 2026-09「她在這個地點正在做什麼」的寫死變體池(KANSHOU_LOCATION_ACTIVITY_)已移除——
       //    那是 14 個地點各寫兩句的預寫橋段，同一個人同一地永遠那兩句。她此刻在做什麼，AI 依
@@ -2588,17 +2595,24 @@ ${partyMembers.length ? '' : '★【在場】：沒有同伴在場（常民與�
           const nAppearanceExtras = sanitizeAppearanceExtras(nfb.appearance_extras);
           if (nAppearanceExtras) pcData[targetIdx][COL.PC.MEMORY] = setOutfit_(pcData[targetIdx][COL.PC.MEMORY], nAppearanceExtras);
 
-          // 羈絆記憶已併入該 NPC 自己列的 REL_MEM 欄，現在只剩專屬稱呼。
+          // 羈絆記憶已併入該 NPC 自己列的 REL_MEM 欄，現在放專屬稱呼與兩把鎖。
           let oldRMem = pcData[targetIdx][COL.PC.REL_MEM] || "";
-          // 🔒 2026-07 五度改版·玩家透過 kanshou_set_nickname 手動鎖定過專屬稱呼後(【稱呼鎖】是)，AI 不再自動累加新稱呼進來——尊重玩家的手動選擇，尊重玩家的手動選擇。
-          const nickLocked = /\[稱呼鎖\]是/.test(oldRMem);
-          let nickPart = nickLocked
-            ? `[專屬稱呼]${getNickname_(oldRMem) || "無"}| [稱呼鎖]是`
-            // 🔒 AI 給的稱呼一律先過 sanitizeNickname_(逐項消毒＋限長)——見該函式說明：這格能偽造欄位。
-            : `[專屬稱呼]${processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/,
-              String(nfb.mutual_nicknames || "").split('、').map(sanitizeNickname_).filter(Boolean).join('、'), 3)}`;
+          const _locks = { nick: kanshouRelLocked_(oldRMem, 'nick'), tag: kanshouRelLocked_(oldRMem, 'tag') };
+          // 🔒 AI 給的稱呼一律先過 sanitizeNickname_(逐項消毒＋限長)——見該函式說明：這格能偽造欄位。
+          const _nickValue = _locks.nick
+            ? (getNickname_(oldRMem) || "無")
+            : processTags(oldRMem, /\[專屬稱呼\](.*?)(?=\| \[|$)/,
+              String(nfb.mutual_nicknames || "").split('、').map(sanitizeNickname_).filter(Boolean).join('、'), 3);
           // 🗑 2026-07 態度不再落地（見 relMemMemoryStr_ 的說明：它是會自我鎖死的形容詞標籤）。
-          pcData[targetIdx][COL.PC.REL_MEM] = nickPart;
+          pcData[targetIdx][COL.PC.REL_MEM] = kanshouRelMemBuild_(_nickValue, _locks);
+
+          // 🏷️ 關係稱呼：2026-09 交給 AI——它讀過你們每一回合，比一個數字更知道你們現在是什麼。
+          //    ⚠ 這一格會被原樣塞進提示詞當既定事實(「她是你的○○」)，等於 AI 餵自己，所以只收
+          //    【真的有變】的回合，並走跟專屬稱呼同一個消毒口。玩家自己打過一次就鎖住，從此歸玩家。
+          if (!_locks.tag) {
+            const _aiTag = sanitizeNickname_(nfb.rel_tag);
+            if (_aiTag && _aiTag !== "無") pcData[targetIdx][COL.PC.REL_TAG] = _aiTag;
+          }
 
           // 💞 共同回憶：AI 這回合若吐了里程碑 memory，append 進她自己列的 27 欄(最近 10 條、去重)。
           if (nfb.memory && String(nfb.memory).trim() && String(nfb.memory).trim() !== "無") {

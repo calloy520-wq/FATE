@@ -393,7 +393,7 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 | `update_fate` | 逆天改命存檔 | `actionUpdateFate` | 否，純寫表（4 敘事欄，數值/寶具鎖死） |
 | `get_tags` | （現多由 sync 附帶，獨立呼叫見 1143） | `actionGetTags`→`buildTagsPayload_` | 否，左側狀態面板資料 |
 | `sync` | 主動刷新 | `actionSync`→`buildClientState_` | 否 |
-| `update_rel_tag` | 稱呼編輯「✏️」 | `actionUpdateRelTag` | 否，純寫表 |
+| `update_rel_tag` | 🏷️ 關係稱呼 | `actionUpdateRelTag` | 否，純寫表（順手蓋【關係鎖】）|
 
 ⚠ **2026-07 大整理訂正**：本節先前列出的 `leaderboard`/`get_victory_history`/`get_epic_history`/`war_chronicle`/`war_history_list` 五個 action 及其 handler（`actionLeaderboard`/`actionGetVictoryHistory`/`actionGetEpicHistory`/`actionWarChronicle`/`actionWarHistoryList`）**已於 2026-07 玩家推翻舊方針時整套刪除**（見 `CLAUDE.md`／`HANDBOOK.md` §1：兩個唯讀視窗全砍，單人專注不做跨帳號回顧）——grep 全 `gas/` 確認零殘留，本表格已移除這幾列，避免誤導。
 
@@ -434,7 +434,7 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 > ★【在場】＋`${finalUserMsg}`（玩家這回合的動作：自己打的字標 `【玩家原話】：`、按鍵路徑標 `【玩家意圖】：`＝GAS 寫的摘要）＋`${_settledTail_}`（GAS 已裁定的結果）
 
 
-回應解析欄位（現行 schema，見 `buildDefaultSystemPrompt` 的 finalJson）：`inner_monologue`（不顯示）／`narration`／`npc_exit`／`options`（`optionsOn=false` 整欄刪）／`intimacy_feedback{player:{physical_state,appearance_extras}, npcs[]:{name,physical_state,appearance_extras,mutual_nicknames,memory,**noticed**}}`／`world_note[]`／`rel_changes[]{target,fav_change}`。**`noticed`〔2026-09·她眼中的你〕**：這回合真的從玩家言行看出來的一件事（≤14字、只記會改變之後怎麼對玩家的發現、多數回合「無」），`kanshouAppendUnique_` append 進她自己那列 MEMORY【眼中的你】。~~`location`／`move_proposal`／`attitude`／`dynamic_skills`／`master_note`~~ 都已不存在；`physical_state` 是單一自由文字欄。
+回應解析欄位（現行 schema，見 `buildDefaultSystemPrompt` 的 finalJson）：`inner_monologue`（不顯示）／`narration`／`npc_exit`／`options`（`optionsOn=false` 整欄刪）／`intimacy_feedback{player:{physical_state,appearance_extras}, npcs[]:{name,physical_state,appearance_extras,mutual_nicknames,**rel_tag**,memory,**noticed**}}`／`world_note[]`。**`noticed`〔2026-09·她眼中的你〕**：這回合真的從玩家言行看出來的一件事（≤14字、只記會改變之後怎麼對玩家的發現、多數回合「無」），`kanshouAppendUnique_` append 進她自己那列 MEMORY【眼中的你】。**`rel_tag`〔2026-09·關係稱呼交給 AI〕**：這個人現在是玩家的什麼（≤8字、跟上回合一樣就「無」），玩家自己打過就蓋【關係鎖】、AI 從此不碰。~~`location`／`move_proposal`／`attitude`／`dynamic_skills`／`master_note`／`rel_changes`~~ 都已不存在；`physical_state` 是單一自由文字欄。
 
 （`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Gallery.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。函式簽名 `buildDefaultSystemPrompt(includeOptions, styles)`（2026-09 加 `styles`：玩家的說書人風格覆寫，`nsfwBaseRules` 改陣列組裝＋動態編號；缺省＝與舊字串逐字相同），永遠回傳慾海版本，因為查證後這個函式現在只可能被鑑賞呼叫。詳見 `SOLO_REFERENCE.md` §0。）
 
