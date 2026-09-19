@@ -252,6 +252,12 @@ function kanshouKnownOfYou_(memory) {
   return { tier: kanshouKnownTier_(_m), say: kanshouKnownTier_(_m, 'say'), noted: noted };
 }
 
+// 🧹 剝掉「常駐舞台指示」的副詞：AI 寫進記憶的東西會每回合餵回提示詞，一旦帶著
+//    永遠／總是／每次，那一格就從【觀察】變成【每回合都要演一次的指令】——
+//    跟種子裡退休掉的「背脊永遠打得筆直」同形，只是走資料那條路，掃描器看不到。
+function stripStanding_(str) {
+  return String(str || "").replace(/(永遠|總是|老是|一律|每次|每天|從不|不停)/g, "").trim();
+}
 // 🧵 append→去重→上限 的共用引擎：共同回憶(MEMOIR 欄)與「她眼中的你」(MEMORY 標記)本來就是同一件事，
 //    差別只在 分隔符／上限／長度／要不要保護★釘選。去重那段含 bigram 相似度比對，複製出去必然走樣，
 //    所以只此一份。opt: { sep, cap, maxLen, pin }
@@ -1985,7 +1991,7 @@ function kanshouPartyCards_(ctx) {
       // ★是玩家釘選標記(面板用)，餵AI時去掉、不外洩機制符號。
       // 📝 你在對方眼中是什麼樣子：熟悉段(GAS 依相處次數算)＋對方這一路親自記下的幾條。
       const _pKnown = kanshouKnownOfYou_(r[COL.PC.MEMORY]);
-      const pKnownStr = `${_pKnown.say}${_pKnown.noted.length ? `，${pron_(r[COL.PC.SEX])}注意到你${_pKnown.noted.join('、')}` : ''}。`;
+      const pKnownStr = `${_pKnown.say}${_pKnown.noted.length ? `，${pron_(r[COL.PC.SEX])}注意到我${_pKnown.noted.join('、')}` : ''}。`;
       const pMemoirStr = pMemoirRaw ? `我們一起走過：${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}。` : "";
       // 明講方向的「她/他是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍對方。
       // 🫂 在場者都是同行者，走到哪跟到哪——在場來由只剩「這一幕是怎麼開場的」。
@@ -1995,7 +2001,7 @@ function kanshouPartyCards_(ctx) {
       const pPresenceStr = (() => {
         if (moveTarget) return _isParty
           ? "【與你結伴一起來到】這裡(一路同行，此刻剛踏進這個場景)"
-          : `你走進來的時候，【本來就在這裡】(${pron_(r[COL.PC.SEX])}在這裡做自己的事，是你找過來的)`;
+          : `我走進來的時候，【本來就在這裡】(${pron_(r[COL.PC.SEX])}在這裡做自己的事，是我找過來的)`;
         if (kanshouTimeJumped_) return "時間流轉之後，【依然在你身邊】(這段空白裡各自做了什麼，順著時段自然帶過)";
         // 🗑️ 2026-09 玩家「你們從剛才就一直在這裡<< 這不用了吧?」：一般回合不講在場來由。
         //    上一輪的敘事就在 chatHistory 裡、人也還在卡上，那句話沒有新資訊。
@@ -2014,7 +2020,7 @@ function kanshouPartyCards_(ctx) {
   // 🧊 不變那半：進 system。順序＝同行名單的順序（加人是 append 到尾巴，所以加人不會動到
   //    前面幾張卡的前綴，快取照樣命中；只有移除中間某位才會從那個點斷掉）。
   const PROMPT_PARTY_STABLE = stableArr.length > 0
-    ? `【在我身邊的人】(以下是他們是誰；此刻穿什麼、和我走到哪一步，見下方【此刻】)：\n${stableArr.join("\n")}`
+    ? `【在我身邊的人】(以下是他們是誰；此刻穿什麼、和我走到哪一步，見下方【他們此刻】)：\n${stableArr.join("\n")}`
     : "";
   // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。
   const _presenceKeys_ = Object.keys(_presenceSeen_);
@@ -2031,7 +2037,7 @@ function kanshouPartyCards_(ctx) {
     const _all = liveArr.map(x => String(x).split('：')[0]);
     const _others = _all.filter(n => _partyHere_.indexOf(n) < 0);
     if (!_partyHere_.length) return `現在沒有人跟你同行。這個地方此刻有：${_all.join('、')}（他們本來就在這裡）。`;
-    return `同行中：${_partyHere_.join('、')}（一路跟著你走）。`
+    return `同行中：${_partyHere_.join('、')}（一路跟著我走）。`
       + (_others.length ? `這個地方此刻還有：${_others.join('、')}（本來就在這裡）。` : '');
   })();
   const PROMPT_PARTY_LIVE = liveArr.length > 0
@@ -2156,7 +2162,7 @@ function kanshouApplyIntimacyFeedback_(ctx) {
         if (nfb.noticed && String(nfb.noticed).trim() && String(nfb.noticed).trim() !== "無") {
           pcData[targetIdx][COL.PC.MEMORY] = KANSHOU_NOTED_TAG_.set(
             pcData[targetIdx][COL.PC.MEMORY],
-            kanshouAppendUnique_(KANSHOU_NOTED_TAG_.get(pcData[targetIdx][COL.PC.MEMORY]), nfb.noticed,
+            kanshouAppendUnique_(KANSHOU_NOTED_TAG_.get(pcData[targetIdx][COL.PC.MEMORY]), stripStanding_(nfb.noticed),
               { sep: KANSHOU_NOTED_SEP_, cap: KANSHOU_NOTED_CAP_, maxLen: KANSHOU_NOTED_LEN_ }));
         }
       });
@@ -2330,7 +2336,7 @@ function actionPlay_(userData, pcId, sheets) {
         : [];
       return _name + (_variants.length ? `(${_variants.join('/')}也是同一人)` : '') + '在' + kanshouLocNameForAI_(String(r[COL.PC.LOC] || ''));
     }).join('、');
-    return `\n★【這座城裡還有誰】：${_list}。我們都認識他們；玩家問起就照認識的樣子回答，也可以說出對方此刻在哪。★他們此刻各自在自己的地方，【不在這一幕的畫面裡】——要見面得真的走過去，或請對方過來（系統會宣告）。`;
+    return `\n★【這座城裡還有誰】：${_list}。我們都認識他們；我問起就照認識的樣子回答，也可以說出對方此刻在哪。★他們此刻各自在自己的地方，【不在這一幕的畫面裡】——要見面得真的走過去，或請對方過來（系統會宣告）。`;
   })();
   presentRows.forEach(r => {
     const _ri = pcData.indexOf(r);
@@ -2359,7 +2365,6 @@ function actionPlay_(userData, pcId, sheets) {
   const PROMPT_PARTY_LIVE = _cards_.live;   // 此刻的樣子留在 user；「他們是誰」進 system 吃快取
 
   // 路人與缺席者是同一件事的兩面（誰只是背景／誰不在場），合成一條；能開口的名單在結尾講。
-  const backgroundCrowdStr = "";  // 已併進下方 ★【這個世界有誰】；理由見 CODE_NOTES.md 同名條目
 
   let genderHintStr = "";
   const presentRowsForGender = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim() && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
@@ -2426,10 +2431,8 @@ function actionPlay_(userData, pcId, sheets) {
   //    實測後果是玩家明明是女性身體，敘事照樣讓她「挺腰撞進去」。
   //    身體狀態(nsfwMemories)同理——它每回合都在變，照排序原則本來就該在後面。
   const PROMPT_BODY = `${nsfwMemories}${genderHintStr}`;
-  const PROMPT_REL = `${backgroundCrowdStr}`;
 
   // 有【專屬稱呼】就用暱稱取代真名；JSON 姓名欄不受影響、仍填真名。
-  const npcDialoguePrompt = "";  // 名單/稱呼併入結尾的【在場名單】鐵律，見下方 prompt
 
 
   const _histWindow_ = KANSHOU_HIST_WINDOW_;
@@ -2445,8 +2448,7 @@ function actionPlay_(userData, pcId, sheets) {
   const _styleVars_ = { '玩家': pcName, '代名詞': _mePron_, '篇幅': _kanshouTargetWords_ };
   const _sty_ = k => kanshouStyle_(_styles_, k, _styleVars_);
   const prompt = `${_sty_('world')}
-${PROMPT_REL}
-★【誰在場】：有【專屬稱呼】就叫暱稱。【已經確立的事】名單上的人可出現可開口，其餘路人不具名。
+★【誰在場】：有【專屬稱呼】就叫暱稱。這個世界裡已經有名字的人可出現可開口，其餘路人不具名。
 ★【world_note】：這一步新出現的地方/人/規矩寫進去才會留下，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆；只長在某地的東西（田、雞、招牌、常客）的 at 填那個地名。
 
 【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
@@ -2456,12 +2458,11 @@ ${_lenLine_ === '' ? '' : _sty_('length')}
 ${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouNightSceneStr}
 ★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚就在這個房間裡過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 
-${npcDialoguePrompt}
-${presentMembers.length ? '' : '★【在場】：這個地方只有你一個人（常民與路人照常可以出現）。'}
+${presentMembers.length ? '' : '★【在場】：這個地方只有我一個人（常民與路人照常可以出現）。'}
 
 ${PROMPT_BODY}
 
-接著往下演，玩家這一步是：『${finalUserMsg}』`;
+接著往下演，玩家這一步是：『${finalUserMsg}』`.replace(/\n{3,}/g, '\n\n');
 
   try {
     // 🔥 點火＝模型開關（2026-09 玩家定案）：平常走便宜的 KANSHOU_MODEL，按了才換敢寫的那顆。
