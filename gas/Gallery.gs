@@ -1725,15 +1725,16 @@ function kanshouAdvanceClock_(ctx) {
         }
       });
     }
-    // 玩家自己不管白天晃到哪，結束一天一律強制拉回自己房間——「玩家永遠有路可退」的安全閥。
-    const kanshouMyRoomLoc_ = '我的房間';
-    pcData[pcIndex][COL.PC.LOC] = kanshouMyRoomLoc_;
+    // 🌙 結束一天＝回家睡覺，所以場景（那一格現在存的是「上一段演完人在哪」）回到房間。
+    //    ⚠ 2026-09 地點退休前這裡的語意是「安全閥：玩家永遠有路可退」，現在單純是
+    //    「睡了一覺，醒來在自己房裡」——它是布景，不是位置。
+    pcData[pcIndex][COL.PC.LOC] = '我的房間';
     dirtyPcRows.add(pcIndex);
     // 🩸 肉體狀態也不跨夜：那一欄寫的是【此刻】的身體(腿還在發軟、指尖還在抖)，睡一覺就該回到如常。
     //    AI 沒吐 physical_state 的回合不會覆寫它，不清就會一路跟著人走好幾天。
     kanshouRestBody_(pcData, pcIndex);
     allEstablished.forEach(r => { const _bi = pcData.indexOf(r); kanshouRestBody_(pcData, _bi); if (_bi >= 0) dirtyPcRows.add(_bi); });
-    curL = kanshouMyRoomLoc_;
+    curL = '我的房間';
     finalUserMsg = `【一天結束】夜幕降臨，${intimateNightNames.length ? `跟『${intimateNightNames.join('、')}』一起` : ""}回到房間安頓下來，今天到此為止，明天又是新的一天。`;
   } else {
     let advanceHours = Math.max(0, Math.min(parseFloat(userData.advanceHours) || 0, 24 * 365 * 3)); // parseFloat：支援「跳到約定前10分」的小數時數
@@ -2047,14 +2048,12 @@ function actionPlay_(userData, pcId, sheets) {
   const myGameId = pc && pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
   const sameGame = (r) => !myGameId || String(r[COL.PC.GAME_ID] || "") === myGameId;
 
-  // 🫂 同行名單＝這一回合「誰在你身邊」的唯一真實來源：時間推進、在場卡、過夜全都讀它。
-  //    第一次沒有標記時把此刻同場的人收進來（上限內），同行制上線那一刻人不會憑空消失。
+  // 🫂 同行名單＝「誰在這一幕裡」的唯一真實來源（2026-09 地點退休後，也是唯一的來源）。
   //    判準是「寫過沒有」而不是「值空不空」——玩家自己按清空是空值，不會被重新種回去。
+  //    ⚠ 舊版在這裡會「把此刻同場的人收進來」當遷移用；LOC 不再是位置之後那個比對沒有意義，
+  //    所以改成種成空的：誰跟你走，由玩家自己選。
   if (!KANSHOU_PARTY_TAG_.has(pc[COL.PC.MEMORY])) {
-    const _seedIds = pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId)
-      && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim())
-      .slice(0, KANSHOU_PARTY_MAX_).map(r => String(r[COL.PC.ID]));
-    pcData[pcIndex][COL.PC.MEMORY] = kanshouSetParty_(pc[COL.PC.MEMORY], _seedIds);
+    pcData[pcIndex][COL.PC.MEMORY] = kanshouSetParty_(pc[COL.PC.MEMORY], []);
     dirtyPcRows.add(pcIndex);
   }
   const partyRows = kanshouGetParty_(pc[COL.PC.MEMORY])
@@ -2124,7 +2123,9 @@ function actionPlay_(userData, pcId, sheets) {
   // 路人與缺席者是同一件事的兩面（誰只是背景／誰不在場），合成一條；能開口的名單在結尾講。
 
   let genderHintStr = "";
-  const presentRowsForGender = pcData.filter((r, i) => i !== 0 && r[COL.PC.ID] != pcId && String(r[COL.PC.LOC] || "").trim() === String(curL || "").trim() && sameGame(r) && !String(r[COL.PC.ID]).startsWith("DEAD_"));
+  // ⚠ 2026-09：原本這裡比 LOC（同地點就算在場）。LOC 不再是位置之後那會撈到一堆不在場的人
+  //    ——★【身體】那句會點名根本沒在這一幕裡的角色。改讀在場名單（＝同行）。
+  const presentRowsForGender = presentRows;
   if (presentRowsForGender.length > 0) {
     const playerSex = pc[COL.PC.SEX] || "未知";
     // 「異/無」(如開膛手傑克「無固定實體」)這類非二元性別值一律按女性向處理(對齊heroToKanshouRow_ 的肉體起始預設)。
