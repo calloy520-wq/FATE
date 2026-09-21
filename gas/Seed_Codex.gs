@@ -130,9 +130,9 @@ var SEED_SERVANTS = [
     skills:[{n:'精神汙染',r:'A',fx:'mad'},{n:'螺湮城教本',r:'',fx:'summon_horror'}],
     traits:[{n:'人類'}], np:'螺湮城教本 Prelati\'s Spellbook（深淵召喚・召喚大海怪·【留存】海怪常駐戰場）',
     align:'混沌・惡', persona:{look:'捧巨書的清瘦貴族(無鬚無眉)、癲狂',words:'虔誠扭曲・對「聖女」的執念',toMaster:'當成唯一聽得懂自己的知音，狂熱地傾訴',quirks:'講到入迷會抓著人的手、把書頁角折成三角形',logic:'說得通的話擺一邊，信的只有想相信的那個',
-    dailyLook:'清瘦貴族(無鬚無眉)・抱著厚書、皮革書封與蠟燭餘燼',
+    dailyLook:'清瘦貴族・無鬚無眉的蒼白臉孔、皮革書封與蠟燭餘燼',
     dailyOutfit:'書卷氣的樸素便服',
-    dailyWords:'溫文儒雅、虔誠到近乎執迷、談得來的人、話不投機的敷衍',dailyBack:'守著一間快倒的舊書店，客人比他還少'} },
+    dailyWords:'溫文儒雅、虔誠到近乎執迷、厚重的舊書與談得來的人、話不投機的敷衍',dailyBack:'守著一間快倒的舊書店，客人比他還少'} },
   // 敏捷A/魔力C/寶具B：第四次聖杯戰爭材料一致給這三個階級。
   { id:'百貌哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（百貌）', wars:['4th'], gender:'男',
     six:{筋力:'C',耐久:'D',敏捷:'A',魔力:'C',幸運:'E',寶具:'B'},
