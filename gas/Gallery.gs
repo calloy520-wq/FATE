@@ -515,18 +515,11 @@ function actionEnterKanshou(userData, pcId, sheets) {
   kpc.appendRow(mRow);
   linkAccountToKanshouPc_(acctName, mId); // 🔒 權威連結寫進帳號表
 
-  // 開場只入駐4位起始住民(2026-07玩家定案：大河/凜/櫻/SABER——「本來就住在這座城」感最強的幾位)，其餘女角不建列、不存在於世界，之後靠 🌟 召喚才入駐。
-  var starterHeroes = getHeroCodexCached().slice(1).filter(function (r) {
-    return KANSHOU_STARTER_IDS_.indexOf(String(r[COL.HERO.ID])) !== -1;
-  });
-  // 🗺️ 2026-09 玩家「全部人在客廳…我想要讓他們先分散出去」：起始住民各自落在不同的起始地點，
-  //    開局就有「要去找人」這件事。不夠分時才輪回玩家開局的地方。
-  var starterRows = starterHeroes.map(function (hero) {
-    return heroToKanshouRow_(hero, gameId, loc2, 1);
-  });
-  if (starterRows.length) {
-    kpc.getRange(kpc.getLastRow() + 1, 1, starterRows.length, pcColCount).setValues(starterRows);
-  }
+  // 🗑️ 2026-09 起始住民整組取消（玩家：「取消內建！」）。原本開場先入駐 4 位
+  //    （大河/凜/櫻/SABER），那是「本來就住在這座城」的設計；但 2026-09 地點退休、
+  //    在場改成同行之後，那 4 位躺在面板裡什麼也不做，只先吃掉一半的世界位子
+  //    （KANSHOU_WORLD_MAX_ 8 格）。現在開場是真的一片空白，誰住進來由玩家 🌟 召喚決定。
+  //    ⚠ 只影響【新開的局】——既有存檔那幾位照舊在。
   return JSON.stringify({
     success: true,
     pcId: mId, pcName: mName, pcSex: mSex, loc: loc2, homeName: getKanshouHomeName_(mRow[COL.PC.MEMORY], mName)
@@ -967,8 +960,6 @@ function kanshouFixWorldKinds_(entries, gameId, homeName, peopleNames) {
 // （斯卡哈有 Lancer/Assassin 兩種靈基、伊莉雅有 Master/Caster 兩個版本），封鎖只是繞過去；
 // 現在由下方 kanshouSummonClash_ 擋「同一個人同時在場」，兩種姿態各自都召喚得到，選一個。
 const KANSHOU_SUMMON_BLOCKED_IDS_ = [];
-// 🏘️ 開局起始住民(2026-07玩家定案)：只有這4位一開始就「活在這座城裡」，其餘靠 🌟 召喚入駐。
-const KANSHOU_STARTER_IDS_ = ['藤村大河-Master', '遠坂凜-Master', '間桐櫻黑化-Master', '阿爾托莉雅-Saber'];
 // 🫂 同行名單（存【玩家】列 MEMORY·逗號分隔的 id）：2026-09 玩家定案「我可以指定 AI 跟我一起，
 //    他必須回應我；其他人可以出現但只是很薄的背景板」。這是「誰在這一幕裡」的【唯一】判準
 //    ——2026-09 地點整組退休之後，它也是唯一還說得出「誰在場」的東西。
@@ -976,7 +967,7 @@ const KANSHOU_STARTER_IDS_ = ['藤村大河-Master', '遠坂凜-Master', '間桐
 //    （同款坑見 CODE_NOTES 的「初次·同床蓋到別人那列」）。
 const KANSHOU_PARTY_MAX_ = 3;
 // 🌍 這個世界裡總共住幾個人。同行上限管「幾個人跟著你走」，這個管「城裡有幾個人」。
-// ⚠ 起始住民就佔了 4 位（KANSHOU_STARTER_IDS_），所以這個數字要留得下玩家自己邀的人。
+// ⚠ 2026-09 起始住民取消後，這 8 格【全部】是玩家自己邀的人。
 //    滿了之後靠面板上的「🚪 請她離開這座城」（op:'evict'）騰位子——那顆鈕要是哪天砍了，
 //    這個數字要再放寬，否則世界會在滿員的那一刻永遠鎖死。
 const KANSHOU_WORLD_MAX_ = 8;

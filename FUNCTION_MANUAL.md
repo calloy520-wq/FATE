@@ -692,7 +692,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `WORLD_SPEC_`（常數）— 帳本引擎的**逐軌規格表**（`kanshou`／`solo`）：`sheet`／`kinds`／`cap`／`feedMax`／`atMax`／`writeMax`／`textMax`。加一軌＝往表加一列。
 - `worldTrack_(gameId)` / `worldSpec_(gameId)` — 由 game_id 前綴決定這一局屬於哪一軌（`g_`＝solo）並取出規格。
 - `KANSHOU_SUMMON_BLOCKED_IDS_`（常數）— 暫移出鑑賞的英靈 id（召喚/住處共用單一來源）。
-- `KANSHOU_STARTER_IDS_`（常數）— 開局 4 位起始住民（大河/凜/櫻/SABER）。
+- `KANSHOU_STARTER_IDS_`（常數）— 開局 4 位起始住民（大河/凜/櫻/SABER）。　※（2026-09 起始住民整組取消·已移除）
 - `KANSHOU_PARTY_MAX_`（常數=3）— 同行人數上限（前端鏡射 `KC_PARTY_MAX_`）。
 - `KANSHOU_PARTY_TAG_`（常數）— 同行名單標記，存【玩家】列 MEMORY、逗號分隔 id。
 
