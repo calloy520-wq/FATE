@@ -233,23 +233,27 @@ const KANSHOU_NOTED_LEN_ = 14;
 //    關係軸——它只回答「你們見過幾次」這個事實，不回答「她多喜歡你」（那件事交給 AI 從歷史自己判斷）。
 var KANSHOU_MET_COUNT_TAG_ = makeIntTag_('相處', 0);
 // say＝真的送進提示詞的那句話。一階一句，往表加一列就多一階。
-// ⚠ say 一律寫成【描述狀態】、避開第一人稱完整句：舊版寫「我們還只是初識」，
-//    那等於直接遞一句台詞過去，模型照著唸成「我們才剛認識沒多久」。見 CODE_NOTES。
+// ⚠ say 一律寫成【此刻量得出來的物理距離】，不寫關係名詞、不寫評語、不寫「遇到X就做Y」。見 CODE_NOTES。
+// ⏱ min 的單位是【同場回合】，而一回合＝KANSHOU_MIN_PER_TURN_ 分鐘，所以這張表其實就是
+//    「一起待了多久」：12＝2 小時、30＝5 小時、50＝8 小時出頭。跳時間/過夜的回合不計（見 +1 那處的 guard），
+//    所以它量到的是真的在同一個地方相處的時間，不是日曆上過了幾天。
 const KANSHOU_FAMILIAR_TIERS_ = [
-  { min: 50, key: '老交情', say: '相處已久' },
-  { min: 12, key: '混熟', say: '相處漸熟' },
-  { min: 0, key: '初識', say: '相處還淺' }
+  { min: 50, key: '老交情', say: '我們之間沒有留距離' },
+  { min: 30, key: '熟稔', say: '我們之間近到衣袖會碰到' },
+  { min: 12, key: '混熟', say: '我們之間的距離縮到半個手臂' },
+  { min: 0, key: '初識', say: '我們之間留著一個手臂的距離' }
 ];
-// 依相處次數查熟悉段（單一真實來源＝KANSHOU_FAMILIAR_TIERS_）。
+// 依相處次數查熟悉段（單一真實來源＝KANSHOU_FAMILIAR_TIERS_）。查不到就退回表尾那一階，
+// 不在這裡另外寫死一句（同一句話存兩處，改了表沒改這裡就是兩個答案）。
 function kanshouKnownTier_(metCount, field) {
-  var t = KANSHOU_FAMILIAR_TIERS_.find(function (x) { return (parseInt(metCount) || 0) >= x.min; }) || {};
-  return t[field || 'key'] || (field === 'say' ? '相處還淺' : '初識');
+  var _t = KANSHOU_FAMILIAR_TIERS_;
+  var t = _t.find(function (x) { return (parseInt(metCount) || 0) >= x.min; }) || _t[_t.length - 1];
+  return t[field || 'key'];
 }
 // 組一句「我在對方眼中」：熟悉段 ＋ 對方真的記下的那幾條（沒有就只有熟悉段）。
 function kanshouKnownOfYou_(memory) {
   var noted = String(KANSHOU_NOTED_TAG_.get(memory) || '').split(KANSHOU_NOTED_SEP_).map(function (x) { return x.trim(); }).filter(Boolean);
-  var _m = KANSHOU_MET_COUNT_TAG_.get(memory);
-  return { tier: kanshouKnownTier_(_m), say: kanshouKnownTier_(_m, 'say'), noted: noted };
+  return { say: kanshouKnownTier_(KANSHOU_MET_COUNT_TAG_.get(memory), 'say'), noted: noted };
 }
 
 // 🧹 剝掉「常駐舞台指示」的副詞：AI 寫進記憶的東西會每回合餵回提示詞，一旦帶著

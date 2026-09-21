@@ -79,7 +79,7 @@
 | 【晨間餘韻】 | `【晨間餘韻】同伴名` | — | 同床隔天引子，讀一次即清 |
 | 【關係階】 | `【關係階】N`（1=點頭之交…5=戀人·IntTag 預設0） | 同伴列 | 💗 歷來最高關係階（`kanshouRelRank_`）。只升不降，用來偵測「這回合剛跨階」→注入質變提示。**刻意看 BOND 不看 REL_TAG**（玩家自訂稱呼後 REL_TAG 不再等於梯度字面，跨階演出不該因此消失） |
 | 【帳號】 | `【帳號】acctName` | — | 人工檢視辨識（非驗證，歸屬走帳號表） |
-| 【相處】 | `【相處】N`（IntTag） | 同伴列 | `KANSHOU_MET_COUNT_TAG_`：同地回合累計，`kanshouKnownTier_` 算「她對你的知情度」(初識/混熟/老交情) |
+| 【相處】 | `【相處】N`（IntTag） | 同伴列 | `KANSHOU_MET_COUNT_TAG_`：同地回合累計，`kanshouKnownTier_` 算「我們之間此刻隔多遠」(四階物理距離) |
 | 【眼中的你】 | `【眼中的你】句／句`（≤3 條·各≤14 字） | 同伴列 | `KANSHOU_NOTED_TAG_`：AI `noticed` 落地（只記會改變之後怎麼對玩家的發現），`kanshouKnownOfYou_` 讀進在場卡 |
 | 【時間流速】 | `【時間流速】分`（0/10/20/30） | 玩家列 | `KANSHOU_PACE_TAG_`：`actionKanshouSetPace` 寫、`kanshouPaceOf_` 讀 |
 | 【設定已補】 | `【設定已補】1` | 玩家列 | `KANSHOU_BACKFILL_DONE_TAG_`：創角 AI 擴寫只跑一次的閘 |
@@ -951,7 +951,7 @@ JSON 固定開銷（三人在場）：典型 757 字 ／ 欄位全滿 1,057 字
 
 | 層 | 誰算 | 提示詞成本 |
 |---|---|---|
-| **她對你多熟** | **GAS**：`KANSHOU_MET_COUNT_TAG_` 查 `KANSHOU_FAMILIAR_TIERS_` | 卡上 `你在她眼中:初識` 約 8 字 |
+| **她對你多熟** | **GAS**：`KANSHOU_MET_COUNT_TAG_` 查 `KANSHOU_FAMILIAR_TIERS_` | 卡上一句物理距離，約 10 字 |
 | **她記下你哪些特點** | AI 吐 `noticed` → `kanshouAppendUnique_` | schema 一行 ＋ 卡上最多 3 條 |
 
 擋住「一眼看穿」的是**第一層**，GAS 自己算得出來，**AI 吐不吐都擋得住**。
