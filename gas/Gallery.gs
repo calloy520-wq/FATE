@@ -2083,9 +2083,24 @@ function actionPlay_(userData, pcId, sheets) {
   const presentMembers = presentRows.map(r => String(r[COL.PC.NAME]));
 
 
-  // 🗑️ 2026-09 地點整組退休：★【這座城裡有哪些地方】（地圖）與 ★【這座城裡還有誰】（誰在哪）
-  //    兩段一起砍。後者本來就是地點系統的補丁——它要回答的「她此刻在哪」，在沒有位置
-  //    這個概念之後不存在了。
+  // 🗑️ 2026-09 地點整組退休：★【這座城裡有哪些地方】（地圖）整段砍除。
+  // 🔁 但 ★【這座城裡還住著】救回來了——我第一刀把它【整段】砍掉是砍過頭：
+  //    那一段有兩半，「她此刻在哪」是地點系統的補丁（該砍），「這座城裡有誰」不是。
+  //    砍掉之後，召喚了 4 個人但都沒同行時，AI 手上【一個名字都沒有】——
+  //    召喚的意思就只剩「加進一個你挑得到的清單」，這座城從 AI 的角度是空的。
+  //    ⚠ 現在只給名字：沒有地點、沒有「走過去才見得到」那類移動語言。
+  const kanshouWorldRosterStr = (() => {
+    const _hereIds = presentRows.map(r => String(r[COL.PC.ID]));
+    const _elsewhere = pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId) && _hereIds.indexOf(String(r[COL.PC.ID])) < 0)
+      .sort((a, b) => KANSHOU_MET_COUNT_TAG_.get(b[COL.PC.MEMORY]) - KANSHOU_MET_COUNT_TAG_.get(a[COL.PC.MEMORY]))
+      .slice(0, KANSHOU_WORLD_ROSTER_CAP_);
+    if (!_elsewhere.length) return "";
+    // ⚠ 舊版還會附大小寫別名（EMIYA/Emiya/emiya 也是同一人），那是為了讓 world_note 的
+    //    `at` 逐字比對得上；`at` 已隨地點退休，這裡只是讓 AI 知道有這個人，附別名純粹是雜訊
+    //    （實測「無名（EMIYA）」會生出「無名（emiya）也是同一人」這種沒有意義的附註）。
+    const _list = _elsewhere.map(r => String(r[COL.PC.NAME] || "")).filter(Boolean).join('、');
+    return `\n★【這座城裡還住著】：${_list}。我們都認識他們，他們此刻不在這一幕裡；我問起就照認識的樣子回答。`;
+  })();
   presentRows.forEach(r => {
     const _ri = pcData.indexOf(r);
     if (_ri < 0) return;
@@ -2203,7 +2218,7 @@ function actionPlay_(userData, pcId, sheets) {
 【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
 ${PROMPT_PARTY_LIVE}
 ${_lenLine_ === '' ? '' : _sty_('length')}
-${_worldFeed_}${kanshouNightSceneStr}
+${kanshouWorldRosterStr}${_worldFeed_}${kanshouNightSceneStr}
 ${(() => { const _sc = String(pc[COL.PC.LOC] || "").trim(); return _sc ? `★【場景】：上一段演完，我們在「${_sc}」。\n` : ""; })()}★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚跟我一起過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 
 ${presentMembers.length ? '' : '★【在場】：這個地方只有我一個人（常民與路人照常可以出現）。'}
