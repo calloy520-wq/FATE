@@ -869,7 +869,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
       }]
     },
     "world_note": [{ "kind": "地點|人物|設定", "name": "一句話標題", "text": "≤" + WORLD_SPEC_.kanshou.textMax + "字", "sex": "kind=人物 才填 男/女/異" }],
-    "scene": "這一幕在哪·≤12字的背景·換了地方就換掉它，沒換就照原樣寫回來",
+    "scene": "這一段演完，人最後在哪·≤12字",
   };
   if (includeOptions === false) { delete finalJson.options; }
 
@@ -2212,7 +2212,7 @@ function actionPlay_(userData, pcId, sheets) {
 ${PROMPT_PARTY_LIVE}
 ${_lenLine_ === '' ? '' : _sty_('length')}
 ${_worldFeed_}${kanshouNightSceneStr}
-${(() => { const _sc = String(pc[COL.PC.LOC] || "").trim(); return _sc ? `★【場景】：這一幕在「${_sc}」。換地方由你決定，換了就把新的寫進 scene。\n` : ""; })()}★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚跟我一起過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
+${(() => { const _sc = String(pc[COL.PC.LOC] || "").trim(); return _sc ? `★【場景】：上一段演完，我們在「${_sc}」。\n` : ""; })()}★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚跟我一起過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 
 ${presentMembers.length ? '' : '★【在場】：這個地方只有我一個人（常民與路人照常可以出現）。'}
 
