@@ -174,7 +174,6 @@ function servantCard_(row, opts) {
       (persona ? quadLabeled_(persona, PREF_LABELS_, false).replace(/^｜/, '') : `性格：依真名`) +
       (stance ? `｜${isMine ? '此刻對你' : '對自己御主的態度'}：${stance}` : "") +
       (foeStance ? `｜此刻對你：${foeStance}` : "") +
-      (quirks && !foe ? `｜${quirks}` : "") +
       (logic ? `｜做選擇時：${logic}` : "") +
       (look ? traitLabeled_(look, false) : "") +
       (back ? `｜身世：${back}` : "") +
