@@ -1062,6 +1062,12 @@ function kanshouFindLoc_(gameId, name) {
   return kanshouLocationsFor_(gameId).find(l => l.name === n) || null;
 }
 
+// 🗺️ 內建三區的區域名（玩家自訂區走 kanshouFindRegion_，兩邊組出來的句子是同一個形狀）。
+const KANSHOU_REGION_LABEL_ = {
+  shinzan: '深山町（溫馨的住宅生活區）',
+  fuyuki: '冬木市中心（熱鬧的商業生活區）',
+  dojo: '山林（安靜神秘的郊野區）'
+};
 // 🧭 給AI的地點脈絡：光一個地名(如「客廳」)AI分不出是御主自己家還是別人家，容易誤演成「在他家中」。
 function kanshouLocContextForAI_(locName, homeName, gameId) {
   const loc = kanshouFindLoc_(gameId, locName);
@@ -1069,17 +1075,16 @@ function kanshouLocContextForAI_(locName, homeName, gameId) {
   // 🏪 你自己的店/攤位：這是最需要先講清楚的一件事——不講的話 AI 會把你演成上門的客人。
   const ownStr = loc.own ? `這是【你自己開的】${loc.own}「${loc.name}」，你是這裡的主人；客人會上門，你招呼、你做事` : "";
   if (ownStr) return ownStr + (loc.desc ? `（${loc.desc}）` : "");
-  const rgCustom = (loc.region && String(loc.region).indexOf('rg_') === 0) ? kanshouFindRegion_(gameId, loc.region) : null;  // 內建區走下面的 switch
-  if (rgCustom) return `${rgCustom.name}${rgCustom.desc ? `（${rgCustom.desc}）` : ""}的「${loc.name}」${loc.desc ? `：${loc.desc}` : ""}`;
+  const rgCustom = (loc.region && String(loc.region).indexOf('rg_') === 0) ? kanshouFindRegion_(gameId, loc.region) : null;
+  if (rgCustom) return `${rgCustom.name}${rgCustom.desc ? `（${rgCustom.desc}）` : ""}${loc.desc ? `：${loc.desc}` : ""}`;
   if (loc.region === 'mine') return loc.desc || "這座城裡我們自己走出來的地方";
-  switch (loc.region) {
-    case 'room': return `「${homeName}」裡我自己的房間`;
-    case 'home': return `「${homeName}」的共用空間`;
-    case 'shinzan': return `深山町（溫馨的住宅生活區）`;
-    case 'fuyuki': return `冬木市中心（熱鬧的商業生活區）`;
-    case 'dojo': return `山林（安靜神秘的郊野區）`;
-    default: return "";
-  }
+  if (loc.region === 'room') return `「${homeName}」裡我自己的房間`;
+  if (loc.region === 'home') return `「${homeName}」的共用空間`;
+  // 🐛→✅ 內建三區本來只回一句區域名，把這個地方【自己的描述】(loc.desc，就是世界帳本那一格)
+  //    整個丟掉——AI 只知道「在冬木市中心」，不知道這間咖啡廳長什麼樣，就自己編一個出來
+  //    (實測：編出店名、編出老闆，而且下一回合把自己編的當成事實)。形狀與 rgCustom 那條對齊。
+  const rgLabel = KANSHOU_REGION_LABEL_[loc.region];
+  return rgLabel ? `${rgLabel}${loc.desc ? `：${loc.desc}` : ""}` : "";
 }
 // 🌸 內建地點只剩【我自己的房間】一格：它是結構性的(玩家永遠有路可退、isRoom 判私密場合)，
 //    刪不得也搬不得。其餘的地方全部住在世界帳本裡，開局種進去當範例——玩家改得動、也刪得掉。
