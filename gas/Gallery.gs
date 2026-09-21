@@ -37,13 +37,16 @@ function sanitizeAiData_(aiData, gameId) {
   // 🌍 world_note 是 AI 唯一能新增「世界內容」的管道，所以邊界要擋在最外層：只收合法類別、限筆數。
   //    逐欄的字元清洗與長度在 worldWrite_ 裡做(那裡是唯一寫入點)，這裡只擋結構。
   if (aiData.world_note !== undefined) {
-    // ⚠ 只留白名單那四欄再往下送：AI 回傳的物件是整包穿過去的，不重建的話它可以塞
-    //    {own:"按摩"} 自己宣告「這家店是玩家的」、或把地點塞進別人的大區。
-    //    region/own 只有玩家自己的動作寫得到(開店/開區)，那條路不經過這裡。
+    // ⚠ 只留白名單那幾欄再往下送：AI 回傳的物件是整包穿過去的，不重建的話它可以塞
+    //    {own:"按摩"} 自己宣告「這家店是玩家的」。own 照舊擋死——開店是玩家的動作。
+    // 🗾 2026-09 region 放行（玩家要「AI 自由創造地圖」還能自己歸類）。放行的是【歸類】，
+    //    不是【建區】，而且三道邊界把它圍住：①kanshouFixWorldKinds_ 只把名字翻成【這一局
+    //    真的存在】的區 id，翻不到就清空；②AI 開不了新的大區（kinds 不含大區）；
+    //    ③worldWrite_ 只在 region 還空著時才填，所以它搬不動任何已經歸好區的地方。
     aiData.world_note = (Array.isArray(aiData.world_note) ? aiData.world_note : [])
       .filter(w => w && typeof w === 'object' && worldSpec_(gameId).kinds.indexOf(String(w.kind || "").trim()) >= 0)
       .slice(0, worldSpec_(gameId).writeMax)
-      .map(w => ({ kind: w.kind, name: w.name, text: w.text, sex: w.sex, at: w.at }));
+      .map(w => ({ kind: w.kind, name: w.name, text: w.text, sex: w.sex, at: w.at, region: w.region }));
   }
   // 🛡️ ★指令／〈演出卡〉被原樣抄進敘事：solo(narrateWithState_) 早有這道濾網，鑑賞這條路徑漏掉了。
   //    先把真實換行轉成 <br> 再過濾——濾網掃到下一個「<」為止，沒有 <br> 的話會把整段吃光。
@@ -938,7 +941,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
         "noticed": "≤14字·會改變之後怎麼對玩家的發現·沒有就留空"
       }]
     },
-    "world_note": [{ "kind": "地點|人物|設定", "name": "一句話標題", "text": "≤" + WORLD_SPEC_.kanshou.textMax + "字", "sex": "kind=人物 才填 男/女/異", "at": "只長在某地就填那個地名·沒有就留空" }],
+    "world_note": [{ "kind": "地點|人物|設定", "name": "一句話標題", "text": "≤" + WORLD_SPEC_.kanshou.textMax + "字", "sex": "kind=人物 才填 男/女/異", "at": "只長在某地就填那個地名·沒有就留空", "region": "kind=地點 才填·它屬於上面地圖裡的哪一區·照那一區的名字寫·自成一格就留空" }],
     "move_to": "我這一步說要去的地方·照我說的名字寫·沒有就留空",
   };
   if (includeOptions === false) { delete finalJson.options; }
@@ -1038,7 +1041,13 @@ function kanshouFixWorldKinds_(entries, gameId, homeName, peopleNames) {
     }
     // 反向也會錯：把一個【正式同伴】寫成 kind:'地點'，世界上就多出一個以她為名的地方。
     // 刻意只認【逐字完全相同】的名字——「凜的房間」這種是真的地名，模糊比對會把它一起吃掉。
-    if (kind === '地點' && known.indexOf(String(w.name || "").trim()) >= 0) w.kind = '人物';
+    if (kind === '地點' && known.indexOf(String(w.name || "").trim()) >= 0) { w.kind = '人物'; return; }
+    // 🗾 歸區：AI 看到的是大區的【名字】（地圖那行給的就是名字），欄位存的是 id，在這裡翻回去。
+    //    翻不到就清空——寧可落在「還沒歸區」，也不要把一個亂寫的字串存成 region。
+    //    ⚠ AI 開不了新的大區（kinds 不含大區、sanitizeAiData_ 上游就擋掉），這裡只能歸進既有的。
+    if (String(w.kind || "").trim() === '地點' && w.region) {
+      w.region = kanshouRegionIdByName_(gameId, w.region, homeName);
+    }
   });
   return entries;
 }
@@ -1065,10 +1074,22 @@ function kanshouFindLoc_(gameId, name) {
 
 // 🗺️ 內建三區的區域名（玩家自訂區走 kanshouFindRegion_，兩邊組出來的句子是同一個形狀）。
 const KANSHOU_REGION_LABEL_ = {
-  shinzan: '深山町（溫馨的住宅生活區）',
-  fuyuki: '冬木市中心（熱鬧的商業生活區）',
-  dojo: '山林（安靜神秘的郊野區）'
+  shinzan: { name: '深山町', desc: '溫馨的住宅生活區' },
+  fuyuki: { name: '冬木市中心', desc: '熱鬧的商業生活區' },
+  dojo: { name: '山林', desc: '安靜神秘的郊野區' }
 };
+// 🗺️ 大區的顯示名 → id。AI 只看得到顯示名（地圖那行給的就是名字），但欄位要存 id，
+//    所以它寫回來的名字得在這裡翻回去；翻不到就當它沒填（寧可無區，不要亂歸）。
+function kanshouRegionIdByName_(gameId, nameOrId, homeName) {
+  const v = String(nameOrId || "").trim();
+  if (!v) return "";
+  if (KANSHOU_REGION_LABEL_[v]) return v;                                  // 已經是內建 id
+  if (v === 'home' || v === 'room' || (homeName && v === String(homeName).trim())) return 'home';
+  const hit = Object.keys(KANSHOU_REGION_LABEL_).find(k => KANSHOU_REGION_LABEL_[k].name === v);
+  if (hit) return hit;
+  const rg = kanshouFindRegion_(gameId, v);                                 // 玩家自己開的區（id 或名字都認）
+  return rg ? rg.id : "";
+}
 // 🧭 給AI的地點脈絡：光一個地名(如「客廳」)AI分不出是御主自己家還是別人家，容易誤演成「在他家中」。
 function kanshouLocContextForAI_(locName, homeName, gameId) {
   const loc = kanshouFindLoc_(gameId, locName);
@@ -1085,7 +1106,7 @@ function kanshouLocContextForAI_(locName, homeName, gameId) {
   //    整個丟掉——AI 只知道「在冬木市中心」，不知道這間咖啡廳長什麼樣，就自己編一個出來
   //    (實測：編出店名、編出老闆，而且下一回合把自己編的當成事實)。形狀與 rgCustom 那條對齊。
   const rgLabel = KANSHOU_REGION_LABEL_[loc.region];
-  return rgLabel ? `${rgLabel}${loc.desc ? `：${loc.desc}` : ""}` : "";
+  return rgLabel ? `${rgLabel.name}（${rgLabel.desc}）${loc.desc ? `：${loc.desc}` : ""}` : "";
 }
 // 🌸 內建地點只剩【我自己的房間】一格：它是結構性的(玩家永遠有路可退、isRoom 判私密場合)，
 //    刪不得也搬不得。其餘的地方全部住在世界帳本裡，開局種進去當範例——玩家改得動、也刪得掉。
@@ -2464,8 +2485,24 @@ function actionPlay_(userData, pcId, sheets) {
   //    說了想去哪。只給名字、不給描述（此刻那一個的描述已經在 ★【地點】裡了）。
   //    ⚠ 玩家說的地方不在這張表上也沒關係，那是【新地方】，由玩家按下泡泡當場開。
   const kanshouMapStr = (() => {
-    const _names = kanshouLocationsFor_(_myGid_).map(l => String(l.name || "").trim()).filter(Boolean);
-    return _names.length ? `\n★【這座城裡有哪些地方】：${_names.join('、')}。` : "";
+    const _home = getKanshouHomeName_(pc[COL.PC.MEMORY], pcName);
+    // 依【區 id】分桶，最後才翻成名字——用名字當鍵的話 'mine' 這種真的存在的區
+    // （id:'mine'／name:'走出來的地方'）會跟我自己寫的 fallback 字串對不上。
+    const _bucket = {}, _order = [];
+    kanshouLocationsFor_(_myGid_).forEach(l => {
+      const _n = String(l.name || "").trim();
+      if (!_n) return;
+      const _rg = (l.region === 'room' || l.region === 'home') ? 'home' : String(l.region || 'mine');
+      if (!_bucket[_rg]) { _bucket[_rg] = []; _order.push(_rg); }
+      _bucket[_rg].push(_n);
+    });
+    if (!_order.length) return "";
+    // 'mine'＝還沒歸區的那一袋，壓到最後（它是待整理的桶子，不是這座城的一塊）。
+    _order.sort((a, b) => (a === 'mine' ? 1 : 0) - (b === 'mine' ? 1 : 0));
+    const _lab = rg => rg === 'home' ? _home
+      : (KANSHOU_REGION_LABEL_[rg] ? KANSHOU_REGION_LABEL_[rg].name
+        : ((kanshouFindRegion_(_myGid_, rg) || {}).name || rg));
+    return `\n★【這座城裡有哪些地方】：${_order.map(k => `${_lab(k)}：${_bucket[k].join('、')}`).join('；')}。`;
   })();
 
 

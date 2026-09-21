@@ -1427,3 +1427,4 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 6. **註解自陳的已刪碼**：Kanshou 多處註明「舊彈窗 `ensureKcMapOverlay_`/`openKanshouMap`、`actionBackfillKanshouServantAi`、`get_tags` 額外 round-trip」已移除——確認現存檔內無殘留呼叫，清理乾淨。
 
 - `kanshouGoTogether_(dest, ids)`（2026-09 新增，`gas/Script_Kanshou.html`）— 「一起過去」泡泡按下去的入口。走**既有**的 `send(..., {moveTarget, moveWith})` 路徑（跟地圖按鈕同一條，沒有第二套移動邏輯），只多帶一份要一起走的人的 id 字串；後端 `actionPlay_` 會自己驗那些人**剛才是不是真的跟玩家站在同一格**（`_prevL_`），驗不過就不搬。搭配後端下傳的 `movePrompt {to, ids[], names[]}`。
+- `KANSHOU_REGION_LABEL_`／`kanshouRegionIdByName_(gameId, nameOrId, homeName)`（2026-09，`gas/Gallery.gs`）— 內建三區的 `{name, desc}`（**短名給地圖那行、長句給 `kanshouLocContextForAI_`，同一個真實來源**），以及**顯示名→區 id** 的反查。AI 只看得到大區的名字（★【這座城裡有哪些地方】給的就是名字），但 `region` 欄存的是 id，所以它寫回來的名字在 `kanshouFixWorldKinds_` 裡經這支翻回去；**翻不到就清空**（寧可落在 `mine`，不要把亂寫的字串存成 region）。認得：內建 id、內建顯示名、`home`/`room`/住所名、玩家自訂區的 id 與名字。⚠ 它**開不了新的區**——`WORLD_SPEC_.kanshou.kinds` 不含大區，`sanitizeAiData_` 上游就擋掉。
