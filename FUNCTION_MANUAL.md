@@ -244,15 +244,12 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
   - `worldRow_(a, rowNum)` — 一列陣列 → 一個帳本條目。讀與寫回填快取共用這份對應（欄位長相的單一真實來源）。
   - `worldRead_(gameId)` / `worldBust_(gameId)` — 讀這一局的帳本（走 CacheService，每回合都要讀）／作廢快取。
   - `worldWrite_(gameId, entries, curDay, max?)` — **唯一寫入點**：清洗→去重→更新或新增→淘汰→整批寫回→**把快取換成新內容**（不是作廢：同一次執行裡後面還會有人讀，作廢等於逼它再整表讀一次）。
-  - `kanshouRegionsFor_(gameId)` / `kanshouFindRegion_(gameId, idOrName)` — 這一局有哪些大區＝內建 `KANSHOU_REGIONS_` ∪ 玩家自己開的（帳本 kind=`大區`）。⚠ 自訂大區天生就是一般公共區：所有行為判斷都寫成「不是 room／不是 visit」的否定形式，陌生 id 自動落在「一般」那一邊。
   - `worldSet_(gameId, kind, name, col, val)` — 改帳本某一列的某一欄；大區改名／地點搬區／開店收店共用。
   - `worldPayload_(gid)` — 面板要的東西一次給齊（條目＋大區＋上限）；`list` 與每個 op 都回這同一包。
   - `worldDrop_(gameId, kind, name)` — 從帳本拿掉一條（同類同名），回傳有沒有真的刪到。面板的「刪掉」與「常民升格成正式同伴之後清掉帳本那條」共用這一支（不清會變成同一個人兩份真相）。
   - `worldEvictees_(d, gid, added, curDay)` — **純函式**，只回答「該砍哪幾列」（`{'r列索引':1,'a新列序':1}`）：每類超過 `WORLD_SPEC_` 該軌的 `cap` 就砍「最久沒被提到、提及次數也最少」的，★釘選與有根的（`AT`／`OWN`）永不驅逐。刻意不自己讀表——寫入端手上已經有整張表了。
   - `worldFeed_(gameId, rows, curLoc, presentNames, userMsg, curDay)` — **不是全餵**：算相關性分數排序取前 `feedMax` 條（`WORLD_SPEC_` 逐軌），掛在此刻這個地方的另外取前 `atMax` 條、不占名額。
   - `worldSame_(a, b)` — bigram 近義比對。⚠ **只用在近期迴聲（最近兩天）**，不掃全表：句型相近但語意不同的事實太常見，掃全表會把世界愈合併愈空。
-- `kanshouLocationsFor_(gameId)` / `kanshouFindLoc_(gameId, name)` — **查地點的唯一入口**＝內建地圖 ∪ 這一局自己走出來的地方。⚠ 別再直接 `.find(KANSHOU_LOCATIONS_)`，否則玩家走出來的地方會查無、被當成非法目的地。
-- `kanshouLocNameForAI_(locName)`（Gallery.gs）— 送進提示詞的地名。資料鍵「我的房間」是第一人稱，跟第二人稱旁白打架（旁白會照抄成「走進我的房間」）→ 對 AI 一律改寫成「你的房間」，**存表／比對／前端仍用原鍵**。四個把 `curL` 寫進提示詞的點都要走它。
 - `KANSHOU_CAL_START_YEAR_`（常數＝2005）— 鑑賞曆法的起算西元年。2026-09 前沒有這個常數、`year` 直接算成「第幾年」，開局顯示「1年12月20日」。週年是用 absDay 差算的、不吃 `.year`，改它只動顯示字串。
 - `quadLabeled_(raw, labels, skipNone)` — PREF/TRAIT 的「、」分段值逐格加標籤餵 AI（格數＝`labels.length`）。值落在 `QUAD_EMPTY_` 的整格不送。 ⚠ 2026-09 起會依 `QUAD_REDUNDANT_` 剝掉與標籤疊字的值前綴（`討厭的事物：厭惡見死不救`→`見死不救`）；剝完為空就整格跳過。**`QUAD_EMPTY_` 的判斷刻意做兩次（剝疊字前、後各一次）**——只在剝完之後判的話，佔位字「厭惡之事」會被剝成「之事」而逃過濾網（25 位種子從者全中，見 CODE_NOTES）。 **⚠ 2026-09 改成 all-or-nothing**：只有【labels.length 格全是真值】才逐格貼標籤；缺任一格就整組退成 `QUAD_LOOSE_LABEL_` 登記的鬆散標籤（目前只有 PREF 那組→「性格」），值照樣剝疊字、用「、」串成一行。理由：種子的 `persona.words` 多半是「痛快・重義」這種價值觀清單，位置硬塞會讓標籤說謊（「喜歡的事物：壓抑的少女心」）。外貌三格由 `looksToTraitParts_` 保證對位，沒登記所以不受影響。
 - `traitLabeled_(raw, skipNone)` — 特徵格的專用出口＝`quadLabeled_(traitParts_(raw), TRAIT_LABELS_, skipNone)`。三張角色卡（`servantCard_`／`masterCard_`／`enemyMasterCard_`）共用，別在各處各修一次。⚠ `skipNone` 現已無實際作用（兩種呼叫端都走同一份 `QUAD_EMPTY_`），保留只為相容既有呼叫。
@@ -687,17 +684,13 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 大地圖·地點（資料驅動）
 
-- `KANSHOU_REGIONS_`（常數）— 大地圖分區清單（room/home/shinzan/fuyuki/dojo/visit），純 UI 分組。
-- `kanshouLocContextForAI_(locName, homeName, gameId)` — 依 region 補一句給 AI 的場域脈絡（自己房間/共用空間/別人住處/深山町…），AI 自創地點回空字串。
-- `KANSHOU_LOCATIONS_`（常數）— 內建地點清單，2026-09 起**只剩「我的房間」**（`isRoom`·結構性，刪不得）。這一局真正走得到的地方＝它 ∪ 世界帳本的「地點」類（`kanshouLocationsFor_`）。
+- `KANSHOU_REGIONS_`（常數）— 大地圖分區清單（room/home/shinzan/fuyuki/dojo/visit），純 UI 分組。　※（2026-09 地點整組退休·已移除）
+- `KANSHOU_LOCATIONS_`（常數）— 內建地點清單，2026-09 起**只剩「我的房間」**（`isRoom`·結構性，刪不得）。這一局真正走得到的地方＝它 ∪ 世界帳本的「地點」類（`kanshouLocationsFor_`）。　※（2026-09 地點整組退休·已移除）
 - `KANSHOU_STARTER_PLACES_`（常數，5 筆）— 新局開場種進世界帳本的範例地圖（可改名／改樣子／刪掉）。
 （~~`KANSHOU_LEGACY_PLACES_`~~ 已於 2026-09 移除：地圖搬進帳本之前寫死在代碼裡的那 18 個地方，只在舊存檔的一次性遷移時被讀；玩家確認鑑賞存檔已清空，整條遷移路徑連同日常稱呼正名一併砍除。）
-- `KANSHOU_MAP_SEED_TAG_`（makeTextTag_ 地圖·存玩家列）— 地圖種子只種一次的戳記，判「寫過沒有」不是「有沒有地方」。
+- `KANSHOU_MAP_SEED_TAG_`（makeTextTag_ 地圖·存玩家列）— 地圖種子只種一次的戳記，判「寫過沒有」不是「有沒有地方」。　※（2026-09 地點整組退休·已移除）
 - `WORLD_SPEC_`（常數）— 帳本引擎的**逐軌規格表**（`kanshou`／`solo`）：`sheet`／`kinds`／`cap`／`feedMax`／`atMax`／`writeMax`／`textMax`。加一軌＝往表加一列。
 - `worldTrack_(gameId)` / `worldSpec_(gameId)` — 由 game_id 前綴決定這一局屬於哪一軌（`g_`＝solo）並取出規格。
-- `kanshouSeedMap_(kpc, data, rowIdx, fresh, newRow, newRowNum)` — 種地圖＋把「已經種過」寫回玩家列；`rowIdx<0` 代表剛 append 的新局。
-- `kanshouSeedMapIfNew_(gameId, memory, fresh, curDay)` — 真正決定種哪一份（`fresh` → STARTER，否則 LEGACY）並回傳新的 MEMORY。
-- `kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx)` — 房間顯示名：「我的房間」→「(玩家名)的房間」，其餘原樣。（pcData/gameId/myIdx 現未使用。）
 - `KANSHOU_SUMMON_BLOCKED_IDS_`（常數）— 暫移出鑑賞的英靈 id（召喚/住處共用單一來源）。
 - `KANSHOU_STARTER_IDS_`（常數）— 開局 4 位起始住民（大河/凜/櫻/SABER）。
 - `KANSHOU_PARTY_MAX_`（常數=3）— 同行人數上限（前端鏡射 `KC_PARTY_MAX_`）。
@@ -760,7 +753,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 **備註（已查證·非死碼）**：
 1. `translateLookToDaily_`／`translatePersonalityToDaily_` 兩支戰時→日常 AI 轉譯函式本檔內無呼叫點，但確為活碼：呼叫端在 `Router_Creation.gs`（`recordOriginalHero_` 工房鑄入＋`actionSaveHero` 修改分支），工房存檔時算好寫入 DAILY_* 欄；鑑賞撈取純讀快取、不呼叫 AI。
 2. 檔頭註解自陳：「鑑賞」schema 已移除、全庫無讀寫者，留著的空分頁無害可自行刪（已知殘留·非 bug）。
-3. `kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx)` 只用到 locKey/myName，pcData/gameId/myIdx 三個參數現未使用（房客世界觀砍除後的殘留簽名·無害）。
 ### Core_Settings.gs
 
 第一部分：基礎設定、ORM 映射與數值統計核心。金鑰/模型常數、`COL` schema、六圍換算、HP/MP/魔力池公式、MEMORY 標記封裝、狀態字串封裝、靜態種子快取、地理雷達與在場清單。
@@ -1311,14 +1303,9 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouNextStage()` — 「下一階段」單鈕：依 `KC_TIME_BANDS_` 順推；深夜→轉呼 `kanshouEndDay`。
 
 #### 地圖 / 分區 / 移動
-- `kcSwitchRegion_(id)` — 切分區分頁（存 localStorage）＋重繪 `#kc-map-list`。
-- `kcRoomLabel_(key)` — 「我的房間」→「<御主名>的房間」動態顯示名（鏡射後端 `kanshouRoomDisplayName_`）。
-- `kcMapListHtml_()` — **產整個地圖分頁 HTML**：分區切換列＋家改名鈕＋各地點鈕（移動鈕→`kanshouMoveTo`，自己開的地方多一顆 ⋯）。由 Script.html `renderMapPane()` 塞進 `#map-pane-content`。
 - `kanshouRenameHome()` — 改「家」名（`kanshou_set_home_name`，寫後端 MEMORY【住所】）；成功更新 `pc.homeName`＋重繪。
-- `kanshouMoveTo(name)` — 自己移動到某地（確認框→切 chat 分頁→`send({moveTarget})`）。
 
 #### 選單
-- `kanshouPickLocation_(title, hint, pool, cb)` — **共用地點點選面板** `#kloc-overlay`（獨立 id，不與其他面板共用 overlay）（按 `KC_REGIONS_` 分區列地點鈕），取代 prompt() 編號；回呼存 `_kpCb`。
 - `kanshouPickLoc_(name)` — 地點鈕點擊：關彈窗→執行 `_kpCb(name)`。
 
 
@@ -1421,10 +1408,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 ## 死碼 / 可疑處（精簡）
 
 1. **`showProcessing`/`hideProcessing`（Onboarding）已確認非「僅開局用」**：不是與 Script.html 重複定義撞名，而是唯一定義在本檔、卻被 `Script.html` 全域 `beginAction()`/`endAction()`(幾乎每個遊戲內動作都會經過，遠在 `startGame` 之後)實際呼叫——本檔「只在開局跑一次」的框架敘述本身不準確，這兩個函式其實貫穿整個遊戲迴圈。（原本的「疑似重複定義」問題已釐清：全專案只有一份定義，沒有撞名。）
-3. **鏡射表手動同步風險**：`KC_LOCATIONS_`/`KC_SUMMON_BLOCKED_IDS_`（Kanshou）與 `FORGE_*` 全套計價（Onboarding）皆為後端鏡像，程式碼註解多處自陳「改後端記得同步這裡」。屬設計上的雙寫，非 bug，但為易漂移點。
+3. **鏡射表手動同步風險**：`KC_LOCATIONS_`/`KC_SUMMON_BLOCKED_IDS_`（Kanshou）與 `FORGE_*` 全套計價（Onboarding）皆為後端鏡像，程式碼註解多處自陳「改後端記得同步這裡」。屬設計上的雙寫，非 bug，但為易漂移點。　※（2026-09 地點整組退休·已移除）
 4. **`kanshouEndDay` 爽約警示依賴 `_kcCur`/`kcClock` 已載**：若玩家未曾開過同伴面板、`_kcCur` 為空，警示會靜默略過（程式已註明「盡力而為，後端結算通知條保底」）——非錯誤，但屬已知的「盡力而為」降級。
 5. **`plainTextContext`/`lastAiContext`（send 內）**：組出後只賦值給全域 `lastAiContext`，本檔未再消費；推測由 Script.html 其他功能（如選項/歷史）讀取，屬跨檔耦合。
 6. **註解自陳的已刪碼**：Kanshou 多處註明「舊彈窗 `ensureKcMapOverlay_`/`openKanshouMap`、`actionBackfillKanshouServantAi`、`get_tags` 額外 round-trip」已移除——確認現存檔內無殘留呼叫，清理乾淨。
 
-- `kanshouGoTogether_(dest, ids)`（2026-09 新增，`gas/Script_Kanshou.html`）— 「一起過去」泡泡按下去的入口。走**既有**的 `send(..., {moveTarget, moveWith})` 路徑（跟地圖按鈕同一條，沒有第二套移動邏輯），只多帶一份要一起走的人的 id 字串；後端 `actionPlay_` 會自己驗那些人**剛才是不是真的跟玩家站在同一格**（`_prevL_`），驗不過就不搬。搭配後端下傳的 `movePrompt {to, ids[], names[]}`。
-- `KANSHOU_REGION_LABEL_`／`kanshouRegionIdByName_(gameId, nameOrId, homeName)`（2026-09，`gas/Gallery.gs`）— 內建三區的 `{name, desc}`（**短名給地圖那行、長句給 `kanshouLocContextForAI_`，同一個真實來源**），以及**顯示名→區 id** 的反查。AI 只看得到大區的名字（★【這座城裡有哪些地方】給的就是名字），但 `region` 欄存的是 id，所以它寫回來的名字在 `kanshouFixWorldKinds_` 裡經這支翻回去；**翻不到就清空**（寧可落在 `mine`，不要把亂寫的字串存成 region）。認得：內建 id、內建顯示名、`home`/`room`/住所名、玩家自訂區的 id 與名字。⚠ 它**開不了新的區**——`WORLD_SPEC_.kanshou.kinds` 不含大區，`sanitizeAiData_` 上游就擋掉。

@@ -19,15 +19,13 @@ const strip = f => fs.readFileSync(path.join(GAS, f), 'utf8')
 // 這些是玩家點得到的入口：少一個就是死按鈕
 const ENTRIES = [
   'send', 'openCompanions', 'openWorldPanel', 'openKanshouStyle',
-  'kanshouAddRegion', 'kanshouDelRegion',
-  'kanshouPlaceMenu', 'kanshouGoNewPlace', 'kanshouNextStage', 'kanshouEndDay',
-  'kcMapListHtml_', 'kcChoose_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',
+  'kanshouNextStage', 'kanshouEndDay',
+  'kcChoose_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',
   'sumMode_', 'setWarFromSelect_', 'pickWar', 'pickOrigin', 'newGameFlow', 'openTutorial',
   'ksRender_', 'ksTier_', 'ksPick_', 'ksSave_', 'ksReset_', 'ksResetAll_'
 ];
 // 這些面板會被真的叫起來一次（不能拋例外）
 const RENDERS = [
-  ['kcMapListHtml_', () => ctx.kcMapListHtml_()],
   ['kcChoose_', () => ctx.kcChoose_('t', [{ k: 'a', label: 'a' }])],
   ['aiHtml_', () => ctx.aiHtml_('一句<br>兩句')],
   // 🚪 召喚三選一的門（2026-09 新增）：三種模式都切一遍。random 會真的打後端，這裡不碰。
@@ -154,8 +152,8 @@ RENDERS.forEach(([n, fn]) => { try { if (fn() === false) bad.push(n + ' 跑得�
 //    不會叫的掃描器比沒有更糟——它給你「已經有防線」的錯覺。
 let probeFired = false;
 try {
-  const c2 = makeCtx('function kcMapListHtml_(){ throw new Error("degraded"); }');
-  try { c2.kcMapListHtml_(); } catch (e) { probeFired = /degraded/.test(e.message); }
+  const c2 = makeCtx('function kcChoose_(){ throw new Error("degraded"); }');
+  try { c2.kcChoose_('t', []); } catch (e) { probeFired = /degraded/.test(e.message); }
 } catch (e) { probeFired = true; }
 if (!probeFired) {
   console.log('🖥️ 前端 runtime：❌ 掃描器自身失效（注入的爆炸抓不到）');

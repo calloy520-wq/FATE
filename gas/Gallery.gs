@@ -39,14 +39,11 @@ function sanitizeAiData_(aiData, gameId) {
   if (aiData.world_note !== undefined) {
     // ⚠ 只留白名單那幾欄再往下送：AI 回傳的物件是整包穿過去的，不重建的話它可以塞
     //    {own:"按摩"} 自己宣告「這家店是玩家的」。own 照舊擋死——開店是玩家的動作。
-    // 🗾 2026-09 region 放行（玩家要「AI 自由創造地圖」還能自己歸類）。放行的是【歸類】，
-    //    不是【建區】，而且三道邊界把它圍住：①kanshouFixWorldKinds_ 只把名字翻成【這一局
-    //    真的存在】的區 id，翻不到就清空；②AI 開不了新的大區（kinds 不含大區）；
-    //    ③worldWrite_ 只在 region 還空著時才填，所以它搬不動任何已經歸好區的地方。
+    // 🗑️ 2026-09 地點整組退休：region／at 兩欄跟著地圖一起走了，白名單縮回四欄。
     aiData.world_note = (Array.isArray(aiData.world_note) ? aiData.world_note : [])
       .filter(w => w && typeof w === 'object' && worldSpec_(gameId).kinds.indexOf(String(w.kind || "").trim()) >= 0)
       .slice(0, worldSpec_(gameId).writeMax)
-      .map(w => ({ kind: w.kind, name: w.name, text: w.text, sex: w.sex, at: w.at, region: w.region }));
+      .map(w => ({ kind: w.kind, name: w.name, text: w.text, sex: w.sex }));
   }
   // 🛡️ ★指令／〈演出卡〉被原樣抄進敘事：solo(narrateWithState_) 早有這道濾網，鑑賞這條路徑漏掉了。
   //    先把真實換行轉成 <br> 再過濾——濾網掃到下一個「<」為止，沒有 <br> 的話會把整段吃光。
@@ -522,16 +519,12 @@ function actionEnterKanshou(userData, pcId, sheets) {
   });
   // 🗺️ 2026-09 玩家「全部人在客廳…我想要讓他們先分散出去」：起始住民各自落在不同的起始地點，
   //    開局就有「要去找人」這件事。不夠分時才輪回玩家開局的地方。
-  var starterRows = starterHeroes.map(function (hero, i) {
-    var _spot = KANSHOU_STARTER_PLACES_[(i + 1) % KANSHOU_STARTER_PLACES_.length];
-    return heroToKanshouRow_(hero, gameId, (_spot && _spot.name) || loc2, 1);
+  var starterRows = starterHeroes.map(function (hero) {
+    return heroToKanshouRow_(hero, gameId, loc2, 1);
   });
   if (starterRows.length) {
     kpc.getRange(kpc.getLastRow() + 1, 1, starterRows.length, pcColCount).setValues(starterRows);
   }
-
-  // 🌱 新局的地圖＝一片空白＋五個範例地方（可改名、可改樣子、可刪掉）。
-  kanshouSeedMap_(kpc, data, -1, mRow, kpc.getLastRow() - starterRows.length);
   return JSON.stringify({
     success: true,
     pcId: mId, pcName: mName, pcSex: mSex, loc: loc2, homeName: getKanshouHomeName_(mRow[COL.PC.MEMORY], mName)
@@ -614,11 +607,10 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   var current = [];
   for (var i = 1; i < data.length; i++) {
     if (kanshouIsAlly_(data[i], gid)) {
-      var loc = String(data[i][COL.PC.LOC] || "");
-      // 面板需要顯示目前所在地點(玩家要精準知道去哪找她)、關係標籤＋好感(供玩家決定要不要改標籤)；isHere(是否跟玩家同地點)；locLabel：房間類地點的動態顯示名稱，見kanshouRoomDisplayName_。
+      // 🗑️ 2026-09 地點退休：loc／locLabel／isHere 三欄一起拿掉——面板不再需要「她在哪」。
       // memoir：共同回憶(27欄)原樣下傳(★前綴=玩家釘選)，供面板顯示/釘選/刪除。
       // 🆔 2026-07「整體重構·id優先」：補id讓前端能存起來隨後續action回傳，後端才有id可用、不必只靠名字(kanshouNameCandidates_別名表已處理大部分情況，但id才是真正杜絕撞名/前綴混淆的單一真實來源)。
-      current.push({ id: String(data[i][COL.PC.ID]), srcId: KANSHOU_SRC_TAG_.get(String(data[i][COL.PC.MEMORY] || "")), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || ""), nickname: getNickname_(data[i][COL.PC.REL_MEM]), loc: loc, locLabel: kanshouRoomDisplayName_(loc, data, gid, myName, meIdx), isHere: loc === myLoc, party: partyIds.indexOf(String(data[i][COL.PC.ID])) >= 0, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
+      current.push({ id: String(data[i][COL.PC.ID]), srcId: KANSHOU_SRC_TAG_.get(String(data[i][COL.PC.MEMORY] || "")), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || ""), nickname: getNickname_(data[i][COL.PC.REL_MEM]), party: partyIds.indexOf(String(data[i][COL.PC.ID])) >= 0, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
     }
   }
   return JSON.stringify({ success: true, current: current });
@@ -675,64 +667,9 @@ function actionWorld(userData, pcId, sheets) {
 
   const op = String(userData.op || "list").trim();
 
-  // 🗾 大區與地點的「自由增減」：開一個區／改名／收掉、把地點搬到某一區、開店／收店。
-  //    全部住在這支既有的帳本管理 action 裡(它本來就在做 pin/unpin/del)，不另開路由。
-  if (['rg_add', 'rg_rename', 'rg_del', 'loc_region', 'loc_own', 'loc_rename', 'loc_text'].indexOf(op) >= 0) {
-    try {
-      const nm = kanshouSanitizeTagValue_(userData.entryName, 16);
-      if (!nm) return JSON.stringify({ success: false, message: "名字不能空白。" });
-      if (op === 'rg_add') {
-        const regions = kanshouRegionsFor_(gid);
-        if (regions.some(r => r.name === nm)) return JSON.stringify({ success: false, message: "已經有同名的地區了。" });
-        if (regions.filter(r => r.mine).length >= KANSHOU_REGION_CAP_) {
-          return JSON.stringify({ success: false, message: `地區最多開 ${KANSHOU_REGION_CAP_} 個，先收一個。` });
-        }
-        const rid = 'rg_' + Date.now().toString(36);
-        worldWrite_(gid, [{ kind: KANSHOU_REGION_KIND_, name: nm, text: kanshouSanitizeTagValue_(userData.text, 24), region: rid }], parseInt(data[meIdx][COL.PC.DAY]) || 1);
-      } else if (op === 'rg_rename') {
-        const newNm = kanshouSanitizeTagValue_(userData.newName, 16);
-        if (!newNm) return JSON.stringify({ success: false, message: "新名字不能空白。" });
-        if (!worldSet_(gid, KANSHOU_REGION_KIND_, nm, KW_.NAME, newNm)) return JSON.stringify({ success: false, message: "找不到這個地區。" });
-      } else if (op === 'rg_del') {
-        // ⚠ 收掉一個區之前，先把底下的地點放回「走出來的地方」——不然它們會變成
-        //    指向一個不存在的區的孤兒（地圖上那一格從此點不到）。
-        const rg = kanshouFindRegion_(gid, nm);
-        if (!rg || !rg.mine) return JSON.stringify({ success: false, message: "只能收自己開的地區。" });
-        worldRead_(gid).filter(r => r.kind === '地點' && r.region === rg.id)
-          .forEach(r => { try { worldSet_(gid, '地點', r.name, KW_.REGION, ""); } catch (e) { } });
-        if (!worldDrop_(gid, KANSHOU_REGION_KIND_, nm)) return JSON.stringify({ success: false, message: "找不到這個地區。" });
-      } else if (op === 'loc_region') {
-        const rg = String(userData.region || "").trim() ? kanshouFindRegion_(gid, userData.region) : null;
-        if (!worldSet_(gid, '地點', nm, KW_.REGION, rg ? rg.id : "")) return JSON.stringify({ success: false, message: "這不是你開的地方，搬不了。" });
-      } else if (op === 'loc_rename') {
-        // 📍 改名要連著搬：掛在這個地名底下的東西(AT)認的是【名字】，不跟著改就會全部變成孤兒。
-        const newNm = kanshouSanitizeTagValue_(userData.newName, 16);
-        if (!newNm) return JSON.stringify({ success: false, message: "新名字不能空白。" });
-        if (kanshouFindLoc_(gid, newNm)) return JSON.stringify({ success: false, message: "已經有同名的地方了。" });
-        if (!worldSet_(gid, '地點', nm, KW_.NAME, newNm)) return JSON.stringify({ success: false, message: "這不是你開的地方，改不了名。" });
-        worldRead_(gid).filter(r => String(r.at || "").trim() === nm)
-          .forEach(r => { try { worldSet_(gid, r.kind, r.name, KW_.AT, newNm); } catch (e) { } });
-        // 人也跟著改：站在舊地名上的人列，LOC 還指著已經不存在的地方。
-        try {
-          for (let i = 1; i < data.length; i++) {
-            if (String(data[i][COL.PC.GAME_ID] || "") !== gid) continue;
-            if (String(data[i][COL.PC.LOC] || "").trim() !== nm) continue;
-            kpc.getRange(i + 1, COL.PC.LOC + 1).setValue(newNm);
-          }
-        } catch (e) { }
-      } else if (op === 'loc_text') {
-        if (!worldSet_(gid, '地點', nm, KW_.TEXT, kanshouSanitizeTagValue_(userData.text, worldSpec_(gid).textMax))) {
-          return JSON.stringify({ success: false, message: "這不是你開的地方，改不了。" });
-        }
-      } else if (op === 'loc_own') {
-        // 營業內容留空＝收店。地點本身不動，只是不再是你的店。
-        if (!worldSet_(gid, '地點', nm, KW_.OWN, kanshouSanitizeTagValue_(userData.own, 12))) {
-          return JSON.stringify({ success: false, message: "這不是你開的地方，開不了店。" });
-        }
-      }
-    } catch (e) { return JSON.stringify({ success: false, message: "沒成功，等一下再試。" }); }
-    return JSON.stringify(worldPayload_(gid));
-  }
+  // 🗑️ 2026-09 地點整組退休：大區與地點的自由增減（rg_add／rg_rename／rg_del／
+  //    loc_region／loc_own／loc_rename／loc_text）整條砍除。地點現在只是世界帳本裡
+  //    一條【純設定】，跟人物／設定同級——要釘、要刪走下面那組通用的 pin/unpin/del 就好。
 
   if (op !== 'list') {
     if (['pin', 'unpin', 'del'].indexOf(op) === -1) return JSON.stringify({ success: false, message: "少了東西。" });
@@ -759,17 +696,15 @@ function actionWorld(userData, pcId, sheets) {
   return JSON.stringify(worldPayload_(gid));
 }
 
-// 面板要的東西一次給齊：條目＋大區＋上限。list 與每一個 op 都回這同一包(前端只要認一種形狀)。
+// 面板要的東西一次給齊：條目＋上限。list 與每一個 op 都回這同一包(前端只要認一種形狀)。
 function worldPayload_(gid) {
   const all = worldRead_(gid);
-  const rows = all.filter(r => r.kind !== KANSHOU_REGION_KIND_)
-    .map(r => ({ kind: r.kind, name: r.name, text: r.text, sex: r.sex, pin: r.pin, seen: r.seen, hits: r.hits, region: r.region, own: r.own, at: r.at }));
+  const rows = all
+    .map(r => ({ kind: r.kind, name: r.name, text: r.text, sex: r.sex, pin: r.pin, seen: r.seen, hits: r.hits }));
   // 釘選的排前面，其次照「最後被提到」由新到舊——跟提示詞的相關性排序不同，那是給 AI 的，這是給人看的。
   rows.sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.seen - a.seen);
   return {
-    success: true, rows: rows, caps: worldSpec_(gid).cap, panel: worldSpec_(gid).panel,
-    regions: kanshouRegionsFor_(gid).map(r => ({ id: r.id, name: r.name, desc: r.desc || "", mine: !!r.mine })),
-    regionCap: KANSHOU_REGION_CAP_
+    success: true, rows: rows, caps: worldSpec_(gid).cap, panel: worldSpec_(gid).panel
   };
 }
 
@@ -795,14 +730,8 @@ function actionKanshouParty(userData, pcId, sheets) {
     if (tIdx < 0) return JSON.stringify({ success: false, message: "找不到這個人。" });
     // 🙋 叫她過來：把她移到你這一幕的地點。不動同行名單——她只是走過來了，不是從此跟著你。
     //    跟「去找她」（前端直接走既有的移動）是一對，玩家兩個方向都走得通。
-    if (op === 'bring') {
-      const _here = String(data[meIdx][COL.PC.LOC] || "");
-      if (String(data[tIdx][COL.PC.LOC] || "") === _here) return JSON.stringify({ success: true, party: ids, loc: _here });
-      data[tIdx][COL.PC.LOC] = _here;
-      kpc.getRange(tIdx + 1, COL.PC.LOC + 1).setValue(_here);
-      STATE_PRE_DATA_ = data;
-      return JSON.stringify({ success: true, party: ids, loc: _here });
-    }
+    // 🗑️ 2026-09 地點整組退休：op 'bring'（🙋 叫她過來＝把她的 LOC 搬到你這裡）跟著移除——
+    //    在場已經只看同行清單，搬 LOC 不再有任何效果。要她在場就 'add'。
     // 🚪 請她離開這座城：把這一列整個抽掉，世界人數就空出一格。
     //    ⚠ 這是【不可逆】的——她的共同回憶、她眼中的你、關係稱呼全部跟著沒了。
     //      前端要問過玩家才准送這個 op。對話歷史是玩家自己的、不動。
@@ -819,8 +748,7 @@ function actionKanshouParty(userData, pcId, sheets) {
       STATE_PRE_DATA_ = kept;
       return JSON.stringify({ success: true, party: ids, evicted: evName });
     }
-    // ⚠ 解散＝離開同行名單，【人留在當下這個地點】——不動 LOC 就是這個效果（玩家原話：
-    //    「我需要這個角色可以跟我同行到 A，我 A 解散他，他會一直在 A」）。
+    // ⚠ 解散＝離開同行名單。地點退休後「她留在哪裡」不再是一件會被記住的事。
     if (op === 'drop') ids = ids.filter(x => x !== npcId);
     else if (op === 'add') {
       if (ids.indexOf(npcId) >= 0) return JSON.stringify({ success: true, party: ids });
@@ -828,9 +756,6 @@ function actionKanshouParty(userData, pcId, sheets) {
         return JSON.stringify({ success: false, message: `同行最多 ${KANSHOU_PARTY_MAX_} 位，先讓一位離開。` });
       }
       ids.push(npcId);
-      // 人跟著你走：加入的當下就落到你所在的場景。
-      data[tIdx][COL.PC.LOC] = String(data[meIdx][COL.PC.LOC] || "");
-      kpc.getRange(tIdx + 1, COL.PC.LOC + 1).setValue(data[tIdx][COL.PC.LOC]);
     } else return JSON.stringify({ success: false, message: "沒有這個動作。" });
   }
   const mem = kanshouSetParty_(data[meIdx][COL.PC.MEMORY], ids);
@@ -941,8 +866,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
         "noticed": "≤14字·會改變之後怎麼對玩家的發現·沒有就留空"
       }]
     },
-    "world_note": [{ "kind": "地點|人物|設定", "name": "一句話標題", "text": "≤" + WORLD_SPEC_.kanshou.textMax + "字", "sex": "kind=人物 才填 男/女/異", "at": "只長在某地就填那個地名·沒有就留空", "region": "kind=地點 才填·它屬於上面地圖裡的哪一區·照那一區的名字寫·自成一格就留空" }],
-    "move_to": "我這一步說要去的地方·照我說的名字寫·沒有就留空",
+    "world_note": [{ "kind": "地點|人物|設定", "name": "一句話標題", "text": "≤" + WORLD_SPEC_.kanshou.textMax + "字", "sex": "kind=人物 才填 男/女/異" }],
   };
   if (includeOptions === false) { delete finalJson.options; }
 
@@ -993,36 +917,15 @@ function getKanshouPeopleList_(pcId, curL, allPcData) {
   return list;
 }
 
-const KANSHOU_REGIONS_ = [
-  { id: 'room', name: '房間', desc: '私人房間' },
-  { id: 'home', name: '家的共用空間', desc: '共用生活空間' },
-  { id: 'shinzan', name: '深山町', desc: '溫馨日常區' },
-  { id: 'fuyuki', name: '冬木市中心', desc: '熱鬧生活區' },
-  { id: 'dojo', name: '山林', desc: '安靜神秘區' },
-  // 🗺️ 這一區不是靜態地圖，是玩出來的：成員來自世界帳本的「地點」類，不在 KANSHOU_LOCATIONS_ 裡。
-  { id: 'mine', name: '走出來的地方', desc: '你自己找到的地方' }
-];
-// 🗺️ 這一局真正走得到的地方＝【內建地圖 ∪ 你自己走出來的地方】(世界帳本的「地點」類)。
-//    2026-09 之前只有內建那 28 格，想去的地方不在裡面就等於不存在——這是「不夠自由」最直接的來源。
-//    ⚠ 查地點一律走這兩支，別再直接 .find(KANSHOU_LOCATIONS_)，否則自己走出來的地方會查無、被當成非法目的地。
-function kanshouLocationsFor_(gameId) {
-  const mine = worldRead_(gameId).filter(r => r.kind === '地點' && r.name)
-    .map(r => ({ name: r.name, region: r.region || 'mine', desc: r.text || "", mine: true, own: r.own || "" }));
-  return mine.length ? KANSHOU_LOCATIONS_.concat(mine) : KANSHOU_LOCATIONS_;
-}
-
 // 🧑↔🏠 這個名字是不是【地方】而不是人？AI 偶爾會把地點寫成 kind:'人物'（實測玩家看到
 //    「你認識了『風音的家』」——拿地名當成一個人）。
-//    輸入當不可信：比對內建地點、玩家自己開的地方、玩家住所，以及「…的家/店/屋/館/亭/堂」這種地名尾巴。
 const KANSHOU_PLACE_SUFFIX_ = /(的家|的店|之家|宅邸|公寓|大樓|屋|館|亭|堂|苑|園|寺|社|樓|閣|城|站|所|廳|房|室|宅|邸)$/;
 function kanshouNameIsPlace_(name, gameId, homeName) {
   const nm = String(name || "").trim();
   if (!nm) return false;
   if (homeName && nm === String(homeName).trim()) return true;
-  try {
-    if (kanshouLocationsFor_(gameId).some(l => String(l.name).trim() === nm)) return true;
-    if (kanshouRegionsFor_(gameId).some(r => String(r.name).trim() === nm)) return true;
-  } catch (e) { }
+  // 🗑️ 2026-09 地點退休：原本還會比對地圖與大區的名單，現在沒有那份名單了，
+  //    只剩住所名與地名尾巴這兩個線索。擋的仍是同一件事（「你認識了風音的家」）。
   return KANSHOU_PLACE_SUFFIX_.test(nm);
 }
 
@@ -1041,121 +944,22 @@ function kanshouFixWorldKinds_(entries, gameId, homeName, peopleNames) {
     }
     // 反向也會錯：把一個【正式同伴】寫成 kind:'地點'，世界上就多出一個以她為名的地方。
     // 刻意只認【逐字完全相同】的名字——「凜的房間」這種是真的地名，模糊比對會把它一起吃掉。
-    if (kind === '地點' && known.indexOf(String(w.name || "").trim()) >= 0) { w.kind = '人物'; return; }
-    // 🗾 歸區：AI 看到的是大區的【名字】（地圖那行給的就是名字），欄位存的是 id，在這裡翻回去。
-    //    翻不到就清空——寧可落在「還沒歸區」，也不要把一個亂寫的字串存成 region。
-    //    ⚠ AI 開不了新的大區（kinds 不含大區、sanitizeAiData_ 上游就擋掉），這裡只能歸進既有的。
-    if (String(w.kind || "").trim() === '地點' && w.region) {
-      w.region = kanshouRegionIdByName_(gameId, w.region, homeName);
-    }
+    if (kind === '地點' && known.indexOf(String(w.name || "").trim()) >= 0) w.kind = '人物';
+    // 🗑️ 2026-09 地點退休：這裡原本還會把 AI 寫的大區名翻成區 id（kanshouRegionIdByName_），
+    //    大區整個不存在了，那一段跟著移除。
   });
   return entries;
 }
 
-// 🗾 這一局有哪些大區＝內建幾區 ∪ 玩家自己開的。
-// ⚠ 自訂大區【天生就是一般公共區】：行為判斷都寫成「不是 room」的形式，
-//    所以一個陌生的區 id 自動落在「一般」那一邊，不必改任何行為邏輯。
-function kanshouRegionsFor_(gameId) {
-  const mine = worldRead_(gameId)
-    .filter(r => r.kind === KANSHOU_REGION_KIND_ && r.name)
-    .map(r => ({ id: r.region || ('rg_' + r.name), name: r.name, desc: r.text || "", mine: true }));
-  return mine.length ? KANSHOU_REGIONS_.concat(mine) : KANSHOU_REGIONS_;
-}
-function kanshouFindRegion_(gameId, idOrName) {
-  const v = String(idOrName || "").trim();
-  if (!v) return null;
-  return kanshouRegionsFor_(gameId).find(r => r.id === v || r.name === v) || null;
-}
-function kanshouFindLoc_(gameId, name) {
-  const n = String(name || "").trim();
-  if (!n) return null;
-  return kanshouLocationsFor_(gameId).find(l => l.name === n) || null;
-}
+// 🗑️ 2026-09 地點整組退休（玩家：「只要扯到移動都會很怪」「地點就是可以一個亂掰的背景」）。
+//    這裡原本住著：KANSHOU_REGIONS_／kanshouRegionsFor_／kanshouFindRegion_／kanshouFindLoc_／
+//    KANSHOU_REGION_LABEL_／kanshouRegionIdByName_／kanshouLocContextForAI_／
+//    KANSHOU_LOCATIONS_／KANSHOU_STARTER_PLACES_／KANSHOU_MAP_SEED_TAG_／kanshouSeedMap_／
+//    kanshouSeedMapIfNew_／kanshouLocNameForAI_／kanshouRoomDisplayName_／kanshouLocationsFor_。
+//    整組移除的理由見 KANSHOU_REFERENCE.md。⚠ COL.PC.LOC 欄本身【不刪】——solo 還在用它
+//    一百多處，鑑賞這一軌單純不再讀寫（CLAUDE.md：COL 是位置索引，寧棄用不刪欄）。
 
-// 🗺️ 內建三區的區域名（玩家自訂區走 kanshouFindRegion_，兩邊組出來的句子是同一個形狀）。
-const KANSHOU_REGION_LABEL_ = {
-  shinzan: { name: '深山町', desc: '溫馨的住宅生活區' },
-  fuyuki: { name: '冬木市中心', desc: '熱鬧的商業生活區' },
-  dojo: { name: '山林', desc: '安靜神秘的郊野區' }
-};
-// 🗺️ 大區的顯示名 → id。AI 只看得到顯示名（地圖那行給的就是名字），但欄位要存 id，
-//    所以它寫回來的名字得在這裡翻回去；翻不到就當它沒填（寧可無區，不要亂歸）。
-function kanshouRegionIdByName_(gameId, nameOrId, homeName) {
-  const v = String(nameOrId || "").trim();
-  if (!v) return "";
-  if (KANSHOU_REGION_LABEL_[v]) return v;                                  // 已經是內建 id
-  if (v === 'home' || v === 'room' || (homeName && v === String(homeName).trim())) return 'home';
-  const hit = Object.keys(KANSHOU_REGION_LABEL_).find(k => KANSHOU_REGION_LABEL_[k].name === v);
-  if (hit) return hit;
-  const rg = kanshouFindRegion_(gameId, v);                                 // 玩家自己開的區（id 或名字都認）
-  return rg ? rg.id : "";
-}
-// 🧭 給AI的地點脈絡：光一個地名(如「客廳」)AI分不出是御主自己家還是別人家，容易誤演成「在他家中」。
-function kanshouLocContextForAI_(locName, homeName, gameId) {
-  const loc = kanshouFindLoc_(gameId, locName);
-  if (!loc) return "";
-  // 🏪 你自己的店/攤位：這是最需要先講清楚的一件事——不講的話 AI 會把你演成上門的客人。
-  const ownStr = loc.own ? `這是【你自己開的】${loc.own}「${loc.name}」，你是這裡的主人；客人會上門，你招呼、你做事` : "";
-  if (ownStr) return ownStr + (loc.desc ? `（${loc.desc}）` : "");
-  const rgCustom = (loc.region && String(loc.region).indexOf('rg_') === 0) ? kanshouFindRegion_(gameId, loc.region) : null;
-  if (rgCustom) return `${rgCustom.name}${rgCustom.desc ? `（${rgCustom.desc}）` : ""}${loc.desc ? `：${loc.desc}` : ""}`;
-  if (loc.region === 'mine') return loc.desc || "這座城裡我們自己走出來的地方";
-  if (loc.region === 'room') return `「${homeName}」裡我自己的房間`;
-  if (loc.region === 'home') return `「${homeName}」的共用空間`;
-  // 🐛→✅ 內建三區本來只回一句區域名，把這個地方【自己的描述】(loc.desc，就是世界帳本那一格)
-  //    整個丟掉——AI 只知道「在冬木市中心」，不知道這間咖啡廳長什麼樣，就自己編一個出來
-  //    (實測：編出店名、編出老闆，而且下一回合把自己編的當成事實)。形狀與 rgCustom 那條對齊。
-  const rgLabel = KANSHOU_REGION_LABEL_[loc.region];
-  return rgLabel ? `${rgLabel.name}（${rgLabel.desc}）${loc.desc ? `：${loc.desc}` : ""}` : "";
-}
-// 🌸 內建地點只剩【我自己的房間】一格：它是結構性的(玩家永遠有路可退、isRoom 判私密場合)，
-//    刪不得也搬不得。其餘的地方全部住在世界帳本裡，開局種進去當範例——玩家改得動、也刪得掉。
-//    玩家原話：「我理想中的鑑賞應該是一片空白，但我可以跟 AI 慢慢搭建」＋「地圖保留一點點留個類似範例」。
-const KANSHOU_LOCATIONS_ = [
-  { name: '我的房間', region: 'room', desc: '安穩靜謐、只屬於自己的房間。', isRoom: true }
-];
-// 🌱 開局範例地圖：五個地方，一區一個當樣板。這些是【一般帳本條目】，跟玩家自己開的地方沒有兩樣。
-const KANSHOU_STARTER_PLACES_ = [
-  { name: '客廳', region: 'home', text: '沙發與電視的日常起居空間。' },
-  { name: '河邊小徑', region: 'shinzan', text: '晨昏都靜謐的河堤小徑，水聲潺潺。' },
-  { name: '商店街', region: 'fuyuki', text: '人聲鼎沸的商店街，攤販林立。' },
-  { name: '咖啡廳', region: 'fuyuki', text: '磨豆香氣繚繞的小巧咖啡館。' },
-  { name: '夜景展望台', region: 'dojo', text: '能俯瞰整座城市萬家燈火的高地，晚風正好。' }
-];
-// 🗺️ 地圖種子只種一次：判準是「寫過沒有」而不是「有沒有地方」——玩家把地圖清空是他的決定，
-//    不該下次進來又長回來（同 KANSHOU_PARTY_TAG_ 那條）。
-var KANSHOU_MAP_SEED_TAG_ = makeTextTag_('地圖');
-// 種地圖＋把「已經種過」寫回玩家那一列。rowIdx<0＝這一列是剛 append 的新局(用 newRow/newRowNum)。
-function kanshouSeedMap_(kpc, data, rowIdx, newRow, newRowNum) {
-  const row = (rowIdx >= 0) ? data[rowIdx] : newRow;
-  if (!row) return;
-  const gid = String(row[COL.PC.GAME_ID] || "");
-  if (!gid) return;
-  const mem = kanshouSeedMapIfNew_(gid, row[COL.PC.MEMORY], parseInt(row[COL.PC.DAY]) || 1);
-  if (mem === row[COL.PC.MEMORY]) return;      // 種過了，什麼都不必寫
-  row[COL.PC.MEMORY] = mem;
-  try { kpc.getRange(((rowIdx >= 0) ? rowIdx : (newRowNum - 1)) + 1, COL.PC.MEMORY + 1).setValue(mem); } catch (e) { }
-}
-function kanshouSeedMapIfNew_(gameId, memory, curDay) {
-  if (KANSHOU_MAP_SEED_TAG_.has(memory)) return memory;
-  try {
-    worldWrite_(gameId, KANSHOU_STARTER_PLACES_.map(x => ({ kind: '地點', name: x.name, text: x.text, region: x.region })),
-      parseInt(curDay) || 1, KANSHOU_STARTER_PLACES_.length);
-  } catch (e) { }
-  return KANSHOU_MAP_SEED_TAG_.set(memory, '範例');
-}
-// 🏷️ 送進提示詞的地名。⚠ 2026-09 旁白改回第一人稱「我」之後，資料鍵「我的房間」跟旁白同一個視角，
-//    不必再翻面（舊版會翻成「你的房間」，那是為了配合第二人稱旁白）。留著這支當唯一出口，
-//    以後若又有哪個地名跟旁白視角打架，改這裡一處就好。
-function kanshouLocNameForAI_(locName) {
-  return String(locName || "");
-}
-// 🏠 房間顯示名稱：只剩玩家自己的房間，永遠顯示「(玩家名)的房間」。
-function kanshouRoomDisplayName_(locKey, pcData, gameId, myName, myIdx) {
-  if (locKey === '我的房間') return String(myName || "自己") + '的房間';
-  return locKey;
-}
-// 暫時移出鑑賞的英靈id清單(單一來源)，召喚/地點標籤/住處全部共用同一份。
+// 暫時移出鑑賞的英靈id清單(單一來源)：召喚共用同一份。
 // 2026-09 玩家「想辦法讓他們可以召喚」→ 清空。原本被擋的三位真正的問題是【撞名】
 // （斯卡哈有 Lancer/Assassin 兩種靈基、伊莉雅有 Master/Caster 兩個版本），封鎖只是繞過去；
 // 現在由下方 kanshouSummonClash_ 擋「同一個人同時在場」，兩種姿態各自都召喚得到，選一個。
@@ -1163,13 +967,12 @@ const KANSHOU_SUMMON_BLOCKED_IDS_ = [];
 // 🏘️ 開局起始住民(2026-07玩家定案)：只有這4位一開始就「活在這座城裡」，其餘靠 🌟 召喚入駐。
 const KANSHOU_STARTER_IDS_ = ['藤村大河-Master', '遠坂凜-Master', '間桐櫻黑化-Master', '阿爾托莉雅-Saber'];
 // 🫂 同行名單（存【玩家】列 MEMORY·逗號分隔的 id）：2026-09 玩家定案「我可以指定 AI 跟我一起，
-//    他必須回應我；其他人可以出現但只是很薄的背景板」。這是「誰在這一幕裡」的【唯一】判準——
-//    人不再綁地點，也就不再有「她剛好也在這裡」這回事。
+//    他必須回應我；其他人可以出現但只是很薄的背景板」。這是「誰在這一幕裡」的【唯一】判準
+//    ——2026-09 地點整組退休之後，它也是唯一還說得出「誰在場」的東西。
 // ⚠ 存 id 不存名字：鑑賞眾生是全帳號共用一張表，大家都從同一座英靈殿召喚，撞名是常態不是巧合
 //    （同款坑見 CODE_NOTES 的「初次·同床蓋到別人那列」）。
 const KANSHOU_PARTY_MAX_ = 3;
 // 🌍 這個世界裡總共住幾個人。同行上限管「幾個人跟著你走」，這個管「城裡有幾個人」。
-//    刻意【不】另設在場上限：在場＝同地點，而人數本來就被這個數字封頂，少一個要維護的數字。
 // ⚠ 起始住民就佔了 4 位（KANSHOU_STARTER_IDS_），所以這個數字要留得下玩家自己邀的人。
 //    滿了之後靠面板上的「🚪 請她離開這座城」（op:'evict'）騰位子——那顆鈕要是哪天砍了，
 //    這個數字要再放寬，否則世界會在滿員的那一刻永遠鎖死。
@@ -1181,7 +984,7 @@ const KANSHOU_WORLD_MAX_ = 8;
 //    砍成 2 之後它自己的散文從 1020→510 字、佔比 29%→17%。
 //    ⚠ 再往前的事情【不是消失】，走的是挑過的事實那三條路：世界帳本／共同回憶／她眼中的你。
 //    ⚠ 這個數字直接換敘事連貫感，調它之前先想清楚要換什麼。
-const KANSHOU_HIST_WINDOW_ = 2;
+const KANSHOU_HIST_WINDOW_ = 4;
 var KANSHOU_PARTY_TAG_ = makeTextTag_('同行');
 function kanshouGetParty_(memory) {
   return String(KANSHOU_PARTY_TAG_.get(memory) || "").split(',').map(function (x) { return x.trim(); }).filter(Boolean);
@@ -1247,8 +1050,7 @@ function kanshouClockInfo_(pcRow) {
   const hour = (pcRow[COL.PC.HOUR] === "" || pcRow[COL.PC.HOUR] == null) ? 8 : (parseFloat(pcRow[COL.PC.HOUR]) || 0);
   const band = timeBand_(hour);
   const d = kanshouAbsDayToDate_(day);
-  const loc = String(pcRow[COL.PC.LOC] || "").trim();
-  return { day: day, hour: hour, band: band, month: d.month, dayOfMonth: d.day, label: (loc ? "📍" + loc + "　" : "") + d.year + "年" + d.month + "月" + d.day + "日・" + kanshouFmtHM_(hour) + "・" + band };
+  return { day: day, hour: hour, band: band, month: d.month, dayOfMonth: d.day, label: d.year + "年" + d.month + "月" + d.day + "日・" + kanshouFmtHM_(hour) + "・" + band };
 }
 
 // 好感≥80觸發同床共枕的那次結束一天，順手記一筆「今晚共度良宵的對象」，下一回合(不論玩家做什麼)讀一次就清掉(一次性旗標)，餵進提示詞當【晨間餘韻】引子。
@@ -1320,11 +1122,6 @@ var WORLD_SPEC_ = {
 // 這一局屬於哪一軌：game_id 前綴就是答案（solo 是 g_、鑑賞是 k_）。
 function worldTrack_(gameId) { return String(gameId || "").indexOf('g_') === 0 ? 'solo' : 'kanshou'; }
 function worldSpec_(gameId) { return WORLD_SPEC_[worldTrack_(gameId)] || WORLD_SPEC_.kanshou; }
-// 🗾 大區(玩家自訂的分區，如「泰國」「海邊小鎮」)刻意【不】放進上面那張表：
-//    ①那張表驅動 AI 能寫哪些 kind——大區只有玩家能開，不讓 AI 自己生一個國家出來。
-//    ②那張表也驅動淘汰——大區是結構，被淘汰會讓底下的地點變孤兒，所以永不淘汰。
-var KANSHOU_REGION_KIND_ = '大區';
-var KANSHOU_REGION_CAP_ = 12;
 // 各類上限、一回合寫幾條餵幾條，全部搬進上方 WORLD_SPEC_ 逐軌登記。
 // 性別只有「人物」類用得到，但升格成正式同伴時它是必要的(肢體互動依【性別】欄)，所以存在表上而非事後猜。
 // ⚠ COL 是位置索引：新欄位一律【接在最後】，絕不插在中間(插了整表位移)。
@@ -1598,7 +1395,7 @@ function worldWrite_(gameId, entries, curDay, max) {
     // 大區也走這支寫入(同一套清洗/去重/快取)，但它【不在】WORLD_SPEC_ 的 kinds 裡——
     // 那張表管的是「AI 能寫哪些 kind」與「哪些 kind 會被淘汰」，大區兩者皆非。
     // AI 走不到這裡：sanitizeAiData_ 在上游就只放行那三種 kind。
-    if (spec.kinds.indexOf(kind) < 0 && kind !== KANSHOU_REGION_KIND_) return;
+    if (spec.kinds.indexOf(kind) < 0) return;
     // ⚠ world_note 是【AI 產的】、不經過 sanitizeUserData_，所以清洗要在這裡做完：
     //    ①斷字/偽造標記字元 ②開頭的公式引導字元(寫進儲存格會被 Google Sheet 當公式執行)
     const _f = v => String(v || "").replace(/[<>&"'`｜【】\[\]★\r\n\t]/g, "").replace(/^[=+\-@\t\r]+/, "").trim();
@@ -1607,8 +1404,9 @@ function worldWrite_(gameId, entries, curDay, max) {
     const sex = (['男', '女', '異'].indexOf(String(e.sex || "").trim()) >= 0) ? String(e.sex).trim() : "";
     // 📍 at＝這條長在哪個地方（農場、雞、店裡的常客…）。只收這一局真的存在的地名，
     //    AI 隨手寫個不存在的地方就當它沒填——不然那條會永遠餵不回來。
-    const atRaw = _f(e.at).slice(0, 24);
-    const at = (atRaw && atRaw !== '無' && kanshouFindLoc_(gid, atRaw)) ? atRaw : "";
+    // 🗑️ 2026-09 地點退休：at（這條長在哪個地方）沒有「此刻在哪」可以比對了，整格停用。
+    //    ⚠ 試算表的 AT 欄保留不刪（同 COL 的規矩），只是不再讀寫。
+    const at = "";
     clean.push({
       kind: kind, name: name || text.slice(0, 12), text: text, sex: sex,
       region: _f(e.region).slice(0, 24), own: _f(e.own).slice(0, 12), at: at
@@ -1745,27 +1543,21 @@ function worldEvictees_(d, gid, added, curDay) {
 
 // 餵回去：帳本會長大，所以【不是全餵】——只挑跟此刻真的有關的，其餘留在表上等被叫到。
 // 相關＝①釘選 ②此刻地點提到它 ③在場者名字出現在內容裡 ④玩家這句話提到它 ⑤最近 3 天剛提過。
-function worldFeed_(gameId, rows, curLoc, presentNames, userMsg, curDay) {
+function worldFeed_(gameId, rows, presentNames, userMsg, curDay) {
   if (!Array.isArray(rows) || !rows.length) return "";
   const spec = worldSpec_(gameId);
-  const loc = String(curLoc || ""), msg = String(userMsg || "");
+  const msg = String(userMsg || "");
   const names = (presentNames || []).map(n => String(n || "").trim()).filter(Boolean);
   const day = parseInt(curDay) || 0;
-  // 📍 這個地方上的東西一律餵回來，不看分數也不占那 6 個名額——玩家回到 A 村莊，
-  //    他的農場和雞就該還在。這是「世界會留下痕跡」真正兌現的地方。
-  const rooted = loc ? rows.filter(r => r.kind !== KANSHOU_REGION_KIND_ && String(r.at || "").trim() === loc)
-    .sort((a, b) => (b.pin ? 1 : 0) - (a.pin ? 1 : 0) || b.seen - a.seen).slice(0, spec.atMax) : [];
-  const rootedKeys = rooted.map(r => r.kind + '｜' + r.name);
-  // 地點不餵回(它的脈絡由★【地點釘死】那行給)；大區是結構、不是要敘述的事實。
-  // 📍 有根的條目在【別的地方】不餵回——你的農場不會跟著你走到別的城鎮；
-  //    但玩家自己講到它的時候要認得，所以問到名字仍然放行。
-  const scored = rows.filter(r => r.kind !== '地點' && r.kind !== KANSHOU_REGION_KIND_
-    && rootedKeys.indexOf(r.kind + '｜' + r.name) < 0
-    && (!String(r.at || "").trim() || (msg && msg.indexOf(r.name) >= 0))).map(r => {
+  // 🗑️ 2026-09 地點退休：①「有根的條目」(at＝長在某地，如農場、雞)整段移除——沒有「此刻在哪」
+  //    就沒有「回到那裡」這件事；②【地點】不再被排除在餵回之外。它以前被排掉的理由是
+  //    「脈絡由 ★【地點】那行給」，而那行已經不存在了——地點現在就是一條普通的世界設定，
+  //    跟人物／設定同級，玩家講到它、它最近被提過，它就回來。
+  const rooted = [];
+  const scored = rows.map(r => {
     const hay = r.name + '｜' + r.text;
     let sc = 0;
     if (r.pin) sc += 100;
-    if (loc && (hay.indexOf(loc) >= 0)) sc += 40;
     if (names.some(n => hay.indexOf(n) >= 0)) sc += 30;
     if (msg && (msg.indexOf(r.name) >= 0 || (r.name.length > 1 && hay.indexOf(msg.slice(0, 6)) >= 0))) sc += 50;
     if (day && r.seen >= day - 3) sc += 20;
@@ -1988,7 +1780,7 @@ function relMemMemoryStr_(relMem) {
 //    回 { text, spotlight }：text 直接進提示詞，spotlight 供呼叫端判斷這一步點名了誰。
 function kanshouPartyCards_(ctx) {
   const pcData = ctx.pcData, pcId = ctx.pcId, myGameId = ctx.myGameId, userMsg = ctx.userMsg;
-  const partyMembers = ctx.partyMembers, moveTarget = ctx.moveTarget, partyIdSet = ctx.partyIdSet || [];
+  const partyMembers = ctx.partyMembers;
   const kanshouTimeJumped_ = ctx.timeJumped, formatPref = ctx.formatPref, formatTrait = ctx.formatTrait;
   let stableArr = [], liveArr = [];
   const _presenceSeen_ = {};
@@ -2023,20 +1815,11 @@ function kanshouPartyCards_(ctx) {
       const pKnownStr = `${_pKnown.say}${_pKnown.noted.length ? `，${pron_(r[COL.PC.SEX])}注意到我${_pKnown.noted.join('、')}` : ''}。`;
       const pMemoirStr = pMemoirRaw ? `我們一起走過：${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}。` : "";
       // 明講方向的「她/他是你的${tag}」(而非單純「關係:${tag}」)，避免AI誤讀方向、演反成玩家服侍對方。
-      // 🫂 在場者都是同行者，走到哪跟到哪——在場來由只剩「這一幕是怎麼開場的」。
-      // 🫂 在場改成【同地點】之後，「剛走到」這件事只對【同行者】成立——本來就站在這裡的人
-      //    是你走進來時遇到的（2026-09 玩家：「我沒有跟她同行，我是去那個地點找她，劇情又變成一起」）。
-      const _isParty = partyIdSet.indexOf(String(r[COL.PC.ID])) >= 0;
-      const pPresenceStr = (() => {
-        if (moveTarget) return _isParty
-          ? "【與你結伴一起來到】這裡(一路同行，此刻剛踏進這個場景)"
-          : `我走進來的時候，【本來就在這裡】(${pron_(r[COL.PC.SEX])}在這裡做自己的事，是我找過來的)`;
-        if (kanshouTimeJumped_) return "時間流轉之後，【依然在你身邊】(這段空白裡各自做了什麼，順著時段自然帶過)";
-        // 🗑️ 2026-09 玩家「你們從剛才就一直在這裡<< 這不用了吧?」：一般回合不講在場來由。
-        //    上一輪的敘事就在 chatHistory 裡、人也還在卡上，那句話沒有新資訊。
-        //    剛結伴走到／時間跳過之後才有——那兩種是 AI 猜不到、猜錯會演壞的事。
-        return "";
-      })();
+      // 🫂 在場來由只剩【時間跳過之後】這一種——地點退休後「剛走到」不再是一件會發生的事。
+      //    一般回合不講在場來由（玩家「你們從剛才就一直在這裡<< 這不用了吧?」）：
+      //    上一輪的敘事就在 chatHistory 裡、人也還在卡上，那句話沒有新資訊。
+      const pPresenceStr = kanshouTimeJumped_
+        ? "時間流轉之後，【依然在你身邊】(這段空白裡各自做了什麼，順著時段自然帶過)" : "";
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
       // 🧊 這個人【是誰】——整局不會變，所以它進 system 吃提示詞快取。
       const _pPref = formatPref(r[COL.PC.PREF]), _pTrait = formatTrait(r[COL.PC.TRAIT]);
@@ -2057,21 +1840,12 @@ function kanshouPartyCards_(ctx) {
   const _liveCards_ = liveArr.map(t => _presenceShared_
     ? t.replace(/__PRESENCE__[\s\S]*?__\/PRESENCE__/, "")
     : t.replace(/__PRESENCE__([\s\S]*?)__\/PRESENCE__/, "$1"));
-  // 🫂 同行與在場是兩件事，講明白（2026-09 玩家：「是不是要『現在沒有同行人／目前地點有誰誰誰』這樣呢?」）
-  //    ⚠ 這一段留在 user：同行名單隨時會變，放 system 會把整段快取前綴拖下水。
-  const _partyHere_ = liveArr.map(x => String(x).split('：')[0])
-    .filter(n => partyIdSet.indexOf(String((pcData.find(r => String(r[COL.PC.NAME]).trim() === n) || [])[COL.PC.ID])) >= 0);
-  const _whoStr_ = (() => {
-    if (!liveArr.length) return '';
-    const _all = liveArr.map(x => String(x).split('：')[0]);
-    const _others = _all.filter(n => _partyHere_.indexOf(n) < 0);
-    if (!_partyHere_.length) return `現在沒有人跟你同行。這個地方此刻有：${_all.join('、')}（他們本來就在這裡）。`;
-    return `同行中：${_partyHere_.join('、')}（一路跟著我走）。`
-      + (_others.length ? `這個地方此刻還有：${_others.join('、')}（本來就在這裡）。` : '');
-  })();
+  // 🗑️ 2026-09 地點退休後「同行中 vs 本來就在這裡」這個區分整個消失了——在場就是同行，
+  //    那兩句話（原本是為了回答玩家「現在沒有同行人／目前地點有誰誰誰」）現在只是把
+  //    同一份名單用兩種講法再講一次。卡片本身就帶著名字，不必另起一行點名。
   const PROMPT_PARTY_LIVE = liveArr.length > 0
-    ? `【他們此刻】：${_whoStr_ ? `\n${_whoStr_}` : ""}${_presenceShared_ ? `\n${_presenceShared_}` : ""}\n${_liveCards_.join("\n")}`
-    : "現在沒有人跟你同行，這個地方也沒有別人，你是一個人。";
+    ? `【他們此刻】：${_presenceShared_ ? `\n${_presenceShared_}` : ""}\n${_liveCards_.join("\n")}`
+    : "現在沒有人跟你同行，你是一個人。";
 
   return { stable: PROMPT_PARTY_STABLE, live: PROMPT_PARTY_LIVE };
 }
@@ -2082,7 +1856,7 @@ function kanshouPartyCards_(ctx) {
 function kanshouApplyIntimacyFeedback_(ctx) {
   const aiData = ctx.aiData, pcData = ctx.pcData, pcIndex = ctx.pcIndex;
   const myGameId = ctx.myGameId, dirtyPcRows = ctx.dirtyPcRows;
-  const curL = ctx.curL, pcName = ctx.pcName;
+  const presentIds = ctx.presentIds || [], pcName = ctx.pcName;
   if (!aiData.intimacy_feedback) return;
 
     // 🔴 防禦機制：過濾掉 AI 偷懶不想更新狀態時的敷衍用語
@@ -2153,7 +1927,9 @@ function kanshouApplyIntimacyFeedback_(ctx) {
         // 同款括號全名比對問題(見上方 kanshouNameCandidates_)，這裡也會影響每回合寫入失敗。
         const targetIdx = pcData.findIndex(r => kanshouNameCandidates_(r[COL.PC.NAME]).includes(tName) && kanshouIsAlly_(r, myGameId));
         if (targetIdx === -1) return;
-        if (String(pcData[targetIdx][COL.PC.LOC] || "").trim() !== String(curL || "").trim()) return;
+        // 🔒 只寫得進【這一幕真的在場】的人。地點退休前這裡比的是 LOC，現在比在場名單——
+        //    擋的是同一件事：AI 提到一個不在場的人，不該把她的狀態/回憶一起改掉。
+        if (presentIds.indexOf(String(pcData[targetIdx][COL.PC.ID])) < 0) return;
 
         dirtyPcRows.add(targetIdx);
         const nCleanState = sanitizePhysicalState(nfb.physical_state);
@@ -2247,32 +2023,8 @@ function actionPlay_(userData, pcId, sheets) {
   const _paceHour_ = kanshouHourPerAction_(); // ⏰ 每回合推進幾小時
   // 🆕 玩家自己指定一個新地方(前端「去別的地方…」自由輸入)：查不到就當場把它加進這一局的世界，
   //    走過去，並讓 AI 第一次描述它是什麼樣的地方。世界從此多一格，之後可以再回來、可以約在那裡。
-  let kanshouNewPlaceStr = "";
-  const _newPlaceRaw = String(userData.newPlace || "").replace(/[<>&"'`｜【】\[\]★\r\n\t]/g, "").trim().slice(0, 16);
-  if (_newPlaceRaw && !userData.moveTarget) {
-    if (kanshouFindLoc_(_myGid_, _newPlaceRaw)) {
-      userData.moveTarget = _newPlaceRaw;               // 其實已經存在 → 當成一般移動
-    } else {
-      // 🗾 玩家可以指定這個新地方在哪一區(自訂大區或內建區，如把它開在「家」裡＝家中新空間)，
-      //    也可以一併宣告「這是我開的店」——三個需求同一條路徑，見 CODE_NOTES.md。
-      const _npRegion = kanshouFindRegion_(_myGid_, userData.newPlaceRegion);
-      const _npOwn = kanshouSanitizeTagValue_(userData.newPlaceOwn, 12);
-      worldWrite_(_myGid_, [{
-        kind: '地點', name: _newPlaceRaw, text: "",
-        region: _npRegion ? _npRegion.id : "", own: _npOwn
-      }], curDay);
-      userData.moveTarget = _newPlaceRaw;
-      const _npWhere = _npRegion ? `它在「${_npRegion.name}」${_npRegion.desc ? `（${_npRegion.desc}）` : ""}。` : "";
-      kanshouNewPlaceStr = _npOwn
-        ? `\n★【你的店今天開張】：「${_newPlaceRaw}」是玩家【自己開的】${_npOwn}，今天第一天。${_npWhere}店裡長什麼樣、招牌什麼味道、客人怎麼上門，由你當場決定並寫出來——玩家是這裡的主人，不是客人。★決定好之後【務必】用 world_note 記一條 {kind:"地點", name:"${_newPlaceRaw}", text:"一句話的樣貌"}。`
-        : `\n★【第一次來到這裡】：「${_newPlaceRaw}」這個地方，玩家今天才第一次走進來——${_npWhere}它長什麼樣、有什麼聲音氣味、平常是誰在這裡，由你當場決定並寫出來。★決定好之後【務必】用 world_note 記一條 {kind:"地點", name:"${_newPlaceRaw}", text:"一句話的樣貌"}，這樣它才會永遠留在這座城裡。`;
-    }
-  }
-  const moveTarget = kanshouFindLoc_(_myGid_, userData.moveTarget);
-  const moveName = moveTarget ? moveTarget.name : "";
-  let finalUserMsg = moveTarget
-        ? `【玩家意圖】：走向了「${moveName}」。`
-        : `【玩家原話】：${userMsg}`;  // ⚠ 玩家自己打的字≠GAS 寫的意圖摘要，標籤不同源（見 CODE_NOTES）
+  // 🗑️ 2026-09 地點整組退休，移動這件事不再存在，所以只剩玩家自己打的那句話。
+  let finalUserMsg = `【玩家原話】：${userMsg}`;
 
   const dirtyPcRows = new Set();
   dirtyPcRows.add(pcIndex); // 玩家本人一定會被處理到，先加進去
@@ -2283,11 +2035,8 @@ function actionPlay_(userData, pcId, sheets) {
   // 晨間餘韻：讀一次(上一回合結束一天留下的旗標，若有)就立刻清掉，只讓「緊接著的下一回合」
   const morningAfterNames = KANSHOU_MORNING_AFTER_TAG_.get(pc[COL.PC.MEMORY]);
   if (morningAfterNames) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], '');
-  // 🌙 夜未眠的出口②：玩家自己走出這個房間，這一夜就到此為止(人都不在了，沒有「獨處」可言)。
-  if (userData.moveTarget && KANSHOU_NIGHT_SCENE_TAG_.get(pcData[pcIndex][COL.PC.MEMORY])) {
-    pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NIGHT_SCENE_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], 0);
-    pc[COL.PC.MEMORY] = pcData[pcIndex][COL.PC.MEMORY];
-  }
+  // 🗑️ 夜未眠的出口②（玩家走出這個房間）隨地點一起退休——沒有移動這回事了。
+  //    ①再按一次🌙（真的睡、清標記）與 ③換日自然失效 兩條出口照舊。
   // 🌙 夜未眠：這一刻是否已在「深夜獨處」段落中(見 KANSHOU_NIGHT_SCENE_TAG_)。
   const kanshouNightSceneOn_ = KANSHOU_NIGHT_SCENE_TAG_.get(pcData[pcIndex][COL.PC.MEMORY]) === curDay;
 
@@ -2326,59 +2075,24 @@ function actionPlay_(userData, pcId, sheets) {
   const _narrHour_ = (_clk_.narrHour === null) ? curHour : _clk_.narrHour;
   const curDateObj_ = kanshouAbsDayToDate_(_narrDay_);
 
-  // 合法地點時才寫入 LOC。
-  // 🗑️ 2026-09「氛圍靈感」種子池(KANSHOU_EVENT_SEEDS_)已移除：那是三類各七句的預寫小事件，
-  //    20% 機率抽一句丟給 AI 當靈感。抽中什麼跟此刻的人、地、時、你們的歷史全都無關——
-  //    真正該當靈感的東西，AI 手上本來就有(在場者的個性、天氣、時段、世界帳本)。
-  const _prevL_ = curL;
-  if (moveTarget) {
-    curL = moveName;
-    pcData[pcIndex][COL.PC.LOC] = curL;
-    dirtyPcRows.add(pcIndex);
-  }
-  // 🫂 「一起過去」泡泡點名的那幾位跟著走。前端送 id，後端自己驗：要是這一局的人、
-  //    而且【剛才真的跟你站在同一格】。⚠ 同行與否刻意不在判斷裡（玩家定案：沒同行也能一起移動）。
-  if (moveTarget) {
-    String(userData.moveWith || "").split(',').map(x => x.trim()).filter(Boolean).forEach(_id => {
-      const _pi = pcData.findIndex(r => String(r[COL.PC.ID]) === _id && kanshouIsAlly_(r, myGameId, _prevL_));
-      if (_pi >= 0 && _pi !== pcIndex) { pcData[_pi][COL.PC.LOC] = curL; dirtyPcRows.add(_pi); }
-    });
-  }
+  // 🗑️ 2026-09 地點整組退休：這裡原本負責寫 LOC、把泡泡點名的人搬過去、再把同行者的 LOC
+  //    同步成玩家的。玩家原話：「只要扯到移動都會很怪」「地點就是可以一個亂掰的背景」。
+  //    ⚠ COL.PC.LOC 欄【不刪】——solo 還在用它一百多處，鑑賞這一軌單純不再讀寫（CLAUDE.md：
+  //    COL 是位置索引，寧棄用不刪欄）。
 
-
-  // 🗺️ 同行者跟著你走：先把他們的 LOC 同步到這一幕的地點，下面算「誰在場」才算得準。
-  partyRows.forEach(r => {
-    const _pi = pcData.indexOf(r);
-    if (_pi >= 0 && String(r[COL.PC.LOC] || "").trim() !== String(curL || "").trim()) {
-      pcData[_pi][COL.PC.LOC] = curL; dirtyPcRows.add(_pi);
-    }
-  });
-
-  // 🫂 在場＝【站在同一個地點】的人（2026-09 玩家定案：「全部人在客廳但只有大河跟我說話」很錯亂）。
-  //    同行只決定「她會不會跟著你走」，不再決定「她在不在這一幕裡」——走到哪就遇到那裡的人。
-  //    ⚠ 沒有另設在場上限：世界人數本身就是上限（KANSHOU_WORLD_MAX_），少一個要維護的數字。
+  // 🫂 在場＝【同行的人】。2026-09 地點整組退休（玩家：「只要扯到移動都會很怪」「地點就是
+  //    可以一個亂掰的背景」），於是「誰在這一幕」就只剩同行清單說得出來——你帶著誰，誰就在。
+  //    ⚠ 這是 2026-09 稍早那一刀（在場改成同地點）的回退，但前提換了：那次是為了解決
+  //    「全部人在客廳但只有大河跟我說話」，而那個錯亂的來源正是【系統在記位置】這件事本身。
+  //    ⚠ 沒有另設在場上限：同行上限（KANSHOU_PARTY_MAX_）就是上限，少一個要維護的數字。
   //    路人可自由描寫增添生活感，但不具名、不能被指名互動；能被指名、會被記錄的只有這份名單。
-  const presentRows = pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId, curL));
+  const presentRows = partyRows;
   const presentMembers = presentRows.map(r => String(r[COL.PC.NAME]));
 
 
-  // 🌍 這座城裡還有誰、在哪：2026-09 玩家「我想找凜，他說他在凜的家，整個很錯亂」——
-  //    舊版只給名字不給地點，AI 只好自己編一個地方出來。地點現在是這個世界裡真的存在的事實，
-  //    每回合都送（世界上限 5 人，扣掉在場的最多剩 4 個名字，付得起）。
-  const kanshouWorldRosterStr = (() => {
-    const _hereIds = presentRows.map(r => String(r[COL.PC.ID]));
-    const _elsewhere = pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId) && _hereIds.indexOf(String(r[COL.PC.ID])) < 0)
-      .sort((a, b) => KANSHOU_MET_COUNT_TAG_.get(b[COL.PC.MEMORY]) - KANSHOU_MET_COUNT_TAG_.get(a[COL.PC.MEMORY])).slice(0, KANSHOU_WORLD_ROSTER_CAP_);
-    if (!_elsewhere.length) return "";
-    const _list = _elsewhere.map(r => {
-      const _name = String(r[COL.PC.NAME] || "");
-      const _variants = /[A-Za-z]/.test(_name)
-        ? [...new Set([_name.toUpperCase(), _name.charAt(0).toUpperCase() + _name.slice(1).toLowerCase(), _name.toLowerCase()])].filter(v => v !== _name)
-        : [];
-      return _name + (_variants.length ? `(${_variants.join('/')}也是同一人)` : '') + '在' + kanshouLocNameForAI_(String(r[COL.PC.LOC] || ''));
-    }).join('、');
-    return `\n★【這座城裡還有誰】：${_list}。我們都認識他們；我主動問起時，依彼此交情與日常作息回應對方的去向。★他們此刻各自在自己的地方，【不在這一幕的畫面裡】——要見面得真的走過去，或請對方過來（系統會宣告）。`;
-  })();
+  // 🗑️ 2026-09 地點整組退休：★【這座城裡有哪些地方】（地圖）與 ★【這座城裡還有誰】（誰在哪）
+  //    兩段一起砍。後者本來就是地點系統的補丁——它要回答的「她此刻在哪」，在沒有位置
+  //    這個概念之後不存在了。
   presentRows.forEach(r => {
     const _ri = pcData.indexOf(r);
     if (_ri < 0) return;
@@ -2400,8 +2114,7 @@ function actionPlay_(userData, pcId, sheets) {
   // 🪪 在場人物卡（聚光燈／在場來由／六格人設）：見 kanshouPartyCards_。
   const _cards_ = kanshouPartyCards_({
     pcData: pcData, pcId: pcId, myGameId: myGameId, userMsg: userMsg, partyMembers: presentMembers,
-    partyIdSet: partyRows.map(r => String(r[COL.PC.ID])),
-    moveTarget: moveTarget, timeJumped: kanshouTimeJumped_, formatPref: formatPref, formatTrait: formatTrait
+    timeJumped: kanshouTimeJumped_, formatPref: formatPref, formatTrait: formatTrait
   });
   const PROMPT_PARTY_LIVE = _cards_.live;   // 此刻的樣子留在 user；「他們是誰」進 system 吃快取
 
@@ -2479,31 +2192,7 @@ function actionPlay_(userData, pcId, sheets) {
   const _histWindow_ = KANSHOU_HIST_WINDOW_;
   // 🌍 世界帳本：讀出這一局玩出來的地方/人/設定，只餵跟此刻真的有關的那幾條(見 worldFeed_)。
   const _worldRows_ = worldRead_(myGameId);
-  const _worldFeed_ = worldFeed_(myGameId, _worldRows_, curL, presentMembers, userMsg, curDay);
-  // 🗺️ 這座城裡有哪些地方：worldFeed_ 刻意把【地點】整類排除（那裡餵的是「事」，
-  //    地點的脈絡由 ★【地點】給），結果 AI 從來看不到地圖——而它現在要負責讀出玩家
-  //    說了想去哪。只給名字、不給描述（此刻那一個的描述已經在 ★【地點】裡了）。
-  //    ⚠ 玩家說的地方不在這張表上也沒關係，那是【新地方】，由玩家按下泡泡當場開。
-  const kanshouMapStr = (() => {
-    const _home = getKanshouHomeName_(pc[COL.PC.MEMORY], pcName);
-    // 依【區 id】分桶，最後才翻成名字——用名字當鍵的話 'mine' 這種真的存在的區
-    // （id:'mine'／name:'走出來的地方'）會跟我自己寫的 fallback 字串對不上。
-    const _bucket = {}, _order = [];
-    kanshouLocationsFor_(_myGid_).forEach(l => {
-      const _n = String(l.name || "").trim();
-      if (!_n) return;
-      const _rg = (l.region === 'room' || l.region === 'home') ? 'home' : String(l.region || 'mine');
-      if (!_bucket[_rg]) { _bucket[_rg] = []; _order.push(_rg); }
-      _bucket[_rg].push(_n);
-    });
-    if (!_order.length) return "";
-    // 'mine'＝還沒歸區的那一袋，壓到最後（它是待整理的桶子，不是這座城的一塊）。
-    _order.sort((a, b) => (a === 'mine' ? 1 : 0) - (b === 'mine' ? 1 : 0));
-    const _lab = rg => rg === 'home' ? _home
-      : (KANSHOU_REGION_LABEL_[rg] ? KANSHOU_REGION_LABEL_[rg].name
-        : ((kanshouFindRegion_(_myGid_, rg) || {}).name || rg));
-    return `\n★【這座城裡有哪些地方】：${_order.map(k => `${_lab(k)}：${_bucket[k].join('、')}`).join('；')}。`;
-  })();
+  const _worldFeed_ = worldFeed_(myGameId, _worldRows_, presentMembers, userMsg, curDay);
 
 
   // 🧊 排序原則：【穩定的放前面、每回合會變的放後面】——prompt cache 是逐 token 比對前綴，
@@ -2514,14 +2203,13 @@ function actionPlay_(userData, pcId, sheets) {
   const _sty_ = k => kanshouStyle_(_styles_, k, _styleVars_);
   const prompt = `${_sty_('world')}
 ★【誰在場】：有【專屬稱呼】就叫暱稱。其餘路人不具名。
-★【world_note】：這一步新出現的地方/人/規矩寫進去才會留下，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆；只長在某地的東西（田、雞、招牌、常客）的 at 填那個地名。
+★【world_note】：這一步新出現的地方/人/規矩寫進去才會留下，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆。
 
 【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
 ${PROMPT_PARTY_LIVE}
 ${_lenLine_ === '' ? '' : _sty_('length')}
-★【地點】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，這一幕就在這裡演完；換地方由系統宣告。${moveTarget ? '你們剛到，從抵達後的當下寫起。' : ''}
-${kanshouNewPlaceStr}${kanshouMapStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouNightSceneStr}
-★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚就在這個房間裡過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
+${_worldFeed_}${kanshouNightSceneStr}
+★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚跟我一起過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 
 ${presentMembers.length ? '' : '★【在場】：這個地方只有我一個人（常民與路人照常可以出現）。'}
 
@@ -2572,33 +2260,10 @@ ${PROMPT_BODY}
     //    兩把鑰匙開同一道門，其中一把還在 AI 手上。要她離開，敘事照樣寫得出來，只是位置不會被動。
     // 鑑賞無戰鬥：血量快照/stat_changes(外顯狀態刷新)/經濟層(物品/金錢/任務)皆不追蹤、不落地。
 
-    // 🚶 「要跟○○一起過去嗎？」泡泡（2026-09 復活的 moveProposal，觸發由按鈕改成【打字】）。
-    //    AI 只把玩家說的地名【回報】上來，裁定仍然在 GAS＋玩家手上：
-    //    ①地名拿去比對世界帳本，帳本裡沒有的一律丟掉——AI 沒辦法把玩家送去不存在的地方；
-    //    ②已經站在那裡就不問；③不按＝沒走，狀態零損失（這是舊 moveProposal 的語意，照舊）。
-    let movePrompt = null;
-    try {
-      // 地名走跟玩家自由輸入同一個消毒規格（剝 HTML/MEMORY 結構字元、限長），
-      // 因為它可能一路走到 worldWrite_ 變成這座城裡真的存在的一格。
-      const _mvRaw = String(aiData.move_to || "").replace(/[<>&"'`｜【】\[\]★\r\n\t]/g, "").trim().slice(0, 16);
-      const _mvLoc = _mvRaw ? kanshouFindLoc_(myGameId, _mvRaw) : null;
-      const _mvName = _mvLoc ? String(_mvLoc.name) : _mvRaw;
-      if (_mvName && _mvName.trim() !== String(curL || "").trim()) {
-        movePrompt = {
-          to: _mvName,
-          isNew: !_mvLoc,
-          ids: presentRows.map(r => String(r[COL.PC.ID])),
-          names: presentRows.map(r => String(r[COL.PC.NAME]))
-        };
-      }
-    } catch (e) { }
-
-
-
     // 📝 神色／穿著／稱呼／回憶／她眼中的你 → 見 kanshouApplyIntimacyFeedback_。
     kanshouApplyIntimacyFeedback_({
       aiData: aiData, pcData: pcData, pcIndex: pcIndex, myGameId: myGameId,
-      dirtyPcRows: dirtyPcRows, curL: curL, pcName: pcName
+      dirtyPcRows: dirtyPcRows, presentIds: presentRows.map(r => String(r[COL.PC.ID])), pcName: pcName
     });
 
     // 🌍 AI 這一回合發明的東西落盤——這是「自由」能成立的唯一原因：發明有人記，就不是雜訊。
@@ -2679,7 +2344,6 @@ ${PROMPT_BODY}
       options: aiData.options,
       tags: tagsPayload,
       kanshouClock: kanshouClock,
-      movePrompt: movePrompt,
       // 修過的bug：#clock-hud讀共用的updateClock(data.clock,...)，但data.clock在鑑賞這條路徑上從來沒被設過，導致HUD一直被當成「沒有clock」隱藏。
       clock: kanshouClock ? kanshouClock.label : ""
     });

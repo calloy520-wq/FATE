@@ -44,10 +44,9 @@
   //   死參數 combatData/dismissCurfew(機制已刪、payload 從未轉送)趁這刀一併移除。
   async function send(customMsg, isSilent = false, opts = {}) {
     opts = opts || {};
-    const moveTarget = opts.moveTarget || null, newPlace = opts.newPlace || null, endDay = !!opts.endDay,
+    const endDay = !!opts.endDay,
       advanceHours = opts.advanceHours || 0,
       jumpBand = opts.jumpBand || null,
-      moveWith = opts.moveWith || null,
       loaderCaptions = opts.loaderCaptions || null;
       
       // 🐛→✅ 稽核抓到：呼叫端一直有把 npcId 塞進 opts，但 send() 這裡沒解構、gasRun payload 也沒轉發
@@ -89,7 +88,7 @@
     }
 
     try {
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, moveWith: moveWith || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -103,11 +102,10 @@
       // people 只在後端真的給了陣列才更新——敲門早退這類「沒人移動」的回應不帶 people，
       //   舊寫法 `data.people || []` 會把在場快取洗成空(泡泡期間開拍照面板變「沒有可拍的人」)。
       if (Array.isArray(data.people)) localNPCs = data.people;
-      nearbyLocations = data.locations || [];
       // 🕰️ 「下一階段」按鈕：每次actionPlay回應都可能改動時鐘(結束一天/推進時間/跳節慶/跳時段皆會)，
       //   記下最新kanshouClock供地圖頁的時段按鈕判斷現在是不是深夜，並重繪地圖頁(桌機三欄並排恆
       //   顯示，不能只靠切分頁才刷新)。
-      // 🩹 玩家「跳到節慶後時間看起來沒動靜」查出根因：這裡本來只更新kcClock/renderMapPane，
+      // 🩹 玩家「跳到節慶後時間看起來沒動靜」查出根因：這裡本來只更新 kcClock，
       //   從未呼叫updateClock(data.clock,...)刷新頂部常駐的#clock-hud——後端其實有正確推進、
       //   也有把label塞進data.clock，只是前端這裡漏了消費它，導致HUD停在進場當下那一次的值。
       // ⚡ actionPlay(Gallery.gs) 會在回應裡順手夾帶 data.tags(跟 get_tags 同格式)，有夾帶就直接吃、
@@ -119,7 +117,7 @@
       //   還是「🌙睡覺」，玩家以為沒反應再按一次，那一按就真的睡掉、直接跳到早上——正是【夜未眠】
       //   要防的那件事。tags 是這一回合的權威狀態，必須在任何讀它的渲染【之前】就位。
       try { refreshFateTags(data.tags); } catch (e) { }
-      if (data.kanshouClock) { kcClock = data.kanshouClock; try { renderMapPane(); } catch (e) { } }
+      if (data.kanshouClock) kcClock = data.kanshouClock;
       if (data.clock) updateClock(data.clock, null, null);
       // 🔴 直接接收後端傳來的狀態字串，不再依賴 AI 的文字解析
       if (data.statusString) {
@@ -189,30 +187,6 @@ let plainTextContext = cleanText;
           plainTextContext += optText + `\n`;
         });
         optionsHtml += `</div></div>`;
-      }
-      // 🚶 「要跟○○一起過去嗎？」泡泡：打字說了要去哪，AI 回報地名、後端比對過世界帳本，
-      //   這裡只負責問一句。⚠ 住在 #options-container（跟【命運的抉擇】同一個容器，但在
-      //   #ai-options-grid【外面】）——關掉 AI 選項的玩家照樣看得到必點泡泡，見上面那段說明。
-      //   不按＝沒走，狀態零損失；所以刻意沒有「拒絕」鈕，玩家繼續打字它自然就消失。
-      if (data.movePrompt && data.movePrompt.to) {
-        const _mp = data.movePrompt;
-        const _who = Array.isArray(_mp.names) ? _mp.names.filter(Boolean) : [];
-        const _ids = Array.isArray(_mp.ids) ? _mp.ids.join(',') : '';
-        // 🆕 帳本裡還沒有這個地方＝按下去就當場開一格（玩家：「我想讓 AI 自由創造地圖」）。
-        //   走既有的 newPlace 那條路，所以開完會自動要 AI 描述它、並寫回世界帳本。
-        const _new = !!_mp.isNew;
-        const _dest = '「' + _mp.to + '」' + (_new ? '（這是個新地方）' : '');
-        const _label = _who.length
-          ? '🚶 要跟 ' + _who.join('、') + ' 一起' + (_new ? '去' : '移動到') + _dest + '嗎？'
-          : '🚶 要' + (_new ? '去' : '移動到') + _dest + '嗎？';
-        // 🛡️ onclick 屬性本身用【雙引號】包，所以參數得是【單引號】的 JS 字串——
-        //   JSON.stringify 產的是雙引號，塞進去會當場把屬性打斷（我第一版就是這樣寫錯的）。
-        //   比照本檔 send('...') 那條既有寫法：跳脫反斜線與單引號，再擋掉能提早關閉標籤的字元。
-        const _j = v => "'" + String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'")
-          .replace(/"/g, '&quot;').replace(/</g, '\\u003c').replace(/[\r\n]/g, '') + "'";
-        optionsHtml += '<div class="options-grid" style="margin-top:8px;">'
-          + '<button class="btn-option" onclick="kanshouGoTogether_(' + _j(_mp.to) + ',' + _j(_ids) + ',' + (_new ? 'true' : 'false') + ')">'
-          + escapeHtml(_label) + '</button></div>';
       }
       if (optContainer) optContainer.innerHTML = optionsHtml;
       lastAiContext = plainTextContext;
@@ -336,10 +310,9 @@ let plainTextContext = cleanText;
       var memCount = (c.memoir || []).length;
       var full = !c.party && _pn >= KC_PARTY_MAX_;
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);' + (c.party ? 'background:rgba(180,140,220,.08);' : '') + '">'
-        + '<span style="flex:1;color:#e8d8e0;">' + (c.party ? '🫂' : (c.isHere ? '👋' : '🌹')) + ' ' + escapeHtml(c.name) + (c.tag ? ' <small style="color:#8a7fa0;">(' + escapeHtml(c.tag) + ')</small>' : '') + '<br><small style="color:' + (c.isHere ? '#c0a8e0' : '#7a9fa0') + ';">📍 ' + escapeHtml(c.locLabel || c.loc || '不明') + (c.isHere ? '（就在你身邊' + (c.party ? '·同行中' : '') + '）' : '') + '</small>' + '</span>'
+        + '<span style="flex:1;color:#e8d8e0;">' + (c.party ? '🫂' : '🌹') + ' ' + escapeHtml(c.name) + (c.tag ? ' <small style="color:#8a7fa0;">(' + escapeHtml(c.tag) + ')</small>' : '') + (c.party ? '<br><small style="color:#c0a8e0;">就在你身邊</small>' : '') + '</span>'
         // 🚶 不在同一個地方時給兩個方向：去找她（走過去）／叫她過來（她走過來）。在場了就不必再問。
-        + (c.isHere ? '' : '<button onclick="kanshouGoTo(\'' + String(c.id || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#3a4a5a;color:#a8c8e0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🚶去找</button>'
-            + '<button onclick="kanshouPartyOp(\'' + String(c.id || '').replace(/'/g, '') + '\',\'bring\')" style="padding:4px 8px;background:#4a4a3a;color:#e0d8a8;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🙋叫來</button>')
+        + ''
         + '<button onclick="kanshouPartyOp(\'' + String(c.id || '').replace(/'/g, '') + '\',\'' + (c.party ? 'drop' : 'add') + '\')"' + (full ? ' disabled title="同行已滿 ' + KC_PARTY_MAX_ + ' 位"' : '') + ' style="padding:4px 8px;background:' + (c.party ? '#4a3a6a' : (full ? '#2e2e34' : '#3a4a3a')) + ';color:' + (c.party ? '#dcc8ff' : (full ? '#666' : '#a8dca8')) + ';border:none;border-radius:6px;cursor:' + (full ? 'not-allowed' : 'pointer') + ';font-size:12px;" title="' + (c.party ? '離開同行：她會留在你解散她的那個地方' : '同行：她會一路跟著你走') + '">' + (c.party ? '−解散' : '＋同行') + '</button>'
         + '<button onclick="kanshouOpenMemoir(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:' + (memCount ? '#5a3a4a' : '#3a3a44') + ';color:' + (memCount ? '#e8b8cc' : '#999') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">💞回憶' + (memCount ? '(' + memCount + ')' : '') + '</button>'
         + '<button onclick="kanshouOpenRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\',\'' + String(c.nickname || '').replace(/'/g, '') + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button>'
@@ -354,17 +327,12 @@ let plainTextContext = cleanText;
     if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
     _kpBusy = true;
     try {
-      const _wait = op === 'add' ? '請他一起走…' : (op === 'bring' ? '請他過來…' : '讓他留在這裡…');
+      const _wait = op === 'add' ? '請他一起走…' : '讓他先自己待著…';
       const res = await withProcessing_(_wait,
         () => gasRun({ action: 'kanshou_party', pcId: pc.id, acctName: currentAccount, npcId: id, op: op }));
       if (!res || !res.success) { alert((res && res.message) || '沒成功。'); return; }
       var ids = res.party || [];
       _kcCur.forEach(function (x) { x.party = ids.indexOf(String(x.id)) >= 0; });
-      // 🙋 叫來／＋同行 都會把人移到你這一幕；就地更新地點，不必重打一趟 companions。
-      if (op === 'bring' || op === 'add') {
-        var _me = _kcCur.find(function (x) { return String(x.id) === String(id); });
-        if (_me) { _me.loc = res.loc || _me.loc; _me.isHere = true; _me.locLabel = ''; }
-      }
       renderKcPartyList_();
     } catch (e) { alert('沒成功。'); }
     finally { _kpBusy = false; }
@@ -391,16 +359,6 @@ let plainTextContext = cleanText;
     finally { _kpBusy = false; }
   }
 
-  // 🚶 去找她：把她所在的地點當成這一步的目的地，走既有的移動管線（play + moveTarget）。
-  //    ⚠ 刻意不另開 action：移動的所有副作用（時鐘、同行者跟著走、換幕敘事）都在那條路上。
-  function kanshouGoTo(id) {
-    var c = _kcCur.find(function (x) { return String(x.id) === String(id); });
-    if (!c) { alert('找不到這個人。'); return; }
-    var dest = String(c.loc || '').trim();
-    if (!dest) { alert('不知道他在哪。'); return; }
-    closeKcOverlay();
-    send('我往' + dest + '走去。', false, { moveTarget: dest });
-  }
 
   // 💞 共同回憶面板：看她跟你一路走來的回憶；★釘選=永不被新回憶擠掉(上限 KC_MEMOIR_PIN_CAP_)；🗑=刪掉不想留的。
   //   回憶本身由 AI 在劇情里程碑時自動記下(每人保留最近10條，釘選的不佔淘汰名額)。
@@ -582,208 +540,20 @@ let plainTextContext = cleanText;
     } catch (e) { alert('讀不到同伴。'); }
   }
 
-  // 🗾 出門走走·分區地圖：純氛圍用的分區/地點清單，僅供畫按鈕——實際合法地點驗證在後端 Gallery.gs 的 KANSHOU_REGIONS_/KANSHOU_LOCATIONS_(唯一真實來源)，改地點記得同步。
-  // 🏠 2026-07：「房間」獨立分頁併進「家」——深夜造訪不再靠玩家自家房間細分(改看她住處)，
-  //   房間沒必要單獨一頁。「我的房間」的 region 在前端顯示層改掛 home(見 KC_LOCATIONS_)，但仍以
-  //   isRoom:true 保留其特殊性(別人不會骰進來)；後端 KANSHOU_LOCATIONS_ 的 region
-  //   維持 'room'(純語意)，前後端各司其職、地點名一致即可。
-  var KC_REGIONS_ = [
-    { id: 'home', name: '家', desc: '你的家與共用生活空間' },
-    { id: 'shinzan', name: '深山町', desc: '溫馨日常區' },
-    { id: 'fuyuki', name: '冬木市中心', desc: '熱鬧生活區' },
-    { id: 'dojo', name: '山林', desc: '安靜神秘區' },
-    // 🗺️ 這一區不是靜態地圖，是玩出來的：地點來自後端下傳的 myPlaces(世界帳本)，不在 KC_LOCATIONS_ 裡。
-    { id: 'mine', name: '走出來的地方', desc: '你自己找到的地方' }
-  ];
   // ⏰ 跳到時段(GAS算差幾小時，kanshouHoursUntilBand_ 唯一真實來源)。純顯示用 mirror，改時段記得同步後端 KANSHOU_TIME_BANDS_。
   var KC_TIME_BANDS_ = [
     // startHour 鏡射後端 KANSHOU_TIME_BANDS_（唯一真實來源在 Gallery.gs）。
     { key: '清晨', name: '清晨', label: '☀️清晨', startHour: 5 }, { key: '午後', name: '午後', label: '🌤️午後', startHour: 11 },
     { key: '黃昏', name: '黃昏', label: '🌆黃昏', startHour: 17 }, { key: '夜', name: '夜晚', label: '🌙夜晚', startHour: 20 }, { key: '深夜', name: '深夜', label: '🌌深夜', startHour: 0 }
   ];
-  // 🏠 房間分區(room)的name是穩定內部key，顯示名稱是動態算的(kcRoomLabel_)——跟後端
-  // kanshouRoomDisplayName_同一套邏輯，見下方kcMapListHtml_。2026-07經濟/房東房客世界觀
-  // 砍除後不再有可指派的客房，只剩玩家自己的房間。
-  // 🗺️ 內建地點只剩玩家自己的房間（鏡射後端 KANSHOU_LOCATIONS_）。其餘地方全部來自世界帳本
-  //   （後端 myPlaces 下傳），包含開局種進去的那五個範例——它們跟玩家自己開的地方沒有兩樣。
-  var KC_LOCATIONS_ = [
-    { name: '我的房間', region: 'home', isRoom: true } // 顯示層併進「家」分頁·isRoom保留特殊性
-  ];
   // 目前選取的分區(純前端UI狀態，跨裝置不同步，比照kanshouEncounterOn用localStorage記住偏好)。
-  var kcActiveRegion_ = localStorage.getItem('kyushu_kanshou_region') || 'home';
+
   // 🛡️ 舊 localStorage 可能存著已移除的 'room' 分頁 → 退回 'home'，免分頁空白。
-  if (!KC_REGIONS_.some(function (r) { return r.id === kcActiveRegion_; })) kcActiveRegion_ = 'home';
-  function kcSwitchRegion_(id) {
-    kcActiveRegion_ = id;
-    localStorage.setItem('kyushu_kanshou_region', id);
-    var listEl = document.getElementById('kc-map-list');
-    if (listEl) listEl.innerHTML = kcMapListHtml_();
-  }
 
-  // 🏠「家」從獨立釘選按鈕升級成跟其餘4區並列的分區分頁(我的房間+日式空間，見KC_LOCATIONS_)。分頁標籤沿用玩家自訂顯示名稱(後端【住所】標記/getKanshouHomeName_，預設「衛宮宅」)，改名鈕移到「家」分頁展開時才顯示。
-  // 🏠 房間分區動態顯示名稱：跟後端kanshouRoomDisplayName_同一套邏輯，純顯示用。
-  function kcRoomLabel_(key) {
-    if (key === '我的房間') return (pc && pc.name ? pc.name : '御主') + '的房間';
-    return key;
-  }
-  function kcMapListHtml_() {
-    var homeLabel = (pc && pc.homeName) ? pc.homeName : '我家';
-    // 🗾 分區切換列：按鈕群組，當前分區高亮，點擊只切換下方地點清單(不影響已在場敘事)。
-    // 🗾 分區＝內建鏡射 ∪ 玩家自己開的大區(後端 myRegions 下傳)。自訂區天生就是一般公共區。
-    var _myRegions = (window._lastTags && window._lastTags.myRegions) || [];
-    var _regionCap = (window._lastTags && window._lastTags.regionCap) || 12;
-    var _allRegions = KC_REGIONS_.concat(_myRegions.map(function (r) {
-      return { id: r.id, name: r.name, desc: r.desc, mine: true };
-    }));
-    // 🗺️ 空的分頁不畫：地圖大部分是玩出來的，內建那幾區在新局裡是空的，列出來只是一排點不出東西的鈕。
-    //   家與「走出來的地方」永遠留著（家有你的房間；新地方預設落在那一區），站著的那一區也留著。
-    var _placeRegions = {};
-    KC_LOCATIONS_.forEach(function (l) { _placeRegions[l.isRoom ? 'home' : l.region] = 1; });
-    ((window._lastTags && window._lastTags.myPlaces) || []).forEach(function (p) { _placeRegions[p.region || 'mine'] = 1; });
-    _allRegions = _allRegions.filter(function (rg) {
-      return rg.id === 'home' || rg.id === 'mine' || rg.id === kcActiveRegion_ || rg.mine || _placeRegions[rg.id];
-    });
-    var tabsHtml = '<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">' + _allRegions.map(function (rg) {
-      var active = rg.id === kcActiveRegion_;
-      var label = (rg.id === 'home' ? '🏠 ' : '') + escapeHtml(rg.id === 'home' ? homeLabel : rg.name);
-      return '<button onclick="kcSwitchRegion_(\'' + rg.id + '\')" style="flex:1;min-width:70px;padding:6px 4px;font-size:11.5px;border-radius:7px;cursor:pointer;'
-        + (active ? 'background:#4a2f4a;color:#f0c8e0;border:1px solid #b06aa0;font-weight:bold;' : 'background:#201a28;color:#9a8bb0;border:1px solid #3a2f48;')
-        + '">' + label + '</button>';
-    }).join('')
-      + (_myRegions.length < _regionCap
-        ? '<button onclick="kanshouAddRegion()" title="開一個新地區" style="flex:1;min-width:70px;padding:6px 4px;font-size:11.5px;border-radius:7px;cursor:pointer;background:#1e2a24;color:#bfe0cf;border:1px dashed #4a7a5f;">➕ 新地區</button>'
-        : '')
-      + '</div>'
-      // 🗾 站在自己開的大區上時，給它的改名/收掉入口（自由增減：開得出來就收得掉）
-      + (function () {
-        var _rg = _allRegions.filter(function (r) { return r.mine && r.id === kcActiveRegion_; })[0];
-        if (!_rg) return '';
-        var _q = function (v) { return String(v).replace(/'/g, "\\'"); };
-        return '<div style="text-align:right;margin:-4px 0 6px;font-size:11px;">'
-          + (_rg.desc ? '<span style="color:#7a8a80;float:left;">' + escapeHtml(_rg.desc) + '</span>' : '')
-          + '<span onclick="kanshouRenameRegion(\'' + _q(_rg.name) + '\')" style="cursor:pointer;color:#a0c0b0;">✏️ 改名</span>'
-          + '<span onclick="kanshouDelRegion(\'' + _q(_rg.name) + '\')" style="cursor:pointer;color:#c08a8a;margin-left:10px;">🗑 收掉這區</span></div>';
-      })();
-    // 🆕 自由指定新地方：地圖不再是能去的地方的全部清單，只是「已經知道的」清單。
-    var newPlaceHtml = '<div style="display:flex;gap:6px;margin-bottom:6px;">'
-      + '<button onclick="kanshouGoNewPlace()" style="flex:1;text-align:left;padding:8px 10px;background:#1e2a24;color:#bfe0cf;border:1px dashed #4a7a5f;border-radius:8px;cursor:pointer;font-size:13px;">'
-      + '🧭 去別的地方…（自己說個地名，這座城就多一個地方）</button></div>'
-      + (kcActiveRegion_ === 'mine' && !((window._lastTags && window._lastTags.myPlaces) || []).length
-        ? '<div style="color:#8a9a90;font-size:11.5px;padding:2px 2px 8px;">你走出來的地方會留在這裡。</div>' : '');
-    var renameHtml = (kcActiveRegion_ === 'home')
-      ? '<div style="text-align:right;margin:-4px 0 6px;"><span onclick="kanshouRenameHome()" style="cursor:pointer;font-size:11px;color:#a07a90;">✏️ 幫「' + escapeHtml(homeLabel) + '」改名</span></div>'
-      : '';
-    // 👥 誰站在哪（後端 myPeople 下傳·跟 myPlaces 同一趟，零額外 round-trip）。
-    var _peopleAt_ = function (locName) {
-      return ((window._lastTags && window._lastTags.myPeople) || [])
-        .filter(function (x) { return String(x.loc || '').trim() === String(locName || '').trim(); })
-        .map(function (x) { return x.name; });
-    };
-    // 🗺️ 靜態地圖 ∪ 自己走出來的地方(後端 myPlaces 下傳，鏡射常數長不出來)。
-    var _myPlaces = (window._lastTags && window._lastTags.myPlaces) || [];
-    var _allLocs = KC_LOCATIONS_.concat(_myPlaces.map(function (p) {
-      return { name: p.name, region: p.region || 'mine', desc: p.desc, mine: true, own: p.own || "" };
-    }));
-    var locBtns = _allLocs.filter(function (l) { return l.region === kcActiveRegion_; }).map(function (l) {
-      var label = l.isRoom ? kcRoomLabel_(l.name) : l.name;
-      return '<div style="display:flex;gap:6px;margin-bottom:6px;">'
-        + '<button onclick="kanshouMoveTo(\'' + l.name + '\')" style="flex:1;display:flex;justify-content:space-between;align-items:center;text-align:left;padding:8px 10px;background:#241f30;color:#dfeaf2;border:1px solid #4a3a5a;border-radius:8px;cursor:pointer;font-size:13px;">'
-        + '<span style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">' + (l.own ? '🏪' : '📍') + ' ' + escapeHtml(label)
-        + (l.own ? '<span style="color:#e0c090;font-size:10px;">你的' + escapeHtml(l.own) + '</span>' : '')
-        // 👥 這裡有誰：在場＝同地點，所以地點旁邊不標人的話，玩家看不出要去哪找誰。
-        + (function () { var w = _peopleAt_(l.name); return w.length ? '<span style="color:#c0a8e0;font-size:10.5px;">👥 ' + escapeHtml(w.join('、')) + '</span>' : ''; })()
-        + '</span>'
-        + '</button>'
-        + (l.mine ? '<button onclick="kanshouPlaceMenu(\'' + String(l.name).replace(/'/g, "\\'") + '\')" title="你開的地方：可以開店、搬區、或拿掉" style="padding:8px 9px;background:#1e2a24;color:#8fc0a0;border:1px solid #3e6a50;border-radius:8px;cursor:pointer;">⋯</button>' : '')
-        + '</div>';
-    }).join('');
-    return tabsHtml + renameHtml + newPlaceHtml + locBtns;
-  }
 
-  // 🧹 原本掛在☰抽屜裡的彈窗(ensureKcMapOverlay_/closeKcMapOverlay/openKanshouMap)已被「🗺️地圖」分頁取代——kcMapListHtml_ 現在直接由 Script.html 的 renderMapPane() 渲染進 #map-pane-content，彈窗整條一併移除，不留兩套平行入口。
 
-  // 🗾 大區與地方的自由增減：全部走同一支後端 action(world 的各個 op)。
-  //    成功後回傳的 payload 會帶新的 regions/rows，直接刷新 tags 快取＋重繪地圖。
-  async function kwWorldOp_(payload, busyMsg) {
-    if (!pc || !pc.id) { alert('還沒進後日談。'); return null; }
-    try {
-      const res = await withProcessing_(busyMsg || '處理中…', () => gasRun(
-        Object.assign({ action: 'world', pcId: pc.id, acctName: currentAccount }, payload)));
-      if (!res || !res.success) { alert((res && res.message) || '沒成功。'); return null; }
-      // 地圖那一區的資料來源是 tags 快取裡的 myPlaces/myRegions，就地更新免再打一趟
-      try {
-        if (window._lastTags) {
-          window._lastTags.myRegions = (res.regions || []).filter(function (r) { return r.mine; });
-          window._lastTags.myPlaces = (res.rows || []).filter(function (r) { return r.kind === '地點'; })
-            .map(function (r) { return { name: r.name, desc: r.text || '', region: r.region || '', own: r.own || '' }; });
-        }
-      } catch (e) { }
-      try { var el = document.getElementById('kc-map-list'); if (el) el.innerHTML = kcMapListHtml_(); } catch (e) { }
-      return res;
-    } catch (e) { alert('連不上，等一下再試。'); return null; }
-  }
-  async function kanshouAddRegion() {
-    var name = await customPrompt_('新的地區叫什麼？（例如：泰國、海邊小鎮）', '', 16);
-    if (name === null) return;
-    name = String(name).trim(); if (!name) { alert('名字不能空白。'); return; }
-    var desc = await customPrompt_('「' + name + '」是什麼樣的地方？（可以不填）', '', 24);
-    if (desc === null) desc = '';
-    await kwWorldOp_({ op: 'rg_add', entryName: name, text: String(desc).trim() }, '開新地區…');
-  }
-  async function kanshouRenameRegion(cur) {
-    var name = await customPrompt_('把「' + cur + '」改成什麼名字？', cur, 16);
-    if (name === null) return;
-    name = String(name).trim(); if (!name) { alert('名字不能空白。'); return; }
-    await kwWorldOp_({ op: 'rg_rename', entryName: cur, newName: name }, '改名中…');
-  }
-  async function kanshouDelRegion(cur) {
-    if (!await customConfirm_('收掉「' + cur + '」？裡面的地方會搬回「走出來的地方」。')) return;
-    var res = await kwWorldOp_({ op: 'rg_del', entryName: cur }, '收掉這一區…');
-    if (res) { kcActiveRegion_ = 'mine'; try { var el = document.getElementById('kc-map-list'); if (el) el.innerHTML = kcMapListHtml_(); } catch (e) { } }
-  }
-  // ⋯ 一個「你開出來的地方」能做的事：開店/改營業內容/收店、搬到別區、刪掉。
-  async function kanshouPlaceMenu(name) {
-    var places = (window._lastTags && window._lastTags.myPlaces) || [];
-    var here = places.filter(function (p) { return p.name === name; })[0] || {};
-    var regions = ((window._lastTags && window._lastTags.myRegions) || []).slice();
-    var pick = await kcChoose_('「' + name + '」', [
-      { k: 'rename', label: '✏️ 改名' },
-      { k: 'text', label: here.desc ? '📝 改寫這裡的樣子' : '📝 寫下這裡的樣子' },
-      { k: 'own', label: here.own ? '🏪 改營業內容（現在是「' + here.own + '」）' : '🏪 在這裡開店' },
-      here.own ? { k: 'close', label: '🚪 收掉這家店（地方留著）' } : null,
-      { k: 'region', label: '🗾 搬到別的地區' },
-      { k: 'del', label: '🗑 把這個地方刪掉' }
-    ].filter(Boolean));
-    if (!pick) return;
-    if (pick === 'rename') {
-      var nn = await customPrompt_('「' + name + '」要改叫什麼？', name, 16);
-      if (nn === null) return;
-      nn = String(nn).trim(); if (!nn || nn === name) return;
-      await kwWorldOp_({ op: 'loc_rename', entryName: name, newName: nn }, '改名中…');
-    } else if (pick === 'text') {
-      // 字數上限由後端下傳(worldTextMax)——前端手抄常數是這個專案犯過的錯，改了一邊另一邊就走鐘。
-      var tx = await customPrompt_('「' + name + '」長什麼樣子？', here.desc || '', (window._lastTags && window._lastTags.worldTextMax) || 60);
-      if (tx === null) return;
-      await kwWorldOp_({ op: 'loc_text', entryName: name, text: String(tx).trim() }, '寫下來…');
-    } else if (pick === 'own') {
-      var biz = await customPrompt_('你在「' + name + '」做什麼？（例如：小吃、按摩、花店）', here.own || '', 12);
-      if (biz === null) return;
-      biz = String(biz).trim(); if (!biz) { alert('寫一下你在做什麼吧。'); return; }
-      await kwWorldOp_({ op: 'loc_own', entryName: name, own: biz }, '開店中…');
-    } else if (pick === 'close') {
-      if (!await customConfirm_('收掉「' + name + '」這家店？地方會留著，只是不再是你的店。')) return;
-      await kwWorldOp_({ op: 'loc_own', entryName: name, own: '' }, '收店中…');
-    } else if (pick === 'region') {
-      var opts = [{ k: '', label: '（走出來的地方）' }].concat(regions.map(function (r) { return { k: r.name, label: r.name }; }));
-      if (regions.length === 0) { alert('你還沒開過地區，先按「➕ 新地區」。'); return; }
-      var rg = await kcChoose_('把「' + name + '」搬到哪一區？', opts);
-      if (rg === null) return;
-      await kwWorldOp_({ op: 'loc_region', entryName: name, region: rg }, '搬家中…');
-    } else if (pick === 'del') {
-      if (!await customConfirm_('把「' + name + '」從這座城裡拿掉？')) return;
-      await kwWorldOp_({ op: 'del', kind: '地點', entryName: name }, '刪除中…');
-    }
-  }
+  // 🗑️ 2026-09 地點整組退休：🗺️地圖分頁、分區、地點按鈕、去找/叫來/一起過去，整組移除。
+
   // 小選單：回傳選中的 k，取消回 null（比一連串 confirm 好讀）
   function kcChoose_(title, opts) {
     return new Promise(function (resolve) {
@@ -823,54 +593,8 @@ let plainTextContext = cleanText;
     } catch (e) { alert('沒改成。'); }
   }
 
-  // 移動走既有 send() 的 action:'play' 同一次round-trip(帶 moveTarget)，不另開一次網路請求；
-  // 🧭 自由前往一個還不存在的地方：後端查無就當場把它加進這一局的世界(見 Gallery.gs kanshouNewPlaceStr)，
-  //    AI 第一次描述它，並用 world_note 把樣貌記下來，之後地圖上就有這一格。
-  async function kanshouGoNewPlace() {
-    var name = await customPrompt_('想去哪？說個地名就好。', '', 16);
-    if (name === null) return;
-    name = String(name).replace(/[<>&"\'`｜【】\[\]★]/g, '').trim().slice(0, 16);
-    if (!name) return;
-    // 🗾 開在哪一區？站在某一區的分頁上就預設開在那裡（在「家」就是新增一個家中空間）。
-    //    只有一區可選時不問，直接用（少一次點擊）。
-    var region = '';
-    var _rgOpts = KC_REGIONS_.filter(function (r) { return r.id === 'home'; })
-      .concat(((window._lastTags && window._lastTags.myRegions) || []));
-    if (_rgOpts.length) {
-      var pick = await kcChoose_('「' + name + '」開在哪裡？', [{ k: '', label: '（就在這座城裡·走出來的地方）' }]
-        .concat(_rgOpts.map(function (r) { return { k: r.name, label: (r.id === 'home' ? '🏠 ' : '🗾 ') + r.name }; })));
-      if (pick === null) return;
-      region = pick;
-    }
-    var own = '';
-    if (await customConfirm_('「' + name + '」是你自己開的店嗎？')) {
-      own = await customPrompt_('你在這裡做什麼？（例如：小吃、按摩、花店）', '', 12);
-      if (own === null) own = '';
-      own = String(own).trim();
-    }
-    showGamePane('chat');
-    await send('📍 走向了「' + name + '」。', false, { newPlace: name, newPlaceRegion: region, newPlaceOwn: own });
-  }
 
-  // 🚶 「一起過去」泡泡按下去＝真的走。走的是跟地圖按鈕【同一條】既有路徑（moveTarget），
-  //   只多帶一份要一起走的人的 id；後端會自己驗那些人剛才是不是真的跟你站在同一格。
-  async function kanshouGoTogether_(dest, ids, isNew) {
-    const _d = String(dest || '').trim();
-    if (!_d) return;
-    showGamePane('chat');
-    // 🆕 新地方走 newPlace（那條路會把它寫進世界帳本、並要 AI 當場描述它是什麼樣的地方）；
-    //   已經存在的走 moveTarget。兩條都是既有路徑，這裡只負責挑一條。
-    await send('📍 走向了「' + _d + '」。', false,
-      isNew ? { newPlace: _d, moveWith: String(ids || '') }
-            : { moveTarget: _d, moveWith: String(ids || '') });
-  }
 
-  async function kanshouMoveTo(name) {
-    // 🐛→✅ 地圖改分頁後，手機一次只顯示一個分頁，移動完敘事寫進「故事」分頁看不到——比照 solo 的 travelFromPane「先切分頁再送出動作」寫法，讓移動結果直接可見。
-    if (!await customConfirm_('去「' + name + '」？')) return;
-    showGamePane('chat');
-    await send('📍 走向了「' + name + '」，四處看看。', false, { moveTarget: name });
-  }
 
   async function kcRefreshPartyOnly_() {
     try {
@@ -896,26 +620,6 @@ let plainTextContext = cleanText;
   // 🏷️ REL_TAG 從此只能由玩家在這裡手動改，AI只能在敘事裡表現認不認同(態度)、不再擅自覆寫。呼叫既有的 update_rel_tag(後端早就有，只是從未接過前端UI)。
   // 🗺️ 共用地點點選面板：分區標題＋地點按鈕，點了就回呼——之後任何「選個地點」的需求都用這支，別再用 prompt() 編號。
   var _kpCb = null;
-  function kanshouPickLocation_(title, hint, pool, cb) {
-    _kpCb = cb;
-    // 獨立 DOM id，不跟其他面板共用 overlay（曾與已移除的道具面板撞過 id）。
-    var ov = ensureOverlay_('kloc-overlay', { zIndex: 10001, onBgClick: function (ov) { ov.style.display = 'none'; _kpCb = null; } });
-    var body = KC_REGIONS_.map(function (r) {
-      var locs = pool.filter(function (l) { return l.region === r.id; });
-      if (!locs.length) return '';
-      return '<div style="color:#8a7fa0;font-size:11.5px;margin:8px 0 4px;">' + escapeHtml(r.name) + '</div>'
-        + '<div style="display:flex;flex-wrap:wrap;gap:6px;">'
-        + locs.map(function (l) {
-          return '<button onclick="kanshouPickLoc_(\'' + String(l.name).replace(/'/g, '') + '\')" style="padding:6px 10px;background:rgba(90,140,180,0.18);color:#a8d0f0;border:1px solid #4a7a9a;border-radius:8px;cursor:pointer;font-size:12.5px;">📍 ' + escapeHtml(l.name) + '</button>';
-        }).join('') + '</div>';
-    }).join('');
-    ov.innerHTML = '<div style="width:min(440px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(168,208,240,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
-      + '<div style="display:flex;align-items:center;margin-bottom:4px;"><b style="flex:1;color:#a8d0f0;">' + escapeHtml(title) + '</b>'
-      + '<button onclick="document.getElementById(\'kloc-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + (hint ? '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:4px;">' + escapeHtml(hint) + '</div>' : '')
-      + body + '</div>';
-    ov.style.display = 'flex';
-  }
   function kanshouPickLoc_(name) {
     var ov = document.getElementById('kloc-overlay');
     if (ov) ov.style.display = 'none';
@@ -1337,8 +1041,6 @@ let plainTextContext = cleanText;
       document.getElementById('ui-sex').innerText = pc.sex;
       setupHistoryPrevention();
       refreshFateTags();
-      // 🗺️ 寬螢幕三欄並排時 #pane-map 不需要點分頁才顯示，進場當下就先算一次(比照 solo 登入後 syncData 觸發的 renderMapPane 初次填色)。
-      renderMapPane();
       // 🚀 2026-07 拆掉「留白創角」分流(玩家「其他的丟給AI去寫...AI只能改動經歷」)：創角一律
       //   立即用玩家填的姓名/性別/外貌/個性一次擴寫完整(外貌/個性/經歷)，不再留白等遊戲中
       //   慢慢猜——那個路徑正是「性格 AI 亂寫」的根源。

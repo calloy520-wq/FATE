@@ -168,7 +168,9 @@ function narrateWithState_(pcId, sheets, promptText, miniSystem, opts) {
       try {
         var _clk = getClock_(stGid, stData);
         sagaDay = _clk ? _clk.day : 0;
-        sagaFeed = worldFeed_(stGid, worldRead_(stGid), String(stData[stIdx][COL.PC.LOC] || ""),
+        // ⚠ 2026-09 worldFeed_ 不再吃「此刻在哪」（鑑賞的地點整組退休，那個參數沒了）。
+        //    solo 這條路徑跟著改簽名——漏改的話地點字串會被當成在場名單，整段因果靜靜餵不回來。
+        sagaFeed = worldFeed_(stGid, worldRead_(stGid),
           stData.filter(function (r) {
             return String(r[COL.PC.FACTION]) === '從者' && String(r[COL.PC.GAME_ID] || "") === stGid && !String(r[COL.PC.ID]).startsWith('DEAD_');
           }).map(function (r) { return String(r[COL.PC.NAME]); }), promptText, sagaDay);

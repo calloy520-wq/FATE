@@ -1141,7 +1141,7 @@
         story.scrollTop = story.scrollHeight;
 
         // 2. 🎬 抵達即觸發一段 AI 劇情——提示詞 2026-09 收回後端(buildArrivePrompt_)，前端只負責送出。
-        //    鑑賞走 kanshouMoveTo，不經這條路；hasContext 告訴後端這不是本局第一段敘事(見 travelTo 的 payload)。
+        //    hasContext 告訴後端這不是本局第一段敘事(見 travelTo 的 payload)。
         const arrivePrompt = data.arrivePrompt || "";
         if (data.defeat) { await handleDefeat(data); }  // ⏳ 移動跨過第14日時限 → 直接收場(略過抵達敘事)
         else {
@@ -1938,15 +1938,10 @@
     var c = document.getElementById('map-pane-content'); if (!c) return;
     // ⚡ 用 offsetParent===null 判「實際是否顯示」而非 .active class——寬螢幕(≥601)三欄並排、地圖恆顯示但沒有 .active class(那是手機分頁機制)，誤用 class 會讓寬螢幕地圖永不刷新。
     if (c.offsetParent === null) return;
-    // 🌸 鑑賞沒有座標/節點，不套用下方 solo 的戰場SVG——改渲染「出門走走」地點清單，複用 Script_Kanshou.html 的 kcMapListHtml_。
-    if (pc && pc.mode === 'kanshou') {
-      c.innerHTML = '<div style="color:#e0a0bc; font-weight:bold; font-size:14px; margin-bottom:4px;">🗺️ 出門走走</div>'
-        + '<div style="color:#9a8f70; font-size:11px; margin-bottom:8px;">挑個地方走走。</div>'
-        // ⏰ 2026-07「手機很長，切到地圖分頁點下一階段太麻煩」：這顆鈕搬進常駐 #clock-hud(見
-        //   updateClock，Script.html)跟時鐘同一行，不必切到地圖分頁才點得到，這裡不再重複放。
-        + '<div id="kc-map-list">' + kcMapListHtml_() + '</div>';
-      return;
-    }
+    // 🗑️ 2026-09 地點整組退休：鑑賞這條分支（出門走走的地點清單）整段移除，
+    //    地圖分頁在鑑賞底下也不再顯示（見 applyModeUI 的 tab-map/pane-map）。
+    //    solo 的戰場 SVG 照舊走下面那段。
+    if (pc && pc.mode === 'kanshou') { c.innerHTML = ''; return; }
     var nodes = [], here = '', allyIntel = false;
     var cached = preNodes || lastMapNodes;
     if (cached) { nodes = cached.nodes || []; here = cached.here || ''; allyIntel = !!cached.allyIntel; }
@@ -3207,9 +3202,9 @@ function applyModeUI() {
   // 🌹 鑑賞御主卡已內建「換裝＋詳細狀態」按鈕列；solo 御主卡名字旁現也補了同款「📜狀態」inline 鈕——
   //   卡片列表下方這顆獨立按鈕兩邊都已重複，恆隱藏。
   var msf = document.getElementById('my-status-fallback'); if (msf) msf.style.display = 'none';
-  // 🗺️ 地圖分頁/面板兩軌都顯示——solo 維持既有戰場SVG圖(renderMapPane內部判斷)，鑑賞改渲染「出門走走」地點清單，兩者共用同一顆分頁按鈕與 #pane-wrap 三欄/三分頁版型。
-  var tMap = document.getElementById('tab-map'); if (tMap) tMap.style.display = '';
-  var pMap = document.getElementById('pane-map'); if (pMap) pMap.style.display = '';
+  // 🗺️ 地圖只剩 solo 有（戰場 SVG）——2026-09 鑑賞的地點整組退休，那一頁在鑑賞底下是空的。
+  var tMap = document.getElementById('tab-map'); if (tMap) tMap.style.display = isKanshou ? 'none' : '';
+  var pMap = document.getElementById('pane-map'); if (pMap) pMap.style.display = isKanshou ? 'none' : '';
   try { if (!isKanshou) renderWarActions(); } catch (e) {}
 }
 

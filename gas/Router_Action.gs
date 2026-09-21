@@ -406,22 +406,8 @@ function buildTagsPayload_(sheets, pcId, preData) {
   // 🗝️ 破戒之力（前端決定是否顯示「破戒奪僕」按鈕）：限正式聖杯戰爭世界
   var canRB = false;
   try { if (gameId && gameId.indexOf("g_") === 0 && mIdx >= 0) canRB = canRuleBreak_(pcData, mIdx, gameId); } catch (e) { }
-  // 🗺️ 玩家自己走出來的地方(世界帳本「地點」類)：內建地圖是靜態鏡射(KC_LOCATIONS_)，長不出這些，
-  //    所以後端算好逐項清單下傳，前端才畫得出「你走出來的地方」那一區。
-  var myPlaces = [], myRegions = [], myPeople = [];
-  if (gameId && gameId.indexOf("k_") === 0) {
-    try {
-      myPlaces = worldRead_(gameId).filter(function (r) { return r.kind === '地點' && r.name; })
-        .map(function (r) { return { name: r.name, desc: r.text || "", region: r.region || "", own: r.own || "" }; });
-      // 👥 誰在哪：地圖上每個地方要標「這裡有誰」——2026-09 玩家「開局4位直接不見…
-      //    是地點上沒有顯示這裡有人！」。在場＝同地點，所以地點旁邊不列人，玩家就看不出要去哪找。
-      myPeople = pcData.filter(function (r) { return kanshouIsAlly_(r, gameId); })
-        .map(function (r) { return { name: String(r[COL.PC.NAME] || ""), loc: String(r[COL.PC.LOC] || "") }; });
-      // 🗾 玩家自己開的大區：地圖的分區列要靠它才畫得出來(內建那幾區是前端靜態鏡射)。
-      myRegions = kanshouRegionsFor_(gameId).filter(function (r) { return r.mine; })
-        .map(function (r) { return { id: r.id, name: r.name, desc: r.desc || "" }; });
-    } catch (e) { }
-  }
+  // 🗑️ 2026-09 地點整組退休：這裡原本算 myPlaces／myPeople／myRegions 三份下傳給【地圖】畫，
+  //    地圖沒了就沒人讀了（同伴清單走 kanshou_companions，跟這裡無關）。
   // 🎯 撞見敵人的可反應窗口（趁隙/挑撥/溜走）：僅 solo 且窗口 loc＝目前所在地時給前端，供顯示情境按鈕。
   var encWin = null;
   if (isFateCtx) {
@@ -429,7 +415,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
     if (_w && _w.loc === String(m[COL.PC.LOC] || "").trim()) encWin = { type: _w.type, choices: encounterChoices_(_w.type) };
   }
   // 🗺️ myLoc：玩家此刻所在地。
-  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, myPlaces: myPlaces, myRegions: myRegions, myPeople: myPeople, regionCap: KANSHOU_REGION_CAP_, worldTextMax: (gameId && gameId.indexOf("k_") === 0) ? worldSpec_(gameId).textMax : undefined,
+  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, worldTextMax: (gameId && gameId.indexOf("k_") === 0) ? worldSpec_(gameId).textMax : undefined,
       encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || ""),
     // 🌙 夜未眠(Gallery.gs KANSHOU_NIGHT_SCENE_TAG_)：HUD 那顆鈕要據此把「🌙睡覺」換成「🌅睡到天亮」。
     nightScene: (typeof KANSHOU_NIGHT_SCENE_TAG_ !== 'undefined'

@@ -3386,7 +3386,7 @@ mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未
 
 **2026-09 已移除：全樹零讀取。**
 
-### `KANSHOU_EVENT_SEEDS_`　<sub>Gallery.gs</sub>
+### ~~`KANSHOU_EVENT_SEEDS_`~~（已移除·氛圍靈感種子池）　<sub>Gallery.gs</sub>
 
 Phase3 輕量小事件：抵達新地點時20%機率抽一顆短句靈感種子注入提示詞，純粹給AI參考的引子(非預寫劇本、非強制發生)。分三類：日常可愛/曖昧小互動恆定開放，色氣類僅driveOn開啟時抽到。
 
@@ -3420,7 +3420,7 @@ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查�
 
 ⏰ 2026-07「推進時間」玩法：鑑賞借用solo既有的COL.PC.DAY/HOUR欄位存自己的時鐘(兩軌從不共用同一個game_id，欄位互不干擾)，不另開新欄。查無值(舊存檔/尚未跑過這輪改動)時給預設(Day1 08:00)。
 
-### `moveTarget`　<sub>Gallery.gs</sub>
+### ~~`moveTarget`~~（已移除·2026-09 地點整組退休）　<sub>Gallery.gs</sub>
 
 鑑賞地點移動：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次 round-trip 解決——比對KANSHOU_LOCATIONS_ 合法地點清單，查無效比對一律當成普通對話。
 
@@ -4413,7 +4413,7 @@ memoir 那邊的同款去重只比對「最近 3 條」，正是同一個道理�
 
 ⚠ 別回頭把地點從帳本表拿掉——那是地圖長大的唯一來源，拿掉地圖就不會長了。
 
-### `KANSHOU_REGION_KIND_` / `kanshouRegionsFor_` / `KW_.REGION` / `KW_.OWN`　<sub>Gallery.gs</sub>
+### ~~`KANSHOU_REGION_KIND_`~~（已移除·2026-09 地點整組退休） / `kanshouRegionsFor_` / `KW_.REGION` / `KW_.OWN`　<sub>Gallery.gs</sub>
 
 2026-09 玩家要三件事：自訂大區（「大區就是一個國家，地點就是該國自訂的景點」）、
 家中地點自由生成、「我的店」（純互動、不要金錢數值，但要有店名與營業內容）。
@@ -4492,7 +4492,7 @@ CI 只跑 `.gs`；`check.sh` 對 `Script*.html` 也只做 `node --check`，那�
 但釘選的不能被淘汰，於是新的永遠寫不進去。留 2 格給新的。
 
 
-### `movePrompt` / `kanshouGoTogether_` / `moveWith`　<sub>Gallery.gs · Script_Kanshou.html</sub>
+### ~~`movePrompt` / `kanshouGoTogether_` / `moveWith`~~（已移除·2026-09 地點整組退休）　<sub>Gallery.gs · Script_Kanshou.html</sub>
 
 🐛→✅ **我第一版的泡泡 HTML 自己會把屬性打斷**。地名要塞進一個【雙引號包住的 `onclick` 屬性】
 裡當參數，我用了 `JSON.stringify`——它產的是**雙引號**，`onclick="fn("咖啡廳")"` 當場斷在第二個
@@ -4526,3 +4526,23 @@ inline `onclick` 的作用域**只看得到 window**。函式若不小心包進�
 
 這是同一個形狀的第三次了（`FUNCTION_MANUAL` 的幽靈條目、`CODE_NOTES` 的幽靈錨點，
 現在是前端入口）：**手維護的索引一定會過期，能從代碼自己推導出來的就別靠人記得。**
+
+
+### 地點整組退休這一刀的施工筆記　<sub>Gallery.gs · Script_Kanshou.html · Script.html</sub>
+
+🐛→✅ **我在這一刀裡自己弄壞兩次，兩次都是「用行號/索引切片刪大段」**：
+- 第一次把 `s[:i] + s[k:]` 的 i、k 順序弄反，**整段複製成兩份**（`presentRows.forEach` 出現兩次）。
+- 第二次的 index 範圍吃掉了夾在中間、跟地點無關的東西——`KANSHOU_PARTY_MAX_`、
+  `KANSHOU_STARTER_IDS_`、`KANSHOU_SUMMON_BLOCKED_IDS_`、`kanshouFixWorldKinds_`、
+  `kanshouNameIsPlace_` 全部陪葬。
+
+兩次都是 `check_undef`（未宣告識別字）當場抓到的，**不是我自己看出來的**。
+刪大段之前先確認起訖點的**前後順序**，刪完馬上跑一次 `check.sh` 再繼續刪下一段。
+
+⚠ 前端用**括號配對**找函式結尾也踩了一次：`.replace(/'/g, '')` 這種 regex 裡的單引號
+會被我的掃描器當成字串開頭，一路吃到行尾，括號就再也配不平。改用
+「縮排 2 格的 `}` 就是結尾」（這些函式都宣告在同一層）才切得乾淨，一次刪掉 264 行。
+
+⚠ **`check_docs` 的函式那條沒有墓碑放行**（只有常數那條有）。所以砍函式時，
+`FUNCTION_MANUAL.md` 裡點名它的那幾條要**真的刪掉**，加「已移除」沒有用——
+這份是零容錯的索引，列著不存在的函式比沒有這份文件更誤導人。
