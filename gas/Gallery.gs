@@ -939,6 +939,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
       }]
     },
     "world_note": [{ "kind": "地點|人物|設定", "name": "一句話標題", "text": "≤" + WORLD_SPEC_.kanshou.textMax + "字", "sex": "kind=人物 才填 男/女/異", "at": "只長在某地就填那個地名·沒有就留空" }],
+    "move_to": "我這一步說要去的地方·照我說的名字寫·沒有就留空",
   };
   if (includeOptions === false) { delete finalJson.options; }
 
@@ -2308,10 +2309,19 @@ function actionPlay_(userData, pcId, sheets) {
   // 🗑️ 2026-09「氛圍靈感」種子池(KANSHOU_EVENT_SEEDS_)已移除：那是三類各七句的預寫小事件，
   //    20% 機率抽一句丟給 AI 當靈感。抽中什麼跟此刻的人、地、時、你們的歷史全都無關——
   //    真正該當靈感的東西，AI 手上本來就有(在場者的個性、天氣、時段、世界帳本)。
+  const _prevL_ = curL;
   if (moveTarget) {
     curL = moveName;
     pcData[pcIndex][COL.PC.LOC] = curL;
     dirtyPcRows.add(pcIndex);
+  }
+  // 🫂 「一起過去」泡泡點名的那幾位跟著走。前端送 id，後端自己驗：要是這一局的人、
+  //    而且【剛才真的跟你站在同一格】。⚠ 同行與否刻意不在判斷裡（玩家定案：沒同行也能一起移動）。
+  if (moveTarget) {
+    String(userData.moveWith || "").split(',').map(x => x.trim()).filter(Boolean).forEach(_id => {
+      const _pi = pcData.findIndex(r => String(r[COL.PC.ID]) === _id && kanshouIsAlly_(r, myGameId, _prevL_));
+      if (_pi >= 0 && _pi !== pcIndex) { pcData[_pi][COL.PC.LOC] = curL; dirtyPcRows.add(_pi); }
+    });
   }
 
 
@@ -2517,8 +2527,22 @@ ${PROMPT_BODY}
     //    兩把鑰匙開同一道門，其中一把還在 AI 手上。要她離開，敘事照樣寫得出來，只是位置不會被動。
     // 鑑賞無戰鬥：血量快照/stat_changes(外顯狀態刷新)/經濟層(物品/金錢/任務)皆不追蹤、不落地。
 
-    {
-    }
+    // 🚶 「要跟○○一起過去嗎？」泡泡（2026-09 復活的 moveProposal，觸發由按鈕改成【打字】）。
+    //    AI 只把玩家說的地名【回報】上來，裁定仍然在 GAS＋玩家手上：
+    //    ①地名拿去比對世界帳本，帳本裡沒有的一律丟掉——AI 沒辦法把玩家送去不存在的地方；
+    //    ②已經站在那裡就不問；③不按＝沒走，狀態零損失（這是舊 moveProposal 的語意，照舊）。
+    let movePrompt = null;
+    try {
+      const _mvRaw = String(aiData.move_to || "").trim();
+      const _mvLoc = _mvRaw ? kanshouFindLoc_(myGameId, _mvRaw) : null;
+      if (_mvLoc && String(_mvLoc.name).trim() !== String(curL || "").trim()) {
+        movePrompt = {
+          to: String(_mvLoc.name),
+          ids: presentRows.map(r => String(r[COL.PC.ID])),
+          names: presentRows.map(r => String(r[COL.PC.NAME]))
+        };
+      }
+    } catch (e) { }
 
 
 
@@ -2606,6 +2630,7 @@ ${PROMPT_BODY}
       options: aiData.options,
       tags: tagsPayload,
       kanshouClock: kanshouClock,
+      movePrompt: movePrompt,
       // 修過的bug：#clock-hud讀共用的updateClock(data.clock,...)，但data.clock在鑑賞這條路徑上從來沒被設過，導致HUD一直被當成「沒有clock」隱藏。
       clock: kanshouClock ? kanshouClock.label : ""
     });

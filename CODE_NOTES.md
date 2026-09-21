@@ -4490,3 +4490,20 @@ CI 只跑 `.gs`；`check.sh` 對 `Script*.html` 也只做 `node --check`，那�
 
 **釘選上限為什麼刻意比總量少 2**：釘滿就會讓新回憶永遠擠不進來——總量到頂時要淘汰，
 但釘選的不能被淘汰，於是新的永遠寫不進去。留 2 格給新的。
+
+
+### `movePrompt` / `kanshouGoTogether_` / `moveWith`　<sub>Gallery.gs · Script_Kanshou.html</sub>
+
+🐛→✅ **我第一版的泡泡 HTML 自己會把屬性打斷**。地名要塞進一個【雙引號包住的 `onclick` 屬性】
+裡當參數，我用了 `JSON.stringify`——它產的是**雙引號**，`onclick="fn("咖啡廳")"` 當場斷在第二個
+引號上。本檔既有的 `send('...')` 早就用單引號了，我沒照著抄。
+
+**這種錯會一路綠燈部署上去**：`check.sh` 不檢查 `.html` 裡的 JS，探針跑的是 `.gs`，
+`check_ui` 只驗「面板叫得起來、不拋例外」。所以補了 `bubattr.js`——把那段組裝**抽出來實跑**，
+餵它惡意地名（`</button><img src=x onerror=...>`、含單雙引號、含換行），確認屬性沒被打斷、
+沒有多長出標籤。注入退化（換回 `JSON.stringify`）確認會叫：8 條全紅。
+
+⚠ 泡泡刻意**只有一顆鈕、沒有「拒絕」**：不按＝沒走，繼續打字它自然消失，狀態零損失——
+這是舊 `moveProposal` 就定下的語意，照搬。
+⚠ 它住在 `#options-container` 但在 `#ai-options-grid` **外面**——關掉「AI 選項顯示」的玩家
+照樣看得到必點泡泡（舊版整個容器 `display:none`，把泡泡一起陪葬過，見本檔該段）。

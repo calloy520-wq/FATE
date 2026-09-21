@@ -47,6 +47,7 @@
     const moveTarget = opts.moveTarget || null, newPlace = opts.newPlace || null, endDay = !!opts.endDay,
       advanceHours = opts.advanceHours || 0,
       jumpBand = opts.jumpBand || null,
+      moveWith = opts.moveWith || null,
       loaderCaptions = opts.loaderCaptions || null;
       
       // 🐛→✅ 稽核抓到：呼叫端一直有把 npcId 塞進 opts，但 send() 這裡沒解構、gasRun payload 也沒轉發
@@ -88,7 +89,7 @@
     }
 
     try {
-      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
+      const data = await gasRun({ action: "play", pcId: pc.id, acctName: currentAccount, message: msg, drive: drive, moveTarget: moveTarget || undefined, newPlace: newPlace || undefined, endDay: endDay || undefined, advanceHours: advanceHours || undefined, jumpBand: jumpBand || undefined, moveWith: moveWith || undefined, optionsOn: (typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? false : undefined });
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
@@ -188,6 +189,26 @@ let plainTextContext = cleanText;
           plainTextContext += optText + `\n`;
         });
         optionsHtml += `</div></div>`;
+      }
+      // 🚶 「要跟○○一起過去嗎？」泡泡：打字說了要去哪，AI 回報地名、後端比對過世界帳本，
+      //   這裡只負責問一句。⚠ 住在 #options-container（跟【命運的抉擇】同一個容器，但在
+      //   #ai-options-grid【外面】）——關掉 AI 選項的玩家照樣看得到必點泡泡，見上面那段說明。
+      //   不按＝沒走，狀態零損失；所以刻意沒有「拒絕」鈕，玩家繼續打字它自然就消失。
+      if (data.movePrompt && data.movePrompt.to) {
+        const _mp = data.movePrompt;
+        const _who = Array.isArray(_mp.names) ? _mp.names.filter(Boolean) : [];
+        const _ids = Array.isArray(_mp.ids) ? _mp.ids.join(',') : '';
+        const _label = _who.length
+          ? '🚶 要跟 ' + _who.join('、') + ' 一起移動到「' + _mp.to + '」嗎？'
+          : '🚶 要移動到「' + _mp.to + '」嗎？';
+        // 🛡️ onclick 屬性本身用【雙引號】包，所以參數得是【單引號】的 JS 字串——
+        //   JSON.stringify 產的是雙引號，塞進去會當場把屬性打斷（我第一版就是這樣寫錯的）。
+        //   比照本檔 send('...') 那條既有寫法：跳脫反斜線與單引號，再擋掉能提早關閉標籤的字元。
+        const _j = v => "'" + String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+          .replace(/"/g, '&quot;').replace(/</g, '\\u003c').replace(/[\r\n]/g, '') + "'";
+        optionsHtml += '<div class="options-grid" style="margin-top:8px;">'
+          + '<button class="btn-option" onclick="kanshouGoTogether_(' + _j(_mp.to) + ',' + _j(_ids) + ')">'
+          + escapeHtml(_label) + '</button></div>';
       }
       if (optContainer) optContainer.innerHTML = optionsHtml;
       lastAiContext = plainTextContext;
@@ -825,6 +846,15 @@ let plainTextContext = cleanText;
     }
     showGamePane('chat');
     await send('📍 走向了「' + name + '」。', false, { newPlace: name, newPlaceRegion: region, newPlaceOwn: own });
+  }
+
+  // 🚶 「一起過去」泡泡按下去＝真的走。走的是跟地圖按鈕【同一條】既有路徑（moveTarget），
+  //   只多帶一份要一起走的人的 id；後端會自己驗那些人剛才是不是真的跟你站在同一格。
+  async function kanshouGoTogether_(dest, ids) {
+    const _d = String(dest || '').trim();
+    if (!_d) return;
+    showGamePane('chat');
+    await send('📍 走向了「' + _d + '」。', false, { moveTarget: _d, moveWith: String(ids || '') });
   }
 
   async function kanshouMoveTo(name) {

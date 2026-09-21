@@ -1425,3 +1425,5 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 4. **`kanshouEndDay` 爽約警示依賴 `_kcCur`/`kcClock` 已載**：若玩家未曾開過同伴面板、`_kcCur` 為空，警示會靜默略過（程式已註明「盡力而為，後端結算通知條保底」）——非錯誤，但屬已知的「盡力而為」降級。
 5. **`plainTextContext`/`lastAiContext`（send 內）**：組出後只賦值給全域 `lastAiContext`，本檔未再消費；推測由 Script.html 其他功能（如選項/歷史）讀取，屬跨檔耦合。
 6. **註解自陳的已刪碼**：Kanshou 多處註明「舊彈窗 `ensureKcMapOverlay_`/`openKanshouMap`、`actionBackfillKanshouServantAi`、`get_tags` 額外 round-trip」已移除——確認現存檔內無殘留呼叫，清理乾淨。
+
+- `kanshouGoTogether_(dest, ids)`（2026-09 新增，`gas/Script_Kanshou.html`）— 「一起過去」泡泡按下去的入口。走**既有**的 `send(..., {moveTarget, moveWith})` 路徑（跟地圖按鈕同一條，沒有第二套移動邏輯），只多帶一份要一起走的人的 id 字串；後端 `actionPlay_` 會自己驗那些人**剛才是不是真的跟玩家站在同一格**（`_prevL_`），驗不過就不搬。搭配後端下傳的 `movePrompt {to, ids[], names[]}`。
