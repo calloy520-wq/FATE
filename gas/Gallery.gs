@@ -2089,6 +2089,10 @@ function actionPlay_(userData, pcId, sheets) {
   //    砍掉之後，召喚了 4 個人但都沒同行時，AI 手上【一個名字都沒有】——
   //    召喚的意思就只剩「加進一個你挑得到的清單」，這座城從 AI 的角度是空的。
   //    ⚠ 現在只給名字：沒有地點、沒有「走過去才見得到」那類移動語言。
+  // 🎭 「他此刻在做什麼」刻意【不存】（玩家：「我不要真的近況，給 AI 掰就可以」）——
+  //    AI 手上已經有名單＋★【此刻】的時段，掰得出來。不存就不會固化：
+  //    今天已經踩過三次自我回饋欄卡住不動（rel_tag／physical_state／noticed），
+  //    每人一格近況就是再開 4~8 個同形的坑。這一行是零成本的等價物。
   const kanshouWorldRosterStr = (() => {
     const _hereIds = presentRows.map(r => String(r[COL.PC.ID]));
     const _elsewhere = pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId) && _hereIds.indexOf(String(r[COL.PC.ID])) < 0)
@@ -2099,7 +2103,7 @@ function actionPlay_(userData, pcId, sheets) {
     //    `at` 逐字比對得上；`at` 已隨地點退休，這裡只是讓 AI 知道有這個人，附別名純粹是雜訊
     //    （實測「無名（EMIYA）」會生出「無名（emiya）也是同一人」這種沒有意義的附註）。
     const _list = _elsewhere.map(r => String(r[COL.PC.NAME] || "")).filter(Boolean).join('、');
-    return `\n★【這座城裡還住著】：${_list}。我們都認識他們，他們此刻不在這一幕裡；我問起就照認識的樣子回答。`;
+    return `\n★【這座城裡還住著】：${_list}。我們都認識他們，他們此刻不在這一幕裡；我問起誰，就依此刻的時段說說那個人這時候大概在做什麼。`;
   })();
   presentRows.forEach(r => {
     const _ri = pcData.indexOf(r);
