@@ -785,12 +785,7 @@ let plainTextContext = cleanText;
       return;
     }
     var groups = _kwPanel_.groups || [];
-    var _locN = _kwPanel_.locNote ? _kwRows_.filter(function (r) { return r.kind === '地點'; }).length : 0;
-    var html = _locN
-      ? '<div style="background:rgba(40,56,52,.35); border:1px solid #3e6a60; border-radius:8px; padding:9px 11px; margin-bottom:6px; color:#8aa8a2; font-size:12px; line-height:1.7;">'
-        + '🗺️ 你走出來的地方有 <b style="color:#cfe6e0;">' + _locN + '</b> 個，它們在<b style="color:#cfe6e0;">地圖的「走出來的地方」</b>那一區，'
-        + '從那裡直接去。<br><span style="color:#6e8a84;">（地方屬於地圖，這裡只放人跟這座城的事。）</span></div>'
-      : '';
+    var html = '';
     groups.forEach(function (g) {
       var rows = _kwRows_.filter(function (r) { return r.kind === g[0]; });
       if (!rows.length) return;

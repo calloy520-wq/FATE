@@ -483,6 +483,8 @@ function actionEnterKanshou(userData, pcId, sheets) {
   }
   var gameId = "k_" + Date.now();
   // 開場落在自己的房間，不用泛泛的「冬木·深山町」城區——那個值容易被AI演成「剛下車、還在路上」
+  // 🎬 開場的背景布景（不是地點系統——見 actionPlay_ 的 scene 那段）。
+  //    給一句話當起點，AI 第一回合就有畫面可寫；它隨時可以換掉。
   var loc2 = "我的房間";
   var pcColCount = Object.keys(COL.PC).length;
   var mId = "KPC_" + Date.now();
@@ -867,6 +869,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
       }]
     },
     "world_note": [{ "kind": "地點|人物|設定", "name": "一句話標題", "text": "≤" + WORLD_SPEC_.kanshou.textMax + "字", "sex": "kind=人物 才填 男/女/異" }],
+    "scene": "這一幕在哪·≤12字的背景·換了地方就換掉它，沒換就照原樣寫回來",
   };
   if (includeOptions === false) { delete finalJson.options; }
 
@@ -1088,8 +1091,9 @@ var WORLD_SPEC_ = {
       title: '🌍 這個世界',
       hint: '你們一路走出來的地方、認識的人、說定的事。📌 釘住的不會忘；記錯的可以刪。',
       empty: '還沒有東西。<br>玩下去就會長出來。去一個地圖上沒有的地方、認識新的人、聊出只有你們懂的事，都會記在這裡。',
-      groups: [['人物', '🧑 這座城裡的人'], ['設定', '📖 這座城的事']],
-      locNote: true   // 地點歸地圖，這裡只提醒一句它們在哪一區
+      // 🗺️ 2026-09 地點整組退休：地點不再歸地圖（沒有地圖了），它就是一條普通條目，
+      //    跟人物／設定一樣列在這裡。舊的 locNote（提醒它們在地圖哪一區）跟著移除。
+      groups: [['人物', '🧑 這座城裡的人'], ['地點', '🗺️ 這座城裡的地方'], ['設定', '📖 這座城的事']]
     },
     feedMax: 6,   // 一回合最多餵回幾條——帳本會長大，這是唯一的煞車
     atMax: 5,     // 掛在此刻這個地方(AT)的另外算，不跟上面搶名額
@@ -1110,8 +1114,7 @@ var WORLD_SPEC_ = {
       title: '📜 戰記',
       hint: '這一局真的發生過、還在影響現在的事。📌 釘住的不會忘；記錯的可以刪。',
       empty: '還沒有東西。<br>打下去就會長出來。誰殞落了、跟誰結了盟、教會開了什麼條件，都會記在這裡。',
-      groups: [['因果', '📜 這一局發生過的事']],
-      locNote: false
+      groups: [['因果', '📜 這一局發生過的事']]
     },
     feedMax: 5,
     atMax: 0,
@@ -2209,7 +2212,7 @@ function actionPlay_(userData, pcId, sheets) {
 ${PROMPT_PARTY_LIVE}
 ${_lenLine_ === '' ? '' : _sty_('length')}
 ${_worldFeed_}${kanshouNightSceneStr}
-★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚跟我一起過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
+${(() => { const _sc = String(pc[COL.PC.LOC] || "").trim(); return _sc ? `★【場景】：這一幕在「${_sc}」。換地方由你決定，換了就把新的寫進 scene。\n` : ""; })()}★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚跟我一起過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 
 ${presentMembers.length ? '' : '★【在場】：這個地方只有我一個人（常民與路人照常可以出現）。'}
 
@@ -2259,6 +2262,18 @@ ${PROMPT_BODY}
     //    （玩家原話：「我需要這個角色可以跟我同行到 A，我 A 解散他，他會一直在 A」）——
     //    兩把鑰匙開同一道門，其中一把還在 AI 手上。要她離開，敘事照樣寫得出來，只是位置不會被動。
     // 鑑賞無戰鬥：血量快照/stat_changes(外顯狀態刷新)/經濟層(物品/金錢/任務)皆不追蹤、不落地。
+
+    // 🎬 背景場景：玩家要的「一個給 AI 隨時變動的背景版地點」。它【不是】地點系統——
+    //    沒有名單、沒有驗證、走不進去也帶不走人，就是一句話的布景，AI 想換隨時換。
+    //    ⚠ 借 COL.PC.LOC 欄存（只有玩家那一列），那一格在鑑賞已經空著；欄位名是歷史包袱，
+    //    它現在的語意是「這一幕的背景」。solo 那邊的 LOC 仍是真的地點，兩軌互不相干。
+    {
+      const _sc = String(aiData.scene || "").replace(/[<>&"'`｜【】\[\]★\r\n\t]/g, "").trim().slice(0, 12);
+      if (_sc && _sc !== String(pcData[pcIndex][COL.PC.LOC] || "").trim()) {
+        pcData[pcIndex][COL.PC.LOC] = _sc;
+        dirtyPcRows.add(pcIndex);
+      }
+    }
 
     // 📝 神色／穿著／稱呼／回憶／她眼中的你 → 見 kanshouApplyIntimacyFeedback_。
     kanshouApplyIntimacyFeedback_({
