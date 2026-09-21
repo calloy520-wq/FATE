@@ -1325,7 +1325,7 @@ function kanshouLenTier_(key) {
 }
 
 var KANSHOU_STYLE_MODULES_ = [
-  { key: 'voice',      fixed: true, slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第一人稱「我」＝玩家，旁白只寫「我」看得到聽得到感覺得到的；在場的人各自用自己的名字稱呼。' },
+  { key: 'voice',      fixed: true, slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第一人稱「我」＝玩家，旁白只寫「我」看得到聽得到感覺得到的。' },
   // 🗑️ 2026-09 大精簡：enact／drive／continuity／immersion／pov／feel 六格整組砍除——那些是筆法指導，
   //    不是「當下情況」也不是格式。agency 收下 enact 的那半句（玩家這一步怎麼接），一格講完。
   { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家這一步做什麼、說什麼，由玩家的輸入決定；narration 從這一步演起。' },
@@ -2018,7 +2018,7 @@ function kanshouPartyCards_(ctx) {
   // 🧊 不變那半：進 system。順序＝同行名單的順序（加人是 append 到尾巴，所以加人不會動到
   //    前面幾張卡的前綴，快取照樣命中；只有移除中間某位才會從那個點斷掉）。
   const PROMPT_PARTY_STABLE = stableArr.length > 0
-    ? `【在我身邊的人】(以下是他們是誰；此刻穿什麼、和我走到哪一步，見下方【他們此刻】)：\n${stableArr.join("\n")}`
+    ? `【在我身邊的人】(以下是他們是誰)：\n${stableArr.join("\n")}`
     : "";
   // 在場來由人人相同時（多數回合都是），抽成抬頭講一次，不在每張卡上逐字重複。
   const _presenceKeys_ = Object.keys(_presenceSeen_);
@@ -2449,7 +2449,7 @@ function actionPlay_(userData, pcId, sheets) {
   const _styleVars_ = { '玩家': pcName, '代名詞': _mePron_, '篇幅': _kanshouTargetWords_ };
   const _sty_ = k => kanshouStyle_(_styles_, k, _styleVars_);
   const prompt = `${_sty_('world')}
-★【誰在場】：有【專屬稱呼】就叫暱稱。這個世界裡已經有名字的人可出現可開口，其餘路人不具名。
+★【誰在場】：有【專屬稱呼】就叫暱稱。其餘路人不具名。
 ★【world_note】：這一步新出現的地方/人/規矩寫進去才會留下，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆；只長在某地的東西（田、雞、招牌、常客）的 at 填那個地名。
 
 【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。

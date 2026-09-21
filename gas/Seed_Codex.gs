@@ -140,7 +140,7 @@ var SEED_SERVANTS = [
     skills:[{n:'自我改造',r:'B',fx:'self_mod'},{n:'妄想幻像',r:'',fx:'zabaniya'}],
     traits:[{n:'人類'}], np:'妄想幻像 Zabaniya: Delusional Illusion（對人·分裂為百種人格·最多同時八十體·【留存】分身持續在場）',
     align:'秩序・惡', persona:{look:'骷髏面具・黑袍裹身的刺客、詭譎',words:'群體・無數人格',toMaster:'服從，視暗殺為信仰',quirks:'換一個人說話就換一種語速、挑燈照不到的那一側站',logic:'真話和對方想聽的話，先給後者',
-    dailyLook:'骷髏面具・深色裝扮的神秘身影、陰影裡的乾燥香料',
+    dailyLook:'骷髏面具・身形偏窄而骨架勻稱、陰影裡的乾燥香料',
     dailyOutfit:'剪裁俐落的深色裝扮',
     dailyWords:'低調神秘、對每個人露出不同的一面、安靜觀察、喧嘩張揚的場合',dailyBack:'在夜校代課，學生說來上課的好像不是同一個人'} },
   { id:'咒腕之哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（咒腕）', wars:['5th'], gender:'男',
@@ -161,7 +161,7 @@ var SEED_SERVANTS = [
     skills:[{n:'無窮的鍛鍊',r:'A+',fx:'clear_mind'},{n:'無毀的湖光',r:'A',fx:'weapon_steal'}],
     traits:[{n:'騎士'},{n:'人類'}], np:'騎士不死於徒手 Knight of Owner（萬物化為兵裝·【留存】變身態持續生效）',
     align:'混沌・狂', persona:{look:'黑霧纏繞漆黑鎧甲的騎士、悲愴',words:'悔恨・對亞瑟王的愧疚',toMaster:'狂化無言，僅以戰鬥宣洩悔恨',quirks:'隨手就把壞掉的東西修好、被道謝時會低下頭',logic:'該說的話留在心裡，只把事默默扛走',
-    dailyLook:'黑髮・沉穩、雨夜的石階，濕冷',
+    dailyLook:'黑髮・身形寬闊挺直、雨夜的石階，濕冷',
     dailyOutfit:'整潔的深色便服',
     dailyWords:'沉默寡言、待在背景照顧大家、安靜的角落、被張揚地感謝',dailyBack:'在修車廠做事，什麼壞掉的東西到他手上都能修'} },
   // 客串保留：慾海鑑賞用的少數客串——斯卡哈/恩奇都，其餘客串／偽聖杯陣容已清空。
@@ -216,7 +216,7 @@ var SEED_SERVANTS = [
   { id:'間桐櫻黑化-Master', cls:'御主', realName:'間桐櫻', wars:['客串'], gender:'女',
     six:{}, classSkills:[], skills:[], traits:[], np:'',
     // 官方設定間桐櫻髮色為深紫色(與遠坂凜同系但更深)，黑化不因此變色。
-    align:'混沌・惡', persona:{look:'深紫長髮・黑紅禮服、泛著陰冷寒意',words:'溫順乖巧的假面・被黑泥吞噬的佔有慾・厭惡傷害過自己的一切',toMaster:'表面溫順順從，內裡佔有慾強烈',quirks:'低垂眼眸淺笑、被碰到時會慢半拍才反應',logic:'想要的東西用等的，站著等到對方讓出來',back:'遠坂次女、送養間桐受蟲蝕十一年後黑化',
+    align:'混沌・惡', persona:{look:'深紫長髮・黑紅禮服、泛著陰冷寒意',words:'溫順乖巧的假面・被黑泥吞噬的佔有慾・厭惡傷害過自己的一切',toMaster:'表面溫順順從，內裡佔有慾強烈',quirks:'低垂眼眸淺笑、被碰到時會慢半拍才反應',logic:'想要的東西用等的，等到對方自己讓出來',back:'遠坂次女、送養間桐受蟲蝕十一年後黑化',
     dailyLook:'深紫長髮・玲瓏有致、開過頭的花，甜得發沉',
     dailyOutfit:'帶酒紅點綴的精緻洋裝',
     dailyWords:'溫柔乖巧、把佔有慾裹在撒嬌裡、香甜點心與怪談、體育課與量體重',// dailyBack：拿掉蟲蝕/黑化的悲劇成因，改寫成單純的姊妹血緣事實。
@@ -289,7 +289,8 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(性格/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v82'; // v82：清掉種子裡的全稱副詞（總／總是／每次／一直）——整張卡每回合都送，
+var CODEX_PERSONA_VER = 'v83'; // v83：三格串味——外貌欄寫進了衣著/性格/姿勢（詳見 CODE_NOTES）。
+// v82：清掉種子裡的全稱副詞（總／總是／每次／一直）——整張卡每回合都送，
 //   那幾個字會讓 AI 每回合演一次同一個動作（跟氣質格退休掉的「背脊永遠打得筆直」同形，只是換一格）。
 //   ⚠ check_seed ⑪ 只掃【氣質格】(dailyLook 第二段)，其餘五格是靠原則自律、機器不管。
 // v81：自稱/口吻退休，tic→quirks(兩格)、新增 logic(做選擇的方式)、dailyBack 改寫成「在這座城裡是誰」、dailyLook 砍掉第3段日常口氣。
