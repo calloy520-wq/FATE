@@ -372,6 +372,10 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   }
   const _newRow = heroToKanshouRow_(hero, gid, loc, parseInt(me[COL.PC.DAY]) || 1);
   kpc.appendRow(_newRow);
+  // 🆙 升格：AI 可能早就把這個名字寫成【常民】（玩家沒召喚、直接讓 AI 掰一個出來）。
+  //    她現在有完整的人格卡了，那條一句話的 lore 就該讓位——不清掉的話 AI 會同時看到
+  //    「SABER（完整卡）」和「SABER（金髮碧眼的少女，住在附近）」兩份。
+  try { worldDrop_(gid, '人物', heroName); } catch (e) { }
   // 🫂 召喚＝把人叫到身邊，同行還有位子就直接站進去（滿了就只是來到這個世界，玩家自己換人）。
   const _pIds = kanshouGetParty_(me[COL.PC.MEMORY]);
   if (_pIds.length < KANSHOU_PARTY_MAX_) {
@@ -1563,10 +1567,15 @@ function worldEvictees_(d, gid, added, curDay) {
 
 // 餵回去：帳本會長大，所以【不是全餵】——只挑跟此刻真的有關的，其餘留在表上等被叫到。
 // 相關＝①釘選 ②此刻地點提到它 ③在場者名字出現在內容裡 ④玩家這句話提到它 ⑤最近 3 天剛提過。
-function worldFeed_(gameId, rows, presentNames, userMsg, curDay) {
+// ⚠ allyNames＝這一局的正式同伴名字。跟他們同名的【人物】條目一律不餵——
+//    那是玩家沒召喚、先讓 AI 掰出來的同一個人，之後才升格的（見 actionKanshouSummonHero）。
+//    升格時會清掉那一條，這裡是既有存檔的第二道（清不到的舊資料照樣不會重複出現）。
+function worldFeed_(gameId, rows, presentNames, userMsg, curDay, allyNames) {
   if (!Array.isArray(rows) || !rows.length) return "";
   const spec = worldSpec_(gameId);
   const msg = String(userMsg || "");
+  const _allies = (allyNames || []).map(n => String(n || "").trim()).filter(Boolean);
+  if (_allies.length) rows = rows.filter(r => !(r.kind === '人物' && _allies.indexOf(String(r.name || "").trim()) >= 0));
   const names = (presentNames || []).map(n => String(n || "").trim()).filter(Boolean);
   const day = parseInt(curDay) || 0;
   // 🗑️ 2026-09 地點退休：①「有根的條目」(at＝長在某地，如農場、雞)整段移除——沒有「此刻在哪」
@@ -2253,7 +2262,8 @@ function actionPlay_(userData, pcId, sheets) {
   const _histWindow_ = KANSHOU_HIST_WINDOW_;
   // 🌍 世界帳本：讀出這一局玩出來的地方/人/設定，只餵跟此刻真的有關的那幾條(見 worldFeed_)。
   const _worldRows_ = worldRead_(myGameId);
-  const _worldFeed_ = worldFeed_(myGameId, _worldRows_, presentMembers, userMsg, curDay);
+  const _worldFeed_ = worldFeed_(myGameId, _worldRows_, presentMembers, userMsg, curDay,
+    pcData.filter(r => r !== pc && kanshouIsAlly_(r, myGameId)).map(r => String(r[COL.PC.NAME])));
 
 
   // 🧊 排序原則：【穩定的放前面、每回合會變的放後面】——prompt cache 是逐 token 比對前綴，
@@ -2264,7 +2274,7 @@ function actionPlay_(userData, pcId, sheets) {
   const _sty_ = k => kanshouStyle_(_styles_, k, _styleVars_);
   const prompt = `${_sty_('world')}
 ★【誰在場】：有【專屬稱呼】就叫暱稱。其餘路人不具名。
-★【world_note】：這一步新出現的地方/人/規矩寫進去才會留下，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆。
+★【world_note】：這一步新出現的地方/人/規矩，寫進去才會留下；挑之後還會再遇到、再提起的寫，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆。
 
 【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
 ${PROMPT_PARTY_LIVE}
