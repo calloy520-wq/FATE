@@ -2273,7 +2273,7 @@ function actionPlay_(userData, pcId, sheets) {
   const _styleVars_ = { '玩家': pcName, '代名詞': _mePron_, '篇幅': _kanshouTargetWords_ };
   const _sty_ = k => kanshouStyle_(_styles_, k, _styleVars_);
   const prompt = `${_sty_('world')}
-★【誰在場】：有【專屬稱呼】就叫暱稱。其餘路人不具名。
+★【誰在場】：有【專屬稱呼】就叫暱稱。卡片與帳本都沒提到的路人不具名。
 ★【world_note】：這一步新出現的地方/人/規矩，寫進去才會留下；挑之後還會再遇到、再提起的寫，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆。
 
 【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
