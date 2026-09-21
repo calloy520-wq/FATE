@@ -2459,6 +2459,14 @@ function actionPlay_(userData, pcId, sheets) {
   // 🌍 世界帳本：讀出這一局玩出來的地方/人/設定，只餵跟此刻真的有關的那幾條(見 worldFeed_)。
   const _worldRows_ = worldRead_(myGameId);
   const _worldFeed_ = worldFeed_(myGameId, _worldRows_, curL, presentMembers, userMsg, curDay);
+  // 🗺️ 這座城裡有哪些地方：worldFeed_ 刻意把【地點】整類排除（那裡餵的是「事」，
+  //    地點的脈絡由 ★【地點】給），結果 AI 從來看不到地圖——而它現在要負責讀出玩家
+  //    說了想去哪。只給名字、不給描述（此刻那一個的描述已經在 ★【地點】裡了）。
+  //    ⚠ 玩家說的地方不在這張表上也沒關係，那是【新地方】，由玩家按下泡泡當場開。
+  const kanshouMapStr = (() => {
+    const _names = kanshouLocationsFor_(_myGid_).map(l => String(l.name || "").trim()).filter(Boolean);
+    return _names.length ? `\n★【這座城裡有哪些地方】：${_names.join('、')}。` : "";
+  })();
 
 
   // 🧊 排序原則：【穩定的放前面、每回合會變的放後面】——prompt cache 是逐 token 比對前綴，
@@ -2475,7 +2483,7 @@ function actionPlay_(userData, pcId, sheets) {
 ${PROMPT_PARTY_LIVE}
 ${_lenLine_ === '' ? '' : _sty_('length')}
 ★【地點】：此刻在「${kanshouLocNameForAI_(curL)}」${(() => { const _c = kanshouLocContextForAI_(curL, getKanshouHomeName_(pc[COL.PC.MEMORY], pcName), _myGid_); return _c ? `（${_c}）` : ""; })()}，這一幕就在這裡演完；換地方由系統宣告。${moveTarget ? '你們剛到，從抵達後的當下寫起。' : ''}
-${kanshouNewPlaceStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouNightSceneStr}
+${kanshouNewPlaceStr}${kanshouMapStr}${_worldFeed_}${kanshouWorldRosterStr}${kanshouNightSceneStr}
 ★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚就在這個房間裡過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 
 ${presentMembers.length ? '' : '★【在場】：這個地方只有我一個人（常民與路人照常可以出現）。'}
@@ -2533,11 +2541,15 @@ ${PROMPT_BODY}
     //    ②已經站在那裡就不問；③不按＝沒走，狀態零損失（這是舊 moveProposal 的語意，照舊）。
     let movePrompt = null;
     try {
-      const _mvRaw = String(aiData.move_to || "").trim();
+      // 地名走跟玩家自由輸入同一個消毒規格（剝 HTML/MEMORY 結構字元、限長），
+      // 因為它可能一路走到 worldWrite_ 變成這座城裡真的存在的一格。
+      const _mvRaw = String(aiData.move_to || "").replace(/[<>&"'`｜【】\[\]★\r\n\t]/g, "").trim().slice(0, 16);
       const _mvLoc = _mvRaw ? kanshouFindLoc_(myGameId, _mvRaw) : null;
-      if (_mvLoc && String(_mvLoc.name).trim() !== String(curL || "").trim()) {
+      const _mvName = _mvLoc ? String(_mvLoc.name) : _mvRaw;
+      if (_mvName && _mvName.trim() !== String(curL || "").trim()) {
         movePrompt = {
-          to: String(_mvLoc.name),
+          to: _mvName,
+          isNew: !_mvLoc,
           ids: presentRows.map(r => String(r[COL.PC.ID])),
           names: presentRows.map(r => String(r[COL.PC.NAME]))
         };

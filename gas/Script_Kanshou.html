@@ -198,16 +198,20 @@ let plainTextContext = cleanText;
         const _mp = data.movePrompt;
         const _who = Array.isArray(_mp.names) ? _mp.names.filter(Boolean) : [];
         const _ids = Array.isArray(_mp.ids) ? _mp.ids.join(',') : '';
+        // 🆕 帳本裡還沒有這個地方＝按下去就當場開一格（玩家：「我想讓 AI 自由創造地圖」）。
+        //   走既有的 newPlace 那條路，所以開完會自動要 AI 描述它、並寫回世界帳本。
+        const _new = !!_mp.isNew;
+        const _dest = '「' + _mp.to + '」' + (_new ? '（這是個新地方）' : '');
         const _label = _who.length
-          ? '🚶 要跟 ' + _who.join('、') + ' 一起移動到「' + _mp.to + '」嗎？'
-          : '🚶 要移動到「' + _mp.to + '」嗎？';
+          ? '🚶 要跟 ' + _who.join('、') + ' 一起' + (_new ? '去' : '移動到') + _dest + '嗎？'
+          : '🚶 要' + (_new ? '去' : '移動到') + _dest + '嗎？';
         // 🛡️ onclick 屬性本身用【雙引號】包，所以參數得是【單引號】的 JS 字串——
         //   JSON.stringify 產的是雙引號，塞進去會當場把屬性打斷（我第一版就是這樣寫錯的）。
         //   比照本檔 send('...') 那條既有寫法：跳脫反斜線與單引號，再擋掉能提早關閉標籤的字元。
         const _j = v => "'" + String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'")
           .replace(/"/g, '&quot;').replace(/</g, '\\u003c').replace(/[\r\n]/g, '') + "'";
         optionsHtml += '<div class="options-grid" style="margin-top:8px;">'
-          + '<button class="btn-option" onclick="kanshouGoTogether_(' + _j(_mp.to) + ',' + _j(_ids) + ')">'
+          + '<button class="btn-option" onclick="kanshouGoTogether_(' + _j(_mp.to) + ',' + _j(_ids) + ',' + (_new ? 'true' : 'false') + ')">'
           + escapeHtml(_label) + '</button></div>';
       }
       if (optContainer) optContainer.innerHTML = optionsHtml;
@@ -850,11 +854,15 @@ let plainTextContext = cleanText;
 
   // 🚶 「一起過去」泡泡按下去＝真的走。走的是跟地圖按鈕【同一條】既有路徑（moveTarget），
   //   只多帶一份要一起走的人的 id；後端會自己驗那些人剛才是不是真的跟你站在同一格。
-  async function kanshouGoTogether_(dest, ids) {
+  async function kanshouGoTogether_(dest, ids, isNew) {
     const _d = String(dest || '').trim();
     if (!_d) return;
     showGamePane('chat');
-    await send('📍 走向了「' + _d + '」。', false, { moveTarget: _d, moveWith: String(ids || '') });
+    // 🆕 新地方走 newPlace（那條路會把它寫進世界帳本、並要 AI 當場描述它是什麼樣的地方）；
+    //   已經存在的走 moveTarget。兩條都是既有路徑，這裡只負責挑一條。
+    await send('📍 走向了「' + _d + '」。', false,
+      isNew ? { newPlace: _d, moveWith: String(ids || '') }
+            : { moveTarget: _d, moveWith: String(ids || '') });
   }
 
   async function kanshouMoveTo(name) {
