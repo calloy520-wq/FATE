@@ -3205,6 +3205,9 @@ function applyModeUI() {
   // 🗺️ 地圖只剩 solo 有（戰場 SVG）——2026-09 鑑賞的地點整組退休，那一頁在鑑賞底下是空的。
   var tMap = document.getElementById('tab-map'); if (tMap) tMap.style.display = isKanshou ? 'none' : '';
   var pMap = document.getElementById('pane-map'); if (pMap) pMap.style.display = isKanshou ? 'none' : '';
+  // 🚪 退路：手機上停在地圖分頁時切進鑑賞，.active 還在、但上面那行把它藏了——
+  //    玩家會看到一片空白，而且地圖鈕也藏了，他不知道發生什麼事。把他拉回故事頁。
+  if (isKanshou && pMap && pMap.classList.contains('active')) showGamePane('chat');
   try { if (!isKanshou) renderWarActions(); } catch (e) {}
 }
 

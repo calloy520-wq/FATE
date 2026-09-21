@@ -4546,3 +4546,22 @@ inline `onclick` 的作用域**只看得到 window**。函式若不小心包進�
 ⚠ **`check_docs` 的函式那條沒有墓碑放行**（只有常數那條有）。所以砍函式時，
 `FUNCTION_MANUAL.md` 裡點名它的那幾條要**真的刪掉**，加「已移除」沒有用——
 這份是零容錯的索引，列著不存在的函式比沒有這份文件更誤導人。
+
+
+### `check_ui.js` 的 mock 缺了 `classList`　<sub>check_ui.js</sub>
+
+🐛→✅ **2026-09 玩家問「右邊的地圖分頁就用不到了?」時順著查出來的**。
+
+地圖分頁在鑑賞底下已經藏起來（solo 的戰場 SVG 還要用，分頁本身不能砍），但有個邊角：
+**手機上停在地圖分頁時切進鑑賞**，`.active` 還在、面板卻被 `display:none` 蓋掉——
+玩家看到一片空白，而且地圖鈕也藏了，**連個可按的退路都沒有**。補一行把他拉回故事頁。
+
+要把這件事釘住時才發現：**假 DOM 根本沒有 `classList`**。
+少了它，任何走 `classList` 的函式（`showGamePane`、`applyModeUI` 的分頁切換…）
+在這支底下都會拋例外——所以它們從來沒被叫起來驗過，**不是它們壞了，是假件缺零件**。
+補上 `add/remove/contains/toggle` 之後才驗得到。
+
+⚠ 同一段還踩到兩個假件的坑，都記在這裡免得下次再踩：
+- `getElementById` 只回 `nodes[id]`，而 `nodes` 只在 `innerHTML` 寫出 `id="..."` 時才長出來。
+  住在 `Index.html` 的節點（`tab-map`／`pane-map`…）要自己 `createElement` ＋ `appendChild` 補。
+- `pc` 走 localStorage 餵，**直接指派 `ctx.pc` 沒有用**（檔頭那條警告就是在講這個，我又踩了一次）。

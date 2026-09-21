@@ -84,6 +84,12 @@ function makeCtx(extraSrc) {
   function mk(tag) {
     const el = {
       tagName: tag, id: '', style: { cssText: '' }, _kids: [], textContent: '', dataset: {}, disabled: false,
+      // ⚠ 2026-09 補 classList：少了它，任何走 classList 的函式（showGamePane、applyModeUI
+      //   的分頁退路…）在這支底下都會拋例外，等於永遠驗不到——不是它們壞了，是假件缺零件。
+      classList: (() => { const s = new Set(); return {
+        add: c => s.add(c), remove: c => s.delete(c), contains: c => s.has(c),
+        toggle: (c, on) => { const v = (on === undefined) ? !s.has(c) : !!on; v ? s.add(c) : s.delete(c); return v; }
+      }; })(),
       appendChild(c) { this._kids.push(c); if (c.id) nodes[c.id] = c; return c; },
       querySelector: () => null, querySelectorAll: () => [], closest: () => null,
       addEventListener() { }, removeChild() { }, getAttribute: () => null, setAttribute() { }
@@ -145,6 +151,21 @@ const onclickFns = [...new Set((ONCLICK_SRC.match(/onclick=["'`]\s*([A-Za-z_$][\
   .map(m => (m.match(/onclick=["'`]\s*([A-Za-z_$][\w$]*)/) || [])[1]).filter(Boolean))];
 onclickFns.forEach(n => { if (typeof ctx[n] !== 'function') bad.push('死按鈕：onclick 點名 ' + n + '() 但全域裡沒有'); });
 const disp = id => { const el = ctx.document.getElementById(id); return el && el.style ? el.style.display : '(查無此元素)'; };
+// 🚪 2026-09 地點退休：地圖分頁在鑑賞底下要藏起來，而且【停在那一頁的人要被拉回故事頁】
+//    ——不然手機上會看到一片空白，連地圖鈕都不見了（沒有退路可按）。
+try {
+  // ⚠ 這兩個節點住在 Index.html，mock DOM 只造得出被 innerHTML 寫出來的 id——先補上。
+  //   ctx.pc 不必指派：makeCtx 已經從 localStorage 餵成 kanshou（見上面那段說明）。
+  ['tab-map', 'pane-map'].forEach(id => {
+    const el = ctx.document.createElement('div'); el.id = id; ctx.document.body.appendChild(el);
+  });
+  const _pm = ctx.document.getElementById('pane-map');
+  _pm.classList.add('active');
+  ctx.applyModeUI();
+  if (disp('tab-map') !== 'none') bad.push('鑑賞底下地圖【分頁鈕】沒藏起來');
+  if (disp('pane-map') !== 'none') bad.push('鑑賞底下地圖【面板】沒藏起來');
+  if (_pm && _pm.classList.contains('active')) bad.push('停在地圖頁的玩家沒被拉回故事頁（會看到空白）');
+} catch (e) { bad.push('applyModeUI(kanshou) 拋例外：' + e.message); }
 // 回 false 的當成「跑得動但結果不對」——顯示切換這種事沒有例外可抓，只能看結果。
 RENDERS.forEach(([n, fn]) => { try { if (fn() === false) bad.push(n + ' 跑得動，但畫面狀態不對'); } catch (e) { bad.push(n + '() 拋例外：' + e.message); } });
 
