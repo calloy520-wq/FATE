@@ -136,6 +136,16 @@ try { ctx = makeCtx(); } catch (e) {
   process.exit(1);
 }
 ENTRIES.forEach(n => { if (typeof ctx[n] !== 'function') bad.push('叫不到 ' + n + '()'); });
+// 🔎 ENTRIES 是【手維護】的清單，新按鈕得有人記得加進去——這專案一再修的就是這種會過期的索引。
+//    所以再走一遍【從 HTML 自己推導】：每個 inline onclick 點名的函式都必須真的在全域。
+//    inline onclick 的作用域只看得到 window，函式若包在別的函式裡，語法完全合法、
+//    check.sh 全綠、部署成功，玩家按下去才 ReferenceError（而且多半沒人看 console）。
+//    ⚠ 這一段【不列白名單】：叫得到就是叫得到，叫不到就是死按鈕，沒有例外可言。
+const ONCLICK_SRC = FILES.concat(['Index.html'])
+  .map(f => { try { return fs.readFileSync(path.join(GAS, f), 'utf8'); } catch (e) { return ''; } }).join('\n');
+const onclickFns = [...new Set((ONCLICK_SRC.match(/onclick=["'`]\s*([A-Za-z_$][\w$]*)\s*\(/g) || [])
+  .map(m => (m.match(/onclick=["'`]\s*([A-Za-z_$][\w$]*)/) || [])[1]).filter(Boolean))];
+onclickFns.forEach(n => { if (typeof ctx[n] !== 'function') bad.push('死按鈕：onclick 點名 ' + n + '() 但全域裡沒有'); });
 const disp = id => { const el = ctx.document.getElementById(id); return el && el.style ? el.style.display : '(查無此元素)'; };
 // 回 false 的當成「跑得動但結果不對」——顯示切換這種事沒有例外可抓，只能看結果。
 RENDERS.forEach(([n, fn]) => { try { if (fn() === false) bad.push(n + ' 跑得動，但畫面狀態不對'); } catch (e) { bad.push(n + '() 拋例外：' + e.message); } });
@@ -178,8 +188,8 @@ const ghostBtn = tutorial.icons.filter(ic => controls.indexOf(ic) < 0);
 if (!tutorial.icons.length) bad.push('新手引導：一顆按鈕都沒抓到（那段是不是被改掉了？）');
 ghostBtn.forEach(v => bad.push('新手引導點名了介面上找不到的控制項圖示：「' + v + '」'));
 
-console.log('🖥️ 前端 runtime：%d 個入口、%d 個面板真的跑起來、新手引導點名 %d 顆鈕（含自我退化測試）'
-  .replace('%d', ENTRIES.length).replace('%d', RENDERS.length).replace('%d', tutorial.icons.length));
+console.log('🖥️ 前端 runtime：%d 個入口、%d 個 onclick 目標、%d 個面板真的跑起來、新手引導點名 %d 顆鈕（含自我退化測試）'
+  .replace('%d', ENTRIES.length).replace('%d', onclickFns.length).replace('%d', RENDERS.length).replace('%d', tutorial.icons.length));
 if (bad.length) {
   console.log('  ❌ ' + bad.length + ' 處壞在 runtime（語法檢查看不到這種）：');
   bad.forEach(b => console.log('     ' + b));

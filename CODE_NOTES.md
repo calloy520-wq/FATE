@@ -4507,3 +4507,22 @@ CI 只跑 `.gs`；`check.sh` 對 `Script*.html` 也只做 `node --check`，那�
 這是舊 `moveProposal` 就定下的語意，照搬。
 ⚠ 它住在 `#options-container` 但在 `#ai-options-grid` **外面**——關掉「AI 選項顯示」的玩家
 照樣看得到必點泡泡（舊版整個容器 `display:none`，把泡泡一起陪葬過，見本檔該段）。
+
+
+### `check_ui.js` 的 onclick 反查　<sub>check_ui.js</sub>
+
+🐛→✅ **2026-09 玩家「確定沒問題？檢查看看」時當場發現**：`ENTRIES` 是**手維護**的清單，
+新按鈕得有人記得加進去。我那天加的 `kanshouGoTogether_`（移動泡泡）就不在裡面——
+**這支從頭到尾沒驗過它**，而它正好是最容易靜默壞掉的一種：
+
+inline `onclick` 的作用域**只看得到 window**。函式若不小心包進別的函式裡，
+語法完全合法、`check.sh` 全綠、部署成功，玩家按下去才 `ReferenceError`——
+而且多半沒人開 console，看起來就只是「按了沒反應」。
+
+改成**從 HTML 自己推導**：掃出每個 `onclick="fn("` 點名的函式，逐個確認它真的在全域。
+當場涵蓋 **117 個**目標（原本手維護的 `ENTRIES` 只有 28 個）。
+⚠ 這一段**刻意不列白名單**——叫得到就是叫得到，叫不到就是死按鈕，沒有例外可言。
+⚠ 注入退化（把 `kanshouGoTogether_` 包進一個函式裡）確認會叫。
+
+這是同一個形狀的第三次了（`FUNCTION_MANUAL` 的幽靈條目、`CODE_NOTES` 的幽靈錨點，
+現在是前端入口）：**手維護的索引一定會過期，能從代碼自己推導出來的就別靠人記得。**
