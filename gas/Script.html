@@ -563,7 +563,7 @@
         //   變成「這一夜到此為止」——沿用同一顆鈕、同一個 kanshouNextStage()，只換字與色。
         const inNight = !!(window._lastTags && window._lastTags.nightScene);
         hud.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">'
-          + '<button class="btn" style="padding:3px 8px;font-size:11px;flex-shrink:0;border-color:#5a3a6a;color:#dcc8ff;" onclick="openCompanions()" title="看這座城裡有誰、在哪；同行／解散／去找／叫來，也在這裡請新的人來">👥 誰在哪</button>'
+          + '<button class="btn" style="padding:3px 8px;font-size:11px;flex-shrink:0;border-color:#5a3a6a;color:#dcc8ff;" onclick="openCompanions()" title="看這座城裡有誰；挑誰跟你走，也在這裡請新的人來">👥 有誰</button>'
           + '<span style="flex:1;min-width:0;">' + icon + ' ' + label + '</span>'
           + '<button class="btn" style="padding:3px 8px;font-size:11px;flex-shrink:0;border-color:' + (inNight ? '#b07a4a' : isNight ? '#7a5a9a' : '#4a6a8a') + ';color:' + (inNight ? '#f0c090' : isNight ? '#c9a0e0' : '#8ac0e0') + ';" onclick="kanshouNextStage()" title="' + (inNight ? '這一夜到此為止，睡到天亮' : isNight ? '睡一晚到明天' : '推進到下一個時段') + '">' + (inNight ? '🌅 睡到天亮' : isNight ? '🌙 睡覺' : '⏰ 下一階段') + '</button>'
           + '</div>';

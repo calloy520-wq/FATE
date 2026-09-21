@@ -268,7 +268,7 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
       + '<div style="overflow-y:auto;min-height:0;">'
       + '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 這個世界裡的人 (<span id="kc-count">0</span>)</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">📍 <b>站在同一個地方的人就在場</b>，會開口、會有反應。<br>🫂 同行＝她一路跟著你走（最多 ' + KC_PARTY_MAX_ + ' 位）；解散＝她留在你解散她的那個地方。<br>🚶去找＝你走過去　🙋叫來＝她走過來。</div>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">🫂 <b>同行的人就在這一幕裡</b>，會開口、會有反應（最多 ' + KC_PARTY_MAX_ + ' 位）。<br>下面先請人來這座城，再挑誰跟你走。</div>'
       + '<div id="kc-master-box"></div>'
       + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">駐留清單（<span id="kc-party-n">0</span>/' + KC_PARTY_MAX_ + ' 同行中）</div>'
       + '<div id="kc-party-list"></div>'
@@ -1053,8 +1053,11 @@ let plainTextContext = cleanText;
           // 🔰 2026-09 玩家：「新手教學也砍光，就留一個先邀請人就好」。一片空白的開局，第一件事只有一件。
           // ⚠ 這個世界的前提是【從來沒有發生過聖杯戰爭】（見 nsfwBaseRules 的 world 那格），
           //    舊文案寫「聖杯戰爭結束後的冬木」跟它正面打架，玩家第一眼看到的就是矛盾的設定。
-          story.innerHTML = `<div class="msg-ai"><b>【日常】</b>和平的現代冬木市。<br><br>`
-            + `<b style="color:#e0a0bc;">👥 先邀一個人</b>（時鐘左邊）<br>選好誰跟你走，再開口。</div>`;
+          story.innerHTML = `<div class="msg-ai"><b>【日常】</b>和平的現代冬木市。這座城還是空的。<br><br>`
+            + `<b style="color:#e0a0bc;">👥 有誰</b>（時鐘左邊）<br>`
+            + `① 在<b>「邀人加入」</b>挑一個人，請她來這座城<br>`
+            + `② 在她那一列按<b>「＋同行」</b>，她就進到這一幕裡<br><br>`
+            + `然後開口說話就好。</div>`;
         }
         story.scrollTop = story.scrollHeight;
         syncData(true);
