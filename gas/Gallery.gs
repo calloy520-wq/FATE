@@ -45,6 +45,14 @@ function sanitizeAiData_(aiData, gameId) {
       .slice(0, worldSpec_(gameId).writeMax)
       .map(w => ({ kind: w.kind, name: w.name, text: w.text, sex: w.sex }));
   }
+  // 🎭 cast 是 AI 唯一能動「誰在這一幕」的管道，所以邊界擋在最外層：只收兩個字串陣列、限長。
+  //    真正的裁定（是不是這一局的人、同行者豁免、在場上限）在 actionPlay_ 裡做。
+  if (aiData.cast !== undefined) {
+    const _arr = v => (Array.isArray(v) ? v : []).filter(x => typeof x === 'string' && x.trim())
+      .slice(0, 6).map(x => x.trim().slice(0, 20));
+    aiData.cast = (aiData.cast && typeof aiData.cast === 'object' && !Array.isArray(aiData.cast))
+      ? { join: _arr(aiData.cast.join), leave: _arr(aiData.cast.leave) } : { join: [], leave: [] };
+  }
   // 🛡️ ★指令／〈演出卡〉被原樣抄進敘事：solo(narrateWithState_) 早有這道濾網，鑑賞這條路徑漏掉了。
   //    先把真實換行轉成 <br> 再過濾——濾網掃到下一個「<」為止，沒有 <br> 的話會把整段吃光。
   if (typeof aiData.narration === 'string') {
@@ -599,13 +607,15 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   var myLoc = String(me[COL.PC.LOC] || "");
   var myName = String(me[COL.PC.NAME] || "");
   var partyIds = kanshouGetParty_(me[COL.PC.MEMORY]);
+  // 🎭 三層：同行（玩家按的）／臨時在場（AI 拉進來的）／待命（其餘）。面板分組要靠 onstage。
+  var onstageIds = kanshouGetOnstage_(me[COL.PC.MEMORY]);
   var current = [];
   for (var i = 1; i < data.length; i++) {
     if (kanshouIsAlly_(data[i], gid)) {
       // 🗑️ 2026-09 地點退休：loc／locLabel／isHere 三欄一起拿掉——面板不再需要「她在哪」。
       // memoir：共同回憶(27欄)原樣下傳(★前綴=玩家釘選)，供面板顯示/釘選/刪除。
       // 🆔 2026-07「整體重構·id優先」：補id讓前端能存起來隨後續action回傳，後端才有id可用、不必只靠名字(kanshouNameCandidates_別名表已處理大部分情況，但id才是真正杜絕撞名/前綴混淆的單一真實來源)。
-      current.push({ id: String(data[i][COL.PC.ID]), srcId: KANSHOU_SRC_TAG_.get(String(data[i][COL.PC.MEMORY] || "")), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || ""), nickname: getNickname_(data[i][COL.PC.REL_MEM]), party: partyIds.indexOf(String(data[i][COL.PC.ID])) >= 0, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
+      current.push({ id: String(data[i][COL.PC.ID]), srcId: KANSHOU_SRC_TAG_.get(String(data[i][COL.PC.MEMORY] || "")), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || ""), nickname: getNickname_(data[i][COL.PC.REL_MEM]), party: partyIds.indexOf(String(data[i][COL.PC.ID])) >= 0, onstage: onstageIds.indexOf(String(data[i][COL.PC.ID])) >= 0, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
     }
   }
   return JSON.stringify({ success: true, current: current });
@@ -863,6 +873,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
     },
     "world_note": [{ "kind": "地點|人物|設定", "name": "一句話標題", "text": "≤" + WORLD_SPEC_.kanshou.textMax + "字", "sex": "kind=人物 才填 男/女/異" }],
     "scene": "這一段演完，人最後在哪·≤12字",
+    "cast": { "join": ["這一段真的走進來的人·照名單上的名字寫·沒有就空陣列"], "leave": ["這一段真的離開的人·沒有就空陣列"] },
   };
   if (includeOptions === false) { delete finalJson.options; }
 
@@ -966,6 +977,21 @@ const KANSHOU_SUMMON_BLOCKED_IDS_ = [];
 // ⚠ 存 id 不存名字：鑑賞眾生是全帳號共用一張表，大家都從同一座英靈殿召喚，撞名是常態不是巧合
 //    （同款坑見 CODE_NOTES 的「初次·同床蓋到別人那列」）。
 const KANSHOU_PARTY_MAX_ = 3;
+// 🎭 臨時在場（存【玩家】列 MEMORY·逗號分隔的 id）：AI 這一幕拉進來的人。
+//    ⚠ 跟同行是【兩個不同擁有者】的清單，這是整個設計的重點：
+//      同行＝玩家按的，AI 動不了（這正是 2026-09 砍掉 npc_exit 的理由——
+//      「AI 不問玩家就把人移出同行名單」）；臨時在場＝AI 拉進來的，AI 也可以讓他走。
+//    在場＝兩者的聯集；待命＝這一局的人扣掉在場的。
+var KANSHOU_ONSTAGE_TAG_ = makeTextTag_('在場');
+function kanshouGetOnstage_(memory) {
+  return String(KANSHOU_ONSTAGE_TAG_.get(memory) || "").split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+}
+function kanshouSetOnstage_(memory, ids) {
+  return KANSHOU_ONSTAGE_TAG_.set(memory, (ids || []).slice(0, KANSHOU_ONSTAGE_MAX_).join(','));
+}
+// 🎭 這一幕最多站幾個人（同行 ∪ 臨時在場）。同行上限 3，所以 AI 最多再拉 2 個進來。
+//    人再多，每張卡都要送、誰都得有反應，敘事會變成點名輪流。
+const KANSHOU_ONSTAGE_MAX_ = 5;
 // 🌍 這個世界裡總共住幾個人。同行上限管「幾個人跟著你走」，這個管「城裡有幾個人」。
 // ⚠ 2026-09 起始住民取消後，這 8 格【全部】是玩家自己邀的人。
 //    滿了之後靠面板上的「🚪 請她離開這座城」（op:'evict'）騰位子——那顆鈕要是哪天砍了，
@@ -1775,7 +1801,7 @@ function relMemMemoryStr_(relMem) {
 //    回 { text, spotlight }：text 直接進提示詞，spotlight 供呼叫端判斷這一步點名了誰。
 function kanshouPartyCards_(ctx) {
   const pcData = ctx.pcData, pcId = ctx.pcId, myGameId = ctx.myGameId, userMsg = ctx.userMsg;
-  const partyMembers = ctx.partyMembers;
+  const partyMembers = ctx.partyMembers, partyIdSet = ctx.partyIdSet || [];
   const kanshouTimeJumped_ = ctx.timeJumped, formatPref = ctx.formatPref, formatTrait = ctx.formatTrait;
   let stableArr = [], liveArr = [];
   const _presenceSeen_ = {};
@@ -1838,8 +1864,17 @@ function kanshouPartyCards_(ctx) {
   // 🗑️ 2026-09 地點退休後「同行中 vs 本來就在這裡」這個區分整個消失了——在場就是同行，
   //    那兩句話（原本是為了回答玩家「現在沒有同行人／目前地點有誰誰誰」）現在只是把
   //    同一份名單用兩種講法再講一次。卡片本身就帶著名字，不必另起一行點名。
+  // 🎭 沒跟我同行的那幾位是【臨時在場】：這一段演完若該走，AI 讓他走得掉。
+  //    同行的人不在這句裡——他們是玩家按的，走不掉（見 actionPlay_ 的 cast 那段）。
+  //    ⚠ 條件式：沒有臨時在場的人就整句不送，不會變成每回合的常駐指令。
+  const _loose_ = partyMembers.filter(n => {
+    const r = pcData.find(x => String(x[COL.PC.NAME]).trim() === String(n).trim());
+    return r && partyIdSet.indexOf(String(r[COL.PC.ID])) < 0;
+  });
+  const _looseStr_ = _loose_.length
+    ? `\n★【誰走得掉】：${_loose_.join('、')}沒有跟我同行——這一段演完若該告辭，就讓那個人離開，並在 cast.leave 填名字。` : "";
   const PROMPT_PARTY_LIVE = liveArr.length > 0
-    ? `【他們此刻】：${_presenceShared_ ? `\n${_presenceShared_}` : ""}\n${_liveCards_.join("\n")}`
+    ? `【他們此刻】：${_presenceShared_ ? `\n${_presenceShared_}` : ""}\n${_liveCards_.join("\n")}${_looseStr_}`
     : "現在沒有人跟你同行，你是一個人。";
 
   return { stable: PROMPT_PARTY_STABLE, live: PROMPT_PARTY_LIVE };
@@ -2079,7 +2114,18 @@ function actionPlay_(userData, pcId, sheets) {
   //    「全部人在客廳但只有大河跟我說話」，而那個錯亂的來源正是【系統在記位置】這件事本身。
   //    ⚠ 沒有另設在場上限：同行上限（KANSHOU_PARTY_MAX_）就是上限，少一個要維護的數字。
   //    路人可自由描寫增添生活感，但不具名、不能被指名互動；能被指名、會被記錄的只有這份名單。
-  const presentRows = partyRows;
+  // 🎭 在場＝同行（玩家的）∪ 臨時在場（AI 的）。同行永遠排前面、永遠進得去；
+  //    臨時在場填到 KANSHOU_ONSTAGE_MAX_ 為止，滿了就不再收。
+  const presentRows = (() => {
+    const _seen = {}, _out = [];
+    partyRows.forEach(r => { _seen[String(r[COL.PC.ID])] = 1; _out.push(r); });
+    kanshouGetOnstage_(pc[COL.PC.MEMORY]).forEach(id => {
+      if (_seen[id] || _out.length >= KANSHOU_ONSTAGE_MAX_) return;
+      const r = pcData.find(x => x !== pc && kanshouIsAlly_(x, myGameId) && String(x[COL.PC.ID]) === id);
+      if (r) { _seen[id] = 1; _out.push(r); }
+    });
+    return _out;
+  })();
   const presentMembers = presentRows.map(r => String(r[COL.PC.NAME]));
 
 
@@ -2103,7 +2149,7 @@ function actionPlay_(userData, pcId, sheets) {
     //    `at` 逐字比對得上；`at` 已隨地點退休，這裡只是讓 AI 知道有這個人，附別名純粹是雜訊
     //    （實測「無名（EMIYA）」會生出「無名（emiya）也是同一人」這種沒有意義的附註）。
     const _list = _elsewhere.map(r => String(r[COL.PC.NAME] || "")).filter(Boolean).join('、');
-    return `\n★【這座城裡還住著】：${_list}。我們都認識他們，他們此刻不在這一幕裡；我問起誰，就依此刻的時段說說那個人這時候大概在做什麼。`;
+    return `\n★【這座城裡還住著】：${_list}。我們都認識他們，他們此刻不在這一幕裡；我問起誰，就依此刻的時段說說那個人這時候大概在做什麼；我去找誰、或誰該出現在這一幕了，就把那個人寫進來並在 cast.join 填名字。`;
   })();
   presentRows.forEach(r => {
     const _ri = pcData.indexOf(r);
@@ -2126,6 +2172,7 @@ function actionPlay_(userData, pcId, sheets) {
   // 🪪 在場人物卡（聚光燈／在場來由／六格人設）：見 kanshouPartyCards_。
   const _cards_ = kanshouPartyCards_({
     pcData: pcData, pcId: pcId, myGameId: myGameId, userMsg: userMsg, partyMembers: presentMembers,
+    partyIdSet: partyRows.map(r => String(r[COL.PC.ID])),
     timeJumped: kanshouTimeJumped_, formatPref: formatPref, formatTrait: formatTrait
   });
   const PROMPT_PARTY_LIVE = _cards_.live;   // 此刻的樣子留在 user；「他們是誰」進 system 吃快取
@@ -2273,6 +2320,36 @@ ${PROMPT_BODY}
     //    （玩家原話：「我需要這個角色可以跟我同行到 A，我 A 解散他，他會一直在 A」）——
     //    兩把鑰匙開同一道門，其中一把還在 AI 手上。要她離開，敘事照樣寫得出來，只是位置不會被動。
     // 鑑賞無戰鬥：血量快照/stat_changes(外顯狀態刷新)/經濟層(物品/金錢/任務)皆不追蹤、不落地。
+
+    // 🎭 誰走進這一幕、誰離開。AI 只動得了【臨時在場】那一層——
+    //    ①同行者是玩家按的，leave 對他們無效（這正是砍掉 npc_exit 的理由）；
+    //    ②只收這一局真的存在的人（名字比對走 kanshouNameCandidates_，全名短名都認）；
+    //    ③在場總數封頂 KANSHOU_ONSTAGE_MAX_，滿了就不再收。
+    if (aiData.cast) {
+      const _partyIds = kanshouGetParty_(pcData[pcIndex][COL.PC.MEMORY]);
+      let _on = kanshouGetOnstage_(pcData[pcIndex][COL.PC.MEMORY]);
+      const _idOf = nm => {
+        const r = pcData.find(x => x !== pc && kanshouIsAlly_(x, myGameId)
+          && kanshouNameCandidates_(x[COL.PC.NAME]).includes(String(nm).trim()));
+        return r ? String(r[COL.PC.ID]) : "";
+      };
+      (aiData.cast.leave || []).forEach(nm => {
+        const id = _idOf(nm);
+        if (!id || _partyIds.indexOf(id) >= 0) return;   // 同行者走不了
+        _on = _on.filter(x => x !== id);
+      });
+      (aiData.cast.join || []).forEach(nm => {
+        const id = _idOf(nm);
+        if (!id || _partyIds.indexOf(id) >= 0 || _on.indexOf(id) >= 0) return;
+        if (_partyIds.length + _on.length >= KANSHOU_ONSTAGE_MAX_) return;
+        _on.push(id);
+      });
+      const _next = kanshouSetOnstage_(pcData[pcIndex][COL.PC.MEMORY], _on);
+      if (_next !== pcData[pcIndex][COL.PC.MEMORY]) {
+        pcData[pcIndex][COL.PC.MEMORY] = _next;
+        dirtyPcRows.add(pcIndex);
+      }
+    }
 
     // 🎬 背景場景：玩家要的「一個給 AI 隨時變動的背景版地點」。它【不是】地點系統——
     //    沒有名單、沒有驗證、走不進去也帶不走人，就是一句話的布景，AI 想換隨時換。

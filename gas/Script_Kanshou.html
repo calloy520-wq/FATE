@@ -268,7 +268,7 @@ let plainTextContext = cleanText;
     ov.innerHTML = '<div style="background:#1a1622;border:1px solid #4a3a6a;border-radius:12px;max-width:480px;width:100%;max-height:calc(100vh - 36px);padding:18px;box-shadow:0 8px 40px rgba(0,0,0,0.6);display:flex;flex-direction:column;">'
       + '<div style="overflow-y:auto;min-height:0;">'
       + '<h3 style="margin:0 0 4px;color:#e0a0bc;">👥 這個世界裡的人 (<span id="kc-count">0</span>)</h3>'
-      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">🫂 <b>同行的人就在這一幕裡</b>，會開口、會有反應（最多 ' + KC_PARTY_MAX_ + ' 位）。<br>下面先請人來這座城，再挑誰跟你走。</div>'
+      + '<div style="color:#9a8f70;font-size:11px;margin-bottom:8px;">🫂 <b>同行</b>＝一路跟著你，不會自己走（最多 ' + KC_PARTY_MAX_ + ' 位）。<br>👋 <b>在這一幕裡</b>＝說書人拉進來的，聊完可能自己走開。<br>🌹 其餘的人住在這座城裡，你提到誰、去找誰，說書人就會把他寫進來。</div>'
       + '<div id="kc-master-box"></div>'
       + '<div style="font-size:12px;color:#cbb;margin:6px 0 3px;">駐留清單（<span id="kc-party-n">0</span>/' + KC_PARTY_MAX_ + ' 同行中）</div>'
       + '<div id="kc-party-list"></div>'
@@ -300,8 +300,10 @@ let plainTextContext = cleanText;
     if (countEl) countEl.textContent = _kcCur.length;
     var box = document.getElementById('kc-party-list');
     if (!box) return;
-    // 🫂 同行的人排在前面：這份清單的第一件事是「此刻誰在我身邊」。
-    var _sorted = _kcCur.slice().sort(function (a, b) { return (b.party ? 1 : 0) - (a.party ? 1 : 0); });
+    // 🎭 三層排序：同行（玩家按的·走不掉）→ 臨時在場（AI 拉進來的·會自己走）→ 待命。
+    //    這份清單的第一件事是「此刻誰在我身邊」，所以在場的一律排前面。
+    var _rank = function (x) { return x.party ? 2 : (x.onstage ? 1 : 0); };
+    var _sorted = _kcCur.slice().sort(function (a, b) { return _rank(b) - _rank(a); });
     var _pn = _kcCur.filter(function (x) { return x.party; }).length;
     var pnEl = document.getElementById('kc-party-n');
     if (pnEl) pnEl.textContent = _pn;
@@ -309,11 +311,13 @@ let plainTextContext = cleanText;
       // 💞 回憶鈕：有回憶亮粉色並帶數量，還沒有就灰階(仍可點開看空狀態說明)。
       var memCount = (c.memoir || []).length;
       var full = !c.party && _pn >= KC_PARTY_MAX_;
-      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);' + (c.party ? 'background:rgba(180,140,220,.08);' : '') + '">'
-        + '<span style="flex:1;color:#e8d8e0;">' + (c.party ? '🫂' : '🌹') + ' ' + escapeHtml(c.name) + (c.tag ? ' <small style="color:#8a7fa0;">(' + escapeHtml(c.tag) + ')</small>' : '') + (c.party ? '<br><small style="color:#c0a8e0;">就在你身邊</small>' : '') + '</span>'
-        // 🚶 不在同一個地方時給兩個方向：去找她（走過去）／叫她過來（她走過來）。在場了就不必再問。
-        + ''
-        + '<button onclick="kanshouPartyOp(\'' + String(c.id || '').replace(/'/g, '') + '\',\'' + (c.party ? 'drop' : 'add') + '\')"' + (full ? ' disabled title="同行已滿 ' + KC_PARTY_MAX_ + ' 位"' : '') + ' style="padding:4px 8px;background:' + (c.party ? '#4a3a6a' : (full ? '#2e2e34' : '#3a4a3a')) + ';color:' + (c.party ? '#dcc8ff' : (full ? '#666' : '#a8dca8')) + ';border:none;border-radius:6px;cursor:' + (full ? 'not-allowed' : 'pointer') + ';font-size:12px;" title="' + (c.party ? '離開同行：她會留在你解散她的那個地方' : '同行：她會一路跟著你走') + '">' + (c.party ? '−解散' : '＋同行') + '</button>'
+      // 🎭 這一列屬於哪一層：同行／在場（AI 拉來的）／待命。
+      var _tier = c.party ? { icon: '🫂', note: '同行中·不會自己走', bg: 'background:rgba(180,140,220,.08);' }
+        : (c.onstage ? { icon: '👋', note: '此刻在這一幕裡', bg: 'background:rgba(140,180,220,.07);' }
+          : { icon: '🌹', note: '', bg: '' });
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);' + _tier.bg + '">'
+        + '<span style="flex:1;color:#e8d8e0;">' + _tier.icon + ' ' + escapeHtml(c.name) + (c.tag ? ' <small style="color:#8a7fa0;">(' + escapeHtml(c.tag) + ')</small>' : '') + (_tier.note ? '<br><small style="color:' + (c.party ? '#c0a8e0' : '#a8c8e0') + ';">' + _tier.note + '</small>' : '') + '</span>'
+        + '<button onclick="kanshouPartyOp(\'' + String(c.id || '').replace(/'/g, '') + '\',\'' + (c.party ? 'drop' : 'add') + '\')"' + (full ? ' disabled title="同行已滿 ' + KC_PARTY_MAX_ + ' 位"' : '') + ' style="padding:4px 8px;background:' + (c.party ? '#4a3a6a' : (full ? '#2e2e34' : '#3a4a3a')) + ';color:' + (c.party ? '#dcc8ff' : (full ? '#666' : '#a8dca8')) + ';border:none;border-radius:6px;cursor:' + (full ? 'not-allowed' : 'pointer') + ';font-size:12px;" title="' + (c.party ? '離開同行：她之後可能自己走開' : '同行：她會一路跟著你走，不會自己離開') + '">' + (c.party ? '−解散' : '＋同行') + '</button>'
         + '<button onclick="kanshouOpenMemoir(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:' + (memCount ? '#5a3a4a' : '#3a3a44') + ';color:' + (memCount ? '#e8b8cc' : '#999') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">💞回憶' + (memCount ? '(' + memCount + ')' : '') + '</button>'
         + '<button onclick="kanshouOpenRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\',\'' + String(c.nickname || '').replace(/'/g, '') + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button>'
         + '<button onclick="kanshouEvict(\'' + String(c.id || '').replace(/'/g, '') + '\',\'' + String(c.name).replace(/'/g, '') + '\')" title="請她離開這座城，空出一個位子（回憶與關係會一起消失，不可復原）" style="padding:4px 6px;background:#4a2a2a;color:#d8a0a0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🚪</button></div>';

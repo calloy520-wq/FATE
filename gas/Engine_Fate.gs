@@ -431,7 +431,7 @@ function servantNpOptions_(name, cls) {
     { n: '他者封印·鮮血神殿 Blood Fort Andromeda', r: 'A+', scale: '對軍', fx: 'petrify', kind: 'barrier', lingers: true, desc: '對軍·血色結界瀰漫瘴氣、封鎖敵眾身法' },
     { n: '騎英之手綱 Bellerophon', r: 'A+', scale: '對軍', fx: '', desc: '對軍·喚出神駿天馬珀伽索斯，凌空突刺衝鋒' }
   ];
-  if (name === '無名（EMIYA）') return [
+  if (name === '無銘') return [
     { n: '無限劍製 Unlimited Blade Works', scale: '對城', fx: 'ubw', kind: 'barrier', lingers: true, desc: '對城·固有結界劍雨壓制（不受對魔力）' },
     { n: '偽·螺旋劍 Caladbolg II', scale: '對人', fx: 'projection', desc: '對人·破斷重塑的流星劍狙擊' }
   ];

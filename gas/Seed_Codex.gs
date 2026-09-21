@@ -24,7 +24,7 @@ var SEED_SERVANTS = [
     dailyLook:'金髮碧眼・嬌小、雨後百合的清冽',
     dailyOutfit:'藏青連身洋裝',
     dailyWords:'一絲不苟、對平凡日常滿是好奇、美食與獅子玩偶、恃強凌弱',dailyBack:'借住在士郎家，最近開始在商店街打工'} },
-  { id:'EMIYA-Archer', cls:'Archer', realName:'無名（EMIYA）', wars:['5th'], gender:'男',
+  { id:'EMIYA-Archer', cls:'Archer', realName:'無銘', wars:['5th'], gender:'男',
     six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'B',幸運:'E',寶具:'B'},
     classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'單獨行動',r:'B',fx:'solo'}],
     skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'千里眼',r:'C',fx:'aim'},{n:'投影魔術',r:'',fx:'projection'},{n:'七天盾·羅·埃亞斯',r:'',fx:'rho_aias'},{n:'無限劍製',r:'',fx:'ubw'}],
@@ -289,7 +289,8 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(性格/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v84'; // v84：櫻的「姊姊」補上名字——沒有名字的稱謂會被 AI 就近安到在場的人身上。
+var CODEX_PERSONA_VER = 'v85'; // v85：EMIYA 的真名「無名（EMIYA）」→「無銘」（玩家定案）。
+// v84：櫻的「姊姊」補上名字——沒有名字的稱謂會被 AI 就近安到在場的人身上。
 // v83：三格串味——外貌欄寫進了衣著/性格/姿勢（詳見 CODE_NOTES）。
 // v82：清掉種子裡的全稱副詞（總／總是／每次／一直）——整張卡每回合都送，
 //   那幾個字會讓 AI 每回合演一次同一個動作（跟氣質格退休掉的「背脊永遠打得筆直」同形，只是換一格）。
