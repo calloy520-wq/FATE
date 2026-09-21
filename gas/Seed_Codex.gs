@@ -23,7 +23,7 @@ var SEED_SERVANTS = [
     align:'秩序・善', persona:{look:'金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀',words:'騎士道・自我犧牲・壓抑的少女心',toMaster:'以騎士之禮盡忠，公私分明地隔著一步距離',quirks:'吃到好東西時會安靜下來、對著獅子玩偶移不開眼',logic:'責任和自己想要的擺在一起，放下的是後者',
     dailyLook:'金髮碧眼・嬌小、雨後百合的清冽',
     dailyOutfit:'藏青連身洋裝',
-    dailyWords:'一絲不苟、對平凡日常滿是好奇、美食、恃強凌弱',dailyBack:'借住在士郎家，最近開始在商店街打工'} },
+    dailyWords:'一絲不苟、對平凡日常滿是好奇、美食與獅子玩偶、恃強凌弱',dailyBack:'借住在士郎家，最近開始在商店街打工'} },
   { id:'EMIYA-Archer', cls:'Archer', realName:'無名（EMIYA）', wars:['5th'], gender:'男',
     six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'B',幸運:'E',寶具:'B'},
     classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'單獨行動',r:'B',fx:'solo'}],
@@ -50,7 +50,7 @@ var SEED_SERVANTS = [
     traits:[{n:'神性',r:'E-'},{n:'女神'}], np:'他者封印·鮮血神殿 Blood Fort Andromeda（對軍·結界）／騎英之手綱 Bellerophon（對軍 A+·喚出神駿天馬珀伽索斯·踏虛凌空·振翅撕裂長空、化作一往無前的純白光矢突刺）',
     // 聖杯戰爭期間封印魔眼的是眼罩(眼鏡是戰後日常配件)；服裝為貼身希臘風戰甲，非裹紗長裙。
     align:'混沌・善', persona:{look:'紫長髮・貼身黑色戰甲勁裝(緋色飾邊)・眼罩封印魔眼的矯健女子、幽靜',words:'忠誠・深藏的溫柔',toMaster:'寡言而深情、極度護主',quirks:'輕觸眼罩、開口前會先停半拍',logic:'自己的安危和要護的人擺在一起，先擋在前面',
-    dailyLook:'紫長髮・高挑豐盈矯健、翻舊的書頁與夜色',
+    dailyLook:'紫長髮戴眼罩・高挑豐盈矯健、翻舊的書頁與夜色',
     dailyOutfit:'高領毛衣配長裙與眼鏡',
     dailyWords:'安靜內向、默默守著親近的人、閱讀與騎車、被過度注視',dailyBack:'在舊書店打工，騎一台重機通勤'} },
   { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'], gender:'女',
@@ -203,7 +203,7 @@ var SEED_SERVANTS = [
     // 🎯 2026-07 玩家「凜好死板、要傲嬌感覺」：舊資料把「傲嬌」這個標籤寫了三遍(私下一面「越在意越說反話」＋內裡「刀子嘴豆腐心」＋speech「毒舌卻關心」)，卻一個具體行為都沒給——AI 只能複述那個標籤，於是每回合都在嘴硬說反話。
     dailyLook:'黑長雙馬尾・勻稱俐落、紅茶的熱氣與寶石的冷光',
     dailyOutfit:'紅衣黑裙過膝黑襪',
-    dailyWords:'完美的優等生、刀子嘴豆腐心、寶石、被人看穿',
+    dailyWords:'完美的優等生、刀子嘴豆腐心、寶石、被人看穿與電子產品',
     // dailyBack：鑑賞世界沒有聖杯戰爭，改寫掉 back 的戰時悲劇成因，只留跟妹妹的家人關係。
     dailyBack:'遠坂家現任當家，妹妹是間桐櫻，感情很好'} },
   { id:'伊莉雅絲菲爾-Master', cls:'御主', realName:'伊莉雅絲菲爾', wars:['客串'], gender:'女',

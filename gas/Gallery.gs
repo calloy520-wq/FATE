@@ -549,7 +549,6 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 ★【格式鐵律】traits 【恰好2段】、personality 【恰好4段】，只用頓號「、」分隔，每段是一個【簡短詞組】，每段內部就寫一件事；不加數字標籤。
 - traits：外貌、氣質。${finalSex === '女' ? BUST_NOTE_ : ''}${AURA_SPEC_}格式範例(只示範斷句，內容一律依玩家給的性別與描述重寫)：「(外貌)、(氣質)」
 - personality：個性兩句(各講一件不同的事)、喜歡的事物、討厭的事物。格式範例(只示範斷句)：「(個性)、(個性)、(喜歡的)、(討厭的)」
-★quirks：${pron_(finalSex)}的怪癖，兩件事用頓號分隔、限24字。寫看得見的習慣動作，或是應付不來的那個領域(例：想事情時會摳袖口、對機器完全沒轍)。
 ★logic：${pron_(finalSex)}做選擇的方式，限24字。把兩件${pron_(finalSex)}都想要的東西擺在一起，說出最後放掉的是哪一個(例：嘴上算的是得失，做的時候總是選重情義那邊)。
 ★background：限20字，【只寫來到冬木【以前】的來歷】，呼應其身世，不出現具體物品名，語氣平和溫馨，不涉及聖杯戰爭或任何戰爭史。
 ★【只寫來到冬木以前的來歷】：現在的工作、住處、同住的人、交往對象、養的動物、已經有的朋友，全部留給玩家在遊戲裡自己做出來（系統會逐項記錄）——這一格只寫來到冬木之前的來歷。
@@ -557,7 +556,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 ★【數值與地點由系統裁定】輸出欄位以下方 JSON 列出的為限。
 
 ★【輸出】合法 JSON（純文字，無 Markdown）：
-{"background":"限20字","traits":"兩格頓號字串","personality":"四格頓號字串","quirks":"怪癖兩件事頓號分隔，限24字","logic":"做選擇的方式，限24字","outfit":"一句日常穿搭"}`;
+{"background":"限20字","traits":"兩格頓號字串","personality":"四格頓號字串","logic":"做選擇的方式，限24字","outfit":"一句日常穿搭"}`;
 
   try {
     const aiBrief = JSON.parse(callGeminiAPI(promptStr, KANSHOU_MASTER_GEN_SYS, { temperature: 0.6, ignoreLaw: true, model: CREATION_MODEL }));
@@ -1972,7 +1971,6 @@ function kanshouPartyCards_(ctx) {
       // 鑑賞無戰鬥，HP/STATUS 恆定不變(已被 physical_state 取代)，不重複注入。
       const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
       // 怪癖/行為準則：召喚時已存進 MEMORY 的【小動作】【準則】標記，直接讀列。
-      const pQuirks = getPersonaQuirks_(r[COL.PC.MEMORY]);
       const pLogic = getPersonaLogic_(r[COL.PC.MEMORY]);
       // 🏷️ 關係稱呼：只有【玩家自己設過】的才送給 AI（＝上了【關係鎖】那格）。
       //    AI 自己寫的仍然存著給面板顯示，但送回去就變成它讀自己上回合寫的字、然後決定要不要改
@@ -2011,7 +2009,7 @@ function kanshouPartyCards_(ctx) {
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
       // 🧊 這個人【是誰】——整局不會變，所以它進 system 吃提示詞快取。
       const _pPref = formatPref(r[COL.PC.PREF]), _pTrait = formatTrait(r[COL.PC.TRAIT]);
-      stableArr.push(`【在場人物】${pName}（${String(r[COL.PC.SEX] || "").trim() || "異"}）。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pQuirks ? `${pQuirks}。` : ""}${pLogic ? `${pLogic}。` : ""}${pBackStr}`);
+      stableArr.push(`【在場人物】${pName}（${String(r[COL.PC.SEX] || "").trim() || "異"}）。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pLogic ? `${pLogic}。` : ""}${pBackStr}`);
       // 🔀 這個人【此刻】的樣子——每回合都可能動，留在 user。
       const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是我的「${pRelTagStr}」。` : ""}${pMemStr}`;
       liveArr.push(`${pName}：${_live}`);
