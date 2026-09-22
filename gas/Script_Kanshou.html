@@ -59,11 +59,13 @@
     let msg = customMsg || input.value.trim();
 
     if (!msg) return;
-    // 🔒 忙碌鎖：地圖/節慶/結束一天/推進時間/邀約等按鈕都帶 customMsg 呼叫 send()，一律以
+    // 🔒 忙碌鎖：結束一天/推進時間這類按鈕都帶 customMsg 呼叫 send()，一律以
     //   btn.disabled(唯一「上一輪是否還在跑」的實際訊號)把關，不分是否帶customMsg。
     if (btn.disabled) return;
 
-    if (/^[1-4]$/.test(msg) && currentOptions.length >= parseInt(msg)) {
+    // 🔢 打數字＝按第幾顆選項。上限【只讀 currentOptions.length】，不寫死數字——
+    //   2026-09 選項 4→6 時這裡原本寫死 [1-4]，打 5/6 會被當成一般訊息送出去。
+    if (/^[0-9]+$/.test(msg) && parseInt(msg) >= 1 && currentOptions.length >= parseInt(msg)) {
       const optIndex = parseInt(msg) - 1;
       msg = currentOptions[optIndex];
     }
@@ -433,7 +435,7 @@ let plainTextContext = cleanText;
     }
   }
 
-  // 🌙 結束一天：不在身邊的英靈由GAS自動決定隔天去哪(見Gallery.gs kanshouRollDailyLocation_)，不用手動排程；跟一般聊天走同一個send()、同一套渲染。
+  // 🌙 結束一天：跟一般聊天走同一個 send()、同一套渲染。
   async function kanshouEndDay() {
     // 🌙 夜未眠中按下去＝這一夜收尾、睡到天亮；否則才是一般的「結束今天」。
     var _inNight = !!(window._lastTags && window._lastTags.nightScene);

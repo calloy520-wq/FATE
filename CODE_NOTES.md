@@ -1430,7 +1430,7 @@ target 只能填真名(schema級約束，比事後再說一次更有效)。tag �
 
 🎲 2026-07 玩家「有時打工有時當客人」：每地點改成多個活動變體(店員側/客人側/自然變化)，用「名字+日期+地點」決定性挑選(kanshouLocActivity_)——同一人同一天同地點恆同一個(聊到一半不會店員忽然變客人)，跨日/換人/換地自然輪替。零持久化、每回合現算。
 
-### `kanshouRollDailyLocation_`　<sub>Gallery.gs</sub>
+### ~~`kanshouRollDailyLocation_`~~（2026-09 隨地點整組退休）　<sub>Gallery.gs</sub>
 
 同住人深夜/清晨睡不著出門走走的機率，獨立於一般英靈的homeBias，資料只存一處。
 
@@ -3372,7 +3372,7 @@ mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未
 
 **2026-09 已移除：全樹零呼叫。**
 
-### `kanshouRollDailyLocation_`　<sub>Gallery.gs</sub>
+### ~~`kanshouRollDailyLocation_`~~（2026-09 隨地點整組退休）　<sub>Gallery.gs</sub>
 
 🏠 同居中：深夜大多回「和室」就寢(未命中=在外遊蕩的生活感)、清晨一半還在賴床、 夜間多在家中公共空間活動；白天(清晨/午後/黃昏未命中)照常走下方一般骰出門晃。
 

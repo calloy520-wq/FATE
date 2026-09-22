@@ -130,6 +130,51 @@ def scan_consts(names, extra_line=None):
     return cited, ghosts
 
 
+# 🌹 鑑賞現況區的幽靈掃描（2026-09 新增·玩家「把資料都更新到最新，沒用的備註都砍了」）
+#    KANSHOU_REFERENCE.md 是 CLAUDE.md 指名「動鑑賞任何一塊先看這份」的那本，但它一路堆成
+#    3600 行的編年史，當場量出 121 個幽靈名字、其中整整 576 行是**用現在式**在講好感/地點/
+#    作息那些已經整組砍掉的系統——下一個失憶的我照著它做，會去找根本不存在的東西。
+#    ⚠ 為什麼不整份掃：編年史那半本來就滿是已砍東西的名字（「那一輪砍了 X／Y／Z」），
+#      全掃會整排誤報，而誤報一次的掃描器會被直接無視，比沒有更糟。
+#    所以文件裡插了一條 CURRENT_STATE_END 界線，這道【只掃線以上】——那一半宣稱自己是現況。
+CUR_DOC = 'KANSHOU_REFERENCE.md'
+CUR_MARK = 'CURRENT_STATE_END'
+# 全大寫常數 與 kanshou*/action* 這兩種名字都算點名（舊的常數那道只認全大寫）
+CUR_CITE = re.compile(r'`((?:[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+_?)|(?:kanshou[A-Za-z0-9_]*_?)|(?:action[A-Z][A-Za-z0-9_]*))`')
+
+
+def scan_current_state(extra_line=None):
+    """回傳 (界線行號, 點名數, 幽靈清單)。查無界線＝回 (0,0,[])，不擋。"""
+    path = os.path.join(ROOT, CUR_DOC)
+    if not os.path.exists(path):
+        return 0, 0, []
+    lines = open(path, encoding='utf-8').read().split('\n')
+    end = next((i for i, l in enumerate(lines) if CUR_MARK in l), None)
+    if end is None:
+        return 0, 0, []
+    head = lines[:end]
+    if extra_line:
+        head = head + [extra_line]
+    code = ""
+    # 掃描器自己的常數也算「代碼裡真的有」（MIN_STAR_BLOCKS 那批住在 check_*.py）
+    for f in sorted(glob.glob(os.path.join(ROOT, 'gas', '*.gs')) +
+                    glob.glob(os.path.join(ROOT, 'gas', '*.html')) +
+                    glob.glob(os.path.join(ROOT, 'check_*.py')) +
+                    glob.glob(os.path.join(ROOT, 'check_*.js'))):
+        code += open(f, encoding='utf-8').read()
+    cited, ghosts = 0, []
+    for i, line in enumerate(head, 1):
+        for n in set(CUR_CITE.findall(line)):
+            cited += 1
+            if n in code:
+                continue
+            # 墓碑放行：刪除線，或同一行寫明它已經沒了
+            if ('~~`%s`~~' % n) in line or TOMB.search(line):
+                continue
+            ghosts.append((i, n))
+    return end, cited, ghosts
+
+
 # 📓 CODE_NOTES 的錨點（### `名字`）——這個形式上面兩道都看不到（沒有括號、也不是全大寫常數）。
 #    2026-09 當場清出 14 個指向「代碼全樹 0 次出現」的條目（actionCourtEnemy、OFFENSIVE_NP_ATK_FX_…）。
 #    錨點對不上＝那段歷史等於消失（CLAUDE.md 紀律那條講的就是這件事），而且比沒有更誤導。
@@ -175,8 +220,23 @@ def main():
         print('📚 文件↔代碼：❌ CODE_NOTES 那道失效（注入的幽靈錨點抓不到）')
         return 1
 
-    print('📚 文件↔代碼對照：%d 個函式點名、%d 個常數點名（只查 %s）、%d 個 CODE_NOTES 錨點、代碼宣告 %d 個名字（含自我退化測試）'
-          % (cited, c_cited, CONST_DOC, n_anchor, len(names)))
+    cur_end, cur_cited, cur_ghosts = scan_current_state()
+    # ⚠ 假名字【拼出來】：這道會去讀 check_*.py，寫成字面量就等於「代碼裡真的有」，
+    #   注入測試會自己把自己毒到、然後安靜地過關（2026-09 當場踩到）。
+    _fake = '`' + 'kanshou' + 'ThisIsGone_' + '` 與 `' + 'KANSHOU_' + 'GONE_TAG_' + '`'
+    if cur_end and not scan_current_state(_fake)[2]:
+        print('📚 文件↔代碼：❌ 鑑賞現況區那道失效（注入的幽靈抓不到）')
+        return 1
+
+    print('📚 文件↔代碼對照：%d 個函式點名、%d 個常數點名（只查 %s）、%d 個 CODE_NOTES 錨點、鑑賞現況區 %d 行·%d 個點名、代碼宣告 %d 個名字（含自我退化測試）'
+          % (cited, c_cited, CONST_DOC, n_anchor, cur_end, cur_cited, len(names)))
+    if cur_ghosts:
+        print('  ❌ %s 的【現況區】點名了代碼裡已經沒有的東西：' % CUR_DOC)
+        for i, n in cur_ghosts:
+            print('     %s:%d  %s' % (CUR_DOC, i, n))
+        print('  → 現況區宣稱「現在是這樣」，寫著不存在的名字就是在騙下一個失憶的我。')
+        print('     真的只是歷史敘述：加刪除線 ~~`X`~~、同行寫明已移除，或整段搬到 %s 界線【以下】。' % CUR_MARK)
+        return 1
     if n_ghost:
         print('  ❌ CODE_NOTES 掛著代碼全樹已經找不到的名字：')
         for a in n_ghost:
