@@ -859,7 +859,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
   //    而它是整份提示詞裡最長的一條。
   const finalJson = {
     "narration": "劇情",
-    "options": ["4條·各≤20字·【我】這一步做得到的動作·走向各不相同"],
+    "options": ["6條·各≤20字·【我】這一步做得到的動作·六條分別通往六種不同的後續"],
     "intimacy_feedback": {
       "player": {
         "physical_state": _physicalState,
