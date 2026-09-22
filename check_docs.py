@@ -71,8 +71,14 @@ def scan(names, docs_override=None):
                 if n in BUILTIN or n in PROSE:
                     continue
                 cited += 1
-                if n not in names:
-                    ghosts.append((d, i, n))
+                if n in names:
+                    continue
+                # 墓碑放行，跟常數／錨點那兩道同一條規則：刪除線包住，或同一行寫明它已經沒了。
+                #   2026-09 這道原本沒有放行——三支掃描器對墓碑態度不一致，
+                #   於是我拿 ~~ 包了兩處以為修好、實際照樣叫（然後在紅燈上 push 了）。
+                if ('~~`%s(' % n) in line or TOMB.search(line):
+                    continue
+                ghosts.append((d, i, n))
     return cited, ghosts
 
 
