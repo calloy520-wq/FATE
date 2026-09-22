@@ -72,7 +72,7 @@
 | `kanshou_party` | `actionKanshouParty` | 鑑賞同行名單 add/drop/clear |
 | `kanshou_set_sex` | `actionKanshouSetSex` | 設同伴性別 |
 | `kanshou_set_name` | `actionKanshouSetName` | 設同伴名 |
-| `kanshou_set_home_name` | `actionKanshouSetHomeName` | 設住處名 |
+| `kanshou_set_home_name` | `actionKanshouSetHomeName` | 設家名（存【住所】·2026-09 地點退休後只剩「稱呼」用途，不是一個去得了的地方） |
 | `kanshou_get_style` | `actionKanshouGetStyle` | 🎨 說書人設定面板：讀整張風格表（預設＋玩家版） |
 | `kanshou_set_style` | `actionKanshouSetStyle` | 🎨 改一格／還原一格／全部還原 |
 | `prep_meal` | `actionPrepMeal` | 準備餐點 |
@@ -690,7 +690,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_MAP_SEED_TAG_`（makeTextTag_ 地圖·存玩家列）— 地圖種子只種一次的戳記，判「寫過沒有」不是「有沒有地方」。　※（2026-09 地點整組退休·已移除）
 - `WORLD_SPEC_`（常數）— 帳本引擎的**逐軌規格表**（`kanshou`／`solo`）：`sheet`／`kinds`／`cap`／`feedMax`／`atMax`／`writeMax`／`textMax`。加一軌＝往表加一列。
 - `worldTrack_(gameId)` / `worldSpec_(gameId)` — 由 game_id 前綴決定這一局屬於哪一軌（`g_`＝solo）並取出規格。
-- `KANSHOU_SUMMON_BLOCKED_IDS_`（常數）— 暫移出鑑賞的英靈 id（召喚/住處共用單一來源）。
+- `KANSHOU_SUMMON_BLOCKED_IDS_`（常數）— 暫移出鑑賞的英靈 id（召喚池的單一來源；現為空陣列）。
 - `KANSHOU_STARTER_IDS_`（常數）— 開局 4 位起始住民（大河/凜/櫻/SABER）。　※（2026-09 起始住民整組取消·已移除）
 - `KANSHOU_PARTY_MAX_`（常數=3）— 同行人數上限（前端鏡射 `KC_PARTY_MAX_`）。
 - `KANSHOU_PARTY_TAG_`（常數）— 同行名單標記，存【玩家】列 MEMORY、逗號分隔 id。
@@ -736,7 +736,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `KANSHOU_CASUAL_NAME_`（常數）— SEED id→日常短名/職階（SABER/RIDER/伊莉雅/櫻/凜/大河/士郎）。
 - `KANSHOU_NAME_ALIAS_`（常數）— 全名↔短名雙向別名表。
 （~~`kanshouCasualOf_`~~ 已於 2026-09 移除：全樹零呼叫。顯示用短名一律走 `KANSHOU_CASUAL_NAME_` 查表。）
-- `kanshouNameCandidates_(fullName)` — 產生比對候選集：全名/括號前後段＋日常別名＋拉丁大小寫三態。rel_changes/intimacy_feedback/npc_exit/名字比對全靠它容錯，是整檔跨名比對的地基。
+- `kanshouNameCandidates_(fullName)` — 產生比對候選集：全名/括號前後段＋日常別名＋拉丁大小寫三態。`intimacy_feedback.npcs[].name`／`cast.join`／`cast.leave`／世界帳本同名過濾全靠它容錯，是整檔跨名比對的地基（~~rel_changes~~／~~npc_exit~~ 已隨好感與 cast 改版移除）。
 
 #### 🔴 核心敘事引擎
 

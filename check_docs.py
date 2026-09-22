@@ -233,6 +233,11 @@ def scan_notes(extra_line=None):
     for f in (sorted(glob.glob(os.path.join(ROOT, 'gas', '*.gs'))) +
               sorted(glob.glob(os.path.join(ROOT, 'gas', '*.html')))):
         src += open(f, encoding='utf-8').read()
+    # ⚠ 2026-09 抓到的盲點：「全樹 0 次出現」把【註解裡的名字】也算進去了。
+    #    地點退休那批墓碑註解（「這裡原本住著：KANSHOU_REGIONS_／kanshouLocContextForAI_／…」）
+    #    讓 15 個早就砍掉的錨點一直被判成活的。只認【去掉註解之後】還在的名字。
+    src = re.sub(r'/\*.*?\*/', '', src, flags=re.S)
+    src = '\n'.join(l for l in src.split('\n') if not l.strip().startswith('//'))
     anchors = NOTES_ANCHOR.findall(text)
     return len(anchors), sorted({a for a in anchors if a not in src})
 

@@ -11,7 +11,10 @@
 ② 死欄位：種子寫進試算表的欄位，全樹沒有任何讀取端（御主殿的「居所」「屆次」）。
    ⚠ COL 是位置索引，欄位本身【不刪】(刪了整表位移)——所以刻意棄用的登記進 DEAD_COL_ALLOW。
 ③ 同一列存兩份：daily 四欄各有專欄，PERSONA JSON 不可以再收一份（單一真實來源）。
-④ 抽不到的種子：既不在 solo 對戰池、也不在鑑賞的召喚/巧遇/起手任一池——整筆設定沒有出口。
+④ 抽不到的種子：solo 只標客串、鑑賞又封鎖召喚——整筆設定沒有出口。
+   ⚠ 2026-09 修：舊版還讀 KANSHOU_ENCOUNTER_FEMALE_IDS_／KANSHOU_STARTER_IDS_／KANSHOU_LOCATION_TAGS_
+     三個【早就不存在】的常數當「其他池」，全成空集合、整道靜靜什麼都驗不到卻天天綠燈。
+     地點/巧遇/起始住民退休後，鑑賞唯一的出口就是召喚，規則收成一句。
 ⑨ 階段表整句取代角色欄：好感/階級表本來只該說「偏離了多少」，寫成一句完整的態度就會【蓋掉】
    種子的角色底色——實測好感≥45 之後 25 位從者的「此刻對你」變成同一句話，吉爾伽美什會
    「打從心底信任你」、狂化的赫拉克勒斯會「露出只給你看的那一面」。角色的區別度在關係
@@ -54,9 +57,7 @@ DEAD_COL_ALLOW = {
 }
 # 永遠抽不到但刻意的（玩家自己關的）。解封時把這一行刪掉即可。
 UNREACHABLE_ALLOW = {
-    '斯卡哈-Assassin': '玩家暫時關閉召喚（KANSHOU_SUMMON_BLOCKED_IDS_）',
-    '伊莉雅-Caster': '玩家暫時關閉召喚（KANSHOU_SUMMON_BLOCKED_IDS_）',
-    '恩奇都-Lancer': '玩家暫時關閉召喚（KANSHOU_SUMMON_BLOCKED_IDS_）',
+    # 2026-09 清空：KANSHOU_SUMMON_BLOCKED_IDS_ 現為 []，之前登記的三位都抽得到了。
 }
 
 
@@ -250,19 +251,13 @@ def check_unreachable(bad, seed_src, gallery, rivals):
         mm = re.search(r"%s\s*=\s*\[([^\]]*)\]" % re.escape(name), src)
         return set(re.findall(r"'([^']+)'", mm.group(1))) if mm else set()
     blocked = arr('KANSHOU_SUMMON_BLOCKED_IDS_', gallery)
-    pools = arr('KANSHOU_ENCOUNTER_FEMALE_IDS_', gallery) | arr('KANSHOU_STARTER_IDS_', gallery)
-    tags = re.search(r"KANSHOU_LOCATION_TAGS_\s*=\s*\{(.*?)\n\};", gallery, re.S)
-    if tags:
-        pools |= set(re.findall(r"'([^']+-[^']+)'", tags.group(1)))
     for i in sids:
         if i in UNREACHABLE_ALLOW:
             continue
-        # solo 進得去(非客串) 或 鑑賞抽得到(沒被封鎖 或 在任一池) 就算有出口
-        if i not in guest:
+        # solo 進得去(非客串) 或 鑑賞召喚得到(沒被封鎖) 就算有出口——鑑賞現在只剩召喚這一條路
+        if i not in guest or i not in blocked:
             continue
-        if i not in blocked or i in pools:
-            continue
-        bad.append("抽不到的種子「%s」：solo 標了客串、鑑賞又封鎖召喚，也不在巧遇/起手池——整筆設定沒有出口" % i)
+        bad.append("抽不到的種子「%s」：solo 標了客串、鑑賞又封鎖召喚——整筆設定沒有出口" % i)
     return len(sids)
 
 
@@ -471,6 +466,11 @@ def main():
     check_logic(probe, "logic:'重視朋友'\nquirks:'撥髮'\ndailyBack:'溫柔而沉靜'")
     _pref2_before = len(probe)
     check_pref2(probe, "dailyWords:'測試、越被誇越兇、甲、乙'")
+    _unr_before = len(probe)
+    # 拿種子庫裡真的標了客串的第一位，注入一份把她封鎖的 Gallery——這道必須叫。
+    _guest1 = next((m.group(1) for m in re.finditer(r"id\s*:\s*'([^']+)'.*?wars\s*:\s*\[([^\]]*)\]", seed_src, re.S) if '客串' in m.group(2)), None)
+    if _guest1:
+        check_unreachable(probe, seed_src, "const KANSHOU_SUMMON_BLOCKED_IDS_ = ['%s'];" % _guest1, "")
     _moe_before = len(probe)
     with tempfile.NamedTemporaryFile('w', suffix='.gs', dir=GAS, delete=False, encoding='utf-8') as f:
         f.write("  card += `｜萌點：${moe}`;\n")
@@ -481,8 +481,8 @@ def main():
         os.unlink(_inj2)
     if len(probe) < 13 or len(probe) == before or len(probe) == _seg_before \
             or len(probe) == _st_before or len(probe) == _moe_before or len(probe) == _aura_before \
-            or len(probe) == _pref2_before or len(probe) == _logic_before:
-        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名／取代式階段表／復活的萌點／常態舞台指示／條件觸發性格／沒有取捨的準則抓不到）')
+            or len(probe) == _pref2_before or len(probe) == _logic_before or len(probe) == _unr_before:
+        print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名／取代式階段表／復活的萌點／常態舞台指示／條件觸發性格／沒有取捨的準則／封鎖後抽不到的種子抓不到）')
         return 1
 
     print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、提示詞格數 %d 處、daily 專欄 %d 格、好感位移 %d 階、退休欄掃 %d 行、氣質格 %d 筆、性格第二格 %d 筆、行為準則 %d 條（怪癖 %d 格·城裡身分 %d 條）（含自我退化測試）'

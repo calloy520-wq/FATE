@@ -846,7 +846,7 @@ system 1558→1438 字、user 749→727 字。
 
 🔤 translateLookToDaily_/translatePersonalityToDaily_（原本還有已移除的 translateMoeToDaily_）共用開場白：各支系統提示詞都以「你是《命運停駐之夜》的角色側寫顧問。★【語言】」起手。2026-09 稽核：原本三支各自在前綴後面再寫一次「所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母」，等於同一條規則在同一趟請求裡出現三份(callGeminiAPI 尾端還會無條件再補一次【語言鐵律】)——整句收進前綴、JSON 欄位名例外用括號併掉，三支的規則段只留各自真正不同的部分。
 
-### `kanshouRecentDigest_` / `KANSHOU_DIGEST_ROUNDS_` / `KANSHOU_DIGEST_CAP_`　<sub>Gallery.gs</sub>
+### ~~`kanshouRecentDigest_`~~（2026-09 大精簡砍除·名字只剩在墓碑註解裡） / `KANSHOU_DIGEST_ROUNDS_` / `KANSHOU_DIGEST_CAP_`　<sub>Gallery.gs</sub>
 
 2026-09 連續回合稽核量到的洞：`chatHistory` 只餵 6 則（3 輪），而四個長期記憶管道（MEMOIR／【初次】／紀念日／約定）
 **全部要有事件發生才會寫**——日常閒聊一個都不蓋戳。實測連打 8 回合日常，那四格全空，等於**純聊天的內容 3 輪後徹底蒸發**，
@@ -917,7 +917,7 @@ REL_TAG(關係標籤)只是這裡設的起始值，之後全程只能透過actio
 
 【相處】計數存她自己列 MEMORY，每個「真的在對話」的回合、對每位在場者各 +1（跳時段/結束一天/移動那些不算相處）。
 
-### `kanshouLocContextForAI_` / `KANSHOU_REGION_LABEL_`　<sub>Gallery.gs</sub>
+### ~~`kanshouLocContextForAI_`~~（2026-09 隨地點整組退休·名字只剩在墓碑註解裡） / `KANSHOU_REGION_LABEL_`　<sub>Gallery.gs</sub>
 
 🐛→✅ **2026-09 玩家實測：走進「咖啡廳」，AI 當場編出一間【以玩家為名】的店、編出誰在顧店，
 下一回合再把自己編的當成事實用**（SABER 說「想喝一杯風音親手煮的手沖咖啡」→ 下一回合門上掛的
@@ -1310,7 +1310,7 @@ solo 的世界是定的（冬木、聖杯戰爭、七組御主從者），人和
 `Gallery.gs`——GAS 把所有 `.gs` 串成一個檔跑、載入順序我們控制不了也看不到，頂層就求值會拿到
 `undefined`，然後照樣送進提示詞、AI 照著演，零錯誤訊息。`check_loadorder.py` 在第一版當場抓到這一次。
 
-### `kanshouSeedMapIfNew_`　<sub>Gallery.gs</sub>
+### ~~`kanshouSeedMapIfNew_`~~（2026-09 隨地點整組退休·名字只剩在墓碑註解裡）　<sub>Gallery.gs</sub>
 
 🌱 地圖搬進世界帳本之後，「這座城有哪些地方」變成資料而不是代碼。開局種什麼進去分兩種：
 
@@ -1390,11 +1390,11 @@ appearance_extras(原 outfit_change)：角色當下實際穿著與配飾，AI �
 
 【親密尺度·分五階】(好感 20/40/60/80 天花板)統一約束，此處系統規則只講原則、不再硬編單一 80 門檻。
 
-### `inner_monologue`　<sub>Gallery.gs</sub>
+### ~~`inner_monologue`~~（2026-09 大精簡整欄砍除·名字只剩在墓碑註解裡）　<sub>Gallery.gs</sub>
 
 強制思維鏈：放範本第一位讓模型先自省再寫敘事。後端 sanitizeAiData_ 不讀此欄，純粹是給AI 自己看的思考格，零程式面副作用。第三人稱總結是為了不跟 narration 的敘事視角打架（2026-09 旁白已改第二人稱「你」＝玩家，這欄維持第三人稱）；「本回合開始前」明講時態，避免被誤讀成預寫本回合結果。
 
-### `npc_exit`　<sub>Gallery.gs</sub>
+### ~~`npc_exit`~~（2026-09 換成 `cast`·名字只剩在墓碑註解裡）　<sub>Gallery.gs</sub>
 
 🗺️ 2026-07 移動改「同意泡泡」制(見§134)；2026-07再修（玩家實測「AI一直提議移動、頭痛」）：move_proposal 欄位整個砍掉，AI 不再有任何管道自己決定要不要換場景/換去哪。此處刻意【不設location/move_proposal 欄】——玩家的所在地一律由 GAS 掌握：要嘛玩家自己用地圖走(moveTarget)，要嘛玩家在地圖上向同伴提議同去(proposeMove)、GAS 依好感直接裁定接不接受(_pendingProposal)，AI 兩種情況都只負責演出反應，從不負責「要不要提議」或「去哪裡」這兩個決定。
 
@@ -1412,7 +1412,7 @@ target 只能填真名(schema級約束，比事後再說一次更有效)。tag �
 
 🗑 2026-07【慾海律令】整塊併進 nsfwBaseRules（玩家：「妳看看能不能整合吧」）——兩份規則實測有 5 處在講同一件事：①律令1(inner_monologue) ②律令4(mutual_nicknames·schema 欄位自己講就好)③律令5(attitude·欄位已整個移除) ④律令6(裝扮) ⑤鐵律5/6 與 schema 的 options。合成一份 10 條、一個標題，AI 不必再跨兩個清單對照。留空字串是為了不動下面的 return 形狀。
 
-### `KANSHOU_LOCATIONS_`　<sub>Gallery.gs</sub>
+### ~~`KANSHOU_LOCATIONS_`~~（2026-09 隨地點整組退休·名字只剩在墓碑註解裡）　<sub>Gallery.gs</sub>
 
 🌸 鑑賞地點清單：純資料驅動的小陣列，不進 MAP 試算表(不跟solo共用坤圖)——之後要加/改地點只動這裡。前端 Script_Kanshou.html 另有一份同名清單純供畫按鈕(改地點時兩邊都要更新)，實際驗證/邏輯只認這裡這份。region對應KANSHOU_REGIONS_的id，純UI分組用。noEncounter:true代表私人空間，恆不觸發陌生人巧遇(見kanshouRollEncounter_呼叫端)。🏠 房間分區的name是穩定不變的內部key(給LOC比對用)，顯示給玩家/AI看的名稱是動態算的(kanshouRoomDisplayName_)——「我的房間」永遠顯示「(玩家名)的房間」。2026-07 經濟/房東房客世界觀砍除後，鑑賞不再有可指派的客房，同伴們各自落腳在自己原本的住處(KANSHOU_HERO_HOME_)。
 
@@ -1420,11 +1420,11 @@ target 只能填真名(schema級約束，比事後再說一次更有效)。tag �
 
 🕐 2026-07 六度改版新增 bands：玩家實測「清晨走進深夜賓館，櫃檯空無一人像恐怖片開場」──有些地點名字本身就寫明時段(深夜賓館/夜景展望台)、有些現實中就有營業時段(書店/水族館)，卻能被玩家在任何時段自由走進去，AI只能硬掰理由圓場，讀起來很違和。bands＝這個地點在哪些timeBand_(Time_World.gs 5段：清晨/午後/黃昏/夜/深夜)開放；省略此欄＝不受限、全天候開放(向後相容，其餘地點不受影響)。只管「玩家能不能走進去」，不影響同伴日常閒晃(dateOnly地點本就不進閒晃池；非dateOnly地點的閒晃池目前不比對bands，極少數情況同伴可能被骰去玩家當下進不去的地點，純屬「她剛好在，你正好碰不上」的日常感，不是bug)。門檻依「地點名字/現實常識暗示的營業時段」訂，非玩家點名的地點一律維持不設限，之後想擴大範圍只需往表加 bands 一列。⚠ 改這裡記得同步前端顯示鏡射 KC_LOCATIONS_(Script_Kanshou.html)的同名地點——否則鎖圖示對不上後端實際判定(同KANSHOU_LOCATIONS_/KC_LOCATIONS_過去漏同步過5個地點的教訓)。設有 bands 限制的地點若被玩家相約(promiseMeet)選中，只能挑跟該地點bands相容的時段，避免「約好了、赴約時卻被地點未開放擋在門外」的必爽約陷阱。
 
-### `kanshouLocContextForAI_`　<sub>Gallery.gs</sub>
+### ~~`kanshouLocContextForAI_`~~（2026-09 隨地點整組退休·名字只剩在墓碑註解裡）　<sub>Gallery.gs</sub>
 
 拜訪住處：只保留女性角色的住處，noEncounter:true(私人住處，恆不觸發陌生人巧遇)，name務必與下方KANSHOU_HERO_HOME_的值逐字一致，否則kanshouRollDailyLocation_骰到的地點對不上這裡。（2026-07 七度改版：泛用住處池KANSHOU_GENERIC_HOME_POOL_不寫在這裡手動維護，改在該常數宣告處用push動態併入此陣列，同樣受這條「name須逐字一致」規則約束，只是來源不同。）
 
-### `KANSHOU_LOCATION_ACTIVITY_`　<sub>Gallery.gs</sub>
+### ~~`KANSHOU_LOCATION_ACTIVITY_`~~（2026-09 砍除·名字只剩在墓碑註解裡）　<sub>Gallery.gs</sub>
 
 🏷️ 2026-07「移動過去 他們必須是要在打工或是消費活動...不然聊一聊會不會忘記他是在工作」玩家定案：商業性質地點給一句「當下在做什麼」的輕量敘事引子，讓AI對「為什麼她在這個店裡」有個合理交代、且整回合對話都能維持一致(不需要持久狀態——每回合都直接依她當下真實LOC現查現算，本來就不會忘記；純寫死的地點→活動對照表，沒有寫死的地點沒有這句提示，AI自然發揮，不受限)。
 
@@ -3066,7 +3066,7 @@ hit=命中所用六圍　dmg=傷害所用六圍　eva=迴避所用六圍　kind=
 
 🥋 御主體術參戰：御主本人助拳的小額支援傷害(非從者自身技能)，r 取自御主【體術】階級，量級壓在wind_strike/crafting 同檔次，不喧賓奪主。
 
-### `injectMasterMeleeSupport_`　<sub>Engine_Fate.gs</sub>
+### ~~`injectMasterMeleeSupport_`~~（已移除·名字只剩在墓碑註解裡）　<sub>Engine_Fate.gs</sub>
 
 🥋 把御主自己的體術階級注入我方從者戰鬥單位 c 的 skills（比照 injectMysticBuff_ 同一套「找 fx已存在則略過」慣例，避免重複注入）。無【體術】記錄(空字串)則不注入——舊資料/未測定者維持零加成。
 
@@ -3344,7 +3344,7 @@ physical_state 只留顏面神情(≤15字)：只管表情，衣裝狀態拆進�
 
 🔴 npc的範本欄位填「同上」：actionPlay 落地端(本檔·intimacy_feedback 解析)的 ignoreWords 防呆清單本就含「同上」，即使AI偷懶照抄範本字面值也會被當成敷衍語忽略、不會寫進玩家看到的狀態欄，省字數不引入新的失敗模式。
 
-### `master_note`　<sub>Gallery.gs</sub>
+### ~~`master_note`~~（2026-09 砍除·名字只剩在墓碑註解裡）　<sub>Gallery.gs</sub>
 
 🌱 玩家御主「滾動側寫」：AI 每回合觀察玩家、慢慢認識他(像對話 AI 記住使用者習慣)。GAS 只採用【玩家仍留白】的欄位(玩家自己填過的一律鎖住、不覆寫)；經歷則每回合承接舊值滾動更新。詳見 §玩家側寫。
 
@@ -3358,11 +3358,11 @@ mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未
 
 鑑賞自己算一份精簡版「同地人物」清單，不借用 solo 的 getLocalPeopleList(那是為敵蹤/盟友情報共享等一整套機制設計的，多算了12個欄位，鑑賞前端只用得到 .name/.isExact)。
 
-### `KANSHOU_REGIONS_`　<sub>Gallery.gs</sub>
+### ~~`KANSHOU_REGIONS_`~~（2026-09 隨地點整組退休·名字只剩在墓碑註解裡）　<sub>Gallery.gs</sub>
 
 鑑賞大地圖分區：純資料驅動的分區清單，只供UI分組/顯示用，region只是KANSHOU_LOCATIONS_每筆的一個標籤欄位，不影響任何既有比對/抽選邏輯(那些都認location的name)。
 
-### `kanshouLocContextForAI_`　<sub>Gallery.gs</sub>
+### ~~`kanshouLocContextForAI_`~~（2026-09 隨地點整組退休·名字只剩在墓碑註解裡）　<sub>Gallery.gs</sub>
 
 依 region 補一句大分區脈絡，讓AI知道此刻身處何種場域。找不到(AI自創地點)就回空字串、不硬套。
 
@@ -3491,7 +3491,7 @@ AI 對關係標籤沒有任何寫入權（attitude 欄位已於 2026-07 整組�
 
 含慾海角色前綴 KPC_(御主 avatar)／KSV_(封存邀請同伴)／KHV_(直接召喚同伴)，否則後日談的好感/肉體/衣服/親密狀態寫不回去。
 
-### `partyDetailsArr`　<sub>Gallery.gs</sub>
+### ~~`partyDetailsArr`~~（2026-09 改名 `PROMPT_PARTY_STABLE`／`stableArr`·名字只剩在墓碑註解裡）　<sub>Gallery.gs</sub>
 
 📅 赴約/爽約結算已上移到 partyRows 之前(見上方)——她登場(pin到curL)必須先於在場名單計算， 否則「純聊天/拍照」路徑(不重骰位置)會讓 AI 拿到沒有她的在場卡。此處不再重複。
 
@@ -3648,11 +3648,11 @@ markRivalsSeen_ 是「戰爭迷霧」機制(找同 game_id/同地敵對陣營標
 
 無主時僅「單獨行動」者靠殘存靈基硬撐（讀【殘存】餘額·drainForNp_ 實扣），其餘無主即啞火。回 {afford, masterIdx}。
 
-### `STANCE_SHARE_`　<sub>Router_Battle.gs</sub>
+### ~~`STANCE_SHARE_`~~（已移除·名字只剩在墓碑註解裡）　<sub>Router_Battle.gs</sub>
 
 後方支援(stealth)＝0%·躲在後方不涉險；見機行事(normal)＝5%·相機補位；正大光明(open)＝10%·堂堂立於陣前共擔傷勢。
 
-### `applyMasterStanceShare_`　<sub>Router_Battle.gs</sub>
+### ~~`applyMasterStanceShare_`~~（已移除·名字只剩在墓碑註解裡）　<sub>Router_Battle.gs</sub>
 
 🛡️ 防禦性補查：呼叫端已各自補上 !knocked 判斷，這裡再加一道保險——絕不對已被 fateStrike_標記 DEAD_ 的列回補HP/扣御主HP，避免任何未來新呼叫點漏掉同一個判斷又重蹈覆轍。
 

@@ -78,7 +78,7 @@
 
 > **這個事實用到的 `curL`／`partyMembers`／`curDay`，是移動前還是移動後？是 `endDay` 前還是後？**
 
-排序參考（`actionPlay_` 內）：敲門擲骰 → `kanshouTimeJumped_` → 相約/牽手/同居 → 送客 → `endDay` 遣散 → 移動改 `curL` → 約定結算 → `partyRows`／`partyMembers` → 節慶完成 → 提示詞組裝 → 寫回表。
+排序參考（`actionPlay_` 內·2026-09 地點/好感退休後）：點火選模型 → 讀卡片 → 夜未眠判定 → 同行名單 → 時鐘 `kanshouAdvanceClock_` → 在場＝同行∪臨時在場（`presentRows`）→ ★【這座城裡還住著】→ 相處計數 +1 → 昨夜線依「她在不在場」過濾 → 在場人物卡 `kanshouPartyCards_` → 身體/世界帳本/篇幅/風格 → `callGeminiAPI` → post-AI：`cast` 進出場 → `scene` 背景 → `kanshouApplyIntimacyFeedback_` → `world_note` → 寫回表。
 
 **兩種名單**（`check_prompt.py` 內）：`ALLOW`＝設計如此（輸入判準的引號、泛指任一人的「她」）靜音；`PENDING`＝真的是問題但需玩家授權（催眠示範台詞在 NSFW 區）**警告但不擋 CI**——讓紅燈永遠代表「真的有新問題」，否則沒人會看。
 
