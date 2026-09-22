@@ -243,7 +243,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
   - `worldRow_(a, rowNum)` — 一列陣列 → 一個帳本條目。讀與寫回填快取共用這份對應（欄位長相的單一真實來源）。
   - `worldRead_(gameId)` / `worldBust_(gameId)` — 讀這一局的帳本（走 CacheService，每回合都要讀）／作廢快取。
   - `worldWrite_(gameId, entries, curDay, max?)` — **唯一寫入點**：清洗→去重→更新或新增→淘汰→整批寫回→**把快取換成新內容**（不是作廢：同一次執行裡後面還會有人讀，作廢等於逼它再整表讀一次）。
-  - `worldSet_(gameId, kind, name, col, val)` — 改帳本某一列的某一欄；大區改名／地點搬區／開店收店共用。
   - `worldPayload_(gid)` — 面板要的東西一次給齊（條目＋大區＋上限）；`list` 與每個 op 都回這同一包。
   - `worldDrop_(gameId, kind, name)` — 從帳本拿掉一條（同類同名），回傳有沒有真的刪到。面板的「刪掉」與「常民升格成正式同伴之後清掉帳本那條」共用這一支（不清會變成同一個人兩份真相）。
   - `worldEvictees_(d, gid, added, curDay)` — **純函式**，只回答「該砍哪幾列」（`{'r列索引':1,'a新列序':1}`）：每類超過 `WORLD_SPEC_` 該軌的 `cap` 就砍「最久沒被提到、提及次數也最少」的，★釘選與有根的（`AT`／`OWN`）永不驅逐。刻意不自己讀表——寫入端手上已經有整張表了。
@@ -628,7 +627,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouApplyIntimacyFeedback_(ctx)` — 📝 AI 回報的當下狀態落盤：玩家與每位在場者的 神色／穿著配飾／專屬稱呼／關係稱呼／共同回憶／她眼中的你。`ctx = {aiData, pcData, pcIndex, myGameId, dirtyPcRows, curL, pcName}`；就地改 `pcData` 並把動到的列記進 `dirtyPcRows`，不自己寫表。⚠ 這是 AI 唯一能改「人的狀態」的管道，敷衍用語過濾與長度裁切都擋在這一層。
 - `relMemMemoryStr_(relMem)` — 💬 專屬稱呼 → 卡片上那一小段（沒有稱呼就整段不印）。2026-09 從 `actionPlay_` 內部提到檔案層，因為在場人物卡拆出去之後變成跨函式共用。
 
-- `heroToKanshouRow_(heroRow, gameId, loc, curDay)` — 核心建列器：把 HERO 列轉成鑑賞 PC 列（KHV_ 前綴）。用日常稱呼當 NAME、讀日常版 look/words/moe/outfit、身世走 dailyBack→back→通用預設、起始 BOND=10「點頭之交」、不寫戰鬥欄/IS_PARTY/PHYSICAL。被召喚/起始住民共用。**七度改版**：建列尾聲檢查`KANSHOU_HERO_HOME_[heroRow[COL.HERO.ID]]`，查無專屬豪邸就從~~~~`KANSHOU_GENERIC_HOME_POOL_`~~~~隨機抽一間、用`setKanshouHeroHome_`寫進`【住處】`記憶標記——這是新英靈唯一的建列入口，此處補一次即涵蓋召喚與起始住民兩條路徑。 ⚠ 2026-09 加蓋 `KANSHOU_SRC_TAG_`（【英靈源】＝來源種子 id），撞名守門靠它認人。
+- `heroToKanshouRow_(heroRow, gameId, loc)` — 核心建列器：把 HERO 列轉成鑑賞 PC 列（KHV_ 前綴）。用日常稱呼當 NAME、讀日常版 look/words/moe/outfit、身世走 dailyBack→back→通用預設、起始 BOND=10「點頭之交」、不寫戰鬥欄/IS_PARTY/PHYSICAL。被召喚/起始住民共用。**七度改版**：建列尾聲檢查`KANSHOU_HERO_HOME_[heroRow[COL.HERO.ID]]`，查無專屬豪邸就從~~~~`KANSHOU_GENERIC_HOME_POOL_`~~~~隨機抽一間、用`setKanshouHeroHome_`寫進`【住處】`記憶標記——這是新英靈唯一的建列入口，此處補一次即涵蓋召喚與起始住民兩條路徑。 ⚠ 2026-09 加蓋 `KANSHOU_SRC_TAG_`（【英靈源】＝來源種子 id），撞名守門靠它認人。
 
 #### ~~關係梯度·好感天花板~~（2026-09 鑑賞好感整組砍除）
 
@@ -659,7 +658,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 御主 avatar 設定（隨時可改）
 
-- ~~`actionKanshouSetPace`~~／~~`kanshouPaceOf_`~~／~~`KANSHOU_PACE_*`~~／~~`kanshouHoursUntilDateTime_`~~（2026-09 已砍）— 曾是時間流速旋鈕（每回合 0/10/20/30 分）與「直接指定日期與時刻」。推時間本來有五個入口，收成兩個（下一階段／結束一天）。每回合固定推進 `KANSHOU_MIN_PER_TURN_`(10) 分鐘，`kanshouHourPerAction_()` 不再吃參數。
+- ~~`actionKanshouSetPace`~~／~~`kanshouPaceOf_`~~／~~`KANSHOU_PACE_*`~~／~~`kanshouHoursUntilDateTime_`~~（2026-09 已砍）— 曾是時間流速旋鈕（每回合 0/10/20/30 分）與「直接指定日期與時刻」。推時間本來有五個入口，收成兩個（下一階段／結束一天）。每回合固定推進 `KANSHOU_MIN_PER_TURN_`(10) 分鐘，~~`kanshouHourPerAction_()`~~（2026-09 已內聯進 `actionPlay_`） 不再吃參數。
 - `KANSHOU_LEN_TIERS_`（常數·2026-09）— 📏 篇幅檔位（自動/300/500/700/900），字數區間與 `max_tokens` 綁同一列。
 - ~~`actionSetBond`~~（action `set_bond`）— 2026-09 已移除：「自己拉一個數字」那條捷徑跟 solo「羈絆一路經營出來」的骨架打架，鑑賞那邊本來就沒有好感。羈絆只剩正門 `actionBond`（相伴）。
 - `KANSHOU_STYLE_MODULES_`（常數·2026-09）— 🎨 說書人提示詞 15 段模組表 `{key,slot,def}`（sys 8 段進 nsfwBaseRules、user 5 段進 USER prompt）；`def` 就是原本寫死的那句。其中 13 段標 `fixed: true`＝不開放玩家調（面板看不到、`kanshouStyleWrite_`／`actionKanshouSetStyle` 拒收、`kanshouStyleRead_` 連表上的舊列都忽略），玩家真正能動的只有 `lewd`（尺度）與 `lenTier`（篇幅檔位）。`KANSHOU_STYLE_TEXT_MAX_`(300)／`KS_`（分頁欄位 GID/KEY/TEXT/ON）。
@@ -707,7 +706,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouAbsDayToDate_(absDay)` — absDay→{year,month,day}（固定 365 天/年）。
 - `KANSHOU_TIME_BANDS_`（常數）— 5 時段跳躍分界（清晨5/午後11/黃昏17/夜20/深夜0）。
 - `kanshouHoursUntilBand_(curHour, targetStartHour)` — 算到目標時段起點的小時數（已在該時段跳下一次）。
-- `KANSHOU_DAY_LAST_HOUR_`(=23)（常數）。~~`KANSHOU_HOUR_PER_ACTION_`~~ 已移除，改 `kanshouHourPerAction_(memory)`（見 `actionKanshouSetPace`）。
+- `KANSHOU_DAY_LAST_HOUR_`(=23)（常數）。~~`KANSHOU_HOUR_PER_ACTION_`~~ 已移除，2026-09 連 ~~`kanshouHourPerAction_`~~ 也內聯了：每回合固定推進 `KANSHOU_MIN_PER_TURN_`/60 小時，直接在 `actionPlay_` 裡算。
 - `kanshouFmtHM_(h)` — 小時（可含 .5）→「HH:MM」。
 - `kanshouClockInfo_(pcRow)` — 組時鐘資訊物件（day/hour/band/weather/month/dayOfMonth/label 實際年月日）；HUD/actionPlay 共用。
 

@@ -1406,7 +1406,7 @@ npc_exit：同伴自主權——她可自然告辭離場，GAS真的把她移出
 
 target 只能填真名(schema級約束，比事後再說一次更有效)。tag 欄位不存在：關係標籤(COL.PC.REL_TAG)只能由御主透過UI(update_rel_tag)手動更改，AI對標籤的影響力只剩「認不認同」，寫在 intimacy_feedback.npcs[].attitude，不是靠覆寫這個欄位表達。
 
-### `specificRules`　<sub>Gallery.gs</sub>
+### ~~`specificRules`~~（2026-09 已移除（永遠是空字串））　<sub>Gallery.gs</sub>
 
 ⚠ 2026-07 玩家「色色部分都搬去給點火」實驗：色度跟隨(原0)＋情慾場生理特寫(原4)兩條搬進driveStr(見下方，僅driveOn=true才組進提示詞)——這兩條原本是「怎麼寫得好」的常駐風格指導、不是「准不准寫」的開關(准不准寫仍是【親密尺度五階】的好感天花板在管，跟driveOn無關)。搬走後矜持模式(driveOn=false)不再拿到這兩條的具體寫作指引，即使好感已達戀人階、天花板允許無上限，矜持模式下的措辭可能反而更保守含糊；主動掌握模式因為同時拿到driveStr的推進指令＋這兩條的露骨寫作指引，兩者疊加會更猛。玩家已知情況下要求先試試看，若實測矜持模式下高好感場景意外變乾癟，這是根因、把這兩條原樣搬回來即可。
 
@@ -3424,7 +3424,7 @@ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查�
 
 鑑賞地點移動：前端點選地點按鈕時帶 moveTarget，跟一般對話同一次 round-trip 解決——比對KANSHOU_LOCATIONS_ 合法地點清單，查無效比對一律當成普通對話。
 
-### `_myGid_`　<sub>Gallery.gs</sub>
+### ~~`_myGid_`~~（2026-09 併入 `myGameId`（同一個值算兩次））　<sub>Gallery.gs</sub>
 
 🔒 拜訪私人住處門檻：跟屋主好感未達熟識(40)前不好貿然登門——擋在移動前，當作沒真的進門(留原地)， 給AI一句在門外卻步的情境，維持她家的私人邊界(前端已把鎖住的住處灰掉，這裡是直打API的後端保底)。
 
@@ -3432,7 +3432,7 @@ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查�
 
 鑑賞世界觀明文禁止任何戰鬥/血量變化/死亡威脅，故不帶 solo 戰鬥引擎的殘留概念(擊倒/復活/戰敗虛假之夢/剛結盟NPC排除等)。
 
-### `_pendingNewPcRow_`　<sub>Gallery.gs</sub>
+### ~~`_pendingNewPcRow_`~~（2026-09 已移除（永遠是 null，那條 appendRow 從沒跑過））　<sub>Gallery.gs</sub>
 
 🆕 本回合新增的列(目前只有「結識」會產生)：先只進 pcData 讓本回合就地生效，真正 appendRow延到寫回階段——這樣 AI 失敗早退時整回合都是 no-op，不會留下半套狀態。
 
@@ -3451,7 +3451,7 @@ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查�
 這三行（`kanshouSceneLoc_`／`_reHourAfter`／`kanshouReBand_`）從此是算完就丟。
 2026-09 拆 `actionPlay_` 時當場抓到——`actionPlay_` 自己內部也長死碼。**
 
-### `allEstablished`　<sub>Gallery.gs</sub>
+### ~~`allEstablished`~~（2026-09 併入 `allies`（這一局的同伴改成算一次全程複用））　<sub>Gallery.gs</sub>
 
 不分「同行/不同行」，所有已存在的英靈結束一天都依自己的生活重新決定要去哪——唯一例外是好感≥80且此刻確實跟玩家同地點的人，直接留在玩家房間過夜(同床共枕)。
 

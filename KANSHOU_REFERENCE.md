@@ -198,7 +198,7 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 | 層 | 內容 | 深度 | 重量 |
 |---|---|---|---|
 | `chatHistory` | 玩家輸入＋AI narration **全文** | `_histWindow_`＝6 則（3 輪）；剛換場景/剛跳時間砍到 2 則 | 約 2,300 字，佔整份 payload 四成 |
-| ★【再往前的經過】 | 掉出窗口的較早回合，**只取玩家做過的事** | `KANSHOU_DIGEST_ROUNDS_`＝8 輪、每則 `KANSHOU_DIGEST_CAP_`＝22 字 | 約 145 字 |
+| ★【再往前的經過】 | 掉出窗口的較早回合，**只取玩家做過的事** | ~~`KANSHOU_DIGEST_ROUNDS_`~~（已移除）＝8 輪、每則 `KANSHOU_DIGEST_CAP_`＝22 字 | 約 145 字 |
 
 ~~那支摘要函式~~（2026-09 已移除）從同一張「歷史暫存」表往回多讀，扣掉已經進 chatHistory 的那幾則，
 把更早的**玩家側輸入**串成一行。**不收 AI 的 narration**——那壓不了，也不該由 GAS 改寫別人寫的字。
@@ -208,7 +208,7 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 日常閒聊一個都不蓋戳。實測連打 8 回合日常，那四格全空。
 ## ⏰ 時間系統
 
-- **每動作固定推進 10 分鐘**：`kanshouHourPerAction_()`＝`KANSHOU_MIN_PER_TURN_/60`。（2026-09 玩家把流速旋鈕砍了——一個回合本來就不是一段固定的時間，交給玩家調只是把「說不準」變成一個要設定的東西。）
+- **每動作固定推進 10 分鐘**：~~`kanshouHourPerAction_()`~~（2026-09 已內聯進 `actionPlay_`）＝`KANSHOU_MIN_PER_TURN_/60`。（2026-09 玩家把流速旋鈕砍了——一個回合本來就不是一段固定的時間，交給玩家調只是把「說不準」變成一個要設定的東西。）
 - **五時段** `KANSHOU_TIME_BANDS_`：清晨(5)／午後(11)／黃昏(17)／夜晚(20)／深夜(0)。
 - **當日不跨日上限** `KANSHOU_DAY_LAST_HOUR_ = 23`；被動聊天每回合 `+1/6` 小時流動。
 - **曆法**：Day1 = 12/20（`KANSHOU_CAL_START_MONTH_/DAY_`），前端顯示西曆年月日。
@@ -252,7 +252,7 @@ AI 不是被誤導，是根本沒被告知。卡片補上 `【性別:X】` 之�
 - 分頁 `鑑賞世界` → **`世界帳本`**（`worldSheet_` 就地 `setName`，資料一列不動；另開新分頁會讓既有的鑑賞世界整個不見）。
 - 函式 `kanshouWorld*` → `world*`（`worldSheet_`／`worldRow_`／`worldRead_`／`worldBust_`／`worldSame_`／
   `worldWrite_`／`worldSet_`／`worldDrop_`／`worldEvictees_`／`worldFeed_`／`worldPayload_`／`actionWorld`）。
-  **仍然是鑑賞的**那幾支（`kanshouLocationsFor_`／`kanshouRegionsFor_`／`kanshouWorldRosterStr`）名字沒動。
+  **仍然是鑑賞的**那幾支（~~`kanshouLocationsFor_`~~（已移除）／~~`kanshouRegionsFor_`~~（已移除）／`kanshouWorldRosterStr`）名字沒動。
 - 規格搬進 `WORLD_SPEC_` **逐軌登記**：`sheet`／`kinds`／`cap`／`feedMax`／`atMax`／`writeMax`／`textMax`。
   判準是 `worldTrack_(gameId)`——`g_` 開頭是 solo，其餘是鑑賞。加一軌＝往表加一列，引擎自動吃。
 - 前端不再手抄字數上限（`KC_WORLD_TEXT_MAX_` 已刪），改讀後端下傳的 `worldTextMax`。
