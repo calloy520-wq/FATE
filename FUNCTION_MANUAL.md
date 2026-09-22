@@ -73,7 +73,6 @@
 | `kanshou_set_sex` | `actionKanshouSetSex` | 設同伴性別 |
 | `kanshou_set_name` | `actionKanshouSetName` | 設同伴名 |
 | `kanshou_set_home_name` | `actionKanshouSetHomeName` | 設住處名 |
-| `kanshou_set_pace` | `actionKanshouSetPace` | ⏱ 時間流速（每回合 0/10/20/30 分） |
 | `kanshou_get_style` | `actionKanshouGetStyle` | 🎨 說書人設定面板：讀整張風格表（預設＋玩家版） |
 | `kanshou_set_style` | `actionKanshouSetStyle` | 🎨 改一格／還原一格／全部還原 |
 | `prep_meal` | `actionPrepMeal` | 準備餐點 |
@@ -107,7 +106,7 @@
 | `propose_alliance` | `actionProposeAlliance` | 交涉結盟 |
 | `break_alliance` | `actionBreakAlliance` | 撕毀盟約 |
 | `ally_bond` | `actionAllyBond` | 盟友交流 |
-| `court_enemy` | `actionCourtEnemy` | 🕊️ 示好／交涉：對未結盟敵御主+其硬連結從者提升好感（GAS 依性格傾向裁定，日限） |
+| `parley` | `actionParley` | 🕊️ 交涉：對同地未結盟敵御主做一件當場結算的事（`PARLEY_ACTS_` 一張表：閒聊／交換情報／讓開一步·各自日限）。2026-09 取代 ~~`actionCourtEnemy`~~ |
 | `set_workshop` | `actionSetWorkshop` | 設工房 |
 | `scavenge` | `actionScavenge` | 搜刮 |
 | `second_wind` | `actionSecondWind` | 二度呼吸 |
@@ -144,7 +143,7 @@
 - `buildTagsPayload_(sheets, pcId, preData?)` — 🔧 左側狀態卡資料建構（get_tags 與 sync 共用）。組御主卡（HP 詞化/令咒/願望/禮裝/換裝）＋在世我方從者陣列（solo 靠「同行」、鑑賞靠同地點過濾），逐從者附六圍/技能/出力/寶具/魔境/符文/synergy/理想鄉/多寶具/海怪/換裝/武裝/破戒奪取旗標＋**`id`**（2026-07 id 化重構新增，供前端 `myActiveServantId` 記錄、日後系統內部指令帶 id 用）。戰鬥限定欄以 `isFateCtx`（g_）結構性擋成 null。另回 economy/bondUsed/mystic/canRuleBreak/鑑賞 locationCounts/~~unlockedResidences~~（已移除）。**七度改版**：`~~unlockedResidences~~（已移除）`改用`kanshouGetHeroHome_`讀住處(原本只認`KANSHOU_HERO_HOME_`，隨機分配到泛用住處池的英靈解鎖不了)。
 - `buildClientState_(sheets, pcId, preData?)` — 完整 client state blob。`markRivalsSeen_`（戰爭迷霧，鑑賞跳過）＋狀態字串＋people（鑑賞/solo 分版）＋鄰近地點＋地圖描述＋時鐘/AP＋economy＋`buildTagsPayload_`＋mapNodes，全部沿用同一次整表讀。
 - `actionSync(...)` — 薄包裝，回 `buildClientState_`＋success。
-- `actionUpdateRelTag(...)`（2026-07 稽核：找列邏輯改委派 `findPcRowIdx_(pcData, myGameId, {name:targetName})`，取代手刻迴圈；再稽核：`myGameId`改用`resolveCallerGameId_`取得，補上鑑賞帳號歸屬驗證，見上） — 重定義關係稱呼：改該 NPC 自己列 REL_TAG。限本局 game_id；solo 要求同行、鑑賞豁免。**2026-07 五度改版＋逐按鍵稽核**：預設標籤依同一張表的 `KANSHOU_REL_TIER_.min` 把關（沒到那一階就選不了那一階；舊版「預設永遠可設」讓好感30點一下『戀人』就繞過門檻，而 `kanshouSyncRelTier_` 只在 BOND 變動時才跑，純聊天回合會一路掛著），自訂文字(不等於任一預設標籤)需 bond≥`KANSHOU_CUSTOM_TAG_BOND_`(80)——防低好感塞露骨自訂稱呼繞過親密尺度天花板(該文字會字面塞進AI提示詞當既定事實)。交棒 `STATE_PRE_DATA_`。
+- `actionUpdateRelTag(...)`（2026-07 稽核：找列邏輯改委派 `findPcRowIdx_(pcData, myGameId, {name:targetName})`，取代手刻迴圈；再稽核：`myGameId`改用`resolveCallerGameId_`取得，補上鑑賞帳號歸屬驗證，見上） — 重定義關係稱呼：改該 NPC 自己列 REL_TAG。限本局 game_id；solo 要求同行、鑑賞豁免。**2026-07 五度改版＋逐按鍵稽核**：預設標籤依同一張表的 `KANSHOU_REL_TIER_.min` 把關（沒到那一階就選不了那一階；舊版「預設永遠可設」讓好感30點一下『戀人』就繞過門檻，而 ~~`kanshouSyncRelTier_`~~（已移除） 只在 BOND 變動時才跑，純聊天回合會一路掛著），自訂文字(不等於任一預設標籤)需 bond≥~~`KANSHOU_CUSTOM_TAG_BOND_`~~（已移除）(80)——防低好感塞露骨自訂稱呼繞過親密尺度天花板(該文字會字面塞進AI提示詞當既定事實)。交棒 `STATE_PRE_DATA_`。
 - `actionSetNickname(userData, pcId, sheets)`（2026-07 五度改版新增；同年稽核：找列邏輯同上改委派 `findPcRowIdx_`；再稽核：`myGameId`改用`resolveCallerGameId_`取得，補上鑑賞帳號歸屬驗證，見上）— 專屬稱呼(REL_MEM`[專屬稱呼]`)手動鎖定入口：同 bond≥80 門檻，通過後過 `sanitizeNickname_`（清 `|｜[]` ＋截20字，與 AI 寫入路徑共用同一支），寫入`[專屬稱呼]${nick}| [稱呼鎖]是`(保留既有`[態度]`段)，讓 `actionPlay_` 的 NPC 寫回邏輯尊重此鎖(偵測到`[稱呼鎖]是`就不再吃`mutual_nicknames`自動覆寫)。交棒 `STATE_PRE_DATA_`。
 
 ---
@@ -634,8 +633,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 #### ~~關係梯度·好感天花板~~（2026-09 鑑賞好感整組砍除）
 
 鑑賞不再有好感這個數字。連帶整組移除：~~`KANSHOU_REL_TIER_`~~（五階＋`ceiling` 親密尺度天花板）／
-~~`kanshouIntimacyLines_`~~／~~`kanshouSyncRelTier_`~~（棘輪＋自動標籤）／~~`kanshouBondFloorOf_`~~／
-~~`KANSHOU_CUSTOM_TAG_BOND_`~~／~~`KANSHOU_CLOSE_BOND_`~~／~~`KANSHOU_SCENE_BOND_`~~／
+~~`kanshouIntimacyLines_`~~／~~~~`kanshouSyncRelTier_`~~（已移除）~~（棘輪＋自動標籤）／~~`kanshouBondFloorOf_`~~／
+~~~~`KANSHOU_CUSTOM_TAG_BOND_`~~（已移除）~~／~~`KANSHOU_CLOSE_BOND_`~~／~~`KANSHOU_SCENE_BOND_`~~／
 ~~`KANSHOU_SCENE_MIN_BOND_`~~／~~`KANSHOU_VISIT_BOND_`~~／~~`KANSHOU_RAPPORT_TONE_`~~ 一族／
 ~~`KANSHOU_REL_RANK_TAG_`~~ 一族／~~`KANSHOU_BOND_FLOOR_TAG_`~~／~~`KANSHOU_CHILL_*`~~，
 以及 AI 的 `rel_changes` 欄位。`COL.PC.BOND` 欄位本身留著（COL 是位置索引，solo 仍在用）。
@@ -1311,7 +1310,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 #### 關係
 - `kanshouOpenBondHub(name, curTag, curNickname, npcId)`（`confessWait`／`cohabit`／`lover` 三個殘參已隨各自的功能移除）— 💞 關係中樞分派面板：關係稱呼／共同回憶／調整好感。門檻數字走 `KC_*` 鏡射。
-- `kanshouOpenRelTag(name, curTag, curNickname, npcId)`（2026-09 加第 5 參數：面板記住 `_krTargetId`，送出時帶 `targetId`——長名同伴靠名字會被 NAME_MAX 截斷）（2026-07 新增，原`kanshouEditRelTag`用native prompt()，玩家「那個關係也不要用彈窗吧」改成專屬面板；**五度改版新增`bond`/`curNickname`參數**）— 開`#kr-overlay`彈窗：`KC_REL_TIERS_`(鏡像Gallery.gs `KANSHOU_REL_TIER_`)5階預設稱呼各一顆按鈕(呼叫`kanshouSetRelTag`，永遠可選)＋自訂區塊。**bond<`KC_CUSTOM_TAG_BOND_`(80)時自訂區塊整個換成鎖定說明文字**；bond≥80才顯示「自訂關係稱呼」輸入框(`#kr-custom`，呼叫`kanshouSetRelTagCustom`)＋「專屬稱呼」輸入框(`#kr-nickname`，呼叫`kanshouSetNicknameCustom`)，並附「這格是填空的名詞，不要打完整句子」引導文案。選預設會讓文字重新匹配某梯度標籤(之後`kanshouSyncRelTier_`繼續自動跟好感升降)；打自訂稱呼會固定下來不再自動改動(既有行為，只換UI容器)。呼叫端傳入`bond`/`nickname`：Script.html卡片鈕用`s.bond`/`s.nickname`、Script_Kanshou.html同伴清單用`c.bond`/`c.nickname`。
+- `kanshouOpenRelTag(name, curTag, curNickname, npcId)`（2026-09 加第 5 參數：面板記住 `_krTargetId`，送出時帶 `targetId`——長名同伴靠名字會被 NAME_MAX 截斷）（2026-07 新增，原`kanshouEditRelTag`用native prompt()，玩家「那個關係也不要用彈窗吧」改成專屬面板；**五度改版新增`bond`/`curNickname`參數**）— 開`#kr-overlay`彈窗：`KC_REL_TIERS_`(鏡像Gallery.gs `KANSHOU_REL_TIER_`)5階預設稱呼各一顆按鈕(呼叫`kanshouSetRelTag`，永遠可選)＋自訂區塊。**bond<`KC_CUSTOM_TAG_BOND_`(80)時自訂區塊整個換成鎖定說明文字**；bond≥80才顯示「自訂關係稱呼」輸入框(`#kr-custom`，呼叫`kanshouSetRelTagCustom`)＋「專屬稱呼」輸入框(`#kr-nickname`，呼叫`kanshouSetNicknameCustom`)，並附「這格是填空的名詞，不要打完整句子」引導文案。選預設會讓文字重新匹配某梯度標籤(之後~~`kanshouSyncRelTier_`~~（已移除）繼續自動跟好感升降)；打自訂稱呼會固定下來不再自動改動(既有行為，只換UI容器)。呼叫端傳入`bond`/`nickname`：Script.html卡片鈕用`s.bond`/`s.nickname`、Script_Kanshou.html同伴清單用`c.bond`/`c.nickname`。
 - `kanshouSetRelTag(name, tag)`（2026-07 新增）— 打`update_rel_tag`，成功→`syncData`＋`kcRefreshPartyOnly_`＋關閉`#kr-overlay`；`_krBusy`擋連點。
 - `kanshouSetRelTagCustom(name)`（2026-07 新增）— 讀`#kr-custom`輸入框(空值擋)，呼叫`kanshouSetRelTag`。
 - `kanshouSetNicknameCustom(name)`（2026-07 五度改版新增）— 讀`#kr-nickname`輸入框(空值擋)，打新action`kanshou_set_nickname`(`actionSetNickname`)；成功→`syncData`＋`kcRefreshPartyOnly_`＋關閉`#kr-overlay`；共用`_krBusy`擋連點。

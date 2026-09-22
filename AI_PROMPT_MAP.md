@@ -427,34 +427,38 @@ Router_Action.gs 核心 dispatch 相關的雜項 action（都在 Router_Action.g
 USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` 為準；舊版的【敘事法旨】／★【在場驗證鐵律】／💕【鑑賞·後日談模式覆寫】／🚨【敘事終極警告】四個區塊都已不存在）：
 > ★世界觀＝和平的現代冬木市…沒有魔術與從者（一句集中壓制句）
 > `${PROMPT_REL}`（🛑【角色一致性】等）
-> ★【在場名單】／★【這個世界有誰】：正式同伴／常民／路人三分（取代舊的在場驗證鐵律）
-> ★【要它之後還在就寫進 world_note】（世界帳本：地點/人物/事件，玩家可釘選）
-> ★【視角鎖定】（縮短版：「你」＝玩家、旁白不用「我」）
-> ★【你也是這座城裡的一個人】（感受歸 AI、決定歸玩家）
-> 【玩家資料·旁白用】（只給旁白寫「你」的內心用·在場的人沒讀過這張卡）
-> `${PROMPT_PARTY_SYSTEM}`（在場人物卡，含「你在她眼中」）＋`${_intimacyLines_}`（★【親密尺度】）
-> ★【篇幅】`${_kanshouTargetWords_}`（查 `KANSHOU_WORDS_`，「大事」旗標升檔）／★【地點釘死】
-> 條件片段（有才出現）：`kanshouNewPlaceStr`／`_worldFeed_`／`kanshouWorldRosterStr`／`kanshouEncounterStr`／`kanshouAloneBondStr`／`kanshouNpcLeaveStr_`／`kanshouNightPartStr`／`kanshouVisitBlockedStr`／`kanshouTimeBlockedStr`／`kanshouProposeStr`／`kanshouInviteStr`／`kanshouNightSceneStr`
-> ★【此刻】（日期·時段併在同一行）＋`kanshouTierCrossStr`
-> ★【晨間餘韻·非強制】／★【昨夜對方走了·非強制】／`${npcDialoguePrompt}`／★【稍早做過的事】`${_earlierDigest_}`（`kanshouRecentDigest_`）
-> ★【在場】＋`${finalUserMsg}`（玩家這回合的動作：自己打的字標 `【玩家原話】：`、按鍵路徑標 `【玩家意圖】：`＝GAS 寫的摘要）＋`${_settledTail_}`（GAS 已裁定的結果）
+> ★【身體】（`_bodyLine_`：玩家自己的身體狀態）
+> ★【在場名單】（這一局有誰·`presentMembers`）／★【誰在場】（有【專屬稱呼】就叫暱稱；卡片與帳本都沒提到的路人不具名）
+> ★【這座城裡還住著】（`kanshouWorldRosterStr`：待命者的名字·玩家問起才由 AI 依時段掰他在做什麼）
+> ★【world_note】（世界帳本寫回：地點/人物/設定·挑之後還會再遇到、再提起的寫·最多 3 筆）
+> `${PROMPT_PARTY_STABLE}`（在場人物卡·整局不變·住在 **system** 吃提示詞快取）
+> `${PROMPT_PARTY_LIVE}`（這一刻的樣子·每回合可能動·住在 user）
+> `${_worldFeed_}`（世界帳本餵回·最多 6 條）／`${_lenLine_}`（★【篇幅】·查 `KANSHOU_LEN_TIERS_`）
+> ★【場景】（上一段演完我們在哪·讀 `COL.PC.LOC` 玩家列·AI 用 `scene` 欄寫回）
+> ★【此刻】（日期·時刻·時段併同一行）＋★【今晚留下的人】／★【晨間餘韻·非強制】（都依「這回合她在不在場」過濾）
+> ★【在場】＋`${finalUserMsg}`（玩家這回合的動作：自己打的字標 `【玩家原話】：`、按鍵路徑標 `【玩家意圖】：`）
+
+⚠ 這一段隨時會走鐘。**真值以 `Gallery.gs` 的 `actionPlay_` 為準**，`check_wiring.py` 只數 ★ 區塊總數（`MIN_STAR_BLOCKS`），不比對這份文件。
 
 
 回應解析欄位（現行 schema，見 `buildDefaultSystemPrompt` 的 finalJson）：`inner_monologue`（不顯示）／`narration`／`npc_exit`／`options`（**6 條**·各≤20字·「六條分別通往六種不同的後續」〔2026-09 4→6〕·`optionsOn=false` 整欄刪）／`intimacy_feedback{player:{physical_state,appearance_extras}, npcs[]:{name,physical_state,appearance_extras,mutual_nicknames,**rel_tag**,memory,**noticed**}}`／`world_note[]`。**`noticed`〔2026-09·她眼中的你〕**：這回合真的從玩家言行看出來的一件事（≤14字、只記會改變之後怎麼對玩家的發現、多數回合「無」），`kanshouAppendUnique_` append 進她自己那列 MEMORY【眼中的你】。**`rel_tag`〔2026-09·關係稱呼交給 AI〕**：這個人現在是玩家的什麼（≤8字、跟上回合一樣就「無」），玩家自己打過就蓋【關係鎖】、AI 從此不碰。~~`location`／`move_proposal`／`attitude`／`dynamic_skills`／`master_note`／`rel_changes`~~ 都已不存在；`physical_state` 是單一自由文字欄。
 
 （`nsfwBaseRules`／`buildDefaultSystemPrompt` 定義在 `Gallery.gs`——紅線①保護區塊，本文不重複貼出，只標註 `actionPlay` 有引用其機制。函式簽名 `buildDefaultSystemPrompt(includeOptions, styles)`（2026-09 加 `styles`：玩家的說書人風格覆寫，`nsfwBaseRules` 改陣列組裝＋動態編號；缺省＝與舊字串逐字相同），永遠回傳慾海版本，因為查證後這個函式現在只可能被鑑賞呼叫。詳見 `SOLO_REFERENCE.md` §0。）
 
-### 9.1 泡泡／旗標（2026-07 橋段 offer+accept 整組拆除、2026-09 預寫池砍光後的現況）
+### 9.1 泡泡／旗標（2026-09 地點退休後的現況）
 
-舊的 `roomEventOffer`／`roomEventAccept`／`KANSHOU_SCENE_EVENTS_`／`kanshouRollSceneBranch_`／`knockEvent`／`knockAccept` **全部不存在**。現在同形狀的只剩：GAS 先落盤 → 回應附一個欄位 → 前端給善後鍵 → 玩家不點也無害。
+**鑑賞現在一顆泡泡都沒有。**
 
-| 機制 | 觸發資格(GAS) | 回應附帶欄位 | 玩家按鈕→下次 send() 旗標 |
-|---|---|---|---|
-| 移動同意 | 她答應同去 | `moveProposal` | 同意→`moveTarget`＋`moveWithCompanion` |
-| 巧遇結識 | 移動/原地擲中、`encounterOn` | `encounterOffer` | `inviteResident` |
+`roomEventOffer`／`roomEventAccept`／`knockEvent`／`knockAccept`／`moveProposal`／`encounterOffer`／`inviteResident` 全部不存在。
 
+⚠ **砍掉泡泡的根因值得記著**：`moveProposal` 死在「兩個作者」——AI 已經把劇情演到咖啡廳了，
+系統才跳出泡泡問玩家「要不要去咖啡廳」，按下去又把移動【再跑一次】。玩家原話
+「劇情已經走到咖啡廳了。下面泡泡問我要不要去咖啡廳，我點了，原本跟我在同地的凜又進去跟櫻在一起了」。
+**一件事只能有一個作者。** 之後要加任何「先問玩家再發生」的東西，先確認 AI 不會在問之前就把它演掉。
 
----
+玩家現在的輸入只有兩種：**自己打字**，或**按【命運的抉擇】六顆選項之一**（按下去＝把那句話填進輸入框送出，
+等同自己打的，不新增作者）。打數字 1～6 是同一顆的捷徑（上限讀 `currentOptions.length`，不寫死）。
+
 
 ## 10. 抵達提示詞 `buildArrivePrompt_`（Router_Movement.gs）
 
@@ -487,7 +491,6 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | `outfit`／`weapon` | `actionSetOutfit`／`actionSetWeapon`（Router_Economy.gs） | 否（寫 MEMORY，之後由角色卡餵 AI） |
 | `kanshou_reset` | `actionKanshouReset`（Gallery.gs） | 否（後日談歸零） |
 | `world` | `actionWorld`（Gallery.gs） | 否（帳本面板·兩軌共用 list/pin/unpin/del ＋ 大區 rg_add/rg_rename/rg_del ＋ 地點 loc_rename/loc_text/loc_region/loc_own） |
-| `kanshou_set_pace` | `actionKanshouSetPace`（Gallery.gs） | 否（時間流速 0/10/20/30） |
 | `kanshou_get_style`／`kanshou_set_style` | `actionKanshouGetStyle`／`actionKanshouSetStyle`（Gallery.gs） | 否（⚙ 說書人設定：讀／改 12 段風格模組，見 `KANSHOU_REFERENCE.md` §說書人風格交給玩家） |
 | `kanshou_set_nickname` | `actionSetNickname`（Router_Action.gs） | 否（專屬稱呼，bond≥80） |
 
@@ -512,17 +515,14 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 
 | 片段變數 | 觸發 | 內容 |
 |---|---|---|
-| `kanshouProposeStr` | 🚶邀同去（成立/撲空/地點去不成） | ★【同行成立】/★【邀不成·…】 |
-| `kanshouApptTodoStr`/`kanshouApptWaivedStr` | 今天還有沒赴的約／人已在身邊免赴 | ★【今天的約·尚未赴】 |
-| `kanshouInviteStr`/`kanshouEncounterStr` | 🤝結識巧遇對象／巧遇擲中 | ★【正式結識】/結識未成／巧遇事實 |
-| `kanshouNightSceneStr`/`kanshouNightPartStr` | 夜未眠／夜裡道別 | ★【夜已深·門關上了】／★【夜裡道別】… |
-| `kanshouFestivalStr` | 日曆＝節慶當天／跳到前夕 | ★【今天是「X」】／★【節慶前夕】（只給事實，無習俗表） |
-| `kanshouTierCrossStr` | 剛跨關係階 | 純事實＋show-don't-tell 護欄 |
-| `kanshouNewPlaceStr`/`_worldFeed_`/`kanshouWorldRosterStr` | 玩家走出新地點／世界帳本相關條目／常民名冊 | ★【要它之後還在就寫進 world_note】等 |
-| `kanshouAloneBondStr` | 獨處時光(+3) | ★【獨處時光】 |
-| `kanshouVisitBlockedStr`/`kanshouTimeBlockedStr` | 想去未解鎖的住處／時間不對 | ★【撲空·地點未開放】… |
-| ★【此刻】 | 恆帶 | 日期・時段併在同一行 |
-| `_earlierDigest_` | 歷史窗外還有更早回合 | ★【稍早做過的事】（`kanshouRecentDigest_`） |
+| `kanshouNightSceneStr` | 夜未眠（兩段式就寢第一段） | ★【夜已深·門關上了】 |
+| `_morningHere_` | 昨夜同床、且**這回合她在場** | ★【晨間餘韻·非強制】（人不在就整條不送） |
+| `intimateNightNames` | 今晚留下過夜的人 | ★【今晚留下的人】 |
+| `_worldFeed_` | 世界帳本挑出的相關條目（最多 6 條） | 這一局長出來的地方／人／設定 |
+| `kanshouWorldRosterStr` | 有召喚過、此刻不在場的人 | ★【這座城裡還住著】（只給名字） |
+| `_sc`（`COL.PC.LOC` 玩家列） | 上一回合 AI 寫回 `scene` | ★【場景】 |
+| `_lenLine_` | 一律 | ★【篇幅】（查 `KANSHOU_LEN_TIERS_`） |
+| `genderHintStr` | 玩家性別 | 旁白對「你」的用詞 |
 
 ~~`kanshouRoomEventStr`（橋段 13 筆）／`kanshouJealousStr`（醋意 20%）／`pActivityStr`（地點活動）／★【節慶氛圍】／★【今日天氣】~~ 都已不存在。
 

@@ -175,6 +175,45 @@ def scan_current_state(extra_line=None):
     return end, cited, ghosts
 
 
+# 🔀 文件表格裡的【action 名字】↔ 路由器（2026-09 新增）
+#    既有兩道的盲區：常數那道只認全大寫、函式那道要看到括號——
+#    `kanshou_set_pace` 這種小寫底線的路由名，兩道都看不見。
+#    當場抓到：FUNCTION_MANUAL 與 AI_PROMPT_MAP 各列著一條時間流速的路由，
+#    那個 action 2026-09 就整組砍了；還有一條 court_enemy 其實是【改名】成 parley。
+#    ⚠ 這兩份是 CLAUDE.md 指名「要動手前先查」的索引，列著不存在的路由＝直接把人帶到死路。
+ACT_DOCS = ['FUNCTION_MANUAL.md', 'AI_PROMPT_MAP.md', 'CODE_MAP.md']
+ACT_ROW = re.compile(r'^\|\s*`([a-z][a-z0-9_]{3,})`\s*\|')
+
+
+def live_actions():
+    code = ""
+    for f in sorted(glob.glob(os.path.join(ROOT, 'gas', '*.gs'))):
+        code += open(f, encoding='utf-8').read()
+    names = set(re.findall(r"case\s*['\"]([a-z][a-z0-9_]*)['\"]", code))
+    names |= set(re.findall(r"['\"]([a-z][a-z0-9_]{3,})['\"]\s*:\s*action", code))
+    return names
+
+
+def scan_actions(acts, extra=None):
+    cited, ghosts = 0, []
+    for d in ACT_DOCS:
+        path = os.path.join(ROOT, d)
+        if not os.path.exists(path):
+            continue
+        lines = open(path, encoding='utf-8').read().split('\n')
+        if extra:
+            lines = lines + [extra]
+        for i, line in enumerate(lines, 1):
+            m = ACT_ROW.match(line)
+            if not m:
+                continue
+            cited += 1
+            if m.group(1) in acts or TOMB.search(line):
+                continue
+            ghosts.append((d, i, m.group(1)))
+    return cited, ghosts
+
+
 # 📓 CODE_NOTES 的錨點（### `名字`）——這個形式上面兩道都看不到（沒有括號、也不是全大寫常數）。
 #    2026-09 當場清出 14 個指向「代碼全樹 0 次出現」的條目（actionCourtEnemy、OFFENSIVE_NP_ATK_FX_…）。
 #    錨點對不上＝那段歷史等於消失（CLAUDE.md 紀律那條講的就是這件事），而且比沒有更誤導。
@@ -220,6 +259,13 @@ def main():
         print('📚 文件↔代碼：❌ CODE_NOTES 那道失效（注入的幽靈錨點抓不到）')
         return 1
 
+    acts = live_actions()
+    a_cited, a_ghosts = scan_actions(acts)
+    _fakeact = '| `' + 'this_route_is_gone' + '` | `actionNope` | 假的 |'
+    if not scan_actions(acts, _fakeact)[1]:
+        print('📚 文件↔代碼：❌ action 路由那道失效（注入的死路由抓不到）')
+        return 1
+
     cur_end, cur_cited, cur_ghosts = scan_current_state()
     # ⚠ 假名字【拼出來】：這道會去讀 check_*.py，寫成字面量就等於「代碼裡真的有」，
     #   注入測試會自己把自己毒到、然後安靜地過關（2026-09 當場踩到）。
@@ -228,8 +274,15 @@ def main():
         print('📚 文件↔代碼：❌ 鑑賞現況區那道失效（注入的幽靈抓不到）')
         return 1
 
-    print('📚 文件↔代碼對照：%d 個函式點名、%d 個常數點名（只查 %s）、%d 個 CODE_NOTES 錨點、鑑賞現況區 %d 行·%d 個點名、代碼宣告 %d 個名字（含自我退化測試）'
-          % (cited, c_cited, CONST_DOC, n_anchor, cur_end, cur_cited, len(names)))
+    print('📚 文件↔代碼對照：%d 個函式點名、%d 個常數點名（只查 %s）、%d 個 CODE_NOTES 錨點、鑑賞現況區 %d 行·%d 個點名、路由表 %d 條對照 %d 條 action（含自我退化測試）'
+          % (cited, c_cited, CONST_DOC, n_anchor, cur_end, cur_cited, a_cited, len(acts)))
+    if a_ghosts:
+        print('  ❌ 文件的路由表列著路由器不認得的 action：')
+        for d, i, n in a_ghosts:
+            print('     %s:%d  %s' % (d, i, n))
+        print('  → 先查是不是【改名】（court_enemy→parley 就是），是就改名字、別直接砍那一列；')
+        print('     真的整組砍了就刪掉那一列，或在同一行寫明它已移除。')
+        return 1
     if cur_ghosts:
         print('  ❌ %s 的【現況區】點名了代碼裡已經沒有的東西：' % CUR_DOC)
         for i, n in cur_ghosts:
