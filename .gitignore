@@ -1,0 +1,4 @@
+
+# python 編譯快取（2026-09 抓到一顆被追蹤的 .pyc，每跑一次 check.sh 就變一次）
+__pycache__/
+*.pyc
