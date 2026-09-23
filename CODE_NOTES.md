@@ -325,6 +325,12 @@ myWar：呼叫端傳玩家本局【戰爭】標記，比照 buildMapNodesPayload
 
 ### `callGeminiAPI`　<sub>Engine_Combat.gs</sub>
 
+**思考預設關（2026-09-23）**：金閃閃×SABER 換成 `google/gemini-3.5-flash` 跑，十步全部「模型中途停了：length」、
+畫面上只剩一百字，又慢又貴。不是模型笨——它是會思考的模型，OpenRouter 把思考 token 算在 `max_tokens` 裡，
+2400 被思考吃掉，敘事才寫到開頭就截斷；帳單上那段思考也照算。敘事這種活思考沒有好處，payload 一律帶
+`reasoning:{effort:"none",exclude:true}`，`config.reasoning` 可覆寫。思考不能全關的模型（gemini-3 pro 那類）
+OpenRouter 會對到它最低那階。對照器同步帶這個參數，並在 meta 印出思考 token 數。
+
 🐛→✅ **2026-09-23 模型 JSON 壞掉＝白花一顆 Grok**：種子 A/B 兩輪各壞一回合——一次是 narration 裡放了真換行又在
 intimacy_feedback 中途截斷，一次是 `cast` 裡打成 `$leave"`。舊流程 `JSON.parse` 一炸就當這顆模型失敗，
 鑑賞 `retries: 1` 直接落到後援 `FALLBACK_MODEL`（Grok）重寫整回合：玩家看不到失敗，但每次都在付十倍的錢，

@@ -42,7 +42,9 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
     // 📊 usage.include：把 prompt_tokens_details（cached_tokens／cache_write_tokens）帶回來。
     //    session_id：OpenRouter 的黏著路由靠它把同一局的連續請求釘在同一個端點——
     //    沒有它的話「要等偵測到快取命中才啟動」，每局開頭那幾回合都在賭。
-    const payload = { model: model, messages: apiMessages, temperature: temp, top_p: topP, max_tokens: maxT, usage: { include: true } };
+    // 思考預設關：會思考的模型（gemini-3.x flash／pro）思考 token 算在 max_tokens 裡，開著就把 2400 吃光、敘事寫到一百字被截。為什麼：見 CODE_NOTES.md『callGeminiAPI』。
+    const payload = { model: model, messages: apiMessages, temperature: temp, top_p: topP, max_tokens: maxT, usage: { include: true },
+      reasoning: config.reasoning || { effort: "none", exclude: true } };
     if (config.sessionId) payload.session_id = String(config.sessionId).slice(0, 256);
     // 📊 prompt_cache_key：xAI 在 Responses API 用它當快取鍵，OpenRouter 也吃這個名字。
     if (config.sessionId) payload.prompt_cache_key = String(config.sessionId).slice(0, 256);
