@@ -713,7 +713,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `KANSHOU_CAL_START_MONTH_/DAY_`、`KANSHOU_DAYS_IN_MONTH_`（常數）— 曆法起點（Day1=12/20）、每月天數。（~~`KANSHOU_FESTIVALS_`~~ 2026-09 已隨節慶整組移除。）
 - `kanshouDoyOffset_(month, day)` — 某月日距當年 1/1 的天數（0-based）。
-- `kanshouSeason_(month)` — 月份→春天／夏天／秋天／冬天（★【此刻】只給季節與時段的字）。
+- `kanshouSeason_(month)` — 月份→春天／夏天／秋天／冬天（★【此刻】只給季節與時段的字，且只在時段換了才送，講過的存 `KANSHOU_NOW_TOLD_TAG_`【此刻已述】）。
 - `kanshouAbsDayToDate_(absDay)` — absDay→{year,month,day}（固定 365 天/年）。
 - `KANSHOU_TIME_BANDS_`（常數）— 5 時段跳躍分界（清晨5/午後11/黃昏17/夜20/深夜0）。
 - `kanshouHoursUntilBand_(curHour, targetStartHour)` — 算到目標時段起點的小時數（已在該時段跳下一次）。

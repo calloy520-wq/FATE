@@ -1330,6 +1330,7 @@ function kanshouLoreBook_(row) {
 // 裝扮句什麼時候送：①這件衣服還沒講過（第一回合、換裝、AI 的 appearance_extras 改了）②玩家提到衣物③肉體狀態不是如常。
 //   其他回合歷史裡有，每回合都送模型就每回合描寫一次（「修長的雙腿裹在過膝黑襪裡」）。講過的存【裝扮已述】。
 var KANSHOU_OUTFIT_TOLD_TAG_ = makeTextTag_('裝扮已述');
+var KANSHOU_NOW_TOLD_TAG_ = makeTextTag_('此刻已述');   // 同一個道理：季節＋時段講過就不再送，換了時段才送
 var KANSHOU_OUTFIT_KEYS_ = ['衣', '裙', '襪', '穿', '脫', '換', '裝扮', '外套', '內衣', '胸罩', '內褲', '鞋', '制服', '睡衣', '浴衣', '泳裝', '和服', '洋裝', '領口', '袖', '扣子', '拉鍊'];
 function kanshouBodyPlain_(physicalJson) {
   let o = {}; try { o = JSON.parse(physicalJson || "{}"); } catch (e) { }
@@ -1836,6 +1837,10 @@ function actionPlay_(userData, pcId, sheets) {
   const _narrDay_ = (_clk_.narrDay === null) ? curDay : _clk_.narrDay;
   const _narrHour_ = (_clk_.narrHour === null) ? curHour : _clk_.narrHour;
   const curDateObj_ = kanshouAbsDayToDate_(_narrDay_);   // 只給季節與時段的字，數字留在 HUD：給了年月日時分，模型會整串念進敘事
+  // 「冬天的清晨」只在時段換了才送：每回合都送，模型每回合都拿它當開頭（「冬天的清晨帶著幾分薄霧…」×5）。講過的存【此刻已述】。
+  const _nowNow_ = `${kanshouSeason_(curDateObj_.month)}的${timeBand_(_narrHour_)}`;
+  const _nowWords_ = KANSHOU_NOW_TOLD_TAG_.get(pc[COL.PC.MEMORY]) === _nowNow_ ? "" : _nowNow_;
+  if (_nowWords_) { pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NOW_TOLD_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], _nowNow_); dirtyPcRows.add(pcIndex); }
 
   // 在場＝同行（玩家的）∪ 臨時在場（AI 的）。同行永遠排前面、永遠進得去；臨時在場填到上限為止。
   const presentRows = (() => {
@@ -1929,7 +1934,7 @@ function actionPlay_(userData, pcId, sheets) {
 ${PROMPT_PARTY_LIVE}
 ${_lenTier_.free ? '' : _sty_('length')}
 ${kanshouWorldRosterStr}${_worldFeed_}${_loreStr_}${kanshouNightSceneStr}
-${(() => { const _sc = String(pc[COL.PC.LOC] || "").trim(); return _sc ? `★【現在地點】：${_sc}。\n` : ""; })()}★【此刻】${kanshouSeason_(curDateObj_.month)}的${timeBand_(_narrHour_)}。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚跟我一起過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
+${(() => { const _sc = String(pc[COL.PC.LOC] || "").trim(); return _sc ? `★【現在地點】：${_sc}。\n` : ""; })()}★【此刻】${_nowWords_ ? _nowWords_ + '。' : ''}這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚跟我一起過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 
 ${presentMembers.length ? '' : '★【在場】：這個地方只有我一個人（常民與路人照常可以出現）。'}
 
