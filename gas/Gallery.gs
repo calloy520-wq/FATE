@@ -206,12 +206,13 @@ const KANSHOU_NOTED_CAP_ = 3;
 const KANSHOU_NOTED_LEN_ = 14;
 // 相處次數（同伴列）：唯一還在累積的關係軸。只答「見過幾次」，「多喜歡你」交給 AI 從歷史判斷。
 var KANSHOU_MET_COUNT_TAG_ = makeIntTag_('相處', 0);
-// 相處次數 → 一句【物理距離】（不寫關係名詞、不寫評語）。min 單位＝同場回合（12≈2 小時、50≈8 小時）。
+// 相處次數 → 階名（面板用）。min 單位＝同場回合（12≈2 小時、50≈8 小時）。
+//   舊版每階還帶一句「物理距離」送進卡片，2026-09-23 玩家「真的不會寫就不要了」——整組拿掉，多熟交給 AI 從歷史判斷。
 const KANSHOU_FAMILIAR_TIERS_ = [
-  { min: 50, key: '老交情', say: '我們之間沒有留距離' },
-  { min: 30, key: '熟稔', say: '我們之間近到衣袖會碰到' },
-  { min: 12, key: '混熟', say: '我們之間的距離縮到半個手臂' },
-  { min: 0, key: '初識', say: '我們之間留著一個手臂的距離' }
+  { min: 50, key: '老交情' },
+  { min: 30, key: '熟稔' },
+  { min: 12, key: '混熟' },
+  { min: 0, key: '初識' }
 ];
 // 相處次數 → 表上那一階；查不到退回表尾，不另寫死。
 function kanshouKnownTier_(metCount, field) {
@@ -219,10 +220,10 @@ function kanshouKnownTier_(metCount, field) {
   var t = _t.find(function (x) { return (parseInt(metCount) || 0) >= x.min; }) || _t[_t.length - 1];
   return t[field || 'key'];
 }
-// 「我在對方眼中」：距離那一句 ＋ 對方記下的幾條。
+// 「我在對方眼中」：對方記下的幾條。
 function kanshouKnownOfYou_(memory) {
   var noted = String(KANSHOU_NOTED_TAG_.get(memory) || '').split(KANSHOU_NOTED_SEP_).map(function (x) { return x.trim(); }).filter(Boolean);
-  return { say: kanshouKnownTier_(KANSHOU_MET_COUNT_TAG_.get(memory), 'say'), noted: noted };
+  return { noted: noted };
 }
 
 // 剝掉 永遠／總是／每次 這類副詞：會餵回提示詞的記憶帶著它們，就從觀察變成每回合的指令。
@@ -744,6 +745,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
     _st('agency'),
     _st('history'),
     _st('perform'),
+    _st('gender'),
     '每3~4句 <br><br> 分段。',
     _st('dialogue'),
     _st('lewd'),
@@ -938,8 +940,9 @@ var KANSHOU_STYLE_MODULES_ = [
   { key: 'history',    fixed: true, slot: 'sys',  def: '上面的對話歷史是已經結束的事，它讓你知道這一路走到哪裡了；這一回合要寫的，是玩家這一步【接下來】發生的那一段——新的動作、新的話、新的反應。' },
   { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，括號裡是性別，後面是這個人是什麼樣的人；名字後面另外接的那幾行是此刻的狀態。★卡上這些句子、還有【我自己】那張，都只給你看，在場的人並不知道自己被這樣寫著；每張卡上的事是我跟那個人之間的事，其他人手上有的，僅限於自己在場時看得到聽得到的那些。★卡上寫的是【一直以來】的底色，不是這一回合發生的事。' },
   { key: 'dialogue',   fixed: true, slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
-  { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。尺度一律跟著玩家推進到哪裡走。', slot: 'sys', def: '尺度跟著玩家走：玩家在聊天就好好聊天、把日常寫得有滋味；玩家真的伸出手了，才順著往下走。真進到情慾場面就寫滿寫透——器官用本名，體液、聲音、氣味、溫度全部照實寫，身體的反應寫具體。' },
-  { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代日常，大家都是普通市民。' },
+  { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。尺度一律跟著玩家推進到哪裡走。', slot: 'sys', def: '尺度跟著玩家走。' },
+  { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代日常，大家都是普通市民，任何動漫元素也只會用在日常生活。' },
+  { key: 'gender',     fixed: true, slot: 'sys',  def: '★【性別】：在場每個人的性別以卡上寫的為準，身體、稱呼、代名詞照那個寫。' },
   { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依這回合有沒有大事調；隨意＝不給字數，平淡的一幕就讓它平淡。', slot: 'none', kind: 'pick', def: 'auto' },
   { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】這一段寫 {篇幅} 字。' },   // ⚠ 篇幅選「隨意」時整段不送，見 actionPlay_ 的 _sty_('length')
 ];
@@ -1595,7 +1598,7 @@ function kanshouPartyCards_(ctx) {
       // 經歷（BACK）不再常駐：走觸發條目（點名的人在場／玩家提到才亮，見 loreEntryFromBack_）。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
       const _pKnown = kanshouKnownOfYou_(r[COL.PC.MEMORY]);
-      const pKnownStr = `${_pKnown.say}${_pKnown.noted.length ? `，${pron_(r[COL.PC.SEX])}注意到我${_pKnown.noted.join('、')}` : ''}。`;
+      const pKnownStr = _pKnown.noted.length ? `${pron_(r[COL.PC.SEX])}注意到我${_pKnown.noted.join('、')}。` : "";
       // 共同回憶：釘選的常駐，其餘玩家這一步提到才亮（★是釘選標記，不外洩）。
       const _memActive = memoirActive_(pMemoirRaw, ctx.userMsg);
       const pMemoirStr = _memActive.length ? `我們一起走過：${_memActive.join('；')}。` : "";
@@ -1838,20 +1841,7 @@ function actionPlay_(userData, pcId, sheets) {
   });
   const PROMPT_PARTY_LIVE = _cards_.live;
 
-  // ★【身體】：女×女同場才送。講身體本身、兩邊一樣；點名「沒有什麼」反而把那個詞塞進模型腦裡。
-  let genderHintStr = "";
-  if (presentRows.length > 0) {
-    const playerSex = pc[COL.PC.SEX] || "未知";
-    const sameSexF = [];
-    presentRows.forEach(r => {
-      const npcSexRaw = r[COL.PC.SEX] || "未知";
-      const npcSex = (npcSexRaw === "男" || npcSexRaw === "女") ? npcSexRaw : "女";   // 異／無一律按女性向
-      if (playerSex === "女" && npcSex === "女") sameSexF.push(r[COL.PC.NAME]);
-    });
-    genderHintStr = sameSexF.length
-      ? `\n★【身體】：我跟${sameSexF.join("、")}都是女性的身體，彼此一樣。要進入對方，靠的是手指、舌頭，或找得到的器物。`
-      : "";
-  }
+  // 女×女的【身體】說明 2026-09-23 整段拿掉（玩家「只要告訴 AI 要確實分辨性別」）：改成固定模組 gender 那一句。
 
   const _mePron_ = pron_(pc[COL.PC.SEX]);   // 御主性別是資料，代名詞不寫死
 
@@ -1875,7 +1865,7 @@ function actionPlay_(userData, pcId, sheets) {
   const _kanshouTargetWords_ = _lenTier_.words || (_kanshouBigBeat_ ? KANSHOU_WORDS_.big : KANSHOU_WORDS_.range);
 
   // 身體兩塊壓在最後：事實寫在 20 行以前會被當成沒發生（實測女性身體照樣「挺腰撞進去」）。
-  const PROMPT_BODY = `${nsfwMemories}${genderHintStr}`;
+  const PROMPT_BODY = `${nsfwMemories}`;
 
   const _worldFeed_ = worldFeed_(myGameId, worldRead_(myGameId), presentMembers, userMsg, curDay,
     allies.map(r => String(r[COL.PC.NAME])));
