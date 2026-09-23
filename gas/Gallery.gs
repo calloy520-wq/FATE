@@ -745,7 +745,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
     _st('history'),
     _st('perform'),
     _st('gender'),
-    '每3~4句 <br><br> 分段。',
+    '每 2~3 句用 <br><br> 分一段，換行一律用 <br><br>。',
     _st('dialogue'),
     _st('lewd'),
     '只輸出合法 JSON，欄位見下方範本。'
