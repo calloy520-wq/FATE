@@ -624,6 +624,10 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `kanshouAdvanceClock_(ctx)` — ⏰ 這一回合時鐘怎麼走：結束一天／兩段式就寢／時段跳躍／每回合自然流動，四條路都在這裡。`ctx = {userData, pcData, pcIndex, myGameId, sameGame, partyMembers, dirtyPcRows, paceHour, nightSceneOn, curDay, curHour, curL, finalUserMsg}`；回 `{curDay, curHour, curL, finalUserMsg, timeJumped, clockMoved, narrDay, narrHour, intimateNightNames, nightSceneNames}`。⚠ 會就地改 `pcData` 那一列與 `userData.endDay`（兩段式就寢把這一按改成「不結束」）。
 - `loreEntriesFromPref_(pref)` — 📖 從一列的 PREF 第三、四格（喜歡／討厭）長出觸發條目 `[{keys, content}]`：key 用「與、和及，」切、至少兩字（`KANSHOU_LORE_KEY_ALLOW1_` 例外）；空／「無」不長。原創英靈與玩家改命過的走這條。
+- `kanshouSeedRowOf_(row)` — 這一列來自英靈殿哪一筆（【英靈源】→ 英靈殿列），查不到回 null。`kanshouRealName_`／`kanshouLoreBook_` 共用。
+- `kanshouRealName_(row)` — 真名（卡片抬頭「凜（遠坂凜・女）」）；跟暱稱相同（原創英靈）回空。
+- `kanshouBodyPlain_(physicalJson)` — 肉體狀態是不是「如常」。
+- `kanshouOutfitLine_(row, playerMsg)` — 👕 裝扮句什麼時候送：①這件衣服還沒講過（【裝扮已述】≠目前【換裝】：第一回合、玩家換裝、AI 的 appearance_extras 改了）②玩家訊息有衣物詞（`KANSHOU_OUTFIT_KEYS_`）③肉體狀態不是如常。回 `{line, told}`，told＝已就地更新【裝扮已述】、呼叫端要標 dirty。御主自己與每位在場者同一套。
 - `kanshouLoreBook_(row)` — 📖 這一列的觸發條目：【英靈源】→英靈殿 PERSONA JSON 的 `book`；沒有就退回 `loreEntriesFromPref_`；沒有 `rel` 條目時再接上 `loreEntryFromBack_`（玩家改命寫的經歷）。
 - `loreBigrams_(text)` ／ `loreOverlap_(a, b)` — 📖 兩段中文有沒有共用的「兩字詞」（去掉 `LORE_STOP_CHARS_` 功能字與 `LORE_STOP_BIGRAMS_` 泛用詞）。回憶／經歷／帳本這種沒有 keys 的自由文字靠它判「提到了沒」。
 - `loreHits_(entries, text, opts?)` — 📖 條目亮起的三種路：①`keys` 子字串在 `text`；②`rel` 條目點名的人在 `opts.presentNames`；③`overlap` 條目與 `opts.playerMsg` 共用兩字詞。回亮起的 `content[]`。

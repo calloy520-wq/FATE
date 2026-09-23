@@ -1300,25 +1300,56 @@ function loreEntryFromBack_(row) {
   if (!b || QUAD_EMPTY_.indexOf(b) >= 0 || /職階英靈$/.test(b)) return [];
   return [{ keys: [], content: b, rel: true, overlap: true }];
 }
-// 這一列的條目：種子有 book 就用種子的（英靈源→英靈殿 PERSONA JSON），沒有就從 PREF／BACK 長出來。
+// 這一列來自英靈殿哪一筆（【英靈源】→ 英靈殿列），查不到回 null。
+function kanshouSeedRowOf_(row) {
+  const srcId = KANSHOU_SRC_TAG_.get(row[COL.PC.MEMORY]);
+  if (!srcId) return null;
+  try {
+    const d = getHeroCodexCached();
+    for (let i = 1; i < d.length; i++) if (String(d[i][COL.HERO.ID]) === srcId) return d[i];
+  } catch (e) { }
+  return null;
+}
+// 真名（卡片抬頭用）：暱稱「凜」模型要靠雙馬尾猜她是誰，給「遠坂凜」就不必猜。跟暱稱相同就回空。
+function kanshouRealName_(row) {
+  const seed = kanshouSeedRowOf_(row);
+  const real = seed ? String(seed[COL.HERO.NAME] || "").trim() : "";
+  return real && real !== String(row[COL.PC.NAME] || "").trim() ? real : "";
+}
+// 這一列的條目：種子有 book 就用種子的，沒有就從 PREF／BACK 長出來。
 //   種子的 book 也可能只寫了喜惡沒寫經歷：沒有 rel 條目時把 BACK 補上（玩家改命過的經歷也在這裡生效）。
 function kanshouLoreBook_(row) {
-  const srcId = KANSHOU_SRC_TAG_.get(row[COL.PC.MEMORY]);
   let book = null;
-  if (srcId) {
-    try {
-      const d = getHeroCodexCached();
-      for (let i = 1; i < d.length; i++) {
-        if (String(d[i][COL.HERO.ID]) !== srcId) continue;
-        const p = JSON.parse(d[i][COL.HERO.PERSONA] || "{}");
-        if (Array.isArray(p.book) && p.book.length) book = p.book.slice();
-        break;
-      }
-    } catch (e) { }
+  const seed = kanshouSeedRowOf_(row);
+  if (seed) {
+    try { const p = JSON.parse(seed[COL.HERO.PERSONA] || "{}"); if (Array.isArray(p.book) && p.book.length) book = p.book.slice(); } catch (e) { }
   }
   if (!book) book = loreEntriesFromPref_(row[COL.PC.PREF]);
   if (!book.some(function (e) { return e && e.rel; })) book = book.concat(loreEntryFromBack_(row));
   return book;
+}
+// 裝扮句什麼時候送：①這件衣服還沒講過（第一回合、換裝、AI 的 appearance_extras 改了）②玩家提到衣物③肉體狀態不是如常。
+//   其他回合歷史裡有，每回合都送模型就每回合描寫一次（「修長的雙腿裹在過膝黑襪裡」）。講過的存【裝扮已述】。
+var KANSHOU_OUTFIT_TOLD_TAG_ = makeTextTag_('裝扮已述');
+var KANSHOU_OUTFIT_KEYS_ = ['衣', '裙', '襪', '穿', '脫', '換', '裝扮', '外套', '內衣', '胸罩', '內褲', '鞋', '制服', '睡衣', '浴衣', '泳裝', '和服', '洋裝', '領口', '袖', '扣子', '拉鍊'];
+function kanshouBodyPlain_(physicalJson) {
+  let o = {}; try { o = JSON.parse(physicalJson || "{}"); } catch (e) { }
+  const keys = Object.keys(o);
+  return keys.length === 0 || (keys.length === 1 && o["狀態"] === "如常");
+}
+// 回 { line, told }：line＝要送的「穿著X。」或空字串；told＝true 表示 MEMORY 的【裝扮已述】已就地更新（呼叫端要標 dirty）。
+function kanshouOutfitLine_(row, playerMsg) {
+  const outfit = getOutfit_(row[COL.PC.MEMORY]);
+  if (!outfit) return { line: "", told: false };
+  const toldBefore = KANSHOU_OUTFIT_TOLD_TAG_.get(row[COL.PC.MEMORY]);
+  const msg = String(playerMsg || "");
+  const send = toldBefore !== outfit
+    || KANSHOU_OUTFIT_KEYS_.some(function (k) { return msg.indexOf(k) >= 0; })
+    || !kanshouBodyPlain_(row[COL.PC.PHYSICAL]);
+  if (!send) return { line: "", told: false };
+  let told = false;
+  if (toldBefore !== outfit) { row[COL.PC.MEMORY] = KANSHOU_OUTFIT_TOLD_TAG_.set(row[COL.PC.MEMORY], outfit); told = true; }
+  return { line: `穿著${outfit}。`, told: told };
 }
 // 共同回憶：釘選（★）常駐，其餘玩家提到才亮。回 [常駐…, 亮起…] 的純文字。
 function memoirActive_(memoirRaw, playerMsg) {
@@ -1590,7 +1621,9 @@ function kanshouPartyCards_(ctx) {
   partyMembers.forEach(pName => {
     const r = pcData.find(row => String(row[COL.PC.NAME]).trim() === String(pName).trim() && kanshouIsAlly_(row, myGameId));
     if (r) {
-      const pOutfit = getOutfit_(r[COL.PC.MEMORY]);
+      const _outfitR = kanshouOutfitLine_(r, ctx.userMsg);
+      if (_outfitR.told && ctx.dirtyPcRows) ctx.dirtyPcRows.add(pcData.indexOf(r));
+      const pRealName = kanshouRealName_(r);
       const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
       const pLogic = getPersonaLogic_(r[COL.PC.MEMORY]);
       // 關係稱呼只送【玩家自己設過】的（上了關係鎖）；AI 寫的只給面板看，送回去會變成讀自己上回合的字。
@@ -1607,8 +1640,8 @@ function kanshouPartyCards_(ctx) {
         ? "時間流轉之後，【依然在你身邊】(這段空白裡各自做了什麼，順著時段自然帶過)" : "";
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
       const _pPref = formatPref(r[COL.PC.PREF]), _pTrait = formatTrait(r[COL.PC.TRAIT]);
-      stableArr.push(`【在場人物】${pName}（${String(r[COL.PC.SEX] || "").trim() || "異"}）。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pLogic ? `${pLogic}。` : ""}`);
-      const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是我的「${pRelTagStr}」。` : ""}${pMemStr}`;
+      stableArr.push(`【在場人物】${pName}（${pRealName ? pRealName + '・' : ''}${String(r[COL.PC.SEX] || "").trim() || "異"}）。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pLogic ? `${pLogic}。` : ""}`);
+      const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${_outfitR.line}${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是我的「${pRelTagStr}」。` : ""}${pMemStr}`;
       liveArr.push(`${pName}：${_live}`);
     }
   });
@@ -1764,7 +1797,8 @@ function actionPlay_(userData, pcId, sheets) {
   let finalUserMsg = `【玩家原話】：${userMsg}`;
   const dirtyPcRows = new Set([pcIndex]);
 
-  const myOutfit = getOutfit_(pc[COL.PC.MEMORY]);
+  const _myOutfitR = kanshouOutfitLine_(pc, userMsg);
+  if (_myOutfitR.told) dirtyPcRows.add(pcIndex);
   // 晨間餘韻讀一次就清，只給緊接著的下一回合
   const morningAfterNames = KANSHOU_MORNING_AFTER_TAG_.get(pc[COL.PC.MEMORY]);
   if (morningAfterNames) pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_MORNING_AFTER_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], '');
@@ -1837,7 +1871,7 @@ function actionPlay_(userData, pcId, sheets) {
   const _cards_ = kanshouPartyCards_({
     pcData: pcData, myGameId: myGameId, partyMembers: presentMembers,
     partyIdSet: partyRows.map(r => String(r[COL.PC.ID])),
-    timeJumped: kanshouTimeJumped_, formatPref: formatPref, formatTrait: formatTrait, userMsg: userMsg
+    timeJumped: kanshouTimeJumped_, formatPref: formatPref, formatTrait: formatTrait, userMsg: userMsg, dirtyPcRows: dirtyPcRows
   });
   const PROMPT_PARTY_LIVE = _cards_.live;
 
@@ -1882,7 +1916,7 @@ function actionPlay_(userData, pcId, sheets) {
 ★【誰在場】：有【專屬稱呼】就叫暱稱。卡片與帳本都沒提到的路人不具名。
 ★【world_note】：這一步新出現的地方/人/規矩，寫進去才會留下；挑之後還會再遇到、再提起的寫，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆。
 
-【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || ""}。
+【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${_myOutfitR.line}${pc[COL.PC.BACK] || ""}。
 ${PROMPT_PARTY_LIVE}
 ${_lenTier_.free ? '' : _sty_('length')}
 ${kanshouWorldRosterStr}${_worldFeed_}${_loreStr_}${kanshouNightSceneStr}
