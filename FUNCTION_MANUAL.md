@@ -245,7 +245,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
   - `worldPayload_(gid)` — 面板要的東西一次給齊（條目＋大區＋上限）；`list` 與每個 op 都回這同一包。
   - `worldDrop_(gameId, kind, name)` — 從帳本拿掉一條（同類同名），回傳有沒有真的刪到。面板的「刪掉」與「常民升格成正式同伴之後清掉帳本那條」共用這一支（不清會變成同一個人兩份真相）。
   - `worldEvictees_(d, gid, added, curDay)` — **純函式**，只回答「該砍哪幾列」（`{'r列索引':1,'a新列序':1}`）：每類超過 `WORLD_SPEC_` 該軌的 `cap` 就砍「最久沒被提到、提及次數也最少」的，★釘選與有根的（`AT`／`OWN`）永不驅逐。刻意不自己讀表——寫入端手上已經有整張表了。
-  - `worldFeed_(gameId, rows, curLoc, presentNames, userMsg, curDay)` — **不是全餵**：算相關性分數排序取前 `feedMax` 條（`WORLD_SPEC_` 逐軌），掛在此刻這個地方的另外取前 `atMax` 條、不占名額。
+  - `worldFeed_(gameId, rows, presentNames, userMsg, curDay, allyNames)` — **不是全餵**（`spec.gate`：鑑賞 `mention`＝釘選／在場人物／玩家提到（名字或共用兩字詞）才亮；solo `recent`＝近期照舊）：算相關性分數排序取前 `feedMax` 條（`WORLD_SPEC_` 逐軌），掛在此刻這個地方的另外取前 `atMax` 條、不占名額。
   - `worldSame_(a, b)` — bigram 近義比對。⚠ **只用在近期迴聲（最近兩天）**，不掃全表：句型相近但語意不同的事實太常見，掃全表會把世界愈合併愈空。
 - `KANSHOU_CAL_START_YEAR_`（常數＝2005）— 鑑賞曆法的起算西元年。2026-09 前沒有這個常數、`year` 直接算成「第幾年」，開局顯示「1年12月20日」。週年是用 absDay 差算的、不吃 `.year`，改它只動顯示字串。
 - `quadLabeled_(raw, labels, skipNone)` — PREF/TRAIT 的「、」分段值逐格加標籤餵 AI（格數＝`labels.length`）。值落在 `QUAD_EMPTY_` 的整格不送。 ⚠ 2026-09 起會依 `QUAD_REDUNDANT_` 剝掉與標籤疊字的值前綴（`討厭的事物：厭惡見死不救`→`見死不救`）；剝完為空就整格跳過。**`QUAD_EMPTY_` 的判斷刻意做兩次（剝疊字前、後各一次）**——只在剝完之後判的話，佔位字「厭惡之事」會被剝成「之事」而逃過濾網（25 位種子從者全中，見 CODE_NOTES）。 **⚠ 2026-09 改成 all-or-nothing**：只有【labels.length 格全是真值】才逐格貼標籤；缺任一格就整組退成 `QUAD_LOOSE_LABEL_` 登記的鬆散標籤（目前只有 PREF 那組→「性格」），值照樣剝疊字、用「、」串成一行。理由：種子的 `persona.words` 多半是「痛快・重義」這種價值觀清單，位置硬塞會讓標籤說謊（「喜歡的事物：壓抑的少女心」）。外貌三格由 `looksToTraitParts_` 保證對位，沒登記所以不受影響。
@@ -624,14 +624,17 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 - `kanshouAdvanceClock_(ctx)` — ⏰ 這一回合時鐘怎麼走：結束一天／兩段式就寢／時段跳躍／每回合自然流動，四條路都在這裡。`ctx = {userData, pcData, pcIndex, myGameId, sameGame, partyMembers, dirtyPcRows, paceHour, nightSceneOn, curDay, curHour, curL, finalUserMsg}`；回 `{curDay, curHour, curL, finalUserMsg, timeJumped, clockMoved, narrDay, narrHour, intimateNightNames, nightSceneNames}`。⚠ 會就地改 `pcData` 那一列與 `userData.endDay`（兩段式就寢把這一按改成「不結束」）。
 - `loreEntriesFromPref_(pref)` — 📖 從一列的 PREF 第三、四格（喜歡／討厭）長出觸發條目 `[{keys, content}]`：key 用「與、和及，」切、至少兩字（`KANSHOU_LORE_KEY_ALLOW1_` 例外）；空／「無」不長。原創英靈與玩家改命過的走這條。
-- `kanshouLoreBook_(row)` — 📖 這一列的觸發條目：【英靈源】→英靈殿 PERSONA JSON 的 `book`；沒有就退回 `loreEntriesFromPref_`。
-- `loreHits_(entries, text)` — 📖 子字串比對（不分大小寫），回亮起的 `content[]`，順序＝條目順序。
+- `kanshouLoreBook_(row)` — 📖 這一列的觸發條目：【英靈源】→英靈殿 PERSONA JSON 的 `book`；沒有就退回 `loreEntriesFromPref_`；沒有 `rel` 條目時再接上 `loreEntryFromBack_`（玩家改命寫的經歷）。
+- `loreBigrams_(text)` ／ `loreOverlap_(a, b)` — 📖 兩段中文有沒有共用的「兩字詞」（去掉 `LORE_STOP_CHARS_` 功能字與 `LORE_STOP_BIGRAMS_` 泛用詞）。回憶／經歷／帳本這種沒有 keys 的自由文字靠它判「提到了沒」。
+- `loreHits_(entries, text, opts?)` — 📖 條目亮起的三種路：①`keys` 子字串在 `text`；②`rel` 條目點名的人在 `opts.presentNames`；③`overlap` 條目與 `opts.playerMsg` 共用兩字詞。回亮起的 `content[]`。
+- `loreEntryFromBack_(row)` — 📖 那一列的經歷（`COL.PC.BACK`，只有玩家自己改命才會有值）長成一條 `{rel, overlap}` 條目。
+- `memoirActive_(memoirRaw, playerMsg)` — 📖 共同回憶：釘選（★）常駐，其餘與玩家訊息共用兩字詞才亮；回純文字陣列（★ 已剝）。
 - `kanshouLoreStr_(ctx)` — 📖 這一回合亮起的條目 → `★【這一步碰到的底細】`（我／每位在場者／`KANSHOU_WORLD_BOOK_`，最多 `KANSHOU_LORE_MAX_` 段）；沒中回空字串。只掃 `ctx.userMsg`，`KANSHOU_LORE_SCAN_AI_` 開了才把 `ctx.lastNarration` 一起掃。`ctx = {userMsg, lastNarration, pc, presentRows}`。探針 `lore.js`。
-- `kanshouPartyCards_(ctx)` — 🪪 在場人物卡，**一分為二**：`stable`＝這個人是誰（六格人設·整局不變·進 system 吃提示詞快取）、`live`＝此刻的樣子（穿著／在場來由／共同回憶／她眼中的你／關係稱呼·留 user）。`ctx = {pcData, pcId, myGameId, userMsg, partyMembers, moveTarget, timeJumped, formatPref, formatTrait}`；回 `{stable, live}`。⚠ 順序＝同行名單的插入順序，加人是 append，所以加人不會動到前面幾張卡的快取前綴。（~~聚光燈 `_spotlight_`~~ 已退休，見 CODE_NOTES。）
+- `kanshouPartyCards_(ctx)` — 🪪 在場人物卡，**一分為二**：`stable`＝這個人是誰（六格人設·整局不變·進 system 吃提示詞快取）、`live`＝此刻的樣子（穿著／在場來由／共同回憶／她眼中的你／關係稱呼·留 user）。`ctx = {pcData, pcId, userMsg(共同回憶的觸發用), myGameId, userMsg, partyMembers, moveTarget, timeJumped, formatPref, formatTrait}`；回 `{stable, live}`。⚠ 順序＝同行名單的插入順序，加人是 append，所以加人不會動到前面幾張卡的快取前綴。（~~聚光燈 `_spotlight_`~~ 已退休，見 CODE_NOTES。）
 - `kanshouApplyIntimacyFeedback_(ctx)` — 📝 AI 回報的當下狀態落盤：玩家與每位在場者的 神色／穿著配飾／專屬稱呼／關係稱呼／共同回憶／她眼中的你。`ctx = {aiData, pcData, pcIndex, myGameId, dirtyPcRows, curL, pcName}`；就地改 `pcData` 並把動到的列記進 `dirtyPcRows`，不自己寫表。⚠ 這是 AI 唯一能改「人的狀態」的管道，敷衍用語過濾與長度裁切都擋在這一層。
 - `relMemMemoryStr_(relMem)` — 💬 專屬稱呼 → 卡片上那一小段（沒有稱呼就整段不印）。2026-09 從 `actionPlay_` 內部提到檔案層，因為在場人物卡拆出去之後變成跨函式共用。
 
-- `heroToKanshouRow_(heroRow, gameId, loc)` — 核心建列器：把 HERO 列轉成鑑賞 PC 列（KHV_ 前綴）。用日常稱呼當 NAME、讀日常版 look/words/moe/outfit、身世走 dailyBack→back→通用預設、起始 BOND=10「點頭之交」、不寫戰鬥欄/IS_PARTY/PHYSICAL。被召喚/起始住民共用。**七度改版**：建列尾聲檢查`KANSHOU_HERO_HOME_[heroRow[COL.HERO.ID]]`，查無專屬豪邸就從~~~~`KANSHOU_GENERIC_HOME_POOL_`~~~~隨機抽一間、用`setKanshouHeroHome_`寫進`【住處】`記憶標記——這是新英靈唯一的建列入口，此處補一次即涵蓋召喚與起始住民兩條路徑。 ⚠ 2026-09 加蓋 `KANSHOU_SRC_TAG_`（【英靈源】＝來源種子 id），撞名守門靠它認人。
+- `heroToKanshouRow_(heroRow, gameId, loc)` — 核心建列器：把 HERO 列轉成鑑賞 PC 列（KHV_ 前綴）。用日常稱呼當 NAME、讀日常版 look/words/moe/outfit、身世留空（種子經歷 2026-09-23 退休，那格只給玩家自己改命）、起始 BOND=10「點頭之交」、不寫戰鬥欄/IS_PARTY/PHYSICAL。被召喚/起始住民共用。**七度改版**：建列尾聲檢查`KANSHOU_HERO_HOME_[heroRow[COL.HERO.ID]]`，查無專屬豪邸就從~~~~`KANSHOU_GENERIC_HOME_POOL_`~~~~隨機抽一間、用`setKanshouHeroHome_`寫進`【住處】`記憶標記——這是新英靈唯一的建列入口，此處補一次即涵蓋召喚與起始住民兩條路徑。 ⚠ 2026-09 加蓋 `KANSHOU_SRC_TAG_`（【英靈源】＝來源種子 id），撞名守門靠它認人。
 
 #### ~~關係梯度·好感天花板~~（2026-09 鑑賞好感整組砍除）
 
@@ -973,7 +976,7 @@ getter 內部委派 `makeTextTag_('迴路'|'魔術').get`（既有工廠，取�
 #### 升級/重刷管線
 - `upgradeCodexPersonas_(ss)` — 升級既有英靈殿：整列依種子重寫（ID 對應、只刷 seed 英靈不動 ai_gen）＋補入新種子英靈＋淘汰孤兒（ID 不在 SEED_SERVANTS 且 source=='seed' 才刪，由下往上）。清 FATE_HERO_CODEX 快取。回更新筆數。
 - `upgradeMasterCodex_(ss)` — 升級既有御主殿：依種子整列重寫（含 circuits/home/wish 等影響玩法欄）＋補新＋淘汰 seed 孤兒。
-- `resyncSummonedServants_(ss)` — 重刷「已召喚實體化」從者的戰鬥數據（寶具/六圍/標籤 fx）為最新種子值；依(真名,職階)對應、經 SEED_RECLASSED_ 遷移；不動 HP/MP/MEMORY/敘事欄；k_ 鑑賞列另補 dailyBack。另掃「鑑賞眾生」分頁補刷 BACK/TRAIT/MEMORY【口吻】（修 §125 死分支——原掃「眾生」永遠掃不到住「鑑賞眾生」的鑑賞同伴）。
+- `resyncSummonedServants_(ss)` — 重刷「已召喚實體化」從者的戰鬥數據（寶具/六圍/標籤 fx）為最新種子值；依(真名,職階)對應、經 SEED_RECLASSED_ 遷移；不動 HP/MP/MEMORY/敘事欄；k_ 鑑賞列還留著退休種子經歷（`RETIRED_DAILY_BACK_`）的洗成空字串。另掃「鑑賞眾生」分頁補刷 BACK/TRAIT/MEMORY【口吻】（修 §125 死分支——原掃「眾生」永遠掃不到住「鑑賞眾生」的鑑賞同伴）。
 - `actionDevResyncCodex(userData, pcId, sheets)` — 前端 DEV 按鈕：無視版本旗標強制跑 upgradeCodexPersonas_＋resyncSummonedServants_，回報筆數。
 - `seedFateCodex_(ss)` — 英靈殿/御主殿為空（只有表頭）時自動灌名冊；版本升級時（codex_persona_ver≠CODEX_PERSONA_VER）跑三支升級函式並蓋版本旗標。ensureFateSheets_ 末尾呼叫。
 

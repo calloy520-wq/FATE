@@ -124,21 +124,7 @@ def _grams(t):
     return {t[i:i + 2] for i in range(len(t) - 1)}
 
 
-def check_back_not_personality(bad, seed_src):
-    n = 0
-    for m in re.finditer(r"id\s*:\s*'([^']+)'.*?dailyWords\s*:\s*'([^']*)'.*?dailyBack\s*:\s*'([^']*)'", seed_src, re.S):
-        sid, words, back = m.group(1), m.group(2), m.group(3)
-        if not back:
-            continue
-        n += 1
-        a, b = _grams(back), _grams(words)
-        if not a or not b:
-            continue
-        ov = len(a & b) / min(len(a), len(b))
-        if ov >= BACK_DUP_MAX:
-            bad.append("「%s」的經歷只是性格的改寫（重疊 %d%%）：%s —— 經歷放事實，形容留給性格那格"
-                       % (sid, round(ov * 100), back))
-    return n
+# check_back_not_personality 2026-09-23 隨 dailyBack 退休一起拿掉（沒有經歷格就沒有東西可比）。
 
 
 # 🔢 創角提示詞裡寫的【格數】必須等於吃它的那張表的格數：
@@ -153,7 +139,6 @@ SEG_SPECS = [
     (r"日常版「外貌」(三|四|二|兩)短句", 'DAILY_LOOK_SLOTS_'),
 ]
 CN_NUM = {'二': 2, '兩': 2, '三': 3, '四': 4}
-
 
 def check_prompt_seg_counts(bad, files):
     core = read(os.path.join(GAS, 'Core_Settings.gs'))
@@ -360,11 +345,10 @@ def check_logic(bad, seed_src):
         n_quirk += 1
         if len([x for x in m.group(1).split('、') if x.strip()]) != 2:
             bad.append("怪癖不是兩格：「%s」——一個看得見的習慣動作＋一個應付不來的領域" % m.group(1))
-    for m in re.finditer(r"dailyBack:'([^']*)'", seed_src):
+    # dailyBack 2026-09-23 整格退休（玩家「都是多餘的」）：種子裡再出現就叫，這格只給玩家自己改命用。
+    for m in re.finditer(r"dailyBack\s*:", seed_src):
         n_back += 1
-        if not BACK_CONCRETE.search(m.group(1)):
-            bad.append("「在這座城裡是誰」寫成形容詞：「%s」——這一欄要身分/在哪/跟誰有關係，"
-                       "形容詞性格欄已經講過了；它同時是世界帳本的起點" % m.group(1))
+        bad.append("dailyBack 已退休：種子裡不該再有「在這座城裡是誰」——模型從名字就知道她是誰，寫了只會被拿出來加料")
     return n_logic, n_quirk, n_back
 
 
@@ -380,12 +364,12 @@ def check_lore(bad, seed_src, gallery_src):
     allow1 = lore_allow1(gallery_src)
     n = 0
     for m in re.finditer(r"book:\s*\[(.*?)\]\s*\}", seed_src, re.S):
-        for e in re.finditer(r"\{\s*'keys'\s*:\s*\[([^\]]*)\]\s*,\s*'content'\s*:\s*'([^']*)'\s*\}", m.group(1)):
+        for e in re.finditer(r"\{\s*'keys'\s*:\s*\[([^\]]*)\]\s*,\s*'content'\s*:\s*'([^']*)'([^}]*)\}", m.group(1)):
             n += 1
             keys = re.findall(r"'([^']+)'", e.group(1))
             content = e.group(2).strip()
-            if not keys:
-                bad.append("觸發條目沒有 keys：「%s」——沒有關鍵字的條目永遠亮不起來" % content)
+            if not keys and "'rel':true" not in e.group(3).replace(' ', '') and "'overlap':true" not in e.group(3).replace(' ', ''):
+                bad.append("觸發條目沒有 keys 也沒有 rel／overlap：「%s」——永遠亮不起來" % content)
             for k in keys:
                 if len(k) < 2 and k not in allow1:
                     bad.append("觸發條目的單字 key「%s」（%s）——逢字就亮，要嘛寫兩字以上，要嘛登記進 KANSHOU_LORE_KEY_ALLOW1_" % (k, content))
@@ -459,7 +443,6 @@ def main():
     n_tom = check_tomaster(bad, seed_src)
     n_lit = check_hardcoded_names(bad, seed_src, gas_files())
     n_nm = check_name_has_cjk(bad, seed_src)
-    n_bk = check_back_not_personality(bad, seed_src)
     n_seg = check_prompt_seg_counts(bad, gas_files())
     n_stance = check_stance_additive(bad, read(os.path.join(GAS, 'Router_Persona.gs')))
     n_line = check_moe_retired(bad, gas_files())
@@ -476,7 +459,6 @@ def main():
     before = len(probe)
     check_hardcoded_names(probe, seed_src, [], extra=[('(注入)', "if (name === '阿爾托莉雅') return [];")])
     check_name_has_cjk(probe, "realName:'EMIYA',")
-    check_back_not_personality(probe, "{ id:'測試-Saber', dailyWords:'隨性自來熟、重情義、釣魚與湊熱鬧、拐彎抹角的算計', dailyBack:'隨性愛湊熱鬧，重情義' }")
     _seg_before = len(probe)
     _tmp = os.path.join(GAS, 'Core_Settings.gs')
     check_prompt_seg_counts(probe, [_tmp])   # Core_Settings 本身沒有這些提示詞，下面改用注入檔
@@ -495,7 +477,7 @@ def main():
     _aura_before = len(probe)
     check_aura(probe, "dailyLook:'金髮碧眼、背脊永遠打得筆直、簡潔認真',", [])
     _logic_before = len(probe)
-    check_logic(probe, "logic:'重視朋友'\nquirks:'撥髮'\ndailyBack:'溫柔而沉靜'")
+    check_logic(probe, "logic:'重視朋友'\nquirks:'撥髮'\ndailyBack:'溫柔而沉靜'")   # dailyBack 復活也要叫
     _pref2_before = len(probe)
     check_pref2(probe, "dailyWords:'測試、越被誇越兇、甲、乙'")
     _lore_before = len(probe)
@@ -520,8 +502,8 @@ def main():
         print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名／取代式階段表／復活的萌點／常態舞台指示／條件觸發性格／沒有取捨的準則／封鎖後抽不到的種子抓不到）')
         return 1
 
-    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、提示詞格數 %d 處、daily 專欄 %d 格、好感位移 %d 階、退休欄掃 %d 行、氣質格 %d 筆、性格第二格 %d 筆、行為準則 %d 條（怪癖 %d 格·城裡身分 %d 條）、觸發條目 %d 條（含自我退化測試）'
-          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_seg, n_own, n_stance, n_line, n_aura, n_pref2, n_logic, n_quirk, n_back, n_lore))
+    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、提示詞格數 %d 處、daily 專欄 %d 格、好感位移 %d 階、退休欄掃 %d 行、氣質格 %d 筆、性格第二格 %d 筆、行為準則 %d 條（怪癖 %d 格·城裡身分 %d 條）、觸發條目 %d 條（含自我退化測試）'
+          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_seg, n_own, n_stance, n_line, n_aura, n_pref2, n_logic, n_quirk, n_back, n_lore))
     if bad:
         print('  ❌ %d 處「寫了但沒人吃」：' % len(bad))
         for b in bad:

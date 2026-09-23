@@ -186,9 +186,8 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   var dailyLookParts = String(daily.look || "").split('、').map(function (s) { return s.trim(); }).filter(Boolean);
   var traitSrc = dailyLookParts.length >= DAILY_LOOK_SLOTS_ ? dailyLookParts.slice(0, DAILY_LOOK_SLOTS_).join('、') : looksToTraitParts_(daily.look);
   sRow[COL.PC.TRAIT] = parseTraitsHelper(traitSrc, "外貌出眾、舉止從容", TRAIT_SLOTS_);
-  // 經歷：dailyBack 優先；都沒有就留空（卡片不印），別塞泛用墊底話。
-  sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28)
-    : p.back ? String(p.back).slice(0, 28) : "";
+  // 經歷留空：種子的「在這座城裡是誰」2026-09-23 退休（玩家「都是多餘的」），這格只給玩家自己改命用。
+  sRow[COL.PC.BACK] = "";
   // 只帶準則；小動作是 solo 演出卡的東西，鑑賞的在場卡從來不讀，寫進來只是死資料。
   sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("", "", p.logic || ""), daily.outfit || "日常便服");
   // 【英靈源】＝來自哪一筆種子；撞名守門靠它，不靠顯示名。
@@ -870,6 +869,7 @@ var KANSHOU_NIGHT_SCENE_TAG_ = makeIntTag_('夜未眠', 0);
 //   kinds 同時驅動：AI 能寫哪些、哪些會被淘汰、面板列哪些。
 var WORLD_SPEC_ = {
   kanshou: {
+    gate: 'mention',   // 亮法：釘選／在場人物／玩家提到才餵（玩家「不要一直提那些有的沒的」）
     sheet: '世界帳本',
     kinds: ['地點', '人物', '設定'],
     cap: { '地點': 60, '人物': 40, '設定': 50 },
@@ -887,6 +887,7 @@ var WORLD_SPEC_ = {
   },
   // solo 的人與地點種子庫早有了，AI 只記【這一局的因果】（歷史 6 筆不夠記誰殞落／誰結盟）。
   solo: {
+    gate: 'recent',    // 戰記：局勢層級的事（誰殞落、誰結盟）不等玩家提，近期的照餵
     sheet: '世界帳本',
     kinds: ['因果'],
     cap: { '因果': 40 },
@@ -1285,29 +1286,72 @@ function loreEntriesFromPref_(pref) {
   });
   return out;
 }
-// 這一列的條目：種子有 book 就用種子的（英靈源→英靈殿 PERSONA JSON），沒有就退回 PREF 長出來的。
+// 經歷（BACK）長成一條：點名的人在場就常駐（rel），玩家提到裡面的事才亮（overlap）。
+function loreEntryFromBack_(row) {
+  const b = String(row[COL.PC.BACK] || "").trim();
+  if (!b || QUAD_EMPTY_.indexOf(b) >= 0 || /職階英靈$/.test(b)) return [];
+  return [{ keys: [], content: b, rel: true, overlap: true }];
+}
+// 這一列的條目：種子有 book 就用種子的（英靈源→英靈殿 PERSONA JSON），沒有就從 PREF／BACK 長出來。
+//   種子的 book 也可能只寫了喜惡沒寫經歷：沒有 rel 條目時把 BACK 補上（玩家改命過的經歷也在這裡生效）。
 function kanshouLoreBook_(row) {
   const srcId = KANSHOU_SRC_TAG_.get(row[COL.PC.MEMORY]);
+  let book = null;
   if (srcId) {
     try {
       const d = getHeroCodexCached();
       for (let i = 1; i < d.length; i++) {
         if (String(d[i][COL.HERO.ID]) !== srcId) continue;
         const p = JSON.parse(d[i][COL.HERO.PERSONA] || "{}");
-        if (Array.isArray(p.book) && p.book.length) return p.book;
+        if (Array.isArray(p.book) && p.book.length) book = p.book.slice();
         break;
       }
     } catch (e) { }
   }
-  return loreEntriesFromPref_(row[COL.PC.PREF]);
+  if (!book) book = loreEntriesFromPref_(row[COL.PC.PREF]);
+  if (!book.some(function (e) { return e && e.rel; })) book = book.concat(loreEntryFromBack_(row));
+  return book;
 }
-function loreHits_(entries, text) {
+// 共同回憶：釘選（★）常駐，其餘玩家提到才亮。回 [常駐…, 亮起…] 的純文字。
+function memoirActive_(memoirRaw, playerMsg) {
+  const items = String(memoirRaw || "").split('｜').map(function (x) { return x.trim(); }).filter(Boolean);
+  return items.filter(function (m) { return m.charAt(0) === '★' || loreOverlap_(m, playerMsg); })
+    .map(function (m) { return m.replace(/★/g, ''); });
+}
+// 兩段中文有沒有共用的「兩字詞」（去掉功能字與泛用詞）：回憶／經歷／帳本這種自由文字沒有 keys，靠這個判「提到了沒」。
+// 功能字表（\u5979\u4ed6＝她他，用跳脫寫是為了不讓代名詞掃描器把一張字表當成提示詞）
+var LORE_STOP_CHARS_ = '的了是我你妳\u5979\u4ed6們在有和與這那就也都要去來說看一個把被給對很好嗎呢吧啊不';
+var LORE_STOP_BIGRAMS_ = ['喜歡', '討厭', '我們', '一起', '那天', '今天', '之後', '時候', '開始', '最近', '可以', '自己', '還是', '因為', '所以', '沒有', '什麼', '東西', '知道', '覺得', '一下', '然後', '已經', '現在', '這裡', '那裡'];
+function loreBigrams_(text) {
+  const t = String(text || "").replace(/[^\u4e00-\u9fff]/g, ' ');
+  const out = {};
+  for (let i = 0; i + 1 < t.length; i++) {
+    const bg = t.substr(i, 2);
+    if (bg.indexOf(' ') >= 0) continue;
+    if (LORE_STOP_CHARS_.indexOf(bg[0]) >= 0 || LORE_STOP_CHARS_.indexOf(bg[1]) >= 0) continue;
+    if (LORE_STOP_BIGRAMS_.indexOf(bg) >= 0) continue;
+    out[bg] = 1;
+  }
+  return out;
+}
+function loreOverlap_(a, b) {
+  const x = loreBigrams_(a), y = loreBigrams_(b);
+  return Object.keys(x).some(function (k) { return y[k]; });
+}
+// 條目亮起的三種路：①keys 子字串在玩家訊息裡；②rel 條目點名的人在場（關係事實在那個人面前是常識）；
+//   ③content 與玩家訊息共用兩字詞（沒有 keys 的自由文字走這條）。opts = { presentNames, playerMsg }
+function loreHits_(entries, text, opts) {
   const hay = String(text || "").toLowerCase();
-  if (!hay) return [];
+  const present = (opts && opts.presentNames) || [];
+  const playerMsg = (opts && opts.playerMsg !== undefined) ? String(opts.playerMsg) : hay;
   const out = [];
   (entries || []).forEach(function (e) {
-    if (!e || !Array.isArray(e.keys) || !e.content) return;
-    if (e.keys.some(function (k) { return k && hay.indexOf(String(k).toLowerCase()) >= 0; })) out.push(String(e.content));
+    if (!e || !e.content) return;
+    const keys = Array.isArray(e.keys) ? e.keys : [];
+    let hit = !!hay && keys.some(function (k) { return k && hay.indexOf(String(k).toLowerCase()) >= 0; });
+    if (!hit && e.rel && present.length) hit = present.some(function (n) { return n && String(e.content).indexOf(n) >= 0; });
+    if (!hit && e.overlap && playerMsg) hit = loreOverlap_(e.content, playerMsg);
+    if (hit) out.push(String(e.content));
   });
   return out;
 }
@@ -1316,13 +1360,15 @@ function kanshouLoreStr_(ctx) {
   let hay = String(ctx.userMsg || "");
   if (KANSHOU_LORE_SCAN_AI_ && ctx.lastNarration) hay += "\n" + String(ctx.lastNarration);
   const parts = [];
-  const mine = loreHits_(loreEntriesFromPref_(ctx.pc[COL.PC.PREF]), hay);
+  const presentNames = (ctx.presentRows || []).map(function (r) { return String(r[COL.PC.NAME]).trim(); });
+  const opts = { presentNames: presentNames, playerMsg: String(ctx.userMsg || "") };
+  const mine = loreHits_(loreEntriesFromPref_(ctx.pc[COL.PC.PREF]), hay, opts);
   if (mine.length) parts.push(`我：${mine.join('；')}`);
   (ctx.presentRows || []).forEach(function (r) {
-    const h = loreHits_(kanshouLoreBook_(r), hay);
+    const h = loreHits_(kanshouLoreBook_(r), hay, opts);
     if (h.length) parts.push(`${String(r[COL.PC.NAME]).trim()}：${h.join('；')}`);
   });
-  const world = loreHits_(KANSHOU_WORLD_BOOK_, hay);
+  const world = loreHits_(KANSHOU_WORLD_BOOK_, hay, opts);
   if (world.length) parts.push(world.join('；'));
   if (!parts.length) return "";
   return `\n★【這一步碰到的底細】(玩家這句話碰到了它們)：${parts.slice(0, KANSHOU_LORE_MAX_).join('｜')}。`;
@@ -1336,16 +1382,18 @@ function worldFeed_(gameId, rows, presentNames, userMsg, curDay, allyNames) {
   if (_allies.length) rows = rows.filter(r => !(r.kind === '人物' && _allies.indexOf(String(r.name || "").trim()) >= 0));
   const names = (presentNames || []).map(n => String(n || "").trim()).filter(Boolean);
   const day = parseInt(curDay) || 0;
+  // 亮起的三種路跟觸發條目同一套：釘選／在場人物／玩家這一步提到（名字或共用兩字詞）。近期與命中次數只管排序。
   const all = rows.map(r => {
     const hay = r.name + '｜' + r.text;
     let sc = 0;
     if (r.pin) sc += 100;
     if (names.some(n => hay.indexOf(n) >= 0)) sc += 30;
-    if (msg && (msg.indexOf(r.name) >= 0 || (r.name.length > 1 && hay.indexOf(msg.slice(0, 6)) >= 0))) sc += 50;
+    if (msg && (msg.indexOf(r.name) >= 0 || loreOverlap_(hay, msg))) sc += 50;
+    if (spec.gate === 'mention' && sc === 0) return null;
     if (day && r.seen >= day - 3) sc += 20;
     sc += Math.min(r.hits, 5);
-    return { r: r, sc: sc };
-  }).filter(x => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, spec.feedMax);
+    return sc > 0 ? { r: r, sc: sc } : null;
+  }).filter(Boolean).sort((a, b) => b.sc - a.sc).slice(0, spec.feedMax);
   if (!all.length) return "";
   // 名字不在內容裡就補上（只餵內容 AI 講不出那是什麼）
   const line = all.map(x => x.r.kind === '人物'
@@ -1539,21 +1587,19 @@ function kanshouPartyCards_(ctx) {
       const pLogic = getPersonaLogic_(r[COL.PC.MEMORY]);
       // 關係稱呼只送【玩家自己設過】的（上了關係鎖）；AI 寫的只給面板看，送回去會變成讀自己上回合的字。
       const pRelTagStr = kanshouRelLocked_(r[COL.PC.REL_MEM], 'tag') ? String(r[COL.PC.REL_TAG] || "").trim() : "";
-      const pBackStr = (() => {
-        const _b = String(r[COL.PC.BACK] || "").trim();
-        if (!_b || _b === `${String(r[COL.PC.RANK] || "")}・${pName}` || /職階英靈$/.test(_b) || QUAD_EMPTY_.indexOf(_b) !== -1) return "";
-        return `${_b}。`;
-      })();
+      // 經歷（BACK）不再常駐：走觸發條目（點名的人在場／玩家提到才亮，見 loreEntryFromBack_）。
       const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
       const _pKnown = kanshouKnownOfYou_(r[COL.PC.MEMORY]);
       const pKnownStr = `${_pKnown.say}${_pKnown.noted.length ? `，${pron_(r[COL.PC.SEX])}注意到我${_pKnown.noted.join('、')}` : ''}。`;
-      const pMemoirStr = pMemoirRaw ? `我們一起走過：${pMemoirRaw.replace(/★/g, '').replace(/｜/g, '；')}。` : "";   // ★是釘選標記，不外洩
+      // 共同回憶：釘選的常駐，其餘玩家這一步提到才亮（★是釘選標記，不外洩）。
+      const _memActive = memoirActive_(pMemoirRaw, ctx.userMsg);
+      const pMemoirStr = _memActive.length ? `我們一起走過：${_memActive.join('；')}。` : "";
       // 在場來由只剩「時間跳過之後」；一般回合不講（上一輪敘事就在歷史裡，沒有新資訊）
       const pPresenceStr = kanshouTimeJumped_
         ? "時間流轉之後，【依然在你身邊】(這段空白裡各自做了什麼，順著時段自然帶過)" : "";
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
       const _pPref = formatPref(r[COL.PC.PREF]), _pTrait = formatTrait(r[COL.PC.TRAIT]);
-      stableArr.push(`【在場人物】${pName}（${String(r[COL.PC.SEX] || "").trim() || "異"}）。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pLogic ? `${pLogic}。` : ""}${pBackStr}`);
+      stableArr.push(`【在場人物】${pName}（${String(r[COL.PC.SEX] || "").trim() || "異"}）。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pLogic ? `${pLogic}。` : ""}`);
       const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${pOutfit ? `穿著${pOutfit}。` : ""}${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是我的「${pRelTagStr}」。` : ""}${pMemStr}`;
       liveArr.push(`${pName}：${_live}`);
     }
@@ -1783,7 +1829,7 @@ function actionPlay_(userData, pcId, sheets) {
   const _cards_ = kanshouPartyCards_({
     pcData: pcData, myGameId: myGameId, partyMembers: presentMembers,
     partyIdSet: partyRows.map(r => String(r[COL.PC.ID])),
-    timeJumped: kanshouTimeJumped_, formatPref: formatPref, formatTrait: formatTrait
+    timeJumped: kanshouTimeJumped_, formatPref: formatPref, formatTrait: formatTrait, userMsg: userMsg
   });
   const PROMPT_PARTY_LIVE = _cards_.live;
 
