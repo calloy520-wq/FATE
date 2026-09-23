@@ -1351,6 +1351,20 @@ function kanshouOutfitLine_(row, playerMsg) {
   if (toldBefore !== outfit) { row[COL.PC.MEMORY] = KANSHOU_OUTFIT_TOLD_TAG_.set(row[COL.PC.MEMORY], outfit); told = true; }
   return { line: `穿著${outfit}。`, told: told };
 }
+// 帳本回寫前的濾網：AI 會把這一回合亮起的底細抄成 world_note（「SABER的飲食原則：無法接受馬虎的飯菜」），
+//   一寫進帳本就變成在場時常駐——加料從後門回來。①跟這回合送的底細共用兩字詞的丟掉；②kind 人物 且名字含同伴名的丟掉（同伴有自己那一列）。
+function worldNoteDropEcho_(entries, loreStr, allyNames) {
+  if (!Array.isArray(entries)) return [];
+  const lore = String(loreStr || "").replace(/★【[^】]*】[^：]*：/, "");
+  const allies = (allyNames || []).map(function (n) { return String(n || "").trim(); }).filter(Boolean);
+  return entries.filter(function (w) {
+    if (!w) return false;
+    const nm = String(w.name || ""), tx = String(w.text || "");
+    if (String(w.kind) === '人物' && allies.some(function (a) { return nm.indexOf(a) >= 0; })) return false;
+    if (lore && (loreOverlap_(nm + tx, lore))) return false;
+    return true;
+  });
+}
 // 共同回憶：釘選（★）常駐，其餘玩家提到才亮。回 [常駐…, 亮起…] 的純文字。
 function memoirActive_(memoirRaw, playerMsg) {
   const items = String(memoirRaw || "").split('｜').map(function (x) { return x.trim(); }).filter(Boolean);
@@ -2001,7 +2015,8 @@ ${PROMPT_BODY}
     // 🌍 AI 發明的東西落盤（唯一寫入點）。先改判分錯的類，再落盤——順序反了防線等於沒接上。
     if (Array.isArray(aiData.world_note) && aiData.world_note.length) {
       try { kanshouFixWorldKinds_(aiData.world_note, getKanshouHomeName_(pcData[pcIndex][COL.PC.MEMORY], pcName), allies.map(r => r[COL.PC.NAME])); } catch (e) { }
-      try { worldWrite_(myGameId, aiData.world_note, curDay); } catch (e) { }
+      try { aiData.world_note = worldNoteDropEcho_(aiData.world_note, _loreStr_, allies.map(r => r[COL.PC.NAME])); } catch (e) { }
+      try { if (aiData.world_note.length) worldWrite_(myGameId, aiData.world_note, curDay); } catch (e) { }
     }
 
     const pcColCount = Object.keys(COL.PC).length;

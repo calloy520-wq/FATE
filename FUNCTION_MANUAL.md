@@ -632,6 +632,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `loreBigrams_(text)` ／ `loreOverlap_(a, b)` — 📖 兩段中文有沒有共用的「兩字詞」（去掉 `LORE_STOP_CHARS_` 功能字與 `LORE_STOP_BIGRAMS_` 泛用詞）。回憶／經歷／帳本這種沒有 keys 的自由文字靠它判「提到了沒」。
 - `loreHits_(entries, text, opts?)` — 📖 條目亮起的三種路：①`keys` 子字串在 `text`；②`rel` 條目點名的人在 `opts.presentNames`；③`overlap` 條目與 `opts.playerMsg` 共用兩字詞。回亮起的 `content[]`。
 - `loreEntryFromBack_(row)` — 📖 那一列的經歷（`COL.PC.BACK`，只有玩家自己改命才會有值）長成一條 `{rel, overlap}` 條目。
+- `worldNoteDropEcho_(entries, loreStr, allyNames)` — 🌍 帳本回寫前的濾網：①跟這回合送的 ★底細 共用兩字詞的 world_note 丟掉（AI 會把亮起的底細抄回帳本，一寫進去就變在場時常駐）；②kind 人物 且名字含同伴名的丟掉。回過濾後的陣列。
 - `memoirActive_(memoirRaw, playerMsg)` — 📖 共同回憶：釘選（★）常駐，其餘與玩家訊息共用兩字詞才亮；回純文字陣列（★ 已剝）。
 - `kanshouLoreStr_(ctx)` — 📖 這一回合亮起的條目 → `★【這一步碰到的底細】`（我／每位在場者／`KANSHOU_WORLD_BOOK_`，最多 `KANSHOU_LORE_MAX_` 段）；沒中回空字串。只掃 `ctx.userMsg`，`KANSHOU_LORE_SCAN_AI_` 開了才把 `ctx.lastNarration` 一起掃。`ctx = {userMsg, lastNarration, pc, presentRows}`。探針 `lore.js`。
 - `kanshouPartyCards_(ctx)` — 🪪 在場人物卡，**一分為二**：`stable`＝這個人是誰（六格人設·整局不變·進 system 吃提示詞快取）、`live`＝此刻的樣子（穿著／在場來由／共同回憶／她眼中的你／關係稱呼·留 user）。`ctx = {pcData, pcId, userMsg(共同回憶的觸發用), myGameId, userMsg, partyMembers, moveTarget, timeJumped, formatPref, formatTrait}`；回 `{stable, live}`。⚠ 順序＝同行名單的插入順序，加人是 append，所以加人不會動到前面幾張卡的快取前綴。（~~聚光燈 `_spotlight_`~~ 已退休，見 CODE_NOTES。）
