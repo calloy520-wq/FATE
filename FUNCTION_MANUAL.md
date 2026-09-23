@@ -72,7 +72,6 @@
 | `kanshou_party` | `actionKanshouParty` | 鑑賞同行名單 add/drop/clear |
 | `kanshou_set_sex` | `actionKanshouSetSex` | 設同伴性別 |
 | `kanshou_set_name` | `actionKanshouSetName` | 設同伴名 |
-| `kanshou_set_home_name` | `actionKanshouSetHomeName` | 設家名（存【住所】·2026-09 地點退休後只剩「稱呼」用途，不是一個去得了的地方） |
 | `kanshou_get_style` | `actionKanshouGetStyle` | 🎨 說書人設定面板：讀整張風格表（預設＋玩家版） |
 | `kanshou_set_style` | `actionKanshouSetStyle` | 🎨 改一格／還原一格／全部還原 |
 | `prep_meal` | `actionPrepMeal` | 準備餐點 |
@@ -671,14 +670,12 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionKanshouSetStyle(userData, pcId, sheets)`（action `kanshou_set_style`）— `{key,styleText,on}` 改一格／`{key,reset}` 還原一格／`{resetAll}` 全部還原；空文字＋開啟＝刪列。
 - `actionKanshouSetSex(userData, pcId, sheets)` — 切換御主性別（限男/女）；切男時檢查世界內是否已有男性從者（避免男男配對）；真換時重置 PHYSICAL 為中性預設。
 - `actionKanshouSetName(userData, pcId, sheets)` — 改御主名字（≤16 字）；關係併入從者自己列，改名不影響羈絆。
-- `actionKanshouSetHomeName(userData, pcId, sheets)` — 改「家」顯示名（≤12 字），寫進 MEMORY【住所】標記（`setKanshouHomeName_`）。
 
 #### AI 提示詞組裝（🔴 鑑賞 AI 核心）
 
 - `dialogueFormatRule_()` — 鑑賞軌的對話格式規則（單層「」只收嘴巴發得出的聲音、每句台詞冠說話者名、動作與非口部聲響走敘事、**台詞與人物互動佔整段 narration 七成以上**）。**2026-09 玩家定案：這裡只講格式，不講該寫什麼。****唯一呼叫點＝ `nsfwBaseRules` 第3條**。⚠ **2026-09 更正：solo 的 `miniSystem` 並【不】呼叫這支**（全樹只有 `nsfwBaseRules` 第3條一個呼叫點），文件長期寫成「兩軌共用」是錯的。而且**不該改成共用**——這支的具體例子是 NSFW 的（喘息／吸吮／舔啜／啪啪／交合處水聲），灌進鎖 SFW 的 solo 軌是污染。solo 自己那條是刻意的精簡版（冠名＋單層「」＋動作走敘事），少掉的「玩家台詞照原句寫、禁轉述」在 solo 也用不到——solo 是純按鍵、玩家根本不打字。
 - `buildDefaultSystemPrompt(includeOptions, styles, partyStable)` — 鑑賞系統提示詞（`nsfwBaseRules` ＋ 輸出範本）。2026-09 `nsfwBaseRules` 改陣列組裝＋動態編號，風格段走 `kanshouStyle_(styles, key)`；`styles` 缺省＝全部預設＝與舊字串逐字相同。⚠ 2026-09 拿掉了第一個參數 `includeMasterNote`：`master_note`（經歷滾動側寫）整組移除，經歷改回固定事實（見 `KANSHOU_REFERENCE.md` §「經歷改回固定」）。`Engine_Combat.gs` 的無參數 fallback 呼叫不受影響。
   - 🔴 內含 `nsfwBaseRules`（函式內 const，非獨立函式）— 慾海演化核心紅線常數，後日談敘事鐵律 6 條；連同 `specificRules`(【慾海律令】現 7 條，**2026-07 新增第6條「options 只能建議在場人物/當下場景真能做到的動作」**修「AI選項建議移動/呼喚不在場者、玩家點了做不到」的bug；**五度改版再新增第7條「appearance_extras只在劇情真有穿脫/更衣動作才填新值、不准自行合理化改寫」**，修「玩家用👕換裝手動設定裝扮，下一回合被AI默默改回別的」——schema _note的「沒變化留空」對這個模型是弱信號，明文規則才夠強；**同批再補「appearance_extras只能寫衣物本身，禁止寫成所在環境/姿勢」**，修「泡溫泉→移動到商店街，裝扮卻卡在『在水下』」的變種bug)＋範本 JSON 一起回傳。**紅線①：一律不可改（specificRules 可改，非紅線本體）。**
-- `getKanshouPeopleList_(pcId, curL, allPcData)` — 鑑賞自算精簡「同地人物」清單（只 id/name/isExact），不借 solo 的 getLocalPeopleList（那多算 12 欄）。
 
 #### 大地圖·地點（資料驅動）
 
@@ -727,8 +724,6 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 輕量小事件·住所（MEMORY 標記）
 
-- `getKanshouHomeName_(memory, playerName)` / `setKanshouHomeName_(memory, name)` — MEMORY【住所】家顯示名，未自訂預設「(玩家名)的家」/「我家」。**🐛→✅ 稽核抓到**：`setKanshouHomeName_`原本只裁長度、沒清標籤分隔字元，玩家取名帶`｜`會撐壞這行MEMORY格式；已改用`kanshouSanitizeTagValue_`(見上方小道具章節同款)。
-- `kanshouSanitizeTagValue_(value, maxLen)`（通用版：住所名等任何單值 tag 共用）— 清掉 MEMORY 單值 tag 共用的分隔字元(`,`/`:`/`｜`/`【`/`】`)＋引號/角括號，`maxLen`不帶預設8。任何要塞進單一`【tag】值`格式的自由輸入都該過這道，不要各自複製一份正則。
 
 #### 稱呼別名橋（短名↔全名比對）
 
@@ -1301,10 +1296,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `kanshouNextStage()` — 「下一階段」單鈕：依 `KC_TIME_BANDS_` 順推；深夜→轉呼 `kanshouEndDay`。
 
 #### 地圖 / 分區 / 移動
-- `kanshouRenameHome()` — 改「家」名（`kanshou_set_home_name`，寫後端 MEMORY【住所】）；成功更新 `pc.homeName`＋重繪。
 
 #### 選單
-- `kanshouPickLoc_(name)` — 地點鈕點擊：關彈窗→執行 `_kpCb(name)`。
 
 
 #### 關係

@@ -20,13 +20,13 @@ const strip = f => fs.readFileSync(path.join(GAS, f), 'utf8')
 const ENTRIES = [
   'send', 'openCompanions', 'openWorldPanel', 'openKanshouStyle',
   'kanshouNextStage', 'kanshouEndDay',
-  'kcChoose_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',
+  'kmSpinner_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',
   'sumMode_', 'setWarFromSelect_', 'pickWar', 'pickOrigin', 'newGameFlow', 'openTutorial',
   'ksRender_', 'ksTier_', 'ksPick_', 'ksSave_', 'ksReset_', 'ksResetAll_'
 ];
 // 這些面板會被真的叫起來一次（不能拋例外）
 const RENDERS = [
-  ['kcChoose_', () => ctx.kcChoose_('t', [{ k: 'a', label: 'a' }])],
+  ['kmSpinner_', () => typeof ctx.kmSpinner_('t') === 'string'],
   ['aiHtml_', () => ctx.aiHtml_('一句<br>兩句')],
   // 🚪 召喚三選一的門（2026-09 新增）：三種模式都切一遍。random 會真的打後端，這裡不碰。
   ['sumMode_(pick)', () => { ctx.sumMode_('pick'); return disp('sum-gate') === 'none' && disp('sum-pick') === 'block' && disp('sum-create') === 'none'; }],
@@ -173,8 +173,10 @@ RENDERS.forEach(([n, fn]) => { try { if (fn() === false) bad.push(n + ' 跑得�
 //    不會叫的掃描器比沒有更糟——它給你「已經有防線」的錯覺。
 let probeFired = false;
 try {
-  const c2 = makeCtx('function kcChoose_(){ throw new Error("degraded"); }');
-  try { c2.kcChoose_('t', []); } catch (e) { probeFired = /degraded/.test(e.message); }
+  // ⚠ 2026-09 探針對象從 kcChoose_ 換成 kmSpinner_：前者是地點時代的小選單，遊戲裡已經沒人叫，
+  //   一支函式只為了當測試夾具而活著就是死碼。kmSpinner_ 是真的每天在用的讀條。
+  const c2 = makeCtx('function kmSpinner_(){ throw new Error("degraded"); }');
+  try { c2.kmSpinner_('t'); } catch (e) { probeFired = /degraded/.test(e.message); }
 } catch (e) { probeFired = true; }
 if (!probeFired) {
   console.log('🖥️ 前端 runtime：❌ 掃描器自身失效（注入的爆炸抓不到）');

@@ -26,7 +26,6 @@ const ActionRouter = {
   "kanshou_get_style": actionKanshouGetStyle, // 🎨 說書人設定面板：讀整張風格表(預設＋玩家版)
   "kanshou_set_style": actionKanshouSetStyle, // 🎨 改一格／還原一格／全部還原
   "kanshou_set_name": actionKanshouSetName,
-  "kanshou_set_home_name": actionKanshouSetHomeName,
   "prep_meal": actionPrepMeal,
   "get_full_status": actionGetFullStatus,
   "update_fate": actionUpdateFate,
@@ -436,13 +435,13 @@ function buildClientState_(sheets, pcId, preData) {
   // 時鐘併入御主列，clockLabel_/getAp_ 傳 allPcData 走記憶體查找，不再另外整表讀時鐘表。
   let clk = "", ap = AP_PER_DAY, kanshouClock = null;
   if (isFate) { try { clk = clockLabel_(gid, allPcData); ap = getAp_(gid, allPcData); } catch (e) { } }
-  // 鑑賞用精簡版 getKanshouPeopleList_，避免借用 solo 版算出一堆鑑賞前端從不讀取的欄位。
   const isKanshouCtx_ = gid.indexOf("k_") === 0;
   if (isKanshouCtx_) { try { const ci = kanshouClockInfo_(allPcData[pcIndex]); clk = ci.label; kanshouClock = ci; } catch (e) { } }
   return {
     statusString: buildPlayerStatusString(allPcData[pcIndex]),
     // 關係併入眾生列，不再需要關係表 → 少一次整表讀
-    people: isKanshouCtx_ ? getKanshouPeopleList_(pcId, curL, allPcData) : getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, allPcData),
+    // 鑑賞不送 people：那一軌前端沒有任何讀取端（2026-09 連同後端的整表掃描一起拿掉）；solo 照舊。
+    people: isKanshouCtx_ ? [] : getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, allPcData),
     locations: getNearbyLocations(curL, freshMapData, isFate ? getWarName_(allPcData[pcIndex][COL.PC.MEMORY]) : ""),
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
     clock: clk, ap: ap, apMax: AP_PER_DAY,

@@ -1454,7 +1454,7 @@ memory選填：只有call site拿得到該英靈自己列的MEMORY時才傳，�
 
 🩹 2026-07玩家「這要顯示幾年幾月幾號」定案：label從抽象的「第X日」改成實際年月日(跟敘述文字${newDate.year}年${newDate.month}月${newDate.day}日同一種格式)，跳節慶/大跳躍後玩家能親眼確認日期真的有推進，不會看起來像卡住不動。
 
-### `setKanshouHomeName_`　<sub>Gallery.gs</sub>
+### ~~`setKanshouHomeName_`~~（2026-09 已移除（隨 actionKanshouSetHomeName））　<sub>Gallery.gs</sub>
 
 🐛→✅ 稽核抓到：原本沒清掉｜/【/】等標籤分隔字元，玩家取名帶這些字元會撐壞這行MEMORY格式(讀取時regex在第一個｜就截斷，殘餘字變成脫隊在tag外的孤兒文字)。走 kanshouSanitizeTagValue_ 同款淨化。
 
@@ -1548,7 +1548,7 @@ herIdx：牽手 tag 寫在玩家列(idx)，但「第一次牽手」這筆帳要�
 
 **2026-09 已移除（隨 master_note 一併），舊存檔殘留的標記是純孤兒資料。**
 
-### `kanshouSanitizeTagValue_`　<sub>Gallery.gs</sub>
+### ~~`kanshouSanitizeTagValue_`~~（2026-09 已移除：唯一呼叫端 setKanshouHomeName_ 沒了）　<sub>Gallery.gs</sub>
 
 通用【tag】值淨化：清掉標籤分隔字元(,/:/｜/【/】)避免撐破 MEMORY 裡任何單值 tag 的格式(住所名等任何單值 tag)，順手也清掉引號/角括號(防止原樣塞進前端onclick屬性時破壞HTML)。maxLen不帶預設8。🐛→✅ 稽核比對 solo Router_Creation.gs 的同款清洗(cleanTagText_/_fClean)發現那邊多清\n\r\t(換行/tab)這裡沒清——雖不會撐破｜【】格式(regex排除集本就含隱式匹配換行)，但跟既有慣例對齊，一併補上。
 
@@ -3332,7 +3332,7 @@ dispatcher(Router_Action.gs)已依 pcId 開頭 KPC_ 把 sheets.pc 指到「鑑�
 
 關係併入眾生列(存在同伴自己那一列，不記「對誰」的名字)，改名不影響任何同伴的羈絆，無需遷移。
 
-### `actionKanshouSetHomeName`　<sub>Gallery.gs</sub>
+### ~~`actionKanshouSetHomeName`~~（2026-09 已移除：前端入口隨地圖退休，整條路由沒人叫）　<sub>Gallery.gs</sub>
 
 🏠「出門走走」面板的「家」選項可自由改名(如「工房」「我的公寓」)，比照 actionKanshouSetName同款寫法，只是寫進 MEMORY【住所】標記而非獨立欄位。
 
@@ -3354,7 +3354,7 @@ mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未
 
 守衛自動跳過缺席回合，經歷/性格/萌點保留舊值不動。
 
-### `getKanshouPeopleList_`　<sub>Gallery.gs</sub>
+### ~~`getKanshouPeopleList_`~~（2026-09 已移除：前端拿 people 做的是把名字替換成它自己的 no-op，後端卻每回合整表掃一次）　<sub>Gallery.gs</sub>
 
 鑑賞自己算一份精簡版「同地人物」清單，不借用 solo 的 getLocalPeopleList(那是為敵蹤/盟友情報共享等一整套機制設計的，多算了12個欄位，鑑賞前端只用得到 .name/.isExact)。
 

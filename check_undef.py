@@ -88,7 +88,11 @@ def declared_names(texts):
     return d
 
 # 只認本專案的命名慣例（見檔頭說明）
-PAT = re.compile(r'(?<![.\w$])((?:kanshou[A-Za-z0-9]*_|_[A-Za-z][\w$]*_|[A-Z][A-Z0-9_]{3,}_))(?![\w$])')
+# ⚠ 2026-09 盲區：舊 pattern 只認 kanshou*_／_x_／ALL_CAPS_ 三種形狀，getX_／worldX_／relMemMemoryStr_
+#   這類「動詞開頭＋尾底線」的私有 helper 整個看不見——當場漏掉 Router_Action.gs 的 sync 還在叫
+#   已經砍掉的 getKanshouPeopleList_（fuzz.js 探針抓到的，這道綠燈）。放寬到【任何尾底線識別字】；
+#   屬性存取（前面有 .）與物件鍵照舊排除。
+PAT = re.compile(r'(?<![.\w$])([A-Za-z_$][\w$]*_)(?![\w$])')
 
 def scan(texts_by_file):
     d = declared_names(list(texts_by_file.values()))
@@ -108,10 +112,12 @@ texts = {f: io.open(f, encoding='utf-8').read() for f in FILES}
 bad = scan(texts)
 
 # ── 自我退化測試：注入一個必然不存在的呼叫，確認這支真的會叫 ──
+#    ⚠ 假名字刻意用 getX_ 形狀（不是 kanshou*_）：2026-09 抓到舊 pattern 只認三種形狀，
+#      而自我測試的假名正好是它認得的那種——盲區從來沒被守過。
 probe_file = 'gas/Gallery.gs'
 poisoned = dict(texts)
-poisoned[probe_file] = texts[probe_file] + "\nfunction __selftest__() { return kanshouThisDoesNotExist_(1); }\n"
-if 'kanshouThisDoesNotExist_' not in scan(poisoned):
+poisoned[probe_file] = texts[probe_file] + "\nfunction __selftest__() { return getThisDoesNotExist_(1); }\n"
+if 'getThisDoesNotExist_' not in scan(poisoned):
     print("🔎 未宣告識別字：❌ 掃描器自我測試失敗——注入的假呼叫沒被抓到，這支形同虛設")
     sys.exit(1)
 

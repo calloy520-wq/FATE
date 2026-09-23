@@ -491,7 +491,7 @@ function actionMove(userData, pcId, sheets) {
     victory: moveVictory,
     dreamPrompt: moveDream,
     statusString: buildPlayerStatusString(allPcData[pIdx]),
-    // 🧹 move 現為 solo 專屬 action(2026-09 鑑賞地點整組退休、沒有移動了)，不需分流呼叫 getKanshouPeopleList_。
+    // 🧹 move 現為 solo 專屬 action(2026-09 鑑賞地點整組退休、沒有移動了)，不需分流。
     people: getLocalPeopleList(sheets, pcName, pcId, target, allPcData),
     locations: getNearbyLocations(target, freshMapData, getWarName_(allPcData[pIdx][COL.PC.MEMORY])).slice(0, 5),
     mapNodes: buildMapNodesPayload_(sheets, allPcData, moveGameId, target), // ⚡ 夾帶地圖節點，免手機抵達後再打一趟 get_map_nodes

@@ -1,17 +1,10 @@
 <script>
   // ==========================================
-  // 🌹 慾海 kanshou 模式 — 前端 JS（2026-07 從 Script.html 拆出獨立管理）
-  //   入口分開＝當成兩條遊戲路徑：solo(單人聖杯戰爭) vs kanshou(鑑賞後日談)。
-  //   本檔只放「進鑑賞後才會用到」的函數；共用機制(gasRun/syncData/showHistoryOverlay/
-  //   escapeHtml/beginAction/endAction/applyModeUI 等)仍在 Script.html，兩檔共享同一頁面全域作用域，
-  //   彼此可直接呼叫，不需 import。後端對應在 gas/Gallery.gs（本就已獨立成檔）。
-  //   ★新增鑑賞前端功能，往這檔加即可；別再塞回 Script.html。
+  // 🌹 鑑賞前端：只放進鑑賞後才用到的函數。共用機制（gasRun／syncData／escapeHtml／applyModeUI…）在 Script.html，
+  //   兩檔同一個全域作用域、直接互叫。後端對應 gas/Gallery.gs。新鑑賞前端功能往這檔加。
   // ==========================================
 
-  // 🌐 send()：鑑賞聊天引擎，action:'play' 唯一呼叫點，本檔/Script.html所有互動最終都經這裡送出。鑑賞專屬邏輯，solo 整條輸入框隱藏，不該住在共用檔案。
-
-  // 🎞️ 跑條：推進時間這類「需要花時間」的動作用，取代純聊天那種瞬間感的loading-text。
-  // 文字會一直輪播，直到AI真的回應才移除(不綁定固定秒數，AI實際耗時本來就不固定)。
+  // 跑條：推進時間這類要等的動作用；文字輪播到 AI 真的回應才收。
   let progressTimer = null;
   function showProgressLoader_(loadId, captions) {
     document.getElementById('story').insertAdjacentHTML('beforeend',
@@ -35,23 +28,14 @@
   var KC_MEMOIR_PIN_CAP_ = 8;   // 鏡像後端 KANSHOU_MEMOIR_PIN_CAP_
   var KC_PARTY_MAX_ = 3;        // 鏡像後端 KANSHOU_PARTY_MAX_
   var KC_WORLD_MAX_ = 8;        // 鏡像後端 KANSHOU_WORLD_MAX_
-  // ⚙️ 管理面板：列出玩家自訂的貼圖(內建4個不可刪、不列在這裡)＋新增輸入框。
-  var _kqpBusy = false;
 
-  // 🧰 2026-07 重構：原本 23 個位置參數(呼叫端一長串 null 極易錯位)改成單一 opts 物件；
-  //   前兩個位置參數(customMsg, isSilent)保留——選項按鈕 send(text, true) 用法不變。
-  //   純前端組參方式改變，送後端的 payload 一模一樣，零速度影響。
-  //   死參數 combatData/dismissCurfew(機制已刪、payload 從未轉送)趁這刀一併移除。
+  // 🌐 send()：鑑賞聊天引擎，action:'play' 的唯一呼叫點。opts: {endDay, advanceHours, jumpBand, loaderCaptions}
   async function send(customMsg, isSilent = false, opts = {}) {
     opts = opts || {};
     const endDay = !!opts.endDay,
       advanceHours = opts.advanceHours || 0,
       jumpBand = opts.jumpBand || null,
       loaderCaptions = opts.loaderCaptions || null;
-      
-      // 🐛→✅ 稽核抓到：呼叫端一直有把 npcId 塞進 opts，但 send() 這裡沒解構、gasRun payload 也沒轉發
-      //   ——id 從未離開過瀏覽器，「2026-07 id 優先」那次重構在這條路徑上等於沒生效。
-    // 🔥 說書人開關：亮＝這一回合換敢寫的那顆模型（只管模型，尺度規則不受影響）。
     const driveToggle = document.getElementById('drive-mode-toggle');
     const drive = !!(driveToggle && driveToggle.checked);
     const input = document.getElementById('u-in');
@@ -59,12 +43,9 @@
     let msg = customMsg || input.value.trim();
 
     if (!msg) return;
-    // 🔒 忙碌鎖：結束一天/推進時間這類按鈕都帶 customMsg 呼叫 send()，一律以
-    //   btn.disabled(唯一「上一輪是否還在跑」的實際訊號)把關，不分是否帶customMsg。
-    if (btn.disabled) return;
+    if (btn.disabled) return;   // 忙碌鎖：btn.disabled 是「上一輪還在跑」的唯一訊號
 
-    // 🔢 打數字＝按第幾顆選項。上限【只讀 currentOptions.length】，不寫死數字——
-    //   2026-09 選項 4→6 時這裡原本寫死 [1-4]，打 5/6 會被當成一般訊息送出去。
+    // 打數字＝按第幾顆選項（上限只讀 currentOptions.length，寫死數字曾讓 5/6 變一般訊息）
     if (/^[0-9]+$/.test(msg) && parseInt(msg) >= 1 && currentOptions.length >= parseInt(msg)) {
       const optIndex = parseInt(msg) - 1;
       msg = currentOptions[optIndex];
@@ -94,97 +75,35 @@
 
 
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
-      // 🧱 後端明確失敗(success:false)或缺敘事文字時：把真實 message 演進故事流，不再拿不存在的
-      //   data.text 去 split 炸進 catch、被通用「連結斷絕」吃掉真因(失敗不炸整局)。
+      // 後端明確失敗：把真實 message 演進故事流（失敗不炸整局）
       if (!data || data.success === false || typeof data.text !== 'string') {
         story.insertAdjacentHTML('beforeend', '<div class="loading-text">⚠ ' + escapeHtml(String((data && data.message) || '沒有回應。')) + '</div>');
         story.scrollTop = story.scrollHeight;
         return;
       }
-      // people 只在後端真的給了陣列才更新——敲門早退這類「沒人移動」的回應不帶 people，
-      //   舊寫法 `data.people || []` 會把在場快取洗成空(泡泡期間開拍照面板變「沒有可拍的人」)。
-      if (Array.isArray(data.people)) localNPCs = data.people;
-      // 🕰️ 「下一階段」按鈕：每次actionPlay回應都可能改動時鐘(結束一天/推進時間/跳節慶/跳時段皆會)，
-      //   記下最新kanshouClock供地圖頁的時段按鈕判斷現在是不是深夜，並重繪地圖頁(桌機三欄並排恆
-      //   顯示，不能只靠切分頁才刷新)。
-      // 🩹 玩家「跳到節慶後時間看起來沒動靜」查出根因：這裡本來只更新 kcClock，
-      //   從未呼叫updateClock(data.clock,...)刷新頂部常駐的#clock-hud——後端其實有正確推進、
-      //   也有把label塞進data.clock，只是前端這裡漏了消費它，導致HUD停在進場當下那一次的值。
-      // ⚡ actionPlay(Gallery.gs) 會在回應裡順手夾帶 data.tags(跟 get_tags 同格式)，有夾帶就直接吃、
-      //   省掉原本每次都要另外打一趟 get_tags 的 round-trip；沒夾帶(理論邊角、建構失敗)refreshFateTags
-      //   內部會自動退回原本的 get_tags 呼叫，行為不變。
-      // 🐛→✅ 2026-07 前端稽核·順序錯誤：這一行原本排在整個渲染流程的【最後面】，但下面兩行的
-      //   updateClock 會讀 window._lastTags.nightScene 決定那顆最常按的鈕要寫「🌙睡覺」還是
-      //   「🌅睡到天亮」——結果按鈕永遠慢一回合。實際後果：按下🌙睡覺、【夜未眠】成立了，鈕上卻
-      //   還是「🌙睡覺」，玩家以為沒反應再按一次，那一按就真的睡掉、直接跳到早上——正是【夜未眠】
-      //   要防的那件事。tags 是這一回合的權威狀態，必須在任何讀它的渲染【之前】就位。
+      // tags 是這回合的權威狀態，必須在任何讀它的渲染之前就位（updateClock 讀 nightScene 決定按鈕文字）
       try { refreshFateTags(data.tags); } catch (e) { }
       if (data.kanshouClock) kcClock = data.kanshouClock;
       if (data.clock) updateClock(data.clock, null, null);
-      // 🔴 直接接收後端傳來的狀態字串，不再依賴 AI 的文字解析
       if (data.statusString) {
           localStorage.setItem('kyushu_last_status', data.statusString);
           updateUI(data.statusString.split('§'));
       }
 
-
-      // 🐛→✅ 玩家實測前主動抓到：舊版這裡砍掉第一個「[」之後的全部內容，但後端 data.text 就是
-      //   aiData.narration 原文(見 Gallery.gs finalResponseText)，沒有任何「[」分隔慣例——找不到現行
-      //   代碼會刻意在narration後面接一段方括號內容給這裡濾掉，卻會誤殺敘述本文裡剛好出現的「[」
-      //   (自由生成的散文不保證不含此字元)，一中就整段從那裡開始被靜默截斷、無警告。移除這道無來由的裁切。
-      let cleanText = data.text;
-
-      // 🔴 絕對安全版換行修復：只抓取 AI 偶爾解析錯誤的字面 "\n" 或 "\r\n"，將其轉為真實換行。
-      cleanText = cleanText.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
-
-      let displayText = cleanText;
-
-      // 🐛→✅ 玩家實測前主動抓到：註解自稱「統一連結引擎」彙整「眾生／提及人物／地名」三種來源，
-      //   但下面只有 localNPCs 一個來源會塞進 linkCandidates，也從未產生可點擊的<a>——跟同段落下面
-      //   「同地角色一律純文字，不再有可點擊的連結」互相矛盾，是舊版功能被簡化後沒同步改的殘留描述。
-      //   改成描述現況：純粹是「同地角色名稱」的候選清單，依名稱長度排序後單次掃描替換(避免子字串
-      //   名稱互相啃食)，替換結果仍是純文字，不是連結。
-      const linkCandidates = [];
-      const pushCandidate = (name, html) => {
-        if (name && !linkCandidates.find(c => c.name === name)) {
-          linkCandidates.push({ name, html });
-        }
-      };
-
-      // 同地角色一律純文字，不再有可點擊的連結。
-      if (localNPCs && localNPCs.length > 0) {
-    localNPCs.forEach(npc => {
-      // 不論在場與否一律純文字，不再用顏色標示「不在場」這件事本身。
-      if (npc.name && npc.name.length >= 2) {
-        pushCandidate(npc.name, npc.name);
-      }
-    });
-  }
-
-      if (linkCandidates.length > 0) {
-        // 長名優先比對，子字串短名不會搶在前面，徹底杜絕巢狀/截斷 HTML
-        linkCandidates.sort((a, b) => b.name.length - a.name.length);
-        const htmlByName = new Map(linkCandidates.map(c => [c.name, c.html]));
-        const escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const combinedRegex = new RegExp(linkCandidates.map(c => escapeRegExp(c.name)).join('|'), 'g');
-        displayText = displayText.replace(combinedRegex, matched => htmlByName.get(matched) || matched);
-      }
-
-let plainTextContext = cleanText;
+      // AI 偶爾吐字面 "\n"：轉成真換行
+      const cleanText = data.text.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
+      const displayText = cleanText;
+      let plainTextContext = cleanText;
 
       let optionsHtml = '';
       if (data.options && Array.isArray(data.options) && data.options.length > 0) {
         currentOptions = data.options;
-        // 🧱 【命運的抉擇】包進自己的 #ai-options-grid：「AI 選項顯示開關」只藏這個盒子。
-        //   舊版開關直接 display:none 整個 options-container，把住在同一容器的所有「必點泡泡」
-        //   (前往/邀約/橋段)全部陪葬——玩家關了選項＝從此看不到任何泡泡(實測真兇)。
+        // 【命運的抉擇】包進 #ai-options-grid，「AI 選項顯示開關」只藏這個盒子
         optionsHtml += `<div id="ai-options-grid"${(typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? ' style="display:none"' : ''}>`;
         optionsHtml += `<div style="color: var(--gold-accent); font-weight: bold; border-bottom: 1px dashed rgba(212, 175, 55, 0.3); padding-bottom: 6px; margin-bottom: 8px;">【命運的抉擇】</div>`;
         optionsHtml += `<div class="options-grid">`;
         plainTextContext += `\n\n【命運的抉擇】\n`;
         data.options.forEach(optText => {
-          // 🛡️ options是AI自由文字，唯一沒經過escapeHtml就塞進innerHTML的欄位——補上跟本檔
-          //   其餘AI字串一致的跳脫。
           optionsHtml += `<button class="btn-option" onclick="send('${optText.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}', true)">${escapeHtml(optText)}</button>`;
           plainTextContext += optText + `\n`;
         });
@@ -192,15 +111,13 @@ let plainTextContext = cleanText;
       }
       if (optContainer) optContainer.innerHTML = optionsHtml;
       lastAiContext = plainTextContext;
-      // 🛡️ 過 aiHtml_(Script.html)：整段 escape 擋 self-XSS，但把提示詞要求的 <br> 分段標籤放回來
-      //   （linkCandidates 替換出來的 html 值本就等於純文字名稱，不受影響）。
+      // 【說書人】一律走 aiHtml_：整段 escape 擋注入、只放回 <br>
       story.insertAdjacentHTML('beforeend', `<div class="msg-ai"><b>【說書人】</b>${aiHtml_(displayText.trim())}</div>`);
       saveStoryLocal_(story);   // 修剪＋配額保護，見 Script.html saveStoryLocal_
       setTimeout(() => { story.scrollTop = story.scrollHeight; }, 50);
 
     } catch(e) {
       if (loaderCaptions) hideProgressLoader_(loadId); else document.getElementById(loadId)?.remove();
-      // 帶出真實錯誤(GAS 例外的 err.message 會進到這)，不再吞成無線索的通用文案。
       alert("連不上伺服器。" + (e && e.message ? "\n\n" + e.message : ""));
     } finally {
       input.disabled = false; btn.disabled = false; story.scrollTop = story.scrollHeight;
@@ -210,37 +127,22 @@ let plainTextContext = cleanText;
     }
   }
 
-  // 🌍 後日談駐留清單管理（鑑賞限定）：直接從英靈殿召喚，讓她「存在」於這個世界。
-  // ⚠ 拿掉「隊伍」概念——召喚是一次性的、沒有人數上限，之後每個人各自過各自的生活(依LOC)；舊版「奪杯封存→邀請」機制已砍除，「請走」功能也拿掉(不再需要騰隊伍容量)。
-  // 🎛️ 專屬彈窗 #kc-overlay(不與其他功能共用)；拆成 master-box／party-list／filters／hero-list 四個獨立容器各自局部重繪，取代舊版每次篩選/召喚都整包重打 innerHTML；get_heroes 結果快取在分頁工作階段內(英靈庫只有工房鑄造/修改會變，見 invalidateKanshouHeroCache)；篩選下拉只切既有列 CSS display，不重建 DOM。
+  // ══ 👥 同伴面板 #kc-overlay：master-box／party-list／filters／hero-list 四個容器各自局部重繪；
+  //    get_heroes 結果快取到工房鑄造/修改為止；篩選只切 CSS display。
   var _kcCur = [], _kcHeroesAll = [], _kcHeroesAvailable = [];
-  // 🆕 召喚清單性別篩選預設帶「女」(隨時可切換)，職階篩選維持不預設(全部)。
-  var _kcFilterGender = '女', _kcFilterCls = '';
-  var _kcHeroesCacheReady = false; // ⚡ get_heroes 結果快取旗標
-  // 供 Script_Onboarding.html 工房鑄造/修改成功後呼叫：讓下次開面板重新抓一次英靈庫(否則新作品看不到)。
-  function invalidateKanshouHeroCache() { _kcHeroesCacheReady = false; }
+  var _kcFilterGender = '女', _kcFilterCls = '';   // 性別篩選預設「女」
+  var _kcHeroesCacheReady = false;
+  function invalidateKanshouHeroCache() { _kcHeroesCacheReady = false; }   // 工房鑄造/修改後呼叫
 
+  // 可邀請＝英靈殿 − 已在場（比來源種子 id，短名對不上全名）− 別人的原創 − 男男配對
   function kcRecomputeAvailable_() {
-    // 🌹 直接從英靈庫召喚(不需先在solo封存)：濾掉已在場的；種子(正典)英靈人人可召喚，但玩家原創(src==='ai_gen')只有創造者本人能召喚——不可召喚別人工房捏出的角色進自己的後日談。
-    // 🐛→✅ 補上後端actionKanshouSummonHero同款的「僅支援男女／女女配對(不支援男男)」過濾——
-    //   原本清單沒濾性別，男性玩家會看到一堆點下去必定被後端拒絕的男性英靈，白跑一趟召喚動畫。
     _kcHeroesAvailable = _kcHeroesAll
-      // 🪪 比對【來源種子 id】而不是名字：已入駐的人用的是日常短名（凜／櫻／SABER），
-      //    英靈殿是全名（遠坂凜…），比名字永遠對不上，已經來了的人會一直留在邀請清單裡。
-      //    舊存檔沒有【英靈源】戳記的才退回比名字。
       .filter(function (h) { return !_kcCur.some(function (c) { return c.srcId ? c.srcId === h.id : c.name === h.name; }); })
       .filter(function (h) { return h.src !== 'ai_gen' || (h.creator && h.creator === currentAccount); })
       .filter(function (h) { return !(pc && pc.sex === '男' && h.gender === '男'); });
   }
 
-  // 🧱 2026-07 重構：全部面板共用的「取得/建立 overlay 容器殼」抽出成這支——原本每個面板
-  //   (kc-overlay/km-overlay/kp-overlay/kb-overlay/kf-overlay/kr-overlay/kc-festival-overlay等)
-  //   各自手寫「getElementById沒有就createElement→設id→設style.cssText→掛onclick背景關閉→
-  //   appendChild」8~11行一模一樣的骨架，逐字重複11次。現在只留各面板專屬的innerHTML內容邏輯，
-  //   容器殼統一走這裡。opts: zIndex(預設10001)/dim(背景遮罩透明度,預設.72)/extraStyle(額外
-  //   cssText片段，如padding)/onBgClick(點背景時要做的事，收到(ov)當參數；不傳=點背景不關閉，
-  //   因為部分面板背景點擊關閉時要擋"忙碌中不可關"的判斷，這個差異由呼叫端在onBgClick裡自己判斷)。
-  //   overlay已存在就直接回傳既有元素，不重建(呼叫端仍可能需要每次重繪innerHTML，那是各自的事)。
+  // 面板共用的 overlay 殼。opts: zIndex／dim／extraStyle／onBgClick(ov)（不傳＝點背景不關）。已存在就回既有的。
   function ensureOverlay_(id, opts) {
     opts = opts || {};
     var ov = document.getElementById(id);
@@ -254,9 +156,7 @@ let plainTextContext = cleanText;
     document.body.appendChild(ov);
     return ov;
   }
-  // 🧱 面板讀條共用：各面板的讀條原本逐行相同(ensure overlay→塞讀條HTML→
-  //   display:flex)，只差overlay id/標題文字/配色——合併成這支，各自帶自己的ensureOpts(給
-  //   ensureOverlay_)＋boxOpts(width/borderColor/titleHtml，各面板配色不同)呼叫。
+  // 面板讀條共用。boxOpts: width／borderColor／titleHtml／label
   function _showOverlayLoading_(overlayId, ensureOpts, boxOpts) {
     var ov = ensureOverlay_(overlayId, ensureOpts);
     ov.innerHTML = '<div style="width:min(' + boxOpts.width + ',92vw);background:#1d1722;border:1px solid ' + boxOpts.borderColor + ';border-radius:12px;padding:14px;">'
@@ -295,25 +195,20 @@ let plainTextContext = cleanText;
       + '</div></div>';
   }
 
-  // 🆕 關係稱呼只能由玩家自己在這裡改（🏷️關係 → update_rel_tag）；2026-09 好感砍除後 GAS 不再自動蓋它。
-  // 🌍 每一列多顯示她目前所在地點(loc)，方便找人；拿掉「請走」按鈕(召喚是一次性的，不需要騰隊伍容量)。
+  // 同伴清單：三層排序 同行 → 臨時在場 → 待命（第一件事是「此刻誰在我身邊」）。
   function renderKcPartyList_() {
     var countEl = document.getElementById('kc-count');
     if (countEl) countEl.textContent = _kcCur.length;
     var box = document.getElementById('kc-party-list');
     if (!box) return;
-    // 🎭 三層排序：同行（玩家按的·走不掉）→ 臨時在場（AI 拉進來的·會自己走）→ 待命。
-    //    這份清單的第一件事是「此刻誰在我身邊」，所以在場的一律排前面。
     var _rank = function (x) { return x.party ? 2 : (x.onstage ? 1 : 0); };
     var _sorted = _kcCur.slice().sort(function (a, b) { return _rank(b) - _rank(a); });
     var _pn = _kcCur.filter(function (x) { return x.party; }).length;
     var pnEl = document.getElementById('kc-party-n');
     if (pnEl) pnEl.textContent = _pn;
     box.innerHTML = _kcCur.length ? _sorted.map(function (c) {
-      // 💞 回憶鈕：有回憶亮粉色並帶數量，還沒有就灰階(仍可點開看空狀態說明)。
       var memCount = (c.memoir || []).length;
       var full = !c.party && _pn >= KC_PARTY_MAX_;
-      // 🎭 這一列屬於哪一層：同行／在場（AI 拉來的）／待命。
       var _tier = c.party ? { icon: '🫂', note: '同行中·不會自己走', bg: 'background:rgba(180,140,220,.08);' }
         : (c.onstage ? { icon: '👋', note: '此刻在這一幕裡', bg: 'background:rgba(140,180,220,.07);' }
           : { icon: '🌹', note: '', bg: '' });
@@ -326,7 +221,7 @@ let plainTextContext = cleanText;
     }).join('') : '<div style="color:#888;padding:6px;">（這座城裡你還誰都不認識，從下方邀一個人來吧）</div>';
   }
 
-  // 🫂 同行／離開：誰跟著你走。上限 KC_PARTY_MAX_ 位，同行的人每一幕都在場、每回合都會回應你。
+  // 🫂 同行／解散
   var _kpBusy = false;
   async function kanshouPartyOp(id, op) {
     if (_kpBusy) return;
@@ -344,7 +239,7 @@ let plainTextContext = cleanText;
     finally { _kpBusy = false; }
   }
 
-  // 🚪 請她離開這座城：空出一個世界位子。不可復原，所以問兩次（第二次要打名字）。
+  // 🚪 請她離開這座城（不可復原，問兩次、第二次要打名字）
   async function kanshouEvict(id, name) {
     if (_kpBusy) return;
     if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
@@ -366,18 +261,16 @@ let plainTextContext = cleanText;
   }
 
 
-  // 💞 共同回憶面板：看她跟你一路走來的回憶；★釘選=永不被新回憶擠掉(上限 KC_MEMOIR_PIN_CAP_)；🗑=刪掉不想留的。
-  //   回憶本身由 AI 在劇情里程碑時自動記下(每人保留最近10條，釘選的不佔淘汰名額)。
-  var _kmBusy = false; // 💞讀條保護：面板開啟中/釘選刪除中的旗標，擋連點與競態(見 kanshouMemoirOp)。
+  // ══ 💞 共同回憶面板：★釘選永不被擠掉、🗑 刪掉。回憶由 AI 在里程碑時記下。
+  var _kmBusy = false;   // 讀條保護：擋連點與競態
   function kmSpinner_(msg) { return '<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:22px;color:#e8b8cc;font-size:13px;"><span class="km-spin" style="width:15px;height:15px;border:2px solid rgba(232,184,204,.3);border-top-color:#e8b8cc;border-radius:50%;display:inline-block;animation:kmspin .7s linear infinite;"></span>' + (msg || '處理中…') + '</div><style>@keyframes kmspin{to{transform:rotate(360deg)}}</style>'; }
 
   async function kanshouOpenMemoir(name) {
     if (_kmBusy) return;
     var c = _kcCur.find(function (x) { return x.name === name; });
-    // 聊天側同伴卡也有💞回憶入口(Script.html)——沒先開過同伴面板時 _kcCur 是空的，這裡自己抓一次。
-    if (!c) {
+    if (!c) {   // 從聊天側的卡進來時 _kcCur 可能還是空的
       _kmBusy = true;
-      _kmShowLoading_(name);   // 先秀讀條，避免抓資料時黑屏無回饋
+      _kmShowLoading_(name);
       try {
         const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
         if (res && res.success) _kcCur = res.current || [];
@@ -385,18 +278,11 @@ let plainTextContext = cleanText;
       c = _kcCur.find(function (x) { return x.name === name; });
       if (!c) { var _ov = document.getElementById('km-overlay'); if (_ov) _ov.style.display = 'none'; alert('讀不到回憶，等一下再試。'); return; }
     }
-    // 🐛→✅ 玩家實測前主動抓到：這顆overlay若最先由本函式建立(常見)，就永遠沒有 _kmShowLoading_
-    //   那份「操作中禁止點background關閉」的判斷——kanshouMemoirOp 執行中點背景關閉，request resolve
-    //   後finally區塊仍會呼叫kanshouOpenMemoir重繪，把玩家剛關掉的視窗又打開。比照補同一道判斷。
     var ov = ensureOverlay_('km-overlay', { zIndex: 10001, onBgClick: function (ov) { if (!_kmBusy) ov.style.display = 'none'; } });
     var entries = c.memoir || [];
     var rows = entries.length ? entries.map(function (e) {
       var pinned = e.charAt(0) === '★';
       var text = e.replace(/^★/, '');
-      // 🐛→✅ 玩家實測前主動抓到：舊版用 .replace(/'/g,'') 把撇號整個剝掉，送給後端的item就不再等於
-      //   回憶原文——後端 actionKanshouMemoirOp 只清 ｜【】[]★ 這幾個字元(不剝撇號)、要求逐字完全相符，
-      //   任何含撇號的回憶(AI生成的自由文字並無禁止撇號)因此永遠釘選/刪除失敗。改成正確跳脫(\')而非
-      //   刪字，讓送出的item字串經JS解析後等於原文。
       var tEsc = String(text).replace(/'/g, "\\'");
       return '<div style="display:flex;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,.08);">'
         + '<span style="flex:1;color:' + (pinned ? '#ffd9a0' : '#e8d8e0') + ';font-size:13px;line-height:1.5;">' + (pinned ? '★ ' : '') + escapeHtml(text) + '</span>'
@@ -411,42 +297,38 @@ let plainTextContext = cleanText;
     ov.style.display = 'flex';
   }
 
-  // 面板讀條：把 overlay 內容換成 spinner(overlay 不存在就先建一個空的)。
   function _kmShowLoading_(name) {
     _showOverlayLoading_('km-overlay',
       { zIndex: 10001, onBgClick: function (ov) { if (!_kmBusy) ov.style.display = 'none'; } },
       { width: '440px', borderColor: 'rgba(232,184,204,.25)', titleHtml: '<b style="color:#e8b8cc;">💞 與「' + escapeHtml(name || '') + '」的共同回憶</b>' });
   }
   async function kanshouMemoirOp(name, op, item, id) {
-    if (_kmBusy) return;   // 💞讀條保護：上一個釘選/刪除還在跑就忽略連點，防重複送出/競態
+    if (_kmBusy) return;
     if (op === 'del' && !await customConfirm_('刪掉這條回憶？她就真的忘了。')) return;
     _kmBusy = true;
-    _kmShowLoading_(name);  // 面板換成讀條，處理中不可再點
+    _kmShowLoading_(name);
     try {
       const res = await gasRun({ action: 'kanshou_memoir_op', pcId: pc.id, acctName: currentAccount, targetName: name, targetId: id || '', op: op, item: item });
       if (!res || !res.success) { alert((res && res.message) || '沒成功。'); return; }
       var c = _kcCur.find(function (x) { return x.name === name; });
       if (c) c.memoir = res.memoir || [];
-      renderKcPartyList_();   // 卡片上的數量徽章同步
+      renderKcPartyList_();
     } catch (e) { alert('沒成功。'); }
     finally {
       _kmBusy = false;
-      kanshouOpenMemoir(name); // 面板原地重繪(讀條收掉、顯示最新清單)
+      kanshouOpenMemoir(name);   // 原地重繪
     }
   }
 
-  // 🌙 結束一天：跟一般聊天走同一個 send()、同一套渲染。
+  // 🌙 結束一天（夜未眠中按＝這一夜收尾、睡到天亮）
   async function kanshouEndDay() {
-    // 🌙 夜未眠中按下去＝這一夜收尾、睡到天亮；否則才是一般的「結束今天」。
     var _inNight = !!(window._lastTags && window._lastTags.nightScene);
     if (!await customConfirm_(_inNight ? '就睡到天亮？' : '今天就到這裡？')) return;
     showGamePane('chat');
     await send(_inNight ? '🌅 這一夜，就這樣過去了。' : '🌙 結束了這一天。', false, { endDay: true, loaderCaptions: ['夜色漸漸深了…', '一天的塵埃緩緩落定…', '悄悄迎向嶄新的一天…'] });
   }
 
-  // ⏰ 推時間只剩兩顆：「下一階段」與「結束一天」（2026-09 玩家把時間流速旋鈕與「直接指定日期
-  //   與時刻」都砍了——同一件事本來有五個入口）。下一階段固定照 清晨→午後→黃昏→夜→深夜→
-  //   (隔天)清晨 前進；深夜按下去自然就是睡過夜，直接重用 kanshouEndDay() 整套邏輯。
+  // ⏰ 推時間只有兩顆：下一階段（深夜按＝睡過夜）與結束一天。
   async function kanshouJumpBand(key, label) {
     showGamePane('chat');
     await send('⏩ 讓時間悄悄流轉到了' + label + '。', false, { jumpBand: key, loaderCaptions: ['時光靜靜流轉…', '天色漸漸改變…'] });
@@ -459,8 +341,7 @@ let plainTextContext = cleanText;
     await kanshouJumpBand(next.key, next.name);
   }
 
-  // 篩選下拉選單本身只跟 _kcHeroesAll(英靈庫全清單)有關，內容跟 get_heroes 一樣少變——只在
-  // 英靈庫清單真的重抓時(見 openCompanions)才重建這裡，換篩選只呼叫 applyKcHeroFilter_ 切 CSS。
+  // 篩選下拉只在英靈庫重抓時重建
   function renderKcFilters_() {
     var box = document.getElementById('kc-filters');
     if (!box) return;
@@ -478,9 +359,7 @@ let plainTextContext = cleanText;
     + '</div>';
   }
 
-  // 召喚清單每列只在「可召喚名單本身變了」(開面板/召喚後)才重建——每列標好 data-gender/
-  // data-cls，換篩選(kanshouSetFilter)直接對這些既有節點切 display，不再整包重建。
-  // 🌍 召喚沒有人數上限了(不再是隊伍容量)，不用判斷 canAdd，只要出現在 _kcHeroesAvailable(尚未召喚過)就能按。
+  // 召喚清單只在可邀名單變了才重建；每列標 data-gender/data-cls，篩選只切 display
   function renderKcHeroList_() {
     var box = document.getElementById('kc-hero-list');
     if (!box) return;
@@ -496,7 +375,6 @@ let plainTextContext = cleanText;
     }
     applyKcHeroFilter_();
   }
-  // 換性別/職階篩選：純本地重繪，不重讀伺服器、不重建召喚清單的 DOM——只切既有列的顯示與否。
   function kanshouSetFilter(kind, val) {
     if (kind === 'gender') _kcFilterGender = val; else _kcFilterCls = val;
     applyKcHeroFilter_();
@@ -512,7 +390,7 @@ let plainTextContext = cleanText;
       if (show) anyVisible = true;
     });
     var empty = document.getElementById('kc-hero-empty');
-    if (empty && _kcHeroesAvailable.length) { // 全域為空的訊息由 renderKcHeroList_ 自己顧，這裡只管「有清單、但篩選後沒中」
+    if (empty && _kcHeroesAvailable.length) {   // 「有清單、但篩選後沒中」
       if (!anyVisible) { empty.textContent = '（無符合篩選的英靈）'; empty.style.display = ''; }
       else { empty.style.display = 'none'; }
     }
@@ -531,77 +409,25 @@ let plainTextContext = cleanText;
       if (!res || !res.success) { alert((res && res.message) || '讀不到同伴。'); return; }
       _kcCur = res.current || [];
       if (needHeroes) {
-        // 🎨 召喚清單重新對男性開放(不再全面性別封鎖)。衛宮士郎-Master仍用id特判擋掉(玩家自己的位置)；斯卡哈-Assassin/伊莉雅-Caster/恩奇都-Lancer額外濾掉——跟後端KANSHOU_SUMMON_BLOCKED_IDS_同一份名單，手動同步。
-        var KC_SUMMON_BLOCKED_IDS_ = ['衛宮士郎-Master'];   // 🪞 鏡射後端 KANSHOU_SUMMON_BLOCKED_IDS_(已清空)＋玩家自己的位置
+        var KC_SUMMON_BLOCKED_IDS_ = ['衛宮士郎-Master'];   // 玩家自己的位置；後端 KANSHOU_SUMMON_BLOCKED_IDS_ 現為空
         _kcHeroesAll = (heroRes && heroRes.success) ? (heroRes.heroes || []).filter(function (h) { return KC_SUMMON_BLOCKED_IDS_.indexOf(h.id) === -1; }) : [];
-        _kcHeroesCacheReady = !!(heroRes && heroRes.success); // 讀取失敗不快取「空」，下次開面板會再試一次
+        _kcHeroesCacheReady = !!(heroRes && heroRes.success);   // 讀失敗不快取空
       }
       kcRecomputeAvailable_();
       ensureKcOverlay_();
       renderKcMasterBox_();
-      if (needHeroes) renderKcFilters_(); // 選單選項來源(_kcHeroesAll)沒變就不必重建
+      if (needHeroes) renderKcFilters_();
       renderKcHeroList_();
       renderKcPartyList_();
       document.getElementById('kc-overlay').style.display = 'flex';
     } catch (e) { alert('讀不到同伴。'); }
   }
 
-  // ⏰ 跳到時段(GAS算差幾小時，kanshouHoursUntilBand_ 唯一真實來源)。純顯示用 mirror，改時段記得同步後端 KANSHOU_TIME_BANDS_。
+  // 五時段（鏡射後端 KANSHOU_TIME_BANDS_，差幾小時由 GAS 算）
   var KC_TIME_BANDS_ = [
-    // startHour 鏡射後端 KANSHOU_TIME_BANDS_（唯一真實來源在 Gallery.gs）。
     { key: '清晨', name: '清晨', label: '☀️清晨', startHour: 5 }, { key: '午後', name: '午後', label: '🌤️午後', startHour: 11 },
     { key: '黃昏', name: '黃昏', label: '🌆黃昏', startHour: 17 }, { key: '夜', name: '夜晚', label: '🌙夜晚', startHour: 20 }, { key: '深夜', name: '深夜', label: '🌌深夜', startHour: 0 }
   ];
-  // 目前選取的分區(純前端UI狀態，跨裝置不同步，比照kanshouEncounterOn用localStorage記住偏好)。
-
-  // 🛡️ 舊 localStorage 可能存著已移除的 'room' 分頁 → 退回 'home'，免分頁空白。
-
-
-
-  // 🗑️ 2026-09 地點整組退休：🗺️地圖分頁、分區、地點按鈕、去找/叫來/一起過去，整組移除。
-
-  // 小選單：回傳選中的 k，取消回 null（比一連串 confirm 好讀）
-  function kcChoose_(title, opts) {
-    return new Promise(function (resolve) {
-      var ov = ensureOverlay_('kc-choose', { zIndex: 10030, extraStyle: 'padding:18px;' });
-      ov.innerHTML = '<div style="width:min(340px,92vw);background:#1d1722;border:1px solid #4a3a6a;border-radius:12px;padding:14px;">'
-        + '<div style="color:#e0c8f0;font-size:14px;margin-bottom:10px;">' + escapeHtml(title) + '</div>'
-        + opts.map(function (o, i) {
-          return '<button data-k="' + i + '" style="width:100%;text-align:left;padding:9px 11px;margin-bottom:6px;background:#261e30;color:#dcc8ec;border:1px solid #4a3a6a;border-radius:8px;cursor:pointer;font-size:13px;">' + escapeHtml(o.label) + '</button>';
-        }).join('')
-        + '<button data-k="cancel" style="width:100%;padding:8px;margin-top:2px;background:#2a2438;color:#9a8bb0;border:none;border-radius:8px;cursor:pointer;">取消</button></div>';
-      ov.style.display = 'flex';
-      ov.querySelectorAll('button').forEach(function (b) {
-        b.onclick = function () {
-          ov.style.display = 'none';
-          var k = b.getAttribute('data-k');
-          resolve(k === 'cancel' ? null : opts[parseInt(k)].k);
-        };
-      });
-    });
-  }
-
-  // 🏠 改名「家」：寫進後端 MEMORY【住所】標記(kanshou_set_home_name)，成功後同步更新本地 pc.homeName＋重繪清單，不必整頁重整或重打 sync。
-  async function kanshouRenameHome() {
-    var cur = (pc && pc.homeName) ? pc.homeName : '我家';
-    var name = await customPrompt_('把「' + cur + '」改成什麼名字？(12字以內)', cur, 12);
-    if (name === null) return;
-    name = name.trim();
-    if (!name) { alert('名稱不能空白。'); return; }
-    if (name.length > 12) { alert('名字最多 12 個字。'); return; }
-    try {
-      const res = await withProcessing_('改名中…', () => gasRun({ action: 'kanshou_set_home_name', pcId: pc.id, acctName: currentAccount, homeName: name }));
-      if (!res || !res.success) { alert((res && res.message) || '沒改成。'); return; }
-      pc.homeName = res.homeName;
-      localStorage.setItem('kyushu_v27', JSON.stringify(pc));
-      var listEl = document.getElementById('kc-map-list');
-      if (listEl) listEl.innerHTML = kcMapListHtml_();
-    } catch (e) { alert('沒改成。'); }
-  }
-
-
-
-
   async function kcRefreshPartyOnly_() {
     try {
       const res = await gasRun({ action: 'kanshou_companions', pcId: pc.id, acctName: currentAccount });
@@ -613,7 +439,7 @@ let plainTextContext = cleanText;
     } catch (e) { }
   }
 
-  // 🚀 已移除「召喚後背景AI深化」第二段呼叫：種子庫23位英靈已全數手寫完整的日常外貌/性格/衣裝(見 heroToKanshouRow_/getDailyHeroFields_)，那顆深化只會多等一輪AI呼叫、拿可能更差的內容覆蓋，純粹拖速度——整條移除(actionBackfillKanshouServantAi 已刪)。
+  // 🌟 召喚：成功後同步整表＋只重抓同伴清單
   async function kanshouSummonHero(heroId) {
     showProcessing('正在聯繫……', true);
     try {
@@ -623,15 +449,7 @@ let plainTextContext = cleanText;
       else { alert((res && res.message) || '沒請到。'); }
     } catch (e) { hideProcessing(); alert('沒請到。'); }
   }
-  // 🏷️ REL_TAG 從此只能由玩家在這裡手動改，AI只能在敘事裡表現認不認同(態度)、不再擅自覆寫。呼叫既有的 update_rel_tag(後端早就有，只是從未接過前端UI)。
-  // 🗺️ 共用地點點選面板：分區標題＋地點按鈕，點了就回呼——之後任何「選個地點」的需求都用這支，別再用 prompt() 編號。
-  var _kpCb = null;
-  function kanshouPickLoc_(name) {
-    var ov = document.getElementById('kloc-overlay');
-    if (ov) ov.style.display = 'none';
-    var cb = _kpCb; _kpCb = null;
-    if (cb) cb(name);
-  }
+  // ══ ⚙ 說書人設定面板
   function kanshouCloseStyle_() { var o = document.getElementById('kc-style-overlay'); if (o) o.remove(); }
   async function openKanshouStyle() {
     if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
@@ -698,16 +516,13 @@ let plainTextContext = cleanText;
     html += '<div style="text-align:right; margin-top:14px;"><button onclick="ksResetAll_()" style="background:none; border:1px solid #6a4a4a; border-radius:8px; color:#c08a8a; font-size:12px; padding:5px 12px; cursor:pointer;">全部還原預設</button></div>';
     body.innerHTML = html;
   }
-  // 📏 檔位選一個就存（樂觀更新：先把畫面改掉，再背景寫回）
-  // ⚠ 名字【不可以】叫 ksPick_：下面三態那顆也叫 ksPick_，函式宣告會被後者整個蓋掉，
-  //   於是按篇幅檔位會走進三態那支、當成「關閉」送出去——畫面照常、零錯誤訊息。
+  // 檔位選一個就存（樂觀更新）。⚠ 名字別叫 ksPick_：會被下面三態那支蓋掉，按檔位變成「關閉」送出去。
   async function ksTier_(key, val) {
     var m = _ksMods_.find(function (x) { return x.key === key; }); if (!m) return;
     m.text = val; m.custom = val !== 'auto'; ksRender_();
     try { await gasRun({ action: 'kanshou_set_style', pcId: pc.id, acctName: currentAccount, key: key, styleText: val }); } catch (e) { }
   }
-  // 三態的唯一判讀口。⚠「正在編輯」排最前面：關掉的那一段按【自訂】也要當場長出輸入框
-  //   （三顆鈕是互斥狀態，按了沒反應＝死按鈕），存檔時一併把它開回來。
+  // 三態唯一判讀口；「正在編輯」排最前面，關掉的那段按【自訂】也要當場長出輸入框
   function ksMode(m) { return _ksEdit_[m.key] ? 'own' : (!m.on ? 'off' : (m.custom ? 'own' : 'def')); }
   function ksBtn_(m, mode, want, label) {
     var on = mode === want;
@@ -715,7 +530,7 @@ let plainTextContext = cleanText;
       + '; border:1px solid ' + (on ? '#a08850' : '#5a4e3a') + '; border-radius:7px; color:' + (on ? '#f0e0b8' : '#9a8e74')
       + '; font-size:11.5px; padding:3px 13px; cursor:pointer; margin-right:6px;">' + label + '</button>';
   }
-  // 按「自訂」只是把輸入框打開（本地，不打後端）——按【儲存】才真的送，省一次來回。
+  // 按「自訂」只開輸入框（本地）；按【儲存】才送
   function ksPick_(key, want) {
     var m = _ksMods_.find(function (x) { return x.key === key; }); if (!m) return;
     if (want === 'own') { _ksEdit_[key] = true; ksRender_(); return; }
@@ -749,10 +564,7 @@ let plainTextContext = cleanText;
     return ksSend_({ resetAll: true });
   }
 
-  // 帳本原本只有 AI 寫得到、玩家看不到——而淘汰政策裡的「★釘選永不淘汰」根本沒有入口能設定。
-  // 這個面板把「看得到」與「管得動」一起補上：釘選想永久留著的、刪掉 AI 亂記的。
-  // 🧭 兩軌共用同一個面板：抬頭、說明、分組全部由後端逐軌下傳(WORLD_SPEC_.panel)，
-  //    前端只負責畫——這裡自己判斷「現在是哪一軌」就會變成第二個真實來源。
+  // ══ 🌍 世界帳本面板：釘選／刪除。兩軌共用，抬頭／說明／分組由後端 WORLD_SPEC_.panel 下傳，前端只畫。
   var _kwBusy_ = false, _kwRows_ = [], _kwPanel_ = {};
   function closeWorldPanel_() { var o = document.getElementById('kc-world-overlay'); if (o) o.remove(); }
   async function openWorldPanel() {
@@ -813,16 +625,15 @@ let plainTextContext = cleanText;
     body.innerHTML = html;
   }
   async function kwOp_(op, kind, name) {
-    if (_kwBusy_) return;   // 讀條保護：上一個還在跑就忽略連點(同 kanshouMemoirOp)
+    if (_kwBusy_) return;
     if (op === 'del' && !await customConfirm_('把「' + name + '」忘掉？')) return;
     _kwBusy_ = true;
     try { await kwLoad_(op, kind, name); } finally { _kwBusy_ = false; }
   }
 
-  // 🏷️ 關係稱呼面板：2026-09 好感砍除後這裡【只剩玩家自己打的字】——沒有預設五階、沒有門檻。
-  //   你說她是你的什麼，她就是什麼；GAS 不再依任何數字自動改它。
+  // ══ 🏷️ 關係：稱呼只剩玩家自己打的字（沒有五階、沒有門檻）。
   var _krBusy = false;
-  // 💞 關係中樞：把低頻入口收在一起（稱呼／回憶），既有面板原樣複用。
+  // 💞 關係中樞（從者卡那顆鈕）：稱呼／回憶兩個入口收在一起
   function kanshouOpenBondHub(name, curTag, curNickname, npcId) {
     var ov = ensureOverlay_('kbh-overlay', { zIndex: 10001, onBgClick: function (ov) { ov.style.display = 'none'; } });
     var safeN = String(name).replace(/'/g, "\\'");
@@ -846,7 +657,7 @@ let plainTextContext = cleanText;
       + '</div>';
     ov.style.display = 'flex';
   }
-  var _krTargetId = '';   // 🆔 目前開啟的關係面板對象 id（長名同伴靠名字會被 NAME_MAX 截斷、查無此人）
+  var _krTargetId = '';   // 面板對象 id（長名靠名字會被 NAME_MAX 截斷）
   function kanshouOpenRelTag(name, curTag, curNickname, npcId) {
     if (_krBusy) return;
     _krTargetId = String(npcId || '');
@@ -881,10 +692,8 @@ let plainTextContext = cleanText;
   async function kanshouSetRelTagCustom(name) {
     var el = document.getElementById('kr-custom');
     var nt = el ? el.value.trim() : '';
-    await kanshouSetRelTag(name, nt);   // 🧹 空白＝清掉這一格，交還給說書人
+    await kanshouSetRelTag(name, nt);   // 空白＝清掉、交還說書人
   }
-  // 💬 專屬稱呼手動設定(2026-07五度改版)：比照 kanshouSetRelTag 同一套busy鎖+回應處理，走新的
-  //   kanshou_set_nickname action(見Router_Action.gs actionSetNickname)。
   async function kanshouSetNicknameCustom(name) {
     var el = document.getElementById('kr-nickname');
     var nt = el ? el.value.trim() : '';
@@ -898,15 +707,13 @@ let plainTextContext = cleanText;
     } catch (e) { alert('更改失敗。'); }
     finally { _krBusy = false; }
   }
-  // ✏ 隨時更改後日談中「你（御主）」的名字
+  // ✏ 改御主名
   async function changeKanshouName() {
     if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
     var nm = await customPrompt_('御主新名字：', pc.name || '');
     if (nm === null) return;
     nm = String(nm).trim();
     if (!nm) { alert('名字不能空白。'); return; }
-    // 🐛→✅ 稽核抓到：只有改「家」名(kanshouRenameHome)有做前端長度檢查，這裡漏了，
-    //   原本會讓玩家白跑一趟round-trip才被後端擋下。比照同款補上。
     if (nm.length > 16) { alert('名字請在16字以內。'); return; }
     try {
       const res = await withProcessing_('改名中…', () => gasRun({ action: 'kanshou_set_name', pcId: pc.id, acctName: currentAccount, pcName: nm }));
@@ -914,11 +721,11 @@ let plainTextContext = cleanText;
         pc.name = res.pcName;
         localStorage.setItem('kyushu_v27', JSON.stringify(pc));
         var el = document.getElementById('ui-name'); if (el) el.innerText = pc.name;
-        renderKcMasterBox_(); // 只改名字/性別，只重繪御主資訊框——不必整面板重開
+        renderKcMasterBox_();
       } else { alert((res && res.message) || '沒改成。'); }
     } catch (e) { alert('沒改成。'); }
   }
-  // ⚧ 隨時切換後日談中「你（御主）」的性別
+  // ⚧ 改御主性別
   async function changeKanshouSex() {
     if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
     const sex = await askKanshouSex();
@@ -928,15 +735,13 @@ let plainTextContext = cleanText;
         pc.sex = res.pcSex;
         localStorage.setItem('kyushu_v27', JSON.stringify(pc));
         var el = document.getElementById('ui-sex'); if (el) el.innerText = pc.sex;
-        renderKcMasterBox_(); // 只改名字/性別，只重繪御主資訊框——不必整面板重開
+        renderKcMasterBox_();
       } else { alert((res && res.message) || '切換失敗。'); }
     } catch (e) { alert('切換失敗。'); }
   }
 
-  // 🌹 進入慾海·後日談（新版）：點一下直接回到帳號專屬的【單一常駐】後日談主畫面。
-  //   不再先挑從者、不再每次重講開場；歷史紀錄跟單機一樣靠 pcId 從「歷史暫存」撈。
-  //   要找誰來陪 → 進場後用下方 👥 後日談同伴 面板邀請（沒有人數上限，2026-09 查過：後端只擋重複與配對規則）。
-  // ⚧ 後日談御主性別選擇器（首次進場問一次、之後同伴面板可隨時改）。回傳 '女' / '男'。
+  // ══ 進場
+  // 性別選擇器（改性別時用）。回 '女'／'男'
   function askKanshouSex() {
     return new Promise(function (resolve) {
       var ov = document.createElement('div');
@@ -954,14 +759,7 @@ let plainTextContext = cleanText;
     });
   }
 
-  // 🌹 首次進場設定御主：取名／選性別／外貌／身世／個性方向（皆可留空由AI決定，比照solo創角）。
-  //   之後 👥 面板可改名/改性別；外貌/身世/個性方向只在首次建檔時餵給AI潤色一次(見backfillKanshouAi)。
-  //   回傳 {name, sex, appearance, standing, persona}。
-  // 🐛→✅ 性別鈕原本一點就直接送出整張表單(其他欄位來不及填就被提交)——改成純選取(點擊只切換高亮)，另加一顆「進入後日談」鈕才真正送出。
-  // 🐛→✅ 2026-07 拆掉「留白創角」選項(玩家「鑑賞玩家要輸入姓名性別外貌個性，這樣就好，其他的
-  //   丟給AI去寫」)：舊版讓玩家選「留白、遊戲中讓AI慢慢認識我」，靠遊玩中零碎片段盲猜性格，
-  //   寫得很爛——現在統一只剩「AI一次擴寫」這條路，玩家填姓名/性別/必填，外貌/個性可留空，
-  //   送出後直接呼叫 backfillKanshouAi 一次把外貌/個性/經歷寫完整。
+  // 首次進場：名字＋性別必填，外貌／個性可留空（AI 一次擴寫）。回 {name, sex, appearance, standing, persona}
   function askKanshouSetup(defaultName) {
     return new Promise(function (resolve) {
       var selectedSex = '';
@@ -1000,13 +798,12 @@ let plainTextContext = cleanText;
     });
   }
 
-  // 🚀 非阻塞補生成御主敘事欄(比照solo的backfillMasterAi)：進場後背景呼叫，成功則刷新左側御主卡；
-  //   失敗靜默(保留enter_kanshou寫的種子預設)。
+  // 進場後背景補寫御主卡（不擋畫面，但看得出還在跑）；失敗靜默留種子預設
   async function backfillKanshouAi(seed) {
     var _bg = null;
     try {
       if (!pc || !pc.id) return;
-      _bg = bgHint_('正在補完你的設定…'); // 刻意【不】擋畫面(玩家已經可以開始玩)，但要看得出還在跑
+      _bg = bgHint_('正在補完你的設定…');
       const res = await gasRun({ action: 'backfill_kanshou_ai', pcId: pc.id, acctName: currentAccount,
         appearance: seed.appearance || "", standing: seed.standing || "", persona: seed.persona || "" });
       if (res && res.success) { try { syncData(); } catch (e) {} }
@@ -1020,10 +817,7 @@ let plainTextContext = cleanText;
     try {
       let res = await gasRun({ action: 'enter_kanshou', acctName: currentAccount });
       if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
-      // 首次進場、尚未建過常駐御主 → 先問一次名字＋性別＋外貌＋個性方向，帶進來正式建立。
-      // ⚠ 刻意【不問身世】(2026-07 玩家定案「鑑賞玩家要輸入姓名性別外貌個性，這樣就好」)，
-      //   所以這裡也不送 standing——enter_kanshou 從來沒讀過它，送的永遠是空字串。
-      //   身世仍是 backfillKanshouAi 生成器的參數(留空＝隨機)，那條路不動。
+      // 首次進場先問名字＋性別＋外貌＋個性（刻意不問身世）
       let firstTimeSeed = null;
       if (res.needSetup) {
         const setup = await askKanshouSetup(res.defaultName || currentAccount);
@@ -1032,7 +826,6 @@ let plainTextContext = cleanText;
           appearance: setup.appearance, persona: setup.persona });
         if (!res || !res.success) { alert((res && res.message) || '無法進入後日談。'); return; }
       }
-      // 建立鑑賞視角的 pc（mode=kanshou：隱藏戰鬥相關 UI、顯示同伴面板）
       pc = { id: res.pcId, name: res.pcName, sex: res.pcSex, mode: 'kanshou', account: currentAccount, homeName: res.homeName || '家' };
       localStorage.setItem('kyushu_v27', JSON.stringify(pc));
       document.getElementById('setup').style.display = 'none';
@@ -1042,23 +835,15 @@ let plainTextContext = cleanText;
       document.getElementById('ui-sex').innerText = pc.sex;
       setupHistoryPrevention();
       refreshFateTags();
-      // 🚀 2026-07 拆掉「留白創角」分流(玩家「其他的丟給AI去寫...AI只能改動經歷」)：創角一律
-      //   立即用玩家填的姓名/性別/外貌/個性一次擴寫完整(外貌/個性/經歷)，不再留白等遊戲中
-      //   慢慢猜——那個路徑正是「性格 AI 亂寫」的根源。
       if (firstTimeSeed) backfillKanshouAi(firstTimeSeed);
-      // 🧵 跟單機一樣：靠 pcId 從「歷史暫存」撈前塵對話，承接上次的後日談，不重開場
+      // 靠 pcId 撈歷史，承接上次的後日談
       const story = document.getElementById('story');
       story.innerHTML = `<div class="loading-text">後日談因果重啟，喚醒前塵記憶…</div>`;
       google.script.run.withSuccessHandler((htmlContent) => {
         if (htmlContent && htmlContent.trim() !== "") {
           story.innerHTML = htmlContent;
         } else {
-          // 🔰 第一次進來(歷史是空的)才會看到：鑑賞沒有 ❓教學 入口(那顆在 top-navbar，applyModeUI 在
-          //   鑑賞把整條藏了、內容也全是聖杯戰爭的事)，所以新手怎麼玩只能由這裡講。
-          //   ⚠ 這裡點名的每一顆按鈕都必須真的存在——寫一顆不存在的鈕比不寫更誤導人。
-          // 🔰 2026-09 玩家：「新手教學也砍光，就留一個先邀請人就好」。一片空白的開局，第一件事只有一件。
-          // ⚠ 這個世界的前提是【從來沒有發生過聖杯戰爭】（見 nsfwBaseRules 的 world 那格），
-          //    舊文案寫「聖杯戰爭結束後的冬木」跟它正面打架，玩家第一眼看到的就是矛盾的設定。
+          // 第一次進來（歷史是空的）的引導。⚠ 點名的每一顆鈕都必須真的存在（check_ui 盯）；世界前提是從沒發生過聖杯戰爭。
           story.innerHTML = `<div class="msg-ai"><b>【日常】</b>和平的現代冬木市。這座城還是空的。<br><br>`
             + `<b style="color:#e0a0bc;">👥 有誰</b>（時鐘左邊）<br>`
             + `① 在<b>「邀人加入」</b>挑一個人，請她來這座城<br>`

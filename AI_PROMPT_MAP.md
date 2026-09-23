@@ -371,7 +371,6 @@
 | `kanshou_memoir_op` | 💞共同回憶面板「📌釘選/☆/🗑」→`kanshouMemoirOp(name,op,text)` | `actionKanshouMemoirOp` | 否（玩家手動管理回憶） |
 | `kanshou_set_name` | 「✏改名」→`changeKanshouName()` | `actionKanshouSetName` | 否 |
 | `kanshou_set_sex` | 「⚧切換性別」→`changeKanshouSex()` | `actionKanshouSetSex` | 否 |
-| `kanshou_set_home_name` | 「出門走走」面板「家」改名 | `actionKanshouSetHomeName` | 否（寫 MEMORY【住所】標記） |
 | `purge_orphans` | 主選單 DEV「🧹 清殘列」（Index.html） | `actionPurgeOrphans`（其實在 Account.gs） | 否 |
 | `dev_resync_codex` | 主選單 DEV「🔄 套用最新平衡」（Index.html） | `actionDevResyncCodex`（Seed 系統） | 否 |
 

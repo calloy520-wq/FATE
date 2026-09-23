@@ -701,20 +701,6 @@ function actionKanshouSetName(userData, pcId, sheets) {
   return JSON.stringify({ success: true, pcName: newName, message: "御主已改名為「" + newName + "」。" });
 }
 
-// 🏠 改家名（存【住所】；地點退休後只是稱呼）。
-function actionKanshouSetHomeName(userData, pcId, sheets) {
-  var newName = String(userData.homeName || "").trim();
-  if (!newName) return JSON.stringify({ success: false, message: "名稱不能空白。" });
-  if (newName.length > 12) return JSON.stringify({ success: false, message: "名稱請在12字以內。" });
-  var kpc = sheets.pc;
-  var data = kpc.getDataRange().getValues();
-  var meIdx = kanshouPcIdx_(data, pcId);
-  if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
-  var newMemory = setKanshouHomeName_(data[meIdx][COL.PC.MEMORY], newName);
-  kpc.getRange(meIdx + 1, COL.PC.MEMORY + 1).setValue(newMemory);
-  return JSON.stringify({ success: true, homeName: newName, message: "住所已改名為「" + newName + "」。" });
-}
-
 
 // ══════════════ 鑑賞 AI 核心：系統提示詞 ══════════════
 
@@ -770,21 +756,6 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
   return nsfwBaseRules
     + (partyStable ? "\n" + partyStable : "")
     + "\n★【輸出範本】" + JSON.stringify(finalJson);
-}
-
-// 回應裡的 people[]（前端存成 localNPCs）：這一局其他人的 id／名字。
-function getKanshouPeopleList_(pcId, curL, allPcData) {
-  const safeCurL = String(curL || "");
-  const meRow = allPcData.find(r => r[COL.PC.ID] == pcId);
-  const myGameId = meRow ? String(meRow[COL.PC.GAME_ID] || "") : "";
-  const list = [];
-  for (let i = 1; i < allPcData.length; i++) {
-    const r = allPcData[i];
-    if (r[COL.PC.ID] == pcId || String(r[COL.PC.ID]).startsWith("DEAD_")) continue;
-    if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) continue;
-    list.push({ id: r[COL.PC.ID], name: r[COL.PC.NAME], isExact: (String(r[COL.PC.LOC] || "") === safeCurL) });
-  }
-  return list;
 }
 
 // 這個名字是地方不是人（AI 偶爾把「風音的家」寫成 kind:'人物'）：住所名或地名尾巴。
@@ -895,10 +866,6 @@ var KANSHOU_BACKFILL_DONE_TAG_ = makeIntTag_('設定已補', 0);
 var KANSHOU_MORNING_AFTER_TAG_ = makeTextTag_('晨間餘韻');
 var KANSHOU_NIGHT_SCENE_TAG_ = makeIntTag_('夜未眠', 0);
 
-// 單值 tag 的值淨化：清掉分隔字元與引號／角括號。
-function kanshouSanitizeTagValue_(value, maxLen) {
-  return String(value || "").replace(/[,:｜【】"'<>\n\r\t]/g, "").trim().slice(0, maxLen || 8);
-}
 // ══════════════ 🌍 世界帳本：AI 發明的東西落盤的地方 ══════════════
 // 兩軌共用一個引擎，只有規格不同（能寫哪些 kind、各存幾條、一回合寫幾條餵幾條）；加一軌＝加一列。
 //   kinds 同時驅動：AI 能寫哪些、哪些會被淘汰、面板列哪些。
@@ -1323,12 +1290,6 @@ function getKanshouHomeName_(memory, playerName) {
   const dflt = String(playerName || "").trim() ? String(playerName).trim() + "的家" : "我家";
   return nm || dflt;
 }
-function setKanshouHomeName_(memory, name) {
-  const s = String(memory || "");
-  const cleaned = s.replace(/｜?【住所】[^｜【】]*/g, "");
-  const safe = kanshouSanitizeTagValue_(name, 12) || "我家";
-  return (cleaned ? cleaned + "｜" : "") + "【住所】" + safe;
-}
 // 鑑賞顯示用的日常短名（真名太長，AI 只會挑一段叫，逐字比對會失敗）。
 const KANSHOU_CASUAL_NAME_ = {
   '阿爾托莉雅-Saber': 'SABER',
@@ -1405,7 +1366,7 @@ function kanshouAdvanceClock_(ctx) {
   const myGameId = ctx.myGameId, sameGame = ctx.sameGame, partyMembers = ctx.partyMembers;
   const dirtyPcRows = ctx.dirtyPcRows, _paceHour_ = ctx.paceHour;
   const kanshouNightSceneOn_ = ctx.nightSceneOn;
-  let curDay = ctx.curDay, curHour = ctx.curHour, curL = ctx.curL, finalUserMsg = ctx.finalUserMsg;
+  let curDay = ctx.curDay, curHour = ctx.curHour, finalUserMsg = ctx.finalUserMsg;
   const kanshouTimeJumped_ = !!(userData.endDay === true || userData.jumpBand || (parseFloat(userData.advanceHours) || 0) > 0);
 
   // 結束一天／跳時段：用系統合成的訊息走同一條敘事管線，不另開路徑。
@@ -1448,7 +1409,6 @@ function kanshouAdvanceClock_(ctx) {
     dirtyPcRows.add(pcIndex);
     kanshouRestBody_(pcData, pcIndex);
     ctx.allies.forEach(r => { const _bi = pcData.indexOf(r); kanshouRestBody_(pcData, _bi); if (_bi >= 0) dirtyPcRows.add(_bi); });
-    curL = '我的房間';
     finalUserMsg = `【一天結束】夜幕降臨，${intimateNightNames.length ? `跟『${intimateNightNames.join('、')}』一起` : ""}回到房間安頓下來，今天到此為止，明天又是新的一天。`;
   } else {
     let advanceHours = Math.max(0, Math.min(parseFloat(userData.advanceHours) || 0, 24 * 365 * 3));
@@ -1478,7 +1438,7 @@ function kanshouAdvanceClock_(ctx) {
     dirtyPcRows.add(pcIndex);
   }
   return {
-    curDay: curDay, curHour: curHour, curL: curL, finalUserMsg: finalUserMsg,
+    curDay: curDay, curHour: curHour, finalUserMsg: finalUserMsg,
     timeJumped: kanshouTimeJumped_, clockMoved: kanshouClockMoved_,
     narrDay: kanshouNarrDay_, narrHour: kanshouNarrHour_,
     intimateNightNames: intimateNightNames, nightSceneNames: kanshouNightSceneNames_
@@ -1646,7 +1606,7 @@ function kanshouApplyIntimacyFeedback_(ctx) {
 // 每回合主流程：讀卡 → 時鐘 → 在場 → 組提示詞 → 叫 AI → cast／scene／回寫／帳本 → 只寫動到的列。
 function actionPlay_(userData, pcId, sheets) {
   const userMsg = String(userData.message || "").replace(/[｜【】]/g, "");   // endDay 不一定帶 message
-  if (String(pcId || "").indexOf("KPC_") !== 0) return JSON.stringify({ text: "此功能僅限鑑賞使用。", people: [] });
+  if (String(pcId || "").indexOf("KPC_") !== 0) return JSON.stringify({ text: "此功能僅限鑑賞使用。" });
   const driveOn = (userData.drive === true || String(userData.drive) === "true");   // 🔥 換敢寫的那顆模型
 
   // 卡片四格→一句人話（方括號是我們的分欄符號不是資料；「喜歡X，討厭Y」模型自己懂）。
@@ -1668,10 +1628,9 @@ function actionPlay_(userData, pcId, sheets) {
 
   let pcData = sheets.pc.getDataRange().getValues();
   const pcIndex = kanshouPcIdx_(pcData, pcId);
-  if (pcIndex === -1) return JSON.stringify({ text: "查無此人", people: [] });
+  if (pcIndex === -1) return JSON.stringify({ text: "查無此人" });
   const pc = pcData[pcIndex];
   const pcName = pc[COL.PC.NAME];
-  let curL = pc[COL.PC.LOC];
   let curDay = parseInt(pc[COL.PC.DAY]) || 1;
   let curHour = (pc[COL.PC.HOUR] === "" || pc[COL.PC.HOUR] == null) ? 8 : (parseFloat(pc[COL.PC.HOUR]) || 0);
   const myGameId = pc[COL.PC.GAME_ID] ? String(pc[COL.PC.GAME_ID]) : "";
@@ -1701,9 +1660,9 @@ function actionPlay_(userData, pcId, sheets) {
   const _clk_ = kanshouAdvanceClock_({
     userData: userData, pcData: pcData, pcIndex: pcIndex, myGameId: myGameId, sameGame: sameGame, allies: allies,
     partyMembers: partyMembers, dirtyPcRows: dirtyPcRows, paceHour: _paceHour_,
-    nightSceneOn: kanshouNightSceneOn_, curDay: curDay, curHour: curHour, curL: curL, finalUserMsg: finalUserMsg
+    nightSceneOn: kanshouNightSceneOn_, curDay: curDay, curHour: curHour, finalUserMsg: finalUserMsg
   });
-  curDay = _clk_.curDay; curHour = _clk_.curHour; curL = _clk_.curL; finalUserMsg = _clk_.finalUserMsg;
+  curDay = _clk_.curDay; curHour = _clk_.curHour; finalUserMsg = _clk_.finalUserMsg;
   const kanshouTimeJumped_ = _clk_.timeJumped;
   const intimateNightNames = _clk_.intimateNightNames;
   const kanshouNightSceneNames_ = _clk_.nightSceneNames;
@@ -1911,8 +1870,6 @@ ${PROMPT_BODY}
       sheets.pc.getRange(curIdx + 1, 1, 1, pcColCount).setValues([row]);
     });
 
-    curL = pcData[pcIndex][COL.PC.LOC];
-    const localPeopleList = getKanshouPeopleList_(pcId, curL, pcData);
     const finalResponseText = (aiData.narration || "天地混沌，一片寂靜。").replace(/\n/g, "<br>");
 
     saveGameHistoryBatch(pcId, [
@@ -1930,7 +1887,6 @@ ${PROMPT_BODY}
     return JSON.stringify({
       text: finalResponseText,
       statusString: buildPlayerStatusString(pcData[pcIndex]),
-      people: localPeopleList,
       options: aiData.options,
       tags: tagsPayload,
       kanshouClock: kanshouClock,
