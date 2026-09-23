@@ -818,6 +818,11 @@ function kanshouDoyOffset_(month, day) {
   return off + (day - 1);
 }
 // absDay → {year, month, day}
+// 月份→季節（給提示詞用的字，不給數字）
+function kanshouSeason_(month) {
+  const m = parseInt(month) || 1;
+  return m >= 3 && m <= 5 ? '春天' : m >= 6 && m <= 8 ? '夏天' : m >= 9 && m <= 11 ? '秋天' : '冬天';
+}
 function kanshouAbsDayToDate_(absDay) {
   const startOff = kanshouDoyOffset_(KANSHOU_CAL_START_MONTH_, KANSHOU_CAL_START_DAY_);
   const totalOff = startOff + (Math.max(1, absDay) - 1);
@@ -1784,7 +1789,7 @@ function actionPlay_(userData, pcId, sheets) {
   // 提示詞讀敘事時鐘（只有 endDay 會跟狀態時鐘不同）
   const _narrDay_ = (_clk_.narrDay === null) ? curDay : _clk_.narrDay;
   const _narrHour_ = (_clk_.narrHour === null) ? curHour : _clk_.narrHour;
-  const curDateObj_ = kanshouAbsDayToDate_(_narrDay_);
+  const curDateObj_ = kanshouAbsDayToDate_(_narrDay_);   // 只給季節與時段的字，數字留在 HUD：給了年月日時分，模型會整串念進敘事
 
   // 在場＝同行（玩家的）∪ 臨時在場（AI 的）。同行永遠排前面、永遠進得去；臨時在場填到上限為止。
   const presentRows = (() => {
@@ -1891,7 +1896,7 @@ function actionPlay_(userData, pcId, sheets) {
 ${PROMPT_PARTY_LIVE}
 ${_lenTier_.free ? '' : _sty_('length')}
 ${kanshouWorldRosterStr}${_worldFeed_}${_loreStr_}${kanshouNightSceneStr}
-${(() => { const _sc = String(pc[COL.PC.LOC] || "").trim(); return _sc ? `★【場景】：上一段演完，我們在「${_sc}」。\n` : ""; })()}★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚跟我一起過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
+${(() => { const _sc = String(pc[COL.PC.LOC] || "").trim(); return _sc ? `★【場景】：上一段演完，我們在「${_sc}」。\n` : ""; })()}★【此刻】${kanshouSeason_(curDateObj_.month)}的${timeBand_(_narrHour_)}（光線、氣溫、街上的人照這個寫）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚跟我一起過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 
 ${presentMembers.length ? '' : '★【在場】：這個地方只有我一個人（常民與路人照常可以出現）。'}
 
