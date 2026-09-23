@@ -149,7 +149,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
   （去重／上限／淘汰都在那裡），不另開一套。
 - **提示詞**：`sagaNoteRule_()`。⚠ 寫成**函式**而不是頂層樣板字串——`WORLD_SPEC_` 住在 `Gallery.gs`，
   頂層就求值會拿到 `undefined` 然後照樣送進提示詞（`check_loadorder.py` 當場抓到這一次）。
-- 鑑賞那條路徑（`KPC_`）不送這一段、也不收：`actionNarrateOnly` 的 `isNsfw` 就是判準。
+- 鑑賞走不到這支（`narrate_only` 在 `KANSHOU_BLOCKED_ACTIONS_` 裡），所以不必再分軌。
 
 **玩家管得動**：☰ 抽屜的「📜 戰記」（`openWorldPanel`／action `world`）——跟鑑賞的「🌍 這個世界」
 **是同一個面板**，抬頭、說明、空狀態、分組全部由後端 `WORLD_SPEC_[軌].panel` 下傳，前端只負責畫。

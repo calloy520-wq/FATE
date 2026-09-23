@@ -1924,7 +1924,13 @@ userData.name 已被 cleanChineseName 洗成純中文去標點，比對對象也
 
 🗝️ 雙從者：收齊所有在世我方從者（servants 陣列）；servant＝第一個（向後相容）
 
-🌍 solo 靠 IS_PARTY==="同行" 過濾隊伍；鑑賞無「隊伍」概念，改用 LOC 是否與玩家目前位置一致，卡片只顯示同地點的英靈。
+🌍 solo 靠 IS_PARTY==="同行" 過濾隊伍；鑑賞＝這一局的全部住民（`party` 旗標另外標同行）。
+
+🐛→✅ **2026-09-23 鑑賞從者卡整欄消失**：地點退休前這裡用「LOC 跟玩家同一格」篩鑑賞從者；
+退休後玩家列的 LOC 改存 AI 每回合寫的布景（`actionPlay_` 的 `scene`），而同伴列的 LOC 只是召喚當下的快照——
+AI 第一次換場景之後兩邊就永遠對不上，左欄卡片一張都不剩，零錯誤訊息。
+掃描器全綠（它們不看「兩個欄位的語意是否還一致」），是親讀 `buildTagsPayload_` 時順著註解查出來的；
+探針 `kcards.js` 釘住「換場景卡片還在／解散只翻 party 旗標／別局不混進來」。
 
 🆔 2026-07「整體重構·id優先」：舊版卡片只帶 name，前端只能用名字回指定這名從者(雙從者名字
 
@@ -2672,6 +2678,11 @@ BATTLE_DEFER_WRITE_ 讓下面三支只改記憶體，等三者都跑完後一次
 🐛→✅ callGeminiAPI 全部重試失敗時回傳的保底文字 JSON 格式跟真正成功的敘述一樣，會被誤當合法敘事回傳、進而存進歷史(actionNarrateOnly)供下次呼叫餵回AI，讓AI誤以為那句「什麼都沒發生」的保底措辭是既定劇情事實。有 _genFailed 旗標時當成失敗處理，回 null 讓既有的null 分支(呼叫端本就有)接手——那條分支本就不會寫進歷史。
 
 ### `actionNarrateOnly`　<sub>Router_Narrative.gs</sub>
+
+2026-09-23：`isNsfw`（看 pcId 是否 `KPC_`）整條拔掉——`narrate_only` 在 `KANSHOU_BLOCKED_ACTIONS_` 裡，
+鑑賞根本走不到這支，那個分支（不送 world_note、不接 `sagaNoteRule_`）三個月來從沒執行過。
+只剩 `lewd`（補魔三支換敢寫的模型）這一個旗標。
+
 
 longForm 旗標(2026-09 由 deepseek 更名，因為它從來就不綁廠商)由補魔/強制補魔的高好感解鎖分支夾帶，該分支指令要求 500~600 字(遠長於平常 100~160 字)，720 tokens 會截斷，故加大上限；其餘呼叫不受影響(仍是720)。它**只控 max_tokens、不換模型**——模型整併後兩軌只剩 AI_MODEL 一顆。
 

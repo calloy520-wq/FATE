@@ -207,7 +207,7 @@ const STATE_AFTER_ACTIONS = {
   faction_ambush: 1, incite: 1, parley: 1, move: 1,
   update_fate: 1, update_rel_tag: 1, kanshou_set_nickname: 1
 };
-// 🛡️ 慾海(KPC_)明確擋下的戰鬥／經濟／結盟類 action——皆為 solo 戰爭專屬，前端在 kanshou 模式下本就全數隱藏對應按鈕，這裡擋 API 直打。
+// 鑑賞擋下的 solo 專屬 action（前端本就不露按鈕，這裡擋 API 直打）。
 const KANSHOU_BLOCKED_ACTIONS_ = {
   fate_battle: 1, np_respond: 1, use_seal: 1, mana_supply: 1, spirit_repair: 1, bond: 1, rule_break_steal: 1,
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
@@ -235,7 +235,7 @@ function actionCheckName(userData, pcId, sheets) {
   return JSON.stringify({ exists: _canonHit, canon: _canonHit, message: _canonHit ? `「${userData.name}」是聖杯戰爭中已知的英靈／御主——請另取名號，或用「扮演正典御主」入口。` : "" });
 }
 
-// 🔒 呼叫者身分解析：get_full_status/update_fate/update_rel_tag/kanshou_set_nickname 這4個solo/鑑賞共用handler，用這支找出呼叫者自己的 game_id。
+// solo／鑑賞共用的 handler 靠這支找出呼叫者的 game_id（KPC_ 走鑑賞表索引）。
 function resolveCallerGameId_(pcData, pcId) {
   if (String(pcId || "").indexOf("KPC_") === 0) {
     const idx = kanshouPcIdx_(pcData, pcId);
@@ -264,7 +264,7 @@ function actionGetFullStatus(userData, pcId, sheets) {
 function actionUpdateFate(userData, pcId, sheets) {
   const { targetId, fateType, fateValue } = userData;
   let pcData = sheets.pc.getDataRange().getValues();
-  // 從者狀態(📜 狀態鈕)開的 openStatus 傳的是【名字】非 ID，故需接受 ID 或同行從者名字，且限本局 game_id(防跨局撞名／名字誤中敵方非同行者)。
+  // 📜 狀態鈕傳的是名字不是 ID，所以兩種都認，且限本局（防跨局撞名）。
   const myGameId = resolveCallerGameId_(pcData, pcId);
   if (myGameId === null) return JSON.stringify({ success: false, message: "找不到這個人" });
   const pIdx = pcData.findIndex(r => {
@@ -276,18 +276,15 @@ function actionUpdateFate(userData, pcId, sheets) {
   if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到這個人" });
 
   if (String(pcData[pIdx][COL.PC.ID]) != String(pcId)) {
-    // 關係併入眾生列，直接看這名角色自己的 IS_PARTY 欄(鑑賞豁免·同上)。
     if (myGameId.indexOf("k_") !== 0 && String(pcData[pIdx][COL.PC.IS_PARTY] || "") !== "同行") {
       return JSON.stringify({ success: false, message: `只能改跟你同行的從者。` });
     }
   }
 
-  // 🔵 只准改 3 種敘事欄（個性/特徵/身世）；數值(六圍/迴路/禮裝)與寶具(martial)一律不可改——GAS 掌數值鐵則。
-  //    ⚠ 'intent'(萌點) 2026-09 整組退休，路由一併拔除——玩家「萌不萌是玩家的事情，我們只給性格」。
+  // 只准改三種敘事欄；數值與寶具是 GAS 的（萌點 2026-09 退休，路由一併拔除）。
   let targetCol = fateType === 'trait' ? COL.PC.TRAIT : fateType === 'pref' ? COL.PC.PREF : fateType === 'back' ? COL.PC.BACK : -1;
   if (targetCol === -1) return JSON.stringify({ success: false, message: "這格改不了，只能改個性、特徵、身世。" });
-  // 🔴 命格欄位直寫入表格，需自行把關長度：身世 單格 80；個性/特徵 為頓號拼接、給較寬上限
-  var cap = fateType === 'back' ? 80 : 130; // 經歷(back)放寬到80配合AI滾動
+  var cap = fateType === 'back' ? 80 : 130; // 身世單格；個性/特徵是頓號拼接，寬一點
   pcData[pIdx][targetCol] = String(fateValue || "").slice(0, cap);
   sheets.pc.getRange(pIdx + 1, 1, 1, pcData[pIdx].length).setValues([pcData[pIdx]]);
 
@@ -320,38 +317,33 @@ function buildTagsPayload_(sheets, pcId, preData) {
 
   const master = {
     name: m[COL.PC.NAME], sex: m[COL.PC.SEX],
-    // 🎴 外顯狀態(condition)自 payload 移除——solo 卡不顯示、慾海御主卡以 physical(肉體)抵換
-    physical: m[COL.PC.PHYSICAL] || "{}", // 🌹 慾海御主卡「肉體狀態抵換外顯」用；solo 恆 "{}"、前端不顯示
+    physical: m[COL.PC.PHYSICAL] || "{}", // 鑑賞御主卡的肉體狀態；solo 恆 "{}"
     hp: hpWord(m[COL.PC.HP], m[COL.PC.MAX_HP]),
     hpNum: parseInt(m[COL.PC.HP]) || 0, hpMax: parseInt(m[COL.PC.MAX_HP]) || 0,
     mpNum: parseInt(m[COL.PC.MP]) || 0, mpMax: parseInt(m[COL.PC.MAX_MP]) || 0,
     // seals(令咒)是純solo戰爭概念，用 isFateCtx 讓鑑賞列結構性恆為0，不依賴資料形狀僥倖安全。
     seals: isFateCtx ? getPlayerSeals_(m[COL.PC.MEMORY]) : 0, wish: wish,
-    outfit: getOutfit_(m[COL.PC.MEMORY]) // 👕 慾海御主本人換裝(與從者outfit同款·供卡片「換裝」鈕預填)
+    outfit: getOutfit_(m[COL.PC.MEMORY]) // 鑑賞御主換裝鈕預填
   };
 
-  // 🗝️ 雙從者：收齊所有在世我方從者（servants 陣列）；servant＝第一個（向後相容）🌍 solo 靠 IS_PARTY==="同行" 過濾隊伍；鑑賞無「隊伍」概念，改用 LOC 是否與玩家目前位置一致，卡片只顯示同地點的英靈。
+  // 從者卡：solo＝同行的從者；鑑賞＝這座城的全部住民（LOC 在鑑賞是 AI 寫的布景，拿它篩會讓卡片消失）。
   let servants = [];
-  // 🫂 同行名單：鑑賞的從者卡要直接畫「同行／解散」，玩家才不必為了一顆鈕去開「誰在哪」面板
-  //    （2026-09 玩家：「應該要把同行放到左邊的詳細狀態跟關係那邊吧…不然我還要打開誰在哪這個畫面」）。
   let _partyIds = [];
-  try { if (m) _partyIds = kanshouGetParty_(m[COL.PC.MEMORY]); } catch (e) { }
+  try { _partyIds = kanshouGetParty_(m[COL.PC.MEMORY]); } catch (e) { }
   pcData.forEach(s => {
     if (String(s[COL.PC.FACTION]) !== "從者" || String(s[COL.PC.GAME_ID] || "") !== gameId || String(s[COL.PC.ID]).startsWith("DEAD_")) return;
-    if (isFateCtx ? (String(s[COL.PC.IS_PARTY] || "") !== "同行") : (String(s[COL.PC.LOC] || "").trim() !== String(m[COL.PC.LOC] || "").trim())) return;
+    if (isFateCtx && String(s[COL.PC.IS_PARTY] || "") !== "同行") return;
     // 關係併入眾生列，好感直接是這名從者自己的 BOND 欄
     const bond = parseInt(s[COL.PC.BOND]) || 0;
     let six = {}, skills = [], traits = [];
     try { six = JSON.parse(s[COL.PC.SIX] || "{}"); } catch (e) { }
     try { const tg = JSON.parse(s[COL.PC.TAGS] || "{}"); skills = tg.skills || []; traits = tg.traits || []; } catch (e) { }
     servants.push({
-      // 🆔 2026-07「整體重構·id優先」：舊版卡片只帶 name，前端只能用名字回指定這名從者(雙從者名字撞前綴時就會選錯人)——補上 id，前端存起來隨後續 action 回傳，後端 findPcRowIdx_/findPlayerServantIdx_ 才有 id 可用、不必再靠名字比對這條容易出錯的路。
-      id: s[COL.PC.ID],
+      id: s[COL.PC.ID], // 前端隨後續 action 回傳，後端認 id 不認名字
+
       name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
-      tag: s[COL.PC.REL_TAG] || "從者", // 🏷️ 關係標籤(鑑賞卡片「🏷️關係」鈕預填用；solo不使用此欄)
-      nickname: getNickname_(s[COL.PC.REL_MEM]), // 💬 專屬稱呼裸值(鑑賞卡片「🏷️關係」面板預填用)
-      party: _partyIds.indexOf(String(s[COL.PC.ID])) >= 0, // 🫂 她是不是跟著你走(鑑賞卡片的同行/解散鈕)
-      // 預取狀態字串隨 state 一併帶回，前端切從者直接秒顯，免每次都打一趟 get_full_status round-trip。
+      tag: s[COL.PC.REL_TAG] || "從者", nickname: getNickname_(s[COL.PC.REL_MEM]), // 鑑賞「🏷️關係」面板預填
+      party: _partyIds.indexOf(String(s[COL.PC.ID])) >= 0, // 鑑賞卡的同行/解散鈕
       statusString: buildPlayerStatusString(s, String(s[COL.PC.REL_MEM] || "")),
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),
       hpNum: parseInt(s[COL.PC.HP]) || 0, hpMax: parseInt(s[COL.PC.MAX_HP]) || 0,
@@ -376,9 +368,8 @@ function buildTagsPayload_(sheets, pcId, preData) {
       ghLives: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'god_hand'; }) ? getGodHandLives_(s[COL.PC.MEMORY]) : undefined,
       // 🐙 戰前召喚鈕：持 summon_horror 且海怪【尚未在場】→ 前端露出「召喚海怪」按鈕(變身態·跨戰鬥 12h)
       canSummonHorror: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) && !horrorShieldView_(s[COL.PC.MEMORY], gameId, pcData),
-      outfit: getOutfit_(s[COL.PC.MEMORY]), // 👕 玩家換裝：當前服裝(前端預填/顯示·換衣不換人)
-      weapon: getWeapon_(s[COL.PC.MEMORY]), // ⚔️ 玩家自定武裝：武器/戰鬥方式(前端預填/顯示·敘述以此為準)
-      pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 🌹 慾海卡用：個性/肉體
+      outfit: getOutfit_(s[COL.PC.MEMORY]), weapon: getWeapon_(s[COL.PC.MEMORY]),
+      pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 鑑賞卡：個性/肉體
       trait: s[COL.PC.TRAIT] || "",
       stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
     });
@@ -405,15 +396,12 @@ function buildTagsPayload_(sheets, pcId, preData) {
   // 🗝️ 破戒之力（前端決定是否顯示「破戒奪僕」按鈕）：限正式聖杯戰爭世界
   var canRB = false;
   try { if (gameId && gameId.indexOf("g_") === 0 && mIdx >= 0) canRB = canRuleBreak_(pcData, mIdx, gameId); } catch (e) { }
-  // 🗑️ 2026-09 地點整組退休：這裡原本算 myPlaces／myPeople／myRegions 三份下傳給【地圖】畫，
-  //    地圖沒了就沒人讀了（同伴清單走 kanshou_companions，跟這裡無關）。
   // 🎯 撞見敵人的可反應窗口（趁隙/挑撥/溜走）：僅 solo 且窗口 loc＝目前所在地時給前端，供顯示情境按鈕。
   var encWin = null;
   if (isFateCtx) {
     var _w = getEncounterWindow_(m[COL.PC.MEMORY]);
     if (_w && _w.loc === String(m[COL.PC.LOC] || "").trim()) encWin = { type: _w.type, choices: encounterChoices_(_w.type) };
   }
-  // 🗺️ myLoc：玩家此刻所在地。
   return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, worldTextMax: (gameId && gameId.indexOf("k_") === 0) ? worldSpec_(gameId).textMax : undefined,
       encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || ""),
     // 🌙 夜未眠(Gallery.gs KANSHOU_NIGHT_SCENE_TAG_)：HUD 那顆鈕要據此把「🌙睡覺」換成「🌅睡到天亮」。
@@ -439,8 +427,7 @@ function buildClientState_(sheets, pcId, preData) {
   if (isKanshouCtx_) { try { const ci = kanshouClockInfo_(allPcData[pcIndex]); clk = ci.label; kanshouClock = ci; } catch (e) { } }
   return {
     statusString: buildPlayerStatusString(allPcData[pcIndex]),
-    // 關係併入眾生列，不再需要關係表 → 少一次整表讀
-    // 鑑賞不送 people：那一軌前端沒有任何讀取端（2026-09 連同後端的整表掃描一起拿掉）；solo 照舊。
+    // 鑑賞不送 people：那一軌前端沒有讀取端。
     people: isKanshouCtx_ ? [] : getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, allPcData),
     locations: getNearbyLocations(curL, freshMapData, isFate ? getWarName_(allPcData[pcIndex][COL.PC.MEMORY]) : ""),
     mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",

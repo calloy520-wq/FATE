@@ -35,7 +35,7 @@
 ## 1. 系統／敘事引擎共用機制
 
 ### `actionNarrateOnly`（action: `narrate_only`）— Router_Narrative.gs:739
-唯一的「純敘事」出口。前端 `narrate(promptText)` 呼叫（2026-07 拔除死旗標 `isNsfw`——後端早改純看 pcId 前綴 `KPC_` 路由，前端傳了也被無視）。**不自己組事實內容**——`promptText` 是呼叫端（各 handler 的 `aiPrompt`，或前端自組的 `arrivePrompt`/`summonPrompt`）已經組好傳進來的；這裡只負責套上共用系統提示詞 `miniSystem` 並轉呼叫 `narrateWithState_`。
+唯一的「純敘事」出口。前端 `narrate(promptText)` 呼叫（solo 專用；鑑賞被 `KANSHOU_BLOCKED_ACTIONS_` 擋下，2026-09 連後端那條 `KPC_` 分支也拔了）。**不自己組事實內容**——`promptText` 是呼叫端（各 handler 的 `aiPrompt`，或前端自組的 `arrivePrompt`/`summonPrompt`）已經組好傳進來的；這裡只負責套上共用系統提示詞 `miniSystem` 並轉呼叫 `narrateWithState_`。
 
 `miniSystem`（摘要·Router_Narrative.gs `actionNarrateOnly` 內就地宣告；**以代碼為準**，這裡只列每條在管什麼）九條鐵律：
 > 開頭：《命運停駐之夜》說書人守則。Fate／TYPE-MOON 筆觸、台灣繁體中文。篇幅依指令字數，沒指定就 100~160 字。廝殺寫關鍵攻防與寶具威能，不寫逐回合流水帳。

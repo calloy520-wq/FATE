@@ -380,11 +380,8 @@
       document.getElementById('settings-overlay').style.display = 'flex';
   }
 
-  // 🔄 後日談歸零重來：不可逆，所以要打字確認(照抄帳號名)而不是按一下就走——
-  //    這是唯一會把玩過的關係、回憶、相簿、走出來的地方一次抹掉的按鈕。
+  // 🔄 後日談歸零重來（不可逆→打字確認）。主選單與遊戲內⚙️共用；reloadAfter＝遊戲內 pc 指著已刪的列，非重載不可。
   var _kresetBusy_ = false;
-  // 🔄 後日談歸零重來【唯一核心】：兩個入口共用——主選單(登入後、pc 還沒載入)與遊戲內⚙️設定。
-  //    reloadAfter 是唯一的差別：遊戲內的 pc 指著已被刪掉的列，非重載不可；主選單不必。
   async function kanshouResetCore_(kpcId, acct, reloadAfter) {
       if (_kresetBusy_) return false;
       acct = String(acct || '');
@@ -396,9 +393,7 @@
       const typed = await customPrompt_('再打一次帳號「' + acct + '」確認。', '', 30);
       if (typed === null) return false;
       if (String(typed).trim() !== acct.trim()) { alert('打錯了，先不刪。'); return false; }
-      // 🐛→✅ 玩家實測「輸入名字後就消失了，不知道有沒有在執行」：輸入框一關就整段沒有畫面回饋。
-      //   壓一張讀條上去，跑完才放行。讀條刻意【不可】點背景關掉——跑到一半被關掉，
-      //   玩家會以為沒事而重按一次。
+      // 讀條壓到跑完，且點背景關不掉（關掉玩家會以為沒事而重按）。
       _kresetBusy_ = true;
       try { closeSystemModal('settings-overlay'); } catch (e) {}
       const _hideOv = function () { try { var o = document.getElementById('kreset-overlay'); if (o) o.style.display = 'none'; } catch (e) {} };
@@ -533,8 +528,7 @@
     currentStatusTargetName = pc.name;
   }
 
-  // ⏳ 時鐘 HUD：第N日·時刻·時段 ⚡AP/12(僅solo，鑑賞無AP系統)
-  // 🧹 鑑賞也顯示時段圖示+文字(kanshouClock，見 buildClientState_/actionPlay)，只是不顯示 AP 格。
+  // ⏳ 時鐘 HUD：第N日·時刻·時段；solo 加 AP 格，鑑賞改成 👥邀請／⏰下一階段兩顆常駐鈕。
   function updateClock(label, ap, apMax) {
     const hud = document.getElementById('clock-hud');
     if (!hud) return;
@@ -545,22 +539,15 @@
       if (!isKanshou && typeof ap === 'number' && apMax) {
         const lit = '⚡'.repeat(Math.max(0, Math.min(apMax, ap)));
         const dim = '·'.repeat(Math.max(0, apMax - ap));
-        // 🐛→✅ 玩家反饋常常玩到AP見底才發現——沒有彈窗/AI提醒(避免打斷節奏、也避免機制訊息污染AI敘述判斷，
-        //   同本次戰局實況錨點bug同一個教訓)，改用純UI視覺提示：AP≤4時常駐時鐘HUD這排文字/雷電圖示變警示色，
-        //   玩家瞄一眼頂部就會注意到。
+        // AP≤4 這排變警示色（純視覺，不彈窗、不進 AI）。
         const apLow = ap > 0 && ap <= 4;
         const apLabelColor = apLow ? '#e0704a' : '';
         const litColor = apLow ? '#e0704a' : '#caa44a';
         apStr = `　<span style="${apLabelColor ? 'color:' + apLabelColor + ';font-weight:bold;' : ''}">${apLow ? '⚠️ ' : ''}行動 ${ap}/${apMax}</span> <span style="letter-spacing:-1px;color:${litColor};">${lit}</span><span style="letter-spacing:-1px;color:#5a4a2a;">${dim}</span>`;
       }
-      // 🕰️ 2026-07「手機很長，切到地圖分頁點下一階段太麻煩」：👥邀請／⏰下一階段兩顆常駐鈕搬進
-      //   這一行(原本各自散在頂部窄條/地圖分頁裡，要切分頁才點得到)，一鍵直達不必來回切。
-      //   邀請鈕原樣複製自舊 topbar-kanshou(openCompanions())；下一階段鈕原樣複製自舊
-      //   renderMapPane 的 kanshouNextStage() 按鈕(含深夜「🌙睡覺」變色邏輯)，行為完全不變。
       if (isKanshou) {
         const isNight = kcClock && kcClock.band === '深夜';
-        // 🌙 夜未眠(見 Gallery.gs KANSHOU_NIGHT_SCENE_TAG_)：這一夜還沒收，按鈕語意從「要不要睡」
-        //   變成「這一夜到此為止」——沿用同一顆鈕、同一個 kanshouNextStage()，只換字與色。
+        // 夜未眠（KANSHOU_NIGHT_SCENE_TAG_）：同一顆鈕，字從「🌙睡覺」換成「🌅睡到天亮」。
         const inNight = !!(window._lastTags && window._lastTags.nightScene);
         hud.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">'
           + '<button class="btn" style="padding:3px 8px;font-size:11px;flex-shrink:0;border-color:#5a3a6a;color:#dcc8ff;" onclick="openCompanions()" title="看這座城裡有誰；挑誰跟你走，也在這裡請新的人來">👥 有誰</button>'
@@ -1240,11 +1227,9 @@
     if (stEl && stEl.parentElement) stEl.parentElement.style.display = s[0] ? '' : 'none';
     setUI('ui-status', s[0]);
 
-    // 🌱 鑑賞：處事個性/命格特徵改「分行＋標籤」顯示(空格待補)；🔒 只在看自己卡片時掛在鎖住的處事個性格。solo 維持原樣。
+    // 鑑賞：個性/特徵分行＋標籤顯示；自己那張的 BACK 是 AI 滾動的「經歷」。
     var _isKan = (pc && pc.mode === 'kanshou');
     var _selfCard = (currentStatusTargetId === (pc ? pc.id : ''));
-    // 🌱 正名：鑑賞玩家自己的 BACK 是 AI 滾動的「經歷」(妳的故事至此)，卡面標題跟著換；
-    //   從者卡/solo 仍是固定的「身分背景」。
     var _backTitleEl = document.getElementById('ui-back-title');
     if (_backTitleEl) _backTitleEl.innerText = (_isKan && _selfCard) ? '—— 經歷 ——' : '—— 身分背景 ——';
     if (_isKan) {
@@ -1255,7 +1240,7 @@
       setUI('ui-pref', s[4]);
     }
     setUI('ui-loc', s[3]);
-    // 🐛→✅ 鑑賞無戰鬥，體力/魔力早已不再寫入(見 Gallery.gs heroToKanshouRow_)——比照 ui-status 整格隱藏，避免顯示「--」看起來像資料缺漏。
+    // 鑑賞無戰鬥：體力/魔力整格藏掉（否則顯示「--」像資料缺漏）。
     var hpEl = document.getElementById('ui-hp'); if (hpEl && hpEl.parentElement) hpEl.parentElement.style.display = (pc && pc.mode === 'kanshou') ? 'none' : '';
     var mpEl = document.getElementById('ui-mp'); if (mpEl && mpEl.parentElement) mpEl.parentElement.style.display = (pc && pc.mode === 'kanshou') ? 'none' : '';
     setUI('ui-hp', s[5]);
@@ -1267,8 +1252,7 @@
         setUI('ui-align', s[21], "絕對中立");
         setUI('ui-back', s[23], "來歷不明");
     }
-    // 地點標題：鑑賞的地點已顯示在時鐘HUD那行(📍地點·日期·時段·天氣)，這顆左上角小徽章就不重複、隱藏掉；
-    //   solo 沒有時鐘地點行，照常顯示。
+    // 左上角地點徽章只有 solo 用（鑑賞沒有地點）。
     const headerEl = document.getElementById('header-loc');
     if (headerEl) {
       const _isKan = pc && pc.mode === 'kanshou';
@@ -1290,25 +1274,20 @@
     const titleEl = document.getElementById('fate-edit-title');
     const fieldsEl = document.getElementById('fate-edit-fields');
 
-    // 處理背後的文字獲取。⚠ 鑑賞的 pref/trait 已改分行 HTML 顯示，innerText 會是拼接後的亂碼；
-    //   改讀 dataset.raw(渲染時存的原始頓號字串)，沒有才退回 innerText(solo/back)。
+    // 鑑賞的 pref/trait 是分行 HTML，原值讀 dataset.raw；沒有才退回 innerText。
     const _fe = document.getElementById(type === 'pref' ? 'ui-pref' : (type === 'trait' ? 'ui-trait' : 'ui-back'));
     let currentVal = (_fe && _fe.dataset && typeof _fe.dataset.raw === 'string') ? _fe.dataset.raw : (_fe ? _fe.innerText : '');
     if (currentVal === "--") currentVal = "";
 
     if (type === 'back') {
-        // 🌱 鑑賞：BACK 欄已正名為「經歷」(AI 滾動補寫+玩家可改)；solo 仍是固定的身世背景。依模式分標籤/字數。
         const _isK = (pc && pc.mode === 'kanshou');
         titleEl.innerText = _isK ? "逆天改命 - 修改經歷" : "逆天改命 - 修改身世背景";
-        // 🎯 鑑賞：這欄不分玩家/同伴都會進提示詞（玩家→【玩家資料】、同伴→在場卡「經歷:」），AI 只讀不改。
         fieldsEl.innerHTML = `
             <label style="font-size:13px; color:#332211; font-weight:bold;">${_isK ? '經歷 (固定事實·AI 讀得到但不會改寫·限 80 字)' : '身世背景 (限 30 字)'}</label>
             <input id="fate-f1" class="std-in" maxlength="${_isK ? 80 : 30}" value="${escapeHtml(currentVal)}">
         `;
     }
     else if (type === 'trait') {
-        // 🩹 句號分隔的舊資料先正規化成頓號再切格(traitSegs_ 順手剝掉舊局的自稱格·不壓縮連續頓號→空格保位)，
-        //   讓改命視窗預填的是角色真正內容、不會位移。
         const parts = traitSegs_(currentVal);
         for(let i=0; i<KC_TRAIT_SLOTS_; i++) { if(!parts[i] || parts[i].trim() === "") parts[i] = "無"; }
         titleEl.innerText = "逆天改命 - 修改特徵";
@@ -1319,20 +1298,13 @@
             <input id="fate-f2" class="std-in" maxlength="20" value="${escapeHtml(parts[1])}">
         `;
     } else {
-        // 🩹 同上：句號分隔的舊資料先正規化成頓號再切4格(個性欄同款毛病·不壓縮空格保位)。
         const parts = fateSegSplit_(currentVal);
         for(let i=0; i<4; i++) { if(!parts[i] || parts[i].trim() === "") parts[i] = "無"; }
         titleEl.innerText = "逆天改命 - 修改個性";
-        // 🌱 鑑賞御主標籤改新命名(對外/獨處性格)；solo 維持原樣。
-        // 🐛→✅ 2026-07 拆除「性格鎖」開關(玩家「萌點AI根本亂寫...AI只能改動經歷」)：AI 已經完全
-        //   不會再去動性格這類欄位了，鎖不鎖沒有意義，這裡不再顯示鎖定勾選框。
-        //   ⚠ 2026-09 連「經歷」也收回來了(master_note 整組移除)——鑑賞的角色欄位現在【全部】
-        //   只有創角時生成一次＋玩家改命兩條寫入路徑，AI 一欄都碰不到。
+        // 鑑賞的角色欄只有創角生成＋玩家改命兩條寫入路徑，AI 一欄都碰不到（所以沒有「鎖」）。
         const _isK = (pc && pc.mode === 'kanshou');
         const _pkLabels = _isK ? ['個性','個性','喜歡的事物','討厭的事物'] : ['日常表象','真實內裡','喜歡的事物','討厭的事物'];
-        // 🎯 鑑賞不再把[喜歡][討厭]送進 AI 提示詞(玩家實測「沒有特別的差異」，那兩格屬於「聊到才用」
-        //   的話題燃料)——所以鑑賞這裡也不再顯示這兩格輸入框，免得玩家填了卻沒有任何效果。
-        //   ⚠ 改用 hidden input 原值帶回，資料【不會被清掉】(solo 仍吃完整四格；日後想開回來也還在)。
+        // 鑑賞不把喜歡/討厭送進提示詞，所以只露前兩格；後兩格走 hidden input 原值帶回，資料不清。
         const _pkShown = _isK ? 2 : 4;
         let _pkHtml = '';
         for (let i = 0; i < 4; i++) {
@@ -1402,7 +1374,7 @@
     return b < 20 ? '戒備' : b < 40 ? '疏離' : b < 60 ? '漸信' : b < 80 ? '信賴' : '羈絆深厚';
   }
 
-  // 🗑️→✅ physical_state 從6鍵(姿勢/胸部/肉棒/蜜穴/顏面/服裝)合併成單一自由文字欄，直接印那句話即可，不必逐鍵組行。
+  // 肉體狀態是單一自由文字欄，直接印那句話。
   function kanshouStatusLines_(po) {
     po = po || {};
     var v = po['狀態'];
@@ -1713,13 +1685,11 @@
       myServantCls = (activeSv && activeSv.cls) || '';
       myActiveServantId = (activeSv && activeSv.id) || ''; // 🆔 每次刷新都跟著 activeSv 重算，換人/陣亡切換都同步
       try { renderWarActions(); } catch (e) {}
-      // 🎴 外顯狀態自 solo 移除(死資料·恆顯示預設字樣)；慾海御主卡以「肉體狀態」抵換此列。
       var mPhysLine = '';
       if (pc && pc.mode === 'kanshou') {
         try { var mpo = JSON.parse(m.physical || '{}'); mPhysLine = kanshouStatusLines_(mpo); } catch (e) { }
       }
       var mOutfitLine = ((pc && pc.mode === 'kanshou') && m.outfit) ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + m.outfit + '</div>' : '';
-      // 🐛→✅ 鑑賞御主卡補上與從者卡同款的換裝＋詳細狀態按鈕列，原本獨立浮在卡片列表下方的「我的詳細狀態」(Index.html #pane-status)併到這一行，不再重複外露。
       var mButtonsLine = (pc && pc.mode === 'kanshou')
         ? ('<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="changeOutfit(\'' + String(m.name).replace(/'/g, '') + '\', true)" title="換裝：只換衣服，人不變。留空換回原本的" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(150,110,190,0.18); color:#c9a0e0; border:1px solid #7a5aa0; border-radius:6px; cursor:pointer;">👕 換裝</button>'
@@ -1728,13 +1698,11 @@
         : '';
       let mh = '<div style="background:rgba(20,14,28,0.55); border:1px solid #d4af37; border-radius:8px; padding:6px 8px;">'
         + '<div style="color:#d4af37; font-weight:bold; font-size:12px;">⚜️ 御主</div>'
-        // 🐛→✅ solo 御主也補跟從者卡一致的「名字旁📜狀態」inline 按鈕(原本 solo 唯一入口是卡片列表下方
-        //   獨立的 #my-status-fallback，樣式跟從者卡不統一)。kanshou 已有自己整合進 mButtonsLine 的版本，
-        //   這裡不重複加，維持 kanshou 原樣不動。
+        // 📜狀態鈕：solo 放名字旁；鑑賞已在 mButtonsLine 那排。
         + '<div style="color:#e8dcc0; font-size:13px; font-weight:bold; margin:1px 0 3px;">' + m.name + ((pc && pc.mode === 'kanshou') ? '' : ' <button onclick="event.stopPropagation();openStatus()" title="你的詳細狀態，可以改命" style="font-size:10px; font-weight:normal; padding:1px 7px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer; vertical-align:middle;">📜 狀態</button>') + '</div>'
         + mOutfitLine
         + mPhysLine
-        + ((pc && pc.mode === 'kanshou') ? '' :  // 🌹 慾海：御主只露名字＋肉體，不露血量/魔力/令咒/禮裝
+        + ((pc && pc.mode === 'kanshou') ? '' :  // 鑑賞御主卡只露名字＋裝扮＋肉體
             bar('體', m.hpNum, m.hpMax, 'hp')
             + bar('魔', m.mpNum, m.mpMax, 'mp', (t.economy && typeof t.economy.net === 'number') ? t.economy.net : null)
             // 🐛→✅ 令咒是御主的絕對命令權(非從者專屬)，改成御主卡直接可點的按鈕；從者卡原本那顆位置挪給靈基修復。
@@ -1803,28 +1771,18 @@
         var skillPills = classSkillPills || innateSkillPills || specialSkillPills; // 沿用既有變數名判斷「有沒有技能」(下方 hint/kanshou 分支用)
         var hasActiveSkill = (s.skills || []).some(function (sk) { return sk && ACTIVE_FX_JS[sk.fx]; });
         var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
-        // 🌹 慾海：從者卡只露 名字/裝扮/服裝狀態/當下狀態——不露血量/魔力/六圍/技能/寶具/動作鈕；個性/特徵/關係改進「📜詳細狀態」按鈕看。
+        // 鑑賞從者卡：職階／名字＋關係稱呼／裝扮／肉體狀態＋三顆鈕（📜狀態·💞關係·🫂同行/解散）。
         if (pc && pc.mode === 'kanshou') {
           var po = {}; try { po = JSON.parse(s.physical || '{}'); } catch (e) { }
           return '<div style="background:rgba(40,20,34,0.5); border:1px solid #a04a6a; border-radius:8px; padding:6px 8px;">'
             + '<div style="color:#e0a0bc; font-weight:bold; font-size:12px;">🌹 ' + s.cls + '</div>'
-            // 🏷️ 2026-09 好感砍除：名字旁只剩【你自己取的關係稱呼】，沒取就只有名字。
             + '<div style="color:#e8dcc0; font-size:14px; font-weight:bold; margin:1px 0 3px;">' + s.name + (s.tag ? ' <span style="font-size:11px; font-weight:normal; color:#e0a0bc;">' + escapeHtml(s.tag) + '</span>' : '') + '</div>'
             + (s.outfit ? '<div style="color:#c9a0e0; font-size:11px; line-height:1.5;">裝扮　' + s.outfit + '</div>' : '')
             + kanshouStatusLines_(po)
-            // 🚫 同伴的服裝改由AI依appearance_extras欄位自主更新(見Gallery.gs，2026-07原名outfit_change)，不再手動指定——changeOutfit()/actionSetOutfit本體保留未刪(仍供御主本人換裝與solo從者卡使用)，這裡只是不露出觸發同伴換裝的入口。
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="「' + safeN + '」的詳細狀態，可以改命" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 狀態</button>'
-            // 💞 關係中樞(2026-07 玩家「同伴卡片欄位太多…關係/回憶可以整合在一起」)：低頻
-            //   入口(關係稱呼／共同回憶)收進這一顆，卡片按鈕 8→6(2-2-2)。面板本身
-            //   kanshouOpenBondHub 住 Script_Kanshou.html，只做分派＋顯示現況，不改既有面板。
             + '<button onclick="kanshouOpenBondHub(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\',\'' + String(s.nickname || '').replace(/'/g, '') + '\',\'' + String(s.id || '').replace(/'/g, '') + '\')" title="稱呼、回憶" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">💞 關係</button>'
-            // 🫂 同行／解散就畫在卡上——這是最常按的一顆，不該要玩家先去開「誰在哪」面板。
             + '<button onclick="kanshouPartyOp(\'' + String(s.id || '').replace(/'/g, '') + '\',\'' + (s.party ? 'drop' : 'add') + '\')" title="' + (s.party ? '解散：她會留在你解散她的這個地方' : '同行：她會一路跟著你走') + '" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:' + (s.party ? 'rgba(160,120,220,0.18)' : 'rgba(120,180,120,0.14)') + '; color:' + (s.party ? '#dcc8ff' : '#a8dca8') + '; border:1px solid ' + (s.party ? '#6a4a9a' : '#4a7a4a') + '; border-radius:6px; cursor:pointer;">' + (s.party ? '🫂 解散' : '🫂 同行') + '</button>'
-            + '</div>'
-            // 🆕 直接複用既有 kanshouOpenRelTag(Script_Kanshou.html)，不重寫新邏輯。召喚是一次性的、
-            //   沒有隊伍容量要騰，不需要「請走」這種按鈕。
-            + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '</div>'
             + '</div>';
         }
@@ -1876,11 +1834,7 @@
       } else {
         sh = '';
       }
-      // 🐛→✅ 舊版在這裡補畫「剩餘空位」佔位框，寫死用「3 - 目前人數」算空位數——但 2026-07 §91
-      //   「駐留制」改版後，同地點可召喚同伴數量早已沒有上限(buildTagsPayload_ 只按 LOC 是否同一格
-      //   篩選，沒有任何數量截斷)。這個「3」是介面上憑空捏造出來的假上限，暗示玩家「這裡最多3人」
-      //   「要湊到3人才算補滿隊伍」，會誤導玩家對容量規則的認知。因為沒有實際上限、也就沒有對應的
-      //   「正確空位數」可以顯示，故整段移除，不再假裝有一個不存在的容量規則。
+      // 這裡刻意不畫「剩餘空位」——上限在後端（KANSHOU_WORLD_MAX_），前端別再捏一個數字。
       // 🐛→✅ 移除左側狀態面板這份「供魔收支」明細——跟頂部「🔮 魔力」彈窗(openManaPanel)完全重複，
       //   標題更清楚(🔮 御主魔力・供魔收支)、還多帶靈基出力面板；魔力條現已直接顯示淨值/時(見 bar())，
       //   一眼看光的需求不再需要這裡再疊一份。入不敷出警告仍在「🔮 魔力」彈窗保留。
@@ -1938,9 +1892,7 @@
     var c = document.getElementById('map-pane-content'); if (!c) return;
     // ⚡ 用 offsetParent===null 判「實際是否顯示」而非 .active class——寬螢幕(≥601)三欄並排、地圖恆顯示但沒有 .active class(那是手機分頁機制)，誤用 class 會讓寬螢幕地圖永不刷新。
     if (c.offsetParent === null) return;
-    // 🗑️ 2026-09 地點整組退休：鑑賞這條分支（出門走走的地點清單）整段移除，
-    //    地圖分頁在鑑賞底下也不再顯示（見 applyModeUI 的 tab-map/pane-map）。
-    //    solo 的戰場 SVG 照舊走下面那段。
+    // 地圖只有 solo 的戰場 SVG（鑑賞沒有地點，分頁也藏了）。
     if (pc && pc.mode === 'kanshou') { c.innerHTML = ''; return; }
     var nodes = [], here = '', allyIntel = false;
     var cached = preNodes || lastMapNodes;
@@ -3103,17 +3055,11 @@
     }
     localNPCs = data.people || [];
     nearbyLocations = data.locations || [];
-    // 🕰️ kanshouClock 跟著整份 state 一起夾帶，sync() 也要記下來(不是只有 send() 才更新)。
-    // 🐛→✅ 2026-07 前端稽核·順序錯誤(與 Script_Kanshou.html send() 同一個病，一起修)：
-    //   updateClock 會讀 kcClock(判斷深夜)與 window._lastTags.nightScene(判斷夜未眠)決定那顆
-    //   最常按的鈕寫「⏰下一階段／🌙睡覺／🌅睡到天亮」哪一個——舊版卻把它排在這兩份資料【之前】，
-    //   於是每次 syncData／重新整理後，按鈕都是照上一份狀態畫的(第一次載入更是完全沒有 tags)。
-    //   兩份資料先就位，再畫 HUD。
+    // kcClock 與 tags 先就位再畫 HUD（updateClock 靠它們決定 ⏰／🌙／🌅 那顆鈕）。
     if (data.kanshouClock) kcClock = data.kanshouClock;
     refreshFateTags(data.tags); // ⚡ 用夾帶的 tags，省一趟 get_tags round-trip
     updateClock(data.clock, data.ap, data.apMax);
     updateEconomy(data.economy);
-    // 🧹 renderMapPane 本身已有 offsetParent===null 的隱藏判斷，交給它自己決定要不要畫——不在這裡用 kanshou 身分另外攔一次(桌機三欄並排、地圖頁恆顯示，另攔會讓時段按鈕不即時刷新)。
     renderMapPane(data.mapNodes); // ⚡ 用夾帶的 mapNodes，省一趟 get_map_nodes round-trip
     renderWarActions();
     if (!isSilent) {
@@ -3176,21 +3122,17 @@ function showHistoryOverlay(html) {
   ov.style.display = 'flex';
 }
 
-// 🔵 依模式開關功能：solo 隱藏輸入框；kanshou 全開
+// 依模式開關功能：solo 純按鍵（藏輸入框、露戰爭行動列）；鑑賞露輸入框、藏地圖。
 function applyModeUI() {
-  // 🔵 對話輸入窗只在「鑑賞」(後日談約會)模式出現——單人聖杯戰爭＝純按鈕，GAS 算數值、AI 只說書；保留「＋」工具抽屜，只收掉文字輸入框、傳送鈕與慾海開關。
   var isKanshou = (pc && pc.mode === 'kanshou');
   var uin = document.getElementById('u-in'); if (uin) uin.style.display = isKanshou ? '' : 'none';
   var sbtn = document.getElementById('send-btn'); if (sbtn) sbtn.style.display = isKanshou ? '' : 'none';
-  // 🎴 solo 頂部＝查看/魔力/系統三鍵(取代地點)、底部輸入框整條隱藏(純按鍵)；慾海維持原本(頂部地點徽章＋底部輸入框＋NSFW開關)，零改動守紅線①。
-  // 🔥 說書人開關只在鑑賞露出（solo 沒有這個概念）。曾經整顆藏掉過，結果 drive 永遠鎖在 false。
+  // 說書人開關只在鑑賞露出（曾整顆藏掉，結果 drive 永遠鎖 false）。
   var drv = document.getElementById('drive-mode-toggle');
   if (drv) { var lab = drv.closest('label'); if (lab) lab.style.display = isKanshou ? '' : 'none'; }
   var tSolo = document.getElementById('topbar-solo'); if (tSolo) tSolo.style.display = isKanshou ? 'none' : 'flex';
   var tKan = document.getElementById('topbar-kanshou'); if (tKan) tKan.style.display = isKanshou ? '' : 'none';
-  // 🕰️ 2026-07 玩家「手機很長，切到地圖分頁點下一階段太麻煩」：👥邀請／⏰下一階段兩顆常駐鈕
-  //   搬進 #clock-hud 那一行(見 updateClock)，不必再切分頁——topbar-kanshou 從此不再有內容
-  //   (topbar-solo 本就不含這排)，連同外層 .top-navbar 整條一起隱藏，免留一條空白窄條。
+  // 鑑賞的常駐鈕都在 #clock-hud 那行，top-navbar 整條藏掉免留空白窄條。
   var tNav = document.getElementById('top-navbar'); if (tNav) tNav.style.display = isKanshou ? 'none' : '';
   var ibar = document.getElementById('input-bar'); if (ibar) ibar.style.display = isKanshou ? '' : 'none';
   // 🌍/📜 帳本面板兩軌都有：鑑賞是「這個世界」，solo 是「戰記」。抬頭與內容由後端下傳，這裡只切標籤。
@@ -3199,14 +3141,10 @@ function applyModeUI() {
   var dsty = document.getElementById('drawer-style'); if (dsty) dsty.style.display = isKanshou ? '' : 'none';
   // 戰爭行動列：取代輸入框，只在戰爭模式顯示
   var wa = document.getElementById('war-actions'); if (wa) wa.style.display = isKanshou ? 'none' : 'flex';
-  // 🌹 鑑賞御主卡已內建「換裝＋詳細狀態」按鈕列；solo 御主卡名字旁現也補了同款「📜狀態」inline 鈕——
-  //   卡片列表下方這顆獨立按鈕兩邊都已重複，恆隱藏。
   var msf = document.getElementById('my-status-fallback'); if (msf) msf.style.display = 'none';
-  // 🗺️ 地圖只剩 solo 有（戰場 SVG）——2026-09 鑑賞的地點整組退休，那一頁在鑑賞底下是空的。
   var tMap = document.getElementById('tab-map'); if (tMap) tMap.style.display = isKanshou ? 'none' : '';
   var pMap = document.getElementById('pane-map'); if (pMap) pMap.style.display = isKanshou ? 'none' : '';
-  // 🚪 退路：手機上停在地圖分頁時切進鑑賞，.active 還在、但上面那行把它藏了——
-  //    玩家會看到一片空白，而且地圖鈕也藏了，他不知道發生什麼事。把他拉回故事頁。
+  // 手機停在地圖分頁時切進鑑賞會一片空白，拉回故事頁。
   if (isKanshou && pMap && pMap.classList.contains('active')) showGamePane('chat');
   try { if (!isKanshou) renderWarActions(); } catch (e) {}
 }

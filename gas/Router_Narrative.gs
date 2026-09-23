@@ -208,8 +208,7 @@ function sagaNoteRule_() {
 
 function actionNarrateOnly(userData, pcId, sheets) {
   const { promptText } = userData;
-  // 不信任前端 userData.isNsfw(共用 checkbox、鑑賞離場不重置的風險)，改純看 pcId 路由判斷。
-  const isNsfw = String(pcId || "").indexOf("KPC_") === 0;
+  // 只有 solo 走得到這裡（narrate_only 在鑑賞被 KANSHOU_BLOCKED_ACTIONS_ 擋下）。
 
   const miniSystem = `《命運停駐之夜》說書人守則。Fate／TYPE-MOON 筆觸、台灣繁體中文。篇幅依指令指定的字數，沒指定就 100~160 字。廝殺寫關鍵攻防與寶具威能，不寫逐回合流水帳。
 【鐵律】
@@ -221,12 +220,12 @@ function actionNarrateOnly(userData, pcId, sheets) {
 6. 標【已裁定】的事實與【當前狀態】都要在畫面上看得出來；怎麼表現依那個人的個性決定。
 7. 衣著照角色卡寫，【此刻裝扮】最優先（戰鬥可寫甲冑碎裂）。解除隱匿只顯現武器，與衣著無關。
 8. 性格／六圍／技能只演出來。Fate 正典角色照原作認知演，卡上短句只是錨點。
-9. 只輸出 JSON：{"narration":"…"${isNsfw ? '' : ',"world_note":[…]'}}。${isNsfw ? '' : sagaNoteRule_()}`;
+9. 只輸出 JSON：{"narration":"…","world_note":[…]}。${sagaNoteRule_()}`;
 
   // 補魔/令咒那三支要 800~1000 字(平常 100~160)，720 tokens 會截斷——加大上限，並換一顆敢寫的模型(LEWD_MODEL)。
   const longForm = !!userData.longForm;
   const lewd = !!userData.lewd; // 🔞 補魔三支：換一顆敢寫的模型（見 LEWD_MODEL）
-  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: isNsfw || lewd, maxTokens: longForm ? 3200 : 720, lewd: lewd });
+  const narrationText = narrateWithState_(pcId, sheets, promptText, miniSystem, { isNsfw: lewd, maxTokens: longForm ? 3200 : 720, lewd: lewd });
   if (narrationText === null) return JSON.stringify({ success: true, text: "（此處因果已定，氣息微微一閃。）" });
   saveGameHistoryBatch(pcId, [
     { speaker: "player", content: narrateMemoryLine_(promptText) }, // 🧹 存洗淨摘要、非整串提示詞(否則重整歷史會把演出依據/★指令/素材全攤給玩家看)
