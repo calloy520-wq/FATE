@@ -463,6 +463,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### LLM 核心
 
+- `toTaiwanTrad_(text)` — 簡體／舊字形→台灣正體，逐字一對一換（字表 `TRAD_MAP_SIMP_`／`TRAD_MAP_TRAD_`，只收 check_simp.py 字表裡的字：簡體＋舊字形＋日本新字體，多對一的字刻意不收）。`callGeminiAPI` 兩條出口（散文／JSON 字串）回傳前都過一次，兩軌都吃到。探針 `trad.js`。
 - `repairAiJson_(raw)` — 模型回的 JSON 壞掉時的修復：①字串裡的真換行／控制字元轉義；②還是不行就用正則撈 narration／options／scene 重組。回修好的 JSON 字串，連 narration 都撈不到（或 <20 字）回 null。`callGeminiAPI` 在 `JSON.parse` 失敗時先叫它，救得回來就不必花重試／後援那一顆。探針 `jsonfix.js`。
 - `callGeminiAPI(prompt, systemOverride=null, config={})` — **兩軌共用的 OpenRouter 呼叫核心**。組裝 system（`systemOverride` 或 `buildDefaultSystemPrompt()`＋尾端補「台灣繁體鐵律」）＋可選 `config.chatHistory` 多輪＋user prompt。採樣旋鈕：`model`（預設 `AI_MODEL`）、temperature(0.8)、top_p(0.95)、`max_tokens`（NSFW 1000／solo 2000）、及未設即略過的 top_k/repetition/presence/frequency_penalty（OpenRouter 不支援會自動忽略）。非 `plainText` 時強制 `response_format=json_object`、抽 `{…}` 並 `JSON.parse` 驗證；`plainText`（如奪杯回憶錄）原樣回傳散文。內含審查降階重試機制（見下 `attemptWithModel_`）＋整組失敗後可換 `config.fallbackModel` 再試一輪。全敗則回世界觀柔性 fallback（審查攔截／連線紊亂兩款文案，見下 `aiFallbackNarration_`/`aiFallbackData_`），失敗訊息只進 Logger 不給玩家。
 - `aiFallbackNarration_(isBlocked)` / `aiFallbackData_(isBlocked)`（2026-07 邊界稽核抽出）— 生成失敗保底文字與 `_genFailed` 旗標的**單一真實來源**。除了 `callGeminiAPI` 自己，`actionPlay_` 解析 AI 回應失敗時也走 `aiFallbackData_`：模型吐到 max token 就斷（截斷 JSON）或回純文字道歉是常態，舊版直接 `JSON.parse` 一失敗就丟例外，而 `handleGameAction` 的 try 只有 finally、沒有 catch，例外會一路穿出去變裸錯誤。

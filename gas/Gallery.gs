@@ -934,7 +934,7 @@ function kanshouLenTier_(key) {
 //   預設值留在 .gs 不搬試算表：掃描器只看 .gs。只下定義不給演法——無條件的演出指示會固化成每回合硬演。
 var KANSHOU_STYLE_MODULES_ = [
   { key: 'voice',      fixed: true, slot: 'sys',  def: '後日談敘事核心·輕小說筆觸·台灣繁體中文·第一人稱「我」＝玩家，旁白只寫「我」看得到聽得到感覺得到的。' },
-  { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家這一步做什麼、說什麼，由玩家的輸入決定；那一步玩家自己已經看見了，這一段從在場的人對它的反應寫起。' },
+  { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家這一步做什麼、說什麼，由玩家的輸入決定；那一步玩家自己已經看見了，這一段從在場的人對它的反應寫起，開頭就落在那個人的動作或第一句話上。' },
   // history 是事實陳述不是筆法：少了它模型會順著自己上一輪的調子把同一場景再寫一次。
   { key: 'history',    fixed: true, slot: 'sys',  def: '上面的對話歷史是已經結束的事，它讓你知道這一路走到哪裡了；這一回合要寫的，是玩家這一步【接下來】發生的那一段——新的動作、新的話、新的反應。' },
   { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，接著一句是性別（有的帶真名），後面是這個人是什麼樣的人；名字後面另外接的那幾行是此刻的狀態。★卡上這些句子、還有【我自己】那張，都只給你看，在場的人並不知道自己被這樣寫著；每張卡上的事是我跟那個人之間的事，其他人手上有的，僅限於自己在場時看得到聽得到的那些。★卡上寫的是【一直以來】的底色，不是這一回合發生的事。' },
@@ -1710,7 +1710,7 @@ function kanshouApplyIntimacyFeedback_(ctx) {
   const sanitizeAppearanceExtras = (rawOutfit) => {
     if (typeof rawOutfit !== 'string') return "";
     const val = rawOutfit.trim()
-      .replace(/^(剛?(換|穿|披|套|繫|着|著)上了?|換回了?|改穿了?)\s*/, "")
+      .replace(/^(剛?(換|穿|披|套|繫|著)上了?|換回了?|改穿了?)\s*/, "")
       .replace(/^(一件|一身|一套|一襲)\s*/, "")
       .replace(/[。！!，,]+$/, "").trim();
     return (!val || ignoreWords.includes(val)) ? "" : val;
