@@ -316,6 +316,14 @@ myWar：呼叫端傳玩家本局【戰爭】標記，比照 buildMapNodesPayload
 
 ### `callGeminiAPI`　<sub>Engine_Combat.gs</sub>
 
+🐛→✅ **2026-09-23 模型 JSON 壞掉＝白花一顆 Grok**：種子 A/B 兩輪各壞一回合——一次是 narration 裡放了真換行又在
+intimacy_feedback 中途截斷，一次是 `cast` 裡打成 `$leave"`。舊流程 `JSON.parse` 一炸就當這顆模型失敗，
+鑑賞 `retries: 1` 直接落到後援 `FALLBACK_MODEL`（Grok）重寫整回合：玩家看不到失敗，但每次都在付十倍的錢，
+而且那一回合的文風會突然換人。現在先過 `repairAiJson_`：真換行轉義→重 parse；不行就正則撈三個必要欄位重組。
+撈不到 narration 才照舊走重試／後援。⚠ 修復只保 narration／options／scene，intimacy_feedback 等回寫欄位
+一律當空——那些本來就是「有才寫」，寧可少寫一回合也不要拿半截 JSON 猜。
+
+
 OpenRouter 額外採樣旋鈕(非OpenAI標準四件組)：不同底層模型支援程度不一，未設定的呼叫端完全不受影響，有帶的模型會吃到、不支援的模型OpenRouter會直接忽略(不會報錯)，故用undefined判斷、不給預設值。
 
 max_tokens 是能直接省生成時間的旋鈕；鑑賞(kanshou) narration 目標字數較短，上限故比 solo 低。

@@ -78,7 +78,14 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
           const s = text.indexOf('{');
           const e = text.lastIndexOf('}');
           text = text.substring(s, e + 1);
-          JSON.parse(text);
+          try { JSON.parse(text); }
+          catch (pe) {
+            // 模型的 JSON 壞了（字串裡的真換行／截斷／打錯字）：先救，救得回來就不必再花一顆模型。
+            const fixed = repairAiJson_(choice.message.content);
+            if (!fixed) throw pe;
+            try { Logger.log("[callGeminiAPI JSON 修復] " + String(choice.message.content).slice(0, 120)); } catch (e3) { }
+            text = fixed;
+          }
           logCacheUsage_(model, result.usage, systemContent, result);
           return text;
         } else { throw new Error("無效的選項結構"); }
@@ -117,6 +124,54 @@ function callGeminiAPI(prompt, systemOverride = null, config = {}) {
 
   return JSON.stringify(aiFallbackData_(isBlocked));
 }
+// 壞掉的模型 JSON 修復：①字串裡的真換行改成 \n；②還是不行就用正則把 narration／options／scene 撈出來重組。
+//   回修好的 JSON 字串；連 narration 都撈不到才回 null（呼叫端照舊走重試／後援）。
+function repairAiJson_(raw) {
+  var text = String(raw || "");
+  var s = text.indexOf('{'), e = text.lastIndexOf('}');
+  if (s < 0) return null;
+  text = e > s ? text.substring(s, e + 1) : text.substring(s);
+  // ① 字串內的控制字元轉義（模型排版時常在 narration 裡放真換行，JSON.parse 直接炸）
+  var out = "", inStr = false, esc = false;
+  for (var i = 0; i < text.length; i++) {
+    var c = text[i];
+    if (inStr) {
+      if (esc) { out += c; esc = false; continue; }
+      if (c === '\\') { out += c; esc = true; continue; }
+      if (c === '"') { inStr = false; out += c; continue; }
+      if (c === '\n') { out += '\\n'; continue; }
+      if (c === '\r') { continue; }
+      if (c === '\t') { out += ' '; continue; }
+      out += c; continue;
+    }
+    if (c === '"') inStr = true;
+    out += c;
+  }
+  try { JSON.parse(out); return out; } catch (e1) { }
+  // ② 逐欄撈：narration 必要，其餘有就收
+  var str = function (key) {
+    var m = out.match(new RegExp('"' + key + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)"'));
+    if (m) return m[1];
+    // 截斷：字串沒收尾，就拿到字串結尾（最後一個引號之前的內容不可信，整段當作內文）
+    var t = out.match(new RegExp('"' + key + '"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)$'));
+    return t ? t[1] : null;
+  };
+  var narration = str('narration');
+  if (narration == null || narration.replace(/\\n/g, '').trim().length < 20) return null;
+  var options = [];
+  var om = out.match(/"options"\s*:\s*\[([\s\S]*?)\]/);
+  if (om) { var re = /"((?:[^"\\]|\\.)*)"/g, mm; while ((mm = re.exec(om[1])) !== null) options.push(mm[1]); }
+  var scene = str('scene');
+  var obj = { narration: narration, options: options.slice(0, 6), scene: scene && scene.length <= 40 ? scene : "" };
+  try {
+    // 上面撈到的是「JSON 逃脫過的原文」，先 parse 一次還原，再交給 JSON.stringify 重新逃脫。
+    obj.narration = JSON.parse('"' + obj.narration + '"');
+    obj.options = obj.options.map(function (o) { try { return JSON.parse('"' + o + '"'); } catch (e) { return o; } });
+    obj.scene = obj.scene ? JSON.parse('"' + obj.scene + '"') : "";
+  } catch (e2) { return null; }
+  return JSON.stringify(obj);
+}
+
 // 📊 提示詞快取命中率：GAS 這端唯一看得到的數字。system 那一塊每回合逐字相同(探針驗過)，
 //    命中時 cached_tokens 會接近它的長度；長期都是 0 就代表快取根本沒生效，別再往 system 搬東西。
 //    ⚠ 只寫 Logger（零 I/O）：真正好看的報表在 OpenRouter 的 Activity／Logs（用 session_id 分組）。

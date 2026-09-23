@@ -189,7 +189,8 @@ function heroToKanshouRow_(heroRow, gameId, loc) {
   // 經歷：dailyBack 優先；都沒有就留空（卡片不印），別塞泛用墊底話。
   sRow[COL.PC.BACK] = p.dailyBack ? String(p.dailyBack).slice(0, 28)
     : p.back ? String(p.back).slice(0, 28) : "";
-  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("", p.quirks || "", p.logic || ""), daily.outfit || "日常便服");
+  // 只帶準則；小動作是 solo 演出卡的東西，鑑賞的在場卡從來不讀，寫進來只是死資料。
+  sRow[COL.PC.MEMORY] = setOutfit_(stampPersonaFlavor_("", "", p.logic || ""), daily.outfit || "日常便服");
   // 【英靈源】＝來自哪一筆種子；撞名守門靠它，不靠顯示名。
   sRow[COL.PC.MEMORY] = KANSHOU_SRC_TAG_.set(sRow[COL.PC.MEMORY], String(heroRow[COL.HERO.ID] || ""));
   sRow[COL.PC.GAME_ID] = gameId;
@@ -504,14 +505,12 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
     _put_(COL.PC.BACK, aiBrief.background && String(aiBrief.background).slice(0, 22), row[COL.PC.BACK]);
     _put_(COL.PC.TRAIT, aiBrief.traits && parseTraitsHelper(aiBrief.traits, traitParts_(row[COL.PC.TRAIT]).join('、'), TRAIT_SLOTS_), traitParts_(row[COL.PC.TRAIT]).join(''));
     _put_(COL.PC.PREF, aiBrief.personality && parseTraitsHelper(aiBrief.personality, row[COL.PC.PREF]), row[COL.PC.PREF]);
-    // MEMORY 上三件事（衣裝／怪癖／準則）同一格：讀一次寫一次
+    // MEMORY 上兩件事（衣裝／準則）同一格：讀一次寫一次
     {
       let liveMem = sheets.pc.getRange(wIdx + 1, COL.PC.MEMORY + 1).getValue();
       const before = String(liveMem);
       if (aiBrief.outfit && !(_topUp_ && getOutfit_(liveMem))) liveMem = setOutfit_(liveMem, aiBrief.outfit);
-      liveMem = stampPersonaFlavor_(liveMem,
-        getPersonaQuirks_(liveMem) ? "" : String(aiBrief.quirks || "").slice(0, 40),
-        getPersonaLogic_(liveMem) ? "" : String(aiBrief.logic || "").slice(0, 40));
+      liveMem = stampPersonaFlavor_(liveMem, "", getPersonaLogic_(liveMem) ? "" : String(aiBrief.logic || "").slice(0, 40));
       liveMem = KANSHOU_BACKFILL_DONE_TAG_.set(liveMem, 1);
       if (String(liveMem) !== before) sheets.pc.getRange(wIdx + 1, COL.PC.MEMORY + 1).setValue(liveMem);
     }
