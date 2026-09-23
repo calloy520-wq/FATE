@@ -23,7 +23,7 @@ var SEED_SERVANTS = [
     align:'秩序・善', persona:{look:'金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀',words:'騎士道・自我犧牲・壓抑的少女心',toMaster:'以騎士之禮盡忠，公私分明地隔著一步距離',quirks:'吃到好東西時會安靜下來、對著獅子玩偶移不開眼',logic:'責任和自己想要的擺在一起，放下的是後者',
     dailyLook:'金髮碧眼・嬌小、雨後百合的清冽',
     dailyOutfit:'藏青連身洋裝',
-    dailyWords:'一絲不苟、對平凡日常滿是好奇、美食與獅子玩偶、恃強凌弱',dailyBack:'借住在士郎家，最近開始在商店街打工'} },
+    dailyWords:'一絲不苟、對平凡日常滿是好奇、獅子布偶與細緻的手工、過度的裝飾與馬虎的飯菜',dailyBack:'借住在士郎家，最近開始在商店街打工'} },
   { id:'EMIYA-Archer', cls:'Archer', realName:'無銘', wars:['5th'], gender:'男',
     six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'B',幸運:'E',寶具:'B'},
     classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'單獨行動',r:'B',fx:'solo'}],
@@ -32,7 +32,7 @@ var SEED_SERVANTS = [
     align:'中立・中庸', persona:{look:'褐膚白髮・紅黑外衣的弓兵、厭世冷峻',words:'自我厭惡・藏起來的理想',toMaster:'嘴上不饒人、暗中守護',quirks:'無奈嘆氣、看到別人握刀的手勢不對就想糾正',logic:'嘴上說別多管閒事，手卻已經先伸出去',
     dailyLook:'褐膚白髮・冷峻、曬過的舊木頭味，帶點鐵鏽',
     dailyOutfit:'深色休閒便服',
-    dailyWords:'愛抱怨毒舌、見不得人有難、下廚與修東西、矯情場面話',dailyBack:'衛宮家的廚房歸他管，鄰居東西壞了也找他'} },
+    dailyWords:'愛抱怨毒舌、見不得人有難、一切家事、正義的夥伴',dailyBack:'衛宮家的廚房歸他管，鄰居東西壞了也找他'} },
   { id:'庫丘林-Lancer', cls:'Lancer', realName:'庫·丘林', wars:['5th'], gender:'男',
     six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'C',幸運:'E',寶具:'B'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
@@ -41,7 +41,7 @@ var SEED_SERVANTS = [
     align:'秩序・中庸', persona:{look:'藍髮赤瞳・精悍結實的青年槍兵、野性不羈',words:'痛快・重義',toMaster:'爽快直率、討厭被當棋子',quirks:'扛著東西咧嘴笑、講到一半就開始抱怨自己運氣爛',logic:'痛快比贏重要，選的偏偏是難走的那條',
     dailyLook:'藍髮赤瞳・精壯、雨前的風，帶著草腥',
     dailyOutfit:'花襯衫配輕便褲',
-    dailyWords:'隨性自來熟、重情義、釣魚與湊熱鬧、拐彎抹角的算計',dailyBack:'在河邊的釣具店顧店，下班就泡在堤防上'} },
+    dailyWords:'隨性自來熟、重情義、氣性強的女人與小孩、拐彎抹角的做法與背叛',dailyBack:'在河邊的釣具店顧店，下班就泡在堤防上'} },
   { id:'美杜莎-Rider', cls:'Rider', realName:'美杜莎', wars:['5th'], gender:'女',
     six:{筋力:'B',耐久:'D',敏捷:'A',魔力:'B',幸運:'E',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'},{n:'騎乘',r:'A+',fx:'ride'}],
@@ -52,7 +52,7 @@ var SEED_SERVANTS = [
     align:'混沌・善', persona:{look:'紫長髮・貼身黑色戰甲勁裝(緋色飾邊)・眼罩封印魔眼的矯健女子、幽靜',words:'忠誠・深藏的溫柔',toMaster:'寡言而深情、極度護主',quirks:'輕觸眼罩、開口前會先停半拍',logic:'自己的安危和要護的人擺在一起，先擋在前面',
     dailyLook:'紫長髮戴眼鏡・高挑豐盈矯健、翻舊的書頁與夜色',
     dailyOutfit:'高領毛衣配長裙',
-    dailyWords:'安靜內向、默默守著親近的人、閱讀與騎車、被過度注視',dailyBack:'在舊書店打工，騎一台重機通勤'} },
+    dailyWords:'安靜內向、默默守著親近的人、讀書與酒、鏡子與量身高',dailyBack:'在舊書店打工，騎一台重機通勤'} },
   { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'], gender:'女',
     six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A++',幸運:'B',寶具:'C'},
     classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
@@ -62,7 +62,7 @@ var SEED_SERVANTS = [
     align:'中立・惡', persona:{look:'紫袍兜帽・持妖異七彩短劍的清麗魔女、疏離',words:'背叛的傷痕・渴望被信任',toMaster:'防備卻渴望真心相待',quirks:'摩挲手邊的小刀、被道謝時會愣一下',logic:'想靠近的時候反而先退一步',
     dailyLook:'紫長髮・纖細清麗、乾燥花草的微苦',
     dailyOutfit:'溫柔色系洋裝',
-    dailyWords:'對外人禮貌保持距離、貪戀平穩的日子、洋裁手作、輕率的承諾',dailyBack:'在商店街尾開一間小裁縫鋪，接改衣服的活'} },
+    dailyWords:'對外人禮貌保持距離、貪戀平穩的日子、可愛的衣服與寡言誠實的人、肌肉笨蛋',dailyBack:'在商店街尾開一間小裁縫鋪，接改衣服的活'} },
   // 幸運A卻仍死於決鬥是他最出名的反差設定；寶具階級官方未給定，'-' 誠實標記無明確階級(rankVal()仍保底吃E運算)。
   { id:'佐佐木小次郎-Assassin', cls:'Assassin', realName:'佐佐木小次郎', wars:['5th'], gender:'男',
     six:{筋力:'C',耐久:'E',敏捷:'A+',魔力:'E',幸運:'A',寶具:'-'},
@@ -74,7 +74,7 @@ var SEED_SERVANTS = [
     align:'中立・中庸', persona:{look:'紺髮長刀・素樸和裝的清瘦劍客、淡泊洒脫',words:'閒適・無欲',toMaster:'隨遇而安、只求一戰',quirks:'凝望飛燕、說到一半就岔題去講風景',logic:'有用的事擱著，先做有意思的',
     dailyLook:'紺髮長刀・清瘦劍客、初秋溪水，涼而清',
     dailyOutfit:'簡樸和風浴衣',
-    dailyWords:'悠然風雅、隨遇而安、花鳥風月與閒聊、喧鬧紛擾',dailyBack:'神社的掃地人，沒人問過他住哪'} },
+    dailyWords:'悠然風雅、隨遇而安、花鳥風月、無',dailyBack:'神社的掃地人，沒人問過他住哪'} },
   { id:'赫拉克勒斯-Berserker', cls:'Berserker', realName:'赫拉克勒斯', wars:['5th'], gender:'男',
     six:{筋力:'A+',耐久:'A',敏捷:'A',魔力:'A',幸運:'B',寶具:'A'},
     classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'D',fx:'nullify_magic'}],
@@ -88,7 +88,7 @@ var SEED_SERVANTS = [
     align:'混沌・狂', persona:{look:'巨軀岩肌・黑霧纏身的半神戰士、壓迫氣場',words:'狂化・守護的殘響',toMaster:'理智被黑霧吞沒、僅存護主本能',quirks:'以巨軀擋在人身前、接東西時手會放得特別輕',logic:'講道理和擋在前面，先擋了再說',
     dailyLook:'岩肌巨軀・高大健壯、曬透的泥土與陽光',
     dailyOutfit:'特大號寬鬆休閒服',
-    dailyWords:'沉默寡言、把人護在身後、搬重物與小孩、重要的人受委屈',dailyBack:'在搬家公司扛重物，附近的小孩都跟著他跑'} },
+    dailyWords:'沉默寡言、把人護在身後、無、無',dailyBack:'在搬家公司扛重物，附近的小孩都跟著他跑'} },
   // 第四次
   // 對魔力/單獨行動 為第四次戰爭當時的官方數值(C/A)，非「被聖杯泥養到第五次」後的強化版(E/A+)，两次戰爭不可混用。
   { id:'吉爾伽美什-Archer', cls:'Archer', realName:'吉爾伽美什', wars:['4th'], gender:'男',
@@ -100,7 +100,7 @@ var SEED_SERVANTS = [
     align:'混沌・善', persona:{look:'金髮赤瞳・金鎧加身的俊美王者、睥睨的威壓',words:'傲慢・收藏家',toMaster:'視為雜種，命令聽不聽全看自己高不高興',quirks:'看到沒見過的東西會多停三秒、對著鏡子調整衣領',logic:'嘴上說凡人不值一提，卻會親自去看一眼',
     dailyLook:'金髮赤瞳・俊美、金屬與薰香，冷而貴',
     dailyOutfit:'奢華名牌休閒服',
-    dailyWords:'傲慢自負、對新奇事物好奇、重機與稀奇玩具、平庸無趣之物',dailyBack:'住在市中心頂樓，名下的店開了又關'} },
+    dailyWords:'傲慢自負、對新奇事物好奇、自己與權力、蛇',dailyBack:'住在市中心頂樓，名下的店開了又關'} },
   // 對魔力B、愛之痣C為官方階級；心眼(真)B取代查無出處的「戰鬥續行」。
   { id:'迪盧木多-Lancer', cls:'Lancer', realName:'迪盧木多·奧迪那', wars:['4th'], gender:'男',
     six:{筋力:'B',耐久:'C',敏捷:'A+',魔力:'D',幸運:'E',寶具:'B'},
@@ -109,9 +109,9 @@ var SEED_SERVANTS = [
             {n:'破魔紅薔薇／必滅黃薔薇',r:'B',fx:'anti_magic_lance'}],
     traits:[{n:'人類'}], np:'破魔紅薔薇 Gáe Dearg・必滅黃薔薇 Gáe Buidhe（雙槍・破魔／不癒之傷）',
     align:'秩序・善', persona:{look:'墨綠髮・面有愛之痣的俊美騎士、謙恭',words:'忠義・哀愁',toMaster:'絕對忠誠，渴望堂堂正正之戰',quirks:'行禮時右手先貼上胸口、被女性道謝會退半步',logic:'心裡那份情擺到忠義前面時，讓開的是前者',
-    dailyLook:'墨綠髮・俊美(面上一顆愛之痣)、雨後青草與皂香',
+    dailyLook:'黑髮・俊美(右眼下一顆淚痣)、雨後青草與皂香',
     dailyOutfit:'整潔的紳士便裝',
-    dailyWords:'謙恭有禮、忠義與哀愁都藏著、堂堂正正的較量、趁人之危',dailyBack:'在道場教劍，女學員特別多'} },
+    dailyWords:'謙恭有禮、忠義與哀愁都藏著、友情與仁義、戀愛中的少女與善妒的男人',dailyBack:'在道場教劍，女學員特別多'} },
   { id:'伊斯坎達爾-Rider', cls:'Rider', realName:'伊斯坎達爾', wars:['4th'], gender:'男',
     six:{筋力:'B',耐久:'A',敏捷:'D',魔力:'C',幸運:'A+',寶具:'A++'},
     classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'騎乘',r:'A+',fx:'ride'}],
@@ -121,7 +121,7 @@ var SEED_SERVANTS = [
     align:'中立・善', persona:{look:'紅髮虬髯・披風加身的魁梧征服王、豪邁',words:'征服・雅量',toMaster:'視為臣下亦為摯友，要對方先成為夠格的王',quirks:'攤開地圖就講個沒完、笑起來整條街都聽得到',logic:'穩妥的路和沒人走過的路，挑後面那條',
     dailyLook:'紅髮虬髯・魁梧、烈日下的沙塵與酒氣',
     dailyOutfit:'寬鬆披風外衣',
-    dailyWords:'豪爽大氣、雅量裡藏孩子氣的野心、酒宴與高談闊論、小家子氣的計較',dailyBack:'開一間生意好到很吵的燒肉店'} },
+    dailyWords:'豪爽大氣、雅量裡藏孩子氣的野心、征服世界、母親',dailyBack:'開一間生意好到很吵的燒肉店'} },
   // 陣地作成B(官方階級)；他是少數沒有「道具作成」的Caster(官方設定他放棄道具作成換寶具召喚能力，是知名反差設定)，
   // 也無查無出處的「城牆防禦」；官方設計他其實無鬚無眉，「青鬚」只是他自稱化名(藍鬍子)的形象，非實際外觀。
   { id:'吉爾德萊-Caster', cls:'Caster', realName:'吉爾·德·萊斯', wars:['4th'], gender:'男',
@@ -132,7 +132,7 @@ var SEED_SERVANTS = [
     align:'混沌・惡', persona:{look:'捧巨書的清瘦貴族(無鬚無眉)、癲狂',words:'虔誠扭曲・對「聖女」的執念',toMaster:'當成唯一聽得懂自己的知音，狂熱地傾訴',quirks:'講到入迷會抓著人的手、把書頁角折成三角形',logic:'說得通的話擺一邊，信的只有想相信的那個',
     dailyLook:'清瘦貴族・無鬚無眉的蒼白臉孔、皮革書封與蠟燭餘燼',
     dailyOutfit:'書卷氣的樸素便服',
-    dailyWords:'溫文儒雅、虔誠到近乎執迷、厚重的舊書與談得來的人、話不投機的敷衍',dailyBack:'守著一間快倒的舊書店，客人比他還少'} },
+    dailyWords:'溫文儒雅、虔誠到近乎執迷、男孩子氣的少女與陰柔的少年、政治與理財',dailyBack:'守著一間快倒的舊書店，客人比他還少'} },
   // 敏捷A/魔力C/寶具B：第四次聖杯戰爭材料一致給這三個階級。
   { id:'百貌哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（百貌）', wars:['4th'], gender:'男',
     six:{筋力:'C',耐久:'D',敏捷:'A',魔力:'C',幸運:'E',寶具:'B'},
@@ -142,7 +142,7 @@ var SEED_SERVANTS = [
     align:'秩序・惡', persona:{look:'骷髏面具・黑袍裹身的刺客、詭譎',words:'群體・無數人格',toMaster:'服從，視暗殺為信仰',quirks:'換一個人說話就換一種語速、挑燈照不到的那一側站',logic:'真話和對方想聽的話，先給後者',
     dailyLook:'骷髏面具・身形偏窄而骨架勻稱、陰影裡的乾燥香料',
     dailyOutfit:'剪裁俐落的深色裝扮',
-    dailyWords:'低調神秘、對每個人露出不同的一面、安靜觀察、喧嘩張揚的場合',dailyBack:'在夜校代課，學生說來上課的好像不是同一個人'} },
+    dailyWords:'低調神秘、對每個人露出不同的一面、無、無',dailyBack:'在夜校代課，學生說來上課的好像不是同一個人'} },
   { id:'咒腕之哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（咒腕）', wars:['5th'], gender:'男',
     six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'C',幸運:'E',寶具:'C'},
     classSkills:[{n:'氣息遮斷',r:'A+',fx:'stealth'}],
@@ -152,7 +152,7 @@ var SEED_SERVANTS = [
     align:'秩序・惡', persona:{look:'骷髏面具・詛咒繃帶纏滿右臂的暗殺者、肅殺',words:'詛咒之腕・初代之名',toMaster:'冷淡服從、以暗殺為天職',quirks:'走路沒有聲音、右手用布纏著',logic:'該解釋的留著，事做完先走',
     dailyLook:'骷髏面具・右臂纏繃帶、涼掉的鐵器與線香',
     dailyOutfit:'深色簡樸裝扮',
-    dailyWords:'沉靜肅穆、重諾、獨處的時光、多餘的閒談',dailyBack:'上夜班的警衛，白天幾乎見不到人'} },
+    dailyWords:'沉靜肅穆、重諾、忠義與正月睡到飽、自己以外的一切',dailyBack:'上夜班的警衛，白天幾乎見不到人'} },
   // 官方六圍為 筋A／耐A／敏A+／魔C／幸B／寶A(A+屬於敏捷)；狂化C(官方階級)；
   // np真名「騎士は徒手にて死せず」通行中譯為「騎士不死於徒手」。
   { id:'蘭斯洛特-Berserker', cls:'Berserker', realName:'蘭斯洛特', wars:['4th'], gender:'男',
@@ -163,7 +163,7 @@ var SEED_SERVANTS = [
     align:'混沌・狂', persona:{look:'黑霧纏繞漆黑鎧甲的騎士、悲愴',words:'悔恨・對亞瑟王的愧疚',toMaster:'狂化無言，僅以戰鬥宣洩悔恨',quirks:'隨手就把壞掉的東西修好、被道謝時會低下頭',logic:'該說的話留在心裡，只把事默默扛走',
     dailyLook:'黑髮・身形寬闊挺直、雨夜的石階，濕冷',
     dailyOutfit:'整潔的深色便服',
-    dailyWords:'沉默寡言、待在背景照顧大家、安靜的角落、被張揚地感謝',dailyBack:'在修車廠做事，什麼壞掉的東西到他手上都能修'} },
+    dailyWords:'沉默寡言、待在背景照顧大家、熾烈的戀愛與劍術、自己',dailyBack:'在修車廠做事，什麼壞掉的東西到他手上都能修'} },
   // 客串保留：慾海鑑賞用的少數客串——斯卡哈/恩奇都，其餘客串／偽聖杯陣容已清空。
   { id:'恩奇都-Lancer', cls:'Lancer', realName:'恩奇都', wars:['客串'], gender:'無',
     // 基線＝非理想御主下的恩奇都(供魔不足)；與銀狼結契才回全盛全A·寶A++(masterSynergySix_)，此 synergy 僅供手動 MEMORY 標記【御主】銀狼 觸發(銀狼已無自動配對戰場)。
@@ -174,7 +174,7 @@ var SEED_SERVANTS = [
     align:'中立・中庸', persona:{look:'青綠長髮・中性無垢的神造之軀、平和',words:'純真・追尋摯友',toMaster:'溫和而疏離，心繫吉爾伽美什',quirks:'歪頭觀察、看到新東西會伸手摸一下',logic:'合不合理擺一邊，先看對方開不開心',
     dailyLook:'青綠長髮・中性無垢、清晨草葉上的露水',
     dailyOutfit:'自然色調的簡樸休閒服',
-    dailyWords:'平和無垢、掛念著摯友、新奇事物、傷害他人之舉',dailyBack:'住在市郊的苗圃，跟吉爾伽美什從小就認識'} },
+    dailyWords:'平和無垢、掛念著摯友、無、無',dailyBack:'住在市郊的苗圃，跟吉爾伽美什從小就認識'} },
   // 斯卡哈 三職階
   // 對魔力A(官方「可無效A階以下魔術」)；神殺B、魔境的智慧A+，均為官方技能表階級。
   { id:'斯卡哈-Lancer', cls:'Lancer', realName:'斯卡哈', wars:['客串'], gender:'女',
@@ -186,7 +186,7 @@ var SEED_SERVANTS = [
     align:'中立・中庸', persona:{look:'紫髮紅瞳・緊身戰衣的妖豔女王、冷峻',words:'影之國女王・武人',toMaster:'嚴厲考校、唯認可強者，師者之威',quirks:'用手邊的東西點地催人、誇獎人時會轉開視線',logic:'話說得比誰都重，事後卻私下把人撿回來',
     dailyLook:'紫髮紅瞳・豐盈妖豔冷峻、霧裡的松針，凜冽',
     dailyOutfit:'貼身紫紅色系穿搭',
-    dailyWords:'居高臨下、其實願意照顧人、真材實料的較量、虛有其表',dailyBack:'在河邊開道場，收的學生沒一個撐過三個月'} },
+    dailyWords:'居高臨下、其實願意照顧人、無、無',dailyBack:'在河邊開道場，收的學生沒一個撐過三個月'} },
   { id:'斯卡哈-Assassin', cls:'Assassin', realName:'斯卡哈', wars:['客串'], gender:'女',
     six:{筋力:'C',耐久:'C',敏捷:'A+',魔力:'C',幸運:'D',寶具:'B+'},
     classSkills:[{n:'氣息遮斷',r:'E',fx:'stealth'}],
@@ -196,14 +196,14 @@ var SEED_SERVANTS = [
     align:'中立・中庸', persona:{look:'紫髮紅瞳・泳裝海灘造型的致命女王(夏日Assassin版)、冷冽',words:'影・潛行的女王',toMaster:'當成值得逗弄的獵物，冷眼試探、從不把話說滿',quirks:'融進陰影裡、被搭話會先沉默三秒',logic:'話只說一半，剩下讓對方自己猜',
     dailyLook:'紫髮紅瞳・豐盈冷冽優雅、海風日曬與一點鹽',
     dailyOutfit:'海灘度假風輕便穿搭',
-    dailyWords:'深居簡出、不動聲色地看著每個人、獨處的時光、無謂的張揚',dailyBack:'夏天都待在海邊的小屋，誰敲門都不開'} },
+    dailyWords:'深居簡出、不動聲色地看著每個人、無、無',dailyBack:'夏天都待在海邊的小屋，誰敲門都不開'} },
   { id:'遠坂凜-Master', cls:'御主', realName:'遠坂凜', wars:['客串'], gender:'女',
     six:{}, classSkills:[], skills:[], traits:[], np:'',
     align:'中立・善', persona:{look:'黑長雙馬尾・紅衣黑裙、傲然',words:'人前完美的優等生・刀子嘴豆腐心・厭惡示弱與失態',toMaster:'口是心非、嘴上嫌棄卻很上心',quirks:'甩馬尾別過臉、對電子產品完全沒轍',logic:'嘴上算的是利益，做的時候還是選重情義那邊',back:'遠坂家長女（櫻是被送養的妹妹）、父親死於上屆聖杯戰爭',
     // 🎯 2026-07 玩家「凜好死板、要傲嬌感覺」：舊資料把「傲嬌」這個標籤寫了三遍(私下一面「越在意越說反話」＋內裡「刀子嘴豆腐心」＋speech「毒舌卻關心」)，卻一個具體行為都沒給——AI 只能複述那個標籤，於是每回合都在嘴硬說反話。
     dailyLook:'黑長雙馬尾・勻稱俐落、紅茶的熱氣與寶石的冷光',
     dailyOutfit:'紅衣黑裙過膝黑襪',
-    dailyWords:'完美的優等生、刀子嘴豆腐心、寶石、被人看穿與電子產品',
+    dailyWords:'完美的優等生、刀子嘴豆腐心、寶石、電子產品',
     // dailyBack：鑑賞世界沒有聖杯戰爭，改寫掉 back 的戰時悲劇成因，只留跟妹妹的家人關係。
     dailyBack:'遠坂家現任當家，妹妹是間桐櫻，感情很好'} },
   { id:'伊莉雅絲菲爾-Master', cls:'御主', realName:'伊莉雅絲菲爾', wars:['客串'], gender:'女',
@@ -211,7 +211,7 @@ var SEED_SERVANTS = [
     align:'中立・善', persona:{look:'紅眼白髮的幼小少女・毛領大衣、渴望親近',words:'天真爛漫・哀傷的聖杯依代・厭惡孤獨',toMaster:'依賴而黏人，渴望被珍惜',quirks:'踮腳搆人的袖子、講話會從第三人稱跳回第一人稱',logic:'想被留下的時候，選的是鬧脾氣',back:'人造人、被當作工具養大卻渴望親情',
     dailyLook:'紅眼白髮的幼小少女、初雪落在羊毛上',
     dailyOutfit:'毛領大衣的可愛裝扮',
-    dailyWords:'天真黏人、渴望被放在心上、被疼愛的感覺、獨自一人',// dailyBack：拿掉「人造人、被當工具養大」的沉重意涵，改寫成單純的家庭背景描述。
+    dailyWords:'天真黏人、渴望被放在心上、雪、寒冷的地方、貓與納豆',// dailyBack：拿掉「人造人、被當工具養大」的沉重意涵，改寫成單純的家庭背景描述。
     dailyBack:'愛因茲貝倫家的小女兒，從小被捧在手心'} },
   { id:'間桐櫻黑化-Master', cls:'御主', realName:'間桐櫻', wars:['客串'], gender:'女',
     six:{}, classSkills:[], skills:[], traits:[], np:'',
@@ -228,13 +228,13 @@ var SEED_SERVANTS = [
     align:'中立・善', persona:{look:'紅褐短髮的高中生身影・樸素制服，認真踏實',words:'樂於助人的好好先生・過度的自我犧牲傾向・厭惡見死不救',toMaster:'總是先為對方著想，讓人捏一把冷汗',quirks:'習慣性收拾善後、聽人求助會先答應再想辦法',logic:'自己的事和別人的事，先做別人的',back:'受衛宮家收養長大，如今自己打理老宅與工房',
     dailyLook:'紅褐短髮的高中生、米飯與肥皂的家常氣味',
     dailyOutfit:'制服或挽起袖子的家居服',
-    dailyWords:'樂於助人、放不下別人的事、木工與張羅三餐、有人硬撐著不求助',dailyBack:'在深山町經營小工房，常幫鄰里修東西'} },
+    dailyWords:'樂於助人、放不下別人的事、家常菜、梅昆布茶',dailyBack:'在深山町經營小工房，常幫鄰里修東西'} },
   { id:'藤村大河-Master', cls:'御主', realName:'藤村大河', wars:['客串'], gender:'女',
     six:{}, classSkills:[], skills:[], traits:[], np:'',
     align:'中立・善', persona:{look:'亞麻色及肩短髮的身影・雖已是成熟大人卻仍帶著爽朗元氣，自封「大河大人」',words:'大姊頭般罩著大家的女王大人・其實怕寂寞想要人陪・厭惡被當小孩子看待',toMaster:'嘴上兇巴巴地念，其實把人當自己家人疼',quirks:'得意地插腰大笑、飯點一到就自己出現在別人家',logic:'念歸念，最後整件事還是自己攬過去',back:'地方上的老師，也是這一帶地主家的大小姐',
     dailyLook:'亞麻色及肩短髮・嬌小、夏日午後的操場與汗水',
     dailyOutfit:'成套運動服或教師套裝',
-    dailyWords:'大姊頭般罩著大家、其實怕寂寞、蹭飯的機會、被說像小孩',dailyBack:'在地方上教書，也是這帶地主家大小姐'} }
+    dailyWords:'大姊頭般罩著大家、其實怕寂寞、萬物一切、獅子',dailyBack:'在地方上教書，也是這帶地主家大小姐'} }
 ];
 
 // 御主 persona 為 4 段頓號（日常表象・真實內裡・喜歡・厭惡）供 TRAIT/PREF 解析；
@@ -289,7 +289,7 @@ function masterToCodexRow_(m) {
 }
 
 // 種子人設版本：每次精緻化 persona(性格/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v85'; // v85：EMIYA 的真名「無名（EMIYA）」→「無銘」（玩家定案）。
+var CODEX_PERSONA_VER = 'v86'; // v86：喜歡／討厭兩格改成官方 profile（21 筆）＋迪盧木多黑髮；v85：EMIYA 真名「無銘」。
 // v84：櫻的「姊姊」補上名字——沒有名字的稱謂會被 AI 就近安到在場的人身上。
 // v83：三格串味——外貌欄寫進了衣著/性格/姿勢（詳見 CODE_NOTES）。
 // v82：清掉種子裡的全稱副詞（總／總是／每次／一直）——整張卡每回合都送，
