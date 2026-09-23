@@ -290,7 +290,7 @@ function actionKanshouSummonHero(userData, pcId, sheets) {
   var meIdx = kanshouPcIdx_(data, pcId);
   if (meIdx < 0) return JSON.stringify({ success: false, message: "你還沒進後日談。" });
   var me = data[meIdx];
-  var gid = String(me[COL.PC.GAME_ID] || ""); var loc = String(me[COL.PC.LOC] || "冬木·深山町");
+  var gid = String(me[COL.PC.GAME_ID] || ""); var loc = String(me[COL.PC.LOC] || "我的房間");
   var heroes = getHeroCodexCached();
   var hero = heroes.find(function (r) { return String(r[COL.HERO.ID]) === heroId; });
   if (!hero) return JSON.stringify({ success: false, message: "找不到這個人。" });
@@ -399,7 +399,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
   if (linkedKpcId) {
     for (var r = 1; r < data.length; r++) {
       if (String(data[r][COL.PC.ID]) !== linkedKpcId) continue;
-      var loc = String(data[r][COL.PC.LOC] || "冬木·深山町");
+      var loc = String(data[r][COL.PC.LOC] || "我的房間");
       return JSON.stringify({
         success: true,
         pcId: linkedKpcId, pcName: String(data[r][COL.PC.NAME] || acctName),
@@ -419,7 +419,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
       return JSON.stringify({
         success: true,
         pcId: migId, pcName: String(data[m][COL.PC.NAME] || acctName),
-        pcSex: String(data[m][COL.PC.SEX] || "異"), loc: String(data[m][COL.PC.LOC] || "冬木·深山町"),
+        pcSex: String(data[m][COL.PC.SEX] || "異"), loc: String(data[m][COL.PC.LOC] || "我的房間"),
         homeName: getKanshouHomeName_(data[m][COL.PC.MEMORY], String(data[m][COL.PC.NAME] || acctName))
       });
     }
@@ -431,7 +431,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
     return JSON.stringify({ success: true, needSetup: true, defaultName: acctName });
   }
   var gameId = "k_" + Date.now();
-  var loc2 = "我的房間";   // 開場布景（不是地點系統，AI 隨時換）
+  var loc2 = "冬木市，我的房間";   // 開場布景：冬木只在開場出現一次，AI 下一回合寫了新場景就換掉
   var pcColCount = Object.keys(COL.PC).length;
   var mId = "KPC_" + Date.now();
   var mRow = Array(pcColCount).fill("");
@@ -450,7 +450,7 @@ function actionEnterKanshou(userData, pcId, sheets) {
   var kPersona = String(userData.persona || "").trim().slice(0, 60);
   var _apPart = kAppear.replace(/、/g, "·").trim();   // 內部頓號換·，免溢到其他格
   var _psPart = kPersona.replace(/、/g, "·").trim();
-  mRow[COL.PC.BACK] = "剛搬來冬木市";
+  mRow[COL.PC.BACK] = "";   // 經歷留空：創角時 AI 補一句「以前」，之後由玩家改命
   mRow[COL.PC.TRAIT] = _apPart + "、、我、無";
   mRow[COL.PC.PREF] = _psPart + "、、、";
   mRow[COL.PC.INTENT] = "";   // 萌點欄已退休，恆空（位置索引，欄不刪）
@@ -482,8 +482,8 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 - traits：外貌、氣質。${finalSex === '女' ? BUST_NOTE_ : ''}${AURA_SPEC_}格式範例(只示範斷句，內容一律依玩家給的性別與描述重寫)：「(外貌)、(氣質)」
 - personality：個性兩句(各講一件不同的事)、喜歡的事物、討厭的事物。格式範例(只示範斷句)：「(個性)、(個性)、(喜歡的)、(討厭的)」
 ★logic：${pron_(finalSex)}做選擇的方式，限24字。把兩件${pron_(finalSex)}都想要的東西擺在一起，說出最後放掉的是哪一個(例：嘴上算的是得失，做的時候總是選重情義那邊)。
-★background：限20字，【只寫來到冬木【以前】的來歷】，呼應其身世，不出現具體物品名，語氣平和溫馨，不涉及聖杯戰爭或任何戰爭史。
-★【只寫來到冬木以前的來歷】：現在的工作、住處、同住的人、交往對象、養的動物、已經有的朋友，全部留給玩家在遊戲裡自己做出來（系統會逐項記錄）——這一格只寫來到冬木之前的來歷。
+★background：限20字，【只寫現在這段日子開始【以前】的來歷】，呼應其身世，不出現具體物品名，語氣平和溫馨，不涉及聖杯戰爭或任何戰爭史。
+★【只寫現在這段日子開始以前的來歷】：現在的工作、住處、同住的人、交往對象、養的動物、已經有的朋友，全部留給玩家在遊戲裡自己做出來（系統會逐項記錄）——這一格只寫來到冬木之前的來歷。
 ★outfit：一句今天的日常穿搭(限20字)，依外貌與個性方向自然搭配(如文靜者素雅、活潑者亮色休閒)，純日常便服/居家/外出風格，不含任何戰甲/武裝/戰鬥裝束字眼。
 ★【數值與地點由系統裁定】輸出欄位以下方 JSON 列出的為限。
 
@@ -939,7 +939,7 @@ var KANSHOU_STYLE_MODULES_ = [
   { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，括號裡是性別，後面是這個人是什麼樣的人；名字後面另外接的那幾行是此刻的狀態。★卡上這些句子、還有【我自己】那張，都只給你看，在場的人並不知道自己被這樣寫著；每張卡上的事是我跟那個人之間的事，其他人手上有的，僅限於自己在場時看得到聽得到的那些。★卡上寫的是【一直以來】的底色，不是這一回合發生的事。' },
   { key: 'dialogue',   fixed: true, slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
   { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。尺度一律跟著玩家推進到哪裡走。', slot: 'sys', def: '尺度跟著玩家走：玩家在聊天就好好聊天、把日常寫得有滋味；玩家真的伸出手了，才順著往下走。真進到情慾場面就寫滿寫透——器官用本名，體液、聲音、氣味、溫度全部照實寫，身體的反應寫具體。' },
-  { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代冬木市，大家都是住在這裡的普通市民。' },
+  { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代日常，大家都是普通市民。' },
   { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依這回合有沒有大事調；隨意＝不給字數，平淡的一幕就讓它平淡。', slot: 'none', kind: 'pick', def: 'auto' },
   { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】這一段寫 {篇幅} 字。' },   // ⚠ 篇幅選「隨意」時整段不送，見 actionPlay_ 的 _sty_('length')
 ];
@@ -1892,11 +1892,11 @@ function actionPlay_(userData, pcId, sheets) {
 ★【誰在場】：有【專屬稱呼】就叫暱稱。卡片與帳本都沒提到的路人不具名。
 ★【world_note】：這一步新出現的地方/人/規矩，寫進去才會留下；挑之後還會再遇到、再提起的寫，最多 ${WORLD_SPEC_.kanshou.writeMax} 筆。
 
-【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
+【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || ""}。
 ${PROMPT_PARTY_LIVE}
 ${_lenTier_.free ? '' : _sty_('length')}
 ${kanshouWorldRosterStr}${_worldFeed_}${_loreStr_}${kanshouNightSceneStr}
-${(() => { const _sc = String(pc[COL.PC.LOC] || "").trim(); return _sc ? `★【場景】：上一段演完，我們在「${_sc}」。\n` : ""; })()}★【此刻】${kanshouSeason_(curDateObj_.month)}的${timeBand_(_narrHour_)}（光線、氣溫、街上的人照這個寫）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚跟我一起過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
+${(() => { const _sc = String(pc[COL.PC.LOC] || "").trim(); return _sc ? `★【現在地點】：${_sc}。\n` : ""; })()}★【此刻】${kanshouSeason_(curDateObj_.month)}的${timeBand_(_narrHour_)}。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚跟我一起過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 
 ${presentMembers.length ? '' : '★【在場】：這個地方只有我一個人（常民與路人照常可以出現）。'}
 
