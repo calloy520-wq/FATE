@@ -728,7 +728,6 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
         "physical_state": _physicalStateRef,
         "appearance_extras": _appearanceExtrasRef,
         "mutual_nicknames": "這回合真的叫出口的暱稱·沒有就留空",
-        "rel_tag": "≤8字·關係這一步真的往前走了才填·這個人此刻成了玩家的什麼·沒有就留空",
         "memory": "里程碑才寫·≤30字·第一人稱「我」·沒有就留空",
         "noticed": "≤14字·會改變之後怎麼對玩家的發現·沒有就留空"
       }]
@@ -1758,11 +1757,7 @@ function kanshouApplyIntimacyFeedback_(ctx) {
           String(nfb.mutual_nicknames || "").split('、').map(sanitizeNickname_).filter(Boolean).join('、'), 3);
       pcData[targetIdx][COL.PC.REL_MEM] = kanshouRelMemBuild_(_nickValue, _locks);
 
-      // 關係稱呼由 AI 寫（它讀過每一回合）；只給面板看、不送回提示詞——送回去就是讀自己上回合的字。
-      if (!_locks.tag) {
-        const _aiTag = sanitizeNickname_(nfb.rel_tag);
-        if (_aiTag && _aiTag !== "無") pcData[targetIdx][COL.PC.REL_TAG] = _aiTag;
-      }
+      // 關係稱呼只有玩家能填（2026-09-23：AI 每回合換一個「嚴格的餐桌守護者」，schema 已拿掉 rel_tag；舊模型仍回傳也一律不收）。
       if (nfb.memory && String(nfb.memory).trim() && String(nfb.memory).trim() !== "無") {
         pcData[targetIdx][COL.PC.MEMOIR] = processMemoir_(pcData[targetIdx][COL.PC.MEMOIR], nfb.memory, KANSHOU_MEMOIR_CAP_);
       }
