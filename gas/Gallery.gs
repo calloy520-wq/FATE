@@ -1469,6 +1469,8 @@ function getKanshouHomeName_(memory, playerName) {
 const KANSHOU_CASUAL_NAME_ = {
   '阿爾托莉雅-Saber': 'SABER',
   '美杜莎-Rider': 'RIDER',
+  '庫丘林-Lancer': 'LANCER',
+  'EMIYA-Archer': 'ARCHER',
   '伊莉雅絲菲爾-Master': '伊莉雅',
   '間桐櫻黑化-Master': '櫻',
   '遠坂凜-Master': '凜',
