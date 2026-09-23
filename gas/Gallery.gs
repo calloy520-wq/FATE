@@ -1331,6 +1331,7 @@ function kanshouLoreBook_(row) {
 //   其他回合歷史裡有，每回合都送模型就每回合描寫一次（「修長的雙腿裹在過膝黑襪裡」）。講過的存【裝扮已述】。
 var KANSHOU_OUTFIT_TOLD_TAG_ = makeTextTag_('裝扮已述');
 var KANSHOU_NOW_TOLD_TAG_ = makeTextTag_('此刻已述');   // 同一個道理：季節＋時段講過就不再送，換了時段才送
+var KANSHOU_TIME_KEYS_ = ['早上', '早安', '中午', '下午', '傍晚', '晚上', '今晚', '晚餐', '午餐', '早餐', '宵夜', '明天', '今天', '幾點', '深夜', '半夜', '天黑', '天亮'];
 var KANSHOU_OUTFIT_KEYS_ = ['衣', '裙', '襪', '穿', '脫', '換', '裝扮', '外套', '內衣', '胸罩', '內褲', '鞋', '制服', '睡衣', '浴衣', '泳裝', '和服', '洋裝', '領口', '袖', '扣子', '拉鍊'];
 function kanshouBodyPlain_(physicalJson) {
   let o = {}; try { o = JSON.parse(physicalJson || "{}"); } catch (e) { }
@@ -1838,9 +1839,12 @@ function actionPlay_(userData, pcId, sheets) {
   const _narrHour_ = (_clk_.narrHour === null) ? curHour : _clk_.narrHour;
   const curDateObj_ = kanshouAbsDayToDate_(_narrDay_);   // 只給季節與時段的字，數字留在 HUD：給了年月日時分，模型會整串念進敘事
   // 「冬天的清晨」只在時段換了才送：每回合都送，模型每回合都拿它當開頭（「冬天的清晨帶著幾分薄霧…」×5）。講過的存【此刻已述】。
+  //   例外：玩家這句話提到時間（下午／晚餐／今晚…）就再錨一次「仍是冬天的清晨」——不錨，模型會順著「下午去新都」直接把天寫黑。
   const _nowNow_ = `${kanshouSeason_(curDateObj_.month)}的${timeBand_(_narrHour_)}`;
-  const _nowWords_ = KANSHOU_NOW_TOLD_TAG_.get(pc[COL.PC.MEMORY]) === _nowNow_ ? "" : _nowNow_;
-  if (_nowWords_) { pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NOW_TOLD_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], _nowNow_); dirtyPcRows.add(pcIndex); }
+  const _nowTold_ = KANSHOU_NOW_TOLD_TAG_.get(pc[COL.PC.MEMORY]) === _nowNow_;
+  const _nowAsked_ = KANSHOU_TIME_KEYS_.some(function (k) { return userMsg.indexOf(k) >= 0; });
+  const _nowWords_ = !_nowTold_ ? _nowNow_ : (_nowAsked_ ? `仍是${_nowNow_}` : "");
+  if (!_nowTold_) { pcData[pcIndex][COL.PC.MEMORY] = KANSHOU_NOW_TOLD_TAG_.set(pcData[pcIndex][COL.PC.MEMORY], _nowNow_); dirtyPcRows.add(pcIndex); }
 
   // 在場＝同行（玩家的）∪ 臨時在場（AI 的）。同行永遠排前面、永遠進得去；臨時在場填到上限為止。
   const presentRows = (() => {
