@@ -1254,6 +1254,80 @@ function worldEvictees_(d, gid, added, curDay) {
 
 // 餵回去：不是全餵，只挑相關的（釘選／在場者名字在內容裡／玩家這句話提到／最近 3 天提過），最多 feedMax 條。
 //   跟正式同伴同名的【人物】條目不餵——那是先被 AI 掰出來、之後才召喚升格的同一個人（升格時會清，這是舊存檔的第二道）。
+// ══════════════ 📖 觸發條目（規格照 SillyTavern character_book：{keys, content}） ══════════════
+// 「她是誰」每回合送；「她喜歡什麼、討厭什麼」這種話題道具只在玩家這一步提到時才給，沒中整段不存在。
+//   只掃玩家的訊息：AI 自己寫的字不算提到（那是自我餵養的迴圈）；要連上一段敘事一起掃就開 KANSHOU_LORE_SCAN_AI_。
+var KANSHOU_LORE_SCAN_AI_ = false;
+var KANSHOU_LORE_MAX_ = 6;
+var KANSHOU_LORE_KEY_ALLOW1_ = ['蛇', '馬', '雪', '貓', '酒', '劍', '虎'];   // 允許的單字 key（其餘至少兩字，免得逢字就亮）
+// 冬木的正典事實（提到才給；沒有地點系統，這只是布景的底細）
+var KANSHOU_WORLD_BOOK_ = [
+  { keys: ['深山町'], content: '深山町是冬木市河西的老城區，坡道多、老宅多，衛宮、遠坂、間桐三家都在這一側' },
+  { keys: ['新都'], content: '新都在未遠川東岸，車站、高樓、百貨與中央公園都在那邊' },
+  { keys: ['冬木大橋', '大橋'], content: '冬木大橋是橫跨未遠川的紅色鋼橋，連著深山町與新都' },
+  { keys: ['商店街'], content: '深山町商店街在坡道下，衛宮家平常採買都在這裡' },
+  { keys: ['穗群原', '學園', '學校'], content: '穗群原學園是冬木的私立高中，士郎、凜、櫻都念這裡，藤村大河在這裡教英文' },
+  { keys: ['柳洞寺', '柳洞'], content: '柳洞寺在深山町後山，一段很長的石階上去' },
+  { keys: ['衛宮邸', '衛宮家', '士郎家'], content: '衛宮邸是深山町的大和式老宅，有道場和好幾間空房' },
+  { keys: ['遠坂邸', '遠坂家'], content: '遠坂邸是深山町坡道頂上的紅磚洋館，凜一個人住' },
+  { keys: ['間桐邸', '間桐家'], content: '間桐邸是深山町另一棟陰暗的洋館' },
+  { keys: ['教會', '言峰'], content: '冬木教會在新都郊外的山丘上，神父姓言峰' }
+];
+// 沒有種子條目時，從那一列的 PREF 第三、四格（喜歡／討厭）自己長出條目——原創英靈與玩家改命過的都走這條。
+function loreEntriesFromPref_(pref) {
+  const a = String(pref || "").split('、');
+  const out = [];
+  [[2, '喜歡'], [3, '討厭']].forEach(function (pair) {
+    const t = String(a[pair[0]] || "").trim();
+    if (!t || QUAD_EMPTY_.indexOf(t) >= 0) return;
+    const keys = t.split(/[與、和及，]/).map(function (k) { return k.trim(); }).filter(function (k) { return k.length >= 2 || KANSHOU_LORE_KEY_ALLOW1_.indexOf(k) >= 0; });
+    if (keys.length) out.push({ keys: keys, content: pair[1] + t });
+  });
+  return out;
+}
+// 這一列的條目：種子有 book 就用種子的（英靈源→英靈殿 PERSONA JSON），沒有就退回 PREF 長出來的。
+function kanshouLoreBook_(row) {
+  const srcId = KANSHOU_SRC_TAG_.get(row[COL.PC.MEMORY]);
+  if (srcId) {
+    try {
+      const d = getHeroCodexCached();
+      for (let i = 1; i < d.length; i++) {
+        if (String(d[i][COL.HERO.ID]) !== srcId) continue;
+        const p = JSON.parse(d[i][COL.HERO.PERSONA] || "{}");
+        if (Array.isArray(p.book) && p.book.length) return p.book;
+        break;
+      }
+    } catch (e) { }
+  }
+  return loreEntriesFromPref_(row[COL.PC.PREF]);
+}
+function loreHits_(entries, text) {
+  const hay = String(text || "").toLowerCase();
+  if (!hay) return [];
+  const out = [];
+  (entries || []).forEach(function (e) {
+    if (!e || !Array.isArray(e.keys) || !e.content) return;
+    if (e.keys.some(function (k) { return k && hay.indexOf(String(k).toLowerCase()) >= 0; })) out.push(String(e.content));
+  });
+  return out;
+}
+// 這一回合亮起的條目 → 一段 ★；沒有就空字串。ctx：{ userMsg, lastNarration, pc, presentRows }
+function kanshouLoreStr_(ctx) {
+  let hay = String(ctx.userMsg || "");
+  if (KANSHOU_LORE_SCAN_AI_ && ctx.lastNarration) hay += "\n" + String(ctx.lastNarration);
+  const parts = [];
+  const mine = loreHits_(loreEntriesFromPref_(ctx.pc[COL.PC.PREF]), hay);
+  if (mine.length) parts.push(`我：${mine.join('；')}`);
+  (ctx.presentRows || []).forEach(function (r) {
+    const h = loreHits_(kanshouLoreBook_(r), hay);
+    if (h.length) parts.push(`${String(r[COL.PC.NAME]).trim()}：${h.join('；')}`);
+  });
+  const world = loreHits_(KANSHOU_WORLD_BOOK_, hay);
+  if (world.length) parts.push(world.join('；'));
+  if (!parts.length) return "";
+  return `\n★【這一步碰到的底細】(玩家這句話碰到了它們)：${parts.slice(0, KANSHOU_LORE_MAX_).join('｜')}。`;
+}
+
 function worldFeed_(gameId, rows, presentNames, userMsg, curDay, allyNames) {
   if (!Array.isArray(rows) || !rows.length) return "";
   const spec = worldSpec_(gameId);
@@ -1608,16 +1682,12 @@ function actionPlay_(userData, pcId, sheets) {
   if (String(pcId || "").indexOf("KPC_") !== 0) return JSON.stringify({ text: "此功能僅限鑑賞使用。" });
   const driveOn = (userData.drive === true || String(userData.drive) === "true");   // 🔥 換敢寫的那顆模型
 
-  // 卡片四格→一句人話（方括號是我們的分欄符號不是資料；「喜歡X，討厭Y」模型自己懂）。
-  //   別加「表面／骨子裡」這種標籤：「表面」語意是裝出來的，會把真的一絲不苟的人演成在演戲。
+  // 卡片前兩格→一句人話（別加「表面／骨子裡」標籤：「表面」語意是裝出來的）。
+  //   喜歡／討厭是話題道具，走觸發條目（kanshouLoreStr_），玩家提到才給。
   const _qv = (v) => { const t = String(v || "").trim(); return QUAD_EMPTY_.indexOf(t) < 0 ? t : ""; };
   const formatPref = (str) => {
     const a = String(str || "").split('、');
-    const like = _qv(a[2]).replace(QUAD_REDUNDANT_['喜歡'], "").trim();
-    const hate = _qv(a[3]).replace(QUAD_REDUNDANT_['討厭'], "").trim();
-    const core = [_qv(a[0]), _qv(a[1])].filter(Boolean).join('，');
-    const sw = [like ? `喜歡${like}` : "", hate ? `討厭${hate}` : ""].filter(Boolean).join('，');
-    return [core, sw].filter(Boolean).join('。');
+    return [_qv(a[0]), _qv(a[1])].filter(Boolean).join('，');
   };
 
   const formatTrait = (str) => {
@@ -1758,6 +1828,10 @@ function actionPlay_(userData, pcId, sheets) {
 
   const _worldFeed_ = worldFeed_(myGameId, worldRead_(myGameId), presentMembers, userMsg, curDay,
     allies.map(r => String(r[COL.PC.NAME])));
+  const _loreStr_ = kanshouLoreStr_({
+    userMsg: userMsg, pc: pc, presentRows: presentRows,
+    lastNarration: KANSHOU_LORE_SCAN_AI_ ? ((getGameHistoryBatchRaw(pcId, 2).filter(m => m.speaker === 'ai').pop() || {}).content || "") : ""
+  });
 
   // 排序原則：穩定的放前面、每回合會變的放後面（prompt cache 逐 token 比前綴，中間一變後面全作廢）。
   //   例外是在場名單那類 recency 特別重要的，仍壓在最後。
@@ -1770,7 +1844,7 @@ function actionPlay_(userData, pcId, sheets) {
 【我自己】(只給旁白寫「我」的內心用，在場的人沒讀過這張)：${pcName}，${pc[COL.PC.SEX]}，在場的人當面叫我是「${pronYou_(pc[COL.PC.SEX])}」。${(() => { const _p = formatPref(pc[COL.PC.PREF]); return _p ? `${_p}。` : ""; })()}${(() => { const _t = formatTrait(pc[COL.PC.TRAIT]); return _t ? `${_t}。` : ""; })()}${myOutfit ? `穿著${myOutfit}。` : ""}${pc[COL.PC.BACK] || "剛搬來冬木市"}。
 ${PROMPT_PARTY_LIVE}
 ${_lenTier_.free ? '' : _sty_('length')}
-${kanshouWorldRosterStr}${_worldFeed_}${kanshouNightSceneStr}
+${kanshouWorldRosterStr}${_worldFeed_}${_loreStr_}${kanshouNightSceneStr}
 ${(() => { const _sc = String(pc[COL.PC.LOC] || "").trim(); return _sc ? `★【場景】：上一段演完，我們在「${_sc}」。\n` : ""; })()}★【此刻】${curDateObj_.year}年${curDateObj_.month}月${curDateObj_.day}日・${kanshouFmtHM_(_narrHour_)}・${timeBand_(_narrHour_)}（這幾個數字是給你判斷光線、氣溫與街上的人在做什麼用的）。這一幕就寫這 ${KANSHOU_MIN_PER_TURN_} 分鐘。${intimateNightNames.length ? `\n★【今晚留下的人】：『${intimateNightNames.join('、')}』今晚跟我一起過夜——這一夜怎麼過，依各人的個性與你們之間的歷史決定。` : ""}${_morningHere_ ? `\n★【晨間餘韻·非強制】：昨夜與『${_morningHere_}』或許共度親密(依上回合實際內容·沒跨出就當平常早晨)·可自然帶晨間溫馨曖昧·不強制不複述細節。` : ""}
 
 ${presentMembers.length ? '' : '★【在場】：這個地方只有我一個人（常民與路人照常可以出現）。'}

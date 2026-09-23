@@ -623,6 +623,10 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 `check.sh` 全綠、探針才抓到）。`check_ctx.py` 現在逐個呼叫端比對鍵。
 
 - `kanshouAdvanceClock_(ctx)` — ⏰ 這一回合時鐘怎麼走：結束一天／兩段式就寢／時段跳躍／每回合自然流動，四條路都在這裡。`ctx = {userData, pcData, pcIndex, myGameId, sameGame, partyMembers, dirtyPcRows, paceHour, nightSceneOn, curDay, curHour, curL, finalUserMsg}`；回 `{curDay, curHour, curL, finalUserMsg, timeJumped, clockMoved, narrDay, narrHour, intimateNightNames, nightSceneNames}`。⚠ 會就地改 `pcData` 那一列與 `userData.endDay`（兩段式就寢把這一按改成「不結束」）。
+- `loreEntriesFromPref_(pref)` — 📖 從一列的 PREF 第三、四格（喜歡／討厭）長出觸發條目 `[{keys, content}]`：key 用「與、和及，」切、至少兩字（`KANSHOU_LORE_KEY_ALLOW1_` 例外）；空／「無」不長。原創英靈與玩家改命過的走這條。
+- `kanshouLoreBook_(row)` — 📖 這一列的觸發條目：【英靈源】→英靈殿 PERSONA JSON 的 `book`；沒有就退回 `loreEntriesFromPref_`。
+- `loreHits_(entries, text)` — 📖 子字串比對（不分大小寫），回亮起的 `content[]`，順序＝條目順序。
+- `kanshouLoreStr_(ctx)` — 📖 這一回合亮起的條目 → `★【這一步碰到的底細】`（我／每位在場者／`KANSHOU_WORLD_BOOK_`，最多 `KANSHOU_LORE_MAX_` 段）；沒中回空字串。只掃 `ctx.userMsg`，`KANSHOU_LORE_SCAN_AI_` 開了才把 `ctx.lastNarration` 一起掃。`ctx = {userMsg, lastNarration, pc, presentRows}`。探針 `lore.js`。
 - `kanshouPartyCards_(ctx)` — 🪪 在場人物卡，**一分為二**：`stable`＝這個人是誰（六格人設·整局不變·進 system 吃提示詞快取）、`live`＝此刻的樣子（穿著／在場來由／共同回憶／她眼中的你／關係稱呼·留 user）。`ctx = {pcData, pcId, myGameId, userMsg, partyMembers, moveTarget, timeJumped, formatPref, formatTrait}`；回 `{stable, live}`。⚠ 順序＝同行名單的插入順序，加人是 append，所以加人不會動到前面幾張卡的快取前綴。（~~聚光燈 `_spotlight_`~~ 已退休，見 CODE_NOTES。）
 - `kanshouApplyIntimacyFeedback_(ctx)` — 📝 AI 回報的當下狀態落盤：玩家與每位在場者的 神色／穿著配飾／專屬稱呼／關係稱呼／共同回憶／她眼中的你。`ctx = {aiData, pcData, pcIndex, myGameId, dirtyPcRows, curL, pcName}`；就地改 `pcData` 並把動到的列記進 `dirtyPcRows`，不自己寫表。⚠ 這是 AI 唯一能改「人的狀態」的管道，敷衍用語過濾與長度裁切都擋在這一層。
 - `relMemMemoryStr_(relMem)` — 💬 專屬稱呼 → 卡片上那一小段（沒有稱呼就整段不印）。2026-09 從 `actionPlay_` 內部提到檔案層，因為在場人物卡拆出去之後變成跨函式共用。

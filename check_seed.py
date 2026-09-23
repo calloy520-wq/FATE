@@ -368,6 +368,36 @@ def check_logic(bad, seed_src):
     return n_logic, n_quirk, n_back
 
 
+# ⑫ 觸發條目（persona.book）：規格照 SillyTavern character_book。每條要有 keys 與 content；
+#    key 至少兩字（單字 key 逢字就亮，「吃」「書」會讓條目每回合都在），允許的單字寫在 Gallery.gs 的
+#    KANSHOU_LORE_KEY_ALLOW1_（單一真實來源，這裡讀它不另抄）；content 是事實不是舞台指示（AURA_BAN 同一組詞）。
+def lore_allow1(gallery_src):
+    m = re.search(r"KANSHOU_LORE_KEY_ALLOW1_\s*=\s*\[([^\]]*)\]", gallery_src)
+    return re.findall(r"'([^']+)'", m.group(1)) if m else []
+
+
+def check_lore(bad, seed_src, gallery_src):
+    allow1 = lore_allow1(gallery_src)
+    n = 0
+    for m in re.finditer(r"book:\s*\[(.*?)\]\s*\}", seed_src, re.S):
+        for e in re.finditer(r"\{\s*'keys'\s*:\s*\[([^\]]*)\]\s*,\s*'content'\s*:\s*'([^']*)'\s*\}", m.group(1)):
+            n += 1
+            keys = re.findall(r"'([^']+)'", e.group(1))
+            content = e.group(2).strip()
+            if not keys:
+                bad.append("觸發條目沒有 keys：「%s」——沒有關鍵字的條目永遠亮不起來" % content)
+            for k in keys:
+                if len(k) < 2 and k not in allow1:
+                    bad.append("觸發條目的單字 key「%s」（%s）——逢字就亮，要嘛寫兩字以上，要嘛登記進 KANSHOU_LORE_KEY_ALLOW1_" % (k, content))
+            if not content:
+                bad.append("觸發條目沒有 content（keys=%s）" % keys)
+            elif len(content) > 40:
+                bad.append("觸發條目太長（%d 字）：「%s」——這是一句底細，不是一段設定" % (len(content), content))
+            elif any(w in content for w in AURA_BAN):
+                bad.append("觸發條目寫成舞台指示：「%s」——條目是事實，怎麼演交給模型" % content)
+    return n
+
+
 def check_pref2(bad, seed_src):
     segs = 0
     for m in re.finditer(r"dailyWords:'([^']*)'", seed_src):
@@ -436,6 +466,8 @@ def main():
     n_aura = check_aura(bad, seed_src, gas_files())
     n_pref2 = check_pref2(bad, seed_src)
     n_logic, n_quirk, n_back = check_logic(bad, seed_src)
+    _gallery = read(os.path.join(GAS, 'Gallery.gs'))
+    n_lore = check_lore(bad, seed_src, _gallery)
 
     # 🧪 自我退化測試：注入一個不存在的 fx，這支必須叫。
     probe = []
@@ -466,6 +498,8 @@ def main():
     check_logic(probe, "logic:'重視朋友'\nquirks:'撥髮'\ndailyBack:'溫柔而沉靜'")
     _pref2_before = len(probe)
     check_pref2(probe, "dailyWords:'測試、越被誇越兇、甲、乙'")
+    _lore_before = len(probe)
+    check_lore(probe, "book:[{'keys':['吃'],'content':'喜歡吃'},{'keys':[],'content':'x'},{'keys':['手機'],'content':'每次看到手機總是炸'}]}", _gallery)
     _unr_before = len(probe)
     # 拿種子庫裡真的標了客串的第一位，注入一份把她封鎖的 Gallery——這道必須叫。
     _guest1 = next((m.group(1) for m in re.finditer(r"id\s*:\s*'([^']+)'.*?wars\s*:\s*\[([^\]]*)\]", seed_src, re.S) if '客串' in m.group(2)), None)
@@ -481,12 +515,13 @@ def main():
         os.unlink(_inj2)
     if len(probe) < 13 or len(probe) == before or len(probe) == _seg_before \
             or len(probe) == _st_before or len(probe) == _moe_before or len(probe) == _aura_before \
-            or len(probe) == _pref2_before or len(probe) == _logic_before or len(probe) == _unr_before:
+            or len(probe) == _pref2_before or len(probe) == _logic_before or len(probe) == _unr_before \
+            or len(probe) - _lore_before < 3:
         print('🌱 種子庫：❌ 掃描器自身失效（注入的幽靈 fx／劇情弧態度／過期真名／取代式階段表／復活的萌點／常態舞台指示／條件觸發性格／沒有取捨的準則／封鎖後抽不到的種子抓不到）')
         return 1
 
-    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、提示詞格數 %d 處、daily 專欄 %d 格、好感位移 %d 階、退休欄掃 %d 行、氣質格 %d 筆、性格第二格 %d 筆、行為準則 %d 條（怪癖 %d 格·城裡身分 %d 條）（含自我退化測試）'
-          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_seg, n_own, n_stance, n_line, n_aura, n_pref2, n_logic, n_quirk, n_back))
+    print('🌱 種子庫不變式：技能 fx %d 種、COL 欄位 %d 格（棄用登記 %d）、種子 %d 筆、對御主態度 %d 條、真名 %d 個（寫死比對 %d 處）、經歷 %d 條、提示詞格數 %d 處、daily 專欄 %d 格、好感位移 %d 階、退休欄掃 %d 行、氣質格 %d 筆、性格第二格 %d 筆、行為準則 %d 條（怪癖 %d 格·城裡身分 %d 條）、觸發條目 %d 條（含自我退化測試）'
+          % (n_fx, n_col, len(DEAD_COL_ALLOW), n_seed, n_tom, n_nm, n_lit, n_bk, n_seg, n_own, n_stance, n_line, n_aura, n_pref2, n_logic, n_quirk, n_back, n_lore))
     if bad:
         print('  ❌ %d 處「寫了但沒人吃」：' % len(bad))
         for b in bad:
