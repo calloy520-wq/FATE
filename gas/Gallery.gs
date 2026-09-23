@@ -937,10 +937,10 @@ var KANSHOU_STYLE_MODULES_ = [
   { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家這一步做什麼、說什麼，由玩家的輸入決定；那一步玩家自己已經看見了，這一段從在場的人對它的反應寫起，開頭就落在那個人的動作或第一句話上。' },
   // history 是事實陳述不是筆法：少了它模型會順著自己上一輪的調子把同一場景再寫一次。
   { key: 'history',    fixed: true, slot: 'sys',  def: '上面的對話歷史是已經結束的事，它讓你知道這一路走到哪裡了；這一回合要寫的，是玩家這一步【接下來】發生的那一段——新的動作、新的話、新的反應。' },
-  { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，接著一句是性別（有的帶真名），後面是這個人是什麼樣的人；名字後面另外接的那幾行是此刻的狀態。★卡上這些句子、還有【我自己】那張，都只給你看，在場的人並不知道自己被這樣寫著；每張卡上的事是我跟那個人之間的事，其他人手上有的，僅限於自己在場時看得到聽得到的那些。★卡上寫的是【一直以來】的底色，不是這一回合發生的事。' },
+  { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，接著一句是性別（有的帶真名），本事那格列的是技能與寶具的名字，後面是這個人是什麼樣的人；名字後面另外接的那幾行是此刻的狀態。★卡上這些句子、還有【我自己】那張，都只給你看，在場的人並不知道自己被這樣寫著；每張卡上的事是我跟那個人之間的事，其他人手上有的，僅限於自己在場時看得到聽得到的那些。★卡上寫的是【一直以來】的底色，不是這一回合發生的事。' },
   { key: 'dialogue',   fixed: true, slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
   { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。尺度一律跟著玩家推進到哪裡走。', slot: 'sys', def: '尺度跟著玩家走。' },
-  { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代日常，帶一點奈須味：魔術、神秘、技能、寶具都還在身上，只是拿來過日子——用法從那個人真正的本事來（會騎乘的人開車騎車特別厲害、有直感的人聞得出哪家好吃），寫成那個人順手做了什麼，順著眼前的事帶出來，點到為止；有誰把場面拉出日常，就用一點小小的搞笑把它拉回來。' },
+  { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代日常，帶一點奈須味：魔術、神秘、技能、寶具都還在身上，只是拿來過日子——用法從卡上那個人的本事來，寫成那個人順手做了什麼，順著眼前的事帶出來，點到為止；有誰把場面拉出日常，就用一點小小的搞笑把它拉回來。' },
   { key: 'gender',     fixed: true, slot: 'sys',  def: '★【性別】：在場每個人的性別以卡上寫的為準，身體、稱呼、代名詞照那個寫。' },
   { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依這回合有沒有大事調；隨意＝不給字數，平淡的一幕就讓它平淡。', slot: 'none', kind: 'pick', def: 'auto' },
   { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】這一段寫 {篇幅} 字。' },   // ⚠ 篇幅選「隨意」時整段不送，見 actionPlay_ 的 _sty_('length')
@@ -1309,6 +1309,22 @@ function kanshouSeedRowOf_(row) {
   } catch (e) { }
   return null;
 }
+// 本事（卡片用）：種子的技能與寶具只給名字不給階級，日常用法才有依據可循；御主種子沒技能就回空。為什麼：見 CODE_NOTES.md『kanshouSkillLine_』。
+function kanshouSkillLine_(seedRow) {
+  if (!seedRow) return "";
+  const names = [];
+  [COL.HERO.CLASS_SKILLS, COL.HERO.SKILLS].forEach(function (c) {
+    safeJson_(seedRow[c], []).forEach(function (s) {
+      const n = String(s && s.n || "").replace(/\s.*$/, "").trim();
+      if (n && names.indexOf(n) < 0) names.push(n);
+    });
+  });
+  const np = String(seedRow[COL.HERO.NP] || "").split('／')
+    .map(function (x) { return x.replace(/\s.*$/, "").replace(/（.*$/, "").trim(); }).filter(Boolean);
+  if (!names.length && !np.length) return "";
+  return "本事：" + names.join('、') + (np.length ? (names.length ? "；" : "") + "寶具" + np.join('、') : "");
+}
+
 // 真名（卡片抬頭用）：暱稱「凜」模型要靠雙馬尾猜她是誰，給「遠坂凜」就不必猜。跟暱稱相同就回空。
 function kanshouRealName_(row) {
   const seed = kanshouSeedRowOf_(row);
@@ -1641,6 +1657,7 @@ function kanshouPartyCards_(ctx) {
       const _outfitR = kanshouOutfitLine_(r, ctx.userMsg);
       if (_outfitR.told && ctx.dirtyPcRows) ctx.dirtyPcRows.add(pcData.indexOf(r));
       const pRealName = kanshouRealName_(r);
+      const pSkill = kanshouSkillLine_(kanshouSeedRowOf_(r));
       const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
       const pLogic = getPersonaLogic_(r[COL.PC.MEMORY]);
       // 關係稱呼只送【玩家自己設過】的（上了關係鎖）；AI 寫的只給面板看，送回去會變成讀自己上回合的字。
@@ -1657,7 +1674,7 @@ function kanshouPartyCards_(ctx) {
         ? "時間流轉之後，【依然在你身邊】(這段空白裡各自做了什麼，順著時段自然帶過)" : "";
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
       const _pPref = formatPref(r[COL.PC.PREF]), _pTrait = formatTrait(r[COL.PC.TRAIT]);
-      stableArr.push(`【在場人物】${pName}。${String(r[COL.PC.SEX] || "").trim() || "異"}${pRealName ? '，真名' + pRealName : ''}。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pLogic ? `${pLogic}。` : ""}`);
+      stableArr.push(`【在場人物】${pName}。${String(r[COL.PC.SEX] || "").trim() || "異"}${pRealName ? '，真名' + pRealName : ''}。${pSkill ? `${pSkill}。` : ""}${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pLogic ? `${pLogic}。` : ""}`);
       const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${_outfitR.line}${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是我的「${pRelTagStr}」。` : ""}${pMemStr}`;
       liveArr.push(`${pName}：${_live}`);
     }
