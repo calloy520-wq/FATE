@@ -1312,15 +1312,15 @@ function kanshouSeedRowOf_(row) {
 // 本事（卡片用）：種子的技能與寶具只給名字不給階級，日常用法才有依據可循；御主種子沒技能就回空。為什麼：見 CODE_NOTES.md『kanshouSkillLine_』。
 function kanshouSkillLine_(seedRow) {
   if (!seedRow) return "";
+  const np = String(seedRow[COL.HERO.NP] || "").split('／')
+    .map(function (x) { return x.replace(/\s.*$/, "").replace(/（.*$/, "").trim(); }).filter(Boolean);
   const names = [];
   [COL.HERO.CLASS_SKILLS, COL.HERO.SKILLS].forEach(function (c) {
     safeJson_(seedRow[c], []).forEach(function (s) {
       const n = String(s && s.n || "").replace(/\s.*$/, "").trim();
-      if (n && names.indexOf(n) < 0) names.push(n);
+      if (n && names.indexOf(n) < 0 && np.indexOf(n) < 0) names.push(n);   // 種子把寶具也列在技能欄（引擎用），卡上只寫一次
     });
   });
-  const np = String(seedRow[COL.HERO.NP] || "").split('／')
-    .map(function (x) { return x.replace(/\s.*$/, "").replace(/（.*$/, "").trim(); }).filter(Boolean);
   if (!names.length && !np.length) return "";
   return "本事：" + names.join('、') + (np.length ? (names.length ? "；" : "") + "寶具" + np.join('、') : "");
 }
