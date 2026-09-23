@@ -1268,7 +1268,7 @@ function worldEvictees_(d, gid, added, curDay) {
 //   只掃玩家的訊息：AI 自己寫的字不算提到（那是自我餵養的迴圈）；要連上一段敘事一起掃就開 KANSHOU_LORE_SCAN_AI_。
 var KANSHOU_LORE_SCAN_AI_ = false;
 var KANSHOU_LORE_MAX_ = 6;
-var KANSHOU_LORE_KEY_ALLOW1_ = ['蛇', '馬', '雪', '貓', '酒', '劍', '虎'];   // 允許的單字 key（其餘至少兩字，免得逢字就亮）
+var KANSHOU_LORE_KEY_ALLOW1_ = ['蛇', '馬', '雪', '貓', '酒', '劍', '虎', '書', '鏡', '裙'];   // 實測「看什麼書」「全身鏡」兩字 key 都咬不到   // 允許的單字 key（其餘至少兩字，免得逢字就亮）
 // 冬木的正典事實（提到才給；沒有地點系統，這只是布景的底細）
 var KANSHOU_WORLD_BOOK_ = [
   { keys: ['深山町'], content: '深山町是冬木市河西的老城區，坡道多、老宅多，衛宮、遠坂、間桐三家都在這一側' },
