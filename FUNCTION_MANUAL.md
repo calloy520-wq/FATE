@@ -627,7 +627,8 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouAdvanceClock_(ctx)` — ⏰ 這一回合時鐘怎麼走：結束一天／兩段式就寢／時段跳躍／每回合自然流動，四條路都在這裡。`ctx = {userData, pcData, pcIndex, myGameId, sameGame, partyMembers, dirtyPcRows, paceHour, nightSceneOn, curDay, curHour, curL, finalUserMsg}`；回 `{curDay, curHour, curL, finalUserMsg, timeJumped, clockMoved, narrDay, narrHour, intimateNightNames, nightSceneNames}`。⚠ 會就地改 `pcData` 那一列與 `userData.endDay`（兩段式就寢把這一按改成「不結束」）。
 - `loreEntriesFromPref_(pref)` — 📖 從一列的 PREF 第三、四格（喜歡／討厭）長出觸發條目 `[{keys, content}]`：key 用「與、和及，」切、至少兩字（`KANSHOU_LORE_KEY_ALLOW1_` 例外）；空／「無」不長。原創英靈與玩家改命過的走這條。
 - `kanshouSeedRowOf_(row)` — 這一列來自英靈殿哪一筆（【英靈源】→ 英靈殿列），查不到回 null。`kanshouRealName_`／`kanshouLoreBook_` 共用。
-- `kanshouSkillLine_(seedRow)` — 鑑賞卡的「本事：技能…；寶具…」一句：從英靈殿種子列讀 CLASS_SKILLS／SKILLS／NP，只留名字（空白後的原文與括號內的階級說明剝掉），御主種子沒技能回空。`kanshouPartyCards_` 的穩定卡接在性別／真名之後。探針 `skillline.js`。
+- `kanshouSkillNames_(seedRow)` — 種子的技能／寶具名字：從 CLASS_SKILLS／SKILLS／NP 讀，只留名字（原文、階級、括號說明剝掉），回 `{skills:[{n,fx,np}], np:[]}`；寶具在技能欄也有一份時 `np:true`。
+- `loreEntriesFromSkills_(seedRow)` — 本事變觸發條目（不上卡）：每個技能一條 `{keys:[名字＋LORE_FX_KEYS_[fx]], content:'本事「X」'}`，寶具一條 `{keys:[名字,'寶具'＋LORE_NP_KEYS_[名]], content:'寶具「X」'}`。`kanshouLoreBook_` 在種子列存在時併進去。探針 `skillline.js`。
 - `kanshouRealName_(row)` — 真名（卡片抬頭「凜（遠坂凜・女）」）；跟暱稱相同（原創英靈）回空。
 - `kanshouBodyPlain_(physicalJson)` — 肉體狀態是不是「如常」。
 - `kanshouOutfitLine_(row, playerMsg)` — 👕 裝扮句什麼時候送：①這件衣服還沒講過（【裝扮已述】≠目前【換裝】：第一回合、玩家換裝、AI 的 appearance_extras 改了）②玩家訊息有衣物詞（`KANSHOU_OUTFIT_KEYS_`）③肉體狀態不是如常。回 `{line, told}`，told＝已就地更新【裝扮已述】、呼叫端要標 dirty。御主自己與每位在場者同一套。

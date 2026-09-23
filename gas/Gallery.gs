@@ -937,10 +937,10 @@ var KANSHOU_STYLE_MODULES_ = [
   { key: 'agency',     fixed: true, slot: 'sys',  def: '玩家這一步做什麼、說什麼，由玩家的輸入決定；那一步玩家自己已經看見了，這一段從在場的人對它的反應寫起，開頭就落在那個人的動作或第一句話上。' },
   // history 是事實陳述不是筆法：少了它模型會順著自己上一輪的調子把同一場景再寫一次。
   { key: 'history',    fixed: true, slot: 'sys',  def: '上面的對話歷史是已經結束的事，它讓你知道這一路走到哪裡了；這一回合要寫的，是玩家這一步【接下來】發生的那一段——新的動作、新的話、新的反應。' },
-  { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，接著一句是性別（有的帶真名），本事那格列的是技能與寶具的名字，後面是這個人是什麼樣的人；名字後面另外接的那幾行是此刻的狀態。★卡上這些句子、還有【我自己】那張，都只給你看，在場的人並不知道自己被這樣寫著；每張卡上的事是我跟那個人之間的事，其他人手上有的，僅限於自己在場時看得到聽得到的那些。★卡上寫的是【一直以來】的底色，不是這一回合發生的事。' },
+  { key: 'perform',    fixed: true, slot: 'sys',  def: '在場那幾張卡，開頭是這個人的名字，接著一句是性別（有的帶真名），後面是這個人是什麼樣的人；名字後面另外接的那幾行是此刻的狀態。★卡上這些句子、還有【我自己】那張，都只給你看，在場的人並不知道自己被這樣寫著；每張卡上的事是我跟那個人之間的事，其他人手上有的，僅限於自己在場時看得到聽得到的那些。★卡上寫的是【一直以來】的底色，不是這一回合發生的事。' },
   { key: 'dialogue',   fixed: true, slot: 'sys',  def: '' },   // 預設走 dialogueFormatRule_()，見 kanshouStyleDefault_
   { key: 'lewd',       name: '尺度',     hint: '情慾場面寫多開——哪些東西要真的出現在畫面上。尺度一律跟著玩家推進到哪裡走。', slot: 'sys', def: '尺度跟著玩家走。' },
-  { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代日常，帶一點奈須味：魔術、神秘、技能、寶具都還在身上，只是拿來過日子——用法從卡上那個人的本事來，寫成那個人順手做了什麼，順著眼前的事帶出來，點到為止；有誰把場面拉出日常，就用一點小小的搞笑把它拉回來。' },
+  { key: 'world',      fixed: true, slot: 'user', def: '★這個世界＝和平的現代日常，帶一點奈須味：魔術、神秘、技能、寶具都還在身上，只是拿來過日子——用法從那個人真正的本事來（碰到了才會列在底細裡），寫成那個人順手做了什麼，順著眼前的事帶出來，點到為止；有誰把場面拉出日常，就用一點小小的搞笑把它拉回來。' },
   { key: 'gender',     fixed: true, slot: 'sys',  def: '★【性別】：在場每個人的性別以卡上寫的為準，身體、稱呼、代名詞照那個寫。' },
   { key: 'lenTier',    name: '篇幅',     hint: '一回合寫多長。自動＝依這回合有沒有大事調；隨意＝不給字數，平淡的一幕就讓它平淡。', slot: 'none', kind: 'pick', def: 'auto' },
   { key: 'length',     fixed: true, slot: 'user', def: '★【篇幅】這一段寫 {篇幅} 字。' },   // ⚠ 篇幅選「隨意」時整段不送，見 actionPlay_ 的 _sty_('length')
@@ -1267,7 +1267,7 @@ function worldEvictees_(d, gid, added, curDay) {
 //   只掃玩家的訊息：AI 自己寫的字不算提到（那是自我餵養的迴圈）；要連上一段敘事一起掃就開 KANSHOU_LORE_SCAN_AI_。
 var KANSHOU_LORE_SCAN_AI_ = false;
 var KANSHOU_LORE_MAX_ = 6;
-var KANSHOU_LORE_KEY_ALLOW1_ = ['蛇', '馬', '雪', '貓', '酒', '劍', '虎', '書', '鏡', '裙'];   // 實測「看什麼書」「全身鏡」兩字 key 都咬不到   // 允許的單字 key（其餘至少兩字，免得逢字就亮）
+var KANSHOU_LORE_KEY_ALLOW1_ = ['蛇', '馬', '雪', '貓', '酒', '劍', '虎', '書', '鏡', '裙', '車', '騎', '錢', '槍', '搬', '扛', '抬', '鎖', '綁', '鍊', '捆', '拴', '風', '吹', '躲', '嚇', '神', '擋', '盾', '遮', '痛', '偷', '帥', '燕', '斬', '切', '龍', '咒', '鈍', '丟', '瞪', '光', '鞘', '飛', '拆', '搶'];   // 實測「看什麼書」「全身鏡」兩字 key 都咬不到   // 允許的單字 key（其餘至少兩字，免得逢字就亮）
 // 冬木的正典事實（提到才給；沒有地點系統，這只是布景的底細）
 var KANSHOU_WORLD_BOOK_ = [
   { keys: ['深山町'], content: '深山町是冬木市河西的老城區，坡道多、老宅多，衛宮、遠坂、間桐三家都在這一側' },
@@ -1309,20 +1309,79 @@ function kanshouSeedRowOf_(row) {
   } catch (e) { }
   return null;
 }
-// 本事（卡片用）：種子的技能與寶具只給名字不給階級，日常用法才有依據可循；御主種子沒技能就回空。為什麼：見 CODE_NOTES.md『kanshouSkillLine_』。
-function kanshouSkillLine_(seedRow) {
-  if (!seedRow) return "";
+// 本事＝觸發條目（不上卡）：技能／寶具只給名字，玩家這一步提到相關的字才亮。為什麼：見 CODE_NOTES.md『loreEntriesFromSkills_』。
+//   技能靠 fx 查 LORE_FX_KEYS_ 拿日常關鍵字（加一個 fx 就是往表加一列）；沒登記的技能只認自己的名字。寶具認名字＋「寶具」＋LORE_NP_KEYS_。
+var LORE_FX_KEYS_ = {
+  ride: ['車', '騎', '開車', '機車', '馬', '駕駛', '腳踏車', '超跑'],
+  first_strike: ['直覺', '預感', '好吃', '哪家', '猜猜', '感覺到', '選哪'],
+  clear_mind: ['冷靜', '觀察', '看穿', '搶', '特價', '限時'],
+  gob: ['寶庫', '寶物庫', '財寶', '有沒有', '拿出', '收藏', '道具', '工具', '哆啦'],
+  wealth: ['錢', '付錢', '買單', '花錢', '有錢', '帳單', '結帳', '請客'],
+  projection: ['投影', '變一把', '變出', '做一把', '工具', '缺了', '壞了', '鈍'],
+  gae_bolg: ['槍', '釣魚', '必中', '丟', '射飛鏢'],
+  str_up: ['搬', '扛', '抬', '力氣', '好重', '拿不動'],
+  petrify: ['眼鏡', '眼睛', '石化', '對視', '瞪'],
+  chain: ['鎖', '綁', '鍊', '捆', '拴'],
+  wind_strike: ['風', '吹', '隱形', '看不見'],
+  rune: ['符文', '占卜', '刻字', '刺青', '護身符'],
+  stealth: ['躲', '偷偷', '悄悄', '藏起來', '嚇'],
+  solo: ['一個人', '自己去', '獨自'],
+  morale: ['帶隊', '指揮', '領導', '大家一起'],
+  survive: ['撐住', '堅持', '熬夜', '受傷'],
+  territory: ['布置', '整理房間', '工房', '結界'],
+  self_mod: ['改造', '修理', '改裝', '拆'],
+  divine: ['神', '拜拜', '神社', '祈禱'],
+  tactics: ['計畫', '安排', '排隊', '戰術', '分工'],
+  sense: ['誰來了', '門口', '有人', '察覺', '腳步聲'],
+  rule_breaker: ['契約', '解除', '解約', '合約', '取消'],
+  rho_aias: ['擋', '盾', '遮', '下雨', '淋濕'],
+  regen: ['傷口', '治療', '痛', '感冒'],
+  shapeshift: ['變身', '變成', '化身', '假扮'],
+  weapon_steal: ['偷', '拿走', '順手牽羊'],
+  lovespot: ['迷人', '帥', '心動', '盯著'],
+  insight: ['看穿', '預測', '早就知道'],
+  ubw: ['劍', '武器', '材料', '打造'],
+  tsubame: ['燕', '斬', '切', '刀工'],
+  golden_fleece: ['龍', '羊毛', '披風'],
+  god_hand: ['不死', '撐得住', '受傷'],
+  nullify_magic: ['魔術', '咒', '魔法', '中邪']
+};
+var LORE_NP_KEYS_ = {
+  '誓約勝利之劍': ['劍', '光', '一刀'],
+  '全世界遙遠的理想鄉': ['鞘', '受傷', '不老'],
+  '王之財寶': LORE_FX_KEYS_.gob,
+  '乖離劍': ['劍', '開天'],
+  '刺穿死棘之槍': LORE_FX_KEYS_.gae_bolg,
+  '無限劍製': LORE_FX_KEYS_.ubw,
+  '騎英之手綱': ['馬', '天馬', '飛', '載我'],
+  '他者封印·鮮血神殿': ['結界', '這棟樓', '封鎖']
+};
+// 種子的技能／寶具名字（剝掉原文、階級、括號說明）；寶具在技能欄也有一份，只算一次。
+function kanshouSkillNames_(seedRow) {
+  if (!seedRow) return { skills: [], np: [] };
   const np = String(seedRow[COL.HERO.NP] || "").split('／')
     .map(function (x) { return x.replace(/\s.*$/, "").replace(/（.*$/, "").trim(); }).filter(Boolean);
-  const names = [];
+  const skills = [];
   [COL.HERO.CLASS_SKILLS, COL.HERO.SKILLS].forEach(function (c) {
     safeJson_(seedRow[c], []).forEach(function (s) {
       const n = String(s && s.n || "").replace(/\s.*$/, "").trim();
-      if (n && names.indexOf(n) < 0 && np.indexOf(n) < 0) names.push(n);   // 種子把寶具也列在技能欄（引擎用），卡上只寫一次
+      if (n && !skills.some(function (k) { return k.n === n; })) skills.push({ n: n, fx: String(s.fx || ""), np: np.indexOf(n) >= 0 });
     });
   });
-  if (!names.length && !np.length) return "";
-  return "本事：" + names.join('、') + (np.length ? (names.length ? "；" : "") + "寶具" + np.join('、') : "");
+  return { skills: skills, np: np };
+}
+function loreEntriesFromSkills_(seedRow) {
+  const sn = kanshouSkillNames_(seedRow);
+  const out = [];
+  sn.skills.forEach(function (s) {
+    const keys = [s.n].concat(LORE_FX_KEYS_[s.fx] || [], s.np ? ['寶具'].concat(LORE_NP_KEYS_[s.n] || []) : []);
+    out.push({ keys: keys, content: (s.np ? '寶具「' : '本事「') + s.n + '」' });
+  });
+  sn.np.forEach(function (n) {
+    if (sn.skills.some(function (s) { return s.n === n; })) return;
+    out.push({ keys: [n, '寶具'].concat(LORE_NP_KEYS_[n] || []), content: '寶具「' + n + '」' });
+  });
+  return out;
 }
 
 // 真名（卡片抬頭用）：暱稱「凜」模型要靠雙馬尾猜她是誰，給「遠坂凜」就不必猜。跟暱稱相同就回空。
@@ -1341,6 +1400,7 @@ function kanshouLoreBook_(row) {
   }
   if (!book) book = loreEntriesFromPref_(row[COL.PC.PREF]);
   if (!book.some(function (e) { return e && e.rel; })) book = book.concat(loreEntryFromBack_(row));
+  if (seed) book = book.concat(loreEntriesFromSkills_(seed));   // 本事走觸發，不上卡
   return book;
 }
 // 裝扮句什麼時候送：①這件衣服還沒講過（第一回合、換裝、AI 的 appearance_extras 改了）②玩家提到衣物③肉體狀態不是如常。
@@ -1657,7 +1717,6 @@ function kanshouPartyCards_(ctx) {
       const _outfitR = kanshouOutfitLine_(r, ctx.userMsg);
       if (_outfitR.told && ctx.dirtyPcRows) ctx.dirtyPcRows.add(pcData.indexOf(r));
       const pRealName = kanshouRealName_(r);
-      const pSkill = kanshouSkillLine_(kanshouSeedRowOf_(r));
       const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
       const pLogic = getPersonaLogic_(r[COL.PC.MEMORY]);
       // 關係稱呼只送【玩家自己設過】的（上了關係鎖）；AI 寫的只給面板看，送回去會變成讀自己上回合的字。
@@ -1674,7 +1733,7 @@ function kanshouPartyCards_(ctx) {
         ? "時間流轉之後，【依然在你身邊】(這段空白裡各自做了什麼，順著時段自然帶過)" : "";
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
       const _pPref = formatPref(r[COL.PC.PREF]), _pTrait = formatTrait(r[COL.PC.TRAIT]);
-      stableArr.push(`【在場人物】${pName}。${String(r[COL.PC.SEX] || "").trim() || "異"}${pRealName ? '，真名' + pRealName : ''}。${pSkill ? `${pSkill}。` : ""}${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pLogic ? `${pLogic}。` : ""}`);
+      stableArr.push(`【在場人物】${pName}。${String(r[COL.PC.SEX] || "").trim() || "異"}${pRealName ? '，真名' + pRealName : ''}。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pLogic ? `${pLogic}。` : ""}`);
       const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${_outfitR.line}${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是我的「${pRelTagStr}」。` : ""}${pMemStr}`;
       liveArr.push(`${pName}：${_live}`);
     }
