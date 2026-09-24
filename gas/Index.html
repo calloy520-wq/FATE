@@ -10,7 +10,7 @@
 
 <body>
   <div id="setup" style="align-items:center; justify-content:center;">
-    <!-- 🏷️ 遊戲標題：工房屏(openForge)會暫時隱藏省高度、closeForge 還原 -->
+    <!-- 🏷️ 遊戲標題 -->
     <h1 id="game-title"
       style="color:var(--gold-accent); letter-spacing:10px; text-shadow: 0 0 10px var(--gold-accent); font-size: 32px; margin-bottom: 30px;">
       命運停駐之夜</h1>
@@ -30,7 +30,7 @@
         <!-- ⚔️ 新聖杯戰爭（War_Engine.gs／Script_War.html）：一天兩個決定、按鈕越少越好。舊版留在下面，確認新版後整組拆掉。 -->
         <button class="btn" style="width:100%; margin-bottom:9px; padding:13px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="warOpen()">⚔️ 聖杯戰爭</button>
         <button class="btn" style="width:100%; margin-bottom:7px; padding:8px; border-color:#6a7a9a; color:#8fa0c0; font-size:12px;" onclick="lockBtn(event, newGameFlow)">舊版：開啟新的聖杯戰爭</button>
-        <button class="btn" style="width:100%; margin-bottom:7px; padding:9px; border-color:#6a8ac0; color:#8fb0e8; font-size:12.5px;" onclick="openForge('menu')">🛠️ 英靈工房（打造／修改原創英靈）</button>
+        <button class="btn" style="width:100%; margin-bottom:7px; padding:9px; border-color:#6a8ac0; color:#8fb0e8; font-size:12.5px;" onclick="warForgeOpen(true)">🛠️ 英靈工房（打造／修改原創英靈）</button>
       </div>
 
       <!-- 🌹 第二道門：慾海（鑑賞後日談，可邀請贏過的戰爭封存從者，也可直接從英靈庫召喚任一英靈） -->
@@ -167,84 +167,9 @@
       </div>
       <button class="btn" style="width:100%; margin-top:6px; padding:9px; border-color:#a06cd0; color:#c79be8;" onclick="lockBtn(event, summonByDesc)">🖋️ 生成並召喚</button>
 
-      <button type="button" class="btn" style="width:100%; margin-top:14px; padding:8px; font-size:12px; border-color:#6a8ac0; color:#8fb0e8;" onclick="openForge('summon')">▸ 🛠️ 到工房自己捏<span style="font-weight:normal; opacity:.75;">六圍、技能、寶具，每一格都你定</span></button>
+      <button type="button" class="btn" style="width:100%; margin-top:14px; padding:8px; font-size:12px; border-color:#6a8ac0; color:#8fb0e8;" onclick="warForgeOpen(true)">▸ 🛠️ 到工房自己捏<span style="font-weight:normal; opacity:.75;">六圍、技能、寶具，每一格都你定</span></button>
       <button type="button" class="btn" style="width:100%; margin-top:8px; padding:7px; font-size:12px; border-color:#777; color:#999;" onclick="sumMode_('')">← 換一種方式</button>
       </div>
-    </div>
-    <!-- 🛠️ 自訂英靈工房：2026-09 從「三分頁 × 19 欄」收成單頁 7 組——只留真的會進戰鬥引擎／計費的欄位。
-         外貌·個性·怪癖·做選擇·陣營·身世 六欄砍掉，改由最下面那句「一句描述」給 AI，不填就 AI 全補。 -->
-    <div id="step-forge" style="display:none;">
-      <p style="text-align:center; color:#8fb0e8; font-size:16px; font-weight:bold; margin-bottom:2px;">🛠️ 自訂英靈工房</p>
-      <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 10px;">每一格都你說了算，預算 <span id="forge-budget-txt">340</span> 點。留空的才交給說書人補<br>做好之後，回召喚頁的「🌟 我的原創」把人叫出來<br><span style="color:#8fb0e8;">用一句話生過的從者，也能在 📚 作品 裡重新捏過</span></p>
-      <!-- 🛠️/📚 工房雙模式：創造＝表單；作品＝本帳號英靈清單(點修改) -->
-      <div style="display:flex; gap:5px; margin-bottom:8px;">
-        <button type="button" id="cf-mode-create" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="forgeModeCreate()">🛠️ 創造</button>
-        <button type="button" id="cf-mode-works" class="btn" style="flex:1; padding:8px 2px; font-size:13px;" onclick="forgeMode('works')">📚 作品</button>
-      </div>
-      <div id="cf-works" style="display:none; padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;"></div>
-      <div id="cust-forge" style="padding:10px; background:rgba(20,18,34,.45); border:1px solid rgba(120,140,200,.35); border-radius:8px; text-align:left;">
-<!-- 📑 三分頁：🎭演出｜⚔️靈基(主·預設)｜🌟寶具——欄位 ID 全不變·純版面分裝 -->
-          <div style="display:flex; gap:5px; margin-bottom:9px;">
-            <button type="button" id="cf-tab-1" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(1)">🎭 演出</button>
-            <button type="button" id="cf-tab-2" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(2)">⚔️ 靈基</button>
-            <button type="button" id="cf-tab-3" class="btn" style="flex:1; padding:7px 2px; font-size:12px;" onclick="forgeTab(3)">🌟 寶具</button>
-          </div>
-          <!-- ⚔️ 頁2·靈基（主·預設）：真名/職階/六圍/技能 -->
-          <div id="cf-page-2">
-            <input id="cf-name" class="std-in" maxlength="20" placeholder="真名（必填）" style="width:100%; box-sizing:border-box;">
-            <!-- 🎭 角色來源：技能名工房本就你自己打·此選項只決定「AI 補人格/演出」要不要忠於原著角色 -->
-            <select id="cf-origin" class="std-in" style="width:100%; box-sizing:border-box; margin-top:6px;">
-              <option value="original" selected>🎭 完全原創（人格讓說書人自由發揮）</option>
-              <option value="fate">🎭 Fate 正史角色（人格照原著寫）</option>
-              <option value="anime">🎭 其他動漫畫角色（人格照原作寫）</option>
-            </select>
-            <div style="display:flex; gap:6px; margin-top:6px;">
-              <select id="cf-cls" class="std-in" style="flex:2;" onchange="refreshClsHint_()"></select>
-              <select id="cf-sex" class="std-in" style="flex:1;"><option>女</option><option>男</option><option>異</option></select>
-            </div>
-            <!-- 🎁 職階附贈技能提示（固定階級·免費·不占3槽·由 refreshClsHint_ 依所選職階更新） -->
-            <div id="cf-cls-hint" style="color:#9a8bb0; font-size:11px; margin-top:3px;"></div>
-            <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">六圍（筋力與魔力取高的那個決定傷害，敏捷決定命中與閃避）</div>
-            <div id="cf-six"></div>
-            <div style="color:#8fb0e8; font-size:12px; margin:9px 0 4px;">技能（選效果與階級，名字可以改；帶滿四個要多付 20 點）</div>
-            <div id="cf-skills"></div>
-          </div>
-          <!-- 🎭 頁1·演出：外貌/個性各一句＋進階演出細節(選填·預設收合)＋整體描述 -->
-          <!-- 🧹 外貌/個性拆4格的版本 UI 太瑣碎，改回各一個自由文字欄——後端 parseForgeBuild_ 本就用「有沒有頓號/逗號分3段以上」判斷填了幾成(lookFull/prefFull)，單句描述天然落在「核心設定，交給AI擴寫成四短句」路徑，欄位 ID 與後端格式完全不變。演出細節7小欄收進預設收合的「進階」區塊。 -->
-          <div id="cf-page-1" style="display:none;">
-            <div style="color:#8fb0e8; font-size:12px; margin:0 0 5px;">這位英靈是誰（<b>全部選填</b>，留空的交給說書人補）</div>
-            <input id="cf-look" class="std-in" maxlength="40" placeholder="外貌：黑長直髮的冷豔劍士" style="width:100%; box-sizing:border-box;">
-            <input id="cf-pref" class="std-in" maxlength="40" placeholder="個性：外冷內熱，重視承諾" style="width:100%; box-sizing:border-box; margin-top:6px;">
-            <button type="button" class="btn" id="cf-adv-toggle" style="width:100%; margin-top:8px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleForgeAdvanced()">▸ 再細一點（怪癖·做選擇·對御主…）</button>
-            <div id="cf-drama" style="display:none; margin-top:6px;">
-              <div style="display:flex; gap:5px;">
-                <select id="cf-align" class="std-in" style="flex:1; min-width:0;"><option>中立</option><option>秩序・善</option><option>秩序・中庸</option><option>秩序・惡</option><option>中立・善</option><option>中立・惡</option><option>混沌・善</option><option>混沌・中庸</option><option>混沌・惡</option></select>
-                <input id="cf-back" class="std-in" maxlength="28" placeholder="身世：北國王女" style="flex:1; min-width:0;">
-              </div>
-              <input id="cf-tomaster" class="std-in" maxlength="20" placeholder="對御主：忠誠／傲慢" style="width:100%; box-sizing:border-box; margin-top:5px;">
-              <input id="cf-quirks" class="std-in" maxlength="40" placeholder="怪癖：撥髮／對機器完全沒轍" style="width:100%; box-sizing:border-box; margin-top:5px;">
-              <input id="cf-logic" class="std-in" maxlength="40" placeholder="做選擇：嘴上算得失，最後總選重情義" style="width:100%; box-sizing:border-box; margin-top:5px;">
-              <input id="cf-traits" class="std-in" maxlength="40" placeholder="特性：人類、龍、神性（頓號分隔）" style="width:100%; box-sizing:border-box; margin-top:5px;">
-            </div>
-            <textarea id="cf-desc" class="std-in" maxlength="120" placeholder="補充描述：想讓說書人多知道的氛圍或靈感（不影響數值）" style="width:100%; box-sizing:border-box; height:44px; resize:none; margin-top:8px; font-family:inherit;"></textarea>
-          </div>
-          <!-- 🌟 頁3·寶具與武裝 -->
-          <div id="cf-page-3" style="display:none;">
-            <div style="color:#8fb0e8; font-size:12px; margin:0 0 4px;">寶具（威力看六圍裡的「寶具」那一格，英文讀法交給說書人）</div>
-            <div style="display:flex; gap:6px;">
-              <input id="cf-np-name" class="std-in" maxlength="20" placeholder="寶具名" style="flex:3; min-width:0;">
-              <select id="cf-np-scale" class="std-in" style="flex:2;" onchange="forgeBudget_()"><option value="對人">對人（免費）</option><option value="對軍">對軍（+20點）</option></select>
-            </div>
-            <input id="cf-np-desc" class="std-in" maxlength="40" placeholder="威能：斬鋼之風化作千刃" style="width:100%; box-sizing:border-box; margin-top:6px;">
-            <input id="cf-weapon" class="std-in" maxlength="30" placeholder="武裝：雙持大劍" style="width:100%; box-sizing:border-box; margin-top:6px;">
-          </div>
-                  <!-- 常駐底欄：⚡靈基即時預覽＋預算(進度條)＋存檔（全由 forgeBudget_ 單點刷新） -->
-        <div id="cf-preview" style="color:#9fb8d8; font-size:11px; margin-top:9px;"></div>
-        <div style="text-align:right; color:#8fb0e8; font-size:12px; margin-top:4px;"><span id="cf-budget"></span></div>
-        <div id="cf-budget-bar" style="height:4px; background:#242c3c; border-radius:2px; margin-top:3px; overflow:hidden;"><div id="cf-budget-fill" style="width:0%; height:100%; background:#4a90d9;"></div></div>
-        <button id="cf-save" class="btn" style="width:100%; margin-top:5px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="lockBtn(event, summonByForge)">💾 存進英靈殿</button>
-      </div>
-      <button class="btn" style="width:100%; margin-top:8px; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="closeForge()">← 返回召喚</button>
     </div>
     </div>
 

@@ -6,7 +6,10 @@
   let warCur_ = null;        // 後端給的畫面狀態
   let warSeal_ = false;       // 這一回合要不要燒令咒（戰鬥中才用得到）
   let warBusy_ = false;
-  let warForm_ = { sex: '男', war: '5th' };
+  let warForm_ = { sex: '男', war: '5th', hero: '' };
+  let warForgeData_ = null;   // war_forge_list 的結果（原作名單、我的原創、可挑技能、規則）
+  let warFe_ = null;          // 工房編輯中的那一位
+  let warForgeFromMenu_ = false;
 
   function warEl_(id) { return document.getElementById(id); }
 
@@ -40,10 +43,40 @@
       <input id="war-wish" class="std-in" maxlength="40" placeholder="你想向聖杯許什麼願？（可以留白）" style="width:100%;box-sizing:border-box;margin:0 0 10px;">
       <div class="war-row">${pick('sex', '男', '男')}${pick('sex', '女', '女')}</div>
       <div class="war-row">${pick('war', '5th', '第五次聖杯戰爭')}${pick('war', '4th', '第四次聖杯戰爭')}</div>
-      <button class="war-btn war-main" onclick="warStart()"><b>召喚從者</b><small>命運會選出回應你的英靈</small></button>
+      <select id="war-hero" class="std-select" style="width:100%;margin:6px 0;" onchange="warForm_.hero=this.value">${warHeroOptions_()}</select>
+      <button class="war-btn war-main" onclick="warStart()"><b>召喚從者</b><small>${warForm_.hero ? '召喚你指定的英靈' : '命運會選出回應你的英靈'}</small></button>
+      <button class="war-btn war-ghost" onclick="warForgeOpen(false)"><b>🛠️ 英靈工房</b><small>做一位自己的從者</small></button>
       <button class="war-btn war-ghost" onclick="warBackMenu()"><b>回選單</b></button>
     </div>`;
+    if (!warForgeData_) warForgeLoad_();
   }
+  // 只收形狀對的工房資料（清單缺了就當空的），壞掉的回應回 null。
+  function warForgeValid_(res) {
+    if (!res || !res.success || !res.rule || !Array.isArray(res.skills)) return null;
+    res.mine = Array.isArray(res.mine) ? res.mine : [];
+    res.canon = Array.isArray(res.canon) ? res.canon : [];
+    res.clsSkills = res.clsSkills || {};
+    return res;
+  }
+  function warHeroOptions_() {
+    const d = warForgeData_;
+    if (!d) return '<option value="">命運決定（讀取英靈殿中…）</option>';
+    const opt = (h, tag) => `<option value="${escapeHtml(h.id)}"${warForm_.hero === h.id ? ' selected' : ''}>${escapeHtml(h.cls)}「${escapeHtml(h.name)}」${tag || ''}</option>`;
+    return '<option value="">命運決定（隨機召喚原作英靈）</option>'
+      + (d.mine.length ? '<optgroup label="你的原創">' + d.mine.map(h => opt(h, h.owned ? '' : '（無主）')).join('') + '</optgroup>' : '')
+      + (d.canon.length ? '<optgroup label="原作">' + d.canon.map(h => opt(h)).join('') + '</optgroup>' : '');
+  }
+  async function warForgeLoad_() {
+    const sel = warEl_('war-hero');
+    if (sel) sel.innerHTML = '<option value="">讀取英靈殿中…</option>';
+    try {
+      const res = await gasRun({ action: 'war_forge_list', acctName: currentAccount });
+      warForgeData_ = warForgeValid_(res);
+    } catch (e) { }
+    const sel2 = warEl_('war-hero');
+    if (sel2) sel2.innerHTML = warHeroOptions_();
+  }
+
   function warFormPick_(k, v) {
     const nm = (warEl_('war-name') || {}).value || '', wish = (warEl_('war-wish') || {}).value || '';
     warForm_[k] = v;
@@ -58,7 +91,7 @@
     const wish = ((warEl_('war-wish') || {}).value || '').trim();
     warBusy_ = true;
     try {
-      const res = await withProcessing_('召喚陣亮起中…', () => gasRun({ action: 'war_new', acctName: currentAccount, pcName: name, sex: warForm_.sex, war: warForm_.war, wish: wish }));
+      const res = await withProcessing_('召喚陣亮起中…', () => gasRun({ action: 'war_new', acctName: currentAccount, pcName: name, sex: warForm_.sex, war: warForm_.war, wish: wish, heroId: warForm_.hero }));
       if (!res || !res.success) { alert((res && res.message) || '召喚失敗了。'); return; }
       warRender_(res.view);
       warLog_(res.log);
@@ -86,6 +119,95 @@
     } catch (e) { alert('連不上，等一下再試。'); return; }
     finally { warBusy_ = false; }
     await warNarrate_();
+  }
+
+
+  // ── 🛠️ 英靈工房：清單 → 編輯 → 存進英靈殿（規則與可挑技能都由後端給） ──
+  async function warForgeOpen(fromMenu) {
+    warForgeFromMenu_ = !!fromMenu;
+    warEl_('setup').style.display = 'none';
+    warEl_('scr-war').style.display = 'block';
+    warEl_('scr-war').innerHTML = '<div class="war-wrap"><p class="war-dim">讀取英靈殿中…</p></div>';
+    if (!warForgeData_) {
+      try {
+        const res = await withProcessing_('讀取英靈殿中…', () => gasRun({ action: 'war_forge_list', acctName: currentAccount }));
+        warForgeData_ = warForgeValid_(res);
+      } catch (e) { }
+    }
+    if (!warForgeData_) { alert('讀不到英靈殿，等一下再試。'); return warForgeBack(); }
+    warForgeList_();
+  }
+  function warForgeBack() { return warForgeFromMenu_ ? warBackMenu() : warRenderForm_(); }
+
+  function warForgeList_() {
+    const d = warForgeData_;
+    const mine = d.mine.map(h => `<button class="war-btn" onclick="warForgeEdit('${escapeHtml(h.id)}')"><b>${escapeHtml(h.cls)}「${escapeHtml(h.name)}」${h.owned ? '' : '（無主，改了就歸你）'}</b><small>寶具「${escapeHtml(h.np)}」・點這裡修改</small></button>`).join('');
+    warEl_('scr-war').innerHTML = `<div class="war-wrap">
+      <h2 class="war-title">🛠️ 英靈工房</h2>
+      <p class="war-dim">六圍合計最多 ${d.rule.budget} 點，技能最多挑 ${d.rule.maxSkills} 個。</p>
+      <div class="war-btns" style="max-height:none;">${mine || '<p class="war-dim">你還沒做過從者。</p>'}
+        <button class="war-btn war-main" onclick="warForgeEdit('')"><b>新增從者</b><small>真名、職階、六圍、寶具、技能</small></button>
+        <button class="war-btn war-ghost" onclick="warForgeBack()"><b>返回</b></button>
+      </div></div>`;
+  }
+
+  function warForgeEdit(id) {
+    const d = warForgeData_, h = id ? d.mine.find(x => x.id === id) : null;
+    warFe_ = h ? { id: h.id, name: h.name, cls: h.cls, sex: h.sex || '男', six: Object.assign({}, h.six), np: h.np, fx: h.fx.slice(), look: h.look, words: h.words }
+      : { id: '', name: '', cls: 'Saber', sex: '男', six: {}, np: '', fx: [], look: '', words: '' };
+    d.rule.six.forEach(k => { if (d.rule.ranks.indexOf(warFe_.six[k]) < 0) warFe_.six[k] = 'C'; });
+    warForgeRender_();
+  }
+  function warFeSync_() {
+    ['name', 'np', 'look', 'words'].forEach(k => { const el = warEl_('fe-' + k); if (el && !el.disabled) warFe_[k] = el.value; });
+  }
+  function warFeSet(k, v) {
+    warFeSync_();
+    if (k === 'fx') {
+      const i = warFe_.fx.indexOf(v);
+      if (i >= 0) warFe_.fx.splice(i, 1); else if (warFe_.fx.length < warForgeData_.rule.maxSkills) warFe_.fx.push(v);
+    } else if (k.indexOf('six:') === 0) warFe_.six[k.slice(4)] = v;
+    else warFe_[k] = v;
+    warForgeRender_();
+  }
+  function warFePts_() { const r = warForgeData_.rule; return r.six.reduce((a, k) => a + (r.pts[warFe_.six[k]] || 0), 0); }
+
+  function warForgeRender_() {
+    const d = warForgeData_, r = d.rule, f = warFe_, lock = !!f.id, used = warFePts_();
+    const pill = (k, v, label, on, dis) => `<button class="war-pill${on ? ' on' : ''}" ${dis ? 'disabled' : ''} onclick="warFeSet('${k}','${v}')">${label}</button>`;
+    const sixRows = r.six.map(k => `<div class="war-row war-six"><span class="war-sixk">${k}</span>${r.ranks.map(x => pill('six:' + k, x, x, f.six[k] === x)).join('')}</div>`).join('');
+    const skills = d.skills.map(s => `<button class="war-pill war-skill${f.fx.indexOf(s.fx) >= 0 ? ' on' : ''}" onclick="warFeSet('fx','${s.fx}')"><b>${escapeHtml(s.name)}</b><small>${escapeHtml(s.txt)}</small></button>`).join('');
+    const over = used > r.budget;
+    warEl_('scr-war').innerHTML = `<div class="war-wrap">
+      <h2 class="war-title" style="font-size:18px;">${lock ? '修改從者' : '新增從者'}</h2>
+      <input id="fe-name" class="std-in" maxlength="12" placeholder="真名（要有中文字）" value="${escapeHtml(f.name)}" ${lock ? 'disabled' : ''} style="width:100%;box-sizing:border-box;margin:6px 0;">
+      <div class="war-row">${r.classes.map(c => pill('cls', c, c, f.cls === c, lock)).join('')}</div>
+      <div class="war-row">${pill('sex', '男', '男', f.sex === '男')}${pill('sex', '女', '女', f.sex === '女')}</div>
+      <div class="war-small war-dim">職階技能（自動附上）：${escapeHtml((d.clsSkills[f.cls] || []).join('、') || '無')}</div>
+      <div class="war-row between"><b>六圍</b><span class="${over ? 'war-red' : ''}">${used}／${r.budget} 點</span></div>
+      ${sixRows}
+      <input id="fe-np" class="std-in" maxlength="16" placeholder="寶具名（階級＝上面的「寶具」）" value="${escapeHtml(f.np)}" style="width:100%;box-sizing:border-box;margin:8px 0 4px;">
+      <div class="war-row between"><b>技能</b><span>${f.fx.length}／${r.maxSkills}</span></div>
+      <div class="war-skills">${skills}</div>
+      <input id="fe-look" class="std-in" maxlength="40" placeholder="外貌（一句話）" value="${escapeHtml(f.look)}" style="width:100%;box-sizing:border-box;margin:8px 0 4px;">
+      <input id="fe-words" class="std-in" maxlength="40" placeholder="性格（一句話）" value="${escapeHtml(f.words)}" style="width:100%;box-sizing:border-box;margin:0 0 8px;">
+      <button class="war-btn war-main" ${over ? 'disabled' : ''} onclick="warForgeSave()"><b>存進英靈殿</b><small>${over ? '六圍超過上限了' : '存好就能在召喚時指定'}</small></button>
+      <button class="war-btn war-ghost" onclick="warForgeList_()"><b>取消</b></button>
+    </div>`;
+  }
+
+  async function warForgeSave() {
+    warFeSync_();
+    const f = warFe_;
+    try {
+      const res = await withProcessing_('刻進英靈殿中…', () => gasRun({ action: 'war_forge_save', acctName: currentAccount, id: f.id,
+        hero: { name: f.name, cls: f.cls, sex: f.sex, six: f.six, np: f.np, fx: f.fx, look: f.look, words: f.words } }));
+      if (!res || !res.success) { alert((res && res.message) || '沒存成。'); return; }
+      warForgeData_ = null;
+      try { if (typeof invalidateKanshouHeroCache === 'function') invalidateKanshouHeroCache(); } catch (e) { }   // 鑑賞同伴面板重抓
+      alert(res.message || '存好了。');
+      await warForgeOpen(warForgeFromMenu_);
+    } catch (e) { alert('連不上，等一下再試。'); }
   }
 
   function warToggleSeal() {

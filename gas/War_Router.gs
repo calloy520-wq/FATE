@@ -67,6 +67,13 @@ function actionWarNew(userData) {
   var sex = userData.sex === '女' ? '女' : '男';
   var wish = String(userData.wish || '').replace(/[<>｜【】]/g, '').trim().slice(0, 40);
   var o = warSeedCtx_(war);
+  var pick = String(userData.heroId || '');
+  if (pick) {
+    var canon = SEED_SERVANTS.filter(function (s) { return s.id === pick && s.cls !== '御主'; })[0];
+    var orig = canon ? null : warOriginalsFor_(acct).filter(function (r) { return String(r[COL.HERO.ID]) === pick; })[0];
+    if (!canon && !orig) return JSON.stringify({ success: false, message: '叫不到這位從者。' });
+    o.pool = [canon || warSeedFromRow_(orig)];
+  }
   o.name = name; o.sex = sex; o.war = war; o.wish = wish; o.seed = Date.now() % 2147483647;
   var st = warNewGame_(o);
   st.gid = 'w_' + acct + '_' + o.seed;
@@ -135,25 +142,21 @@ var WAR_NARR_SYS_ = '《命運停駐之夜》說書人。Fate／TYPE-MOON 的筆
   + '7. 只輸出敘事本文。';
 
 function warNarrPrompt_(st) {
-  var sv = st.sv, seed = null;
-  SEED_SERVANTS.forEach(function (s) { if (s.id === sv.hero) seed = s; });
-  var p = (seed && seed.persona) || {};
+  var sv = st.sv, p = sv.card || {};
   var lines = [];
   lines.push('【你的從者】' + sv.name + '（' + sv.cls + '）。' + [p.look, p.words, p.toMaster].filter(Boolean).join('。') + '。');
   lines.push('【你】' + st.master.name + '，' + st.master.sex + '性，手背上還剩 ' + st.master.seals + ' 劃令咒。'
     + (st.master.wish ? '你想向聖杯許的願：' + st.master.wish + '（藏在心裡，從你的選擇與神情透出來）' : ''));
   if (st.battle) {
     var e = warFoe_(st, st.battle.e);
-    var es = null;
-    SEED_SERVANTS.forEach(function (s) { if (s.id === e.hero) es = s; });
-    lines.push('【對手】' + (e.intel >= 2 ? e.name + '（' + e.cls + '）。' + ((es && es.persona && es.persona.look) || '') : warFoeLabel_(e) + '，真名還不知道。'));
+    lines.push('【對手】' + (e.intel >= 2 ? e.name + '（' + e.cls + '）。' + ((e.card && e.card.look) || '') : warFoeLabel_(e) + '，真名還不知道。'));
   }
   var when = st.phase === 'day' ? '白天' : (st.phase === 'over' ? '最後' : '夜晚');
   lines.push('【此刻】第 ' + Math.min(st.day, WAR_.NIGHTS) + ' 天的' + when + '。' + sv.name + warHpWord_(sv) + '；你' + (st.master.hp >= st.master.mhp * 0.8 ? '沒有大礙' : '也受了傷') + '。');
   lines.push('【這一段發生的事】\n' + st.narr.facts.map(function (f) { return '・' + f; }).join('\n'));
   var kind = st.narr.kind;
   if (kind === 'supply') {
-    lines.push(sealGenderFact_(st.master.sex, (seed && seed.gender) || '', sv.name));
+    lines.push(sealGenderFact_(st.master.sex, p.gender || '', sv.name));
     lines.push('★【' + WAR_LEN_.supply + ' 字】寫這場補魔：魔力流動只是成因，全篇寫在肉體這一側——接觸、溫度、反應。' + LEWD_EXPLICIT_);
   } else if (kind === 'over') {
     lines.push('★【' + WAR_LEN_.over + ' 字】這是這場聖杯戰爭的結局，寫出它的重量。' + (st.result && st.result.win ? '聖杯在你面前，照你心裡的那個願望寫這一刻，把你們一路走來的樣子寫進最後這一幕。' : '寫這一場戰爭怎麼在你手裡結束。'));

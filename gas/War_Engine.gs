@@ -120,8 +120,9 @@ function warUnit_(seed, extra) {
     np: warSpread_(Math.max(warRank_(six['寶具']), seed.np ? WAR_.NP_FLOOR : 0)),
     mhp: mhp, hp: mhp, cd: 0, saved: false
   };
-  var sk = warSkillsOf_(seed);
+  var sk = warSkillsOf_(seed), p = seed.persona || {};
   u.fx = sk.fx; u.skn = sk.names;
+  u.card = { look: p.look || '', words: p.words || '', toMaster: p.toMaster || '', gender: seed.gender || '' };   // 說書用，不進規則
   for (var k in (extra || {})) u[k] = extra[k];
   return u;
 }
@@ -140,7 +141,7 @@ function warClamp_(v, a, b) { return Math.max(a, Math.min(b, v)); }
 // o：{ pool:[從者種子], roster:[{master, hero, loc, arriveDay}], seeds:{id→種子}, masterNames:{id→名字}, name, sex, war, seed }
 function warNewGame_(o) {
   var st = {
-    v: 1, war: o.war || '5th', day: 1, phase: 'summon', rs: (o.seed | 0) || 1, rerolls: 1,
+    v: 1, war: o.war || '5th', day: 1, phase: 'summon', rs: (o.seed | 0) || 1, rerolls: (o.pool || []).length > 1 ? 1 : 0,
     master: { name: o.name || '御主', sex: o.sex || '男', wish: o.wish || '', hp: WAR_.MASTER_HP, mhp: WAR_.MASTER_HP, seals: WAR_.SEALS },
     sv: null, exposed: false, out: false, enemies: [], battle: null,
     engaged: [], ticked: [], hunted: false, foughtTonight: false,

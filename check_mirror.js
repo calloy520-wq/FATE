@@ -190,39 +190,14 @@ const problems = [];
 // 🗑️ 2026-09「住處熟睡徽章覆蓋」那道隨位置模擬整組退休：鑑賞不再有住處、不再有作息落點，
 //    KC_SLEEP_HINTS_／KANSHOU_HERO_HOME_ 兩端都已刪除，沒有東西可以對答案。
 
-// 🛠️ 工房能挑的效果 ↔ 後端收的白名單：註解本來就寫著「改後端 ALLOWED_FX_ 記得同步 FORGE_FX」，
-//    那種靠人記得的規則遲早會漏。漏的症狀是玩家捏完按存檔才被退貨（或某個效果永遠沒人選得到）。
-(function () {
-  const feAll = front.map(x => x.text).join('\n');
-  const i = feAll.indexOf('var FORGE_FX_GROUPS');
-  if (i < 0) { checked++; bad++; problems.push('工房效果目錄：前端找不到 FORGE_FX_GROUPS（改名了？這道檢查會靜靜失效，所以直接報錯）'); return; }
-  const j = feAll.indexOf('var FORGE_FX =', i);
-  const offered = [...new Set([...feAll.slice(i, j < 0 ? i + 8000 : j).matchAll(/\[\s*'([a-z_0-9]+)'\s*,/g)].map(m => m[1]))].sort();
-  const b = grabLiteral(backText, '(?:const|var|let)', 'ALLOWED_FX_');
-  if (!b.found || !b.value) { checked++; bad++; problems.push('工房效果目錄：後端找不到 ALLOWED_FX_'); return; }
-  const allowed = Object.keys(b.value).sort();
-  const ghost = offered.filter(x => allowed.indexOf(x) < 0);
-  const unused = allowed.filter(x => offered.indexOf(x) < 0);
-  checked++;
-  if (ghost.length || unused.length) {
-    bad++;
-    problems.push(`工房效果目錄 ↔ ALLOWED_FX_ 對不上\n     前端給得出來、後端會退貨：${ghost.join('、') || '無'}\n     後端收、工房卻沒開放：${unused.join('、') || '無'}`);
-  }
-})();
+// 🗑️ 2026-09-24 舊英靈工房整組退休：新工房（War_Forge.gs／Script_War.html）的點數規則與可挑技能
+//    全部由後端 war_forge_list 下傳，前端沒有任何手抄副本——單一真實來源，沒有東西可以對答案。
+//    原本這裡的「FORGE_FX_GROUPS ↔ ALLOWED_FX_」與下面八組 FORGE_* 計價鏡射一起拿掉。
 
 // ── 名字不叫 KC_ 的手抄常數（上面的自動掃描只認 KC_ 前綴，這些得逐條點名）──
 //    每一條都是「前端寫死一個數字、後端另外寫死同一個數字」的形狀，改一邊忘另一邊就會靜靜說謊。
 [
-  { front: 'FORGE_BUDGET', back: 'FORGE_BUDGET', why: '自訂英靈工房的點數預算（前端算給玩家看、後端驗收）' },
-  { front: 'FORGE_PTS', back: 'RANK_VALUE', why: '階級→點數對照（前端拿來扣預算、後端拿來算六圍）' },
-  // 🛠️ 工房計價（2026-09 補）：前端把價錢算給玩家看、後端拿自己那份驗收。
-  //    對不上的症狀是「畫面說買得起、按下去被退貨」，或反過來被多收點數——而且不會有錯誤訊息。
-  { front: 'FORGE_SK_PTS', back: 'SKILL_PTS_', why: '技能階級定價（一般軌）' },
-  { front: 'FORGE_SK_PTS_BIG', back: 'SKILL_PTS_BIG_', why: '技能階級定價（強軌：千里眼/魔眼/高速神言…）' },
-  { front: 'FORGE_SK_PTS_SMALL', back: 'SKILL_PTS_SMALL_', why: '技能階級定價（弱軌：騎乘/風王/卡里斯瑪）' },
-  { front: 'FORGE_SK_TRACK', back: 'SKILL_TRACK_', why: '哪個 fx 走強軌/弱軌（分軌表本身）' },
-  { front: 'FORGE_FLAT_FX', back: 'FLAT_FX_', why: '固定價的概念級 fx（十二試煉/燕返/寶具級…）' },
-  { front: 'FORGE_CLS_BONUS', back: 'FORGE_CLS_BONUS_', why: '職階附贈預算（Berserker +30）' },
+  // （目前沒有非 KC_ 前綴的手抄常數；新增時照 { front, back, why } 格式加一列）
 ].forEach(pair => {
   const f = grabLiteral(front.map(x => x.text).join('\n'), '(?:const|var|let)', pair.front);
   const b = grabLiteral(backText, '(?:const|var|let)', pair.back);

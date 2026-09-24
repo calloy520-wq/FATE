@@ -2517,7 +2517,7 @@ forceAll(終局逼近)時常一次瓦解多組同盟，MEMORY 整欄一次寫回
 
 🐛→✅ 舊版只擋「太弱」(bumpSixToFloor_)沒擋「太強」——工房 parseForgeBuild_ 超預算會直接`return {ok:false,...}` 拒絕重填，但 AI 生成沒有「打回重填」的來回，若 AI 一開始就給出偏強六圍+技能(prompt 明講「不得保守低估」很容易誘發)，完全沒有後續檢查會擋下，可無上限超出工房任何職階都拿不到的預算天花板。改成比照 bumpSixToFloor_ 反向：超過上限就把最強一項六圍逐階往下砍，直到達標或砍無可砍(全部已是 E)為止；上限比照 parseForgeBuild_ 的 clsBudget 概念，共用 FORGE_CLS_BONUS_ 讓 Berserker 補正對稱。
 
-### `parseForgeBuild_`　<sub>Router_Creation.gs</sub>
+### ~~`parseForgeBuild_`~~（2026-09-24 隨舊英靈工房已移除，新工房見『WAR_FORGE_』）　<sub>Router_Creation.gs</sub>
 
 🛠️ 工房 build 解析＋全套驗證（單一真實來源：召喚 actionSummonServant build 分支 與 修改 actionUpdateHero 共用）。規格：預算340·六圍+技能+規模同一錢包(EX≤2)＋技能≤4(前3免欄位費·第4欄+20·fx白名單·上限A·三軌計價·二元平價·燕返60)＋規模計價(對軍+20)＋寶具名/描述剝高規模關鍵字＋正典名擋＋演出七欄清洗。回 {ok:false,message} 或 {ok:true,...欄位}。
 
@@ -2535,13 +2535,13 @@ Berserker 職階附贈狂化C(傷+但命中/迴避−·不可關)是唯一負資
 
 🐛→✅ 稽核抓到：npAtkScale_(Engine_Fate.gs)對整串np做子字串比對(/對軍/.test(np))決定攻擊規模，而這串np是npName+npDesc原文直接拼接——舊版清洗只濾掉「對城/對界/對神」三個更高階規模字樣，唯獨漏了「對軍」這個真正要收20點預算的那一階，玩家把npScale選便宜的「對人」(0元)、卻在npDesc自由文字裡塞一句含「對軍」的敘述(如「曾單槍匹馬對軍陣衝鋒」)，戰鬥時就白吃對軍規模的傷害倍率——等於免費繞過規模預算。四個規模關鍵字一併濾掉，維持只有npScale本身能決定規模。
 
-### `actionClaimHero`　<sub>Router_Creation.gs</sub>
+### ~~`actionClaimHero`~~（2026-09-24 隨舊英靈工房已移除，新工房見『WAR_FORGE_』）　<sub>Router_Creation.gs</sub>
 
 工房存檔（action="save_hero"：工房＝純製造/修改，不召喚）：create＝寫英靈殿新列(AI 補 persona/寶具英文名·蓋創造者印記)；edit(帶 heroId)＝僅創造者本人可改、真名不可改(識別鍵)、演出欄非空覆寫/空保留、寶具英文名沿用舊值。改的是英靈殿【範本】——之後召喚才生效，已在場的分身不追改(可用 DEV「套用最新平衡」同步)。
 
 認領無主原創英靈（action="claim_hero"）：創造者印記功能上線前鑄的 ai_gen 英靈沒有 persona.creator，「我的作品」不列、✏️ 不亮、誰都不能改——開放認領：無主者先到先得，已有主的不可搶。
 
-### `actionSaveHero`　<sub>Router_Creation.gs</sub>
+### ~~`actionSaveHero`~~（2026-09-24 隨舊英靈工房已移除，新工房見『WAR_FORGE_』）　<sub>Router_Creation.gs</sub>
 
 🐛→✅ 職階切成「御主」是破壞性動作(parseForgeBuild_對isMasterCls會直接清空六圍/技能/寶具，見上方註解)——原本改職階誤選到御主、直接存檔會無聲蓋掉戰鬥數值，且成功訊息完全沒提示這件事。非「御主→御主」的職階切換才需要二次確認，避免正常編輯(職階本來就沒變/本來就是御主)被多問一次。
 
@@ -4066,13 +4066,13 @@ divine_core(神核) 已拔除工房開放——理由與 ea/王之財寶/UBW/海
 
 Berserker 職階附贈狂化C(傷+但命中/迴避−·不可關)是唯一負資產禮物，補正+30 拉平——工房與 AI生成上限封頂共用同一份，不各自宣告(單一真實來源)。
 
-### `isMasterCls`　<sub>Router_Creation.gs</sub>
+### ~~`isMasterCls`~~（2026-09-24 隨舊英靈工房已移除，新工房見『WAR_FORGE_』）　<sub>Router_Creation.gs</sub>
 
 「御主」職階：鑑賞限定純敘事款(比照 Seed_Codex.gs 的3位canon御主)，不參與戰鬥——獨立於 VALID_CLS(七大從者職階)之外判斷，不吃 reqCls 的 Saber fallback。
 
 🎭 AI 只補「玩家沒填的」演出欄＋寶具英文真名——失敗不擋鑄造🌹 御主職階無寶具/技能，提示詞跳過那兩行、系統prompt也不要求 npEn(反正不會被讀)。
 
-### `parseForgeBuild_`　<sub>Router_Creation.gs</sub>
+### ~~`parseForgeBuild_`~~（2026-09-24 隨舊英靈工房已移除，新工房見『WAR_FORGE_』）　<sub>Router_Creation.gs</sub>
 
 第4技能欄位費+20：預算才是真約束(逼六圍讓位)，疊加上限±8 讓多買的命中/迴避冗餘——最壞情況四技組合(83~85%)仍未超過三技頂點(93%)。
 
@@ -4744,3 +4744,20 @@ inline `onclick` 的作用域**只看得到 window**。函式若不小心包進�
   只寫「在哪個時機、改什麼數字」，引擎只在固定的十幾個時機透過 `warMul_`／`warAdd_`／`warFlag_` 讀表，技能自己不寫程式。
   每位從者只吃自己種子裡真的有的技能（直感／心眼／全知全能之星／氣息感知、戰鬥續行／十二試煉、騎乘、氣息遮斷、陣地作成、狂化、
   對魔力、千里眼、單獨行動、避矢加護、軍略），同類只算一次。探針釘「表上每個時機引擎都真的有讀」，寫了沒人吃會叫。
+
+### `WAR_FORGE_`　<sub>War_Forge.gs／Script_War.html</sub>
+
+**🛠️ 新英靈工房（2026-09-24）。** 玩家：「新增從者也盡量簡潔有力」「把目前的工房全部整理並確認欄位沒問題」「要確保可以 SOLO 鑑賞通用」。
+- **舊工房為什麼整組換掉**：預算 340、六圍＋技能三軌定價＋寶具規模同一錢包、EX≤2、職階附贈預算、AI 從一句描述補完、三個出身分類、
+  改名／改職階的 ID 對不上、編輯時把 A+ 砍成 A、AI 補的外貌只 trim 沒清洗……前端 500 行、後端 170 行，而新聖杯戰爭只看得懂 `WAR_SKILL_` 表上的技能。
+- **新工房一張表單**：真名、職階、性別、六圍（E～EX，合計 ≤ 22 點；原作中位數 20、最高 29）、寶具名（階級＝六圍的寶具）、
+  技能最多 3 個（只能從 `WAR_FORGE_SKILLS_` 挑，每個效果列一個代表名，畫面直接寫效果）、外貌一句、性格一句。職階技能照 `FORGE_CLS_SKILLS_` 自動附上。
+  規則與可挑技能全由 `war_forge_list` 下傳，前端沒有手抄副本（所以 check_mirror 那組 FORGE_* 鏡射一起退休）。
+- **寫進英靈殿的每一欄**（稽核過每一欄的讀者）：ID＝真名-職階（真名與職階鎖住，ID 永遠對得上）、CLS、NAME、SEX（男／女）、
+  SIX（JSON，E～EX）、CLASS_SKILLS、SKILLS（`{n, r:'B', fx}`）、TRAITS `[]`、NP `寶具名（階級）`（`warNpName_` 與鑑賞的觸發條目都切得開）、
+  PERSONA（保留既有鍵，只覆寫 look／words／creator）、ALIGN 中立、WARS `[]`、SOURCE `ai_gen`（原創唯一標記，鑑賞的擁有者檢查靠它＋creator）、
+  DAILY_LOOK／DAILY_WORDS／DAILY_OUTFIT（外貌、性格有變才用鑑賞既有的兩支翻譯重翻，失敗留空、鑑賞自動退回外貌與性格）、DAILY_MOE 空字串（已退休）。
+- **兩邊都能用**：新聖杯戰爭的召喚選單列出「你的原創」，`warSeedFromRow_` 把英靈殿列轉成引擎吃的種子形狀；鑑賞的召喚清單本來就讀英靈殿，
+  存檔後前端呼叫 `invalidateKanshouHeroCache` 讓它重抓。沒人認領的舊原創也列出來，改了就歸你。
+- **還留著的**：舊版 solo 的 AI 盲盒召喚還在用 `forgeCost_`／`bumpSixToFloor_`／`capSixToBudget_`／`recordOriginalHero_`，等舊版整組拆時一起走。
+

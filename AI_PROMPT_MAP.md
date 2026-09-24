@@ -495,8 +495,7 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | `parley` | `actionParley`（Router_Bond.gs） | **是** 三種各自一段 ★【100~150 字】：`chat` 依性格×當前好感的真實反應／`intel` 把掀開的名字與地點**逐字**釘進提示詞（沒新情報時明講「不可捏造任何人名或地點」）／`yield` 成功演收手的理由並收在背影消失、失敗演一觸即發 |
 | `faction_ambush` | `actionFactionAmbush`（Router_Movement.gs） | **是** ★【80~140 字】趁隙奇襲；只剩玩家時另填 `buildVictoryDreamPrompt_` |
 | `incite` | `actionIncite`（Router_Movement.gs） | **是** 成功 ★【80~140 字】煽風點火／落空 ★【70~120 字】 |
-| `save_hero` | `actionSaveHero`（Router_Creation.gs） | **是**（結構化 JSON）：工房鑄造，玩家定數值、AI 只補 `personality/look/background/npEn` 側寫，失敗不擋 |
-| `claim_hero` | `actionClaimHero`（Router_Creation.gs） | 否（把他人原創英靈收進自己名冊） |
+| `war_forge_save` | `actionWarForgeSave`（War_Forge.gs） | **是**（只在外貌／性格有變時）：`translateLookToDaily_`＋`translatePersonalityToDaily_` 翻出鑑賞的日常三格，失敗留空不擋。舊的 ~~save_hero／claim_hero~~ 2026-09-24 隨舊工房移除 |
 | `roll_fate` | `actionRollFate`（Core_Settings.gs） | 否（一次回三份天賦候選） |
 | `outfit`／`weapon` | `actionSetOutfit`／`actionSetWeapon`（Router_Economy.gs） | 否（寫 MEMORY，之後由角色卡餵 AI） |
 | `kanshou_reset` | `actionKanshouReset`（Gallery.gs） | 否（後日談歸零） |

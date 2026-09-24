@@ -29,12 +29,13 @@
 | **Account.gs** | 10 | 帳號綁定／開新局／清理本局 |
 | **History_Sync.gs** | 7 | 戰記寫入／軌跡摘要 |
 | **War_Engine.gs** | 59 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰 |
-| **War_Router.gs** | 12 | ⚔️ 新聖杯戰爭的 GAS 端：聖杯戰局分頁（一局一格 JSON）、`war_*` 五條路由、說書提示詞 |
+| **War_Router.gs** | 12 |
+| **War_Forge.gs** | 9 | 🛠️ 英靈工房（新聖杯戰爭與鑑賞共用）：表單驗證、寫一列完整的英靈殿、原創清單 | ⚔️ 新聖杯戰爭的 GAS 端：聖杯戰局分頁（一局一格 JSON）、`war_*` 五條路由、說書提示詞 |
 | **Index.html** | 0 | 載入殼（依序載 Style／Script／Script_Onboarding／Script_Kanshou／Script_War） |
 | **Script.html** | 135 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
 | **Script_Kanshou.html** | 108 | 鑑賞（慾海）SPA |
 | **Script_Onboarding.html** | 57 | 開局（登入／創角／召喚） |
-| **Script_War.html** | 15 | ⚔️ 新聖杯戰爭畫面：照後端 `buttons` 畫大按鈕、令咒切換、故事區 |
+| **Script_War.html** | 26 | ⚔️ 新聖杯戰爭畫面：照後端 `buttons` 畫大按鈕、令咒切換、故事區 |
 
 > ActionRouter 目前註冊 **69 個 action**，全部對應真實 handler、無缺漏（見下 Router_Action.gs 段完整對照表）。
 
@@ -101,8 +102,6 @@
 | `set_rune_mode` | `actionSetRuneMode` | 符文運用 |
 | `outfit` | `actionSetOutfit` | 換裝 |
 | `weapon` | `actionSetWeapon` | 自定武裝 |
-| `save_hero` | `actionSaveHero` | 工房鑄造/修改英靈 |
-| `claim_hero` | `actionClaimHero` | 認領無主原創英靈 |
 | `bond` | `actionBond` | 羈絆相處 |
 | `rule_break_steal` | `actionRuleBreakSteal` | 破戒奪僕 |
 | `propose_alliance` | `actionProposeAlliance` | 交涉結盟 |
@@ -127,12 +126,14 @@
 | `war_act` | `actionWarAct` | ⚔️ 按一顆鈕（白名單＝`warButtons_`） |
 | `war_narrate` | `actionWarNarrate` | ⚔️ 說書（同一段回快取） |
 | `war_quit` | `actionWarQuit` | ⚔️ 放棄這一局 |
+| `war_forge_list` | `actionWarForgeList` | 🛠️ 英靈工房：我的原創＋原作名單＋可挑技能＋規則（War_Forge.gs） |
+| `war_forge_save` | `actionWarForgeSave` | 🛠️ 新做／修改一位原創從者（寫一整列英靈殿，鑑賞也能用） |
 
 > 註：多數 handler 本體不在本檔（散在 Router_*/Gallery.gs 等）；本檔只定義 `check_name`/`get_full_status`/`update_fate`/`get_tags`/`sync`/`update_rel_tag`/`kanshou_set_nickname` 七個 handler ＋兩個 payload builder。
 
 #### 🔹 四張旗標常數表（dispatcher 行為開關）
 - `OWNERSHIP_CHECK_EXEMPT_`（2026-07 系統性漏洞修補新增）— 豁免中央 pcId 歸屬驗證的 action 白名單：`account_login`/`account_new_game`/`create`/`enter_kanshou`（pcId 尚不存在）、`claim_hero`/`save_hero`（走 `creator===acctName` 模型）、`get_heroes`/`get_masters`（公開名冊）、`check_name`/`check_sheets`/`dev_resync_codex`/`purge_orphans`（不涉個別玩家列）。其餘只要帶 `pcId` 一律先過 `verifyPcOwnership_`。
-- `LOCK_EXEMPT_ACTIONS_` — 不取寫入鎖的 action：純讀取 ＋ 長 AI 敘事（`play`/`narrate_only`/`tiger_dojo`/`backfill_*`/`save_hero` 等）。
+- `LOCK_EXEMPT_ACTIONS_` — 不取寫入鎖的 action：純讀取 ＋ 長 AI 敘事（`play`/`narrate_only`/`tiger_dojo`/`backfill_*`/`war_narrate`/`war_forge_save` 等）。
 - `STATE_AFTER_ACTIONS` — 會改 solo 戰場、回應自動夾 `_state` 的 action（`fate_battle`/`use_seal`/`bond`/`update_fate`/`court_enemy`／`move`… 共 24 個）。
 - `KANSHOU_BLOCKED_ACTIONS_` — `KPC_` 情境下明確擋掉的 solo 專屬戰鬥/經濟/結盟 action（含 `move`）。
 - `STATE_PRE_DATA_`（`var`）— handler→dispatcher 整表陣列交棒全域，每次 dispatch 開頭重置。
@@ -312,12 +313,9 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `forgeCost_(six, skills, npScale)` — 工房單一計價函式(六圍成本+寶具規模加成+技能計價三軌`FLAT_FX_`/`SKILL_PTS_BIG_`/`SKILL_PTS_SMALL_`)，`parseForgeBuild_`(預算上限檢查)與 `bumpSixToFloor_`/`capSixToBudget_`(AI 生成六圍下限/上限修正)三處共用同一份計價邏輯。
 - `bumpSixToFloor_(six, skills, npScale)` — AI 生成從者六圍常低於工房 340 預算下限(即便提示詞已要求)，把總值墊高到預算下限(EX≤2 上限仍受限)，避免AI原創從者體感偏弱。
 - `capSixToBudget_(six, skills, npScale, cls)` — `bumpSixToFloor_`的反向邏輯：AI 生成六圍超出預算(含狂化職階+30 加成)時砍最強一項六圍降規費，避免 AI 隨手生出超預算破台角色(舊版只有下限保底、沒有上限，此為後續補上的對稱修正)。
-- `parseForgeBuild_(build, reqCls)` — 工房 build 解析＋全套驗證(單一真實來源，`actionSaveHero` 召喚/修改分支共用)。預算 340，六圍+技能(≤4，第4欄+20)+規模同錢包(EX≤2)，呼叫 `forgeCost_` 計價，超預算直接拒絕(無 AI 式的「打回重填」來回)；剝寶具高規模關鍵字(對城/對界/對神/常駐寶具)、擋正典名、七演出欄清洗。**「御主」職階**特例：略過全部戰鬥驗證、強制清空六圍/技能/寶具。回 `{ok:false,message}` 或 `{ok:true,...欄位}`。
 
 #### 工房存檔/認領/召喚（action 入口）
 
-- `actionClaimHero(userData, pcId, sheets)` — 認領無主原創英靈(action="claim_hero")。僅 `ai_gen` 且無 `persona.creator` 者可認領，先到先得。**副作用**：寫 PERSONA 格＋清快取。
-- `actionSaveHero(userData, pcId, sheets)` — 工房存檔(action="save_hero")。**修改模式**(帶 heroId)：僅創造者可改、真名不可改、`御主↔戰鬥職階`破壞性切換需 `confirmMasterConvert` 二次確認、演出欄非空覆寫/空保留、寶具英文名沿用舊值、重算日常快取，整列 setValues。**製造模式**：`parseForgeBuild_`＋重名擋→AI 補玩家沒填的演出欄與寶具英文名(`callGeminiAPI`，失敗不擋)→`recordOriginalHero_` 鑄入。**副作用**：改/寫英靈殿列＋清快取。
 - `actionSummonServant(userData, pcId, sheets)` — 召喚從者(寫進御主自己 game_id 實例、設同行)。已有從者則擋。三條尋敵路徑：heroId 指定／trueName 比對(同名多職階優先 match reqCls)／隨機抽(**2026-09：排除這一局在場的那組正典陣容**——`warName` 取 `FATE_4TH_ROSTER`/`FATE_5TH_ROSTER` 的 `hero` 當 ID 黑名單，chaos 不排；兩道篩空了退回不排除，見 `CODE_NOTES`)；`custDesc` 自訂描述強制走 AI 原創。**種子路徑**：讀寫死六圍/技能/persona，血 `150+耐久×6`、MP=0(出力電池制靠御主供魔)、god_hand 復活命數處理、`stampPersonaFlavor_` 存口吻/小動作。**AI 路徑**：`callGeminiAPI` 生完整六圍(帶 fx)＋技能，`sanitizeSix_`/`sanitizeSkills_` 清洗，np 規模剝城/界/神→對軍，缺 realName/six 視為失敗中止；不重名則 `recordOriginalHero_` 寫回英靈殿。落列後：重算御主共用魔力池(`masterPoolMax_`)並補滿(只寫 MP/MAX_MP 兩格)；`seedRivalsForGame_` 一次性鋪敵方御主×從者；回召喚登場 `summonPrompt`。**副作用**：appendRow 從者列、寫御主 MP、鋪敵、可能寫英靈殿。
 
 ---
@@ -1125,6 +1123,18 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warClass_(cls)`／`warFoe_(st, id)`／`warArrived_(st)`／`warKnownFoes_(st)`／`warAliveCount_(st)`／`warLocName_(loc)` — 查詢。
 - `warFoeLabel_(e)`／`warWho_(st, S)`／`warHpWord_(u)`／`warHurtWord_(u)`／`warChanceWord_(p)` — 文字（照玩家知道多少顯示）。
 
+### War_Forge.gs — 🛠️ 英靈工房（新聖杯戰爭與鑑賞共用）
+
+一張表單寫一整列英靈殿。為什麼這樣設計：見 CODE_NOTES.md『WAR_FORGE_』。
+- `WAR_FORGE_`（階級、點數、預算 22、技能上限 3、字數上限、六圍名、七職階）、`WAR_FORGE_SKILLS_`（能挑的技能：每個效果列一個代表名）。
+- `warHeroSheet_()`／`warIsOriginal_(row)`（SOURCE≠seed）／`warCreatorOf_(row)`（persona.creator）／`warSixPts_(six)`。
+- `warSeedFromRow_(row)` — 英靈殿一列 → 引擎吃的種子形狀（跟 SEED_SERVANTS 一樣），新聖杯戰爭召喚原創時用。
+- `warOriginalsFor_(acct)` — 這個帳號叫得到的原創：自己做的＋無主的（舊工房留下的，改了就歸你）。
+- `warForgeCheck_(b)` — 驗表單：真名要有中文、不可撞原作名、職階、六圍各一階且合計 ≤ 預算、寶具名、技能 ≤3 且在表上。
+- `actionWarForgeList(userData)` — 回原作名單、我的原創、可挑技能（名字＋效果說明）、各職階自動附的技能、規則。
+- `actionWarForgeSave(userData)` — 新做（ID＝真名-職階）或改自己的（真名、職階鎖住）；職階技能照 `FORGE_CLS_SKILLS_` 自動附；
+  外貌／性格有變就用 `translateLookToDaily_`／`translatePersonalityToDaily_` 翻出鑑賞的日常三格；清英靈殿快取。
+
 ### War_Router.gs — ⚔️ 新聖杯戰爭的 GAS 端
 
 - `warSheet_()` — 聖杯戰局分頁（沒有就建）：帳號／局ID／更新／戰況 JSON／說書 JSON。
@@ -1139,7 +1149,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 版面涵蓋：登入/選單（雙軌入口：純淨 solo／慾海鑑賞＋3 顆 DEV 鈕）、戰爭型態/場次/角色/正典御主選擇、創角（禮裝/命運測定）、召喚從者（七職階/瀏覽/原創/隨機/真名/描述）、自訂英靈工房（三分頁表單＋作品）、遊戲主畫面（頂欄三鍵/故事·標籤·地圖分頁/抽屜/輸入列）、各 modal（系統設定/離開確認/角色狀態卡/逆天改命/老虎道場/勝利奪杯）。
 
-**JS 函式：無 JS 函式·純版面殼**（所有 onclick 處理器如 accountLogin/newGameFlow/summonByForge/openManaPanel/claimGrail 等皆定義於外部 Script*.html include，本檔不含 `<script>` 內嵌函式定義）。
+**JS 函式：無 JS 函式·純版面殼**（所有 onclick 處理器如 accountLogin/newGameFlow/warOpen/warForgeOpen/openManaPanel/claimGrail 等皆定義於外部 Script*.html include，本檔不含 `<script>` 內嵌函式定義）。
 
 ---
 
@@ -1439,33 +1449,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `setWarFromSelect_()`（2026-09 新增）— 創角頁「自己設定」裡的場次切換：改 `warMode`/`currentWar` 並背景預取該場正典御主名單（不切畫面，故登記在 `check_wait.py` 的 `BACKGROUND`）。
 - `summonRandom()` — 隨機召喚 → `doSummon({cls})`。
 - `summonByDesc()` — 描述召喚原創從者 → `doSummon({desc, origin, cls})`（`origin` 讀自 `toggleSummonAdvanced()` 展開的來源選項，非只有 desc/cls 兩欄）。
-- `toggleSummonAdvanced()` — 展開/收合自訂召喚表單的「進階選項（指定職階／角色來源）」區塊，鏡射 `toggleForgeAdvanced`。
-
-#### 自訂英靈工房
-- `forgeClsBudget_()` — 依職階算預算（Berserker +30）。
-- `forgeSkPts_(fx)` — 依 `FORGE_SK_TRACK` 回技能計價表（強效/輕效/一般）。
-- `openForge(from)` — 開工房屏 `#step-forge`（記起點 `_forgeFrom`／首次 `initForge_`／預設靈基頁＋創造模式；名冊未載補載）。
-- `forgeTab(n)` — 工房三分頁切換（🎭演出/⚔️靈基/🌟寶具）＋控存檔鈕顯示位置。
-- `toggleForgeAdvanced()` — 展開/收合進階演出細節區塊。
-- `forgeReset_()` — 工房表單全歸零（存檔成功/改點創造時清）。
-- `forgeModeCreate()` — 玩家點「創造」鈕：編輯中先 `forgeReset_` 再 `forgeMode('create')`。
-- `forgeMode(m)` — 切「創造表單」vs「作品」頁；作品頁→`renderForgeWorks_`。
-- `renderForgeWorks_()` — 渲染「我的作品」（✏️修改）＋無主原創認領區（🖐）。
-- `forgeEdit(id)` — 修改原創英靈：`openForge`＋預填該英靈全設定（六圍/技能/寶具反解/演出）；名真名鎖定；有進階資料自動展開。
-- `claimHero(id)` — 認領無主原創英靈（`claim_hero`）；成功重載名冊＋失效鑑賞快取。
-- `closeForge()` — 關工房屏，還原大標題，回起點（menu/summon）。
-- `refreshClsHint_()` — 更新職階附贈技能提示（含御主職階特殊文案）＋`applyForgeClsMode_`＋重算預算。
-- `applyForgeClsMode_()` — 御主職階→藏靈基/寶具頁強制留演出頁；戰鬥職階復原。
-- `initForge_()` — 首次建工房表單 DOM（職階下拉/六圍一行/技能 2×2 卡/效果目錄浮層）。
-- `skillBtnLabel_(i)` — 回技能槽鈕標籤文字（依已選 fx）。
-- `refreshSkillBtn_(i)` — 刷技能槽鈕外觀＋二元固定價 fx 鎖階級選單。
-- `openSkillPick(i)` — 開效果目錄浮層（自動展開當前 fx 所在組）。
-- `closeSkillPick()` — 收效果目錄浮層。
-- `toggleSkillGroup(gi)` — 手風琴展開/收合某效果組。
-- `renderSkillPick_()` — 渲染效果目錄浮層（無效果晶片＋七組手風琴，每晶片標定價）。
-- `pickSkillFx(fx)` — 選定效果→寫值/刷鈕/重算預算/收浮層。
-- `forgeBudget_()` — **核心計價**：加總六圍＋技能階＋第4欄費＋對軍規模；顯示預算條/超支色/階級染色/即時靈基預覽(HP/傷害底/寶具耗魔)；回總點數。御主職階跳過。
-- `summonByForge()` — （名稱保留）**存英靈殿 `save_hero`（不召喚）**：驗預算/EX≤2、組 `build`；御主職階轉換需二次確認（`needConfirmMasterConvert`）；成功歸零表單/重載名冊/失效鑑賞快取。
+> ~~舊英靈工房~~（`openForge`／`forgeBudget_`／`summonByForge`…約 500 行，與後端 `actionSaveHero`／`actionClaimHero`／`parseForgeBuild_`）2026-09-24 已移除，改由 War_Forge.gs＋Script_War.html 的新工房接手。
+- `toggleSummonAdvanced()` — 展開/收合自訂召喚表單的「進階選項（指定職階／角色來源）」區塊。
 
 #### 進入遊戲
 - `startGame(isRet)` — 開局收尾：顯示 game／`applyModeUI`／`refreshFateTags`／`renderMapPane`；續玩(`isRet`)→還原屬性面板＋`getGameHistory` 撈前塵；新局→`narrate(_summonScene)` 演召喚登場。
@@ -1475,12 +1460,16 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 ### Script_War.html — ⚔️ 新聖杯戰爭畫面
 
-- `warOpen()` — 從選單進來：讀戰局，沒有就畫開局表單（姓名、性別、願望、第幾次戰爭）。`warBackMenu()` — 回選單。畫面狀態存在 `warCur_`（後端 `warView_(st)` 給的那一份）。
+- `warOpen()` — 從選單進來：讀戰局，沒有就畫開局表單（姓名、性別、願望、第幾次戰爭、召喚對象）。`warBackMenu()` — 回選單。畫面狀態存在 `warCur_`（後端 `warView_(st)` 給的那一份）。
 - `warRenderForm_()`／`warFormPick_(k, v)`／`warStart()` — 開局表單（姓名、性別、願望、第幾次戰爭）→ 召喚。
 - `warDo(i)` — 按第 i 顆鈕（令咒開著就一起送）→ `war_act` → 重畫 → 說書。`warToggleSeal()` — 令咒開關（戰鬥中才有；開著時用不上令咒的鈕會鎖住）。
 - `warNarrate_()` — 叫 `war_narrate`，等待時故事區顯示「說書人落筆中…」、按鈕鎖住。`warQuit()` — 放棄這一局。
 - `warRender_(next)` — 狀態列、敵人名單、戰鬥框（預兆）、終局卡；骨架只建一次，故事區保留。`warRenderButtons_()` — 照 `buttons` 畫大按鈕（令咒開著換成 `sealSub`、`sealOk` 的鈕變得按得下去）。
 - `warBar_(v, max, cls)`／`warStory_(who, text)`／`warLog_(lines)`／`warEl_(id)` — 小工具；說書走 `aiHtml_`。
+- `warHeroOptions_()`／`warForgeLoad_()` — 召喚對象選單（命運決定／你的原創／原作），資料來自 `war_forge_list`。
+- `warForgeOpen(fromMenu)`／`warForgeBack()`／`warForgeList_()` — 工房：清單頁（我的原創＋新增）；從主選單進來就回主選單。
+- `warForgeEdit(id)`／`warForgeRender_()`／`warFeSet(k, v)`／`warFeSync_()`／`warFePts_()` — 編輯頁：真名、職階、性別、六圍（即時點數）、寶具名、技能、外貌、性格。
+- `warForgeSave()` — 存進英靈殿（`war_forge_save`），順手讓鑑賞的同伴清單重抓。
 
 ## 死碼 / 可疑處（精簡）
 
