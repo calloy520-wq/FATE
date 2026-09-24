@@ -220,6 +220,8 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 ---
 
+
+**⚔️ 新聖杯戰爭（War_Router.gs）**：`war_load`→`actionWarLoad`｜`war_new`→`actionWarNew`｜`war_act`→`actionWarAct`｜`war_narrate`→`actionWarNarrate`｜`war_quit`→`actionWarQuit`。規則全在 War_Engine.gs（純函式），畫面在 Script_War.html。
 ## §5 資料驅動表（加一列＝加功能）
 
 | 想加什麼 | grep 這個 | 在 |

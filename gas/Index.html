@@ -27,7 +27,9 @@
       <div style="border:1px solid rgba(159,192,239,.45); border-radius:11px; padding:11px 11px 6px; margin-bottom:13px; background:rgba(30,40,60,.25);">
         <div style="color:#9fc0ef; font-size:13px; font-weight:bold; letter-spacing:1px; margin-bottom:9px; text-align:center;">🎴 純淨 · 單人聖杯戰爭</div>
         <button id="btn-resume" class="btn" style="display:none; width:100%; margin-bottom:9px; padding:12px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="continueGame()">▶ 繼續戰爭</button>
-        <button class="btn" style="width:100%; margin-bottom:7px; padding:12px; border-color:#9fc0ef; color:#cfe0ff;" onclick="lockBtn(event, newGameFlow)">🔥 開啟新的聖杯戰爭</button>
+        <!-- ⚔️ 新聖杯戰爭（War_Engine.gs／Script_War.html）：一天兩個決定、按鈕越少越好。舊版留在下面，確認新版後整組拆掉。 -->
+        <button class="btn" style="width:100%; margin-bottom:9px; padding:13px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="warOpen()">⚔️ 聖杯戰爭</button>
+        <button class="btn" style="width:100%; margin-bottom:7px; padding:8px; border-color:#6a7a9a; color:#8fa0c0; font-size:12px;" onclick="lockBtn(event, newGameFlow)">舊版：開啟新的聖杯戰爭</button>
         <button class="btn" style="width:100%; margin-bottom:7px; padding:9px; border-color:#6a8ac0; color:#8fb0e8; font-size:12.5px;" onclick="openForge('menu')">🛠️ 英靈工房（打造／修改原創英靈）</button>
       </div>
 
@@ -475,9 +477,12 @@
     </div>
   </div>
 
+  <div id="scr-war" style="display:none;"></div>
+
   <?!= HtmlService.createHtmlOutputFromFile('Script').getContent(); ?>
   <?!= HtmlService.createHtmlOutputFromFile('Script_Onboarding').getContent(); ?>
   <?!= HtmlService.createHtmlOutputFromFile('Script_Kanshou').getContent(); ?>
+  <?!= HtmlService.createHtmlOutputFromFile('Script_War').getContent(); ?>
 </body>
 
 </html>

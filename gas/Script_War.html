@@ -1,0 +1,198 @@
+<script>
+  // ==========================================
+  // ⚔️ Script_War.html — 新聖杯戰爭的畫面。規則與按鈕全由後端 warButtons_ 決定，這裡只照畫。
+  //   一個畫面：狀態、敵人名單、故事、最多幾顆大按鈕。為什麼這樣做：見 CODE_NOTES.md『WAR_』。
+  // ==========================================
+  let warCur_ = null;        // 後端給的畫面狀態
+  let warSeal_ = false;       // 這一回合要不要燒令咒（戰鬥中才用得到）
+  let warBusy_ = false;
+  let warForm_ = { sex: '男', war: '5th' };
+
+  function warEl_(id) { return document.getElementById(id); }
+
+  async function warOpen() {
+    warEl_('setup').style.display = 'none';
+    warEl_('scr-war').style.display = 'block';
+    warEl_('scr-war').innerHTML = '<div class="war-wrap"><p class="war-dim">讀取戰局中…</p></div>';
+    try {
+      const res = await withProcessing_('讀取戰局中…', () => gasRun({ action: 'war_load', acctName: currentAccount }));
+      if (!res || !res.success) { alert((res && res.message) || '讀不到戰局。'); return warBackMenu(); }
+      if (!res.view) return warRenderForm_();
+      warRender_(res.view);
+      (res.story || []).forEach(t => warStory_('ai', t));
+      if (!(res.story || []).length) warStory_('sys', '這一局的說書還沒開始。');
+    } catch (e) { alert('連不上，等一下再試。'); warBackMenu(); }
+  }
+
+  function warBackMenu() {
+    warEl_('scr-war').style.display = 'none';
+    warEl_('setup').style.display = 'flex';
+  }
+
+  // ── 開新局：名字、性別、哪一場戰爭，然後召喚 ──
+  function warRenderForm_() {
+    warCur_ = null;
+    const pick = (k, v, label) => `<button class="war-pill${warForm_[k] === v ? ' on' : ''}" onclick="warFormPick_('${k}','${v}')">${label}</button>`;
+    warEl_('scr-war').innerHTML = `<div class="war-wrap">
+      <h2 class="war-title">⚔️ 聖杯戰爭</h2>
+      <p class="war-dim">十四夜之內，打倒所有對手。</p>
+      <input id="war-name" class="std-in" maxlength="10" placeholder="御主之名" style="width:100%;box-sizing:border-box;margin:10px 0;">
+      <div class="war-row">${pick('sex', '男', '男')}${pick('sex', '女', '女')}</div>
+      <div class="war-row">${pick('war', '5th', '第五次聖杯戰爭')}${pick('war', '4th', '第四次聖杯戰爭')}</div>
+      <button class="war-btn war-main" onclick="warStart()"><b>召喚從者</b><small>命運會選出回應你的英靈</small></button>
+      <button class="war-btn war-ghost" onclick="warBackMenu()"><b>回選單</b></button>
+    </div>`;
+  }
+  function warFormPick_(k, v) {
+    const nm = (warEl_('war-name') || {}).value || '';
+    warForm_[k] = v;
+    warRenderForm_();
+    warEl_('war-name').value = nm;
+  }
+
+  async function warStart() {
+    if (warBusy_) return;
+    const name = ((warEl_('war-name') || {}).value || '').trim();
+    warBusy_ = true;
+    try {
+      const res = await withProcessing_('召喚陣亮起中…', () => gasRun({ action: 'war_new', acctName: currentAccount, pcName: name, sex: warForm_.sex, war: warForm_.war }));
+      if (!res || !res.success) { alert((res && res.message) || '召喚失敗了。'); return; }
+      warRender_(res.view);
+      warLog_(res.log);
+    } catch (e) { alert('連不上，等一下再試。'); return; }
+    finally { warBusy_ = false; }
+    await warNarrate_();
+  }
+
+  // ── 按下一顆鈕 ──
+  async function warDo(i) {
+    if (warBusy_ || !warCur_) return;
+    const b = warCur_.buttons[i];
+    if (!b) return;
+    const seal = warSeal_ && warCur_.phase === 'battle';
+    if (b.dis && !(seal && b.sealOk)) return;
+    warBusy_ = true;
+    try {
+      const res = await withProcessing_('聖杯演算中…', () => gasRun({ action: 'war_act', acctName: currentAccount, act: { t: b.t, id: b.id || '', s: b.s || '', seal: seal } }));
+      if (!res || !res.success) { alert((res && res.message) || '沒有成功。'); return; }
+      warSeal_ = false;
+      warStory_('me', b.label + (seal ? '（令咒）' : ''));
+      warRender_(res.view);
+      warLog_(res.log);
+    } catch (e) { alert('連不上，等一下再試。'); return; }
+    finally { warBusy_ = false; }
+    await warNarrate_();
+  }
+
+  function warToggleSeal() {
+    if (!warCur_ || warCur_.phase !== 'battle' || warCur_.master.seals <= 0) return;
+    warSeal_ = !warSeal_;
+    warRenderButtons_();
+  }
+
+  async function warNarrate_() {
+    const box = warEl_('war-story');
+    const wait = document.createElement('div');
+    wait.className = 'war-line war-dim';
+    wait.textContent = '說書人落筆中…';
+    if (box) { box.appendChild(wait); box.scrollTop = box.scrollHeight; }
+    warBusy_ = true; warRenderButtons_();
+    try {
+      const res = await gasRun({ action: 'war_narrate', acctName: currentAccount });
+      wait.remove();
+      if (res && res.success && res.text) warStory_('ai', res.text);
+    } catch (e) { wait.textContent = '說書人一時接不上話，戰局照樣往下走。'; }
+    finally { warBusy_ = false; warRenderButtons_(); }
+  }
+
+  async function warQuit() {
+    if (!confirm('放棄這一局？戰況會整個清掉。')) return;
+    try {
+      await withProcessing_('收拾戰場中…', () => gasRun({ action: 'war_quit', acctName: currentAccount }));
+    } catch (e) { }
+    warRenderForm_();
+  }
+
+  // ── 畫面 ──
+  function warBar_(v, max, cls) {
+    const p = Math.max(0, Math.min(100, Math.round(v / Math.max(1, max) * 100)));
+    return `<div class="war-bar ${cls || ''}"><i style="width:${p}%"></i></div>`;
+  }
+
+  function warRender_(next) {
+    if (next) warCur_ = next;
+    const v = warCur_;
+    if (!v) return warRenderForm_();
+    const phaseWord = { summon: '召喚', day: '白天', night: '夜晚', battle: '戰鬥', over: '終局' }[v.phase] || '';
+    const sv = v.sv, m = v.master;
+    const np = sv.cd > 0 ? `寶具還要 ${sv.cd} 夜` : '寶具就緒';
+    const seals = '❖'.repeat(m.seals) + '<span class="war-dim">' + '❖'.repeat(Math.max(0, 3 - m.seals)) + '</span>';
+    const foes = (v.foes || []).map(f => `<span class="war-foe${f.alive ? '' : ' dead'}">${escapeHtml(f.label)}${f.alive ? '・' + escapeHtml(f.hp) + '・' + escapeHtml(f.loc) : ''}</span>`).join('')
+      + (v.unknown ? `<span class="war-foe unk">還有 ${v.unknown} 位不明</span>` : '');
+    let battle = '';
+    if (v.battle) {
+      const b = v.battle;
+      battle = `<div class="war-battle">
+        <div class="war-row between"><b>對手：${escapeHtml(b.foe)}</b><span class="war-dim">${b.ctx === 'final' ? '決戰' : '第 ' + b.round + '／' + b.rounds + ' 回合'}</span></div>
+        ${warBar_(b.foeHp, 100, 'foe')}
+        ${b.tele === 'np' ? '<div class="war-warn">⚠ 對方的氣勢暴漲——要放寶具了</div>' : ''}
+      </div>`;
+    }
+    let over = '';
+    if (v.phase === 'over' && v.result) {
+      over = `<div class="war-over ${v.result.win ? 'win' : 'lose'}">${v.result.win ? '🏆 你贏得了聖杯' : '這一場聖杯戰爭，你輸了'}</div>`;
+    }
+    if (!warEl_('war-top')) {
+      warEl_('scr-war').innerHTML = '<div class="war-wrap"><div id="war-top"></div><div id="war-story" class="war-story"></div><div id="war-over"></div><div id="war-seal"></div><div id="war-btns" class="war-btns"></div></div>';
+    }
+    warEl_('war-over').innerHTML = over;
+    warEl_('war-top').innerHTML = `
+      <div class="war-row between war-head">
+        <b>第 ${v.day} 天・${phaseWord}</b>
+        <span>${v.phase === 'over' ? '' : '剩 ' + v.nightsLeft + ' 夜・'}敵方 ${v.alive} 位</span>
+        <button class="war-mini" onclick="warBackMenu()">選單</button>
+      </div>
+      <div class="war-card">
+        <div class="war-row between"><b>${escapeHtml(sv.cls)}「${escapeHtml(sv.name)}」</b><span>${np}</span></div>
+        ${warBar_(sv.hp, sv.mhp, 'sv')}
+        <div class="war-row between war-small"><span>御主 ${escapeHtml(m.name)}</span><span>令咒 ${seals}</span></div>
+        ${warBar_(m.hp, m.mhp, 'ms')}
+        <div class="war-small war-dim">${escapeHtml(sv.trait)}　真名：${sv.exposed ? '<b class="war-red">已曝光</b>' : '隱藏中'}</div>
+      </div>
+      <div class="war-foes">${foes || '<span class="war-dim">還不知道對手在哪裡</span>'}</div>
+      ${battle}`;
+    warRenderButtons_();
+  }
+
+  function warRenderButtons_() {
+    const v = warCur_, box = warEl_('war-btns'), sealBox = warEl_('war-seal');
+    if (!v || !box) return;
+    if (sealBox) {
+      sealBox.innerHTML = v.phase === 'battle' && v.master.seals > 0
+        ? `<button class="war-pill war-sealbtn${warSeal_ ? ' on' : ''}" onclick="warToggleSeal()">❖ 用令咒${warSeal_ ? '：這一回合' : ''}（剩 ${v.master.seals}）</button>` : '';
+    }
+    if (v.phase === 'over') {
+      box.innerHTML = `<button class="war-btn war-main" onclick="warRenderForm_()"><b>再來一局</b><small>重新召喚</small></button>
+        <button class="war-btn war-ghost" onclick="warBackMenu()"><b>回選單</b></button>`;
+      return;
+    }
+    box.innerHTML = (v.buttons || []).map((b, i) => {
+      const seal = warSeal_ && v.phase === 'battle' && b.sealSub;
+      const off = warBusy_ || (b.dis && !(warSeal_ && b.sealOk));
+      return `<button class="war-btn${seal ? ' sealed' : ''}" ${off ? 'disabled' : ''} onclick="warDo(${i})"><b>${escapeHtml(b.label)}</b><small>${escapeHtml(seal ? b.sealSub : (b.sub || ''))}</small></button>`;
+    }).join('') + (v.phase === 'day' || v.phase === 'summon' ? `<button class="war-mini war-quit" onclick="warQuit()">放棄這一局</button>` : '');
+  }
+
+  function warStory_(who, text) {
+    const box = warEl_('war-story');
+    if (!box) return;
+    const d = document.createElement('div');
+    d.className = 'war-line ' + who;
+    d.innerHTML = who === 'ai' ? aiHtml_(text) : escapeHtml(text);
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+  }
+  function warLog_(lines) {
+    (lines || []).forEach(l => warStory_('sys', l.txt + (l.num ? '　' + l.num : '')));
+  }
+</script>

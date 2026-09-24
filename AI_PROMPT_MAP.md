@@ -16,6 +16,17 @@
 
 ---
 
+
+## ⚔️ 新聖杯戰爭 `war_narrate`（War_Router.gs，2026-09-24）
+
+| 按鈕 | action | 說書 prompt |
+|---|---|---|
+| 召喚／開戰／白天三選一／夜晚／戰鬥每回合 | `war_act` → `war_narrate` | system＝`WAR_NARR_SYS_`（第二人稱、單層「」、每 2～3 句分段、【這一段發生的事】照順序寫成畫面、數字留在系統、寶具與令咒念出名字）；user＝`warNarrPrompt_`：從者卡（look／words／toMaster）、御主（令咒剩幾劃）、對手（知道真名才給外貌）、此刻（第幾天、白天／夜晚、傷勢字）、【這一段發生的事】（引擎事件的 `txt`，不含數字）、篇幅（`WAR_LEN_`） |
+| 補魔 | 同上，`kind:'supply'` | 同上＋`sealGenderFact_`＋`LEWD_EXPLICIT_`，`LEWD_MODEL`、800～1000 字 |
+| 終局 | 同上，`kind:'over'` | 同上＋結局指示（贏：聖杯在你面前；輸：這場戰爭怎麼結束） |
+
+前情：最近兩段（事實＋說書）當 chatHistory；同一個 `seq` 說過就回快取。
+
 ## 目錄
 
 1. 系統／敘事引擎共用機制（`narrate_only`、`miniSystem`、`servantCard_`/`masterCard_`）

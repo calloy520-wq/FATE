@@ -12,9 +12,13 @@
  */
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const GAS = path.join(__dirname, 'gas');
-const FILES = ['Script.html', 'Script_Onboarding.html', 'Script_Kanshou.html'];
+// 2026-09：原本寫死三個檔名，新拆出 Script_War.html 時整支看不到它。改成自動抓，Script.html 排第一（其他檔用它的共用工具）。
+const FILES = fs.readdirSync(GAS).filter(f => /^Script.*\.html$/.test(f)).sort((a, b) => (a === 'Script.html' ? -1 : b === 'Script.html' ? 1 : a.localeCompare(b)));
 const strip = f => fs.readFileSync(path.join(GAS, f), 'utf8')
   .replace(/^\s*<script>\s*\n/, '').replace(/\n\s*<\/script>\s*$/, '');
+
+// 假 DOM 只造得出被 innerHTML 寫出來的 id；住在 Index.html 的容器要先補上。
+function mkEl(id) { if (!ctx.document.getElementById(id)) { const e = ctx.document.createElement('div'); e.id = id; ctx.document.body.appendChild(e); } return ctx.document.getElementById(id); }
 
 // 這些是玩家點得到的入口：少一個就是死按鈕
 const ENTRIES = [
@@ -22,7 +26,8 @@ const ENTRIES = [
   'kanshouNextStage', 'kanshouEndDay',
   'kmSpinner_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',
   'sumMode_', 'setWarFromSelect_', 'pickWar', 'pickOrigin', 'newGameFlow', 'openTutorial',
-  'ksRender_', 'ksTier_', 'ksPick_', 'ksSave_', 'ksReset_', 'ksResetAll_'
+  'ksRender_', 'ksTier_', 'ksPick_', 'ksSave_', 'ksReset_', 'ksResetAll_',
+  'warOpen', 'warStart', 'warDo', 'warToggleSeal', 'warQuit', 'warBackMenu', 'warRenderForm_', 'warRender_'
 ];
 // 這些面板會被真的叫起來一次（不能拋例外）
 const RENDERS = [
@@ -71,6 +76,25 @@ const RENDERS = [
     let sent = null; const old = ctx.gasRun; ctx.gasRun = p => { sent = p; return Promise.resolve({ success: true }); };
     try { ctx.ksTier_('lenTier', '500'); } finally { ctx.gasRun = old; }
     return !!sent && sent.key === 'lenTier' && sent.styleText === '500' && sent.on !== false;
+  }],
+  // ⚔️ 新聖杯戰爭：開局表單、戰鬥畫面、令咒切換都真的畫一次。按鈕全照後端 buttons 畫，
+  //   這裡釘的是「令咒一開，說明換成令咒版、充能中的寶具變得按得下去」——那是前端唯一自己決定的事。
+  ['warRenderForm_', () => { mkEl('scr-war'); ctx.warRenderForm_(); return /召喚從者/.test(ctx.document.getElementById('scr-war').innerHTML); }],
+  ['warRender_ 戰鬥＋令咒', () => {
+    mkEl('scr-war'); mkEl('setup');
+    const view = { phase: 'battle', day: 3, nights: 14, nightsLeft: 12, alive: 5, unknown: 2,
+      master: { name: '測', hp: 80, mhp: 100, seals: 2 },
+      sv: { cls: 'Saber', name: '阿爾托莉雅', npName: '誓約勝利之劍', hp: 120, mhp: 220, cd: 2, trait: '直感', exposed: true },
+      foes: [{ id: 'e1', label: 'Lancer', intel: 1, alive: true, hp: '負傷', loc: '教會' }],
+      battle: { round: 1, rounds: 3, foe: 'Lancer', foeHp: 60, foeWord: '負傷', tele: 'np', ctx: 'sortie' },
+      buttons: [{ t: 'stance', s: 'strike', label: '正面', sub: '硬碰硬', sealSub: '必中' },
+        { t: 'stance', s: 'np', label: '寶具', sub: '還要 2 夜', sealSub: '無視充能', dis: true, sealOk: true }], result: null };
+    ctx.warRender_(view);
+    const btns = () => String(ctx.document.getElementById('war-btns').innerHTML);
+    if (!/正面/.test(btns()) || !/disabled/.test(btns())) return false;       // 充能中的寶具按不下去
+    if (!/要放寶具了/.test(String(ctx.document.getElementById('war-top').innerHTML))) return false;
+    ctx.warToggleSeal();
+    return /無視充能/.test(btns()) && !/disabled/.test(btns());               // 令咒一開就按得下去
   }],
   ['openTutorial', () => { let html = ''; const old = ctx.showHistoryOverlay; ctx.showHistoryOverlay = h => { html = String(h); };
     try { ctx.openTutorial(); } finally { ctx.showHistoryOverlay = old; }

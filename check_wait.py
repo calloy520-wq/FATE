@@ -16,7 +16,9 @@
 import re, sys, os
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-FILES = ['gas/Script.html', 'gas/Script_Kanshou.html', 'gas/Script_Onboarding.html']
+# 2026-09：原本寫死三個檔名，新拆出 Script_War.html 時這支照樣綠燈——它根本沒看到那個檔。改成自動抓。
+import glob as _glob
+FILES = sorted(os.path.relpath(f, ROOT) for f in _glob.glob(os.path.join(ROOT, 'gas', 'Script*.html')))
 
 # 看得見的等待指示：全螢幕遮罩／面板讀條／非阻塞小提示／行內「…中」字樣＋按鈕鎖
 WAIT = re.compile(

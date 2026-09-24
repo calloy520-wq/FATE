@@ -1,5 +1,13 @@
 # 命運停駐之夜 — 單人(solo)模式 代碼參考筆記
 
+> ## ⚔️ 2026-09-24 起：solo 從零重建成「新聖杯戰爭」
+> 選單上的「⚔️ 聖杯戰爭」走新版：**War_Engine.gs**（純規則，Node 模擬器直接載入）＋**War_Router.gs**（聖杯戰局分頁、`war_load/new/act/narrate/quit`）＋**Script_War.html**（一個畫面、幾顆大按鈕）。
+> - 一天兩個決定：白天【打聽／休養／補魔】，夜裡【突襲某位／巡邏／固守】；戰鬥每回合【正面／試探／寶具／撤退】＋令咒。第 14 夜＝柳洞寺決戰。
+> - 沒有魔力、沒有 AP、沒有地圖、沒有好感：寶具靠充能（補魔推進、令咒硬放），真名是底牌（放寶具就曝光），敵人每夜照個性互相吞併、會夜襲你。
+> - 按鈕的唯一真實來源是 `warButtons_`（前端照畫、後端照驗）；存檔是一局一格 JSON。
+> - 設計理由、玩家原話、平衡數字：CODE_NOTES.md『WAR_』。探針：scratchpad `size/war.js`；平衡模擬：`war/sim.js`。
+> - **下面整份文件描述的是「舊版」solo**（選單上的「舊版」入口），新版確認後整組拆掉。
+
 > 給 Claude 的速查手冊：函式名＋作用＋資料流＋COL schema。改動前先查這份。
 > 專案：calloy520-wq/FATE（`gas/` 內為 Apps Script，clasp 推 branch 部署）。
 > 開發分支：`claude/traditional-chinese-chat-q8ptho`（commit→push→GitHub Action 只跑 clasp push；要上線須另手動觸發 workflow_dispatch 跑 clasp deploy）。

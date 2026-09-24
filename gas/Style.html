@@ -621,4 +621,48 @@
       padding: 12px 8px;
     }
   }
+
+  /* ⚔️ 新聖杯戰爭（Script_War.html）：一個畫面、幾顆大按鈕 */
+  #scr-war { position: fixed; inset: 0; overflow: hidden; background: #0d0b10; color: #e8dcc0; z-index: 50; }
+  /* 上面狀態、中間故事自己捲、下面按鈕釘住：按鈕永遠在手指搆得到的地方 */
+  .war-wrap { max-width: 520px; height: 100%; margin: 0 auto; padding: 12px 16px 14px; box-sizing: border-box; display: flex; flex-direction: column; overflow-y: auto; }
+  #war-top, #war-over, #war-seal { flex: none; }
+  .war-title { color: var(--gold-accent); text-align: center; letter-spacing: 6px; margin: 18px 0 4px; }
+  .war-dim { color: #8a7f6c; }
+  .war-red { color: #e06a5a; }
+  .war-small { font-size: 12px; margin-top: 4px; }
+  .war-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
+  .war-row.between { justify-content: space-between; }
+  .war-head { font-size: 13.5px; border-bottom: 1px solid rgba(212,175,55,.25); padding-bottom: 8px; }
+  .war-card, .war-battle { background: rgba(255,255,255,.04); border: 1px solid rgba(212,175,55,.25); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
+  .war-battle { border-color: rgba(224,106,90,.5); }
+  .war-bar { height: 7px; background: rgba(255,255,255,.08); border-radius: 4px; overflow: hidden; margin: 5px 0; }
+  .war-bar i { display: block; height: 100%; background: #6cc28a; }
+  .war-bar.ms i { background: #7fa6e0; }
+  .war-bar.foe i { background: #e06a5a; }
+  .war-warn { color: #ffb070; font-weight: bold; margin-top: 6px; }
+  .war-foes { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .war-foe { font-size: 12px; padding: 3px 9px; border-radius: 12px; border: 1px solid rgba(212,175,55,.35); }
+  .war-foe.dead { text-decoration: line-through; opacity: .45; }
+  .war-foe.unk { border-style: dashed; color: #8a7f6c; }
+  .war-story { flex: 1 1 auto; min-height: 90px; overflow-y: auto; margin: 8px 0; padding: 4px 2px; }
+  .war-line { margin: 8px 0; line-height: 1.8; font-size: 14px; }
+  .war-line.sys { font-size: 12.5px; color: #b9a98a; border-left: 2px solid rgba(212,175,55,.4); padding-left: 8px; }
+  .war-line.me { font-size: 12.5px; color: var(--gold-accent); text-align: right; }
+  .war-over { text-align: center; font-size: 17px; font-weight: bold; padding: 12px; border-radius: 10px; margin: 8px 0; }
+  .war-over.win { color: var(--gold-accent); background: rgba(212,175,55,.12); }
+  .war-over.lose { color: #c0a0a0; background: rgba(160,80,80,.12); }
+  .war-btns { flex: none; max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; margin-top: 6px; }
+  .war-btn { display: block; width: 100%; flex: none; text-align: left; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(212,175,55,.5); background: rgba(212,175,55,.06); color: #f0e2bd; cursor: pointer; }
+  .war-btn b { display: block; font-size: 15px; }
+  .war-btn small { display: block; font-size: 12px; color: #a8987a; margin-top: 2px; }
+  .war-btn:disabled { opacity: .4; cursor: default; }
+  .war-btn.sealed { border-color: #d060a0; background: rgba(208,96,160,.12); }
+  .war-btn.war-main { border-color: var(--gold-accent); text-align: center; margin-top: 10px; }
+  .war-btn.war-ghost { border-color: #555; background: none; text-align: center; }
+  .war-pill { padding: 6px 14px; border-radius: 16px; border: 1px solid rgba(212,175,55,.45); background: none; color: #d8c8a0; cursor: pointer; }
+  .war-pill.on { background: rgba(212,175,55,.2); color: var(--gold-accent); }
+  .war-sealbtn.on { border-color: #d060a0; color: #f0a0d0; background: rgba(208,96,160,.15); }
+  .war-mini { padding: 3px 10px; font-size: 12px; border-radius: 8px; border: 1px solid #555; background: none; color: #aaa; cursor: pointer; }
+  .war-quit { align-self: center; margin-top: 10px; }
 </style>
