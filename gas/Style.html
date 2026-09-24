@@ -633,6 +633,7 @@
   .war-small { font-size: 12px; margin-top: 4px; }
   .war-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0; }
   .war-row.between { justify-content: space-between; }
+  .war-row.war-tight { margin: 4px 0 0; }
   .war-head { font-size: 13.5px; border-bottom: 1px solid rgba(212,175,55,.25); padding-bottom: 8px; }
   .war-card, .war-battle { background: rgba(255,255,255,.04); border: 1px solid rgba(212,175,55,.25); border-radius: 10px; padding: 10px 12px; margin: 10px 0; }
   .war-battle { border-color: rgba(224,106,90,.5); }
@@ -642,13 +643,26 @@
   .war-bar.foe i { background: #e06a5a; }
   .war-warn { color: #ffb070; font-weight: bold; margin-top: 6px; }
   .war-foes { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
-  .war-foe { font-size: 12px; padding: 3px 9px; border-radius: 12px; border: 1px solid rgba(212,175,55,.35); }
+  .war-foe { font-size: 12px; padding: 3px 9px; border-radius: 12px; border: 1px solid rgba(212,175,55,.35); background: none; color: inherit; cursor: pointer; font-family: inherit; }
+  .war-foe.on { background: rgba(212,175,55,.18); color: var(--gold-accent); }
+  .war-peek { background: rgba(255,255,255,.03); border: 1px dashed rgba(212,175,55,.35); border-radius: 9px; padding: 8px 11px; margin: 4px 0 8px; font-size: 13px; }
+  .war-intel { margin-top: 4px; }
+  .war-gold { color: var(--gold-accent); }
   .war-foe.dead { text-decoration: line-through; opacity: .45; }
   .war-foe.unk { border-style: dashed; color: #8a7f6c; }
   .war-story { flex: 1 1 auto; min-height: 90px; overflow-y: auto; margin: 8px 0; padding: 4px 2px; }
   .war-line { margin: 8px 0; line-height: 1.8; font-size: 14px; }
   .war-line.sys { font-size: 12.5px; color: #b9a98a; border-left: 2px solid rgba(212,175,55,.4); padding-left: 8px; }
   .war-line.me { font-size: 12.5px; color: var(--gold-accent); text-align: right; }
+  .war-summon { text-align: center; padding: 14px 10px; margin: 6px 0; border-radius: 12px; border: 1px solid var(--gold-accent);
+    background: radial-gradient(circle at 50% 40%, rgba(212,175,55,.22), rgba(212,175,55,.03) 70%); animation: war-summon-in .9s ease-out; }
+  .war-summon b { display: block; font-size: 22px; letter-spacing: 6px; color: var(--gold-accent); margin: 4px 0; }
+  .war-summon span { display: block; font-size: 16px; }
+  .war-summon small { display: block; font-size: 12px; color: #a8987a; margin-top: 4px; }
+  @keyframes war-summon-in { from { opacity: 0; transform: scale(.92); box-shadow: 0 0 40px rgba(212,175,55,.8); } to { opacity: 1; transform: none; box-shadow: none; } }
+  .war-help { position: fixed; inset: 0; z-index: 60; background: rgba(0,0,0,.72); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+  .war-help-card { max-width: 480px; width: 100%; max-height: 100%; overflow-y: auto; box-sizing: border-box; background: #16131a; border: 1px solid rgba(212,175,55,.5); border-radius: 12px; padding: 14px 16px; font-size: 13.5px; line-height: 1.75; }
+  .war-help-card p { margin: 8px 0; }
   .war-over { text-align: center; font-size: 17px; font-weight: bold; padding: 12px; border-radius: 10px; margin: 8px 0; }
   .war-over.win { color: var(--gold-accent); background: rgba(212,175,55,.12); }
   .war-over.lose { color: #c0a0a0; background: rgba(160,80,80,.12); }

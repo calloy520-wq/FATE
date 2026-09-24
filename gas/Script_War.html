@@ -10,6 +10,9 @@
   let warForgeData_ = null;   // war_forge_list 的結果（原作名單、我的原創、可挑技能、規則）
   let warFe_ = null;          // 工房編輯中的那一位
   let warForgeFromMenu_ = false;
+  let warFoeOpen_ = '';       // 名單上點開看情報的那一位
+  let warRuleInfo_ = null;    // 後端的規則數字（warRules_）：表單與「怎麼玩」照這個寫
+  const WAR_HELP_SEEN_ = 'war_help_seen_v1';
 
   function warEl_(id) { return document.getElementById(id); }
 
@@ -20,6 +23,7 @@
     try {
       const res = await withProcessing_('讀取戰局中…', () => gasRun({ action: 'war_load', acctName: currentAccount }));
       if (!res || !res.success) { alert((res && res.message) || '讀不到戰局。'); return warBackMenu(); }
+      if (res.rules) warRuleInfo_ = res.rules;
       if (!res.view) return warRenderForm_();
       warRender_(res.view);
       (res.story || []).forEach(t => warStory_('ai', t));
@@ -38,7 +42,7 @@
     const pick = (k, v, label) => `<button class="war-pill${warForm_[k] === v ? ' on' : ''}" onclick="warFormPick_('${k}','${v}')">${label}</button>`;
     warEl_('scr-war').innerHTML = `<div class="war-wrap">
       <h2 class="war-title">⚔️ 聖杯戰爭</h2>
-      <p class="war-dim">十四夜之內，打倒所有對手。</p>
+      <p class="war-dim">${warRuleInfo_ ? warRuleInfo_.nights + ' 夜' : '期限'}之內，打倒所有對手。<button class="war-mini" onclick="warHelp()">怎麼玩</button></p>
       <input id="war-name" class="std-in" maxlength="10" placeholder="御主之名" style="width:100%;box-sizing:border-box;margin:10px 0 6px;">
       <input id="war-wish" class="std-in" maxlength="40" placeholder="你想向聖杯許什麼願？（可以留白）" style="width:100%;box-sizing:border-box;margin:0 0 10px;">
       <div class="war-row">${pick('sex', '男', '男')}${pick('sex', '女', '女')}</div>
@@ -95,9 +99,46 @@
       if (!res || !res.success) { alert((res && res.message) || '召喚失敗了。'); return; }
       warRender_(res.view);
       warLog_(res.log);
+      let seen = true;
+      try { seen = !!localStorage.getItem(WAR_HELP_SEEN_); } catch (e) { }
+      if (!seen) warHelp();
     } catch (e) { alert('連不上，等一下再試。'); return; }
     finally { warBusy_ = false; }
     await warNarrate_();
+  }
+
+  // ── 怎麼玩：一張卡，第一次開局自動跳出，之後從「？」叫出來 ──
+  function warHelpHtml_() {
+    const r = warRuleInfo_ || {};
+    const n = r.nights ? r.nights + ' 夜' : '期限', last = r.nights ? '第 ' + r.nights + ' 夜' : '最後一夜';
+    return `<h3 class="war-title" style="font-size:17px;margin-top:4px;">怎麼玩</h3>
+      <p>🎯 ${n}之內打倒所有敵方從者。${last}，剩下的人都會在柳洞寺決戰。你的從者或你自己倒下就輸。</p>
+      <p>☀ <b>白天</b>做一件事：打聽（找出對手的下落、看穿真名）／休養（養傷）／補魔（寶具早點回魔）。</p>
+      <p>🌙 <b>夜裡</b>做一件事：突襲知道下落的對手／巡邏（撞上誰就打誰）／固守（在據點迎戰，傷得比較輕）。</p>
+      <p>⚔ <b>戰鬥</b>每回合選一招${r.rounds ? '，最多 ' + r.rounds + ' 回合' : ''}：<br>
+        正面——硬碰硬。<br>
+        試探——雙方傷害減半，還能看穿對方真名；看到「要放寶具了」的預兆時，用它躲開大半。<br>
+        寶具——最重的一擊，放完${r.npCd ? '要 ' + r.npCd + ' 夜' : '要好幾夜'}才回魔，還會暴露你的真名。<br>
+        撤退——打不過就走。</p>
+      <p>◆ <b>真名是王牌</b>：看穿對手的真名，你的攻擊打得到弱點；你的真名曝光，對手也打得到你的。</p>
+      <p>❖ <b>令咒${r.seals ? ' ' + r.seals + ' 劃' : ''}</b>：戰鬥中先按「用令咒」再選招——正面必中、硬放寶具、強制撤退。</p>
+      <p class="war-dim">點名單上的對手，可以看你知道的情報。</p>`;
+  }
+  function warHelp() {
+    let box = warEl_('war-help');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'war-help';
+      box.className = 'war-help';
+      warEl_('scr-war').appendChild(box);
+    }
+    box.innerHTML = `<div class="war-help-card">${warHelpHtml_()}<button class="war-btn war-main" onclick="warHelpClose()"><b>知道了</b></button></div>`;
+    box.style.display = 'flex';
+  }
+  function warHelpClose() {
+    const box = warEl_('war-help');
+    if (box) box.style.display = 'none';
+    try { localStorage.setItem(WAR_HELP_SEEN_, '1'); } catch (e) { }
   }
 
   // ── 按下一顆鈕 ──
@@ -249,22 +290,28 @@
     if (next) warCur_ = next;
     const v = warCur_;
     if (!v) return warRenderForm_();
+    if (v.rules) warRuleInfo_ = v.rules;
     const phaseWord = { summon: '召喚', day: '白天', night: '夜晚', battle: '戰鬥', over: '終局' }[v.phase] || '';
     const sv = v.sv, m = v.master;
     const np = sv.cd > 0 ? `寶具還要 ${sv.cd} 夜` : '寶具就緒';
     const seals = '❖'.repeat(m.seals) + '<span class="war-dim">' + '❖'.repeat(Math.max(0, 3 - m.seals)) + '</span>';
-    const foes = (v.foes || []).map(f => `<span class="war-foe${f.alive ? '' : ' dead'}">${escapeHtml(f.label)}${f.alive ? '・' + escapeHtml(f.hp) + '・' + escapeHtml(f.loc) : ''}</span>`).join('')
+    const foes = (v.foes || []).map(f => `<button class="war-foe${f.alive ? '' : ' dead'}${warFoeOpen_ === f.id ? ' on' : ''}" onclick="warFoePeek('${escapeHtml(f.id)}')">${escapeHtml(f.label)}${f.alive ? '・' + escapeHtml(f.hp) + '・' + escapeHtml(f.loc) : ''}${f.intel >= 2 ? ' ◆' : ''}</button>`).join('')
       + (v.unknown ? `<span class="war-foe unk">還有 ${v.unknown} 位不明</span>` : '');
+    const peek = !v.battle && (v.foes || []).find(f => f.id === warFoeOpen_);
     let battle = '';
     if (v.battle) {
       const b = v.battle;
       battle = `<div class="war-battle">
         <div class="war-row between"><b>對手：${escapeHtml(b.foe)}</b><span class="war-dim">${b.ctx === 'final' ? '決戰' : '第 ' + b.round + '／' + b.rounds + ' 回合'}</span></div>
         ${warBar_(b.foeHp, 100, 'foe')}
+        ${warFoeDetail_(b.info)}
         ${b.tele === 'np' ? '<div class="war-warn">⚠ 對方的氣勢暴漲——要放寶具了</div>' : ''}
       </div>`;
     }
     let over = '';
+    if (v.phase === 'summon') {
+      over = `<div class="war-summon" data-hero="${escapeHtml(sv.name)}"><small>回應召喚的英靈</small><b>${escapeHtml(sv.cls)}</b><span>「${escapeHtml(sv.name)}」</span><small>寶具「${escapeHtml(sv.npName)}」</small></div>`;
+    }
     if (v.phase === 'over' && v.result) {
       over = `<div class="war-over ${v.result.win ? 'win' : 'lose'}">${v.result.win ? '🏆 你贏得了聖杯' : '這一場聖杯戰爭，你輸了'}</div>`;
     }
@@ -276,19 +323,35 @@
       <div class="war-row between war-head">
         <b>第 ${v.day} 天・${phaseWord}</b>
         <span>${v.phase === 'over' ? '' : '剩 ' + v.nightsLeft + ' 夜・'}敵方 ${v.alive} 位</span>
-        <button class="war-mini" onclick="warBackMenu()">選單</button>
+        <span><button class="war-mini" onclick="warHelp()">？</button> <button class="war-mini" onclick="warBackMenu()">選單</button></span>
       </div>
       <div class="war-card">
         <div class="war-row between"><b>${escapeHtml(sv.cls)}「${escapeHtml(sv.name)}」</b><span>${np}</span></div>
+        <div class="war-row between war-small war-tight"><span>從者 ${sv.hp}／${sv.mhp}</span><span>真名：${sv.exposed ? '<b class="war-red">已曝光</b>（對手打得到你的弱點）' : '隱藏中'}</span></div>
         ${warBar_(sv.hp, sv.mhp, 'sv')}
-        <div class="war-row between war-small"><span>御主 ${escapeHtml(m.name)}</span><span>令咒 ${seals}</span></div>
+        <div class="war-row between war-small war-tight"><span>御主 ${escapeHtml(m.name)}　${m.hp}／${m.mhp}</span><span>令咒 ${seals}</span></div>
         ${warBar_(m.hp, m.mhp, 'ms')}
-        <div class="war-small">真名：${sv.exposed ? '<b class="war-red">已曝光</b>' : '隱藏中'}</div>
-        ${(sv.traits || []).map(t => `<div class="war-small war-dim">${escapeHtml(t)}</div>`).join('')}
+        ${v.battle ? '' : (sv.traits || []).map(t => `<div class="war-small war-dim">${escapeHtml(t)}</div>`).join('')}
       </div>
-      <div class="war-foes">${foes || '<span class="war-dim">還不知道對手在哪裡</span>'}</div>
+      ${v.battle ? '' : `<div class="war-foes">${foes || '<span class="war-dim">還不知道對手在哪裡</span>'}</div>`}
+      ${peek ? `<div class="war-peek"><b>${escapeHtml(peek.label)}</b>${peek.odds ? '<span class="war-dim">　' + escapeHtml(peek.odds) + '</span>' : ''}${warFoeDetail_(peek)}</div>` : ''}
       ${battle}`;
     warRenderButtons_();
+  }
+
+  // 對手情報：只知道職階時提示怎麼看穿；看穿真名後攤開御主、寶具狀態、技能。
+  function warFoeDetail_(f) {
+    if (!f) return '';
+    if (!(f.intel >= 2)) return `<div class="war-small war-dim">${escapeHtml(f.cls || '')}・真名未明（白天打聽、或戰鬥中試探，可以看穿）</div>`;
+    return `<div class="war-intel">
+      <div class="war-small">御主 ${escapeHtml(f.master || '無主')}・寶具「${escapeHtml(f.np || '')}」${f.alive === false ? '' : (f.npReady ? '<b class="war-red">可以放</b>' : '<span class="war-dim">魔力未回</span>')}</div>
+      ${(f.traits || []).length ? `<div class="war-small war-dim">技能：${f.traits.map(t => `<span title="${escapeHtml(t)}">${escapeHtml(String(t).split('：')[0])}</span>`).join('・')}</div>` : ''}
+      <div class="war-small war-gold">◆ 看穿了真名：你的攻擊打得到弱點</div>
+    </div>`;
+  }
+  function warFoePeek(id) {
+    warFoeOpen_ = warFoeOpen_ === id ? '' : id;
+    warRender_();
   }
 
   function warRenderButtons_() {

@@ -3,7 +3,12 @@
 var WAR_SHEET_ = '聖杯戰局';
 var WAR_COL_ = { ACCT: 0, GID: 1, UPDATED: 2, STATE: 3, NARR: 4 };
 var WAR_HIST_KEEP_ = 4;        // 說書帶幾段前情
-var WAR_LEN_ = { summon: '150～220', day: '120～180', battle: '100～160', over: '220～300', supply: '800～1000' };
+var WAR_LEN_ = { summon: '180～260', start: '150～220', day: '120～180', battle: '100～160', over: '220～300', supply: '800～1000' };
+// 開場兩幕各有自己要寫的重點；其餘種類照【這一段發生的事】演就好。
+var WAR_SCENE_ = {
+  summon: '這是你們第一次見面：召喚陣的光、從者現身的那一刻、第一句問答（照原作，從者會確認眼前這個人是不是自己的御主）。',
+  start: '聖杯戰爭開始的第一個白天：冬木看起來跟平常一樣，你們在據點說好接下來怎麼打。'
+};
 
 function warSheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -55,7 +60,7 @@ function actionWarLoad(userData) {
   var acct = String(userData.acctName || '');
   if (!acct) return JSON.stringify({ success: false, message: '先登入帳號。' });
   var ref = warLoad_(acct);
-  if (!ref.st) return JSON.stringify({ success: true, view: null, story: [] });
+  if (!ref.st) return JSON.stringify({ success: true, view: null, story: [], rules: warRules_() });
   return JSON.stringify({ success: true, view: warView_(ref.st), story: (ref.narr.hist || []).map(function (h) { return h.t; }) });
 }
 
@@ -94,7 +99,7 @@ function actionWarAct(userData) {
   var st = ref.st;
   var r = warAct_(st, act);
   if (!r.ok) return JSON.stringify({ success: false, message: r.msg });
-  var kind = st.phase === 'over' ? 'over' : (act.t === 'supply' ? 'supply' : (act.t === 'stance' || st.phase === 'battle' ? 'battle' : (act.t === 'reroll' ? 'summon' : 'day')));
+  var kind = st.phase === 'over' ? 'over' : (act.t === 'supply' ? 'supply' : (act.t === 'stance' || st.phase === 'battle' ? 'battle' : (act.t === 'reroll' ? 'summon' : (act.t === 'start' ? 'start' : 'day'))));
   st.narr = { seq: st.seq, kind: kind, facts: r.ev.map(function (e) { return e.txt; }) };
   warSave_(ref, acct, st);
   return JSON.stringify({ success: true, view: warView_(st), log: warLogLines_(r.ev) });
@@ -131,6 +136,47 @@ function actionWarQuit(userData) {
   return JSON.stringify({ success: true });
 }
 
+// ── 世界書：這一段發生的事提到了什麼，才把那一條的原作設定遞給說書 ──
+// 冬木的地點（兩次戰爭的據點都在這裡）與戰爭本身的規矩。寶具、喜惡從各自的種子長出來（warLoreEntries_）。
+var WAR_WORLD_BOOK_ = [
+  { keys: ['深山町'], content: '深山町是冬木市未遠川西岸的老城區，坡道多、老宅多，御三家的宅邸都在這一側' },
+  { keys: ['新都'], content: '新都在未遠川東岸，車站、高樓與中央公園都在那邊，夜裡的辦公大樓頂樓空無一人' },
+  { keys: ['未遠川', '冬木大橋'], content: '未遠川把冬木分成兩半，冬木大橋是橫跨河面的紅色鋼橋' },
+  { keys: ['柳洞寺'], content: '柳洞寺在深山町後山的圓藏山上，一段很長的石階通往山門；整座山張著阻擋靈體的結界，從者只能從正面山門那條路上去' },
+  { keys: ['聖杯在柳洞寺', '聖杯降臨'], content: '大聖杯藏在圓藏山地底的大空洞，聖杯戰爭走到最後，剩下的從者都會被引到那裡' },
+  { keys: ['教會', '言峰'], content: '冬木教會在新都郊外的山丘上，是聖杯戰爭的監督所在；失去從者的御主可以到那裡尋求庇護' },
+  { keys: ['遠坂宅', '遠坂邸'], content: '遠坂邸是深山町坡道頂上的紅磚洋館，遠坂家世代的魔術工房' },
+  { keys: ['間桐宅', '間桐邸'], content: '間桐邸是深山町另一棟終日陰暗的洋館，間桐家的魔術據點' },
+  { keys: ['衛宮邸', '衛宮家'], content: '衛宮邸是深山町的大和式老宅，有道場，後院還有一座土藏' },
+  { keys: ['海特飯店'], content: '海特飯店是新都的高樓飯店，肯尼斯包下了整整一層布成工房' },
+  { keys: ['麥肯基宅'], content: '麥肯基家是深山町一戶普通的民宅，韋伯用暗示讓那對老夫婦把自己當成從國外回來的孫子' },
+  { keys: ['碼頭倉庫', '倉庫街'], content: '冬木港邊的倉庫街入夜後沒有人煙，一排排貨櫃與鐵皮倉庫' },
+  { keys: ['令咒'], content: '令咒是刻在御主手上的三劃絕對命令權，能讓從者做到平常做不到的事；用掉的那一劃會褪去' },
+  { keys: ['補魔', '魔力'], content: '從者靠御主供給的魔力留在現世，御主的魔力不夠時，從者連寶具都放不出來' }
+];
+
+// 這一局能觸發的條目：世界書＋我方從者的喜惡＋場上每一位的寶具原作描述。
+//   寶具條目只寫寶具本身、不寫持有者——真名還沒看穿的對手，說書也不該先知道是誰。
+function warLoreEntries_(st) {
+  var out = WAR_WORLD_BOOK_.slice();
+  var sc = (st.sv && st.sv.card) || {};
+  (sc.book || []).forEach(function (e) { if (e && e.content) out.push({ keys: e.keys || [], content: st.sv.name + e.content }); });
+  [st.sv].concat(st.enemies || []).forEach(function (u) {
+    String((u && u.card && u.card.np) || '').split('／').forEach(function (piece) {
+      var n = warNpName_(piece);
+      if (piece.trim() && n !== '寶具') out.push({ keys: [n], content: '寶具「' + n + '」：' + piece.trim() });
+    });
+  });
+  return out;
+}
+// 這一段的事件文字碰到的條目 → 一行；沒有就空字串。
+function warLoreStr_(st) {
+  var hits = loreHits_(warLoreEntries_(st), ((st.narr && st.narr.facts) || []).join('\n'), {});
+  var seen = {};
+  hits = hits.filter(function (h) { if (seen[h]) return false; seen[h] = 1; return true; }).slice(0, KANSHOU_LORE_MAX_);
+  return hits.length ? '【這一段碰到的原作設定】寫到的時候照這個寫：' + hits.join('｜') + '。' : '';
+}
+
 // ── 說書提示詞 ────────────────────────────────────────
 var WAR_NARR_SYS_ = '《命運停駐之夜》說書人。Fate／TYPE-MOON 的筆觸，台灣繁體中文。\n'
   + '1. 旁白用第二人稱：「你」是御主本人，寫你看見、聽見、感覺到的。\n'
@@ -154,6 +200,8 @@ function warNarrPrompt_(st) {
   var when = st.phase === 'day' ? '白天' : (st.phase === 'over' ? '最後' : '夜晚');
   lines.push('【此刻】第 ' + Math.min(st.day, WAR_.NIGHTS) + ' 天的' + when + '。' + sv.name + warHpWord_(sv) + '；你' + (st.master.hp >= st.master.mhp * 0.8 ? '沒有大礙' : '也受了傷') + '。');
   lines.push('【這一段發生的事】\n' + st.narr.facts.map(function (f) { return '・' + f; }).join('\n'));
+  var lore = warLoreStr_(st);
+  if (lore) lines.push(lore);
   var kind = st.narr.kind;
   if (kind === 'supply') {
     lines.push(sealGenderFact_(st.master.sex, p.gender || '', sv.name));
@@ -161,7 +209,7 @@ function warNarrPrompt_(st) {
   } else if (kind === 'over') {
     lines.push('★【' + WAR_LEN_.over + ' 字】這是這場聖杯戰爭的結局，寫出它的重量。' + (st.result && st.result.win ? '聖杯在你面前，照你心裡的那個願望寫這一刻，把你們一路走來的樣子寫進最後這一幕。' : '寫這一場戰爭怎麼在你手裡結束。'));
   } else {
-    lines.push('★篇幅 ' + (WAR_LEN_[kind] || WAR_LEN_.day) + ' 字。');
+    lines.push('★篇幅 ' + (WAR_LEN_[kind] || WAR_LEN_.day) + ' 字。' + (WAR_SCENE_[kind] || ''));
   }
   return lines.join('\n');
 }

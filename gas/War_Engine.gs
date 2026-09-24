@@ -77,6 +77,11 @@ function warSkOk_(row, hook, foe) { return row[hook] !== undefined && !(row.from
 function warMul_(u, hook, foe) { return warSkRows_(u).reduce(function (m, r) { return warSkOk_(r, hook, foe) ? m * r[hook] : m; }, 1); }
 function warAdd_(u, hook, foe) { return warSkRows_(u).reduce(function (a, r) { return warSkOk_(r, hook, foe) ? a + r[hook] : a; }, 0); }
 function warFlag_(u, hook) { return warSkRows_(u).some(function (r) { return !!r[hook]; }); }
+// 提供這個時機的技能叫什麼（畫面與說書要念出原作技能名）。
+function warSkName_(u, hook) {
+  var f = ((u && u.fx) || []).filter(function (x) { return WAR_SKILL_[x] && WAR_SKILL_[x][hook] !== undefined; })[0];
+  return f ? ((u.skn && u.skn[f]) || f) : '技能';
+}
 
 // 階級字串 → 數字：E1 D2 C3 B4 A5 EX7，每個 + 多 0.4、每個 - 少 0.4。
 function warRank_(r) {
@@ -122,7 +127,7 @@ function warUnit_(seed, extra) {
   };
   var sk = warSkillsOf_(seed), p = seed.persona || {};
   u.fx = sk.fx; u.skn = sk.names;
-  u.card = { look: p.look || '', words: p.words || '', toMaster: p.toMaster || '', gender: seed.gender || '' };   // 說書用，不進規則
+  u.card = { look: p.look || '', words: p.words || '', toMaster: p.toMaster || '', gender: seed.gender || '', np: String(seed.np || ''), book: Array.isArray(p.book) ? p.book : [] };   // 說書用，不進規則
   for (var k in (extra || {})) u[k] = extra[k];
   return u;
 }
@@ -257,13 +262,13 @@ function warDoDay_(st, act, ev) {
       got = warReveal_(st, warPick_(st, known1), ev);
     }
     if (!got) ev.push({ k: 'intel', txt: '跑了一整天，沒問到新的消息。' });
-    if (warAdd_(sv, 'scoutRest') > 0) { var sr = warHeal_(sv, warAdd_(sv, 'scoutRest')); warHealMaster_(st, WAR_.REST_MASTER / 2); ev.push({ k: 'rest', txt: sv.name + '自己出去探，你留在據點喘了口氣。', num: '從者 +' + sr }); }
+    if (warAdd_(sv, 'scoutRest') > 0) { var sr = warHeal_(sv, warAdd_(sv, 'scoutRest')); warHealMaster_(st, WAR_.REST_MASTER / 2); ev.push({ k: 'rest', txt: sv.name + '自己出去探，你留在據點喘了口氣。', num: sr ? '從者 +' + sr : '' }); }
     warArrived_(st).forEach(function (e) {
       if (!e.found && warRand_(st) < WAR_.FIND_SCOUT) { e.found = true; ev.push({ k: 'watched', txt: '回程的路上，你覺得背後有一道視線。' }); }
     });
   } else if (act.t === 'rest') {
     var a = warHeal_(sv, WAR_.REST_HEAL), m = warHealMaster_(st, WAR_.REST_MASTER);
-    ev.push({ k: 'rest', txt: sv.name + '在據點裡休養了一整天。', num: '從者 +' + a + '・御主 +' + m });
+    ev.push({ k: 'rest', txt: sv.name + '在據點裡休養了一整天。', num: [a ? '從者 +' + a : '', m ? '御主 +' + m : ''].filter(Boolean).join('・') });
   } else if (act.t === 'supply') {
     var had = sv.cd;
     sv.cd = Math.max(0, sv.cd - WAR_.SUPPLY_CD);
@@ -456,8 +461,9 @@ function warExchange_(st, A, Z, ev) {
     var W = sa >= sz ? A : Z, L = W === A ? Z : A;
     A.u.cd = WAR_.NP_COOLDOWN; Z.u.cd = WAR_.NP_COOLDOWN;
     var d = Math.round(warNpDmg_(W, L) * WAR_.CLASH_WIN);
-    warApply_(st, L, d);
+    var stood = warApply_(st, L, d);
     ev.push({ k: 'clash', txt: '兩道寶具正面相撞。' + warWho_(st, W) + '的「' + W.u.npName + '」壓過了' + warWho_(st, L) + '的「' + L.u.npName + '」，' + warWho_(st, L) + warHurtWord_(L.u) + '。', num: '−' + d });
+    if (stood) warStoodEv_(st, L, ev);
     if (L.side === 'me') warMasterHit_(st, WAR_.NP_MASTER_HIT, ev);
     return { ended: '' };
   }
@@ -481,8 +487,9 @@ function warStrike_(st, X, Y, ev) {
   if (X.act === 'np') {
     X.u.cd = WAR_.NP_COOLDOWN;
     var nd = Math.round(warNpDmg_(X, Y) * guard * home * warMul_(X.u, 'npDealt') * warMul_(Y.u, 'npTaken', X.u));
-    warApply_(st, Y, nd);
+    var npStood = warApply_(st, Y, nd);
     ev.push({ k: 'np', side: X.side, txt: warWho_(st, X) + '解放寶具「' + X.u.npName + '」。' + (Y.act === 'probe' ? warWho_(st, Y) + '早有防備，避開了大半，仍然' : warWho_(st, Y)) + warHurtWord_(Y.u) + '。', num: '−' + nd });
+    if (npStood) warStoodEv_(st, Y, ev);
     if (Y.side === 'me' && Y.act !== 'probe') warMasterHit_(st, WAR_.NP_MASTER_HIT, ev);
     return;
   }
@@ -492,16 +499,23 @@ function warStrike_(st, X, Y, ev) {
   if (!hit) { ev.push({ k: 'miss', side: X.side, txt: warWho_(st, X) + (probe ? '出手試探，' : '搶攻，') + '被' + warWho_(st, Y) + '架開了。' }); return; }
   var d = warNormalDmg_(st, X, Y) * (probe ? WAR_.PROBE : 1) * (X.seal ? 1.5 : 1) * (X.ambush ? warMul_(X.u, 'ambushDmg') : 1) * guard * home * warMul_(Y.u, 'dmgTaken', X.u);
   d = Math.max(WAR_.DMG_MIN, Math.round(d));
-  warApply_(st, Y, d);
-  ev.push({ k: 'hit', side: X.side, txt: warWho_(st, X) + (probe ? '出手試探，擦中了' : '一記正面強攻，打中了') + warWho_(st, Y) + '，對方' + warHurtWord_(Y.u) + '。', num: '−' + d });
+  var hitStood = warApply_(st, Y, d);
+  var how = X.ambush ? '憑著「' + warSkName_(X.u, 'ambush') + '」趁對方還沒察覺先下手，打中了' : (probe ? '出手試探，擦中了' : '一記正面強攻，打中了');
+  ev.push({ k: 'hit', side: X.side, txt: warWho_(st, X) + how + warWho_(st, Y) + '，對方' + warHurtWord_(Y.u) + '。', num: '−' + d });
+  if (hitStood) warStoodEv_(st, Y, ev);
   if (Y.side === 'me' && X.u.cls === 'Assassin') warMasterHit_(st, WAR_.ASSASSIN_MASTER_HIT, ev);
 }
 
+// 扣血；回 true＝這一下本該倒下，被 lastStand 撐住了（呼叫端在自己那句之後補 warStoodEv_）。
 function warApply_(st, Y, d) {
-  var u = Y.u, before = u.hp;
+  var u = Y.u, before = u.hp, stood = false;
   u.hp = Math.max(0, u.hp - d);
-  if (u.hp <= 0 && warFlag_(u, 'lastStand') && !u.saved && before > u.mhp * 0.25) { u.saved = true; u.hp = 1; }
+  if (u.hp <= 0 && warFlag_(u, 'lastStand') && !u.saved && before > u.mhp * 0.25) { u.saved = true; u.hp = 1; stood = true; }
   if (u.hp <= 0 && Y.side !== 'me') u.alive = false;
+  return stood;
+}
+function warStoodEv_(st, Y, ev) {
+  ev.push({ k: 'skill', side: Y.side, txt: warWho_(st, Y) + '本該倒下，卻憑著「' + warSkName_(Y.u, 'lastStand') + '」硬是站住了。' });
 }
 
 function warMasterHit_(st, n, ev) {
@@ -591,6 +605,23 @@ function warOver_(st, win, cause, ev) {
   ev.push({ k: 'over', txt: T[cause] || '' });
 }
 
+// 一位對手在畫面上的情報：知道職階（intel 1）才有位置與傷勢；看穿真名（intel 2）才攤開御主、寶具、技能。
+function warFoeCard_(st, e) {
+  var c = { id: e.id, label: warFoeLabel_(e).replace(/[「」]/g, ''), cls: e.cls, intel: e.intel, alive: e.alive,
+    hp: e.intel >= 1 && e.alive ? warHpWord_(e) : '', loc: e.intel >= 1 ? e.loc : '' };
+  if (e.alive && e.intel >= 1 && st.phase !== 'over') c.odds = warOdds_(st, e);
+  if (e.intel >= 2) {
+    c.name = e.name; c.master = e.master; c.np = e.npName; c.npReady = !(e.cd > 0);
+    c.traits = warTraits_(e);
+  }
+  return c;
+}
+
+// 畫面上的說明（開局表單、怎麼玩）要引用的規則數字：只從 WAR_ 拿，前端不另寫一份。
+function warRules_() {
+  return { nights: WAR_.NIGHTS, seals: WAR_.SEALS, rounds: WAR_.ROUNDS, npCd: WAR_.NP_COOLDOWN, supplyCd: WAR_.SUPPLY_CD };
+}
+
 // ── 對外：畫面看得到的樣子（藏起玩家還不知道的事）──
 function warView_(st) {
   var sv = st.sv, b = st.battle;
@@ -599,16 +630,14 @@ function warView_(st) {
     phase: st.phase, day: Math.min(st.day, WAR_.NIGHTS), nights: WAR_.NIGHTS, nightsLeft: Math.max(0, WAR_.NIGHTS - st.day + 1),
     master: { name: st.master.name, hp: st.master.hp, mhp: st.master.mhp, seals: st.master.seals },
     sv: { cls: sv.cls, name: sv.name, npName: sv.npName, hp: sv.hp, mhp: sv.mhp, cd: sv.cd, traits: warTraits_(sv), exposed: st.exposed },
-    foes: foes.map(function (e) {
-      return { id: e.id, label: warFoeLabel_(e).replace(/[「」]/g, ''), intel: e.intel, alive: e.alive, hp: e.intel >= 1 && e.alive ? warHpWord_(e) : '', loc: e.intel >= 1 ? e.loc : '' };
-    }).filter(function (f) { return f.intel >= 1; }),
+    foes: foes.filter(function (e) { return e.intel >= 1; }).map(function (e) { return warFoeCard_(st, e); }),
     unknown: warArrived_(st).filter(function (e) { return e.intel === 0; }).length,
     alive: warAliveCount_(st),
-    battle: null, buttons: warButtons_(st), result: st.result
+    battle: null, buttons: warButtons_(st), result: st.result, rules: warRules_()
   };
   if (b) {
     var e = warFoe_(st, b.e);
-    view.battle = { round: b.round, rounds: WAR_.ROUNDS, foe: warFoeLabel_(e).replace(/[「」]/g, ''), foeHp: Math.round(e.hp / e.mhp * 100), foeWord: warHpWord_(e), tele: b.tele, ctx: b.ctx };
+    view.battle = { round: b.round, rounds: WAR_.ROUNDS, foe: warFoeLabel_(e).replace(/[「」]/g, ''), foeHp: Math.round(e.hp / e.mhp * 100), foeWord: warHpWord_(e), tele: b.tele, ctx: b.ctx, info: warFoeCard_(st, e) };
   }
   return view;
 }
