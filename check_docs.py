@@ -200,6 +200,41 @@ def live_actions():
     return names
 
 
+# 🗺️ CODE_MAP §4 的 action 總表 ↔ ActionRouter（2026-09 新增）
+#    上面那道只認第一格有反引號的列，而這張表是【沒有反引號、左右兩欄並排】的——等於從來沒被驗過。
+#    2026-09 整體檢查時一數：路由器 70 條，表上少 19 條（整批鑑賞路由與新聖杯戰爭）、多 3 條早就砍掉的
+#    （save_hero／claim_hero／kanshou_set_pace），表頭還寫著 69。這張是「要動手前先查」的地圖，
+#    少列＝以為沒有那條路由，多列＝照著走到死路。所以兩個方向都驗，表頭的數字也要對。
+MAP_DOC = 'CODE_MAP.md'
+
+
+def router_actions():
+    src = open(os.path.join(ROOT, 'gas', 'Router_Action.gs'), encoding='utf-8').read()
+    i = src.find('const ActionRouter')
+    body = src[i:src.find('};', i)]
+    return set(re.findall(r'^\s*"?([a-z][a-z0-9_]*)"?\s*:\s*\w+', body, re.M))
+
+
+def scan_map_table(routes, drop=None):
+    text = open(os.path.join(ROOT, MAP_DOC), encoding='utf-8').read()
+    i = text.find('## §4')
+    j = text.find('\n## §', i + 4)
+    sec = text[i:j if j > 0 else len(text)]
+    listed = set()
+    for line in sec.split('\n'):
+        if not line.startswith('|'):
+            continue
+        cells = [c.strip().strip('`') for c in line.strip().strip('|').split('|')]
+        for k in (0, 4):
+            if k < len(cells) and re.match(r'^[a-z][a-z0-9_]+$', cells[k]) and cells[k] != 'action':
+                listed.add(cells[k])
+    if drop:
+        listed.discard(drop)
+    m = re.search(r'## §4 全 (\d+) action', sec)
+    head = int(m.group(1)) if m else -1
+    return sorted(routes - listed), sorted(listed - routes), head
+
+
 def scan_actions(acts, extra=None):
     cited, ghosts = 0, []
     for d in ACT_DOCS:
@@ -277,6 +312,20 @@ def main():
         print('📚 文件↔代碼：❌ action 路由那道失效（注入的死路由抓不到）')
         return 1
 
+    routes = router_actions()
+    map_missing, map_ghost, map_head = scan_map_table(routes)
+    _one = sorted(routes)[0] if routes else ''
+    if not routes or not scan_map_table(routes, _one)[0]:
+        print('📚 文件↔代碼：❌ CODE_MAP 路由總表那道失效（拿掉一列抓不到）')
+        return 1
+    if map_missing or map_ghost or map_head != len(routes):
+        print('📚 文件↔代碼：❌ %s §4 的 action 總表跟 ActionRouter 對不上（路由器 %d 條、表頭寫 %d）' % (MAP_DOC, len(routes), map_head))
+        if map_missing:
+            print('     表上少了：' + '、'.join(map_missing))
+        if map_ghost:
+            print('     表上多了（路由器裡沒有）：' + '、'.join(map_ghost) + '　→ 先查是不是改名')
+        return 1
+
     cur_end, cur_cited, cur_ghosts = scan_current_state()
     # ⚠ 假名字【拼出來】：這道會去讀 check_*.py，寫成字面量就等於「代碼裡真的有」，
     #   注入測試會自己把自己毒到、然後安靜地過關（2026-09 當場踩到）。
@@ -285,8 +334,8 @@ def main():
         print('📚 文件↔代碼：❌ 鑑賞現況區那道失效（注入的幽靈抓不到）')
         return 1
 
-    print('📚 文件↔代碼對照：%d 個函式點名、%d 個常數點名（只查 %s）、%d 個 CODE_NOTES 錨點、鑑賞現況區 %d 行·%d 個點名、路由表 %d 條對照 %d 條 action（含自我退化測試）'
-          % (cited, c_cited, CONST_DOC, n_anchor, cur_end, cur_cited, a_cited, len(acts)))
+    print('📚 文件↔代碼對照：%d 個函式點名、%d 個常數點名（只查 %s）、%d 個 CODE_NOTES 錨點、鑑賞現況區 %d 行·%d 個點名、路由表 %d 條對照 %d 條 action、CODE_MAP 總表 %d 條全對（含自我退化測試）'
+          % (cited, c_cited, CONST_DOC, n_anchor, cur_end, cur_cited, a_cited, len(acts), len(routes)))
     if a_ghosts:
         print('  ❌ 文件的路由表列著路由器不認得的 action：')
         for d, i, n in a_ghosts:

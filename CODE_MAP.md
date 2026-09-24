@@ -184,39 +184,45 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 ---
 
-## §4 全 69 action → handler → 檔
+## §4 全 70 action → handler → 檔
 
 | action | handler | 檔 | | action | handler | 檔 |
 |---|---|---|---|---|---|---|
-| check_name | actionCheckName | Router_Action | | set_servant_output | actionSetServantOutput | Router_Economy |
-| check_sheets | actionCheckSheets | Setup_FateWorld | | set_mage_realm | actionSetMageRealm | Router_Economy |
-| account_login | actionAccountLogin | Account | | set_rune_mode | actionSetRuneMode | Router_Economy |
-| account_new_game | actionAccountNewGame | Account | | outfit | actionSetOutfit | Router_Economy |
-| end_run | actionEndRun | Account | | weapon | actionSetWeapon | Router_Economy |
-| purge_orphans | actionPurgeOrphans | Account | | mana_supply | actionManaSupply | Router_Economy |
-| create | actionManualNpc | Router_Creation | | spirit_repair | actionSpiritRepair | Router_Economy |
-| kanshou_reset | actionKanshouReset | Gallery | | world | actionWorld | Gallery |
-| kanshou_set_pace | actionKanshouSetPace | Gallery | | roll_fate | actionRollFate | Core_Settings |
-| kanshou_get_style | actionKanshouGetStyle | Gallery | | kanshou_set_style | actionKanshouSetStyle | Gallery |
-| np_respond | actionNpRespond | Router_Battle | | | | |
-| backfill_master_ai | actionBackfillMasterAi | Router_Creation | | bond | actionBond | Router_Bond |
-| summon_servant | actionSummonServant | Router_Creation | | use_seal | actionUseSeal | Router_Bond |
-| get_heroes | actionGetHeroes | Router_Creation | | rule_break_steal | actionRuleBreakSteal | Router_Bond |
-| get_masters | actionGetMasters | Router_Creation | | propose_alliance | actionProposeAlliance | Router_Bond |
-| save_hero | actionSaveHero | Router_Creation | | break_alliance | actionBreakAlliance | Router_Bond |
-| claim_hero | actionClaimHero | Router_Creation | | ally_bond | actionAllyBond | Router_Bond |
-| fate_battle | actionFateBattle | Router_Battle | | parley | actionParley | Router_Bond |
-| summon_horror_beast | actionSummonHorror | Router_Battle | | move | actionMove | Router_Movement |
-| dismiss_horror_beast | actionDismissHorror | Router_Battle | | rest | actionRest | Router_Movement |
-| get_tags | actionGetTags | Router_Action | | scout | actionScout | Router_Movement |
-| sync | actionSync | Router_Action | | scavenge | actionScavenge | Router_Movement |
-| get_full_status | actionGetFullStatus | Router_Action | | set_workshop | actionSetWorkshop | Router_Movement |
-| update_fate | actionUpdateFate | Router_Action | | prep_meal | actionPrepMeal | Router_Movement |
-| update_rel_tag | actionUpdateRelTag | Router_Action | | second_wind | actionSecondWind | Router_Movement |
-| kanshou_set_nickname | actionSetNickname | Router_Action | | get_map_nodes | actionGetMapNodes | Router_Movement |
-| narrate_only／tiger_dojo | actionNarrateOnly／actionTigerDojo | Router_Narrative | | faction_ambush | actionFactionAmbush | Router_Movement |
-| dev_resync_codex | actionDevResyncCodex | Seed_Codex | | incite | actionIncite | Router_Movement |
-
+| check_name | actionCheckName | Router_Action | | use_seal | actionUseSeal | Router_Bond |
+| check_sheets | actionCheckSheets | Setup_FateWorld | | mana_supply | actionManaSupply | Router_Economy |
+| account_login | actionAccountLogin | Account | | spirit_repair | actionSpiritRepair | Router_Economy |
+| account_new_game | actionAccountNewGame | Account | | set_servant_output | actionSetServantOutput | Router_Economy |
+| end_run | actionEndRun | Account | | set_mage_realm | actionSetMageRealm | Router_Economy |
+| enter_kanshou | actionEnterKanshou | Gallery | | set_rune_mode | actionSetRuneMode | Router_Economy |
+| kanshou_reset | actionKanshouReset | Gallery | | outfit | actionSetOutfit | Router_Economy |
+| backfill_kanshou_ai | actionBackfillKanshouAi | Gallery | | weapon | actionSetWeapon | Router_Economy |
+| dev_resync_codex | actionDevResyncCodex | Seed_Codex | | bond | actionBond | Router_Bond |
+| purge_orphans | actionPurgeOrphans | Account | | rule_break_steal | actionRuleBreakSteal | Router_Bond |
+| kanshou_companions | actionKanshouCompanions | Gallery | | propose_alliance | actionProposeAlliance | Router_Bond |
+| kanshou_memoir_op | actionKanshouMemoirOp | Gallery | | break_alliance | actionBreakAlliance | Router_Bond |
+| world | actionWorld | Gallery | | ally_bond | actionAllyBond | Router_Bond |
+| kanshou_summon_hero | actionKanshouSummonHero | Gallery | | parley | actionParley | Router_Bond |
+| kanshou_party | actionKanshouParty | Gallery | | set_workshop | actionSetWorkshop | Router_Movement |
+| kanshou_set_sex | actionKanshouSetSex | Gallery | | scavenge | actionScavenge | Router_Movement |
+| kanshou_get_style | actionKanshouGetStyle | Gallery | | second_wind | actionSecondWind | Router_Movement |
+| kanshou_set_style | actionKanshouSetStyle | Gallery | | scout | actionScout | Router_Movement |
+| kanshou_set_name | actionKanshouSetName | Gallery | | get_map_nodes | actionGetMapNodes | Router_Movement |
+| prep_meal | actionPrepMeal | Router_Movement | | faction_ambush | actionFactionAmbush | Router_Movement |
+| get_full_status | actionGetFullStatus | Router_Action | | incite | actionIncite | Router_Movement |
+| update_fate | actionUpdateFate | Router_Action | | move | actionMove | Router_Movement |
+| update_rel_tag | actionUpdateRelTag | Router_Action | | sync | actionSync | Router_Action |
+| kanshou_set_nickname | actionSetNickname | Router_Action | | rest | actionRest | Router_Movement |
+| roll_fate | actionRollFate | Core_Settings | | play | actionPlay | Gallery |
+| create | actionManualNpc | Router_Creation | | narrate_only | actionNarrateOnly | Router_Narrative |
+| backfill_master_ai | actionBackfillMasterAi | Router_Creation | | tiger_dojo | actionTigerDojo | Router_Narrative |
+| summon_servant | actionSummonServant | Router_Creation | | war_load | actionWarLoad | War_Router |
+| get_heroes | actionGetHeroes | Router_Creation | | war_new | actionWarNew | War_Router |
+| get_masters | actionGetMasters | Router_Creation | | war_act | actionWarAct | War_Router |
+| get_tags | actionGetTags | Router_Action | | war_narrate | actionWarNarrate | War_Router |
+| fate_battle | actionFateBattle | Router_Battle | | war_quit | actionWarQuit | War_Router |
+| np_respond | actionNpRespond | Router_Battle | | war_dojo | actionWarDojo | War_Router |
+| summon_horror_beast | actionSummonHorror | Router_Battle | | war_forge_list | actionWarForgeList | War_Forge |
+| dismiss_horror_beast | actionDismissHorror | Router_Battle | | war_forge_save | actionWarForgeSave | War_Forge |
 
 ---
 
@@ -260,8 +266,8 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 
 ## §7 現況（2026-07）
 
-- 24 檔・後端 455 函式・69 action
+- （2026-07 的數字）24 檔・後端 455 函式・69 action；2026-09 起以 §4 表頭為準（表由 Router_Action.gs 的 ActionRouter 產生）
 - **死碼 0**（僅 `removeAllTriggers` 無呼叫點＝刻意保留的編輯器手動工具）
-- 69 action 全部有真實 handler 且皆可從前端到達（`set_mage_realm`/`set_rune_mode` 走 `pickSelectable(action,…)` 動態帶入）
+- 當時 69 action 全部有真實 handler 且皆可從前端到達（`set_mage_realm`/`set_rune_mode` 走 `pickSelectable(action,…)` 動態帶入）
 - 連續 3 輪稽核乾淨收斂 → `SOLO_REFERENCE.md` §25
 - `full`（九州全模擬）停用中；兩軌皆無經濟/生活層、無戰記/排行榜

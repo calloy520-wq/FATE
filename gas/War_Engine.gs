@@ -225,23 +225,26 @@ function warAllowed_(st, act) {
 
 // ── 對外：做一個決定 ──────────────────────────────────
 // 回 { ok, msg, ev:[{k, txt, num}] }：txt 是給 AI 的事實（不含數字），num 是給畫面的數字。
-function warAct_(st, act) {
+// o：重新召喚才用得到的名冊（warSeedCtx_ 那一份）；其餘動作不看。
+function warAct_(st, act, o) {
   act = act || {};
   if (st.phase === 'over') return { ok: false, msg: '這一局已經結束了。', ev: [] };
   var bad = warAllowed_(st, act);
   if (bad) return { ok: false, msg: bad, ev: [] };
+  if (act.t === 'reroll' && !(o && (o.pool || []).length > 1)) return { ok: false, msg: '英靈殿裡沒有別的英靈可以回應。', ev: [] };
   var ev = [];
   st.seq = (st.seq || 0) + 1;
-  if (st.phase === 'summon') warDoSummon_(st, act, ev);
+  if (st.phase === 'summon') warDoSummon_(st, act, ev, o);
   else if (st.phase === 'day') warDoDay_(st, act, ev);
   else if (st.phase === 'night') warDoNight_(st, act, ev);
   else if (st.phase === 'battle') warDoRound_(st, act, ev);
   return { ok: true, msg: '', ev: ev };
 }
 
-function warDoSummon_(st, act, ev) {
+function warDoSummon_(st, act, ev, o) {
   if (act.t === 'reroll') {
     st.rerolls--;
+    warSummon_(st, o);
     ev.push({ k: 'summon', txt: '召喚陣再次亮起，回應你的是另一位英靈：' + st.sv.cls + '「' + st.sv.name + '」。' });
     return;
   }
@@ -397,6 +400,7 @@ function warStartBattle_(st, e, ctx, ev) {
   st.stats.battles++;
   st.sv.saved = false; e.saved = false;
   st.battle.ambush = ctx === 'sortie' && warFlag_(st.sv, 'ambush');
+  st.battle.foeAmbush = ctx === 'defend' && warFlag_(e, 'ambush');   // 帶著氣息遮斷摸上門來的，一樣先手
   if (ctx === 'defend' && warAdd_(st.sv, 'ward') > 0) {
     var w = Math.round(e.mhp * warAdd_(st.sv, 'ward') * warMul_(e, 'wardTaken'));
     e.hp = Math.max(1, e.hp - w);
@@ -428,18 +432,24 @@ function warIntent_(st, me, foe, round) {
 
 function warDoRound_(st, act, ev) {
   var b = st.battle, e = warFoe_(st, b.e), sv = st.sv;
-  if (act.seal) { st.master.seals--; st.stats.seals++; ev.push({ k: 'seal', txt: '你舉起手背，令咒亮了起來。' }); }
+  var ev0 = ev.length;
   var A = { u: sv, act: act.s, seal: !!act.seal, side: 'me', knows: e.intel >= 2, home: b.ctx === 'defend', ambush: b.round === 1 && !!b.ambush };
-  var Z = { u: e, act: b.intent, seal: false, side: 'foe', knows: st.exposed, home: false };
+  var Z = { u: e, act: b.intent, seal: false, side: 'foe', knows: st.exposed, home: false, lair: b.ctx === 'sortie', ambush: b.round === 1 && !!b.foeAmbush };
   var r = warExchange_(st, A, Z, ev);
-  if (b.tele === 'np' && Z.act === 'np') {
-    if (act.s === 'probe' || r.ended) warStat_(st, 'dodged');
-    else if (act.s === 'strike') { warStat_(st, 'ignoredTele'); b.ignored = true; }
+  // 之後的結算只認「真的發生了的事」：對方先撤走了，你的寶具沒放出去、令咒也沒燒掉、試探也沒看到什麼。
+  var myRetreat = r.ended === 'retreat' && r.who === 'me';
+  if (act.seal && (A.struck || (act.s === 'retreat' && myRetreat))) {
+    st.master.seals--; st.stats.seals++;
+    ev.splice(ev0, 0, { k: 'seal', txt: '你舉起手背，令咒亮了起來。' });
   }
-  if (r.ended === 'retreat' && r.who === 'me') warStat_(st, 'retreats');
-  if (act.s === 'np') { st.stats.np++; if (!st.exposed) { st.exposed = true; ev.push({ k: 'exposed', txt: '真名解放的那一刻，你的從者是誰，全冬木都知道了。' }); } }
-  if (Z.act === 'np' && e.intel < 2) { e.intel = 2; ev.push({ k: 'reveal', txt: '看見那道寶具，你認出了對方：「' + e.name + '」。' }); }
-  if (act.s === 'probe' && e.alive && e.intel < 2) warReveal_(st, e, ev);
+  if (b.tele === 'np' && Z.act === 'np') {
+    if ((act.s === 'probe' && Z.fired) || myRetreat) warStat_(st, 'dodged');
+    else if (act.s === 'strike' && Z.fired) { warStat_(st, 'ignoredTele'); b.ignored = true; }
+  }
+  if (myRetreat) warStat_(st, 'retreats');
+  if (A.fired) { st.stats.np++; if (!st.exposed) { st.exposed = true; ev.push({ k: 'exposed', txt: '真名解放的那一刻，你的從者是誰，全冬木都知道了。' }); } }
+  if (Z.fired && e.intel < 2) { e.intel = 2; ev.push({ k: 'reveal', txt: '看見那道寶具，你認出了對方：「' + e.name + '」。' }); }
+  if (act.s === 'probe' && A.struck && e.alive && e.intel < 2) warReveal_(st, e, ev);
   if (!e.alive) { st.stats.kills++; ev.push({ k: 'kill', txt: warFoeLabel_(e) + '的身影化作光點，消散在夜色裡。' }); }
   if (warCheckEnd_(st, ev)) return;
   if (r.ended || !e.alive) { warEndBattle_(st, ev); return; }
@@ -479,6 +489,7 @@ function warExchange_(st, A, Z, ev) {
     var sa = A.u.np + warRand_(st) * 3 + (A.seal ? 3 : 0), sz = Z.u.np + warRand_(st) * 3 + (Z.seal ? 3 : 0);
     var W = sa >= sz ? A : Z, L = W === A ? Z : A;
     A.u.cd = WAR_.NP_COOLDOWN; Z.u.cd = WAR_.NP_COOLDOWN;
+    A.struck = A.fired = Z.struck = Z.fired = true;
     var d = Math.round(warNpDmg_(W, L) * WAR_.CLASH_WIN);
     var stood = warApply_(st, L, d);
     ev.push({ k: 'clash', txt: '兩道寶具正面相撞。' + warWho_(st, W) + '的「' + W.u.npName + '」壓過了' + warWho_(st, L) + '的「' + L.u.npName + '」，' + warWho_(st, L) + warHurtWord_(L.u) + '。', num: '−' + d });
@@ -502,9 +513,12 @@ function warExchange_(st, A, Z, ev) {
 }
 
 function warStrike_(st, X, Y, ev) {
+  X.struck = true;
   var guard = Y.act === 'probe' ? WAR_.PROBE : 1;
-  var home = Y.home ? WAR_.HOME * warMul_(Y.u, 'homeTaken') : 1;
+  // 守家：自己的據點（HOME）再乘陣地作成；在自己的陣地被人闖進來（lair）只吃陣地作成。
+  var home = Y.home ? WAR_.HOME * warMul_(Y.u, 'homeTaken') : (Y.lair ? warMul_(Y.u, 'homeTaken') : 1);
   if (X.act === 'np') {
+    X.fired = true;
     X.u.cd = WAR_.NP_COOLDOWN;
     var nd = Math.round(warNpDmg_(X, Y) * guard * home * warMul_(X.u, 'npDealt') * warMul_(Y.u, 'npTaken', X.u));
     var npStood = warApply_(st, Y, nd);

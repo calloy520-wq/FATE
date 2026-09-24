@@ -1091,13 +1091,13 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 **對外四支**
 - `warNewGame_(o)` — 開局。`o`＝`{pool, roster, seeds, masterNames, name, sex, war, seed}`（`warSeedCtx_` 組好）；停在 `summon`。
 - `warButtons_(st)` — 這一刻能按的鈕（唯一真實來源：前端照畫、`warAllowed_` 照驗）。每顆 `{t, id?, s?, label, sub, sealSub?, dis?, sealOk?}`。
-- `warAct_(st, act)` — 做一個決定，就地改 `st`，回 `{ok, msg, ev:[{k, txt, num}]}`；`txt` 給 AI（不含數字），`num` 給畫面。
+- `warAct_(st, act, o)` — 做一個決定，就地改 `st`，回 `{ok, msg, ev:[{k, txt, num}]}`；`txt` 給 AI（不含數字），`num` 給畫面。`o`＝名冊（`warSeedCtx_`），只有重新召喚要用，沒給就拒絕重抽。
 - `warView_(st)` — 畫面看得到的樣子：藏起玩家還不知道的真名／位置，附上 `buttons`、`result`、`rules`（`warRules_(st)`），終局再附 `debrief`（`warDebrief_`）。
 
 **流程**
 - `warSummon_(st, o)` — 抽從者並重建敵方陣容（抽到的從陣容拿掉）；重抽也走這支。
 - `warAllowed_(st, act)` — 按的東西不在 `warButtons_` 裡就擋；令咒另看剩幾劃。
-- `warDoSummon_(st, act, ev)`／`warDoDay_(st, act, ev)`／`warDoNight_(st, act, ev)`／`warDoRound_(st, act, ev)` — 四個階段各一支。
+- `warDoSummon_(st, act, ev, o)`（重抽走 `warSummon_(st, o)` 真的換人）／`warDoDay_(st, act, ev)`／`warDoNight_(st, act, ev)`／`warDoRound_(st, act, ev)` — 四個階段各一支。
 - `warReveal_(st, e, ev)` — 看穿真名（intel→2）。
 - `warFinishNight_(st, ev)` — 敵人行動（`warTick_`），沒人找上門就進早晨。
 - `warTick_(st, ev)` — 每位敵人一次：可能發現你的據點、夜襲你（只在你固守時、一夜一位）、找別人打、或休息；倒下的人越多、剩下的越急著找人。有人夜襲就回 true 停下來開打。
@@ -1106,7 +1106,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warSetIntent_(st, e)`／`warIntent_(st, me, foe, round)` — 敵人這回合想做什麼（先決定、存起來；看得到預兆就能應對）。
 - `warEndBattle_(st, ev)` — 戰鬥結束；決戰接下一位。
 - `warExchange_(st, A, Z, ev)` — 一回合的交手（撤退→寶具對轟→奇襲方先手→寶具→快的先打），玩家對敵與敵對敵共用。
-- `warStrike_(st, X, Y, ev)`／`warApply_(st, Y, d)`／`warMasterHit_(st, n, ev)` — 出手、扣血、御主被餘波捲到。`warApply_` 回 true＝本該倒下、被 lastStand 撐住；呼叫端在自己那句之後補 `warStoodEv_(st, Y, ev)`（念出技能名）。
+- `warStrike_(st, X, Y, ev)`／`warApply_(st, Y, d)`／`warMasterHit_(st, n, ev)` — 出手、扣血、御主被餘波捲到。`warStrike_` 在出手方身上標 `struck`／放了寶具標 `fired`（對轟兩邊都標），`warDoRound_` 只認這兩個旗子：真的放出寶具才曝光真名、算寶具次數；真的看見對方寶具才認出真名；試探真的出了手才看穿；令咒真的用上（或撤退成功）才扣。守家倍率：自家據點 `home`＝HOME×陣地作成，被闖進自己的陣地 `lair`＝只乘陣地作成；帶氣息遮斷來夜襲的敵人一樣先手（`battle.foeAmbush`）。`warApply_` 回 true＝本該倒下、被 lastStand 撐住；呼叫端在自己那句之後補 `warStoodEv_(st, Y, ev)`（念出技能名）。
 - `warAutoBattle_(st, a, b, ev)` — 敵對敵，最多三回合；有人倒下直接寫進早報，沒人倒下的交給 `warMorning_` 併句（兩位同職階都沒看穿時寫成「另一位」）。
 - `warFinalNext_(st)` — 決戰下一位（血最少的先上）。
 - `warCheckEnd_(st, ev)`／`warOver_(st, win, cause, ev)` — 勝負；`warOver_` 把致命那一場的對手、看穿程度、出擊時血量、有沒有硬吃預兆記進 `result`。`warStat_(st, k)` — 戰績計數加一（舊存檔沒有的欄位從 0 起算）。
@@ -1134,19 +1134,21 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 ### War_Forge.gs — 🛠️ 英靈工房（新聖杯戰爭與鑑賞共用）
 
 一張表單寫一整列英靈殿。為什麼這樣設計：見 CODE_NOTES.md『WAR_FORGE_』。
-- `WAR_FORGE_`（階級、點數、預算 22、技能上限 3、字數上限、六圍名、七職階）、`WAR_FORGE_SKILLS_`（能挑的技能：每個效果列一個代表名）。
-- `warHeroSheet_()`／`warIsOriginal_(row)`（SOURCE≠seed）／`warCreatorOf_(row)`（persona.creator）／`warSixPts_(six)`。
+- `WAR_FORGE_`（階級、算點的四組 `COST`、預算 18、技能上限 3、字數上限、六圍名、七職階）、`WAR_FORGE_SKILLS_`（能挑的技能：每個效果列一個代表名）。
+- `warHeroSheet_()`／`warIsOriginal_(row)`（SOURCE≠seed）／`warCreatorOf_(row)`（persona.creator）。
+- `warSixPts_(six)` — 點數：攻擊（筋力、魔力取高）＋耐久＋敏捷＋寶具（至少 `WAR_.NP_FLOOR`），每格價錢＝`warRank_`（E1…A5、EX7）；幸運不算。`warRankPts_()` — 每一階的價錢（給前端，前端 `warFePts_` 照同一條式子算）。
+- `warForgeRank_(r)` — 舊作的階級（A+、B-）→ 工房的六階取字頭。`warForgeFx_(f)` — 種子 fx → 工房清單上同一列的代表（心眼→直感、十二試煉→戰鬥續行），新規則沒有的回空。
 - `warSeedFromRow_(row)` — 英靈殿一列 → 引擎吃的種子形狀（跟 SEED_SERVANTS 一樣），新聖杯戰爭召喚原創時用。
 - `warOriginalsFor_(acct)` — 這個帳號叫得到的原創：自己做的＋無主的（舊工房留下的，改了就歸你）。
-- `warForgeCheck_(b)` — 驗表單：真名要有中文、不可撞原作名、職階、六圍各一階且合計 ≤ 預算、寶具名、技能 ≤3 且在表上。
-- `actionWarForgeList(userData)` — 回原作名單、我的原創、可挑技能（名字＋效果說明）、各職階自動附的技能、規則。
+- `warForgeCheck_(b, editing)` — 驗表單：真名要有中文、不可撞原作名、職階（改既有的一位時這三項不驗，真名職階照表上那一列）、六圍各一階且點數 ≤ 預算、寶具名、技能 ≤3 且在表上；文字剝掉開頭的 `= + - @`（擋試算表公式）與反斜線。
+- `actionWarForgeList(userData)` — 回原作名單、我的原創（六階已正規化、技能換成工房代表、`lost`＝新規則沒有效果的舊技能名）、可挑技能（名字＋效果說明）、各職階自動附的技能、規則（含 `pts`／`cost`／`npFloor`）。
 - `actionWarForgeSave(userData)` — 新做（ID＝真名-職階）或改自己的（真名、職階鎖住）；職階技能照 `FORGE_CLS_SKILLS_` 自動附；
   外貌／性格有變就用 `translateLookToDaily_`／`translatePersonalityToDaily_` 翻出鑑賞的日常三格；清英靈殿快取。
 
 ### War_Router.gs — ⚔️ 新聖杯戰爭的 GAS 端
 
 - `warSheet_()` — 聖杯戰局分頁（沒有就建）：帳號／局ID／更新／戰況 JSON／說書 JSON。
-- `warLoad_(acct)` — 這個帳號那一列 `{sh, row, st, narr}`。`warSave_(ref, acct, st)`／`warSaveNarr_(ref, narr)` — 戰況與說書分兩格寫（說書不取鎖、戰況取鎖，互不覆蓋）。
+- `warLoad_(acct)` — 這個帳號那一列 `{sh, row, st, narr}`。`warSave_(ref, acct, st)`／`warSaveNarr_(ref, acct, gid, narr)` — 戰況與說書分兩格寫（說書不取鎖、戰況取鎖，互不覆蓋）。說書那一格寫的當下重新找「這個帳號、這一局（gid）」在第幾列：等 AI 期間別人刪列不會寫進別人那一列，這局已放棄或重開就不寫。
 - `warSeedCtx_(war)` — 引擎要的種子（從者池、陣容、名字表）。`warLogLines_(ev)` — 事件→畫面行。
 - `actionWarLoad`／`actionWarNew`／`actionWarAct`／`actionWarNarrate`／`actionWarQuit`（簽名 `(userData)`）— 五條路由。`war_act` 的 `act` 只收 `t/id/s/seal` 四鍵、照白名單驗。`war_load` 沒有戰局時也回 `rules`（開局表單要用）。
 - `warNarrPrompt_(st)` — 說書提示詞：從者卡（look／words／toMaster）、御主、對手（知道真名才給外貌）、此刻（事情發生的那一天、那個時候：`actionWarAct` 在結算前記下 `narr.day`／`narr.when`，時段查 `WAR_WHEN_`；召喚寫「開始前的那一夜」）、【這一段發生的事】、碰到的原作設定（`warLoreStr_`）、篇幅＋召喚／開戰的重點（`WAR_SCENE_`）；補魔段接 `sealGenderFact_`＋`LEWD_EXPLICIT_`。system＝`WAR_NARR_SYS_`。
@@ -1475,7 +1477,9 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warDo(i)` — 按第 i 顆鈕（令咒開著就一起送）→ `war_act` → 重畫 → 說書。`warToggleSeal()` — 令咒開關（戰鬥中才有；開著時用不上令咒的鈕會鎖住）。
 - `warNarrate_()` — 叫 `war_narrate`，等待時故事區顯示「說書人落筆中…」、按鈕鎖住。`warQuit()` — 放棄這一局。
 - `warRender_(next)` — 狀態列、敵人名單、戰鬥框（對手情報＋預兆）、召喚卡、終局卡；骨架只建一次，故事區保留。戰鬥與終局時收起技能表與名單（手機上讓位置給戰鬥框與按鈕）。
-- `warFoeDetail_(f)`／`warFoePeek(id)` — 對手情報（只知道職階時提示怎麼看穿；看穿後御主、寶具可不可以放、技能）／點名單上的對手展開情報。
+- `warToggleTraits()` — 點從者卡展開／收起自己的技能表（召喚時一律攤開）。
+- `warResync_()` — 按了被拒絕或斷線時跟後端重新 `war_load` 一次，畫面不會卡在過期的狀態。
+- `warFoeDetail_(f, inBattle)`／`warFoePeek(id)` — 對手情報（戰鬥框裡「看穿真名」改成標題上的 ◆弱點）（只知道職階時提示怎麼看穿；看穿後御主、寶具可不可以放、技能）／點名單上的對手展開情報。
 - `warHelpHtml_()`／`warHelp()`／`warHelpClose()` — 「怎麼玩」卡：第一次開局自動跳出（localStorage 記住），之後從頂欄「？」叫出；數字照後端 `rules`。
 - `warOverHtml_(v)`／`warDojo()` — 終局卡（勝負、六格戰績、輸在哪與下一局／亮點）／叫 `war_dojo`，講評接在故事區。`warRenderButtons_()` — 照 `buttons` 畫大按鈕（令咒開著換成 `sealSub`、`sealOk` 的鈕變得按得下去）。
 - `warBar_(v, max, cls)`／`warStory_(who, text)`／`warLog_(lines)`／`warEl_(id)` — 小工具；說書走 `aiHtml_`。

@@ -11,6 +11,7 @@
   let warFe_ = null;          // 工房編輯中的那一位
   let warForgeFromMenu_ = false;
   let warFoeOpen_ = '';       // 名單上點開看情報的那一位
+  let warTraitsOpen_ = false; // 自己的技能表：召喚時攤開，之後點從者卡才展開（手機上把位置讓給按鈕）
   let warRuleInfo_ = null;    // 後端的規則數字（warRules_）：表單與「怎麼玩」照這個寫
   const WAR_HELP_SEEN_ = 'war_help_seen_v1';
 
@@ -149,14 +150,21 @@
     warBusy_ = true;
     try {
       const res = await withProcessing_('聖杯演算中…', () => gasRun({ action: 'war_act', acctName: currentAccount, act: { t: b.t, id: b.id || '', s: b.s || '', seal: seal } }));
-      if (!res || !res.success) { alert((res && res.message) || '沒有成功。'); return; }
+      if (!res || !res.success) { alert((res && res.message) || '沒有成功。'); await warResync_(); return; }
       warSeal_ = false;
       warStory_('me', b.label + (seal ? '（令咒）' : ''));
       warRender_(res.view);
       warLog_(res.log);
-    } catch (e) { alert('連不上，等一下再試。'); return; }
+    } catch (e) { alert('連不上，等一下再試。'); await warResync_(); return; }
     finally { warBusy_ = false; }
     await warNarrate_();
+  }
+  // 按了卻被拒絕（或斷線時其實已經算完、另一個分頁先推進了）：畫面可能已經過期，跟後端重新對一次。
+  async function warResync_() {
+    try {
+      const res = await withProcessing_('同步戰局中…', () => gasRun({ action: 'war_load', acctName: currentAccount }));
+      if (res && res.success && res.view) { warSeal_ = false; warRender_(res.view); }
+    } catch (e) { }
   }
 
 
@@ -179,10 +187,10 @@
 
   function warForgeList_() {
     const d = warForgeData_;
-    const mine = d.mine.map(h => `<button class="war-btn" onclick="warForgeEdit('${escapeHtml(h.id)}')"><b>${escapeHtml(h.cls)}「${escapeHtml(h.name)}」${h.owned ? '' : '（無主，改了就歸你）'}</b><small>寶具「${escapeHtml(h.np)}」・點這裡修改</small></button>`).join('');
+    const mine = d.mine.map(h => `<button class="war-btn" onclick="warForgeEdit(${escapeHtml(JSON.stringify(h.id))})"><b>${escapeHtml(h.cls)}「${escapeHtml(h.name)}」${h.owned ? '' : '（無主，改了就歸你）'}</b><small>寶具「${escapeHtml(h.np)}」・點這裡修改</small></button>`).join('');
     warEl_('scr-war').innerHTML = `<div class="war-wrap">
       <h2 class="war-title">🛠️ 英靈工房</h2>
-      <p class="war-dim">六圍合計最多 ${d.rule.budget} 點，技能最多挑 ${d.rule.maxSkills} 個。</p>
+      <p class="war-dim">點數最多 ${d.rule.budget} 點，技能最多挑 ${d.rule.maxSkills} 個。</p>
       <div class="war-btns" style="max-height:none;">${mine || '<p class="war-dim">你還沒做過從者。</p>'}
         <button class="war-btn war-main" onclick="warForgeEdit('')"><b>新增從者</b><small>真名、職階、六圍、寶具、技能</small></button>
         <button class="war-btn war-ghost" onclick="warForgeBack()"><b>返回</b></button>
@@ -191,8 +199,8 @@
 
   function warForgeEdit(id) {
     const d = warForgeData_, h = id ? d.mine.find(x => x.id === id) : null;
-    warFe_ = h ? { id: h.id, name: h.name, cls: h.cls, sex: h.sex || '男', six: Object.assign({}, h.six), np: h.np, fx: h.fx.slice(), look: h.look, words: h.words }
-      : { id: '', name: '', cls: 'Saber', sex: '男', six: {}, np: '', fx: [], look: '', words: '' };
+    warFe_ = h ? { id: h.id, name: h.name, cls: h.cls, sex: h.sex || '男', six: Object.assign({}, h.six), np: h.np, fx: h.fx.slice(), look: h.look, words: h.words, lost: (h.lost || []).slice() }
+      : { id: '', name: '', cls: 'Saber', sex: '男', six: {}, np: '', fx: [], look: '', words: '', lost: [] };
     d.rule.six.forEach(k => { if (d.rule.ranks.indexOf(warFe_.six[k]) < 0) warFe_.six[k] = 'C'; });
     warForgeRender_();
   }
@@ -208,7 +216,14 @@
     else warFe_[k] = v;
     warForgeRender_();
   }
-  function warFePts_() { const r = warForgeData_.rule; return r.six.reduce((a, k) => a + (r.pts[warFe_.six[k]] || 0), 0); }
+  // 點數跟後端 warSixPts_ 同一條式子，規則（哪幾格算、寶具最低幾點）由後端 rule 給。
+  function warFePts_() {
+    const r = warForgeData_.rule, six = warFe_.six;
+    return (r.cost || []).reduce((a, g) => {
+      const v = Math.max(...g.map(k => r.pts[six[k]] || 0));
+      return a + (g.indexOf('寶具') >= 0 ? Math.max(v, r.npFloor || 0) : v);
+    }, 0);
+  }
 
   function warForgeRender_() {
     const d = warForgeData_, r = d.rule, f = warFe_, lock = !!f.id, used = warFePts_();
@@ -223,10 +238,12 @@
       <div class="war-row">${pill('sex', '男', '男', f.sex === '男')}${pill('sex', '女', '女', f.sex === '女')}</div>
       <div class="war-small war-dim">職階技能（自動附上）：${escapeHtml((d.clsSkills[f.cls] || []).join('、') || '無')}</div>
       <div class="war-row between"><b>六圍</b><span class="${over ? 'war-red' : ''}">${used}／${r.budget} 點</span></div>
+      <div class="war-small war-dim">算點數的是：筋力與魔力較高的那一格、耐久、敏捷、寶具（至少算 C）。幸運不算點。</div>
       ${sixRows}
       <input id="fe-np" class="std-in" maxlength="16" placeholder="寶具名（階級＝上面的「寶具」）" value="${escapeHtml(f.np)}" style="width:100%;box-sizing:border-box;margin:8px 0 4px;">
       <div class="war-row between"><b>技能</b><span>${f.fx.length}／${r.maxSkills}</span></div>
       <div class="war-skills">${skills}</div>
+      ${(f.lost || []).length ? `<div class="war-small war-dim">舊的技能「${escapeHtml(f.lost.join('、'))}」在新規則裡沒有效果，存檔後就不會再帶著。</div>` : ''}
       <input id="fe-look" class="std-in" maxlength="40" placeholder="外貌（一句話）" value="${escapeHtml(f.look)}" style="width:100%;box-sizing:border-box;margin:8px 0 4px;">
       <input id="fe-words" class="std-in" maxlength="40" placeholder="性格（一句話）" value="${escapeHtml(f.words)}" style="width:100%;box-sizing:border-box;margin:0 0 8px;">
       <button class="war-btn war-main" ${over ? 'disabled' : ''} onclick="warForgeSave()"><b>存進英靈殿</b><small>${over ? '六圍超過上限了' : '存好就能在召喚時指定'}</small></button>
@@ -270,6 +287,7 @@
   }
 
   async function warQuit() {
+    if (warBusy_) return;
     if (!confirm('放棄這一局？戰況會整個清掉。')) return;
     try {
       await withProcessing_('收拾戰場中…', () => gasRun({ action: 'war_quit', acctName: currentAccount }));
@@ -292,7 +310,7 @@
     const sv = v.sv, m = v.master;
     const np = sv.cd > 0 ? `寶具還要 ${sv.cd} 夜` : '寶具就緒';
     const seals = '❖'.repeat(m.seals) + '<span class="war-dim">' + '❖'.repeat(Math.max(0, 3 - m.seals)) + '</span>';
-    const foes = (v.foes || []).map(f => `<button class="war-foe${f.alive ? '' : ' dead'}${warFoeOpen_ === f.id ? ' on' : ''}" onclick="warFoePeek('${escapeHtml(f.id)}')">${escapeHtml(f.label)}${f.alive ? '・' + escapeHtml(f.hp) + '・' + escapeHtml(f.loc) : ''}${f.intel >= 2 ? ' ◆' : ''}</button>`).join('')
+    const foes = (v.foes || []).map(f => `<button class="war-foe${f.alive ? '' : ' dead'}${warFoeOpen_ === f.id ? ' on' : ''}" onclick="warFoePeek(${escapeHtml(JSON.stringify(f.id))})">${escapeHtml(f.label)}${f.alive ? '・' + escapeHtml(f.hp) + '・' + escapeHtml(f.loc) : ''}${f.intel >= 2 ? ' ◆' : ''}</button>`).join('')
       + (v.unknown ? `<span class="war-foe unk">還有 ${v.unknown} 位不明</span>` : '');
     const busy = !!v.battle || v.phase === 'over';   // 戰鬥框與終局卡要位置：手機上收起不變的技能表與名單
     const peek = !busy && (v.foes || []).find(f => f.id === warFoeOpen_);
@@ -300,9 +318,9 @@
     if (v.battle) {
       const b = v.battle;
       battle = `<div class="war-battle">
-        <div class="war-row between"><b>對手：${escapeHtml(b.foe)}</b><span class="war-dim">${b.ctx === 'final' ? '決戰' : '第 ' + b.round + '／' + b.rounds + ' 回合'}</span></div>
+        <div class="war-row between"><b>對手：${escapeHtml(b.foe)}${b.info && b.info.intel >= 2 ? ' <span class="war-gold war-small" title="看穿了真名：你的攻擊打得到弱點">◆弱點</span>' : ''}</b><span class="war-dim">${b.ctx === 'final' ? '決戰' : '第 ' + b.round + '／' + b.rounds + ' 回合'}</span></div>
         ${warBar_(b.foeHp, 100, 'foe')}
-        ${warFoeDetail_(b.info)}
+        ${warFoeDetail_(b.info, true)}
         ${b.tele === 'np' ? '<div class="war-warn">⚠ 對方的氣勢暴漲——要放寶具了</div>' : ''}
       </div>`;
     }
@@ -321,13 +339,13 @@
         <span>${v.phase === 'over' ? '' : '剩 ' + v.nightsLeft + ' 夜・'}敵方 ${v.alive} 位</span>
         <span><button class="war-mini" onclick="warHelp()">？</button> <button class="war-mini" onclick="warBackMenu()">選單</button></span>
       </div>
-      <div class="war-card">
+      <div class="war-card" onclick="warToggleTraits()">
         <div class="war-row between"><b>${escapeHtml(sv.cls)}「${escapeHtml(sv.name)}」</b><span>${np}</span></div>
         <div class="war-row between war-small war-tight"><span>從者 ${sv.hp}／${sv.mhp}</span><span>真名：${sv.exposed ? '<b class="war-red">已曝光</b>（對手打得到你的弱點）' : '隱藏中'}</span></div>
         ${warBar_(sv.hp, sv.mhp, 'sv')}
         <div class="war-row between war-small war-tight"><span>御主 ${escapeHtml(m.name)}　${m.hp}／${m.mhp}</span><span>令咒 ${seals}</span></div>
         ${warBar_(m.hp, m.mhp, 'ms')}
-        ${busy ? '' : (sv.traits || []).map(t => `<div class="war-small war-dim">${escapeHtml(t)}</div>`).join('')}
+        ${busy ? '' : (v.phase === 'summon' || warTraitsOpen_ ? (sv.traits || []).map(t => `<div class="war-small war-dim">${escapeHtml(t)}</div>`).join('') : ((sv.traits || []).length ? `<div class="war-small war-dim">技能：${(sv.traits || []).map(t => escapeHtml(String(t).split('：')[0])).join('・')}　▾</div>` : ''))}
       </div>
       ${busy ? '' : `<div class="war-foes">${foes || '<span class="war-dim">還不知道對手在哪裡</span>'}</div>`}
       ${peek ? `<div class="war-peek"><b>${escapeHtml(peek.label)}</b>${peek.odds ? '<span class="war-dim">　' + escapeHtml(peek.odds) + '</span>' : ''}${warFoeDetail_(peek)}</div>` : ''}
@@ -359,14 +377,18 @@
   }
 
   // 對手情報：只知道職階時提示怎麼看穿；看穿真名後攤開御主、寶具狀態、技能。
-  function warFoeDetail_(f) {
+  function warFoeDetail_(f, inBattle) {
     if (!f) return '';
     if (!(f.intel >= 2)) return `<div class="war-small war-dim">${escapeHtml(f.cls || '')}・真名未明（白天打聽、或戰鬥中試探，可以看穿）</div>`;
     return `<div class="war-intel">
       <div class="war-small">御主 ${escapeHtml(f.master || '無主')}・寶具「${escapeHtml(f.np || '')}」${f.alive === false ? '' : (f.npReady ? '<b class="war-red">可以放</b>' : '<span class="war-dim">魔力未回</span>')}</div>
       ${(f.traits || []).length ? `<div class="war-small war-dim">技能：${f.traits.map(t => `<span title="${escapeHtml(t)}">${escapeHtml(String(t).split('：')[0])}</span>`).join('・')}</div>` : ''}
-      <div class="war-small war-gold">◆ 看穿了真名：你的攻擊打得到弱點</div>
+      ${inBattle ? '' : '<div class="war-small war-gold">◆ 看穿了真名：你的攻擊打得到弱點</div>'}
     </div>`;
+  }
+  function warToggleTraits() {
+    warTraitsOpen_ = !warTraitsOpen_;
+    warRender_();
   }
   function warFoePeek(id) {
     warFoeOpen_ = warFoeOpen_ === id ? '' : id;
@@ -381,8 +403,9 @@
         ? `<button class="war-pill war-sealbtn${warSeal_ ? ' on' : ''}" onclick="warToggleSeal()">❖ 用令咒${warSeal_ ? '：這一回合' : ''}（剩 ${v.master.seals}）</button>` : '';
     }
     if (v.phase === 'over') {
-      box.innerHTML = `<button class="war-btn war-dojo" onclick="warDojo()"><b>🐯 老虎道場</b><small>${v.result && v.result.win ? '大河老師要來慶祝了' : '聽大河老師講評這一局'}</small></button>
-        <button class="war-btn war-main" onclick="warRenderForm_()"><b>再來一局</b><small>重新召喚</small></button>
+      const off = warBusy_ ? 'disabled' : '';   // 結局的說書還在寫：等它寫完再進道場、開新局
+      box.innerHTML = `<button class="war-btn war-dojo" ${off} onclick="warDojo()"><b>🐯 老虎道場</b><small>${v.result && v.result.win ? '大河老師要來慶祝了' : '聽大河老師講評這一局'}</small></button>
+        <button class="war-btn war-main" ${off} onclick="warRenderForm_()"><b>再來一局</b><small>重新召喚</small></button>
         <button class="war-btn war-ghost" onclick="warBackMenu()"><b>回選單</b></button>`;
       return;
     }
@@ -390,7 +413,7 @@
       const seal = warSeal_ && v.phase === 'battle' && b.sealSub;
       const off = warBusy_ || (b.dis && !(warSeal_ && b.sealOk)) || (warSeal_ && v.phase === 'battle' && !b.sealSub);
       return `<button class="war-btn${seal ? ' sealed' : ''}" ${off ? 'disabled' : ''} onclick="warDo(${i})"><b>${escapeHtml(b.label)}</b><small>${escapeHtml(seal ? b.sealSub : (b.sub || ''))}</small></button>`;
-    }).join('') + (v.phase === 'day' || v.phase === 'summon' ? `<button class="war-mini war-quit" onclick="warQuit()">放棄這一局</button>` : '');
+    }).join('') + (v.phase === 'day' || v.phase === 'summon' ? `<button class="war-mini war-quit" ${warBusy_ ? 'disabled' : ''} onclick="warQuit()">放棄這一局</button>` : '');
   }
 
   function warStory_(who, text) {

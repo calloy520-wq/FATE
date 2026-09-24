@@ -39,8 +39,19 @@ function warSave_(ref, acct, st) {
   if (ref.row) ref.sh.getRange(ref.row, 1, 1, 4).setValues([vals]);
   else { ref.sh.appendRow(vals.concat([JSON.stringify({ seq: 0, hist: [] })])); ref.row = ref.sh.getLastRow(); }
 }
-function warSaveNarr_(ref, narr) {
-  if (ref.row) ref.sh.getRange(ref.row, WAR_COL_.NARR + 1).setValue(JSON.stringify(narr));
+// 說書那一格：寫的當下重新找「這個帳號、這一局」在第幾列。說書與道場不取鎖、要等 AI 好幾秒，
+//   期間別的帳號放棄（刪列）會讓列號往上移——拿開頭記的列號去寫，就寫進別人那一列。找不到（這局已經放棄或重開）就不寫。
+function warSaveNarr_(ref, acct, gid, narr) {
+  var n = ref.sh.getLastRow();
+  if (n < 2) return false;
+  var keys = ref.sh.getRange(2, 1, n - 1, 2).getValues();
+  for (var i = 0; i < keys.length; i++) {
+    if (String(keys[i][WAR_COL_.ACCT]) === acct && String(keys[i][WAR_COL_.GID]) === String(gid || '')) {
+      ref.sh.getRange(i + 2, WAR_COL_.NARR + 1).setValue(JSON.stringify(narr));
+      return true;
+    }
+  }
+  return false;
 }
 
 // 引擎要的種子：從者池、這場戰爭的陣容、名字表。
@@ -88,7 +99,7 @@ function actionWarNew(userData) {
   st.seq = 1;
   var ref = warLoad_(acct);
   warSave_(ref, acct, st);
-  warSaveNarr_(ref, { seq: 0, hist: [] });
+  warSaveNarr_(ref, acct, st.gid, { seq: 0, hist: [] });
   return JSON.stringify({ success: true, view: warView_(st), log: [{ txt: st.narr.facts[0], num: '', k: 'summon' }] });
 }
 
@@ -100,10 +111,11 @@ function actionWarAct(userData) {
   var act = { t: String(a.t || ''), id: String(a.id || ''), s: String(a.s || ''), seal: a.seal === true };
   var st = ref.st;
   var day0 = Math.min(st.day, WAR_.NIGHTS), when = WAR_WHEN_[act.t] || '夜晚';   // 事情發生在按下去的那一刻，不是結算完的下一個早晨
-  var r = warAct_(st, act);
+  var foe0 = st.battle ? st.battle.e : '';   // 這一段打的是誰：決戰打倒一位之後，st.battle 已經換成下一位
+  var r = warAct_(st, act, act.t === 'reroll' ? warSeedCtx_(st.war) : null);
   if (!r.ok) return JSON.stringify({ success: false, message: r.msg });
   var kind = st.phase === 'over' ? 'over' : (act.t === 'supply' ? 'supply' : (act.t === 'stance' || st.phase === 'battle' ? 'battle' : (act.t === 'reroll' ? 'summon' : (act.t === 'start' ? 'start' : 'day'))));
-  st.narr = { seq: st.seq, kind: kind, day: day0, when: when, facts: r.ev.map(function (e) { return e.txt; }) };
+  st.narr = { seq: st.seq, kind: kind, day: day0, when: when, foe: foe0 || (st.battle ? st.battle.e : ''), facts: r.ev.map(function (e) { return e.txt; }) };
   warSave_(ref, acct, st);
   return JSON.stringify({ success: true, view: warView_(st), log: warLogLines_(r.ev) });
 }
@@ -128,7 +140,7 @@ function actionWarNarrate(userData) {
   var text = String(callGeminiAPI(prompt, WAR_NARR_SYS_, cfg) || '').trim();
   if (!text) text = '（夜風吹過，什麼也沒留下。）';
   hist.push({ f: st.narr.facts.join('\n'), t: text });
-  warSaveNarr_(ref, { seq: st.narr.seq, hist: hist.slice(-WAR_HIST_KEEP_) });
+  warSaveNarr_(ref, acct, st.gid, { seq: st.narr.seq, hist: hist.slice(-WAR_HIST_KEEP_) });
   return JSON.stringify({ success: true, text: text });
 }
 
@@ -143,7 +155,7 @@ function actionWarDojo(userData) {
   var text = String(callGeminiAPI(warDojoPrompt_(st), WAR_DOJO_SYS_, { plainText: true, retries: 2, sessionId: 'w_' + acct, model: AI_MODEL, temperature: 0.9, max_tokens: 900 }) || '').trim();
   if (!text) return JSON.stringify({ success: false, message: '道場今天沒開，講評照畫面上的看。' });
   narr.dojo = { gid: st.gid, text: text };
-  warSaveNarr_(ref, narr);
+  warSaveNarr_(ref, acct, st.gid, narr);
   return JSON.stringify({ success: true, text: text });
 }
 
@@ -187,8 +199,8 @@ var WAR_WORLD_BOOK_ = [
   { keys: ['遠坂宅', '遠坂邸'], content: '遠坂邸是深山町坡道頂上的紅磚洋館，遠坂家世代的魔術工房' },
   { keys: ['間桐宅', '間桐邸'], content: '間桐邸是深山町另一棟終日陰暗的洋館，間桐家的魔術據點' },
   { keys: ['衛宮邸', '衛宮家'], content: '衛宮邸是深山町的大和式老宅，有道場，後院還有一座土藏' },
-  { keys: ['海特飯店'], content: '海特飯店是新都的高樓飯店，肯尼斯包下了整整一層布成工房' },
-  { keys: ['麥肯基宅'], content: '麥肯基家是深山町一戶普通的民宅，韋伯用暗示讓那對老夫婦把自己當成從國外回來的孫子' },
+  { keys: ['海特飯店'], content: '海特飯店是新都的高樓飯店，最高的幾層被人整個包了下來' },
+  { keys: ['麥肯基宅'], content: '麥肯基家是深山町一戶普通的民宅，住著一對和善的老夫婦' },
   { keys: ['碼頭倉庫', '倉庫街'], content: '冬木港邊的倉庫街入夜後沒有人煙，一排排貨櫃與鐵皮倉庫' },
   { keys: ['令咒'], content: '令咒是刻在御主手上的三劃絕對命令權，能讓從者做到平常做不到的事；用掉的那一劃會褪去' },
   { keys: ['補魔', '魔力'], content: '從者靠御主供給的魔力留在現世，御主的魔力不夠時，從者連寶具都放不出來' }
@@ -232,8 +244,9 @@ function warNarrPrompt_(st) {
   lines.push('【你的從者】' + sv.name + '（' + sv.cls + '）。' + [p.look, p.words, p.toMaster].filter(Boolean).join('。') + '。');
   lines.push('【你】' + st.master.name + '，' + st.master.sex + '性，手背上還剩 ' + st.master.seals + ' 劃令咒。'
     + (st.master.wish ? '你想向聖杯許的願：' + st.master.wish + '（藏在心裡，從你的選擇與神情透出來）' : ''));
-  if (st.battle) {
-    var e = warFoe_(st, st.battle.e);
+  var foeId = (st.narr && st.narr.foe) || (st.battle ? st.battle.e : '');
+  if (foeId && warFoe_(st, foeId)) {
+    var e = warFoe_(st, foeId);
     lines.push('【對手】' + (e.intel >= 2 ? e.name + '（' + e.cls + '）。' + ((e.card && e.card.look) || '') : warFoeLabel_(e) + '，真名還不知道。'));
   }
   var nr = st.narr || {};

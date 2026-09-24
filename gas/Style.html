@@ -642,7 +642,9 @@
   .war-bar.ms i { background: #7fa6e0; }
   .war-bar.foe i { background: #e06a5a; }
   .war-warn { color: #ffb070; font-weight: bold; margin-top: 6px; }
-  .war-foes { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .war-foes { display: flex; flex-wrap: nowrap; gap: 6px; margin: 6px 0; overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }   /* 一排、左右滑：人再多也不把按鈕擠出畫面 */
+  .war-foes > * { flex: none; white-space: nowrap; }
+  .war-card { cursor: pointer; }
   .war-foe { font-size: 12px; padding: 3px 9px; border-radius: 12px; border: 1px solid rgba(212,175,55,.35); background: none; color: inherit; cursor: pointer; font-family: inherit; }
   .war-foe.on { background: rgba(212,175,55,.18); color: var(--gold-accent); }
   .war-peek { background: rgba(255,255,255,.03); border: 1px dashed rgba(212,175,55,.35); border-radius: 9px; padding: 8px 11px; margin: 4px 0 8px; font-size: 13px; }
@@ -671,7 +673,7 @@
   .war-btn.war-dojo { border-color: #e07a3a; background: rgba(224,122,58,.1); text-align: center; }
   .war-over.win { color: var(--gold-accent); background: rgba(212,175,55,.12); }
   .war-over.lose { color: #c0a0a0; background: rgba(160,80,80,.12); }
-  .war-btns { flex: none; max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; margin-top: 6px; }
+  .war-btns { flex: 0 1 auto; max-height: 46vh; min-height: 112px; overflow-y: auto; display: flex; flex-direction: column; gap: 7px; margin-top: 6px; }   /* 上面內容多時按鈕區跟著縮、自己捲，不把整頁撐出畫面 */
   .war-btn { display: block; width: 100%; flex: none; text-align: left; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(212,175,55,.5); background: rgba(212,175,55,.06); color: #f0e2bd; cursor: pointer; }
   .war-btn b { display: block; font-size: 15px; }
   .war-btn small { display: block; font-size: 12px; color: #a8987a; margin-top: 2px; }
@@ -692,6 +694,14 @@
   .war-pill.war-skill b { display: block; font-size: 13px; }
   .war-pill.war-skill small { display: block; font-size: 11px; color: #a8987a; margin-top: 2px; }
   .war-pill:disabled { opacity: .45; cursor: default; }
+  /* 矮螢幕（手機、筆電縮小視窗）：間距收一點，戰鬥的四顆鈕才放得進一個畫面 */
+  @media (max-height: 800px) {
+    .war-btn { padding: 7px 12px; }
+    .war-btn b { font-size: 14.5px; }
+    .war-card, .war-battle { padding: 8px 11px; margin: 7px 0; }
+    .war-story { min-height: 64px; }
+    .war-btns { gap: 6px; }
+  }
   /* 電腦：左欄狀態＋按鈕、右欄整條故事（矮螢幕也按得到最後一顆） */
   @media (min-width: 900px) {
     .war-wrap.war-game { max-width: 1120px; display: grid; grid-template-columns: 410px 1fr; grid-template-rows: auto auto auto 1fr; column-gap: 26px; overflow: hidden; }
