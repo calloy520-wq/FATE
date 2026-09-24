@@ -1,12 +1,14 @@
 # 命運停駐之夜 — 單人(solo)模式 代碼參考筆記
 
 > ## ⚔️ 2026-09-24 起：solo 從零重建成「新聖杯戰爭」
-> 選單上的「⚔️ 聖杯戰爭」走新版：**War_Engine.gs**（純規則，Node 模擬器直接載入）＋**War_Router.gs**（聖杯戰局分頁、`war_load/new/act/narrate/quit`）＋**Script_War.html**（一個畫面、幾顆大按鈕）。
+> 選單上的「⚔️ 聖杯戰爭」走新版：**War_Engine.gs**（純規則，Node 模擬器直接載入）＋**War_Router.gs**（聖杯戰局分頁、`war_load/new/act/narrate/quit/dojo`）＋**Script_War.html**（一個畫面、幾顆大按鈕）。
 > - 一天兩個決定：白天【打聽／休養／補魔】，夜裡【突襲某位／巡邏／固守】；戰鬥每回合【正面／試探／寶具／撤退】＋令咒。第 14 夜＝柳洞寺決戰。
 > - 沒有魔力、沒有 AP、沒有地圖、沒有好感：寶具靠充能（補魔推進、令咒硬放），真名是底牌（放寶具就曝光），敵人每夜照個性互相吞併、會夜襲你。
 > - 按鈕的唯一真實來源是 `warButtons_`（前端照畫、後端照驗）；存檔是一局一格 JSON。
+> - 世界書：事件文字碰到地點／寶具／令咒才遞原作設定給說書（`warLoreStr_`）。對手情報照看穿程度攤開（`warFoeCard_`）。第一次開局跳「怎麼玩」，規則數字照 `warRules_`。
+> - 終局：`warDebrief_` 算戰績、輸在哪與下一局只改的一件事（`WAR_DOJO_LOSS_`）、亮點（`WAR_DOJO_GOOD_`）；🐯 老虎道場＝`war_dojo`，AI 只演這一份。
 > - 🛠️ 英靈工房＝**War_Forge.gs**（`war_forge_list`／`war_forge_save`）：一張表單寫一整列英靈殿，新聖杯戰爭與鑑賞都叫得出來；舊工房（`save_hero`／`claim_hero`、前端約 500 行）2026-09-24 已移除。欄位與理由見 CODE_NOTES.md『WAR_FORGE_』。
-> - 設計理由、玩家原話、平衡數字：CODE_NOTES.md『WAR_』。探針：scratchpad `size/war.js`；平衡模擬：`war/sim.js`。
+> - 設計理由、玩家原話、平衡數字：CODE_NOTES.md『WAR_』。探針：scratchpad `size/war.js`／`warlore.js`／`warend.js`；平衡模擬：`war/sim.js`。
 > - **下面整份文件描述的是「舊版」solo**（選單上的「舊版」入口），新版確認後整組拆掉。
 
 > 給 Claude 的速查手冊：函式名＋作用＋資料流＋COL schema。改動前先查這份。

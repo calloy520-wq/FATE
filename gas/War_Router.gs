@@ -129,6 +129,41 @@ function actionWarNarrate(userData) {
   return JSON.stringify({ success: true, text: text });
 }
 
+// 🐯 老虎道場：終局後才開；講評的內容（輸在哪、下一局改什麼、亮點）全由 warDebrief_ 算好，AI 只演。同一局講過就回快取。
+function actionWarDojo(userData) {
+  var acct = String(userData.acctName || '');
+  var ref = warLoad_(acct);
+  var st = ref.st;
+  if (!st || st.phase !== 'over') return JSON.stringify({ success: false, message: '聖杯戰爭結束之後，道場才會開門。' });
+  var narr = ref.narr || {};
+  if (narr.dojo && narr.dojo.gid === st.gid && narr.dojo.text) return JSON.stringify({ success: true, text: narr.dojo.text });
+  var text = String(callGeminiAPI(warDojoPrompt_(st), WAR_DOJO_SYS_, { plainText: true, retries: 2, sessionId: 'w_' + acct, model: AI_MODEL, temperature: 0.9, max_tokens: 900 }) || '').trim();
+  if (!text) return JSON.stringify({ success: false, message: '道場今天沒開，講評照畫面上的看。' });
+  narr.dojo = { gid: st.gid, text: text };
+  warSaveNarr_(ref, narr);
+  return JSON.stringify({ success: true, text: text });
+}
+
+var WAR_DOJO_SYS_ = '《命運停駐之夜》的賽後番外「老虎道場」——Fate 經典的搞笑教學橋段。台灣繁體中文。\n'
+  + '1. 出場的是藤村大河（老虎老師，元氣熱血、常狀況外、愛耍寶）與伊莉雅（弟子一號，毒舌、一針見血），整篇寫成兩人的對話。\n'
+  + '2. 台詞前冠說話者的名字，用單層「」；動作寫在引號外，一句帶過。\n'
+  + '3. 每 2～3 句用 <br><br> 分一段。\n'
+  + '4. 【這一局】是系統算好的結果，講評照它講。\n'
+  + '5. 只輸出本文。';
+
+function warDojoPrompt_(st) {
+  var d = warDebrief_(st), S = d.stats;
+  var lines = [];
+  lines.push('【這一局】御主' + st.master.name + '與 ' + st.sv.cls + '「' + st.sv.name + '」，第 ' + d.day + ' 天' + (d.win ? '奪得了聖杯。' : '敗退。'));
+  lines.push('戰績：打了 ' + S.battles + ' 場、打倒 ' + S.kills + ' 位、放了 ' + S.np + ' 次寶具、令咒用了 ' + S.seals + ' 劃、看穿 ' + S.reveals + ' 位的真名、撤退 ' + S.retreats + ' 次。');
+  if (!d.win) lines.push('輸在：' + d.fact + '。\n下一局要改的一件事：' + d.lesson + '。');
+  if (d.good.length) lines.push('做得好的地方：' + d.good.join('；') + '。');
+  lines.push(d.win
+    ? '★約 150～220 字。①大河誇張地慶祝，順便邀功 ②伊莉雅嘴上毒舌，點名一件做得好的事 ③大河用自己的方式恭喜御主。'
+    : '★約 150～220 字。①大河開場吐槽兼打氣 ②伊莉雅點破輸在哪，針對「下一局要改的一件事」給一條具體的建議 ③大河收尾打氣，喊御主再來挑戰。');
+  return lines.join('\n');
+}
+
 function actionWarQuit(userData) {
   var acct = String(userData.acctName || '');
   var ref = warLoad_(acct);

@@ -74,6 +74,7 @@ const ActionRouter = {
   "war_act": actionWarAct,         // ⚔️ 按下一顆鈕（白天／夜晚／戰鬥姿態）
   "war_narrate": actionWarNarrate, // ⚔️ 說書：演剛剛算好的那一段
   "war_quit": actionWarQuit,       // ⚔️ 放棄這一局
+  "war_dojo": actionWarDojo,       // ⚔️🐯 終局後的老虎道場：演 warDebrief_ 算好的戰績與講評
   "war_forge_list": actionWarForgeList, // 🛠️ 英靈工房（War_Forge.gs）：我的原創＋可選技能＋規則
   "war_forge_save": actionWarForgeSave, // 🛠️ 新做／修改一位原創從者
 };
@@ -202,7 +203,7 @@ const LOCK_EXEMPT_ACTIONS_ = {
   check_name: 1, get_full_status: 1, get_heroes: 1, get_masters: 1,
   get_tags: 1, get_map_nodes: 1, sync: 1,
   narrate_only: 1, tiger_dojo: 1, play: 1, backfill_master_ai: 1, backfill_kanshou_ai: 1,
-  war_load: 1, war_narrate: 1, war_forge_list: 1, // ⚔️ 新聖杯戰爭：讀檔不寫表；說書只寫自己那一格、AI 要跑數秒
+  war_load: 1, war_narrate: 1, war_dojo: 1, war_forge_list: 1, // ⚔️ 新聖杯戰爭：讀檔不寫表；說書只寫自己那一格、AI 要跑數秒
   war_forge_save: 1 // 🛠️ 工房存檔：含數秒 AI 呼叫（鑑賞日常三格）·只寫英靈殿一列不碰戰場——佔全域鎖會卡死其他玩家
 };
 // ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。

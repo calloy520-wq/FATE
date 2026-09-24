@@ -28,16 +28,16 @@
 | **Setup_FateWorld.gs** | 4 | 分頁建置／種子灌入 |
 | **Account.gs** | 10 | 帳號綁定／開新局／清理本局 |
 | **History_Sync.gs** | 7 | 戰記寫入／軌跡摘要 |
-| **War_Engine.gs** | 59 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰 |
-| **War_Router.gs** | 12 |
-| **War_Forge.gs** | 9 | 🛠️ 英靈工房（新聖杯戰爭與鑑賞共用）：表單驗證、寫一列完整的英靈殿、原創清單 | ⚔️ 新聖杯戰爭的 GAS 端：聖杯戰局分頁（一局一格 JSON）、`war_*` 五條路由、說書提示詞 |
+| **War_Engine.gs** | 67 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰、賽後講評 |
+| **War_Router.gs** | 16 | ⚔️ 新聖杯戰爭的 GAS 端：聖杯戰局分頁（一局一格 JSON）、`war_*` 六條路由、世界書、說書與老虎道場提示詞 |
+| **War_Forge.gs** | 9 | 🛠️ 英靈工房（新聖杯戰爭與鑑賞共用）：表單驗證、寫一列完整的英靈殿、原創清單 |
 | **Index.html** | 0 | 載入殼（依序載 Style／Script／Script_Onboarding／Script_Kanshou／Script_War） |
 | **Script.html** | 135 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
 | **Script_Kanshou.html** | 108 | 鑑賞（慾海）SPA |
 | **Script_Onboarding.html** | 57 | 開局（登入／創角／召喚） |
-| **Script_War.html** | 26 | ⚔️ 新聖杯戰爭畫面：照後端 `buttons` 畫大按鈕、令咒切換、故事區 |
+| **Script_War.html** | 34 | ⚔️ 新聖杯戰爭畫面：照後端 `buttons` 畫大按鈕、令咒切換、故事區、對手情報、怎麼玩、終局卡與老虎道場、英靈工房 |
 
-> ActionRouter 目前註冊 **69 個 action**，全部對應真實 handler、無缺漏（見下 Router_Action.gs 段完整對照表）。
+> ActionRouter 目前註冊 **70 個 action**，全部對應真實 handler、無缺漏（見下 Router_Action.gs 段完整對照表）。
 
 ---
 
@@ -53,7 +53,7 @@
 
 後端總分流器：唯一輸入防線 `sanitizeUserData_` → dispatch 表 `ActionRouter` → `handleGameAction`，並集中處理鎖／14 日時限攔截／`_state` 夾帶。共 **12 個函式** ＋ 4 張常數表。
 
-#### 🔹 ActionRouter 註冊表（目前註冊 69 個 action）
+#### 🔹 ActionRouter 註冊表（目前註冊 70 個 action）
 
 `"action字串": handler` 完整對照（依原碼順序）：
 
@@ -126,6 +126,7 @@
 | `war_act` | `actionWarAct` | ⚔️ 按一顆鈕（白名單＝`warButtons_`） |
 | `war_narrate` | `actionWarNarrate` | ⚔️ 說書（同一段回快取） |
 | `war_quit` | `actionWarQuit` | ⚔️ 放棄這一局 |
+| `war_dojo` | `actionWarDojo` | ⚔️🐯 終局後的老虎道場（演 `warDebrief_` 算好的講評；同一局回快取） |
 | `war_forge_list` | `actionWarForgeList` | 🛠️ 英靈工房：我的原創＋原作名單＋可挑技能＋規則（War_Forge.gs） |
 | `war_forge_save` | `actionWarForgeSave` | 🛠️ 新做／修改一位原創從者（寫一整列英靈殿，鑑賞也能用） |
 
@@ -1091,7 +1092,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warNewGame_(o)` — 開局。`o`＝`{pool, roster, seeds, masterNames, name, sex, war, seed}`（`warSeedCtx_` 組好）；停在 `summon`。
 - `warButtons_(st)` — 這一刻能按的鈕（唯一真實來源：前端照畫、`warAllowed_` 照驗）。每顆 `{t, id?, s?, label, sub, sealSub?, dis?, sealOk?}`。
 - `warAct_(st, act)` — 做一個決定，就地改 `st`，回 `{ok, msg, ev:[{k, txt, num}]}`；`txt` 給 AI（不含數字），`num` 給畫面。
-- `warView_(st)` — 畫面看得到的樣子：藏起玩家還不知道的真名／位置，附上 `buttons` 與 `result`。
+- `warView_(st)` — 畫面看得到的樣子：藏起玩家還不知道的真名／位置，附上 `buttons`、`result`、`rules`（`warRules_`），終局再附 `debrief`（`warDebrief_`）。
 
 **流程**
 - `warSummon_(st, o)` — 抽從者並重建敵方陣容（抽到的從陣容拿掉）；重抽也走這支。
@@ -1105,17 +1106,23 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warSetIntent_(st, e)`／`warIntent_(st, me, foe, round)` — 敵人這回合想做什麼（先決定、存起來；看得到預兆就能應對）。
 - `warEndBattle_(st, ev)` — 戰鬥結束；決戰接下一位。
 - `warExchange_(st, A, Z, ev)` — 一回合的交手（撤退→寶具對轟→快的先打），玩家對敵與敵對敵共用。
-- `warStrike_(st, X, Y, ev)`／`warApply_(st, Y, d)`／`warMasterHit_(st, n, ev)` — 出手、扣血（Lancer 續行）、御主被餘波捲到。
+- `warStrike_(st, X, Y, ev)`／`warApply_(st, Y, d)`／`warMasterHit_(st, n, ev)` — 出手、扣血、御主被餘波捲到。`warApply_` 回 true＝本該倒下、被 lastStand 撐住；呼叫端在自己那句之後補 `warStoodEv_(st, Y, ev)`（念出技能名）。
 - `warAutoBattle_(st, a, b, ev)` — 敵對敵，最多三回合；結果寫進早報。
 - `warFinalNext_(st)` — 決戰下一位（血最少的先上）。
-- `warCheckEnd_(st, ev)`／`warOver_(st, win, cause, ev)` — 勝負。
+- `warCheckEnd_(st, ev)`／`warOver_(st, win, cause, ev)` — 勝負；`warOver_` 把致命那一場的對手、看穿程度、出擊時血量、有沒有硬吃預兆記進 `result`。`warStat_(st, k)` — 戰績計數加一（舊存檔沒有的欄位從 0 起算）。
+
+**賽後**
+- `WAR_DOJO_LOSS_` — 「輸在哪」表：由上往下第一條成立的（御主倒下／致命那一場硬吃寶具預兆／沒看穿真名／帶重傷出擊／決戰夜人太多／令咒沒用／真名早曝光／一般落敗），各帶一句事實＋下一局只改的那一件事。`WAR_DOJO_GOOD_` — 亮點表（成立的全列，最多三條）。
+- `warDebrief_(st)` — 賽後一整包 `{win, day, stats, good, key?, fact?, lesson?}`；畫面的終局卡與老虎道場讀同一份。`warRevealed_(st)`（看穿幾位）／`warFill_(t, o)`（`{名字}` 代換）。
+- `warRules_()` — 畫面說明要引用的規則數字（夜數、令咒、回合、寶具回魔、補魔），前端不另寫一份。
+- `warFoeCard_(st, e)` — 一位對手在畫面上的情報：intel 1 給職階、位置、傷勢、勝算；intel 2 才加真名、御主、寶具（可不可以放）、技能。
 
 **算式與小工具**
 - `warRank_(r)` — 階級→數字（E1…A5、EX7，±0.4）。`warSpread_(v)` — 階級差距打折（`STAT_SPREAD`）。
-- `warUnit_(seed, extra)` — 種子→戰鬥單位（`sk`＝這位從者自己的技能效果）。`warNpName_(np)` — 寶具名（剝掉原文與括號）。
+- `warUnit_(seed, extra)` — 種子→戰鬥單位（`sk`＝這位從者自己的技能效果；`card` 帶說書用的外貌／性格／寶具原文 `np`／喜惡條目 `book`，不進規則）。`warNpName_(np)` — 寶具名（剝掉原文與括號）。
 - `warSkillsOf_(seed)` — 種子技能 → `{fx:[表上有的 fx], names:{fx: 原作技能名}}`（同一列只收一次）。`warTraits_(u)` — 畫面用「技能名：效果」清單。
 - `warSkRows_(u)`／`warSkOk_(row, hook, foe)` — 這個單位的技能列／這一列在這個時機對這個對手生不生效。
-- `warMul_(u, hook, foe)`／`warAdd_(u, hook, foe)`／`warFlag_(u, hook)` — 讀表三支：把技能在這個時機的數字相乘／相加／有沒有。引擎只透過這三支碰技能。
+- `warMul_(u, hook, foe)`／`warAdd_(u, hook, foe)`／`warFlag_(u, hook)` — 讀表三支：把技能在這個時機的數字相乘／相加／有沒有。引擎只透過這三支碰技能。`warSkName_(u, hook)` — 提供這個時機的是哪個原作技能名（事件文字要念出來；沒有就回「技能」）。
 - `warRand_(st)`／`warPick_(st, arr)`／`warClamp_(v, a, b)` — 亂數與夾值。
 - `warHitChance_(x, y)`／`warMult_(X)`／`warNormalDmg_(st, X, Y)`／`warNpDmg_(X, Y)`／`warRetreatChance_(u, o, seal)` — 命中、倍率、傷害、撤退。
 - `warHeal_(u, pct)`／`warHealMaster_(st, n)` — 回血。
@@ -1140,8 +1147,10 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warSheet_()` — 聖杯戰局分頁（沒有就建）：帳號／局ID／更新／戰況 JSON／說書 JSON。
 - `warLoad_(acct)` — 這個帳號那一列 `{sh, row, st, narr}`。`warSave_(ref, acct, st)`／`warSaveNarr_(ref, narr)` — 戰況與說書分兩格寫（說書不取鎖、戰況取鎖，互不覆蓋）。
 - `warSeedCtx_(war)` — 引擎要的種子（從者池、陣容、名字表）。`warLogLines_(ev)` — 事件→畫面行。
-- `actionWarLoad`／`actionWarNew`／`actionWarAct`／`actionWarNarrate`／`actionWarQuit`（簽名 `(userData)`）— 五條路由。`war_act` 的 `act` 只收 `t/id/s/seal` 四鍵、照白名單驗。
-- `warNarrPrompt_(st)` — 說書提示詞：從者卡（look／words／toMaster）、御主、對手（知道真名才給外貌）、此刻、【這一段發生的事】、篇幅；補魔段接 `sealGenderFact_`＋`LEWD_EXPLICIT_`。system＝`WAR_NARR_SYS_`。
+- `actionWarLoad`／`actionWarNew`／`actionWarAct`／`actionWarNarrate`／`actionWarQuit`（簽名 `(userData)`）— 五條路由。`war_act` 的 `act` 只收 `t/id/s/seal` 四鍵、照白名單驗。`war_load` 沒有戰局時也回 `rules`（開局表單要用）。
+- `warNarrPrompt_(st)` — 說書提示詞：從者卡（look／words／toMaster）、御主、對手（知道真名才給外貌）、此刻、【這一段發生的事】、碰到的原作設定（`warLoreStr_`）、篇幅＋召喚／開戰的重點（`WAR_SCENE_`）；補魔段接 `sealGenderFact_`＋`LEWD_EXPLICIT_`。system＝`WAR_NARR_SYS_`。
+- `WAR_WORLD_BOOK_` — 冬木地點與戰爭規矩的觸發條目。`warLoreEntries_(st)` — 世界書＋我方從者的喜惡（種子 `book`）＋場上每一位的寶具原作描述（不寫持有者）。`warLoreStr_(st)` — 這一段事件文字碰到的條目（走鑑賞的 `loreHits_`，上限 `KANSHOU_LORE_MAX_`）→ 一行，沒有就空字串。
+- `actionWarDojo(userData)` — 🐯 老虎道場：終局才開；`warDojoPrompt_(st)` 帶戰績、輸在哪與下一局（或亮點），system＝`WAR_DOJO_SYS_`（大河＋伊莉雅的對話）；結果存在說書那一格的 `dojo`（同一局回快取，AI 沒回就不存、下次重試）。
 
 ### Index.html
 
@@ -1464,7 +1473,10 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warRenderForm_()`／`warFormPick_(k, v)`／`warStart()` — 開局表單（姓名、性別、願望、第幾次戰爭）→ 召喚。
 - `warDo(i)` — 按第 i 顆鈕（令咒開著就一起送）→ `war_act` → 重畫 → 說書。`warToggleSeal()` — 令咒開關（戰鬥中才有；開著時用不上令咒的鈕會鎖住）。
 - `warNarrate_()` — 叫 `war_narrate`，等待時故事區顯示「說書人落筆中…」、按鈕鎖住。`warQuit()` — 放棄這一局。
-- `warRender_(next)` — 狀態列、敵人名單、戰鬥框（預兆）、終局卡；骨架只建一次，故事區保留。`warRenderButtons_()` — 照 `buttons` 畫大按鈕（令咒開著換成 `sealSub`、`sealOk` 的鈕變得按得下去）。
+- `warRender_(next)` — 狀態列、敵人名單、戰鬥框（對手情報＋預兆）、召喚卡、終局卡；骨架只建一次，故事區保留。戰鬥與終局時收起技能表與名單（手機上讓位置給戰鬥框與按鈕）。
+- `warFoeDetail_(f)`／`warFoePeek(id)` — 對手情報（只知道職階時提示怎麼看穿；看穿後御主、寶具可不可以放、技能）／點名單上的對手展開情報。
+- `warHelpHtml_()`／`warHelp()`／`warHelpClose()` — 「怎麼玩」卡：第一次開局自動跳出（localStorage 記住），之後從頂欄「？」叫出；數字照後端 `rules`。
+- `warOverHtml_(v)`／`warDojo()` — 終局卡（勝負、六格戰績、輸在哪與下一局／亮點）／叫 `war_dojo`，講評接在故事區。`warRenderButtons_()` — 照 `buttons` 畫大按鈕（令咒開著換成 `sealSub`、`sealOk` 的鈕變得按得下去）。
 - `warBar_(v, max, cls)`／`warStory_(who, text)`／`warLog_(lines)`／`warEl_(id)` — 小工具；說書走 `aiHtml_`。
 - `warHeroOptions_()`／`warForgeLoad_()` — 召喚對象選單（命運決定／你的原創／原作），資料來自 `war_forge_list`。
 - `warForgeOpen(fromMenu)`／`warForgeBack()`／`warForgeList_()` — 工房：清單頁（我的原創＋新增）；從主選單進來就回主選單。

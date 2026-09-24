@@ -297,7 +297,8 @@
     const seals = '❖'.repeat(m.seals) + '<span class="war-dim">' + '❖'.repeat(Math.max(0, 3 - m.seals)) + '</span>';
     const foes = (v.foes || []).map(f => `<button class="war-foe${f.alive ? '' : ' dead'}${warFoeOpen_ === f.id ? ' on' : ''}" onclick="warFoePeek('${escapeHtml(f.id)}')">${escapeHtml(f.label)}${f.alive ? '・' + escapeHtml(f.hp) + '・' + escapeHtml(f.loc) : ''}${f.intel >= 2 ? ' ◆' : ''}</button>`).join('')
       + (v.unknown ? `<span class="war-foe unk">還有 ${v.unknown} 位不明</span>` : '');
-    const peek = !v.battle && (v.foes || []).find(f => f.id === warFoeOpen_);
+    const busy = !!v.battle || v.phase === 'over';   // 戰鬥框與終局卡要位置：手機上收起不變的技能表與名單
+    const peek = !busy && (v.foes || []).find(f => f.id === warFoeOpen_);
     let battle = '';
     if (v.battle) {
       const b = v.battle;
@@ -312,9 +313,7 @@
     if (v.phase === 'summon') {
       over = `<div class="war-summon" data-hero="${escapeHtml(sv.name)}"><small>回應召喚的英靈</small><b>${escapeHtml(sv.cls)}</b><span>「${escapeHtml(sv.name)}」</span><small>寶具「${escapeHtml(sv.npName)}」</small></div>`;
     }
-    if (v.phase === 'over' && v.result) {
-      over = `<div class="war-over ${v.result.win ? 'win' : 'lose'}">${v.result.win ? '🏆 你贏得了聖杯' : '這一場聖杯戰爭，你輸了'}</div>`;
-    }
+    if (v.phase === 'over' && v.result) over = warOverHtml_(v);
     if (!warEl_('war-top')) {
       warEl_('scr-war').innerHTML = '<div class="war-wrap war-game"><div id="war-top"></div><div id="war-story" class="war-story"></div><div id="war-over"></div><div id="war-seal"></div><div id="war-btns" class="war-btns"></div></div>';
     }
@@ -331,12 +330,35 @@
         ${warBar_(sv.hp, sv.mhp, 'sv')}
         <div class="war-row between war-small war-tight"><span>御主 ${escapeHtml(m.name)}　${m.hp}／${m.mhp}</span><span>令咒 ${seals}</span></div>
         ${warBar_(m.hp, m.mhp, 'ms')}
-        ${v.battle ? '' : (sv.traits || []).map(t => `<div class="war-small war-dim">${escapeHtml(t)}</div>`).join('')}
+        ${busy ? '' : (sv.traits || []).map(t => `<div class="war-small war-dim">${escapeHtml(t)}</div>`).join('')}
       </div>
-      ${v.battle ? '' : `<div class="war-foes">${foes || '<span class="war-dim">還不知道對手在哪裡</span>'}</div>`}
+      ${busy ? '' : `<div class="war-foes">${foes || '<span class="war-dim">還不知道對手在哪裡</span>'}</div>`}
       ${peek ? `<div class="war-peek"><b>${escapeHtml(peek.label)}</b>${peek.odds ? '<span class="war-dim">　' + escapeHtml(peek.odds) + '</span>' : ''}${warFoeDetail_(peek)}</div>` : ''}
       ${battle}`;
     warRenderButtons_();
+  }
+
+  // 終局卡：勝負、戰績、輸在哪與下一局改什麼（或做得好的地方）。內容全由後端 warDebrief_ 算好。
+  function warOverHtml_(v) {
+    const d = v.debrief || {}, S = d.stats || {}, win = !!(v.result && v.result.win);
+    const cells = [['天', d.day], ['戰鬥', S.battles], ['擊倒', S.kills], ['寶具', S.np], ['令咒', S.seals], ['看穿真名', S.reveals]]
+      .map(c => `<div><b>${Number(c[1]) || 0}</b><small>${c[0]}</small></div>`).join('');
+    return `<div class="war-over ${win ? 'win' : 'lose'}">
+      <div>${win ? '🏆 你贏得了聖杯' : '這一場聖杯戰爭，你輸了'}</div>
+      <div class="war-stats">${cells}</div>
+      ${d.fact ? `<div class="war-debrief"><div>輸在：${escapeHtml(d.fact)}</div><div class="war-gold">下一局：${escapeHtml(d.lesson || '')}</div></div>` : ''}
+      ${(d.good || []).length ? `<div class="war-debrief">${d.good.map(g => `<div>✦ ${escapeHtml(g)}</div>`).join('')}</div>` : ''}
+    </div>`;
+  }
+  async function warDojo() {
+    if (warBusy_) return;
+    warBusy_ = true; warRenderButtons_();
+    try {
+      const res = await withProcessing_('老虎道場開門中…', () => gasRun({ action: 'war_dojo', acctName: currentAccount }));
+      if (res && res.success && res.text) { warStory_('sys', '🐯 老虎道場'); warStory_('ai', res.text); }
+      else warStory_('sys', (res && res.message) || '道場今天沒開，講評照畫面上的看。');
+    } catch (e) { warStory_('sys', '道場今天沒開，講評照畫面上的看。'); }
+    finally { warBusy_ = false; warRenderButtons_(); }
   }
 
   // 對手情報：只知道職階時提示怎麼看穿；看穿真名後攤開御主、寶具狀態、技能。
@@ -362,7 +384,8 @@
         ? `<button class="war-pill war-sealbtn${warSeal_ ? ' on' : ''}" onclick="warToggleSeal()">❖ 用令咒${warSeal_ ? '：這一回合' : ''}（剩 ${v.master.seals}）</button>` : '';
     }
     if (v.phase === 'over') {
-      box.innerHTML = `<button class="war-btn war-main" onclick="warRenderForm_()"><b>再來一局</b><small>重新召喚</small></button>
+      box.innerHTML = `<button class="war-btn war-dojo" onclick="warDojo()"><b>🐯 老虎道場</b><small>${v.result && v.result.win ? '大河老師要來慶祝了' : '聽大河老師講評這一局'}</small></button>
+        <button class="war-btn war-main" onclick="warRenderForm_()"><b>再來一局</b><small>重新召喚</small></button>
         <button class="war-btn war-ghost" onclick="warBackMenu()"><b>回選單</b></button>`;
       return;
     }

@@ -150,7 +150,7 @@ function warNewGame_(o) {
     master: { name: o.name || '御主', sex: o.sex || '男', wish: o.wish || '', hp: WAR_.MASTER_HP, mhp: WAR_.MASTER_HP, seals: WAR_.SEALS },
     sv: null, exposed: false, out: false, enemies: [], battle: null,
     engaged: [], ticked: [], hunted: false, foughtTonight: false,
-    result: null, stats: { np: 0, battles: 0, kills: 0, seals: 0 }, seq: 0
+    result: null, stats: { np: 0, battles: 0, kills: 0, seals: 0, retreats: 0, dodged: 0, ignoredTele: 0, finalFoes: 0 }, seq: 0
   };
   warSummon_(st, o);
   return st;
@@ -291,6 +291,7 @@ function warDoNight_(st, act, ev) {
   st.out = act.t !== 'hold';
   if (act.t === 'final') {
     warArrived_(st).forEach(function (x) { x.intel = Math.max(x.intel, 1); warHeal_(x, WAR_.FINAL_REST); x.cd = 0; });
+    st.stats.finalFoes = warArrived_(st).length;
     ev.push({ k: 'final', txt: '最後一夜。聖杯在柳洞寺降臨，剩下的從者一個接一個踏進了寺院。' });
     warStartBattle_(st, warFinalNext_(st), 'final', ev);
     return;
@@ -377,7 +378,7 @@ function warMorning_(st, ev) {
 // ── 戰鬥 ──────────────────────────────────────────────
 function warStartBattle_(st, e, ctx, ev) {
   st.phase = 'battle';
-  st.battle = { e: e.id, round: 1, ctx: ctx };
+  st.battle = { e: e.id, round: 1, ctx: ctx, hp0: Math.round(st.sv.hp / st.sv.mhp * 100) };
   if (st.engaged.indexOf(e.id) < 0) st.engaged.push(e.id);
   st.foughtTonight = true;
   st.stats.battles++;
@@ -418,6 +419,11 @@ function warDoRound_(st, act, ev) {
   var A = { u: sv, act: act.s, seal: !!act.seal, side: 'me', knows: e.intel >= 2, home: b.ctx === 'defend', ambush: b.round === 1 && !!b.ambush };
   var Z = { u: e, act: b.intent, seal: false, side: 'foe', knows: st.exposed, home: false };
   var r = warExchange_(st, A, Z, ev);
+  if (b.tele === 'np' && Z.act === 'np') {
+    if (act.s === 'probe' || r.ended) warStat_(st, 'dodged');
+    else if (act.s === 'strike') { warStat_(st, 'ignoredTele'); b.ignored = true; }
+  }
+  if (r.ended === 'retreat' && r.who === 'me') warStat_(st, 'retreats');
   if (act.s === 'np') { st.stats.np++; if (!st.exposed) { st.exposed = true; ev.push({ k: 'exposed', txt: '真名解放的那一刻，你的從者是誰，全冬木都知道了。' }); } }
   if (Z.act === 'np' && e.intel < 2) { e.intel = 2; ev.push({ k: 'reveal', txt: '看見那道寶具，你認出了對方：「' + e.name + '」。' }); }
   if (act.s === 'probe' && e.alive && e.intel < 2) warReveal_(st, e, ev);
@@ -598,9 +604,12 @@ function warCheckEnd_(st, ev) {
   if (warAliveCount_(st) === 0) { warOver_(st, true, 'win', ev); return true; }
   return false;
 }
+function warStat_(st, k) { st.stats[k] = (st.stats[k] || 0) + 1; }
 function warOver_(st, win, cause, ev) {
+  var b = st.battle, e = b ? warFoe_(st, b.e) : null;
   st.phase = 'over'; st.battle = null;
   st.result = { win: win, cause: cause, day: Math.min(st.day, WAR_.NIGHTS) };
+  if (e) { st.result.foe = warFoeLabel_(e).replace(/[「」]/g, ''); st.result.foeIntel = e.intel; st.result.ctx = b.ctx; st.result.hp0 = b.hp0; st.result.ignored = !!b.ignored; }
   var T = { win: '最後一位敵方從者消失了。聖杯，就在你的眼前。', servant: st.sv.name + '倒下了。你的聖杯戰爭到此為止。', master: '你倒下了。失去御主的從者，也隨之消散。', timeout: '最後一夜過去，聖杯落到了別人手裡。' };
   ev.push({ k: 'over', txt: T[cause] || '' });
 }
@@ -615,6 +624,54 @@ function warFoeCard_(st, e) {
     c.traits = warTraits_(e);
   }
   return c;
+}
+
+// ── 賽後：戰績與講評（老虎道場只演這裡算好的東西）──
+// 輸了：由上往下第一條成立的就是「輸在哪」＋「下一局只改這一件事」。{foe}{n}{seals} 用的時候才代入。
+var WAR_DOJO_LOSS_ = [
+  { key: 'master', when: function (st, R) { return R.cause === 'master'; },
+    fact: '御主自己先倒下了', lesson: '御主也會受傷：正面吃下寶具、被 Assassin 盯上都會波及你；白天休養時御主也一起養回來' },
+  { key: 'tele', when: function (st, R) { return !!R.ignored; },
+    fact: '看見{foe}要放寶具的預兆，還是正面硬碰硬地吃下了那一擊', lesson: '畫面跳出「要放寶具了」時，用試探躲開大半，或者撤退' },
+  { key: 'blind', when: function (st, R) { return R.foe && R.foeIntel < 2; },
+    fact: '到最後都不知道{foe}的真名', lesson: '白天打聽、戰鬥中試探，先看穿真名再打，攻擊才打得到弱點' },
+  { key: 'wounded', when: function (st, R) { return R.hp0 !== undefined && R.hp0 < 50 && R.ctx !== 'final'; },
+    fact: '從者帶著重傷上了戰場，對上了{foe}', lesson: '傷重的時候白天先休養，夜裡固守在據點' },
+  { key: 'crowd', when: function (st, R) { return R.ctx === 'final' && (st.stats.finalFoes || 0) >= 3; },
+    fact: '最後一夜，柳洞寺的石階上還站著 {n} 位從者', lesson: '在最後一夜之前，挑「勝算大」的對手各個擊破' },
+  { key: 'seals', when: function (st, R) { return st.master.seals >= WAR_.SEALS; },
+    fact: '{seals} 劃令咒一劃都沒用上', lesson: '令咒能讓正面必中、硬放寶具，打不過時也能強制撤退' },
+  { key: 'exposed', when: function (st, R) { return st.exposed; },
+    fact: '真名早早就曝光，每位對手都打得到你的弱點', lesson: '寶具留到能一口氣收掉對手的時候再放' },
+  { key: 'battle', when: function () { return true; },
+    fact: '在與{foe}的交手中落敗', lesson: '夜裡看勝算挑對手，「勝算大」的才去突襲' }
+];
+// 贏了（輸了也挑一條鼓勵）：成立的全列，最多三條。
+var WAR_DOJO_GOOD_ = [
+  { key: 'clean', when: function (st) { return st.result && st.result.win && st.master.seals >= WAR_.SEALS; }, txt: '令咒一劃都沒用就拿下聖杯' },
+  { key: 'hidden', when: function (st) { return !st.exposed && st.stats.battles > 0; }, txt: '直到最後都沒暴露自己的真名' },
+  { key: 'dodge', when: function (st) { return (st.stats.dodged || 0) > 0; }, txt: '看穿預兆，躲開了 {dodged} 次寶具' },
+  { key: 'reveal', when: function (st) { return warRevealed_(st) >= 3; }, txt: '看穿了 {reveals} 位從者的真名' },
+  { key: 'kills', when: function (st) { return st.stats.kills >= 2; }, txt: '親手打倒了 {kills} 位從者' }
+];
+function warRevealed_(st) { return st.enemies.filter(function (e) { return e.intel >= 2; }).length; }
+function warFill_(t, o) { return String(t).replace(/\{(\w+)\}/g, function (m, k) { return o[k] !== undefined ? o[k] : m; }); }
+
+// 賽後的一整包：戰績數字、輸在哪（輸了才有）、亮點。純函式，畫面與老虎道場讀同一份。
+function warDebrief_(st) {
+  var R = st.result || {};
+  var S = st.stats || {};
+  var o = { foe: R.foe ? '「' + R.foe + '」' : '對手', n: S.finalFoes || 0, seals: WAR_.SEALS, dodged: S.dodged || 0, reveals: warRevealed_(st), kills: S.kills || 0 };
+  var d = {
+    win: !!R.win, day: R.day || Math.min(st.day, WAR_.NIGHTS),
+    stats: { battles: S.battles || 0, kills: S.kills || 0, np: S.np || 0, seals: S.seals || 0, reveals: o.reveals, retreats: S.retreats || 0 },
+    good: WAR_DOJO_GOOD_.filter(function (g) { return g.when(st); }).slice(0, 3).map(function (g) { return warFill_(g.txt, o); })
+  };
+  if (!R.win) {
+    var L = WAR_DOJO_LOSS_.filter(function (x) { return x.when(st, R); })[0];
+    d.key = L.key; d.fact = warFill_(L.fact, o); d.lesson = warFill_(L.lesson, o);
+  }
+  return d;
 }
 
 // 畫面上的說明（開局表單、怎麼玩）要引用的規則數字：只從 WAR_ 拿，前端不另寫一份。
@@ -635,6 +692,7 @@ function warView_(st) {
     alive: warAliveCount_(st),
     battle: null, buttons: warButtons_(st), result: st.result, rules: warRules_()
   };
+  if (st.phase === 'over') view.debrief = warDebrief_(st);
   if (b) {
     var e = warFoe_(st, b.e);
     view.battle = { round: b.round, rounds: WAR_.ROUNDS, foe: warFoeLabel_(e).replace(/[「」]/g, ''), foeHp: Math.round(e.hp / e.mhp * 100), foeWord: warHpWord_(e), tele: b.tele, ctx: b.ctx, info: warFoeCard_(st, e) };
