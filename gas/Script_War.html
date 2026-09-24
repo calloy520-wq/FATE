@@ -112,7 +112,7 @@
     const r = warRuleInfo_ || {};
     const n = r.nights ? r.nights + ' 夜' : '期限', last = r.nights ? '第 ' + r.nights + ' 夜' : '最後一夜';
     return `<h3 class="war-title" style="font-size:17px;margin-top:4px;">怎麼玩</h3>
-      <p>🎯 ${n}之內打倒所有敵方從者。${last}，剩下的人都會在柳洞寺決戰。你的從者或你自己倒下就輸。</p>
+      <p>🎯 ${n}之內打倒所有敵方從者。${last}，剩下的人都會在${r.finalPlace ? r.finalPlace : '聖杯降臨的地方'}決戰。你的從者或你自己倒下就輸。</p>
       <p>☀ <b>白天</b>做一件事：打聽（找出對手的下落、看穿真名）／休養（養傷）／補魔（寶具早點回魔）。</p>
       <p>🌙 <b>夜裡</b>做一件事：突襲知道下落的對手／巡邏（撞上誰就打誰）／固守（在據點迎戰，傷得比較輕）。</p>
       <p>⚔ <b>戰鬥</b>每回合選一招${r.rounds ? '，最多 ' + r.rounds + ' 回合' : ''}：<br>

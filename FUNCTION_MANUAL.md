@@ -1092,7 +1092,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warNewGame_(o)` — 開局。`o`＝`{pool, roster, seeds, masterNames, name, sex, war, seed}`（`warSeedCtx_` 組好）；停在 `summon`。
 - `warButtons_(st)` — 這一刻能按的鈕（唯一真實來源：前端照畫、`warAllowed_` 照驗）。每顆 `{t, id?, s?, label, sub, sealSub?, dis?, sealOk?}`。
 - `warAct_(st, act)` — 做一個決定，就地改 `st`，回 `{ok, msg, ev:[{k, txt, num}]}`；`txt` 給 AI（不含數字），`num` 給畫面。
-- `warView_(st)` — 畫面看得到的樣子：藏起玩家還不知道的真名／位置，附上 `buttons`、`result`、`rules`（`warRules_`），終局再附 `debrief`（`warDebrief_`）。
+- `warView_(st)` — 畫面看得到的樣子：藏起玩家還不知道的真名／位置，附上 `buttons`、`result`、`rules`（`warRules_(st)`），終局再附 `debrief`（`warDebrief_`）。
 
 **流程**
 - `warSummon_(st, o)` — 抽從者並重建敵方陣容（抽到的從陣容拿掉）；重抽也走這支。
@@ -1101,20 +1101,21 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warReveal_(st, e, ev)` — 看穿真名（intel→2）。
 - `warFinishNight_(st, ev)` — 敵人行動（`warTick_`），沒人找上門就進早晨。
 - `warTick_(st, ev)` — 每位敵人一次：可能發現你的據點、夜襲你（只在你固守時、一夜一位）、找別人打、或休息；倒下的人越多、剩下的越急著找人。有人夜襲就回 true 停下來開打。
-- `warMorning_(st, ev)` — 充能減一、天數加一、登場消息、時限保險。
+- `warMorning_(st, ev)` — 先把昨夜沒人倒下的交手（`k:'draw'`）併成一句早報，再充能減一、天數加一、登場消息、時限保險。
 - `warStartBattle_(st, e, ctx, ev)` — 開打；`ctx`＝sortie／patrol／defend／final。氣息遮斷的出擊第一擊、陣地作成的魔術陣（雙向：你守家、或你闖進對方陣地）在這裡生效。
 - `warSetIntent_(st, e)`／`warIntent_(st, me, foe, round)` — 敵人這回合想做什麼（先決定、存起來；看得到預兆就能應對）。
 - `warEndBattle_(st, ev)` — 戰鬥結束；決戰接下一位。
-- `warExchange_(st, A, Z, ev)` — 一回合的交手（撤退→寶具對轟→快的先打），玩家對敵與敵對敵共用。
+- `warExchange_(st, A, Z, ev)` — 一回合的交手（撤退→寶具對轟→奇襲方先手→寶具→快的先打），玩家對敵與敵對敵共用。
 - `warStrike_(st, X, Y, ev)`／`warApply_(st, Y, d)`／`warMasterHit_(st, n, ev)` — 出手、扣血、御主被餘波捲到。`warApply_` 回 true＝本該倒下、被 lastStand 撐住；呼叫端在自己那句之後補 `warStoodEv_(st, Y, ev)`（念出技能名）。
-- `warAutoBattle_(st, a, b, ev)` — 敵對敵，最多三回合；結果寫進早報。
+- `warAutoBattle_(st, a, b, ev)` — 敵對敵，最多三回合；有人倒下直接寫進早報，沒人倒下的交給 `warMorning_` 併句（兩位同職階都沒看穿時寫成「另一位」）。
 - `warFinalNext_(st)` — 決戰下一位（血最少的先上）。
 - `warCheckEnd_(st, ev)`／`warOver_(st, win, cause, ev)` — 勝負；`warOver_` 把致命那一場的對手、看穿程度、出擊時血量、有沒有硬吃預兆記進 `result`。`warStat_(st, k)` — 戰績計數加一（舊存檔沒有的欄位從 0 起算）。
 
 **賽後**
-- `WAR_DOJO_LOSS_` — 「輸在哪」表：由上往下第一條成立的（御主倒下／致命那一場硬吃寶具預兆／沒看穿真名／帶重傷出擊／決戰夜人太多／令咒沒用／真名早曝光／一般落敗），各帶一句事實＋下一局只改的那一件事。`WAR_DOJO_GOOD_` — 亮點表（成立的全列，最多三條）。
+- `WAR_DOJO_LOSS_` — 「輸在哪」表：由上往下第一條成立的（御主倒下／決戰打到天亮／致命那一場硬吃寶具預兆／沒看穿真名／帶重傷出擊／決戰夜人太多／令咒沒用／真名早曝光／一般落敗），各帶一句事實＋下一局只改的那一件事。`WAR_DOJO_GOOD_` — 亮點表（成立的全列，最多三條）。
 - `warDebrief_(st)` — 賽後一整包 `{win, day, stats, good, key?, fact?, lesson?}`；畫面的終局卡與老虎道場讀同一份。`warRevealed_(st)`（看穿幾位）／`warFill_(t, o)`（`{名字}` 代換）。
-- `warRules_()` — 畫面說明要引用的規則數字（夜數、令咒、回合、寶具回魔、補魔），前端不另寫一份。
+- `warRules_(st)` — 畫面說明要引用的規則數字（夜數、令咒、回合、寶具回魔、補魔），前端不另寫一份；給了 `st` 再加這場戰爭的決戰地點 `finalPlace`（`war_load` 沒開局時不給 `st`）。
+- `WAR_FINAL_`／`warFinal_(st)` — 最後一夜在哪（第五次柳洞寺、第四次冬木市民會館）與進場、下一位上場的句子；按鈕、事件、講評都讀這裡。
 - `warFoeCard_(st, e)` — 一位對手在畫面上的情報：intel 1 給職階、位置、傷勢、勝算；intel 2 才加真名、御主、寶具（可不可以放）、技能。
 
 **算式與小工具**
