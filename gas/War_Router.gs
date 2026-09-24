@@ -5,6 +5,8 @@ var WAR_COL_ = { ACCT: 0, GID: 1, UPDATED: 2, STATE: 3, NARR: 4 };
 var WAR_HIST_KEEP_ = 4;        // 說書帶幾段前情
 var WAR_LEN_ = { summon: '180～260', start: '150～220', day: '120～180', battle: '100～160', over: '220～300', supply: '800～1000' };
 // 開場兩幕各有自己要寫的重點；其餘種類照【這一段發生的事】演就好。
+// 按鈕 → 這一段發生在一天的哪個時候（沒列的都是夜裡的事）。
+var WAR_WHEN_ = { start: '白天', scout: '白天', rest: '白天', supply: '白天' };
 var WAR_SCENE_ = {
   summon: '這是你們第一次見面：召喚陣的光、從者現身的那一刻、第一句問答（照原作，從者會確認眼前這個人是不是自己的御主）。',
   start: '聖杯戰爭開始的第一個白天：冬木看起來跟平常一樣，你們在據點說好接下來怎麼打。'
@@ -97,10 +99,11 @@ function actionWarAct(userData) {
   var a = userData.act || {};
   var act = { t: String(a.t || ''), id: String(a.id || ''), s: String(a.s || ''), seal: a.seal === true };
   var st = ref.st;
+  var day0 = Math.min(st.day, WAR_.NIGHTS), when = WAR_WHEN_[act.t] || '夜晚';   // 事情發生在按下去的那一刻，不是結算完的下一個早晨
   var r = warAct_(st, act);
   if (!r.ok) return JSON.stringify({ success: false, message: r.msg });
   var kind = st.phase === 'over' ? 'over' : (act.t === 'supply' ? 'supply' : (act.t === 'stance' || st.phase === 'battle' ? 'battle' : (act.t === 'reroll' ? 'summon' : (act.t === 'start' ? 'start' : 'day'))));
-  st.narr = { seq: st.seq, kind: kind, facts: r.ev.map(function (e) { return e.txt; }) };
+  st.narr = { seq: st.seq, kind: kind, day: day0, when: when, facts: r.ev.map(function (e) { return e.txt; }) };
   warSave_(ref, acct, st);
   return JSON.stringify({ success: true, view: warView_(st), log: warLogLines_(r.ev) });
 }
@@ -233,8 +236,10 @@ function warNarrPrompt_(st) {
     var e = warFoe_(st, st.battle.e);
     lines.push('【對手】' + (e.intel >= 2 ? e.name + '（' + e.cls + '）。' + ((e.card && e.card.look) || '') : warFoeLabel_(e) + '，真名還不知道。'));
   }
-  var when = st.phase === 'day' ? '白天' : (st.phase === 'over' ? '最後' : '夜晚');
-  lines.push('【此刻】第 ' + Math.min(st.day, WAR_.NIGHTS) + ' 天的' + when + '。' + sv.name + warHpWord_(sv) + '；你' + (st.master.hp >= st.master.mhp * 0.8 ? '沒有大礙' : '也受了傷') + '。');
+  var nr = st.narr || {};
+  var when = nr.when || (st.phase === 'day' ? '白天' : '夜晚');
+  var time = nr.kind === 'summon' ? '聖杯戰爭開始前的那一夜' : '第 ' + (nr.day || Math.min(st.day, WAR_.NIGHTS)) + ' 天的' + when;
+  lines.push('【此刻】' + time + '。' + sv.name + warHpWord_(sv) + '；你' + (st.master.hp >= st.master.mhp * 0.8 ? '沒有大礙' : '也受了傷') + '。');
   lines.push('【這一段發生的事】\n' + st.narr.facts.map(function (f) { return '・' + f; }).join('\n'));
   var lore = warLoreStr_(st);
   if (lore) lines.push(lore);
