@@ -28,7 +28,7 @@
 | **Setup_FateWorld.gs** | 4 | 分頁建置／種子灌入 |
 | **Account.gs** | 10 | 帳號綁定／開新局／清理本局 |
 | **History_Sync.gs** | 7 | 戰記寫入／軌跡摘要 |
-| **War_Engine.gs** | 55 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰 |
+| **War_Engine.gs** | 59 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰 |
 | **War_Router.gs** | 12 | ⚔️ 新聖杯戰爭的 GAS 端：聖杯戰局分頁（一局一格 JSON）、`war_*` 五條路由、說書提示詞 |
 | **Index.html** | 0 | 載入殼（依序載 Style／Script／Script_Onboarding／Script_Kanshou／Script_War） |
 | **Script.html** | 135 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
@@ -1087,7 +1087,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 不碰試算表、不碰 AI：GAS 與 Node 模擬器載入同一份。狀態是一個 JSON 物件 `st`，亂數存在 `st.rs`（mulberry32），同一顆種子同樣的按法結果一模一樣。為什麼這樣設計、平衡怎麼量：見 CODE_NOTES.md『WAR_』。
 
-**表**：`WAR_`（所有數字）、`WAR_CLASS_`（職階＝敵人的個性 aggr）、`WAR_SKILL_`（種子技能 fx → 原作裡那個技能真的在做的事）、`WAR_SKILL_MOD_`（技能效果的係數）。
+**表**：`WAR_`（所有數字）、`WAR_CLASS_`（職階＝敵人的個性 aggr）、`WAR_SKILL_`（技能表：鍵＝種子 fx，每列只寫「哪個時機、改什麼數字」＋說明文字；時機一覽寫在表頭註解）、`WAR_FORESEE_`／`WAR_LASTSTAND_`（多個 fx 共用的列）、`WAR_FROM_HOOKS_`（哪些時機受 `from` 職階限制）。
 
 **對外四支**
 - `warNewGame_(o)` — 開局。`o`＝`{pool, roster, seeds, masterNames, name, sex, war, seed}`（`warSeedCtx_` 組好）；停在 `summon`。
@@ -1115,7 +1115,9 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 **算式與小工具**
 - `warRank_(r)` — 階級→數字（E1…A5、EX7，±0.4）。`warSpread_(v)` — 階級差距打折（`STAT_SPREAD`）。
 - `warUnit_(seed, extra)` — 種子→戰鬥單位（`sk`＝這位從者自己的技能效果）。`warNpName_(np)` — 寶具名（剝掉原文與括號）。
-- `warSkillsOf_(seed)` — 種子技能 → `{效果: 技能名}`（只收 `WAR_SKILL_` 登記的）。`warTraits_(u)` — 畫面用「技能名：效果」清單。`warHas_(u, k)` — 有沒有這個效果。
+- `warSkillsOf_(seed)` — 種子技能 → `{fx:[表上有的 fx], names:{fx: 原作技能名}}`（同一列只收一次）。`warTraits_(u)` — 畫面用「技能名：效果」清單。
+- `warSkRows_(u)`／`warSkOk_(row, hook, foe)` — 這個單位的技能列／這一列在這個時機對這個對手生不生效。
+- `warMul_(u, hook, foe)`／`warAdd_(u, hook, foe)`／`warFlag_(u, hook)` — 讀表三支：把技能在這個時機的數字相乘／相加／有沒有。引擎只透過這三支碰技能。
 - `warRand_(st)`／`warPick_(st, arr)`／`warClamp_(v, a, b)` — 亂數與夾值。
 - `warHitChance_(x, y)`／`warMult_(X)`／`warNormalDmg_(st, X, Y)`／`warNpDmg_(X, Y)`／`warRetreatChance_(u, o, seal)` — 命中、倍率、傷害、撤退。
 - `warHeal_(u, pct)`／`warHealMaster_(st, n)` — 回血。
