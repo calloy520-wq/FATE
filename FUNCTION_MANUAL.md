@@ -1471,7 +1471,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 ### Script_War.html — ⚔️ 新聖杯戰爭畫面
 
 - `warOpen()` — 從選單進來：讀戰局，沒有就畫開局表單（姓名、性別、願望、第幾次戰爭、召喚對象）。`warBackMenu()` — 回選單。畫面狀態存在 `warCur_`（後端 `warView_(st)` 給的那一份）。
-- `warRenderForm_()`／`warFormPick_(k, v)`／`warStart()` — 開局表單（姓名、性別、願望、第幾次戰爭）→ 召喚。
+- `warRenderForm_()`／`warFormPick_(k, v)`／`warStart()` — 開局表單（姓名、性別、願望、第幾次戰爭）→ 召喚。填過的都存在 `warForm_`（切選項、再來一局都還在）。
 - `warDo(i)` — 按第 i 顆鈕（令咒開著就一起送）→ `war_act` → 重畫 → 說書。`warToggleSeal()` — 令咒開關（戰鬥中才有；開著時用不上令咒的鈕會鎖住）。
 - `warNarrate_()` — 叫 `war_narrate`，等待時故事區顯示「說書人落筆中…」、按鈕鎖住。`warQuit()` — 放棄這一局。
 - `warRender_(next)` — 狀態列、敵人名單、戰鬥框（對手情報＋預兆）、召喚卡、終局卡；骨架只建一次，故事區保留。戰鬥與終局時收起技能表與名單（手機上讓位置給戰鬥框與按鈕）。

@@ -6,7 +6,7 @@
   let warCur_ = null;        // 後端給的畫面狀態
   let warSeal_ = false;       // 這一回合要不要燒令咒（戰鬥中才用得到）
   let warBusy_ = false;
-  let warForm_ = { sex: '男', war: '5th', hero: '' };
+  let warForm_ = { sex: '男', war: '5th', hero: '', name: '', wish: '' };   // 再來一局時名字與願望還在
   let warForgeData_ = null;   // war_forge_list 的結果（原作名單、我的原創、可挑技能、規則）
   let warFe_ = null;          // 工房編輯中的那一位
   let warForgeFromMenu_ = false;
@@ -43,8 +43,8 @@
     warEl_('scr-war').innerHTML = `<div class="war-wrap">
       <h2 class="war-title">⚔️ 聖杯戰爭</h2>
       <p class="war-dim">${warRuleInfo_ ? warRuleInfo_.nights + ' 夜' : '期限'}之內，打倒所有對手。<button class="war-mini" onclick="warHelp()">怎麼玩</button></p>
-      <input id="war-name" class="std-in" maxlength="10" placeholder="御主之名" style="width:100%;box-sizing:border-box;margin:10px 0 6px;">
-      <input id="war-wish" class="std-in" maxlength="40" placeholder="你想向聖杯許什麼願？（可以留白）" style="width:100%;box-sizing:border-box;margin:0 0 10px;">
+      <input id="war-name" class="std-in" maxlength="10" placeholder="御主之名" value="${escapeHtml(warForm_.name)}" oninput="warForm_.name=this.value" style="width:100%;box-sizing:border-box;margin:10px 0 6px;">
+      <input id="war-wish" class="std-in" maxlength="40" placeholder="你想向聖杯許什麼願？（可以留白）" value="${escapeHtml(warForm_.wish)}" oninput="warForm_.wish=this.value" style="width:100%;box-sizing:border-box;margin:0 0 10px;">
       <div class="war-row">${pick('sex', '男', '男')}${pick('sex', '女', '女')}</div>
       <div class="war-row">${pick('war', '5th', '第五次聖杯戰爭')}${pick('war', '4th', '第四次聖杯戰爭')}</div>
       <select id="war-hero" class="std-select" style="width:100%;margin:6px 0;" onchange="warForm_.hero=this.value">${warHeroOptions_()}</select>
@@ -82,11 +82,8 @@
   }
 
   function warFormPick_(k, v) {
-    const nm = (warEl_('war-name') || {}).value || '', wish = (warEl_('war-wish') || {}).value || '';
     warForm_[k] = v;
     warRenderForm_();
-    warEl_('war-name').value = nm;
-    warEl_('war-wish').value = wish;
   }
 
   async function warStart() {
