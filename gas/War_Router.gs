@@ -65,8 +65,9 @@ function actionWarNew(userData) {
   var war = userData.war === '4th' ? '4th' : '5th';
   var name = String(userData.pcName || '').trim() || '御主';
   var sex = userData.sex === '女' ? '女' : '男';
+  var wish = String(userData.wish || '').replace(/[<>｜【】]/g, '').trim().slice(0, 40);
   var o = warSeedCtx_(war);
-  o.name = name; o.sex = sex; o.war = war; o.seed = Date.now() % 2147483647;
+  o.name = name; o.sex = sex; o.war = war; o.wish = wish; o.seed = Date.now() % 2147483647;
   var st = warNewGame_(o);
   st.gid = 'w_' + acct + '_' + o.seed;
   st.narr = { seq: 1, kind: 'summon', facts: ['召喚陣亮起，回應你的是 ' + st.sv.cls + '「' + st.sv.name + '」。'] };
@@ -139,7 +140,8 @@ function warNarrPrompt_(st) {
   var p = (seed && seed.persona) || {};
   var lines = [];
   lines.push('【你的從者】' + sv.name + '（' + sv.cls + '）。' + [p.look, p.words, p.toMaster].filter(Boolean).join('。') + '。');
-  lines.push('【你】' + st.master.name + '，' + st.master.sex + '性，手背上還剩 ' + st.master.seals + ' 劃令咒。');
+  lines.push('【你】' + st.master.name + '，' + st.master.sex + '性，手背上還剩 ' + st.master.seals + ' 劃令咒。'
+    + (st.master.wish ? '你想向聖杯許的願：' + st.master.wish + '（藏在心裡，從你的選擇與神情透出來）' : ''));
   if (st.battle) {
     var e = warFoe_(st, st.battle.e);
     var es = null;
@@ -154,7 +156,7 @@ function warNarrPrompt_(st) {
     lines.push(sealGenderFact_(st.master.sex, (seed && seed.gender) || '', sv.name));
     lines.push('★【' + WAR_LEN_.supply + ' 字】寫這場補魔：魔力流動只是成因，全篇寫在肉體這一側——接觸、溫度、反應。' + LEWD_EXPLICIT_);
   } else if (kind === 'over') {
-    lines.push('★【' + WAR_LEN_.over + ' 字】這是這場聖杯戰爭的結局，寫出它的重量。' + (st.result && st.result.win ? '聖杯在你面前，把你們一路走來的樣子寫進最後這一幕。' : '寫這一場戰爭怎麼在你手裡結束。'));
+    lines.push('★【' + WAR_LEN_.over + ' 字】這是這場聖杯戰爭的結局，寫出它的重量。' + (st.result && st.result.win ? '聖杯在你面前，照你心裡的那個願望寫這一刻，把你們一路走來的樣子寫進最後這一幕。' : '寫這一場戰爭怎麼在你手裡結束。'));
   } else {
     lines.push('★篇幅 ' + (WAR_LEN_[kind] || WAR_LEN_.day) + ' 字。');
   }

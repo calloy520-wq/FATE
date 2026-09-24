@@ -665,4 +665,14 @@
   .war-sealbtn.on { border-color: #d060a0; color: #f0a0d0; background: rgba(208,96,160,.15); }
   .war-mini { padding: 3px 10px; font-size: 12px; border-radius: 8px; border: 1px solid #555; background: none; color: #aaa; cursor: pointer; }
   .war-quit { align-self: center; margin-top: 10px; }
+  /* 電腦：左欄狀態＋按鈕、右欄整條故事（矮螢幕也按得到最後一顆） */
+  @media (min-width: 900px) {
+    .war-wrap.war-game { max-width: 1120px; display: grid; grid-template-columns: 410px 1fr; grid-template-rows: auto auto auto 1fr; column-gap: 26px; overflow: hidden; }
+    .war-game #war-top { grid-column: 1; grid-row: 1; }
+    .war-game #war-over { grid-column: 1; grid-row: 2; }
+    .war-game #war-seal { grid-column: 1; grid-row: 3; }
+    .war-game #war-btns { grid-column: 1; grid-row: 4; max-height: none; min-height: 0; overflow-y: auto; align-content: start; }
+    .war-game #war-story { grid-column: 2; grid-row: 1 / 5; margin: 0; min-height: 0; padding: 6px 14px; border-left: 1px solid rgba(212,175,55,.2); }
+    .war-game .war-line { font-size: 15px; }
+  }
 </style>

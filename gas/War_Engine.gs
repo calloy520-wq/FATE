@@ -7,9 +7,9 @@ var WAR_ = {
   SEALS: 3,
   ROUNDS: 3,             // 一場戰鬥最多幾回合，天亮就各自退去
   FINAL_ROUNDS: 12,      // 最後一夜的決戰打到有人倒下（保險上限）
-  FINAL_ABSORB: 1.0,     // 最後一夜：不是你親手收下的魂，每一個讓活著的敵人合計變強這麼多
-  NP_COOLDOWN: 4,        // 放完寶具要等幾個早晨才能再放
-  SUPPLY_CD: 2,          // 補魔一次把充能往前推幾夜
+  FINAL_REST: 1,         // 最後一夜前剩下的人都養好了傷（1＝回滿）
+  NP_COOLDOWN: 4,        // 放完寶具，御主的魔力要幾個早晨才回得來
+  SUPPLY_CD: 2,          // 補魔一次讓魔力早回來幾夜
   STAT_SPREAD: 0.6,      // 階級差距打幾折：原作強弱還在，但抽到誰不至於開局就定勝負
   NP_FLOOR: 3,           // 寶具欄寫「-」但真的有招（小次郎的燕返）就當 C 級
   HP_BASE: 140, HP_PER_DEF: 20,
@@ -21,34 +21,50 @@ var WAR_ = {
   HOME: 0.75,            // 固守：在自家據點受到的傷害
   CLASH_WIN: 0.6,        // 寶具對轟：贏的那一方打出幾成
   REST_HEAL: 0.6, REST_MASTER: 40, SUPPLY_HEAL: 0.15, NIGHT_HEAL: 0.10,
-  ENEMY_REST_HEAL: 0.12,
-  POWER_HP: 0.10, POWER_DMG: 0.08, POWER_HEAL: 0.20,   // 從者打倒別人之後變強
+  ENEMY_REST_HEAL: 0.2,
   NP_MASTER_HIT: 15,     // 我方被寶具正面打中，御主也被餘波捲到
   ASSASSIN_MASTER_HIT: 8,
   RETREAT_BASE: 0.55, RETREAT_PER_SPD: 0.08, RETREAT_MIN: 0.15, RETREAT_MAX: 0.95,
   FIND_BASE: 0.10, FIND_OUT: 0.12, FIND_EXPOSED: 0.20, FIND_SCOUT: 0.05,
   HUNT: 0.7, HUNT_EXPOSED: 0.15, HUNT_WOUNDED: 0.15,
-  BRAWL: 1.15,
+  HUNT_LATE: 0.06, FIND_LATE: 0.03,   // 每倒下一位從者，剩下的人更急著找出彼此（原作：人越少越只能再戰）
+  BRAWL: 0.95,
   PATROL_MEET: 0.65,
   SCOUT_DEEP: 0.35,      // 打聽時順便看穿一位真名的機率
   NEWS_REVEAL: 0.5       // 早報裡交手的兩方，各有幾成機會被你記下職階與位置
 };
 
-// 職階：敵人的個性（aggr 越高越愛出手）＋我方選到這個職階時的一條特性。加職階＝往表加一列。
+// 職階：敵人的個性（aggr 越高越愛出手）。技能不看職階，看每位從者自己的技能（WAR_SKILL_）。
 var WAR_CLASS_ = {
-  Saber: { aggr: 0.5, trait: '直感：對方要放寶具時一定看得出來' },
-  Archer: { aggr: 0.5, trait: '千里眼：巡邏一定找得到人' },
-  Lancer: { aggr: 0.6, trait: '戰鬥續行：一場戰鬥裡第一次致命傷會撐住' },
-  Rider: { aggr: 0.5, trait: '騎乘：撤退幾乎一定跑得掉' },
-  Caster: { aggr: 0.25, trait: '陣地作成：在據點迎戰時受傷更少，找上門的敵人還會先吃一記魔術' },
-  Assassin: { aggr: 0.4, trait: '氣息遮斷：敵人很難找到你的據點，出擊時第一擊必中而且更重' },
-  Berserker: { aggr: 0.85, trait: '狂化：傷害高一截，但沒辦法試探' }
+  Saber: { aggr: 0.5 }, Archer: { aggr: 0.5 }, Lancer: { aggr: 0.6 }, Rider: { aggr: 0.5 },
+  Caster: { aggr: 0.25 }, Assassin: { aggr: 0.4 }, Berserker: { aggr: 0.85 }
 };
-var WAR_CLASS_MOD_ = {
-  riderRetreat: 0.25, casterHome: 0.55, casterWard: 0.12, assassinFind: 0.4, assassinAmbush: 1.6, berserkDmg: 1.2
-};
+function warClass_(cls) { return WAR_CLASS_[cls] || { aggr: 0.5 }; }
 
-function warClass_(cls) { return WAR_CLASS_[cls] || { aggr: 0.5, trait: '' }; }
+// 種子技能 fx → 戰局裡的效果。只收原作裡這個技能真的在做的事；沒登記的技能只是設定，不進規則。加一種＝往表加一列。
+var WAR_SKILL_ = {
+  first_strike: { k: 'foresee', txt: '看得出對方要放寶具' },
+  analyze: { k: 'foresee', txt: '看得出對方要放寶具' },
+  insight: { k: 'foresee', txt: '看得出對方要放寶具' },
+  sense: { k: 'foresee', txt: '看得出對方要放寶具' },
+  survive: { k: 'survive', txt: '一場戰鬥裡第一次致命傷會撐住' },
+  god_hand: { k: 'survive', txt: '一場戰鬥裡第一次致命傷會撐住' },
+  regen: { k: 'survive', txt: '一場戰鬥裡第一次致命傷會撐住' },
+  ride: { k: 'mount', txt: '撤退幾乎一定跑得掉' },
+  stealth: { k: 'stealth', txt: '據點很難被找到，出擊的第一擊必中而且更重' },
+  territory: { k: 'territory', txt: '在據點迎戰受傷更少，找上門的人先吃一記魔術' },
+  mad: { k: 'mad', txt: '傷害高一截，沒辦法試探' },
+  nullify_magic: { k: 'antimagic', txt: 'Caster 的攻擊傷得不深' },
+  aim: { k: 'farsight', txt: '巡邏一定找得到人' },
+  solo: { k: 'solo', txt: '打聽時從者自己也出去探，多問到一條' },
+  evade_ranged: { k: 'arrowward', txt: 'Archer 的攻擊很難打中' },
+  tactics: { k: 'tactics', txt: '寶具打在身上輕一截' }
+};
+var WAR_SKILL_MOD_ = {
+  mount: 0.25, territoryHome: 0.55, territoryWard: 0.12, stealthFind: 0.4, stealthAmbush: 1.6, mad: 1.2,
+  antimagic: 0.7, arrowward: 0.5, tactics: 0.8, foreseeNp: 0.8
+};
+function warHas_(u, k) { return !!(u && u.sk && u.sk[k]); }
 
 // 階級字串 → 數字：E1 D2 C3 B4 A5 EX7，每個 + 多 0.4、每個 - 少 0.4。
 function warRank_(r) {
@@ -60,6 +76,23 @@ function warRank_(r) {
   return Math.max(0.6, v);
 }
 
+// 種子技能 → { 效果: 技能名 }（同一個效果只記第一個技能名，畫面照這個顯示）。
+function warSkillsOf_(seed) {
+  var out = {};
+  (seed.classSkills || []).concat(seed.skills || []).forEach(function (x) {
+    var m = WAR_SKILL_[x && x.fx];
+    if (m && !out[m.k]) out[m.k] = String(x.n || '').replace(/\s.*$/, '');
+  });
+  return out;
+}
+function warTraits_(u) {
+  var seen = {}, list = [];
+  Object.keys(WAR_SKILL_).forEach(function (fx) {
+    var m = WAR_SKILL_[fx];
+    if (u.sk && u.sk[m.k] && !seen[m.k]) { seen[m.k] = 1; list.push(u.sk[m.k] + '：' + m.txt); }
+  });
+  return list;
+}
 function warNpName_(np) {
   var first = String(np || '').split('／')[0];
   return first.replace(/（.*$/, '').replace(/\s+[A-Za-zÀ-ÿ].*$/, '').trim() || '寶具';
@@ -77,7 +110,7 @@ function warUnit_(seed, extra) {
     atk: warSpread_(Math.max(warRank_(six['筋力']), warRank_(six['魔力']))),
     def: def, spd: warSpread_(warRank_(six['敏捷'])),
     np: warSpread_(Math.max(warRank_(six['寶具']), seed.np ? WAR_.NP_FLOOR : 0)),
-    mhp: mhp, hp: mhp, cd: 0, power: 0, saved: false
+    mhp: mhp, hp: mhp, cd: 0, saved: false, sk: warSkillsOf_(seed)
   };
   for (var k in (extra || {})) u[k] = extra[k];
   return u;
@@ -98,7 +131,7 @@ function warClamp_(v, a, b) { return Math.max(a, Math.min(b, v)); }
 function warNewGame_(o) {
   var st = {
     v: 1, war: o.war || '5th', day: 1, phase: 'summon', rs: (o.seed | 0) || 1, rerolls: 1,
-    master: { name: o.name || '御主', sex: o.sex || '男', hp: WAR_.MASTER_HP, mhp: WAR_.MASTER_HP, seals: WAR_.SEALS },
+    master: { name: o.name || '御主', sex: o.sex || '男', wish: o.wish || '', hp: WAR_.MASTER_HP, mhp: WAR_.MASTER_HP, seals: WAR_.SEALS },
     sv: null, exposed: false, out: false, enemies: [], battle: null,
     engaged: [], ticked: [], hunted: false, foughtTonight: false,
     result: null, stats: { np: 0, battles: 0, kills: 0, seals: 0 }, seq: 0
@@ -135,7 +168,7 @@ function warButtons_(st) {
   } else if (st.phase === 'day') {
     B.push({ t: 'scout', label: '打聽消息', sub: '找出一位從者的下落，或看穿一位的真名' });
     B.push({ t: 'rest', label: '休養', sub: '從者恢復近半，御主也喘口氣' });
-    B.push({ t: 'supply', label: '補魔', sub: sv.cd > 0 ? (sv.cd <= WAR_.SUPPLY_CD ? '寶具今晚就能再放' : '寶具充能快 ' + WAR_.SUPPLY_CD + ' 夜') : '寶具已經就緒，只回一點體力' });
+    B.push({ t: 'supply', label: '補魔', sub: sv.cd > 0 ? (sv.cd <= WAR_.SUPPLY_CD ? '魔力補回來，寶具今晚就能再放' : '魔力早回來 ' + WAR_.SUPPLY_CD + ' 夜') : '魔力是滿的，只回一點體力' });
   } else if (st.phase === 'night' && st.day >= WAR_.NIGHTS) {
     B.push({ t: 'final', label: '前往柳洞寺', sub: '聖杯降臨的最後一夜，剩下的 ' + warArrived_(st).length + ' 位從者都會現身' });
   } else if (st.phase === 'night') {
@@ -146,11 +179,11 @@ function warButtons_(st) {
     B.push({ t: 'hold', label: '固守', sub: '待在據點，有人來就在自家迎戰' });
   } else if (st.phase === 'battle') {
     var e = warFoe_(st, st.battle.e);
-    var berserk = sv.cls === 'Berserker';
-    B.push({ t: 'stance', s: 'strike', label: '正面', sub: '硬碰硬', sealSub: '必中，傷害一倍半' });
-    B.push({ t: 'stance', s: 'probe', label: '試探', sub: berserk ? '狂化中沒辦法試探' : (e.intel >= 2 ? '傷害減半，先穩住' : '傷害減半，看穿對方真名'), sealSub: '看穿真名，這回合不受傷', dis: berserk });
-    B.push({ t: 'stance', s: 'np', label: '寶具「' + sv.npName + '」', sub: sv.cd > 0 ? '還要 ' + sv.cd + ' 夜才能再放' : (st.exposed ? '全力一擊' : '全力一擊，但會暴露你的真名'), sealSub: '無視充能，對轟佔上風', dis: sv.cd > 0, sealOk: true });
-    if (st.battle.ctx !== 'final') B.push({ t: 'stance', s: 'retreat', label: '撤退', sub: '成功率' + warChanceWord_(warRetreatChance_(sv, e, false)), sealSub: '一定脫離' });
+    var berserk = warHas_(sv, 'mad');
+    B.push({ t: 'stance', s: 'strike', label: '正面', sub: '硬碰硬', sealSub: '令咒強化：必中，傷害一倍半' });
+    B.push({ t: 'stance', s: 'probe', label: '試探', sub: berserk ? '狂化中沒辦法試探' : (e.intel >= 2 ? '傷害減半，先穩住' : '傷害減半，看穿對方真名'), dis: berserk });
+    B.push({ t: 'stance', s: 'np', label: '寶具「' + sv.npName + '」', sub: sv.cd > 0 ? '魔力還沒回來，還要 ' + sv.cd + ' 夜' : (st.exposed ? '全力一擊' : '全力一擊，但會暴露你的真名'), sealSub: '以令咒的魔力硬放，對轟佔上風', dis: sv.cd > 0, sealOk: true });
+    if (st.battle.ctx !== 'final') B.push({ t: 'stance', s: 'retreat', label: '撤退', sub: '成功率' + warChanceWord_(warRetreatChance_(sv, e, false)), sealSub: '令咒：強制撤離' });
   }
   return B;
 }
@@ -161,6 +194,7 @@ function warAllowed_(st, act) {
   var hit = list.filter(function (b) { return b.t === act.t && (b.id || '') === (act.id || '') && (b.s || '') === (act.s || ''); })[0];
   if (!hit) return '現在不能這麼做。';
   if (act.seal && (st.phase !== 'battle' || st.master.seals <= 0)) return '令咒已經用完了。';
+  if (act.seal && !hit.sealSub) return '這一招用不上令咒。';
   if (hit.dis && !(act.seal && hit.sealOk)) return hit.sub || '現在不能這麼做。';
   return '';
 }
@@ -201,7 +235,7 @@ function warDoDay_(st, act, ev) {
     if (hidden.length) {
       var h = warPick_(st, hidden); h.intel = 1; got = true;
       ev.push({ k: 'intel', txt: '打聽到了：' + h.loc + '一帶有一位 ' + h.cls + ' 出沒。' });
-      if (known1.length && (sv.cls === 'Assassin' || warRand_(st) < WAR_.SCOUT_DEEP)) got = warReveal_(st, warPick_(st, known1), ev) || got;
+      if (known1.length && (warHas_(sv, 'solo') || warRand_(st) < WAR_.SCOUT_DEEP)) got = warReveal_(st, warPick_(st, known1), ev) || got;
     } else if (known1.length && warRand_(st) < 0.7) {
       got = warReveal_(st, warPick_(st, known1), ev);
     }
@@ -233,15 +267,8 @@ function warDoNight_(st, act, ev) {
   st.engaged = []; st.ticked = []; st.hunted = false; st.foughtTonight = false;
   st.out = act.t !== 'hold';
   if (act.t === 'final') {
-    var left = warArrived_(st);
-    var souls = st.enemies.filter(function (x) { return !x.alive; }).length - st.stats.kills;
-    var gain = left.length ? souls * WAR_.FINAL_ABSORB / left.length : 0;
-    left.forEach(function (x) {
-      x.intel = Math.max(x.intel, 1);
-      if (gain > 0) { x.power += gain; x.mhp = Math.round(x.mhp * (1 + WAR_.POWER_HP * gain)); }
-      x.hp = x.mhp; x.cd = 0;
-    });
-    ev.push({ k: 'final', txt: '最後一夜。聖杯在柳洞寺降臨，剩下的從者一個接一個踏進了寺院。' + (souls > 0 ? '其他人倒下時散逸的魂，都流向了他們。' : '') });
+    warArrived_(st).forEach(function (x) { x.intel = Math.max(x.intel, 1); warHeal_(x, WAR_.FINAL_REST); x.cd = 0; });
+    ev.push({ k: 'final', txt: '最後一夜。聖杯在柳洞寺降臨，剩下的從者一個接一個踏進了寺院。' });
     warStartBattle_(st, warFinalNext_(st), 'final', ev);
     return;
   }
@@ -253,7 +280,7 @@ function warDoNight_(st, act, ev) {
   }
   if (act.t === 'patrol') {
     var pool = warArrived_(st);
-    var meet = st.sv.cls === 'Archer' ? 1 : WAR_.PATROL_MEET;
+    var meet = warHas_(st.sv, 'farsight') ? 1 : WAR_.PATROL_MEET;
     if (pool.length && warRand_(st) < meet) {
       var m = warPick_(st, pool);
       m.intel = Math.max(m.intel, 1);
@@ -284,12 +311,13 @@ function warTick_(st, ev) {
     if (!e.alive || st.ticked.indexOf(e.id) >= 0 || st.engaged.indexOf(e.id) >= 0) continue;
     st.ticked.push(e.id);
     var aggr = warClass_(e.cls).aggr;
+    var fallen = st.enemies.filter(function (x) { return !x.alive; }).length;
     if (!e.found) {
-      var f = WAR_.FIND_BASE + (st.out ? WAR_.FIND_OUT : 0) + (st.exposed ? WAR_.FIND_EXPOSED : 0);
-      if (st.sv.cls === 'Assassin') f *= WAR_CLASS_MOD_.assassinFind;
+      var f = WAR_.FIND_BASE + (st.out ? WAR_.FIND_OUT : 0) + (st.exposed ? WAR_.FIND_EXPOSED : 0) + fallen * WAR_.FIND_LATE;
+      if (warHas_(st.sv, 'stealth')) f *= WAR_SKILL_MOD_.stealthFind;
       if (warRand_(st) < f) e.found = true;
     }
-    var hunt = aggr * WAR_.HUNT + (st.exposed ? WAR_.HUNT_EXPOSED : 0) + (st.sv.hp < st.sv.mhp * 0.5 ? WAR_.HUNT_WOUNDED : 0);
+    var hunt = aggr * WAR_.HUNT + (st.exposed ? WAR_.HUNT_EXPOSED : 0) + (st.sv.hp < st.sv.mhp * 0.5 ? WAR_.HUNT_WOUNDED : 0) + fallen * WAR_.HUNT_LATE;
     if (!st.out && !st.hunted && e.found && warRand_(st) < hunt) {
       st.hunted = true;
       e.intel = Math.max(e.intel, 1);
@@ -331,11 +359,16 @@ function warStartBattle_(st, e, ctx, ev) {
   st.foughtTonight = true;
   st.stats.battles++;
   st.sv.saved = false; e.saved = false;
-  st.battle.ambush = ctx === 'sortie' && st.sv.cls === 'Assassin';
-  if (ctx === 'defend' && st.sv.cls === 'Caster') {
-    var w = Math.round(e.mhp * WAR_CLASS_MOD_.casterWard);
+  st.battle.ambush = ctx === 'sortie' && warHas_(st.sv, 'stealth');
+  if (ctx === 'defend' && warHas_(st.sv, 'territory')) {
+    var w = Math.round(e.mhp * WAR_SKILL_MOD_.territoryWard);
     e.hp = Math.max(1, e.hp - w);
     ev.push({ k: 'ward', txt: '對方一踏進據點，布下的魔術陣先炸開了。' + warFoeLabel_(e) + warHurtWord_(e) + '。', num: '−' + w });
+  }
+  if (ctx === 'sortie' && warHas_(e, 'territory')) {
+    var w2 = Math.round(st.sv.mhp * WAR_SKILL_MOD_.territoryWard);
+    st.sv.hp = Math.max(1, st.sv.hp - w2);
+    ev.push({ k: 'ward', txt: '闖進對方的陣地，腳下的魔術陣先炸開了。' + st.sv.name + warHurtWord_(st.sv) + '。', num: '−' + w2 });
   }
   warSetIntent_(st, e);
 }
@@ -343,13 +376,13 @@ function warStartBattle_(st, e, ctx, ev) {
 // 敵人這回合想做什麼：先決定、存起來，玩家看得到預兆就能應對。
 function warSetIntent_(st, e) {
   var intent = warIntent_(st, e, st.sv, st.battle.round);
-  var see = intent === 'np' && (e.intel >= 2 || st.sv.cls === 'Saber' || warRand_(st) < 0.5);
+  var see = intent === 'np' && (e.intel >= 2 || warHas_(st.sv, 'foresee') || warRand_(st) < 0.5);
   st.battle.intent = intent;
   st.battle.tele = see ? 'np' : '';
 }
 
 function warIntent_(st, me, foe, round) {
-  var c = warClass_(me.cls), berserk = me.cls === 'Berserker';
+  var c = warClass_(me.cls), berserk = warHas_(me, 'mad');
   if (me.cd === 0 && (me.hp < me.mhp * 0.5 || foe.hp < foe.mhp * 0.55 || (round >= 2 && warRand_(st) < c.aggr * 0.5))) return 'np';
   if (!berserk && !(st.battle && st.battle.ctx === 'final') && me.hp < me.mhp * 0.3 && c.aggr < 0.7 && warRand_(st) < 0.45) return 'retreat';
   if (!berserk && (me.cls === 'Caster' || me.cls === 'Assassin') && warRand_(st) < 0.2) return 'probe';
@@ -426,22 +459,22 @@ function warExchange_(st, A, Z, ev) {
 
 function warStrike_(st, X, Y, ev) {
   var guard = Y.act === 'probe' ? WAR_.PROBE : 1;
-  var shield = Y.seal && Y.act === 'probe' ? 0 : 1;
-  var home = Y.home ? (Y.u.cls === 'Caster' ? WAR_CLASS_MOD_.casterHome : WAR_.HOME) : 1;
+  var home = Y.home ? (warHas_(Y.u, 'territory') ? WAR_SKILL_MOD_.territoryHome : WAR_.HOME) : 1;
+  var resist = (X.u.cls === 'Caster' && warHas_(Y.u, 'antimagic')) ? WAR_SKILL_MOD_.antimagic : 1;
   if (X.act === 'np') {
     X.u.cd = WAR_.NP_COOLDOWN;
-    var nd = Math.round(warNpDmg_(X, Y) * guard * shield * home);
+    var nd = Math.round(warNpDmg_(X, Y) * guard * home * resist * (warHas_(Y.u, 'tactics') ? WAR_SKILL_MOD_.tactics : 1) * (warHas_(Y.u, 'foresee') ? WAR_SKILL_MOD_.foreseeNp : 1));
     warApply_(st, Y, nd);
     ev.push({ k: 'np', side: X.side, txt: warWho_(st, X) + '解放寶具「' + X.u.npName + '」。' + (Y.act === 'probe' ? warWho_(st, Y) + '早有防備，避開了大半，仍然' : warWho_(st, Y)) + warHurtWord_(Y.u) + '。', num: '−' + nd });
     if (Y.side === 'me' && Y.act !== 'probe') warMasterHit_(st, WAR_.NP_MASTER_HIT, ev);
     return;
   }
-  var hitP = warHitChance_(X.u, Y.u);
+  var hitP = warHitChance_(X.u, Y.u) * (X.u.cls === 'Archer' && warHas_(Y.u, 'arrowward') ? WAR_SKILL_MOD_.arrowward : 1);
   var hit = X.seal || X.ambush || warRand_(st) < hitP;
   var probe = X.act === 'probe';
   if (!hit) { ev.push({ k: 'miss', side: X.side, txt: warWho_(st, X) + (probe ? '出手試探，' : '搶攻，') + '被' + warWho_(st, Y) + '架開了。' }); return; }
-  var d = warNormalDmg_(st, X, Y) * (probe ? WAR_.PROBE : 1) * (X.seal ? 1.5 : 1) * (X.ambush ? WAR_CLASS_MOD_.assassinAmbush : 1) * guard * shield * home;
-  d = Math.max(shield ? WAR_.DMG_MIN : 0, Math.round(d));
+  var d = warNormalDmg_(st, X, Y) * (probe ? WAR_.PROBE : 1) * (X.seal ? 1.5 : 1) * (X.ambush ? WAR_SKILL_MOD_.stealthAmbush : 1) * guard * home * resist;
+  d = Math.max(WAR_.DMG_MIN, Math.round(d));
   warApply_(st, Y, d);
   ev.push({ k: 'hit', side: X.side, txt: warWho_(st, X) + (probe ? '出手試探，擦中了' : '一記正面強攻，打中了') + warWho_(st, Y) + '，對方' + warHurtWord_(Y.u) + '。', num: '−' + d });
   if (Y.side === 'me' && X.u.cls === 'Assassin') warMasterHit_(st, WAR_.ASSASSIN_MASTER_HIT, ev);
@@ -450,7 +483,7 @@ function warStrike_(st, X, Y, ev) {
 function warApply_(st, Y, d) {
   var u = Y.u, before = u.hp;
   u.hp = Math.max(0, u.hp - d);
-  if (u.hp <= 0 && u.cls === 'Lancer' && !u.saved && before > u.mhp * 0.2) { u.saved = true; u.hp = 1; }
+  if (u.hp <= 0 && warHas_(u, 'survive') && !u.saved && before > u.mhp * 0.2) { u.saved = true; u.hp = 1; }
   if (u.hp <= 0 && Y.side !== 'me') u.alive = false;
 }
 
@@ -474,10 +507,7 @@ function warAutoBattle_(st, a, b, ev) {
   var dead = !a.alive ? a : (!b.alive ? b : null), win = dead ? (dead === a ? b : a) : null;
   [a, b].forEach(function (x) { if (x.intel === 0 && warRand_(st) < WAR_.NEWS_REVEAL) x.intel = 1; });
   if (win) {
-    win.power++;
-    win.mhp = Math.round(win.mhp * (1 + WAR_.POWER_HP));
-    warHeal_(win, WAR_.POWER_HEAL);
-    ev.push({ k: 'news', txt: '昨夜' + a.loc + '一帶有兩位從者交手，' + warFoeLabel_(dead) + '消失了。打贏的' + warFoeLabel_(win) + '變得更難對付。' });
+    ev.push({ k: 'news', txt: '昨夜' + a.loc + '一帶有兩位從者交手，' + warFoeLabel_(dead) + '消失了，' + warFoeLabel_(win) + '還站著。' });
   } else {
     ev.push({ k: 'news', txt: '昨夜' + a.loc + '一帶有兩位從者交手，' + warFoeLabel_(a) + '與' + warFoeLabel_(b) + '都掛了彩，各自退去。' });
   }
@@ -486,7 +516,7 @@ function warAutoBattle_(st, a, b, ev) {
 // ── 算式 ──────────────────────────────────────────────
 function warHitChance_(x, y) { return warClamp_(WAR_.HIT_BASE + (x.spd - y.spd) * WAR_.HIT_PER_SPD, WAR_.HIT_MIN, WAR_.HIT_MAX); }
 function warMult_(X) {
-  return (X.knows ? WAR_.WEAK : 1) * (1 + WAR_.POWER_DMG * (X.u.power || 0)) * (X.u.cls === 'Berserker' ? WAR_CLASS_MOD_.berserkDmg : 1);
+  return (X.knows ? WAR_.WEAK : 1) * (warHas_(X.u, 'mad') ? WAR_SKILL_MOD_.mad : 1);
 }
 function warNormalDmg_(st, X, Y) {
   var base = (WAR_.DMG_BASE + X.u.atk * WAR_.DMG_PER_ATK) * warMult_(X) - Y.u.def * WAR_.DMG_DEF;
@@ -497,7 +527,7 @@ function warNpDmg_(X, Y) {
 }
 function warRetreatChance_(u, o, seal) {
   if (seal) return 1;
-  return warClamp_(WAR_.RETREAT_BASE + (u.spd - o.spd) * WAR_.RETREAT_PER_SPD + (u.cls === 'Rider' ? WAR_CLASS_MOD_.riderRetreat : 0), WAR_.RETREAT_MIN, WAR_.RETREAT_MAX);
+  return warClamp_(WAR_.RETREAT_BASE + (u.spd - o.spd) * WAR_.RETREAT_PER_SPD + (warHas_(u, 'mount') ? WAR_SKILL_MOD_.mount : 0), WAR_.RETREAT_MIN, WAR_.RETREAT_MAX);
 }
 function warHeal_(u, pct) { var before = u.hp; u.hp = Math.min(u.mhp, u.hp + Math.round(u.mhp * pct)); return u.hp - before; }
 function warHealMaster_(st, n) { var m = st.master, before = m.hp; m.hp = Math.min(m.mhp, m.hp + n); return m.hp - before; }
@@ -551,7 +581,7 @@ function warView_(st) {
   var view = {
     phase: st.phase, day: Math.min(st.day, WAR_.NIGHTS), nights: WAR_.NIGHTS, nightsLeft: Math.max(0, WAR_.NIGHTS - st.day + 1),
     master: { name: st.master.name, hp: st.master.hp, mhp: st.master.mhp, seals: st.master.seals },
-    sv: { cls: sv.cls, name: sv.name, npName: sv.npName, hp: sv.hp, mhp: sv.mhp, cd: sv.cd, trait: warClass_(sv.cls).trait, exposed: st.exposed },
+    sv: { cls: sv.cls, name: sv.name, npName: sv.npName, hp: sv.hp, mhp: sv.mhp, cd: sv.cd, traits: warTraits_(sv), exposed: st.exposed },
     foes: foes.map(function (e) {
       return { id: e.id, label: warFoeLabel_(e).replace(/[「」]/g, ''), intel: e.intel, alive: e.alive, hp: e.intel >= 1 && e.alive ? warHpWord_(e) : '', loc: e.intel >= 1 ? e.loc : '' };
     }).filter(function (f) { return f.intel >= 1; }),

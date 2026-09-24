@@ -28,7 +28,7 @@
 | **Setup_FateWorld.gs** | 4 | 分頁建置／種子灌入 |
 | **Account.gs** | 10 | 帳號綁定／開新局／清理本局 |
 | **History_Sync.gs** | 7 | 戰記寫入／軌跡摘要 |
-| **War_Engine.gs** | 52 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰 |
+| **War_Engine.gs** | 55 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰 |
 | **War_Router.gs** | 12 | ⚔️ 新聖杯戰爭的 GAS 端：聖杯戰局分頁（一局一格 JSON）、`war_*` 五條路由、說書提示詞 |
 | **Index.html** | 0 | 載入殼（依序載 Style／Script／Script_Onboarding／Script_Kanshou／Script_War） |
 | **Script.html** | 135 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
@@ -1087,7 +1087,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 不碰試算表、不碰 AI：GAS 與 Node 模擬器載入同一份。狀態是一個 JSON 物件 `st`，亂數存在 `st.rs`（mulberry32），同一顆種子同樣的按法結果一模一樣。為什麼這樣設計、平衡怎麼量：見 CODE_NOTES.md『WAR_』。
 
-**表**：`WAR_`（所有數字）、`WAR_CLASS_`（職階的敵方個性 aggr＋我方特性文字）、`WAR_CLASS_MOD_`（職階特性的係數）。
+**表**：`WAR_`（所有數字）、`WAR_CLASS_`（職階＝敵人的個性 aggr）、`WAR_SKILL_`（種子技能 fx → 原作裡那個技能真的在做的事）、`WAR_SKILL_MOD_`（技能效果的係數）。
 
 **對外四支**
 - `warNewGame_(o)` — 開局。`o`＝`{pool, roster, seeds, masterNames, name, sex, war, seed}`（`warSeedCtx_` 組好）；停在 `summon`。
@@ -1101,20 +1101,21 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warDoSummon_(st, act, ev)`／`warDoDay_(st, act, ev)`／`warDoNight_(st, act, ev)`／`warDoRound_(st, act, ev)` — 四個階段各一支。
 - `warReveal_(st, e, ev)` — 看穿真名（intel→2）。
 - `warFinishNight_(st, ev)` — 敵人行動（`warTick_`），沒人找上門就進早晨。
-- `warTick_(st, ev)` — 每位敵人一次：可能發現你的據點、夜襲你（只在你固守時、一夜一位）、找別人打、或休息；有人夜襲就回 true 停下來開打。
+- `warTick_(st, ev)` — 每位敵人一次：可能發現你的據點、夜襲你（只在你固守時、一夜一位）、找別人打、或休息；倒下的人越多、剩下的越急著找人。有人夜襲就回 true 停下來開打。
 - `warMorning_(st, ev)` — 充能減一、天數加一、登場消息、時限保險。
-- `warStartBattle_(st, e, ctx, ev)` — 開打；`ctx`＝sortie／patrol／defend／final。Assassin 出擊第一擊、Caster 在據點的魔術陣在這裡生效。
+- `warStartBattle_(st, e, ctx, ev)` — 開打；`ctx`＝sortie／patrol／defend／final。氣息遮斷的出擊第一擊、陣地作成的魔術陣（雙向：你守家、或你闖進對方陣地）在這裡生效。
 - `warSetIntent_(st, e)`／`warIntent_(st, me, foe, round)` — 敵人這回合想做什麼（先決定、存起來；看得到預兆就能應對）。
 - `warEndBattle_(st, ev)` — 戰鬥結束；決戰接下一位。
 - `warExchange_(st, A, Z, ev)` — 一回合的交手（撤退→寶具對轟→快的先打），玩家對敵與敵對敵共用。
 - `warStrike_(st, X, Y, ev)`／`warApply_(st, Y, d)`／`warMasterHit_(st, n, ev)` — 出手、扣血（Lancer 續行）、御主被餘波捲到。
-- `warAutoBattle_(st, a, b, ev)` — 敵對敵，最多三回合；打倒別人的變強。
+- `warAutoBattle_(st, a, b, ev)` — 敵對敵，最多三回合；結果寫進早報。
 - `warFinalNext_(st)` — 決戰下一位（血最少的先上）。
 - `warCheckEnd_(st, ev)`／`warOver_(st, win, cause, ev)` — 勝負。
 
 **算式與小工具**
 - `warRank_(r)` — 階級→數字（E1…A5、EX7，±0.4）。`warSpread_(v)` — 階級差距打折（`STAT_SPREAD`）。
-- `warUnit_(seed, extra)` — 種子→戰鬥單位。`warNpName_(np)` — 寶具名（剝掉原文與括號）。
+- `warUnit_(seed, extra)` — 種子→戰鬥單位（`sk`＝這位從者自己的技能效果）。`warNpName_(np)` — 寶具名（剝掉原文與括號）。
+- `warSkillsOf_(seed)` — 種子技能 → `{效果: 技能名}`（只收 `WAR_SKILL_` 登記的）。`warTraits_(u)` — 畫面用「技能名：效果」清單。`warHas_(u, k)` — 有沒有這個效果。
 - `warRand_(st)`／`warPick_(st, arr)`／`warClamp_(v, a, b)` — 亂數與夾值。
 - `warHitChance_(x, y)`／`warMult_(X)`／`warNormalDmg_(st, X, Y)`／`warNpDmg_(X, Y)`／`warRetreatChance_(u, o, seal)` — 命中、倍率、傷害、撤退。
 - `warHeal_(u, pct)`／`warHealMaster_(st, n)` — 回血。
@@ -1472,9 +1473,9 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 ### Script_War.html — ⚔️ 新聖杯戰爭畫面
 
-- `warOpen()` — 從選單進來：讀戰局，沒有就畫開局表單。`warBackMenu()` — 回選單。畫面狀態存在 `warCur_`（後端 `warView_(st)` 給的那一份）。
-- `warRenderForm_()`／`warFormPick_(k, v)`／`warStart()` — 開局表單（名字、性別、第幾次戰爭）→ 召喚。
-- `warDo(i)` — 按第 i 顆鈕（令咒開著就一起送）→ `war_act` → 重畫 → 說書。`warToggleSeal()` — 令咒開關（戰鬥中才有）。
+- `warOpen()` — 從選單進來：讀戰局，沒有就畫開局表單（姓名、性別、願望、第幾次戰爭）。`warBackMenu()` — 回選單。畫面狀態存在 `warCur_`（後端 `warView_(st)` 給的那一份）。
+- `warRenderForm_()`／`warFormPick_(k, v)`／`warStart()` — 開局表單（姓名、性別、願望、第幾次戰爭）→ 召喚。
+- `warDo(i)` — 按第 i 顆鈕（令咒開著就一起送）→ `war_act` → 重畫 → 說書。`warToggleSeal()` — 令咒開關（戰鬥中才有；開著時用不上令咒的鈕會鎖住）。
 - `warNarrate_()` — 叫 `war_narrate`，等待時故事區顯示「說書人落筆中…」、按鈕鎖住。`warQuit()` — 放棄這一局。
 - `warRender_(next)` — 狀態列、敵人名單、戰鬥框（預兆）、終局卡；骨架只建一次，故事區保留。`warRenderButtons_()` — 照 `buttons` 畫大按鈕（令咒開著換成 `sealSub`、`sealOk` 的鈕變得按得下去）。
 - `warBar_(v, max, cls)`／`warStory_(who, text)`／`warLog_(lines)`／`warEl_(id)` — 小工具；說書走 `aiHtml_`。

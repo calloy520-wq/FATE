@@ -84,7 +84,7 @@ const RENDERS = [
     mkEl('scr-war'); mkEl('setup');
     const view = { phase: 'battle', day: 3, nights: 14, nightsLeft: 12, alive: 5, unknown: 2,
       master: { name: '測', hp: 80, mhp: 100, seals: 2 },
-      sv: { cls: 'Saber', name: '阿爾托莉雅', npName: '誓約勝利之劍', hp: 120, mhp: 220, cd: 2, trait: '直感', exposed: true },
+      sv: { cls: 'Saber', name: '阿爾托莉雅', npName: '誓約勝利之劍', hp: 120, mhp: 220, cd: 2, traits: ['直感：看得出對方要放寶具'], exposed: true },
       foes: [{ id: 'e1', label: 'Lancer', intel: 1, alive: true, hp: '負傷', loc: '教會' }],
       battle: { round: 1, rounds: 3, foe: 'Lancer', foeHp: 60, foeWord: '負傷', tele: 'np', ctx: 'sortie' },
       buttons: [{ t: 'stance', s: 'strike', label: '正面', sub: '硬碰硬', sealSub: '必中' },

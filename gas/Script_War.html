@@ -36,7 +36,8 @@
     warEl_('scr-war').innerHTML = `<div class="war-wrap">
       <h2 class="war-title">⚔️ 聖杯戰爭</h2>
       <p class="war-dim">十四夜之內，打倒所有對手。</p>
-      <input id="war-name" class="std-in" maxlength="10" placeholder="御主之名" style="width:100%;box-sizing:border-box;margin:10px 0;">
+      <input id="war-name" class="std-in" maxlength="10" placeholder="御主之名" style="width:100%;box-sizing:border-box;margin:10px 0 6px;">
+      <input id="war-wish" class="std-in" maxlength="40" placeholder="你想向聖杯許什麼願？（可以留白）" style="width:100%;box-sizing:border-box;margin:0 0 10px;">
       <div class="war-row">${pick('sex', '男', '男')}${pick('sex', '女', '女')}</div>
       <div class="war-row">${pick('war', '5th', '第五次聖杯戰爭')}${pick('war', '4th', '第四次聖杯戰爭')}</div>
       <button class="war-btn war-main" onclick="warStart()"><b>召喚從者</b><small>命運會選出回應你的英靈</small></button>
@@ -44,18 +45,20 @@
     </div>`;
   }
   function warFormPick_(k, v) {
-    const nm = (warEl_('war-name') || {}).value || '';
+    const nm = (warEl_('war-name') || {}).value || '', wish = (warEl_('war-wish') || {}).value || '';
     warForm_[k] = v;
     warRenderForm_();
     warEl_('war-name').value = nm;
+    warEl_('war-wish').value = wish;
   }
 
   async function warStart() {
     if (warBusy_) return;
     const name = ((warEl_('war-name') || {}).value || '').trim();
+    const wish = ((warEl_('war-wish') || {}).value || '').trim();
     warBusy_ = true;
     try {
-      const res = await withProcessing_('召喚陣亮起中…', () => gasRun({ action: 'war_new', acctName: currentAccount, pcName: name, sex: warForm_.sex, war: warForm_.war }));
+      const res = await withProcessing_('召喚陣亮起中…', () => gasRun({ action: 'war_new', acctName: currentAccount, pcName: name, sex: warForm_.sex, war: warForm_.war, wish: wish }));
       if (!res || !res.success) { alert((res && res.message) || '召喚失敗了。'); return; }
       warRender_(res.view);
       warLog_(res.log);
@@ -71,6 +74,7 @@
     if (!b) return;
     const seal = warSeal_ && warCur_.phase === 'battle';
     if (b.dis && !(seal && b.sealOk)) return;
+    if (seal && !b.sealSub) return;
     warBusy_ = true;
     try {
       const res = await withProcessing_('聖杯演算中…', () => gasRun({ action: 'war_act', acctName: currentAccount, act: { t: b.t, id: b.id || '', s: b.s || '', seal: seal } }));
@@ -143,7 +147,7 @@
       over = `<div class="war-over ${v.result.win ? 'win' : 'lose'}">${v.result.win ? '🏆 你贏得了聖杯' : '這一場聖杯戰爭，你輸了'}</div>`;
     }
     if (!warEl_('war-top')) {
-      warEl_('scr-war').innerHTML = '<div class="war-wrap"><div id="war-top"></div><div id="war-story" class="war-story"></div><div id="war-over"></div><div id="war-seal"></div><div id="war-btns" class="war-btns"></div></div>';
+      warEl_('scr-war').innerHTML = '<div class="war-wrap war-game"><div id="war-top"></div><div id="war-story" class="war-story"></div><div id="war-over"></div><div id="war-seal"></div><div id="war-btns" class="war-btns"></div></div>';
     }
     warEl_('war-over').innerHTML = over;
     warEl_('war-top').innerHTML = `
@@ -157,7 +161,8 @@
         ${warBar_(sv.hp, sv.mhp, 'sv')}
         <div class="war-row between war-small"><span>御主 ${escapeHtml(m.name)}</span><span>令咒 ${seals}</span></div>
         ${warBar_(m.hp, m.mhp, 'ms')}
-        <div class="war-small war-dim">${escapeHtml(sv.trait)}　真名：${sv.exposed ? '<b class="war-red">已曝光</b>' : '隱藏中'}</div>
+        <div class="war-small">真名：${sv.exposed ? '<b class="war-red">已曝光</b>' : '隱藏中'}</div>
+        ${(sv.traits || []).map(t => `<div class="war-small war-dim">${escapeHtml(t)}</div>`).join('')}
       </div>
       <div class="war-foes">${foes || '<span class="war-dim">還不知道對手在哪裡</span>'}</div>
       ${battle}`;
@@ -178,7 +183,7 @@
     }
     box.innerHTML = (v.buttons || []).map((b, i) => {
       const seal = warSeal_ && v.phase === 'battle' && b.sealSub;
-      const off = warBusy_ || (b.dis && !(warSeal_ && b.sealOk));
+      const off = warBusy_ || (b.dis && !(warSeal_ && b.sealOk)) || (warSeal_ && v.phase === 'battle' && !b.sealSub);
       return `<button class="war-btn${seal ? ' sealed' : ''}" ${off ? 'disabled' : ''} onclick="warDo(${i})"><b>${escapeHtml(b.label)}</b><small>${escapeHtml(seal ? b.sealSub : (b.sub || ''))}</small></button>`;
     }).join('') + (v.phase === 'day' || v.phase === 'summon' ? `<button class="war-mini war-quit" onclick="warQuit()">放棄這一局</button>` : '');
   }
