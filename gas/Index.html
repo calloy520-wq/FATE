@@ -15,7 +15,7 @@
       style="color:var(--gold-accent); letter-spacing:10px; text-shadow: 0 0 10px var(--gold-accent); font-size: 32px; margin-bottom: 30px;">
       命運停駐之夜</h1>
     <div id="step-account" style="width:300px;">
-      <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 10px;">帳號名稱（不用密碼，打了就進去）</p>
+      <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 10px;">帳號名稱（免密碼）</p>
       <input id="in-account" class="std-in" style="width:100%; box-sizing:border-box;" maxlength="20" placeholder="例如：遠坂玩家01">
       <button class="btn" style="width:100%; margin-top:14px; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="lockBtn(event, accountLogin)">進　入</button>
       <button class="btn" style="width:100%; margin-top:8px; padding:6px; border-color:#777; color:#999; font-size:11px;" onclick="devCheckSheets()" title="測試期清空試算表後，按這顆手動補回缺少的分頁；登入前也能用。">🔧 DEV：檢查／建立試算表分頁</button>
@@ -26,7 +26,7 @@
       <!-- 🎴 第一道門：純淨（單人聖杯戰爭，SFW） -->
       <div style="border:1px solid rgba(159,192,239,.45); border-radius:11px; padding:11px 11px 6px; margin-bottom:13px; background:rgba(30,40,60,.25);">
         <div style="color:#9fc0ef; font-size:13px; font-weight:bold; letter-spacing:1px; margin-bottom:9px; text-align:center;">🎴 純淨 · 單人聖杯戰爭</div>
-        <button id="btn-resume" class="btn" style="display:none; width:100%; margin-bottom:9px; padding:12px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="continueGame()">▶ 繼續戰爭</button>
+        <button id="btn-resume" class="btn" style="display:none; width:100%; margin-bottom:9px; padding:12px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="continueGame()">▶ 繼續舊版戰爭</button>
         <!-- ⚔️ 新聖杯戰爭（War_Engine.gs／Script_War.html）：一天兩個決定、按鈕越少越好。舊版留在下面，確認新版後整組拆掉。 -->
         <button class="btn" style="width:100%; margin-bottom:9px; padding:13px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="warOpen()">⚔️ 聖杯戰爭</button>
         <button class="btn" style="width:100%; margin-bottom:7px; padding:8px; border-color:#6a7a9a; color:#8fa0c0; font-size:12px;" onclick="lockBtn(event, newGameFlow)">舊版聖杯戰爭</button>
@@ -36,7 +36,7 @@
       <!-- 🌹 第二道門：慾海（鑑賞後日談，可邀請贏過的戰爭封存從者，也可直接從英靈庫召喚任一英靈） -->
       <div style="border:1px solid rgba(200,120,150,.45); border-radius:11px; padding:11px 11px 6px; margin-bottom:13px; background:rgba(55,28,40,.25);">
         <div style="color:#e0a0bc; font-size:13px; font-weight:bold; letter-spacing:1px; margin-bottom:3px; text-align:center;">🌹 慾海 · 鑑賞後日談</div>
-        <p style="color:#9a7f8c; font-size:10.5px; text-align:center; margin:0 0 9px;">聖杯戰爭之後的冬木。請人來這座城住下，帶著誰一起，故事就從哪裡開始</p>
+        <p style="color:#9a7f8c; font-size:10.5px; text-align:center; margin:0 0 9px;">和平的現代日常。從英靈殿邀請同伴，自由對話。</p>
         <button class="btn" style="width:100%; margin-bottom:7px; padding:12px; border-color:#c87896; color:#e8b8cc;" onclick="enterKanshou()">🌹 進入鑑賞</button>
         <!-- 🔄 有後日談存檔才長出來(accountLogin 依 res.kpcId 決定)：不用先進鑑賞才能重來。 -->
         <button id="btn-kanshou-reset" class="btn" style="display:none; width:100%; margin-bottom:7px; padding:9px; border-color:#a05060; color:#d08090; font-size:12px;" onclick="menuKanshouReset()">🔄 後日談重來</button>
@@ -191,7 +191,7 @@
              updateClock，Script.html)跟時鐘同一行常駐，這裡只剩 header-loc(鑑賞恆隱藏，純歷史殘留
              不刪是因為 solo 共用同一個 id 判斷式，見 updateStatus 裡的 headerEl 邏輯)。 -->
         <div id="topbar-kanshou" class="player-badge">
-          <span id="header-loc">感應中...</span>
+          <span id="header-loc">讀取中…</span>
         </div>
       </div>
     </div>
@@ -216,7 +216,7 @@
       </div>
     </div>
     <div id="game-tabs">
-      <button id="tab-status" class="game-tab" onclick="showGamePane('status')">👤 標籤</button>
+      <button id="tab-status" class="game-tab" onclick="showGamePane('status')">👤 角色</button>
       <button id="tab-chat" class="game-tab tab-active" onclick="showGamePane('chat')">📖 故事</button>
       <button id="tab-map" class="game-tab" onclick="showGamePane('map')">🗺️ 地圖</button>
     </div>
@@ -233,7 +233,7 @@
         <!-- 🔥 說書人開關（2026-09 玩家「平常為 Gemini 3.5 Flash Lite，我自己點火再開」）：
              滅＝便宜的那顆寫日常；亮＝換敢寫的那顆。⚠ 這顆只管【用哪個模型】，
              尺度規則一律是「跟著玩家走」，跟這顆無關。 -->
-        <label title="🔥 亮起＝換一位敢寫的說書人（比較貴）。平常熄著就好；被擋下來的時候按亮再送一次。" style="color: #ff6b6b; font-size: 14px; margin-right: 5px; margin-left: 2px; cursor: pointer; display: flex; align-items: center; white-space: nowrap; font-weight: bold;">
+        <label title="🔥 放寬尺度：內容被擋下時開啟後重送" style="color: #ff6b6b; font-size: 14px; margin-right: 5px; margin-left: 2px; cursor: pointer; display: flex; align-items: center; white-space: nowrap; font-weight: bold;">
           <input type="checkbox" id="drive-mode-toggle" style="accent-color: #ff6b6b; margin-right: 3px;">🔥
         </label>
         <input id="u-in" maxlength="300" placeholder="說點什麼，或做點什麼…" onkeypress="if(event.key==='Enter')send()">
@@ -251,14 +251,14 @@
 
         <div
           style="display:flex; justify-content:space-between; align-items:center; background: rgba(51,34,17,0.05); padding: 12px; border-radius: 4px; border: 1px solid rgba(51,34,17,0.2);">
-          <span style="color:#800; font-weight:bold; font-size:15px;">🎲 命運的抉擇（不知道做什麼時的建議）</span>
+          <span style="color:#800; font-weight:bold; font-size:15px;">🎲 顯示建議選項</span>
           <label style="cursor:pointer; display:flex; align-items:center;">
             <input type="checkbox" id="setting-opt-toggle" style="width:20px; height:20px; accent-color:#800; cursor:pointer;" onchange="toggleAiOptions(this)">
           </label>
         </div>
         <div
           style="background: rgba(51,34,17,0.05); padding: 12px; border-radius: 4px; border: 1px solid rgba(51,34,17,0.2);">
-          <span style="color:#800; font-weight:bold; font-size:15px; display:block; margin-bottom:10px;">🔠 對話字體大小</span>
+          <span style="color:#800; font-weight:bold; font-size:15px; display:block; margin-bottom:10px;">🔠 字體大小</span>
           <div style="display:flex; gap:8px;">
             <button class="font-scale-btn btn" data-scale="0.85" style="flex:1; padding:8px 0; font-size:12px;" onclick="setStoryFontScale(0.85)">小</button>
             <button class="font-scale-btn btn" data-scale="1" style="flex:1; padding:8px 0; font-size:14px;" onclick="setStoryFontScale(1)">中</button>
@@ -266,21 +266,21 @@
             <button class="font-scale-btn btn" data-scale="1.4" style="flex:1; padding:8px 0; font-size:18px;" onclick="setStoryFontScale(1.4)">特大</button>
           </div>
         </div>
-        <button class="btn" onclick="toggleFullScreen()">🖥️ 切換全螢幕模式</button>
+        <button class="btn" onclick="toggleFullScreen()">🖥️ 全螢幕</button>
         <!-- 🔄 只在鑑賞模式顯示(applyModeUI 掛顯示)：清掉這個帳號的整局後日談，不動英靈殿與 solo。 -->
         <button class="btn" id="setting-kanshou-reset" style="display:none; border-color:#800; color:#800;" onclick="kanshouResetWithConfirm_()">🔄 後日談重來</button>
-        <button class="btn" style="border-color:#800; color:#800;" onclick="logoutWithConfirm_()">🚪 離開冬木 (登出)</button>
+        <button class="btn" style="border-color:#800; color:#800;" onclick="logoutWithConfirm_()">🚪 登出</button>
       </div>
     </div>
   </div>
 
   <div id="exit-confirm-overlay" class="modal-overlay">
     <div class="modal-scroll" style="text-align:center; padding-bottom:30px;">
-      <h2 style="color:#800; margin-top:0;">⚠️ 離開冬木</h2>
-      <p style="color:#332211; font-size:16px;">要離開了嗎？</p>
+      <h2 style="color:#800; margin-top:0;">⚠️ 登出</h2>
+      <p style="color:#332211; font-size:16px;">確定登出？</p>
       <div style="display:flex; gap:15px; justify-content:center; margin-top:25px;">
-        <button class="btn" style="flex:1; border-color:#2e8b57; color:#2e8b57; padding:12px;" onclick="cancelExit()">留下來</button>
-        <button class="btn" style="flex:1; border-color:#800; color:#800; padding:12px;" onclick="confirmExit()">去意已決</button>
+        <button class="btn" style="flex:1; border-color:#2e8b57; color:#2e8b57; padding:12px;" onclick="cancelExit()">取消</button>
+        <button class="btn" style="flex:1; border-color:#800; color:#800; padding:12px;" onclick="confirmExit()">登出</button>
       </div>
     </div>
   </div>
@@ -296,7 +296,7 @@
         <span id="ui-sex" style="font-size: 14px; color: #555; border: 1px solid #555; padding: 0 4px; border-radius: 3px; margin-left: 5px;">--</span>
       </h2>
 
-      <div class="status-flex-container" style="display: flex; gap: 8px; margin-bottom: 12px; align-items: stretch;">
+      <div id="ui-stat-wrap" class="status-flex-container" style="display: flex; gap: 8px; margin-bottom: 12px; align-items: stretch;">
 
         <div
           style="flex: 1; display: flex; flex-direction: column; background: rgba(51, 34, 17, 0.03); border: 1px solid rgba(51, 34, 17, 0.15); border-radius: 6px; padding: 6px;">
@@ -321,19 +321,19 @@
 
       <div class="trait-box"
         style="margin-top:8px; background: rgba(46, 139, 87, 0.05); border-color: #2e8b57; position: relative;">
-        <span style="color: #2e8b57;">—— 處事個性 ——</span>
+        <span style="color: #2e8b57;">處事個性</span>
         <b id="ui-pref">--</b>
         <button id="fate-btn-pref" class="btn" style="position: absolute; right: 8px; top: 8px; padding: 2px 8px; font-size: 11px; border-color: #d4af37; color: #d4af37;" onclick="openFateEdit('pref')">改命</button>
       </div>
 
       <div class="trait-box" style="position: relative;">
-        <span>—— 命格特徵 ——</span>
+        <span>命格特徵</span>
         <b id="ui-trait">--</b>
         <button id="fate-btn-trait" class="btn" style="position: absolute; right: 8px; top: 8px; padding: 2px 8px; font-size: 11px; border-color: #d4af37; color: #d4af37;" onclick="openFateEdit('trait')">改命</button>
       </div>
 
       <div class="trait-box" style="margin-top: 8px; background: rgba(51, 34, 17, 0.05); border: 1px solid #332211; position: relative;">
-  <span id="ui-back-title" style="color: #332211;">—— 身分背景 ——</span>
+  <span id="ui-back-title" style="color: #332211;">身分背景</span>
   <b id="ui-back">--</b>
   <div style="position:absolute; right:8px; top:8px; display:flex; gap:4px;">
     <button id="fate-btn-back" class="btn" style="padding: 2px 8px; font-size: 11px; border-color: #d4af37; color: #d4af37;" onclick="openFateEdit('back')">改命</button>
@@ -341,14 +341,14 @@
 </div>
 
       <div class="trait-box" style="margin-top: 8px; background: rgba(0, 128, 128, 0.05); border: 1px solid #008080;">
-        <span style="color: #008080;">—— 當前狀態 ——</span>
+        <span style="color: #008080;">當前狀態</span>
         <div id="ui-status"
           style="font-size: 13px; line-height: 1.6; font-weight: bold; color: #332211; margin-top: 6px; word-break: break-word;">
           --</div>
       </div>
 
-      <div class="trait-box" style="margin-top:8px; background: rgba(212,175,55,0.05); border: 1px solid #d4af37;">
-        <span style="color: #d4af37;">—— 所屬陣營 ——</span>
+      <div id="ui-faction-box" class="trait-box" style="margin-top:8px; background: rgba(212,175,55,0.05); border: 1px solid #d4af37;">
+        <span style="color: #d4af37;">所屬陣營</span>
         <div style="display: flex; gap: 5px; font-size: 13px; justify-content: center; color:#332211;">
           <b id="ui-faction">無所屬</b> / <b id="ui-rank">自由人</b> (<b id="ui-align">絕對中立</b>)
         </div>
@@ -366,7 +366,7 @@
         逆天改命</h2>
       <div id="fate-edit-fields" style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
         </div>
-      <button class="btn" style="width:100%; margin-top: 20px; background:#332211; color:var(--paper-bg); font-size:16px;" onclick="lockBtn(event, saveFate)">確認重塑</button>
+      <button class="btn" style="width:100%; margin-top: 20px; background:#332211; color:var(--paper-bg); font-size:16px;" onclick="lockBtn(event, saveFate)">儲存</button>
     </div>
   </div>
 
@@ -378,8 +378,8 @@
       <h2 id="dojo-title" style="color:#ff8a8a; margin:8px 0 4px;">老虎道場</h2>
       <p id="dojo-subtitle" style="color:#e7c873; font-size:14px; margin:4px 0 10px;">「哎呀呀～你的從者被打倒了呢！」</p>
       <div id="dojo-ai-body" style="color:#cfc3d8; font-size:13.5px; line-height:1.8; text-align:left; margin:0 0 16px; max-height:52vh; overflow-y:auto;">
-        聖杯戰爭已然落幕，你的靈基化作了星塵。<br>
-        不過別急著走。藤村老師的特訓，能讓你下一場走得更遠。<br>
+        你的聖杯戰爭結束了。<br>
+        來聽聽藤村老師的講評吧。<br>
         <span style="color:#9a8fb0; font-size:12px;">這一局已經收進戰史，隨時可以重新開始。</span>
       </div>
       <button id="dojo-back-btn" onclick="dojoBackToMenu()" disabled style="width:100%; padding:12px; background:#4a3a6a; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:not-allowed; opacity:0.4; margin-bottom:8px;">返回選單 ／ 開新的一局</button>

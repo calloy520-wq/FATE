@@ -199,7 +199,7 @@
     if (__actionBusy) return false;
     __actionBusy = true;
     try { document.body.style.cursor = 'progress'; } catch (e) {}
-    try { showProcessing(msg || '聖杯演算中…', true); } catch (e) {}  // ⏳ 每個動作都給等待遮罩，玩家才知道按到了
+    try { showProcessing(msg || '處理中…', true); } catch (e) {}  // ⏳ 每個動作都給等待遮罩，玩家才知道按到了
     return true;
   }
   function endAction() {
@@ -387,12 +387,12 @@
       acct = String(acct || '');
       if (!await customConfirm_(
           '⚠️ 把「' + acct + '」的後日談整個清掉？\n\n'
-        + '同伴、關係、回憶、對話、照片、你開的地方，全部歸零。\n'
-        + '英靈殿和聖杯戰爭那邊不會動。\n\n'
-        + '刪了救不回來。')) return false;
+        + '同伴、關係、回憶、對話與世界紀錄全部清除。\n'
+        + '英靈殿與聖杯戰爭不受影響。\n\n'
+        + '無法復原。')) return false;
       const typed = await customPrompt_('再打一次帳號「' + acct + '」確認。', '', 30);
       if (typed === null) return false;
-      if (String(typed).trim() !== acct.trim()) { alert('打錯了，先不刪。'); return false; }
+      if (String(typed).trim() !== acct.trim()) { alert('帳號不符，已取消。'); return false; }
       // 讀條壓到跑完，且點背景關不掉（關掉玩家會以為沒事而重按）。
       _kresetBusy_ = true;
       try { closeSystemModal('settings-overlay'); } catch (e) {}
@@ -412,7 +412,7 @@
           try { localStorage.removeItem('kyushu_v27'); } catch (e) {}
           const doneHtml = '<div style="width:min(360px,92vw);background:#1d1722;border:1px solid rgba(200,120,120,.35);border-radius:12px;padding:20px;text-align:center;color:#e8c8c8;font-size:13.5px;">'
                 + '<b style="color:#e8a0a0;display:block;margin-bottom:8px;">🔄 後日談已歸零</b>'
-                + '清掉 ' + (res.cleared || 0) + ' 筆。' + (reloadAfter ? '正在重新載入……' : '下次進鑑賞就是全新的世界。') + '</div>';
+                + (reloadAfter ? '已清除，正在重新載入…' : '已清除，下次進入將重新開始。') + '</div>';
           try { var ov2 = document.getElementById('kreset-overlay'); if (ov2) ov2.innerHTML = doneHtml; } catch (e) {}
           if (reloadAfter) { setTimeout(function () { location.reload(); }, 900); return true; }
           setTimeout(function () { _hideOv(); _kresetBusy_ = false; }, 1400);
@@ -497,9 +497,9 @@
         document.getElementById('ui-sex').innerText = _localSv.sex || "未知";
         return;
       }
-      document.getElementById('ui-name').innerText = "命盤解析中...";
+      document.getElementById('ui-name').innerText = "讀取中…";
       try {
-        const res = await withProcessing_('命盤解析中…', () => gasRun({ action: "get_full_status", targetName: targetName, pcId: pc.id, acctName: (pc && pc.account) || currentAccount }));
+        const res = await withProcessing_('讀取中…', () => gasRun({ action: "get_full_status", targetName: targetName, pcId: pc.id, acctName: (pc && pc.account) || currentAccount }));
         
         if (res.success) {
           // 🔴 已經不需要後端的 canEditFate 許可證了，直接更新 UI
@@ -512,7 +512,7 @@
           closeStatus();
         }
       } catch(e) {
-        alert("命格看不清。");
+        alert("讀取失敗。");
         closeStatus();
       }
     }
@@ -550,9 +550,9 @@
         // 夜未眠（KANSHOU_NIGHT_SCENE_TAG_）：同一顆鈕，字從「🌙睡覺」換成「🌅睡到天亮」。
         const inNight = !!(window._lastTags && window._lastTags.nightScene);
         hud.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;">'
-          + '<button class="btn" style="padding:3px 8px;font-size:11px;flex-shrink:0;border-color:#5a3a6a;color:#dcc8ff;" onclick="openCompanions()" title="看這座城裡有誰；挑誰跟你走，也在這裡請新的人來">👥 有誰</button>'
+          + '<button class="btn" style="padding:3px 8px;font-size:11px;flex-shrink:0;border-color:#5a3a6a;color:#dcc8ff;" onclick="openCompanions()" title="同伴：同行與邀請">👥 有誰</button>'
           + '<span style="flex:1;min-width:0;">' + icon + ' ' + label + '</span>'
-          + '<button class="btn" style="padding:3px 8px;font-size:11px;flex-shrink:0;border-color:' + (inNight ? '#b07a4a' : isNight ? '#7a5a9a' : '#4a6a8a') + ';color:' + (inNight ? '#f0c090' : isNight ? '#c9a0e0' : '#8ac0e0') + ';" onclick="kanshouNextStage()" title="' + (inNight ? '這一夜到此為止，睡到天亮' : isNight ? '睡一晚到明天' : '推進到下一個時段') + '">' + (inNight ? '🌅 睡到天亮' : isNight ? '🌙 睡覺' : '⏰ 下一階段') + '</button>'
+          + '<button class="btn" style="padding:3px 8px;font-size:11px;flex-shrink:0;border-color:' + (inNight ? '#b07a4a' : isNight ? '#7a5a9a' : '#4a6a8a') + ';color:' + (inNight ? '#f0c090' : isNight ? '#c9a0e0' : '#8ac0e0') + ';" onclick="kanshouNextStage()" title="' + (inNight ? '睡到天亮' : isNight ? '睡到明天' : '推進到下個時段') + '">' + (inNight ? '🌅 睡到天亮' : isNight ? '🌙 睡覺' : '⏰ 下個時段') + '</button>'
           + '</div>';
       } else {
         hud.innerHTML = icon + ' ' + label + apStr;
@@ -1231,18 +1231,18 @@
     var _isKan = (pc && pc.mode === 'kanshou');
     var _selfCard = (currentStatusTargetId === (pc ? pc.id : ''));
     var _backTitleEl = document.getElementById('ui-back-title');
-    if (_backTitleEl) _backTitleEl.innerText = (_isKan && _selfCard) ? '—— 經歷 ——' : '—— 身分背景 ——';
+    if (_backTitleEl) _backTitleEl.innerText = (_isKan && _selfCard) ? '經歷' : '身分背景';
     if (_isKan) {
-      renderSegField_('ui-trait', s[2], ['外貌', '氣質'], null, null, _selfCard, '（待你改命填寫）');
+      renderSegField_('ui-trait', s[2], ['外貌', '氣質'], null, null, _selfCard, '（未填）');
       renderSegField_('ui-pref', s[4], ['對外', '獨處', '喜歡', '討厭'], null, null, _selfCard, '（還沒寫）');
     } else {
       setUI('ui-trait', s[2]);
       setUI('ui-pref', s[4]);
     }
     setUI('ui-loc', s[3]);
-    // 鑑賞無戰鬥：體力/魔力整格藏掉（否則顯示「--」像資料缺漏）。
-    var hpEl = document.getElementById('ui-hp'); if (hpEl && hpEl.parentElement) hpEl.parentElement.style.display = (pc && pc.mode === 'kanshou') ? 'none' : '';
-    var mpEl = document.getElementById('ui-mp'); if (mpEl && mpEl.parentElement) mpEl.parentElement.style.display = (pc && pc.mode === 'kanshou') ? 'none' : '';
+    // 鑑賞無戰鬥、無陣營：狀態格與陣營格整塊藏掉（否則只剩空標題或九州的「無所屬／自由人」）。
+    var _kanUi = !!(pc && pc.mode === 'kanshou');
+    ['ui-stat-wrap', 'ui-faction-box'].forEach(function (id) { var el = document.getElementById(id); if (el) el.style.display = _kanUi ? 'none' : ''; });
     setUI('ui-hp', s[5]);
     setUI('ui-mp', s[6]);
     // 2. 陣營 (新增欄位，防呆檢查)
@@ -1283,7 +1283,7 @@
         const _isK = (pc && pc.mode === 'kanshou');
         titleEl.innerText = _isK ? "逆天改命 - 修改經歷" : "逆天改命 - 修改身世背景";
         fieldsEl.innerHTML = `
-            <label style="font-size:13px; color:#332211; font-weight:bold;">${_isK ? '經歷 (固定事實·AI 讀得到但不會改寫·限 80 字)' : '身世背景 (限 30 字)'}</label>
+            <label style="font-size:13px; color:#332211; font-weight:bold;">${_isK ? '經歷（80 字內）' : '身世背景（30 字內）'}</label>
             <input id="fate-f1" class="std-in" maxlength="${_isK ? 80 : 30}" value="${escapeHtml(currentVal)}">
         `;
     }
@@ -1294,7 +1294,7 @@
         fieldsEl.innerHTML = `
             <label style="font-size:13px; color:#b8860b; font-weight:bold;">1. 外貌</label>
             <input id="fate-f1" class="std-in" maxlength="20" value="${escapeHtml(parts[0])}">
-            <label style="font-size:13px; color:#b8860b; font-weight:bold;">2. 氣質（第一眼的感覺，如「雨後百合的清冽」）</label>
+            <label style="font-size:13px; color:#b8860b; font-weight:bold;">2. 氣質（第一眼的印象）</label>
             <input id="fate-f2" class="std-in" maxlength="20" value="${escapeHtml(parts[1])}">
         `;
     } else {
@@ -1303,7 +1303,7 @@
         titleEl.innerText = "逆天改命 - 修改個性";
         // 鑑賞的角色欄只有創角生成＋玩家改命兩條寫入路徑，AI 一欄都碰不到（所以沒有「鎖」）。
         const _isK = (pc && pc.mode === 'kanshou');
-        const _pkLabels = _isK ? ['個性','個性','喜歡的事物','討厭的事物'] : ['日常表象','真實內裡','喜歡的事物','討厭的事物'];
+        const _pkLabels = _isK ? ['對外','獨處','喜歡的事物','討厭的事物'] : ['日常表象','真實內裡','喜歡的事物','討厭的事物'];
         // 鑑賞不把喜歡/討厭送進提示詞，所以只露前兩格；後兩格走 hidden input 原值帶回，資料不清。
         const _pkShown = _isK ? 2 : 4;
         let _pkHtml = '';
@@ -1334,10 +1334,10 @@
         newValue = segs.join('、');
     }
     
-    document.getElementById('fate-edit-title').innerText = "重塑中...";
+    document.getElementById('fate-edit-title').innerText = "儲存中…";
 
     try {
-        const res = await withProcessing_('重塑命運中…', () => gasRun({
+        const res = await withProcessing_('儲存中…', () => gasRun({
             action: "update_fate",
             pcId: pc.id,  // 🔴 關鍵修復：必須把自己的身分證傳過去！
             acctName: (pc && pc.account) || currentAccount,
@@ -1353,7 +1353,7 @@
             if (currentStatusTargetId === pc.id) {
                 localStorage.setItem('kyushu_last_status', res.statusString);
             }
-            showToast_("✅ 改命成功！");
+            showToast_("✅ 已儲存");
             syncData(true);
         } else {
             alert("沒改成：" + res.message);
@@ -1782,7 +1782,7 @@
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="「' + safeN + '」的詳細狀態，可以改命" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 狀態</button>'
             + '<button onclick="kanshouOpenBondHub(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\',\'' + String(s.nickname || '').replace(/'/g, '') + '\',\'' + String(s.id || '').replace(/'/g, '') + '\')" title="稱呼、回憶" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">💞 關係</button>'
-            + '<button onclick="kanshouPartyOp(\'' + String(s.id || '').replace(/'/g, '') + '\',\'' + (s.party ? 'drop' : 'add') + '\')" title="' + (s.party ? '解散：她會留在你解散她的這個地方' : '同行：她會一路跟著你走') + '" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:' + (s.party ? 'rgba(160,120,220,0.18)' : 'rgba(120,180,120,0.14)') + '; color:' + (s.party ? '#dcc8ff' : '#a8dca8') + '; border:1px solid ' + (s.party ? '#6a4a9a' : '#4a7a4a') + '; border-radius:6px; cursor:pointer;">' + (s.party ? '🫂 解散' : '🫂 同行') + '</button>'
+            + '<button onclick="kanshouPartyOp(\'' + String(s.id || '').replace(/'/g, '') + '\',\'' + (s.party ? 'drop' : 'add') + '\')" title="' + (s.party ? '解除同行' : '加入同行') + '" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:' + (s.party ? 'rgba(160,120,220,0.18)' : 'rgba(120,180,120,0.14)') + '; color:' + (s.party ? '#dcc8ff' : '#a8dca8') + '; border:1px solid ' + (s.party ? '#6a4a9a' : '#4a7a4a') + '; border-radius:6px; cursor:pointer;">' + (s.party ? '🫂 解散' : '🫂 同行') + '</button>'
             + '</div>'
             + '</div>';
         }
@@ -2450,7 +2450,7 @@
     title.textContent = '👕 換裝';
     var curLine = document.createElement('div');
     curLine.style.cssText = 'color:#8a7a9a;font-size:11px;margin-bottom:12px;';
-    curLine.textContent = '目前：' + (cur ? cur : '（本來裝束）');
+    curLine.textContent = '目前：' + (cur ? cur : '（預設）');
     var grid = document.createElement('div');
     grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;';
     KANSHOU_OUTFIT_PRESETS_.forEach(function (p) {
@@ -2970,7 +2970,7 @@
   function dojoFallbackHtml_(mode) {
     return mode === 'victory'
       ? '聖杯戰爭終於落幕，你贏得了這場聖杯戰爭！<br>藤村大河老師與伊莉雅都在為你鼓掌喝彩！<br><span style="color:#9a8fb0; font-size:12px;">（可隨時前往鑑賞，從英靈殿召喚同伴共度和平時光。）</span>'
-      : '聖杯戰爭已然落幕，你的靈基化作了星塵。<br>不過別急著走。藤村老師的特訓，能讓你下一場走得更遠。<br><span style="color:#9a8fb0; font-size:12px;">這一局已經收進戰史，隨時可以重新開始。</span>';
+      : '你的聖杯戰爭結束了。<br>來聽聽藤村老師的講評吧。<br><span style="color:#9a8fb0; font-size:12px;">這一局已經收進戰史，隨時可以重新開始。</span>';
   }
   // 掀開老虎道場 → 生成 AI 講評/祝賀填入卡片（一次 AI 呼叫·只在 game-over 收場，失敗則退回罐頭文案）
   //   mode='victory' 時：用祝賀 prompt、完成後按鈕走 dojoBackToMenu()(沿用既有勝利流程，不強制 reload)。
@@ -3064,7 +3064,7 @@
     renderWarActions();
     if (!isSilent) {
       const story = document.getElementById('story');
-      story.innerHTML += `<div class="msg-player" style="align-self:center; border-radius:8px; background:rgba(255,255,255,0.05); color:#aaa; font-size:13px; text-align:center;">（感應天地，已同步氣息）</div>`;
+      story.innerHTML += `<div class="msg-player" style="align-self:center; border-radius:8px; background:rgba(255,255,255,0.05); color:#aaa; font-size:13px; text-align:center;">（已同步）</div>`;
       story.scrollTop = story.scrollHeight;
     }
   }
@@ -3079,7 +3079,7 @@
     try {
       const data = await gasRun({ action: "sync", pcId: pc ? pc.id : "" });
       if (!data.success) {
-        if(!isSilent) alert("找不到：" + (data.message || "找不到這個人"));
+        if(!isSilent) alert("讀取失敗：" + (data.message || ""));
         return;
       }
       applyClientState(data, isSilent);
@@ -3101,7 +3101,7 @@ function logoutAccount() { localStorage.clear(); location.reload(); }
 // 🚪 遊戲中的「離開冬木」按鈕比登入畫面的登出多一道確認(會丟棄未存的當下羈絆狀態)，
 //   登入畫面那顆按鈕本就無進行中狀態可丟，維持直接呼叫 logoutAccount()、不必多此一問。
 async function logoutWithConfirm_() {
-  if (!await customConfirm_('離開冬木？')) return;
+  if (!await customConfirm_('確定登出？')) return;
   logoutAccount();
 }
 

@@ -214,7 +214,7 @@ if (!probeFired) {
 const TUT_NOT_A_BUTTON = new Set(['✍️', '🔰']);   // 純粹的段落圖示，不是控制項
 const tutorial = (() => {
   const src = fs.readFileSync(path.join(GAS, 'Script_Kanshou.html'), 'utf8');
-  const i = src.indexOf('<b>【日常】</b>');
+  const i = src.indexOf('<b>【後日談】</b>');   // 第一次進鑑賞的那段開場（段首的標題換了，這裡要跟著換）
   if (i < 0) return { block: '', icons: [] };
   // ⚠ 收尾用【結構】不用語氣句：舊版切到「日子還長」為止，那是一句文案，玩家一句話就改掉了，
   //    切點跟著失效、整段只剩開頭幾個字，掃描器會安靜地少看好幾顆鈕。`</div>` 是模板字串的真正結尾。

@@ -12,7 +12,7 @@ async function accountLogin() {
   var name = (document.getElementById('in-account').value || '').trim();
   if (!name) { alert('先打個帳號名。'); return; }
   try {
-    var res = await withProcessing_('連結御主契約中…', () => gasRun({ action: 'account_login', acctName: name }));
+    var res = await withProcessing_('登入中…', () => gasRun({ action: 'account_login', acctName: name }));
     if (!res || !res.success) { alert((res && res.message) || '沒登入成。'); return; }
     currentAccount = res.name;
     accountLoginRes = res;
@@ -134,7 +134,7 @@ function toggleMasterAdv() {
   if (!box) return;
   var open = box.style.display === 'none';
   box.style.display = open ? 'block' : 'none';
-  if (btn) btn.textContent = (open ? '▾' : '▸') + ' 自己設定（場次·外貌·身世·願望·禮裝·天賦）';
+  if (btn) btn.textContent = (open ? '▾' : '▸') + ' 自己設定（外貌·身世·願望·禮裝·天賦）';
 }
 function openCanonMasterPick() {
   if (warMode !== 'canon') { alert('混亂模式沒有正典御主可以選。自己創一個，或把場次改回正史。'); return; }
@@ -248,7 +248,7 @@ async function checkNameOk_(name) {
       el = document.createElement('div');
       el.id = 'proc-overlay';
       el.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(8,6,12,0.82);';
-      el.innerHTML = '<div style="text-align:center;color:#e8dcc0;padding:24px;"><div style="width:48px;height:48px;margin:0 auto 16px;border:3px solid rgba(212,175,55,0.22);border-top-color:#d4af37;border-radius:50%;animation:procspin 0.9s linear infinite;"></div><div id="proc-msg" style="font-size:15px;letter-spacing:1px;color:#e7c873;font-weight:bold;"></div><div id="proc-hint" style="font-size:11.5px;color:#9a8bb0;margin-top:8px;">聖杯演算中，大概 10 到 30 秒……</div></div>';
+      el.innerHTML = '<div style="text-align:center;color:#e8dcc0;padding:24px;"><div style="width:48px;height:48px;margin:0 auto 16px;border:3px solid rgba(212,175,55,0.22);border-top-color:#d4af37;border-radius:50%;animation:procspin 0.9s linear infinite;"></div><div id="proc-msg" style="font-size:15px;letter-spacing:1px;color:#e7c873;font-weight:bold;"></div><div id="proc-hint" style="font-size:11.5px;color:#9a8bb0;margin-top:8px;">生成中，約需 10～30 秒</div></div>';
       document.body.appendChild(el);
       const st = document.createElement('style'); st.textContent = '@keyframes procspin{to{transform:rotate(360deg)}}'; document.head.appendChild(st);
     }
@@ -459,7 +459,7 @@ function toggleSummonAdvanced() {
   var open = box.style.display !== 'none';
   box.style.display = open ? 'none' : 'block';
   var btn = document.getElementById('s-adv-toggle');
-  if (btn) btn.textContent = (open ? '▸' : '▾') + ' 進階選項（指定職階／角色來源，預設不限・完全原創）';
+  if (btn) btn.textContent = (open ? '▸' : '▾') + ' 指定職階（不指定也行）';
 }
 
   function startGame(isRet) {
@@ -480,13 +480,13 @@ function toggleSummonAdvanced() {
       
       // 2. ⛩️ 核心修正：向系統同步「歷史暫存」表中的前塵對話紀錄！
       const story = document.getElementById('story');
-      story.innerHTML = `<div class="loading-text">聖杯因果重啟，喚醒前塵記憶…</div>`;
+      story.innerHTML = `<div class="loading-text">載入中…</div>`;
       
       google.script.run.withSuccessHandler((htmlContent) => {
         if(htmlContent && htmlContent.trim() !== "") {
             story.innerHTML = htmlContent;
         } else {
-            story.innerHTML = `<div class="msg-ai"><b>【聖杯】</b>聖杯因果重啟，御主【${pc.name}】重返冬木。</div>`;
+            story.innerHTML = `<div class="msg-ai"><b>【聖杯】</b>御主【${pc.name}】重返冬木。</div>`;
         }
         story.scrollTop = story.scrollHeight;
         
