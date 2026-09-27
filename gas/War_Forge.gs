@@ -65,7 +65,7 @@ function warOriginalsFor_(acct) {
 
 function actionWarForgeList(userData) {
   var acct = String(userData.acctName || '');
-  if (!acct) return JSON.stringify({ success: false, message: '先登入帳號。' });
+  if (!acct) return JSON.stringify({ success: false, message: '請先登入。' });
   var mine = warOriginalsFor_(acct).map(function (r) {
     var s = warSeedFromRow_(r), six = {}, fx = [], lost = [];
     WAR_FORGE_.SIX.forEach(function (k) { six[k] = warForgeRank_(s.six[k]); });
@@ -93,32 +93,32 @@ function warForgeCheck_(b, editing) {
     name: clean(b.name, WAR_FORGE_.NAME_MAX), cls: String(b.cls || ''), sex: b.sex === '女' ? '女' : '男',
     np: clean(b.np, WAR_FORGE_.NP_MAX), look: clean(b.look, WAR_FORGE_.TEXT_MAX), words: clean(b.words, WAR_FORGE_.TEXT_MAX), six: {}, fx: []
   };
-  if (!editing && !/[一-鿿]/.test(h.name)) return { ok: false, msg: '真名要有中文字。' };
-  if (!editing && WAR_FORGE_.CLASSES.indexOf(h.cls) < 0) return { ok: false, msg: '選一個職階。' };
-  if (!h.np) return { ok: false, msg: '寶具要有名字。' };
+  if (!editing && !/[一-鿿]/.test(h.name)) return { ok: false, msg: '真名需包含中文字。' };
+  if (!editing && WAR_FORGE_.CLASSES.indexOf(h.cls) < 0) return { ok: false, msg: '請選擇職階。' };
+  if (!h.np) return { ok: false, msg: '請填寫寶具名稱。' };
   var six = b.six || {};
   for (var i = 0; i < WAR_FORGE_.SIX.length; i++) {
     var k = WAR_FORGE_.SIX[i], r = String(six[k] || '');
-    if (WAR_FORGE_.RANKS.indexOf(r) < 0) return { ok: false, msg: k + '還沒選。' };
+    if (WAR_FORGE_.RANKS.indexOf(r) < 0) return { ok: false, msg: '請選擇' + k + '。' };
     h.six[k] = r;
   }
-  if (warSixPts_(h.six) > WAR_FORGE_.BUDGET) return { ok: false, msg: '點數超過 ' + WAR_FORGE_.BUDGET + ' 點。' };
+  if (warSixPts_(h.six) > WAR_FORGE_.BUDGET) return { ok: false, msg: '點數超過上限（' + WAR_FORGE_.BUDGET + ' 點）。' };
   var allow = WAR_FORGE_SKILLS_.map(function (p) { return p[0]; });
   (Array.isArray(b.fx) ? b.fx : []).forEach(function (f) { if (allow.indexOf(f) >= 0 && h.fx.indexOf(f) < 0) h.fx.push(f); });
   if (h.fx.length > WAR_FORGE_.MAX_SKILLS) return { ok: false, msg: '技能最多 ' + WAR_FORGE_.MAX_SKILLS + ' 個。' };
   var canonNames = SEED_SERVANTS.map(function (s) { return s.realName; }).concat(SEED_MASTERS.map(function (m) { return m.name; }));
-  if (!editing && canonNames.indexOf(h.name) >= 0) return { ok: false, msg: '這是原作角色的名字，換一個。' };
+  if (!editing && canonNames.indexOf(h.name) >= 0) return { ok: false, msg: '無法使用原作角色的名字。' };
   return { ok: true, h: h };
 }
 
 // 存：新做一位（ID＝真名-職階），或改自己的（真名與職階鎖住）。沒人認領的舊作改了就歸你。
 function actionWarForgeSave(userData) {
   var acct = String(userData.acctName || '');
-  if (!acct) return JSON.stringify({ success: false, message: '先登入帳號。' });
+  if (!acct) return JSON.stringify({ success: false, message: '請先登入。' });
   var c = warForgeCheck_(userData.hero, !!String(userData.id || ''));
   if (!c.ok) return JSON.stringify({ success: false, message: c.msg });
   var h = c.h, sh = warHeroSheet_();
-  if (!sh) return JSON.stringify({ success: false, message: '找不到英靈殿。' });
+  if (!sh) return JSON.stringify({ success: false, message: '找不到英靈殿資料。' });
   var data = sh.getDataRange().getValues();
   var editId = String(userData.id || '');
   var idx = -1;
@@ -126,12 +126,12 @@ function actionWarForgeSave(userData) {
     idx = data.findIndex(function (r, i) { return i > 0 && String(r[COL.HERO.ID]) === editId; });
     if (idx < 0 || !warIsOriginal_(data[idx])) return JSON.stringify({ success: false, message: '找不到這位從者。' });
     var who = warCreatorOf_(data[idx]);
-    if (who && who !== acct) return JSON.stringify({ success: false, message: '這位是別人做的。' });
+    if (who && who !== acct) return JSON.stringify({ success: false, message: '這位從者屬於其他玩家。' });
     h.name = String(data[idx][COL.HERO.NAME]); h.cls = String(data[idx][COL.HERO.CLS]);
   } else {
     var id = h.name + '-' + h.cls;
     if (data.some(function (r, i) { return i > 0 && (String(r[COL.HERO.ID]) === id || String(r[COL.HERO.NAME]) === h.name); }))
-      return JSON.stringify({ success: false, message: '英靈殿裡已經有這個名字了。' });
+      return JSON.stringify({ success: false, message: '英靈殿已有同名從者。' });
   }
   var width = Math.max(data[0].length, COL.HERO.DAILY_OUTFIT + 1);
   var row = idx >= 0 ? data[idx].slice() : [];
@@ -162,5 +162,5 @@ function actionWarForgeSave(userData) {
   if (idx >= 0) sh.getRange(idx + 1, 1, 1, row.length).setValues([row]);
   else sh.appendRow(row);
   try { CacheService.getScriptCache().remove('FATE_HERO_CODEX'); } catch (e) { }
-  return JSON.stringify({ success: true, id: row[COL.HERO.ID], message: idx >= 0 ? '改好了。' : '「' + h.name + '」進了英靈殿。' });
+  return JSON.stringify({ success: true, id: row[COL.HERO.ID], message: idx >= 0 ? '已更新。' : '已登錄「' + h.name + '」。' });
 }

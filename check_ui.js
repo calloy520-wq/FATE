@@ -92,7 +92,7 @@ const RENDERS = [
     ctx.warRender_(view);
     const btns = () => String(ctx.document.getElementById('war-btns').innerHTML);
     if (!/正面/.test(btns()) || !/disabled/.test(btns())) return false;       // 充能中的寶具按不下去
-    if (!/要放寶具了/.test(String(ctx.document.getElementById('war-top').innerHTML))) return false;
+    if (!/寶具預兆/.test(String(ctx.document.getElementById('war-top').innerHTML))) return false;   // 對方要放寶具的預兆有畫出來
     ctx.warToggleSeal();
     return /無視充能/.test(btns()) && !/disabled/.test(btns());               // 令咒一開就按得下去
   }],

@@ -71,7 +71,7 @@ function warLogLines_(ev) { return (ev || []).map(function (e) { return { txt: e
 // ── 動作 ──────────────────────────────────────────────
 function actionWarLoad(userData) {
   var acct = String(userData.acctName || '');
-  if (!acct) return JSON.stringify({ success: false, message: '先登入帳號。' });
+  if (!acct) return JSON.stringify({ success: false, message: '請先登入。' });
   var ref = warLoad_(acct);
   if (!ref.st) return JSON.stringify({ success: true, view: null, story: [], rules: warRules_() });
   return JSON.stringify({ success: true, view: warView_(ref.st), story: (ref.narr.hist || []).map(function (h) { return h.t; }) });
@@ -79,7 +79,7 @@ function actionWarLoad(userData) {
 
 function actionWarNew(userData) {
   var acct = String(userData.acctName || '');
-  if (!acct) return JSON.stringify({ success: false, message: '先登入帳號。' });
+  if (!acct) return JSON.stringify({ success: false, message: '請先登入。' });
   var war = userData.war === '4th' ? '4th' : '5th';
   var name = String(userData.pcName || '').trim() || '御主';
   var sex = userData.sex === '女' ? '女' : '男';
@@ -89,13 +89,13 @@ function actionWarNew(userData) {
   if (pick) {
     var canon = SEED_SERVANTS.filter(function (s) { return s.id === pick && s.cls !== '御主'; })[0];
     var orig = canon ? null : warOriginalsFor_(acct).filter(function (r) { return String(r[COL.HERO.ID]) === pick; })[0];
-    if (!canon && !orig) return JSON.stringify({ success: false, message: '叫不到這位從者。' });
+    if (!canon && !orig) return JSON.stringify({ success: false, message: '無法召喚這位從者。' });
     o.pool = [canon || warSeedFromRow_(orig)];
   }
   o.name = name; o.sex = sex; o.war = war; o.wish = wish; o.seed = Date.now() % 2147483647;
   var st = warNewGame_(o);
   st.gid = 'w_' + acct + '_' + o.seed;
-  st.narr = { seq: 1, kind: 'summon', facts: ['召喚陣亮起，回應你的是 ' + st.sv.cls + '「' + st.sv.name + '」。'] };
+  st.narr = { seq: 1, kind: 'summon', facts: ['召喚陣亮起，回應的是 ' + st.sv.cls + '「' + st.sv.name + '」。'] };
   st.seq = 1;
   var ref = warLoad_(acct);
   warSave_(ref, acct, st);
@@ -106,7 +106,7 @@ function actionWarNew(userData) {
 function actionWarAct(userData) {
   var acct = String(userData.acctName || '');
   var ref = warLoad_(acct);
-  if (!ref.st) return JSON.stringify({ success: false, message: '還沒有開始的聖杯戰爭。' });
+  if (!ref.st) return JSON.stringify({ success: false, message: '目前沒有進行中的戰局。' });
   var a = userData.act || {};
   var act = { t: String(a.t || ''), id: String(a.id || ''), s: String(a.s || ''), seal: a.seal === true };
   var st = ref.st;
@@ -149,11 +149,11 @@ function actionWarDojo(userData) {
   var acct = String(userData.acctName || '');
   var ref = warLoad_(acct);
   var st = ref.st;
-  if (!st || st.phase !== 'over') return JSON.stringify({ success: false, message: '聖杯戰爭結束之後，道場才會開門。' });
+  if (!st || st.phase !== 'over') return JSON.stringify({ success: false, message: '戰局結束後才能進入老虎道場。' });
   var narr = ref.narr || {};
   if (narr.dojo && narr.dojo.gid === st.gid && narr.dojo.text) return JSON.stringify({ success: true, text: narr.dojo.text });
   var text = String(callGeminiAPI(warDojoPrompt_(st), WAR_DOJO_SYS_, { plainText: true, retries: 2, sessionId: 'w_' + acct, model: AI_MODEL, temperature: 0.9, max_tokens: 900 }) || '').trim();
-  if (!text) return JSON.stringify({ success: false, message: '道場今天沒開，講評照畫面上的看。' });
+  if (!text) return JSON.stringify({ success: false, message: '老虎道場暫時無法使用。' });
   narr.dojo = { gid: st.gid, text: text };
   warSaveNarr_(ref, acct, st.gid, narr);
   return JSON.stringify({ success: true, text: text });
