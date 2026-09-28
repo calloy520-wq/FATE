@@ -28,14 +28,14 @@
 | **Setup_FateWorld.gs** | 4 | 分頁建置／種子灌入 |
 | **Account.gs** | 9 | 帳號綁定／開新局／清理本局 |
 | **History_Sync.gs** | 7 | 戰記寫入／軌跡摘要 |
-| **War_Engine.gs** | 67 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰、賽後講評 |
+| **War_Engine.gs** | 74 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰、賽後講評 |
 | **War_Router.gs** | 16 | ⚔️ 新聖杯戰爭的 GAS 端：聖杯戰局分頁（一局一格 JSON）、`war_*` 六條路由、世界書、說書與老虎道場提示詞 |
-| **War_Forge.gs** | 9 | 🛠️ 英靈工房（新聖杯戰爭與鑑賞共用）：表單驗證、寫一列完整的英靈殿、原創清單 |
+| **War_Forge.gs** | 12 | 🛠️ 英靈工房（新聖杯戰爭與鑑賞共用）：表單驗證、寫一列完整的英靈殿、原創清單 |
 | **Index.html** | 0 | 載入殼（依序載 Style／Script／Script_Onboarding／Script_Kanshou／Script_War） |
 | **Script.html** | 132 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
 | **Script_Kanshou.html** | 108 | 鑑賞（慾海）SPA |
 | **Script_Onboarding.html** | 57 | 開局（登入／創角／召喚） |
-| **Script_War.html** | 34 | ⚔️ 新聖杯戰爭畫面：照後端 `buttons` 畫大按鈕、令咒切換、故事區、對手情報、規則卡、終局卡與老虎道場、英靈工房 |
+| **Script_War.html** | 38 | ⚔️ 新聖杯戰爭畫面：照後端 `buttons` 畫大按鈕、令咒切換、故事區、對手情報、規則卡、終局卡與老虎道場、英靈工房 |
 
 > ActionRouter 目前註冊 **67 個 action**，全部對應真實 handler、無缺漏（見下 Router_Action.gs 段完整對照表）。
 
@@ -1477,7 +1477,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warFoeDetail_(f, inBattle)`／`warFoePeek(id)` — 對手情報（戰鬥框裡「看穿真名」改成標題上的 ◆弱點）（只知道職階時提示怎麼看穿；看穿後御主、寶具可不可以放、技能）／點名單上的對手展開情報。
 - `warHelpHtml_()`／`warHelp()`／`warHelpClose()` — 「規則」卡：第一次開局自動跳出（localStorage 記住），之後從頂欄「？」叫出；數字照後端 `rules`。
 - `warOverHtml_(v)`／`warDojo()` — 終局卡（勝負、六格戰績、輸在哪與下一局／亮點）／叫 `war_dojo`，講評接在故事區。`warRenderButtons_()` — 照 `buttons` 畫大按鈕（令咒開著換成 `sealSub`、`sealOk` 的鈕變得按得下去）。
-- `warBar_(v, max, cls)`／`warStory_(who, text)`／`warLog_(lines)`／`warEl_(id)` — 小工具；說書走 `aiHtml_`。
+- `warBar_(v, max, cls, key)`／`warBarsSlide_()` — 血條：記住每條上一次畫到哪（`warBarPrev_`），先畫在舊位置、下一格滑到新值，掉血的那條閃一下。
+- `warStory_(who, text)`／`warLog_(lines)`／`warEl_(id)` — 小工具；說書走 `aiHtml_`。
 - `warHeroOptions_()`／`warForgeLoad_()` — 召喚對象選單（命運決定／你的原創／原作），資料來自 `war_forge_list`。
 - `warForgeOpen(fromMenu)`／`warForgeBack()`／`warForgeList_()` — 工房：清單頁（我的原創＋新增）；從主選單進來就回主選單。
 - `warForgeEdit(id)`／`warForgeRender_()`／`warFeSet(k, v)`／`warFeSync_()`／`warFePts_()` — 編輯頁：真名、職階、性別、六圍（即時點數）、寶具名、技能、外貌、性格。
