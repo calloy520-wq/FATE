@@ -14,7 +14,8 @@ var WAR_FORGE_ = {
 // 能挑的技能：每一個效果列一個代表名（同一列只列一次）。
 var WAR_FORGE_SKILLS_ = [
   ['first_strike', '直感'], ['survive', '戰鬥續行'], ['ride', '騎乘'], ['stealth', '氣息遮斷'], ['territory', '陣地作成'],
-  ['mad', '狂化'], ['nullify_magic', '對魔力'], ['aim', '千里眼'], ['solo', '單獨行動'], ['evade_ranged', '避矢加護'], ['tactics', '軍略']
+  ['mad', '狂化'], ['nullify_magic', '對魔力'], ['aim', '千里眼'], ['solo', '單獨行動'], ['evade_ranged', '避矢加護'], ['tactics', '軍略'],
+  ['crafting', '道具作成'], ['fast_cast', '高速詠唱']
 ];
 
 function warHeroSheet_() { return SpreadsheetApp.getActiveSpreadsheet().getSheetByName('英靈殿'); }

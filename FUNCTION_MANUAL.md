@@ -1081,7 +1081,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 不碰試算表、不碰 AI：GAS 與 Node 模擬器載入同一份。狀態是一個 JSON 物件 `st`，亂數存在 `st.rs`（mulberry32），同一顆種子同樣的按法結果一模一樣。為什麼這樣設計、平衡怎麼量：見 CODE_NOTES.md『WAR_』。
 
-**表**：`WAR_`（所有數字）、`WAR_CLASS_`（職階＝敵人的個性 aggr）、`WAR_SKILL_`（技能表：鍵＝種子 fx，每列只寫「哪個時機、改什麼數字」＋說明文字；時機一覽寫在表頭註解）、`WAR_FORESEE_`／`WAR_LASTSTAND_`（多個 fx 共用的列）、`WAR_FROM_HOOKS_`（哪些時機受 `from` 職階限制）。
+**表**：`WAR_`（所有數字）、`WAR_CLASS_`（職階＝敵人的個性 aggr）、`WAR_SKILL_`（技能表：鍵＝種子 fx，每列只寫「哪個時機、改什麼數字」＋說明文字；時機一覽寫在表頭註解）、`WAR_FORESEE_`／`WAR_LASTSTAND_`／`WAR_MAGECRAFT_`（多個 fx 共用的列）、`WAR_FROM_HOOKS_`（哪些時機受 `from` 職階限制）。
 
 **對外四支**
 - `warNewGame_(o)` — 開局。`o`＝`{pool, roster, seeds, masterNames, name, sex, war, seed}`（`warSeedCtx_` 組好）；停在 `summon`。
@@ -1119,7 +1119,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warUnit_(seed, extra)` — 種子→戰鬥單位（`sk`＝這位從者自己的技能效果；`card` 帶說書用的外貌／性格／寶具原文 `np`／喜惡條目 `book`，不進規則）。`warNpName_(np)` — 寶具名（剝掉原文與括號）。
 - `warSkillsOf_(seed)` — 種子技能 → `{fx:[表上有的 fx], names:{fx: 原作技能名}}`（同一列只收一次）。`warTraits_(u)` — 畫面用「技能名：效果」清單。
 - `warSkRows_(u)`／`warSkOk_(row, hook, foe)` — 這個單位的技能列／這一列在這個時機對這個對手生不生效。
-- `warMul_(u, hook, foe)`／`warAdd_(u, hook, foe)`／`warFlag_(u, hook)` — 讀表三支：把技能在這個時機的數字相乘／相加／有沒有。引擎只透過這三支碰技能。`warSkName_(u, hook)` — 提供這個時機的是哪個原作技能名（事件文字要念出來；沒有就回「技能」）。
+- `warMul_(u, hook, foe)`／`warAdd_(u, hook, foe)`／`warFlag_(u, hook)` — 讀表三支：把技能在這個時機的數字相乘／相加／有沒有。引擎只透過這三支碰技能。`warNpCd_(u)` — 放完寶具的冷卻夜數（`NP_COOLDOWN`＋技能的 `npCd`，至少 1）。`warSkName_(u, hook)` — 提供這個時機的是哪個原作技能名（事件文字要念出來；沒有就回「技能」）。
 - `warRand_(st)`／`warPick_(st, arr)`／`warClamp_(v, a, b)` — 亂數與夾值。
 - `warHitChance_(x, y)`／`warMult_(X)`／`warNormalDmg_(st, X, Y)`／`warNpDmg_(X, Y)`／`warRetreatChance_(u, o, seal)` — 命中、倍率、傷害、撤退。
 - `warHeal_(u, pct)`／`warHealMaster_(st, n)` — 回血。

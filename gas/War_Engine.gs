@@ -68,7 +68,9 @@ function warClass_(cls) { return WAR_CLASS_[cls] || { aggr: 0.5 }; }
 //   ward               有人闖進我的據點（或我守家）先吃魔術陣：對方最大血量的幾成　　wardTaken  我挨魔術陣 ×
 //   findMe／findThem   我的據點被找到的機率 ×／我找到別人據點的機率 ×　　hideScout  別人打聽我時落空的機率
 //   scoutExtra／scoutRest／patrolMeet   打聽多看幾處／打聽時從者自己去、御主與從者順便休息幾成／巡邏必遇
+//   restHeal           休養與補魔時多回幾成　　npCd  放完寶具的冷卻夜數 +（負的＝比較快回來）
 var WAR_FORESEE_ = { txt: '看得出寶具預兆・較不易被擊中', seeNp: 1, npTaken: 0.8, hitTaken: 0.88 };
+var WAR_MAGECRAFT_ = { txt: '魔術攻擊傷害提高', dmgDealt: 1.12 };
 var WAR_LASTSTAND_ = { txt: '受到致命一擊時撐住一次（每場戰鬥一次・瀕死時無效）', lastStand: 1 };
 var WAR_SKILL_ = {
   first_strike: WAR_FORESEE_, analyze: WAR_FORESEE_, insight: WAR_FORESEE_, sense: WAR_FORESEE_,
@@ -80,6 +82,12 @@ var WAR_SKILL_ = {
   nullify_magic: { txt: '受 Caster 攻擊與魔術陣的傷害減少', from: 'Caster', dmgTaken: 0.7, npTaken: 0.7, wardTaken: 0.4 },
   aim: { txt: '巡邏必定遭遇敵人・打聽時多查兩處', patrolMeet: 1, scoutExtra: 2, findThem: 1.5 },
   solo: { txt: '打聽時同時休養', scoutRest: 0.35 },
+  fast_cast: WAR_MAGECRAFT_, divine_age: WAR_MAGECRAFT_,
+  morale: { txt: '寶具傷害提高', npDealt: 1.08 },
+  projection: { txt: '寶具冷卻縮短 1 夜', npCd: -1 },
+  self_mod: { txt: '攻擊傷害提高', dmgDealt: 1.08 },
+  crafting: { txt: '休養與補魔時恢復更多', restHeal: 0.25 },
+  summon_horror: { txt: '寶具自帶魔力爐・冷卻縮短 2 夜；海魔擋在身前・較不易被擊中', npCd: -2, hitTaken: 0.8 },
   evade_ranged: { txt: '不易被 Archer 擊中', from: 'Archer', hitTaken: 0.6 },
   tactics: { txt: '受到的寶具傷害減少・自身寶具傷害提高', npTaken: 0.75, npDealt: 1.1 }
 };
@@ -90,6 +98,7 @@ function warSkRows_(u) { return ((u && u.fx) || []).map(function (f) { return WA
 function warSkOk_(row, hook, foe) { return row[hook] !== undefined && !(row.from && WAR_FROM_HOOKS_[hook] && (!foe || foe.cls !== row.from)); }
 function warMul_(u, hook, foe) { return warSkRows_(u).reduce(function (m, r) { return warSkOk_(r, hook, foe) ? m * r[hook] : m; }, 1); }
 function warAdd_(u, hook, foe) { return warSkRows_(u).reduce(function (a, r) { return warSkOk_(r, hook, foe) ? a + r[hook] : a; }, 0); }
+function warNpCd_(u) { return Math.max(1, WAR_.NP_COOLDOWN + warAdd_(u, 'npCd')); }
 function warFlag_(u, hook) { return warSkRows_(u).some(function (r) { return !!r[hook]; }); }
 // 提供這個時機的技能叫什麼（畫面與說書要念出原作技能名）。
 function warSkName_(u, hook) {
@@ -285,12 +294,12 @@ function warDoDay_(st, act, ev) {
       if (!e.found && warRand_(st) < WAR_.FIND_SCOUT) { e.found = true; ev.push({ k: 'watched', txt: '回程時似乎被人跟蹤了。' }); }
     });
   } else if (act.t === 'rest') {
-    var a = warHeal_(sv, WAR_.REST_HEAL), m = warHealMaster_(st, WAR_.REST_MASTER);
+    var a = warHeal_(sv, WAR_.REST_HEAL + warAdd_(sv, 'restHeal')), m = warHealMaster_(st, WAR_.REST_MASTER);
     ev.push({ k: 'rest', txt: sv.name + '在據點休養了一天。', num: [a ? '從者 +' + a : '', m ? '御主 +' + m : ''].filter(Boolean).join('・') });
   } else if (act.t === 'supply') {
     var had = sv.cd;
     sv.cd = Math.max(0, sv.cd - WAR_.SUPPLY_CD);
-    var b = warHeal_(sv, WAR_.SUPPLY_HEAL);
+    var b = warHeal_(sv, WAR_.SUPPLY_HEAL + warAdd_(sv, 'restHeal'));
     ev.push({ k: 'supply', txt: '為' + sv.name + '補魔。' + (had > 0 ? (sv.cd === 0 ? '寶具可以再次使用。' : '寶具冷卻縮短。') : '寶具已經就緒。'), num: (sv.cd === 0 ? '寶具就緒' : '寶具還要 ' + sv.cd + ' 夜') + (b ? '・從者 +' + b : '') });
   }
   st.phase = 'night';
@@ -514,7 +523,7 @@ function warExchange_(st, A, Z, ev) {
   if (A.act === 'np' && Z.act === 'np') {
     var sa = A.u.np + warRand_(st) * 3 + (A.seal ? 3 : 0), sz = Z.u.np + warRand_(st) * 3 + (Z.seal ? 3 : 0);
     var W = sa >= sz ? A : Z, L = W === A ? Z : A;
-    A.u.cd = WAR_.NP_COOLDOWN; Z.u.cd = WAR_.NP_COOLDOWN;
+    A.u.cd = warNpCd_(A.u); Z.u.cd = warNpCd_(Z.u);
     A.struck = A.fired = Z.struck = Z.fired = true;
     var d = Math.round(warNpDmg_(W, L) * WAR_.CLASH_WIN);
     var stood = warApply_(st, L, d);
@@ -545,7 +554,7 @@ function warStrike_(st, X, Y, ev) {
   var home = Y.home ? WAR_.HOME * warMul_(Y.u, 'homeTaken') : (Y.lair ? warMul_(Y.u, 'homeTaken') : 1);
   if (X.act === 'np') {
     X.fired = true;
-    X.u.cd = WAR_.NP_COOLDOWN;
+    X.u.cd = warNpCd_(X.u);
     var nd = Math.round(warNpDmg_(X, Y) * guard * home * warMul_(X.u, 'npDealt') * warMul_(Y.u, 'npTaken', X.u));
     var npStood = warApply_(st, Y, nd);
     ev.push({ k: 'np', side: X.side, txt: warWho_(st, X) + '解放寶具「' + X.u.npName + '」。' + (Y.act === 'probe' ? warWho_(st, Y) + '有所防備，傷害減半，' : warWho_(st, Y)) + warHurtWord_(Y.u) + '。', num: '−' + nd });
