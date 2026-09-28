@@ -383,8 +383,6 @@
 | `kanshou_memoir_op` | 💞共同回憶面板「📌釘選/☆/🗑」→`kanshouMemoirOp(name,op,text)` | `actionKanshouMemoirOp` | 否（玩家手動管理回憶） |
 | `kanshou_set_name` | 「✏改名」→`changeKanshouName()` | `actionKanshouSetName` | 否 |
 | `kanshou_set_sex` | 「⚧切換性別」→`changeKanshouSex()` | `actionKanshouSetSex` | 否 |
-| `purge_orphans` | 主選單 DEV「🧹 清殘列」（Index.html） | `actionPurgeOrphans`（其實在 Account.gs） | 否 |
-| `dev_resync_codex` | 主選單 DEV「🔄 套用最新平衡」（Index.html） | `actionDevResyncCodex`（Seed 系統） | 否 |
 
 > ⚠ **2026-07 已砍**：舊版奪杯封存流程 `actionClaimGrail`（action `claim_grail`·寫「鑑賞」GAL 表的回憶散文）已整套刪除——ActionRouter 無此註冊、`gas/` 查無 handler，鑑賞改由「英靈殿直接召喚」(`enter_kanshou`＋`kanshou_summon_hero`)進入，不再需要先打贏戰爭奪杯封存。
 

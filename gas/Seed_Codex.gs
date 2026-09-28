@@ -442,19 +442,6 @@ function resyncSummonedServants_(ss) {
   return n;
 }
 
-// 🔄【手動·強制】無視版本旗標，立刻把英靈殿＋在場從者重刷成最新種子(套用最新寶具/六圍/標籤/平衡)。
-function actionDevResyncCodex(userData, pcId, sheets) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var codexN = 0, svN = 0, errs = [];
-  try { codexN = upgradeCodexPersonas_(ss); } catch (e) { errs.push('英靈殿:' + e.message); }
-  try { svN = resyncSummonedServants_(ss); } catch (e) { errs.push('從者:' + e.message); }
-  try { PropertiesService.getScriptProperties().setProperty('codex_persona_ver', CODEX_PERSONA_VER); } catch (e) { }
-  return JSON.stringify({
-    success: true,
-    message: '🔄 已強制套用最新種子：英靈殿 ' + codexN + ' 筆、在場從者 ' + svN + ' 筆更新。'
-      + (errs.length ? '　⚠ ' + errs.join('；') : '　請重整頁面看最新寶具/標籤。')
-  });
-}
 
 // 🔵 英靈殿/御主殿 為空(只有表頭)時，自動灌入名冊。冪等：有資料就不動。
 function seedFateCodex_(ss) {

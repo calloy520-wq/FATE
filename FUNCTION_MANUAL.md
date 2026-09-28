@@ -23,21 +23,21 @@
 | **Gallery.gs** | 119 | 鑑賞（慾海）全軌＋`actionPlay`＋`nsfwBaseRules`（紅線①） |
 | **Core_Settings.gs** | 69 | 金鑰／模型常數／`COL` schema／數值公式／MEMORY 封裝／地理雷達 |
 | **Time_World.gs** | 22 | 世界時鐘／AP／`worldTick_` NPC 模擬迴圈 |
-| **Seed_Codex.gs** | 7 | 英靈殿種子＋人設回填 |
+| **Seed_Codex.gs** | 6 | 英靈殿種子＋人設回填 |
 | **Seed_Rivals.gs** | 7 | 敵方陣營一次性鋪設 |
 | **Setup_FateWorld.gs** | 4 | 分頁建置／種子灌入 |
-| **Account.gs** | 10 | 帳號綁定／開新局／清理本局 |
+| **Account.gs** | 9 | 帳號綁定／開新局／清理本局 |
 | **History_Sync.gs** | 7 | 戰記寫入／軌跡摘要 |
 | **War_Engine.gs** | 67 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰、賽後講評 |
 | **War_Router.gs** | 16 | ⚔️ 新聖杯戰爭的 GAS 端：聖杯戰局分頁（一局一格 JSON）、`war_*` 六條路由、世界書、說書與老虎道場提示詞 |
 | **War_Forge.gs** | 9 | 🛠️ 英靈工房（新聖杯戰爭與鑑賞共用）：表單驗證、寫一列完整的英靈殿、原創清單 |
 | **Index.html** | 0 | 載入殼（依序載 Style／Script／Script_Onboarding／Script_Kanshou／Script_War） |
-| **Script.html** | 135 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
+| **Script.html** | 132 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
 | **Script_Kanshou.html** | 108 | 鑑賞（慾海）SPA |
 | **Script_Onboarding.html** | 57 | 開局（登入／創角／召喚） |
 | **Script_War.html** | 34 | ⚔️ 新聖杯戰爭畫面：照後端 `buttons` 畫大按鈕、令咒切換、故事區、對手情報、規則卡、終局卡與老虎道場、英靈工房 |
 
-> ActionRouter 目前註冊 **70 個 action**，全部對應真實 handler、無缺漏（見下 Router_Action.gs 段完整對照表）。
+> ActionRouter 目前註冊 **67 個 action**，全部對應真實 handler、無缺漏（見下 Router_Action.gs 段完整對照表）。
 
 ---
 
@@ -53,22 +53,19 @@
 
 後端總分流器：唯一輸入防線 `sanitizeUserData_` → dispatch 表 `ActionRouter` → `handleGameAction`，並集中處理鎖／14 日時限攔截／`_state` 夾帶。共 **12 個函式** ＋ 4 張常數表。
 
-#### 🔹 ActionRouter 註冊表（目前註冊 70 個 action）
+#### 🔹 ActionRouter 註冊表（目前註冊 67 個 action）
 
 `"action字串": handler` 完整對照（依原碼順序）：
 
 | action | handler | 備註 |
 |---|---|---|
 | `check_name` | `actionCheckName` | 建角姓名檢查（擋正典名） |
-| `check_sheets` | `actionCheckSheets` | 登入畫面手動建缺分頁（Setup_FateWorld.gs） |
 | `account_login` | `actionAccountLogin` | 帳號登入 |
 | `account_new_game` | `actionAccountNewGame` | 開新局 |
 | `end_run` | `actionEndRun` | 清理開新局（claim_grail 奪杯封存已砍） |
 | `enter_kanshou` | `actionEnterKanshou` | 進鑑賞 |
 | `kanshou_reset` | `actionKanshouReset` | 🔄 後日談歸零重來（只清這個帳號的鑑賞資料，不碰英靈殿與 solo） |
 | `backfill_kanshou_ai` | `actionBackfillKanshouAi` | 開局非阻塞·背景補鑑賞御主敘事欄 |
-| `dev_resync_codex` | `actionDevResyncCodex` | 開發用·重同步英靈殿 |
-| `purge_orphans` | `actionPurgeOrphans` | 清孤兒列 |
 | `kanshou_companions` | `actionKanshouCompanions` | 鑑賞同伴清單 |
 | `kanshou_memoir_op` | `actionKanshouMemoirOp` | 共同回憶釘選/取消/刪除 |
 | `world` | `actionWorld` | 🌍/📜 帳本面板（兩軌共用）list/pin/unpin/del ＋ 大區與地點的增減 |
@@ -133,7 +130,7 @@
 > 註：多數 handler 本體不在本檔（散在 Router_*/Gallery.gs 等）；本檔只定義 `check_name`/`get_full_status`/`update_fate`/`get_tags`/`sync`/`update_rel_tag`/`kanshou_set_nickname` 七個 handler ＋兩個 payload builder。
 
 #### 🔹 四張旗標常數表（dispatcher 行為開關）
-- `OWNERSHIP_CHECK_EXEMPT_`（2026-07 系統性漏洞修補新增）— 豁免中央 pcId 歸屬驗證的 action 白名單：`account_login`/`account_new_game`/`create`/`enter_kanshou`（pcId 尚不存在）、`claim_hero`/`save_hero`（走 `creator===acctName` 模型）、`get_heroes`/`get_masters`（公開名冊）、`check_name`/`check_sheets`/`dev_resync_codex`/`purge_orphans`（不涉個別玩家列）。其餘只要帶 `pcId` 一律先過 `verifyPcOwnership_`。
+- `OWNERSHIP_CHECK_EXEMPT_`（2026-07 系統性漏洞修補新增）— 豁免中央 pcId 歸屬驗證的 action 白名單：`account_login`/`account_new_game`/`create`/`enter_kanshou`（pcId 尚不存在）、`claim_hero`/`save_hero`（走 `creator===acctName` 模型）、`get_heroes`/`get_masters`（公開名冊）、`check_name`（不涉個別玩家列）。其餘只要帶 `pcId` 一律先過 `verifyPcOwnership_`。
 - `LOCK_EXEMPT_ACTIONS_` — 不取寫入鎖的 action：純讀取 ＋ 長 AI 敘事（`play`/`narrate_only`/`tiger_dojo`/`backfill_*`/`war_narrate`/`war_forge_save` 等）。
 - `STATE_AFTER_ACTIONS` — 會改 solo 戰場、回應自動夾 `_state` 的 action（`fate_battle`/`use_seal`/`bond`/`update_fate`/`court_enemy`／`move`… 共 24 個）。
 - `KANSHOU_BLOCKED_ACTIONS_` — `KPC_` 情境下明確擋掉的 solo 專屬戰鬥/經濟/結盟 action（含 `move`）。
@@ -479,7 +476,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 
 #### 網頁進入點
 
-- `doGet()` — GAS Web App 進入點：回傳 `Index` HTML 模板（設標題「命運停駐之夜」＋行動裝置 viewport）。不自動建表（改由登入畫面 `check_sheets` 手動觸發）。
+- `doGet()` — GAS Web App 進入點：回傳 `Index` HTML 模板（設標題「命運停駐之夜」＋行動裝置 viewport）。不自動建表（建表與種子更新在登入時由 `ensureWorldReady_` 處理）。
 ### Engine_Fate.gs
 
 - `FX_TUNING_`／`fxTune_(fx, field, fallback)`（2026-09 新增）— **有條件效果的係數表**。這批 fx（直感/心眼/騎乘/避矢/變化/魔眼/燕返/王財/天之鎖/氣息遮斷/軍略/無毀湖光/神殺/全知全能之星/愛之痣/乖離劍/黃金律）的條件邏輯留在 `resolveFateBattle_` 裡，**數字全部住這裡**，前端說明的數字靠 `check_fx.py` 第二道對答案。查無該格回 fallback（表缺一格不該讓整場戰鬥炸掉）。為什麼這樣分 → `CODE_NOTES.md`。
@@ -994,7 +991,6 @@ getter 內部委派 `makeTextTag_('迴路'|'魔術').get`（既有工廠，取�
 - `upgradeCodexPersonas_(ss)` — 升級既有英靈殿：整列依種子重寫（ID 對應、只刷 seed 英靈不動 ai_gen）＋補入新種子英靈＋淘汰孤兒（ID 不在 SEED_SERVANTS 且 source=='seed' 才刪，由下往上）。清 FATE_HERO_CODEX 快取。回更新筆數。
 - `upgradeMasterCodex_(ss)` — 升級既有御主殿：依種子整列重寫（含 circuits/home/wish 等影響玩法欄）＋補新＋淘汰 seed 孤兒。
 - `resyncSummonedServants_(ss)` — 重刷「已召喚實體化」從者的戰鬥數據（寶具/六圍/標籤 fx）為最新種子值；依(真名,職階)對應、經 SEED_RECLASSED_ 遷移；不動 HP/MP/MEMORY/敘事欄；k_ 鑑賞列還留著退休種子經歷（`RETIRED_DAILY_BACK_`）的洗成空字串。另掃「鑑賞眾生」分頁補刷 BACK/TRAIT/MEMORY【口吻】（修 §125 死分支——原掃「眾生」永遠掃不到住「鑑賞眾生」的鑑賞同伴）。
-- `actionDevResyncCodex(userData, pcId, sheets)` — 前端 DEV 按鈕：無視版本旗標強制跑 upgradeCodexPersonas_＋resyncSummonedServants_，回報筆數。
 - `seedFateCodex_(ss)` — 英靈殿/御主殿為空（只有表頭）時自動灌名冊；版本升級時（codex_persona_ver≠CODEX_PERSONA_VER）跑三支升級函式並蓋版本旗標。ensureFateSheets_ 末尾呼叫。
 
 **函式數：7**
@@ -1041,7 +1037,7 @@ getter 內部委派 `makeTextTag_('迴路'|'魔術').get`（既有工廠，取�
 - `removeAllTriggers()` — 一鍵清除專案所有觸發器（舊經濟/飛書機制殘留；FATE 靠按鍵 worldTick_ 不需觸發器）。編輯器手動執行。
 - `ensureFateSheets_(ss)` — 冪等建表主函式：缺分頁則補（含表頭）、已存在只補尾端缺少表頭欄；首建坤圖灌 FATE_MAP_SEED；末尾呼叫 seedFateCodex_＋reseedIfEmpty_。回本次新建分頁名陣列。只由 check_sheets action 手動觸發（不快取、doGet/handleGameAction 不自動呼叫）。
 - `reseedIfEmpty_(ss)` — 修復：種子表為空補；坤圖舊 PARENT「冬木」改頂層；依種子 upsert 坤圖地點（類型/座標/描述/WAR）＋補缺；**2026-07 補孤兒列清除**（比照 `Seed_Codex.gs` 既有的 `upgradeCodexPersonas_`/`upgradeMasterCodex_` 慣例）：upsert 後刪掉名字不在當前 `FATE_MAP_SEED` 內的殘留列，避免地圖種子改名/移除後舊列繼續留在表上；赫拉克勒斯「十二試煉」補 fx:god_hand。RESEED_VER 旗標守門避免每按鍵重跑。
-- `actionCheckSheets(userData, pcId, sheets)` — 登入畫面「檢查/建立試算表」按鈕的前端 action 包裝（呼叫 ensureFateSheets_，登入前 pcId 恆空、不受鑑賞封鎖名單影響）。
+- `ensureWorldReady_(ss)` — 登入時（`actionAccountLogin`）跑：`CODEX_PERSONA_VER`＋`RESEED_VER` 跟記下的版本不同、或帳號／英靈殿表不見了，才跑一次 `ensureFateSheets_`（冪等建表＋種子更新）；平常只讀一個設定值。取代 2026-09 以前的三顆 DEV 按鈕（`check_sheets`／`dev_resync_codex`／`purge_orphans`，已移除）。
 
 **函式數：4**
 
@@ -1059,7 +1055,6 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `actionEndRun(userData, pcId, sheets)`（2026-07再稽核補歸屬驗證：比對帳號表`COL.ACC.PC`實際連結的charId是否等於傳入pcId，不符拒絕——原本純裸find可預測pcId、任何人可猜測替別人結束並清空整局存檔）— 奪杯/結束本局：只清理不封存（重逢改走鑑賞召喚），回從者真名。
 - `actionAccountLogin(userData, pcId, sheets)` — 登入：找不到就建立空帳號；有存檔則回可繼續狀態；含敗北殘局防呆（御主 HP=0 或已召喚從者已不在世→purge 並回 ended，needsSummon 判斷尚未召喚）。
 - `actionAccountNewGame(userData, pcId, sheets)`（2026-07再稽核：gid存在時改共用`purgeGameData_`——原本自行重寫一份刪除迴圈沒同步清「歷史暫存」表，開新局是最常見棄局路徑、一直漏清會累積孤兒歷史列；gid為空的孤兒charId情況維持單獨刪列+補一次`purgeHistoryForPcIds_`）— 開新局前清舊存檔（刪 game_id 整世界＋御主本人，charId 與 DEAD_charId 都查）＋解除連結。
-- `actionPurgeOrphans(userData, pcId, sheets)` — 清殘列：清無帳號連結的 game_id 世界＋DEAD_列（保守保留 game_id 空白列）；一次性整表 rewrite＋單次 deleteRows tail；結構性防線直接指名讀「眾生」表（防 KPC_ 誤清鑑賞表）。2026-09 起連帶掃世界帳本：gid 不屬於任何活躍戰局（眾生 ∪ 鑑賞眾生）的列一起清，數字併進 message。回 removed/kept。
 - `linkAccountToPc_(accountName, pcCharId)` — 創角後把新御主 charId 連結到帳號（有列則寫、無則 appendRow）。
 
 **函式數：10**
@@ -1324,9 +1319,6 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `dojoBackToMenu()` — 返回帳號選單（保留帳號、重登刷新 hasGame）。
 
 #### DEV 工具
-- `devCheckSheets()` — 檢查/建立缺少的試算表分頁（`check_sheets`）。
-- `devResyncCodex()` — 強制把最新種子平衡套到英靈殿＋在場從者（`dev_resync_codex`）。
-- `devPurgeOrphans()` — 清孤兒戰局/亡靈殘列（`purge_orphans`）。
 
 #### 模式切換 / 通用工具
 - `logoutAccount()` — localStorage.clear＋reload。登入畫面的「登出」鈕直接呼叫這支(無進行中狀態可丟，不必確認)。

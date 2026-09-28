@@ -80,7 +80,7 @@
 
 🐛→✅ 稽核抓到：原本自行重寫一份刪除迴圈，沒像 purgeGameData_ 一樣同步清「歷史暫存」表——開新局是玩家最常見的棄局路徑，一直沒清會讓歷史表持續累積孤兒列。gid存在時直接共用purgeGameData_(含歷史清理)；gid為空(孤兒charId，無對應game_id世界)才維持原本單獨刪列+ 補一次歷史清理，兩種情況都不再遺漏。
 
-### `actionPurgeOrphans`　<sub>Account.gs</sub>
+### ~~`actionPurgeOrphans`~~（2026-09-28 已移除：玩家說 DEV 按鈕「都用不太到」，建表與種子升版改在登入時由 `ensureWorldReady_` 自動跑）　<sub>Account.gs</sub>
 
 🧹 清殘列：清掉無帳號連結的 game_id 世界(敗北殘局/棄局/亡靈)＋DEAD_列，避免眾生表養肥拖慢整表掃描。安全準則：不碰帳號當前連結的活躍戰局／game_id空白列；鑑賞(KPC_)在另表「鑑賞眾生」不受影響。一次性整表 rewrite(setValues + 單次 deleteRows tail)，遠快於逐列 deleteRow。
 
@@ -4324,7 +4324,7 @@ back＝身世生平（show-don't-tell 的演出依據）、moe＝萌點（不限
 
 走共用工廠(replace-or-append ＋ 自動清洗)，不再自己拼一份 regex——舊版那份既沒清洗、 又是全專案第 3 份【口吻】寫入邏輯。
 
-### `actionDevResyncCodex`　<sub>Seed_Codex.gs</sub>
+### ~~`actionDevResyncCodex`~~（2026-09-28 已移除：玩家說 DEV 按鈕「都用不太到」，建表與種子升版改在登入時由 `ensureWorldReady_` 自動跑）　<sub>Seed_Codex.gs</sub>
 
 給前端 DEV 按鈕用——不靠自動版本閘(怕部署時序/旗標卡住)，按一下立即生效並回報筆數。
 
@@ -4354,7 +4354,16 @@ preData 就地標記避免重讀整表；變動時整欄一次 setValues 而非�
 
 🧹 一鍵清除專案所有觸發器（舊版經濟/飛書機制的殘留時間觸發器，函式本體已移除但觸發器可能還掛著）。 FATE 世界推進靠玩家按鍵時的 worldTick_，不需任何觸發器，於 GAS 編輯器手動執行一次即可全清。
 
-### `actionCheckSheets`　<sub>Setup_FateWorld.gs</sub>
+### `ensureWorldReady_`　<sub>Setup_FateWorld.gs</sub>
+
+**取代三顆 DEV 按鈕（2026-09-28）。** 玩家：「DEV 按鈕我還需要嗎」→「全刪除吧 我覺得都用不太到」。
+刪之前查到一件事：英靈殿的種子升版（`CODEX_PERSONA_VER` 變了就重刷人設與已召喚從者）只寫在 `seedFateCodex_` 裡，
+而它唯一的呼叫者是 `ensureFateSheets_`，後者又只有「🔧 檢查／建立分頁」那顆鈕會叫——也就是說，改了種子不按那顆鈕就永遠不生效，
+按鈕直接刪掉等於把種子更新整條切斷。所以改成登入時跑：記下 `CODEX_PERSONA_VER|RESEED_VER`，版本沒變、兩張主表都在就直接回去（一個設定值＋兩次找表），
+變了或缺表才跑一次冪等的 `ensureFateSheets_`。「🔄 套用最新平衡」的強制版不再需要（要強制就升版號）；
+「🧹 清殘列」只清舊版 solo 的眾生表殘列，新聖杯戰爭一個帳號只存一格、不會留殘列，等舊版整組拆時就沒有對象了。
+
+### ~~`actionCheckSheets`~~（2026-09-28 已移除：玩家說 DEV 按鈕「都用不太到」，建表與種子升版改在登入時由 `ensureWorldReady_` 自動跑）　<sub>Setup_FateWorld.gs</sub>
 
 🔘 登入畫面「檢查/建立試算表」按鈕的唯一呼叫點，包成前端可觸發的 action。刻意不需要 pcId(登入前就能按)， 也不受 KANSHOU_BLOCKED_ACTIONS_ 影響(該名單只擋鑑賞context呼叫solo專屬action，這裡 pcId 恆為空不會被攔)。
 

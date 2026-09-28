@@ -2919,36 +2919,6 @@
     }
   }
 
-  // 🔧【DEV】檢查/建立缺少的試算表分頁：doGet()/handleGameAction() 已移除自動呼叫 ensureFateSheets_，改純手動按這顆補回；登入前也能按(不依賴 pc/帳號已存在)，故擺在 step-account 畫面。
-  async function devCheckSheets() {
-    showProcessing('檢查試算表中…', true);
-    try {
-      const res = await gasRun({ action: 'check_sheets' });
-      alert((res && res.message) || '完成。');
-    } catch (e) { alert('沒檢查成，等一下再試。'); } finally { hideProcessing(); }
-  }
-
-  // 🔄【DEV】強制把最新種子(寶具尺度/標籤fx/六圍/平衡)套到英靈殿＋現有在場從者，免等版本閘/部署時序。
-  async function devResyncCodex() {
-    showProcessing('套用最新平衡中…', true);
-    try {
-      const res = await gasRun({ action: 'dev_resync_codex' });
-      alert((res && res.message) || '完成。');
-      try { if (typeof syncData === 'function') syncData(true); } catch (e) {}
-    } catch (e) { alert('沒更新成，等一下再試。'); } finally { hideProcessing(); }
-  }
-
-  // 🧹 清殘列：刪掉孤兒戰局/亡靈殘留，縮小「眾生」表 → 每次按鍵更快。不影響進行中的活躍戰局與鑑賞。
-  async function devPurgeOrphans() {
-    if (!await customConfirm_('🧹 清掉沒人在玩的舊戰局？\n\n進行中的、鑑賞、封存從者都不會動。')) return;
-    showProcessing('清理中…', true);
-    try {
-      const res = await gasRun({ action: 'purge_orphans', pcId: (pc && pc.id) || '' });
-      alert((res && res.message) || '清理完成。');
-      try { if (typeof syncData === 'function') syncData(true); } catch (e) {}
-    } catch (e) { alert('沒清成，等一下再試。'); } finally { hideProcessing(); }
-  }
-
   // 🌹 鑑賞(慾海)模式的前端函數已搬到 gas/Script_Kanshou.html：openCompanions/kanshouSummonHero/kanshouOpenRelTag 等。共用同一頁面全域作用域，此檔可直接呼叫它們。
 
   // mode: 'defeat'(預設，藤村大河+伊莉雅講評敗因) ｜ 'victory'(同兩人祝賀，換皮不換殼)

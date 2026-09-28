@@ -18,7 +18,6 @@
       <p style="text-align:center; color:#816e54; font-size:13px; margin-bottom: 10px;">帳號名稱（免密碼）</p>
       <input id="in-account" class="std-in" style="width:100%; box-sizing:border-box;" maxlength="20" placeholder="例如：遠坂玩家01">
       <button class="btn" style="width:100%; margin-top:14px; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="lockBtn(event, accountLogin)">進　入</button>
-      <button class="btn" style="width:100%; margin-top:8px; padding:6px; border-color:#777; color:#999; font-size:11px;" onclick="devCheckSheets()" title="測試期清空試算表後，按這顆手動補回缺少的分頁；登入前也能用。">🔧 DEV：檢查／建立試算表分頁</button>
     </div>
     <div id="scr-menu" style="display:none; width:300px;">
       <p id="menu-greet" style="text-align:center; color:var(--gold-accent); font-size:14px; margin-bottom:14px;"></p>
@@ -40,8 +39,6 @@
         <button class="btn" style="width:100%; margin-bottom:7px; padding:12px; border-color:#c87896; color:#e8b8cc;" onclick="enterKanshou()">🌹 進入鑑賞</button>
         <!-- 🔄 有後日談存檔才長出來(accountLogin 依 res.kpcId 決定)：不用先進鑑賞才能重來。 -->
         <button id="btn-kanshou-reset" class="btn" style="display:none; width:100%; margin-bottom:7px; padding:9px; border-color:#a05060; color:#d08090; font-size:12px;" onclick="menuKanshouReset()">🔄 後日談重來</button>
-        <button class="btn" style="width:100%; padding:7px; border-color:#6a8a5a; color:#9ac08a; font-size:11px;" onclick="devResyncCodex()" title="把英靈殿和場上的從者更新到最新版本">🔄 DEV：套用最新平衡到現有從者（寶具/標籤更新）</button>
-        <button class="btn" style="width:100%; margin-top:7px; padding:7px; border-color:#8a6a5a; color:#c0a08a; font-size:11px;" onclick="devPurgeOrphans()">🧹 DEV：清殘列（刪孤兒戰局／加速操作）</button>
       </div>
 
       <button class="btn" style="width:100%; padding:9px; border-color:#777; color:#999; font-size:12px;" onclick="logoutAccount()">🚪 登出</button>

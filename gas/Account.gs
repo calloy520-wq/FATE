@@ -98,6 +98,7 @@ function actionAccountLogin(userData, pcId, sheets) {
   var name = String(userData.acctName || "").trim().slice(0, 20);
   if (!name) return JSON.stringify({ success: false, message: "先打個帳號名。" });
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  try { ensureWorldReady_(ss); } catch (e) { Logger.log("ensureWorldReady_ 失敗(略過): " + e.message); }
   var acc = ss.getSheetByName("帳號");
   if (!acc) return JSON.stringify({ success: false, message: "帳號表不見了，重新整理。" });
 
@@ -185,79 +186,6 @@ function actionAccountNewGame(userData, pcId, sheets) {
   return JSON.stringify({ success: true });
 }
 
-function actionPurgeOrphans(userData, pcId, sheets) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var pc = ss.getSheetByName("眾生");
-  if (!pc) return JSON.stringify({ success: false, message: "眾生表不見了。" });
-  var all = pc.getDataRange().getValues();
-  if (all.length < 2) return JSON.stringify({ success: true, removed: 0, kept: 0, message: "沒有東西可以清。" });
-  var header = all[0];
-
-  // 1) 收集所有帳號「當前連結中」的御主 charId
-  var linkedIds = {};
-  var acc = ss.getSheetByName("帳號");
-  if (acc) {
-    var ad = acc.getDataRange().getValues();
-    for (var a = 1; a < ad.length; a++) { var cid = String(ad[a][COL.ACC.PC] || ""); if (cid) linkedIds[cid] = true; }
-  }
-  // 2) 由連結御主反推「活躍 game_id」（只有這些世界要保）
-  var liveGids = {};
-  for (var i = 1; i < all.length; i++) {
-    var id0 = String(all[i][COL.PC.ID]);
-    if (id0.indexOf("DEAD_") === 0) continue;
-    if (linkedIds[id0]) { var g0 = String(all[i][COL.PC.GAME_ID] || ""); if (g0) liveGids[g0] = true; }
-  }
-  // 3) 逐列保留判定
-  var kept = [];
-  var removedIds = [];
-  for (var r = 1; r < all.length; r++) {
-    var row = all[r];
-    var rid = String(row[COL.PC.ID]);
-    var gid = String(row[COL.PC.GAME_ID] || "");
-    var keep;
-    if (rid.indexOf("DEAD_") === 0) keep = false;   // 死列一律清
-    else if (!gid) keep = true;                      // 無 game_id：保守保留
-    else keep = !!liveGids[gid];                     // 只留活躍戰局
-    if (keep) kept.push(row); else removedIds.push(rid.replace(/^DEAD_/, ""));
-  }
-  var removed = (all.length - 1) - kept.length;
-  if (removed > 0) {
-    var dataRows = all.length - 1;
-    if (kept.length) pc.getRange(2, 1, kept.length, header.length).setValues(kept);
-    var tail = dataRows - kept.length;
-    if (tail > 0) pc.deleteRows(2 + kept.length, tail);
-    try { purgeHistoryForPcIds_(removedIds); } catch (e) { }
-  }
-  // 📜 帳本的孤兒列：gid 已經不在任何活躍戰局裡的（兩軌都掃——鑑賞的 gid 也走同一張表）。
-  var ledgerRemoved = 0;
-  try {
-    var kpcSheet = ss.getSheetByName("鑑賞眾生");
-    if (kpcSheet) {
-      var kd = kpcSheet.getDataRange().getValues();
-      for (var k = 1; k < kd.length; k++) {
-        var kg = String(kd[k][COL.PC.GAME_ID] || "");
-        if (kg && String(kd[k][COL.PC.ID]).indexOf("DEAD_") !== 0) liveGids[kg] = true;
-      }
-    }
-    var wsh = worldSheet_();
-    var wd = wsh.getDataRange().getValues();
-    var wkept = [];
-    for (var w = 1; w < wd.length; w++) {
-      var wg = String(wd[w][KW_.GID] || "");
-      if (!wg || liveGids[wg]) wkept.push(wd[w]); else ledgerRemoved++;
-    }
-    if (ledgerRemoved > 0) {
-      if (wkept.length) wsh.getRange(2, 1, wkept.length, wd[0].length).setValues(wkept);
-      var wtail = (wd.length - 1) - wkept.length;
-      if (wtail > 0) wsh.deleteRows(2 + wkept.length, wtail);
-    }
-  } catch (e) { }
-
-  return JSON.stringify({
-    success: true, removed: removed, kept: kept.length,
-    message: "🧹 清好了：刪掉 " + removed + " 列，留 " + kept.length + " 列" + (ledgerRemoved ? "；帳本清掉 " + ledgerRemoved + " 條孤兒" : "") + "。"
-  });
-}
 
 // 把新建的御主連結到帳號（創角後呼叫）
 function linkAccountToPc_(accountName, pcCharId) {

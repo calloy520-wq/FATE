@@ -45,8 +45,6 @@ ALLOW_RETURN = {
   'prep_meal': {'mealBuff'},
   'propose_alliance': {'allied', 'until'},
   'summon_servant': {'fromCodex'},
-  'save_hero': {'created', 'edited', 'firstP', 'words'},
-  'purge_orphans': {'kept', 'removed'},
   'account_login': {'ended'},
   'check_name': {'canon'},
   'get_full_status': {'canEditFate', 'targetId'},

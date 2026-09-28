@@ -240,7 +240,7 @@ function aiFallbackData_(isBlocked) {
 }
 
 function doGet() {
-  // 不自動呼叫 ensureFateSheets_，改由登入畫面「檢查/建立試算表」按鈕(check_sheets action)手動觸發，見 Setup_FateWorld.gs。
+  // 建表與種子更新在登入時跑（ensureWorldReady_，Setup_FateWorld.gs），不在這裡。
   return HtmlService.createTemplateFromFile('Index').evaluate()
     .setTitle('命運停駐之夜')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no');

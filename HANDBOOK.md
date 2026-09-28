@@ -169,7 +169,7 @@ ACC(帳號·4欄): NAME0 PC1(solo御主連結) CREATED2 KPC3(🌹2026-07新增·
 
 - ~~`COL.PC.REALM`：階級系統移除後恆寫空字串，但 COL 位置索引不可刪，維持棄用。~~ 2026-07：隨整體 COL.PC 折表重排，`REALM` 已真的移除（非棄用死欄），見 §3 COL schema。
 - `actionGetMasters` 對 `chaos` 戰爭回傳 5th 名冊；`FATE_FAKE_ROSTER`／fake 分支已清空（Seed_Codex.gs 註解「偽聖杯陣容已清空」），現只有 4th/5th/chaos 三種。
-- `dev_resync_codex`(套最新平衡·可留)：DEV 工具。（`dev_seed_gallery` 舊測試從者產生器已移除。）
+- ~~`dev_resync_codex`~~（2026-09 已移除；種子升版改在登入時由 `ensureWorldReady_` 自動套用）。（`dev_seed_gallery` 舊測試從者產生器已移除。）
 - `RESEED_VER`/`CODEX_PERSONA_VER`：一次性遷移旗標，旗標守門下無效能損失，保留無害。
 
 ## 11. 平衡測試工具（`tools/battle_sim/`·Node·不進 clasp）

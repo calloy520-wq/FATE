@@ -116,7 +116,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 
 | action | handler | 作用 |
 |---|---|---|
-| check_name / check_sheets / account_login / account_new_game | Account/Setup 系 | 登入／建帳號／開新局／手動補分頁 |
+| check_name / account_login / account_new_game | Account/Setup 系 | 登入（順手跑 `ensureWorldReady_`：版本變了或缺表才建表＋更新種子）／建帳號／開新局 |
 | create | actionManualNpc | 御主創角。**🚀 非阻塞：不叫 AI**——用玩家種子值＋GAS 算的數值（HP/MP/game_id/迴路/令咒/模式/戰爭/扮演 MEMORY）＋起始禮裝秒寫入。落點確定性選（偏好新都）。（舊「手動建 NPC」的 !isCreate 分支已整段刪除，不是死碼仍在）。**🛡️ 帳號重入防呆**：帳號若已連結一局活著的遊戲(帳號表 `COL.ACC.PC` 存在且對應列仍在)則拒絕再建——防 `create` 異常被呼叫第二次時 `linkAccountToPc_` 覆寫連結指標、悄悄孤兒化舊角色＋已召喚的從者(英靈殿範本不受影響·僅帳號視角看不到那局進度)。合法的 `newGameFlow` 本就先呼叫 `account_new_game` 清連結才會走到這裡，不受影響。 |
 | backfill_master_ai | actionBackfillMasterAi | 🚀 御主敘事非阻塞補生成：create 後前端 `backfillMasterAi(seed)`（不 await·趁挑從者空檔）呼叫，AI 補 背景/特徵/個性，只單格 setValue 更新 3 敘事欄（BACK/TRAIT/PREF）。失敗＝保留種子。 |
 | update_fate | actionUpdateFate | 逆天改命：玩家改自己 3 敘事欄（個性/特徵/身世），數值/寶具不可改。⚠ `fateType==='intent'`（萌點）2026-09 隨萌點整組退休，路由已拔除，前端也不再有那顆鈕。 |
@@ -167,7 +167,7 @@ ACC(帳號): NAME0 PC1(solo御主ID) CREATED2 KPC3(鑑賞角色ID·由 linkAccou
 📌 釘住的永不淘汰，AI 記錯的可以刪。
 
 **清得掉**：結束一局／開新局走 `purgeGameData_`，這一局的因果列跟著眾生列一起清（不然每開一局就多一批
-永遠沒人讀的孤兒列）；DEV 的 `actionPurgeOrphans` 也會掃帳本裡 gid 已經不在任何活躍戰局的列。
+永遠沒人讀的孤兒列）；（2026-09 以前 DEV 的清殘列也會掃帳本；那顆鈕已移除。）
 
 探針 `saga.js`（34 條，含把「餵回」「落盤」「結束一局清帳本」各拆掉一次的退化測試·會叫）。
 
@@ -202,7 +202,6 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
 | narrate_only | actionNarrateOnly | **AI 純說書**（solo 專用；GAS 算數值、AI 只演出）。`userData.longForm` 旗標→`max_tokens` 720→2000（補魔/令咒高好感解鎖分支的 500~600 字），模型不變。 |
 | tiger_dojo | actionTigerDojo | 🐯 賽後番外（敗北講評／勝利祝賀）。前端只送敗因【鍵】，文案查 `DOJO_CAUSE_` 五格表；**自帶說書人設定、不套 `miniSystem`**（戰場語氣跟輕鬆詼諧打架）、不讀表不帶歷史。 |
 | end_run | actionEndRun | 結束本局（單純清理，不再封存）。（claim_grail 奪杯封存已移除） |
-| dev_resync_codex / purge_orphans | actionDevResyncCodex/PurgeOrphans | DEV：手動套最新平衡到現有從者／清孤兒列 |
 
 **已移除的 action**（勿再加回）：`set_np_choice`/`set_active_skill`（併入 fate_battle 夾帶）、`blood_supply`（燃血改被動）、`use_mystic`（禮裝全被動化）、`spare_npc`/`execute_npc`（打掃戰場）、`war_chronicle`/`war_history_list`（戰記表）、`get_epic_history`（史紀表）、`get_victory_history`/`get_ranking`（排行榜）、`get_all_categorized_maps`、`manual_npc`、大批九州經濟/生活/門派 action。COL 死欄保留、機制整套刪。
 
@@ -397,7 +396,7 @@ user   : 【當前狀態】HP/MP ＋ 這回合的角色卡＋事實＋★指令
     - ⚠ **萌點(moe/INTENT)≠只能是反差萌**：泛指任何讓人喜歡上這角色的特色，可以是反差(表面X其實Y)，也可以是單純討喜的外觀/行為/習慣(巨乳/雙馬尾/大食/路痴等)——v67前全站(AI brief生成prompt/每回合演出卡標籤/工房UI文字)都寫死成「反差萌」，逼AI每次都硬套反差句型，已全面鬆綁措辭(見 Gallery.gs/Router_Creation.gs/Router_Persona.gs/Script.html)。
   - `servantToHeroRow_`/`masterToCodexRow_`：物件→分頁列。⚠ 2026-09 瘦身：PERSONA 欄不再重複收 daily 四欄（各有專欄，`HERO_PERSONA_OWN_COL_` 剔除；英靈殿 −18%），御主殿「居所」「屆次」改寫空字串（零讀取，欄位保留）。`check_seed.py` 盯著這兩條。
   - `seedFateCodex_(ss)`：英靈殿/御主殿為空才灌（冪等）。版本 `CODEX_PERSONA_VER`（現行版號見檔頂），升版觸發 `upgradeCodexPersonas_`（英靈殿整列覆寫+孤兒清理·只刪 source==='seed'）＋`upgradeMasterCodex_`（御主殿整列重寫）。
-- **傳播鏈（改 SEED 要升版否則不生效）**：召喚讀英靈殿 sheet→凍進眾生列。升 `CODEX_PERSONA_VER`→`seedFateCodex_`（版本不符才動）→`upgradeCodexPersonas_`＋`resyncSummonedServants_`（依真名+職階刷已召喚從者的寶具/六圍/標籤·不動 HP/MP/MEMORY/敘事）。換職階用遷移表 `SEED_RECLASSED_`（舊key→新key）。手動強制：DEV「🔄 套用最新平衡」→`dev_resync_codex`→`actionDevResyncCodex`。
+- **傳播鏈（改 SEED 要升版否則不生效）**：召喚讀英靈殿 sheet→凍進眾生列。升 `CODEX_PERSONA_VER`→`seedFateCodex_`（版本不符才動）→`upgradeCodexPersonas_`＋`resyncSummonedServants_`（依真名+職階刷已召喚從者的寶具/六圍/標籤·不動 HP/MP/MEMORY/敘事）。換職階用遷移表 `SEED_RECLASSED_`（舊key→新key）。升版後在下一次登入時自動套用（`ensureWorldReady_`；2026-09 起取代 DEV 按鈕）。
 - **主從 synergy `masterSynergySix_(name,six,memory)`**（Core_Settings）：讀從者 MEMORY【御主】名，特定組合回全盛六圍。目前只 **恩奇都↔銀狼**（原作真御主·恩奇都平時為削弱基線）。擴充往該表加。
 - **Seed_Rivals.gs**（開局鋪敵）：
   - `seedRivalsForGame_`：依 war(4th/5th/chaos) 鋪敵御主+敵從者；移除玩家扮演那組。chaos hPool 含玩家原創 ai_gen（Fisher-Yates 均勻抽）。
@@ -1303,8 +1302,8 @@ solo 這邊補上的入口：帳號登入、開新局清檔、翻正典御主名
 - **`dup_sv.js`（16 條）** — 自選正典從者時敵陣不可以出現同一位（第五次／跨場次／第四次／混亂四種都驗），
   順便驗敵陣自己也沒重複。
 - **`admin.js`（11 條）** — 維護類冒煙（平常沒人按，壞了也沒人知道，而它們動的是整張表）：
-  `check_sheets`／`get_tags`／`sync`／`dev_resync_codex`（重灌種子不可以洗掉英靈殿或玩家那局的列）／
-  `purge_orphans`（種一列 game_id 指向不存在的局的孤兒，驗它清掉孤兒且不誤清玩家）。
+  `get_tags`／`sync`，以及登入時的 `ensureWorldReady_`（版本變了才重灌種子，且不可以洗掉英靈殿或玩家那局的列）。
+  （2026-09 起 `check_sheets`／`dev_resync_codex`／`purge_orphans` 三顆 DEV 按鈕已移除。）
 - **`badwar.js`（12 條）** — 直打 API 繞過前端下拉選單：`war`／`warMode` 亂填、空白、帶 HTML 標籤，
   都不可以生出一局「沒有敵人的聖杯戰爭」。實測全數退回第五次名單（`seedRivalsForGame_` 的 `war==='4th'?:...` 尾巴就是 5th）。
   ⚠ 這支第一版六條全紅，是**探針自己的問題**：敵陣是在【召喚完成】那一刻才鋪的（`summon_servant` → `seedRivalsForGame_`），

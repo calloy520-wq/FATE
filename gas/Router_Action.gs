@@ -8,15 +8,12 @@
 // ------------------------------------------
 const ActionRouter = {
   "check_name": actionCheckName,
-  "check_sheets": actionCheckSheets, // 🔘 登入畫面手動按鈕：檢查/建立缺少的試算表分頁(Setup_FateWorld.gs)
   "account_login": actionAccountLogin,
   "account_new_game": actionAccountNewGame,
   "end_run": actionEndRun, // ⚠ claim_grail(奪杯封存) 已整個砍除，改成單純清理讓玩家開新局
   "enter_kanshou": actionEnterKanshou,
   "kanshou_reset": actionKanshouReset,   // 🔄 鑑賞歸零重來(只清這個帳號的後日談，不碰英靈殿與 solo)
   "backfill_kanshou_ai": actionBackfillKanshouAi, // 🚀 開局非阻塞：enter_kanshou 首次建檔後背景補御主敘事欄
-  "dev_resync_codex": actionDevResyncCodex,
-  "purge_orphans": actionPurgeOrphans,
   "kanshou_companions": actionKanshouCompanions,
   "kanshou_memoir_op": actionKanshouMemoirOp, // 💞 共同回憶面板：釘選/取消釘選/刪除(玩家UI手動管理)
   "world": actionWorld,        // 🌍 世界帳本面板：list/pin/unpin/del(玩家看得到、管得動)
@@ -125,7 +122,7 @@ function handleGameAction(userData) {
   const pcId = userData.pcId;
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  // 🔄 試算表存在性檢查改成純手動(check_sheets action、登入畫面按鈕)，不再每個 action 都自動跑一次。
+  // 🔄 試算表存在性檢查只在登入時跑（ensureWorldReady_，版本號沒變就跳過），不在每個 action 都跑。
   const isKanshouCtx = String(pcId || "").indexOf("KPC_") === 0;
   // 坤圖已靜態化：getMapDataCached 直接讀 FATE_MAP_SEED 常數，不需要 sheets.map，省一次 Sheets API 呼叫。
   const sheets = {
@@ -195,7 +192,7 @@ function handleGameAction(userData) {
 }
 // 🔒 不取寫入鎖的動作：純讀取(不寫表·鎖了白繳成本) ＋ 長 AI 敘事(佔鎖數秒會卡住全域)。
 const OWNERSHIP_CHECK_EXEMPT_ = {
-  check_name: 1, check_sheets: 1, dev_resync_codex: 1, purge_orphans: 1,
+  check_name: 1,
   account_login: 1, account_new_game: 1, enter_kanshou: 1, create: 1,
   get_heroes: 1, get_masters: 1
 };
@@ -220,7 +217,7 @@ const KANSHOU_BLOCKED_ACTIONS_ = {
   propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
   second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
   set_servant_output: 1, set_mage_realm: 1, set_rune_mode: 1,
-  prep_meal: 1, purge_orphans: 1, faction_ambush: 1, incite: 1, parley: 1,
+  prep_meal: 1, faction_ambush: 1, incite: 1, parley: 1,
   weapon: 1, get_map_nodes: 1, narrate_only: 1, tiger_dojo: 1,
   end_run: 1, create: 1, summon_servant: 1, backfill_master_ai: 1,
   account_login: 1, account_new_game: 1,

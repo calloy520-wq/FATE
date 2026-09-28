@@ -59,6 +59,17 @@ var FATE_MAP_SEED = [
   ["冬木", "冬木·遊樂園",   "約會", "11,91", "燈火璀璨的遊樂園，摩天輪緩緩轉動，旋轉木馬與攤販笑語不絕。", "", ""]
 ];
 
+// 登入時跑：版本號變了（種子或地圖改過）或主表不見了，才跑一次冪等建表＋種子更新；平常只讀一個設定值、找兩張表。
+function ensureWorldReady_(ss) {
+  ss = ss || SpreadsheetApp.getActiveSpreadsheet();
+  var ver = CODEX_PERSONA_VER + '|' + RESEED_VER;
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('world_ready_ver') === ver && ss.getSheetByName('帳號') && ss.getSheetByName('英靈殿')) return false;
+  ensureFateSheets_(ss);
+  props.setProperty('world_ready_ver', ver);
+  return true;
+}
+
 // 🔵 冪等建表主函式：缺則補、含則略。
 function ensureFateSheets_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
@@ -154,12 +165,3 @@ function reseedIfEmpty_(ss) {
   try { PropertiesService.getScriptProperties().setProperty('fate_reseed_ver', RESEED_VER); } catch (e) { } // 一次性遷移完成、之後跳過
 }
 
-function actionCheckSheets(userData, pcId, sheets) {
-  try {
-    var created = ensureFateSheets_();
-    var msg = created.length ? ("✅ 已建立缺少的分頁：" + created.join("、")) : "✅ 所有分頁皆已存在，無需新建。";
-    return JSON.stringify({ success: true, message: msg });
-  } catch (e) {
-    return JSON.stringify({ success: false, message: "檢查失敗：" + e.message });
-  }
-}
