@@ -3,6 +3,9 @@
 var WAR_SHEET_ = '聖杯戰局';
 var WAR_COL_ = { ACCT: 0, GID: 1, UPDATED: 2, STATE: 3, NARR: 4 };
 var WAR_HIST_KEEP_ = 4;        // 說書帶幾段前情
+var WAR_NARR_FACTS_MAX_ = 14;  // 連按好幾步、說書還沒趕上時，併成一段最多帶幾句事實
+// 幾段併成一段時，這一段算哪一種（補魔、結局這種整場戲優先）。
+var WAR_KIND_RANK_ = { day: 0, battle: 1, start: 2, summon: 3, supply: 4, over: 5 };
 var WAR_LEN_ = { summon: '180～260', start: '150～220', day: '120～180', battle: '100～160', over: '220～300', supply: '800～1000' };
 // 開場兩幕各有自己要寫的重點；其餘種類照【這一段發生的事】演就好。
 // 按鈕 → 這一段發生在一天的哪個時候（沒列的都是夜裡的事）。
@@ -110,12 +113,21 @@ function actionWarAct(userData) {
   var a = userData.act || {};
   var act = { t: String(a.t || ''), id: String(a.id || ''), s: String(a.s || ''), seal: a.seal === true };
   var st = ref.st;
+  // 上一段還沒被說書接走（沒講過、也沒在講）→ 併進這一段，玩家連按也不會漏戲、不會重講。
+  var prev = st.narr, nr = ref.narr || {};
+  var carry = prev && nr.seq !== prev.seq && nr.inflight !== prev.seq ? prev : null;
   var day0 = Math.min(st.day, WAR_.NIGHTS), when = WAR_WHEN_[act.t] || '夜晚';   // 事情發生在按下去的那一刻，不是結算完的下一個早晨
   var foe0 = st.battle ? st.battle.e : '';   // 這一段打的是誰：決戰打倒一位之後，st.battle 已經換成下一位
   var r = warAct_(st, act, act.t === 'reroll' ? warSeedCtx_(st.war) : null);
   if (!r.ok) return JSON.stringify({ success: false, message: r.msg });
   var kind = st.phase === 'over' ? 'over' : (act.t === 'supply' ? 'supply' : (act.t === 'stance' || st.phase === 'battle' ? 'battle' : (act.t === 'reroll' ? 'summon' : (act.t === 'start' ? 'start' : 'day'))));
-  st.narr = { seq: st.seq, kind: kind, day: day0, when: when, foe: foe0 || (st.battle ? st.battle.e : ''), facts: r.ev.map(function (e) { return e.txt; }) };
+  var facts = r.ev.map(function (e) { return e.txt; });
+  if (carry) {
+    facts = (carry.facts || []).concat(facts).slice(-WAR_NARR_FACTS_MAX_);
+    if ((WAR_KIND_RANK_[carry.kind] || 0) > (WAR_KIND_RANK_[kind] || 0)) kind = carry.kind;
+    day0 = carry.day || day0; when = carry.when || when; foe0 = foe0 || carry.foe || '';
+  }
+  st.narr = { seq: st.seq, kind: kind, day: day0, when: when, foe: foe0 || (st.battle ? st.battle.e : ''), facts: facts };
   warSave_(ref, acct, st);
   return JSON.stringify({ success: true, view: warView_(st), log: warLogLines_(r.ev) });
 }
@@ -128,6 +140,8 @@ function actionWarNarrate(userData) {
   if (!st || !st.narr) return JSON.stringify({ success: true, text: '' });
   var hist = ref.narr.hist || [];
   if (ref.narr.seq === st.narr.seq && hist.length) return JSON.stringify({ success: true, text: hist[hist.length - 1].t });
+  // 先記下「這一段正在講」：等 AI 的這幾秒玩家可以繼續按，下一步就不會把這一段再併一次。
+  warSaveNarr_(ref, acct, st.gid, { seq: ref.narr.seq || 0, hist: hist, inflight: st.narr.seq });
   var lewd = st.narr.kind === 'supply';
   var cfg = {
     plainText: true, retries: 3, sessionId: 'w_' + acct,
@@ -138,7 +152,10 @@ function actionWarNarrate(userData) {
   };
   var prompt = warNarrPrompt_(st);
   var text = String(callGeminiAPI(prompt, WAR_NARR_SYS_, cfg) || '').trim();
-  if (!text) text = '（夜風吹過，什麼也沒留下。）';
+  if (!text) {   // 沒寫出來：放掉「正在講」的記號，這一段的事實會併進下一段
+    warSaveNarr_(ref, acct, st.gid, { seq: ref.narr.seq || 0, hist: hist });
+    return JSON.stringify({ success: true, text: '' });
+  }
   hist.push({ f: st.narr.facts.join('\n'), t: text });
   warSaveNarr_(ref, acct, st.gid, { seq: st.narr.seq, hist: hist.slice(-WAR_HIST_KEEP_) });
   return JSON.stringify({ success: true, text: text });

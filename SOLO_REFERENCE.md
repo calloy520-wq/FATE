@@ -6,6 +6,7 @@
 > - 沒有魔力、沒有 AP、沒有地圖、沒有好感：寶具靠充能（補魔推進、令咒硬放），真名是底牌（放寶具就曝光），敵人每夜照個性互相吞併、會夜襲你。
 > - 按鈕的唯一真實來源是 `warButtons_`（前端照畫、後端照驗）；存檔是一局一格 JSON。
 > - 世界書：事件文字碰到地點／寶具／令咒才遞原作設定給說書（`warLoreStr_`）。對手情報照看穿程度攤開（`warFoeCard_`）。第一次開局跳「規則」卡，規則數字照 `warRules_`。
+> - 說書不鎖按鈕（補魔、結局除外）；連按時沒講到的事實併進下一段。教會討伐令：第 3 天指定 Caster，親手打倒多一劃令咒（`WAR_BOUNTY_`）。
 > - 終局：`warDebrief_` 算戰績、輸在哪與下一局只改的一件事（`WAR_DOJO_LOSS_`）、亮點（`WAR_DOJO_GOOD_`）；🐯 老虎道場＝`war_dojo`，AI 只演這一份。
 > - 🛠️ 英靈工房＝**War_Forge.gs**（`war_forge_list`／`war_forge_save`）：一張表單寫一整列英靈殿，新聖杯戰爭與鑑賞都叫得出來；舊工房（`save_hero`／`claim_hero`、前端約 500 行）2026-09-24 已移除。欄位與理由見 CODE_NOTES.md『WAR_FORGE_』。
 > - 設計理由、玩家原話、平衡數字：CODE_NOTES.md『WAR_』。探針：scratchpad `size/war.js`／`warlore.js`／`warend.js`；平衡模擬：`war/sim.js`。

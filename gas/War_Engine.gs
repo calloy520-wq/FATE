@@ -31,7 +31,14 @@ var WAR_ = {
   BRAWL: 0.95,
   PATROL_MEET: 0.65,
   SCOUT_DEEP: 0.35,      // 打聽時順便看穿一位真名的機率
-  NEWS_REVEAL: 0.5       // 早報裡交手的兩方，各有幾成機會被你記下職階與位置
+  NEWS_REVEAL: 0.5,      // 早報裡交手的兩方，各有幾成機會被你記下職階與位置
+  BOUNTY_DAY: 3          // 教會在第幾天早上發出討伐令
+};
+
+// 教會討伐令（原作：第四次綺禮為連續孩童失蹤案懸賞 Caster；第五次 Caster 在城裡吸取居民的精氣）。打倒目標的人多得一劃令咒。
+var WAR_BOUNTY_ = {
+  cls: 'Caster',
+  why: { '4th': '冬木的連續孩童失蹤案', '5th': '城裡接連有人昏倒的怪事' }
 };
 
 // 最後一夜在哪裡：照原作，第五次是柳洞寺（大聖杯在圓藏山地底），第四次是新都的冬木市民會館。
@@ -197,7 +204,7 @@ function warButtons_(st) {
     B.push({ t: 'final', label: '前往' + warFinal_(st).place, sub: '最後一夜・' + (left > 1 ? '剩餘 ' + left + ' 位從者全數到場' : '最後一位從者在場') });
   } else if (st.phase === 'night') {
     warKnownFoes_(st).forEach(function (e) {
-      B.push({ t: 'sortie', id: e.id, label: '突襲 ' + warFoeLabel_(e), sub: warOdds_(st, e) + '・' + warHpWord_(e) + '・' + e.loc });
+      B.push({ t: 'sortie', id: e.id, label: '突襲 ' + warFoeLabel_(e), sub: warOdds_(st, e) + '・' + warHpWord_(e) + '・' + e.loc + (warBountyOn_(st, e) ? '・討伐令' : '') });
     });
     B.push({ t: 'patrol', label: '巡邏', sub: '外出搜索，遭遇即戰鬥' });
     B.push({ t: 'hold', label: '固守', sub: '留守據點，遇襲時受傷減少' });
@@ -388,7 +395,26 @@ function warMorning_(st, ev) {
     if (e.alive && e.arrive === st.day && st.day > 1) ev.push({ k: 'arrive', txt: '有新的從者進入冬木。' });
   });
   ev.push({ k: 'morning', txt: '第 ' + st.day + ' 天早晨。剩 ' + (WAR_.NIGHTS - st.day + 1) + ' 夜，敵方剩 ' + warAliveCount_(st) + ' 位。' });
+  if (st.day === WAR_.BOUNTY_DAY && !st.bounty) warBountyStart_(st, ev);
   st.phase = 'day';
+}
+
+// 討伐令：只發一次；目標不在場（已倒下、或正是你的從者）就不發。st.bounty＝{ id, open }。
+function warBountyStart_(st, ev) {
+  var t = warArrived_(st).filter(function (e) { return e.cls === WAR_BOUNTY_.cls; })[0];
+  if (!t) { st.bounty = { id: '', open: false }; return; }
+  st.bounty = { id: t.id, open: true };
+  t.intel = Math.max(t.intel, 1);
+  ev.push({ k: 'bounty', txt: '教會發出討伐令：' + (WAR_BOUNTY_.why[st.war] || WAR_BOUNTY_.why['5th']) + '，元兇是' + t.loc + '一帶的那位 ' + t.cls + '。打倒這位從者的人可得一劃令咒。' });
+}
+// 目標倒下時結算：你打倒的領賞，別人打倒的就撤銷。
+function warBountyEnd_(st, e, mine, ev) {
+  if (!st.bounty || !st.bounty.open || st.bounty.id !== e.id) return;
+  st.bounty.open = false;
+  if (mine) {
+    st.master.seals++; st.stats.bounty = 1;
+    ev.push({ k: 'bounty', txt: '完成教會的討伐令，令咒多了一劃。' });
+  } else ev.push({ k: 'bounty', txt: '討伐令的目標被別人打倒了，討伐令撤銷。' });
 }
 
 // ── 戰鬥 ──────────────────────────────────────────────
@@ -450,7 +476,7 @@ function warDoRound_(st, act, ev) {
   if (A.fired) { st.stats.np++; if (!st.exposed) { st.exposed = true; ev.push({ k: 'exposed', txt: '解放了寶具，己方真名曝光。' }); } }
   if (Z.fired && e.intel < 2) { e.intel = 2; ev.push({ k: 'reveal', txt: '從寶具認出了對方：「' + e.name + '」。' }); }
   if (act.s === 'probe' && A.struck && e.alive && e.intel < 2) warReveal_(st, e, ev);
-  if (!e.alive) { st.stats.kills++; ev.push({ k: 'kill', txt: warFoeLabel_(e) + '被擊敗了。' }); }
+  if (!e.alive) { st.stats.kills++; ev.push({ k: 'kill', txt: warFoeLabel_(e) + '被擊敗了。' }); warBountyEnd_(st, e, true, ev); }
   if (warCheckEnd_(st, ev)) return;
   if (r.ended || !e.alive) { warEndBattle_(st, ev); return; }
   b.round++;
@@ -573,6 +599,7 @@ function warAutoBattle_(st, a, b, ev) {
   [a, b].forEach(function (x) { if (x.intel === 0 && warRand_(st) < WAR_.NEWS_REVEAL) x.intel = 1; });
   if (win) {
     ev.push({ k: 'news', txt: '昨夜' + a.loc + '一帶兩位從者交戰，' + warFoeLabel_(dead) + '被擊敗，' + warFoeLabel_(win) + '勝出。' });
+    warBountyEnd_(st, dead, false, ev);
   } else {
     // 沒人倒下的交手：早上併成一句（warMorning_）；認不出是誰的只算場數。
     var la = warFoeLabel_(a), lb = warFoeLabel_(b);
@@ -646,10 +673,12 @@ function warOver_(st, win, cause, ev) {
 }
 
 // 一位對手在畫面上的情報：知道職階（intel 1）才有位置與傷勢；看穿真名（intel 2）才攤開御主、寶具、技能。
+function warBountyOn_(st, e) { return !!(st.bounty && st.bounty.open && st.bounty.id === e.id); }
 function warFoeCard_(st, e) {
   var c = { id: e.id, label: warFoeLabel_(e).replace(/[「」]/g, ''), cls: e.cls, intel: e.intel, alive: e.alive,
     hp: e.intel >= 1 && e.alive ? warHpWord_(e) : '', loc: e.intel >= 1 ? e.loc : '' };
   if (e.alive && e.intel >= 1 && st.phase !== 'over') c.odds = warOdds_(st, e);
+  if (warBountyOn_(st, e)) c.bounty = true;
   if (e.intel >= 2) {
     c.name = e.name; c.master = e.master; c.np = e.npName; c.npReady = !(e.cd > 0);
     c.traits = warTraits_(e);
@@ -685,7 +714,8 @@ var WAR_DOJO_GOOD_ = [
   { key: 'hidden', when: function (st) { return !st.exposed && st.stats.battles > 0; }, txt: '真名始終未曝光' },
   { key: 'dodge', when: function (st) { return (st.stats.dodged || 0) > 0; }, txt: '避開寶具 {dodged} 次' },
   { key: 'reveal', when: function (st) { return warRevealed_(st) >= 3; }, txt: '看穿 {reveals} 位從者的真名' },
-  { key: 'kills', when: function (st) { return st.stats.kills >= 2; }, txt: '擊敗 {kills} 位從者' }
+  { key: 'kills', when: function (st) { return st.stats.kills >= 2; }, txt: '擊敗 {kills} 位從者' },
+  { key: 'bounty', when: function (st) { return !!st.stats.bounty; }, txt: '完成教會的討伐令' }
 ];
 function warRevealed_(st) { return st.enemies.filter(function (e) { return e.intel >= 2; }).length; }
 function warFill_(t, o) { return String(t).replace(/\{(\w+)\}/g, function (m, k) { return o[k] !== undefined ? o[k] : m; }); }

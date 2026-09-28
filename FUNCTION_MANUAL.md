@@ -1109,6 +1109,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 **賽後**
 - `WAR_DOJO_LOSS_` — 「輸在哪」表：由上往下第一條成立的（御主倒下／決戰打到天亮／致命那一場硬吃寶具預兆／沒看穿真名／帶重傷出擊／決戰夜人太多／令咒沒用／真名早曝光／一般落敗），各帶一句事實＋下一局只改的那一件事。`WAR_DOJO_GOOD_` — 亮點表（成立的全列，最多三條）。
 - `warDebrief_(st)` — 賽後一整包 `{win, day, stats, good, key?, fact?, lesson?}`；畫面的終局卡與老虎道場讀同一份。`warRevealed_(st)`（看穿幾位）／`warFill_(t, o)`（`{名字}` 代換）。
+- `WAR_BOUNTY_`／`warBountyStart_(st, ev)`／`warBountyEnd_(st, e, mine, ev)`／`warBountyOn_(st, e)` — 教會討伐令：第 `WAR_.BOUNTY_DAY` 天早上指定 Caster（原作的懸賞），公開位置；你親手打倒多一劃令咒，別人打倒就撤銷；目標不在場就整局不發。`st.bounty`＝`{id, open}`。
 - `warRules_(st)` — 畫面說明要引用的規則數字（夜數、令咒、回合、寶具回魔、補魔），前端不另寫一份；給了 `st` 再加這場戰爭的決戰地點 `finalPlace`（`war_load` 沒開局時不給 `st`）。
 - `WAR_FINAL_`／`warFinal_(st)` — 最後一夜在哪（第五次柳洞寺、第四次冬木市民會館）與進場、下一位上場的句子；按鈕、事件、講評都讀這裡。
 - `warFoeCard_(st, e)` — 一位對手在畫面上的情報：intel 1 給職階、位置、傷勢、勝算；intel 2 才加真名、御主、寶具（可不可以放）、技能。
@@ -1147,6 +1148,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warSeedCtx_(war)` — 引擎要的種子（從者池、陣容、名字表）。`warLogLines_(ev)` — 事件→畫面行。
 - `actionWarLoad`／`actionWarNew`／`actionWarAct`／`actionWarNarrate`／`actionWarQuit`（簽名 `(userData)`）— 五條路由。`war_act` 的 `act` 只收 `t/id/s/seal` 四鍵、照白名單驗。`war_load` 沒有戰局時也回 `rules`（開局表單要用）。
 - `warNarrPrompt_(st)` — 說書提示詞：從者卡（look／words／toMaster）、御主、對手（知道真名才給外貌）、此刻（事情發生的那一天、那個時候：`actionWarAct` 在結算前記下 `narr.day`／`narr.when`，時段查 `WAR_WHEN_`；召喚寫「開始前的那一夜」）、【這一段發生的事】、碰到的原作設定（`warLoreStr_`）、篇幅＋召喚／開戰的重點（`WAR_SCENE_`）；補魔段接 `sealGenderFact_`＋`LEWD_EXPLICIT_`。system＝`WAR_NARR_SYS_`。
+- `WAR_NARR_FACTS_MAX_`／`WAR_KIND_RANK_` — `actionWarAct` 發現上一段還沒被說書接走（沒講過、也沒在講）就把它的事實併進這一段（上限幾句、種類取較重的）；`actionWarNarrate` 開講前先在說書那格記 `inflight`，講完收掉；AI 沒回就回空字串、這段事實併進下一段。
 - `WAR_WORLD_BOOK_` — 冬木地點與戰爭規矩的觸發條目。`warLoreEntries_(st)` — 世界書＋我方從者的喜惡（種子 `book`）＋場上每一位的寶具原作描述（不寫持有者）。`warLoreStr_(st)` — 這一段事件文字碰到的條目（走鑑賞的 `loreHits_`，上限 `KANSHOU_LORE_MAX_`）→ 一行，沒有就空字串。
 - `actionWarDojo(userData)` — 🐯 老虎道場：終局才開；`warDojoPrompt_(st)` 帶戰績、輸在哪與下一局（或亮點），system＝`WAR_DOJO_SYS_`（大河＋伊莉雅的對話）；結果存在說書那一格的 `dojo`（同一局回快取，AI 沒回就不存、下次重試）。
 
@@ -1467,7 +1469,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warOpen()` — 從選單進來：讀戰局，沒有就畫開局表單（姓名、性別、願望、第幾次戰爭、召喚對象）。`warBackMenu()` — 回選單。畫面狀態存在 `warCur_`（後端 `warView_(st)` 給的那一份）。
 - `warRenderForm_()`／`warFormPick_(k, v)`／`warStart()` — 開局表單（姓名、性別、願望、第幾次戰爭）→ 召喚。填過的都存在 `warForm_`（切選項、再來一局都還在）。
 - `warDo(i)` — 按第 i 顆鈕（令咒開著就一起送）→ `war_act` → 重畫 → 說書。`warToggleSeal()` — 令咒開關（戰鬥中才有；開著時用不上令咒的鈕會鎖住）。
-- `warNarrate_()` — 叫 `war_narrate`，等待時故事區顯示「說書人落筆中…」、按鈕鎖住。`warQuit()` — 放棄這一局。
+- `warNarrate_(block)`／`warNarrOnce_(block)` — 說書同時只寫一段：佔位插在故事的當下位置、寫好換成本文，後面按的幾步照樣接在它後面；寫的時候玩家又按了就在寫完後補一段（後端會把沒講到的併進去）。`block`＝補魔與結局這種整場戲，按鈕等它寫完；其餘不鎖按鈕。`warQuit()` — 放棄這一局。
 - `warRender_(next)` — 狀態列、敵人名單、戰鬥框（對手情報＋預兆）、召喚卡、終局卡；骨架只建一次，故事區保留。戰鬥與終局時收起技能表與名單（手機上讓位置給戰鬥框與按鈕）。
 - `warToggleTraits()` — 點從者卡展開／收起自己的技能表（召喚時一律攤開）。
 - `warResync_()` — 按了被拒絕或斷線時跟後端重新 `war_load` 一次，畫面不會卡在過期的狀態。
