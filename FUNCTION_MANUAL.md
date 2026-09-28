@@ -644,7 +644,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `kanshouWhoCard_(r, pName, formatPref, formatTrait)` — 人物卡的「這個人是誰」：名字、性別、真名、喜惡、特徵、行事邏輯。
 - `kanshouBondCard_(r, userMsg)` — 人物卡的「我們之間」：共同回憶（釘選＋提到才亮）、注意到我的事、玩家設過的關係稱呼、這個人記得的事。
 - `worldNoteDropEcho_(entries, loreStr, allyNames)` — 🌍 帳本回寫前的濾網：①兩字詞有 `WORLD_ECHO_RATIO_`（五成）以上出現在這回合送的 ★底細 裡的 world_note 丟掉（只共用一個地名的新事實留下）（AI 會把亮起的底細抄回帳本，一寫進去就變在場時常駐）；②kind 人物 且名字含同伴名的丟掉。回過濾後的陣列。
-- `memoirActive_(memoirRaw, playerMsg)` — 📖 共同回憶：釘選（★）常駐，其餘與玩家訊息共用兩字詞才亮；回純文字陣列（★ 已剝）。
+- `memoirActive_(memoirRaw, playerMsg)` — 📖 共同回憶：釘選（★）常駐，其餘與玩家訊息共用兩字詞才亮，玩家在回想（`KANSHOU_RECALL_KEYS_`）卻沒點到哪件事，就給最近幾條；亮起的最多 `KANSHOU_MEMOIR_SEND_MAX_` 條，照原本時序；回純文字陣列（★ 已剝）。
 - `kanshouLoreStr_(ctx)` — 📖 這一回合亮起的條目 → `★【這一步碰到的底細】`（我／每位在場者／`KANSHOU_WORLD_BOOK_`，最多 `KANSHOU_LORE_MAX_` 段）；沒中回空字串。只掃 `ctx.userMsg`，`KANSHOU_LORE_SCAN_AI_` 開了才把 `ctx.lastNarration` 一起掃。`ctx = {userMsg, lastNarration, pc, presentRows}`。探針 `lore.js`。
 - `kanshouPartyCards_(ctx)` — 🪪 在場人物卡，**一分為二**：`stable`＝這個人是誰（六格人設·整局不變·進 system 吃提示詞快取）、`live`＝此刻的樣子（穿著／在場來由／共同回憶／她眼中的你／關係稱呼·留 user）。`ctx = {pcData, pcId, userMsg(共同回憶的觸發用), myGameId, userMsg, partyMembers, moveTarget, timeJumped, formatPref, formatTrait}`；回 `{stable, live}`。每張卡由 `kanshouWhoCard_`（是誰）＋`kanshouBondCard_`（我們之間）拼成，待命者被點名時 ★【這座城裡還住著】也用這兩支附卡。⚠ 順序＝同行名單的插入順序，加人是 append，所以加人不會動到前面幾張卡的快取前綴。（~~聚光燈 `_spotlight_`~~ 已退休，見 CODE_NOTES。）
 - `kanshouApplyIntimacyFeedback_(ctx)` — 📝 AI 回報的當下狀態落盤：玩家與每位在場者的 神色／穿著配飾／專屬稱呼／共同回憶／她眼中的你（關係稱呼 2026-09-23 起只有玩家能填，AI 回傳一律不收）。`ctx = {aiData, pcData, pcIndex, myGameId, dirtyPcRows, curL, pcName}`；就地改 `pcData` 並把動到的列記進 `dirtyPcRows`，不自己寫表。⚠ 這是 AI 唯一能改「人的狀態」的管道，敷衍用語過濾與長度裁切都擋在這一層。
@@ -675,7 +675,7 @@ SOLO 專用輕量敘事引擎（鑑賞的 actionPlay/buildDefaultSystemPrompt �
 - `actionKanshouSummonHero(userData, pcId, sheets)` — 從英靈庫召喚一位英靈「存在」於此後日談世界（不必先 solo 封存）。防線：擁有權驗證、士郎位置擋、`KANSHOU_SUMMON_BLOCKED_IDS_` 擋、ai_gen 僅創造者可召、不開放男男、同一位只召一次（跨名比對）。通過即 appendRow(`heroToKanshouRow_`)。 ⚠ 2026-09 查重改走 `kanshouSummonClash_`。
 - `kanshouSummonClash_(data, gid, hero, heroName)` / `KANSHOU_SRC_TAG_`（常數）— 撞名守門：回 `{name, same}`，`name` 空＝沒衝突；`same:true`＝同一筆種子（已召喚過），`false`＝同一個人的另一種靈基（斯卡哈 Lancer/Assassin、伊莉雅 Master/Caster）。比對順序：【英靈源】id → 同真名 → 舊列退回跨名比對。
 - `actionBackfillKanshouAi(userData, pcId, sheets)`（2026-07 再稽核抓到漏洞：找列邏輯改用`kanshouPcIdx_(pcData, pcId)`（帳號歸屬由帳號表 KPC 欄在入口把關），取代原本裸`findIndex`信任傳入pcId的漏洞——鑑賞pcId可預測/枚舉，舊版可被冒名竄改任一玩家的敘事欄；前端`backfillKanshouAi`同步補送`acctName`）— 非阻塞背景補生成御主 **6** 個敘事欄（background/traits/personality/npc_intent/**speech**/**tic**/outfit；2026-09 新增 speech＝口吻、tic＝招牌小動作，落地走召喚同伴那支 `stampPersonaFlavor_`）。比照 `actionBackfillMasterAi`「種子秒建＋AI 潤色」；競態修用 `buildLiveIdIndex_` 寫回前重定位，只單格 setValue，數值/位置不碰。**🐛→✅ 2026-09**：原本【無條件覆寫】那幾欄——對一個已經玩過/改命改過的角色再跑一次就整組洗掉，而舊角色要補新欄位一定得再跑一次。改成「第一次補完蓋 `KANSHOU_BACKFILL_DONE_TAG_`（【設定已補】）的章，之後只填還空著的格子」；MEMORY 上的三件事（衣裝/口吻/小動作）併成讀一次寫一次，沒東西可改就完全不寫。
-- `actionWorld(userData, pcId, sheets)`（action `world`）— 🌍 世界帳本面板：list/pin/unpin/del（帳本原本只有 AI 寫得到，這支補上玩家的讀與管，分工比照 `actionKanshouMemoirOp`）。
+- `actionWorld(userData, pcId, sheets)`（action `world`）— 🌍 世界帳本面板：list/pin/unpin/del（釘選上限＝該軌 `feedMax`−1，釘超過就有幾條送不出去）（帳本原本只有 AI 寫得到，這支補上玩家的讀與管，分工比照 `actionKanshouMemoirOp`）。
 - ~~`kanshouRecentDigest_`~~（2026-09 已移除）— 曾把掉出 chatHistory 窗口的較早回合壓成一行摘要；那一行講的正是 chatHistory 已經在講的事，只是壓過的版本。
 - `actionKanshouMemoirOp(userData, pcId, sheets)`（2026-07 稽核：找目標同伴列改委派 `findPcRowIdx_`，取代手刻迴圈，行為等價）— 共同回憶面板操作（op=pin/unpin/del）：釘選加 ★ 前綴（釘選上限 8）、刪除整條移除。玩家 UI 手動管理、AI 無權；帳號綁定＋同 gid 驗證。
 
@@ -1071,7 +1071,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `trimRowsByOwner(sheet, pcId, keepCount, idColIndex0Based)` — 只保留某 pcId 最新 keepCount 列，超量刪最舊（由後往前刪）。
 - `saveGameHistoryBatch(pcId, entries)`（2026-07 補短暫鎖）— 批次 append 對話列 `[時間,pcId,speaker,content]`，寫後 trimRowsByOwner 保 40 句。此函式的呼叫端（`narrate_only`/`play`）在 dispatcher 層是刻意的 `LOCK_EXEMPT_ACTIONS_`（AI 敘事耗時、鎖全域會拖累其他玩家），但本函式本身是無鎖的 read-modify-write，理論上同一 pcId 兩次幾乎同時的呼叫窗口重疊會互相覆蓋。已補：只圍著這一支快函式取 4 秒短暫 `LockService.getScriptLock()`，搶不到鎖則退回原本無鎖行為（不劣於修復前，多數情況下優於修復前）。
 - `escapeHtml_(str)` — HTML 跳脫（&<>"'）；儲存型 XSS 輸出端防護。
-- `readRecentPlayerRows_(pcId, limit)`（2026-07 稽核抽出）— 共用「讀最後1000列→篩該pcId→取最後limit筆原始row」，`getGameHistory`/`getGameHistoryBatchRaw` 都改呼叫它取資料後各自做HTML渲染或物件映射，取代兩處重複的讀表+過濾邏輯。
+- `readRecentPlayerRows_(pcId, limit)`（2026-07 稽核抽出）— 共用「讀最後1000列→篩該pcId→取最後limit筆原始row」（2026-09：不夠 limit 筆就只掃 ID 欄往回補，回鍋玩家不再拿到空歷史），`getGameHistory`/`getGameHistoryBatchRaw` 都改呼叫它取資料後各自做HTML渲染或物件映射，取代兩處重複的讀表+過濾邏輯。
 - `getGameHistory(pcId, pcName)` — 讀最後 10 句渲染成 HTML（先跳脫再轉<br>，相容舊字面 <br>）；player/ai 兩種樣式。
 - `purgeHistoryForPcIds_(pcIds)` — 結束局時清掉這批 pcId 的所有歷史列（防表無上限成長擠出讀取窗口）。
 - `getGameHistoryBatchRaw(pcId, limit)` — 取最後 limit 句回 raw `{speaker,content}` 陣列（給 AI 上下文用）。

@@ -24,7 +24,7 @@
     if (progressTimer) { clearInterval(progressTimer); progressTimer = null; }
     document.getElementById(loadId)?.remove();
   }
-  var KC_MEMOIR_CAP_ = 10;      // 鏡像後端 KANSHOU_MEMOIR_CAP_
+  var KC_MEMOIR_CAP_ = 30;      // 鏡像後端 KANSHOU_MEMOIR_CAP_
   var KC_MEMOIR_PIN_CAP_ = 8;   // 鏡像後端 KANSHOU_MEMOIR_PIN_CAP_
   var KC_PARTY_MAX_ = 3;        // 鏡像後端 KANSHOU_PARTY_MAX_
   var KC_WORLD_MAX_ = 8;        // 鏡像後端 KANSHOU_WORLD_MAX_
@@ -588,7 +588,11 @@
     try {
       var res = await gasRun({ action: 'world', pcId: pc.id, acctName: currentAccount,
         op: op || 'list', kind: kind || '', entryName: name || '' });
-      if (!res || !res.success) { var b = document.getElementById('kc-world-body'); if (b) b.textContent = (res && res.message) || '讀取失敗。'; return; }
+      if (!res || !res.success) {
+        // 按鈕被拒（例如釘滿了）：清單還在，跳提示就好
+        if (op && op !== 'list' && _kwRows_.length) { showToast_((res && res.message) || '沒成功，等一下再試。'); return; }
+        var b = document.getElementById('kc-world-body'); if (b) b.textContent = (res && res.message) || '讀取失敗。'; return;
+      }
       _kwRows_ = res.rows || [];
       _kwPanel_ = res.panel || {};
       var ttl = document.getElementById('kc-world-title'); if (ttl) ttl.textContent = _kwPanel_.title || '🌍 這個世界';

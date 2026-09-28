@@ -539,8 +539,8 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   return JSON.stringify({ success: true, current: current });
 }
 
-// 共同回憶兩個上限（鏡射到前端 KC_*，check_mirror 盯）。釘選刻意比總量少 2，釘滿新回憶才擠得進來。
-const KANSHOU_MEMOIR_CAP_ = 10;
+// 共同回憶兩個上限（鏡射到前端 KC_*，check_mirror 盯）。存得多、送得少：送出的另由 memoirActive_ 挑。
+const KANSHOU_MEMOIR_CAP_ = 30;
 const KANSHOU_MEMOIR_PIN_CAP_ = 8;
 
 // 💞 共同回憶面板：釘選／取消／刪除（玩家 UI 手動管理，AI 無權）。
@@ -598,6 +598,11 @@ function actionWorld(userData, pcId, sheets) {
           if (String(d[r][KW_.GID]) === gid && String(d[r][KW_.KIND]) === kind && String(d[r][KW_.NAME]).trim() === name) { hit = r; break; }
         }
         if (hit < 0) return JSON.stringify({ success: false, message: "找不到這一條。" });
+        // 釘選的每回合都送：釘超過 feedMax 就有幾條靜靜送不出去，所以留一格給這一步真的相關的那條。
+        const pinCap = worldSpec_(gid).feedMax - 1;
+        if (op === 'pin' && String(d[hit][KW_.PIN] || "") !== '★'
+          && d.filter((row, r) => r > 0 && String(row[KW_.GID]) === gid && String(row[KW_.PIN] || "") === '★').length >= pinCap)
+          return JSON.stringify({ success: false, message: "最多釘 " + pinCap + " 條，先鬆開幾個。" });
         sh.getRange(hit + 1, KW_.PIN + 1).setValue(op === 'pin' ? '★' : '');
         worldBust_(gid);
       }
@@ -728,7 +733,7 @@ function buildDefaultSystemPrompt(includeOptions, styles, partyStable) {
         "physical_state": _physicalStateRef,
         "appearance_extras": _appearanceExtrasRef,
         "mutual_nicknames": "這回合真的叫出口的暱稱·沒有就留空",
-        "memory": "里程碑才寫·≤30字·第一人稱「我」·沒有就留空",
+        "memory": "之後還會再被提起的事（約定、第一次、我說過的近況或心事）·≤30字·用玩家的口吻寫「我」·沒有就留空",
         "noticed": "≤14字·會改變之後怎麼對玩家的發現·沒有就留空"
       }]
     },
@@ -1443,10 +1448,18 @@ function worldNoteDropEcho_(entries, loreStr, allyNames) {
     return true;
   });
 }
-// 共同回憶：釘選（★）常駐，其餘玩家提到才亮。回 [常駐…, 亮起…] 的純文字。
+// 共同回憶：釘選（★）常駐；其餘玩家提到才亮，玩家在回想（還記得／那天…）卻沒點到哪件事，就給最近幾條。
+//   亮起的最多 KANSHOU_MEMOIR_SEND_MAX_ 條，輸出照原本時序。
+const KANSHOU_RECALL_KEYS_ = ['記得', '上次', '那天', '那次', '那時', '以前', '之前', '當時', '當初', '第一次', '約好', '答應', '說好'];
+const KANSHOU_MEMOIR_SEND_MAX_ = 3;
 function memoirActive_(memoirRaw, playerMsg) {
+  const msg = String(playerMsg || "");
   const items = String(memoirRaw || "").split('｜').map(function (x) { return x.trim(); }).filter(Boolean);
-  return items.filter(function (m) { return m.charAt(0) === '★' || loreOverlap_(m, playerMsg); })
+  const loose = items.filter(function (m) { return m.charAt(0) !== '★'; });
+  let lit = loose.filter(function (m) { return loreOverlap_(m, msg); });
+  if (!lit.length && KANSHOU_RECALL_KEYS_.some(function (k) { return msg.indexOf(k) >= 0; })) lit = loose.slice().reverse();
+  lit = lit.slice(0, KANSHOU_MEMOIR_SEND_MAX_);
+  return items.filter(function (m) { return m.charAt(0) === '★' || lit.indexOf(m) >= 0; })
     .map(function (m) { return m.replace(/★/g, ''); });
 }
 // 兩段中文有沒有共用的「兩字詞」（去掉功能字與泛用詞）：回憶／經歷／帳本這種自由文字沒有 keys，靠這個判「提到了沒」。
@@ -2140,8 +2153,10 @@ ${PROMPT_BODY}
 
     const finalResponseText = (aiData.narration || "天地混沌，一片寂靜。").replace(/\n/g, "<br>");
 
+    // 時間鈕被改寫過（例如「結束這一天」變成夜未眠）就存真正發生的那句，下一回合的歷史才接得上
+    const _histMine_ = finalUserMsg === `【玩家原話】：${userMsg}` ? userMsg : `（${String(finalUserMsg).replace(/^【[^】]*】：?/, '')}）`;
     saveGameHistoryBatch(pcId, [
-      { speaker: "player", content: userMsg },
+      { speaker: "player", content: _histMine_ },
       { speaker: "ai", content: String(aiData.narration || "").replace(/<br\s*\/?>/gi, "\n") }
     ]);
 

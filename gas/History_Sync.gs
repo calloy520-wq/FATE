@@ -38,7 +38,7 @@ function escapeHtml_(str) {
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
-// 讀「歷史暫存」最後 1000 列(避免整表掃描)→ 按 pcId 過濾 → 取最後 limit 筆原始 row。
+// 讀「歷史暫存」最後 1000 列(避免整表掃描)→ 按 pcId 過濾 → 取最後 limit 筆原始 row（不夠再只掃 ID 欄往回補）。
 function readRecentPlayerRows_(pcId, limit) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("歷史暫存");
   if (!sheet) return [];
@@ -49,7 +49,20 @@ function readRecentPlayerRows_(pcId, limit) {
   const startRow = Math.max(2, lastRow - 1000);
   const numRows = lastRow - startRow + 1;
   const data = sheet.getRange(startRow, 1, numRows, 4).getValues();
-  const playerHistory = data.filter(row => String(row[1]) === String(pcId));
+  let playerHistory = data.filter(row => String(row[1]) === String(pcId));
+  // 回鍋的玩家：自己的列被別人擠出最近 1000 列了——只掃 ID 那一欄往回找，再讀那一段
+  if (playerHistory.length < limit && startRow > 2) {
+    const ids = sheet.getRange(2, 2, startRow - 2, 1).getValues();
+    const older = [];
+    for (let i = ids.length - 1; i >= 0 && older.length + playerHistory.length < limit; i--) {
+      if (String(ids[i][0]) === String(pcId)) older.push(i + 2);
+    }
+    if (older.length) {
+      const lo = older[older.length - 1], hi = older[0];
+      const block = sheet.getRange(lo, 1, hi - lo + 1, 4).getValues();
+      playerHistory = block.filter(row => String(row[1]) === String(pcId)).concat(playerHistory);
+    }
+  }
 
   return playerHistory.slice(-limit);
 }
