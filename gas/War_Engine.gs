@@ -55,6 +55,20 @@ var WAR_CLASS_ = {
 };
 function warClass_(cls) { return WAR_CLASS_[cls] || { aggr: 0.5 }; }
 
+// 敵方從者的原作性格（鍵＝英靈殿 ID）：蓋在職階個性上。只在敵人身上生效。
+//   aggr 出手慾（取代職階值）　guard 守在原地：不夜襲你、不撤退（別人找上門照樣打）　noRetreat 不撤退
+//   scout 奉命偵察：第一回合試探，打不贏就撤　nemesis 看到這位英靈就會找上門　findMul 找到你據點的機率 ×
+//   meet 交手時的開場一句（不寫真名）
+var WAR_TEMPER_ = {
+  '佐佐木小次郎-Assassin': { guard: 1, meet: '山門前的石階上，有人背著長刀靜靜等著。' },
+  '吉爾伽美什-Archer': { aggr: 0.3, noRetreat: 1, meet: '對方一臉不屑，像在看一場無聊的餘興。' },
+  '庫丘林-Lancer': { scout: 1, meet: '對方沒有急著分勝負，先打量了你們一眼。' },
+  '蘭斯洛特-Berserker': { nemesis: '阿爾托莉雅-Saber', nemesisMeet: '黑色的狂戰士一看見{sv}，發出了嘶吼。' },
+  '百貌哈桑-Assassin': { findMul: 2, meet: '四周的暗處不只一道氣息。' }
+};
+function warTemper_(e) { return (e && WAR_TEMPER_[e.hero]) || {}; }
+function warAggr_(e) { var t = warTemper_(e); return t.aggr !== undefined ? t.aggr : warClass_(e.cls).aggr; }
+
 // ── 技能：一張表、固定幾個時機 ──────────────────────────
 // 每個技能（鍵＝種子的 fx）只寫「在哪個時機、改什麼數字」；引擎只在固定的時機讀表，技能自己不寫程式。加技能＝往表加一列。
 // 時機一覽（全部都是「這個技能的主人」身上的事）：
@@ -356,20 +370,21 @@ function warFinishNight_(st, ev) {
 }
 
 function warTick_(st, ev) {
-  var order = warArrived_(st).slice().sort(function (a, b) { return warClass_(b.cls).aggr - warClass_(a.cls).aggr; });
+  var order = warArrived_(st).slice().sort(function (a, b) { return warAggr_(b) - warAggr_(a); });
   for (var i = 0; i < order.length; i++) {
     var e = order[i];
     if (!e.alive || st.ticked.indexOf(e.id) >= 0 || st.engaged.indexOf(e.id) >= 0) continue;
     st.ticked.push(e.id);
-    var aggr = warClass_(e.cls).aggr;
+    var aggr = warAggr_(e), tp = warTemper_(e);
     var fallen = st.enemies.filter(function (x) { return !x.alive; }).length;
+    var nemesis = !!tp.nemesis && st.sv.hero === tp.nemesis;
     if (!e.found) {
       var f = WAR_.FIND_BASE + (st.out ? WAR_.FIND_OUT : 0) + (st.exposed ? WAR_.FIND_EXPOSED : 0) + fallen * WAR_.FIND_LATE;
-      f *= warMul_(st.sv, 'findMe') * warMul_(e, 'findThem');
+      f *= warMul_(st.sv, 'findMe') * warMul_(e, 'findThem') * (tp.findMul || 1) * (nemesis ? 3 : 1);
       if (warRand_(st) < f) e.found = true;
     }
-    var hunt = aggr * WAR_.HUNT + (st.exposed ? WAR_.HUNT_EXPOSED : 0) + (st.sv.hp < st.sv.mhp * 0.5 ? WAR_.HUNT_WOUNDED : 0) + fallen * WAR_.HUNT_LATE;
-    if (!st.out && !st.hunted && e.found && warRand_(st) < hunt) {
+    var hunt = aggr * WAR_.HUNT + (st.exposed ? WAR_.HUNT_EXPOSED : 0) + (st.sv.hp < st.sv.mhp * 0.5 ? WAR_.HUNT_WOUNDED : 0) + fallen * WAR_.HUNT_LATE + (nemesis ? 0.4 : 0);
+    if (!st.out && !st.hunted && e.found && !tp.guard && warRand_(st) < hunt) {
       st.hunted = true;
       e.intel = Math.max(e.intel, 1);
       ev.push({ k: 'raid', txt: '深夜，' + warFoeLabel_(e) + '找上了據點。' });
@@ -434,6 +449,9 @@ function warStartBattle_(st, e, ctx, ev) {
   st.foughtTonight = true;
   st.stats.battles++;
   st.sv.saved = false; e.saved = false;
+  var tp = warTemper_(e);
+  if (tp.nemesis && st.sv.hero === tp.nemesis && tp.nemesisMeet) ev.push({ k: 'meet', txt: tp.nemesisMeet.replace('{sv}', st.sv.name) });
+  else if (tp.meet) ev.push({ k: 'meet', txt: tp.meet });
   st.battle.ambush = ctx === 'sortie' && warFlag_(st.sv, 'ambush');
   st.battle.foeAmbush = ctx === 'defend' && warFlag_(e, 'ambush');   // 帶著氣息遮斷摸上門來的，一樣先手
   if (ctx === 'defend' && warAdd_(st.sv, 'ward') > 0) {
@@ -458,9 +476,14 @@ function warSetIntent_(st, e) {
 }
 
 function warIntent_(st, me, foe, round) {
-  var c = warClass_(me.cls), berserk = warFlag_(me, 'noProbe');
-  if (me.cd === 0 && (me.hp < me.mhp * 0.5 || foe.hp < foe.mhp * 0.55 || (round >= 2 && warRand_(st) < c.aggr * 0.5))) return 'np';
-  if (!berserk && !(st.battle && st.battle.ctx === 'final') && me.hp < me.mhp * 0.3 && c.aggr < 0.7 && warRand_(st) < 0.45) return 'retreat';
+  var aggr = warAggr_(me), berserk = warFlag_(me, 'noProbe'), tp = warTemper_(me);
+  var final = !!(st.battle && st.battle.ctx === 'final'), stay = tp.guard || tp.noRetreat;
+  if (tp.scout && !berserk && !final) {   // 奉命偵察：先試探，佔不到便宜就走
+    if (round === 1) return 'probe';
+    if (me.hp / me.mhp < foe.hp / foe.mhp && warRand_(st) < 0.35) return 'retreat';
+  }
+  if (me.cd === 0 && (me.hp < me.mhp * 0.5 || foe.hp < foe.mhp * 0.55 || (round >= 2 && warRand_(st) < aggr * 0.5))) return 'np';
+  if (!berserk && !stay && !final && me.hp < me.mhp * 0.3 && aggr < 0.7 && warRand_(st) < 0.45) return 'retreat';
   if (!berserk && (me.cls === 'Caster' || me.cls === 'Assassin') && warRand_(st) < 0.2) return 'probe';
   return 'strike';
 }
