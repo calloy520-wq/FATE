@@ -12,6 +12,7 @@
   let warForgeData_ = null;   // war_forge_list 的結果（原作名單、我的原創、可挑技能、規則）
   let warFe_ = null;          // 工房編輯中的那一位
   let warForgeFromMenu_ = false;
+  let warBarPrev_ = {};       // 每條血條上一次畫到哪：下一次從那裡滑到新值，掉血的那條閃一下
   let warFoeOpen_ = '';       // 名單上點開看情報的那一位
   let warTraitsOpen_ = false; // 自己的技能表：召喚時攤開，之後點從者卡才展開（手機上把位置讓給按鈕）
   let warRuleInfo_ = null;    // 後端的規則數字（warRules_）：表單與「規則」卡照這個寫
@@ -94,6 +95,7 @@
     const wish = ((warEl_('war-wish') || {}).value || '').trim();
     warBusy_ = true;
     try {
+      warBarPrev_ = {};
       const res = await withProcessing_('召喚中…', () => gasRun({ action: 'war_new', acctName: currentAccount, pcName: name, sex: warForm_.sex, war: warForm_.war, wish: wish, heroId: warForm_.hero }));
       if (!res || !res.success) { alert((res && res.message) || '召喚失敗。'); return; }
       warRender_(res.view);
@@ -320,9 +322,16 @@
   }
 
   // ── 畫面 ──
-  function warBar_(v, max, cls) {
+  function warBar_(v, max, cls, key) {
     const p = Math.max(0, Math.min(100, Math.round(v / Math.max(1, max) * 100)));
-    return `<div class="war-bar ${cls || ''}"><i style="width:${p}%"></i></div>`;
+    const prev = key && warBarPrev_[key] !== undefined ? warBarPrev_[key] : p;
+    if (key) warBarPrev_[key] = p;
+    return `<div class="war-bar ${cls || ''}${p < prev ? ' hit' : ''}"><i data-to="${p}" style="width:${prev}%"></i></div>`;
+  }
+  // 血條先畫在上一次的位置，下一格再滑到新值（CSS transition 負責動畫）。
+  function warBarsSlide_() {
+    const go = () => document.querySelectorAll('#war-top .war-bar i[data-to]').forEach(i => { i.style.width = i.getAttribute('data-to') + '%'; });
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => requestAnimationFrame(go)); else setTimeout(go, 30);
   }
 
   function warRender_(next) {
@@ -343,7 +352,7 @@
       const b = v.battle;
       battle = `<div class="war-battle">
         <div class="war-row between"><b>對手：${escapeHtml(b.foe)}${b.info && b.info.bounty ? ' 🎯' : ''}${b.info && b.info.intel >= 2 ? ' <span class="war-gold war-small" title="已看穿真名，傷害提高">◆真名</span>' : ''}</b><span class="war-dim">${b.ctx === 'final' ? '決戰' : '第 ' + b.round + '／' + b.rounds + ' 回合'}</span></div>
-        ${warBar_(b.foeHp, 100, 'foe')}
+        ${warBar_(b.foeHp, 100, 'foe', 'foe:' + ((b.info && b.info.id) || b.foe))}
         ${warFoeDetail_(b.info, true)}
         ${b.tele === 'np' ? '<div class="war-warn">⚠ 寶具預兆</div>' : ''}
       </div>`;
@@ -366,14 +375,15 @@
       <div class="war-card" onclick="warToggleTraits()">
         <div class="war-row between"><b>${escapeHtml(sv.cls)}「${escapeHtml(sv.name)}」</b><span>${np}</span></div>
         <div class="war-row between war-small war-tight"><span>從者 ${sv.hp}／${sv.mhp}</span><span>真名：${sv.exposed ? '<b class="war-red">已曝光</b>' : '隱藏'}</span></div>
-        ${warBar_(sv.hp, sv.mhp, 'sv')}
+        ${warBar_(sv.hp, sv.mhp, 'sv', 'sv')}
         <div class="war-row between war-small war-tight"><span>御主 ${escapeHtml(m.name)}　${m.hp}／${m.mhp}</span><span>令咒 ${seals}</span></div>
-        ${warBar_(m.hp, m.mhp, 'ms')}
+        ${warBar_(m.hp, m.mhp, 'ms', 'ms')}
         ${busy ? '' : (v.phase === 'summon' || warTraitsOpen_ ? (sv.traits || []).map(t => `<div class="war-small war-dim">${escapeHtml(t)}</div>`).join('') : ((sv.traits || []).length ? `<div class="war-small war-dim">技能：${(sv.traits || []).map(t => escapeHtml(String(t).split('：')[0])).join('・')}　▾</div>` : ''))}
       </div>
       ${busy ? '' : `<div class="war-foes">${foes || '<span class="war-dim">尚未發現敵人</span>'}</div>`}
       ${peek ? `<div class="war-peek"><b>${escapeHtml(peek.label)}</b>${peek.odds ? '<span class="war-dim">　' + escapeHtml(peek.odds) + '</span>' : ''}${warFoeDetail_(peek)}</div>` : ''}
       ${battle}`;
+    warBarsSlide_();
     warRenderButtons_();
   }
 
