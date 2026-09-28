@@ -156,8 +156,9 @@
     letter-spacing: 0.5px;
   }
 
-  .msg-ai b {
-    color: var(--gold-accent);
+  .msg-ai b { color: var(--gold-accent); }
+  /* 開頭那個【說書人】標頭自成一行；段落裡的粗體照常在行內 */
+  .msg-ai > b:first-child {
     font-size: calc(15px * var(--story-scale));
     display: block;
     margin-bottom: 6px;
