@@ -32,7 +32,8 @@ var WAR_ = {
   PATROL_MEET: 0.65,
   SCOUT_DEEP: 0.35,      // 打聽時順便看穿一位真名的機率
   NEWS_REVEAL: 0.5,      // 早報裡交手的兩方，各有幾成機會被你記下職階與位置
-  BOUNTY_DAY: 3          // 教會在第幾天早上發出討伐令
+  BOUNTY_DAY: 3,         // 教會在第幾天早上發出討伐令
+  SORTIE_SHOW: 3         // 夜晚直接列出幾個出擊目標，其餘收進「其他目標」
 };
 
 // 教會討伐令（原作：第四次綺禮為連續孩童失蹤案懸賞 Caster；第五次 Caster 在城裡吸取居民的精氣）。打倒目標的人多得一劃令咒。
@@ -235,9 +236,13 @@ function warButtons_(st) {
     var left = warArrived_(st).length;
     B.push({ t: 'final', label: '前往' + warFinal_(st).place, sub: '最後一夜・' + (left > 1 ? '剩餘 ' + left + ' 位從者全數到場' : '最後一位從者在場') });
   } else if (st.phase === 'night') {
-    warKnownFoes_(st).forEach(function (e) {
-      B.push({ t: 'sortie', id: e.id, label: '突襲 ' + warFoeLabel_(e), sub: warOdds_(st, e) + '・' + warHpWord_(e) + '・' + e.loc + (warBountyOn_(st, e) ? '・討伐令' : '') });
-    });
+    // 目標照「討伐令→勝算」排好，前幾位直接列出，其餘收進「其他目標」（more）
+    warKnownFoes_(st).map(function (e) { return { e: e, k: (warBountyOn_(st, e) ? 100 : 0) + warOddsR_(st, e) }; })
+      .sort(function (a, b) { return b.k - a.k; })
+      .forEach(function (x, i) {
+        var e = x.e;
+        B.push({ t: 'sortie', id: e.id, label: '突襲 ' + warFoeLabel_(e), sub: warOdds_(st, e) + '・' + warHpWord_(e) + '・' + e.loc + (warBountyOn_(st, e) ? '・討伐令' : ''), more: i >= WAR_.SORTIE_SHOW });
+      });
     B.push({ t: 'patrol', label: '巡邏', sub: '外出搜索，遭遇即戰鬥' });
     B.push({ t: 'hold', label: '固守', sub: '留守據點，遇襲時受傷減少' });
   } else if (st.phase === 'battle') {
@@ -683,11 +688,15 @@ function warHealMaster_(st, n) { var m = st.master, before = m.hp; m.hp = Math.m
 
 // 勝算：雙方各要幾回合打倒對方，比一比。
 function warOdds_(st, e) {
+  var r = warOddsR_(st, e);
+  return r > 1.5 ? '勝算大' : r > 0.85 ? '勢均力敵' : r > 0.5 ? '勝算小' : '凶險';
+}
+// 勝算的比值（我撐幾下 ÷ 對方撐幾下）：出擊目標照這個排序。
+function warOddsR_(st, e) {
   var me = { u: st.sv, knows: e.intel >= 2 }, foe = { u: e, knows: st.exposed };
   var myD = Math.max(1, warHitChance_(st.sv, e) * ((WAR_.DMG_BASE + st.sv.atk * WAR_.DMG_PER_ATK) * warMult_(me) - e.def * WAR_.DMG_DEF));
   var eD = Math.max(1, warHitChance_(e, st.sv) * ((WAR_.DMG_BASE + e.atk * WAR_.DMG_PER_ATK) * warMult_(foe) - st.sv.def * WAR_.DMG_DEF));
-  var r = (st.sv.hp / eD) / (e.hp / myD);
-  return r > 1.5 ? '勝算大' : r > 0.85 ? '勢均力敵' : r > 0.5 ? '勝算小' : '凶險';
+  return (st.sv.hp / eD) / (e.hp / myD);
 }
 
 // ── 文字與查詢 ────────────────────────────────────────

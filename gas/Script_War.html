@@ -5,6 +5,7 @@
   // ==========================================
   let warCur_ = null;        // 後端給的畫面狀態
   let warSeal_ = false;       // 這一回合要不要燒令咒（戰鬥中才用得到）
+  let warMore_ = false;       // 夜晚「其他目標」展開了沒（每按一步就收回去）
   let warBusy_ = false;
   let warNarrP_ = null;       // 正在寫的那一段說書（同時只寫一段）
   let warNarrAgain_ = false;  // 寫的時候玩家又往前按了：寫完再補一段（後端會把沒講到的併進去）
@@ -156,7 +157,7 @@
     try {
       const res = await withProcessing_('結算中…', () => gasRun({ action: 'war_act', acctName: currentAccount, act: { t: b.t, id: b.id || '', s: b.s || '', seal: seal } }));
       if (!res || !res.success) { alert((res && res.message) || '操作失敗。'); await warResync_(); return; }
-      warSeal_ = false;
+      warSeal_ = false; warMore_ = false;
       warStory_('me', b.label + (seal ? '（令咒）' : ''));
       warRender_(res.view);
       warLog_(res.log);
@@ -272,6 +273,10 @@
     } catch (e) { alert('連線失敗，請稍後再試。'); }
   }
 
+  function warToggleMore() {
+    warMore_ = !warMore_;
+    warRenderButtons_();
+  }
   function warToggleSeal() {
     if (!warCur_ || warCur_.phase !== 'battle' || warCur_.master.seals <= 0) return;
     warSeal_ = !warSeal_;
@@ -444,10 +449,15 @@
         <button class="war-btn war-ghost" onclick="warBackMenu()"><b>回選單</b></button>`;
       return;
     }
-    box.innerHTML = (v.buttons || []).map((b, i) => {
+    const bs = v.buttons || [], nMore = bs.filter(b => b.more).length;
+    box.innerHTML = bs.map((b, i) => {
+      if (b.more && !warMore_) return '';
       const seal = warSeal_ && v.phase === 'battle' && b.sealSub;
       const off = warBusy_ || (b.dis && !(warSeal_ && b.sealOk)) || (warSeal_ && v.phase === 'battle' && !b.sealSub);
-      return `<button class="war-btn${seal ? ' sealed' : ''}" ${off ? 'disabled' : ''} onclick="warDo(${i})"><b>${escapeHtml(b.label)}</b><small>${escapeHtml(seal ? b.sealSub : (b.sub || ''))}</small></button>`;
+      const btn = `<button class="war-btn${seal ? ' sealed' : ''}" ${off ? 'disabled' : ''} onclick="warDo(${i})"><b>${escapeHtml(b.label)}</b><small>${escapeHtml(seal ? b.sealSub : (b.sub || ''))}</small></button>`;
+      // 收起來的目標：在最後一個直接列出的目標後面放一顆展開鈕
+      const last = nMore && !b.more && b.t === 'sortie' && bs[i + 1] && bs[i + 1].more;
+      return btn + (last ? `<button class="war-mini war-more" onclick="warToggleMore()">${warMore_ ? '收起其他目標 ▴' : '其他目標（' + nMore + '）▾'}</button>` : '');
     }).join('') + (v.phase === 'day' || v.phase === 'summon' ? `<button class="war-mini war-quit" ${warBusy_ ? 'disabled' : ''} onclick="warQuit()">放棄這一局</button>` : '');
   }
 

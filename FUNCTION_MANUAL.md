@@ -28,14 +28,14 @@
 | **Setup_FateWorld.gs** | 4 | 分頁建置／種子灌入 |
 | **Account.gs** | 9 | 帳號綁定／開新局／清理本局 |
 | **History_Sync.gs** | 7 | 戰記寫入／軌跡摘要 |
-| **War_Engine.gs** | 75 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰、賽後講評 |
+| **War_Engine.gs** | 76 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰、賽後講評 |
 | **War_Router.gs** | 16 | ⚔️ 新聖杯戰爭的 GAS 端：聖杯戰局分頁（一局一格 JSON）、`war_*` 六條路由、世界書、說書與老虎道場提示詞 |
 | **War_Forge.gs** | 12 | 🛠️ 英靈工房（新聖杯戰爭與鑑賞共用）：表單驗證、寫一列完整的英靈殿、原創清單 |
 | **Index.html** | 0 | 載入殼（依序載 Style／Script／Script_Onboarding／Script_Kanshou／Script_War） |
 | **Script.html** | 132 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
 | **Script_Kanshou.html** | 108 | 鑑賞（慾海）SPA |
 | **Script_Onboarding.html** | 57 | 開局（登入／創角／召喚） |
-| **Script_War.html** | 38 | ⚔️ 新聖杯戰爭畫面：照後端 `buttons` 畫大按鈕、令咒切換、故事區、對手情報、規則卡、終局卡與老虎道場、英靈工房 |
+| **Script_War.html** | 39 | ⚔️ 新聖杯戰爭畫面：照後端 `buttons` 畫大按鈕、令咒切換、故事區、對手情報、規則卡、終局卡與老虎道場、英靈工房 |
 
 > ActionRouter 目前註冊 **67 個 action**，全部對應真實 handler、無缺漏（見下 Router_Action.gs 段完整對照表）。
 
@@ -1128,7 +1128,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warRand_(st)`／`warPick_(st, arr)`／`warClamp_(v, a, b)` — 亂數與夾值。
 - `warHitChance_(x, y)`／`warMult_(X)`／`warNormalDmg_(st, X, Y)`／`warNpDmg_(X, Y)`／`warRetreatChance_(u, o, seal)` — 命中、倍率、傷害、撤退。
 - `warHeal_(u, pct)`／`warHealMaster_(st, n)` — 回血。
-- `warOdds_(st, e)` — 勝算四階（勝算大／勢均力敵／勝算小／凶險）。
+- `warOdds_(st, e)` — 勝算四階（勝算大／勢均力敵／勝算小／凶險）。`warOddsR_(st, e)` — 背後的比值（我撐幾下 ÷ 對方撐幾下）；夜晚出擊目標照「討伐令→這個比值」排序，前 `WAR_.SORTIE_SHOW` 位直接列，其餘帶 `more: true`。
 - `warClass_(cls)`／`warFoe_(st, id)`／`warArrived_(st)`／`warKnownFoes_(st)`／`warAliveCount_(st)`／`warLocName_(loc)` — 查詢。
 - `warFoeLabel_(e)`／`warWho_(st, S)`／`warHpWord_(u)`／`warHurtWord_(u)`／`warChanceWord_(p)` — 文字（照玩家知道多少顯示）。
 
@@ -1474,7 +1474,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 
 - `warOpen()` — 從選單進來：讀戰局，沒有就畫開局表單（姓名、性別、願望、第幾次戰爭、召喚對象）。`warBackMenu()` — 回選單。畫面狀態存在 `warCur_`（後端 `warView_(st)` 給的那一份）。
 - `warRenderForm_()`／`warFormPick_(k, v)`／`warStart()` — 開局表單（姓名、性別、願望、第幾次戰爭）→ 召喚。填過的都存在 `warForm_`（切選項、再來一局都還在）。
-- `warDo(i)` — 按第 i 顆鈕（令咒開著就一起送）→ `war_act` → 重畫 → 說書。`warToggleSeal()` — 令咒開關（戰鬥中才有；開著時用不上令咒的鈕會鎖住）。
+- `warDo(i)` — 按第 i 顆鈕（令咒開著就一起送）→ `war_act` → 重畫 → 說書。`warToggleSeal()` — 令咒開關（戰鬥中才有；開著時用不上令咒的鈕會鎖住）。`warToggleMore()` — 夜晚「其他目標（N）」展開／收起（帶 `more` 的出擊鈕；每按一步就收回去）。
 - `warNarrate_(block)`／`warNarrOnce_(block)` — 說書同時只寫一段：佔位插在故事的當下位置、寫好換成本文，後面按的幾步照樣接在它後面；寫的時候玩家又按了就在寫完後補一段（後端會把沒講到的併進去）。`block`＝補魔與結局這種整場戲，按鈕等它寫完；其餘不鎖按鈕。`warQuit()` — 放棄這一局。
 - `warRender_(next)` — 狀態列、敵人名單、戰鬥框（對手情報＋預兆）、召喚卡、終局卡；骨架只建一次，故事區保留。戰鬥與終局時收起技能表與名單（手機上讓位置給戰鬥框與按鈕）。
 - `warToggleTraits()` — 點從者卡展開／收起自己的技能表（召喚時一律攤開）。
