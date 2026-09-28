@@ -1771,7 +1771,7 @@
         var skillPills = classSkillPills || innateSkillPills || specialSkillPills; // 沿用既有變數名判斷「有沒有技能」(下方 hint/kanshou 分支用)
         var hasActiveSkill = (s.skills || []).some(function (sk) { return sk && ACTIVE_FX_JS[sk.fx]; });
         var traitPills = (s.traits || []).map(function (tr) { return pill(tr.n, tr.r, 'trait', '#c0392b'); }).join('');
-        // 鑑賞從者卡：職階／名字＋關係稱呼／裝扮／肉體狀態＋三顆鈕（📜狀態·💞關係·🫂同行/解散）。
+        // 鑑賞從者卡：職階／名字＋關係稱呼／裝扮／肉體狀態＋三顆鈕（📜狀態·💞關係·🫂＋同行/−同行）。
         if (pc && pc.mode === 'kanshou') {
           var po = {}; try { po = JSON.parse(s.physical || '{}'); } catch (e) { }
           return '<div style="background:rgba(40,20,34,0.5); border:1px solid #a04a6a; border-radius:8px; padding:6px 8px;">'
@@ -1782,7 +1782,7 @@
             + '<div style="margin-top:6px; display:flex; gap:6px;">'
             + '<button onclick="openStatus(\'' + safeN + '\',\'' + safeN + '\')" title="「' + safeN + '」的詳細狀態，可以改命" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(44,166,140,0.16); color:#4fd0b0; border:1px solid #2ca68c; border-radius:6px; cursor:pointer;">📜 狀態</button>'
             + '<button onclick="kanshouOpenBondHub(\'' + safeN + '\',\'' + String(s.tag || '').replace(/'/g, '') + '\',\'' + String(s.nickname || '').replace(/'/g, '') + '\',\'' + String(s.id || '').replace(/'/g, '') + '\')" title="稱呼、回憶" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:rgba(200,120,150,0.16); color:#e8b0c8; border:1px solid #a06080; border-radius:6px; cursor:pointer;">💞 關係</button>'
-            + '<button onclick="kanshouPartyOp(\'' + String(s.id || '').replace(/'/g, '') + '\',\'' + (s.party ? 'drop' : 'add') + '\')" title="' + (s.party ? '解除同行' : '加入同行') + '" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:' + (s.party ? 'rgba(160,120,220,0.18)' : 'rgba(120,180,120,0.14)') + '; color:' + (s.party ? '#dcc8ff' : '#a8dca8') + '; border:1px solid ' + (s.party ? '#6a4a9a' : '#4a7a4a') + '; border-radius:6px; cursor:pointer;">' + (s.party ? '🫂 解散' : '🫂 同行') + '</button>'
+            + '<button onclick="kanshouPartyOp(\'' + String(s.id || '').replace(/'/g, '') + '\',\'' + (s.party ? 'drop' : 'add') + '\')" title="' + (s.party ? '解除同行' : '加入同行') + '" style="flex:1; min-width:0; white-space:nowrap; font-size:11px; padding:4px 3px; background:' + (s.party ? 'rgba(160,120,220,0.18)' : 'rgba(120,180,120,0.14)') + '; color:' + (s.party ? '#dcc8ff' : '#a8dca8') + '; border:1px solid ' + (s.party ? '#6a4a9a' : '#4a7a4a') + '; border-radius:6px; cursor:pointer;">' + (s.party ? '🫂 −同行' : '🫂 ＋同行') + '</button>'
             + '</div>'
             + '</div>';
         }

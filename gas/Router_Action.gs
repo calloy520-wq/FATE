@@ -346,7 +346,7 @@ function buildTagsPayload_(sheets, pcId, preData) {
       id: s[COL.PC.ID], // 前端隨後續 action 回傳，後端認 id 不認名字
 
       name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
-      tag: s[COL.PC.REL_TAG] || "從者", nickname: getNickname_(s[COL.PC.REL_MEM]), // 鑑賞「🏷️關係」面板預填
+      tag: s[COL.PC.REL_TAG] || (isFateCtx ? "從者" : ""), nickname: getNickname_(s[COL.PC.REL_MEM]), // 鑑賞「🏷️關係」面板預填；鑑賞的關係只有玩家自己打的字，沒設就留空
       party: _partyIds.indexOf(String(s[COL.PC.ID])) >= 0, // 鑑賞卡的同行/解散鈕
       statusString: buildPlayerStatusString(s, String(s[COL.PC.REL_MEM] || "")),
       hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),

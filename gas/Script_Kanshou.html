@@ -214,14 +214,14 @@
           : { icon: '🌹', note: '', bg: '' });
       return '<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);' + _tier.bg + '">'
         + '<span style="flex:1;color:#e8d8e0;">' + _tier.icon + ' ' + escapeHtml(c.name) + (c.tag ? ' <small style="color:#8a7fa0;">(' + escapeHtml(c.tag) + ')</small>' : '') + (_tier.note ? '<br><small style="color:' + (c.party ? '#c0a8e0' : '#a8c8e0') + ';">' + _tier.note + '</small>' : '') + '</span>'
-        + '<button onclick="kanshouPartyOp(\'' + String(c.id || '').replace(/'/g, '') + '\',\'' + (c.party ? 'drop' : 'add') + '\')"' + (full ? ' disabled title="同行已滿 ' + KC_PARTY_MAX_ + ' 位"' : '') + ' style="padding:4px 8px;background:' + (c.party ? '#4a3a6a' : (full ? '#2e2e34' : '#3a4a3a')) + ';color:' + (c.party ? '#dcc8ff' : (full ? '#666' : '#a8dca8')) + ';border:none;border-radius:6px;cursor:' + (full ? 'not-allowed' : 'pointer') + ';font-size:12px;" title="' + (c.party ? '解除同行' : '加入同行') + '">' + (c.party ? '−解散' : '＋同行') + '</button>'
+        + '<button onclick="kanshouPartyOp(\'' + String(c.id || '').replace(/'/g, '') + '\',\'' + (c.party ? 'drop' : 'add') + '\')"' + (full ? ' disabled title="同行已滿 ' + KC_PARTY_MAX_ + ' 位"' : '') + ' style="padding:4px 8px;background:' + (c.party ? '#4a3a6a' : (full ? '#2e2e34' : '#3a4a3a')) + ';color:' + (c.party ? '#dcc8ff' : (full ? '#666' : '#a8dca8')) + ';border:none;border-radius:6px;cursor:' + (full ? 'not-allowed' : 'pointer') + ';font-size:12px;" title="' + (c.party ? '解除同行' : '加入同行') + '">' + (c.party ? '−同行' : '＋同行') + '</button>'
         + '<button onclick="kanshouOpenMemoir(\'' + String(c.name).replace(/'/g, '') + '\')" style="padding:4px 8px;background:' + (memCount ? '#5a3a4a' : '#3a3a44') + ';color:' + (memCount ? '#e8b8cc' : '#999') + ';border:none;border-radius:6px;cursor:pointer;font-size:12px;">💞回憶' + (memCount ? '(' + memCount + ')' : '') + '</button>'
         + '<button onclick="kanshouOpenRelTag(\'' + String(c.name).replace(/'/g, '') + '\',\'' + String(c.tag || '').replace(/'/g, '') + '\',\'' + String(c.nickname || '').replace(/'/g, '') + '\',\'' + String(c.id || '').replace(/'/g, '') + '\')" style="padding:4px 8px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🏷️關係</button>'
         + '<button onclick="kanshouEvict(\'' + String(c.id || '').replace(/'/g, '') + '\',\'' + String(c.name).replace(/'/g, '') + '\')" title="移除（不可復原）" style="padding:4px 6px;background:#4a2a2a;color:#d8a0a0;border:none;border-radius:6px;cursor:pointer;font-size:12px;">🚪</button></div>';
     }).join('') : '<div style="color:#888;padding:6px;">（還沒有同伴，從下方邀請）</div>';
   }
 
-  // 🫂 同行／解散
+  // 🫂 ＋同行／−同行
   var _kpBusy = false;
   async function kanshouPartyOp(id, op) {
     if (_kpBusy) return;
@@ -372,7 +372,7 @@
     var box = document.getElementById('kc-hero-list');
     if (!box) return;
     box.innerHTML = _kcHeroesAvailable.map(function (h) {
-      return '<div class="kc-hero-row" data-gender="' + escapeHtml(h.gender || '') + '" data-cls="' + escapeHtml(h.cls || '') + '" style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid rgba(255,255,255,.07);">'
+      return '<div class="kc-hero-row" data-gender="' + escapeHtml(h.gender || '') + '" data-cls="' + escapeHtml(h.cls || '') + '" >'
         + '<span style="flex:1;color:#dfeaf2;">' + escapeHtml(h.name) + ' <small style="color:#8a7fa0;">(' + escapeHtml(h.cls || '') + (h.gender ? '・' + escapeHtml(h.gender) : '') + ')</small></span>'
         + '<button onclick="kanshouSummonHero(\'' + String(h.id).replace(/'/g, '') + '\')" style="padding:4px 10px;background:#4a3a6a;color:#dcc8ff;border:none;border-radius:6px;cursor:pointer;font-size:12px;">邀請</button></div>';
     }).join('');
