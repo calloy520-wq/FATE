@@ -195,7 +195,7 @@ function warNewGame_(o) {
     v: 1, war: o.war || '5th', day: 1, phase: 'summon', rs: (o.seed | 0) || 1, rerolls: (o.pool || []).length > 1 ? 1 : 0,
     master: { name: o.name || '御主', sex: o.sex || '男', wish: o.wish || '', hp: WAR_.MASTER_HP, mhp: WAR_.MASTER_HP, seals: WAR_.SEALS },
     sv: null, exposed: false, out: false, enemies: [], battle: null,
-    engaged: [], ticked: [], hunted: false, foughtTonight: false,
+    engaged: [], ticked: [], met: [], hunted: false, foughtTonight: false,
     result: null, stats: { np: 0, battles: 0, kills: 0, seals: 0, retreats: 0, dodged: 0, ignoredTele: 0, finalFoes: 0 }, seq: 0
   };
   warSummon_(st, o);
@@ -455,12 +455,16 @@ function warStartBattle_(st, e, ctx, ev) {
   st.phase = 'battle';
   st.battle = { e: e.id, round: 1, ctx: ctx, hp0: Math.round(st.sv.hp / st.sv.mhp * 100) };
   if (st.engaged.indexOf(e.id) < 0) st.engaged.push(e.id);
+  // 開場那句只在第一次交手說，再遇到就不重播（舊存檔沒有 met，當作都沒見過）
+  st.met = st.met || [];
+  var firstMeet = st.met.indexOf(e.id) < 0;
+  if (firstMeet) st.met.push(e.id);
   st.foughtTonight = true;
   st.stats.battles++;
   st.sv.saved = false; e.saved = false; st.sv.broken = false; e.broken = false;
   var tp = warTemper_(e);
-  if (tp.nemesis && st.sv.hero === tp.nemesis && tp.nemesisMeet) ev.push({ k: 'meet', txt: tp.nemesisMeet.replace('{sv}', st.sv.name) });
-  else if (tp.meet) ev.push({ k: 'meet', txt: tp.meet });
+  if (firstMeet && tp.nemesis && st.sv.hero === tp.nemesis && tp.nemesisMeet) ev.push({ k: 'meet', txt: tp.nemesisMeet.replace('{sv}', st.sv.name) });
+  else if (firstMeet && tp.meet) ev.push({ k: 'meet', txt: tp.meet });
   st.battle.ambush = ctx === 'sortie' && warFlag_(st.sv, 'ambush');
   st.battle.foeAmbush = ctx === 'defend' && warFlag_(e, 'ambush');   // 帶著氣息遮斷摸上門來的，一樣先手
   if (ctx === 'defend' && warAdd_(st.sv, 'ward') > 0) {
