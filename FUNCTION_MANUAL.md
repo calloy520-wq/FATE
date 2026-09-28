@@ -1482,7 +1482,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warResync_()` — 按了被拒絕或斷線時跟後端重新 `war_load` 一次，畫面不會卡在過期的狀態。
 - `warFoeDetail_(f, inBattle)`／`warFoePeek(id)` — 對手情報（戰鬥框裡「看穿真名」改成標題上的 ◆弱點）（只知道職階時提示怎麼看穿；看穿後御主、寶具可不可以放、技能）／點名單上的對手展開情報。
 - `warHelpHtml_()`／`warHelp()`／`warHelpClose()` — 「規則」卡：第一次開局自動跳出（localStorage 記住），之後從頂欄「？」叫出；數字照後端 `rules`。
-- `warOverHtml_(v)`／`warDojo()` — 終局卡（勝負、六格戰績、輸在哪與下一局／亮點）／叫 `war_dojo`，講評接在故事區。`warRenderButtons_()` — 照 `buttons` 畫大按鈕（令咒開著換成 `sealSub`、`sealOk` 的鈕變得按得下去）。
+- `warOverHtml_(v)`／`warDojo()` — 終局卡（勝負、六格戰績、輸在哪與下一局／亮點）／叫 `war_dojo`，講評接在故事區；看過一次這一局就不再出現那顆鈕（`warDojoDone_`，講評是同一篇）。`warRenderButtons_()` — 照 `buttons` 畫大按鈕（令咒開著換成 `sealSub`、`sealOk` 的鈕變得按得下去）。
 - `warBar_(v, max, cls, key)`／`warBarsSlide_()` — 血條：記住每條上一次畫到哪（`warBarPrev_`），先畫在舊位置、下一格滑到新值，掉血的那條閃一下。
 - `warStory_(who, text)`／`warLog_(lines)`／`warEl_(id)` — 小工具；說書走 `aiHtml_`。
 - `warHeroOptions_()`／`warForgeLoad_()` — 召喚對象選單（命運決定／你的原創／原作），資料來自 `war_forge_list`。

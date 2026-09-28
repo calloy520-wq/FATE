@@ -6,6 +6,7 @@
   let warCur_ = null;        // 後端給的畫面狀態
   let warSeal_ = false;       // 這一回合要不要燒令咒（戰鬥中才用得到）
   let warMore_ = false;       // 夜晚「其他目標」展開了沒（每按一步就收回去）
+  let warDojoDone_ = false;   // 這一局的老虎道場已經看過（講評是同一篇，再按只會重印一次）
   let warBusy_ = false;
   let warNarrP_ = null;       // 正在寫的那一段說書（同時只寫一段）
   let warNarrAgain_ = false;  // 寫的時候玩家又往前按了：寫完再補一段（後端會把沒講到的併進去）
@@ -97,7 +98,7 @@
     const wish = ((warEl_('war-wish') || {}).value || '').trim();
     warBusy_ = true;
     try {
-      warBarPrev_ = {};
+      warBarPrev_ = {}; warDojoDone_ = false;
       const res = await withProcessing_('召喚中…', () => gasRun({ action: 'war_new', acctName: currentAccount, pcName: name, sex: warForm_.sex, war: warForm_.war, wish: wish, heroId: warForm_.hero }));
       if (!res || !res.success) { alert((res && res.message) || '召喚失敗。'); return; }
       warRender_(res.view);
@@ -410,7 +411,7 @@
     warBusy_ = true; warRenderButtons_();
     try {
       const res = await withProcessing_('讀取中…', () => gasRun({ action: 'war_dojo', acctName: currentAccount }));
-      if (res && res.success && res.text) { warStory_('sys', '🐯 老虎道場'); warStory_('ai', res.text); }
+      if (res && res.success && res.text) { warStory_('sys', '🐯 老虎道場'); warStory_('ai', res.text); warDojoDone_ = true; }
       else warStory_('sys', (res && res.message) || '老虎道場暫時無法使用。');
     } catch (e) { warStory_('sys', '老虎道場暫時無法使用。'); }
     finally { warBusy_ = false; warRenderButtons_(); }
@@ -444,8 +445,8 @@
     }
     if (v.phase === 'over') {
       const off = warBusy_ ? 'disabled' : '';   // 結局的說書還在寫：等它寫完再進道場、開新局
-      box.innerHTML = `<button class="war-btn war-dojo" ${off} onclick="warDojo()"><b>🐯 老虎道場</b><small>${v.result && v.result.win ? '勝利講評' : '敗北講評'}</small></button>
-        <button class="war-btn war-main" ${off} onclick="warRenderForm_()"><b>再來一局</b><small>開始新的聖杯戰爭</small></button>
+      box.innerHTML = (warDojoDone_ ? '' : `<button class="war-btn war-dojo" ${off} onclick="warDojo()"><b>🐯 老虎道場</b><small>${v.result && v.result.win ? '勝利講評' : '敗北講評'}</small></button>`)
+        + `<button class="war-btn war-main" ${off} onclick="warRenderForm_()"><b>再來一局</b><small>開始新的聖杯戰爭</small></button>
         <button class="war-btn war-ghost" onclick="warBackMenu()"><b>回選單</b></button>`;
       return;
     }
