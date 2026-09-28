@@ -28,7 +28,7 @@
 | **Setup_FateWorld.gs** | 4 | 分頁建置／種子灌入 |
 | **Account.gs** | 9 | 帳號綁定／開新局／清理本局 |
 | **History_Sync.gs** | 7 | 戰記寫入／軌跡摘要 |
-| **War_Engine.gs** | 74 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰、賽後講評 |
+| **War_Engine.gs** | 75 | ⚔️ 新聖杯戰爭純引擎（不碰試算表／AI；Node 模擬器直接載入）：開局、白天三選一、夜晚出擊／巡邏／固守、戰鬥四姿態＋令咒、敵人夜間行動、最後一夜決戰、賽後講評 |
 | **War_Router.gs** | 16 | ⚔️ 新聖杯戰爭的 GAS 端：聖杯戰局分頁（一局一格 JSON）、`war_*` 六條路由、世界書、說書與老虎道場提示詞 |
 | **War_Forge.gs** | 12 | 🛠️ 英靈工房（新聖杯戰爭與鑑賞共用）：表單驗證、寫一列完整的英靈殿、原創清單 |
 | **Index.html** | 0 | 載入殼（依序載 Style／Script／Script_Onboarding／Script_Kanshou／Script_War） |
@@ -1123,7 +1123,8 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `warUnit_(seed, extra)` — 種子→戰鬥單位（`sk`＝這位從者自己的技能效果；`card` 帶說書用的外貌／性格／寶具原文 `np`／喜惡條目 `book`，不進規則）。`warNpName_(np)` — 寶具名（剝掉原文與括號）。
 - `warSkillsOf_(seed)` — 種子技能 → `{fx:[表上有的 fx], names:{fx: 原作技能名}}`（同一列只收一次）。`warTraits_(u)` — 畫面用「技能名：效果」清單。
 - `warSkRows_(u)`／`warSkOk_(row, hook, foe)` — 這個單位的技能列／這一列在這個時機對這個對手生不生效。
-- `warMul_(u, hook, foe)`／`warAdd_(u, hook, foe)`／`warFlag_(u, hook)` — 讀表三支：把技能在這個時機的數字相乘／相加／有沒有。引擎只透過這三支碰技能。`warNpCd_(u)` — 放完寶具的冷卻夜數（`NP_COOLDOWN`＋技能的 `npCd`，至少 1）。`warSkName_(u, hook)` — 提供這個時機的是哪個原作技能名（事件文字要念出來；沒有就回「技能」）。
+- `warMul_(u, hook, foe)`／`warAdd_(u, hook, foe)`／`warFlag_(u, hook)` — 讀表三支：把技能在這個時機的數字相乘／相加／有沒有。引擎只透過這三支碰技能。`warNpCd_(u)` — 放完寶具的冷卻夜數（`NP_COOLDOWN`＋技能的 `npCd`，至少 1）。`warSkName_(u, hook)` — 提供這個時機的是哪個原作技能名（事件文字要念出來；沒有就回「技能」）。`warMul_` 另外看攻擊方的 `pierce`（神代魔術）：針對職階的減傷只剩一半效果。`warSkRows_` 在 `u.broken`（被破戒全咒打中）時回空陣列。
+- `warBreak_(st, X, Y, ev)` — 寶具帶 `breakFx`（破戒全咒）打中對手：對手這場戰鬥技能全失（`Y.u.broken`），推一句事件。開戰時（`warStartBattle_`／`warAutoBattle_`）兩邊的 `broken` 都清掉。
 - `warRand_(st)`／`warPick_(st, arr)`／`warClamp_(v, a, b)` — 亂數與夾值。
 - `warHitChance_(x, y)`／`warMult_(X)`／`warNormalDmg_(st, X, Y)`／`warNpDmg_(X, Y)`／`warRetreatChance_(u, o, seal)` — 命中、倍率、傷害、撤退。
 - `warHeal_(u, pct)`／`warHealMaster_(st, n)` — 回血。

@@ -96,21 +96,30 @@ var WAR_SKILL_ = {
   nullify_magic: { txt: '受 Caster 攻擊與魔術陣的傷害減少', from: 'Caster', dmgTaken: 0.7, npTaken: 0.7, wardTaken: 0.4 },
   aim: { txt: '巡邏必定遭遇敵人・打聽時多查兩處', patrolMeet: 1, scoutExtra: 2, findThem: 1.5 },
   solo: { txt: '打聽時同時休養', scoutRest: 0.35 },
-  fast_cast: WAR_MAGECRAFT_, divine_age: WAR_MAGECRAFT_,
+  fast_cast: WAR_MAGECRAFT_,
+  divine_age: { txt: '神代的魔術・對手的對魔力只擋得住一半', pierce: 1 },
   morale: { txt: '寶具傷害提高', npDealt: 1.08 },
   projection: { txt: '寶具冷卻縮短 1 夜', npCd: -1 },
   self_mod: { txt: '攻擊傷害提高', dmgDealt: 1.08 },
-  crafting: { txt: '休養與補魔時恢復更多', restHeal: 0.25 },
+  crafting: { txt: '休養與補魔時恢復更多・做出的使魔擋在身前，較不易被擊中', restHeal: 0.25, hitTaken: 0.88 },
   summon_horror: { txt: '寶具自帶魔力爐・冷卻縮短 2 夜；海魔擋在身前・較不易被擊中', npCd: -2, hitTaken: 0.8 },
   evade_ranged: { txt: '不易被 Archer 擊中', from: 'Archer', hitTaken: 0.6 },
-  tactics: { txt: '受到的寶具傷害減少・自身寶具傷害提高', npTaken: 0.75, npDealt: 1.1 }
+  tactics: { txt: '受到的寶具傷害減少・自身寶具傷害提高', npTaken: 0.75, npDealt: 1.1 },
+  rule_breaker: { txt: '寶具命中時破除對手的技能，直到這場戰鬥結束', breakFx: 1 },
+  clear_mind: { txt: '心如明鏡・較不易被擊中', hitTaken: 0.8 }
 };
 var WAR_FROM_HOOKS_ = { dmgTaken: 1, npTaken: 1, hitTaken: 1 };
 
 // 讀表三支：乘、加、有沒有。foe＝對手（有 from 的時機要看對手職階）。
-function warSkRows_(u) { return ((u && u.fx) || []).map(function (f) { return WAR_SKILL_[f]; }).filter(Boolean); }
+function warSkRows_(u) { return u && u.broken ? [] : ((u && u.fx) || []).map(function (f) { return WAR_SKILL_[f]; }).filter(Boolean); }
 function warSkOk_(row, hook, foe) { return row[hook] !== undefined && !(row.from && WAR_FROM_HOOKS_[hook] && (!foe || foe.cls !== row.from)); }
-function warMul_(u, hook, foe) { return warSkRows_(u).reduce(function (m, r) { return warSkOk_(r, hook, foe) ? m * r[hook] : m; }, 1); }
+// 對手帶 pierce（神代魔術）：針對職階的減傷只剩一半效果。
+function warMul_(u, hook, foe) {
+  return warSkRows_(u).reduce(function (m, r) {
+    if (!warSkOk_(r, hook, foe)) return m;
+    return m * (r.from && WAR_FROM_HOOKS_[hook] && warFlag_(foe, 'pierce') ? (1 + r[hook]) / 2 : r[hook]);
+  }, 1);
+}
 function warAdd_(u, hook, foe) { return warSkRows_(u).reduce(function (a, r) { return warSkOk_(r, hook, foe) ? a + r[hook] : a; }, 0); }
 function warNpCd_(u) { return Math.max(1, WAR_.NP_COOLDOWN + warAdd_(u, 'npCd')); }
 function warFlag_(u, hook) { return warSkRows_(u).some(function (r) { return !!r[hook]; }); }
@@ -448,7 +457,7 @@ function warStartBattle_(st, e, ctx, ev) {
   if (st.engaged.indexOf(e.id) < 0) st.engaged.push(e.id);
   st.foughtTonight = true;
   st.stats.battles++;
-  st.sv.saved = false; e.saved = false;
+  st.sv.saved = false; e.saved = false; st.sv.broken = false; e.broken = false;
   var tp = warTemper_(e);
   if (tp.nemesis && st.sv.hero === tp.nemesis && tp.nemesisMeet) ev.push({ k: 'meet', txt: tp.nemesisMeet.replace('{sv}', st.sv.name) });
   else if (tp.meet) ev.push({ k: 'meet', txt: tp.meet });
@@ -552,6 +561,7 @@ function warExchange_(st, A, Z, ev) {
     var stood = warApply_(st, L, d);
     ev.push({ k: 'clash', txt: '寶具對轟。' + warWho_(st, W) + '的「' + W.u.npName + '」壓過了' + warWho_(st, L) + '的「' + L.u.npName + '」，' + warWho_(st, L) + warHurtWord_(L.u) + '。', num: '−' + d });
     if (stood) warStoodEv_(st, L, ev);
+    warBreak_(st, W, L, ev);
     if (L.side === 'me') warMasterHit_(st, WAR_.NP_MASTER_HIT, ev);
     return { ended: '' };
   }
@@ -582,6 +592,7 @@ function warStrike_(st, X, Y, ev) {
     var npStood = warApply_(st, Y, nd);
     ev.push({ k: 'np', side: X.side, txt: warWho_(st, X) + '解放寶具「' + X.u.npName + '」。' + (Y.act === 'probe' ? warWho_(st, Y) + '有所防備，傷害減半，' : warWho_(st, Y)) + warHurtWord_(Y.u) + '。', num: '−' + nd });
     if (npStood) warStoodEv_(st, Y, ev);
+    warBreak_(st, X, Y, ev);
     if (Y.side === 'me' && Y.act !== 'probe') warMasterHit_(st, WAR_.NP_MASTER_HIT, ev);
     return;
   }
@@ -598,6 +609,13 @@ function warStrike_(st, X, Y, ev) {
   if (Y.side === 'me' && X.u.cls === 'Assassin') warMasterHit_(st, WAR_.ASSASSIN_MASTER_HIT, ev);
 }
 
+// 寶具帶著破戒（breakFx）：打中的那位這場戰鬥技能全失。
+function warBreak_(st, X, Y, ev) {
+  if (!warFlag_(X.u, 'breakFx') || Y.u.broken || Y.u.hp <= 0 || !(Y.u.fx || []).length) return;
+  var nm = warSkName_(X.u, 'breakFx');
+  Y.u.broken = true;
+  ev.push({ k: 'skill', side: X.side, txt: warWho_(st, X) + '以「' + nm + '」破除了' + warWho_(st, Y) + '身上的加護。' });
+}
 // 扣血；回 true＝這一下本該倒下，被 lastStand 撐住了（呼叫端在自己那句之後補 warStoodEv_）。
 function warApply_(st, Y, d) {
   var u = Y.u, before = u.hp, stood = false;
@@ -617,7 +635,7 @@ function warMasterHit_(st, n, ev) {
 
 // 敵對敵：兩邊都照自己的個性打，最多三回合。
 function warAutoBattle_(st, a, b, ev) {
-  a.saved = false; b.saved = false;
+  a.saved = false; b.saved = false; a.broken = false; b.broken = false;
   var end = '';
   for (var r = 1; r <= WAR_.ROUNDS && a.alive && b.alive && !end; r++) {
     var A = { u: a, act: warIntent_(st, a, b, r), seal: false, side: 'a', knows: false, home: false };
