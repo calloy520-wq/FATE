@@ -50,6 +50,7 @@
       <input id="war-wish" class="std-in" maxlength="40" placeholder="向聖杯許的願望（可不填）" value="${escapeHtml(warForm_.wish)}" oninput="warForm_.wish=this.value" style="width:100%;box-sizing:border-box;margin:0 0 10px;">
       <div class="war-row">${pick('sex', '男', '男')}${pick('sex', '女', '女')}</div>
       <div class="war-row">${pick('war', '5th', '第五次聖杯戰爭')}${pick('war', '4th', '第四次聖杯戰爭')}</div>
+      ${warRuleInfo_ && warRuleInfo_.rosters ? `<div class="war-small war-dim">第五次：對手 ${warRuleInfo_.rosters['5th'] - 1}～${warRuleInfo_.rosters['5th']} 組・第四次：對手 ${warRuleInfo_.rosters['4th'] - 1}～${warRuleInfo_.rosters['4th']} 組（較容易）</div>` : ''}
       <select id="war-hero" class="std-select" style="width:100%;margin:6px 0;" onchange="warForm_.hero=this.value">${warHeroOptions_()}</select>
       <button class="war-btn war-main" onclick="warStart()"><b>召喚從者</b></button>
       <button class="war-btn war-ghost" onclick="warForgeOpen(false)"><b>🛠️ 英靈工房</b><small>製作原創從者</small></button>
@@ -338,7 +339,7 @@
     if (next) warCur_ = next;
     const v = warCur_;
     if (!v) return warRenderForm_();
-    if (v.rules) warRuleInfo_ = v.rules;
+    if (v.rules) warRuleInfo_ = Object.assign({}, warRuleInfo_, v.rules);   // 保留開局表單要的對手組數
     const phaseWord = { summon: '召喚', day: '白天', night: '夜晚', battle: '戰鬥', over: '終局' }[v.phase] || '';
     const sv = v.sv, m = v.master;
     const np = sv.cd > 0 ? `寶具冷卻 ${sv.cd} 夜` : '寶具就緒';

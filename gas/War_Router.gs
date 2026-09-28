@@ -76,7 +76,11 @@ function actionWarLoad(userData) {
   var acct = String(userData.acctName || '');
   if (!acct) return JSON.stringify({ success: false, message: '請先登入。' });
   var ref = warLoad_(acct);
-  if (!ref.st) return JSON.stringify({ success: true, view: null, story: [], rules: warRules_() });
+  if (!ref.st) {
+    var rules = warRules_();
+    rules.rosters = { '5th': FATE_5TH_ROSTER.length, '4th': FATE_4TH_ROSTER.length };   // 開局表單標對手有幾組
+    return JSON.stringify({ success: true, view: null, story: [], rules: rules });
+  }
   return JSON.stringify({ success: true, view: warView_(ref.st), story: (ref.narr.hist || []).map(function (h) { return h.t; }) });
 }
 
