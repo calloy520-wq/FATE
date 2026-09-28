@@ -65,7 +65,12 @@ var WAR_TEMPER_ = {
   '吉爾伽美什-Archer': { aggr: 0.3, noRetreat: 1, meet: '對方一臉不屑，像在看一場無聊的餘興。' },
   '庫丘林-Lancer': { scout: 1, meet: '對方沒有急著分勝負，先打量了你們一眼。' },
   '蘭斯洛特-Berserker': { nemesis: '阿爾托莉雅-Saber', nemesisMeet: '黑色的狂戰士一看見{sv}，發出了嘶吼。' },
-  '百貌哈桑-Assassin': { findMul: 2, meet: '四周的暗處不只一道氣息。' }
+  '百貌哈桑-Assassin': { findMul: 2, meet: '四周的暗處不只一道氣息。' },
+  '阿爾托莉雅-Saber': { noRetreat: 1, meet: '對方握著看不見的武器，正面擺開了架勢。' },
+  '赫拉克勒斯-Berserker': { noRetreat: 1, meet: '白髮的少女站在巨人身旁，提起裙襬行了個禮。' },
+  '美杜莎-Rider': { aggr: 0.35, meet: '對方身後的少年先開了口，話說得比從者還多。' },
+  'EMIYA-Archer': { meet: '遠處的高樓上閃過一道反光，箭比腳步聲先到。' },
+  '美狄亞-Caster': { aggr: 0.2, meet: '空氣裡飄著細細的魔力絲線，這一帶早就是對方的地盤。' }
 };
 function warTemper_(e) { return (e && WAR_TEMPER_[e.hero]) || {}; }
 function warAggr_(e) { var t = warTemper_(e); return t.aggr !== undefined ? t.aggr : warClass_(e.cls).aggr; }
