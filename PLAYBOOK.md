@@ -162,3 +162,21 @@ commit 下去就把整批寶具分類從線上遊戲裡靜默刪掉了。
 2. 真的非得原地改不可時，還原基準一律**執行當下現讀**（`fs.readFileSync(SRC)`），
    絕不用先前存下來的 `.bak`——那份快照會隨著 repo 演進而過期。
 3. 跑完一輪探針後順手 `git status`：工作區只該有你自己改的檔。
+
+---
+
+## 🖼️ 用瀏覽器真的看畫面（2026-09 末）
+
+`check_ui.js` 只驗「叫得到、不拋例外」，**排版壞了它看不到**——那一輪用截圖一次抓到五個：
+引導裡粗體一個詞一行（`.msg-ai b` 整個設成區塊）、邀人清單的邀請鈕參差不齊（篩選的 `display=''` 洗掉 inline flex）、
+全螢幕面板透出後面的故事、從抽屜開面板後抽屜還開著、兩個設定長一樣的齒輪。全都綠燈、零錯誤訊息。
+
+**做法**（scratchpad 會消失，照這個重建，十分鐘）：
+- **新聖杯戰爭**：純前端就跑得動——把 `Style.html`、`Seed_*.gs`、`War_Engine.gs`、`War_Forge.gs`、`Script_War.html` 串成一頁，
+  `gasRun` 換成在瀏覽器裡直接呼叫引擎的假路由。
+- **鑑賞（或整個遊戲）**：把 `Index.html` 裡的 `<?!= HtmlService.createHtmlOutputFromFile('X').getContent(); ?>` 換成檔案內容；
+  Playwright 用 `page.exposeFunction` 把 `google.script.run` 的每個方法轉回 Node，在 Node 那邊用探針的假試算表跑**真的** `handleGameAction`／`getGameHistory`
+  （`callGeminiAPI` 換成固定回一段 JSON）。⚠ 假 `google.script.run` 要是 Proxy：`withSuccessHandler` 回同一個 Proxy，**任何方法名**都轉回 Node——
+  只接 `handleGameAction` 的話，`getGameHistory` 那種直呼的會讓進場直接報「連線失敗」，看起來像遊戲壞了。
+- Playwright 在 `/opt/node22/lib/node_modules`，要 `NODE_PATH=/opt/node22/lib/node_modules`；瀏覽器已裝好，不要 `playwright install`。
+- 手機寬 390×844 截圖逐張看；再跑一輪「隨機按可見的鈕」數百下，盯 `pageerror` 與非預期的 alert。
