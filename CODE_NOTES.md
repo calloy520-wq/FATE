@@ -3668,7 +3668,7 @@ AI 對關係標籤沒有任何寫入權（attitude 欄位已於 2026-07 整組�
 
 只在低梯度(尚不熟識)才加一句態度提示，中高梯度不需要、也不該畫蛇添足限制發揮。
 
-### `pMemoirRaw`　<sub>Gallery.gs</sub>
+### `kanshouBondCard_`（原 `pMemoirRaw` 那段）　<sub>Gallery.gs</sub>
 
 💞 共同回憶(27欄 MEMOIR)：你們一路走來累積的里程碑，讓 AI 自然承接你倆的專屬過往(儲存用全形｜分隔，餵給 AI 時換成「；」較好讀)。空的就不加這行。
 
@@ -4838,3 +4838,12 @@ inline `onclick` 的作用域**只看得到 window**。函式若不小心包進�
 - **寫進試算表前擋公式**：`userData.hero` 是巢狀物件，`sanitizeUserData_` 只洗第一層，開頭是 `=` 的名字會被 appendRow 當成公式、讀回 `#ERROR!`。
 - **還留著的**：舊版 solo 的 AI 盲盒召喚還在用 `forgeCost_`／`bumpSixToFloor_`／`capSixToBudget_`／`recordOriginalHero_`，等舊版整組拆時一起走。
 
+
+### `kanshouNameAlias_`　<sub>Gallery.gs</sub>
+
+2026-09 記憶稽核：舊的手寫別名表 `KANSHOU_NAME_ALIAS_` 只收了 SABER／RIDER 與五位御主，漏了 LANCER↔庫·丘林、ARCHER↔無銘。
+提示詞卡片抬頭寫著「LANCER，真名庫·丘林」，AI 回寫 `intimacy_feedback.npcs[].name` 很自然會寫真名——對不上就整筆丟，
+那兩位的共同回憶、眼中的你、`cast.join` 全部靜靜失效。改成從暱稱表＋種子真名＋id 前段長出來（單一真實來源），
+再加「去間隔號」（AI 常寫「庫丘林」）。種子 `SEED_SERVANTS` 住 Seed_Codex.gs，所以用到才建，頂層建會踩載入順序。
+另外同一輪修了 `kanshouPartyCards_` 的 `_loose_`：它用名字跨全表找列，**別帳號**有同名同伴就會把我的同行者判成「臨時在場」，
+每回合送一句 ★【誰走得掉】叫 AI 讓他離開——補上 `kanshouIsAlly_(x, myGameId)`。

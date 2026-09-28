@@ -808,6 +808,7 @@ function kanshouSetParty_(memory, ids) {
   return KANSHOU_PARTY_TAG_.set(memory, (ids || []).slice(0, KANSHOU_PARTY_MAX_).join(','));
 }
 // ★【這座城裡還住著】最多列幾位（依相處次數）。
+const KANSHOU_CALLED_CARD_MAX_ = 2;   // 一步點名待命者時附卡的上限
 const KANSHOU_WORLD_ROSTER_CAP_ = 8;
 // 曆法：Day1＝2005/12/20，固定 365 天不算閏年，遊戲用途夠準。
 const KANSHOU_CAL_START_MONTH_ = 12, KANSHOU_CAL_START_DAY_ = 20;
@@ -1438,7 +1439,7 @@ function worldNoteDropEcho_(entries, loreStr, allyNames) {
     if (!w) return false;
     const nm = String(w.name || ""), tx = String(w.text || "");
     if (String(w.kind) === '人物' && allies.some(function (a) { return nm.indexOf(a) >= 0; })) return false;
-    if (lore && (loreOverlap_(nm + tx, lore))) return false;
+    if (lore && loreContain_(nm + tx, lore) >= WORLD_ECHO_RATIO_) return false;
     return true;
   });
 }
@@ -1463,6 +1464,12 @@ function loreBigrams_(text) {
     out[bg] = 1;
   }
   return out;
+}
+// a 的兩字詞有幾成出現在 b 裡（0～1）。「照抄」看比例：共用一個地名的新事實不算抄。
+var WORLD_ECHO_RATIO_ = 0.5;
+function loreContain_(a, b) {
+  const x = Object.keys(loreBigrams_(a)), y = loreBigrams_(b);
+  return x.length ? x.filter(function (k) { return y[k]; }).length / x.length : 0;
 }
 function loreOverlap_(a, b) {
   const x = loreBigrams_(a), y = loreBigrams_(b);
@@ -1553,16 +1560,19 @@ const KANSHOU_CASUAL_NAME_ = {
   '藤村大河-Master': '大河',
   '衛宮士郎-Master': '士郎'
 };
-// 全名↔短名雙向別名：不論寫哪一種都對得上人。
-const KANSHOU_NAME_ALIAS_ = {
-  '阿爾托莉雅·潘德拉貢': ['SABER'], 'SABER': ['阿爾托莉雅·潘德拉貢'],
-  '美杜莎': ['RIDER'], 'RIDER': ['美杜莎'],
-  '伊莉雅絲菲爾': ['伊莉雅'], '伊莉雅': ['伊莉雅絲菲爾'],
-  '間桐櫻': ['櫻'], '櫻': ['間桐櫻'],
-  '遠坂凜': ['凜'], '凜': ['遠坂凜'],
-  '藤村大河': ['大河'], '大河': ['藤村大河'],
-  '衛宮士郎': ['士郎'], '士郎': ['衛宮士郎']
-};
+// 全名↔短名雙向別名：從暱稱表＋種子真名長出來（用到才建，種子住別檔）。
+let KANSHOU_NAME_ALIAS_CACHE_ = null;
+function kanshouNameAlias_() {
+  if (KANSHOU_NAME_ALIAS_CACHE_) return KANSHOU_NAME_ALIAS_CACHE_;
+  const out = {};
+  const link = (x, y) => { if (!x || !y || x === y) return; (out[x] = out[x] || []).indexOf(y) < 0 && out[x].push(y); };
+  Object.keys(KANSHOU_CASUAL_NAME_).forEach(id => {
+    const casual = KANSHOU_CASUAL_NAME_[id];
+    const seed = (typeof SEED_SERVANTS !== 'undefined' ? SEED_SERVANTS : []).find(h => h && h.id === id);
+    [seed ? String(seed.realName || '').trim() : '', String(id).split('-')[0]].forEach(full => { link(casual, full); link(full, casual); });
+  });
+  return (KANSHOU_NAME_ALIAS_CACHE_ = out);
+}
 // 同一個人（含兩種靈基）不可同時在場。回 {name, same}：name＝已在場那位（空＝沒衝突），same＝同一筆種子。
 var KANSHOU_SRC_TAG_ = makeTextTag_('英靈源');
 function kanshouSummonClash_(data, gid, hero, heroName) {
@@ -1588,7 +1598,10 @@ function kanshouNameCandidates_(fullName) {
   const m = s.match(/^(.*?)[（(]([^（()）]*)[）)]\s*$/);
   const base = m ? [s, m[1].trim(), m[2].trim()].filter(Boolean) : [s];
   const out = base.slice();
-  base.forEach(n => (KANSHOU_NAME_ALIAS_[n] || []).forEach(a => { if (out.indexOf(a) === -1) out.push(a); }));
+  const alias = kanshouNameAlias_();
+  base.forEach(n => (alias[n] || []).forEach(a => { if (out.indexOf(a) === -1) out.push(a); }));
+  // 「庫·丘林」AI 常寫成「庫丘林」：間隔號拿掉的寫法也算同一人
+  out.slice().forEach(n => { const d = n.replace(/[·・‧]/g, ''); if (d !== n && out.indexOf(d) === -1) out.push(d); });
   out.slice().forEach(n => {
     if (/[A-Za-z]/.test(n)) {
       [n.toUpperCase(), n.toLowerCase(), n.charAt(0).toUpperCase() + n.slice(1).toLowerCase()].forEach(v => { if (out.indexOf(v) === -1) out.push(v); });
@@ -1703,6 +1716,23 @@ function relMemMemoryStr_(relMem) {
   const nick = getNickname_(relMem);
   return nick ? ` [專屬稱呼:${nick}]` : "";
 }
+// 這個人是誰（整局不變）：名字、性別、真名、喜惡、特徵、行事邏輯。
+function kanshouWhoCard_(r, pName, formatPref, formatTrait) {
+  const pRealName = kanshouRealName_(r), pLogic = getPersonaLogic_(r[COL.PC.MEMORY]);
+  const _pPref = formatPref(r[COL.PC.PREF]), _pTrait = formatTrait(r[COL.PC.TRAIT]);
+  return `${pName}。${String(r[COL.PC.SEX] || "").trim() || "異"}${pRealName ? '，真名' + pRealName : ''}。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pLogic ? `${pLogic}。` : ""}`;
+}
+// 我們之間（會長大的那一半）：共同回憶、注意到我的事、玩家設過的關係稱呼、這個人記得的事。
+function kanshouBondCard_(r, userMsg) {
+  // 共同回憶：釘選的常駐，其餘玩家這一步提到才亮（★是釘選標記，不外洩）。
+  const _memActive = memoirActive_(String(r[COL.PC.MEMOIR] || "").trim(), userMsg);
+  const pMemoirStr = _memActive.length ? `我們一起走過：${_memActive.join('；')}。` : "";
+  const _pKnown = kanshouKnownOfYou_(r[COL.PC.MEMORY]);
+  const pKnownStr = _pKnown.noted.length ? `${pron_(r[COL.PC.SEX])}注意到我${_pKnown.noted.join('、')}。` : "";
+  // 關係稱呼只送【玩家自己設過】的（上了關係鎖）；AI 寫的只給面板看，送回去會變成讀自己上回合的字。
+  const pRelTagStr = kanshouRelLocked_(r[COL.PC.REL_MEM], 'tag') ? String(r[COL.PC.REL_TAG] || "").trim() : "";
+  return `${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是我的「${pRelTagStr}」。` : ""}${relMemMemoryStr_(r[COL.PC.REL_MEM])}`;
+}
 // 在場人物卡：每位壓成一句自然語言（給欄位名回來就是資料庫腔）。回 { stable, live }：
 //   stable＝這個人是誰（整局不變，進 system 吃快取）；live＝此刻的樣子（每回合會動，進 user）。
 function kanshouPartyCards_(ctx) {
@@ -1716,25 +1746,12 @@ function kanshouPartyCards_(ctx) {
     if (r) {
       const _outfitR = kanshouOutfitLine_(r, ctx.userMsg);
       if (_outfitR.told && ctx.dirtyPcRows) ctx.dirtyPcRows.add(pcData.indexOf(r));
-      const pRealName = kanshouRealName_(r);
-      const pMemStr = relMemMemoryStr_(r[COL.PC.REL_MEM]);
-      const pLogic = getPersonaLogic_(r[COL.PC.MEMORY]);
-      // 關係稱呼只送【玩家自己設過】的（上了關係鎖）；AI 寫的只給面板看，送回去會變成讀自己上回合的字。
-      const pRelTagStr = kanshouRelLocked_(r[COL.PC.REL_MEM], 'tag') ? String(r[COL.PC.REL_TAG] || "").trim() : "";
-      // 經歷（BACK）不再常駐：走觸發條目（點名的人在場／玩家提到才亮，見 loreEntryFromBack_）。
-      const pMemoirRaw = String(r[COL.PC.MEMOIR] || "").trim();
-      const _pKnown = kanshouKnownOfYou_(r[COL.PC.MEMORY]);
-      const pKnownStr = _pKnown.noted.length ? `${pron_(r[COL.PC.SEX])}注意到我${_pKnown.noted.join('、')}。` : "";
-      // 共同回憶：釘選的常駐，其餘玩家這一步提到才亮（★是釘選標記，不外洩）。
-      const _memActive = memoirActive_(pMemoirRaw, ctx.userMsg);
-      const pMemoirStr = _memActive.length ? `我們一起走過：${_memActive.join('；')}。` : "";
       // 在場來由只剩「時間跳過之後」；一般回合不講（上一輪敘事就在歷史裡，沒有新資訊）
       const pPresenceStr = kanshouTimeJumped_
         ? "時間流轉之後，【依然在你身邊】(這段空白裡各自做了什麼，順著時段自然帶過)" : "";
       _presenceSeen_[pPresenceStr] = (_presenceSeen_[pPresenceStr] || 0) + 1;
-      const _pPref = formatPref(r[COL.PC.PREF]), _pTrait = formatTrait(r[COL.PC.TRAIT]);
-      stableArr.push(`【在場人物】${pName}。${String(r[COL.PC.SEX] || "").trim() || "異"}${pRealName ? '，真名' + pRealName : ''}。${_pPref ? `${_pPref}。` : ""}${_pTrait ? `${_pTrait}。` : ""}${pLogic ? `${pLogic}。` : ""}`);
-      const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${_outfitR.line}${pMemoirStr}${pKnownStr}${pRelTagStr ? `${pron_(r[COL.PC.SEX])}是我的「${pRelTagStr}」。` : ""}${pMemStr}`;
+      stableArr.push(`【在場人物】${kanshouWhoCard_(r, pName, formatPref, formatTrait)}`);
+      const _live = `__PRESENCE__${pPresenceStr}__/PRESENCE__${_outfitR.line}${kanshouBondCard_(r, ctx.userMsg)}`;
       liveArr.push(`${pName}：${_live}`);
     }
   });
@@ -1750,7 +1767,7 @@ function kanshouPartyCards_(ctx) {
     : t.replace(/__PRESENCE__([\s\S]*?)__\/PRESENCE__/, "$1"));
   // 臨時在場的那幾位（沒跟我同行）：這段演完若該走，AI 讓他走得掉。沒有就整句不送。
   const _loose_ = partyMembers.filter(n => {
-    const r = pcData.find(x => String(x[COL.PC.NAME]).trim() === String(n).trim());
+    const r = pcData.find(x => String(x[COL.PC.NAME]).trim() === String(n).trim() && kanshouIsAlly_(x, myGameId));
     return r && partyIdSet.indexOf(String(r[COL.PC.ID])) < 0;
   });
   const _looseStr_ = _loose_.length
@@ -1945,7 +1962,12 @@ function actionPlay_(userData, pcId, sheets) {
       .slice(0, KANSHOU_WORLD_ROSTER_CAP_);
     if (!_elsewhere.length) return "";
     const _list = _elsewhere.map(r => String(r[COL.PC.NAME] || "")).filter(Boolean).join('、');
-    return `\n★【這座城裡還住著】：${_list}。我們都認識他們，他們此刻不在這一幕裡；我問起誰，就依此刻的時段說說那個人這時候大概在做什麼；我去找誰、或誰該出現在這一幕了，就把那個人寫進來並在 cast.join 填名字。`;
+    // 我這一步點到名的那幾位附上人物卡：寫他們出場時照卡演，也接得上我們之間的事。
+    const _called = allies.filter(r => _hereIds.indexOf(String(r[COL.PC.ID])) < 0
+      && kanshouNameCandidates_(r[COL.PC.NAME]).some(n => n && userMsg.indexOf(n) >= 0))
+      .slice(0, KANSHOU_CALLED_CARD_MAX_)
+      .map(r => `\n${kanshouWhoCard_(r, String(r[COL.PC.NAME]).trim(), formatPref, formatTrait)}${kanshouBondCard_(r, userMsg)}`).join('');
+    return `\n★【這座城裡還住著】：${_list}。我們都認識他們，他們此刻不在這一幕裡；我問起誰，就依此刻的時段說說那個人這時候大概在做什麼；我去找誰、或誰該出現在這一幕了，就把那個人寫進來並在 cast.join 填名字。${_called ? `我這一步提到的人，寫到時照這張卡演：${_called}` : ""}`;
   })();
   // 相處計數 +1（跳時間／過夜的回合不計）
   presentRows.forEach(r => {
@@ -2055,6 +2077,7 @@ ${PROMPT_BODY}
     }
 
     // 🎭 誰進誰出：AI 只動得了【臨時在場】——①同行者 leave 無效 ②只認這一局查得到 id 的名字 ③總數封頂。
+    const _joinedIds = [];   // 這一段才走進來的人：這一幕也在場，這回合的回憶要寫得進去
     if (aiData.cast) {
       const _partyIds = kanshouGetParty_(pcData[pcIndex][COL.PC.MEMORY]);
       let _on = kanshouGetOnstage_(pcData[pcIndex][COL.PC.MEMORY]);
@@ -2071,7 +2094,7 @@ ${PROMPT_BODY}
         const id = _idOf(nm);
         if (!id || _partyIds.indexOf(id) >= 0 || _on.indexOf(id) >= 0) return;
         if (_partyIds.length + _on.length >= KANSHOU_ONSTAGE_MAX_) return;
-        _on.push(id);
+        _on.push(id); _joinedIds.push(id);
       });
       const _next = kanshouSetOnstage_(pcData[pcIndex][COL.PC.MEMORY], _on);
       if (_next !== pcData[pcIndex][COL.PC.MEMORY]) {
@@ -2091,7 +2114,7 @@ ${PROMPT_BODY}
 
     kanshouApplyIntimacyFeedback_({
       aiData: aiData, pcData: pcData, pcIndex: pcIndex, myGameId: myGameId,
-      dirtyPcRows: dirtyPcRows, presentIds: presentRows.map(r => String(r[COL.PC.ID])), pcName: pcName
+      dirtyPcRows: dirtyPcRows, presentIds: presentRows.map(r => String(r[COL.PC.ID])).concat(_joinedIds), pcName: pcName
     });
 
     // 🌍 AI 發明的東西落盤（唯一寫入點）。先改判分錯的類，再落盤——順序反了防線等於沒接上。
