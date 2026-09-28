@@ -405,7 +405,7 @@
   }
 
   async function openCompanions() {
-    try { var dr = document.getElementById('action-drawer'); if (dr && dr.style.display !== 'none' && typeof toggleActionDrawer === 'function') toggleActionDrawer(); } catch (e) {}
+    closeActionDrawer_();
     if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
     try {
       var needHeroes = !_kcHeroesCacheReady;
@@ -457,19 +457,19 @@
       else { alert((res && res.message) || '邀請失敗。'); }
     } catch (e) { hideProcessing(); alert('邀請失敗。'); }
   }
-  // ══ ⚙ 說書人設定面板
+  // ══ 🖋️ 說書人設定面板
   function kanshouCloseStyle_() { var o = document.getElementById('kc-style-overlay'); if (o) o.remove(); }
   async function openKanshouStyle() {
     if (!pc || !pc.id) { alert('還沒進後日談。'); return; }
-    var drawer = document.getElementById('action-drawer'); if (drawer) drawer.classList.remove('open');
+    closeActionDrawer_();
     kanshouCloseStyle_();
     _ksEdit_ = {};
     var ov = document.createElement('div');
     ov.id = 'kc-style-overlay';
-    ov.style.cssText = 'position:fixed; inset:0; z-index:9000; background:rgba(14,16,20,.93); overflow-y:auto; padding:18px 14px 40px;';
+    ov.style.cssText = 'position:fixed; inset:0; z-index:9000; background:#0e1014; overflow-y:auto; padding:18px 14px 40px;';
     ov.innerHTML = '<div style="max-width:760px; margin:0 auto;">'
       + '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">'
-      + '<div style="color:#d8b070; font-weight:bold; font-size:16px;">⚙ 說書人設定</div>'
+      + '<div style="color:#d8b070; font-weight:bold; font-size:16px;">🖋️ 說書人設定</div>'
       + '<button onclick="kanshouCloseStyle_()" style="background:none; border:1px solid #6a5a40; border-radius:8px; color:#d8c8a8; font-size:13px; padding:4px 12px; cursor:pointer;">✕ 關閉</button>'
       + '</div>'
       + '<div style="color:#8a7e64; font-size:11.5px; margin-bottom:12px; line-height:1.7;">每一段可選<b style="color:#b8a888;">預設</b>、<b style="color:#b8a888;">自訂</b>或<b style="color:#b8a888;">關閉</b>。</div>'
@@ -577,11 +577,11 @@
   function closeWorldPanel_() { var o = document.getElementById('kc-world-overlay'); if (o) o.remove(); }
   async function openWorldPanel() {
     if (!pc || !pc.id) { alert('還沒開始。'); return; }
-    var drawer = document.getElementById('action-drawer'); if (drawer) drawer.classList.remove('open');
+    closeActionDrawer_();
     closeWorldPanel_();
     var ov = document.createElement('div');
     ov.id = 'kc-world-overlay';
-    ov.style.cssText = 'position:fixed; inset:0; z-index:9000; background:rgba(14,16,20,.93); overflow-y:auto; padding:18px 14px 40px;';
+    ov.style.cssText = 'position:fixed; inset:0; z-index:9000; background:#0e1014; overflow-y:auto; padding:18px 14px 40px;';
     ov.innerHTML = '<div style="max-width:760px; margin:0 auto;">'
       + '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">'
       + '<div id="kc-world-title" style="color:#8fd0c0; font-weight:bold; font-size:16px;">讀取中……</div>'

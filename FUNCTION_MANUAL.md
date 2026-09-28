@@ -32,7 +32,7 @@
 | **War_Router.gs** | 16 | ⚔️ 新聖杯戰爭的 GAS 端：聖杯戰局分頁（一局一格 JSON）、`war_*` 六條路由、世界書、說書與老虎道場提示詞 |
 | **War_Forge.gs** | 12 | 🛠️ 英靈工房（新聖杯戰爭與鑑賞共用）：表單驗證、寫一列完整的英靈殿、原創清單 |
 | **Index.html** | 0 | 載入殼（依序載 Style／Script／Script_Onboarding／Script_Kanshou／Script_War） |
-| **Script.html** | 132 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
+| **Script.html** | 133 | 前端 SPA 核心（通訊／狀態面板／戰爭行動／地圖／逆天改命／撤退突圍／趁隙偷襲挑撥） |
 | **Script_Kanshou.html** | 108 | 鑑賞（慾海）SPA |
 | **Script_Onboarding.html** | 57 | 開局（登入／創角／召喚） |
 | **Script_War.html** | 39 | ⚔️ 新聖杯戰爭畫面：照後端 `buttons` 畫大按鈕、令咒切換、故事區、對手情報、規則卡、終局卡與老虎道場、英靈工房 |
@@ -1199,6 +1199,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 - `cancelExit()` / `confirmExit()` — 取消／確認離開（後者解除 popstate 監聽後 history.back）。
 - `toggleFullScreen()` — 進/出全螢幕。
 - `toggleActionDrawer()` — 開關「＋」動作抽屜（grid/none＋trigger active）。
+- `closeActionDrawer_()` — 收起抽屜、＋鈕回原狀。從抽屜打開別的面板（👥 有誰／🖋️ 說書人設定／🌍 這個世界）一律走這支——以前那兩個面板用 `classList.remove('open')`，而抽屜其實是切 `style.display`，關掉面板後抽屜還開著。
 - `triggerDrawerAction(actionType)` — 抽屜項路由：sync→syncData／status→openStatus／settings→openSettingsMenu，並收起抽屜。
 
 #### 系統設定

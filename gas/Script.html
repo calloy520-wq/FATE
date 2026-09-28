@@ -341,6 +341,12 @@
     }
   }
   
+  // 從抽屜打開別的面板時一律走這支：抽屜收起來、＋鈕回原狀
+  function closeActionDrawer_() {
+    const drawer = document.getElementById('action-drawer'), trigger = document.getElementById('plus-trigger');
+    if (drawer) drawer.style.display = 'none';
+    if (trigger) trigger.classList.remove('active');
+  }
   function toggleActionDrawer() {
     const drawer = document.getElementById('action-drawer');
     const trigger = document.getElementById('plus-trigger');
@@ -1233,7 +1239,7 @@
     var _backTitleEl = document.getElementById('ui-back-title');
     if (_backTitleEl) _backTitleEl.innerText = (_isKan && _selfCard) ? '經歷' : '身分背景';
     if (_isKan) {
-      renderSegField_('ui-trait', s[2], ['外貌', '氣質'], null, null, _selfCard, '（未填）');
+      renderSegField_('ui-trait', s[2], ['外貌', '氣質'], null, null, _selfCard, '（還沒寫）');
       renderSegField_('ui-pref', s[4], ['對外', '獨處', '喜歡', '討厭'], null, null, _selfCard, '（還沒寫）');
     } else {
       setUI('ui-trait', s[2]);
