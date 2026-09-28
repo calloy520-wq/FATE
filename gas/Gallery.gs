@@ -533,7 +533,7 @@ function actionKanshouCompanions(userData, pcId, sheets) {
   var current = [];
   for (var i = 1; i < data.length; i++) {
     if (kanshouIsAlly_(data[i], gid)) {
-      current.push({ id: String(data[i][COL.PC.ID]), srcId: KANSHOU_SRC_TAG_.get(String(data[i][COL.PC.MEMORY] || "")), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || ""), nickname: getNickname_(data[i][COL.PC.REL_MEM]), party: partyIds.indexOf(String(data[i][COL.PC.ID])) >= 0, onstage: onstageIds.indexOf(String(data[i][COL.PC.ID])) >= 0, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean) });
+      current.push({ id: String(data[i][COL.PC.ID]), srcId: KANSHOU_SRC_TAG_.get(String(data[i][COL.PC.MEMORY] || "")), name: String(data[i][COL.PC.NAME]), tag: String(data[i][COL.PC.REL_TAG] || ""), nickname: getNickname_(data[i][COL.PC.REL_MEM]), party: partyIds.indexOf(String(data[i][COL.PC.ID])) >= 0, onstage: onstageIds.indexOf(String(data[i][COL.PC.ID])) >= 0, memoir: String(data[i][COL.PC.MEMOIR] || "").split('｜').map(function (s) { return s.trim(); }).filter(Boolean), noticed: kanshouKnownOfYou_(data[i][COL.PC.MEMORY]).noted });
     }
   }
   return JSON.stringify({ success: true, current: current });

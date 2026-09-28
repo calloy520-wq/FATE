@@ -261,7 +261,7 @@
   }
 
 
-  // ══ 💞 共同回憶面板：★釘選永不被擠掉、🗑 刪掉。回憶由 AI 在里程碑時記下。
+  // ══ 💞 共同回憶面板：★釘選永不被擠掉、🗑 刪掉；底下唯讀列出這個人注意到你的事。
   var _kmBusy = false;   // 讀條保護：擋連點與競態
   function kmSpinner_(msg) { return '<div style="display:flex;align-items:center;justify-content:center;gap:8px;padding:22px;color:#e8b8cc;font-size:13px;"><span class="km-spin" style="width:15px;height:15px;border:2px solid rgba(232,184,204,.3);border-top-color:#e8b8cc;border-radius:50%;display:inline-block;animation:kmspin .7s linear infinite;"></span>' + (msg || '處理中…') + '</div><style>@keyframes kmspin{to{transform:rotate(360deg)}}</style>'; }
 
@@ -292,11 +292,19 @@
     ov.innerHTML = '<div style="width:min(440px,92vw);max-height:78vh;overflow-y:auto;background:#1d1722;border:1px solid rgba(232,184,204,.25);border-radius:12px;padding:14px;" onclick="event.stopPropagation()">'
       + '<div style="display:flex;align-items:center;margin-bottom:8px;"><b style="flex:1;color:#e8b8cc;">💞 與「' + escapeHtml(name) + '」的共同回憶</b>'
       + '<button onclick="document.getElementById(\'km-overlay\').style.display=\'none\'" style="padding:4px 10px;background:#3a3a44;color:#ccc;border:none;border-radius:6px;cursor:pointer;">✕</button></div>'
-      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">重要事件會自動記錄，較舊的會被取代；📌 釘選的會保留。</div>'
-      + rows + '</div>';
+      + '<div style="color:#8a7fa0;font-size:11.5px;margin-bottom:6px;">之後還會提起的事會自動記下，太多時舊的會被取代；📌 釘選的會一直留著。</div>'
+      + rows + kmNoticedHtml_(name, c.noticed) + '</div>';
     ov.style.display = 'flex';
   }
 
+  // 這個人注意到你的事（AI 記的、最多三條）：只給看，跟著劇情自己換
+  function kmNoticedHtml_(name, noticed) {
+    if (!noticed || !noticed.length) return '';
+    return '<div style="margin-top:12px;padding-top:8px;border-top:1px dashed rgba(232,184,204,.2);">'
+      + '<div style="color:#b8a0c8;font-size:12px;margin-bottom:4px;">💭 「' + escapeHtml(name) + '」注意到你</div>'
+      + noticed.map(function (t) { return '<div style="color:#d8c8e0;font-size:13px;line-height:1.6;padding:2px 4px;">・' + escapeHtml(t) + '</div>'; }).join('')
+      + '</div>';
+  }
   function _kmShowLoading_(name) {
     _showOverlayLoading_('km-overlay',
       { zIndex: 10001, onBgClick: function (ov) { if (!_kmBusy) ov.style.display = 'none'; } },

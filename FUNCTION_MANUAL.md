@@ -1383,6 +1383,7 @@ FATE 帳號層（存檔身分）：帳號名無密碼登入→掛一個御主＋
 #### 共同回憶
 - `kmSpinner_(msg)` — 回傳讀條 spinner HTML 片段。
 - `kanshouOpenMemoir(name)` — 開/重繪「與某人的共同回憶」彈窗 `#km-overlay`；`_kcCur` 沒載到會自抓一次；每列有 📌釘選(pin/unpin)＋🗑刪除鈕→`kanshouMemoirOp`。
+- `kmNoticedHtml_(name, noticed)` — 共同回憶面板底下唯讀列出「這個人注意到你」（`kanshou_companions` 下傳的 `noticed`，最多三條）；沒有就回空字串。
 - `_kmShowLoading_(name)` — 把 `#km-overlay` 內容換成讀條（不存在則先建）。
 - `kanshouMemoirOp(name, op, item, id)`（2026-09 加第 4 參數 id，送 `targetId`） — 釘選/取消/刪除回憶（`kanshou_memoir_op`）；`_kmBusy` 擋連點；完成後原地重繪並同步卡片數量徽章。
 
