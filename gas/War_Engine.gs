@@ -70,7 +70,10 @@ var WAR_TEMPER_ = {
   '赫拉克勒斯-Berserker': { noRetreat: 1, meet: '白髮的少女站在巨人身旁，提起裙襬行了個禮。' },
   '美杜莎-Rider': { aggr: 0.35, meet: '對方身後的少年先開了口，話說得比從者還多。' },
   'EMIYA-Archer': { meet: '遠處的高樓上閃過一道反光，箭比腳步聲先到。' },
-  '美狄亞-Caster': { aggr: 0.2, meet: '空氣裡飄著細細的魔力絲線，這一帶早就是對方的地盤。' }
+  '美狄亞-Caster': { aggr: 0.2, meet: '空氣裡飄著細細的魔力絲線，這一帶早就是對方的地盤。' },
+  '迪盧木多-Lancer': { meet: '對方沒有躲藏，堂堂正正地站在路中央等你們。' },
+  '伊斯坎達爾-Rider': { meet: '雷鳴由遠而近，駕著戰車的巨漢大笑著要你們報上名來。' },
+  '吉爾德萊-Caster': { meet: '潮濕的腥味裡，有什麼東西在暗處蠕動。' }
 };
 function warTemper_(e) { return (e && WAR_TEMPER_[e.hero]) || {}; }
 function warAggr_(e) { var t = warTemper_(e); return t.aggr !== undefined ? t.aggr : warClass_(e.cls).aggr; }
