@@ -98,11 +98,11 @@
       let optionsHtml = '';
       if (data.options && Array.isArray(data.options) && data.options.length > 0) {
         currentOptions = data.options;
-        // 【命運的抉擇】包進 #ai-options-grid，「AI 選項顯示開關」只藏這個盒子
+        // 選項包進 #ai-options-grid，「AI 選項顯示開關」只藏這個盒子
         optionsHtml += `<div id="ai-options-grid"${(typeof enableAiOptions !== 'undefined' && !enableAiOptions) ? ' style="display:none"' : ''}>`;
-        optionsHtml += `<div style="color: var(--gold-accent); font-weight: bold; border-bottom: 1px dashed rgba(212, 175, 55, 0.3); padding-bottom: 6px; margin-bottom: 8px;">【命運的抉擇】</div>`;
+        optionsHtml += `<div style="color: var(--gold-accent); font-weight: bold; border-bottom: 1px dashed rgba(212, 175, 55, 0.3); padding-bottom: 6px; margin-bottom: 8px;">【接下來】</div>`;
         optionsHtml += `<div class="options-grid">`;
-        plainTextContext += `\n\n【命運的抉擇】\n`;
+        plainTextContext += `\n\n【接下來】\n`;
         data.options.forEach(optText => {
           optionsHtml += `<button class="btn-option" onclick="send('${optText.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}', true)">${escapeHtml(optText)}</button>`;
           plainTextContext += optText + `\n`;
