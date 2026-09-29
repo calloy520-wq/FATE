@@ -61,5 +61,5 @@ doGet → Index.html（殼，內嵌 Style / Script / Script_Onboarding / Script_
 ## 5. 驗證與部署
 
 - 改完必跑 `bash check.sh`（語法＋全部不變式掃描器；CI 不驗 `.html` 的 JS）。
-- 平衡：`node tools/war_sim.js`。
+- 探針：`bash tools/probes/run.sh`（假試算表跑真的路由）；平衡：`node tools/war_sim.js`。
 - 部署兩段式：push → GitHub Action 只 `clasp push`；上線要另外手動觸發 workflow_dispatch（`clasp deploy`）。見 `PLAYBOOK.md`。
