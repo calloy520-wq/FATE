@@ -417,10 +417,12 @@ function actionEnterKanshou(userData, pcId, sheets) {
   if ((mSex !== "男" && mSex !== "女") || !mName) {
     return JSON.stringify({ success: true, needSetup: true, defaultName: acctName });
   }
-  var gameId = "k_" + Date.now();
+  // 時間戳＋亂數：同一毫秒建檔的兩個帳號也不會撞成同一個存檔。
+  var stamp = Date.now() + "_" + Math.floor(Math.random() * 100000);
+  var gameId = "k_" + stamp;
   var loc2 = "冬木市，我的房間";   // 開場布景：冬木只在開場出現一次，AI 下一回合寫了新場景就換掉
   var pcColCount = Object.keys(COL.PC).length;
-  var mId = "KPC_" + Date.now();
+  var mId = "KPC_" + stamp;
   var mRow = Array(pcColCount).fill("");
   mRow[COL.PC.ID] = mId;
   mRow[COL.PC.NAME] = mName;

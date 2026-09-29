@@ -42,7 +42,7 @@ summon（開戰／重新召喚 1 次）
 | `WAR_` | 全域數字：夜數、血量、命中、傷害、撤退、遭遇率… |
 | `WAR_CLASS_` | 職階差異 |
 | `WAR_TEMPER_` | 敵方個性（攻擊性／不撤退／偵查型） |
-| `WAR_SKILL_` | **技能 → 效果**（一行一個）。種子技能的 fx 名查這張；查不到＝純風味。hook 由 `warMul_`／`warAdd_`／`warFlag_` 讀。 |
+| `WAR_SKILL_` | **技能 → 效果**（一行一個）。種子技能的 fx 名查這張；查不到＝逸話（畫面列「名（逸話）」，不影響戰鬥，例：金羊毛、黃金律）。hook 由 `warMul_`／`warAdd_`／`warFlag_` 讀；時機一覽在表上方註解。招牌照原作：十二試煉＝整場 11 條命（重擊連殺數次）、刺穿死棘之槍不怕試探、王之財寶不必真名就打弱點、天之鎖讓神性對手逃不掉。 |
 | `WAR_FINAL_`／`WAR_BOUNTY_` | 決戰地、討伐令 |
 | `WAR_DOJO_LOSS_`／`WAR_DOJO_GOOD_` | 結局講評（輸在哪、亮點） |
 | `WAR_FORGE_`／`WAR_FORGE_SKILLS_`／`FORGE_CLS_SKILLS_` | 工房點數、可選技能、職階技能 |

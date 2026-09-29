@@ -92,12 +92,21 @@ function warAggr_(e) { var t = warTemper_(e); return t.aggr !== undefined ? t.ag
 //   findMe／findThem   我的據點被找到的機率 ×／我找到別人據點的機率 ×　　hideScout  別人打聽我時落空的機率
 //   scoutExtra／scoutRest／patrolMeet   打聽多看幾處／打聽時從者自己去、御主與從者順便休息幾成／巡邏必遇
 //   restHeal           休養與補魔時多回幾成　　npCd  放完寶具的冷卻夜數 +（負的＝比較快回來）
+//   lives／revive       整場戰爭可以死而復生幾次／每次回復幾成（十二試煉；被破戒時失效）
+//   npSure             我的寶具不會因對方試探的防備而減半　　hitUp  我的正面攻擊命中率 +
+//   weakAlways         不必看穿真名也打得中弱點　　clash  寶具對轟時多幾分
+//   vs                 只對身上帶這個旗標的對手生效（限 dmgDealt／npDealt）　　fromSex  只對這個性別的攻擊生效（限 Taken）
+//   lock               對手身上帶這個旗標就撤退不了　　nullDef  對手的 Taken 減傷／閃避對我無效
+//   veil               試探與打聽看不穿我的真名（放寶具還是會曝光）　　divine  神性（給 lock／vs 認的旗標，本身不改數字）
+//   技能沒有對應的列＝逸話：照樣列在角色身上（畫面標「逸話」），不影響戰鬥。
 var WAR_FORESEE_ = { txt: '看得出寶具預兆・較不易被擊中', seeNp: 1, npTaken: 0.8, hitTaken: 0.88 };
 var WAR_MAGECRAFT_ = { txt: '魔術攻擊傷害提高', dmgDealt: 1.12 };
 var WAR_LASTSTAND_ = { txt: '受到致命一擊時撐住一次（每場戰鬥一次・瀕死時無效）', lastStand: 1 };
+var WAR_MIGHT_ = { txt: '攻擊傷害提高', dmgDealt: 1.08 };
 var WAR_SKILL_ = {
   first_strike: WAR_FORESEE_, analyze: WAR_FORESEE_, insight: WAR_FORESEE_, sense: WAR_FORESEE_,
-  survive: WAR_LASTSTAND_, god_hand: WAR_LASTSTAND_, regen: WAR_LASTSTAND_,
+  survive: WAR_LASTSTAND_, regen: WAR_LASTSTAND_,
+  god_hand: { txt: '死後復生（整場戰爭共 11 次・一擊夠重會連殺數次）', lives: 11, revive: 0.1 },
   ride: { txt: '撤退成功率提高・對手較難撤退', retreat: 0.3, chase: 0.15 },
   stealth: { txt: '據點不易被發現・不易被打聽・奇襲首擊必中', findMe: 0.7, hideScout: 0.5, ambush: 1 },
   territory: { txt: '在據點受到的傷害減少・入侵者先受魔術陣傷害', homeTaken: 0.73, ward: 0.22 },
@@ -109,29 +118,54 @@ var WAR_SKILL_ = {
   divine_age: { txt: '神代的魔術・對手的對魔力只擋得住一半', pierce: 1 },
   morale: { txt: '寶具傷害提高', npDealt: 1.08 },
   projection: { txt: '寶具冷卻縮短 1 夜', npCd: -1 },
-  self_mod: { txt: '攻擊傷害提高', dmgDealt: 1.08 },
+  self_mod: WAR_MIGHT_, str_up: WAR_MIGHT_, burst: WAR_MIGHT_, weapon_steal: WAR_MIGHT_,
   crafting: { txt: '休養與補魔時恢復更多・做出的使魔擋在身前，較不易被擊中', restHeal: 0.25, hitTaken: 0.88 },
   summon_horror: { txt: '寶具自帶魔力爐・冷卻縮短 2 夜；海魔擋在身前・較不易被擊中', npCd: -2, hitTaken: 0.8 },
   evade_ranged: { txt: '不易被 Archer 擊中', from: 'Archer', hitTaken: 0.6 },
   tactics: { txt: '受到的寶具傷害減少・自身寶具傷害提高', npTaken: 0.75, npDealt: 1.1 },
   rule_breaker: { txt: '寶具命中時破除對手的技能，直到這場戰鬥結束', breakFx: 1 },
-  clear_mind: { txt: '心如明鏡・較不易被擊中', hitTaken: 0.8 }
+  clear_mind: { txt: '心如明鏡・較不易被擊中', hitTaken: 0.8 },
+  petrify: { txt: '石化魔眼：對手動作遲緩，較難擊中、也較難撤退', hitTaken: 0.88, chase: 0.15 },
+  gae_bolg: { txt: '因果逆轉：寶具不會因試探的防備而減半', npSure: 1 },
+  tsubame: { txt: '三道劍閃同時斬出：正面攻擊很難躲開', hitUp: 0.15 },
+  gob: { txt: '總能取出對手的剋星：真名未明也打得中弱點', weakAlways: 1 },
+  chain: { txt: '對手很難撤退；有神性的對手撤退必定失敗', chase: 0.25, lock: 'divine' },
+  divine: { txt: '神的血脈（天之鎖與弒神之力的目標）', divine: 1 },
+  godslayer: { txt: '對有神性的對手，攻擊與寶具傷害提高', vs: 'divine', dmgDealt: 1.25, npDealt: 1.25 },
+  ubw: { txt: '寶具對轟時佔優', clash: 1 },
+  rho_aias: { txt: '受到的寶具傷害減少', npTaken: 0.8 },
+  gae_dearg: { txt: '破除對手的防禦加護（減傷、閃避）', nullDef: 1 },
+  zabaniya_many: { txt: '分裂成數十個自己：打聽時多查兩處', scoutExtra: 2 },
+  zabaniya_heart: { txt: '掏出心臟的鏡像：寶具傷害提高', npDealt: 1.2 },
+  shapeshift: { txt: '變換身形：受到的傷害減少', dmgTaken: 0.9, npTaken: 0.9 },
+  rune: { txt: '符文護身：較不易被擊中・休養時恢復更多', hitTaken: 0.92, restHeal: 0.15 },
+  lovespot: { txt: '女性對手出手時容易心軟', fromSex: '女', dmgTaken: 0.8, npTaken: 0.85 },
+  wind_strike: { txt: '兵器隱形：試探與打聽看不穿真名', veil: 1 }
 };
 var WAR_FROM_HOOKS_ = { dmgTaken: 1, npTaken: 1, hitTaken: 1 };
 
 // 讀表三支：乘、加、有沒有。foe＝對手（有 from 的時機要看對手職階）。
 function warSkRows_(u) { return u && u.broken ? [] : ((u && u.fx) || []).map(function (f) { return WAR_SKILL_[f]; }).filter(Boolean); }
-function warSkOk_(row, hook, foe) { return row[hook] !== undefined && !(row.from && WAR_FROM_HOOKS_[hook] && (!foe || foe.cls !== row.from)); }
-// 對手帶 pierce（神代魔術）：針對職階的減傷只剩一半效果。
+function warSkOk_(row, hook, foe) {
+  if (row[hook] === undefined) return false;
+  if (WAR_FROM_HOOKS_[hook] && row.from && (!foe || foe.cls !== row.from)) return false;
+  if (WAR_FROM_HOOKS_[hook] && row.fromSex && (!foe || !foe.card || foe.card.gender !== row.fromSex)) return false;
+  if (row.vs && !WAR_FROM_HOOKS_[hook] && !warFlag_(foe, row.vs)) return false;
+  return true;
+}
+// 對手帶 pierce（神代魔術）：針對職階的減傷只剩一半效果；對手帶 nullDef：挨打的減傷整個不算。
 function warMul_(u, hook, foe) {
   return warSkRows_(u).reduce(function (m, r) {
     if (!warSkOk_(r, hook, foe)) return m;
+    if (WAR_FROM_HOOKS_[hook] && r[hook] < 1 && warFlag_(foe, 'nullDef')) return m;
     return m * (r.from && WAR_FROM_HOOKS_[hook] && warFlag_(foe, 'pierce') ? (1 + r[hook]) / 2 : r[hook]);
   }, 1);
 }
 function warAdd_(u, hook, foe) { return warSkRows_(u).reduce(function (a, r) { return warSkOk_(r, hook, foe) ? a + r[hook] : a; }, 0); }
 function warNpCd_(u) { return Math.max(1, WAR_.NP_COOLDOWN + warAdd_(u, 'npCd')); }
 function warFlag_(u, hook) { return warSkRows_(u).some(function (r) { return !!r[hook]; }); }
+// 還剩幾條命（舊存檔沒有這一格：照技能現算）。
+function warLives_(u) { return u.lives === undefined ? warAdd_(u, 'lives') : u.lives; }
 // 提供這個時機的技能叫什麼（畫面與說書要念出原作技能名）。
 function warSkName_(u, hook) {
   var f = ((u && u.fx) || []).filter(function (x) { return WAR_SKILL_[x] && WAR_SKILL_[x][hook] !== undefined; })[0];
@@ -150,16 +184,21 @@ function warRank_(r) {
 
 // 種子技能 → 表上有的 fx（同一個效果列只收一次）＋每個 fx 的原作技能名（畫面照這個顯示）。
 function warSkillsOf_(seed) {
-  var fx = [], names = {}, rows = [];
+  var fx = [], names = {}, rows = [], lore = [], np = String(seed.np || '');
   (seed.classSkills || []).concat(seed.skills || []).forEach(function (x) {
-    var f = x && x.fx, r = WAR_SKILL_[f];
-    if (!r || rows.indexOf(r) >= 0) return;
-    rows.push(r); fx.push(f); names[f] = String(x.n || '').replace(/\s.*$/, '');
+    var f = x && x.fx, r = WAR_SKILL_[f], nm = String((x && x.n) || '').replace(/\s.*$/, '');
+    if (!r) { if (nm && np.indexOf(nm) < 0 && lore.indexOf(nm) < 0) lore.push(nm); return; }
+    if (rows.indexOf(r) >= 0) return;
+    rows.push(r); fx.push(f); names[f] = nm;
   });
-  return { fx: fx, names: names };
+  return { fx: fx, names: names, lore: lore };
 }
+// 畫面上的技能列：有效果的寫「名：效果」，逸話只寫名字（前端靠有沒有「：」分）。
 function warTraits_(u) {
-  return ((u && u.fx) || []).map(function (f) { return (u.skn[f] || f) + '：' + WAR_SKILL_[f].txt; });
+  return ((u && u.fx) || []).map(function (f) {
+    var r = WAR_SKILL_[f], t = (u.skn[f] || f) + '：' + r.txt;
+    return r.lives ? t + '・剩 ' + warLives_(u) + ' 次' : t;
+  }).concat(((u && u.lore) || []).map(function (n) { return n + '（逸話）'; }));
 }
 function warNpName_(np) {
   var first = String(np || '').split('／')[0];
@@ -181,7 +220,7 @@ function warUnit_(seed, extra) {
     mhp: mhp, hp: mhp, cd: 0, saved: false
   };
   var sk = warSkillsOf_(seed), p = seed.persona || {};
-  u.fx = sk.fx; u.skn = sk.names;
+  u.fx = sk.fx; u.skn = sk.names; u.lore = sk.lore;
   u.card = { look: p.look || '', words: p.words || '', toMaster: p.toMaster || '', gender: seed.gender || '', np: String(seed.np || ''), book: Array.isArray(p.book) ? p.book : [] };   // 說書用，不進規則
   for (var k in (extra || {})) u[k] = extra[k];
   return u;
@@ -343,6 +382,7 @@ function warDoDay_(st, act, ev) {
 
 function warReveal_(st, e, ev) {
   if (!e || e.intel >= 2) return false;
+  if (warFlag_(e, 'veil')) { ev.push({ k: 'intel', txt: '那位 ' + e.cls + ' 的「' + warSkName_(e, 'veil') + '」遮住了兵器，看不出是誰。' }); return true; }
   e.intel = 2;
   ev.push({ k: 'reveal', txt: '看穿了那位 ' + e.cls + ' 的真名：「' + e.name + '」。' });
   return true;
@@ -570,14 +610,14 @@ function warExchange_(st, A, Z, ev) {
     S.act = 'none';
   }
   if (A.act === 'np' && Z.act === 'np') {
-    var sa = A.u.np + warRand_(st) * 3 + (A.seal ? 3 : 0), sz = Z.u.np + warRand_(st) * 3 + (Z.seal ? 3 : 0);
+    var sa = A.u.np + warRand_(st) * 3 + (A.seal ? 3 : 0) + warAdd_(A.u, 'clash'), sz = Z.u.np + warRand_(st) * 3 + (Z.seal ? 3 : 0) + warAdd_(Z.u, 'clash');
     var W = sa >= sz ? A : Z, L = W === A ? Z : A;
     A.u.cd = warNpCd_(A.u); Z.u.cd = warNpCd_(Z.u);
     A.struck = A.fired = Z.struck = Z.fired = true;
-    var d = Math.round(warNpDmg_(W, L) * WAR_.CLASH_WIN);
+    var d = Math.round(warNpDmg_(W, L) * WAR_.CLASH_WIN * warMul_(W.u, 'npDealt', L.u) * warMul_(L.u, 'npTaken', W.u));
     var stood = warApply_(st, L, d);
     ev.push({ k: 'clash', txt: '寶具對轟。' + warWho_(st, W) + '的「' + W.u.npName + '」壓過了' + warWho_(st, L) + '的「' + L.u.npName + '」，' + warWho_(st, L) + warHurtWord_(L.u) + '。', num: '−' + d });
-    if (stood) warStoodEv_(st, L, ev);
+    if (stood) warStoodEv_(st, L, ev, stood);
     warBreak_(st, W, L, ev);
     if (L.side === 'me') warMasterHit_(st, WAR_.NP_MASTER_HIT, ev);
     return { ended: '' };
@@ -599,21 +639,21 @@ function warExchange_(st, A, Z, ev) {
 
 function warStrike_(st, X, Y, ev) {
   X.struck = true;
-  var guard = Y.act === 'probe' ? WAR_.PROBE : 1;
+  var guard = Y.act === 'probe' && !(X.act === 'np' && warFlag_(X.u, 'npSure')) ? WAR_.PROBE : 1;
   // 守家：自己的據點（HOME）再乘陣地作成；在自己的陣地被人闖進來（lair）只吃陣地作成。
   var home = Y.home ? WAR_.HOME * warMul_(Y.u, 'homeTaken') : (Y.lair ? warMul_(Y.u, 'homeTaken') : 1);
   if (X.act === 'np') {
     X.fired = true;
     X.u.cd = warNpCd_(X.u);
-    var nd = Math.round(warNpDmg_(X, Y) * guard * home * warMul_(X.u, 'npDealt') * warMul_(Y.u, 'npTaken', X.u));
+    var nd = Math.round(warNpDmg_(X, Y) * guard * home * warMul_(X.u, 'npDealt', Y.u) * warMul_(Y.u, 'npTaken', X.u));
     var npStood = warApply_(st, Y, nd);
-    ev.push({ k: 'np', side: X.side, txt: warWho_(st, X) + '解放寶具「' + X.u.npName + '」。' + (Y.act === 'probe' ? warWho_(st, Y) + '有所防備，傷害減半，' : warWho_(st, Y)) + warHurtWord_(Y.u) + '。', num: '−' + nd });
-    if (npStood) warStoodEv_(st, Y, ev);
+    ev.push({ k: 'np', side: X.side, txt: warWho_(st, X) + '解放寶具「' + X.u.npName + '」。' + (guard < 1 ? warWho_(st, Y) + '有所防備，傷害減半，' : warWho_(st, Y)) + warHurtWord_(Y.u) + '。', num: '−' + nd });
+    if (npStood) warStoodEv_(st, Y, ev, npStood);
     warBreak_(st, X, Y, ev);
     if (Y.side === 'me' && Y.act !== 'probe') warMasterHit_(st, WAR_.NP_MASTER_HIT, ev);
     return;
   }
-  var hitP = warHitChance_(X.u, Y.u) * warMul_(Y.u, 'hitTaken', X.u);
+  var hitP = (warHitChance_(X.u, Y.u) + (X.act === 'strike' ? warAdd_(X.u, 'hitUp') : 0)) * warMul_(Y.u, 'hitTaken', X.u);
   var hit = X.seal || X.ambush || warRand_(st) < hitP;
   var probe = X.act === 'probe';
   if (!hit) { ev.push({ k: 'miss', side: X.side, txt: warWho_(st, X) + (probe ? '的試探' : '的攻擊') + '被' + warWho_(st, Y) + '擋下了。' }); return; }
@@ -622,7 +662,7 @@ function warStrike_(st, X, Y, ev) {
   var hitStood = warApply_(st, Y, d);
   var how = X.ambush ? '以「' + warSkName_(X.u, 'ambush') + '」奇襲，擊中了' : (probe ? '試探出手，擦中了' : '正面攻擊，擊中了');
   ev.push({ k: 'hit', side: X.side, txt: warWho_(st, X) + how + warWho_(st, Y) + '，對方' + warHurtWord_(Y.u) + '。', num: '−' + d });
-  if (hitStood) warStoodEv_(st, Y, ev);
+  if (hitStood) warStoodEv_(st, Y, ev, hitStood);
   if (Y.side === 'me' && X.u.cls === 'Assassin') warMasterHit_(st, WAR_.ASSASSIN_MASTER_HIT, ev);
 }
 
@@ -633,16 +673,26 @@ function warBreak_(st, X, Y, ev) {
   Y.u.broken = true;
   ev.push({ k: 'skill', side: X.side, txt: warWho_(st, X) + '以「' + nm + '」破除了' + warWho_(st, Y) + '身上的加護。' });
 }
-// 扣血；回 true＝這一下本該倒下，被 lastStand 撐住了（呼叫端在自己那句之後補 warStoodEv_）。
+// 扣血；這一下本該倒下卻沒倒：回 'life'（死而復生）或 'stand'（撐住），呼叫端在自己那句之後補 warStoodEv_。
 function warApply_(st, Y, d) {
-  var u = Y.u, before = u.hp, stood = false;
+  var u = Y.u, before = u.hp, stood = '';
+  // 死而復生：一擊的餘勁會連著打掉好幾條命（原作的寶具一擊殺他數次）。
+  if (u.hp - d <= 0 && warFlag_(u, 'lives') && warLives_(u) > 0) {
+    var left = u.hp - d, per = Math.max(1, Math.round(u.mhp * warAdd_(u, 'revive'))), used = 0;
+    u.lives = warLives_(u);
+    while (left <= 0 && u.lives > 0) { u.lives--; used++; left += per; }
+    u.lastLost = used;
+    if (left > 0) { u.hp = Math.min(u.mhp, left); return 'life'; }
+    d = u.hp;   // 命用完了：這一擊照常打倒
+  }
   u.hp = Math.max(0, u.hp - d);
-  if (u.hp <= 0 && warFlag_(u, 'lastStand') && !u.saved && before > u.mhp * 0.25) { u.saved = true; u.hp = 1; stood = true; }
+  if (u.hp <= 0 && warFlag_(u, 'lastStand') && !u.saved && before > u.mhp * 0.25) { u.saved = true; u.hp = 1; stood = 'stand'; }
   if (u.hp <= 0 && Y.side !== 'me') u.alive = false;
   return stood;
 }
-function warStoodEv_(st, Y, ev) {
-  ev.push({ k: 'skill', side: Y.side, txt: warWho_(st, Y) + '以「' + warSkName_(Y.u, 'lastStand') + '」撐住了致命一擊。' });
+function warStoodEv_(st, Y, ev, how) {
+  if (how === 'life') ev.push({ k: 'skill', side: Y.side, txt: warWho_(st, Y) + (Y.u.lastLost > 1 ? '被這一擊連殺 ' + Y.u.lastLost + ' 次' : '倒下了') + '，又以「' + warSkName_(Y.u, 'lives') + '」死而復生（還剩 ' + Y.u.lives + ' 次）。', num: '剩 ' + Y.u.lives + ' 命' });
+  else ev.push({ k: 'skill', side: Y.side, txt: warWho_(st, Y) + '以「' + warSkName_(Y.u, 'lastStand') + '」撐住了致命一擊。' });
 }
 
 function warMasterHit_(st, n, ev) {
@@ -677,18 +727,19 @@ function warAutoBattle_(st, a, b, ev) {
 
 // ── 算式 ──────────────────────────────────────────────
 function warHitChance_(x, y) { return warClamp_(WAR_.HIT_BASE + (x.spd - y.spd) * WAR_.HIT_PER_SPD, WAR_.HIT_MIN, WAR_.HIT_MAX); }
-function warMult_(X) {
-  return (X.knows ? WAR_.WEAK : 1) * warMul_(X.u, 'dmgDealt');
+function warMult_(X, Y) {
+  return (X.knows || warFlag_(X.u, 'weakAlways') ? WAR_.WEAK : 1) * warMul_(X.u, 'dmgDealt', Y && Y.u);
 }
 function warNormalDmg_(st, X, Y) {
-  var base = (WAR_.DMG_BASE + X.u.atk * WAR_.DMG_PER_ATK) * warMult_(X) - Y.u.def * WAR_.DMG_DEF;
+  var base = (WAR_.DMG_BASE + X.u.atk * WAR_.DMG_PER_ATK) * warMult_(X, Y) - Y.u.def * WAR_.DMG_DEF;
   return base * (0.85 + warRand_(st) * 0.3);
 }
 function warNpDmg_(X, Y) {
-  return Math.max(20, (WAR_.NP_BASE + X.u.np * WAR_.NP_PER_RANK) * warMult_(X) - Y.u.def * WAR_.NP_DEF);
+  return Math.max(20, (WAR_.NP_BASE + X.u.np * WAR_.NP_PER_RANK) * warMult_(X, Y) - Y.u.def * WAR_.NP_DEF);
 }
 function warRetreatChance_(u, o, seal) {
   if (seal) return 1;
+  if (warSkRows_(o).some(function (r) { return r.lock && warFlag_(u, r.lock); })) return 0;
   return warClamp_(WAR_.RETREAT_BASE + (u.spd - o.spd) * WAR_.RETREAT_PER_SPD + warAdd_(u, 'retreat') - warAdd_(o, 'chase'), WAR_.RETREAT_MIN, WAR_.RETREAT_MAX);
 }
 function warHeal_(u, pct) { var before = u.hp; u.hp = Math.min(u.mhp, u.hp + Math.round(u.mhp * pct)); return u.hp - before; }
@@ -702,10 +753,12 @@ function warOdds_(st, e) {
 // 勝算的比值（我撐幾下 ÷ 對方撐幾下）：出擊目標照這個排序。
 function warOddsR_(st, e) {
   var me = { u: st.sv, knows: e.intel >= 2 }, foe = { u: e, knows: st.exposed };
-  var myD = Math.max(1, warHitChance_(st.sv, e) * ((WAR_.DMG_BASE + st.sv.atk * WAR_.DMG_PER_ATK) * warMult_(me) - e.def * WAR_.DMG_DEF));
-  var eD = Math.max(1, warHitChance_(e, st.sv) * ((WAR_.DMG_BASE + e.atk * WAR_.DMG_PER_ATK) * warMult_(foe) - st.sv.def * WAR_.DMG_DEF));
-  return (st.sv.hp / eD) / (e.hp / myD);
+  var myD = Math.max(1, warHitChance_(st.sv, e) * ((WAR_.DMG_BASE + st.sv.atk * WAR_.DMG_PER_ATK) * warMult_(me, foe) - e.def * WAR_.DMG_DEF));
+  var eD = Math.max(1, warHitChance_(e, st.sv) * ((WAR_.DMG_BASE + e.atk * WAR_.DMG_PER_ATK) * warMult_(foe, me) - st.sv.def * WAR_.DMG_DEF));
+  return (warEffHp_(st.sv) / eD) / (warEffHp_(e) / myD);
 }
+// 算勝算用的血量：死而復生的命也算進去。
+function warEffHp_(u) { return u.hp + (warFlag_(u, 'lives') ? warLives_(u) * u.mhp * warAdd_(u, 'revive') : 0); }
 
 // ── 文字與查詢 ────────────────────────────────────────
 function warFinalNext_(st) { return warArrived_(st).sort(function (a, b) { return a.hp / a.mhp - b.hp / b.mhp; })[0] || null; }
@@ -753,6 +806,7 @@ function warFoeCard_(st, e) {
   if (e.intel >= 2) {
     c.name = e.name; c.master = e.master; c.np = e.npName; c.npReady = !(e.cd > 0);
     c.traits = warTraits_(e);
+    if (warFlag_(e, 'lives')) c.lives = warLives_(e);
   }
   return c;
 }
@@ -828,6 +882,7 @@ function warView_(st) {
     alive: warAliveCount_(st),
     battle: null, buttons: warButtons_(st), result: st.result, rules: warRules_(st)
   };
+  if (warFlag_(sv, 'lives')) view.sv.lives = warLives_(sv);
   if (st.phase === 'over') view.debrief = warDebrief_(st);
   if (b) {
     var e = warFoe_(st, b.e);
