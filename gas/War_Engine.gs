@@ -32,7 +32,8 @@ var WAR_ = {
   FIND_BASE: 0.10, FIND_OUT: 0.12, FIND_EXPOSED: 0.20, FIND_SCOUT: 0.05,
   HUNT: 0.7, HUNT_EXPOSED: 0.15, HUNT_WOUNDED: 0.15,
   HUNT_LATE: 0.06, FIND_LATE: 0.03,   // 每倒下一位從者，剩下的人更急著找出彼此（原作：人越少越只能再戰）
-  PREY_HUNT: 0.4,   // 原作的執念對象（nemesis）是別的敵人、還在場上：找你的慾望只剩這幾成（狂戰士眼裡只有騎士王）
+  PREY_HUNT: 0.4,
+  RAID_AGAIN: 0.35,   // 昨夜才夜襲過你、沒分出勝負的那位：今晚再來的慾望只剩這幾成（先回去重整；同一位連夜上門太單調）   // 原作的執念對象（nemesis）是別的敵人、還在場上：找你的慾望只剩這幾成（狂戰士眼裡只有騎士王）
   PATROL_MEET: 0.65,
   SCOUT_DEEP: 0.35,      // 打聽時順便看穿一位真名的機率
   NEWS_REVEAL: 0.5,      // 早報裡交手的兩方，各有幾成機會被你記下職階與位置
@@ -377,7 +378,7 @@ function warButtons_(st) {
     B.push({ t: 'patrol', label: '巡邏', sub: '外出搜索，遭遇即戰鬥' });
     B.push({ t: 'hold', label: '固守', sub: '留守據點，遇襲時受傷減少' });
   } else if (st.phase === 'battle' && st.battle.dawn) {
-    B.push({ t: 'stance', s: 'chase', label: '追擊', sub: '天亮前追上去・御主 −' + WAR_.CHASE_MASTER + (st.exposed ? '' : '・會暴露真名'), dis: st.master.hp <= WAR_.CHASE_MASTER });
+    B.push({ t: 'stance', s: 'chase', label: '追擊', sub: (warStands_(warFoe_(st, st.battle.e)) ? '天亮前再打一回合' : '天亮前追上去') + '・御主 −' + WAR_.CHASE_MASTER + (st.exposed ? '' : '・會暴露真名'), dis: st.master.hp <= WAR_.CHASE_MASTER });
     B.push({ t: 'stance', s: 'letgo', label: '收手', sub: '讓對方離開' });
   } else if (st.phase === 'battle') {
     var e = warFoe_(st, st.battle.e);
@@ -563,7 +564,11 @@ function warDoDay_(st, act, ev) {
 
 function warReveal_(st, e, ev) {
   if (!e || e.intel >= 2) return false;
-  if (warFlag_(e, 'veil')) { e.veilSeen = true; ev.push({ k: 'intel', txt: '那位 ' + e.cls + ' 的「' + warSkName_(e, 'veil') + '」遮住了兵器，看不出是誰。' }); return true; }
+  if (warFlag_(e, 'veil')) {   // 一場戰鬥只說一次（每回合試探都撞上同一道風，不必每回合重播）
+    if (!(st.battle && st.battle.veiled)) ev.push({ k: 'intel', txt: '那位 ' + e.cls + ' 的「' + warSkName_(e, 'veil') + '」遮住了兵器，看不出是誰。' });
+    if (st.battle) st.battle.veiled = true;
+    e.veilSeen = true; return true;
+  }
   e.intel = 2;
   ev.push({ k: 'reveal', txt: '看穿了那位 ' + e.cls + ' 的真名：「' + e.name + '」。' });
   return true;
@@ -630,10 +635,11 @@ function warTick_(st, ev) {
       f *= warMul_(st.sv, 'findMe') * warMul_(e, 'findThem') * (tp.findMul || 1) * (nemesis ? 3 : 1);
       if (warRand_(st) < f) e.found = true;
     }
-    var hunt = (aggr * WAR_.HUNT + (st.exposed ? WAR_.HUNT_EXPOSED : 0) + (st.sv.hp < st.sv.mhp * 0.5 ? WAR_.HUNT_WOUNDED : 0) + fallen * WAR_.HUNT_LATE + (nemesis ? 0.4 : 0)) * (prey ? WAR_.PREY_HUNT : 1);
+    var hunt = (aggr * WAR_.HUNT + (st.exposed ? WAR_.HUNT_EXPOSED : 0) + (st.sv.hp < st.sv.mhp * 0.5 ? WAR_.HUNT_WOUNDED : 0) + fallen * WAR_.HUNT_LATE + (nemesis ? 0.4 : 0)) * (prey ? WAR_.PREY_HUNT : 1) * (e.raided === st.day - 1 ? WAR_.RAID_AGAIN : 1);
     if (!st.out && !st.hunted && e.found && !tp.guard && warRand_(st) < hunt) {
       st.hunted = true;
       e.intel = Math.max(e.intel, 1);
+      e.raided = st.day;
       ev.push({ k: 'raid', txt: '深夜，' + warFoeLabel_(e) + '找上了據點。' });
       warStartBattle_(st, e, 'defend', ev);
       return true;
@@ -760,7 +766,7 @@ function warDoRound_(st, act, ev) {
     b.chase = true; b.tele = '';
     b.intent = warStands_(e) ? 'strike' : 'retreat';   // 不撤退的那幾位會回頭硬拚
     st.master.hp = Math.max(1, st.master.hp - WAR_.CHASE_MASTER);
-    ev.push({ k: 'chase', txt: '天色漸亮，' + sv.name + '追了上去。', num: '御主 −' + WAR_.CHASE_MASTER });
+    ev.push({ k: 'chase', txt: '天色漸亮，' + sv.name + (b.intent === 'strike' ? '沒有收手，逼了上去。' : '追了上去。'), num: '御主 −' + WAR_.CHASE_MASTER });
     if (!st.exposed) { st.exposed = true; ev.push({ k: 'exposed', txt: '天亮後的追擊被人看見，己方真名曝光。' }); }
     act = { s: 'strike' };
   }
@@ -792,7 +798,7 @@ function warDoRound_(st, act, ev) {
   if (r.ended || !e.alive) { warEndBattle_(st, ev); return; }
   b.round++;
   var cap = b.ctx === 'final' ? WAR_.FINAL_ROUNDS : WAR_.ROUNDS;
-  if (b.chase) { ev.push({ k: 'dawn', txt: '天亮了，' + warFoeLabel_(e) + '甩開了追擊。' }); warEndBattle_(st, ev); return; }
+  if (b.chase) { ev.push({ k: 'dawn', txt: warStands_(e) ? '天完全亮了，雙方各自退開。' : '天亮了，' + warFoeLabel_(e) + '甩開了追擊。' }); warEndBattle_(st, ev); return; }
   if (b.round > cap) {
     if (b.ctx === 'final') { warOver_(st, false, 'timeout', ev); return; }
     if (e.hp < e.mhp * WAR_.CHASE_BELOW && sv.hp > 0) { b.dawn = true; b.tele = ''; ev.push({ k: 'dawnChase', txt: '天快亮了，' + warFoeLabel_(e) + (warStands_(e) ? '渾身是傷，仍站在原地不退。' : '帶著重傷想走。') }); return; }

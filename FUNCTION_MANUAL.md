@@ -194,11 +194,11 @@
 - `warAct_(st, act, o)` — 做一個決定，就地改 `st`，回 `{ok, msg, ev:[{k, txt, num}]}`；`txt` 給 AI（不含數字），`num` 給畫面。`o`＝名冊（`warSeedCtx_`），只有重新召喚要用，沒給就拒絕重抽。
 - `warDoSummon_(st, act, ev, o)`（重抽走 `warSummon_(st, o)` 真的換人）／`warDoDay_(st, act, ev)`／`warDoNight_(st, act, ev)`／`warDoRound_(st, act, ev)` — 四個階段各一支。`warDoRound_` 打完最後一回合、對手剩不到 `WAR_.CHASE_BELOW` 時不收場，標 `battle.dawn`，下一步只能追擊（`chase`：御主 −`CHASE_MASTER`、真名曝光、對手想逃，這一擊必中×`CHASE_DMG`，打完就天亮）或收手（`letgo`）。
 - `warSpace_(t)` — 英文職階後面直接接中文時補一個空格；`warAct_` 回傳前對所有事件句統一套用。
-- `warStands_(e)` — 不會撤退的敵人（`guard`／`noRetreat`／狂化）：天亮的追擊會回頭硬拚。
+- `warStands_(e)` — 不會撤退的敵人（`guard`／`noRetreat`／狂化）：天亮的追擊會回頭硬拚（按鈕寫「再打一回合」、句子寫「逼了上去」）。
 - `warReveal_(st, e, ev)` — 看穿真名（intel→2）。 對手帶 `veil`（風王結界）時看不穿，改推一句「看不出是誰」。
 - `warUnmask_(st, e, ev)` — 假死的那位露餡（`e.fake`→false）並推一句早報；`warStartBattle_` 與 `warAutoBattle_` 開打時都會叫。陣容上帶 `fakeDeath` 的那組（第四次的百貌哈桑）第二天早報推原作的死訊並標假死（第一夜就跟它交過手的話跳過）。
 - `warFinishNight_(st, ev)` — 敵人行動（`warTick_`），沒人找上門就進早晨。
-- `warTick_(st, ev)` — 每位敵人一次：可能發現你的據點、夜襲你（只在你固守時、一夜一位）、找別人打（執念對象在場就先找那一位）、或休息；倒下的人越多、剩下的越急著找人。有人夜襲就回 true 停下來開打。
+- `warTick_(st, ev)` — 每位敵人一次：可能發現你的據點、夜襲你（只在你固守時、一夜一位）、找別人打（執念對象在場就先找那一位）、或休息；昨夜才夜襲過你的那位（`e.raided`）今晚再來的機率乘 `WAR_.RAID_AGAIN`；倒下的人越多、剩下的越急著找人。有人夜襲就回 true 停下來開打。
 - `warMorning_(st, ev)` — 先把昨夜沒人倒下的交手（`warAutoBattle_` 存在 `st.draws`，不進當下的事件清單——夜裡被突襲打斷也不會半句漏到畫面）併成一句早報、清空，再充能減一、天數加一、登場消息、時限保險。
 - `warStartBattle_(st, e, ctx, ev)` — 開打；`ctx`＝sortie／patrol／defend／final。氣息遮斷的出擊第一擊、陣地作成的魔術陣（雙向：你守家、或你闖進對方陣地）在這裡生效。
 - `warSetIntent_(st, e)`／`warIntent_(st, me, foe, round)` — 敵人這回合想做什麼（先決定、存起來；看得到預兆就能應對）。

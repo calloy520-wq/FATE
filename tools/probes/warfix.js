@@ -146,4 +146,13 @@ const GL=J(`(function(){ var bad=[]; ['5th','4th','chaos'].forEach(function(w){ 
   while(s.phase!=='over'&&n++<300){ var bs=warButtons_(s).filter(function(b){return !b.dis;}); var b=bs[(n*7+g)%bs.length]; var r=warAct_(s,{t:b.t,id:b.id,s:b.s}); r.ev.forEach(function(x){ if(/[A-Za-z][\u4e00-\u9fff]/.test(x.txt||'')) bad.push(x.txt); }); } } }); return bad.slice(0,3); })()`);
 t(GL.length===0,'事件句裡英文職階後面接中文都有空格（「那位 Saber 正面攻擊」）',GL.join(' / '));
 
+const VL=J(`(function(){ var s=__battle(['wind_strike'],'strike'); s.sv.hp=9999; s.sv.mhp=9999; var n=0; for(var i=0;i<3&&s.phase==='battle';i++){ s.battle.intent='strike'; var r=warAct_(s,{t:'stance',s:'probe'}); n+=r.ev.filter(function(x){return /遮住了兵器/.test(x.txt);}).length; } return n; })()`);
+t(VL===1,'風王結界：一場戰鬥裡試探幾次都只說一次看不穿',VL);
+const RA=J(`(function(){ var cnt=function(prev){ var n=0; for(var i=0;i<300;i++){ var o=warSeedCtx_('5th'); o.name='測'; o.sex='男'; o.seed=500+i; var s=warNewGame_(o); warAct_(s,{t:'start'}); s.day=5;
+    s.enemies.forEach(function(e){ e.arrive=1; e.found=true; e.alive=e.hero==='赫拉克勒斯-Berserker'; if(prev&&e.alive) e.raided=4; }); s.phase='night'; s.ticked=[]; s.engaged=[]; s.hunted=false; s.out=false; s.battle=null; warTick_(s,[]); if(s.battle) n++; } return n; };
+  return [cnt(false),cnt(true)]; })()`);
+t(RA[1]<RA[0]*0.6,'昨夜才夜襲過你的那位：今晚少來（不再同一位連夜上門）',RA.join(' vs '));
+const SC=J(`(function(){ var d=__dawn(0.2), s=d.s; d.e.fx=['lastStand']; var tp=WAR_TEMPER_; var real=warStands_; warStands_=function(){return true;}; var sub=warButtons_(s)[0].sub; s.out=true; var r=warAct_(s,{t:'stance',s:'chase'}); warStands_=real; return sub+'|'+r.ev.map(function(x){return x.txt;}).join('|'); })()`);
+t(/再打一回合/.test(SC)&&/逼了上去/.test(SC)&&!/追了上去/.test(SC),'不撤退的對手：追擊寫成「逼了上去」、按鈕寫「再打一回合」',SC.slice(0,160));
+
 console.log(bad ? '❌ '+bad+' 條失敗' : '✅ warfix.js '+ok+' 條全過');
