@@ -68,4 +68,20 @@ t(JSON.parse(allLore).every(a=>Array.isArray(a)),'每位從者都帶著逸話清
 c.old=U('美狄亞-Caster'); delete c.old.lore; delete c.old.lives;
 t(Array.isArray(E('warTraits_(old)')),'舊存檔沒有 lore／lives 也照常顯示');
 
+console.log('── 稽核抓到的四個洞（2026-09-29）');
+const seedsAll={}; E('SEED_SERVANTS').forEach(x=>seedsAll[x.id]=x); const mn={}; E('SEED_MASTERS').forEach(m=>mn[m.id]=m.name);
+const game=(hero,war)=>c.warNewGame_({pool:E('SEED_SERVANTS').filter(x=>x.id===hero),roster:E(war==='4th'?'FATE_4TH_ROSTER':'FATE_5TH_ROSTER'),seeds:seedsAll,masterNames:mn,name:'測',sex:'男',war:war||'5th',seed:3});
+let g=game('赫拉克勒斯-Berserker'); c.warAct_(g,{t:'start'}); let rr=c.warAct_(g,{t:'supply'});
+t(!rr.ev.some(x=>/寶具/.test(x.txt+(x.num||''))),'常駐寶具的從者補魔：說書與畫面都不再說「寶具就緒」',JSON.stringify(rr.ev));
+g=game('阿爾托莉雅-Saber'); c.warAct_(g,{t:'start'}); c.warAct_(g,{t:'rest'});
+g.enemies.forEach((e,i)=>{ if(i>0) e.alive=false; }); let e0=g.enemies[0]; e0.intel=1; e0.hp=1; e0.fx=[]; c.warAct_(g,{t:'sortie',id:e0.id});
+g.sv.cd=3; g.master.hp=20; rr=c.warAct_(g,{t:'stance',s:'np',seal:true});
+t(!rr.ok&&/御主/.test(rr.msg),'御主的血付不起就不能硬放（按了會把自己拚死）',JSON.stringify(rr));
+g.master.hp=35; rr=c.warAct_(g,{t:'stance',s:'np',seal:true});
+t(g.phase==='over'&&g.result.win===true,'最後一擊同時把御主拚到見底：仍算奪下聖杯',JSON.stringify(g.result));
+g=game('EMIYA-Archer'); c.warAct_(g,{t:'start'}); c.warAct_(g,{t:'rest'}); const sab=g.enemies.find(x=>x.hero==='阿爾托莉雅-Saber'); sab.intel=1; c.warAct_(g,{t:'sortie',id:sab.id});
+const pb=c.warButtons_(g).find(x=>x.s==='probe');
+t(pb&&!/看穿真名/.test(pb.sub),'打風王結界的 Saber：試探鈕不再承諾看穿真名',pb&&pb.sub);
+c.hh=U('赫拉克勒斯-Berserker'); c.hh.broken=true; delete c.hh.lives;
+t(E('warLives_(hh)')===11&&E('warTraits_(hh)').some(x=>/剩 11 次/.test(x)),'被破戒全咒打過：十二試煉的命數照樣是 11（不是 0）');
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);

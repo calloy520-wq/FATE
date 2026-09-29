@@ -213,7 +213,7 @@ function actionWarForgeAi(userData) {
   var raw = callGeminiAPI(warForgeAiPrompt_(desc, cls), warForgeAiSys_(og), { temperature: 0.9, retries: 2 });
   var out = null;
   try { out = JSON.parse(String(raw || '')); } catch (e) { out = null; }
-  if (!out || out._genFailed || typeof out !== 'object') return JSON.stringify({ success: false, message: '這次沒有做出來，請換個說法再試一次。' });
+  if (!out || out._genFailed || typeof out !== 'object' || !String(out.name || '').trim()) return JSON.stringify({ success: false, message: '這次沒有做出來，請換個說法再試一次。' });
   return JSON.stringify({ success: true, hero: warForgeDraft_(out, cls) });
 }
 function warForgeAiSys_(og) {

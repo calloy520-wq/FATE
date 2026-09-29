@@ -170,7 +170,10 @@ function warAdd_(u, hook, foe) { return warSkRows_(u).reduce(function (a, r) { r
 function warNpCd_(u) { return Math.max(1, WAR_.NP_COOLDOWN + warAdd_(u, 'npCd')); }
 function warFlag_(u, hook) { return warSkRows_(u).some(function (r) { return !!r[hook]; }); }
 // 還剩幾條命（舊存檔沒有這一格：照技能現算）。
-function warLives_(u) { return u.lives === undefined ? warAdd_(u, 'lives') : u.lives; }
+function warLives_(u) {
+  if (u.lives !== undefined) return u.lives;
+  return ((u && u.fx) || []).reduce(function (a, f) { return a + ((WAR_SKILL_[f] && WAR_SKILL_[f].lives) || 0); }, 0);   // 被破戒時加護失效，但命數本身還在
+}
 // 提供這個時機的技能叫什麼（畫面與說書要念出原作技能名）。
 function warSkName_(u, hook) {
   var f = ((u && u.fx) || []).filter(function (x) { return WAR_SKILL_[x] && WAR_SKILL_[x][hook] !== undefined; })[0];
@@ -302,7 +305,7 @@ function warButtons_(st) {
     var e = warFoe_(st, st.battle.e);
     var berserk = warFlag_(sv, 'noProbe');
     B.push({ t: 'stance', s: 'strike', label: '正面', sub: '正面交鋒', sealSub: '令咒：必中・傷害 ×1.5' });
-    B.push({ t: 'stance', s: 'probe', label: '試探', sub: berserk ? '狂化中無法使用' : (e.intel >= 2 ? '雙方傷害減半' : '雙方傷害減半・看穿真名'), dis: berserk });
+    B.push({ t: 'stance', s: 'probe', label: '試探', sub: berserk ? '狂化中無法使用' : (e.intel >= 2 || warFlag_(e, 'veil') ? '雙方傷害減半' : '雙方傷害減半・看穿真名'), dis: berserk });
     if (!sv.noNp) B.push({ t: 'stance', s: 'np', label: '寶具「' + sv.npName + '」', sub: sv.cd > 0 ? '冷卻中・還要 ' + sv.cd + ' 夜' : (st.exposed ? '最大威力' : '最大威力・會暴露真名'), sealSub: sv.cd > 0 ? '令咒：無視冷卻・對轟佔優・御主 −' + WAR_.SEAL_NP_COST : '令咒：對轟佔優', dis: sv.cd > 0, sealOk: true });
     if (st.battle.ctx !== 'final') B.push({ t: 'stance', s: 'retreat', label: '撤退', sub: '成功率：' + warChanceWord_(warRetreatChance_(sv, e, false)), sealSub: '令咒：必定撤離' });
   }
@@ -316,6 +319,7 @@ function warAllowed_(st, act) {
   if (!hit) return '目前無法執行。';
   if (act.seal && (st.phase !== 'battle' || st.master.seals <= 0)) return '令咒已用盡。';
   if (act.seal && !hit.sealSub) return '這個行動無法使用令咒。';
+  if (act.seal && act.s === 'np' && st.sv.cd > 0 && st.master.hp <= WAR_.SEAL_NP_COST) return '御主剩下的魔力不夠硬放寶具了。';
   if (hit.dis && !(act.seal && hit.sealOk)) return hit.sub || '現在不能這麼做。';
   return '';
 }
@@ -353,7 +357,7 @@ function warDoSummon_(st, act, ev, o) {
 // 早報裡的原作事件（WAR_CANON_EVENTS_）：涉及的從者都還是活著、登場了的敵人才發生；效果只動情報與據點。
 function warCanonEvents_(st, ev) {
   var list = typeof WAR_CANON_EVENTS_ !== 'undefined' ? WAR_CANON_EVENTS_ : [];
-  var byHero = function (h) { return st.enemies.filter(function (e) { return e.hero === h && e.alive && e.arrive <= st.day; })[0]; };
+  var byHero = function (h) { return st.enemies.filter(function (e) { return e.hero === h && e.alive && !e.fake && e.arrive <= st.day; })[0]; };
   list.forEach(function (c) {
     if (c.war !== st.war || c.day !== st.day) return;
     if (!(c.need || []).every(function (h) { return !!byHero(h); })) return;
@@ -400,7 +404,8 @@ function warDoDay_(st, act, ev) {
     var had = sv.cd;
     sv.cd = Math.max(0, sv.cd - WAR_.SUPPLY_CD);
     var b = warHeal_(sv, WAR_.SUPPLY_HEAL + warAdd_(sv, 'restHeal'));
-    ev.push({ k: 'supply', txt: '為' + sv.name + '補魔。' + (had > 0 ? (sv.cd === 0 ? '寶具可以再次使用。' : '寶具冷卻縮短。') : '寶具已經就緒。'), num: (sv.cd === 0 ? '寶具就緒' : '寶具還要 ' + sv.cd + ' 夜') + (b ? '・從者 +' + b : '') });
+    if (sv.noNp) ev.push({ k: 'supply', txt: '為' + sv.name + '補魔。', num: b ? '從者 +' + b : '' });
+    else ev.push({ k: 'supply', txt: '為' + sv.name + '補魔。' + (had > 0 ? (sv.cd === 0 ? '寶具可以再次使用。' : '寶具冷卻縮短。') : '寶具已經就緒。'), num: (sv.cd === 0 ? '寶具就緒' : '寶具還要 ' + sv.cd + ' 夜') + (b ? '・從者 +' + b : '') });
   }
   st.phase = 'night';
 }
@@ -422,6 +427,7 @@ function warDoNight_(st, act, ev) {
     st.stats.finalFoes = warArrived_(st).length;
     ev.push({ k: 'final', txt: '最後一夜。聖杯在' + warFinal_(st).place + '降臨，' + warFinal_(st).arrive + '。' });
     warFinalMelee_(st, ev);
+    warArrived_(st).forEach(function (x) { x.cd = 0; });   // 混戰裡放掉的寶具，輪到你之前重新備好（聖杯降臨那一夜魔力充沛）
     if (warCheckEnd_(st, ev)) return;
     warStartBattle_(st, warFinalNext_(st), 'final', ev);
     return;
@@ -627,6 +633,7 @@ function warFinalMelee_(st, ev) {
   for (var i = left.length - 1; i > 0; i--) { var j = Math.floor(warRand_(st) * (i + 1)), tmp = left[i]; left[i] = left[j]; left[j] = tmp; }
   for (var k = 0; k + 1 < left.length; k += 2) {
     var a = left[k], b = left[k + 1];
+    warUnmask_(st, a, ev); warUnmask_(st, b, ev);   // 假死的那位在混戰裡露餡：這句要讓玩家看到
     var sink = [];
     warAutoBattle_(st, a, b, sink);
     sink.forEach(function (x) { if (x.k === 'bounty') ev.push(x); });   // 討伐令的目標死在混戰裡：照樣撤銷並告知
@@ -638,6 +645,8 @@ function warFinalMelee_(st, ev) {
 }
 
 function warEndBattle_(st, ev) {
+  var fe = st.battle && warFoe_(st, st.battle.e);
+  st.sv.broken = false; if (fe) fe.broken = false;   // 破戒只到這場戰鬥結束
   if (st.battle && st.battle.ctx === 'final') {
     var next = warFinalNext_(st);
     if (next) { ev.push({ k: 'final', txt: warFinal_(st).next + '：' + warFoeLabel_(next) + '。' }); warStartBattle_(st, next, 'final', ev); return; }
@@ -831,13 +840,13 @@ function warHurtWord_(u) {
   var r = u.hp / u.mhp;
   return r > 0.8 ? '受了輕傷' : r > 0.5 ? '負傷' : r > 0.25 ? '身負重傷' : '瀕臨極限';
 }
-function warChanceWord_(p) { return p >= 0.8 ? '很高' : p >= 0.55 ? '一半以上' : p >= 0.35 ? '不太高' : '很低'; }
+function warChanceWord_(p) { return p <= 0 ? '必定失敗' : p >= 0.8 ? '很高' : p >= 0.55 ? '一半以上' : p >= 0.35 ? '不太高' : '很低'; }
 
 function warCheckEnd_(st, ev) {
   if (st.phase === 'over') return true;
+  if (warAliveCount_(st) === 0) { warOver_(st, true, 'win', ev); return true; }   // 最後一擊同時把自己拚到倒下：仍算奪下聖杯
   if (st.sv.hp <= 0) { warOver_(st, false, 'servant', ev); return true; }
   if (st.master.hp <= 0) { warOver_(st, false, 'master', ev); return true; }
-  if (warAliveCount_(st) === 0) { warOver_(st, true, 'win', ev); return true; }
   return false;
 }
 function warStat_(st, k) { st.stats[k] = (st.stats[k] || 0) + 1; }

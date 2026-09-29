@@ -52,7 +52,7 @@ summon（開戰／重新召喚 1 次）
 | `WAR_DOJO_LOSS_`／`WAR_DOJO_GOOD_` | 結局講評（輸在哪、亮點） |
 | `WAR_FORGE_`／`WAR_FORGE_SKILLS_`／`FORGE_CLS_SKILLS_` | 工房點數、可選技能、職階技能 |
 
-改規則先跑 `node tools/war_sim.js` 量勝率（現況：聰明玩法 5th ~63%、4th ~66%，亂按 ~4%、只固守 ~10%；逐從者 38～89%）。
+改規則先跑 `node tools/war_sim.js` 量勝率（現況：聰明玩法 5th ~60%、4th ~59%，亂按 1～4%、只固守 ~10%；逐從者約 37～86%）。
 `smart` 策略會在決戰用令咒硬放寶具——模擬器的玩家要跟真人一樣會用令咒，量出來的數字才算數。每場戰爭各自的節奏在 `WAR_PACE_`（敵人互打的機率）。
 
 ## 5. 路由（`ActionRouter`）
