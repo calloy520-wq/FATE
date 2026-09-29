@@ -413,7 +413,7 @@ function warCanonEvents_(st, ev) {
   var list = typeof WAR_CANON_EVENTS_ !== 'undefined' ? WAR_CANON_EVENTS_ : [];
   var stepped = false;
   list.forEach(function (c) {
-    if (c.war !== st.war || (c.route && c.route !== st.route)) return;
+    if (c.war !== st.war || (c.route && c.route !== st.route) || (c.sv && c.sv !== st.sv.hero)) return;   // sv＝你的從者是這一位才演
     // day＝到了那天；fallen＝倒下的從者累積到幾位（只發一次，記在 st.done；一個早上最多往前一段）
     var fallen = st.enemies.filter(function (e) { return !e.alive; }).length;
     if (c.fallen ? (stepped || fallen < c.fallen || (st.done || []).indexOf(c.id) >= 0) : c.day !== st.day) return;

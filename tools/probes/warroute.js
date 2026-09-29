@@ -21,6 +21,9 @@ console.log('── 抽線');
 { const hint=r=>{ const st=mk('5th',r,3); return toDay(st,5).map(x=>x.txt).join('\n'); };
   const f=hint('fate'), u=hint('ubw'), h=hint('hf');
   t(/望著月亮/.test(f)&&!/望著月亮/.test(u+h)&&/吵了一架/.test(u)&&!/吵了一架/.test(f+h)&&/黑色污漬/.test(h)&&!/黑色污漬/.test(f+u),'每條線各有一句自己的伏筆（別條線不會出現）'); }
+{ const egg=(war,hero)=>{ const o=c.warSetup_(war); o.name='測'; o.sex='男'; o.war=war; o.seed=4; o.route='fate'; o.pool=E("warSetup_('chaos').pool").filter(s=>s.id===hero); const st=c.warNewGame_(o); c.warAct_(st,{t:'start'}); return toDay(st,7).map(x=>x.txt).join('\n'); };
+  const a=egg('4th','EMIYA-Archer'), b=egg('4th','恩奇都-Lancer'), d=egg('5th','伊斯坎達爾-Rider');
+  t(/紅褐頭髮的小男孩/.test(a)&&!/小男孩/.test(b)&&/叼著雪茄/.test(d),'你的從者的原作彩蛋：第四次的 EMIYA 看見小時候的自己、第五次的征服王被十年後的韋伯認出（別人不會觸發）'); }
 console.log('── 不外洩：遊戲中看不到路線');
 { const st=mk('5th','hf'); const v=JSON.stringify(c.warView_(st));
   t(!/Heaven|hf|route/.test(v),'畫面資料沒有路線');
