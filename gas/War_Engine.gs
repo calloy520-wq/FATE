@@ -10,7 +10,7 @@ var WAR_ = {
   FINAL_REST: 1,         // 最後一夜前剩下的人都養好了傷（1＝回滿）
   NP_COOLDOWN: 4,        // 放完寶具，御主的魔力要幾個早晨才回得來
   SUPPLY_CD: 2,          // 補魔一次讓魔力早回來幾夜
-  STAT_SPREAD: 0.6,      // 階級差距打幾折：原作強弱還在，但抽到誰不至於開局就定勝負
+  STAT_SPREAD: 0.5,      // 階級差距打幾折：原作強弱還在，但抽到誰不至於開局就定勝負
   NP_FLOOR: 3,           // 寶具欄寫「-」但真的有招（小次郎的燕返）就當 C 級
   HP_BASE: 140, HP_PER_DEF: 20,
   HIT_BASE: 0.65, HIT_PER_SPD: 0.06, HIT_MIN: 0.35, HIT_MAX: 0.92,
@@ -28,12 +28,12 @@ var WAR_ = {
   FIND_BASE: 0.10, FIND_OUT: 0.12, FIND_EXPOSED: 0.20, FIND_SCOUT: 0.05,
   HUNT: 0.7, HUNT_EXPOSED: 0.15, HUNT_WOUNDED: 0.15,
   HUNT_LATE: 0.06, FIND_LATE: 0.03,   // 每倒下一位從者，剩下的人更急著找出彼此（原作：人越少越只能再戰）
-  BRAWL: 0.95,
   PATROL_MEET: 0.65,
   SCOUT_DEEP: 0.35,      // 打聽時順便看穿一位真名的機率
   NEWS_REVEAL: 0.5,      // 早報裡交手的兩方，各有幾成機會被你記下職階與位置
   BOUNTY_DAY: 3,         // 教會在第幾天早上發出討伐令
-  SORTIE_SHOW: 3         // 夜晚直接列出幾個出擊目標，其餘收進「其他目標」
+  SORTIE_SHOW: 3,        // 夜晚直接列出幾個出擊目標，其餘收進「其他目標」
+  SEAL_NP_COST: 30       // 寶具還在冷卻、用令咒硬放：御主拿自己的魔力去填，御主扣這麼多（原作士郎硬撐寶具差點送命）
 };
 
 // 教會討伐令（原作：第四次綺禮為連續孩童失蹤案懸賞 Caster；第五次 Caster 在城裡吸取居民的精氣）。打倒目標的人多得一劃令咒。
@@ -48,6 +48,11 @@ var WAR_FINAL_ = {
   '4th': { place: '冬木市民會館', arrive: '剩下的從者陸續來到會館', next: '大廳裡又來了一位從者' }
 };
 function warFinal_(st) { return WAR_FINAL_[st && st.war] || WAR_FINAL_['5th']; }
+
+// 每場戰爭各自的節奏。brawl＝敵人夜裡撞見彼此時動手的機率（乘上個性的出手慾）：
+//   第四次只剩六組對手，互打太兇就只剩收尾給你；第五次八組，互相消耗是撐起中盤的東西。模擬器量過（CODE_NOTES『WAR_』）。
+var WAR_PACE_ = { '5th': { brawl: 0.85 }, '4th': { brawl: 0.45 } };
+function warPace_(st) { return WAR_PACE_[st && st.war] || WAR_PACE_['5th']; }
 
 // 職階：敵人的個性（aggr 越高越愛出手）。技能不看職階，看每位從者自己的技能（WAR_SKILL_）。
 var WAR_CLASS_ = {
@@ -297,7 +302,7 @@ function warButtons_(st) {
     var berserk = warFlag_(sv, 'noProbe');
     B.push({ t: 'stance', s: 'strike', label: '正面', sub: '正面交鋒', sealSub: '令咒：必中・傷害 ×1.5' });
     B.push({ t: 'stance', s: 'probe', label: '試探', sub: berserk ? '狂化中無法使用' : (e.intel >= 2 ? '雙方傷害減半' : '雙方傷害減半・看穿真名'), dis: berserk });
-    B.push({ t: 'stance', s: 'np', label: '寶具「' + sv.npName + '」', sub: sv.cd > 0 ? '冷卻中・還要 ' + sv.cd + ' 夜' : (st.exposed ? '最大威力' : '最大威力・會暴露真名'), sealSub: '令咒：無視冷卻・對轟佔優', dis: sv.cd > 0, sealOk: true });
+    B.push({ t: 'stance', s: 'np', label: '寶具「' + sv.npName + '」', sub: sv.cd > 0 ? '冷卻中・還要 ' + sv.cd + ' 夜' : (st.exposed ? '最大威力' : '最大威力・會暴露真名'), sealSub: sv.cd > 0 ? '令咒：無視冷卻・對轟佔優・御主 −' + WAR_.SEAL_NP_COST : '令咒：對轟佔優', dis: sv.cd > 0, sealOk: true });
     if (st.battle.ctx !== 'final') B.push({ t: 'stance', s: 'retreat', label: '撤退', sub: '成功率：' + warChanceWord_(warRetreatChance_(sv, e, false)), sealSub: '令咒：必定撤離' });
   }
   return B;
@@ -396,6 +401,8 @@ function warDoNight_(st, act, ev) {
     warArrived_(st).forEach(function (x) { x.intel = Math.max(x.intel, 1); warHeal_(x, WAR_.FINAL_REST); x.cd = 0; });
     st.stats.finalFoes = warArrived_(st).length;
     ev.push({ k: 'final', txt: '最後一夜。聖杯在' + warFinal_(st).place + '降臨，' + warFinal_(st).arrive + '。' });
+    warFinalMelee_(st, ev);
+    if (warCheckEnd_(st, ev)) return;
     warStartBattle_(st, warFinalNext_(st), 'final', ev);
     return;
   }
@@ -453,7 +460,7 @@ function warTick_(st, ev) {
       warStartBattle_(st, e, 'defend', ev);
       return true;
     }
-    if (warRand_(st) < aggr * WAR_.BRAWL) {
+    if (warRand_(st) < aggr * warPace_(st).brawl) {
       var foes = warArrived_(st).filter(function (o) { return o.id !== e.id && st.engaged.indexOf(o.id) < 0; });
       var o = warPick_(st, foes);
       if (o) { st.engaged.push(e.id, o.id); warAutoBattle_(st, e, o, ev); continue; }
@@ -559,12 +566,17 @@ function warDoRound_(st, act, ev) {
   var ev0 = ev.length;
   var A = { u: sv, act: act.s, seal: !!act.seal, side: 'me', knows: e.intel >= 2, home: b.ctx === 'defend', ambush: b.round === 1 && !!b.ambush };
   var Z = { u: e, act: b.intent, seal: false, side: 'foe', knows: st.exposed, home: false, lair: b.ctx === 'sortie', ambush: b.round === 1 && !!b.foeAmbush };
+  var forced = act.s === 'np' && !!act.seal && sv.cd > 0;
   var r = warExchange_(st, A, Z, ev);
   // 之後的結算只認「真的發生了的事」：對方先撤走了，你的寶具沒放出去、令咒也沒燒掉、試探也沒看到什麼。
   var myRetreat = r.ended === 'retreat' && r.who === 'me';
   if (act.seal && (A.struck || (act.s === 'retreat' && myRetreat))) {
     st.master.seals--; st.stats.seals++;
     ev.splice(ev0, 0, { k: 'seal', txt: '令咒發動。' });
+    if (forced && A.fired) {
+      st.master.hp = Math.max(0, st.master.hp - WAR_.SEAL_NP_COST);
+      ev.push({ k: 'master', txt: '強行解放寶具，御主的魔力被整個抽乾。', num: '御主 −' + WAR_.SEAL_NP_COST });
+    }
   }
   if (b.tele === 'np' && Z.act === 'np') {
     if ((act.s === 'probe' && Z.fired) || myRetreat) warStat_(st, 'dodged');
@@ -584,6 +596,23 @@ function warDoRound_(st, act, ev) {
     ev.push({ k: 'dawn', txt: '天亮了，雙方各自撤退。' }); warEndBattle_(st, ev); return;
   }
   warSetIntent_(st, e);
+}
+
+// 決戰地的混戰（原作：聖杯降臨的那一夜，剩下的從者彼此廝殺）：兩兩交手一輪，活下來的帶著傷輪到你。
+function warFinalMelee_(st, ev) {
+  var left = warArrived_(st);
+  if (left.length < 2) return;
+  for (var i = left.length - 1; i > 0; i--) { var j = Math.floor(warRand_(st) * (i + 1)), tmp = left[i]; left[i] = left[j]; left[j] = tmp; }
+  for (var k = 0; k + 1 < left.length; k += 2) {
+    var a = left[k], b = left[k + 1];
+    var sink = [];
+    warAutoBattle_(st, a, b, sink);
+    sink.forEach(function (x) { if (x.k === 'bounty') ev.push(x); });   // 討伐令的目標死在混戰裡：照樣撤銷並告知
+    a.intel = Math.max(a.intel, 1); b.intel = Math.max(b.intel, 1);
+    var dead = !a.alive ? a : (!b.alive ? b : null);
+    ev.push({ k: 'final', txt: warFoeLabel_(a) + '與' + warFoeLabel_(b) + '在' + warFinal_(st).place + '交手，' +
+      (dead ? warFoeLabel_(dead) + '倒下了。' : '兩敗俱傷。') });
+  }
 }
 
 function warEndBattle_(st, ev) {
@@ -864,7 +893,7 @@ function warDebrief_(st) {
 
 // 畫面上的說明（開局表單、怎麼玩）要引用的規則數字：只從 WAR_ 拿，前端不另寫一份。
 function warRules_(st) {
-  var r = { nights: WAR_.NIGHTS, seals: WAR_.SEALS, rounds: WAR_.ROUNDS, npCd: WAR_.NP_COOLDOWN, supplyCd: WAR_.SUPPLY_CD };
+  var r = { nights: WAR_.NIGHTS, seals: WAR_.SEALS, rounds: WAR_.ROUNDS, npCd: WAR_.NP_COOLDOWN, supplyCd: WAR_.SUPPLY_CD, sealNpCost: WAR_.SEAL_NP_COST };
   if (st) r.finalPlace = warFinal_(st).place;
   return r;
 }

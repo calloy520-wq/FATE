@@ -114,7 +114,7 @@ mcp__github__actions_get          method=get_workflow_run resource_id=<run_id>
 
 ---
 
-## §4 全 30 action → handler → 檔
+## §4 全 31 action → handler → 檔
 
 | action | handler | 檔 | | action | handler | 檔 |
 |---|---|---|---|---|---|---|
@@ -133,6 +133,7 @@ mcp__github__actions_get          method=get_workflow_run resource_id=<run_id>
 | kanshou_set_name | actionKanshouSetName | Gallery | | war_dojo | actionWarDojo | War_Router |
 | get_full_status | actionGetFullStatus | Router_Action | | war_forge_list | actionWarForgeList | War_Forge |
 | update_fate | actionUpdateFate | Router_Action | | war_forge_save | actionWarForgeSave | War_Forge |
+| | | | | war_forge_ai | actionWarForgeAi | War_Forge |
 
 ---
 

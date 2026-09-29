@@ -99,6 +99,7 @@ USER prompt 骨架（2026-09 現況·**變數名即錨點**，以 `Gallery.gs` �
 | Action | Handler（檔） | AI |
 |---|---|---|
 | `war_forge_save` | `actionWarForgeSave`（War_Forge.gs） | **是**（只在外貌／性格有變時）：`translateLookToDaily_`＋`translatePersonalityToDaily_` 翻出鑑賞的日常三格，失敗留空不擋 |
+| `war_forge_ai` | `actionWarForgeAi`（War_Forge.gs） | **是**：系統提示 `warForgeAiSys_(og)`（出處的角色框定＋技能命名規則、六圍計點與上限、可挑效果清單、JSON 格式），本段 `warForgeAiPrompt_`＝玩家的一句描述（＋指定職階）。回覆經 `warForgeDraft_` 收斂後只填表單 |
 | `backfill_kanshou_ai` | `actionBackfillKanshouAi`（Gallery.gs） | **是**：進後日談首次建檔後在背景補御主的敘事欄（結構化 JSON） |
 
 不叫 AI 的：`account_login`、`get_full_status`、`update_fate`、`update_rel_tag`、`kanshou_set_nickname`、`get_heroes`、`get_tags`、`outfit`、`sync`、`war_load`、`war_new`、`war_act`、`war_quit`、`war_forge_list`，以及鑑賞面板的 `kanshou_*`／`world`（純讀寫表）。

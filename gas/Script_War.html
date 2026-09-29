@@ -13,6 +13,7 @@
   let warForm_ = { sex: '男', war: '5th', hero: '', name: '', wish: '' };   // 再來一局時名字與願望還在
   let warForgeData_ = null;   // war_forge_list 的結果（原作名單、我的原創、可挑技能、規則）
   let warFe_ = null;          // 工房編輯中的那一位
+  let warFa_ = { origin: 'original', cls: '', desc: '' };   // ✨ AI 幫我做：出處、職階（空＝交給 AI）、描述
   let warForgeFromMenu_ = false;
   let warBarPrev_ = {};       // 每條血條上一次畫到哪：下一次從那裡滑到新值，掉血的那條閃一下
   let warFoeOpen_ = '';       // 名單上點開看情報的那一位
@@ -116,7 +117,7 @@
     const r = warRuleInfo_ || {};
     const n = r.nights ? r.nights + ' 夜' : '期限', last = r.nights ? '第 ' + r.nights + ' 夜' : '最後一夜';
     return `<h3 class="war-title" style="font-size:17px;margin-top:4px;">規則</h3>
-      <p>🎯 <b>勝利條件</b>：${n}內擊敗所有敵方從者。${last}在${r.finalPlace ? r.finalPlace : '聖杯降臨之地'}決戰，無法撤退。從者或御主倒下即敗北。</p>
+      <p>🎯 <b>勝利條件</b>：${n}內擊敗所有敵方從者。${last}在${r.finalPlace ? r.finalPlace : '聖杯降臨之地'}決戰：剩下的從者先彼此廝殺，活下來的輪到你，無法撤退。從者或御主倒下即敗北。</p>
       <p>☀ <b>白天</b>（擇一）：打聽・休養・補魔</p>
       <p>🌙 <b>夜晚</b>（擇一）：突襲已知的敵人・巡邏・固守</p>
       <p>⚔ <b>戰鬥</b>（每回合擇一${r.rounds ? '，最多 ' + r.rounds + ' 回合' : ''}）<br>
@@ -125,7 +126,7 @@
         寶具：最大威力。使用後冷卻${r.npCd ? ' ' + r.npCd + ' 夜' : ''}，並暴露己方真名<br>
         撤退：脫離戰鬥</p>
       <p>◆ <b>真名</b>：看穿敵方真名，傷害提高；己方真名曝光，受到的傷害也會提高。</p>
-      <p>❖ <b>令咒${r.seals ? '（' + r.seals + ' 劃）' : ''}</b>：戰鬥中先按「令咒」再選行動。正面必中／無視冷卻解放寶具／必定撤退。</p>
+      <p>❖ <b>令咒${r.seals ? '（' + r.seals + ' 劃）' : ''}</b>：戰鬥中先按「令咒」再選行動。正面必中／無視冷卻解放寶具${r.sealNpCost ? '（寶具還在冷卻時，御主要用自己的魔力去填，御主 −' + r.sealNpCost + '）' : ''}／必定撤退。</p>
       <p>🎯 <b>討伐令</b>：教會有時會指定一位從者，打倒這位從者可得一劃令咒。</p>
       <p class="war-dim">點擊敵方名單可查看情報。</p>`;
   }
@@ -202,19 +203,56 @@
       <p class="war-dim">點數上限 ${d.rule.budget}・技能最多 ${d.rule.maxSkills} 個</p>
       <div class="war-btns" style="max-height:none;">${mine || '<p class="war-dim">尚無原創從者。</p>'}
         <button class="war-btn war-main" onclick="warForgeEdit('')"><b>新增從者</b><small>真名、職階、六圍、寶具、技能</small></button>
+        <button class="war-btn" onclick="warForgeAiForm_()"><b>✨ AI 幫我做</b><small>選出處、寫一句描述，AI 先填好表單</small></button>
         <button class="war-btn war-ghost" onclick="warForgeBack()"><b>返回</b></button>
       </div></div>`;
   }
 
   function warForgeEdit(id) {
     const d = warForgeData_, h = id ? d.mine.find(x => x.id === id) : null;
-    warFe_ = h ? { id: h.id, name: h.name, cls: h.cls, sex: h.sex || '男', six: Object.assign({}, h.six), np: h.np, fx: h.fx.slice(), look: h.look, words: h.words, lost: (h.lost || []).slice() }
-      : { id: '', name: '', cls: 'Saber', sex: '男', six: {}, np: '', fx: [], look: '', words: '', lost: [] };
+    warFe_ = h ? { id: h.id, name: h.name, cls: h.cls, sex: h.sex || '男', six: Object.assign({}, h.six), np: h.np, fx: h.fx.slice(), names: Object.assign({}, h.names || {}), look: h.look, words: h.words, lost: (h.lost || []).slice() }
+      : { id: '', name: '', cls: 'Saber', sex: '男', six: {}, np: '', fx: [], names: {}, look: '', words: '', lost: [] };
     d.rule.six.forEach(k => { if (d.rule.ranks.indexOf(warFe_.six[k]) < 0) warFe_.six[k] = 'C'; });
     warForgeRender_();
   }
   function warFeSync_() {
     ['name', 'np', 'look', 'words'].forEach(k => { const el = warEl_('fe-' + k); if (el && !el.disabled) warFe_[k] = el.value; });
+    warFe_.names = warFe_.names || {};
+    warFe_.fx.forEach(fx => { const el = warEl_('fe-sn-' + fx); if (el) warFe_.names[fx] = el.value; });
+  }
+
+  // ✨ AI 幫我做：出處決定技能怎麼命名（Fate 用 Fate 的技能名、別的作品用那部作品的招式、原創自取），草稿只填表、不存檔。
+  function warForgeAiForm_() {
+    const d = warForgeData_, r = d.rule, a = warFa_;
+    const pill = (k, v, label, on) => `<button class="war-pill${on ? ' on' : ''}" onclick="warFaSet('${k}','${v}')">${label}</button>`;
+    warEl_('scr-war').innerHTML = `<div class="war-wrap">
+      <h2 class="war-title" style="font-size:18px;">✨ AI 幫我做</h2>
+      <div class="war-small war-dim">出處</div>
+      <div class="war-row">${(d.origins || []).map(o => pill('origin', o.key, escapeHtml(o.label), a.origin === o.key)).join('')}</div>
+      <div class="war-small war-dim">職階</div>
+      <div class="war-row">${pill('cls', '', 'AI 決定', !a.cls)}${r.classes.map(c => pill('cls', c, c, a.cls === c)).join('')}</div>
+      <textarea id="fa-desc" class="std-in" maxlength="${r.descMax}" rows="3" placeholder="一句描述：是誰、擅長什麼、長什麼樣子" style="width:100%;box-sizing:border-box;margin:8px 0;">${escapeHtml(a.desc)}</textarea>
+      <div class="war-small war-dim">六圍會照工房的點數上限（${r.budget} 點）收好；做出來先填進表單，你看過、改好再存。</div>
+      <button class="war-btn war-main" onclick="warForgeAi()"><b>產生草稿</b></button>
+      <button class="war-btn war-ghost" onclick="warForgeList_()"><b>取消</b></button>
+    </div>`;
+  }
+  function warFaSet(k, v) {
+    const el = warEl_('fa-desc'); if (el) warFa_.desc = el.value;
+    warFa_[k] = v;
+    warForgeAiForm_();
+  }
+  async function warForgeAi() {
+    const el = warEl_('fa-desc'); if (el) warFa_.desc = el.value;
+    if (!warFa_.desc.trim()) { alert('請寫一句描述。'); return; }
+    try {
+      const res = await withProcessing_('AI 正在構思這位英靈…', () => gasRun({ action: 'war_forge_ai', acctName: currentAccount, origin: warFa_.origin, cls: warFa_.cls, desc: warFa_.desc }));
+      if (!res || !res.success || !res.hero) { alert((res && res.message) || '這次沒有做出來，請再試一次。'); return; }
+      const h = res.hero, r = warForgeData_.rule;
+      warFe_ = { id: '', name: h.name || '', cls: h.cls || 'Saber', sex: h.sex || '男', six: Object.assign({}, h.six || {}), np: h.np || '', fx: (h.fx || []).slice(0, r.maxSkills), names: Object.assign({}, h.names || {}), look: h.look || '', words: h.words || '', lost: [], draft: true };
+      r.six.forEach(k => { if (r.ranks.indexOf(warFe_.six[k]) < 0) warFe_.six[k] = 'C'; });
+      warForgeRender_();
+    } catch (e) { alert('連線失敗，請稍後再試。'); }
   }
   function warFeSet(k, v) {
     warFeSync_();
@@ -240,8 +278,11 @@
     const sixRows = r.six.map(k => `<div class="war-row war-six"><span class="war-sixk">${k}</span>${r.ranks.map(x => pill('six:' + k, x, x, f.six[k] === x)).join('')}</div>`).join('');
     const skills = d.skills.map(s => `<button class="war-pill war-skill${f.fx.indexOf(s.fx) >= 0 ? ' on' : ''}" onclick="warFeSet('fx','${s.fx}')"><b>${escapeHtml(s.name)}</b><small>${escapeHtml(s.txt)}</small></button>`).join('');
     const over = used > r.budget;
+    const repName = {}; d.skills.forEach(s => { repName[s.fx] = s.name; });
+    const named = f.fx.map(fx => `<div class="war-row war-skname"><span class="war-small war-dim">${escapeHtml(repName[fx] || fx)}的效果・叫做</span><input id="fe-sn-${fx}" class="std-in" maxlength="${r.skillNameMax}" placeholder="${escapeHtml(repName[fx] || '')}" value="${escapeHtml((f.names || {})[fx] || repName[fx] || '')}"></div>`).join('');
     warEl_('scr-war').innerHTML = `<div class="war-wrap">
       <h2 class="war-title" style="font-size:18px;">${lock ? '修改從者' : '新增從者'}</h2>
+      ${f.draft ? '<div class="war-small war-gold">✨ AI 草稿：看過、改好再存。</div>' : ''}
       <input id="fe-name" class="std-in" maxlength="12" placeholder="真名（需含中文字）" value="${escapeHtml(f.name)}" ${lock ? 'disabled' : ''} style="width:100%;box-sizing:border-box;margin:6px 0;">
       <div class="war-row">${r.classes.map(c => pill('cls', c, c, f.cls === c, lock)).join('')}</div>
       <div class="war-row">${pill('sex', '男', '男', f.sex === '男')}${pill('sex', '女', '女', f.sex === '女')}</div>
@@ -252,6 +293,7 @@
       <input id="fe-np" class="std-in" maxlength="16" placeholder="寶具名稱（等級＝六圍的寶具）" value="${escapeHtml(f.np)}" style="width:100%;box-sizing:border-box;margin:8px 0 4px;">
       <div class="war-row between"><b>技能</b><span>${f.fx.length}／${r.maxSkills}</span></div>
       <div class="war-skills">${skills}</div>
+      ${named ? `<div class="war-small war-dim" style="margin-top:6px;">技能名（照出處取：Fate 用 Fate 的名字、別的作品用原作招式、原創自取）</div>${named}` : ''}
       ${(f.lost || []).length ? `<div class="war-small war-dim">「${escapeHtml(f.lost.join('、'))}」沒有對應的效果，儲存後會移除。</div>` : ''}
       <input id="fe-look" class="std-in" maxlength="40" placeholder="外貌（一句）" value="${escapeHtml(f.look)}" style="width:100%;box-sizing:border-box;margin:8px 0 4px;">
       <input id="fe-words" class="std-in" maxlength="40" placeholder="性格（一句）" value="${escapeHtml(f.words)}" style="width:100%;box-sizing:border-box;margin:0 0 8px;">
@@ -265,7 +307,7 @@
     const f = warFe_;
     try {
       const res = await withProcessing_('儲存中…', () => gasRun({ action: 'war_forge_save', acctName: currentAccount, id: f.id,
-        hero: { name: f.name, cls: f.cls, sex: f.sex, six: f.six, np: f.np, fx: f.fx, look: f.look, words: f.words } }));
+        hero: { name: f.name, cls: f.cls, sex: f.sex, six: f.six, np: f.np, fx: f.fx, names: f.names || {}, look: f.look, words: f.words } }));
       if (!res || !res.success) { alert((res && res.message) || '儲存失敗。'); return; }
       warForgeData_ = null;
       try { if (typeof invalidateKanshouHeroCache === 'function') invalidateKanshouHeroCache(); } catch (e) { }   // 鑑賞同伴面板重抓

@@ -1,15 +1,21 @@
 // 新聖杯戰爭平衡模擬：載入真的 War_Engine.gs＋種子，用幾種策略各打 N 局。
 // 用法：N=2000 WAR=5th|4th HERO=種子id POL=random,turtle,npspam,smart DEATHS=1 DOJO=1 node tools/war_sim.js
 //      TUNE="WAR_.HOME=0.7" 可以不改檔先試一個數字。
+//      CUSTOM='{"筋力":"A",…}' CLS=Saber CSK=first_strike,survive 模擬一位工房做的從者（職階技能照工房自動附上）。
+//      也可以 require：const S=require('./war_sim.js'); S.rate({pol:'smart',n:300,hero:S.custom(six,cls,fx)})
 const fs=require('fs'), vm=require('vm');
 const GAS=process.env.GAS_DIR||require('path').join(__dirname,'..','gas');
 const ctx={console}; vm.createContext(ctx);
-for (const f of ['Seed_Codex.gs','Seed_Rivals.gs','War_Engine.gs']) vm.runInContext(fs.readFileSync(GAS+'/'+f,'utf8'),ctx,{filename:f});
+const ctxStubs={PropertiesService:{getScriptProperties:()=>({getProperty:()=>''})},SpreadsheetApp:{},CacheService:{}}; Object.assign(ctx,ctxStubs);
+for (const f of ['Core_Settings.gs','Seed_Codex.gs','Seed_Rivals.gs','War_Engine.gs','War_Forge.gs']) vm.runInContext(fs.readFileSync(GAS+'/'+f,'utf8'),ctx,{filename:f});
 const E=(c)=>vm.runInContext(c,ctx);
 if (process.env.TUNE) vm.runInContext(process.env.TUNE, ctx);
 const pool=E('SEED_SERVANTS').filter(s=>s.cls!=='御主');
 const seeds={}; E('SEED_SERVANTS').forEach(s=>seeds[s.id]=s);
-if (process.env.CUSTOM) { const six=JSON.parse(process.env.CUSTOM); const c={id:'自製-'+(process.env.CLS||'Saber'),cls:process.env.CLS||'Saber',realName:'自製',six,np:'自製之技（'+six['寶具']+'）',classSkills:[],skills:(process.env.CSK||'').split(',').filter(Boolean).map(f=>({n:f,r:'B',fx:f}))}; pool.push(c); seeds[c.id]=c; }
+// 工房做的從者：跟 actionWarForgeSave 寫進英靈殿的形狀一樣（職階技能自動附上）。
+function custom(six,cls,fx){ cls=cls||'Saber'; const id='自製-'+cls+'-'+JSON.stringify(six)+'-'+(fx||[]).join('+'); if(seeds[id]) return id;
+  const c={id,cls,realName:'自製',six,np:'自製之技（'+six['寶具']+'）',classSkills:E('FORGE_CLS_SKILLS_')[cls]||[],skills:(fx||[]).map(f=>({n:f,r:'B',fx:f}))}; pool.push(c); seeds[id]=c; return id; }
+let CUSTOM_ID=''; if (process.env.CUSTOM) CUSTOM_ID=custom(JSON.parse(process.env.CUSTOM),process.env.CLS,(process.env.CSK||'').split(',').filter(Boolean));
 const masterNames={}; E('SEED_MASTERS').forEach(m=>masterNames[m.id]=m.name);
 const WAR=process.env.WAR||'5th';
 const roster=E(WAR==='4th'?'FATE_4TH_ROSTER':'FATE_5TH_ROSTER');
@@ -63,6 +69,8 @@ const P={
       return find(st,'hold');
     }
     const e=ctx.warFoe_(st,st.battle.e), eh=e.hp/e.mhp;
+    // 決戰：令咒留著沒用＝白費，寶具冷卻中就用令咒硬放
+    if(st.battle.ctx==='final'){ const npb=ctx.warButtons_(st).find(b=>b.s==='np'); if(sv.cd===0) return npb; if(st.master.seals>0&&st.master.hp>(ctx.WAR_.SEAL_NP_COST||0)+10) return Object.assign({},npb,{useSeal:true}); }
     if(hp<0.3&&find(st,'stance','retreat')){ const r=find(st,'stance','retreat'); const p=ctx.warRetreatChance_(sv,e,false); return (st.master.seals>1&&p<0.7)?Object.assign({},r,{useSeal:true}):r; }
     if(st.battle.tele==='np'){ if(sv.cd===0) return find(st,'stance','np'); return find(st,'stance','probe')||find(st,'stance','retreat'); }
     if(e.intel<2&&st.battle.round===1&&find(st,'stance','probe')) return find(st,'stance','probe');
@@ -84,11 +92,16 @@ function play(pol,seed,hero){
   }
   return st;
 }
-const N=+process.env.N||2000, HERO=process.env.HERO||'';
+// 勝率：{pol, n, hero} → 0～1
+function rate(o){ let w=0; for(let i=0;i<o.n;i++){ if(play(o.pol||'smart',1000+i,o.hero).result.win) w++; } return w/o.n; }
+module.exports={ctx,E,custom,play,rate,pool:()=>pool.filter(s=>s.id.indexOf('自製-')!==0)};
+if (require.main===module) {
+const N=+process.env.N||2000, HERO=process.env.HERO||CUSTOM_ID||'';
 const pols=(process.env.POL||'random,turtle,npspam,smart').split(',');
 console.log('戰爭',WAR,'每策略',N,'局',HERO?('從者 '+HERO):'（從者隨機）');
 for(const pol of pols){
   DEATH={}; var DOJO={}; var BOUNTYSTAT={got:0,issued:0}; let win=0, day=0, np=0, bat=0, cause={}, decisions=0, left=0, kills=0;
   for(let i=0;i<N;i++){ const st=play(pol,1000+i,HERO); if(st.result.win) win++; day+=st.result.day; np+=st.stats.np; bat+=st.stats.battles; cause[st.result.cause]=(cause[st.result.cause]||0)+1; decisions+=st.seq; left+=ctx.warAliveCount_(st); kills+=st.stats.kills; if(st.stats.bounty) BOUNTYSTAT.got++; if(st.bounty&&st.bounty.id) BOUNTYSTAT.issued++; if(process.env.DOJO){ const d=ctx.warDebrief_(st); const k=d.win?'WIN:'+d.good.length:d.key; DOJO[k]=(DOJO[k]||0)+1; } }
   console.log(pol.padEnd(7),'勝率',(win/N*100).toFixed(1)+'%','平均結束日',(day/N).toFixed(1),'寶具',(np/N).toFixed(1),'戰鬥',(bat/N).toFixed(1),'決定數',(decisions/N).toFixed(0),'剩敵',(left/N).toFixed(1),'親手擊殺',(kills/N).toFixed(1),JSON.stringify(cause)); console.log('   討伐令 發出',BOUNTYSTAT.issued,'完成',BOUNTYSTAT.got); if(process.env.DOJO) console.log('   道場',JSON.stringify(DOJO)); if(process.env.DEATHS) console.log('   死因',JSON.stringify(Object.entries(DEATH).sort((a,b)=>b[1]-a[1]).slice(0,8)));
+}
 }

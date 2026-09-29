@@ -43,11 +43,13 @@ summon（開戰／重新召喚 1 次）
 | `WAR_CLASS_` | 職階差異 |
 | `WAR_TEMPER_` | 敵方個性（攻擊性／不撤退／偵查型） |
 | `WAR_SKILL_` | **技能 → 效果**（一行一個）。種子技能的 fx 名查這張；查不到＝逸話（畫面列「名（逸話）」，不影響戰鬥，例：金羊毛、黃金律）。hook 由 `warMul_`／`warAdd_`／`warFlag_` 讀；時機一覽在表上方註解。招牌照原作：十二試煉＝整場 11 條命（重擊連殺數次）、刺穿死棘之槍不怕試探、王之財寶不必真名就打弱點、天之鎖讓神性對手逃不掉。 |
-| `WAR_FINAL_`／`WAR_BOUNTY_` | 決戰地、討伐令 |
+| `WAR_FINAL_`／`WAR_BOUNTY_` | 決戰地、討伐令。決戰：剩兩位以上先在決戰地混戰一輪（`warFinalMelee_`），活下來的帶著傷輪到你 |
+| `WAR_PACE_` | 每場戰爭各自的節奏（`brawl`＝敵人撞見彼此時動手的機率） |
 | `WAR_DOJO_LOSS_`／`WAR_DOJO_GOOD_` | 結局講評（輸在哪、亮點） |
 | `WAR_FORGE_`／`WAR_FORGE_SKILLS_`／`FORGE_CLS_SKILLS_` | 工房點數、可選技能、職階技能 |
 
-改規則先跑 `node tools/war_sim.js` 量勝率（現況：5th 聰明玩法 ~47%、4th ~77%、亂按 ~5%）。
+改規則先跑 `node tools/war_sim.js` 量勝率（現況：聰明玩法 5th ~63%、4th ~66%，亂按 ~4%、只固守 ~10%；逐從者 38～89%）。
+`smart` 策略會在決戰用令咒硬放寶具——模擬器的玩家要跟真人一樣會用令咒，量出來的數字才算數。每場戰爭各自的節奏在 `WAR_PACE_`（敵人互打的機率）。
 
 ## 5. 路由（`ActionRouter`）
 
@@ -60,6 +62,7 @@ summon（開戰／重新召喚 1 次）
 | `war_quit` | `actionWarQuit` | 放棄這局 |
 | `war_dojo` | `actionWarDojo` | 🐯 老虎道場（AI 只演 `warDebrief_` 那一份） |
 | `war_forge_list`／`war_forge_save` | `actionWarForgeList`／`actionWarForgeSave` | 工房 |
+| `war_forge_ai` | `actionWarForgeAi` | ✨ 工房 AI 幫我做：選出處（Fate 角色／其他作品角色／原創）＋一句描述 → 草稿填進表單（技能名照出處取，六圍收進上限），不存檔 |
 
 ## 6. 說書
 

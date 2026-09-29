@@ -37,6 +37,7 @@ const ActionRouter = {
   "war_dojo": actionWarDojo,       // ⚔️🐯 終局後的老虎道場：演 warDebrief_ 算好的戰績與講評
   "war_forge_list": actionWarForgeList, // 🛠️ 英靈工房（War_Forge.gs）：我的原創＋可選技能＋規則
   "war_forge_save": actionWarForgeSave, // 🛠️ 新做／修改一位原創從者
+  "war_forge_ai": actionWarForgeAi, // ✨ 工房：照出處與描述請 AI 寫一份草稿（只填表，不存檔）
 };
 
 function sanitizeUserData_(userData) {
@@ -136,7 +137,7 @@ const OWNERSHIP_CHECK_EXEMPT_ = {
 };
 // 🔒 不取寫入鎖的動作：純讀取(不寫表·鎖了白繳成本) ＋ 長 AI 敘事(佔鎖數秒會卡住全域)。
 const LOCK_EXEMPT_ACTIONS_ = {
-  get_full_status: 1, get_heroes: 1, get_tags: 1, sync: 1, play: 1, backfill_kanshou_ai: 1, war_load: 1, war_narrate: 1, war_dojo: 1, war_forge_list: 1, war_forge_save: 1
+  get_full_status: 1, get_heroes: 1, get_tags: 1, sync: 1, play: 1, backfill_kanshou_ai: 1, war_load: 1, war_narrate: 1, war_dojo: 1, war_forge_list: 1, war_forge_save: 1, war_forge_ai: 1
 };
 // ⚡ 會改到角色狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
 const STATE_AFTER_ACTIONS = {

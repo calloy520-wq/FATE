@@ -61,6 +61,7 @@
 | `war_dojo` | `actionWarDojo` |
 | `war_forge_list` | `actionWarForgeList` |
 | `war_forge_save` | `actionWarForgeSave` |
+| `war_forge_ai` | `actionWarForgeAi` |
 
 ---
 
@@ -171,6 +172,7 @@
 
 - `WAR_BOUNTY_`／`warBountyStart_(st, ev)`／`warBountyEnd_(st, e, mine, ev)`／`warBountyOn_(st, e)` — 教會討伐令：第 `WAR_.BOUNTY_DAY` 天早上指定 Caster（原作的懸賞），公開位置；你親手打倒多一劃令咒，別人打倒就撤銷；目標不在場就整局不發。`st.bounty`＝`{id, open}`。
 - `WAR_FINAL_`／`warFinal_(st)` — 最後一夜在哪（第五次柳洞寺、第四次冬木市民會館）與進場、下一位上場的句子；按鈕、事件、講評都讀這裡。
+- `WAR_PACE_`／`warPace_(st)` — 每場戰爭各自的節奏：`brawl`＝敵人夜裡撞見彼此時動手的機率（乘個性的出手慾），`warTick_` 讀。
 - `warClass_(cls)`／`warFoe_(st, id)`／`warArrived_(st)`／`warKnownFoes_(st)`／`warAliveCount_(st)`／`warLocName_(loc)` — 查詢。
 - `WAR_TEMPER_`／`warTemper_(e)`／`warAggr_(e)` — 敵方從者的原作性格（鍵＝英靈殿 ID）蓋在職階個性上：小次郎守山門（不夜襲你、不撤退）、吉爾伽美什傲慢（出手慾低、不撤退）、庫丘林奉命偵察（先試探、打不贏就撤）、蘭斯洛特見到阿爾托莉雅就找上門、百貌哈桑找據點快兩倍；`meet` 是交手時的開場一句（不寫真名）。
 - `warSkRows_(u)`／`warSkOk_(row, hook, foe)` — 這個單位的技能列／這一列在這個時機對這個對手生不生效。
@@ -191,6 +193,7 @@
 - `warMorning_(st, ev)` — 先把昨夜沒人倒下的交手（`k:'draw'`）併成一句早報，再充能減一、天數加一、登場消息、時限保險。
 - `warStartBattle_(st, e, ctx, ev)` — 開打；`ctx`＝sortie／patrol／defend／final。氣息遮斷的出擊第一擊、陣地作成的魔術陣（雙向：你守家、或你闖進對方陣地）在這裡生效。
 - `warSetIntent_(st, e)`／`warIntent_(st, me, foe, round)` — 敵人這回合想做什麼（先決定、存起來；看得到預兆就能應對）。
+- `warFinalMelee_(st, ev)` — 決戰地的混戰：剩兩位以上的敵人先兩兩交手一輪（`warAutoBattle_`），活下來的帶著傷輪到你；討伐令目標死在混戰裡照樣撤銷。
 - `warEndBattle_(st, ev)` — 戰鬥結束；決戰接下一位。
 - `warExchange_(st, A, Z, ev)` — 一回合的交手（撤退→寶具對轟→奇襲方先手→寶具→快的先打），玩家對敵與敵對敵共用。
 - `warStrike_(st, X, Y, ev)`／`warApply_(st, Y, d)`／`warMasterHit_(st, n, ev)` — 出手、扣血、御主被餘波捲到。`warStrike_` 在出手方身上標 `struck`／放了寶具標 `fired`（對轟兩邊都標），`warDoRound_` 只認這兩個旗子：真的放出寶具才曝光真名、算寶具次數；真的看見對方寶具才認出真名；試探真的出了手才看穿；令咒真的用上（或撤退成功）才扣。守家倍率：自家據點 `home`＝HOME×陣地作成，被闖進自己的陣地 `lair`＝只乘陣地作成；帶氣息遮斷來夜襲的敵人一樣先手（`battle.foeAmbush`）。`warApply_` 本該倒下卻沒倒時回 `'life'`（十二試煉死而復生，餘勁會連殺數條命，`u.lastLost` 記這一擊用掉幾條）或 `'stand'`（lastStand 撐住）；呼叫端在自己那句之後補 `warStoodEv_(st, Y, ev, how)`（念出技能名）。寶具遇到對方試探會減半，帶 `npSure`（刺穿死棘之槍）的不減；正面攻擊的命中率加上 `hitUp`（燕返）。
@@ -205,7 +208,7 @@
 - `warFoeCard_(st, e)` — 一位對手在畫面上的情報：intel 1 給職階、位置、傷勢、勝算；intel 2 才加真名、御主、寶具（可不可以放）、技能。
 - `WAR_DOJO_LOSS_` — 「輸在哪」表：由上往下第一條成立的（御主倒下／決戰打到天亮／致命那一場硬吃寶具預兆／沒看穿真名／帶重傷出擊／決戰夜人太多／令咒沒用／真名早曝光／一般落敗），各帶一句事實＋下一局只改的那一件事。`WAR_DOJO_GOOD_` — 亮點表（成立的全列，最多三條）。
 - `warDebrief_(st)` — 賽後一整包 `{win, day, stats, good, key?, fact?, lesson?}`；畫面的終局卡與老虎道場讀同一份。`warRevealed_(st)`（看穿幾位）／`warFill_(t, o)`（`{名字}` 代換）。
-- `warRules_(st)` — 畫面說明要引用的規則數字（夜數、令咒、回合、寶具回魔、補魔），前端不另寫一份；給了 `st` 再加這場戰爭的決戰地點 `finalPlace`（`war_load` 沒開局時不給 `st`）。
+- `warRules_(st)` — 畫面說明要引用的規則數字（夜數、令咒、回合、寶具回魔、補魔、令咒硬放寶具的御主代價 `sealNpCost`），前端不另寫一份；給了 `st` 再加這場戰爭的決戰地點 `finalPlace`（`war_load` 沒開局時不給 `st`）。
 - `warView_(st)` — 畫面看得到的樣子：藏起玩家還不知道的真名／位置，附上 `buttons`、`result`、`rules`（`warRules_(st)`），終局再附 `debrief`（`warDebrief_`）。
 
 ### War_Router.gs（16 支函式）
@@ -221,16 +224,18 @@
 
 ### War_Forge.gs（12 支函式）
 
-- `WAR_FORGE_`（階級、算點的四組 `COST`、預算 18、技能上限 3、字數上限、六圍名、七職階）、`WAR_FORGE_SKILLS_`（能挑的技能：每個效果列一個代表名）。
+- `WAR_FORGE_`（階級、算點的四組 `COST`、預算 18、技能上限 3、字數上限、六圍名、七職階）、`WAR_FORGE_SKILLS_`（能挑的技能：每個效果列一個代表名，存檔時技能名可以自取）、`WAR_FORGE_ORIGINS_`（出處三種：Fate 角色／其他作品角色／原創，各帶 AI 的角色框定 `frame` 與技能命名規則 `skill`）。
 - `warHeroSheet_()`／`warIsOriginal_(row)`（SOURCE≠seed）／`warCreatorOf_(row)`（persona.creator）。
 - `warSixPts_(six)` — 點數：攻擊（筋力、魔力取高）＋耐久＋敏捷＋寶具（至少 `WAR_.NP_FLOOR`），每格價錢＝`warRank_`（E1…A5、EX7）；幸運不算。`warRankPts_()` — 每一階的價錢（給前端，前端 `warFePts_` 照同一條式子算）。
 - `warForgeRank_(r)` — 舊作的階級（A+、B-）→ 工房的六階取字頭。`warForgeFx_(f)` — 種子 fx → 工房清單上同一列的代表（心眼→直感、十二試煉→戰鬥續行），新規則沒有的回空。
 - `warSeedFromRow_(row)` — 英靈殿一列 → 引擎吃的種子形狀（跟 SEED_SERVANTS 一樣），新聖杯戰爭召喚原創時用。
 - `warOriginalsFor_(acct)` — 這個帳號叫得到的原創：自己做的＋無主的（舊工房留下的，改了就歸你）。
-- `actionWarForgeList(userData)` — 回原作名單、我的原創（六階已正規化、技能換成工房代表、`lost`＝新規則沒有效果的舊技能名）、可挑技能（名字＋效果說明）、各職階自動附的技能、規則（含 `pts`／`cost`／`npFloor`）。
-- `warForgeCheck_(b, editing)` — 驗表單：真名要有中文、不可撞原作名、職階（改既有的一位時這三項不驗，真名職階照表上那一列）、六圍各一階且點數 ≤ 預算、寶具名、技能 ≤3 且在表上；文字剝掉開頭的 `= + - @`（擋試算表公式）與反斜線。
+- `actionWarForgeList(userData)` — 回原作名單、我的原創（六階已正規化、技能換成工房代表、`names`＝自取的技能名、`lost`＝新規則沒有效果的舊技能名）、可挑技能（名字＋效果說明）、各職階自動附的技能、出處 `origins`、規則（含 `pts`／`cost`／`npFloor`／`skillNameMax`／`descMax`）。
+- `warForgeCheck_(b, editing)` — 驗表單：真名要有中文、不可撞原作名、職階（改既有的一位時這三項不驗，真名職階照表上那一列）、六圍各一階且點數 ≤ 預算、寶具名、技能 ≤3 且在表上、技能名（`names`，沒填就用代表名）；文字剝掉開頭的 `= + - @`（擋試算表公式）與反斜線。
 - `actionWarForgeSave(userData)` — 新做（ID＝真名-職階）或改自己的（真名、職階鎖住）；職階技能照 `FORGE_CLS_SKILLS_` 自動附；
   外貌／性格有變就用 `translateLookToDaily_`／`translatePersonalityToDaily_` 翻出鑑賞的日常三格；清英靈殿快取。
+- `actionWarForgeAi(userData)` — ✨ AI 幫我做：`{origin, cls?, desc}` → 叫 AI 照出處寫一份從者草稿（`warForgeAiSys_(og)`／`warForgeAiPrompt_(desc, cls)`），`warForgeDraft_(o, cls)` 收斂後回 `{hero}` 給前端填表；**不存檔**，存檔照常走 `war_forge_save`。
+- `warForgeFit_(six)` — 六圍收進點數上限：超過就從最高那格往下降，不到就把最突出的那格往上加（到 A 為止），剛好用完為止。`warForgeDraft_(o, cls)` — AI 回覆 → 表單草稿：效果碼只收清單上的、去重、最多三個；名字照工房長度剪、剝掉公式開頭與符號。
 - `FORGE_CLS_SKILLS_`（var）— 職階技能慣例表(工房自動附贈、不占 3 槽)。
 
 ### Gallery.gs（99 支函式）
