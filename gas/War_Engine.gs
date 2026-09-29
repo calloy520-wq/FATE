@@ -395,11 +395,14 @@ function warDoSummon_(st, act, ev, o) {
 // 早報裡的原作事件（WAR_CANON_EVENTS_）：涉及的從者都還是活著、登場了的敵人才發生；效果只動情報與據點。
 function warCanonEvents_(st, ev) {
   var list = typeof WAR_CANON_EVENTS_ !== 'undefined' ? WAR_CANON_EVENTS_ : [];
-  var fallen = st.enemies.filter(function (e) { return !e.alive; }).length;
+  var stepped = false;
   list.forEach(function (c) {
     if (c.war !== st.war || (c.route && c.route !== st.route)) return;
-    // day＝到了那天；fallen＝倒下的從者累積到幾位（只發一次，記在 st.done）
-    if (c.fallen ? (fallen < c.fallen || (st.done || []).indexOf(c.id) >= 0) : c.day !== st.day) return;
+    // day＝到了那天；fallen＝倒下的從者累積到幾位（只發一次，記在 st.done；一個早上最多往前一段）
+    var fallen = st.enemies.filter(function (e) { return !e.alive; }).length;
+    if (c.fallen ? (stepped || fallen < c.fallen || (st.done || []).indexOf(c.id) >= 0) : c.day !== st.day) return;
+    // after＝前面那幾幕真的發生過才接得上（文字會提到它們）
+    if ((c.after || []).some(function (k) { return (st.happened || []).indexOf(k) < 0; })) return;
     var byHero = function (h) { return st.enemies.filter(function (e) { return e.hero === h && e.alive && (c.unmask || !e.fake) && e.arrive <= st.day; })[0]; };
     var need = c.need || [];
     if (!need.every(function (h) { return !!byHero(h); })) {
@@ -407,7 +410,11 @@ function warCanonEvents_(st, ev) {
       if (c.short && need.some(function (h) { return st.enemies.some(function (e) { return e.hero === h && !e.alive && !e.canonDead; }); })) (st.rewrote = st.rewrote || []).push(c.short);
       return;
     }
-    if (c.fallen) (st.done = st.done || []).push(c.id);
+    // 最後一位留給你：劇本只收得掉「還有別人在」的從者，不替玩家贏
+    var kills = (c.kill || []).filter(function (h) { return !!byHero(h); }).length;
+    if (kills && warAliveCount_(st) - kills < 1) return;
+    if (c.fallen) { (st.done = st.done || []).push(c.id); stepped = true; }
+    if (c.short) (st.happened = st.happened || []).push(c.short);
     if (c.unmask) need.forEach(function (h) { warUnmask_(st, byHero(h), ev); });   // 假死的那位在這一幕現身
     Object.keys(c.reveal || {}).forEach(function (h) { var e = byHero(h); if (e) e.intel = Math.max(e.intel, c.reveal[h]); });
     Object.keys(c.move || {}).forEach(function (h) { var e = byHero(h); if (e) e.loc = c.move[h]; });
@@ -452,7 +459,7 @@ function warCanonFall_(st, e, ev) {
   var list = typeof WAR_FALL_ !== 'undefined' ? WAR_FALL_ : [];
   list.forEach(function (c) {
     if (c.war !== st.war || c.hero !== e.hero) return;
-    ev.push({ k: 'fall', txt: (e.alter && c.altTxt || c.txt) + '。' });
+    if (e.intel >= 1) ev.push({ k: 'fall', txt: (e.alter && c.altTxt || c.txt) + '。' });   // 還不知道倒下的是誰：餘波不替玩家揭曉
     if (c.summon) warAwaken_(st, c.summon, c.hint);
   });
 }

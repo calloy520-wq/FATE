@@ -69,8 +69,12 @@ console.log('── 玩家改寫原作');
 console.log('── 邊界');
 { const st=mk('5th','hf'); toDay(st,10);
   st.enemies.forEach(e=>{ if(e.hero!=='吉爾伽美什-Archer'&&e.alive){ e.alive=false; e.hp=0; } });   // 只剩金色的王，第 11 天被黑泥吞下
-  toDay(st,11);
-  t(st.phase==='over'&&st.result.win,'劇本殺掉最後一位：照樣算你奪下聖杯',JSON.stringify(st.result)); }
+  const out=toDay(st,12);
+  t(st.phase!=='over'&&H(st,'吉爾伽美什-Archer').alive&&!out.some(x=>/黑泥吞了下去/.test(x.txt)),'劇本不收最後一位：金色的王留給你，不會不戰而勝',JSON.stringify(st.result)); }
+{ const st=mk('5th','ubw'); toDay(st,5); const sa=H(st,'阿爾托莉雅-Saber'); sa.hp=0; sa.alive=false; const out=toDay(st,10).map(x=>x.txt).join('\n');
+  t(/反手一刀/.test(out)&&!/結下了契約/.test(out),'UBW：Saber 先倒下 → 弓兵照樣斬 Caster，但不會冒出「Saber 與凜結約」',out.slice(0,200)); }
+{ const st=mk('5th','ubw'); const out=toDay(st,10).map(x=>x.txt).join('\n');
+  t(/反手一刀/.test(out)&&/結下了契約/.test(out)&&H(st,'阿爾托莉雅-Saber').master==='遠坂凜','UBW：照原作走 → 破戒之符、背叛、結約三幕接得上'); }
 { const s2=mk('5th','hf'); toDay(s2,3); const cas=H(s2,'美狄亞-Caster'); s2.bounty={id:cas.id,open:true}; toDay(s2,6);
   t(!cas.alive&&!s2.bounty.open,'討伐令的目標被劇本殺掉：討伐令撤銷'); }
 { const st=mk('5th','fate'); st.day=E('WAR_.NIGHTS');

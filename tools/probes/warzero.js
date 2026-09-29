@@ -41,6 +41,12 @@ R=run('4th',14); { const E4=h=>R.st.enemies.find(e=>e.hero===h), all=R.out.join(
   t(E4('阿爾托莉雅-Saber').alive&&E4('吉爾伽美什-Archer').alive,'照原作走到最後：剩 Saber 與金色的王');
   const iri=['站不穩','下不了床','擄走'].map(k=>R.out.filter(x=>new RegExp(k).test(x)&&/白髮的女性|白髮女性/.test(x)).length);
   t(iri.join()==='1,2,1','愛麗絲菲爾：倒下的越多越虛弱，三段各發一次（第二段的句子在第三段也提到下不了床）',iri.join()); }
+{ const st=mk('4th',emiya); c.warAct_(st,{t:'start'}); const sb=st.enemies.find(e=>e.hero==='阿爾托莉雅-Saber'); sb.hp=0; sb.alive=false;
+  const o=[]; for(let d=0;d<8;d++){ const ev=[]; st.phase='night'; st.battle=null; c.warMorning_(st,ev); o.push(...ev.map(x=>x.txt)); }
+  t(!o.some(x=>/酒席/.test(x))&&st.enemies.find(e=>e.hero==='百貌哈桑-Assassin').alive,'聖杯問答沒發生（Saber 先倒下）→ 百貌哈桑那一幕也不會在「酒席上」發生'); }
+{ const st=mk('4th',emiya); c.warAct_(st,{t:'start'}); st.enemies.slice(0,5).forEach(e=>{ e.hp=0; e.alive=false; });
+  const n=[]; for(let d=0;d<3;d++){ const ev=[]; st.phase='night'; st.battle=null; c.warMorning_(st,ev); n.push(ev.filter(x=>/白髮的女性|白髮女性/.test(x.txt)).length); }
+  t(n.join()==='1,1,1','一口氣倒下五位：愛麗絲菲爾一個早上只往前一段',n.join()); }
 { const st=mk('4th',emiya); c.warAct_(st,{t:'start'}); const dl=st.enemies.find(e=>e.hero==='迪盧木多-Lancer'); dl.hp=1; c.warApply_(st,{u:dl,side:'foe'},99);
   for(let d=0;d<9;d++){ st.phase='night'; st.battle=null; c.warMorning_(st,[]); }
   c.warOver_(st,false,'timeout',[]); const d=c.warDebrief_(st);

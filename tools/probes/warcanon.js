@@ -116,11 +116,13 @@ console.log('── 原作從者提前倒下的彩蛋（WAR_FALL_）');
   const G=(w)=>`(function(){ var o=warSetup_('${w}'); o.name='測'; o.sex='男'; o.war='${w}'; o.route='fate'; o.seed=3; o.pool=warSetup_('chaos').pool.filter(function(s){return s.id==='恩奇都-Lancer';}); var s=warNewGame_(o); warAct_(s,{t:'start'}); return s; })()`;
   // ① 敵對敵（早報那條路）
   const a=J(`(function(){ var s=${G('5th')}; var k=s.enemies.filter(function(e){return e.hero==='佐佐木小次郎-Assassin';})[0], x=s.enemies.filter(function(e){return e.hero==='赫拉克勒斯-Berserker';})[0], h=s.reserve.filter(function(e){return e.hero==='咒腕之哈桑-Assassin';})[0];
-    var before=s.reserve.indexOf(h)>=0 ? 99 : h.arrive; k.hp=1; k.mhp=1; x.hp=x.mhp=99999; x.atk=99999; var ev=[]; for (var i=0;i<30&&k.alive;i++){ ev=[]; k.hp=1; x.hp=x.mhp; warAutoBattle_(s,x,k,ev); } return {dead:!k.alive, ev:ev.map(function(e){return e.k+':'+e.txt;}), before:before, after:h.arrive, hint:h.hint, day:s.day}; })()`);
+    var before=s.reserve.indexOf(h)>=0 ? 99 : h.arrive; k.intel=1; k.hp=1; k.mhp=1; x.hp=x.mhp=99999; x.atk=99999; var ev=[]; for (var i=0;i<30&&k.alive;i++){ ev=[]; k.hp=1; x.hp=x.mhp; warAutoBattle_(s,x,k,ev); } return {dead:!k.alive, ev:ev.map(function(e){return e.k+':'+e.txt;}), before:before, after:h.arrive, hint:h.hint, day:s.day}; })()`);
   t(a.dead&&a.ev.some(x=>/^fall:.*山門的武士消散/.test(x)),'小次郎在別人手上倒下：早報接一句原作餘波',a.ev.join(' / '));
   t(a.before===99&&a.after===a.day+1&&/白骨面具/.test(a.hint),'真 Assassin 原本是預備役（不在敵方名冊裡）；小次郎一倒，明天就爬出來',JSON.stringify({b:a.before,a:a.after,d:a.day}));
   const m=J(`(function(){ var s=${G('5th')}; var k=s.enemies.filter(function(e){return e.hero==='佐佐木小次郎-Assassin';})[0], h=s.reserve[0]; s.reserve=[]; s.enemies.push(h); h.arrive=s.day; var ev=[]; warCanonFall_(s,k,ev); return h.arrive===s.day&&s.enemies.filter(function(e){return e.hero===h.hero;}).length===1; })()`);
   t(m,'真 Assassin 已經登場了：不會被往後拉');
+  const u=J(`(function(){ var s=${G('5th')}; var k=s.enemies.filter(function(e){return e.hero==='佐佐木小次郎-Assassin';})[0]; k.intel=0; k.hp=0; k.alive=false; var ev=[]; warCanonFall_(s,k,ev); return {n:ev.length, woke:s.reserve.length===0}; })()`);
+  t(u.n===0&&u.woke,'還不知道倒下的是誰：餘波不替玩家揭曉（但真 Assassin 照樣被叫醒）',JSON.stringify(u));
   // ② 玩家親手打倒（戰報那條路）
   const b=J(`(function(){ var s=${G('4th')}; var e=s.enemies.filter(function(x){return x.hero==='伊斯坎達爾-Rider';})[0]; e.intel=1; s.phase='night'; var ev=[]; warStartBattle_(s,e,'sortie',ev);
     var out=[]; for (var i=0;i<3&&e.alive&&s.phase==='battle';i++){ e.hp=1; s.sv.hp=s.sv.mhp=99999; var r=warAct_(s,{t:'stance',s:'strike'}); out=out.concat(r.ev||[]); } return {dead:!e.alive, ev:out.map(function(x){return x.k+':'+x.txt;})}; })()`);

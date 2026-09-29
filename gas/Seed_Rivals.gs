@@ -53,6 +53,7 @@ var WAR_ALTER_ = {
 //   need＝要在場的從者；reveal＝看穿到哪一層（1 職階與據點／2 真名）；move＝據點搬家。
 //   route＝只在這條線發生；kill＝照原作倒下；awaken＝叫醒預備役（值是登場那天的早報）；master＝換御主；alter＝黑化（WAR_ALTER_）。
 //   fallen＋id＝不看日子，倒下的從者累積到幾位的隔天早報發生（只發一次）；unmask＝need 裡假死的那位在這一幕現身。
+//   after＝這幾幕（short）真的發生過才接得上（文字提到它們）。劇本不收最後一位——那一位留給玩家。
 //   short＝這一幕的名字：涉及的從者已經先倒下而演不成時，記進「改寫了原作」（結局揭曉）。
 var WAR_CANON_EVENTS_ = [
   { war: '5th', day: 2, need: ['赫拉克勒斯-Berserker'], reveal: { '赫拉克勒斯-Berserker': 1 },
@@ -77,8 +78,10 @@ var WAR_CANON_EVENTS_ = [
     txt: '衛宮邸的少年被魔女的絲線綁走，一把歪扭的短劍斬斷了契約——劍之從者如今站在柳洞寺的正殿' },
   { war: '5th', route: 'ubw', day: 8, need: ['吉爾伽美什-Archer', '赫拉克勒斯-Berserker'], kill: ['赫拉克勒斯-Berserker'], reveal: { '吉爾伽美什-Archer': 1 }, short: '森林裡的十二試煉',
     txt: '艾因茲貝倫城的森林裡，金色的英靈射下成千上萬的刀劍——巨人死了十一次，最後一次再也站不起來' },
-  { war: '5th', route: 'ubw', day: 9, need: ['EMIYA-Archer', '美狄亞-Caster'], kill: ['美狄亞-Caster'], move: { 'EMIYA-Archer': '衛宮邸' }, master: { '阿爾托莉雅-Saber': '遠坂凜', 'EMIYA-Archer': '無主' }, short: '紅衣弓兵的背叛',
-    txt: '紅衣的弓兵離開了遠坂家的少女，走進柳洞寺的正殿反手一刀——魔女與那位教師倒在一起，被綁住的劍之從者轉而與那位少女結下契約' },
+  { war: '5th', route: 'ubw', day: 9, need: ['EMIYA-Archer', '美狄亞-Caster'], kill: ['美狄亞-Caster'], move: { 'EMIYA-Archer': '衛宮邸' }, master: { 'EMIYA-Archer': '無主' }, short: '紅衣弓兵的背叛',
+    txt: '紅衣的弓兵離開了遠坂家的少女，走進柳洞寺的正殿反手一刀——魔女與那位教師倒在一起' },
+  { war: '5th', route: 'ubw', day: 9, need: ['阿爾托莉雅-Saber'], after: ['破戒之符奪走 Saber', '紅衣弓兵的背叛'], master: { '阿爾托莉雅-Saber': '遠坂凜' },
+    txt: '被綁在正殿的劍之從者抬起頭，轉而與遠坂家的少女結下了契約' },
   { war: '5th', route: 'ubw', day: 11, need: ['庫丘林-Lancer', '吉爾伽美什-Archer'], kill: ['庫丘林-Lancer'], master: { '吉爾伽美什-Archer': '間桐慎二' }, short: '火場裡的槍兵',
     txt: '郊外的古城燒了一整夜；青衣的槍兵把神父釘在牆上、把被綁住的少女送出火場，自己留在了火裡。金色的英靈換了一位新御主——間桐家的少年' },
   // ── Heaven's Feel 線 ──
@@ -86,7 +89,7 @@ var WAR_CANON_EVENTS_ = [
     awaken: { '咒腕之哈桑-Assassin': '新都的暗巷接連出事，目擊的人只記得一張白骨面具' },
     txt: '柳洞寺山門的武士被人從體內撕開——一隻纏滿繃帶的手臂，從武士的胸口伸了出來' },
   { war: '5th', route: 'hf', day: 4, need: ['庫丘林-Lancer'], kill: ['庫丘林-Lancer'], short: '墓地的槍兵',
-    txt: '教會後方的墓地，青衣的槍兵擋下了戴白骨面具的暗殺者，卻被地面湧出的黑影整個吞了下去' },
+    txt: '教會後方的墓地，青衣的槍兵被地面湧出的黑影整個吞了下去，連槍都沒來得及舉起' },
   { war: '5th', route: 'hf', day: 6, need: ['美狄亞-Caster'], kill: ['美狄亞-Caster'], short: '沉進影子的魔女',
     txt: '柳洞寺的正殿被黑色的泥淹沒，魔女的身影一點一點沉進了影子裡' },
   { war: '5th', route: 'hf', day: 7, need: ['美杜莎-Rider'], master: { '美杜莎-Rider': '間桐櫻' }, alter: ['美杜莎-Rider'],
@@ -105,9 +108,9 @@ var WAR_CANON_EVENTS_ = [
   { war: '4th', day: 5, need: ['迪盧木多-Lancer'], move: { '迪盧木多-Lancer': '廢棄工廠' },
     txt: '海特飯店的頂樓整層被炸掉了，新聞說是瓦斯氣爆；住在那裡的外國人搬進了郊外的廢棄工廠' },
   { war: '4th', day: 8, need: ['伊斯坎達爾-Rider', '阿爾托莉雅-Saber', '吉爾伽美什-Archer'],
-    reveal: { '吉爾伽美什-Archer': 1, '阿爾托莉雅-Saber': 1 },
+    reveal: { '吉爾伽美什-Archer': 1, '阿爾托莉雅-Saber': 1 }, short: '聖杯問答',
     txt: '征服王在艾因茲貝倫城的庭院擺酒，邀 Saber 與金色的英靈問答「王的器量」，三位王一直喝到天亮' },
-  { war: '4th', day: 8, need: ['伊斯坎達爾-Rider', '百貌哈桑-Assassin'], unmask: true, kill: ['百貌哈桑-Assassin'], short: '王之軍勢踏平暗殺者',
+  { war: '4th', day: 8, need: ['伊斯坎達爾-Rider', '百貌哈桑-Assassin'], after: ['聖杯問答'], unmask: true, kill: ['百貌哈桑-Assassin'], short: '王之軍勢踏平暗殺者',
     txt: '聖杯問答的酒席上，數十個戴白骨面具的暗殺者同時現身；下一刻，月光下展開一整片沙漠，征服王的軍勢把他們全數踏平' },
   { war: '4th', day: 9, need: ['迪盧木多-Lancer'], kill: ['迪盧木多-Lancer'], short: '被令咒逼死的騎士',
     txt: '廢棄工廠裡，槍兵的御主被黑衣的男人逼著用盡了令咒——兩把槍貫穿了槍兵自己的胸口，詛咒聖杯的吼聲響了一整夜' },
