@@ -108,4 +108,29 @@ console.log('── 玩家是額外加入的一組：第五次／第四次不搶
     lens[g.foes.length]=1; g.foes.forEach(h=>heroes[h]=1); if(g.foes.indexOf(g.sv)>=0) lens.dup=g.sv; if(g.fake) lens.fake=1; }
   t(Object.keys(lens).join()===String(E('WAR_CHAOS_.size')),'混亂隨機：每局 '+E('WAR_CHAOS_.size')+' 組對手、不會撞到自己的從者、沒有原作劇本的假死',JSON.stringify(lens));
   t(Object.keys(heroes).length>E('WAR_CHAOS_.size'),'混亂隨機：30 局抽到的從者不只固定那幾位（'+Object.keys(heroes).length+' 位）'); }
+console.log('── 原作從者提前倒下的彩蛋（WAR_FALL_）');
+{ const J=x=>JSON.parse(E('JSON.stringify('+x+')'));
+  const rows=J('WAR_FALL_'), roster={ '5th':J(`warCanonHeroes_('5th')`), '4th':J(`warCanonHeroes_('4th')`) };
+  t(rows.every(r=>(roster[r.war]||[]).indexOf(r.hero)>=0)&&rows.every(r=>!r.summon||roster[r.war].indexOf(r.summon)>=0),'每一列的從者（與引出的那位）都在那場的原作名冊裡');
+  t(['5th','4th'].every(w=>roster[w].every(h=>rows.some(r=>r.war===w&&r.hero===h))),'兩場的原作從者每一位都有餘波那句');
+  const G=(w)=>`(function(){ var o=warSetup_('${w}'); o.name='測'; o.sex='男'; o.war='${w}'; o.seed=3; o.pool=warSetup_('chaos').pool.filter(function(s){return s.id==='恩奇都-Lancer';}); var s=warNewGame_(o); warAct_(s,{t:'start'}); return s; })()`;
+  // ① 敵對敵（早報那條路）
+  const a=J(`(function(){ var s=${G('5th')}; var k=s.enemies.filter(function(e){return e.hero==='佐佐木小次郎-Assassin';})[0], x=s.enemies.filter(function(e){return e.hero==='赫拉克勒斯-Berserker';})[0], h=s.enemies.filter(function(e){return e.hero==='咒腕之哈桑-Assassin';})[0];
+    var before=h.arrive; k.hp=1; k.mhp=1; x.hp=x.mhp=99999; x.atk=99999; var ev=[]; for (var i=0;i<30&&k.alive;i++){ ev=[]; k.hp=1; x.hp=x.mhp; warAutoBattle_(s,x,k,ev); } return {dead:!k.alive, ev:ev.map(function(e){return e.k+':'+e.txt;}), before:before, after:h.arrive, hint:h.hint, day:s.day}; })()`);
+  t(a.dead&&a.ev.some(x=>/^fall:.*山門的武士消散/.test(x)),'小次郎在別人手上倒下：早報接一句原作餘波',a.ev.join(' / '));
+  t(a.before>a.day+1&&a.after===a.day+1&&/白骨面具/.test(a.hint),'真 Assassin 原本 HF 中段才現身；小次郎一倒，明天就爬出來',JSON.stringify({b:a.before,a:a.after,d:a.day}));
+  const m=J(`(function(){ var s=${G('5th')}; var k=s.enemies.filter(function(e){return e.hero==='佐佐木小次郎-Assassin';})[0], h=s.enemies.filter(function(e){return e.hero==='咒腕之哈桑-Assassin';})[0]; h.arrive=s.day; var ev=[]; warCanonFall_(s,k,ev); return h.arrive===s.day; })()`);
+  t(m,'真 Assassin 已經登場了：不會被往後拉');
+  // ② 玩家親手打倒（戰報那條路）
+  const b=J(`(function(){ var s=${G('4th')}; var e=s.enemies.filter(function(x){return x.hero==='伊斯坎達爾-Rider';})[0]; e.intel=1; s.phase='night'; var ev=[]; warStartBattle_(s,e,'sortie',ev);
+    var out=[]; for (var i=0;i<3&&e.alive&&s.phase==='battle';i++){ e.hp=1; s.sv.hp=s.sv.mhp=99999; var r=warAct_(s,{t:'stance',s:'strike'}); out=out.concat(r.ev||[]); } return {dead:!e.alive, ev:out.map(function(x){return x.k+':'+x.txt;})}; })()`);
+  t(b.dead&&b.ev.some(x=>/^fall:麥肯基宅的少年/.test(x)),'親手打倒征服王：戰報接一句原作餘波（韋伯活下去）',b.ev.join(' / ').slice(0,300));
+  // ③ 決戰混戰
+  const c3=J(`(function(){ var s=${G('4th')}; s.day=WAR_.NIGHTS; s.enemies.forEach(function(e){ e.alive=false; }); var p=s.enemies.filter(function(e){return e.hero==='蘭斯洛特-Berserker';})[0], q=s.enemies.filter(function(e){return e.hero==='阿爾托莉雅-Saber';})[0];
+    [p,q].forEach(function(e){ e.alive=true; e.arrive=1; }); p.hp=p.mhp=1; q.hp=q.mhp=99999; q.atk=99999; var ev=[]; warFinalMelee_(s,ev); return ev.map(function(x){return x.k+':'+x.txt;}); })()`);
+  const fi=c3.findIndex(x=>/^fall:/.test(x)), fn=c3.findIndex(x=>/^final:.*倒下/.test(x));
+  t(fi>=0&&fn>=0&&fi>fn,'決戰混戰裡倒下：餘波照樣演，接在交手那句後面',c3.join(' / '));
+  // ④ 混亂隨機沒有原作劇本
+  const d=J(`(function(){ var o=warSetup_('chaos'); o.name='測'; o.sex='男'; o.war='chaos'; o.seed=3; var s=warNewGame_(o); var ev=[]; s.enemies.forEach(function(e){ warCanonFall_(s,e,ev); }); return ev.length; })()`);
+  t(d===0,'混亂隨機：沒有原作餘波',d); }
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);

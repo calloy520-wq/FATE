@@ -206,6 +206,7 @@
 - `warHitChance_(x, y)`／`warMult_(X, Y)`／`warNormalDmg_(st, X, Y)`／`warNpDmg_(X, Y)`／`warRetreatChance_(u, o, seal)` — 命中、倍率、傷害、撤退。`warMult_` 看穿真名或帶 `weakAlways`（王之財寶）就乘弱點；`warRetreatChance_` 遇到對手的 `lock`（天之鎖）而自己帶那個旗標（神性）時回 0（令咒除外）。
 - `warHeal_(u, pct)`／`warHealMaster_(st, n)` — 回血。
 - `WAR_CANON_EVENTS_`（Seed_Rivals.gs）／`warCanonEvents_(st, ev)` — 早報裡的原作事件：到了那一天、涉及的從者都還是活著登場的敵人才發生；效果只有看穿（`reveal`）與搬據點（`move`）。`warMorning_` 叫。
+- `WAR_FALL_`（Seed_Rivals.gs）／`warCanonFall_(st, e, ev)` — 原作從者在自己那場戰爭倒下的餘波：推一句 `k:'fall'`（只寫動作、不寫名字與心情）給畫面與說書；列上有 `summon` 而那一位還沒登場，就改成明天登場、早報換成 `hint`。三條倒下路徑都叫：親手打倒（`warDoRound_`）、敵對敵（`warAutoBattle_`）、決戰混戰（`warFinalMelee_` 從 sink 轉出來，接在交手那句後面）。混亂隨機不觸發。
 - `warShownCount_(st)` — 畫面上看得到的敵人數（假死的不算）；早報、畫面、決戰按鈕用它，勝負照樣看 `warAliveCount_`。`warKnownFoes_` 也排除假死的（不能突襲一個「已退場」的人）。
 - `warOdds_(st, e)` — 勝算四階（勝算大／勢均力敵／勝算小／凶險）。`warOddsR_(st, e)` — 背後的比值（我撐幾下 ÷ 對方撐幾下，血量用 `warEffHp_(u)`：十二試煉的命也算進去）；夜晚出擊目標照「討伐令→這個比值」排序，前 `WAR_.SORTIE_SHOW` 位直接列，其餘帶 `more: true`。
 - `warFinalNext_(st)` — 決戰下一位（血最少的先上）。

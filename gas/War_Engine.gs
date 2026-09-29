@@ -399,6 +399,16 @@ function warCanonEvents_(st, ev) {
     ev.push({ k: 'news', txt: c.txt + '。' });
   });
 }
+// 原作從者在自己那場戰爭倒下的餘波（WAR_FALL_）：推一句給畫面與說書；summon 那一位還沒登場就提早到明天。
+function warCanonFall_(st, e, ev) {
+  var list = typeof WAR_FALL_ !== 'undefined' ? WAR_FALL_ : [];
+  list.forEach(function (c) {
+    if (c.war !== st.war || c.hero !== e.hero) return;
+    ev.push({ k: 'fall', txt: c.txt + '。' });
+    var n = c.summon && st.enemies.filter(function (x) { return x.hero === c.summon && x.alive && x.arrive > st.day + 1; })[0];
+    if (n) { n.arrive = st.day + 1; n.hint = c.hint || n.hint; }
+  });
+}
 function warUnmask_(st, e, ev) {
   if (!e.fake) return;
   e.fake = false;
@@ -653,7 +663,7 @@ function warDoRound_(st, act, ev) {
   if (A.fired) { st.stats.np++; if (!st.exposed) { st.exposed = true; ev.push({ k: 'exposed', txt: '解放了寶具，己方真名曝光。' }); } }
   if (Z.fired && e.intel < 2) { e.intel = 2; ev.push({ k: 'reveal', txt: '從寶具認出了對方：「' + e.name + '」。' }); }
   if (act.s === 'probe' && A.struck && e.alive && e.intel < 2) warReveal_(st, e, ev);
-  if (!e.alive) { st.stats.kills++; ev.push({ k: 'kill', txt: warFoeLabel_(e) + '被擊敗了。' }); warBountyEnd_(st, e, true, ev); }
+  if (!e.alive) { st.stats.kills++; ev.push({ k: 'kill', txt: warFoeLabel_(e) + '被擊敗了。' }); warBountyEnd_(st, e, true, ev); warCanonFall_(st, e, ev); }
   if (warCheckEnd_(st, ev)) return;
   if (r.ended || !e.alive) { warEndBattle_(st, ev); return; }
   b.round++;
@@ -680,6 +690,7 @@ function warFinalMelee_(st, ev) {
     var dead = !a.alive ? a : (!b.alive ? b : null);
     ev.push({ k: 'final', txt: warFoeLabel_(a) + '與' + warFoeLabel_(b) + '在' + warFinal_(st).place + '交手，' +
       (dead ? warFoeLabel_(dead) + '倒下了。' : '兩敗俱傷。') });
+    sink.forEach(function (x) { if (x.k === 'fall') ev.push(x); });   // 原作從者倒下的餘波接在後面
   }
 }
 
@@ -830,6 +841,7 @@ function warAutoBattle_(st, a, b, ev) {
   if (win) {
     ev.push({ k: 'news', txt: '昨夜' + a.loc + '一帶兩位從者交戰，' + warFoeLabel_(dead) + '被擊敗，' + warFoeLabel_(win) + '勝出。' });
     warBountyEnd_(st, dead, false, ev);
+    warCanonFall_(st, dead, ev);
   } else {
     // 沒人倒下的交手：早上併成一句（warMorning_）；認不出是誰的只算場數。
     var la = warFoeLabel_(a), lb = warFoeLabel_(b);
