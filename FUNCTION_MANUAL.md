@@ -210,7 +210,7 @@
 - `warKill_(st, e, ev)` — 照原作倒下：標 `canonDead`、至少看穿到職階、`warGone_` 善後、討伐令照樣結算；不播 `WAR_FALL_` 的餘波。`warGone_(st, u)` — 退場的共同善後（它下的詛咒跟著消失），`warApply_` 也走這支。
 - `warAwaken_(st, hero, hint)` — 把預備役（`st.reserve`，名冊列上 `reserve:true` 的，不算敵人）搬進敵方、或把還沒登場的提早，都改成明天登場；最後一夜不叫（到不了場會卡住勝負）。回傳有沒有叫到。
 - `WAR_ALTER_`（Seed_Rivals.gs）／`warAlter_(e, a)` — 黑化／被強化：攻防血照 `mul` 拉高（傷勢比例不變），`name`／`npName`／`look` 有寫才換；標 `alter`，只作用一次。
-- `WAR_FALL_`（Seed_Rivals.gs）／`warCanonFall_(st, e, ev)` — 原作從者在自己那場戰爭倒下的餘波：推一句 `k:'fall'`（只寫動作、不寫名字與心情）給畫面與說書；列上有 `summon` 而那一位還沒登場，就改成明天登場、早報換成 `hint`。三條倒下路徑都叫：親手打倒（`warDoRound_`）、敵對敵（`warAutoBattle_`）、決戰混戰（`warFinalMelee_` 從 sink 轉出來，接在交手那句後面）。混亂隨機不觸發。
+- `WAR_FALL_`（Seed_Rivals.gs）／`warCanonFall_(st, e, ev)` — 原作從者在自己那場戰爭倒下的餘波：推一句 `k:'fall'`（只寫動作、不寫名字與心情；黑化過的用 `altTxt`）給畫面與說書；列上有 `summon` 而那一位還沒登場，就改成明天登場、早報換成 `hint`。三條倒下路徑都叫：親手打倒（`warDoRound_`）、敵對敵（`warAutoBattle_`）、決戰混戰（`warFinalMelee_` 從 sink 轉出來，接在交手那句後面）。混亂隨機不觸發。
 - `warShownCount_(st)` — 畫面上看得到的敵人數（假死的不算）；早報、畫面、決戰按鈕用它，勝負照樣看 `warAliveCount_`。`warKnownFoes_` 也排除假死的（不能突襲一個「已退場」的人）。
 - `warOdds_(st, e)` — 勝算四階（勝算大／勢均力敵／勝算小／凶險）。`warOddsR_(st, e)` — 背後的比值（我撐幾下 ÷ 對方撐幾下，血量用 `warEffHp_(u)`：十二試煉的命也算進去）；夜晚出擊目標照「討伐令→這個比值」排序，前 `WAR_.SORTIE_SHOW` 位直接列，其餘帶 `more: true`。
 - `warFinalNext_(st)` — 決戰下一位（血最少的先上）。

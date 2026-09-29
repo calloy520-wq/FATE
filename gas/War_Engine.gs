@@ -452,7 +452,7 @@ function warCanonFall_(st, e, ev) {
   var list = typeof WAR_FALL_ !== 'undefined' ? WAR_FALL_ : [];
   list.forEach(function (c) {
     if (c.war !== st.war || c.hero !== e.hero) return;
-    ev.push({ k: 'fall', txt: c.txt + '。' });
+    ev.push({ k: 'fall', txt: (e.alter && c.altTxt || c.txt) + '。' });
     if (c.summon) warAwaken_(st, c.summon, c.hint);
   });
 }

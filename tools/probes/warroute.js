@@ -64,6 +64,8 @@ console.log('── 玩家改寫原作');
   c.warOver_(st,false,'timeout',[]); const d=c.warDebrief_(st);
   t(d.route.rewrote.join()==='被黑影吞下的騎士王,黑色的劍光與巨人','結局列出被改寫的兩幕',d.route.rewrote.join()); }
 
+{ const st=mk('5th','hf'); toDay(st,9); const sa=H(st,'阿爾托莉雅-Saber'), ev=[]; c.warApply_(st,{u:sa,side:'foe'},99999); c.warCanonFall_(st,sa,ev);
+  t(sa.alter&&ev.some(x=>/紫髮的少女/.test(x.txt))&&!ev.some(x=>/衛宮邸/.test(x.txt)),'黑化後的 Saber 倒下：餘波改寫櫻，而不是衛宮邸的少年',ev.map(x=>x.txt).join()); }
 console.log('── 邊界');
 { const st=mk('5th','hf'); toDay(st,10);
   st.enemies.forEach(e=>{ if(e.hero!=='吉爾伽美什-Archer'&&e.alive){ e.alive=false; e.hp=0; } });   // 只剩金色的王，第 11 天被黑泥吞下
