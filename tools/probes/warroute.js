@@ -59,15 +59,15 @@ console.log("── Heaven's Feel 線");
   t(d.route&&d.route.label==="Heaven's Feel 線"&&d.route.rewrote.length===0,'結局揭曉路線；照原作走完就沒有改寫',JSON.stringify(d.route)); }
 
 console.log('── Unlimited Blade Works 線');
-{ const st=mk('5th','ubw'); toDay(st,11);
+{ const st=mk('5th','ubw'); toDay(st,12);
   const sa=H(st,'阿爾托莉雅-Saber');
   t(!H(st,'美杜莎-Rider').alive,'第 5 天：騎兵倒在柳洞寺');
   t(sa.loc==='言峰教會'&&sa.master==='遠坂凜','Saber 在教會被 Caster 奪走、Caster 死後與凜結約',sa.loc+sa.master);
   t(!H(st,'赫拉克勒斯-Berserker').alive&&!H(st,'美狄亞-Caster').alive&&!H(st,'庫丘林-Lancer').alive,'巨人、魔女、槍兵照原作倒下');
   t(H(st,'吉爾伽美什-Archer').master==='間桐慎二'&&H(st,'EMIYA-Archer').alive,'金色的王換成慎二當御主；紅衣弓兵還在');
   toDay(st,13); const em2=H(st,'EMIYA-Archer'); t(em2.alive&&em2.hp<=Math.round(em2.mhp*0.3),'第 10 天：兩個無限劍製，紅衣弓兵放下了劍（重傷，照原作撐到最後）'); }
-{ const st=mk('5th','ubw'); toDay(st,7); const hb=H(st,'赫拉克勒斯-Berserker'), em=H(st,'EMIYA-Archer');
-  t(hb.alive&&c.warLives_(hb)===5&&em.hp<=Math.round(em.mhp*0.2),'第 7 天：紅衣弓兵獨守森林，巨人被射殺六次（剩 5 命）、弓兵帶著重傷',JSON.stringify({l:c.warLives_(hb),hp:em.hp,m:em.mhp}));
+{ const st=mk('5th','ubw'); toDay(st,6); const hb=H(st,'赫拉克勒斯-Berserker'), em=H(st,'EMIYA-Archer');
+  t(hb.alive&&c.warLives_(hb)===5&&em.hp<=Math.round(em.mhp*0.2),'第 6 天：紅衣弓兵獨守森林，巨人被射殺六次（剩 5 命）、弓兵帶著重傷',JSON.stringify({l:c.warLives_(hb),hp:em.hp,m:em.mhp}));
   t(c.warFinal_(st).place==='柳洞寺','決戰照舊在柳洞寺'); }
 
 console.log('── Fate 線');

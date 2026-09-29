@@ -55,7 +55,7 @@ function warRoute_(st) { var R = warRoutes_(st && st.war); return R && st.route 
 
 // 每場戰爭各自的節奏。brawl＝敵人夜裡撞見彼此時動手的機率（乘上個性的出手慾）：
 //   第四次只剩六組對手，互打太兇就只剩收尾給你；第五次八組，互相消耗是撐起中盤的東西。模擬器量過（CODE_NOTES『WAR_』）。
-var WAR_PACE_ = { '5th': { brawl: 0.95 }, '4th': { brawl: 0.2 }, chaos: { brawl: 0.75 } };
+var WAR_PACE_ = { '5th': { brawl: 0.95 }, '4th': { brawl: 0.12 }, chaos: { brawl: 0.75 } };
 
 // 玩家是額外加入的一組主從：原作陣容一個都不拿掉，你只能召喚不在這場戰爭的從者（混亂隨機除外）。
 // 混亂隨機：從全部從者抽 size 位當對手（有原作御主的帶上御主），沒有原作事件、沒有晚登場。
