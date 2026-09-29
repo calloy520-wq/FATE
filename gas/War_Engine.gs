@@ -46,7 +46,7 @@ var WAR_BOUNTY_ = {
 var WAR_FINAL_ = {
   chaos: { place: '柳洞寺', arrive: '剩下的從者陸續來到寺院', next: '石階上又來了一位從者' },
   '5th': { place: '柳洞寺', arrive: '圓藏山頂的夜空裂開一道口子，聖杯的輪廓浮在寺院上方；剩下的從者陸續踏上石階', next: '石階上又來了一位從者' },
-  '4th': { place: '冬木市民會館', arrive: '市民會館的舞台上方浮現一只金色的杯，遠方新都的天空隱隱泛紅；剩下的從者陸續來到會館', next: '大廳裡又來了一位從者' }
+  '4th': { place: '冬木市民會館', arrive: '市民會館的舞台上方浮現一只金色的杯，杯緣隱隱滲出黑色的泥；剩下的從者陸續來到會館', next: '大廳裡又來了一位從者' }
 };
 function warFinal_(st) { var r = warRoute_(st); return (r && r.final) || WAR_FINAL_[st && st.war] || WAR_FINAL_['5th']; }
 // 這一局暗中走的路線（WAR_ROUTES_，只有第五次有）；沒有回 null。
@@ -678,10 +678,10 @@ function warStartBattle_(st, e, ctx, ev) {
   st.sv.saved = false; e.saved = false; st.sv.broken = false; e.broken = false;
   warUnmask_(st, e, ev);
   var tp = warTemper_(e);
-  var known = firstMeet && tp.know && tp.know[st.sv.hero];   // 原作的舊識：對方認得你的從者
-  if (known) ev.push({ k: 'meet', txt: known.replace('{sv}', st.sv.name) });
-  else if (firstMeet && tp.nemesis && st.sv.hero === tp.nemesis && tp.nemesisMeet) ev.push({ k: 'meet', txt: tp.nemesisMeet.replace('{sv}', st.sv.name) });
-  else if (firstMeet && (e.alter && (WAR_ALTER_[e.hero] || {}).meet || tp.meet)) ev.push({ k: 'meet', txt: e.alter && (WAR_ALTER_[e.hero] || {}).meet || tp.meet });   // 黑化後換一句
+  // 開場那句的優先序：黑化後的樣子 → 原作的舊識（對方認得你的從者）→ 宿敵 → 平常那句
+  var alterMeet = e.alter && (WAR_ALTER_[e.hero] || {}).meet;
+  var line = !firstMeet ? '' : alterMeet || (tp.know && tp.know[st.sv.hero]) || (tp.nemesis && st.sv.hero === tp.nemesis && tp.nemesisMeet) || tp.meet || '';
+  if (line) ev.push({ k: 'meet', txt: line.split('{sv}').join(st.sv.name) });
   st.battle.ambush = ctx === 'sortie' && warFlag_(st.sv, 'ambush');
   st.battle.foeAmbush = ctx === 'defend' && warFlag_(e, 'ambush');   // 帶著氣息遮斷摸上門來的，一樣先手
   if (ctx === 'defend' && warAdd_(st.sv, 'ward') > 0) {

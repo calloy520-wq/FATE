@@ -24,6 +24,9 @@ console.log('── 抽線');
 { const egg=(war,hero)=>{ const o=c.warSetup_(war); o.name='測'; o.sex='男'; o.war=war; o.seed=4; o.route='fate'; o.pool=E("warSetup_('chaos').pool").filter(s=>s.id===hero); const st=c.warNewGame_(o); c.warAct_(st,{t:'start'}); return toDay(st,7).map(x=>x.txt).join('\n'); };
   const a=egg('4th','EMIYA-Archer'), b=egg('4th','恩奇都-Lancer'), d=egg('5th','伊斯坎達爾-Rider');
   t(/紅褐頭髮的小男孩/.test(a)&&!/小男孩/.test(b)&&/叼著雪茄/.test(d),'你的從者的原作彩蛋：第四次的 EMIYA 看見小時候的自己、第五次的征服王被十年後的韋伯認出（別人不會觸發）'); }
+{ const st=mk('5th','hf'); st.sv=c.warUnit_(E("SEED_SERVANTS").filter(x=>x.id==='蘭斯洛特-Berserker')[0],{}); toDay(st,9); const sa=H(st,'阿爾托莉雅-Saber'); sa.intel=1; st.phase='night'; const ev=[]; c.warStartBattle_(st,sa,'sortie',ev);
+  const m=ev.filter(x=>x.k==='meet').map(x=>x.txt).join();
+  t(/那把劍不再藏著/.test(m)&&!/黑霧/.test(m),'黑化後的開場白蓋過舊識那句（蘭斯洛特撞見 Saber〔Alter〕）',m); }
 console.log('── 不外洩：遊戲中看不到路線');
 { const st=mk('5th','hf'); const v=JSON.stringify(c.warView_(st));
   t(!/Heaven|hf|route/.test(v),'畫面資料沒有路線');
@@ -47,7 +50,7 @@ console.log("── Heaven's Feel 線");
   t(hb.alter&&hb.master==='間桐櫻'&&(!hb.alive?/九道斬擊/.test(txt):c.warLives_(hb)===11),'第 10 天：巨人被黑影吞下成了黑化的狂戰士（十二試煉還在）',JSON.stringify({a:hb.alter,m:hb.master}));
   t(dead('吉爾伽美什-Archer'),'第 11 天：金色的王被黑泥吞下');
   { const s3=mk('5th','hf'); const o3=toDay(s3,14).map(x=>x.txt).join('\n'); const sa3=H(s3,'阿爾托莉雅-Saber');
-    t(sa3.canonDead&&/山道上/.test(o3)&&c.warAliveCount_(s3)>=1,'第 13 天：山道上騎兵撞倒黑色的騎士王',JSON.stringify({dead:sa3.canonDead,left:c.warAliveCount_(s3)})); }
+    t(sa3.canonDead&&/洞窟裡/.test(o3)&&c.warAliveCount_(s3)>=1,'第 13 天：大空洞入口的洞窟裡，騎兵撞倒黑色的騎士王',JSON.stringify({dead:sa3.canonDead,left:c.warAliveCount_(s3)})); }
   t(/紫髮少女腳下的影子/.test(txt),'第 6 天：間桐家的少年再也沒有回家');
   t(dead('EMIYA-Archer')&&/七片花瓣般的盾/.test(txt),'第 9 天：紅衣弓兵以熾天覆七重圓環擋下黑色的聖劍、失去一條手臂');
   t(!out.some(x=>x.k==='fall'),'照原作倒下的不播「提前倒下」的餘波');
@@ -62,7 +65,7 @@ console.log('── Unlimited Blade Works 線');
   t(sa.loc==='言峰教會'&&sa.master==='遠坂凜','Saber 在教會被 Caster 奪走、Caster 死後與凜結約',sa.loc+sa.master);
   t(!H(st,'赫拉克勒斯-Berserker').alive&&!H(st,'美狄亞-Caster').alive&&!H(st,'庫丘林-Lancer').alive,'巨人、魔女、槍兵照原作倒下');
   t(H(st,'吉爾伽美什-Archer').master==='間桐慎二'&&H(st,'EMIYA-Archer').alive,'金色的王換成慎二當御主；紅衣弓兵還在');
-  toDay(st,13); t(!H(st,'EMIYA-Archer').alive&&H(st,'EMIYA-Archer').canonDead,'第 12 天：兩個無限劍製，紅衣弓兵放下了劍'); }
+  toDay(st,13); const em2=H(st,'EMIYA-Archer'); t(em2.alive&&em2.hp<=Math.round(em2.mhp*0.3),'第 10 天：兩個無限劍製，紅衣弓兵放下了劍（重傷，照原作撐到最後）'); }
 { const st=mk('5th','ubw'); toDay(st,7); const hb=H(st,'赫拉克勒斯-Berserker'), em=H(st,'EMIYA-Archer');
   t(hb.alive&&c.warLives_(hb)===5&&em.hp<=Math.round(em.mhp*0.2),'第 7 天：紅衣弓兵獨守森林，巨人被射殺六次（剩 5 命）、弓兵帶著重傷',JSON.stringify({l:c.warLives_(hb),hp:em.hp,m:em.mhp}));
   t(c.warFinal_(st).place==='柳洞寺','決戰照舊在柳洞寺'); }

@@ -161,4 +161,8 @@ console.log('── 打聽不再白挑擋住的 Saber');
     var s=warNewGame_(o); warAct_(s,{t:'start'}); var g=s.enemies.filter(function(e){return e.hero==='吉爾伽美什-Archer';})[0]; g.arrive=1; g.intel=1; s.phase='night'; var ev=[]; warStartBattle_(s,g,'sortie',ev); return ev.filter(function(x){return x.k==='meet';}).map(function(x){return x.txt;}); })()`);
   const a=meet('伊斯坎達爾-Rider'), b=meet('斯卡哈-Lancer');
   t(a.length===1&&/老對手/.test(a[0])&&/伊斯坎達爾/.test(a[0])&&b.length===1&&/無聊的餘興/.test(b[0]),'原作的舊識：征服王撞見吉爾伽美什換一句（別的從者照舊）',a.concat(b).join(' / ')); }
+{ const J=x=>JSON.parse(E('JSON.stringify('+x+')'));
+  const m=J(`(function(){ var o=warSetup_('chaos'); o.name='測'; o.sex='男'; o.war='chaos'; o.seed=2; o.pool=warSetup_('chaos').pool.filter(function(s){return s.id==='阿爾托莉雅-Saber';});
+    var s=warNewGame_(o); var g=warUnit_(SEED_SERVANTS.filter(function(x){return x.id==='吉爾德萊-Caster';})[0],{id:'zz',master:'無主',loc:'下水道',arrive:1,intel:1,alive:true}); s.enemies.push(g); warAct_(s,{t:'start'}); s.phase='night'; var ev=[]; warStartBattle_(s,g,'sortie',ev); return ev.filter(function(x){return x.k==='meet';}).map(function(x){return x.txt;}); })()`);
+  t(m.length===1&&/跪了下來/.test(m[0])&&m[0].indexOf('{sv}')<0&&(m[0].match(/阿爾托莉雅/g)||[]).length===2,'舊識那句裡的 {sv} 全部換成你的從者（吉爾德萊那句有兩個）',m.join()); }
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);
