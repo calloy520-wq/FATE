@@ -66,7 +66,7 @@ const tl=(()=>{ const A2='時間帳號'; const R=u=>JSON.parse(evalIn('handleGam
   R({action:'war_act',acctName:A2,act:{t:'rest'}}); R({action:'war_narrate',acctName:A2});
   R({action:'war_act',acctName:A2,act:{t:'hold'}}); R({action:'war_narrate',acctName:A2});
   return caps.map(p=>(p.match(/【此刻】[^。]*/)||[''])[0]); })();
-t(/開始前/.test(tl[0]) && /第 1 天的白天/.test(tl[1]) && /第 1 天的白天/.test(tl[2]) && /第 1 天的夜晚/.test(tl[3]), '說書的【此刻】是事情發生的那一刻：召喚在開戰前、白天的事寫白天、固守到天亮的那一段仍是第 1 天夜裡', JSON.stringify(tl));
+t(/開始前/.test(tl[0]) && /第 1 天（2月2日）的白天/.test(tl[1]) && /第 1 天（2月2日）的白天/.test(tl[2]) && /第 1 天（2月2日）的夜晚/.test(tl[3]), '說書的【此刻】是事情發生的那一刻：召喚在開戰前、白天的事寫白天、固守到天亮的那一段仍是第 1 天夜裡', JSON.stringify(tl));
 const html=require('fs').readFileSync((process.env.GAS_DIR||require('path').join(__dirname,'../../gas'))+'/Script_War.html','utf8');
 t(!/十四夜|14 夜|三劃/.test(html), '前端沒有寫死的夜數與令咒數');
 

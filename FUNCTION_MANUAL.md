@@ -175,6 +175,7 @@
 - `WAR_FINAL_`／`warFinal_(st)` — 最後一夜在哪（第五次柳洞寺、第四次冬木市民會館；路線有 `final` 就用路線的，HF＝大空洞）與進場、下一位上場的句子；按鈕、事件、講評都讀這裡。
 - `WAR_ROUTES_`（Seed_Rivals.gs）／`warRoutes_(war)`／`warRoute_(st)` — 第五次的三條路線（fate／ubw／hf：`label`、`final`、`pace`）；`warNewGame_` 開局暗中抽一條存 `st.route`（`o.route` 可指定，探針與模擬器用）。沒有路線的戰爭回 null。
 - `WAR_NIGHTS_`／`warNights_(st)` — 每場戰爭照原作的夜數（第五次 14、第四次 12；沒寫的用 `WAR_.NIGHTS`）。按鈕、早報、時限、畫面的「剩幾夜」、說書的「第幾天」全讀這支；`warRules_` 另給 `nightsBy` 讓開局表單照選的戰爭顯示。
+- `WAR_CALENDAR_`／`warDate_(st, day)` — 原作的日曆（第五次第 1 天＝2004/2/2，第 14 夜＝2/15 決戰）：回「2月4日」這樣的字，早報、畫面頂端（view 的 `date`）、說書的【此刻】都附上；查不到可靠起點的戰爭（第四次、混亂）回空字串，只寫第幾天。
 - `WAR_PACE_`／`warPace_(st)` — 每場戰爭各自的節奏（路線有 `pace` 就用路線的）：`brawl`＝敵人夜裡撞見彼此時動手的機率（乘個性的出手慾），`warTick_` 讀。
 - `warClass_(cls)`／`warFoe_(st, id)`／`warArrived_(st)`／`warKnownFoes_(st)`／`warAliveCount_(st)`／`warLocName_(loc)` — 查詢。
 - `WAR_TEMPER_`／`warTemper_(e)`／`warAggr_(e)` — 敵方從者的原作性格（鍵＝英靈殿 ID）蓋在職階個性上：小次郎守山門（不夜襲你、不撤退）、吉爾伽美什傲慢（出手慾低、不撤退）、庫丘林奉命偵察（先試探、打不贏就撤）、蘭斯洛特見到阿爾托莉雅就找上門、百貌哈桑找據點快兩倍；`meet` 是交手時的開場一句（不寫真名）。

@@ -284,7 +284,8 @@ function warNarrPrompt_(st) {
   }
   var nr = st.narr || {};
   var when = nr.when || (st.phase === 'day' ? '白天' : '夜晚');
-  var time = nr.kind === 'summon' ? '聖杯戰爭開始前的那一夜' : '第 ' + (nr.day || Math.min(st.day, warNights_(st))) + ' 天的' + when;
+  var dn = nr.day || Math.min(st.day, warNights_(st)), dt = warDate_(st, dn);
+  var time = nr.kind === 'summon' ? '聖杯戰爭開始前的那一夜' : '第 ' + dn + ' 天' + (dt ? '（' + dt + '）' : '') + '的' + when;
   lines.push('【此刻】' + time + '。' + sv.name + warHpWord_(sv) + '；你' + (st.master.hp >= st.master.mhp * 0.8 ? '沒有大礙' : '也受了傷') + '。');
   lines.push('【這一段發生的事】\n' + st.narr.facts.map(function (f) { return '・' + f; }).join('\n'));
   var lore = warLoreStr_(st);

@@ -63,4 +63,7 @@ t(evs.every(v=>(v.need||[]).concat(Object.keys(v.reveal||{}),Object.keys(v.move|
   t(c.warNights_(s4)===12&&v.nights===12&&b.t==='final'&&c.warNights_({war:'5th'})===14,'第四次照原作 12 夜（第 12 夜決戰），第五次 14 夜',JSON.stringify({n:v.nights,b:b.t}));
   const last=Math.max(...E('WAR_CANON_EVENTS_').filter(x=>x.war==='4th'&&x.day).map(x=>x.day));
   t(last<12,'第四次每一幕原作事件都排在決戰夜之前',last); }
+{ const s5=mk('5th',emiya); c.warAct_(s5,{t:'start'}); const ev=[]; s5.phase='night'; c.warMorning_(s5,ev); const m=ev.find(x=>x.k==='morning').txt;
+  const s4=mk('4th',emiya); c.warAct_(s4,{t:'start'}); const e4=[]; s4.phase='night'; c.warMorning_(s4,e4); const m4=e4.find(x=>x.k==='morning').txt;
+  t(/第 2 天早晨（2月3日）/.test(m)&&c.warDate_(s5,14)==='2月15日'&&c.warView_(s5).date==='2月3日'&&!/月/.test(m4),'第五次照原作日曆：第 1 天＝2/2、第 14 夜＝2/15（決戰）；第四次沒有可靠日期就只寫第幾天',m+' / '+m4); }
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);

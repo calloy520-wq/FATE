@@ -88,6 +88,15 @@ function warCanonHeroes_(war) {
 // 每場戰爭照原作的天數：第四次約 12 天、第五次約兩週（2004/2/2 召喚 Saber 起）；混亂隨機沒有原作，用預設。
 var WAR_NIGHTS_ = { '5th': 14, '4th': 12 };
 function warNights_(st) { return WAR_NIGHTS_[st && st.war] || WAR_.NIGHTS; }
+// 原作的日曆：第 1 天是哪一天（第五次＝2004/2/2 召喚 Saber；原作計日從 1/31 起算，那天是第 3 天，三條線都在 2/15 決戰）。
+//   查不到可靠起點的戰爭不寫，畫面就只顯示第幾天。
+var WAR_CALENDAR_ = { '5th': { y: 2004, m: 2, d: 2 } };
+function warDate_(st, day) {
+  var c = WAR_CALENDAR_[st && st.war];
+  if (!c || !(day >= 1)) return '';
+  var t = new Date(Date.UTC(c.y, c.m - 1, c.d + day - 1));
+  return (t.getUTCMonth() + 1) + '月' + t.getUTCDate() + '日';
+}
 function warPace_(st) { var r = warRoute_(st); return (r && r.pace) || WAR_PACE_[st && st.war] || WAR_PACE_['5th']; }   // 路線可以有自己的節奏
 
 // 職階：敵人的個性（aggr 越高越愛出手）。技能不看職階，看每位從者自己的技能（WAR_SKILL_）。
@@ -644,7 +653,8 @@ function warMorning_(st, ev) {
   });
   warCanonEvents_(st, ev);
   if (warCheckEnd_(st, ev)) return;
-  ev.push({ k: 'morning', txt: '第 ' + st.day + ' 天早晨。剩 ' + (warNights_(st) - st.day + 1) + ' 夜，敵方剩 ' + warShownCount_(st) + ' 位。' });
+  var dt = warDate_(st, st.day);
+  ev.push({ k: 'morning', txt: '第 ' + st.day + ' 天早晨' + (dt ? '（' + dt + '）' : '') + '。剩 ' + (warNights_(st) - st.day + 1) + ' 夜，敵方剩 ' + warShownCount_(st) + ' 位。' });
   if (st.day === WAR_.BOUNTY_DAY && !st.bounty) warBountyStart_(st, ev);
   st.phase = 'day';
 }
@@ -1093,7 +1103,7 @@ function warView_(st) {
   var sv = st.sv, b = st.battle;
   var foes = warArrived_(st).concat(st.enemies.filter(function (e) { return !e.alive && e.intel >= 1; }));
   var view = {
-    phase: st.phase, day: Math.min(st.day, warNights_(st)), nights: warNights_(st), nightsLeft: Math.max(0, warNights_(st) - st.day + 1),
+    phase: st.phase, day: Math.min(st.day, warNights_(st)), date: warDate_(st, Math.min(st.day, warNights_(st))), nights: warNights_(st), nightsLeft: Math.max(0, warNights_(st) - st.day + 1),
     master: { name: st.master.name, hp: st.master.hp, mhp: st.master.mhp, seals: st.master.seals },
     sv: { cls: sv.cls, name: sv.name, npName: sv.npName, hp: sv.hp, mhp: sv.mhp, cd: sv.cd, npPassive: !!sv.noNp, curseDmg: sv.curseDmg || 0, traits: warTraits_(sv), exposed: st.exposed },
     foes: foes.filter(function (e) { return e.intel >= 1; }).map(function (e) { return warFoeCard_(st, e); }),

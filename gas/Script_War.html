@@ -451,7 +451,7 @@
     warEl_('war-over').innerHTML = over;
     warEl_('war-top').innerHTML = `
       <div class="war-row between war-head">
-        <b>第 ${v.day} 天・${phaseWord}</b>
+        <b>第 ${v.day} 天${v.date ? `（${escapeHtml(v.date)}）` : ''}・${phaseWord}</b>
         <span>${v.phase === 'over' ? '' : '剩 ' + v.nightsLeft + ' 夜・'}敵方 ${v.alive} 位</span>
         <span><button class="war-mini" onclick="warHelp()">？</button> <button class="war-mini" onclick="warBackMenu()">選單</button></span>
       </div>
