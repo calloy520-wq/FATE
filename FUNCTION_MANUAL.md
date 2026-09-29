@@ -179,7 +179,7 @@
 - `warMul_(u, hook, foe)`／`warAdd_(u, hook, foe)`／`warFlag_(u, hook)` — 讀表三支：把技能在這個時機的數字相乘／相加／有沒有。引擎只透過這三支碰技能。`warNpCd_(u)` — 放完寶具的冷卻夜數（`NP_COOLDOWN`＋技能的 `npCd`，至少 1）。`warSkName_(u, hook)` — 提供這個時機的是哪個原作技能名（事件文字要念出來；沒有就回「技能」）。`warMul_` 另外看攻擊方的 `pierce`（神代魔術）：針對職階的減傷只剩一半效果。`warSkRows_` 在 `u.broken`（被破戒全咒打中）時回空陣列。`warSkOk_` 另認 `fromSex`（只擋這個性別的攻擊）與 `vs`（只對帶這個旗標的對手加傷）；對手帶 `nullDef`（破魔紅薔薇）時挨打方的減傷整個不算。`warLives_(u)` — 十二試煉還剩幾條命（舊存檔沒這格就照技能現算）。
 - `warRank_(r)` — 階級→數字（E1…A5、EX7，±0.4）。`warSpread_(v)` — 階級差距打折（`STAT_SPREAD`）。
 - `warSkillsOf_(seed)` — 種子技能 → `{fx:[表上有的 fx], names:{fx: 原作技能名}, lore:[逸話技能名]}`（同一列只收一次；表上沒有的是逸話，跟寶具同名的不列）。`warTraits_(u)` — 畫面用清單：有效果的寫「技能名：效果」（十二試煉附剩幾次），逸話寫「名（逸話）」。
-- `warUnit_(seed, extra)` — 種子→戰鬥單位（`sk`＝這位從者自己的技能效果；`card` 帶說書用的外貌／性格／寶具原文 `np`／喜惡條目 `book`，不進規則）。`warNpName_(np)` — 寶具名（剝掉原文與括號）。
+- `warUnit_(seed, extra)` — 種子→戰鬥單位（寶具威力看 `seed.npRank`（實際會放的那一招），沒有才看六圍的寶具；`seed.npPassive`＝常駐型寶具 → `u.noNp`，沒有寶具鈕、敵人也不會放；`sk`＝這位從者自己的技能效果；`card` 帶說書用的外貌／性格／寶具原文 `np`／喜惡條目 `book`，不進規則）。`warNpName_(np)` — 寶具名（剝掉原文與括號）。
 - `warRand_(st)`／`warPick_(st, arr)`／`warClamp_(v, a, b)` — 亂數與夾值。
 - `warNewGame_(o)` — 開局。`o`＝`{pool, roster, seeds, masterNames, name, sex, war, seed}`（`warSeedCtx_` 組好）；停在 `summon`。
 - `warSummon_(st, o)` — 抽從者並重建敵方陣容（抽到的從陣容拿掉）；重抽也走這支。

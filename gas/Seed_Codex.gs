@@ -73,7 +73,7 @@ var SEED_SERVANTS = [
     dailyOutfit:'簡樸和風浴衣',
     dailyWords:'悠然風雅、隨遇而安、花鳥風月、無',
     book:[{'keys': ['賞花', '賞月', '燕子', '小鳥', '月亮', '花朵', '風景', '櫻花'], 'content': '喜歡花鳥風月'}]} },
-  { id:'赫拉克勒斯-Berserker', cls:'Berserker', realName:'赫拉克勒斯', wars:['5th'], gender:'男',
+  { id:'赫拉克勒斯-Berserker', cls:'Berserker', npPassive:true, realName:'赫拉克勒斯', wars:['5th'], gender:'男',
     six:{筋力:'A+',耐久:'A',敏捷:'A',魔力:'A',幸運:'B',寶具:'A'},
     classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'D',fx:'nullify_magic'}],
     skills:[{n:'勇猛',r:'A',fx:'morale'},{n:'十二試煉',r:'A',fx:'god_hand'}],
@@ -86,7 +86,7 @@ var SEED_SERVANTS = [
     dailyWords:'沉默寡言、把人護在身後、無、無'} },
   // 第四次
   // 對魔力/單獨行動 為第四次戰爭當時的官方數值(C/A)，非「被聖杯泥養到第五次」後的強化版(E/A+)，两次戰爭不可混用。
-  { id:'吉爾伽美什-Archer', cls:'Archer', realName:'吉爾伽美什', wars:['4th'], gender:'男',
+  { id:'吉爾伽美什-Archer', cls:'Archer', npRank:'A+', realName:'吉爾伽美什', wars:['4th'], gender:'男',
     six:{筋力:'B',耐久:'C',敏捷:'C',魔力:'B',幸運:'A',寶具:'EX'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'},{n:'單獨行動',r:'A',fx:'solo'}],
     skills:[{n:'黃金律',r:'A',fx:'wealth'},{n:'領袖氣質',r:'A+',fx:'morale'},{n:'神性',r:'B',fx:'divine'},
@@ -155,7 +155,7 @@ var SEED_SERVANTS = [
     book:[{'keys': ['忠義', '忠誠', '正月', '新年', '過年', '睡到飽', '賴床'], 'content': '重忠義，正月只想睡到飽'}]} },
   // 官方六圍為 筋A／耐A／敏A+／魔C／幸B／寶A(A+屬於敏捷)；狂化C(官方階級)；
   // np真名「騎士は徒手にて死せず」通行中譯為「騎士不死於徒手」。
-  { id:'蘭斯洛特-Berserker', cls:'Berserker', realName:'蘭斯洛特', wars:['4th'], gender:'男',
+  { id:'蘭斯洛特-Berserker', cls:'Berserker', npPassive:true, realName:'蘭斯洛特', wars:['4th'], gender:'男',
     six:{筋力:'A',耐久:'A',敏捷:'A+',魔力:'C',幸運:'B',寶具:'A'},
     classSkills:[{n:'狂化',r:'C',fx:'mad'},{n:'騎乘',r:'A',fx:'ride'},{n:'對魔力',r:'E',fx:'nullify_magic'}],
     skills:[{n:'無窮的鍛鍊',r:'A+',fx:'clear_mind'},{n:'無毀的湖光',r:'A',fx:'weapon_steal'}],

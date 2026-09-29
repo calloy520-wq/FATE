@@ -221,8 +221,9 @@ function warUnit_(seed, extra) {
     npName: warNpName_(seed.np),
     atk: warSpread_(Math.max(warRank_(six['筋力']), warRank_(six['魔力']))),
     def: def, spd: warSpread_(warRank_(six['敏捷'])),
-    np: warSpread_(Math.max(warRank_(six['寶具']), seed.np ? WAR_.NP_FLOOR : 0)),
-    mhp: mhp, hp: mhp, cd: 0, saved: false
+    np: warSpread_(Math.max(warRank_(seed.npRank || six['寶具']), seed.np ? WAR_.NP_FLOOR : 0)),   // npRank＝實際會放的那一招（吉爾伽美什平常只開王之財寶）
+    mhp: mhp, hp: mhp, cd: 0, saved: false,
+    noNp: !!seed.npPassive   // 寶具是常駐型（十二試煉、騎士不死於徒手）：沒有可以解放的一擊
   };
   var sk = warSkillsOf_(seed), p = seed.persona || {};
   u.fx = sk.fx; u.skn = sk.names; u.lore = sk.lore;
@@ -283,7 +284,7 @@ function warButtons_(st) {
   } else if (st.phase === 'day') {
     B.push({ t: 'scout', label: '打聽', sub: '探查敵方位置或真名' });
     B.push({ t: 'rest', label: '休養', sub: '從者與御主恢復' });
-    B.push({ t: 'supply', label: '補魔', sub: sv.cd > 0 ? (sv.cd <= WAR_.SUPPLY_CD ? '寶具今晚可用' : '寶具冷卻 −' + WAR_.SUPPLY_CD + ' 夜') : '寶具已就緒・少量恢復' });
+    B.push({ t: 'supply', label: '補魔', sub: sv.noNp ? '從者少量恢復' : sv.cd > 0 ? (sv.cd <= WAR_.SUPPLY_CD ? '寶具今晚可用' : '寶具冷卻 −' + WAR_.SUPPLY_CD + ' 夜') : '寶具已就緒・少量恢復' });
   } else if (st.phase === 'night' && st.day >= WAR_.NIGHTS) {
     var left = warArrived_(st).filter(function (e) { return !e.fake; }).length;
     B.push({ t: 'final', label: '前往' + warFinal_(st).place, sub: '最後一夜・' + (left > 1 ? '剩餘 ' + left + ' 位從者全數到場' : '最後一位從者在場') });
@@ -302,7 +303,7 @@ function warButtons_(st) {
     var berserk = warFlag_(sv, 'noProbe');
     B.push({ t: 'stance', s: 'strike', label: '正面', sub: '正面交鋒', sealSub: '令咒：必中・傷害 ×1.5' });
     B.push({ t: 'stance', s: 'probe', label: '試探', sub: berserk ? '狂化中無法使用' : (e.intel >= 2 ? '雙方傷害減半' : '雙方傷害減半・看穿真名'), dis: berserk });
-    B.push({ t: 'stance', s: 'np', label: '寶具「' + sv.npName + '」', sub: sv.cd > 0 ? '冷卻中・還要 ' + sv.cd + ' 夜' : (st.exposed ? '最大威力' : '最大威力・會暴露真名'), sealSub: sv.cd > 0 ? '令咒：無視冷卻・對轟佔優・御主 −' + WAR_.SEAL_NP_COST : '令咒：對轟佔優', dis: sv.cd > 0, sealOk: true });
+    if (!sv.noNp) B.push({ t: 'stance', s: 'np', label: '寶具「' + sv.npName + '」', sub: sv.cd > 0 ? '冷卻中・還要 ' + sv.cd + ' 夜' : (st.exposed ? '最大威力' : '最大威力・會暴露真名'), sealSub: sv.cd > 0 ? '令咒：無視冷卻・對轟佔優・御主 −' + WAR_.SEAL_NP_COST : '令咒：對轟佔優', dis: sv.cd > 0, sealOk: true });
     if (st.battle.ctx !== 'final') B.push({ t: 'stance', s: 'retreat', label: '撤退', sub: '成功率：' + warChanceWord_(warRetreatChance_(sv, e, false)), sealSub: '令咒：必定撤離' });
   }
   return B;
@@ -576,7 +577,7 @@ function warIntent_(st, me, foe, round) {
     if (round === 1) return 'probe';
     if (me.hp / me.mhp < foe.hp / foe.mhp && warRand_(st) < 0.35) return 'retreat';
   }
-  if (me.cd === 0 && (me.hp < me.mhp * 0.5 || foe.hp < foe.mhp * 0.55 || (round >= 2 && warRand_(st) < aggr * 0.5))) return 'np';
+  if (me.cd === 0 && !me.noNp && (me.hp < me.mhp * 0.5 || foe.hp < foe.mhp * 0.55 || (round >= 2 && warRand_(st) < aggr * 0.5))) return 'np';
   if (!berserk && !stay && !final && me.hp < me.mhp * 0.3 && aggr < 0.7 && warRand_(st) < 0.45) return 'retreat';
   if (!berserk && (me.cls === 'Caster' || me.cls === 'Assassin') && warRand_(st) < 0.2) return 'probe';
   return 'strike';
@@ -858,7 +859,7 @@ function warFoeCard_(st, e) {
   if (seen && e.intel >= 1 && st.phase !== 'over') c.odds = warOdds_(st, e);
   if (warBountyOn_(st, e)) c.bounty = true;
   if (e.intel >= 2) {
-    c.name = e.name; c.master = e.master; c.np = e.npName; c.npReady = !(e.cd > 0);
+    c.name = e.name; c.master = e.master; c.np = e.npName; c.npReady = !(e.cd > 0); if (e.noNp) c.npPassive = true;
     c.traits = warTraits_(e);
     if (warFlag_(e, 'lives')) c.lives = warLives_(e);
   }
@@ -930,7 +931,7 @@ function warView_(st) {
   var view = {
     phase: st.phase, day: Math.min(st.day, WAR_.NIGHTS), nights: WAR_.NIGHTS, nightsLeft: Math.max(0, WAR_.NIGHTS - st.day + 1),
     master: { name: st.master.name, hp: st.master.hp, mhp: st.master.mhp, seals: st.master.seals },
-    sv: { cls: sv.cls, name: sv.name, npName: sv.npName, hp: sv.hp, mhp: sv.mhp, cd: sv.cd, traits: warTraits_(sv), exposed: st.exposed },
+    sv: { cls: sv.cls, name: sv.name, npName: sv.npName, hp: sv.hp, mhp: sv.mhp, cd: sv.cd, npPassive: !!sv.noNp, traits: warTraits_(sv), exposed: st.exposed },
     foes: foes.filter(function (e) { return e.intel >= 1; }).map(function (e) { return warFoeCard_(st, e); }),
     unknown: warArrived_(st).filter(function (e) { return e.intel === 0; }).length,
     alive: warShownCount_(st),

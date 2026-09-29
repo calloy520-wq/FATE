@@ -390,7 +390,7 @@
     if (v.rules) warRuleInfo_ = Object.assign({}, warRuleInfo_, v.rules);   // 保留開局表單要的對手組數
     const phaseWord = { summon: '召喚', day: '白天', night: '夜晚', battle: '戰鬥', over: '終局' }[v.phase] || '';
     const sv = v.sv, m = v.master;
-    const np = sv.cd > 0 ? `寶具冷卻 ${sv.cd} 夜` : '寶具就緒';
+    const np = sv.npPassive ? '常駐寶具' : sv.cd > 0 ? `寶具冷卻 ${sv.cd} 夜` : '寶具就緒';
     const seals = '❖'.repeat(m.seals) + '<span class="war-dim">' + '❖'.repeat(Math.max(0, 3 - m.seals)) + '</span>';
     const foes = (v.foes || []).map(f => `<button class="war-foe${f.alive ? '' : ' dead'}${warFoeOpen_ === f.id ? ' on' : ''}" onclick="warFoePeek(${escapeHtml(JSON.stringify(f.id))})">${escapeHtml(f.label)}${f.alive ? '・' + escapeHtml(f.hp) + '・' + escapeHtml(f.loc) : ''}${f.intel >= 2 ? ' ◆' : ''}${f.bounty ? ' 🎯' : ''}</button>`).join('')
       + (v.unknown ? `<span class="war-foe unk">不明 ×${v.unknown}</span>` : '');
@@ -464,7 +464,7 @@
     if (!f) return '';
     if (!(f.intel >= 2)) return `<div class="war-small war-dim">${escapeHtml(f.cls || '')}・真名未明</div>`;
     return `<div class="war-intel">
-      <div class="war-small">御主 ${escapeHtml(f.master || '無主')}・寶具「${escapeHtml(f.np || '')}」${f.alive === false ? '' : (f.npReady ? '<b class="war-red">可使用</b>' : '<span class="war-dim">冷卻中</span>')}${f.lives !== undefined ? '・剩 ' + f.lives + ' 命' : ''}</div>
+      <div class="war-small">御主 ${escapeHtml(f.master || '無主')}・寶具「${escapeHtml(f.np || '')}」${f.alive === false ? '' : f.npPassive ? '<span class="war-dim">常駐</span>' : (f.npReady ? '<b class="war-red">可使用</b>' : '<span class="war-dim">冷卻中</span>')}${f.lives !== undefined ? '・剩 ' + f.lives + ' 命' : ''}</div>
       ${(f.traits || []).length ? `<div class="war-small war-dim">技能：${f.traits.map(t => `<span title="${escapeHtml(t)}">${escapeHtml(String(t).split('：')[0])}</span>`).join('・')}</div>` : ''}
       ${inBattle ? '' : '<div class="war-small war-gold">◆ 已看穿真名（傷害提高）</div>'}
     </div>`;

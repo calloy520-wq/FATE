@@ -70,7 +70,7 @@ const P={
     }
     const e=ctx.warFoe_(st,st.battle.e), eh=e.hp/e.mhp;
     // 決戰：令咒留著沒用＝白費，寶具冷卻中就用令咒硬放
-    if(st.battle.ctx==='final'){ const npb=ctx.warButtons_(st).find(b=>b.s==='np'); if(sv.cd===0) return npb; if(st.master.seals>0&&st.master.hp>(ctx.WAR_.SEAL_NP_COST||0)+10) return Object.assign({},npb,{useSeal:true}); }
+    if(st.battle.ctx==='final'){ const npb=ctx.warButtons_(st).find(b=>b.s==='np'); if(!npb){ const sb=find(st,'stance','strike'); return st.master.seals>0?Object.assign({},sb,{useSeal:true}):sb; } if(sv.cd===0) return npb; if(st.master.seals>0&&st.master.hp>(ctx.WAR_.SEAL_NP_COST||0)+10) return Object.assign({},npb,{useSeal:true}); }
     if(hp<0.3&&find(st,'stance','retreat')){ const r=find(st,'stance','retreat'); const p=ctx.warRetreatChance_(sv,e,false); return (st.master.seals>1&&p<0.7)?Object.assign({},r,{useSeal:true}):r; }
     if(st.battle.tele==='np'){ if(sv.cd===0) return find(st,'stance','np'); return find(st,'stance','probe')||find(st,'stance','retreat'); }
     if(e.intel<2&&st.battle.round===1&&find(st,'stance','probe')) return find(st,'stance','probe');
