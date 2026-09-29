@@ -37,8 +37,8 @@ var FATE_4TH_ROSTER = [
 var WAR_ROUTES_ = {
   '5th': {
     fate: { label: 'Fate 線', pace: { brawl: 0.9 } },
-    ubw: { label: 'Unlimited Blade Works 線', pace: { brawl: 0.82 }, final: { place: '柳洞寺', arrive: '寺院的池子上方懸著一團不斷膨脹的黑色輪廓——聖杯正在成形；剩下的從者陸續踏上石階', next: '石階上又來了一位從者' } },
-    hf: { label: "Heaven's Feel 線", pace: { brawl: 0.78 }, final: { place: '大空洞', arrive: '剩下的從者一個個走進柳洞寺地底的黑暗', next: '黑暗裡又走出一位從者' } }
+    ubw: { label: 'Unlimited Blade Works 線', pace: { brawl: 0.82 }, final: { place: '柳洞寺', arrive: '寺院的池子上方懸著一團不斷膨脹的黑色輪廓——聖杯正在成形；剩下的從者陸續踏上石階', arriveOne: '寺院的池子上方懸著一團不斷膨脹的黑色輪廓——聖杯正在成形；最後一位從者踏上石階', next: '石階上又來了一位從者' } },
+    hf: { label: "Heaven's Feel 線", pace: { brawl: 0.78 }, final: { place: '大空洞', arrive: '剩下的從者一個個走進柳洞寺地底的黑暗', arriveOne: '最後一位從者走進柳洞寺地底的黑暗', next: '黑暗裡又走出一位從者' } }
   }
 };
 // 被黑影吞下、或換到魔力深不見底的御主之後的樣子（事件的 alter）：mul＝能力倍率；name／npName／look 有寫才換；dropFx＝失去的技能；meet＝黑化後第一次撞見的那一句（換掉 WAR_TEMPER_ 的）。

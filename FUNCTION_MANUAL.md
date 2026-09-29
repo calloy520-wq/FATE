@@ -172,7 +172,7 @@
 ### War_Engine.gs（76 支函式）
 
 - `WAR_BOUNTY_`／`warBountyStart_(st, ev)`／`warBountyEnd_(st, e, mine, ev)`／`warBountyOn_(st, e)` — 教會討伐令：第 `WAR_.BOUNTY_DAY` 天早上指定 Caster（原作的懸賞），公開位置；你親手打倒多一劃令咒，別人打倒就撤銷；目標不在場就整局不發。`st.bounty`＝`{id, open}`。
-- `WAR_FINAL_`／`warFinal_(st)` — 最後一夜在哪（第五次柳洞寺、第四次冬木市民會館；路線有 `final` 就用路線的，HF＝大空洞）與進場、下一位上場的句子；按鈕、事件、講評都讀這裡。
+- `WAR_FINAL_`／`warFinal_(st)` — 最後一夜在哪（第五次柳洞寺、第四次冬木市民會館；路線有 `final` 就用路線的，HF＝大空洞）與進場（`arrive`；只剩一位時用 `arriveOne`）、下一位上場的句子；按鈕、事件、講評都讀這裡。
 - `WAR_ROUTES_`（Seed_Rivals.gs）／`warRoutes_(war)`／`warRoute_(st)` — 第五次的三條路線（fate／ubw／hf：`label`、`final`、`pace`）；`warNewGame_` 開局暗中抽一條存 `st.route`（`o.route` 可指定，探針與模擬器用）。沒有路線的戰爭回 null。
 - `WAR_NIGHTS_`／`warNights_(st)` — 每場戰爭照原作的夜數（第五次 14、第四次 12；沒寫的用 `WAR_.NIGHTS`）。按鈕、早報、時限、畫面的「剩幾夜」、說書的「第幾天」全讀這支；`warRules_` 另給 `nightsBy` 讓開局表單照選的戰爭顯示。
 - `WAR_CALENDAR_`／`warDate_(st, day)` — 原作的日曆（第五次第 1 天＝2004/2/2，第 14 夜＝2/15 決戰）：回「2月4日」這樣的字，早報、畫面頂端（view 的 `date`）、說書的【此刻】都附上；查不到可靠起點的戰爭（第四次、混亂）回空字串，只寫第幾天。
@@ -195,6 +195,7 @@
 - `warDoSummon_(st, act, ev, o)`（重抽走 `warSummon_(st, o)` 真的換人）／`warDoDay_(st, act, ev)`／`warDoNight_(st, act, ev)`／`warDoRound_(st, act, ev)` — 四個階段各一支。`warDoRound_` 打完最後一回合、對手剩不到 `WAR_.CHASE_BELOW` 時不收場，標 `battle.dawn`，下一步只能追擊（`chase`：御主 −`CHASE_MASTER`、真名曝光、對手想逃，這一擊必中×`CHASE_DMG`，打完就天亮）或收手（`letgo`）。
 - `warSpace_(t)` — 英文職階後面直接接中文時補一個空格；`warAct_` 回傳前對所有事件句統一套用。
 - 撤退的「退路被摸清」：敵人從你手上撤退成功一次就記進 `e.fled`；之後再想從你手上撤，成功率少 `WAR_.FLED_TRAIL`×次數（`warExchange_`，最低 5%；敵對敵不算）。失敗時寫「想從上次的退路脫身，被堵個正著」。
+- `warAutoBattle_` 的交手地點：對方是守門的（`guard`，小次郎）就寫它的據點——它離不開山門，是別人找上門。
 - `warStands_(e)` — 不會撤退的敵人（`guard`／`noRetreat`／狂化）：天亮的追擊會回頭硬拚（按鈕寫「再打一回合」、句子寫「逼了上去」）。
 - `warReveal_(st, e, ev)` — 看穿真名（intel→2）。 對手帶 `veil`（風王結界）時看不穿，改推一句「看不出是誰」。
 - `warUnmask_(st, e, ev)` — 假死的那位露餡（`e.fake`→false）並推一句早報；`warStartBattle_` 與 `warAutoBattle_` 開打時都會叫。陣容上帶 `fakeDeath` 的那組（第四次的百貌哈桑）第二天早報推原作的死訊並標假死（第一夜就跟它交過手的話跳過）。

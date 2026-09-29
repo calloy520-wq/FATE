@@ -51,9 +51,9 @@ var WAR_BOUNTY_ = {
 
 // 最後一夜在哪裡：照原作，第五次是柳洞寺（大聖杯在圓藏山地底），第四次是新都的冬木市民會館。混亂照大聖杯所在。
 var WAR_FINAL_ = {
-  chaos: { place: '柳洞寺', arrive: '剩下的從者陸續來到寺院', next: '石階上又來了一位從者' },
-  '5th': { place: '柳洞寺', arrive: '圓藏山頂的夜空裂開一道口子，聖杯的輪廓浮在寺院上方；剩下的從者陸續踏上石階', next: '石階上又來了一位從者' },
-  '4th': { place: '冬木市民會館', arrive: '市民會館的舞台上方浮現一只金色的杯，杯緣隱隱滲出黑色的泥；剩下的從者陸續來到會館', next: '大廳裡又來了一位從者' }
+  chaos: { place: '柳洞寺', arrive: '剩下的從者陸續來到寺院', arriveOne: '最後一位從者來到寺院', next: '石階上又來了一位從者' },
+  '5th': { place: '柳洞寺', arrive: '圓藏山頂的夜空裂開一道口子，聖杯的輪廓浮在寺院上方；剩下的從者陸續踏上石階', arriveOne: '圓藏山頂的夜空裂開一道口子，聖杯的輪廓浮在寺院上方；最後一位從者踏上石階', next: '石階上又來了一位從者' },
+  '4th': { place: '冬木市民會館', arrive: '市民會館的舞台上方浮現一只金色的杯，杯緣隱隱滲出黑色的泥；剩下的從者陸續來到會館', arriveOne: '市民會館的舞台上方浮現一只金色的杯，杯緣隱隱滲出黑色的泥；最後一位從者來到會館', next: '大廳裡又來了一位從者' }
 };
 function warFinal_(st) { var r = warRoute_(st); return (r && r.final) || WAR_FINAL_[st && st.war] || WAR_FINAL_['5th']; }
 // 這一局暗中走的路線（WAR_ROUTES_，只有第五次有）；沒有回 null。
@@ -584,7 +584,8 @@ function warDoNight_(st, act, ev) {
   if (act.t === 'final') {
     warArrived_(st).forEach(function (x) { x.intel = Math.max(x.intel, 1); warHeal_(x, WAR_.FINAL_REST); x.cd = 0; });
     st.stats.finalFoes = warArrived_(st).length;
-    ev.push({ k: 'final', txt: '最後一夜。聖杯在' + warFinal_(st).place + '降臨，' + warFinal_(st).arrive + '。' });
+    var fin = warFinal_(st), one = warArrived_(st).length === 1;   // 假死的那位也會在混戰裡現身，照樣算人頭
+    ev.push({ k: 'final', txt: '最後一夜。聖杯在' + fin.place + '降臨，' + (one && fin.arriveOne ? fin.arriveOne : fin.arrive) + '。' });
     warFinalMelee_(st, ev);
     warArrived_(st).forEach(function (x) { x.cd = 0; });   // 混戰裡放掉的寶具，輪到你之前重新備好（聖杯降臨那一夜魔力充沛）
     if (warCheckEnd_(st, ev)) return;
@@ -974,16 +975,17 @@ function warAutoBattle_(st, a, b, ev) {
     if (b.hp <= 0) b.alive = false;
   }
   var dead = !a.alive ? a : (!b.alive ? b : null), win = dead ? (dead === a ? b : a) : null;
+  var place = warTemper_(b).guard ? b.loc : a.loc;   // 守門的離不開原地：跟它交手就是對方找上門
   [a, b].forEach(function (x) { if (x.intel === 0 && warRand_(st) < WAR_.NEWS_REVEAL) x.intel = 1; });
   if (win) {
-    ev.push({ k: 'news', txt: '昨夜' + a.loc + '一帶兩位從者交戰，' + warFoeLabel_(dead) + '被擊敗，' + warFoeLabel_(win) + '勝出。' });
+    ev.push({ k: 'news', txt: '昨夜' + place + '一帶兩位從者交戰，' + warFoeLabel_(dead) + '被擊敗，' + warFoeLabel_(win) + '勝出。' });
     warBountyEnd_(st, dead, false, ev);
     warCanonFall_(st, dead, ev);
   } else {
     // 沒人倒下的交手：早上併成一句（warMorning_）；認不出是誰的只算場數。
     var la = warFoeLabel_(a), lb = warFoeLabel_(b);
     if (la === lb) lb = '另一位 ' + b.cls;   // 兩位 Archer 還沒看穿時，別寫成「那位 Archer與那位 Archer」
-    (st.draws = st.draws || []).push(a.intel === 0 && b.intel === 0 ? '' : la + '與' + lb + '（' + a.loc + '）');   // 存在戰局裡：這一夜被突襲打斷也不會半句漏到畫面
+    (st.draws = st.draws || []).push(a.intel === 0 && b.intel === 0 ? '' : la + '與' + lb + '（' + place + '）');   // 存在戰局裡：這一夜被突襲打斷也不會半句漏到畫面
   }
 }
 

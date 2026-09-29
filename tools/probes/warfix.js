@@ -161,4 +161,13 @@ const FT=J(`(function(){ var run=function(fled){ var ok=0, n=400; for(var i=0;i<
   return { a:run(0), b:run(2), counted:hit }; })()`);
 t(FT.b<FT.a-0.2&&FT.counted,'從你手上逃過的敵人：記下次數，下次更難從你手上逃（退路被摸清）',JSON.stringify(FT));
 
+const GP=J(`(function(){ var o=warSeedCtx_('5th'); o.name='測'; o.sex='男'; o.seed=3; var s=warNewGame_(o); warAct_(s,{t:'start'}); var H=function(h){ return s.enemies.filter(function(e){return e.hero===h;})[0]; };
+  var sb=H('阿爾托莉雅-Saber'), kj=H('佐佐木小次郎-Assassin'); sb.intel=1; kj.intel=1; sb.hp=sb.mhp*10; sb.mhp*=10; kj.hp=kj.mhp*10; kj.mhp*=10; s.draws=[]; var ev=[]; warAutoBattle_(s,sb,kj,ev); return (s.draws||[]).concat(ev.map(function(x){return x.txt;})).join('|'); })()`);
+t(/柳洞寺/.test(GP)&&!/衛宮邸/.test(GP),'跟守山門的武士交手：地點寫柳洞寺（他離不開山門）',GP);
+const FO=J(`(function(){ var out=[]; ['5th','4th','chaos'].forEach(function(w){ var o=warSeedCtx_(w); o.name='測'; o.sex='男'; o.seed=4; var s=warNewGame_(o); warAct_(s,{t:'start'}); var al=s.enemies.filter(function(e){return e.alive&&e.arrive<=1&&!e.fake;});
+    al.slice(1).forEach(function(e){ e.alive=false; e.hp=0; }); s.enemies.forEach(function(e){ if(e.fake||e.arrive>1){ e.alive=false; e.hp=0; } }); s.day=warNights_(s); s.phase='night'; var r=warAct_(s,{t:'final'}); out.push(r.ev.filter(function(x){return x.k==='final';}).map(function(x){return x.txt;}).join()); }); return out; })()`);
+t(FO.length===3&&FO.every(function(x){return /最後一位從者/.test(x)&&!/剩下的從者/.test(x);}),'決戰夜只剩一位：寫「最後一位從者」，不寫「剩下的從者陸續」',FO.join(' / '));
+const AO=J(`(function(){ var all=[WAR_FINAL_['5th'],WAR_FINAL_['4th'],WAR_FINAL_.chaos]; Object.keys(WAR_ROUTES_).forEach(function(w){ Object.keys(WAR_ROUTES_[w]).forEach(function(k){ if(WAR_ROUTES_[w][k].final) all.push(WAR_ROUTES_[w][k].final); }); }); return all.filter(function(f){ return f&&!f.arriveOne; }).length; })()`);
+t(AO===0,'每個決戰地都寫了只剩一位時的那句（arriveOne）',AO);
+
 console.log(bad ? '❌ '+bad+' 條失敗' : '✅ warfix.js '+ok+' 條全過');
