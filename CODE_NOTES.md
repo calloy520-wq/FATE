@@ -320,6 +320,24 @@ _genFailed 旗標：這組是失敗保底文字、不是真正生成的敘事，
 system 1440→1410 字。`style.js` 補三條（卡片有生成／卡上沒有怪癖／東西有搬家），
 注入退化確認會叫。
 
+### `CODEX_PERSONA_VER` 版本沿革　<sub>Seed_Codex.gs</sub>
+從種子檔頭搬來（代碼裡只留現在的版號）。改 daily*／persona／book 一定要升版，`upgradeCodexPersonas_` 才會刷既有英靈殿。
+
+- v89：Rider／Caster 的 key 補單字（書／鏡／裙）；v88：book 多了經歷條目（rel／overlap）；v87：persona 多了 book（觸發條目）；v86：喜歡／討厭兩格改成官方 profile（21 筆）＋迪盧木多黑髮；v85：EMIYA 真名「無銘」。
+- v84：櫻的「姊姊」補上名字——沒有名字的稱謂會被 AI 就近安到在場的人身上。
+- v83：三格串味——外貌欄寫進了衣著/性格/姿勢（詳見 CODE_NOTES）。
+- v82：清掉種子裡的全稱副詞（總／總是／每次／一直）——整張卡每回合都送，
+  那幾個字會讓 AI 每回合演一次同一個動作（跟氣質格退休掉的「背脊永遠打得筆直」同形，只是換一格）。
+  ⚠ check_seed ⑪ 只掃【氣質格】(dailyLook 第二段)，其餘五格是靠原則自律、機器不管。
+- v81：自稱/口吻退休，tic→quirks(兩格)、新增 logic(做選擇的方式)、dailyBack 改寫成「在這座城裡是誰」、dailyLook 砍掉第3段日常口氣。
+- v80：美遊／小黑／伊莉雅(Caster) 三筆移出種子庫——原作設定是孩子，而補魔與鑑賞是露骨橋段。升版號才會讓 upgradeCodexPersonas_ 把既有英靈殿裡那三列一併刪掉。
+- v78：萌點整組退休（玩家「萌不萌是玩家的事情」）——種子/卡片/創角/改命全線拔除，舊列的值一併洗掉。
+- v77：21 筆「氣質舉止」從純形容詞改寫成看得到的畫面（純形容詞比例 88%→12%）。
+- v76：私密一面整組退休（dailyLook 四段→三段、特徵三格→兩格）。v75：種子瘦身＋對御主態度正名——PERSONA 欄不再重複收 daily 四欄、
+- 御主殿「居所/屆次」改空、四位的態度從劇情弧改成單一核心立場、金羊毛接上 HP_BONUS_FX_(+10)、
+- resync 一併重刷 MAX_HP。v74：dailyLook 第3段正名為「日常口吻」——17 位自稱是「我」的前綴刪掉(零資訊量)，
+- 6 位有特色的(俺／拙者／吾／余／我們／本小姐)保留。特徵格不再收自稱，見 CODE_NOTES.md『TRAIT_SLOTS_』。
+
 ### `CODEX_PERSONA_VER` v82：種子裡的全稱副詞　<sub>Seed_Codex.gs</sub>
 
 2026-09 玩家把整份提示詞與 22 筆種子拿去給另一個模型（Gemini）做第二意見，來回兩輪的結果。
@@ -1953,15 +1971,12 @@ p.words 是種子原始格式(段落用「・」分隔)，quadLabeled_ 只切「
 
 多數角色 fp 預設值就是「我」，長提示詞中段容易讓小模型把角色自稱「我」跟敘事旁白第一人稱的「我」(玩家)混淆，故明確限定「僅此角色自己台詞內」，不留一個懸空的「自稱」標籤。
 
-### `melee`　<sub>Router_Persona.gs</sub>
-
-魔術階位跟魔術系統併成一行(如「寶石魔術(A階)」)，避免兩行都掛「魔術」開頭重複。
-
 ## `gas/Seed_Codex.gs`
 
 ### `SEED_MASTERS`　<sub>Seed_Codex.gs</sub>
 
-back＝身世生平（show-don't-tell 的演出依據）、moe＝萌點（不限反差，外觀/行為/習慣特色皆可）。
+只剩 `{id, name}`（2026-09-29 玩家問「現在的種子夠簡潔有力嗎」時瘦身）。舊版每筆還有 appearance／align／magic／circuits／melee／magic_rank／wish／persona／back，是舊版 solo 敵方御主眾生列用的；舊版拆掉後全樹只讀 `name`，九欄死重。
+「有力」改由說書補上：看穿對手真名（intel 2）時，`warNarrPrompt_` 的【對手】帶「身後的御主是X」——原作人名一給，AI 自己知道凜是雙馬尾、綺禮穿法衣，不必種子再寫一份（寫了反而跟 AI 的原作認知打架）。
 
 ### `row`　<sub>Seed_Codex.gs</sub>
 

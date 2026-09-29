@@ -155,7 +155,7 @@
 ### Seed_Codex.gs（3 支函式）
 
 - `SEED_SERVANTS` — 種子從者名冊，**現況 25 筆**：正職戰鬥從者 14 騎（第五次 8：阿爾托莉雅/EMIYA/庫丘林/美杜莎/美狄亞/佐佐木小次郎/赫拉克勒斯/咒腕之哈桑；第四次 6：吉爾伽美什/迪盧木多/伊斯坎達爾/吉爾德萊/百貌哈桑/蘭斯洛特）＋客串戰鬥 6 騎（恩奇都、斯卡哈-Lancer、斯卡哈-Assassin、美遊、小黑、伊莉雅）＋鑑賞專用「御主」職階 5 位（遠坂凜/伊莉雅絲菲爾/間桐櫻黑化/衛宮士郎/藤村大河，cls='御主' 只供鑑賞召喚、solo 白名單擋下、six/技能/寶具留空）。每筆含 six/classSkills/skills/traits/np/persona（含 dailyLook/dailyOutfit/dailyWords/dailyBack/dailyMoe 鑑賞日常欄）。
-- `SEED_MASTERS` — 種子御主名冊，**現況 15 筆**（第五次 8：士郎/凜/慎二/臟硯/葛木/綺禮/伊莉雅絲菲爾/櫻黑化；第四次 7：切嗣/時臣/肯尼斯/韋伯/龍之介/綺禮/雁夜）。每筆含 circuits/melee/magic_rank/home/wish/persona/back/moe。
+- `SEED_MASTERS` — 種子御主名冊，**現況 15 筆**（第五次 8：士郎/凜/慎二/臟硯/葛木/綺禮/伊莉雅絲菲爾/櫻黑化；第四次 7：切嗣/時臣/肯尼斯/韋伯/龍之介/綺禮/雁夜）。每筆只有 `{id, name}`（對手卡、說書、工房撞名用）；外貌與個性交給說書 AI 的原作認知。
 - `HERO_PERSONA_OWN_COL_`（常數）— 已有專欄、不可以再塞進 PERSONA JSON 的 persona 鍵（dailyLook/dailyWords/dailyMoe/dailyOutfit）。
 - `servantToHeroRow_(s)` — 從者物件→英靈殿列（順序＝COL.HERO，含 4 個日常快取欄），source='seed'。⚠ 2026-09：PERSONA 欄寫的是**剔除過 `HERO_PERSONA_OWN_COL_` 的那份**（daily 四欄各有專欄，不再存兩份；`dailyBack` 沒有專欄所以留在 JSON 裡）。
 - `CODEX_PERSONA_VER = 'v74'` — 種子人設版本，精緻化 persona 就升版觸發升級管線。逐版校對細節（v65~v69）不再堆積於此處註解、存檔於 `SOLO_REFERENCE.md` §21。
@@ -231,7 +231,7 @@
 - `actionWarLoad`／`actionWarNew`／`actionWarAct`／`actionWarNarrate`／`actionWarQuit`（簽名 `(userData)`）— 五條路由。`war_act` 的 `act` 只收 `t/id/s/seal` 四鍵、照白名單驗。`war_load` 沒有戰局時也回 `rules`（開局表單要用）。`war_new` 收 `war`（`WAR_WARS_`）與 `heroId`；第五次／第四次指定這場的原作從者會被擋。
 - `actionWarDojo(userData)` — 🐯 老虎道場：終局才開；`warDojoPrompt_(st)` 帶戰績、輸在哪與下一局（或亮點）、這一局的世界線與改寫，system＝`WAR_DOJO_SYS_`（大河＋伊莉雅的對話）；結果存在說書那一格的 `dojo`（同一局回快取，AI 沒回就不存、下次重試）。
 - `WAR_WORLD_BOOK_` — 冬木地點與戰爭規矩的觸發條目。`warLoreEntries_(st)` — 世界書＋我方從者的喜惡（種子 `book`）＋場上每一位的寶具原作描述（不寫持有者）。`warLoreStr_(st)` — 這一段事件文字碰到的條目（走鑑賞的 `loreHits_`，上限 `KANSHOU_LORE_MAX_`）→ 一行，沒有就空字串。
-- `warNarrPrompt_(st)` — 說書提示詞：這場戰爭（`WAR_ERA_`：第五次／第四次＝原作陣容外多出來的一組，混亂＝陣容錯亂）、從者卡（look／words／toMaster）、御主、對手（知道真名才給外貌）、此刻（事情發生的那一天、那個時候：`actionWarAct` 在結算前記下 `narr.day`／`narr.when`，時段查 `WAR_WHEN_`；召喚寫「開始前的那一夜」）、【這一段發生的事】、碰到的原作設定（`warLoreStr_`）、篇幅＋召喚／開戰的重點（`WAR_SCENE_`）；補魔段接 `sealGenderFact_`＋`LEWD_EXPLICIT_`。system＝`WAR_NARR_SYS_`。
+- `warNarrPrompt_(st)` — 說書提示詞：這場戰爭（`WAR_ERA_`：第五次／第四次＝原作陣容外多出來的一組，混亂＝陣容錯亂）、從者卡（look／words／toMaster）、御主、對手（知道真名才給外貌與身後的御主）、此刻（事情發生的那一天、那個時候：`actionWarAct` 在結算前記下 `narr.day`／`narr.when`，時段查 `WAR_WHEN_`；召喚寫「開始前的那一夜」）、【這一段發生的事】、碰到的原作設定（`warLoreStr_`）、篇幅＋召喚／開戰的重點（`WAR_SCENE_`）；補魔段接 `sealGenderFact_`＋`LEWD_EXPLICIT_`。system＝`WAR_NARR_SYS_`。
 
 ### War_Forge.gs（12 支函式）
 

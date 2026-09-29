@@ -238,34 +238,25 @@ var SEED_SERVANTS = [
     book:[{'keys': ['獅子', '老虎', '虎'], 'content': '討厭獅子；被叫「虎」會炸'}]} }
 ];
 
-// 御主 persona 為 4 段頓號（日常表象・真實內裡・喜歡・厭惡）供 TRAIT/PREF 解析；
+// 原作的御主：只給名字（對手卡、說書、工房撞名）。這些人的外貌與個性，說書 AI 照原作認知演。
 var SEED_MASTERS = [
   // 第五次
-  // circuits=27(官方數字，一般魔術師約20條)：他真正的弱項是迴路品質而非數量，此欄只管數量。
-  {id:'衛宮士郎-5th',  name:'衛宮士郎', gender:'男', appearance:'紅褐短髮的高中生，樸素襯衫', align:'秩序・善', magic:'投影／強化',          circuits:27, melee:'D', magic_rank:'D', wish:'成為正義的伙伴',          persona:'樂於助人的好好先生・扭曲的自我犧牲・熱衷修繕與張羅三餐・厭惡見死不救', back:'冬木大火倖存的孤兒、繼承切嗣的理想' },
-  // circuits=50：她的魔術回路質量遠超同齡水準，公認罕見。凜是姊姊，櫻才是被送養的妹妹。
-  {id:'遠坂凜-5th',    name:'遠坂凜', gender:'女', appearance:'黑長雙馬尾、紅衣黑裙，傲然', align:'中立・善', magic:'寶石魔術',            circuits:50, melee:'C', magic_rank:'A',     wish:'見證聖杯・不負遠坂之名',  persona:'人前完美的優等生・刀子嘴豆腐心・收藏寶石・厭惡示弱與失態', back:'遠坂家長女（櫻是被送養的妹妹）、父親死於上屆聖杯戰爭' },
-  // 慎二才是間桐家血親獨子，妹妹櫻才是被收養進來頂替魔術後嗣的那位。
-  {id:'間桐慎二-5th',  name:'間桐慎二', gender:'男', appearance:'藍髮神經質青年，刻薄表情', align:'混沌・惡', magic:'魔術迴路微弱・依賴從者', circuits:15, melee:'E', magic_rank:'E',     wish:'被認可・奪取勝利',        persona:'自信張揚的表象・自卑虛榮・眾人吹捧與凌駕他人的優越感・厭惡比自己強的人', back:'間桐血親獨子（櫻才是養女）、迴路微弱不被家族認可' },
-  // wish：「到達根源」是他早已放棄的舊初衷，如今只剩逃脫死亡、把奪杯戰爭當餘生消遣。
-  {id:'間桐臟硯-5th',  name:'間桐臟硯', gender:'男', appearance:'乾癟矮小的千年老人，蟲蝕枯槁之軀', align:'混沌・惡', magic:'間桐之蟲術・吸血蟲・延命', circuits:40, melee:'E', magic_rank:'A',     wish:'逃脫死亡（不老不死）・視奪杯為餘生消遣', persona:'老謀深算・對活下去的病態執著・蒐羅珍稀魔術與延命的活體材料・厭惡死亡與軟弱', back:'活了五百年的間桐始祖、視子孫為延命容器' },
-  {id:'葛木宗一郎-5th',name:'葛木宗一郎', gender:'男', appearance:'戴眼鏡的沉默教師，黑西裝', align:'秩序・中庸', magic:'體術（蛇之拳）・無魔術', circuits:10, melee:'A', magic_rank:'E',     wish:'無所求・守護所重視之人',     persona:'沉默盡責的教師・別無所求的絕對忠誠・教書育人與默默鍛鍊武藝・厭惡虛偽的言辭', back:'本是無名殺手，因其從者第一次有了「想守護之物」' },
-  {id:'言峰綺禮-5th',  name:'言峰綺禮', gender:'男', appearance:'高大神父、黑色法衣，陰沉', align:'混沌・惡', magic:'代行者・黑鍵',        circuits:25, melee:'A', magic_rank:'C',   wish:'尋得能讓自己喜悅之物',    persona:'虔誠神父的假面・以他人痛苦為樂的空虛・與從者對飲時的閒談・厭惡平庸的善', back:'壓抑天性數十年，已在某位高傲英靈慫恿下坦然墮落' },
-  {id:'伊莉雅絲菲爾-5th',name:'伊莉雅絲菲爾', gender:'女', appearance:'紅眼白髮的幼小少女，毛領大衣', align:'中立・善',magic:'愛因茲貝倫煉金術・聖杯依代',    circuits:80, melee:'D', magic_rank:'A', wish:'完成聖杯的使命',          persona:'天真爛漫・哀傷的聖杯依代・被珍視疼愛的陪伴・厭惡孤獨', back:'人造人、被當作工具養大卻渴望親情' },
-  // circuits=50：她本人的回路質量與凜同級(人類頂尖水準)，無限魔力來自聖杯泥附體(已在magic欄體現)，
-  // 不該混進她自己的天賦數字。官方設定髮色為深紫色，黑化不因此變色。
-  {id:'間桐櫻(黑化)-5th',name:'間桐櫻', gender:'女', appearance:'深紫長髮、黑紅禮服，泛著陰冷寒意', align:'混沌・惡',magic:'聖杯之泥・無限魔力・蟲爪', circuits:50, melee:'E', magic_rank:'A', wish:'獨佔所愛、將世界一同拖入黑暗', persona:'溫順乖巧的假面・被黑泥吞噬的佔有慾・香甜的點心與嚇人的怪談・厭惡傷害過自己的一切', back:'遠坂次女、送養間桐受蟲蝕十一年後黑化' },
-  // 第四次circuits=15/magic_rank=C：他的魔術回路數量少質量也差(原作明寫、故Saber供魔得靠愛麗絲)，真正殺傷力來自起源彈與戰術，「天才殺手·蹩腳魔術師」的反差不該被回路數字掩蓋。
-  {id:'衛宮切嗣-4th',  name:'衛宮切嗣', gender:'男', appearance:'黑髮疲憊的男人，風衣', align:'中立・善', magic:'起源彈・固有時制御',    circuits:15, melee:'A', magic_rank:'C', wish:'以聖杯拯救世界、終結戰爭',persona:'冷酷疲憊的魔術師殺手・為大義不擇手段・與家人共度的平靜日常・厭惡無謂的犧牲', back:'背負「拯救多數而犧牲少數」的覺悟參戰' },
-  {id:'遠坂時臣-4th',  name:'遠坂時臣', gender:'男', appearance:'金棕髮的優雅紳士，名門做派', align:'秩序・中庸', magic:'寶石魔術',            circuits:50, melee:'D', magic_rank:'A',     wish:'抵達「根源之渦」',        persona:'優雅從容的名門紳士・抵達根源的執念・珍稀寶石與名門的體面排場・厭惡粗鄙與失格', back:'遠坂當主、以正統之道召喚出契合自身的英靈' },
-  // home=海特飯店(他實際據點，被切嗣炸毀之處)；circuits=65為時鐘塔科主等級，與韋伯拉開懸殊差距。
-  {id:'肯尼斯-4th',    name:'肯尼斯', gender:'男', appearance:'金髮高傲的年輕教授', align:'秩序・惡', magic:'礦石科・流體操作',      circuits:65, melee:'C', magic_rank:'A', wish:'榮譽與學術成就',          persona:'高傲的天才教授・極高的自尊・學術成就與未婚妻索菈的陪伴・厭惡被輕視', back:'時鐘塔天才講師、攜未婚妻索菈參戰' },
-  // home=麥肯基宅(他借住深山町山丘老夫婦家)；circuits=15：原作明寫他是時鐘塔墊底資質。
-  {id:'韋伯·維爾維特-4th',name:'韋伯·維爾維特', gender:'男', appearance:'黑髮瘦小的少年魔術師', align:'中立・善',magic:'自我暗示・基礎魔術', circuits:15, melee:'E', magic_rank:'C', wish:'證明自己的價值',          persona:'故作老成的少年・自卑卻好強・渴望獲得認可的實力・厭惡被當作無能', back:'時鐘塔末席學生、偷走觸媒召喚出羈絆深厚的英靈' },
-  // wish：他對聖杯毫無興趣，圖的是跟從者共享新奇殺戮的快感；home=澪標川下水道廢棄工房(實際據點)。
-  {id:'雨生龍之介-4th',name:'雨生龍之介', gender:'男', appearance:'輕浮的金髮青年，咧嘴而笑', align:'混沌・惡', magic:'無魔術・召喚術（外行）', circuits:10, melee:'C', magic_rank:'E', wish:'見識更新奇的殺戮・與從者共享獵奇的快感',persona:'輕浮開朗・天生純粹之惡・新奇獵奇的殺戮快感・厭惡無聊', back:'毫無魔術素養、誤打誤撞召喚出與自己瘋狂共鳴的英靈' },
-  {id:'言峰綺禮-4th',  name:'言峰綺禮', gender:'男', appearance:'尚未墮落的青年神父，壓抑', align:'秩序・中庸', magic:'代行者・黑鍵',        circuits:25, melee:'A', magic_rank:'C',   wish:'探求自身空虛的答案',      persona:'壓抑的青年神父・尚未墮落的空虛・說不出所以然卻感到安心的日常公務・厭惡虛假的自己', back:'奉命輔佐盟友魔術師、正逐步走向深淵' },
-  {id:'間桐雁夜-4th',  name:'間桐雁夜', gender:'男', appearance:'蟲蝕半白頭髮的憔悴男子', align:'中立・善', magic:'間桐之蟲術',          circuits:15, melee:'D', magic_rank:'C',     wish:'從間桐手中救出櫻',        persona:'憔悴悲憤・自我犧牲的執念・對櫻叔父般的疼惜・厭惡間桐家', back:'曾逃離間桐的男人、為救櫻重回家門植入蟲術' }
+  { id: '衛宮士郎-5th', name: '衛宮士郎' },
+  { id: '遠坂凜-5th', name: '遠坂凜' },
+  { id: '間桐慎二-5th', name: '間桐慎二' },
+  { id: '間桐臟硯-5th', name: '間桐臟硯' },
+  { id: '葛木宗一郎-5th', name: '葛木宗一郎' },
+  { id: '言峰綺禮-5th', name: '言峰綺禮' },
+  { id: '伊莉雅絲菲爾-5th', name: '伊莉雅絲菲爾' },
+  { id: '間桐櫻(黑化)-5th', name: '間桐櫻' },
+  // 第四次
+  { id: '衛宮切嗣-4th', name: '衛宮切嗣' },
+  { id: '遠坂時臣-4th', name: '遠坂時臣' },
+  { id: '肯尼斯-4th', name: '肯尼斯' },
+  { id: '韋伯·維爾維特-4th', name: '韋伯·維爾維特' },
+  { id: '雨生龍之介-4th', name: '雨生龍之介' },
+  { id: '言峰綺禮-4th', name: '言峰綺禮' },
+  { id: '間桐雁夜-4th', name: '間桐雁夜' }
 ];
 
 // 從者物件 → 英靈殿列（順序＝COL.HERO）
@@ -282,21 +273,7 @@ function servantToHeroRow_(s) {
     s.np, JSON.stringify(slim), s.align, JSON.stringify(s.wars), 'seed',
     p.dailyLook || '', p.dailyWords || '', '', p.dailyOutfit || ''];
 }
-// 種子人設版本：每次精緻化 persona(性格/口吻) 就升一版，觸發既有英靈殿/御主殿升級
-var CODEX_PERSONA_VER = 'v89'; // v89：Rider／Caster 的 key 補單字（書／鏡／裙）；v88：book 多了經歷條目（rel／overlap）；v87：persona 多了 book（觸發條目）；v86：喜歡／討厭兩格改成官方 profile（21 筆）＋迪盧木多黑髮；v85：EMIYA 真名「無銘」。
-// v84：櫻的「姊姊」補上名字——沒有名字的稱謂會被 AI 就近安到在場的人身上。
-// v83：三格串味——外貌欄寫進了衣著/性格/姿勢（詳見 CODE_NOTES）。
-// v82：清掉種子裡的全稱副詞（總／總是／每次／一直）——整張卡每回合都送，
-//   那幾個字會讓 AI 每回合演一次同一個動作（跟氣質格退休掉的「背脊永遠打得筆直」同形，只是換一格）。
-//   ⚠ check_seed ⑪ 只掃【氣質格】(dailyLook 第二段)，其餘五格是靠原則自律、機器不管。
-// v81：自稱/口吻退休，tic→quirks(兩格)、新增 logic(做選擇的方式)、dailyBack 改寫成「在這座城裡是誰」、dailyLook 砍掉第3段日常口氣。
-// v80：美遊／小黑／伊莉雅(Caster) 三筆移出種子庫——原作設定是孩子，而補魔與鑑賞是露骨橋段。升版號才會讓 upgradeCodexPersonas_ 把既有英靈殿裡那三列一併刪掉。
-// v78：萌點整組退休（玩家「萌不萌是玩家的事情」）——種子/卡片/創角/改命全線拔除，舊列的值一併洗掉。
-// v77：21 筆「氣質舉止」從純形容詞改寫成看得到的畫面（純形容詞比例 88%→12%）。
-// v76：私密一面整組退休（dailyLook 四段→三段、特徵三格→兩格）。v75：種子瘦身＋對御主態度正名——PERSONA 欄不再重複收 daily 四欄、
-// 御主殿「居所/屆次」改空、四位的態度從劇情弧改成單一核心立場、金羊毛接上 HP_BONUS_FX_(+10)、
-// resync 一併重刷 MAX_HP。v74：dailyLook 第3段正名為「日常口吻」——17 位自稱是「我」的前綴刪掉(零資訊量)，
-// 6 位有特色的(俺／拙者／吾／余／我們／本小姐)保留。特徵格不再收自稱，見 CODE_NOTES.md『TRAIT_SLOTS_』。
+var CODEX_PERSONA_VER = 'v89';   // 精緻化 persona 就升一版，觸發既有英靈殿升級（upgradeCodexPersonas_）；每一版改了什麼見 CODE_NOTES『CODEX_PERSONA_VER』
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {

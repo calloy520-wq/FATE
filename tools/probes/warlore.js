@@ -98,4 +98,7 @@ const era=w=>E(`(function(){ var o=warSeedCtx_('${w}'); o.name='測'; o.sex='男
 const e5=era('5th'), e4=era('4th'), ec=era('chaos');
 t(/【這場戰爭】第五次.*多出來的那一組/.test(e5) && /【這場戰爭】第四次.*十年前/.test(e4) && /【這場戰爭】一場陣容錯亂/.test(ec), '說書知道是哪一場戰爭、玩家是多出來的一組', [e5,e4,ec].map(x=>(x.match(/【這場戰爭】[^\n]*/)||[''])[0]).join(' / '));
 
+const boss=w=>E(`(function(){ var o=warSeedCtx_('5th'); o.name='測'; o.sex='男'; o.war='5th'; o.seed=7; var s=warNewGame_(o); var e=s.enemies.filter(function(x){return x.hero==='EMIYA-Archer';})[0]; e.intel=${w}; s.narr={seq:1,kind:'battle',foe:e.id,facts:['交手。']}; return (warNarrPrompt_(s).match(/【對手】[^\\n]*/)||[''])[0]; })()`);
+t(/身後的御主是遠坂凜/.test(boss(2)) && !/遠坂凜/.test(boss(1)), '看穿真名才告訴說書對手的御主是誰（原作人名，AI 照原作演）', boss(2)+' / '+boss(1));
+
 console.log(bad ? '❌ '+bad+' 條失敗' : '✅ warlore.js '+ok+' 條全過');

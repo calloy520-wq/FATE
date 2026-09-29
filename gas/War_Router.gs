@@ -272,7 +272,8 @@ function warNarrPrompt_(st) {
   var foeId = (st.narr && st.narr.foe) || (st.battle ? st.battle.e : '');
   if (foeId && warFoe_(st, foeId)) {
     var e = warFoe_(st, foeId);
-    lines.push('【對手】' + (e.intel >= 2 ? e.name + '（' + e.cls + '）。' + ((e.card && e.card.look) || '') : warFoeLabel_(e) + '，真名還不知道。'));
+    var boss = e.intel >= 2 && e.master && e.master !== '無主' ? '身後的御主是' + e.master + '。' : '';   // 看穿真名才知道；原作的人名，AI 照原作認知演
+    lines.push('【對手】' + (e.intel >= 2 ? e.name + '（' + e.cls + '）。' + ((e.card && e.card.look) || '') + boss : warFoeLabel_(e) + '，真名還不知道。'));
   }
   var nr = st.narr || {};
   var when = nr.when || (st.phase === 'day' ? '白天' : '夜晚');
