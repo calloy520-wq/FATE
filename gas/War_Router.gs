@@ -280,7 +280,9 @@ function warNarrPrompt_(st) {
     var e = warFoe_(st, foeId);
     var ml = warMasterLook_(st, e.master);
     var boss = e.intel >= 2 && e.master && e.master !== '無主' ? '身後的御主是' + e.master + (ml ? '（' + ml + '）' : '') + '。' : '';   // 看穿真名才知道
-    lines.push('【對手】' + (e.intel >= 2 ? e.name + '（' + e.cls + '）。' + ((e.card && e.card.look) || '') + boss : warFoeLabel_(e) + '，真名還不知道。'));
+    var look = (e.card && e.card.look) || '';
+    if (look && !/[。！？」]$/.test(look)) look += '。';   // 外貌多半沒句號：先收句，再接「身後的御主」
+    lines.push('【對手】' + (e.intel >= 2 ? e.name + '（' + e.cls + '）。' + look + boss : warFoeLabel_(e) + '，真名還不知道。'));
   }
   var nr = st.narr || {};
   var when = nr.when || (st.phase === 'day' ? '白天' : '夜晚');
