@@ -30,6 +30,11 @@ t(R.out.some(x=>/白髮的少女/.test(x))&&hb.intel>=1,'第五次第 2 天：�
 R=run('4th',8); const isk=R.st.enemies.find(e=>e.hero==='伊斯坎達爾-Rider'), dl=R.st.enemies.find(e=>e.hero==='迪盧木多-Lancer');
 t(R.out.some(x=>/倉庫街/.test(x))&&isk.intel===2,'第四次第 2 天：倉庫街，征服王自報真名（直接看穿）');
 t(R.out.some(x=>/海特飯店/.test(x))&&dl.loc==='廢棄工廠','第 5 天：飯店被炸，迪盧木多搬到廢棄工廠');
+R=run('4th',11); const gd=R.st.enemies.find(e=>e.hero==='吉爾德萊-Caster'), la=R.st.enemies.find(e=>e.hero==='蘭斯洛特-Berserker');
+t(R.out.some(x=>/黑霧般的騎士/.test(x))&&la.intel>=1,'第四次第 3 天：黑騎士接住金色英靈的寶具擲回去');
+t(R.out.some(x=>/海魔/.test(x))&&gd.intel===2&&gd.loc==='未遠川','第四次第 10 天：未遠川的海魔，吉爾德萊真名曝光、據點移到河上',JSON.stringify({i:gd.intel,l:gd.loc}));
+R=run('5th',6); const md=R.st.enemies.find(e=>e.hero==='美狄亞-Caster');
+t(R.out.some(x=>/集體昏睡/.test(x))&&md.intel>=1,'第五次第 5 天：新都集體昏睡，線頭通往柳洞寺');
 const st4=mk('4th',emiya); c.warAct_(st4,{t:'start'}); st4.enemies.find(e=>e.hero==='伊斯坎達爾-Rider').alive=false; const ev4=[]; st4.day=1; st4.phase='night'; c.warMorning_(st4,ev4);
 t(!ev4.some(x=>/倉庫街/.test(x.txt)),'涉及的從者已經倒下 → 那條事件整條跳過');
 const allHeroes=new Set(E('SEED_SERVANTS').map(s=>s.id)); const evs=E('WAR_CANON_EVENTS_');
