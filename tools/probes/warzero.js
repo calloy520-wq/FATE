@@ -39,6 +39,9 @@ R=run('4th',14); { const E4=h=>R.st.enemies.find(e=>e.hero===h), all=R.out.join(
   t(!E4('迪盧木多-Lancer').alive&&!E4('吉爾德萊-Caster').alive&&!E4('伊斯坎達爾-Rider').alive,'迪盧木多被令咒逼死、元帥沉進未遠川、征服王倒在冬木大橋');
   t(!E4('蘭斯洛特-Berserker').alive&&E4('蘭斯洛特-Berserker').intel===2,'地下停車場：Saber 叫出蘭斯洛特的名字');
   t(E4('阿爾托莉雅-Saber').alive&&E4('吉爾伽美什-Archer').alive,'照原作走到最後：剩 Saber 與金色的王');
+  t(E4('吉爾伽美什-Archer').master==='言峰綺禮'&&/自己送出去的短劍/.test(all),'第 9 天：時臣被自己送的短劍刺死，金色的王換成綺禮當御主');
+  const iDl=R.out.findIndex(x=>/兩把槍貫穿/.test(x)), iRiver=R.out.findIndex(x=>/光之劍把海魔/.test(x)), iBreak=R.out.findIndex(x=>/折斷了自己的黃槍/.test(x));
+  t(iRiver>=0&&iBreak>iRiver&&iDl>iBreak,'迪盧木多照原作：未遠川折斷黃槍在先，被令咒逼死在後',[iRiver,iBreak,iDl].join());
   const iri=['站不穩','下不了床','擄走'].map(k=>R.out.filter(x=>new RegExp(k).test(x)&&/白髮的女性|白髮女性/.test(x)).length);
   t(iri.join()==='1,2,1','愛麗絲菲爾：倒下的越多越虛弱，三段各發一次（第二段的句子在第三段也提到下不了床）',iri.join()); }
 { const st=mk('4th',emiya); c.warAct_(st,{t:'start'}); const sb=st.enemies.find(e=>e.hero==='阿爾托莉雅-Saber'); sb.hp=0; sb.alive=false;
@@ -48,7 +51,7 @@ R=run('4th',14); { const E4=h=>R.st.enemies.find(e=>e.hero===h), all=R.out.join(
   const n=[]; for(let d=0;d<3;d++){ const ev=[]; st.phase='night'; st.battle=null; c.warMorning_(st,ev); n.push(ev.filter(x=>/白髮的女性|白髮女性/.test(x.txt)).length); }
   t(n.join()==='1,1,1','一口氣倒下五位：愛麗絲菲爾一個早上只往前一段',n.join()); }
 { const st=mk('4th',emiya); c.warAct_(st,{t:'start'}); const dl=st.enemies.find(e=>e.hero==='迪盧木多-Lancer'); dl.hp=1; c.warApply_(st,{u:dl,side:'foe'},99);
-  for(let d=0;d<9;d++){ st.phase='night'; st.battle=null; c.warMorning_(st,[]); }
+  for(let d=0;d<12;d++){ st.phase='night'; st.battle=null; c.warMorning_(st,[]); }
   c.warOver_(st,false,'timeout',[]); const d=c.warDebrief_(st);
   t(d.route&&d.route.label===''&&d.route.rewrote.indexOf('被令咒逼死的騎士')>=0,'第四次沒有路線，但結局照樣列出你改寫了哪一幕',JSON.stringify(d.route)); }
 const st4=mk('4th',emiya); c.warAct_(st4,{t:'start'}); st4.enemies.find(e=>e.hero==='伊斯坎達爾-Rider').alive=false; const ev4=[]; st4.day=1; st4.phase='night'; c.warMorning_(st4,ev4);

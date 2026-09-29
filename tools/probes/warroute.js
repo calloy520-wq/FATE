@@ -37,6 +37,7 @@ console.log("── Heaven's Feel 線");
   const hb=H(st,'赫拉克勒斯-Berserker');
   t(hb.alive&&hb.alter&&hb.master==='間桐櫻'&&c.warLives_(hb)===11,'第 10 天：巨人被黑影吞下成了黑化的狂戰士（十二試煉還在）',JSON.stringify({a:hb.alter,m:hb.master}));
   t(dead('吉爾伽美什-Archer'),'第 11 天：金色的王被黑泥吞下');
+  t(dead('EMIYA-Archer')&&/七片花瓣般的盾/.test(txt),'第 9 天：紅衣弓兵以七天盾擋下黑色的聖劍、失去一條手臂');
   t(!out.some(x=>x.k==='fall'),'照原作倒下的不播「提前倒下」的餘波');
   t(c.warFinal_(st).place==='大空洞','決戰地換成大空洞');
   c.warOver_(st,false,'timeout',[]); const d=c.warDebrief_(st);
@@ -46,7 +47,7 @@ console.log('── Unlimited Blade Works 線');
 { const st=mk('5th','ubw'); toDay(st,12);
   const sa=H(st,'阿爾托莉雅-Saber');
   t(!H(st,'美杜莎-Rider').alive,'第 5 天：騎兵倒在柳洞寺');
-  t(sa.loc==='柳洞寺'&&sa.master==='遠坂凜','Saber 先被 Caster 奪走、Caster 死後與凜結約',sa.master);
+  t(sa.loc==='言峰教會'&&sa.master==='遠坂凜','Saber 在教會被 Caster 奪走、Caster 死後與凜結約',sa.loc+sa.master);
   t(!H(st,'赫拉克勒斯-Berserker').alive&&!H(st,'美狄亞-Caster').alive&&!H(st,'庫丘林-Lancer').alive,'巨人、魔女、槍兵照原作倒下');
   t(H(st,'吉爾伽美什-Archer').master==='間桐慎二'&&H(st,'EMIYA-Archer').alive,'金色的王換成慎二當御主；紅衣弓兵還在');
   t(c.warFinal_(st).place==='柳洞寺','決戰照舊在柳洞寺'); }
@@ -54,7 +55,8 @@ console.log('── Unlimited Blade Works 線');
 console.log('── Fate 線');
 { const st=mk('5th','fate'); toDay(st,10);
   t(!H(st,'美杜莎-Rider').alive&&H(st,'阿爾托莉雅-Saber').intel===2,'第 7 天：天馬墜落，Saber 報出劍名（真名曝光）');
-  t(!H(st,'美狄亞-Caster').alive&&H(st,'吉爾伽美什-Archer').intel>=1,'第 9 天：金色的英靈在教會前斬倒魔女'); }
+  t(!H(st,'美狄亞-Caster').alive&&H(st,'吉爾伽美什-Archer').intel>=1,'第 9 天：金色的英靈在教會前斬倒魔女');
+  toDay(st,13); t(!H(st,'赫拉克勒斯-Berserker').alive&&!H(st,'佐佐木小次郎-Assassin').alive&&H(st,'佐佐木小次郎-Assassin').canonDead,'黃金之劍連殺巨人七次、山門的最後一戰'); }
 
 console.log('── 玩家改寫原作');
 { const st=mk('5th','hf'); toDay(st,5);

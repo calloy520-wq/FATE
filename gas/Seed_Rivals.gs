@@ -36,7 +36,7 @@ var FATE_4TH_ROSTER = [
 //   final＝這條線的決戰地（沒寫照 WAR_FINAL_）；pace＝這條線的節奏（沒寫照 WAR_PACE_；HF 的從者多半被黑影吃掉，彼此廝殺得少）。
 var WAR_ROUTES_ = {
   '5th': {
-    fate: { label: 'Fate 線' },
+    fate: { label: 'Fate 線', pace: { brawl: 0.9 } },
     ubw: { label: 'Unlimited Blade Works 線', pace: { brawl: 0.92 } },
     hf: { label: "Heaven's Feel 線", pace: { brawl: 0.88 }, final: { place: '大空洞', arrive: '剩下的從者一個個走進柳洞寺地底的黑暗', next: '黑暗裡又走出一位從者' } }
   }
@@ -44,7 +44,7 @@ var WAR_ROUTES_ = {
 // 被黑影吞下、或換到魔力深不見底的御主之後的樣子（事件的 alter）：mul＝能力倍率；name／npName／look 有寫才換；dropFx＝失去的技能。
 var WAR_ALTER_ = {
   '赫拉克勒斯-Berserker': { mul: 1.2, look: '巨大的身軀被黑泥浸透，全身爬滿脈動的紅色紋路，只剩下破壞的本能' },
-  '美杜莎-Rider': { mul: 1.25, look: '眼罩下的氣息比以前沉重得多，長髮末端在地上拖出黑色的痕跡' },
+  '美杜莎-Rider': { mul: 1.25, look: '眼罩下的氣息沉重得多，動作卻比以前從容，像終於放開了手腳' },   // HF 的 Rider 沒被黑泥污染，只是有了櫻源源不絕的魔力
   '阿爾托莉雅-Saber': { name: '阿爾托莉雅〔Alter〕', npName: '誓約勝利之劍（Morgan）', mul: 1.6, dropFx: ['wind_strike'],   // 黑化後不再藏劍：漆黑的劍身直接亮出來
     look: '漆黑的鎧甲爬滿紅色紋路，臉上戴著半截面甲，金色的眼睛冷得沒有溫度' }
 };
@@ -56,6 +56,8 @@ var WAR_ALTER_ = {
 //   after＝這幾幕（short）真的發生過才接得上（文字提到它們）。劇本不收最後一位——那一位留給玩家。
 //   short＝這一幕的名字：涉及的從者已經先倒下而演不成時，記進「改寫了原作」（結局揭曉）。
 var WAR_CANON_EVENTS_ = [
+  { war: '5th', day: 2, need: ['庫丘林-Lancer', '阿爾托莉雅-Saber'], reveal: { '庫丘林-Lancer': 2, '阿爾托莉雅-Saber': 1 }, short: '衛宮邸的紅槍',
+    txt: '衛宮邸的院子裡，青衣的槍兵擲出的紅槍繞過了劍刃、直取心臟——劍之從者按著胸口的傷退開，那把槍的名字傳遍了冬木：刺穿死棘之槍' },
   { war: '5th', day: 2, need: ['赫拉克勒斯-Berserker'], reveal: { '赫拉克勒斯-Berserker': 1 },
     txt: '昨夜的坡道上，有人看見一個白髮的少女提起裙襬行禮，身後跟著一道巨人般的影子' },
   { war: '5th', day: 3, need: ['EMIYA-Archer', '庫丘林-Lancer'], reveal: { 'EMIYA-Archer': 1, '庫丘林-Lancer': 1 },
@@ -67,33 +69,39 @@ var WAR_CANON_EVENTS_ = [
   // ── Fate 線 ──
   { war: '5th', route: 'fate', day: 7, need: ['阿爾托莉雅-Saber', '美杜莎-Rider'], kill: ['美杜莎-Rider'], reveal: { '阿爾托莉雅-Saber': 2 }, short: '天馬與誓約勝利之劍',
     txt: '新都的高樓頂上，一道光之劍劈開了夜空——白色的天馬與騎在上面的從者一起墜落，劍之從者報出了那把劍的名字' },
+  { war: '5th', route: 'fate', day: 10, need: ['阿爾托莉雅-Saber', '赫拉克勒斯-Berserker'], kill: ['赫拉克勒斯-Berserker'], short: '黃金之劍斬巨人',
+    txt: '艾因茲貝倫城的森林裡，少年手中浮現一把黃金的劍——巨人被那一劍連殺了七次，終於沒有再站起來' },
+  { war: '5th', route: 'fate', day: 12, need: ['阿爾托莉雅-Saber', '佐佐木小次郎-Assassin'], kill: ['佐佐木小次郎-Assassin'], short: '山門的最後一戰',
+    txt: '柳洞寺的山門前，燕返的三道刀光同時落下，劍之從者迎著刀光踏進一步——背長刀的武士笑著倒在了石階上' },
   { war: '5th', route: 'fate', day: 9, need: ['吉爾伽美什-Archer', '美狄亞-Caster'], kill: ['美狄亞-Caster'], reveal: { '吉爾伽美什-Archer': 1 }, short: '教會前的魔女',
     txt: '言峰教會前，金色的英靈只抬了一下手，柳洞寺的魔女與那位教師就倒在石階上' },
   // ── Unlimited Blade Works 線 ──
-  { war: '5th', route: 'ubw', day: 5, need: ['美狄亞-Caster', '美杜莎-Rider'], kill: ['美杜莎-Rider'], reveal: { '美狄亞-Caster': 1 }, short: '山門後的教師',
-    txt: '間桐家的少年逃上柳洞寺求援，出來的時候只剩一個人——眼罩的騎兵被一位赤手空拳的教師打倒在正殿' },
-  { war: '5th', route: 'ubw', day: 6, need: ['美狄亞-Caster', '阿爾托莉雅-Saber'], move: { '阿爾托莉雅-Saber': '柳洞寺' }, master: { '阿爾托莉雅-Saber': 'Caster' }, reveal: { '阿爾托莉雅-Saber': 1 }, short: '破戒之符奪走 Saber',
-    txt: '衛宮邸的少年被魔女的絲線綁走，一把歪扭的短劍斬斷了契約——劍之從者如今站在柳洞寺的正殿' },
-  { war: '5th', route: 'ubw', day: 8, need: ['吉爾伽美什-Archer', '赫拉克勒斯-Berserker'], kill: ['赫拉克勒斯-Berserker'], reveal: { '吉爾伽美什-Archer': 1 }, short: '森林裡的十二試煉',
-    txt: '艾因茲貝倫城的森林裡，金色的英靈射下成千上萬的刀劍——巨人死了十一次，最後一次再也站不起來' },
+  { war: '5th', route: 'ubw', day: 5, need: ['美狄亞-Caster', '美杜莎-Rider'], kill: ['美杜莎-Rider'], reveal: { '美狄亞-Caster': 1 }, short: '樹林裡的教師',
+    txt: '穗群原學園的樹林裡，眼罩的騎兵撲向一位教師，反被那雙空手扭斷了頸子——教師身後浮現一道披斗篷的影子' },
+  { war: '5th', route: 'ubw', day: 6, need: ['美狄亞-Caster', '阿爾托莉雅-Saber'], move: { '阿爾托莉雅-Saber': '言峰教會', '美狄亞-Caster': '言峰教會' }, master: { '阿爾托莉雅-Saber': 'Caster' }, reveal: { '阿爾托莉雅-Saber': 1 }, short: '破戒之符奪走 Saber',
+    txt: '被魔女佔據的教會裡，魔女拿一位女教師當人質，一把歪扭的短劍刺進劍之從者——契約斷了，劍之從者如今跟在魔女身後' },
+  { war: '5th', route: 'ubw', day: 8, need: ['吉爾伽美什-Archer', '赫拉克勒斯-Berserker'], kill: ['赫拉克勒斯-Berserker'], reveal: { '吉爾伽美什-Archer': 1 }, master: { '吉爾伽美什-Archer': '間桐慎二' }, short: '森林裡的十二試煉',
+    txt: '艾因茲貝倫城的森林裡，金色的英靈射下成千上萬的刀劍——巨人死了十一次，最後一次再也站不起來；站在金色英靈身後的，是間桐家的少年' },
   { war: '5th', route: 'ubw', day: 9, need: ['EMIYA-Archer', '美狄亞-Caster'], kill: ['美狄亞-Caster'], move: { 'EMIYA-Archer': '衛宮邸' }, master: { 'EMIYA-Archer': '無主' }, short: '紅衣弓兵的背叛',
-    txt: '紅衣的弓兵離開了遠坂家的少女，走進柳洞寺的正殿反手一刀——魔女與那位教師倒在一起' },
+    txt: '紅衣的弓兵離開了遠坂家的少女，走進魔女的據點反手一刀——魔女與那位教師倒在一起' },
   { war: '5th', route: 'ubw', day: 9, need: ['阿爾托莉雅-Saber'], after: ['破戒之符奪走 Saber', '紅衣弓兵的背叛'], master: { '阿爾托莉雅-Saber': '遠坂凜' },
-    txt: '被綁在正殿的劍之從者抬起頭，轉而與遠坂家的少女結下了契約' },
-  { war: '5th', route: 'ubw', day: 11, need: ['庫丘林-Lancer', '吉爾伽美什-Archer'], kill: ['庫丘林-Lancer'], master: { '吉爾伽美什-Archer': '間桐慎二' }, short: '火場裡的槍兵',
-    txt: '郊外的古城燒了一整夜；青衣的槍兵把神父釘在牆上、把被綁住的少女送出火場，自己留在了火裡。金色的英靈換了一位新御主——間桐家的少年' },
+    txt: '被魔女綁住的劍之從者抬起頭，轉而與遠坂家的少女結下了契約' },
+  { war: '5th', route: 'ubw', day: 11, need: ['庫丘林-Lancer', '吉爾伽美什-Archer'], kill: ['庫丘林-Lancer'], short: '火場裡的槍兵',
+    txt: '郊外的古城燒了一整夜；青衣的槍兵把神父釘在牆上、把被綁住的少女送出火場，自己留在了火裡' },
   // ── Heaven's Feel 線 ──
   { war: '5th', route: 'hf', day: 3, need: ['佐佐木小次郎-Assassin'], kill: ['佐佐木小次郎-Assassin'], short: '山門的武士',
     awaken: { '咒腕之哈桑-Assassin': '新都的暗巷接連出事，目擊的人只記得一張白骨面具' },
     txt: '柳洞寺山門的武士被人從體內撕開——一隻纏滿繃帶的手臂，從武士的胸口伸了出來' },
-  { war: '5th', route: 'hf', day: 4, need: ['庫丘林-Lancer'], kill: ['庫丘林-Lancer'], short: '墓地的槍兵',
-    txt: '教會後方的墓地，青衣的槍兵被地面湧出的黑影整個吞了下去，連槍都沒來得及舉起' },
+  { war: '5th', route: 'hf', day: 4, need: ['庫丘林-Lancer', '咒腕之哈桑-Assassin'], kill: ['庫丘林-Lancer'], reveal: { '咒腕之哈桑-Assassin': 1 }, short: '柳洞寺的槍兵',
+    txt: '柳洞寺境內，青衣的槍兵把白骨面具的暗殺者逼到牆角，腳下的影子卻湧了上來，連人帶槍吞了下去' },
   { war: '5th', route: 'hf', day: 6, need: ['美狄亞-Caster'], kill: ['美狄亞-Caster'], short: '沉進影子的魔女',
     txt: '柳洞寺的正殿被黑色的泥淹沒，魔女的身影一點一點沉進了影子裡' },
   { war: '5th', route: 'hf', day: 7, need: ['美杜莎-Rider'], master: { '美杜莎-Rider': '間桐櫻' }, alter: ['美杜莎-Rider'],
     txt: '間桐家那本書燒成了灰——眼罩的騎兵如今只聽一位紫髮少女的話，流進它身上的魔力多得不像一個人給得起' },
   { war: '5th', route: 'hf', day: 8, need: ['阿爾托莉雅-Saber'], alter: ['阿爾托莉雅-Saber'], master: { '阿爾托莉雅-Saber': '間桐櫻' }, move: { '阿爾托莉雅-Saber': '柳洞寺' }, reveal: { '阿爾托莉雅-Saber': 1 }, short: '被黑影吞下的騎士王',
     txt: '衛宮家的 Saber 在柳洞寺的池邊被黑影吞沒；再出現時，那身藍色的鎧甲已經染成漆黑' },
+  { war: '5th', route: 'hf', day: 9, need: ['EMIYA-Archer', '阿爾托莉雅-Saber'], after: ['被黑影吞下的騎士王'], kill: ['EMIYA-Archer'], short: '七天盾與黑色的聖劍',
+    txt: '柳洞寺的山道上，紅衣的弓兵展開七片花瓣般的盾，擋下了漆黑的聖劍——盾碎了，弓兵失去了一條手臂，那條手臂後來接在了衛宮家的少年身上' },
   { war: '5th', route: 'hf', day: 10, need: ['阿爾托莉雅-Saber', '赫拉克勒斯-Berserker'], alter: ['赫拉克勒斯-Berserker'], master: { '赫拉克勒斯-Berserker': '間桐櫻' }, reveal: { '赫拉克勒斯-Berserker': 1 }, short: '黑色的劍光與巨人',
     txt: '艾因茲貝倫城外的森林被黑色的劍光削平，巨人倒下之後又站了起來——身上爬滿紅色的紋路，再也聽不見白髮少女的呼喚' },
   { war: '5th', route: 'hf', day: 11, need: ['吉爾伽美什-Archer'], kill: ['吉爾伽美什-Archer'], short: '被黑泥吞下的王',
@@ -103,19 +111,27 @@ var WAR_CANON_EVENTS_ = [
     txt: '昨夜港邊的倉庫街，Saber 與 Lancer 正面交鋒，一輛雷鳴的戰車闖進來，駕車的巨漢高聲報上了真名：征服王伊斯坎達爾' },
   { war: '4th', day: 3, need: ['蘭斯洛特-Berserker', '吉爾伽美什-Archer'], reveal: { '蘭斯洛特-Berserker': 1, '吉爾伽美什-Archer': 1 },
     txt: '倉庫街那一夜還沒完：路燈上的金色英靈擲下滿天寶具，一道黑霧般的騎士接住刀劍、反手擲了回去' },
+  { war: '4th', day: 4, need: ['吉爾德萊-Caster', '阿爾托莉雅-Saber'], reveal: { '吉爾德萊-Caster': 1 },
+    txt: '艾因茲貝倫城外的森林裡，一位穿長袍的從者牽著一群孩子現身，對著城裡的劍之從者高聲喊話；同一夜，一位金髮的魔術師闖進城裡，被一發子彈打斷了全身的魔術迴路' },
+  { war: '4th', day: 5, need: ['伊斯坎達爾-Rider', '吉爾德萊-Caster'], reveal: { '伊斯坎達爾-Rider': 1, '吉爾德萊-Caster': 1 },
+    txt: '征服王的戰車轟進下水道深處的工房，一路碾碎了裡面的東西——跟著來的少年在出口吐了好一陣子' },
   { war: '4th', day: 5, need: ['迪盧木多-Lancer'], move: { '迪盧木多-Lancer': '廢棄工廠' },
     txt: '海特飯店的頂樓整層被炸掉了，新聞說是瓦斯氣爆；住在那裡的外國人搬進了郊外的廢棄工廠' },
   { war: '4th', day: 8, need: ['伊斯坎達爾-Rider', '阿爾托莉雅-Saber', '吉爾伽美什-Archer'],
     reveal: { '吉爾伽美什-Archer': 1, '阿爾托莉雅-Saber': 2 }, short: '聖杯問答',   // 問答之後，騎士王的身分人人皆知
-    txt: '征服王在艾因茲貝倫城的庭院擺酒，邀 Saber 與金色的英靈問答「王的器量」，三位王一直喝到天亮' },
+    txt: '征服王在艾因茲貝倫城的庭院擺酒，邀 Saber 與金色的英靈問答「王的器量」，三位王舉杯論道，直到月色下的庭院闖進了不速之客' },
   { war: '4th', day: 8, need: ['伊斯坎達爾-Rider', '百貌哈桑-Assassin'], after: ['聖杯問答'], unmask: true, kill: ['百貌哈桑-Assassin'], short: '王之軍勢踏平暗殺者',
     txt: '聖杯問答的酒席上，數十個戴白骨面具的暗殺者同時現身；下一刻，月光下展開一整片沙漠，征服王的軍勢把他們全數踏平' },
-  { war: '4th', day: 9, need: ['迪盧木多-Lancer'], kill: ['迪盧木多-Lancer'], short: '被令咒逼死的騎士',
+  { war: '4th', day: 12, need: ['迪盧木多-Lancer'], kill: ['迪盧木多-Lancer'], short: '被令咒逼死的騎士',   // 切嗣逼令咒不看 Caster 怎麼死；未遠川那夜的折斷黃槍才綁 after
     txt: '廢棄工廠裡，槍兵的御主被黑衣的男人逼著用盡了令咒——兩把槍貫穿了槍兵自己的胸口，詛咒聖杯的吼聲響了一整夜' },
+  { war: '4th', day: 9, need: ['吉爾伽美什-Archer'], master: { '吉爾伽美什-Archer': '言峰綺禮' }, short: '背後的短劍',
+    txt: '遠坂宅的書房裡，當主轉身的那一刻，背後刺進了一柄自己送出去的短劍——金色的英靈換了一位御主，是那位年輕的神父' },
   { war: '4th', day: 10, need: ['吉爾德萊-Caster'], reveal: { '吉爾德萊-Caster': 2 }, move: { '吉爾德萊-Caster': '未遠川' },
     txt: '未遠川上浮出一團山一樣大的海魔，站在頂上的 Caster 高喊著「貞德」——教會連夜封鎖河岸，這位元帥的真名再也藏不住' },
   { war: '4th', day: 11, need: ['阿爾托莉雅-Saber', '吉爾德萊-Caster'], kill: ['吉爾德萊-Caster'], reveal: { '阿爾托莉雅-Saber': 2 }, short: '未遠川的光之劍',
     txt: '未遠川上，一道光之劍把海魔整個蒸發，站在頂上的元帥跟著沉進了河底——河岸上的人都聽見了那把劍的名字' },
+  { war: '4th', day: 11, need: ['迪盧木多-Lancer'], after: ['未遠川的光之劍'],
+    txt: '那一夜的河岸上，槍兵親手折斷了自己的黃槍，只為了讓劍之從者左手的傷好起來' },
   { war: '4th', day: 12, need: ['阿爾托莉雅-Saber', '蘭斯洛特-Berserker'], kill: ['蘭斯洛特-Berserker'], reveal: { '蘭斯洛特-Berserker': 2 }, short: '湖之騎士',
     txt: '地下停車場裡，黑色的騎士被一劍貫穿，頭盔落地——Saber 抱著那位騎士，叫出了那個名字：蘭斯洛特' },
   { war: '4th', day: 13, need: ['吉爾伽美什-Archer', '伊斯坎達爾-Rider'], kill: ['伊斯坎達爾-Rider'], reveal: { '吉爾伽美什-Archer': 2 }, short: '冬木大橋上的征服王',
@@ -135,8 +151,8 @@ var WAR_CANON_EVENTS_ = [
     txt: '深山町的屋頂上，紅衣的弓兵遠遠望著一位金髮的劍士，站了很久，最後轉身走開' },
   // 聖杯的容器：從者倒得越多，愛麗絲菲爾越撐不住（原作第四次的小聖杯）
   { war: '4th', fallen: 2, id: 'iri1', txt: '艾因茲貝倫城的白髮女性在庭院裡站不穩，扶著牆笑說只是有點累' },
-  { war: '4th', fallen: 4, id: 'iri2', txt: '艾因茲貝倫城的白髮女性已經下不了床，一位黑髮的女性寸步不離地守在旁邊' },
-  { war: '4th', fallen: 5, id: 'iri3', txt: '艾因茲貝倫城遭到夜襲，下不了床的白髮女性被人擄走——擄走的方向，是新都剛落成的市民會館' }
+  { war: '4th', fallen: 4, id: 'iri2', txt: '深山町一棟日式老宅裡，白髮的女性已經下不了床，一位黑髮的女性寸步不離地守在旁邊' },
+  { war: '4th', fallen: 5, id: 'iri3', txt: '深山町那棟日式老宅遭到夜襲，守在旁邊的黑髮女性倒在院子裡，下不了床的白髮女性被人擄走——擄走的方向，是新都剛落成的市民會館' }
 ];
 
 // 原作從者在自己那場戰爭倒下後的餘波（原作味的彩蛋）：接在擊敗那句後面，說書照這句去演，其餘即興。
