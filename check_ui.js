@@ -25,7 +25,7 @@ const ENTRIES = [
   'send', 'openCompanions', 'openWorldPanel', 'openKanshouStyle',
   'kanshouNextStage', 'kanshouEndDay',
   'kmSpinner_', 'withProcessing_', 'bgHint_', 'aiHtml_', 'showProcessing',
-  'sumMode_', 'setWarFromSelect_', 'pickWar', 'pickOrigin', 'newGameFlow', 'openTutorial',
+  'accountLogin', 'enterKanshou', 'refreshFateTags', 'applyModeUI', 'changeOutfit', 'openStatus',
   'ksRender_', 'ksTier_', 'ksPick_', 'ksSave_', 'ksReset_', 'ksResetAll_',
   'warOpen', 'warStart', 'warDo', 'warToggleSeal', 'warQuit', 'warBackMenu', 'warRenderForm_', 'warRender_'
 ];
@@ -33,25 +33,21 @@ const ENTRIES = [
 const RENDERS = [
   ['kmSpinner_', () => typeof ctx.kmSpinner_('t') === 'string'],
   ['aiHtml_', () => ctx.aiHtml_('一句<br>兩句')],
-  // 🚪 召喚三選一的門（2026-09 新增）：三種模式都切一遍。random 會真的打後端，這裡不碰。
-  ['sumMode_(pick)', () => { ctx.sumMode_('pick'); return disp('sum-gate') === 'none' && disp('sum-pick') === 'block' && disp('sum-create') === 'none'; }],
-  ['sumMode_(create)', () => { ctx.sumMode_('create'); return disp('sum-gate') === 'none' && disp('sum-pick') === 'none' && disp('sum-create') === 'block'; }],
-  ['sumMode_(回門口)', () => { ctx.sumMode_(''); return disp('sum-gate') === 'block' && disp('sum-pick') === 'none' && disp('sum-create') === 'none'; }],
-  ['setWarFromSelect_', () => ctx.setWarFromSelect_()],
+  // 👤 角色分頁（2026-09 末舊版 solo 拆除時整支重寫）：御主卡＋每位同伴一張卡，三顆鈕都要在。
+  ['refreshFateTags 角色分頁', () => {
+    mkEl('fate-tags');
+    ctx.refreshFateTags(   // 帶 prefetched 就不會 await，畫面同步寫好
+      { success: true, master: { name: '風音', sex: '女', physical: '{}', outfit: '便服' },
+      servants: [{ id: 'KSV_1', name: '凜', cls: '御主', sex: '女', tag: '', party: true, statusString: '', outfit: '', physical: '{}' }] });
+    const h = String(ctx.document.getElementById('fate-tags').innerHTML);
+    return /風音/.test(h) && /換裝/.test(h) && /凜/.test(h) && /💞 關係/.test(h) && /−同行/.test(h);
+  }],
   // 📱 拍完當下畫在對話裡的那張卡：後端 kanshouPhotoObj_ 給的形狀，前端 kcAlbumCardHtml_ 要畫得出來
   // ❓ solo 的教學卡：真的畫出來，並確認「御主不上戰場」那段在（2026-09 戰鬥改版後補的，
   //   教學要跟規則對得上，不然玩家會以為自己也要挨打）。
   // 🎨 🖋️ 說書人設定的三態（預設／自訂／關閉）：畫得出來，而且【預設句本體不可以出現在畫面上】。
   //   那串字是提示詞，玩家看到就出戲——這裡餵一個帶 def 的模組物件當誘餌，
   //   哪天有人把 placeholder=m.def 之類的寫法加回來，這條會當場叫。
-  // ⚔️ 創角頁三顆常駐戰爭鈕：叫得起來、值真的寫進 hidden #s-war（拉出下拉選單那次改的，2026-09）
-  ['pickWar 三顆戰爭鈕', () => {
-    const h = ctx.document.createElement('input'); h.id = 's-war'; h.value = '5th'; ctx.document.body.appendChild(h);
-    ctx.pickWar('chaos');
-    const got = (ctx.document.getElementById('s-war') || {}).value;
-    if (got !== 'chaos') throw new Error('選了混亂，#s-war 卻是 ' + got);
-    ctx.pickWar('5th');
-  }],
   // 🎨 🖋️ 說書人設定：只剩【尺度】(三態)與【篇幅】(檔位)兩格。
   //   ⚠ 這條同時釘兩件事：①預設句本體不可以漏到畫面上（那是提示詞，玩家看到就出戲）；
   //   ②篇幅那排鈕要真的呼叫檔位那支——ksPick_ 曾經被宣告兩次，後者把前者整個蓋掉，
@@ -95,12 +91,7 @@ const RENDERS = [
     if (!/寶具預兆/.test(String(ctx.document.getElementById('war-top').innerHTML))) return false;   // 對方要放寶具的預兆有畫出來
     ctx.warToggleSeal();
     return /無視充能/.test(btns()) && !/disabled/.test(btns());               // 令咒一開就按得下去
-  }],
-  ['openTutorial', () => { let html = ''; const old = ctx.showHistoryOverlay; ctx.showHistoryOverlay = h => { html = String(h); };
-    try { ctx.openTutorial(); } finally { ctx.showHistoryOverlay = old; }
-    // ⚠ 不可以寫成「打起來不會掉血」——魔力見底時解放寶具仍會燒御主的血當電池（drainForNp_）。
-    //   教學要同時講「刀砍不到你」與「供魔會燒血」，兩句都釘。
-    return html.length > 300 && /御主不上戰場/.test(html) && /砍不到你/.test(html) && /燒你的命/.test(html); }]
+  }]
 ];
 
 function makeCtx(extraSrc) {
@@ -147,8 +138,6 @@ function makeCtx(extraSrc) {
   for (const f of FILES) vm.runInContext(strip(f), ctx, { filename: f });
   if (extraSrc) vm.runInContext(extraSrc, ctx, { filename: 'inject' });
   ctx.gasRun = async () => ({ success: true, regions: [], rows: [] });
-  // 🚪 召喚三選一的門：三個 div 先造出來，sumMode_ 的顯示切換才驗得到（元素不存在時它會靜靜什麼都不做）。
-  ['sum-gate', 'sum-pick', 'sum-create', 'war-note'].forEach(id => { const el = doc.createElement('div'); el.id = id; doc.body.appendChild(el); });
   ctx.kcClock = { band: '午後', hour: 14, label: '2005/12/20 14:00 午後', year: 2005, month: 12, day: 20 };
   ctx.window._lastTags = {
     pace: 10, myRegions: [{ id: 'rg_1', name: '泰國', desc: '熱' }],
@@ -175,21 +164,14 @@ const onclickFns = [...new Set((ONCLICK_SRC.match(/onclick=["'`]\s*([A-Za-z_$][\
   .map(m => (m.match(/onclick=["'`]\s*([A-Za-z_$][\w$]*)/) || [])[1]).filter(Boolean))];
 onclickFns.forEach(n => { if (typeof ctx[n] !== 'function') bad.push('死按鈕：onclick 點名 ' + n + '() 但全域裡沒有'); });
 const disp = id => { const el = ctx.document.getElementById(id); return el && el.style ? el.style.display : '(查無此元素)'; };
-// 🚪 2026-09 地點退休：地圖分頁在鑑賞底下要藏起來，而且【停在那一頁的人要被拉回故事頁】
-//    ——不然手機上會看到一片空白，連地圖鈕都不見了（沒有退路可按）。
+// 🧭 進後日談的畫面：輸入列要露出、頂列整條藏掉（常駐鈕都在 #clock-hud）。
 try {
-  // ⚠ 這兩個節點住在 Index.html，mock DOM 只造得出被 innerHTML 寫出來的 id——先補上。
-  //   ctx.pc 不必指派：makeCtx 已經從 localStorage 餵成 kanshou（見上面那段說明）。
-  ['tab-map', 'pane-map'].forEach(id => {
-    const el = ctx.document.createElement('div'); el.id = id; ctx.document.body.appendChild(el);
-  });
-  const _pm = ctx.document.getElementById('pane-map');
-  _pm.classList.add('active');
+  ['input-bar', 'top-navbar'].forEach(mkEl);
+  ctx.document.getElementById('input-bar').style.display = 'none';
   ctx.applyModeUI();
-  if (disp('tab-map') !== 'none') bad.push('鑑賞底下地圖【分頁鈕】沒藏起來');
-  if (disp('pane-map') !== 'none') bad.push('鑑賞底下地圖【面板】沒藏起來');
-  if (_pm && _pm.classList.contains('active')) bad.push('停在地圖頁的玩家沒被拉回故事頁（會看到空白）');
-} catch (e) { bad.push('applyModeUI(kanshou) 拋例外：' + e.message); }
+  if (disp('input-bar') === 'none') bad.push('進後日談後輸入列還藏著（沒辦法打字）');
+  if (disp('top-navbar') !== 'none') bad.push('進後日談後頂列沒藏起來（留一條空白窄條）');
+} catch (e) { bad.push('applyModeUI 拋例外：' + e.message); }
 // 回 false 的當成「跑得動但結果不對」——顯示切換這種事沒有例外可抓，只能看結果。
 RENDERS.forEach(([n, fn]) => { try { if (fn() === false) bad.push(n + ' 跑得動，但畫面狀態不對'); } catch (e) { bad.push(n + '() 拋例外：' + e.message); } });
 

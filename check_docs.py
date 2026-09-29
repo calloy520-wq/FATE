@@ -40,7 +40,8 @@ round min max abs floor ceil random
 # 文件裡刻意用「名字(參數)」寫法表達的非函式（常數查表、散文）——加進來前先確認它真的不是函式
 PROSE = {'FORGE_SK_PTS', 'MEAL_BUFF_BONUS', 'ROUNDS', 'pc', 'main',
          '_kbCb', '_kpCb', 'interruptedFn', 'normalFn',
-         'MEMORY標記不再讀寫', 'TA是你的老婆', 'solo專用'}
+         'MEMORY標記不再讀寫', 'TA是你的老婆', 'solo專用',
+         'actionXxx'}
 
 DECL = re.compile(r'function\s+([A-Za-z_$][\w$]*)')
 ASSIGN = re.compile(r'(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:function|async|\()')

@@ -17,7 +17,7 @@ function trimRowsByOwner(sheet, pcId, keepCount, idColIndex0Based) {
     }
   }
 }
-// 🔒 稽核抓到：這裡的「讀lastRow→append→trimRowsByOwner(讀全欄→算絕對列號→刪列)」是不折不扣的read-modify-write，但唯一的兩個呼叫端(actionNarrateOnly/actionPlay_)都刻意豁免全域鎖(見Router_Action.gs LOCK_EXEMPT_ACTIONS_——AI呼叫耗時數秒，鎖整個request會卡住其他玩家)。
+// 🔒 read-modify-write 但刻意豁免全域鎖（唯一呼叫端 actionPlay_，見 CODE_NOTES `saveGameHistoryBatch`）。
 function saveGameHistoryBatch(pcId, entries) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("歷史暫存");

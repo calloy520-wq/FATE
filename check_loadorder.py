@@ -137,7 +137,7 @@ def scan(extra=None):
 checked, bad = scan()
 
 # 🔁 自我退化測試：把當初那個形狀原樣塞回去（跨檔常數直接寫進樣板字串），必須叫得出來
-_probe = ('<自我退化測試>.gs', 'var PROBE_TABLE_ = { fact: `${FATE_DEADLINE_DAYS_} 日時限耗盡` };\n')
+_probe = ('<自我退化測試>.gs', 'var PROBE_TABLE_ = { fact: `${WAR_.NIGHTS} 夜時限耗盡` };\n')
 if not [b for b in scan(_probe)[1] if b[0].startswith('<')]:
     print('❌ 自我退化測試失敗：跨檔常數直接寫進頂層樣板字串它也不叫，這支掃描器等於沒有')
     sys.exit(1)

@@ -165,3 +165,12 @@ function actionWarForgeSave(userData) {
   try { CacheService.getScriptCache().remove('FATE_HERO_CODEX'); } catch (e) { }
   return JSON.stringify({ success: true, id: row[COL.HERO.ID], message: idx >= 0 ? '已更新。' : '已登錄「' + h.name + '」。' });
 }
+
+// 🛠️ 職階技能慣例表（工房自動附贈·不占 3 槽·與種子/AI 生成對稱）
+var FORGE_CLS_SKILLS_ = {
+  Saber: [{ n: "對魔力", r: "B", fx: "nullify_magic" }], Lancer: [{ n: "對魔力", r: "C", fx: "nullify_magic" }],
+  Archer: [{ n: "對魔力", r: "C", fx: "nullify_magic" }, { n: "單獨行動", r: "C", fx: "solo" }],
+  Rider: [{ n: "對魔力", r: "C", fx: "nullify_magic" }, { n: "騎乘", r: "B", fx: "ride" }],
+  Caster: [{ n: "陣地作成", r: "C", fx: "territory" }, { n: "道具作成", r: "C", fx: "crafting" }],
+  Assassin: [{ n: "氣息遮斷", r: "B", fx: "stealth" }], Berserker: [{ n: "狂化", r: "C", fx: "mad" }]
+};

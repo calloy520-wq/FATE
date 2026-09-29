@@ -25,10 +25,8 @@
       <!-- 🎴 第一道門：純淨（單人聖杯戰爭，SFW） -->
       <div style="border:1px solid rgba(159,192,239,.45); border-radius:11px; padding:11px 11px 6px; margin-bottom:13px; background:rgba(30,40,60,.25);">
         <div style="color:#9fc0ef; font-size:13px; font-weight:bold; letter-spacing:1px; margin-bottom:9px; text-align:center;">🎴 純淨 · 單人聖杯戰爭</div>
-        <button id="btn-resume" class="btn" style="display:none; width:100%; margin-bottom:9px; padding:12px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="continueGame()">▶ 繼續舊版戰爭</button>
-        <!-- ⚔️ 新聖杯戰爭（War_Engine.gs／Script_War.html）：一天兩個決定、按鈕越少越好。舊版留在下面，確認新版後整組拆掉。 -->
+        <!-- ⚔️ 聖杯戰爭（War_Engine.gs／Script_War.html）：一天兩個決定、按鈕越少越好。 -->
         <button class="btn" style="width:100%; margin-bottom:9px; padding:13px; border-color:var(--gold-accent); color:var(--gold-accent); font-weight:bold;" onclick="warOpen()">⚔️ 聖杯戰爭</button>
-        <button class="btn" style="width:100%; margin-bottom:7px; padding:8px; border-color:#6a7a9a; color:#8fa0c0; font-size:12px;" onclick="lockBtn(event, newGameFlow)">舊版聖杯戰爭</button>
         <button class="btn" style="width:100%; margin-bottom:7px; padding:9px; border-color:#6a8ac0; color:#8fb0e8; font-size:12.5px;" onclick="warForgeOpen(true)">🛠️ 英靈工房</button>
       </div>
 
@@ -43,150 +41,11 @@
 
       <button class="btn" style="width:100%; padding:9px; border-color:#777; color:#999; font-size:12px;" onclick="logoutAccount()">🚪 登出</button>
     </div>
-    <!-- 🌍 2026-09：「闖進哪一場聖杯戰爭」整屏拿掉——預設第五次，第四次/混亂收進創角頁
-         「▸ 自己設定」裡的 #s-war（玩家「一路按就可以直接開始」）。機制沒砍，只是不擋在路上。 -->
-    <div id="scr-master" style="display:none; width:300px;">
-      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:8px;">扮演哪一位正典御主？</p>
-      <div id="master-pick-list" style="max-height:300px; overflow-y:auto;"></div>
-      <button class="btn" style="width:100%; margin-top:8px; padding:7px; border-color:#777; color:#999; font-size:12px;" onclick="document.getElementById('scr-master').style.display='none';document.getElementById('step-name').style.display='block';">← 返回</button>
-    </div>
-    <!-- ⚜️ 御主：名字＋性別就能開始，其餘一律 AI 補；想自己寫才點開「自己設定」。 -->
-    <div id="step-name" style="display:none; width:300px;">
-      <p style="text-align:center; color:var(--gold-accent); font-size:15px; margin-bottom:12px;">締結令咒，成為御主</p>
-      <div style="display:flex; gap:8px; margin-bottom:6px;">
-        <input id="s-name" class="std-in" style="flex:1; min-width:0;" placeholder="御主之名（限中文）" maxlength="10">
-        <select id="s-sex" class="std-select" style="width:76px;">
-          <option value="男">男</option>
-          <option value="女">女</option>
-          <option value="異">異</option>
-        </select>
-      </div>
-      <!-- ⚔️ 哪一場戰爭：2026-09 從「▸ 自己設定」的下拉選單拉出來成常駐按鈕列（玩家要選混亂模式得先點開再拉選單，等於看不到）。
-           值仍存 #s-war（改成 hidden），setWarFromSelect_ 的讀法不變。 -->
-      <div style="margin:0 0 10px;">
-        <div style="color:var(--gold-accent); font-size:12px; font-weight:bold; margin-bottom:4px;">哪一場戰爭？<span style="font-weight:normal; color:#816e54; font-size:11px;">　決定敵方陣容</span></div>
-        <input type="hidden" id="s-war" value="5th">
-        <div id="s-war-row" style="display:flex; gap:5px;">
-          <button type="button" class="btn s-war-btn" data-war="5th" onclick="pickWar('5th')" style="flex:1; padding:7px 3px; font-size:12px; line-height:1.35;">🏆 第五次<br><span style="font-size:10px; opacity:.75;">Fate/SN</span></button>
-          <button type="button" class="btn s-war-btn" data-war="4th" onclick="pickWar('4th')" style="flex:1; padding:7px 3px; font-size:12px; line-height:1.35;">⚔️ 第四次<br><span style="font-size:10px; opacity:.75;">Fate/Zero</span></button>
-          <button type="button" class="btn s-war-btn" data-war="chaos" onclick="pickWar('chaos')" style="flex:1; padding:7px 3px; font-size:12px; line-height:1.35;">🎲 混亂<br><span style="font-size:10px; opacity:.75;">每局都不一樣</span></button>
-        </div>
-        <div id="war-note" style="display:none; color:#c08a6a; font-size:11px; margin-top:6px; line-height:1.6;"></div>
-      </div>
-      <p style="text-align:center; color:#816e54; font-size:11.5px; margin:0 0 12px;">其餘不填也行，會照你的名字補齊。</p>
-      <button id="create-btn" class="btn" style="width:100%; padding:11px;" onclick="lockBtn(event, () => createPC(event))">⚜️ 締結令咒</button>
-
-      <button type="button" id="ms-adv-toggle" class="btn" style="width:100%; margin-top:10px; padding:7px; border-color:#6a5a44; color:#9a7b4f; font-size:12px;" onclick="toggleMasterAdv()">▸ 自己設定（外貌·身世·願望·禮裝·天賦）</button>
-      <div id="ms-adv" style="display:none; margin-top:10px;">
-        <input type="text" id="s-appear" class="std-in" placeholder="外貌：紅褐短髮的高中生" maxlength="30" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
-        <input type="text" id="s-standing" class="std-in" placeholder="身世：沒落魔術名門末裔" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
-        <input type="text" id="s-wish" class="std-in" placeholder="願望：拯救某個人" maxlength="40" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
-        <!-- 🎴 起始禮裝。id 需對應後端 MYSTIC_CODES（成對維護·同 ALLOWED_FX_/FX_MENU_）；破戒(rule_breaker·戰中奪僕)不列。 -->
-        <select id="s-mystic" class="std-select" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
-          <option value="">🎴 起始禮裝（不帶）</option>
-          <option value="avalon">🛡️ 全世界之鞘 Avalon｜減輕寶具的傷害，也會隨時間回血。召喚的若是阿爾托莉雅，另有理想鄉的守護</option>
-          <option value="jewels">🔷 魔力儲存寶石｜每一擊重一點，也更容易打中</option>
-          <option value="black_keys">🗝️ 黑鍵｜出手更容易命中</option>
-        </select>
-        <div style="background:rgba(212,175,55,0.06); border:1px solid rgba(212,175,55,0.3); border-radius:6px; padding:8px;">
-          <button class="btn" type="button" style="width:100%; border-color:var(--gold-accent); color:var(--gold-accent); font-size:13px; padding:7px;" onclick="rollFate()">🎲 命運測定（魔術天賦）</button>
-          <div id="fate-roll-box" style="color:#cdbbe6; font-size:12px; line-height:1.6; margin-top:8px; text-align:center;">不測也行，留空就隨機給你一份</div>
-        </div>
-      </div>
-
-      <button type="button" class="btn" style="width:100%; margin-top:10px; padding:7px; border-color:#6a5a44; color:#9a7b4f; font-size:12px;" onclick="openCanonMasterPick()">🎭 或者：扮演一位正典御主</button>
-      <button class="btn" style="width:100%; margin-top:8px; border-color:#777; color:#999; font-size:12px; padding:6px;" onclick="document.getElementById('step-name').style.display='none';document.getElementById('scr-menu').style.display='block';">← 返回</button>
-    </div>
-    <!-- 📿 召喚從者：三條路（挑名冊／一句話／自己捏）2026-09 收進同一屏，不再用分頁藏。 -->
-    <div id="step-summon" style="display:none; width:320px;">
-      <p style="text-align:center; color:var(--gold-accent); font-size:16px; font-weight:bold; margin-bottom:10px;">📿 召喚從者</p>
-
-      <!-- 🚪 三選一的門：整屏原本把「挑名冊／隨機／一句話生成／工房」四條路一次攤開(玩家：「這裡最亂」)。
-           先問怎麼召，選了才展開那一區。 -->
-      <div id="sum-gate">
-        <p style="text-align:center; color:#816e54; font-size:12px; margin:0 0 10px;">令咒已經締結。現在，決定誰會回應你的呼喚。</p>
-        <button type="button" class="btn" style="width:100%; margin-bottom:8px; padding:12px; text-align:left; border-color:var(--gold-accent); color:var(--gold-accent);" onclick="lockBtn(event, function(){ return sumMode_('random'); })">🎲 <b>交給聖杯決定</b><br><small style="color:#9a7b4f; font-weight:normal;">你不挑。是對方回應了你的呼喚</small></button>
-        <button type="button" class="btn" style="width:100%; margin-bottom:8px; padding:12px; text-align:left; border-color:#9a7b4f; color:#c9a86a;" onclick="sumMode_('pick')">📜 <b>自己挑一位</b><br><small style="color:#816e54; font-weight:normal;">從名冊裡點名你要的那一位</small></button>
-        <button type="button" class="btn" style="width:100%; padding:12px; text-align:left; border-color:#a06cd0; color:#c79be8;" onclick="sumMode_('create')">🖋️ <b>自己造一位</b><br><small style="color:#816e54; font-weight:normal;">描述一個人，或連數值都自己來</small></button>
-      </div>
-
-      <div id="sum-pick" style="display:none;">
-      <div style="color:#c9a86a; font-size:13px; font-weight:bold; margin-bottom:6px;">從英靈殿挑一位 <span style="font-weight:normal; color:#816e54; font-size:11.5px;">他們的來歷、性格與寶具都寫好了</span></div>
-      <!-- 🎴 七正職階：等寬不換行、flex 置中（第 7 個 Berserker 自動置中） -->
-      <div id="summon-class-grid" style="display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:6px;">
-        <button type="button" class="btn summon-cls" data-cls="Saber" onclick="selectSummonClass('Saber')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">⚔️ Saber</button>
-        <button type="button" class="btn summon-cls" data-cls="Archer" onclick="selectSummonClass('Archer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🏹 Archer</button>
-        <button type="button" class="btn summon-cls" data-cls="Lancer" onclick="selectSummonClass('Lancer')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🔱 Lancer</button>
-        <button type="button" class="btn summon-cls" data-cls="Rider" onclick="selectSummonClass('Rider')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🐎 Rider</button>
-        <button type="button" class="btn summon-cls" data-cls="Caster" onclick="selectSummonClass('Caster')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">📖 Caster</button>
-        <button type="button" class="btn summon-cls" data-cls="Assassin" onclick="selectSummonClass('Assassin')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">🗡️ Assassin</button>
-        <button type="button" class="btn summon-cls" data-cls="Berserker" onclick="selectSummonClass('Berserker')" style="flex:0 0 calc(33.333% - 4px); white-space:nowrap; overflow:hidden; padding:11px 2px; font-size:13.5px; text-align:center;">💢 Berserker</button>
-      </div>
-      <div style="display:flex; gap:5px; margin-bottom:6px;">
-        <button type="button" class="btn summon-cls" data-cls="__all__" onclick="selectSummonClass('__all__')" style="flex:1; padding:8px 2px; font-size:12px; border-color:#9a7b4f; color:#c9a86a; border-style:dashed;">📜 全部英靈殿</button>
-        <!-- 🌟 玩家原創專區：工房/盲盒創造的英靈(英靈殿 source=ai_gen)全在這，直點即召喚 -->
-        <button type="button" class="btn summon-cls" data-cls="__custom__" onclick="selectSummonClass('__custom__')" style="flex:1; padding:8px 2px; font-size:12px; border-color:#6a8ac0; color:#8fb0e8; border-style:dashed;">🌟 我的原創</button>
-      </div>
-      <div id="hero-list" style="max-height:180px; overflow-y:auto; margin:0 0 6px; padding:4px; background:rgba(0,0,0,0.18); border:1px solid rgba(212,175,55,0.25); border-radius:6px;">
-        <p style="color:#816e54; font-size:12px; text-align:center; padding:12px 0;">先選一個職階，或直接看全部</p>
-      </div>
-      <button type="button" class="btn" style="width:100%; padding:7px; font-size:12px; border-color:#777; color:#999;" onclick="sumMode_('')">← 換一種方式</button>
-      </div>
-
-      <div id="sum-create" style="display:none;">
-      <div style="color:#c79be8; font-size:13px; font-weight:bold; margin-bottom:4px;">說一句話，生一位 <span style="font-weight:normal; color:#816e54; font-size:11.5px;">講個大概就行，其餘交給說書人</span></div>
-      <textarea id="s-desc" class="std-in" maxlength="120" placeholder="如：手持巨鎌、沉默寡言的死神少女" style="width:100%; box-sizing:border-box; height:44px; resize:none; font-family:inherit;"></textarea>
-      <!-- 🎭 來源三分類：決定 AI 從哪裡取技能名與寶具名，攤開來給玩家看（2026-09 玩家「要分類的明顯一點」）。
-           舊版收在「指定職階與角色來源」的收合選單裡、預設完全原創，玩家根本沒看到這排就按下生成。 -->
-      <div style="margin-top:8px;">
-        <div style="color:#c79be8; font-size:12px; font-weight:bold; margin-bottom:4px;">這是誰？<span style="font-weight:normal; color:#816e54; font-size:11px;">　決定技能名與寶具名從哪裡來</span></div>
-        <input type="hidden" id="s-origin" value="original">
-        <div id="s-origin-row" style="display:flex; gap:5px;">
-          <button type="button" class="btn s-og-btn" data-og="original" onclick="pickOrigin('original')" style="flex:1; padding:7px 3px; font-size:12px; line-height:1.35;">✨ 我自己的<br><span style="font-size:10px; opacity:.75;">技能寶具自取</span></button>
-          <button type="button" class="btn s-og-btn" data-og="fate" onclick="pickOrigin('fate')" style="flex:1; padding:7px 3px; font-size:12px; line-height:1.35;">🏆 Fate 角色<br><span style="font-size:10px; opacity:.75;">用正史的名字</span></button>
-          <button type="button" class="btn s-og-btn" data-og="anime" onclick="pickOrigin('anime')" style="flex:1; padding:7px 3px; font-size:12px; line-height:1.35;">📺 別部作品<br><span style="font-size:10px; opacity:.75;">用原著招式名</span></button>
-        </div>
-      </div>
-      <!-- 🧹 職階預設收合——有合理預設(不限)，想細調才展開。 -->
-      <button type="button" class="btn" id="s-adv-toggle" style="width:100%; margin-top:6px; padding:6px; font-size:12px; border-color:#8a7a9a; color:#b8a8d0;" onclick="toggleSummonAdvanced()">▸ 指定職階（不指定也行）</button>
-      <div id="s-adv" style="display:none; margin-top:6px;">
-        <!-- ⚔️ 職階：獨立於上方名冊的職階選擇，預設「不限」交給 AI 依描述判斷 -->
-        <select id="s-cls" class="std-in" style="width:100%; box-sizing:border-box; margin-bottom:6px;">
-          <option value="" selected>⚔️ 職階：不限（看你的描述決定）</option>
-          <option value="Saber">⚔️ Saber 劍兵</option>
-          <option value="Archer">🏹 Archer 弓兵</option>
-          <option value="Lancer">🔱 Lancer 槍兵</option>
-          <option value="Rider">🐎 Rider 騎兵</option>
-          <option value="Caster">📖 Caster 魔術師</option>
-          <option value="Assassin">🗡️ Assassin 暗殺者</option>
-          <option value="Berserker">💢 Berserker 狂戰士</option>
-        </select>
-      </div>
-      <button class="btn" style="width:100%; margin-top:6px; padding:9px; border-color:#a06cd0; color:#c79be8;" onclick="lockBtn(event, summonByDesc)">🖋️ 生成並召喚</button>
-
-      <button type="button" class="btn" style="width:100%; margin-top:14px; padding:8px; font-size:12px; border-color:#6a8ac0; color:#8fb0e8;" onclick="warForgeOpen(true)">▸ 🛠️ 到工房自己捏<span style="font-weight:normal; opacity:.75;">六圍、技能、寶具，每一格都你定</span></button>
-      <button type="button" class="btn" style="width:100%; margin-top:8px; padding:7px; font-size:12px; border-color:#777; color:#999;" onclick="sumMode_('')">← 換一種方式</button>
-      </div>
-    </div>
     </div>
 
   <div id="game">
     <div class="top-navbar" id="top-navbar">
       <div class="top-navbar-content" style="display: flex; gap: 8px; align-items: center; width:100%;">
-        <!-- 🎴 solo 頂部三鍵：資料／魔力／設定，取代地點顯示。純按鍵、手機單手可操作；詳細再切左右分頁。 -->
-        <div id="topbar-solo" style="display:none; gap:6px; width:100%;">
-          <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#2ca68c; color:#4fd0b0;" onclick="openViewMenu()">📋 資料</button>
-          <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#4a6fa0; color:#7fb0e8;" onclick="openManaPanel()">🔮 魔力</button>
-          <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#8a7a4a; color:#c9b885;" onclick="openSettingsMenu()">⚙️ 設定</button>
-          <!-- ❓ 常駐新手教學鈕：單一總覽卡，隨時可查，不強制彈窗。 -->
-          <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#d9a93a; color:#e7c873;" onclick="openTutorial()">❓ 教學</button>
-          <!-- 🖥️ 全螢幕快捷鈕：玩家反饋想省去「開設定→找按鈕」兩步，搬一顆到頂列常駐；系統設定內原按鈕留著
-               （鑑賞走「+」抽屜→系統設定同一個modal進來，拿掉會斷了鑑賞唯一的全螢幕入口，故兩處並存）。 -->
-          <button class="btn" style="flex:1; padding:6px 4px; font-size:12px; border-color:#5a7a8a; color:#a8ccd8;" onclick="toggleFullScreen()">🖥️ 全螢幕</button>
-        </div>
-        <!-- 🕰️ 2026-07「手機很長，切到地圖分頁點下一階段太麻煩」：👥邀請鈕已搬進 #clock-hud(見
-             updateClock，Script.html)跟時鐘同一行常駐，這裡只剩 header-loc(鑑賞恆隱藏，純歷史殘留
-             不刪是因為 solo 共用同一個 id 判斷式，見 updateStatus 裡的 headerEl 邏輯)。 -->
         <div id="topbar-kanshou" class="player-badge">
           <span id="header-loc">讀取中…</span>
         </div>
@@ -203,19 +62,13 @@
       </div>
       <div id="pane-chat" class="game-pane active">
         <div id="clock-hud" style="display:none; text-align:center; font-size:12px; color:#c9b885; letter-spacing:1px; padding:5px 8px; border-bottom:1px solid rgba(212,175,55,0.18); background:rgba(20,14,28,0.4);">🌙 ─</div>
-        <div id="economy-hud" style="display:none; text-align:center; font-size:11.5px; letter-spacing:0.5px; padding:4px 8px; border-bottom:1px solid rgba(212,175,55,0.18); background:rgba(20,14,28,0.4);"></div>
         <div id="story"></div>
         <div id="options-container" style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px; padding: 0 8px 8px;"></div>
-        <div id="war-actions" style="display:none; gap:6px; flex-wrap:wrap; padding:8px; border-top:1px solid rgba(212,175,55,0.2); background:rgba(16,12,22,0.6);"></div>
-      </div>
-      <div id="pane-map" class="game-pane">
-        <div id="map-pane-content" style="padding:10px;"></div>
       </div>
     </div>
     <div id="game-tabs">
       <button id="tab-status" class="game-tab" onclick="showGamePane('status')">👤 角色</button>
       <button id="tab-chat" class="game-tab tab-active" onclick="showGamePane('chat')">📖 故事</button>
-      <button id="tab-map" class="game-tab" onclick="showGamePane('map')">🗺️ 地圖</button>
     </div>
     <div id="action-drawer">
       <button class="drawer-item" onclick="triggerDrawerAction('status')"><i>👤</i><span>查看狀態</span></button>
@@ -367,37 +220,6 @@
     </div>
   </div>
 
-
-  <!-- 🐯 老虎道場（敗北講評／勝利祝賀共用同一個殼，runTigerDojo_ 依 mode 重寫標題與文案）-->
-  <div id="tiger-dojo-overlay" style="display:none; position:fixed; inset:0; z-index:10001; background:rgba(10,6,16,0.94); align-items:center; justify-content:center; padding:20px;">
-    <div style="background:linear-gradient(160deg,#241a2e,#1a1420); border:1px solid #c66; border-radius:14px; max-width:460px; width:100%; padding:22px; text-align:center; box-shadow:0 10px 50px rgba(0,0,0,0.7);">
-      <div id="dojo-emoji" style="font-size:46px; line-height:1;">🐯</div>
-      <h2 id="dojo-title" style="color:#ff8a8a; margin:8px 0 4px;">老虎道場</h2>
-      <p id="dojo-subtitle" style="color:#e7c873; font-size:14px; margin:4px 0 10px;">「哎呀呀～你的從者被打倒了呢！」</p>
-      <div id="dojo-ai-body" style="color:#cfc3d8; font-size:13.5px; line-height:1.8; text-align:left; margin:0 0 16px; max-height:52vh; overflow-y:auto;">
-        你的聖杯戰爭結束了。<br>
-        來聽聽藤村老師的講評吧。<br>
-        <span style="color:#9a8fb0; font-size:12px;">這一局已經收進戰史，隨時可以重新開始。</span>
-      </div>
-      <button id="dojo-back-btn" onclick="dojoBackToMenu()" disabled style="width:100%; padding:12px; background:#4a3a6a; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:not-allowed; opacity:0.4; margin-bottom:8px;">返回選單 ／ 開新的一局</button>
-    </div>
-  </div>
-
-  <!-- 🏆 勝利（奪杯）-->
-  <div id="victory-overlay" style="display:none; position:fixed; inset:0; z-index:10001; background:rgba(8,6,2,0.94); align-items:center; justify-content:center; padding:20px;">
-    <div style="background:linear-gradient(160deg,#2a2410,#1d1808); border:1px solid #e7c873; border-radius:14px; max-width:480px; width:100%; padding:26px; text-align:center; box-shadow:0 10px 60px rgba(0,0,0,0.75);">
-      <div style="font-size:54px; line-height:1;">🏆</div>
-      <h2 style="color:#e7c873; margin:10px 0 4px; letter-spacing:2px;">勝利！奪得聖杯！</h2>
-      <p style="color:#cfc3d8; font-size:14px; line-height:1.7; margin:0 0 16px;">
-        所有敵對從者皆已殞落，冬木的夜不再有廝殺。<br>
-        願望之器，正靜靜等待你的祈願。
-      </p>
-      <div id="victory-memoir" style="display:none; background:rgba(231,200,115,0.07); border:1px solid rgba(231,200,115,0.3); border-radius:8px; padding:14px; margin:0 0 16px; color:#e8dcc0; font-size:13.5px; line-height:1.85; text-align:left; max-height:34vh; overflow-y:auto;"></div>
-      <button id="victory-claim-btn" onclick="claimGrail()" style="width:100%; padding:13px; background:#7a5a1a; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:pointer; font-weight:bold;">⚜️ 奪得聖杯</button>
-      <button id="victory-menu-btn" onclick="closeVictory(); dojoBackToMenu()" style="display:none; width:100%; padding:12px; background:#4a3a6a; color:#fff; border:none; border-radius:8px; font-size:15px; cursor:pointer; margin-top:8px;">返回選單</button>
-      <p style="color:#9a8f70; font-size:11.5px; margin:10px 0 0;">這一局到此結束。</p>
-    </div>
-  </div>
 
   <div id="scr-war" style="display:none;"></div>
 

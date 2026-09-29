@@ -7,10 +7,7 @@
 // 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
 // ------------------------------------------
 const ActionRouter = {
-  "check_name": actionCheckName,
   "account_login": actionAccountLogin,
-  "account_new_game": actionAccountNewGame,
-  "end_run": actionEndRun, // ⚠ claim_grail(奪杯封存) 已整個砍除，改成單純清理讓玩家開新局
   "enter_kanshou": actionEnterKanshou,
   "kanshou_reset": actionKanshouReset,   // 🔄 鑑賞歸零重來(只清這個帳號的後日談，不碰英靈殿與 solo)
   "backfill_kanshou_ai": actionBackfillKanshouAi, // 🚀 開局非阻塞：enter_kanshou 首次建檔後背景補御主敘事欄
@@ -23,49 +20,15 @@ const ActionRouter = {
   "kanshou_get_style": actionKanshouGetStyle, // 🎨 說書人設定面板：讀整張風格表(預設＋玩家版)
   "kanshou_set_style": actionKanshouSetStyle, // 🎨 改一格／還原一格／全部還原
   "kanshou_set_name": actionKanshouSetName,
-  "prep_meal": actionPrepMeal,
   "get_full_status": actionGetFullStatus,
   "update_fate": actionUpdateFate,
   "update_rel_tag": actionUpdateRelTag,
-  "kanshou_set_nickname": actionSetNickname, // 🔒 專屬稱呼比照 update_rel_tag：solo 吃 CUSTOM_TAG_BOND_ 門檻，鑑賞無門檻
-  "roll_fate": actionRollFate, // 🎲 命運測定：一次回三份候選（唯一真實來源在 Core_Settings.gs）
-  "create": actionManualNpc, // 御主創角。
-  "backfill_master_ai": actionBackfillMasterAi, // 🚀 開局非阻塞：create 後於召喚頁背景補御主敘事欄
-  "summon_servant": actionSummonServant,
+  "kanshou_set_nickname": actionSetNickname, // 🔒 專屬稱呼：玩家設過就上稱呼鎖，AI 不再覆寫
   "get_heroes": actionGetHeroes,
-  "get_masters": actionGetMasters,
   "get_tags": actionGetTags,
-  "fate_battle": actionFateBattle,
-  "np_respond": actionNpRespond, // 🌟 真名解放·獨立一拍：敵寶具預告後由玩家選應對
-  "summon_horror_beast": actionSummonHorror, // 🐙 戰前召喚深淵海怪(變身態·付 prana+1AP)
-  "dismiss_horror_beast": actionDismissHorror, // 🐙 解除召喚(免費即時·止住每小時維持費)
-  "use_seal": actionUseSeal,
-  "mana_supply": actionManaSupply,
-  "spirit_repair": actionSpiritRepair, // 🩹 靈基修復：消費共用魔力池為從者療傷（不燃令咒，可重複使用）
-  "set_servant_output": actionSetServantOutput,
-  "set_mage_realm": actionSetMageRealm,
-  "set_rune_mode": actionSetRuneMode,
   "outfit": actionSetOutfit,
-  "weapon": actionSetWeapon,
-  "bond": actionBond,
-  "rule_break_steal": actionRuleBreakSteal,
-  "propose_alliance": actionProposeAlliance,
-  "break_alliance": actionBreakAlliance,
-  "ally_bond": actionAllyBond,
-  "parley": actionParley, // 🕊️ 對同地未結盟敵御主交涉：閒聊／交換情報／請他退讓（PARLEY_ACTS_ 一張表）
-  "set_workshop": actionSetWorkshop,
-  "scavenge": actionScavenge,
-  "second_wind": actionSecondWind,
-  "scout": actionScout,
-  "get_map_nodes": actionGetMapNodes,
-  "faction_ambush": actionFactionAmbush, // 🥷 撞見敵人分心時趁隙偷襲
-  "incite": actionIncite,                // 🎭 挑撥離間敵對兩方
-  "move": actionMove,
   "sync": actionSync,
-  "rest": actionRest,
   "play": actionPlay,
-  "narrate_only": actionNarrateOnly,
-  "tiger_dojo": actionTigerDojo, // 🐯 賽後番外(敗北講評/勝利祝賀)：自帶說書人設定、不吃戰場 miniSystem
   "war_load": actionWarLoad,       // ⚔️ 新聖杯戰爭（War_Router.gs）：讀這個帳號的戰局
   "war_new": actionWarNew,         // ⚔️ 開新局＝召喚
   "war_act": actionWarAct,         // ⚔️ 按下一顆鈕（白天／夜晚／戰鬥姿態）
@@ -124,7 +87,6 @@ function handleGameAction(userData) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   // 🔄 試算表存在性檢查只在登入時跑（ensureWorldReady_，版本號沒變就跳過），不在每個 action 都跑。
   const isKanshouCtx = String(pcId || "").indexOf("KPC_") === 0;
-  // 坤圖已靜態化：getMapDataCached 直接讀 FATE_MAP_SEED 常數，不需要 sheets.map，省一次 Sheets API 呼叫。
   const sheets = {
     pc: (isKanshouCtx ? getKanshouPcSheet_(ss) : ss.getSheetByName("眾生"))
   };
@@ -136,9 +98,6 @@ function handleGameAction(userData) {
   // 🔒 稽核抓到系統性漏洞：get_tags/sync/fate_battle/bond/mana_supply…等近全部solo戰場action，long-standing只用裸findIndex信任前端傳來的pcId，完全沒反查「帳號」表確…（全文見 CODE_NOTES.md）
   if (pcId && !OWNERSHIP_CHECK_EXEMPT_[action] && !verifyPcOwnership_(userData.acctName, pcId)) {
     return JSON.stringify({ success: false, message: "找不到你的角色。" });
-  }
-  if (isKanshouCtx && KANSHOU_BLOCKED_ACTIONS_[action]) {
-    return JSON.stringify({ success: false, message: "後日談沒有戰鬥。" });
   }
   // 🔒 稽核抓到：actionPlay_(Gallery.gs)因AI呼叫數秒~數十秒故意豁免全域鎖，改用CacheService鍵kplay_<pcId> 做自己的軟性互斥，只防「同pcId兩次play互撞」；但其餘kanshou sette…（全文見 CODE_NOTES.md）
   if (isKanshouCtx && action !== 'play' && !LOCK_EXEMPT_ACTIONS_[action]) {
@@ -158,27 +117,8 @@ function handleGameAction(userData) {
   }
   try {
   let out = handler(userData, pcId, sheets);
-  if (String(pcId || "").indexOf("PC_") === 0 && !isKanshouCtx) {
-    try {
-      var ro = JSON.parse(out);
-      if (ro && ro.success && !ro.victory && !ro.defeat) {
-        // 日子從【資料】問，不從回傳的時鐘【字串】解析（見 CODE_NOTES.md）。
-        // 優先複用 STATE_PRE_DATA_(handler 交棒、已含本次寫入的權威陣列)；沒交棒又有 clock 才整表重讀。
-        var pdata = STATE_PRE_DATA_ || (ro.clock ? sheets.pc.getDataRange().getValues() : null);
-        var prow = pdata ? pdata.find(function (r) { return String(r[COL.PC.ID]) === pcId; }) : null;
-        var gid = prow ? String(prow[COL.PC.GAME_ID] || "") : "";
-        var _clk = gid ? getClock_(gid, pdata) : null;
-        if (_clk && _clk.day > FATE_DEADLINE_DAYS_) {
-          var svRow = pdata.find(function (r) { return String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gid && !String(r[COL.PC.ID]).startsWith("DEAD_"); });
-          ro.defeat = true; ro.deadline = true; ro.victory = false; ro.servantDream = "";
-          if (!ro.dreamPrompt) ro.dreamPrompt = buildDreamPrompt_(String(prow[COL.PC.NAME]), extractWish_(prow[COL.PC.MEMORY]), svRow ? String(svRow[COL.PC.NAME]) : "", 'timeout');
-          out = JSON.stringify(ro);
-        }
-      }
-    } catch (e) { /* 非 JSON / 無 clock → 略過 */ }
-  }
-  // ⚡ 2→1：solo 遊戲動作回應自動夾帶最新 client state(_state)，前端套用後即不必再打一趟 sync。
-  if (STATE_AFTER_ACTIONS[action] && (String(pcId || "").indexOf("PC_") === 0 || isKanshouCtx)) {
+  // ⚡ 2→1：會改到角色狀態的動作回應自動夾帶最新 client state(_state)，前端套用後即不必再打一趟 sync。
+  if (STATE_AFTER_ACTIONS[action] && isKanshouCtx) {
     try {
       const obj = JSON.parse(out);
       if (obj && obj.success && obj._state === undefined) {
@@ -190,54 +130,22 @@ function handleGameAction(userData) {
   return out;
   } finally { if (_mutex) { try { _mutex.releaseLock(); } catch (e) { } } }
 }
-// 🔒 不取寫入鎖的動作：純讀取(不寫表·鎖了白繳成本) ＋ 長 AI 敘事(佔鎖數秒會卡住全域)。
+// 🔒 不查角色歸屬的動作：還沒有角色可查（登入、第一次進後日談）或純讀英靈殿。
 const OWNERSHIP_CHECK_EXEMPT_ = {
-  check_name: 1,
-  account_login: 1, account_new_game: 1, enter_kanshou: 1, create: 1,
-  get_heroes: 1, get_masters: 1
+  account_login: 1, enter_kanshou: 1, get_heroes: 1
 };
+// 🔒 不取寫入鎖的動作：純讀取(不寫表·鎖了白繳成本) ＋ 長 AI 敘事(佔鎖數秒會卡住全域)。
 const LOCK_EXEMPT_ACTIONS_ = {
-  check_name: 1, get_full_status: 1, get_heroes: 1, get_masters: 1,
-  get_tags: 1, get_map_nodes: 1, sync: 1,
-  narrate_only: 1, tiger_dojo: 1, play: 1, backfill_master_ai: 1, backfill_kanshou_ai: 1,
-  war_load: 1, war_narrate: 1, war_dojo: 1, war_forge_list: 1, // ⚔️ 新聖杯戰爭：讀檔不寫表；說書只寫自己那一格、AI 要跑數秒
-  war_forge_save: 1 // 🛠️ 工房存檔：含數秒 AI 呼叫（鑑賞日常三格）·只寫英靈殿一列不碰戰場——佔全域鎖會卡死其他玩家
+  get_full_status: 1, get_heroes: 1, get_tags: 1, sync: 1, play: 1, backfill_kanshou_ai: 1, war_load: 1, war_narrate: 1, war_dojo: 1, war_forge_list: 1, war_forge_save: 1
 };
-// ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
+// ⚡ 會改到角色狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。
 const STATE_AFTER_ACTIONS = {
-  fate_battle: 1, np_respond: 1, use_seal: 1, mana_supply: 1, spirit_repair: 1, bond: 1, rule_break_steal: 1,
-  propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
-  second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
-  faction_ambush: 1, incite: 1, parley: 1, move: 1,
   update_fate: 1, update_rel_tag: 1, kanshou_set_nickname: 1
 };
-// 鑑賞擋下的 solo 專屬 action（前端本就不露按鈕，這裡擋 API 直打）。
-const KANSHOU_BLOCKED_ACTIONS_ = {
-  fate_battle: 1, np_respond: 1, use_seal: 1, mana_supply: 1, spirit_repair: 1, bond: 1, rule_break_steal: 1,
-  propose_alliance: 1, break_alliance: 1, ally_bond: 1, set_workshop: 1, scavenge: 1,
-  second_wind: 1, scout: 1, rest: 1, summon_horror_beast: 1, dismiss_horror_beast: 1,
-  set_servant_output: 1, set_mage_realm: 1, set_rune_mode: 1,
-  prep_meal: 1, faction_ambush: 1, incite: 1, parley: 1,
-  weapon: 1, get_map_nodes: 1, narrate_only: 1, tiger_dojo: 1,
-  end_run: 1, create: 1, summon_servant: 1, backfill_master_ai: 1,
-  account_login: 1, account_new_game: 1,
-  move: 1
-};
-
 // ==========================================
 // 🔴 動作處理模組 (Action Handlers)
 // ==========================================
 
-function actionCheckName(userData, pcId, sheets) {
-  // 🔴 userData.name 已在 sanitizeUserData_ 清成純中文；若清洗後為空，代表玩家輸入含非中文(英數/符號)，直接擋下
-  if (!userData.name) {
-    return JSON.stringify({ invalidName: true, message: "名字只能用中文字。" });
-  }
-  // 與 create(actionManualNpc) 一致——不擋跨局同名（game_id 實例化，玩家御主靠 pcId 認人，跨局撞名無害）。
-  const _canonHit = (typeof SEED_MASTERS !== 'undefined' && SEED_MASTERS.some(m => m && cleanChineseName(m.name) === userData.name))
-    || (typeof SEED_SERVANTS !== 'undefined' && SEED_SERVANTS.some(s => s && cleanChineseName(s.realName) === userData.name));
-  return JSON.stringify({ exists: _canonHit, canon: _canonHit, message: _canonHit ? `「${userData.name}」是聖杯戰爭中已知的英靈／御主——請另取名號，或用「扮演正典御主」入口。` : "" });
-}
 
 // solo／鑑賞共用的 handler 靠這支找出呼叫者的 game_id（KPC_ 走鑑賞表索引）。
 function resolveCallerGameId_(pcData, pcId) {
@@ -303,144 +211,40 @@ function actionGetTags(userData, pcId, sheets) {
 // 🔧 抽出共用：左側狀態卡資料建構。get_tags 與 sync 共用同一份，讓「一次按鍵」少一趟 round-trip。
 function buildTagsPayload_(sheets, pcId, preData) {
   const pcData = preData || sheets.pc.getDataRange().getValues();
-  // mIdx 順手記下來，下面 canRuleBreak_ 需要索引時直接複用，不必再 findIndex 重掃一次。
-  const mIdx = pcData.findIndex(r => r[COL.PC.ID] == pcId);
-  const m = mIdx >= 0 ? pcData[mIdx] : undefined;
-  if (!m) return { success: false };
+  const m = pcData.find(r => r[COL.PC.ID] == pcId);
+  if (!m) return { success: false, message: "找不到這個角色，重新整理再試。" };
   const gameId = String(m[COL.PC.GAME_ID] || "");
-  const isFateCtx = gameId.indexOf("g_") === 0;
-
-  const hpWord = (hp, mx) => {
-    hp = parseInt(hp) || 0; mx = parseInt(mx) || 1; const p = hp / mx;
-    return p >= 0.99 ? "無傷" : p >= 0.7 ? "輕傷" : p >= 0.4 ? "負傷" : p > 0.15 ? "重傷" : p > 0 ? "瀕死" : "力竭";
-  };
-
-  let wish = "";
-  const wm = String(m[COL.PC.MEMORY] || "").match(/【願望】([^｜|【]*)/);
-  if (wm) wish = wm[1].trim();
-
   const master = {
     name: m[COL.PC.NAME], sex: m[COL.PC.SEX],
-    physical: m[COL.PC.PHYSICAL] || "{}", // 鑑賞御主卡的肉體狀態；solo 恆 "{}"
-    hp: hpWord(m[COL.PC.HP], m[COL.PC.MAX_HP]),
-    hpNum: parseInt(m[COL.PC.HP]) || 0, hpMax: parseInt(m[COL.PC.MAX_HP]) || 0,
-    mpNum: parseInt(m[COL.PC.MP]) || 0, mpMax: parseInt(m[COL.PC.MAX_MP]) || 0,
-    // seals(令咒)是純solo戰爭概念，用 isFateCtx 讓鑑賞列結構性恆為0，不依賴資料形狀僥倖安全。
-    seals: isFateCtx ? getPlayerSeals_(m[COL.PC.MEMORY]) : 0, wish: wish,
-    outfit: getOutfit_(m[COL.PC.MEMORY]) // 鑑賞御主換裝鈕預填
+    physical: m[COL.PC.PHYSICAL] || "{}",
+    outfit: getOutfit_(m[COL.PC.MEMORY]) // 換裝鈕預填
   };
-
-  // 從者卡：solo＝同行的從者；鑑賞＝這座城的全部住民（LOC 在鑑賞是 AI 寫的布景，拿它篩會讓卡片消失）。
-  let servants = [];
-  let _partyIds = [];
-  try { _partyIds = kanshouGetParty_(m[COL.PC.MEMORY]); } catch (e) { }
-  pcData.forEach(s => {
-    if (String(s[COL.PC.FACTION]) !== "從者" || String(s[COL.PC.GAME_ID] || "") !== gameId || String(s[COL.PC.ID]).startsWith("DEAD_")) return;
-    if (isFateCtx && String(s[COL.PC.IS_PARTY] || "") !== "同行") return;
-    // 關係併入眾生列，好感直接是這名從者自己的 BOND 欄
-    const bond = parseInt(s[COL.PC.BOND]) || 0;
-    let six = {}, skills = [], traits = [];
-    try { six = JSON.parse(s[COL.PC.SIX] || "{}"); } catch (e) { }
-    try { const tg = JSON.parse(s[COL.PC.TAGS] || "{}"); skills = tg.skills || []; traits = tg.traits || []; } catch (e) { }
-    servants.push({
-      id: s[COL.PC.ID], // 前端隨後續 action 回傳，後端認 id 不認名字
-
-      name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
-      tag: s[COL.PC.REL_TAG] || (isFateCtx ? "從者" : ""), nickname: getNickname_(s[COL.PC.REL_MEM]), // 鑑賞「🏷️關係」面板預填；鑑賞的關係只有玩家自己打的字，沒設就留空
-      party: _partyIds.indexOf(String(s[COL.PC.ID])) >= 0, // 鑑賞卡的同行/解散鈕
-      statusString: buildPlayerStatusString(s, String(s[COL.PC.REL_MEM] || "")),
-      hp: hpWord(s[COL.PC.HP], s[COL.PC.MAX_HP]),
-      hpNum: parseInt(s[COL.PC.HP]) || 0, hpMax: parseInt(s[COL.PC.MAX_HP]) || 0,
-      mpNum: parseInt(s[COL.PC.MP]) || 0, mpMax: parseInt(s[COL.PC.MAX_MP]) || 0,
-      output: servantOutput_(s[COL.PC.MEMORY]), outputLabel: outputTier_(servantOutput_(s[COL.PC.MEMORY])).label, // 🔋 靈基出力檔位
-      np: s[COL.PC.MARTIAL] || "寶具未顯現", bond: isFateCtx ? bond : undefined,
-      six: six, skills: skills, traits: traits,
-      // 🔮 魔境的智慧（斯卡哈）：前端露出可選被動盤。has＝持 mage_realm；pick＝已選 fx；pool＝可選清單
-      mageRealm: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'mage_realm'; })
-        ? { has: true, pick: mageRealmPick_(s[COL.PC.MEMORY]), pool: mageRealmPool_() } : null,
-      // 🔯 原初符文運用方式（持 rune 者才給，前端標籤可點開挑 減傷/增傷/回血）
-      runeMode: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'rune'; }) ? runeMode_(s[COL.PC.MEMORY]) : undefined,
-      // 🐕 主從synergy（恩奇都·變容）：與銀狼結契時亮起全盛(全能A·寶A++)、否則暗示需該御主。玩家不可控·御主決定
-      synergy: isFateCtx ? masterSynergyView_(s[COL.PC.NAME], s[COL.PC.MEMORY]) : null,
-      // 🗡️ 理想鄉·無敵結界（阿爾托莉雅＋御主持 Avalon 禮裝）：被動自動·敵解放 6 階究極寶具且御主魔力≥100 時自動擋下(耗 100 魔)。
-      canIdealRealm: isFateCtx && (String(s[COL.PC.NAME] || "").trim() === '阿爾托莉雅·潘德拉貢' && String(s[COL.PC.RANK]) === 'Saber' && getMystic_(m[COL.PC.MEMORY]) === 'avalon'),
-      // 🌟 多寶具英靈：寶具選單＋當前選定索引（前端點寶具時挑要放哪個）
-      npOptions: isFateCtx ? (servantNpOptions_(s[COL.PC.NAME], s[COL.PC.RANK]) || undefined) : undefined,
-      npChoice: isFateCtx ? npChoice_(s[COL.PC.MEMORY]) : undefined,
-      // 🐙 深淵海怪肉身（持 summon_horror 且現存海怪時 {cur,max}）：前端在體力條下方獨立渲染一條海怪血條
-      horror: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) ? horrorShieldView_(s[COL.PC.MEMORY], gameId, pcData) : undefined,
-      ghLives: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'god_hand'; }) ? getGodHandLives_(s[COL.PC.MEMORY]) : undefined,
-      // 🐙 戰前召喚鈕：持 summon_horror 且海怪【尚未在場】→ 前端露出「召喚海怪」按鈕(變身態·跨戰鬥 12h)
-      canSummonHorror: isFateCtx && skills.some(function (sk) { return sk && sk.fx === 'summon_horror'; }) && !horrorShieldView_(s[COL.PC.MEMORY], gameId, pcData),
-      outfit: getOutfit_(s[COL.PC.MEMORY]), weapon: getWeapon_(s[COL.PC.MEMORY]),
-      pref: s[COL.PC.PREF] || "", physical: s[COL.PC.PHYSICAL] || "{}", // 鑑賞卡：個性/肉體
-      trait: s[COL.PC.TRAIT] || "",
-      stolen: /【破戒奪取】/.test(String(s[COL.PC.MEMORY] || ""))
-    });
-  });
-  let servant = servants[0] || null;
-  // 💠 供魔收支（左側狀態卡顯示用）：僅正式聖杯戰爭世界算
-  var economy = (gameId && gameId.indexOf("g_") === 0) ? playerServantEconomy_(sheets, pcId, pcData) : null;
-  // 💕 今日已用過的羈絆互動（前端用來灰掉按鈕）
-  var bondUsed = [];
-  if (gameId && gameId.indexOf("g_") === 0) {
-    try { var bclk = getClock_(gameId, pcData); bondUsed = getBondUsedToday_(m[COL.PC.MEMORY], bclk ? bclk.day : 1); } catch (e) { }
-  }
-  // ✨ 禮裝（御主裝備槽）：純solo戰鬥被動加成概念，用 isFateCtx 結構性擋掉鑑賞列，同 seals 手法。
-  var mystic = null;
-  try {
-    var mid = isFateCtx ? getMystic_(m[COL.PC.MEMORY]) : "";
-    if (mid && MYSTIC_CODES[mid]) {
-      var mc = MYSTIC_CODES[mid];
-      var mcb = mc.fx && MC_COMBAT_[mc.fx] ? MC_COMBAT_[mc.fx] : null;
-      var eff = mcb ? [(mcb.hit ? '命中+' + mcb.hit : ''), (mcb.dmgAdd ? '傷+' + mcb.dmgAdd : ''), (mcb.npMul && mcb.npMul !== 1 ? '寶具×' + mcb.npMul : ''), (mcb.npDefMul && mcb.npDefMul !== 1 ? '承受寶具×' + mcb.npDefMul : '')].filter(Boolean).join('・') : '';
-      mystic = { id: mid, name: mc.name, type: mc.type, desc: mc.desc, effect: eff };
-    }
-  } catch (e) { }
-  // 🗝️ 破戒之力（前端決定是否顯示「破戒奪僕」按鈕）：限正式聖杯戰爭世界
-  var canRB = false;
-  try { if (gameId && gameId.indexOf("g_") === 0 && mIdx >= 0) canRB = canRuleBreak_(pcData, mIdx, gameId); } catch (e) { }
-  // 🎯 撞見敵人的可反應窗口（趁隙/挑撥/溜走）：僅 solo 且窗口 loc＝目前所在地時給前端，供顯示情境按鈕。
-  var encWin = null;
-  if (isFateCtx) {
-    var _w = getEncounterWindow_(m[COL.PC.MEMORY]);
-    if (_w && _w.loc === String(m[COL.PC.LOC] || "").trim()) encWin = { type: _w.type, choices: encounterChoices_(_w.type) };
-  }
-  return { success: true, master: master, servant: servant, servants: servants, economy: economy, bondUsed: bondUsed, mystic: mystic, canRuleBreak: canRB, worldTextMax: (gameId && gameId.indexOf("k_") === 0) ? worldSpec_(gameId).textMax : undefined,
-      encounterWindow: encWin, myLoc: String(m[COL.PC.LOC] || ""),
+  // 同伴卡：這座城的全部住民（LOC 在鑑賞是 AI 寫的布景，拿它篩會讓卡片消失）。
+  const _partyIds = (() => { try { return kanshouGetParty_(m[COL.PC.MEMORY]); } catch (e) { return []; } })();
+  const servants = pcData.filter(s => kanshouIsAlly_(s, gameId)).map(s => ({
+    id: s[COL.PC.ID], // 前端隨後續 action 回傳，後端認 id 不認名字
+    name: s[COL.PC.NAME], cls: s[COL.PC.RANK] || "從者", sex: s[COL.PC.SEX],
+    tag: s[COL.PC.REL_TAG] || "", nickname: getNickname_(s[COL.PC.REL_MEM]), // 🏷️關係面板預填；沒設就留空
+    party: _partyIds.indexOf(String(s[COL.PC.ID])) >= 0,
+    statusString: buildPlayerStatusString(s, String(s[COL.PC.REL_MEM] || "")),
+    outfit: getOutfit_(s[COL.PC.MEMORY]), physical: s[COL.PC.PHYSICAL] || "{}"
+  }));
+  return { success: true, master: master, servants: servants,
     // 🌙 夜未眠(Gallery.gs KANSHOU_NIGHT_SCENE_TAG_)：HUD 那顆鈕要據此把「🌙睡覺」換成「🌅睡到天亮」。
-    nightScene: (typeof KANSHOU_NIGHT_SCENE_TAG_ !== 'undefined'
-      && KANSHOU_NIGHT_SCENE_TAG_.get(m[COL.PC.MEMORY]) === (parseInt(m[COL.PC.DAY]) || 0)) || undefined };
+    nightScene: KANSHOU_NIGHT_SCENE_TAG_.get(m[COL.PC.MEMORY]) === (parseInt(m[COL.PC.DAY]) || 0) || undefined };
 }
 
 function buildClientState_(sheets, pcId, preData) {
   const allPcData = preData || sheets.pc.getDataRange().getValues();
-  const isKanshouSync_ = /^(KPC_|KHV_|KSV_)/.test(String(pcId || ""));
-  if (!isKanshouSync_) { try { markRivalsSeen_(sheets, pcId, allPcData); } catch (e) { } } // 🔵 戰爭迷霧：就地標記 SEEN+批次寫回，免二次整表讀
   const pcIndex = allPcData.findIndex(r => r[COL.PC.ID] == pcId);
   if (pcIndex === -1) return null;
-  const curL = allPcData[pcIndex][COL.PC.LOC];
-  const freshMapData = getMapDataCached(sheets); // 坤圖已靜態化，直讀常數，零I/O成本(非快取，過期措辭已更正)
-  const currentMapInfo = freshMapData.find(m => m[COL.MAP.NAME] === (curL ? String(curL).split('-')[0] : ""));
-  const gid = String(allPcData[pcIndex][COL.PC.GAME_ID] || "");
-  const isFate = gid && gid.indexOf("g_") === 0;
-  // 時鐘併入御主列，clockLabel_/getAp_ 傳 allPcData 走記憶體查找，不再另外整表讀時鐘表。
-  let clk = "", ap = AP_PER_DAY, kanshouClock = null;
-  if (isFate) { try { clk = clockLabel_(gid, allPcData); ap = getAp_(gid, allPcData); } catch (e) { } }
-  const isKanshouCtx_ = gid.indexOf("k_") === 0;
-  if (isKanshouCtx_) { try { const ci = kanshouClockInfo_(allPcData[pcIndex]); clk = ci.label; kanshouClock = ci; } catch (e) { } }
+  let clk = "", kanshouClock = null;
+  try { const ci = kanshouClockInfo_(allPcData[pcIndex]); clk = ci.label; kanshouClock = ci; } catch (e) { }
   return {
     statusString: buildPlayerStatusString(allPcData[pcIndex]),
-    // 鑑賞不送 people：那一軌前端沒有讀取端。
-    people: isKanshouCtx_ ? [] : getLocalPeopleList(sheets, allPcData[pcIndex][COL.PC.NAME], pcId, curL, allPcData),
-    locations: getNearbyLocations(curL, freshMapData, isFate ? getWarName_(allPcData[pcIndex][COL.PC.MEMORY]) : ""),
-    mapDesc: currentMapInfo ? currentMapInfo[COL.MAP.DESC] : "四下靜謐。",
-    clock: clk, ap: ap, apMax: AP_PER_DAY,
+    clock: clk,
     kanshouClock: kanshouClock,
-    economy: isFate ? playerServantEconomy_(sheets, pcId, allPcData) : null,
-    tags: buildTagsPayload_(sheets, pcId, allPcData),
-    // 地圖節點夾帶進共用 state blob(allPcData 已在手，零額外整表讀)，免每次切地圖頁另打一趟 round-trip。
-    mapNodes: buildMapNodesPayload_(sheets, allPcData, gid, curL ? String(curL).trim() : "")
+    tags: buildTagsPayload_(sheets, pcId, allPcData)
   };
 }
 function actionSync(userData, pcId, sheets) {
@@ -466,21 +270,7 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   const tIdx = findPcRowIdx_(pcData, myGameId, { id: targetId, name: targetName });
   if (tIdx === -1) return JSON.stringify({ success: false, message: "找不到這段關係。" });
 
-  // 🔵 solo 仍要求「同行的從者才能重新定義稱呼」；鑑賞無 IS_PARTY 概念，改稱呼是低風險設定、不要求同行。
-  if (myGameId.indexOf("k_") !== 0 && String(pcData[tIdx][COL.PC.IS_PARTY] || "") !== "同行") {
-    return JSON.stringify({ success: false, message: "只能改跟你同行的從者。" });
-  }
-
   const finalTag = _clearing ? "" : String(newTagText).trim();
-  // 🔒 自訂稱呼會被字面「TA是你的${tag}」原樣塞進 AI 提示詞當既定事實，低羈絆就打露骨自訂稱呼
-  //    會讓 AI 照著演。solo 仍吃這道門檻；鑑賞 2026-09 好感整組砍除後沒有這個數字，稱呼全交玩家。
-  if (myGameId.indexOf("k_") !== 0) {
-    const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;
-    if (bond < CUSTOM_TAG_BOND_) {
-      return JSON.stringify({ success: false, message: `羈絆到 ${CUSTOM_TAG_BOND_} 才能自己取稱呼，現在 ${bond}。` });
-    }
-  }
-
   // 需同步寫回 pcData 的記憶體鏡射，才能安全交棒 STATE_PRE_DATA_(否則夾帶的 _state.people 會顯示舊稱呼)。
   pcData[tIdx][COL.PC.REL_TAG] = finalTag;
   sheets.pc.getRange(tIdx + 1, COL.PC.REL_TAG + 1).setValue(finalTag);
@@ -498,7 +288,7 @@ function actionUpdateRelTag(userData, pcId, sheets) {
   return JSON.stringify({ success: true, message: _clearing ? "關係稱呼清掉了。" : `改成「${finalTag}」了。`, newTag: finalTag });
 }
 
-// 🔒 專屬稱呼比照 update_rel_tag 同一套門檻與同一個 injection 風險；玩家手動設定後蓋【稱呼鎖】，AI 不再自動覆寫。
+// 🔒 專屬稱呼：玩家手動設定後蓋【稱呼鎖】，AI 不再自動覆寫。
 function actionSetNickname(userData, pcId, sheets) {
   const { targetName, newNickname, targetId } = userData;
   if (!newNickname || !String(newNickname).trim()) return JSON.stringify({ success: false, message: "稱呼不能空白。" });
@@ -509,13 +299,6 @@ function actionSetNickname(userData, pcId, sheets) {
   if (myGameId === null) return JSON.stringify({ success: false, message: "找不到這段關係。" });
   const tIdx = findPcRowIdx_(pcData, myGameId, { id: targetId, name: targetName });
   if (tIdx === -1) return JSON.stringify({ success: false, message: "找不到這段關係。" });
-
-  if (myGameId.indexOf("k_") !== 0) {
-    const bond = parseInt(pcData[tIdx][COL.PC.BOND]) || 0;
-    if (bond < CUSTOM_TAG_BOND_) {
-      return JSON.stringify({ success: false, message: `羈絆到 ${CUSTOM_TAG_BOND_} 才能自己取稱呼，現在 ${bond}。` });
-    }
-  }
 
   // 分隔符安全：清掉可能撞到REL_MEM組字格式的符號(｜全形/[]方括號)，避免污染後續欄位解析。
   const finalNick = sanitizeNickname_(newNickname);

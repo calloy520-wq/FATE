@@ -1,8 +1,10 @@
 # CODE_MAP.md — 工作台（給 Claude 自己用）
 
-> **這份是操作手冊不是說明書。** 開工先讀這份 → 照 §1 挑任務 → 用 §2 的 grep 跳到位置 → 抄 §3 樣板 → 跑 §0 收尾。
+> **這份是操作手冊不是說明書。** 開工先讀這份 → 照 §1 挑任務 → 用 §2 找檔 → 跑 §0 收尾。
 > 🔒 **一律用 grep 錨點定位，本檔刻意不寫行號**（行號一改就騙人；函式名／常數名才是穩定錨）。
-> 細節：逐函式 `FUNCTION_MANUAL.md`｜機制 `SOLO_REFERENCE.md`／`KANSHOU_REFERENCE.md`｜提示詞 `AI_PROMPT_MAP.md`
+> 細節：逐函式 `FUNCTION_MANUAL.md`｜新聖杯戰爭 `SOLO_REFERENCE.md`｜鑑賞 `KANSHOU_REFERENCE.md`｜提示詞 `AI_PROMPT_MAP.md`
+> 2026-09 末舊版 solo（Router_Battle/Movement/Bond/Economy/Narrative、Engine_Fate、Mystic_Code、Time_World、Router_Creation）整組拆除，
+> 遊戲只剩兩條路：⚔️ 新聖杯戰爭、🌹 鑑賞後日談（加上兩邊共用的 🛠️ 英靈工房）。
 
 ---
 
@@ -24,9 +26,6 @@ bash check.sh
 # nsfwBaseRules 有沒有被動到（紅線①已取消禁區：可改，但改前量現況、改後跑全套探針——這行只是提醒你「有動到就要走那套流程」，不再要求 exit 1）
 git diff -- gas/Gallery.gs | grep -E "^[+-]" | grep -v "^+++\|^---" | grep -i "nsfwBaseRules"; echo "exit:$?"
 
-# 死碼掃描（全 455 函式，正常應只吐 removeAllTriggers）
-grep -hoE "^function [A-Za-z0-9_]+" gas/*.gs | sed 's/function //' | sort -u | while read f; do
-  [ "$(grep -rhoE "\b${f}\b" gas/ | wc -l)" -le 1 ] && echo "$f"; done; true   # ← true 收尾，否則末次判偽會吐 exit 1
 ```
 
 **commit（footer 逐字照抄，別自己編）**
@@ -56,193 +55,103 @@ mcp__github__actions_get          method=get_workflow_run resource_id=<run_id>
 
 ## §1 任務 → 動作清單
 
-> 每條格式：**跳到哪（grep）→ 改什麼 → 連帶必改 → 收尾更新哪份文件**
-
 ### 加一個新按鍵動作
-1. `grep -n "ActionRouter" gas/Router_Action.gs` → 加一列 `"action名": handlerFn,`
-2. 寫 handler：簽名固定 `(userData, pcId, sheets)`，回 `JSON.stringify({...})`（抄 §3.1）
-3. 前端 `Script.html` 加按鈕 → `gasRun({action:'...', pcId:pc.id, ...})`（`acctName` 由 `gasRun` 自動補，別手動加）
-4. **四張旗標表評估**（`grep -n "OWNERSHIP_CHECK_EXEMPT_\|LOCK_EXEMPT_ACTIONS_\|STATE_AFTER_ACTIONS\|KANSHOU_BLOCKED_ACTIONS_" gas/Router_Action.gs`）：
-   - 會改 solo 戰場 → 進 `STATE_AFTER_ACTIONS`（省 round-trip）
-   - 純讀取／長 AI 呼叫 → 進 `LOCK_EXEMPT_ACTIONS_`
-   - 鑑賞不該用 → 進 `KANSHOU_BLOCKED_ACTIONS_`
-   - 無 pcId 或不涉個別玩家列 → 進 `OWNERSHIP_CHECK_EXEMPT_`（**其餘一律不加，讓中央驗證擋**）
-5. 📝 `FUNCTION_MANUAL.md`（ActionRouter 表＋函式條目）、`SOLO_REFERENCE.md` §3 或 `KANSHOU_REFERENCE.md`、本檔 §4
+1. 後端寫 `actionXxx(userData, pcId, sheets)`，回 `JSON.stringify({ success, ... })`。
+2. `Router_Action.gs` 的 `ActionRouter` 加一列；純讀取或要跑 AI 的放進 `LOCK_EXEMPT_ACTIONS_`。
+3. 前端 `gasRun({ action: 'xxx', ... })`，外面包 `withProcessing_`（check_wait 會擋沒有等待畫面的）。
+4. 本檔 §4 加一列、`FUNCTION_MANUAL.md` 加一條。
 
-### 加從者技能效果（fx）
-1. `grep -n "SKILL_FX_\|DEF_FX_" gas/Engine_Fate.gs` → 線性被動進 `SKILL_FX_`、減傷進 `DEF_FX_`
-2. 概念級（能貫穿防禦）→ 同檔 `CONCEPT_TIER` 也要加
-3. 開放給工房/AI → `grep -n "ALLOWED_FX_\|FX_MENU_" gas/Router_Creation.gs` 兩張都加
-4. 前端說明 → `grep -n "FX_DESC" gas/Script.html`
-5. ⚠ **別在 `resolveFateBattle_` 寫 if 特例**——查表才是慣例
-6. 📝 `SOLO_REFERENCE.md` §4
-
-### 加禮裝
-`grep -n "MYSTIC_CODES\|MC_COMBAT_" gas/Mystic_Code.gs` → 兩張表各加一列 → 前端 `FX_DESC`
-⚠ 走 `injectMysticBuff_` 注 fx 進既有引擎，**不新增戰鬥分支**
+### 新聖杯戰爭：改規則／加技能效果
+- 規則數字全在 `WAR_`（War_Engine.gs）；技能效果只加 `WAR_SKILL_` 一列，引擎透過 `warMul_`／`warAdd_`／`warFlag_` 讀。
+- 敵人性格加 `WAR_TEMPER_` 一列。改完先跑 `node tools/war_sim.js` 量勝率（理由與數字記在 CODE_NOTES『WAR_』）。
 
 ### 加種子英靈
-`grep -n "SEED_SERVANTS" gas/Seed_Codex.gs` → 加一筆（日常版 4 格 dailyLook/Words/Moe/Outfit 要手寫）
-→ `grep -n "CODEX_PERSONA_VER" gas/Seed_Codex.gs` **版本號 +1**（不改不會重刷）
-→ 鑑賞要出場：`grep -n "KANSHOU_HERO_HOME_\|KANSHOU_STARTER_IDS_" gas/Gallery.gs`
+- `SEED_SERVANTS`（Seed_Codex.gs）加一筆；要出現在哪一場戰爭改 `FATE_5TH_ROSTER`／`FATE_4TH_ROSTER`（Seed_Rivals.gs）。
+- 種子人設改了就升 `CODEX_PERSONA_VER`，登入時英靈殿會自動刷新。`check_seed.py` 會擋幽靈技能、死欄位、劇情弧態度。
 
-### 加地點
-- solo：`grep -n "FATE_MAP_SEED" gas/Setup_FateWorld.gs` **＋** `grep -n "LAYOUT" gas/Script.html`
-  ⚠ **前端座標是 hardcode、不吃試算表**，只改一邊會出現「地圖上沒有但選單有」
-- 鑑賞：`grep -n "KANSHOU_LOCATIONS_\|KANSHOU_REGIONS_" gas/Gallery.gs`
+### 工房
+- 可選技能 `WAR_FORGE_SKILLS_`、職階自帶技能 `FORGE_CLS_SKILLS_`、點數 `WAR_FORGE_`（都在 War_Forge.gs）。可選技能必須是 `WAR_SKILL_` 裡有的。
 
-### 加 MEMORY 標記
-`grep -n "makeIntTag_\|makeTextTag_" gas/Core_Settings.gs` → 用工廠產一套 get/set/clear（抄 §3.4）
-⚠ 分隔符是**全形 ｜**；自由文字必過 `cleanTagText_(s, maxLen)`
-📝 `SOLO_REFERENCE.md` §11 標記表／`KANSHOU_REFERENCE.md` 標記表
-
-### 調戰鬥數值
-`Engine_Fate.gs`（命中/傷害/`NP_SCALE_MATRIX`）｜`Router_Battle.gs`（電池/超載/海怪）
-⚠ **`applyRegen_` 與 HUD `playerServantEconomy_` 必須同算式**，改一個一定要一起改（`grep -rn "applyRegen_\|playerServantEconomy_" gas/`）
-
-### 改鑑賞好感／尺度門檻
-`grep -n "KANSHOU_.*_BOND_\|KANSHOU_REL_TIER_" gas/Gallery.gs` → 前端 `Script_Kanshou.html` 鏡像常數同步
-**`nsfwBaseRules` 是演化核心**：可改，但改前先用模擬器量現況、改完跑全套探針、確認原本正常的配對沒被改壞（CLAUDE.md 紅線①，2026-07 玩家取消禁區）
-
-### 改提示詞
-演出卡 `Router_Persona.gs`｜solo 敘事 `Router_Narrative.gs`｜鑑賞 `Gallery.gs`
-📝 **先查 `AI_PROMPT_MAP.md`、改完更新它**；🔴 show-don't-tell 不可破
+### 鑑賞
+- 動任何一塊先讀 `KANSHOU_REFERENCE.md`。提示詞本體在 `actionPlay_`／`nsfwBaseRules`（紅線①流程）；說書人 15 段在 `KANSHOU_STYLE_MODULES_`。
 
 ### 改試算表欄位
-`grep -n "^const COL" gas/Core_Settings.gs` **＋** `grep -n "FATE_SHEET_DEFS" gas/Setup_FateWorld.gs` 兩處同步
-⚠⚠ **COL 是位置索引，只能在尾端加、寧棄用不刪欄**（刪欄位移全表 → 全部讀寫錯位且不會報錯）
+- ⚠ COL 是位置索引，**寧棄用不刪**；棄用的登記進 `check_seed.py` 的 `DEAD_COL_ALLOW` 並寫明理由。
 
 ---
 
-## §2 大檔導航（符號依序，grep 錨點跳）
+## §2 檔案地圖
 
-### `Gallery.gs`（3682 行・90 函式・最大檔）依序七區
-| 區 | 起點錨（grep 這個） | 內容 |
-|---|---|---|
-| ① 資料層 | `sanitizeAiData_` | 帳號綁定／`kanshouPcIdx_`／鑑賞眾生表／日常版轉換 |
-| ② 關係 | `KANSHOU_REL_TIER_` | 五階／`kanshouSyncRelTier_`（好感天花板與告白牆都已移除） |
-| ③ handlers | `actionKanshouSummonHero` | 全部 `kanshou_*` action（召喚/貼圖/回憶/改名） |
-| ④ 演化核心 | `buildDefaultSystemPrompt` | `nsfwBaseRules` 在這裡：可改，先量後改再跑探針（紅線①） |
-| ⑥ 引擎 | `actionPlay` → `actionPlay_` | 🔥 **~1440 行巨獸**，鑑賞單回合全部意圖都在裡面 |
-
-### `Script.html`（3195 行・133 函式）依序
-`escapeHtml`（🔒唯一逃逸helper）→ `gasRun`/`beginAction`（通訊層）→ 全域狀態（`pc`/`myServants`/`myActiveServant`）→ `updateClock`/`updateEconomy`（HUD）→ `renderEncounterBubbles`/`renderWarActions`（戰爭行動列）→ `promptRetreat`/`retreatTo`/`travelTo`（移動撤退）→ `openFateEdit`（逆天改命）→ `FX_DESC`/`TRAIT_DESC`/`show*Desc`（說明 popup）→ `buildSvCard`（從者卡）→ `STANCES`/`setStance`（參戰風格）→ `refreshMapPane`/`buildMapSvg_`＋`LAYOUT`（地圖）→ `renderFateBattleReport`（戰報）→ `openNpReleasePicker`/`pickNpAndStrike`（寶具）→ `openOutfitPicker_`/`openMageRealmPicker`/`openRunePicker`（設定類）→ `openBondMenu`/`openSealMenu` → `openTigerDojo`（道場）→ `applyClientState`/`applyModeUI`（總開關）
+| 檔 | 做什麼 |
+|---|---|
+| `Router_Action.gs` | 唯一入口 `handleGameAction`：消毒、歸屬驗證、寫入鎖、分派 `ActionRouter`、夾帶 `_state`；還有狀態頁／改命／稱呼那幾支 |
+| `Account.gs` | 帳號登入（無密碼）、歸屬驗證 `verifyPcOwnership_` |
+| `Setup_FateWorld.gs` | 登入時冪等建表 `ensureWorldReady_` |
+| `Core_Settings.gs` | 模型設定、`COL` 欄位表、MEMORY 標記工廠、代名詞、狀態字串 |
+| `Engine_Combat.gs` | `callGeminiAPI`（AI 呼叫、繁體轉換、JSON 修復、失敗備援）、`doGet` |
+| `History_Sync.gs` | 對話歷史表（鑑賞） |
+| `Router_Persona.gs` | 人設共用零件（小動作／準則標記、補魔尺度句、性別事實句、創角提示詞長句） |
+| `Seed_Codex.gs`／`Seed_Rivals.gs` | 種子英靈、御主名、兩場戰爭的陣容 |
+| `War_Engine.gs` | ⚔️ 新聖杯戰爭純規則（不碰試算表／AI，Node 模擬器直接載入） |
+| `War_Router.gs` | ⚔️ 存檔、說書、老虎道場、世界書 |
+| `War_Forge.gs` | 🛠️ 英靈工房（新戰爭與鑑賞共用） |
+| `Gallery.gs` | 🌹 鑑賞全部（進場、同伴、在場、時間、提示詞、回寫、世界帳本、說書人設定、換裝） |
+| `Index.html` | 登入／選單／後日談主畫面的骨架 |
+| `Script.html` | 共用前端：`gasRun`、`aiHtml_`、狀態頁、改命、角色分頁、換裝、設定 |
+| `Script_Onboarding.html` | 登入、處理中遮罩 |
+| `Script_Kanshou.html` | 鑑賞前端 |
+| `Script_War.html` | 新聖杯戰爭與工房前端 |
+| `Style.html` | 全部 CSS |
 
 ---
 
 ## §3 必抄樣板（別重新發明）
 
-**§3.1 handler 骨架**
-```js
-function actionXxx(userData, pcId, sheets) {
-  var pcData = sheets.pc.getDataRange().getValues();          // 整表只讀一次
-  var pIdx = pcData.findIndex(function (r) { return r[COL.PC.ID] == pcId; });
-  if (pIdx === -1) return JSON.stringify({ success: false, message: "查無御主" });
-  var gameId = String(pcData[pIdx][COL.PC.GAME_ID] || "");
-  if (gameId.indexOf("g_") !== 0) return JSON.stringify({ success: false, message: "此刻無法行動。" });
-  // …改 pcData（記憶體）…
-  sheets.pc.getRange(1,1,pcData.length,pcData[0].length).setValues(pcData); // 收尾一次寫回
-  STATE_PRE_DATA_ = pcData;                                   // 交棒，dispatcher 夾 _state 免重讀
-  return JSON.stringify({ success: true, /* … */ });
-}
-```
-> 歸屬驗證**不用自己寫**——dispatcher 已統一跑 `verifyPcOwnership_`。
-
-**§3.2 扣 AP**（取代手刻門檻檢查）
-```js
-var apr = chargeApOrReject_(gameId, 1, pcData, sheets, "行動力不足。", { isFate: true, skipWrite: true });
-if (apr.reject) return JSON.stringify(apr.reject);   // ⚠ 沒前置 guard 就一定要檢查這個
-var ap = apr.ap, clock = apr.clock;
-```
-`skipWrite:true` ＝後面還有整表寫回時用（避免同列兩次 I/O）。
-
-**§3.3 找我方從者／找某人**
-```js
-var svIdx = findPlayerServantIdx_(pcData, gameId, userData.servant, userData.servantId); // id優先·尊重玩家選的那位
-var idx   = findPcRowIdx_(pcData, gameId, { id, name, faction:"從者", loc:curL, excludeIdx:pIdx });
-```
-
-**§3.4 MEMORY 標記**
-```js
-var XXX_TAG_ = makeIntTag_('標記名', 0);     // 或 makeTextTag_('標記名')
-XXX_TAG_.get(memory) / .set(memory, val) / .clear(memory)   ← IntTag 才有 clear；TextTag 只有 get/set，清值用 set(memory, '')
-// 自由文字先洗：cleanTagText_(str, maxLen)  → 剝 ｜【】\n\r\t
-```
-
-**§3.5 卸防突襲**（休息/羈絆/結盟/補魔/修復都用同一支）
-```js
-var ambush = enemyAmbushOnServant_(sheets, pcData, pIdx, gameId, 1.3, svIdx); // ← 第6參數傳已解析的從者
-var prompt = ambushDispatchPrompt_(ambush, function(a){ /*被打斷*/ }, function(){ /*正常*/ });
-```
-
-**§3.6 批次寫回**（一次動作內多次寫入時）
-```js
-BATTLE_DEFER_WRITE_ = true;      // worldTick_/refillMastersDaily_/breakStaleAlliances_ 改記憶體
-try { /* …多個子系統… */ } finally { BATTLE_DEFER_WRITE_ = false; }
-sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
-```
+- MEMORY 標記：`makeTextTag_('名字')`／`makeIntTag_` 拿 get/set（已清洗、冪等），別自己拼【】。
+- 找人：`findPcRowIdx_(pcData, gid, { id, name, faction, nameCandidates: kanshouNameCandidates_ })`，id 優先、名字退路；別用 `includes()`。
+- 敘事印到畫面：一律 `aiHtml_(text)`（escape 全部→只放回 `<br>`）。
+- 等待：`withProcessing_('…中…', () => gasRun(...))`。
 
 ---
 
-## §4 全 67 action → handler → 檔
+## §4 全 30 action → handler → 檔
 
 | action | handler | 檔 | | action | handler | 檔 |
 |---|---|---|---|---|---|---|
-| check_name | actionCheckName | Router_Action | | spirit_repair | actionSpiritRepair | Router_Economy |
-| account_login | actionAccountLogin | Account | | set_servant_output | actionSetServantOutput | Router_Economy |
-| account_new_game | actionAccountNewGame | Account | | set_mage_realm | actionSetMageRealm | Router_Economy |
-| end_run | actionEndRun | Account | | set_rune_mode | actionSetRuneMode | Router_Economy |
-| enter_kanshou | actionEnterKanshou | Gallery | | outfit | actionSetOutfit | Router_Economy |
-| kanshou_reset | actionKanshouReset | Gallery | | weapon | actionSetWeapon | Router_Economy |
-| backfill_kanshou_ai | actionBackfillKanshouAi | Gallery | | bond | actionBond | Router_Bond |
-| kanshou_companions | actionKanshouCompanions | Gallery | | rule_break_steal | actionRuleBreakSteal | Router_Bond |
-| kanshou_memoir_op | actionKanshouMemoirOp | Gallery | | propose_alliance | actionProposeAlliance | Router_Bond |
-| world | actionWorld | Gallery | | break_alliance | actionBreakAlliance | Router_Bond |
-| kanshou_summon_hero | actionKanshouSummonHero | Gallery | | ally_bond | actionAllyBond | Router_Bond |
-| kanshou_party | actionKanshouParty | Gallery | | parley | actionParley | Router_Bond |
-| kanshou_set_sex | actionKanshouSetSex | Gallery | | set_workshop | actionSetWorkshop | Router_Movement |
-| kanshou_get_style | actionKanshouGetStyle | Gallery | | scavenge | actionScavenge | Router_Movement |
-| kanshou_set_style | actionKanshouSetStyle | Gallery | | second_wind | actionSecondWind | Router_Movement |
-| kanshou_set_name | actionKanshouSetName | Gallery | | scout | actionScout | Router_Movement |
-| prep_meal | actionPrepMeal | Router_Movement | | get_map_nodes | actionGetMapNodes | Router_Movement |
-| get_full_status | actionGetFullStatus | Router_Action | | faction_ambush | actionFactionAmbush | Router_Movement |
-| update_fate | actionUpdateFate | Router_Action | | incite | actionIncite | Router_Movement |
-| update_rel_tag | actionUpdateRelTag | Router_Action | | move | actionMove | Router_Movement |
-| kanshou_set_nickname | actionSetNickname | Router_Action | | sync | actionSync | Router_Action |
-| roll_fate | actionRollFate | Core_Settings | | rest | actionRest | Router_Movement |
-| create | actionManualNpc | Router_Creation | | play | actionPlay | Gallery |
-| backfill_master_ai | actionBackfillMasterAi | Router_Creation | | narrate_only | actionNarrateOnly | Router_Narrative |
-| summon_servant | actionSummonServant | Router_Creation | | tiger_dojo | actionTigerDojo | Router_Narrative |
-| get_heroes | actionGetHeroes | Router_Creation | | war_load | actionWarLoad | War_Router |
-| get_masters | actionGetMasters | Router_Creation | | war_new | actionWarNew | War_Router |
-| get_tags | actionGetTags | Router_Action | | war_act | actionWarAct | War_Router |
-| fate_battle | actionFateBattle | Router_Battle | | war_narrate | actionWarNarrate | War_Router |
-| np_respond | actionNpRespond | Router_Battle | | war_quit | actionWarQuit | War_Router |
-| summon_horror_beast | actionSummonHorror | Router_Battle | | war_dojo | actionWarDojo | War_Router |
-| dismiss_horror_beast | actionDismissHorror | Router_Battle | | war_forge_list | actionWarForgeList | War_Forge |
-| use_seal | actionUseSeal | Router_Bond | | war_forge_save | actionWarForgeSave | War_Forge |
-| mana_supply | actionManaSupply | Router_Economy | |  |  |  |
+| account_login | actionAccountLogin | Account | | update_rel_tag | actionUpdateRelTag | Router_Action |
+| enter_kanshou | actionEnterKanshou | Gallery | | kanshou_set_nickname | actionSetNickname | Router_Action |
+| kanshou_reset | actionKanshouReset | Gallery | | get_heroes | actionGetHeroes | Gallery |
+| backfill_kanshou_ai | actionBackfillKanshouAi | Gallery | | get_tags | actionGetTags | Router_Action |
+| kanshou_companions | actionKanshouCompanions | Gallery | | outfit | actionSetOutfit | Gallery |
+| kanshou_memoir_op | actionKanshouMemoirOp | Gallery | | sync | actionSync | Router_Action |
+| world | actionWorld | Gallery | | play | actionPlay | Gallery |
+| kanshou_summon_hero | actionKanshouSummonHero | Gallery | | war_load | actionWarLoad | War_Router |
+| kanshou_party | actionKanshouParty | Gallery | | war_new | actionWarNew | War_Router |
+| kanshou_set_sex | actionKanshouSetSex | Gallery | | war_act | actionWarAct | War_Router |
+| kanshou_get_style | actionKanshouGetStyle | Gallery | | war_narrate | actionWarNarrate | War_Router |
+| kanshou_set_style | actionKanshouSetStyle | Gallery | | war_quit | actionWarQuit | War_Router |
+| kanshou_set_name | actionKanshouSetName | Gallery | | war_dojo | actionWarDojo | War_Router |
+| get_full_status | actionGetFullStatus | Router_Action | | war_forge_list | actionWarForgeList | War_Forge |
+| update_fate | actionUpdateFate | Router_Action | | war_forge_save | actionWarForgeSave | War_Forge |
 
 ---
 
-
-**⚔️ 新聖杯戰爭（War_Router.gs）**：`war_load`→`actionWarLoad`｜`war_new`→`actionWarNew`｜`war_act`→`actionWarAct`｜`war_narrate`→`actionWarNarrate`｜`war_quit`→`actionWarQuit`｜`war_dojo`→`actionWarDojo`（終局後的老虎道場）。規則全在 War_Engine.gs（純函式），畫面在 Script_War.html。
 ## §5 資料驅動表（加一列＝加功能）
 
 | 想加什麼 | grep 這個 | 在 |
 |---|---|---|
-| 技能效果 | `SKILL_FX_` / `DEF_FX_` / `CONCEPT_TIER` | Engine_Fate |
-| 寶具規模對抗 | `NP_SCALE_MATRIX` / `DEF_SCALE_` | Engine_Fate |
-| 禮裝 | `MYSTIC_CODES` / `MC_COMBAT_` | Mystic_Code |
-| 種子角色 | `SEED_SERVANTS` / `SEED_MASTERS` | Seed_Codex |
-| solo 地點／分頁 | `FATE_MAP_SEED` / `FATE_SHEET_DEFS` | Setup_FateWorld |
-| 工房職階技能／計價／可用fx | `FORGE_CLS_SKILLS_` / `SKILL_PTS_` / `ALLOWED_FX_` | Router_Creation |
-| 敵營局面選項 | `FACTION_ENCOUNTER_CHOICES_` | Router_Movement |
-| 出力檔／符文 | `OUTPUT_TIERS_` / `RUNE_MODES_` | Core_Settings |
-| 說書人提示詞 15 段（玩家可改的只有尺度＋篇幅） | `KANSHOU_STYLE_MODULES_`（key/slot/def；`fixed: true`＝不開放調整。⚠ `def` 是提示詞本體、不下傳前端，玩家看到的是 `hint`）· 試算表分頁「鑑賞風格」`KS_` | Gallery |
-| ~~鑑賞橋段觸發(四層)~~ | `KANSHOU_SCENE_EVENTS_`/`KANSHOU_FESTIVAL_EVENTS_`/`KANSHOU_LOCATION_EVENTS_`/`KANSHOU_COHABIT_EVENTS_`/`KANSHOU_PROPS_` **2026-09 已整批砍除**（事件自由：地點×時段發生什麼由 AI 即興，節慶只給「今天是 X」事實） | — |
-| 鑑賞三層在場／物理距離 | `KANSHOU_PARTY_TAG_` `KANSHOU_ONSTAGE_TAG_` `KANSHOU_FAMILIAR_TIERS_` `KANSHOU_ONSTAGE_MAX_` | Gallery |
-| dispatcher 行為 | `OWNERSHIP_CHECK_EXEMPT_` `LOCK_EXEMPT_ACTIONS_` `STATE_AFTER_ACTIONS` `KANSHOU_BLOCKED_ACTIONS_` | Router_Action |
+| 戰爭規則數字 | `WAR_` | War_Engine |
+| 技能效果 | `WAR_SKILL_`（讀表三支 `warMul_`／`warAdd_`／`warFlag_`） | War_Engine |
+| 敵人性格 | `WAR_TEMPER_` | War_Engine |
+| 教會討伐令／決戰地點 | `WAR_BOUNTY_`／`WAR_FINAL_` | War_Engine |
+| 種子角色 | `SEED_SERVANTS`／`SEED_MASTERS` | Seed_Codex |
+| 兩場戰爭的陣容 | `FATE_5TH_ROSTER`／`FATE_4TH_ROSTER` | Seed_Rivals |
+| 工房 | `WAR_FORGE_`／`WAR_FORGE_SKILLS_`／`FORGE_CLS_SKILLS_` | War_Forge |
+| 分頁表頭 | `FATE_SHEET_DEFS` | Setup_FateWorld |
+| 說書人提示詞 15 段（玩家可改的只有尺度＋篇幅） | `KANSHOU_STYLE_MODULES_`（`def` 是提示詞本體、不下傳前端） | Gallery |
+| 鑑賞在場／同行上限 | `KANSHOU_PARTY_TAG_`／`KANSHOU_ONSTAGE_TAG_`／`KANSHOU_ONSTAGE_MAX_` | Gallery |
+| 世界帳本 | `WORLD_SPEC_` | Gallery |
+| dispatcher 行為 | `OWNERSHIP_CHECK_EXEMPT_`／`LOCK_EXEMPT_ACTIONS_`／`STATE_AFTER_ACTIONS` | Router_Action |
 
 ---
 
@@ -251,22 +160,9 @@ sheets.pc.getRange(...).setValues(allPcData);   // 收尾一次寫完
 | 情境 | 坑 |
 |---|---|
 | 改 `Gallery.gs` 任何地方 | 動到 `nsfwBaseRules` 就走紅線①流程：先量現況、改完跑全套探針、確認原本正常的配對沒被改壞 |
-| 刪／搬試算表欄位 | ⚠ COL 是位置索引，**寧棄用不刪**；死欄 `MONEY/UPKEEP_WEEK/ROOM` 是刻意留的佔位 |
-| 動 `.html` | CI **不驗** .html 內嵌 JS → 綠燈也可能壞 runtime，**只能靠 `bash check.sh`** |
-| 加自由輸入欄位 | 後端**一定要自己設長度上限**，別信前端 `maxlength`；並過 `cleanTagText_`／`｜【】` 清洗 |
-| 前端拼 innerHTML | 一律 `escapeHtml()`（跨玩家可見文字尤其） |
-| 名字比對 | 用 `nameLoose_`／`findPcRowIdx_`，**別用 `includes()`**（真名互為前綴會選錯人，踩過3次） |
-| 加 Sheets 寫入 | 先問「這一列這次動作已經寫過了嗎」→ 用 `skipWrite`／`BATTLE_DEFER_WRITE_` 併成一次 |
-| 雙從者相關 | 一律 `findPlayerServantIdx_` 拿玩家實際選的那位，**別預設取第一個** |
-| god_hand/survive | severed ＝看**攻擊方**的破階 fx（不是自己的），方向搞反過3次 |
+| 刪／搬試算表欄位 | ⚠ COL 是位置索引，**寧棄用不刪** |
+| 動 `.html` | CI **不驗** .html 內嵌 JS → 綠燈也可能壞 runtime，**只能靠 `bash check.sh`**；排版問題連它也看不到，要截圖看（見 PLAYBOOK『用瀏覽器真的看畫面』） |
+| 加自由輸入欄位 | 後端**一定要自己設長度上限**，別信前端 `maxlength` |
+| 前端拼 innerHTML | 一律 `escapeHtml()` |
+| 同名函式 | GAS 把所有 .gs 串成一個檔，**後載入的同名函式會靜靜蓋掉前面的**——搬函式時舊的那份一定要刪 |
 | 改共用函式簽名 | 先 §0「誰在用」掃全部呼叫端，並同步 `FUNCTION_MANUAL.md` 那一條 |
-
----
-
-## §7 現況（2026-07）
-
-- （2026-07 的數字）24 檔・後端 455 函式・69 action；2026-09 起以 §4 表頭為準（表由 Router_Action.gs 的 ActionRouter 產生）
-- **死碼 0**（僅 `removeAllTriggers` 無呼叫點＝刻意保留的編輯器手動工具）
-- 當時 69 action 全部有真實 handler 且皆可從前端到達（`set_mage_realm`/`set_rune_mode` 走 `pickSelectable(action,…)` 動態帶入）
-- 連續 3 輪稽核乾淨收斂 → `SOLO_REFERENCE.md` §25
-- `full`（九州全模擬）停用中；兩軌皆無經濟/生活層、無戰記/排行榜

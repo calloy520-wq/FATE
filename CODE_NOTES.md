@@ -58,27 +58,9 @@
 
 🔒 單一真實來源：solo(PC_)／鑑賞(KPC_) 共用的「這個 pcId 真的屬於這個帳號嗎」驗證。比照 actionEndRun 原本各自手寫的反查「帳號」表寫法抽出，讓 handleGameAction 能在dispatch 前統一擋下「猜中/枚舉他人 pcId 即可代操作」這整類漏洞，不必每個 handler 各自補。
 
-### `findPcRowByCharId_`　<sub>Account.gs</sub>
-
-依 charId 找「眾生」列，含已標記 DEAD_ 的殘局列：帳號表存的是原始 charId，御主死亡時ID 會被加上 "DEAD_" 前綴但帳號連結不會跟著改，故兩者都要查。actionAccountLogin／actionAccountNewGame 皆靠這條反查殘局的 game_id 以便整局清除。
-
-### `purgeGameData_`　<sub>Account.gs</sub>
-
-清理某 game_id 的整局資料（眾生，關係已併入列自身欄位，刪列即刪關係），並解除帳號連結。preData 可選：呼叫端若已有整表快照可傳入省一次讀取，不傳則自己讀。accIdx 可選：呼叫端若已查過帳號表拿到列索引(findAccountRow_的結果)可傳入省一次帳號表整表重讀，不傳則自己用 accountName 查一次(相容舊呼叫)。
-
-### `actionEndRun`　<sub>Account.gs</sub>
-
-🔒 稽核抓到：原本純用pcId(格式"PC_"+時間戳，可預測)裸find，完全沒驗證acctName是否真的擁有這個pcId——等同任何人皆可猜/枚舉pcId替別人結束並清空整局存檔。改比對帳號表COL.ACC.PC實際連結的charId，不符直接拒絕。
-
-🐛→✅ 稽核抓到：found.idx早就查過了，這裡再傳acctName字串會讓purgeGameData_內部又整表重讀一次「帳號」表——直接傳found.idx省掉這次重讀。
-
 ### `actionAccountLogin`　<sub>Account.gs</sub>
 
 🐛→✅ 稽核抓到：帳號名稱欄位從未鎖成純文字格式——玩家若取純數字帳號(如"0123")，Sheets在「自動」格式下寫入時會把看似數字的字串自動轉型(去前導零/長數字轉科學記號)，下次登入時findAccountRow_的字串比對永遠對不上，等於每次登入都被誤判成「找不到」而another建一列，玩家存檔被鎖在第一列、永遠連不回去。寫入前先鎖該格為純文字，避免自動轉型。
-
-### `actionAccountNewGame`　<sub>Account.gs</sub>
-
-🐛→✅ 稽核抓到：原本自行重寫一份刪除迴圈，沒像 purgeGameData_ 一樣同步清「歷史暫存」表——開新局是玩家最常見的棄局路徑，一直沒清會讓歷史表持續累積孤兒列。gid存在時直接共用purgeGameData_(含歷史清理)；gid為空(孤兒charId，無對應game_id世界)才維持原本單獨刪列+ 補一次歷史清理，兩種情況都不再遺漏。
 
 ### ~~`actionPurgeOrphans`~~（2026-09-28 已移除：玩家說 DEV 按鈕「都用不太到」，建表與種子升版改在登入時由 `ensureWorldReady_` 自動跑）　<sub>Account.gs</sub>
 
@@ -126,30 +108,6 @@ KPC(鑑賞角色ID)：由伺服器端 linkAccountToKanshouPc_/getAccountKanshouP
 
 「連結存在外部表、玩家端無法影響」，結構上不可繞過冒充。
 
-### `rankVal`　<sub>Core_Settings.gs</sub>
-
-🐛→✅ 純"-"佔位(無官方階級，如佐佐木小次郎的寶具六圍)：去掉"-"後沒有半個字母可查——舊版仍照樣把這同一個"-"字元當「減號修飾」再扣一次3，讓"-"算出比真正的E(10)還低的7，跌破多處 rankVal(...)>=10 的「有無寶具」判斷門檻。沒有字母就沒有可修飾的基準，直接視同E、不套用+/-加減，才對得上註解與資料原意的「保底吃E」。
-
-### `buildTrajectoryDigest_`　<sub>Core_Settings.gs</sub>
-
-solo 軌跡骨幹：AI 從敘事散文反推精確狀態(好感/血量/天數)容易猜錯，改由 GAS 組一段「已確定事實」接在歷史前當錨點。吃呼叫端(narrateWithState_)已讀的同一份 pcData，不重讀表。刻意只做當下快照、不做累積事件清單，避免重蹈已砍除的「因果/命運長河」(存太多筆反而抓不到重點)。
-
-### `clampCircuits_`　<sub>Core_Settings.gs</sub>
-
-御主(凡人魔術師)HP/MP：唯一核心數值＝魔術迴路(財力/身世決定)。共用魔力池制：從者無獨立魔力池，與御主共用一池(存御主MP)，池上限＝御主迴路×10＋同隊從者魔力×2(見masterPoolMax_)。masterMaxHpMp_ 只給「尚無從者」基底(迴路×10)；血由迴路×2。
-
-迴路骰子範圍(12~50)——跟前端骰子UI(Script_Onboarding.html)夾值範圍一致，三處各自硬寫過同一組數字，改這個範圍務必連 Script_Onboarding.html 那處也一起改(HTML端跨執行環境不共用此函式)。
-
-### `masterMaxHpMp_`　<sub>Core_Settings.gs</sub>
-
-🛡️ parseInt(x)||30 只擋得住NaN/0，擋不住負數——前端骰子UI本就夾在12~50，但這裡是唯一信任邊界(直打API可繞過前端)，補上下限，避免負迴路生出0血/負魔力的御主。
-
-🐛→✅ 舊版只擋下限沒擋上限——直打API送circuits=999999能生出HP/MP近乎無限的御主，且這個值會永久寫進MEMORY【迴路】標記，之後masterPoolMax_每次重算共用魔力池都沿用這個灌爆的數字，貫穿補魔/供魔/戰鬥整個系統。補上跟前端骰子UI相同的上限(50)。
-
-### `OUTPUT_TIERS_`　<sub>Core_Settings.gs</sub>
-
-🔋 從者靈基出力檔位（玩家手動旋鈕，存從者 MEMORY【出力】）：從者無自有魔力，靠御主供魔的「出力」決定戰力與耗魔。檔位→{ hit 命中加減, dmgMul 傷害乘子, drainMul 御主每小時維持費乘子, np 是否可解放寶具, label }。100% 全開最強但燒御主最兇、且唯一能放寶具的檔；60% 基準無加成；20% 僅維持靈基、低出力有明顯懲罰。
-
 ### `findPcRowIdx_`　<sub>Core_Settings.gs</sub>
 
 AI 呼叫後寫回前的列重定位索引：play/backfill 因 AI 呼叫耗時被豁免寫入鎖(LOCK_EXEMPT)，用的是呼叫前讀到的列索引；期間若其他上鎖動作刪列(清殘列/登入自動清)，索引會位移錯位。此函式單欄窄讀(只讀ID欄，非整表)回傳 {id → 當下真實列索引(0-based)}；ID已消失(列被刪)則查無，呼叫端跳過。
@@ -162,25 +120,9 @@ AI 呼叫後寫回前的列重定位索引：play/backfill 因 AI 呼叫耗時�
 
 對一個其實已經不在場的人牽手/邀約成功)。
 
-### `dmgSeverityWord_`　<sub>Core_Settings.gs</sub>
-
-🩸 傷勢嚴重度中文詞（單一真實來源）：dmg 佔 hpMax 比例 ≥40%＝重創／≥15%＝負傷／否則擦傷。hpMax 為 0/falsy 時比照既有呼叫端「查無上限就當最嚴重」的既有慣例，比例夾為 1(必為重創)。Router_Movement.gs(撤退追擊／歇息夜襲／趁隙偷襲) ＋ Router_Bond.gs(相處遭突襲) 共用同一條件鏈，別各自重寫這條 ratio 判斷。
-
-### `ambushDispatchPrompt_`　<sub>Core_Settings.gs</sub>
-
-⚔️ 卸防突襲三分派樣板（單一真實來源）：enemyAmbushOnServant_ 回傳的 ambush 物件只有三種去向——①homeRepel/peaceful(陣地反擊·優雅擊退／按兵不動·試探接觸，文案已在 ambush.repelNote 現成)②真突襲命中(需呼叫端自組「被打斷」的專屬敘事，各處措辭不同，故用 callback)③無突襲(呼叫端自組「正常結果」的敘事，同樣用 callback，可在其中再自行細分milestone等子分支)。補魔/靈基修復/相處/盟友交流/歇息 五處突襲呼叫端共用同一套分派邏輯，各自只帶自己的文案 callback，不重寫這三分支判斷。interruptedFn(ambush)/normalFn() 皆回傳字串(aiPrompt)。
-
-### `chargeApOrReject_`　<sub>Core_Settings.gs</sub>
-
-⏳ AP門檻＋扣AP＋時鐘標籤（單一真實來源）：cost/rejectMsg 依呼叫端自訂；opts.isFate 未帶就自己依 gameId 是否 "g_" 開頭判斷（鑑賞 k_ 局一律視為不擋、不耗AP，回傳{ap:AP_PER_DAY, clock:""}，比照各呼叫點既有「非Fate局不擋」慣例）；opts.skipWrite 透傳給 spendAp_(呼叫端結尾另有整表/整列批次寫回時傳true，省掉 spendAp_ 自己那道窄寫入)。門檻不足回傳 {reject:{success:false,needRest:true,message:rejectMsg}}——呼叫端請直接`return JSON.stringify(apr.reject)`；足夠則扣AP＋回傳 {ap, clock}。⚠ 各呼叫點原本大多在函式前段就已有一道獨立的「門檻不足→提前 return」guard(擋在任何寫入/扣費之前，避免門檻不足時仍留下半吊子副作用)，此函式故意只在原本「扣AP＋算時鐘」那個位置呼叫、不去取代前面那道 guard、也不把扣AP時間點提前——部分呼叫端在扣AP前後有依賴當下(扣AP前)day/hour的計算(如趁隙偷襲 playerAmbushOnEnemy_ 的【提防】冷卻窗口判斷)，提前扣AP會讓那類判斷不小心吃到扣費後的時間，是本次重構刻意迴避的邊界風險——因此這裡的門檻檢查在實務上多半已被前面那道 guard 擋過一次，屬防禦性複查、非多此一舉。⚠ 2026-07 再稽核確認：目前全部14處呼叫端都只解構{ap,clock}，沒有任何一處真的檢查`.reject`——因為呼叫前都已經有前述獨立guard擋過，`.reject`分支在現有呼叫模式下實際上永遠打不到，是預留但目前吃不到的死路徑。新增呼叫點若打算只靠這支函式擋門檻(不自帶前置guard)，務必自己補上`if (apr.reject) return JSON.stringify(apr.reject);`，否則門檻不足時{ap:undefined,clock:undefined}會混進成功回應(JSON.stringify會把這兩個undefined的key整個省略掉，前端讀不到但也不會報錯)。
-
 ### `setOutfit_`　<sub>Core_Settings.gs</sub>
 
 🐛→✅ 舊版只濾 MEMORY 分隔符，沒濾 HTML 斷字字元——換裝文字最終會被 Script.html 原樣拼進innerHTML(裝扮那一行)且未過 escapeHtml，跟同一批已修過的 realName/np/技能名同一類缺口，補上。
-
-### `masterSynergySix_`　<sub>Core_Settings.gs</sub>
-
-主從synergy（原作設定「御主供魔／契合度提升從者能力」）：特定主從組合回到全盛六圍。目前只：恩奇都 ↔ 銀狼（獵犬御主，原作真正的御主——以銀狼為觸媒召喚、令咒落在狼身上）→ 全能力 A、寶具 A++。其餘御主（含玩家自召）下恩奇都維持削弱基線。讀從者列 MEMORY【御主】名判定；在 rowToCombatant_ 套用。
 
 ### `makeIntTag_`　<sub>Core_Settings.gs</sub>
 
@@ -197,19 +139,6 @@ MEMORY 標記共用工廠：收斂 Router_Battle.gs/Router_Movement.gs 多組結
 ### `getOutfit_`　<sub>Core_Settings.gs</sub>
 
 👕 從者換裝（存從者 MEMORY【換裝】<服裝文字>）：玩家自訂當前【服裝穿著】·疊在種子外貌本相之上餵給 AI 敘述——只換衣不換人(五官/髮色/體態/氣質仍依 persona.look)。純外觀·不碰數值。get/set/clear 成套；清空＝恢復本相。｜【】換行皆為 MEMORY/提示分隔字元 → set 時剝除，限 40 字，守住寫表冪等與提示安全。
-
-### `getWeapon_`　<sub>Core_Settings.gs</sub>
-
-玩家自定武裝：武器/戰鬥方式存 MEMORY【武裝】<文字>，servantCard_ 讀後強制 AI 以此為準——蓋過職階慣例(Saber=劍/Lancer=槍…)與該真名的原典武器習慣(如「Saber斯卡哈仍拿槍」)。get/set/clear 成套(鏡射換裝)；清空＝恢復依職階/原典自然演出。限 30 字。
-
-### `mageRealmPool_`　<sub>Core_Settings.gs</sub>
-
-🔮 魔境的智慧（斯卡哈專屬·玩家可選被動）：影之國女王通曉常見武技，玩家點選【1 個】通用 A 階被動標籤套用。只給「有階級的常見被動」——不含原初符文(她本有)、不含無階級特性、不含寶具/簽名級招式。存從者 MEMORY【魔境】fx。注入點：rowToCombatant_（戰鬥讀取時把選定標籤加進 skills，r 固定 A）。前端只對有 mage_realm 的從者露出選盤。
-
-### ~~`MOE_STORE_MAX_` / `clampMoe_`~~（2026-09 隨萌點整組移除）　<sub>Core_Settings.gs</sub>
-
-萌點(COL.PC.INTENT)的落地上限。所有提示詞一律對 AI 宣告「限18字·務必寫完整一句話不可斷在句意未完處」，落地卻留 30 字緩衝——AI 稍微超字數時不至於被砍在句意中間，這個「說 N 砍 N+緩衝」是本專案既有慣例。
-2026-09 稽核抓到的漏洞：七個寫入點各自手寫 slice 數字，其中五處是 30、兩處是 18（`actionSummonServant` 從英靈殿重召、`Seed_Rivals.gs` 複製敵從者）。而 `recordOriginalHero_` 把 AI 原創英靈的萌點是用 30 存進 persona 的——**存 30、讀 18**，同一句話在重召或被當敵從者時就會被腰斬成半句，而且是靜默的。這正是當年那三處註解「比照 slice(0,18) 腰斬修正」要修掉的形狀，只是漏了這兩處。根源解是把數字收成單一真實來源，而不是再補第三次。
 
 ### `TRAIT_SEG_MAX_` / `TRAIT_SEG_HINT_`　<sub>Core_Settings.gs</sub>
 
@@ -260,27 +189,11 @@ AI 實際會誤加的標籤字。
 
 🐛→✅ 這裡曾經用「、」把多段外貌合併回單一[外貌]格，但「、」正是parseTraitsHelper切分四格的分隔符——合併回去的外貌格內部一有「、」，下面parseTraitsHelper就會把它當成多出來的頂層格數，導致[氣質舉止]/[自稱]/[私密一面]全部錯位、第4格(私密一面)被截斷擠掉。改用「・」合併(parseTraitsHelper只切「、」，不會再把這段拆開)，20位種子從者實測全數命中(見SOLO_REFERENCE.md)。
 
-### `enrichPersonalityLikesDislikes_`　<sub>Core_Settings.gs</sub>
-
-種子庫 persona.words 幾乎全部只有2段，parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為「無」佔位，比玩家自建角色的紮實4格薄弱很多。召喚當下用AI依既有的表象/內裡短句延伸出貼合、合理的喜好/討厭補滿，既有短句一字不改；已滿4段(AI原創從者)直接跳過、不多打一次API。
-
-### `getMapDataCached`　<sub>Core_Settings.gs</sub>
-
-坤圖分頁從無玩家動作寫入(唯一寫入者是版本升級時的一次性upsert，見reseedIfEmpty_)，內容與FATE_MAP_SEED(Setup_FateWorld.gs) JS常數同一份資料——改直接回傳 FATE_MAP_SEED 包表頭列，比讀表+CacheService快取更快，形狀(含表頭列＋COL.MAP欄序)與原本讀sheet完全一致，呼叫端不用改。「坤圖」分頁仍保留(FATE_SHEET_DEFS/reseedIfEmpty_不變)供人工查閱；sheets.map 參數留著只是相容既有呼叫簽名，已不使用。
-
 ### `getHeroCodexCached`　<sub>Core_Settings.gs</sub>
 
 英靈殿(種子從者名冊)：codexPersona_/actionGetHeroes/actionSummonServant/seedRivalsForGame_ 共用。寫入點(recordOriginalHero_/upgradeCodexPersonas_/seedFateCodex_)須各自 remove("FATE_HERO_CODEX")。
 
 英靈殿跟坤圖/御主殿不同、未靜態化：工房(Workshop)玩家可捏出原創英靈(來源=ai_gen)永久寫進這張表，GAS程式碼靜態部署、跑起來時沒辦法把新角色塞回JS常數——是真正需要試算表持久化的動態資料，維持「讀表+6小時快取」架構。
-
-### `getMasterCodexCached`　<sub>Core_Settings.gs</sub>
-
-御主殿比照坤圖靜態化：唯二寫入點(upgradeMasterCodex_/seedFateCodex_)只在版本升級/首次建表時執行，無玩家動作(如工房)會新增列，試算表只是 SEED_MASTERS(Seed_Codex.gs) 的多餘拷貝。改用既有的masterToCodexRow_(seedFateCodex_本來就在用的同一個轉換函式)即時組出結果，不必讀表也不必快取。「御主殿」分頁仍保留供人工查閱，遊戲邏輯不再讀它。
-
-### `getArriveDay_`　<sub>Core_Settings.gs</sub>
-
-登場日：部分敵御主/敵從者可延後登場，不必開局就全員同時上場。資料驅動：Seed_Rivals.gs 的 roster項目可選填 arriveDay(第N天才登場)／arriveHint(登場前風聲用的自訂提示句)，未填＝第1天(對既有存檔/種子零影響)。hasArrived_(row,currentDay) 是「這名敵人現在算不算真的在世界裡」的單一真實來源，凡是同地互動／鎖定攻擊／世界自走／地圖敵蹤標示等皆應吃這道閘門——唯獨「剩餘敵從者總數」(aliveEnemyServants_，勝負判定用)刻意不吃，避免玩家靠「趕在對方出現前把其他人殺光」提前奪杯。
 
 ### ~~`MASTER_MELEE_TAG_`~~（2026-09 已移除）　<sub>Core_Settings.gs</sub>
 
@@ -299,18 +212,6 @@ AI 實際會誤加的標籤字。
 🐛→✅ 【出身】(玩家創角時選的出身背景)舊版只在 actionManualNpc 寫入，全專案查無任何讀取點——純寫入死資料，backfill 用的是當下 userData.origin(前端再送一次)而非這個持久化標記。補上跟體術/魔術/魔術階位同款讀取器，讓 masterCard_ 能把這份設定持續餵給 AI 當演出依據。
 
 **2026-09 隨體術一起退休。`FATE_ORIGINS_`（「沒落名門的末裔」「教會代行者出身」…）是十選一的隨機標籤，跟玩家自己填的身世／財力各說各話——AI 拿到兩份互相矛盾的來歷就會開始編。身世欄留著就夠了。**
-
-### `getLocalPeopleList`　<sub>Core_Settings.gs</sub>
-
-🤝 情報共享（同盟背景生效）：只要當前世界尚有任一盟友（敵御主/敵從者結盟中），盟友便會通報敵情——敵從者的「職階」對玩家揭露（原作依據：遠坂凜為士郎判明敵方職階／真名）。無盟友則維持迷霧。
-
-busyWith 恆為 null：單人模式只有一位御主，「同行」旗標即代表陪的是御主本人，沒有第三方可陪，此欄位前端也從未讀取。
-
-### `getNearbyLocations`　<sub>Core_Settings.gs</sub>
-
-myWar：呼叫端傳玩家本局【戰爭】標記，比照 buildMapNodesPayload_(Router_Movement.gs) 同一套規則過濾戰爭限定地點(如第四次限定的海特飯店)——否則這份清單(撤退突圍/鄰近地點)會漏濾，讓地圖上看不到、理應跨戰爭隱藏的地點反而從這裡露出來。myWar 留空(如鑑賞)則等同不限定戰爭的通用地點才會顯示。
-
----
 
 ## `gas/Engine_Combat.gs`
 
@@ -369,142 +270,6 @@ _genFailed 旗標：這組是失敗保底文字、不是真正生成的敘事，
 
 ---
 
-## `gas/Engine_Fate.gs`
-
-### `chainVolley_`　<sub>Engine_Fate.gs</sub>
-
-7｜理想鄉 Avalon：凌駕一切的無敵結界(概念 7 階·專剋 6 階究極寶具)。不入此表跑 pierce 數學——以 Router_Battle「敵解放≥6階概念 → Avalon 硬擋(耗100魔)」實現，等同不可被任何概念貫穿。
-
-6｜世界·真理級：斬裂世界，凌駕一切防禦與結界
-
-### `offenseTier_`　<sub>Engine_Fate.gs</sub>
-
-🐛→✅ 舊版 pierceFx 把 gae_bolg 放進「不管選哪個寶具都無條件掃永久技能列表」的清單——單寶具從者(如庫丘林)沒問題，但斯卡哈這類多寶具從者的 gae_bolg 同時也是一條永久固有技能(她的槍本身)，即使這次選的是完全無關的 Gate of Skye，仍會被判定「這次解放帶概念4貫穿」。下面第55行的npProfile_(c).fx 判定本就已經正確處理「這次實際選的是哪個寶具」(單寶具靠 firstSignatureFx_退路、多寶具讀 npChoice)，故 gae_bolg 從這個無條件清單移除，改完全交給該行按選定寶具判定。
-
-🐛→✅ 2026-07 再稽核抓到同款孿生bug：EMIYA(無名)的『無限劍製』(ubw)同理，既是他的永久固有技能(投影魔術本體)、又是他兩個可選寶具之一——選了另一個較弱的『偽·螺旋劍』(fx:projection)時，ubw仍會被這份無條件清單掃到，讓Caladbolg II誤判成帶概念4貫穿的無限劍製強度。同樣從清單移除，交給下面npProfile_(c).fx按實際選定寶具判定。
-
-🐛→✅ 再稽核第三例(同構)：美杜莎的『魔眼』被動技能(Seed_Codex.gs)fx也是petrify，同時petrify又是她兩個可選寶具之一(他者封印·鮮血神殿)——選了另一個(貝勒羅豐)時，petrify仍會被這份無條件清單掃到誤判成帶概念3貫穿。同樣移除，交給下面npProfile_(c).fx按實際選定寶具判定；下方627/797行的petrify判定是她「魔眼」被動本身(迴避減益/瀕死乘隙)，不受寶具選擇影響，維持hasFx_原樣不動。
-
-### `npPranaCost_`　<sub>Engine_Fate.gs</sub>
-
-🔋 寶具 Prana Cost（依寶具階級）：E40 D70 C110 B160 A220 EX300。寶具魔力全由御主供（從者無池），已對齊御主池(迴路×10，預設300)——A 階≈耗盡滿池、EX 須再焚血墊，故 EX/EA 仍極罕見；寶具僅在出力 100% 才可解放(見 actionFateBattle 閘門)。
-
-### `npOverloadCap_`　<sub>Engine_Fate.gs</sub>
-
-🔥 灌魔加乘·上限（規格外寶具才有旋鈕）：寶具階含「＋」＝規格外·可超載，威力隨御主灌注魔力線性放大到上限。無＋(A/B/C…)＝定額釋放·不可調(回 1.0)；＋(A+)＝最高 ×1.5；＋＋/EX(A++·EA)＝最高 ×2.0。資料驅動·數 '+' 即分流，對應原作「A++ 對城劍隨輸入魔力提高威力」。跨名冊通用(Excalibur/Enuma/Ea…)，非某從者專利；達上限所需的額外魔力＝底費×2。
-
-### `enemyRetreatLoc_`　<sub>Engine_Fate.gs</sub>
-
-令咒緊急脫離的落點：隨機挑一個非約會型的冬木地點（≠ 當前地）
-
-戰鬥熱路徑，用 getMapDataCached(讀 FATE_MAP_SEED 常數，零 I/O) 而非整表讀取「坤圖」分頁。
-
-🐛→✅ 稽核抓到：原本沒濾「戰爭限定地點」(COL.MAP.WAR)，姊妹函式getNearbyLocations/buildMapNodesPayload_/actionScout都有濾這道(避開4th限定的海特飯店/麥肯基宅/碼頭倉庫)，唯獨這裡漏了——5th戰爭或chaos局的敵人一旦被移到這3個地點，UI一律濾掉該node/偵查範圍，該敵人形同永久消失(打不到也偵不到)。myWar選填：不傳則不濾(相容舊呼叫，但呼叫端應盡量傳)。
-
-### `hasCausalityNp_`　<sub>Engine_Fate.gs</sub>
-
-⚡ 因果律武器：寶具對轟時死亡已在因果上先確定（Gáe Bolg 等，技能帶 causality:true 標記）。
-
-🐛→✅ 舊版掃整個永久技能列表找 causality 旗標，沒管玩家「這次實際解放的是哪個寶具」——斯卡哈雙寶具其一是 Gáe Bolg(因果律)、另一是 Gate of Skye(無此機制)，永久技能列表裡仍留著{fx:'gae_bolg',causality:true}的技能條目，導致選了 Gate of Skye 照樣被判定為因果律必殺。改成跟 resolveFateBattle_ 內 npIs('gae_bolg') 同一套判準：只看「這次實際解放」的 npProfile_.fx。
-
-### `divineRankOf_`　<sub>Engine_Fate.gs</sub>
-
-🕊️ 目標的「神性階級」單一真實來源：divine fx／divine_core fx／特性技能名含 神性|神格|神靈(無標階退'C')三者取階級最高者，查無任一者回 null。神殺／天之鎖縛神／對神寶具／寶具解放神性加成／對瘟疫抗性全部吃這一個函式，讓「神性越高、剋神效果越重」對所有機制一致生效。納入 divine_core 是因為神核代表真正神靈軀體，階級理應≥表面神性標籤，取高者避免有神核卻因無標神性而被當弱神打的矛盾。
-
-### `resolveNpClash_`　<sub>Engine_Fate.gs</sub>
-
-🌟 寶具對轟·純裁決函式：只吃數字回決策，I/O(火力取樣/落傷/寫表/回震腰斬)留給呼叫端 Router_Battle，純函式＝tools/battle_sim 可直接單元測試。優先序：①玩家因果律且足以致死敵方→'causality'(截斷·敵只剩8%殘波回擊)②敵方因果律且足以致死玩家→'enemy'+pLethal=true(必死·呼叫端不得對其套保命/腰斬)③火力相當(差距≤總和10%)→'stalemate'(各吃半個 band)④火力高者勝：敗方吃差額(玩家敗則保1)、勝方吃差額15%回震。保命：因果律以外玩家永遠保1；敵方無保命(被打死=合法勝利)。
-
-### `combatProfile_`　<sub>Engine_Fate.gs</sub>
-
-傷害底＝【筋力/魔力 取高】：敏捷已獨佔命中＋迴避、又吃「命中差×1.2」的技巧通道，若再當傷害底就是一圍三吃(敏捷型會全面碾壓)。魔力型非Caster(神代/魔攻物理)由此成立。耐久=防禦、幸運=命運骰、寶具=寶具傷害段，皆不入普攻底。命中/迴避維持職階本色。battle_sim 驗證。
-
-### `SKILL_FX_`　<sub>Engine_Fate.gs</sub>
-
-⚡🛡 技能 fx 戰鬥效果「格式表」（資料驅動）：把散落的主動技 if 鏈＋線性被動加成收成一張表，要加/調技能＝改一列，引擎(servantActiveSkill_＋fxHitAdd_/fxDmgApply_)自動吃。只收【線性加減乘】型；骰子彈幕(gob/chain)、概念貫穿減傷(rho_aias/territory/神核)、時機/條件觸發(stealth/tsubame/petrify)等特例邏輯不進表、保持明碼(硬塞進表＝過度工程)。欄位：active/prio/mpPct/icon/descFn＝施放技術(已被動化·每擊擲 SKILL_PROC_ 機率)專用；zh＝中文名(fired 標籤 fallback)；hit/hitAdd＝命中加成(攻方)；dmgMul/dmgAdd＝傷害加成(勝方)——皆可為數字或 r=>.. 或 (r,c)=>..；blockedByLoserFx＝敗方有此 fx 則免疫；silent＝套用時不推 fired 標籤(morale 靜默/self_mod 傷害段避免重列)。
-
-### `injectMasterSupportFor_`　<sub>Engine_Fate.gs</sub>
-
-🥋🔮 御主體術＋魔術支援·合併入口（Router_Battle.gs 2026-07 稽核抓到 5 處重複而抽出）：isEnemy=false → row 本身就是御主列，直接讀其 MEMORY(供我方視角：defC 我方從者受擊/atkC 出擊/sC 每回合出擊)；isEnemy=true  → row 是敵從者列，走 enemyMasterMemoryFor_ 硬連結查其「自己的敵御主」MEMORY(查無則不注入)。兩支注入函式本身已各自做「fx 已存在則略過」的冪等檢查，這裡不需要重複作。
-
-### `DEF_FX_`　<sub>Engine_Fate.gs</sub>
-
-🛡 防禦 fx 格式表（資料驅動·對稱 SKILL_FX_）：敗方持有 → 傷害 ×mul，除非被概念貫穿(pierces(pierceKey))／破魔(alsoPiercedByFx)／魔術穿透(physicalOnly 時 atkMagic)。骰子彈幕/必中/復活等仍明碼(不進表)。欄位：mul＝減傷乘子(數字或 r=>..)｜pierceKey＝概念貫穿判定的防禦概念名｜zh/note＝fired 標籤｜physicalOnly＝僅擋物理(魔術系穿透)｜alsoPiercedByFx＝此攻方 fx 亦無視此防禦｜piercedMsg＝被貫穿時推的訊息 fn(winner)→string(無則靜默)｜guardPositive＝base>0 才推套用標籤。mul 一律用函式隨階級縮放(fxDefApply_ 只在 typeof mul==='function' 時呼叫 rankMul_)，貼合檔頭「每個 fx 效果都隨技能階級縮放」的設計原則；數值以 C 階(rankMul_=1.0)校準。
-
-### `rowToCombatant_`　<sub>Engine_Fate.gs</sub>
-
-🐛→✅ 稽核抓到：skills/traits 只用 ||[] 擋 falsy，沒擋「合法JSON但不是陣列」(如手動編輯儲存格把 traits 存成物件而非陣列)——下游 divineRankOf_/resolveFateBattle_ 對這兩者直接呼叫.concat()/.some()，非陣列值會拋出未被攔截的例外，一路穿透 actionFateBattle(無外層try)＋handleGameAction(只有finally無catch)，變成玩家看到的原始連線中斷而非正常戰鬥結果。讀取時就用 Array.isArray 攔一次，這是所有戰鬥讀取的單一入口，堵住即保護全部下游呼叫端。
-
-🐛→✅ 跟全代碼庫其餘HP/MP讀取的｜｜0慣例不一致(這裡原本是｜｜100/｜｜50)——0是合法值(致命傷/魔力枯竭)，｜｜對0視同假值會誤把它腦補回滿血/半魔，讓下方resolveFateBattle_內用hp/hpMax算自身血量百分比(見_selfHpPct/_whp)在HP恰好=0時失真判成滿血，改成跟其餘讀取一致的｜｜0。
-
-### `servantNpOptions_`　<sub>Engine_Fate.gs</sub>
-
-🐛→✅ 迦爾納／蒼白騎兵(Pale Rider)兩條目已砍：SEED_SERVANTS 名冊裡根本沒有這兩名真名，純粹是規劃階段留下、從沒清掉的死路徑——留著只會誤導以後的人以為他們真的在名冊裡。
-
-⚠ 精確比對種子真名(=== 而非 indexOf)：避免 AI/自訂從者真名只要【含】「無名」「吉爾伽美什」等字樣，就整組繼承乖離劍/Enuma Elish 選單，繞過 ALLOWED_FX_ 刻意排除 ea/enuma/gob 的防線。
-
-r 欄＝該寶具真實官方階級，缺 r 者(恩奇都/EMIYA)retreat 至六圍表寶具值(原作未各自標定固定階級)。階級可能【高於】六圍表寶具值(如伊斯坎達爾王之軍勢EX＞六圍表A++)——npBaseDice_/npPranaCost_對 EX 有獨立字串判定，不與 rankVal 同分混淆。
-
-🐛→✅ 種子表(Seed_Codex.gs)美杜莎的 np 字串本就寫了兩個具名寶具(／分隔，跟斯卡哈/吉爾伽美什等多寶具英靈同款文案慣例)，卻從沒在此表登記——沒有 servantNpOptions_ 條目時 npProfile_ 只能退回firstSignatureFx_ 抓到的 petrify(魔眼被動)，玩家永遠選不到 Blood Fort/Bellerophon，機制上她只剩魔眼一種寶具打法，跟卡面寫的兩個寶具名不符。
-
-### `HIT_FX_CAP`　<sub>Engine_Fate.gs</sub>
-
-🎚️ 被動技能 fx 對 命中/迴避 的【淨加成上限】：直感/心眼/千里眼/騎乘/變化/避矢/王財/洞悉/自我改造/狂化/魔眼/天之鎖/燕返/愛之痣 等被動 fx 的命中(攻)與迴避(守)各自加總後 clamp ±HIT_FX_CAP——買越多遞減為零，防止堆疊流把差距拉到「永遠打不到」。★不入帳(各有自己的成本/體系)：出力/整備/過充/施放技術(被動 SKILL_PROC_ 機率擲)/禮裝(裝備)/職階相剋(身分)/幸運骰/奇襲(一次性)。
-
-### `resolveFateBattle_`　<sub>Engine_Fate.gs</sub>
-
-🌟 乖離劍·天地乖離開闢之星(ea)：英雄王自身血量≤40%才卸下傲慢「認真」——解放寶具(opts.np)時，以神靈概念分割越過一切防禦的「執行殺」。需玩家／敵方主動解放寶具(已由 actionFateBattle 上游補魔閘門把關)，非每擊免費觸發；血量充足時則走下方常規寶具路徑(×1.7 加成)，體現「對手不值得我認真」。
-
-命中／迴避改用「階級隨機區間」(base-10~base+5)，讓低階偶能爆冷、骰運重新有戲
-
-🎴 六圍＝角色速寫，只給「微傾向」：命中/迴避吃 rankTier×K_STAT(階差壓到~12)，讓 D20(運氣)重新主導——TYPE-MOON 官方定位六圍是「讓人快速理解角色」的速寫、非戰力試算表(庫丘林六圍頂尖卻幸運E)。迴避＝敏捷(身法)×0.65＋耐久(底子)×0.35：拆掉「敏捷雙吃(命中又迴避)」，命中端純看敏/魔(進攻)。
-
-狂化(mad) 不在此扣命中/迴避：代價已由每小時魔力維持費×1.5(Time_World.gs servantEconomy_)承擔，避免同一項代價在戰鬥層被收兩次稅。傷害加成(SKILL_FX_.mad)不受影響。
-
-自我改造(self_mod)：命中 +2（被動·SKILL_FX_ 表驅動）
-
-🐾 氣息感知(sense／恩奇都)：守方以穿透大地的感知看穿奇襲——階級 ≥ 攻方氣息遮斷者，突襲的命中先機＋下方「要害一擊」全數失效(貼原作「近距離廢掉同級以下的氣息遮斷」)。
-
-氣息感知(sense)＝穿透大地的感知；全知全能之星(insight／吉爾)＝看穿本質——兩者皆能看破奇襲。
-
-⛓️ 天之鎖(chain)：命中加成併入既有「縛神性」效果(下方)；輸出走下方萬鎖彈幕。此處不另加命中(避免恩奇都過載)。
-
-秘劍・燕返(tsubame)：劍術本身而非寶具——次元摺疊令守方迴避 -5(傷害倍率見下方)。僅【每場戰鬥第 1 回合】發動(opts.round·未傳視同首回合)——絕技是蓄勢的一閃，非回回可出，避免普攻流每回合都吃到高倍率加成。
-
-⛓️ 天之鎖(chain／Gilgamesh·Enkidu)：對「神性」之敵展開冥界鎖鏈，封住身法。縛神強度依【對方神格】縮放(divineRankOf_·原作「神性越高縛得越死」)：0.5+0.5×rankMul(對方神格)——C 神格×1.0、A×1.33、EX×1.5、E-(美杜莎)×0.62。
-
-🍀 幸運＝上演劇情逆轉的旋鈕：Saber(幸A+)的福星、庫丘林(幸E)屢屢倒楣戰死的詛咒——「故事與運氣才是裁判」。做法＝自指變異(非對拼)：低運每擊小機率失手、高運小機率福星，製造爆冷與劇情感，而非讓高運方持續輾壓。以 C(30) 為中性零點、每離 1 階 ±2% 機率線性遞增，讓工房裡每加 10 點都有真實效果(非階梯式無效區間)。
-
-❖ 令咒·絕對命令(opts.seal)＝必中：凌駕擲骰、亦不受必中槍閃避影響。在【此處】定生死而非呼叫端事後翻旗——翻旗會導致 damage(已按擲贏方算完)變成拿敵方的傷害數字打敵方。opts.forceHit＝火力取樣用強制命中(寶具對轟比大小)，同理保證 damage 屬於攻方。
-
-傷害：勝方以「出力屬性」為底（筋力/魔力取高·見 combatProfile_）+ 分差(敏捷的傷害通道)🎲 D&D 風武器骰：底傷 = 階級基底×0.5（穩定底）＋ rankTier 顆 d8（武器骰，帶骰運起伏）＋ 命中分差×1.2中位數約等於舊「rankVal 平值」，但每一擊有 ±的浮動，低階偶爆高傷、高階偶失手，貼近擲骰桌遊手感。
-
-⚠ 怪力(str_up)／魔力放出(burst)＝【施放技術·被動 only】(見 servantActiveSkill_)：不走此處常駐被動，由 rollSkill_ 每擊依 SKILL_PROC_ 機率擲是否經 opts.skill 套用全效。
-
-勇猛/卡里斯瑪(morale·敵透化免疫)＋自我改造(self_mod)：常駐被動傷害（SKILL_FX_ 表驅動·位置順序不變）。
-
-⚠ 投影魔術(projection)＝【施放技術·被動 only】(見 servantActiveSkill_)：命中/傷害全併入 opts.skill，由 rollSkill_ 每擊依 SKILL_PROC_ 機率擲是否套用，此處不重複給被動傷害。
-
-🗡️ 首擊奇襲·要害一擊：氣息遮斷者開場突襲命中→額外重創(吃階級·一次性)。僅【普通首擊】生效——若開場直接解放寶具(opts.np)則走寶具自身爆發，不疊奇襲(避免奇襲×zabaniya 雙重爆擊一發秒人)。
-
-🥋 御主體術參戰（見 injectMasterMeleeSupport_ 注入來源）：玩家/敵方兩側皆會注入——玩家側走FACTION==="從者" 門檻(比照禮裝 injectMysticBuff_)，敵從者則由 Router_Battle.gs 用enemyMasterMemoryFor_ 反查其硬連結敵御主的 MEMORY 後注入(守方/開場對轟/敵反擊三處呼叫點)，雙方對稱、皆真實影響傷害結算(2026-07 補：發動時的 fired[] 標籤也已餵進 aiPrompt，見 §108)。
-
-🔱 概念優先權壓制：勝方的最高「進攻概念」位階若高出某防禦概念 PIERCE_GAP 階以上 → 該防禦被無視。須提前到規模矩陣之前算好，讓 npDefScale_ 與 fxDefApply_ 共用同一份 pierces() 判定、兩層一致貫穿(territory 同時吃規模防禦與固定減傷兩層，若判定不一致會讓能貫穿其一者仍白吃另一層)。
-
-寶具解放：主威力＝依寶具階級的 d10 基礎骰（E3→EX30）；階級小補正錦上添花（軍略 +15%、神性 +10%）
-
-⚠【呼叫端契約】此區塊套在 winner 身上——opts.np 時若守方反殺(winner=def)，damage 會含【守方自己的寶具骰】。既有呼叫端皆安全(fateStrike_ 對 atkWins=false 早退丟棄／對轟取樣用 forceHit／背擊反手另以普通交鋒結算)；新增呼叫端若要把「守方勝」的 damage 用出去，須自行改用 forceHit 或普通交鋒重算，別白嫖寶具骰。
-
-🐛→✅ 佐佐木小次郎這類「官方未給寶具階級」的種子資料，npRank 是裸 "-" 佔位——直接印進戰報會變成看不懂的「寶具骰(-)=26」，像顯示壞掉而非刻意留白。rankVal(npRank) 已把裸"-"視同E結算傷害，顯示標籤比照同一套等價關係，沒有字母就秀"E"，不再吐出裸符號。
-
-⚔️ 對神(弒神寶具·梵天弒神之槍 Vasavi Shakti 等)：對「神性」之敵單體特大傷害(弒神)，對凡人僅單體重擊。不入規模矩陣，特判：弒神倍率依【對方神格】縮放，1+1.4×rankMul(對方神格)、上限 3.0——C＝×2.4、A＝×3.0(正神吃滿弒神槍)、E-(美杜莎)＝×1.32(墮落殘神沒多少神格可弒)。
-
-⚡ 「本擊是否魔術系」（physicalOnly 防禦的穿透判定）——必須在【第一個 fxDefApply_ 之前】算好：只在【實際發動魔力放出】時才算魔術系(灌注魔力才是魔術一擊)，光持有 burst 不夠——否則沒發動時只吃對魔力減傷卻無 burst 增益，全是壞處。
-
-對魔力(nullify_magic)：攻方為魔術系(法師魔砲/魔力放出/神代)時大減魔術傷。★原作精髓：A 階對魔力幾乎無視現代魔術——Saber 對 Caster 的魔砲僅如清風拂面。但神代魔術(神祖之術)凌駕現代對魔力＝完全無視(美狄亞的本領)；概念壓制亦無視。
-
----
-
 ## `gas/Gallery.gs`
 
 ### `STATE_AFTER_ACTIONS` 漏了 `move`　<sub>Router_Action.gs</sub>
@@ -515,12 +280,6 @@ r 欄＝該寶具真實官方階級，缺 r 者(恩奇都/EMIYA)retreat 至六�
 而且沒有任何錯誤訊息（fallback 太體貼）。2026-09 稽核（HANDBOOK 把 move 寫在名單裡，反而是文件對、代碼錯）補進名單，
 探針 `move_state.js` 釘住「move 回應必須夾 `_state.tags`」。
 教訓：三處各自「以為」的事，要有一處是機器在驗——`check_contract.py` 只看鍵名有沒有人讀，看不出「有人讀但永遠是 undefined」。
-
-### `servantMaxHp_`　<sub>Core_Settings.gs</sub>
-
-原本這裡是 `fateMaxHpMp_`（100＋耐久×10／50＋魔力×10），是九州時代的公式；FATE 從者早改成 150＋耐久×6、MP 恆 0（出力電池制），
-公式卻散在召喚兩支＋`Seed_Rivals` 三處各寫一遍，而 `fateMaxHpMp_` 只剩 `maxStatsForRow_` 在叫、那支又是死分支的殘骸。
-砍掉 `maxStatsForRow_` 後它變成孤兒，死碼掃描才叫出來。修法不是刪掉了事：把三處重複的真公式收進同一支，單一真實來源。
 
 ### 隨機召喚的正典黑名單　<sub>Router_Creation.gs · actionSummonServant 隨機分支</sub>
 
@@ -541,19 +300,6 @@ r 欄＝該寶具真實官方階級，缺 r 者(恩奇都/EMIYA)retreat 至六�
 
 ⚠ 只約束**隨機**。自選／自創是玩家自己指定的，撞上敵陣那位由既有的 `playerServantName` 機制換掉敵方那組。
 
-### `sumMode_` / `setWarFromSelect_`　<sub>Script_Onboarding.html · 開局簡化</sub>
-
-玩家：「把 SOLO 做一個基礎預設 簡單點……玩家只要一路按 就可以直接開始」「選擇畫面（就是這裡最亂!）」。
-兩個地方在擋路：開局先問「闖進哪一場聖杯戰爭」（三顆鈕，但九成玩家就是第五次），
-召喚頁把四條路一次攤開（七個職階鈕＋全部英靈殿＋我的原創＋名冊清單＋隨機＋一句話生成＋進階折疊＋工房入口）。
-- **第四次／混亂沒砍**，只是從主幹道移進創角頁的「自己設定」摺疊區。整個機制（`seedRivalsForGame_` 的 chaos 分支、
-  `FATE_4TH_ROSTER`、扮演正典御主）原封不動——玩家要的是預設值簡單，不是少掉選項。
-- **`sumMode_('random')` 一定要先清 `selectedSummonClass`**：那顆變數是名冊分頁用的，玩家先點「自己挑」瀏覽過再退回來
-  按隨機，不清就會被悄悄鎖死在那個職階。這個坑 `summonByDesc` 踩過一次（玩家原話「難怪我自創一堆 Saber」），
-  同一個變數第二次咬人，所以這次直接在門口清掉。
-- `setWarFromSelect_` 的 `get_masters` 是**背景預取**（玩家正在打名字、沒有在等它），照 `check_wait.py` 的規矩
-  登記進 `BACKGROUND` 並寫明理由，而不是硬包一層讀條。
-
 ### `【玩家原話】` vs `【玩家意圖】`　<sub>Gallery.gs · finalUserMsg</sub>
 
 玩家：「我想要使用者輸入的文字也會被擴寫到劇情」。查下去發現不是 AI 偷懶，是我們自己貼錯標籤——
@@ -568,9 +314,7 @@ r 欄＝該寶具真實官方階級，缺 r 者(恩奇都/EMIYA)retreat 至六�
 
 ### 第一次進鑑賞的【日常】＝新手教學　<sub>Script_Kanshou.html · enterKanshou</sub>
 
-鑑賞**沒有** ❓教學 入口：那顆按鈕住在 `top-navbar`，而 `applyModeUI` 在鑑賞把整條藏掉了——
-藏得對，因為 `openTutorial()` 的內容全是聖杯戰爭的事（14 天倒數、令咒、魔力池、AP、戰鬥），
-在後日談裡每一句都是假的。所以新手怎麼玩只剩「歷史是空的」時那一句開場白能講。
+鑑賞沒有獨立的教學入口，新手怎麼玩只靠「歷史是空的」時那一句開場白。
 ⚠ 這段文字點名的每一顆按鈕都必須真的存在、位置要對（👥 在時鐘左邊、相簿/這個世界/說書人設定在 ＋ 抽屜）——
 寫一顆不存在的鈕比不寫更誤導人；2026-09 起 `check_ui.js` 逐顆圖示對介面查有沒有這顆控制項。
 ⚠ 它同時也會講**世界的事實**，而那些事實會被別處的代碼改掉：舊版寫「這座城一開始只有你」，
@@ -871,20 +615,6 @@ system 1558→1438 字、user 749→727 字。
 
 🔤 translateLookToDaily_/translatePersonalityToDaily_（原本還有已移除的 translateMoeToDaily_）共用開場白：各支系統提示詞都以「你是《命運停駐之夜》的角色側寫顧問。★【語言】」起手。2026-09 稽核：原本三支各自在前綴後面再寫一次「所有輸出內容一律使用繁體中文，不得夾雜英文或其他語言字母」，等於同一條規則在同一趟請求裡出現三份(callGeminiAPI 尾端還會無條件再補一次【語言鐵律】)——整句收進前綴、JSON 欄位名例外用括號併掉，三支的規則段只留各自真正不同的部分。
 
-### ~~`kanshouRecentDigest_`~~（2026-09 大精簡砍除·名字只剩在墓碑註解裡） / `KANSHOU_DIGEST_ROUNDS_` / `KANSHOU_DIGEST_CAP_`　<sub>Gallery.gs</sub>
-
-2026-09 連續回合稽核量到的洞：`chatHistory` 只餵 6 則（3 輪），而四個長期記憶管道（MEMOIR／【初次】／紀念日／約定）
-**全部要有事件發生才會寫**——日常閒聊一個都不蓋戳。實測連打 8 回合日常，那四格全空，等於**純聊天的內容 3 輪後徹底蒸發**，
-玩家說「你上次不是說……」AI 只會茫然。
-
-補法是往同一張「歷史暫存」表多讀幾輪（表裡本來就存著，不必新開欄位），扣掉已經進 chatHistory 的，把更早的
-**玩家側輸入**串成一行。只取玩家那一側是刻意的：那是 GAS 手上唯一不需要 AI 就能壓縮的事實，而且正好是
-「我上次做了什麼」這個連續性錨點；AI 的 narration 壓不了，也不該由 GAS 改寫別人寫的字。
-實測第 12 回合時，「打翻糖罐→擦掉糖粉」這條因果鏈被撿回來，成本 145 字。
-
-⚠ 窗口值 `_histWindow_` 要在 user prompt 組裝【之前】算好，摘要與 chatHistory 共用同一個數——
-各算各的就會重疊（同一回合講兩次）或漏接（中間少一輪）。
-
 ### REL_TAG 的防禦性重算　<sub>Gallery.gs · partyMembers.forEach 開頭</sub>
 
 REL_TAG 是 BOND 的衍生值。鑑賞側 11 個 BOND 寫入點**每一個都有跟著 `kanshouSyncRelTier_`**（`bumpBond_` 是 solo
@@ -942,33 +672,6 @@ REL_TAG(關係標籤)只是這裡設的起始值，之後全程只能透過actio
 
 【相處】計數存她自己列 MEMORY，每個「真的在對話」的回合、對每位在場者各 +1（跳時段/結束一天/移動那些不算相處）。
 
-### ~~`kanshouLocContextForAI_`~~（2026-09 隨地點整組退休·名字只剩在墓碑註解裡） / `KANSHOU_REGION_LABEL_`　<sub>Gallery.gs</sub>
-
-🐛→✅ **2026-09 玩家實測：走進「咖啡廳」，AI 當場編出一間【以玩家為名】的店、編出誰在顧店，
-下一回合再把自己編的當成事實用**（SABER 說「想喝一杯風音親手煮的手沖咖啡」→ 下一回合門上掛的
-招牌就叫「風音」→ 但店裡忙的是櫻）。三回合滾成一個誰也說不清的設定。
-
-根因**不是**模型亂編，是**我們沒給**：內建三區（`shinzan`／`fuyuki`／`dojo`）的分支只回一句
-**區域名**，把這個地方 `loc.desc`（就是世界帳本那一格 `text`）整個丟掉。AI 拿到的逐字是
-
-> `★【地點】：此刻在「咖啡廳」（冬木市中心（熱鬧的商業生活區）），這一幕就在這裡演完`
-
-帳本裡明明寫著「磨豆香氣繚繞的小巧咖啡館」，**一個字都沒送**。五個開局範例地方有四個走內建區，
-所以那四個的描述長年都是白存的。只有 `rgCustom`（玩家自訂區）與 `mine` 兩條路吃得到 `desc`。
-
-⚠ 這正是先前量到的 **6.1:1（角色 698 字 vs 世界 114 字）**的一個具體來源——
-**世界的資料一直都在，只是沒送出去**。給它地點的樣子，它就不必自己生一個。
-
-修法：`switch` 改成 `KANSHOU_REGION_LABEL_` 查表（資料驅動，加一區＝加一列），
-組句的形狀跟 `rgCustom` 那條對齊。⚠ 同批拿掉兩條路上重複的地名——`★【地點】` 開頭已經寫了
-「此刻在『咖啡廳』」，括號裡再寫一次「的『咖啡廳』」是每回合白付的字。
-⚠ `room`／`home` 兩條**刻意不吃 `desc`**：家裡的房間要先講清楚是【誰的家】，
-不然 AI 會把玩家演成上門作客的人（那是更早修過的一個坑）。
-
-⚠ 新探針 `locdesc.js`（5 條）。本來想掛進 `world_at.js`，但那支前段會改動範例地圖，
-後面再 `moveTarget` 過去就走不到了——**探針要驗的東西得住在乾淨的世界裡**。
-注入退化（把 `desc` 拿掉）確認會叫。
-
 ### `KANSHOU_NOTED_TAG_` / `kanshouKnownOfYou_`
 
 ══ 📝 她眼中的你（2026-09 玩家「跟外面 ai 不同，這裡的 ai 明確知道所有設定，第一次遇到玩家就把玩家看透了」）══
@@ -988,70 +691,6 @@ REL_TAG(關係標籤)只是這裡設的起始值，之後全程只能透過actio
 共同回憶與「她眼中的你」是同一件事（append→去重→上限），差別只有 分隔符／上限／長度／要不要保護★釘選。抽成一份是因為**去重那段含 bigram 相似度比對**——複製一份出去，兩邊的門檻遲早會漂開，而漂開的那一天沒有任何測試會發現。`processMemoir_` 保留成一層薄包裝，只是為了不動它既有的三個呼叫點與文件點名。
 
 ⚠ 寫這支的探針時踩到自己：測資用「第0件…第7件完全無關的事」，被 bigram 去重整批擋下，我一度以為上限壞了。**探針說「沒作用」時先確認是不是探針自己的問題**（本專案第五次踩同一個形狀）。
-
-### `actionFateBattle`　<sub>技能只給畫面不給名字</sub>
-
-2026-09 玩家：「不要一直看到技能名稱跑出來……我需要看到的是對戰畫面！只有放寶具需要念出來！或是令咒時候！」
-追下去是提示詞自己在邀 AI 唸：交鋒分鏡寫著「『阿爾托莉雅』的技術**「魔力放出」**自然而發」，
-收尾又叫它「技能與寶具演其威能」——`miniSystem` 第 8 條「技能只演出來、不由旁白點破」被這兩句就地推翻。
-
-修法：① `SKILL_FX_` 三個施放技術各加 `scene`（魔力自兵刃爆散／膂力暴漲砸裂地面／憑空凝出兵裝），
-分鏡改餵畫面、不餵名字；② 戰鬥續行／斬斷救贖從旗標名改成「挨了本該致命的一擊卻站住了」這種畫面句；
-③ 收尾改成鐵律「技能不喊名：只能化成動作與畫面，旁白不點名、角色不喊招、不加書名號；唯二可以喊出口的是寶具真名解放與令咒」。
-判準：**提示詞裡任何一句點了技能名，AI 就會把它唸出來**，鐵律寫在 system 裡擋不住 user prompt 裡的示範。
-探針 `master_off.js` 釘四條。⚠ 前端的多回合戰報卡仍列技能旗標——那是給玩家看的數字帳，不是敘事。
-
-### `FX_TUNING_`
-
-2026-09 玩家問「戰鬥的數據需要重構完全統一整理嗎」。量過之後的答案是**不要完全統一**：
-戰鬥效果本來就分兩類——`SKILL_FX_`／`DEF_FX_` 那 17 條是「平坦的加減乘」，表吃得下；
-另外那批的觸發條件太挑（只對 Archer／只在奇襲／只在第 1 回合／要比雙方階級／要看對方神格），
-硬塞進同一張表，表就得長出條件 DSL，那是把複雜度從程式碼搬到資料，GAS 又沒有型別保護，維護更貴。
-
-**真正的洞在別的地方**：前端 53 條技能說明裡，有 18 條把具體數字講給玩家聽，
-而那些數字只活在 `resolveFateBattle_`（298 行）的 if 裡——`check_fx.py` 只驗得到表裡那 16 條，
-**這 18 條沒有任何機器在對答案**。逐條核過當時全是對的，所以不是壞了，是沒有東西擋它壞。
-
-修法：**條件邏輯留在函式裡不動，數字全部搬進 `FX_TUNING_`**，函式改讀 `fxTune_(fx, field, fallback)`。
-`check_fx.py` 因此多了第二道：說明是算式就逐階級比值、是散文就看係數推不推得出來。
-
-⚠ 等價怎麼證的：把 VM 的 `Math.random` 換成固定種子 LCG，跑 25×25 英靈 × 6 種 opts × 3 種狀態
-＝ **10800 場**，把每場的 `[勝負, 傷害, 命中, 迴避, crit, fired 數]` 攤平成一行。
-改前改後兩個檔案 **md5 相同**才算數（探針 `scratchpad/size/fxbase.js`）。
-
-⚠ 寫這道掃描器踩到的四個坑（都是「掃描器看起來在跑、其實什麼都沒驗」）：
-① 注入的測試行要放在原檔【前面】，`re.search` 取第一個命中，放後面會被原版蓋掉；
-② 數字邊界不能用 `\w`——中文也是 `\w`，「均傷約30」的 30 會被整段跳過；
-③ 說明是算式時要**比值不比字面**（6 可以被 9×0.67 解釋掉）；
-④ 逐階級換算只能給名字就說了是 per-rank 的欄位，平坦值套上階級倍率會讓 3 生出 1，
-   愛之痣的 −1 改成 −3 就叫不出來。每一條都是先看到「改壞了卻不叫」才發現的。
-
-### `performanceNote_`　<sub>Router_Persona.gs · 2026-09 內化指令</sub>
-
-玩家：「要告訴 AI 這些都只是這個角色的核心特質要內化，不要一直拿出來告訴全世界我是這樣的組成！
-他要自己思考，如果擁有這樣特質的人遇到事情會做出什麼舉動。」
-
-紅線②（show-don't-tell）本來只擋「直述願望／個性／萌點」，但卡片的形狀本身就像一張人物簡介，
-模型很容易照著條列逐項演一遍。所以把每張卡的收尾從一句「依真名與性格演出」擴成三句，
-明講：① 這是【內化用的核心特質】，不是台詞也不是人物簡介；② 不要讓角色或旁白把性格/願望/萌點/
-關係階段講出來或拿來評論，也不要照著條列逐項演；③ 要做的是【推演】——有這樣特質的人，
-在此刻這個處境下會做出什麼具體舉動、用什麼語氣、選擇說什麼或不說什麼。
-卡片標頭也一起從「演出依據」改成「核心特質·內化用」。
-
-### 創角提示詞的格數（`check_prompt_seg_counts`）　<sub>check_seed.py · 2026-09</sub>
-
-把特徵從 3 格收成 2 格之後，玩家一句「創角的部分確認一下有沒有符合目前的設定」，
-查出**六處提示詞還寫著舊數字**：御主創角（`MASTER_GEN_SYS`）／常民升格／人格編織者／
-AI 生成從者／日常外貌轉換，加上前端逆天改命的三格輸入框與 `traitSegs_` 的 `3`。
-
-失敗的形狀很典型：prompt 叫 AI 寫 3 段、`parseTraitsHelper(..., TRAIT_SLOTS_)` 只收 2 段
-→ **第 3 段靜靜被丟掉**。玩家花 token 生成、卡上看不到、零錯誤訊息。
-
-改成機器擋：`check_prompt_seg_counts` 把提示詞裡寫的格數（`traits 【恰好N段】`、
-`【外貌 look】剛好 N 短句`、`日常版「外貌」N短句`…）逐處對照 `TRAIT_SLOTS_` /
-`DAILY_LOOK_SLOTS_` / `PREF_LABELS_.length`，對不上就叫。
-⚠ 前端那份也一起釘：新增 `KC_TRAIT_SLOTS_` 鏡射 `TRAIT_SLOTS_`（`check_mirror` 盯著），
-`traitSegs_`／逆天改命視窗／`renderSegField_` 全部改吃它，不再各寫一個 `3`。
 
 ### `TRAIT_SLOTS_`（私密一面退休）　<sub>Core_Settings.gs · 2026-09</sub>
 
@@ -1105,60 +744,6 @@ AI 生成從者／日常外貌轉換，加上前端逆天改命的三格輸入�
 第一次按睡覺只是進「夜未眠」（`userData.endDay = false`），第二次才真的結束一天。
 只按一次會看到「修了但沒生效」，而那是探針錯不是產品錯。
 
-### `PARLEY_ACTS_` / `actionParley`　<sub>Router_Bond.gs · 2026-09</sub>
-
-（以下三段原本掛在 `actionCourtEnemy` 名下——2026-09 清幽靈錨點時才發現那是【改名】成這一套，不是功能被砍。錨點跟著改，那段歷史才不會消失；CLAUDE.md 紀律講的就是這件事。）
-
-🐛→✅ 稽核抓到：bumpBond_預設會立即單格寫回tIdx列的BOND，但657-658行緊接著又對同一列做整列寫回(示好日標記)——同列2次Sheets I/O。改skipWrite:true，交給下面那次整列寫回一併涵蓋。
-
-🕊️ 示好／交涉：對同地【未結盟的敵御主】釋出善意、慢慢養好感(BOND)。只對敵御主(交涉的對象是決策者)；好感由整組御主＋從者共用——示好御主會連坐把其硬連結從者的 BOND 一起養。GAS 依對方性格決定升多少(務實者領情快、孤狼/瘋狂者慢熱)，AI 只演對方【依性格×當前好感】的反應。每名敵人每日一次、耗 1AP。這是「好感提高成功率」整套的主動培養入口——養高了：遇敵態度和緩、結盟更易、挑撥更靈、趁隙更狠、撤離不被追擊(BOND≥50)。戰場只到 SFW 曖昧；鑑賞角色一律於鑑賞內自行召喚，不靠 solo 帶入。
-
-🐛→✅ 這個動作從未改動過「${targetName}」的所在地(LOC 未變、她仍在原地)，但舊指令沒講清楚這點，AI 便自行編出「轉身離去」之類的退場收尾——下一次玩家在同地遇到她，畫面就跟這句「已經走了」互相矛盾。明講「仍留在原地」，收尾定格在氣氛鬆動的瞬間，不可讓她離場/走遠/消失於視野。
-
-玩家：「結盟只是我當初覺得需要有點交流才想出來的東西，是不是可以用更簡單的方式去處理這段關係？
-例如遇到後點敵方御主，不只有偷襲，還有閒聊、交換情報、請他離開不要起衝突之類的選項？」
-
-量過之後發現：**交流本來就有**（舊的 `court_enemy` 示好＝同地 1 AP 每日一次、好感 +2~11、連坐養其從者），
-問題是**它按下去當場什麼都沒發生**——只有一個看不到的數字在動，好處全鎖在 4 日盟約那次擲骰後面。
-（結盟的窗口有多窄另見量測：效期含當天約 4 天／14 天戰爭；剩 ≤3 敵時 `forceAll` 每個 tick 拆光，
-而 `allianceWillingness_` 同時 −0.45，成功率掉到 5~22%——你最需要幫手的時候它被雙重封死。）
-
-所以不是再加一個機制，是**把盟約的好處拆成當場結算的交涉動作**：
-- `chat` 閒聊＝原本的示好（行為一字未改，只是改了名字並在回報裡明講態度鬆了多少）
-- `intel` 交換情報＝原本要結盟才有的 `allyIntel`（破戰爭迷霧），改成一次性掀開最多 2 名未偵查的敵人
-- `yield` 讓開一步＝原本要結盟才有的「不被騷擾」，改成一次性：對方與其從者移離這一格
-
-⚠ **為什麼是一張表不是三支函式**：三者的前置完全相同（同地／已登場／未結盟／1 AP／每日一次），
-差別只在門檻、好感升幅與效果。寫成三支就是三份會各自長歪的前置檢查。`PARLEY_ACTS_` 一列＝一種交涉，
-前端 `KC_PARLEY_` 鏡射它的 key 與 label（`check_mirror` 盯著：後端加一種、前端沒加＝那顆鈕不存在）。
-⚠ 每種交涉**各自**每日一次，但共用一個 `【交涉日】` 標記（值是 `chat:5,intel:5` 的小表）——
-三個標記會把 MEMORY 撐胖，而 MEMORY 是每回合都要讀的。
-⚠ 扣 AP 與日限戳記綁在一起落地（`check_throttle` 在盯的正是「扣款→中途 return→戳記」那個形狀）。
-⚠ 結盟**刻意沒動**：先讓交涉跑一輪，再看它是自然升級成了終點、還是根本沒人想按。
-
-### `foeStanceNote_` / 真名裡必須有中文字　<sub>Router_Persona.gs / Seed_Codex.gs · 2026-09 凍結資料稽核</sub>
-
-玩家要求「檢查整體，有沒有應該要變動、但每次都回到原廠的資訊」。作法是**量**：
-跑一局 solo，第 1 天照一次提示詞、把故事推到第 9 天（好感 35→95、重傷、換地、改稱呼、令咒剩 1）
-再照一次，逐段比對哪些字**一個都沒變**。32 段裡 30 段沒變——其中絕大多數是核心特質（該靜態），
-但揪出一個真的該動卻沒動的：
-
-- **敵方卡（敵御主／敵從者）對你的態度 100% 靜態**。他們對你的好感【會動】——求愛 `actionCourtEnemy`、
-  挑撥、交涉結盟都在改 `COL.PC.BOND`——但 `favorWord_` 長年只用在 `actionMove` 的一行「氛圍提示」，
-  兩張敵方卡從來沒講過。於是你把人追到手了、或把人得罪到底了，戰鬥/對話場景的 AI 還是照原廠敵意演。
-  補上 `foeStanceNote_`（結盟優先 → 好感/敵意 → 中性不送）。
-  ⚠ 刻意只在【真的偏離中性】時才送那一行：沒發生過什麼就不該多付一行的字。
-- 其餘靜態的都判定為**該靜態**：性格/口吻/萌點/小動作/外貌/陣營/寶具是核心特質（玩家：「核心特質要內化」），
-  御主自己的身世/願望/魔術系統是玩家創角時定的。鑑賞那側本來就活的（裝扮/好感/關係階/現況/回憶/約定
-  每回合都在動），不需要動。
-
-**🈶 真名裡必須有中文字**（同一輪踩到的坑）：把 EMIYA 的真名從「無名（EMIYA）」縮成「EMIYA」之後，
-整局的戰鬥全部變成「未指定攻擊目標」——`cleanChineseName` 會把非中日韓字元整個剝掉，
-純拉丁字母的名字被洗成**空字串**，名字比對整條靜默失效。看起來只是「那顆按鍵沒反應」。
-已還原，並在 `check_seed.py` 加了一道（真名沒有半個中文字就叫）。
-同一支掃描器還補了「代碼裡寫死的真名比對」那道：`Engine_Fate` 有兩處 `name === '…'` 在決定寶具選項，
-種子改名就會永遠不成立、選項整條消失，一樣零錯誤訊息。
-
 ### `toMaster`（對御主的態度）　<sub>Seed_Codex.gs · 2026-09</sub>
 
 玩家：「對御主的態度 應該要有一個核心，不要逐漸動搖這種模稜兩可的」。
@@ -1198,19 +783,6 @@ AI 生成從者／日常外貌轉換，加上前端逆天改命的三格輸入�
 給她日常稱呼「伊莉雅（魔法少女）」，括號寫法會被 `kanshouNameCandidates_` 拆出「伊莉雅」而互斥——
 這是刻意利用既有的別名橋，不是另寫一條特例。
 
-### `quadLabeled_` / `QUAD_LOOSE_LABEL_`　<sub>Router_Persona.gs · 2026-09 種子瘦身</sub>
-
-四格模板（日常表象／真實內裡／喜歡的事物／討厭的事物）本來是**逐格貼標籤**，而種子的 `persona.words`
-25 筆**沒有一筆是四段**——全是「痛快・重義」「騎士道・自我犧牲・壓抑的少女心」這種價值觀清單。
-`parseTraitsHelper` 會拿 fallback 把它補滿四格，於是標籤照位置蓋上去，卡片就開始說謊：
-「喜歡的事物：壓抑的少女心」「日常表象：狂化」——AI 照著演，零錯誤訊息。
-
-改成 **all-or-nothing**：四格都是真值才逐格貼，缺一格就整組退成一行不貼標籤的「性格：a、b、c」。
-這同時是玩家要的「不要全部寫出來，給 AI 發揮空間」——表象與內裡讓 AI 自己判斷。
-⚠ 鬆散標籤走 `QUAD_LOOSE_LABEL_` 查表（鍵＝labels[0]），**不是寫死在函式裡**：
-外貌三格由 `looksToTraitParts_` 保證對位（第一段一定是外貌、第二段一定是氣質），那組缺格仍要逐格貼，
-所以它刻意不登記。加一組要走同一條規則就往表加一列。
-
 ### `servantToHeroRow_` / `masterToCodexRow_`　<sub>Seed_Codex.gs · 2026-09 種子瘦身</sub>
 
 - **daily 四欄不再存兩份**：英靈殿列有 DAILY_LOOK/WORDS/MOE/OUTFIT 四個專欄，PERSONA 欄的 JSON 又原封
@@ -1227,38 +799,6 @@ AI 生成從者／日常外貌轉換，加上前端逆天改命的三格輸入�
   ⚠ 我一度把它當幽靈砍掉：`check_seed.py` 第一版只認【引號包住】的 fx 名，看不到 `FX_DESC` 那種
   `golden_fleece: () => …` 的物件鍵形式，於是把一個有說明卡的技能報成幽靈。
   掃描器誤報一次就會被無視，比沒有更糟——現在三種寫法（引號／物件鍵／屬性存取）都算「有人提到」。
-
-### `QUAD_REDUNDANT_` / `quadLabeled_`
-
-標籤已經講了「討厭的事物」，值再寫一次「厭惡見死不救」就是疊字——種子裡 16 處（14 個 `厭惡`、2 個 `熱衷`），AI 生成的人格也會這樣寫。
-
-剝在**唯一的渲染出口**而不是去改資料：①舊試算表已經長出來的列不會因為改種子而更新 ②AI 隨時能再產一個新的。追資料來源永遠追不完，而標籤與值的疊字判斷只有這裡看得到兩邊。regex 帶 `[於的]?` 是為了 `熱衷於研究` → `研究` 而不是 `於研究`。剝完若變空字串就整格跳過（沿用 `QUAD_EMPTY_` 那條路）。
-
-🐛→✅ 2026-09 全面稽核：這個剝法**把佔位字的濾網打穿了**，而且是全部 25 位從者都中。
-種子的 `words` 全都只有 2~3 段（實測 19 位 2 段、6 位 3 段），`parseTraitsHelper` 會把第 4 格補成
-佔位字「厭惡之事」；`quadLabeled_` 本來會用 `QUAD_EMPTY_` 把佔位字整格濾掉，但它**先剝疊字再濾**——
-「厭惡之事」被剝成「之事」，濾清單裡沒有這個字，於是每一張從者卡都寫著「討厭的事物：之事」送給 AI。
-AI 收到的是一條沒有語意的角色設定，而玩家會把 AI 順著它掰出來的東西當成角色設定（同 `check_cards.py` 的立意）。
-
-修法：**空格判斷在剝疊字之前先做一次**，剝完再做一次（剝完剛好變成佔位字也算空）。
-判準：清洗與過濾同時存在時，想清楚誰先誰後——先清洗會讓過濾器認不出它要濾的東西。
-探針 `cards.js`（9 條，含還原修法的退化確認：25 位全數命中）。
-
-### `DOJO_CAUSE_`
-
-🐛→✅ 2026-09 全面稽核：`deadline` 那一條原本寫成 `` `${FATE_DEADLINE_DAYS_} 日時限耗盡` ``，
-而 `FATE_DEADLINE_DAYS_` 住在 `Time_World.gs`。GAS 把所有 `.gs` 串成一個檔跑，載入順序由專案決定、
-我們控制不了也看不到；`const DOJO_CAUSE_ = {...}` 的右邊在**載入那一刻**就求值，那時那個常數還是 `undefined`，
-於是「undefined」被當字面值烤進表裡，永遠跟著跑。玩家敗北後的老虎道場講評因此是
-「這一局輸在：undefined 日時限耗盡」——送進提示詞、AI 照著演，而且零錯誤訊息。
-
-改成 `{days}` 佔位字串、在 `dojoCauseLine_` 用的時候才代入——跟這張表本來就有的 `{sv}`／`{foe}`／`{np}` 同一條路。
-**判準**：檔案載入當下就會求值的東西（頂層 `var/const` 的右邊），只能用同一個檔裡的東西；
-要跨檔就改成「用的時候才取」（佔位字串或函式）。這個形狀已改成機器擋：`check_loadorder.py`。
-
-### `enemyMasterCard_` 的性別欄
-
-工房原創敵御主的名字看不出性別，卡上卻一直沒有性別欄——AI 只能猜。唯一的線索是卡末那句 `★${pron_(...)}本人在場` 的代名詞，埋在最後、而且是隱含的。資料本來就在手上（下一行就在用 `row[COL.PC.SEX]`），補一格 3 個字。順帶消掉 `〉｜日常表象` 那個開頭就懸空的分隔符——`quadLabeled_` 一律以 `｜` 開頭，前面那格是空的就會露出來。
 
 ### `sanitizeUserData_` 的 `entryName`／`targetId`（2026-09）
 
@@ -1322,19 +862,6 @@ isHere(是否跟玩家同地點)；locLabel：房間類地點的動態顯示名�
 
 🗑 2026-09 小道具/催眠整套移除後，本函式不再下傳 propBond/propCap/propCatalogCap 與 customProps；回傳只剩同伴清單＋quickPhrases。目錄上限尤其重要：滿了才在送出時被拒，面板上原本完全看不出來。**不讓前端自己寫死 80**——前端手抄後端常數是這個專案犯過的錯，改了一邊另一邊就走鐘；由這裡下傳，KANSHOU_PROP_EQUIP_BOND_ 永遠是唯一真相。
 
-### `sagaNoteRule_`　<sub>Router_Narrative.gs</sub>
-
-📜 **solo 真正在忘的不是設定，是這一局的因果。** 玩家問「SOLO 是不是可以自己做一個真正的世界書？」——
-可以，但不該抄鑑賞那三種 kind。鑑賞需要「地點／人物／設定」是因為它一片空白、世界得長出來；
-solo 的世界是定的（冬木、聖杯戰爭、七組御主從者），人和地點種子庫早就有了，再讓 AI 寫一次人物卡
-就是兩個真實來源打架。它會忘的是：第 3 天砍斷了誰、跟誰結過盟又翻臉、教會開過什麼條件、哪裡塌了。
-歷史只有 6 筆＝最近三個按鍵，第 10 天那些事一個字都不剩。戰報那邊 GAS 有數字，但
-「那一戰之後這個世界變成什麼樣」沒有人記。所以 solo 只有一種 kind：**因果**。
-
-⚠ **這一段刻意寫成函式，不是頂層樣板字串。** 條數與字數要從 `WORLD_SPEC_.solo` 代進去，而那張表住在
-`Gallery.gs`——GAS 把所有 `.gs` 串成一個檔跑、載入順序我們控制不了也看不到，頂層就求值會拿到
-`undefined`，然後照樣送進提示詞、AI 照著演，零錯誤訊息。`check_loadorder.py` 在第一版當場抓到這一次。
-
 ### ~~`kanshouSeedMapIfNew_`~~（2026-09 隨地點整組退休·名字只剩在墓碑註解裡）　<sub>Gallery.gs</sub>
 
 🌱 地圖搬進世界帳本之後，「這座城有哪些地方」變成資料而不是代碼。開局種什麼進去分兩種：
@@ -1358,7 +885,7 @@ solo 的世界是定的（冬木、聖杯戰爭、七組御主從者），人和
 `KANSHOU_WORLD_BOOK_`，玩家提到才給，人不在冬木就永遠不會亮。同批拿掉御主經歷預設「剛搬來冬木市」、創角提示詞的
 「來到冬木以前」、三處 `"冬木·深山町"` 的 LOC 預設（改「我的房間」）。
 
-### `KANSHOU_FAMILIAR_TIERS_`／`kanshouKnownOfYou_`　<sub>Gallery.gs</sub>
+### `kanshouKnownOfYou_`　<sub>Gallery.gs</sub>
 
 🗑️ **2026-09-23 距離那一句整組拿掉**：玩家讀完一回合的全文，指著「我們之間留著一個手臂的距離」說「真的不會寫就不要了」。
 那四句是相處次數換算的「物理距離」，每回合都在卡上，等於每回合叫模型量一次距離。階名留給面板，
@@ -1942,18 +1469,6 @@ Avalon 回到阿爾托莉雅手中時減傷/時回同一般 avalon；理想鄉�
 
 Script.html 的「≥100/100 魔」文字也是手動維護的複本，改這裡的門檻/耗魔量記得同步那邊。
 
-### `injectMysticBuff_`　<sub>Mystic_Code.gs</sub>
-
-持 Avalon 的阿爾托莉雅額外標記 avalon_saber + 時回，供 Router_Battle 理想鄉攔截判定用；
-
-非阿爾托莉雅持 Avalon 走下方一般被動(僅減傷，無理想鄉攔截)。
-
-🐛→✅ 舊版用子字串正則(/阿爾托莉雅/.test(...))比對，玩家自訂/AI 生成的 Saber 從者只要真名剛好包含這四個字(如刻意取名「阿爾托莉雅・奧爾塔」)就會被誤判成王之聖劍的合法持有者——這類機制本該資料驅動(如 FORGE_CLS_SKILLS_/ALLOWED_FX_)、至少也該用精確比對，改成完整真名相等。
-
-🐛→✅ 2026-07 前次修正比對錯了字串：種子真名其實是「阿爾托莉雅·潘德拉貢」(Seed_Codex.gs)，前次改的完整相等只比對到「阿爾托莉雅」四字，永遠對不上召喚後 c.name 的完整全名，導致理想鄉對唯一合法持有者(正典本尊)從此再也無法觸發——改比對真正的完整真名。
-
----
-
 ## `gas/Router_Action.gs`
 
 ### `sanitizeUserData_`　<sub>Router_Action.gs</sub>
@@ -2002,10 +1517,6 @@ Script.html 的「≥100/100 魔」文字也是手動維護的複本，改這裡
 
 ⚡ 會改動 solo 戰場狀態、前端事後會 syncData(整頁刷新) 的動作 → 夾帶 _state 省一趟 round-trip。不含：sync(本身即 state)／get_tags／純讀取(inspect/get_*)／創角召喚(自走 reload)／kanshou(KPC_)；也不含「樂觀更新」的輕量 setter(set_servant_output/set_mage_realm/set_rune_mode)——它們不 syncData、只吃 res.economy，夾 _state 反而白做整表讀取。也不含 narrate_only——前端 narrate() 只吃 res.text、不消費 _state，夾它純浪費整表讀。move 也不含：前端 travelTo() 從不呼叫 syncData()／不消費 __pendingState，靠自己回應的people/locations/mapDesc/mapNodes/statusString 就足夠更新畫面，夾 _state 對這個全遊戲最高頻的動作只是白算一次完整 buildClientState_ 後被原地丟棄。
 
-### `KANSHOU_BLOCKED_ACTIONS_`　<sub>Router_Action.gs</sub>
-
-🛡️ 慾海(KPC_)明確擋下的戰鬥／經濟／結盟類 action——皆為 solo 戰爭專屬，前端在 kanshou 模式下本就全數隱藏對應按鈕，這裡擋 API 直打。取 STATE_AFTER_ACTIONS 扣掉 update_fate/update_rel_tag/kanshou_set_nickname(通用或鑑賞專屬的敘事欄編輯，慾海也適用)，加上 3 個樂觀更新輕量 setter。move 不在名單中：鑑賞移動地圖走 action:'play'+moveTarget，從不真的呼叫 action:'move'；且actionMove 用 KPC_ id 去查「眾生」表本就查無此人、安全但原因與其他表面相似的判斷不同。weapon/get_map_nodes/narrate_only/end_run/create/summon_servant/backfill_master_ai/account_login/account_new_game 皆為 solo 專屬，鑑賞 UI 從未呼叫過，但誤呼叫會寫壞或清錯資料表（如 end_run 會清錯帳號表欄位、create/summon_servant 會把戰鬥 schema 寫進鑑賞眾生表、purge_orphans 若以 KPC_ 呼叫會誤刪整張鑑賞眾生表）——明確擋掉，不依賴資料形狀僥倖安全。
-
 ### `actionUpdateFate`　<sub>Router_Action.gs</sub>
 
 🐛→✅ 玩家要求「真正內化」的萌點：同伴/NPC的萌點只留給AI演出參考，玩家不可查看也不可竄改——前端已把同伴卡的萌點格連按鈕都藏了，這裡補後端防線，擋掉繞前端直打API的路。
@@ -2017,14 +1528,6 @@ Script.html 的「≥100/100 魔」文字也是手動維護的複本，改這裡
 且限本局 game_id(防跨局撞名／名字誤中敵方非同行者)。
 
 🔒 帳號歸屬驗證（2026-07 再稽核抓到的漏洞補上，見 resolveCallerGameId_ 說明）。
-
-### `actionCheckName`　<sub>Router_Action.gs</sub>
-
-與 create(actionManualNpc) 一致——不擋跨局同名（game_id 實例化，玩家御主靠 pcId 認人，跨局撞名無害）。只擋【正典角色名】(避免與本局被種入的同名正典敵手雙胞胎)；想扮演正典請走「扮演正典御主」入口。
-
-userData.name 已被 cleanChineseName 洗成純中文去標點，比對對象也需同樣清洗，否則含標點的正典
-
-名號(如「韋伯·維爾維特」)永遠比不中。SEED_SERVANTS 的真名欄位是 `realName`，不是 `name`。
 
 ### `resolveCallerGameId_`　<sub>Router_Action.gs</sub>
 
@@ -2088,48 +1591,12 @@ findPlayerServantIdx_ 才有 id 可用、不必再靠名字比對這條容易出
 
 ## `gas/Router_Battle.gs`
 
-### `BATTLE_DEFER_WRITE_`　<sub>Router_Battle.gs</sub>
-
-🚀 戰鬥寫入延遲旗標（速度：主戰鬥一次按鍵原本散落 30~50 次逐列 setValues，每次都是一趟慢 Sheets 往返）：actionFateBattle 主路徑把它設 true → 底下每擊會呼到的寫入 helper(fateStrike_/drainForNp_/settleShieldMana_/applyMasterStanceShare_/markMasterLostServant_)只改記憶體 pcData、跳過逐列寫；最後由 actionFateBattle 做【一次】整表 setValues 落盤(比照 actionMove 的單次寫回·全程握 ScriptLock 保證安全)。斬首分支在旗標設定前已 return、不受影響；其餘呼叫端(召喚海怪/移動)旗標恆 false、照常即時寫。GAS 每次執行重置模組變數，跨請求不會殘留。
-
-### `settleShieldMana_`　<sub>Router_Battle.gs</sub>
-
-⚔️ 單次出擊裁決：atkC 攻擊 pcData[tgtIdx]。命中才扣血（未中＝撲空、不自傷）。處理破戒/戰鬥續行/令咒緊急脫離/十二試煉復活/死亡(敵→勝利判定；我→敗北)。opts:{np,seal,counterMul}　ctx:{myGameId,pIdx,userData}
-
-💠 「展開扣魔」防禦(七天盾)的帳單結算：引擎只在呼叫端注入 c._shieldMp(御主純魔)時才收費、記帳於c._shieldSpent，此處統一從御主純魔扣款落表。冪等：結算後清 _shieldSpent，重呼不重扣。
-
-### `fateStrike_`　<sub>Router_Battle.gs</sub>
-
-🍱 整備·進食加成：御主一行戰前整備過、且尚在效期內 → 從者出擊命中 +MEAL_BUFF_BONUS。⚠ 只屬於【我方陣營的出擊】——目標是我方從者＝攻擊者是敵人，不吃玩家的餐；盟友助攻亦非御主一行，呼叫端以 opts.noMeal 排除。
-
-🐙 海怪掩護：持 summon_horror 者寶具解放後，深淵海怪在前以身擋傷——傷害先扣海怪肉身，潰散後才傷及本體。faction 無關；無「現存海怪」(未解放/已退場)時此段空轉。⚖️ 貫穿判定：summon_horror 在 CONCEPT_TIER 與 rho_aias 同 4 階(唯 6 階 ea/enuma 可貫穿)，沿用同一份offenseTier_/conceptTier_/PIERCE_GAP 算貫穿，與 rho_aias 同框架，高階概念寶具可直接無視護盾。
-
-🐛→✅ 玩家實測抓到：這句舊版只要攻方帶 rule_breaker/anti_magic_lance 且這擊致命就無條件顯示「契約已破」，即使守方根本沒有 god_hand 可破(如 Weiss Schnee)也照樣跳出——沒破到任何契約，卻講得像破了什麼。斬斷救贖唯一實際作用是「原本會觸發 god_hand 復活，卻被搶先繞過」，故補上守方確實持有 god_hand 才顯示。
-
-🛡️ 戰鬥續行＝受【致命傷】(after<=0)才觸發硬撐留 1——非「殘血 2~5 也被拖到 1」。「僅一次」由 hp>1 天然保證：撐過後站在 1 血，下一記致死擊不再觸發。
-
-survive 與 god_hand 結構性互斥（別靠「種子資料別同時掛」自律）：兩者若同掛，survive 判定順序在前會免費接住致命傷、god_hand 燒命判定永遠輪不到。持有 god_hand 者一律優先吃 god_hand。
-
-🐛→✅ 2026-07 稽核：多寶具英靈(如EMIYA)npAtkScale_只認永久技能字面、不看這次實際選了哪個寶具——改用npProfile_(atkC).scale(比照Engine_Fate.gs解放判定同款寫法)，讓選較弱寶具(如偽·螺旋劍)時不會被誤判成最強寶具(無限劍製)的規模去燒God Hand的命。
-
-🐛→✅ 玩家指正：令咒＝絕對命令從者帶著本主一起強制撤離戰場，不是從者自己逃走、御主留在原地——舊版只在「本主剛好與從者同地」才一起搬，遠端御主完全不動，導致這對主從就此永久拆散(敵從者在 Time_World.gs 的世界自走裡沒有獨立移動機會，一旦拆開就再也碰不到面)。改成一律跟著撤離。
-
-🕯️ 御主(非護衛斬首場)戰死 → 失去供魔的敵從者與令咒燒盡同一套下場：無「單獨行動」者掛 SEAL_DOOM_HOURS 倒數消滅，有「單獨行動」者靠靈基殘存苟活(見 enemyCanAffordNp_ 的 INDEPENDENT_ACTION_RESERVE)。斬首·護衛在場的即死已在上方 assassinGuardIdx 分支處理，此處只補「無護衛」的一般陣亡路徑。
-
-### `pushMatching_`　<sub>Router_Battle.gs</sub>
-
-🎬 收集素材字串共用 helper：把 arr 內符合 regex 且尚未出現在 target 裡的字串各自 push 進 target(依 target 去重·非依 arr 自身)。2026-07 稽核抽出，取代 aiPrompt 組裝處 4 段幾乎一樣的「掃陣列+regex.test+indexOf去重+push」重複迴圈(對轟/我方出擊/敵反擊/敵盟協防四種來源共用同一份)。
-
 ### ~~`OFFENSIVE_NP_ATK_FX_`~~（2026-09 已移除）　<sub>Router_Battle.gs</sub>
 
 ⚠ 這個常數後來被**資料驅動的寶具種類表**取代（`NP_KIND_MARKS_` ＋ `npKindOf_`／`npCanClash_`／`npReleasable_`），
 fx 清單那條路從此沒人走。2026-09 稽核用「只出現一次的常數」掃出它已是孤兒才拿掉——
 提醒：**用 fx 白名單判類別，天生就會跟下一個人加的 fx 脫節**；種類寫在寶具自己身上（`【常駐寶具】` 這類標記）才不會漏。
 以下是它當年在做什麼：
-
-### `BATTERY_HP_PER_MP`　<sub>Router_Battle.gs</sub>
-
-🔋 御主電池（出力電池制 2026-06）：從者【沒有自有魔力池】，寶具/技能魔力全由御主供——付款順序：①御主 MP(主資源) → ②御主 HP(2 HP 換 1 MP，焚血供能、御主血量不可低於 1)。寫回試算表並回傳明細，供戰報／敘述演出「拿御主當電池」。fromSv 恆 0（保留欄位相容舊戰報）。
 
 ### 御主不上戰場　<sub>Router_Battle.gs · Engine_Fate.gs</sub>
 
@@ -2153,140 +1620,9 @@ fx 清單那條路從此沒人走。2026-09 稽核用「只出現一次的常數
   `…: '');` 後面接一行 `+ \`★御主的招式…\`;`——那是合法 JS（一元加號求值後丟棄），`node --check` 綠燈，
   但那條規則從此不會進提示詞。**改長字串鏈時，結尾那個分號的位置要跟著看**；探針已補一條釘住這條規則還在。
 
-### `drainForNp_`　<sub>Router_Battle.gs</sub>
-
-🐛→✅ 稽核抓到：mHp本已是0(如令咒反噬致死·actionUseSeal的sealManaKill分支)時，Math.max(1,...)保底會把已宣告defeat的御主HP悄悄寫回1、形同無聲復活——御主死亡不像從者有DEAD_前綴這種持久終局標記，純靠HP數值本身，一旦被這類「保底1」邏輯誤觸就會跟前端已顯示的defeat狀態互相矛盾。只在御主本來就還活著時才套用保底。
-
 ### ~~`applyMasterStanceShare_`~~（2026-09 已移除）　<sub>Router_Battle.gs</sub>
 
 🩸 傷害轉移：從者剛吃了 dmg(fateStrike_ 已寫入從者HP＋sheet)，御主依風格「討回」share 比例替其承受——從者HP回補 shared、御主HP扣 shared，兩列即刻寫回 sheet(與 backlash/drainForNp_ 同一套逐事件寫法)。御主不因分擔而死(保底1)；已瀕死(≤1)則無力再擋。回實際分擔值(供戰報)。
-
-### `actionFateBattle`　<sub>Router_Battle.gs</sub>
-
-🐛→✅ 稽核抓到：御主死亡(如令咒反噬)沒有像從者DEAD_那樣的持久終局標記，純靠HP=0這個數值——前端雖在收到defeat:true後鎖UI，但那只是前端節流、非後端強制。若在鎖生效前(多分頁/callback競態/直打API)再送一次fate_battle，drainForNp_等御主血量保底邏輯會把HP=0悄悄寫回1，跟已回報的defeat狀態互相矛盾。這裡在入口統一擋下，比逐一修補每個保底寫入點更根本。
-
-🗝️ 雙從者：若指定出戰從者(userData.servant/servantId)則用之，否則取第一個在世從者
-
-🐛→✅ 舊版用 String(name).includes(wantSv) 子字串比對挑選出戰從者，雙從者其一真名恰為另一人前綴/子字串時(如「阿爾托莉雅」vs「阿爾托莉雅・奧爾塔」)會選錯人出戰——先改精確相等比對，2026-07「整體重構·id優先」再進一步改走單一真實來源 findPlayerServantIdx_(id優先、名字才走nameLoose_精確比對)，跟其餘13處呼叫端同一套邏輯，不再各自維護一份。
-
-🐛→✅ 玩家實測抓到：雙從者斬首時 servantCard_ 呼叫2~3次(攻方1~2名+護衛1名)，每次都各自帶一份完整的「怎麼演」收尾句——改成每張卡skipClose，收尾句用 performanceNote_() 統一講一次。
-
-戰鬥確定開打 → 耗 1 AP（推進 2 小時）
-
-🐛→✅ 舊版沒傳 skipWrite，這裡立刻寫一次 DAY/HOUR/AP，之後不管走斬首分支(現已批次收尾)還是主戰鬥路徑(1370行整表 setValues)都會把同一批值再送一次——比照 Router_Economy.gs 的actionManaSupply/actionSpiritRepair 既有寫法補 skipWrite=true，兩處都吃記憶體 pcData 就好。2026-07 稽核：改用共用 chargeApOrReject_(467行已提前擋過門檻，這裡只借它做扣費+算clock，.reject分支理論上不會命中，同其餘12處呼叫端一致的寫法)。
-
-🐛→✅ 斬首分支舊版從沒套用 BATTLE_DEFER_WRITE_ 批次寫回——下方每個 fateStrike_ 級寫入各自即時 setValues 一次，雙從者斬首失敗最壞可一次觸發 5+ 次個別 Sheets 寫入。改成跟主戰鬥路徑同一套：進分支就開批次旗標，分支結尾 return 前只發一次整表 setValues。
-
-🐛→✅ 斬首這整條分支的三份 asnPrompt 從沒附上任何演出依據卡——AI 被要求「依『${crit.name}』的職階與真名自行演出」致命手段、演出護衛反噬的反應、演出敵御主之死，卻連從者/護衛的性格卡、御主本人的演出依據卡都沒拿到，等同要求它憑空捏造。比照主戰路徑(ourMasterCardStr)補齊：我方出擊從者(含雙從者)＋御主本人＋護衛從者＋目標敵御主，四張卡一次備好、三個分支共用。
-
-🐛→✅ 這整段是斬首反噬的死亡結算迷你版，跟 fateStrike_ 是兩套各自手刻的邏輯——本 session 已在fateStrike_ 修好「god_hand 優先於 survive、且兩者都受 severed(rule_breaker/anti_magic_lance)阻斷」，卻沒同步套用到這裡：舊版 survive 檢查無條件先撐 1 血，god_hand 的 after<=0 判斷永遠進不去，同時持有兩者的從者在這條路徑白嫖一次續命、十二試煉命數帳目跟主戰鬥路徑對不上；也完全沒有severed 判定，護衛就算持破戒/反魔力兵裝也繞不過這兩種免死。
-
-🐛→✅ 批次寫回收尾：分支內每擊只改了記憶體 pcData，這裡一次整表 setValues 送出，取代原本每個 idx 各自即時寫入的多趟 round-trip。
-
-🐛→✅ 同drainForNp_一款漏洞：_mHpNow本已是0(令咒反噬致死等)時，保底1會讓已defeat的御主悄悄復活成HP=1。御主死亡無DEAD_可擋，只在本來還活著時才套保底。
-
-🔥 灌魔加乘：規格外寶具(＋/EX)於【全開 100%】時，把御主餘裕魔力超載灌入 → 威力線性放大至上限(＋×1.5、＋＋/EX×2)。超載＝固定價格檔位、依寶具階等比(A階＝總耗 220/440/660，即底費P/2P/3P)，魔力優先支付、不足才焚血(drainForNp_ 2HP=1MP)。userData.overload：false＝僅底費／'p1'＝超載檔(總價2P·灌P)／'p2'＝極限檔(總價3P·灌2P)／true·'blood'·未帶旗標(舊前端/敵方)＝相容檔。過充 token 只無償折抵超載段。
-
-🎲 從者主動技已改「被動化」(玩家 2026-07 定案)：不再有手動「⚡主動」按鈕、不扣魔、無微效保底——改為每一擊獨立擲 SKILL_PROC_ 機率自動【全效】發動(見下方 rollSkill_，於 rounds 迴圈與開場對轟各自擲)。skillFired 只記「本戰至少發動過一次」，供敘述/戰報標示。
-
-🌟 寶具對轟（光與光的對撞）：玩家開場解放寶具、目標為敵從者時，值得一戰的對手以寶具相迎。雙方先算「寶具火力」→ 高者壓過低者，差額貫穿敗方、勝方僅受少量回震；火力相當(±10%)則相抵僵持。★ 對轟輸方不致死：差值再大也只打到 1 HP——英雄倒下前總能拼出最後一口氣。
-
-🐛→✅ 對轟的兩記 fateStrike_(eHit/pHit) 也可能觸發「戰鬥續行」/「斬斷救贖」，但下方 extraFired 只掃過 rounds[] 裡的一般交鋒，對轟從沒推進 rounds——這兩個關鍵轉折發生在對轟時會整個漏講給 AI。在此收集，稍後併入 extraFired。
-
-敵方火力取樣須補 servantActiveSkill_(敵AI恆全效免費)：burst/str_up/projection 是主動 only 技能，漏帶會讓持這三技的敵從者開場對轟火力系統性偏低。
-
-💠 對轟中敵寶具轟向我方從者＝七天盾的正戲：注入御主純魔供其展開(削 ePow)，取樣後立即結算費用
-
-★ 對轟【回震】不致死(勝方/僵持方吃的是餘波)：夾到至多打到 1 HP，避免「同一場先記勝又記敗」的勝敗雙記。輸方(outcome='enemy')在上方已同樣保 1；唯獨敵方因果律截斷(pLethalOk)是刻意例外——那本就該真的打死(死亡在投擲前已確定)，不能被這道通用保命線攔下，否則會架空必死分支。
-
-🐛→✅ 2026-07 稽核抓到：跟上方 eHit 同一套判定卻只做了一半——這擊若剛好打死我方出戰從者(因果律截斷組合可跳過保1)，舊版只 push knockedOut，從沒把 destroyedName/godRevived 補上，跟五路稽核已修過的敵反擊/敵盟協防「死了卻沒告訴AI」是同一種 desync，只是漏了對轟這條路徑。
-
-🎌 御主參戰風格·對轟回震也替從者分擔(非致命時)
-
-🐛→✅ 舊版只擋 !pHit.defeat(最後一名從者才算)，雙從者出戰時這擊若打死非最後一名從者，pHit.defeat 不成立、但 pHit.knocked 已標記該從者陣亡——沒補 !pHit.knocked 會對著fateStrike_ 剛寫成 DEAD_/HP=0 的那一列回補血量、還白白扣一筆御主HP去「保護」一個已經不在的人。
-
-🐛→✅ enemyNp 舊版只存 MARTIAL 欄原始字串(可能含未選中的其他寶具/未拆真名)，AI 演對轟這場「全場最戲劇性時刻」時卻從沒被告知敵方這次實際解放的真名是哪一個——比照玩家自己的 npName拆法，用已選定的 enemyC0.npChoice 算出這次真正解放的那把。
-
-🩹 每回合涓流回血（約 2.5%×階/回合·上限30）：兩種來源——①原初符文運用為 regen(玩家選模式)②持有專屬治癒 fx `regen`(回復魔藥/狐之治癒等·常駐、無需選模式)。標籤顯示技能自己的名字。
-
-🐛→✅ 稽核抓到：這裡現建的rc沒呼叫injectMysticBuff_(對照上面攻擊迴圈的sC有呼叫)，導致Avalon注入阿爾托莉雅的「鞘之恩澤」regen fx永遠讀不到——理想鄉的時回加成完全死碼。補上。
-
-🤝 協同強襲（同盟背景生效）：同地盟友從者（敵從者＋盟約在身）對「共同敵人」每回合助攻一擊。原作依據：第五次冬木·遠坂凜＆Archer 為士郎掩護夾擊、聯手圍攻 Caster／Berserker。盟友提供掩護火力，只助攻、不被本場反擊（風險已由盟友自身承擔），讓「養同盟」在戰場上真正有感。
-
-🐙 螺湮城教本(變身框架)：青鬍子解放寶具【或戰前召喚】→ 深淵海怪在場(狀態存 MEMORY·無期限·魔力維持制)。在場則：以肉身擋傷(fateStrike_)＋每回合再生＋並肩追擊(每交鋒回合抽 HORROR_UPKEEP)＋本體防禦升對城規模(npDefScale)；場外每小時另抽 HORROR_HOURLY_UPKEEP(applyRegen_·池赤字海怪先沉)。★寶具解放當下(重新)召喚·刷新肉身；已在場則沿用。
-
-npOverloadMul/overcharge 只設在 atkC 上、不存進 MEMORY，而 sC 是每回合重新建的新物件讀不到——除了對轟分支直接用 atkC 外，一般路徑(多數情況)都走這條每回合迴圈用 sC 結算，需手動複製過去，否則玩家已付超載代價卻吃不到超載倍率/過充加成。
-
-🐛→✅ 漏檢查 sealEscaped/godRevived：盟友這擊若把敵從者打到燃令咒脫離，fateStrike_ 內部已經把該敵從者 HP 設 1、LOC 改成撤退地點(令咒脫離不標 DEAD_)，但這裡沒讀 aps.sealEscaped，主流程完全不知道敵人已經跑了——下方「敵反擊」段落只檢查 !DEAD_，仍會讓一個已經逃到別處的敵人繼續反擊。
-
-🐛→✅ 同上一併補齊：敵盟協防這擊一樣可能打死/救活我方從者，舊版只讀 defeat/hit。
-
-🗡️ 理想鄉·無敵結界（被動自動·概念 7 階·專剋 6 階究極寶具）：敵本回合解放【6 階概念寶具】(ea/enuma·會碾穿一切防禦·一發足以秒殺)、目標為阿爾托莉雅(持 Avalon)、且御主純魔 ≥100 → Avalon 自動展開無敵結界、完全擋下該發＋扣 100 魔。普通寶具(＜6階)不勞理想鄉·靠基本鞘減傷(×0.82)＋六圍扛。付不起 100 魔則張不起。
-
-🐛→✅ 玩家自己解放寶具已有 npName 讓 AI 高呼真名(見下方)，敵方反擊解放寶具卻從沒對稱處理——GAS 明明已經算出 enemyNow.npChoice/敵方寶具真名，卻沒餵給 AI，導致敵反擊即使是寶具等級的一擊也可能被演成普通揮拳，跟「這是 Fate 寶具解放的靈魂」這條設計鐵則自相矛盾。
-
-🐛→✅ 玩家實測抓到：我方出擊(ps)/深淵海怪(hs)都完整檢查 destroyed/knocked/godRevived/sealEscaped，敵反擊(es)舊版只讀 defeat/hit——雙從者出戰時，敵反擊打死的若不是最後一名從者，defeat 不成立，destroyedName/knockedOut 完全不會被設，AI 戰報與前端都不知道這名從者剛剛死了；同理若這擊該觸發十二試煉復活/令咒脫離，godRevived/sealEscaped 也會整組漏掉。
-
-🎌 御主參戰風格·替從者分擔：只在從者挨了非致命一擊時，御主討回 share 比例的傷勢自己扛。
-
-🐛→✅ 舊版只擋 !es.defeat，雙從者出戰時這擊打死非最後一名從者不會使 defeat 成立，但 es.knocked 已標記陣亡——沒補 !es.knocked 一樣會回補死者HP、白扣御主HP。
-
-🐛→✅ pds.fired 舊版從沒被讀取——敵盟協防者身上任何 fx 觸發(如王之財寶彈幕/morale加成)、以及萬一觸發「戰鬥續行」「斬斷救贖」這類關鍵轉折，全部悄悄消失，AI 跟玩家都看不到這名協防者實際做了什麼，只剩一句籠統的「並肩馳援」通用台詞。
-
-🐛→✅ 玩家實測抓到「明明是我方從者被敵方回擊打死，戰報卻還在問接下來怎麼辦」——根因是下面這幾處凡 destroyedName 為真就無條件當成「defC(這場一開始鎖定的敵方目標)死了」，從沒考慮 destroyedName實際上可能是我方從者自己的名字(敵方回擊/NP對轟回震/敵盟協防致死時)。此戰若還有其他從者存活，defeat 不會是 true(見 fateStrike_ 的「雙從者」判定)，於是走進這支 finalLine／終局指令／收尾指令，卻把「我方死了」誤講成「defC死了」，AI 收到自相矛盾的事實只能各自表述。
-
-🛡️ 穩健：不能只比對 destroyedName===atkC.name——雙從者出戰時，敵方回擊/敵盟協防的目標(ctgt/ctgt2)在 atkC 已陣亡時會改打另一名在世從者(見上方「alt/alt2」邏輯)，那種情況死的是「我方」但不是 atkC。改直接查 destroyedName 那一列在 pcData 裡的真實 FACTION 是否為「從者」，涵蓋所有我方陣亡路徑，而非只堵已回報的那一種。
-
-🐛→✅ 殺死敵御主這條路徑(fateStrike_ 的 killedIsMaster 分支)結構上不會設 victory=true(勝利判定只掛在殺死「敵從者」的 isFoeSv 分支)——這裡原本的 victory 三元式恆假、是條死路，誤導成「殺死御主也可能直接奪杯」，清掉避免以後有人真的想接上卻搞錯判定分支。
-
-🐛→✅ 玩家實測抓到：雙方都還將近滿血(如450血只交換了30~40傷害)時，光憑「這回合誰吃多一點」的比例(1.3倍)就敢講「明顯佔上風」，AI 順著這句錨點就把開場試探寫成「敗象已現/不對稱壓制」的決定性戰局——跟兩邊血條幾乎沒少的實況完全對不上。補一道「本回合交換總傷害佔血池門檻」，沒到門檻(表示雙方都還沒真的傷到彼此)一律先講「仍在試探」，不夠格說誰佔上風/被壓著打。
-
-🎭 敵從者演出卡：附上敵從者卡，讓性格/口吻/狂化禁言有依據，而非全靠 AI 憑真名即興；同一張 servantCard_，狂化「嚴禁台詞」鐵則對敵方一併生效。
-
-🐛→✅ 玩家實測抓到：這場戰鬥可能同時呼叫servantCard_多達4次(我方/敵方/盟友/敵盟協防)，每次都各自帶一份完整的「怎麼演」收尾句——四份幾乎一樣的收尾句擠在同一個提示詞裡純屬浪費。改成每張卡都skipClose，收集這場戲實際出現的所有真名，在下方組裝aiPrompt時用 performanceNote_() 只講一次。
-
-🐛→✅ 開場即解放寶具那一擊，若骰輸(揮空)：舊碼不論命中與否都無條件講「解放了寶具、高呼真名」，跟 roundsBrief 裡那行「揮空」的事實對不上——AI 收到的是單方面的「勝利宣告」指令，沒被告知這發NP 落空了，只能自己含糊帶過(玩家回報「寶具失手 沒有演出」)。這裡補回命中與否的判斷，讓落空的那一發也有專屬、對得上數字的演出指令，而不是被無條件的「唸名·得意」蓋過去。
-
-🎌 御主的姿態（每場【必給】·2026-07 玩家回饋「御主扣血卻沒一起上陣的感覺」）：若不主動給，AI 完全收不到「御主在場」的訊號→只演從者孤軍奮戰。故不論數值，每場都給御主當下的姿態。
-
-⚠ 2026-09 玩家定案「御主不要上戰場…都改成指揮從者對打就好」之後，這一段的內容整個翻面：原本三個訊號（御主體術／魔術／分擔血量）現在只剩魔術一個，體術支援與分擔血量（`STANCE_SHARE_`／`applyMasterStanceShare_`／`masterShared`）已整組移除。現在這一段給的是「御主在戰圈外」的三種姿態，外加一條鐵律（不揮拳／不格擋／不替從者擋下／不因交鋒受傷，能動用的只有指令、魔力、令咒），以及玩家點名要的【御主接住了從者】那一拍——純敘事、零數值、在那一擊落定【之後】才發生。
-
-🎴 每擊 pFired 陣列存了戰鬥中觸發的特殊機制旗標；十二試煉／令咒脫離已各自走專屬素材行(godNote/sealNote)，但「戰鬥續行」(致命傷卻硬撐留1)／「斬斷救贖」(此類護命效果被破戒/反魔力兵裝之類的手段強行突破)這兩種只進了 pFired、從沒進過 aiPrompt——AI 看不出「這下明明該死卻沒死」或「原本免死的招式這次被打穿了」的關鍵轉折，收攏成一句素材補上。
-
-🐛→✅ 對轟(clash)的兩記 fateStrike_ 一樣可能吐出這兩個旗標，但只掃 rounds[] 會漏掉——clashFired(上面對轟區塊收集)併進來源，開場那發對轟若剛好觸發戰鬥續行/斬斷救贖也講得出來。
-
-🐛→✅ 敵反擊(rl.eFired)／敵盟協防(rl.pactDef.fired)舊版完全沒被這個收集掃到——只掃了我方出擊的pFired，若戰鬥續行/斬斷救贖是敵方那一擊觸發的(如敵反擊本該致死卻被續行撐住)，AI 一樣收不到訊號。四段來源(對轟clashFired／我方strikes.pFired／敵反擊eFired／敵盟協防pactDef.fired)掃描邏輯完全一樣、只差來源陣列——2026-07 稽核抽成 pushMatching_ 共用 helper，一處改規則四處生效。
-
-🥋🔮 御主體術/魔術參戰：跟上面同一種「有記錄沒講給AI聽」的落差——這兩個 fx 每擊都可能悄悄加傷害，卻從沒被塞進 aiPrompt，AI 完全不知道御主動手了，只能憑空演出御主在旁乾看/捏著寶石不出手的空氣戲。我方出擊的 fired 進 strikes[].pFired；敵方反擊的 fired 是獨立存在 rl.eFired(不在 strikes[] 裡)，兩邊各自查，才不會漏掉敵御主(如凜的魔術)明明在戰報數字裡出力、敘述卻對此隻字不提。舊版是四行、只差「來源陣列(我方/敵方)×關鍵字(體術/魔術)」；2026-09 體術那半隨「御主不上戰場」移除後只剩魔術，來源仍各自攤平一次再查。
-
-🐛→✅ 御主本人的「演出依據」卡(魔術系統/體術階/身世/性格)之前從沒進過這支戰鬥 aiPrompt——AI 只收到上面 _masterStanceLine 那句抽象姿態指令(「伺機介入」)，具體要怎麼參戰毫無憑據，便自行編造出跟角色設定無關的招式(如「甩出魔術迴路干擾」)，玩家反應「超級出戲」。這裡補上masterCard_，讓 AI 依御主真實的魔術系統/體術/身世去想像參戰畫面，而非憑空捏造。
-
-🐛→✅ allyAssistName/pactDefName 都是真實參戰、每回合實際落血的角色(協同強襲/敵盟協防)，但過去aiPrompt 只提過其名字一次，從沒附上 servantCard_——AI 被要求演出他們助攻/馳援的畫面卻毫無性格依據。比照 foeServantCardStr 的既有慣例補上。
-
-🐛→✅ destroyedName 為真時，上方 finalLine 只在數字摘要那行提過一次「已消滅」，下方卻仍會走到line ~1231 那句通用的「演出互有攻防的交鋒」收尾指令——AI 沒被【明確】告知這是終局、於是自行接著編出敵人死而復生繼續攻擊、我方角色詢問「接下來怎麼辦」的續戰畫面(玩家回報「都把對面宰了為啥還這樣敘述」)。這裡補一句不可退讓的終局指令，擋在收尾指令之前。
-
-🐛→✅ 玩家實測抓到更深一層：這句舊版無條件講「defC死了」——若這場其實是我方 atkC 被敵方回擊打死(ourSideDestroyed，此戰仍有其他從者存活、defeat 未必為真)，講法整個講反，AI 收到自相矛盾的事實只能各自表述(玩家回報「我方從者死亡沒告訴AI嗎」)。依 ourSideDestroyed 分流講法。
-
-🗡️ 戰鬥未分生死時，讓從者依性格對這回交手給出主觀判斷/建議——純角色觀察與口吻，不是戰略指令；狂化角色改用肢體/低吼傳達，服從 servantCard_ 已內建的「嚴禁完整台詞」鐵則。
-
-🐛→✅ 玩家實測抓到：「值得乘勝追擊還是該見好就收」這句範例文字太具體，同一場戰鬥拖好幾回合時，模型每回合都套用近乎同一種「要不要撤退/繼續」問句收尾，讀起來像跳針。範例改給更多樣的角度、並點名連續回合別重複同一種。「不可替御主拍板下一步」這條規則 `ourMasterCardStr`(=masterCard_，見下方 aiPrompt 組裝已固定排在最前面)已經講過一次，這裡不重複，省字數。
-
-### `actionNpRespond`　<sub>Router_Battle.gs·收場</sub>
-
-🐛→✅ 2026-09 全面稽核抓到「真名把從者打死了，遊戲卻沒結束」：敵方真名解放的獨立一拍
-若把我方從者打到 0，這裡只把那一列標成 `DEAD_` 就回傳了——沒有雙從者存活檢查、沒有 `defeat`、
-沒有收場的虛假之夢，前端 `npRespond()` 也沒接 `handleDefeat`。玩家從此卡在一個「沒有從者的殘局」裡，
-按什麼都被回「你尚無從者」，而且**不會有任何錯誤訊息**。
-
-同一段邏輯（我方從者全滅才算敗北 ＋ 夢境）在 `fateStrike_` 與 `enemyAmbushOnServant_` 各寫了一份，
-這裡是第三個結算點、漏了。修法不是再抄第四份，是抽成 `markDefeatIfWiped_`（`Router_Narrative.gs`，
-跟 `buildDreamPrompt_` 放一起），三處共用。
-
-🐛→✅ 修完立刻去看**對稱的那一半**，果然也漏了：選「對衝」把【最後一名】敵從者打消滅時，
-`foeDead` 有設、`victory` 沒有——而勝利判定只存在於 `fateStrike_`。敵從者全滅之後玩家再也打不了仗，
-於是**永遠等不到收場**，只能被第 14 日的時限反過來判敗。一併抽成 `markVictoryIfCleared_`，與敗北那支對稱。
-**判準**：看到一個結算點漏了某個終局判定，先去把它的對稱面（勝↔敗、我方↔敵方）也翻一次——
-這類漏接幾乎都是成對出現的。
 
 ### `handleGameAction`　<sub>Router_Action.gs·第 14 日時限</sub>
 
@@ -2298,224 +1634,7 @@ npOverloadMul/overcharge 只設在 atkC 上、不存進 MEMORY，而 sC 是每�
 有交棒就是零額外 I/O，沒交棒又有 clock 才退回整表重讀，快慢跟原本一樣。
 **判準**：狀態要從單一真實來源問，不要從「準備給人看的字串」倒推回來。
 
-### `actionSummonHorror`　<sub>Router_Battle.gs</sub>
-
-🐙 戰前召喚·螺湮城教本：不進戰鬥、先自深淵召出「深淵海怪」變身態（無期限·魔力維持制）。持 summon_horror 的我方從者→付寶具 prana(御主電池·同解放)＋耗 1AP。在場則：以肉身擋傷＋每回合再生＋並肩追擊(每交鋒回合抽 10 魔)＋本體防禦升對城規模；場外每小時另抽 HORROR_HOURLY_UPKEEP 魔(applyRegen_·池赤字時海怪先沉回深淵、才輪到御主燃血)。玩家可隨時「解除召喚」(actionDismissHorror·免費即時)止住時耗；重召須再付全額 prana。★這是「變身框架」的戰前入口——日後其它變身技(靈基二階段等)照此模式加一個 action 即可。
-
-⚖️ 刻意不設「出力 100%」閘(與戰鬥內解放的差異)：戰鬥中解放要全開是「臨戰瞬間灌注」的張力；戰前召喚是不趕時間的儀式詠唱(出力檔本就免費即時可調·設閘只是無意義的點擊摩擦)。prana 全額照付。
-
-🔋 付寶具 prana（御主電池·MP＋焚血）：湊不出則召不動。用 npEffectiveRank_ 與同檔其餘呼叫點一致(單一真實來源)，避免未來 summon_horror 若掛到多寶具英靈身上時算錯魔力費。
-
-2026-07 稽核：改用共用 chargeApOrReject_(1467行已提前擋過門檻，這裡只借它做扣費+算clock；不傳skipWrite——drainForNp_剛才的整列寫回發生在AP扣款【之前】，DAY/HOUR/AP仍需這裡自己的窄欄寫入，跟actionFateBattle那種"稍後還有一次整表寫回"的情境不同，不能省略這次寫入)。
-
-### `setPlayerSeals_`　<sub>Router_Battle.gs</sub>
-
-寫回令咒餘量（回傳更新後的 MEMORY 字串）
-
-🐛→✅ 稽核抓到：makeIntTag_ 泛用 set() 無下限鉗制，且底層【令咒】(\d+) 不支援負號——萬一日後哪處扣點漏做「先擋門再扣」寫出負值，下次讀取會直接配對失敗、靜默退回 defaultVal=3(令咒憑空復活，比單純負值更隱蔽)。比照 setOvercharge_ 同款鉗制，斷絕負值出現的可能。
-
-### `clearDoom_`　<sub>Router_Battle.gs</sub>
-
-🐛→✅ 稽核抓到：結盟只讓Time_World.gs的世界tick跳過死線檢查(isAllied_→continue)，不是取消死線本身；解盟(actionBreakAlliance/breakStaleAlliances_)過去只clearAllyMem_、沒清【靈基透支】——結盟期間絕對時鐘持續前進，死線可能早已過期，一旦解盟isAllied_變false，下次tick立刻讀到過期死線、該敵從者瞬間「令咒耗盡消滅」，敘事跟「剛結束同盟」完全脫節，甚至可能誤觸終局勝利判定。比照actionRuleBreakSteal奪僕路徑同款清法，補上共用清除函式。
-
-### `HORROR_SHIELD_HP`　<sub>Router_Battle.gs</sub>
-
-🐙 海怪護盾 ＝ 深淵海怪的「肉身血池」：螺湮城教本解放後，海怪自深淵現身、以身掩護術師——傷害先扣海怪、海怪潰散後才傷及本體；每回合自深淵汲魔再生；逾時退場。單一真實來源＝MEMORY【海怪護盾】<cur>|<max>|<expiryAbsHour>（三欄·舊兩欄相容讀取）。要擴充「召喚物掩護」類技能：照此 get/set/clear + view 模式複製即可。
-
-### `horrorPresent_`　<sub>Router_Battle.gs</sub>
-
-才輪到御主燃血】(見 applyRegen_)。無期限、玩家可隨時解除。
-
-🐙 變身框架·單一狀態源：海怪是否在場＝現存肉身(cur>0)且(若帶舊制碼表)未逾時。擋傷/回血/追擊/城防 全讀它。★這是「MEMORY 狀態旗標→引擎讀旗標調整攻防」的通用變身範本；日後靈基二階段/化身切換照此複製。
-
-🐛→✅ 稽核抓到：這4支helper(horrorPresent_/clearExpiredHorror_/mealBuffActive_/horrorShieldView_)原本呼叫getClock_都沒傳pcData，每次呼叫端手上明明已有整表卻又整表重讀一次「眾生」——`fateStrike_`每次出擊按鍵最多呼叫近10次，是目前查到影響最大的一處。統一補上可選第3參數pcData透傳給getClock_，呼叫端有pcData就傳、省掉這些重讀。
-
----
-
-## `gas/Router_Bond.gs`
-
-### `actionUseSeal`　<sub>Router_Bond.gs</sub>
-
-🐛→✅ 稽核抓到：舊版每個分支各自 setValues 立即寫回(repair 2次/mana 最多3次/escape 2+N名同行者迴圈內各寫一次)，效果先落地、令咒扣減卻在函式最後才發生——任何一次中途失敗都會讓玩家拿到效果(回滿血/回滿魔/脫離)卻沒真的扣到令咒。比照 actionFateBattle 既有的 BATTLE_DEFER_WRITE_批次寫回引擎(複用、不加特例)：全程只在記憶體改 pcData，函式尾端單次整表寫回，read+write各一次，效果與扣令咒同一次寫入落地，也順手解決了迴圈內逐一 Sheets I/O 的GAS速度反模式。
-
-絕對命令跳過「同意」，好感是否足夠決定這是幸運還是致命：≥MANA_TRUST_BOND_→仍生效但只是「太浪費了」的調侃，複用既有「過充」機制當額外好處；<MANA_TRUST_BOND_→強制壓下意志，解除瞬間積怨反噬直接了結御主，複用既有「假夢→老虎道場」死亡流程(buildDreamPrompt_)不另開一套。
-
-2026-09 整修（玩家「令咒補魔是不是怪怪的」）：①魔力已滿改成擋下——舊版照樣發動、還用 `manaFact` 告訴 AI「純粹是想要」，那是替玩家決定動機；②「太浪費了」的評語拿掉——玩家定案的分工是「令咒有限，羈絆夠時用令咒最划算；真的想補魔又捨不得令咒才 💧 犧牲上限」，所以提示詞講的事實是「拿三道令咒之一換這場供魔，省下的是自己的身體」；③羈絆不夠反噬致死【保留】（玩家定案，原作味），但前端 `confirmSealMana_` 按之前必須把「令咒一散會殺了你、這一局就結束」講明——舊選單寫「魔力瞬間充盈到極限＋羈絆上升」，代碼裡根本沒加羈絆；④提示詞從 300 多字分鏡瘦成事實，效果事實收成 `sealManaFx` 一段兩支共用。門檻 80→60 跟 💧 同一個常數。
-
-🐛→✅ 玩家實測抓到：破戒奪僕可讓玩家合法擁有兩名同行從者(IS_PARTY==="同行")，舊版緊急脫離只搬findPlayerServantIdx_ 挑出的「這一個」，第二名同行從者的 LOC 完全沒被觸碰——燃掉全局僅3道的令咒卻沒真正帶走全隊。比照 actionMove 早就用「所有 IS_PARTY===同行」的迴圈搬人，這裡補上同一套。
-
-### `actionBond`　<sub>Router_Bond.gs</sub>
-
-⏳ 相處耗 1 AP＝推進 1 小時（2026-07 玩家定案·與令咒/偵查同級：相處也要花時間）
-
-🔧 bondAp 非Fate局故意留 null(不同於其餘呼叫點的 AP_PER_DAY 預設)——鑑賞局本就不耗AP，維持原本區別，不硬套 chargeApOrReject_ 的通用預設值。
-
-🐛→✅ 稽核抓到：原本MEMORY單格寫回後，chargeApOrReject_(isFate分支)沒帶skipWrite又對同一pIdx列寫一次DAY/HOUR/AP——高頻動作(相處)每次多1次Sheets I/O。改成MEMORY先只改記憶體、chargeApOrReject_加skipWrite，下面一次整列寫回涵蓋MEMORY+AP/day/hour。
-
-🐛→✅ 舊版又即時讀一次 Sheets 拿「最新羈絆值」，但 raiseBond_(229行) 早已在同一份 pcData陣列上原地改過(svIdx 與 raiseBond_ 內部依名字找到的列是同一列，同 game_id 下從者名字唯一)，pcData[svIdx][COL.PC.BOND] 這裡就已經是最新值，改直接讀記憶體，省一趟純浪費的 Sheets 讀取。
-
-🐛→✅ 舊版給AI「重情者強撐護主、疏離者未必」這種二選一，卻沒講此刻bondNow實際落在哪一邊——GAS早算好這個數字(241行)，比照 actionAllyBond 的tier分級，直接定調而非讓AI自己猜個性夠不夠重情。
-
-🐛→✅ 舊版無條件講「重創」，比照撤退追擊/歇息夜襲同款修法，換算實際傷勢用詞。
-
-⚔️ 卸防突襲：相伴談心時門戶大開，同地若有清醒敵從者→趁隙重擊
-
-🐛→✅ 稽核抓到：雙從者情境下漏帶 svIdx，突襲內部會裸抓「第一位」從者，可能跟這裡敘事引用的「正在相處的這位」對不上(玩家挑第二從者相處，卻演成/打到第一從者)。補帶已解析好的 svIdx。
-
-⚔️ 卸防突襲三分派(單一真實來源 ambushDispatchPrompt_)：normalFn 內再依 milestone 是否命中細分——milestone 的「標記已演出」寫回刻意只在這裡(無突襲)落地，被突襲打斷時故意不標記(留到下次順利相處再演出，不因意外奇襲永遠錯過)，這個既有行為不變。
-
-🐛→✅ 舊版只給「由你自行定調羈絆深淺」這種抽象指令，GAS 明明手上就有 bondNow 這個確切數字(跟 actionAllyBond 的 tier 分級同一套邏輯)，卻沒換算成濃淡定調餵給 AI——比照補上。
-
-🐛→✅ milestone(30/60/90)只用來內部判斷寫回標記，從沒告訴AI是哪一道門檻——三道門檻的量級差很大(30是初次鬆動、90是近乎告白的敞開)，AI卻只拿到同一句「依羈絆的深淺」自己猜，等於GAS明明知道答案卻不講。改成依milestone分流具體量級提示。
-
-### `masterPersonaLean_`　<sub>Router_Bond.gs</sub>
-
-🐛→✅ 稽核抓到：MEMORY是全部跑分狀態tag的大雜燴，其中【從者】/【御主】(硬連結夥伴真名，Seed_Rivals.gs)、【交惡】NAME:day(setEnemyFeud_)等tag會把「第三方真名」原文嵌進MEMORY——loner正則裡的單字「狂」只要MEMORY任何角落(哪怕只是夥伴真名裡剛好有這個字)命中就會誤判，跟這名御主自己的性格設定毫無關係，卻直接餵進結盟意願/挑撥成功率/示好增幅/夜襲權重等實際數值結算。改成只掃PREF/BACK＋MEMORY裡真正屬於語氣類的【口吻】【小動作】【願望】三個tag，排除硬連結/狀態類tag的污染。
-
-### `actionProposeAlliance`　<sub>Router_Bond.gs</sub>
-
-🐛→✅ 這個動作沒改動任何人的 LOC(結盟雙方都仍留在原地)，同款「AI 自行編出離場」風險。
-
-🐛→✅ allianceWillingness_ 內部呼叫 masterPersonaLean_ 算出這名敵御主的性格傾向，卻只拿來算機率、算完就丟掉——同檔案 actionCourtEnemy(628行)已經示範過怎麼把這個傾向轉成具體反應描述餵給AI，這裡卻仍讓AI自己從「務實的權衡/開出條件/冷淡的『暫時』」等泛用選項裡憑空挑一個，比照補上。
-
-🐛→✅ 舊碼「同地任一敵從者」就抓來標盟約——若該地同時有別組敵人(常見，同地點常撞見多方)，會誤把毫無關係的敵從者標成這名御主的從者、AI 也跟著誤演成「他的從者」(玩家回報「俺的御主都開口了????」)。改用 getMasterServant_ 硬連結查真正屬於這名御主的從者，不再靠地點瞎猜。
-
-### `actionBreakAlliance`　<sub>Router_Bond.gs</sub>
-
-🐛→✅ 稽核抓到：結盟期間世界tick跳過死線檢查、不代表死線被取消——若原本掛著【靈基透支】(令咒燒盡瀕死)倒數才結盟，解盟當下若不順手清掉，可能瞬間讀到早已過期的舊死線暴斃。
-
-🐛→✅ 舊版 `!npcName` 條件在缺/空 npcName 時對每個已結盟對象都成立——前端 UI 呼叫此 action 一律帶著明確名字(卡片按鈕/needBreakAlliance 提示皆固定傳值)，但直打 API 漏傳/傳空字串會一次撕毀玩家「所有」現存盟約，而非預期中的「這一個」。改成缺名字直接擋下，不再有全滅副作用。
-
-🐛→✅ 2026-07「整體重構·id優先」：舊版純 nameLoose_ 子字串.indexOf()比對——若npcName恰為另一個已結盟對象名字的子字串(如兩者共用「遠坂」開頭)，會誤把不相干的盟約也一併撕毀。改成npcId對得上時只鎖定該筆(及其硬連結主從)；npcId缺席(舊呼叫/自動重試按鈕沒帶id)才退回原本的loose子字串比對。
-
-🐛→✅ 稽核抓到：上面註解宣稱 npcId 路徑會「鎖定該筆及其硬連結主從」，但從沒真的查過硬連結——actionProposeAlliance 結盟時是主從兩側對稱寫入(428行御主／436行從者各自標【盟約至】)，這裡撕毀卻只匹配被點的那一筆(及跟它同名的列)，另一側完全沒被 isMatch 命中。玩家點某一張盟友卡撕毀後，那一側恢復敵對，另一側(其硬連結主從)卻仍卡在【盟約至】——攻擊被 needBreakAlliance擋下(明明剛撕毀)、突襲/挑撥名單仍排除他、還能被 court_enemy 額外撿到好感，直到自然到期(breakStaleAlliances_)才會清掉，最長可拖約3天。改成跟建盟同款：查目標的硬連結對象名一併比對。
-
-### `breakStaleAlliances_`　<sub>Router_Bond.gs</sub>
-
-🐛→✅ 同actionBreakAlliance同款修法：自然瓦解也可能讓早已過期的【靈基透支】死線在解盟瞬間被讀到，一併清掉。
-
-forceAll(終局逼近)時常一次瓦解多組同盟，MEMORY 整欄一次寫回(取代逐列 setValues 的零散往返)
-
-🐛→✅ 補 BATTLE_DEFER_WRITE_ guard：actionRest 整併寫入時會設此旗標，這裡也該一併略過即時寫入，交給收尾那次整表 setValues 一次到位。
-
-### `actionAllyBond`　<sub>Router_Bond.gs</sub>
-
-🤝 與盟友共處／共濟魔力：對同地盟友（敵御主或敵從者·結盟中）交流增進羈絆——同盟的「交流」維度。原作依據：聖杯戰爭中的同盟羈絆（遠坂凜↔士郎並肩信賴、共通後勤）。羈絆養至 90↑ 只解鎖【摯交】敘事里程碑(見下方)，純敘事高光、無鑑賞入口意義——鑑賞角色一律鑑賞內自行召喚，與 solo 羈絆無關聯。★此處僅止於 SFW 的信賴／曖昧鋪陳（fade）；真・親密一律留給鑑賞世界，絕不在戰場開啟慾海引擎。
-
-🐛→✅ 2026-07 稽核抓到：這裡是全專案唯一還沒補 npcId 精準配的盟友/羈絆 handler，純 nameLoose_比對含全形括號的真名(如「哈桑·薩巴赫（咒腕）」)會被 sanitizeUserData_ 的 cleanChineseName剝掉括號、兩側對不上，導致跟這類正典角色結盟後永遠「此地沒有可交流的盟友」。比照actionCourtEnemy/actionProposeAlliance 補上 npcId 精準配、找不到才退回 nameLoose_ fallback。
-
-🐛→✅ 稽核抓到：本檔手足機制(actionBond的【羈絆日】、actionCourtEnemy的【示好日】)都有「每日一次」節流，唯獨這裡完全沒有——AP足夠(每日12點)可連續呼叫6~7次就把盟友羈絆從40衝到90+，一天內直接解鎖【摯交】里程碑，遠比其餘手足機制「細水長流」的設計節奏快上一整個量級。比照【示好日】同款每對象每日一次節流。
-
-⚔️ 卸防突襲：與盟友交流時門戶大開，同地若有「未結盟」敵從者→趁隙重擊我方從者
-
-🐛→✅ 稽核抓到：雙從者情境下漏帶偏好的 svIdx——前端其實已隨這個action送了 servant/servantId(跟其餘卸防動作同款payload)，這裡卻從沒解析拿來用，突襲永遠打「第一位」從者，可能跟玩家當下出戰/操作的第二從者對不上。比照 actionBond/actionManaSupply/actionSpiritRepair 補上解析。
-
-🐛→✅ 稽核抓到：bumpBond_預設會立即單格寫回aIdx列的BOND，下面【摯交】里程碑命中時又對同一列做MEMORY單格寫回——同列2次Sheets I/O。改skipWrite:true，交給下面單次整列寫回一併涵蓋(含BOND／可能的【摯交】)。※【交流日】戳記後來被提前到突襲分支之前自己寫一次，見下。
-
-🐛→✅ 玩家實測抓到「盟友從者說話像真的是我的從者」——servantCard_「對御主」那段語氣是寫給「自己的契約御主」看的，AI 沒被告知這名從者真正的御主另有其人，順著卡片語氣自己腦補成在跟玩家講契約話語(如「既然契約還在」)。用 getServantMaster_ 硬連結查出他真正的御主名字，明講清楚劃開身分。
-
-### `actionAllyBond`　<sub>Router_Bond.gs·【交流日】戳記的位置</sub>
-
-🐛→✅ 2026-09 全面稽核抓到「被突襲就能無限重按」：「今天已跟這位盟友相處過」的戳記原本寫在函式尾端，
-但中間的卸防突襲分支會提早 `return`——AP 早就扣掉了、回合也用掉了，戳記卻沒落地，
-於是只要每次都被突襲，同一天同一個盟友可以一直共處下去（探針實測 `r1.success=true` 之後 MEMORY 裡的【交流日】仍是空的）。
-戳記現在緊接在 `chargeApOrReject_` 之後就寫（單格寫回 MEMORY），兩條路都蓋得到。
-**判準**：扣了 AP 就代表這一回合已經付過錢，凡是「這回合已用掉」性質的節流標記都要跟扣款黏在一起，
-不可以放在任何可能提早 return 的分支後面。同檔的 `actionBond` 本來就是這個順序（先蓋戳再扣 AP），可以對照。這個形狀已改成機器擋：`check_throttle.py`。
-順帶把 `/【交流日】(\d+)/` 手刻正則收進 `ALLY_BOND_DAY_TAG_`(`makeIntTag_`)，讀寫同一個出口——
-舊的寫法是 `replace(...) + "｜【交流日】" + day`，MEMORY 為空時會生出開頭多一根 `｜` 的字串（跟迴路那邊同款的坑）。
-
-### `actionRuleBreakSteal`　<sub>Router_Bond.gs</sub>
-
-🐛→✅ 稽核抓到：原本先整列寫回nIdx列(帶著raiseBond_調整前的舊BOND)、raiseBond_才又對同一列單格寫BOND——同列2次Sheets I/O。改成raiseBond_(skipWrite)先只改記憶體，下面整列寫回一次到位。
-
-🐛→✅ 陣營改成「從者」卻從沒設 IS_PARTY="同行"——applyRegen_/世界推進的回魔+耗魔只認 IS_PARTY，HUD(playerServantEconomy_) 卻是不論 IS_PARTY、只要 FACTION=從者 就整組算——奪來的第二從者從此在 HUD 上看得到維持費、但實際休息/世界推進根本不會扣他的魔也不會回他的血，兩邊帳對不起來。
-
----
-
 ## `gas/Router_Creation.gs`
-
-### `originGuide_`　<sub>Router_Creation.gs</sub>
-
-🐛→✅ 玩家實測抓到：自訂生成一位「如月尤菲」，寶具卻是克勞德的「超究武神霸斬」。這張表原本只回 `{frame, skill, pnote}`——**三分類只管技能名，寶具名完全沒有來源規則**（`★np：寶具名＋一句威能簡述` 對名字該從哪來一個字都沒說）。模型認出描述裡的名字是 FF7 的 Yuffie Kisaragi，就從同一部作品抓了最有名的那招：它沒認錯作品，它認錯人。三支各補一條 `np`，並把「同一部作品裡別人的招式屬於別人」講成事實。沒填描述、只指定真名那條路是寫死字串、吃不到這張表，同樣補上同一句。
-
-🎭 創角「來源三分類」(origin)→ 角色框定 frame ＋ 技能命名規則 skill。玩家在召喚/工房明講，不靠 AI 猜。fate=Fate 正史角色(忠正史招式名)／anime=其他動漫畫遊戲知名角色(取角色招牌招式名)／original=完全原創(自取花名)。空/未知＝original(維持舊行為·當原創處理)。自訂生成用 frame+skill；工房只用 frame(技能名玩家自己打)。
-
-### `sanitizeSkills_`　<sub>Router_Creation.gs</sub>
-
-🐛→✅ 玩家實測「技能太少」：AI 生成的從者固有技能永遠是 2 個（種子 17 位是 2~6、平均 3.6）。提示詞那句「固有技能 2~3 個」不是真正的錨——**下面的 JSON 範例只示範了 2 筆**，模型照抄的是範例的形狀。範例還寫死 `"n":"自取的招式名"`，在 fate／anime 兩支跟「沿用原著招式名」的指示直接打架。三處一起改：指示 3~4、範例 3 筆且技能名改中性佔位、後端上限 3→4。這條是「例子會固化」（玩家 2026-09 原話）反過來咬人的版本。
-
-🐛→✅ 補 HTML 斷字字元清洗，比照工房 parseForgeBuild_ 對應的技能名稱清洗規則——這是 AI 生成從者(actionSummonServant)唯一經過的技能清洗函式，產出的名稱會永久寫進英靈殿並顯示在戰鬥UI。
-
-清洗 AI 給的技能陣列為 [{n,r,fx}]（fx 不在字典就清空，仍保留為演出用標籤）。r 階級與 sanitizeSix_ 同一套驗證(承認 A++/B−)。maxCount 由呼叫端傳真實預算上限(classSkills 1~2/skills 2~3)，不共用同一個寬鬆值，避免 AI 吐出兩倍於預算的技能數量。
-
-🐛→✅ 舊版連 EX、連帶 +/++/− 修飾符都放行，但 forgeCost_ 的計價表(SKILL_PTS_/_BIG_/_SMALL_/FLAT_FX_)只有 E/D/C/B/A 五個裸階級鍵，EX 或帶修飾符的階級一律落到 `||15` 預設分——比B階(20)/A階(25)還便宜，卻套用真正EX(60點)的戰鬥威力，形同同時放寬驗證又算價算錯。改成比照工房parseForgeBuild_ 對技能階級的精確驗證集合(只認裸 E/D/C/B/A)，不在此集合內一律退回 C。
-
-### `actionManualNpc`　<sub>Router_Creation.gs</sub>
-
-🛡️ 帳號重入防呆：此帳號若已連結一局活著的遊戲(charId 存在且非 DEAD_)，拒絕再建一次——否則 linkAccountToPc_ 會悄悄覆寫帳號的連結指標，把舊角色＋已召喚的從者孤兒化(英靈殿範本不受影響、但這局「進行中遊戲」從帳號視角消失，下次登入變成一場空的 needsSummon，玩家會以為角色跟從者憑空消失了)。合法流程(newGameFlow)本就會先呼叫 account_new_game 清連結才走到這裡，故此擋不影響正常開新局；只堵「create 被異常呼叫第二次」(連點/多分頁/重送)這個從無防護的洞。
-
-🔵 御主名號＝角色名。跨局撞名靠 game_id＋faction 分流無害，只需擋【正典角色名】——避免自創御主與被種入本局的同名正典敵手變雙胞胎（同局內按名字查會歧義）；想當正典角色請走「扮演正典御主」入口。兩側名字都須套 cleanChineseName 正規化再比對（canon 名可能含標點，sanitize 後的 finalName 不含）；SEED_SERVANTS 真名欄位是 `realName` 不是 `name`。
-
-🐛→✅ 撞正典從者真名沒有「扮演」這條路(那個入口只列SEED_MASTERS)，訊息不該誤導去點一個死路——改成單純告知另取名號。
-
-扮演正典御主(playedMaster) 是合法路徑，須排除於撞名擋下之外；驗證 playedMaster 對應真名剛好等於finalName 才放行，避免夾帶不相干 playedMaster id 繞過保護。seedRivalsForGame_ 會排除你扮演的那位不再種成本局敵御主，故不會真的產生雙胞胎。
-
-🎴 御主(凡人魔術師)初始數值：HP/MP 依魔術迴路(財力/身世決定)推算——御主是凡人，遠低於英靈從者。
-
-🐛→✅ masterMaxHpMp_ 本身已補上限，但這裡若直接把玩家原始輸入寫進 MEMORY【迴路】，之後masterPoolMax_ 是另外重新 parse 這個 MEMORY 字串(不會再走 masterMaxHpMp_)算共用魔力池——兩處不同步的話，上限形同虛設。改成算好同一個夾好範圍的值，兩處共用。
-
-🐛→✅ 稽核抓到(比照鑑賞actionEnterKanshou同款漏洞)：只靠前端#s-standing的maxlength=40擋，backend原本沒設長度上限——繞過前端能塞任意長度進BACK欄。補上跟前端一致的上限。
-
-🛡️ 這幾格是玩家自由填寫的文字(sanitizeUserData_只截長度、不擋｜【】——那道清洗只鎖name/npcName等嚴格姓名欄位)，MEMORY是全欄位共用｜分隔的標記格式，比照setOutfit_/setWeapon_同款清洗，避免玩家文字裡剛好帶的｜【】把後面的【模式】【戰爭】【扮演】等系統標記截斷或偽造。
-
-🐛→✅ 稽核抓到：maxLen 原本沒帶，願望(wish)只靠前端#s-wish的maxlength=40擋，backend不設限——補上可選長度上限，願望套40跟前端一致。
-
-🐛→✅ 再一輪稽核抓到：magic/origin/melee/magicRank這4格原本連maxLen都沒帶(靠「這是命運測定擲骰結果、非玩家自由輸入」的假設不裁)——但這假設只在走前端rollFate()時成立，直打API可送入sanitizeUserData_全域上限內(2000字)的任意文字。合法roll值(FATE_MAGICS_/FATE_ORIGINS_最長約10字、melee/magicRank僅E~B單字母)遠短於20字，補上20字上限不會誤傷任何合法roll值。
-
-🐛→✅ 舊版只看 userData.playedMaster 是否有值，沒有同步要求上面第43-44行驗證過的_playingThisCanon(playedMaster id 對應真名須等於 finalName)——玩家選了扮演正典御主、隨後把姓名欄改成任意原創名再送出，仍會殘留【扮演】標記，讓 seedRivalsForGame_ 誤將該正典御主整組從本局敵人名單移除，等於免費刪掉一組對手。改成與撞名檢查共用同一個判準。
-
-### `actionBackfillMasterAi`　<sub>Router_Creation.gs</sub>
-
-🐛→✅ 稽核抓到(比照鑑賞actionBackfillKanshouAi同款漏洞)：這幾欄餵進AI提示詞前也從沒設過長度上限，只靠前端擋，補上跟對應輸入框maxlength一致的上限(appearance30/standing・wish40)。
-
-### `ALLOWED_FX_`　<sub>Router_Creation.gs</sub>
-
-引擎實際吃得到的 fx 字典（AI 生成新從者時從中挑選，確保新角色也能「吃到標籤」）。⚖️ 刻意【不放】頂級概念寶具 fx：ea(乖離劍·對界)／gob(王之財寶)／excalibur／ubw(無限劍製)／summon_horror(海怪)／chain(天之鎖)／wealth(黃金律)——避免玩家一鍵生出「乖離劍氾濫」的破壞平衡從者；也【不放】需專屬 UI/MEMORY 的機制 fx：mage_realm(斯卡蒂可選盤)／rune(符文模式)。這些留給手工種子(SEED_SERVANTS)。其餘中階以下(含施放/防禦/對人放大)已開放，讓自訂/AI 從者的天花板貼近種子。
-
-### `tagSkillKind_`　<sub>Router_Creation.gs</sub>
-
-🏷️ 技能來源標記：寫入 TAGS 前把 classSkills/skills 分別打上 kind('class'/'skill')再合併——四個寫入點(召喚 hero 分支/AI生成分支/種子英靈/敵方鋪陳)合併前都還是兩個分開的陣列，只是合併那刻來源資訊就丟了；提早在這裡標記，前端卡片才能 100% 準確分「職階技能／固有技能」而非用 fx 代碼猜。純顯示用欄位：hasFx_/fxName_ 只認 fx/r，多這個欄位不影響任何戰鬥判定。舊角色(合併時未標記)在前端會退回 fx 代碼表猜測分類，見 Script.html 的 CLASS_SKILL_FX_HEUR_。
-
-### `sanitizeSix_`　<sub>Router_Creation.gs</sub>
-
-清洗六圍：6 鍵齊全、階級合法（E~EX、可帶 +/++/−，承認 A++/B− ——AI 常自發吐 A++）；缺或亂給則補 C。格式合法不代表強度合理：EX 級最多保留 2 項(比照種子最強者的分布，如吉爾伽美什寶具EX/理查一世敏捷EX)，其餘超額降階為 A——否則 recordOriginalHero_ 會把全 EX 角色永久寫回英靈殿供重召，固化成長期破台角色。
-
-### `recordOriginalHero_`　<sub>Router_Creation.gs</sub>
-
-🛡️ 這是唯一寫進共用英靈殿的入口(手動工房已在parseForgeBuild_清過build.name，但AI輔助召喚path的realName可能只清過userData.trueName、AI自己回傳的aiBrief.realName未經任何清洗)——在單一真實來源補一道，兩條路徑都保證進表的名字不含HTML斷字字元。
-
-🐛→✅ 稽核抓到：本函式原本無回傳值，撞名靜默return跟真的寫入appendRow完全無法區分——actionSaveHero(製造模式)不論這裡有沒有真的寫入，一律回報「已鑄入英靈殿」成功。TOCTOU：line 643的查重跟這裡的appendRow之間隔著一次AI呼叫(常達數秒)，兩個幾乎同時的save_hero請求(同名/雙擊重試)都可能通過各自的查重、只有先appendRow那個真的寫入，後者在這裡撞名静默return，玩家卻收到假成功、之後召喚出的其實是對方那份設定。改回傳布林值，讓呼叫端誠實回報。
-
-🐛→✅ 只查NAME不夠：部分種子英靈的id用去標點短名(如「庫丘林-Lancer」)、跟自己的realName(「庫·丘林」)不同——玩家指定的trueName若剛好是那個短名，NAME比對不會撞、但這裡組出的newId(name+"-"+cls)會跟種子id完全相同，下次CODEX_PERSONA_VER升級時upgradeCodexPersonas_會依id覆寫，把玩家原創英靈整列蓋成種子資料。補上id層級的查重。
-
-🐛→✅ 稽核抓到：personaWords(AI輔助召喚路徑傳入的是aiBrief.personality原始值，完全沒經過parseTraitsHelper或任何清洗)沒有長度上限也沒清HTML斷字字元——這裡是「唯一寫進共用英靈殿的入口」，比照上面name的做法補一道，兩條呼叫路徑(工房finalPref/AI輔助召喚aiBrief.personality)一次到位，且會被recordOriginalHero_/日後每次重召/每回合提示詞持續回灌，不擋在這裡就無界污染。
-
-🔑 creator＝編輯權限綁定(actionSaveHero edit 分支靠 pj.creator===acct 擋非本人)；weapon＝武裝敘述。兩者 edit 分支都會保留(line 497)、call site 也都有傳，create 當下卻漏寫→creator 恆空=沒人能改自己的角色、自訂生成的英靈也不綁製作者。補進 persona 這唯一寫入點，工房/自訂生成兩路一次到位。
-
-工房角色創造當下就順手轉好日常版(DAILY_LOOK/DAILY_WORDS)寫進英靈殿，跟種子英靈不同(那 25 人的日常版是 Seed_Codex.gs persona.daily* 手寫欄位，getDailyHeroFields_ 只負責讀、沒有補算路徑)——之後第一次被召喚進鑑賞就直接有現成版本，不必等召喚當下才轉。萌點也同步轉換，避免 heroToKanshouRow_ 把戰時沉重萌點搬進沒打過聖杯戰爭的鑑賞世界。moe 需先算好才能當 hint 傳給 translateLookToDaily_，避免「私密一面」跟萌點撞成同一件事的兩種說法。
-
-### `SKILL_PTS_`　<sub>Router_Creation.gs</sub>
-
-💰 六圍/技能/規模 統一計價（單一真實來源：工房 parseForgeBuild_ 的預算上限檢查、AI 自訂從者的下限保底 bumpSixToFloor_ 共用同一套算式，避免定價邏輯散落兩處各自為政）。skills 不含classSkills——職階技能工房是白送的、不占錢包，AI 生成分支比照排除。
-
-### `FORGE_FLOOR_`　<sub>Router_Creation.gs</sub>
-
-🌀 AI 自訂從者的六圍下限保底：對齊工房 FORGE_BUDGET(340)——AI 常自己抓不準力度，光靠 prompt 措辭拜託「務必有強有弱」擋不住偶爾生出偏弱從者，這裡改成 GAS 硬性補強：算完低於下限就把最弱一項六圍逐階往上補，直到達標或撞 EX≤2 上限(見 sanitizeSix_)為止。同樣不算職階技能(見上，工房也不算)。
-
-### `capSixToBudget_`　<sub>Router_Creation.gs</sub>
-
-🐛→✅ 舊版只擋「太弱」(bumpSixToFloor_)沒擋「太強」——工房 parseForgeBuild_ 超預算會直接`return {ok:false,...}` 拒絕重填，但 AI 生成沒有「打回重填」的來回，若 AI 一開始就給出偏強六圍+技能(prompt 明講「不得保守低估」很容易誘發)，完全沒有後續檢查會擋下，可無上限超出工房任何職階都拿不到的預算天花板。改成比照 bumpSixToFloor_ 反向：超過上限就把最強一項六圍逐階往下砍，直到達標或砍無可砍(全部已是 E)為止；上限比照 parseForgeBuild_ 的 clsBudget 概念，共用 FORGE_CLS_BONUS_ 讓 Berserker 補正對稱。
 
 ### ~~`parseForgeBuild_`~~（2026-09-24 隨舊英靈工房已移除，新工房見『WAR_FORGE_』）　<sub>Router_Creation.gs</sub>
 
@@ -2549,266 +1668,11 @@ Berserker 職階附贈狂化C(傷+但命中/迴避−·不可關)是唯一負資
 
 🐛→✅ 稽核抓到：line 643的查重跟AI呼叫(651-654，常達數秒)之間有TOCTOU競態窗口——兩個幾乎同時的save_hero請求可能都通過各自查重，只有先寫入appendRow那個真的成功，後者在recordOriginalHero_內部撞名靜默return false，卻原本一律被這裡回報「已鑄入」成功。誠實回報。
 
-### `actionSummonServant`　<sub>Router_Creation.gs</sub>
-
-🐛→✅ 稽核抓到：跟同檔工房路徑的_fClean(515行，清<>&"'`｜【】)不一致，這裡只trim+截斷，沒清｜【】——這段文字會原樣嵌進送給AI的召喚提示詞(808~822行，同樣用【…】/★標記真正指令)，玩家可塞偽裝的【…】字樣混淆AI。補上同款字元清洗，維持全代碼庫「會進AI提示詞的自由文字都清這組符號」的一致慣例。
-
-🐛→✅ sex 舊版沒有白名單驗證(工房 parseForgeBuild_ 早有 ["男","女","異"].includes(...) 檢查)，AI 吐出的任意字串會原樣通過並永久寫進英靈殿，往後任何讀取點都得自己防禦這個不可信欄位。
-
-🐛→✅ 只補下限沒補上限——AI 常被 prompt「不得保守低估」誘導生出偏強六圍/技能組合，比照工房 parseForgeBuild_ 的預算硬上限，改成超標就砍最強一項六圍，直到落回預算內。
-
-🐛→✅ 同工房路徑，補 HTML 斷字字元清洗（原本只做長度截斷）。
-
-🐛→✅ 玩家反饋：這裡原本完全不生成外貌(直接套通用預設「外貌出眾、舉止從容…」)，逼玩家自己用逆天改命補——現在跟 aiBrief.look 一起生成，缺的話才退回同款通用預設。
-
-🐛→✅ 稽核抓到：跟classSkills/skills不同，traits在這裡沒經過陣列型別檢查——若英靈殿這欄被手動編輯成合法JSON但非陣列(如物件)，會原樣寫進新召喚從者的TAGS，讀取端(rowToCombatant_)雖已補上Array.isArray防線不會再讓戰鬥崩潰，但這裡仍順手擋住，不讓壞資料繼續往前傳。
-
-🌀 名冊查無 → AI 即時生成「第一級從者」：含真實六圍階級＋帶 fx 的技能（吃得到標籤）🎭 自訂描述且玩家未指定職階(reqCls空)→職階交給 AI 依描述判斷，不再死綁 Saber。舊版恆 cls=reqCls||"Saber"：沒特別選職階的自訂生成，無論描述寫什麼，職階永遠是 Saber(玩家回報「難怪我自創一堆Saber」)——描述完全無法影響職階，AI 也從未被要求挑選。
-
-🐛→✅ 舊版沒清 HTML 斷字字元、沒封頂長度——工房路徑(parseForgeBuild_)對 out.name 有.replace(/[<>&"'`]/g,"").trim().slice(0,20)，這裡完全沒有；recordOriginalHero_ 內部雖然也會清洗，但那是函式內的區域變數副本(JS 字串傳值)，不會回寫外層 realName——導致「這局實際使用、寫進戰鬥狀態的名字」跟「寫回英靈殿供未來重召的名字」不一致，前者還完全繞過 HTML 斷字防線。
-
-npAtkScale_ 讀 np 字串關鍵字算規模——AI 自訂寶具最高「對軍」，對城/對界/對神為種子專屬(堵字串後門)。【常駐寶具】標記同理為種子專屬(B叔/玉藻)，混入會讓從者自己的💥被鎖死，故一律剝除。🐛→✅ 補上 HTML 斷字字元清洗，比照工房 out.npName/out.npDesc 的既有規則。
-
-🐛→✅ 玩家實測抓到「Berserker 身上多一個像符文技能的職階技能」——舊版讓 AI 自己生 classSkills，prompt 只講「貼合職階慣例」是軟性建議、擋不住 AI 額外發明一個不屬於該職階原型的技能(如替Berserker 加一個道具作成系的「召喚騎士」)。改成比照工房：職階技能由 GAS 依 FORGE_CLS_SKILLS_直接指派、不再問 AI，徹底杜絕跑題；AI 只需專心生「這名英靈個人」的固有技能(skills)。
-
-不重名的原創從者寫回英靈殿(含六圍/技能fx/特性)，日後可重用。pExtra 需帶 moe——否則永久記錄(persona.moe) 是空字串，若日後被邀進鑑賞會無從轉出日常萌點。
-
-🐛→✅ 舊版 pExtra 沒帶 back——工房路徑(actionSaveHero)完整傳了 back，這條 AI 生成路徑卻漏傳，即使這局「當下」的從者列(row[COL.PC.BACK])明明已經有值：recordOriginalHero_ 內對缺欄位的處理是空字串，這名原創英靈永久寫回英靈殿的 persona.back 因此恆為空，之後任何重新召喚都會落回泛用預設值「職階・真名」，AI 當初生成的身世徹底遺失，工房編輯清單上也永遠看到空白欄位。
-
-look 一併存進 persona——之後日常版轉換(translateLookToDaily_)跟重新召喚都吃得到這次AI生成的外貌，不再永遠停留在通用預設(見上方 TRAIT 賦值處的同批修正)。
-
----
-
-## `gas/Router_Economy.gs`
-
-### `actionManaSupply`　<sub>Router_Economy.gs</sub>
-
-🐛→✅ 此分支原本只附敵從者的卡(foeCard)、沒附我方御主/從者的卡，卻要求AI演出「${svName}」依性格反應——毫無依據；也從沒告訴AI補魔本身(迴路/血上限燒蝕、回滿魔力)其實已經結算完成，AI只收到「被突襲打斷」的訊息、容易演成補魔沒做成，跟已經回滿的魔力池數字矛盾。兩者一併補上。
-
-🐛→✅ 稽核抓到：servantCard_(pcData[svIdx])跟a.foeCard(enemyAmbushOnServant_已內建收尾)疊加時沒傳skipClose，會出現兩段幾乎重複的show-don't-tell收尾句——比照本session其餘同款疊卡呼叫端(Router_Battle.gs/Router_Movement.gs)修法：己方卡skipClose，最後用performanceNote_合併收尾一次。
-
-此分支只在好感≥門檻且魔力見底時走到——從者是真心信任、主動託付的，敘述可更直接大膽；篇幅也拉長(前端manaSupply()的unlocked旗標→narrate(...,{longForm:true})→後端加大 max_tokens，模型不變)。
-
-性別事實與令咒兩支分支共用同一顆 sealGenderFact_(見Router_Persona.gs)，避免AI寫錯視角性別。
-
-### `actionSpiritRepair`　<sub>Router_Economy.gs</sub>
-
-🩹 靈基修復：消費共用魔力池為從者療傷，不燃令咒、可重複使用，但吃掉的池本可拿去放寶具/衝高出力，形成「現在回血還是留著打」的即時取捨。與令咒選單裡一次性全滿版(❖ 絕對修復)刻意區隔，那是孤注一擲，這是常態手段。
-
-🐛→✅ 同款缺漏：沒附我方御主/從者的卡，也沒講療傷本身(回復${healed}點)其實已經結算完成。
-
-🐛→✅ 稽核抓到：同actionManaSupply款——servantCard_疊a.foeCard(已內建收尾)沒傳skipClose會雙重收尾句，改己方卡skipClose、performanceNote_合併收尾一次。
-
----
-
-## `gas/Router_Movement.gs`
-
-### `actionMove`　<sub>Router_Movement.gs</sub>
-
-🐛→✅ 稽核抓到：這裡只驗證地名是否存在於全坤圖，完全沒套用buildMapNodesPayload_/getNearbyLocations/enemyRetreatLoc_都有的【戰爭】標記過濾——前端節點選單雖只列出符合本局戰爭的地點，但直打API帶戰爭限定地點名(如非第四次局的「海特飯店」)仍會被這裡放行完成整趟移動，把玩家傳送到依設計對本局根本不存在的地點。比照手足函式同一套規則補上。
-
-🐛→✅ 目的地＝當前所在地：地圖節點/故事內文的地名連結都沒擋這個案例(點自己所在的◈節點一樣可觸發travelTo)，此路徑會白耗 2 AP、跑一輪世界推進與抵達敘事，卻哪裡都沒去——原地無意義的「移動」。
-
-🐛→✅ 稽核抓到：窗口只鎖 loc+type，從沒比對 win.names(該局面實際牽涉的那兩名敵從者)——同地若撞見的是「三方以上」混戰(clashMasters無2人上限)，窗口只記錄隨機挑中的那兩名敵人對峙，第三組完全無關的敵從者從未被分心，卻因為同一個loc+type的窗口存在而讓玩家一併悄悄溜走，繞過下面的needRetreat硬性攔截。改成：悄悄離開只豁免「窗口點名那兩位」，同地若還有其他未被點名的能戰敵從者，依然視為未分心、照樣強制走撤退。
-
-🏃 追擊機制已【全數轉移到撤退按鈕】(玩家定案)：唯有 isRetreat（殺出重圍）才觸發追擊——一般移動遇敵已被上方needRetreat 擋下（強制走撤退），遇不到敵則本就無人可追，故不再有「機率性離場追擊」這條路徑。🏰 從自己陣地離場享安全港·不被追擊(_atOwnHome)——即便按了撤退，主場結界也掩護你從容抽身。
-
-🐛→✅ 舊版無條件講「堪堪擋開」(千鈞一髮)，但 prT(foe的寶具骰)其實已經算出這次躲得有多輕鬆——命中值(prT.aHit)跟迴避值(prT.dEva)差距大時根本不算「堪堪」，跟後面的骰子margin矛盾。
-
-🐛→✅ 舊版無條件講「重創」，但 pr.damage 可能只是 Math.max(1,...) 的地板值(輕傷)——GAS明明知道這擊佔從者上限多少比例，卻沒換算成對應的傷勢用詞餵給AI，讓文字跟血條可能對不上。
-
-🐛→✅ 玩家實測抓到：「沒能全身而退」讀起來容易誤解成「撤退失敗、沒能脫身」，但這場撤退本就必定成功抵達目的地(只是途中挨了一記)——改成明確講「帶傷脫身」，不再有歧義。
-
-🐛→✅ 舊文案「燃令咒疾追」把這場【每次撤退必定觸發、不設機率】的追擊，寫成敵方燒了一道令咒——但令咒是全局僅 3 道、真正花費時會扣減 leftSeals 的稀缺資源(見 Router_Battle.gssealEscaped)，這裡從沒動過那個計數，純屬掛羊頭的敘事詞，卻讓玩家每撤退一次就以為對面燒掉一次奇蹟(玩家反應「?!」)。改成不涉及令咒的純體能追擊措辭。
-
-note 必給——worldRumors 只在 pursuit.note 存在時才推播戰報，缺了 note 扣血就看不出原因。
-
-傳 allPcData 給 worldTick_/breakStaleAlliances_ 原地改(陣列傳參考)，免事後重讀整表拿 tick 後狀態。
-
-🐛→✅ 補最後一個 deferWrite=true 參數：worldTick_ 舊版不管有沒有人要求都會自己即時寫回
-
-LOC/HP/MEMORY/MP，本函式結尾(340行)又整表 setValues 一次，同一批值等於送進 Sheets 兩次——
-
-幾乎每次移動都會踩到(敵35%機率移位、敵御主每日回魔)。傳 true 讓 worldTick_ 只改記憶體，交給
-
-這裡收尾一次寫完。
-
-🐛→✅ 玩家實測抓到：這張追兵卡常常跟抵達場景的己方/敵方servantCard_同框——skipClose，讓下方 perfNamesMove 一併收進統一收尾(pursuitChaserName 供尚未宣告的 perfNamesMove 稍後合併)。
-
-🐛→✅ 舊版固定只挑 clashMasters[0]/[1]，同地若有 3 組以上敵御主，第 3 組以後永遠沒有機會演出這場「敵營動向」——改成從全部在場組別中隨機挑一對，多組時輪流有機會登場。
-
-🐛→✅ 舊版用 indexOf("【御主】"+mN) 子字串比對，同地若某敵御主真名恰為另一人的前綴(如「Illya」vs「Illyasviel」)會誤配硬連結——改用單一真實來源 getServantMaster_(嚴格切到下個｜分隔符)取出的完整真名做精確比對。
-
-🎭 隨行從者的「演出依據」卡（含狂化禁言/口吻），供前端抵達敘事讓從者真的在場、有反應，不是御主獨白
-
-🐛→✅ 玩家實測抓到：抵達場景常同框我方從者＋同地多名敵人＋撤離追兵，可能有3張以上servantCard_，每張各自帶一份完整收尾句——全部skipClose，收集這場戲實際出現的真名，perfNamesMove統一收尾一次。
-
-🎭 在場敵從者/敵御主人設卡餵給抵達敘事，讓敵人依性格反應而非 AI 即興通用反派；servantCard_ 對敵從者一樣適用(低羈絆→戒備敵意)。🐛→✅ 原本只餵敵從者的卡——若目的地只有孤身敵御主(從者已死/在別處)，或有兩方敵御主互動的場面，AI 對這名敵御主毫無性格依據，只能即興通用反派。補上 enemyMasterCard_(比照戰鬥路徑的用法)。
-
-🐛→✅ 併入撤離追兵真名（若有）——同框素材統一收尾一次，避免 pursuit.foeCard 自帶的收尾句重複出現
-
-🐛→✅ 玩家實測抓到的同類問題：同地若同時有 ≥2 組敵人(各自帶從者)，舊版把每張卡原樣串接、完全沒標「哪張從者卡屬於哪張御主卡」，AI 沒有配對依據可能把 A 組從者的台詞演成對 B 組御主講。只在同地確實有 ≥2 位敵御主時才加標籤(單組場面維持原樣、不增加噪音)，用硬連結【御主】tag 標出真正歸屬，而非同地任一比對。
-
-🐛→✅ 舊版無條件講「情勢緊繃」，GAS 明明算出 allyPeril.hpRatio 卻沒依實際血量分級——比照修正。
-
-🐛→✅ 同批修正：漏傳戰爭標記會讓第四次限定地點(海特飯店等)混進撤退突圍/鄰近地點清單。
-
-### `actionRest`　<sub>Router_Movement.gs</sub>
-
-🐛→✅ 稽核抓到：世界自走輪數用 Math.floor(restHours/3)，只對{1,3,6}(前端openRestMenu()唯一提供的三個按鈕值)這組設計值正確對齊(1h:0/3h:1/6h:2)；舊版clamp卻放行1~12任意整數，直打API傳4/5/7/8/10/11這類非3倍數值時，AP/HP/MP回復跟時鐘照樣吃滿完整restHours，世界模擬輪數卻被floor砍掉餘數小時份——同樣的世界風險換到更多回復量與時間推進，形同可鑽的失衡缺口。改成白名單收斂到公式實際設計覆蓋的值，不再仰賴前端按鈕巧合對齊。
-
-🐛→✅ 舊版這裡先整表寫一次(只含時回結果)，緊接著 restHours_/worldTick_/breakStaleAlliances_
-
-又各自即時寫入同一批列——單次休息最壞可疊到3~5次個別Sheets寫入。改成這裡先不寫，開
-
-BATTLE_DEFER_WRITE_ 讓下面三支只改記憶體，等三者都跑完後一次整表寫回(見下方收尾)。
-
-🐛→✅ 舊版無條件講「重創」，GAS 明明已算出 svHpMax/dmg 卻沒換算成實際傷勢用詞——比照撤退追擊同款修法。
-
-世界已在同一份 pcData 上 tick 完，直接沿用即可判夜襲，不必重讀整表。
-
-⚔️ 卸防突襲：當敵蹤同地時休息＝酣睡門戶大開，最為兇險（mul 1.5）
-
-🐛→✅ 稽核抓到：漏帶偏好的 svIdx，雙從者時突襲永遠打「第一位」從者，比照 actionBond 等補上。
-
-### `actionPrepMeal`　<sub>Router_Movement.gs</sub>
-
-🐛→✅ 稽核抓到：原本先整列寫回(帶著扣AP前的舊AP)、chargeApOrReject_才扣AP，讓它內部那道3欄窄寫又補寫一次——同一列兩次Sheets I/O。改成先扣AP(skipWrite跳過內部窄寫)、扣完AP的最終狀態再整列寫回一次，跟actionFateBattle同款省I/O寫法。
-
-🐛→✅ 這是本檔唯一沒交棒 STATE_PRE_DATA_ 的耗AP動作(其餘 actionScavenge/actionScout/actionSetWorkshop/actionSecondWind 等皆有)——平時不影響任何東西(prep_meal 不在STATE_AFTER_ACTIONS 名單內)，但若這動作剛好跨過第14日時限，Router_Action.gs 的中央攔截拿不到交棒的 pcData 會多做一次整表重讀，跟其餘動作行為不一致，順手補上。
-
-### `resolveFactionEncounter_`　<sub>Router_Movement.gs</sub>
-
-🎭 撞見兩方敵人的可能局面（資料驅動·GAS 擲、AI 演）。取代舊「永遠互毆→見你停手」單一劇本：依雙方御主性格投契度（masterPersonaLean_）＋從者傷勢＋戰局殘敵數，擲一種局面；HP 餘傷／敵敵盟約等後果由 GAS 落地寫進 allPcData，note 只給 AI 當演出事實。回 factionClash {type,aMaster,bMaster,loserName,note}。加局面＝往權重表 W 加一項＋switch 補一段 note，引擎自動吃。
-
-### `playerAmbushOnEnemy_`　<sub>Router_Movement.gs</sub>
-
-🐛→✅ 玩家實測抓到：foeCard 跟呼叫端的己方servantCard_各自帶一份收尾句——這裡skipClose，呼叫端(actionPlayerAmbush)組完兩張卡後用performanceNote_()統一講一次。
-
-🐛→✅ 稽核抓到：survive跟god_hand結構性互斥(見fateStrike_同款規則)，這裡原本沒排除god_hand——同時持有兩者時survive會搶先頂血，god_hand的after<=0判斷永遠進不去，燒命帳目跟主戰鬥路徑對不上。
-
-🥷 趁隙偷襲：撞見敵人分心（殺紅眼/對峙/談判/剛結盟）時，我方從者搶一記奇襲。複用 resolveFateBattle_ 的 ambush 先機，鏡射 enemyAmbushOnServant_ 反向版：命中才傷、奇襲加乘、處理敵死亡(DEAD_/無牙御主/勝利)。回 out 物件（err＝不合法）。
-
-🐛→✅ 稽核抓到：舊版用裸findIndex永遠挑表列第一個在世從者出擊，跟fate_battle/bond/use_seal等十餘處呼叫端同樣讀userData.servant/servantId、透過findPlayerServantIdx_尊重玩家UI切換的「出戰從者」形成不一致——雙從者玩家切到後奪來的第二從者，這裡仍會派原從者出手，UI操作形同無效。補上wantSv/wantSvId兩參數，改用單一真實來源findPlayerServantIdx_。
-
-### `setEncounterWindow_`　<sub>Router_Movement.gs</sub>
-
-🎯 撞見敵人後的「可反應窗口」：御主 MEMORY【趁隙】<loc>@<type>@<svA>、<svB>。決定抵達這格開放哪些情境選擇。窗口在「再次移動」時清掉（悄悄離開）或被下一次抵達覆寫；趁隙/挑撥用掉即清。
-
-🐛→✅ names 補上這場局面實際牽涉的兩名敵從者真名——舊版只存 loc@type，actionIncite 事後靠陣列順序重新猜「前兩個」敵從者，同地若有第三組完全無關的敵人排在更前面，會被誤挑撥/誤傷，跟玩家剛讀到的敘事(哪兩個在對峙)完全脫鉤。有 names 就精確鎖定，缺 names(相容舊呼叫)才退回猜測。
-
-### `actionFactionAmbush`　<sub>Router_Movement.gs</sub>
-
-🐛→✅ 稽核抓到：chargeApOrReject_原本沒skipWrite，內部窄寫(AP/day/hour)後緊接著下一行又整列寫回同一列——同一列兩次Sheets I/O。補skipWrite:true，讓下面這次整列寫回一次到位。
-
-🐛→✅ 舊版命中就無條件講「重創」，GAS 明明算出 eHpMax 卻沒換算實際傷勢比例——比照其餘兩處撤退/夜襲同款修法。
-
-🐛→✅ 稽核抓到：這裡只驗證窗口loc+type，從沒比對win.names——同地若有「窗口點名兩人之外」的第三方敵從者，原本也能被targetName指到、白吃趁隙偷襲加乘，但對方根本沒被這場對峙分心過。比照actionIncite既有的win.names鎖定寫法補上。
-
-### `actionIncite`　<sub>Router_Movement.gs</sub>
-
-🐛→✅ 稽核抓到：舊版loIdx/wiIdx/mIdxA/mIdxB各自立即setValues(最多4次)，改成全程只改記憶體，跟函式尾端bumpBond_(skipWrite)/chargeApOrReject_(skipWrite)一起併入下方單次整表寫回。
-
-🐛→✅ 稽核抓到：chargeApOrReject_原本沒skipWrite，內部窄寫後下一行又整列寫回同一列，同一列兩次Sheets I/O。補skipWrite:true，讓下面這次整列寫回一次到位。
-
-🐛→✅ 稽核抓到：舊版loIdx/wiIdx/mIdxA/mIdxB各自立即setValues、bumpBond_也各自立即setValue，成功分支最多6次Sheets I/O往返——現全程只改記憶體pcData，這裡單次整表寫回一次到位。
-
-🐛→✅ 舊版固定取 foeSvs[0]/[1](陣列/試算表列序)，跟玩家剛讀到的敘事(resolveFactionEncounter_實際挑中哪兩組)毫無關聯——同地≥3組敵人時，可能挑撥/傷到敘事完全沒提到的第三組。win.names帶著那場敘事真正牽涉的兩個真名，優先用真名精確比對；缺 names(相容舊窗口)才退回陣列順序猜測。
-
-🐛→✅ 稽核抓到：win.names查無時原本會退回foeSvs[0]/[1]陣列順序猜測——正是這支函式要修的那個bug本身，只是換一種觸發方式(點名的兩位已死亡/離場，但同地還有≥2組完全無關的第三方敵人)。已經有明確真名可查證時，查無就該直接拒絕，不再退回瞎猜。
-
-🐛→✅ 挑撥離間指名兩個具體角色、要求AI演出他們反目/合流戒備的性格化反應，卻從沒附上他們的演出依據卡(比照唯一姊妹路徑 actionFactionAmbush 已有的 servantCard_+foeCard 慣例)。
-
-🐛→✅ 玩家實測抓到：兩張卡各自帶一份完整「怎麼演」收尾句——skipClose後用performanceNote_()講一次。
-
-### `detectAllyPeril_`　<sub>Router_Movement.gs</sub>
-
-🐛→✅ 舊版回傳沒帶血量，呼叫端只能無條件講「情勢緊繃」——GAS明明有這名盟友的HP/上限，卻沒算成緊急程度餵給AI，導致95%血量從容應對 跟 8%血量命懸一線 讀起來一樣嚴重。
-
-### `enemyAmbushOnServant_`　<sub>Router_Movement.gs</sub>
-
-🐛→✅ homeRank(D~EX)是GAS已經算出的陣地規模事實，舊版卻沒換算成強度用詞——同一句「優雅擊退」套在陽春D階土壘跟EX階空中庭園級結界上，AI完全分不出差異，讀起來千篇一律。
-
-⚔️ 卸防突襲：在同地有清醒敵從者時做「補魔／羈絆／休息」等卸下防備之舉，會招致敵從者趁隙重擊我方從者（氣息遮斷／暗殺職階更致命）。回 null＝無敵不觸發；否則 {enemyName,dmg,defeat,dreamPrompt,after,stealthy}。preferSvIdx(選填)：呼叫端若已用 findPlayerServantIdx_ 選定「玩家當下操作/提及的那位從者」(如 actionBond/actionManaSupply/actionSpiritRepair 的 svIdx)，這裡優先打這位；驗證仍為存活我方從者才採用，否則(未提供/驗證失敗)退回原本「同局第一位存活從者」的預設。🐛→✅ 稽核抓到：雙從者(rule_break_steal奪到第二名)情境下，這裡舊版永遠裸找「第一位」從者，跟呼叫端敘事引用的「玩家當下相處/供魔/療傷的那位從者」完全脫鉤——玩家選第二從者操作時，敘事文字說是它遇襲/陣亡，實際扣血/標記陣亡的卻是第一從者，兩者矛盾且從者身分張冠李戴。
-
-🐛→✅ 玩家反應「不可能每次休息/補魔/結盟都是打我吧」——舊碼不論好感一律突襲，跟移動路徑既有的「BOND≥50＝友好·不追殺」門檻(見上方 actionMove 的 hostile check)不一致：已經養出交情的敵從者沒理由每次都翻臉偷襲。門檻對齊同一顆常數，友好者這裡直接視為無敵可趁。
-
-🐛→✅ 稽核抓到：survive跟god_hand結構性互斥(見fateStrike_同款規則)，這裡原本沒排除god_hand——同時持有兩者時survive會搶先頂血，god_hand的after<=0判斷永遠進不去，燒命帳目跟主戰鬥路徑對不上。
-
-🐛→✅ 稽核抓到：反擊方svR漏注禮裝(injectMysticBuff_)與御主體術/魔術支援(injectMasterSupportFor_)，對照鏡射函式playerAmbushOnEnemy_(831-833行)兩者皆注——同一段代碼裡敵方eDefC卻正確拿到支援，形成不對稱，禮裝越貴/御主養得越好的玩家在這條合法防禦機制裡傷害被系統性低估。
-
-🐛→✅ 這支從沒附上入侵者的演出卡(servantCard_)，指令又寫死「語氣留白」——AI 完全沒有這名敵從者的性格/口吻依據，只能寫成無聲的暗影，玩家回報「對方沒有對話??」。四個突襲呼叫端(休息/羈絆/結盟/補魔)都吃這支函式的回傳，補一次就四處一起修好(單一真實來源)。
-
-🎲 卸防時刻的敵方反應多樣化（玩家回饋「不可能每次都是打我」）：不是每次都直接開打——依這名敵從者的職階/性格擲一次，多數仍是偷襲(維持既有的臨場威脅感)，但狂化(無法言語)／暗殺(本色即偷襲)以外的職階，有機會按兵不動觀望、或帶著戒心試探接觸(無戰鬥、羈絆小幅變動)。
-
-### `actionSetWorkshop`　<sub>Router_Movement.gs</sub>
-
-🐛→✅ 稽核抓到：原本先整列寫回(帶著扣AP前的舊AP)、chargeApOrReject_才扣AP，內部又補寫一次——同一列兩次Sheets I/O。改成先扣AP(skipWrite跳過內部窄寫)，最終狀態再整列一次寫回。
-
-### `actionScavenge`　<sub>Router_Movement.gs</sub>
-
-🐛→✅ 稽核抓到：原本先整列寫回(帶著扣AP前的舊AP)、chargeApOrReject_才扣AP，內部又補寫一次——同一列兩次Sheets I/O。改成先扣AP(skipWrite跳過內部窄寫)，最終狀態再整列一次寫回。
-
-35% 機率察覺鄰近敵蹤（揭露一名最近的未偵查敵）——搜索的真正價值在情報
-
-🐛→✅ 稽核抓到：舊版直接掃全表第一個未SEEN的敵蹤，沒有比照姊妹函式actionScout做「範圍限定(當前+鄰近地點)」與「hasArrived_登場日閘門」——會把地圖另一端、甚至本局劇本尚未登場的敵情提早揭露，跟訊息文字「附近/一帶」自相矛盾，也繞過戰爭迷霧設計。補齊同一套規則。
-
-### `homeTerritoryRank_`　<sub>Router_Movement.gs</sub>
-
-🏰 主場陣地判定：玩家於【自己佈設的陣地】迎戰 → 回主場結界階(供減傷/反擊)；不在自己陣地回空。★任何人親手設的陣地(結界/機關/監視術式)都給【基礎 D 階】主場防禦——這是「設置陣地」對所有人承諾的「敵襲反被擊退／安全港」；隊上若有【陣地作成】從者則升到其階(C/B/A/EX·空中庭園級)、結界更強。(2026-07 修：舊版沒陣地作成從者就回空→無陣地作成的玩家設了陣地卻毫無防禦、被敵直接突襲，與承諾不符。)
-
-### `actionScout`　<sub>Router_Movement.gs</sub>
-
-🐛→✅ 同批修正：漏傳戰爭標記會讓偵查範圍納入第四次限定地點(海特飯店等)，白掃一個本局根本不存在的地點。
-
-🐛→✅ 稽核抓到：舊版漏了hasArrived_「尚未登場」日期閘門——對照buildMapNodesPayload_/actionMove等其餘所有敵蹤可見性判斷都會擋這道，唯獨這裡漏掉，會把還沒登場的敵御主/敵從者真名+地點提早洩漏給玩家與AI敘事、還永久標記SEEN，形同繞過戰爭迷霧設計。
-
----
-
-### `getScavengedLocs_`　<sub>Router_Movement.gs</sub>
-
-🔍 搜索物資：偵查鄰近敵蹤為主，順手撿拾零星魔力（耗 1 AP）⚠ 反「無痛回魔」：每地的散逸魔力有限，搜刮一次即枯竭——同地重搜只得殘渣。想真正回滿池要付永久代價(補魔)或靠時間(靈脈/陣地/休息)。標記記於 MEMORY【搜刮】loc1、loc2...(已枯竭地點清單)。
-
-🐛→✅ 舊版用 makeTextTag_ 只能存「單一」最近搜刮地點，玩家在A、B兩地間來回搜刮可無限白嫖：搜A(標記枯竭=A)→搜B(標記被覆寫成枯竭=B，A的枯竭紀錄就此消失)→回搜A又被當成全新地點、領滿額——跟註解自陳的「同地重搜只得殘渣」設計意圖矛盾。改成存「所有已枯竭地點」清單、用 indexOf 判斷是否曾搜過，而非跟單一最近值相等比對，才是真的「每地限一次」。
-
 ## `gas/Router_Narrative.gs`
-
-### `buildDreamPrompt_`　<sub>Router_Narrative.gs</sub>
-
-🐛→✅ 舊版寫「第二人稱」，跟這段敘事同樣要吃的 miniSystem 規則1(當時是旁白第一人稱「我」、禁用「你」)直接矛盾——當時改成一致的第一人稱。⚠ 2026-09 整套翻面：miniSystem 規則1 已改成第二人稱「你」＝玩家，這兩支夢境提示詞跟著回到「你」。
-
-### `buildVictoryDreamPrompt_`　<sub>Router_Narrative.gs</sub>
-
-🐛→✅ 同 buildDreamPrompt_，「第二人稱」跟當時的 miniSystem 規則1(旁白第一人稱「我」禁用「你」)矛盾，改一致。⚠ 2026-09 規則1 已翻面成第二人稱，兩支同步改回「你」。
 
 ### `stripLeakedScaffold_`　<sub>Router_Narrative.gs</sub>
 
 防禦性過濾：miniSystem 本身充滿 ★指令/〈演出卡〉等鷹架符號，小模型偶有機率把提示詞格式原樣「回音」進輸出，讓玩家讀到突兀的系統指令。正常敘事只會是純散文+<br><br>、不合法含這兩種符號，故清除不會誤傷。⚠ 刻意不清【標籤】：callGeminiAPI 失敗時的柔性 fallback 文案本身就刻意用【】當視覺標籤顯示給玩家，一併清掉會弄巧成拙。
-
-### `narrateWithState_`　<sub>Router_Narrative.gs</sub>
-
-🩸 自動附「當前狀態」(御主＋在場從者 HP/MP)，敘事才連貫(剛被爆打後該寫狼狽、非沒事人)。讀不到就略過。
-
-順帶組「軌跡骨幹」(buildTrajectoryDigest_)，沿用同一次整表讀取、零額外讀表；接在 system 訊息後，排在 messages 陣列最前面(system → chatHistory → 當前這輪)。
-
-🐛→✅ callGeminiAPI 全部重試失敗時回傳的保底文字 JSON 格式跟真正成功的敘述一樣，會被誤當合法敘事回傳、進而存進歷史(actionNarrateOnly)供下次呼叫餵回AI，讓AI誤以為那句「什麼都沒發生」的保底措辭是既定劇情事實。有 _genFailed 旗標時當成失敗處理，回 null 讓既有的null 分支(呼叫端本就有)接手——那條分支本就不會寫進歷史。
-
-### `actionNarrateOnly`　<sub>Router_Narrative.gs</sub>
-
-2026-09-23：`isNsfw`（看 pcId 是否 `KPC_`）整條拔掉——`narrate_only` 在 `KANSHOU_BLOCKED_ACTIONS_` 裡，
-鑑賞根本走不到這支，那個分支（不送 world_note、不接 `sagaNoteRule_`）三個月來從沒執行過。
-只剩 `lewd`（補魔三支換敢寫的模型）這一個旗標。
-
-
-longForm 旗標(2026-09 由 deepseek 更名，因為它從來就不綁廠商)由補魔/強制補魔的高好感解鎖分支夾帶，該分支指令要求 500~600 字(遠長於平常 100~160 字)，720 tokens 會截斷，故加大上限；其餘呼叫不受影響(仍是720)。它**只控 max_tokens、不換模型**——模型整併後兩軌只剩 AI_MODEL 一顆。
-
-### `DOJO_CAUSE_`　<sub>Router_Narrative.gs</sub>
-
-⚠ 刻意【不】走 narrateWithState_：道場是賽後的教室、不是戰場——miniSystem 的「旁白人稱鎖定」(2026-09 前是第一人稱「我」、之後是第二人稱「你」，兩者都框住旁白)「語氣依血量決定·瀕死就是命懸一線」跟道場要的「兩人對話＋刻意輕鬆詼諧」正面打架（舊版是在提示詞尾巴硬寫一句「無視戰場的緊張基調」去對抗它，那是補丁不是解法）。給它自己的說書人設定，順便省掉整表讀＋歷史讀——賽後講評不需要跟前情連貫。
-
-⚠ 提示詞本體收回 GAS：前端只送「哪一種敗因」的鍵，文案查表(DOJO_CAUSE_)在後端組——加一種敗因＝往表加一列。（前端組提示詞的地方只剩移動的 arrivePrompt。）
-
----
 
 ## `gas/Router_Persona.gs`
 
@@ -2820,59 +1684,11 @@ false 時保留全部4格(給 servantCard_ 用，段數不足時仍顯示「無�
 
 無資訊量的值：空、「無」、以及 parseTraitsHelper 那幾個「跟標籤同義反覆」的 fallback 預設值（「卸下心防的私密一面：卸下心防時的柔軟一面」這種——標籤已經把話講完，值等於沒填）。
 
-### `performanceNote_`　<sub>Router_Persona.gs</sub>
-
-🎭 表演總則（單一真實來源）：show-don't-tell／正典認知覆蓋／羈絆親疏，這句對「這次提示詞裡出現的每一位角色」都適用、內容固定不變——不管同框幾位，只需要講一次。names 傳入這次同框的所有真名，servantCard_(row,{skipClose:true}) 呼叫端負責在組完所有角色卡後、於此收尾一次。
-
-### `servantCard_`　<sub>Router_Persona.gs</sub>
-
-🎭 從者「演出依據」卡：真名/職階/個性/對御主/口吻(含自稱)/萌點/招牌動作/六圍/技能/寶具壓成一段塞進 narration 提示詞，讓 AI 依『我們定義的角色』內化演出（只當背景、不准說嘴）。
-
-🐛→✅ 玩家實測抓到：同一場戰鬥/事件常同時呼叫本函式2~4次(我方/敵方/盟友/敵盟協防從者)，每次呼叫都各自帶一份完整的「怎麼演」收尾句(show-don't-tell/正典認知/羈絆親疏)——這句是固定不變的表演總則、不是各角色專屬的事實資料，一場戲裡重複3~4次純屬浪費字數、稀釋注意力。opts.skipClose=true 時省略這句，呼叫端改在組完所有角色卡後，用 performanceNote_() 只講一次。不傳 opts(絕大多數單一角色卡的呼叫端)行為完全不變，向下相容。
-
-排除字元集用 `｜|【`(兩種 pipe 都排)，跟 getPersonaSpeech_/getPersonaTic_ 一致，避免尾端吃進雜訊字元。
-
-servantCard_ 是我方/敵/盟友從者共用同一份卡，「對御主：X」在敵/盟友從者身上易被誤讀成「對玩家忠誠」，
-
-故欄位加「自己」二字消歧義（對自己御主的忠誠態度，而非對玩家）。
-
-persona.look 召喚時已複製進 row.TRAIT(parseTraitsHelper)，跟 fp/toM/persona 一樣退回讀列，別讓 p 變空物件時這格靜默消失。p.look 是種子原始格式(「N段外貌・・、末段氣質」)，得先過looksToTraitParts_ 轉成分格慣例(跟 row.TRAIT 寫入時同一條處理管線)，否則 quadLabeled_直接切「、」會漏接「私密一面」、氣質也可能跟外貌擠在一起。
-
-🐛→✅ 玩家反饋壓字數：這兩句原本各自完整解釋「為什麼」，但保留的兩個guard(換衣不換人／不依職階慣例)本身沒有冗字可砍，純粹是措辭精簡，內容不變。
-
-🐛→✅ 同批修正(比照 masterCard_)：萌點沒講頻率，容易連續幾場戲都反覆用同一個具體動作點出反差，讀起來像機械公式——補「不必每回合硬塞、情境對了才自然浮現」。牽涉隨身物品的萌點又特別容易被濫用(摸一下該物品零成本、不需情境鋪陳)，額外提醒別靠這招交差。
-
-### `masterCard_`　<sub>Router_Persona.gs</sub>
-
-🐛→✅ 【出身】舊版只在創角時寫入 MEMORY，全專案沒有任何讀取點——純寫入死資料，玩家選的出身(如「教會代行者出身」)從此再也影響不到任何敘事。補讀取，併進演出依據卡。
-
-🐛→✅ 「扮演正典御主」入口存在的意義就是讓AI認得這個真名、調用原作形象——但這支卡從沒讀過getPlayedMaster_，玩家選了扮演卻等於沒選。servantCard_/enemyMasterCard_都有對應的「若認得此真名出自Fate正典…」提示，這裡補齊同款。
-
-🐛→✅ 玩家實測抓到：萌點只講「不能直接講出來」，沒講「不用每回合硬塞」——這張卡幾乎每次敘述都帶上，AI 手上唯一的反差素材只有這句，連續幾回合就會反覆重複同一個具體動作(如每場戰鬥都摸一次口袋布偶)，讀起來像機械公式，show don't tell 變相變成另一種 tell。萌點若牽涉一個實體物品(如隨身小物)又特別容易被濫用——AI隨手就能讓角色摸一下該物品，零成本、不需情境鋪陳；比起需要先出現對應情境才演得出來的反應型萌點(如被戳到痛處才崩潰)，物品型的天生更容易被拿來當萬用填充動作。故額外點名提醒別靠「摸/看一眼隨身物品」交差。
-
-🐛→✅ 玩家實測抓到：戰鬥每回合都從「你挺直高挑的身形，神父般嚴肅端莊的面容…世俗妄想…」開場——AI 在逐格唸這張卡（挺直高挑＝命格特徵、神父般嚴肅＝個性第1格、世俗妄想＝第2格），等於紅線②（禁直述個性字面）在實戰中被違反。根源是這張卡缺了從者卡有的那道框：`servantCard_` 走 `performanceNote_`，尾句寫著「上面的卡是【內化用的素材】」，而這裡的尾句是「有神態與台詞」——那是在邀 AI 每回合描寫御主的外觀。改成同款的內化框＋「【此刻】會做什麼」＋「外貌與個性靠當下的舉動流露」。同一個形狀 2026-07 在萌點上踩過一次（見上一條），萌點退休後由外貌＋個性接手當跳針來源。
-
-🐛→✅ 玩家實測抓到：這句只給了「問句/思索」一種收尾範例，模型連續戰鬥回合就每次都套「接下來怎麼辦/要撤退還是繼續」這句同型問句收尾，讀起來像跳針。收尾方式不是只有問句——沉默對峙、蓄勢待發的動作、一個眼神/呼吸也同樣能「停在決策點前」，效果一樣但形式該換著來，尤其連續幾回合都還沒分曉的同一場戰鬥，不能每次都問同一種問題。
-
 ### `sealGenderFact_`　<sub>Router_Persona.gs</sub>
 
 masterCard_ 內嵌的「性別${sex}」只是孤立事實標籤，沒教 AI 該怎麼據此裁定肢體互動，小模型便預設男性插入視角；這裡把配對事實算好直接餵給 AI。與 kanshou Gallery.gs 的 genderHintStr 邏輯類似但完全獨立、不共用(solo/kanshou 機制須徹底隔離，CLAUDE.md 紅線①)。
 
 🐛→✅ 稽核抓到：masterCard_把御主原始性別(含合法選項「異」)原樣印成「性別異」，這裡卻悄悄把「異」歸類成女性向處理——兩者同框出現在同一段prompt時，「性別異」跟「御主為女性」字面互相矛盾。「異→女性向處理」本身是全專案既有慣例(對齊heroToKanshouRow_/kanshou genderHintStr同款規則)，不是要改的地方；只在措辭上承認原始標記，避免跟masterCard_直接打架。
-
-### `enemyMasterCard_`　<sub>Router_Persona.gs</sub>
-
-🎭 敵御主「演出依據」卡（精簡）：戰鬥現場若敵御主本人在場(同地)，讓 AI 依其性格給反應/台詞，別讓對方全程沉默——只塞夠判斷語氣與萌點的精簡片段(性格全4項/特徵/萌點)，不塞六圍/寶具/全份人設。跟 masterCard_ 不同：這是 NPC、AI 可自行決定其言行反應，不受「不可替玩家做決定」那條限制。
-
-🐛→✅ 玩家實測抓到：本卡跟 servantCard_ 同框的3處(戰鬥主路徑/暗殺分支/抵達場景)，各自收尾都在講一次「show don't tell＋正典認知優先」——跟 performanceNote_() 內容重疊。opts.skipClose=true 時省略這段重疊部分，呼叫端把敵御主真名併入同一次 performanceNote_()；「非沉默背景板」這句是敵御主專屬的行為準則(非共用不變句)，不受 skipClose 影響、恆常保留。不傳 opts 行為完全不變，向下相容。
-
-### `findPlayerServantIdx_`　<sub>Router_Persona.gs</sub>
-
-🗝️ 取我方從者列索引：指定 wantName 則優先取該名，否則取第一個在世從者（雙從者用）
-
-🐛→✅ 2026-07「整體重構·id優先」：舊版用 String(...).includes(want) 子字串比對，雙從者其一真名為另一人前綴時(如「阿爾托莉雅」vs「阿爾托莉雅・奧爾塔」)會選錯人——跟 Router_Battle.gs 的wantSv 早已修過的同一種bug，這裡是漏修的孿生。改走單一真實來源 findPcRowIdx_(id優先、名字走nameLoose_精確比對，不再是子字串)，13+個呼叫端(補魔/靈基修復/羈絆/休息/搜索/偵查/整備等)一次到位。
-
----
 
 ## `gas/Seed_Codex.gs`
 
@@ -2931,53 +1747,11 @@ circuits=15/magic_rank=C：他的魔術回路數量少質量也差(原作明寫�
 
 speech)，AI 只能複述標籤、演成一路嘴硬，改成寫具體行為(手先動話後到、被道謝就升級)。v71：25位種子的 daily* 全面改寫成「行為傾向」(零引號零台詞)＋壓縮26%。⚠ 改 daily*/persona 一定要順手升這個版號——升級閘是 codex_persona_ver !== CODEX_PERSONA_VER，沒升版 upgradeCodexPersonas_ 不會跑，改再多種子對既有存檔都是 no-op(只有全新試算表才吃得到)。v70：玩家覺得「巨乳」太直白、這句話會顯示在玩家可見的狀態欄——美杜莎/斯卡哈x2改成「胸前豐盈」這種自然敘述句，AI生成prompt同步要求別用生硬標籤呈現。逐版校對細節與查證來源見 SOLO_REFERENCE.md §21，不在此堆積歷史留言。
 
-### `SEED_RECLASSED_`　<sub>Seed_Codex.gs</sub>
-
-🔄 重刷「已召喚實體化」從者的【戰鬥數據】(寶具/六圍/標籤 fx)為最新種子值——種子改了，已在場的從者也跟上。依 (真名, 職階) 對應種子(斯卡哈 Lancer/Assassin 同名靠職階區分)。只刷 GAS 掌的數值欄；⚠ 不動 HP/MP/MEMORY/敘事欄/狀態/位置/羈絆，保住玩家實例狀態與逆天改命。查無種子(AI 原創從者)→跳過。
-
-⚠ 換職階遷移表：種子改版連職階都換掉時(舊 key→新 key)，已召喚實體的 RANK 欄還存舊職階，單靠 (真名,職階) 對不上新種子，換版削弱就永遠不生效於既有存檔。
-
-🐛→✅ 舊表另有 '貞德｜Ruler': '貞德｜Archer' 一條，新舊 key 指的「貞德」在現行 SEED_SERVANTS都查無此人(regulation 換版遺留的懸空項)，久放只會混淆維護者，故清除；只留下面這條活的改名映射。
-
-### `resyncSummonedServants_`　<sub>Seed_Codex.gs</sub>
-
-🐛→✅ 舊碼查無新 key 就直接改 RANK，若遷移表的「新 key」本身也是懸空值(如已從種子庫整個移除的英靈)，會把玩家實例的職階欄改成一個查無數據的職階、卻因下面 !s continue 而拿不到新六圍/技能同步——職階跟戰鬥數據對不上。改成先確認新 key 真的解得到種子才動 RANK。
-
-🌸 鑑賞眾生(獨立分頁)補刷：上面 k_ 分支掃的是「眾生」，但鑑賞同伴其實住「鑑賞眾生」分頁，原分支永遠掃不到(§125 死分支)。這裡對鑑賞列刷三樣會被寫進在場卡的種子衍生欄：BACK(dailyBack)、TRAIT(最新 dailyLook 四段)、MEMORY 的【口吻】(最新 dailyLook 第3段)——種子措辭修正(如大河「動不動自稱」→「得意時自稱」)已召喚的同伴才吃得到。工房/AI原創查無種子不動。
-
----
-
 ## `gas/Seed_Rivals.gs`
 
 ### `FATE_5TH_ROSTER`　<sub>Seed_Rivals.gs</sub>
 
 第五次聖杯戰爭正典陣容（master_id, hero_id, 冬木落點｜可選 arriveDay：第N天才登場，預設1＝開局即登場；arriveHint：登場前1~2天的世界風聲自訂提示句，未填則退回依職階的泛用措辭；master 可為 null＝真正無御主的孤身從者，seedRivalsForGame_ 只鋪從者列、不建對應御主列）本作對正典的偏移：① Rider(美杜莎)配間桐櫻(黑化)——原作真正契約者是櫻，慎二只是表面御主。② 間桐慎二改配吉爾伽美什——跨戰爭客串，慎二失去Rider後的替代從者；wars 標籤純敘事metadata。③ 佐佐木小次郎為真正無御主的孤身從者，蟄伏柳洞寺(與美狄亞同地)，耗魔靠現有 enemyCanAffordNp_ 的殘存儲備。
-
-### `heroToNpcRow_`　<sub>Seed_Rivals.gs</sub>
-
-🐛→✅ 稽核抓到：safeJson_只擋「解析失敗」，若儲存格是合法JSON但非陣列(如物件)，dflt不會生效——跟 Router_Creation.gs 的 actionSummonServant 同款補上陣列型別檢查，避免壞資料寫進敵從者列。
-
-復活命數：敵從者也要吃 god_hand 的 lives 覆寫(如尼祿3)，否則 getGodHandLives_ 誤套赫拉克勒斯專屬預設11。
-
-🐛→✅ 舊版只在技能物件本身寫死 lives 時才補標記，漏了 Router_Creation.gs actionSummonServant對玩家自己召喚 ai_gen 原創從者的同一條後備規則(無 lives 時 ai_gen→3命)。混亂模式明確允許玩家原創英靈進敵人池，一旦這類從者被抽中當敵人，這裡沒有 ai_gen 後備，就會落回預設11命——同一隻從者玩家自己召喚只有3命，變成敵人卻有11命，比原設計硬了近4倍。
-
-### `masterToNpcRow_`　<sub>Seed_Rivals.gs</sub>
-
-御主殿列 → 眾生(NPC)列（敵御主：凡人、弱）heroMagicRank：共用魔力池公式(masterPoolMax_)需要英靈魔力階，不能只算御主自己迴路，否則契約強英靈(如阿爾托莉雅魔力A)的御主反而池子明顯偏小。
-
-🐛→✅ COL.MASTER.ALIGN(2026-07 新增)之前 SEED_MASTERS 沒這欄可讀，這格永遠空——enemyMasterCard_讀陣營那段邏輯看似在跑、實際上從沒讀到值。現在有值了，補上單一真實來源的搬運。
-
-敵御主與玩家御主同制：HP 看迴路(masterMaxHpMp_)，MP 走共用魔力池公式(masterPoolMax_＝迴路×10＋從者魔力×2)。
-
-🐛→✅ masterMaxHpMp_ 本身已補迴路上限(Math.min(50,...))，但這裡沒把「同一個」夾好範圍的值同時餵給沒有上限的 masterPoolMax_、也沒同步寫進 MEMORY【迴路】——SEED_MASTERS 剛好有兩位circuits > 50(伊莉雅絲菲爾-5th:80、肯尼斯-4th:65)，導致她們 HP 被夾在 50 迴路水準、MP 卻按真正的 80/65 算，兩邊從開局第一天起就內部不自洽。玩家自創御主的建角流程(Router_Creation.gsactionManualNpc)已修過同一個坑，這裡比照同一套夾法、同一個值餵兩處＋寫進 MEMORY。
-
-### `seedRivalsForGame_`　<sub>Seed_Rivals.gs</sub>
-
-🎲 隨機登場日：比照正史roster的登場機制(hasArrived_/setArriveDay_)；前 CHAOS_GUARANTEED_IMMEDIATE_ 組保證第1天就在(開局至少有東西可打)，其餘每組50%機率延後第2~5天登場。不自訂 arriveHint，退回 worldTick_ 依職階的泛用措辭即可。
-
-🐛→✅ heroToNpcRow_ 無條件給敵從者 CONTRIB=3(「對面御主的3道令咒，可緊急脫離」)——但令咒本是御主的資源，真正無御主的孤身從者(如佐佐木小次郎)沒有人能燃令咒命他撤離。舊版沒歸零，Router_Battle.gs 的令咒緊急脫離分支見 CONTRIB>0 就照樣觸發，因無【御主】連結退回「同地點就當作是他的御主」的相容性後備，若剛好有其他敵御主同駐一地(如柳洞寺的葛木宗一郎)，會被誤判成孤身從者的主人、一併強制傳送撤離，把他跟自己真正的從者硬生生拆散。
-
----
 
 ## `gas/Setup_FateWorld.gs`
 
@@ -2985,136 +1759,15 @@ speech)，AI 只能複述標籤、演成一路嘴硬，改成寫具體行為(手
 
 🔵 冪等建表主函式：缺則補、含則略。回傳本次新建的分頁名陣列。只在登入畫面「檢查/建立試算表」按鈕(check_sheets action)手動觸發，doGet()/handleGameAction() 皆不自動呼叫——玩家測試期常直接清空試算表重來，自動檢查沒必要且曾因快取蓋過頭導致「缺分頁不自動補」的bug，故改純手動、不再快取。
 
-### `reseedIfEmpty_`　<sub>Setup_FateWorld.gs</sub>
-
-r2：新增第四次限定地點(海特飯店/麥肯基宅/碼頭倉庫)＋補WAR欄同步，見下方 upsert 迴圈。
-
-r3：🐛→✅ 稽核抓到：「冬木·海濱大道」/「冬木·遊樂園」座標原本是貼近原點的負數佔位值(4,-2/-1,-3)，跟其餘18列4~90正數座標系明顯不一致，也跟Script.html的LAYOUT硬編碼座標(86,85/11,91)對不上——getNearbyLocations()拿COORD算曼哈頓距離排序「鄰近地點」，壞座標會讓這兩處嚴重失真(該近變遠)。改成與LAYOUT一致的座標，upsert迴圈會回填既有試算表。
-
-🐛→✅ 稽核抓到：上面只 upsert(更新既有＋補新增)，沒有孤兒清除——若未來坤圖重新命名/移除某地點，舊名字的列會永遠留在每份已建置過的試算表裡變成永久幽靈地點，跟 Seed_Codex.gs 的upgradeCodexPersonas_/upgradeMasterCodex_ 已有的孤兒清除機制不對稱(坤圖沒有對應步驟)。補上：現有列若其名字不在當前 FATE_MAP_SEED 名單內視為孤兒直接刪除(此表純地理、無per-game 資料，同上方註解「安全覆寫」的前提，刪除同樣安全)。用 d2(append前的快照)由下往上刪，行號才不會因刪除而錯位；之後才用 getLastRow() 追加新地點，兩步互不干擾。
-
----
-
 ## `gas/Time_World.gs`
 
-### `findGameMasterIdx_`　<sub>Time_World.gs</sub>
-
-⏳ 時鐘不用獨立表：每個世界(game_id)恆只有一位御主，日/時/AP 直接存在【御主自己那一列】(COL.PC.DAY/HOUR/AP)，天然 1:1 對應、無需獨立 join 表。函式簽名維持「傳 gameId」不變，只在內部找御主列；呼叫端手上已有整表 pcData 時直接吃記憶體，沒有才整表掃一次找御主列(fallback)。
-
-### `spendAp_`　<sub>Time_World.gs</sub>
-
-消耗 AP：1 AP = 1 小時。足夠則扣 cost、推進 cost 小時、回 {ok,ap}；不足回 {ok:false,ap}。傳 pcData+sheets 可全程零額外整表讀寫(只改記憶體+單列3欄寫回)；不傳則自行整表讀一次(相容舊呼叫)。skipWrite(選填)：呼叫端保證隨後必有一次涵蓋這3欄的批次整表寫回時傳true，省掉這裡的單列立即寫入。
-
-### `leylineAt_`　<sub>Time_World.gs</sub>
-
-🔮 靈脈：依坤圖地點「類型」給每小時回魔基值。靈地(柳洞寺/河畔)匯聚最高、據點/祭壇(宅邸/教會)中等、城區野外最低。坤圖已靜態化(getMapDataCached 直接讀 FATE_MAP_SEED 常數，零 I/O)，此函式被 applyRegen_／playerServantEconomy_ 高頻呼叫也不必擔心整表重讀成本。
-
-### `servantEconomy_`　<sub>Time_World.gs</sub>
-
-💠 從者每小時魔力收支（時回與前端顯示共用）。有理有據的供養經濟：收入 = 御主供給(迴路×0.5) + 靈脈(地點) + 工房(在自己居所／Caster 陣地 +8)支出 = 維持費(六圍總和/8；狂化×1.5)——越貴的英靈越難養回傳每小時魔力點數 { supply, ley, workshop, income, drain, net }
-
-### `applyRegen_`　<sub>Time_World.gs</sub>
-
-對「御主＋同行從者」施加 hours 小時的時回；mult＝倍率（移動 1、休息 2）。HP：靈基自我修復(每小時 5%×倍率)；MP(從者)：走魔力收支經濟(供給+靈脈+工房-維持)，休息把「收入」加倍、維持不變；魔力觸底會反傷靈基。只改記憶體 data；回傳是否有變動。
-
-御主魔力淨收支（休息把收入加倍、維持不變）→ 寫回御主 MP。🩸 被動燃血(只扣御主)：池見底、時消耗補不上的缺口 → 御主自動燃命續契約，缺口÷2 由血肉支付，從者一律不扣血(從者無自有魔力池，代價全在電池=御主身上)；保底 1 HP，不直接秒死但會磨成殘血。
-
-### `MANA_DAY_TAG_`　<sub>Time_World.gs</sub>
-
-🔋 敵御主每日回魔：敵御主電池只會被 drainForNp_ 扣、從不隨時間自然回——長局若不補，放過一次寶具後就永久魔力見底，往後所有遭遇都啞火(反而喪失「寶具是孤注一擲」的張力)。不用玩家那套逐時供需經濟(NPC 不必算到那麼細)，改用最簡單的「新的一天回滿」：MEMORY 記最後回魔的絕對日；worldTick_ 每次執行，見到記錄的日 < 當前日 → 補滿並蓋新日期戳。
-
-### `refillMastersDaily_`　<sub>Time_World.gs</sub>
-
-多名敵御主同天需回魔時，MP/MEMORY 各整欄一次寫回(取代迴圈內逐列 setValues 的零散往返，同 worldTick_ LOC 批寫手法)
-
-🐛→✅ 補 BATTLE_DEFER_WRITE_ guard：呼叫端(worldTick_)若被上層要求延遲寫入(如 actionMove 稍後自己整表批次寫回)，這裡也該一併略過，否則同一批 MP/MEMORY 值還是會被送兩次。
-
-### `WORLD_FLOOR_`　<sub>Time_World.gs</sub>
-
-🌐 世界自走一輪：敵移位（偵查失效）＋ 暗處從者陣亡（戰爭自走）rounds：跑幾輪；allowAttrition：是否允許「暗處廝殺/養不起爆炸」（僅休息時 true，移動只換位）回傳 { rumors:[..文字..], moved:n }
-
-### `ENEMY_REGEN_RATE_`　<sub>Time_World.gs</sub>
-
-🩹 敵從者每輪世界自走小幅回血(不看同地/攻防狀態、不吃玩家 rest×2 加成)：撤離幾乎零成本，若敵人完全沒有回血機制，「打一下、撤退、再打一下」就能零風險磨死任何對手。回血速度遠低於玩家(不隨休息倍增)，逼玩家加快節奏或正面找到剋制手段，而不是純靠耐心刷。
-
-### `worldTick_`　<sub>Time_World.gs</sub>
-
-🐛→✅ deferWrite：呼叫端(目前僅 actionMove)若稍後自己會整表批次 setValues，傳 true 讓本函式(與其內部呼叫的 refillMastersDaily_/markMasterLostServant_，皆共用同一個全域旗標)略過自己的即時寫入——否則同一批 LOC/HP/MEMORY/MP 值會在一次移動裡被送進 Sheets 兩次(worldTick_ 先寫一次、actionMove 收尾又整表寫一次)。actionRest 呼叫時不傳(維持原行為)，因它沒有涵蓋 worldTick_ 之後還會發生的 restHours_/breakStaleAlliances_/enemyAmbushOnServant_ 寫入的最終整表寫回，貿然略過worldTick_ 自己的寫入會讓這批變動整個遺失、不只是多寫一次而已。
-
-全函式只整表讀一次，各階段(移位/廝殺/透支判定)共用同一份記憶體 data、只做局部批次寫回。
-
-呼叫端(actionMove/actionRest)手上通常已有剛讀好的整表 → 傳 preData 直接在同一份陣列上原地改
-
-(JS 陣列傳參考)，事後不必重讀一次整表拿最新狀態；沒傳才自己整表讀一次(相容)。
-
-🐛→✅ 稽核抓到：下面敵御主隨機移位呼叫enemyRetreatLoc_，該函式沒濾戰爭限定地點(見同批修正)，會導致5th/chaos局的敵人被移到4th限定地點後永久消失(打不到也偵不到)。這裡查一次本局戰爭名稱供傳入，只需查一次(整輪rounds共用，戰爭設定不會中途變動)。
-
-🔮 登場預告：尚未登場、但已進入「登場前1~2天」窗口的敵從者，世界風聲提前透露一絲氣息——只觸發一次(MEMORY【已預告】避免每輪重播)，不洩漏精確位置/天數；有自訂提示句(【登場提示】)就用，沒有就退回依職階的泛用措辭。
-
-🔭 已偵查到的敵人移位後【保持可見】(不清 SEEN)：一旦感應到對手氣息就持續追蹤其當前位置，否則敵人每動一次就重新隱形、玩家永遠追不到人。未偵查者 SEEN 仍為空、維持迷霧。
-
-同地敵從者隨行：優先比對 MEMORY 裡的【御主】tag，避免同格多組互搶從者
-
-🩹 敵從者小幅自癒(見 ENEMY_REGEN_RATE_ 註解)：不論攻防/是否同地，move/rest 兩種 tick 都跑，免額外整表讀寫——沿用同一份 data，整欄批次寫回同樣挪到迴圈外一次做。
-
-第一輪：找 MEMORY 有【御主】=mName 的配對從者
-
-🐛→✅ 2026-07 玩家「檢查solo看看有沒有問題」稽核抓到：這裡子字串 indexOf 比對是同一個前綴撞名 bug(Router_Movement.gs findClashSv_ 已修過)的未修孿生——chaos/AI原創敵御主可能撞名前綴(如「伊莉雅」與「伊莉雅絲菲爾-5th」)，處理「伊莉雅」移位時會誤命中掛在後者名下的從者並搶先 break，下方第二輪(已用 getServantMaster_ 精確比對)反而永遠輪不到。改成同一套精確比對，兩輪判準統一。
-
-第二輪：找不到配對 → fallback 抓同格任一孤身從者（MEMORY 無【御主】或御主不在同格）
-
-🐛→✅ 註解一直這樣寫，但程式碼從沒真的檢查「孤身」這個條件——只要同地、未死，第一個掃到的從者就會被拖走，即使牠其實掛在另一位(這輪未移動/稍後才輪到的)敵御主名下，導致把 B 御主的從者誤拖去 A 御主的新位置。補上硬連結檢查：有【御主】tag 且該御主此刻仍在原地存活，才算「還有主」、跳過不拖；無 tag 或御主已不在此地，才是真的孤身可拖。
-
-🐛→✅ 玩家辛苦養出的盟友(isAllied_)不該被系統隨機抽去暗處互鬥賜死——結盟＝暫時非敵對、可倚仗的戰友，舊版這裡完全沒排除，盟友只要離開玩家所在格就有機率在背景無預警戰死，跟結盟的設計承諾矛盾。
-
-2) 暗處從者互鬥：只在「休息」時可能發生（移動只換位，不受傷）；且永遠至少保留 WORLD_FLOOR_ 名敵從者給玩家親手解決——絕不會被世界自走清光。
-
-抽兩名離場敵從者、建成真實 combatant，走跟玩家對戰同一套 resolveFateBattle_ 結算(GAS本機算，不叫AI)——多數情況只是雙方掛彩(確實扣血、不死)，只有真的打到HP見底才會死亡。
-
-🐛→✅ 稽核抓到：這條「暗處互鬥」是獨立於fateStrike_的一套死亡判定，完全沒檢查god_hand/survive/severed——持十二試煉的敵從者(如混沌局赫拉克勒斯)被系統抽中打這場背景暗鬥，會在玩家毫不知情下真的被判定永久死亡，God Hand形同虛設。比照fateStrike_同順序補上判定。
-
-🐛→✅ 稽核抓到：severedA/severedB 原本各自讀「該方自己」的rule_breaker/anti_magic_lance拿去擋「該方自己」的復活判定——跟fateStrike_(Router_Battle.gs)/夜襲路徑(Router_Movement.gs)的既有慣例相反：severed 該由「攻擊者」的fx決定、用來擋「被攻擊那一方」的復活。這裡是A/B互擊兩段式(strikeAB：A打B；strikeBA：B打A)，故擋B復活的severed要看A的fx、擋A復活的severed要看B的fx——原本兩者對調，導致真正持rule_breaker/anti_magic_lance的一方打死god_hand/survive持有者時，這條暗處互鬥路徑完全沒擋下復活(判定的是被打者自己沒有的fx)。
-
-⚡ LOC/HP 整欄一次寫回(取代原本每輪各寫一次·最多12h休息=4輪就是4次)——data 全程原地改，等所有輪跑完才寫，仍是同一份最終狀態，只是省去中途的重複 Sheets 寫入次數。
-
-🐛→✅ 補 BATTLE_DEFER_WRITE_ guard：actionMove 傳 deferWrite=true 時，這裡也該略過即時寫入，交給 actionMove 收尾那次整表 setValues 一次到位，避免同一批 LOC/HP/MEMORY 值送 Sheets 兩次。
-
-🐛→✅ 舊版沒排除已結盟者——上方「暗處互鬥」段落(507行)明確有 isAllied_ 守衛，這裡漏了。玩家跟某敵從者締盟後，牠先前戰鬥留下的【靈基透支】死線並不會被撤盟約清除，時間一到就會在玩家毫不知情下把剛結盟的盟友判死，敘事還謊稱死因是「令咒燃盡」——跟雙方已休兵的現況矛盾。
-
----
-
----
-
-# 📎 第二輪整理（2026-09·≥2 行的註解區塊）
-
-玩家：「能刪除的備註都刪除，妳自己整理到一個地方妳自己看就好。」
-
-程式碼那邊只留每段第一句「這在做什麼」；整段都是坑／稽核／玩家原話的就整段搬過來。
-**用法不變：拿函式／常數名來這裡搜。**折行的長句會整段搬（切一半會在程式碼裡留半截話，踩過兩次）。
-
 ## `gas/Account.gs`
-
-### `findPlayerServant_`　<sub>Account.gs</sub>
-
-🧹 跟下面兩個函式同屬 solo game-lifecycle(結束一局/清檔)邏輯，鑑賞不會呼叫。
-
-### `purgedPcIds`　<sub>Account.gs</sub>
-
-順手收集要刪的每一列 pcId，一併清掉「歷史暫存」裡屬於這些 pcId 的對話列，避免結束對局的歷史列無上限累積。
-
-### `actionEndRun`　<sub>Account.gs</sub>
-
-從者/盟友要在慾海重逢，改用「英靈殿直接召喚」(見 actionKanshouSummonHero)。
 
 ### `actionAccountLogin`　<sub>Account.gs</sub>
 
 尚未召喚從者時 servantAlive 恆 false，不能與「已召喚但已死」共用同一判斷，否則會在玩家還停留在召喚從者頁時就誤判整局已結束；只有 servantExisted && !servantAlive 才算殘局。
 
 charId 指向的御主已被標記 DEAD_（或不存在）→ 殘局：先清掉整局世界再解除連結。死亡時 ID 會加 "DEAD_" 前綴， 帳號表仍存原 charId，故需含 DEAD_ 反查該列拿 game_id 一併 purge。
-
-### `prow`　<sub>Account.gs</sub>
-
-charId 那列可能已是 DEAD_ 版本（敗北時 ID 加 "DEAD_" 前綴，帳號表仍存原 charId），須兩者都查， 否則 gid 查無、下面刪除迴圈找不到列可刪，殘列留在「眾生」表，違背本函式清舊存檔的目的。
 
 ## `gas/Core_Settings.gs`
 
@@ -3129,26 +1782,6 @@ charId 那列可能已是 DEAD_ 版本（敗北時 ID 加 "DEAD_" 前綴，帳�
 ### `cleanChineseName`　<sub>Core_Settings.gs</sub>
 
 全系統唯一真實來源；前端只做提示與即時擋字，後端此函式才是最終防線。回傳清洗後字串(上限10字)。
-
-### `pMp`　<sub>Core_Settings.gs</sub>
-
-魔力池告急時明講是從者自己的存亡危機(從者無自有魔力池，全靠此池維生，見masterPoolMax_/applyRegen_)， 避免AI誤演成只跟御主有關的旁支數值。
-
-### `masterPoolMax_`　<sub>Core_Settings.gs</sub>
-
-魔力高的從者(Caster/Saber 魔A)擴充共用槽；魔力低者(Assassin 魔E)幾乎只靠御主迴路。
-
-### `getNpTelegraph_`　<sub>Core_Settings.gs</sub>
-
-🔮 敵寶具預告旗標（跨按鍵持久·存敵從者 MEMORY）：達成解放條件時先「預告」蓄勢，下次接觸必定發動——給玩家一回合準備(開結界/寶具對轟/逃跑)，杜絕「無預警寶具秒殺」。get/set/clear 成套。
-
-### `OVERCHARGE_TAG_`　<sub>Core_Settings.gs</sub>
-
-🔥 補魔過充存量（存御主 MEMORY【過充】<額度>）：補魔一儀＝除回滿池外，另存下一發「規格外寶具(＋/EX)」可無償超載灌入的一池份魔力；發動大砲時優先由此支付，一次性(用完即清)。get/set/clear 成套；額度＝補魔當下的池上限。
-
-### `masterSynergyView_`　<sub>Core_Settings.gs</sub>
-
-on＝當前御主觸發全盛(亮)；否則暗(提醒需該御主)。玩家不可控——由御主決定。
 
 ### `defParts`　<sub>Core_Settings.gs</sub>
 
@@ -3172,10 +1805,6 @@ on＝當前御主觸發全盛(亮)；否則暗(提醒需該御主)。玩家不�
 
 ⚡ 靜態種子表快取共用時數：英靈殿(客製從者部分)幾乎不寫(只在召喚/版本升級時)， 卻被戰鬥/移動/羈絆等熱路徑高頻讀取——6 小時內免整表重讀，寫入點各自呼叫對應 remove() 清快取。
 
-### `getLocalPeopleList`　<sub>Core_Settings.gs</sub>
-
-此函式只服務 solo(呼叫端見 Router_Action.gs/Router_Movement.gs)；鑑賞(actionPlay)已改用自己的精簡版 getKanshouPeopleList_(Gallery.gs)，兩軌只共用種子庫資料。
-
 ## `gas/Engine_Combat.gs`
 
 ### `attemptWithModel_`　<sub>Engine_Combat.gs</sub>
@@ -3184,153 +1813,13 @@ on＝當前御主觸發全盛(亮)；否則暗(提醒需該御主)。玩家不�
 
 ## `gas/Engine_Fate.gs`
 
-### `CONCEPT_TIER`　<sub>Engine_Fate.gs</sub>
-
-高位階「進攻概念」可碾壓低位階「防禦概念」——攻方進攻階 ≥ 守方防禦階 + PIERCE_GAP 時，該防禦被無視。
-
-### `offenseTier_`　<sub>Engine_Fate.gs</sub>
-
-🌟 本次解放寶具「自身」的概念也計入(多寶具選定項/單寶具簽名)：寶具真名概念的 fx 存在 npOptions而非 skills，不會被 hasFx_ 掃到，需額外計入。
-
-### `npBaseDice_`　<sub>Engine_Fate.gs</sub>
-
-★與原作「階級＝絕對威力」掛鉤——寶具解放這一發的主威力來源；其餘 buff 只是錦上添花。
-
-### `NP_SCALE_IDX`　<sub>Engine_Fate.gs</sub>
-
-🏰 寶具規模相剋矩陣（攻擊規模 × 防禦規模 → 傷害倍率）：對城打對人 ×1.5、對界打對人 ×1.7。0x（無效）以引擎 Math.max(1) 保底為一絲擦傷，不硬鎖。
-
-### `DEF_SCALE_`　<sub>Engine_Fate.gs</sub>
-
-★固有結界(ubw)是進攻型 NP，NP 防禦由 rho_aias 機制承擔；divine_core/god_hand 各有自己的機制——均不疊加防禦規模。
-
-### `npDefScale_`　<sub>Engine_Fate.gs</sub>
-
-pierces：可選的 pierces(defFx)=>bool 閘門，與 fxDefApply_ 共用同一份概念貫穿判定，避免 territory 的規模防禦與固定減傷各自判定貫穿而不一致。不傳 pierces 時視同不貫穿(向後相容)。
-
-wall_def 不列入規模表：其本職是物理減傷(DEF_FX_)，若同時恆給對城防規模會讓一般對人寶具打持牆者恆×0.50。
-
-### `aliveEnemyServants_`　<sub>Engine_Fate.gs</sub>
-
-preData 可選：呼叫端若已持有本回合同步過的 pcData 記憶體陣列可直接傳入，省一次整表重讀；不傳則自己讀。
-
-### `combatProfile_`　<sub>Engine_Fate.gs</sub>
-
-hit=命中所用六圍　dmg=傷害所用六圍　eva=迴避所用六圍　kind=演出用招式類別
-
-💨 以巧破力(agile_striker)：唯一讓敏捷入傷害底的通道(顯示名勿用「神速」——理查正史技能撞名)——持此 fx 且敏捷高於筋/魔時，以技巧為力；未持有者敏捷不參與傷害底，避免一圍三吃。
-
-🥋 御主體術參戰：御主本人助拳的小額支援傷害(非從者自身技能)，r 取自御主【體術】階級，量級壓在wind_strike/crafting 同檔次，不喧賓奪主。
-
 ### ~~`injectMasterMeleeSupport_`~~（已移除·名字只剩在墓碑註解裡）　<sub>Engine_Fate.gs</sub>
 
 🥋 把御主自己的體術階級注入我方從者戰鬥單位 c 的 skills（比照 injectMysticBuff_ 同一套「找 fx已存在則略過」慣例，避免重複注入）。無【體術】記錄(空字串)則不注入——舊資料/未測定者維持零加成。
 
-### `injectMasterMagicSupport_`　<sub>Engine_Fate.gs</sub>
-
-🔮 把御主自己的魔術階級注入我方從者戰鬥單位 c 的 skills——僅當 c 是 Caster(魔砲型出擊)才注入， 體術(近戰助拳)不限職階、魔術(施法支援)限定 Caster，兩條能力線刻意對應不同陣容、避免無腦疊加。
-
-### `servantActiveSkill_`　<sub>Engine_Fate.gs</sub>
-
-數值隨技能自身階級成長(rank 折入)。戰時由 rollSkill_ 每擊擲 SKILL_PROC_ 機率是否套用全效。★只增益我方出擊、不碰防禦端。
-
-### `fxDmgApply_`　<sub>Engine_Fate.gs</sub>
-
-🛡️ 七天盾：npOnly＝只對【寶具解放】的一擊反應性投影(普攻不勞七層花瓣·不減傷)；mana＝每次展開的費用， 玩家側由呼叫端注入 _shieldMp(御主純魔)扣款、付不起張不開，敵方無注入即免費(戰鬥本色)。
-
-### `fxDefApply_`　<sub>Engine_Fate.gs</sub>
-
-npStrike＝本擊是否【攻方寶具解放】(npOnly 防禦如七天盾只對這種擊反應)。回新 base。
-
-### `paidNote`　<sub>Engine_Fate.gs</sub>
-
-引擎只記帳(_shieldSpent)，實際落表由呼叫端 settleShieldMana_ 統一結算。敵方無注入＝免費觸發。
-
 ### `m`　<sub>Engine_Fate.gs</sub>
 
 ⚠ 下限 clamp：mul 係數×rankMul>1 時(如未來有人給 rho_aias 掛超過 EX+ 的階級)會算出負乘子→負傷害→打人變補血。現行持有者皆不可達，純結構性防呆。
-
-### `rowToCombatant_`　<sub>Engine_Fate.gs</sub>
-
-（逾時殘影由戰鬥流程 clearHorrorShield_ 清除·此處讀 presence 即真實·不需再查時鐘·守效能）
-
-### `servantNpOptions_`　<sub>Engine_Fate.gs</sub>
-
-依 真名(＋職階) 對應；首項＝主寶具(預設·敵方也用)。回 null＝單寶具(走字串尺度)。要擴充就往這張表加。
-
-### `npProfile_`　<sub>Engine_Fate.gs</sub>
-
-r＝該次解放實際吃的階級——多寶具選項有自己的官方階級(見 servantNpOptions_)才用，沒有就退回六圍表寶具值。
-
-### `OFFENSIVE_NP_FX_`　<sub>Engine_Fate.gs</sub>
-
-🌟 多寶具英靈的「最強攻擊寶具」索引（敵 AI 解放/預告用·非玩家）：只挑攻擊型(有攻擊 fx 或 對軍以上/對神規模)， 按 概念階×10＋規模 排序取最高；無攻擊型則退 0。純防禦寶具(divine_core 金鎧等)不入選(不會拿來砸人)。
-
-### `resolveFateBattle_`　<sub>Engine_Fate.gs</sub>
-
-須【主動解放寶具】(opts.np)才觸發——上游 actionFateBattle 的補魔閘門會扣御主魔力，非每擊免費觸發。
-
-🍱 整備·進食（戰前 buff）：攻方命中 +opts.mealBuff（由 fateStrike_ 依御主整備狀態傳入）
-
-千里眼永久免疫「無欲」等封鎖先機的效果——這正是它比命中·中(first_strike/analyze)貴的理由。
-
-狂化(mad)傷害暴漲／神代魔術(divine_age·下方另使敵對魔力半效)／風王鐵鎚(wind_strike)／道具作成(crafting)：皆線性被動傷害加成，SKILL_FX_ 表驅動（位置順序不變；mad 的命中/迴避-penalty 與 divine_age 的對魔力交互仍明碼）。
-
-🔮 御主魔術支援（見 injectMasterMagicSupport_ 注入來源，僅 Caster 出擊時存在此 fx）：同上，玩家/敵方兩側對稱注入，不限玩家側。
-
-🗡️ 秘劍・燕返(tsubame)：三方位同斬 ×2.3【普攻限定·僅每場第1回合】——與寶具骰/超載/規模疊乘會爆炸故限普攻；限首回合避免每回合都吃到 ×2.3。寶具解放段已無疊乘，僅剩概念位階/貫穿＋演出標籤。
-
-僅「主動解放者本人(wRelease)」享用；對手反殺照其自身寶具、不吃玩家的灌注。
-
-fired 標籤保留供 AI 演出「真名解放·三段同時斬」。
-
-🛡️ 七天盾·羅·埃亞斯(rho_aias／EMIYA)：對【寶具解放】的一擊反應性投影卡帕涅烏斯之盾，七層花瓣硬擋——普攻不觸發；玩家側每次展開耗御主30魔(見 DEF_FX_.rho_aias)；遭超位階概念(ea等)貫穿則失效
-
-★唯「病死宿命」之敵(恩奇都)不適用——其宿命之死無可逃避(上方已 ×3 概念碾壓)。
-
-### `outTier`　<sub>Engine_Fate.gs</sub>
-
-命中端 +outMod；傷害端 ×outTier.dmgMul（於下方主威力處套用）。御主供魔越足、從者越生龍活虎。
-
-### `stA`　<sub>Engine_Fate.gs</sub>
-
-★一旦交手氣息即破功——後續回合的刀不再享奇襲(貼原作：發動攻擊瞬間 presence concealment 掉階)。
-
-### `pet`　<sub>Engine_Fate.gs</sub>
-
-👁️ 魔眼·石化(petrify／Rider 美杜莎)：以視線鎖死獵物，令對方迴避大減——工房唯一可購的反迴避工具， 是「閃避堆疊流」的正牌剋星。
-
-### `_aFxC`　<sub>Engine_Fate.gs</sub>
-
-🎚️ 被動技能 fx 淨加成收帳：各自 clamp ±HIT_FX_CAP 再入命中/迴避——堆疊流(敏EX+變化+直感…)無法把差距拉到「永遠打不到」；敵方施加的壓制(魔眼/天之鎖/燕返)計入同一淨額，天然是堆疊流的解。被截斷時推標籤供演出。
-
-### `gbEvaded`　<sub>Engine_Fate.gs</sub>
-
-仍是強力寶具(一般從者照樣被釘死)，只有「能扭轉命運/超越感知」者才搏得一線生機。
-
-### `godSlay`　<sub>Engine_Fate.gs</sub>
-
-觸發＝技能帶 fx:'god_slay'(資料驅動·如阿爾喀德斯復仇者) 或 技能/特性名含「神殺」(如斯卡哈)。
-
-### `npRank`　<sub>Engine_Fate.gs</sub>
-
-對手反殺(!wRelease)維持吃自身六圍表寶具值(不受玩家寶具選擇影響)。
-
-### `wDivR`　<sub>Engine_Fate.gs</sub>
-
-🕊️ 寶具解放·神性加成：吃 divineRankOf_(traits 與 fx 皆算) 並依神格縮放，1+0.1×rankMul(自身神格)——C＝×1.1、A＝×1.17、EX＝×1.2、E-＝×1.02。
-
-### `npStrike`　<sub>Engine_Fate.gs</sub>
-
-⚡ 「本擊是否寶具解放」（npOnly 防禦的觸發判定）：opts.np 且勝方＝解放者本人才算——守方反殺(winner=def)時敗方吃到的是普通反擊，七天盾不對其反應。
-
-### `plagueImmune`　<sub>Engine_Fate.gs</sub>
-
-神性判定吃 divineRankOf_，但刻意維持【二值】不隨神格縮放——這是「神之加護擋不擋得住疫病」的門檻概念，非傷害倍率，有神格庇護即減半。
-
-### `rnL`　<sub>Engine_Fate.gs</sub>
-
-減傷 10%×階級(A→-17%/EX→-20%)，救持符文的玻璃法師(斯卡蒂/玉藻前/斯卡哈)存活。regen 在此處無戰鬥修正、只在回合迴圈回血。
 
 ## `gas/Gallery.gs`
 
@@ -3379,72 +1868,6 @@ Router_Narrative.gs 的懶初始化會在 prompt 組裝時臨時補上，AI 不�
 ### `dailyLookParts`　<sub>Gallery.gs</sub>
 
 dailyLook 若已是四段格式(外貌本相/氣質舉止/日常口吻/私密一面)就取第 0/1/3 段當特徵三格（第2段是口吻、另有出口），過渡期舊資料才退回 looksToTraitParts_ 舊拆法，兩者相容。
-
-### `KANSHOU_FAMILIAR_TIERS_`　<sub>Gallery.gs</sub>
-
-熟悉度三階的門檻（回合數）。一個遊戲日專心陪一個人大約 20~40 回合，所以：初識＜1日 ／ 混熟 1~5日 ／ 老交情 5日以上。實玩後可調。
-
-🐛→✅ 2026-09 玩家實測貼回來的敘事裡，櫻說出「我明明只是**點頭之交**而已」「明明我們**才剛認識沒多久**」。
-資料完全正確（相處 6 次＝初識、REL_TAG 還是起始值），壞的是**那兩個標籤被寫成了可以直接照唸的句子**，
-而且送在一個沒有保護的區塊裡。三個根因一起修：
-- **`say` 寫成第一人稱完整句**：舊值是「我們還只是初識」「我們已經混熟」「我們是老交情了」——
-  那不是狀態描述，那是台詞。模型照著唸成「我們才剛認識沒多久」幾乎是必然的。
-  改成描述狀態的「相處還淺／相處漸熟／相處已久」。⚠ 這一格往後也一律避開第一人稱完整句。
-- **show-don't-tell 的保護範圍漏了一半**：`perform` 那條「★卡上這些句子只給你看」只描述了
-  system 裡的穩定卡（`【在場人物】名字。性別，真名X。…`），而關係稱呼／熟悉度／眼中的你／共同回憶
-  住在 user 那邊的**此刻狀態**那幾行（`名字：__PRESENCE__…`）——結構不同，規則一個字都沒蓋到它。
-  現在 `perform` 同時描述兩種區塊，用同一句「只給你看」收攏（單一真實來源，沒有另開第二條規則）。
-- **關係稱呼沒有標成「詞」**：`她是我的點頭之交。` 是一句話；`她是我的「點頭之交」。` 是一個標籤。
-  ⚠ 方向（`她是我的○○` 而非 `關係:○○`）刻意保留——拿掉方向 AI 會演反成玩家服侍對方，見 `kanshouPartyCards_`。
-
-⚠ 探針 `known.js` 斷言的是**早就不存在**的舊卡格式（`你在X眼中:初識`），它已不在 `runall.sh` 裡。
-改這張表時別被它誤導——要嘛重寫它、要嘛當它不存在。
-
-🔁 **第三輪（第二意見，行話叫「防備心的物理表現」）**：玩家實測的擺盪是兩極的——
-給關係名詞，AI 把名詞當形容詞抄進旁白；**名詞拿掉，AI 又因為失去邊界依據而鎖死在初見的客氣狀態**，
-互動再多也不敢推進。診斷是對的：**換軸**。不定義關係，定義**此刻量得出來的物理距離**。
-- `say` 四句全改成一條單軸遞減的距離：一個手臂 → 半個手臂 → 衣袖會碰到 → 沒有留距離。
-  同一個軸走到底（不是四種不同的意象），所以模型讀得出「在往哪個方向走」。
-- 三階加成四階（新增 `min:30`「熟稔」）。門檻不必另立單位——`min` 的單位是同場回合，
-  而一回合＝`KANSHOU_MIN_PER_TURN_` 分鐘，所以 12/30/50 就是**一起待了 2／5／8 小時**。
-- 順手修掉 `kanshouKnownTier_` 的 fallback：它把「相處還淺」**又寫死了一次**（同一句話存兩處，
-  改表沒改這裡就是兩個答案）。改成退回表尾那一列。`kanshouKnownOfYou_` 回傳的 `tier` 全樹無人讀，一併拿掉。
-
-⚠ **第二意見給的四句一句都沒採用**，因為它們正是這兩天親手砍掉的三種形狀：
-- 「遇肢體碰觸時動作會下意識微頓」＝**觸發＋反射動作**，跟退休的怪癖（「被道謝時會低下頭」）同形。
-- 「客套社交距離」「站姿自然放鬆」「習慣了我的接近」「完全放下防備」＝**評語**，不是量得出來的東西；
-  評語會被模型直接唸出來，那就是「點頭之交」換個講法。
-- 「站位」「站姿」＝**預設姿勢**，跟今早修掉的櫻「站著等到對方讓出來」同形（會逼她在大家都坐著時站起來）。
-它另外建議新開一個 `intimacy_stage` 欄位——**那是同一件事存兩處**。`KANSHOU_MET_COUNT_TAG_` 早就在算了，
-這次只換表的內容，一行存取邏輯都沒動。
-
-⚠ 這張表長年**沒有任何掃描器或探針在看**（唯一提到它的 `known.js` 不在 `runall.sh` 裡、自己還會跑到一半炸）。
-`party.js` 補了 ⑧ 一整段當它的防線：四階、沒有關係名詞、沒有觸發腳本、沒有評語詞、沒有預設姿勢、
-沒有常駐副詞，外加逐階門檻（剛好要換、差一格不能換）。
-⚠ 寫的時候踩到一個會讓整批門檻測試**全綠卻全錯**的坑：相處計數 `+1` 跑在卡片組裝【之前】
-（`Gallery.gs` 2346 vs 2362），所以這一回合是算進去的，表上寫 N 時卡片看到的是 N+1。
-已經把這件事本身也釘成一條斷言——不釘的話，哪天把 `+1` 搬到組裝後面，底下整批會一起漂掉還是綠的。
-
-🔁 **第二輪（同一天，玩家追加兩句）**：「不能固定的東西，就不要在固定的資訊裡面」＋
-「我跟她不會一直初次見面，也不會一直點頭之交」。上面那輪只讓標籤不被照唸，迴路本身還在轉：
-
-    提示詞告訴 AI「她是我的點頭之交」→ schema 問它「現在是玩家的什麼？同上回合就填無」
-    → AI 讀到自己上回合寫的字 → 答「無」 → 標籤原地不動 → 下一回合又告訴它同一句話
-
-**AI 在讀自己寫的東西，然後決定要不要改自己寫的東西。** 2026-07 砍掉的「態度」欄是同一個形狀，
-`rel_tag` 只是換了個名字。玩家定案「玩家設的才餵，AI 寫的不餵」，三處一起改：
-- **起始值不再寫死關係快照**：`REL_TAG` 留空、`REL_MEM` 走 `kanshouRelMemBuild_("無",{})`、
-  MEMORY 的基底散文「【鑑賞後日談·初見】在這座城裡剛結識的緣分，才剛開始。」清成空字串
-  （那句實測是死字、全樹沒人讀，但它誤導下一個失憶的我以為 AI 看得到）。
-- **`pRelTagStr` 加門禁**：`kanshouRelLocked_(REL_MEM,'tag')` 為真才送進提示詞。
-  分界線是**玩家的意志是輸入、AI 的輸出不該變成自己的輸入**——玩家在🏷️關係打的字照送，
-  AI 自己寫的仍然落地存著（面板要顯示），就是不回餵。
-- **熟悉度門檻 30/150 → 12/50**：玩家實測一直卡在「初識」。一個遊戲日約 20~40 回合，
-  現在是 混熟＜半日 ／ 老交情 1.5~2.5 日。
-
-⚠ 探針 `reltag.js` ⑤ 第一版寫成「提示詞裡沒有寫死的關係快照」，**注入退化不會叫**——
-門禁本來就把那個值擋掉了，所以那條斷言驗不到「起始值有沒有被寫死」。改成直接驗
-【召喚當下存進表裡的值】(`INIT_TAG`/`INIT_MEM`，在任何一回合跑起來之前就取)才真的驗得到。
 
 ### `kpc`　<sub>Gallery.gs</sub>
 
@@ -3532,10 +1955,6 @@ mentioned_names/event/tag/log_summary 等死欄已移除：皆是寫入後從未
 
 🏠 同居中：深夜大多回「和室」就寢(未命中=在外遊蕩的生活感)、清晨一半還在賴床、 夜間多在家中公共空間活動；白天(清晨/午後/黃昏未命中)照常走下方一般骰出門晃。
 
-### `mid`　<sub>Gallery.gs</sub>
-
-有時段才寫 band:，無則沿用舊格式。★byHer 旗標只在有 band 時才附加——沒有 band 的舊格式是單段 loc，硬加會被解析成 band='loc'、loc='1'，整筆約定壞掉。
-
 ### ~~`KANSHOU_HAIR_COLORS_`~~（2026-09 已移除）　<sub>Gallery.gs</sub>
 
 髮色解析：從角色TRAIT(dailyLook外貌段)文字抓色詞→hex——種子/工房新角色通吃(dailyLook建檔時必生成)、永遠零手工；順序敏感(深紫在紫前、紅褐在紅/褐前)，查無色詞退回中性深棕。
@@ -3591,10 +2010,6 @@ MEMORY標記存取器【住所】：玩家自訂的「家」顯示名稱，查�
 ### ~~`_pendingNewPcRow_`~~（2026-09 已移除（永遠是 null，那條 appendRow 從沒跑過））　<sub>Gallery.gs</sub>
 
 🆕 本回合新增的列(目前只有「結識」會產生)：先只進 pcData 讓本回合就地生效，真正 appendRow延到寫回階段——這樣 AI 失敗早退時整回合都是 no-op，不會留下半套狀態。
-
-### `myOutfit`　<sub>Gallery.gs</sub>
-
-同款「裝扮:XXX(當前服裝·五官體態不變)」格式補上，AI 才能讀到當前實際服裝，而非憑空假設。
 
 ### `morningAfterNames`　<sub>Gallery.gs</sub>
 
@@ -3660,10 +2075,6 @@ AI 對關係標籤沒有任何寫入權（attitude 欄位已於 2026-07 整組�
 
 需要 sameGame 過濾——若不同局/不同帳號剛好撞名(種子有限、AI原創從者皆可能撞)，會把別局同名者的資料塞進本局的敘事提示詞。
 
-### `pBond`　<sub>Gallery.gs</sub>
-
-純聊天好感卡在梯度上限這件事本身不會反映在數字上——GAS默默夾住漲幅，若不順便告訴AI， narration可能寫出「感情大幅推進」這種跟機制矛盾的橋段。只在卡住時才加這句提示。
-
 ### `pRelTagStr`　<sub>Gallery.gs</sub>
 
 只在低梯度(尚不熟識)才加一句態度提示，中高梯度不需要、也不該畫蛇添足限制發揮。
@@ -3684,10 +2095,6 @@ AI 對關係標籤沒有任何寫入權（attitude 欄位已於 2026-07 整組�
 
 鑑賞無戰鬥，御主的 HP/MP/MAX_HP/MAX_MP 這4欄從未寫入，故 prompt 不提血量/魔力數值或瀕死判斷(與世界觀規則「禁止血量/生命變化」一致——該禁令在下方 USER 世界觀＋演出而非說明兩行)。
 
-### `nIdx`　<sub>Gallery.gs</sub>
-
-用 kanshouNameCandidates_ 比對，容忍AI只用括號前後其中一段稱呼TA。
-
 ### `sanitizeAppearanceExtras`　<sub>Gallery.gs</sub>
 
 appearance_extras：AI 如實回報的當下實際穿著/配飾，篩掉敷衍語後直接交給既有 setOutfit_ 寫回持久的【換裝】記錄(setOutfit_ 本身已有 40 字硬上限與清洗特殊字元，這裡不重複截斷)。
@@ -3703,12 +2110,6 @@ appearance_extras：AI 如實回報的當下實際穿著/配飾，篩掉敷衍�
 ### `purgeHistoryForPcIds_`　<sub>History_Sync.gs</sub>
 
 trimRowsByOwner 只擋單一 pcId 超量，整張表從不清；結束局在此清掉該局所有 pcId 的歷史列， 否則表無上限成長，久未登入帳號的紀錄也會被擠出 getGameHistory 的最後 1000 列讀取窗口而靜默遺失。
-
-## `gas/Mystic_Code.gs`
-
-### `MC_COMBAT_`　<sub>Mystic_Code.gs</sub>
-
-要新增/調整禮裝戰力，只動這張表＋上面的 fx 對應；引擎(resolveFateBattle_)透過 mcCombatFx_ 自動讀取。
 
 ## `gas/Router_Action.gs`
 
@@ -3744,65 +2145,17 @@ preData＝呼叫端已讀好的整表，傳入即免重讀(省整表 I/O)。關�
 
 🌹 慾海卡「特徵」用：COL.PC.TRAIT 才是全代碼庫「特徵」的真實定義(外貌描述)， TAGS.traits 是戰鬥特性標籤(神性/英雄)，兩者不可混用。
 
-### `isFateCtx`　<sub>Router_Action.gs</sub>
-
-下方 servants.push 組裝的戰鬥限定欄位(魔境/符文/synergy/理想鄉/多寶具/深淵海怪)須明確以isFateCtx 擋成 null，不能只靠「鑑賞列 TAGS/SKILLS 恆空」這種資料形狀僥倖安全。
-
 ### `buildClientState_`　<sub>Router_Action.gs</sub>
 
 ⚡ preData：手上已有最新整表陣列的呼叫端(見 STATE_PRE_DATA_ 交棒機制)傳入複用，省掉整表重讀——前提是該 handler 的所有寫入都已反映回它那份陣列。沒給→照舊自己讀(權威 fallback)。
 
 🕰️ 鑑賞需把day/hour餵給前端才能判斷時段(如是否顯示「準備早餐」)；沿用`clock`放顯示字串(HUD同solo)， kanshouClock 另給結構化欄位供前端邏輯判斷(顯示字串不好拿來比對)。
 
-### `isKanshouSync_`　<sub>Router_Action.gs</sub>
-
-markRivalsSeen_ 是「戰爭迷霧」機制(找同 game_id/同地敵對陣營標記已見過)，鑑賞眾生從無敵對陣營列，跳過以免每次白掃一輪從沒中過的迴圈。
-
 ### `finalNick`　<sub>Router_Action.gs</sub>
 
 ★ 消毒規則抽進 Gallery.gs 的 sanitizeNickname_——AI 那條寫入路徑也走同一支(單一真實來源)。
 
 ## `gas/Router_Battle.gs`
-
-### `fateStrike_`　<sub>Router_Battle.gs</sub>
-
-✨ 我方從者作守方時也吃御主禮裝被動（防禦端：如全世界之鞘承受寶具減傷）＋💠 注入御主純魔作「展開扣魔」防禦(七天盾)的付費額度——引擎付不起就張不開
-
-不在此立刻補寫 MEMORY 單格：下方 4 條出路都會對 pcData[tgtIdx] 做一次整列 setValues()， 此格寫入必被覆蓋——省一次多餘 API 呼叫，隨後面任一整列寫入一起落表。
-
-平白燒掉御主寶貴的令咒逃命，牠自己就能免費復活。高位階寶具概念可「一擊燒掉多條命」，壓倒性 overkill 再加成。
-
-🩸 傷害溢出【不封頂】：一擊打穿現有 HP 後，每再滿一個「復活線(20%靈基)」的溢出傷害 → 多燒一條命(同海怪護盾的溢出原則)。故一記壓倒性寶具可一口氣燒去多條命，而非每擊固定一條。與概念下限取較狠者。
-
-⚠ sealNote 同時會進玩家看得到的回合報告(k.note)，別在這裡塞「★」AI指令字面(那種只該進 aiPrompt，見下方buildDreamPrompt_ 呼叫處另加的一行)——玩家讀到裸露的鷹架指令會很怪。
-
-### `lossN`　<sub>Router_Battle.gs</sub>
-
-位階取「fx 概念階」與「寶具規模(對人/軍/城/界)」較高者，故 Saber 對城 Excalibur、Gilgamesh 的 ea 都吃得到。
-
-### `escMaster`　<sub>Router_Battle.gs</sub>
-
-🔗 用硬連結【御主】找「這名從者真正的御主」，避免同地多組時抓錯人（曾出現 A 御主一道令咒帶走 B 御主的從者的離譜 bug）。舊角色無連結→退回同地比對。
-
-### `nameLoose_`　<sub>Router_Battle.gs</sub>
-
-導致明明同地有敵卻「此世界查無此目標」。傳入空字串時回空(呼叫端須自行擋空名)。
-
-### `buildPartyIdxs_`　<sub>Router_Battle.gs</sub>
-
-🗝️ 雙從者：收集所有在世我方從者列索引，出戰中的 atkIdx 排最前(寶具/令咒/斬首優先權只落在他身上)——斬首分支的 asnParty 與主戰鬥路徑的 partyIdxs 是同一段複製貼上，2026-07 稽核抽出共用。
-
-### `INDEPENDENT_ACTION_RESERVE`　<sub>Router_Battle.gs</sub>
-
-🔮 單獨行動(Independent Action)：御主已亡/查無連結時，僅此特性的從者能靠靈基殘存硬撐一手——是「殘存的最後一口氣」不是「獨立供魔」，固定小額、不隨階級放大，通常不夠再放一次寶具(見 npPranaCost_)。
-
-### `SOLO_RESERVE_TAG_`　<sub>Router_Battle.gs</sub>
-
-用掉就少、【不回復】。
-
-### `enemyCanAffordNp_`　<sub>Router_Battle.gs</sub>
-
-無主時僅「單獨行動」者靠殘存靈基硬撐（讀【殘存】餘額·drainForNp_ 實扣），其餘無主即啞火。回 {afford, masterIdx}。
 
 ### ~~`STANCE_SHARE_`~~（已移除·名字只剩在墓碑註解裡）　<sub>Router_Battle.gs</sub>
 
@@ -3812,259 +2165,25 @@ markRivalsSeen_ 是「戰爭迷霧」機制(找同 game_id/同地敵對陣營標
 
 🛡️ 防禦性補查：呼叫端已各自補上 !knocked 判斷，這裡再加一道保險——絕不對已被 fateStrike_標記 DEAD_ 的列回補HP/扣御主HP，避免任何未來新呼叫點漏掉同一個判斷又重蹈覆轍。
 
-### `actionFateBattle`　<sub>Router_Battle.gs</sub>
-
-🛡️ 常駐寶具閘：God Hand/治癒結界等【常駐寶具】自動生效、不是攻擊——擋下攻擊解放(前端💥鈕已灰化，此為舊快取前端的後端保險)。
-
-🎴 令咒·絕對命令【強開寶具】：御主魔力見底，燃一道令咒逼出不可能之力——令咒補上缺口魔力(令咒即燃料， 御主血肉不再被榨乾)。須真有令咒可燃(userData.seal＋餘量)，否則照舊擋下、並回 canForceSeal 供前端出「燃令咒強開」鈕。
-
-★同時是「刷好感躲追殺」的天然制衡：要奪杯就得打、打了好感掉破 50→追擊閘重新開啟。
-
-否則護衛捨身格擋、並反手予我方從者 1.5 倍痛擊（可能致敗）。寶具／令咒對奇襲斬首不適用。
-
-🚀 主戰鬥路徑從這裡開始延遲寫入：底下每擊的 helper 只改記憶體 pcData、跳過逐列 setValues， 結尾一次整表寫回(見 return 前的批次 setValues)。斬首分支已於上方 return、不進此段。
-
-敵方從未被 setNpChoice_ 寫入選擇，npChoice_ 會退回預設索引0——多寶具敵人(如吉爾伽美什索引0是對人的王之財寶)須改選最強寶具，與下方「敵反擊」段落同步，避免同場戰鬥前後不一致地低估敵方火力。
-
-肉身已潰散(護盾歸零/逾時) → 海怪退場、本回合起不再追擊。
-
-🐛→✅ 同上補 !pds.knocked，避免對已陣亡的從者回補HP、白扣御主HP。
-
-🎭 關係錨：明說在場敵御主與「defC」的契約關係——否則兩人在提示詞裡只是不相干的名詞，AI 演不出「自己的從者在眼前交戰/被消滅」的切身衝擊，只會照性格詞即興出「冷眼旁觀」的類型套路。
-
-🚀 一次整表寫回：本戰所有 helper 皆只改記憶體 pcData(延遲寫)，這裡比照 actionMove 單次 setValues 落盤， 取代原本散落 30~50 次逐列寫的慢往返(每場戰鬥省 ~1~3 秒)。全程握 ScriptLock、其他局的列原值寫回不受影響。
-
 ### `npcId`　<sub>Router_Battle.gs</sub>
 
 🎯 目標解析：優先用前端帶的【穩定列 ID】(npcId)精準命中——名字比對(nameLoose·CJK 點號/全形括號變體)易失手， 常見「查無此目標」正因名字位元組不一致。ID 為主、名字為退路(相容舊前端/無 id 情況)。
-
-### `_battleDay`　<sub>Router_Battle.gs</sub>
-
-🕰️ 登場日閘門：尚未登場者不可被鎖定攻擊(前端本就看不到，這裡防直打API繞過)
-
-### `isMasterTarget`　<sub>Router_Battle.gs</sub>
-
-🗡️ 斬首戰術：目標為敵御主時，若其從者尚在同地護衛 → 需「大成功(擲 20)」才能突破斬殺御主， 否則被從者捨命格擋、並反噬 1.5 倍傷害。從者已亡 → 御主手無寸鐵，直接擊殺（走一般流程）。
-
-### `isFateBattle`　<sub>Router_Battle.gs</sub>
-
-⏳ 戰鬥耗 1 AP（＝推進 1 小時，1 AP＝1 小時）；行動點不足則無法出戰getAp_/spendAp_ 傳入手上這份 pcData(記憶體查找+原地改)，免整表重讀，結尾可直接餵 buildClientState_。
-
-### `npSealForced`　<sub>Router_Battle.gs</sub>
-
-② 御主魔力(MP)＋焚血(HP)都湊不出 prana → 油盡燈枯，擋下。
-
-### `guardBase`　<sub>Router_Battle.gs</sub>
-
-反噬取「護衛端」傷害：護衛擲贏→其全力反噬(probe.damage 即護衛傷)；護衛擲輸(奇襲突破)→反噬大減， 底傷依護衛筋力而非玩家自己的攻擊力(原 bug：玩家擲贏時 probe.damage 是玩家傷害，反噬越強自噬越重)。
 
 ### `ROUNDS`　<sub>Router_Battle.gs</sub>
 
 寶具/令咒只在開場第一擊生效；其後為普通互砍。敵御主空手不反擊。
 
-### `OVERLOAD_BACKLASH_`　<sub>Router_Battle.gs</sub>
-
-⚡🩸 過載反噬：凡人之軀強行導引倍額魔力，解放後機率性迴路暴走隨機扣血。不致死·保底1——反噬是資源壓力(血魔雙空＝接下來放不了寶具/主動)，不是即死輪盤。只掛玩家【明選】的超載檔位(p1/p2/舊blood比照p2)。
-
-### `ghLivesStart`　<sub>Router_Battle.gs</sub>
-
-🕯️ 十二試煉·燒命總帳：godNote 只留最後一回合那句，AI 無法自己數「倒下了」出現幾次——把整戰燒命數(戰前後 lives 差)算好餵給它，並明講「燒命數」與「倒地次數」是兩回事。
-
-### `pPow`　<sub>Router_Battle.gs</sub>
-
-🎯 火力取樣用 forceHit：damage 恆屬「攻方」——擲輸時取到的是對面的反殺傷害，會把與寶具威能無關的噪音帶進對轟比大小，故強制取攻方 damage。
-
-### `clashRes`　<sub>Router_Battle.gs</sub>
-
-⚡ 對轟裁決：四層特例(雙向因果律/輸方保1/pLethal)收進 Engine_Fate.gs 的純函式 resolveNpClash_(單一優先序階梯·可單元測試)，這裡只做 I/O：取樣火力→拿決策→落傷。
-
-### `pactDefIdx`　<sub>Router_Battle.gs</sub>
-
-🤝 敵盟·協防（同盟功能·敵方版）：你攻擊的敵從者，其御主若與另一敵御主締有【敵盟】(未逾期)，且該盟友御主的從者同地在場→盟友從者每回合替其反擊我方一記（敵版協同強襲，讓敵盟在正面戰鬥真的有分量）。
-
-### `pHpRatio`　<sub>Router_Battle.gs</sub>
-
-🛡️ 寶具是孤注一擲的殺招、不是見面的招呼：敵方唯有【自己被打殘】或【對方已殘可收尾】才解放真名——免得玩家一接觸就被無預警的寶具秒殺(「見面開寶具」的惡感)。健康對健康＝先以普攻試探。
-
-### `eTelegraphed`　<sub>Router_Battle.gs</sub>
-
-🔮 寶具預告制：敵寶具不再無預警秒殺——首次達成解放條件時「預告」(蓄勢·存 MEMORY 跨按鍵)， 下次接觸必定發動，給玩家整整一回合準備(開結界/寶具對轟/逃跑)。旗標消耗於發動或被寶具對轟答覆。
-
-### `eSkill`　<sub>Router_Battle.gs</sub>
-
-🎯 敵AI無主動技按鈕→自動施展其招牌施放技術(魔力放出/怪力/投影)，免費(視為其戰鬥本色)——精確還原「改制前這些是免費被動」的敵方戰力，避免單層歸屬後悄悄削弱敵人(玩家側才改為主動付魔)。
-
-### `ROUND_MARKS_`　<sub>Router_Battle.gs</sub>
-
-逐回合明細壓成一行「交鋒節奏」：命中/揮空的先後是攻防轉折(AI 要的)，逐行重複的人名與單次傷害數字不是——總傷害下面另有一行，鐵律又要求不複述數字、不寫逐回合流水帳。
-
-### `npMark`　<sub>Router_Battle.gs</sub>
-
-寶具一律是第一回合那一擊(npOpeningStrike)。不標在節奏上，AI 就不知道「①命中」跟下面那條「解放了寶具」是同一擊，於是寫成先打一下、再放寶具兩件事——這是寶具場面接不起來的主因。
-
-### `_defHpNow`　<sub>Router_Battle.gs</sub>
-
-🎭 戰局實況錨點：光有性格/關係卡沒有戰況資訊，AI 容易讓敵御主反應跟當下實際戰況脫節。把已算好的HP比例/傷害交換即時算成一句白話戰況，逼反應對應當下真實場面。
-
-### `_mjBits`　<sub>Router_Battle.gs</sub>
-
-御主參戰：站位、以身相代、體術/魔術助拳原本是三條各自為政的素材（還被「本戰已終結」隔開）， 合成一條，讓 AI 拿到「御主這一戰做了什麼」而不是三個碎片。詳見 CODE_NOTES。
-
-### `BATTLE_WORDS_`　<sub>Router_Battle.gs</sub>
-
-🎬 篇幅依「這場真的發生了幾件大事」查表——寶具對轟＋理想鄉＋擊破，不該跟三回合平手同樣字數。 加一階＝往表加一格；index＝高潮拍數＋(是否有人倒下)。
-
-### `actionDismissHorror`　<sub>Router_Battle.gs</sub>
-
-重召須再付全額寶具 prana（actionSummonHorror），這就是「養 vs 解」的資源決策。
-
-### `GOD_HAND_TAG_`　<sub>Router_Battle.gs</sub>
-
-實作收斂進 Core_Settings.gs 的 makeIntTag_ 共用工廠。
-
-### `MEAL_BUFF_HOURS`　<sub>Router_Battle.gs</sub>
-
-🍱 整備·進食（戰前 buff）：solo 無商城/道具欄，食物由「整備」抽象供給(AI 敘述來源)， 不寫道具列、不花錢。MEMORY 記【整備至】<絕對小時>，過期自動失效。
-
-### `getHorrorShield_`　<sub>Router_Battle.gs</sub>
-
-非 0＝舊制碼表存檔·逾時 active:false。相容舊兩欄(cur|expiry，max 退回 cur)。
-
 ## `gas/Router_Bond.gs`
-
-### `enemyMasterMemoryFor_`　<sub>Router_Bond.gs</sub>
-
-🥋🔮 給敵從者列反查其硬連結敵御主的 MEMORY(供 injectMasterMeleeSupport_/injectMasterMagicSupport_讀取敵御主自己的體術/魔術階位，而非誤讀玩家御主的)；查無則回 ""，inject 端本就當「不注入」處理。
-
-### `markMasterLostServant_`　<sub>Router_Bond.gs</sub>
-
-配對優先用硬連結【御主】名(精準，不怕多組同地)，舊角色無連結則退回同落點比對。
-
-### `actionUseSeal`　<sub>Router_Bond.gs</sub>
-
-並明講「令咒非自動高潮、御主須主動施為」——令咒本質只是狀態效果，高潮須是互動結果。
-
-明講反應要從「被動抗拒」翻轉成「媚藥般失控、主動索求」的反差，且限定只深入著墨1~2個轉折， 避免AI把多個轉折各用一句帶過寫成流水帳。
-
-🔥 好感不足時被強逼交心的反噬：這一幕先走DeepSeek的露骨敘述(描寫到令咒解除、從者出手為止)， 死亡本身複用既有「假夢→老虎道場」流程(buildDreamPrompt_)，不新增另一套死亡機制。
-
-### `getBondUsedToday_`　<sub>Router_Bond.gs</sub>
-
-排除字元集須用全形｜(`[^｜【]`)，MEMORY 欄的標記生態系一律以全形｜分隔——用半形會讓抓值把後面緊接的全形｜也吃進來，導致「今天已相處過」等防重複判斷失效。
-
-### `BOND_MILESTONES_`　<sub>Router_Bond.gs</sub>
-
-⚠ 若判定當下同時被奇襲打斷，故意不標記已觸發，留到下次順利相處再演出，不因意外奇襲永遠錯過。
-
-### `BOND_ACTS`　<sub>Router_Bond.gs</sub>
-
-💕 羈絆互動（純按鈕，無對話框）：單一「相處」（每遊戲日限一次、跨日重置、+10 羈絆），味道交給AI 依當下時段/羈絆/性格自由即興，不做假選擇的每日清單。
-
-### `isFate`　<sub>Router_Bond.gs</sub>
-
-AP 不足須在動作前先擋，跟 actionProposeAlliance/actionAllyBond 一致；否則 spendAp_ 只會靜默不扣時間，羈絆值/日限/突襲風險仍照樣結算。
-
-### `firedMilestones`　<sub>Router_Bond.gs</sub>
-
-取「已達成但尚未演出過」的最低門檻，不論本次相處是否跨過門檻——羈絆若被其他管道墊高越過， 仍能補演。只算候選、暫不寫回，等確認沒被奇襲打斷才落地。
-
-### `isAllied_`　<sub>Router_Bond.gs</sub>
-
-✨ 禮裝已全面被動化（2026-06 玩家定案）：持有即於戰鬥自動加持我方從者（見 injectMysticBuff_ / MC_COMBAT_）， 不再有主動發動入口。原 actionUseMystic（吃迴路/耗魔/充能/起源彈狙御主）已移除。
-
-### `masterPersonaLean_`　<sub>Router_Bond.gs</sub>
-
-pragmatic＝肯談的務實/有目的者；loner＝孤狼/瘋狂/看戲者難說動。讀 PREF｜MEMORY｜BACK。
-
-### `bondFavor_`　<sub>Router_Bond.gs</sub>
-
-單一真實來源：各處「依好感提高成功率」的 GAS 判定共用。未互動過(0/空)視為中性 40。
-
-### `_allianceDay`　<sub>Router_Bond.gs</sub>
-
-比照攻擊路徑(actionFateBattle)：先 npcId 精準配、再 nameLoose_(去中點/空白)——含中點名字(不同 Unicode 中點變體)raw includes 對不上。
-
-### `actionProposeAlliance`　<sub>Router_Bond.gs</sub>
-
-servantCard_ 卡片內容不含身分標籤，須比照 Router_Battle.gs〔敵方出戰者〕/Router_Movement.gs〔夜襲者〕的慣例先標明身分，避免 AI 誤讀態度欄位方向。
-
-### `breakStaleAlliances_`　<sub>Router_Bond.gs</sub>
-
-⚡ 2026-07：preData 給了就在同一份陣列上原地改，不重讀；沒給(相容)才自己整表讀一次。
-
-### `bumpBond_`　<sub>Router_Bond.gs</sub>
-
-羈絆 +delta（寫在該 NPC 自己列的 BOND 欄；無互動過的盟友起步約 40），回傳新值skipWrite(選填)：呼叫端隨後必有一次涵蓋 BOND 欄的整列/單欄寫回時傳 true，省掉這裡的單格立即寫入。
-
-### `aiPromptA`　<sub>Router_Bond.gs</sub>
-
-ambushDispatchPrompt_ 的 normalFn 這裡不會用到(外層已用 if(ambush) 專門處理突襲這條路)， 傳個不會被呼叫的 no-op 即可，只借用 homeRepel/peaceful 二選一的既有分派邏輯。
-
-### `actionAllyBond`　<sub>Router_Bond.gs</sub>
-
-🤝 深盟里程碑（首度臻至 90）——純敘事高光的「已演出」防重複標記【摯交】，無鑑賞入口意義(原【鑑賞緣】戰後納入鑑賞已砍：鑑賞角色一律鑑賞內自行召喚)。
-
-### `allyCard`　<sub>Router_Bond.gs</sub>
-
-盟友御主→enemyMasterCard_(比手刻陽春卡更完整，與 Router_Battle.gs 戰鬥時同厚度)。
 
 ### `tIdx`　<sub>Router_Bond.gs</sub>
 
 會被 sanitizeUserData_ 的 cleanChineseName 剝成「哈桑薩巴赫咒腕」，純 name 比對必漏，故靠 id。
 
-### `_partnerName`　<sub>Router_Bond.gs</sub>
-
-🤝 好感是「這一整組(御主＋從者)對你的態度」：連坐硬連結的另一半一起升，讓結盟(讀御主列)與偷襲/挑撥/撤離不被追(讀從者列)的回饋都吃得到——玩家不必猜該對御主還是從者示好。
-
-### `_stMem`　<sub>Router_Bond.gs</sub>
-
-🧹 清除敵屬時代殘留標記：舊主硬連結【御主】(殘留會誤觸 masterSynergy 全盛六圍/主從誤鏈)、 【寶具預告】【盟約至】【靈基透支】(敵方機制·奪來後不再適用)。
-
 ## `gas/Router_Creation.gs`
-
-### `actionManualNpc`　<sub>Router_Creation.gs</sub>
-
-數值(HP/MP/game_id/MEMORY)全由 GAS 決定，故無 AI 也是結構完整、可直接開打的列。
-
-### `actionBackfillMasterAi`　<sub>Router_Creation.gs</sub>
-
-御主敘事非阻塞補生成：create 已用種子值秒建御主；此處於「召喚從者頁」背景叫 AI 補背景/特徵/個性/萌點， 只用單格 setValue 更新敘事欄(不整列 write-back，避免與玩家動作競寫)；失敗則保留種子預設。數值欄一律不碰。
 
 ### `pcData`　<sub>Router_Creation.gs</sub>
 
 🔒 帳號歸屬驗證已上移到 dispatcher 統一擋（`handleGameAction`→`verifyPcOwnership_`）， 進到這裡的 pcId 已保證屬於呼叫者本人，不必再反查一次「帳號」表。
-
-### `getWarMode_`　<sub>Router_Creation.gs</sub>
-
-🔵 提供前端瀏覽英靈殿：回傳 [{id,cls,name,gender,np}]從御主 MEMORY 讀戰役模式（canon=正史 / chaos=混亂；舊角色預設 canon）
-
-### `actionGetMasters`　<sub>Router_Creation.gs</sub>
-
-divine_core(神核) 已拔除工房開放——理由與 ea/王之財寶/UBW/海怪/天之鎖/黃金律 等頂級機制相同：凡人不該持有的機制，漲價解決不了(有預算照樣買得到)，故收為種子專屬。
-
-### `sanitizeSkills_`　<sub>Router_Creation.gs</sub>
-
-🛡️ ALLOWED_FX_是純物件字面量，truthy查詢會被Object.prototype繼承的鍵(constructor/toString/valueOf等)污染成false positive——改用hasOwnProperty才是真的「在白名單裡」。
-
-### `recordOriginalHero_`　<sub>Router_Creation.gs</sub>
-
-選填 pExtra(工房玩家自定 look/moe/firstP/toMaster/speech/tic/back/weapon＋綁定用 creator)——不存的話重召時 persona 欄退回預設。
-
-### `ALIGNS_`　<sub>Router_Creation.gs</sub>
-
-工房(parseForgeBuild_)與 AI 生成從者(actionSummonServant)共用同一份白名單驗證。
-
-### `SKILL_PTS_BIG_`　<sub>Router_Creation.gs</sub>
-
-三軌計價：同組同價會讓大係數標籤嚴格支配小係數，故照引擎真實係數分軌——強效(如千里眼/高速詠唱)貴 1/3、 輕效(如騎乘/風王)便宜 1/3。前端鏡射 FORGE_SK_TRACK/FORGE_SK_PTS_*(Script_Onboarding.html，工房即時預算UI用)。
-
-### `FLAT_FX_`　<sub>Router_Creation.gs</sub>
-
-二元平價(引擎不讀購買階級，效果恆固定)：god_hand/survive/tsubame/zabaniya/gae_bolg/rule_breaker/anti_magic_lance/agile_striker/weapon_steal/god_slay/lovespot/self_mod/tactics/projection。
-
-### `FORGE_CLS_BONUS_`　<sub>Router_Creation.gs</sub>
-
-Berserker 職階附贈狂化C(傷+但命中/迴避−·不可關)是唯一負資產禮物，補正+30 拉平——工房與 AI生成上限封頂共用同一份，不各自宣告(單一真實來源)。
 
 ### ~~`isMasterCls`~~（2026-09-24 隨舊英靈工房已移除，新工房見『WAR_FORGE_』）　<sub>Router_Creation.gs</sub>
 
@@ -4080,61 +2199,11 @@ Berserker 職階附贈狂化C(傷+但命中/迴避−·不可關)是唯一負資
 
 英靈殿含「鑑賞限定」的正典御主(cls='御主')，只給鑑賞召喚用、沒有六圍/技能/寶具——若被 solo 召喚會產出殘缺從者。三條路徑(heroId 指定/真名比對/隨機)都共用這份 hrows，統一在源頭濾掉，不逐一補檢查。
 
-### `_nameMatches`　<sub>Router_Creation.gs</sub>
-
-同真名可能有多職階列(如斯卡哈 Lancer/Assassin)——優先找真名比對到且職階match reqCls 的列， 找不到才退回「不分職階、比對到第一個」(相容沒選職階/單職階版本的一般真名召喚)。
-
-### `newId`　<sub>Router_Creation.gs</sub>
-
-專區點選召喚(走下方 hero 分支實體化)。
-
-### `actionSummonServant`　<sub>Router_Creation.gs</sub>
-
-特徵(敘事格)直接讀寫死的種子 persona.look，穩定一致、不叫 AI 生——但 persona.look 是「N段外貌(含服裝)・・氣質詞」而非天然分格，用 looksToTraitParts_ 正確切分。(2026-09：自稱退休後不再帶 persona.firstP。)
-
-種子 persona.words 幾乎只有2段，parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為「無」——召喚當下補一次 AI 讓從者也有真正的喜好/討厭。已經4段(罕見)則直接跳過、不多打 API。
-
-callGeminiAPI 連線失敗不丟例外，而是回 fallback 敘事 JSON(narration/options)——照收會靜默生出全C六圍/零技能的殘缺從者並永久污染英靈殿。缺 realName 或 six 視為生成失敗，中止讓玩家重試。
-
-🌀 六圍下限保底：AI 常自己抓不準力度，光靠 prompt「務必有強有弱」擋不住——GAS 這裡硬性補強到與工房 FORGE_BUDGET(340) 對齊(不含職階技能 aiCSkills，理由見 bumpSixToFloor_ 註解)。
-
-### `svPref`　<sub>Router_Creation.gs</sub>
-
-種子英靈：直接用寫死的種子 persona，大部分欄位不叫 AI 重生，省 API、加速召喚(僅[喜歡]/[討厭]段數不足時才補呼叫一次)。口吻/小動作(persona.speech/tic)已由 stampPersonaFlavor_ 複製進 MEMORY，servantCard_ 直接讀列即可。
-
-### `ghSkill`　<sub>Router_Creation.gs</sub>
-
-復活命數：god_hand 持有者優先讀技能物件自己的 lives(如尼祿 lives:3)；種子沒標時，ai_gen 給3(尼祿基準)， 其餘靠 getGodHandLives_ 預設11(赫拉克勒斯十二試煉專屬)，別讓 AI 產物白拿。
-
 ## `gas/Router_Economy.gs`
-
-### `actionSetMageRealm`　<sub>Router_Economy.gs</sub>
-
-只接受 mageRealmPool_ 池內 fx；空字串＝清除選擇。
 
 ### `actionSetOutfit`　<sub>Router_Economy.gs</sub>
 
 只換衣不換人(五官/髮色/體態依種子 look)；空字串＝恢復本相。
-
-### `actionSetWeapon`　<sub>Router_Economy.gs</sub>
-
-免費、即時、不耗 AP；留空＝清除、恢復自然演出。鏡射 actionSetOutfit。
-
-### `CIRC_FLOOR`　<sub>Router_Economy.gs</sub>
-
-過度補魔＝慢性自盡(迴路↓→池縮、回魔慢、禮裝弱)。
-
-### `bondForMana`　<sub>Router_Economy.gs</sub>
-
-從者不是有求必應：須羈絆≥MANA_TRUST_BOND_(60)且魔力≤MANA_LOW_PCT_(30%)上限才會同意（2026-09 由 80／10% 放寬：80 多數局到不了、10% 幾乎已在燒血，等於整個功能從來沒用過；60 對齊羈絆里程碑 30/60/90）。前端 💧 鈕只在達標時出現，所以婉拒分支平常看不到、留著當後端的真線；不合資格時不動任何數值，改由AI依從者性格生成婉拒——拒絕理由區分「不夠信任」與「還不到非做不可」兩種事實，避免AI編出對不上實情的理由。
-
-### `declineWhy`　<sub>Router_Economy.gs</sub>
-
-這種機制說明直接當台詞寫死，玩家反映過同款毛病(「提議移動失敗的台詞超級無敵僵硬」)。
-
-### `_manaApr`　<sub>Router_Economy.gs</sub>
-
-⚡ spendAp_ 先跑(skipWrite=true，只改 pcData 記憶體、不單獨寫表)，讓下面的整列寫入一次過帶上最新 day/hour/ap，省掉 spendAp_ 自己那道窄寫入(原本迴路/血量寫一次、spendAp_ 又寫一次)。
 
 ### `ambush`　<sub>Router_Economy.gs</sub>
 
@@ -4142,131 +2211,13 @@ callGeminiAPI 連線失敗不丟例外，而是回 fallback 敘事 JSON(narratio
 
 🐛→✅ 稽核抓到：雙從者情境下漏帶 svIdx，可能敘事說療傷的這位遇襲、實際扣血/陣亡的卻是另一位。
 
-### `_repApr`　<sub>Router_Economy.gs</sub>
-
-⚡ spendAp_ 先跑(skipWrite=true，只改 pcData 記憶體)，讓下面御主列的寫入一次過帶上最新day/hour/ap， 省掉 spendAp_ 自己那道窄寫入(原本MP扣減寫一次、spendAp_ 又寫一次)。
-
-### `actionSpiritRepair`　<sub>Router_Economy.gs</sub>
-
-🩸 燃血補魔是【被動機制】，非主動 action：共用魔力池見底時消耗補不上， applyRegen_(Time_World) 自動「燃命續契約」——缺口÷2 全額扣【御主】HP(保底1)，從者不扣血。
-
-## `gas/Router_Movement.gs`
-
-### `buildMapNodesPayload_`　<sub>Router_Movement.gs</sub>
-
-地圖節點是 solo 戰爭限定概念，鑑賞前端從不渲染 mapNodes，非 solo 直接回空形狀、省去白算。
-
-### `tgtTrim`　<sub>Router_Movement.gs</sub>
-
-★可生還·不致死(從者血保 1)——只是不讓你一按就從強敵眼皮底下從容全身而退。用移動【前】的初始資料判定。
-
-### `_fromLocR`　<sub>Router_Movement.gs</sub>
-
-🏰 在自己陣地＝安全港：主場結界／機關掩護，敵人闖進來也困不住你——不強制撤退、離場亦不被追擊(與 slip 同級的豁免)。這是「設置陣地」承諾的主場優勢，敵在你陣地反被守株(見 enemyAmbushOnServant_ 陣地反擊)。
-
-### `actionMove`　<sub>Router_Movement.gs</sub>
-
-分心窗口(slip)可悄悄離開則不受此限；撤退本身(isRetreat)也放行；在自己陣地(_atOwnHome)享安全港·不封鎖。
-
-無可反應局面則清掉舊窗口。隨下方整表 setValues 一併寫回。
-
-🔒 在場人物上限：一地擠進 N 組敵人時，每人一張卡會讓提示詞爆掉（實測 14 人＝4,820 字， 而且 performanceNote_ 會列出 14 個名字）。只送最前面幾位，其餘由【此地有敵蹤】那行點名即可。
-
-### `teleFoe`　<sub>Router_Movement.gs</sub>
-
-用 find() 只取第一個相符者，避免多個預告敵人同格時只有最後一個結算、其餘旗標卡住不清。
-
-### `pr`　<sub>Router_Movement.gs</sub>
-
-雙方保 1 不致死。撤退時追兵搶得先機(ambush)、更難全身而退。
-
-### `preFoesAtTarget`　<sub>Router_Movement.gs</sub>
-
-isFateMove guard：preFoes 只有 solo 前端(travelTo)會消費，鑑賞無此陣營列，明確guard避免僥倖依賴資料形狀。
-
-### `clockLabel`　<sub>Router_Movement.gs</sub>
-
-🌍 世界先動，玩家後到：先讓敵御主／敵從者 tick 到新位置，再把玩家落到 target， 避免「追到敵人所在地」時敵人在你踏進來同一瞬間又被傳走，遭遇敘事才跑得起來。
-
-### `factionClash`　<sub>Router_Movement.gs</sub>
-
-局面種類/後果全由 resolveFactionEncounter_ 依雙方性格＋傷勢＋戰局 GAS 裁定，AI 只演出。
-
-### `_windowNames`　<sub>Router_Movement.gs</sub>
-
-svA/svB 是上面 resolveFactionEncounter_ 實際敘事的那兩名敵從者(見 clashMasters[ia]/[ib] 配對)， 隨窗口存進 MEMORY 供 actionIncite 精確鎖定，不再讓它自己猜陣列前兩個。
-
-### `regenNote`　<sub>Router_Movement.gs</sub>
-
-大幅恢復靠「休息」（同一套規則 ×2）。便宜：只改記憶體那幾格，隨移動一起寫回，零額外讀寫，不會變慢。
-
-### `foeMoodNote`　<sub>Router_Movement.gs</sub>
-
-中性(未培養過好感)→留空，維持既有找上門/偶遇 steer。
-
-### `actionRest`　<sub>Router_Movement.gs</sub>
-
-收尾一次整表寫回：時回／時鐘／世界自走／盟約瓦解全部已在同一份 pcData 上改完，這裡一次寫完， 取代舊版散落的多趟寫入。下方 enemyAmbushOnServant_／raiseBond_ 各自的寫入發生在此之後，維持原樣不動。
-
-### `restAmbushPrompt`　<sub>Router_Movement.gs</sub>
-
-⚔️ 卸防突襲三分派(單一真實來源 ambushDispatchPrompt_)：歇息這裡沒有獨立的「正常結果」敘事(那部分由下方 restVictory/restFinalDream 另外處理)，normalFn 只需回空字串即可。
-
-### `getEnemyFeud_`　<sub>Router_Movement.gs</sub>
-
-🔥 敵敵交惡標記（【交惡】<對方御主名>:<到期day>）：挑撥離間得逞後 GAS 蓋雙方御主——之後撞見他們更可能火併/追殺、不會結盟休整（敵盟的反面）。與敵盟互斥（設交惡先清敵盟、反之亦然）。
-
-### `actionIncite`　<sub>Router_Movement.gs</sub>
-
-反效果→他們看穿、一起轉頭戒你(無數值懲罰、白費 1 AP)。耗 1 AP、用掉即清窗口。
-
-### `detectAllyPeril_`　<sub>Router_Movement.gs</sub>
-
-回 {ally, loc, foe, allyFaction} 供前端報信＋「趕去馳援」；查無回 null。情報共享故玩家得知(結盟即無戰爭迷霧)。
-
-### `homeRank`　<sub>Router_Movement.gs</sub>
-
-🏰 陣地·安全港·反擊：玩家於【自己佈設的陣地】(隊有陣地作成從者)遭潛入 → 結界示警、機關迭起，從者從容起身反擊、 將來犯者擊退驅離(敵扣血·保1不斬)，我方毫髮無傷；代價＝御主耗魔維持結界。魔力不足則結界失效、照常挨突襲。
-
-### `WORKSHOP_TAG_`　<sub>Router_Movement.gs</sub>
-
-── 🏕️ 陣地（工房）：存於御主 MEMORY【陣地】loc，駐留該地時供魔得工房加成 ──實作收斂進 Core_Settings.gs 的 makeTextTag_ 共用工廠，函式名/外部行為不變。
-
 ## `gas/Router_Narrative.gs`
 
-### `cleanNarrateEcho_`　<sub>Router_Narrative.gs</sub>
-
-==========================================🟢 輕量敘事專用路由：結算已由 GAS 完成，這裡只請 AI 補一段純文字描寫不讀規矩表、不帶歷史、不解析 JSON 數值，token 砍到最低==========================================把「給 AI 的提示詞」洗成玩家看的簡短回顧：去掉演出卡/★指令/素材/系統標籤，只留行動梗概並截短，供歷史顯示用（非整串幕後鷹架）。
-
-### `narrateWithState_`　<sub>Router_Narrative.gs</sub>
-
-回 narrationText；JSON 解析失敗回 null(呼叫端給 fallback)。stateBrief 只給 AI 看、不存歷史。
-
-### `actionNarrateOnly`　<sub>Router_Narrative.gs</sub>
-
-🔒 帳號歸屬驗證已上移到 dispatcher 統一擋（`handleGameAction`→`verifyPcOwnership_`）， 進到這裡的 pcId 已保證屬於呼叫者本人，不必再反查一次「帳號」表。
-
 ## `gas/Router_Persona.gs`
-
-### `codexPersona_`　<sub>Router_Persona.gs</sub>
-
-cls 可選：同真名跨職階共存時（如「斯卡哈」同時有 Lancer/Assassin 兩個種子條目、皆用同一realName）避免抓錯人設——優先找「真名＋職階」都吻合的列，找不到才退回舊的純真名比對。
-
-### `PREF_LABELS_`　<sub>Router_Persona.gs</sub>
-
-PREF/TRAIT 內部是四段慣例存值，若整段黏成一串只掛外層標籤(性格：/特徵：)AI 看不出哪句對應哪格， 故逐格加標籤餵給 AI。
 
 ### `QUAD_EMPTY_`　<sub>Router_Persona.gs</sub>
 
 無資訊量佔位字的【唯一名單】：parseTraitsHelper 各 fallback 的每一格都必須在這裡， 否則佔位字會被當成真資料送進提示詞、佔掉 AI 的注意力（新增 fallback 時記得補這裡）。
-
-### `quadLabeled_`　<sub>Router_Persona.gs</sub>
-
-🧹 2026-07：空欄一律不送。舊版 skipNone=false 時會輸出「喜歡的事物：無」，理由是「不靜默漏項」 ——那是為了方便開發者除錯，代價卻由每一張卡的提示詞付。要查漏欄請看試算表，別佔 AI 的注意力。
-
-### `performanceNote_`　<sub>Router_Persona.gs</sub>
-
-🎭 這一則提示詞裡有誰。固定的表演總則(show-don't-tell／正典認知覆蓋／羈絆親疏)2026-09 移進miniSystem 講一次——它每顆按鍵都貼一遍、109 字、內容從不變，是全 solo 最貴的重複。
 
 ### `foe`　<sub>Router_Persona.gs</sub>
 
@@ -4290,10 +2241,6 @@ p.words 是種子原始格式(段落用「・」分隔)，quadLabeled_ 只切「
 
 多數角色 fp 預設值就是「我」，長提示詞中段容易讓小模型把角色自稱「我」跟敘事旁白第一人稱的「我」(玩家)混淆，故明確限定「僅此角色自己台詞內」，不留一個懸空的「自稱」標籤。
 
-### `masterCard_`　<sub>Router_Persona.gs</sub>
-
-★只供內化、禁複述；願望僅供氛圍不直述；【可】依性格給御主台詞/反應(讓角色有聲)，但【不替御主拍板戰略抉擇】。
-
 ### `melee`　<sub>Router_Persona.gs</sub>
 
 魔術階位跟魔術系統併成一行(如「寶石魔術(A階)」)，避免兩行都掛「魔術」開頭重複。
@@ -4312,18 +2259,6 @@ back＝身世生平（show-don't-tell 的演出依據）、moe＝萌點（不限
 
 🧹 淘汰孤兒：種子改名/汰換後，英靈殿殘留的舊種子列(ID 已不在 SEED_SERVANTS)自動清除， 嚴格只刪來源=='seed' 者，杜絕誤刪玩家自創英靈(ai_gen)。由下往上刪避免位移。
 
-### `upgradeMasterCodex_`　<sub>Seed_Codex.gs</sub>
-
-確保 circuits/home/wish/melee/magic_rank 等影響玩法的欄位(如迴路→敵御主魔力池)也能吃到種子校正。
-
-### `resyncSummonedServants_`　<sub>Seed_Codex.gs</sub>
-
-🌸 鑑賞(k_)實例：戰時無 back、身世改讀 dailyBack。補寫種子後，已在場的同伴也趁版本升級一起刷新身世，不再卡在「生活在這座城鎮裡的普通身影」通用預設(如舊 SABER)。只動鑑賞列、不碰 solo。
-
-🎯 PREF(dailyWords)／INTENT(dailyMoe) 也必須跟著刷：這兩欄一樣會被寫進在場卡(formatPref 的[表象][內裡]、萌點欄)，原本漏掉——種子性格/萌點改版後，已召喚的同伴永遠停在舊文字。
-
-走共用工廠(replace-or-append ＋ 自動清洗)，不再自己拼一份 regex——舊版那份既沒清洗、 又是全專案第 3 份【口吻】寫入邏輯。
-
 ### ~~`actionDevResyncCodex`~~（2026-09-28 已移除：玩家說 DEV 按鈕「都用不太到」，建表與種子升版改在登入時由 `ensureWorldReady_` 自動跑）　<sub>Seed_Codex.gs</sub>
 
 給前端 DEV 按鈕用——不靠自動版本閘(怕部署時序/旗標卡住)，按一下立即生效並回報筆數。
@@ -4334,25 +2269,11 @@ back＝身世生平（show-don't-tell 的演出依據）、moe＝萌點（不限
 
 ## `gas/Seed_Rivals.gs`
 
-### `markRivalsSeen_`　<sub>Seed_Rivals.gs</sub>
-
-preData 就地標記避免重讀整表；變動時整欄一次 setValues 而非逐格寫入。
-
-### `seedRivalsForGame_`　<sub>Seed_Rivals.gs</sub>
-
-🔵 開局鋪敵：war ∈ '4th'|'5th'|'chaos'；playedMaster=玩家扮演的正典御主id(那組移除)， playerServantName(玩家奪取的從者)那一組也一律從對手移除。
-
-🔗 硬連結每組敵御主↔敵從者（rows 嚴格交替 master, servant…）：互寫【從者】/【御主】名於 MEMORY， 讓多組同場也分得清誰的從者被誰打掉。（僅此分支；4th/5th 正史分支逐對即時連結，不倚賴位置假設。）
-
 ### `roster`　<sub>Seed_Rivals.gs</sub>
 
 📜 正史 4th / 5th：正典組為敵；玩家扮演者那組、玩家奪取從者那組，皆移除逐組當場配對即時連結(不倚賴陣列位置)：master:null 的孤身從者只 push 一列，位置式硬連結會讓後續全部錯位。
 
 ## `gas/Setup_FateWorld.gs`
-
-### `removeAllTriggers`　<sub>Setup_FateWorld.gs</sub>
-
-🧹 一鍵清除專案所有觸發器（舊版經濟/飛書機制的殘留時間觸發器，函式本體已移除但觸發器可能還掛著）。 FATE 世界推進靠玩家按鍵時的 worldTick_，不需任何觸發器，於 GAS 編輯器手動執行一次即可全清。
 
 ### `ensureWorldReady_`　<sub>Setup_FateWorld.gs</sub>
 
@@ -4369,55 +2290,9 @@ preData 就地標記避免重讀整表；變動時整欄一次 setValues 而非�
 
 ## `gas/Time_World.gs`
 
-### `writeClockToRow_`　<sub>Time_World.gs</sub>
-
-skipWrite：呼叫端明確知道自己隨後必有一次涵蓋這3欄的批次整表寫回時傳 true，省掉這裡多餘的單列立即寫入。
-
-### `restHours_`　<sub>Time_World.gs</sub>
-
-skipWrite(選填，比照 spendAp_)：呼叫端保證隨後必有一次涵蓋 DAY/HOUR/AP 這3欄的批次整表寫回時傳true。
-
 ### `timeBand_`　<sub>Time_World.gs</sub>
 
 半開區間([下界,上界))：既相容整數(結果與舊版逐一相同)，又讓鑑賞的半小時刻度(如10.5)不會掉進邊界縫隙被誤判成深夜。分界對齊 KANSHOU_TIME_BANDS_ 的 startHour。
-
-### `playerHomeLoc_`　<sub>Time_World.gs</sub>
-
-傳 pcData 可省一次整表讀(呼叫端手上通常已有)；沒傳才自行整表讀一次(相容)。
-
-### `combatantsE`　<sub>Time_World.gs</sub>
-
-🧮 HUD 顯示的收支必須跟 applyRegen_(實際時回) 用同一套算式，否則玩家看到的「淨 X/時」對不上實際魔力增量；要涵蓋全隊(從者魔力貢獻/維持費/territory)，日後改公式兩函式務必一起動。
-
-### `horrorUpkeep`　<sub>Time_World.gs</sub>
-
-掃全隊(海怪可能掛在第二從者·如破戒奪來的青鬍子)，與 applyRegen_ 的 svRows 掃描同準。
-
-### `masterI`　<sub>Time_World.gs</sub>
-
-先蒐集御主列＋在世同隊從者，再算御主魔力收支：收入(迴路供給+靈脈+工房) − Σ 從者維持費×出力 drainMul。
-
-### `horrorIdx`　<sub>Time_World.gs</sub>
-
-池赤字時【海怪先沉回深淵、才輪到御主燃血】(見下方 deficit 分支)。
-
-### `deficitNow`　<sub>Time_World.gs</sub>
-
-出力檔＝玩家旋鈕，不在時回變動；無自有魔力池。
-
-### `anyLocDirty`　<sub>Time_World.gs</sub>
-
-LOC/HP 整欄批次寫回跨輪累積髒旗標、迴圈跑完後才各寫一次(rounds 最多4輪)， data 全程原地改，跑完才寫不影響任何一輪讀到的中間值。
-
-### `worldTick_`　<sub>Time_World.gs</sub>
-
-🎨 風聞措辭多樣化：不洩漏具體交鋒數字/勝方身分，只留下魔力波動／寶具氣息等氛圍線索——有死亡才點名罹難者，純掛彩(多數情況)只留下模糊的異狀傳聞。
-
-🏆 這裡是唯二的「非直接戰鬥致勝」路徑(令咒透支延遲結算)，同樣要有願望夢——查玩家自己的御主/從者列給 buildVictoryDreamPrompt_。
-
-### `victory`　<sub>Time_World.gs</sub>
-
-這不是世界隨機清人(那有 WORLD_FLOOR_ 保底)，而是玩家親手把對方打到燃盡令咒後的「延遲結算」，故允許收尾、可觸發勝利。
 
 ### `worldWrite_` / `worldFeed_` / `worldSame_`　<sub>Gallery.gs</sub>
 
@@ -4538,24 +2413,6 @@ memoir 那邊的同款去重只比對「最近 3 條」，正是同一個道理�
 順手併掉一個 round-trip：MEMORY 上有三件事要寫（衣裝／口吻／小動作），原本衣裝自己讀一次寫一次，
 現在三件事一起，讀一次寫一次；而且沒東西可改時完全不寫。
 
-### 「誰算在場」的三塊合一 / `backgroundCrowdStr`　<sub>Gallery.gs</sub>
-
-2026-09 玩家「大道至簡」。量出來最大的一團：**「誰算在場／誰不算」散在 8 段、855 字**，
-其中三段在講同一件事、還互相補充——★【路人與缺席者】(96)、★【可以發明，但發明完要記下來】(161)、
-★【在場名單】(151)。三段各自從一個角度描述同一條規則，AI 要自己把它們拼起來。
-
-合併成一段 ★【這個世界有誰】，一次講完三層：
-正式同伴（算好感、卡在下面）／常民（可出現、不算好感）／路人（隨手寫、不必記）。
-
-順手把兩句**寄生句**歸位——它們原本卡在 ★【可以發明】裡，跟那塊的主題無關：
-「萌點、個性只演出來不寫進敘述」其實是鐵律 8 的事（那裡已經有一條一模一樣的）；
-「玩家專一對著一個人時其他人背景輕描」是在場那塊的事。
-⚠ 寄生句是這種長提示詞最容易長出來的東西：改 A 的時候順手把 B 也寫在這裡，
-下次讀的人以為它跟 A 有關。合併時要一句一句問「這句屬於這塊嗎」。
-
-`backgroundCrowdStr` 保留成空字串而不是刪掉變數：它被插在 `PROMPT_REL` 的樣板中間，
-留著空字串比改動樣板結構安全（要真的清掉是另一次重構的事）。
-
 ### `worldDrop_`　<sub>Gallery.gs</sub>
 
 常民升格成正式同伴之後，帳本裡那條【沒清掉】＝**同一個人兩份真相**：
@@ -4578,69 +2435,6 @@ memoir 那邊的同款去重只比對「最近 3 條」，正是同一個道理�
 
 ⚠ 別回頭把地點從帳本表拿掉——那是地圖長大的唯一來源，拿掉地圖就不會長了。
 
-### ~~`KANSHOU_REGION_KIND_`~~（已移除·2026-09 地點整組退休） / `kanshouRegionsFor_` / `KW_.REGION` / `KW_.OWN`　<sub>Gallery.gs</sub>
-
-2026-09 玩家要三件事：自訂大區（「大區就是一個國家，地點就是該國自訂的景點」）、
-家中地點自由生成、「我的店」（純互動、不要金錢數值，但要有店名與營業內容）。
-
-**三件事是同一個機制**：講的都是一個地方身上的兩件事——**在哪一區**、**是不是你的**。
-所以資料層只加兩欄，不是三套系統。家中地點＝把新地方開在 `home` 區；我的店＝`OWN` 欄有值。
-
-**為什麼自訂大區幾乎免費**：所有 region 的行為判斷都寫成
-`region !== 'room'`／`region !== 'visit'` 這種【否定】形式（不巧遇、要好感才能登門…），
-所以一個陌生的區 id 自動落在「一般公共區」那一邊——**一行行為邏輯都不用改**。
-這是當初把行為寫成否定形式意外換來的好處；要是寫成 `region === 'shinzan' || ...` 的白名單，
-今天就得逐處改。
-
-**大區為什麼不放進 `KANSHOU_WORLD_KINDS_`**：那張表同時管兩件事——①AI 能寫哪些 kind
-②哪些 kind 會被淘汰。大區兩者皆非：不能讓 AI 自己生一個國家出來；而大區是結構，
-被淘汰會讓底下的地點指向一個不存在的區、全變孤兒。
-⚠ 代價是 `worldWrite_` 的 kind 檢查要額外放行它——這裡踩過一次（op 回 success 卻什麼都沒寫）。
-
-**區 id 為什麼是生成的、不是 `'rg_' + 區名`**：第一版就是拼名字，結果一改名底下所有地點
-就指向不存在的區。改成建立時生成 `rg_<timestamp36>`、存在該列自己的 REGION 欄，改名只動 NAME。
-收掉一個區時則**先把底下地點的 REGION 清空**（放回「走出來的地方」）再刪那一列，不留孤兒。
-
-**`sanitizeAiData_` 為什麼改成重建白名單物件**：`world_note` 原本是 AI 回傳的物件整包穿過去，
-只 filter kind 沒有挑欄位。加了 OWN 欄之後，AI 只要塞 `{own:"按摩"}` 就能把任何地方宣告成
-「玩家開的店」，或把地點塞進別人的大區。改成只留 kind/name/text/sex 再往下送——
-**擋在最外層**，而不是在寫入點逐欄判斷來源。
-
-### 內建地點從 29 砍到 23　<sub>Gallery.gs `KANSHOU_LOCATIONS_`</sub>
-
-玩家「基礎地點可以減少一些，留點有特色的就好，其他讓玩家自己決定」。
-
-⚠ **砍之前一定要查綁定**（玩家自己提醒的：「有些角色會有特定出現地點要看一下」）：
-`KANSHOU_LOCATION_TAGS_` 有 8 個地點綁著特定角色的出沒點、`KANSHOU_HERO_HOME_` 有 6 個專屬住處、
-`KANSHOU_COHABIT_ROOM_` 綁死「和室」、睡眠判定綁死「我的房間」。砍到這些的話，
-那個角色會掉進泛用保底池、同居會搬進一個不存在的房間。
-
-實際砍的 6 個都是**沒有任何綁定、也沒有特色**的：廚房、庭院、屋頂花園、老道場、山間小徑、
-隱藏溫泉（溫泉留「情侶溫泉套房」當代表）。前端鏡射 `KC_LOCATIONS_` 要同步砍，`check_mirror.js` 會盯。
-
-### `check_ui.js`（第十二支掃描器）
-
-2026-09 鑑賞全面稽核時發現的**結構性破口**：`.html` 的 runtime 完全沒有自動防線。
-CI 只跑 `.gs`；`check.sh` 對 `Script*.html` 也只做 `node --check`，那只能回答
-「這段 JS 合不合法」，不能回答「函式叫得到嗎、面板畫得出來嗎」。
-而 VM 探針（`wait.js`／`ui.js`）住在 scratchpad，只有想到才會跑。
-
-這正是這專案被燒過的形狀：2026-07 敘事排版壞了四天——**綠燈、部署成功、零錯誤訊息**。
-語法對 ≠ 跑得動。
-
-做法：三個 `Script*.html` 的 JS 串進同一個 VM（等同瀏覽器的共享作用域）配最小 DOM 假件，
-真的把 19 個玩家入口與 4 個面板叫起來一次。
-
-**為什麼只驗「叫得到、不拋例外」**：細節斷言（畫面上該有哪幾個字）會讓這支變得脆弱又愛叫，
-每次改 UI 文案都要回來改它，久了就會被當成雜訊關掉。冒煙測試的價值在於它永遠不吵。
-
-⚠ **`pc` 一定要走 localStorage 餵**：`Script.html` 頂層是
-`let pc = JSON.parse(localStorage.getItem('kyushu_v27'))`——頂層 `let` 建立的是語彙綁定，
-事後指派 `ctx.pc` 蓋不掉它，會得到一個 `pc` 永遠是 null 的假環境（這個坑在寫探針時踩過）。
-
-兩種注入退化都確認會叫：入口被改名 →「叫不到 openKanshouTime()」；
-面板裡叫一個不存在的東西 →「拋例外」。
-
 ### `KANSHOU_MEMOIR_CAP_` / `KANSHOU_MEMOIR_PIN_CAP_`　<sub>Gallery.gs</sub>
 
 2026-09「檢查玩家看到的資訊和後台是否一致」時挖出來的：共同回憶的兩個上限原本是
@@ -4655,42 +2449,6 @@ CI 只跑 `.gs`；`check.sh` 對 `Script*.html` 也只做 `node --check`，那�
 
 **釘選上限為什麼刻意比總量少 2**：釘滿就會讓新回憶永遠擠不進來——總量到頂時要淘汰，
 但釘選的不能被淘汰，於是新的永遠寫不進去。留 2 格給新的。
-
-
-### ~~`movePrompt` / `kanshouGoTogether_` / `moveWith`~~（已移除·2026-09 地點整組退休）　<sub>Gallery.gs · Script_Kanshou.html</sub>
-
-🐛→✅ **我第一版的泡泡 HTML 自己會把屬性打斷**。地名要塞進一個【雙引號包住的 `onclick` 屬性】
-裡當參數，我用了 `JSON.stringify`——它產的是**雙引號**，`onclick="fn("咖啡廳")"` 當場斷在第二個
-引號上。本檔既有的 `send('...')` 早就用單引號了，我沒照著抄。
-
-**這種錯會一路綠燈部署上去**：`check.sh` 不檢查 `.html` 裡的 JS，探針跑的是 `.gs`，
-`check_ui` 只驗「面板叫得起來、不拋例外」。所以補了 `bubattr.js`——把那段組裝**抽出來實跑**，
-餵它惡意地名（`</button><img src=x onerror=...>`、含單雙引號、含換行），確認屬性沒被打斷、
-沒有多長出標籤。注入退化（換回 `JSON.stringify`）確認會叫：8 條全紅。
-
-⚠ 泡泡刻意**只有一顆鈕、沒有「拒絕」**：不按＝沒走，繼續打字它自然消失，狀態零損失——
-這是舊 `moveProposal` 就定下的語意，照搬。
-⚠ 它住在 `#options-container` 但在 `#ai-options-grid` **外面**——關掉「AI 選項顯示」的玩家
-照樣看得到必點泡泡（舊版整個容器 `display:none`，把泡泡一起陪葬過，見本檔該段）。
-
-
-### `check_ui.js` 的 onclick 反查　<sub>check_ui.js</sub>
-
-🐛→✅ **2026-09 玩家「確定沒問題？檢查看看」時當場發現**：`ENTRIES` 是**手維護**的清單，
-新按鈕得有人記得加進去。我那天加的 `kanshouGoTogether_`（移動泡泡）就不在裡面——
-**這支從頭到尾沒驗過它**，而它正好是最容易靜默壞掉的一種：
-
-inline `onclick` 的作用域**只看得到 window**。函式若不小心包進別的函式裡，
-語法完全合法、`check.sh` 全綠、部署成功，玩家按下去才 `ReferenceError`——
-而且多半沒人開 console，看起來就只是「按了沒反應」。
-
-改成**從 HTML 自己推導**：掃出每個 `onclick="fn("` 點名的函式，逐個確認它真的在全域。
-當場涵蓋 **117 個**目標（原本手維護的 `ENTRIES` 只有 28 個）。
-⚠ 這一段**刻意不列白名單**——叫得到就是叫得到，叫不到就是死按鈕，沒有例外可言。
-⚠ 注入退化（把 `kanshouGoTogether_` 包進一個函式裡）確認會叫。
-
-這是同一個形狀的第三次了（`FUNCTION_MANUAL` 的幽靈條目、`CODE_NOTES` 的幽靈錨點，
-現在是前端入口）：**手維護的索引一定會過期，能從代碼自己推導出來的就別靠人記得。**
 
 
 ### 地點整組退休這一刀的施工筆記　<sub>Gallery.gs · Script_Kanshou.html · Script.html</sub>
@@ -4766,7 +2524,7 @@ inline `onclick` 的作用域**只看得到 window**。函式若不小心包進�
   看穿程度、出擊時的血量、有沒有硬吃預兆，`WAR_DOJO_LOSS_` 由上往下挑第一條成立的當「輸在哪」＋「下一局只改這一件事」，
   畫面的終局卡與道場提示詞讀同一份——AI 沒回，講評照樣在畫面上。
   「硬吃預兆」第一版看整局有沒有發生過，模擬器量出來七成的輸局都判成它、其他課題全被蓋掉；改成只看致命那一場之後分布才散開
-  （`sim.js` 加 `DOJO=1` 印分布）。
+  （`tools/war_sim.js` 加 `DOJO=1` 印分布）。
 - **最後一夜在哪要照原作（`WAR_FINAL_`）**：第一版不管哪一場都寫「前往柳洞寺」——第四次聖杯戰爭的聖杯是在新都的冬木市民會館降臨的。
   地點、進場句、下一位上場句一起放進表，按鈕、事件、講評、「規則」卡都讀同一格。
 - **讀起來要對（逐行讀模擬器的一整局抓到的）**：奇襲那一回合原本照「寶具先放」排序，於是出現「對方解放寶具……趁對方還沒察覺先下手」；
@@ -4863,3 +2621,137 @@ inline `onclick` 的作用域**只看得到 window**。函式若不小心包進�
 再加「去間隔號」（AI 常寫「庫丘林」）。種子 `SEED_SERVANTS` 住 Seed_Codex.gs，所以用到才建，頂層建會踩載入順序。
 另外同一輪修了 `kanshouPartyCards_` 的 `_loose_`：它用名字跨全表找列，**別帳號**有同名同伴就會把我的同行者判成「臨時在場」，
 每回合送一句 ★【誰走得掉】叫 AI 讓他離開——補上 `kanshouIsAlly_(x, myGameId)`。
+
+### `check_ui.js`（第十二支掃描器）
+
+2026-09 鑑賞全面稽核時發現的**結構性破口**：`.html` 的 runtime 完全沒有自動防線。
+CI 只跑 `.gs`；`check.sh` 對 `Script*.html` 也只做 `node --check`，那只能回答
+「這段 JS 合不合法」，不能回答「函式叫得到嗎、面板畫得出來嗎」。
+而 VM 探針（`wait.js`／`ui.js`）住在 scratchpad，只有想到才會跑。
+
+這正是這專案被燒過的形狀：2026-07 敘事排版壞了四天——**綠燈、部署成功、零錯誤訊息**。
+語法對 ≠ 跑得動。
+
+做法：三個 `Script*.html` 的 JS 串進同一個 VM（等同瀏覽器的共享作用域）配最小 DOM 假件，
+真的把 19 個玩家入口與 4 個面板叫起來一次。
+
+**為什麼只驗「叫得到、不拋例外」**：細節斷言（畫面上該有哪幾個字）會讓這支變得脆弱又愛叫，
+每次改 UI 文案都要回來改它，久了就會被當成雜訊關掉。冒煙測試的價值在於它永遠不吵。
+
+⚠ **`pc` 一定要走 localStorage 餵**：`Script.html` 頂層是
+`let pc = JSON.parse(localStorage.getItem('kyushu_v27'))`——頂層 `let` 建立的是語彙綁定，
+事後指派 `ctx.pc` 蓋不掉它，會得到一個 `pc` 永遠是 null 的假環境（這個坑在寫探針時踩過）。
+
+兩種注入退化都確認會叫：入口被改名 →「叫不到 openKanshouTime()」；
+面板裡叫一個不存在的東西 →「拋例外」。
+
+### `check.sh`　<sub>check.sh／check_*.py／check_*.js</sub>
+
+2026-09 從 CLAUDE.md 搬來：每支掃描器是在擋哪個踩過的坑（CLAUDE.md 現在只留一行清單）。
+⚠ 其中提到的 check_memory／check_cards／check_fx／check_throttle 已隨舊版 solo 拆除。
+
+- **驗證**：改完必跑 `bash check.sh`。除語法外還跑十九支不變式掃描，都是把**重複踩過的漏洞形狀**改成機器擋：
+  `check_prompt.py`（★ 區塊：代名詞無指涉／寫死台詞／**提示詞一律正面指示**——玩家 2026-09：
+  「LLM 會有重點還有語意問題，他有時候只會記憶重點、忘記前面的禁，所以我們專注在要他做什麼，
+  盡可能不要做禁止什麼」＋「【禁】寫就不要再給他例句了，說越多它會越想歪」。兩件事一起擋：
+  ⓐ 提示詞裡的否定式寫法（`【禁…】【嚴禁】【不可】絕不可嚴禁` 與軟性的 `不可/不要/不得/不必/不能/禁止/勿/別…`）
+  一律 **0**，真的只能用否定寫的登記進 `HARD_BAN_ALLOW` 並寫明理由；ⓑ 否定句後面不可再附被禁的
+  寫法當例句——那等於示範給模型看。⚠ 三種假陽性要排掉：插值 `${…}`（那是這一局真的要代進去的值）、
+  「要不要」（疑問不是禁令）、行尾 `//` 註解與模組表的 `name`/`hint`（那是面板上給玩家看的字））、`check_mirror.js`（前後端常數鏡射，自動發現所有 `KC_*`）、
+  `check_wiring.py`（門檻有無前端出口／查表有無覆蓋全 enum 且各階不同／★ 覆蓋數不得無聲下降／死路由）、
+  `check_render.js`（敘事排版↔XSS 防護，見下）、`check_simp.py`（我們自己寫進 repo 的簡體字）、`check_memory.js`（solo 存進歷史的是不是「這回合發生的事」）、
+  `check_pronoun.py`（提示詞裡寫死的性別代名詞——整層曾預設「御主是男、同伴是女」，但兩邊都是資料決定的。
+  ⚠ 2026-09 修掉一個**讓它一直在說謊**的盲點：舊版逐行找字串，只看得到單行字串，而幾乎所有提示詞本體
+  都住在跨數十行的樣板字串裡——那裡面寫死「她/他」它一個都抓不到。現在走真正的 tokenizer，跨行也看得到。2026-09 起「她/他」「他/她」也算——那仍是替角色定性別，用 `pron_()` 或中性寫法）、
+  `check_cards.py`（`performanceNote_` 點名了誰就必須有誰的卡——沒卡＝叫 AI 憑空捏造性格，玩家會當成角色設定）、
+  `check_undef.py`（叫一個不存在的函式——`node --check` 看不到，那段又常包在 try/catch 裡，就是靜默失敗；
+  `check_docs.py`（文件裡用 `` `名字(` `` 點名的函式，代碼裡必須真的還在——2026-09 一次稽核抓到 17 條幽靈條目，
+  全是「功能砍掉了、索引沒跟著砍」；下一個失憶的我照著文件 grep 會查無此函式，比沒有這份文件還誤導人。
+  ⚠ 2026-09 補第二道：**常數也會變成幽靈**（當場抓到 `SCAVENGE_TAG_`、`KANSHOU_FESTIVAL_DONE_TAG_`、
+  改名後沒跟著改的 `KC_LOCATION_EVENTS_`）。常數那道**只掃 `FUNCTION_MANUAL.md`**——
+  其餘文件本來就滿是歷史敘述（「舊版的 X 已整組砍除」），全掃會整排誤報，而這份是 CLAUDE.md 指名零容錯的索引。
+  刪除線 `~~X~~` 或同行寫著「已移除／已刪／改名…」的墓碑一律放行。
+  ⚠ 2026-09 補第三道：`CODE_MAP.md` §4 的 action 總表（沒反引號、左右兩欄）以前從沒被驗過，一數少 19 條、多 3 條死路由——
+  現在跟 ActionRouter 兩個方向對、表頭數字也要對；新增路由記得往那張表加一列）、
+  `check_ui.js`（**前端 runtime 冒煙**——把三個 `Script*.html` 串進 VM 配最小 DOM，真的把面板叫起來看會不會拋例外。
+  語法對 ≠ 跑得動，而 `.html` 的 JS 不進 CI：2026-07 敘事排版壞了四天，綠燈、部署成功、零錯誤訊息。
+  ⚠ 刻意只驗「叫得到、不拋例外」，不驗畫面細節——細節斷言會讓它脆弱又愛叫。
+  ⚠ `pc` 要走 localStorage 餵：`Script.html` 頂層是 `let pc = ...`，頂層 let 的綁定事後蓋不掉）、
+  `check_contract.py`（**路由兩端對不對得上**——既有掃描器全是這一塊的盲區：`check_wiring` 管死路由、
+  `check_mirror` 管常數鏡射，但「前端送了後端沒人讀的欄位」「後端下傳了前端沒人讀的欄位」沒人看。
+  實測抓到 `actionMove` 每次移動白送 1691 字元＝整包的 14.6%，且為了那份沒人看的副本把
+  `masterCard_`/`performanceNote_` 各多算一次——移動是 solo 最常按的鍵，那是每一步都在付的稅。
+  ⚠ 掃描器自己要誠實：跟著 `userData` 的委派走、只取最外層回傳鍵、括號要算層，
+  否則會整排誤報；刻意留的殘留欄位登記進 `ALLOW_RETURN` 並寫明理由）、
+  `check_fx.py`（**技能說明的算式 ↔ 引擎公式**——前端會把傷害數字當場算給玩家看，真正結算的卻是後端
+  `SKILL_FX_`/`DEF_FX_`；同一條式子存兩處，改了後端沒改說明就是假數字，而且零錯誤訊息。
+  CODE_NOTES 記著「str_up/burst 那批漏改」，這個形狀咬過人。⚠ 比【數值】不比字面：引擎記 `1-0.18r` 倍率、
+  說明寫「−18%」是同一件事，第一版只比字面當場誤報 divine_core。
+  ⚠ 2026-09 補第二道**係數表** `FX_TUNING_`：有條件的 fx（只對 Archer／只在奇襲／只在第 1 回合／要比階級／看神格）
+  塞不進 `SKILL_FX_` 那種平坦表，於是它們的數字長年只活在 `resolveFateBattle_` 的 if 裡，
+  而前端把數字講給玩家聽——18 條沒有任何機器在對答案。現在條件留在函式、數字搬進表，這道逐格驗。
+  寫它時踩到四個「看起來在跑其實沒驗」的坑：注入測試行要放【前面】否則被原版蓋掉／數字邊界不能用 `\w`（中文也是 `\w`，
+  「均傷約30」會被跳過）／說明是算式就要比值不比字面／逐階級換算只能給 per-rank 欄位）、
+  `check_loadorder.py`（**載入當下就求值的東西不可以依賴別的檔**——GAS 把所有 `.gs` 串成一個檔跑，
+  載入順序我們控制不了也看不到。2026-09 抓到 `DOJO_CAUSE_` 把 `${FATE_DEADLINE_DAYS_}`（住在 `Time_World.gs`）
+  直接寫進頂層樣板字串，於是老虎道場的敗北講評永遠是「這一局輸在：undefined 日時限耗盡」——
+  送進提示詞、AI 照著演、零錯誤訊息。安全寫法：佔位字串用的時候才代入，或改成函式。
+  ⚠ 初始化式裡的【函式值】是之後才執行的，掃描器一律剝掉不算，否則整張路由表都會誤報）、
+  `check_throttle.py`（**扣了 AP，日限戳記就必須在同一刻落地**——2026-09 稽核抓到 `actionAllyBond`
+  先扣 AP，中間的卸防突襲分支卻會提早 `return`，「今天已跟這位盟友相處過」的戳記寫在函式尾端，
+  於是被突襲就能同一天無限重按。失敗的形狀是【扣款→中途 return→戳記】，完全靜默：沒有錯誤訊息、
+  探針不特意測也看不到。刻意只看扣款【之後】的 return——扣款之前那些是正常的拒絕路徑，還沒付錢本來就不該蓋戳）、
+  `check_seed.py`（**種子寫了卻沒人吃**——2026-09 瘦身當場抓到八種形狀，共通點是零錯誤訊息：
+  ①【幽靈 fx】種子掛了技能 fx，引擎裡一個字串都沒有；②【死欄位】御主殿的「居所」「屆次」全樹零讀取
+  （刻意棄用的登記進 `DEAD_COL_ALLOW` 並寫明理由，⚠ COL 是位置索引，欄位本身不刪）；
+  ③【同一列存兩份】daily 四欄各有專欄，PERSONA JSON 又原封收一份，整張英靈殿 18% 是重複的字；
+  ④【抽不到的種子】solo 只標客串、鑑賞又封鎖召喚，整筆設定沒有出口（⚠ 2026-09 抓到這道曾讀三個早就不存在的常數當「其他池」，全成空集合、什麼都驗不到卻天天綠燈——現在只認召喚這一條出口，且有注入退化）；
+  ⑤【對御主的態度寫成劇情弧】「初期保持距離，逐漸動搖」＝把劇情走向先講給 AI 聽，
+  而關係深淺已經由好感/契約在管——兩個真實來源打架（`TOMASTER_BAN_`）；
+  ⑥【真名沒有中文字】`cleanChineseName` 會把非中日韓字元整個剝掉，純拉丁的名字被洗成空字串——
+  實測把 EMIYA 的真名縮成「EMIYA」，整局戰鬥全變「未指定攻擊目標」，看起來只是按鍵沒反應；
+  ⑦【創角提示詞的格數跟消費端對不上】prompt 叫 AI 寫 3 段、`parseTraitsHelper(…, TRAIT_SLOTS_)` 只收 2 段，
+  第 3 段靜靜被丟掉（特徵 3→2 那次，六處提示詞全都還寫著舊數字）；
+  ⑧【代碼裡寫死的真名比對過期】`Engine_Fate` 有兩處 `name === '…'` 在決定寶具選項，種子改名就永遠不成立、
+  選項整條消失（比對用的字面量若是某真名的一部分、卻不等於任何真名＝過期）。
+  ⑨【階段表整句取代角色欄】好感表本來只該說「偏離了多少」，寫成一句完整的態度就會蓋掉種子底色——
+  實測好感 ≥45 之後 25 位從者的「此刻對你」變成同一句話，吉爾伽美什會「打從心底信任你」、
+  狂化的赫拉克勒斯會「露出只給你看的那一面」。角色的區別度剛好在關係開始好看的那一刻消失。
+  盯的是【結構】不是字面：階梯值必須先落進變數、`return` 必須同時帶著種子參數（跟著別名走）與那個變數。
+  ⑩【退休的欄位長回來】萌點整組退休後，任何代碼行再出現 `萌點`／`npc_intent`／`clampMoe_`，
+  或去【讀】`PC.INTENT`／`HERO.DAILY_MOE`／`MASTER.MOE`，就叫。註解與墓碑（同行寫著棄用/退休/已移除）放行。
+  ⑪【氣質格寫成常態舞台指示】「背脊永遠打得筆直」「下巴總是微抬半分」不是第一眼的氛圍，
+  是叫 AI 每回合表演一個動作——玩家原話「這就是強迫 AI 這樣扮演吧」。兩件事一起擋：
+  種子的氣質格不可出現 `永遠／總是／老是／一律／每次／從不／不停`，且每條叫 AI 寫這一格的
+  提示詞都必須接上單一真實來源 `AURA_SPEC_`（少接一處，那條路生出來的角色就走回頭路）。
+  ⚠ 第③道第一版寫成「函式裡有沒有 slim 這個字」，注入退化時**不會叫**（變數宣告還在）——
+  改成盯 `s.np` 後面那一格寫的到底是哪個變數才真的驗得到。
+  ⚠ 第①道第一版只認【引號包住】的 fx 名，於是把 `FX_DESC` 裡寫成 `golden_fleece: () => …`
+  物件鍵的那個技能誤報成幽靈、還害我把它砍了。誤報一次的掃描器會被直接無視，比沒有更糟——
+  現在引號／物件鍵／屬性存取三種寫法都算「有人提到」）、
+  `check_standing.py`（**每回合都送的提示詞不可以有無條件常駐指令**——2026-09 玩家抓到我自己寫的
+  「性格開頭兩句…讓它們互相拉扯」：「這不用提示吧，他會一直拉扯，很怪…因為這是每次都會給 AI
+  所以要避免固化」。形狀跟種子那邊退休掉的「背脊永遠打得筆直」一模一樣。同一批還抓到
+  ★【誰在場】的「每一位都要有反應」——五個人同場就變成點名輪流。現在掃風格模組的 def、
+  對話格式、每回合的 ★ 區塊，禁 `永遠／總是／一律／每次／每回合／都要／不停／每一位`；
+  真的必須無條件的（排版、語言鐵律那種格式類）登記進 ALLOW 並寫明理由。
+  ⚠ 只掃【每回合都送】的那幾段——一次性的創角提示詞不在此列，那裡說死是對的）、
+  `check_ctx.py`（**ctx 參數物件漏傳鍵**——2026-09 拆 `actionPlay_`（705 行）時踩到：把回寫那段搬進
+  `kanshouApplyIntimacyFeedback_(ctx)` 之後漏傳 `curL`，每位在場者的地點比對都拿 undefined 去比，
+  整段 NPC 回寫靜靜失效；而它住在 try/catch 裡，連例外都不會冒出來——check.sh 全綠、部署成功、
+  玩家只會覺得「AI 寫的關係稱呼怎麼都沒存到」。現在函式體出現 `ctx.X` 就把 X 記下來，
+  逐個字面呼叫端比對鍵。⚠ 只認字面物件的呼叫端，傳變數進去的無從靜態比對、略過不報）、
+  `check_wait.py`（每個 `gasRun()` 呼叫點都要有看得見的等待指示——按下去畫面靜止一兩秒又沒訊息，
+  玩家只會以為沒按到然後再按一次；玩家講過兩次同一件事。樂觀更新/背景同步要逐支登記在 `BACKGROUND` 並寫理由）。
+  ⚠ **新寫掃描器一定要注入一次退化確認它會叫**——不會叫的掃描器比沒有更糟，它給你「已經有防線」的錯覺（`check_cards.py` 第一版就是這樣）。
+  **新增提示詞 ★ 區塊後，順手看一眼區塊數有沒有跟著增加**——數字沒動就代表掃描器沒看見它（這個坑踩過兩次）。
+  CI 只檢查 .gs、不檢查 .html JS（.html 出錯會綠燈部署卻壞 runtime）。
+- **🧵 敘事排版（別再動壞第三次）**：提示詞叫 AI 用 `<br><br>` 分段（`nsfwBaseRules`／`miniSystem` 都是），
+  前端又必須整段 `escapeHtml` 擋提示注入——**兩句話分開看都對，湊起來就是玩家看到字面「\<br>\<br>」**。
+  唯一的接口是 `Script.html` 的 **`aiHtml_(text)`**：escape 全部 → 只把 `<br>` 放回來 → 再轉真換行。
+  **印【說書人】的地方一律走它，不要手刻 escape＋換行**（2026-07-24 補 XSS 那次就是手刻的，壞了四天沒人發現，
+  綠燈、部署成功、零錯誤訊息）。`check_render.js` 真的把函式跑起來對答案，排版與注入兩個方向同時釘死；
+  **改 `aiHtml_` 前先看它在釘什麼**。
+- **🈶 台灣繁體**：提示詞已有兩道語言鐵律管 AI 的輸出，但**我們自己寫進 repo 的字沒人管**——
+  混進去的簡體字若在提示詞裡，等於一邊叫 AI 寫繁體、一邊拿簡體示範給它看（模型會鏡射）。
+  `check_simp.py` 掃全 repo（字表只收繁體絕不會出現的字，寧可漏抓不可誤報；發現漏網字往 `SIMP` 加）。

@@ -206,20 +206,6 @@ const KANSHOU_NOTED_CAP_ = 3;
 const KANSHOU_NOTED_LEN_ = 14;
 // 相處次數（同伴列）：唯一還在累積的關係軸。只答「見過幾次」，「多喜歡你」交給 AI 從歷史判斷。
 var KANSHOU_MET_COUNT_TAG_ = makeIntTag_('相處', 0);
-// 相處次數 → 階名（面板用）。min 單位＝同場回合（12≈2 小時、50≈8 小時）。
-//   舊版每階還帶一句「物理距離」送進卡片，2026-09-23 玩家「真的不會寫就不要了」——整組拿掉，多熟交給 AI 從歷史判斷。
-const KANSHOU_FAMILIAR_TIERS_ = [
-  { min: 50, key: '老交情' },
-  { min: 30, key: '熟稔' },
-  { min: 12, key: '混熟' },
-  { min: 0, key: '初識' }
-];
-// 相處次數 → 表上那一階；查不到退回表尾，不另寫死。
-function kanshouKnownTier_(metCount, field) {
-  var _t = KANSHOU_FAMILIAR_TIERS_;
-  var t = _t.find(function (x) { return (parseInt(metCount) || 0) >= x.min; }) || _t[_t.length - 1];
-  return t[field || 'key'];
-}
 // 「我在對方眼中」：對方記下的幾條。
 function kanshouKnownOfYou_(memory) {
   var noted = String(KANSHOU_NOTED_TAG_.get(memory) || '').split(KANSHOU_NOTED_SEP_).map(function (x) { return x.trim(); }).filter(Boolean);
@@ -479,7 +465,7 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
 
 ★【語言】除 JSON 欄位名本身外，所有輸出內容一律用中文字；玩家描述若含英文人名/詞彙，請意譯或音譯成中文寫入。
 ★【設定怎麼用】以下設定是【給你內化的素材】：靠言行與神態流露，情境對了才浮現一次。
-★【格式鐵律】traits 【恰好2段】、personality 【恰好4段】，只用頓號「、」分隔，每段是一個【簡短詞組】，每段內部就寫一件事；不加數字標籤。
+★【格式鐵律】traits 【恰好${TRAIT_SLOTS_}段】、personality 【恰好${PREF_SLOTS_}段】，只用頓號「、」分隔，每段是一個【簡短詞組】，每段內部就寫一件事；不加數字標籤。
 - traits：外貌、氣質。${finalSex === '女' ? BUST_NOTE_ : ''}${AURA_SPEC_}格式範例(只示範斷句，內容一律依玩家給的性別與描述重寫)：「(外貌)、(氣質)」
 - personality：個性兩句(各講一件不同的事)、喜歡的事物、討厭的事物。格式範例(只示範斷句)：「(個性)、(個性)、(喜歡的)、(討厭的)」
 ★logic：${pron_(finalSex)}做選擇的方式，限24字。把兩件${pron_(finalSex)}都想要的東西擺在一起，說出最後放掉的是哪一個(例：嘴上算的是得失，做的時候總是選重情義那邊)。
@@ -518,6 +504,21 @@ function actionBackfillKanshouAi(userData, pcId, sheets) {
   } catch (e) {
     return JSON.stringify({ success: false, message: "補寫失敗，先用原本的。" });
   }
+}
+
+// 👕 換裝：只換衣服，人不變（存 MEMORY【換裝】，留空換回原本的）。self＝御主自己，否則找這一局的那位同伴。
+function actionSetOutfit(userData, pcId, sheets) {
+  const pcData = sheets.pc.getDataRange().getValues();
+  const pIdx = kanshouPcIdx_(pcData, pcId);
+  if (pIdx === -1) return JSON.stringify({ success: false, message: "找不到你的角色" });
+  const gid = String(pcData[pIdx][COL.PC.GAME_ID] || "");
+  const idx = userData.self ? pIdx : findPcRowIdx_(pcData, gid, { id: userData.servantId, name: userData.servant, faction: "從者", nameCandidates: kanshouNameCandidates_ });
+  if (idx === -1) return JSON.stringify({ success: false, message: "找不到這個人。" });
+  pcData[idx][COL.PC.MEMORY] = setOutfit_(pcData[idx][COL.PC.MEMORY], userData.outfit); // set 內已剝分隔字元＋限 40 字
+  sheets.pc.getRange(idx + 1, COL.PC.MEMORY + 1).setValue(pcData[idx][COL.PC.MEMORY]);
+  const now = getOutfit_(pcData[idx][COL.PC.MEMORY]);
+  const nm = pcData[idx][COL.PC.NAME];
+  return JSON.stringify({ success: true, outfit: now, message: now ? `「${nm}」換上了【${now}】。` : `「${nm}」換回原本的打扮。` });
 }
 
 // 👥 同伴面板：這一局所有人，各帶 同行／臨時在場 旗標（面板分三組靠這兩個）與共同回憶。
@@ -2181,4 +2182,52 @@ ${PROMPT_BODY}
   }
 }
 
+// 防禦性過濾：miniSystem 本身充滿 ★指令/〈演出卡〉等鷹架符號，小模型偶有機率把提示詞格式原樣「回音」進輸出，讓玩家讀到突兀的系統指令。
+function stripLeakedScaffold_(text) {
+  var s = String(text || "");
+  s = s.replace(/★[^<]*/g, "");     // 誤echo的★指令(通常延伸到下一個<br>或字串結尾)
+  s = s.replace(/〈[^〉]*〉/g, "");   // 誤echo的〈演出卡〉
+  s = s.replace(/[ \t\u3000]{2,}/g, " ");
+  // 剝掉指令後會留下它前後兩組 <br>，疊成四連斷行＝玩家看到一塊莫名空白；收斂回正常的一次分段。
+  s = s.replace(/(?:<br\s*\/?>\s*){3,}/gi, "<br><br>");
+  return s.replace(/^(?:<br\s*\/?>\s*)+|(?:<br\s*\/?>\s*)+$/gi, "").trim();
+}
+// 推進小時（內部用，roll day）
+function rollHours_(clk, hours) {
+  clk.hour += hours;
+  while (clk.hour >= 24) { clk.hour -= 24; clk.day += 1; }
+}
+// 時段名（依小時）
+function timeBand_(hour) {
+  if (hour >= 5 && hour < 11) return "清晨";
+  if (hour >= 11 && hour < 17) return "午後";
+  if (hour >= 17 && hour < 20) return "黃昏";
+  if (hour >= 20 && hour < 24) return "夜";
+  return "深夜"; // 0-5
+}
 
+function actionGetHeroes(userData, pcId, sheets) {
+  try {
+    const rows = getHeroCodexCached().slice(1);
+    const heroes = rows.filter(r => r[COL.HERO.ID]).map(r => {
+      const h = {
+        id: r[COL.HERO.ID], cls: r[COL.HERO.CLS], name: r[COL.HERO.NAME],
+        gender: r[COL.HERO.SEX], np: r[COL.HERO.NP],
+        src: String(r[COL.HERO.SOURCE] || "") // 🌟 來源：ai_gen＝玩家原創(工房/盲盒)·前端「玩家原創」專區用
+      };
+      if (h.src === "ai_gen") { // ✏️ 原創英靈附 創造者＋編輯預填資料(工房修改模式用·種子不附)
+        let pj = {}; try { pj = JSON.parse(r[COL.HERO.PERSONA] || "{}"); } catch (e) { }
+        h.creator = String(pj.creator || "");
+        let six = {}, sk = [], tr = []; try { six = JSON.parse(r[COL.HERO.SIX] || "{}"); } catch (e) { } try { sk = JSON.parse(r[COL.HERO.SKILLS] || "[]"); } catch (e) { } try { tr = JSON.parse(r[COL.HERO.TRAITS] || "[]"); } catch (e) { }
+        h.detail = { six: six, skills: sk, align: String(r[COL.HERO.ALIGN] || "中立"),
+          traits: (Array.isArray(tr) ? tr : []).map(t => String((t && t.n) || t)).join("、"), // 編輯預填用：陣列→頓號字串，比照 cf-traits 輸入格式
+          look: String(pj.look || ""), pref: String(pj.words || ""),
+          toMaster: String(pj.toMaster || ""), quirks: String(pj.quirks || ""), logic: String(pj.logic || ""), back: String(pj.back || ""), weapon: String(pj.weapon || "") };
+      }
+      return h;
+    });
+    return JSON.stringify({ success: true, heroes: heroes });
+  } catch (e) {
+    return JSON.stringify({ success: false, heroes: [], message: e.message });
+  }
+}

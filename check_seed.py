@@ -42,18 +42,17 @@ def gas_files(exclude=()):
 
 # 刻意棄用但欄位保留的（COL 是位置索引，寧棄用不刪欄）。加一條要寫清楚理由。
 DEAD_COL_ALLOW = {
-    'MASTER.MELEE': '2026-09 玩家「體術骰子不太需要，AI 會錯亂硬掰」：【體術】標記整組退休，欄位保留因 COL 是位置索引',
-    'MASTER.MAGIC_RANK': '2026-09 同上：魔術階位不再自成一顆骰，改由 masterMagicRankFromCircuits_ 從迴路推',
-    'MASTER.HOME': '2026-09 稽核：全樹零讀取，種子已不再供值；欄位保留因 COL 是位置索引',
-    'MASTER.WAR': '2026-09 稽核：全樹零讀取（屆次靠從者的 WARS 欄判定），種子已不再供值',
     'PC.MAX_MP': '出力電池制後從者無自有魔力池，欄位留著不刪',
     'PC.MONEY': '經濟層整組砍除（CLAUDE.md 現況鐵則：兩軌皆無經濟/生活層），欄位留著不刪',
     'PC.UPKEEP_WEEK': '同上，生活層週開銷已不存在',
     'PC.ROOM': '同上，房東房客世界觀已砍',
-    'MAP.REGION': '坤圖靜態化後改直讀 FATE_MAP_SEED，母區域走名稱比對不走這格',
     'PC.INTENT': '2026-09 萌點整組退休（玩家「萌不萌是玩家的事情」），永遠寫空字串；COL 是位置索引，欄位不刪',
     'HERO.DAILY_MOE': '同上，鑑賞的日常萌點一併退休',
-    'MASTER.MOE': '同上，御主殿的萌點欄一併退休',
+    # 2026-09 末舊版 solo 整組拆除：以下是舊戰場才讀的格（狀態字、血上限、六圍、戰鬥標籤、戰爭迷霧、行動點、住處）。
+    # 鑑賞眾生沿用眾生的欄序，COL 是位置索引，欄位留著不刪。
+    'PC.STATUS': '舊版 solo 拆除：戰場狀態字', 'PC.MAX_HP': '舊版 solo 拆除：血上限',
+    'PC.SIX': '舊版 solo 拆除：六圍（新聖杯戰爭直接讀 SEED_SERVANTS）', 'PC.TAGS': '舊版 solo 拆除：戰鬥技能標籤',
+    'PC.SEEN': '舊版 solo 拆除：戰爭迷霧', 'PC.AP': '舊版 solo 拆除：行動點', 'PC.HOME_LOC': '舊版 solo 拆除：住處',
 }
 # 永遠抽不到但刻意的（玩家自己關的）。解封時把這一行刪掉即可。
 UNREACHABLE_ALLOW = {
@@ -68,7 +67,7 @@ def check_ghost_fx(bad, seed_src, others):
     #   真正的幽靈是「整棵樹一次都沒出現」。
     def mentioned(f):
         e = re.escape(f)
-        return re.search(r"['\"]%s['\"]" % e, others) or re.search(r"(?m)^\s*%s\s*:" % e, others) \
+        return re.search(r"['\"]%s['\"]" % e, others) or re.search(r"(?<![\w.$])%s\s*:" % e, others) \
             or re.search(r"\.%s\b" % e, others)
     ghosts = [f for f in fxs if not mentioned(f)]
     for f in ghosts:
@@ -145,8 +144,7 @@ def check_prompt_seg_counts(bad, files):
     want = {
         'TRAIT_SLOTS_': int(re.search(r"var TRAIT_SLOTS_\s*=\s*(\d+)", core).group(1)),
         'DAILY_LOOK_SLOTS_': int(re.search(r"var DAILY_LOOK_SLOTS_\s*=\s*(\d+)", core).group(1)),
-        'PREF': len(re.findall(r"'[^']+'", re.search(r"var PREF_LABELS_\s*=\s*\[([^\]]*)\]",
-                                                     read(os.path.join(GAS, 'Router_Persona.gs'))).group(1))),
+        'PREF': int(re.search(r"var PREF_SLOTS_\s*=\s*(\d+)", core).group(1)),
     }
     n = 0
     for path in files:
@@ -249,7 +247,7 @@ def check_unreachable(bad, seed_src, gallery, rivals):
 # ⑨ 好感階段表不可以整句取代種子的角色底色。
 #    這條盯的是「疊加」這個結構：階梯的值必須先落進一個變數，最後的 return 必須同時帶上
 #    種子參數與那個變數——只要有人把它改回 `return LADDER[i].s`，這裡就會叫。
-STANCE_LADDERS = [('BOND_STANCE_', 'bondStance_')]
+STANCE_LADDERS = []   # 2026-09 末：好感（bondStance_）隨舊版 solo 拆除，這道檢查沒有對象了
 
 
 def check_stance_additive(bad, persona_src):

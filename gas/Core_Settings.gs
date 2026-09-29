@@ -45,47 +45,22 @@ const LEWD_MODEL = (function () {
 // ★ 階段一：ORM 資料實體映射 (Data Mapping) 
 // ==========================================
 const COL = {
-  // FATE 眾生 schema：關係表(REL)/時鐘表(CLK)/權柄表(AUTH)已併入本表欄位——單人模式每世界僅一位御主，
-  //   NPC 對御主的關係＝那名 NPC 自己這一列的欄位；日/時/AP/居所＝御主自己這一列的欄位。
+  // 眾生：鑑賞的角色列（御主＋同伴）。關係欄＝那名同伴對本局御主；DAY/HOUR 只在御主那一列有意義。
+  // ⚠ 位置索引，棄用的欄位留著占位（清單與理由見 check_seed.py 的 DEAD_COL_ALLOW）。
   PC: {
     ID: 0, NAME: 1, SEX: 2, BACK: 3, STATUS: 4, TRAIT: 5, LOC: 6, PREF: 7,
     HP: 8, MP: 9, MAX_HP: 10, MAX_MP: 11,
     MEMORY: 12, INTENT: 13, FACTION: 14, RANK: 15, CONTRIB: 16, ALIGN: 17,
     PHYSICAL: 18, MARTIAL: 19, GAME_ID: 20, SIX: 21, TAGS: 22, SEEN: 23,
-    // 關係欄(原 REL 表)：NPC 對本世界御主的關係。
     BOND: 24, REL_TAG: 25, IS_PARTY: 26, MEMOIR: 27, REL_MEM: 28,
-    // 世界狀態欄(原 CLK/AUTH 表)：只在御主自己那一列有意義，其餘角色列留空。
-    //   DAY/HOUR/AP=時鐘(1AP=1小時，每日12AP)；HOME_LOC=居所(工房加成判定用)。
     DAY: 29, HOUR: 30, AP: 31, HOME_LOC: 32,
-    // MONEY/UPKEEP_WEEK/ROOM(33-35)：2026-07 鑑賞經濟層＋房東房客世界觀砍除後的死欄，恆空。
-    //   COL 是位置索引不能刪(會讓後續欄位錯位)，保留占位即可，讀寫端均已移除。
-    MONEY: 33, UPKEEP_WEEK: 34,
-    ROOM: 35
+    MONEY: 33, UPKEEP_WEEK: 34, ROOM: 35
   },
-  // WAR：地圖地點按戰爭區分，避免第四次限定地點(海特飯店等)也出現在第五次局。空字串＝通用地點，'4th'/'5th' 限定該戰爭。
-  MAP: { REGION: 0, NAME: 1, TYPE: 2, COORD: 3, DESC: 4, PARENT: 5, WAR: 6 },
-  // 🔵 英靈殿(從者範本)、御主殿（戰鬥 fx 走 hasFx_＋SEED_SERVANTS 的 skills/traits JSON，不需 COL 索引；戰鬥標籤分頁已棄）DAILY_LOOK/DAILY_WORDS：鑑賞用日常版外貌/性格，…（全文見 CODE_NOTES.md）
+  // 英靈殿（從者範本）：DAILY_* 是鑑賞用的日常版，跟戰時 PERSONA 分開存（見 CODE_NOTES.md）。
   HERO: { ID: 0, CLS: 1, NAME: 2, SEX: 3, SIX: 4, CLASS_SKILLS: 5, SKILLS: 6, TRAITS: 7, NP: 8, PERSONA: 9, ALIGN: 10, WARS: 11, SOURCE: 12, DAILY_LOOK: 13, DAILY_WORDS: 14, DAILY_MOE: 15, DAILY_OUTFIT: 16 },
-  // ALIGN(15)：陣營標籤(如「混沌・善」)，附加尾端不動既有欄位位置。
-  MASTER: { ID: 0, NAME: 1, SEX: 2, APPEAR: 3, MAGIC: 4, CIRCUITS: 5, MELEE: 6, MAGIC_RANK: 7, HOME: 8, WISH: 9, PERSONA: 10, WAR: 11, SOURCE: 12, BACK: 13, MOE: 14, ALIGN: 15 },
   // 帳號（存檔身分）：帳號名 → 目前御主角色ID。
   ACC: { NAME: 0, PC: 1, CREATED: 2, KPC: 3 }
 };
-
-// 🔵 Fate 六圍階級：E~EX 轉數值（戰鬥系統換 D20 後會用到；+ 視為 +5）
-const RANK_VALUE = { "E": 10, "D": 20, "C": 30, "B": 40, "A": 50, "EX": 60 };
-function rankVal(r) {
-  r = String(r || "E").trim();
-  const letterOnly = r.replace(/[+\-]/g, "");
-  if (!letterOnly) return RANK_VALUE["E"];
-  let base = RANK_VALUE[letterOnly.toUpperCase()] || 10;
-  const plus = Math.min((r.match(/\+/g) || []).length, 3);
-  const minus = Math.min((r.match(/\-/g) || []).length, 3);
-  return base + plus * 5 - minus * 3;
-}
-
-
-// 🟢 共用 D20 骰子：1=大失敗、20=大成功
 
 
 // ==========================================
@@ -97,131 +72,6 @@ function cleanChineseName(s) {
   return String(s == null ? "" : s).replace(/[^㐀-䶿一-鿿]/g, "").slice(0, 10);
 }
 
-// solo 軌跡骨幹：AI 從敘事散文反推精確狀態(好感/血量/天數)容易猜錯，改由 GAS 組一段「已確定事實」接在歷史前當錨點。
-function buildTrajectoryDigest_(pcData, gameId, pcRow) {
-  if (!pcRow || !gameId) return "";
-  var clk = getClock_(gameId, pcData);
-  var seals = getPlayerSeals_(pcRow[COL.PC.MEMORY]);
-  var loc = String(pcRow[COL.PC.LOC] || "");
-  var svRow = (pcData || []).find(function (r) {
-    return r && String(r[COL.PC.FACTION]) === "從者" && String(r[COL.PC.GAME_ID] || "") === gameId && !String(r[COL.PC.ID]).startsWith("DEAD_");
-  });
-  var parts = [];
-  if (clk) parts.push('聖杯戰爭第' + clk.day + '日・行動力' + clk.ap + '/' + AP_PER_DAY);
-  if (svRow) {
-    var bond = parseInt(svRow[COL.PC.BOND]) || 0;
-    var bondWord = bond >= 80 ? '深厚信賴' : bond >= 50 ? '漸生信任' : bond >= 20 ? '仍在磨合' : '尚且生疏';
-    parts.push('與從者「' + svRow[COL.PC.NAME] + '」好感' + bond + '(' + bondWord + ')');
-    var svHp = parseInt(svRow[COL.PC.HP]), svMaxHp = parseInt(svRow[COL.PC.MAX_HP]) || 1;
-    if (!isNaN(svHp) && svHp < svMaxHp * 0.3) parts.push('從者剛歷經惡戰、體力未復');
-  }
-  var pMp = parseInt(pcRow[COL.PC.MP]), pMaxMp = parseInt(pcRow[COL.PC.MAX_MP]) || 1;
-  if (!isNaN(pMp) && pMp < pMaxMp * 0.2) parts.push('共用魔力池告急——這是從者自己的存亡危機、並非只是御主的事');
-  parts.push('令咒餘' + seals + '道');
-  if (loc) parts.push('目前位於「' + loc + '」');
-  if (!parts.length) return "";
-  return '【軌跡骨幹】：' + parts.join('。') + '。';
-}
-
-// FATE HP/MP 推算（無階級倍率）：耐久→HP、魔力→MP。
-// 從者 HP 上限：150 ＋ 耐久數值×6（MP 恆 0：出力電池制，從者無自有魔力池）。三個建列點共用這一條。
-// 🩸 最大生命加成（fx → +HP）：加一個效果＝往表加一列，三個建列點與重刷自動吃。
-var HP_BONUS_FX_ = { golden_fleece: 10 };
-function hpBonusFromFx_(skills) {
-  var add = 0;
-  (skills || []).forEach(function (s) { if (s && HP_BONUS_FX_[s.fx]) add += HP_BONUS_FX_[s.fx]; });
-  return add;
-}
-function servantMaxHp_(conVal, skills) { return 150 + (parseInt(conVal) || 0) * 6 + hpBonusFromFx_(skills); }
-
-// 御主(凡人魔術師)HP/MP：唯一核心數值＝魔術迴路(財力/身世決定)。
-function clampCircuits_(n) { return Math.max(12, Math.min(50, parseInt(n) || 30)); }
-// 🎲 御主天賦（迴路/魔術系統/出身/體術/魔術階）的【唯一真實來源】。2026-09 從 Script_Onboarding.html
-//   搬進後端：創角改成「不填就隨機」，前端沒送值時 create 必須自己擲得出來（舊版整套只在前端，
-//   留空＝那幾格永遠空白）。前端的 🎲 命運測定改成打這裡要三份候選，兩邊不再各存一份 12/50。
-var FATE_MAGICS_ = ['強化（近戰加成）', '投影／固有結界', '寶石魔術', '符文魔術', '鍊金術', '起源彈', '風魔術', '使魔操縱', '咒術／降靈', '禮裝製作'];
-// 🎲 2026-09 玩家「身分、體術、魔術骰子也不太需要，AI 都會錯亂開始硬寫亂掰，主要保留魔術迴路就好」：
-//    出身/體術/魔術階位三顆骰全部拿掉，只留迴路與魔術系統。
-function rollMasterFate_() {
-  var pick = function (a) { return a[Math.floor(Math.random() * a.length)]; };
-  var r = (Math.random() + Math.random()) / 2;   // 兩次平均＝中庸偏多、極端偏少
-  return { circuits: clampCircuits_(Math.round(15 + r * 35)), magic: pick(FATE_MAGICS_) };
-}
-// 御主魔術階位：從迴路推，不再自成一顆骰。迴路是玩家唯一留著的那個數，也是補魔會動的那個數。
-function masterMagicRankFromCircuits_(circuits) {
-  var c = clampCircuits_(circuits);
-  return c >= 45 ? 'A' : c >= 38 ? 'B' : c >= 30 ? 'C' : c >= 22 ? 'D' : 'E';
-}
-// 前端 🎲 命運測定：一次要三份候選，玩家挑一個（省掉三次 round-trip）。
-function actionRollFate(userData, pcId, sheets) {
-  return JSON.stringify({ success: true, rolls: [rollMasterFate_(), rollMasterFate_(), rollMasterFate_()] });
-}
-
-function masterMaxHpMp_(circuits) {
-  // 🛡️ parseInt(x)||30 只擋得住NaN/0，擋不住負數——前端骰子UI本就夾在12~50，但這裡是唯一信任邊界(直打API可繞過前端)，補上下限，避免負迴路生出0血/負魔力的御主。
-  var c = Math.max(1, Math.min(50, parseInt(circuits) || 30));
-  return {
-    hp: 100 + c * 2,
-    mp: c * 10   // 迴路係數：A階寶具付完底費仍有超載餘裕
-  };
-}
-
-// 共用魔力池上限 = 御主迴路×10 ＋ 同隊從者魔力 rankVal 總和×2。
-function masterPoolMax_(circuits, partyMagicVal) {
-  return (parseInt(circuits) || 30) * 10 + (parseInt(partyMagicVal) || 0) * 2;
-}
-
-// 🔋 從者靈基出力檔位（玩家手動旋鈕，存從者 MEMORY【出力】）：從者無自有魔力，靠御主供魔的「出力」決定戰力與耗魔。
-// 2026-09 玩家定案·五檔收成三檔：實測 20 與 40 都是「省電」(差 11 點/時，玩家不會為這個精算)，
-// 80 與 100 之間更尷尬——80 只給 +1 命中/×1.10 卻不能放寶具，要打就全開。真正有語意的只有三種狀態。
-var OUTPUT_TIERS_ = {
-  100: { hit:  3, dmgMul: 1.30, drainMul: 2.0, np: true,  label: '全開' },
-  60:  { hit:  0, dmgMul: 1.00, drainMul: 1.0, np: false, label: '一般' },
-  20:  { hit: -5, dmgMul: 0.70, drainMul: 0.3, np: false, label: '省著走' },
-};
-// 把任意百分比吸附到最近的合法檔位（20/60/100）。舊存檔的 40／80 會各自落到 20／60（都是往下，安全）。
-function snapOutput_(pct) {
-  var p = parseInt(pct); if (isNaN(p)) return 60;
-  var tiers = [20, 60, 100], best = 60, bd = 999;
-  for (var i = 0; i < tiers.length; i++) { var d = Math.abs(tiers[i] - p); if (d < bd) { bd = d; best = tiers[i]; } }
-  return best;
-}
-function outputTier_(pct) { return OUTPUT_TIERS_[snapOutput_(pct)] || OUTPUT_TIERS_[60]; }
-// 讀從者 MEMORY 的【出力】檔位（無則預設 60 巡航）。
-function servantOutput_(memory) {
-  var m = String(memory || "").match(/【出力】(\d+)/);
-  return m ? snapOutput_(m[1]) : 60;
-}
-// 寫/改 MEMORY 的【出力】檔位，回傳新 memory 字串。
-function setServantOutput_(memory, pct) {
-  var p = snapOutput_(pct);
-  var mem = String(memory || "");
-  if (/【出力】\d+/.test(mem)) return mem.replace(/【出力】\d+/, '【出力】' + p);
-  return mem ? (mem + '｜【出力】' + p) : ('【出力】' + p);
-}
-
-// 🌟 多寶具英靈：玩家選「解放哪個寶具」的索引，存從者 MEMORY【寶具選】N（預設 0＝主寶具）。
-function npChoice_(memory) {
-  var m = String(memory || "").match(/【寶具選】(\d+)/);
-  return m ? parseInt(m[1]) : 0;
-}
-function setNpChoice_(memory, idx) {
-  var i = Math.max(0, parseInt(idx) || 0);
-  var mem = String(memory || "").replace(/｜?【寶具選】\d+/g, '');
-  return mem ? (mem + '｜【寶具選】' + i) : ('【寶具選】' + i);
-}
-
-// 🔯 原初符文運用方式（玩家可選）：def 減傷(預設·受傷時生效)／dmg 增傷(出擊時生效)／regen 回血(每回合)。存從者 MEMORY【符文】。
-var RUNE_MODES_ = ['def', 'dmg', 'regen'];
-function runeMode_(memory) {
-  var m = String(memory || "").match(/【符文】(def|dmg|regen)/);
-  return m ? m[1] : 'def';
-}
-function setRuneMode_(memory, mode) {
-  var mode2 = (RUNE_MODES_.indexOf(String(mode)) >= 0) ? String(mode) : 'def';
-  var mem = String(memory || "").replace(/｜?【符文】(def|dmg|regen)/g, '');
-  return mem ? (mem + '｜【符文】' + mode2) : ('【符文】' + mode2);
-}
 
 // AI 呼叫後寫回前的列重定位索引：play/backfill 因 AI 呼叫耗時被豁免寫入鎖(LOCK_EXEMPT)，用的是呼叫前讀到的列索引；期間若其他上鎖動作刪列(清殘列/登入自動清)，索引會位移錯位。
 function findPcRowIdx_(pcData, gid, opts) {
@@ -257,82 +107,7 @@ function buildLiveIdIndex_(sheet) {
   return map;
 }
 
-// 🩸 傷勢嚴重度中文詞（單一真實來源）：dmg 佔 hpMax 比例 ≥40%＝重創／≥15%＝負傷／否則擦傷。
-// 🩸 血量→一句白話狀態。AI 看不出「5/390」算不算瀕死(它不知道那個人的刻度)，這一步一律由 GAS 換算；
-//   換算完之後「該演成咬牙硬撐還是失態」才是 AI 依個性決定的事。加一階＝往表加一列。
-var HP_STATE_ = [
-  { at: 0.00, word: '命懸一線' },
-  { at: 0.15, word: '重傷、行動已受影響' },
-  { at: 0.40, word: '傷勢不輕' },
-  { at: 0.70, word: '掛了點彩' },
-  { at: 0.95, word: '' }
-];
-// 魔力池白話。比照 HP：滿的時候回空字串——沒事可說就別佔提示詞的位置。
-var MP_STATE_ = [
-  { at: 0.00, word: '魔力已然枯竭' },
-  { at: 0.12, word: '魔力所剩無幾' },
-  { at: 0.35, word: '魔力吃緊' },
-  { at: 0.70, word: '魔力尚可支應' },
-  { at: 0.95, word: '' }
-];
-function mpStateWord_(mp, mpMax) {
-  var max = parseInt(mpMax) || 0;
-  if (max <= 0) return '';
-  var r = (parseInt(mp) || 0) / max;
-  var w = '';
-  for (var i = 0; i < MP_STATE_.length; i++) if (r >= MP_STATE_[i].at) w = MP_STATE_[i].word;
-  return w;
-}
-function hpStateWord_(hp, hpMax) {
-  var max = parseInt(hpMax) || 0;
-  if (max <= 0) return '';
-  var r = (parseInt(hp) || 0) / max;
-  var w = '';
-  for (var i = 0; i < HP_STATE_.length; i++) if (r >= HP_STATE_[i].at) w = HP_STATE_[i].word;
-  return w;
-}
-function dmgSeverityWord_(dmg, hpMax) {
-  var ratio = hpMax ? (parseFloat(dmg) || 0) / hpMax : 1;
-  return ratio >= 0.4 ? '重創' : ratio >= 0.15 ? '負傷' : '擦傷';
-}
 
-// ⚔️ 卸防突襲三分派樣板（單一真實來源）：enemyAmbushOnServant_ 回傳的 ambush 物件只有三種去向——①homeRepel/peaceful(陣地反擊·優雅擊退／按兵不動·試探接觸，文案已在 ambush.repe…（全文見 CODE_NOTES.md）
-function ambushDispatchPrompt_(ambush, interruptedFn, normalFn) {
-  if (ambush && (ambush.homeRepel || ambush.peaceful)) return ambush.repelNote;
-  if (ambush) return interruptedFn(ambush);
-  return normalFn();
-}
-
-// ⏳ AP門檻＋扣AP＋時鐘標籤（單一真實來源）：cost/rejectMsg 依呼叫端自訂；opts.isFate 未帶就自己依 gameId 是否 "g_" 開頭判斷（鑑賞 k_ 局一律視為不擋、不耗AP，回傳{ap:AP_PER_DAY…（全文見 CODE_NOTES.md）
-function chargeApOrReject_(gameId, cost, pcData, sheets, rejectMsg, opts) {
-  opts = opts || {};
-  var isFate = opts.isFate !== undefined ? opts.isFate : (String(gameId || "").indexOf("g_") === 0);
-  if (!isFate) return { ap: AP_PER_DAY, clock: "" };
-  if (getAp_(gameId, pcData) < cost) {
-    return { reject: { success: false, needRest: true, message: rejectMsg } };
-  }
-  var ap = AP_PER_DAY, clock = "";
-  try {
-    var sp = spendAp_(gameId, cost, pcData, sheets, opts.skipWrite);
-    ap = sp.ap;
-    clock = clockLabel_(gameId, pcData);
-  } catch (e) { }
-  return { ap: ap, clock: clock };
-}
-
-// 主從synergy（原作設定「御主供魔／契合度提升從者能力」）：特定主從組合回到全盛六圍。
-function masterSynergySix_(name, six, memory) {
-  if (masterSynergyOn_(name, memory)) {
-    return { 筋力: 'A', 耐久: 'A', 敏捷: 'A', 魔力: 'A', 幸運: six['幸運'] || '-', 寶具: 'A++' };
-  }
-  return six;
-}
-// 主從synergy 是否觸發（單一真實來源·masterSynergySix_ 與 前端變容標籤 共用）：讀 MEMORY【御主】名比對。
-function masterSynergyOn_(name, memory) {
-  var mm = String(memory || "").match(/【御主】([^｜]+)/);
-  var mName = mm ? mm[1] : "";
-  return /恩奇都/.test(String(name)) && /銀狼/.test(mName);
-}
 // MEMORY 標記共用工廠：收斂 Router_Battle.gs/Router_Movement.gs 多組結構相同的數值型/文字型 get/set正則邏輯。
 function makeIntTag_(tagName, defaultVal) {
   var reGet = new RegExp('【' + tagName + '】(\\d+)');
@@ -365,57 +140,11 @@ function makeTextTag_(tagName) {
   };
 }
 
-function getNpTelegraph_(memory) { return /【寶具預告】/.test(String(memory || "")); }
-function setNpTelegraph_(memory) { var s = String(memory || ""); return getNpTelegraph_(s) ? s : (s ? s + "｜【寶具預告】1" : "【寶具預告】1"); }
-function clearNpTelegraph_(memory) { return String(memory || "").replace(/｜?【寶具預告】1/g, ""); }
-var OVERCHARGE_TAG_ = makeIntTag_('過充', 0);
-function getOvercharge_(memory) { return OVERCHARGE_TAG_.get(memory); }
-function setOvercharge_(memory, amt) { return OVERCHARGE_TAG_.set(memory, Math.max(0, Math.round(amt))); }
-function clearOvercharge_(memory) { return OVERCHARGE_TAG_.clear(memory); }
 // 👕 從者換裝（存從者 MEMORY【換裝】<服裝文字>）：玩家自訂當前【服裝穿著】·疊在種子外貌本相之上餵給 AI 敘述——只換衣不換人(五官/髮色/體態/氣質仍依 persona.look)。
 function getOutfit_(memory) { var m = String(memory || "").match(/【換裝】([^｜【】]*)/); return m ? m[1].trim() : ""; }
 function setOutfit_(memory, text) { var s = clearOutfit_(String(memory || "")); text = String(text || "").replace(/[｜【】\n\r\t]/g, "").replace(/[<>&"'`]/g, "").trim().slice(0, 40); if (!text) return s; return s ? s + "｜【換裝】" + text : "【換裝】" + text; }
 function clearOutfit_(memory) { return String(memory || "").replace(/｜?【換裝】[^｜【】]*/g, ""); }
-// 玩家自定武裝：武器/戰鬥方式存 MEMORY【武裝】<文字>，servantCard_ 讀後強制 AI 以此為準——蓋過職階慣例(Saber=劍/Lancer=槍…)與該真名的原典武器習慣(如「Saber斯卡哈仍拿槍」)。
-function getWeapon_(memory) { var m = String(memory || "").match(/【武裝】([^｜【】]*)/); return m ? m[1].trim() : ""; }
-// 同 setOutfit_ 補 HTML 斷字字元清洗（比照修法，防同一類注入缺口）。
-function setWeapon_(memory, text) { var s = clearWeapon_(String(memory || "")); text = String(text || "").replace(/[｜【】\n\r\t]/g, "").replace(/[<>&"'`]/g, "").trim().slice(0, 30); if (!text) return s; return s ? s + "｜【武裝】" + text : "【武裝】" + text; }
-function clearWeapon_(memory) { return String(memory || "").replace(/｜?【武裝】[^｜【】]*/g, ""); }
-// 前端「變容」標籤用的 synergy 視圖：非 synergy 從者回 null；恩奇都回 {has,on,master,peak}。
-function masterSynergyView_(name, memory) {
-  if (!/恩奇都/.test(String(name))) return null;
-  return { has: true, on: masterSynergyOn_(name, memory), master: '銀狼', peak: '全能 A・寶具 A++' };
-}
 
-// 🔮 魔境的智慧（斯卡哈專屬·玩家可選被動）：影之國女王通曉常見武技，玩家點選【1 個】通用 A 階被動標籤套用。
-function mageRealmPool_() {
-  return [
-    { fx: 'nullify_magic', n: '對魔力',   r: 'A', icon: '🛡️', desc: '受魔力系傷害大幅衰減（對魔法的抗性）。' },
-    { fx: 'str_up',        n: '怪力',     r: 'A', icon: '💪', desc: '瞬間強化肌力，近身傷害顯著提升。' },
-    { fx: 'analyze',       n: '心眼（真）', r: 'A', icon: '👁️', desc: '經驗累積的洞察，先機與命中俱增。' },
-    { fx: 'clear_mind',    n: '透化',     r: 'A', icon: '🧘', desc: '心如明鏡，不受鼓舞威壓等精神干擾。' },
-    { fx: 'tactics',       n: '軍略',     r: 'A', icon: '📐', desc: '對軍寶具的運用更精準，寶具威力加成。' },
-    { fx: 'self_mod',      n: '自我改造', r: 'A', icon: '🔧', desc: '改造己身，命中與傷害小幅穩定提升。' },
-  ];
-}
-// 查某 fx 是否在魔境可選池內，回傳該池項目（含 n/icon/desc）或 null。
-function mageRealmEntry_(fx) {
-  var pool = mageRealmPool_();
-  for (var i = 0; i < pool.length; i++) { if (pool[i].fx === String(fx)) return pool[i]; }
-  return null;
-}
-// 讀從者 MEMORY 的【魔境】選定 fx（無則 ''）。
-function mageRealmPick_(memory) {
-  var m = String(memory || "").match(/【魔境】([a-z_]+)/);
-  return (m && mageRealmEntry_(m[1])) ? m[1] : '';
-}
-// 寫/改 MEMORY 的【魔境】選定 fx，回傳新 memory 字串（fx 空字串＝清除選擇）。
-function setMageRealmPick_(memory, fx) {
-  var mem = String(memory || "");
-  var clean = mem.replace(/｜?【魔境】[a-z_]+/g, '');
-  if (!fx) return clean;
-  return clean ? (clean + '｜【魔境】' + fx) : ('【魔境】' + fx);
-}
 
 // 性別→代名詞。兩軌共用：solo 的御主/從者、鑑賞的同伴都從資料算，不在提示詞裡寫死。
 // 查無(含「異」「無」「」)一律退回中性「TA」——寧可中性，不要猜錯性別。
@@ -435,11 +164,13 @@ function pronYou_(sex) { return PRONOUN_YOU_[String(sex || '').trim()] || '你';
 var TRAIT_SEG_MAX_ = 22;
 var TRAIT_SEG_HINT_ = 14;
 
-// 特徵格數：外貌本相／氣質。個性仍是四格(PREF_LABELS_)。
+// 特徵格數：外貌本相／氣質。
 // ⚠ 2026-09 從 3 格收成 2：第三格「卸下心防的私密一面」整組退休，理由見 CODE_NOTES『TRAIT_SLOTS_』。
 var TRAIT_SLOTS_ = 2;
 // dailyLook 的段數（外貌本相／氣質／日常口氣）——比 TRAIT_SLOTS_ 多一段，那一段抽進【口吻】不進特徵格。
 var DAILY_LOOK_SLOTS_ = 2;
+// 個性格幾段：個性兩句、喜歡、討厭（狀態卡照這四格排，創角提示詞叫 AI 寫的段數也讀這裡）。
+var PREF_SLOTS_ = 4;
 
 // 讀特徵格的唯一入口：舊局存的是三、四格(退休的「自稱與口氣」「私密一面」)，讀到就地剝掉。
 function traitParts_(raw) {
@@ -486,48 +217,11 @@ function looksToTraitParts_(rawLook) {
   return `${appearance}、${demeanor}`;   // 特徵兩格：第三格「私密一面」2026-09 退休
 }
 
-// 種子庫 persona.words 幾乎全部只有2段，parseTraitsHelper 補滿4格時[喜歡]/[討厭]恆為「無」佔位，比玩家自建角色的紮實4格薄弱很多。
-function enrichPersonalityLikesDislikes_(name, cls, rawWords) {
-  var words = String(rawWords || "").trim();
-  if (!words) return words;
-  var segCount = words.split('、').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ""; }).length;
-  if (segCount >= 4) return words;
-  try {
-    var sys = "你是《命運停駐之夜》的角色側寫顧問。玩家提供一位角色既有的性格短句(用「、」分隔，" +
-      "依序對應[個性][個性][喜歡的事物][討厭的事物]，但段數不足4段)，請延伸出貼合這些既有" +
-      "特質、合理且具體的「喜歡的事物」與「討厭的事物」，補滿到4句。既有的短句必須一字不改、" +
-      "原樣保留在原本的位置，只需要補上缺少的部分。補上的每句精簡收束、" + TRAIT_SEG_HINT_ + "字內寫完一句，避免堆疊多重子句。\n" +
-      "★只輸出最終4句、用「、」分隔，整段就是這4句。";
-    var prompt = "角色：" + name + "（" + cls + "）\n既有性格短句：" + words;
-    var out = String(callGeminiAPI(prompt, sys, { temperature: 0.8, ignoreLaw: true, plainText: true }) || "").trim();
-    return out || words;
-  } catch (e) { return words; }
-}
-
 
 // ==========================================
 // ★ 階段三：狀態融合與資料封裝
 // ==========================================
 
-function parseVisibleStatus(rawStatus) {
-  if (!rawStatus) return { "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": "平靜" };
-  try {
-    let obj = JSON.parse(rawStatus);
-    return { "衣服": obj["衣服"] || "穿戴整齊", "姿勢": obj["姿勢"] || "站立", "負面": obj["負面"] || "無", "顏面": obj["顏面"] || "平靜" };
-  } catch (e) {
-    return { "衣服": "穿戴整齊", "姿勢": "站立", "負面": "無", "顏面": String(rawStatus).trim() };
-  }
-}
-
-function buildVisibleStatusString(rawStatus) {
-  const vs = parseVisibleStatus(rawStatus);
-  let parts = [];
-  if (vs["衣服"] && vs["衣服"] !== "無") parts.push(vs["衣服"]);
-  if (vs["姿勢"] && vs["姿勢"] !== "無") parts.push(vs["姿勢"]);
-  if (vs["負面"] && !["無", "氣息平穩", "平穩", "正常", "健康"].includes(vs["負面"])) parts.push(vs["負面"]);
-  if (vs["顏面"] && vs["顏面"] !== "無") parts.push(vs["顏面"]);
-  return parts.length > 0 ? parts.join("，") : "氣息平穩";
-}
 
 // physical_state 已簡化成單一「狀態」欄，不再有器官專屬鍵，單純覆寫這一鍵即可、無跨鍵合併需求。
 // 🩸 睡一覺回到如常：肉體狀態是「此刻」的東西，不該跨夜跟著人走（呼叫端＝鑑賞的【一天結束】）。
@@ -568,12 +262,8 @@ function buildPlayerStatusString(selfRow, relMem = "") {
 
 const SEED_CACHE_SECONDS_ = 21600; // 6 小時
 
-// 坤圖分頁從無玩家動作寫入(唯一寫入者是版本升級時的一次性upsert，見reseedIfEmpty_)，內容與FATE_MAP_SEED(Setup_FateWorld.gs) JS常數同一份資料——改直接回傳 FATE_MAP_SEED 包表頭列，比讀表+CacheService快取更快，形狀(含表頭列＋COL.MAP欄序)與原本讀sheet完全一致，呼叫端不用改。
-function getMapDataCached(sheets) {
-  return [["地域", "地名", "類型", "座標", "描述", "上級", "戰爭"]].concat(FATE_MAP_SEED);
-}
 
-// 英靈殿(種子從者名冊)：codexPersona_/actionGetHeroes/actionSummonServant/seedRivalsForGame_ 共用。
+// 英靈殿(種子從者名冊)讀取快取：鑑賞邀人清單、工房共用。
 function getHeroCodexCached() {
   const cache = CacheService.getScriptCache();
   const cached = cache.get("FATE_HERO_CODEX");
@@ -585,130 +275,11 @@ function getHeroCodexCached() {
   return fresh;
 }
 
-// 御主殿比照坤圖靜態化：唯二寫入點(upgradeMasterCodex_/seedFateCodex_)只在版本升級/首次建表時執行，無玩家動作(如工房)會新增列，試算表只是 SEED_MASTERS(Seed_Codex.gs) 的多餘拷貝。
-function getMasterCodexCached() {
-  return [["御主ID", "姓名", "性別", "外貌", "魔術系統", "魔術迴路", "體術", "魔術階位", "居所", "願望", "人格", "戰爭", "來源", "身世", "(棄用·原萌點)"]]
-    .concat(SEED_MASTERS.map(masterToCodexRow_));
-}
 
 // ==========================================
 // 🔴 狀態掃描器與地理雷達
 // ==========================================
 
-// 登場日：部分敵御主/敵從者可延後登場，不必開局就全員同時上場。
-function getArriveDay_(memory) {
-  var m = String(memory || "").match(/【登場日】(\d+)/);
-  return m ? parseInt(m[1]) : 1;
-}
-function setArriveDay_(memory, day) {
-  var d = Math.max(1, parseInt(day) || 1);
-  var mem = String(memory || "").replace(/｜?【登場日】\d+/g, "");
-  return d <= 1 ? mem : (mem ? (mem + "｜【登場日】" + d) : ("【登場日】" + d)); // 第1天＝預設值，不必佔字串長度
-}
-// 登場前風聲用的自訂提示句(如「遠方隱約可見金色的威壓身影」)；未填則由呼叫端退回泛用措辭。
-function getArriveHint_(memory) {
-  var m = String(memory || "").match(/【登場提示】([^｜]*)/);
-  return m ? m[1] : "";
-}
-function setArriveHint_(memory, hint) {
-  var h = String(hint || "").trim();
-  var mem = String(memory || "").replace(/｜?【登場提示】[^｜]*/g, "");
-  return h ? (mem ? (mem + "｜【登場提示】" + h) : ("【登場提示】" + h)) : mem;
-}
-function hasArrived_(row, currentDay) {
-  return (parseInt(currentDay) || 1) >= getArriveDay_(row && row[COL.PC.MEMORY]);
-}
 
-// 御主自身能力標記：【迴路】(整數·補魔會改它)／【魔術】(魔術系統的自由描述文字)，創角/鋪敵時寫進御主自己的 MEMORY。
-//    ⚠ 2026-09【體術】【魔術階位】【出身】三個標記整組退休（見 rollMasterFate_）；
-//      舊存檔 MEMORY 裡殘留的那三段沒有人讀，是惰性文字。
-var MASTER_CIRCUITS_TAG_ = makeIntTag_('迴路', 30);   // 🔌 魔術迴路：讀寫的唯一出口(補魔會改它)
-var MASTER_MAGIC_TAG_ = makeTextTag_('魔術');
-function getMasterCircuits_(memory) { return MASTER_CIRCUITS_TAG_.get(memory); }
-function getMasterMagic_(memory) { return MASTER_MAGIC_TAG_.get(memory); }
 
-// 關係已併入眾生表自身欄位(BOND/REL_TAG/IS_PARTY)，不再需要 relData 參數／跨表查找。
-function getLocalPeopleList(sheets, pcName, pcId, curL, allPcData) {
-  if (!allPcData) allPcData = sheets.pc.getDataRange().getValues();
-  const localPeopleList = [];
-  const safeCurL = String(curL || "");
 
-  // 🔵 實例化：只看自己 game_id 世界內的人（御主沒有 game_id 時不過濾，相容舊角色）
-  const meRow = allPcData.find(r => r[COL.PC.ID] == pcId);
-  const myGameId = meRow ? String(meRow[COL.PC.GAME_ID] || "") : "";
-  const myDay = meRow ? (parseInt(meRow[COL.PC.DAY]) || 1) : 1; // 🕰️ 登場日閘門用：尚未到來的敵人對玩家完全不存在
-
-  // 🤝 情報共享（同盟背景生效）：只要當前世界尚有任一盟友（敵御主/敵從者結盟中），盟友便會通報敵情——敵從者的「職階」對玩家揭露（原作依據：遠坂凜為士郎判明敵方職階／真名）。
-  let hasAlly = false;
-  for (let a = 1; a < allPcData.length; a++) {
-    const ar = allPcData[a];
-    if (myGameId && String(ar[COL.PC.GAME_ID] || "") !== myGameId) continue;
-    const af = String(ar[COL.PC.FACTION] || "");
-    if ((af === "敵御主" || af === "敵從者") && !String(ar[COL.PC.ID]).startsWith("DEAD_") && hasArrived_(ar, myDay) && isAllied_(ar)) { hasAlly = true; }
-  }
-
-  for (let i = 1; i < allPcData.length; i++) {
-    const r = allPcData[i];
-    if (r[COL.PC.ID] == pcId || String(r[COL.PC.ID]).startsWith("DEAD_")) continue;
-    if (myGameId && String(r[COL.PC.GAME_ID] || "") !== myGameId) continue;
-    // 🕰️ 登場日閘門：尚未登場的敵御主/敵從者對玩家完全不存在(不進在場清單、不可被指名互動)
-    const rFac0 = String(r[COL.PC.FACTION] || "");
-    if ((rFac0 === "敵御主" || rFac0 === "敵從者") && !hasArrived_(r, myDay)) continue;
-
-    const tLoc = String(r[COL.PC.LOC] || ""); const tName = r[COL.PC.NAME];
-    const rVal = parseInt(r[COL.PC.BOND]) || 0;
-    const rIsParty = (String(r[COL.PC.IS_PARTY] || "") === "同行");
-
-    if (tLoc === safeCurL || rVal >= 60 || rIsParty) {
-      let finalDisplayStatus = buildVisibleStatusString(r[COL.PC.STATUS]);
-      // 🤝 結盟中的敵御主/敵從者 → 對前端顯示為「盟友*」，即不再列為可攻擊敵蹤
-      let fac = String(r[COL.PC.FACTION] || "");
-      const rawFac = fac;
-      const allied = (fac === "敵御主" || fac === "敵從者") && isAllied_(r);
-      // 🤝 盟約剩幾日：後端算好下傳（GAS 掌數值）。玩家原本【看不到這個倒數】——盟約 3 日後
-      //    靜靜破裂，卡上只寫「休兵」，等於被一條看不見的規則管著。有效期＝ day <= until
-      //    （見 breakStaleAlliances_ 的 `day > allyUntil_` 才破），所以含今天還剩 until-day+1 日。
-      //    ⚠ 另一個破裂條件是「存活敵從者 ≤3 時強制全面瓦解」，那個不是倒數、規則說明裡已寫。
-      const allyLeft = allied ? Math.max(0, allyUntil_(r) - myDay + 1) : 0;
-      if (allied) fac = (fac === "敵御主") ? "盟友御主" : "盟友從者";
-      // 🤝 情報共享：有盟友在世時，揭露敵從者／盟友從者的職階（盟友通報的敵情）
-      const isServantKind = (rawFac === "敵從者" || rawFac === "從者");
-      const revealCls = (hasAlly && isServantKind) ? String(r[COL.PC.RANK] || "") : "";
-      // 🕯️ 喪失從者的敵御主：標記如何痛失從者，供 AI 演出形單影隻、無牙的御主
-      const lostSv = (rawFac === "敵御主") ? getLostServant_(r[COL.PC.MEMORY]) : "";
-      // 🔗 敵對歸屬硬連結：御主→其從者、從者→其御主，讓多組同場時 AI 不張冠李戴
-      const pairMaster = (rawFac === "敵從者") ? getServantMaster_(r[COL.PC.MEMORY]) : "";
-      const pairServant = (rawFac === "敵御主") ? getMasterServant_(r[COL.PC.MEMORY]) : "";
-      localPeopleList.push({
-        id: r[COL.PC.ID], isPC: String(r[COL.PC.ID]).startsWith("PC_"), name: tName, status: finalDisplayStatus,
-        pref: r[COL.PC.PREF] || "神祕莫測", relTag: r[COL.PC.REL_TAG] || "萍水相逢", relVal: rVal,
-        loc: tLoc, isExact: (tLoc === safeCurL), isHighRel: (rVal >= 60), isParty: rIsParty,
-        faction: fac, allied: allied, allyLeft: allyLeft, intelCls: revealCls, lostServant: lostSv,
-        master: pairMaster, servant: pairServant,
-        busyWith: null, hp: r[COL.PC.HP], mp: r[COL.PC.MP]
-      });
-    }
-  }
-  return localPeopleList;
-}
-
-// myWar：呼叫端傳玩家本局【戰爭】標記，比照 buildMapNodesPayload_(Router_Movement.gs) 同一套規則過濾戰爭限定地點(如第四次限定的海特飯店)——否則這份清單(撤退突圍/鄰近地點)會漏濾，讓地圖上看不到、理應跨戰爭隱藏的地點反而從這裡露出來。
-function getNearbyLocations(currentLoc, mapData, myWar) {
-  if (!currentLoc) return [];
-  const rootLoc = String(currentLoc).split('-')[0].trim();
-  const parentInfo = mapData.find(m => String(m[COL.MAP.NAME]).trim() === rootLoc);
-  let pCoord = parentInfo && parentInfo[COL.MAP.COORD] ? String(parentInfo[COL.MAP.COORD]).split(',').map(Number) : [0, 0];
-  if (isNaN(pCoord[0]) || isNaN(pCoord[1])) pCoord = [0, 0];
-
-  let nearbyLocs = [];
-  for (let i = 1; i < mapData.length; i++) {
-    const mName = String(mapData[i][COL.MAP.NAME]).trim();
-    if (!mName || mName === rootLoc || mName.startsWith(rootLoc + "-")) continue;
-    const nodeWar = String(mapData[i][COL.MAP.WAR] || "").trim();
-    if (nodeWar && nodeWar !== String(myWar || "").trim()) continue; // 戰爭限定地點：與本局戰爭不符 → 不列入
-    let coords = mapData[i][COL.MAP.COORD] ? String(mapData[i][COL.MAP.COORD]).split(',').map(Number) : [0, 0];
-    if (isNaN(coords[0]) || isNaN(coords[1])) coords = [0, 0];
-    nearbyLocs.push({ name: mName, type: mapData[i][COL.MAP.TYPE] || "荒野", desc: mapData[i][COL.MAP.DESC] || "一處未知的地帶。", dist: Math.abs(coords[0] - pCoord[0]) + Math.abs(coords[1] - pCoord[1]) });
-  }
-  return nearbyLocs.sort((a, b) => a.dist - b.dist).slice(0, 5);
-}

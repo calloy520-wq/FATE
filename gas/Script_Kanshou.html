@@ -84,7 +84,7 @@
       // tags 是這回合的權威狀態，必須在任何讀它的渲染之前就位（updateClock 讀 nightScene 決定按鈕文字）
       try { refreshFateTags(data.tags); } catch (e) { }
       if (data.kanshouClock) kcClock = data.kanshouClock;
-      if (data.clock) updateClock(data.clock, null, null);
+      if (data.clock) updateClock(data.clock);
       if (data.statusString) {
           localStorage.setItem('kyushu_last_status', data.statusString);
           updateUI(data.statusString.split('§'));

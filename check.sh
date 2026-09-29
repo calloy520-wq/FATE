@@ -2,8 +2,8 @@
 # check.sh — 一行驗證所有 .gs 語法 ＋ Script.html 內嵌 JS ＋ Index.html/Style.html 標籤配對。改完代碼必跑。
 # 用法：bash check.sh   （從 repo 根目錄）
 #       另跑十二支不變式掃描：check_prompt(提示詞)／check_mirror(前後端常數)／check_wiring(接線)／
-#       check_render(敘事排版↔XSS)／check_simp(簡體字)／check_memory(solo 敘事記憶)／
-#       check_pronoun(寫死的性別代名詞)／check_cards(點名↔角色卡)／check_undef(未宣告識別字)／
+#       check_render(敘事排版↔XSS)／check_simp(簡體字)／
+#       check_pronoun(寫死的性別代名詞)／check_undef(未宣告識別字)／
 #       check_docs(文件↔代碼)／check_wait(等待畫面)／check_seed(種子庫)／check_ui(前端 runtime)。
 # 原因：.gs 不是 node 認的副檔名，需複製成 .js 才能 node --check；
 #       Script.html 是單一 <script> 包裹，去頭尾才是純 JS。CI 不檢查 .html JS，故本地必驗。
@@ -64,14 +64,8 @@ if node "$ROOT/check_render.js"; then :; else fail=1; fi
 # 🈶 簡體字（提示詞叫 AI 寫繁體，我們自己卻拿簡體示範給它看——玩家要的是台灣繁體中文）
 if python3 "$ROOT/check_simp.py"; then :; else fail=1; fi
 
-# 🧵 solo 敘事記憶（存進歷史的必須是「這回合發生的事」，不是提示詞開頭的角色卡）
-if node "$ROOT/check_memory.js"; then :; else fail=1; fi
-
 # ⚧ 提示詞代名詞（全層曾預設「御主是男、同伴是女」，但兩邊都是資料決定的）
 if python3 "$ROOT/check_pronoun.py"; then :; else fail=1; fi
-
-# 🎭 點名↔角色卡（performanceNote_ 點名了誰，就必須有誰的卡；沒卡＝叫 AI 憑空捏造性格）
-if python3 "$ROOT/check_cards.py"; then :; else fail=1; fi
 
 # 🔎 未宣告識別字（語法檢查看不到「叫一個不存在的東西」；那段若又包在 try/catch 裡就是靜默失敗）
 if python3 "$ROOT/check_undef.py"; then :; else fail=1; fi
@@ -84,12 +78,6 @@ if python3 "$ROOT/check_wait.py"; then :; else fail=1; fi
 
 # 🔌 前後端契約（路由兩端對不對得上——既有掃描器全都看不見這一塊）
 if python3 "$ROOT/check_contract.py"; then :; else fail=1; fi
-
-# 🧮 技能說明的算式 ↔ 引擎公式（同一條式子存兩處，改了後端沒改說明＝玩家看到假數字）
-if python3 "$ROOT/check_fx.py"; then :; else fail=1; fi
-
-# 🔒 節流戳記落地（扣了 AP 卻在蓋戳之前提早 return——走那條路就能無限重按，而且完全靜默）
-if python3 "$ROOT/check_throttle.py"; then :; else fail=1; fi
 
 # 📦 載入順序（頂層初始化用到別的檔的常數＝那一刻可能還是 undefined，會被烤進字串裡）
 if python3 "$ROOT/check_loadorder.py"; then :; else fail=1; fi

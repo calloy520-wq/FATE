@@ -1,14 +1,8 @@
 // ==========================================
-// 🔵 Seed_Codex.gs — 英靈殿(從者範本) + 御主殿 名冊種子
-// seedFateCodex_(ss)：英靈殿/御主殿 為空時自動灌入；ensureFateSheets_ 末尾呼叫。
+// 🔵 Seed_Codex.gs — 英靈殿(從者範本)名冊種子；SEED_MASTERS 只給新聖杯戰爭的御主名字用
+// seedFateCodex_(ss)：英靈殿為空時自動灌入；ensureFateSheets_ 末尾呼叫。
 // ==========================================
 
-// 🎴 共用 fallback 常數：TRAIT/PREF 解析不到內容時的預設文字。GAS 全域作用域共享，
-//   Seed_Rivals.gs(heroToNpcRow_/masterToNpcRow_)與本檔(resyncSummonedServants_)皆讀這裡，
-// 📓 為什麼這樣寫 → CODE_NOTES.md（用函式／常數名搜）。程式碼這邊只留「這在做什麼」。
-//   避免同一句字面散落各檔各改各的。
-var DEFAULT_TRAIT_FALLBACK_ = "外貌出眾、舉止從容";
-var DEFAULT_PREF_FALLBACK_ = "沉著表象、堅定內裡、珍視之物、厭惡之事";
 
 // 🌹 daily* 欄位撰寫鐵則(鑑賞專用；2026-07 玩家「不要告訴 AI 該怎麼說話，要讓她自己演出這個角色」)① 零引號零台詞：寫死一句「笨蛋」，AI 就整場笨蛋笨蛋、連 NSFW 也笨蛋——寫進去的字面它一定照抄。
 var SEED_SERVANTS = [
@@ -17,8 +11,8 @@ var SEED_SERVANTS = [
     // 筋力對齊「凜當御主」的高階官方參數線(其餘五圍已是該線)，避免與「士郎當御主」的弱版參數混用。
     six:{筋力:'A',耐久:'B',敏捷:'B',魔力:'A',幸運:'A+',寶具:'A++'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
-    skills:[{n:'直感',r:'A',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst'},{n:'領袖氣質',r:'B',fx:'morale'},
-            {n:'風王鐵鎚',r:'A',fx:'wind_strike'},{n:'誓約勝利之劍',r:'A++',fx:'excalibur'}],
+    skills:[{n:'直感',r:'A',fx:'first_strike'},{n:'魔力放出',r:'A'},{n:'領袖氣質',r:'B',fx:'morale'},
+            {n:'風王鐵鎚',r:'A',fx:'wind_strike'},{n:'誓約勝利之劍',r:'A++'}],
     traits:[{n:'王'},{n:'人類'},{n:'龍'}], np:'誓約勝利之劍 Excalibur（對城 A++·聚攏這片星球記憶中的光·凝於劍尖·解放為撕裂大地、直貫蒼穹的金色收束光炮）／全世界遙遠的理想鄉 Avalon（永世隔絕·無敵結界·守護持有者）',
     align:'秩序・善', persona:{look:'金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀',words:'騎士道・自我犧牲・壓抑的少女心',toMaster:'以騎士之禮盡忠，公私分明地隔著一步距離',quirks:'吃到好東西時會安靜下來、對著獅子玩偶移不開眼',logic:'責任和自己想要的擺在一起，放下的是後者',
     dailyLook:'金髮碧眼・嬌小、雨後百合的清冽',
@@ -68,13 +62,11 @@ var SEED_SERVANTS = [
     dailyOutfit:'溫柔色系洋裝',
     dailyWords:'對外人禮貌保持距離、貪戀平穩的日子、可愛的衣服與寡言誠實的人、肌肉笨蛋',
     book:[{'keys': ['衣服', '洋裝', '裙', '可愛', '誠實', '寡言', '沉默'], 'content': '喜歡可愛的衣服，還有寡言誠實的人'}, {'keys': ['肌肉', '壯漢', '健身', '猛男'], 'content': '受不了肌肉笨蛋'}]} },
-  // 幸運A卻仍死於決鬥是他最出名的反差設定；寶具階級官方未給定，'-' 誠實標記無明確階級(rankVal()仍保底吃E運算)。
   { id:'佐佐木小次郎-Assassin', cls:'Assassin', realName:'佐佐木小次郎', wars:['5th'], gender:'男',
     six:{筋力:'C',耐久:'E',敏捷:'A+',魔力:'E',幸運:'A',寶具:'-'},
-    // 此版5th戰爭裡他是無御主孤身從者(獨自蟄伏柳洞寺)，補單獨行動讓他吃 enemyCanAffordNp_ 的殘存靈基儲備。
     classSkills:[{n:'氣息遮斷',r:'D',fx:'stealth'},{n:'單獨行動',r:'A',fx:'solo'}],
     skills:[{n:'心眼（偽）',r:'A',fx:'analyze'},{n:'透化',r:'B+',fx:'clear_mind'},
-            {n:'宗和的心得',r:'B',fx:'unreadable'},{n:'秘劍・燕返',r:'-',fx:'tsubame'}],
+            {n:'宗和的心得',r:'B'},{n:'秘劍・燕返',r:'-',fx:'tsubame'}],
     traits:[{n:'人類'}], np:'燕返 Tsubame Gaeshi（對人魔劍・次元摺疊・三段同時斬）',
     align:'中立・中庸', persona:{look:'紺髮長刀・素樸和裝的清瘦劍客、淡泊洒脫',words:'閒適・無欲',toMaster:'隨遇而安、只求一戰',quirks:'凝望飛燕、說到一半就岔題去講風景',logic:'有用的事擱著，先做有意思的',
     dailyLook:'紺髮長刀・清瘦劍客、初秋溪水，涼而清',
@@ -84,11 +76,8 @@ var SEED_SERVANTS = [
   { id:'赫拉克勒斯-Berserker', cls:'Berserker', realName:'赫拉克勒斯', wars:['5th'], gender:'男',
     six:{筋力:'A+',耐久:'A',敏捷:'A',魔力:'A',幸運:'B',寶具:'A'},
     classSkills:[{n:'狂化',r:'B',fx:'mad'},{n:'對魔力',r:'D',fx:'nullify_magic'}],
-    // 不掛戰鬥續行(survive)：fateStrike_ 判定順序 survive 先於 god_hand，會讓十二試煉的燒命判定永遠輪不到，
-    // 跟「每次瀕死真的燒一命」的設計矛盾——兩者互斥擇一。
     skills:[{n:'勇猛',r:'A',fx:'morale'},{n:'十二試煉',r:'A',fx:'god_hand'}],
     // 不掛「王」trait：他終身未曾稱王。God Hand 是常駐復活寶具而非攻擊技，前後端據此擋下攻擊解放
-    // (💥鈕灰化＋actionFateBattle 阻擋)，他的戰力＝普攻蠻力＋十二條命。
     traits:[{n:'神性',r:'A'}], np:'十二試煉 God Hand（B·十二條命·【常駐寶具】自動生效·狂化下無可解放的攻擊寶具）',
     // Nine Lives 原作設定為狂化壓制下無法使用的寶具，故這版狂化下只有 God Hand。
     align:'混沌・狂', persona:{look:'巨軀岩肌・黑霧纏身的半神戰士、壓迫氣場',words:'狂化・守護的殘響',toMaster:'理智被黑霧吞沒、僅存護主本能',quirks:'以巨軀擋在人身前、接東西時手會放得特別輕',logic:'講道理和擋在前面，先擋了再說',
@@ -113,7 +102,7 @@ var SEED_SERVANTS = [
     six:{筋力:'B',耐久:'C',敏捷:'A+',魔力:'D',幸運:'E',寶具:'B'},
     classSkills:[{n:'對魔力',r:'B',fx:'nullify_magic'}],
     skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'愛之痣',r:'C',fx:'lovespot'},
-            {n:'破魔紅薔薇／必滅黃薔薇',r:'B',fx:'anti_magic_lance'}],
+            {n:'破魔紅薔薇／必滅黃薔薇',r:'B'}],
     traits:[{n:'人類'}], np:'破魔紅薔薇 Gáe Dearg・必滅黃薔薇 Gáe Buidhe（雙槍・破魔／不癒之傷）',
     align:'秩序・善', persona:{look:'墨綠髮・面有愛之痣的俊美騎士、謙恭',words:'忠義・哀愁',toMaster:'絕對忠誠，渴望堂堂正正之戰',quirks:'行禮時右手先貼上胸口、被女性道謝會退半步',logic:'心裡那份情擺到忠義前面時，讓開的是前者',
     dailyLook:'黑髮・俊美(右眼下一顆淚痣)、雨後青草與皂香',
@@ -147,7 +136,7 @@ var SEED_SERVANTS = [
   { id:'百貌哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（百貌）', wars:['4th'], gender:'男',
     six:{筋力:'C',耐久:'D',敏捷:'A',魔力:'C',幸運:'E',寶具:'B'},
     classSkills:[{n:'氣息遮斷',r:'A+',fx:'stealth'}],
-    skills:[{n:'自我改造',r:'B',fx:'self_mod'},{n:'妄想幻像',r:'',fx:'zabaniya'}],
+    skills:[{n:'自我改造',r:'B',fx:'self_mod'},{n:'妄想幻像',r:''}],
     traits:[{n:'人類'}], np:'妄想幻像 Zabaniya: Delusional Illusion（對人·分裂為百種人格·最多同時八十體·【留存】分身持續在場）',
     align:'秩序・惡', persona:{look:'骷髏面具・黑袍裹身的刺客、詭譎',words:'群體・無數人格',toMaster:'服從，視暗殺為信仰',quirks:'換一個人說話就換一種語速、挑燈照不到的那一側站',logic:'真話和對方想聽的話，先給後者',
     dailyLook:'骷髏面具・身形偏窄而骨架勻稱、陰影裡的乾燥香料',
@@ -156,7 +145,7 @@ var SEED_SERVANTS = [
   { id:'咒腕之哈桑-Assassin', cls:'Assassin', realName:'哈桑·薩巴赫（咒腕）', wars:['5th'], gender:'男',
     six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'C',幸運:'E',寶具:'C'},
     classSkills:[{n:'氣息遮斷',r:'A+',fx:'stealth'}],
-    skills:[{n:'妄想心音',r:'',fx:'zabaniya'},{n:'投影魔術',r:'C',fx:'projection'},{n:'自我改造（詛咒之腕）',r:'C',fx:'self_mod'}],
+    skills:[{n:'妄想心音',r:''},{n:'投影魔術',r:'C',fx:'projection'},{n:'自我改造（詛咒之腕）',r:'C',fx:'self_mod'}],
     traits:[{n:'人類'}], np:'妄想心音 Zabaniya（對人·掏出心臟之影即死）',
     // 詛咒之腕為右臂(撒旦之手嫁接，官方設定)。
     align:'秩序・惡', persona:{look:'骷髏面具・詛咒繃帶纏滿右臂的暗殺者、肅殺',words:'詛咒之腕・初代之名',toMaster:'冷淡服從、以暗殺為天職',quirks:'走路沒有聲音、右手用布纏著',logic:'該解釋的留著，事做完先走',
@@ -178,7 +167,6 @@ var SEED_SERVANTS = [
     book:[{'keys': ['戀愛', '愛情', '劍術', '比劍', '練劍', '劍'], 'content': '喜歡熾烈的戀愛與劍術'}]} },
   // 客串保留：慾海鑑賞用的少數客串——斯卡哈/恩奇都，其餘客串／偽聖杯陣容已清空。
   { id:'恩奇都-Lancer', cls:'Lancer', realName:'恩奇都', wars:['客串'], gender:'無',
-    // 基線＝非理想御主下的恩奇都(供魔不足)；與銀狼結契才回全盛全A·寶A++(masterSynergySix_)，此 synergy 僅供手動 MEMORY 標記【御主】銀狼 觸發(銀狼已無自動配對戰場)。
     six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'B',幸運:'-',寶具:'A'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'}],
     skills:[{n:'天之鎖',r:'A',fx:'chain'},{n:'氣息感知',r:'A+',fx:'sense'},{n:'變容',r:'A',fx:'shapeshift'},{n:'完全之形',r:'A',fx:'regen'}],
@@ -192,8 +180,8 @@ var SEED_SERVANTS = [
   { id:'斯卡哈-Lancer', cls:'Lancer', realName:'斯卡哈', wars:['客串'], gender:'女',
     six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'C',幸運:'D',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'}],
-    skills:[{n:'神殺',r:'B',fx:'god_slay'},{n:'神速',r:'A',fx:'first_strike'},{n:'戰鬥續行',r:'A',fx:'survive'},
-            {n:'原初符文',r:'A',fx:'rune'},{n:'魔境的智慧',r:'A+',fx:'mage_realm'},{n:'刺穿死亡之棘',r:'A',fx:'gae_bolg',causality:true}],
+    skills:[{n:'神殺',r:'B'},{n:'神速',r:'A',fx:'first_strike'},{n:'戰鬥續行',r:'A',fx:'survive'},
+            {n:'原初符文',r:'A',fx:'rune'},{n:'魔境的智慧',r:'A+'},{n:'刺穿死亡之棘',r:'A',fx:'gae_bolg',causality:true}],
     traits:[{n:'人類'}], np:'貫穿死翔之槍 Gáe Bolg Alternative（對人 B+·釘空必中＋投擲斷命）／死亡滿溢的魔境之門 Gate of Skye（對軍 A+·吸入影之國）',
     align:'中立・中庸', persona:{look:'紫髮紅瞳・緊身戰衣的妖豔女王、冷峻',words:'影之國女王・武人',toMaster:'嚴厲考校、唯認可強者，師者之威',quirks:'用手邊的東西點地催人、誇獎人時會轉開視線',logic:'話說得比誰都重，事後卻私下把人撿回來',
     dailyLook:'紫髮紅瞳・豐盈妖豔冷峻、霧裡的松針，凜冽',
@@ -285,10 +273,6 @@ var SEED_MASTERS = [
 // ⚠ DAILY_MOE(15) 2026-09 起棄用（萌點整組退休），種子一律寫空字串；COL 是位置索引，欄位留著不刪。
 
 var HERO_PERSONA_OWN_COL_ = ['dailyLook', 'dailyWords', 'dailyOutfit'];
-// 2026-09-23 玩家「這算是經歷嗎…都是多餘的」：種子的「在這座城裡是誰」（打工／住哪）整格退休——
-//   模型從名字就知道她是誰，這些是我們自己編的、只會被拿出來加料。這張表只做一件事：
-//   版本升級時把既有同伴列上還留著的舊句子洗掉（玩家自己改過的經歷長得不一樣，不會被誤洗）。
-var RETIRED_DAILY_BACK_ = ['借住在士郎家，最近開始在商店街打工', '衛宮家的廚房歸他管，鄰居東西壞了也找他', '在河邊的釣具店顧店，下班就泡在堤防上', '在舊書店打工，騎一台重機通勤', '在商店街尾開一間小裁縫鋪，接改衣服的活', '神社的掃地人，沒人問過他住哪', '在搬家公司扛重物，附近的小孩都跟著他跑', '住在市中心頂樓，名下的店開了又關', '在道場教劍，女學員特別多', '開一間生意好到很吵的燒肉店', '守著一間快倒的舊書店，客人比他還少', '在夜校代課，學生說來上課的好像不是同一個人', '上夜班的警衛，白天幾乎見不到人', '在修車廠做事，什麼壞掉的東西到他手上都能修', '住在市郊的苗圃，跟吉爾伽美什從小就認識', '在河邊開道場，收的學生沒一個撐過三個月', '夏天都待在海邊的小屋，誰敲門都不開', '遠坂家現任當家，妹妹是間桐櫻，感情很好', '愛因茲貝倫家的小女兒，從小被捧在手心', '遠坂家的妹妹，在間桐家長大，跟姊姊凜很親', '在深山町經營小工房，常幫鄰里修東西', '在地方上教書，也是這帶地主家大小姐'];
 function servantToHeroRow_(s) {
   var p = s.persona || {};
   var slim = {};
@@ -298,13 +282,6 @@ function servantToHeroRow_(s) {
     s.np, JSON.stringify(slim), s.align, JSON.stringify(s.wars), 'seed',
     p.dailyLook || '', p.dailyWords || '', '', p.dailyOutfit || ''];
 }
-// 御主物件 → 御主殿列（順序＝COL.MASTER）
-// 「居所」「屆次」「萌點」三欄全樹零讀取，種子不再供值——COL 是位置索引，欄位留著不刪。
-function masterToCodexRow_(m) {
-  return [m.id, m.name, m.gender, m.appearance, m.magic, m.circuits, m.melee,
-    m.magic_rank, '', m.wish, m.persona, '', 'seed', m.back || '', '', m.align || ''];
-}
-
 // 種子人設版本：每次精緻化 persona(性格/口吻) 就升一版，觸發既有英靈殿/御主殿升級
 var CODEX_PERSONA_VER = 'v89'; // v89：Rider／Caster 的 key 補單字（書／鏡／裙）；v88：book 多了經歷條目（rel／overlap）；v87：persona 多了 book（觸發條目）；v86：喜歡／討厭兩格改成官方 profile（21 筆）＋迪盧木多黑髮；v85：EMIYA 真名「無銘」。
 // v84：櫻的「姊姊」補上名字——沒有名字的稱謂會被 AI 就近安到在場的人身上。
@@ -352,98 +329,10 @@ function upgradeCodexPersonas_(ss) {
   return n;
 }
 
-// 升級既有御主殿：依種子整列重寫（依 ID 對應；不動客製御主）。整列重寫(而非只刷 persona/back/moe)
-function upgradeMasterCodex_(ss) {
-  var msh = ss.getSheetByName('御主殿');
-  if (!msh || msh.getLastRow() <= 1) return 0;
-  var d = msh.getDataRange().getValues();
-  var byId = {};
-  SEED_MASTERS.forEach(function (m) { byId[m.id] = m; });
-  var existing = {};
-  var n = 0;
-  for (var i = 1; i < d.length; i++) {
-    existing[String(d[i][COL.MASTER.ID])] = true;
-    var m = byId[String(d[i][COL.MASTER.ID])];
-    if (!m) continue;
-    var row = masterToCodexRow_(m);
-    msh.getRange(i + 1, 1, 1, row.length).setValues([row]);
-    n++;
-  }
-  // 🆕 補入「種子有、御主殿還沒有」的新御主(新增御主後不必清表即生效)
-  var toAdd = SEED_MASTERS.filter(function (m) { return !existing[m.id]; });
-  if (toAdd.length) {
-    var addRows = toAdd.map(masterToCodexRow_);
-    msh.getRange(msh.getLastRow() + 1, 1, addRows.length, addRows[0].length).setValues(addRows);
-    n += addRows.length;
-  }
-  // 🧹 淘汰孤兒：種子改名/汰換後殘留的舊種子列(ID 已不在 SEED_MASTERS)自動清除，只刪來源=='seed' 者。
-  for (var j = d.length - 1; j >= 1; j--) {
-    if (!byId[String(d[j][COL.MASTER.ID])] && String(d[j][COL.MASTER.SOURCE]) === 'seed') { msh.deleteRow(j + 1); n++; }
-  }
-  return n;
-}
-
-// 🔄 重刷「已召喚實體化」從者的【戰鬥數據】(寶具/六圍/標籤 fx)為最新種子值——種子改了，已在場的從者也跟上。
-var SEED_RECLASSED_ = { '吉爾·德·萊斯（青鬍子）｜Caster': '吉爾·德·萊斯｜Caster' }; // 後者為 realName 去掉原型綽號，舊列名字不改、kit 照刷
-function resyncSummonedServants_(ss) {
-  var pc = ss.getSheetByName('眾生');
-  if (!pc || pc.getLastRow() <= 1) return 0;
-  var data = pc.getDataRange().getValues();
-  var key = function (name, cls) { return String(name) + '｜' + String(cls); };
-  var byKey = {};
-  SEED_SERVANTS.forEach(function (s) { byKey[key(s.realName, s.cls)] = s; });
-  var n = 0;
-  for (var i = 1; i < data.length; i++) {
-    var fac = String(data[i][COL.PC.FACTION]);
-    if (fac !== '從者' && fac !== '敵從者') continue;   // 玩家從者＋敵從者都刷(都讀種子戰鬥數據)
-    if (String(data[i][COL.PC.ID]).indexOf('DEAD_') === 0) continue;
-    var k = key(data[i][COL.PC.NAME], data[i][COL.PC.RANK]);
-    if (!byKey[k] && SEED_RECLASSED_[k] && byKey[SEED_RECLASSED_[k]]) {
-      k = SEED_RECLASSED_[k];
-      data[i][COL.PC.RANK] = k.split('｜')[1]; // 職階欄跟著換新(戰鬥 profile/演出都吃這欄)
-    }
-    var s = byKey[k];
-    if (!s) continue; // AI 原創從者無種子 → 不動
-    data[i][COL.PC.MARTIAL] = s.np || data[i][COL.PC.MARTIAL];
-    data[i][COL.PC.SIX] = JSON.stringify(s.six);
-    // 六圍/技能刷新了，血上限也要跟上（耐久或 HP_BONUS_FX_ 一改，舊列否則永遠停在舊上限）。
-    var newMax = servantMaxHp_(svNum_(s.six && s.six["耐久"]), (s.classSkills || []).concat(s.skills || []));
-    data[i][COL.PC.MAX_HP] = newMax;
-    if ((parseInt(data[i][COL.PC.HP]) || 0) > newMax) data[i][COL.PC.HP] = newMax;
-    data[i][COL.PC.TAGS] = JSON.stringify({ skills: tagSkillKind_(s.classSkills, 'class').concat(tagSkillKind_(s.skills, 'skill')), traits: s.traits || [] });
-    n++;
-  }
-  if (n) pc.getRange(1, 1, data.length, data[0].length).setValues(data);
-  // 🌸 鑑賞眾生(獨立分頁)補刷：上面 k_ 分支掃的是「眾生」，但鑑賞同伴其實住「鑑賞眾生」分頁，原分支永遠掃不到(§125 死分支)。
-  var kpc = ss.getSheetByName('鑑賞眾生');
-  if (kpc && kpc.getLastRow() > 1) {
-    var kdata = kpc.getDataRange().getValues();
-    var kn = 0;
-    for (var j = 1; j < kdata.length; j++) {
-      if (String(kdata[j][COL.PC.FACTION]) !== '從者') continue;
-      if (String(kdata[j][COL.PC.ID]).indexOf('DEAD_') === 0) continue;
-      var kk = key(kdata[j][COL.PC.NAME], kdata[j][COL.PC.RANK]);
-      if (!byKey[kk] && SEED_RECLASSED_[kk] && byKey[SEED_RECLASSED_[kk]]) kk = SEED_RECLASSED_[kk];
-      var ks = byKey[kk];
-      if (!ks || !ks.persona) continue;
-      // 種子經歷退休：還留著舊句子的洗掉，玩家自己寫的長得不一樣、不動。
-      if (RETIRED_DAILY_BACK_.indexOf(String(kdata[j][COL.PC.BACK] || '').trim()) >= 0) kdata[j][COL.PC.BACK] = '';
-      if (ks.persona.dailyWords) kdata[j][COL.PC.PREF] = parseTraitsHelper(ks.persona.dailyWords, DEFAULT_PREF_FALLBACK_);
-      kdata[j][COL.PC.INTENT] = '';   // 🚫 萌點退休：舊局存過的值在這裡一併洗掉，否則老玩家永遠留著
-      var kparts = String(ks.persona.dailyLook || '').split('、').map(function (x) { return x.trim(); }).filter(Boolean);
-      if (kparts.length >= DAILY_LOOK_SLOTS_) kdata[j][COL.PC.TRAIT] = parseTraitsHelper(kparts.slice(0, DAILY_LOOK_SLOTS_).join('、'), DEFAULT_TRAIT_FALLBACK_, TRAIT_SLOTS_);
-      // 怪癖/準則跟著種子走：改版後既有存檔的列也要蓋上，否則老玩家的同伴永遠少這兩格。
-      kdata[j][COL.PC.MEMORY] = stampPersonaFlavor_(String(kdata[j][COL.PC.MEMORY] || ''), ks.persona.quirks || '', ks.persona.logic || '');
-      kn++;
-    }
-    if (kn) kpc.getRange(1, 1, kdata.length, kdata[0].length).setValues(kdata);
-    n += kn;
-  }
-  return n;
-}
 
 
-// 🔵 英靈殿/御主殿 為空(只有表頭)時，自動灌入名冊。冪等：有資料就不動。
+
+// 🔵 英靈殿為空(只有表頭)時，自動灌入名冊。冪等：有資料就不動。
 function seedFateCodex_(ss) {
   ss = ss || SpreadsheetApp.getActiveSpreadsheet();
   var hero = ss.getSheetByName('英靈殿');
@@ -452,18 +341,11 @@ function seedFateCodex_(ss) {
     hero.getRange(2, 1, hrows.length, hrows[0].length).setValues(hrows);
     try { CacheService.getScriptCache().remove("FATE_HERO_CODEX"); } catch (e) { }
   }
-  var master = ss.getSheetByName('御主殿');
-  if (master && master.getLastRow() <= 1) {
-    var mrows = SEED_MASTERS.map(masterToCodexRow_);
-    master.getRange(2, 1, mrows.length, mrows[0].length).setValues(mrows);
-  }
   // 人設版本升級（只跑一次）
   try {
     var props = PropertiesService.getScriptProperties();
     if (props.getProperty('codex_persona_ver') !== CODEX_PERSONA_VER) {
       upgradeCodexPersonas_(ss);   // 刷英靈殿(召喚來源)
-      upgradeMasterCodex_(ss);
-      resyncSummonedServants_(ss); // 刷已在場從者的戰鬥數據(寶具/六圍/標籤)
       props.setProperty('codex_persona_ver', CODEX_PERSONA_VER);
     }
   } catch (e) { }
