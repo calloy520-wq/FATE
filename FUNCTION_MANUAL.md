@@ -171,8 +171,9 @@
 ### War_Engine.gs（76 支函式）
 
 - `WAR_BOUNTY_`／`warBountyStart_(st, ev)`／`warBountyEnd_(st, e, mine, ev)`／`warBountyOn_(st, e)` — 教會討伐令：第 `WAR_.BOUNTY_DAY` 天早上指定 Caster（原作的懸賞），公開位置；你親手打倒多一劃令咒，別人打倒就撤銷；目標不在場就整局不發。`st.bounty`＝`{id, open}`。
-- `WAR_FINAL_`／`warFinal_(st)` — 最後一夜在哪（第五次柳洞寺、第四次冬木市民會館）與進場、下一位上場的句子；按鈕、事件、講評都讀這裡。
-- `WAR_PACE_`／`warPace_(st)` — 每場戰爭各自的節奏：`brawl`＝敵人夜裡撞見彼此時動手的機率（乘個性的出手慾），`warTick_` 讀。
+- `WAR_FINAL_`／`warFinal_(st)` — 最後一夜在哪（第五次柳洞寺、第四次冬木市民會館；路線有 `final` 就用路線的，HF＝大空洞）與進場、下一位上場的句子；按鈕、事件、講評都讀這裡。
+- `WAR_ROUTES_`（Seed_Rivals.gs）／`warRoutes_(war)`／`warRoute_(st)` — 第五次的三條路線（fate／ubw／hf：`label`、`final`、`pace`）；`warNewGame_` 開局暗中抽一條存 `st.route`（`o.route` 可指定，探針與模擬器用）。沒有路線的戰爭回 null。
+- `WAR_PACE_`／`warPace_(st)` — 每場戰爭各自的節奏（路線有 `pace` 就用路線的）：`brawl`＝敵人夜裡撞見彼此時動手的機率（乘個性的出手慾），`warTick_` 讀。
 - `warClass_(cls)`／`warFoe_(st, id)`／`warArrived_(st)`／`warKnownFoes_(st)`／`warAliveCount_(st)`／`warLocName_(loc)` — 查詢。
 - `WAR_TEMPER_`／`warTemper_(e)`／`warAggr_(e)` — 敵方從者的原作性格（鍵＝英靈殿 ID）蓋在職階個性上：小次郎守山門（不夜襲你、不撤退）、吉爾伽美什傲慢（出手慾低、不撤退）、庫丘林奉命偵察（先試探、打不贏就撤）、蘭斯洛特見到阿爾托莉雅就找上門、百貌哈桑找據點快兩倍；`meet` 是交手時的開場一句（不寫真名）。
 - `warSkRows_(u)`／`warSkOk_(row, hook, foe)` — 這個單位的技能列／這一列在這個時機對這個對手生不生效。
@@ -205,7 +206,10 @@
 - `warAutoBattle_(st, a, b, ev)` — 敵對敵，最多三回合；有人倒下直接寫進早報，沒人倒下的交給 `warMorning_` 併句（兩位同職階都沒看穿時寫成「另一位」）。
 - `warHitChance_(x, y)`／`warMult_(X, Y)`／`warNormalDmg_(st, X, Y)`／`warNpDmg_(X, Y)`／`warRetreatChance_(u, o, seal)` — 命中、倍率、傷害、撤退。`warMult_` 看穿真名或帶 `weakAlways`（王之財寶）就乘弱點；`warRetreatChance_` 遇到對手的 `lock`（天之鎖）而自己帶那個旗標（神性）時回 0（令咒除外）。
 - `warHeal_(u, pct)`／`warHealMaster_(st, n)` — 回血。
-- `WAR_CANON_EVENTS_`（Seed_Rivals.gs）／`warCanonEvents_(st, ev)` — 早報裡的原作事件：到了那一天、涉及的從者都還是活著登場的敵人才發生；效果只有看穿（`reveal`）與搬據點（`move`）。`warMorning_` 叫。
+- `WAR_CANON_EVENTS_`（Seed_Rivals.gs）／`warCanonEvents_(st, ev)` — 早報裡的原作事件：到了那一天、涉及的從者都還是活著登場的敵人才發生；效果：看穿（`reveal`）、搬據點（`move`）、換御主（`master`）、黑化（`alter`→`warAlter_`）、照原作倒下（`kill`→`warKill_`）、叫醒預備役（`awaken`→`warAwaken_`）；`route` 只在那條線發生。涉及的從者已經先倒下（不是劇本殺的）而演不成、又有 `short` 的，記進 `st.rewrote`。`warMorning_` 叫，叫完再判一次勝負（劇本可能收掉最後一位）。
+- `warKill_(st, e, ev)` — 照原作倒下：標 `canonDead`、至少看穿到職階、`warGone_` 善後、討伐令照樣結算；不播 `WAR_FALL_` 的餘波。`warGone_(st, u)` — 退場的共同善後（它下的詛咒跟著消失），`warApply_` 也走這支。
+- `warAwaken_(st, hero, hint)` — 把預備役（`st.reserve`，名冊列上 `reserve:true` 的，不算敵人）搬進敵方、或把還沒登場的提早，都改成明天登場；最後一夜不叫（到不了場會卡住勝負）。回傳有沒有叫到。
+- `WAR_ALTER_`（Seed_Rivals.gs）／`warAlter_(e, a)` — 黑化／被強化：攻防血照 `mul` 拉高（傷勢比例不變），`name`／`npName`／`look` 有寫才換；標 `alter`，只作用一次。
 - `WAR_FALL_`（Seed_Rivals.gs）／`warCanonFall_(st, e, ev)` — 原作從者在自己那場戰爭倒下的餘波：推一句 `k:'fall'`（只寫動作、不寫名字與心情）給畫面與說書；列上有 `summon` 而那一位還沒登場，就改成明天登場、早報換成 `hint`。三條倒下路徑都叫：親手打倒（`warDoRound_`）、敵對敵（`warAutoBattle_`）、決戰混戰（`warFinalMelee_` 從 sink 轉出來，接在交手那句後面）。混亂隨機不觸發。
 - `warShownCount_(st)` — 畫面上看得到的敵人數（假死的不算）；早報、畫面、決戰按鈕用它，勝負照樣看 `warAliveCount_`。`warKnownFoes_` 也排除假死的（不能突襲一個「已退場」的人）。
 - `warOdds_(st, e)` — 勝算四階（勝算大／勢均力敵／勝算小／凶險）。`warOddsR_(st, e)` — 背後的比值（我撐幾下 ÷ 對方撐幾下，血量用 `warEffHp_(u)`：十二試煉的命也算進去）；夜晚出擊目標照「討伐令→這個比值」排序，前 `WAR_.SORTIE_SHOW` 位直接列，其餘帶 `more: true`。
@@ -214,7 +218,7 @@
 - `warCheckEnd_(st, ev)`／`warOver_(st, win, cause, ev)` — 勝負；`warOver_` 把致命那一場的對手、看穿程度、出擊時血量、有沒有硬吃預兆記進 `result`。`warStat_(st, k)` — 戰績計數加一（舊存檔沒有的欄位從 0 起算）。
 - `warFoeCard_(st, e)` — 一位對手在畫面上的情報：intel 1 給職階、位置、傷勢、勝算；intel 2 才加真名、御主、寶具（可不可以放）、技能。
 - `WAR_DOJO_LOSS_` — 「輸在哪」表：由上往下第一條成立的（御主倒下／決戰打到天亮／致命那一場硬吃寶具預兆／沒看穿真名／帶重傷出擊／決戰夜人太多／令咒沒用／真名早曝光／一般落敗），各帶一句事實＋下一局只改的那一件事。`WAR_DOJO_GOOD_` — 亮點表（成立的全列，最多三條）。
-- `warDebrief_(st)` — 賽後一整包 `{win, day, stats, good, key?, fact?, lesson?}`；畫面的終局卡與老虎道場讀同一份。`warRevealed_(st)`（看穿幾位）／`warFill_(t, o)`（`{名字}` 代換）。
+- `warDebrief_(st)` — 賽後一整包 `{win, day, stats, good, key?, fact?, lesson?, route?}`（`route`＝`{label, rewrote}`：這一局走的線、被改寫的原作場面，結局才揭曉）；畫面的終局卡與老虎道場讀同一份。`warRevealed_(st)`（看穿幾位）／`warFill_(t, o)`（`{名字}` 代換）。
 - `warRules_(st)` — 畫面說明要引用的規則數字（夜數、令咒、回合、寶具回魔、補魔、令咒硬放寶具的御主代價 `sealNpCost`、三場戰爭的敵方組數 `rosters`、已有御主的原作從者 `canonHeroes`），前端不另寫一份；給了 `st` 再加這場戰爭的決戰地點 `finalPlace`（`war_load` 沒開局時不給 `st`）。
 - `warView_(st)` — 畫面看得到的樣子：藏起玩家還不知道的真名／位置，附上 `buttons`、`result`、`rules`（`warRules_(st)`），終局再附 `debrief`（`warDebrief_`）。
 
@@ -225,7 +229,7 @@
 - `warLoad_(acct)` — 這個帳號那一列 `{sh, row, st, narr}`。`warSave_(ref, acct, st)`／`warSaveNarr_(ref, acct, gid, narr)` — 戰況與說書分兩格寫（說書不取鎖、戰況取鎖，互不覆蓋）。說書那一格寫的當下重新找「這個帳號、這一局（gid）」在第幾列：等 AI 期間別人刪列不會寫進別人那一列，這局已放棄或重開就不寫。
 - `warSeedCtx_(war)` — 引擎要的種子（＝`warSetup_(war)`：從者池、陣容、名字表）。`warLogLines_(ev)` — 事件→畫面行。
 - `actionWarLoad`／`actionWarNew`／`actionWarAct`／`actionWarNarrate`／`actionWarQuit`（簽名 `(userData)`）— 五條路由。`war_act` 的 `act` 只收 `t/id/s/seal` 四鍵、照白名單驗。`war_load` 沒有戰局時也回 `rules`（開局表單要用）。`war_new` 收 `war`（`WAR_WARS_`）與 `heroId`；第五次／第四次指定這場的原作從者會被擋。
-- `actionWarDojo(userData)` — 🐯 老虎道場：終局才開；`warDojoPrompt_(st)` 帶戰績、輸在哪與下一局（或亮點），system＝`WAR_DOJO_SYS_`（大河＋伊莉雅的對話）；結果存在說書那一格的 `dojo`（同一局回快取，AI 沒回就不存、下次重試）。
+- `actionWarDojo(userData)` — 🐯 老虎道場：終局才開；`warDojoPrompt_(st)` 帶戰績、輸在哪與下一局（或亮點）、這一局的世界線與改寫，system＝`WAR_DOJO_SYS_`（大河＋伊莉雅的對話）；結果存在說書那一格的 `dojo`（同一局回快取，AI 沒回就不存、下次重試）。
 - `WAR_WORLD_BOOK_` — 冬木地點與戰爭規矩的觸發條目。`warLoreEntries_(st)` — 世界書＋我方從者的喜惡（種子 `book`）＋場上每一位的寶具原作描述（不寫持有者）。`warLoreStr_(st)` — 這一段事件文字碰到的條目（走鑑賞的 `loreHits_`，上限 `KANSHOU_LORE_MAX_`）→ 一行，沒有就空字串。
 - `warNarrPrompt_(st)` — 說書提示詞：這場戰爭（`WAR_ERA_`：第五次／第四次＝原作陣容外多出來的一組，混亂＝陣容錯亂）、從者卡（look／words／toMaster）、御主、對手（知道真名才給外貌）、此刻（事情發生的那一天、那個時候：`actionWarAct` 在結算前記下 `narr.day`／`narr.when`，時段查 `WAR_WHEN_`；召喚寫「開始前的那一夜」）、【這一段發生的事】、碰到的原作設定（`warLoreStr_`）、篇幅＋召喚／開戰的重點（`WAR_SCENE_`）；補魔段接 `sealGenderFact_`＋`LEWD_EXPLICIT_`。system＝`WAR_NARR_SYS_`。
 
@@ -489,6 +493,6 @@
 - `warNarrate_(block)`／`warNarrOnce_(block)` — 說書同時只寫一段：佔位插在故事的當下位置、寫好換成本文，後面按的幾步照樣接在它後面；寫的時候玩家又按了就在寫完後補一段（後端會把沒講到的併進去）。`block`＝補魔與結局這種整場戲，按鈕等它寫完；其餘不鎖按鈕。`warQuit()` — 放棄這一局。
 - `warBar_(v, max, cls, key)`／`warBarsSlide_()` — 血條：記住每條上一次畫到哪（`warBarPrev_`），先畫在舊位置、下一格滑到新值，掉血的那條閃一下。
 - `warRender_(next)` — 狀態列、敵人名單、戰鬥框（對手情報＋預兆）、召喚卡、終局卡；骨架只建一次，故事區保留。戰鬥與終局時收起技能表與名單（手機上讓位置給戰鬥框與按鈕）。
-- `warOverHtml_(v)`／`warDojo()` — 終局卡（勝負、六格戰績、輸在哪與下一局／亮點）／叫 `war_dojo`，講評接在故事區；看過一次這一局就不再出現那顆鈕（`warDojoDone_`，講評是同一篇）。`warRenderButtons_()` — 照 `buttons` 畫大按鈕（令咒開著換成 `sealSub`、`sealOk` 的鈕變得按得下去）。
+- `warOverHtml_(v)`／`warDojo()` — 終局卡（勝負、六格戰績、走的是哪條線與改寫了哪幾幕、輸在哪與下一局／亮點）／叫 `war_dojo`，講評接在故事區；看過一次這一局就不再出現那顆鈕（`warDojoDone_`，講評是同一篇）。`warRenderButtons_()` — 照 `buttons` 畫大按鈕（令咒開著換成 `sealSub`、`sealOk` 的鈕變得按得下去）。
 - `warFoeDetail_(f, inBattle)`／`warFoePeek(id)` — 對手情報（戰鬥框裡「看穿真名」改成標題上的 ◆弱點）（只知道職階時提示怎麼看穿；看穿後御主、寶具可不可以放、技能）／點名單上的對手展開情報。
 - `warToggleTraits()` — 點從者卡展開／收起自己的技能表（召喚時一律攤開）。

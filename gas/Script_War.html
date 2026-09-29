@@ -478,6 +478,7 @@
     return `<div class="war-over ${win ? 'win' : 'lose'}">
       <div>${win ? '🏆 勝利・贏得聖杯' : '敗北'}</div>
       <div class="war-stats">${cells}</div>
+      ${d.route ? `<div class="war-debrief"><div class="war-gold">這一局走的是 ${escapeHtml(d.route.label)}</div>${(d.route.rewrote || []).length ? `<div>你改寫了原作：${d.route.rewrote.map(escapeHtml).join('、')}</div>` : ''}</div>` : ''}
       ${d.fact ? `<div class="war-debrief"><div>敗因：${escapeHtml(d.fact)}</div><div class="war-gold">建議：${escapeHtml(d.lesson || '')}</div></div>` : ''}
       ${(d.good || []).length ? `<div class="war-debrief">${d.good.map(g => `<div>✦ ${escapeHtml(g)}</div>`).join('')}</div>` : ''}
     </div>`;

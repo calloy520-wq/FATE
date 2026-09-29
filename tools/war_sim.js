@@ -21,7 +21,7 @@ let CUSTOM_ID=''; if (process.env.CUSTOM) CUSTOM_ID=custom(JSON.parse(process.en
 const masterNames=SETUP.masterNames;
 const roster=SETUP.roster;
 // HERO 指定一位原作參戰者（例如第五次的 Saber）照樣跑得動，但那不是玩家拿得到的組合，只拿來對照。
-const newGame=(seed,hero)=>{ const p=hero?(pool.filter(s=>s.id===hero).length?pool.filter(s=>s.id===hero):[seeds[hero]]):pool; const st=ctx.warNewGame_({pool:p,roster,seeds,masterNames,chaos:SETUP.chaos,name:'測試',sex:'男',war:WAR,seed});
+const newGame=(seed,hero)=>{ const p=hero?(pool.filter(s=>s.id===hero).length?pool.filter(s=>s.id===hero):[seeds[hero]]):pool; const st=ctx.warNewGame_({pool:p,roster,seeds,masterNames,chaos:SETUP.chaos,name:'測試',sex:'男',war:WAR,seed,route:process.env.ROUTE||''});
   if (process.env.BLANK) { Object.assign(st.sv,{atk:3.9,def:3.5,spd:3.9,np:4.1,mhp:210,hp:210,fx:[],skn:{}}); }
   if (process.env.PSK) process.env.PSK.split(',').filter(Boolean).forEach(k=>{ st.sv.fx.push(k); st.sv.skn[k]='測'; });
   if (process.env.ESK) st.enemies.forEach(e=>{ e.fx=process.env.ESK.split(',').filter(Boolean); e.skn={}; });

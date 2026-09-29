@@ -100,7 +100,7 @@ console.log('── 玩家是額外加入的一組：第五次／第四次不搶
     const o=J(`warSetup_('${w}')`), canon=o.roster.map(x=>x.hero);
     t(o.pool.length>0&&o.pool.every(s=>canon.indexOf(s.id)<0),w+'：召喚池裡沒有這場的原作從者',o.pool.map(s=>s.id).join());
     t(J(`warCanonHeroes_('${w}')`).join()===canon.join(),w+'：前端拿到的「已有御主」名單＝名冊');
-    const seen={}; for (let seed=1;seed<=30;seed++){ const g=J(`(function(){ var o=warSetup_('${w}'); o.name='測'; o.sex='男'; o.war='${w}'; o.seed=${seed}; var s=warNewGame_(o); return {sv:s.sv.hero, foes:s.enemies.map(function(e){return e.hero;})}; })()`); seen.n=(seen.n||0)+g.foes.length; if(canon.indexOf(g.sv)>=0) seen.bad=g.sv; if(g.foes.length!==canon.length) seen.len=g.foes.length; }
+    const seen={}; for (let seed=1;seed<=30;seed++){ const g=J(`(function(){ var o=warSetup_('${w}'); o.name='測'; o.sex='男'; o.war='${w}'; o.seed=${seed}; var s=warNewGame_(o); return {sv:s.sv.hero, foes:s.enemies.concat(s.reserve).map(function(e){return e.hero;})}; })()`); seen.n=(seen.n||0)+g.foes.length; if(canon.indexOf(g.sv)>=0) seen.bad=g.sv; if(g.foes.length!==canon.length) seen.len=g.foes.length; }
     t(!seen.bad&&!seen.len,w+'：隨機召喚 30 局都不是原作從者，敵方原作全員到齊',JSON.stringify(seen)); }
   const ch=J(`warSetup_('chaos')`);
   t(ch.chaos===true&&J(`warCanonHeroes_('chaos')`).length===0,'混亂隨機：沒有「已有御主」的限制');
@@ -113,13 +113,13 @@ console.log('── 原作從者提前倒下的彩蛋（WAR_FALL_）');
   const rows=J('WAR_FALL_'), roster={ '5th':J(`warCanonHeroes_('5th')`), '4th':J(`warCanonHeroes_('4th')`) };
   t(rows.every(r=>(roster[r.war]||[]).indexOf(r.hero)>=0)&&rows.every(r=>!r.summon||roster[r.war].indexOf(r.summon)>=0),'每一列的從者（與引出的那位）都在那場的原作名冊裡');
   t(['5th','4th'].every(w=>roster[w].every(h=>rows.some(r=>r.war===w&&r.hero===h))),'兩場的原作從者每一位都有餘波那句');
-  const G=(w)=>`(function(){ var o=warSetup_('${w}'); o.name='測'; o.sex='男'; o.war='${w}'; o.seed=3; o.pool=warSetup_('chaos').pool.filter(function(s){return s.id==='恩奇都-Lancer';}); var s=warNewGame_(o); warAct_(s,{t:'start'}); return s; })()`;
+  const G=(w)=>`(function(){ var o=warSetup_('${w}'); o.name='測'; o.sex='男'; o.war='${w}'; o.route='fate'; o.seed=3; o.pool=warSetup_('chaos').pool.filter(function(s){return s.id==='恩奇都-Lancer';}); var s=warNewGame_(o); warAct_(s,{t:'start'}); return s; })()`;
   // ① 敵對敵（早報那條路）
-  const a=J(`(function(){ var s=${G('5th')}; var k=s.enemies.filter(function(e){return e.hero==='佐佐木小次郎-Assassin';})[0], x=s.enemies.filter(function(e){return e.hero==='赫拉克勒斯-Berserker';})[0], h=s.enemies.filter(function(e){return e.hero==='咒腕之哈桑-Assassin';})[0];
-    var before=h.arrive; k.hp=1; k.mhp=1; x.hp=x.mhp=99999; x.atk=99999; var ev=[]; for (var i=0;i<30&&k.alive;i++){ ev=[]; k.hp=1; x.hp=x.mhp; warAutoBattle_(s,x,k,ev); } return {dead:!k.alive, ev:ev.map(function(e){return e.k+':'+e.txt;}), before:before, after:h.arrive, hint:h.hint, day:s.day}; })()`);
+  const a=J(`(function(){ var s=${G('5th')}; var k=s.enemies.filter(function(e){return e.hero==='佐佐木小次郎-Assassin';})[0], x=s.enemies.filter(function(e){return e.hero==='赫拉克勒斯-Berserker';})[0], h=s.reserve.filter(function(e){return e.hero==='咒腕之哈桑-Assassin';})[0];
+    var before=s.reserve.indexOf(h)>=0 ? 99 : h.arrive; k.hp=1; k.mhp=1; x.hp=x.mhp=99999; x.atk=99999; var ev=[]; for (var i=0;i<30&&k.alive;i++){ ev=[]; k.hp=1; x.hp=x.mhp; warAutoBattle_(s,x,k,ev); } return {dead:!k.alive, ev:ev.map(function(e){return e.k+':'+e.txt;}), before:before, after:h.arrive, hint:h.hint, day:s.day}; })()`);
   t(a.dead&&a.ev.some(x=>/^fall:.*山門的武士消散/.test(x)),'小次郎在別人手上倒下：早報接一句原作餘波',a.ev.join(' / '));
-  t(a.before>a.day+1&&a.after===a.day+1&&/白骨面具/.test(a.hint),'真 Assassin 原本 HF 中段才現身；小次郎一倒，明天就爬出來',JSON.stringify({b:a.before,a:a.after,d:a.day}));
-  const m=J(`(function(){ var s=${G('5th')}; var k=s.enemies.filter(function(e){return e.hero==='佐佐木小次郎-Assassin';})[0], h=s.enemies.filter(function(e){return e.hero==='咒腕之哈桑-Assassin';})[0]; h.arrive=s.day; var ev=[]; warCanonFall_(s,k,ev); return h.arrive===s.day; })()`);
+  t(a.before===99&&a.after===a.day+1&&/白骨面具/.test(a.hint),'真 Assassin 原本是預備役（不在敵方名冊裡）；小次郎一倒，明天就爬出來',JSON.stringify({b:a.before,a:a.after,d:a.day}));
+  const m=J(`(function(){ var s=${G('5th')}; var k=s.enemies.filter(function(e){return e.hero==='佐佐木小次郎-Assassin';})[0], h=s.reserve[0]; s.reserve=[]; s.enemies.push(h); h.arrive=s.day; var ev=[]; warCanonFall_(s,k,ev); return h.arrive===s.day&&s.enemies.filter(function(e){return e.hero===h.hero;}).length===1; })()`);
   t(m,'真 Assassin 已經登場了：不會被往後拉');
   // ② 玩家親手打倒（戰報那條路）
   const b=J(`(function(){ var s=${G('4th')}; var e=s.enemies.filter(function(x){return x.hero==='伊斯坎達爾-Rider';})[0]; e.intel=1; s.phase='night'; var ev=[]; warStartBattle_(s,e,'sortie',ev);

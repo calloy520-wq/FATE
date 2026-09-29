@@ -14,8 +14,7 @@ var FATE_5TH_ROSTER = [
   { master: '言峰綺禮-5th', hero: '庫丘林-Lancer', loc: '言峰教會' },
   { master: '葛木宗一郎-5th', hero: '美狄亞-Caster', loc: '柳洞寺' },
   { master: '伊莉雅絲菲爾-5th', hero: '赫拉克勒斯-Berserker', loc: '艾因茲貝倫城' },
-  { master: '間桐臟硯-5th', hero: '咒腕之哈桑-Assassin', loc: '間桐宅',   // 第五次真·Assassin：臟硯借小次郎的身體召出（HF 中段才現身；小次郎提早倒下就提早，見 WAR_FALL_）
-    arriveDay: 7, arriveHint: '新都的暗巷接連出事，目擊的人只記得一張白骨面具' },
+  { master: '間桐臟硯-5th', hero: '咒腕之哈桑-Assassin', loc: '間桐宅', reserve: true },   // 第五次真·Assassin：臟硯借小次郎的身體召出。預備役，小次郎倒下才叫醒（WAR_FALL_、HF 線）
   { master: '言峰綺禮-5th', hero: '吉爾伽美什-Archer', loc: '冬木·新都',   // 綺禮同時握著兩位從者：上一次留下來的吉爾伽美什，與奪來的庫丘林
     arriveDay: 3, arriveHint: '有人在新都看見一位金髮紅瞳的青年，身上帶著從者的氣息——那道氣息似乎早就在冬木了' },
   { master: null, masterLabel: 'Caster', hero: '佐佐木小次郎-Assassin', loc: '柳洞寺' } // 美狄亞違規召喚、綁在山門的從者（卡上寫 Caster：寫真名會洩漏 Caster 是誰）
@@ -33,8 +32,27 @@ var FATE_4TH_ROSTER = [
   { master: '間桐雁夜-4th', hero: '蘭斯洛特-Berserker', loc: '間桐宅' }
 ];
 
+// 第五次的三條路線：開局暗中抽一條（warNewGame_），靠早報的原作事件看出是哪一條，結局才揭曉。
+//   final＝這條線的決戰地（沒寫照 WAR_FINAL_）；pace＝這條線的節奏（沒寫照 WAR_PACE_；HF 的從者多半被黑影吃掉，彼此廝殺得少）。
+var WAR_ROUTES_ = {
+  '5th': {
+    fate: { label: 'Fate 線' },
+    ubw: { label: 'Unlimited Blade Works 線', pace: { brawl: 0.92 } },
+    hf: { label: "Heaven's Feel 線", pace: { brawl: 0.88 }, final: { place: '大空洞', arrive: '剩下的從者一個個走進柳洞寺地底的黑暗', next: '黑暗裡又走出一位從者' } }
+  }
+};
+// 被黑影吞下、或換到魔力深不見底的御主之後的樣子（事件的 alter）：mul＝能力倍率；name／npName／look 有寫才換。
+var WAR_ALTER_ = {
+  '赫拉克勒斯-Berserker': { mul: 1.2, look: '巨大的身軀被黑泥浸透，全身爬滿脈動的紅色紋路，只剩下破壞的本能' },
+  '美杜莎-Rider': { mul: 1.25, look: '眼罩下的氣息比以前沉重得多，長髮末端在地上拖出黑色的痕跡' },
+  '阿爾托莉雅-Saber': { name: '阿爾托莉雅〔Alter〕', npName: '誓約勝利之劍（Morgan）', mul: 1.6,
+    look: '漆黑的鎧甲爬滿紅色紋路，臉上戴著半截面甲，金色的眼睛冷得沒有溫度' }
+};
+
 // 原作事件：到了那一天的早報就發生（涉及的從者都得還是活著的敵人，否則整條跳過）。
 //   need＝要在場的從者；reveal＝看穿到哪一層（1 職階與據點／2 真名）；move＝據點搬家。
+//   route＝只在這條線發生；kill＝照原作倒下；awaken＝叫醒預備役（值是登場那天的早報）；master＝換御主；alter＝黑化（WAR_ALTER_）。
+//   short＝這一幕的名字：涉及的從者已經先倒下而演不成時，記進「改寫了原作」（結局揭曉）。
 var WAR_CANON_EVENTS_ = [
   { war: '5th', day: 2, need: ['赫拉克勒斯-Berserker'], reveal: { '赫拉克勒斯-Berserker': 1 },
     txt: '昨夜的坡道上，有人看見一個白髮的少女提起裙襬行禮，身後跟著一道巨人般的影子' },
@@ -46,6 +64,38 @@ var WAR_CANON_EVENTS_ = [
     txt: '新都接連發生集體昏睡，新聞說是瓦斯外洩；循著被抽走的魔力往回找，線頭都通往深山町的柳洞寺' },
   { war: '5th', day: 6, need: ['佐佐木小次郎-Assassin'], reveal: { '佐佐木小次郎-Assassin': 1 },
     txt: '有人上柳洞寺參拜，回來說山門前的石階上站著一個背長刀的武士，說什麼都不讓人過去' },
+  // ── Fate 線 ──
+  { war: '5th', route: 'fate', day: 7, need: ['阿爾托莉雅-Saber', '美杜莎-Rider'], kill: ['美杜莎-Rider'], reveal: { '阿爾托莉雅-Saber': 2 }, short: '天馬與誓約勝利之劍',
+    txt: '新都的高樓頂上，一道光之劍劈開了夜空——白色的天馬與騎在上面的從者一起墜落，劍之從者報出了那把劍的名字' },
+  { war: '5th', route: 'fate', day: 9, need: ['吉爾伽美什-Archer', '美狄亞-Caster'], kill: ['美狄亞-Caster'], reveal: { '吉爾伽美什-Archer': 1 }, short: '教會前的魔女',
+    txt: '言峰教會前，金色的英靈只抬了一下手，柳洞寺的魔女與那位教師就倒在石階上' },
+  // ── Unlimited Blade Works 線 ──
+  { war: '5th', route: 'ubw', day: 5, need: ['美狄亞-Caster', '美杜莎-Rider'], kill: ['美杜莎-Rider'], reveal: { '美狄亞-Caster': 1 }, short: '山門後的教師',
+    txt: '間桐家的少年逃上柳洞寺求援，出來的時候只剩一個人——眼罩的騎兵被一位赤手空拳的教師打倒在正殿' },
+  { war: '5th', route: 'ubw', day: 6, need: ['美狄亞-Caster', '阿爾托莉雅-Saber'], move: { '阿爾托莉雅-Saber': '柳洞寺' }, master: { '阿爾托莉雅-Saber': 'Caster' }, reveal: { '阿爾托莉雅-Saber': 1 }, short: '破戒之符奪走 Saber',
+    txt: '衛宮邸的少年被魔女的絲線綁走，一把歪扭的短劍斬斷了契約——劍之從者如今站在柳洞寺的正殿' },
+  { war: '5th', route: 'ubw', day: 8, need: ['吉爾伽美什-Archer', '赫拉克勒斯-Berserker'], kill: ['赫拉克勒斯-Berserker'], reveal: { '吉爾伽美什-Archer': 1 }, short: '森林裡的十二試煉',
+    txt: '艾因茲貝倫城的森林裡，金色的英靈射下成千上萬的刀劍——巨人死了十一次，最後一次再也站不起來' },
+  { war: '5th', route: 'ubw', day: 9, need: ['EMIYA-Archer', '美狄亞-Caster'], kill: ['美狄亞-Caster'], move: { 'EMIYA-Archer': '衛宮邸' }, master: { '阿爾托莉雅-Saber': '遠坂凜', 'EMIYA-Archer': '無主' }, short: '紅衣弓兵的背叛',
+    txt: '紅衣的弓兵離開了遠坂家的少女，走進柳洞寺的正殿反手一刀——魔女與那位教師倒在一起，被綁住的劍之從者轉而與那位少女結下契約' },
+  { war: '5th', route: 'ubw', day: 11, need: ['庫丘林-Lancer', '吉爾伽美什-Archer'], kill: ['庫丘林-Lancer'], master: { '吉爾伽美什-Archer': '間桐慎二' }, short: '火場裡的槍兵',
+    txt: '郊外的古城燒了一整夜；青衣的槍兵把神父釘在牆上、把被綁住的少女送出火場，自己留在了火裡。金色的英靈換了一位新御主——間桐家的少年' },
+  // ── Heaven's Feel 線 ──
+  { war: '5th', route: 'hf', day: 3, need: ['佐佐木小次郎-Assassin'], kill: ['佐佐木小次郎-Assassin'], short: '山門的武士',
+    awaken: { '咒腕之哈桑-Assassin': '新都的暗巷接連出事，目擊的人只記得一張白骨面具' },
+    txt: '柳洞寺山門的武士被人從體內撕開——一隻纏滿繃帶的手臂，從武士的胸口伸了出來' },
+  { war: '5th', route: 'hf', day: 4, need: ['庫丘林-Lancer'], kill: ['庫丘林-Lancer'], short: '墓地的槍兵',
+    txt: '教會後方的墓地，青衣的槍兵擋下了戴白骨面具的暗殺者，卻被地面湧出的黑影整個吞了下去' },
+  { war: '5th', route: 'hf', day: 6, need: ['美狄亞-Caster'], kill: ['美狄亞-Caster'], short: '沉進影子的魔女',
+    txt: '柳洞寺的正殿被黑色的泥淹沒，魔女的身影一點一點沉進了影子裡' },
+  { war: '5th', route: 'hf', day: 7, need: ['美杜莎-Rider'], master: { '美杜莎-Rider': '間桐櫻' }, alter: ['美杜莎-Rider'],
+    txt: '間桐家那本書燒成了灰——眼罩的騎兵如今只聽一位紫髮少女的話，流進它身上的魔力多得不像一個人給得起' },
+  { war: '5th', route: 'hf', day: 8, need: ['阿爾托莉雅-Saber'], alter: ['阿爾托莉雅-Saber'], master: { '阿爾托莉雅-Saber': '間桐櫻' }, move: { '阿爾托莉雅-Saber': '柳洞寺' }, reveal: { '阿爾托莉雅-Saber': 1 }, short: '被黑影吞下的騎士王',
+    txt: '衛宮家的 Saber 在柳洞寺的池邊被黑影吞沒；再出現時，那身藍色的鎧甲已經染成漆黑' },
+  { war: '5th', route: 'hf', day: 10, need: ['阿爾托莉雅-Saber', '赫拉克勒斯-Berserker'], alter: ['赫拉克勒斯-Berserker'], master: { '赫拉克勒斯-Berserker': '間桐櫻' }, reveal: { '赫拉克勒斯-Berserker': 1 }, short: '黑色的劍光與巨人',
+    txt: '艾因茲貝倫城外的森林被黑色的劍光削平，巨人倒下之後又站了起來——身上爬滿紅色的紋路，再也聽不見白髮少女的呼喚' },
+  { war: '5th', route: 'hf', day: 11, need: ['吉爾伽美什-Archer'], kill: ['吉爾伽美什-Archer'], short: '被黑泥吞下的王',
+    txt: '深山町的路口，金色的英靈對著那道影子開口，話還沒說完，就被湧上來的黑泥吞了下去' },
   { war: '4th', day: 2, need: ['阿爾托莉雅-Saber', '迪盧木多-Lancer', '伊斯坎達爾-Rider'],
     reveal: { '阿爾托莉雅-Saber': 1, '迪盧木多-Lancer': 1, '伊斯坎達爾-Rider': 2 },
     txt: '昨夜港邊的倉庫街，Saber 與 Lancer 正面交鋒，一輛雷鳴的戰車闖進來，駕車的巨漢高聲報上了真名：征服王伊斯坎達爾' },

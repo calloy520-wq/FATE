@@ -40,7 +40,13 @@ summon（開戰／重新召喚 1 次）
 - 令咒硬放冷卻中的寶具，御主付 `WAR_.SEAL_NP_COST`。
 - 種子的寶具照原作：`npPassive`＝常駐型寶具（赫拉克勒斯的十二試煉、蘭斯洛特的騎士不死於徒手）沒有可以解放的一擊；`npRank`＝實際會放的那一招的階級（吉爾伽美什平常只開王之財寶 A+，乖離劍 EX 不出鞘）。
 - 原作事件表 `WAR_CANON_EVENTS_`（Seed_Rivals）：第五次坡道上的伊莉雅、操場上的弓兵與槍兵、學園的結界、新都集體昏睡（線頭通往柳洞寺）、柳洞寺山門的武士；第四次倉庫街（征服王自報真名）、黑騎士擲回金色英靈的寶具、海特飯店被炸（迪盧木多搬家）、聖杯問答、未遠川的海魔（吉爾德萊真名曝光）。加一場＝往表加一列。
-- 原作從者提前倒下的彩蛋 `WAR_FALL_`（Seed_Rivals）：每位原作從者一句倒下後的餘波（衛宮邸的少年握著鐵管上夜路、韋伯哭完照樣陪老夫婦吃早餐…），說書照這句演、其餘即興。小次郎倒下＝ HF 的真 Assassin 從山門的影子爬出來（第五次的咒腕哈桑原本第 7 天才現身，小次郎一倒就提早到隔天）。
+- **第五次的三條路線**（`WAR_ROUTES_`，Seed_Rivals）：開局暗中抽 Fate／UBW／HF，不多一顆鈕；早報照那條線的原作事件走，結局卡與老虎道場才揭曉。
+  - Fate：天馬與誓約勝利之劍（Rider 倒下、Saber 真名曝光）、教會前金色的英靈斬倒魔女。
+  - UBW：Rider 倒在柳洞寺、破戒之符奪走 Saber、吉爾伽美什在森林殺光十二試煉、紅衣弓兵斬 Caster 後 Saber 改與凜結約、火場裡的槍兵（吉爾伽美什換慎二當御主）。
+  - HF：小次郎被撕開→真 Assassin 登場、槍兵與魔女被黑影吞下、Rider 換櫻當御主並變強、Saber 黑化成〔Alter〕、赫拉克勒斯被吞成黑化狂戰士、吉爾伽美什被黑泥吞下；決戰在大空洞；敵人互打較少（`pace`）。
+  - 事件的新效果：`kill`（照原作倒下，不播餘波）、`awaken`（叫醒預備役）、`master`、`alter`（`WAR_ALTER_`）。涉及的從者先被打倒就演不成，記進「你改寫了原作」。
+  - 真 Assassin 是預備役（名冊 `reserve:true`，不算敵數），只有小次郎倒下（任何一條線、任何原因）才被叫醒。
+- 原作從者提前倒下的彩蛋 `WAR_FALL_`（Seed_Rivals）：每位原作從者一句倒下後的餘波（衛宮邸的少年握著鐵管上夜路、韋伯哭完照樣陪老夫婦吃早餐…），說書照這句演、其餘即興。小次郎倒下＝ HF 的真 Assassin 從山門的影子爬出來（預備役被叫醒，隔天登場）。
 
 ## 4. 規則數字住在哪（查表，不寫 if 鏈）
 
@@ -55,7 +61,7 @@ summon（開戰／重新召喚 1 次）
 | `WAR_DOJO_LOSS_`／`WAR_DOJO_GOOD_` | 結局講評（輸在哪、亮點） |
 | `WAR_FORGE_`／`WAR_FORGE_SKILLS_`／`FORGE_CLS_SKILLS_` | 工房點數、可選技能、職階技能 |
 
-改規則先跑 `node tools/war_sim.js` 量勝率（現況：聰明玩法 5th ~65%、4th ~67%、混亂 ~63%，亂按 3～5%、只固守 ~10%；逐從者約 37～86%）。
+改規則先跑 `node tools/war_sim.js` 量勝率（現況：聰明玩法 5th ~62～68%（Fate 66／UBW 68／HF 63，`ROUTE=` 指定路線量）、4th ~67%、混亂 ~63%，亂按 3～9%、只固守 ~10%；逐從者約 37～86%）。
 `smart` 策略會在決戰用令咒硬放寶具——模擬器的玩家要跟真人一樣會用令咒，量出來的數字才算數。每場戰爭各自的節奏在 `WAR_PACE_`（敵人互打的機率）。
 
 ## 5. 路由（`ActionRouter`）
@@ -88,4 +94,4 @@ summon（開戰／重新召喚 1 次）
 ## 8. 驗證
 
 - `bash check.sh`（必跑）。
-- 探針：`bash tools/probes/run.sh`（war／warlore／warend／warskill2／warcanon／warzero／forgeai…）；平衡 `tools/war_sim.js`；畫面截圖做法見 PLAYBOOK「用瀏覽器真的看畫面」。
+- 探針：`bash tools/probes/run.sh`（war／warlore／warend／warskill2／warcanon／warzero／warroute／forgeai…）；平衡 `tools/war_sim.js`；畫面截圖做法見 PLAYBOOK「用瀏覽器真的看畫面」。

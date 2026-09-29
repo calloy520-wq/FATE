@@ -65,6 +65,10 @@ mcp__github__actions_get          method=get_workflow_run resource_id=<run_id>
 - 規則數字全在 `WAR_`（War_Engine.gs）；技能效果只加 `WAR_SKILL_` 一列，引擎透過 `warMul_`／`warAdd_`／`warFlag_` 讀。
 - 敵人性格加 `WAR_TEMPER_` 一列。改完先跑 `node tools/war_sim.js` 量勝率（理由與數字記在 CODE_NOTES『WAR_』）。
 
+### 新聖杯戰爭：加原作橋段／路線
+- 全在 `Seed_Rivals.gs`：陣容（`FATE_5TH_ROSTER`／`FATE_4TH_ROSTER`，`reserve:true`＝預備役）、早報的原作事件（`WAR_CANON_EVENTS_`，`route` 限定路線，效果 reveal／move／master／alter／kill／awaken）、倒下後的餘波（`WAR_FALL_`）、第五次的路線（`WAR_ROUTES_`）、黑化的樣子（`WAR_ALTER_`）。加一幕＝加一列。
+- 動到 kill／alter 要量勝率：`ROUTE=hf node tools/war_sim.js`；探針 `warroute.js`／`warzero.js`／`warcanon.js`。
+
 ### 加種子英靈
 - `SEED_SERVANTS`（Seed_Codex.gs）加一筆；要出現在哪一場戰爭改 `FATE_5TH_ROSTER`／`FATE_4TH_ROSTER`（Seed_Rivals.gs）。
 - 種子人設改了就升 `CODEX_PERSONA_VER`，登入時英靈殿會自動刷新。`check_seed.py` 會擋幽靈技能、死欄位、劇情弧態度。

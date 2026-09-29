@@ -48,7 +48,10 @@ var WAR_FINAL_ = {
   '5th': { place: '柳洞寺', arrive: '剩下的從者陸續來到寺院', next: '石階上又來了一位從者' },
   '4th': { place: '冬木市民會館', arrive: '剩下的從者陸續來到會館', next: '大廳裡又來了一位從者' }
 };
-function warFinal_(st) { return WAR_FINAL_[st && st.war] || WAR_FINAL_['5th']; }
+function warFinal_(st) { var r = warRoute_(st); return (r && r.final) || WAR_FINAL_[st && st.war] || WAR_FINAL_['5th']; }
+// 這一局暗中走的路線（WAR_ROUTES_，只有第五次有）；沒有回 null。
+function warRoutes_(war) { return (typeof WAR_ROUTES_ !== 'undefined' && WAR_ROUTES_[war]) || null; }
+function warRoute_(st) { var R = warRoutes_(st && st.war); return R && st.route ? R[st.route] || null : null; }
 
 // 每場戰爭各自的節奏。brawl＝敵人夜裡撞見彼此時動手的機率（乘上個性的出手慾）：
 //   第四次只剩六組對手，互打太兇就只剩收尾給你；第五次八組，互相消耗是撐起中盤的東西。模擬器量過（CODE_NOTES『WAR_』）。
@@ -82,7 +85,7 @@ function warCanonHeroes_(war) {
   if (war === 'chaos') return [];
   return (war === '4th' ? FATE_4TH_ROSTER : FATE_5TH_ROSTER).map(function (r) { return r.hero; });
 }
-function warPace_(st) { return WAR_PACE_[st && st.war] || WAR_PACE_['5th']; }
+function warPace_(st) { var r = warRoute_(st); return (r && r.pace) || WAR_PACE_[st && st.war] || WAR_PACE_['5th']; }   // 路線可以有自己的節奏
 
 // 職階：敵人的個性（aggr 越高越愛出手）。技能不看職階，看每位從者自己的技能（WAR_SKILL_）。
 var WAR_CLASS_ = {
@@ -287,6 +290,8 @@ function warNewGame_(o) {
     result: null, stats: { np: 0, battles: 0, kills: 0, seals: 0, retreats: 0, dodged: 0, ignoredTele: 0, finalFoes: 0 }, seq: 0
   };
   warSummon_(st, o);
+  var R = warRoutes_(st.war);
+  if (R) st.route = R[o.route] ? o.route : warPick_(st, Object.keys(R));
   return st;
 }
 
@@ -296,7 +301,7 @@ function warSummon_(st, o) {
   var pool = (o.pool || []).filter(function (s) { return s.id !== prev; });
   var seed = warPick_(st, pool.length ? pool : (o.pool || []));
   st.sv = warUnit_(seed, {});
-  st.enemies = [];
+  st.enemies = []; st.reserve = [];
   var roster = (o.roster || []).filter(function (r) { return r.hero !== seed.id; });
   if (o.chaos) {   // 混亂隨機：洗牌後抽 size 位，原作的晚登場與開場事件都不帶
     for (var k = roster.length - 1; k > 0; k--) { var j = Math.floor(warRand_(st) * (k + 1)), t = roster[k]; roster[k] = roster[j]; roster[j] = t; }
@@ -305,7 +310,7 @@ function warSummon_(st, o) {
   roster.forEach(function (r, i) {
     var hs = (o.seeds || {})[r.hero];
     if (!hs) return;
-    st.enemies.push(warUnit_(hs, {
+    (r.reserve ? st.reserve : st.enemies).push(warUnit_(hs, {   // 預備役：不算敵人，被叫醒（warAwaken_）才登場
       id: 'e' + i, master: (r.master && (o.masterNames || {})[r.master]) || r.masterLabel || '無主', loc: warLocName_(r.loc),
       arrive: r.arriveDay || 1, hint: r.arriveHint || '', fake: false, fakeTxt: r.fakeDeath || '', intel: 0, found: false, alive: true
     }));
@@ -392,12 +397,50 @@ function warCanonEvents_(st, ev) {
   var list = typeof WAR_CANON_EVENTS_ !== 'undefined' ? WAR_CANON_EVENTS_ : [];
   var byHero = function (h) { return st.enemies.filter(function (e) { return e.hero === h && e.alive && !e.fake && e.arrive <= st.day; })[0]; };
   list.forEach(function (c) {
-    if (c.war !== st.war || c.day !== st.day) return;
-    if (!(c.need || []).every(function (h) { return !!byHero(h); })) return;
+    if (c.war !== st.war || c.day !== st.day || (c.route && c.route !== st.route)) return;
+    var need = c.need || [];
+    if (!need.every(function (h) { return !!byHero(h); })) {
+      // 涉及的從者已經先倒下（不是照原作倒的）：這一幕被改寫了
+      if (c.short && need.some(function (h) { return st.enemies.some(function (e) { return e.hero === h && !e.alive && !e.canonDead; }); })) (st.rewrote = st.rewrote || []).push(c.short);
+      return;
+    }
     Object.keys(c.reveal || {}).forEach(function (h) { var e = byHero(h); if (e) e.intel = Math.max(e.intel, c.reveal[h]); });
     Object.keys(c.move || {}).forEach(function (h) { var e = byHero(h); if (e) e.loc = c.move[h]; });
+    Object.keys(c.master || {}).forEach(function (h) { var e = byHero(h); if (e) e.master = c.master[h]; });
+    (c.alter || []).forEach(function (h) { var e = byHero(h); if (e) warAlter_(e, WAR_ALTER_[h]); });
     ev.push({ k: 'news', txt: c.txt + '。' });
+    (c.kill || []).forEach(function (h) { var e = byHero(h); if (e) warKill_(st, e, ev); });
+    Object.keys(c.awaken || {}).forEach(function (h) { warAwaken_(st, h, c.awaken[h]); });
   });
+}
+// 照原作倒下（不經過戰鬥）：討伐令照樣結算，但不算誰打倒的、也不播 WAR_FALL_ 的餘波（這就是原作）。
+function warKill_(st, e, ev) {
+  e.hp = 0; e.alive = false; e.canonDead = true; e.intel = Math.max(e.intel, 1);
+  warGone_(st, e);
+  warBountyEnd_(st, e, false, ev);
+}
+// 一位從者退場的共同善後：它下的詛咒跟著消失。
+function warGone_(st, u) {
+  [st.sv].concat(st.enemies).forEach(function (x) { if (x && x.cursedBy === u.hero) { delete x.cursedBy; delete x.curseDmg; } });
+}
+// 叫醒預備役（或把還沒登場的提早）：明天登場，早報換成 hint。回傳有沒有叫到。
+function warAwaken_(st, hero, hint) {
+  if (st.day >= WAR_.NIGHTS) return false;   // 明天已經沒有了：叫醒也到不了場，還會卡住勝負
+  var r = (st.reserve || []).filter(function (x) { return x.hero === hero; })[0];
+  if (r) { st.reserve.splice(st.reserve.indexOf(r), 1); st.enemies.push(r); r.arrive = 99; }
+  var n = r || st.enemies.filter(function (x) { return x.hero === hero && x.alive && x.arrive > st.day + 1; })[0];
+  if (!n || n.arrive <= st.day + 1) return false;
+  n.arrive = st.day + 1; n.hint = hint || n.hint;
+  return true;
+}
+// 黑化：能力照倍率拉高（傷勢比例不變），換名字、寶具名、外貌。
+function warAlter_(e, a) {
+  if (!a || e.alter) return;
+  var r = e.hp / e.mhp;
+  e.atk = Math.round(e.atk * a.mul); e.def = Math.round(e.def * a.mul);
+  e.mhp = Math.round(e.mhp * a.mul); e.hp = Math.max(1, Math.round(e.mhp * r));
+  e.name = a.name || e.name; e.npName = a.npName || e.npName; e.alter = true;
+  if (e.card) e.card.look = a.look || e.card.look;
 }
 // 原作從者在自己那場戰爭倒下的餘波（WAR_FALL_）：推一句給畫面與說書；summon 那一位還沒登場就提早到明天。
 function warCanonFall_(st, e, ev) {
@@ -405,8 +448,7 @@ function warCanonFall_(st, e, ev) {
   list.forEach(function (c) {
     if (c.war !== st.war || c.hero !== e.hero) return;
     ev.push({ k: 'fall', txt: c.txt + '。' });
-    var n = c.summon && st.enemies.filter(function (x) { return x.hero === c.summon && x.alive && x.arrive > st.day + 1; })[0];
-    if (n) { n.arrive = st.day + 1; n.hint = c.hint || n.hint; }
+    if (c.summon) warAwaken_(st, c.summon, c.hint);
   });
 }
 function warUnmask_(st, e, ev) {
@@ -563,6 +605,7 @@ function warMorning_(st, ev) {
     e.fake = true; e.intel = Math.max(e.intel, 1); ev.push({ k: 'news', txt: e.fakeTxt + '。' });
   });
   warCanonEvents_(st, ev);
+  if (warCheckEnd_(st, ev)) return;
   ev.push({ k: 'morning', txt: '第 ' + st.day + ' 天早晨。剩 ' + (WAR_.NIGHTS - st.day + 1) + ' 夜，敵方剩 ' + warShownCount_(st) + ' 位。' });
   if (st.day === WAR_.BOUNTY_DAY && !st.bounty) warBountyStart_(st, ev);
   st.phase = 'day';
@@ -809,7 +852,7 @@ function warApply_(st, Y, d) {
   if (u.hp <= 0 && warFlag_(u, 'lastStand') && !u.saved && before > u.mhp * 0.25) { u.saved = true; u.hp = 1; stood = 'stand'; }
   if (u.hp <= 0 && Y.side !== 'me') {
     u.alive = false;
-    [st.sv].concat(st.enemies).forEach(function (x) { if (x && x.cursedBy === u.hero) { delete x.cursedBy; delete x.curseDmg; } });   // 詛咒隨下手的人一起消失
+    warGone_(st, u);   // 詛咒隨下手的人一起消失
   }
   return stood;
 }
@@ -984,6 +1027,8 @@ function warDebrief_(st) {
     stats: { battles: S.battles || 0, kills: S.kills || 0, np: S.np || 0, seals: S.seals || 0, reveals: o.reveals, retreats: S.retreats || 0 },
     good: WAR_DOJO_GOOD_.filter(function (g) { return g.when(st); }).slice(0, 3).map(function (g) { return warFill_(g.txt, o); })
   };
+  var rt = warRoute_(st);
+  if (rt) d.route = { label: rt.label, rewrote: (st.rewrote || []).slice() };   // 結局才揭曉：這一局走的線、改寫了原作的哪幾幕
   if (!R.win) {
     var L = WAR_DOJO_LOSS_.filter(function (x) { return x.when(st, R); })[0];
     d.key = L.key; d.fact = warFill_(L.fact, o); d.lesson = warFill_(L.lesson, o);
@@ -995,7 +1040,8 @@ function warDebrief_(st) {
 function warRules_(st) {
   var r = { nights: WAR_.NIGHTS, seals: WAR_.SEALS, rounds: WAR_.ROUNDS, npCd: WAR_.NP_COOLDOWN, supplyCd: WAR_.SUPPLY_CD, sealNpCost: WAR_.SEAL_NP_COST };
   // 開局表單要的：各戰爭對手幾組、哪些原作參戰者召喚不到
-  r.rosters = { '5th': FATE_5TH_ROSTER.length, '4th': FATE_4TH_ROSTER.length, chaos: WAR_CHAOS_.size };
+  var n = function (R) { return R.filter(function (x) { return !x.reserve; }).length; };
+  r.rosters = { '5th': n(FATE_5TH_ROSTER), '4th': n(FATE_4TH_ROSTER), chaos: WAR_CHAOS_.size };
   r.canonHeroes = { '5th': warCanonHeroes_('5th'), '4th': warCanonHeroes_('4th'), chaos: [] };
   if (st) r.finalPlace = warFinal_(st).place;
   return r;
