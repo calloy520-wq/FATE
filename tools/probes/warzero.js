@@ -51,8 +51,6 @@ R=run('4th',14); { const E4=h=>R.st.enemies.find(e=>e.hero===h), all=R.out.join(
   for(let d=0;d<9;d++){ st.phase='night'; st.battle=null; c.warMorning_(st,[]); }
   c.warOver_(st,false,'timeout',[]); const d=c.warDebrief_(st);
   t(d.route&&d.route.label===''&&d.route.rewrote.indexOf('被令咒逼死的騎士')>=0,'第四次沒有路線，但結局照樣列出你改寫了哪一幕',JSON.stringify(d.route)); }
-R=run('5th',6); const md=R.st.enemies.find(e=>e.hero==='美狄亞-Caster');
-t(R.out.some(x=>/集體昏睡/.test(x))&&md.intel>=1,'第五次第 5 天：新都集體昏睡，線頭通往柳洞寺');
 const st4=mk('4th',emiya); c.warAct_(st4,{t:'start'}); st4.enemies.find(e=>e.hero==='伊斯坎達爾-Rider').alive=false; const ev4=[]; st4.day=1; st4.phase='night'; c.warMorning_(st4,ev4);
 t(!ev4.some(x=>/倉庫街/.test(x.txt)),'涉及的從者已經倒下 → 那條事件整條跳過');
 const allHeroes=new Set(E('SEED_SERVANTS').map(s=>s.id)); const evs=E('WAR_CANON_EVENTS_');

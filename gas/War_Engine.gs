@@ -452,6 +452,7 @@ function warAlter_(e, a) {
   e.atk = Math.round(e.atk * a.mul); e.def = Math.round(e.def * a.mul);
   e.mhp = Math.round(e.mhp * a.mul); e.hp = Math.max(1, Math.round(e.mhp * r));
   e.name = a.name || e.name; e.npName = a.npName || e.npName; e.alter = true;
+  e.fx = (e.fx || []).filter(function (f) { return (a.dropFx || []).indexOf(f) < 0; });
   if (e.card) e.card.look = a.look || e.card.look;
 }
 // 原作從者在自己那場戰爭倒下的餘波（WAR_FALL_）：推一句給畫面與說書；summon 那一位還沒登場就提早到明天。
@@ -596,7 +597,8 @@ function warTick_(st, ev) {
 function warMorning_(st, ev) {
   var sv = st.sv;
   var pairs = [], blur = 0;
-  for (var i = ev.length - 1; i >= 0; i--) if (ev[i].k === 'draw') { if (ev[i].txt) pairs.unshift(ev[i].txt); else blur++; ev.splice(i, 1); }
+  (st.draws || []).forEach(function (t) { if (t) pairs.push(t); else blur++; });
+  st.draws = [];
   if (pairs.length || blur) {
     ev.push({ k: 'news', txt: '昨夜' + (pairs.length ? pairs.join('、') + '交戰，雙方負傷撤退' : '') + (pairs.length && blur ? '；另外還有 ' : (blur ? '冬木有 ' : '')) + (blur ? blur + ' 處交戰，無法確認是誰' : '') + '。' });
   }
@@ -901,7 +903,7 @@ function warAutoBattle_(st, a, b, ev) {
     // 沒人倒下的交手：早上併成一句（warMorning_）；認不出是誰的只算場數。
     var la = warFoeLabel_(a), lb = warFoeLabel_(b);
     if (la === lb) lb = '另一位 ' + b.cls;   // 兩位 Archer 還沒看穿時，別寫成「那位 Archer與那位 Archer」
-    ev.push({ k: 'draw', txt: a.intel === 0 && b.intel === 0 ? '' : la + '與' + lb + '（' + a.loc + '）' });
+    (st.draws = st.draws || []).push(a.intel === 0 && b.intel === 0 ? '' : la + '與' + lb + '（' + a.loc + '）');   // 存在戰局裡：這一夜被突襲打斷也不會半句漏到畫面
   }
 }
 

@@ -33,6 +33,7 @@ console.log("── Heaven's Feel 線");
   const sa=H(st,'阿爾托莉雅-Saber'), base=J("warUnit_(SEED_SERVANTS.filter(function(s){return s.id==='阿爾托莉雅-Saber';})[0],{})");
   t(sa.alter&&sa.name==='阿爾托莉雅〔Alter〕'&&sa.atk>base.atk&&sa.mhp>base.mhp&&sa.loc==='柳洞寺'&&sa.master==='間桐櫻','第 8 天：Saber 黑化（變強、換御主、進柳洞寺）',JSON.stringify({n:sa.name,atk:sa.atk,b:base.atk}));
   t(/漆黑/.test(sa.card.look),'說書拿到的外貌也換成黑化後的');
+  t(sa.fx.indexOf('wind_strike')<0&&J("warUnit_(SEED_SERVANTS.filter(function(s){return s.id==='阿爾托莉雅-Saber';})[0],{})").fx.indexOf('wind_strike')>=0,'黑化後不再用風王結界藏劍（打聽不再被遮）');
   const hb=H(st,'赫拉克勒斯-Berserker');
   t(hb.alive&&hb.alter&&hb.master==='間桐櫻'&&c.warLives_(hb)===11,'第 10 天：巨人被黑影吞下成了黑化的狂戰士（十二試煉還在）',JSON.stringify({a:hb.alter,m:hb.master}));
   t(dead('吉爾伽美什-Archer'),'第 11 天：金色的王被黑泥吞下');

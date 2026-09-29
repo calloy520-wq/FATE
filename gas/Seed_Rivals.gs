@@ -41,11 +41,11 @@ var WAR_ROUTES_ = {
     hf: { label: "Heaven's Feel 線", pace: { brawl: 0.88 }, final: { place: '大空洞', arrive: '剩下的從者一個個走進柳洞寺地底的黑暗', next: '黑暗裡又走出一位從者' } }
   }
 };
-// 被黑影吞下、或換到魔力深不見底的御主之後的樣子（事件的 alter）：mul＝能力倍率；name／npName／look 有寫才換。
+// 被黑影吞下、或換到魔力深不見底的御主之後的樣子（事件的 alter）：mul＝能力倍率；name／npName／look 有寫才換；dropFx＝失去的技能。
 var WAR_ALTER_ = {
   '赫拉克勒斯-Berserker': { mul: 1.2, look: '巨大的身軀被黑泥浸透，全身爬滿脈動的紅色紋路，只剩下破壞的本能' },
   '美杜莎-Rider': { mul: 1.25, look: '眼罩下的氣息比以前沉重得多，長髮末端在地上拖出黑色的痕跡' },
-  '阿爾托莉雅-Saber': { name: '阿爾托莉雅〔Alter〕', npName: '誓約勝利之劍（Morgan）', mul: 1.6,
+  '阿爾托莉雅-Saber': { name: '阿爾托莉雅〔Alter〕', npName: '誓約勝利之劍（Morgan）', mul: 1.6, dropFx: ['wind_strike'],   // 黑化後不再藏劍：漆黑的劍身直接亮出來
     look: '漆黑的鎧甲爬滿紅色紋路，臉上戴著半截面甲，金色的眼睛冷得沒有溫度' }
 };
 
@@ -62,8 +62,6 @@ var WAR_CANON_EVENTS_ = [
     txt: '前幾天夜裡，穗群原學園的操場上有紅衣的弓兵與青衣的槍兵交手，聽說有個學生目擊了，差點被滅口' },
   { war: '5th', day: 4, need: ['美杜莎-Rider'], reveal: { '美杜莎-Rider': 1 },
     txt: '穗群原學園整棟被紅色的結界罩住，學生接連昏倒——有人在學校裡張了吸取生命的結界' },
-  { war: '5th', day: 5, need: ['美狄亞-Caster'], reveal: { '美狄亞-Caster': 1 },
-    txt: '新都接連發生集體昏睡，新聞說是瓦斯外洩；循著被抽走的魔力往回找，線頭都通往深山町的柳洞寺' },
   { war: '5th', day: 6, need: ['佐佐木小次郎-Assassin'], reveal: { '佐佐木小次郎-Assassin': 1 },
     txt: '有人上柳洞寺參拜，回來說山門前的石階上站著一個背長刀的武士，說什麼都不讓人過去' },
   // ── Fate 線 ──
