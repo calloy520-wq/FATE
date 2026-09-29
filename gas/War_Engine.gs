@@ -2,7 +2,7 @@
 //   一天兩個決定（白天一件事、夜裡去哪），戰鬥每回合選一個姿態；GAS 算完結果，AI 只負責演。
 
 var WAR_ = {
-  NIGHTS: 14,            // 幾夜內分出勝負
+  NIGHTS: 14,            // 預設幾夜內分出勝負（每場戰爭照原作的天數見 WAR_NIGHTS_）
   MASTER_HP: 100,
   SEALS: 3,
   ROUNDS: 3,             // 一場戰鬥最多幾回合，天亮就各自退去
@@ -55,7 +55,7 @@ function warRoute_(st) { var R = warRoutes_(st && st.war); return R && st.route 
 
 // 每場戰爭各自的節奏。brawl＝敵人夜裡撞見彼此時動手的機率（乘上個性的出手慾）：
 //   第四次只剩六組對手，互打太兇就只剩收尾給你；第五次八組，互相消耗是撐起中盤的東西。模擬器量過（CODE_NOTES『WAR_』）。
-var WAR_PACE_ = { '5th': { brawl: 0.95 }, '4th': { brawl: 0.12 }, chaos: { brawl: 0.75 } };
+var WAR_PACE_ = { '5th': { brawl: 0.95 }, '4th': { brawl: 0.2 }, chaos: { brawl: 0.75 } };
 
 // 玩家是額外加入的一組主從：原作陣容一個都不拿掉，你只能召喚不在這場戰爭的從者（混亂隨機除外）。
 // 混亂隨機：從全部從者抽 size 位當對手（有原作御主的帶上御主），沒有原作事件、沒有晚登場。
@@ -85,6 +85,9 @@ function warCanonHeroes_(war) {
   if (war === 'chaos') return [];
   return (war === '4th' ? FATE_4TH_ROSTER : FATE_5TH_ROSTER).map(function (r) { return r.hero; });
 }
+// 每場戰爭照原作的天數：第四次約 12 天、第五次約兩週（2004/2/2 召喚 Saber 起）；混亂隨機沒有原作，用預設。
+var WAR_NIGHTS_ = { '5th': 14, '4th': 12 };
+function warNights_(st) { return WAR_NIGHTS_[st && st.war] || WAR_.NIGHTS; }
 function warPace_(st) { var r = warRoute_(st); return (r && r.pace) || WAR_PACE_[st && st.war] || WAR_PACE_['5th']; }   // 路線可以有自己的節奏
 
 // 職階：敵人的個性（aggr 越高越愛出手）。技能不看職階，看每位從者自己的技能（WAR_SKILL_）。
@@ -344,7 +347,7 @@ function warButtons_(st) {
     B.push({ t: 'scout', label: '打聽', sub: '探查敵方位置或真名' });
     B.push({ t: 'rest', label: '休養', sub: sv.curseDmg ? '從者與御主恢復（黃槍之傷 ' + sv.curseDmg + ' 好不了）' : '從者與御主恢復' });
     B.push({ t: 'supply', label: '補魔', sub: sv.noNp ? '從者少量恢復' : sv.cd > 0 ? (sv.cd <= WAR_.SUPPLY_CD ? '寶具今晚可用' : '寶具冷卻 −' + WAR_.SUPPLY_CD + ' 夜') : '寶具已就緒・少量恢復' });
-  } else if (st.phase === 'night' && st.day >= WAR_.NIGHTS) {
+  } else if (st.phase === 'night' && st.day >= warNights_(st)) {
     var left = warArrived_(st).filter(function (e) { return !e.fake; }).length;
     B.push({ t: 'final', label: '前往' + warFinal_(st).place, sub: '最後一夜・' + (left > 1 ? '剩餘 ' + left + ' 位從者全數到場' : '最後一位從者在場') });
   } else if (st.phase === 'night') {
@@ -455,7 +458,7 @@ function warGone_(st, u) {
 }
 // 叫醒預備役（或把還沒登場的提早）：明天登場，早報換成 hint。回傳有沒有叫到。
 function warAwaken_(st, hero, hint) {
-  if (st.day >= WAR_.NIGHTS) return false;   // 明天已經沒有了：叫醒也到不了場，還會卡住勝負
+  if (st.day >= warNights_(st)) return false;   // 明天已經沒有了：叫醒也到不了場，還會卡住勝負
   var r = (st.reserve || []).filter(function (x) { return x.hero === hero; })[0];
   if (r) { st.reserve.splice(st.reserve.indexOf(r), 1); st.enemies.push(r); r.arrive = 99; }
   var n = r || st.enemies.filter(function (x) { return x.hero === hero && x.alive && x.arrive > st.day + 1; })[0];
@@ -629,7 +632,7 @@ function warMorning_(st, ev) {
   st.day++;
   st.battle = null; st.out = false;
   if (warCheckEnd_(st, ev)) return;
-  if (st.day > WAR_.NIGHTS) { warOver_(st, false, 'timeout', ev); return; }
+  if (st.day > warNights_(st)) { warOver_(st, false, 'timeout', ev); return; }
   st.enemies.forEach(function (e) {
     if (e.alive && e.arrive === st.day && st.day > 1) ev.push({ k: 'arrive', txt: (e.hint || '有新的從者進入冬木') + '。' });
   });
@@ -641,7 +644,7 @@ function warMorning_(st, ev) {
   });
   warCanonEvents_(st, ev);
   if (warCheckEnd_(st, ev)) return;
-  ev.push({ k: 'morning', txt: '第 ' + st.day + ' 天早晨。剩 ' + (WAR_.NIGHTS - st.day + 1) + ' 夜，敵方剩 ' + warShownCount_(st) + ' 位。' });
+  ev.push({ k: 'morning', txt: '第 ' + st.day + ' 天早晨。剩 ' + (warNights_(st) - st.day + 1) + ' 夜，敵方剩 ' + warShownCount_(st) + ' 位。' });
   if (st.day === WAR_.BOUNTY_DAY && !st.bounty) warBountyStart_(st, ev);
   st.phase = 'day';
 }
@@ -998,7 +1001,7 @@ function warStat_(st, k) { st.stats[k] = (st.stats[k] || 0) + 1; }
 function warOver_(st, win, cause, ev) {
   var b = st.battle, e = b ? warFoe_(st, b.e) : null;
   st.phase = 'over'; st.battle = null;
-  st.result = { win: win, cause: cause, day: Math.min(st.day, WAR_.NIGHTS) };
+  st.result = { win: win, cause: cause, day: Math.min(st.day, warNights_(st)) };
   if (e) { st.result.foe = warFoeLabel_(e).replace(/[「」]/g, ''); st.result.foeIntel = e.intel; st.result.ctx = b.ctx; st.result.hp0 = b.hp0; st.result.ignored = !!b.ignored; }
   var T = { win: '最後一位敵方從者被擊敗。聖杯就在眼前。', servant: st.sv.name + '倒下了。聖杯戰爭結束。', master: '御主倒下，從者隨之消散。', timeout: '最後一夜結束，聖杯落入他人之手。' };
   ev.push({ k: 'over', txt: T[cause] || '' });
@@ -1060,7 +1063,7 @@ function warDebrief_(st) {
   var S = st.stats || {};
   var o = { final: warFinal_(st).place, foe: R.foe ? '「' + R.foe + '」' : '對手', n: S.finalFoes || 0, seals: WAR_.SEALS, dodged: S.dodged || 0, reveals: warRevealed_(st), kills: S.kills || 0 };
   var d = {
-    win: !!R.win, day: R.day || Math.min(st.day, WAR_.NIGHTS),
+    win: !!R.win, day: R.day || Math.min(st.day, warNights_(st)),
     stats: { battles: S.battles || 0, kills: S.kills || 0, np: S.np || 0, seals: S.seals || 0, reveals: o.reveals, retreats: S.retreats || 0 },
     good: WAR_DOJO_GOOD_.filter(function (g) { return g.when(st); }).slice(0, 3).map(function (g) { return warFill_(g.txt, o); })
   };
@@ -1075,10 +1078,11 @@ function warDebrief_(st) {
 
 // 畫面上的說明（開局表單、怎麼玩）要引用的規則數字：只從 WAR_ 拿，前端不另寫一份。
 function warRules_(st) {
-  var r = { nights: WAR_.NIGHTS, seals: WAR_.SEALS, rounds: WAR_.ROUNDS, npCd: WAR_.NP_COOLDOWN, supplyCd: WAR_.SUPPLY_CD, sealNpCost: WAR_.SEAL_NP_COST };
+  var r = { nights: st ? warNights_(st) : WAR_.NIGHTS, seals: WAR_.SEALS, rounds: WAR_.ROUNDS, npCd: WAR_.NP_COOLDOWN, supplyCd: WAR_.SUPPLY_CD, sealNpCost: WAR_.SEAL_NP_COST };
   // 開局表單要的：各戰爭對手幾組、哪些原作參戰者召喚不到
   var n = function (R) { return R.filter(function (x) { return !x.reserve; }).length; };
   r.rosters = { '5th': n(FATE_5TH_ROSTER), '4th': n(FATE_4TH_ROSTER), chaos: WAR_CHAOS_.size };
+  r.nightsBy = { '5th': warNights_({ war: '5th' }), '4th': warNights_({ war: '4th' }), chaos: warNights_({ war: 'chaos' }) };
   r.canonHeroes = { '5th': warCanonHeroes_('5th'), '4th': warCanonHeroes_('4th'), chaos: [] };
   if (st) r.finalPlace = warFinal_(st).place;
   return r;
@@ -1089,7 +1093,7 @@ function warView_(st) {
   var sv = st.sv, b = st.battle;
   var foes = warArrived_(st).concat(st.enemies.filter(function (e) { return !e.alive && e.intel >= 1; }));
   var view = {
-    phase: st.phase, day: Math.min(st.day, WAR_.NIGHTS), nights: WAR_.NIGHTS, nightsLeft: Math.max(0, WAR_.NIGHTS - st.day + 1),
+    phase: st.phase, day: Math.min(st.day, warNights_(st)), nights: warNights_(st), nightsLeft: Math.max(0, warNights_(st) - st.day + 1),
     master: { name: st.master.name, hp: st.master.hp, mhp: st.master.mhp, seals: st.master.seals },
     sv: { cls: sv.cls, name: sv.name, npName: sv.npName, hp: sv.hp, mhp: sv.mhp, cd: sv.cd, npPassive: !!sv.noNp, curseDmg: sv.curseDmg || 0, traits: warTraits_(sv), exposed: st.exposed },
     foes: foes.filter(function (e) { return e.intel >= 1; }).map(function (e) { return warFoeCard_(st, e); }),

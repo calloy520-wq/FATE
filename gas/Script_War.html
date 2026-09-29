@@ -48,7 +48,7 @@
     warCur_ = null;
     const step = warForm_.step || 1, r = warRuleInfo_ || {};
     const head = `<h2 class="war-title">⚔️ 聖杯戰爭</h2>
-      <p class="war-dim" style="text-align:center;">${r.nights ? r.nights + ' 夜' : '期限'}內擊敗所有敵方從者　<button class="war-mini" onclick="warHelp()">規則</button></p>`;
+      <p class="war-dim" style="text-align:center;">${((r.nightsBy || {})[warForm_.war] || r.nights) ? ((r.nightsBy || {})[warForm_.war] || r.nights) + ' 夜' : '期限'}內擊敗所有敵方從者　<button class="war-mini" onclick="warHelp()">規則</button></p>`;
     let body = '';
     if (step === 1) {
       const n = (w) => (r.rosters || {})[w];

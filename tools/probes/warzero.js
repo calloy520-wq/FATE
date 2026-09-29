@@ -58,4 +58,9 @@ const st4=mk('4th',emiya); c.warAct_(st4,{t:'start'}); st4.enemies.find(e=>e.her
 t(!ev4.some(x=>/倉庫街/.test(x.txt)),'涉及的從者已經倒下 → 那條事件整條跳過');
 const allHeroes=new Set(E('SEED_SERVANTS').map(s=>s.id)); const evs=E('WAR_CANON_EVENTS_');
 t(evs.every(v=>(v.need||[]).concat(Object.keys(v.reveal||{}),Object.keys(v.move||{})).every(h=>allHeroes.has(h))),'事件表點名的從者都存在（改名會叫）');
+{ const s4=mk('4th',emiya); c.warAct_(s4,{t:'start'}); const v=c.warView_(s4);
+  s4.day=12; s4.phase='night'; const b=c.warButtons_(s4)[0];
+  t(c.warNights_(s4)===12&&v.nights===12&&b.t==='final'&&c.warNights_({war:'5th'})===14,'第四次照原作 12 夜（第 12 夜決戰），第五次 14 夜',JSON.stringify({n:v.nights,b:b.t}));
+  const last=Math.max(...E('WAR_CANON_EVENTS_').filter(x=>x.war==='4th'&&x.day).map(x=>x.day));
+  t(last<12,'第四次每一幕原作事件都排在決戰夜之前',last); }
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);

@@ -110,7 +110,7 @@ function actionWarAct(userData) {
   // 上一段還沒被說書接走（沒講過、也沒在講）→ 併進這一段，玩家連按也不會漏戲、不會重講。
   var prev = st.narr, nr = ref.narr || {};
   var carry = prev && nr.seq !== prev.seq && nr.inflight !== prev.seq ? prev : null;
-  var day0 = Math.min(st.day, WAR_.NIGHTS), when = WAR_WHEN_[act.t] || '夜晚';   // 事情發生在按下去的那一刻，不是結算完的下一個早晨
+  var day0 = Math.min(st.day, warNights_(st)), when = WAR_WHEN_[act.t] || '夜晚';   // 事情發生在按下去的那一刻，不是結算完的下一個早晨
   var foe0 = st.battle ? st.battle.e : '';   // 這一段打的是誰：決戰打倒一位之後，st.battle 已經換成下一位
   var r = warAct_(st, act, act.t === 'reroll' ? warSeedCtx_(st.war) : null);
   if (!r.ok) return JSON.stringify({ success: false, message: r.msg });
@@ -284,7 +284,7 @@ function warNarrPrompt_(st) {
   }
   var nr = st.narr || {};
   var when = nr.when || (st.phase === 'day' ? '白天' : '夜晚');
-  var time = nr.kind === 'summon' ? '聖杯戰爭開始前的那一夜' : '第 ' + (nr.day || Math.min(st.day, WAR_.NIGHTS)) + ' 天的' + when;
+  var time = nr.kind === 'summon' ? '聖杯戰爭開始前的那一夜' : '第 ' + (nr.day || Math.min(st.day, warNights_(st))) + ' 天的' + when;
   lines.push('【此刻】' + time + '。' + sv.name + warHpWord_(sv) + '；你' + (st.master.hp >= st.master.mhp * 0.8 ? '沒有大礙' : '也受了傷') + '。');
   lines.push('【這一段發生的事】\n' + st.narr.facts.map(function (f) { return '・' + f; }).join('\n'));
   var lore = warLoreStr_(st);
