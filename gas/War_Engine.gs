@@ -475,7 +475,8 @@ function warDoDay_(st, act, ev) {
   var sv = st.sv;
   if (act.t === 'scout') {
     var hidden = warArrived_(st).filter(function (e) { return e.intel === 0 && !e.fake; });
-    var known1 = warArrived_(st).filter(function (e) { return e.intel === 1 && !e.fake; });
+    // 深挖真名：已經知道被風王結界擋住的那位，不再白白挑它（那句只講一次）
+    var known1 = warArrived_(st).filter(function (e) { return e.intel === 1 && !e.fake && !(e.veilSeen && warFlag_(e, 'veil')); });
     var got = false;
     var tries = 1 + warAdd_(sv, 'scoutExtra');
     for (var n = 0; n < tries && hidden.length; n++) {
@@ -510,7 +511,7 @@ function warDoDay_(st, act, ev) {
 
 function warReveal_(st, e, ev) {
   if (!e || e.intel >= 2) return false;
-  if (warFlag_(e, 'veil')) { ev.push({ k: 'intel', txt: '那位 ' + e.cls + ' 的「' + warSkName_(e, 'veil') + '」遮住了兵器，看不出是誰。' }); return true; }
+  if (warFlag_(e, 'veil')) { e.veilSeen = true; ev.push({ k: 'intel', txt: '那位 ' + e.cls + ' 的「' + warSkName_(e, 'veil') + '」遮住了兵器，看不出是誰。' }); return true; }
   e.intel = 2;
   ev.push({ k: 'reveal', txt: '看穿了那位 ' + e.cls + ' 的真名：「' + e.name + '」。' });
   return true;

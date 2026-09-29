@@ -106,7 +106,7 @@ var WAR_CANON_EVENTS_ = [
   { war: '4th', day: 5, need: ['迪盧木多-Lancer'], move: { '迪盧木多-Lancer': '廢棄工廠' },
     txt: '海特飯店的頂樓整層被炸掉了，新聞說是瓦斯氣爆；住在那裡的外國人搬進了郊外的廢棄工廠' },
   { war: '4th', day: 8, need: ['伊斯坎達爾-Rider', '阿爾托莉雅-Saber', '吉爾伽美什-Archer'],
-    reveal: { '吉爾伽美什-Archer': 1, '阿爾托莉雅-Saber': 1 }, short: '聖杯問答',
+    reveal: { '吉爾伽美什-Archer': 1, '阿爾托莉雅-Saber': 2 }, short: '聖杯問答',   // 問答之後，騎士王的身分人人皆知
     txt: '征服王在艾因茲貝倫城的庭院擺酒，邀 Saber 與金色的英靈問答「王的器量」，三位王一直喝到天亮' },
   { war: '4th', day: 8, need: ['伊斯坎達爾-Rider', '百貌哈桑-Assassin'], after: ['聖杯問答'], unmask: true, kill: ['百貌哈桑-Assassin'], short: '王之軍勢踏平暗殺者',
     txt: '聖杯問答的酒席上，數十個戴白骨面具的暗殺者同時現身；下一刻，月光下展開一整片沙漠，征服王的軍勢把他們全數踏平' },

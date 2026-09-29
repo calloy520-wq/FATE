@@ -135,4 +135,13 @@ console.log('── 原作從者提前倒下的彩蛋（WAR_FALL_）');
   // ④ 混亂隨機沒有原作劇本
   const d=J(`(function(){ var o=warSetup_('chaos'); o.name='測'; o.sex='男'; o.war='chaos'; o.seed=3; var s=warNewGame_(o); var ev=[]; s.enemies.forEach(function(e){ warCanonFall_(s,e,ev); }); return ev.length; })()`);
   t(d===0,'混亂隨機：沒有原作餘波',d); }
+console.log('── 打聽不再白挑擋住的 Saber');
+{ const J=x=>JSON.parse(E('JSON.stringify('+x+')'));
+  const r=J(`(function(){ var o=warSetup_('4th'); o.name='測'; o.sex='男'; o.war='4th'; o.seed=4; o.pool=warSetup_('chaos').pool.filter(function(s){return s.id==='恩奇都-Lancer';});
+    var s=warNewGame_(o); warAct_(s,{t:'start'}); var sb=s.enemies.filter(function(e){return e.hero==='阿爾托莉雅-Saber';})[0];
+    s.enemies.forEach(function(e){ e.intel=2; }); sb.intel=1; var other=s.enemies.filter(function(e){return e.hero==='伊斯坎達爾-Rider';})[0]; other.intel=1;
+    var first=[]; warReveal_(s,sb,first); var veil=0, lines=[];
+    for (var i=0;i<30;i++){ s.phase='day'; other.intel=1; var ev=[]; warDoDay_(s,{t:'scout'},ev); ev.forEach(function(x){ lines.push(x.txt); if(/遮住了兵器/.test(x.txt)) veil++; }); }
+    return {first:first.length, veil:veil, seen:!!sb.veilSeen}; })()`);
+  t(r.first===1&&r.seen&&r.veil===0,'第一次被風王結界擋下之後，打聽改挑別人（那句只講一次）',JSON.stringify(r)); }
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);
