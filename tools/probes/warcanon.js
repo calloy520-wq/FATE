@@ -84,12 +84,28 @@ const pb=c.warButtons_(g).find(x=>x.s==='probe');
 t(pb&&!/看穿真名/.test(pb.sub),'打風王結界的 Saber：試探鈕不再承諾看穿真名',pb&&pb.sub);
 c.hh=U('赫拉克勒斯-Berserker'); c.hh.broken=true; delete c.hh.lives;
 t(E('warLives_(hh)')===11&&E('warTraits_(hh)').some(x=>/剩 11 次/.test(x)),'被破戒全咒打過：十二試煉的命數照樣是 11（不是 0）');
-console.log('── 必滅黃薔薇：傷口好不全，直到迪盧木多倒下');
-{ const S0=st(); c.S0=S0; c.Dl=U('迪盧木多-Lancer'); c.Sb=U('阿爾托莉雅-Saber'); c.Sb.hp=9999; c.Sb.mhp=9999; S0.sv=c.Sb; S0.enemies=[c.Dl]; c.ev2=[];
-  E("warCurse_(S0,{u:Dl,side:'foe'},{u:Sb,side:'me'},ev2)");
-  t(c.Sb.cursedBy==='迪盧木多-Lancer'&&c.ev2.some(x=>/好不全/.test(x.txt)),'被黃槍打中就上詛咒，並說出來');
-  c.Sb.hp=1000; const h1=E('warHeal_(Sb,0.1)');
-  t(h1===Math.round(9999*0.1*E('WAR_.CURSE_HEAL')),'詛咒中回復只剩一半',h1);
-  c.Dl.hp=1; E("warApply_(S0,{u:Dl,side:'foe'},50)");
-  t(!c.Sb.cursedBy,'迪盧木多倒下，詛咒解除'); }
+console.log('── 必滅黃薔薇：記下實際傷害，那一段好不了，直到迪盧木多倒下');
+{ const S0=st(); c.S0=S0; c.Dl=U('迪盧木多-Lancer'); c.Sb=U('阿爾托莉雅-Saber'); c.Sb.mhp=1000; c.Sb.hp=1000; S0.sv=c.Sb; S0.enemies=[c.Dl]; c.ev2=[];
+  E("warCurse_(S0,{u:Dl,side:'foe'},{u:Sb,side:'me'},ev2,120)"); c.Sb.hp=880;
+  t(c.Sb.curseDmg===120&&c.ev2.some(x=>/癒合不了/.test(x.txt)),'黃槍造成 120 點傷：記成 120，並說出來',c.Sb.curseDmg);
+  E("warCurse_(S0,{u:Dl,side:'foe'},{u:Sb,side:'me'},ev2,30)"); c.Sb.hp=500;
+  t(c.Sb.curseDmg===150&&c.ev2.length===1,'再中一槍累加（只講第一次）',c.Sb.curseDmg);
+  E('warHeal_(Sb,1)');
+  t(c.Sb.hp===850,'回滿也只到 最大血量−黃槍之傷（別的傷照常好）',c.Sb.hp);
+  c.Dl.hp=1; E("warApply_(S0,{u:Dl,side:'foe'},50)"); E('warHeal_(Sb,1)');
+  t(!c.Sb.cursedBy&&!c.Sb.curseDmg&&c.Sb.hp===1000,'迪盧木多倒下：詛咒解除，這才回得滿',c.Sb.hp); }
+console.log('── 玩家是額外加入的一組：第五次／第四次不搶原作從者，混亂隨機抽 7 組');
+{ const J=x=>JSON.parse(E('JSON.stringify('+x+')'));
+  for (const w of ['5th','4th']) {
+    const o=J(`warSetup_('${w}')`), canon=o.roster.map(x=>x.hero);
+    t(o.pool.length>0&&o.pool.every(s=>canon.indexOf(s.id)<0),w+'：召喚池裡沒有這場的原作從者',o.pool.map(s=>s.id).join());
+    t(J(`warCanonHeroes_('${w}')`).join()===canon.join(),w+'：前端拿到的「已有御主」名單＝名冊');
+    const seen={}; for (let seed=1;seed<=30;seed++){ const g=J(`(function(){ var o=warSetup_('${w}'); o.name='測'; o.sex='男'; o.war='${w}'; o.seed=${seed}; var s=warNewGame_(o); return {sv:s.sv.hero, foes:s.enemies.map(function(e){return e.hero;})}; })()`); seen.n=(seen.n||0)+g.foes.length; if(canon.indexOf(g.sv)>=0) seen.bad=g.sv; if(g.foes.length!==canon.length) seen.len=g.foes.length; }
+    t(!seen.bad&&!seen.len,w+'：隨機召喚 30 局都不是原作從者，敵方原作全員到齊',JSON.stringify(seen)); }
+  const ch=J(`warSetup_('chaos')`);
+  t(ch.chaos===true&&J(`warCanonHeroes_('chaos')`).length===0,'混亂隨機：沒有「已有御主」的限制');
+  const lens={}, heroes={}; for (let seed=1;seed<=30;seed++){ const g=J(`(function(){ var o=warSetup_('chaos'); o.name='測'; o.sex='男'; o.war='chaos'; o.seed=${seed}; var s=warNewGame_(o); return {sv:s.sv.hero, foes:s.enemies.map(function(e){return e.hero;}), fake:s.enemies.some(function(e){return e.fake||e.fakeTxt;})}; })()`);
+    lens[g.foes.length]=1; g.foes.forEach(h=>heroes[h]=1); if(g.foes.indexOf(g.sv)>=0) lens.dup=g.sv; if(g.fake) lens.fake=1; }
+  t(Object.keys(lens).join()===String(E('WAR_CHAOS_.size')),'混亂隨機：每局 '+E('WAR_CHAOS_.size')+' 組對手、不會撞到自己的從者、沒有原作劇本的假死',JSON.stringify(lens));
+  t(Object.keys(heroes).length>E('WAR_CHAOS_.size'),'混亂隨機：30 局抽到的從者不只固定那幾位（'+Object.keys(heroes).length+' 位）'); }
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);

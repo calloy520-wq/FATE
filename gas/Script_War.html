@@ -10,7 +10,7 @@
   let warBusy_ = false;
   let warNarrP_ = null;       // 正在寫的那一段說書（同時只寫一段）
   let warNarrAgain_ = false;  // 寫的時候玩家又往前按了：寫完再補一段（後端會把沒講到的併進去）
-  let warForm_ = { sex: '男', war: '5th', hero: '', name: '', wish: '' };   // 再來一局時名字與願望還在
+  let warForm_ = { sex: '男', war: '5th', hero: '', name: '', wish: '', step: 1, pickOpen: false };   // 再來一局時名字與願望還在
   let warForgeData_ = null;   // war_forge_list 的結果（原作名單、我的原創、可挑技能、規則）
   let warFe_ = null;          // 工房編輯中的那一位
   let warFa_ = { origin: 'original', cls: '', desc: '' };   // ✨ AI 幫我做：出處、職階（空＝交給 AI）、描述
@@ -43,24 +43,50 @@
   }
 
   // ── 開新局：名字、性別、哪一場戰爭，然後召喚 ──
+  // 開局三步：①選模式 ②創立御主 ③選英靈（隨機／自選／創立）。第四、五次的原作參戰者召喚不到（你是額外加入的一組）。
   function warRenderForm_() {
     warCur_ = null;
-    const pick = (k, v, label) => `<button class="war-pill${warForm_[k] === v ? ' on' : ''}" onclick="warFormPick_('${k}','${v}')">${label}</button>`;
-    warEl_('scr-war').innerHTML = `<div class="war-wrap">
-      <h2 class="war-title">⚔️ 聖杯戰爭</h2>
-      <p class="war-dim" style="text-align:center;">${warRuleInfo_ ? warRuleInfo_.nights + ' 夜' : '期限'}內擊敗所有敵方從者　<button class="war-mini" onclick="warHelp()">規則</button></p>
-      <input id="war-name" class="std-in" maxlength="10" placeholder="御主名字" value="${escapeHtml(warForm_.name)}" oninput="warForm_.name=this.value" style="width:100%;box-sizing:border-box;margin:10px 0 6px;">
-      <input id="war-wish" class="std-in" maxlength="40" placeholder="向聖杯許的願望（可不填）" value="${escapeHtml(warForm_.wish)}" oninput="warForm_.wish=this.value" style="width:100%;box-sizing:border-box;margin:0 0 10px;">
-      <div class="war-row">${pick('sex', '男', '男')}${pick('sex', '女', '女')}</div>
-      <div class="war-row">${pick('war', '5th', '第五次聖杯戰爭')}${pick('war', '4th', '第四次聖杯戰爭')}</div>
-      ${warRuleInfo_ && warRuleInfo_.rosters ? `<div class="war-small war-dim">第五次：對手 ${warRuleInfo_.rosters['5th'] - 1}～${warRuleInfo_.rosters['5th']} 組・第四次：對手 ${warRuleInfo_.rosters['4th'] - 1}～${warRuleInfo_.rosters['4th']} 組（較容易）</div>` : ''}
-      <select id="war-hero" class="std-select" style="width:100%;margin:6px 0;" onchange="warForm_.hero=this.value">${warHeroOptions_()}</select>
-      <button class="war-btn war-main" onclick="warStart()"><b>召喚從者</b></button>
-      <button class="war-btn war-ghost" onclick="warForgeOpen(false)"><b>🛠️ 英靈工房</b><small>製作原創從者</small></button>
-      <button class="war-btn war-ghost" onclick="warBackMenu()"><b>回選單</b></button>
-    </div>`;
+    const step = warForm_.step || 1, r = warRuleInfo_ || {};
+    const head = `<h2 class="war-title">⚔️ 聖杯戰爭</h2>
+      <p class="war-dim" style="text-align:center;">${r.nights ? r.nights + ' 夜' : '期限'}內擊敗所有敵方從者　<button class="war-mini" onclick="warHelp()">規則</button></p>`;
+    let body = '';
+    if (step === 1) {
+      const n = (w) => (r.rosters || {})[w];
+      const mode = (w, label, sub) => `<button class="war-btn${warForm_.war === w ? ' war-main' : ''}" onclick="warFormMode('${w}')"><b>${label}</b><small>${sub}</small></button>`;
+      body = `<div class="war-small war-dim" style="margin:6px 0;">① 選擇聖杯戰爭</div>
+        <div class="war-btns" style="max-height:none;">
+        ${mode('5th', '第五次聖杯戰爭', '原作 ' + (n('5th') || '') + ' 組主從全員到齊，你是額外加入的一組')}
+        ${mode('4th', '第四次聖杯戰爭', '原作 ' + (n('4th') || '') + ' 組主從全員到齊，你是額外加入的一組')}
+        ${mode('chaos', '混亂隨機', '隨機抽 ' + (n('chaos') || '') + ' 組對手，誰都可能出現')}
+        <button class="war-btn war-ghost" onclick="warBackMenu()"><b>回選單</b></button></div>`;
+    } else if (step === 2) {
+      const pick = (k, v, label) => `<button class="war-pill${warForm_[k] === v ? ' on' : ''}" onclick="warFormPick_('${k}','${v}')">${label}</button>`;
+      body = `<div class="war-small war-dim" style="margin:6px 0;">② 創立御主</div>
+        <input id="war-name" class="std-in" maxlength="10" placeholder="御主名字" value="${escapeHtml(warForm_.name)}" oninput="warForm_.name=this.value" style="width:100%;box-sizing:border-box;margin:4px 0 6px;">
+        <input id="war-wish" class="std-in" maxlength="40" placeholder="向聖杯許的願望（可不填）" value="${escapeHtml(warForm_.wish)}" oninput="warForm_.wish=this.value" style="width:100%;box-sizing:border-box;margin:0 0 10px;">
+        <div class="war-row">${pick('sex', '男', '男')}${pick('sex', '女', '女')}</div>
+        <button class="war-btn war-main" onclick="warFormStep(3)"><b>下一步</b><small>選擇你的英靈</small></button>
+        <button class="war-btn war-ghost" onclick="warFormStep(1)"><b>返回</b></button>`;
+    } else {
+      body = `<div class="war-small war-dim" style="margin:6px 0;">③ 選擇英靈${warForm_.war === 'chaos' ? '' : '（這場戰爭的原作從者已經有自己的御主）'}</div>
+        <button class="war-btn war-main" onclick="warStartWith('')"><b>① 隨機召喚</b><small>讓聖杯替你選</small></button>
+        <button class="war-btn" onclick="warFormPick_('pickOpen', !warForm_.pickOpen)"><b>② 自選英靈</b><small>從原作與你的原創裡挑一位</small></button>
+        ${warForm_.pickOpen ? `<select id="war-hero" class="std-select" style="width:100%;margin:6px 0;" onchange="warFormPick_('hero', this.value)">${warHeroOptions_(true)}</select>
+          <button class="war-btn war-main" onclick="warStartWith(warForm_.hero)" ${warForm_.hero ? '' : 'disabled'}><b>召喚這一位</b></button>` : ''}
+        <button class="war-btn" onclick="warForgeOpen(false)"><b>③ 創立英靈</b><small>英靈工房：Fate 角色／其他作品角色／原創，也可以請 AI 幫忙</small></button>
+        <button class="war-btn war-ghost" onclick="warFormStep(2)"><b>返回</b></button>`;
+    }
+    warEl_('scr-war').innerHTML = `<div class="war-wrap">${head}${body}</div>`;
     if (!warForgeData_) warForgeLoad_();
   }
+  function warFormMode(w) { warForm_.war = w; warForm_.step = 2; warRenderForm_(); }
+  function warFormStep(n) {
+    const nm = warEl_('war-name'), ws = warEl_('war-wish');
+    if (nm) warForm_.name = nm.value; if (ws) warForm_.wish = ws.value;
+    warForm_.step = n; warRenderForm_();
+  }
+  function warStartWith(heroId) { warForm_.hero = heroId || ''; return warStart(); }
+
   // 只收形狀對的工房資料（清單缺了就當空的），壞掉的回應回 null。
   function warForgeValid_(res) {
     if (!res || !res.success || !res.rule || !Array.isArray(res.skills)) return null;
@@ -69,13 +95,17 @@
     res.clsSkills = res.clsSkills || {};
     return res;
   }
-  function warHeroOptions_() {
+  function warHeroOptions_(pickOnly) {
     const d = warForgeData_;
     if (!d) return '<option value="">隨機召喚（讀取中…）</option>';
     const opt = (h, tag) => `<option value="${escapeHtml(h.id)}"${warForm_.hero === h.id ? ' selected' : ''}>${escapeHtml(h.cls)}「${escapeHtml(h.name)}」${tag || ''}</option>`;
-    return '<option value="">隨機召喚</option>'
+    // 這場戰爭的原作參戰者已經有自己的御主：不列（混亂隨機沒有這個限制）
+    const taken = ((warRuleInfo_ && warRuleInfo_.canonHeroes) || {})[warForm_.war] || [];
+    const canon = d.canon.filter(h => taken.indexOf(h.id) < 0);
+    if (warForm_.hero && taken.indexOf(warForm_.hero) >= 0) warForm_.hero = '';
+    return '<option value="">— 選一位 —</option>'
       + (d.mine.length ? '<optgroup label="原創從者">' + d.mine.map(h => opt(h, h.owned ? '' : '（未認領）')).join('') + '</optgroup>' : '')
-      + (d.canon.length ? '<optgroup label="原作從者">' + d.canon.map(h => opt(h)).join('') + '</optgroup>' : '');
+      + (canon.length ? '<optgroup label="原作從者（不在這場戰爭的）">' + canon.map(h => opt(h)).join('') + '</optgroup>' : '');
   }
   async function warForgeLoad_() {
     const sel = warEl_('war-hero');
@@ -95,8 +125,8 @@
 
   async function warStart() {
     if (warBusy_) return;
-    const name = ((warEl_('war-name') || {}).value || '').trim();
-    const wish = ((warEl_('war-wish') || {}).value || '').trim();
+    const name = String(warForm_.name || '').trim();
+    const wish = String(warForm_.wish || '').trim();
     warBusy_ = true;
     try {
       warBarPrev_ = {}; warDojoDone_ = false;
@@ -312,6 +342,10 @@
       warForgeData_ = null;
       try { if (typeof invalidateKanshouHeroCache === 'function') invalidateKanshouHeroCache(); } catch (e) { }   // 鑑賞同伴面板重抓
       alert(res.message || '已儲存。');
+      if (!warForgeFromMenu_ && res.id) {   // 從「③ 創立英靈」來的：做好就回到選英靈，選好剛做的這一位
+        warForm_.step = 3; warForm_.pickOpen = true; warForm_.hero = res.id;
+        await warForgeLoad_(); return warRenderForm_();
+      }
       await warForgeOpen(warForgeFromMenu_);
     } catch (e) { alert('連線失敗，請稍後再試。'); }
   }
@@ -423,7 +457,7 @@
       </div>
       <div class="war-card" onclick="warToggleTraits()">
         <div class="war-row between"><b>${escapeHtml(sv.cls)}「${escapeHtml(sv.name)}」</b><span>${np}</span></div>
-        <div class="war-row between war-small war-tight"><span>從者 ${sv.hp}／${sv.mhp}${sv.lives !== undefined ? '・命 ' + sv.lives : ''}</span><span>真名：${sv.exposed ? '<b class="war-red">已曝光</b>' : '隱藏'}</span></div>
+        <div class="war-row between war-small war-tight"><span>從者 ${sv.hp}／${sv.mhp}${sv.lives !== undefined ? '・命 ' + sv.lives : ''}${sv.curseDmg ? '・<span class="war-red" title="必滅黃薔薇：持有者倒下前好不了">黃槍之傷 ' + sv.curseDmg + '</span>' : ''}</span><span>真名：${sv.exposed ? '<b class="war-red">已曝光</b>' : '隱藏'}</span></div>
         ${warBar_(sv.hp, sv.mhp, 'sv', 'sv')}
         <div class="war-row between war-small war-tight"><span>御主 ${escapeHtml(m.name)}　${m.hp}／${m.mhp}</span><span>令咒 ${seals}</span></div>
         ${warBar_(m.hp, m.mhp, 'ms', 'ms')}

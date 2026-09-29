@@ -75,7 +75,13 @@ const RENDERS = [
   }],
   // ⚔️ 新聖杯戰爭：開局表單、戰鬥畫面、令咒切換都真的畫一次。按鈕全照後端 buttons 畫，
   //   這裡釘的是「令咒一開，說明換成令咒版、充能中的寶具變得按得下去」——那是前端唯一自己決定的事。
-  ['warRenderForm_', () => { mkEl('scr-war'); ctx.warRenderForm_(); return /召喚從者/.test(ctx.document.getElementById('scr-war').innerHTML); }],
+  // 開局三步：選戰爭 → 創立御主 → 選英靈（隨機／自選／創立）
+  ['warRenderForm_', () => {
+    mkEl('scr-war'); const h = () => ctx.document.getElementById('scr-war').innerHTML;
+    ctx.warRenderForm_(); if (!/第五次/.test(h()) || !/第四次/.test(h()) || !/混亂隨機/.test(h())) return false;
+    ctx.warFormMode('4th'); if (!/創立御主/.test(h()) || !/war-name/.test(h())) return false;
+    ctx.warFormStep(3); return /隨機召喚/.test(h()) && /自選英靈/.test(h()) && /創立英靈/.test(h());
+  }],
   ['warRender_ 戰鬥＋令咒', () => {
     mkEl('scr-war'); mkEl('setup');
     const view = { phase: 'battle', day: 3, nights: 14, nightsLeft: 12, alive: 5, unknown: 2,

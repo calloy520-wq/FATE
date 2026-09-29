@@ -58,16 +58,7 @@ function warSaveNarr_(ref, acct, gid, narr) {
 }
 
 // 引擎要的種子：從者池、這場戰爭的陣容、名字表。
-function warSeedCtx_(war) {
-  var seeds = {}, masterNames = {};
-  SEED_SERVANTS.forEach(function (s) { seeds[s.id] = s; });
-  SEED_MASTERS.forEach(function (m) { masterNames[m.id] = m.name; });
-  return {
-    pool: SEED_SERVANTS.filter(function (s) { return s.cls !== '御主'; }),
-    roster: war === '4th' ? FATE_4TH_ROSTER : FATE_5TH_ROSTER,
-    seeds: seeds, masterNames: masterNames
-  };
-}
+function warSeedCtx_(war) { return warSetup_(war); }
 
 function warLogLines_(ev) { return (ev || []).map(function (e) { return { txt: e.txt, num: e.num || '', k: e.k }; }); }
 
@@ -77,9 +68,7 @@ function actionWarLoad(userData) {
   if (!acct) return JSON.stringify({ success: false, message: '請先登入。' });
   var ref = warLoad_(acct);
   if (!ref.st) {
-    var rules = warRules_();
-    rules.rosters = { '5th': FATE_5TH_ROSTER.length, '4th': FATE_4TH_ROSTER.length };   // 開局表單標對手有幾組
-    return JSON.stringify({ success: true, view: null, story: [], rules: rules });
+    return JSON.stringify({ success: true, view: null, story: [], rules: warRules_() });
   }
   return JSON.stringify({ success: true, view: warView_(ref.st), story: (ref.narr.hist || []).map(function (h) { return h.t; }) });
 }
@@ -87,7 +76,7 @@ function actionWarLoad(userData) {
 function actionWarNew(userData) {
   var acct = String(userData.acctName || '');
   if (!acct) return JSON.stringify({ success: false, message: '請先登入。' });
-  var war = userData.war === '4th' ? '4th' : '5th';
+  var war = WAR_WARS_.indexOf(userData.war) >= 0 ? userData.war : '5th';
   var name = String(userData.pcName || '').trim() || '御主';
   var sex = userData.sex === '女' ? '女' : '男';
   var wish = String(userData.wish || '').replace(/[<>｜【】]/g, '').trim().slice(0, 40);
@@ -97,6 +86,7 @@ function actionWarNew(userData) {
     var canon = SEED_SERVANTS.filter(function (s) { return s.id === pick && s.cls !== '御主'; })[0];
     var orig = canon ? null : warOriginalsFor_(acct).filter(function (r) { return String(r[COL.HERO.ID]) === pick; })[0];
     if (!canon && !orig) return JSON.stringify({ success: false, message: '無法召喚這位從者。' });
+    if (canon && warCanonHeroes_(war).indexOf(canon.id) >= 0) return JSON.stringify({ success: false, message: '這位從者是這場聖杯戰爭的原作參戰者，已經有自己的御主了。請選別位，或改玩混亂隨機。' });
     o.pool = [canon || warSeedFromRow_(orig)];
   }
   o.name = name; o.sex = sex; o.war = war; o.wish = wish; o.seed = Date.now() % 2147483647;

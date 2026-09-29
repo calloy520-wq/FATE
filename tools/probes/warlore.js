@@ -2,7 +2,7 @@
 const P=require('./probe.js'); const {evalIn,ctx}=P;
 let ok=0,bad=0; const t=(c,l,x)=>{ if(c){ok++;console.log('   ✅ '+l);} else {bad++;console.log('   ❌ '+l+(x?'  '+String(x).slice(0,300):''));} };
 const E=c=>evalIn(c);
-evalIn(`var __o = warSeedCtx_('5th'); __o.name='測'; __o.sex='男'; __o.seed=7; __o.pool=__o.pool.filter(function(s){return s.id==='阿爾托莉雅-Saber';});`);
+evalIn(`var __o = warSeedCtx_('5th'); __o.name='測'; __o.sex='男'; __o.seed=7; __o.pool=warSetup_('chaos').pool.filter(function(s){return s.id==='阿爾托莉雅-Saber';});`);
 const lore=facts=>E(`(function(){ var s=warNewGame_(__o); s.narr={seq:1,kind:'battle',facts:${JSON.stringify(facts)}}; return warLoreStr_(s); })()`);
 
 console.log('\n── ① 碰到才給');

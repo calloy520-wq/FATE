@@ -69,7 +69,10 @@ t(r.success && r.view.sv.name==='白銀騎士' && r.view.sv.cls==='Saber', '指�
 t(r.view.buttons.find(b=>b.t==='reroll').dis===true, '指定召喚就沒有重抽');
 t(r.view.sv.traits.some(x=>/^對魔力：/.test(x)) && r.view.sv.traits.some(x=>/^軍略：/.test(x)), '技能照工房存的（職階技能＋挑的）', JSON.stringify(r.view.sv.traits));
 t(!run({action:'war_new',acctName:B,pcName:'遠坂',sex:'女',war:'5th',heroId:'白銀騎士-Saber'}).success, '乙叫不到甲的原創');
-t(run({action:'war_new',acctName:B,pcName:'遠坂',sex:'女',war:'5th',heroId:'EMIYA-Archer'}).success, '原作也能指定');
+const rj=run({action:'war_new',acctName:B,pcName:'遠坂',sex:'女',war:'5th',heroId:'EMIYA-Archer'});
+t(!rj.success && /原作參戰者/.test(rj.message||''), '第五次指定第五次的原作從者 → 擋（玩家是額外加入的一組）', JSON.stringify(rj));
+t(run({action:'war_new',acctName:B,pcName:'遠坂',sex:'女',war:'4th',heroId:'EMIYA-Archer'}).success, '別場戰爭的原作從者可以指定');
+t(run({action:'war_new',acctName:B,pcName:'遠坂',sex:'女',war:'chaos',heroId:'EMIYA-Archer'}).success, '混亂隨機誰都能指定');
 
 console.log('\n── ⑦ 鑑賞也叫得出原創');
 const kpc=run({action:'enter_kanshou',acctName:A,pcName:'風音',pcSex:'女'}).pcId;

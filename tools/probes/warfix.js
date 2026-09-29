@@ -6,7 +6,7 @@ const run=u=>JSON.parse(evalIn('handleGameAction('+JSON.stringify(JSON.stringify
 let HOOK=null; ctx.__FX__=(p)=>{ if(HOOK) HOOK(p); return '說書。'; };
 evalIn('callGeminiAPI=function(p,s,c){ return __FX__(p); }');
 const row=a=>sheets['聖杯戰局']._d.find(x=>x[0]===a);
-evalIn(`var __o = warSeedCtx_('5th'); __o.name='測'; __o.sex='男'; __o.seed=5; __o.pool=__o.pool.filter(function(s){return s.id==='阿爾托莉雅-Saber';});
+evalIn(`var __o = warSeedCtx_('5th'); __o.name='測'; __o.sex='男'; __o.seed=5; __o.pool=warSetup_('chaos').pool.filter(function(s){return s.id==='阿爾托莉雅-Saber';});
 function __battle(fx, intent, ctxName){ var s=warNewGame_(__o); warAct_(s,{t:'start'}); warAct_(s,{t:'rest'}); var e=s.enemies[0]; e.intel=1; e.fx=fx||[]; e.skn={}; (fx||[]).forEach(function(f){ e.skn[f]=f==='stealth'?'氣息遮斷':f; });
   var ev=[]; warStartBattle_(s,e,ctxName||'sortie',ev); s.battle.intent=intent||'strike'; s.battle.tele=''; return s; }`);
 
@@ -56,7 +56,7 @@ r=run({action:'war_narrate',acctName:'下面的人'});
 t(JSON.parse(row('下面的人')[4]).hist.length===0, '說書途中開了新局 → 舊局的說書不寫進新局', row('下面的人')[4]);
 
 console.log('\n── ⑤ 決戰：打倒一位之後，說書的【對手】還是剛剛那一位');
-run({action:'war_new',acctName:'決戰',pcName:'丁',sex:'男',war:'5th',heroId:'阿爾托莉雅-Saber'});
+run({action:'war_new',acctName:'決戰',pcName:'丁',sex:'男',war:'5th',heroId:'伊斯坎達爾-Rider'});
 let st=JSON.parse(row('決戰')[3]); st.phase='night'; st.day=14; let k=0; st.enemies.forEach(e=>{ if(e.arrive<=14&&k<2){ k++; e.alive=true; } else e.alive=false; }); st.sv.atk=99; st.sv.hp=st.sv.mhp=9999; row('決戰')[3]=JSON.stringify(st);
 run({action:'war_act',acctName:'決戰',act:{t:'final'}});
 st=JSON.parse(row('決戰')[3]); const first=st.enemies.find(e=>e.id===st.battle.e); first.hp=1; st.battle.intent='strike'; row('決戰')[3]=JSON.stringify(st);
@@ -68,7 +68,7 @@ t(/又來了一位/.test(P2) && (P2.match(/【對手】[^\n]*/)||[''])[0].indexO
 
 console.log('\n── ⑥ 說書不鎖按鈕：連按不漏戲、在講的不重講、沒寫出來的併進下一段');
 const B2='連按';
-run({action:'war_new',acctName:B2,pcName:'快',sex:'男',war:'5th',heroId:'阿爾托莉雅-Saber'});
+run({action:'war_new',acctName:B2,pcName:'快',sex:'男',war:'5th',heroId:'伊斯坎達爾-Rider'});
 run({action:'war_narrate',acctName:B2});
 run({action:'war_act',acctName:B2,act:{t:'start'}});          // 這一步沒叫說書
 run({action:'war_act',acctName:B2,act:{t:'rest'}});           // 下一步：開戰那段要併進來
@@ -105,7 +105,7 @@ const none=J(`(function(){ var s=__battle([], 'strike'); s.enemies.forEach(funct
 t(none.b && none.b.open===false && none.ev===0, '目標不在場就不發（也不會之後再發）', JSON.stringify(none));
 
 console.log('\n── ⑧ 原作技能補進戰爭（Caster 們不再是空殼）');
-const med=J(`(function(){ var m=warSeedCtx_('5th').pool.filter(function(s){return s.id==='美狄亞-Caster';})[0]; var g=warSeedCtx_('5th').pool.filter(function(s){return s.id==='吉爾德萊-Caster';})[0]; var u=warUnit_(m), v=warUnit_(g); return {mfx:u.fx, gfx:v.fx, gcd:warNpCd_(v), base:WAR_.NP_COOLDOWN}; })()`);
+const med=J(`(function(){ var m=warSetup_('chaos').pool.filter(function(s){return s.id==='美狄亞-Caster';})[0]; var g=warSetup_('chaos').pool.filter(function(s){return s.id==='吉爾德萊-Caster';})[0]; var u=warUnit_(m), v=warUnit_(g); return {mfx:u.fx, gfx:v.fx, gcd:warNpCd_(v), base:WAR_.NP_COOLDOWN}; })()`);
 t(med.mfx.indexOf('crafting')>=0 && med.mfx.some(f=>f==='fast_cast'||f==='divine_age'), '美狄亞：道具作成、高速詠唱／神代魔術都有效果', JSON.stringify(med.mfx));
 t(med.gfx.indexOf('summon_horror')>=0 && med.gcd===med.base-2, '吉爾・德・萊斯：螺湮城教本自帶魔力爐，寶具冷卻短 2 夜', JSON.stringify(med));
 const rh=J(`(function(){ var s=__battle([], 'strike'); s.battle=null; s.phase='day'; s.sv.hp=1; var a=warAct_(s,{t:'rest'}); var h1=s.sv.hp; var s2=__battle([], 'strike'); s2.battle=null; s2.phase='day'; s2.sv.hp=1; s2.sv.fx=['crafting']; warAct_(s2,{t:'rest'}); return [h1, s2.sv.hp]; })()`);
@@ -119,7 +119,7 @@ const la=J(`(function(){ var s=warNewGame_(__o); var l=s.enemies.filter(function
 t(la==='probe', '庫丘林奉命偵察：第一回合先試探', la);
 const gl=J(`(function(){ var s=warNewGame_(__o); var g=s.enemies.filter(function(e){return e.hero==='吉爾伽美什-Archer';})[0]; g.hp=1; g.cd=3; s.battle={e:g.id,round:2,ctx:'sortie'}; var n=0; for(var i=0;i<50;i++){ s.rs=i+1; if(warIntent_(s,g,s.sv,2)==='retreat') n++; } return n; })()`);
 t(gl===0, '吉爾伽美什快倒了也不撤退', gl);
-const nm=J(`(function(){ var o=warSeedCtx_('4th'); o.name='測'; o.sex='男'; o.war='4th'; o.seed=9; o.pool=o.pool.filter(function(s){return s.id==='阿爾托莉雅-Saber';}); var s=warNewGame_(o); warAct_(s,{t:'start'}); var la=s.enemies.filter(function(e){return e.hero==='蘭斯洛特-Berserker';})[0]; la.intel=1; s.phase='night'; var ev=[]; warStartBattle_(s,la,'sortie',ev); return ev.map(function(x){return x.k+':'+x.txt;}); })()`);
+const nm=J(`(function(){ var o=warSeedCtx_('4th'); o.name='測'; o.sex='男'; o.war='4th'; o.seed=9; o.pool=warSetup_('chaos').pool.filter(function(s){return s.id==='阿爾托莉雅-Saber';}); var s=warNewGame_(o); warAct_(s,{t:'start'}); var la=s.enemies.filter(function(e){return e.hero==='蘭斯洛特-Berserker';})[0]; la.intel=1; s.phase='night'; var ev=[]; warStartBattle_(s,la,'sortie',ev); return ev.map(function(x){return x.k+':'+x.txt;}); })()`);
 t(nm.some(x=>/^meet:黑色的狂戰士一看見阿爾托莉雅/.test(x)), '蘭斯洛特遇上阿爾托莉雅：開場那一句點名她', JSON.stringify(nm));
 const mt=J(`(function(){ var s=warNewGame_(__o); warAct_(s,{t:'start'}); var k=s.enemies.filter(function(e){return e.hero==='佐佐木小次郎-Assassin';})[0]; k.intel=1; s.phase='night'; var ev=[]; warStartBattle_(s,k,'sortie',ev); return ev.map(function(x){return x.txt;}).join(''); })()`);
 t(/山門前的石階上/.test(mt) && mt.indexOf('小次郎')<0, '開場一句有原作味、不洩真名', mt);

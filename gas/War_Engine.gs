@@ -33,18 +33,18 @@ var WAR_ = {
   NEWS_REVEAL: 0.5,      // 早報裡交手的兩方，各有幾成機會被你記下職階與位置
   BOUNTY_DAY: 3,         // 教會在第幾天早上發出討伐令
   SORTIE_SHOW: 3,        // 夜晚直接列出幾個出擊目標，其餘收進「其他目標」
-  CURSE_HEAL: 0.5,       // 必滅黃薔薇的傷：下手的人還活著時，回復只剩這麼多
   SEAL_NP_COST: 30       // 寶具還在冷卻、用令咒硬放：御主拿自己的魔力去填，御主扣這麼多（原作士郎硬撐寶具差點送命）
 };
 
 // 教會討伐令（原作：第四次綺禮為連續孩童失蹤案懸賞 Caster；第五次 Caster 在城裡吸取居民的精氣）。打倒目標的人多得一劃令咒。
 var WAR_BOUNTY_ = {
   cls: 'Caster',
-  why: { '4th': '冬木的連續孩童失蹤案', '5th': '城裡接連有人昏倒的怪事' }
+  why: { '4th': '冬木的連續孩童失蹤案', '5th': '城裡接連有人昏倒的怪事', chaos: '城裡接連有人失蹤的怪事' }
 };
 
-// 最後一夜在哪裡：照原作，第五次是柳洞寺（大聖杯在圓藏山地底），第四次是新都的冬木市民會館。
+// 最後一夜在哪裡：照原作，第五次是柳洞寺（大聖杯在圓藏山地底），第四次是新都的冬木市民會館。混亂照大聖杯所在。
 var WAR_FINAL_ = {
+  chaos: { place: '柳洞寺', arrive: '剩下的從者陸續來到寺院', next: '石階上又來了一位從者' },
   '5th': { place: '柳洞寺', arrive: '剩下的從者陸續來到寺院', next: '石階上又來了一位從者' },
   '4th': { place: '冬木市民會館', arrive: '剩下的從者陸續來到會館', next: '大廳裡又來了一位從者' }
 };
@@ -52,7 +52,36 @@ function warFinal_(st) { return WAR_FINAL_[st && st.war] || WAR_FINAL_['5th']; }
 
 // 每場戰爭各自的節奏。brawl＝敵人夜裡撞見彼此時動手的機率（乘上個性的出手慾）：
 //   第四次只剩六組對手，互打太兇就只剩收尾給你；第五次八組，互相消耗是撐起中盤的東西。模擬器量過（CODE_NOTES『WAR_』）。
-var WAR_PACE_ = { '5th': { brawl: 0.85 }, '4th': { brawl: 0.45 } };
+var WAR_PACE_ = { '5th': { brawl: 0.95 }, '4th': { brawl: 0.55 }, chaos: { brawl: 0.75 } };
+
+// 玩家是額外加入的一組主從：原作陣容一個都不拿掉，你只能召喚不在這場戰爭的從者（混亂隨機除外）。
+// 混亂隨機：從全部從者抽 size 位當對手（有原作御主的帶上御主），沒有原作事件、沒有晚登場。
+var WAR_CHAOS_ = { size: 7, locs: ['冬木·深山町', '冬木·新都', '未遠川', '冬木大橋', '柳洞寺', '言峰教會', '穗群原學園'] };
+var WAR_WARS_ = ['5th', '4th', 'chaos'];
+// 開局要的名冊（唯一出口：GAS、重新召喚、模擬器都走這裡）：{ pool, roster, seeds, masterNames, chaos }
+function warSetup_(war) {
+  var seeds = {}, masterNames = {};
+  SEED_SERVANTS.forEach(function (s) { seeds[s.id] = s; });
+  SEED_MASTERS.forEach(function (m) { masterNames[m.id] = m.name; });
+  var all = SEED_SERVANTS.filter(function (s) { return s.cls !== '御主'; });
+  if (war === 'chaos') {
+    var roster = [], seen = {};
+    FATE_5TH_ROSTER.concat(FATE_4TH_ROSTER).forEach(function (r) {
+      if (seen[r.hero]) return; seen[r.hero] = 1;
+      roster.push({ master: r.master, masterLabel: r.masterLabel, hero: r.hero, loc: r.loc });
+    });
+    all.forEach(function (s, i) { if (!seen[s.id]) roster.push({ master: null, hero: s.id, loc: WAR_CHAOS_.locs[i % WAR_CHAOS_.locs.length] }); });
+    return { pool: all, roster: roster, seeds: seeds, masterNames: masterNames, chaos: true };
+  }
+  var canon = war === '4th' ? FATE_4TH_ROSTER : FATE_5TH_ROSTER;
+  var inWar = {}; canon.forEach(function (r) { inWar[r.hero] = 1; });
+  return { pool: all.filter(function (s) { return !inWar[s.id]; }), roster: canon, seeds: seeds, masterNames: masterNames, chaos: false };
+}
+// 這場戰爭的原作參戰者（玩家不能召喚）。混亂隨機沒有。
+function warCanonHeroes_(war) {
+  if (war === 'chaos') return [];
+  return (war === '4th' ? FATE_4TH_ROSTER : FATE_5TH_ROSTER).map(function (r) { return r.hero; });
+}
 function warPace_(st) { return WAR_PACE_[st && st.war] || WAR_PACE_['5th']; }
 
 // 職階：敵人的個性（aggr 越高越愛出手）。技能不看職階，看每位從者自己的技能（WAR_SKILL_）。
@@ -103,7 +132,7 @@ function warAggr_(e) { var t = warTemper_(e); return t.aggr !== undefined ? t.ag
 //   weakAlways         不必看穿真名也打得中弱點　　clash  寶具對轟時多幾分
 //   vs                 只對身上帶這個旗標的對手生效（限 dmgDealt／npDealt）　　fromSex  只對這個性別的攻擊生效（限 Taken）
 //   lock               對手身上帶這個旗標就撤退不了　　nullDef  對手的 Taken 減傷／閃避對我無效
-//   curse              我打中的傷，我還活著時對方只能好一半（必滅黃薔薇）
+//   curse              我打中的那些傷，我還活著時對方好不了（必滅黃薔薇：記實際傷害量，壓低回血上限）
 //   veil               試探與打聽看不穿我的真名（放寶具還是會曝光）　　divine  神性（給 lock／vs 認的旗標，本身不改數字）
 //   技能沒有對應的列＝逸話：照樣列在角色身上（畫面標「逸話」），不影響戰鬥。
 var WAR_FORESEE_ = { txt: '看得出寶具預兆・較不易被擊中', seeNp: 1, npTaken: 0.8, hitTaken: 0.88 };
@@ -141,7 +170,7 @@ var WAR_SKILL_ = {
   godslayer: { txt: '對有神性的對手，攻擊與寶具傷害提高', vs: 'divine', dmgDealt: 1.25, npDealt: 1.25 },
   ubw: { txt: '寶具對轟時佔優', clash: 1 },
   rho_aias: { txt: '受到的寶具傷害減少', npTaken: 0.8 },
-  gae_dearg: { txt: '紅槍破除對手的防禦加護；黃槍劃下的傷，持有者還在就只能好一半', nullDef: 1, curse: 1 },
+  gae_dearg: { txt: '紅槍破除對手的防禦加護；黃槍劃下的傷，持有者還在就癒合不了', nullDef: 1, curse: 1 },
   zabaniya_many: { txt: '分裂成數十個自己：打聽時多查兩處', scoutExtra: 2 },
   zabaniya_heart: { txt: '掏出心臟的鏡像：寶具傷害提高', npDealt: 1.2 },
   shapeshift: { txt: '變換身形：受到的傷害減少', dmgTaken: 0.9, npTaken: 0.9 },
@@ -268,8 +297,12 @@ function warSummon_(st, o) {
   var seed = warPick_(st, pool.length ? pool : (o.pool || []));
   st.sv = warUnit_(seed, {});
   st.enemies = [];
-  (o.roster || []).forEach(function (r, i) {
-    if (r.hero === seed.id) return;
+  var roster = (o.roster || []).filter(function (r) { return r.hero !== seed.id; });
+  if (o.chaos) {   // 混亂隨機：洗牌後抽 size 位，原作的晚登場與開場事件都不帶
+    for (var k = roster.length - 1; k > 0; k--) { var j = Math.floor(warRand_(st) * (k + 1)), t = roster[k]; roster[k] = roster[j]; roster[j] = t; }
+    roster = roster.slice(0, WAR_CHAOS_.size).map(function (r) { return { master: r.master, masterLabel: r.masterLabel, hero: r.hero, loc: r.loc }; });
+  }
+  roster.forEach(function (r, i) {
     var hs = (o.seeds || {})[r.hero];
     if (!hs) return;
     st.enemies.push(warUnit_(hs, {
@@ -288,7 +321,7 @@ function warButtons_(st) {
     B.push({ t: 'reroll', label: '重新召喚', sub: '剩 ' + st.rerolls + ' 次', dis: st.rerolls <= 0 });
   } else if (st.phase === 'day') {
     B.push({ t: 'scout', label: '打聽', sub: '探查敵方位置或真名' });
-    B.push({ t: 'rest', label: '休養', sub: sv.cursedBy ? '從者與御主恢復（傷口受詛咒，只好一半）' : '從者與御主恢復' });
+    B.push({ t: 'rest', label: '休養', sub: sv.curseDmg ? '從者與御主恢復（黃槍之傷 ' + sv.curseDmg + ' 好不了）' : '從者與御主恢復' });
     B.push({ t: 'supply', label: '補魔', sub: sv.noNp ? '從者少量恢復' : sv.cd > 0 ? (sv.cd <= WAR_.SUPPLY_CD ? '寶具今晚可用' : '寶具冷卻 −' + WAR_.SUPPLY_CD + ' 夜') : '寶具已就緒・少量恢復' });
   } else if (st.phase === 'night' && st.day >= WAR_.NIGHTS) {
     var left = warArrived_(st).filter(function (e) { return !e.fake; }).length;
@@ -712,8 +745,8 @@ function warStrike_(st, X, Y, ev) {
     X.fired = true;
     X.u.cd = warNpCd_(X.u);
     var nd = Math.round(warNpDmg_(X, Y) * guard * home * warMul_(X.u, 'npDealt', Y.u) * warMul_(Y.u, 'npTaken', X.u));
-    var npStood = warApply_(st, Y, nd);
-    warCurse_(st, X, Y, ev);
+    var np0 = Y.u.hp, npStood = warApply_(st, Y, nd);
+    warCurse_(st, X, Y, ev, npStood === 'life' ? 0 : Math.max(0, np0 - Y.u.hp));
     ev.push({ k: 'np', side: X.side, txt: warWho_(st, X) + '解放寶具「' + X.u.npName + '」。' + (guard < 1 ? warWho_(st, Y) + '有所防備，傷害減半，' : warWho_(st, Y)) + warHurtWord_(Y.u) + '。', num: '−' + nd });
     if (npStood) warStoodEv_(st, Y, ev, npStood);
     warBreak_(st, X, Y, ev);
@@ -726,19 +759,21 @@ function warStrike_(st, X, Y, ev) {
   if (!hit) { ev.push({ k: 'miss', side: X.side, txt: warWho_(st, X) + (probe ? '的試探' : '的攻擊') + '被' + warWho_(st, Y) + '擋下了。' }); return; }
   var d = warNormalDmg_(st, X, Y) * (probe ? WAR_.PROBE : 1) * (X.seal ? 1.5 : 1) * (X.ambush ? warMul_(X.u, 'ambushDmg') : 1) * guard * home * warMul_(Y.u, 'dmgTaken', X.u);
   d = Math.max(WAR_.DMG_MIN, Math.round(d));
-  var hitStood = warApply_(st, Y, d);
-  warCurse_(st, X, Y, ev);
+  var hp0 = Y.u.hp, hitStood = warApply_(st, Y, d);
+  warCurse_(st, X, Y, ev, hitStood === 'life' ? 0 : Math.max(0, hp0 - Y.u.hp));
   var how = X.ambush ? '以「' + warSkName_(X.u, 'ambush') + '」奇襲，擊中了' : (probe ? '試探出手，擦中了' : '正面攻擊，擊中了');
   ev.push({ k: 'hit', side: X.side, txt: warWho_(st, X) + how + warWho_(st, Y) + '，對方' + warHurtWord_(Y.u) + '。', num: '−' + d });
   if (hitStood) warStoodEv_(st, Y, ev, hitStood);
   if (Y.side === 'me' && X.u.cls === 'Assassin') warMasterHit_(st, WAR_.ASSASSIN_MASTER_HIT, ev);
 }
 
-// 必滅黃薔薇（curse）：打中的那位，下手的人還活著就只能好一半；下手的人倒下就解除（warApply_）。
-function warCurse_(st, X, Y, ev) {
-  if (!warFlag_(X.u, 'curse') || Y.u.hp <= 0 || Y.u.cursedBy === X.u.hero) return;
+// 必滅黃薔薇（curse）：這一擊實際造成的傷記進 curseDmg，這部分好不了（回血上限＝最大血量−curseDmg）；下手的人倒下就解除（warApply_）。
+function warCurse_(st, X, Y, ev, dealt) {
+  if (!warFlag_(X.u, 'curse') || Y.u.hp <= 0 || !(dealt > 0)) return;
+  var first = !Y.u.curseDmg;
   Y.u.cursedBy = X.u.hero;
-  ev.push({ k: 'skill', side: X.side, txt: warWho_(st, Y) + '身上留下了「' + warSkName_(X.u, 'curse') + '」的傷，只要' + warWho_(st, X) + '還在，這道傷就好不全。' });
+  Y.u.curseDmg = Math.min(Y.u.mhp - 1, (Y.u.curseDmg || 0) + dealt);
+  if (first) ev.push({ k: 'skill', side: X.side, txt: warWho_(st, Y) + '被「' + warSkName_(X.u, 'curse') + '」劃開的傷口癒合不了——只要' + warWho_(st, X) + '還在，這道傷就一直在。' });
 }
 // 寶具帶著破戒（breakFx）：打中的那位這場戰鬥技能全失。
 function warBreak_(st, X, Y, ev) {
@@ -763,7 +798,7 @@ function warApply_(st, Y, d) {
   if (u.hp <= 0 && warFlag_(u, 'lastStand') && !u.saved && before > u.mhp * 0.25) { u.saved = true; u.hp = 1; stood = 'stand'; }
   if (u.hp <= 0 && Y.side !== 'me') {
     u.alive = false;
-    [st.sv].concat(st.enemies).forEach(function (x) { if (x && x.cursedBy === u.hero) delete x.cursedBy; });   // 詛咒隨下手的人一起消失
+    [st.sv].concat(st.enemies).forEach(function (x) { if (x && x.cursedBy === u.hero) { delete x.cursedBy; delete x.curseDmg; } });   // 詛咒隨下手的人一起消失
   }
   return stood;
 }
@@ -820,7 +855,8 @@ function warRetreatChance_(u, o, seal) {
   if (warSkRows_(o).some(function (r) { return r.lock && warFlag_(u, r.lock); })) return 0;
   return warClamp_(WAR_.RETREAT_BASE + (u.spd - o.spd) * WAR_.RETREAT_PER_SPD + warAdd_(u, 'retreat') - warAdd_(o, 'chase'), WAR_.RETREAT_MIN, WAR_.RETREAT_MAX);
 }
-function warHeal_(u, pct) { var before = u.hp; u.hp = Math.min(u.mhp, u.hp + Math.round(u.mhp * pct * (u.cursedBy ? WAR_.CURSE_HEAL : 1))); return u.hp - before; }
+// 回血：必滅黃薔薇的傷（curseDmg）那一段好不了。
+function warHeal_(u, pct) { var before = u.hp, cap = u.mhp - (u.cursedBy ? (u.curseDmg || 0) : 0); u.hp = Math.max(u.hp, Math.min(cap, u.hp + Math.round(u.mhp * pct))); return u.hp - before; }
 function warHealMaster_(st, n) { var m = st.master, before = m.hp; m.hp = Math.min(m.mhp, m.hp + n); return m.hp - before; }
 
 // 勝算：雙方各要幾回合打倒對方，比一比。
@@ -946,6 +982,9 @@ function warDebrief_(st) {
 // 畫面上的說明（開局表單、怎麼玩）要引用的規則數字：只從 WAR_ 拿，前端不另寫一份。
 function warRules_(st) {
   var r = { nights: WAR_.NIGHTS, seals: WAR_.SEALS, rounds: WAR_.ROUNDS, npCd: WAR_.NP_COOLDOWN, supplyCd: WAR_.SUPPLY_CD, sealNpCost: WAR_.SEAL_NP_COST };
+  // 開局表單要的：各戰爭對手幾組、哪些原作參戰者召喚不到
+  r.rosters = { '5th': FATE_5TH_ROSTER.length, '4th': FATE_4TH_ROSTER.length, chaos: WAR_CHAOS_.size };
+  r.canonHeroes = { '5th': warCanonHeroes_('5th'), '4th': warCanonHeroes_('4th'), chaos: [] };
   if (st) r.finalPlace = warFinal_(st).place;
   return r;
 }
@@ -957,7 +996,7 @@ function warView_(st) {
   var view = {
     phase: st.phase, day: Math.min(st.day, WAR_.NIGHTS), nights: WAR_.NIGHTS, nightsLeft: Math.max(0, WAR_.NIGHTS - st.day + 1),
     master: { name: st.master.name, hp: st.master.hp, mhp: st.master.mhp, seals: st.master.seals },
-    sv: { cls: sv.cls, name: sv.name, npName: sv.npName, hp: sv.hp, mhp: sv.mhp, cd: sv.cd, npPassive: !!sv.noNp, traits: warTraits_(sv), exposed: st.exposed },
+    sv: { cls: sv.cls, name: sv.name, npName: sv.npName, hp: sv.hp, mhp: sv.mhp, cd: sv.cd, npPassive: !!sv.noNp, curseDmg: sv.curseDmg || 0, traits: warTraits_(sv), exposed: st.exposed },
     foes: foes.filter(function (e) { return e.intel >= 1; }).map(function (e) { return warFoeCard_(st, e); }),
     unknown: warArrived_(st).filter(function (e) { return e.intel === 0; }).length,
     alive: warShownCount_(st),

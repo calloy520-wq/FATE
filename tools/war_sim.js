@@ -10,16 +10,18 @@ const ctxStubs={PropertiesService:{getScriptProperties:()=>({getProperty:()=>''}
 for (const f of ['Core_Settings.gs','Seed_Codex.gs','Seed_Rivals.gs','War_Engine.gs','War_Forge.gs']) vm.runInContext(fs.readFileSync(GAS+'/'+f,'utf8'),ctx,{filename:f});
 const E=(c)=>vm.runInContext(c,ctx);
 if (process.env.TUNE) vm.runInContext(process.env.TUNE, ctx);
-const pool=E('SEED_SERVANTS').filter(s=>s.cls!=='御主');
-const seeds={}; E('SEED_SERVANTS').forEach(s=>seeds[s.id]=s);
+const WAR=process.env.WAR||'5th';   // 5th／4th／chaos
+const SETUP=E(`warSetup_(${JSON.stringify(WAR)})`);   // 跟 GAS 開局同一支：原作陣容全員在、玩家只能召喚不在這場的
+const pool=SETUP.pool.slice();
+const seeds=SETUP.seeds;
 // 工房做的從者：跟 actionWarForgeSave 寫進英靈殿的形狀一樣（職階技能自動附上）。
 function custom(six,cls,fx){ cls=cls||'Saber'; const id='自製-'+cls+'-'+JSON.stringify(six)+'-'+(fx||[]).join('+'); if(seeds[id]) return id;
   const c={id,cls,realName:'自製',six,np:'自製之技（'+six['寶具']+'）',classSkills:E('FORGE_CLS_SKILLS_')[cls]||[],skills:(fx||[]).map(f=>({n:f,r:'B',fx:f}))}; pool.push(c); seeds[id]=c; return id; }
 let CUSTOM_ID=''; if (process.env.CUSTOM) CUSTOM_ID=custom(JSON.parse(process.env.CUSTOM),process.env.CLS,(process.env.CSK||'').split(',').filter(Boolean));
-const masterNames={}; E('SEED_MASTERS').forEach(m=>masterNames[m.id]=m.name);
-const WAR=process.env.WAR||'5th';
-const roster=E(WAR==='4th'?'FATE_4TH_ROSTER':'FATE_5TH_ROSTER');
-const newGame=(seed,hero)=>{ const p=hero?pool.filter(s=>s.id===hero):pool; const st=ctx.warNewGame_({pool:p,roster,seeds,masterNames,name:'測試',sex:'男',war:WAR,seed});
+const masterNames=SETUP.masterNames;
+const roster=SETUP.roster;
+// HERO 指定一位原作參戰者（例如第五次的 Saber）照樣跑得動，但那不是玩家拿得到的組合，只拿來對照。
+const newGame=(seed,hero)=>{ const p=hero?(pool.filter(s=>s.id===hero).length?pool.filter(s=>s.id===hero):[seeds[hero]]):pool; const st=ctx.warNewGame_({pool:p,roster,seeds,masterNames,chaos:SETUP.chaos,name:'測試',sex:'男',war:WAR,seed});
   if (process.env.BLANK) { Object.assign(st.sv,{atk:3.9,def:3.5,spd:3.9,np:4.1,mhp:210,hp:210,fx:[],skn:{}}); }
   if (process.env.PSK) process.env.PSK.split(',').filter(Boolean).forEach(k=>{ st.sv.fx.push(k); st.sv.skn[k]='測'; });
   if (process.env.ESK) st.enemies.forEach(e=>{ e.fx=process.env.ESK.split(',').filter(Boolean); e.skn={}; });

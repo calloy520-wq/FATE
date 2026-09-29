@@ -6,7 +6,7 @@ let CAP=null, OUT='大河「押忍！」<br><br>伊莉雅「下次先試探。�
 ctx.__CAP3__=o=>{CAP=o;}; ctx.__OUT3__=()=>OUT;
 evalIn('callGeminiAPI=function(p,s,c){ __CAP3__({p:p,s:s,c:c}); return __OUT3__(); }');
 const run=u=>JSON.parse(evalIn('handleGameAction('+JSON.stringify(JSON.stringify(u))+')'));
-evalIn(`var __o = warSeedCtx_('5th'); __o.name='測'; __o.sex='男'; __o.seed=11; __o.pool=__o.pool.filter(function(s){return s.id==='阿爾托莉雅-Saber';});`);
+evalIn(`var __o = warSeedCtx_('5th'); __o.name='測'; __o.sex='男'; __o.seed=11; __o.pool=warSetup_('chaos').pool.filter(function(s){return s.id==='阿爾托莉雅-Saber';});`);
 // 造一個在戰鬥中輸掉的局：setup 在開戰後、敗北前改狀態
 const lose=(setup)=>JSON.parse(E(`JSON.stringify((function(){ var s=warNewGame_(__o); warAct_(s,{t:'start'}); warAct_(s,{t:'rest'});
   var e=s.enemies[0]; e.intel=1; warAct_(s,{t:'sortie',id:e.id}); ${setup||''}; s.sv.hp=0; var ev=[]; warCheckEnd_(s,ev); return warDebrief_(s); })())`));

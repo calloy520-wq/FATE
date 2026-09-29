@@ -74,7 +74,7 @@ t(fin.stats.battles>0, '這一局真的打過仗（'+fin.stats.battles+' 場）'
 
 console.log('\n── ⑧ 引擎規則');
 const E=c=>evalIn(c);
-evalIn(`var __o = warSeedCtx_('5th'); __o.name='測'; __o.sex='男'; __o.seed=42;`);
+evalIn(`var __o = warSeedCtx_('5th'); __o.name='測'; __o.sex='男'; __o.seed=42; __o.pool=__o.pool.filter(function(s){return s.id==='伊斯坎達爾-Rider';});`);
 const g1=E('JSON.stringify((function(){ var s=warNewGame_(__o); warAct_(s,{t:"start"}); warAct_(s,{t:"scout"}); return s; })())');
 const g2=E('JSON.stringify((function(){ var s=warNewGame_(__o); warAct_(s,{t:"start"}); warAct_(s,{t:"scout"}); return s; })())');
 t(g1===g2, '同一顆種子、同樣的按法 → 一模一樣的戰局（可重現）');
@@ -105,7 +105,7 @@ const fin3=JSON.parse(E(`JSON.stringify((function(){ var s=warNewGame_(__o); war
 t(fin3.full&&!fin3.melee, '只剩一位：養好傷、寶具就緒，沒有混戰', JSON.stringify(fin3));
 
 console.log('\n── ⑩ 原作技能：讀種子，不看職階；一張表、固定時機');
-const sk=JSON.parse(E(`JSON.stringify((function(){ var o=warSeedCtx_('5th'); var m={}; o.pool.forEach(function(s){ var u=warUnit_(s); m[s.id]={fx:u.fx, n:u.skn}; }); return m; })())`));
+const sk=JSON.parse(E(`JSON.stringify((function(){ var o=warSetup_('chaos'); var m={}; o.pool.forEach(function(s){ var u=warUnit_(s); m[s.id]={fx:u.fx, n:u.skn}; }); return m; })())`));
 const has=(id,fx)=>sk[id].fx.indexOf(fx)>=0;
 t(has('阿爾托莉雅-Saber','first_strike') && sk['阿爾托莉雅-Saber'].n.first_strike==='直感' && has('阿爾托莉雅-Saber','ride'), 'Saber：直感、騎乘（她自己的技能、名字照原作）', JSON.stringify(sk['阿爾托莉雅-Saber']));
 t(has('庫丘林-Lancer','survive') && !has('迪盧木多-Lancer','survive'), '戰鬥續行只有庫丘林有，迪盧木多沒有', JSON.stringify([sk['庫丘林-Lancer'],sk['迪盧木多-Lancer']]));
