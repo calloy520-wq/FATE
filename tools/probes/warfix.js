@@ -189,4 +189,8 @@ const SQ=J(`(function(){ var o=warSeedCtx_('5th'); o.name='測'; o.sex='男'; o.
   var a=sub(); warArrived_(s).forEach(function(e){ e.intel=2; }); var b=sub(); return [a,b]; })()`);
 t(SQ[0]==='探查敵方位置或真名'&&SQ[1]==='場上的敵人都查清了','打聽的說明照實講：場上的敵人都查清了就直說（不讓玩家白按）',SQ.join(' / '));
 
+const RS=J(`(function(){ var o=warSeedCtx_('5th'); o.name='測'; o.sex='男'; o.seed=8; var s=warNewGame_(o); warAct_(s,{t:'start'}); var sub=function(){ return warButtons_(s).filter(function(b){return b.t==='rest';})[0].sub; };
+  s.sv.hp=s.sv.mhp; s.master.hp=s.master.mhp; var a=sub(); s.sv.hp=s.sv.mhp-10; var b=sub(); s.sv.hp=s.sv.mhp; s.master.hp-=5; var c=sub(); return [a,b,c]; })()`);
+t(RS[0]==='從者與御主都沒有傷'&&RS[1]==='從者與御主恢復'&&RS[2]==='從者與御主恢復','休養的說明照實講：兩邊都沒傷就直說',RS.join(' / '));
+
 console.log(bad ? '❌ '+bad+' 條失敗' : '✅ warfix.js '+ok+' 條全過');

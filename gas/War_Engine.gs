@@ -366,7 +366,8 @@ function warButtons_(st) {
   } else if (st.phase === 'day') {
     var sc = warScoutable_(st);
     B.push({ t: 'scout', label: '打聽', sub: sc.hidden.length || sc.known1.length ? '探查敵方位置或真名' : '場上的敵人都查清了' });
-    B.push({ t: 'rest', label: '休養', sub: sv.curseDmg ? '從者與御主恢復（黃槍之傷 ' + sv.curseDmg + ' 好不了）' : '從者與御主恢復' });
+    var full = sv.hp >= sv.mhp - (sv.cursedBy ? (sv.curseDmg || 0) : 0) && st.master.hp >= st.master.mhp;
+    B.push({ t: 'rest', label: '休養', sub: full ? '從者與御主都沒有傷' : sv.curseDmg ? '從者與御主恢復（黃槍之傷 ' + sv.curseDmg + ' 好不了）' : '從者與御主恢復' });
     B.push({ t: 'supply', label: '補魔', sub: sv.noNp ? '從者少量恢復' : sv.cd > 0 ? (sv.cd <= WAR_.SUPPLY_CD ? '寶具今晚可用' : '寶具冷卻 −' + WAR_.SUPPLY_CD + ' 夜') : '寶具已就緒・少量恢復' });
   } else if (st.phase === 'night' && st.day >= warNights_(st)) {
     var left = warArrived_(st).filter(function (e) { return !e.fake; }).length;
