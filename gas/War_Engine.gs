@@ -98,23 +98,35 @@ function warClass_(cls) { return WAR_CLASS_[cls] || { aggr: 0.5 }; }
 //   aggr 出手慾（取代職階值）　guard 守在原地：不夜襲你、不撤退（別人找上門照樣打）　noRetreat 不撤退
 //   scout 奉命偵察：第一回合試探，打不贏就撤　nemesis 看到這位英靈就會找上門　findMul 找到你據點的機率 ×
 //   meet 交手時的開場一句（不寫真名）
+// know＝原作的舊識：你的從者是這一位時，第一次撞見改說這句（{sv}＝你的從者）。
 var WAR_TEMPER_ = {
   '佐佐木小次郎-Assassin': { guard: 1, meet: '山門前的石階上，有人背著長刀靜靜等著。' },
-  '吉爾伽美什-Archer': { aggr: 0.3, noRetreat: 1, meet: '對方一臉不屑，像在看一場無聊的餘興。' },
-  '庫丘林-Lancer': { scout: 1, meet: '對方沒有急著分勝負，先打量了你們一眼。' },
+  '吉爾伽美什-Archer': { aggr: 0.3, noRetreat: 1, meet: '對方一臉不屑，像在看一場無聊的餘興。',
+    know: { '伊斯坎達爾-Rider': '金色的英靈看見{sv}，罕見地笑出聲來，像是認出了一位老對手。',
+      '恩奇都-Lancer': '金色的英靈看見{sv}，那張傲慢的臉第一次失去了表情。',
+      '阿爾托莉雅-Saber': '金色的英靈看見{sv}，眼神裡多了一分興味，像看見一件想收進寶庫的寶物。' } },
+  '庫丘林-Lancer': { scout: 1, meet: '對方沒有急著分勝負，先打量了你們一眼。',
+    know: { '斯卡哈-Lancer': '青衣的槍兵看見{sv}，臉色一下子白了，握槍的手不自覺地緊了緊。', '斯卡哈-Assassin': '青衣的槍兵看見{sv}那身打扮，愣了好一會兒才想起要舉槍。' } },
   '蘭斯洛特-Berserker': { nemesis: '阿爾托莉雅-Saber', nemesisMeet: '黑色的狂戰士一看見{sv}，發出了嘶吼。' },
   '百貌哈桑-Assassin': { findMul: 2, meet: '四周的暗處不只一道氣息。' },
-  '阿爾托莉雅-Saber': { noRetreat: 1, meet: '對方握著看不見的武器，正面擺開了架勢。' },
+  '阿爾托莉雅-Saber': { noRetreat: 1, meet: '對方握著看不見的武器，正面擺開了架勢。',
+    know: { '蘭斯洛特-Berserker': '劍之從者看見{sv}身上纏著的黑霧，握劍的手停了一瞬。', '伊斯坎達爾-Rider': '劍之從者看見{sv}，挺直了背，像是要把那場問答的答案重新說一遍。' } },
   '赫拉克勒斯-Berserker': { noRetreat: 1, meet: '白髮的少女站在巨人身旁，提起裙襬行了個禮。' },
   '美杜莎-Rider': { aggr: 0.35, meet: '對方身後的少年先開了口，話說得比從者還多。' },
-  'EMIYA-Archer': { meet: '遠處的高樓上閃過一道反光，箭比腳步聲先到。' },
+  'EMIYA-Archer': { meet: '遠處的高樓上閃過一道反光，箭比腳步聲先到。',
+    know: { '阿爾托莉雅-Saber': '紅衣的弓兵看見{sv}，停了一拍才舉起弓。' } },
   '美狄亞-Caster': { aggr: 0.2, meet: '空氣裡飄著細細的魔力絲線，這一帶早就是對方的地盤。' },
-  '迪盧木多-Lancer': { meet: '對方沒有躲藏，堂堂正正地站在路中央等你們。' },
-  '伊斯坎達爾-Rider': { meet: '雷鳴由遠而近，駕著戰車的巨漢大笑著要你們報上名來。' },
-  '吉爾德萊-Caster': { meet: '潮濕的腥味裡，有什麼東西在暗處蠕動。' },
+  '迪盧木多-Lancer': { meet: '對方沒有躲藏，堂堂正正地站在路中央等你們。',
+    know: { '阿爾托莉雅-Saber': '槍兵看見{sv}，按著胸口行了一個騎士的禮，才把兩把槍握緊。' } },
+  '伊斯坎達爾-Rider': { meet: '雷鳴由遠而近，駕著戰車的巨漢大笑著要你們報上名來。',
+    know: { '吉爾伽美什-Archer': '巨漢一見{sv}就大笑起來，扛出酒桶，說打之前先喝一杯。', '阿爾托莉雅-Saber': '巨漢打量著{sv}，搖了搖頭，像是還在為那場問答惋惜。' } },
+  '吉爾德萊-Caster': { meet: '潮濕的腥味裡，有什麼東西在暗處蠕動。',
+    know: { '阿爾托莉雅-Saber': '長袍的從者一看見{sv}就跪了下來，淚流滿面地喊著一個不屬於{sv}的名字。' } },
   '咒腕之哈桑-Assassin': { meet: '白骨面具在黑暗裡浮現，纏著繃帶的右臂一圈一圈鬆開。' },
-  '恩奇都-Lancer': { meet: '綠髮的從者靜靜站著，腳邊的地面浮出一圈又一圈的鎖鏈。' },
-  '斯卡哈-Lancer': { meet: '紫髮的女槍兵把兩把紅槍扛在肩上，像在打量今晚的教材夠不夠格。' },
+  '恩奇都-Lancer': { meet: '綠髮的從者靜靜站著，腳邊的地面浮出一圈又一圈的鎖鏈。',
+    know: { '吉爾伽美什-Archer': '綠髮的從者看見{sv}，靜靜地笑了，鎖鏈在腳邊一圈圈收緊。' } },
+  '斯卡哈-Lancer': { meet: '紫髮的女槍兵把兩把紅槍扛在肩上，像在打量今晚的教材夠不夠格。',
+    know: { '庫丘林-Lancer': '紫髮的女槍兵看見{sv}，露出了師父檢查功課時的笑容。' } },
   '斯卡哈-Assassin': { meet: '海風裡混著一絲殺氣，穿泳裝的紫髮女人從暗處走出來，手上的紅槍還在滴水。' }
 };
 function warTemper_(e) { return (e && WAR_TEMPER_[e.hero]) || {}; }
@@ -666,7 +678,9 @@ function warStartBattle_(st, e, ctx, ev) {
   st.sv.saved = false; e.saved = false; st.sv.broken = false; e.broken = false;
   warUnmask_(st, e, ev);
   var tp = warTemper_(e);
-  if (firstMeet && tp.nemesis && st.sv.hero === tp.nemesis && tp.nemesisMeet) ev.push({ k: 'meet', txt: tp.nemesisMeet.replace('{sv}', st.sv.name) });
+  var known = firstMeet && tp.know && tp.know[st.sv.hero];   // 原作的舊識：對方認得你的從者
+  if (known) ev.push({ k: 'meet', txt: known.replace('{sv}', st.sv.name) });
+  else if (firstMeet && tp.nemesis && st.sv.hero === tp.nemesis && tp.nemesisMeet) ev.push({ k: 'meet', txt: tp.nemesisMeet.replace('{sv}', st.sv.name) });
   else if (firstMeet && (e.alter && (WAR_ALTER_[e.hero] || {}).meet || tp.meet)) ev.push({ k: 'meet', txt: e.alter && (WAR_ALTER_[e.hero] || {}).meet || tp.meet });   // 黑化後換一句
   st.battle.ambush = ctx === 'sortie' && warFlag_(st.sv, 'ambush');
   st.battle.foeAmbush = ctx === 'defend' && warFlag_(e, 'ambush');   // 帶著氣息遮斷摸上門來的，一樣先手

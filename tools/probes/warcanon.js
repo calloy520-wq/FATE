@@ -156,4 +156,9 @@ console.log('── 打聽不再白挑擋住的 Saber');
 { const T=JSON.parse(E('JSON.stringify(WAR_TEMPER_)')), ids=E('SEED_SERVANTS').filter(s=>s.cls!=='御主').map(s=>s.id);
   const miss=ids.filter(id=>!(T[id]&&(T[id].meet||T[id].nemesisMeet)));
   t(miss.length===0,'每位種子從者都有第一次撞見時的那一句',miss.join('、')); }
+{ const J=x=>JSON.parse(E('JSON.stringify('+x+')'));
+  const meet=h=>J(`(function(){ var o=warSetup_('5th'); o.name='測'; o.sex='男'; o.war='5th'; o.seed=2; o.route='fate'; o.pool=warSetup_('chaos').pool.filter(function(s){return s.id==='${h}';});
+    var s=warNewGame_(o); warAct_(s,{t:'start'}); var g=s.enemies.filter(function(e){return e.hero==='吉爾伽美什-Archer';})[0]; g.arrive=1; g.intel=1; s.phase='night'; var ev=[]; warStartBattle_(s,g,'sortie',ev); return ev.filter(function(x){return x.k==='meet';}).map(function(x){return x.txt;}); })()`);
+  const a=meet('伊斯坎達爾-Rider'), b=meet('斯卡哈-Lancer');
+  t(a.length===1&&/老對手/.test(a[0])&&/伊斯坎達爾/.test(a[0])&&b.length===1&&/無聊的餘興/.test(b[0]),'原作的舊識：征服王撞見吉爾伽美什換一句（別的從者照舊）',a.concat(b).join(' / ')); }
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);
