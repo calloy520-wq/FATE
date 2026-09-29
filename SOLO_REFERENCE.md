@@ -85,4 +85,4 @@ summon（開戰／重新召喚 1 次）
 ## 8. 驗證
 
 - `bash check.sh`（必跑）。
-- scratchpad 探針：`size/war.js`／`warlore.js`／`warend.js`／`warskill2.js`；平衡 `tools/war_sim.js`；畫面 `war/shotall.js`／`uiplay.js`／`fuzz.js`。
+- 探針：`bash tools/probes/run.sh`（war／warlore／warend／warskill2／warcanon／warzero／forgeai…）；平衡 `tools/war_sim.js`；畫面截圖做法見 PLAYBOOK「用瀏覽器真的看畫面」。

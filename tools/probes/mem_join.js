@@ -1,0 +1,23 @@
+// 鑑賞記憶：這一段才走進來的人寫得進回憶／點到名的待命者有卡／真名寫回得進去
+const P=require('./probe.js'); const {ctx,evalIn,sheets,run}=P;
+const C=JSON.parse(evalIn('JSON.stringify(COL.PC)'));
+let CAP=null, FB=null; ctx.__CAP__=o=>{CAP=o;}; ctx.__FB__=()=>JSON.stringify(FB);
+evalIn('callGeminiAPI=function(p,s,c){ __CAP__({p:p,s:s,c:c}); return __FB__(); }');
+const base=(npcs,extra)=>Object.assign({narration:"x",options:["a","b","c","d","e","f"],intimacy_feedback:{player:{physical_state:"",appearance_extras:""},npcs:npcs||[]},world_note:[],scene:"",cast:{join:[],leave:[]}},extra||{});
+sheets['帳號']._d.push(['風音','','2026-09-15','']);
+const kpc=run({action:'enter_kanshou',acctName:'風音',pcName:'風音',pcSex:'女'}).pcId;
+for (const id of ['遠坂凜-Master','間桐櫻黑化-Master','庫丘林-Lancer']) run({action:'kanshou_summon_hero',acctName:'風音',pcId:kpc,heroId:id});
+const d=sheets['鑑賞眾生']._d; const me=()=>d.find(x=>String(x[C.ID])===kpc);
+const row=n=>d.find(x=>String(x[C.NAME])===n && String(x[C.GAME_ID])===String(me()[C.GAME_ID]));
+const play=(m,fb)=>{ FB=fb||base(); CAP=null; run({action:'play',pcId:kpc,acctName:'風音',message:m}); return {u:String(CAP&&CAP.p||''),s:String(CAP&&CAP.s||'')}; };
+const party=(op,n)=>run({action:'kanshou_party',pcId:kpc,acctName:'風音',op:op,npcId:n?String(row(n)[C.ID]):''});
+const ok=(c,m)=>console.log((c?'✅ ':'❌ ')+m);
+party('drop','櫻');
+let r=play('我去找櫻。');
+const roster=(r.u.match(/★【這座城裡還住著】[\s\S]*?(?=\n★|\n【|$)/)||[''])[0];
+ok(/櫻。女/.test(roster), '點到名的待命者附上人物卡');
+ok(!/凜。女/.test(roster), '沒點到名的不附卡');
+play('一起走吧。', base([{name:'櫻',memory:'你特地跑來找我，說想見我'}],{cast:{join:['櫻'],leave:[]}}));
+ok(/特地跑來找我/.test(String(row('櫻')[C.MEMOIR]||'')), '這一段才走進來的人，回憶寫得進去');
+play('我跟LANCER聊天。', base([{name:'庫·丘林',memory:'你陪我去釣了一整個下午的魚'}]));
+ok(/釣了一整個下午/.test(String(row('LANCER')[C.MEMOIR]||'')), 'AI 用真名回寫，記到暱稱那個人身上');

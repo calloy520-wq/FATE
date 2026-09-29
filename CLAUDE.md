@@ -62,7 +62,7 @@
 - **新寫掃描器一定要注入一次退化確認它會叫**——不會叫的掃描器比沒有更糟。
 - **敘事排版**：印【說書人】一律走 `Script.html` 的 `aiHtml_(text)`（escape 全部 → 只放回 `<br>`），不要手刻。
 - **台灣繁體**：repo 裡的字也要繁體（`check_simp`）。
-- 暫存檔放 scratchpad，不污染 repo。
+- 探針（假試算表跑真的路由，40 支）：**`bash tools/probes/run.sh`**，上線前跑；平衡：`node tools/war_sim.js`。暫存檔放 scratchpad，不污染 repo。
 
 ## 🧭 紀律
 

@@ -1,0 +1,13 @@
+const P=require('./probe.js'); const {ctx,evalIn,sheets,run}=P;
+const C=JSON.parse(evalIn('JSON.stringify(COL.PC)'));
+let CAP=null; ctx.__CAP__=o=>{CAP=o;};
+evalIn('callGeminiAPI=function(p,s,c){ __CAP__({p:p,s:s,c:c}); return JSON.stringify({narration:"x",intimacy_feedback:{npcs:[]},cast:{join:[],leave:[]}}); }');
+sheets['帳號']._d.push(['乙','','2026-09-15','']); sheets['帳號']._d.push(['甲','','2026-09-15','']);
+const kb=run({action:'enter_kanshou',acctName:'乙',pcName:'乙',pcSex:'男'}).pcId;
+run({action:'kanshou_summon_hero',acctName:'乙',pcId:kb,heroId:'遠坂凜-Master'});
+const ka=run({action:'enter_kanshou',acctName:'甲',pcName:'甲',pcSex:'男'}).pcId;
+run({action:'kanshou_summon_hero',acctName:'甲',pcId:ka,heroId:'遠坂凜-Master'});
+CAP=null; run({action:'play',pcId:ka,acctName:'甲',message:'早安'});
+const u=String(CAP.p);
+const L=(u.match(/★【誰走得掉】[^\n]*/)||[''])[0];
+console.log(L ? '❌ 別帳號同名同伴把我的同行者標成可離開：'+L : '✅ 別帳號同名同伴不影響我的【誰走得掉】');

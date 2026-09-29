@@ -1,0 +1,30 @@
+// 🧠 思考預設關；模型回「Reasoning is mandatory」就退到 low 再送一次並加回額度。
+process.env.GAS_PROPS=JSON.stringify({OPENROUTER_API_KEY:'k'});
+const P=require('./probe.js'); const {evalIn,ctx}=P;
+let ok=0,bad=0; const t=(c,l,x)=>{ if(c){ok++;console.log('   ✅ '+l);} else {bad++;console.log('   ❌ '+l+(x?'  '+String(x).slice(0,220):''));} };
+const SENT=[]; ctx.__SENT__=SENT;
+evalIn('Utilities.sleep=function(){};');
+// probe.js 把 callGeminiAPI 整支換成攔截樁，這裡把真的那支從原始碼撈回來
+const fs=require('fs'); const src=fs.readFileSync((process.env.GAS_DIR||require('path').join(__dirname,'../../gas'))+'/Engine_Combat.gs','utf8');
+const a=src.indexOf('function callGeminiAPI('), b=src.indexOf('\nfunction ', a+10);
+evalIn('callGeminiAPI = '+src.slice(a, b>0?b:undefined).replace(/^\/\/[^\n]*\n(?=var|function)/gm,'').split('\nvar ')[0]);
+evalIn(`UrlFetchApp.fetch=function(url,opt){ const p=JSON.parse(opt.payload); __SENT__.push(p);
+  if (p.reasoning && p.reasoning.effort==='none' && __SENT__.mandatory) return {getContentText:()=>JSON.stringify({error:{message:'Reasoning is mandatory for this endpoint and cannot be disabled.',code:400}})};
+  return {getContentText:()=>JSON.stringify({choices:[{finish_reason:'stop',message:{content:'{"narration":"ok","options":[]}'}}],usage:{}})}; }`);
+console.log('\n── ① 一般模型：思考關、一次成功');
+SENT.length=0; SENT.mandatory=false;
+let r=evalIn('callGeminiAPI("hi", "sys", {retries:3, max_tokens:2400, model:"m/a", fallbackModel:""})');
+t(SENT.length===1 && SENT[0].reasoning.effort==='none' && SENT[0].reasoning.exclude===true, 'payload 帶 reasoning none／exclude', JSON.stringify(SENT[0].reasoning));
+t(SENT[0].max_tokens===2400, 'max_tokens 照原值');
+console.log('\n── ② 思考關不掉的模型：400 → 退到 low、加回額度、只多送一次');
+SENT.length=0; SENT.mandatory=true;
+r=evalIn('callGeminiAPI("hi", "sys", {retries:3, max_tokens:2400, model:"m/a", fallbackModel:""})');
+t(SENT.length===2, '總共送兩次（不是 retries 三次）', SENT.length);
+t(SENT[1].reasoning.effort==='low' && SENT[1].reasoning.exclude===true, '第二次 effort=low', JSON.stringify(SENT[1].reasoning));
+t(SENT[1].max_tokens===2400+Number(evalIn('REASONING_ALLOWANCE_')), '第二次 max_tokens 加回思考額度', SENT[1].max_tokens);
+t(/"narration":"ok"/.test(String(r)), '第二次成功、正常回傳', String(r).slice(0,80));
+console.log('\n── ③ config.reasoning 可覆寫');
+SENT.length=0; SENT.mandatory=false;
+evalIn('callGeminiAPI("hi", "sys", {retries:1, model:"m/a", fallbackModel:"", reasoning:{effort:"high"}})');
+t(SENT[0].reasoning.effort==='high', '呼叫端指定的 reasoning 原樣送出');
+console.log(bad ? '❌ '+bad+' 條失敗' : '✅ reason.js '+ok+' 條全過');

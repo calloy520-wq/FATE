@@ -1,0 +1,23 @@
+// 共同回憶：回想時叫得回來、一次送不超過上限、早期的里程碑不被日常擠掉
+const P=require('./probe.js'); const {ctx,evalIn,sheets,run}=P;
+const C=JSON.parse(evalIn('JSON.stringify(COL.PC)'));
+let CAP=null, FB=null; ctx.__CAP__=o=>{CAP=o;}; ctx.__FB__=()=>JSON.stringify(FB);
+evalIn('callGeminiAPI=function(p,s,c){ __CAP__({p:p,s:s,c:c}); return __FB__(); }');
+const base=(npcs)=>({narration:"x",options:["a","b","c","d","e","f"],intimacy_feedback:{player:{},npcs:npcs||[]},world_note:[],scene:"",cast:{join:[],leave:[]}});
+sheets['帳號']._d.push(['風音','','2026-09-15','']);
+const kpc=run({action:'enter_kanshou',acctName:'風音',pcName:'風音',pcSex:'女'}).pcId;
+run({action:'kanshou_summon_hero',acctName:'風音',pcId:kpc,heroId:'遠坂凜-Master'});
+const d=sheets['鑑賞眾生']._d; const rin=()=>d.find(x=>String(x[C.NAME])==='凜');
+const play=(m,fb)=>{FB=fb||base();CAP=null;run({action:'play',pcId:kpc,acctName:'風音',message:m});return String(CAP.p);};
+const ok=(c,m)=>console.log((c?'✅ ':'❌ ')+m);
+const line=u=>(u.match(/凜：[^\n]*/)||[''])[0];
+play('x',base([{name:'凜',memory:'我們第一次接吻，在雪夜的橋上'}]));
+const daily=['一起去超市買了晚餐的食材','在公園餵了一群鴿子','一起看了一部老電影','下雨天共撐一把傘回家','我幫凜整理了書架','一起做了咖哩','陪凜去買新的髮帶','在河堤邊散步到天黑','一起打掃了庭院','凜教我泡紅茶','我說下週有期末考很緊張'];
+daily.forEach(m=>play('x',base([{name:'凜',memory:m}])));
+ok(/接吻/.test(rin()[C.MEMOIR]), '寫了 11 條日常之後，第一次接吻還在');
+ok(!/一起走過/.test(line(play('早安。'))), '普通的一句話不帶回憶（不固化）');
+let L=line(play('妳還記得那天嗎？'));
+ok(/一起走過/.test(L), '「還記得那天嗎」叫得回回憶');
+const n=(L.match(/一起走過：([^。]*)。/)||['',''])[1].split('；').filter(Boolean).length;
+ok(n>0 && n<=3, '一次最多送 3 條（這次 '+n+' 條）');
+ok(/接吻/.test(line(play('想再接吻一次'))), '提到關鍵詞就亮那一條');
