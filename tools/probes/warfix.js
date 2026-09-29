@@ -185,4 +185,8 @@ const LF=J(`(function(){ var same=0, tot=0; for(var i=0;i<200;i++){ var o=warSee
     var k=s.engaged.indexOf(a.id); if(k>=0&&k%2===0){ tot++; if(s.engaged[k+1]===b.id) same++; } } return {same:same,tot:tot}; })()`);
 t(LF.tot>10&&LF.same===0,'敵人互打：昨夜才打過的那一對，今晚有別人可挑就不再碰頭',JSON.stringify(LF));
 
+const SQ=J(`(function(){ var o=warSeedCtx_('5th'); o.name='測'; o.sex='男'; o.seed=8; var s=warNewGame_(o); warAct_(s,{t:'start'}); var sub=function(){ return warButtons_(s).filter(function(b){return b.t==='scout';})[0].sub; };
+  var a=sub(); warArrived_(s).forEach(function(e){ e.intel=2; }); var b=sub(); return [a,b]; })()`);
+t(SQ[0]==='探查敵方位置或真名'&&SQ[1]==='場上的敵人都查清了','打聽的說明照實講：場上的敵人都查清了就直說（不讓玩家白按）',SQ.join(' / '));
+
 console.log(bad ? '❌ '+bad+' 條失敗' : '✅ warfix.js '+ok+' 條全過');

@@ -364,7 +364,8 @@ function warButtons_(st) {
     B.push({ t: 'start', label: '開戰', sub: '進入第 1 天' });
     B.push({ t: 'reroll', label: '重新召喚', sub: '剩 ' + st.rerolls + ' 次', dis: st.rerolls <= 0 });
   } else if (st.phase === 'day') {
-    B.push({ t: 'scout', label: '打聽', sub: '探查敵方位置或真名' });
+    var sc = warScoutable_(st);
+    B.push({ t: 'scout', label: '打聽', sub: sc.hidden.length || sc.known1.length ? '探查敵方位置或真名' : '場上的敵人都查清了' });
     B.push({ t: 'rest', label: '休養', sub: sv.curseDmg ? '從者與御主恢復（黃槍之傷 ' + sv.curseDmg + ' 好不了）' : '從者與御主恢復' });
     B.push({ t: 'supply', label: '補魔', sub: sv.noNp ? '從者少量恢復' : sv.cd > 0 ? (sv.cd <= WAR_.SUPPLY_CD ? '寶具今晚可用' : '寶具冷卻 −' + WAR_.SUPPLY_CD + ' 夜') : '寶具已就緒・少量恢復' });
   } else if (st.phase === 'night' && st.day >= warNights_(st)) {
@@ -525,12 +526,16 @@ function warUnmask_(st, e, ev) {
 }
 
 // ── 白天 ──────────────────────────────────────────────
+// 打聽還查得到什麼：位置不明的（hidden）、知道職階但真名未明的（known1；已知被風王結界擋住的不算，那句只講一次）。
+function warScoutable_(st) {
+  var a = warArrived_(st).filter(function (e) { return !e.fake; });
+  return { hidden: a.filter(function (e) { return e.intel === 0; }),
+    known1: a.filter(function (e) { return e.intel === 1 && !(e.veilSeen && warFlag_(e, 'veil')); }) };
+}
 function warDoDay_(st, act, ev) {
   var sv = st.sv;
   if (act.t === 'scout') {
-    var hidden = warArrived_(st).filter(function (e) { return e.intel === 0 && !e.fake; });
-    // 深挖真名：已經知道被風王結界擋住的那位，不再白白挑它（那句只講一次）
-    var known1 = warArrived_(st).filter(function (e) { return e.intel === 1 && !e.fake && !(e.veilSeen && warFlag_(e, 'veil')); });
+    var sc = warScoutable_(st), hidden = sc.hidden, known1 = sc.known1;
     var got = false;
     var tries = 1 + warAdd_(sv, 'scoutExtra'), lost = 0;
     for (var n = 0; n < tries && hidden.length; n++) {
