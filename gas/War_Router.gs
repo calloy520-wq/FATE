@@ -253,9 +253,16 @@ var WAR_NARR_SYS_ = '《命運停駐之夜》說書人。Fate／TYPE-MOON 的筆
   + '6. 角色的個性從言行裡透出來，照 Fate 原作的認知演。\n'
   + '7. 只輸出敘事本文。';
 
+// 每場戰爭給說書的時代與身分（玩家是原作陣容之外多出來的一組）。加一場＝加一鍵。
+var WAR_ERA_ = {
+  '5th': '第五次聖杯戰爭，原作 Fate/stay night 的冬木。原作的七組主從都在，你是多出來的那一組',
+  '4th': '第四次聖杯戰爭，原作 Fate/Zero、十年前的冬木。原作的七組主從都在，你是多出來的那一組',
+  chaos: '一場陣容錯亂的聖杯戰爭：第四次與第五次的主從、還有別的英靈，被聖杯一起叫進了同一個冬木'
+};
 function warNarrPrompt_(st) {
   var sv = st.sv, p = sv.card || {};
   var lines = [];
+  if (WAR_ERA_[st.war]) lines.push('【這場戰爭】' + WAR_ERA_[st.war] + '。');
   lines.push('【你的從者】' + sv.name + '（' + sv.cls + '）。' + [p.look, p.words, p.toMaster].filter(Boolean).join('。') + '。');
   lines.push('【你】' + st.master.name + '，' + st.master.sex + '性，手背上還剩 ' + st.master.seals + ' 劃令咒。'
     + (st.master.wish ? '你想向聖杯許的願：' + st.master.wish + '（藏在心裡，從你的選擇與神情透出來）' : ''));

@@ -227,7 +227,7 @@
 - `actionWarLoad`／`actionWarNew`／`actionWarAct`／`actionWarNarrate`／`actionWarQuit`（簽名 `(userData)`）— 五條路由。`war_act` 的 `act` 只收 `t/id/s/seal` 四鍵、照白名單驗。`war_load` 沒有戰局時也回 `rules`（開局表單要用）。`war_new` 收 `war`（`WAR_WARS_`）與 `heroId`；第五次／第四次指定這場的原作從者會被擋。
 - `actionWarDojo(userData)` — 🐯 老虎道場：終局才開；`warDojoPrompt_(st)` 帶戰績、輸在哪與下一局（或亮點），system＝`WAR_DOJO_SYS_`（大河＋伊莉雅的對話）；結果存在說書那一格的 `dojo`（同一局回快取，AI 沒回就不存、下次重試）。
 - `WAR_WORLD_BOOK_` — 冬木地點與戰爭規矩的觸發條目。`warLoreEntries_(st)` — 世界書＋我方從者的喜惡（種子 `book`）＋場上每一位的寶具原作描述（不寫持有者）。`warLoreStr_(st)` — 這一段事件文字碰到的條目（走鑑賞的 `loreHits_`，上限 `KANSHOU_LORE_MAX_`）→ 一行，沒有就空字串。
-- `warNarrPrompt_(st)` — 說書提示詞：從者卡（look／words／toMaster）、御主、對手（知道真名才給外貌）、此刻（事情發生的那一天、那個時候：`actionWarAct` 在結算前記下 `narr.day`／`narr.when`，時段查 `WAR_WHEN_`；召喚寫「開始前的那一夜」）、【這一段發生的事】、碰到的原作設定（`warLoreStr_`）、篇幅＋召喚／開戰的重點（`WAR_SCENE_`）；補魔段接 `sealGenderFact_`＋`LEWD_EXPLICIT_`。system＝`WAR_NARR_SYS_`。
+- `warNarrPrompt_(st)` — 說書提示詞：這場戰爭（`WAR_ERA_`：第五次／第四次＝原作陣容外多出來的一組，混亂＝陣容錯亂）、從者卡（look／words／toMaster）、御主、對手（知道真名才給外貌）、此刻（事情發生的那一天、那個時候：`actionWarAct` 在結算前記下 `narr.day`／`narr.when`，時段查 `WAR_WHEN_`；召喚寫「開始前的那一夜」）、【這一段發生的事】、碰到的原作設定（`warLoreStr_`）、篇幅＋召喚／開戰的重點（`WAR_SCENE_`）；補魔段接 `sealGenderFact_`＋`LEWD_EXPLICIT_`。system＝`WAR_NARR_SYS_`。
 
 ### War_Forge.gs（12 支函式）
 

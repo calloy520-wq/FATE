@@ -94,4 +94,8 @@ t(/剛落成/.test(f4.lore) && !/大空洞/.test(f4.lore), '第四次決戰夜�
 const f5=E(`(function(){ var s=warNewGame_(__o); warAct_(s,{t:'start'}); s.day=WAR_.NIGHTS; s.phase='night'; return warButtons_(s)[0].label; })()`);
 t(f5==='前往柳洞寺', '第五次照舊是柳洞寺');
 
+const era=w=>E(`(function(){ var o=warSeedCtx_('${w}'); o.name='測'; o.sex='男'; o.war='${w}'; o.seed=7; var s=warNewGame_(o); s.narr={seq:1,kind:'day',facts:['休息。']}; return warNarrPrompt_(s); })()`);
+const e5=era('5th'), e4=era('4th'), ec=era('chaos');
+t(/【這場戰爭】第五次.*多出來的那一組/.test(e5) && /【這場戰爭】第四次.*十年前/.test(e4) && /【這場戰爭】一場陣容錯亂/.test(ec), '說書知道是哪一場戰爭、玩家是多出來的一組', [e5,e4,ec].map(x=>(x.match(/【這場戰爭】[^\n]*/)||[''])[0]).join(' / '));
+
 console.log(bad ? '❌ '+bad+' 條失敗' : '✅ warlore.js '+ok+' 條全過');
