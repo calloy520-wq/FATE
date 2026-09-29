@@ -170,4 +170,13 @@ t(FO.length===3&&FO.every(function(x){return /最後一位從者/.test(x)&&!/剩
 const AO=J(`(function(){ var all=[WAR_FINAL_['5th'],WAR_FINAL_['4th'],WAR_FINAL_.chaos]; Object.keys(WAR_ROUTES_).forEach(function(w){ Object.keys(WAR_ROUTES_[w]).forEach(function(k){ if(WAR_ROUTES_[w][k].final) all.push(WAR_ROUTES_[w][k].final); }); }); return all.filter(function(f){ return f&&!f.arriveOne; }).length; })()`);
 t(AO===0,'每個決戰地都寫了只剩一位時的那句（arriveOne）',AO);
 
+const DU=J(`(function(){ var skip={hit:1,miss:1,np:1,clash:1,master:1,retreat:1,dawn:1,life:1,stand:1}, bad=[]; ['5th','4th','chaos'].forEach(function(w){ for(var g=0; g<25; g++){ var o=warSeedCtx_(w); o.name='測'; o.sex='男'; o.seed=70+g; var s=warNewGame_(o); var n=0;
+  while(s.phase!=='over'&&n++<300){ var bs=warButtons_(s).filter(function(b){return !b.dis;}); var b=bs.filter(function(x){return x.t==='scout';})[0]||bs[(n*5+g)%bs.length]; if(s.phase==='night'&&n%3) b=bs.filter(function(x){return x.t==='hold';})[0]||b;
+    var r=warAct_(s,{t:b.t,id:b.id,s:b.s}), seen={}; r.ev.forEach(function(x){ if(skip[x.k]) return; if(seen[x.txt]) bad.push(x.txt); seen[x.txt]=1; }); } } }); return bad.slice(0,3); })()`);
+t(DU.length===0,'整局掃三種戰爭：同一個回應裡沒有重複的敘事句（追丟幾位氣息都併成一句）',DU.join(' / '));
+
+const HS=J(`(function(){ var worst=0; for(var i=0;i<60;i++){ var o=warSeedCtx_('5th'); o.name='測'; o.sex='男'; o.seed=300+i; var s=warNewGame_(o); warAct_(s,{t:'start'}); s.sv.fx=['aim']; s.sv.skn={aim:'千里眼'};
+  s.enemies.forEach(function(e){ e.arrive=1; e.intel=0; e.fake=false; e.fx=['stealth']; e.skn={stealth:'氣息遮斷'}; }); var r=warAct_(s,{t:'scout'}); var n=r.ev.filter(function(x){return /氣息無法追蹤/.test(x.txt);}).length; worst=Math.max(worst,n); } return worst; })()`);
+t(HS===1,'一次打聽追丟好幾位帶氣息遮斷的：只講一句（「有 N 位從者的氣息無法追蹤」）',HS);
+
 console.log(bad ? '❌ '+bad+' 條失敗' : '✅ warfix.js '+ok+' 條全過');

@@ -532,14 +532,15 @@ function warDoDay_(st, act, ev) {
     // 深挖真名：已經知道被風王結界擋住的那位，不再白白挑它（那句只講一次）
     var known1 = warArrived_(st).filter(function (e) { return e.intel === 1 && !e.fake && !(e.veilSeen && warFlag_(e, 'veil')); });
     var got = false;
-    var tries = 1 + warAdd_(sv, 'scoutExtra');
+    var tries = 1 + warAdd_(sv, 'scoutExtra'), lost = 0;
     for (var n = 0; n < tries && hidden.length; n++) {
       var h = warPick_(st, hidden);
       hidden = hidden.filter(function (x) { return x !== h; });
-      if (warRand_(st) < warAdd_(h, 'hideScout')) { ev.push({ k: 'intel', txt: '有一位從者的氣息無法追蹤。' }); continue; }
+      if (warRand_(st) < warAdd_(h, 'hideScout')) { lost++; continue; }
       h.intel = 1; got = true;
       ev.push({ k: 'intel', txt: '打聽到' + h.loc + '一帶有一位 ' + h.cls + '。' });
     }
+    if (lost) ev.push({ k: 'intel', txt: '有' + (lost > 1 ? ' ' + lost + ' ' : '一') + '位從者的氣息無法追蹤。' });   // 追丟幾位都併成一句
     if (got) {
       if (known1.length && warRand_(st) < WAR_.SCOUT_DEEP) got = warReveal_(st, warPick_(st, known1), ev) || got;
     } else if (!hidden.length && known1.length && warRand_(st) < 0.7) {
