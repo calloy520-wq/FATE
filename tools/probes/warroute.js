@@ -18,6 +18,9 @@ console.log('── 抽線');
   t(rows.every(r=>(r.kill||[]).concat(r.alter||[]).every(h=>(r.need||[]).indexOf(h)>=0)),'kill／alter 點名的從者都列在 need（這一幕的主角；master／move／reveal 可以點名不一定在場的人）');
   t(rows.every(r=>(r.alter||[]).every(h=>A[h])),'alter 的從者在 WAR_ALTER_ 有樣子'); }
 
+{ const hint=r=>{ const st=mk('5th',r,3); return toDay(st,5).map(x=>x.txt).join('\n'); };
+  const f=hint('fate'), u=hint('ubw'), h=hint('hf');
+  t(/望著月亮/.test(f)&&!/望著月亮/.test(u+h)&&/吵了一架/.test(u)&&!/吵了一架/.test(f+h)&&/黑色污漬/.test(h)&&!/黑色污漬/.test(f+u),'每條線各有一句自己的伏筆（別條線不會出現）'); }
 console.log('── 不外洩：遊戲中看不到路線');
 { const st=mk('5th','hf'); const v=JSON.stringify(c.warView_(st));
   t(!/Heaven|hf|route/.test(v),'畫面資料沒有路線');
