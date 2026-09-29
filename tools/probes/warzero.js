@@ -33,6 +33,18 @@ t(R.out.some(x=>/海特飯店/.test(x))&&dl.loc==='廢棄工廠','第 5 天：�
 R=run('4th',11); const gd=R.st.enemies.find(e=>e.hero==='吉爾德萊-Caster'), la=R.st.enemies.find(e=>e.hero==='蘭斯洛特-Berserker');
 t(R.out.some(x=>/黑霧般的騎士/.test(x))&&la.intel>=1,'第四次第 3 天：黑騎士接住金色英靈的寶具擲回去');
 t(R.out.some(x=>/海魔/.test(x))&&gd.intel===2&&gd.loc==='未遠川','第四次第 10 天：未遠川的海魔，吉爾德萊真名曝光、據點移到河上',JSON.stringify({i:gd.intel,l:gd.loc}));
+R=run('4th',14); { const E4=h=>R.st.enemies.find(e=>e.hero===h), all=R.out.join('\n');
+  const bh=E4('百貌哈桑-Assassin');
+  t(!bh.alive&&bh.canonDead&&/沒有退場/.test(all)&&/征服王的軍勢把他們全數踏平/.test(all),'第四次第 8 天：假死的百貌哈桑在聖杯問答現身，被王之軍勢踏平');
+  t(!E4('迪盧木多-Lancer').alive&&!E4('吉爾德萊-Caster').alive&&!E4('伊斯坎達爾-Rider').alive,'迪盧木多被令咒逼死、元帥沉進未遠川、征服王倒在冬木大橋');
+  t(!E4('蘭斯洛特-Berserker').alive&&E4('蘭斯洛特-Berserker').intel===2,'地下停車場：Saber 叫出蘭斯洛特的名字');
+  t(E4('阿爾托莉雅-Saber').alive&&E4('吉爾伽美什-Archer').alive,'照原作走到最後：剩 Saber 與金色的王');
+  const iri=['站不穩','下不了床','擄走'].map(k=>R.out.filter(x=>new RegExp(k).test(x)&&/白髮的女性|白髮女性/.test(x)).length);
+  t(iri.join()==='1,2,1','愛麗絲菲爾：倒下的越多越虛弱，三段各發一次（第二段的句子在第三段也提到下不了床）',iri.join()); }
+{ const st=mk('4th',emiya); c.warAct_(st,{t:'start'}); const dl=st.enemies.find(e=>e.hero==='迪盧木多-Lancer'); dl.hp=1; c.warApply_(st,{u:dl,side:'foe'},99);
+  for(let d=0;d<9;d++){ st.phase='night'; st.battle=null; c.warMorning_(st,[]); }
+  c.warOver_(st,false,'timeout',[]); const d=c.warDebrief_(st);
+  t(d.route&&d.route.label===''&&d.route.rewrote.indexOf('被令咒逼死的騎士')>=0,'第四次沒有路線，但結局照樣列出你改寫了哪一幕',JSON.stringify(d.route)); }
 R=run('5th',6); const md=R.st.enemies.find(e=>e.hero==='美狄亞-Caster');
 t(R.out.some(x=>/集體昏睡/.test(x))&&md.intel>=1,'第五次第 5 天：新都集體昏睡，線頭通往柳洞寺');
 const st4=mk('4th',emiya); c.warAct_(st4,{t:'start'}); st4.enemies.find(e=>e.hero==='伊斯坎達爾-Rider').alive=false; const ev4=[]; st4.day=1; st4.phase='night'; c.warMorning_(st4,ev4);

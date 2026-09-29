@@ -55,7 +55,7 @@ function warRoute_(st) { var R = warRoutes_(st && st.war); return R && st.route 
 
 // 每場戰爭各自的節奏。brawl＝敵人夜裡撞見彼此時動手的機率（乘上個性的出手慾）：
 //   第四次只剩六組對手，互打太兇就只剩收尾給你；第五次八組，互相消耗是撐起中盤的東西。模擬器量過（CODE_NOTES『WAR_』）。
-var WAR_PACE_ = { '5th': { brawl: 0.95 }, '4th': { brawl: 0.55 }, chaos: { brawl: 0.75 } };
+var WAR_PACE_ = { '5th': { brawl: 0.95 }, '4th': { brawl: 0.2 }, chaos: { brawl: 0.75 } };
 
 // 玩家是額外加入的一組主從：原作陣容一個都不拿掉，你只能召喚不在這場戰爭的從者（混亂隨機除外）。
 // 混亂隨機：從全部從者抽 size 位當對手（有原作御主的帶上御主），沒有原作事件、沒有晚登場。
@@ -395,15 +395,20 @@ function warDoSummon_(st, act, ev, o) {
 // 早報裡的原作事件（WAR_CANON_EVENTS_）：涉及的從者都還是活著、登場了的敵人才發生；效果只動情報與據點。
 function warCanonEvents_(st, ev) {
   var list = typeof WAR_CANON_EVENTS_ !== 'undefined' ? WAR_CANON_EVENTS_ : [];
-  var byHero = function (h) { return st.enemies.filter(function (e) { return e.hero === h && e.alive && !e.fake && e.arrive <= st.day; })[0]; };
+  var fallen = st.enemies.filter(function (e) { return !e.alive; }).length;
   list.forEach(function (c) {
-    if (c.war !== st.war || c.day !== st.day || (c.route && c.route !== st.route)) return;
+    if (c.war !== st.war || (c.route && c.route !== st.route)) return;
+    // day＝到了那天；fallen＝倒下的從者累積到幾位（只發一次，記在 st.done）
+    if (c.fallen ? (fallen < c.fallen || (st.done || []).indexOf(c.id) >= 0) : c.day !== st.day) return;
+    var byHero = function (h) { return st.enemies.filter(function (e) { return e.hero === h && e.alive && (c.unmask || !e.fake) && e.arrive <= st.day; })[0]; };
     var need = c.need || [];
     if (!need.every(function (h) { return !!byHero(h); })) {
       // 涉及的從者已經先倒下（不是照原作倒的）：這一幕被改寫了
       if (c.short && need.some(function (h) { return st.enemies.some(function (e) { return e.hero === h && !e.alive && !e.canonDead; }); })) (st.rewrote = st.rewrote || []).push(c.short);
       return;
     }
+    if (c.fallen) (st.done = st.done || []).push(c.id);
+    if (c.unmask) need.forEach(function (h) { warUnmask_(st, byHero(h), ev); });   // 假死的那位在這一幕現身
     Object.keys(c.reveal || {}).forEach(function (h) { var e = byHero(h); if (e) e.intel = Math.max(e.intel, c.reveal[h]); });
     Object.keys(c.move || {}).forEach(function (h) { var e = byHero(h); if (e) e.loc = c.move[h]; });
     Object.keys(c.master || {}).forEach(function (h) { var e = byHero(h); if (e) e.master = c.master[h]; });
@@ -1027,8 +1032,8 @@ function warDebrief_(st) {
     stats: { battles: S.battles || 0, kills: S.kills || 0, np: S.np || 0, seals: S.seals || 0, reveals: o.reveals, retreats: S.retreats || 0 },
     good: WAR_DOJO_GOOD_.filter(function (g) { return g.when(st); }).slice(0, 3).map(function (g) { return warFill_(g.txt, o); })
   };
-  var rt = warRoute_(st);
-  if (rt) d.route = { label: rt.label, rewrote: (st.rewrote || []).slice() };   // 結局才揭曉：這一局走的線、改寫了原作的哪幾幕
+  var rt = warRoute_(st), rw = (st.rewrote || []).slice();
+  if (rt || rw.length) d.route = { label: rt ? rt.label : '', rewrote: rw };   // 結局才揭曉：這一局走的線（第五次）、改寫了原作的哪幾幕
   if (!R.win) {
     var L = WAR_DOJO_LOSS_.filter(function (x) { return x.when(st, R); })[0];
     d.key = L.key; d.fact = warFill_(L.fact, o); d.lesson = warFill_(L.lesson, o);

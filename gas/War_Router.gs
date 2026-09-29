@@ -184,7 +184,8 @@ function warDojoPrompt_(st) {
   lines.push('戰績：打了 ' + S.battles + ' 場、打倒 ' + S.kills + ' 位、放了 ' + S.np + ' 次寶具、令咒用了 ' + S.seals + ' 劃、看穿 ' + S.reveals + ' 位的真名、撤退 ' + S.retreats + ' 次。');
   if (!d.win) lines.push('輸在：' + d.fact + '。\n下一局要改的一件事：' + d.lesson + '。');
   if (d.good.length) lines.push('做得好的地方：' + d.good.join('；') + '。');
-  if (d.route) lines.push('這一局的世界線：' + d.route.label + (d.route.rewrote.length ? '；原作的「' + d.route.rewrote.join('」「') + '」這幾幕沒有發生——涉及的從者先倒下了。伊莉雅順口揭曉這條線、點評這幾處改寫。' : '。伊莉雅順口揭曉這條線。'));
+  if (d.route && d.route.label) lines.push('這一局的世界線：' + d.route.label + '。伊莉雅順口揭曉這條線。');
+  if (d.route && d.route.rewrote.length) lines.push('原作的「' + d.route.rewrote.join('」「') + '」這幾幕沒有發生——涉及的從者先倒下了。伊莉雅點評這幾處改寫。');
   lines.push(d.win
     ? '★約 150～220 字。①大河誇張地慶祝，順便邀功 ②伊莉雅嘴上毒舌，點名一件做得好的事 ③大河用自己的方式恭喜御主。'
     : '★約 150～220 字。①大河開場吐槽兼打氣 ②伊莉雅點破輸在哪，針對「下一局要改的一件事」給一條具體的建議 ③大河收尾打氣，喊御主再來挑戰。');

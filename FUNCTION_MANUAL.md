@@ -206,7 +206,7 @@
 - `warAutoBattle_(st, a, b, ev)` — 敵對敵，最多三回合；有人倒下直接寫進早報，沒人倒下的交給 `warMorning_` 併句（兩位同職階都沒看穿時寫成「另一位」）。
 - `warHitChance_(x, y)`／`warMult_(X, Y)`／`warNormalDmg_(st, X, Y)`／`warNpDmg_(X, Y)`／`warRetreatChance_(u, o, seal)` — 命中、倍率、傷害、撤退。`warMult_` 看穿真名或帶 `weakAlways`（王之財寶）就乘弱點；`warRetreatChance_` 遇到對手的 `lock`（天之鎖）而自己帶那個旗標（神性）時回 0（令咒除外）。
 - `warHeal_(u, pct)`／`warHealMaster_(st, n)` — 回血。
-- `WAR_CANON_EVENTS_`（Seed_Rivals.gs）／`warCanonEvents_(st, ev)` — 早報裡的原作事件：到了那一天、涉及的從者都還是活著登場的敵人才發生；效果：看穿（`reveal`）、搬據點（`move`）、換御主（`master`）、黑化（`alter`→`warAlter_`）、照原作倒下（`kill`→`warKill_`）、叫醒預備役（`awaken`→`warAwaken_`）；`route` 只在那條線發生。涉及的從者已經先倒下（不是劇本殺的）而演不成、又有 `short` 的，記進 `st.rewrote`。`warMorning_` 叫，叫完再判一次勝負（劇本可能收掉最後一位）。
+- `WAR_CANON_EVENTS_`（Seed_Rivals.gs）／`warCanonEvents_(st, ev)` — 早報裡的原作事件：到了那一天、涉及的從者都還是活著登場的敵人才發生；效果：看穿（`reveal`）、搬據點（`move`）、換御主（`master`）、黑化（`alter`→`warAlter_`）、照原作倒下（`kill`→`warKill_`）、叫醒預備役（`awaken`→`warAwaken_`）；`route` 只在那條線發生；`fallen`＋`id`＝不看日子，倒下的從者累積到幾位就發（只發一次，記在 `st.done`）；`unmask`＝need 裡假死的那位在這一幕現身（`warUnmask_`）。涉及的從者已經先倒下（不是劇本殺的）而演不成、又有 `short` 的，記進 `st.rewrote`。`warMorning_` 叫，叫完再判一次勝負（劇本可能收掉最後一位）。
 - `warKill_(st, e, ev)` — 照原作倒下：標 `canonDead`、至少看穿到職階、`warGone_` 善後、討伐令照樣結算；不播 `WAR_FALL_` 的餘波。`warGone_(st, u)` — 退場的共同善後（它下的詛咒跟著消失），`warApply_` 也走這支。
 - `warAwaken_(st, hero, hint)` — 把預備役（`st.reserve`，名冊列上 `reserve:true` 的，不算敵人）搬進敵方、或把還沒登場的提早，都改成明天登場；最後一夜不叫（到不了場會卡住勝負）。回傳有沒有叫到。
 - `WAR_ALTER_`（Seed_Rivals.gs）／`warAlter_(e, a)` — 黑化／被強化：攻防血照 `mul` 拉高（傷勢比例不變），`name`／`npName`／`look` 有寫才換；標 `alter`，只作用一次。
@@ -218,7 +218,7 @@
 - `warCheckEnd_(st, ev)`／`warOver_(st, win, cause, ev)` — 勝負；`warOver_` 把致命那一場的對手、看穿程度、出擊時血量、有沒有硬吃預兆記進 `result`。`warStat_(st, k)` — 戰績計數加一（舊存檔沒有的欄位從 0 起算）。
 - `warFoeCard_(st, e)` — 一位對手在畫面上的情報：intel 1 給職階、位置、傷勢、勝算；intel 2 才加真名、御主、寶具（可不可以放）、技能。
 - `WAR_DOJO_LOSS_` — 「輸在哪」表：由上往下第一條成立的（御主倒下／決戰打到天亮／致命那一場硬吃寶具預兆／沒看穿真名／帶重傷出擊／決戰夜人太多／令咒沒用／真名早曝光／一般落敗），各帶一句事實＋下一局只改的那一件事。`WAR_DOJO_GOOD_` — 亮點表（成立的全列，最多三條）。
-- `warDebrief_(st)` — 賽後一整包 `{win, day, stats, good, key?, fact?, lesson?, route?}`（`route`＝`{label, rewrote}`：這一局走的線、被改寫的原作場面，結局才揭曉）；畫面的終局卡與老虎道場讀同一份。`warRevealed_(st)`（看穿幾位）／`warFill_(t, o)`（`{名字}` 代換）。
+- `warDebrief_(st)` — 賽後一整包 `{win, day, stats, good, key?, fact?, lesson?, route?}`（`route`＝`{label, rewrote}`：這一局走的線（第五次才有 label，其餘空字串）、被改寫的原作場面，結局才揭曉）；畫面的終局卡與老虎道場讀同一份。`warRevealed_(st)`（看穿幾位）／`warFill_(t, o)`（`{名字}` 代換）。
 - `warRules_(st)` — 畫面說明要引用的規則數字（夜數、令咒、回合、寶具回魔、補魔、令咒硬放寶具的御主代價 `sealNpCost`、三場戰爭的敵方組數 `rosters`、已有御主的原作從者 `canonHeroes`），前端不另寫一份；給了 `st` 再加這場戰爭的決戰地點 `finalPlace`（`war_load` 沒開局時不給 `st`）。
 - `warView_(st)` — 畫面看得到的樣子：藏起玩家還不知道的真名／位置，附上 `buttons`、`result`、`rules`（`warRules_(st)`），終局再附 `debrief`（`warDebrief_`）。
 
