@@ -144,4 +144,13 @@ console.log('── 打聽不再白挑擋住的 Saber');
     for (var i=0;i<30;i++){ s.phase='day'; other.intel=1; var ev=[]; warDoDay_(s,{t:'scout'},ev); ev.forEach(function(x){ lines.push(x.txt); if(/遮住了兵器/.test(x.txt)) veil++; }); }
     return {first:first.length, veil:veil, seen:!!sb.veilSeen}; })()`);
   t(r.first===1&&r.seen&&r.veil===0,'第一次被風王結界擋下之後，打聽改挑別人（那句只講一次）',JSON.stringify(r)); }
+{ const J=x=>JSON.parse(E('JSON.stringify('+x+')'));
+  const n=J(`(function(){ var o=warSetup_('chaos'); o.name='測'; o.sex='男'; o.war='chaos'; o.seed=8; var s=warNewGame_(o); warAct_(s,{t:'start'}); var old=WAR_.FIND_SCOUT; WAR_.FIND_SCOUT=1; s.enemies.forEach(function(e){e.found=false;}); var ev=[]; warDoDay_(s,{t:'scout'},ev); WAR_.FIND_SCOUT=old; return ev.filter(function(x){return x.k==='watched';}).length; })()`);
+  t(n===1,'打聽時被好幾位盯上：「被人跟蹤了」只講一句',n); }
+{ const J=x=>JSON.parse(E('JSON.stringify('+x+')'));
+  const r=J(`(function(){ var o=warSetup_('chaos'); o.name='測'; o.sex='男'; o.war='chaos'; o.seed=1; o.pool=warSetup_('chaos').pool.filter(function(s){return s.id==='美杜莎-Rider';});
+    var s=warNewGame_(o); var ids=['吉爾伽美什-Archer','恩奇都-Lancer']; s.enemies=s.enemies.concat(ids.filter(function(h){return !s.enemies.some(function(e){return e.hero===h;});}).map(function(h,i){ return warUnit_(SEED_SERVANTS.filter(function(x){return x.id===h;})[0],{id:'x'+i,master:'無主',loc:'新都',arrive:1,intel:0,alive:true}); }));
+    warAct_(s,{t:'start'}); var out=[]; for (var d=0; d<4; d++){ var ev=[]; s.phase='night'; s.battle=null; warMorning_(s,ev); ev.forEach(function(x){out.push(x.txt);}); }
+    var g=s.enemies.filter(function(e){return e.hero==='吉爾伽美什-Archer';})[0]; return {hit:out.some(function(t){return /綠髮的從者/.test(t);}), intel:g.intel}; })()`);
+  t(r.hit&&r.intel>=1,'混亂隨機：吉爾伽美什與恩奇都都在場 → 第 4 天大橋上的對望（揭職階）',JSON.stringify(r)); }
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);

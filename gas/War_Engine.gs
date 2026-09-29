@@ -493,9 +493,11 @@ function warDoDay_(st, act, ev) {
     }
     if (!got) ev.push({ k: 'intel', txt: '打聽了一整天，沒有新消息。' });
     if (warAdd_(sv, 'scoutRest') > 0) { var sr = warHeal_(sv, warAdd_(sv, 'scoutRest')); warHealMaster_(st, WAR_.REST_MASTER / 2); ev.push({ k: 'rest', txt: sv.name + '獨自去打聽，你留在據點休息。', num: sr ? '從者 +' + sr : '' }); }
+    var tailed = false;   // 被幾位盯上都只講一句（知道被盯上就夠，幾位是謎）
     warArrived_(st).forEach(function (e) {
-      if (!e.found && warRand_(st) < WAR_.FIND_SCOUT) { e.found = true; ev.push({ k: 'watched', txt: '回程時似乎被人跟蹤了。' }); }
+      if (!e.found && warRand_(st) < WAR_.FIND_SCOUT) { e.found = true; tailed = true; }
     });
+    if (tailed) ev.push({ k: 'watched', txt: '回程時似乎被人跟蹤了。' });
   } else if (act.t === 'rest') {
     var a = warHeal_(sv, WAR_.REST_HEAL + warAdd_(sv, 'restHeal')), m = warHealMaster_(st, WAR_.REST_MASTER);
     ev.push({ k: 'rest', txt: sv.name + '在據點休養了一天。', num: [a ? '從者 +' + a : '', m ? '御主 +' + m : ''].filter(Boolean).join('・') });
