@@ -806,6 +806,7 @@ function warDoRound_(st, act, ev) {
   if (A.fired) { st.stats.np++; if (!st.exposed) { st.exposed = true; ev.push({ k: 'exposed', txt: '解放了寶具，己方真名曝光。' }); } }
   if (Z.fired && e.intel < 2) { e.intel = 2; ev.push({ k: 'reveal', txt: '從寶具認出了對方：「' + e.name + '」。' }); }
   if (act.s === 'probe' && A.struck && e.alive && e.intel < 2) warReveal_(st, e, ev);
+  if (!e.alive && b.chase) warStat_(st, 'chased');   // 天亮前追上去收掉的
   if (!e.alive) { st.stats.kills++; ev.push({ k: 'kill', txt: warFoeLabel_(e) + '被擊敗了。' }); warBountyEnd_(st, e, true, ev); warCanonFall_(st, e, ev); }
   if (warCheckEnd_(st, ev)) return;
   if (r.ended || !e.alive) { warEndBattle_(st, ev); return; }
@@ -1114,6 +1115,7 @@ var WAR_DOJO_GOOD_ = [
   { key: 'clean', when: function (st) { return st.result && st.result.win && st.master.seals >= WAR_.SEALS; }, txt: '未使用令咒奪得聖杯' },
   { key: 'hidden', when: function (st) { return !st.exposed && st.stats.battles > 0; }, txt: '真名始終未曝光' },
   { key: 'dodge', when: function (st) { return (st.stats.dodged || 0) > 0; }, txt: '避開寶具 {dodged} 次' },
+  { key: 'chase', when: function (st) { return (st.stats.chased || 0) > 0; }, txt: '天亮前追上去，收掉 {chased} 位' },
   { key: 'reveal', when: function (st) { return warRevealed_(st) >= 3; }, txt: '看穿 {reveals} 位從者的真名' },
   { key: 'kills', when: function (st) { return st.stats.kills >= 2; }, txt: '擊敗 {kills} 位從者' },
   { key: 'bounty', when: function (st) { return !!st.stats.bounty; }, txt: '完成教會的討伐令' }
@@ -1125,7 +1127,7 @@ function warFill_(t, o) { return String(t).replace(/\{(\w+)\}/g, function (m, k)
 function warDebrief_(st) {
   var R = st.result || {};
   var S = st.stats || {};
-  var o = { final: warFinal_(st).place, foe: R.foe ? '「' + R.foe + '」' : '對手', n: S.finalFoes || 0, seals: WAR_.SEALS, dodged: S.dodged || 0, reveals: warRevealed_(st), kills: S.kills || 0 };
+  var o = { final: warFinal_(st).place, foe: R.foe ? '「' + R.foe + '」' : '對手', n: S.finalFoes || 0, seals: WAR_.SEALS, dodged: S.dodged || 0, chased: S.chased || 0, reveals: warRevealed_(st), kills: S.kills || 0 };
   var d = {
     win: !!R.win, day: R.day || Math.min(st.day, warNights_(st)),
     stats: { battles: S.battles || 0, kills: S.kills || 0, np: S.np || 0, seals: S.seals || 0, reveals: o.reveals, retreats: S.retreats || 0 },

@@ -225,7 +225,7 @@
 - `warFoeLabel_(e)`／`warWho_(st, S)`／`warHpWord_(u)`／`warHurtWord_(u)`／`warChanceWord_(p)` — 文字（照玩家知道多少顯示）。
 - `warCheckEnd_(st, ev)`／`warOver_(st, win, cause, ev)` — 勝負；`warOver_` 把致命那一場的對手、看穿程度、出擊時血量、有沒有硬吃預兆記進 `result`。`warStat_(st, k)` — 戰績計數加一（舊存檔沒有的欄位從 0 起算）。
 - `warFoeCard_(st, e)` — 一位對手在畫面上的情報：intel 1 給職階、位置、傷勢、勝算；intel 2 才加真名、御主、寶具（可不可以放）、技能。
-- `WAR_DOJO_LOSS_` — 「輸在哪」表：由上往下第一條成立的（御主倒下／決戰打到天亮／致命那一場硬吃寶具預兆／沒看穿真名／帶重傷出擊／決戰夜人太多／令咒沒用／真名早曝光／一般落敗），各帶一句事實＋下一局只改的那一件事。`WAR_DOJO_GOOD_` — 亮點表（成立的全列，最多三條）。
+- `WAR_DOJO_LOSS_` — 「輸在哪」表：由上往下第一條成立的（御主倒下／決戰打到天亮／致命那一場硬吃寶具預兆／沒看穿真名／帶重傷出擊／決戰夜人太多／令咒沒用／真名早曝光／一般落敗），各帶一句事實＋下一局只改的那一件事。`WAR_DOJO_GOOD_` — 亮點表（由上往下成立的取前三條：沒用令咒奪杯／真名沒曝光／避開寶具／天亮追擊收掉幾位〔`stats.chased`〕／看穿真名／擊敗數／討伐令）。
 - `warDebrief_(st)` — 賽後一整包 `{win, day, stats, good, key?, fact?, lesson?, route?}`（`route`＝`{label, rewrote}`：這一局走的線（第五次才有 label，其餘空字串）、被改寫的原作場面，結局才揭曉）；畫面的終局卡與老虎道場讀同一份。`warRevealed_(st)`（看穿幾位）／`warFill_(t, o)`（`{名字}` 代換）。
 - `warRules_(st)` — 畫面說明要引用的規則數字（夜數、令咒、回合、寶具回魔、補魔、令咒硬放寶具的御主代價 `sealNpCost`、三場戰爭的敵方組數 `rosters`、已有御主的原作從者 `canonHeroes`），前端不另寫一份；給了 `st` 再加這場戰爭的決戰地點 `finalPlace`（`war_load` 沒開局時不給 `st`）。
 - `warView_(st)` — 畫面看得到的樣子：藏起玩家還不知道的真名／位置，附上 `buttons`、`result`、`rules`（`warRules_(st)`），終局再附 `debrief`（`warDebrief_`）。

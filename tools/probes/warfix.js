@@ -136,6 +136,8 @@ const L=J(`(function(){ var d=__dawn(0.2), s=d.s, m=s.master.hp; var r=warAct_(s
 t(L.phase!=='battle'&&L.m===0&&L.alive&&/晨霧/.test(L.txt),'收手：對手離開、御主不扣',JSON.stringify(L));
 const C=J(`(function(){ var d=__dawn(0.2), s=d.s, m=s.master.hp; s.exposed=false; s.out=true; var r=warAct_(s,{t:'stance',s:'chase'}); return { phase:s.battle&&s.battle.e===d.e.id?'battle':s.phase, m:m-s.master.hp, exposed:s.exposed, txt:r.ev.map(function(x){return x.txt;}).join('|') }; })()`);
 t(C.phase!=='battle'&&C.m===E('WAR_.CHASE_MASTER')&&C.exposed&&(/追上去，擊中了/.test(C.txt)||/撤退成功/.test(C.txt)),'追擊：御主扣體力、真名曝光、那一擊必中（或對方逃掉），打完就天亮',JSON.stringify(C));
+const CK=J(`(function(){ for(var i=0;i<80;i++){ var d=__dawn(0.05), s=d.s; s.out=true; s.rs=1000+i*31; warAct_(s,{t:'stance',s:'chase'}); if(!d.e.alive){ s.result={win:false}; return { n:s.stats.chased||0, good:warDebrief_(s).good.join('|') }; } } return {n:-1}; })()`);
+t(CK.n===1&&/天亮前追上去，收掉 1 位/.test(CK.good),'追擊得手會記進戰績，結局亮點列出「天亮前追上去，收掉 N 位」',JSON.stringify(CK));
 const H=J(`(function(){ var d=__dawn(0.6); return { phase:d.s.phase, txt:d.r.ev.map(function(x){return x.txt;}).join('|') }; })()`);
 t(H.phase!=='battle'&&/雙方各自撤退/.test(H.txt),'對手還有六成血：照舊天亮各自撤退',JSON.stringify(H));
 
