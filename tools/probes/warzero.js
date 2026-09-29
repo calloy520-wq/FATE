@@ -80,4 +80,13 @@ console.log('── 原作的傷');
 { const R5=run('5th',1), sb=R5.st.enemies.find(e=>e.hero==='阿爾托莉雅-Saber');
   t(sb.hp<=Math.round(sb.mhp*0.6),'第五次第 2 天：衛宮邸那一戰 Saber 帶傷（原作被紅槍刺穿）',sb.hp+'/'+sb.mhp); }
 t(evs.every(v=>Object.keys(v.hurt||{}).concat(Object.keys(v.curse||{}),Object.values(v.curse||{}),v.uncurse||[]).every(h=>allHeroes.has(h))),'傷與詛咒點名的從者都存在（改名會叫）');
+console.log('── 原作的執念');
+{ const tally=(killSaber)=>{ let init=0,onSaber=0,raid=0; for(let i=0;i<400;i++){ const st=c.warNewGame_({pool:emiya,roster:E('FATE_4TH_ROSTER'),seeds,masterNames:mn,name:'測',sex:'男',war:'4th',seed:100+i});
+    c.warAct_(st,{t:'start'}); st.day=5; st.enemies.forEach(e=>{ e.arrive=1; e.found=true; }); const la=st.enemies.find(e=>e.hero==='蘭斯洛特-Berserker'), sb=st.enemies.find(e=>e.hero==='阿爾托莉雅-Saber');
+    if(killSaber){ sb.alive=false; sb.hp=0; } st.phase='night'; st.ticked=[]; st.engaged=[]; st.hunted=false; st.out=false; st.battle=null;
+    c.warTick_(st,[]); if(st.battle&&st.battle.e===la.id) raid++; const k=st.engaged.indexOf(la.id); if(k>=0&&k%2===0&&st.engaged[k+1]!==undefined){ init++; if(st.engaged[k+1]===sb.id) onSaber++; } }
+    return {init,onSaber,raid}; };
+  const a=tally(false), b=tally(true);
+  t(a.init>20&&a.onSaber===a.init,'蘭斯洛特自己出手時，騎士王在場就一定先找她',JSON.stringify(a));
+  t(a.raid<b.raid*0.6,'騎士王在場：狂戰士少找你（騎士王倒下後才轉向你）',a.raid+' vs '+b.raid); }
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);

@@ -29,6 +29,7 @@ var WAR_ = {
   FIND_BASE: 0.10, FIND_OUT: 0.12, FIND_EXPOSED: 0.20, FIND_SCOUT: 0.05,
   HUNT: 0.7, HUNT_EXPOSED: 0.15, HUNT_WOUNDED: 0.15,
   HUNT_LATE: 0.06, FIND_LATE: 0.03,   // 每倒下一位從者，剩下的人更急著找出彼此（原作：人越少越只能再戰）
+  PREY_HUNT: 0.4,   // 原作的執念對象（nemesis）是別的敵人、還在場上：找你的慾望只剩這幾成（狂戰士眼裡只有騎士王）
   PATROL_MEET: 0.65,
   SCOUT_DEEP: 0.35,      // 打聽時順便看穿一位真名的機率
   NEWS_REVEAL: 0.5,      // 早報裡交手的兩方，各有幾成機會被你記下職階與位置
@@ -109,7 +110,7 @@ function warClass_(cls) { return WAR_CLASS_[cls] || { aggr: 0.5 }; }
 
 // 敵方從者的原作性格（鍵＝英靈殿 ID）：蓋在職階個性上。只在敵人身上生效。
 //   aggr 出手慾（取代職階值）　guard 守在原地：不夜襲你、不撤退（別人找上門照樣打）　noRetreat 不撤退
-//   scout 奉命偵察：第一回合試探，打不贏就撤　nemesis 看到這位英靈就會找上門　findMul 找到你據點的機率 ×
+//   scout 奉命偵察：第一回合試探，打不贏就撤　nemesis 原作的執念：你的從者是這位就找上門；這位是別的敵人就先找它、少找你　findMul 找到你據點的機率 ×
 //   meet 交手時的開場一句（不寫真名）
 // know＝原作的舊識：你的從者是這一位時，第一次撞見改說這句（{sv}＝你的從者）。
 var WAR_TEMPER_ = {
@@ -612,12 +613,13 @@ function warTick_(st, ev) {
     var aggr = warAggr_(e), tp = warTemper_(e);
     var fallen = st.enemies.filter(function (x) { return !x.alive; }).length;
     var nemesis = !!tp.nemesis && st.sv.hero === tp.nemesis;
+    var prey = !nemesis && tp.nemesis ? warArrived_(st).filter(function (o) { return o.hero === tp.nemesis && o.alive && st.engaged.indexOf(o.id) < 0; })[0] : null;   // 原作的執念：盯上的是別的敵人，就先找那一位
     if (!e.found) {
       var f = WAR_.FIND_BASE + (st.out ? WAR_.FIND_OUT : 0) + (st.exposed ? WAR_.FIND_EXPOSED : 0) + fallen * WAR_.FIND_LATE;
       f *= warMul_(st.sv, 'findMe') * warMul_(e, 'findThem') * (tp.findMul || 1) * (nemesis ? 3 : 1);
       if (warRand_(st) < f) e.found = true;
     }
-    var hunt = aggr * WAR_.HUNT + (st.exposed ? WAR_.HUNT_EXPOSED : 0) + (st.sv.hp < st.sv.mhp * 0.5 ? WAR_.HUNT_WOUNDED : 0) + fallen * WAR_.HUNT_LATE + (nemesis ? 0.4 : 0);
+    var hunt = (aggr * WAR_.HUNT + (st.exposed ? WAR_.HUNT_EXPOSED : 0) + (st.sv.hp < st.sv.mhp * 0.5 ? WAR_.HUNT_WOUNDED : 0) + fallen * WAR_.HUNT_LATE + (nemesis ? 0.4 : 0)) * (prey ? WAR_.PREY_HUNT : 1);
     if (!st.out && !st.hunted && e.found && !tp.guard && warRand_(st) < hunt) {
       st.hunted = true;
       e.intel = Math.max(e.intel, 1);
@@ -627,7 +629,7 @@ function warTick_(st, ev) {
     }
     if (warRand_(st) < aggr * warPace_(st).brawl) {
       var foes = warArrived_(st).filter(function (o) { return o.id !== e.id && st.engaged.indexOf(o.id) < 0; });
-      var o = warPick_(st, foes);
+      var o = prey || warPick_(st, foes);
       if (o) { st.engaged.push(e.id, o.id); warAutoBattle_(st, e, o, ev); continue; }
     }
     warHeal_(e, WAR_.ENEMY_REST_HEAL);
