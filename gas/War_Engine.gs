@@ -272,7 +272,7 @@ function warSummon_(st, o) {
     if (!hs) return;
     st.enemies.push(warUnit_(hs, {
       id: 'e' + i, master: (r.master && (o.masterNames || {})[r.master]) || r.masterLabel || '無主', loc: warLocName_(r.loc),
-      arrive: r.arriveDay || 1, hint: r.arriveHint || '', fake: !!r.fakeDeath, fakeTxt: r.fakeDeath || '', intel: 0, found: false, alive: true
+      arrive: r.arriveDay || 1, hint: r.arriveHint || '', fake: false, fakeTxt: r.fakeDeath || '', intel: 0, found: false, alive: true
     }));
   });
 }
@@ -351,8 +351,6 @@ function warDoSummon_(st, act, ev, o) {
   }
   st.phase = 'day';
   ev.push({ k: 'start', txt: '第 1 天。聖杯戰爭開始，冬木還有 ' + warAliveCount_(st) + ' 組主從。' });
-  // 原作的開場假死：大家（包括你）都以為這一位退場了，它照樣在暗處行動，第一次真的出手才露餡。
-  st.enemies.forEach(function (e) { if (e.fake) { e.intel = 1; ev.push({ k: 'news', txt: e.fakeTxt + '。' }); } });
 }
 // 早報裡的原作事件（WAR_CANON_EVENTS_）：涉及的從者都還是活著、登場了的敵人才發生；效果只動情報與據點。
 function warCanonEvents_(st, ev) {
@@ -512,6 +510,12 @@ function warMorning_(st, ev) {
   if (st.day > WAR_.NIGHTS) { warOver_(st, false, 'timeout', ev); return; }
   st.enemies.forEach(function (e) {
     if (e.alive && e.arrive === st.day && st.day > 1) ev.push({ k: 'arrive', txt: (e.hint || '有新的從者進入冬木') + '。' });
+  });
+  // 原作的開場假死（第一夜的事，第二天早報才知道）：大家都以為這一位退場了，它照樣在暗處行動，第一次真的出手才露餡。
+  //   第一夜就跟它交過手的話，這場戲演不成，跳過。
+  if (st.day === 2) st.enemies.forEach(function (e) {
+    if (!e.fakeTxt || !e.alive || (st.met || []).indexOf(e.id) >= 0) return;
+    e.fake = true; e.intel = Math.max(e.intel, 1); ev.push({ k: 'news', txt: e.fakeTxt + '。' });
   });
   warCanonEvents_(st, ev);
   ev.push({ k: 'morning', txt: '第 ' + st.day + ' 天早晨。剩 ' + (WAR_.NIGHTS - st.day + 1) + ' 夜，敵方剩 ' + warShownCount_(st) + ' 位。' });
