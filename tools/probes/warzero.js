@@ -26,7 +26,7 @@ console.log('── 原作事件表');
 const emiya=E('SEED_SERVANTS').filter(s=>s.id==='EMIYA-Archer');
 const run=(war,days)=>{ const st=mk(war,emiya); c.warAct_(st,{t:'start'}); const out=[]; for(let d=0;d<days;d++){ const ev=[]; st.phase='night'; st.battle=null; c.warMorning_(st,ev); out.push(...ev.map(x=>x.txt)); } return {st,out}; };
 let R=run('5th',3); const hb=R.st.enemies.find(e=>e.hero==='赫拉克勒斯-Berserker');
-t(R.out.some(x=>/白髮的少女/.test(x))&&hb.intel>=1,'第五次第 2 天：坡道上的伊莉雅（看穿職階與據點）',JSON.stringify(R.out));
+t(R.out.some(x=>/白髮的少女/.test(x))&&hb.intel>=1,'第五次第 3 天：坡道上的伊莉雅（看穿職階與據點；原作第二夜）',JSON.stringify(R.out));
 R=run('4th',8); const isk=R.st.enemies.find(e=>e.hero==='伊斯坎達爾-Rider'), dl=R.st.enemies.find(e=>e.hero==='迪盧木多-Lancer');
 t(R.out.some(x=>/倉庫街/.test(x))&&isk.intel===2,'第四次第 2 天：倉庫街，征服王自報真名（直接看穿）');
 t(R.out.some(x=>/海特飯店/.test(x))&&dl.loc==='廢棄工廠','第 5 天：飯店被炸，迪盧木多搬到廢棄工廠');

@@ -57,12 +57,12 @@ var WAR_ALTER_ = {
 //   after＝這幾幕（short）真的發生過才接得上（文字提到它們）。劇本不收最後一位——那一位留給玩家。
 //   short＝這一幕的名字：涉及的從者已經先倒下而演不成時，記進「改寫了原作」（結局揭曉）。
 var WAR_CANON_EVENTS_ = [
+  { war: '5th', day: 2, need: ['EMIYA-Archer', '庫丘林-Lancer'], reveal: { 'EMIYA-Archer': 1, '庫丘林-Lancer': 1 },
+    txt: '昨夜，穗群原學園的操場上有紅衣的弓兵與青衣的槍兵交手，聽說有個學生目擊了，差點被滅口' },
   { war: '5th', day: 2, need: ['庫丘林-Lancer', '阿爾托莉雅-Saber'], reveal: { '庫丘林-Lancer': 2, '阿爾托莉雅-Saber': 1 }, short: '衛宮邸的紅槍',
     txt: '衛宮邸的院子裡，青衣的槍兵擲出的紅槍繞過了劍刃、直取心臟——劍之從者按著胸口的傷退開，那把槍的名字傳遍了冬木：刺穿死棘之槍' },
-  { war: '5th', day: 2, need: ['赫拉克勒斯-Berserker'], reveal: { '赫拉克勒斯-Berserker': 1 },
+  { war: '5th', day: 3, need: ['赫拉克勒斯-Berserker'], reveal: { '赫拉克勒斯-Berserker': 1 },
     txt: '昨夜的坡道上，有人看見一個白髮的少女提起裙襬行禮，身後跟著一道巨人般的影子' },
-  { war: '5th', day: 3, need: ['EMIYA-Archer', '庫丘林-Lancer'], reveal: { 'EMIYA-Archer': 1, '庫丘林-Lancer': 1 },
-    txt: '前幾天夜裡，穗群原學園的操場上有紅衣的弓兵與青衣的槍兵交手，聽說有個學生目擊了，差點被滅口' },
   { war: '5th', day: 4, need: ['美杜莎-Rider'], reveal: { '美杜莎-Rider': 1 },
     txt: '穗群原學園整棟被紅色的結界罩住，學生接連昏倒——有人在學校裡張了吸取生命的結界' },
   { war: '5th', day: 6, need: ['佐佐木小次郎-Assassin'], reveal: { '佐佐木小次郎-Assassin': 1 },
