@@ -262,6 +262,12 @@ var WAR_ERA_ = {
   '4th': '第四次聖杯戰爭，原作 Fate/Zero、十年前的冬木。原作的七組主從都在，你是多出來的那一組',
   chaos: '一場陣容錯亂的聖杯戰爭：第四次與第五次的主從、還有別的英靈，被聖杯一起叫進了同一個冬木'
 };
+// 御主看得見的樣子（SEED_MASTERS.look）：同名的人照這場戰爭挑（第四次與第五次的言峰綺禮不一樣）。
+function warMasterLook_(st, name) {
+  var all = (typeof SEED_MASTERS !== 'undefined' ? SEED_MASTERS : []).filter(function (m) { return m.name === name; });
+  var m = all.filter(function (x) { return x.id.slice(-4) === '-' + st.war; })[0] || all[0];
+  return (m && m.look) || '';
+}
 function warNarrPrompt_(st) {
   var sv = st.sv, p = sv.card || {};
   var lines = [];
@@ -272,7 +278,8 @@ function warNarrPrompt_(st) {
   var foeId = (st.narr && st.narr.foe) || (st.battle ? st.battle.e : '');
   if (foeId && warFoe_(st, foeId)) {
     var e = warFoe_(st, foeId);
-    var boss = e.intel >= 2 && e.master && e.master !== '無主' ? '身後的御主是' + e.master + '。' : '';   // 看穿真名才知道；原作的人名，AI 照原作認知演
+    var ml = warMasterLook_(st, e.master);
+    var boss = e.intel >= 2 && e.master && e.master !== '無主' ? '身後的御主是' + e.master + (ml ? '（' + ml + '）' : '') + '。' : '';   // 看穿真名才知道
     lines.push('【對手】' + (e.intel >= 2 ? e.name + '（' + e.cls + '）。' + ((e.card && e.card.look) || '') + boss : warFoeLabel_(e) + '，真名還不知道。'));
   }
   var nr = st.narr || {};

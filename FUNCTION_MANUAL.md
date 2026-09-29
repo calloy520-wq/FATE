@@ -155,7 +155,8 @@
 ### Seed_Codex.gs（3 支函式）
 
 - `SEED_SERVANTS` — 種子從者名冊，**現況 25 筆**：正職戰鬥從者 14 騎（第五次 8：阿爾托莉雅/EMIYA/庫丘林/美杜莎/美狄亞/佐佐木小次郎/赫拉克勒斯/咒腕之哈桑；第四次 6：吉爾伽美什/迪盧木多/伊斯坎達爾/吉爾德萊/百貌哈桑/蘭斯洛特）＋客串戰鬥 6 騎（恩奇都、斯卡哈-Lancer、斯卡哈-Assassin、美遊、小黑、伊莉雅）＋鑑賞專用「御主」職階 5 位（遠坂凜/伊莉雅絲菲爾/間桐櫻黑化/衛宮士郎/藤村大河，cls='御主' 只供鑑賞召喚、solo 白名單擋下、six/技能/寶具留空）。每筆含 six/classSkills/skills/traits/np/persona（含 dailyLook/dailyOutfit/dailyWords/dailyBack/dailyMoe 鑑賞日常欄）。
-- `SEED_MASTERS` — 種子御主名冊，**現況 15 筆**（第五次 8：士郎/凜/慎二/臟硯/葛木/綺禮/伊莉雅絲菲爾/櫻黑化；第四次 7：切嗣/時臣/肯尼斯/韋伯/龍之介/綺禮/雁夜）。每筆只有 `{id, name}`（對手卡、說書、工房撞名用）；外貌與個性交給說書 AI 的原作認知。
+- `SEED_MASTERS` — 種子御主名冊，**現況 15 筆**（第五次 8：士郎/凜/慎二/臟硯/葛木/綺禮/伊莉雅絲菲爾/櫻黑化；第四次 7：切嗣/時臣/肯尼斯/韋伯/龍之介/綺禮/雁夜）。每筆 `{id, name, look}`：name 給對手卡、說書、工房撞名；look＝看得見的樣子（只寫外貌衣著），看穿對手真名後隨【對手】送給說書。
+- `warMasterLook_(st, name)`（War_Router）— 照名字找御主的 look；同名的照這場戰爭挑（第四次與第五次的言峰綺禮不一樣），職階代稱（Caster）與無主回空字串。
 - `HERO_PERSONA_OWN_COL_`（常數）— 已有專欄、不可以再塞進 PERSONA JSON 的 persona 鍵（dailyLook/dailyWords/dailyMoe/dailyOutfit）。
 - `servantToHeroRow_(s)` — 從者物件→英靈殿列（順序＝COL.HERO，含 4 個日常快取欄），source='seed'。⚠ 2026-09：PERSONA 欄寫的是**剔除過 `HERO_PERSONA_OWN_COL_` 的那份**（daily 四欄各有專欄，不再存兩份；`dailyBack` 沒有專欄所以留在 JSON 裡）。
 - `CODEX_PERSONA_VER = 'v74'` — 種子人設版本，精緻化 persona 就升版觸發升級管線。逐版校對細節（v65~v69）不再堆積於此處註解、存檔於 `SOLO_REFERENCE.md` §21。

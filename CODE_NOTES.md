@@ -1976,7 +1976,8 @@ p.words 是種子原始格式(段落用「・」分隔)，quadLabeled_ 只切「
 ### `SEED_MASTERS`　<sub>Seed_Codex.gs</sub>
 
 只剩 `{id, name}`（2026-09-29 玩家問「現在的種子夠簡潔有力嗎」時瘦身）。舊版每筆還有 appearance／align／magic／circuits／melee／magic_rank／wish／persona／back，是舊版 solo 敵方御主眾生列用的；舊版拆掉後全樹只讀 `name`，九欄死重。
-「有力」改由說書補上：看穿對手真名（intel 2）時，`warNarrPrompt_` 的【對手】帶「身後的御主是X」——原作人名一給，AI 自己知道凜是雙馬尾、綺禮穿法衣，不必種子再寫一份（寫了反而跟 AI 的原作認知打架）。
+「有力」改由說書補上：看穿對手真名（intel 2）時，`warNarrPrompt_` 的【對手】帶「身後的御主是X（樣子）」。
+第一版只給名字、說是「AI 照原作認知演」——玩家追問「確定不用每次給？」：每一段說書都是獨立呼叫（只帶最近兩段），說書用的是 Flash，大角色記得、肯尼斯／龍之介／臟硯這種小角色會畫錯；從者有外貌卡、御主卻沒有也不一致。所以補回一格 `look`（只寫看得見的，個性字眼一律不寫——紅線②），只在那位對手上場時送。同名的綺禮照戰爭挑（`warMasterLook_`）。
 
 ### `row`　<sub>Seed_Codex.gs</sub>
 
