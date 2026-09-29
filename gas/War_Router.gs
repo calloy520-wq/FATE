@@ -9,7 +9,7 @@ var WAR_KIND_RANK_ = { day: 0, battle: 1, start: 2, summon: 3, supply: 4, over: 
 var WAR_LEN_ = { summon: '180～260', start: '150～220', day: '120～180', battle: '100～160', over: '220～300', supply: '800～1000' };
 // 開場兩幕各有自己要寫的重點；其餘種類照【這一段發生的事】演就好。
 // 按鈕 → 這一段發生在一天的哪個時候（沒列的都是夜裡的事）。
-var WAR_WHEN_ = { start: '白天', scout: '白天', rest: '白天', supply: '白天' };
+var WAR_WHEN_ = { start: '白天', scout: '白天', rest: '白天', supply: '白天', chase: '黎明', letgo: '黎明' };   // 鍵＝動作（t）或戰鬥姿態（s）；天亮的追擊／收手是黎明
 var WAR_SCENE_ = {
   summon: '這是你們第一次見面：召喚陣的光、從者現身的那一刻、第一句問答（照原作，從者會確認眼前這個人是不是自己的御主）。',
   start: '聖杯戰爭開始的第一個白天：冬木看起來跟平常一樣，你們在據點說好接下來怎麼打。'
@@ -110,7 +110,7 @@ function actionWarAct(userData) {
   // 上一段還沒被說書接走（沒講過、也沒在講）→ 併進這一段，玩家連按也不會漏戲、不會重講。
   var prev = st.narr, nr = ref.narr || {};
   var carry = prev && nr.seq !== prev.seq && nr.inflight !== prev.seq ? prev : null;
-  var day0 = Math.min(st.day, warNights_(st)), when = WAR_WHEN_[act.t] || '夜晚';   // 事情發生在按下去的那一刻，不是結算完的下一個早晨
+  var day0 = Math.min(st.day, warNights_(st)), when = WAR_WHEN_[act.s] || WAR_WHEN_[act.t] || '夜晚';   // 事情發生在按下去的那一刻，不是結算完的下一個早晨
   var foe0 = st.battle ? st.battle.e : '';   // 這一段打的是誰：決戰打倒一位之後，st.battle 已經換成下一位
   var r = warAct_(st, act, act.t === 'reroll' ? warSeedCtx_(st.war) : null);
   if (!r.ok) return JSON.stringify({ success: false, message: r.msg });

@@ -67,6 +67,13 @@ const tl=(()=>{ const A2='時間帳號'; const R=u=>JSON.parse(evalIn('handleGam
   R({action:'war_act',acctName:A2,act:{t:'hold'}}); R({action:'war_narrate',acctName:A2});
   return caps.map(p=>(p.match(/【此刻】[^。]*/)||[''])[0]); })();
 t(/開始前/.test(tl[0]) && /第 1 天（2月2日）的白天/.test(tl[1]) && /第 1 天（2月2日）的白天/.test(tl[2]) && /第 1 天（2月2日）的夜晚/.test(tl[3]), '說書的【此刻】是事情發生的那一刻：召喚在開戰前、白天的事寫白天、固守到天亮的那一段仍是第 1 天夜裡', JSON.stringify(tl));
+const dw=(()=>{ const A3='黎明帳號'; const R=u=>JSON.parse(evalIn('handleGameAction('+JSON.stringify(JSON.stringify(u))+')'));
+  let caps=[]; ctx.__TL2__=o=>{caps.push(o);}; evalIn('callGeminiAPI=function(p,s,c){ __TL2__(p); return "嗯。"; }');
+  R({action:'war_new',acctName:A3,pcName:'測',sex:'男',war:'5th'}); R({action:'war_narrate',acctName:A3}); R({action:'war_act',acctName:A3,act:{t:'start'}}); R({action:'war_narrate',acctName:A3}); R({action:'war_act',acctName:A3,act:{t:'rest'}}); R({action:'war_narrate',acctName:A3});
+  evalIn(`(function(){ var ref=warLoad_('${A3}'), s=ref.st; var e=s.enemies.filter(function(x){return x.alive&&!x.fake;})[0]; e.arrive=1; e.intel=1; s.phase='night'; s.out=true; var ev=[]; warStartBattle_(s,e,'sortie',ev); e.hp=Math.round(e.mhp*0.2); s.battle.round=WAR_.ROUNDS+1; s.battle.dawn=true; s.battle.tele=''; warSave_(ref,'${A3}',s); })()`);
+  const r=R({action:'war_act',acctName:A3,act:{t:'stance',s:'letgo'}}); R({action:'war_narrate',acctName:A3});
+  return { ok:r.success, when:(caps.map(p=>(p.match(/【此刻】[^。]*/)||[''])[0]).pop()||'') }; })();
+t(dw.ok && /黎明/.test(dw.when), '天亮的追擊／收手：說書的【此刻】寫黎明（不是夜晚）', JSON.stringify(dw));
 const html=require('fs').readFileSync((process.env.GAS_DIR||require('path').join(__dirname,'../../gas'))+'/Script_War.html','utf8');
 t(!/十四夜|14 夜|三劃/.test(html), '前端沒有寫死的夜數與令咒數');
 
