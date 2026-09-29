@@ -187,7 +187,8 @@
 - `warAllowed_(st, act)` — 按的東西不在 `warButtons_` 裡就擋；令咒另看剩幾劃。
 - `warAct_(st, act, o)` — 做一個決定，就地改 `st`，回 `{ok, msg, ev:[{k, txt, num}]}`；`txt` 給 AI（不含數字），`num` 給畫面。`o`＝名冊（`warSeedCtx_`），只有重新召喚要用，沒給就拒絕重抽。
 - `warDoSummon_(st, act, ev, o)`（重抽走 `warSummon_(st, o)` 真的換人）／`warDoDay_(st, act, ev)`／`warDoNight_(st, act, ev)`／`warDoRound_(st, act, ev)` — 四個階段各一支。
-- `warReveal_(st, e, ev)` — 看穿真名（intel→2）。
+- `warReveal_(st, e, ev)` — 看穿真名（intel→2）。 對手帶 `veil`（風王結界）時看不穿，改推一句「看不出是誰」。
+- `warUnmask_(st, e, ev)` — 假死的那位露餡（`e.fake`→false）並推一句早報；`warStartBattle_` 與 `warAutoBattle_` 開打時都會叫。陣容上帶 `fakeDeath` 的那組（第四次的百貌哈桑）開局就標假死，開戰那天推原作的死訊。
 - `warFinishNight_(st, ev)` — 敵人行動（`warTick_`），沒人找上門就進早晨。
 - `warTick_(st, ev)` — 每位敵人一次：可能發現你的據點、夜襲你（只在你固守時、一夜一位）、找別人打、或休息；倒下的人越多、剩下的越急著找人。有人夜襲就回 true 停下來開打。
 - `warMorning_(st, ev)` — 先把昨夜沒人倒下的交手（`k:'draw'`）併成一句早報，再充能減一、天數加一、登場消息、時限保險。
@@ -201,6 +202,7 @@
 - `warAutoBattle_(st, a, b, ev)` — 敵對敵，最多三回合；有人倒下直接寫進早報，沒人倒下的交給 `warMorning_` 併句（兩位同職階都沒看穿時寫成「另一位」）。
 - `warHitChance_(x, y)`／`warMult_(X, Y)`／`warNormalDmg_(st, X, Y)`／`warNpDmg_(X, Y)`／`warRetreatChance_(u, o, seal)` — 命中、倍率、傷害、撤退。`warMult_` 看穿真名或帶 `weakAlways`（王之財寶）就乘弱點；`warRetreatChance_` 遇到對手的 `lock`（天之鎖）而自己帶那個旗標（神性）時回 0（令咒除外）。
 - `warHeal_(u, pct)`／`warHealMaster_(st, n)` — 回血。
+- `warShownCount_(st)` — 畫面上看得到的敵人數（假死的不算）；早報、畫面、決戰按鈕用它，勝負照樣看 `warAliveCount_`。`warKnownFoes_` 也排除假死的（不能突襲一個「已退場」的人）。
 - `warOdds_(st, e)` — 勝算四階（勝算大／勢均力敵／勝算小／凶險）。`warOddsR_(st, e)` — 背後的比值（我撐幾下 ÷ 對方撐幾下，血量用 `warEffHp_(u)`：十二試煉的命也算進去）；夜晚出擊目標照「討伐令→這個比值」排序，前 `WAR_.SORTIE_SHOW` 位直接列，其餘帶 `more: true`。
 - `warFinalNext_(st)` — 決戰下一位（血最少的先上）。
 - `warFoeLabel_(e)`／`warWho_(st, S)`／`warHpWord_(u)`／`warHurtWord_(u)`／`warChanceWord_(p)` — 文字（照玩家知道多少顯示）。

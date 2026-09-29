@@ -268,7 +268,7 @@ function warSummon_(st, o) {
     if (!hs) return;
     st.enemies.push(warUnit_(hs, {
       id: 'e' + i, master: (r.master && (o.masterNames || {})[r.master]) || r.masterLabel || '無主', loc: warLocName_(r.loc),
-      arrive: r.arriveDay || 1, hint: r.arriveHint || '', intel: 0, found: false, alive: true
+      arrive: r.arriveDay || 1, hint: r.arriveHint || '', fake: !!r.fakeDeath, fakeTxt: r.fakeDeath || '', intel: 0, found: false, alive: true
     }));
   });
 }
@@ -285,7 +285,7 @@ function warButtons_(st) {
     B.push({ t: 'rest', label: '休養', sub: '從者與御主恢復' });
     B.push({ t: 'supply', label: '補魔', sub: sv.cd > 0 ? (sv.cd <= WAR_.SUPPLY_CD ? '寶具今晚可用' : '寶具冷卻 −' + WAR_.SUPPLY_CD + ' 夜') : '寶具已就緒・少量恢復' });
   } else if (st.phase === 'night' && st.day >= WAR_.NIGHTS) {
-    var left = warArrived_(st).length;
+    var left = warArrived_(st).filter(function (e) { return !e.fake; }).length;
     B.push({ t: 'final', label: '前往' + warFinal_(st).place, sub: '最後一夜・' + (left > 1 ? '剩餘 ' + left + ' 位從者全數到場' : '最後一位從者在場') });
   } else if (st.phase === 'night') {
     // 目標照「討伐令→勝算」排好，前幾位直接列出，其餘收進「其他目標」（more）
@@ -346,14 +346,21 @@ function warDoSummon_(st, act, ev, o) {
   }
   st.phase = 'day';
   ev.push({ k: 'start', txt: '第 1 天。聖杯戰爭開始，冬木還有 ' + warAliveCount_(st) + ' 組主從。' });
+  // 原作的開場假死：大家（包括你）都以為這一位退場了，它照樣在暗處行動，第一次真的出手才露餡。
+  st.enemies.forEach(function (e) { if (e.fake) { e.intel = 1; ev.push({ k: 'news', txt: e.fakeTxt + '。' }); } });
+}
+function warUnmask_(st, e, ev) {
+  if (!e.fake) return;
+  e.fake = false;
+  ev.push({ k: 'news', txt: '那位 ' + e.cls + ' 根本沒有退場——教會宣布的死訊是假的。' });
 }
 
 // ── 白天 ──────────────────────────────────────────────
 function warDoDay_(st, act, ev) {
   var sv = st.sv;
   if (act.t === 'scout') {
-    var hidden = warArrived_(st).filter(function (e) { return e.intel === 0; });
-    var known1 = warArrived_(st).filter(function (e) { return e.intel === 1; });
+    var hidden = warArrived_(st).filter(function (e) { return e.intel === 0 && !e.fake; });
+    var known1 = warArrived_(st).filter(function (e) { return e.intel === 1 && !e.fake; });
     var got = false;
     var tries = 1 + warAdd_(sv, 'scoutExtra');
     for (var n = 0; n < tries && hidden.length; n++) {
@@ -487,7 +494,7 @@ function warMorning_(st, ev) {
   st.enemies.forEach(function (e) {
     if (e.alive && e.arrive === st.day && st.day > 1) ev.push({ k: 'arrive', txt: (e.hint || '有新的從者進入冬木') + '。' });
   });
-  ev.push({ k: 'morning', txt: '第 ' + st.day + ' 天早晨。剩 ' + (WAR_.NIGHTS - st.day + 1) + ' 夜，敵方剩 ' + warAliveCount_(st) + ' 位。' });
+  ev.push({ k: 'morning', txt: '第 ' + st.day + ' 天早晨。剩 ' + (WAR_.NIGHTS - st.day + 1) + ' 夜，敵方剩 ' + warShownCount_(st) + ' 位。' });
   if (st.day === WAR_.BOUNTY_DAY && !st.bounty) warBountyStart_(st, ev);
   st.phase = 'day';
 }
@@ -522,6 +529,7 @@ function warStartBattle_(st, e, ctx, ev) {
   st.foughtTonight = true;
   st.stats.battles++;
   st.sv.saved = false; e.saved = false; st.sv.broken = false; e.broken = false;
+  warUnmask_(st, e, ev);
   var tp = warTemper_(e);
   if (firstMeet && tp.nemesis && st.sv.hero === tp.nemesis && tp.nemesisMeet) ev.push({ k: 'meet', txt: tp.nemesisMeet.replace('{sv}', st.sv.name) });
   else if (firstMeet && tp.meet) ev.push({ k: 'meet', txt: tp.meet });
@@ -731,6 +739,7 @@ function warMasterHit_(st, n, ev) {
 
 // 敵對敵：兩邊都照自己的個性打，最多三回合。
 function warAutoBattle_(st, a, b, ev) {
+  warUnmask_(st, a, ev); warUnmask_(st, b, ev);
   a.saved = false; b.saved = false; a.broken = false; b.broken = false;
   var end = '';
   for (var r = 1; r <= WAR_.ROUNDS && a.alive && b.alive && !end; r++) {
@@ -793,8 +802,10 @@ function warEffHp_(u) { return u.hp + (warFlag_(u, 'lives') ? warLives_(u) * u.m
 function warFinalNext_(st) { return warArrived_(st).sort(function (a, b) { return a.hp / a.mhp - b.hp / b.mhp; })[0] || null; }
 function warFoe_(st, id) { return st.enemies.filter(function (e) { return e.id === id; })[0] || null; }
 function warArrived_(st) { return st.enemies.filter(function (e) { return e.alive && e.arrive <= st.day; }); }
-function warKnownFoes_(st) { return warArrived_(st).filter(function (e) { return e.intel >= 1; }); }
+function warKnownFoes_(st) { return warArrived_(st).filter(function (e) { return e.intel >= 1 && !e.fake; }); }
 function warAliveCount_(st) { return st.enemies.filter(function (e) { return e.alive; }).length; }
+// 畫面上看得到的敵人數（假死的那位不算，直到露餡）。勝負照樣看 warAliveCount_。
+function warShownCount_(st) { return st.enemies.filter(function (e) { return e.alive && !e.fake; }).length; }
 function warFoeLabel_(e) { return e.intel >= 2 ? '「' + e.name + '」' : (e.intel >= 1 ? '那位 ' + e.cls : '一位不明的從者'); }
 function warWho_(st, S) { return S.side === 'me' ? st.sv.name : warFoeLabel_(S.u); }
 function warHpWord_(u) {
@@ -828,9 +839,10 @@ function warOver_(st, win, cause, ev) {
 // 一位對手在畫面上的情報：知道職階（intel 1）才有位置與傷勢；看穿真名（intel 2）才攤開御主、寶具、技能。
 function warBountyOn_(st, e) { return !!(st.bounty && st.bounty.open && st.bounty.id === e.id); }
 function warFoeCard_(st, e) {
-  var c = { id: e.id, label: warFoeLabel_(e).replace(/[「」]/g, ''), cls: e.cls, intel: e.intel, alive: e.alive,
-    hp: e.intel >= 1 && e.alive ? warHpWord_(e) : '', loc: e.intel >= 1 ? e.loc : '' };
-  if (e.alive && e.intel >= 1 && st.phase !== 'over') c.odds = warOdds_(st, e);
+  var seen = e.alive && !e.fake;   // 假死的那位在畫面上照「已退場」顯示
+  var c = { id: e.id, label: warFoeLabel_(e).replace(/[「」]/g, ''), cls: e.cls, intel: e.intel, alive: seen,
+    hp: e.intel >= 1 && seen ? warHpWord_(e) : '', loc: e.intel >= 1 ? e.loc : '' };
+  if (seen && e.intel >= 1 && st.phase !== 'over') c.odds = warOdds_(st, e);
   if (warBountyOn_(st, e)) c.bounty = true;
   if (e.intel >= 2) {
     c.name = e.name; c.master = e.master; c.np = e.npName; c.npReady = !(e.cd > 0);
@@ -908,7 +920,7 @@ function warView_(st) {
     sv: { cls: sv.cls, name: sv.name, npName: sv.npName, hp: sv.hp, mhp: sv.mhp, cd: sv.cd, traits: warTraits_(sv), exposed: st.exposed },
     foes: foes.filter(function (e) { return e.intel >= 1; }).map(function (e) { return warFoeCard_(st, e); }),
     unknown: warArrived_(st).filter(function (e) { return e.intel === 0; }).length,
-    alive: warAliveCount_(st),
+    alive: warShownCount_(st),
     battle: null, buttons: warButtons_(st), result: st.result, rules: warRules_(st)
   };
   if (warFlag_(sv, 'lives')) view.sv.lives = warLives_(sv);

@@ -29,7 +29,8 @@ var FATE_4TH_ROSTER = [
   { master: '肯尼斯-4th', hero: '迪盧木多-Lancer', loc: '海特飯店' },
   { master: '韋伯·維爾維特-4th', hero: '伊斯坎達爾-Rider', loc: '麥肯基宅' },
   { master: '雨生龍之介-4th', hero: '吉爾德萊-Caster', loc: '下水道' },
-  { master: '言峰綺禮-4th', hero: '百貌哈桑-Assassin', loc: '言峰教會' },
+  { master: '言峰綺禮-4th', hero: '百貌哈桑-Assassin', loc: '言峰教會',   // 原作開場：假死退場，其實分身還在替遠坂家刺探
+    fakeDeath: '開戰當晚，一位 Assassin 闖進遠坂邸，被金色的從者當場擊殺；教會宣布這組主從退場' },
   { master: '間桐雁夜-4th', hero: '蘭斯洛特-Berserker', loc: '間桐宅' }
 ];
 
