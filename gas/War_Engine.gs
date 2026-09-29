@@ -417,8 +417,11 @@ function warAct_(st, act, o) {
   else if (st.phase === 'day') warDoDay_(st, act, ev);
   else if (st.phase === 'night') warDoNight_(st, act, ev);
   else if (st.phase === 'battle') warDoRound_(st, act, ev);
+  ev.forEach(function (x) { if (x.txt) x.txt = warSpace_(x.txt); });
   return { ok: true, msg: '', ev: ev };
 }
+// 「那位 Saber正面攻擊」→「那位 Saber 正面攻擊」：英文職階後面直接接中文時補一個空格（所有事件句出口統一處理）。
+function warSpace_(t) { return String(t).replace(/([A-Za-z])(?=[\u4e00-\u9fff])/g, '$1 '); }
 
 function warDoSummon_(st, act, ev, o) {
   if (act.t === 'reroll') {

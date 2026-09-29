@@ -142,4 +142,8 @@ t(H.phase!=='battle'&&/雙方各自撤退/.test(H.txt),'對手還有六成血：
 const ST=J(`(function(){ var u=function(id){ return warUnit_(SEED_SERVANTS.filter(function(x){return x.id===id;})[0],{}); }; return [u('阿爾托莉雅-Saber'),u('佐佐木小次郎-Assassin'),u('赫拉克勒斯-Berserker'),u('EMIYA-Archer'),u('美狄亞-Caster')].map(warStands_).join(); })()`);
 t(ST==='true,true,true,false,false','不撤退的敵人（騎士王、守門的武士、狂戰士）天亮時回頭硬拚，其他人會逃',ST);
 
+const GL=J(`(function(){ var bad=[]; ['5th','4th','chaos'].forEach(function(w){ for(var g=0; g<6; g++){ var o=warSeedCtx_(w); o.name='測'; o.sex='男'; o.seed=40+g; var s=warNewGame_(o); var n=0;
+  while(s.phase!=='over'&&n++<300){ var bs=warButtons_(s).filter(function(b){return !b.dis;}); var b=bs[(n*7+g)%bs.length]; var r=warAct_(s,{t:b.t,id:b.id,s:b.s}); r.ev.forEach(function(x){ if(/[A-Za-z][\u4e00-\u9fff]/.test(x.txt||'')) bad.push(x.txt); }); } } }); return bad.slice(0,3); })()`);
+t(GL.length===0,'事件句裡英文職階後面接中文都有空格（「那位 Saber 正面攻擊」）',GL.join(' / '));
+
 console.log(bad ? '❌ '+bad+' 條失敗' : '✅ warfix.js '+ok+' 條全過');
