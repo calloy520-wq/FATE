@@ -267,8 +267,8 @@ function warSummon_(st, o) {
     var hs = (o.seeds || {})[r.hero];
     if (!hs) return;
     st.enemies.push(warUnit_(hs, {
-      id: 'e' + i, master: (r.master && (o.masterNames || {})[r.master]) || '無主', loc: warLocName_(r.loc),
-      arrive: r.arriveDay || 1, intel: 0, found: false, alive: true
+      id: 'e' + i, master: (r.master && (o.masterNames || {})[r.master]) || r.masterLabel || '無主', loc: warLocName_(r.loc),
+      arrive: r.arriveDay || 1, hint: r.arriveHint || '', intel: 0, found: false, alive: true
     }));
   });
 }
@@ -485,7 +485,7 @@ function warMorning_(st, ev) {
   if (warCheckEnd_(st, ev)) return;
   if (st.day > WAR_.NIGHTS) { warOver_(st, false, 'timeout', ev); return; }
   st.enemies.forEach(function (e) {
-    if (e.alive && e.arrive === st.day && st.day > 1) ev.push({ k: 'arrive', txt: '有新的從者進入冬木。' });
+    if (e.alive && e.arrive === st.day && st.day > 1) ev.push({ k: 'arrive', txt: (e.hint || '有新的從者進入冬木') + '。' });
   });
   ev.push({ k: 'morning', txt: '第 ' + st.day + ' 天早晨。剩 ' + (WAR_.NIGHTS - st.day + 1) + ' 夜，敵方剩 ' + warAliveCount_(st) + ' 位。' });
   if (st.day === WAR_.BOUNTY_DAY && !st.bounty) warBountyStart_(st, ev);
