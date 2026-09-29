@@ -155,4 +155,9 @@ t(/★【此刻】仍是(春天|夏天|秋天|冬天)的午後。/.test(nowLine(
 r=play('嗯。');
 t(!/午後/.test(nowLine(r.u)),'沒提時間 → 又不送');
 
+
+// 寶具改名時，LORE_NP_KEYS_ 的索引要跟著改——否則那一位的日常關鍵字悄悄失效（v93 理想鄉改名時就漏過一次）
+const npNames=JSON.parse(evalIn(`JSON.stringify(SEED_SERVANTS.reduce(function(a,s){ return a.concat(String(s.np||'').split('／').map(function(x){ return x.replace(/\\s.*$/,'').replace(/（.*$/,'').trim(); })); },[]))`));
+const stale=Object.keys(JSON.parse(evalIn('JSON.stringify(LORE_NP_KEYS_)'))).filter(k=>npNames.indexOf(k)<0);
+t(stale.length===0,'寶具觸發表的每個索引都是某位種子真的有的寶具名（改名沒漏）',stale.join('、'));
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);

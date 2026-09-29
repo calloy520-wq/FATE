@@ -13,7 +13,7 @@ var SEED_SERVANTS = [
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
     skills:[{n:'直感',r:'A',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst'},{n:'領袖氣質',r:'B',fx:'morale'},
             {n:'風王結界',r:'A',fx:'wind_strike'},{n:'誓約勝利之劍',r:'A++'}],
-    traits:[{n:'王'},{n:'人類'},{n:'龍'}], np:'誓約勝利之劍 Excalibur（對城 A++·聚攏這片星球記憶中的光·凝於劍尖·解放為撕裂大地、直貫蒼穹的金色收束光炮）／全世界遙遠的理想鄉 Avalon（永世隔絕·無敵結界·守護持有者）',
+    traits:[{n:'王'},{n:'人類'},{n:'龍'}], np:'誓約勝利之劍 Excalibur（對城 A++·聚攏這片星球記憶中的光·凝於劍尖·解放為撕裂大地、直貫蒼穹的金色收束光炮）／遙遠的理想鄉 Avalon（永世隔絕·無敵結界·守護持有者）',
     align:'秩序・善', persona:{look:'金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀',words:'騎士道・自我犧牲・壓抑的少女心',toMaster:'以騎士之禮盡忠，公私分明地隔著一步距離',quirks:'吃到好東西時會安靜下來、對著獅子玩偶移不開眼',logic:'責任和自己想要的擺在一起，放下的是後者',
     dailyLook:'金髮碧眼・嬌小、雨後百合的清冽',
     dailyOutfit:'藏青連身洋裝',
@@ -273,7 +273,7 @@ function servantToHeroRow_(s) {
     s.np, JSON.stringify(slim), s.align, JSON.stringify(s.wars), 'seed',
     p.dailyLook || '', p.dailyWords || '', '', p.dailyOutfit || ''];
 }
-var CODEX_PERSONA_VER = 'v92';   // 精緻化 persona 就升一版，觸發既有英靈殿升級（upgradeCodexPersonas_）；每一版改了什麼見 CODE_NOTES『CODEX_PERSONA_VER』
+var CODEX_PERSONA_VER = 'v93';   // 精緻化 persona 就升一版，觸發既有英靈殿升級（upgradeCodexPersonas_）；每一版改了什麼見 CODE_NOTES『CODEX_PERSONA_VER』
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
