@@ -37,8 +37,12 @@ var FATE_4TH_ROSTER = [
 var WAR_CANON_EVENTS_ = [
   { war: '5th', day: 2, need: ['赫拉克勒斯-Berserker'], reveal: { '赫拉克勒斯-Berserker': 1 },
     txt: '昨夜的坡道上，有人看見一個白髮的少女提起裙襬行禮，身後跟著一道巨人般的影子' },
+  { war: '5th', day: 3, need: ['EMIYA-Archer', '庫丘林-Lancer'], reveal: { 'EMIYA-Archer': 1, '庫丘林-Lancer': 1 },
+    txt: '前幾天夜裡，穗群原學園的操場上有紅衣的弓兵與青衣的槍兵交手，聽說有個學生目擊了，差點被滅口' },
   { war: '5th', day: 4, need: ['美杜莎-Rider'], reveal: { '美杜莎-Rider': 1 },
     txt: '穗群原學園整棟被紅色的結界罩住，學生接連昏倒——有人在學校裡張了吸取生命的結界' },
+  { war: '5th', day: 6, need: ['佐佐木小次郎-Assassin'], reveal: { '佐佐木小次郎-Assassin': 1 },
+    txt: '有人上柳洞寺參拜，回來說山門前的石階上站著一個背長刀的武士，說什麼都不讓人過去' },
   { war: '4th', day: 2, need: ['阿爾托莉雅-Saber', '迪盧木多-Lancer', '伊斯坎達爾-Rider'],
     reveal: { '阿爾托莉雅-Saber': 1, '迪盧木多-Lancer': 1, '伊斯坎達爾-Rider': 2 },
     txt: '昨夜港邊的倉庫街，Saber 與 Lancer 正面交鋒，一輛雷鳴的戰車闖進來，駕車的巨漢高聲報上了真名：征服王伊斯坎達爾' },
