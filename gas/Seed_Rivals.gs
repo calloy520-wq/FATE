@@ -37,8 +37,8 @@ var FATE_4TH_ROSTER = [
 var WAR_ROUTES_ = {
   '5th': {
     fate: { label: 'Fate 線', pace: { brawl: 0.9 } },
-    ubw: { label: 'Unlimited Blade Works 線', pace: { brawl: 0.89 }, final: { place: '柳洞寺', arrive: '寺院的池子上方懸著一團不斷膨脹的黑色輪廓——聖杯正在成形；剩下的從者陸續踏上石階', next: '石階上又來了一位從者' } },
-    hf: { label: "Heaven's Feel 線", pace: { brawl: 0.85 }, final: { place: '大空洞', arrive: '剩下的從者一個個走進柳洞寺地底的黑暗', next: '黑暗裡又走出一位從者' } }
+    ubw: { label: 'Unlimited Blade Works 線', pace: { brawl: 0.85 }, final: { place: '柳洞寺', arrive: '寺院的池子上方懸著一團不斷膨脹的黑色輪廓——聖杯正在成形；剩下的從者陸續踏上石階', next: '石階上又來了一位從者' } },
+    hf: { label: "Heaven's Feel 線", pace: { brawl: 0.75 }, final: { place: '大空洞', arrive: '剩下的從者一個個走進柳洞寺地底的黑暗', next: '黑暗裡又走出一位從者' } }
   }
 };
 // 被黑影吞下、或換到魔力深不見底的御主之後的樣子（事件的 alter）：mul＝能力倍率；name／npName／look 有寫才換；dropFx＝失去的技能；meet＝黑化後第一次撞見的那一句（換掉 WAR_TEMPER_ 的）。
@@ -55,7 +55,7 @@ var WAR_ALTER_ = {
 // 原作事件：到了那一天的早報就發生（涉及的從者都得還是活著的敵人，否則整條跳過）。
 //   need＝要在場的從者；reveal＝看穿到哪一層（1 職階與據點／2 真名）；move＝據點搬家。
 //   route＝只在這條線發生；kill＝照原作倒下；awaken＝叫醒預備役（值是登場那天的早報）；master＝換御主；alter＝黑化（WAR_ALTER_）；
-//   lives＝死而復生的命增減；hurt＝血量壓到最大血量的幾成（帶傷退場）。
+//   lives＝死而復生的命增減；hurt＝血量壓到最大血量的幾成（帶傷退場）；curse＝{ 受傷者: 下手的人 } 被黃槍劃傷（下手的人還在就好不了）；uncurse＝解除。
 //   fallen＋id＝不看日子，倒下的從者累積到幾位的隔天早報發生（只發一次）；unmask＝need 裡假死的那位在這一幕現身。
 //   sv＝你召喚的從者是這一位才演（別場戰爭來的英靈，在這個冬木另有原作的牽絆）。
 //   after＝這幾幕（short）真的發生過才接得上（文字提到它們）。劇本不收最後一位——那一位留給玩家。
@@ -63,7 +63,7 @@ var WAR_ALTER_ = {
 var WAR_CANON_EVENTS_ = [
   { war: '5th', day: 2, need: ['EMIYA-Archer', '庫丘林-Lancer'], reveal: { 'EMIYA-Archer': 1, '庫丘林-Lancer': 1 },
     txt: '昨夜，穗群原學園的操場上有紅衣的弓兵與青衣的槍兵交手，聽說有個學生目擊了，差點被滅口' },
-  { war: '5th', day: 2, need: ['庫丘林-Lancer', '阿爾托莉雅-Saber'], reveal: { '庫丘林-Lancer': 2, '阿爾托莉雅-Saber': 1 }, short: '衛宮邸的紅槍',
+  { war: '5th', day: 2, need: ['庫丘林-Lancer', '阿爾托莉雅-Saber'], hurt: { '阿爾托莉雅-Saber': 0.6 }, reveal: { '庫丘林-Lancer': 2, '阿爾托莉雅-Saber': 1 }, short: '衛宮邸的紅槍',
     txt: '衛宮邸的院子裡，青衣的槍兵擲出的紅槍繞過了劍刃、直取心臟——劍之從者按著胸口的傷退開，那把槍的名字傳遍了冬木：刺穿死棘之槍' },
   { war: '5th', day: 2, need: ['赫拉克勒斯-Berserker'], reveal: { '赫拉克勒斯-Berserker': 1 },
     txt: '昨夜的坡道上，有人看見一個白髮的少女提起裙襬行禮，身後跟著一道巨人般的影子' },
@@ -86,8 +86,8 @@ var WAR_CANON_EVENTS_ = [
   { war: '5th', route: 'hf', day: 2, need: [],
     txt: '新都的街上接連有人失蹤，現場什麼都沒留下，只有地上一攤怎麼也洗不掉的黑色污漬' },
   // ── Fate 線 ──
-  { war: '5th', route: 'fate', day: 7, need: ['阿爾托莉雅-Saber', '美杜莎-Rider'], kill: ['美杜莎-Rider'], reveal: { '阿爾托莉雅-Saber': 2 }, short: '天馬與誓約勝利之劍',
-    txt: '新都的高樓頂上，一道光之劍劈開了夜空——白色的天馬與騎在上面的從者一起墜落，劍之從者報出了那把劍的名字' },
+  { war: '5th', route: 'fate', day: 7, need: ['阿爾托莉雅-Saber', '美杜莎-Rider'], hurt: { '阿爾托莉雅-Saber': 0.5 }, kill: ['美杜莎-Rider'], reveal: { '阿爾托莉雅-Saber': 2 }, short: '天馬與誓約勝利之劍',
+    txt: '新都的高樓頂上，一道光之劍劈開了夜空——白色的天馬與騎在上面的從者一起墜落，劍之從者報出了那把劍的名字，隨即脫力跪倒' },
   { war: '5th', route: 'fate', day: 10, need: ['阿爾托莉雅-Saber', '赫拉克勒斯-Berserker'], kill: ['赫拉克勒斯-Berserker'], short: '勝利誓約之劍斬巨人',
     txt: '艾因茲貝倫城的森林裡，少年手中浮現一把黃金的劍——勝利誓約之劍，巨人被那一劍連殺了七次，終於沒有再站起來' },
   { war: '5th', route: 'fate', day: 12, need: ['阿爾托莉雅-Saber', '佐佐木小次郎-Assassin'], kill: ['佐佐木小次郎-Assassin'], short: '山門的最後一戰',
@@ -127,7 +127,7 @@ var WAR_CANON_EVENTS_ = [
     txt: '衛宮家的 Saber 在柳洞寺的池邊被黑影吞沒；再出現時，那身藍色的鎧甲已經染成漆黑' },
   { war: '5th', route: 'hf', day: 9, need: ['EMIYA-Archer', '阿爾托莉雅-Saber'], after: ['被黑影吞下的騎士王'], kill: ['EMIYA-Archer'], short: '熾天覆七重圓環與黑色的聖劍',
     txt: '柳洞寺的山道上，紅衣的弓兵展開七片花瓣般的盾，擋下了漆黑的聖劍——盾碎了，弓兵失去了一條手臂，那條手臂後來接在了衛宮家的少年身上' },
-  { war: '5th', route: 'hf', day: 10, need: ['阿爾托莉雅-Saber', '赫拉克勒斯-Berserker'], alter: ['赫拉克勒斯-Berserker'], master: { '赫拉克勒斯-Berserker': '間桐櫻' }, reveal: { '赫拉克勒斯-Berserker': 1 }, short: '黑色的劍光與巨人',
+  { war: '5th', route: 'hf', day: 10, need: ['阿爾托莉雅-Saber', '赫拉克勒斯-Berserker'], hurt: { '阿爾托莉雅-Saber': 0.7 }, alter: ['赫拉克勒斯-Berserker'], master: { '赫拉克勒斯-Berserker': '間桐櫻' }, reveal: { '赫拉克勒斯-Berserker': 1 }, short: '黑色的劍光與巨人',
     txt: '艾因茲貝倫城外的森林被黑色的劍光削平，巨人倒下之後又站了起來——身上爬滿紅色的紋路，再也聽不見白髮少女的呼喚' },
   { war: '5th', route: 'hf', day: 12, need: ['赫拉克勒斯-Berserker'], after: ['熾天覆七重圓環與黑色的聖劍', '黑色的劍光與巨人'], kill: ['赫拉克勒斯-Berserker'], short: '射殺百頭',
     txt: '艾因茲貝倫的森林裡，衛宮家的少年解開了那條紅布纏著的手臂，投影出巨人自己的劍與技——射殺百頭，九道斬擊同時落下，黑色的巨人終於倒了' },
@@ -135,9 +135,9 @@ var WAR_CANON_EVENTS_ = [
     txt: '大空洞入口的洞窟裡，眼罩的騎兵駕著天馬撞向漆黑的聖劍——騎士王被撞倒在地，衛宮家的少年握著一柄短劍走了過去' },
   { war: '5th', route: 'hf', day: 11, need: ['吉爾伽美什-Archer'], kill: ['吉爾伽美什-Archer'], short: '被黑泥吞下的王',
     txt: '深山町的路口，金色的英靈對著那道影子開口，話還沒說完，就被湧上來的黑泥吞了下去' },
-  { war: '4th', day: 2, need: ['阿爾托莉雅-Saber', '迪盧木多-Lancer', '伊斯坎達爾-Rider'], short: '倉庫街',
+  { war: '4th', day: 2, need: ['阿爾托莉雅-Saber', '迪盧木多-Lancer', '伊斯坎達爾-Rider'], curse: { '阿爾托莉雅-Saber': '迪盧木多-Lancer' }, short: '倉庫街',
     reveal: { '阿爾托莉雅-Saber': 1, '迪盧木多-Lancer': 1, '伊斯坎達爾-Rider': 2 },
-    txt: '昨夜港邊的倉庫街，Saber 與 Lancer 正面交鋒，一輛雷鳴的戰車闖進來，駕車的巨漢高聲報上了真名：征服王伊斯坎達爾' },
+    txt: '昨夜港邊的倉庫街，Saber 與 Lancer 正面交鋒，一輛雷鳴的戰車闖進來，駕車的巨漢高聲報上了真名：征服王伊斯坎達爾——劍之從者的左手，留下了一道黃色短槍劃開的傷' },
   { war: '4th', day: 2, need: ['蘭斯洛特-Berserker', '吉爾伽美什-Archer'], after: ['倉庫街'], reveal: { '蘭斯洛特-Berserker': 1, '吉爾伽美什-Archer': 1 },
     txt: '倉庫街那一夜還沒完：路燈上的金色英靈擲下滿天寶具，一道黑霧般的騎士接住刀劍、反手擲了回去' },
   { war: '4th', day: 4, need: ['吉爾德萊-Caster', '阿爾托莉雅-Saber'], reveal: { '吉爾德萊-Caster': 1 },
@@ -157,11 +157,11 @@ var WAR_CANON_EVENTS_ = [
     txt: '遠坂宅的書房裡，當主轉身的那一刻，背後刺進了一柄自己送出去的短劍——金色的英靈換了一位御主，是那位年輕的神父' },
   { war: '4th', day: 7, need: ['吉爾德萊-Caster'], reveal: { '吉爾德萊-Caster': 2 }, move: { '吉爾德萊-Caster': '未遠川' },
     txt: '未遠川上浮出一團山一樣大的海魔，站在頂上的 Caster 高喊著「貞德」——教會連夜封鎖河岸，這位元帥的真名再也藏不住' },
-  { war: '4th', day: 8, need: ['阿爾托莉雅-Saber', '吉爾德萊-Caster'], kill: ['吉爾德萊-Caster'], reveal: { '阿爾托莉雅-Saber': 2 }, short: '未遠川的光之劍',
+  { war: '4th', day: 8, need: ['阿爾托莉雅-Saber', '吉爾德萊-Caster'], hurt: { '阿爾托莉雅-Saber': 0.6 }, kill: ['吉爾德萊-Caster'], reveal: { '阿爾托莉雅-Saber': 2 }, short: '未遠川的光之劍',
     txt: '未遠川上，一道光之劍把海魔整個蒸發，站在頂上的元帥跟著沉進了河底——河岸上的人都聽見了那把劍的名字' },
-  { war: '4th', day: 8, need: ['迪盧木多-Lancer'], after: ['未遠川的光之劍'],
+  { war: '4th', day: 8, need: ['迪盧木多-Lancer'], uncurse: ['阿爾托莉雅-Saber'], after: ['未遠川的光之劍'],
     txt: '那一夜的河岸上，槍兵親手折斷了自己的黃槍，只為了讓劍之從者左手的傷好起來' },
-  { war: '4th', day: 10, need: ['阿爾托莉雅-Saber', '蘭斯洛特-Berserker'], kill: ['蘭斯洛特-Berserker'], reveal: { '蘭斯洛特-Berserker': 2 }, short: '湖之騎士',
+  { war: '4th', day: 10, need: ['阿爾托莉雅-Saber', '蘭斯洛特-Berserker'], hurt: { '阿爾托莉雅-Saber': 0.7 }, kill: ['蘭斯洛特-Berserker'], reveal: { '蘭斯洛特-Berserker': 2 }, short: '湖之騎士',
     txt: '地下停車場裡，黑色的騎士被一劍貫穿，頭盔落地——Saber 抱著那位騎士，叫出了那個名字：蘭斯洛特' },
   { war: '4th', day: 11, need: ['吉爾伽美什-Archer', '伊斯坎達爾-Rider'], kill: ['伊斯坎達爾-Rider'], reveal: { '吉爾伽美什-Archer': 2 }, short: '冬木大橋上的征服王',
     txt: '冬木大橋上，征服王率領王之軍勢衝向金色的英靈，自己最後一個倒下——被留在橋上的少年，活了下來' },

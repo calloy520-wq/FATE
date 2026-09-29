@@ -66,4 +66,18 @@ t(evs.every(v=>(v.need||[]).concat(Object.keys(v.reveal||{}),Object.keys(v.move|
 { const s5=mk('5th',emiya); c.warAct_(s5,{t:'start'}); const ev=[]; s5.phase='night'; c.warMorning_(s5,ev); const m=ev.find(x=>x.k==='morning').txt;
   const s4=mk('4th',emiya); c.warAct_(s4,{t:'start'}); const e4=[]; s4.phase='night'; c.warMorning_(s4,e4); const m4=e4.find(x=>x.k==='morning').txt;
   t(/第 2 天早晨（2月3日）/.test(m)&&c.warDate_(s5,14)==='2月15日'&&c.warView_(s5).date==='2月3日'&&!/月/.test(m4),'第五次照原作日曆：第 1 天＝2/2、第 14 夜＝2/15（決戰）；第四次沒有可靠日期就只寫第幾天',m+' / '+m4); }
+console.log('── 原作的傷');
+{ const st=mk('4th',emiya); c.warAct_(st,{t:'start'}); const sb=st.enemies.find(e=>e.hero==='阿爾托莉雅-Saber');
+  st.phase='night'; st.battle=null; c.warMorning_(st,[]);
+  t(sb.cursedBy==='迪盧木多-Lancer'&&sb.hp<=sb.mhp-sb.curseDmg,'第四次倉庫街之後：Saber 的左手帶著黃槍的傷（血量上限被壓住）',JSON.stringify({c:sb.cursedBy,hp:sb.hp,m:sb.mhp,d:sb.curseDmg}));
+  sb.hp=1; c.warHeal_(sb,1); t(sb.hp===sb.mhp-sb.curseDmg,'黃槍的主人還在：怎麼休息都補不回那一截',sb.hp+'/'+sb.mhp);
+  for(let d=0;d<6;d++){ st.phase='night'; st.battle=null; c.warMorning_(st,[]); }
+  const dl8=st.enemies.find(e=>e.hero==='迪盧木多-Lancer');
+  t(st.day===8&&dl8.alive&&!sb.cursedBy,'第 8 天迪盧木多還活著、但折斷了黃槍：傷解開',JSON.stringify({day:st.day,a:dl8.alive,c:sb.cursedBy})); }
+{ const st=mk('4th',emiya); c.warAct_(st,{t:'start'}); const sb=st.enemies.find(e=>e.hero==='阿爾托莉雅-Saber'), dl=st.enemies.find(e=>e.hero==='迪盧木多-Lancer');
+  st.phase='night'; st.battle=null; c.warMorning_(st,[]); dl.hp=1; c.warApply_(st,{u:dl,side:'foe'},99);
+  t(!sb.cursedBy,'玩家先打倒迪盧木多：Saber 的傷當場解開'); }
+{ const R5=run('5th',1), sb=R5.st.enemies.find(e=>e.hero==='阿爾托莉雅-Saber');
+  t(sb.hp<=Math.round(sb.mhp*0.6),'第五次第 2 天：衛宮邸那一戰 Saber 帶傷（原作被紅槍刺穿）',sb.hp+'/'+sb.mhp); }
+t(evs.every(v=>Object.keys(v.hurt||{}).concat(Object.keys(v.curse||{}),Object.values(v.curse||{}),v.uncurse||[]).every(h=>allHeroes.has(h))),'傷與詛咒點名的從者都存在（改名會叫）');
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);

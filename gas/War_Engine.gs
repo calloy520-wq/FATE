@@ -2,6 +2,7 @@
 //   一天兩個決定（白天一件事、夜裡去哪），戰鬥每回合選一個姿態；GAS 算完結果，AI 只負責演。
 
 var WAR_ = {
+  CANON_CURSE: 0.2,      // 原作事件裡被黃槍劃傷：好不了的那段佔最大血量幾成
   NIGHTS: 14,            // 預設幾夜內分出勝負（每場戰爭照原作的天數見 WAR_NIGHTS_）
   MASTER_HP: 100,
   SEALS: 3,
@@ -450,6 +451,13 @@ function warCanonEvents_(st, ev) {
     (c.alter || []).forEach(function (h) { var e = byHero(h); if (e) { warAlter_(e, WAR_ALTER_[h]); st.met = (st.met || []).filter(function (id) { return id !== e.id; }); } });   // 黑化後像第一次見面：開場那句重播
     Object.keys(c.lives || {}).forEach(function (h) { var e = byHero(h); if (e && warFlag_(e, 'lives')) e.lives = Math.max(0, warLives_(e) + c.lives[h]); });   // 死而復生的命被削掉
     Object.keys(c.hurt || {}).forEach(function (h) { var e = byHero(h); if (e) e.hp = Math.max(1, Math.min(e.hp, Math.round(e.mhp * c.hurt[h]))); });   // 帶傷退場：血量壓到這個比例
+    Object.keys(c.curse || {}).forEach(function (h) {   // 被黃槍劃傷（原作的必滅黃薔薇）：下手的那位還在，這段傷就好不了
+      var e = byHero(h), by = byHero(c.curse[h]);
+      if (!e || !by) return;
+      e.cursedBy = by.hero; e.curseDmg = Math.max(e.curseDmg || 0, Math.round(e.mhp * WAR_.CANON_CURSE));
+      e.hp = Math.max(1, Math.min(e.hp, e.mhp - e.curseDmg));
+    });
+    (c.uncurse || []).forEach(function (h) { var e = byHero(h); if (e) { delete e.cursedBy; delete e.curseDmg; } });   // 詛咒解除（原作：迪盧木多親手折斷黃槍）
     ev.push({ k: 'news', txt: c.txt + '。' });
     (c.kill || []).forEach(function (h) { var e = byHero(h); if (e) warKill_(st, e, ev); });
     Object.keys(c.awaken || {}).forEach(function (h) { warAwaken_(st, h, c.awaken[h]); });
