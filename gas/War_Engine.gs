@@ -29,6 +29,7 @@ var WAR_ = {
   NP_MASTER_HIT: 15,     // 我方被寶具正面打中，御主也被餘波捲到
   ASSASSIN_MASTER_HIT: 8,
   RETREAT_BASE: 0.55, RETREAT_PER_SPD: 0.08, RETREAT_MIN: 0.15, RETREAT_MAX: 0.95,
+  FLED_TRAIL: 0.2,    // 從你手上逃掉一次，下次再想從你手上逃，成功率就少這麼多（退路被你摸清了）
   FIND_BASE: 0.10, FIND_OUT: 0.12, FIND_EXPOSED: 0.20, FIND_SCOUT: 0.05,
   HUNT: 0.7, HUNT_EXPOSED: 0.15, HUNT_WOUNDED: 0.15,
   HUNT_LATE: 0.06, FIND_LATE: 0.03,   // 每倒下一位從者，剩下的人更急著找出彼此（原作：人越少越只能再戰）
@@ -779,6 +780,7 @@ function warDoRound_(st, act, ev) {
   var r = warExchange_(st, A, Z, ev);
   // 之後的結算只認「真的發生了的事」：對方先撤走了，你的寶具沒放出去、令咒也沒燒掉、試探也沒看到什麼。
   var myRetreat = r.ended === 'retreat' && r.who === 'me';
+  if (r.ended === 'retreat' && r.who === 'foe') e.fled = (e.fled || 0) + 1;
   if (act.seal && (A.struck || (act.s === 'retreat' && myRetreat))) {
     st.master.seals--; st.stats.seals++;
     ev.splice(ev0, 0, { k: 'seal', txt: '令咒發動。' });
@@ -846,11 +848,12 @@ function warExchange_(st, A, Z, ev) {
   for (var i = 0; i < 2; i++) {
     var S = sides[i], O = sides[1 - i];
     if (S.act !== 'retreat') continue;
-    if (S.seal || warRand_(st) < warRetreatChance_(S.u, O.u, false)) {
+    var trail = S.side === 'foe' ? (S.u.fled || 0) * WAR_.FLED_TRAIL : 0;   // 逃過你幾次，退路就被你摸清幾分
+    if (S.seal || warRand_(st) < Math.max(0.05, warRetreatChance_(S.u, O.u, false) - trail)) {
       ev.push({ k: 'retreat', side: S.side, txt: warWho_(st, S) + '撤退成功。' });
       return { ended: 'retreat', who: S.side };
     }
-    ev.push({ k: 'retreat', side: S.side, txt: warWho_(st, S) + '想撤退，但被纏住了。' });
+    ev.push({ k: 'retreat', side: S.side, txt: warWho_(st, S) + (trail ? '想從上次的退路脫身，被堵個正著。' : '想撤退，但被纏住了。') });
     S.act = 'none';
   }
   if (A.act === 'np' && Z.act === 'np') {

@@ -26,6 +26,7 @@ summon（開戰／重新召喚 1 次）
  → day   ：打聽 scout／休養 rest／補魔 supply
  → night ：突襲某位 sortie（前 3 位直接列、其餘收進「其他目標」）／巡邏 patrol／固守 hold
  → battle：正面 strike／試探 probe／寶具 np／撤退 retreat（＋令咒強化）
+   敵人從你手上逃過一次，下次再想逃就難一分（`e.fled`×`FLED_TRAIL`：退路被摸清）
    天亮（第 3 回合打完）對手剩不到三成：停在追擊 chase／收手 letgo（`battle.dawn`；追擊必中×1.5、御主 −10、真名曝光，對手想逃；`warStands_` 那幾位回頭硬拚）
  → 第 14 夜：決戰地（5th 柳洞寺／4th 冬木市民會館／混亂隨機 柳洞寺），剩下的全員到場
  → over  ：戰績＋輸在哪＋下一局只改一件事 → 🐯 老虎道場

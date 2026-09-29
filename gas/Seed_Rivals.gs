@@ -37,7 +37,7 @@ var FATE_4TH_ROSTER = [
 var WAR_ROUTES_ = {
   '5th': {
     fate: { label: 'Fate 線', pace: { brawl: 0.9 } },
-    ubw: { label: 'Unlimited Blade Works 線', pace: { brawl: 0.85 }, final: { place: '柳洞寺', arrive: '寺院的池子上方懸著一團不斷膨脹的黑色輪廓——聖杯正在成形；剩下的從者陸續踏上石階', next: '石階上又來了一位從者' } },
+    ubw: { label: 'Unlimited Blade Works 線', pace: { brawl: 0.82 }, final: { place: '柳洞寺', arrive: '寺院的池子上方懸著一團不斷膨脹的黑色輪廓——聖杯正在成形；剩下的從者陸續踏上石階', next: '石階上又來了一位從者' } },
     hf: { label: "Heaven's Feel 線", pace: { brawl: 0.78 }, final: { place: '大空洞', arrive: '剩下的從者一個個走進柳洞寺地底的黑暗', next: '黑暗裡又走出一位從者' } }
   }
 };

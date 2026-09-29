@@ -155,4 +155,10 @@ t(RA[1]<RA[0]*0.6,'昨夜才夜襲過你的那位：今晚少來（不再同一�
 const SC=J(`(function(){ var d=__dawn(0.2), s=d.s; d.e.fx=['lastStand']; var tp=WAR_TEMPER_; var real=warStands_; warStands_=function(){return true;}; var sub=warButtons_(s)[0].sub; s.out=true; var r=warAct_(s,{t:'stance',s:'chase'}); warStands_=real; return sub+'|'+r.ev.map(function(x){return x.txt;}).join('|'); })()`);
 t(/再打一回合/.test(SC)&&/逼了上去/.test(SC)&&!/追了上去/.test(SC),'不撤退的對手：追擊寫成「逼了上去」、按鈕寫「再打一回合」',SC.slice(0,160));
 
+const FT=J(`(function(){ var run=function(fled){ var ok=0, n=400; for(var i=0;i<n;i++){ var s=__battle([], 'retreat'); s.rs=900+i*7919; var e=s.enemies.filter(function(x){return x.id===s.battle.e;})[0]; e.fled=fled; s.battle.intent='retreat';
+    var r=warAct_(s,{t:'stance',s:'probe'}); if(r.ev.some(function(x){return x.side==='foe'&&/撤退成功/.test(x.txt);})) ok++; } return ok/n; };
+  var s2=__battle([], 'retreat'); var e2=s2.enemies.filter(function(x){return x.id===s2.battle.e;})[0]; var before=e2.fled||0; var hit=false; for(var k=0;k<30&&!hit;k++){ var s3=__battle([], 'retreat'); s3.rs=50+k*7919; var e3=s3.enemies.filter(function(x){return x.id===s3.battle.e;})[0]; s3.battle.intent='retreat'; var r3=warAct_(s3,{t:'stance',s:'probe'}); if(r3.ev.some(function(x){return /撤退成功/.test(x.txt);})) hit=(e3.fled===1); }
+  return { a:run(0), b:run(2), counted:hit }; })()`);
+t(FT.b<FT.a-0.2&&FT.counted,'從你手上逃過的敵人：記下次數，下次更難從你手上逃（退路被摸清）',JSON.stringify(FT));
+
 console.log(bad ? '❌ '+bad+' 條失敗' : '✅ warfix.js '+ok+' 條全過');
