@@ -37,7 +37,7 @@ var FATE_4TH_ROSTER = [
 var WAR_ROUTES_ = {
   '5th': {
     fate: { label: 'Fate 線', pace: { brawl: 0.9 } },
-    ubw: { label: 'Unlimited Blade Works 線', pace: { brawl: 0.92 } },
+    ubw: { label: 'Unlimited Blade Works 線', pace: { brawl: 0.89 } },
     hf: { label: "Heaven's Feel 線", pace: { brawl: 0.88 }, final: { place: '大空洞', arrive: '剩下的從者一個個走進柳洞寺地底的黑暗', next: '黑暗裡又走出一位從者' } }
   }
 };
@@ -51,7 +51,8 @@ var WAR_ALTER_ = {
 
 // 原作事件：到了那一天的早報就發生（涉及的從者都得還是活著的敵人，否則整條跳過）。
 //   need＝要在場的從者；reveal＝看穿到哪一層（1 職階與據點／2 真名）；move＝據點搬家。
-//   route＝只在這條線發生；kill＝照原作倒下；awaken＝叫醒預備役（值是登場那天的早報）；master＝換御主；alter＝黑化（WAR_ALTER_）。
+//   route＝只在這條線發生；kill＝照原作倒下；awaken＝叫醒預備役（值是登場那天的早報）；master＝換御主；alter＝黑化（WAR_ALTER_）；
+//   lives＝死而復生的命增減；hurt＝血量壓到最大血量的幾成（帶傷退場）。
 //   fallen＋id＝不看日子，倒下的從者累積到幾位的隔天早報發生（只發一次）；unmask＝need 裡假死的那位在這一幕現身。
 //   after＝這幾幕（short）真的發生過才接得上（文字提到它們）。劇本不收最後一位——那一位留給玩家。
 //   short＝這一幕的名字：涉及的從者已經先倒下而演不成時，記進「改寫了原作」（結局揭曉）。
@@ -80,12 +81,16 @@ var WAR_CANON_EVENTS_ = [
     txt: '穗群原學園的樹林裡，眼罩的騎兵撲向一位教師，反被那雙空手扭斷了頸子——教師身後浮現一道披斗篷的影子' },
   { war: '5th', route: 'ubw', day: 6, need: ['美狄亞-Caster', '阿爾托莉雅-Saber'], move: { '阿爾托莉雅-Saber': '言峰教會', '美狄亞-Caster': '言峰教會' }, master: { '阿爾托莉雅-Saber': 'Caster' }, reveal: { '阿爾托莉雅-Saber': 1 }, short: '破戒之符奪走 Saber',
     txt: '被魔女佔據的教會裡，魔女拿一位女教師當人質，一把歪扭的短劍刺進劍之從者——契約斷了，劍之從者如今跟在魔女身後' },
+  { war: '5th', route: 'ubw', day: 7, need: ['EMIYA-Archer', '赫拉克勒斯-Berserker'], lives: { '赫拉克勒斯-Berserker': -6 }, hurt: { 'EMIYA-Archer': 0.2 }, reveal: { 'EMIYA-Archer': 1, '赫拉克勒斯-Berserker': 1 }, short: '一個人守住的森林',
+    txt: '艾因茲貝倫城外的森林裡，紅衣的弓兵一個人擋下了巨人，讓其他人先走——巨人被射殺了六次；弓兵沒有回來，大家都以為那一位已經不在了' },
   { war: '5th', route: 'ubw', day: 8, need: ['吉爾伽美什-Archer', '赫拉克勒斯-Berserker'], kill: ['赫拉克勒斯-Berserker'], reveal: { '吉爾伽美什-Archer': 1 }, master: { '吉爾伽美什-Archer': '間桐慎二' }, short: '森林裡的十二試煉',
     txt: '艾因茲貝倫城的森林裡，金色的英靈射下成千上萬的刀劍——巨人死了十一次，最後一次再也站不起來；站在金色英靈身後的，是間桐家的少年' },
   { war: '5th', route: 'ubw', day: 9, need: ['EMIYA-Archer', '美狄亞-Caster'], kill: ['美狄亞-Caster'], move: { 'EMIYA-Archer': '衛宮邸' }, master: { 'EMIYA-Archer': '無主' }, short: '紅衣弓兵的背叛',
     txt: '紅衣的弓兵離開了遠坂家的少女，走進魔女的據點反手一刀——魔女與那位教師倒在一起' },
   { war: '5th', route: 'ubw', day: 9, need: ['阿爾托莉雅-Saber'], after: ['破戒之符奪走 Saber', '紅衣弓兵的背叛'], master: { '阿爾托莉雅-Saber': '遠坂凜' },
     txt: '被魔女綁住的劍之從者抬起頭，轉而與遠坂家的少女結下了契約' },
+  { war: '5th', route: 'ubw', day: 12, need: ['EMIYA-Archer'], after: ['紅衣弓兵的背叛'], kill: ['EMIYA-Archer'], short: '兩個無限劍製',
+    txt: '艾因茲貝倫城的大廳裡，兩個念著同一句咒文的人對砍了一整夜——少年一步也沒退，紅衣的弓兵最後放下了劍，笑了' },
   { war: '5th', route: 'ubw', day: 11, need: ['庫丘林-Lancer', '吉爾伽美什-Archer'], kill: ['庫丘林-Lancer'], short: '火場裡的槍兵',
     txt: '郊外的古城燒了一整夜；青衣的槍兵把神父釘在牆上、把被綁住的少女送出火場，自己留在了火裡' },
   // ── Heaven's Feel 線 ──
@@ -96,6 +101,8 @@ var WAR_CANON_EVENTS_ = [
     txt: '柳洞寺境內，青衣的槍兵把白骨面具的暗殺者逼到牆角，腳下的影子卻湧了上來，連人帶槍吞了下去' },
   { war: '5th', route: 'hf', day: 6, need: ['美狄亞-Caster'], kill: ['美狄亞-Caster'], short: '沉進影子的魔女',
     txt: '柳洞寺的正殿被黑色的泥淹沒，魔女的身影一點一點沉進了影子裡' },
+  { war: '5th', route: 'hf', day: 6, need: [],
+    txt: '間桐家的少年再也沒有回家——那一夜之後，紫髮少女腳下的影子一天比一天長' },
   { war: '5th', route: 'hf', day: 7, need: ['美杜莎-Rider'], master: { '美杜莎-Rider': '間桐櫻' }, alter: ['美杜莎-Rider'],
     txt: '間桐家那本書燒成了灰——眼罩的騎兵如今只聽一位紫髮少女的話，流進它身上的魔力多得不像一個人給得起' },
   { war: '5th', route: 'hf', day: 8, need: ['阿爾托莉雅-Saber'], alter: ['阿爾托莉雅-Saber'], master: { '阿爾托莉雅-Saber': '間桐櫻' }, move: { '阿爾托莉雅-Saber': '柳洞寺' }, reveal: { '阿爾托莉雅-Saber': 1 }, short: '被黑影吞下的騎士王',
@@ -104,6 +111,8 @@ var WAR_CANON_EVENTS_ = [
     txt: '柳洞寺的山道上，紅衣的弓兵展開七片花瓣般的盾，擋下了漆黑的聖劍——盾碎了，弓兵失去了一條手臂，那條手臂後來接在了衛宮家的少年身上' },
   { war: '5th', route: 'hf', day: 10, need: ['阿爾托莉雅-Saber', '赫拉克勒斯-Berserker'], alter: ['赫拉克勒斯-Berserker'], master: { '赫拉克勒斯-Berserker': '間桐櫻' }, reveal: { '赫拉克勒斯-Berserker': 1 }, short: '黑色的劍光與巨人',
     txt: '艾因茲貝倫城外的森林被黑色的劍光削平，巨人倒下之後又站了起來——身上爬滿紅色的紋路，再也聽不見白髮少女的呼喚' },
+  { war: '5th', route: 'hf', day: 12, need: ['赫拉克勒斯-Berserker'], after: ['七天盾與黑色的聖劍', '黑色的劍光與巨人'], kill: ['赫拉克勒斯-Berserker'], short: '九頭龍斬',
+    txt: '艾因茲貝倫的森林裡，衛宮家的少年解開了那條紅布纏著的手臂，投影出巨人自己的劍與技——九道斬擊同時落下，黑色的巨人終於倒了' },
   { war: '5th', route: 'hf', day: 11, need: ['吉爾伽美什-Archer'], kill: ['吉爾伽美什-Archer'], short: '被黑泥吞下的王',
     txt: '深山町的路口，金色的英靈對著那道影子開口，話還沒說完，就被湧上來的黑泥吞了下去' },
   { war: '4th', day: 2, need: ['阿爾托莉雅-Saber', '迪盧木多-Lancer', '伊斯坎達爾-Rider'],

@@ -35,8 +35,9 @@ console.log("── Heaven's Feel 線");
   t(/漆黑/.test(sa.card.look),'說書拿到的外貌也換成黑化後的');
   t(sa.fx.indexOf('wind_strike')<0&&J("warUnit_(SEED_SERVANTS.filter(function(s){return s.id==='阿爾托莉雅-Saber';})[0],{})").fx.indexOf('wind_strike')>=0,'黑化後不再用風王結界藏劍（打聽不再被遮）');
   const hb=H(st,'赫拉克勒斯-Berserker');
-  t(hb.alive&&hb.alter&&hb.master==='間桐櫻'&&c.warLives_(hb)===11,'第 10 天：巨人被黑影吞下成了黑化的狂戰士（十二試煉還在）',JSON.stringify({a:hb.alter,m:hb.master}));
+  t(hb.alter&&hb.master==='間桐櫻'&&(!hb.alive?/九道斬擊/.test(txt):c.warLives_(hb)===11),'第 10 天：巨人被黑影吞下成了黑化的狂戰士（十二試煉還在）',JSON.stringify({a:hb.alter,m:hb.master}));
   t(dead('吉爾伽美什-Archer'),'第 11 天：金色的王被黑泥吞下');
+  t(/紫髮少女腳下的影子/.test(txt),'第 6 天：間桐家的少年再也沒有回家');
   t(dead('EMIYA-Archer')&&/七片花瓣般的盾/.test(txt),'第 9 天：紅衣弓兵以七天盾擋下黑色的聖劍、失去一條手臂');
   t(!out.some(x=>x.k==='fall'),'照原作倒下的不播「提前倒下」的餘波');
   t(c.warFinal_(st).place==='大空洞','決戰地換成大空洞');
@@ -44,12 +45,15 @@ console.log("── Heaven's Feel 線");
   t(d.route&&d.route.label==="Heaven's Feel 線"&&d.route.rewrote.length===0,'結局揭曉路線；照原作走完就沒有改寫',JSON.stringify(d.route)); }
 
 console.log('── Unlimited Blade Works 線');
-{ const st=mk('5th','ubw'); toDay(st,12);
+{ const st=mk('5th','ubw'); toDay(st,11);
   const sa=H(st,'阿爾托莉雅-Saber');
   t(!H(st,'美杜莎-Rider').alive,'第 5 天：騎兵倒在柳洞寺');
   t(sa.loc==='言峰教會'&&sa.master==='遠坂凜','Saber 在教會被 Caster 奪走、Caster 死後與凜結約',sa.loc+sa.master);
   t(!H(st,'赫拉克勒斯-Berserker').alive&&!H(st,'美狄亞-Caster').alive&&!H(st,'庫丘林-Lancer').alive,'巨人、魔女、槍兵照原作倒下');
   t(H(st,'吉爾伽美什-Archer').master==='間桐慎二'&&H(st,'EMIYA-Archer').alive,'金色的王換成慎二當御主；紅衣弓兵還在');
+  toDay(st,13); t(!H(st,'EMIYA-Archer').alive&&H(st,'EMIYA-Archer').canonDead,'第 12 天：兩個無限劍製，紅衣弓兵放下了劍'); }
+{ const st=mk('5th','ubw'); toDay(st,7); const hb=H(st,'赫拉克勒斯-Berserker'), em=H(st,'EMIYA-Archer');
+  t(hb.alive&&c.warLives_(hb)===5&&em.hp<=Math.round(em.mhp*0.2),'第 7 天：紅衣弓兵獨守森林，巨人被射殺六次（剩 5 命）、弓兵帶著重傷',JSON.stringify({l:c.warLives_(hb),hp:em.hp,m:em.mhp}));
   t(c.warFinal_(st).place==='柳洞寺','決戰照舊在柳洞寺'); }
 
 console.log('── Fate 線');

@@ -420,6 +420,8 @@ function warCanonEvents_(st, ev) {
     Object.keys(c.move || {}).forEach(function (h) { var e = byHero(h); if (e) e.loc = c.move[h]; });
     Object.keys(c.master || {}).forEach(function (h) { var e = byHero(h); if (e) e.master = c.master[h]; });
     (c.alter || []).forEach(function (h) { var e = byHero(h); if (e) warAlter_(e, WAR_ALTER_[h]); });
+    Object.keys(c.lives || {}).forEach(function (h) { var e = byHero(h); if (e && warFlag_(e, 'lives')) e.lives = Math.max(0, warLives_(e) + c.lives[h]); });   // 死而復生的命被削掉
+    Object.keys(c.hurt || {}).forEach(function (h) { var e = byHero(h); if (e) e.hp = Math.max(1, Math.min(e.hp, Math.round(e.mhp * c.hurt[h]))); });   // 帶傷退場：血量壓到這個比例
     ev.push({ k: 'news', txt: c.txt + '。' });
     (c.kill || []).forEach(function (h) { var e = byHero(h); if (e) warKill_(st, e, ev); });
     Object.keys(c.awaken || {}).forEach(function (h) { warAwaken_(st, h, c.awaken[h]); });
