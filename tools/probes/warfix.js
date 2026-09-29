@@ -179,4 +179,10 @@ const HS=J(`(function(){ var worst=0; for(var i=0;i<60;i++){ var o=warSeedCtx_('
   s.enemies.forEach(function(e){ e.arrive=1; e.intel=0; e.fake=false; e.fx=['stealth']; e.skn={stealth:'氣息遮斷'}; }); var r=warAct_(s,{t:'scout'}); var n=r.ev.filter(function(x){return /氣息無法追蹤/.test(x.txt);}).length; worst=Math.max(worst,n); } return worst; })()`);
 t(HS===1,'一次打聽追丟好幾位帶氣息遮斷的：只講一句（「有 N 位從者的氣息無法追蹤」）',HS);
 
+const LF=J(`(function(){ var same=0, tot=0; for(var i=0;i<200;i++){ var o=warSeedCtx_('chaos'); o.name='測'; o.sex='男'; o.seed=600+i; var s=warNewGame_(o); warAct_(s,{t:'start'}); s.day=5;
+    var al=s.enemies.filter(function(e){return !e.fake;}).slice(0,3); s.enemies.forEach(function(e){ e.alive=al.indexOf(e)>=0; e.arrive=1; e.found=false; }); var a=al[0], b=al[1];
+    a.lastFoe={id:b.id,day:4}; b.lastFoe={id:a.id,day:4}; s.phase='night'; s.ticked=[]; s.engaged=[]; s.hunted=true; s.out=true; s.battle=null; warTick_(s,[]);
+    var k=s.engaged.indexOf(a.id); if(k>=0&&k%2===0){ tot++; if(s.engaged[k+1]===b.id) same++; } } return {same:same,tot:tot}; })()`);
+t(LF.tot>10&&LF.same===0,'敵人互打：昨夜才打過的那一對，今晚有別人可挑就不再碰頭',JSON.stringify(LF));
+
 console.log(bad ? '❌ '+bad+' 條失敗' : '✅ warfix.js '+ok+' 條全過');

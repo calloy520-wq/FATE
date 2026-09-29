@@ -200,7 +200,7 @@
 - `warReveal_(st, e, ev)` — 看穿真名（intel→2）。 對手帶 `veil`（風王結界）時看不穿，改推一句「看不出是誰」。
 - `warUnmask_(st, e, ev)` — 假死的那位露餡（`e.fake`→false）並推一句早報；`warStartBattle_` 與 `warAutoBattle_` 開打時都會叫。陣容上帶 `fakeDeath` 的那組（第四次的百貌哈桑）第二天早報推原作的死訊並標假死（第一夜就跟它交過手的話跳過）。
 - `warFinishNight_(st, ev)` — 敵人行動（`warTick_`），沒人找上門就進早晨。
-- `warTick_(st, ev)` — 每位敵人一次：可能發現你的據點、夜襲你（只在你固守時、一夜一位）、找別人打（執念對象在場就先找那一位）、或休息；昨夜才夜襲過你的那位（`e.raided`）今晚再來的機率乘 `WAR_.RAID_AGAIN`；倒下的人越多、剩下的越急著找人。有人夜襲就回 true 停下來開打。
+- `warTick_(st, ev)` — 每位敵人一次：可能發現你的據點、夜襲你（只在你固守時、一夜一位）、找別人打（執念對象在場就先找那一位；昨夜才打過的那位〔`e.lastFoe`〕有別人可挑就先放著）、或休息；昨夜才夜襲過你的那位（`e.raided`）今晚再來的機率乘 `WAR_.RAID_AGAIN`；倒下的人越多、剩下的越急著找人。有人夜襲就回 true 停下來開打。
 - `warMorning_(st, ev)` — 先把昨夜沒人倒下的交手（`warAutoBattle_` 存在 `st.draws`，不進當下的事件清單——夜裡被突襲打斷也不會半句漏到畫面）併成一句早報、清空，再充能減一、天數加一、登場消息、時限保險。
 - `warStartBattle_(st, e, ctx, ev)` — 開打；`ctx`＝sortie／patrol／defend／final。氣息遮斷的出擊第一擊、陣地作成的魔術陣（雙向：你守家、或你闖進對方陣地）在這裡生效。
 - `warSetIntent_(st, e)`／`warIntent_(st, me, foe, round)` — 敵人這回合想做什麼（先決定、存起來；看得到預兆就能應對）。

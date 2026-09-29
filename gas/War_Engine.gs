@@ -651,8 +651,9 @@ function warTick_(st, ev) {
     }
     if (warRand_(st) < aggr * warPace_(st).brawl) {
       var foes = warArrived_(st).filter(function (o) { return o.id !== e.id && st.engaged.indexOf(o.id) < 0; });
-      var o = prey || warPick_(st, foes);
-      if (o) { st.engaged.push(e.id, o.id); warAutoBattle_(st, e, o, ev); continue; }
+      var fresh = foes.filter(function (o) { return !(e.lastFoe && e.lastFoe.id === o.id && e.lastFoe.day === st.day - 1); });   // 昨夜才打過的那位先放著（早報不再天天同一對）
+      var o = prey || warPick_(st, fresh.length ? fresh : foes);
+      if (o) { st.engaged.push(e.id, o.id); e.lastFoe = { id: o.id, day: st.day }; o.lastFoe = { id: e.id, day: st.day }; warAutoBattle_(st, e, o, ev); continue; }
     }
     warHeal_(e, WAR_.ENEMY_REST_HEAL);
   }
