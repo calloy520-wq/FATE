@@ -170,7 +170,7 @@ var SEED_SERVANTS = [
     six:{筋力:'B',耐久:'B',敏捷:'B',魔力:'B',幸運:'-',寶具:'A'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'}],
     skills:[{n:'天之鎖',r:'A',fx:'chain'},{n:'氣息感知',r:'A+',fx:'sense'},{n:'變容',r:'A',fx:'shapeshift'},{n:'完全之形',r:'A',fx:'regen'}],
-    traits:[{n:'神造兵器'},{n:'病死宿命'}], np:'世人啊，冀以鎖繫神明 Enuma Elish（對界 A++~EX·對肅正寶具·反星球/人類破壞行為增幅·可匹敵乖離劍）／民之睿智 Age of Babylon（大地召出萬千劍槍鎖齊射·抵銷王之財寶）',
+    traits:[{n:'神造兵器'},{n:'病死宿命'}], np:'人子啊，繫留諸神吧 Enuma Elish（對界 A++~EX·對肅正寶具·反星球/人類破壞行為增幅·可匹敵乖離劍）／民之睿智 Age of Babylon（大地召出萬千劍槍鎖齊射·抵銷王之財寶）',
     align:'中立・中庸', persona:{look:'青綠長髮・中性無垢的神造之軀、平和',words:'純真・追尋摯友',toMaster:'溫和而疏離，心繫吉爾伽美什',quirks:'歪頭觀察、看到新東西會伸手摸一下',logic:'合不合理擺一邊，先看對方開不開心',
     dailyLook:'青綠長髮・中性無垢、清晨草葉上的露水',
     dailyOutfit:'自然色調的簡樸休閒服',
@@ -273,7 +273,7 @@ function servantToHeroRow_(s) {
     s.np, JSON.stringify(slim), s.align, JSON.stringify(s.wars), 'seed',
     p.dailyLook || '', p.dailyWords || '', '', p.dailyOutfit || ''];
 }
-var CODEX_PERSONA_VER = 'v90';   // 精緻化 persona 就升一版，觸發既有英靈殿升級（upgradeCodexPersonas_）；每一版改了什麼見 CODE_NOTES『CODEX_PERSONA_VER』
+var CODEX_PERSONA_VER = 'v91';   // 精緻化 persona 就升一版，觸發既有英靈殿升級（upgradeCodexPersonas_）；每一版改了什麼見 CODE_NOTES『CODEX_PERSONA_VER』
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {
