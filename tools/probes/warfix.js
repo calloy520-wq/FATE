@@ -64,7 +64,8 @@ let P2=''; HOOK=p=>{ P2=p; };
 r=run({action:'war_act',acctName:'決戰',act:{t:'stance',s:'strike',seal:true}});
 run({action:'war_narrate',acctName:'決戰'}); HOOK=null;
 const lab=first.intel>=2?first.name:first.cls;
-t(/又來了一位/.test(P2) && (P2.match(/【對手】[^\n]*/)||[''])[0].indexOf(lab)>=0, '【對手】寫的是被打倒的那一位（下一位在事件裡）', (P2.match(/【對手】[^\n]*/)||[''])[0]);
+const nextLine=evalIn('warFinal_('+JSON.stringify(st)+').next');   // 下一位上場那句跟著這場（與路線）走
+t(P2.indexOf(nextLine)>=0 && (P2.match(/【對手】[^\n]*/)||[''])[0].indexOf(lab)>=0, '【對手】寫的是被打倒的那一位（下一位在事件裡）', (P2.match(/【對手】[^\n]*/)||[''])[0]);
 
 console.log('\n── ⑥ 說書不鎖按鈕：連按不漏戲、在講的不重講、沒寫出來的併進下一段');
 const B2='連按';
