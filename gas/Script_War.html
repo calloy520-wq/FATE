@@ -154,7 +154,8 @@
         正面：一般攻擊<br>
         試探：雙方傷害減半，可看穿真名；出現寶具預兆時可減輕寶具傷害<br>
         寶具：最大威力。使用後冷卻${r.npCd ? ' ' + r.npCd + ' 夜' : ''}，並暴露己方真名<br>
-        撤退：脫離戰鬥</p>
+        撤退：脫離戰鬥<br>
+        天亮時對手重傷：可以追擊多打一回合（御主消耗體力、真名曝光），或收手</p>
       <p>◆ <b>真名</b>：看穿敵方真名，傷害提高；己方真名曝光，受到的傷害也會提高。</p>
       <p>❖ <b>令咒${r.seals ? '（' + r.seals + ' 劃）' : ''}</b>：戰鬥中先按「令咒」再選行動。正面必中／無視冷卻解放寶具${r.sealNpCost ? '（寶具還在冷卻時，御主要用自己的魔力去填，御主 −' + r.sealNpCost + '）' : ''}／必定撤退。</p>
       <p>🎯 <b>討伐令</b>：教會有時會指定一位從者，打倒這位從者可得一劃令咒。</p>
@@ -182,7 +183,7 @@
     if (warBusy_ || !warCur_) return;
     const b = warCur_.buttons[i];
     if (!b) return;
-    const seal = warSeal_ && warCur_.phase === 'battle';
+    const seal = warSeal_ && warCur_.phase === 'battle' && !(warCur_.battle && warCur_.battle.dawn);
     if (b.dis && !(seal && b.sealOk)) return;
     if (seal && !b.sealSub) return;
     warBusy_ = true;
@@ -434,7 +435,7 @@
     if (v.battle) {
       const b = v.battle;
       battle = `<div class="war-battle">
-        <div class="war-row between"><b>對手：${escapeHtml(b.foe)}${b.info && b.info.bounty ? ' 🎯' : ''}${b.info && b.info.intel >= 2 ? ' <span class="war-gold war-small" title="已看穿真名，傷害提高">◆真名</span>' : ''}</b><span class="war-dim">${b.ctx === 'final' ? '決戰' : '第 ' + b.round + '／' + b.rounds + ' 回合'}</span></div>
+        <div class="war-row between"><b>對手：${escapeHtml(b.foe)}${b.info && b.info.bounty ? ' 🎯' : ''}${b.info && b.info.intel >= 2 ? ' <span class="war-gold war-small" title="已看穿真名，傷害提高">◆真名</span>' : ''}</b><span class="war-dim">${b.ctx === 'final' ? '決戰' : b.dawn ? '天亮' : '第 ' + b.round + '／' + b.rounds + ' 回合'}</span></div>
         ${warBar_(b.foeHp, 100, 'foe', 'foe:' + ((b.info && b.info.id) || b.foe))}
         ${warFoeDetail_(b.info, true)}
         ${b.tele === 'np' ? '<div class="war-warn">⚠ 寶具預兆</div>' : ''}
@@ -516,8 +517,9 @@
   function warRenderButtons_() {
     const v = warCur_, box = warEl_('war-btns'), sealBox = warEl_('war-seal');
     if (!v || !box) return;
+    const sealable = v.phase === 'battle' && !(v.battle && v.battle.dawn);   // 天亮的追擊／收手用不到令咒
     if (sealBox) {
-      sealBox.innerHTML = v.phase === 'battle' && v.master.seals > 0
+      sealBox.innerHTML = sealable && v.master.seals > 0
         ? `<button class="war-pill war-sealbtn${warSeal_ ? ' on' : ''}" onclick="warToggleSeal()">❖ 令咒${warSeal_ ? '：啟用中' : ''}（剩 ${v.master.seals}）</button>` : '';
     }
     if (v.phase === 'over') {
@@ -530,8 +532,8 @@
     const bs = v.buttons || [], nMore = bs.filter(b => b.more).length;
     box.innerHTML = bs.map((b, i) => {
       if (b.more && !warMore_) return '';
-      const seal = warSeal_ && v.phase === 'battle' && b.sealSub;
-      const off = warBusy_ || (b.dis && !(warSeal_ && b.sealOk)) || (warSeal_ && v.phase === 'battle' && !b.sealSub);
+      const seal = warSeal_ && sealable && b.sealSub;
+      const off = warBusy_ || (b.dis && !(seal && b.sealOk)) || (warSeal_ && sealable && !b.sealSub);
       const btn = `<button class="war-btn${seal ? ' sealed' : ''}" ${off ? 'disabled' : ''} onclick="warDo(${i})"><b>${escapeHtml(b.label)}</b><small>${escapeHtml(seal ? b.sealSub : (b.sub || ''))}</small></button>`;
       // 收起來的目標：在最後一個直接列出的目標後面放一顆展開鈕
       const last = nMore && !b.more && b.t === 'sortie' && bs[i + 1] && bs[i + 1].more;

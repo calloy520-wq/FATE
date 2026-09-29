@@ -125,4 +125,21 @@ t(nm.some(x=>/^meet:黑色的狂戰士一看見阿爾托莉雅/.test(x)), '蘭�
 const mt=J(`(function(){ var s=warNewGame_(__o); warAct_(s,{t:'start'}); var k=s.enemies.filter(function(e){return e.hero==='佐佐木小次郎-Assassin';})[0]; k.intel=1; s.phase='night'; var ev=[]; warStartBattle_(s,k,'sortie',ev); return ev.map(function(x){return x.txt;}).join(''); })()`);
 t(/山門前的石階上/.test(mt) && mt.indexOf('小次郎')<0, '開場一句有原作味、不洩真名', mt);
 
+// 天亮的追擊：對手重傷時停在「追擊／收手」，追擊必中×1.5、御主扣體力、真名曝光
+evalIn(`function __dawn(pct){ var s=__battle([], 'strike'); var e=s.enemies.filter(function(x){return x.id===s.battle.e;})[0]; e.hp=Math.round(e.mhp*pct); s.battle.round=WAR_.ROUNDS; var atk=s.sv.atk; s.sv.atk=0.01;
+  var r=warAct_(s,{t:'stance',s:'probe'}); s.sv.atk=atk; return {s:s,e:e,r:r}; }`);
+const D=J(`(function(){ var d=__dawn(0.2), s=d.s; return { phase:s.phase, dawn:!!(s.battle&&s.battle.dawn), btn:warButtons_(s).map(function(b){return b.s;}).join(), view:(warView_(s).battle||{}).dawn, txt:d.r.ev.map(function(x){return x.txt;}).join('|'),
+  seal:warAct_(s,{t:'stance',s:'chase',seal:true}).ok, eAlive:d.e.alive }; })()`);
+t(D.phase==='battle'&&D.dawn&&D.btn==='chase,letgo'&&D.view===true&&/帶著重傷想走/.test(D.txt),'天亮時對手剩不到三成：停在追擊／收手兩顆鈕',JSON.stringify(D));
+t(D.seal===false,'追擊／收手不能疊令咒');
+const L=J(`(function(){ var d=__dawn(0.2), s=d.s, m=s.master.hp; var r=warAct_(s,{t:'stance',s:'letgo'}); return { phase:s.phase, m:s.master.hp-m, alive:d.e.alive, txt:r.ev.map(function(x){return x.txt;}).join('|') }; })()`);
+t(L.phase!=='battle'&&L.m===0&&L.alive&&/晨霧/.test(L.txt),'收手：對手離開、御主不扣',JSON.stringify(L));
+const C=J(`(function(){ var d=__dawn(0.2), s=d.s, m=s.master.hp; s.exposed=false; s.out=true; var r=warAct_(s,{t:'stance',s:'chase'}); return { phase:s.battle&&s.battle.e===d.e.id?'battle':s.phase, m:m-s.master.hp, exposed:s.exposed, txt:r.ev.map(function(x){return x.txt;}).join('|') }; })()`);
+t(C.phase!=='battle'&&C.m===E('WAR_.CHASE_MASTER')&&C.exposed&&(/追上去，擊中了/.test(C.txt)||/撤退成功/.test(C.txt)),'追擊：御主扣體力、真名曝光、那一擊必中（或對方逃掉），打完就天亮',JSON.stringify(C));
+const H=J(`(function(){ var d=__dawn(0.6); return { phase:d.s.phase, txt:d.r.ev.map(function(x){return x.txt;}).join('|') }; })()`);
+t(H.phase!=='battle'&&/雙方各自撤退/.test(H.txt),'對手還有六成血：照舊天亮各自撤退',JSON.stringify(H));
+
+const ST=J(`(function(){ var u=function(id){ return warUnit_(SEED_SERVANTS.filter(function(x){return x.id===id;})[0],{}); }; return [u('阿爾托莉雅-Saber'),u('佐佐木小次郎-Assassin'),u('赫拉克勒斯-Berserker'),u('EMIYA-Archer'),u('美狄亞-Caster')].map(warStands_).join(); })()`);
+t(ST==='true,true,true,false,false','不撤退的敵人（騎士王、守門的武士、狂戰士）天亮時回頭硬拚，其他人會逃',ST);
+
 console.log(bad ? '❌ '+bad+' 條失敗' : '✅ warfix.js '+ok+' 條全過');

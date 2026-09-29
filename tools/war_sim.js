@@ -35,11 +35,13 @@ const P={
   turtle:(st)=>{
     if(st.phase==='day') return find(st,'rest');
     if(st.phase==='night') return find(st,'final')||find(st,'hold');
+    if(st.battle.dawn) return find(st,'stance','letgo');
     return (st.sv.cd===0&&find(st,'stance','np'))||find(st,'stance','strike');
   },
   npspam:(st)=>{
     if(st.phase==='day') return st.sv.cd>0?find(st,'supply'):find(st,'scout');
     if(st.phase==='night'){ const s=btns(st).filter(b=>b.t==='sortie'); return find(st,'final')||s[0]||find(st,'patrol'); }
+    if(st.battle.dawn) return find(st,'stance','chase')||find(st,'stance','letgo');
     if(st.sv.cd===0) return find(st,'stance','np');
     if(st.master.seals>0){ const b=ctx.warButtons_(st).find(b=>b.s==='np'); return Object.assign({},b,{useSeal:true}); }
     return find(st,'stance','strike');
@@ -71,6 +73,8 @@ const P={
       return find(st,'hold');
     }
     const e=ctx.warFoe_(st,st.battle.e), eh=e.hp/e.mhp;
+    // 天亮的追擊：御主撐得住、從者沒被打殘才追
+    if(st.battle.dawn) return (st.master.hp>35&&hp>0.3&&find(st,'stance','chase'))||find(st,'stance','letgo');
     // 決戰：令咒留著沒用＝白費，寶具冷卻中就用令咒硬放
     if(st.battle.ctx==='final'){ const npb=ctx.warButtons_(st).find(b=>b.s==='np'); if(!npb){ const sb=find(st,'stance','strike'); return st.master.seals>0?Object.assign({},sb,{useSeal:true}):sb; } if(sv.cd===0) return npb; if(st.master.seals>0&&st.master.hp>(ctx.WAR_.SEAL_NP_COST||0)+10) return Object.assign({},npb,{useSeal:true}); }
     if(hp<0.3&&find(st,'stance','retreat')){ const r=find(st,'stance','retreat'); const p=ctx.warRetreatChance_(sv,e,false); return (st.master.seals>1&&p<0.7)?Object.assign({},r,{useSeal:true}):r; }

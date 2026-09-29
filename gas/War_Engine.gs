@@ -7,6 +7,9 @@ var WAR_ = {
   MASTER_HP: 100,
   SEALS: 3,
   ROUNDS: 3,             // 一場戰鬥最多幾回合，天亮就各自退去
+  CHASE_BELOW: 0.3,      // 天亮時對手剩不到這幾成血：可以選追擊（多打一回合，對手想逃）
+  CHASE_MASTER: 10,      // 追到天亮的代價：御主的體力（還會暴露真名）
+  CHASE_DMG: 1.5,        // 追擊那一擊必中、傷害 ×（對手背對著你）
   FINAL_ROUNDS: 12,      // 最後一夜的決戰打到有人倒下（保險上限）
   FINAL_REST: 1,         // 最後一夜前剩下的人都養好了傷（1＝回滿）
   NP_COOLDOWN: 4,        // 放完寶具，御主的魔力要幾個早晨才回得來
@@ -22,7 +25,7 @@ var WAR_ = {
   HOME: 0.75,            // 固守：在自家據點受到的傷害
   CLASH_WIN: 0.6,        // 寶具對轟：贏的那一方打出幾成
   REST_HEAL: 0.6, REST_MASTER: 40, SUPPLY_HEAL: 0.15, NIGHT_HEAL: 0.10,
-  ENEMY_REST_HEAL: 0.15,
+  ENEMY_REST_HEAL: 0.2,
   NP_MASTER_HIT: 15,     // 我方被寶具正面打中，御主也被餘波捲到
   ASSASSIN_MASTER_HIT: 8,
   RETREAT_BASE: 0.55, RETREAT_PER_SPD: 0.08, RETREAT_MIN: 0.15, RETREAT_MAX: 0.95,
@@ -143,6 +146,8 @@ var WAR_TEMPER_ = {
     know: { '庫丘林-Lancer': '紫髮的女槍兵看見{sv}，露出了師父檢查功課時的笑容。' } },
   '斯卡哈-Assassin': { meet: '海風裡混著一絲殺氣，穿泳裝的紫髮女人從暗處走出來，手上的紅槍還在滴水。' }
 };
+// 不會撤退的敵人（守門、傲慢、狂化）：天亮的追擊會回頭硬拚，而不是逃。
+function warStands_(e) { var tp = warTemper_(e); return !!(tp.guard || tp.noRetreat || warFlag_(e, 'noProbe')); }
 function warTemper_(e) { return (e && WAR_TEMPER_[e.hero]) || {}; }
 function warAggr_(e) { var t = warTemper_(e); return t.aggr !== undefined ? t.aggr : warClass_(e.cls).aggr; }
 
@@ -371,6 +376,9 @@ function warButtons_(st) {
       });
     B.push({ t: 'patrol', label: '巡邏', sub: '外出搜索，遭遇即戰鬥' });
     B.push({ t: 'hold', label: '固守', sub: '留守據點，遇襲時受傷減少' });
+  } else if (st.phase === 'battle' && st.battle.dawn) {
+    B.push({ t: 'stance', s: 'chase', label: '追擊', sub: '天亮前追上去・御主 −' + WAR_.CHASE_MASTER + (st.exposed ? '' : '・會暴露真名'), dis: st.master.hp <= WAR_.CHASE_MASTER });
+    B.push({ t: 'stance', s: 'letgo', label: '收手', sub: '讓對方離開' });
   } else if (st.phase === 'battle') {
     var e = warFoe_(st, st.battle.e);
     var berserk = warFlag_(sv, 'noProbe');
@@ -743,8 +751,18 @@ function warIntent_(st, me, foe, round) {
 
 function warDoRound_(st, act, ev) {
   var b = st.battle, e = warFoe_(st, b.e), sv = st.sv;
+  if (b.dawn) {   // 天亮了、對手重傷：追上去多打一回合，或收手
+    b.dawn = false;
+    if (act.s === 'letgo') { ev.push({ k: 'dawn', txt: '天亮了，' + warFoeLabel_(e) + '消失在晨霧裡。' }); warEndBattle_(st, ev); return; }
+    b.chase = true; b.tele = '';
+    b.intent = warStands_(e) ? 'strike' : 'retreat';   // 不撤退的那幾位會回頭硬拚
+    st.master.hp = Math.max(1, st.master.hp - WAR_.CHASE_MASTER);
+    ev.push({ k: 'chase', txt: '天色漸亮，' + sv.name + '追了上去。', num: '御主 −' + WAR_.CHASE_MASTER });
+    if (!st.exposed) { st.exposed = true; ev.push({ k: 'exposed', txt: '天亮後的追擊被人看見，己方真名曝光。' }); }
+    act = { s: 'strike' };
+  }
   var ev0 = ev.length;
-  var A = { u: sv, act: act.s, seal: !!act.seal, side: 'me', knows: e.intel >= 2, home: b.ctx === 'defend', ambush: b.round === 1 && !!b.ambush };
+  var A = { u: sv, act: act.s, seal: !!act.seal, side: 'me', knows: e.intel >= 2, home: b.ctx === 'defend', ambush: b.round === 1 && !!b.ambush, chase: !!b.chase };
   var Z = { u: e, act: b.intent, seal: false, side: 'foe', knows: st.exposed, home: false, lair: b.ctx === 'sortie', ambush: b.round === 1 && !!b.foeAmbush };
   var forced = act.s === 'np' && !!act.seal && sv.cd > 0;
   var r = warExchange_(st, A, Z, ev);
@@ -771,8 +789,10 @@ function warDoRound_(st, act, ev) {
   if (r.ended || !e.alive) { warEndBattle_(st, ev); return; }
   b.round++;
   var cap = b.ctx === 'final' ? WAR_.FINAL_ROUNDS : WAR_.ROUNDS;
+  if (b.chase) { ev.push({ k: 'dawn', txt: '天亮了，' + warFoeLabel_(e) + '甩開了追擊。' }); warEndBattle_(st, ev); return; }
   if (b.round > cap) {
     if (b.ctx === 'final') { warOver_(st, false, 'timeout', ev); return; }
+    if (e.hp < e.mhp * WAR_.CHASE_BELOW && sv.hp > 0) { b.dawn = true; b.tele = ''; ev.push({ k: 'dawnChase', txt: '天快亮了，' + warFoeLabel_(e) + (warStands_(e) ? '渾身是傷，仍站在原地不退。' : '帶著重傷想走。') }); return; }
     ev.push({ k: 'dawn', txt: '天亮了，雙方各自撤退。' }); warEndBattle_(st, ev); return;
   }
   warSetIntent_(st, e);
@@ -868,14 +888,14 @@ function warStrike_(st, X, Y, ev) {
     return;
   }
   var hitP = (warHitChance_(X.u, Y.u) + (X.act === 'strike' ? warAdd_(X.u, 'hitUp') : 0)) * warMul_(Y.u, 'hitTaken', X.u);
-  var hit = X.seal || X.ambush || warRand_(st) < hitP;
+  var hit = X.seal || X.ambush || X.chase || warRand_(st) < hitP;
   var probe = X.act === 'probe';
   if (!hit) { ev.push({ k: 'miss', side: X.side, txt: warWho_(st, X) + (probe ? '的試探' : '的攻擊') + '被' + warWho_(st, Y) + '擋下了。' }); return; }
-  var d = warNormalDmg_(st, X, Y) * (probe ? WAR_.PROBE : 1) * (X.seal ? 1.5 : 1) * (X.ambush ? warMul_(X.u, 'ambushDmg') : 1) * guard * home * warMul_(Y.u, 'dmgTaken', X.u);
+  var d = warNormalDmg_(st, X, Y) * (probe ? WAR_.PROBE : 1) * (X.seal ? 1.5 : 1) * (X.chase ? WAR_.CHASE_DMG : 1) * (X.ambush ? warMul_(X.u, 'ambushDmg') : 1) * guard * home * warMul_(Y.u, 'dmgTaken', X.u);
   d = Math.max(WAR_.DMG_MIN, Math.round(d));
   var hp0 = Y.u.hp, hitStood = warApply_(st, Y, d);
   warCurse_(st, X, Y, ev, hitStood === 'life' ? 0 : Math.max(0, hp0 - Y.u.hp));
-  var how = X.ambush ? '以「' + warSkName_(X.u, 'ambush') + '」奇襲，擊中了' : (probe ? '試探出手，擦中了' : '正面攻擊，擊中了');
+  var how = X.chase ? '追上去，擊中了' : X.ambush ? '以「' + warSkName_(X.u, 'ambush') + '」奇襲，擊中了' : (probe ? '試探出手，擦中了' : '正面攻擊，擊中了');
   ev.push({ k: 'hit', side: X.side, txt: warWho_(st, X) + how + warWho_(st, Y) + '，對方' + warHurtWord_(Y.u) + '。', num: '−' + d });
   if (hitStood) warStoodEv_(st, Y, ev, hitStood);
   if (Y.side === 'me' && X.u.cls === 'Assassin') warMasterHit_(st, WAR_.ASSASSIN_MASTER_HIT, ev);
@@ -1125,7 +1145,7 @@ function warView_(st) {
   if (st.phase === 'over') view.debrief = warDebrief_(st);
   if (b) {
     var e = warFoe_(st, b.e);
-    view.battle = { round: b.round, rounds: WAR_.ROUNDS, foe: warFoeLabel_(e).replace(/[「」]/g, ''), foeHp: Math.round(e.hp / e.mhp * 100), foeWord: warHpWord_(e), tele: b.tele, ctx: b.ctx, info: warFoeCard_(st, e) };
+    view.battle = { round: b.round, rounds: WAR_.ROUNDS, foe: warFoeLabel_(e).replace(/[「」]/g, ''), foeHp: Math.round(e.hp / e.mhp * 100), foeWord: warHpWord_(e), tele: b.tele, ctx: b.ctx, dawn: !!b.dawn, info: warFoeCard_(st, e) };
   }
   return view;
 }
