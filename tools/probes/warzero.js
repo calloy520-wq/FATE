@@ -66,6 +66,10 @@ t(evs.every(v=>(v.need||[]).concat(Object.keys(v.reveal||{}),Object.keys(v.move|
 { const s5=mk('5th',emiya); c.warAct_(s5,{t:'start'}); const ev=[]; s5.phase='night'; c.warMorning_(s5,ev); const m=ev.find(x=>x.k==='morning').txt;
   const s4=mk('4th',emiya); c.warAct_(s4,{t:'start'}); const e4=[]; s4.phase='night'; c.warMorning_(s4,e4); const m4=e4.find(x=>x.k==='morning').txt;
   t(/第 2 天早晨（2月3日）/.test(m)&&c.warDate_(s5,14)==='2月15日'&&c.warView_(s5).date==='2月3日'&&!/月/.test(m4),'第五次照原作日曆：第 1 天＝2/2、第 14 夜＝2/15（決戰）；第四次沒有可靠日期就只寫第幾天',m+' / '+m4); }
+{ const st=mk('4th',emiya); c.warAct_(st,{t:'start'}); st.enemies.filter(e=>e.hero!=='阿爾托莉雅-Saber').slice(0,4).forEach(e=>{ e.hp=0; e.alive=false; });
+  for(let d=0;d<2;d++){ st.phase='night'; st.battle=null; c.warMorning_(st,[]); }
+  const sb=st.enemies.find(e=>e.hero==='阿爾托莉雅-Saber');
+  t(sb.loc==='深山町的日式老宅','愛麗絲菲爾搬進深山町的老宅：Saber 的據點跟著搬（突襲要去那裡找）',sb.loc); }
 console.log('── 原作的傷');
 { const st=mk('4th',emiya); c.warAct_(st,{t:'start'}); const sb=st.enemies.find(e=>e.hero==='阿爾托莉雅-Saber');
   st.phase='night'; st.battle=null; c.warMorning_(st,[]);
