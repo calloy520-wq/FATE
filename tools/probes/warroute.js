@@ -40,6 +40,8 @@ console.log("── Heaven's Feel 線");
   const hb=H(st,'赫拉克勒斯-Berserker');
   t(hb.alter&&hb.master==='間桐櫻'&&(!hb.alive?/九道斬擊/.test(txt):c.warLives_(hb)===11),'第 10 天：巨人被黑影吞下成了黑化的狂戰士（十二試煉還在）',JSON.stringify({a:hb.alter,m:hb.master}));
   t(dead('吉爾伽美什-Archer'),'第 11 天：金色的王被黑泥吞下');
+  { const s3=mk('5th','hf'); const o3=toDay(s3,14).map(x=>x.txt).join('\n'); const sa3=H(s3,'阿爾托莉雅-Saber');
+    t(sa3.canonDead&&/山道上/.test(o3)&&c.warAliveCount_(s3)>=1,'第 13 天：山道上騎兵撞倒黑色的騎士王',JSON.stringify({dead:sa3.canonDead,left:c.warAliveCount_(s3)})); }
   t(/紫髮少女腳下的影子/.test(txt),'第 6 天：間桐家的少年再也沒有回家');
   t(dead('EMIYA-Archer')&&/七片花瓣般的盾/.test(txt),'第 9 天：紅衣弓兵以熾天覆七重圓環擋下黑色的聖劍、失去一條手臂');
   t(!out.some(x=>x.k==='fall'),'照原作倒下的不播「提前倒下」的餘波');

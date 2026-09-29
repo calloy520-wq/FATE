@@ -38,7 +38,7 @@ var WAR_ROUTES_ = {
   '5th': {
     fate: { label: 'Fate 線', pace: { brawl: 0.9 } },
     ubw: { label: 'Unlimited Blade Works 線', pace: { brawl: 0.89 }, final: { place: '柳洞寺', arrive: '寺院的池子上方懸著一團不斷膨脹的黑色輪廓——聖杯正在成形；剩下的從者陸續踏上石階', next: '石階上又來了一位從者' } },
-    hf: { label: "Heaven's Feel 線", pace: { brawl: 0.88 }, final: { place: '大空洞', arrive: '剩下的從者一個個走進柳洞寺地底的黑暗', next: '黑暗裡又走出一位從者' } }
+    hf: { label: "Heaven's Feel 線", pace: { brawl: 0.85 }, final: { place: '大空洞', arrive: '剩下的從者一個個走進柳洞寺地底的黑暗', next: '黑暗裡又走出一位從者' } }
   }
 };
 // 被黑影吞下、或換到魔力深不見底的御主之後的樣子（事件的 alter）：mul＝能力倍率；name／npName／look 有寫才換；dropFx＝失去的技能；meet＝黑化後第一次撞見的那一句（換掉 WAR_TEMPER_ 的）。
@@ -116,6 +116,8 @@ var WAR_CANON_EVENTS_ = [
     txt: '艾因茲貝倫城外的森林被黑色的劍光削平，巨人倒下之後又站了起來——身上爬滿紅色的紋路，再也聽不見白髮少女的呼喚' },
   { war: '5th', route: 'hf', day: 12, need: ['赫拉克勒斯-Berserker'], after: ['熾天覆七重圓環與黑色的聖劍', '黑色的劍光與巨人'], kill: ['赫拉克勒斯-Berserker'], short: '射殺百頭',
     txt: '艾因茲貝倫的森林裡，衛宮家的少年解開了那條紅布纏著的手臂，投影出巨人自己的劍與技——射殺百頭，九道斬擊同時落下，黑色的巨人終於倒了' },
+  { war: '5th', route: 'hf', day: 13, need: ['美杜莎-Rider', '阿爾托莉雅-Saber'], after: ['被黑影吞下的騎士王'], kill: ['阿爾托莉雅-Saber'], short: '山道上的黑色騎士王',
+    txt: '通往大空洞的山道上，眼罩的騎兵駕著天馬撞向漆黑的聖劍——騎士王被撞倒在地，衛宮家的少年握著一柄短劍走了過去' },
   { war: '5th', route: 'hf', day: 11, need: ['吉爾伽美什-Archer'], kill: ['吉爾伽美什-Archer'], short: '被黑泥吞下的王',
     txt: '深山町的路口，金色的英靈對著那道影子開口，話還沒說完，就被湧上來的黑泥吞了下去' },
   { war: '4th', day: 2, need: ['阿爾托莉雅-Saber', '迪盧木多-Lancer', '伊斯坎達爾-Rider'],
