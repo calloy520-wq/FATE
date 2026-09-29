@@ -45,8 +45,8 @@ var WAR_BOUNTY_ = {
 // 最後一夜在哪裡：照原作，第五次是柳洞寺（大聖杯在圓藏山地底），第四次是新都的冬木市民會館。混亂照大聖杯所在。
 var WAR_FINAL_ = {
   chaos: { place: '柳洞寺', arrive: '剩下的從者陸續來到寺院', next: '石階上又來了一位從者' },
-  '5th': { place: '柳洞寺', arrive: '剩下的從者陸續來到寺院', next: '石階上又來了一位從者' },
-  '4th': { place: '冬木市民會館', arrive: '剩下的從者陸續來到會館', next: '大廳裡又來了一位從者' }
+  '5th': { place: '柳洞寺', arrive: '圓藏山頂的夜空裂開一道口子，聖杯的輪廓浮在寺院上方；剩下的從者陸續踏上石階', next: '石階上又來了一位從者' },
+  '4th': { place: '冬木市民會館', arrive: '市民會館的舞台上方浮現一只金色的杯，遠方新都的天空隱隱泛紅；剩下的從者陸續來到會館', next: '大廳裡又來了一位從者' }
 };
 function warFinal_(st) { var r = warRoute_(st); return (r && r.final) || WAR_FINAL_[st && st.war] || WAR_FINAL_['5th']; }
 // 這一局暗中走的路線（WAR_ROUTES_，只有第五次有）；沒有回 null。
@@ -111,7 +111,11 @@ var WAR_TEMPER_ = {
   '美狄亞-Caster': { aggr: 0.2, meet: '空氣裡飄著細細的魔力絲線，這一帶早就是對方的地盤。' },
   '迪盧木多-Lancer': { meet: '對方沒有躲藏，堂堂正正地站在路中央等你們。' },
   '伊斯坎達爾-Rider': { meet: '雷鳴由遠而近，駕著戰車的巨漢大笑著要你們報上名來。' },
-  '吉爾德萊-Caster': { meet: '潮濕的腥味裡，有什麼東西在暗處蠕動。' }
+  '吉爾德萊-Caster': { meet: '潮濕的腥味裡，有什麼東西在暗處蠕動。' },
+  '咒腕之哈桑-Assassin': { meet: '白骨面具在黑暗裡浮現，纏著繃帶的右臂一圈一圈鬆開。' },
+  '恩奇都-Lancer': { meet: '綠髮的從者靜靜站著，腳邊的地面浮出一圈又一圈的鎖鏈。' },
+  '斯卡哈-Lancer': { meet: '紫髮的女槍兵把兩把紅槍扛在肩上，像在打量今晚的教材夠不夠格。' },
+  '斯卡哈-Assassin': { meet: '海風裡混著一絲殺氣，穿泳裝的紫髮女人從暗處走出來，手上的紅槍還在滴水。' }
 };
 function warTemper_(e) { return (e && WAR_TEMPER_[e.hero]) || {}; }
 function warAggr_(e) { var t = warTemper_(e); return t.aggr !== undefined ? t.aggr : warClass_(e.cls).aggr; }
@@ -419,7 +423,7 @@ function warCanonEvents_(st, ev) {
     Object.keys(c.reveal || {}).forEach(function (h) { var e = byHero(h); if (e) e.intel = Math.max(e.intel, c.reveal[h]); });
     Object.keys(c.move || {}).forEach(function (h) { var e = byHero(h); if (e) e.loc = c.move[h]; });
     Object.keys(c.master || {}).forEach(function (h) { var e = byHero(h); if (e) e.master = c.master[h]; });
-    (c.alter || []).forEach(function (h) { var e = byHero(h); if (e) warAlter_(e, WAR_ALTER_[h]); });
+    (c.alter || []).forEach(function (h) { var e = byHero(h); if (e) { warAlter_(e, WAR_ALTER_[h]); st.met = (st.met || []).filter(function (id) { return id !== e.id; }); } });   // 黑化後像第一次見面：開場那句重播
     Object.keys(c.lives || {}).forEach(function (h) { var e = byHero(h); if (e && warFlag_(e, 'lives')) e.lives = Math.max(0, warLives_(e) + c.lives[h]); });   // 死而復生的命被削掉
     Object.keys(c.hurt || {}).forEach(function (h) { var e = byHero(h); if (e) e.hp = Math.max(1, Math.min(e.hp, Math.round(e.mhp * c.hurt[h]))); });   // 帶傷退場：血量壓到這個比例
     ev.push({ k: 'news', txt: c.txt + '。' });
@@ -663,7 +667,7 @@ function warStartBattle_(st, e, ctx, ev) {
   warUnmask_(st, e, ev);
   var tp = warTemper_(e);
   if (firstMeet && tp.nemesis && st.sv.hero === tp.nemesis && tp.nemesisMeet) ev.push({ k: 'meet', txt: tp.nemesisMeet.replace('{sv}', st.sv.name) });
-  else if (firstMeet && tp.meet) ev.push({ k: 'meet', txt: tp.meet });
+  else if (firstMeet && (e.alter && (WAR_ALTER_[e.hero] || {}).meet || tp.meet)) ev.push({ k: 'meet', txt: e.alter && (WAR_ALTER_[e.hero] || {}).meet || tp.meet });   // 黑化後換一句
   st.battle.ambush = ctx === 'sortie' && warFlag_(st.sv, 'ambush');
   st.battle.foeAmbush = ctx === 'defend' && warFlag_(e, 'ambush');   // 帶著氣息遮斷摸上門來的，一樣先手
   if (ctx === 'defend' && warAdd_(st.sv, 'ward') > 0) {

@@ -37,16 +37,19 @@ var FATE_4TH_ROSTER = [
 var WAR_ROUTES_ = {
   '5th': {
     fate: { label: 'Fate 線', pace: { brawl: 0.9 } },
-    ubw: { label: 'Unlimited Blade Works 線', pace: { brawl: 0.89 } },
+    ubw: { label: 'Unlimited Blade Works 線', pace: { brawl: 0.89 }, final: { place: '柳洞寺', arrive: '寺院的池子上方懸著一團不斷膨脹的黑色輪廓——聖杯正在成形；剩下的從者陸續踏上石階', next: '石階上又來了一位從者' } },
     hf: { label: "Heaven's Feel 線", pace: { brawl: 0.88 }, final: { place: '大空洞', arrive: '剩下的從者一個個走進柳洞寺地底的黑暗', next: '黑暗裡又走出一位從者' } }
   }
 };
-// 被黑影吞下、或換到魔力深不見底的御主之後的樣子（事件的 alter）：mul＝能力倍率；name／npName／look 有寫才換；dropFx＝失去的技能。
+// 被黑影吞下、或換到魔力深不見底的御主之後的樣子（事件的 alter）：mul＝能力倍率；name／npName／look 有寫才換；dropFx＝失去的技能；meet＝黑化後第一次撞見的那一句（換掉 WAR_TEMPER_ 的）。
 var WAR_ALTER_ = {
-  '赫拉克勒斯-Berserker': { mul: 1.2, look: '巨大的身軀被黑泥浸透，全身爬滿脈動的紅色紋路，只剩下破壞的本能' },
-  '美杜莎-Rider': { mul: 1.25, look: '眼罩下的氣息沉重得多，動作卻比以前從容，像終於放開了手腳' },   // HF 的 Rider 沒被黑泥污染，只是有了櫻源源不絕的魔力
+  '赫拉克勒斯-Berserker': { mul: 1.2, look: '巨大的身軀被黑泥浸透，全身爬滿脈動的紅色紋路，只剩下破壞的本能',
+    meet: '黑色的巨人從樹影裡站起來，身旁沒有那位白髮的少女——只有腳下蔓延開來的影子。' },
+  '美杜莎-Rider': { mul: 1.25, look: '眼罩下的氣息沉重得多，動作卻比以前從容，像終於放開了手腳',
+    meet: '眼罩的騎兵擋在路中央，身後沒有那個話多的少年，只有一句很輕的「請回吧」。' },   // HF 的 Rider 沒被黑泥污染，只是有了櫻源源不絕的魔力
   '阿爾托莉雅-Saber': { name: '阿爾托莉雅〔Alter〕', npName: '誓約勝利之劍（Morgan）', mul: 1.6, dropFx: ['wind_strike'],   // 黑化後不再藏劍：漆黑的劍身直接亮出來
-    look: '漆黑的鎧甲爬滿紅色紋路，臉上戴著半截面甲，金色的眼睛冷得沒有溫度' }
+    look: '漆黑的鎧甲爬滿紅色紋路，臉上戴著半截面甲，金色的眼睛冷得沒有溫度',
+    meet: '漆黑的騎士王站在月光下，那把劍不再藏著——黑紅的光順著劍身流下來。' }
 };
 
 // 原作事件：到了那一天的早報就發生（涉及的從者都得還是活著的敵人，否則整條跳過）。

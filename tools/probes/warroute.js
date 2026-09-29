@@ -33,6 +33,9 @@ console.log("── Heaven's Feel 線");
   const sa=H(st,'阿爾托莉雅-Saber'), base=J("warUnit_(SEED_SERVANTS.filter(function(s){return s.id==='阿爾托莉雅-Saber';})[0],{})");
   t(sa.alter&&sa.name==='阿爾托莉雅〔Alter〕'&&sa.atk>base.atk&&sa.mhp>base.mhp&&sa.loc==='柳洞寺'&&sa.master==='間桐櫻','第 8 天：Saber 黑化（變強、換御主、進柳洞寺）',JSON.stringify({n:sa.name,atk:sa.atk,b:base.atk}));
   t(/漆黑/.test(sa.card.look),'說書拿到的外貌也換成黑化後的');
+  { const st2=mk('5th','hf'); const s2=H(st2,'阿爾托莉雅-Saber'); s2.intel=1; st2.phase='night'; const e1=[]; c.warStartBattle_(st2,s2,'sortie',e1); st2.battle=null; st2.phase='day';
+    toDay(st2,9); const e2=[]; st2.phase='night'; c.warStartBattle_(st2,s2,'sortie',e2);
+    t(e1.some(x=>/看不見的武器/.test(x.txt))&&e2.some(x=>/那把劍不再藏著/.test(x.txt)),'黑化前後各一句開場白：看不見的武器 → 那把劍不再藏著（見過也重播）',e2.map(x=>x.txt).join(' / ')); }
   t(sa.fx.indexOf('wind_strike')<0&&J("warUnit_(SEED_SERVANTS.filter(function(s){return s.id==='阿爾托莉雅-Saber';})[0],{})").fx.indexOf('wind_strike')>=0,'黑化後不再用風王結界藏劍（打聽不再被遮）');
   const hb=H(st,'赫拉克勒斯-Berserker');
   t(hb.alter&&hb.master==='間桐櫻'&&(!hb.alive?/九道斬擊/.test(txt):c.warLives_(hb)===11),'第 10 天：巨人被黑影吞下成了黑化的狂戰士（十二試煉還在）',JSON.stringify({a:hb.alter,m:hb.master}));

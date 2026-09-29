@@ -153,4 +153,7 @@ console.log('── 打聽不再白挑擋住的 Saber');
     warAct_(s,{t:'start'}); var out=[]; for (var d=0; d<4; d++){ var ev=[]; s.phase='night'; s.battle=null; warMorning_(s,ev); ev.forEach(function(x){out.push(x.txt);}); }
     var g=s.enemies.filter(function(e){return e.hero==='吉爾伽美什-Archer';})[0]; return {hit:out.some(function(t){return /綠髮的從者/.test(t);}), intel:g.intel}; })()`);
   t(r.hit&&r.intel>=1,'混亂隨機：吉爾伽美什與恩奇都都在場 → 第 4 天大橋上的對望（揭職階）',JSON.stringify(r)); }
+{ const T=JSON.parse(E('JSON.stringify(WAR_TEMPER_)')), ids=E('SEED_SERVANTS').filter(s=>s.cls!=='御主').map(s=>s.id);
+  const miss=ids.filter(id=>!(T[id]&&(T[id].meet||T[id].nemesisMeet)));
+  t(miss.length===0,'每位種子從者都有第一次撞見時的那一句',miss.join('、')); }
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);
