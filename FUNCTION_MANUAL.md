@@ -198,6 +198,7 @@
 - `warEndBattle_(st, ev)` — 戰鬥結束（雙方的 `broken` 清掉，破戒只到這場為止）；決戰接下一位。
 - `warExchange_(st, A, Z, ev)` — 一回合的交手（撤退→寶具對轟→奇襲方先手→寶具→快的先打），玩家對敵與敵對敵共用。
 - `warStrike_(st, X, Y, ev)`／`warApply_(st, Y, d)`／`warMasterHit_(st, n, ev)` — 出手、扣血、御主被餘波捲到。`warStrike_` 在出手方身上標 `struck`／放了寶具標 `fired`（對轟兩邊都標），`warDoRound_` 只認這兩個旗子：真的放出寶具才曝光真名、算寶具次數；真的看見對方寶具才認出真名；試探真的出了手才看穿；令咒真的用上（或撤退成功）才扣。守家倍率：自家據點 `home`＝HOME×陣地作成，被闖進自己的陣地 `lair`＝只乘陣地作成；帶氣息遮斷來夜襲的敵人一樣先手（`battle.foeAmbush`）。`warApply_` 本該倒下卻沒倒時回 `'life'`（十二試煉死而復生，餘勁會連殺數條命，`u.lastLost` 記這一擊用掉幾條）或 `'stand'`（lastStand 撐住）；呼叫端在自己那句之後補 `warStoodEv_(st, Y, ev, how)`（念出技能名）。寶具遇到對方試探會減半，帶 `npSure`（刺穿死棘之槍）的不減；正面攻擊的命中率加上 `hitUp`（燕返）。
+- `warCurse_(st, X, Y, ev)` — 帶 `curse`（必滅黃薔薇）的一方打中對手：對手 `cursedBy` 記下手的人，`warHeal_` 回復乘 `WAR_.CURSE_HEAL`；下手的人倒下（`warApply_`）就解除。休養鈕會寫出來。
 - `warBreak_(st, X, Y, ev)` — 寶具帶 `breakFx`（破戒全咒）打中對手：對手這場戰鬥技能全失（`Y.u.broken`），推一句事件。開戰時（`warStartBattle_`／`warAutoBattle_`）兩邊的 `broken` 都清掉。
 - `warAutoBattle_(st, a, b, ev)` — 敵對敵，最多三回合；有人倒下直接寫進早報，沒人倒下的交給 `warMorning_` 併句（兩位同職階都沒看穿時寫成「另一位」）。
 - `warHitChance_(x, y)`／`warMult_(X, Y)`／`warNormalDmg_(st, X, Y)`／`warNpDmg_(X, Y)`／`warRetreatChance_(u, o, seal)` — 命中、倍率、傷害、撤退。`warMult_` 看穿真名或帶 `weakAlways`（王之財寶）就乘弱點；`warRetreatChance_` 遇到對手的 `lock`（天之鎖）而自己帶那個旗標（神性）時回 0（令咒除外）。

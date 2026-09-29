@@ -84,4 +84,12 @@ const pb=c.warButtons_(g).find(x=>x.s==='probe');
 t(pb&&!/看穿真名/.test(pb.sub),'打風王結界的 Saber：試探鈕不再承諾看穿真名',pb&&pb.sub);
 c.hh=U('赫拉克勒斯-Berserker'); c.hh.broken=true; delete c.hh.lives;
 t(E('warLives_(hh)')===11&&E('warTraits_(hh)').some(x=>/剩 11 次/.test(x)),'被破戒全咒打過：十二試煉的命數照樣是 11（不是 0）');
+console.log('── 必滅黃薔薇：傷口好不全，直到迪盧木多倒下');
+{ const S0=st(); c.S0=S0; c.Dl=U('迪盧木多-Lancer'); c.Sb=U('阿爾托莉雅-Saber'); c.Sb.hp=9999; c.Sb.mhp=9999; S0.sv=c.Sb; S0.enemies=[c.Dl]; c.ev2=[];
+  E("warCurse_(S0,{u:Dl,side:'foe'},{u:Sb,side:'me'},ev2)");
+  t(c.Sb.cursedBy==='迪盧木多-Lancer'&&c.ev2.some(x=>/好不全/.test(x.txt)),'被黃槍打中就上詛咒，並說出來');
+  c.Sb.hp=1000; const h1=E('warHeal_(Sb,0.1)');
+  t(h1===Math.round(9999*0.1*E('WAR_.CURSE_HEAL')),'詛咒中回復只剩一半',h1);
+  c.Dl.hp=1; E("warApply_(S0,{u:Dl,side:'foe'},50)");
+  t(!c.Sb.cursedBy,'迪盧木多倒下，詛咒解除'); }
 console.log(bad?('\n❌ '+bad+' 條沒過（通過 '+ok+'）'):('\n✅ 全部 '+ok+' 條通過')); process.exit(bad?1:0);
