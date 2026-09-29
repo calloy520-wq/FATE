@@ -12,7 +12,7 @@ var SEED_SERVANTS = [
     six:{筋力:'A',耐久:'B',敏捷:'B',魔力:'A',幸運:'A+',寶具:'A++'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'},{n:'騎乘',r:'B',fx:'ride'}],
     skills:[{n:'直感',r:'A',fx:'first_strike'},{n:'魔力放出',r:'A',fx:'burst'},{n:'領袖氣質',r:'B',fx:'morale'},
-            {n:'風王鐵鎚',r:'A',fx:'wind_strike'},{n:'誓約勝利之劍',r:'A++'}],
+            {n:'風王結界',r:'A',fx:'wind_strike'},{n:'誓約勝利之劍',r:'A++'}],
     traits:[{n:'王'},{n:'人類'},{n:'龍'}], np:'誓約勝利之劍 Excalibur（對城 A++·聚攏這片星球記憶中的光·凝於劍尖·解放為撕裂大地、直貫蒼穹的金色收束光炮）／全世界遙遠的理想鄉 Avalon（永世隔絕·無敵結界·守護持有者）',
     align:'秩序・善', persona:{look:'金髮碧眼・甲冑藍裙的嬌小騎士、王者威儀',words:'騎士道・自我犧牲・壓抑的少女心',toMaster:'以騎士之禮盡忠，公私分明地隔著一步距離',quirks:'吃到好東西時會安靜下來、對著獅子玩偶移不開眼',logic:'責任和自己想要的擺在一起，放下的是後者',
     dailyLook:'金髮碧眼・嬌小、雨後百合的清冽',
@@ -22,7 +22,7 @@ var SEED_SERVANTS = [
   { id:'EMIYA-Archer', cls:'Archer', realName:'無銘', wars:['5th'], gender:'男',
     six:{筋力:'D',耐久:'C',敏捷:'C',魔力:'B',幸運:'E',寶具:'B'},
     classSkills:[{n:'對魔力',r:'D',fx:'nullify_magic'},{n:'單獨行動',r:'B',fx:'solo'}],
-    skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'千里眼',r:'C',fx:'aim'},{n:'投影魔術',r:'',fx:'projection'},{n:'七天盾·羅·埃亞斯',r:'',fx:'rho_aias'},{n:'無限劍製',r:'',fx:'ubw'}],
+    skills:[{n:'心眼(真)',r:'B',fx:'analyze'},{n:'千里眼',r:'C',fx:'aim'},{n:'投影魔術',r:'',fx:'projection'},{n:'熾天覆七重圓環',r:'',fx:'rho_aias'},{n:'無限劍製',r:'',fx:'ubw'}],
     traits:[{n:'人類'}], np:'無限劍製 Unlimited Blade Works（固有結界）／偽·螺旋劍 Caladbolg II（破斷重塑的流星劍·連射）',
     align:'中立・中庸', persona:{look:'褐膚白髮・紅黑外衣的弓兵、厭世冷峻',words:'自我厭惡・藏起來的理想',toMaster:'嘴上不饒人、暗中守護',quirks:'無奈嘆氣、看到別人握刀的手勢不對就想糾正',logic:'嘴上說別多管閒事，手卻已經先伸出去',
     dailyLook:'褐膚白髮・冷峻、曬過的舊木頭味，帶點鐵鏽',
@@ -32,7 +32,7 @@ var SEED_SERVANTS = [
   { id:'庫丘林-Lancer', cls:'Lancer', realName:'庫·丘林', wars:['5th'], gender:'男',
     six:{筋力:'B',耐久:'C',敏捷:'A',魔力:'C',幸運:'E',寶具:'B'},
     classSkills:[{n:'對魔力',r:'C',fx:'nullify_magic'}],
-    skills:[{n:'避矢加護',r:'B',fx:'evade_ranged'},{n:'戰鬥續行',r:'A',fx:'survive'},{n:'刺穿死亡之棘',r:'B',fx:'gae_bolg',causality:true}],
+    skills:[{n:'避矢加護',r:'B',fx:'evade_ranged'},{n:'戰鬥續行',r:'A',fx:'survive'},{n:'刺穿死棘之槍',r:'B',fx:'gae_bolg',causality:true}],
     traits:[{n:'神性',r:'B'}], np:'刺穿死棘之槍 Gáe Bolg（對人 B・因果逆轉必中）',
     align:'秩序・中庸', persona:{look:'藍髮赤瞳・精悍結實的青年槍兵、野性不羈',words:'痛快・重義',toMaster:'爽快直率、討厭被當棋子',quirks:'扛著東西咧嘴笑、講到一半就開始抱怨自己運氣爛',logic:'痛快比贏重要，選的偏偏是難走的那條',
     dailyLook:'藍髮赤瞳・精壯、雨前的風，帶著草腥',
@@ -54,7 +54,7 @@ var SEED_SERVANTS = [
   { id:'美狄亞-Caster', cls:'Caster', realName:'美狄亞', wars:['5th'], gender:'女',
     six:{筋力:'E',耐久:'D',敏捷:'C',魔力:'A++',幸運:'B',寶具:'C'},
     classSkills:[{n:'陣地作成',r:'A',fx:'territory'},{n:'道具作成',r:'A',fx:'crafting'}],
-    skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'破戒全咒',r:'C',fx:'rule_breaker'},{n:'金羊毛 Argon Coin',r:'EX',fx:'golden_fleece'}],
+    skills:[{n:'高速詠唱',r:'A',fx:'fast_cast'},{n:'神代魔術',r:'A',fx:'divine_age'},{n:'萬符必應破戒',r:'C',fx:'rule_breaker'},{n:'金羊毛 Argon Coin',r:'EX',fx:'golden_fleece'}],
     traits:[{n:'人類'}], np:'萬符必應破戒 Rule Breaker（規則破壞者 C·【非攻擊寶具】破除契約與術式，非攻擊手段）',
     // Rule Breaker 官方描述為妖異七彩短劍，非紅色——全專案命名已同步正名。
     align:'中立・惡', persona:{look:'紫袍兜帽・持妖異七彩短劍的清麗魔女、疏離',words:'背叛的傷痕・渴望被信任',toMaster:'防備卻渴望真心相待',quirks:'摩挲手邊的小刀、被道謝時會愣一下',logic:'想靠近的時候反而先退一步',
@@ -158,7 +158,7 @@ var SEED_SERVANTS = [
   { id:'蘭斯洛特-Berserker', cls:'Berserker', npPassive:true, realName:'蘭斯洛特', wars:['4th'], gender:'男',
     six:{筋力:'A',耐久:'A',敏捷:'A+',魔力:'C',幸運:'B',寶具:'A'},
     classSkills:[{n:'狂化',r:'C',fx:'mad'},{n:'騎乘',r:'A',fx:'ride'},{n:'對魔力',r:'E',fx:'nullify_magic'}],
-    skills:[{n:'無窮的鍛鍊',r:'A+',fx:'clear_mind'},{n:'無毀的湖光',r:'A',fx:'weapon_steal'}],
+    skills:[{n:'無窮之武練',r:'A+',fx:'clear_mind'},{n:'無毀的湖光',r:'A',fx:'weapon_steal'}],
     traits:[{n:'騎士'},{n:'人類'}], np:'騎士不死於徒手 Knight of Owner（萬物化為兵裝·【留存】變身態持續生效）',
     align:'混沌・狂', persona:{look:'黑霧纏繞漆黑鎧甲的騎士、悲愴',words:'悔恨・對亞瑟王的愧疚',toMaster:'狂化無言，僅以戰鬥宣洩悔恨',quirks:'隨手就把壞掉的東西修好、被道謝時會低下頭',logic:'該說的話留在心裡，只把事默默扛走',
     dailyLook:'黑髮・身形寬闊挺直、雨夜的石階，濕冷',
@@ -181,7 +181,7 @@ var SEED_SERVANTS = [
     six:{筋力:'B',耐久:'A',敏捷:'A',魔力:'C',幸運:'D',寶具:'A+'},
     classSkills:[{n:'對魔力',r:'A',fx:'nullify_magic'}],
     skills:[{n:'神殺',r:'B',fx:'godslayer'},{n:'神速',r:'A',fx:'first_strike'},{n:'戰鬥續行',r:'A',fx:'survive'},
-            {n:'原初符文',r:'A',fx:'rune'},{n:'魔境的智慧',r:'A+'},{n:'刺穿死亡之棘',r:'A',fx:'gae_bolg',causality:true}],
+            {n:'原初符文',r:'A',fx:'rune'},{n:'魔境的智慧',r:'A+'},{n:'刺穿死棘之槍',r:'A',fx:'gae_bolg',causality:true}],
     traits:[{n:'人類'}], np:'貫穿死翔之槍 Gáe Bolg Alternative（對人 B+·釘空必中＋投擲斷命）／死亡滿溢的魔境之門 Gate of Skye（對軍 A+·吸入影之國）',
     align:'中立・中庸', persona:{look:'紫髮紅瞳・緊身戰衣的妖豔女王、冷峻',words:'影之國女王・武人',toMaster:'嚴厲考校、唯認可強者，師者之威',quirks:'用手邊的東西點地催人、誇獎人時會轉開視線',logic:'話說得比誰都重，事後卻私下把人撿回來',
     dailyLook:'紫髮紅瞳・豐盈妖豔冷峻、霧裡的松針，凜冽',
@@ -273,7 +273,7 @@ function servantToHeroRow_(s) {
     s.np, JSON.stringify(slim), s.align, JSON.stringify(s.wars), 'seed',
     p.dailyLook || '', p.dailyWords || '', '', p.dailyOutfit || ''];
 }
-var CODEX_PERSONA_VER = 'v89';   // 精緻化 persona 就升一版，觸發既有英靈殿升級（upgradeCodexPersonas_）；每一版改了什麼見 CODE_NOTES『CODEX_PERSONA_VER』
+var CODEX_PERSONA_VER = 'v90';   // 精緻化 persona 就升一版，觸發既有英靈殿升級（upgradeCodexPersonas_）；每一版改了什麼見 CODE_NOTES『CODEX_PERSONA_VER』
 
 // 升級既有英靈殿的 persona 欄（不刪客製英靈，只覆寫種子英靈的 PERSONA 為最新細緻設定）
 function upgradeCodexPersonas_(ss) {

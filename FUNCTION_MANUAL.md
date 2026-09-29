@@ -178,7 +178,7 @@
 - `warClass_(cls)`／`warFoe_(st, id)`／`warArrived_(st)`／`warKnownFoes_(st)`／`warAliveCount_(st)`／`warLocName_(loc)` — 查詢。
 - `WAR_TEMPER_`／`warTemper_(e)`／`warAggr_(e)` — 敵方從者的原作性格（鍵＝英靈殿 ID）蓋在職階個性上：小次郎守山門（不夜襲你、不撤退）、吉爾伽美什傲慢（出手慾低、不撤退）、庫丘林奉命偵察（先試探、打不贏就撤）、蘭斯洛特見到阿爾托莉雅就找上門、百貌哈桑找據點快兩倍；`meet` 是交手時的開場一句（不寫真名）。
 - `warSkRows_(u)`／`warSkOk_(row, hook, foe)` — 這個單位的技能列／這一列在這個時機對這個對手生不生效。
-- `warMul_(u, hook, foe)`／`warAdd_(u, hook, foe)`／`warFlag_(u, hook)` — 讀表三支：把技能在這個時機的數字相乘／相加／有沒有。引擎只透過這三支碰技能。`warNpCd_(u)` — 放完寶具的冷卻夜數（`NP_COOLDOWN`＋技能的 `npCd`，至少 1）。`warSkName_(u, hook)` — 提供這個時機的是哪個原作技能名（事件文字要念出來；沒有就回「技能」）。`warMul_` 另外看攻擊方的 `pierce`（神代魔術）：針對職階的減傷只剩一半效果。`warSkRows_` 在 `u.broken`（被破戒全咒打中）時回空陣列。`warSkOk_` 另認 `fromSex`（只擋這個性別的攻擊）與 `vs`（只對帶這個旗標的對手加傷）；對手帶 `nullDef`（破魔紅薔薇）時挨打方的減傷整個不算。`warLives_(u)` — 十二試煉還剩幾條命（舊存檔沒這格就照技能現算；被破戒時命數照樣在，只是加護失效）。
+- `warMul_(u, hook, foe)`／`warAdd_(u, hook, foe)`／`warFlag_(u, hook)` — 讀表三支：把技能在這個時機的數字相乘／相加／有沒有。引擎只透過這三支碰技能。`warNpCd_(u)` — 放完寶具的冷卻夜數（`NP_COOLDOWN`＋技能的 `npCd`，至少 1）。`warSkName_(u, hook)` — 提供這個時機的是哪個原作技能名（事件文字要念出來；沒有就回「技能」）。`warMul_` 另外看攻擊方的 `pierce`（神代魔術）：針對職階的減傷只剩一半效果。`warSkRows_` 在 `u.broken`（被萬符必應破戒打中）時回空陣列。`warSkOk_` 另認 `fromSex`（只擋這個性別的攻擊）與 `vs`（只對帶這個旗標的對手加傷）；對手帶 `nullDef`（破魔紅薔薇）時挨打方的減傷整個不算。`warLives_(u)` — 十二試煉還剩幾條命（舊存檔沒這格就照技能現算；被破戒時命數照樣在，只是加護失效）。
 - `warRank_(r)` — 階級→數字（E1…A5、EX7，±0.4）。`warSpread_(v)` — 階級差距打折（`STAT_SPREAD`）。
 - `warSkillsOf_(seed)` — 種子技能 → `{fx:[表上有的 fx], names:{fx: 原作技能名}, lore:[逸話技能名]}`（同一列只收一次；表上沒有的是逸話，跟寶具同名的不列）。`warTraits_(u)` — 畫面用清單：有效果的寫「技能名：效果」（十二試煉附剩幾次），逸話寫「名（逸話）」。
 - `warUnit_(seed, extra)` — 種子→戰鬥單位（寶具威力看 `seed.npRank`（實際會放的那一招），沒有才看六圍的寶具；`seed.npPassive`＝常駐型寶具 → `u.noNp`，沒有寶具鈕、敵人也不會放；`sk`＝這位從者自己的技能效果；`card` 帶說書用的外貌／性格／寶具原文 `np`／喜惡條目 `book`，不進規則）。`warNpName_(np)` — 寶具名（剝掉原文與括號）。
@@ -203,7 +203,7 @@
 - `warExchange_(st, A, Z, ev)` — 一回合的交手（撤退→寶具對轟→奇襲方先手→寶具→快的先打），玩家對敵與敵對敵共用。
 - `warStrike_(st, X, Y, ev)`／`warApply_(st, Y, d)`／`warMasterHit_(st, n, ev)` — 出手、扣血、御主被餘波捲到。`warStrike_` 在出手方身上標 `struck`／放了寶具標 `fired`（對轟兩邊都標），`warDoRound_` 只認這兩個旗子：真的放出寶具才曝光真名、算寶具次數；真的看見對方寶具才認出真名；試探真的出了手才看穿；令咒真的用上（或撤退成功）才扣。守家倍率：自家據點 `home`＝HOME×陣地作成，被闖進自己的陣地 `lair`＝只乘陣地作成；帶氣息遮斷來夜襲的敵人一樣先手（`battle.foeAmbush`）。`warApply_` 本該倒下卻沒倒時回 `'life'`（十二試煉死而復生，餘勁會連殺數條命，`u.lastLost` 記這一擊用掉幾條）或 `'stand'`（lastStand 撐住）；呼叫端在自己那句之後補 `warStoodEv_(st, Y, ev, how)`（念出技能名）。寶具遇到對方試探會減半，帶 `npSure`（刺穿死棘之槍）的不減；正面攻擊的命中率加上 `hitUp`（燕返）。
 - `warCurse_(st, X, Y, ev, dealt)` — 帶 `curse`（必滅黃薔薇）的一方打中對手：把這一擊實際造成的傷（`dealt`，死而復生的那擊不算）累加進對手的 `curseDmg`，`warHeal_` 回血上限＝最大血量−`curseDmg`；下手的人倒下（`warApply_`）就解除。畫面與休養鈕寫出數字。
-- `warBreak_(st, X, Y, ev)` — 寶具帶 `breakFx`（破戒全咒）打中對手：對手這場戰鬥技能全失（`Y.u.broken`），推一句事件。開戰時（`warStartBattle_`／`warAutoBattle_`）兩邊的 `broken` 都清掉。
+- `warBreak_(st, X, Y, ev)` — 寶具帶 `breakFx`（萬符必應破戒）打中對手：對手這場戰鬥技能全失（`Y.u.broken`），推一句事件。開戰時（`warStartBattle_`／`warAutoBattle_`）兩邊的 `broken` 都清掉。
 - `warAutoBattle_(st, a, b, ev)` — 敵對敵，最多三回合；有人倒下直接寫進早報，沒人倒下的交給 `warMorning_` 併句（兩位同職階都沒看穿時寫成「另一位」）。
 - `warHitChance_(x, y)`／`warMult_(X, Y)`／`warNormalDmg_(st, X, Y)`／`warNpDmg_(X, Y)`／`warRetreatChance_(u, o, seal)` — 命中、倍率、傷害、撤退。`warMult_` 看穿真名或帶 `weakAlways`（王之財寶）就乘弱點；`warRetreatChance_` 遇到對手的 `lock`（天之鎖）而自己帶那個旗標（神性）時回 0（令咒除外）。
 - `warHeal_(u, pct)`／`warHealMaster_(st, n)` — 回血。

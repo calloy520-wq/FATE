@@ -19,7 +19,7 @@ t(r==='life'&&h.lives===7&&h.lastLost===3,'一擊夠重：連殺三次',JSON.str
 h.lives=0; h.hp=5; r=E(`warApply_(S,{u:h,side:'foe'},50)`);
 t(!r&&h.hp===0&&h.alive===false,'命用完就真的倒下',JSON.stringify({r,hp:h.hp,alive:h.alive}));
 h=U('赫拉克勒斯-Berserker'); h.broken=true; h.hp=5; c.h=h; r=E(`warApply_(S,{u:h,side:'foe'},50)`);
-t(!r&&h.alive===false,'被破戒全咒破除加護時，十二試煉也失效');
+t(!r&&h.alive===false,'被萬符必應破戒破除加護時，十二試煉也失效');
 h=U('赫拉克勒斯-Berserker'); c.h=h;
 t(E('warTraits_(h)').some(x=>/十二試煉.*剩 11 次/.test(x)),'技能列上看得到剩幾條命',E('JSON.stringify(warTraits_(h))'));
 const odds0=(()=>{ c.me=U('阿爾托莉雅-Saber'); c.S2={sv:c.me,exposed:false}; return E('warOddsR_(S2,h)'); })();
@@ -83,7 +83,7 @@ g=game('EMIYA-Archer'); c.warAct_(g,{t:'start'}); c.warAct_(g,{t:'rest'}); const
 const pb=c.warButtons_(g).find(x=>x.s==='probe');
 t(pb&&!/看穿真名/.test(pb.sub),'打風王結界的 Saber：試探鈕不再承諾看穿真名',pb&&pb.sub);
 c.hh=U('赫拉克勒斯-Berserker'); c.hh.broken=true; delete c.hh.lives;
-t(E('warLives_(hh)')===11&&E('warTraits_(hh)').some(x=>/剩 11 次/.test(x)),'被破戒全咒打過：十二試煉的命數照樣是 11（不是 0）');
+t(E('warLives_(hh)')===11&&E('warTraits_(hh)').some(x=>/剩 11 次/.test(x)),'被萬符必應破戒打過：十二試煉的命數照樣是 11（不是 0）');
 console.log('── 必滅黃薔薇：記下實際傷害，那一段好不了，直到迪盧木多倒下');
 { const S0=st(); c.S0=S0; c.Dl=U('迪盧木多-Lancer'); c.Sb=U('阿爾托莉雅-Saber'); c.Sb.mhp=1000; c.Sb.hp=1000; S0.sv=c.Sb; S0.enemies=[c.Dl]; c.ev2=[];
   E("warCurse_(S0,{u:Dl,side:'foe'},{u:Sb,side:'me'},ev2,120)"); c.Sb.hp=880;

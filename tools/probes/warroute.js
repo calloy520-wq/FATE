@@ -38,7 +38,7 @@ console.log("── Heaven's Feel 線");
   t(hb.alter&&hb.master==='間桐櫻'&&(!hb.alive?/九道斬擊/.test(txt):c.warLives_(hb)===11),'第 10 天：巨人被黑影吞下成了黑化的狂戰士（十二試煉還在）',JSON.stringify({a:hb.alter,m:hb.master}));
   t(dead('吉爾伽美什-Archer'),'第 11 天：金色的王被黑泥吞下');
   t(/紫髮少女腳下的影子/.test(txt),'第 6 天：間桐家的少年再也沒有回家');
-  t(dead('EMIYA-Archer')&&/七片花瓣般的盾/.test(txt),'第 9 天：紅衣弓兵以七天盾擋下黑色的聖劍、失去一條手臂');
+  t(dead('EMIYA-Archer')&&/七片花瓣般的盾/.test(txt),'第 9 天：紅衣弓兵以熾天覆七重圓環擋下黑色的聖劍、失去一條手臂');
   t(!out.some(x=>x.k==='fall'),'照原作倒下的不播「提前倒下」的餘波');
   t(c.warFinal_(st).place==='大空洞','決戰地換成大空洞');
   c.warOver_(st,false,'timeout',[]); const d=c.warDebrief_(st);
@@ -60,7 +60,7 @@ console.log('── Fate 線');
 { const st=mk('5th','fate'); toDay(st,10);
   t(!H(st,'美杜莎-Rider').alive&&H(st,'阿爾托莉雅-Saber').intel===2,'第 7 天：天馬墜落，Saber 報出劍名（真名曝光）');
   t(!H(st,'美狄亞-Caster').alive&&H(st,'吉爾伽美什-Archer').intel>=1,'第 9 天：金色的英靈在教會前斬倒魔女');
-  toDay(st,13); t(!H(st,'赫拉克勒斯-Berserker').alive&&!H(st,'佐佐木小次郎-Assassin').alive&&H(st,'佐佐木小次郎-Assassin').canonDead,'黃金之劍連殺巨人七次、山門的最後一戰'); }
+  toDay(st,13); t(!H(st,'赫拉克勒斯-Berserker').alive&&!H(st,'佐佐木小次郎-Assassin').alive&&H(st,'佐佐木小次郎-Assassin').canonDead,'勝利誓約之劍連殺巨人七次、山門的最後一戰'); }
 
 console.log('── 玩家改寫原作');
 { const st=mk('5th','hf'); toDay(st,5);
@@ -81,7 +81,7 @@ console.log('── 邊界');
 { const st=mk('5th','ubw'); toDay(st,5); const sa=H(st,'阿爾托莉雅-Saber'); sa.hp=0; sa.alive=false; const out=toDay(st,10).map(x=>x.txt).join('\n');
   t(/反手一刀/.test(out)&&!/結下了契約/.test(out),'UBW：Saber 先倒下 → 弓兵照樣斬 Caster，但不會冒出「Saber 與凜結約」',out.slice(0,200)); }
 { const st=mk('5th','ubw'); const out=toDay(st,10).map(x=>x.txt).join('\n');
-  t(/反手一刀/.test(out)&&/結下了契約/.test(out)&&H(st,'阿爾托莉雅-Saber').master==='遠坂凜','UBW：照原作走 → 破戒之符、背叛、結約三幕接得上'); }
+  t(/反手一刀/.test(out)&&/結下了契約/.test(out)&&H(st,'阿爾托莉雅-Saber').master==='遠坂凜','UBW：照原作走 → 萬符必應破戒、背叛、結約三幕接得上'); }
 { const s2=mk('5th','hf'); toDay(s2,3); const cas=H(s2,'美狄亞-Caster'); s2.bounty={id:cas.id,open:true}; toDay(s2,6);
   t(!cas.alive&&!s2.bounty.open,'討伐令的目標被劇本殺掉：討伐令撤銷'); }
 { const st=mk('5th','fate'); st.day=E('WAR_.NIGHTS');

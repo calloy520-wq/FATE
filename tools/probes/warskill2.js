@@ -1,4 +1,4 @@
-// 新戰爭：破戒全咒／神代魔術／透化／道具作成 都真的有效
+// 新戰爭：萬符必應破戒／神代魔術／透化／道具作成 都真的有效
 const vm=require('vm'),fs=require('fs');const c={console,Math,JSON};vm.createContext(c);
 for(const f of ['Seed_Codex.gs','War_Engine.gs'])vm.runInContext(fs.readFileSync(require('path').join(__dirname,'../../gas/')+f,'utf8'),c);
 const E=s=>vm.runInContext(s,c);
@@ -11,7 +11,7 @@ ok(E("warMul_(sab,'dmgTaken',koj)")===1, '對魔力只擋 Caster：小次郎不�
 ok(E("warMul_(koj,'hitTaken',sab)")<1, '透化：小次郎較不易被擊中');
 ok(E("warMul_(med,'hitTaken',sab)")<1, '道具作成：美狄亞身前有使魔擋著');
 E(`var ev=[];var X={u:med,act:'np',side:'me'},Y={u:sab,act:'attack',side:'a'};sab.hp=sab.mhp;warStrike_(st,X,Y,ev);`);
-ok(E("sab.broken===true && warSkRows_(sab).length===0"), '破戒全咒：寶具命中後 Saber 這場戰鬥技能全失');
+ok(E("sab.broken===true && warSkRows_(sab).length===0"), '萬符必應破戒：寶具命中後 Saber 這場戰鬥技能全失');
 ok(E("ev.some(function(e){return /破除/.test(e.txt)})"), '畫面上有一句說明');
 E(`st.enemies=[sab];sab.id='x';sab.alive=true;sab.intel=0;sab.arrive=1;st.engaged=[];st.day=2;st.phase='night';warStartBattle_(st,sab,'sortie',[]);`);
 ok(E("!sab.broken && warSkRows_(sab).length>0"), '下一場戰鬥技能回來');
