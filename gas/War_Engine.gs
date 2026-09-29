@@ -349,6 +349,18 @@ function warDoSummon_(st, act, ev, o) {
   // 原作的開場假死：大家（包括你）都以為這一位退場了，它照樣在暗處行動，第一次真的出手才露餡。
   st.enemies.forEach(function (e) { if (e.fake) { e.intel = 1; ev.push({ k: 'news', txt: e.fakeTxt + '。' }); } });
 }
+// 早報裡的原作事件（WAR_CANON_EVENTS_）：涉及的從者都還是活著、登場了的敵人才發生；效果只動情報與據點。
+function warCanonEvents_(st, ev) {
+  var list = typeof WAR_CANON_EVENTS_ !== 'undefined' ? WAR_CANON_EVENTS_ : [];
+  var byHero = function (h) { return st.enemies.filter(function (e) { return e.hero === h && e.alive && e.arrive <= st.day; })[0]; };
+  list.forEach(function (c) {
+    if (c.war !== st.war || c.day !== st.day) return;
+    if (!(c.need || []).every(function (h) { return !!byHero(h); })) return;
+    Object.keys(c.reveal || {}).forEach(function (h) { var e = byHero(h); if (e) e.intel = Math.max(e.intel, c.reveal[h]); });
+    Object.keys(c.move || {}).forEach(function (h) { var e = byHero(h); if (e) e.loc = c.move[h]; });
+    ev.push({ k: 'news', txt: c.txt + '。' });
+  });
+}
 function warUnmask_(st, e, ev) {
   if (!e.fake) return;
   e.fake = false;
@@ -494,6 +506,7 @@ function warMorning_(st, ev) {
   st.enemies.forEach(function (e) {
     if (e.alive && e.arrive === st.day && st.day > 1) ev.push({ k: 'arrive', txt: (e.hint || '有新的從者進入冬木') + '。' });
   });
+  warCanonEvents_(st, ev);
   ev.push({ k: 'morning', txt: '第 ' + st.day + ' 天早晨。剩 ' + (WAR_.NIGHTS - st.day + 1) + ' 夜，敵方剩 ' + warShownCount_(st) + ' 位。' });
   if (st.day === WAR_.BOUNTY_DAY && !st.bounty) warBountyStart_(st, ev);
   st.phase = 'day';
