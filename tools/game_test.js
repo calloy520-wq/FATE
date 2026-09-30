@@ -243,15 +243,27 @@ t(G.SVT_COST.saber===0&&G.ORDER.every(k=>k==='saber'||G.SVT_COST[k]>0)&&G.ASC.le
 let cz=G.newRun('saber',8); cz.stats.floors=10; cz.stats.bosses=1; t(G.crystalsFor(cz)===25,'聖晶石：走過 10 格＋打倒 1 位魔王＝25');
 
 console.log('── 斯卡哈');
-r=G.newRun('scathach',3); step(r,'fight'); t(r.battle.hand.length===6&&r.battle.hand.some(id=>G.CARDS[id].kit!=='scathach'&&G.CARDS[id].kit!=='basic'),'師承：開場多借 1 張別的從者的牌',r.battle.hand.join(','));
 r=arena('scathach'); playId(r,'doublespear'); t(E(r).doom===1&&E(r).hp===40,'雙槍・死棘：5×2＋死兆 1（死兆打完才上）');
 r.battle.energy=3; playId(r,'atk'); t(E(r).hp===40-7,'死兆 1：每一擊 +1',E(r).hp);
 E(r).hp=4; r.battle.energy=3; playId(r,'runebind'); t(E(r).hp===0,'死兆 3 → 生命 ≤12 就倒下（這裡 4 血直接倒）',E(r).hp);
 r=arena('scathach'); E(r).doom=2; E(r).hp=30; playId(r,'deathflight'); t(E(r).hp===30-(10+3*2+2),'死翔之槍：10＋死兆×3＋死兆加傷 2',E(r).hp);
 r=arena('scathach'); E(r).id='heracles'; E(r).doom=10; E(r).hp=20; E(r).maxHp=100; r.battle.energy=3; playId(r,'runebind'); t(E(r).hp===20,'魔王不吃死兆即死');
-r=arena('scathach'); r.battle.hand=[]; playId(r,'mentor'); t(r.battle.hand.length===2&&r.battle.hand.every(id=>G.CARDS[id].kit!=='scathach'),'師匠的教誨：借 2 張別人的牌');
-let borrowOk=true; for(let i=0;i<60;i++){ const q=arena('scathach',1,50,100+i); q.battle.hand=[]; playId(q,'mentor'); q.battle.hand.forEach(id=>{ if(G.CARDS[id].fx.some(f=>['wind','windAll','projDmg','comboGuard','comboDmg','kraken','armySpend','skillDmg','treasureDmg','rageDmg'].includes(f[0]))) borrowOk=false; }); } t(borrowOk,'借來的牌不會是要吃別人資源的牌');
 r=arena('scathach'); E(r).id='saber'; E(r).name='x'; playId(r,'godslayer'); t(E(r).hp===50-15,'弒神：精英 7＋8',E(r).hp);
+// 魔境之智慧：第 3 張牌起每張死兆 +1
+r=arena('scathach'); r.battle.energy=9; playId(r,'def'); playId(r,'def'); t(!E(r).doom,'前兩張牌不觸發');
+playId(r,'def'); t(!E(r).doom,'第 3 張是技能：算張數但不上死兆');
+playId(r,'atk'); t(E(r).doom===1&&E(r).hp===50-6,'魔境之智慧：第 3 張牌起，每張攻擊牌讓目標死兆 +1',E(r).doom);
+playId(r,'quickspear'); t(E(r).doom===3&&E(r).hp===44-4,'疾槍：0 費 3 傷害（死兆 1 再 +1）＋死兆 1，再加被動 1',JSON.stringify([E(r).doom,E(r).hp]));
+r=arena('scathach',1,50); r.battle.played=3; playId(r,'chainthrust'); t(E(r).hp===50-3*3,'連環刺突：本回合已打 3 張 → 刺 3 下',E(r).hp);
+r=arena('scathach',1,50); playId(r,'chainthrust'); t(E(r).hp===50-3,'連環刺突：第一張也至少刺 1 下',E(r).hp);
+r=arena('scathach'); r.battle.hand=[]; r.battle.draw=['atk','atk','atk']; playId(r,'flashstep'); t(r.battle.hand.length===1&&G.wisdomFrom(r.battle)===2,'瞬步：抽 1＋本回合提早 1 張觸發');
+playId(r,'atk'); t(E(r).doom===1,'提早後第 2 張攻擊就觸發');
+r=arena('scathach'); playId(r,'godspeed'); G.endTurn(r); t(G.wisdomFrom(r.battle)===2,'神速：整場提早 1 張（下回合還在）');
+// 死兆應驗：魔力 +1、抽 1
+r=arena('scathach',2,50); r.battle.hand=[]; r.battle.draw=['atk','atk','atk']; E(r).hp=4; E(r).doom=0; r.battle.energy=1;
+playId(r,'quickspear',0); t(E(r).hp<=0&&r.battle.energy===2&&r.battle.hand.length===1,'死兆應驗：魔力 +1、抽 1（接著打下一個）',JSON.stringify([E(r).hp,r.battle.energy,r.battle.hand.length]));
+r=arena('saber',2,50); r.battle.hand=[]; r.battle.draw=['atk']; E(r).hp=4; E(r).doom=1; r.battle.energy=1; playId(r,'atk',0); t(E(r).hp<=0&&r.battle.energy===0&&!r.battle.hand.length,'別的從者死兆即死不會回魔力');
+const svM=J(G.newRun('scathach',3)); svM.deck.push('mentor','dunscaith+'); G.migrate(svM); t(svM.deck.includes('flashstep')&&svM.deck.includes('godspeed+'),'舊存檔的師匠的教誨／魔境之智慧換成瞬步／神速');
 console.log('── 難度');
 let dn=G.newRun('saber',9,{diff:'normal'}), dh=G.newRun('saber',9,{diff:'abyss'}); step(dn,'fight'); step(dh,'fight');
 t(dh.battle.enemies[0].maxHp>=Math.round(dn.battle.enemies[0].maxHp*1.35)&&dh.battle.enemies[0].str===dn.battle.enemies[0].str+2,'深淵：敵人生命 +40%、力量 +2',JSON.stringify([dn.battle.enemies[0].maxHp,dh.battle.enemies[0].maxHp]));

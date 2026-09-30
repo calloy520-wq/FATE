@@ -196,16 +196,18 @@ var G = (function () {
     reason:   { name: '理性蒸發', cost: 0, type: 'skill', np: 5, fx: [['energy', 1], ['tstr', 2], ['selfDmg', 3]], up: { fx: [['energy', 1], ['tstr', 3], ['selfDmg', 3]] } },
     endless:  { name: '無窮之武練', cost: 2, type: 'power', np: 0, fx: [['pCombo', 2]], up: { cost: 1 } }
   });
-  kit('scathach', {   // 死兆與師承：攻擊留下死兆，敵人生命低於死兆×4 就倒下（魔王除外）；每場從別的從者借牌
+  kit('scathach', {   // 神速與死兆：一回合出越多張牌，死兆疊越快；死兆應驗（即死）就回魔力、抽牌，接著打下一個
     doublespear:{ name: '雙槍・死棘', cost: 1, type: 'atk', np: 15, fx: [['hits', 5, 2], ['doom', 1]], up: { fx: [['hits', 6, 2], ['doom', 2]] } },
+    quickspear: { name: '疾槍', cost: 0, type: 'atk', np: 5, fx: [['dmg', 3], ['doom', 1]], up: { fx: [['dmg', 5], ['doom', 1]] } },
+    flashstep:  { name: '瞬步', cost: 0, type: 'skill', np: 5, fx: [['draw', 1], ['haste', 1]], up: { fx: [['draw', 2], ['haste', 1]] } },
+    chainthrust:{ name: '連環刺突', cost: 1, type: 'atk', np: 10, fx: [['hitsPerPlayed', 3]], up: { fx: [['hitsPerPlayed', 4]] } },
     runefire:   { name: '盧恩・火', cost: 1, type: 'atk', np: 10, fx: [['all', 3], ['doomAll', 1]], up: { fx: [['all', 5], ['doomAll', 1]] } },
     runebind:   { name: '盧恩・束縛', cost: 1, type: 'skill', np: 5, fx: [['weak', 1], ['doom', 2]], up: { fx: [['weak', 2], ['doom', 3]] } },
-    shadowgate: { name: '影之國之門', cost: 2, type: 'skill', np: 10, fx: [['doomAll', 1], ['block', 6]], up: { fx: [['doomAll', 2], ['block', 6]] } },
+    shadowgate: { name: '影之國之門', cost: 1, type: 'skill', np: 5, fx: [['block', 6], ['doomAll', 1]], up: { fx: [['block', 9], ['doomAll', 1]] } },
     deathflight:{ name: '死翔之槍', cost: 2, type: 'atk', np: 20, fx: [['doomDmg', 10, 3]], up: { fx: [['doomDmg', 13, 4]] } },
     godslayer:  { name: '弒神', cost: 1, type: 'atk', np: 10, fx: [['dmgIfElite', 7, 8]], up: { fx: [['dmgIfElite', 10, 10]] } },
-    mentor:     { name: '師匠的教誨', cost: 1, type: 'skill', np: 5, fx: [['borrow', 2]], up: { cost: 0 } },
     runeheal:   { name: '原初的盧恩', cost: 0, type: 'skill', np: 5, ex: 1, fx: [['heal', 4], ['doomAll', 1]], up: { fx: [['heal', 7], ['doomAll', 1]] } },
-    dunscaith:  { name: '魔境之智慧', cost: 2, type: 'power', np: 0, fx: [['pBorrow', 1]], up: { cost: 1 } }
+    godspeed:   { name: '神速', cost: 2, type: 'power', np: 0, fx: [['pHaste', 1]], up: { cost: 1 } }
   });
   // 兩屆都在（第四次、第五次）
   kit('heracles', {   // 狂化：用自己的血換力量，少掉的生命越多打得越重
@@ -293,9 +295,9 @@ var G = (function () {
       passive: { id: 'golden', name: '王之財寶', text: '寶具（0 費代幣）留在手上不會消失；回合結束時，手上每件寶具自動對隨機敵人射出 2 傷害。每場戰鬥開始取出 1 件' },
       np: { name: '天地乖離開闢之星', fx: [['all', 40]] } }
   };
-  SERVANTS.scathach = { name: '斯卡哈', cls: 'Lancer', war: 0, hp: 60, sig: 'doublespear',
-    desc: '影之國的女王、庫・丘林的師匠。攻擊留下死兆：每層讓那個敵人受到的每一擊 +1，生命低於死兆×4 就倒下（魔王只吃加傷）；每場還會從別的從者那裡借招。',
-    passive: { id: 'mentor', name: '魔境之智慧', text: '每場戰鬥開始，從其他從者的牌池借 1 張牌到手上（只在這場戰鬥）' },
+  SERVANTS.scathach = { name: '斯卡哈', cls: 'Lancer', war: 0, hp: 52, sig: 'doublespear',
+    desc: '影之國的女王、庫・丘林的師匠。出手極快：一回合出越多張牌，死兆疊越快；死兆應驗（即死）就回魔力、抽牌，一口氣打下一個。死兆每層讓那個敵人受到的每一擊 +1（魔王只吃加傷）。',
+    passive: { id: 'wisdom', name: '魔境之智慧', text: '每回合從第 3 張牌起（技能也算張數），每打出一張攻擊牌，目標（沒有目標就隨機）死兆 +1；死兆應驗時魔力 +1、抽 1 張' },
     np: { name: '貫穿死翔之槍', fx: [['pierce', 25], ['doom', 4]] } };
   var ORDER = ['saber', 'emiya', 'cu', 'medusa', 'medea', 'kojiro', 'hassanC', 'diarmuid', 'iskandar', 'gilles', 'hassanH', 'lancelot', 'heracles', 'gil', 'scathach'];
 
@@ -329,8 +331,8 @@ var G = (function () {
                [{ name: '湖光增幅', np: [['comboDmg', 0, 3]] }, { name: '狂化（C）', start: [['str', 2]] }]],
     heracles: [[{ name: '神性', start: [['str', 2]] }, { name: '岩石之軀', start: [['block', 10]] }],
                [{ name: '射殺百頭・全力', np: [['rand', 4, 3]] }, { name: '第二試煉', lives: 1 }]],
-    scathach: [[{ name: '影之國的氣息', start: [['doomAll', 1]] }, { name: '師承', start: [['borrow', 1]] }],
-               [{ name: '死翔', np: [['doomAll', 3]] }, { name: '魔境之智慧（A+）', start: [['pBorrow', 1]] }]],
+    scathach: [[{ name: '影之國的氣息', start: [['doomAll', 1]] }, { name: '先手', start: [['energy', 1], ['draw', 1]] }],
+               [{ name: '死翔', np: [['doomAll', 3]] }, { name: '魔境之智慧（A+）', start: [['pHaste', 1]] }]],
     gil:      [[{ name: '寶庫開放', start: [['treasure', 2]] }, { name: '黃金律（財）', start: [['energy', 1]] }],
                [{ name: '乖離劍全開', np: [['all', 15]] }, { name: '萬物之王', start: [['pTreasure', 1]] }]]
   };
@@ -415,7 +417,7 @@ var G = (function () {
   // 會打到「一個」敵人的效果：有這些的牌要選目標
   var TARGETED = { dmg: 1, hits: 1, pierce: 1, pierceHits: 1, vuln: 1, weak: 1, strDown: 1, petrify: 1, petrifyDmg: 1, poison: 1, dmgIfPoison: 1, poisonX2: 1,
     wound: 1, woundDmg: 1, armyDmg: 1, comboDmg: 1, dispel: 1, exec: 1, iai: 1, krakenDmg: 1, armySpend: 1, comboFinish: 1, doom: 1, doomDmg: 1, dmgIfElite: 1,
-    windDmg: 1, projDmg: 1, skillDmg: 1, dmgPerEnergy: 1, minionDmg: 1, rageDmg: 1, treasureDmg: 1, shatter: 1, dmgIfStun: 1, rose: 1, hitsPerMinion: 1 };
+    windDmg: 1, projDmg: 1, skillDmg: 1, dmgPerEnergy: 1, minionDmg: 1, rageDmg: 1, treasureDmg: 1, shatter: 1, dmgIfStun: 1, rose: 1, hitsPerMinion: 1, hitsPerPlayed: 1 };
   function needsTarget(fx) { return fx.some(function (f) { return TARGETED[f[0]]; }) ? 1 : 0; }
   // ── 強化方向：牌名後面「+」＝精煉（舊存檔的「+」也是精煉），「+b」～「+e」是其他方向。每次強化從能用的方向隨機給三個選 ──
   var UP_DIRS = {
@@ -433,7 +435,7 @@ var G = (function () {
   var SCALABLE = { dmg: 1, hits: 1, all: 1, rand: 1, pierce: 1, pierceHits: 1, block: 1, poison: 1, poisonAll: 1, heal: 1, thorns: 1, iai: 1, drainAll: 1,
     windDmg: 1, windBlock: 1, windAll: 1, projDmg: 1, projAll: 1, projBlock: 1, skillDmg: 1, skillAll: 1, dmgPerEnergy: 1, armyBlock: 1, armyDmg: 1,
     krakenDmg: 1, krakenBlock: 1, comboAll: 1, comboDmg: 1, comboFinish: 1, comboGuard: 1, rageDmg: 1, rageAll: 1, rageBlock: 1, treasureDmg: 1, treasureBlock: 1,
-    petrifyDmg: 1, shatter: 1, dmgIfStun: 1, dmgIfPoison: 1, woundDmg: 1, rose: 1, minionDmg: 1, minionBlock: 1, allPlusMinion: 1, hitsPerMinion: 1, randPerTreasure: 1, treasureBurst: 1 };
+    petrifyDmg: 1, shatter: 1, dmgIfStun: 1, dmgIfPoison: 1, woundDmg: 1, rose: 1, minionDmg: 1, minionBlock: 1, allPlusMinion: 1, hitsPerMinion: 1, randPerTreasure: 1, treasureBurst: 1, hitsPerPlayed: 1 };
   function baseId(id) { var i = id.indexOf('+'); return i < 0 ? id : id.slice(0, i); }
   function upDir(id) { var i = id.indexOf('+'); return i < 0 ? '' : (id.slice(i + 1) || 'a'); }
   function isUp(id) { return id.indexOf('+') >= 0; }
@@ -526,7 +528,7 @@ var G = (function () {
     armySpend: '用掉全部軍勢：對目標造成軍勢 ×{1} 傷害', armySpendAll: '用掉全部軍勢：對全體造成軍勢 ×{1} 傷害',
     comboFinish: '造成 {1} 傷害，每點連擊再 +{2}；然後連擊歸零', comboGuard: '格擋 {1}，每點連擊再 +{2}；然後連擊歸零', skillCount: '本回合的技能數多算 {1} 張',
     doom: '死兆 {1}', doomAll: '全體死兆 {1}', doomDmg: '造成 {1} 傷害，目標每層死兆再 +{2}', dmgIfElite: '造成 {1} 傷害；目標是精英或魔王再 +{2}',
-    borrow: '從其他從者的牌池借 {1} 張牌到手上（只在這場）', pBorrow: '每回合開始借 1 張其他從者的牌',
+    hitsPerPlayed: '造成 {1} 傷害，次數＝本回合已打出的牌數（至少 1）', haste: '本回合「魔境之智慧」提早 {1} 張觸發', pHaste: '「魔境之智慧」提早 {1} 張觸發（整場）',
     stance: function (f) { return f[1] === 'red' ? '換成紅薔薇架勢' : f[1] === 'yellow' ? '換成黃薔薇架勢' : '切換紅／黃薔薇架勢'; }
   };
   function fxText(fx, run) {
@@ -546,6 +548,7 @@ var G = (function () {
     if (f[0] === 'armyAll' || f[0] === 'armySpend' || f[0] === 'armySpendAll') return b.army * f[1];
     if (f[0] === 'krakenAll') return b.kraken * f[1];
     if (f[0] === 'comboFinish' || f[0] === 'comboGuard') return f[1] + f[2] * b.combo;
+    if (f[0] === 'hitsPerPlayed') return Math.max(1, b.played) + ' 下';
     if (f[0] === 'randPerTreasure') return (b.hand.filter(isTreasure).length + f[2]) + ' 下';
     if (f[0] === 'comboDmg') return f[1] + f[2] * b.combo;
     if (f[0] === 'allPlusMinion') return f[1] + f[2] * b.minions;
@@ -581,7 +584,7 @@ var G = (function () {
     return fx;
   }
 
-  var RENAMED_V4 = {};
+  var RENAMED_V4 = { mentor: 'flashstep', dunscaith: 'godspeed' };   // 斯卡哈改版：借牌拿掉
 
   // ── 命運（開局三選一的強化）與局外：聖晶石 ─────────────
   // cost＝在「命運殿堂」解鎖要花多少聖晶石（0＝一開始就有）。每局結束依表現得到聖晶石。
@@ -627,7 +630,7 @@ var G = (function () {
     lancelot: [[['pCombo', 1]], [['block', 6]], [['comboDmg', 0, 3]], [['pCombo', 1]]],
     heracles: [[['str', 1]], [['block', 8]], [['rand', 4, 3]], [['pRage', 1]]],
     gil:      [[['treasure', 2]], [['energy', 1]], [['all', 12]], [['pTreasure', 1]]],
-    scathach: [[['doomAll', 1]], [['borrow', 1]], [['doomAll', 3]], [['pBorrow', 1]]]
+    scathach: [[['doomAll', 1]], [['draw', 1]], [['doomAll', 3]], [['pHaste', 1]]]
   };
   function rareOf(kit) { return Object.keys(CARDS).filter(function (c) { return CARDS[c].rare === kit; })[0]; }
   // 第 lv 級（1～5）寫什麼
@@ -921,7 +924,7 @@ var G = (function () {
     pBlock: 0, pDraw: 0, pEnergy: 0, pStr: 0, pEvade: 0, pTreasure: 0, pMinion: 0, pVenom: 0, pCombo: 0,
     ubw: 0, projUp: 0, firstAtk: false, evade: 0, minions: 0, army: 0, combo: 0, stance: '', played: 0,
     nextFree: 0, nextEnergy: 0, hswUsed: 0, antimagic: 0, survived: 0,
-    wind: 0, pWind: 0, roseBonus: 0, halve: 0, kraken: 0, pKraken: 0, pBorrow: 0, riposte: 0, pEvadeStr: 0, pPetrifyAll: 0, skills: 0, pSkillBlock: 0, pEnergyBlock: 0, iaiUp: 0, pStanceBlock: 0, pRage: 0, log: [] };
+    wind: 0, pWind: 0, roseBonus: 0, halve: 0, kraken: 0, pKraken: 0, haste: 0, pHaste: 0, doomKills: 0, riposte: 0, pEvadeStr: 0, pPetrifyAll: 0, skills: 0, pSkillBlock: 0, pEnergyBlock: 0, iaiUp: 0, pStanceBlock: 0, pRage: 0, log: [] };
   var MINION_MAX = 8, MINION_GUARD = 4, FOES_MAX = 4;
   function makeEnemy(run, id, up, n) {
     var E = ENEMIES[id], hp = E.hp[0] + Math.floor(rnd(run) * (E.hp[1] - E.hp[0] + 1));
@@ -946,7 +949,6 @@ var G = (function () {
     if (p === 'golden') addTreasure(run, 1);
     if (p === 'madness') b.kraken = 3;
     if (p === 'arms') b.pCombo = 1;
-    if (p === 'mentor') borrowCards(run, 1, b.log);
     b.enemies.forEach(function (e) { chooseIntent(run, e); });
     startTurn(run, true);
     if (run.ascStart && run.ascStart.length) runFx({ run: run, b: b, tg: null, log: b.log, id: 'asc', atk: false, first: false }, run.ascStart);
@@ -960,7 +962,7 @@ var G = (function () {
     var b = run.battle;
     b.turn++;
     if (!first) b.block = 0;
-    b.evade = 0; b.played = 0; b.skills = 0; b.hswUsed = 0; b.combo = b.pCombo;
+    b.evade = 0; b.played = 0; b.haste = 0; b.skills = 0; b.hswUsed = 0; b.combo = b.pCombo;
     b.energy = 3 + b.pEnergy + b.nextEnergy + (first && hasRelic(run, 'gem') ? 1 : 0); b.nextEnergy = 0;
     if (b.pBlock) b.block += b.pBlock;
     if (b.pStr) b.str += b.pStr;
@@ -969,7 +971,6 @@ var G = (function () {
     if (b.ubw > 0) { addProj(b, 3); b.ubw--; }
     if (b.pTreasure) addTreasure(run, b.pTreasure);
     if (b.pWind) b.wind += b.pWind;
-    if (b.pBorrow && !first) borrowCards(run, b.pBorrow, b.log);
     if (b.pKraken) b.kraken += b.pKraken;
     if (passive(run) === 'madness' && !first) b.kraken += 1;
     if (b.pRage && run.hp < run.maxHp / 2) b.str += b.pRage;
@@ -1218,23 +1219,28 @@ var G = (function () {
     doomAll: function (x, f) { alive(x.b).forEach(function (e) { e.doom = (e.doom || 0) + f[1]; }); },
     doomDmg: function (x, f) { if (x.tg) strike(x, x.tg, f[1] + f[2] * (x.tg.doom || 0)); },
     dmgIfElite: function (x, f) { if (x.tg) { var E = ENEMIES[x.tg.id]; strike(x, x.tg, f[1] + (E.elite || E.boss ? f[2] : 0)); } },
-    borrow: function (x, f) { borrowCards(x.run, f[1], x.log); },
-    pBorrow: function (x, f) { x.b.pBorrow = (x.b.pBorrow || 0) + f[1]; }
+    hitsPerPlayed: function (x, f) { for (var h = 0; h < Math.max(1, x.b.played); h++) strike(x, x.tg, f[1]); },
+    haste: function (x, f) { x.b.haste = (x.b.haste || 0) + f[1]; },
+    pHaste: function (x, f) { x.b.pHaste = (x.b.pHaste || 0) + f[1]; }
   });
   // 借得來的牌：效果在誰手上都能用（不吃風、投影劍、連擊、海魔這種別人才有的資源）
-  var BORROWABLE = { dmg: 1, hits: 1, all: 1, rand: 1, pierce: 1, pierceHits: 1, block: 1, draw: 1, energy: 1, str: 1, tstr: 1, vuln: 1, weak: 1, weakAll: 1, vulnAll: 1,
-    strDown: 1, heal: 1, evade: 1, thorns: 1, poison: 1, poisonAll: 1, wound: 1, petrify: 1, petrifyAll: 1, dispel: 1, riposte: 1, nextEnergy: 1, iai: 1, dmgIfPoison: 1,
-    petrifyDmg: 1, woundDmg: 1, drainAll: 1, minion: 1, doom: 1, doomAll: 1, selfDmg: 1 };
-  // 師承：從別的從者的專屬牌借牌到手上（只在這場戰鬥）
-  function borrowCards(run, n, log) {
-    var b = run.battle;
-    var pool = Object.keys(CARDS).filter(function (k) { var c = CARDS[k]; return ORDER.indexOf(c.kit) >= 0 && c.kit !== run.who && c.type !== 'power' && c.fx.every(function (f) { return BORROWABLE[f[0]]; }); });
-    for (var i = 0; i < n && b.hand.length < 10; i++) { var k = pick(run, pool); b.hand.push(k); if (log) log.push('借來「' + CARDS[k].name + '」'); }
+  // 魔境之智慧：這回合打到第幾張起（技能也算張數），每張攻擊牌都讓目標死兆 +1
+  function wisdomFrom(b) { return Math.max(1, 3 - (b.haste || 0) - (b.pHaste || 0)); }
+  function wisdomHit(run, tg, log) {
+    var b = run.battle; if (passive(run) !== 'wisdom' || b.played < wisdomFrom(b)) return;
+    var e = tg && tg.hp > 0 ? tg : alive(b).length ? pick(run, alive(b)) : null;
+    if (e) { e.doom = (e.doom || 0) + 1; log.push('魔境之智慧：' + e.name + '死兆 +1'); }
+  }
+  // 死兆應驗時（魔境之智慧）：每倒一個魔力 +1、抽 1 張
+  function wisdomRefund(run, before, log) {
+    var b = run.battle; if (!b || passive(run) !== 'wisdom' || run.screen !== 'battle') return;
+    var n = (b.doomKills || 0) - before; if (n <= 0) return;
+    b.energy += n; drawCards(run, n); log.push('死兆應驗：魔力 +' + n + '、抽 ' + n + ' 張');
   }
   // 死兆：敵人（魔王除外）生命低於死兆×4 就倒下
   function resolveDoom(run) {
     var b = run.battle; if (!b) return;
-    alive(b).forEach(function (e) { if (e.doom > 0 && !ENEMIES[e.id].boss && e.hp <= e.doom * 4) { e.lives = 0; hitEnemy(run, e, e.hp, b.log || [], true); (b.log || []).push('死兆應驗：' + e.name); } });
+    alive(b).forEach(function (e) { if (e.doom > 0 && !ENEMIES[e.id].boss && e.hp <= e.doom * 4) { e.lives = 0; b.doomKills = (b.doomKills || 0) + 1; hitEnemy(run, e, e.hp, b.log || [], true); (b.log || []).push('死兆應驗：' + e.name); } });
   }
   function runFx(ctx, fx) { fx.forEach(function (f) { if (OPS[f[0]]) OPS[f[0]](ctx, f); }); }
   function pickTarget(b, target) {
@@ -1261,10 +1267,13 @@ var G = (function () {
     if (c.type === 'skill' && !c.token) { b.skills++; if (b.pSkillBlock) b.block += b.pSkillBlock; }
     if (ctx.atk) { if (b.stance === 'yellow' && tg && tg.hp > 0) tg.wound += 1; b.combo++; b.firstAtk = false; b.roseBonus = 0; }
     b.played++;
+    if (ctx.atk) wisdomHit(run, tg, ctx.log);
     b.np = Math.min(100, b.np + (c.np || 0));
     if (c.type !== 'power') (c.ex || c.token ? b.exhaust : b.discard).push(id);
     b.log = ctx.log;
-    return { ok: true, end: checkEnd(run) };
+    var dk = b.doomKills || 0, end = checkEnd(run);
+    wisdomRefund(run, dk, ctx.log);
+    return { ok: true, end: end };
   }
 
   // 試算：在複本上打出手牌第 i 張（i＝'np' 就是寶具），回報對每個敵人造成多少、自己多多少格擋。不會動到真的局面。
@@ -1290,7 +1299,9 @@ var G = (function () {
     var ctx = { run: run, b: b, tg: tg, log: [N.name], id: 'np', atk: false, first: false };
     runFx(ctx, fx);
     b.log = ctx.log;
-    return { ok: true, end: checkEnd(run) };
+    var dk = b.doomKills || 0, end = checkEnd(run);
+    wisdomRefund(run, dk, ctx.log);
+    return { ok: true, end: end };
   }
   // 令咒：整局有限；all＝魔力 +3、抽 2｜np＝寶具量表充滿
   function seal(run, kind) {
@@ -1482,7 +1493,7 @@ var G = (function () {
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions,
     FATES: FATES, FATE_FREE: FATE_FREE, SVT_COST: SVT_COST, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, crystalsFor: crystalsFor, priceOf: priceOf,
     preview: preview, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
-    card: card, cardText: cardText, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName,
+    card: card, cardText: cardText, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,
     newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
     takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic, needsTarget: needsTarget };
 })();
