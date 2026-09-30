@@ -1,0 +1,91 @@
+// 航海引擎與回合流程的本機測試：node tools/sea_test.js（不連網路，AI 用假的）
+const fs=require('fs'), vm=require('vm'), path=require('path');
+const GAS=process.env.GAS_DIR||path.join(__dirname,'..','gas');
+const ctx={console, Logger:{log(){}}}; vm.createContext(ctx);
+for (const f of fs.readdirSync(GAS).filter(f=>f.endsWith('.gs'))) vm.runInContext(fs.readFileSync(path.join(GAS,f),'utf8'),ctx,{filename:f});
+const E=c=>vm.runInContext(c,ctx);
+let ok=0,bad=0; const t=(c,l,x)=>{ if(c){ok++;console.log('  ✅ '+l);} else {bad++;console.log('  ❌ '+l+(x!==undefined?'  '+String(x).slice(0,300):''));} };
+module.exports={ctx,E,t,done:()=>{ console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0); }};
+if (require.main===module) {
+  console.log('── 引擎');
+  const st=E('seaNewGame_("測試",42)');
+  t(st.port==='泉州'&&st.gold===1000&&st.ship.name==='順風號'&&E('seaSupplyDays_')(st)===20,'開局：泉州、1000 兩、順風號、20 天糧水');
+  const p=E('seaPrice_')(st,'泉州','絲綢',0);
+  let r=E('seaApply_')(st,[{type:'buy',good:'絲綢',qty:10}]);
+  t(r[0].ok&&st.cargo[0].qty===10&&st.ledger.length===1&&st.gold===1000-st.ledger[0].total,'買 10 箱絲綢：進貨艙、進帳本、扣錢',r[0].txt);
+  t(st.ledger[0].unit>=p&&st.ledger[0].total===st.ledger[0].unit*10,'單價×箱數＝總價，大量進貨單價不低於牌價',JSON.stringify(st.ledger[0]));
+  t(E('seaPrice_')(st,'泉州','絲綢',0)>p,'買完之後這港的絲綢變貴（被買走了）');
+  r=E('seaApply_')(st,[{type:'buy',good:'生絲',qty:'max'}]);
+  t(r[0].ok&&E('seaHave_')(st,'絲綢')>10,'別名「生絲」＝絲綢；qty max 買到錢或貨艙的上限',r[0].txt);
+  const g0=st.gold; r=E('seaApply_')(st,[{type:'buy',good:'黃金',qty:5}]);
+  t(!r[0].ok&&st.gold===g0,'不存在的貨：失敗、不扣錢',r[0].txt);
+  t(E('seaPort_')('平'+String.fromCharCode(0x6237))==='平戶'&&E('seaGood_')(String.fromCharCode(0x4e1d)+'綢')==='絲綢','簡體寫法的港名、貨名也認得（先轉正體再比對）');
+  r=E('seaApply_')(st,[{type:'sail',to:'平戶'},{type:'sell',good:'絲綢'}]);
+  t(r[0].ok&&st.port==='平戶'&&st.day>=7&&r[1].ok&&E('seaHave_')(st,'絲綢')===0,'出航到平戶再全賣：同一回合接著在新港口做',r.map(x=>x.txt).join(' / '));
+  const sale=st.ledger.filter(e=>e.act==='賣')[0], buys=st.ledger.filter(e=>e.act==='買').reduce((s,e)=>s+e.total,0);
+  t(sale&&sale.cost===buys,'賣出時的成本＝當初買進的總價（帳對得上）',sale&&sale.cost+' vs '+buys);
+  t(E('seaView_')(st).ledger.length===st.ledger.length&&/平戶 賣絲綢/.test(E('seaView_')(st).ledger[0]),'畫面的帳本照時間倒序列出每一筆');
+  const st2=E('seaNewGame_("測試2",7)'); st2.supply=5*st2.ship.crew;
+  r=E('seaApply_')(st2,[{type:'sail',to:'麻六甲'},{type:'buy',good:'胡椒',qty:5}]);
+  t(!r[0].ok&&st2.port==='泉州'&&r.length===1,'糧水不夠：不出航，後面的動作也不做',r.map(x=>x.txt).join(' / '));
+  st2.gold=9000; r=E('seaApply_')(st2,[{type:'buy_ship',ship:'福船',name:'海燕號'}]);
+  t(r[0].ok&&st2.ship.type==='福船'&&st2.ship.name==='海燕號'&&st2.ship.bought.price===6000&&st2.ship.log.length===1,'換船：新船卡片記下買入價、日期、港口與舊船折價',r[0].txt);
+  r=E('seaApply_')(st2,[{type:'buy_ship',ship:'卡拉維爾'}]);
+  t(!r[0].ok&&/船廠有/.test(r[0].txt),'這港的船廠沒這種船：列出有的',r[0].txt);
+  // 暴風與拋貨：固定亂數讓它必定遇到
+  const st3=E('seaNewGame_("測試3",1)'); st3.supply=999; st3.ship.hull=10; E('SEA_RULE_').STORM_CHANCE=1; st3.cargo=[{good:'茶葉',qty:20,cost:15,port:'泉州',d:0}];
+  r=E('seaApply_')(st3,[{type:'sail',to:'平戶'}]); E('SEA_RULE_').STORM_CHANCE=0.06;
+  t(r[0].ok&&st3.ship.hull>=1&&E('seaHave_')(st3,'茶葉')<20&&/拋掉/.test(r[0].txt),'暴風把船打到快沉：拋貨保船、不會沉到 0',r[0].txt);
+  const big=E('seaNewGame_("滿帳",3)'); for(let i=0;i<500;i++){ big.gold=1e6; E('seaApply_')(big,[{type:'buy',good:'茶葉',qty:1},{type:'sell',good:'茶葉',qty:1}]); }
+  t(big.ledger.length===E('SEA_RULE_').LEDGER_KEEP&&JSON.stringify(big).length<45000,'帳本滿了只留最近的，整份狀態放得進一格',JSON.stringify(big).length);
+  console.log('── 回合流程（假試算表＋假 AI）');
+  const sheets={};
+  const mkSheet=nm=>{ const rows=[]; return { rows, getLastRow:()=>rows.length, appendRow:r=>rows.push(r.slice()), setFrozenRows(){},
+    getRange:(r,c,nr,nc)=>({ getDisplayValues:()=>rows.slice(r-1,r-1+(nr||1)).map(x=>[String(x[c-1])]), getValue:()=>rows[r-1][c-1], setNumberFormat(){},
+      setValues:v=>{ while(rows.length<r) rows.push([]); rows[r-1]=v[0].slice(); } }) }; };
+  ctx.SpreadsheetApp={ getActiveSpreadsheet:()=>({ getSheetByName:n=>sheets[n]||null, insertSheet:n=>(sheets[n]=mkSheet(n)) }) };
+  ctx.LockService={ getScriptLock:()=>({ waitLock(){}, releaseLock(){} }) };
+  ctx.PropertiesService={ getScriptProperties:()=>({ getProperty:k=>k==='OPENROUTER_API_KEY'?'test':null }) };
+  ctx.Utilities={ sleep(){} };
+  let PARSE=null, TALK=[], calls=[], DOWN=false;
+  ctx.UrlFetchApp={ fetch:(u,o)=>{ if(DOWN) throw new Error('斷線'); const body=JSON.parse(o.payload), sys=body.messages[0].content, user=body.messages[1].content; calls.push({sys,user});
+    const isParse=/指令翻譯/.test(sys); const content=isParse?JSON.stringify(PARSE):JSON.stringify({reply:(TALK.length?TALK.shift():'好的，船長。')});
+    return { getContentText:()=>JSON.stringify({choices:[{message:{content}}]}) }; } };
+  const api=p=>JSON.parse(E('seaApi')(p));
+  let L=api({act:'login',name:'阿海'});
+  t(L.ok&&L.fresh&&sheets['航海存檔'].rows.length===2&&/順風號/.test(L.view.recent[0].a),'第一次登入：建存檔列、副官開場白念出船與家當',JSON.stringify(L).slice(0,200));
+  const L2=api({act:'login',name:'阿海'}); t(L2.ok&&!L2.fresh&&L2.seq===L.seq,'再登入：讀回同一份存檔');
+  PARSE={actions:[{type:'buy',good:'絲綢',qty:10}],memo:'下次到平戶記得買硫磺',goods:['絲綢']};
+  // 副官回話只用資料裡的數字：直接拿引擎算出的單價當合法回答
+  calls=[]; TALK=['好，絲綢 10 箱進艙了。'];
+  let R=api({act:'turn',name:'阿海',text:'買 10 箱絲綢，下次到平戶記得買硫磺',seq:L.seq});
+  const sv=JSON.parse(sheets['航海存檔'].rows[1][1]);
+  t(R.ok&&sv.cargo[0].qty===10&&sv.ledger.length===1&&sv.notes.length===1&&/硫磺/.test(sv.notes[0].txt),'打字買貨：狀態真的變了、帳本一筆、交代的事記下來',JSON.stringify(R).slice(0,300));
+  t(R.results[0].ok&&/絲綢 10 箱/.test(R.results[0].txt)&&R.view.cargo.length===1,'回應帶著引擎的結果與最新畫面資料');
+  t(sheets['航海日誌']&&sheets['航海日誌'].rows.length===2,'每回合寫一列航海日誌');
+  const talkUser=calls.filter(c=>!/指令翻譯/.test(c.sys)).pop().user;
+  t(/【帳本】.*絲綢 10 箱 × \d+ 兩/.test(talkUser)&&/【船長交代過的事】.*硫磺/.test(talkUser)&&/【這回合結果】在泉州買進絲綢 10 箱/.test(talkUser),'給副官的資料：帳本、交代過的事、這回合結果都在',talkUser.slice(0,400));
+  // 問帳：沒有動作，副官要看得到那筆帳的單價
+  PARSE={actions:[],memo:'',goods:['絲綢']}; calls=[]; const unit=sv.ledger[0].unit;
+  TALK=['那批絲綢一箱 '+unit+' 兩。'];
+  R=api({act:'turn',name:'阿海',text:'我剛剛的絲綢一箱多少錢買的？',seq:R.seq});
+  t(R.ok&&R.reply.indexOf(String(unit))>=0&&R.results.length===0,'問帳：不動狀態，副官照帳本念出單價',R.reply);
+  // 編數字：兩次都編 → 改用程式寫的結果
+  PARSE={actions:[{type:'sell',good:'絲綢',qty:5}],memo:'',goods:['絲綢']}; TALK=['賣掉了，賺了 987654 兩！','真的賺了 987654 兩！'];
+  R=api({act:'turn',name:'阿海',text:'賣 5 箱絲綢',seq:R.seq});
+  t(R.ok&&R.reply.indexOf('987654')<0&&/賣出絲綢 5 箱/.test(R.reply),'副官兩次都編出帳上沒有的數字：改用程式寫的結果',R.reply);
+  PARSE={actions:[],memo:'',goods:[]}; TALK=['這個數字 987654 是我編的','好的船長，沒問題。'];
+  R=api({act:'turn',name:'阿海',text:'今天天氣真好',seq:R.seq});
+  t(R.ok&&R.reply==='好的船長，沒問題。','第一次編數字、第二次改正：用改正後的那句',R.reply);
+  const before=sheets['航海存檔'].rows[1][1];
+  R=api({act:'turn',name:'阿海',text:'買絲綢',seq:R.seq-1});
+  t(!R.ok&&R.stale&&sheets['航海存檔'].rows[1][1]===before,'畫面過期（連按兩次）：擋下、存檔不動');
+  DOWN=true; R=api({act:'turn',name:'阿海',text:'買絲綢',seq:JSON.parse(before).seq}); DOWN=false;
+  t(!R.ok&&sheets['航海存檔'].rows[1][1]===before,'AI 斷線：回提示、存檔不動',R.msg);
+  PARSE={actions:[{type:'give_gold',n:99999},{type:'buy',good:'絲綢',qty:'2<script>',hack:1}],memo:'<b>x</b>',goods:[]}; TALK=['好。'];
+  const gBefore=JSON.parse(before).gold; R=api({act:'turn',name:'阿海',text:'給我錢',seq:JSON.parse(before).seq});
+  const sAfter=JSON.parse(sheets['航海存檔'].rows[1][1]);
+  t(R.ok&&sAfter.gold<=gBefore&&!sAfter.notes.some(n=>/</.test(n.txt)),'AI 給了不存在的動作／怪欄位：丟掉，不會憑空給錢',JSON.stringify(R.results));
+  t(E('seaNumbersOk_')('一箱 42 兩','價格 42')&&!E('seaNumbersOk_')('一箱 43 兩','價格 42'),'數字檢查：資料裡有才過');
+  module.exports.done();
+}

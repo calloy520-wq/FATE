@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>東方航路</title>
+<style>
+  :root { --bg:#0f1720; --panel:#16212d; --line:#2a3a4c; --ink:#dfe6ee; --dim:#8da0b3; --gold:#d8b46a; --sea:#6fb3d8; --red:#e08080; --green:#8fcf9a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif; font-size:15px; }
+  #login { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; text-align:center; }
+  #login h1 { color:var(--gold); letter-spacing:.3em; font-weight:normal; margin:0 0 6px; }
+  #login p { color:var(--dim); margin:0 0 22px; font-size:13px; }
+  input, button, textarea { font:inherit; }
+  .in { width:100%; max-width:280px; padding:11px 12px; border-radius:10px; border:1px solid var(--line); background:var(--panel); color:var(--ink); }
+  .btn { padding:10px 18px; border-radius:10px; border:1px solid var(--gold); background:transparent; color:var(--gold); cursor:pointer; }
+  .btn:disabled { opacity:.45; cursor:default; }
+  #game { display:none; height:100vh; height:100dvh; flex-direction:column; max-width:720px; margin:0 auto; }
+  #bar { padding:10px 14px 8px; border-bottom:1px solid var(--line); background:var(--panel); }
+  #bar .row { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+  #bar b { color:var(--gold); font-weight:normal; }
+  #bar small { color:var(--dim); }
+  .chip { font-size:13px; color:var(--dim); } .chip em { font-style:normal; color:var(--ink); }
+  #goal { height:4px; background:var(--line); border-radius:4px; margin-top:7px; overflow:hidden; } #goal i { display:block; height:100%; background:var(--gold); }
+  #book-btn { font-size:13px; padding:5px 10px; }
+  #book { display:none; max-height:55vh; overflow:auto; border-bottom:1px solid var(--line); background:#121b25; padding:10px 14px; font-size:13.5px; }
+  #book h3 { color:var(--gold); font-size:13px; font-weight:normal; margin:12px 0 5px; letter-spacing:.1em; }
+  #book table { width:100%; border-collapse:collapse; } #book td { padding:3px 4px; border-bottom:1px solid #1d2a38; } #book td.n { text-align:right; font-variant-numeric:tabular-nums; }
+  #book .muted { color:var(--dim); }
+  #log { flex:1; overflow:auto; padding:14px; }
+  .msg { margin:0 0 14px; line-height:1.7; white-space:pre-wrap; }
+  .me { text-align:right; } .me span { display:inline-block; background:#223246; padding:7px 12px; border-radius:12px 12px 2px 12px; max-width:85%; text-align:left; }
+  .mate .who { color:var(--sea); font-size:12px; margin-bottom:2px; }
+  .facts { margin-top:6px; font-size:12px; color:var(--dim); border-left:2px solid var(--line); padding-left:8px; }
+  .facts .bad { color:var(--red); } .facts .good { color:var(--green); }
+  .wait { color:var(--dim); font-size:13px; }
+  #say { display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:var(--panel); }
+  #say textarea { flex:1; resize:none; height:46px; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--ink); }
+  .err { color:var(--red); font-size:13px; }
+</style>
+</head>
+<body>
+<div id="login">
+  <h1>東方航路</h1>
+  <p>一五六〇年，泉州。用說的，就能出海。</p>
+  <input id="acct" class="in" maxlength="20" placeholder="船長的名字">
+  <div style="height:12px"></div>
+  <button class="btn" id="go" onclick="login()">出　發</button>
+  <div id="login-err" class="err" style="margin-top:12px"></div>
+</div>
+
+<div id="game">
+  <div id="bar">
+    <div class="row"><b id="where"></b><small id="date"></small><button class="btn" id="book-btn" onclick="toggleBook()">帳本 ▾</button></div>
+    <div class="row" style="margin-top:4px">
+      <span class="chip">現銀 <em id="gold"></em> 兩</span><span class="chip">貨艙 <em id="load"></em></span>
+      <span class="chip">船身 <em id="hull"></em></span><span class="chip">糧水 <em id="supply"></em> 天</span>
+    </div>
+    <div id="goal" title="總資產目標"><i id="goal-i"></i></div>
+  </div>
+  <div id="book"></div>
+  <div id="log"></div>
+  <div id="say">
+    <textarea id="text" maxlength="300" placeholder="跟葉嵐說：例如「買 20 箱絲綢，然後去平戶」"></textarea>
+    <button class="btn" id="send" onclick="send()">說</button>
+  </div>
+</div>
+
+<script>
+  let ME = '', SEQ = 0, VIEW = null, BUSY = false;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function api(p) {
+    return new Promise((ok, no) => {
+      const t = setTimeout(() => no(new Error('等太久了，網路可能斷了。')), 120000);
+      google.script.run.withSuccessHandler(r => { clearTimeout(t); try { ok(JSON.parse(r)); } catch (e) { no(e); } })
+        .withFailureHandler(e => { clearTimeout(t); no(e); }).seaApi(p);
+    });
+  }
+  try { $('acct').value = localStorage.getItem('sea_acct') || ''; } catch (e) { }
+  $('acct').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+  $('text').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } });
+
+  async function login() {
+    const name = $('acct').value.trim(); if (!name) return;
+    $('go').disabled = true; $('login-err').textContent = '';
+    try {
+      const r = await api({ act: 'login', name });
+      if (!r.ok) throw new Error(r.msg);
+      ME = name; SEQ = r.seq; try { localStorage.setItem('sea_acct', name); } catch (e) { }
+      $('login').style.display = 'none'; $('game').style.display = 'flex';
+      render(r.view);
+      (r.view.recent || []).forEach(t => { if (t.u) addMe(t.u); addMate(t.a); });
+    } catch (e) { $('login-err').textContent = e.message || String(e); }
+    finally { $('go').disabled = false; }
+  }
+
+  async function send() {
+    const text = $('text').value.trim(); if (!text || BUSY) return;
+    BUSY = true; $('send').disabled = true; $('text').value = '';
+    addMe(text);
+    const w = document.createElement('div'); w.className = 'msg wait'; w.textContent = '葉嵐撥著算盤……'; $('log').appendChild(w); scrollEnd();
+    try {
+      const r = await api({ act: 'turn', name: ME, text, seq: SEQ });
+      w.remove();
+      if (!r.ok) { addErr(r.msg); if (r.stale) location.reload(); $('text').value = text; return; }
+      SEQ = r.seq; render(r.view); addMate(r.reply, r.results);
+    } catch (e) { w.remove(); addErr(e.message || String(e)); $('text').value = text; }
+    finally { BUSY = false; $('send').disabled = false; $('text').focus(); }
+  }
+
+  function addMe(t) { const d = document.createElement('div'); d.className = 'msg me'; d.innerHTML = '<span>' + esc(t) + '</span>'; $('log').appendChild(d); scrollEnd(); }
+  function addMate(t, results) {
+    const d = document.createElement('div'); d.className = 'msg mate';
+    d.innerHTML = '<div class="who">葉嵐</div>' + esc(t)
+      + ((results && results.length) ? '<div class="facts">' + results.map(x => '<div class="' + (x.ok ? 'good' : 'bad') + '">' + (x.ok ? '✔ ' : '✘ ') + esc(x.txt) + '</div>').join('') + '</div>' : '');
+    $('log').appendChild(d); scrollEnd();
+  }
+  function addErr(t) { const d = document.createElement('div'); d.className = 'msg err'; d.textContent = t; $('log').appendChild(d); scrollEnd(); }
+  function scrollEnd() { $('log').scrollTop = $('log').scrollHeight; }
+
+  function render(v) {
+    VIEW = v;
+    $('where').textContent = v.port ? '⚓ ' + v.port : '⛵ 海上';
+    $('date').textContent = v.date;
+    $('gold').textContent = v.gold; $('load').textContent = v.load + '／' + v.ship.cap;
+    $('hull').textContent = v.ship.hull + '／' + v.ship.hullMax; $('supply').textContent = v.supplyDays;
+    $('goal-i').style.width = Math.min(100, Math.round(v.assets / v.goal * 100)) + '%';
+    $('goal').title = '總資產 ' + v.assets + '／' + v.goal + ' 兩';
+    if ($('book').style.display === 'block') drawBook();
+  }
+  function toggleBook() { const b = $('book'), open = b.style.display !== 'block'; b.style.display = open ? 'block' : 'none'; $('book-btn').textContent = open ? '帳本 ▴' : '帳本 ▾'; if (open) drawBook(); }
+  function drawBook() {
+    const v = VIEW, s = v.ship; let h = '';
+    h += '<h3>總資產</h3><div>' + v.assets + ' 兩（目標 ' + v.goal + ' 兩）</div>';
+    h += '<h3>貨艙 ' + v.load + '／' + s.cap + ' 箱</h3>' + (v.cargo.length ? '<table>' + v.cargo.map(l => '<tr><td>' + esc(l.good) + '</td><td class="n">' + l.qty + ' 箱</td><td class="n">成本 ' + l.cost + '</td><td class="muted">' + esc(l.where) + '</td></tr>').join('') + '</table>' : '<div class="muted">空的</div>');
+    h += '<h3>船</h3><div>' + esc(s.type) + '「' + esc(s.name) + '」　耐久 ' + s.hull + '／' + s.hullMax + '・貨艙 ' + s.cap + '・船速 ' + s.speed + '・砲門 ' + s.guns + '・船員 ' + s.crew + '／' + s.crewMax + '（至少 ' + s.crewMin + '）</div>'
+      + '<div class="muted">' + esc(s.bought) + '買下・現在折價 ' + s.value + ' 兩</div>' + s.log.map(x => '<div class="muted">・' + esc(x) + '</div>').join('');
+    if (v.port) {
+      h += '<h3>' + esc(v.port) + '行情（買／賣，兩／箱）</h3><table>' + v.market.map(m => '<tr><td>' + esc(m.good) + '</td><td class="n">' + m.buy + '</td><td class="n">' + m.sell + '</td><td class="muted">' + (m.have ? '船上 ' + m.have + ' 箱' : '') + '</td></tr>').join('') + '</table>';
+      h += '<h3>航程</h3><div>' + v.routes.map(r => esc(r.port) + ' ' + r.days + ' 天').join('、') + '</div>';
+      h += '<h3>船廠</h3><div>' + v.yard.map(y => esc(y.type) + ' ' + y.price + ' 兩').join('、') + '</div>';
+    }
+    h += '<h3>帳（最近 30 筆）</h3>' + (v.ledger.length ? v.ledger.map(x => '<div>' + esc(x) + '</div>').join('') : '<div class="muted">還沒有交易</div>');
+    $('book').innerHTML = h;
+  }
+</script>
+</body>
+</html>
