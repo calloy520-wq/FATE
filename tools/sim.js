@@ -34,6 +34,10 @@ function value(run){
   v+=b.str*5+b.tstr*1.2+b.energy*4+b.np*0.35+b.minions*4+b.army*3.5+b.combo*0.8+(b.nextFree?4:0)+b.nextEnergy*4;
   v+=(b.pBlock*3+b.pDraw*6+b.pEnergy*9+b.pStr*6+b.pEvade*8+b.pTreasure*6+b.pMinion*7+b.pVenom*6+b.pCombo*4)*left/4;
   v+=b.ubw*12+b.projUp*6+b.thorns*0.5;
+  // 改版後的資源：風、閃避反擊、各種每回合效果
+  const hits=incoming(run).length;
+  v+=b.wind*3+b.iaiUp*2+(hits&&b.evade?b.riposte*0.8:0);
+  v+=(b.pWind*6+b.pEvadeStr*5+b.pPetrifyAll*8+b.pSkillBlock*5+b.pEnergyBlock*3+b.pStanceBlock*3+b.pRage*4)*left/4;
   return v;
 }
 function bestAction(run){
