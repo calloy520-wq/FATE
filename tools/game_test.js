@@ -213,18 +213,7 @@ t(seenRare>20&&seenRare<110&&rareOk,'精英獎勵約三成出奧義，只出自�
 rr.screen='rest'; const n0=rr.deck.length; t(G.rest(rr,'remove',0)&&rr.deck.length===n0-1&&rr.screen==='map','淨化：從牌組移除一張');
 rr.screen='rest'; rr.deck=rr.deck.slice(0,5); t(!G.rest(rr,'remove',0)&&rr.deck.length===5,'牌組至少留 5 張');
 
-console.log('── 自創英靈');
-const cu1=G.makeCustom({name:'  阿塔蘭塔的學徒  ',cls:'Archer',legend:'medusa',sub:'hassanC',npFrom:'hassanC',npName:'毒蛇之眼'});
-t(cu1&&cu1.name==='阿塔蘭塔的學徒'&&cu1.hp===G.CLASSES.Archer&&cu1.passive.id==='gaze'&&cu1.np.name==='毒蛇之眼'&&cu1.np.fx[0][0]==='exec','組合：職階給生命、傳說給被動、寶具取自副修並改名');
-t(!G.makeCustom({cls:'Saber',legend:'cu',sub:'cu'})&&!G.makeCustom({cls:'Shielder',legend:'cu',sub:'saber'}),'傳說與副修不能同一位、職階要存在');
-t(G.makeCustom({cls:'Saber',legend:'cu',sub:'saber'}).name==='無名英靈','沒取名＝無名英靈');
-t(G.newRun('custom',9,J(cu1)).custom.np.name==='毒蛇之眼','從英靈殿再開一局，自己取的寶具名還在');
-let cr=G.newRun('custom',5,cu1); t(cr.deck.length===11&&cr.deck.includes('chain')&&cr.deck.includes('knives')&&G.BOSSES.includes(cr.boss),'起始牌組＝基本 9＋兩位的招牌牌');
-cr=J(cr); step(cr,'fight'); t(cr.battle.enemies.every(e=>e.petrify===1),'傳說的被動照樣生效（石化魔眼）');
-cr.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); cr.battle.enemies.forEach((e,i)=>{ if(i) e.hp=0; }); cr.battle.np=100; G.noble(cr,0);
-t(cr.screen==='reward'&&cr.reward.cards.every(c=>['medusa','hassanC','common'].includes(G.CARDS[c.replace('+','')].kit)),'戰後的牌只出傳說、副修、共通');
-t(G.talentsOf(G.newRun('custom',1,cu1))===G.TALENTS.medusa,'靈基覺醒跟著傳說走');
-t(playRun('custom',42,cu1).screen==='over','自創英靈能打完一整局');
+t(G.migrate({who:'custom',custom:{name:'舊英靈'},deck:['atk']})===null&&!('custom' in G.SVT_COST)&&!G.makeCustom,'自創英靈拿掉了：舊的自創英靈那一局讀檔作廢、工坊不再賣');
 
 console.log('── 事件・商店・命運・靈基再臨');
 t(Object.keys(G.EVENTS).every(k=>G.EVENTS[k].opts.length>=2&&G.EVENTS[k].opts.every(o=>o.fx.every(f=>['hp','maxHp','healPct','relic','seal','pick','addCard','upRandom','cards','fight','gamble','gold'].includes(f[0])))),'每個事件至少兩個選項，效果都認得');
@@ -241,15 +230,15 @@ let rp=G.removePrice(sh); t(G.buy(sh,'remove',0).ok&&sh.gold===300-price-rp&&!G.
 sh.gold=0; t(!G.buy(sh,'relic').ok,'錢不夠買不起'); G.leaveShop(sh); t(sh.screen==='map','離開商店');
 let gr=arena('saber'); gr.battle.enemies.forEach(e=>{e.hp=1;}); gr.battle.np=100; const g0=gr.gold; G.noble(gr,0); G.takeReward(gr,-1); t(gr.gold>=g0+12&&gr.gold<=g0+18,'打贏一般戰鬥得到 12～18 金',gr.gold-g0);
 t(G.fateOptions(5,[]).length===3&&G.fateOptions(5,[]).every(k=>G.FATE_FREE.includes(k))&&G.fateOptions(9,['legacy','early','mana']).every(k=>G.FATES[k]),'命運：沒解鎖時只出三個基本命運');
-let ft=G.newRun('saber',6,null,{fate:'light'}); t(ft.deck.length===7&&ft.fate==='light','輕裝上陣：少 2 張攻擊 1 張防禦');
-ft=G.newRun('saber',6,null,{fate:'merchant'}); ft.gold=100; step(ft,'shop'); t(G.removePrice(ft)===0&&G.priceOf(ft,{price:100})===80,'商人的眷顧：八折、第一次移除免費'); G.buy(ft,'remove',0); t(G.removePrice(ft)===Math.round(60*0.8),'免費用掉之後恢復原價（再打八折）');
-ft=G.newRun('saber',6,null,{fate:'mana'}); step(ft,'fight'); t(ft.battle.np===30,'魔力充盈：寶具量表從 30% 開始',ft.battle.np);
-let as=G.newRun('medusa',6,null,{asc:5}); t(as.maxHp===G.SERVANTS.medusa.hp+8&&as.deck.includes('breaker'),'靈基再臨 V：生命 +8、開局帶奧義');
+let ft=G.newRun('saber',6,{fate:'light'}); t(ft.deck.length===7&&ft.fate==='light','輕裝上陣：少 2 張攻擊 1 張防禦');
+ft=G.newRun('saber',6,{fate:'merchant'}); ft.gold=100; step(ft,'shop'); t(G.removePrice(ft)===0&&G.priceOf(ft,{price:100})===80,'商人的眷顧：八折、第一次移除免費'); G.buy(ft,'remove',0); t(G.removePrice(ft)===Math.round(60*0.8),'免費用掉之後恢復原價（再打八折）');
+ft=G.newRun('saber',6,{fate:'mana'}); step(ft,'fight'); t(ft.battle.np===30,'魔力充盈：寶具量表從 30% 開始',ft.battle.np);
+let as=G.newRun('medusa',6,{asc:5}); t(as.maxHp===G.SERVANTS.medusa.hp+8&&as.deck.includes('breaker'),'靈基再臨 V：生命 +8、開局帶奧義');
 step(as,'fight'); t(as.battle.enemies.every(e=>e.petrify>=1)&&as.battle.enemies.every(e=>e.weak>=1),'美杜莎再臨 II／III：開場全體石化＋虛弱');
 as.battle.enemies.forEach(e=>{e.hp=99;e.maxHp=99;e.petrify=0;e.stun=0;}); as.battle.np=100; G.noble(as,0); t(as.battle.enemies[0].petrify>=0&&/石化 2/.test(G.npText(G.serv(as).np,as)),'再臨 IV：寶具追加全體石化 2',G.npText(G.serv(as).np,as));
 t(G.ORDER.every(k=>G.ASC_SVT[k]&&[1,2,3,4,5].every(lv=>G.ascText(k,lv))),'14 位每一級再臨都有自己的說明');
 t(G.ORDER.every(k=>G.ASC_SVT[k].slice(0,2).every(fx=>!G.needsTarget(fx))),'開場效果不會用到要選目標的效果');
-let as1=G.newRun('saber',6,null,{asc:3}); step(as1,'fight'); t(as1.battle.wind===2&&as1.battle.block===8,'Saber 再臨 III：開場風 2、格擋 8');
+let as1=G.newRun('saber',6,{asc:3}); step(as1,'fight'); t(as1.battle.wind===2&&as1.battle.block===8,'Saber 再臨 III：開場風 2、格擋 8');
 t(G.SVT_COST.saber===0&&G.ORDER.every(k=>k==='saber'||G.SVT_COST[k]>0)&&G.ASC.length===6,'一開始只有 Saber 免費，其他都有解鎖價；命座 6 級');
 let cz=G.newRun('saber',8); cz.stats.floors=10; cz.stats.bosses=1; t(G.crystalsFor(cz)===25,'聖晶石：走過 10 格＋打倒 1 位魔王＝25');
 
@@ -264,11 +253,11 @@ r=arena('scathach'); r.battle.hand=[]; playId(r,'mentor'); t(r.battle.hand.lengt
 let borrowOk=true; for(let i=0;i<60;i++){ const q=arena('scathach',1,50,100+i); q.battle.hand=[]; playId(q,'mentor'); q.battle.hand.forEach(id=>{ if(G.CARDS[id].fx.some(f=>['wind','windAll','projDmg','comboGuard','comboDmg','kraken','armySpend','skillDmg','treasureDmg','rageDmg'].includes(f[0]))) borrowOk=false; }); } t(borrowOk,'借來的牌不會是要吃別人資源的牌');
 r=arena('scathach'); E(r).id='saber'; E(r).name='x'; playId(r,'godslayer'); t(E(r).hp===50-15,'弒神：精英 7＋8',E(r).hp);
 console.log('── 難度');
-let dn=G.newRun('saber',9,null,{diff:'normal'}), dh=G.newRun('saber',9,null,{diff:'abyss'}); step(dn,'fight'); step(dh,'fight');
+let dn=G.newRun('saber',9,{diff:'normal'}), dh=G.newRun('saber',9,{diff:'abyss'}); step(dn,'fight'); step(dh,'fight');
 t(dh.battle.enemies[0].maxHp>=Math.round(dn.battle.enemies[0].maxHp*1.35)&&dh.battle.enemies[0].str===dn.battle.enemies[0].str+2,'深淵：敵人生命 +40%、力量 +2',JSON.stringify([dn.battle.enemies[0].maxHp,dh.battle.enemies[0].maxHp]));
 t(G.restHeal(dh)===Math.round(dh.maxHp*0.2)&&G.restHeal(dn)===Math.round(dn.maxHp*0.3),'深淵休息只回兩成');
 dn.stats.floors=10; dh.stats.floors=10; t(G.crystalsFor(dh)===G.crystalsFor(dn)*2,'深淵聖晶石 ×2');
-t(G.newRun('saber',1,null,{asc:6}).ascStart.some(f=>f[0]==='pWind'),'命座 VI：每回合的專屬強化（Saber 每回合風 +1）');
+t(G.newRun('saber',1,{asc:6}).ascStart.some(f=>f[0]==='pWind'),'命座 VI：每回合的專屬強化（Saber 每回合風 +1）');
 
 console.log('── 強化方向');
 t(G.upDirs('invis').join('')==='acde'&&G.upDirs('charge').join('')==='abcde'&&G.upDirs('atk').join('')==='ace'&&G.upDirs('kingly').join('')==='ad'&&G.upDirs('invis+').length===0&&G.upDirs('sword').length===0,'每張牌能往哪幾個方向強化（1 費沒有迅捷、能力牌沒有共鳴與極限、已強化／代幣不能再強化）');

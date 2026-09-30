@@ -122,9 +122,9 @@
   var KEY = 'grail_run_v1', run = null, sel = { card: -1, foe: -1, np: false };
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-  // ── 帳號：第一個畫面先登入；每個帳號各自的存檔、英靈殿、聖晶石、解鎖與戰績都存在伺服器（換裝置也接得上），本機另留一份快取 ──
+  // ── 帳號：第一個畫面先登入；每個帳號各自的存檔、聖晶石、解鎖與戰績都存在伺服器（換裝置也接得上），本機另留一份快取 ──
   var ACC = null, META = null, SAVED_RUN = null, AKEY = 'grail_acc_v1', CKEY = 'grail_cache_v1:', STARTER_GIFT = 100;
-  function newMeta() { return { crystals: 0, svts: ['saber'], asc: {}, fates: [], heroes: [], clears: {}, stats: { runs: 0, wins: 0, trueEnds: 0, best: {} }, ts: 0 }; }
+  function newMeta() { return { crystals: 0, svts: ['saber'], asc: {}, fates: [], clears: {}, stats: { runs: 0, wins: 0, trueEnds: 0, best: {} }, ts: 0 }; }
   // 難度與命座上限：困難要任一從者通關普通、深淵要通關困難；命座上限看「這位」通關過的最高難度（普通 2、困難 4、深淵 6）
   function cleared(k, d) { return !!(META.clears[k] && META.clears[k][d]); }
   function anyCleared(d) { return Object.keys(META.clears).some(function (k) { return META.clears[k][d]; }); }
@@ -171,14 +171,14 @@
     try {
       if (localStorage.getItem('grail_legacy_done')) return null;
       var P = JSON.parse(localStorage.getItem('grail_profiles_v1') || 'null'), prof = P && P.list && (P.list['玩家1'] || P.list[P.cur]);
-      var run0 = localStorage.getItem(KEY), heroes0 = JSON.parse(localStorage.getItem('grail_heroes_v1') || '[]');
-      if (!prof && !run0 && !heroes0.length) return null;
+      var run0 = localStorage.getItem(KEY);
+      if (!prof && !run0) return null;
       var m = newMeta(); if (prof) Object.keys(prof).forEach(function (k) { m[k] = prof[k]; });
-      m.heroes = heroes0;
       if (run0 && m.svts.indexOf(JSON.parse(run0).who) < 0 && JSON.parse(run0).who !== 'custom') m.svts.push(JSON.parse(run0).who);   // 已經在玩的那位先算解鎖
       return { meta: m, run: run0 || '' };
     } catch (e) { return null; }
   }
+  var CUSTOM_REFUND = 120;
   function onLogin(res) {
     ACC = { name: res.name, token: res.token };
     try { localStorage.setItem(AKEY, JSON.stringify(ACC)); } catch (e) { }
@@ -191,6 +191,10 @@
     // 本機快取比伺服器新（上次沒送出去）：用本機的，並補送
     try { var C = JSON.parse(localStorage.getItem(CKEY + ACC.name) || 'null'); if (C && C.ts > (META.ts || 0)) { META = JSON.parse(C.meta); SAVED_RUN = C.run || ''; dirty = { meta: true, run: true }; flushSave(); } } catch (e) { }
     // 開場禮：每個帳號一次 100 聖晶石（夠解鎖 2 位 50 的英靈）；已經建立的帳號下次登入補發
+    // 自創英靈拿掉了：解鎖過的退還聖晶石，英靈殿清掉；進行中的自創英靈那一局作廢（G.migrate 回傳 null）
+    var ci = META.svts.indexOf('custom');
+    if (ci >= 0 || META.heroes) { if (ci >= 0) { META.svts.splice(ci, 1); META.crystals += CUSTOM_REFUND; toast('自創英靈已下架：退還 💎' + CUSTOM_REFUND); } delete META.heroes; queueSave(true, false); }
+    try { if (SAVED_RUN && JSON.parse(SAVED_RUN).who === 'custom') { SAVED_RUN = ''; queueSave(false, true); } } catch (e) { }
     if (!META.starter) { META.starter = 1; META.crystals += STARTER_GIFT; queueSave(true, false); }
     if (res.created || !res.meta) queueSave(true, true);
     run = null; titleScreen();
@@ -293,10 +297,9 @@
     var head = '<div class="tabs" style="max-width:460px;width:100%">' + tabs.map(function (t) { return '<button class="' + (tab === t[0] ? 'on' : '') + '" onclick="workshop(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>';
     if (tab === 'svt') {
       body = '<div class="dim" style="max-width:460px">靈基再臨像命座：每位英靈各自升級、各有特色，開局生效。I 生命、II／III 開場效果、IV 寶具追加、V 奧義牌、VI 每回合強化。用這位通關普通開放 I～II、困難 III～IV、深淵 V～VI。</div>'
-        + G.ORDER.concat(['custom']).map(function (k) {
-          var S = k === 'custom' ? { cls: '自創', name: '英靈' } : G.SERVANTS[k], have = M.svts.indexOf(k) >= 0, lv = M.asc[k] || 0, line = '<b>' + esc(S.cls + '・' + S.name) + '</b>';
+        + G.ORDER.map(function (k) {
+          var S = G.SERVANTS[k], have = M.svts.indexOf(k) >= 0, lv = M.asc[k] || 0, line = '<b>' + esc(S.cls + '・' + S.name) + '</b>';
           if (!have) return '<div class="box">' + line + '　<button class="infobtn" onclick="unlockSvt(\'' + k + '\')">🔒 解鎖 💎' + G.SVT_COST[k] + '</button></div>';
-          if (k === 'custom') return '<div class="box">' + line + '　<span class="dim">已解鎖</span></div>';
           var nx = G.ASC[lv];
           return '<div class="box">' + line + '　<span style="color:var(--gold)">靈基再臨 ' + ROMAN[lv] + '</span>'
             + '<div style="margin-top:4px;font-size:12.5px">' + G.ASC.map(function (a, i) { return '<div class="' + (i < lv ? '' : 'dim') + '">' + (i < lv ? '✔ ' : '・') + ROMAN[i + 1] + '　' + esc(G.ascText(k, i + 1)) + '</div>'; }).join('') + '</div>'
@@ -361,26 +364,18 @@
         var ks = G.ORDER.filter(function (k) { return G.SERVANTS[k].cls === c; });
         return ks.length ? '<div class="war">' + c + '</div><div class="grid">' + ks.map(tileHtml).join('') + '</div>' : '';
       }).join('')
-      + '<div class="war">自創英靈</div>'
-      + heroes().map(function (h, i) {
-        return '<div class="svt" style="display:flex;gap:8px;align-items:flex-start"><button style="flex:1;text-align:left;padding:0" onclick="startHero(' + i + ')"><b>' + esc(h.cls) + '・' + esc(h.name) + '</b>　<span class="dim">生命 ' + h.hp + '</span>'
-          + '<div style="margin:6px 0">' + esc(h.desc) + '</div><div class="dim" style="font-size:12.5px">被動「' + esc(h.passive.name) + '」・寶具「' + esc(h.np.name) + '」</div></button>'
-          + '<button class="chip" onclick="delHero(' + i + ')">刪除</button></div>';
-      }).join('')
-      + (me().svts.indexOf('custom') >= 0 ? '<button class="svt" style="text-align:center" onclick="forgeOpen()"><b>＋ 創造新英靈</b><div class="dim" style="margin-top:4px">選職階、傳說、副修與寶具，組一位自己的從者</div></button>'
-        : '<div class="svt dim" style="text-align:center">🔒 自創英靈：到靈基工坊用 💎' + G.SVT_COST.custom + ' 解鎖</div>')
       + '<button class="btn" onclick="run=null;render()">返回</button></div>';
   }
   function newSeed() { return (Date.now() ^ (Math.random() * 1e9)) >>> 0; }
   // 出發前選命運（三選一）
   var DIFF = 'normal';
-  function pickFate(who, hero, keepSeed) {
+  function pickFate(who, keepSeed) {
     var seed = keepSeed || newSeed(), opts = G.fateOptions(seed, me().fates);
     if (!diffOpen(DIFF)) DIFF = 'normal';
-    pickFate.ctx = { who: who, hero: hero, seed: seed };
+    pickFate.ctx = { who: who, seed: seed };
     var diffs = '<div class="tabs" style="max-width:460px;width:100%">' + G.DIFF_ORDER.map(function (d) {
       var D = G.DIFFS[d], open = diffOpen(d);
-      return '<button class="' + (DIFF === d ? 'on' : '') + '" ' + (open ? 'onclick="DIFF=\'' + d + '\';pickFate(pickFate.ctx.who,pickFate.ctx.hero,pickFate.ctx.seed)"' : 'disabled style="opacity:.4"') + '>' + (open ? '' : '🔒 ') + D.name + '</button>';
+      return '<button class="' + (DIFF === d ? 'on' : '') + '" ' + (open ? 'onclick="DIFF=\'' + d + '\';pickFate(pickFate.ctx.who,pickFate.ctx.seed)"' : 'disabled style="opacity:.4"') + '>' + (open ? '' : '🔒 ') + D.name + '</button>';
     }).join('') + '</div>';
     var Dn = G.DIFFS[DIFF];
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:20px">難度</h1>' + diffs
@@ -390,51 +385,12 @@
       + '<button class="btn" onclick="choose()">返回</button></div>';
   }
   function startWith(fate) {
-    var c = pickFate.ctx, h = c.hero != null ? heroes()[c.hero] : null;
-    run = G.newRun(c.hero != null ? 'custom' : c.who, c.seed, h, { fate: fate, diff: DIFF, asc: c.hero != null ? 0 : (me().asc[c.who] || 0) });
+    var c = pickFate.ctx;
+    run = G.newRun(c.who, c.seed, { fate: fate, diff: DIFF, asc: me().asc[c.who] || 0 });
     updateMe(function (m) { m.stats.runs++; });
     render();
   }
 
-  // ── 自創英靈（存在這台瀏覽器的英靈殿）──
-  var HKEY = 'grail_heroes_v1', forge = null;
-  function heroes() { return (META && META.heroes) || []; }
-  function saveHeroes(a) { META.heroes = a.slice(-12); queueSave(true, false); }
-  function startHero(i) { var h = heroes()[i]; if (!h) return; pickFate('custom', i); }
-  function delHero(i) { var a = heroes(); a.splice(i, 1); saveHeroes(a); choose(); }
-  function forgeOpen() { forge = { name: '', cls: 'Saber', legend: 'saber', sub: 'medusa', npFrom: 'saber', npName: '' }; forgeScreen(); }
-  function forgeSet(k, v) {
-    forge[k] = v;
-    if (k === 'legend' && forge.sub === v) forge.sub = G.ORDER.filter(function (x) { return x !== v; })[0];
-    if (k === 'legend' || k === 'sub') { if (forge.npFrom !== forge.legend && forge.npFrom !== forge.sub) forge.npFrom = forge.legend; }
-    forgeScreen();
-  }
-  function chipsHtml(key, opts) {
-    return '<div class="chips" style="gap:6px">' + opts.map(function (o) {
-      return '<button class="chip' + (forge[key] === o[0] ? ' gold' : '') + '" style="padding:5px 9px;font-size:12.5px"' + (o[2] ? ' disabled' : '') + ' onclick="forgeSet(\'' + key + '\',\'' + o[0] + '\')">' + esc(o[1]) + '</button>';
-    }).join('') + '</div>';
-  }
-  function forgeScreen() {
-    var C = G.makeCustom(forge), L = G.SERVANTS[forge.legend], U = G.SERVANTS[forge.sub];
-    var svts = function (skip) { return G.ORDER.map(function (k) { return [k, G.SERVANTS[k].name, k === skip]; }); };
-    $('app').innerHTML = '<div class="panel" style="align-items:stretch;max-width:460px;margin:0 auto"><h1 style="font-size:20px">創造英靈</h1>'
-      + '<div class="dim">真名</div><input id="fname" maxlength="12" placeholder="無名英靈" value="' + esc(forge.name) + '" oninput="forge.name=this.value">'
-      + '<div class="dim">職階（決定生命）</div>' + chipsHtml('cls', Object.keys(G.CLASSES).map(function (c) { return [c, c + ' ' + G.CLASSES[c]]; }))
-      + '<div class="dim">傳說：繼承被動、招牌牌、靈基覺醒；牌池的主力</div>' + chipsHtml('legend', svts(''))
-      + '<div class="note">被動「' + esc(L.passive.name) + '」：' + esc(L.passive.text) + '</div>'
-      + '<div class="dim">副修：另一位從者的牌也會出現在戰後選牌（機會是傳說的一半）</div>' + chipsHtml('sub', svts(forge.legend))
-      + '<div class="note">' + esc(U.desc) + '</div>'
-      + '<div class="dim">寶具（從傳說或副修選一個，可以自己取名）</div>' + chipsHtml('npFrom', [[forge.legend, L.np.name], [forge.sub, U.np.name]])
-      + '<div class="note">' + esc(G.npText(C.np)) + '</div>'
-      + '<input id="fnp" maxlength="14" placeholder="' + esc(C.np.name) + '" value="' + esc(forge.npName) + '" oninput="forge.npName=this.value">'
-      + '<div class="note">起始牌組：攻擊×5、防禦×4、' + esc(G.card(C.sig).name) + '、' + esc(G.card(C.sig2).name) + '　｜　生命 ' + C.hp + '</div>'
-      + '<div class="row" style="justify-content:center"><button class="btn" onclick="choose()">返回</button><button class="btn" onclick="forgeDone()">召喚</button></div></div>';
-  }
-  function forgeDone() {
-    var C = G.makeCustom(forge); if (!C) return toast('組合不成立');
-    var a = heroes(); a.push(C); saveHeroes(a);
-    pickFate('custom', Math.min(a.length, 12) - 1);
-  }
   function glossaryHtml() {
     return '<div class="list" style="margin-top:6px">' + GLOSSARY.map(function (g) { return '<div class="box"><h3>' + g[0] + '</h3>' + g[1] + '</div>'; }).join('') + '</div>';
   }
@@ -734,18 +690,16 @@
       run.metaDone = true; save();
       updateMe(function (m) {
         m.crystals += got; if (run.win) m.stats.wins++; if (run.trueEnd) m.stats.trueEnds++;
-        if (run.win && run.who !== 'custom') { m.clears = m.clears || {}; m.clears[run.who] = m.clears[run.who] || {}; m.clears[run.who][run.diff || 'normal'] = true; }
-        if (run.who !== 'custom') {
-          var tag = run.trueEnd ? '真結局' : run.win ? '通關' : (G.ACT_NAMES[run.act] || '').split('　')[0] + '第 ' + run.floor + ' 列', old = m.stats.best[run.who];
-          var score = function (t) { return !t ? -1 : t === '真結局' ? 99 : t === '通關' ? 50 : (t.indexOf('第二章') === 0 ? 20 : 0) + (parseInt(t.replace(/^.*第 /, ''), 10) || 0); };
-          if (score(tag) > score(old)) m.stats.best[run.who] = tag;
-        }
+        if (run.win) { m.clears = m.clears || {}; m.clears[run.who] = m.clears[run.who] || {}; m.clears[run.who][run.diff || 'normal'] = true; }
+        var tag = run.trueEnd ? '真結局' : run.win ? '通關' : (G.ACT_NAMES[run.act] || '').split('　')[0] + '第 ' + run.floor + ' 列', old = m.stats.best[run.who];
+        var score = function (t) { return !t ? -1 : t === '真結局' ? 99 : t === '通關' ? 50 : (t.indexOf('第二章') === 0 ? 20 : 0) + (parseInt(t.replace(/^.*第 /, ''), 10) || 0); };
+        if (score(tag) > score(old)) m.stats.best[run.who] = tag;
       });
     }
     $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.trueEnd ? '真・聖杯到手' : run.win ? '聖杯到手' : '敗退') + '</h1>'
       + '<div class="dim">' + esc(S.cls) + '・' + esc(S.name) + '　' + (run.trueEnd ? '打倒了此世全部之惡' : run.win ? '走完了兩章' : '倒在' + esc(G.ACT_NAMES[run.act]) + '第 ' + run.floor + ' 列') + '</div>'
       + '<div>擊敗 ' + st.kills + '・寶具 ' + st.np + ' 次・令咒用了 ' + st.seals + ' 劃・牌組 ' + run.deck.length + ' 張</div>'
-      + (run.win && run.who !== 'custom' ? '<div class="box" style="text-align:center;color:var(--gold)">以' + esc(G.DIFFS[run.diff || 'normal'].name) + '難度通關：' + esc(S.name) + '的命座最高可以升到 ' + ROMAN[ascCap(run.who)] + '</div>' : '')
+      + (run.win ? '<div class="box" style="text-align:center;color:var(--gold)">以' + esc(G.DIFFS[run.diff || 'normal'].name) + '難度通關：' + esc(S.name) + '的命座最高可以升到 ' + ROMAN[ascCap(run.who)] + '</div>' : '')
       + '<div class="box" style="text-align:center">💎 得到聖晶石 <b style="color:var(--gold)">' + got + '</b>（現在共 ' + me().crystals + '）<div class="dim" style="margin-top:4px">到靈基工坊解鎖新英靈、靈基再臨、命運</div></div>'
       + '<button class="btn" onclick="run=null;save();choose()">再來一次</button><button class="btn" onclick="run=null;save();workshop(\'svt\')">💎 靈基工坊</button></div>';
   }

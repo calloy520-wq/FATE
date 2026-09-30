@@ -299,22 +299,6 @@ var G = (function () {
     np: { name: '貫穿死翔之槍', fx: [['pierce', 25], ['doom', 4]] } };
   var ORDER = ['saber', 'emiya', 'cu', 'medusa', 'medea', 'kojiro', 'hassanC', 'diarmuid', 'iskandar', 'gilles', 'hassanH', 'lancelot', 'heracles', 'gil', 'scathach'];
 
-  // ── 自創英靈 ─────────────────────────────────────────
-  // 真名＋職階（決定生命）＋傳說（被動、使魔、招牌牌、靈基覺醒、專屬牌池）＋副修（另一位從者的牌池）＋寶具（從傳說或副修二選一，可自己取名）
-  // 起始牌組＝基本 9 張＋傳說的招牌牌＋副修的招牌牌；戰後的牌從兩套牌池與共通牌裡出。
-  var CLASSES = { Saber: 78, Archer: 74, Lancer: 74, Rider: 76, Caster: 72, Assassin: 70, Berserker: 82 };
-  function makeCustom(o) {
-    var L = SERVANTS[o.legend], U = SERVANTS[o.sub];
-    if (!L || !U || o.legend === o.sub || !CLASSES[o.cls]) return null;
-    var from = o.npFrom === o.sub ? U : L;
-    var name = String(o.name || '').trim().slice(0, 12) || '無名英靈';
-    var npName = String(o.npName || (o.np && o.np.name) || '').trim().slice(0, 14) || from.np.name;   // 重組舊英靈時沿用已經取好的寶具名
-    return { name: name, cls: o.cls, hp: CLASSES[o.cls], war: 0, legend: o.legend, sub: o.sub, npFrom: o.npFrom === o.sub ? o.sub : o.legend,
-      sig: L.sig, sig2: U.sig, kits: [o.legend, o.sub], passive: L.passive, minion: L.minion || U.minion,
-      desc: '繼承' + L.name + '的傳說，兼修' + U.name + '的技藝。',
-      np: { name: npName, fx: from.np.fx } };
-  }
-
   // ── 資料：靈基覺醒 ──────────────────────────────────
   // 打贏精英時，從該層的兩個覺醒裡選一個（第一次精英選第一層、第二次選第二層）。
   // start＝每場戰鬥開始（第一回合抽牌後）執行的效果｜np＝寶具追加的效果｜lives＝多幾條命｜maxHp＝最大生命
@@ -488,7 +472,7 @@ var G = (function () {
     c.t = needsTarget(c.fx);
     return c;
   }
-  function serv(run) { return run.who === 'custom' ? run.custom : SERVANTS[run.who]; }
+  function serv(run) { return SERVANTS[run.who]; }
   function passive(run) { var S = serv(run); return S && S.passive ? S.passive.id : ''; }
   function minionInfo(run) { var S = serv(run); return (S && S.minion) || { name: '使魔', atk: 3 }; }
   function minionName(run) { return minionInfo(run).name; }
@@ -579,7 +563,7 @@ var G = (function () {
     return bits.join('，');
   }
   function npText(N, run) { return fxText(npFx(run, N), run).join('，'); }
-  function talentsOf(run) { var S = serv(run); return TALENTS[(S && S.legend) || run.who] || []; }
+  function talentsOf(run) { return TALENTS[run.who] || []; }
   function talent(run, key) { var p = key.split('.'), t = talentsOf(run); return t[+p[0]] && t[+p[0]][+p[1]]; }
   function talentText(T, run) {
     var bits = [];
@@ -614,9 +598,9 @@ var G = (function () {
     legacy:  { name: '奧義傳承', text: '開局牌組就有自己的奧義牌', cost: 80 }
   };
   var FATE_FREE = ['gold', 'tough', 'seal4'];
-  // 英靈解鎖：一開始只有 Saber；其他用聖晶石解鎖（自創英靈也要解鎖）
+  // 英靈解鎖：一開始只有 Saber；其他用聖晶石解鎖
   var SVT_COST = { saber: 0, emiya: 50, cu: 50, medusa: 50, medea: 50, kojiro: 50, hassanC: 50,
-    diarmuid: 70, iskandar: 70, gilles: 70, hassanH: 70, lancelot: 70, heracles: 100, gil: 100, scathach: 100, custom: 120 };
+    diarmuid: 70, iskandar: 70, gilles: 70, hassanH: 70, lancelot: 70, heracles: 100, gil: 100, scathach: 100 };
   // 靈基再臨 I～V（像命座：每位英靈各自升級、各有特色，開局生效）
   // I 最大生命 +8｜II、III 每場戰鬥開場的效果（強化自己的機制）｜IV 寶具追加｜V 開局就帶自己的奧義牌｜VI 每回合的專屬強化
   var ASC = [{ cost: 20 }, { cost: 40 }, { cost: 60 }, { cost: 80 }, { cost: 100 }, { cost: 120 }];
@@ -680,7 +664,7 @@ var G = (function () {
     else if (k === 'light') { [ 'atk', 'atk', 'def' ].forEach(function (x) { var i = run.deck.indexOf(x); if (i >= 0) run.deck.splice(i, 1); }); }
     else if (k === 'merchant') { run.discount = 0.8; run.removed = -1; }
     else if (k === 'early') { var T = talentsOf(run)[0]; if (T) { var key = '0.' + Math.floor(rnd(run) * 2); run.awaken.push(key); var t = talent(run, key); if (t.lives) run.lives += t.lives; } }
-    else if (k === 'legacy') { var kit0 = kitsOf(run)[0], rare = Object.keys(CARDS).filter(function (c) { return CARDS[c].rare === kit0; })[0]; if (rare) run.deck.push(rare); }
+    else if (k === 'legacy') { var rare = Object.keys(CARDS).filter(function (c) { return CARDS[c].rare === run.who; })[0]; if (rare) run.deck.push(rare); }
   }
   // 這一局結束時得到的聖晶石：走過的格子 1、打倒魔王 15、通關 20、真結局 30
   function crystalsFor(run) {
@@ -697,13 +681,12 @@ var G = (function () {
   var BOSS_ACT = { 1: { hp: 0.8, str: 0 }, 2: { hp: 1.1, str: 2 }, 3: { hp: 1, str: 0 } };
   var NOT_BOSS_OF = { gilles: 'kraken' };   // 自己的從者不會變成 Boss（吉爾斯＝巨大海魔）
   // opts：{ fate 命運, asc 靈基再臨等級 }（舊寫法直接傳命運的字串也可以）
-  function newRun(who, seed, custom, opts) {
+  function newRun(who, seed, opts) {
     if (typeof opts === 'string') opts = { fate: opts };
     opts = opts || {};
-    if (who === 'custom') custom = makeCustom(custom) || custom;   // 英靈殿裡的舊英靈照目前的資料重組
-    var S = who === 'custom' ? custom : SERVANTS[who];
-    var run = { v: 3, who: who, custom: who === 'custom' ? custom : null, seed: seed >>> 0, rs: seed | 0, hp: S.hp, maxHp: S.hp,
-      deck: ['atk', 'atk', 'atk', 'atk', 'atk', 'def', 'def', 'def', 'def', S.sig].concat(S.sig2 ? [S.sig2] : []), relics: [], seals: 3, maxSeals: 3,
+    var S = SERVANTS[who];
+    var run = { v: 3, who: who, seed: seed >>> 0, rs: seed | 0, hp: S.hp, maxHp: S.hp,
+      deck: ['atk', 'atk', 'atk', 'atk', 'atk', 'def', 'def', 'def', 'def', S.sig], relics: [], seals: 3, maxSeals: 3,
       act: 1, floor: 0, lane: -1, path: [], map: null, bosses: [], boss: null, screen: 'map', battle: null, reward: null, event: null, pending: [], seenEvents: [],
       awaken: [], lives: 0, gold: 60, removed: 0, shop: null, stats: { kills: 0, np: 0, seals: 0, floors: 0 } };
     var mine = function (k) { return k !== who && NOT_BOSS_OF[who] !== k; };
@@ -725,7 +708,7 @@ var G = (function () {
   }
   // 舊存檔補上新欄位
   function migrate(run) {
-    if (!run) return run;
+    if (!run || run.who === 'custom') return null;   // 自創英靈已經拿掉：那一局作廢
     if (run.who === 'archer') run.who = 'emiya';
     if (!run.boss) run.boss = 'heracles';
     if (!run.awaken) run.awaken = [];
@@ -918,7 +901,7 @@ var G = (function () {
     return true;
   }
   function ownCards(run, n, up) {
-    var kits = kitsOf(run), own = Object.keys(CARDS).filter(function (k) { return kits.indexOf(CARDS[k].kit) >= 0 && CARDS[k].up; });
+    var own = Object.keys(CARDS).filter(function (k) { return CARDS[k].kit === run.who && CARDS[k].up; });
     return shuffle(run, own).slice(0, n).map(function (k) { return up ? upId(k, 'a') : k; });
   }
   function randomRelic(run) {
@@ -1244,8 +1227,8 @@ var G = (function () {
     petrifyDmg: 1, woundDmg: 1, drainAll: 1, minion: 1, doom: 1, doomAll: 1, selfDmg: 1 };
   // 師承：從別的從者的專屬牌借牌到手上（只在這場戰鬥）
   function borrowCards(run, n, log) {
-    var b = run.battle, mine = kitsOf(run);
-    var pool = Object.keys(CARDS).filter(function (k) { var c = CARDS[k]; return ORDER.indexOf(c.kit) >= 0 && mine.indexOf(c.kit) < 0 && c.type !== 'power' && c.fx.every(function (f) { return BORROWABLE[f[0]]; }); });
+    var b = run.battle;
+    var pool = Object.keys(CARDS).filter(function (k) { var c = CARDS[k]; return ORDER.indexOf(c.kit) >= 0 && c.kit !== run.who && c.type !== 'power' && c.fx.every(function (f) { return BORROWABLE[f[0]]; }); });
     for (var i = 0; i < n && b.hand.length < 10; i++) { var k = pick(run, pool); b.hand.push(k); if (log) log.push('借來「' + CARDS[k].name + '」'); }
   }
   // 死兆：敵人（魔王除外）生命低於死兆×4 就倒下
@@ -1413,12 +1396,8 @@ var G = (function () {
     }
     return '';
   }
-  function kitsOf(run) { var S = serv(run); return S.kits || [run.who]; }
   function cardChoices(run, better) {
-    var kits = kitsOf(run);
-    // 自創英靈：傳說的牌出現機會是副修的兩倍
-    var own = Object.keys(CARDS).filter(function (k) { return kits.indexOf(CARDS[k].kit) >= 0; });
-    if (kits.length > 1) own = own.concat(own.filter(function (k) { return CARDS[k].kit === kits[0]; }));
+    var own = Object.keys(CARDS).filter(function (k) { return CARDS[k].kit === run.who; });
     var common = Object.keys(CARDS).filter(function (k) { return CARDS[k].kit === 'common'; });
     var out = [];
     while (out.length < 3) {
@@ -1426,7 +1405,7 @@ var G = (function () {
       if (out.indexOf(k) < 0 && out.indexOf(k + '+') < 0) out.push(better && rnd(run) < 0.4 ? k + '+' : k);
     }
     if (better && rnd(run) < 0.3) {
-      var rares = Object.keys(CARDS).filter(function (k) { var r = CARDS[k].rare; return r && (r === 'common' || kits.indexOf(r) >= 0) && !run.deck.some(function (x) { return baseId(x) === k; }); });
+      var rares = Object.keys(CARDS).filter(function (k) { var r = CARDS[k].rare; return r && (r === 'common' || r === run.who) && !run.deck.some(function (x) { return baseId(x) === k; }); });
       if (rares.length) out[Math.floor(rnd(run) * 3)] = pick(run, rares);
     }
     return out;
@@ -1463,7 +1442,7 @@ var G = (function () {
   function openShop(run) {
     var own = ownCards(run, 3, false), common = shuffle(run, Object.keys(CARDS).filter(function (k) { return CARDS[k].kit === 'common'; }))[0];
     var cards = own.concat([common]).map(function (id) { var up = rnd(run) < 0.25 && CARDS[id].up; return { id: up ? upId(id, 'a') : id, price: (up ? PRICE.cardUp : PRICE.card) + Math.floor(rnd(run) * 11) - 5, sold: false }; });
-    var rares = Object.keys(CARDS).filter(function (k) { var r = CARDS[k].rare; return r && (r === 'common' || kitsOf(run).indexOf(r) >= 0) && run.deck.indexOf(k) < 0; });
+    var rares = Object.keys(CARDS).filter(function (k) { var r = CARDS[k].rare; return r && (r === 'common' || r === run.who) && run.deck.indexOf(k) < 0; });
     if (rares.length) cards.push({ id: pick(run, rares), price: PRICE.rare, sold: false });
     var rl = randomRelic(run);
     run.shop = { cards: cards, relic: rl ? { id: rl, price: PRICE.relic + Math.floor(rnd(run) * 21) - 10, sold: false } : null, removed: false };
@@ -1503,7 +1482,7 @@ var G = (function () {
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions,
     FATES: FATES, FATE_FREE: FATE_FREE, SVT_COST: SVT_COST, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, crystalsFor: crystalsFor, priceOf: priceOf,
     preview: preview, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
-    CLASSES: CLASSES, makeCustom: makeCustom, card: card, cardText: cardText, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName,
+    card: card, cardText: cardText, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName,
     newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
     takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic, needsTarget: needsTarget };
 })();

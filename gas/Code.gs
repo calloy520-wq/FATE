@@ -7,7 +7,7 @@ function doGet() {
 function include(name) { return HtmlService.createHtmlOutputFromFile(name).getContent(); }
 
 var GP_SHEET = '聖杯之路帳號';   // 「密碼雜湊」欄現在只用來算通行碼
-var GP_COL = { NAME: 0, SALT: 1, HASH: 2, CREATED: 3, UPDATED: 4, META: 5, RUN: 6 };   // META＝聖晶石、解鎖、戰績、英靈殿；RUN＝進行中的一局
+var GP_COL = { NAME: 0, SALT: 1, HASH: 2, CREATED: 3, UPDATED: 4, META: 5, RUN: 6 };   // META＝聖晶石、解鎖、命座、戰績；RUN＝進行中的一局
 var GP_CELL_MAX = 49000;   // 試算表一格最多五萬字
 
 function gpSheet_() {

@@ -66,10 +66,10 @@ function playTurn(run){
 // 選牌：每張牌在固定的測試局面裡試打一次的分數（快取）；能力牌同一張最多拿 2 張
 const RATE={};
 function rate(run0,id){
-  const who=run0.who, k=who+(run0.custom?run0.custom.legend+run0.custom.sub:'')+'|'+id; if(RATE[k]!==undefined) return RATE[k];
+  const who=run0.who, k=who+'|'+id; if(RATE[k]!==undefined) return RATE[k];
   let tot=0;
   for(let s=1;s<=3;s++){
-    const r=G.newRun(who,s,run0.custom); r.map[0].forEach(n=>{ if(n) n.t='fight'; }); G.go(r,G.reachable(r)[0]); const b=r.battle;
+    const r=G.newRun(who,s); r.map[0].forEach(n=>{ if(n) n.t='fight'; }); G.go(r,G.reachable(r)[0]); const b=r.battle;
     b.enemies=[b.enemies[0]]; while(b.enemies.length<2) b.enemies.push(J(b.enemies[0]));
     b.enemies.forEach((e,i)=>{ e.key='d'+i; e.hp=e.maxHp=40; e.block=0; e.weak=0; e.intent={n:'測',fx:[['atk',9]]}; });
     b.hand=[id,'atk','def']; b.energy=3; b.np=0; b.turn=2;
@@ -86,8 +86,8 @@ function pickReward(run){
     const v=rate(run,id)+(c.type==='power'?6:0); if(v>bv){bv=v;best=i;} });
   return best;
 }
-function playRun(who,seed,custom){
-  const run=G.newRun(who,seed,custom); let g=0;
+function playRun(who,seed){
+  const run=G.newRun(who,seed); let g=0;
   while(run.screen!=='over'&&g++<3000){
     if(run.screen==='map'){ const opts=G.reachable(run); const t=l=>run.map[run.floor][l].t;
       const pref=run.hp<run.maxHp*0.5?['rest','chest','event','fight','elite','boss']:run.hp>run.maxHp*0.75?['elite','chest','event','fight','rest','boss']:['chest','event','fight','rest','elite','boss'];
