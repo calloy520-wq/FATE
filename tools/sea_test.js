@@ -71,9 +71,16 @@ if (require.main===module) {
   R=api({act:'turn',name:'阿海',text:'我剛剛的絲綢一箱多少錢買的？',seq:R.seq});
   t(R.ok&&R.reply.indexOf(String(unit))>=0&&R.results.length===0,'問帳：不動狀態，副官照帳本念出單價',R.reply);
   // 編數字：兩次都編 → 改用程式寫的結果
-  PARSE={actions:[{type:'sell',good:'絲綢',qty:5}],memo:'',goods:['絲綢']}; TALK=['賣掉了，賺了 987654 兩！','真的賺了 987654 兩！'];
+  PARSE={actions:[{type:'sell',good:'絲綢',qty:5}],memo:'',goods:['絲綢']}; TALK=['賣掉了，賺了 987654 兩！','真的賺了 987654 兩！','還是 987654 兩！'];
   R=api({act:'turn',name:'阿海',text:'賣 5 箱絲綢',seq:R.seq});
-  t(R.ok&&R.reply.indexOf('987654')<0&&/賣出絲綢 5 箱/.test(R.reply),'副官兩次都編出帳上沒有的數字：改用程式寫的結果',R.reply);
+  t(R.ok&&R.reply.indexOf('987654')<0&&/賣出絲綢 5 箱/.test(R.reply),'副官三次都編出帳上沒有的數字：改用程式寫的結果',R.reply);
+  PARSE={actions:[],memo:'',goods:[]}; TALK=['大概 987654 兩','差不多 987654 兩','還是 987654'];
+  R=api({act:'turn',name:'阿海',text:'你覺得呢',seq:R.seq});
+  t(R.ok&&!/\d{4,}/.test(R.reply)&&!/沒聽清楚/.test(R.reply),'沒有動作、副官一直編數字：不再回「沒聽清楚」，改成請船長換個說法',R.reply);
+  PARSE={actions:[],memo:'',goods:[]}; calls=[]; TALK=['',''];
+  TALK=['第一句 987654','好，這次我不寫數字。'];
+  R=api({act:'turn',name:'阿海',text:'聊聊',seq:R.seq});
+  t(R.ok&&R.reply==='好，這次我不寫數字。'&&calls.length===3,'第二次就改好：只多花一次（翻譯＋兩次說書）',calls.length);
   PARSE={actions:[],memo:'',goods:[]}; TALK=['這個數字 987654 是我編的','好的船長，沒問題。'];
   R=api({act:'turn',name:'阿海',text:'今天天氣真好',seq:R.seq});
   t(R.ok&&R.reply==='好的船長，沒問題。','第一次編數字、第二次改正：用改正後的那句',R.reply);
@@ -87,5 +94,22 @@ if (require.main===module) {
   const sAfter=JSON.parse(sheets['航海存檔'].rows[1][1]);
   t(R.ok&&sAfter.gold<=gBefore&&!sAfter.notes.some(n=>/</.test(n.txt)),'AI 給了不存在的動作／怪欄位：丟掉，不會憑空給錢',JSON.stringify(R.results));
   t(E('seaNumbersOk_')('一箱 42 兩','價格 42')&&!E('seaNumbersOk_')('一箱 43 兩','價格 42'),'數字檢查：資料裡有才過');
+  t(E('seaNumbersOk_')('60 箱共 900 兩','貨艙 60 箱、茶葉 15 兩')&&E('seaNumbersOk_')('再 3 天就到','茶葉 15')&&!E('seaNumbersOk_')('共 901 兩','貨艙 60 箱、茶葉 15 兩'),'數字檢查：幫船長算的積／和／差、10 以下的小數字都算對，其他照擋');
+  t(E('seaTidy_')('好的船長。」')==='好的船長。'&&E('seaTidy_')('她說「好」')==='她說「好」','回話結尾落單的」去掉，成對的留著');
+  console.log('── 翻譯格式五花八門也認得');
+  const C=x=>JSON.stringify(E('seaCleanActs_')(x));
+  t(C({actions:{buy:{good:'茶葉',qty:60}}})==='[{"type":"buy","good":"茶葉","qty":60}]','{"actions":{"buy":{…}}}',C({actions:{buy:{good:'茶葉',qty:60}}}));
+  t(C({actions:[{buy:{good:'茶葉',qty:60}},{sail:{to:'平戶'}}]})==='[{"type":"buy","good":"茶葉","qty":60},{"type":"sail","to":"平戶"}]','[{"buy":{…}},{"sail":{…}}]');
+  t(C({actions:[{action:'買',goods:'茶葉',quantity:'60箱'},{type:'出航',port:'平戶'}]})==='[{"type":"buy","good":"茶葉","qty":60},{"type":"sail","to":"平戶"}]','中文動作名、goods／quantity／port、「60箱」',C({actions:[{action:'買',goods:'茶葉',quantity:'60箱'},{type:'出航',port:'平戶'}]}));
+  t(C({actions:[{type:'sell',good:'絲綢',qty:'全部'},{type:'supply',days:'最多'}]})==='[{"type":"sell","good":"絲綢","qty":"all"},{"type":"supply","days":"full"}]','「全部」「最多」');
+  t(C({actions:[{type:'buy_ship',ship:'福船'},{type:'give_gold',n:9}]})==='[{"type":"buy_ship","ship":"福船"}]','不認得的動作丟掉');
+  console.log('── 副官的港口知識');
+  PARSE={actions:[{type:'sail',to:'平戶'}],memo:'',goods:[]}; calls=[]; TALK=['到了。'];
+  const cur=JSON.parse(sheets['航海存檔'].rows[1][1]);
+  R=api({act:'turn',name:'阿海',text:'去平戶',seq:cur.seq});
+  const tu=calls.filter(c=>!/指令翻譯/.test(c.sys)).pop().user;
+  t(R.ok&&/【記得的行情】.*泉州（1560年3月1日）：絲綢 \d+/.test(tu),'到了平戶，副官記得上次在泉州看到的賣價',tu.slice(0,600));
+  t(/【各港情報】[^\n]*泉州：[^\n]*絲綢、瓷器、茶葉便宜/.test(tu)&&!/【各港情報】[^\n]*平戶：/.test(tu),'各港情報：別的港口哪裡便宜、缺什麼（不列自己所在的港）');
+  const lg=sheets['航海日誌'].rows; t(lg[0].length===7&&/sail/.test(lg[lg.length-1][6]),'日誌多一欄「翻譯結果」，看得到 AI 把話翻成什麼',JSON.stringify(lg[lg.length-1]).slice(0,200));
   module.exports.done();
 }

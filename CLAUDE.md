@@ -13,9 +13,9 @@
 ## 🧱 鐵則：程式記帳，AI 看帳說話
 
 每回合（`seaTurn_`，Sea_Router.gs）：
-1. **翻譯**（`SEA_PARSE_SYS_`）：AI 把玩家的話翻成動作 JSON；`seaCleanActs_` 只收認得的動作與欄位。
+1. **翻譯**（`SEA_PARSE_SYS_`，附範例）：AI 把玩家的話翻成動作 JSON；`seaCleanActs_` 把五花八門的寫法（`{"buy":{…}}`、`"action":"買"`、`quantity`、「全部」）統一，只收認得的動作與欄位。
 2. **裁判**（`seaApply_`，Sea_Engine.gs）：引擎檢查、真的改狀態、寫帳本；每個動作回一句帶數字的事實。
-3. **說書**（`SEA_TALK_SYS_`）：副官依結果與帳本回話；`seaNumbersOk_` 檢查回話裡的每個數字都在資料裡，不在就重寫一次，再錯改用程式寫的結果。
+3. **說書**（`SEA_TALK_SYS_`）：副官依結果、帳本、各港情報（`seaPortIntel_`，只有文字）、去過港口的行情（`st.seen`）回話；`seaNumbersOk_` 檢查回話裡的數字（資料裡有的、兩個資料數字的積／和／差、10 以下），不過就重講，第三次要她不寫數字；還不行才用程式寫的結果。
 - **AI 永遠不能直接改數字**。價格、帳本、船況只由引擎算。
 - 畫面的狀態列與帳本面板直接顯示引擎的數字（`seaView_`）。
 
@@ -31,7 +31,7 @@
 | `gas/Code.gs` | `doGet`。 |
 | `tools/sea_test.js` | 引擎＋回合流程測試（假試算表、假 AI）。 |
 
-- **存檔**：分頁「航海存檔」每個帳號一列（整份狀態 JSON 一格，上限五萬字，帳本留最近 200 筆）；分頁「航海日誌」每回合一列。
+- **存檔**：分頁「航海存檔」每個帳號一列（整份狀態 JSON 一格，上限五萬字，帳本留最近 200 筆）；分頁「航海日誌」每回合一列（最後一欄「翻譯結果」＝AI 把玩家的話翻成的動作，除錯先看這裡）。
 - **指令碼屬性**：`OPENROUTER_API_KEY`（必填）、`SEA_MODEL`（副官，預設 `MODEL` 或 gemini-3.5-flash）、`SEA_PARSE_MODEL`（翻譯，預設 `CREATION_MODEL` 或 gemini-3.5-flash-lite）、`FALLBACK_MODEL`。
 
 ## 🚨 紅線
