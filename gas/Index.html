@@ -235,18 +235,21 @@
   var NODE = { fight: '⚔ 戰鬥', elite: '☠ 精英', rest: '🔥 休息', chest: '🎁 寶箱', boss: '👑 Boss' };
   var CLASSES = ['Saber', 'Archer', 'Lancer', 'Rider', 'Caster', 'Assassin', 'Berserker'];
   var GLOSSARY = [
-    ['風', 'Saber 的資源：看不見的劍、魔力放出等累積，風王鐵槌與寶具「誓約勝利之劍」一次解放；整場保留'],
+    ['風', 'Saber 的資源：看不見的劍、魔力放出等累積，最多 10 層；風王鐵槌與寶具「誓約勝利之劍」一次解放，每解放 3 層抽 1 張（風王結界）'],
     ['迴避', '完全躲開下一次攻擊（連穿透也躲得掉），回合開始清空'],
-    ['迎擊', '庫・丘林：本回合迴避成功時，對攻擊者造成穿透傷害'],
+    ['迎擊', '庫・丘林：本回合迴避成功時，對攻擊者造成穿透傷害；迴避成功還會讓寶具量表 +10（箭矢加護）'],
+    ['挑釁', '庫・丘林：這回合不打人的敵人改成衝著你來，好讓迴避與迎擊派上用場'],
     ['看穿', '小次郎：回合結束時還剩魔力，敵人下一次攻擊的傷害減半'],
     ['穿透', '無視格擋的傷害；敵人的穿透攻擊也不會被使魔擋下'],
-    ['使魔', '回合結束時各自攻擊一名隨機敵人；敵人攻擊你時，先扣格擋，剩下的由一名使魔替你擋下最多 4 點後消散'],
-    ['軍勢', '回合結束時，軍隊對一名隨機敵人造成等同軍勢的傷害；整場保留'],
+    ['使魔／分身', '龍牙兵等使魔回合結束時各自攻擊一名隨機敵人；百貌的分身不會自己出手，每回合 +1，拿來花（擋刀、換魔力、換抽牌）。敵人攻擊你時，先扣格擋，剩下的由一名使魔替你擋下最多 4 點後消散'],
+    ['軍勢', '伊斯坎達爾：回合結束時，軍隊衝過全體敵人，每個都受到等同軍勢的傷害；整場保留'],
+    ['海魔', '吉爾斯：一隻會長大的海魔。回合結束咬生命最少的敵人（每大 15 多咬一口），被打時替你吃下一半傷害並縮小'],
+    ['詠唱', '美狄亞：每打一張技能 +1，整場累積不歸零；魔彈照詠唱加成，神代魔術一次解放全部詠唱'],
     ['毒', '敵人行動前受到等同層數的穿透傷害，之後少 1 層'],
     ['創傷', '敵人行動前受到等同層數的穿透傷害，不會自己好'],
     ['石化', '累積到門檻（一般 3、精英 4、Boss 5）時動彈不得一回合，層數歸零'],
-    ['連擊', '本回合打出的攻擊牌數；蘭斯洛特的每一擊都加上連擊數'],
-    ['架勢', '迪爾姆德的紅薔薇（攻擊無視格擋）／黃薔薇（攻擊牌給目標創傷 1）；每次切換，下一張攻擊牌每擊 +3'],
+    ['武練', '蘭斯洛特：每用掉一件「武器化」+1，整場累積；連斬、湖光斬、黑霧照武練加成。蘭斯洛特打出技能牌時也會順手攻擊'],
+    ['架勢', '迪爾姆德的紅薔薇（攻擊無視格擋）／黃薔薇（攻擊牌給目標創傷 1）；每次切換立刻刺一槍，本回合第 N 次切換＝1＋N 傷害（紅穿透、黃再加創傷）'],
     ['泥', '敵人塞進你牌堆的狀態牌（只在這場戰鬥）：打不出來，回合結束時還在手上就失去 2 生命'],
     ['奧義', '每位從者一張的稀有牌，只會在打贏精英的獎勵裡出現'],
     ['金錢與商店', '打贏戰鬥得到金（精英、魔王更多）；地圖上的 🛒 商店可以買專屬牌、奧義、禮裝，也能花錢移除卡片（每間店一次，越移越貴）'],
@@ -430,7 +433,7 @@
       + '<button class="infobtn" onclick="openInfo(\'deck\')">🂠 ' + run.deck.length + '</button>'
       + '</div>';
   }
-  // 手牌上的「預計」：用目前的力量、虛弱、連擊、目標的易傷與格擋實際試算（魔力不夠時也照算）
+  // 手牌上的「預計」：用目前的力量、虛弱、目標的易傷與格擋實際試算（魔力不夠時也照算）
   function pvHtml(i) {
     var b = run.battle, c = G.card(b.hand[i]); if (c.unplayable) return '';
     var e0 = b.energy; b.energy = 99; var p = G.preview(run, i, target()); b.energy = e0;
@@ -504,17 +507,16 @@
   }
   function meChips(b) {
     var a = [];
-    if (b.wind || b.pWind) a.push(['gold', '風 ' + b.wind]);
+    if (b.wind || b.pWind || G.passive(run) === 'invisair') a.push(['gold', '風 ' + b.wind + '／10']);
     if (b.evade) a.push(['gold', '迴避 ' + b.evade]);
     if (b.riposte) a.push(['gold', '迎擊 ' + b.riposte]);
     if (b.halve) a.push(['gold', '看穿']);
-    if (G.passive(run) === 'hsw' || b.skills) a.push(['gold', '本回合技能 ' + b.skills]);
-    if (b.roseBonus) a.push(['gold', '下一張攻擊 +' + b.roseBonus]);
+    if (G.passive(run) === 'hsw') a.push(['gold', '詠唱 ' + (b.chant || 0)]);
     if (b.minions) a.push(['gold', G.minionName(run) + ' ×' + b.minions]);
     if (b.army) a.push(['gold', '軍勢 ' + b.army]);
-    if (b.stance) a.push(['gold', b.stance === 'red' ? '紅薔薇' : '黃薔薇']);
+    if (b.stance) a.push(['gold', (b.stance === 'red' ? '紅薔薇' : '黃薔薇') + (G.passive(run) === 'twin' ? '・下次切換刺 ' + (2 + b.switches + (b.pSwitch || 0)) : '')]);
     if (G.passive(run) === 'wisdom') { var wf = G.wisdomFrom(b); a.push(['gold', '本回合已出 ' + b.played + ' 張' + (b.played + 1 >= wf ? '・下一張攻擊死兆 +1' : '・第 ' + wf + ' 張起攻擊死兆 +1')]); }
-    if (G.passive(run) === 'arms' || b.pCombo) a.push(['gold', '連擊 ' + b.combo]);
+    if (G.passive(run) === 'arms' || b.mastery) a.push(['gold', '武練 ' + b.mastery]);
     if (b.str) a.push(['', '力量 ' + b.str]);
     if (b.tstr) a.push(['', '本回合力量 +' + b.tstr]);
     if (b.vuln) a.push(['', '易傷 ' + b.vuln]);
@@ -522,10 +524,9 @@
     if (b.thorns) a.push(['', '反擊 ' + b.thorns]);
     if (b.nextFree) a.push(['gold', '下一張 0 費']);
     if (b.nextEnergy) a.push(['', '下回合魔力 +' + b.nextEnergy]);
-    if (b.antimagic) a.push(['', '對魔力']);
     if (b.ubw) a.push(['', '劍的荒野 ' + b.ubw]);
     [['pBlock', '每回合格擋 '], ['pDraw', '每回合多抽 '], ['pEnergy', '每回合魔力 +'], ['pStr', '每回合力量 +'], ['pEvade', '每回合迴避 '],
-      ['pTreasure', '每回合寶具 '], ['pMinion', '每回合召喚 '], ['pVenom', '命中加毒 '], ['pCombo', '連擊起點 '], ['pWind', '每回合風 +'],
+      ['pTreasure', '每回合寶具 '], ['pMinion', '每回合召喚 '], ['pVenom', '命中加毒 '], ['pWeaponize', '每回合武器化 '], ['pWind', '每回合風 +'],
       ['pEvadeStr', '迴避得力量 +'], ['pPetrifyAll', '每回合全體石化 '], ['pSkillBlock', '技能格擋 '], ['pEnergyBlock', '剩魔力格擋 '], ['pStanceBlock', '換架勢格擋 '],
       ['pRage', '低血力量 +'], ['iaiUp', '居合 +'], ['projUp', '投影劍 +']].forEach(function (p) { if (b[p[0]]) a.push(['', p[1] + b[p[0]]]); });
     return a.map(function (x) { return '<span class="chip ' + x[0] + '">' + esc(x[1]) + '</span>'; }).join('');
