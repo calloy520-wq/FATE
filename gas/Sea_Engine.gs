@@ -105,7 +105,8 @@ var SEA_ACTS_ = {
     st.cargo.push({ good: g, qty: q, cost: unit, port: st.port, d: st.day });
     seaLedger_(st, { act: '買', good: g, qty: q, unit: unit, total: total });
     var cut = q < want ? '（想買 ' + want + ' 箱，' + (q === room ? '貨艙只放得下' : '錢只夠') + ' ' + q + ' 箱）' : '';
-    return { ok: true, txt: '在' + st.port + '買進' + g + ' ' + q + ' 箱，一箱 ' + unit + ' 兩，共 ' + total + ' 兩' + cut + '。剩現銀 ' + st.gold + ' 兩，貨艙 ' + seaLoad_(st) + '／' + st.ship.cap + ' 箱。' };
+    var push = unit !== p0 ? '牌價一箱 ' + p0 + ' 兩，一口氣進 ' + q + ' 箱把價格推高，' : '';
+    return { ok: true, txt: '在' + st.port + '買進' + g + ' ' + q + ' 箱，' + push + (push ? '平均' : '') + '一箱 ' + unit + ' 兩，共 ' + total + ' 兩' + cut + '。剩現銀 ' + st.gold + ' 兩，貨艙 ' + seaLoad_(st) + '／' + st.ship.cap + ' 箱。' };
   },
   sell: function (st, a) {
     if (!st.port) return { ok: false, txt: '在海上，沒有地方賣貨。' };
@@ -113,7 +114,7 @@ var SEA_ACTS_ = {
     var have = seaHave_(st, g); if (!have) return { ok: false, txt: '貨艙裡沒有' + g + '。' };
     var q = a.qty === 'all' || !a.qty ? have : Math.min(have, parseInt(a.qty, 10) || 0);
     if (q <= 0) return { ok: false, txt: '要賣幾箱' + g + '？' };
-    var unit = seaSellPrice_(st, st.port, g, -q * SEA_RULE_.IMPACT / 2), total = unit * q;
+    var s0 = seaSellPrice_(st, st.port, g, 0), unit = seaSellPrice_(st, st.port, g, -q * SEA_RULE_.IMPACT / 2), total = unit * q;
     // 先進先出：從最早那批扣，算出這批貨的成本
     var left = q, cost = 0;
     st.cargo.forEach(function (l) { if (l.good !== g || !left) return; var t = Math.min(l.qty, left); cost += t * l.cost; l.qty -= t; left -= t; });
@@ -121,7 +122,8 @@ var SEA_ACTS_ = {
     st.gold += total; seaPush_(st, st.port, g, -q * SEA_RULE_.IMPACT);
     var pl = total - cost;
     seaLedger_(st, { act: '賣', good: g, qty: q, unit: unit, total: total, cost: cost });
-    return { ok: true, txt: '在' + st.port + '賣出' + g + ' ' + q + ' 箱，一箱 ' + unit + ' 兩，共 ' + total + ' 兩；這批的成本 ' + cost + ' 兩，' + (pl >= 0 ? '賺 ' + pl : '賠 ' + (-pl)) + ' 兩。現銀 ' + st.gold + ' 兩。' };
+    var push = unit !== s0 ? '牌價一箱 ' + s0 + ' 兩，一次賣 ' + q + ' 箱壓低了價格，平均' : '';
+    return { ok: true, txt: '在' + st.port + '賣出' + g + ' ' + q + ' 箱，' + push + '一箱 ' + unit + ' 兩，共 ' + total + ' 兩；這批的成本 ' + cost + ' 兩，' + (pl >= 0 ? '賺 ' + pl : '賠 ' + (-pl)) + ' 兩。現銀 ' + st.gold + ' 兩。' };
   },
   sail: function (st, a) {
     var to = seaPort_(a.to);

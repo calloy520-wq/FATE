@@ -15,6 +15,13 @@ if (require.main===module) {
   t(r[0].ok&&st.cargo[0].qty===10&&st.ledger.length===1&&st.gold===1000-st.ledger[0].total,'買 10 箱絲綢：進貨艙、進帳本、扣錢',r[0].txt);
   t(st.ledger[0].unit>=p&&st.ledger[0].total===st.ledger[0].unit*10,'單價×箱數＝總價，大量進貨單價不低於牌價',JSON.stringify(st.ledger[0]));
   t(E('seaPrice_')(st,'泉州','絲綢',0)>p,'買完之後這港的絲綢變貴（被買走了）');
+  const s9=E('seaNewGame_("推價",9)'); s9.gold=5000; const lp=E('seaPrice_')(s9,'泉州','茶葉',0);
+  r=E('seaApply_')(s9,[{type:'buy',good:'茶葉',qty:50}]);
+  t(new RegExp('牌價一箱 '+lp+' 兩，一口氣進 50 箱把價格推高，平均一箱 '+s9.ledger[0].unit+' 兩').test(r[0].txt),'大量進貨：結果寫出牌價與平均成交價，不會像被坑',r[0].txt);
+  s9.port='平戶'; const ls=E('seaSellPrice_')(s9,'平戶','茶葉',0); r=E('seaApply_')(s9,[{type:'sell',good:'茶葉'}]);
+  t(new RegExp('牌價一箱 '+ls+' 兩，一次賣 50 箱壓低了價格，平均一箱 \\d+ 兩').test(r[0].txt),'大量賣出：結果寫出牌價與平均成交價',r[0].txt);
+  const s8=E('seaNewGame_("小量",9)'); r=E('seaApply_')(s8,[{type:'buy',good:'茶葉',qty:1}]);
+  t(!/牌價/.test(r[0].txt),'量小沒推動價格：不多講',r[0].txt);
   r=E('seaApply_')(st,[{type:'buy',good:'生絲',qty:'max'}]);
   t(r[0].ok&&E('seaHave_')(st,'絲綢')>10,'別名「生絲」＝絲綢；qty max 買到錢或貨艙的上限',r[0].txt);
   const g0=st.gold; r=E('seaApply_')(st,[{type:'buy',good:'黃金',qty:5}]);
@@ -110,6 +117,8 @@ if (require.main===module) {
   const tu=calls.filter(c=>!/指令翻譯/.test(c.sys)).pop().user;
   t(R.ok&&/【記得的行情】.*泉州（1560年3月1日）：絲綢 \d+/.test(tu),'到了平戶，副官記得上次在泉州看到的賣價',tu.slice(0,600));
   t(/【各港情報】[^\n]*泉州：[^\n]*絲綢、瓷器、茶葉便宜/.test(tu)&&!/【各港情報】[^\n]*平戶：/.test(tu),'各港情報：別的港口哪裡便宜、缺什麼（不列自己所在的港）');
+  t(/【貨艙】空的，一箱貨都沒有（能裝 60 箱）/.test(E('seaTalkPrompt_')(E('seaNewGame_("空",1)'),'嗨',[],[])),'空貨艙寫成「一箱貨都沒有」，不給容易誤讀的 0／60');
+  t(/【貨艙】已裝 \d+ 箱、還空 \d+ 箱/.test(tu),'有貨時寫「已裝、還空」');
   const lg=sheets['航海日誌'].rows; t(lg[0].length===7&&/sail/.test(lg[lg.length-1][6]),'日誌多一欄「翻譯結果」，看得到 AI 把話翻成什麼',JSON.stringify(lg[lg.length-1]).slice(0,200));
   module.exports.done();
 }

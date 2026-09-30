@@ -171,6 +171,8 @@ var SEA_TALK_SYS_ = [
   '4. 船長問帳、問價、問船況，先從【帳本】【貨艙】【船】【本港行情】找答案，照著念。',
   '5. 用葉嵐的口吻對話，可以夾一兩句括號裡的小動作。60～180 字。',
   '6. 決定權在船長；你可以提醒風險和機會，不替船長下決定。',
+  '7. 資料的標題（【這回合結果】【本港行情】之類）是給你看的，說話時用自己的話講，像「剛剛那批茶葉」「這裡的茶葉收得比泉州高」。',
+  '8. 你懂的行情常識：一口氣大量買，價格會被推高；一次大量賣，價格會被壓低；過幾天會慢慢回來。貨多時可以建議船長分批買賣、或分到幾個港口賣。',
   '只輸出：{"reply":"……"}'
 ].join('\n');
 
@@ -181,7 +183,7 @@ function seaTalkPrompt_(st, text, results, goods) {
   L.push('【船】' + s.type + '「' + s.name + '」：耐久 ' + s.hull + '／' + s.hullMax + '、貨艙 ' + s.cap + ' 箱、船速 ' + s.speed + '、砲門 ' + s.guns + '、船員 ' + s.crew + '／' + s.crewMax + ' 名（至少 ' + s.crewMin + ' 名）；'
     + seaDate_(s.bought.day) + '在' + s.bought.port + '以 ' + s.bought.price + ' 兩買下' + (s.log.length ? '；' + s.log.slice(-4).map(function (x) { return seaDate_(x.d) + x.txt; }).join('；') : ''));
   L.push('【現銀】' + st.gold + ' 兩｜【糧水】' + seaSupplyDays_(st) + ' 天份');
-  L.push('【貨艙】' + seaLoad_(st) + '／' + s.cap + ' 箱' + (st.cargo.length ? '：' + st.cargo.map(function (l) { return l.good + ' ' + l.qty + ' 箱（' + seaDate_(l.d) + '在' + l.port + '進貨，一箱 ' + l.cost + ' 兩）'; }).join('；') : '，空的'));
+  L.push('【貨艙】' + (st.cargo.length ? '已裝 ' + seaLoad_(st) + ' 箱、還空 ' + (s.cap - seaLoad_(st)) + ' 箱：' + st.cargo.map(function (l) { return l.good + ' ' + l.qty + ' 箱（' + seaDate_(l.d) + '在' + l.port + '進貨，一箱 ' + l.cost + ' 兩）'; }).join('；') : '空的，一箱貨都沒有（能裝 ' + s.cap + ' 箱）'));
   if (st.port) L.push('【本港行情】買價／賣價（兩／箱）：' + Object.keys(SEA_GOODS_).map(function (g) { return g + ' ' + seaPrice_(st, st.port, g, 0) + '／' + seaSellPrice_(st, st.port, g, 0); }).join('、')
     + '｜船廠：' + (SEA_PORTS_[st.port].ships || []).map(function (t) { return t + ' ' + SEA_SHIPS_[t].price + ' 兩'; }).join('、')
     + '｜航程：' + Object.keys(SEA_PORTS_).filter(function (p) { return p !== st.port && seaRoute_(st.port, p); }).map(function (p) { return p + ' ' + Math.max(1, Math.ceil(seaRoute_(st.port, p) * 5 / s.speed)) + ' 天'; }).join('、'));
