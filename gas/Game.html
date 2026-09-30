@@ -287,9 +287,9 @@ var G = (function () {
       desc: '湖之騎士。拿到手的東西都是武器：技能牌也會順手攻擊；把技能變成武器化、用掉武器累積武練，越打越熟練。',
       passive: { id: 'arms', name: '無窮之武練', text: '打出技能牌時順手攻擊隨機敵人 3。每用掉一件武器化，武練 +1（整場累積）' },
       np: { name: '無毀的湖光', fx: [['masteryDmg', 20, 4], ['mastery', 3]] } },
-    heracles: { name: '赫拉克勒斯', cls: 'Berserker', war: 45, hp: 74, sig: 'rampage',
-      desc: '大英雄。用自己的血換力量，少掉的生命越多打得越重，倒下也會再站起來。',
-      passive: { id: 'revive', name: '十二試煉', text: '整趟冒險有 1 條備用的命：倒下時以兩成生命復活' },
+    heracles: { name: '赫拉克勒斯', cls: 'Berserker', war: 45, hp: 80, sig: 'rampage',
+      desc: '希臘最強的大英雄。用自己的血換力量，少掉的生命越多打得越重；倒下也會以五成生命再站起來，而且每死一次就更強。',
+      passive: { id: 'revive', name: '十二試煉', text: '整趟冒險有 1 條備用的命：倒下時以五成生命站起來，而且整趟力量 +2（靈基覺醒「第二試煉」再多一條）' },
       np: { name: '射殺百頭', fx: [['rand', 4, 9]] } },
     gil: { name: '吉爾伽美什', cls: 'Archer', war: 45, hp: 58, sig: 'gate_of',
       desc: '英雄王。寶具越囤越多，回合結束自動掃射；但囤太多會佔住手牌，寶具掃射可以一次清空。',
@@ -948,6 +948,7 @@ var G = (function () {
     if (p === 'gaze') b.enemies.forEach(function (e) { petrify(run, e, 1, b.log); });
     if (p === 'golden') addTreasure(run, 1);
     if (p === 'madness') b.kraken = 3;
+    if (run.trialStr) b.str += run.trialStr;   // 十二試煉：之前復活換來的力量
     b.enemies.forEach(function (e) { chooseIntent(run, e); });
     startTurn(run, true);
     if (run.ascStart && run.ascStart.length) runFx({ run: run, b: b, tg: null, log: b.log, id: 'asc', atk: false, first: false }, run.ascStart);
@@ -1034,7 +1035,13 @@ var G = (function () {
     var b = run.battle, p = passive(run);
     run.hp -= d;
     if (run.hp > 0) return;
-    if (run.lives > 0) { run.lives--; run.hp = Math.round(run.maxHp * 0.2); log.push((p === 'revive' ? '十二試煉' : '靈基再臨') + '：又站了起來（還剩 ' + run.lives + ' 條命）'); }
+    if (run.lives > 0) {
+      run.lives--;
+      if (p === 'revive') {   // 十二試煉：以五成生命站起來，殺過他一次的東西只會讓他更強（整趟力量 +2）
+        run.hp = Math.round(run.maxHp * 0.5); run.trialStr = (run.trialStr || 0) + 2; if (b) b.str += 2;
+        log.push('十二試煉：又站了起來，力量 +2（還剩 ' + run.lives + ' 條命）');
+      } else { run.hp = Math.round(run.maxHp * 0.2); log.push('靈基再臨：又站了起來（還剩 ' + run.lives + ' 條命）'); }
+    }
     else run.hp = 0;
   }
   function debuffPlayer(run, k, n, log) {

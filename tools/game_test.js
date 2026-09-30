@@ -126,7 +126,7 @@ r=arena('lancelot'); r.battle.mastery=3; playId(r,'mace'); t(E(r).hp===50-(4+3),
 r=arena('lancelot'); r.battle.mastery=2; playId(r,'lakeflash'); t(E(r).hp===50-(10+2*2)&&r.battle.mastery===2,'湖光斬：10＋武練×2（武練不會用掉）',JSON.stringify([E(r).hp,r.battle.mastery]));
 r.battle.energy=3; let h3=E(r).hp; playId(r,'atk'); t(h3-E(r).hp===6,'歸零之後下一擊從頭算',h3-E(r).hp);
 r=arena('lancelot'); r.battle.mastery=3; playId(r,'blackmist'); t(r.battle.block===7&&E(r).hp===50-3,'黑霧：格擋 4＋武練；技能牌順手攻擊 3',JSON.stringify([r.battle.block,E(r).hp]));
-r=arena('heracles'); r.hp=45; playId(r,'divine'); t(E(r).hp===50-(10+3*2),'神性之擊：少 27 生命 → 10＋3×2',E(r).hp);
+r=arena('heracles'); r.hp=53; playId(r,'divine'); t(E(r).hp===50-(10+3*2),'神性之擊：少 27 生命 → 10＋3×2',E(r).hp);
 r=arena('heracles'); r.hp=20; playId(r,'godhand'); G.endTurn(r); t(r.battle.str===1,'神之加護：生命低於一半時每回合力量 +1');
 r=arena('gil'); r.battle.hand=['t_sword','t_shield','goldarmor']; G.play(r,2,0); t(r.battle.block===5+3*2,'黃金甲冑：手上每件寶具 +3');
 r=arena('gil'); r.battle.hand=['t_sword','t_spear','volley']; G.play(r,2,0); t(E(r).hp===50-16&&r.battle.hand.length===0,'寶具掃射：射出手上全部寶具，每件 8',E(r).hp);
@@ -168,7 +168,9 @@ G.endTurn(r); t(!r.battle.discard.includes('weapon'),'武器是消耗品，不�
 r=arena('lancelot'); playId(r,'endless'); r.battle.draw=['def','def','def','def','def']; r.battle.discard=[]; G.endTurn(r); t(r.battle.hand.filter(x=>x==='weapon').length===1,'無窮之武練牌：每回合開始 1 張技能變成武器化',r.battle.hand.join());
 
 console.log('── 兩屆都在');
-r=arena('heracles'); t(r.lives===1,'赫拉克勒斯 十二試煉：整趟 1 條備用的命'); r.hp=5; E(r).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(r); t(r.hp===Math.round(74*0.2)&&r.screen==='battle'&&r.lives===0,'倒下以兩成血復活、命用掉');
+r=arena('heracles'); t(r.lives===1,'赫拉克勒斯 十二試煉：整趟 1 條備用的命'); r.hp=5; E(r).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(r); t(r.hp===Math.round(80*0.5)&&r.screen==='battle'&&r.lives===0&&r.battle.str===2&&r.trialStr===2,'倒下以五成血站起來、力量 +2、命用掉',JSON.stringify([r.hp,r.battle.str]));
+const tr=J(r); tr.battle=null; tr.screen='map'; step(tr,'fight'); t(tr.battle.str===2,'十二試煉換來的力量整趟保留（下一場開場就有）',tr.battle.str);
+const rk=arena('saber'); rk.lives=1; rk.hp=5; E(rk).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(rk); t(rk.hp===Math.round(rk.maxHp*0.2)&&!rk.trialStr,'別人的備用命（靈基再臨等）照舊兩成、不加力量');
 r.hp=5; r.lives=0; E(r).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(r); t(r.screen==='over','命用完就真的倒下');
 r=G.newRun('gil',3); step(r,'fight');
 t(r.battle.hand.filter(x=>/^t_/.test(x)).length>=1,'戰鬥開始從寶庫取出 1 件寶具');
