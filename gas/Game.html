@@ -4,78 +4,300 @@
 var G = (function () {
 
   // ── 資料：卡牌 ──────────────────────────────────────
-  // fx：['dmg',n] 單體傷害｜['hits',n,k] 單體 n×k｜['all',n] 全體傷害｜['block',n]｜['draw',n]｜['energy',n]
-  //     ['str',n] 力量（本場）｜['tstr',n] 力量（本回合）｜['vuln',n]/['weak',n] 給目標｜['heal',n]｜['np',n]
-  //     ['proj',n] 加 n 張投影劍到手牌｜['thorns',n] 本回合被攻擊時反擊｜['burst',n] 消耗手上所有投影劍，每張對全體 n
-  // power：['pBlock',n] 每回合開始格擋｜['pDraw',n] 每回合多抽｜['pEnergy',n] 每回合多魔力｜['pStr',n] 每回合開始力量
+  // kit：basic 基本牌｜common 共通牌｜token 戰鬥中生成的消耗品（不進牌組）｜其他＝該從者的專屬牌
+  // fx：一串效果，名稱與說明見下方 OPS／FX_TEXT；有對單體效果的牌會自動要求選目標
   // np＝打出時寶具量表增加多少；ex＝打出後消耗（本場不再出現）；up＝強化後覆蓋的欄位
-  var CARDS = {
-    atk:    { name: '攻擊', cost: 1, type: 'atk', t: 1, np: 10, fx: [['dmg', 6]], up: { fx: [['dmg', 9]] } },
-    def:    { name: '防禦', cost: 1, type: 'skill', np: 5, fx: [['block', 5]], up: { fx: [['block', 8]] } },
-    // Saber
-    invis:  { name: '看不見的劍', cost: 1, type: 'atk', t: 1, np: 15, fx: [['hits', 5, 2]], up: { fx: [['hits', 7, 2]] }, who: 'saber' },
-    hammer: { name: '風王鐵槌', cost: 2, type: 'atk', np: 15, fx: [['all', 8]], up: { fx: [['all', 12]] }, who: 'saber' },
-    burst:  { name: '魔力放出', cost: 1, type: 'skill', np: 5, fx: [['tstr', 3]], up: { fx: [['tstr', 5]] }, who: 'saber' },
-    instinct:{ name: '直感', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['draw', 2]], up: { fx: [['draw', 3]] }, who: 'saber' },
-    guard:  { name: '騎士的堅守', cost: 2, type: 'skill', np: 10, fx: [['block', 13]], up: { fx: [['block', 18]] }, who: 'saber' },
-    charge: { name: '突進斬', cost: 2, type: 'atk', t: 1, np: 20, fx: [['dmg', 14], ['vuln', 1]], up: { fx: [['dmg', 18], ['vuln', 2]] }, who: 'saber' },
-    counter:{ name: '反擊架勢', cost: 1, type: 'skill', np: 5, fx: [['block', 6], ['thorns', 4]], up: { fx: [['block', 9], ['thorns', 6]] }, who: 'saber' },
-    kingly: { name: '王者風範', cost: 1, type: 'power', np: 0, fx: [['pBlock', 3]], up: { fx: [['pBlock', 5]] }, who: 'saber' },
-    dragon: { name: '龍之心臟', cost: 3, type: 'power', np: 0, fx: [['pEnergy', 1]], up: { cost: 2 }, who: 'saber' },
-    oath:   { name: '誓約之光', cost: 0, type: 'skill', np: 25, ex: 1, fx: [], up: { np: 40 }, who: 'saber' },
-    // Archer
-    project:{ name: '投影魔術', cost: 1, type: 'skill', np: 5, fx: [['proj', 2]], up: { fx: [['proj', 3]] }, who: 'archer' },
-    tracing:{ name: '劍製', cost: 0, type: 'skill', np: 5, fx: [['proj', 1]], up: { fx: [['proj', 2]] }, who: 'archer' },
-    hrunting:{ name: '赤原獵犬', cost: 2, type: 'atk', t: 1, np: 20, fx: [['dmg', 13]], up: { fx: [['dmg', 18]] }, who: 'archer' },
-    calad:  { name: '偽・螺旋劍', cost: 2, type: 'atk', np: 20, ex: 1, fx: [['all', 12]], up: { fx: [['all', 17]] }, who: 'archer' },
-    kanshou:{ name: '干將莫邪', cost: 1, type: 'atk', t: 1, np: 15, fx: [['hits', 4, 2], ['block', 3]], up: { fx: [['hits', 5, 2], ['block', 5]] }, who: 'archer' },
-    hawkeye:{ name: '鷹之瞳', cost: 1, type: 'skill', t: 1, np: 5, fx: [['draw', 2], ['vuln', 2]], up: { fx: [['draw', 2], ['vuln', 3]] }, who: 'archer' },
-    rhoaias:{ name: '熾天覆七重圓環', cost: 2, type: 'skill', np: 10, fx: [['block', 15]], up: { fx: [['block', 21]] }, who: 'archer' },
-    mind:   { name: '心眼', cost: 1, type: 'power', np: 0, fx: [['pDraw', 1]], up: { cost: 0 }, who: 'archer' },
-    broken: { name: '壞幻', cost: 1, type: 'skill', np: 10, fx: [['burst', 5]], up: { fx: [['burst', 7]] }, who: 'archer' },
-    shot:   { name: '弓兵的射擊', cost: 1, type: 'atk', t: 1, np: 10, fx: [['dmg', 9]], up: { fx: [['dmg', 12]] }, who: 'archer' },
-    // 投影劍：Archer 的消耗品（不進牌組）
-    sword:  { name: '投影劍', cost: 0, type: 'atk', t: 1, np: 3, ex: 1, fx: [['dmg', 3]], token: 1 },
-    // 共通
-    heavy:  { name: '重擊', cost: 2, type: 'atk', t: 1, np: 15, fx: [['dmg', 12]], up: { fx: [['dmg', 17]] } },
-    dodge:  { name: '迴避', cost: 1, type: 'skill', np: 5, fx: [['block', 8]], up: { fx: [['block', 11]] } },
-    circuit:{ name: '魔術迴路', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['energy', 1]], up: { fx: [['energy', 2]] } },
+  var CARDS = {};
+  function kit(k, o) { Object.keys(o).forEach(function (id) { o[id].kit = k; CARDS[id] = o[id]; }); }
+
+  kit('basic', {
+    atk: { name: '攻擊', cost: 1, type: 'atk', np: 10, fx: [['dmg', 6]], up: { fx: [['dmg', 9]] } },
+    def: { name: '防禦', cost: 1, type: 'skill', np: 5, fx: [['block', 5]], up: { fx: [['block', 8]] } }
+  });
+  kit('token', {
+    sword:    { name: '投影劍', cost: 0, type: 'atk', np: 3, token: 1, fx: [['dmg', 4]] },
+    weapon:   { name: '武器化', cost: 0, type: 'atk', np: 3, token: 1, fx: [['dmg', 7]] },
+    t_sword:  { name: '寶劍', cost: 0, type: 'atk', np: 3, token: 1, fx: [['dmg', 5]] },
+    t_spear:  { name: '寶槍', cost: 0, type: 'atk', np: 3, token: 1, fx: [['pierce', 4]] },
+    t_shield: { name: '寶盾', cost: 0, type: 'skill', np: 3, token: 1, fx: [['block', 4]] },
+    t_staff:  { name: '寶杖', cost: 0, type: 'skill', np: 3, token: 1, fx: [['weakAll', 1], ['vulnAll', 1]] }
+  });
+  var TREASURE = ['t_sword', 't_sword', 't_spear', 't_shield', 't_staff'];
+  kit('common', {
+    heavy:    { name: '重擊', cost: 2, type: 'atk', np: 15, fx: [['dmg', 12]], up: { fx: [['dmg', 17]] } },
+    dodge:    { name: '迴避', cost: 1, type: 'skill', np: 5, fx: [['block', 8]], up: { fx: [['block', 11]] } },
+    circuit:  { name: '魔術迴路', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['energy', 1]], up: { fx: [['energy', 2]] } },
     reinforce:{ name: '強化魔術', cost: 1, type: 'power', np: 0, fx: [['str', 2]], up: { fx: [['str', 3]] } },
-    healing:{ name: '治癒魔術', cost: 1, type: 'skill', np: 0, ex: 1, fx: [['heal', 6]], up: { fx: [['heal', 10]] } },
-    feint:  { name: '牽制', cost: 0, type: 'atk', t: 1, np: 5, fx: [['dmg', 3], ['weak', 1]], up: { fx: [['dmg', 5], ['weak', 2]] } }
-  };
+    healing:  { name: '治癒魔術', cost: 1, type: 'skill', np: 0, ex: 1, fx: [['heal', 6]], up: { fx: [['heal', 10]] } },
+    feint:    { name: '牽制', cost: 0, type: 'atk', np: 5, fx: [['dmg', 3], ['weak', 1]], up: { fx: [['dmg', 5], ['weak', 2]] } },
+    gandr:    { name: '甘德之咒', cost: 1, type: 'atk', np: 10, fx: [['dmg', 7], ['vuln', 1]], up: { fx: [['dmg', 10], ['vuln', 1]] } },
+    bounded:  { name: '結界', cost: 2, type: 'skill', np: 10, fx: [['block', 12], ['draw', 1]], up: { fx: [['block', 16], ['draw', 1]] } }
+  });
+
+  // 第五次聖杯戰爭
+  kit('saber', {
+    invis:   { name: '看不見的劍', cost: 1, type: 'atk', np: 15, fx: [['hits', 5, 2]], up: { fx: [['hits', 7, 2]] } },
+    hammer:  { name: '風王鐵槌', cost: 2, type: 'atk', np: 15, fx: [['all', 8]], up: { fx: [['all', 12]] } },
+    burst:   { name: '魔力放出', cost: 1, type: 'skill', np: 5, fx: [['tstr', 3]], up: { fx: [['tstr', 5]] } },
+    instinct:{ name: '直感', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['draw', 2]], up: { fx: [['draw', 3]] } },
+    guard:   { name: '騎士的堅守', cost: 2, type: 'skill', np: 10, fx: [['block', 13]], up: { fx: [['block', 18]] } },
+    charge:  { name: '突進斬', cost: 2, type: 'atk', np: 20, fx: [['dmg', 14], ['vuln', 1]], up: { fx: [['dmg', 18], ['vuln', 2]] } },
+    counter: { name: '反擊架勢', cost: 1, type: 'skill', np: 5, fx: [['block', 6], ['thorns', 4]], up: { fx: [['block', 9], ['thorns', 6]] } },
+    kingly:  { name: '王者風範', cost: 1, type: 'power', np: 0, fx: [['pBlock', 3]], up: { fx: [['pBlock', 5]] } },
+    dragon:  { name: '龍之心臟', cost: 3, type: 'power', np: 0, fx: [['pEnergy', 1]], up: { cost: 2 } },
+    oath:    { name: '誓約之光', cost: 0, type: 'skill', np: 25, ex: 1, fx: [], up: { np: 40 } }
+  });
+  kit('emiya', {
+    project: { name: '投影魔術', cost: 1, type: 'skill', np: 5, fx: [['proj', 2]], up: { fx: [['proj', 3]] } },
+    tracing: { name: '劍製', cost: 0, type: 'skill', np: 5, fx: [['proj', 1]], up: { fx: [['proj', 2]] } },
+    hrunting:{ name: '赤原獵犬', cost: 2, type: 'atk', np: 20, fx: [['dmg', 13]], up: { fx: [['dmg', 18]] } },
+    calad:   { name: '偽・螺旋劍', cost: 2, type: 'atk', np: 20, ex: 1, fx: [['all', 12]], up: { fx: [['all', 17]] } },
+    kanshou: { name: '干將莫邪', cost: 1, type: 'atk', np: 15, fx: [['hits', 4, 2], ['block', 3]], up: { fx: [['hits', 5, 2], ['block', 5]] } },
+    hawkeye: { name: '鷹之瞳', cost: 1, type: 'skill', np: 5, fx: [['draw', 2], ['vuln', 2]], up: { fx: [['draw', 2], ['vuln', 3]] } },
+    rhoaias: { name: '熾天覆七重圓環', cost: 2, type: 'skill', np: 10, fx: [['block', 15]], up: { fx: [['block', 21]] } },
+    mind:    { name: '心眼', cost: 1, type: 'power', np: 0, fx: [['pDraw', 1]], up: { cost: 0 } },
+    broken:  { name: '壞幻', cost: 1, type: 'skill', np: 10, fx: [['burst', 5]], up: { fx: [['burst', 7]] } },
+    shot:    { name: '弓兵的射擊', cost: 1, type: 'atk', np: 10, fx: [['dmg', 9]], up: { fx: [['dmg', 12]] } }
+  });
+  kit('cu', {
+    arrowward: { name: '箭矢加護', cost: 1, type: 'skill', np: 5, fx: [['evade', 1], ['block', 3]], up: { fx: [['evade', 1], ['block', 6]] } },
+    thrust:    { name: '突刺', cost: 1, type: 'atk', np: 10, fx: [['pierce', 7]], up: { fx: [['pierce', 10]] } },
+    flurry:    { name: '連刺', cost: 2, type: 'atk', np: 15, fx: [['hits', 4, 3]], up: { fx: [['hits', 5, 3]] } },
+    rune:      { name: '原初的盧恩', cost: 2, type: 'power', np: 0, fx: [['pEvade', 1]], up: { cost: 1 } },
+    wild:      { name: '野性直覺', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['draw', 1], ['energy', 1]], up: { fx: [['draw', 2], ['energy', 1]] } },
+    sonoflight:{ name: '光之子', cost: 2, type: 'power', np: 0, fx: [['str', 2]], up: { fx: [['str', 3]] } },
+    javelin:   { name: '投槍', cost: 2, type: 'atk', np: 20, fx: [['dmg', 16], ['vuln', 1]], up: { fx: [['dmg', 21], ['vuln', 2]] } },
+    ansuz:     { name: '火之盧恩', cost: 1, type: 'atk', np: 10, fx: [['all', 6]], up: { fx: [['all', 9]] } },
+    parry:     { name: '格擋反擊', cost: 1, type: 'skill', np: 5, fx: [['block', 6], ['thorns', 5]], up: { fx: [['block', 9], ['thorns', 7]] } }
+  });
+  kit('medusa', {
+    mystic:   { name: '石化魔眼', cost: 1, type: 'skill', np: 5, fx: [['petrify', 2], ['weak', 1]], up: { fx: [['petrify', 3], ['weak', 1]] } },
+    nails:    { name: '釘劍', cost: 1, type: 'atk', np: 10, fx: [['hits', 3, 3]], up: { fx: [['hits', 4, 3]] } },
+    chain:    { name: '鎖鏈', cost: 1, type: 'atk', np: 10, fx: [['dmg', 6], ['petrify', 1]], up: { fx: [['dmg', 9], ['petrify', 1]] } },
+    bloodfort:{ name: '鮮血神殿', cost: 2, type: 'atk', np: 15, fx: [['drainAll', 6]], up: { fx: [['drainAll', 9]] } },
+    pegasus:  { name: '天馬', cost: 1, type: 'skill', np: 5, fx: [['block', 7], ['draw', 1]], up: { fx: [['block', 10], ['draw', 1]] } },
+    spread:   { name: '魔眼全開', cost: 2, type: 'skill', np: 10, fx: [['petrifyAll', 2]], up: { cost: 1 } },
+    bite:     { name: '吸血', cost: 1, type: 'atk', np: 10, fx: [['dmg', 5], ['heal', 3]], up: { fx: [['dmg', 7], ['heal', 4]] } },
+    solo:     { name: '怪物之身', cost: 1, type: 'power', np: 0, fx: [['pDraw', 1]], up: { cost: 0 } },
+    stare:    { name: '凝視', cost: 1, type: 'atk', np: 10, fx: [['petrifyDmg', 4, 3]], up: { fx: [['petrifyDmg', 6, 4]] } }
+  });
+  kit('medea', {
+    bolt:     { name: '魔彈', cost: 1, type: 'atk', np: 10, fx: [['dmg', 5], ['weak', 1]], up: { fx: [['dmg', 8], ['weak', 1]] } },
+    word:     { name: '高速神言', cost: 0, type: 'skill', np: 5, fx: [['nextFree', 1]], up: { fx: [['nextFree', 1], ['draw', 1]] } },
+    fangs:    { name: '龍牙兵', cost: 1, type: 'skill', np: 5, fx: [['minion', 1]], up: { fx: [['minion', 2]] } },
+    territory:{ name: '陣地作成', cost: 1, type: 'power', np: 0, fx: [['pBlock', 4]], up: { fx: [['pBlock', 6]] } },
+    barrage:  { name: '魔彈掃射', cost: 2, type: 'atk', np: 15, fx: [['all', 8]], up: { fx: [['all', 11]] } },
+    curse:    { name: '詛咒', cost: 1, type: 'skill', np: 5, fx: [['weak', 2], ['vuln', 2]], up: { fx: [['weak', 3], ['vuln', 3]] } },
+    rulebreak:{ name: '破除結界', cost: 1, type: 'atk', np: 15, fx: [['dmg', 6], ['dispel', 1]], up: { fx: [['dmg', 9], ['dispel', 1]] } },
+    agemagic: { name: '神代魔術', cost: 3, type: 'atk', np: 25, fx: [['all', 18]], up: { cost: 2 } },
+    wisdom:   { name: '魔女的智慧', cost: 1, type: 'skill', np: 0, ex: 1, fx: [['draw', 3]], up: { fx: [['draw', 4]] } },
+    warp:     { name: '空間轉移', cost: 1, type: 'skill', np: 5, fx: [['block', 7], ['draw', 1]], up: { fx: [['block', 10], ['draw', 1]] } }
+  });
+  kit('kojiro', {
+    iai:     { name: '居合', cost: 1, type: 'atk', np: 10, fx: [['dmg', 5], ['iai', 7]], up: { fx: [['dmg', 7], ['iai', 9]] } },
+    tsubame1:{ name: '燕返', cost: 2, type: 'atk', np: 20, fx: [['hits', 6, 3]], up: { fx: [['hits', 8, 3]] } },
+    falseeye:{ name: '心眼（偽）', cost: 1, type: 'skill', np: 5, fx: [['evade', 1], ['block', 4]], up: { fx: [['evade', 1], ['block', 7]] } },
+    calm:    { name: '明鏡止水', cost: 1, type: 'skill', np: 5, fx: [['block', 5], ['nextEnergy', 1]], up: { fx: [['block', 8], ['nextEnergy', 1]] } },
+    pole:    { name: '物干竿', cost: 1, type: 'atk', np: 10, fx: [['pierce', 8]], up: { fx: [['pierce', 11]] } },
+    gate:    { name: '山門守護', cost: 2, type: 'skill', np: 10, fx: [['block', 14], ['thorns', 3]], up: { fx: [['block', 18], ['thorns', 5]] } },
+    sweep:   { name: '橫掃', cost: 1, type: 'atk', np: 10, fx: [['all', 5]], up: { fx: [['all', 8]] } },
+    mikiri:  { name: '見切', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['evade', 1]], up: { ex: 0 } },
+    mastery: { name: '宗和之心得', cost: 2, type: 'power', np: 0, fx: [['pStr', 1]], up: { cost: 1 } }
+  });
+  kit('hassanC', {
+    knives:     { name: '飛刀', cost: 1, type: 'atk', np: 10, fx: [['dmg', 4], ['poison', 4]], up: { fx: [['dmg', 6], ['poison', 5]] } },
+    venom:      { name: '塗毒', cost: 1, type: 'skill', np: 5, fx: [['poison', 7]], up: { fx: [['poison', 10]] } },
+    assassinate:{ name: '暗殺', cost: 2, type: 'atk', np: 20, fx: [['dmgIfPoison', 10, 10]], up: { fx: [['dmgIfPoison', 14, 12]] } },
+    presence:   { name: '氣息遮斷', cost: 1, type: 'skill', np: 5, fx: [['evade', 1], ['block', 4]], up: { fx: [['evade', 1], ['block', 7]] } },
+    daggers:    { name: '暗器亂射', cost: 1, type: 'atk', np: 10, fx: [['rand', 3, 3], ['poisonAll', 1]], up: { fx: [['rand', 4, 3], ['poisonAll', 1]] } },
+    miasma:     { name: '毒霧', cost: 2, type: 'skill', np: 10, fx: [['poisonAll', 4]], up: { fx: [['poisonAll', 6]] } },
+    lurk:       { name: '潛伏', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['draw', 2]], up: { fx: [['draw', 3]] } },
+    plague:     { name: '毒素擴散', cost: 1, type: 'skill', np: 5, ex: 1, fx: [['poisonX2', 1]], up: { ex: 0 } },
+    venombody:  { name: '毒身', cost: 2, type: 'power', np: 0, fx: [['pVenom', 1]], up: { cost: 1 } }
+  });
+  // 第四次聖杯戰爭
+  kit('diarmuid', {
+    twin:       { name: '雙槍', cost: 0, type: 'skill', np: 5, fx: [['stance', 'toggle'], ['draw', 1]], up: { fx: [['stance', 'toggle'], ['draw', 2]] } },
+    dearg:      { name: '破魔的紅薔薇', cost: 1, type: 'atk', np: 10, fx: [['stance', 'red'], ['dmg', 8]], up: { fx: [['stance', 'red'], ['dmg', 11]] } },
+    buidhe:     { name: '必滅的黃薔薇', cost: 1, type: 'atk', np: 10, fx: [['stance', 'yellow'], ['dmg', 5], ['wound', 2]], up: { fx: [['stance', 'yellow'], ['dmg', 7], ['wound', 3]] } },
+    dance:      { name: '槍舞', cost: 1, type: 'atk', np: 10, fx: [['hits', 5, 2], ['wound', 1]], up: { fx: [['hits', 7, 2], ['wound', 1]] } },
+    lovespot:   { name: '愛之黑痣', cost: 1, type: 'skill', np: 5, fx: [['weakAll', 1]], up: { fx: [['weakAll', 2]] } },
+    knightpride:{ name: '騎士之誇', cost: 1, type: 'skill', np: 5, fx: [['block', 7], ['draw', 1]], up: { fx: [['block', 10], ['draw', 1]] } },
+    trueeye:    { name: '心眼（真）', cost: 1, type: 'power', np: 0, fx: [['pBlock', 3]], up: { fx: [['pBlock', 5]] } },
+    gale:       { name: '疾風', cost: 1, type: 'atk', np: 10, fx: [['all', 6]], up: { fx: [['all', 9]] } },
+    bleedout:   { name: '放血', cost: 2, type: 'atk', np: 15, fx: [['woundDmg', 10, 3]], up: { fx: [['woundDmg', 14, 4]] } }
+  });
+  kit('iskandar', {
+    rally:     { name: '集結', cost: 1, type: 'skill', np: 5, fx: [['army', 2], ['block', 3]], up: { fx: [['army', 3], ['block', 4]] } },
+    chariot:   { name: '神威車輪', cost: 2, type: 'atk', np: 20, fx: [['all', 9], ['army', 1]], up: { fx: [['all', 12], ['army', 1]] } },
+    order:     { name: '突擊令', cost: 1, type: 'atk', np: 10, fx: [['armyDmg', 4, 1]], up: { fx: [['armyDmg', 6, 2]] } },
+    charisma:  { name: '領袖魅力', cost: 1, type: 'power', np: 0, fx: [['str', 1], ['army', 1]], up: { fx: [['str', 2], ['army', 2]] } },
+    trample:   { name: '蹂躪', cost: 2, type: 'atk', np: 15, fx: [['armyAll', 1]], up: { cost: 1 } },
+    feast:     { name: '宴會', cost: 1, type: 'skill', np: 0, ex: 1, fx: [['heal', 5], ['army', 1]], up: { fx: [['heal', 8], ['army', 2]] } },
+    thunder:   { name: '雷擊', cost: 1, type: 'atk', np: 10, fx: [['dmg', 7], ['weak', 1]], up: { fx: [['dmg', 10], ['weak', 1]] } },
+    bucephalus:{ name: '布塞弗勒斯', cost: 1, type: 'skill', np: 5, fx: [['block', 7], ['draw', 1]], up: { fx: [['block', 10], ['draw', 1]] } },
+    tactics:   { name: '戰術', cost: 1, type: 'skill', np: 5, fx: [['army', 1], ['draw', 1]], up: { fx: [['army', 2], ['draw', 1]] } }
+  });
+  kit('gilles', {
+    horror:   { name: '召喚海魔', cost: 1, type: 'skill', np: 5, fx: [['minion', 2], ['block', 3]], up: { fx: [['minion', 3], ['block', 3]] } },
+    sacrifice:{ name: '活祭', cost: 0, type: 'skill', np: 5, fx: [['selfDmg', 3], ['minion', 2]], up: { fx: [['selfDmg', 2], ['minion', 2]] } },
+    blasphemy:{ name: '瀆神', cost: 1, type: 'atk', np: 10, fx: [['dmg', 6], ['vuln', 1]], up: { fx: [['dmg', 9], ['vuln', 2]] } },
+    tentacle: { name: '觸手纏繞', cost: 1, type: 'skill', np: 5, fx: [['weak', 2], ['block', 4]], up: { fx: [['weak', 3], ['block', 6]] } },
+    feastdeep:{ name: '海魔盛宴', cost: 2, type: 'atk', np: 20, fx: [['minionAll', 6]], up: { fx: [['minionAll', 8]] } },
+    frenzy:   { name: '螺湮城教本', cost: 2, type: 'power', np: 0, fx: [['pMinion', 1]], up: { cost: 1 } },
+    zealot:   { name: '狂信', cost: 0, type: 'skill', np: 5, fx: [['tstr', 4], ['selfDmg', 2]], up: { fx: [['tstr', 6], ['selfDmg', 2]] } },
+    abyss:    { name: '深淵召喚', cost: 2, type: 'skill', np: 10, fx: [['minion', 3]], up: { fx: [['minion', 4]] } },
+    pages:    { name: '禁書翻頁', cost: 0, type: 'skill', np: 0, fx: [['draw', 2], ['selfDmg', 2]], up: { fx: [['draw', 3], ['selfDmg', 2]] } }
+  });
+  kit('hassanH', {
+    clone:   { name: '分身', cost: 1, type: 'skill', np: 5, fx: [['minion', 1], ['block', 3]], up: { fx: [['minion', 2], ['block', 3]] } },
+    swarm:   { name: '群襲', cost: 1, type: 'atk', np: 10, fx: [['minionHit', 3]], up: { fx: [['minionHit', 5]] } },
+    intel:   { name: '情報收集', cost: 0, type: 'skill', np: 5, fx: [['draw', 1], ['minion', 1]], up: { fx: [['draw', 2], ['minion', 1]] } },
+    hidden:  { name: '暗處刺擊', cost: 1, type: 'atk', np: 10, fx: [['hits', 3, 3]], up: { fx: [['hits', 4, 3]] } },
+    decoy:   { name: '替身', cost: 1, type: 'skill', np: 5, fx: [['block', 5], ['minion', 1]], up: { fx: [['block', 8], ['minion', 1]] } },
+    surround:{ name: '包圍', cost: 2, type: 'atk', np: 15, fx: [['allPlusMinion', 4, 1]], up: { fx: [['allPlusMinion', 6, 2]] } },
+    hundred: { name: '百貌', cost: 2, type: 'power', np: 0, fx: [['pMinion', 1]], up: { cost: 1 } },
+    disrupt: { name: '擾亂', cost: 1, type: 'skill', np: 5, fx: [['weakAll', 1], ['vulnAll', 1]], up: { fx: [['weakAll', 2], ['vulnAll', 2]] } },
+    sac:     { name: '捨身', cost: 0, type: 'skill', np: 5, fx: [['sacEnergy', 2]], up: { fx: [['sacEnergy', 3]] } }
+  });
+  kit('lancelot', {
+    owner:    { name: '騎士不死於徒手', cost: 1, type: 'skill', np: 5, fx: [['weaponize', 1], ['draw', 1]], up: { fx: [['weaponize', 2], ['draw', 1]] } },
+    slashes:  { name: '連斬', cost: 1, type: 'atk', np: 10, fx: [['comboDmg', 5, 2]], up: { fx: [['comboDmg', 7, 3]] } },
+    endless:  { name: '無窮之武練', cost: 2, type: 'power', np: 0, fx: [['pCombo', 2]], up: { cost: 1 } },
+    flail:    { name: '亂打', cost: 1, type: 'atk', np: 10, fx: [['hits', 4, 2]], up: { fx: [['hits', 5, 2]] } },
+    lakeflash:{ name: '湖光斬', cost: 2, type: 'atk', np: 20, fx: [['comboDmg', 12, 3]], up: { fx: [['comboDmg', 16, 4]] } },
+    blackmist:{ name: '己榮耀不為徒手', cost: 1, type: 'skill', np: 5, fx: [['block', 7], ['evade', 1]], up: { fx: [['block', 10], ['evade', 1]] } },
+    reason:   { name: '理性蒸發', cost: 0, type: 'skill', np: 5, fx: [['energy', 1], ['tstr', 2], ['selfDmg', 3]], up: { fx: [['energy', 1], ['tstr', 3], ['selfDmg', 3]] } },
+    mace:     { name: '鐵柱橫掃', cost: 1, type: 'atk', np: 10, fx: [['all', 6]], up: { fx: [['all', 9]] } },
+    grudge:   { name: '怨念', cost: 1, type: 'skill', np: 0, fx: [['draw', 2]], up: { cost: 0 } }
+  });
+  // 兩屆都在（第四次、第五次）
+  kit('heracles', {
+    rampage: { name: '狂亂', cost: 1, type: 'atk', np: 15, fx: [['dmg', 9], ['selfDmg', 3]], up: { fx: [['dmg', 13], ['selfDmg', 3]] } },
+    roar:    { name: '狂化咆哮', cost: 0, type: 'skill', np: 5, fx: [['tstr', 3], ['selfDmg', 2]], up: { fx: [['tstr', 5], ['selfDmg', 2]] } },
+    rockbody:{ name: '岩石之軀', cost: 1, type: 'skill', np: 5, fx: [['block', 8]], up: { fx: [['block', 12]] } },
+    divine:  { name: '神性之擊', cost: 2, type: 'atk', np: 20, fx: [['dmg', 14]], up: { fx: [['dmg', 19]] } },
+    crush:   { name: '粉碎', cost: 2, type: 'atk', np: 20, fx: [['all', 8]], up: { fx: [['all', 12]] } },
+    madness: { name: '狂化', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['energy', 2], ['selfDmg', 4]], up: { fx: [['energy', 2], ['selfDmg', 2]] } },
+    unyield: { name: '不屈', cost: 1, type: 'skill', np: 0, ex: 1, fx: [['heal', 8]], up: { fx: [['heal', 12]] } },
+    cleave:  { name: '斧劍橫掃', cost: 1, type: 'atk', np: 10, fx: [['all', 5]], up: { fx: [['all', 8]] } },
+    monster: { name: '神話之怪力', cost: 3, type: 'atk', np: 30, fx: [['dmg', 24]], up: { fx: [['dmg', 32]] } }
+  });
+  kit('gil', {
+    gate_of:   { name: '王之財寶', cost: 1, type: 'skill', np: 10, fx: [['treasure', 2]], up: { fx: [['treasure', 3]] } },
+    volley:    { name: '寶具掃射', cost: 2, type: 'atk', np: 20, fx: [['all', 8]], up: { fx: [['all', 12]] } },
+    enkidu:    { name: '天之鎖', cost: 1, type: 'skill', np: 5, fx: [['weak', 2], ['strDown', 2]], up: { fx: [['weak', 3], ['strDown', 3]] } },
+    goldarmor: { name: '黃金甲冑', cost: 2, type: 'skill', np: 10, fx: [['block', 12]], up: { fx: [['block', 16]] } },
+    arrogance: { name: '慢心', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['draw', 2]], up: { fx: [['draw', 3]] } },
+    kingofall: { name: '萬物之王', cost: 2, type: 'power', np: 0, fx: [['pTreasure', 1]], up: { cost: 1 } },
+    ea_glimmer:{ name: '乖離劍的餘光', cost: 1, type: 'atk', np: 15, fx: [['dmg', 10]], up: { fx: [['dmg', 14]] } },
+    thousand:  { name: '千之寶具', cost: 2, type: 'atk', np: 20, fx: [['rand', 3, 5]], up: { fx: [['rand', 4, 5]] } },
+    goldrule:  { name: '黃金律', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['energy', 2]], up: { fx: [['energy', 3]] } }
+  });
 
   // ── 資料：從者 ──────────────────────────────────────
+  // passive：被動（id 寫死在引擎裡的判斷）｜minion：這位從者召喚的使魔叫什麼、每回合打多少｜np：寶具（fx 跟卡牌一樣）
   var SERVANTS = {
-    saber: { name: '阿爾托莉雅', cls: 'Saber', hp: 85, deck: ['atk', 'atk', 'atk', 'atk', 'atk', 'def', 'def', 'def', 'def', 'invis'],
-      np: '誓約勝利之劍', npText: '對全體敵人造成 45 點傷害',
-      desc: '正面硬打的騎士王。牌少而重，寶具是全體大傷害。' },
-    archer: { name: 'EMIYA', cls: 'Archer', hp: 72, deck: ['atk', 'atk', 'atk', 'atk', 'atk', 'def', 'def', 'def', 'def', 'project'],
-      np: '無限劍製', npText: '這回合與之後 2 回合，每回合開始得到 3 張投影劍；本場投影劍傷害 +2',
-      desc: '把劍投影出來用完即丟的弓兵。大量 0 費小牌，最後一次引爆。' }
+    saber: { name: '阿爾托莉雅', cls: 'Saber', war: 5, hp: 78, sig: 'invis',
+      desc: '正面硬打的騎士王。牌少而重，寶具是全體大傷害。',
+      passive: { id: 'antimagic', name: '對魔力', text: '每場戰鬥第一次被施加虛弱或易傷時無效' },
+      np: { name: '誓約勝利之劍', fx: [['all', 45]] } },
+    emiya: { name: 'EMIYA', cls: 'Archer', war: 5, hp: 75, sig: 'project',
+      desc: '把劍投影出來用完即丟的弓兵。大量 0 費小牌，最後一次引爆。',
+      passive: { id: 'hawk', name: '鷹之眼', text: '每場戰鬥第一回合多抽 1 張' },
+      np: { name: '無限劍製', fx: [['ubw', 1]] } },
+    cu: { name: '庫丘林', cls: 'Lancer', war: 5, hp: 68, sig: 'thrust',
+      desc: '必中之槍與箭矢加護。閃避敵人整次攻擊，穿透傷害無視格擋。',
+      passive: { id: 'survive', name: '戰鬥續行', text: '每場戰鬥一次，受到致命傷時以 1 點生命撐住' },
+      np: { name: '刺穿死棘之槍', fx: [['pierce', 35], ['vuln', 2]] } },
+    medusa: { name: '美杜莎', cls: 'Rider', war: 5, hp: 74, sig: 'chain',
+      desc: '石化魔眼。石化累積到門檻，敵人整回合動彈不得。',
+      passive: { id: 'gaze', name: '石化魔眼', text: '每場戰鬥開始時，全體敵人石化 1' },
+      np: { name: '騎英之手綱', fx: [['dmg', 40], ['petrify', 3]] } },
+    medea: { name: '美狄亞', cls: 'Caster', war: 5, hp: 72, sig: 'bolt',
+      desc: '神代的魔女。技能牌不花錢、召喚龍牙兵擋刀，寶具拆掉敵人的防禦。',
+      passive: { id: 'hsw', name: '高速神言', text: '每回合第一張技能牌 0 費' },
+      minion: { name: '龍牙兵', atk: 3 },
+      np: { name: '萬符必應破戒', fx: [['dispelAll', 1], ['weakAll', 2], ['vulnAll', 2], ['draw', 2]] } },
+    kojiro: { name: '佐佐木小次郎', cls: 'Assassin', war: 5, hp: 62, sig: 'iai',
+      desc: '守山門的劍士。省下魔力就能閃避；第一刀最快。',
+      passive: { id: 'mind', name: '心眼（偽）', text: '回合結束時若還剩魔力，得到 1 閃避' },
+      np: { name: '燕返', fx: [['pierceHits', 12, 3]] } },
+    hassanC: { name: '咒腕哈桑', cls: 'Assassin', war: 5, hp: 68, sig: 'knives',
+      desc: '暗殺者。先下毒，毒每回合穿透格擋；寶具直接取走低血量敵人的心臟。',
+      passive: { id: 'ambush', name: '氣息遮斷', text: '每場戰鬥第一回合，攻擊傷害 ×1.5' },
+      np: { name: '妄想心音', fx: [['exec', 50, 25]] } },
+    diarmuid: { name: '迪爾姆德', cls: 'Lancer', war: 4, hp: 76, sig: 'twin',
+      desc: '雙槍騎士。紅薔薇破魔無視格擋，黃薔薇留下永不癒合的創傷。',
+      passive: { id: 'twin', name: '雙槍', text: '紅薔薇架勢：攻擊無視格擋｜黃薔薇架勢：每張攻擊牌給目標創傷 1（開場紅薔薇）' },
+      np: { name: '紅黃薔薇', fx: [['pierce', 20], ['wound', 5]] } },
+    iskandar: { name: '伊斯坎達爾', cls: 'Rider', war: 4, hp: 80, sig: 'rally',
+      desc: '征服王。把軍勢越疊越大，每回合結束時軍隊自己衝鋒。',
+      passive: { id: 'charisma', name: '領袖魅力', text: '每場戰鬥開始時軍勢 2（回合結束時軍勢攻擊一名敵人）' },
+      np: { name: '王之軍勢', fx: [['army', 5], ['armyAll', 2]] } },
+    gilles: { name: '吉爾・德・雷', cls: 'Caster', war: 4, hp: 74, sig: 'horror',
+      desc: '瘋狂的元帥。用自己的血召喚海魔，再把海魔一次獻祭掉。',
+      passive: { id: 'madness', name: '精神污染', text: '不會被施加虛弱' },
+      minion: { name: '海魔', atk: 3 },
+      np: { name: '螺湮城教本', fx: [['minion', 5], ['weakAll', 1]] } },
+    hassanH: { name: '百貌哈桑', cls: 'Assassin', war: 4, hp: 58, sig: 'clone',
+      desc: '一人即是群體。分身擋刀、分身圍攻，也能把分身換成魔力。',
+      passive: { id: 'hundred', name: '百貌', text: '每場戰鬥開始時有 2 名分身' },
+      minion: { name: '分身', atk: 2 },
+      np: { name: '妄想幻像', fx: [['minion', 4], ['minionRand', 3]] } },
+    lancelot: { name: '蘭斯洛特', cls: 'Berserker', war: 4, hp: 94, sig: 'owner',
+      desc: '湖之騎士。拿到手的東西都是武器；同一回合出越多攻擊，每一擊越重。',
+      passive: { id: 'arms', name: '無窮之武練', text: '攻擊傷害加上本回合的連擊數（每打出一張攻擊牌連擊 +1）' },
+      np: { name: '無毀的湖光', fx: [['comboDmg', 20, 5], ['combo', 3]] } },
+    heracles: { name: '赫拉克勒斯', cls: 'Berserker', war: 45, hp: 72, sig: 'rampage',
+      desc: '大英雄。用自己的血換力量，倒下也會再站起來。',
+      passive: { id: 'revive', name: '十二試煉', text: '整趟冒險有 1 條備用的命：倒下時以兩成生命復活' },
+      np: { name: '射殺百頭', fx: [['rand', 4, 9]] } },
+    gil: { name: '吉爾伽美什', cls: 'Archer', war: 45, hp: 70, sig: 'gate_of',
+      desc: '英雄王。寶庫裡的寶具源源不絕，開局就多一件禮裝。',
+      passive: { id: 'golden', name: '黃金律', text: '開局多一件禮裝；每場戰鬥開始時從寶庫取出 1 件寶具' },
+      np: { name: '天地乖離開闢之星', fx: [['all', 40]] } }
   };
+  var ORDER = ['saber', 'emiya', 'cu', 'medusa', 'medea', 'kojiro', 'hassanC', 'diarmuid', 'iskandar', 'gilles', 'hassanH', 'lancelot', 'heracles', 'gil'];
 
   // ── 資料：敵人 ──────────────────────────────────────
-  // moves：{n 名稱, fx}｜fx：['atk',n,k] 攻擊 n×k｜['block',n]｜['str',n] 自己變強｜['weak',n]/['vuln',n] 給玩家｜['heal',n]
-  // cycle＝照順序輪；否則依權重 w 隨機（不連續同一招兩次以上）；lives＝倒下後以 revive 比例的血復活幾次
+  // moves：{n 名稱, fx}｜fx：['atk',n,k] 攻擊 n×k｜['atkP',n,k] 穿透攻擊（無視格擋與使魔）｜['block',n]｜['str',n]
+  //        ['weak',n]/['vuln',n] 給玩家｜['heal',n]｜['summon',敵人id,n] 叫援軍（場上最多 4 名）
+  // cycle＝照順序輪；否則依權重 w 隨機；lives＝倒下後以 revive 比例的血復活幾次；stunAt＝石化幾層會動彈不得
   var ENEMIES = {
-    fang:   { name: '龍牙兵', hp: [14, 18], moves: [{ n: '砍擊', fx: [['atk', 7]], w: 3 }, { n: '舉盾', fx: [['block', 6], ['atk', 3]], w: 1 }] },
-    bat:    { name: '使魔', hp: [8, 10], moves: [{ n: '撲咬', fx: [['atk', 3, 2]], w: 2 }, { n: '尖嘯', fx: [['weak', 1]], w: 1 }] },
-    shadow: { name: '影', hp: [24, 28], moves: [{ n: '侵蝕', fx: [['atk', 9]], w: 2 }, { n: '纏繞', fx: [['atk', 4], ['vuln', 2]], w: 1 }] },
-    ghoul:  { name: '死徒', hp: [34, 38], moves: [{ n: '撕裂', fx: [['atk', 11]], w: 2 }, { n: '吸血', fx: [['atk', 6], ['heal', 6]], w: 1 }, { n: '狂暴', fx: [['str', 3]], w: 1 }] },
-    magus:  { name: '魔術師', hp: [26, 30], moves: [{ n: '魔彈', fx: [['atk', 8]], w: 2 }, { n: '詛咒', fx: [['weak', 2], ['atk', 4]], w: 1 }, { n: '結界', fx: [['block', 10]], w: 1 }] },
-    kojiro: { name: '佐佐木小次郎', hp: [70, 74], elite: 1, cycle: 1, moves: [{ n: '燕返', fx: [['atk', 6, 3]] }, { n: '架勢', fx: [['block', 14], ['str', 3]] }, { n: '一閃', fx: [['atk', 15]] }] },
-    medusa: { name: '美杜莎', hp: [74, 78], elite: 1, cycle: 1, moves: [{ n: '鎖鏈', fx: [['atk', 10]] }, { n: '魔眼', fx: [['vuln', 2], ['weak', 2]] }, { n: '釘劍', fx: [['atk', 5, 3]] }, { n: '騎英之手綱', fx: [['atk', 30]] }] },
-    cu:     { name: '庫丘林', hp: [76, 80], elite: 1, cycle: 1, moves: [{ n: '刺擊', fx: [['atk', 12]] }, { n: '迴避', fx: [['block', 12], ['str', 2]] }, { n: '連刺', fx: [['atk', 6, 2]] }, { n: '刺穿死棘之槍', fx: [['atk', 32]] }] },
-    hercules:{ name: '赫拉克勒斯', hp: [100, 100], boss: 1, cycle: 1, lives: 2, revive: 0.6,
-      moves: [{ n: '怒吼', fx: [['str', 3]] }, { n: '重擊', fx: [['atk', 16]] }, { n: '射殺百頭', fx: [['atk', 6, 3]] }, { n: '岩軀', fx: [['block', 15]] }, { n: '粉碎', fx: [['atk', 22]] }] }
+    fang:    { name: '龍牙兵', hp: [14, 18], moves: [{ n: '砍擊', fx: [['atk', 7]], w: 3 }, { n: '舉盾', fx: [['block', 6], ['atk', 3]], w: 1 }] },
+    bat:     { name: '使魔', hp: [8, 10], moves: [{ n: '撲咬', fx: [['atk', 3, 2]], w: 2 }, { n: '尖嘯', fx: [['weak', 1]], w: 1 }] },
+    shadow:  { name: '影', hp: [24, 28], moves: [{ n: '侵蝕', fx: [['atk', 9]], w: 2 }, { n: '纏繞', fx: [['atk', 4], ['vuln', 2]], w: 1 }] },
+    ghoul:   { name: '死徒', hp: [34, 38], moves: [{ n: '撕裂', fx: [['atk', 11]], w: 2 }, { n: '吸血', fx: [['atk', 6], ['heal', 6]], w: 1 }, { n: '狂暴', fx: [['str', 3]], w: 1 }] },
+    magus:   { name: '魔術師', hp: [26, 30], moves: [{ n: '魔彈', fx: [['atk', 8]], w: 2 }, { n: '詛咒', fx: [['weak', 2], ['atk', 4]], w: 1 }, { n: '結界', fx: [['block', 10]], w: 1 }] },
+    tentacle:{ name: '海魔', hp: [10, 12], moves: [{ n: '纏繞', fx: [['atk', 4]], w: 2 }, { n: '吸附', fx: [['weak', 1], ['atk', 2]], w: 1 }] },
+    soldier: { name: '馬其頓兵', hp: [12, 14], moves: [{ n: '突刺', fx: [['atk', 6]], w: 2 }, { n: '列陣', fx: [['block', 6], ['atk', 3]], w: 1 }] },
+    // 精英：其他從者（自己選的那位不會出現）
+    saber:   { name: '阿爾托莉雅', hp: [80, 84], elite: 1, cycle: 1, moves: [{ n: '風王鐵槌', fx: [['atk', 13]] }, { n: '魔力放出', fx: [['block', 10], ['str', 3]] }, { n: '連斬', fx: [['atk', 7, 2]] }, { n: '誓約勝利之劍', fx: [['atk', 28]] }] },
+    emiya:   { name: 'EMIYA', hp: [68, 72], elite: 1, cycle: 1, moves: [{ n: '赤原獵犬', fx: [['atk', 11]] }, { n: '干將莫邪', fx: [['atk', 5, 3]] }, { n: '鷹之瞳', fx: [['block', 14], ['vuln', 2]] }, { n: '偽・螺旋劍', fx: [['atkP', 20]] }] },
+    cu:      { name: '庫丘林', hp: [76, 80], elite: 1, cycle: 1, moves: [{ n: '刺擊', fx: [['atk', 12]] }, { n: '迴避', fx: [['block', 12], ['str', 2]] }, { n: '連刺', fx: [['atk', 6, 2]] }, { n: '刺穿死棘之槍', fx: [['atkP', 26]] }] },
+    medusa:  { name: '美杜莎', hp: [74, 78], elite: 1, cycle: 1, moves: [{ n: '鎖鏈', fx: [['atk', 10]] }, { n: '魔眼', fx: [['vuln', 2], ['weak', 2]] }, { n: '釘劍', fx: [['atk', 5, 3]] }, { n: '騎英之手綱', fx: [['atk', 30]] }] },
+    medea:   { name: '美狄亞', hp: [58, 62], elite: 1, cycle: 1, moves: [{ n: '召喚龍牙兵', fx: [['summon', 'fang', 2], ['block', 8]] }, { n: '魔彈', fx: [['atk', 5, 3]] }, { n: '詛咒', fx: [['weak', 2], ['vuln', 2]] }, { n: '神代魔術', fx: [['atk', 22]] }] },
+    kojiro:  { name: '佐佐木小次郎', hp: [70, 74], elite: 1, cycle: 1, moves: [{ n: '燕返', fx: [['atk', 6, 3]] }, { n: '架勢', fx: [['block', 14], ['str', 3]] }, { n: '一閃', fx: [['atk', 15]] }] },
+    hassanC: { name: '咒腕哈桑', hp: [58, 62], elite: 1, cycle: 1, moves: [{ n: '飛刀', fx: [['atk', 4, 3]] }, { n: '氣息遮斷', fx: [['block', 14], ['weak', 1]] }, { n: '妄想心音', fx: [['atkP', 22]] }] },
+    diarmuid:{ name: '迪爾姆德', hp: [72, 76], elite: 1, cycle: 1, moves: [{ n: '破魔的紅薔薇', fx: [['atkP', 10]] }, { n: '必滅的黃薔薇', fx: [['atk', 8], ['vuln', 2]] }, { n: '槍舞', fx: [['atk', 5, 3]] }, { n: '雙槍架勢', fx: [['block', 10], ['str', 2]] }] },
+    hassanH: { name: '百貌哈桑', hp: [64, 68], elite: 1, cycle: 1, moves: [{ n: '分身圍攻', fx: [['atk', 3, 4]] }, { n: '散開', fx: [['block', 12], ['weak', 1]] }, { n: '暗殺', fx: [['atk', 14]] }, { n: '增殖', fx: [['str', 2], ['block', 6]] }] },
+    lancelot:{ name: '蘭斯洛特', hp: [84, 88], elite: 1, cycle: 1, moves: [{ n: '武器化', fx: [['atk', 8, 2]] }, { n: '黑霧', fx: [['block', 12], ['str', 2]] }, { n: '掃射', fx: [['atk', 4, 4]] }, { n: '無毀的湖光', fx: [['atk', 26]] }] },
+    gilles:  { name: '吉爾・德・雷', hp: [62, 66], elite: 1, cycle: 1, moves: [{ n: '召喚海魔', fx: [['summon', 'tentacle', 2]] }, { n: '瀆神', fx: [['atk', 10], ['vuln', 1]] }, { n: '觸手', fx: [['atk', 6], ['weak', 2]] }, { n: '狂信', fx: [['str', 2], ['block', 8]] }] },
+    // Boss（自己選的那位不會出現）
+    heracles:{ name: '赫拉克勒斯', hp: [100, 100], boss: 1, cycle: 1, lives: 2, revive: 0.6,
+      moves: [{ n: '怒吼', fx: [['str', 3]] }, { n: '重擊', fx: [['atk', 16]] }, { n: '射殺百頭', fx: [['atk', 6, 3]] }, { n: '岩軀', fx: [['block', 15]] }, { n: '粉碎', fx: [['atk', 22]] }] },
+    gil:     { name: '吉爾伽美什', hp: [170, 170], boss: 1, cycle: 1,
+      moves: [{ n: '王之財寶', fx: [['atk', 6, 4]] }, { n: '天之鎖', fx: [['weak', 2], ['vuln', 2], ['block', 12]] }, { n: '王之財寶・全開', fx: [['atk', 9, 3]] }, { n: '慢心', fx: [['str', 3], ['block', 15]] }, { n: '天地乖離開闢之星', fx: [['atk', 40]] }] },
+    iskandar:{ name: '伊斯坎達爾', hp: [150, 150], boss: 1, cycle: 1,
+      moves: [{ n: '召集軍隊', fx: [['summon', 'soldier', 2], ['block', 10]] }, { n: '神威車輪', fx: [['atk', 12, 2]] }, { n: '號令', fx: [['str', 2], ['atk', 8]] }, { n: '王之軍勢', fx: [['atk', 34]] }] }
   };
+  var ELITES = ['saber', 'emiya', 'cu', 'medusa', 'medea', 'kojiro', 'hassanC', 'diarmuid', 'hassanH', 'lancelot', 'gilles'];
+  var BOSSES = ['heracles', 'gil', 'iskandar'];
   var SCALE = { hp: 0.04, strEvery: 4 };
   var ENCOUNTERS = {
     easy: [['fang'], ['bat', 'bat'], ['shadow'], ['fang', 'bat']],
-    hard: [['fang', 'fang', 'bat'], ['ghoul'], ['magus', 'fang'], ['shadow', 'bat'], ['ghoul', 'bat'], ['magus', 'shadow']],
-    elite: [['kojiro'], ['medusa'], ['cu']],
-    boss: [['hercules']]
+    hard: [['fang', 'fang', 'bat'], ['ghoul'], ['magus', 'fang'], ['shadow', 'bat'], ['ghoul', 'bat'], ['magus', 'shadow']]
   };
 
   // ── 資料：禮裝（整局的被動道具） ─────────────────────
@@ -95,51 +317,104 @@ var G = (function () {
   function pick(run, a) { return a[Math.floor(rnd(run) * a.length)]; }
   function shuffle(run, a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd(run) * (i + 1)), x = a[i]; a[i] = a[j]; a[j] = x; } return a; }
 
-  // 卡片定義（id 後面帶 + ＝已強化）
+  // ── 卡片 ─────────────────────────────────────────────
+  // 會打到「一個」敵人的效果：有這些的牌要選目標
+  var TARGETED = { dmg: 1, hits: 1, pierce: 1, pierceHits: 1, vuln: 1, weak: 1, strDown: 1, petrify: 1, petrifyDmg: 1, poison: 1, dmgIfPoison: 1, poisonX2: 1,
+    wound: 1, woundDmg: 1, armyDmg: 1, comboDmg: 1, dispel: 1, exec: 1, iai: 1 };
+  function needsTarget(fx) { return fx.some(function (f) { return TARGETED[f[0]]; }) ? 1 : 0; }
   function card(id) {
     var up = id.slice(-1) === '+', base = CARDS[up ? id.slice(0, -1) : id];
     if (!base) return null;
     var c = Object.assign({ id: id, up: up }, base);
     if (up && base.up) Object.keys(base.up).forEach(function (k) { c[k] = base.up[k]; });
     if (up) c.name += '＋';
+    c.t = needsTarget(c.fx);
     return c;
   }
-  function cardText(id, run) {
-    var c = card(id), b = run && run.battle, bits = [];
-    c.fx.forEach(function (f) {
-      var k = f[0], n = f[1];
-      if (k === 'dmg') bits.push('造成 ' + n + ' 傷害');
-      else if (k === 'hits') bits.push('造成 ' + n + ' 傷害 ×' + f[2]);
-      else if (k === 'all') bits.push('對全體造成 ' + n + ' 傷害');
-      else if (k === 'block') bits.push('格擋 ' + n);
-      else if (k === 'draw') bits.push('抽 ' + n + ' 張');
-      else if (k === 'energy') bits.push('魔力 +' + n);
-      else if (k === 'str') bits.push('力量 +' + n);
-      else if (k === 'tstr') bits.push('本回合力量 +' + n);
-      else if (k === 'vuln') bits.push('易傷 ' + n);
-      else if (k === 'weak') bits.push('虛弱 ' + n);
-      else if (k === 'heal') bits.push('回復 ' + n);
-      else if (k === 'proj') bits.push('得到 ' + n + ' 張投影劍');
-      else if (k === 'thorns') bits.push('本回合被攻擊時反擊 ' + n);
-      else if (k === 'burst') bits.push('消耗手上所有投影劍，每張對全體 ' + n);
-      else if (k === 'pBlock') bits.push('每回合開始格擋 ' + n);
-      else if (k === 'pDraw') bits.push('每回合多抽 ' + n + ' 張');
-      else if (k === 'pEnergy') bits.push('每回合魔力 +' + n);
+  function serv(run) { return run.who === 'custom' ? run.custom : SERVANTS[run.who]; }
+  function passive(run) { var S = serv(run); return S && S.passive ? S.passive.id : ''; }
+  function minionInfo(run) { var S = serv(run); return (S && S.minion) || { name: '使魔', atk: 3 }; }
+  function minionName(run) { return minionInfo(run).name; }
+  // 這張牌現在實際要花多少魔力（高速神言、下一張 0 費）
+  function costOf(run, id) {
+    var c = card(id), b = run && run.battle;
+    if (!b || c.cost === 0) return c.cost;
+    if (b.nextFree) return 0;
+    if (c.type === 'skill' && passive(run) === 'hsw' && !b.hswUsed) return 0;
+    return c.cost;
+  }
+
+  // 效果說明：{1}{2}＝數字，{m}＝使魔的名字
+  var FX_TEXT = {
+    dmg: '造成 {1} 傷害', hits: '造成 {1} 傷害 ×{2}', all: '對全體造成 {1} 傷害', rand: '隨機敵人 {1} 傷害 ×{2}',
+    pierce: '造成 {1} 穿透傷害', pierceHits: '造成 {1} 穿透傷害 ×{2}',
+    block: '格擋 {1}', draw: '抽 {1} 張', energy: '魔力 +{1}', str: '力量 +{1}', tstr: '本回合力量 +{1}',
+    vuln: '易傷 {1}', weak: '虛弱 {1}', weakAll: '全體虛弱 {1}', vulnAll: '全體易傷 {1}', strDown: '目標力量 -{1}',
+    heal: '回復 {1}', np: '寶具 +{1}%', thorns: '本回合被攻擊時反擊 {1}',
+    proj: '得到 {1} 張投影劍', burst: '引爆手上所有投影劍，每張對全體 {1}',
+    ubw: '這回合與之後 2 回合，每回合開始得到 3 張投影劍；本場投影劍傷害 +2',
+    pBlock: '每回合開始格擋 {1}', pDraw: '每回合多抽 {1} 張', pEnergy: '每回合魔力 +{1}', pStr: '每回合開始力量 +{1}',
+    pEvade: '每回合開始閃避 {1}', pTreasure: '每回合開始從寶庫取出 {1} 件寶具', pMinion: '每回合開始召喚 {1} 名{m}',
+    pVenom: '攻擊每命中一次附加毒 {1}', pCombo: '每回合連擊從 {1} 開始',
+    evade: '閃避 {1}', nextFree: '下一張牌 0 費', nextEnergy: '下回合魔力 +{1}', iai: '若是本回合第一張牌，再造成 {1} 傷害',
+    petrify: '石化 {1}', petrifyAll: '全體石化 {1}', petrifyDmg: '造成 {1} 傷害，目標每層石化再 +{2}',
+    drainAll: '對全體造成 {1} 傷害，回復造成傷害的一半',
+    minion: '召喚 {1} 名{m}', minionHit: '每名{m}立刻攻擊一次（傷害 +{1}）', minionAll: '獻祭所有{m}，每名對全體造成 {1} 傷害',
+    minionRand: '每名{m}立刻攻擊 {1} 次', sacEnergy: '獻祭至多 {1} 名{m}，每名魔力 +1', allPlusMinion: '對全體造成 {1} 傷害，每名{m}再 +{2}',
+    selfDmg: '自己失去 {1} 生命', dispel: '移除目標的格擋與力量', dispelAll: '移除全體敵人的格擋與力量',
+    treasure: '從寶庫取出 {1} 件寶具',
+    poison: '毒 {1}', poisonAll: '全體毒 {1}', dmgIfPoison: '造成 {1} 傷害；目標中毒時再 +{2}', poisonX2: '目標的毒加倍',
+    exec: '目標生命在 {1}% 以下直接擊殺（Boss 除外）；否則造成 {2} 穿透傷害',
+    wound: '創傷 {1}', woundDmg: '造成 {1} 傷害，目標每層創傷再 +{2}',
+    army: '軍勢 +{1}', armyDmg: '造成 {1} 傷害，每點軍勢再 +{2}', armyAll: '對全體造成軍勢×{1} 傷害',
+    combo: '連擊 +{1}', comboDmg: '造成 {1} 傷害，每點連擊再 +{2}', weaponize: '把手上 {1} 張技能牌換成「武器化」（0 費、7 傷害）',
+    stance: function (f) { return f[1] === 'red' ? '換成紅薔薇架勢' : f[1] === 'yellow' ? '換成黃薔薇架勢' : '切換紅／黃薔薇架勢'; }
+  };
+  function fxText(fx, run) {
+    var mn = run ? minionName(run) : '使魔';
+    return fx.map(function (f) {
+      var t = FX_TEXT[f[0]]; if (!t) return f[0];
+      if (typeof t === 'function') return t(f);
+      return t.replace('{1}', f[1]).replace('{2}', f[2]).replace(/\{m\}/g, mn);
     });
-    if (c.id === 'sword' && b && b.projUp) bits = ['造成 ' + (3 + b.projUp) + ' 傷害'];
+  }
+  function cardText(id, run) {
+    var c = card(id), b = run && run.battle, bits = fxText(c.fx, run);
+    if (c.id === 'sword' && b && b.projUp) bits = ['造成 ' + (4 + b.projUp) + ' 傷害'];
     if (c.np) bits.push('寶具 +' + c.np + '%');
     if (c.type === 'power') bits.push('（持續整場）');
-    if (c.ex) bits.push('消耗');
+    if (c.ex || c.token) bits.push('消耗');
     return bits.join('，');
   }
+  function npText(N, run) { return fxText(N.fx, run).join('，'); }
 
   // ── 開局與地圖 ───────────────────────────────────────
   var FLOORS = 13;   // 第 13 層是 Boss
-  function newRun(who, seed) {
-    var S = SERVANTS[who];
-    var run = { v: 1, who: who, seed: seed >>> 0, rs: seed | 0, hp: S.hp, maxHp: S.hp, deck: S.deck.slice(), relics: [], seals: 3, maxSeals: 3,
-      floor: 0, lane: -1, map: null, screen: 'map', battle: null, reward: null, log: [], stats: { kills: 0, np: 0, seals: 0, floors: 0 } };
+  function newRun(who, seed, custom) {
+    var S = who === 'custom' ? custom : SERVANTS[who];
+    var run = { v: 2, who: who, custom: who === 'custom' ? custom : null, seed: seed >>> 0, rs: seed | 0, hp: S.hp, maxHp: S.hp,
+      deck: ['atk', 'atk', 'atk', 'atk', 'atk', 'def', 'def', 'def', 'def', S.sig], relics: [], seals: 3, maxSeals: 3,
+      floor: 0, lane: -1, map: null, boss: null, screen: 'map', battle: null, reward: null, stats: { kills: 0, np: 0, seals: 0, floors: 0 } };
+    run.boss = pick(run, BOSSES.filter(function (k) { return k !== who; }));
     run.map = makeMap(run);
+    if (S.passive && S.passive.id === 'golden') gainRelic(run, randomRelic(run));
+    if (S.passive && S.passive.id === 'revive') run.lives = 1;
+    return run;
+  }
+  // 舊存檔（第一版只有 Saber／Archer）補上新欄位
+  function migrate(run) {
+    if (!run) return run;
+    if (run.who === 'archer') run.who = 'emiya';
+    if (!run.boss) run.boss = 'heracles';
+    run.v = 2;
+    var b = run.battle;
+    if (b) {
+      Object.keys(BATTLE0).forEach(function (k) { if (b[k] === undefined) b[k] = BATTLE0[k]; });
+      b.enemies.forEach(function (e) {
+        if (e.id === 'hercules') e.id = 'heracles';
+        ['poison', 'wound', 'petrify', 'stun'].forEach(function (k) { if (e[k] === undefined) e[k] = 0; });
+      });
+    }
     return run;
   }
   function makeMap(run) {
@@ -160,8 +435,8 @@ var G = (function () {
       }
       map.push(row);
     }
-    // 同一層不要三格都一樣（精英、休息除外沒關係）：至少給一條不打精英的路
-    map.forEach(function (row, i) { if (row.every(function (t) { return t === 'elite'; })) row[1] = 'fight'; });
+    // 至少給一條不打精英的路
+    map.forEach(function (row) { if (row.every(function (t) { return t === 'elite'; })) row[1] = 'fight'; });
     return map;
   }
   // 從目前位置能走到的下一層格子（第 0 層＝起點，三格都能選）
@@ -177,8 +452,8 @@ var G = (function () {
     run.floor++; run.lane = lane; run.stats.floors = run.floor;
     var t = run.map[run.floor - 1][lane];
     if (t === 'fight') startBattle(run, pick(run, run.floor <= 3 ? ENCOUNTERS.easy : ENCOUNTERS.hard), 'fight');
-    else if (t === 'elite') startBattle(run, pick(run, ENCOUNTERS.elite), 'elite');
-    else if (t === 'boss') startBattle(run, ENCOUNTERS.boss[0], 'boss');
+    else if (t === 'elite') startBattle(run, [pick(run, ELITES.filter(function (k) { return k !== run.who; }))], 'elite');
+    else if (t === 'boss') startBattle(run, [run.boss], 'boss');
     else if (t === 'rest') run.screen = 'rest';
     else if (t === 'chest') { run.screen = 'chest'; run.reward = { relic: randomRelic(run) }; }
     return true;
@@ -195,19 +470,31 @@ var G = (function () {
   }
 
   // ── 戰鬥 ─────────────────────────────────────────────
+  // 一場戰鬥的初始欄位（p 開頭＝能力牌，每回合生效）
+  var BATTLE0 = { turn: 0, energy: 0, block: 0, np: 0, str: 0, tstr: 0, vuln: 0, weak: 0, thorns: 0,
+    pBlock: 0, pDraw: 0, pEnergy: 0, pStr: 0, pEvade: 0, pTreasure: 0, pMinion: 0, pVenom: 0, pCombo: 0,
+    ubw: 0, projUp: 0, firstAtk: false, evade: 0, minions: 0, army: 0, combo: 0, stance: '', played: 0,
+    nextFree: 0, nextEnergy: 0, hswUsed: 0, antimagic: 0, survived: 0, log: [] };
+  var MINION_MAX = 8, MINION_GUARD = 4, FOES_MAX = 4;
+  function makeEnemy(run, id, up, n) {
+    var E = ENEMIES[id], hp = E.hp[0] + Math.floor(rnd(run) * (E.hp[1] - E.hp[0] + 1));
+    hp = Math.round(hp * (1 + SCALE.hp * up));
+    return { id: id, key: id + n, name: E.name, hp: hp, maxHp: hp, block: 0, str: Math.floor(up / SCALE.strEvery), vuln: 0, weak: hasRelic(run, 'book') ? 1 : 0,
+      poison: 0, wound: 0, petrify: 0, stun: 0, lives: E.lives || 0, mi: -1, last: -1, rep: 0, intent: null };
+  }
   function startBattle(run, ids, kind) {
-    var b = { kind: kind, turn: 0, energy: 0, block: 0, np: hasRelic(run, 'circuit') ? 25 : 0, str: 0, tstr: 0, vuln: 0, weak: 0, thorns: 0,
-      pBlock: 0, pDraw: 0, pEnergy: 0, ubw: 0, projUp: 0, firstAtk: hasRelic(run, 'blackkey'),
-      draw: shuffle(run, run.deck), hand: [], discard: [], exhaust: [], enemies: [], log: [] };
-    ids.forEach(function (id, i) {
-      var E = ENEMIES[id], hp = E.hp[0] + Math.floor(rnd(run) * (E.hp[1] - E.hp[0] + 1));
-      var up = kind === 'boss' ? 0 : run.floor - 1;   // 越往上走越強：血量每層 +4%，每 4 層力量 +1
-      hp = Math.round(hp * (1 + SCALE.hp * up));
-      b.enemies.push({ id: id, key: id + i, name: E.name, hp: hp, maxHp: hp, block: 0, str: Math.floor(up / SCALE.strEvery), vuln: 0, weak: hasRelic(run, 'book') ? 1 : 0,
-        lives: E.lives || 0, mi: -1, last: -1, rep: 0, intent: null });
-    });
+    var b = JSON.parse(JSON.stringify(BATTLE0)), p = passive(run);
+    Object.assign(b, { kind: kind, np: hasRelic(run, 'circuit') ? 25 : 0, firstAtk: hasRelic(run, 'blackkey'),
+      draw: shuffle(run, run.deck), hand: [], discard: [], exhaust: [], enemies: [], up: kind === 'boss' ? 0 : run.floor - 1 });
+    ids.forEach(function (id, i) { b.enemies.push(makeEnemy(run, id, b.up, i)); });
     run.battle = b; run.screen = 'battle';
     if (hasRelic(run, 'shroud')) b.block = 8;
+    if (p === 'antimagic') b.antimagic = 1;
+    if (p === 'hundred') b.minions = 2;
+    if (p === 'charisma') b.army = 2;
+    if (p === 'twin') b.stance = 'red';
+    if (p === 'gaze') b.enemies.forEach(function (e) { petrify(run, e, 1, b.log); });
+    if (p === 'golden') addTreasure(run, 1);
     b.enemies.forEach(function (e) { chooseIntent(run, e); });
     startTurn(run, true);
   }
@@ -215,10 +502,15 @@ var G = (function () {
     var b = run.battle;
     b.turn++;
     if (!first) b.block = 0;
-    b.energy = 3 + b.pEnergy + (first && hasRelic(run, 'gem') ? 1 : 0);
+    b.evade = 0; b.played = 0; b.hswUsed = 0; b.combo = b.pCombo;
+    b.energy = 3 + b.pEnergy + b.nextEnergy + (first && hasRelic(run, 'gem') ? 1 : 0); b.nextEnergy = 0;
     if (b.pBlock) b.block += b.pBlock;
+    if (b.pStr) b.str += b.pStr;
+    if (b.pEvade) b.evade += b.pEvade;
+    if (b.pMinion) addMinion(b, b.pMinion);
     if (b.ubw > 0) { addProj(b, 3); b.ubw--; }
-    drawCards(run, 5 + b.pDraw);
+    if (b.pTreasure) addTreasure(run, b.pTreasure);
+    drawCards(run, 5 + b.pDraw + (first && passive(run) === 'hawk' ? 1 : 0));
   }
   function drawCards(run, n) {
     var b = run.battle;
@@ -229,6 +521,8 @@ var G = (function () {
     }
   }
   function addProj(b, n) { for (var i = 0; i < n && b.hand.length < 10; i++) b.hand.push('sword'); }
+  function addTreasure(run, n) { var b = run.battle; for (var i = 0; i < n && b.hand.length < 10; i++) b.hand.push(pick(run, TREASURE)); }
+  function addMinion(b, n) { b.minions = Math.min(MINION_MAX, b.minions + n); }
   function alive(b) { return b.enemies.filter(function (e) { return e.hp > 0; }); }
 
   function chooseIntent(run, e) {
@@ -250,67 +544,180 @@ var G = (function () {
     var d = base + str; if (weak > 0) d = d * 0.75; if (vuln > 0) d = d * 1.5;
     return Math.max(0, Math.floor(d));
   }
-  function hitEnemy(run, e, dmg, log) {
-    if (e.hp <= 0) return;
-    var d = dmg, took = Math.min(e.block, d); e.block -= took; d -= took; e.hp -= d;
+  // 對敵人造成傷害；pierce＝無視格擋
+  function hitEnemy(run, e, dmg, log, pierce) {
+    if (e.hp <= 0) return 0;
+    var d = dmg;
+    if (!pierce) { var took = Math.min(e.block, d); e.block -= took; d -= took; }
+    var before = e.hp; e.hp -= d;
     if (e.hp <= 0) {
-      if (e.lives > 0) { e.lives--; e.hp = Math.round(e.maxHp * ENEMIES[e.id].revive); e.block = 0; e.vuln = 0; e.weak = 0; log.push(e.name + '倒下了，又站了起來（十二試煉，還剩 ' + e.lives + ' 次）'); }
-      else { e.hp = 0; run.stats.kills++; log.push(e.name + '倒下了'); }
+      if (e.lives > 0) { e.lives--; e.hp = Math.round(e.maxHp * ENEMIES[e.id].revive); e.block = 0; e.vuln = 0; e.weak = 0; log.push(e.name + '倒下了，又站了起來（十二試煉，還剩 ' + e.lives + ' 次）'); return before; }
+      e.hp = 0; run.stats.kills++; log.push(e.name + '倒下了');
     }
+    return before - Math.max(0, e.hp);
   }
-  function pDmg(run, base) {   // 玩家對敵人（不含敵人易傷）
-    var b = run.battle, d = base + b.str + b.tstr;
-    if (b.firstAtk) { d += 6; b.firstAtk = false; }
+  function stunAt(e) { var E = ENEMIES[e.id]; return E.stunAt || (E.boss ? 5 : E.elite ? 4 : 3); }
+  function petrify(run, e, n, log) {
+    if (!e || e.hp <= 0) return;
+    e.petrify += n;
+    if (e.petrify >= stunAt(e)) { e.petrify = 0; e.stun = 1; log.push(e.name + '被石化了'); }
+  }
+  // 玩家受到傷害（戰鬥續行、十二試煉在這裡擋）
+  function loseHp(run, d, log) {
+    var b = run.battle, p = passive(run);
+    run.hp -= d;
+    if (run.hp > 0) return;
+    if (b && p === 'survive' && !b.survived) { b.survived = 1; run.hp = 1; log.push('戰鬥續行：撐住了'); }
+    else if (p === 'revive' && run.lives > 0) { run.lives--; run.hp = Math.round(run.maxHp * 0.2); log.push('十二試煉：又站了起來（還剩 ' + run.lives + ' 條命）'); }
+    else run.hp = 0;
+  }
+  function debuffPlayer(run, k, n, log) {
+    var b = run.battle, p = passive(run);
+    if (k === 'weak' && p === 'madness') return;
+    if (p === 'antimagic' && b.antimagic) { b.antimagic = 0; log.push('對魔力擋下了' + (k === 'weak' ? '虛弱' : '易傷')); return; }
+    b[k] += n;
+  }
+  // 玩家的攻擊數字（不含敵人易傷）
+  function pDmg(ctx, base) {
+    var b = ctx.b, d = base + b.str + b.tstr;
+    if (ctx.atk && passive(ctx.run) === 'arms') d += b.combo;
+    if (ctx.atk && b.firstAtk) { d += 6; b.firstAtk = false; }
     if (b.weak > 0) d = d * 0.75;
+    if (ctx.atk && b.turn === 1 && passive(ctx.run) === 'ambush') d = d * 1.5;
     return d;
   }
   function dmgTo(e, raw) { return Math.max(0, Math.floor(e.vuln > 0 ? raw * 1.5 : raw)); }
+  // 一次命中：紅薔薇架勢的攻擊無視格擋；毒身每次命中加毒
+  function strike(ctx, e, base, pierce) {
+    var b = ctx.b; if (!e || e.hp <= 0) return 0;
+    var dealt = hitEnemy(ctx.run, e, dmgTo(e, pDmg(ctx, base)), ctx.log, pierce || (ctx.atk && b.stance === 'red'));
+    if (ctx.atk && b.pVenom && e.hp > 0) e.poison += b.pVenom;
+    return dealt;
+  }
+  function randFoe(ctx) { var a = alive(ctx.b); return a.length ? pick(ctx.run, a) : null; }
+  function minionHits(ctx, times, bonus) {
+    var atk = minionInfo(ctx.run).atk + (bonus || 0);
+    for (var m = 0; m < ctx.b.minions; m++) for (var h = 0; h < times; h++) { var e = randFoe(ctx); if (e) hitEnemy(ctx.run, e, dmgTo(e, atk), ctx.log); }
+  }
+
+  // ── 效果表：卡牌與寶具共用。ctx＝{run, b, tg 目標, log, id 卡片, atk 是否攻擊牌, first 是否本回合第一張} ──
+  var OPS = {
+    dmg: function (x, f) { strike(x, x.tg, f[1] + (x.id === 'sword' ? x.b.projUp : 0)); },
+    hits: function (x, f) { for (var h = 0; h < f[2]; h++) strike(x, x.tg, f[1]); },
+    all: function (x, f) { alive(x.b).forEach(function (e) { strike(x, e, f[1]); }); },
+    rand: function (x, f) { for (var h = 0; h < f[2]; h++) strike(x, randFoe(x), f[1]); },
+    pierce: function (x, f) { strike(x, x.tg, f[1], true); },
+    pierceHits: function (x, f) { for (var h = 0; h < f[2]; h++) strike(x, x.tg, f[1], true); },
+    block: function (x, f) { x.b.block += f[1]; },
+    draw: function (x, f) { drawCards(x.run, f[1]); },
+    energy: function (x, f) { x.b.energy += f[1]; },
+    str: function (x, f) { x.b.str += f[1]; },
+    tstr: function (x, f) { x.b.tstr += f[1]; },
+    vuln: function (x, f) { if (x.tg && x.tg.hp > 0) x.tg.vuln += f[1]; },
+    weak: function (x, f) { if (x.tg && x.tg.hp > 0) x.tg.weak += f[1]; },
+    weakAll: function (x, f) { alive(x.b).forEach(function (e) { e.weak += f[1]; }); },
+    vulnAll: function (x, f) { alive(x.b).forEach(function (e) { e.vuln += f[1]; }); },
+    strDown: function (x, f) { if (x.tg) x.tg.str -= f[1]; },
+    heal: function (x, f) { x.run.hp = Math.min(x.run.maxHp, x.run.hp + f[1]); },
+    np: function (x, f) { x.b.np = Math.min(100, x.b.np + f[1]); },
+    thorns: function (x, f) { x.b.thorns += f[1]; },
+    proj: function (x, f) { addProj(x.b, f[1]); },
+    burst: function (x, f) {
+      var b = x.b, cnt = b.hand.filter(function (y) { return y === 'sword'; }).length;
+      b.hand = b.hand.filter(function (y) { return y !== 'sword'; });
+      for (var s = 0; s < cnt; s++) { b.exhaust.push('sword'); alive(b).forEach(function (e) { strike(x, e, f[1]); }); }
+      x.log.push('引爆 ' + cnt + ' 把投影劍');
+    },
+    ubw: function (x) { addProj(x.b, 3); x.b.ubw = 2; x.b.projUp += 2; x.log.push('劍的荒野展開了'); },
+    pBlock: function (x, f) { x.b.pBlock += f[1]; }, pDraw: function (x, f) { x.b.pDraw += f[1]; }, pEnergy: function (x, f) { x.b.pEnergy += f[1]; },
+    pStr: function (x, f) { x.b.pStr += f[1]; }, pEvade: function (x, f) { x.b.pEvade += f[1]; }, pTreasure: function (x, f) { x.b.pTreasure += f[1]; },
+    pMinion: function (x, f) { x.b.pMinion += f[1]; }, pVenom: function (x, f) { x.b.pVenom += f[1]; }, pCombo: function (x, f) { x.b.pCombo += f[1]; x.b.combo += f[1]; },
+    evade: function (x, f) { x.b.evade += f[1]; },
+    nextFree: function (x) { x.b.nextFree = 1; },
+    nextEnergy: function (x, f) { x.b.nextEnergy += f[1]; },
+    iai: function (x, f) { if (x.first) { strike(x, x.tg, f[1]); x.log.push('居合！'); } },
+    petrify: function (x, f) { petrify(x.run, x.tg, f[1], x.log); },
+    petrifyAll: function (x, f) { alive(x.b).forEach(function (e) { petrify(x.run, e, f[1], x.log); }); },
+    petrifyDmg: function (x, f) { if (x.tg) strike(x, x.tg, f[1] + f[2] * x.tg.petrify); },
+    drainAll: function (x, f) { var got = 0; alive(x.b).forEach(function (e) { got += strike(x, e, f[1]); }); var h = Math.floor(got / 2); x.run.hp = Math.min(x.run.maxHp, x.run.hp + h); if (h) x.log.push('吸取 ' + h + ' 生命'); },
+    minion: function (x, f) { addMinion(x.b, f[1]); },
+    minionHit: function (x, f) { minionHits(x, 1, f[1]); },
+    minionRand: function (x, f) { minionHits(x, f[1], 0); },
+    minionAll: function (x, f) {
+      var n = x.b.minions; x.b.minions = 0;
+      for (var m = 0; m < n; m++) alive(x.b).forEach(function (e) { hitEnemy(x.run, e, dmgTo(e, f[1]), x.log); });
+      x.log.push('獻祭了 ' + n + ' 名' + minionName(x.run));
+    },
+    sacEnergy: function (x, f) { var k = Math.min(f[1], x.b.minions); x.b.minions -= k; x.b.energy += k; },
+    allPlusMinion: function (x, f) { var n = f[1] + f[2] * x.b.minions; alive(x.b).forEach(function (e) { strike(x, e, n); }); },
+    selfDmg: function (x, f) { x.run.hp = Math.max(1, x.run.hp - f[1]); },
+    dispel: function (x) { if (x.tg) { x.tg.block = 0; if (x.tg.str > 0) x.tg.str = 0; } },
+    dispelAll: function (x) { alive(x.b).forEach(function (e) { e.block = 0; if (e.str > 0) e.str = 0; }); },
+    treasure: function (x, f) { addTreasure(x.run, f[1]); },
+    poison: function (x, f) { if (x.tg && x.tg.hp > 0) x.tg.poison += f[1]; },
+    poisonAll: function (x, f) { alive(x.b).forEach(function (e) { e.poison += f[1]; }); },
+    dmgIfPoison: function (x, f) { if (x.tg) strike(x, x.tg, f[1] + (x.tg.poison > 0 ? f[2] : 0)); },
+    poisonX2: function (x) { if (x.tg) x.tg.poison *= 2; },
+    exec: function (x, f) {
+      var e = x.tg; if (!e || e.hp <= 0) return;
+      if (!ENEMIES[e.id].boss && e.hp <= e.maxHp * f[1] / 100) { e.lives = 0; hitEnemy(x.run, e, e.hp, x.log, true); x.log.push('心臟被取走了'); }
+      else strike(x, e, f[2], true);
+    },
+    stance: function (x, f) { var b = x.b; b.stance = f[1] === 'toggle' ? (b.stance === 'red' ? 'yellow' : 'red') : f[1]; },
+    wound: function (x, f) { if (x.tg && x.tg.hp > 0) x.tg.wound += f[1]; },
+    woundDmg: function (x, f) { if (x.tg) strike(x, x.tg, f[1] + f[2] * x.tg.wound); },
+    army: function (x, f) { x.b.army += f[1]; },
+    armyDmg: function (x, f) { strike(x, x.tg, f[1] + f[2] * x.b.army); },
+    armyAll: function (x, f) { var n = x.b.army * f[1]; alive(x.b).forEach(function (e) { strike(x, e, n); }); },
+    combo: function (x, f) { x.b.combo += f[1]; },
+    comboDmg: function (x, f) { strike(x, x.tg, f[1] + f[2] * x.b.combo); },
+    weaponize: function (x, f) {
+      var b = x.b;
+      for (var k = 0; k < f[1] && b.hand.length <= 10; k++) {
+        var i = -1; b.hand.forEach(function (y, j) { var c = card(y); if (i < 0 && c.type === 'skill' && !c.token) i = j; });
+        if (i >= 0) b.discard.push(b.hand.splice(i, 1)[0]);
+        if (b.hand.length < 10) b.hand.push('weapon');
+      }
+    }
+  };
+  function runFx(ctx, fx) { fx.forEach(function (f) { if (OPS[f[0]]) OPS[f[0]](ctx, f); }); }
+  function pickTarget(b, target) {
+    var tg = b.enemies[target];
+    if (tg && tg.hp > 0) return tg;
+    var foes = alive(b);
+    return foes.length === 1 ? foes[0] : null;
+  }
 
   // 打出手牌第 i 張；target＝敵人索引（單體牌需要）
   function play(run, i, target) {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false, msg: '不在戰鬥中' };
     var id = b.hand[i], c = id && card(id); if (!c) return { ok: false, msg: '沒有這張牌' };
-    if (c.cost > b.energy) return { ok: false, msg: '魔力不夠' };
-    var foes = alive(b), tg = null;
-    if (c.t) { tg = b.enemies[target]; if (!tg || tg.hp <= 0) { if (foes.length === 1) tg = foes[0]; else return { ok: false, msg: '選一個目標', needTarget: true }; } }
-    b.energy -= c.cost; b.hand.splice(i, 1);
-    var log = [c.name];
-    var firstUsed = c.type === 'atk' && b.firstAtk;
-    c.fx.forEach(function (f) {
-      var k = f[0], n = f[1];
-      if (k === 'dmg') { var base = id === 'sword' ? n + b.projUp : n; hitEnemy(run, tg, dmgTo(tg, pDmg(run, base)), log); }
-      else if (k === 'hits') { for (var h = 0; h < f[2]; h++) hitEnemy(run, tg, dmgTo(tg, pDmg(run, n)), log); }
-      else if (k === 'all') { var raw = pDmg(run, n); alive(b).forEach(function (e) { hitEnemy(run, e, dmgTo(e, raw), log); }); }
-      else if (k === 'block') b.block += n;
-      else if (k === 'draw') drawCards(run, n);
-      else if (k === 'energy') b.energy += n;
-      else if (k === 'str') b.str += n;
-      else if (k === 'tstr') b.tstr += n;
-      else if (k === 'vuln') { if (tg) tg.vuln += n; }
-      else if (k === 'weak') { if (tg) tg.weak += n; }
-      else if (k === 'heal') run.hp = Math.min(run.maxHp, run.hp + n);
-      else if (k === 'proj') addProj(b, n);
-      else if (k === 'thorns') b.thorns += n;
-      else if (k === 'burst') { var cnt = b.hand.filter(function (x) { return x === 'sword'; }).length; b.hand = b.hand.filter(function (x) { return x !== 'sword'; }); b.exhaust = b.exhaust.concat(new Array(cnt).fill('sword')); for (var s = 0; s < cnt; s++) { var r2 = pDmg(run, n); alive(b).forEach(function (e) { hitEnemy(run, e, dmgTo(e, r2), log); }); } log.push('引爆 ' + cnt + ' 把投影劍'); }
-      else if (k === 'pBlock') b.pBlock += n;
-      else if (k === 'pDraw') b.pDraw += n;
-      else if (k === 'pEnergy') b.pEnergy += n;
-    });
-    if (firstUsed) b.firstAtk = false;
+    var cost = costOf(run, id);
+    if (cost > b.energy) return { ok: false, msg: '魔力不夠' };
+    var tg = null;
+    if (c.t) { tg = pickTarget(b, target); if (!tg) return { ok: false, msg: '選一個目標', needTarget: true }; }
+    b.energy -= cost;
+    if (c.cost > 0) { if (b.nextFree) b.nextFree = 0; else if (c.type === 'skill' && passive(run) === 'hsw' && !b.hswUsed) b.hswUsed = 1; }
+    b.hand.splice(i, 1);
+    var ctx = { run: run, b: b, tg: tg, log: [c.name], id: c.id.replace('+', ''), atk: c.type === 'atk', first: b.played === 0 };
+    runFx(ctx, c.fx);
+    if (ctx.atk) { if (b.stance === 'yellow' && tg && tg.hp > 0) tg.wound += 1; b.combo++; b.firstAtk = false; }
+    b.played++;
     b.np = Math.min(100, b.np + (c.np || 0));
     if (c.type !== 'power') (c.ex || c.token ? b.exhaust : b.discard).push(id);
-    b.log = log;
+    b.log = ctx.log;
     return { ok: true, end: checkEnd(run) };
   }
 
   // 寶具：量表滿了才能放
   function noble(run, target) {
     var b = run.battle; if (!b || b.np < 100) return { ok: false, msg: '寶具量表還沒滿' };
+    var N = serv(run).np, tg = null;
+    if (needsTarget(N.fx)) { tg = pickTarget(b, target); if (!tg) return { ok: false, msg: '選一個目標', needTarget: true }; }
     b.np = 0; run.stats.np++;
-    var log = [SERVANTS[run.who].np];
-    if (run.who === 'saber') { var raw = pDmg(run, 45); alive(b).forEach(function (e) { hitEnemy(run, e, dmgTo(e, raw), log); }); }
-    else if (run.who === 'archer') { addProj(b, 3); b.ubw = 2; b.projUp += 2; log.push('劍的荒野展開了'); }
-    b.log = log;
+    var ctx = { run: run, b: b, tg: tg, log: [N.name], id: 'np', atk: false, first: false };
+    runFx(ctx, N.fx);
+    b.log = ctx.log;
     return { ok: true, end: checkEnd(run) };
   }
   // 令咒：整局有限；all＝魔力 +3、抽 2｜np＝寶具量表充滿
@@ -323,46 +730,64 @@ var G = (function () {
     return { ok: true };
   }
 
+  // 敵人的一次攻擊：閃避整次躲開｜格擋｜使魔替你擋下最多 4｜穿透攻擊只有閃避擋得住
+  function enemyHit(run, e, n, pierce, log) {
+    var b = run.battle, d = calcDmg(n, e.str, e.weak, b.vuln);
+    if (b.evade > 0) { b.evade--; log.push('閃過了' + e.name + '的攻擊'); return; }
+    if (!pierce) {
+      var took = Math.min(b.block, d); b.block -= took; d -= took;
+      if (d > 0 && b.minions > 0) { b.minions--; d = Math.max(0, d - MINION_GUARD); log.push(minionName(run) + '替你擋下一擊'); }
+    }
+    if (d > 0) loseHp(run, d, log);
+    if (b.thorns && e.hp > 0) hitEnemy(run, e, b.thorns, log);
+  }
+  function enemyAct(run, e, f, log) {
+    var b = run.battle, k = f[0], n = f[1];
+    if (k === 'atk' || k === 'atkP') { for (var h = 0; h < (f[2] || 1) && run.hp > 0 && e.hp > 0; h++) enemyHit(run, e, n, k === 'atkP', log); }
+    else if (k === 'block') e.block += n;
+    else if (k === 'str') e.str += n;
+    else if (k === 'weak' || k === 'vuln') debuffPlayer(run, k, n, log);
+    else if (k === 'heal') e.hp = Math.min(e.maxHp, e.hp + n);
+    else if (k === 'summon') {
+      for (var s = 0; s < f[2] && alive(b).length < FOES_MAX; s++) {
+        var m = makeEnemy(run, n, b.up, b.enemies.length); chooseIntent(run, m); b.enemies.push(m);
+      }
+    }
+  }
+
   function endTurn(run) {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false };
-    b.discard = b.discard.concat(b.hand.filter(function (x) { return x !== 'sword'; }));
-    b.exhaust = b.exhaust.concat(b.hand.filter(function (x) { return x === 'sword'; }));
-    b.hand = []; b.tstr = 0;
+    var log = [], ctx = { run: run, b: b, log: log };
+    if (passive(run) === 'mind' && b.energy > 0) { b.evade += 1; log.push('心眼：閃避 +1'); }
+    b.hand.forEach(function (x) { (card(x).token ? b.exhaust : b.discard).push(x); });
+    b.hand = []; b.tstr = 0; b.nextFree = 0;
     if (b.vuln > 0) b.vuln--; if (b.weak > 0) b.weak--;
-    var log = [];
+    // 我方的持續攻擊：軍勢衝鋒、使魔
+    if (b.army > 0) { var t = randFoe(ctx); if (t) { hitEnemy(run, t, dmgTo(t, b.army), log); log.push('軍勢衝鋒 ' + b.army); } }
+    if (b.minions > 0 && alive(b).length) { minionHits(ctx, 1, 0); log.push(minionName(run) + '×' + b.minions + ' 出擊'); }
+    var end = checkEnd(run);
+    if (end) { b.log = log; return { ok: true, end: end }; }
     alive(b).forEach(function (e) {
-      if (run.hp <= 0) return;
+      if (run.hp <= 0 || e.hp <= 0) return;
       e.block = 0;
-      var mv = e.intent;
-      mv.fx.forEach(function (f) {
-        var k = f[0], n = f[1];
-        if (k === 'atk') {
-          for (var h = 0; h < (f[2] || 1); h++) {
-            var d = calcDmg(n, e.str, e.weak, b.vuln), took = Math.min(b.block, d); b.block -= took; d -= took;
-            run.hp = Math.max(0, run.hp - d);
-            if (b.thorns && e.hp > 0) hitEnemy(run, e, b.thorns, log);
-          }
-        }
-        else if (k === 'block') e.block += n;
-        else if (k === 'str') e.str += n;
-        else if (k === 'weak') b.weak += n;
-        else if (k === 'vuln') b.vuln += n;
-        else if (k === 'heal') e.hp = Math.min(e.maxHp, e.hp + n);
-      });
-      log.push(e.name + '：' + mv.n);
+      if (e.poison > 0) { hitEnemy(run, e, e.poison, log, true); e.poison--; }
+      if (e.wound > 0 && e.hp > 0) hitEnemy(run, e, e.wound, log, true);
+      if (e.hp <= 0) return;
+      if (e.stun) { e.stun = 0; log.push(e.name + '動彈不得'); }
+      else { e.intent.fx.forEach(function (f) { enemyAct(run, e, f, log); }); log.push(e.name + '：' + e.intent.n); }
       if (e.vuln > 0) e.vuln--; if (e.weak > 0) e.weak--;
-      if (e.hp > 0) chooseIntent(run, e);
+      if (e.hp > 0 && !e.stun) chooseIntent(run, e);
     });
     b.thorns = 0;
     b.log = log;
-    var end = checkEnd(run);
+    end = checkEnd(run);
     if (!end) startTurn(run, false);
     return { ok: true, end: end };
   }
 
   function checkEnd(run) {
     var b = run.battle;
-    if (run.hp <= 0) { run.screen = 'over'; run.win = false; return 'lose'; }
+    if (run.hp <= 0) { run.hp = 0; run.screen = 'over'; run.win = false; return 'lose'; }
     if (!alive(b).length) {
       if (b.kind === 'boss') { run.screen = 'over'; run.win = true; return 'win'; }
       run.screen = 'reward';
@@ -371,12 +796,14 @@ var G = (function () {
     }
     return '';
   }
+  function kitsOf(run) { var S = serv(run); return S.kits || [run.who]; }
   function cardChoices(run, better) {
-    var own = Object.keys(CARDS).filter(function (k) { return CARDS[k].who === run.who; });
-    var common = Object.keys(CARDS).filter(function (k) { return !CARDS[k].who && !CARDS[k].token && k !== 'atk' && k !== 'def'; });
+    var kits = kitsOf(run);
+    var own = Object.keys(CARDS).filter(function (k) { return kits.indexOf(CARDS[k].kit) >= 0; });
+    var common = Object.keys(CARDS).filter(function (k) { return CARDS[k].kit === 'common'; });
     var out = [];
     while (out.length < 3) {
-      var k = rnd(run) < 0.7 ? pick(run, own) : pick(run, common);
+      var k = rnd(run) < 0.72 ? pick(run, own) : pick(run, common);
       if (out.indexOf(k) < 0 && out.indexOf(k + '+') < 0) out.push(better && rnd(run) < 0.4 ? k + '+' : k);
     }
     return out;
@@ -400,8 +827,9 @@ var G = (function () {
     return true;
   }
 
-  return { CARDS: CARDS, SERVANTS: SERVANTS, ENEMIES: ENEMIES, RELICS: RELICS, FLOORS: FLOORS,
-    card: card, cardText: cardText, newRun: newRun, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
-    takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic };
+  return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, OPS: OPS, FX_TEXT: FX_TEXT,
+    card: card, cardText: cardText, fxText: fxText, npText: npText, costOf: costOf, serv: serv, passive: passive, minionName: minionName,
+    newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
+    takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic, needsTarget: needsTarget };
 })();
 </script>
