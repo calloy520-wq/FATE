@@ -35,10 +35,11 @@ function value(run){
   v+=b.str*5+b.tstr*1.2+b.energy*4+b.np*0.35+b.minions*4+b.army*3.5+b.combo*0.8+(b.nextFree?4:0)+b.nextEnergy*4;
   v+=(b.pBlock*3+b.pDraw*6+b.pEnergy*9+b.pStr*6+b.pEvade*8+b.pTreasure*6+b.pMinion*7+b.pVenom*6+b.pCombo*4)*left/4;
   v+=b.ubw*12+b.projUp*6+b.thorns*0.5;
-  // 改版後的資源：風、閃避反擊、各種每回合效果
+  // 改版後的資源：風、迴避反擊、各種每回合效果
   const hits=incoming(run).length;
   v+=b.wind*3+b.iaiUp*2+(hits&&b.evade?b.riposte*0.8:0);
   v+=b.kraken*3+b.pKraken*6*left/4;
+  G.alive(b).forEach(e=>{ if(e.doom) v+=e.doom*3+(!G.ENEMIES[e.id].boss&&e.hp<=e.doom*4+8?6:0); }); v+=(b.pBorrow||0)*6*left/4;
   v+=(b.pWind*6+b.pEvadeStr*5+b.pPetrifyAll*8+b.pSkillBlock*5+b.pEnergyBlock*3+b.pStanceBlock*3+b.pRage*4)*left/4;
   return v;
 }
@@ -76,6 +77,8 @@ function rate(run0,id){
   }
   return RATE[k]=tot/3;
 }
+// 強化方向：三個裡面挑測試局面分數最高的（能力牌多給一點）
+function bestUp(run,i){ const o=G.upgradeOptions(run,i); let b=o[0],bv=-1e9; o.forEach(v=>{ const c=G.card(v), x=rate(run,v)+(c.type==='power'?6:0)-(c.ex&&!G.card(run.deck[i]).ex?4:0); if(x>bv){bv=x;b=v;} }); return b; }
 function pickReward(run){
   const cs=run.reward.cards; if(run.deck.length>=24) return -1;
   let best=-1, bv=4;
@@ -93,14 +96,14 @@ function playRun(who,seed,custom){
     else if(run.screen==='reward'){ if(run.reward.awaken) G.awaken(run,AWAKEN>=0?AWAKEN:(seed+run.floor)%2); G.takeReward(run,pickReward(run)); }
     else if(run.screen==='chest') G.takeChest(run);
     else if(run.screen==='event'){ const E=G.EVENTS[run.event]; let i=E.opts.findIndex(o=>G.canChoose(run,o)&&!(o.need&&o.need.hp&&run.hp-o.need.hp<run.maxHp*0.5)); if(i<0) i=E.opts.length-1; G.choose(run,i); }
-    else if(run.screen==='pick'){ const kind=run.pending[0]; let i=kind==='remove'?run.deck.findIndex(x=>x==='atk'||x==='def'||x==='mud'):run.deck.findIndex(x=>x.slice(-1)!=='+'&&G.CARDS[x].up); G.pickCard(run,i); }
+    else if(run.screen==='pick'){ const kind=run.pending[0]; let i=kind==='remove'?run.deck.findIndex(x=>x==='atk'||x==='def'||x==='mud'):run.deck.findIndex(x=>G.canUpgrade(x)&&x!=='atk'&&x!=='def'); if(i<0) i=run.deck.findIndex(x=>G.canUpgrade(x)); G.pickCard(run,i,i>=0&&kind==='upgrade'?bestUp(run,i):undefined); }
     else if(run.screen==='secret') G.secret(run,SECRET);
     else if(run.screen==='shop'){ const S=run.shop; let bought=false;
       if(!S.removed&&run.gold>=G.removePrice(run)){ const i=run.deck.findIndex(x=>x==='atk'||x==='def'); if(i>=0&&G.buy(run,'remove',i).ok) bought=true; }
       if(!bought){ const cs=S.cards.map((c,i)=>[c,i]).filter(([c])=>!c.sold&&c.price<=run.gold).sort((a,b)=>rate(run,b[0].id)-rate(run,a[0].id)); if(cs.length&&rate(run,cs[0][0].id)>4&&run.deck.length<24&&G.buy(run,'card',cs[0][1]).ok) bought=true; }
       if(!bought&&S.relic&&!S.relic.sold&&run.gold>=S.relic.price&&G.buy(run,'relic').ok) bought=true;
       if(!bought) G.leaveShop(run); }
-    else if(run.screen==='rest'){ if(run.hp<run.maxHp*0.65) G.rest(run,'heal'); else { const i=run.deck.findIndex(x=>x.slice(-1)!=='+'&&x!=='atk'&&x!=='def'&&G.CARDS[x].up); if(!(i>=0&&G.rest(run,'upgrade',i))) G.rest(run,'heal'); } }
+    else if(run.screen==='rest'){ if(run.hp<run.maxHp*0.65) G.rest(run,'heal'); else { const i=run.deck.findIndex(x=>G.canUpgrade(x)&&x!=='atk'&&x!=='def'); if(!(i>=0&&G.rest(run,'upgrade',i,bestUp(run,i)))) G.rest(run,'heal'); } }
   }
   return run;
 }

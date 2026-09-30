@@ -98,7 +98,13 @@
   .svt b { color:var(--gold); font-size:16px; }
   input { font:inherit; color:var(--ink); background:#131722; border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
   .note { font-size:12.5px; color:var(--dim); background:#131722; border-radius:8px; padding:6px 9px; }
-  .war { width:100%; max-width:420px; color:var(--gold); font-size:13px; letter-spacing:.2em; border-bottom:1px solid var(--line); padding:8px 0 4px; }
+  .grid { width:100%; max-width:640px; display:grid; grid-template-columns:repeat(auto-fill,minmax(118px,1fr)); gap:8px; }
+  .tile { border:1px solid var(--line); border-radius:12px; padding:10px 8px; background:var(--panel); text-align:center; min-height:86px; display:flex; flex-direction:column; justify-content:center; gap:3px; }
+  .tile .tcls { font-size:11px; color:var(--dim); letter-spacing:.1em; } .tile .tname { font-size:14px; font-weight:bold; } .tile .tsub { font-size:11.5px; color:var(--dim); }
+  .tile.have { border-color:var(--gold); } .tile.have .tname { color:var(--gold); }
+  .tile.can { border-color:var(--green); border-style:dashed; } .tile.can .tsub { color:var(--green); }
+  .tile.lock { opacity:.5; }
+  .war { width:100%; max-width:640px; color:var(--gold); font-size:13px; letter-spacing:.2em; border-bottom:1px solid var(--line); padding:8px 0 4px; }
   .list { width:100%; max-width:460px; display:flex; flex-direction:column; gap:6px; }
   .list button { text-align:left; border:1px solid var(--line); border-radius:9px; padding:8px 10px; background:var(--panel); }
   .ov { position:fixed; inset:0; background:rgba(0,0,0,.7); display:none; align-items:flex-end; justify-content:center; z-index:9; }
@@ -116,31 +122,115 @@
   var KEY = 'grail_run_v1', run = null, sel = { card: -1, foe: -1, np: false };
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-  // ── 玩家：每個人各自的存檔、英靈殿、聖晶石、解鎖與戰績（都在這台瀏覽器） ──
-  var PKEY = 'grail_profiles_v1';
-  function profiles() {
-    var P = null; try { P = JSON.parse(localStorage.getItem(PKEY) || 'null'); } catch (e) { }
-    if (!P || !P.list) P = { cur: '玩家1', list: {} };
-    if (!P.list[P.cur]) P.list[P.cur] = newProfile();
-    return P;
+  // ── 帳號：第一個畫面先登入；每個帳號各自的存檔、英靈殿、聖晶石、解鎖與戰績都存在伺服器（換裝置也接得上），本機另留一份快取 ──
+  var ACC = null, META = null, SAVED_RUN = null, AKEY = 'grail_acc_v1', CKEY = 'grail_cache_v1:';
+  function newMeta() { return { crystals: 0, svts: ['saber'], asc: {}, fates: [], heroes: [], clears: {}, stats: { runs: 0, wins: 0, trueEnds: 0, best: {} }, ts: 0 }; }
+  // 難度與命座上限：困難要任一從者通關普通、深淵要通關困難；命座上限看「這位」通關過的最高難度（普通 2、困難 4、深淵 6）
+  function cleared(k, d) { return !!(META.clears[k] && META.clears[k][d]); }
+  function anyCleared(d) { return Object.keys(META.clears).some(function (k) { return META.clears[k][d]; }); }
+  function diffOpen(d) { return d === 'normal' || (d === 'hard' && anyCleared('normal')) || (d === 'abyss' && anyCleared('hard')); }
+  function ascCap(k) { return cleared(k, 'abyss') ? 6 : cleared(k, 'hard') ? 4 : cleared(k, 'normal') ? 2 : 0; }
+  function me() { return META; }
+  function updateMe(fn) { fn(META); queueSave(true, false); }
+  function save() { SAVED_RUN = run ? JSON.stringify(run) : ''; queueSave(false, true); }
+  function load() { try { return SAVED_RUN ? G.migrate(JSON.parse(SAVED_RUN)) : null; } catch (e) { return null; } }
+  // 呼叫伺服器（Code.gs）；在本機直接開檔案時（沒有 google.script）改用瀏覽器裡的假伺服器，方便測試
+  function srv(fn, args, ok, fail) {
+    if (window.google && google.script && google.script.run) { var r = google.script.run.withSuccessHandler(ok).withFailureHandler(fail || function (e) { ok({ ok: false, offline: true, msg: '連不上伺服器：' + (e && e.message || e) }); }); r[fn].apply(r, args); return; }
+    setTimeout(function () { ok(fakeServer(fn, args)); }, 0);
   }
-  function newProfile() { return { crystals: 0, svts: ['saber'], asc: {}, fates: [], stats: { runs: 0, wins: 0, trueEnds: 0, best: {} } }; }
-  function saveProfiles(P) { try { localStorage.setItem(PKEY, JSON.stringify(P)); } catch (e) { } }
-  function me() { var P = profiles(); return P.list[P.cur]; }
-  function updateMe(fn) { var P = profiles(); fn(P.list[P.cur]); saveProfiles(P); }
-  function runKey() { var c = profiles().cur; return c === '玩家1' ? KEY : KEY + ':' + c; }   // 玩家1 沿用舊的存檔位置
-  function save() { try { if (run) localStorage.setItem(runKey(), JSON.stringify(run)); else localStorage.removeItem(runKey()); } catch (e) { } }
-  function load() { try { var s = localStorage.getItem(runKey()); return s ? G.migrate(JSON.parse(s)) : null; } catch (e) { return null; } }
+  function fakeServer(fn, a) {
+    var db = {}; try { db = JSON.parse(localStorage.getItem('grail_fake_srv') || '{}'); } catch (e) { }
+    var put = function () { localStorage.setItem('grail_fake_srv', JSON.stringify(db)); }, u = db[a[0]];
+    if (fn === 'gpLogin') {
+      if (!a[0]) return { ok: false, msg: '先輸入帳號' }; if (String(a[1] || '').length < 4) return { ok: false, msg: '密碼至少 4 個字' };
+      if (!u) { if (!a[2]) return { ok: false, notFound: true, msg: '沒有這個帳號' }; db[a[0]] = { pass: a[1], meta: '', run: '' }; put(); return { ok: true, created: true, name: a[0], token: 't-' + a[0], meta: null, run: null }; }
+      if (u.pass !== a[1]) return { ok: false, msg: '密碼不對' };
+      return { ok: true, name: a[0], token: 't-' + a[0], meta: u.meta || null, run: u.run || null };
+    }
+    if (fn === 'gpResume') return u && a[1] === 't-' + a[0] ? { ok: true, name: a[0], token: a[1], meta: u.meta || null, run: u.run || null } : { ok: false, msg: '請重新登入' };
+    if (fn === 'gpSave') { if (!u) return { ok: false }; if (a[2] != null) u.meta = a[2]; if (a[3] != null) u.run = a[3]; put(); return { ok: true }; }
+  }
+  // 存檔：先寫本機快取，停 2 秒沒有新變化再送伺服器
+  var dirty = { meta: false, run: false }, saveTimer = null, syncState = '';
+  function queueSave(m, r) {
+    if (!ACC || !META) return;
+    META.ts = Date.now();
+    if (m) dirty.meta = true; if (r) dirty.run = true;
+    try { localStorage.setItem(CKEY + ACC.name, JSON.stringify({ meta: JSON.stringify(META), run: SAVED_RUN, ts: META.ts })); } catch (e) { }
+    clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, 2000); syncState = '…';
+  }
+  function flushSave() {
+    clearTimeout(saveTimer); if (!ACC || (!dirty.meta && !dirty.run)) return;
+    var m = dirty.meta || dirty.run ? JSON.stringify(META) : null, r = dirty.run ? SAVED_RUN : null;   // 每次都順便帶 meta（有時間戳）
+    dirty = { meta: false, run: false };
+    srv('gpSave', [ACC.name, ACC.token, m, r], function (res) { syncState = res && res.ok ? '' : '⚠'; if (res && !res.ok && !res.offline) toast('存檔失敗：' + (res.msg || '')); });
+  }
+  document.addEventListener('visibilitychange', function () { if (document.hidden) flushSave(); });
+  // 舊版在本機玩出來的進度（還沒有帳號的時候）：第一個登入的帳號沒有資料就搬過來
+  function legacyData() {
+    try {
+      if (localStorage.getItem('grail_legacy_done')) return null;
+      var P = JSON.parse(localStorage.getItem('grail_profiles_v1') || 'null'), prof = P && P.list && (P.list['玩家1'] || P.list[P.cur]);
+      var run0 = localStorage.getItem(KEY), heroes0 = JSON.parse(localStorage.getItem('grail_heroes_v1') || '[]');
+      if (!prof && !run0 && !heroes0.length) return null;
+      var m = newMeta(); if (prof) Object.keys(prof).forEach(function (k) { m[k] = prof[k]; });
+      m.heroes = heroes0;
+      if (run0 && m.svts.indexOf(JSON.parse(run0).who) < 0 && JSON.parse(run0).who !== 'custom') m.svts.push(JSON.parse(run0).who);   // 已經在玩的那位先算解鎖
+      return { meta: m, run: run0 || '' };
+    } catch (e) { return null; }
+  }
+  function onLogin(res) {
+    ACC = { name: res.name, token: res.token };
+    try { localStorage.setItem(AKEY, JSON.stringify(ACC)); } catch (e) { }
+    META = null; SAVED_RUN = res.run || '';
+    try { META = res.meta ? JSON.parse(res.meta) : null; } catch (e) { }
+    if (!META) { var L = legacyData(); if (L) { META = L.meta; SAVED_RUN = L.run; localStorage.setItem('grail_legacy_done', '1'); toast('已把這台裝置上的舊進度搬進帳號'); } }
+    META = META || newMeta();
+    Object.keys(newMeta()).forEach(function (k) { if (META[k] === undefined) META[k] = newMeta()[k]; });
+    // 本機快取比伺服器新（上次沒送出去）：用本機的，並補送
+    try { var C = JSON.parse(localStorage.getItem(CKEY + ACC.name) || 'null'); if (C && C.ts > (META.ts || 0)) { META = JSON.parse(C.meta); SAVED_RUN = C.run || ''; dirty = { meta: true, run: true }; flushSave(); } } catch (e) { }
+    if (res.created || !res.meta) queueSave(true, true);
+    run = null; titleScreen();
+  }
+  function logout() { flushSave(); ACC = null; META = null; SAVED_RUN = null; run = null; try { localStorage.removeItem(AKEY); } catch (e) { } loginScreen(); }
+  function loginScreen(msg) {
+    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>聖杯之路</h1><div class="dim">登入後開始。每個帳號各自存檔，換手機或電腦也接得上。</div>'
+      + '<div class="list" style="max-width:320px"><input id="lname" maxlength="16" placeholder="帳號" autocomplete="username"><input id="lpass" type="password" maxlength="40" placeholder="密碼（至少 4 個字）" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')doLogin(false)">'
+      + '<button class="btn" onclick="doLogin(false)">登入</button><button class="btn" style="border-color:var(--line);color:var(--dim)" onclick="doLogin(true)">建立新帳號</button>'
+      + '<div id="lmsg" class="dim" style="min-height:1.4em">' + esc(msg || '') + '</div><div class="dim" style="font-size:12px">忘記密碼無法找回，請記好。</div></div></div>';
+  }
+  function doLogin(create) {
+    var n = $('lname').value.trim(), p = $('lpass').value;
+    $('lmsg').textContent = '連線中…';
+    srv('gpLogin', [n, p, create], function (res) {
+      if (res && res.ok) return onLogin(res);
+      if (res && res.notFound) { $('lmsg').textContent = '沒有這個帳號。要建立的話按「建立新帳號」。'; return; }
+      $('lmsg').textContent = (res && res.msg) || '登入失敗';
+    });
+  }
+  function boot() {
+    var A = null; try { A = JSON.parse(localStorage.getItem(AKEY) || 'null'); } catch (e) { }
+    if (!A) return loginScreen();
+    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>聖杯之路</h1><div class="dim">登入中…</div></div>';
+    srv('gpResume', [A.name, A.token], function (res) {
+      if (res && res.ok) return onLogin(res);
+      if (res && res.offline) {   // 連不上：用本機快取先玩，之後再同步
+        try { var C = JSON.parse(localStorage.getItem(CKEY + A.name) || 'null'); if (C) { ACC = A; META = JSON.parse(C.meta); SAVED_RUN = C.run || ''; run = null; toast('離線中：進度先存在這台裝置'); return titleScreen(); } } catch (e) { }
+      }
+      loginScreen((res && res.msg) || '');
+    });
+  }
   function toast(m) { var t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(function () { t.style.display = 'none'; }, 1500); }
   function closeOv() { $('ov').style.display = 'none'; }
   function openOv(html) { $('sheet').innerHTML = html; $('ov').style.display = 'flex'; }
 
   var NODE = { fight: '⚔ 戰鬥', elite: '☠ 精英', rest: '🔥 休息', chest: '🎁 寶箱', boss: '👑 Boss' };
-  var WARS = [[5, '第五次聖杯戰爭'], [4, '第四次聖杯戰爭'], [45, '兩屆都在']];
+  var CLASSES = ['Saber', 'Archer', 'Lancer', 'Rider', 'Caster', 'Assassin', 'Berserker'];
   var GLOSSARY = [
     ['風', 'Saber 的資源：看不見的劍、魔力放出等累積，風王鐵槌與寶具「誓約勝利之劍」一次解放；整場保留'],
-    ['閃避', '完全躲開下一次攻擊（連穿透也躲得掉），回合開始清空'],
-    ['迎擊', '庫丘林：本回合閃避成功時，對攻擊者造成穿透傷害'],
+    ['迴避', '完全躲開下一次攻擊（連穿透也躲得掉），回合開始清空'],
+    ['迎擊', '庫・丘林：本回合迴避成功時，對攻擊者造成穿透傷害'],
     ['看穿', '小次郎：回合結束時還剩魔力，敵人下一次攻擊的傷害減半'],
     ['穿透', '無視格擋的傷害；敵人的穿透攻擊也不會被使魔擋下'],
     ['使魔', '回合結束時各自攻擊一名隨機敵人；敵人攻擊你時，先扣格擋，剩下的由一名使魔替你擋下最多 4 點後消散'],
@@ -153,16 +243,21 @@
     ['泥', '敵人塞進你牌堆的狀態牌（只在這場戰鬥）：打不出來，回合結束時還在手上就失去 2 生命'],
     ['奧義', '每位從者一張的稀有牌，只會在打贏精英的獎勵裡出現'],
     ['金錢與商店', '打贏戰鬥得到金（精英、魔王更多）；地圖上的 🛒 商店可以買專屬牌、奧義、禮裝，也能花錢移除卡片（每間店一次，越移越貴）'],
+    ['難度', '普通／困難／深淵：困難要任一從者通關普通、深淵要通關困難；越難敵人越強，聖晶石越多。命座（靈基再臨）上限看那位通關過的最高難度：普通 II、困難 IV、深淵 VI'],
     ['命運', '每次出發前三選一的強化；到靈基工坊用聖晶石解鎖更多'],
     ['聖晶石與靈基工坊', '每局結束依表現得到聖晶石（走過的格子、打倒魔王、通關）；拿來解鎖新英靈、靈基再臨（每位英靈各自升級）、命運。每位玩家分開記'],
+    ['死兆', '斯卡哈的印記：每層讓那個敵人受到的每一擊 +1；生命低於「死兆×4」就立刻倒下（魔王只吃加傷，不會即死）'],
+    ['師承', '斯卡哈的被動：每場戰鬥開始從其他從者的牌池借 1 張牌（只在這場戰鬥）'],
     ['地圖', '由上往下走，只能沿線前進；看得到接下來 3 列與魔王。精英比較難，但打贏有禮裝與靈基覺醒；事件是有取捨的選擇'],
     ['兩章與隱藏關', '第一章、第二章各有一位魔王；第二章打完時手上還留著令咒，就能燒掉 1 劃進入隱藏關'],
+    ['強化方向', '休息點鍛鍊或事件強化時，從三個方向選一個：精煉（數值變強）、迅捷（費用 -1，只有 2 費以上的牌）、共鳴（寶具 +15%、多抽 1）、英靈之魂（多一個自己從者的機制，只有專屬牌）、極限（數值翻倍但打出後消耗）'],
     ['虛弱', '造成的攻擊傷害 ×0.75'], ['易傷', '受到的攻擊傷害 ×1.5'], ['消耗', '打出後這場戰鬥不再出現']
   ];
 
   function render() {
+    if (!ACC) return loginScreen();
     if (run) save();   // 回到標題時不能動存檔（一打開網頁 run 還是空的）
-    if (!run) return title();
+    if (!run) return titleScreen();
     var s = run.screen;
     if (s === 'map') return mapScreen();
     if (s === 'battle') return battleScreen();
@@ -177,42 +272,33 @@
   }
 
   // ── 標題與選從者 ──
-  function title() {
-    var saved = load(), S = saved && G.serv(saved), P = profiles(), M = me();
+  function titleScreen() {
+    var saved = load(), S = saved && G.serv(saved), M = me();
     $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center">'
       + '<h1>聖杯之路</h1><div class="dim">選一位從者，走到聖杯面前。</div>'
-      + '<div class="box" style="text-align:center">玩家：<b style="color:var(--gold)">' + esc(P.cur) + '</b>　💎 聖晶石 ' + M.crystals + '　<button class="infobtn" onclick="profileMenu()">切換／新增玩家</button></div>'
+      + '<div class="box" style="text-align:center">帳號：<b style="color:var(--gold)">' + esc(ACC.name) + '</b>　💎 聖晶石 ' + M.crystals + '　<button class="infobtn" onclick="logout()">登出／換人</button></div>'
       + (saved && S && saved.screen !== 'over' ? '<button class="btn" onclick="cont()">繼續冒險（' + esc(S.cls + '・' + S.name) + '・' + esc((G.ACT_NAMES[saved.act] || '').split('　')[0]) + ' 第 ' + saved.floor + ' 列）</button>' : '')
       + '<button class="btn" onclick="choose()">新的冒險</button>'
       + '<button class="btn" onclick="workshop(\'svt\')">💎 靈基工坊（解鎖英靈・靈基再臨・命運）</button>'
       + '<button class="btn" style="border-color:var(--line);color:var(--dim)" onclick="recordScreen()">戰績</button>'
       + '<button class="btn" style="border-color:var(--line);color:var(--dim)" onclick="openOv(\'<b>名詞說明</b>\' + glossaryHtml())">名詞說明</button></div>';
   }
-  function profileMenu() {
-    var P = profiles();
-    openOv('<b>切換玩家</b><div class="dim" style="margin:4px 0 10px">每位玩家有自己的存檔、英靈殿、聖晶石與解鎖。</div><div class="list">'
-      + Object.keys(P.list).map(function (n, i) { return '<button onclick="switchProfile(' + i + ')">' + (n === P.cur ? '▶ ' : '') + esc(n) + '　<span class="dim">💎 ' + P.list[n].crystals + '・通關 ' + P.list[n].stats.wins + '</span></button>'; }).join('')
-      + '</div><div class="row" style="margin-top:12px"><input id="pname" maxlength="10" placeholder="新玩家名字" style="flex:1"><button class="btn" onclick="addProfile()">新增</button></div>');
-  }
-  function switchProfile(i) { var P = profiles(), n = Object.keys(P.list)[i]; if (!n) return; P.cur = n; saveProfiles(P); closeOv(); run = null; title(); }
-  function addProfile() {
-    var n = ($('pname').value || '').trim().slice(0, 10); if (!n) return toast('先取個名字');
-    var P = profiles(); if (!P.list[n]) P.list[n] = newProfile(); P.cur = n; saveProfiles(P); closeOv(); run = null; title();
-  }
   // 靈基工坊：用聖晶石解鎖英靈、靈基再臨、解鎖命運
-  var ROMAN = ['—', 'I', 'II', 'III', 'IV', 'V'];
+  var ROMAN = ['—', 'I', 'II', 'III', 'IV', 'V', 'VI'];
   function workshop(tab) {
     var M = me(), tabs = [['svt', '英靈・靈基再臨'], ['fate', '命運']], body = '';
     var head = '<div class="tabs" style="max-width:460px;width:100%">' + tabs.map(function (t) { return '<button class="' + (tab === t[0] ? 'on' : '') + '" onclick="workshop(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>';
     if (tab === 'svt') {
-      body = '<div class="dim" style="max-width:460px">靈基再臨每一級都在開局生效：' + G.ASC.map(function (a, i) { return ROMAN[i + 1] + ' ' + a.text; }).join('；') + '</div>'
+      body = '<div class="dim" style="max-width:460px">靈基再臨像命座：每位英靈各自升級、各有特色，開局生效。I 生命、II／III 開場效果、IV 寶具追加、V 奧義牌、VI 每回合強化。用這位通關普通開放 I～II、困難 III～IV、深淵 V～VI。</div>'
         + G.ORDER.concat(['custom']).map(function (k) {
           var S = k === 'custom' ? { cls: '自創', name: '英靈' } : G.SERVANTS[k], have = M.svts.indexOf(k) >= 0, lv = M.asc[k] || 0, line = '<b>' + esc(S.cls + '・' + S.name) + '</b>';
           if (!have) return '<div class="box">' + line + '　<button class="infobtn" onclick="unlockSvt(\'' + k + '\')">🔒 解鎖 💎' + G.SVT_COST[k] + '</button></div>';
           if (k === 'custom') return '<div class="box">' + line + '　<span class="dim">已解鎖</span></div>';
           var nx = G.ASC[lv];
           return '<div class="box">' + line + '　<span style="color:var(--gold)">靈基再臨 ' + ROMAN[lv] + '</span>'
-            + (nx ? '<div class="dim" style="margin-top:4px">下一級：' + esc(nx.text) + '　<button class="infobtn" onclick="ascend(\'' + k + '\')">💎' + nx.cost + '</button></div>' : '<div class="dim">已滿級</div>') + '</div>';
+            + '<div style="margin-top:4px;font-size:12.5px">' + G.ASC.map(function (a, i) { return '<div class="' + (i < lv ? '' : 'dim') + '">' + (i < lv ? '✔ ' : '・') + ROMAN[i + 1] + '　' + esc(G.ascText(k, i + 1)) + '</div>'; }).join('') + '</div>'
+            + (!nx ? '<div class="dim">已滿級</div>' : lv >= ascCap(k) ? '<div class="dim" style="margin-top:6px">🔒 升到 ' + ROMAN[lv + 1] + ' 要先用這位通關' + ['普通', '普通', '困難', '困難', '深淵', '深淵'][lv] + '</div>'
+              : '<div style="margin-top:6px">升到 ' + ROMAN[lv + 1] + '　<button class="infobtn" onclick="ascend(\'' + k + '\')">💎' + nx.cost + '</button></div>') + '</div>';
         }).join('');
     } else {
       body = '<div class="dim" style="max-width:460px">每次出發前，從已解鎖的命運裡抽三個選一個。解鎖越多，選擇越多。</div>'
@@ -223,20 +309,40 @@
     }
     workshop.tab = tab;
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:20px">靈基工坊</h1><div>💎 聖晶石 <b style="color:var(--gold)">' + M.crystals + '</b></div>' + head
-      + '<div class="list">' + body + '</div><button class="btn" onclick="title()">返回</button></div>';
+      + '<div class="list">' + body + '</div><button class="btn" onclick="titleScreen()">返回</button></div>';
   }
   function spend(cost, fn) { if (me().crystals < cost) return toast('聖晶石不夠（每局結束依表現得到）'); updateMe(function (m) { m.crystals -= cost; fn(m); }); workshop(workshop.tab); }
   function unlockSvt(k) { spend(G.SVT_COST[k], function (m) { if (m.svts.indexOf(k) < 0) m.svts.push(k); }); }
-  function ascend(k) { var lv = me().asc[k] || 0; if (!G.ASC[lv]) return; spend(G.ASC[lv].cost, function (m) { m.asc[k] = lv + 1; }); }
+  function ascend(k) { var lv = me().asc[k] || 0; if (!G.ASC[lv] || lv >= ascCap(k)) return; spend(G.ASC[lv].cost, function (m) { m.asc[k] = lv + 1; }); }
   function unlockFate(k) { spend(G.FATES[k].cost, function (m) { if (m.fates.indexOf(k) < 0) m.fates.push(k); }); }
   function recordScreen() {
     var M = me(), st = M.stats;
-    $('app').innerHTML = '<div class="panel"><h1 style="font-size:20px">戰績：' + esc(profiles().cur) + '</h1>'
+    $('app').innerHTML = '<div class="panel"><h1 style="font-size:20px">戰績：' + esc(ACC.name) + '</h1>'
       + '<div class="box">出擊 ' + st.runs + ' 次・通關 ' + st.wins + ' 次・真結局 ' + st.trueEnds + ' 次・💎 ' + M.crystals + '</div><div class="list">'
       + G.ORDER.map(function (k) { var b = st.best[k]; return '<div class="box"><b>' + esc(G.SERVANTS[k].cls + '・' + G.SERVANTS[k].name) + '</b>　<span class="dim">' + (b ? esc(b) : '還沒出擊過') + '</span></div>'; }).join('')
-      + '</div><button class="btn" onclick="title()">返回</button></div>';
+      + '</div><button class="btn" onclick="titleScreen()">返回</button></div>';
   }
   function cont() { run = load(); render(); }
+  // 選人格子：已解鎖／聖晶石夠可以解鎖／還不夠
+  function tileHtml(k) {
+    var S = G.SERVANTS[k], M = me(), have = M.svts.indexOf(k) >= 0, cost = G.SVT_COST[k], can = !have && M.crystals >= cost, lv = M.asc[k] || 0;
+    return '<button class="tile' + (have ? ' have' : can ? ' can' : ' lock') + '" onclick="svtInfo(\'' + k + '\')">'
+      + '<div class="tcls">' + esc(S.cls) + '</div><div class="tname">' + (have ? '' : '🔒 ') + esc(S.name) + '</div>'
+      + '<div class="tsub">' + (have ? (lv ? '靈基再臨 ' + ROMAN[lv] : '生命 ' + S.hp) : can ? '可解鎖 💎' + cost : '💎' + cost) + '</div></button>';
+  }
+  function svtInfo(k) {
+    var S = G.SERVANTS[k], M = me(), have = M.svts.indexOf(k) >= 0, cost = G.SVT_COST[k];
+    openOv('<b style="color:var(--gold);font-size:16px">' + esc(S.cls + '・' + S.name) + '</b>　<span class="dim">生命 ' + S.hp + (M.asc[k] ? '　靈基再臨 ' + ROMAN[M.asc[k]] : '') + '</span>'
+      + '<div class="list" style="margin-top:10px"><div class="box">' + esc(S.desc) + '</div>'
+      + '<div class="box"><h3>被動「' + esc(S.passive.name) + '」</h3>' + esc(S.passive.text) + '</div>'
+      + '<div class="box"><h3>寶具「' + esc(S.np.name) + '」</h3>' + esc(G.npText(S.np)) + '</div>'
+      + '<div class="box"><h3>靈基再臨（' + (M.asc[k] ? ROMAN[M.asc[k]] : '未升級') + '）</h3>' + G.ASC.map(function (a, i) { return '<div class="' + (i < (M.asc[k] || 0) ? '' : 'dim') + '">' + ROMAN[i + 1] + '　' + esc(G.ascText(k, i + 1)) + '</div>'; }).join('') + '</div>'
+      + (have ? '<button class="btn" onclick="closeOv();pickFate(\'' + k + '\')">以這位出發</button>'
+        : '<button class="btn" ' + (M.crystals >= cost ? '' : 'disabled') + ' onclick="unlockFromChoose(\'' + k + '\')">🔒 用 💎' + cost + ' 解鎖（現有 ' + M.crystals + '）</button>'
+          + (M.crystals >= cost ? '' : '<div class="dim">聖晶石不夠：每局結束依表現得到</div>'))
+      + '</div>');
+  }
+  function unlockFromChoose(k) { var c = G.SVT_COST[k]; if (me().crystals < c) return; updateMe(function (m) { m.crystals -= c; if (m.svts.indexOf(k) < 0) m.svts.push(k); }); toast('解鎖了 ' + G.SERVANTS[k].name); svtInfo(k); choose(); }
   function svtHtml(k, S) {
     var M = me(), have = M.svts.indexOf(k) >= 0, lv = M.asc[k] || 0;
     if (!have) return '<button class="svt" style="opacity:.55" onclick="toast(\'到靈基工坊用聖晶石解鎖（💎' + G.SVT_COST[k] + '）\')"><b>🔒 ' + esc(S.cls) + '・' + esc(S.name) + '</b>　<span class="dim">解鎖 💎' + G.SVT_COST[k] + '</span><div class="dim" style="margin-top:6px">' + esc(S.desc) + '</div></button>';
@@ -247,8 +353,10 @@
   }
   function choose() {
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:20px">選擇從者</h1>'
-      + WARS.map(function (w) {
-        return '<div class="war">' + w[1] + '</div>' + G.ORDER.filter(function (k) { return G.SERVANTS[k].war === w[0]; }).map(function (k) { return svtHtml(k, G.SERVANTS[k]); }).join('');
+      + '<div class="dim">💎 聖晶石 ' + me().crystals + '　點格子看詳細；🔒 的可以用聖晶石解鎖</div>'
+      + CLASSES.map(function (c) {
+        var ks = G.ORDER.filter(function (k) { return G.SERVANTS[k].cls === c; });
+        return ks.length ? '<div class="war">' + c + '</div><div class="grid">' + ks.map(tileHtml).join('') + '</div>' : '';
       }).join('')
       + '<div class="war">自創英靈</div>'
       + heroes().map(function (h, i) {
@@ -262,25 +370,33 @@
   }
   function newSeed() { return (Date.now() ^ (Math.random() * 1e9)) >>> 0; }
   // 出發前選命運（三選一）
-  function pickFate(who, hero) {
-    var seed = newSeed(), opts = G.fateOptions(seed, me().fates);
+  var DIFF = 'normal';
+  function pickFate(who, hero, keepSeed) {
+    var seed = keepSeed || newSeed(), opts = G.fateOptions(seed, me().fates);
+    if (!diffOpen(DIFF)) DIFF = 'normal';
     pickFate.ctx = { who: who, hero: hero, seed: seed };
-    $('app').innerHTML = '<div class="panel"><h1 style="font-size:20px">選擇命運</h1><div class="dim">這一趟的額外強化（到靈基工坊解鎖更多命運）</div>'
+    var diffs = '<div class="tabs" style="max-width:460px;width:100%">' + G.DIFF_ORDER.map(function (d) {
+      var D = G.DIFFS[d], open = diffOpen(d);
+      return '<button class="' + (DIFF === d ? 'on' : '') + '" ' + (open ? 'onclick="DIFF=\'' + d + '\';pickFate(pickFate.ctx.who,pickFate.ctx.hero,pickFate.ctx.seed)"' : 'disabled style="opacity:.4"') + '>' + (open ? '' : '🔒 ') + D.name + '</button>';
+    }).join('') + '</div>';
+    var Dn = G.DIFFS[DIFF];
+    $('app').innerHTML = '<div class="panel"><h1 style="font-size:20px">難度</h1>' + diffs
+      + '<div class="dim" style="max-width:460px">' + (DIFF === 'normal' ? '標準難度。用這位通關可以開放命座 I～II。' : '敵人生命 +' + Math.round(Dn.hp * 100) + '%、力量 +' + Dn.str + (Dn.rest < 0.3 ? '、休息只回兩成' : '') + '；聖晶石 ×' + Dn.cry + '。用這位通關可以開放命座 ' + (DIFF === 'hard' ? 'III～IV' : 'V～VI') + '。') + (diffOpen('hard') ? '' : '（任一從者通關普通後解鎖困難）') + '</div>'
+      + '<h1 style="font-size:20px;margin-top:6px">選擇命運</h1><div class="dim">這一趟的額外強化（到靈基工坊解鎖更多命運）</div>'
       + opts.map(function (k) { var F = G.FATES[k]; return '<button class="svt" onclick="startWith(\'' + k + '\')"><b>' + esc(F.name) + '</b><div style="margin-top:6px">' + esc(F.text) + '</div></button>'; }).join('')
       + '<button class="btn" onclick="choose()">返回</button></div>';
   }
   function startWith(fate) {
     var c = pickFate.ctx, h = c.hero != null ? heroes()[c.hero] : null;
-    run = G.newRun(c.hero != null ? 'custom' : c.who, c.seed, h, { fate: fate, asc: c.hero != null ? 0 : (me().asc[c.who] || 0) });
+    run = G.newRun(c.hero != null ? 'custom' : c.who, c.seed, h, { fate: fate, diff: DIFF, asc: c.hero != null ? 0 : (me().asc[c.who] || 0) });
     updateMe(function (m) { m.stats.runs++; });
     render();
   }
 
   // ── 自創英靈（存在這台瀏覽器的英靈殿）──
   var HKEY = 'grail_heroes_v1', forge = null;
-  function heroKey() { var c = profiles().cur; return c === '玩家1' ? HKEY : HKEY + ':' + c; }
-  function heroes() { try { return JSON.parse(localStorage.getItem(heroKey()) || '[]'); } catch (e) { return []; } }
-  function saveHeroes(a) { try { localStorage.setItem(heroKey(), JSON.stringify(a.slice(-12))); } catch (e) { } }
+  function heroes() { return (META && META.heroes) || []; }
+  function saveHeroes(a) { META.heroes = a.slice(-12); queueSave(true, false); }
   function startHero(i) { var h = heroes()[i]; if (!h) return; pickFate('custom', i); }
   function delHero(i) { var a = heroes(); a.splice(i, 1); saveHeroes(a); choose(); }
   function forgeOpen() { forge = { name: '', cls: 'Saber', legend: 'saber', sub: 'medusa', npFrom: 'saber', npName: '' }; forgeScreen(); }
@@ -349,7 +465,7 @@
       + (run.lives ? '<span class="chip gold" title="十二試煉">命 +' + run.lives + '</span>' : '')
       + '<span style="color:var(--gold)">💰' + run.gold + '</span>'
       + '<span class="seals" title="令咒">' + '❖'.repeat(run.seals) + '<span class="dim">' + '❖'.repeat(Math.max(0, run.maxSeals - run.seals)) + '</span></span>'
-      + '<span class="dim">' + esc((G.ACT_NAMES[run.act] || '').split('　')[0]) + ' ' + run.floor + '/' + run.map.length + '</span>'
+      + '<span class="dim">' + (run.diff && run.diff !== 'normal' ? G.DIFFS[run.diff].name + '・' : '') + esc((G.ACT_NAMES[run.act] || '').split('　')[0]) + ' ' + run.floor + '/' + run.map.length + '</span>'
       + '<button class="infobtn" onclick="openInfo(\'svt\')">📜 從者</button>'
       + '<button class="infobtn" onclick="openInfo(\'words\')">📖 說明</button>'
       + '<button class="infobtn" onclick="openInfo(\'deck\')">🂠 ' + run.deck.length + '</button>'
@@ -423,13 +539,14 @@
     if (e.poison) a.push('<span style="color:var(--green)">毒 ' + e.poison + '</span>');
     if (e.wound) a.push('<span style="color:var(--red)">創傷 ' + e.wound + '</span>');
     if (e.petrify) a.push('石化 ' + e.petrify + '/' + th);
+    if (e.doom) a.push('<span style="color:var(--purple)">死兆 ' + e.doom + (G.ENEMIES[e.id].boss ? '' : '（≤' + e.doom * 4 + ' 即死）') + '</span>');
     if (e.lives) a.push('十二試煉 ' + e.lives);
     return a.map(function (x) { return '<span class="chip">' + x + '</span>'; }).join('');
   }
   function meChips(b) {
     var a = [];
     if (b.wind || b.pWind) a.push(['gold', '風 ' + b.wind]);
-    if (b.evade) a.push(['gold', '閃避 ' + b.evade]);
+    if (b.evade) a.push(['gold', '迴避 ' + b.evade]);
     if (b.riposte) a.push(['gold', '迎擊 ' + b.riposte]);
     if (b.halve) a.push(['gold', '看穿']);
     if (G.passive(run) === 'hsw' || b.skills) a.push(['gold', '本回合技能 ' + b.skills]);
@@ -447,9 +564,9 @@
     if (b.nextEnergy) a.push(['', '下回合魔力 +' + b.nextEnergy]);
     if (b.antimagic) a.push(['', '對魔力']);
     if (b.ubw) a.push(['', '劍的荒野 ' + b.ubw]);
-    [['pBlock', '每回合格擋 '], ['pDraw', '每回合多抽 '], ['pEnergy', '每回合魔力 +'], ['pStr', '每回合力量 +'], ['pEvade', '每回合閃避 '],
+    [['pBlock', '每回合格擋 '], ['pDraw', '每回合多抽 '], ['pEnergy', '每回合魔力 +'], ['pStr', '每回合力量 +'], ['pEvade', '每回合迴避 '],
       ['pTreasure', '每回合寶具 '], ['pMinion', '每回合召喚 '], ['pVenom', '命中加毒 '], ['pCombo', '連擊起點 '], ['pWind', '每回合風 +'],
-      ['pEvadeStr', '閃避得力量 +'], ['pPetrifyAll', '每回合全體石化 '], ['pSkillBlock', '技能格擋 '], ['pEnergyBlock', '剩魔力格擋 '], ['pStanceBlock', '換架勢格擋 '],
+      ['pEvadeStr', '迴避得力量 +'], ['pPetrifyAll', '每回合全體石化 '], ['pSkillBlock', '技能格擋 '], ['pEnergyBlock', '剩魔力格擋 '], ['pStanceBlock', '換架勢格擋 '],
       ['pRage', '低血力量 +'], ['iaiUp', '居合 +'], ['projUp', '投影劍 +']].forEach(function (p) { if (b[p[0]]) a.push(['', p[1] + b[p[0]]]); });
     return a.map(function (x) { return '<span class="chip ' + x[0] + '">' + esc(x[1]) + '</span>'; }).join('');
   }
@@ -556,7 +673,7 @@
       + '<button class="btn" onclick="G.takeChest(run);render()">收下</button></div>';
   }
   function restScreen() {
-    var heal = Math.round(run.maxHp * 0.3) + (G.hasRelic(run, 'tea') ? 10 : 0);
+    var heal = G.restHeal(run);
     $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:20px">休息</h1><div class="dim">御主與從者在篝火旁喘口氣。</div>'
       + '<button class="btn" onclick="G.rest(run,\'heal\');render()">休息：回復 ' + heal + ' 生命</button>'
       + '<button class="btn" onclick="upMenu()">鍛鍊：強化一張牌</button>'
@@ -564,11 +681,17 @@
   }
   function upMenu() {
     var html = '<b>選一張牌強化</b><div class="pick" style="margin-top:12px">';
-    run.deck.forEach(function (id, i) { if (id.slice(-1) !== '+' && G.CARDS[id].up) html += '<div style="text-align:center">' + cardHtml(id, 'onclick="doUp(' + i + ')"', true) + '<div class="dim" style="font-size:11px;margin-top:3px;max-width:120px">→ ' + esc(upDiff(id)) + '</div></div>'; });
+    run.deck.forEach(function (id, i) { if (G.canUpgrade(id)) html += cardHtml(id, 'onclick="upChoose(' + i + ',\'rest\')"', true); });
     openOv(html + '</div>');
   }
-  function upDiff(id) { var a = G.card(id), b = G.card(id + '+'), t = G.cardText(id + '+', run); return (b.cost !== a.cost ? '費用 ' + b.cost + '，' : '') + t; }
-  function doUp(i) { closeOv(); G.rest(run, 'upgrade', i); render(); }
+  // 強化方向：從三個方向選一個（休息點的鍛鍊、事件的強化都走這裡）
+  function upChoose(i, src) {
+    var id = run.deck[i], opts = G.upgradeOptions(run, i);
+    openOv('<b>「' + esc(G.card(id).name) + '」要往哪個方向強化？</b><div class="dim" style="margin:4px 0 10px">原本：' + esc(G.cardText(id, run)) + '</div><div class="pick">'
+      + opts.map(function (v) { var D = G.UP_DIRS[G.card(v).dir]; return '<div style="text-align:center"><div style="color:var(--gold);font-size:13px;margin-bottom:4px">' + esc(D.name) + '<div class="dim" style="font-size:11px">' + esc(D.text) + '</div></div>' + cardHtml(v, 'onclick="doUpV(' + i + ',\'' + v + '\',\'' + src + '\')"', true) + '</div>'; }).join('')
+      + '</div><button class="btn" style="margin-top:12px" onclick="' + (src === 'rest' ? 'upMenu()' : 'closeOv()') + '">換一張</button>');
+  }
+  function doUpV(i, v, src) { closeOv(); if (src === 'rest') G.rest(run, 'upgrade', i, v); else G.pickCard(run, i, v); render(); }
   function rmMenu() {
     openOv('<b>選一張牌移除（牌組越精簡，好牌越常抽到）</b><div class="pick" style="margin-top:12px">' + run.deck.map(function (id, i) { return cardHtml(id, 'onclick="doRm(' + i + ')"', true); }).join('') + '</div>');
   }
@@ -592,7 +715,7 @@
   function pickScreen() {
     var kind = run.pending[0], up = kind === 'upgrade';
     $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:20px">' + (up ? '選一張牌強化' : '選一張牌移除') + '</h1><div class="pick">'
-      + run.deck.map(function (id, i) { if (up && (id.slice(-1) === '+' || !G.CARDS[id].up)) return ''; return '<div style="text-align:center">' + cardHtml(id, 'onclick="doPick(' + i + ')"', true) + (up ? '<div class="dim" style="font-size:11px;margin-top:3px;max-width:120px">→ ' + esc(upDiff(id)) + '</div>' : '') + '</div>'; }).join('')
+      + run.deck.map(function (id, i) { if (up && !G.canUpgrade(id)) return ''; return cardHtml(id, up ? 'onclick="upChoose(' + i + ',\'pick\')"' : 'onclick="doPick(' + i + ')"', true); }).join('')
       + '</div><button class="btn" onclick="doPick(-1)">不選</button></div>';
   }
   function doPick(i) { G.pickCard(run, i); render(); }
@@ -608,6 +731,7 @@
       run.metaDone = true; save();
       updateMe(function (m) {
         m.crystals += got; if (run.win) m.stats.wins++; if (run.trueEnd) m.stats.trueEnds++;
+        if (run.win && run.who !== 'custom') { m.clears = m.clears || {}; m.clears[run.who] = m.clears[run.who] || {}; m.clears[run.who][run.diff || 'normal'] = true; }
         if (run.who !== 'custom') {
           var tag = run.trueEnd ? '真結局' : run.win ? '通關' : (G.ACT_NAMES[run.act] || '').split('　')[0] + '第 ' + run.floor + ' 列', old = m.stats.best[run.who];
           var score = function (t) { return !t ? -1 : t === '真結局' ? 99 : t === '通關' ? 50 : (t.indexOf('第二章') === 0 ? 20 : 0) + (parseInt(t.replace(/^.*第 /, ''), 10) || 0); };
@@ -618,11 +742,12 @@
     $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.trueEnd ? '真・聖杯到手' : run.win ? '聖杯到手' : '敗退') + '</h1>'
       + '<div class="dim">' + esc(S.cls) + '・' + esc(S.name) + '　' + (run.trueEnd ? '打倒了此世全部之惡' : run.win ? '走完了兩章' : '倒在' + esc(G.ACT_NAMES[run.act]) + '第 ' + run.floor + ' 列') + '</div>'
       + '<div>擊敗 ' + st.kills + '・寶具 ' + st.np + ' 次・令咒用了 ' + st.seals + ' 劃・牌組 ' + run.deck.length + ' 張</div>'
+      + (run.win && run.who !== 'custom' ? '<div class="box" style="text-align:center;color:var(--gold)">以' + esc(G.DIFFS[run.diff || 'normal'].name) + '難度通關：' + esc(S.name) + '的命座最高可以升到 ' + ROMAN[ascCap(run.who)] + '</div>' : '')
       + '<div class="box" style="text-align:center">💎 得到聖晶石 <b style="color:var(--gold)">' + got + '</b>（現在共 ' + me().crystals + '）<div class="dim" style="margin-top:4px">到靈基工坊解鎖新英靈、靈基再臨、命運</div></div>'
       + '<button class="btn" onclick="run=null;save();choose()">再來一次</button><button class="btn" onclick="run=null;save();workshop(\'svt\')">💎 靈基工坊</button></div>';
   }
 
-  run = null; render();
+  boot();
 </script>
 </body>
 </html>

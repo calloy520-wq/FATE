@@ -19,7 +19,7 @@ const playId=(r,id,tg=0)=>{ r.battle.hand.push(id); return G.play(r,r.battle.han
 console.log('── 基本');
 let run=G.newRun('saber',7);
 t(run.hp===74&&run.deck.length===10&&run.map.length===12&&run.seals===3&&G.BOSS_POOL[1].includes(run.bosses[0])&&G.BOSS_POOL[2].includes(run.bosses[1])&&run.bosses[0]!==run.bosses[1]&&run.gold===60,'開局：Saber 74 血、10 張牌、12 列地圖、3 劃令咒、60 金、兩章各抽一位魔王');
-t(G.ORDER.length===14&&G.ORDER.every(k=>G.SERVANTS[k]&&G.CARDS[G.SERVANTS[k].sig]),'14 位從者，每位的招牌牌都存在');
+t(G.ORDER.length===15&&G.ORDER.every(k=>G.SERVANTS[k]&&G.CARDS[G.SERVANTS[k].sig]),'15 位從者，每位的招牌牌都存在');
 t(G.ORDER.every(k=>Object.keys(G.CARDS).filter(c=>G.CARDS[c].kit===k).length>=9),'每位從者至少 9 張專屬牌');
 t(Object.keys(G.CARDS).every(k=>G.CARDS[k].fx.every(f=>G.OPS[f[0]]&&G.FX_TEXT[f[0]])),'每個卡牌效果都有程式與說明');
 t(G.ORDER.every(k=>G.SERVANTS[k].np.fx.every(f=>G.OPS[f[0]]&&G.FX_TEXT[f[0]])),'每個寶具效果都有程式與說明');
@@ -54,7 +54,7 @@ r=arena('emiya'); r.battle.np=100; G.noble(r,0); t(r.battle.hand.length===3&&r.b
 G.play(r,0,0); t(E(r).hp===44,'投影劍 4+2＝6',E(r).hp);
 G.endTurn(r); t(r.battle.hand.filter(x=>x==='sword').length===4&&!r.battle.discard.includes('sword'),'下回合又 3 張（加被動 1 張）；沒用完的投影劍消失、不進棄牌');
 
-r=arena('cu'); E(r).block=10; playId(r,'thrust'); t(E(r).hp===43&&E(r).block===10,'庫丘林 突刺：穿透 7 無視格擋',E(r).hp);
+r=arena('cu'); E(r).block=10; playId(r,'thrust'); t(E(r).hp===43&&E(r).block===10,'庫・丘林 突刺：穿透 7 無視格擋',E(r).hp);
 r=arena('cu'); playId(r,'arrowward'); E(r).intent={n:'砍',fx:[['atk',20],['atk',5]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===3,'箭矢加護：閃過第一擊，第二擊被 2 格擋擋掉 2',hp-r.hp);
 r=arena('cu'); r.hp=5; E(r).intent={n:'砍',fx:[['atk',30]]}; G.endTurn(r); t(r.hp===1&&r.screen==='battle'&&r.battle.survived===1,'戰鬥續行：致命傷以 1 血撐住');
 E(r).intent={n:'砍',fx:[['atk',30]]}; G.endTurn(r); t(r.screen==='over'&&!r.win,'同一場第二次就撐不住了');
@@ -97,7 +97,7 @@ r=arena('emiya'); r.battle.hand=['sword','sword','hrunting']; G.play(r,2,0); t(E
 r=arena('emiya'); r.battle.hand=['sword','rhoaias']; G.play(r,1,0); t(r.battle.block===9,'熾天覆七重圓環：格擋 6＋劍×3');
 r=arena('emiya'); playId(r,'analysis'); r.battle.hand=['sword']; G.play(r,0,0); t(E(r).hp===45,'構造解析：投影劍 4＋1',E(r).hp);
 r=arena('cu'); playId(r,'riposte'); playId(r,'lightchild'); E(r).intent={n:'砍',fx:[['atk',10]]}; hp=r.hp; G.endTurn(r);
-t(r.hp===hp&&E(r).hp===45&&r.battle.str===1,'迎擊之槍：閃過就反擊 5 穿透；光之子：閃避一次力量 +1',JSON.stringify([E(r).hp,r.battle.str]));
+t(r.hp===hp&&E(r).hp===45&&r.battle.str===1,'迎擊之槍：閃過就反擊 5 穿透；光之子：迴避一次力量 +1',JSON.stringify([E(r).hp,r.battle.str]));
 t(r.battle.riposte===0,'迎擊只在那一回合');
 r=arena('medusa'); E(r).petrify=2; playId(r,'shatter'); t(E(r).hp===50-(6+7*2)&&E(r).petrify===0,'石像碎裂：敲碎石化換傷害',E(r).hp);
 r=arena('medusa'); E(r).stun=1; playId(r,'pegasus'); t(E(r).hp===30,'天馬衝撞：動彈不得的目標 8＋12',E(r).hp);
@@ -243,10 +243,42 @@ let gr=arena('saber'); gr.battle.enemies.forEach(e=>{e.hp=1;}); gr.battle.np=100
 t(G.fateOptions(5,[]).length===3&&G.fateOptions(5,[]).every(k=>G.FATE_FREE.includes(k))&&G.fateOptions(9,['legacy','early','mana']).every(k=>G.FATES[k]),'命運：沒解鎖時只出三個基本命運');
 let ft=G.newRun('saber',6,null,{fate:'light'}); t(ft.deck.length===7&&ft.fate==='light','輕裝上陣：少 2 張攻擊 1 張防禦');
 ft=G.newRun('saber',6,null,{fate:'merchant'}); ft.gold=100; step(ft,'shop'); t(G.removePrice(ft)===0&&G.priceOf(ft,{price:100})===80,'商人的眷顧：八折、第一次移除免費'); G.buy(ft,'remove',0); t(G.removePrice(ft)===Math.round(60*0.8),'免費用掉之後恢復原價（再打八折）');
-ft=G.newRun('saber',6,null,{fate:'mana',asc:3}); step(ft,'fight'); t(ft.battle.np===50,'寶具起點：再臨 III 的 20%＋魔力充盈 30%',ft.battle.np);
-let as=G.newRun('medusa',6,null,{asc:5}); t(as.maxHp===G.SERVANTS.medusa.hp+8&&as.deck.includes('chain+')&&as.relics.length===1&&as.deck.includes('breaker'),'靈基再臨 V：生命、招牌牌、禮裝、奧義全到');
-t(G.SVT_COST.saber===0&&G.ORDER.every(k=>G.SVT_COST[k]>=0)&&G.ASC.length===5,'一開始只有 Saber 免費，其他都有解鎖價');
+ft=G.newRun('saber',6,null,{fate:'mana'}); step(ft,'fight'); t(ft.battle.np===30,'魔力充盈：寶具量表從 30% 開始',ft.battle.np);
+let as=G.newRun('medusa',6,null,{asc:5}); t(as.maxHp===G.SERVANTS.medusa.hp+8&&as.deck.includes('breaker'),'靈基再臨 V：生命 +8、開局帶奧義');
+step(as,'fight'); t(as.battle.enemies.every(e=>e.petrify>=1)&&as.battle.enemies.every(e=>e.weak>=1),'美杜莎再臨 II／III：開場全體石化＋虛弱');
+as.battle.enemies.forEach(e=>{e.hp=99;e.maxHp=99;e.petrify=0;e.stun=0;}); as.battle.np=100; G.noble(as,0); t(as.battle.enemies[0].petrify>=0&&/石化 2/.test(G.npText(G.serv(as).np,as)),'再臨 IV：寶具追加全體石化 2',G.npText(G.serv(as).np,as));
+t(G.ORDER.every(k=>G.ASC_SVT[k]&&[1,2,3,4,5].every(lv=>G.ascText(k,lv))),'14 位每一級再臨都有自己的說明');
+t(G.ORDER.every(k=>G.ASC_SVT[k].slice(0,2).every(fx=>!G.needsTarget(fx))),'開場效果不會用到要選目標的效果');
+let as1=G.newRun('saber',6,null,{asc:3}); step(as1,'fight'); t(as1.battle.wind===2&&as1.battle.block===8,'Saber 再臨 III：開場風 2、格擋 8');
+t(G.SVT_COST.saber===0&&G.ORDER.every(k=>k==='saber'||G.SVT_COST[k]>0)&&G.ASC.length===6,'一開始只有 Saber 免費，其他都有解鎖價；命座 6 級');
 let cz=G.newRun('saber',8); cz.stats.floors=10; cz.stats.bosses=1; t(G.crystalsFor(cz)===25,'聖晶石：走過 10 格＋打倒 1 位魔王＝25');
+
+console.log('── 斯卡哈');
+r=G.newRun('scathach',3); step(r,'fight'); t(r.battle.hand.length===6&&r.battle.hand.some(id=>G.CARDS[id].kit!=='scathach'&&G.CARDS[id].kit!=='basic'),'師承：開場多借 1 張別的從者的牌',r.battle.hand.join(','));
+r=arena('scathach'); playId(r,'doublespear'); t(E(r).doom===1&&E(r).hp===40,'雙槍・死棘：5×2＋死兆 1（死兆打完才上）');
+r.battle.energy=3; playId(r,'atk'); t(E(r).hp===40-7,'死兆 1：每一擊 +1',E(r).hp);
+E(r).hp=4; r.battle.energy=3; playId(r,'runebind'); t(E(r).hp===0,'死兆 3 → 生命 ≤12 就倒下（這裡 4 血直接倒）',E(r).hp);
+r=arena('scathach'); E(r).doom=2; E(r).hp=30; playId(r,'deathflight'); t(E(r).hp===30-(10+3*2+2),'死翔之槍：10＋死兆×3＋死兆加傷 2',E(r).hp);
+r=arena('scathach'); E(r).id='heracles'; E(r).doom=10; E(r).hp=20; E(r).maxHp=100; r.battle.energy=3; playId(r,'runebind'); t(E(r).hp===20,'魔王不吃死兆即死');
+r=arena('scathach'); r.battle.hand=[]; playId(r,'mentor'); t(r.battle.hand.length===2&&r.battle.hand.every(id=>G.CARDS[id].kit!=='scathach'),'師匠的教誨：借 2 張別人的牌');
+let borrowOk=true; for(let i=0;i<60;i++){ const q=arena('scathach',1,50,100+i); q.battle.hand=[]; playId(q,'mentor'); q.battle.hand.forEach(id=>{ if(G.CARDS[id].fx.some(f=>['wind','windAll','projDmg','comboGuard','comboDmg','kraken','armySpend','skillDmg','treasureDmg','rageDmg'].includes(f[0]))) borrowOk=false; }); } t(borrowOk,'借來的牌不會是要吃別人資源的牌');
+r=arena('scathach'); E(r).id='saber'; E(r).name='x'; playId(r,'godslayer'); t(E(r).hp===50-15,'弒神：精英 7＋8',E(r).hp);
+console.log('── 難度');
+let dn=G.newRun('saber',9,null,{diff:'normal'}), dh=G.newRun('saber',9,null,{diff:'abyss'}); step(dn,'fight'); step(dh,'fight');
+t(dh.battle.enemies[0].maxHp>=Math.round(dn.battle.enemies[0].maxHp*1.35)&&dh.battle.enemies[0].str===dn.battle.enemies[0].str+2,'深淵：敵人生命 +40%、力量 +2',JSON.stringify([dn.battle.enemies[0].maxHp,dh.battle.enemies[0].maxHp]));
+t(G.restHeal(dh)===Math.round(dh.maxHp*0.2)&&G.restHeal(dn)===Math.round(dn.maxHp*0.3),'深淵休息只回兩成');
+dn.stats.floors=10; dh.stats.floors=10; t(G.crystalsFor(dh)===G.crystalsFor(dn)*2,'深淵聖晶石 ×2');
+t(G.newRun('saber',1,null,{asc:6}).ascStart.some(f=>f[0]==='pWind'),'命座 VI：每回合的專屬強化（Saber 每回合風 +1）');
+
+console.log('── 強化方向');
+t(G.upDirs('invis').join('')==='acde'&&G.upDirs('charge').join('')==='abcde'&&G.upDirs('atk').join('')==='ace'&&G.upDirs('kingly').join('')==='ad'&&G.upDirs('invis+').length===0&&G.upDirs('sword').length===0,'每張牌能往哪幾個方向強化（1 費沒有迅捷、能力牌沒有共鳴與極限、已強化／代幣不能再強化）');
+t(G.card('charge+b').cost===1&&G.card('invis+c').np===30&&G.card('invis+c').fx.some(f=>f[0]==='draw')&&G.card('invis+d').fx.some(f=>f[0]==='wind'&&f[1]===1)&&G.card('invis+e').fx[0][1]===10&&G.card('invis+e').ex,'迅捷 -1 費、共鳴 +15% 抽 1、魂加風、極限翻倍但消耗');
+t(G.card('invis+').name==='看不見的劍＋'&&G.card('invis+').fx[0][1]===7&&G.card('invis+e').name==='看不見的劍・極'&&G.card('invis+c').name==='看不見的劍・共鳴','舊存檔的「+」還是精煉；名字帶方向');
+let ug=G.newRun('saber',77); ug.deck.push('charge'); const ci=ug.deck.length-1, op=G.upgradeOptions(ug,ci);
+t(op.length===3&&op.includes('charge+')&&JSON.stringify(G.upgradeOptions(ug,ci))===JSON.stringify(op),'強化給三個方向（精煉一定在），同一次重畫不會變',op);
+ug.screen='rest'; t(!G.rest(ug,'upgrade',ci,'charge+x')&&G.rest(ug,'upgrade',ci,op[1])&&ug.deck[ci]===op[1],'只能選給的方向');
+let ug2=G.newRun('saber',78); let seenDirs=new Set(); for(let k=0;k<40;k++){ ug2.stats.floors=k; G.upgradeOptions(ug2,9).forEach(v=>seenDirs.add(G.card(v).dir)); } t(seenDirs.size===4,'換個時間點，另外兩個方向會變（看不見的劍 4 個方向都出現過）',[...seenDirs].join(''));
+r=arena('saber'); r.battle.hand=['invis+e']; G.play(r,0,0); t(E(r).hp===30&&r.battle.exhaust.includes('invis+e'),'極限：10×2、打完消耗',E(r).hp);
 
 console.log('── 流程');
 let r7=arena('saber'); r7.battle.enemies.forEach(e=>{e.hp=1;}); r7.battle.np=100; G.noble(r7,0);
