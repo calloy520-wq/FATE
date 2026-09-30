@@ -3,6 +3,7 @@
 const G=require('./game.js');
 const N=+process.env.N||300, WHO=(process.env.WHO||G.ORDER.join(',')).split(',');
 const J=o=>JSON.parse(JSON.stringify(o));
+const AWAKEN=process.env.AWAKEN===undefined?-1:+process.env.AWAKEN;   // 靈基覺醒固定選 0 或 1（不給＝隨機）
 
 // 敵人這回合預計打過來多少（被石化的不算）
 function incoming(run){
@@ -83,7 +84,7 @@ function playRun(who,seed){
       const pref=run.hp<run.maxHp*0.5?['rest','chest','fight','elite','boss']:run.hp>run.maxHp*0.75?['elite','chest','fight','rest','boss']:['chest','fight','rest','elite','boss'];
       let lane=opts[0], bi=99; opts.forEach(l=>{ const k=pref.indexOf(t(l)); if(k<bi){bi=k;lane=l;} }); G.go(run,lane); }
     else if(run.screen==='battle') playTurn(run);
-    else if(run.screen==='reward') G.takeReward(run,pickReward(run));
+    else if(run.screen==='reward'){ if(run.reward.awaken) G.awaken(run,AWAKEN>=0?AWAKEN:(seed+run.floor)%2); G.takeReward(run,pickReward(run)); }
     else if(run.screen==='chest') G.takeChest(run);
     else if(run.screen==='rest'){ if(run.hp<run.maxHp*0.65) G.rest(run,'heal'); else { const i=run.deck.findIndex(x=>x.slice(-1)!=='+'&&x!=='atk'&&x!=='def'&&G.CARDS[x].up); if(!(i>=0&&G.rest(run,'upgrade',i))) G.rest(run,'heal'); } }
   }

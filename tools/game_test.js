@@ -122,9 +122,25 @@ r=arena('saber'); E(r).id='medea'; E(r).name='美狄亞'; E(r).intent=G.ENEMIES.
 r=arena('saber'); E(r).intent={n:'穿',fx:[['atkP',10]]}; r.battle.block=20; hp=r.hp; G.endTurn(r); t(hp-r.hp===10,'穿透攻擊無視格擋',hp-r.hp);
 G.BOSSES.forEach(k=>{ const q=G.newRun(k==='heracles'?'saber':'heracles',5); q.boss=k; q.floor=12; q.lane=1; G.go(q,1); t(q.battle.kind==='boss'&&q.battle.enemies[0].id===k,'Boss '+G.ENEMIES[k].name+' 登場'); });
 r=G.newRun('saber',11); r.boss='heracles'; r.floor=12; r.lane=1; G.go(r,1); const hb=r.battle.enemies[0];
-hb.hp=5; hb.block=0; r.battle.hand=['heavy']; r.battle.energy=2; G.play(r,0,0); t(hb.hp===60&&hb.lives===1&&r.screen==='battle','赫拉克勒斯（敵）打倒一次：以六成血站起來');
+hb.hp=5; hb.block=0; r.battle.hand=['heavy']; r.battle.energy=2; G.play(r,0,0); t(hb.hp===Math.round(115*0.6)&&hb.lives===1&&r.screen==='battle','赫拉克勒斯（敵）打倒一次：以六成血站起來',hb.hp);
 hb.lives=0; hb.hp=1; r.battle.hand=['atk']; r.battle.energy=1; G.play(r,0,0); t(r.screen==='over'&&r.win,'打倒 Boss：通關');
 t(G.ORDER.every(k=>{ const q=G.newRun(k,9); for(let i=0;i<30;i++){ q.screen='map'; q.floor=5; q.lane=1; q.map[5]=['elite','elite','elite']; G.go(q,1); if(q.battle.enemies[0].id===k) return false; } return true; }),'精英不會是自己選的從者');
+
+console.log('── 靈基覺醒');
+t(G.ORDER.every(k=>G.TALENTS[k]&&G.TALENTS[k].length===2&&G.TALENTS[k].every(tier=>tier.length===2&&tier.every(T=>(T.start||[]).concat(T.np||[]).every(f=>G.OPS[f[0]]&&G.FX_TEXT[f[0]])))),'每位從者兩層、每層兩個覺醒，效果都有程式與說明');
+t(G.ORDER.every(k=>G.TALENTS[k].flat().every(T=>!(T.start||[]).some(f=>G.needsTarget([f])))),'開場覺醒不會用到要選目標的效果');
+let aw=G.newRun('saber',31); aw.map[3]=['elite','elite','elite']; aw.floor=3; aw.lane=1; G.go(aw,1); aw.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); aw.battle.np=100; G.noble(aw,0);
+t(aw.screen==='reward'&&JSON.stringify(aw.reward.awaken)==='["0.0","0.1"]','打贏精英：出現第一層的兩個覺醒');
+t(!G.takeReward(aw,-1),'還沒選覺醒不能收下獎勵');
+G.awaken(aw,0); t(aw.awaken[0]==='0.0'&&!aw.reward.awaken&&G.takeReward(aw,-1),'選了「'+G.talent(aw,'0.0').name+'」之後才能繼續');
+aw.map[4]=['fight','fight','fight']; G.go(aw,1); t(aw.battle.str===2,'魔力放出（A）：每場開始力量 +2',aw.battle.str);
+aw.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); aw.battle.np=100; G.noble(aw,0); t(!aw.reward.awaken,'普通戰鬥不給覺醒'); G.takeReward(aw,-1);
+aw.map[5]=['elite','elite','elite']; G.go(aw,1); aw.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); aw.battle.np=100; G.noble(aw,0);
+t(JSON.stringify(aw.reward.awaken)==='["1.0","1.1"]','第二次精英：第二層');
+G.awaken(aw,0); G.takeReward(aw,-1); t(/對全體造成 45 傷害，對全體造成 15 傷害/.test(G.npText(G.serv(aw).np,aw)),'聖劍解放：寶具追加全體 15',G.npText(G.serv(aw).np,aw));
+aw.map[6]=['elite','elite','elite']; G.go(aw,1); aw.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); aw.battle.np=100; G.noble(aw,0); t(!aw.reward.awaken,'兩層都選完就不再出現');
+let hk=G.newRun('heracles',3); hk.awaken=['0.0']; hk.screen='reward'; hk.reward={cards:['atk'],relic:null,awaken:['1.0','1.1']}; G.awaken(hk,1); t(hk.lives===2,'第二試煉：多一條命');
+let mw=arena('medea'); mw.awaken=['0.1']; mw.map[1]=['fight','fight','fight']; mw.screen='map'; mw.floor=1; mw.lane=1; G.go(mw,1); t(mw.battle.minions===2,'龍牙兵團：每場開場 2 隻龍牙兵');
 
 console.log('── 流程');
 let r7=arena('saber'); r7.battle.enemies.forEach(e=>{e.hp=1;}); r7.battle.np=100; G.noble(r7,0);

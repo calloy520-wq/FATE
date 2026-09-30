@@ -153,6 +153,7 @@
     openOv('<b style="color:var(--gold)">' + esc(S.cls + '・' + S.name) + '</b><div class="list" style="margin-top:10px">'
       + '<div>被動「' + esc(S.passive.name) + '」：' + esc(S.passive.text) + '</div>'
       + '<div>寶具「' + esc(S.np.name) + '」：' + esc(G.npText(S.np, run)) + '</div>'
+      + (run.awaken.length ? run.awaken.map(function (k) { var T = G.talent(run, k); return '<div>靈基覺醒「' + esc(T.name) + '」：' + esc(G.talentText(T, run)) + '</div>'; }).join('') : '<div class="dim">靈基覺醒：打贏精英時可以選（共兩層）</div>')
       + '<div class="dim">這趟的 Boss：' + esc(G.ENEMIES[run.boss].name) + '</div></div>' + '<div style="margin-top:14px"></div>' + glossaryHtml());
   }
 
@@ -305,12 +306,18 @@
   // ── 戰後、寶箱、休息、結局 ──
   function rewardScreen() {
     var rw = run.reward;
+    if (rw.awaken) {
+      $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:20px">靈基覺醒</h1><div class="dim">打倒了強敵，從者的靈基有了變化。選一個方向（第 ' + (run.awaken.length + 1) + '／2 層）</div>'
+        + rw.awaken.map(function (k, i) { var T = G.talent(run, k); return '<button class="svt" onclick="doAwaken(' + i + ')"><b>' + esc(T.name) + '</b><div style="margin-top:6px">' + esc(G.talentText(T, run)) + '</div></button>'; }).join('') + '</div>';
+      return;
+    }
     $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:20px">勝利</h1>'
       + (rw.relic ? '<div>得到禮裝「<b style="color:var(--gold)">' + esc(G.RELICS[rw.relic].name) + '</b>」：' + esc(G.RELICS[rw.relic].text) + '</div>' : '')
       + '<div class="dim">選一張牌加進牌組</div><div class="pick">' + rw.cards.map(function (id, i) { return cardHtml(id, 'onclick="takeCard(' + i + ')"', true); }).join('') + '</div>'
       + '<button class="btn" onclick="takeCard(-1)">不拿</button></div>';
   }
   function takeCard(i) { G.takeReward(run, i); render(); }
+  function doAwaken(i) { G.awaken(run, i); render(); }
   function chestScreen() {
     var k = run.reward.relic;
     $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:20px">寶箱</h1>'
