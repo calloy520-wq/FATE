@@ -3,6 +3,7 @@
 const G=require('./game.js');
 const N=+process.env.N||300, WHO=(process.env.WHO||G.ORDER.join(',')).split(',');
 const J=o=>JSON.parse(JSON.stringify(o));
+const SECRET=process.env.SECRET!=='0';   // 有令咒時要不要進隱藏關（預設進）
 const AWAKEN=process.env.AWAKEN===undefined?-1:+process.env.AWAKEN;   // 靈基覺醒固定選 0 或 1（不給＝隨機）
 
 // 敵人這回合預計打過來多少（被石化的不算）
@@ -37,6 +38,7 @@ function value(run){
   // 改版後的資源：風、閃避反擊、各種每回合效果
   const hits=incoming(run).length;
   v+=b.wind*3+b.iaiUp*2+(hits&&b.evade?b.riposte*0.8:0);
+  v+=b.kraken*3+b.pKraken*6*left/4;
   v+=(b.pWind*6+b.pEvadeStr*5+b.pPetrifyAll*8+b.pSkillBlock*5+b.pEnergyBlock*3+b.pStanceBlock*3+b.pRage*4)*left/4;
   return v;
 }
@@ -54,7 +56,7 @@ function bestAction(run){
 function playTurn(run){
   const b=run.battle; let guard=0;
   while(run.screen==='battle'&&guard++<40){
-    if(run.seals>0&&b.turn===1&&(b.kind==='boss'||(b.kind==='elite'&&run.seals>1))&&G.alive(b).some(e=>e.hp>40)){ G.seal(run,b.np>=60?'np':'all'); continue; }
+    if(run.seals>(SECRET&&run.act===2?1:0)&&b.turn===1&&(b.kind==='boss'||(b.kind==='elite'&&run.seals>1))&&G.alive(b).some(e=>e.hp>40)){ G.seal(run,b.np>=60?'np':'all'); continue; }
     const a=bestAction(run); if(!a) break;
     const r=a.k==='np'?G.noble(run,a.t):G.play(run,a.i,a.t); if(!r.ok) break;
   }
@@ -66,7 +68,7 @@ function rate(run0,id){
   const who=run0.who, k=who+(run0.custom?run0.custom.legend+run0.custom.sub:'')+'|'+id; if(RATE[k]!==undefined) return RATE[k];
   let tot=0;
   for(let s=1;s<=3;s++){
-    const r=G.newRun(who,s,run0.custom); r.map[0]=['fight','fight','fight']; G.go(r,0); const b=r.battle;
+    const r=G.newRun(who,s,run0.custom); r.map[0].forEach(n=>{ if(n) n.t='fight'; }); G.go(r,G.reachable(r)[0]); const b=r.battle;
     b.enemies=[b.enemies[0]]; while(b.enemies.length<2) b.enemies.push(J(b.enemies[0]));
     b.enemies.forEach((e,i)=>{ e.key='d'+i; e.hp=e.maxHp=40; e.block=0; e.weak=0; e.intent={n:'測',fx:[['atk',9]]}; });
     b.hand=[id,'atk','def']; b.energy=3; b.np=0; b.turn=2;
@@ -84,19 +86,29 @@ function pickReward(run){
 function playRun(who,seed,custom){
   const run=G.newRun(who,seed,custom); let g=0;
   while(run.screen!=='over'&&g++<3000){
-    if(run.screen==='map'){ const opts=G.reachable(run); const t=l=>run.map[run.floor][l];
-      const pref=run.hp<run.maxHp*0.5?['rest','chest','fight','elite','boss']:run.hp>run.maxHp*0.75?['elite','chest','fight','rest','boss']:['chest','fight','rest','elite','boss'];
+    if(run.screen==='map'){ const opts=G.reachable(run); const t=l=>run.map[run.floor][l].t;
+      const pref=run.hp<run.maxHp*0.5?['rest','chest','event','fight','elite','boss']:run.hp>run.maxHp*0.75?['elite','chest','event','fight','rest','boss']:['chest','event','fight','rest','elite','boss'];
       let lane=opts[0], bi=99; opts.forEach(l=>{ const k=pref.indexOf(t(l)); if(k<bi){bi=k;lane=l;} }); G.go(run,lane); }
     else if(run.screen==='battle') playTurn(run);
     else if(run.screen==='reward'){ if(run.reward.awaken) G.awaken(run,AWAKEN>=0?AWAKEN:(seed+run.floor)%2); G.takeReward(run,pickReward(run)); }
     else if(run.screen==='chest') G.takeChest(run);
+    else if(run.screen==='event'){ const E=G.EVENTS[run.event]; let i=E.opts.findIndex(o=>G.canChoose(run,o)&&!(o.need&&o.need.hp&&run.hp-o.need.hp<run.maxHp*0.5)); if(i<0) i=E.opts.length-1; G.choose(run,i); }
+    else if(run.screen==='pick'){ const kind=run.pending[0]; let i=kind==='remove'?run.deck.findIndex(x=>x==='atk'||x==='def'||x==='mud'):run.deck.findIndex(x=>x.slice(-1)!=='+'&&G.CARDS[x].up); G.pickCard(run,i); }
+    else if(run.screen==='secret') G.secret(run,SECRET);
+    else if(run.screen==='shop'){ const S=run.shop; let bought=false;
+      if(!S.removed&&run.gold>=G.removePrice(run)){ const i=run.deck.findIndex(x=>x==='atk'||x==='def'); if(i>=0&&G.buy(run,'remove',i).ok) bought=true; }
+      if(!bought){ const cs=S.cards.map((c,i)=>[c,i]).filter(([c])=>!c.sold&&c.price<=run.gold).sort((a,b)=>rate(run,b[0].id)-rate(run,a[0].id)); if(cs.length&&rate(run,cs[0][0].id)>4&&run.deck.length<24&&G.buy(run,'card',cs[0][1]).ok) bought=true; }
+      if(!bought&&S.relic&&!S.relic.sold&&run.gold>=S.relic.price&&G.buy(run,'relic').ok) bought=true;
+      if(!bought) G.leaveShop(run); }
     else if(run.screen==='rest'){ if(run.hp<run.maxHp*0.65) G.rest(run,'heal'); else { const i=run.deck.findIndex(x=>x.slice(-1)!=='+'&&x!=='atk'&&x!=='def'&&G.CARDS[x].up); if(!(i>=0&&G.rest(run,'upgrade',i))) G.rest(run,'heal'); } }
   }
   return run;
 }
 module.exports={playRun};
 if(require.main===module){
-  WHO.forEach(w=>{ let win=0, fl=0, died={}; for(let i=0;i<N;i++){ const r=playRun(w,1000+i); if(r.win) win++; fl+=r.floor; if(!r.win){ const k=(r.battle&&r.battle.kind==='boss'?'boss:'+r.boss:(r.battle&&r.battle.kind))||'?'; const key=k.startsWith('boss')?k:k+'@'+r.floor; died[key]=(died[key]||0)+1; } }
+  WHO.forEach(w=>{ let win=0, act1=0, hidden=0, died={}; for(let i=0;i<N;i++){ const r=playRun(w,1000+i); if(r.win||r.act>=2) act1++; if(r.win||r.act===3) win++; if(r.trueEnd) hidden++;
+      if(!r.win){ const k=(r.battle&&r.battle.kind==='boss'?'boss:'+r.boss:(r.battle&&r.battle.kind))||'?'; const key=k.startsWith('boss')?k:r.act+'章'+k+'@'+r.floor; died[key]=(died[key]||0)+1; } }
     const top=Object.keys(died).sort((a,b)=>died[b]-died[a]).slice(0,5).map(k=>k+':'+died[k]).join(' ');
-    console.log(w.padEnd(9),'勝率',(win/N*100).toFixed(1).padStart(5)+'%','平均第',(fl/N).toFixed(1),'層｜死在',top); });
+    const pc=x=>(x/N*100).toFixed(0).padStart(3)+'%';
+    console.log(w.padEnd(9),'過第一章',pc(act1),'｜通關',pc(win),'｜隱藏關',pc(hidden),'｜死在',top); });
 }
