@@ -123,7 +123,7 @@
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   // ── 帳號：第一個畫面先登入；每個帳號各自的存檔、英靈殿、聖晶石、解鎖與戰績都存在伺服器（換裝置也接得上），本機另留一份快取 ──
-  var ACC = null, META = null, SAVED_RUN = null, AKEY = 'grail_acc_v1', CKEY = 'grail_cache_v1:';
+  var ACC = null, META = null, SAVED_RUN = null, AKEY = 'grail_acc_v1', CKEY = 'grail_cache_v1:', STARTER_GIFT = 100;
   function newMeta() { return { crystals: 0, svts: ['saber'], asc: {}, fates: [], heroes: [], clears: {}, stats: { runs: 0, wins: 0, trueEnds: 0, best: {} }, ts: 0 }; }
   // 難度與命座上限：困難要任一從者通關普通、深淵要通關困難；命座上限看「這位」通關過的最高難度（普通 2、困難 4、深淵 6）
   function cleared(k, d) { return !!(META.clears[k] && META.clears[k][d]); }
@@ -188,10 +188,14 @@
     if (!META) { var L = legacyData(); if (L) { META = L.meta; SAVED_RUN = L.run; localStorage.setItem('grail_legacy_done', '1'); toast('已把這台裝置上的舊進度搬進帳號'); } }
     META = META || newMeta();
     Object.keys(newMeta()).forEach(function (k) { if (META[k] === undefined) META[k] = newMeta()[k]; });
+    var starter = !META.starter;
     // 本機快取比伺服器新（上次沒送出去）：用本機的，並補送
     try { var C = JSON.parse(localStorage.getItem(CKEY + ACC.name) || 'null'); if (C && C.ts > (META.ts || 0)) { META = JSON.parse(C.meta); SAVED_RUN = C.run || ''; dirty = { meta: true, run: true }; flushSave(); } } catch (e) { }
+    // 開場禮：每個帳號一次 100 聖晶石（夠解鎖 2 位 50 的英靈）；已經建立的帳號下次登入補發
+    if (!META.starter) { META.starter = 1; META.crystals += STARTER_GIFT; queueSave(true, false); }
     if (res.created || !res.meta) queueSave(true, true);
     run = null; titleScreen();
+    if (starter) toast('開場禮：💎' + STARTER_GIFT + ' 聖晶石，到選人畫面或靈基工坊解鎖英靈');
   }
   function logout() { flushSave(); ACC = null; META = null; SAVED_RUN = null; run = null; try { localStorage.removeItem(AKEY); } catch (e) { } loginScreen(); }
   function loginScreen(msg) {
