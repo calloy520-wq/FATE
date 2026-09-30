@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>聖杯之路</title>
+<style>
+  :root { --bg:#0e1118; --panel:#171c27; --line:#2a3242; --ink:#e4e7ee; --dim:#8e97a8; --gold:#d9b86a; --red:#d86a6a; --blue:#6aa4d8; --green:#7cc79a; --purple:#b48ad8; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif; font-size:14px; }
+  button { font:inherit; color:inherit; background:none; border:none; cursor:pointer; }
+  .wrap { max-width:640px; margin:0 auto; min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; }
+  .btn { border:1px solid var(--gold); color:var(--gold); border-radius:10px; padding:10px 16px; }
+  .btn:disabled { opacity:.35; cursor:default; }
+  .btn.red { border-color:var(--red); color:var(--red); }
+  .dim { color:var(--dim); }
+  h1 { color:var(--gold); font-weight:normal; letter-spacing:.3em; text-align:center; margin:0; }
+  /* 頂列 */
+  #top { display:flex; align-items:center; gap:10px; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  #top .who { color:var(--gold); }
+  .bar { position:relative; height:14px; background:#262c38; border-radius:7px; overflow:hidden; min-width:90px; flex:1; }
+  .bar i { position:absolute; left:0; top:0; bottom:0; background:var(--red); transition:width .25s; }
+  .bar span { position:relative; font-size:11px; padding-left:6px; line-height:14px; }
+  .seals { color:var(--red); letter-spacing:2px; }
+  .chips { display:flex; gap:4px; flex-wrap:wrap; }
+  .chip { font-size:11px; border:1px solid var(--line); border-radius:6px; padding:1px 6px; color:var(--dim); }
+  .chip.gold { border-color:var(--gold); color:var(--gold); }
+  /* 地圖 */
+  #map { padding:10px 12px 24px; overflow:auto; }
+  .floor { display:grid; grid-template-columns:36px repeat(3,1fr); gap:6px; margin-bottom:6px; align-items:center; }
+  .floor .no { color:var(--dim); font-size:11px; text-align:right; }
+  .node { border:1px solid var(--line); border-radius:9px; padding:8px 4px; text-align:center; font-size:13px; color:var(--dim); background:#131722; }
+  .node.can { border-color:var(--gold); color:var(--ink); background:#1e2230; animation:pulse 1.6s infinite; }
+  .node.here { border-color:var(--blue); color:var(--blue); }
+  .node.past { opacity:.35; }
+  @keyframes pulse { 50% { box-shadow:0 0 10px rgba(217,184,106,.45); } }
+  /* 戰鬥 */
+  #battle { flex:1; display:flex; flex-direction:column; }
+  #foes { display:flex; gap:8px; padding:12px; justify-content:center; flex-wrap:wrap; }
+  .foe { flex:1; min-width:120px; max-width:200px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:9px; text-align:left; }
+  .foe.sel { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold); }
+  .foe.dead { opacity:.25; }
+  .foe.hit { animation:hit .3s; }
+  @keyframes hit { 30% { transform:translateX(-4px); background:#3a2020; } 60% { transform:translateX(4px); } }
+  .foe .nm { font-weight:bold; margin-bottom:4px; }
+  .intent { margin-top:6px; font-size:13px; }
+  .intent .atk { color:var(--red); } .intent .def { color:var(--blue); } .intent .buf { color:var(--purple); }
+  #me { padding:8px 12px; border-top:1px solid var(--line); background:var(--panel); }
+  .row { display:flex; gap:8px; align-items:center; }
+  .energy { width:44px; height:44px; border-radius:50%; border:2px solid var(--gold); color:var(--gold); display:flex; align-items:center; justify-content:center; font-weight:bold; flex:none; }
+  .np { height:12px; background:#262c38; border-radius:6px; overflow:hidden; flex:1; } .np i { display:block; height:100%; background:linear-gradient(90deg,#8a6d2e,var(--gold)); transition:width .25s; }
+  .np.full i { animation:glow 1s infinite; } @keyframes glow { 50% { opacity:.6; } }
+  #log { min-height:20px; padding:4px 12px; color:var(--dim); font-size:12.5px; }
+  #hand { display:flex; gap:5px; overflow-x:auto; padding:12px 10px 6px; }
+  .card { flex:1 0 0; min-width:66px; max-width:118px; min-height:128px; border-radius:10px; border:1px solid var(--line); background:#1b2130; padding:7px 6px; text-align:left; position:relative; display:flex; flex-direction:column; }
+  .pick .card { flex:none; }
+  .card .cost { position:absolute; top:-8px; left:-4px; width:24px; height:24px; border-radius:50%; background:var(--gold); color:#1a1408; font-weight:bold; display:flex; align-items:center; justify-content:center; font-size:13px; }
+  .card .nm { font-weight:bold; margin:6px 0 4px; font-size:13px; line-height:1.25; }
+  .card .tx { font-size:11px; color:var(--dim); line-height:1.4; }
+  .card.atk { border-top:3px solid var(--red); } .card.skill { border-top:3px solid var(--blue); } .card.power { border-top:3px solid var(--purple); }
+  .card.sel { border-color:var(--gold); transform:translateY(-6px); }
+  .card:disabled { opacity:.4; }
+  #acts { display:flex; gap:8px; padding:6px 12px calc(12px + env(safe-area-inset-bottom)); }
+  #acts .btn { flex:1; padding:11px 6px; }
+  /* 其他畫面 */
+  .panel { padding:18px 14px; display:flex; flex-direction:column; gap:12px; align-items:center; }
+  .pick { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+  .svt { width:100%; max-width:420px; border:1px solid var(--line); border-radius:14px; padding:14px; background:var(--panel); text-align:left; }
+  .svt:hover, .svt:focus { border-color:var(--gold); }
+  .svt b { color:var(--gold); font-size:16px; }
+  .list { width:100%; max-width:460px; display:flex; flex-direction:column; gap:6px; }
+  .list button { text-align:left; border:1px solid var(--line); border-radius:9px; padding:8px 10px; background:var(--panel); }
+  .ov { position:fixed; inset:0; background:rgba(0,0,0,.7); display:none; align-items:flex-end; justify-content:center; z-index:9; }
+  .ov .sheet { background:var(--panel); width:100%; max-width:640px; max-height:75vh; overflow:auto; border-radius:14px 14px 0 0; padding:14px; }
+  .toast { position:fixed; left:50%; top:14px; transform:translateX(-50%); background:#2a1c1c; border:1px solid var(--red); color:#f0c0c0; padding:7px 14px; border-radius:9px; display:none; z-index:10; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="ov" id="ov" onclick="if(event.target===this)closeOv()"><div class="sheet" id="sheet"></div></div>
+<div class="toast" id="toast"></div>
+<?!= include('Game'); ?>
+<script>
+  // ═══ 畫面：只負責顯示與把按鈕轉成 G 的動作；所有規則在 Game.html ═══
+  var KEY = 'grail_run_v1', run = null, sel = { card: -1, foe: -1 };
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function save() { try { if (run) localStorage.setItem(KEY, JSON.stringify(run)); else localStorage.removeItem(KEY); } catch (e) { } }
+  function load() { try { var s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+  function toast(m) { var t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(function () { t.style.display = 'none'; }, 1500); }
+  function closeOv() { $('ov').style.display = 'none'; }
+  function openOv(html) { $('sheet').innerHTML = html; $('ov').style.display = 'flex'; }
+
+  var NODE = { fight: '⚔ 戰鬥', elite: '☠ 精英', rest: '🔥 休息', chest: '🎁 寶箱', boss: '👑 Boss' };
+
+  function render() {
+    save();
+    if (!run) return title();
+    var s = run.screen;
+    if (s === 'map') return mapScreen();
+    if (s === 'battle') return battleScreen();
+    if (s === 'reward') return rewardScreen();
+    if (s === 'chest') return chestScreen();
+    if (s === 'rest') return restScreen();
+    if (s === 'over') return overScreen();
+  }
+
+  // ── 標題與選從者 ──
+  function title() {
+    var saved = load();
+    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center">'
+      + '<h1>聖杯之路</h1><div class="dim">選一位從者，走到聖杯面前。</div>'
+      + (saved && saved.screen !== 'over' ? '<button class="btn" onclick="cont()">繼續冒險（' + esc(G.SERVANTS[saved.who].cls) + '・第 ' + saved.floor + ' 層）</button>' : '')
+      + '<button class="btn" onclick="choose()">新的冒險</button></div>';
+  }
+  function cont() { run = load(); render(); }
+  function choose() {
+    $('app').innerHTML = '<div class="panel"><h1 style="font-size:20px">選擇從者</h1>'
+      + Object.keys(G.SERVANTS).map(function (k) {
+        var S = G.SERVANTS[k];
+        return '<button class="svt" onclick="start(\'' + k + '\')"><b>' + esc(S.cls) + '・' + esc(S.name) + '</b>　<span class="dim">生命 ' + S.hp + '</span>'
+          + '<div style="margin:6px 0">' + esc(S.desc) + '</div><div class="dim">寶具「' + esc(S.np) + '」：' + esc(S.npText) + '</div></button>';
+      }).join('') + '<button class="btn" onclick="run=null;render()">返回</button></div>';
+  }
+  function start(who) { run = G.newRun(who, (Date.now() ^ (Math.random() * 1e9)) >>> 0); render(); }
+
+  // ── 頂列 ──
+  function topBar() {
+    var S = G.SERVANTS[run.who];
+    return '<div id="top"><span class="who">' + esc(S.cls) + '</span>'
+      + '<div class="bar"><i style="width:' + Math.round(run.hp / run.maxHp * 100) + '%"></i><span>' + run.hp + '／' + run.maxHp + '</span></div>'
+      + '<span class="seals" title="令咒">' + '❖'.repeat(run.seals) + '<span class="dim">' + '❖'.repeat(Math.max(0, run.maxSeals - run.seals)) + '</span></span>'
+      + '<span class="dim">第 ' + run.floor + ' 層</span>'
+      + '<button class="chip gold" onclick="showDeck()">牌組 ' + run.deck.length + '</button>'
+      + (run.relics.length ? '<button class="chip gold" onclick="showRelics()">禮裝 ' + run.relics.length + '</button>' : '')
+      + '</div>';
+  }
+  function showDeck() {
+    var ids = run.deck.slice().sort();
+    openOv('<b>牌組（' + ids.length + '）</b><div class="pick" style="margin-top:12px">' + ids.map(function (id) { return cardHtml(id, '', true); }).join('') + '</div>');
+  }
+  function showRelics() {
+    openOv('<b>禮裝</b><div class="list" style="margin-top:10px">' + run.relics.map(function (k) { return '<div><b class="dim">' + esc(G.RELICS[k].name) + '</b>：' + esc(G.RELICS[k].text) + '</div>'; }).join('') + '</div>');
+  }
+  function cardHtml(id, attrs, big) {
+    var c = G.card(id);
+    return '<button class="card ' + c.type + '" ' + (attrs || '') + (big ? ' style="width:120px"' : '') + '><span class="cost">' + c.cost + '</span><div class="nm">' + esc(c.name) + '</div><div class="tx">' + esc(G.cardText(id, run)) + '</div></button>';
+  }
+
+  // ── 地圖 ──
+  function mapScreen() {
+    var can = G.reachable(run), rows = '';
+    for (var f = G.FLOORS; f >= 1; f--) {
+      rows += '<div class="floor" id="f' + f + '"><div class="no">' + f + '</div>';
+      for (var l = 0; l < 3; l++) {
+        var t = run.map[f - 1][l], cls = 'node', act = '';
+        if (f === run.floor + 1 && can.indexOf(l) >= 0) { cls += ' can'; act = ' onclick="goNode(' + l + ')"'; }
+        else if (f === run.floor && l === run.lane) cls += ' here';
+        else if (f <= run.floor) cls += ' past';
+        rows += '<button class="' + cls + '"' + act + '>' + NODE[t] + '</button>';
+      }
+      rows += '</div>';
+    }
+    $('app').innerHTML = topBar() + '<div id="map">' + rows + '</div>';
+    var cur = $('f' + Math.min(G.FLOORS, run.floor + 1)); if (cur) cur.scrollIntoView({ block: 'center' });
+  }
+  function goNode(l) { sel = { card: -1, foe: -1 }; G.go(run, l); render(); }
+
+  // ── 戰鬥 ──
+  function intentHtml(e) {
+    return e.intent.fx.map(function (f) {
+      var k = f[0];
+      if (k === 'atk') return '<span class="atk">⚔ ' + G.intentDmg(run, e, f) + (f[2] ? '×' + f[2] : '') + '</span>';
+      if (k === 'block') return '<span class="def">🛡 ' + f[1] + '</span>';
+      if (k === 'str') return '<span class="buf">▲ 強化</span>';
+      if (k === 'heal') return '<span class="buf">✚ 回復</span>';
+      return '<span class="buf">☁ 削弱</span>';
+    }).join(' ') + ' <span class="dim">' + esc(e.intent.n) + '</span>';
+  }
+  function statusChips(o, me) {
+    var a = [];
+    if (o.str) a.push('力量 ' + o.str);
+    if (me && o.tstr) a.push('本回合力量 +' + o.tstr);
+    if (o.vuln) a.push('易傷 ' + o.vuln);
+    if (o.weak) a.push('虛弱 ' + o.weak);
+    if (me && o.thorns) a.push('反擊 ' + o.thorns);
+    if (me && o.pBlock) a.push('每回合格擋 ' + o.pBlock);
+    if (me && o.pDraw) a.push('每回合多抽 ' + o.pDraw);
+    if (me && o.pEnergy) a.push('每回合魔力 +' + o.pEnergy);
+    if (me && o.ubw) a.push('劍的荒野 ' + o.ubw);
+    if (!me && o.lives) a.push('十二試煉 ' + o.lives);
+    return a.map(function (x) { return '<span class="chip">' + x + '</span>'; }).join('');
+  }
+  var lastHp = {};
+  function battleScreen() {
+    var b = run.battle, S = G.SERVANTS[run.who];
+    var foes = b.enemies.map(function (e, i) {
+      var hit = lastHp[e.key] !== undefined && e.hp < lastHp[e.key];
+      return '<button class="foe' + (e.hp <= 0 ? ' dead' : '') + (sel.foe === i ? ' sel' : '') + (hit ? ' hit' : '') + '" onclick="tapFoe(' + i + ')">'
+        + '<div class="nm">' + esc(e.name) + '</div>'
+        + '<div class="bar"><i style="width:' + Math.max(0, Math.round(e.hp / e.maxHp * 100)) + '%"></i><span>' + Math.max(0, e.hp) + '／' + e.maxHp + (e.block ? '　🛡' + e.block : '') + '</span></div>'
+        + '<div class="chips" style="margin-top:4px">' + statusChips(e, false) + '</div>'
+        + (e.hp > 0 ? '<div class="intent">' + intentHtml(e) + '</div>' : '') + '</button>';
+    }).join('');
+    b.enemies.forEach(function (e) { lastHp[e.key] = e.hp; });
+    var full = b.np >= 100;
+    $('app').innerHTML = topBar()
+      + '<div id="battle"><div id="foes">' + foes + '</div><div style="flex:1"></div>'
+      + '<div id="log">' + esc((b.log || []).join('　')) + '</div>'
+      + '<div id="me"><div class="row"><div class="energy">' + b.energy + '</div><div style="flex:1">'
+      + '<div class="row"><span class="dim" style="font-size:12px">🛡 ' + b.block + '</span><span class="dim" style="font-size:12px">牌堆 ' + b.draw.length + '・棄牌 ' + b.discard.length + '</span></div>'
+      + '<div class="row" style="margin-top:5px"><span style="font-size:12px;color:var(--gold)">寶具</span><div class="np' + (full ? ' full' : '') + '"><i style="width:' + b.np + '%"></i></div><span style="font-size:12px">' + b.np + '%</span></div>'
+      + '<div class="chips" style="margin-top:5px">' + statusChips(b, true) + '</div></div></div></div>'
+      + '<div id="hand">' + b.hand.map(function (id, i) { var c = G.card(id); return cardHtml(id, 'onclick="tapCard(' + i + ')"' + (c.cost > b.energy ? ' disabled' : '') + (sel.card === i ? ' data-s="1"' : '')); }).join('') + '</div>'
+      + '<div id="acts"><button class="btn" ' + (full ? '' : 'disabled') + ' onclick="doNP()">寶具「' + esc(S.np) + '」</button>'
+      + '<button class="btn red" ' + (run.seals ? '' : 'disabled') + ' onclick="sealMenu()">令咒 ' + run.seals + '</button>'
+      + '<button class="btn" onclick="endTurn()">結束回合</button></div></div>';
+    var cs = document.querySelectorAll('#hand .card'); if (sel.card >= 0 && cs[sel.card]) cs[sel.card].classList.add('sel');
+  }
+  function tapFoe(i) {
+    var e = run.battle.enemies[i]; if (!e || e.hp <= 0) return;
+    sel.foe = i;
+    if (sel.card >= 0) { var c = sel.card; sel.card = -1; return playCard(c); }
+    render();
+  }
+  function tapCard(i) {
+    var b = run.battle, c = G.card(b.hand[i]);
+    if (c.cost > b.energy) return toast('魔力不夠');
+    var foes = G.alive(b);
+    if (c.t && foes.length > 1 && (sel.foe < 0 || b.enemies[sel.foe].hp <= 0)) { sel.card = i; toast('點一個敵人當目標'); return render(); }
+    playCard(i);
+  }
+  function playCard(i) {
+    var b = run.battle, tg = sel.foe >= 0 && b.enemies[sel.foe] && b.enemies[sel.foe].hp > 0 ? sel.foe : G.alive(b).length ? b.enemies.indexOf(G.alive(b)[0]) : 0;
+    var r = G.play(run, i, tg);
+    if (!r.ok) toast(r.msg);
+    after();
+  }
+  function doNP() { var b = run.battle, tg = sel.foe >= 0 ? sel.foe : 0; var r = G.noble(run, tg); if (!r.ok) toast(r.msg); after(); }
+  function sealMenu() {
+    openOv('<b>令咒（剩 ' + run.seals + ' 劃，整趟冒險不會回復）</b><div class="list" style="margin-top:12px">'
+      + '<button onclick="useSeal(\'all\')">❖ 全力以赴：魔力 +3、抽 2 張</button>'
+      + '<button onclick="useSeal(\'np\')">❖ 解放寶具：寶具量表直接充滿</button></div>');
+  }
+  function useSeal(k) { closeOv(); var r = G.seal(run, k); if (!r.ok) toast(r.msg); after(); }
+  function endTurn() { sel.card = -1; G.endTurn(run); after(); }
+  function after() { if (run.battle && sel.foe >= 0 && (!run.battle.enemies[sel.foe] || run.battle.enemies[sel.foe].hp <= 0)) sel.foe = -1; if (run.screen !== 'battle') lastHp = {}; render(); }
+
+  // ── 戰後、寶箱、休息、結局 ──
+  function rewardScreen() {
+    var rw = run.reward;
+    $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:20px">勝利</h1>'
+      + (rw.relic ? '<div>得到禮裝「<b style="color:var(--gold)">' + esc(G.RELICS[rw.relic].name) + '</b>」：' + esc(G.RELICS[rw.relic].text) + '</div>' : '')
+      + '<div class="dim">選一張牌加進牌組</div><div class="pick">' + rw.cards.map(function (id, i) { return cardHtml(id, 'onclick="takeCard(' + i + ')"', true); }).join('') + '</div>'
+      + '<button class="btn" onclick="takeCard(-1)">不拿</button></div>';
+  }
+  function takeCard(i) { G.takeReward(run, i); render(); }
+  function chestScreen() {
+    var k = run.reward.relic;
+    $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:20px">寶箱</h1>'
+      + (k ? '<div>禮裝「<b style="color:var(--gold)">' + esc(G.RELICS[k].name) + '</b>」：' + esc(G.RELICS[k].text) + '</div>' : '<div class="dim">空的。</div>')
+      + '<button class="btn" onclick="G.takeChest(run);render()">收下</button></div>';
+  }
+  function restScreen() {
+    var heal = Math.round(run.maxHp * 0.3) + (G.hasRelic(run, 'tea') ? 10 : 0);
+    $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:20px">休息</h1><div class="dim">御主與從者在篝火旁喘口氣。</div>'
+      + '<button class="btn" onclick="G.rest(run,\'heal\');render()">休息：回復 ' + heal + ' 生命</button>'
+      + '<button class="btn" onclick="upMenu()">鍛鍊：強化一張牌</button></div>';
+  }
+  function upMenu() {
+    var html = '<b>選一張牌強化</b><div class="pick" style="margin-top:12px">';
+    run.deck.forEach(function (id, i) { if (id.slice(-1) !== '+' && G.CARDS[id].up) html += '<div style="text-align:center">' + cardHtml(id, 'onclick="doUp(' + i + ')"', true) + '<div class="dim" style="font-size:11px;margin-top:3px">→ ' + esc(G.cardText(id + '+')) + '</div></div>'; });
+    openOv(html + '</div>');
+  }
+  function doUp(i) { closeOv(); G.rest(run, 'upgrade', i); render(); }
+  function overScreen() {
+    var st = run.stats, S = G.SERVANTS[run.who];
+    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.win ? '聖杯到手' : '敗退') + '</h1>'
+      + '<div class="dim">' + esc(S.cls) + '・' + esc(S.name) + (run.win ? '　走完了全部 ' + G.FLOORS + ' 層' : '　倒在第 ' + run.floor + ' 層') + '</div>'
+      + '<div>擊敗 ' + st.kills + '・寶具 ' + st.np + ' 次・令咒用了 ' + st.seals + ' 劃・牌組 ' + run.deck.length + ' 張</div>'
+      + '<button class="btn" onclick="run=null;save();choose()">再來一次</button></div>';
+  }
+
+  run = null; render();
+</script>
+</body>
+</html>

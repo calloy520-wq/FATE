@@ -1,8 +1,6 @@
-// 空殼：舊版已清空（2026-09-30），新遊戲還在規劃。線上網址只顯示這一頁。
+// 網頁入口：聖杯之路（Fate 題材的卡牌冒險）。遊戲規則全在 Game.html、跑在玩家的瀏覽器裡。
 function doGet() {
-  return HtmlService.createHtmlOutput(
-    '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#111;color:#ddd;font-family:sans-serif;text-align:center">' +
-    '<div><h1 style="font-weight:normal;letter-spacing:.2em">命運停駐之夜</h1><p>重新製作中</p></div></body>'
-  ).setTitle('命運停駐之夜').addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  return HtmlService.createTemplateFromFile('Index').evaluate().setTitle('聖杯之路')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
+function include(name) { return HtmlService.createHtmlOutputFromFile(name).getContent(); }

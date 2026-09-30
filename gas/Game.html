@@ -1,0 +1,407 @@
+<script>
+// ═══ 聖杯之路：遊戲引擎（純規則，畫面在 Index.html） ═══
+// 全部跑在玩家的瀏覽器裡：按下去立刻結算，不必等伺服器。一局的狀態 run 是一份可以 JSON 存檔的物件。
+var G = (function () {
+
+  // ── 資料：卡牌 ──────────────────────────────────────
+  // fx：['dmg',n] 單體傷害｜['hits',n,k] 單體 n×k｜['all',n] 全體傷害｜['block',n]｜['draw',n]｜['energy',n]
+  //     ['str',n] 力量（本場）｜['tstr',n] 力量（本回合）｜['vuln',n]/['weak',n] 給目標｜['heal',n]｜['np',n]
+  //     ['proj',n] 加 n 張投影劍到手牌｜['thorns',n] 本回合被攻擊時反擊｜['burst',n] 消耗手上所有投影劍，每張對全體 n
+  // power：['pBlock',n] 每回合開始格擋｜['pDraw',n] 每回合多抽｜['pEnergy',n] 每回合多魔力｜['pStr',n] 每回合開始力量
+  // np＝打出時寶具量表增加多少；ex＝打出後消耗（本場不再出現）；up＝強化後覆蓋的欄位
+  var CARDS = {
+    atk:    { name: '攻擊', cost: 1, type: 'atk', t: 1, np: 10, fx: [['dmg', 6]], up: { fx: [['dmg', 9]] } },
+    def:    { name: '防禦', cost: 1, type: 'skill', np: 5, fx: [['block', 5]], up: { fx: [['block', 8]] } },
+    // Saber
+    invis:  { name: '看不見的劍', cost: 1, type: 'atk', t: 1, np: 15, fx: [['hits', 5, 2]], up: { fx: [['hits', 7, 2]] }, who: 'saber' },
+    hammer: { name: '風王鐵槌', cost: 2, type: 'atk', np: 15, fx: [['all', 8]], up: { fx: [['all', 12]] }, who: 'saber' },
+    burst:  { name: '魔力放出', cost: 1, type: 'skill', np: 5, fx: [['tstr', 3]], up: { fx: [['tstr', 5]] }, who: 'saber' },
+    instinct:{ name: '直感', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['draw', 2]], up: { fx: [['draw', 3]] }, who: 'saber' },
+    guard:  { name: '騎士的堅守', cost: 2, type: 'skill', np: 10, fx: [['block', 13]], up: { fx: [['block', 18]] }, who: 'saber' },
+    charge: { name: '突進斬', cost: 2, type: 'atk', t: 1, np: 20, fx: [['dmg', 14], ['vuln', 1]], up: { fx: [['dmg', 18], ['vuln', 2]] }, who: 'saber' },
+    counter:{ name: '反擊架勢', cost: 1, type: 'skill', np: 5, fx: [['block', 6], ['thorns', 4]], up: { fx: [['block', 9], ['thorns', 6]] }, who: 'saber' },
+    kingly: { name: '王者風範', cost: 1, type: 'power', np: 0, fx: [['pBlock', 3]], up: { fx: [['pBlock', 5]] }, who: 'saber' },
+    dragon: { name: '龍之心臟', cost: 3, type: 'power', np: 0, fx: [['pEnergy', 1]], up: { cost: 2 }, who: 'saber' },
+    oath:   { name: '誓約之光', cost: 0, type: 'skill', np: 25, ex: 1, fx: [], up: { np: 40 }, who: 'saber' },
+    // Archer
+    project:{ name: '投影魔術', cost: 1, type: 'skill', np: 5, fx: [['proj', 2]], up: { fx: [['proj', 3]] }, who: 'archer' },
+    tracing:{ name: '劍製', cost: 0, type: 'skill', np: 5, fx: [['proj', 1]], up: { fx: [['proj', 2]] }, who: 'archer' },
+    hrunting:{ name: '赤原獵犬', cost: 2, type: 'atk', t: 1, np: 20, fx: [['dmg', 13]], up: { fx: [['dmg', 18]] }, who: 'archer' },
+    calad:  { name: '偽・螺旋劍', cost: 2, type: 'atk', np: 20, ex: 1, fx: [['all', 12]], up: { fx: [['all', 17]] }, who: 'archer' },
+    kanshou:{ name: '干將莫邪', cost: 1, type: 'atk', t: 1, np: 15, fx: [['hits', 4, 2], ['block', 3]], up: { fx: [['hits', 5, 2], ['block', 5]] }, who: 'archer' },
+    hawkeye:{ name: '鷹之瞳', cost: 1, type: 'skill', t: 1, np: 5, fx: [['draw', 2], ['vuln', 2]], up: { fx: [['draw', 2], ['vuln', 3]] }, who: 'archer' },
+    rhoaias:{ name: '熾天覆七重圓環', cost: 2, type: 'skill', np: 10, fx: [['block', 15]], up: { fx: [['block', 21]] }, who: 'archer' },
+    mind:   { name: '心眼', cost: 1, type: 'power', np: 0, fx: [['pDraw', 1]], up: { cost: 0 }, who: 'archer' },
+    broken: { name: '壞幻', cost: 1, type: 'skill', np: 10, fx: [['burst', 5]], up: { fx: [['burst', 7]] }, who: 'archer' },
+    shot:   { name: '弓兵的射擊', cost: 1, type: 'atk', t: 1, np: 10, fx: [['dmg', 9]], up: { fx: [['dmg', 12]] }, who: 'archer' },
+    // 投影劍：Archer 的消耗品（不進牌組）
+    sword:  { name: '投影劍', cost: 0, type: 'atk', t: 1, np: 3, ex: 1, fx: [['dmg', 3]], token: 1 },
+    // 共通
+    heavy:  { name: '重擊', cost: 2, type: 'atk', t: 1, np: 15, fx: [['dmg', 12]], up: { fx: [['dmg', 17]] } },
+    dodge:  { name: '迴避', cost: 1, type: 'skill', np: 5, fx: [['block', 8]], up: { fx: [['block', 11]] } },
+    circuit:{ name: '魔術迴路', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['energy', 1]], up: { fx: [['energy', 2]] } },
+    reinforce:{ name: '強化魔術', cost: 1, type: 'power', np: 0, fx: [['str', 2]], up: { fx: [['str', 3]] } },
+    healing:{ name: '治癒魔術', cost: 1, type: 'skill', np: 0, ex: 1, fx: [['heal', 6]], up: { fx: [['heal', 10]] } },
+    feint:  { name: '牽制', cost: 0, type: 'atk', t: 1, np: 5, fx: [['dmg', 3], ['weak', 1]], up: { fx: [['dmg', 5], ['weak', 2]] } }
+  };
+
+  // ── 資料：從者 ──────────────────────────────────────
+  var SERVANTS = {
+    saber: { name: '阿爾托莉雅', cls: 'Saber', hp: 85, deck: ['atk', 'atk', 'atk', 'atk', 'atk', 'def', 'def', 'def', 'def', 'invis'],
+      np: '誓約勝利之劍', npText: '對全體敵人造成 45 點傷害',
+      desc: '正面硬打的騎士王。牌少而重，寶具是全體大傷害。' },
+    archer: { name: 'EMIYA', cls: 'Archer', hp: 72, deck: ['atk', 'atk', 'atk', 'atk', 'atk', 'def', 'def', 'def', 'def', 'project'],
+      np: '無限劍製', npText: '這回合與之後 2 回合，每回合開始得到 3 張投影劍；本場投影劍傷害 +2',
+      desc: '把劍投影出來用完即丟的弓兵。大量 0 費小牌，最後一次引爆。' }
+  };
+
+  // ── 資料：敵人 ──────────────────────────────────────
+  // moves：{n 名稱, fx}｜fx：['atk',n,k] 攻擊 n×k｜['block',n]｜['str',n] 自己變強｜['weak',n]/['vuln',n] 給玩家｜['heal',n]
+  // cycle＝照順序輪；否則依權重 w 隨機（不連續同一招兩次以上）；lives＝倒下後以 revive 比例的血復活幾次
+  var ENEMIES = {
+    fang:   { name: '龍牙兵', hp: [14, 18], moves: [{ n: '砍擊', fx: [['atk', 7]], w: 3 }, { n: '舉盾', fx: [['block', 6], ['atk', 3]], w: 1 }] },
+    bat:    { name: '使魔', hp: [8, 10], moves: [{ n: '撲咬', fx: [['atk', 3, 2]], w: 2 }, { n: '尖嘯', fx: [['weak', 1]], w: 1 }] },
+    shadow: { name: '影', hp: [24, 28], moves: [{ n: '侵蝕', fx: [['atk', 9]], w: 2 }, { n: '纏繞', fx: [['atk', 4], ['vuln', 2]], w: 1 }] },
+    ghoul:  { name: '死徒', hp: [34, 38], moves: [{ n: '撕裂', fx: [['atk', 11]], w: 2 }, { n: '吸血', fx: [['atk', 6], ['heal', 6]], w: 1 }, { n: '狂暴', fx: [['str', 3]], w: 1 }] },
+    magus:  { name: '魔術師', hp: [26, 30], moves: [{ n: '魔彈', fx: [['atk', 8]], w: 2 }, { n: '詛咒', fx: [['weak', 2], ['atk', 4]], w: 1 }, { n: '結界', fx: [['block', 10]], w: 1 }] },
+    kojiro: { name: '佐佐木小次郎', hp: [70, 74], elite: 1, cycle: 1, moves: [{ n: '燕返', fx: [['atk', 6, 3]] }, { n: '架勢', fx: [['block', 14], ['str', 3]] }, { n: '一閃', fx: [['atk', 15]] }] },
+    medusa: { name: '美杜莎', hp: [74, 78], elite: 1, cycle: 1, moves: [{ n: '鎖鏈', fx: [['atk', 10]] }, { n: '魔眼', fx: [['vuln', 2], ['weak', 2]] }, { n: '釘劍', fx: [['atk', 5, 3]] }, { n: '騎英之手綱', fx: [['atk', 30]] }] },
+    cu:     { name: '庫丘林', hp: [76, 80], elite: 1, cycle: 1, moves: [{ n: '刺擊', fx: [['atk', 12]] }, { n: '迴避', fx: [['block', 12], ['str', 2]] }, { n: '連刺', fx: [['atk', 6, 2]] }, { n: '刺穿死棘之槍', fx: [['atk', 32]] }] },
+    hercules:{ name: '赫拉克勒斯', hp: [100, 100], boss: 1, cycle: 1, lives: 2, revive: 0.6,
+      moves: [{ n: '怒吼', fx: [['str', 3]] }, { n: '重擊', fx: [['atk', 16]] }, { n: '射殺百頭', fx: [['atk', 6, 3]] }, { n: '岩軀', fx: [['block', 15]] }, { n: '粉碎', fx: [['atk', 22]] }] }
+  };
+  var SCALE = { hp: 0.04, strEvery: 4 };
+  var ENCOUNTERS = {
+    easy: [['fang'], ['bat', 'bat'], ['shadow'], ['fang', 'bat']],
+    hard: [['fang', 'fang', 'bat'], ['ghoul'], ['magus', 'fang'], ['shadow', 'bat'], ['ghoul', 'bat'], ['magus', 'shadow']],
+    elite: [['kojiro'], ['medusa'], ['cu']],
+    boss: [['hercules']]
+  };
+
+  // ── 資料：禮裝（整局的被動道具） ─────────────────────
+  var RELICS = {
+    gem:     { name: '遠坂家的寶石', text: '每場戰鬥第一回合魔力 +1' },
+    blackkey:{ name: '黑鍵', text: '每場戰鬥第一張攻擊牌傷害 +6' },
+    shroud:  { name: '聖骸布', text: '每場戰鬥開始時獲得 8 格擋' },
+    circuit: { name: '魔術刻印', text: '每場戰鬥寶具量表從 25% 開始' },
+    tea:     { name: '一壺紅茶', text: '在休息點回復的生命多 10 點' },
+    amulet:  { name: '鍊金術的護符', text: '最大生命 +10' },
+    book:    { name: '偽臣之書', text: '每場戰鬥開始時所有敵人虛弱 1' },
+    seal:    { name: '令咒之痕', text: '令咒上限 +1（並立刻補 1 劃）' }
+  };
+
+  // ── 亂數 ─────────────────────────────────────────────
+  function rnd(run) { var t = (run.rs = (run.rs + 0x6D2B79F5) | 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+  function pick(run, a) { return a[Math.floor(rnd(run) * a.length)]; }
+  function shuffle(run, a) { a = a.slice(); for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd(run) * (i + 1)), x = a[i]; a[i] = a[j]; a[j] = x; } return a; }
+
+  // 卡片定義（id 後面帶 + ＝已強化）
+  function card(id) {
+    var up = id.slice(-1) === '+', base = CARDS[up ? id.slice(0, -1) : id];
+    if (!base) return null;
+    var c = Object.assign({ id: id, up: up }, base);
+    if (up && base.up) Object.keys(base.up).forEach(function (k) { c[k] = base.up[k]; });
+    if (up) c.name += '＋';
+    return c;
+  }
+  function cardText(id, run) {
+    var c = card(id), b = run && run.battle, bits = [];
+    c.fx.forEach(function (f) {
+      var k = f[0], n = f[1];
+      if (k === 'dmg') bits.push('造成 ' + n + ' 傷害');
+      else if (k === 'hits') bits.push('造成 ' + n + ' 傷害 ×' + f[2]);
+      else if (k === 'all') bits.push('對全體造成 ' + n + ' 傷害');
+      else if (k === 'block') bits.push('格擋 ' + n);
+      else if (k === 'draw') bits.push('抽 ' + n + ' 張');
+      else if (k === 'energy') bits.push('魔力 +' + n);
+      else if (k === 'str') bits.push('力量 +' + n);
+      else if (k === 'tstr') bits.push('本回合力量 +' + n);
+      else if (k === 'vuln') bits.push('易傷 ' + n);
+      else if (k === 'weak') bits.push('虛弱 ' + n);
+      else if (k === 'heal') bits.push('回復 ' + n);
+      else if (k === 'proj') bits.push('得到 ' + n + ' 張投影劍');
+      else if (k === 'thorns') bits.push('本回合被攻擊時反擊 ' + n);
+      else if (k === 'burst') bits.push('消耗手上所有投影劍，每張對全體 ' + n);
+      else if (k === 'pBlock') bits.push('每回合開始格擋 ' + n);
+      else if (k === 'pDraw') bits.push('每回合多抽 ' + n + ' 張');
+      else if (k === 'pEnergy') bits.push('每回合魔力 +' + n);
+    });
+    if (c.id === 'sword' && b && b.projUp) bits = ['造成 ' + (3 + b.projUp) + ' 傷害'];
+    if (c.np) bits.push('寶具 +' + c.np + '%');
+    if (c.type === 'power') bits.push('（持續整場）');
+    if (c.ex) bits.push('消耗');
+    return bits.join('，');
+  }
+
+  // ── 開局與地圖 ───────────────────────────────────────
+  var FLOORS = 13;   // 第 13 層是 Boss
+  function newRun(who, seed) {
+    var S = SERVANTS[who];
+    var run = { v: 1, who: who, seed: seed >>> 0, rs: seed | 0, hp: S.hp, maxHp: S.hp, deck: S.deck.slice(), relics: [], seals: 3, maxSeals: 3,
+      floor: 0, lane: -1, map: null, screen: 'map', battle: null, reward: null, log: [], stats: { kills: 0, np: 0, seals: 0, floors: 0 } };
+    run.map = makeMap(run);
+    return run;
+  }
+  function makeMap(run) {
+    var map = [];
+    for (var f = 1; f <= FLOORS; f++) {
+      var row = [];
+      for (var l = 0; l < 3; l++) {
+        var t;
+        if (f === 1) t = 'fight';
+        else if (f === FLOORS) t = 'boss';
+        else if (f === FLOORS - 1) t = 'rest';
+        else if (f === 7) t = 'chest';
+        else {
+          var r = rnd(run);
+          t = r < 0.5 ? 'fight' : r < 0.68 ? (f >= 4 ? 'elite' : 'fight') : r < 0.86 ? (f >= 3 ? 'rest' : 'fight') : 'chest';
+        }
+        row.push(t);
+      }
+      map.push(row);
+    }
+    // 同一層不要三格都一樣（精英、休息除外沒關係）：至少給一條不打精英的路
+    map.forEach(function (row, i) { if (row.every(function (t) { return t === 'elite'; })) row[1] = 'fight'; });
+    return map;
+  }
+  // 從目前位置能走到的下一層格子（第 0 層＝起點，三格都能選）
+  function reachable(run) {
+    if (run.floor >= FLOORS) return [];
+    if (run.floor === 0) return [0, 1, 2];
+    return [run.lane - 1, run.lane, run.lane + 1].filter(function (l) { return l >= 0 && l <= 2; });
+  }
+  function hasRelic(run, k) { return run.relics.indexOf(k) >= 0; }
+
+  function go(run, lane) {
+    if (run.screen !== 'map' || reachable(run).indexOf(lane) < 0) return false;
+    run.floor++; run.lane = lane; run.stats.floors = run.floor;
+    var t = run.map[run.floor - 1][lane];
+    if (t === 'fight') startBattle(run, pick(run, run.floor <= 3 ? ENCOUNTERS.easy : ENCOUNTERS.hard), 'fight');
+    else if (t === 'elite') startBattle(run, pick(run, ENCOUNTERS.elite), 'elite');
+    else if (t === 'boss') startBattle(run, ENCOUNTERS.boss[0], 'boss');
+    else if (t === 'rest') run.screen = 'rest';
+    else if (t === 'chest') { run.screen = 'chest'; run.reward = { relic: randomRelic(run) }; }
+    return true;
+  }
+  function randomRelic(run) {
+    var left = Object.keys(RELICS).filter(function (k) { return !hasRelic(run, k); });
+    return left.length ? pick(run, left) : null;
+  }
+  function gainRelic(run, k) {
+    if (!k || hasRelic(run, k)) return;
+    run.relics.push(k);
+    if (k === 'amulet') { run.maxHp += 10; run.hp += 10; }
+    if (k === 'seal') { run.maxSeals += 1; run.seals = Math.min(run.maxSeals, run.seals + 1); }
+  }
+
+  // ── 戰鬥 ─────────────────────────────────────────────
+  function startBattle(run, ids, kind) {
+    var b = { kind: kind, turn: 0, energy: 0, block: 0, np: hasRelic(run, 'circuit') ? 25 : 0, str: 0, tstr: 0, vuln: 0, weak: 0, thorns: 0,
+      pBlock: 0, pDraw: 0, pEnergy: 0, ubw: 0, projUp: 0, firstAtk: hasRelic(run, 'blackkey'),
+      draw: shuffle(run, run.deck), hand: [], discard: [], exhaust: [], enemies: [], log: [] };
+    ids.forEach(function (id, i) {
+      var E = ENEMIES[id], hp = E.hp[0] + Math.floor(rnd(run) * (E.hp[1] - E.hp[0] + 1));
+      var up = kind === 'boss' ? 0 : run.floor - 1;   // 越往上走越強：血量每層 +4%，每 4 層力量 +1
+      hp = Math.round(hp * (1 + SCALE.hp * up));
+      b.enemies.push({ id: id, key: id + i, name: E.name, hp: hp, maxHp: hp, block: 0, str: Math.floor(up / SCALE.strEvery), vuln: 0, weak: hasRelic(run, 'book') ? 1 : 0,
+        lives: E.lives || 0, mi: -1, last: -1, rep: 0, intent: null });
+    });
+    run.battle = b; run.screen = 'battle';
+    if (hasRelic(run, 'shroud')) b.block = 8;
+    b.enemies.forEach(function (e) { chooseIntent(run, e); });
+    startTurn(run, true);
+  }
+  function startTurn(run, first) {
+    var b = run.battle;
+    b.turn++;
+    if (!first) b.block = 0;
+    b.energy = 3 + b.pEnergy + (first && hasRelic(run, 'gem') ? 1 : 0);
+    if (b.pBlock) b.block += b.pBlock;
+    if (b.ubw > 0) { addProj(b, 3); b.ubw--; }
+    drawCards(run, 5 + b.pDraw);
+  }
+  function drawCards(run, n) {
+    var b = run.battle;
+    for (var i = 0; i < n; i++) {
+      if (b.hand.length >= 10) break;
+      if (!b.draw.length) { if (!b.discard.length) break; b.draw = shuffle(run, b.discard); b.discard = []; }
+      b.hand.push(b.draw.pop());
+    }
+  }
+  function addProj(b, n) { for (var i = 0; i < n && b.hand.length < 10; i++) b.hand.push('sword'); }
+  function alive(b) { return b.enemies.filter(function (e) { return e.hp > 0; }); }
+
+  function chooseIntent(run, e) {
+    var E = ENEMIES[e.id], mv;
+    if (E.cycle) { e.mi = (e.mi + 1) % E.moves.length; mv = E.moves[e.mi]; }
+    else {
+      var tot = 0, opts = E.moves.map(function (m, i) { return { m: m, i: i, w: (i === e.last && e.rep >= 1) ? 0 : m.w }; });
+      opts.forEach(function (o) { tot += o.w; });
+      var r = rnd(run) * tot, o = null;
+      for (var k = 0; k < opts.length && !o; k++) { r -= opts[k].w; if (r < 0 && opts[k].w > 0) o = opts[k]; }
+      if (!o) o = opts.filter(function (x) { return x.w > 0; }).pop();
+      e.rep = o.i === e.last ? e.rep + 1 : 0; e.last = o.i; mv = o.m;
+    }
+    e.intent = mv;
+  }
+  // 敵人這一招畫面上要顯示的傷害（算進力量、虛弱、玩家易傷）
+  function intentDmg(run, e, f) { return calcDmg(f[1], e.str, e.weak, run.battle.vuln); }
+  function calcDmg(base, str, weak, vuln) {
+    var d = base + str; if (weak > 0) d = d * 0.75; if (vuln > 0) d = d * 1.5;
+    return Math.max(0, Math.floor(d));
+  }
+  function hitEnemy(run, e, dmg, log) {
+    if (e.hp <= 0) return;
+    var d = dmg, took = Math.min(e.block, d); e.block -= took; d -= took; e.hp -= d;
+    if (e.hp <= 0) {
+      if (e.lives > 0) { e.lives--; e.hp = Math.round(e.maxHp * ENEMIES[e.id].revive); e.block = 0; e.vuln = 0; e.weak = 0; log.push(e.name + '倒下了，又站了起來（十二試煉，還剩 ' + e.lives + ' 次）'); }
+      else { e.hp = 0; run.stats.kills++; log.push(e.name + '倒下了'); }
+    }
+  }
+  function pDmg(run, base) {   // 玩家對敵人（不含敵人易傷）
+    var b = run.battle, d = base + b.str + b.tstr;
+    if (b.firstAtk) { d += 6; b.firstAtk = false; }
+    if (b.weak > 0) d = d * 0.75;
+    return d;
+  }
+  function dmgTo(e, raw) { return Math.max(0, Math.floor(e.vuln > 0 ? raw * 1.5 : raw)); }
+
+  // 打出手牌第 i 張；target＝敵人索引（單體牌需要）
+  function play(run, i, target) {
+    var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false, msg: '不在戰鬥中' };
+    var id = b.hand[i], c = id && card(id); if (!c) return { ok: false, msg: '沒有這張牌' };
+    if (c.cost > b.energy) return { ok: false, msg: '魔力不夠' };
+    var foes = alive(b), tg = null;
+    if (c.t) { tg = b.enemies[target]; if (!tg || tg.hp <= 0) { if (foes.length === 1) tg = foes[0]; else return { ok: false, msg: '選一個目標', needTarget: true }; } }
+    b.energy -= c.cost; b.hand.splice(i, 1);
+    var log = [c.name];
+    var firstUsed = c.type === 'atk' && b.firstAtk;
+    c.fx.forEach(function (f) {
+      var k = f[0], n = f[1];
+      if (k === 'dmg') { var base = id === 'sword' ? n + b.projUp : n; hitEnemy(run, tg, dmgTo(tg, pDmg(run, base)), log); }
+      else if (k === 'hits') { for (var h = 0; h < f[2]; h++) hitEnemy(run, tg, dmgTo(tg, pDmg(run, n)), log); }
+      else if (k === 'all') { var raw = pDmg(run, n); alive(b).forEach(function (e) { hitEnemy(run, e, dmgTo(e, raw), log); }); }
+      else if (k === 'block') b.block += n;
+      else if (k === 'draw') drawCards(run, n);
+      else if (k === 'energy') b.energy += n;
+      else if (k === 'str') b.str += n;
+      else if (k === 'tstr') b.tstr += n;
+      else if (k === 'vuln') { if (tg) tg.vuln += n; }
+      else if (k === 'weak') { if (tg) tg.weak += n; }
+      else if (k === 'heal') run.hp = Math.min(run.maxHp, run.hp + n);
+      else if (k === 'proj') addProj(b, n);
+      else if (k === 'thorns') b.thorns += n;
+      else if (k === 'burst') { var cnt = b.hand.filter(function (x) { return x === 'sword'; }).length; b.hand = b.hand.filter(function (x) { return x !== 'sword'; }); b.exhaust = b.exhaust.concat(new Array(cnt).fill('sword')); for (var s = 0; s < cnt; s++) { var r2 = pDmg(run, n); alive(b).forEach(function (e) { hitEnemy(run, e, dmgTo(e, r2), log); }); } log.push('引爆 ' + cnt + ' 把投影劍'); }
+      else if (k === 'pBlock') b.pBlock += n;
+      else if (k === 'pDraw') b.pDraw += n;
+      else if (k === 'pEnergy') b.pEnergy += n;
+    });
+    if (firstUsed) b.firstAtk = false;
+    b.np = Math.min(100, b.np + (c.np || 0));
+    if (c.type !== 'power') (c.ex || c.token ? b.exhaust : b.discard).push(id);
+    b.log = log;
+    return { ok: true, end: checkEnd(run) };
+  }
+
+  // 寶具：量表滿了才能放
+  function noble(run, target) {
+    var b = run.battle; if (!b || b.np < 100) return { ok: false, msg: '寶具量表還沒滿' };
+    b.np = 0; run.stats.np++;
+    var log = [SERVANTS[run.who].np];
+    if (run.who === 'saber') { var raw = pDmg(run, 45); alive(b).forEach(function (e) { hitEnemy(run, e, dmgTo(e, raw), log); }); }
+    else if (run.who === 'archer') { addProj(b, 3); b.ubw = 2; b.projUp += 2; log.push('劍的荒野展開了'); }
+    b.log = log;
+    return { ok: true, end: checkEnd(run) };
+  }
+  // 令咒：整局有限；all＝魔力 +3、抽 2｜np＝寶具量表充滿
+  function seal(run, kind) {
+    var b = run.battle; if (!b || run.seals <= 0) return { ok: false, msg: '令咒用完了' };
+    if (kind === 'np' && b.np >= 100) return { ok: false, msg: '寶具已經充滿了' };
+    run.seals--; run.stats.seals++;
+    if (kind === 'all') { b.energy += 3; drawCards(run, 2); b.log = ['令咒：全力以赴（魔力 +3、抽 2）']; }
+    else { b.np = 100; b.log = ['令咒：解放寶具（量表充滿）']; }
+    return { ok: true };
+  }
+
+  function endTurn(run) {
+    var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false };
+    b.discard = b.discard.concat(b.hand.filter(function (x) { return x !== 'sword'; }));
+    b.exhaust = b.exhaust.concat(b.hand.filter(function (x) { return x === 'sword'; }));
+    b.hand = []; b.tstr = 0;
+    if (b.vuln > 0) b.vuln--; if (b.weak > 0) b.weak--;
+    var log = [];
+    alive(b).forEach(function (e) {
+      if (run.hp <= 0) return;
+      e.block = 0;
+      var mv = e.intent;
+      mv.fx.forEach(function (f) {
+        var k = f[0], n = f[1];
+        if (k === 'atk') {
+          for (var h = 0; h < (f[2] || 1); h++) {
+            var d = calcDmg(n, e.str, e.weak, b.vuln), took = Math.min(b.block, d); b.block -= took; d -= took;
+            run.hp = Math.max(0, run.hp - d);
+            if (b.thorns && e.hp > 0) hitEnemy(run, e, b.thorns, log);
+          }
+        }
+        else if (k === 'block') e.block += n;
+        else if (k === 'str') e.str += n;
+        else if (k === 'weak') b.weak += n;
+        else if (k === 'vuln') b.vuln += n;
+        else if (k === 'heal') e.hp = Math.min(e.maxHp, e.hp + n);
+      });
+      log.push(e.name + '：' + mv.n);
+      if (e.vuln > 0) e.vuln--; if (e.weak > 0) e.weak--;
+      if (e.hp > 0) chooseIntent(run, e);
+    });
+    b.thorns = 0;
+    b.log = log;
+    var end = checkEnd(run);
+    if (!end) startTurn(run, false);
+    return { ok: true, end: end };
+  }
+
+  function checkEnd(run) {
+    var b = run.battle;
+    if (run.hp <= 0) { run.screen = 'over'; run.win = false; return 'lose'; }
+    if (!alive(b).length) {
+      if (b.kind === 'boss') { run.screen = 'over'; run.win = true; return 'win'; }
+      run.screen = 'reward';
+      run.reward = { cards: cardChoices(run, b.kind === 'elite' ? 1 : 0), relic: b.kind === 'elite' ? randomRelic(run) : null };
+      return 'won';
+    }
+    return '';
+  }
+  function cardChoices(run, better) {
+    var own = Object.keys(CARDS).filter(function (k) { return CARDS[k].who === run.who; });
+    var common = Object.keys(CARDS).filter(function (k) { return !CARDS[k].who && !CARDS[k].token && k !== 'atk' && k !== 'def'; });
+    var out = [];
+    while (out.length < 3) {
+      var k = rnd(run) < 0.7 ? pick(run, own) : pick(run, common);
+      if (out.indexOf(k) < 0 && out.indexOf(k + '+') < 0) out.push(better && rnd(run) < 0.4 ? k + '+' : k);
+    }
+    return out;
+  }
+  // 戰後選牌（idx＝-1 跳過）；精英的禮裝自動拿
+  function takeReward(run, idx) {
+    if (run.screen !== 'reward') return false;
+    if (idx >= 0 && run.reward.cards[idx]) run.deck.push(run.reward.cards[idx]);
+    if (run.reward.relic) gainRelic(run, run.reward.relic);
+    run.reward = null; run.battle = null; run.screen = 'map';
+    return true;
+  }
+  function takeChest(run) { if (run.screen !== 'chest') return false; gainRelic(run, run.reward.relic); run.reward = null; run.screen = 'map'; return true; }
+  // 休息：heal 回復三成生命｜upgrade 強化一張牌（i＝牌組索引）
+  function rest(run, what, i) {
+    if (run.screen !== 'rest') return false;
+    if (what === 'heal') run.hp = Math.min(run.maxHp, run.hp + Math.round(run.maxHp * 0.3) + (hasRelic(run, 'tea') ? 10 : 0));
+    else if (what === 'upgrade') { var id = run.deck[i]; if (!id || id.slice(-1) === '+' || !CARDS[id].up) return false; run.deck[i] = id + '+'; }
+    else return false;
+    run.screen = 'map';
+    return true;
+  }
+
+  return { CARDS: CARDS, SERVANTS: SERVANTS, ENEMIES: ENEMIES, RELICS: RELICS, FLOORS: FLOORS,
+    card: card, cardText: cardText, newRun: newRun, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
+    takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic };
+})();
+</script>
