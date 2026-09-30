@@ -143,9 +143,8 @@
     var db = {}; try { db = JSON.parse(localStorage.getItem('grail_fake_srv') || '{}'); } catch (e) { }
     var put = function () { localStorage.setItem('grail_fake_srv', JSON.stringify(db)); }, u = db[a[0]];
     if (fn === 'gpLogin') {
-      if (!a[0]) return { ok: false, msg: '先輸入帳號' }; if (String(a[1] || '').length < 4) return { ok: false, msg: '密碼至少 4 個字' };
-      if (!u) { if (!a[2]) return { ok: false, notFound: true, msg: '沒有這個帳號' }; db[a[0]] = { pass: a[1], meta: '', run: '' }; put(); return { ok: true, created: true, name: a[0], token: 't-' + a[0], meta: null, run: null }; }
-      if (u.pass !== a[1]) return { ok: false, msg: '密碼不對' };
+      if (!a[0]) return { ok: false, msg: '先輸入帳號' };
+      if (!u) { db[a[0]] = { meta: '', run: '' }; put(); return { ok: true, created: true, name: a[0], token: 't-' + a[0], meta: null, run: null }; }
       return { ok: true, name: a[0], token: 't-' + a[0], meta: u.meta || null, run: u.run || null };
     }
     if (fn === 'gpResume') return u && a[1] === 't-' + a[0] ? { ok: true, name: a[0], token: a[1], meta: u.meta || null, run: u.run || null } : { ok: false, msg: '請重新登入' };
@@ -199,17 +198,17 @@
   }
   function logout() { flushSave(); ACC = null; META = null; SAVED_RUN = null; run = null; try { localStorage.removeItem(AKEY); } catch (e) { } loginScreen(); }
   function loginScreen(msg) {
-    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>聖杯之路</h1><div class="dim">登入後開始。每個帳號各自存檔，換手機或電腦也接得上。</div>'
-      + '<div class="list" style="max-width:320px"><input id="lname" maxlength="16" placeholder="帳號" autocomplete="username"><input id="lpass" type="password" maxlength="40" placeholder="密碼（至少 4 個字）" autocomplete="current-password" onkeydown="if(event.key===\'Enter\')doLogin(false)">'
-      + '<button class="btn" onclick="doLogin(false)">登入</button><button class="btn" style="border-color:var(--line);color:var(--dim)" onclick="doLogin(true)">建立新帳號</button>'
-      + '<div id="lmsg" class="dim" style="min-height:1.4em">' + esc(msg || '') + '</div><div class="dim" style="font-size:12px">忘記密碼無法找回，請記好。</div></div></div>';
+    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>聖杯之路</h1><div class="dim">輸入帳號就能開始。每個帳號各自存檔，換手機或電腦輸入同一個帳號就接得上。</div>'
+      + '<div class="list" style="max-width:320px"><input id="lname" maxlength="16" placeholder="帳號" autocomplete="username" onkeydown="if(event.key===\'Enter\')doLogin()">'
+      + '<button class="btn" onclick="doLogin()">進入</button>'
+      + '<div id="lmsg" class="dim" style="min-height:1.4em">' + esc(msg || '') + '</div><div class="dim" style="font-size:12px">沒有這個帳號會直接建立。帳號不用密碼，別人輸入同一個名字也進得去，請取個不容易撞名的。</div></div></div>';
   }
-  function doLogin(create) {
-    var n = $('lname').value.trim(), p = $('lpass').value;
+  function doLogin() {
+    var n = $('lname').value.trim();
+    if (!n) { $('lmsg').textContent = '先輸入帳號'; return; }
     $('lmsg').textContent = '連線中…';
-    srv('gpLogin', [n, p, create], function (res) {
-      if (res && res.ok) return onLogin(res);
-      if (res && res.notFound) { $('lmsg').textContent = '沒有這個帳號。要建立的話按「建立新帳號」。'; return; }
+    srv('gpLogin', [n], function (res) {
+      if (res && res.ok) { onLogin(res); if (res.created) toast('已建立新帳號「' + res.name + '」'); return; }
       $('lmsg').textContent = (res && res.msg) || '登入失敗';
     });
   }
