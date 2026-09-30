@@ -60,7 +60,11 @@
   .card.atk { border-top:3px solid var(--red); } .card.skill { border-top:3px solid var(--blue); } .card.power { border-top:3px solid var(--purple); }
   .card.sel { border-color:var(--gold); transform:translateY(-6px); }
   .card.token { background:#20261a; }
+  .card.curse { border-top:3px solid #555; background:#1a1418; }
+  .card.rare { box-shadow:0 0 0 1px var(--gold) inset; }
+  .chip:disabled { opacity:.3; }
   .card .cost.free { background:var(--green); }
+  .card .rare-tag { position:absolute; top:-7px; right:4px; font-size:10px; background:var(--gold); color:#1a1408; border-radius:5px; padding:0 4px; }
   #acts .btn.on { background:rgba(217,184,106,.18); }
   .card:disabled { opacity:.4; }
   #acts { display:flex; gap:8px; padding:6px 12px calc(12px + env(safe-area-inset-bottom)); }
@@ -71,6 +75,8 @@
   .svt { width:100%; max-width:420px; border:1px solid var(--line); border-radius:14px; padding:14px; background:var(--panel); text-align:left; }
   .svt:hover, .svt:focus { border-color:var(--gold); }
   .svt b { color:var(--gold); font-size:16px; }
+  input { font:inherit; color:var(--ink); background:#131722; border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  .note { font-size:12.5px; color:var(--dim); background:#131722; border-radius:8px; padding:6px 9px; }
   .war { width:100%; max-width:420px; color:var(--gold); font-size:13px; letter-spacing:.2em; border-bottom:1px solid var(--line); padding:8px 0 4px; }
   .list { width:100%; max-width:460px; display:flex; flex-direction:column; gap:6px; }
   .list button { text-align:left; border:1px solid var(--line); border-radius:9px; padding:8px 10px; background:var(--panel); }
@@ -107,6 +113,8 @@
     ['石化', '累積到門檻（一般 3、精英 4、Boss 5）時動彈不得一回合，層數歸零'],
     ['連擊', '本回合打出的攻擊牌數；蘭斯洛特的每一擊都加上連擊數'],
     ['架勢', '迪爾姆德的紅薔薇（攻擊無視格擋）／黃薔薇（攻擊牌給目標創傷 1）'],
+    ['泥', '敵人塞進你牌堆的狀態牌（只在這場戰鬥）：打不出來，回合結束時還在手上就失去 2 生命'],
+    ['奧義', '每位從者一張的稀有牌，只會在打贏精英的獎勵裡出現'],
     ['虛弱', '造成的攻擊傷害 ×0.75'], ['易傷', '受到的攻擊傷害 ×1.5'], ['消耗', '打出後這場戰鬥不再出現']
   ];
 
@@ -142,9 +150,58 @@
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:20px">選擇從者</h1>'
       + WARS.map(function (w) {
         return '<div class="war">' + w[1] + '</div>' + G.ORDER.filter(function (k) { return G.SERVANTS[k].war === w[0]; }).map(function (k) { return svtHtml(k, G.SERVANTS[k]); }).join('');
-      }).join('') + '<button class="btn" onclick="run=null;render()">返回</button></div>';
+      }).join('')
+      + '<div class="war">自創英靈</div>'
+      + heroes().map(function (h, i) {
+        return '<div class="svt" style="display:flex;gap:8px;align-items:flex-start"><button style="flex:1;text-align:left;padding:0" onclick="startHero(' + i + ')"><b>' + esc(h.cls) + '・' + esc(h.name) + '</b>　<span class="dim">生命 ' + h.hp + '</span>'
+          + '<div style="margin:6px 0">' + esc(h.desc) + '</div><div class="dim" style="font-size:12.5px">被動「' + esc(h.passive.name) + '」・寶具「' + esc(h.np.name) + '」</div></button>'
+          + '<button class="chip" onclick="delHero(' + i + ')">刪除</button></div>';
+      }).join('')
+      + '<button class="svt" style="text-align:center" onclick="forgeOpen()"><b>＋ 創造新英靈</b><div class="dim" style="margin-top:4px">選職階、傳說、副修與寶具，組一位自己的從者</div></button>'
+      + '<button class="btn" onclick="run=null;render()">返回</button></div>';
   }
-  function start(who) { run = G.newRun(who, (Date.now() ^ (Math.random() * 1e9)) >>> 0); render(); }
+  function newSeed() { return (Date.now() ^ (Math.random() * 1e9)) >>> 0; }
+  function start(who) { run = G.newRun(who, newSeed()); render(); }
+
+  // ── 自創英靈（存在這台瀏覽器的英靈殿）──
+  var HKEY = 'grail_heroes_v1', forge = null;
+  function heroes() { try { return JSON.parse(localStorage.getItem(HKEY) || '[]'); } catch (e) { return []; } }
+  function saveHeroes(a) { try { localStorage.setItem(HKEY, JSON.stringify(a.slice(-12))); } catch (e) { } }
+  function startHero(i) { var h = heroes()[i]; if (!h) return; run = G.newRun('custom', newSeed(), h); render(); }
+  function delHero(i) { var a = heroes(); a.splice(i, 1); saveHeroes(a); choose(); }
+  function forgeOpen() { forge = { name: '', cls: 'Saber', legend: 'saber', sub: 'medusa', npFrom: 'saber', npName: '' }; forgeScreen(); }
+  function forgeSet(k, v) {
+    forge[k] = v;
+    if (k === 'legend' && forge.sub === v) forge.sub = G.ORDER.filter(function (x) { return x !== v; })[0];
+    if (k === 'legend' || k === 'sub') { if (forge.npFrom !== forge.legend && forge.npFrom !== forge.sub) forge.npFrom = forge.legend; }
+    forgeScreen();
+  }
+  function chipsHtml(key, opts) {
+    return '<div class="chips" style="gap:6px">' + opts.map(function (o) {
+      return '<button class="chip' + (forge[key] === o[0] ? ' gold' : '') + '" style="padding:5px 9px;font-size:12.5px"' + (o[2] ? ' disabled' : '') + ' onclick="forgeSet(\'' + key + '\',\'' + o[0] + '\')">' + esc(o[1]) + '</button>';
+    }).join('') + '</div>';
+  }
+  function forgeScreen() {
+    var C = G.makeCustom(forge), L = G.SERVANTS[forge.legend], U = G.SERVANTS[forge.sub];
+    var svts = function (skip) { return G.ORDER.map(function (k) { return [k, G.SERVANTS[k].name, k === skip]; }); };
+    $('app').innerHTML = '<div class="panel" style="align-items:stretch;max-width:460px;margin:0 auto"><h1 style="font-size:20px">創造英靈</h1>'
+      + '<div class="dim">真名</div><input id="fname" maxlength="12" placeholder="無名英靈" value="' + esc(forge.name) + '" oninput="forge.name=this.value">'
+      + '<div class="dim">職階（決定生命）</div>' + chipsHtml('cls', Object.keys(G.CLASSES).map(function (c) { return [c, c + ' ' + G.CLASSES[c]]; }))
+      + '<div class="dim">傳說：繼承被動、招牌牌、靈基覺醒；牌池的主力</div>' + chipsHtml('legend', svts(''))
+      + '<div class="note">被動「' + esc(L.passive.name) + '」：' + esc(L.passive.text) + '</div>'
+      + '<div class="dim">副修：另一位從者的牌也會出現在戰後選牌（機會是傳說的一半）</div>' + chipsHtml('sub', svts(forge.legend))
+      + '<div class="note">' + esc(U.desc) + '</div>'
+      + '<div class="dim">寶具（從傳說或副修選一個，可以自己取名）</div>' + chipsHtml('npFrom', [[forge.legend, L.np.name], [forge.sub, U.np.name]])
+      + '<div class="note">' + esc(G.npText(C.np)) + '</div>'
+      + '<input id="fnp" maxlength="14" placeholder="' + esc(C.np.name) + '" value="' + esc(forge.npName) + '" oninput="forge.npName=this.value">'
+      + '<div class="note">起始牌組：攻擊×5、防禦×4、' + esc(G.card(C.sig).name) + '、' + esc(G.card(C.sig2).name) + '　｜　生命 ' + C.hp + '</div>'
+      + '<div class="row" style="justify-content:center"><button class="btn" onclick="choose()">返回</button><button class="btn" onclick="forgeDone()">召喚</button></div></div>';
+  }
+  function forgeDone() {
+    var C = G.makeCustom(forge); if (!C) return toast('組合不成立');
+    var a = heroes(); a.push(C); saveHeroes(a);
+    run = G.newRun('custom', newSeed(), C); render();
+  }
   function glossaryHtml() {
     return '<b>名詞說明</b><div class="list" style="margin-top:10px">' + GLOSSARY.map(function (g) { return '<div><b class="dim">' + g[0] + '</b>：' + g[1] + '</div>'; }).join('') + '</div>';
   }
@@ -178,7 +235,7 @@
   }
   function cardHtml(id, attrs, big) {
     var c = G.card(id), cost = run && run.battle && !big ? G.costOf(run, id) : c.cost;
-    return '<button class="card ' + c.type + (c.token ? ' token' : '') + '" ' + (attrs || '') + (big ? ' style="width:120px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : '') + '">' + cost + '</span><div class="nm">' + esc(c.name) + '</div><div class="tx">' + esc(G.cardText(id, run)) + '</div></button>';
+    return '<button class="card ' + c.type + (c.token ? ' token' : '') + (c.rare ? ' rare' : '') + '" ' + (attrs || '') + (big ? ' style="width:120px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : '') + '">' + (c.unplayable ? '✕' : cost) + '</span>' + (c.rare ? '<span class="rare-tag">奧義</span>' : '') + '<div class="nm">' + esc(c.name) + '</div><div class="tx">' + esc(G.cardText(id, run)) + '</div></button>';
   }
 
   // ── 地圖 ──
@@ -265,7 +322,7 @@
       + '<div class="row"><span style="font-size:12px;color:var(--blue)">🛡 ' + b.block + '</span><span class="dim" style="font-size:12px">牌堆 ' + b.draw.length + '・棄牌 ' + b.discard.length + '</span></div>'
       + '<div class="row" style="margin-top:5px"><span style="font-size:12px;color:var(--gold)">寶具</span><div class="np' + (full ? ' full' : '') + '"><i style="width:' + b.np + '%"></i></div><span style="font-size:12px">' + b.np + '%</span></div>'
       + '<div class="chips" style="margin-top:5px">' + meChips(b) + '</div></div></div></div>'
-      + '<div id="hand">' + b.hand.map(function (id, i) { return cardHtml(id, 'onclick="tapCard(' + i + ')"' + (G.costOf(run, id) > b.energy ? ' disabled' : '')); }).join('') + '</div>'
+      + '<div id="hand">' + b.hand.map(function (id, i) { return cardHtml(id, 'onclick="tapCard(' + i + ')"' + (G.costOf(run, id) > b.energy || G.card(id).unplayable ? ' disabled' : '')); }).join('') + '</div>'
       + '<div id="acts"><button class="btn' + (sel.np ? ' on' : '') + '" ' + (full ? '' : 'disabled') + ' onclick="doNP()">寶具「' + esc(S.np.name) + '」</button>'
       + '<button class="btn red" ' + (run.seals ? '' : 'disabled') + ' onclick="sealMenu()">令咒 ' + run.seals + '</button>'
       + '<button class="btn" onclick="endTurn()">結束回合</button></div></div>';
@@ -328,7 +385,8 @@
     var heal = Math.round(run.maxHp * 0.3) + (G.hasRelic(run, 'tea') ? 10 : 0);
     $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:20px">休息</h1><div class="dim">御主與從者在篝火旁喘口氣。</div>'
       + '<button class="btn" onclick="G.rest(run,\'heal\');render()">休息：回復 ' + heal + ' 生命</button>'
-      + '<button class="btn" onclick="upMenu()">鍛鍊：強化一張牌</button></div>';
+      + '<button class="btn" onclick="upMenu()">鍛鍊：強化一張牌</button>'
+      + '<button class="btn" ' + (run.deck.length > 5 ? '' : 'disabled') + ' onclick="rmMenu()">淨化：從牌組移除一張牌</button></div>';
   }
   function upMenu() {
     var html = '<b>選一張牌強化</b><div class="pick" style="margin-top:12px">';
@@ -337,6 +395,10 @@
   }
   function upDiff(id) { var a = G.card(id), b = G.card(id + '+'), t = G.cardText(id + '+', run); return (b.cost !== a.cost ? '費用 ' + b.cost + '，' : '') + t; }
   function doUp(i) { closeOv(); G.rest(run, 'upgrade', i); render(); }
+  function rmMenu() {
+    openOv('<b>選一張牌移除（牌組越精簡，好牌越常抽到）</b><div class="pick" style="margin-top:12px">' + run.deck.map(function (id, i) { return cardHtml(id, 'onclick="doRm(' + i + ')"', true); }).join('') + '</div>');
+  }
+  function doRm(i) { closeOv(); G.rest(run, 'remove', i); render(); }
   function overScreen() {
     var st = run.stats, S = G.serv(run);
     $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.win ? '聖杯到手' : '敗退') + '</h1>'

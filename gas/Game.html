@@ -23,6 +23,28 @@ var G = (function () {
     t_staff:  { name: '寶杖', cost: 0, type: 'skill', np: 3, token: 1, fx: [['weakAll', 1], ['vulnAll', 1]] }
   });
   var TREASURE = ['t_sword', 't_sword', 't_spear', 't_shield', 't_staff'];
+  // 狀態牌：敵人塞進你的牌堆，只存在這場戰鬥；打不出來
+  kit('status', {
+    mud: { name: '泥', cost: 0, type: 'curse', np: 0, unplayable: 1, fx: [], text: '打不出來；回合結束時還在手上就失去 2 生命' }
+  });
+  // 奧義：只會在打贏精英的獎勵裡出現（稀有），每位從者一張，另有共通的聖杯碎片
+  kit('rare', {
+    grail:      { name: '聖杯碎片', cost: 0, type: 'skill', np: 50, ex: 1, rare: 'common', fx: [['draw', 1]], up: { np: 70 } },
+    avalon:     { name: '遙遠的理想鄉', cost: 2, type: 'skill', np: 10, ex: 1, rare: 'saber', fx: [['block', 30], ['heal', 8]], up: { cost: 1 } },
+    sword_rain: { name: '劍之雨', cost: 1, type: 'skill', np: 20, ex: 1, rare: 'emiya', fx: [['proj', 5]], up: { fx: [['proj', 7]] } },
+    death_flight:{ name: '突穿死翔之槍', cost: 2, type: 'atk', np: 20, rare: 'cu', fx: [['pierce', 22], ['vuln', 2]], up: { fx: [['pierce', 30], ['vuln', 2]] } },
+    breaker:    { name: '自我封印・暗黑神殿', cost: 1, type: 'skill', np: 10, ex: 1, rare: 'medusa', fx: [['petrifyAll', 3], ['draw', 1]], up: { ex: 0 } },
+    fleece:     { name: '金羊皮', cost: 2, type: 'skill', np: 10, ex: 1, rare: 'medea', fx: [['minion', 3], ['block', 6]], up: { fx: [['minion', 4], ['block', 8]] } },
+    tsubame_true:{ name: '秘劍・燕返（真）', cost: 3, type: 'atk', np: 30, rare: 'kojiro', fx: [['pierceHits', 10, 3]], up: { cost: 2 } },
+    shaitan:    { name: '空想電腦', cost: 1, type: 'skill', np: 10, ex: 1, rare: 'hassanC', fx: [['poisonAll', 3], ['poisonX2', 1]], up: { fx: [['poisonAll', 5], ['poisonX2', 1]] } },
+    moralltach: { name: '憤怒的紅', cost: 2, type: 'atk', np: 20, rare: 'diarmuid', fx: [['wound', 2], ['woundDmg', 10, 4]], up: { fx: [['wound', 3], ['woundDmg', 12, 5]] } },
+    hetairoi:   { name: '王之軍勢・集結', cost: 3, type: 'skill', np: 20, ex: 1, rare: 'iskandar', fx: [['army', 6], ['block', 10]], up: { cost: 2 } },
+    prelati:    { name: '普雷拉蒂的激勵', cost: 1, type: 'power', np: 0, rare: 'gilles', fx: [['pMinion', 1], ['str', 1]], up: { fx: [['pMinion', 1], ['str', 2]] } },
+    delusion:   { name: '妄想幻像・群', cost: 2, type: 'skill', np: 15, ex: 1, rare: 'hassanH', fx: [['minion', 5], ['weakAll', 1]], up: { cost: 1 } },
+    arondight:  { name: '無毀的湖光・斬', cost: 3, type: 'atk', np: 30, rare: 'lancelot', fx: [['comboDmg', 18, 5]], up: { cost: 2 } },
+    nine_lives: { name: '射殺百頭・連', cost: 3, type: 'atk', np: 30, rare: 'heracles', fx: [['rand', 5, 8]], up: { cost: 2 } },
+    ea:         { name: '乖離劍', cost: 3, type: 'atk', np: 30, ex: 1, rare: 'gil', fx: [['dispelAll', 1], ['all', 30]], up: { cost: 2 } }
+  });
   kit('common', {
     heavy:    { name: '重擊', cost: 2, type: 'atk', np: 15, fx: [['dmg', 12]], up: { fx: [['dmg', 17]] } },
     dodge:    { name: '迴避', cost: 1, type: 'skill', np: 5, fx: [['block', 8]], up: { fx: [['block', 11]] } },
@@ -206,11 +228,11 @@ var G = (function () {
       desc: '把劍投影出來用完即丟的弓兵。大量 0 費小牌，最後一次引爆。',
       passive: { id: 'hawk', name: '鷹之眼', text: '每場戰鬥第一回合多抽 1 張' },
       np: { name: '無限劍製', fx: [['ubw', 1]] } },
-    cu: { name: '庫丘林', cls: 'Lancer', war: 5, hp: 68, sig: 'thrust',
+    cu: { name: '庫丘林', cls: 'Lancer', war: 5, hp: 64, sig: 'thrust',
       desc: '必中之槍與箭矢加護。閃避敵人整次攻擊，穿透傷害無視格擋。',
       passive: { id: 'survive', name: '戰鬥續行', text: '每場戰鬥一次，受到致命傷時以 1 點生命撐住' },
       np: { name: '刺穿死棘之槍', fx: [['pierce', 35], ['vuln', 2]] } },
-    medusa: { name: '美杜莎', cls: 'Rider', war: 5, hp: 78, sig: 'chain',
+    medusa: { name: '美杜莎', cls: 'Rider', war: 5, hp: 82, sig: 'chain',
       desc: '石化魔眼。石化累積到門檻，敵人整回合動彈不得。',
       passive: { id: 'gaze', name: '石化魔眼', text: '每場戰鬥開始時，全體敵人石化 1' },
       np: { name: '騎英之手綱', fx: [['dmg', 40], ['petrify', 3]] } },
@@ -240,7 +262,7 @@ var G = (function () {
       passive: { id: 'madness', name: '精神污染', text: '不會被施加虛弱' },
       minion: { name: '海魔', atk: 3 },
       np: { name: '螺湮城教本', fx: [['minion', 5], ['weakAll', 1]] } },
-    hassanH: { name: '百貌哈桑', cls: 'Assassin', war: 4, hp: 58, sig: 'clone',
+    hassanH: { name: '百貌哈桑', cls: 'Assassin', war: 4, hp: 55, sig: 'clone',
       desc: '一人即是群體。分身擋刀、分身圍攻，也能把分身換成魔力。',
       passive: { id: 'hundred', name: '百貌', text: '每場戰鬥開始時有 2 名分身' },
       minion: { name: '分身', atk: 2 },
@@ -259,6 +281,22 @@ var G = (function () {
       np: { name: '天地乖離開闢之星', fx: [['all', 40]] } }
   };
   var ORDER = ['saber', 'emiya', 'cu', 'medusa', 'medea', 'kojiro', 'hassanC', 'diarmuid', 'iskandar', 'gilles', 'hassanH', 'lancelot', 'heracles', 'gil'];
+
+  // ── 自創英靈 ─────────────────────────────────────────
+  // 真名＋職階（決定生命）＋傳說（被動、使魔、招牌牌、靈基覺醒、專屬牌池）＋副修（另一位從者的牌池）＋寶具（從傳說或副修二選一，可自己取名）
+  // 起始牌組＝基本 9 張＋傳說的招牌牌＋副修的招牌牌；戰後的牌從兩套牌池與共通牌裡出。
+  var CLASSES = { Saber: 78, Archer: 74, Lancer: 74, Rider: 76, Caster: 72, Assassin: 70, Berserker: 82 };
+  function makeCustom(o) {
+    var L = SERVANTS[o.legend], U = SERVANTS[o.sub];
+    if (!L || !U || o.legend === o.sub || !CLASSES[o.cls]) return null;
+    var from = o.npFrom === o.sub ? U : L;
+    var name = String(o.name || '').trim().slice(0, 12) || '無名英靈';
+    var npName = String(o.npName || '').trim().slice(0, 14) || from.np.name;
+    return { name: name, cls: o.cls, hp: CLASSES[o.cls], war: 0, legend: o.legend, sub: o.sub, npFrom: o.npFrom === o.sub ? o.sub : o.legend,
+      sig: L.sig, sig2: U.sig, kits: [o.legend, o.sub], passive: L.passive, minion: L.minion || U.minion,
+      desc: '繼承' + L.name + '的傳說，兼修' + U.name + '的技藝。',
+      np: { name: npName, fx: from.np.fx } };
+  }
 
   // ── 資料：靈基覺醒 ──────────────────────────────────
   // 打贏精英時，從該層的兩個覺醒裡選一個（第一次精英選第一層、第二次選第二層）。
@@ -301,7 +339,7 @@ var G = (function () {
   var ENEMIES = {
     fang:    { name: '龍牙兵', hp: [14, 18], moves: [{ n: '砍擊', fx: [['atk', 7]], w: 3 }, { n: '舉盾', fx: [['block', 6], ['atk', 3]], w: 1 }] },
     bat:     { name: '使魔', hp: [8, 10], moves: [{ n: '撲咬', fx: [['atk', 3, 2]], w: 2 }, { n: '尖嘯', fx: [['weak', 1]], w: 1 }] },
-    shadow:  { name: '影', hp: [24, 28], moves: [{ n: '侵蝕', fx: [['atk', 9]], w: 2 }, { n: '纏繞', fx: [['atk', 4], ['vuln', 2]], w: 1 }] },
+    shadow:  { name: '影', hp: [24, 28], moves: [{ n: '侵蝕', fx: [['atk', 9]], w: 2 }, { n: '纏繞', fx: [['atk', 4], ['vuln', 2]], w: 1 }, { n: '汙染', fx: [['atk', 5], ['curse', 'mud', 2]], w: 1 }] },
     ghoul:   { name: '死徒', hp: [34, 38], moves: [{ n: '撕裂', fx: [['atk', 11]], w: 2 }, { n: '吸血', fx: [['atk', 6], ['heal', 6]], w: 1 }, { n: '狂暴', fx: [['str', 3]], w: 1 }] },
     magus:   { name: '魔術師', hp: [26, 30], moves: [{ n: '魔彈', fx: [['atk', 8]], w: 2 }, { n: '詛咒', fx: [['weak', 2], ['atk', 4]], w: 1 }, { n: '結界', fx: [['block', 10]], w: 1 }] },
     tentacle:{ name: '海魔', hp: [10, 12], moves: [{ n: '纏繞', fx: [['atk', 4]], w: 2 }, { n: '吸附', fx: [['weak', 1], ['atk', 2]], w: 1 }] },
@@ -317,7 +355,7 @@ var G = (function () {
     diarmuid:{ name: '迪爾姆德', hp: [72, 76], elite: 1, cycle: 1, moves: [{ n: '破魔的紅薔薇', fx: [['atkP', 10]] }, { n: '必滅的黃薔薇', fx: [['atk', 8], ['vuln', 2]] }, { n: '槍舞', fx: [['atk', 5, 3]] }, { n: '雙槍架勢', fx: [['block', 10], ['str', 2]] }] },
     hassanH: { name: '百貌哈桑', hp: [64, 68], elite: 1, cycle: 1, moves: [{ n: '分身圍攻', fx: [['atk', 3, 4]] }, { n: '散開', fx: [['block', 12], ['weak', 1]] }, { n: '暗殺', fx: [['atk', 14]] }, { n: '增殖', fx: [['str', 2], ['block', 6]] }] },
     lancelot:{ name: '蘭斯洛特', hp: [84, 88], elite: 1, cycle: 1, moves: [{ n: '武器化', fx: [['atk', 8, 2]] }, { n: '黑霧', fx: [['block', 12], ['str', 2]] }, { n: '掃射', fx: [['atk', 4, 4]] }, { n: '無毀的湖光', fx: [['atk', 26]] }] },
-    gilles:  { name: '吉爾・德・雷', hp: [62, 66], elite: 1, cycle: 1, moves: [{ n: '召喚海魔', fx: [['summon', 'tentacle', 2]] }, { n: '瀆神', fx: [['atk', 10], ['vuln', 1]] }, { n: '觸手', fx: [['atk', 6], ['weak', 2]] }, { n: '狂信', fx: [['str', 2], ['block', 8]] }] },
+    gilles:  { name: '吉爾・德・雷', hp: [62, 66], elite: 1, cycle: 1, moves: [{ n: '召喚海魔', fx: [['summon', 'tentacle', 2]] }, { n: '瀆神', fx: [['atk', 10], ['vuln', 1], ['curse', 'mud', 1]] }, { n: '觸手', fx: [['atk', 6], ['weak', 2]] }, { n: '狂信', fx: [['str', 2], ['block', 8]] }] },
     // Boss（自己選的那位不會出現）
     heracles:{ name: '赫拉克勒斯', hp: [115, 115], boss: 1, cycle: 1, lives: 2, revive: 0.6,
       moves: [{ n: '怒吼', fx: [['str', 3]] }, { n: '重擊', fx: [['atk', 16]] }, { n: '射殺百頭', fx: [['atk', 6, 3]] }, { n: '岩軀', fx: [['block', 15]] }, { n: '粉碎', fx: [['atk', 22]] }] },
@@ -413,7 +451,7 @@ var G = (function () {
     });
   }
   function cardText(id, run) {
-    var c = card(id), b = run && run.battle, bits = fxText(c.fx, run);
+    var c = card(id), b = run && run.battle, bits = c.text ? [c.text] : fxText(c.fx, run);
     if (c.id === 'sword' && b && b.projUp) bits = ['造成 ' + (4 + b.projUp) + ' 傷害'];
     if (c.np) bits.push('寶具 +' + c.np + '%');
     if (c.type === 'power') bits.push('（持續整場）');
@@ -443,7 +481,7 @@ var G = (function () {
   function newRun(who, seed, custom) {
     var S = who === 'custom' ? custom : SERVANTS[who];
     var run = { v: 2, who: who, custom: who === 'custom' ? custom : null, seed: seed >>> 0, rs: seed | 0, hp: S.hp, maxHp: S.hp,
-      deck: ['atk', 'atk', 'atk', 'atk', 'atk', 'def', 'def', 'def', 'def', S.sig], relics: [], seals: 3, maxSeals: 3,
+      deck: ['atk', 'atk', 'atk', 'atk', 'atk', 'def', 'def', 'def', 'def', S.sig].concat(S.sig2 ? [S.sig2] : []), relics: [], seals: 3, maxSeals: 3,
       floor: 0, lane: -1, map: null, boss: null, screen: 'map', battle: null, reward: null, awaken: [], lives: 0, stats: { kills: 0, np: 0, seals: 0, floors: 0 } };
     run.boss = pick(run, BOSSES.filter(function (k) { return k !== who; }));
     run.map = makeMap(run);
@@ -749,6 +787,7 @@ var G = (function () {
   function play(run, i, target) {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false, msg: '不在戰鬥中' };
     var id = b.hand[i], c = id && card(id); if (!c) return { ok: false, msg: '沒有這張牌' };
+    if (c.unplayable) return { ok: false, msg: c.name + '打不出來' };
     var cost = costOf(run, id);
     if (cost > b.energy) return { ok: false, msg: '魔力不夠' };
     var tg = null;
@@ -805,6 +844,7 @@ var G = (function () {
     else if (k === 'str') e.str += n;
     else if (k === 'weak' || k === 'vuln') debuffPlayer(run, k, n, log);
     else if (k === 'heal') e.hp = Math.min(e.maxHp, e.hp + n);
+    else if (k === 'curse') { for (var c = 0; c < f[2]; c++) b.discard.push(n); log.push('牌堆裡混進了' + card(n).name); }
     else if (k === 'summon') {
       for (var s = 0; s < f[2] && alive(b).length < FOES_MAX; s++) {
         var m = makeEnemy(run, n, b.up, b.enemies.length); chooseIntent(run, m); b.enemies.push(m);
@@ -816,6 +856,8 @@ var G = (function () {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false };
     var log = [], ctx = { run: run, b: b, log: log };
     if (passive(run) === 'mind' && b.energy > 0) { b.evade += 1; log.push('心眼：閃避 +1'); }
+    var mud = b.hand.filter(function (x) { return x === 'mud'; }).length;
+    if (mud) { loseHp(run, 2 * mud, log); log.push('泥侵蝕了你（-' + 2 * mud + '）'); }
     b.hand.forEach(function (x) { (card(x).token ? b.exhaust : b.discard).push(x); });
     b.hand = []; b.tstr = 0; b.nextFree = 0;
     if (b.vuln > 0) b.vuln--; if (b.weak > 0) b.weak--;
@@ -858,12 +900,18 @@ var G = (function () {
   function kitsOf(run) { var S = serv(run); return S.kits || [run.who]; }
   function cardChoices(run, better) {
     var kits = kitsOf(run);
+    // 自創英靈：傳說的牌出現機會是副修的兩倍
     var own = Object.keys(CARDS).filter(function (k) { return kits.indexOf(CARDS[k].kit) >= 0; });
+    if (kits.length > 1) own = own.concat(own.filter(function (k) { return CARDS[k].kit === kits[0]; }));
     var common = Object.keys(CARDS).filter(function (k) { return CARDS[k].kit === 'common'; });
     var out = [];
     while (out.length < 3) {
       var k = rnd(run) < 0.72 ? pick(run, own) : pick(run, common);
       if (out.indexOf(k) < 0 && out.indexOf(k + '+') < 0) out.push(better && rnd(run) < 0.4 ? k + '+' : k);
+    }
+    if (better && rnd(run) < 0.3) {
+      var rares = Object.keys(CARDS).filter(function (k) { var r = CARDS[k].rare; return r && (r === 'common' || kits.indexOf(r) >= 0) && run.deck.indexOf(k) < 0 && run.deck.indexOf(k + '+') < 0; });
+      if (rares.length) out[Math.floor(rnd(run) * 3)] = pick(run, rares);
     }
     return out;
   }
@@ -885,18 +933,19 @@ var G = (function () {
     return true;
   }
   function takeChest(run) { if (run.screen !== 'chest') return false; gainRelic(run, run.reward.relic); run.reward = null; run.screen = 'map'; return true; }
-  // 休息：heal 回復三成生命｜upgrade 強化一張牌（i＝牌組索引）
+  // 休息：heal 回復三成生命｜upgrade 強化一張牌｜remove 從牌組移除一張牌（i＝牌組索引；牌組至少留 5 張）
   function rest(run, what, i) {
     if (run.screen !== 'rest') return false;
     if (what === 'heal') run.hp = Math.min(run.maxHp, run.hp + Math.round(run.maxHp * 0.3) + (hasRelic(run, 'tea') ? 10 : 0));
     else if (what === 'upgrade') { var id = run.deck[i]; if (!id || id.slice(-1) === '+' || !CARDS[id].up) return false; run.deck[i] = id + '+'; }
+    else if (what === 'remove') { if (!run.deck[i] || run.deck.length <= 5) return false; run.deck.splice(i, 1); }
     else return false;
     run.screen = 'map';
     return true;
   }
 
   return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, OPS: OPS, FX_TEXT: FX_TEXT,
-    card: card, cardText: cardText, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName,
+    CLASSES: CLASSES, makeCustom: makeCustom, card: card, cardText: cardText, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName,
     newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
     takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic, needsTarget: needsTarget };
 })();

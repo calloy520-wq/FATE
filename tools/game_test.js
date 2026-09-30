@@ -142,6 +142,28 @@ aw.map[6]=['elite','elite','elite']; G.go(aw,1); aw.battle.enemies.forEach(e=>{e
 let hk=G.newRun('heracles',3); hk.awaken=['0.0']; hk.screen='reward'; hk.reward={cards:['atk'],relic:null,awaken:['1.0','1.1']}; G.awaken(hk,1); t(hk.lives===2,'第二試煉：多一條命');
 let mw=arena('medea'); mw.awaken=['0.1']; mw.map[1]=['fight','fight','fight']; mw.screen='map'; mw.floor=1; mw.lane=1; G.go(mw,1); t(mw.battle.minions===2,'龍牙兵團：每場開場 2 隻龍牙兵');
 
+console.log('── 特殊卡牌');
+t(G.ORDER.every(k=>Object.keys(G.CARDS).some(c=>G.CARDS[c].rare===k)),'每位從者一張奧義');
+r=arena('saber'); r.battle.hand=['mud']; x=G.play(r,0,0); t(!x.ok&&r.battle.hand.length===1,'泥打不出來');
+hp=r.hp; G.endTurn(r); t(r.hp===hp-2&&r.battle.discard.includes('mud'),'泥留在手上：回合結束失去 2 生命',hp-r.hp);
+r=arena('saber'); E(r).intent={n:'汙',fx:[['atk',1],['curse','mud',2]]}; G.endTurn(r); t(r.battle.discard.concat(r.battle.hand,r.battle.draw).filter(c=>c==='mud').length===2&&!r.deck.includes('mud'),'敵人塞 2 張泥進牌堆，不會留在牌組');
+let rr=G.newRun('saber',8); let seenRare=0, rareOk=true; for(let i=0;i<200;i++){ const q=J(rr); q.map[0]=['elite','elite','elite']; q.rs=i*7919; G.go(q,0); q.battle.enemies.forEach(e=>{e.hp=0;}); q.battle.enemies[0].hp=1; q.battle.enemies[0].block=0; q.battle.np=100; G.noble(q,0); if(q.reward&&q.reward.cards.some(c=>G.CARDS[c.replace('+','')].rare)){ seenRare++; if(!q.reward.cards.every(c=>{ const d=G.CARDS[c.replace('+','')]; return !d.rare||d.rare==='saber'||d.rare==='common'; })) rareOk=false; } }
+t(seenRare>20&&seenRare<110&&rareOk,'精英獎勵約三成出奧義，只出自己的或共通的',seenRare);
+rr.screen='rest'; const n0=rr.deck.length; t(G.rest(rr,'remove',0)&&rr.deck.length===n0-1&&rr.screen==='map','淨化：從牌組移除一張');
+rr.screen='rest'; rr.deck=rr.deck.slice(0,5); t(!G.rest(rr,'remove',0)&&rr.deck.length===5,'牌組至少留 5 張');
+
+console.log('── 自創英靈');
+const cu1=G.makeCustom({name:'  阿塔蘭塔的學徒  ',cls:'Archer',legend:'medusa',sub:'hassanC',npFrom:'hassanC',npName:'毒蛇之眼'});
+t(cu1&&cu1.name==='阿塔蘭塔的學徒'&&cu1.hp===G.CLASSES.Archer&&cu1.passive.id==='gaze'&&cu1.np.name==='毒蛇之眼'&&cu1.np.fx[0][0]==='exec','組合：職階給生命、傳說給被動、寶具取自副修並改名');
+t(!G.makeCustom({cls:'Saber',legend:'cu',sub:'cu'})&&!G.makeCustom({cls:'Shielder',legend:'cu',sub:'saber'}),'傳說與副修不能同一位、職階要存在');
+t(G.makeCustom({cls:'Saber',legend:'cu',sub:'saber'}).name==='無名英靈','沒取名＝無名英靈');
+let cr=G.newRun('custom',5,cu1); t(cr.deck.length===11&&cr.deck.includes('chain')&&cr.deck.includes('knives')&&G.BOSSES.includes(cr.boss),'起始牌組＝基本 9＋兩位的招牌牌');
+cr=J(cr); cr.map[0]=['fight','fight','fight']; G.go(cr,0); t(cr.battle.enemies.every(e=>e.petrify===1),'傳說的被動照樣生效（石化魔眼）');
+cr.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); cr.battle.enemies.forEach((e,i)=>{ if(i) e.hp=0; }); cr.battle.np=100; G.noble(cr,0);
+t(cr.screen==='reward'&&cr.reward.cards.every(c=>['medusa','hassanC','common'].includes(G.CARDS[c.replace('+','')].kit)),'戰後的牌只出傳說、副修、共通');
+t(G.talentsOf(G.newRun('custom',1,cu1))===G.TALENTS.medusa,'靈基覺醒跟著傳說走');
+t(playRun('custom',42,cu1).screen==='over','自創英靈能打完一整局');
+
 console.log('── 流程');
 let r7=arena('saber'); r7.battle.enemies.forEach(e=>{e.hp=1;}); r7.battle.np=100; G.noble(r7,0);
 t(r7.screen==='reward'&&r7.reward.cards.length===3&&r7.reward.cards.every(c=>['saber','common'].includes(G.CARDS[c.replace('+','')].kit)),'打贏：三選一，只出自己的牌和共通牌');
