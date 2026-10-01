@@ -231,7 +231,7 @@ console.log('── 事件・商店・命運・靈基再臨');
 t(Object.keys(G.EVENTS).every(k=>G.EVENTS[k].opts.length>=2&&G.EVENTS[k].opts.every(o=>o.fx.every(f=>['hp','maxHp','healPct','relic','seal','pick','addCard','upRandom','cards','commons','fight','gamble','gold'].includes(f[0])))),'每個事件至少兩個選項，效果都認得');
 let ev=G.newRun('saber',41); step(ev,'event'); t(ev.screen==='event'&&G.EVENTS[ev.event]&&(!G.EVENTS[ev.event].act||G.EVENTS[ev.event].act===1),'事件格：抽一個這一章的事件');
 ev.event='church'; let hp0=ev.hp, d0=ev.deck.length; G.choose(ev,0); t(ev.hp===hp0-6&&ev.screen==='pick'&&ev.pending[0]==='remove','懺悔：先扣血，再選一張牌移除');
-G.pickCard(ev,ev.deck.indexOf('def')); t(ev.deck.length===d0-1&&ev.screen==='map','選完回地圖');
+G.pickCard(ev,ev.deck.indexOf('def_saber')); t(ev.deck.length===d0-1&&ev.screen==='map','選完回地圖');
 ev.screen='event'; ev.event='magus'; ev.hp=10; t(!G.canChoose(ev,G.EVENTS.magus.opts[0])&&!G.choose(ev,0).ok,'生命不夠付代價的選項不能選');
 ev.screen='event'; ev.event='resonance'; ev.seals=0; t(!G.canChoose(ev,G.EVENTS.resonance.opts[0]),'沒有令咒就不能燒令咒');
 ev.hp=50; ev.screen='event'; ev.event='echo'; G.choose(ev,0); t(ev.screen==='reward'&&ev.reward.cards.length===3&&ev.reward.cards.every(c=>c.endsWith('+')&&G.CARDS[c.slice(0,-1)].kit==='saber'),'英靈的殘影：三張強化過的專屬牌選一');
@@ -281,6 +281,14 @@ r=arena('medusa'); E(r).petrify=2; E(r).intent={n:'砍',fx:[['atk',10]]}; t(G.in
 r=arena('medea'); r.battle.chant=9; r.battle.block=0; G.endTurn(r); t(r.battle.block===4,'美狄亞：回合開始格擋＝陣地÷2（9→4）',r.battle.block); r.battle.chant=40; G.endTurn(r); t(r.battle.block===6,'最多 6');
 r=arena('scathach'); r.battle.energy=9; ['def','def','def','def'].forEach(x=>playId(r,x)); t(r.battle.evade===0,'前四張不給迴避'); playId(r,'def'); t(r.battle.evade===1,'斯卡哈：每回合出到第 5 張，迴避 1'); playId(r,'def'); t(r.battle.evade===1,'每回合只給一次');
 
+// 每位從者自己的基本牌
+t(G.ORDER.every(k=>{ const d=G.newRun(k,3).deck; return d.filter(x=>x==='atk_'+k).length===5&&d.filter(x=>x==='def_'+k).length===4&&G.card('atk_'+k).name!=='攻擊'&&G.card('def_'+k).name!=='防禦'; }),'每位從者開局 5 張自己的攻擊、4 張自己的防禦，名字各不相同');
+t(new Set(G.ORDER.map(k=>G.card('atk_'+k).name)).size===G.ORDER.length,'15 位的基本攻擊名字都不一樣');
+r=arena('heracles'); playId(r,'atk_heracles'); t(E(r).hp===42,'赫拉克勒斯 巨岩斧劍：8',E(r).hp); r=arena('medea'); playId(r,'def_medea'); t(r.battle.block===7,'美狄亞 魔術障壁：7');
+r=arena('cu'); E(r).block=10; playId(r,'atk_cu'); t(E(r).hp===45,'庫・丘林 朱紅魔槍：穿透 5',E(r).hp);
+const svB=J(G.newRun('kojiro',3)); svB.deck=svB.deck.map(x=>G.isBasic(x,'atk')?'atk':G.isBasic(x,'def')?'def+':x); G.migrate(svB); t(svB.deck.filter(x=>x==='atk_kojiro').length===5&&svB.deck.filter(x=>x==='def_kojiro+').length===4,'舊存檔的通用攻擊／防禦換成自己的（保留強化）');
+let lt=G.newRun('saber',6,{fate:'light'}); t(lt.deck.filter(x=>G.isBasic(x,'atk')).length===3&&lt.deck.filter(x=>G.isBasic(x,'def')).length===3,'輕裝上陣：拿掉的是自己的基本牌');
+
 console.log('── 斯卡哈');
 r=arena('scathach'); playId(r,'doublespear'); t(E(r).doom===1&&E(r).hp===40,'雙槍・死棘：5×2＋死兆 1（死兆打完才上）');
 r.battle.energy=3; playId(r,'atk'); t(E(r).hp===40-7,'死兆 1：每一擊 +1',E(r).hp);
@@ -325,7 +333,7 @@ let r7=arena('saber'); r7.battle.enemies.forEach(e=>{e.hp=1;}); r7.battle.np=100
 t(r7.screen==='reward'&&r7.reward.cards.length===3&&r7.reward.cards.every(c=>['saber','common'].includes(G.CARDS[c.replace('+','')].kit)),'打贏：三選一，只出自己的牌和共通牌');
 const pk=r7.reward.cards[0]; G.takeReward(r7,0); t(r7.deck.includes(pk)&&r7.screen==='map','選的牌加進牌組、回地圖');
 r7.screen='rest'; r7.hp=10; G.rest(r7,'heal'); t(r7.hp===10+Math.round(74*0.3),'休息：回三成生命');
-r7.screen='rest'; const ui=r7.deck.indexOf('atk'); G.rest(r7,'upgrade',ui); t(r7.deck[ui]==='atk+'&&G.card('atk+').fx[0][1]===9&&G.card('atk+').name==='攻擊＋','強化：攻擊→攻擊＋（9 傷）');
+r7.screen='rest'; const ui=r7.deck.findIndex(x=>G.isBasic(x,'atk')); const b7=r7.deck[ui]; G.rest(r7,'upgrade',ui); t(r7.deck[ui]===b7+'+'&&G.card(b7+'+').fx[0][1]===G.BASICS[r7.who][2][0][1]&&G.card(b7+'+').name.endsWith('＋'),'強化：基本攻擊→精煉（數值照表）',r7.deck[ui]);
 const r9=G.newRun('saber',12); r9.relics=['shroud','gem','circuit','book']; step(r9,'fight');
 t(r9.battle.block===8&&r9.battle.energy===4&&r9.battle.np===25&&r9.battle.enemies.every(e=>e.weak===1),'禮裝：聖骸布、寶石、魔術刻印、偽臣之書');
 const r10=J(G.newRun('lancelot',21)); step(r10,'fight'); const saved=J(r10); x=G.play(saved,0,0); t(x.ok||x.msg,'存檔（JSON）來回後照樣能出牌');

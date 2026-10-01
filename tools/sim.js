@@ -98,14 +98,14 @@ function playRun(who,seed){
     else if(run.screen==='event'){ const E=G.EVENTS[run.event];   // 不燒令咒、不扣最大生命、扣血後要留五成；都不行就選最後一個（通常是離開）
       const bad=o=>o.fx.some(f=>(f[0]==='seal'&&f[1]<0)||(f[0]==='maxHp'&&f[1]<0));
       let i=E.opts.findIndex(o=>G.canChoose(run,o)&&!bad(o)&&!(o.need&&o.need.hp&&run.hp-o.need.hp<run.maxHp*0.5)); if(i<0) i=E.opts.length-1; G.choose(run,i); }
-    else if(run.screen==='pick'){ const kind=run.pending[0]; let i=(kind==='remove'||kind==='transform')?run.deck.findIndex(x=>x==='atk'||x==='def'||x==='mud'):run.deck.findIndex(x=>G.canUpgrade(x)&&x!=='atk'&&x!=='def'); if(i<0) i=run.deck.findIndex(x=>G.canUpgrade(x)); G.pickCard(run,i,i>=0&&kind==='upgrade'?bestUp(run,i):undefined); }
+    else if(run.screen==='pick'){ const kind=run.pending[0]; let i=(kind==='remove'||kind==='transform')?run.deck.findIndex(x=>G.isBasic(x)||x==='mud'):run.deck.findIndex(x=>G.canUpgrade(x)&&!G.isBasic(x)); if(i<0) i=run.deck.findIndex(x=>G.canUpgrade(x)); G.pickCard(run,i,i>=0&&kind==='upgrade'?bestUp(run,i):undefined); }
     else if(run.screen==='secret') G.secret(run,SECRET);
     else if(run.screen==='shop'){ const S=run.shop; let bought=false;
-      if(!S.removed&&run.gold>=G.removePrice(run)){ const i=run.deck.findIndex(x=>x==='atk'||x==='def'); if(i>=0&&G.buy(run,'remove',i).ok) bought=true; }
+      if(!S.removed&&run.gold>=G.removePrice(run)){ const i=run.deck.findIndex(x=>G.isBasic(x)); if(i>=0&&G.buy(run,'remove',i).ok) bought=true; }
       if(!bought){ const cs=S.cards.map((c,i)=>[c,i]).filter(([c])=>!c.sold&&c.price<=run.gold).sort((a,b)=>rate(run,b[0].id)-rate(run,a[0].id)); if(cs.length&&rate(run,cs[0][0].id)>4&&run.deck.length<24&&G.buy(run,'card',cs[0][1]).ok) bought=true; }
       if(!bought&&S.relic&&!S.relic.sold&&run.gold>=S.relic.price&&G.buy(run,'relic').ok) bought=true;
       if(!bought) G.leaveShop(run); }
-    else if(run.screen==='rest'){ if(run.hp<run.maxHp*0.65) G.rest(run,'heal'); else { const i=run.deck.findIndex(x=>G.canUpgrade(x)&&x!=='atk'&&x!=='def'); if(!(i>=0&&G.rest(run,'upgrade',i,bestUp(run,i)))) G.rest(run,'heal'); } }
+    else if(run.screen==='rest'){ if(run.hp<run.maxHp*0.65) G.rest(run,'heal'); else { const i=run.deck.findIndex(x=>G.canUpgrade(x)&&!G.isBasic(x)); if(!(i>=0&&G.rest(run,'upgrade',i,bestUp(run,i)))) G.rest(run,'heal'); } }
   }
   return run;
 }

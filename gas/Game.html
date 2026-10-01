@@ -236,6 +236,36 @@ var G = (function () {
     kingofall: { name: '萬物之王', cost: 2, type: 'power', np: 0, fx: [['pTreasure', 1]], up: { cost: 1 } }
   });
 
+
+  // 每位從者自己的基本牌（名字照原作、數值照風格：狂戰士重攻輕守、術者弓兵輕攻重守、雙刀雙槍兩下連擊……）
+  // [攻擊名, 攻擊效果, 強化後, 防禦名, 防禦效果, 強化後]；通用的 atk／def 還在（測試與舊資料用）
+  var BASICS = {
+    saber:    ['騎士劍擊', [['dmg', 6]], [['dmg', 9]], '騎士的守勢', [['block', 5]], [['block', 8]]],
+    emiya:    ['黑弓射擊', [['dmg', 5]], [['dmg', 8]], '雙劍架擋', [['block', 6]], [['block', 9]]],
+    cu:       ['朱紅魔槍', [['pierce', 5]], [['pierce', 7]], '後躍', [['block', 5]], [['block', 8]]],
+    medusa:   ['飛踢', [['dmg', 6]], [['dmg', 9]], '鎖鏈防禦', [['block', 5]], [['block', 8]]],
+    medea:    ['魔力光彈', [['dmg', 5]], [['dmg', 8]], '魔術障壁', [['block', 7]], [['block', 10]]],
+    kojiro:   ['長刀斬', [['dmg', 7]], [['dmg', 10]], '流水', [['block', 4]], [['block', 7]]],
+    hassanC:  ['短刀刺擊', [['hits', 3, 2]], [['hits', 4, 2]], '隱匿', [['block', 5]], [['block', 8]]],
+    diarmuid: ['雙槍連刺', [['hits', 3, 2]], [['hits', 4, 2]], '騎士格擋', [['block', 5]], [['block', 8]]],
+    iskandar: ['征服王之劍', [['dmg', 6]], [['dmg', 9]], '戰車護衛', [['block', 6]], [['block', 9]]],
+    gilles:   ['瀆神之手', [['dmg', 5]], [['dmg', 8]], '海魔之壁', [['block', 6]], [['block', 9]]],
+    hassanH:  ['暗殺短刀', [['hits', 3, 2]], [['hits', 4, 2]], '隱身', [['block', 5]], [['block', 8]]],
+    lancelot: ['狂戰之擊', [['dmg', 8]], [['dmg', 11]], '鎧甲硬擋', [['block', 5]], [['block', 8]]],
+    heracles: ['巨岩斧劍', [['dmg', 8]], [['dmg', 11]], '大英雄之軀', [['block', 4]], [['block', 7]]],
+    gil:      ['寶具投射', [['dmg', 5]], [['dmg', 8]], '王之威光', [['block', 6]], [['block', 9]]],
+    scathach: ['疾刺', [['hits', 3, 2]], [['hits', 4, 2]], '盧恩之盾', [['block', 4]], [['block', 7]]]
+  };
+  Object.keys(BASICS).forEach(function (w) {
+    var a = BASICS[w];
+    CARDS['atk_' + w] = { name: a[0], cost: 1, type: 'atk', np: 10, fx: a[1], up: { fx: a[2] }, kit: 'basic', basic: 'atk' };
+    CARDS['def_' + w] = { name: a[3], cost: 1, type: 'skill', np: 5, fx: a[4], up: { fx: a[5] }, kit: 'basic', basic: 'def' };
+  });
+  CARDS.atk.basic = 'atk'; CARDS.def.basic = 'def';
+  // 基本牌（任何從者的攻擊／防禦）；kind＝'atk' 或 'def' 只看那一種
+  function isBasic(id, kind) { var c = CARDS[baseId(id)]; return !!(c && c.basic && (!kind || c.basic === kind)); }
+  function basicOf(who, kind) { return CARDS[kind + '_' + who] ? kind + '_' + who : kind; }
+
   // ── 資料：從者 ──────────────────────────────────────
   // passive：被動（id 寫死在引擎裡的判斷）｜minion：這位從者召喚的使魔叫什麼、每回合打多少｜np：寶具（fx 跟卡牌一樣）
   var SERVANTS = {
@@ -711,7 +741,7 @@ var G = (function () {
     else if (k === 'mana') run.npStart = (run.npStart || 0) + 30;
     else if (k === 'heirloom') gainRelic(run, randomRelic(run));
     else if (k === 'forged') { shuffle(run, run.deck.map(function (x, i) { return i; }).filter(function (i) { return canUpgrade(run.deck[i]); })).slice(0, 3).forEach(function (i) { run.deck[i] = pick(run, upgradeOptions(run, i)); }); }
-    else if (k === 'light') { [ 'atk', 'atk', 'def' ].forEach(function (x) { var i = run.deck.indexOf(x); if (i >= 0) run.deck.splice(i, 1); }); }
+    else if (k === 'light') { ['atk', 'atk', 'def'].forEach(function (x) { var i = run.deck.findIndex(function (y) { return isBasic(y, x); }); if (i >= 0) run.deck.splice(i, 1); }); }
     else if (k === 'merchant') { run.discount = 0.8; run.removed = -1; }
     else if (k === 'early') { var T = talentsOf(run)[0]; if (T) { var key = '0.' + Math.floor(rnd(run) * 2); run.awaken.push(key); var t = talent(run, key); if (t.lives) run.lives += t.lives; } }
     else if (k === 'legacy') { var rare = Object.keys(CARDS).filter(function (c) { return CARDS[c].rare === run.who; })[0]; if (rare) run.deck.push(rare); }
@@ -736,7 +766,7 @@ var G = (function () {
     opts = opts || {};
     var S = SERVANTS[who];
     var run = { v: 3, who: who, seed: seed >>> 0, rs: seed | 0, hp: S.hp, maxHp: S.hp,
-      deck: ['atk', 'atk', 'atk', 'atk', 'atk', 'def', 'def', 'def', 'def', S.sig], relics: [], seals: 3, maxSeals: 3,
+      deck: [0, 0, 0, 0, 0].map(function () { return basicOf(who, 'atk'); }).concat([0, 0, 0, 0].map(function () { return basicOf(who, 'def'); }), [S.sig]), relics: [], seals: 3, maxSeals: 3,
       act: 1, floor: 0, lane: -1, path: [], map: null, bosses: [], boss: null, screen: 'map', battle: null, reward: null, event: null, pending: [], seenEvents: [],
       awaken: [], lives: 0, gold: 60, removed: 0, shop: null, stats: { kills: 0, np: 0, seals: 0, floors: 0 } };
     var mine = function (k) { return k !== who && NOT_BOSS_OF[who] !== k; };
@@ -769,6 +799,9 @@ var G = (function () {
     Object.keys(RENAMED_V4).forEach(function (k) { RENAMED[k] = RENAMED_V4[k]; });
     var fix = function (a) { return a.map(function (id) { var up = id.slice(-1) === '+', k = up ? id.slice(0, -1) : id; return RENAMED[k] ? RENAMED[k] + (up ? '+' : '') : id; }); };
     run.deck = fix(run.deck);
+    var own = function (a) { return a.map(function (id) { var b0 = baseId(id); return (b0 === 'atk' || b0 === 'def') && CARDS[b0 + '_' + run.who] ? b0 + '_' + run.who + id.slice(b0.length) : id; }); };
+    run.deck = own(run.deck);
+    if (run.battle) ['draw', 'hand', 'discard', 'exhaust'].forEach(function (k) { run.battle[k] = own(run.battle[k]); });
     if (run.battle) ['draw', 'hand', 'discard', 'exhaust'].forEach(function (k) { run.battle[k] = fix(run.battle[k]); });
     if (run.reward && run.reward.cards) run.reward.cards = fix(run.reward.cards);
     if (!run.lives) run.lives = 0;
@@ -1602,7 +1635,7 @@ var G = (function () {
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions,
     FATES: FATES, FATE_FREE: FATE_FREE, SVT_COST: SVT_COST, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, crystalsFor: crystalsFor, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
-    card: card, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,
+    card: card, isBasic: isBasic, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,
     newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
     takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic, needsTarget: needsTarget };
 })();
