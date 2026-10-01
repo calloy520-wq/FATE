@@ -6,7 +6,7 @@ const J=o=>JSON.parse(JSON.stringify(o));
 const step=(r,t)=>{ r.screen='map'; G.reachable(r).forEach(c=>{ r.map[r.floor][c].t=t; }); return G.go(r,G.reachable(r)[0]); };
 // 造一場乾淨的戰鬥：who 的第一層，敵人換成 n 隻 hp 血、不會動的木樁
 function arena(who,n=1,hp=50,seed=7){
-  const r=G.newRun(who,seed); r.relics=[]; step(r,'fight'); const b=r.battle;
+  const r=G.newRun(who,seed); r.flat=true; r.relics=[]; step(r,'fight'); const b=r.battle;   // flat：不套六圍，只測卡牌機制
   while(b.enemies.length<n) b.enemies.push(J(b.enemies[0]));
   b.enemies=b.enemies.slice(0,n);
   b.enemies.forEach((e,i)=>{ Object.assign(e,{key:'d'+i,id:'fang',name:'木樁'+i,hp,maxHp:hp,block:0,str:0,weak:0,vuln:0,poison:0,wound:0,petrify:0,stun:0,intent:{n:'發呆',fx:[]}}); });
@@ -127,7 +127,7 @@ r=arena('lancelot'); r.battle.mastery=3; playId(r,'mace'); t(E(r).hp===50-(4+3+1
 r=arena('lancelot'); r.battle.mastery=2; playId(r,'lakeflash'); t(E(r).hp===50-(10+2*2)&&r.battle.mastery===2,'湖光斬：10＋武練×2（武練不會用掉）',JSON.stringify([E(r).hp,r.battle.mastery]));
 r.battle.energy=3; let h3=E(r).hp; playId(r,'atk'); t(h3-E(r).hp===6,'歸零之後下一擊從頭算',h3-E(r).hp);
 r=arena('lancelot'); r.battle.mastery=3; playId(r,'blackmist'); t(r.battle.block===7&&E(r).hp===50-3,'黑霧：格擋 4＋武練；技能牌順手攻擊 3',JSON.stringify([r.battle.block,E(r).hp]));
-r=arena('heracles'); r.hp=53; playId(r,'divine'); t(E(r).hp===50-(10+3*2),'神性之擊：少 27 生命 → 10＋3×2',E(r).hp);
+r=arena('heracles'); r.hp=r.maxHp-27; playId(r,'divine'); t(E(r).hp===50-(10+3*2),'神性之擊：少 27 生命 → 10＋3×2',E(r).hp);
 r=arena('heracles'); r.hp=20; playId(r,'godhand'); G.endTurn(r); t(r.battle.str===1,'神之加護：生命低於一半時每回合力量 +1');
 r=arena('gil'); r.battle.hand=['t_sword','t_shield','goldarmor']; G.play(r,2,0); t(r.battle.block===5+3*2,'黃金甲冑：手上每件寶具 +3');
 r=arena('gil'); r.battle.hand=['t_sword','t_spear','volley']; G.play(r,2,0); t(E(r).hp===50-16&&r.battle.hand.length===0,'寶具掃射：射出手上全部寶具，每件 8',E(r).hp);
@@ -169,7 +169,7 @@ G.endTurn(r); t(!r.battle.discard.includes('weapon'),'武器是消耗品，不�
 r=arena('lancelot'); playId(r,'endless'); r.battle.draw=['def','def','def','def','def']; r.battle.discard=[]; G.endTurn(r); t(r.battle.hand.filter(x=>x==='weapon').length===1,'無窮之武練牌：每回合開始 1 張技能變成武器化',r.battle.hand.join());
 
 console.log('── 兩屆都在');
-r=arena('heracles'); t(r.lives===1,'赫拉克勒斯 十二試煉：整趟 1 條備用的命'); r.hp=5; E(r).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(r); t(r.hp===Math.round(80*0.5)&&r.screen==='battle'&&r.lives===0&&r.battle.str===2&&r.trialStr===2,'倒下以五成血站起來、力量 +2、命用掉',JSON.stringify([r.hp,r.battle.str]));
+r=arena('heracles'); t(r.lives===1,'赫拉克勒斯 十二試煉：整趟 1 條備用的命'); r.hp=5; E(r).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(r); t(r.hp===Math.round(G.SERVANTS.heracles.hp*0.5)&&r.screen==='battle'&&r.lives===0&&r.battle.str===2&&r.trialStr===2,'倒下以五成血站起來、力量 +2、命用掉',JSON.stringify([r.hp,r.battle.str]));
 const tr=J(r); tr.battle=null; tr.screen='map'; step(tr,'fight'); t(tr.battle.str===2,'十二試煉換來的力量整趟保留（下一場開場就有）',tr.battle.str);
 const rk=arena('saber'); rk.lives=1; rk.hp=5; E(rk).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(rk); t(rk.hp===Math.round(rk.maxHp*0.2)&&!rk.trialStr,'別人的備用命（靈基再臨等）照舊兩成、不加力量');
 r.hp=5; r.lives=0; E(r).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(r); t(r.screen==='over','命用完就真的倒下');
@@ -188,7 +188,7 @@ G.BOSSES.forEach(k=>{ const q=toBoss(G.newRun(k==='heracles'?'saber':'heracles',
 t(G.ORDER.every(k=>{ for(let i=0;i<20;i++){ const q=G.newRun(k,300+i); if(q.bosses.includes(k)||(k==='gilles'&&q.bosses.includes('kraken'))) return false; } return true; }),'魔王不會是自己選的從者');
 r=toBoss(G.newRun('saber',11),'heracles'); const hb=r.battle.enemies[0];
 hb.hp=5; hb.block=0; r.battle.hand=['heavy']; r.battle.energy=2; G.play(r,0,0); t(hb.hp===Math.round(hb.maxHp*0.6)&&hb.lives===1&&r.screen==='battle','赫拉克勒斯（敵）打倒一次：以六成血站起來',hb.hp);
-hb.lives=0; hb.hp=1; r.battle.hand=['atk']; r.battle.energy=1; G.play(r,0,0); t(r.screen==='reward'&&r.reward.next==='act2'&&r.reward.gold===80,'打倒第一章魔王：獎勵，接著第二章');
+hb.lives=0; hb.hp=1; r.battle.hand=['atk']; r.battle.energy=1; G.play(r,0,0); t(r.screen==='reward'&&r.reward.next==='act2'&&r.reward.gold===Math.round(80*G.statsOf(r).luck),'打倒第一章魔王：獎勵（80 金×幸運），接著第二章');
 r.hp=20; G.takeReward(r,-1); t(r.act===2&&r.floor===0&&r.screen==='map'&&r.boss===r.bosses[1]&&r.hp===20+Math.round((r.maxHp-20)*0.5),'進第二章：新地圖、換魔王、回復一半失去的生命');
 step(r,'fight'); t(r.battle.enemies.every(e=>['hound','wraith','golem','ghoul','bat','shade','magus'].includes(e.id)),'第二章換一批敵人');
 let s2=toBoss(J(r),r.bosses[1]); s2.battle.enemies.forEach(e=>{e.hp=1;e.lives=0;e.block=0;}); s2.battle.hand=['atk']; s2.battle.energy=1; G.play(s2,0,0);
@@ -284,8 +284,16 @@ r=arena('scathach'); r.battle.energy=9; ['def','def','def','def'].forEach(x=>pla
 // 每位從者自己的基本牌
 t(G.ORDER.every(k=>{ const d=G.newRun(k,3).deck; return d.filter(x=>x==='atk_'+k).length===5&&d.filter(x=>x==='def_'+k).length===4&&G.card('atk_'+k).name!=='攻擊'&&G.card('def_'+k).name!=='防禦'; }),'每位從者開局 5 張自己的攻擊、4 張自己的防禦，名字各不相同');
 t(new Set(G.ORDER.map(k=>G.card('atk_'+k).name)).size===G.ORDER.length,'15 位的基本攻擊名字都不一樣');
-r=arena('heracles'); playId(r,'atk_heracles'); t(E(r).hp===42,'赫拉克勒斯 巨岩斧劍：8',E(r).hp); r=arena('medea'); playId(r,'def_medea'); t(r.battle.block===7,'美狄亞 魔術障壁：7');
-r=arena('cu'); E(r).block=10; playId(r,'atk_cu'); t(E(r).hp===45,'庫・丘林 朱紅魔槍：穿透 5',E(r).hp);
+t(G.ORDER.every(k=>G.card('atk_'+k).fx[0][0]==='dmg'&&G.card('atk_'+k).fx[0][1]===6&&G.card('def_'+k).fx[0][1]===5),'基本牌數字全員一樣（6／5），定位交給六圍');
+// 官方六圍
+t(G.ORDER.every(k=>G.PARAMS[k]&&G.PARAMS[k].length===6),'15 位都有六圍');
+r=arena('heracles'); r.flat=false; playId(r,'atk_heracles'); t(E(r).hp===50-7,'赫拉克勒斯 筋力 A+：6 傷 ×1.12 → 7',E(r).hp);
+r=arena('medea'); r.flat=false; playId(r,'def_medea'); t(r.battle.block===4,'美狄亞 耐久 D：5 格擋 ×0.84 → 4',r.battle.block);
+r=arena('medea'); r.flat=false; playId(r,'atk_medea'); t(E(r).hp===50-7,'美狄亞 魔力 A+（術者看魔力）：6 傷 → 7',E(r).hp);
+r=arena('iskandar'); r.flat=false; playId(r,'def_iskandar'); t(r.battle.block===5,'伊斯坎達爾 耐久 A：5 ×1.08 → 5（四捨五入）',r.battle.block);
+r=arena('saber'); r.flat=false; r.battle.wind=0; r.battle.np=100; G.noble(r,0); t(E(r).hp===Math.max(0,50-Math.round(40*1.08*1.2)),'Saber 寶具 A++：寶具傷害 ×1.2（再乘攻擊）',E(r).hp);
+const cuR=G.newRun('cu',3); step(cuR,'fight'); const saR=G.newRun('saber',3); step(saR,'fight'); t(cuR.battle.hand.length===saR.battle.hand.length+1,'敏捷 A 以上（庫・丘林）：開場多抽 1 張',[cuR.battle.hand.length,saR.battle.hand.length].join());
+t(G.statsOf(G.newRun('cu',1)).luck<1&&G.statsOf(G.newRun('gil',1)).luck>1,'幸運：庫・丘林 E 拿的金錢比較少，吉爾伽美什 A 比較多');
 const svB=J(G.newRun('kojiro',3)); svB.deck=svB.deck.map(x=>G.isBasic(x,'atk')?'atk':G.isBasic(x,'def')?'def+':x); G.migrate(svB); t(svB.deck.filter(x=>x==='atk_kojiro').length===5&&svB.deck.filter(x=>x==='def_kojiro+').length===4,'舊存檔的通用攻擊／防禦換成自己的（保留強化）');
 let lt=G.newRun('saber',6,{fate:'light'}); t(lt.deck.filter(x=>G.isBasic(x,'atk')).length===3&&lt.deck.filter(x=>G.isBasic(x,'def')).length===3,'輕裝上陣：拿掉的是自己的基本牌');
 

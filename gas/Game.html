@@ -237,24 +237,24 @@ var G = (function () {
   });
 
 
-  // 每位從者自己的基本牌（名字照原作、數值照風格：狂戰士重攻輕守、術者弓兵輕攻重守、雙刀雙槍兩下連擊……）
+  // 每位從者自己的基本牌：名字照原作，數字全員一樣（6 傷／5 格擋）——強弱定位交給官方六圍（PARAMS）
   // [攻擊名, 攻擊效果, 強化後, 防禦名, 防禦效果, 強化後]；通用的 atk／def 還在（測試與舊資料用）
   var BASICS = {
     saber:    ['騎士劍擊', [['dmg', 6]], [['dmg', 9]], '騎士的守勢', [['block', 5]], [['block', 8]]],
-    emiya:    ['黑弓射擊', [['dmg', 5]], [['dmg', 8]], '雙劍架擋', [['block', 6]], [['block', 9]]],
-    cu:       ['朱紅魔槍', [['pierce', 5]], [['pierce', 7]], '後躍', [['block', 5]], [['block', 8]]],
+    emiya:    ['黑弓射擊', [['dmg', 6]], [['dmg', 9]], '雙劍架擋', [['block', 5]], [['block', 8]]],
+    cu:       ['朱紅魔槍', [['dmg', 6]], [['dmg', 9]], '後躍', [['block', 5]], [['block', 8]]],
     medusa:   ['飛踢', [['dmg', 6]], [['dmg', 9]], '鎖鏈防禦', [['block', 5]], [['block', 8]]],
-    medea:    ['魔力光彈', [['dmg', 5]], [['dmg', 8]], '魔術障壁', [['block', 7]], [['block', 10]]],
-    kojiro:   ['長刀斬', [['dmg', 7]], [['dmg', 10]], '流水', [['block', 4]], [['block', 7]]],
-    hassanC:  ['短刀刺擊', [['hits', 3, 2]], [['hits', 4, 2]], '隱匿', [['block', 5]], [['block', 8]]],
-    diarmuid: ['雙槍連刺', [['hits', 3, 2]], [['hits', 4, 2]], '騎士格擋', [['block', 5]], [['block', 8]]],
-    iskandar: ['征服王之劍', [['dmg', 6]], [['dmg', 9]], '戰車護衛', [['block', 6]], [['block', 9]]],
-    gilles:   ['瀆神之手', [['dmg', 5]], [['dmg', 8]], '海魔之壁', [['block', 6]], [['block', 9]]],
-    hassanH:  ['暗殺短刀', [['hits', 3, 2]], [['hits', 4, 2]], '隱身', [['block', 5]], [['block', 8]]],
-    lancelot: ['狂戰之擊', [['dmg', 8]], [['dmg', 11]], '鎧甲硬擋', [['block', 5]], [['block', 8]]],
-    heracles: ['巨岩斧劍', [['dmg', 8]], [['dmg', 11]], '大英雄之軀', [['block', 4]], [['block', 7]]],
-    gil:      ['寶具投射', [['dmg', 5]], [['dmg', 8]], '王之威光', [['block', 6]], [['block', 9]]],
-    scathach: ['疾刺', [['hits', 3, 2]], [['hits', 4, 2]], '盧恩之盾', [['block', 4]], [['block', 7]]]
+    medea:    ['魔力光彈', [['dmg', 6]], [['dmg', 9]], '魔術障壁', [['block', 5]], [['block', 8]]],
+    kojiro:   ['長刀斬', [['dmg', 6]], [['dmg', 9]], '流水', [['block', 5]], [['block', 8]]],
+    hassanC:  ['短刀刺擊', [['dmg', 6]], [['dmg', 9]], '隱匿', [['block', 5]], [['block', 8]]],
+    diarmuid: ['雙槍連刺', [['dmg', 6]], [['dmg', 9]], '騎士格擋', [['block', 5]], [['block', 8]]],
+    iskandar: ['征服王之劍', [['dmg', 6]], [['dmg', 9]], '戰車護衛', [['block', 5]], [['block', 8]]],
+    gilles:   ['瀆神之手', [['dmg', 6]], [['dmg', 9]], '海魔之壁', [['block', 5]], [['block', 8]]],
+    hassanH:  ['暗殺短刀', [['dmg', 6]], [['dmg', 9]], '隱身', [['block', 5]], [['block', 8]]],
+    lancelot: ['狂戰之擊', [['dmg', 6]], [['dmg', 9]], '鎧甲硬擋', [['block', 5]], [['block', 8]]],
+    heracles: ['巨岩斧劍', [['dmg', 6]], [['dmg', 9]], '大英雄之軀', [['block', 5]], [['block', 8]]],
+    gil:      ['寶具投射', [['dmg', 6]], [['dmg', 9]], '王之威光', [['block', 5]], [['block', 8]]],
+    scathach: ['疾刺', [['dmg', 6]], [['dmg', 9]], '盧恩之盾', [['block', 5]], [['block', 8]]]
   };
   Object.keys(BASICS).forEach(function (w) {
     var a = BASICS[w];
@@ -281,7 +281,7 @@ var G = (function () {
       desc: '必中之槍與箭矢加護。反擊型：挑釁敵人全都衝著你來，迴避成功就回敬一槍、寶具量表跟著漲；穿透傷害無視格擋。',
       passive: { id: 'arrow', name: '箭矢加護', text: '迴避成功時，寶具量表 +10' },
       np: { name: '刺穿死棘之槍', fx: [['pierce', 35], ['vuln', 2]] } },
-    medusa: { name: '美杜莎', cls: 'Rider', war: 5, hp: 74, sig: 'chain',
+    medusa: { name: '美杜莎', cls: 'Rider', war: 5, hp: 68, sig: 'chain',
       desc: '石化魔眼的騎兵。魔眼讓敵人一層層石化到動彈不得，再用釘劍鎖鏈與踢擊收拾；鮮血神殿吸取全場的生命；寶具召喚天馬，全力衝撞一個目標。',
       passive: { id: 'gaze', name: '石化魔眼', text: '每場戰鬥開始時，全體敵人石化 1；敵人每 2 層石化，攻擊 -1（魔眼的重壓）' },
       np: { name: '騎英之手綱', fx: [['dmg', 45], ['petrify', 3]] } },
@@ -290,7 +290,7 @@ var G = (function () {
       passive: { id: 'hsw', name: '高速神言', text: '每回合第一張技能牌 0 費；每打一張技能，陣地 +1（整場累積）；回合開始格擋＝陣地÷2（最多 6）' },
       minion: { name: '龍牙兵', atk: 3 },
       np: { name: '萬符必應破戒', fx: [['dispelAll', 1], ['weakAll', 2], ['vulnAll', 2], ['draw', 2]] } },
-    kojiro: { name: '佐佐木小次郎', cls: 'Assassin', war: 5, hp: 76, sig: 'iai',
+    kojiro: { name: '佐佐木小次郎', cls: 'Assassin', war: 5, hp: 92, sig: 'iai',
       desc: '守山門的劍士。剩下的魔力換看穿（傷害減半）、格擋與一閃的傷害；居合搶第一刀。',
       passive: { id: 'mind', name: '心眼（偽）', text: '回合結束時若還剩魔力，敵人下一次攻擊的傷害減半' },
       np: { name: '燕返', fx: [['pierceHits', 12, 3]] } },
@@ -306,7 +306,7 @@ var G = (function () {
       desc: '征服王。人海戰術：軍勢每回合結束衝過全體敵人，敵人越多越划算；也能一次花光打爆發，花掉就要重新召集。',
       passive: { id: 'charisma', name: '領袖氣質', text: '每場戰鬥開始時軍勢 3（回合結束時軍勢衝過全體敵人，各造成軍勢的傷害）' },
       np: { name: '王之軍勢', fx: [['army', 5], ['armyAll', 2]] } },
-    gilles: { name: '吉爾・德・雷', cls: 'Caster', war: 4, hp: 66, sig: 'horror',
+    gilles: { name: '吉爾・德・雷', cls: 'Caster', war: 4, hp: 86, sig: 'horror',
       desc: '瘋狂的元帥。用自己的血餵一隻海魔，越餵越恐怖：它每回合咬生命最少的敵人、替你吃傷害，每大 15 多咬一口；最後一口氣吞掉換全體傷害。',
       passive: { id: 'madness', name: '精神污染', text: '不會被施加虛弱；每場戰鬥開始時海魔大小 3，之後每回合長大 1。海魔回合結束咬生命最少的敵人（每大 15 多咬一口）' },
       np: { name: '螺湮城教本', fx: [['kraken', 8], ['weakAll', 1]] } },
@@ -315,11 +315,11 @@ var G = (function () {
       passive: { id: 'hundred', name: '百貌', text: '每場戰鬥開始時 3 名分身，之後每回合開始 +1（分身不會在回合結束自己攻擊）' },
       minion: { name: '分身', atk: 3 },
       np: { name: '妄想幻像', fx: [['minion', 4], ['minionRand', 3]] } },
-    lancelot: { name: '蘭斯洛特', cls: 'Berserker', war: 4, hp: 78, sig: 'owner',
+    lancelot: { name: '蘭斯洛特', cls: 'Berserker', war: 4, hp: 68, sig: 'owner',
       desc: '湖之騎士。拿到手的東西都是武器：技能牌也會順手攻擊；把技能變成武器化、用掉武器累積武練，越打越熟練。',
       passive: { id: 'arms', name: '無窮之武練', text: '打出技能牌時順手攻擊隨機敵人 3。每用掉一件武器化，武練 +1（整場累積）；每 3 點武練，攻擊 +1' },
       np: { name: '無毀的湖光', fx: [['masteryDmg', 20, 4], ['mastery', 3]] } },
-    heracles: { name: '赫拉克勒斯', cls: 'Berserker', war: 45, hp: 80, sig: 'rampage',
+    heracles: { name: '赫拉克勒斯', cls: 'Berserker', war: 45, hp: 70, sig: 'rampage',
       desc: '希臘最強的大英雄。用自己的血換力量，少掉的生命越多打得越重；倒下也會以五成生命再站起來，而且每死一次就更強。',
       passive: { id: 'revive', name: '十二試煉', text: '整趟冒險有 1 條備用的命：倒下時以五成生命站起來，而且整趟力量 +2（靈基覺醒「第二試煉」再多一條）' },
       np: { name: '射殺百頭', fx: [['rand', 4, 9]] } },
@@ -328,10 +328,30 @@ var G = (function () {
       passive: { id: 'golden', name: '王之財寶', text: '寶具（0 費代幣）留在手上不會消失；回合結束時，手上每件寶具自動對隨機敵人射出 2 傷害。每場戰鬥開始取出 1 件' },
       np: { name: '天地乖離開闢之星', fx: [['all', 40]] } }
   };
-  SERVANTS.scathach = { name: '斯卡哈', cls: 'Lancer', war: 0, hp: 52, sig: 'doublespear',
+  SERVANTS.scathach = { name: '斯卡哈', cls: 'Lancer', war: 0, hp: 46, sig: 'doublespear',
     desc: '影之國的女王、庫・丘林的師匠。出手極快：一回合出越多張牌，死兆疊越快；死兆應驗（即死）就回魔力、抽牌，一口氣打下一個。死兆每層讓那個敵人受到的每一擊 +1（魔王只吃加傷）。',
     passive: { id: 'wisdom', name: '魔境之智慧', text: '每回合從第 3 張牌起（技能也算張數），每打出一張攻擊牌，目標（沒有目標就隨機）死兆 +1；出到第 5 張時迴避 1；死兆應驗時魔力 +1、抽 1 張' },
     np: { name: '貫穿死翔之槍', fx: [['pierce', 25], ['doom', 4]] } };
+  // ── 官方六圍（筋力／耐久／敏捷／魔力／幸運／寶具；第五次照 Fate/stay night、第四次照 Fate/Zero、斯卡哈照 FGO）──
+  // 換算：等級 E1 D2 C3 B4 A5 EX6.5，「+」+0.5；以 B 為 100%
+  //   攻擊（筋力與魔力取高）：所有卡牌傷害 ×(1＋8%×(等級−4))｜耐久：所有卡牌格擋 ×(1＋8%×…)｜寶具：寶具傷害 ×(1＋10%×…)
+  //   敏捷 A 以上：每場開場多抽 1 張｜幸運：打贏拿到的金錢 ×(1＋10%×…)
+  var PARAMS = {
+    saber:    ['B', 'B', 'B', 'A', 'A+', 'A++'], emiya:   ['D', 'C', 'C', 'B', 'E', '?'],  cu:      ['B', 'C', 'A', 'C', 'E', 'B'],
+    medusa:   ['B', 'D', 'A', 'B', 'E', 'A+'],   medea:   ['E', 'D', 'C', 'A+', 'B', 'C'], kojiro:  ['C', 'E', 'A+', 'E', 'A', '—'],
+    hassanC:  ['B', 'C', 'A', 'C', 'E', 'C'],    diarmuid:['B', 'C', 'A+', 'D', 'E', 'B'], iskandar:['B', 'A', 'D', 'C', 'A+', 'A++'],
+    gilles:   ['D', 'E', 'D', 'C', 'E', 'A+'],   hassanH: ['C', 'D', 'A', 'C', 'E', 'B'],  lancelot:['A+', 'A', 'A+', 'C', 'B', 'A'],
+    heracles: ['A+', 'A', 'A', 'A', 'B', 'A'],   gil:     ['B', 'C', 'C', 'B', 'A', 'EX'], scathach:['B', 'A', 'A+', 'C', 'D', 'A+']
+  };
+  var PARAM_NAMES = ['筋力', '耐久', '敏捷', '魔力', '幸運', '寶具'];
+  function grade(g) { var v = { E: 1, D: 2, C: 3, B: 4, A: 5, EX: 6.5 }[String(g).replace(/\+/g, '')]; return v ? v + 0.5 * (String(g).match(/\+/g) || []).length : 4; }
+  // 這一局套用的倍率（run.flat＝不套六圍，測試卡牌機制用）
+  function statsOf(run) {
+    var P = !run || run.flat ? null : PARAMS[run.who];
+    if (!P) return { atk: 1, def: 1, np: 1, agi: false, luck: 1 };
+    return { atk: 1 + 0.08 * (Math.max(grade(P[0]), grade(P[3])) - 4), def: 1 + 0.08 * (grade(P[1]) - 4), np: 1 + 0.1 * (grade(P[5]) - 4),
+      agi: grade(P[2]) >= 5, luck: 1 + 0.1 * (grade(P[4]) - 4) };
+  }
   var ORDER = ['saber', 'emiya', 'cu', 'medusa', 'medea', 'kojiro', 'hassanC', 'diarmuid', 'iskandar', 'gilles', 'hassanH', 'lancelot', 'heracles', 'gil', 'scathach'];
 
   // ── 資料：靈基覺醒 ──────────────────────────────────
@@ -1049,6 +1069,7 @@ var G = (function () {
     if (run.trialStr) b.str += run.trialStr;   // 十二試煉：之前復活換來的力量
     b.enemies.forEach(function (e) { chooseIntent(run, e); });
     startTurn(run, true);
+    if (statsOf(run).agi) { drawCards(run, 1); b.log.push('敏捷：先手多抽 1 張'); }
     if (run.ascStart && run.ascStart.length) runFx({ run: run, b: b, tg: null, log: b.log, id: 'asc', atk: false, first: false }, run.ascStart);
     run.awaken.forEach(function (k) {
       var T = talent(run, k); if (!T || !T.start) return;
@@ -1156,10 +1177,11 @@ var G = (function () {
   }
   // 玩家的攻擊數字（不含敵人易傷）
   function pDmg(ctx, base) {
-    var b = ctx.b, d = base + b.str + b.tstr;
+    var b = ctx.b, d = base + b.str + b.tstr, st = statsOf(ctx.run);
     if (ctx.atk && b.firstAtk) { d += 6; b.firstAtk = false; }
-    if (ctx.atk && b.turn === 1 && passive(ctx.run) === 'ambush') d = d * 1.5;
     if (ctx.atk && passive(ctx.run) === 'arms') d += Math.floor(b.mastery / 3);
+    d = Math.round(d * st.atk * (ctx.id === 'np' ? st.np : 1));   // 六圍：攻擊（筋力／魔力）、寶具
+    if (ctx.atk && b.turn === 1 && passive(ctx.run) === 'ambush') d = d * 1.5;
     if (b.weak > 0) d = d * 0.75;
     return d;
   }
@@ -1197,7 +1219,7 @@ var G = (function () {
     rand: function (x, f) { for (var h = 0; h < f[2]; h++) strike(x, randFoe(x), f[1]); },
     pierce: function (x, f) { strike(x, x.tg, f[1], true); },
     pierceHits: function (x, f) { for (var h = 0; h < f[2]; h++) strike(x, x.tg, f[1], true); },
-    block: function (x, f) { x.b.block += f[1]; },
+    block: function (x, f) { x.b.block += Math.round(f[1] * statsOf(x.run).def); },
     draw: function (x, f) { drawCards(x.run, f[1]); },
     energy: function (x, f) { x.b.energy += f[1]; },
     str: function (x, f) { x.b.str += f[1]; },
@@ -1298,7 +1320,7 @@ var G = (function () {
       var n = f[1] + f[2] * RES[d[1]](x.b, x.run);
       if (d[2] === 'dmg') strike(x, x.tg, n);
       else if (d[2] === 'all') alive(x.b).forEach(function (e) { strike(x, e, n); });
-      else x.b.block += n;
+      else x.b.block += Math.round(n * statsOf(x.run).def);
     };
     OPS[d[0]].res = d[1];
   });
@@ -1535,14 +1557,14 @@ var G = (function () {
       if (b.kind === 'boss') {
         run.stats.bosses = (run.stats.bosses || 0) + 1;
         if (run.act === 1) {   // 第一章結束：拿獎勵、喘口氣，進第二章
-          run.screen = 'reward'; run.reward = { cards: cardChoices(run, 1), relic: randomRelic(run), gold: 80, next: 'act2' };
+          run.screen = 'reward'; run.reward = { cards: cardChoices(run, 1), relic: randomRelic(run), gold: Math.round(80 * statsOf(run).luck), next: 'act2' };
           return 'act';
         }
         if (run.act === 2 && run.seals > 0) { run.screen = 'secret'; return 'secret'; }   // 留著令咒：隱藏關的入口
         run.screen = 'over'; run.win = true; run.trueEnd = run.act === 3; return 'win';
       }
       run.screen = 'reward';
-      run.reward = { cards: cardChoices(run, b.kind === 'elite' ? 1 : 0), relic: b.kind === 'elite' ? randomRelic(run) : null, gold: b.kind === 'elite' ? 30 + Math.floor(rnd(run) * 11) : 12 + Math.floor(rnd(run) * 7) };
+      run.reward = { cards: cardChoices(run, b.kind === 'elite' ? 1 : 0), relic: b.kind === 'elite' ? randomRelic(run) : null, gold: Math.round((b.kind === 'elite' ? 30 + Math.floor(rnd(run) * 11) : 12 + Math.floor(rnd(run) * 7)) * statsOf(run).luck) };
       var tier = run.awaken.length;
       if (b.kind === 'elite' && talentsOf(run)[tier]) run.reward.awaken = [tier + '.0', tier + '.1'];
       return 'won';
@@ -1635,7 +1657,7 @@ var G = (function () {
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions,
     FATES: FATES, FATE_FREE: FATE_FREE, SVT_COST: SVT_COST, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, crystalsFor: crystalsFor, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
-    card: card, isBasic: isBasic, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,
+    card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,
     newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
     takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic, needsTarget: needsTarget };
 })();
