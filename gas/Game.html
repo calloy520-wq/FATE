@@ -61,7 +61,7 @@ var G = (function () {
   kit('common', {
     heavy:    { name: '重擊', cost: 2, type: 'atk', np: 15, fx: [['dmg', 12]], up: { fx: [['dmg', 17]] } },
     dodge:    { name: '防禦態勢', cost: 1, type: 'skill', np: 5, fx: [['block', 8]], up: { fx: [['block', 11]] } },
-    circuit:  { name: '魔術迴路', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['energy', 1]], up: { fx: [['energy', 2]] } },
+    circuit:  { name: '魔術迴路', cost: 0, type: 'skill', np: 20, ex: 1, fx: [['energy', 1]], up: { np: 30, fx: [['energy', 1]] } },
     reinforce:{ name: '強化魔術', cost: 1, type: 'power', np: 0, fx: [['str', 2]], up: { fx: [['str', 3]] } },
     healing:  { name: '治癒魔術', cost: 1, type: 'skill', np: 0, ex: 1, fx: [['heal', 6]], up: { fx: [['heal', 10]] } },
     feint:    { name: '牽制', cost: 0, type: 'atk', np: 5, fx: [['dmg', 3], ['weak', 1]], up: { fx: [['dmg', 5], ['weak', 2]] } },
@@ -69,15 +69,15 @@ var G = (function () {
     bounded:  { name: '結界', cost: 2, type: 'skill', np: 10, fx: [['block', 12], ['draw', 1]], up: { fx: [['block', 16], ['draw', 1]] } },
     // 中立牌（大家都拿得到）：型月的魔術與御主的手段，各自開一條玩法——全體、穿透、抽牌、魔力、控場、防守
     jewel:    { name: '寶石魔術', cost: 1, type: 'atk', np: 10, ex: 1, fx: [['all', 9]], up: { fx: [['all', 13]] } },   // 遠坂家：存了魔力的寶石，用一次就沒
-    blackkeys:{ name: '投擲黑鍵', cost: 1, type: 'atk', np: 10, fx: [['pierce', 7]], up: { fx: [['pierce', 10]] } },   // 聖堂教會的投擲劍
+    blackkeys:{ name: '投擲黑鍵', cost: 1, type: 'atk', np: 10, fx: [['pierceHits', 2, 3]], up: { fx: [['pierceHits', 3, 3]] } },   // 聖堂教會的投擲劍，指間夾著三把一起擲出
     familiar: { name: '鳥形使魔', cost: 0, type: 'skill', np: 5, ex: 1, fx: [['draw', 2]], up: { fx: [['draw', 3]] } },
     supply:   { name: '魔力供給', cost: 1, type: 'skill', np: 5, fx: [['nextEnergy', 2], ['block', 3]], up: { fx: [['nextEnergy', 2], ['block', 7]] } },   // 御主把魔力送給從者
-    overload: { name: '魔力過載', cost: 0, type: 'skill', np: 5, ex: 1, fx: [['energy', 2], ['selfDmg', 4]], up: { fx: [['energy', 3], ['selfDmg', 4]] } },
+    overload: { name: '魔力過載', cost: 0, type: 'skill', np: 5, ex: 1, fx: [['energy', 1], ['draw', 1], ['selfDmg', 2]], up: { fx: [['energy', 1], ['draw', 2], ['selfDmg', 2]] } },
     suggest:  { name: '暗示', cost: 1, type: 'skill', np: 5, fx: [['strDown', 2], ['weak', 1]], up: { fx: [['strDown', 3], ['weak', 2]] } },
     baptism:  { name: '洗禮詠唱', cost: 2, type: 'skill', np: 10, fx: [['weakAll', 2], ['block', 6]], up: { fx: [['weakAll', 2], ['block', 10]] } },   // 聖堂教會的祕蹟
     counterward:{ name: '迎擊結界', cost: 1, type: 'skill', np: 5, fx: [['block', 5], ['thorns', 4]], up: { fx: [['block', 7], ['thorns', 6]] } },
-    leyline:  { name: '靈脈', cost: 2, type: 'power', np: 0, fx: [['pBlock', 3]], up: { cost: 1 } },   // 接上土地的靈脈，每回合都有魔力護身
-    shroudward:{ name: '聖骸布的庇護', cost: 1, type: 'skill', np: 5, fx: [['evade', 1], ['block', 3]], up: { fx: [['evade', 1], ['block', 6]] } }
+    leyline:  { name: '靈脈', cost: 1, type: 'power', np: 0, fx: [['pBlock', 3]], up: { cost: 1 } },   // 接上土地的靈脈，每回合都有魔力護身
+    shroudward:{ name: '聖骸布的庇護', cost: 1, type: 'skill', np: 5, ex: 1, fx: [['evade', 1], ['block', 3]], up: { fx: [['evade', 1], ['block', 6]] } }
   });
 
   // 第五次聖杯戰爭
@@ -104,11 +104,11 @@ var G = (function () {
     hawkeye: { name: '鷹之瞳', cost: 1, type: 'skill', np: 5, fx: [['vuln', 2], ['proj', 1]], up: { fx: [['vuln', 3], ['proj', 1]] } },
     rhoaias: { name: '熾天覆七重圓環', cost: 2, type: 'skill', np: 10, fx: [['projBlock', 6, 3]], up: { fx: [['projBlock', 9, 4]] } },
     analysis:{ name: '構造解析', cost: 1, type: 'power', np: 0, fx: [['projUp', 1]], up: { fx: [['projUp', 2]] } },
-    broken:  { name: '壞幻', cost: 1, type: 'skill', np: 10, fx: [['burst', 5]], up: { fx: [['burst', 7]] } },
+    broken:  { name: '壞幻', cost: 1, type: 'skill', np: 10, fx: [['burst', 7], ['draw', 1]], up: { fx: [['burst', 9], ['draw', 1]] } },
     kakuyoku:{ name: '鶴翼三連', cost: 2, type: 'atk', np: 20, fx: [['projHits', 5, 1, 3]], up: { fx: [['projHits', 6, 2, 3]] } }   // 干將莫邪擲出三次的絕技
   });
   kit('cu', {   // 迴避與反擊：躲開一擊就回敬一槍，光之子讓每次迴避都變強
-    arrowward: { name: '箭矢加護', cost: 1, type: 'skill', np: 5, fx: [['evade', 1], ['block', 2]], up: { fx: [['evade', 1], ['block', 5]] } },
+    arrowward: { name: '箭矢加護', cost: 1, type: 'skill', np: 5, fx: [['evade', 1], ['block', 4]], up: { fx: [['evade', 1], ['block', 7]] } },
     thrust:    { name: '突刺', cost: 1, type: 'atk', np: 10, fx: [['pierce', 6], ['riposte', 4]], up: { fx: [['pierce', 8], ['riposte', 6]] } },
     riposte:   { name: '迎擊之槍', cost: 1, type: 'skill', np: 5, fx: [['evade', 1], ['riposte', 5]], up: { fx: [['evade', 1], ['riposte', 8]] } },
     flurry:    { name: '連刺', cost: 2, type: 'atk', np: 15, fx: [['hits', 4, 3], ['riposte', 3]], up: { fx: [['hits', 5, 3], ['riposte', 5]] } },
@@ -124,7 +124,7 @@ var G = (function () {
     nails:    { name: '釘劍', cost: 1, type: 'atk', np: 10, fx: [['hits', 3, 2], ['petrifyAll', 1]], up: { fx: [['hits', 4, 2], ['petrifyAll', 1]] } },
     monstrous:{ name: '怪力', cost: 0, type: 'skill', np: 5, fx: [['tstr', 2], ['petrify', 1]], up: { fx: [['tstr', 4], ['petrify', 1]] } },
     stare:    { name: '釘劍穿刺', cost: 1, type: 'atk', np: 10, fx: [['petrifyDmg', 4, 3]], up: { fx: [['petrifyDmg', 6, 4]] } },
-    shatter:  { name: '石像碎裂', cost: 2, type: 'atk', np: 15, fx: [['shatter', 6, 7]], up: { fx: [['shatter', 8, 9]] } },
+    shatter:  { name: '石像碎裂', cost: 1, type: 'atk', np: 15, fx: [['shatter', 6, 7]], up: { fx: [['shatter', 8, 9]] } },
     kick:     { name: '迴旋踢', cost: 1, type: 'atk', np: 10, fx: [['dmgIfStun', 8, 12]], up: { fx: [['dmgIfStun', 11, 15]] } },
     spread:   { name: '魔眼全開', cost: 2, type: 'skill', np: 10, fx: [['petrifyAll', 2]], up: { cost: 1 } },
     bloodfort:{ name: '鮮血神殿', cost: 2, type: 'atk', np: 15, fx: [['drainAll', 6]], up: { fx: [['drainAll', 9]] } },
@@ -162,7 +162,7 @@ var G = (function () {
     presence:   { name: '避風的加護', cost: 1, type: 'skill', np: 5, fx: [['evade', 2]], up: { fx: [['evade', 2], ['block', 4]] } },
     daggers:    { name: '暗器亂射', cost: 1, type: 'atk', np: 10, fx: [['rand', 3, 3], ['poisonAll', 1]], up: { fx: [['rand', 4, 3], ['poisonAll', 1]] } },
     miasma:     { name: '毒霧', cost: 2, type: 'skill', np: 10, fx: [['poisonAll', 4]], up: { fx: [['poisonAll', 6]] } },
-    plague:     { name: '毒素增幅', cost: 1, type: 'skill', np: 5, ex: 1, fx: [['poisonX2', 1]], up: { ex: 0 } },
+    plague:     { name: '毒素增幅', cost: 0, type: 'skill', np: 5, ex: 1, fx: [['poisonX2', 1]], up: { ex: 0 } },
     venombody:  { name: '自我改造', cost: 2, type: 'power', np: 0, fx: [['pVenom', 1]], up: { cost: 1 } }
   });
   // 第四次聖杯戰爭
@@ -183,7 +183,7 @@ var G = (function () {
     chariot:   { name: '神威車輪', cost: 2, type: 'atk', np: 20, fx: [['all', 9], ['army', 2]], up: { fx: [['all', 12], ['army', 2]] } },
     order:     { name: '突擊令', cost: 1, type: 'atk', np: 10, fx: [['armyAllDmg', 3, 1]], up: { fx: [['armyAllDmg', 4, 2]] } },
     trample:   { name: '遙遠的蹂躪制霸', cost: 2, type: 'atk', np: 15, fx: [['armyAll', 2]], up: { fx: [['armyAll', 3]] } },
-    allcharge: { name: '全軍突擊', cost: 1, type: 'atk', np: 15, fx: [['armySpendAll', 2]], up: { fx: [['armySpendAll', 3]] } },
+    allcharge: { name: '全軍突擊', cost: 1, type: 'atk', np: 15, fx: [['armySpendAll', 3], ['draw', 1]], up: { fx: [['armySpendAll', 4], ['draw', 1]] } },
     zeus:      { name: '宙斯之雷', cost: 1, type: 'atk', np: 10, fx: [['all', 4], ['army', 1]], up: { fx: [['all', 6], ['army', 1]] } },
     bucephalus:{ name: '布塞弗勒斯', cost: 1, type: 'skill', np: 5, fx: [['armyBlock', 4, 1]], up: { fx: [['armyBlock', 6, 2]] } },
     tactics:   { name: '軍略', cost: 1, type: 'skill', np: 5, fx: [['army', 1], ['draw', 1]], up: { fx: [['army', 2], ['draw', 1]] } },
@@ -192,24 +192,24 @@ var G = (function () {
   });
   kit('gilles', {   // 大海魔：一隻會長大的海魔，回合結束咬人、替你吃傷害；最後一口氣吞掉換全體傷害
     horror:   { name: '召喚海魔', cost: 1, type: 'skill', np: 5, fx: [['kraken', 3], ['block', 3]], up: { fx: [['kraken', 4], ['block', 4]] } },
-    sacrifice:{ name: '活祭', cost: 0, type: 'skill', np: 5, fx: [['selfDmg', 3], ['kraken', 3]], up: { fx: [['selfDmg', 2], ['kraken', 4]] } },
+    sacrifice:{ name: '活祭', cost: 0, type: 'skill', np: 5, fx: [['selfDmg', 2], ['kraken', 4]], up: { fx: [['selfDmg', 2], ['kraken', 6]] } },
     blasphemy:{ name: '瀆神', cost: 1, type: 'atk', np: 10, fx: [['krakenDmg', 5, 1]], up: { fx: [['krakenDmg', 7, 1]] } },
     tentacle: { name: '觸手纏繞', cost: 1, type: 'skill', np: 5, fx: [['weak', 1], ['krakenBlock', 3, 1]], up: { fx: [['weak', 2], ['krakenBlock', 4, 1]] } },
-    zealot:   { name: '狂信', cost: 0, type: 'skill', np: 5, fx: [['krakenStr', 3, 5]], up: { fx: [['krakenStr', 3, 7]] } },
-    feastdeep:{ name: '海魔盛宴', cost: 2, type: 'atk', np: 20, fx: [['krakenAll', 2]], up: { fx: [['krakenAll', 3]] } },
+    zealot:   { name: '狂信', cost: 0, type: 'skill', np: 5, fx: [['krakenStr', 3, 6], ['draw', 1]], up: { fx: [['krakenStr', 3, 8], ['draw', 1]] } },
+    feastdeep:{ name: '海魔盛宴', cost: 2, type: 'atk', np: 20, fx: [['krakenAll', 3]], up: { fx: [['krakenAll', 4]] } },
     abyss:    { name: '深淵召喚', cost: 2, type: 'skill', np: 10, fx: [['krakenX2', 1]], up: { cost: 1 } },
     pages:    { name: '禁書翻頁', cost: 0, type: 'skill', np: 0, fx: [['draw', 2], ['selfDmg', 2]], up: { fx: [['draw', 3], ['selfDmg', 2]] } },
     frenzy:   { name: '無底的魔力爐', cost: 2, type: 'power', np: 0, fx: [['pKraken', 2]], up: { cost: 1 } }
   });
   kit('hassanH', {   // 分身經濟：分身每回合 +1、不自己出擊，是拿來花的——擋刀、換魔力、換抽牌、換力量，或留著讓同時刺擊越刺越多
     clone:   { name: '分身', cost: 1, type: 'skill', np: 5, fx: [['minion', 1], ['block', 3]], up: { fx: [['minion', 2], ['block', 3]] } },
-    intel:   { name: '情報收集', cost: 0, type: 'skill', np: 5, fx: [['sacDraw', 2]], up: { fx: [['sacDraw', 3]] } },
+    intel:   { name: '情報收集', cost: 0, type: 'skill', np: 5, fx: [['sacDraw', 3]], up: { fx: [['sacDraw', 4]] } },
     swarm:   { name: '群襲', cost: 1, type: 'atk', np: 10, fx: [['minionHit', 3]], up: { fx: [['minionHit', 5]] } },
     stab:    { name: '同時刺擊', cost: 1, type: 'atk', np: 10, fx: [['hitsPerMinion', 2]], up: { fx: [['hitsPerMinion', 3]] } },
     surround:{ name: '包圍', cost: 2, type: 'atk', np: 15, fx: [['allPlusMinion', 4, 1]], up: { fx: [['allPlusMinion', 6, 2]] } },
     decoy:   { name: '替身', cost: 1, type: 'skill', np: 5, fx: [['evade', 1], ['minion', 1]], up: { fx: [['evade', 1], ['minion', 2]] } },
     scatter: { name: '散開', cost: 1, type: 'skill', np: 5, fx: [['minionBlock', 3, 2]], up: { fx: [['minionBlock', 5, 3]] } },
-    sac:     { name: '捨身', cost: 0, type: 'skill', np: 5, fx: [['sacEnergy', 2]], up: { fx: [['sacEnergy', 3]] } },
+    sac:     { name: '捨身', cost: 0, type: 'skill', np: 5, fx: [['sacEnergy', 2], ['draw', 1]], up: { fx: [['sacEnergy', 3], ['draw', 1]] } },
     hundred: { name: '百貌', cost: 2, type: 'power', np: 0, fx: [['pMinion', 1]], up: { cost: 1 } }
   });
   kit('lancelot', {   // 什麼都是武器：技能牌也順手攻擊；把技能變成武器化、用掉武器累積「武練」（整場不歸零），武練讓連斬、湖光斬越來越重
@@ -251,8 +251,8 @@ var G = (function () {
   kit('gil', {   // 寶庫：0 費寶具源源不絕；手上寶具越多，甲冑越厚、乖離劍越痛，也能一次全部射出去
     gate_of:   { name: '王之財寶', cost: 1, type: 'skill', np: 10, fx: [['treasure', 2]], up: { fx: [['treasure', 3]] } },
     arrogance: { name: '慢心', cost: 0, type: 'skill', np: 5, fx: [['treasure', 2], ['selfVuln', 1]], up: { fx: [['treasure', 3], ['selfVuln', 1]] } },
-    volley:    { name: '寶具掃射', cost: 1, type: 'atk', np: 15, fx: [['treasureBurst', 8]], up: { fx: [['treasureBurst', 11]] } },
-    thousand:  { name: '千之寶具', cost: 2, type: 'atk', np: 20, fx: [['randPerTreasure', 3, 2]], up: { fx: [['randPerTreasure', 4, 2]] } },
+    volley:    { name: '寶具掃射', cost: 1, type: 'atk', np: 15, fx: [['treasureBurst', 10], ['treasure', 1]], up: { fx: [['treasureBurst', 13], ['treasure', 1]] } },
+    thousand:  { name: '千之寶具', cost: 1, type: 'atk', np: 20, fx: [['randPerTreasure', 3, 2]], up: { fx: [['randPerTreasure', 4, 2]] } },
     ea_glimmer:{ name: '乖離劍的餘光', cost: 1, type: 'atk', np: 15, fx: [['treasureDmg', 6, 3]], up: { fx: [['treasureDmg', 8, 4]] } },
     goldarmor: { name: '黃金甲冑', cost: 1, type: 'skill', np: 5, fx: [['treasureBlock', 5, 3]], up: { fx: [['treasureBlock', 7, 4]] } },
     enkidu:    { name: '天之鎖', cost: 2, type: 'skill', np: 10, ex: 1, fx: [['chain', 1], ['weak', 2]], up: { cost: 1 } },
@@ -299,7 +299,7 @@ var G = (function () {
       np: { name: '誓約勝利之劍', fx: [['windAll', 40, 3]] } },
     emiya: { name: 'EMIYA', cls: 'Archer', war: 5, hp: 71, sig: 'project',
       desc: '把劍投影出來用完即丟的弓兵。手上的投影劍越多，赤原獵犬、熾天覆越強，最後壞幻引爆。',
-      passive: { id: 'forge', name: '投影魔術', text: '每回合開始得到 1 張投影劍' },
+      passive: { id: 'forge', name: '投影魔術', text: '每回合開始得到 1 張投影劍；手上的投影劍回合結束不會消失（最多留 5 把），囤起來再一口氣引爆' },
       np: { name: '無限劍製', fx: [['ubw', 1], ['projAll', 6, 2]] } },
     cu: { name: '庫・丘林', cls: 'Lancer', war: 5, hp: 64, sig: 'arrowward',
       desc: '必中之槍與箭矢加護。反擊型：挑釁敵人全都衝著你來，迴避成功就回敬一槍、寶具量表跟著漲；穿透傷害無視格擋。',
@@ -518,6 +518,7 @@ var G = (function () {
   var KIT_SOUL = { saber: ['wind', 1], emiya: ['proj', 1], cu: ['evade', 1], medusa: ['petrifyAll', 1], medea: ['skillCount', 1], kojiro: ['nextEnergy', 1],
     hassanC: ['poisonAll', 2], diarmuid: ['stance', 'toggle'], iskandar: ['army', 1], gilles: ['kraken', 2], hassanH: ['minion', 1], lancelot: ['mastery', 1],
     heracles: ['tstr', 2], gil: ['treasure', 1], scathach: ['doom', 1] };
+  var POWER_NOW = { pBlock: 'block', pStr: 'str', pEvade: 'evade', pMinion: 'minion', pTreasure: 'treasure', pWind: 'wind', pKraken: 'kraken', pArmy: 'army', pPetrifyAll: 'petrifyAll', pWeaponize: 'weaponize', pHaste: 'haste' };   // 每回合的能力，打出時先給一次（戰鬥只打 3～4 回合，不然能力牌都不划算）
   var SOUL_P = { wind: ['pWind', 1], evade: ['pEvade', 1], petrifyAll: ['pPetrifyAll', 1], minion: ['pMinion', 1], treasure: ['pTreasure', 1], kraken: ['pKraken', 1], army: ['pArmy', 1] };   // 能力牌的英靈之魂：每回合版
   // 極限會翻倍的數字（第一個數）
   var SCALABLE = { dmg: 1, hits: 1, all: 1, rand: 1, pierce: 1, pierceHits: 1, block: 1, poison: 1, poisonAll: 1, heal: 1, thorns: 1, iai: 1, drainAll: 1,
@@ -635,7 +636,7 @@ var G = (function () {
     pierce: '造成 {1} 穿透傷害', pierceHits: '造成 {1} 穿透傷害 ×{2}',
     block: '格擋 {1}', draw: '抽 {1} 張', energy: '魔力 +{1}', str: '力量 +{1}', tstr: '本回合力量 +{1}',
     vuln: '易傷 {1}', weak: '虛弱 {1}', weakAll: '全體虛弱 {1}', vulnAll: '全體易傷 {1}', strDown: '目標力量 -{1}',
-    heal: '回復 {1}', np: '寶具 +{1}%', thorns: '本回合被攻擊時反擊 {1}',
+    heal: '回復 {1}', np: '寶具 +{1}%', thorns: '本回合每次被攻擊，對攻擊者造成 {1}',
     proj: '得到 {1} 張投影劍', burst: '引爆手上所有投影劍，每把對全體造成 {1} 傷害',
     ubw: '這回合與之後 2 回合，每回合開始得到 3 張投影劍；本場投影劍傷害 +2',
     pBlock: '每回合開始格擋 {1}', pDraw: '每回合多抽 {1} 張', pEnergy: '每回合魔力 +{1}', pStr: '每回合開始力量 +{1}',
@@ -705,7 +706,7 @@ var G = (function () {
   var SHORT = {
     dmg: '⚔{1}', hits: '⚔{1}×{2}', all: '全體⚔{1}', rand: '隨機⚔{1}×{2}', pierce: '穿透⚔{1}', pierceHits: '穿透⚔{1}×{2}',
     block: '🛡{1}', draw: '抽{1}', energy: '魔力+{1}', str: '力量+{1}', tstr: '本回合力量+{1}', vuln: '易傷{1}', weak: '虛弱{1}',
-    weakAll: '全體虛弱{1}', vulnAll: '全體易傷{1}', strDown: '敵力量-{1}', heal: '回復{1}', np: '寶具+{1}%', thorns: '反擊{1}',
+    weakAll: '全體虛弱{1}', vulnAll: '全體易傷{1}', strDown: '敵力量-{1}', heal: '回復{1}', np: '寶具+{1}%', thorns: '受擊→⚔{1}',
     proj: '投影劍+{1}', burst: '引爆劍：每把全體⚔{1}', ubw: '無限劍製', projUp: '投影劍⚔+{1}',
     pBlock: '每回合🛡{1}', pDraw: '每回合多抽{1}', pEnergy: '每回合魔力+{1}', pStr: '每回合力量+{1}', pEvade: '每回合迴避{1}',
     pTreasure: '每回合取寶具{1}', pMinion: '每回合召喚{1}', pVenom: '命中加毒{1}', pWeaponize: '每回合武器化{1}',
@@ -768,7 +769,7 @@ var G = (function () {
     if (c.np && !(run && serv(run) && serv(run).np.none)) bits.push('寶具 +' + c.np + '%');
     if (c.link) bits.push('【連動】打出時，手上其他連動牌一起出手' + (c.chase ? '' : '（這張沒有追擊：被別張連動帶出時直接丟掉）'));
     if (c.chase) bits.push('【追擊】被連動帶出時免費發動（傷害、格擋、回復七成；刻印、抽牌照常）' + (c.ex ? '；被帶出時也會消耗' : ''));
-    if (c.type === 'power') bits[bits.length - 1] += '（持續整場）';
+    if (c.type === 'power') bits[bits.length - 1] += c.fx.some(function (f) { return POWER_NOW[f[0]]; }) ? '（持續整場；打出當下先生效一次）' : '（持續整場）';
     if ((c.ex || c.token) && !c.chase) bits.push('消耗');
     return bits.join('，');
   }
@@ -1731,6 +1732,7 @@ var G = (function () {
     var ctx = { run: run, b: b, tg: tg, log: [c.name], id: baseId(c.id), atk: c.type === 'atk', first: b.played === 0 };
     var chained = ctx.atk && b.reapNext, p0 = b.played; if (chained) b.reapNext = 0;   // 連鎖中：這張攻擊打完也收尾
     runFx(ctx, c.fx);
+    if (c.type === 'power') c.fx.forEach(function (f) { var now = POWER_NOW[f[0]]; if (now) OPS[now](ctx, [now, f[1]]); });   // 能力牌：打出當下先生效一次
     if (c.type === 'skill' && !c.token) { b.skills++; if (passive(run) === 'hsw') b.chant = (b.chant || 0) + 1; if (b.pSkillBlock) b.block += b.pSkillBlock; }
     if (ctx.atk) { if (b.stance === 'yellow' && tg && tg.hp > 0) tg.wound += 1; b.attacks++; b.firstAtk = false; }
     if (baseId(c.id) === 'weapon') b.mastery++;
@@ -1833,7 +1835,7 @@ var G = (function () {
     var log = [], ctx = { run: run, b: b, log: log };
     if (b.pEnergyBlock && b.energy > 0) { b.block += b.pEnergyBlock * b.energy; log.push('山門：格擋 +' + b.pEnergyBlock * b.energy); }
     b.hand.forEach(function (x) { var h = card(x).hold; if (h) { loseHp(run, h, log); log.push(card(x).name + '侵蝕了你（-' + h + '）'); } });
-    var keep = b.hand.filter(function (x) { return card(x).retain || (passive(run) === 'golden' && isTreasure(x)); });   // 保留：刻印蟲、王之財寶
+    var sw = 0, keep = b.hand.filter(function (x) { return card(x).retain || (passive(run) === 'golden' && isTreasure(x)) || (passive(run) === 'forge' && x === 'sword' && ++sw <= 5); });   // 保留：刻印蟲、王之財寶、投影劍（最多 5 把，才囤得起來）
     b.hand.forEach(function (x) { if (keep.indexOf(x) >= 0) return; (card(x).token ? b.exhaust : b.discard).push(x); });
     b.hand = keep; b.tstr = 0; b.nextFree = 0;
     if (b.vuln > 0) b.vuln--; if (b.weak > 0) b.weak--;
