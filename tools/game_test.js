@@ -272,6 +272,13 @@ r=arena('medusa'); r.battle.ride=4; r.battle.mounted=1; playId(r,'mount'); t(r.b
 r=arena('medusa',2,60); r.battle.np=100; G.noble(r,0); t(r.battle.mounted===1&&r.battle.ride===5&&r.battle.enemies.every(e=>e.hp===35),'騎英之手綱：全體 25，騎上天馬速度拉滿',JSON.stringify(r.battle.enemies.map(e=>e.hp)));
 r=arena('medusa'); r.battle.mounted=0; r.battle.ride=0; E(r).petrify=1; playId(r,'land',0); t(E(r).petrify===1&&E(r).hp===45,'沒騎乘時急降只有傷害 5，不會石化',E(r).petrify);
 
+r=arena('medusa'); r.battle.ride=2; playId(r,'monstrous'); t(r.battle.tstr===2&&r.battle.ride===3,'怪力：本回合力量 +2，騎乘中速度 +1');
+r=arena('medusa'); r.battle.mounted=0; r.battle.ride=0; playId(r,'monstrous'); t(r.battle.ride===0,'沒騎乘時怪力不會加速度');
+t(G.CARDS.nails&&G.CARDS.chain&&G.SERVANTS.medusa.sig==='chain','鎖鏈（招牌牌）與釘劍都在');
+// 卡面簡短說明
+t(Object.keys(G.CARDS).every(k=>{ const t2=G.cardShort(k); return t2&&!/undefined|\{|null/.test(t2)&&t2.length<=G.cardText(k).length; }),'每張牌都有簡短說明（沒有漏字、比完整說明短）');
+r=arena('medusa'); r.battle.ride=3; t(G.cardShort('land',r).startsWith('⚔14'),'戰鬥中簡短說明照資源算好數字（急降 5＋速度 3×3）',G.cardShort('land',r));
+
 console.log('── 斯卡哈');
 r=arena('scathach'); playId(r,'doublespear'); t(E(r).doom===1&&E(r).hp===40,'雙槍・死棘：5×2＋死兆 1（死兆打完才上）');
 r.battle.energy=3; playId(r,'atk'); t(E(r).hp===40-7,'死兆 1：每一擊 +1',E(r).hp);

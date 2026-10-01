@@ -97,6 +97,8 @@ var G = (function () {
   kit('medusa', {   // 控場＋天馬騎乘：地面用石化控場；騎上天馬每回合衝撞全體、越跑越快；急降下馬把速度換成全體石化
     mystic:   { name: '石化魔眼', cost: 1, type: 'skill', np: 5, fx: [['petrify', 2], ['weak', 1]], up: { fx: [['petrify', 3], ['weak', 1]] } },
     chain:    { name: '鎖鏈', cost: 1, type: 'atk', np: 10, fx: [['dmg', 6], ['petrify', 1]], up: { fx: [['dmg', 9], ['petrify', 1]] } },
+    nails:    { name: '釘劍', cost: 1, type: 'atk', np: 10, fx: [['hits', 4, 2], ['petrify', 1]], up: { fx: [['hits', 5, 2], ['petrify', 1]] } },
+    monstrous:{ name: '怪力', cost: 0, type: 'skill', np: 5, fx: [['tstr', 2], ['spur', 1]], up: { fx: [['tstr', 3], ['spur', 1]] } },
     mount:    { name: '天馬召喚', cost: 1, type: 'skill', np: 5, fx: [['mount', 1], ['block', 5]], up: { fx: [['mount', 2], ['block', 6]] } },
     land:     { name: '急降', cost: 1, type: 'atk', np: 10, fx: [['rideDmg', 5, 3], ['land', 1]], up: { fx: [['rideDmg', 7, 4], ['land', 1]] } },
     stare:    { name: '凝視', cost: 1, type: 'atk', np: 10, fx: [['petrifyDmg', 4, 3]], up: { fx: [['petrifyDmg', 6, 4]] } },
@@ -516,7 +518,7 @@ var G = (function () {
     wind: '風 +{1}', pWind: '每回合開始風 +{1}', windAll: '解放全部風：對全體造成 {1}，每層風再 +{2}',
     windDmg: '造成 {1} 傷害，每層風再 +{2}（風不會用掉）', windBlock: '格擋 {1}，每層風再 +{2}',
     projUp: '本場投影劍傷害 +{1}', projDmg: '造成 {1} 傷害，手上每把投影劍再 +{2}', projAll: '對全體造成 {1} 傷害，手上每把投影劍再 +{2}', projBlock: '格擋 {1}，手上每把投影劍再 +{2}',
-    riposte: '本回合迴避成功時，對攻擊者造成 {1} 穿透傷害', mount: '騎上天馬，速度 +{1}（最多 5）', land: '急降下馬：全體石化＝速度，速度歸零', rideDmg: '造成 {1} 傷害，每點速度再 +{2}', taunt: '挑釁：這回合不攻擊的敵人改成攻擊你', pEvadeStr: '每次迴避成功，力量 +{1}',
+    riposte: '本回合迴避成功時，對攻擊者造成 {1} 穿透傷害', mount: '騎上天馬，速度 +{1}（最多 5）', land: '急降下馬：全體石化＝速度，速度歸零', spur: '騎乘中速度 +{1}', rideDmg: '造成 {1} 傷害，每點速度再 +{2}', taunt: '挑釁：這回合不攻擊的敵人改成攻擊你', pEvadeStr: '每次迴避成功，力量 +{1}',
     shatter: '敲碎目標全部石化：造成 {1} 傷害，每層再 +{2}', dmgIfStun: '造成 {1} 傷害；目標動彈不得時再 +{2}', pPetrifyAll: '每回合開始全體石化 {1}',
     skillDmg: '造成 {1} 傷害，每層詠唱再 +{2}', skillAll: '對全體造成 {1} 傷害，每層詠唱再 +{2}', chantAll: '解放全部詠唱：對全體造成 {1}，每層詠唱再 +{2}（詠唱歸零）', pSkillBlock: '每打出一張技能牌，格擋 {1}',
     dmgPerEnergy: '造成 {1} 傷害，每剩 1 點魔力再 +{2}', pEnergyBlock: '回合結束時每剩 1 點魔力，格擋 {1}', iaiUp: '居合的追加傷害 +{1}',
@@ -558,6 +560,51 @@ var G = (function () {
     if (f[0] === 'treasureBurst') return b.hand.filter(isTreasure).length + ' 件';
     return null;
   }
+  // 卡面上的簡短說明（完整說明藏在卡片的「?」裡）。陣列＝[平常寫法, 戰鬥中照資源算好的數字前面要放的字]
+  var SHORT = {
+    dmg: '⚔{1}', hits: '⚔{1}×{2}', all: '全體⚔{1}', rand: '隨機⚔{1}×{2}', pierce: '穿透⚔{1}', pierceHits: '穿透⚔{1}×{2}',
+    block: '🛡{1}', draw: '抽{1}', energy: '魔力+{1}', str: '力量+{1}', tstr: '本回合力量+{1}', vuln: '易傷{1}', weak: '虛弱{1}',
+    weakAll: '全體虛弱{1}', vulnAll: '全體易傷{1}', strDown: '敵力量-{1}', heal: '回復{1}', np: '寶具+{1}%', thorns: '反擊{1}',
+    proj: '投影劍+{1}', burst: '引爆劍：每把全體⚔{1}', ubw: '無限劍製', projUp: '投影劍⚔+{1}',
+    pBlock: '每回合🛡{1}', pDraw: '每回合多抽{1}', pEnergy: '每回合魔力+{1}', pStr: '每回合力量+{1}', pEvade: '每回合迴避{1}',
+    pTreasure: '每回合寶具+{1}', pMinion: '每回合召喚{1}', pVenom: '命中加毒{1}', pWeaponize: '每回合武器化{1}',
+    evade: '迴避{1}', nextFree: '下一張0費', nextEnergy: '下回合魔力+{1}', iai: '居合⚔{1}', iaiUp: '居合+{1}',
+    petrify: '石化{1}', petrifyAll: '全體石化{1}', petrifyDmg: ['⚔{1}+{2}/石化', '⚔'], shatter: ['碎石⚔{1}+{2}/層', '⚔'], dmgIfStun: '⚔{1}（定身+{2}）', pPetrifyAll: '每回合全體石化{1}',
+    drainAll: '全體吸血⚔{1}', minion: '召喚{m}{1}', minionHit: '{m}齊攻+{1}', minionAll: '獻祭{m}全體⚔{1}', minionRand: '{m}攻擊×{1}',
+    sacEnergy: '{m}換魔力≤{1}', sacDraw: '{m}換抽牌≤{1}', sacStr: '{m}換力量+{1}', allPlusMinion: ['全體⚔{1}+{2}/{m}', '全體⚔'], minionDmg: ['⚔{1}+{2}/{m}', '⚔'], minionBlock: ['🛡{1}+{2}/{m}', '🛡'], hitsPerMinion: '⚔{1}×（{m}+1）',
+    selfDmg: '自傷{1}', selfVuln: '自己易傷{1}', dispel: '拆格擋與力量', dispelAll: '全體拆格擋與力量',
+    poison: '毒{1}', poisonAll: '全體毒{1}', dmgIfPoison: '⚔{1}（中毒+{2}）', poisonX2: '毒×2', exec: '斬殺≤{1}%', wound: '創傷{1}', woundDmg: ['⚔{1}+{2}/創傷', '⚔'],
+    army: '軍勢+{1}', armyDmg: ['⚔{1}+{2}/軍勢', '⚔'], armyAll: ['全體⚔軍勢×{1}', '全體⚔'], armyBlock: ['🛡{1}+{2}/軍勢', '🛡'], armySpend: ['花光軍勢⚔×{1}', '⚔'], armySpendAll: ['花光軍勢全體⚔×{1}', '全體⚔'],
+    mastery: '武練+{1}', masteryDmg: ['⚔{1}+{2}/武練', '⚔'], masteryAll: ['全體⚔{1}+{2}/武練', '全體⚔'], masteryBlock: ['🛡{1}+{2}/武練', '🛡'], weaponize: '技能→武器化×{1}',
+    wind: '風+{1}', pWind: '每回合風+{1}', windAll: ['解放風：全體⚔{1}+{2}/風', '全體⚔'], windDmg: ['⚔{1}+{2}/風', '⚔'], windBlock: ['🛡{1}+{2}/風', '🛡'],
+    projDmg: ['⚔{1}+{2}/劍', '⚔'], projAll: ['全體⚔{1}+{2}/劍', '全體⚔'], projBlock: ['🛡{1}+{2}/劍', '🛡'],
+    riposte: '迎擊{1}', pEvadeStr: '迴避→力量+{1}', taunt: '挑釁',
+    skillDmg: ['⚔{1}+{2}/詠唱', '⚔'], skillAll: ['全體⚔{1}+{2}/詠唱', '全體⚔'], chantAll: ['解放詠唱：全體⚔{1}+{2}/層', '全體⚔'], skillCount: '詠唱+{1}', pSkillBlock: '技能→🛡{1}',
+    dmgPerEnergy: ['⚔{1}+{2}/剩魔力', '⚔'], pEnergyBlock: '剩魔力→🛡{1}',
+    pStanceBlock: '切換→🛡{1}', pSwitch: '切換那一槍+{1}',
+    kraken: '海魔+{1}', pKraken: '每回合海魔+{1}', krakenDmg: ['⚔{1}+{2}/海魔', '⚔'], krakenBlock: ['🛡{1}+{2}/海魔', '🛡'], krakenStr: '海魔-{1}→力量+{2}', krakenAll: ['吞海魔：全體⚔×{1}', '全體⚔'], krakenX2: '海魔×2',
+    rageDmg: ['⚔{1}+{2}/少10血', '⚔'], rageAll: ['全體⚔{1}+{2}/少10血', '全體⚔'], rageBlock: ['🛡{1}+{2}/少10血', '🛡'], pRage: '殘血時力量+{1}',
+    treasure: '寶具+{1}', treasureBurst: ['射出寶具：各⚔{1}', '射出'], treasureDmg: ['⚔{1}+{2}/寶具', '⚔'], treasureBlock: ['🛡{1}+{2}/寶具', '🛡'], randPerTreasure: ['隨機⚔{1}×（寶具+{2}）', '隨機⚔{1}×'],
+    doom: '死兆{1}', doomAll: '全體死兆{1}', doomDmg: ['⚔{1}+{2}/死兆', '⚔'], dmgIfElite: '⚔{1}（精英+{2}）',
+    hitsPerPlayed: ['⚔{1}×出牌數', '⚔{1}×'], haste: '提早觸發{1}', pHaste: '永久提早觸發{1}',
+    mount: '上馬・速度+{1}', spur: '騎乘中速度+{1}', land: '下馬→全體石化＝速度', rideDmg: ['⚔{1}+{2}/速度', '⚔'],
+    stance: function (f) { return f[1] === 'red' ? '紅薔薇' : f[1] === 'yellow' ? '黃薔薇' : '切架勢'; }
+  };
+  function cardShort(id, run) {
+    var c = card(id), b = run && run.battle && run.battle.hand ? run.battle : null, mn = run ? minionName(run) : '使魔';
+    if (c.text) return '打不出來';
+    if (c.id === 'sword' && b && b.projUp) return '⚔' + (4 + b.projUp);
+    var bits = c.fx.map(function (f) {
+      var t = SHORT[f[0]]; if (!t) return fxText([f], run)[0];
+      if (typeof t === 'function') return t(f);
+      var fill = function (x) { return x.replace('{1}', f[1]).replace('{2}', f[2]).replace(/\{m\}/g, mn); };
+      if (Array.isArray(t)) { var v = b ? nowValue(f, b, run) : null; return v !== null ? fill(t[1]) + v : fill(t[0]); }
+      return fill(t);
+    });
+    if (c.type === 'power') bits.push('（整場）');
+    if (c.ex || c.token) bits.push('消耗');
+    return bits.join(' ');
+  }
   function cardText(id, run) {
     var c = card(id), b = run && run.battle, bits = c.text ? [c.text] : fxText(c.fx, run);
     if (b && b.hand) c.fx.forEach(function (f, i) { var v = nowValue(f, b, run); if (v !== null) bits[i] += '（現在 ' + v + '）'; });
@@ -586,7 +633,7 @@ var G = (function () {
     return fx;
   }
 
-  var RENAMED_V4 = { mentor: 'flashstep', dunscaith: 'godspeed', wild: 'provoke', nails: 'mount' };   // 斯卡哈改版：借牌拿掉；庫・丘林：野性直覺→挑釁
+  var RENAMED_V4 = { mentor: 'flashstep', dunscaith: 'godspeed', wild: 'provoke' };   // 斯卡哈改版：借牌拿掉；庫・丘林：野性直覺→挑釁
 
   // ── 命運（開局三選一的強化）與局外：聖晶石 ─────────────
   // cost＝在「命運殿堂」解鎖要花多少聖晶石（0＝一開始就有）。每局結束依表現得到聖晶石。
@@ -1227,6 +1274,7 @@ var G = (function () {
     projUp: function (x, f) { x.b.projUp += f[1]; },
     riposte: function (x, f) { x.b.riposte += f[1]; },
     mount: function (x, f) { var b = x.b; b.mounted = 1; b.ride = Math.min(RIDE_MAX, (b.ride || 0) + f[1]); x.log.push('騎上天馬（速度 ' + b.ride + '）'); },
+    spur: function (x, f) { var b = x.b; if (b.mounted) { b.ride = Math.min(RIDE_MAX, b.ride + f[1]); x.log.push('天馬加速（速度 ' + b.ride + '）'); } },
     land: function (x) {   // 急降：速度換成全體石化，然後下馬
       var b = x.b; if (!b.mounted) return; var n = b.ride || 0;
       alive(b).forEach(function (e) { petrify(x.run, e, n, x.log); });
@@ -1558,7 +1606,7 @@ var G = (function () {
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions,
     FATES: FATES, FATE_FREE: FATE_FREE, SVT_COST: SVT_COST, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, crystalsFor: crystalsFor, priceOf: priceOf,
     preview: preview, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
-    card: card, cardText: cardText, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,
+    card: card, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,
     newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
     takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic, needsTarget: needsTarget };
 })();

@@ -75,8 +75,8 @@
   .card { flex:1 0 0; min-width:66px; max-width:118px; min-height:128px; border-radius:10px; border:1px solid var(--line); background:#1b2130; padding:7px 6px; text-align:left; position:relative; display:flex; flex-direction:column; }
   .pick .card { flex:none; }
   .card .cost { position:absolute; top:-8px; left:-4px; width:24px; height:24px; border-radius:50%; background:var(--gold); color:#1a1408; font-weight:bold; display:flex; align-items:center; justify-content:center; font-size:13px; }
-  .card .nm { font-weight:bold; margin:6px 0 4px; font-size:13px; line-height:1.25; }
-  .card .tx { font-size:11px; color:var(--dim); line-height:1.4; }
+  .card .nm { font-weight:bold; margin:6px 14px 4px 0; font-size:13px; line-height:1.25; }
+  .card .tx { font-size:12px; color:var(--ink); line-height:1.45; }
   .card.atk { border-top:3px solid var(--red); } .card.skill { border-top:3px solid var(--blue); } .card.power { border-top:3px solid var(--purple); }
   .card.sel { border-color:var(--gold); transform:translateY(-6px); }
   .card.token { background:#20261a; }
@@ -85,6 +85,7 @@
   .chip:disabled { opacity:.3; }
   .card .cost.free { background:var(--green); }
   .card .pv { margin-top:auto; padding-top:5px; font-size:12.5px; font-weight:bold; }
+  .card .q { position:absolute; top:3px; right:3px; width:18px; height:18px; border-radius:50%; border:1px solid var(--line); color:var(--dim); font-size:11px; line-height:16px; text-align:center; background:#131722; }
   .card .rare-tag { position:absolute; top:-7px; right:4px; font-size:10px; background:var(--gold); color:#1a1408; border-radius:5px; padding:0 4px; }
   #acts .btn.on { background:rgba(217,184,106,.18); }
   .card:disabled { opacity:.4; }
@@ -446,8 +447,22 @@
   }
   function cardHtml(id, attrs, big, extra) {
     var c = G.card(id), cost = run && run.battle && !big ? G.costOf(run, id) : c.cost;
-    return '<button class="card ' + c.type + (c.token ? ' token' : '') + (c.rare ? ' rare' : '') + '" ' + (attrs || '') + (big ? ' style="width:120px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : '') + '">' + (c.unplayable ? '✕' : cost) + '</span>' + (c.rare ? '<span class="rare-tag">奧義</span>' : '') + '<div class="nm">' + esc(c.name) + '</div><div class="tx">' + esc(G.cardText(id, run)) + '</div>' + (extra || '') + '</button>';
+    return '<button class="card ' + c.type + (c.token ? ' token' : '') + (c.rare ? ' rare' : '') + '" ' + (attrs || '') + (big ? ' style="width:120px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : '') + '">' + (c.unplayable ? '✕' : cost) + '</span>' + (c.rare ? '<span class="rare-tag">奧義</span>' : '')
+      + '<span class="q" onclick="event.stopPropagation();cardInfo(\'' + id + '\')">?</span>'
+      + '<div class="nm">' + esc(c.name) + '</div><div class="tx">' + esc(G.cardShort(id, run)) + '</div>' + (extra || '') + '</button>';
   }
+  // 卡片的「?」：完整說明（在彈出面板裡點的話，看完回到原本的面板）
+  function cardInfo(id) {
+    var c = G.card(id), ov = $('ov'), prev = ov.style.display === 'flex' ? $('sheet').innerHTML : null;
+    cardInfo.prev = prev;
+    var types = { atk: '攻擊', skill: '技能', power: '能力', curse: '狀態' };
+    var up = G.upDirs(id).indexOf('a') >= 0 ? [id + '+'] : [];
+    openOv('<b style="font-size:16px">' + esc(c.name) + '</b>　<span class="dim">' + (c.unplayable ? '' : c.cost + ' 費・') + (types[c.type] || '') + '</span>'
+      + '<div style="margin:10px 0;line-height:1.6">' + esc(G.cardText(id, run)) + '</div>'
+      + (up.length ? '<div class="dim" style="font-size:12.5px">可以強化，例如精煉後：' + esc(G.cardText(up[0], run)) + '</div>' : '')
+      + '<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" onclick="cardInfoBack()">' + (prev ? '返回' : '知道了') + '</button></div>');
+  }
+  function cardInfoBack() { if (cardInfo.prev) openOv(cardInfo.prev); else closeOv(); cardInfo.prev = null; }
 
   // ── 地圖：由上往下的分岔路 ──
   var ICON = { shop: ['🛒', '商店'], fight: ['⚔', '戰鬥'], elite: ['☠', '精英'], rest: ['🔥', '休息'], chest: ['🎁', '寶箱'], event: ['❓', '事件'], boss: ['👑', 'Boss'] };
