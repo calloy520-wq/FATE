@@ -4,8 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>聖杯之路</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Noto+Serif+TC:wght@700;900&display=swap" rel="stylesheet">
 <style>
-  :root { --bg:#0e1118; --panel:#171c27; --line:#2a3242; --ink:#e4e7ee; --dim:#8e97a8; --gold:#d9b86a; --red:#d86a6a; --blue:#6aa4d8; --green:#7cc79a; --purple:#b48ad8; }
+  :root { --bg:#090b12; --panel:#151a26; --line:#2b3245; --ink:#ece8de; --dim:#99a1b2; --gold:#e3c27a; --gold2:#f7e4a8; --red:#e26a6a; --crimson:#c4243a; --blue:#72aae0; --green:#7cc79a; --purple:#b48ad8;
+    --serif:"Noto Serif TC","Noto Serif CJK TC","Songti TC","PMingLiU",serif; --latin:"Cinzel","Trajan Pro",var(--serif);
+    --orn-c:rgba(227,194,122,.75);
+    --orn:linear-gradient(var(--orn-c),var(--orn-c)) left 3px top 3px/9px 1px no-repeat, linear-gradient(var(--orn-c),var(--orn-c)) left 3px top 3px/1px 9px no-repeat,
+      linear-gradient(var(--orn-c),var(--orn-c)) right 3px top 3px/9px 1px no-repeat, linear-gradient(var(--orn-c),var(--orn-c)) right 3px top 3px/1px 9px no-repeat,
+      linear-gradient(var(--orn-c),var(--orn-c)) left 3px bottom 3px/9px 1px no-repeat, linear-gradient(var(--orn-c),var(--orn-c)) left 3px bottom 3px/1px 9px no-repeat,
+      linear-gradient(var(--orn-c),var(--orn-c)) right 3px bottom 3px/9px 1px no-repeat, linear-gradient(var(--orn-c),var(--orn-c)) right 3px bottom 3px/1px 9px no-repeat;
+    --pbg:linear-gradient(180deg,rgba(29,34,49,.94),rgba(15,18,27,.94)); }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body { margin:0; background:var(--bg); color:var(--ink); font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif; font-size:16px; line-height:1.55; }
   button { font:inherit; color:inherit; background:none; border:none; cursor:pointer; }
@@ -31,7 +41,7 @@
   #map { padding:6px 12px 30px; }
   .maphead { padding:10px 12px 0; display:flex; flex-direction:column; gap:4px; }
   .maphead b { color:var(--gold); font-size:17px; letter-spacing:.1em; }
-  .legend { display:flex; flex-wrap:wrap; gap:4px 10px; font-size:13px; color:var(--dim); }
+  .maphead .legend { display:flex; flex-wrap:wrap; gap:4px 10px; font-size:13px; color:var(--dim); }
   .mapbox { position:relative; margin:0 auto; max-width:520px; }
   .mapbox svg { position:absolute; left:0; top:0; width:100%; height:100%; }
   .mapbox line { stroke:#394257; stroke-width:2; stroke-dasharray:4 4; }
@@ -88,23 +98,40 @@
   #hand { display:flex; gap:5px; overflow-x:auto; padding:12px 10px 6px; }
   .card { flex:1 0 0; min-width:58px; max-width:118px; min-height:128px; border-radius:10px; border:1px solid var(--line); background:#1b2130; padding:7px 6px; text-align:left; position:relative; display:flex; flex-direction:column; }
   .pick .card { flex:none; }
-  .card .cost { position:absolute; top:-8px; left:-4px; width:24px; height:24px; border-radius:50%; background:var(--gold); color:#1a1408; font-weight:bold; display:flex; align-items:center; justify-content:center; font-size:14px; }
+  .card .cost { position:absolute; top:-8px; left:-4px; width:24px; height:24px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#fff3c9,#e5bd62 45%,#94691f); color:#1a1205; font-weight:bold; display:flex; align-items:center; justify-content:center; font-size:14px; box-shadow:0 0 0 2px #0a0c13, 0 2px 5px rgba(0,0,0,.6); z-index:2; }
   .card .nm { font-weight:bold; margin:11px 14px 4px 2px; font-size:14px; line-height:1.25; word-break:keep-all; overflow-wrap:anywhere; }
   .card .tx { font-size:13px; color:var(--ink); line-height:1.45; }
-  .card.atk { border-top:3px solid var(--red); } .card.skill { border-top:3px solid var(--blue); } .card.power { border-top:3px solid var(--purple); }
-  .card.sel { border-color:var(--gold); transform:translateY(-6px); }
-  .card.token { background:#20261a; }
-  .card.curse { border-top:3px solid #555; background:#1a1418; }
-  .card.legend { border-color:var(--gold); background:linear-gradient(160deg,#2c2414,#1b2130 55%); box-shadow:0 0 0 1px var(--gold) inset, 0 0 12px rgba(217,184,106,.5); }
-  .card.legend .nm { color:var(--gold); }
-  .uplegend { color:#ffd27a; text-shadow:0 0 8px rgba(255,210,122,.7); font-weight:bold; }
-  .card.rare { box-shadow:0 0 0 1px var(--gold) inset; }
+  /* 卡片外框（稀有度，cardTier）：無邊框（基本牌、代幣）／銀框（一般）／金光（強化過、奧義）／炫彩光（★傳說、強化過的奧義）；詛咒與狀態牌是暗紫色 */
+  .card { isolation:isolate; background:linear-gradient(172deg,#232938,#161a25 70%); border-color:#30374a; box-shadow:0 3px 8px rgba(0,0,0,.45); }
+  .card::after { content:''; position:absolute; left:0; right:0; top:0; height:3px; border-radius:8px 8px 0 0; background:var(--tc,transparent); z-index:-1; pointer-events:none; }   /* 牌種：攻擊紅、技能藍、能力紫 */
+  .card.atk { --tc:linear-gradient(90deg,#7d1f2c,#e8646e 50%,#7d1f2c); } .card.skill { --tc:linear-gradient(90deg,#1f4670,#6fb0ee 50%,#1f4670); } .card.power { --tc:linear-gradient(90deg,#4a2c66,#c39be6 50%,#4a2c66); }
+  .card.token { background:linear-gradient(172deg,#1f2a22,#141a16 70%); }
+  .card.f-silver { border:2px solid transparent; background:linear-gradient(172deg,#262d3e,#171b27 70%) padding-box, linear-gradient(135deg,#f6f8fb,#8b94a6 22%,#e2e6ee 46%,#677083 72%,#d4d9e2) border-box; }
+  .card.f-silver .nm { color:#f3f5f9; }
+  .card.f-gold { border:2px solid transparent; background:linear-gradient(170deg,#3b2f17,#211f24 42%,#171a25) padding-box, linear-gradient(135deg,#fff5cc,#e4b654 25%,#8a621f 50%,#f6d77e 75%,#a8792b) border-box; box-shadow:0 0 10px rgba(240,190,80,.45), 0 3px 8px rgba(0,0,0,.5); }
+  .card.f-gold .nm { color:#ffe5a6; }
+  .card.f-gold::before { content:''; position:absolute; inset:0; border-radius:8px; z-index:-1; pointer-events:none; background:linear-gradient(110deg,transparent 38%,rgba(255,232,165,.2) 50%,transparent 62%) no-repeat; background-size:300% 100%; animation:sheen 4.5s ease-in-out infinite; }
+  @keyframes sheen { 0% { background-position:100% 0; } 45%, 100% { background-position:0 0; } }
+  @property --spin { syntax:'<angle>'; inherits:false; initial-value:0deg; }
+  .card.f-rainbow { border:2px solid transparent; background:linear-gradient(160deg,rgba(255,110,200,.16),rgba(110,190,255,.1) 45%,transparent 72%) padding-box, linear-gradient(172deg,#272339,#171a27 70%) padding-box; box-shadow:0 0 12px rgba(255,120,210,.4), 0 0 22px rgba(110,200,255,.25), 0 3px 8px rgba(0,0,0,.5); }
+  .card.f-rainbow::before { content:''; position:absolute; inset:-2px; padding:2px; border-radius:10px; z-index:-1; pointer-events:none;
+    background:conic-gradient(from var(--spin),#ff5f6d,#ffc371,#f9f871,#6dffb3,#4fc3ff,#8a7dff,#ff6ad5,#ff5f6d);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; animation:spin 3s linear infinite; }
+  @keyframes spin { to { --spin:360deg; } }
+  .card.f-rainbow .nm { color:#fff; }
+  .card.curse { border:1px solid #5a2d68; background:radial-gradient(130% 70% at 50% 0%,#3b1d48,#150c1a 65%,#0d0810); box-shadow:inset 0 0 16px rgba(110,30,140,.45), 0 3px 8px rgba(0,0,0,.6); --tc:linear-gradient(90deg,#2d0f38,#7c3d95 50%,#2d0f38); }
+  .card.curse .nm { color:#dcbcea; } .card.curse .tx { color:#bea8ca; }
+  .card.sel { transform:translateY(-6px); box-shadow:0 0 0 2px var(--gold2), 0 0 18px rgba(247,228,168,.55); }
+  .uplegend { background:linear-gradient(90deg,#ff8ad8,#ffd36e,#7fe3ff); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; font-weight:bold; filter:drop-shadow(0 0 6px rgba(255,200,230,.55)); }
   .chip:disabled { opacity:.3; }
-  .card .cost.free { background:var(--green); } .card .cost.tax { background:#a33; color:#fff; }
+  .card .cost.free { background:radial-gradient(circle at 35% 30%,#dcffe8,#6cc58f 50%,#2c7448); } .card .cost.tax { background:radial-gradient(circle at 35% 30%,#ffb8b8,#c23b3b 50%,#6c1414); color:#fff; }
+  .card.curse .cost { background:radial-gradient(circle at 35% 30%,#8d5a9e,#3a1a45 70%); color:#f0e0f6; }
   .card .pv { margin-top:auto; padding-top:5px; font-size:13.5px; font-weight:bold; }
   .card .q::before, .foe .q::before { content:''; position:absolute; inset:-11px; }
-  .card .q { position:absolute; top:3px; right:3px; width:18px; height:18px; border-radius:50%; border:1px solid var(--line); color:var(--dim); font-size:12px; line-height:16px; text-align:center; background:#131722; }
-  .card .rare-tag { position:absolute; top:-7px; right:26px; font-size:11px; background:var(--gold); color:#1a1408; border-radius:5px; padding:0 4px; }
+  .card .q { position:absolute; top:3px; right:3px; width:18px; height:18px; border-radius:50%; border:1px solid rgba(255,255,255,.16); color:var(--dim); font-size:12px; line-height:16px; text-align:center; background:rgba(9,11,18,.75); }
+  .card .rare-tag { position:absolute; top:-8px; right:22px; background:linear-gradient(180deg,#fff0bf,#d9a944); color:#1a1205; border-radius:4px; padding:0 3px; font-size:10.5px; font-weight:bold; box-shadow:0 0 0 1px #0a0c13, 0 0 6px rgba(240,190,80,.6); z-index:1; }
+  #hand .card .rare-tag { top:auto; bottom:-9px; right:auto; left:50%; transform:translateX(-50%); }   /* 手牌窄：奧義標籤放到下緣，免得被費用蓋住 */
+  .card.f-rainbow .rare-tag { background:linear-gradient(90deg,#ffb3e6,#ffe08a,#9feaff); box-shadow:0 0 0 1px #0a0c13, 0 0 8px rgba(255,160,230,.7); }
   #acts .btn.on { background:rgba(217,184,106,.18); }
   .card:disabled { opacity:.4; }
   #acts { display:flex; gap:8px; padding:6px 12px calc(12px + env(safe-area-inset-bottom)); }
@@ -192,14 +219,133 @@
   }
   .card .nm { margin:15px 0 3px 1px; font-size:13.5px; }
   .card .pv { font-size:15px; }
-  .card:not(:disabled):has(.pv.kill) { box-shadow:0 0 0 1px var(--gold), 0 0 10px rgba(217,184,106,.45); }
+  .card:not(:disabled):has(.pv.kill) { outline:2px solid #ff8a5c; outline-offset:2px; animation:lethal 1.3s ease-in-out infinite; }   /* 可擊倒：外圈的火色光環（金色留給稀有度外框） */
+  @keyframes lethal { 50% { outline-color:rgba(255,138,92,.35); } }
   .foe.tgt { border-color:#6b5a32; } .foe.tgt .nm::after { content:' 🎯'; font-size:12px; }
   .eblk { flex:none; background:var(--blue); color:#0e1118; border-radius:6px; padding:0 5px; font-weight:bold; font-size:13px; line-height:17px; }   /* 敵人現在的格擋（跟意圖裡「要加的格擋」分開） */
   .chip.hot { border-color:var(--gold); color:#1a1408; background:var(--gold); font-weight:bold; }
   .toast.err { background:#2a1c1c; border-color:var(--red); color:#f0c0c0; }
+  /* ══ 主題：聖杯戰爭的夜空（金＋緋紅、魔法陣、浮動的魔力光點）══ */
+  html { background:#07080e; }
+  body { background:transparent; text-rendering:optimizeLegibility; }
+  .sky { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden;
+    background:radial-gradient(ellipse 90% 45% at 50% -8%,rgba(150,26,48,.32),transparent 70%), radial-gradient(ellipse 80% 45% at 50% 108%,rgba(40,62,150,.26),transparent 70%), linear-gradient(180deg,#0c0e19,#07080e 60%); }
+  .sky .sigil-bg { position:absolute; left:50%; top:46%; width:min(150vw,980px); aspect-ratio:1; transform:translate(-50%,-50%); opacity:.06; background:var(--sigil) center/contain no-repeat; animation:sigil 240s linear infinite; }
+  .sky .motes { position:absolute; left:0; right:0; top:0; height:calc(100% + 400px); opacity:.7; animation:drift 70s linear infinite;
+    background-image:radial-gradient(1.6px 1.6px at 30px 40px,rgba(255,222,150,.9),transparent), radial-gradient(1.2px 1.2px at 170px 230px,rgba(255,200,120,.7),transparent), radial-gradient(1.4px 1.4px at 260px 120px,rgba(190,215,255,.6),transparent), radial-gradient(1px 1px at 100px 330px,rgba(255,120,130,.6),transparent), radial-gradient(1px 1px at 220px 360px,rgba(255,230,180,.6),transparent);
+    background-size:300px 400px; }
+  @keyframes sigil { to { transform:translate(-50%,-50%) rotate(360deg); } }
+  @keyframes drift { to { transform:translateY(-400px); } }
+  :root { --sigil:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-100 -100 200 200' fill='none' stroke='%23e3c27a'%3E%3Ccircle r='98' stroke-width='.7'/%3E%3Ccircle r='93' stroke-width='5' stroke-dasharray='.7 3.3'/%3E%3Ccircle r='88' stroke-width='.7'/%3E%3Ccircle r='70' stroke-width='.6'/%3E%3Cpath d='M0-70L60.6 35H-60.6ZM0 70L-60.6-35H60.6Z' stroke-width='.7'/%3E%3Ccircle r='35' stroke-width='.6'/%3E%3Ccircle r='29' stroke-width='.5' stroke-dasharray='2 2'/%3E%3Cpath d='M0-88V-70M0 88V70M76.2 44L60.6 35M-76.2 44L-60.6 35M76.2-44L60.6-35M-76.2-44L-60.6-35' stroke-width='.5'/%3E%3Cg fill='%23e3c27a' stroke='none'%3E%3Ccircle cy='-88' r='2.2'/%3E%3Ccircle cy='88' r='2.2'/%3E%3Ccircle cx='76.2' cy='44' r='2.2'/%3E%3Ccircle cx='-76.2' cy='44' r='2.2'/%3E%3Ccircle cx='76.2' cy='-44' r='2.2'/%3E%3Ccircle cx='-76.2' cy='-44' r='2.2'/%3E%3C/g%3E%3C/svg%3E"); }
+  .wrap { position:relative; z-index:1; }
+  /* 標題字：明朝體＋金色漸層 */
+  h1 { font-family:var(--serif); font-weight:900; letter-spacing:.22em; background:linear-gradient(180deg,#fff6d6,#ecc977 48%,#b07f30); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 0 10px rgba(227,170,80,.3)) drop-shadow(0 2px 1px rgba(0,0,0,.9)); }
+  .panel > h1 { display:flex; align-items:center; justify-content:center; gap:12px; width:100%; max-width:520px; line-height:1.35; }
+  .panel > h1::before, .panel > h1::after { content:''; flex:1 1 30px; min-width:18px; max-width:110px; height:7px;
+    background:radial-gradient(circle at right center,var(--gold) 2.4px,transparent 3px), linear-gradient(90deg,transparent,rgba(227,194,122,.85)) left center/calc(100% - 4px) 1px no-repeat; }
+  .panel > h1::after { transform:scaleX(-1); }
+  .hero { position:relative; }
+  .hero .crest { position:relative; width:150px; height:150px; margin:0 auto 2px; }
+  .hero .crest::before { content:''; position:absolute; inset:-30px; border-radius:50%; background:radial-gradient(circle,rgba(255,196,110,.28),rgba(196,36,58,.12) 45%,transparent 68%); }
+  .hero .crest .sigil { position:absolute; inset:0; background:var(--sigil) center/contain no-repeat; opacity:.8; animation:sigil-r 60s linear infinite; filter:drop-shadow(0 0 4px rgba(227,170,80,.55)); }
+  .hero .crest svg { position:absolute; left:50%; top:50%; width:62px; height:62px; transform:translate(-50%,-54%); filter:drop-shadow(0 0 10px rgba(255,205,120,.65)); }
+  @keyframes sigil-r { to { transform:rotate(360deg); } }
+  .hero .kicker { font-family:var(--latin); font-weight:600; text-transform:uppercase; font-size:11.5px; letter-spacing:.38em; color:rgba(227,194,122,.8); text-indent:.38em; }
+  .hero h1 { font-size:46px; letter-spacing:.26em; text-indent:.26em; line-height:1.15; }
+  .hero .tag { color:#c9c2b2; letter-spacing:.12em; font-family:var(--serif); }
+  /* 按鈕：鍍金邊、按下發光 */
+  .btn { border:1px solid rgba(227,194,122,.78); color:var(--gold2); border-radius:7px; background:linear-gradient(180deg,rgba(70,55,26,.55),rgba(18,16,14,.6)); box-shadow:inset 0 1px 0 rgba(255,240,200,.16), inset 0 -1px 0 rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.45); text-shadow:0 1px 2px #000; letter-spacing:.04em; transition:box-shadow .2s, filter .2s, transform .08s; }
+  .btn.red { border-color:#d0485a; color:#ffb9c1; background:linear-gradient(180deg,rgba(130,22,40,.55),rgba(36,8,14,.6)); }
+  .btn:not(:disabled):active, .mbtn:active, .svt:active, .list button:not(:disabled):active { transform:translateY(1px) scale(.985); filter:brightness(1.18); }
+  @media (hover:hover) {
+    .btn:not(:disabled):hover { filter:brightness(1.12); box-shadow:inset 0 1px 0 rgba(255,240,200,.2), 0 0 14px rgba(227,194,122,.4); }
+    .btn.red:not(:disabled):hover { box-shadow:inset 0 1px 0 rgba(255,200,200,.2), 0 0 14px rgba(208,72,90,.5); }
+    .mbtn:hover, .list button:not(:disabled):hover, .tile:hover { filter:brightness(1.12); box-shadow:0 0 14px rgba(227,194,122,.28); }
+  }
+  .infobtn { background:linear-gradient(180deg,rgba(70,55,26,.45),rgba(18,16,14,.5)); border-color:rgba(227,194,122,.7); }
+  /* 面板：細金邊＋四角的金色包角 */
+  .box, .svt, .mbtn, .list button { border-radius:6px; border:1px solid rgba(227,194,122,.2); background:var(--orn), var(--pbg); box-shadow:0 4px 14px rgba(0,0,0,.35); }
+  .list button { --orn-c:rgba(227,194,122,.45); }
+  .box h3 { font-family:var(--serif); font-weight:700; letter-spacing:.06em; }
+  .box h3::before { content:'◆ '; font-size:.7em; vertical-align:2px; color:rgba(227,194,122,.7); }
+  .svt b { font-family:var(--serif); }
+  .mbtn { padding:15px 18px; } .mbtn b { font-family:var(--serif); font-weight:700; letter-spacing:.08em; }
+  .mbtn .mi { filter:drop-shadow(0 0 6px rgba(227,194,122,.35)); }
+  .mbtn.main { --orn-c:var(--gold2); border-color:var(--gold); background:var(--orn), radial-gradient(120% 140% at 0% 50%,rgba(196,36,58,.28),transparent 60%), linear-gradient(180deg,rgba(80,62,28,.6),rgba(28,22,14,.7)); box-shadow:0 0 18px rgba(227,194,122,.25), inset 0 1px 0 rgba(255,240,200,.15); }
+  .mbtn.main b { color:var(--gold2); text-shadow:0 0 10px rgba(227,194,122,.45); }
+  .mrow .mbtn { padding:12px 6px; }
+  .msep { background:linear-gradient(90deg,transparent,rgba(227,194,122,.5),transparent); }
+  .acct, #top { background:linear-gradient(180deg,rgba(26,31,44,.94),rgba(16,19,29,.94)); border-bottom:1px solid rgba(227,194,122,.28); box-shadow:0 2px 10px rgba(0,0,0,.4); }
+  .acct button { background:rgba(255,255,255,.03); }
+  .stickybar { background:rgba(12,14,23,.82); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); border:1px solid rgba(227,194,122,.18); border-radius:8px; padding:6px 10px 6px 6px; }
+  input { background:rgba(9,11,18,.8); border-color:rgba(227,194,122,.35); } input:focus { outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(227,194,122,.18); }
+  #lname + .btn { background:linear-gradient(180deg,rgba(90,70,30,.6),rgba(30,24,14,.7)); }
+  .tabs button { border-radius:6px; background:rgba(255,255,255,.02); }
+  .tabs button.on { background:linear-gradient(180deg,rgba(90,70,30,.5),rgba(30,24,14,.55)); box-shadow:inset 0 -2px 0 var(--gold); }
+  .chip { background:rgba(255,255,255,.03); }
+  .chip.gold { background:rgba(227,194,122,.08); }
+  .note { background:rgba(9,11,18,.75); border:1px solid var(--line); }
+  .lore { font-family:var(--serif); line-height:1.85; color:#ddd6c6; text-align:center; letter-spacing:.03em; padding:2px 6px; }
+  /* 選人格子：職階名用拉丁大寫字 */
+  .war { font-family:var(--latin); font-weight:800; text-transform:uppercase; letter-spacing:.32em; border-bottom:none; display:flex; align-items:center; gap:12px; text-shadow:0 0 10px rgba(227,194,122,.35); }
+  .war::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,rgba(227,194,122,.7),transparent); }
+  .tile { border-radius:6px; background:var(--pbg); border-color:#30374a; }
+  .tile .tcls { font-family:var(--latin); font-weight:600; text-transform:uppercase; letter-spacing:.2em; }
+  .tile .tname { font-family:var(--serif); }
+  .tile.have { background:var(--orn), radial-gradient(100% 80% at 50% 0%,rgba(227,194,122,.16),transparent 70%), var(--pbg); box-shadow:0 0 12px rgba(227,194,122,.18); }
+  .tile.can { background:radial-gradient(100% 80% at 50% 0%,rgba(124,199,154,.12),transparent 70%), var(--pbg); }
+  /* 頂列：血條、令咒（發光的紅色紋章） */
+  #top { position:relative; }
+  .bar { background:#1a0f15; box-shadow:inset 0 1px 3px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.09); border-radius:5px; }
+  .bar i { background:linear-gradient(180deg,#ff8686,#d23447 55%,#8c1526); box-shadow:inset 0 1px 0 rgba(255,255,255,.28); }
+  .seals { color:#ff4a5e; text-shadow:0 0 6px rgba(255,50,72,.85), 0 0 14px rgba(200,20,40,.5); animation:seal 2.8s ease-in-out infinite; }
+  .seals .dim { color:#43303a; text-shadow:none; }
+  @keyframes seal { 50% { text-shadow:0 0 3px rgba(255,50,72,.6), 0 0 8px rgba(200,20,40,.3); } }
+  /* 地圖：徽章般的格子 */
+  .maphead b { font-family:var(--serif); font-weight:900; letter-spacing:.14em; text-shadow:0 0 12px rgba(227,194,122,.35); }
+  .mapbox line { stroke:#3b4560; }
+  .mapbox line.avail { stroke:var(--gold); filter:drop-shadow(0 0 3px rgba(227,194,122,.7)); }
+  .node { background:radial-gradient(circle at 50% 35%,#252c3e,#0e1119 72%); border-color:#3a4359; box-shadow:inset 0 0 0 3px rgba(0,0,0,.45), inset 0 0 0 4px rgba(227,194,122,.12), 0 3px 8px rgba(0,0,0,.6); }
+  .node small { text-shadow:0 1px 2px #000, 0 0 4px #000; }
+  .node.fog { opacity:.5; background:#0d1018; }
+  .node.elite { border-color:#9a3341; box-shadow:inset 0 0 0 3px rgba(0,0,0,.45), inset 0 0 0 4px rgba(196,36,58,.3), 0 0 10px rgba(196,36,58,.3); }
+  .node.boss { border-color:#e04558; background:radial-gradient(circle at 50% 35%,#4a1822,#14090d 72%); box-shadow:0 0 18px rgba(214,50,70,.55), inset 0 0 12px rgba(214,50,70,.35); }
+  .node.boss::before { content:''; position:absolute; inset:-8px; border-radius:50%; border:1px dashed rgba(224,69,88,.6); animation:sigil-r 24s linear infinite; }
+  .node.boss small { color:#ff9aa5; font-family:var(--serif); font-weight:700; }
+  .node.here { border-color:var(--blue); box-shadow:0 0 0 3px rgba(114,170,224,.3), 0 0 14px rgba(114,170,224,.35); }
+  .node.can { border-color:var(--gold); background:radial-gradient(circle at 50% 35%,#4a3c1c,#1d170b 72%); }
+  @keyframes pulse { 50% { box-shadow:0 0 14px rgba(227,194,122,.6); } }
+  /* 戰鬥 */
+  #dock { background:linear-gradient(180deg,rgba(11,13,21,.95),#090b12 40%); border-top:1px solid rgba(227,194,122,.16); }
+  .foe { border-radius:8px; background:linear-gradient(180deg,#1d2231,#121520); border-color:#30374a; box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 4px 12px rgba(0,0,0,.45); }
+  .foe.elite { border-color:#7a2d39; box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 0 12px rgba(196,36,58,.22); }
+  .foe.boss { border-color:#b23446; background:linear-gradient(180deg,#2c141b,#141119); box-shadow:0 0 16px rgba(196,36,58,.4); }
+  .foe.boss .nm { color:#ffc2c8; }
+  .foe .q { background:rgba(9,11,18,.75); }
+  .foe.sel { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold), 0 0 14px rgba(227,194,122,.4); }
+  #me { background:linear-gradient(180deg,#171c29,#10131c); border-top:1px solid rgba(227,194,122,.22); }
+  .energy { background:radial-gradient(circle at 50% 40%,#2c3653,#0d111f 72%); border-color:var(--gold); color:var(--gold2); box-shadow:0 0 10px rgba(227,194,122,.35), inset 0 0 8px rgba(227,194,122,.25); text-shadow:0 0 6px rgba(227,194,122,.6); }
+  #hand { padding-bottom:9px; }
+  #acts .npbtn { background:linear-gradient(90deg,rgba(150,110,40,.5),rgba(240,200,110,.45) var(--np),rgba(0,0,0,.25) var(--np)); }
+  #acts .npbtn.full { color:#1a1205; font-weight:bold; text-shadow:0 1px 0 rgba(255,240,200,.5); border-color:var(--gold2); background:linear-gradient(100deg,#8a6420,#f3d27c 30%,#fff3c9 45%,#e2b654 60%,#8a6420); background-size:220% 100%; animation:npflow 2.2s linear infinite, pulse 1.6s infinite; }
+  @keyframes npflow { to { background-position:-220% 0; } }
+  #acts .btn.go { background:linear-gradient(180deg,rgba(110,85,35,.6),rgba(40,30,14,.7)); }
+  .npban { background:linear-gradient(90deg,transparent,rgba(70,10,22,.93) 18%,rgba(32,22,8,.96) 50%,rgba(70,10,22,.93) 82%,transparent); }
+  .npban b { font-family:var(--serif); font-weight:900; font-size:30px; background:linear-gradient(180deg,#fff6d6,#ecc977 50%,#b07f30); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; filter:drop-shadow(0 0 12px rgba(255,200,110,.6)); }
+  .npban span { color:#e6b3ba; }
+  /* 彈出面板、提示 */
+  .ov { background:rgba(3,4,9,.74); }
+  .ov .sheet { background:linear-gradient(180deg,#1b2132,#11141d 220px); border:1px solid rgba(227,194,122,.35); border-bottom:none; box-shadow:0 -12px 40px rgba(0,0,0,.6); }
+  .ov .stick { background:#11141d; }
+  .ovx { background:#151a26; border-color:rgba(227,194,122,.3); }
+  .toast { background:linear-gradient(180deg,rgba(32,36,52,.97),rgba(20,23,34,.97)); border-color:rgba(227,194,122,.8); box-shadow:0 4px 18px rgba(0,0,0,.55), 0 0 12px rgba(227,194,122,.2); }
+  @media (prefers-reduced-motion:reduce) {
+    .sky .sigil-bg, .sky .motes, .hero .crest .sigil, .node.boss::before, .card.f-gold::before, .card.f-rainbow::before, .seals, #acts .npbtn.full, .card:not(:disabled):has(.pv.kill) { animation:none; }
+  }
 </style>
 </head>
 <body>
+<div class="sky" aria-hidden="true"><i class="sigil-bg"></i><i class="motes"></i></div>
 <div class="wrap" id="app"></div>
 <div class="ov" id="ov" onclick="if(event.target===this)closeOv()"><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast"></div>
@@ -296,9 +442,15 @@
     run = null; titleScreen();
     if (starter) toast('開場禮：💎' + STARTER_GIFT + ' 聖晶石，到選人畫面或靈基工坊解鎖英靈');
   }
+  // 標題的紋章：旋轉的魔法陣＋聖杯
+  function heroHtml(sub) {
+    return '<div class="hero"><div class="crest" aria-hidden="true"><i class="sigil"></i><svg viewBox="0 0 64 64"><defs><linearGradient id="grailG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff5d0"/><stop offset=".5" stop-color="#e8c06a"/><stop offset="1" stop-color="#9c6e26"/></linearGradient></defs>'
+      + '<path fill="url(#grailG)" d="M15 11h34c0 13-6 22-14 25v8c0 3 5 4.5 9 6v4H20v-4c4-1.5 9-3 9-6v-8C21 33 15 24 15 11z"/><ellipse cx="32" cy="11" rx="17" ry="3.2" fill="#7a1222" stroke="#f3d68a" stroke-width="1"/><circle cx="32" cy="3" r="1.6" fill="#fff6d6"/></svg></div>'
+      + '<div class="kicker">The Road to the Holy Grail</div><h1>聖杯之路</h1>' + (sub ? '<div class="tag">' + sub + '</div>' : '') + '</div>';
+  }
   function logout() { flushSave(); ACC = null; META = null; SAVED_RUN = null; run = null; try { localStorage.removeItem(AKEY); } catch (e) { } loginScreen(); }
   function loginScreen(msg) {
-    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>聖杯之路</h1><div class="dim">輸入帳號就能開始。每個帳號各自存檔，換手機或電腦輸入同一個帳號就接得上。</div>'
+    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center">' + heroHtml() + '<div class="dim">輸入帳號就能開始。每個帳號各自存檔，換手機或電腦輸入同一個帳號就接得上。</div>'
       + '<div class="list" style="max-width:320px"><input id="lname" maxlength="16" placeholder="帳號" autocomplete="username" onkeydown="if(event.key===\'Enter\')doLogin()">'
       + '<button class="btn" onclick="doLogin()">進入</button>'
       + '<div id="lmsg" class="dim" style="min-height:1.4em">' + esc(msg || '') + '</div><div class="dim" style="font-size:13px">沒有這個帳號會直接建立。帳號不用密碼，別人輸入同一個名字也進得去，請取個不容易撞名的。</div></div></div>';
@@ -315,7 +467,7 @@
   function boot() {
     var A = null; try { A = JSON.parse(localStorage.getItem(AKEY) || 'null'); } catch (e) { }
     if (!A) return loginScreen();
-    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>聖杯之路</h1><div class="dim">登入中…</div></div>';
+    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center">' + heroHtml() + '<div class="dim">登入中…</div></div>';
     srv('gpResume', [A.name, A.token], function (res) {
       if (res && res.ok) return onLogin(res);
       if (res && res.offline) {   // 連不上：用本機快取先玩，之後再同步
@@ -427,7 +579,7 @@
     var saved = load(), S = saved && G.serv(saved), M = me(), going = saved && S && saved.screen !== 'over';
     var big = function (act, icon, label, sub, cls) { return '<button class="mbtn' + (cls ? ' ' + cls : '') + '" onclick="' + act + '"><span class="mi">' + icon + '</span><span><b>' + label + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span></button>'; };
     $('app').innerHTML = '<div class="acct"><span>👤 <b>' + esc(ACC.name) + '</b></span><span>💎 <b>' + M.crystals + '</b></span><button onclick="logout()">登出／換人</button></div>'
-      + '<div class="panel home"><div class="hero"><h1>聖杯之路</h1><div class="dim">選一位從者，走到聖杯面前。</div></div>'
+      + '<div class="panel home">' + heroHtml('選一位從者，走到聖杯面前。')
       + '<div class="menu">'
       + (going ? big('cont()', '▶', '繼續冒險', esc(S.cls + '・' + S.name) + '・' + esc((saved.endless ? '♾ ' : '') + (G.actName(saved) || '').split('　')[0]) + (saved.floor ? ' 第 ' + saved.floor + ' 列' : ' 剛出發'), 'main') : '')
       + big("MODE='normal';choose()", '⚔', '新的冒險', going ? '放棄目前這一局，重新選從者' : '選從者、選命運，出發', going ? '' : 'main')
@@ -635,9 +787,16 @@
     if (q.block && face.indexOf('🛡') >= 0 && !same('🛡', q.block)) bits.push('<span style="color:var(--blue)">🛡' + q.block + '</span>');
     return bits.length ? '<div class="pv' + (p.kills ? ' kill' : '') + '">' + bits.join(' ') + '</div>' : '';
   }
+  // 卡片外框（一眼看出強不強）：基本牌、代幣＝無邊框｜一般＝銀框｜強化過、奧義＝金光｜★傳說、強化過的奧義＝炫彩光；詛咒與狀態牌另外是暗紫色
+  function cardTier(c) {
+    if (c.type === 'curse') return 'curse';
+    if (c.dir === 'f') return 'rainbow';
+    var lv = c.token ? 0 : (G.isBasic(c.id) ? 0 : c.rare ? 2 : 1) + (c.dir ? 1 : 0);   // c.up 是強化規格（物件），強化過沒有看 c.dir
+    return ['plain', 'silver', 'gold', 'rainbow'][Math.min(3, lv)];
+  }
   function cardHtml(id, attrs, big, extra) {
     var c = G.card(id), cost = run && run.battle && !big ? G.costOf(run, id) : c.cost;
-    return '<button class="card ' + c.type + (c.token ? ' token' : '') + (c.rare ? ' rare' : '') + (c.dir === 'f' ? ' legend' : '') + '" ' + (attrs || '') + (big ? ' style="width:calc((100vw - 60px) / 3);max-width:120px;min-width:96px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : cost > c.cost ? ' tax' : '') + '">' + (c.unplayable ? '✕' : cost) + '</span>' + (c.rare ? '<span class="rare-tag">奧義</span>' : '')
+    return '<button class="card ' + c.type + ' f-' + cardTier(c) + (c.token ? ' token' : '') + (c.rare ? ' rare' : '') + (c.dir === 'f' ? ' legend' : '') + '" ' + (attrs || '') + (big ? ' style="width:calc((100vw - 60px) / 3);max-width:120px;min-width:96px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : cost > c.cost ? ' tax' : '') + '">' + (c.unplayable ? '✕' : cost) + '</span>' + (c.rare ? '<span class="rare-tag">奧義</span>' : '')
       + '<span class="q" onclick="event.stopPropagation();cardInfo(\'' + id + '\')">?</span>'
       + '<div class="nm">' + esc(c.name) + '</div><div class="tx">' + esc(G.cardShort(id, run)) + '</div>' + (extra || '') + '</button>';
   }
@@ -770,7 +929,7 @@
     var foes = b.enemies.map(function (e, i) {
       if (e.hp <= 0 && b.enemies.length > 3) return '';   // 叫來的援軍倒了就收掉，免得畫面擠
       var hit = lastHp[e.key] !== undefined && e.hp < lastHp[e.key];
-      return '<button data-key="' + e.key + '" class="foe' + (e.hp <= 0 ? ' dead' : '') + (sel.foe === i ? ' sel' : '') + (sel.foe < 0 && i === tgt && G.alive(b).length > 1 ? ' tgt' : '') + (hit ? ' hit' : '') + '" onclick="tapFoe(' + i + ')">'
+      return '<button data-key="' + e.key + '" class="foe' + (G.ENEMIES[e.id].boss ? ' boss' : G.ENEMIES[e.id].elite ? ' elite' : '') + (e.hp <= 0 ? ' dead' : '') + (sel.foe === i ? ' sel' : '') + (sel.foe < 0 && i === tgt && G.alive(b).length > 1 ? ' tgt' : '') + (hit ? ' hit' : '') + '" onclick="tapFoe(' + i + ')">'
         + '<span class="q" onclick="event.stopPropagation();foeInfo(' + i + ')">?</span><div class="nm">' + esc(e.name) + '</div>'
         + '<div class="row" style="gap:5px">' + (e.block ? '<span class="eblk">🛡' + e.block + '</span>' : '') + hpBar(e.key, e.hp, e.maxHp, Math.max(0, e.hp) + '／' + e.maxHp) + '</div>'
         + '<div class="chips" style="margin-top:4px">' + foeChips(e) + '</div>'
@@ -989,7 +1148,7 @@
   function needText(o) { var n = o.need || {}, a = []; if (n.hp && run.hp <= n.hp) a.push('生命要多於 ' + n.hp); if (n.seal && run.seals < n.seal) a.push('要 ' + n.seal + ' 劃令咒'); if (n.gold && run.gold < n.gold) a.push('要 ' + n.gold + ' 金'); return a.join('、') || '條件不夠'; }
   function eventScreen() {
     var E = G.EVENTS[run.event];
-    $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">❓ ' + esc(E.name) + '</h1><div style="max-width:420px">' + esc(E.text) + '</div><div class="list">'
+    $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">❓ ' + esc(E.name) + '</h1><div class="lore" style="max-width:420px">' + esc(E.text) + '</div><div class="list">'
       + E.opts.map(function (o, i) { var ok = G.canChoose(run, o); return '<button ' + (ok ? 'onclick="doChoose(' + i + ')"' : 'disabled style="opacity:.4"') + '>' + esc(o.label) + (ok ? '' : '（' + needText(o) + '）') + d20Hint(o) + '</button>'; }).join('') + '</div></div>';
   }
   function shopScreen() {

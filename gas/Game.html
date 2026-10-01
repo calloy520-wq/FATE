@@ -414,7 +414,7 @@ var G = (function () {
     scathach: [[{ name: '影之國的氣息', start: [['doomAll', 1]] }, { name: '先手', start: [['energy', 1], ['draw', 1]] }],
                [{ name: '死翔', np: [['doomAll', 3]] }, { name: '魔境之智慧（A+）', start: [['pHaste', 1]] }]],
     gil:      [[{ name: '寶庫開放', start: [['treasure', 2]] }, { name: '黃金律（財）', start: [['energy', 1]] }],
-               [{ name: '乖離劍全開', np: [['all', 15]] }, { name: '萬物之王', start: [['pTreasure', 1]] }]]
+               [{ name: '乖離劍全開', np: [['all', 15]] }, { name: '王律鍵', start: [['np', 20], ['treasure', 1]] }]]
   };
 
   // ── 資料：敵人 ──────────────────────────────────────
@@ -643,7 +643,7 @@ var G = (function () {
     pEvade: '每回合開始迴避 {1}', pTreasure: '每回合開始從寶庫取出 {1} 件寶具', pMinion: '每回合開始召喚 {1} 名{m}',
     pVenom: '攻擊每命中一次附加毒 {1}', pWeaponize: '每回合開始，手上 {1} 張技能牌變成「武器化」',
     evade: '迴避 {1}', nextFree: '下一張牌 0 費', nextEnergy: '下回合魔力 +{1}', iai: '若是本回合第一張牌，再造成 {1} 傷害',
-    petrify: '石化 {1}', chain: '天之鎖：目標下一次行動動彈不得', breakPact: '破除契約：目標下一次行動作廢', petrifyAll: '全體石化 {1}', petrifyDmg: '造成 {1} 傷害，目標每層石化再 +{2}',
+    petrify: '石化 {1}', chain: '綁住目標：下一次行動動彈不得', breakPact: '破除契約：目標下一次行動作廢', petrifyAll: '全體石化 {1}', petrifyDmg: '造成 {1} 傷害，目標每層石化再 +{2}',
     drainAll: '對全體造成 {1} 傷害，回復造成傷害的一半',
     minion: '召喚 {1} 名{m}', minionHit: '每名{m}立刻攻擊一次（傷害 +{1}）', minionAll: '獻祭所有{m}，每名對全體造成 {1} 傷害',
     minionRand: '每名{m}立刻攻擊 {1} 次', sacEnergy: '獻祭至多 {1} 名{m}，每名魔力 +1', sacDraw: '用掉至多 {1} 名{m}，每名抽 1 張', allPlusMinion: '對全體造成 {1} 傷害，每名{m}再 +{2}',
@@ -715,7 +715,7 @@ var G = (function () {
     drainAll: '全體吸血⚔{1}', minion: '召喚{m}{1}', minionHit: '{m}齊攻+{1}', minionAll: '獻祭{m}全體⚔{1}', minionRand: '{m}攻擊×{1}',
     sacEnergy: '{m}換魔力≤{1}', sacDraw: '{m}換抽牌≤{1}', sacStr: '{m}換力量+{1}', allPlusMinion: ['全體⚔{1}+{2}/{m}', '全體⚔'], minionDmg: ['⚔{1}+{2}/{m}', '⚔'], minionBlock: ['🛡{1}+{2}/{m}', '🛡'], hitsPerMinion: '⚔{1}×（{m}+1）',
     selfDmg: '自傷{1}', selfVuln: '自己易傷{1}', dispel: '拆格擋與力量', dispelAll: '全體拆格擋與力量',
-    poison: '毒{1}', poisonAll: '全體毒{1}', dmgIfPoison: '⚔{1}（中毒+{2}）', poisonX2: '毒×2', exec: '斬殺≤{1}%', wound: '創傷{1}', woundDmg: ['⚔{1}+{2}/創傷', '⚔'],
+    poison: '毒{1}', poisonAll: '全體毒{1}', dmgIfPoison: '⚔{1}（中毒+{2}）', poisonX2: '毒×2', exec: '咒殺（精英≤{1}%）', wound: '創傷{1}', woundDmg: ['⚔{1}+{2}/創傷', '⚔'],
     army: '軍勢+{1}', armyDmg: ['⚔{1}+{2}/軍勢', '⚔'], armyAllDmg: ['全體⚔{1}+{2}/軍勢', '全體⚔'], armyAll: ['全體⚔軍勢×{1}', '全體⚔'], armyBlock: ['🛡{1}+{2}/軍勢', '🛡'], armySpend: ['花光軍勢⚔×{1}', '⚔'], armySpendAll: ['花光軍勢全體⚔×{1}', '全體⚔'],
     mastery: '武練+{1}', masteryDmg: ['⚔{1}+{2}/武練', '⚔'], masteryAll: ['全體⚔{1}+{2}/武練', '全體⚔'], masteryBlock: ['🛡{1}+{2}/武練', '🛡'], weaponize: '技能→武器化×{1}',
     wind: '風+{1}', pWind: '每回合風+{1}', windAll: ['解放風：全體⚔{1}+{2}/風', '全體⚔'], windDmg: ['⚔{1}+{2}/風', '⚔'], windBlock: ['🛡{1}+{2}/風', '🛡'],
@@ -735,7 +735,7 @@ var G = (function () {
     var c = card(id);
     if (c.type === 'curse') return c.short;
     var bits = shortBits(c, run);
-    if (c.dir === 'c') bits.push('寶具+' + c.np + '%');   // 共鳴：寶具量表加得比較多，卡面也看得到
+    if (c.dir === 'c' || (c.type !== 'atk' && c.np >= 20)) bits.push('寶具+' + c.np + '%');   // 共鳴、或主打寶具量表的技能，卡面看得到   // 共鳴：寶具量表加得比較多，卡面也看得到
     if (c.link) bits.push(c.chase ? '連動・追擊' : '連動');
     if (c.type === 'power') bits.push('（整場）');
     if (c.ex || c.token) bits.push('消耗');
@@ -833,20 +833,20 @@ var G = (function () {
   function diffOf(run) { return DIFFS[run.diff] || DIFFS.normal; }
   var ASC_SVT = {
     saber:    [[['wind', 2]], [['block', 8]], [['all', 12]], [['pWind', 1]]],
-    emiya:    [[['proj', 2]], [['projUp', 1]], [['proj', 3]], [['pDraw', 1]]],
-    cu:       [[['evade', 1]], [['str', 1]], [['pierce', 15]], [['pEvade', 1]]],
-    medusa:   [[['petrifyAll', 1]], [['weakAll', 1]], [['petrifyAll', 2]], [['pPetrifyAll', 1]]],
+    emiya:    [[['block', 6]], [['draw', 1]], [['vulnAll', 1]], [['pDraw', 1]]],
+    cu:       [[['evade', 1]], [['str', 1]], [['riposte', 6]], [['pEvade', 1]]],
+    medusa:   [[['str', 1]], [['block', 6]], [['petrifyAll', 2]], [['pPetrifyAll', 1]]],
     medea:    [[['minion', 1]], [['block', 6]], [['all', 15]], [['pSkillBlock', 2]]],
-    kojiro:   [[['evade', 1]], [['iaiUp', 3]], [['str', 1]], [['pEnergyBlock', 3]]],
-    hassanC:  [[['poisonAll', 3]], [['evade', 1]], [['poisonAll', 5]], [['pVenom', 1]]],
-    diarmuid: [[['weakAll', 1]], [['pStanceBlock', 2]], [['wound', 3]], [['pSwitch', 2]]],
-    iskandar: [[['army', 2]], [['block', 6]], [['army', 3]], [['pArmy', 1]]],
-    gilles:   [[['kraken', 3]], [['str', 1]], [['kraken', 5]], [['pKraken', 1]]],
-    hassanH:  [[['minion', 2]], [['weakAll', 1]], [['minionRand', 1]], [['pMinion', 1]]],
-    lancelot: [[['mastery', 2]], [['block', 6]], [['masteryDmg', 0, 3]], [['pWeaponize', 1]]],
-    heracles: [[['str', 1]], [['block', 8]], [['rageDmg', 8, 2]], [['pRage', 1]]],
-    gil:      [[['treasure', 2]], [['energy', 1]], [['all', 12]], [['pTreasure', 1]]],
-    scathach: [[['doomAll', 1]], [['draw', 1]], [['doomAll', 3]], [['pHaste', 1]]]
+    kojiro:   [[['block', 5]], [['iaiUp', 3]], [['str', 1]], [['pEnergyBlock', 3]]],
+    hassanC:  [[['weakAll', 1]], [['evade', 1]], [['poisonAll', 5]], [['pBlock', 2]]],
+    diarmuid: [[['str', 1]], [['pStanceBlock', 2]], [['wound', 3]], [['pSwitch', 2]]],
+    iskandar: [[['str', 1]], [['block', 6]], [['army', 3]], [['pArmy', 1]]],
+    gilles:   [[['kraken', 3]], [['str', 1]], [['kraken', 5]], [['pBlock', 2]]],
+    hassanH:  [[['evade', 1]], [['weakAll', 1]], [['weakAll', 2]], [['pDraw', 1]]],
+    lancelot: [[['str', 1]], [['block', 6]], [['vuln', 2]], [['pWeaponize', 1]]],
+    heracles: [[['str', 1]], [['block', 8]], [['block', 15]], [['pRage', 1]]],
+    gil:      [[['block', 8]], [['np', 20]], [['all', 12]], [['pTreasure', 1]]],
+    scathach: [[['evade', 1]], [['draw', 1]], [['draw', 2]], [['pDraw', 1]]]
   };
   function rareOf(kit) { return Object.keys(CARDS).filter(function (c) { return CARDS[c].rare === kit; })[0]; }
   // 第 lv 級（1～5）寫什麼

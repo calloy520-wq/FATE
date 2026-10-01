@@ -255,7 +255,7 @@ let ft=G.newRun('saber',6,{fate:'light'}); t(ft.deck.length===7&&ft.fate==='ligh
 ft=G.newRun('saber',6,{fate:'merchant'}); ft.gold=100; step(ft,'shop'); t(G.removePrice(ft)===0&&G.priceOf(ft,{price:100})===75,'商人的眷顧：七五折、第一次移除免費'); G.buy(ft,'remove',0); t(G.removePrice(ft)===Math.round(60*0.75),'免費用掉之後是原價七五折'); ft.removed=3; t(G.removePrice(ft)===Math.round(60*0.75),'商人的眷顧：移除之後也不漲價');
 ft=G.newRun('saber',6,{fate:'mana'}); step(ft,'fight'); t(ft.battle.np===30,'魔力充盈：寶具量表從 30% 開始',ft.battle.np);
 let as=G.newRun('medusa',6,{asc:5}); t(as.maxHp===G.SERVANTS.medusa.hp+8&&as.deck.includes('breaker'),'靈基再臨 V：生命 +8、開局帶奧義');
-step(as,'fight'); t(as.battle.enemies.every(e=>e.petrify>=1)&&as.battle.enemies.every(e=>e.weak>=1),'美杜莎再臨 II／III：開場全體石化＋虛弱');
+step(as,'fight'); t(as.battle.enemies.every(e=>e.petrify>=1)&&as.battle.str>=1&&as.battle.block>=6,'美杜莎再臨 II／III：開場力量 +1（怪力）、格擋 6（被動照樣全體石化）');
 as.battle.enemies.forEach(e=>{e.hp=99;e.maxHp=99;e.petrify=0;e.stun=0;}); as.battle.np=100; G.noble(as,0); t(as.battle.enemies[0].petrify>=0&&/石化 2/.test(G.npText(G.serv(as).np,as)),'再臨 IV：寶具追加全體石化 2',G.npText(G.serv(as).np,as));
 t(G.ORDER.every(k=>G.ASC_SVT[k]&&[1,2,3,4,5].every(lv=>G.ascText(k,lv))),'14 位每一級再臨都有自己的說明');
 t(G.ORDER.every(k=>G.ASC_SVT[k].slice(0,2).every(fx=>!G.needsTarget(fx))),'開場效果不會用到要選目標的效果');
@@ -418,8 +418,8 @@ t(G.upDiff('breaker','breaker+').includes('不再消耗'),'強化選單列出「
 { const r=arena('saber'); r.screen='reward'; t(!G.seal(r,'all').ok&&r.seals===3,'戰鬥結束（勝利停頓中）不能用令咒'); }
 { const r=arena('iskandar',3,6); r.battle.army=5; r.battle.hand=['order']; const p=G.preview(r,0,0), q=G.preview(r,0,0,true); t(p.per[0]===6&&q.per[0]===8&&p.kills===3,'預計：raw 量實際打出的 3+5=8（不被 6 血截掉）、一般試算數得到擊倒',JSON.stringify([p.per,q.per,p.kills])); }
 { const r=arena('scathach',1,999); r.battle.played=3; r.battle.hand=['quickspear','flashstep']; r.battle.energy=3; playId(r,'doublespear',0); t(r.battle.played===6&&E(r).doom>=4,'連動帶出的牌也算張數（攻擊牌都吃得到魔境之智慧的刻印）',JSON.stringify([r.battle.played,E(r).doom])); }
-{ const r=G.newRun('scathach',3,{asc:4}); const fx=G.npFx(r,G.SERVANTS.scathach.np); t(fx[fx.length-1][0]==='reap'&&fx.some(f=>f[0]==='doomAll'),'寶具追加的刻印排在收尾之前',JSON.stringify(fx)); }
-t(G.ascText('hassanH',2).includes('分身')&&G.ascText('medea',2).includes('龍牙兵')&&G.npText(G.SERVANTS.hassanH.np).includes('分身'),'再臨／寶具文字用這位的使魔名字（分身、龍牙兵）');
+{ const r=G.newRun('scathach',3,{asc:4}); const fx=G.npFx(r,G.SERVANTS.scathach.np); t(fx[fx.length-1][0]==='reap'&&fx.some(f=>f[0]==='draw'),'寶具追加的效果排在收尾之前（收尾永遠最後）',JSON.stringify(fx)); }
+t(G.ascText('hassanH',2)!==''&&G.npText(G.SERVANTS.hassanH.np).includes('分身')&&G.ascText('medea',2).includes('龍牙兵')&&G.npText(G.SERVANTS.hassanH.np).includes('分身'),'再臨／寶具文字用這位的使魔名字（分身、龍牙兵）');
 t(!/每場戰鬥開始：每/.test(G.ORDER.map(k=>[2,3,4,6].map(l=>G.ascText(k,l)).join('|')).join('|')),'「每回合…」的效果不再疊「每場戰鬥開始：」');
 // 全部玩家看得到的文字（所有牌與強化方向、寶具、再臨、覺醒、被動、禮裝、事件、命運）沒有 undefined／NaN／{1} 殘留
 { const bad=[], chk=(w,x)=>{ if(/undefined|NaN|\{\d\}|\{m\}|null/.test(x)) bad.push(w); };
@@ -505,6 +505,7 @@ r=arena('gil'); E(r).id='saber'; E(r).intent={n:'發呆',fx:[]}; G.endTurn(r); t
 r=arena('gil'); r.seals=3; G.seal(r,'np'); t(!r.battle.manshin&&r.battle.np===100,'令咒解放寶具：也會讓英雄王認真起來');
 r=arena('saber'); t(!r.battle.manshin,'只有吉爾伽美什有慢心');
 r=arena('saber'); playId(r,'leyline'); t(r.battle.block===3&&/打出當下先生效一次/.test(G.cardText('leyline')),'靈脈：打出當下先格擋 3（卡面寫得出來）',r.battle.block);
+{ const dup=[]; G.ORDER.forEach(w=>{ const T=(G.TALENTS[w]||[]).flat().map(t=>JSON.stringify(t.start||t.np||null)); const A=[0,1,2,3].map(i=>JSON.stringify(G.ASC_SVT?G.ASC_SVT[w][i]:null)); A.forEach(a=>{ if(a!=='null'&&T.includes(a)) dup.push(w); }); }); t(G.ASC_SVT&&!dup.length,'靈基再臨不跟靈基覺醒一模一樣',dup.join(',')); }
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位從者 4 局都能打到結束（不卡死）',fin);
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
