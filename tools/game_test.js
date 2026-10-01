@@ -101,7 +101,7 @@ r=arena('cu'); playId(r,'riposte'); playId(r,'lightchild'); E(r).intent={n:'砍'
 t(r.hp===hp&&E(r).hp===45&&r.battle.str===1,'迎擊之槍：閃過就反擊 5 穿透；光之子：迴避一次力量 +1',JSON.stringify([E(r).hp,r.battle.str]));
 t(r.battle.riposte===0,'迎擊只在那一回合');
 r=arena('medusa'); E(r).petrify=2; playId(r,'shatter'); t(E(r).hp===50-(6+7*2)&&E(r).petrify===0,'石像碎裂：敲碎石化換傷害',E(r).hp);
-r=arena('medusa'); E(r).stun=1; playId(r,'pegasus'); t(E(r).hp===30,'天馬衝撞：動彈不得的目標 8＋12',E(r).hp);
+r=arena('medusa'); E(r).stun=1; playId(r,'kick'); t(E(r).hp===30,'迴旋踢：動彈不得的目標 8＋12',E(r).hp);
 r=arena('medusa'); playId(r,'gorgon'); G.endTurn(r); t(E(r).petrify===1,'蛇髮：每回合全體石化 1');
 r=arena('medea'); r.battle.energy=5; playId(r,'chant'); playId(r,'curse'); E(r).vuln=0; playId(r,'bolt'); t(E(r).hp===50-(3+1*3),'魔彈：詠唱牌（+2）＋詛咒（+1）→ 3＋詠唱 3',E(r).hp); G.endTurn(r); t(r.battle.chant===3,'詠唱整場累積，不會每回合歸零',r.battle.chant);
 r=arena('medea'); playId(r,'territory'); playId(r,'chant'); t(r.battle.block===4&&r.battle.chant===2,'陣地作成：每張技能格擋 2；詠唱牌算 2 層');
@@ -262,23 +262,18 @@ ev=G.newRun('saber',41); step(ev,'event'); ev.event='storehouse'; G.choose(ev,0)
 ev=G.newRun('saber',41); step(ev,'event'); ev.event='castle'; ev.gold=30; t(!G.canChoose(ev,G.EVENTS.castle.opts[0])&&!G.canChoose(ev,G.EVENTS.castle.opts[1]),'錢不夠就不能選');
 t(Object.keys(G.EVENTS).filter(k=>!G.EVENTS[k].act||G.EVENTS[k].act===1).length>=16,'第一章至少 16 個事件可抽');
 
-// 美杜莎：天馬騎乘
-r=G.newRun('medusa',3); step(r,'fight'); t(r.battle.mounted===1&&r.battle.ride===1,'美杜莎 騎乘：每場開場就騎在天馬上（速度 1）');
-r=arena('medusa',2,60); r.battle.mounted=0; r.battle.ride=0; r.battle.enemies.forEach(e=>{ e.petrify=0; e.intent={n:'守',fx:[['block',0]]}; }); playId(r,'mount'); t(r.battle.mounted===1&&r.battle.ride===1&&r.battle.block===5,'天馬召喚：騎上天馬，速度 1、格擋 5');
-G.endTurn(r); t(r.battle.enemies.every(e=>e.hp===57)&&r.battle.ride===2,'騎乘中回合結束衝撞全體 3×速度，之後速度 +1',JSON.stringify([r.battle.enemies.map(e=>e.hp),r.battle.ride]));
-G.endTurn(r); t(r.battle.enemies.every(e=>e.hp===51)&&r.battle.ride===3,'越跑越快：第二回合衝撞 6');
-r.battle.energy=3; playId(r,'land',0); t(E(r).hp===51-(5+3*3)&&r.battle.enemies.every(e=>e.stun===1||e.petrify===3)&&!r.battle.mounted&&r.battle.ride===0,'急降：5＋速度 3×3，下馬時全體石化 3（一般敵人剛好動彈不得）',JSON.stringify([E(r).hp,r.battle.enemies.map(e=>[e.petrify,e.stun])]));
-r=arena('medusa'); r.battle.ride=4; r.battle.mounted=1; playId(r,'mount'); t(r.battle.ride===5,'速度最多 5');
-r=arena('medusa',2,60); r.battle.np=100; G.noble(r,0); t(r.battle.mounted===1&&r.battle.ride===5&&r.battle.enemies.every(e=>e.hp===35),'騎英之手綱：全體 25，騎上天馬速度拉滿',JSON.stringify(r.battle.enemies.map(e=>e.hp)));
-r=arena('medusa'); r.battle.mounted=0; r.battle.ride=0; E(r).petrify=1; playId(r,'land',0); t(E(r).petrify===1&&E(r).hp===45,'沒騎乘時急降只有傷害 5，不會石化',E(r).petrify);
+// 美杜莎：照原作（踢擊、釘劍鎖鏈、怪力、鮮血神殿、石化魔眼；天馬只在寶具）
 
-r=arena('medusa'); r.battle.ride=2; playId(r,'monstrous'); t(r.battle.tstr===2&&r.battle.ride===3,'怪力：本回合力量 +2，騎乘中速度 +1');
-r=arena('medusa'); r.battle.mounted=0; r.battle.ride=0; playId(r,'monstrous'); t(r.battle.ride===0,'沒騎乘時怪力不會加速度');
 t(G.CARDS.nails&&G.CARDS.chain&&G.SERVANTS.medusa.sig==='chain','鎖鏈（招牌牌）與釘劍都在');
 // 卡面簡短說明
 t(Object.keys(G.CARDS).every(k=>{ const t2=G.cardShort(k); return t2&&!/undefined|\{|null/.test(t2)&&t2.length<=G.cardText(k).length; }),'每張牌都有簡短說明（沒有漏字、比完整說明短）');
-r=arena('medusa'); r.battle.ride=3; t(G.cardShort('land',r).startsWith('⚔14'),'戰鬥中簡短說明照資源算好數字（急降 5＋速度 3×3）',G.cardShort('land',r));
 
+r=G.newRun('medusa',3); step(r,'fight'); t(r.battle.enemies.every(e=>e.petrify===1)&&!r.battle.mounted,'美杜莎 石化魔眼：開場全體石化 1（不會開場就騎天馬）');
+r=arena('medusa'); playId(r,'monstrous'); t(r.battle.tstr===3,'怪力：本回合力量 +3');
+r=arena('medusa',1,60); r.battle.np=100; G.noble(r,0); t(E(r).hp===15&&E(r).stun===1,'騎英之手綱：召喚天馬衝撞 45＋石化 3（一般敵人直接動彈不得）',JSON.stringify([E(r).hp,E(r).stun]));
+t(['chain','nails','kick','monstrous','bloodfort','mystic'].every(k=>G.CARDS[k]&&G.CARDS[k].kit==='medusa')&&!G.CARDS.mount&&!G.CARDS.land,'美杜莎的牌照原作：鎖鏈、釘劍、踢擊、怪力、鮮血神殿、石化魔眼；沒有騎乘牌');
+const svMd=J(G.newRun('medusa',3)); svMd.deck.push('mount','land+','pegasus'); G.migrate(svMd); t(svMd.deck.includes('monstrous')&&svMd.deck.includes('kick+')&&svMd.deck.includes('kick'),'舊存檔的天馬召喚／急降／天馬衝撞換成怪力／迴旋踢');
+r=arena('saber'); r.battle.wind=3; t(G.cardShort('hammer',r).startsWith('全體⚔17'),'戰鬥中簡短說明照資源算好數字（風王鐵槌 5＋風 3×4）',G.cardShort('hammer',r));
 console.log('── 斯卡哈');
 r=arena('scathach'); playId(r,'doublespear'); t(E(r).doom===1&&E(r).hp===40,'雙槍・死棘：5×2＋死兆 1（死兆打完才上）');
 r.battle.energy=3; playId(r,'atk'); t(E(r).hp===40-7,'死兆 1：每一擊 +1',E(r).hp);

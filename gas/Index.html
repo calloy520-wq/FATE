@@ -249,7 +249,6 @@
     ['毒', '敵人行動前受到等同層數的穿透傷害，之後少 1 層'],
     ['創傷', '敵人行動前受到等同層數的穿透傷害，不會自己好'],
     ['石化', '累積到門檻（一般 3、精英 4、Boss 5）時動彈不得一回合，層數歸零'],
-    ['騎乘', '美杜莎：騎上天馬後，每回合結束衝撞全體敵人 3×速度，之後速度 +1（最多 5）；「急降」下馬時把速度換成全體石化，速度歸零'],
     ['武練', '蘭斯洛特：每用掉一件「武器化」+1，整場累積；連斬、湖光斬、黑霧照武練加成。蘭斯洛特打出技能牌時也會順手攻擊'],
     ['架勢', '迪爾姆德的紅薔薇（攻擊無視格擋）／黃薔薇（攻擊牌給目標創傷 1）；每次切換立刻刺一槍，本回合第 N 次切換＝1＋N 傷害（紅穿透、黃再加創傷）'],
     ['泥', '敵人塞進你牌堆的狀態牌（只在這場戰鬥）：打不出來，回合結束時還在手上就失去 2 生命'],
@@ -530,7 +529,6 @@
     if (G.passive(run) === 'hsw') a.push(['gold', '詠唱 ' + (b.chant || 0)]);
     if (b.minions) a.push(['gold', G.minionName(run) + ' ×' + b.minions]);
     if (b.army) a.push(['gold', '軍勢 ' + b.army]);
-    if (b.mounted) a.push(['gold', '🐎 騎乘中・速度 ' + b.ride + '（回合結束衝撞全體 ' + 3 * b.ride + '）']);
     if (b.stance) a.push(['gold', (b.stance === 'red' ? '紅薔薇' : '黃薔薇') + (G.passive(run) === 'twin' ? '・下次切換刺 ' + (2 + b.switches + (b.pSwitch || 0)) : '')]);
     if (G.passive(run) === 'wisdom') { var wf = G.wisdomFrom(b); a.push(['gold', '本回合已出 ' + b.played + ' 張' + (b.played + 1 >= wf ? '・下一張攻擊死兆 +1' : '・第 ' + wf + ' 張起攻擊死兆 +1')]); }
     if (G.passive(run) === 'arms' || b.mastery) a.push(['gold', '武練 ' + b.mastery]);
