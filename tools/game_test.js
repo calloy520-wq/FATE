@@ -109,7 +109,7 @@ r=arena('medusa'); playId(r,'gorgon'); G.endTurn(r); t(E(r).petrify===1,'蛇髮�
 r=arena('medea'); r.battle.energy=5; playId(r,'chant'); playId(r,'curse'); E(r).vuln=0; playId(r,'bolt'); t(E(r).hp===50-(3+1*3),'魔彈：陣地牌（+2）＋詛咒（+1）→ 3＋陣地 3',E(r).hp); G.endTurn(r); t(r.battle.chant===3,'陣地整場累積，不會每回合歸零',r.battle.chant);
 r=arena('medea'); playId(r,'territory'); playId(r,'chant'); t(r.battle.block===4&&r.battle.chant===2,'陣地作成：每張技能格擋 2；陣地牌算 2 層');
 r=arena('kojiro'); playId(r,'flash'); t(E(r).hp===50-(2+2*3),'一閃：剩 3 魔力 → 2＋6',E(r).hp);
-r=arena('kojiro'); playId(r,'gate'); r.battle.energy=2; E(r).intent={n:'砍',fx:[['atk',20]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===12,'山門守護：剩 2 魔力格擋 8（20 → 扣 12）',hp-r.hp);
+r=arena('kojiro'); playId(r,'gate'); r.battle.energy=2; E(r).intent={n:'砍',fx:[['atk',20]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===12-3,'山門守護：剩 2 魔力格擋 8（20 → 扣 12，下回合山門的守門人回 3）',hp-r.hp);
 r=arena('kojiro'); playId(r,'mastery'); r.battle.played=0; r.battle.energy=3; E(r).vuln=0; r.battle.sowaSeen={x:1}; playId(r,'iai'); t(E(r).hp<50-(5+7+5)+1&&E(r).hp>=50-(5+Math.floor((7+5)*1.5)),'透化：居合 +5',E(r).hp);
 r=arena('diarmuid'); playId(r,'twinart'); playId(r,'twin'); t(r.battle.block===3&&r.battle.stance==='yellow'&&E(r).hp===48&&E(r).wound===1,'雙槍術：切換架勢格擋 3；切換立刻刺一槍（第 1 次＝2，黃薔薇再給創傷 1）',JSON.stringify([E(r).hp,E(r).wound]));
 playId(r,'rose'); t(E(r).hp===48-3-5-4&&E(r).wound===3&&r.battle.block===9,'薔薇交錯：切兩次（第 2 次紅＝3 穿透、第 3 次黃＝4＋創傷），中間 5 傷害',JSON.stringify([E(r).hp,E(r).wound,r.battle.block]));
@@ -117,8 +117,8 @@ r.battle.energy=3; let h2=E(r).hp; playId(r,'twin'); t(h2-E(r).hp===5,'同一回
 G.endTurn(r); h2=E(r).hp; r.battle.energy=3; playId(r,'twin'); t(h2-E(r).hp===2,'下回合重新從 2 開始',h2-E(r).hp);
 r=arena('diarmuid'); playId(r,'fianna'); playId(r,'twin'); t(E(r).hp===50-(2+2),'費奧納騎士團：切換那一槍 +2',E(r).hp);
 r=arena('diarmuid'); E(r).block=20; r.battle.np=100; G.noble(r,0); t(E(r).hp===50-20-3&&E(r).block===18&&r.battle.stance==='red','寶具紅黃薔薇：切到黃（2 被格擋吃掉）→ 20 穿透 → 切回紅（3 穿透）',JSON.stringify([E(r).hp,E(r).block]));
-r=arena('iskandar'); r.battle.army=5; playId(r,'allcharge'); t(E(r).hp===35&&r.battle.army===0,'全軍突擊：花光軍勢 5×3',E(r).hp);
-r=arena('iskandar',2); r.battle.army=4; playId(r,'trample'); t(r.battle.enemies.every(e=>e.hp===42)&&r.battle.army===0,'蹂躪：花光軍勢，全體 4×2');
+r=arena('iskandar',2); r.battle.army=5; playId(r,'allcharge'); t(r.battle.enemies.every(e=>e.hp===40)&&r.battle.army===0,'全軍突擊：花光軍勢，全體 5×2');
+r=arena('iskandar',2); r.battle.army=4; playId(r,'trample'); t(r.battle.enemies.every(e=>e.hp===38)&&r.battle.army===0,'蹂躪：花光軍勢，全體 4×3');
 r=arena('iskandar'); r.battle.army=6; playId(r,'bucephalus'); t(r.battle.block===10,'布塞弗勒斯：格擋 4＋軍勢 6');
 r=arena('gilles'); r.battle.kraken=6; playId(r,'blasphemy'); t(E(r).hp===50-11,'瀆神：5＋海魔大小 6',E(r).hp);
 r=arena('gilles'); r.battle.kraken=4; playId(r,'zealot'); t(r.battle.kraken===1&&r.battle.tstr===5,'狂信：海魔縮小 3 換力量 5');
@@ -144,7 +144,8 @@ r=arena('diarmuid'); E(r).wound=3; playId(r,'bleedout'); t(E(r).hp===31,'放血�
 
 r=G.newRun('iskandar',3); step(r,'fight'); t(r.battle.army===3,'伊斯坎達爾 開場軍勢 3');
 r=arena('iskandar'); r.battle.army=2; playId(r,'rally'); t(r.battle.army===4,'集結：軍勢 +2'); G.endTurn(r); t(E(r).hp===46,'回合結束軍勢衝鋒 4',E(r).hp);
-r=arena('iskandar'); r.battle.army=5; playId(r,'order'); t(E(r).hp===41,'突擊令：4＋軍勢 5',E(r).hp);
+r=arena('iskandar',2); r.battle.army=5; playId(r,'order'); t(r.battle.enemies.every(e=>e.hp===42),'突擊令：全體 3＋軍勢 5');
+r=arena('iskandar',3); playId(r,'atk_iskandar'); playId(r,'zeus'); t(r.battle.enemies.every(e=>e.hp===42),'伊斯坎達爾一直駕著戰車：戰車輾壓、宙斯之雷都打全體（各 4）');
 r=arena('iskandar',2); r.battle.army=2; r.battle.np=100; G.noble(r,0); t(r.battle.army===7&&r.battle.enemies.every(e=>e.hp===36),'王之軍勢：軍勢 +5、全體軍勢×2',E(r).hp);
 
 r=arena('gilles'); E(r).intent={n:'咒',fx:[['weak',3]]}; G.endTurn(r); t(r.battle.weak===0,'吉爾斯 精神污染：不會虛弱');
@@ -286,7 +287,7 @@ r=arena('scathach'); r.battle.energy=9; ['def','def','def','def'].forEach(x=>pla
 // 每位從者自己的基本牌
 t(G.ORDER.every(k=>{ const d=G.newRun(k,3).deck; return d.filter(x=>x==='atk_'+k).length===5&&d.filter(x=>x==='def_'+k).length===4&&G.card('atk_'+k).name!=='攻擊'&&G.card('def_'+k).name!=='防禦'; }),'每位從者開局 5 張自己的攻擊、4 張自己的防禦，名字各不相同');
 t(new Set(G.ORDER.map(k=>G.card('atk_'+k).name)).size===G.ORDER.length,'15 位的基本攻擊名字都不一樣');
-t(G.ORDER.every(k=>G.card('atk_'+k).fx[0][0]==='dmg'&&G.card('atk_'+k).fx[0][1]===6&&G.card('def_'+k).fx[0][1]===5),'基本牌數字全員一樣（6／5），定位交給六圍');
+t(G.ORDER.every(k=>k==='iskandar'||G.card('atk_'+k).fx[0][0]==='dmg'&&G.card('atk_'+k).fx[0][1]===6)&&G.ORDER.every(k=>G.card('def_'+k).fx[0][1]===5),'基本牌數字全員一樣（6／5；伊斯坎達爾駕戰車改全體 4），定位交給六圍');
 // 官方六圍
 t(G.ORDER.every(k=>G.PARAMS[k]&&G.PARAMS[k].length===6),'15 位都有六圍');
 r=arena('heracles'); r.flat=false; playId(r,'atk_heracles'); t(E(r).hp===50-7,'赫拉克勒斯 筋力 A+：6 傷 ×1.12 → 7',E(r).hp);
@@ -312,6 +313,7 @@ r=G.newRun('lancelot',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.inten
 r.hp=1; r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; }); G.endTurn(r); t(r.hp===1&&r.screen==='battle','狂化不會讓自己倒下');
 r=G.newRun('saber',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); hp=r.hp; G.endTurn(r); t(r.hp===hp,'其他職階不扣');
 
+r=G.newRun('kojiro',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); r.hp=30; G.endTurn(r); t(r.hp===33,'小次郎 山門的守門人：每回合開始回復 3',r.hp);
 console.log('── 斯卡哈');
 r=arena('scathach'); playId(r,'doublespear'); t(E(r).doom===1&&E(r).hp===40,'雙槍・死棘：5×2＋死兆 1（死兆打完才上）');
 r.battle.energy=3; playId(r,'atk'); t(E(r).hp===40-7,'死兆 1：每一擊 +1',E(r).hp);
