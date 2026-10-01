@@ -292,7 +292,7 @@ var G = (function () {
       np: { name: '萬符必應破戒', fx: [['dispelAll', 1], ['weakAll', 2], ['vulnAll', 2], ['draw', 2]] } },
     kojiro: { name: '佐佐木小次郎', cls: 'Assassin', war: 5, hp: 92, sig: 'tsubame1',
       desc: '守山門的無名劍士。沒有寶具——秘劍燕返是練出來的劍技，開場就在牌組裡。一眼看透敵人的弱點，敵人卻永遠摸不清他的劍。',
-      passive: { id: 'sowa', name: '宗和的心得', text: '看透弱點：每回合第一次打到某個敵人時，那個敵人易傷 1。敵人摸不清你的底細：每回合第一擊無視格擋（每次交手都像第一次）' },
+      passive: { id: 'sowa', name: '宗和的心得', text: '看透弱點：開場解析生命最多的敵人，易傷 2；每回合第一次打到某個敵人時，那個敵人易傷 1。敵人摸不清你的底細：每回合第一擊無視格擋（每次交手都像第一次）' },
       np: { name: '（沒有寶具）', none: 1, fx: [] } },
     hassanC: { name: '咒腕的哈桑', cls: 'Assassin', war: 5, hp: 76, sig: 'throwdirk',
       desc: '山之翁之一，以咒腕取人心臟的暗殺者。氣息遮斷從暗處先手，投擲短刀如雨落下；寶具妄想心音直接取走低血量敵人的心臟。',
@@ -967,12 +967,20 @@ var G = (function () {
       opts: [{ label: '伸手：失去 8 生命，選一張牌複製一張', need: { hp: 8 }, fx: [['hp', -8], ['pick', 'copy']] }, { label: '離開', fx: [] }] },
     confess: { act: 2, name: '言峰的告解室', text: '神父隔著簾子低聲說：「把你不需要的東西，都交給主吧。」',
       opts: [{ label: '燒掉 1 劃令咒：從牌組移除三張牌', need: { seal: 1 }, fx: [['seal', -1], ['pick', 'remove'], ['pick', 'remove'], ['pick', 'remove']] }, { label: '失去 15 生命：移除兩張牌', need: { hp: 15 }, fx: [['hp', -15], ['pick', 'remove'], ['pick', 'remove']] }, { label: '離開', fx: [] }] },
+    // 只有吉爾斯會遇到的作惡事件（照 Fate/Zero：螺湮城教本、未遠川的大海魔、對聖女貞德的狂信）
+    spellbook:{ who: 'gilles', name: '螺湮城教本的低語', text: '人皮裝訂的魔導書自己翻開了。書頁上的海魔在蠕動，渴望著鮮血。',
+      opts: [{ label: '以血餵書：失去 8 生命，本局每場開場海魔 +3', need: { hp: 8 }, fx: [['hp', -8], ['krakenStart', 3]] }, { label: '闔上書', fx: [] }] },
+    riverside:{ who: 'gilles', name: '未遠川的儀式', text: '深夜的河岸邊，你準備了祭品。河面下有巨大的東西在等待。',
+      opts: [{ label: '獻上祭品：最大生命 -6，得到奧義「普雷拉蒂的激勵」', fx: [['maxHp', -6], ['addCard', 'prelati']] }, { label: '再等等', fx: [] }] },
+    jeanne:  { who: 'gilles', name: '聖女的幻影', text: '火光中，你看見了那個身影——貞德。神啊，為何奪走她？',
+      opts: [{ label: '褻瀆神明：本局海魔每回合多長大 1', fx: [['krakenGrow', 1]] }, { label: '跪下祈禱：回復 15 生命', fx: [['hp', 15]] }] },
     overflow:{ act: 2, name: '溢出的魔力', text: '大聖杯的魔力從地脈湧出，濃得讓人喘不過氣。',
       opts: [{ label: '吸收：最大生命 -8，選兩張牌強化', fx: [['maxHp', -8], ['pick', 'upgrade'], ['pick', 'upgrade']] }, { label: '離開', fx: [] }] }
   };
   function startEvent(run) {
-    var ids = Object.keys(EVENTS).filter(function (k) { var E = EVENTS[k]; return (!E.act || E.act === run.act) && run.seenEvents.indexOf(k) < 0; });
-    if (!ids.length) ids = Object.keys(EVENTS).filter(function (k) { return !EVENTS[k].act || EVENTS[k].act === run.act; });
+    var ok = function (E) { return (!E.act || E.act === run.act) && (!E.who || E.who === run.who); };
+    var ids = Object.keys(EVENTS).filter(function (k) { return ok(EVENTS[k]) && run.seenEvents.indexOf(k) < 0; });
+    if (!ids.length) ids = Object.keys(EVENTS).filter(function (k) { return ok(EVENTS[k]) && !EVENTS[k].who; });
     var id = pick(run, ids);
     run.seenEvents.push(id); run.event = id; run.screen = 'event';
   }
@@ -1001,6 +1009,8 @@ var G = (function () {
         can = shuffle(run, can).slice(0, n); can.forEach(function (j) { var o = upgradeOptions(run, j); run.deck[j] = pick(run, o); msg.push('強化了「' + card(run.deck[j]).name + '」'); });
       }
       else if (k === 'cards') { run.screen = 'reward'; run.reward = { cards: ownCards(run, n, true), relic: null }; }
+      else if (k === 'krakenStart') { run.krakenStart = (run.krakenStart || 0) + n; msg.push('之後每場開場海魔 +' + n); }
+      else if (k === 'krakenGrow') { run.krakenGrow = (run.krakenGrow || 0) + n; msg.push('之後海魔每回合多長大 ' + n); }
       else if (k === 'commons') { run.screen = 'reward'; run.reward = { cards: shuffle(run, Object.keys(CARDS).filter(function (c) { return CARDS[c].kit === 'common'; })).slice(0, n), relic: null }; }
       else if (k === 'fight') startBattle(run, [pick(run, ELITES.filter(function (x) { return x !== run.who; }))], 'elite');
       else if (k === 'gamble') {
@@ -1069,7 +1079,8 @@ var G = (function () {
     if (p === 'twin') b.stance = 'red';
     if (p === 'gaze') b.enemies.forEach(function (e) { petrify(run, e, 1, b.log); });
     if (p === 'golden') addTreasure(run, 1);
-    if (p === 'madness') b.kraken = 3;
+    if (p === 'madness') b.kraken = 3 + (run.krakenStart || 0);
+    if (p === 'sowa') { var big = b.enemies.slice().sort(function (x, y) { return y.hp - x.hp; })[0]; if (big) { big.vuln += 2; b.log.push('宗和的心得：看透' + big.name + '的弱點'); } }
     if (run.trialStr) b.str += run.trialStr;   // 十二試煉：之前復活換來的力量
     b.enemies.forEach(function (e) { chooseIntent(run, e); });
     startTurn(run, true);
@@ -1096,7 +1107,8 @@ var G = (function () {
     if (b.pTreasure) addTreasure(run, b.pTreasure);
     if (b.pWind) addWind(b, b.pWind);
     if (b.pKraken) b.kraken += b.pKraken;
-    if (passive(run) === 'madness' && !first) b.kraken += 1;
+    if (passive(run) === 'madness' && !first) b.kraken += 1 + (run.krakenGrow || 0);
+    if (!first && !run.flat && SERVANTS[run.who] && SERVANTS[run.who].cls === 'Berserker' && run.hp > 1) { run.hp = Math.max(1, run.hp - 2); (b.log = b.log || []).push('狂化：魔力負擔，失去 2 生命'); }   // 職階技能：狂戰士很耗魔
     if (b.pRage && run.hp < run.maxHp / 2) b.str += b.pRage;
     if (b.pPetrifyAll) alive(b).forEach(function (e) { petrify(run, e, b.pPetrifyAll, b.log); });
     if (passive(run) === 'forge') addProj(b, 1);

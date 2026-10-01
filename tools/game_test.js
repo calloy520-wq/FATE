@@ -76,6 +76,7 @@ t(E(r).hp===47&&hp-r.hp===6&&r.battle.minions===0,'龍牙兵回合結束打 3，
 r=arena('medea'); E(r).block=15; E(r).str=4; r.battle.np=100; G.noble(r,0); t(E(r).block===0&&E(r).str===0&&E(r).vuln===2&&E(r).weak===2,'萬符必應破戒：拆格擋與力量、虛弱易傷 2');
 
 r=arena('kojiro'); E(r).block=10; playId(r,'atk'); t(E(r).hp===44&&E(r).block===10&&E(r).vuln===1,'小次郎 宗和的心得：每回合第一擊無視格擋，打到後易傷 1',JSON.stringify([E(r).hp,E(r).block,E(r).vuln])); playId(r,'atk'); t(E(r).hp===44&&E(r).block===1,'第二擊照常吃格擋（易傷 6→9）',JSON.stringify([E(r).hp,E(r).block]));
+r=G.newRun('kojiro',3); step(r,'fight'); { const big=r.battle.enemies.slice().sort((x,y)=>y.hp-x.hp)[0]; t(big.vuln===2&&r.battle.enemies.filter(e=>e!==big).every(e=>!e.vuln),'宗和的心得：開場解析生命最多的敵人，易傷 2'); }
 r=arena('kojiro'); r.battle.np=100; t(!G.noble(r,0).ok&&!G.seal(r,'np').ok&&G.SERVANTS.kojiro.np.none,'小次郎沒有寶具：放不了、令咒也不能充滿寶具');
 r=arena('kojiro'); playId(r,'calm'); G.endTurn(r); t(r.battle.energy===4,'明鏡止水：下回合魔力 +1');
 t(G.newRun('kojiro',3).deck.includes('tsubame1')&&G.SERVANTS.kojiro.sig==='tsubame1','燕返開場就在牌組裡（招牌牌）');
@@ -229,7 +230,7 @@ rr.screen='rest'; rr.deck=rr.deck.slice(0,5); t(!G.rest(rr,'remove',0)&&rr.deck.
 t(G.migrate({who:'custom',custom:{name:'舊英靈'},deck:['atk']})===null&&!('custom' in G.SVT_COST)&&!G.makeCustom,'自創英靈拿掉了：舊的自創英靈那一局讀檔作廢、工坊不再賣');
 
 console.log('── 事件・商店・命運・靈基再臨');
-t(Object.keys(G.EVENTS).every(k=>G.EVENTS[k].opts.length>=2&&G.EVENTS[k].opts.every(o=>o.fx.every(f=>['hp','maxHp','healPct','relic','seal','pick','addCard','upRandom','cards','commons','fight','gamble','gold'].includes(f[0])))),'每個事件至少兩個選項，效果都認得');
+t(Object.keys(G.EVENTS).every(k=>G.EVENTS[k].opts.length>=2&&G.EVENTS[k].opts.every(o=>o.fx.every(f=>['hp','maxHp','healPct','relic','seal','pick','addCard','upRandom','cards','commons','fight','gamble','gold','krakenStart','krakenGrow'].includes(f[0])))),'每個事件至少兩個選項，效果都認得');
 let ev=G.newRun('saber',41); step(ev,'event'); t(ev.screen==='event'&&G.EVENTS[ev.event]&&(!G.EVENTS[ev.event].act||G.EVENTS[ev.event].act===1),'事件格：抽一個這一章的事件');
 ev.event='church'; let hp0=ev.hp, d0=ev.deck.length; G.choose(ev,0); t(ev.hp===hp0-6&&ev.screen==='pick'&&ev.pending[0]==='remove','懺悔：先扣血，再選一張牌移除');
 G.pickCard(ev,ev.deck.indexOf('def_saber')); t(ev.deck.length===d0-1&&ev.screen==='map','選完回地圖');
@@ -299,6 +300,17 @@ const cuR=G.newRun('cu',3); step(cuR,'fight'); const saR=G.newRun('saber',3); st
 t(G.statsOf(G.newRun('cu',1)).luck<1&&G.statsOf(G.newRun('gil',1)).luck>1,'幸運：庫・丘林 E 拿的金錢比較少，吉爾伽美什 A 比較多');
 const svB=J(G.newRun('kojiro',3)); svB.deck=svB.deck.map(x=>G.isBasic(x,'atk')?'atk':G.isBasic(x,'def')?'def+':x); G.migrate(svB); t(svB.deck.filter(x=>x==='atk_kojiro').length===5&&svB.deck.filter(x=>x==='def_kojiro+').length===4,'舊存檔的通用攻擊／防禦換成自己的（保留強化）');
 let lt=G.newRun('saber',6,{fate:'light'}); t(lt.deck.filter(x=>G.isBasic(x,'atk')).length===3&&lt.deck.filter(x=>G.isBasic(x,'def')).length===3,'輕裝上陣：拿掉的是自己的基本牌');
+
+// 吉爾斯專屬的作惡事件
+t(Array.from({length:40},(_,i)=>{ const q=G.newRun('saber',500+i); step(q,'event'); return q.event; }).every(id=>!G.EVENTS[id].who),'別的從者不會遇到吉爾斯的作惡事件');
+ev=G.newRun('gilles',41); step(ev,'event'); ev.event='spellbook'; hp0=ev.hp; G.choose(ev,0); t(ev.hp===hp0-8&&ev.krakenStart===3,'螺湮城教本的低語：失去 8 生命，每場開場海魔 +3');
+step(ev,'fight'); t(ev.battle.kraken===6,'下一場開場海魔 3＋3',ev.battle.kraken);
+ev=G.newRun('gilles',41); step(ev,'event'); ev.event='jeanne'; G.choose(ev,0); step(ev,'fight'); ev.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); const k0=ev.battle.kraken; G.endTurn(ev); t(ev.battle.kraken===k0+2,'聖女的幻影（褻瀆）：海魔每回合長大 2',ev.battle.kraken-k0);
+ev=G.newRun('gilles',41); step(ev,'event'); ev.event='riverside'; G.choose(ev,0); t(ev.deck.includes('prelati')&&ev.maxHp===G.SERVANTS.gilles.hp-6,'未遠川的儀式：最大生命 -6，得到普雷拉蒂的激勵');
+
+r=G.newRun('lancelot',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); hp=r.hp; G.endTurn(r); t(r.hp===hp-2,'狂戰士 狂化：每回合開始失去 2 生命',hp-r.hp);
+r.hp=1; r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; }); G.endTurn(r); t(r.hp===1&&r.screen==='battle','狂化不會讓自己倒下');
+r=G.newRun('saber',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); hp=r.hp; G.endTurn(r); t(r.hp===hp,'其他職階不扣');
 
 console.log('── 斯卡哈');
 r=arena('scathach'); playId(r,'doublespear'); t(E(r).doom===1&&E(r).hp===40,'雙槍・死棘：5×2＋死兆 1（死兆打完才上）');
