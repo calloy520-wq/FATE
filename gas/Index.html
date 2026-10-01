@@ -125,6 +125,7 @@
   .uplegend { background:linear-gradient(90deg,#ff8ad8,#ffd36e,#7fe3ff); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; font-weight:bold; filter:drop-shadow(0 0 6px rgba(255,200,230,.55)); }
   .chip:disabled { opacity:.3; }
   .card .cost.free { background:radial-gradient(circle at 35% 30%,#dcffe8,#6cc58f 50%,#2c7448); } .card .cost.tax { background:radial-gradient(circle at 35% 30%,#ffb8b8,#c23b3b 50%,#6c1414); color:#fff; }
+  .card .stackn { position:absolute; right:8px; bottom:6px; z-index:3; font-size:24px; font-weight:800; color:var(--gold); text-shadow:0 0 8px rgba(217,184,106,.8), 0 1px 2px #000; pointer-events:none; }
   .card.curse .cost { background:radial-gradient(circle at 35% 30%,#8d5a9e,#3a1a45 70%); color:#f0e0f6; }
   .card .pv { margin-top:auto; padding-top:5px; font-size:13.5px; font-weight:bold; }
   .card .q::before, .foe .q::before { content:''; position:absolute; inset:-11px; }
@@ -798,7 +799,7 @@
     var c = G.card(id), cost = run && run.battle && !big ? G.costOf(run, id) : c.cost;
     return '<button class="card ' + c.type + ' f-' + cardTier(c) + (c.token ? ' token' : '') + (c.rare ? ' rare' : '') + (c.dir === 'f' ? ' legend' : '') + '" ' + (attrs || '') + (big ? ' style="width:calc((100vw - 60px) / 3);max-width:120px;min-width:96px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : cost > c.cost ? ' tax' : '') + '">' + (c.unplayable ? '✕' : cost) + '</span>' + (c.rare ? '<span class="rare-tag">奧義</span>' : '')
       + '<span class="q" onclick="event.stopPropagation();cardInfo(\'' + id + '\')">?</span>'
-      + '<div class="nm">' + esc(c.name) + '</div><div class="tx">' + esc(G.cardShort(id, run)) + '</div>' + (extra || '') + '</button>';
+      + '<div class="nm">' + esc(c.name) + '</div><div class="tx">' + esc(G.cardShort(id, run)) + '</div>' + (c.stack && run && run.battle ? '<span class="stackn">×' + (run.battle.swords || 0) + '</span>' : '') + (extra || '') + '</button>';
   }
   // 卡片的「?」：完整說明（在彈出面板裡點的話，看完回到原本的面板）
   function cardInfo(id) {

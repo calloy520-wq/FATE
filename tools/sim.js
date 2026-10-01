@@ -33,6 +33,7 @@ function value(run){
   v+=run.hp*1.5-expectedLoss(run)*1.6;
   const atks=b.hand.filter(id=>G.card(id).type==='atk').length;
   b.hand.forEach(id=>{ const c=G.card(id); if(c.type==='curse'){ v-=(c.hold||0)*2.5+(c.dull?2+2.5*atks:0)+(c.half?2+4*atks:0)+(c.tax?3*b.hand.length:0); return; } v+=c.token?(c.type==='atk'?5:3.5):2.5; });
+  v+=Math.max(0,(b.swords||0)-1)*5;   // 投影劍疊成一張：多出來的每把也算
   v+=b.str*5+b.tstr*1.2+b.energy*4+b.np*0.35+b.minions*4+b.army*3.5+(b.attacks||0)*0.8+(b.mastery||0)*3+(b.chant||0)*2+(b.nextFree?4:0)+b.nextEnergy*4;
   v+=(b.pBlock*3+b.pDraw*6+b.pEnergy*9+b.pStr*6+b.pEvade*8+b.pTreasure*6+b.pMinion*7+b.pVenom*6+(b.pWeaponize||0)*6)*left/4;
   v+=b.ubw*12+b.projUp*6+b.thorns*0.5;

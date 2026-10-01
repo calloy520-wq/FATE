@@ -10,10 +10,12 @@ function arena(who,n=1,hp=50,seed=7){
   while(b.enemies.length<n) b.enemies.push(J(b.enemies[0]));
   b.enemies=b.enemies.slice(0,n);
   b.enemies.forEach((e,i)=>{ Object.assign(e,{key:'d'+i,id:'fang',name:'木樁'+i,hp,maxHp:hp,block:0,str:0,weak:0,vuln:0,poison:0,wound:0,petrify:0,stun:0,intent:{n:'發呆',fx:[]}}); });
-  b.hand=[]; b.energy=3; b.block=0; b.firstAtk=false; b.log=[];
+  b.hand=[]; b.swords=0; b.energy=3; b.block=0; b.firstAtk=false; b.log=[];
   return r;
 }
 const E=(r,i=0)=>r.battle.enemies[i];
+const swords=(r,n)=>{ const b=r.battle; b.swords=n; b.hand=b.hand.filter(x=>x!=='sword'); if(n) b.hand.unshift('sword'); };   // 投影劍疊成一張 ×N
+const SW=r=>r.battle.hand.filter(x=>x==='sword').length<=1?(r.battle.swords||0):-1;
 const playId=(r,id,tg=0)=>{ r.battle.hand.push(id); return G.play(r,r.battle.hand.length-1,tg); };
 
 console.log('── 基本');
@@ -48,13 +50,17 @@ G.seal(r,'np'); t(r.battle.np===100&&r.seals===1,'令咒（寶具）：量表充
 console.log('── 第五次');
 r=arena('saber'); r.battle.wind=9; playId(r,'sheath'); t(r.battle.wind===10,'Saber 風王結界：風最多 10 層',r.battle.wind);
 r=arena('saber',1,200); r.battle.wind=9; r.battle.hand=[]; r.battle.draw=['atk','atk','atk','atk']; playId(r,'hammer'); t(r.battle.wind===0&&r.battle.hand.length===3,'解放 9 層風：每 3 層抽 1（抽 3）',r.battle.hand.length);
-r=G.newRun('emiya',3); step(r,'fight'); t(r.battle.hand.filter(x=>x==='sword').length===1&&r.battle.hand.length===6,'EMIYA 投影魔術：每回合開始 1 張投影劍＋照常抽 5');
-r=arena('emiya'); r.battle.hand=['project','broken']; G.play(r,0,0); t(r.battle.hand.filter(x=>x==='sword').length===2,'投影魔術：2 張投影劍');
-G.play(r,r.battle.hand.indexOf('broken'),0); t(!r.battle.hand.includes('sword')&&E(r).hp===36,'壞幻：引爆 2 把，每把全體 7',E(r).hp);
-r=arena('emiya'); r.battle.np=100; G.noble(r,0); t(r.battle.hand.length===3&&r.battle.ubw===2&&r.battle.projUp===2&&/造成 6 傷害/.test(G.cardText('sword',r)),'無限劍製：3 張投影劍、之後 2 回合、投影劍 6 傷');
+r=G.newRun('emiya',3); step(r,'fight'); t(SW(r)===1&&r.battle.hand.length===6,'EMIYA 投影魔術：每回合開始 1 把投影劍＋照常抽 5');
+r=arena('emiya'); r.battle.hand=['project','broken']; G.play(r,0,0); t(SW(r)===2&&r.battle.hand.filter(x=>x==='sword').length===1,'投影魔術：2 把投影劍疊成一張「×2」');
+G.play(r,r.battle.hand.indexOf('broken'),0); t(!r.battle.hand.includes('sword')&&SW(r)===0&&E(r).hp===36,'壞幻：引爆 2 把，每把全體 7',E(r).hp);
+r=arena('emiya'); r.battle.np=100; G.noble(r,0); t(r.battle.hand.length===1&&SW(r)===3&&r.battle.ubw===2&&r.battle.projUp===2&&/造成 6 傷害/.test(G.cardText('sword',r)),'無限劍製：3 把投影劍（疊成一張）、之後 2 回合、投影劍 6 傷');
 t(E(r).hp===50-(6+2*3),'無限劍製：展開時全體 6＋每把劍 2',E(r).hp); G.play(r,0,0); t(E(r).hp===38-6,'投影劍 4+2＝6',E(r).hp);
-G.endTurn(r); t(r.battle.hand.filter(x=>x==='sword').length===6&&!r.battle.discard.includes('sword'),'囤積：沒用完的 2 把留在手上，下回合再 3 張（加被動 1 張）＝6 把');
-{ const q=arena('emiya'); q.battle.hand=Array(7).fill('sword'); G.endTurn(q); t(q.battle.hand.filter(x=>x==='sword').length===5+1,'投影劍最多留 5 把（再加回合開始的 1 把）',q.battle.hand.filter(x=>x==='sword').length); }
+t(SW(r)===2&&r.battle.hand.includes('sword'),'出一把投影劍：還有就留在手上，數字 -1'); G.endTurn(r); t(SW(r)===6&&!r.battle.discard.includes('sword')&&!r.battle.exhaust.includes('sword'),'囤積：沒用完的 2 把留著，下回合再 3 把（加被動 1 把）＝6 把',SW(r));
+{ const q=arena('emiya'); swords(q,7); G.endTurn(q); t(SW(q)===5+1,'投影劍回合結束最多留 5 把（再加回合開始的 1 把）',SW(q)); }
+{ const q=arena('emiya'); q.battle.hand=Array(9).fill('atk_emiya'); playId(q,'project'); q.battle.energy=3; t(SW(q)===2&&q.battle.hand.length===10,'投影劍那一格不算手牌上限（手上 9 張照樣拿得到）'); q.battle.draw=['atk','atk']; G.endTurn(q); t(q.battle.hand.filter(x=>x!=='sword').length<=10,'手牌上限照樣是 10（不含投影劍）');
+  playId(q,'project'); for(let k=0;k<6;k++){ q.battle.energy=3; playId(q,'project'); } t(SW(q)===10,'投影劍最多 10 把',SW(q)); }
+{ const q=arena('emiya'); q.hp=99; q.battle.hand=Array(9).fill('worm'); swords(q,3); E(q).intent={n:'寄生',fx:[['plant','worm',1]]}; G.endTurn(q); t(q.battle.hand.filter(x=>x==='worm').length===10,'手上 9 張（保留）＋投影劍：塞進來的牌照樣進得了手牌（劍那格不佔位）',q.battle.hand.filter(x=>x==='worm').length); }
+{ const q=arena('saber'); swords(q,2); G.endTurn(q); t(SW(q)===0&&!q.battle.hand.includes('sword'),'不是 EMIYA：投影劍回合結束就消失'); }
 
 r=arena('cu'); E(r).block=10; playId(r,'thrust'); t(E(r).hp===44&&E(r).block===10&&r.battle.riposte===4,'庫・丘林 突刺：穿透 6 無視格擋、迎擊 4',E(r).hp);
 r=arena('cu'); playId(r,'arrowward'); E(r).intent={n:'砍',fx:[['atk',20],['atk',5]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===1,'箭矢加護：閃過第一擊，第二擊被 4 格擋擋掉 4',hp-r.hp);
@@ -101,9 +107,9 @@ playId(r,'windwall'); t(r.battle.block===4+2*3&&r.battle.wind===3,'風王結界�
 r.battle.tstr=0; let h1=E(r).hp; r.battle.energy=3; playId(r,'hammer'); t(h1-E(r).hp===5+4*3&&r.battle.wind===0,'風王鐵槌：解放全部風',h1-E(r).hp);
 r=arena('saber'); playId(r,'kingly'); t(r.battle.wind===1,'能力牌打出當下先生效一次：王者風範風 +1'); G.endTurn(r); t(r.battle.wind===2,'王者風範：之後每回合開始風 +1');
 t(/現在 9/.test(G.cardText('hammer',(()=>{ const q=arena('saber'); q.battle.wind=1; return q; })())),'說明會標出現在的數字（風王鐵槌 5＋4＝9）');
-r=arena('emiya'); r.battle.hand=['sword','sword','hrunting']; G.play(r,2,0); t(E(r).hp===50-(8+3*2)&&r.battle.hand.length===2,'赤原獵犬：手上每把投影劍 +3，劍不消耗',E(r).hp);
-r=arena('emiya'); r.battle.hand=['sword','rhoaias']; G.play(r,1,0); t(r.battle.block===9,'熾天覆七重圓環：格擋 6＋劍×3');
-r=arena('emiya'); playId(r,'analysis'); r.battle.hand=['sword']; G.play(r,0,0); t(E(r).hp===45,'構造解析：投影劍 4＋1',E(r).hp);
+r=arena('emiya'); r.battle.hand=['hrunting']; swords(r,2); G.play(r,1,0); t(E(r).hp===50-(8+3*2)&&SW(r)===2,'赤原獵犬：手上每把投影劍 +3，劍不消耗',E(r).hp);
+r=arena('emiya'); r.battle.hand=['rhoaias']; swords(r,1); G.play(r,1,0); t(r.battle.block===9,'熾天覆七重圓環：格擋 6＋劍×3');
+r=arena('emiya'); playId(r,'analysis'); r.battle.hand=[]; swords(r,1); G.play(r,0,0); t(E(r).hp===45&&SW(r)===0&&!r.battle.hand.includes('sword'),'構造解析：投影劍 4＋1；最後一把用完卡就消失',E(r).hp);
 r=arena('cu'); playId(r,'riposte'); playId(r,'lightchild'); E(r).intent={n:'砍',fx:[['atk',10]]}; hp=r.hp; G.endTurn(r);
 t(r.hp===hp&&E(r).hp===45&&r.battle.str===1,'迎擊之槍：閃過就反擊 5 穿透；光之子：迴避一次力量 +1',JSON.stringify([E(r).hp,r.battle.str]));
 t(r.battle.riposte===0,'迎擊只在那一回合');
@@ -388,7 +394,7 @@ t(r9.battle.block===8&&r9.battle.energy===4&&r9.battle.np===25&&r9.battle.enemie
 const r10=J(G.newRun('lancelot',21)); step(r10,'fight'); const saved=J(r10); x=G.play(saved,0,0); t(x.ok||x.msg,'存檔（JSON）來回後照樣能出牌');
 const old={v:1,who:'archer',hp:50,maxHp:72,deck:['atk'],relics:[],seals:3,maxSeals:3,floor:3,lane:1,screen:'battle',map:G.newRun('saber',1).map,
   battle:{kind:'fight',turn:1,energy:3,block:0,np:0,str:0,tstr:0,vuln:0,weak:0,thorns:0,pBlock:0,pDraw:0,pEnergy:0,ubw:0,projUp:0,firstAtk:false,draw:[],hand:['atk','sword'],discard:[],exhaust:[],enemies:[{id:'hercules',key:'h0',name:'赫拉克勒斯',hp:50,maxHp:100,block:0,str:0,vuln:0,weak:0,lives:1,mi:0,last:-1,rep:0,intent:{n:'怒吼',fx:[['str',3]]}}],log:[]},stats:{kills:0,np:0,seals:0,floors:3},rs:5};
-G.migrate(old); t(old.who==='emiya'&&old.boss==='heracles'&&old.battle.enemies[0].id==='heracles'&&G.play(old,0,0).ok&&G.endTurn(old).ok,'第一版的舊存檔（Archer）轉得過來、繼續能打');
+G.migrate(old); t(old.battle.swords===1&&old.who==='emiya'&&old.boss==='heracles'&&old.battle.enemies[0].id==='heracles'&&G.play(old,0,0).ok&&G.endTurn(old).ok,'第一版的舊存檔（Archer）轉得過來、繼續能打');
 // 強化畫面看得出差別：英靈之魂不重複印同一個資源、共鳴的寶具量表上卡面、upDiff 列出具體變化
 t(JSON.stringify(G.card('doublespear+d').fx)==='[["hits",5,2],["doom",3],["reap"]]'&&G.cardShort('doublespear+d')==='⚔5×2 刻印3 收尾 連動','英靈之魂：牌上已有刻印 1 → 合併成刻印 3（不印兩次、也不輸給精煉）',G.cardShort('doublespear+d'));
 t(JSON.stringify(G.card('rose+d').fx.filter(f=>f[0]==='stance').length)==='3','英靈之魂：切換架勢（非數字）照樣多加一次');
@@ -428,7 +434,7 @@ t(!/每場戰鬥開始：每/.test(G.ORDER.map(k=>[2,3,4,6].map(l=>G.ascText(k,l
   Object.keys(G.RELICS).forEach(k=>chk(k,G.RELICS[k].text)); Object.keys(G.EVENTS).forEach(k=>G.EVENTS[k].opts.forEach(o=>chk(k,o.label))); Object.keys(G.FATES).forEach(k=>chk(k,G.FATES[k].text));
   t(!bad.length,'所有文字沒有 undefined／NaN／{1} 殘留',bad.slice(0,5).join(',')); }
 // 稽核第 2 輪：EMIYA 鶴翼三連、吉爾斯海魔每 12 多咬一口、庫・丘林開局迎擊之槍、理性蒸發換武練
-{ const r=arena('emiya',1,99); r.battle.hand=['sword','sword']; playId(r,'kakuyoku'); t(E(r).hp===99-(5+2)*3,'鶴翼三連：手上 2 把投影劍 → (5+2)×3（劍不消耗）',E(r).hp); t(r.battle.hand.filter(x=>x==='sword').length===2,'鶴翼三連不用掉投影劍'); }
+{ const r=arena('emiya',1,99); swords(r,2); playId(r,'kakuyoku'); t(E(r).hp===99-(5+2)*3,'鶴翼三連：手上 2 把投影劍 → (5+2)×3（劍不消耗）',E(r).hp); t(SW(r)===2,'鶴翼三連不用掉投影劍'); }
 { const r=arena('gilles'); r.battle.kraken=12; t(G.krakenBites(r.battle)===2,'海魔大小 12 就咬兩口'); }
 t(G.newRun('cu',1).deck.includes('arrowward'),'庫・丘林開局招牌牌是箭矢加護（原作技能，第 1 回合就能迴避）');
 { const r=arena('lancelot'); playId(r,'reason'); t(r.battle.mastery===1&&!r.battle.tstr,'理性蒸發：武練 +1（不再是本回合力量，跟赫拉克勒斯分開）'); }

@@ -15,7 +15,7 @@ var G = (function () {
     def: { name: '防禦', cost: 1, type: 'skill', np: 5, fx: [['block', 5]], up: { fx: [['block', 8]] } }
   });
   kit('token', {
-    sword:    { name: '投影劍', cost: 0, type: 'atk', np: 3, token: 1, fx: [['dmg', 4]] },
+    sword:    { name: '投影劍', cost: 0, type: 'atk', np: 3, token: 1, fx: [['dmg', 4]], stack: 1 },   // 疊成一張，b.swords＝幾把
     weapon:   { name: '武器化', cost: 0, type: 'atk', np: 3, token: 1, fx: [['dmg', 7]] },
     t_sword:  { name: '寶劍', cost: 0, type: 'atk', np: 3, token: 1, fx: [['dmg', 5]] },
     t_spear:  { name: '寶槍', cost: 0, type: 'atk', np: 3, token: 1, fx: [['pierce', 4]] },
@@ -299,7 +299,7 @@ var G = (function () {
       np: { name: '誓約勝利之劍', fx: [['windAll', 40, 3]] } },
     emiya: { name: 'EMIYA', cls: 'Archer', war: 5, hp: 71, sig: 'project',
       desc: '把劍投影出來用完即丟的弓兵。手上的投影劍越多，赤原獵犬、熾天覆越強，最後壞幻引爆。',
-      passive: { id: 'forge', name: '投影魔術', text: '每回合開始得到 1 張投影劍；手上的投影劍回合結束不會消失（最多留 5 把），囤起來再一口氣引爆' },
+      passive: { id: 'forge', name: '投影魔術', text: '每回合開始得到 1 把投影劍；投影劍疊成一張「投影劍 ×N」（不佔手牌上限，最多 10 把），回合結束留下 5 把，囤起來再一口氣引爆' },
       np: { name: '無限劍製', fx: [['ubw', 1], ['projAll', 6, 2]] } },
     cu: { name: '庫・丘林', cls: 'Lancer', war: 5, hp: 64, sig: 'arrowward',
       desc: '必中之槍與箭矢加護。反擊型：挑釁敵人全都衝著你來，迴避成功就回敬一槍、寶具量表跟著漲；穿透傷害無視格擋。',
@@ -637,8 +637,8 @@ var G = (function () {
     block: '格擋 {1}', draw: '抽 {1} 張', energy: '魔力 +{1}', str: '力量 +{1}', tstr: '本回合力量 +{1}',
     vuln: '易傷 {1}', weak: '虛弱 {1}', weakAll: '全體虛弱 {1}', vulnAll: '全體易傷 {1}', strDown: '目標力量 -{1}',
     heal: '回復 {1}', np: '寶具 +{1}%', thorns: '本回合每次被攻擊，對攻擊者造成 {1}',
-    proj: '得到 {1} 張投影劍', burst: '引爆手上所有投影劍，每把對全體造成 {1} 傷害',
-    ubw: '這回合與之後 2 回合，每回合開始得到 3 張投影劍；本場投影劍傷害 +2',
+    proj: '投影劍 +{1} 把', burst: '引爆手上所有投影劍，每把對全體造成 {1} 傷害',
+    ubw: '這回合與之後 2 回合，每回合開始得到 3 把投影劍；本場投影劍傷害 +2',
     pBlock: '每回合開始格擋 {1}', pDraw: '每回合多抽 {1} 張', pEnergy: '每回合魔力 +{1}', pStr: '每回合開始力量 +{1}',
     pEvade: '每回合開始迴避 {1}', pTreasure: '每回合開始從寶庫取出 {1} 件寶具', pMinion: '每回合開始召喚 {1} 名{m}',
     pVenom: '攻擊每命中一次附加毒 {1}', pWeaponize: '每回合開始，手上 {1} 張技能牌變成「武器化」',
@@ -738,7 +738,7 @@ var G = (function () {
     if (c.dir === 'c' || (c.type !== 'atk' && c.np >= 20)) bits.push('寶具+' + c.np + '%');   // 共鳴、或主打寶具量表的技能，卡面看得到   // 共鳴：寶具量表加得比較多，卡面也看得到
     if (c.link) bits.push(c.chase ? '連動・追擊' : '連動');
     if (c.type === 'power') bits.push('（整場）');
-    if (c.ex || c.token) bits.push('消耗');
+    if ((c.ex || c.token) && !c.stack) bits.push('消耗');
     return bits.join(' ');
   }
   // 強化方向選單用：跟原本的牌比，具體變了什麼（費用、寶具量表、效果、消耗）
@@ -970,6 +970,8 @@ var G = (function () {
     var b = run.battle;
     if (b) {
       Object.keys(BATTLE0).forEach(function (k) { if (b[k] === undefined) b[k] = JSON.parse(JSON.stringify(BATTLE0[k])); });
+      var oldSw = b.hand.filter(function (y) { return y === 'sword'; }).length;
+      if (oldSw && !b.swords) { b.swords = oldSw; b.hand = b.hand.filter(function (y) { return y !== 'sword'; }); syncSword(b); }   // 舊存檔：一張一張的投影劍疊成一張
       b.enemies.forEach(function (e) {
         if (e.id === 'hercules') e.id = 'heracles';
         ['poison', 'wound', 'petrify', 'stun'].forEach(function (k) { if (e[k] === undefined) e[k] = 0; });
@@ -1282,7 +1284,7 @@ var G = (function () {
 
   // ── 戰鬥 ─────────────────────────────────────────────
   // 一場戰鬥的初始欄位（p 開頭＝能力牌，每回合生效）
-  var BATTLE0 = { turn: 0, energy: 0, block: 0, np: 0, str: 0, tstr: 0, vuln: 0, weak: 0, thorns: 0, manshin: 0, hurt: 0,
+  var BATTLE0 = { turn: 0, energy: 0, block: 0, np: 0, str: 0, tstr: 0, vuln: 0, weak: 0, thorns: 0, manshin: 0, hurt: 0, swords: 0,
     pBlock: 0, pDraw: 0, pEnergy: 0, pStr: 0, pEvade: 0, pTreasure: 0, pMinion: 0, pVenom: 0, pWeaponize: 0, mastery: 0,
     ubw: 0, projUp: 0, firstAtk: false, evade: 0, minions: 0, army: 0, attacks: 0, stance: '', played: 0,
     nextFree: 0, nextEnergy: 0, hswUsed: 0,
@@ -1354,13 +1356,17 @@ var G = (function () {
   function drawCards(run, n) {
     var b = run.battle;
     for (var i = 0; i < n; i++) {
-      if (b.hand.length >= 10) break;
+      if (handFull(b)) break;
       if (!b.draw.length) { if (!b.discard.length) break; b.draw = shuffle(run, b.discard); b.discard = []; }
       b.hand.push(b.draw.pop());
     }
   }
-  function addProj(b, n) { for (var i = 0; i < n && b.hand.length < 10; i++) b.hand.push('sword'); }
-  function addTreasure(run, n) { var b = run.battle; for (var i = 0; i < n && b.hand.length < 10; i++) b.hand.push(pick(run, TREASURE)); }
+  // 投影劍疊成一張「投影劍 ×N」：只佔一格、不算手牌上限，最多 SWORD_MAX 把
+  var SWORD_MAX = 10;
+  function addProj(b, n) { b.swords = Math.min(SWORD_MAX, (b.swords || 0) + n); syncSword(b); }
+  function syncSword(b) { var has = b.hand.indexOf('sword') >= 0; if (b.swords > 0 && !has) b.hand.unshift('sword'); if (!(b.swords > 0) && has) b.hand = b.hand.filter(function (y) { return y !== 'sword'; }); }
+  function handFull(b) { return b.hand.filter(function (y) { return y !== 'sword'; }).length >= 10; }   // 投影劍那一格不算
+  function addTreasure(run, n) { var b = run.battle; for (var i = 0; i < n && !handFull(b); i++) b.hand.push(pick(run, TREASURE)); }
   function addMinion(b, n) { b.minions = Math.min(MINION_MAX, b.minions + n); }
   function alive(b) { return b.enemies.filter(function (e) { return e.hp > 0; }); }
 
@@ -1500,9 +1506,9 @@ var G = (function () {
     thorns: function (x, f) { x.b.thorns += f[1]; },
     proj: function (x, f) { addProj(x.b, f[1]); },
     burst: function (x, f) {
-      var b = x.b, cnt = b.hand.filter(function (y) { return y === 'sword'; }).length;
-      b.hand = b.hand.filter(function (y) { return y !== 'sword'; });
-      for (var s = 0; s < cnt; s++) { b.exhaust.push('sword'); alive(b).forEach(function (e) { strike(x, e, f[1]); }); }
+      var b = x.b, cnt = b.swords || 0;
+      b.swords = 0; syncSword(b);
+      for (var s = 0; s < cnt; s++) alive(b).forEach(function (e) { strike(x, e, f[1]); });
       x.log.push('引爆 ' + cnt + ' 把投影劍');
     },
     ubw: function (x) { addProj(x.b, 3); x.b.ubw = 2; x.b.projUp += 2; x.log.push('劍的荒野展開了'); },
@@ -1558,10 +1564,10 @@ var G = (function () {
     mastery: function (x, f) { x.b.mastery += f[1]; },
     weaponize: function (x, f) {
       var b = x.b;
-      for (var k = 0; k < f[1] && b.hand.length <= 10; k++) {
+      for (var k = 0; k < f[1]; k++) {
         var i = -1; b.hand.forEach(function (y, j) { var c = card(y); if (i < 0 && c.type === 'skill' && !c.token) i = j; });
         if (i >= 0) b.discard.push(b.hand.splice(i, 1)[0]);
-        if (b.hand.length < 10) b.hand.push('weapon');
+        if (!handFull(b)) b.hand.push('weapon');
       }
     }
   };
@@ -1569,7 +1575,7 @@ var G = (function () {
   function isTreasure(id) { return id.indexOf('t_') === 0; }
   var RES = {
     wind: function (b) { return b.wind; },
-    proj: function (b) { return b.hand.filter(function (y) { return y === 'sword'; }).length; },
+    proj: function (b) { return b.swords || 0; },
     skill: function (b) { return b.chant || 0; },
     energy: function (b) { return b.energy; },
     army: function (b) { return b.army; },
@@ -1643,7 +1649,7 @@ var G = (function () {
     chantAll: function (x, f) { var n = f[1] + f[2] * (x.b.chant || 0); if (x.b.chant) x.log.push('以陣地 ' + x.b.chant + ' 層為祭壇'); alive(x.b).forEach(function (e) { strike(x, e, n); }); },   // 陣地不會用掉
     doom: function (x, f) { if (x.tg && x.tg.hp > 0) x.tg.doom = (x.tg.doom || 0) + f[1]; },
     doomAll: function (x, f) { alive(x.b).forEach(function (e) { e.doom = (e.doom || 0) + f[1]; }); },
-    projHits: function (x, f) { var sw = x.b.hand.filter(function (y) { return y === 'sword'; }).length; for (var h = 0; h < f[3]; h++) if (x.tg && x.tg.hp > 0) strike(x, x.tg, f[1] + f[2] * sw); },
+    projHits: function (x, f) { var sw = x.b.swords || 0; for (var h = 0; h < f[3]; h++) if (x.tg && x.tg.hp > 0) strike(x, x.tg, f[1] + f[2] * sw); },
     doomDmg: function (x, f) { if (x.tg) strike(x, x.tg, f[1] + f[2] * (x.tg.doom || 0)); },
     reap: function (x) { reapOne(x.run, x.tg, x.log); },
     reapAll: function (x) { alive(x.b).forEach(function (e) { reapOne(x.run, e, x.log); }); },
@@ -1728,6 +1734,7 @@ var G = (function () {
     b.energy -= cost;
     if (c.cost > 0) { if (b.nextFree) b.nextFree = 0; else if (c.type === 'skill' && passive(run) === 'hsw' && !b.hswUsed) b.hswUsed = 1; }
     b.hand.splice(i, 1);
+    if (id === 'sword') { b.swords = Math.max(0, (b.swords || 1) - 1); if (b.swords > 0) b.hand.splice(i, 0, 'sword'); }   // 投影劍：用一把，還有就留在原位
     var dk = b.doomKills || 0;   // 收尾成功幾個（這張牌打完再比）
     var ctx = { run: run, b: b, tg: tg, log: [c.name], id: baseId(c.id), atk: c.type === 'atk', first: b.played === 0 };
     var chained = ctx.atk && b.reapNext, p0 = b.played; if (chained) b.reapNext = 0;   // 連鎖中：這張攻擊打完也收尾
@@ -1741,7 +1748,7 @@ var G = (function () {
     if (ctx.atk) wisdomHit(run, tg, ctx.log);
     if (chained) chainReap(run, tg, ctx.log);
     b.np = Math.min(npMax(b), b.np + (c.np || 0));
-    if (c.type !== 'power') (c.ex || c.token ? b.exhaust : b.discard).push(id);
+    if (c.type !== 'power' && id !== 'sword') (c.ex || c.token ? b.exhaust : b.discard).push(id);
     if (c.link) linkCascade(run, tg, ctx.log);
     b.log = ctx.log;
     var end = checkEnd(run);
@@ -1822,7 +1829,7 @@ var G = (function () {
     else if (k === 'weak' || k === 'vuln') debuffPlayer(run, k, n, log);
     else if (k === 'heal') e.hp = Math.min(e.maxHp, e.hp + n);
     else if (k === 'curse') { for (var c = 0; c < f[2]; c++) b.discard.push(n); log.push('牌堆裡混進了' + card(n).name); }
-    else if (k === 'plant') { for (var c2 = 0; c2 < f[2]; c2++) (b.hand.length < 10 ? b.hand : b.discard).push(n); log.push(card(n).name + '鑽進了你的手牌'); }
+    else if (k === 'plant') { for (var c2 = 0; c2 < f[2]; c2++) (!handFull(b) ? b.hand : b.discard).push(n); log.push(card(n).name + '鑽進了你的手牌'); }
     else if (k === 'summon') {
       for (var s = 0; s < f[2] && alive(b).length < FOES_MAX; s++) {
         var m = makeEnemy(run, n, b.up, b.enemies.length); chooseIntent(run, m); b.enemies.push(m);
@@ -1835,8 +1842,9 @@ var G = (function () {
     var log = [], ctx = { run: run, b: b, log: log };
     if (b.pEnergyBlock && b.energy > 0) { b.block += b.pEnergyBlock * b.energy; log.push('山門：格擋 +' + b.pEnergyBlock * b.energy); }
     b.hand.forEach(function (x) { var h = card(x).hold; if (h) { loseHp(run, h, log); log.push(card(x).name + '侵蝕了你（-' + h + '）'); } });
-    var sw = 0, keep = b.hand.filter(function (x) { return card(x).retain || (passive(run) === 'golden' && isTreasure(x)) || (passive(run) === 'forge' && x === 'sword' && ++sw <= 5); });   // 保留：刻印蟲、王之財寶、投影劍（最多 5 把，才囤得起來）
-    b.hand.forEach(function (x) { if (keep.indexOf(x) >= 0) return; (card(x).token ? b.exhaust : b.discard).push(x); });
+    if (b.swords) b.swords = passive(run) === 'forge' ? Math.min(5, b.swords) : 0;   // 投影劍：EMIYA 回合結束留 5 把，才囤得起來
+    var keep = b.hand.filter(function (x) { return card(x).retain || (passive(run) === 'golden' && isTreasure(x)) || (x === 'sword' && b.swords > 0); });   // 保留：刻印蟲、王之財寶、投影劍
+    b.hand.forEach(function (x) { if (keep.indexOf(x) >= 0 || x === 'sword') return; (card(x).token ? b.exhaust : b.discard).push(x); });
     b.hand = keep; b.tstr = 0; b.nextFree = 0;
     if (b.vuln > 0) b.vuln--; if (b.weak > 0) b.weak--;
     // 我方的持續攻擊：軍勢衝鋒、使魔
