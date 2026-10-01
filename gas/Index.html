@@ -301,8 +301,9 @@
     ['難度', '普通／困難／深淵：困難要任一從者通關普通、深淵要通關困難；越難敵人越強，聖晶石越多。命座（靈基再臨）上限看那位通關過的最高難度：普通 II、困難 IV、深淵 VI'],
     ['命運', '每次出發前三選一的強化；到靈基工坊用聖晶石解鎖更多'],
     ['聖晶石與靈基工坊', '每局結束依表現得到聖晶石（走過的格子、打倒魔王、通關）；拿來解鎖新英靈、靈基再臨（每位英靈各自升級）、命運。每位玩家分開記'],
-    ['死兆', '斯卡哈的印記：每層讓那個敵人受到的每一擊 +1；生命低於「死兆×4」就立刻倒下（魔王只吃加傷，不會即死）'],
-    ['魔境之智慧', '斯卡哈的被動：每回合從第 3 張牌起（技能也算張數），每打出一張攻擊牌目標死兆 +1；出到第 5 張時迴避 1；死兆應驗（即死）時魔力 +1、抽 1 張。0 費牌多、出越快越強'],
+    ['刻印', '盧恩刻印（斯卡哈，原初的盧恩）：每層讓那個敵人受到的每一擊 +1。刻印本身不會殺人，要用「收尾」'],
+    ['收尾', '斯卡哈的死棘、死翔之槍與寶具：目標生命 ≤ 刻印×4 就當場倒下（魔王只吃加傷，不會即死）。收尾成功魔力 +1、抽 1，下一張攻擊也能收尾（連鎖）'],
+    ['魔境之智慧', '斯卡哈的被動：每回合從第 3 張牌起（技能也算張數），每打出一張攻擊牌目標刻印 +1；出到第 5 張時迴避 1；收尾成功時魔力 +1、抽 1，下一張攻擊也能收尾。先把刻印疊好，再一口氣刺過去'],
     ['地圖', '由上往下走，只能沿線前進；看得到接下來 3 列與魔王。精英比較難，但打贏有禮裝與靈基覺醒；事件是有取捨的選擇'],
     ['兩章與隱藏關', '第一章、第二章各有一位魔王；第二章打完時手上還留著令咒，就能燒掉 1 劃進入隱藏關'],
     ['強化方向', '休息點鍛鍊或事件強化時，從三個方向選一個：精煉（數值變強）、迅捷（費用 -1，只有 2 費以上的牌）、共鳴（寶具 +15%、多抽 1）、英靈之魂（多一個自己從者的機制，只有專屬牌）、極限（數值翻倍但打出後消耗）'],
@@ -624,7 +625,7 @@
     if (e.poison) a.push('<span style="color:var(--green)">毒 ' + e.poison + '</span>');
     if (e.wound) a.push('<span style="color:var(--red)">創傷 ' + e.wound + '</span>');
     if (e.petrify) a.push('石化 ' + e.petrify + '/' + th);
-    if (e.doom) a.push('<span style="color:var(--purple)">死兆 ' + e.doom + (G.ENEMIES[e.id].boss ? '' : '（≤' + e.doom * 4 + ' 即死）') + '</span>');
+    if (e.doom) a.push('<span style="color:var(--purple)">刻印 ' + e.doom + (G.ENEMIES[e.id].boss ? '' : '（≤' + e.doom * 4 + (e.hp <= e.doom * 4 ? ' 可收尾！' : ' 可收尾') + '）') + '</span>');
     if (e.lives) a.push('十二試煉 ' + e.lives);
     return a.map(function (x) { return '<span class="chip">' + x + '</span>'; }).join('');
   }
@@ -637,7 +638,8 @@
     if (b.minions) a.push(['gold', G.minionName(run) + ' ×' + b.minions]);
     if (b.army) a.push(['gold', '軍勢 ' + b.army]);
     if (b.stance) a.push(['gold', (b.stance === 'red' ? '紅薔薇' : '黃薔薇') + (G.passive(run) === 'twin' ? '・下次切換刺 ' + (2 + b.switches + (b.pSwitch || 0)) : '')]);
-    if (G.passive(run) === 'wisdom') { var wf = G.wisdomFrom(b); a.push(['gold', '本回合已出 ' + b.played + ' 張' + (b.played + 1 >= wf ? '・下一張攻擊死兆 +1' : '・第 ' + wf + ' 張起攻擊死兆 +1')]); }
+    if (G.passive(run) === 'wisdom') { var wf = G.wisdomFrom(b); a.push(['gold', '本回合已出 ' + b.played + ' 張' + (b.played + 1 >= wf ? '・下一張攻擊刻印 +1' : '・第 ' + wf + ' 張起攻擊刻印 +1')]); }
+    if (b.reapNext) a.push(['gold', '⚡ 連鎖：下一張攻擊可收尾']);
     if (G.passive(run) === 'arms' || b.mastery) a.push(['gold', '武練 ' + b.mastery]);
     if (b.str) a.push(['', '力量 ' + b.str]);
     if (b.tstr) a.push(['', '本回合力量 +' + b.tstr]);

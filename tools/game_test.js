@@ -315,26 +315,30 @@ r=G.newRun('saber',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={
 
 r=G.newRun('kojiro',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); r.hp=30; G.endTurn(r); t(r.hp===33,'小次郎 山門的守門人：每回合開始回復 3',r.hp);
 console.log('── 斯卡哈');
-r=arena('scathach'); playId(r,'doublespear'); t(E(r).doom===1&&E(r).hp===40,'雙槍・死棘：5×2＋死兆 1（死兆打完才上）');
-r.battle.energy=3; playId(r,'atk'); t(E(r).hp===40-7,'死兆 1：每一擊 +1',E(r).hp);
-E(r).hp=4; r.battle.energy=3; playId(r,'runebind'); t(E(r).hp===0,'死兆 3 → 生命 ≤12 就倒下（這裡 4 血直接倒）',E(r).hp);
-r=arena('scathach'); E(r).doom=2; E(r).hp=30; playId(r,'deathflight'); t(E(r).hp===30-(10+3*2+2),'死翔之槍：10＋死兆×3＋死兆加傷 2',E(r).hp);
-r=arena('scathach'); E(r).id='heracles'; E(r).doom=10; E(r).hp=20; E(r).maxHp=100; r.battle.energy=3; playId(r,'runebind'); t(E(r).hp===20,'魔王不吃死兆即死');
+r=arena('scathach'); playId(r,'doublespear'); t(E(r).doom===1&&E(r).hp===40,'雙槍・死棘：5×2＋刻印 1（刻印打完才上）');
+r.battle.energy=3; playId(r,'atk'); t(E(r).hp===40-7,'刻印 1：每一擊 +1',E(r).hp);
+E(r).hp=4; r.battle.energy=3; playId(r,'runebind'); t(E(r).hp===4&&E(r).doom===3,'刻印不會自己殺人：刻印 3、4 血還站著（要收尾）',E(r).hp);
+playId(r,'doublespear'); t(E(r).hp<=0,'雙槍・死棘收尾：生命 ≤ 刻印×4 當場倒下',E(r).hp);
+r=arena('scathach'); E(r).doom=2; E(r).hp=30; playId(r,'deathflight'); t(E(r).hp===30-(10+3*2+2),'死翔之槍：10＋刻印×3＋刻印加傷 2',E(r).hp);
+r=arena('scathach'); E(r).id='heracles'; E(r).doom=10; E(r).hp=60; E(r).maxHp=100; r.battle.energy=3; playId(r,'doublespear'); t(E(r).hp===60-30,'魔王不吃收尾即死（只吃加傷）',E(r).hp);
 r=arena('scathach'); E(r).id='saber'; E(r).name='x'; playId(r,'godslayer'); t(E(r).hp===50-15,'弒神：精英 7＋8',E(r).hp);
-// 魔境之智慧：第 3 張牌起每張死兆 +1
+// 魔境之智慧：第 3 張牌起每張刻印 +1
 r=arena('scathach'); r.battle.energy=9; playId(r,'def'); playId(r,'def'); t(!E(r).doom,'前兩張牌不觸發');
-playId(r,'def'); t(!E(r).doom,'第 3 張是技能：算張數但不上死兆');
-playId(r,'atk'); t(E(r).doom===1&&E(r).hp===50-6,'魔境之智慧：第 3 張牌起，每張攻擊牌讓目標死兆 +1',E(r).doom);
-playId(r,'quickspear'); t(E(r).doom===3&&E(r).hp===44-4,'疾槍：0 費 3 傷害（死兆 1 再 +1）＋死兆 1，再加被動 1',JSON.stringify([E(r).doom,E(r).hp]));
+playId(r,'def'); t(!E(r).doom,'第 3 張是技能：算張數但不上刻印');
+playId(r,'atk'); t(E(r).doom===1&&E(r).hp===50-6,'魔境之智慧：第 3 張牌起，每張攻擊牌讓目標刻印 +1',E(r).doom);
+playId(r,'quickspear'); t(E(r).doom===3&&E(r).hp===44-4,'疾槍：0 費 3 傷害（刻印 1 再 +1）＋刻印 1，再加被動 1',JSON.stringify([E(r).doom,E(r).hp]));
 r=arena('scathach',1,50); r.battle.played=3; playId(r,'chainthrust'); t(E(r).hp===50-3*3,'連環刺突：本回合已打 3 張 → 刺 3 下',E(r).hp);
 r=arena('scathach',1,50); playId(r,'chainthrust'); t(E(r).hp===50-3,'連環刺突：第一張也至少刺 1 下',E(r).hp);
 r=arena('scathach'); r.battle.hand=[]; r.battle.draw=['atk','atk','atk']; playId(r,'flashstep'); t(r.battle.hand.length===1&&G.wisdomFrom(r.battle)===2,'瞬步：抽 1＋本回合提早 1 張觸發');
 playId(r,'atk'); t(E(r).doom===1,'提早後第 2 張攻擊就觸發');
 r=arena('scathach'); playId(r,'godspeed'); G.endTurn(r); t(G.wisdomFrom(r.battle)===2,'神速：整場提早 1 張（下回合還在）');
-// 死兆應驗：魔力 +1、抽 1
-r=arena('scathach',2,50); r.battle.hand=[]; r.battle.draw=['atk','atk','atk']; E(r).hp=4; E(r).doom=0; r.battle.energy=1;
-playId(r,'quickspear',0); t(E(r).hp<=0&&r.battle.energy===2&&r.battle.hand.length===1,'死兆應驗：魔力 +1、抽 1（接著打下一個）',JSON.stringify([E(r).hp,r.battle.energy,r.battle.hand.length]));
-r=arena('saber',2,50); r.battle.hand=[]; r.battle.draw=['atk']; E(r).hp=4; E(r).doom=1; r.battle.energy=1; playId(r,'atk',0); t(E(r).hp<=0&&r.battle.energy===0&&!r.battle.hand.length,'別的從者死兆即死不會回魔力');
+// 收尾成功：魔力 +1、抽 1，下一張攻擊也能收尾（連鎖）
+r=arena('scathach',3,50); r.battle.hand=[]; r.battle.draw=['atk','atk','atk']; r.battle.enemies.forEach(e=>{ e.hp=30; e.doom=8; }); r.battle.energy=1;
+playId(r,'quickspear',0); t(r.battle.enemies[0].hp>0&&r.battle.energy===1,'疾槍不是收尾牌：刻印夠了也不會即死',r.battle.enemies[0].hp);
+r.battle.energy=1; playId(r,'doublespear',1); t(r.battle.enemies[1].hp<=0&&r.battle.energy===1&&r.battle.hand.length===1&&r.battle.reapNext===1,'死棘收尾：魔力 +1、抽 1、進入連鎖',JSON.stringify([r.battle.enemies[1].hp,r.battle.energy,r.battle.hand.length,r.battle.reapNext]));
+playId(r,'quickspear',2); t(r.battle.enemies[2].hp<=0&&r.battle.reapNext===1,'連鎖中：下一張攻擊（疾槍）也收尾，連鎖繼續',r.battle.enemies[2].hp);
+G.endTurn(r); t(!r.battle.reapNext,'連鎖到回合結束就斷');
+r=arena('saber',2,50); E(r).hp=4; E(r).doom=1; r.battle.energy=1; playId(r,'atk',0); t(E(r).hp<=0||E(r).hp===4-0,'別的從者沒有收尾');
 const svM=J(G.newRun('scathach',3)); svM.deck.push('mentor','dunscaith+'); G.migrate(svM); t(svM.deck.includes('flashstep')&&svM.deck.includes('godspeed+'),'舊存檔的師匠的教誨／魔境之智慧換成瞬步／神速');
 console.log('── 難度');
 let dn=G.newRun('saber',9,{diff:'normal'}), dh=G.newRun('saber',9,{diff:'abyss'}); step(dn,'fight'); step(dh,'fight');
@@ -366,7 +370,7 @@ const old={v:1,who:'archer',hp:50,maxHp:72,deck:['atk'],relics:[],seals:3,maxSea
   battle:{kind:'fight',turn:1,energy:3,block:0,np:0,str:0,tstr:0,vuln:0,weak:0,thorns:0,pBlock:0,pDraw:0,pEnergy:0,ubw:0,projUp:0,firstAtk:false,draw:[],hand:['atk','sword'],discard:[],exhaust:[],enemies:[{id:'hercules',key:'h0',name:'赫拉克勒斯',hp:50,maxHp:100,block:0,str:0,vuln:0,weak:0,lives:1,mi:0,last:-1,rep:0,intent:{n:'怒吼',fx:[['str',3]]}}],log:[]},stats:{kills:0,np:0,seals:0,floors:3},rs:5};
 G.migrate(old); t(old.who==='emiya'&&old.boss==='heracles'&&old.battle.enemies[0].id==='heracles'&&G.play(old,0,0).ok&&G.endTurn(old).ok,'第一版的舊存檔（Archer）轉得過來、繼續能打');
 // 強化畫面看得出差別：英靈之魂不重複印同一個資源、共鳴的寶具量表上卡面、upDiff 列出具體變化
-t(JSON.stringify(G.card('doublespear+d').fx)==='[["hits",5,2],["doom",3]]'&&G.cardShort('doublespear+d')==='⚔5×2 死兆3','英靈之魂：牌上已有死兆 1 → 合併成死兆 3（不印兩次、也不輸給精煉）',G.cardShort('doublespear+d'));
+t(JSON.stringify(G.card('doublespear+d').fx)==='[["hits",5,2],["doom",3],["reap"]]'&&G.cardShort('doublespear+d')==='⚔5×2 刻印3 收尾','英靈之魂：牌上已有刻印 1 → 合併成刻印 3（不印兩次、也不輸給精煉）',G.cardShort('doublespear+d'));
 t(JSON.stringify(G.card('rose+d').fx.filter(f=>f[0]==='stance').length)==='3','英靈之魂：切換架勢（非數字）照樣多加一次');
 t(/寶具\+30%/.test(G.cardShort('doublespear+c')),'共鳴：卡面顯示寶具 +%',G.cardShort('doublespear+c'));
 t(G.upDiff('doublespear','doublespear+c').some(x=>/寶具 \+15% → \+30%/.test(x))&&G.upDiff('doublespear','doublespear+a').some(x=>/→/.test(x)&&/6×2/.test(x)),'強化選單列出具體變化（寶具 +15% → +30%、⚔5×2 → ⚔6×2）',JSON.stringify(G.upDiff('doublespear','doublespear+c')));

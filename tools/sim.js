@@ -39,7 +39,7 @@ function value(run){
   const hits=incoming(run).length;
   v+=b.wind*3+b.iaiUp*2+(hits&&b.evade?b.riposte*0.8:0);
   v+=b.kraken*3+b.pKraken*6*left/4;
-  G.alive(b).forEach(e=>{ if(e.doom) v+=e.doom*3+(!G.ENEMIES[e.id].boss&&e.hp<=e.doom*4+8?6:0); }); v+=(b.pHaste||0)*6*left/4+(b.haste||0)*2;
+  G.alive(b).forEach(e=>{ if(e.doom) v+=e.doom*3+(!G.ENEMIES[e.id].boss&&e.hp<=e.doom*4+8?6:0); }); v+=(b.pHaste||0)*6*left/4+(b.haste||0)*2+(b.reapNext?5:0);
   v+=(b.pWind*6+b.pEvadeStr*5+b.pPetrifyAll*8+b.pSkillBlock*5+b.pEnergyBlock*3+b.pStanceBlock*3+b.pRage*4)*left/4;
   return v;
 }
