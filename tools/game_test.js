@@ -70,7 +70,7 @@ r=arena('medusa',2); r.hp=30; playId(r,'bloodfort'); t(r.battle.enemies.every(e=
 
 r=arena('medea'); r.battle.energy=1; r.battle.hand=['curse','warp']; t(G.costOf(r,'curse')===0,'美狄亞 高速神言：第一張技能 0 費');
 G.play(r,0,0); t(r.battle.energy===1&&G.costOf(r,'warp')===1,'用掉之後第二張技能照價');
-r=arena('medea'); playId(r,'word'); t(G.costOf(r,'agemagic')===0,'高速神言牌：下一張（神代魔術）0 費'); playId(r,'agemagic'); t(E(r).hp===40&&r.battle.energy===3&&r.battle.chant===0,'神代魔術 0 費：8＋詠唱 1×2，詠唱歸零',E(r).hp);
+r=arena('medea'); playId(r,'word'); t(G.costOf(r,'agemagic')===0,'高速神言牌：下一張（神代魔術）0 費'); playId(r,'agemagic'); t(E(r).hp===40&&r.battle.energy===3&&r.battle.chant===0,'神代魔術 0 費：8＋陣地 1×2，陣地歸零',E(r).hp);
 r=arena('medea'); playId(r,'fangs'); t(r.battle.minions===1,'龍牙兵：召喚 1'); E(r).intent={n:'砍',fx:[['atk',10]]}; hp=r.hp; G.endTurn(r);
 t(E(r).hp===47&&hp-r.hp===6&&r.battle.minions===0,'龍牙兵回合結束打 3，替你擋 4 後消散',JSON.stringify([E(r).hp,hp-r.hp]));
 r=arena('medea'); E(r).block=15; E(r).str=4; r.battle.np=100; G.noble(r,0); t(E(r).block===0&&E(r).str===0&&E(r).vuln===2&&E(r).weak===2,'萬符必應破戒：拆格擋與力量、虛弱易傷 2');
@@ -81,8 +81,9 @@ r=arena('kojiro'); playId(r,'calm'); G.endTurn(r); t(r.battle.energy===4,'明鏡
 r=arena('kojiro'); E(r).block=30; r.battle.np=100; G.noble(r,0); t(E(r).hp===14,'燕返寶具：穿透 12×3',E(r).hp);
 
 r=arena('hassanC'); r.battle.turn=2; playId(r,'knives'); t(E(r).hp===46&&E(r).poison===4,'咒腕 飛刀：4＋毒 4'); E(r).block=20; G.endTurn(r); t(E(r).hp===42&&E(r).poison===3,'毒：回合開始穿透 4、再減 1',E(r).hp);
-r=arena('hassanC'); r.battle.turn=2; E(r).poison=1; playId(r,'assassinate'); t(E(r).hp===28,'暗殺：中毒時 10＋10（暗殺術再 +2）',E(r).hp);
-r=arena('hassanC'); playId(r,'atk'); t(E(r).hp===44,'沒中毒：照常 6',E(r).hp); E(r).poison=2; playId(r,'atk'); t(E(r).hp===44-8,'咒腕 暗殺術：打中毒的敵人每擊 +2',E(r).hp);
+r=arena('hassanC'); r.battle.turn=2; E(r).poison=1; playId(r,'assassinate'); t(E(r).hp===30,'暗殺：中毒時 10＋10',E(r).hp);
+r=arena('hassanC'); playId(r,'atk'); t(E(r).hp===41,'咒腕 氣息遮斷：第一回合攻擊 ×1.5（6→9）',E(r).hp); r.battle.turn=2; playId(r,'atk'); t(E(r).hp===35,'第二回合照常 6',E(r).hp);
+r=arena('hassanC'); r.battle.turn=2; playId(r,'throwdirk'); t(E(r).hp===38&&G.SERVANTS.hassanC.sig==='throwdirk','投擲短刀（招牌牌）：4×3',E(r).hp);
 r=arena('hassanC'); E(r).poison=4; playId(r,'plague'); t(E(r).poison===8,'毒素擴散：毒加倍');
 r=arena('hassanC'); E(r).hp=24; r.battle.np=100; G.noble(r,0); t(E(r).hp===0,'妄想心音：五成以下直接擊殺');
 r=arena('hassanC'); r.battle.np=100; G.noble(r,0); t(E(r).hp===25,'妄想心音：血多時穿透 25',E(r).hp);
@@ -103,8 +104,8 @@ t(r.battle.riposte===0,'迎擊只在那一回合');
 r=arena('medusa'); E(r).petrify=2; playId(r,'shatter'); t(E(r).hp===50-(6+7*2)&&E(r).petrify===0,'石像碎裂：敲碎石化換傷害',E(r).hp);
 r=arena('medusa'); E(r).stun=1; playId(r,'kick'); t(E(r).hp===30,'迴旋踢：動彈不得的目標 8＋12',E(r).hp);
 r=arena('medusa'); playId(r,'gorgon'); G.endTurn(r); t(E(r).petrify===1,'蛇髮：每回合全體石化 1');
-r=arena('medea'); r.battle.energy=5; playId(r,'chant'); playId(r,'curse'); E(r).vuln=0; playId(r,'bolt'); t(E(r).hp===50-(3+1*3),'魔彈：詠唱牌（+2）＋詛咒（+1）→ 3＋詠唱 3',E(r).hp); G.endTurn(r); t(r.battle.chant===3,'詠唱整場累積，不會每回合歸零',r.battle.chant);
-r=arena('medea'); playId(r,'territory'); playId(r,'chant'); t(r.battle.block===4&&r.battle.chant===2,'陣地作成：每張技能格擋 2；詠唱牌算 2 層');
+r=arena('medea'); r.battle.energy=5; playId(r,'chant'); playId(r,'curse'); E(r).vuln=0; playId(r,'bolt'); t(E(r).hp===50-(3+1*3),'魔彈：陣地牌（+2）＋詛咒（+1）→ 3＋陣地 3',E(r).hp); G.endTurn(r); t(r.battle.chant===3,'陣地整場累積，不會每回合歸零',r.battle.chant);
+r=arena('medea'); playId(r,'territory'); playId(r,'chant'); t(r.battle.block===4&&r.battle.chant===2,'陣地作成：每張技能格擋 2；陣地牌算 2 層');
 r=arena('kojiro'); playId(r,'flash'); t(E(r).hp===50-(2+2*3),'一閃：剩 3 魔力 → 2＋6',E(r).hp);
 r=arena('kojiro'); playId(r,'gate'); r.battle.energy=2; E(r).intent={n:'砍',fx:[['atk',20]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===2,'山門守護：剩 2 魔力格擋 8，心眼把 20 減半成 10 → 扣 2',hp-r.hp);
 r=arena('kojiro'); playId(r,'mastery'); r.battle.played=0; r.battle.energy=3; playId(r,'iai'); t(E(r).hp===50-(5+7+5),'宗和的心得：居合 +5',E(r).hp);
@@ -122,7 +123,7 @@ r=arena('gilles'); r.battle.kraken=4; playId(r,'zealot'); t(r.battle.kraken===1&
 r.battle.kraken=2; playId(r,'zealot'); t(r.battle.kraken===2&&r.battle.tstr===5,'海魔不夠大就沒效果');
 r=arena('gilles'); r.battle.kraken=5; E(r).intent={n:'砍',fx:[['atk',8]]}; hp=r.hp; G.endTurn(r); t(E(r).hp===45&&hp-r.hp===4&&r.battle.kraken===1+1,'大海魔：回合結束咬 5；被打 8 時吃下一半 4 並縮小；下回合長大 1',JSON.stringify([E(r).hp,hp-r.hp,r.battle.kraken]));
 r=arena('hassanH'); r.battle.minions=3; playId(r,'stab'); t(E(r).hp===50-2*4,'同時刺擊：分身 3 → 刺 4 下',E(r).hp);
-r=arena('lancelot'); r.battle.mastery=3; playId(r,'mace'); t(E(r).hp===50-(4+3),'鐵柱橫掃：4＋武練 3',E(r).hp);
+r=arena('lancelot'); r.battle.mastery=3; playId(r,'mace'); t(E(r).hp===50-(4+3+1),'鐵柱橫掃：4＋武練 3（武練 3 點再讓攻擊 +1）',E(r).hp);
 r=arena('lancelot'); r.battle.mastery=2; playId(r,'lakeflash'); t(E(r).hp===50-(10+2*2)&&r.battle.mastery===2,'湖光斬：10＋武練×2（武練不會用掉）',JSON.stringify([E(r).hp,r.battle.mastery]));
 r.battle.energy=3; let h3=E(r).hp; playId(r,'atk'); t(h3-E(r).hp===6,'歸零之後下一擊從頭算',h3-E(r).hp);
 r=arena('lancelot'); r.battle.mastery=3; playId(r,'blackmist'); t(r.battle.block===7&&E(r).hp===50-3,'黑霧：格擋 4＋武練；技能牌順手攻擊 3',JSON.stringify([r.battle.block,E(r).hp]));
@@ -274,6 +275,12 @@ r=arena('medusa',1,60); r.battle.np=100; G.noble(r,0); t(E(r).hp===15&&E(r).stun
 t(['chain','nails','kick','monstrous','bloodfort','mystic'].every(k=>G.CARDS[k]&&G.CARDS[k].kit==='medusa')&&!G.CARDS.mount&&!G.CARDS.land,'美杜莎的牌照原作：鎖鏈、釘劍、踢擊、怪力、鮮血神殿、石化魔眼；沒有騎乘牌');
 const svMd=J(G.newRun('medusa',3)); svMd.deck.push('mount','land+','pegasus'); G.migrate(svMd); t(svMd.deck.includes('monstrous')&&svMd.deck.includes('kick+')&&svMd.deck.includes('kick'),'舊存檔的天馬召喚／急降／天馬衝撞換成怪力／迴旋踢');
 r=arena('saber'); r.battle.wind=3; t(G.cardShort('hammer',r).startsWith('全體⚔17'),'戰鬥中簡短說明照資源算好數字（風王鐵槌 5＋風 3×4）',G.cardShort('hammer',r));
+// 累積時的小好處
+r=arena('saber'); r.battle.wind=7; E(r).intent={n:'砍',fx:[['atk',10,2]]}; t(G.intentDmg(r,E(r),E(r).intent.fx[0])===8,'Saber 風之屏障：風 7（每 3 層 -1）→ 敵人每擊 -2，預告也照算'); hp=r.hp; G.endTurn(r); t(hp-r.hp===16,'兩擊各 8',hp-r.hp);
+r=arena('medusa'); E(r).petrify=2; E(r).intent={n:'砍',fx:[['atk',10]]}; t(G.intentDmg(r,E(r),E(r).intent.fx[0])===9,'美杜莎 魔眼的重壓：石化 2 層，攻擊 -1（每 2 層 -1）');
+r=arena('medea'); r.battle.chant=9; r.battle.block=0; G.endTurn(r); t(r.battle.block===4,'美狄亞：回合開始格擋＝陣地÷2（9→4）',r.battle.block); r.battle.chant=40; G.endTurn(r); t(r.battle.block===6,'最多 6');
+r=arena('scathach'); r.battle.energy=9; ['def','def','def','def'].forEach(x=>playId(r,x)); t(r.battle.evade===0,'前四張不給迴避'); playId(r,'def'); t(r.battle.evade===1,'斯卡哈：每回合出到第 5 張，迴避 1'); playId(r,'def'); t(r.battle.evade===1,'每回合只給一次');
+
 console.log('── 斯卡哈');
 r=arena('scathach'); playId(r,'doublespear'); t(E(r).doom===1&&E(r).hp===40,'雙槍・死棘：5×2＋死兆 1（死兆打完才上）');
 r.battle.energy=3; playId(r,'atk'); t(E(r).hp===40-7,'死兆 1：每一擊 +1',E(r).hp);
