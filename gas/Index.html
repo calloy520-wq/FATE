@@ -95,6 +95,9 @@
   .card.sel { border-color:var(--gold); transform:translateY(-6px); }
   .card.token { background:#20261a; }
   .card.curse { border-top:3px solid #555; background:#1a1418; }
+  .card.legend { border-color:var(--gold); background:linear-gradient(160deg,#2c2414,#1b2130 55%); box-shadow:0 0 0 1px var(--gold) inset, 0 0 12px rgba(217,184,106,.5); }
+  .card.legend .nm { color:var(--gold); }
+  .uplegend { color:#ffd27a; text-shadow:0 0 8px rgba(255,210,122,.7); font-weight:bold; }
   .card.rare { box-shadow:0 0 0 1px var(--gold) inset; }
   .chip:disabled { opacity:.3; }
   .card .cost.free { background:var(--green); }
@@ -627,7 +630,7 @@
   }
   function cardHtml(id, attrs, big, extra) {
     var c = G.card(id), cost = run && run.battle && !big ? G.costOf(run, id) : c.cost;
-    return '<button class="card ' + c.type + (c.token ? ' token' : '') + (c.rare ? ' rare' : '') + '" ' + (attrs || '') + (big ? ' style="width:calc((100vw - 60px) / 3);max-width:120px;min-width:96px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : '') + '">' + (c.unplayable ? '✕' : cost) + '</span>' + (c.rare ? '<span class="rare-tag">奧義</span>' : '')
+    return '<button class="card ' + c.type + (c.token ? ' token' : '') + (c.rare ? ' rare' : '') + (c.dir === 'f' ? ' legend' : '') + '" ' + (attrs || '') + (big ? ' style="width:calc((100vw - 60px) / 3);max-width:120px;min-width:96px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : '') + '">' + (c.unplayable ? '✕' : cost) + '</span>' + (c.rare ? '<span class="rare-tag">奧義</span>' : '')
       + '<span class="q" onclick="event.stopPropagation();cardInfo(\'' + id + '\')">?</span>'
       + '<div class="nm">' + esc(c.name) + '</div><div class="tx">' + esc(G.cardShort(id, run)) + '</div>' + (extra || '') + '</button>';
   }
@@ -963,7 +966,7 @@
   function upChoose(i, src) {
     var id = run.deck[i], opts = G.upgradeOptions(run, i);
     openOv('<b>「' + esc(G.card(id).name) + '」要往哪個方向強化？</b><div class="dim" style="margin:4px 0 10px">原本：' + esc(G.cardText(id, run)) + '</div><div class="pick">'
-      + opts.map(function (v) { var D = G.UP_DIRS[G.card(v).dir]; return '<div style="text-align:center"><div style="color:var(--gold);font-size:14px;margin-bottom:4px;min-height:86px">' + esc(D.name) + '<div class="dim" style="font-size:12px">' + esc(D.text) + '</div><div style="max-width:130px;margin:4px auto 0;font-size:13px;line-height:1.45;color:var(--green)">' + G.upDiff(id, v).map(esc).join('<br>') + '</div></div>' + cardHtml(v, 'onclick="doUpV(' + i + ',\'' + v + '\',\'' + src + '\')"', true) + '</div>'; }).join('')
+      + opts.map(function (v) { var D = G.UP_DIRS[G.card(v).dir]; return '<div style="text-align:center"><div style="color:var(--gold);font-size:14px;margin-bottom:4px;min-height:86px">' + (D.legend ? '<span class="uplegend">' + esc(D.name) + '</span>' : esc(D.name)) + '<div class="dim" style="font-size:12px">' + esc(D.text) + '</div><div style="max-width:130px;margin:4px auto 0;font-size:13px;line-height:1.45;color:var(--green)">' + G.upDiff(id, v).map(esc).join('<br>') + '</div></div>' + cardHtml(v, 'onclick="doUpV(' + i + ',\'' + v + '\',\'' + src + '\')"', true) + '</div>'; }).join('')
       + '</div><button class="btn" style="margin-top:12px" onclick="' + (src === 'rest' ? 'upMenu()' : 'closeOv()') + '">換一張</button>');
   }
   function doUpV(i, v, src) { closeOv(); if (src === 'rest') G.rest(run, 'upgrade', i, v); else G.pickCard(run, i, v); render(); }

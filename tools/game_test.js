@@ -364,7 +364,7 @@ t(G.card('invis+').name==='看不見的劍＋'&&G.card('invis+').fx[0][1]===7&&G
 let ug=G.newRun('saber',77); ug.deck.push('charge'); const ci=ug.deck.length-1, op=G.upgradeOptions(ug,ci);
 t(op.length===3&&op.includes('charge+')&&JSON.stringify(G.upgradeOptions(ug,ci))===JSON.stringify(op),'強化給三個方向（精煉一定在），同一次重畫不會變',op);
 ug.screen='rest'; t(!G.rest(ug,'upgrade',ci,'charge+x')&&G.rest(ug,'upgrade',ci,op[1])&&ug.deck[ci]===op[1],'只能選給的方向');
-let ug2=G.newRun('saber',78); let seenDirs=new Set(); for(let k=0;k<40;k++){ ug2.stats.floors=k; G.upgradeOptions(ug2,9).forEach(v=>seenDirs.add(G.card(v).dir)); } t(seenDirs.size===4,'換個時間點，另外兩個方向會變（看不見的劍 4 個方向都出現過）',[...seenDirs].join(''));
+let ug2=G.newRun('saber',78); let seenDirs=new Set(); for(let k=0;k<40;k++){ ug2.stats.floors=k; G.upgradeOptions(ug2,9).forEach(v=>{ if(G.card(v).dir!=='f') seenDirs.add(G.card(v).dir); }); } t(seenDirs.size===4,'換個時間點，另外兩個方向會變（看不見的劍 4 個方向都出現過）',[...seenDirs].join(''));
 r=arena('saber'); r.battle.hand=['invis+e']; G.play(r,0,0); t(E(r).hp===30&&r.battle.exhaust.includes('invis+e'),'極限：10×2、打完消耗',E(r).hp);
 
 console.log('── 流程');
@@ -444,6 +444,10 @@ t(G.fateOptions(7,Object.keys(G.FATES),'saber',true).every(k=>G.FATE_FREE.includ
 // 中立牌（大家都拿得到）：至少 18 張，涵蓋全體、穿透、抽牌、魔力、控場、防守
 { const C=Object.keys(G.CARDS).filter(k=>G.CARDS[k].kit==='common'); const ops=new Set(C.flatMap(k=>G.CARDS[k].fx.map(f=>f[0])));
   t(C.length>=18&&['all','pierce','draw','energy','nextEnergy','strDown','weakAll','thorns','pBlock','evade'].every(o=>ops.has(o)),'中立牌 18 張以上，各自開一條玩法',C.length); }
+// ★傳說強化：一成機率出現；攻擊次數翻倍（只打一下的變兩下），技能、能力 0 費
+t(G.card('tsubame1+f').fx[0][2]===6&&G.card('heavy+f').fx[0][0]==='hits'&&G.card('heavy+f').fx[0][2]===2&&G.card('bounded+f').cost===0&&G.card('invis+f').fx[0][2]===4,'★傳說：燕返 3 刀 → 6 刀、重擊變兩下、結界 0 費、看不見的劍 2 → 4 下');
+{ const r=G.newRun('saber',5); let n=0; for(let f=0;f<600;f++){ r.stats.floors=f; if(G.upgradeOptions(r,9).some(x=>G.card(x).dir==='f')) n++; } t(n>20&&n<110,'★傳說大約一成機率出現',n); }
+t(!G.upDirs('invis').includes('f'),'★傳說不會固定出現（只有一成機率替換）');
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位從者 4 局都能打到結束（不卡死）',fin);
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

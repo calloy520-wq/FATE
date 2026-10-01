@@ -498,7 +498,8 @@ var G = (function () {
     b: { name: '迅捷', tag: '・迅', text: '費用 -1' },
     c: { name: '共鳴', tag: '・共鳴', text: '寶具 +15%、多抽 1 張（本來會抽牌的：寶具 +30%）' },
     d: { name: '英靈之魂', tag: '・魂', text: '多一個自己從者的機制' },
-    e: { name: '極限', tag: '・極', text: '數值翻倍，但打出後消耗' }
+    e: { name: '極限', tag: '・極', text: '數值翻倍，但打出後消耗' },
+    f: { name: '★傳說', tag: '・傳說', text: '精煉＋攻擊次數翻倍（技能、能力改成 0 費）', legend: 1 }   // 強化時一成機率出現
   };
   // 英靈之魂：各從者的招牌機制（只給專屬牌）
   var KIT_SOUL = { saber: ['wind', 1], emiya: ['proj', 1], cu: ['evade', 1], medusa: ['petrifyAll', 1], medea: ['skillCount', 1], kojiro: ['nextEnergy', 1],
@@ -526,13 +527,16 @@ var G = (function () {
   }
   function canUpgrade(id) { return upDirs(id).length > 0; }
   // 強化時給玩家選的三個方向：用局的種子＋牌組位置＋走過的格數決定，同一次重畫不會變
+  var LEGEND_RATE = 0.1;
   function upgradeOptions(run, i) {
     var id = run.deck[i]; if (!id) return [];
     var dirs = upDirs(id), tmp = { rs: (run.seed ^ (i * 7919) ^ (run.stats.floors * 104729) ^ (run.removed || 0) * 31) | 0 };
-    if (dirs.length <= 3) return dirs.map(function (d) { return upId(id, d); });
     var keep = dirs.indexOf('a') >= 0 ? ['a'] : [];   // 精煉一定在，另外兩個隨機
-    shuffle(tmp, dirs.filter(function (d) { return keep.indexOf(d) < 0; })).slice(0, 3 - keep.length).forEach(function (d) { keep.push(d); });
-    return 'abcde'.split('').filter(function (d) { return keep.indexOf(d) >= 0; }).map(function (d) { return upId(id, d); });
+    if (dirs.length <= 3) keep = dirs.slice();
+    else shuffle(tmp, dirs.filter(function (d) { return keep.indexOf(d) < 0; })).slice(0, 3 - keep.length).forEach(function (d) { keep.push(d); });
+    keep = 'abcde'.split('').filter(function (d) { return keep.indexOf(d) >= 0; });
+    if (dirs.length && rnd(tmp) < LEGEND_RATE) { if (keep.length >= 3) keep[keep.length - 1] = 'f'; else keep.push('f'); }   // ★傳說：一成機率換掉最後一個
+    return keep.map(function (d) { return upId(id, d); });
   }
   // 英靈之魂：牌上已經有同一個資源（例：刻印 1）就合併、而且加兩倍（刻印 3），不要印成「刻印1 刻印1」，也不會輸給精煉；切換架勢這種非數字的照樣多加一次
   // 合併後的數值：至少比精煉多 1（不會輸給精煉），但不再一口氣加兩倍
@@ -554,12 +558,21 @@ var G = (function () {
       return g;
     });
   }
+  // ★傳說：攻擊次數翻倍——本來就打好幾下的次數 ×2；只打一下的變兩下；其他攻擊數值 ×2
+  function legendFx(fx) {
+    var cnt = { hits: 2, pierceHits: 2, rand: 2, projHits: 3 };
+    if (fx.some(function (f) { return cnt[f[0]]; })) return fx.map(function (f) { if (!cnt[f[0]]) return f; var g = f.slice(); g[cnt[f[0]]] = f[cnt[f[0]]] * 2; return g; });
+    if (fx.some(function (f) { return f[0] === 'dmg' || f[0] === 'pierce'; })) return fx.map(function (f) { return f[0] === 'dmg' ? ['hits', f[1], 2] : f[0] === 'pierce' ? ['pierceHits', f[1], 2] : f; });
+    return scaleFx(fx, 2);
+  }
   function card(id) {
     var b0 = baseId(id), d = upDir(id), base = CARDS[b0];
     if (!base) return null;
     var c = Object.assign({ id: id, up: !!d, dir: d }, base);
-    if (d === 'a' && base.up) Object.keys(base.up).forEach(function (k) { c[k] = base.up[k]; });
-    if (d === 'a' && base.up && base.up.fx && base.cost >= 2 && base.up.cost === undefined) c.fx = scaleFx(base.up.fx, 1.25);   // 2 費以上的精煉再強一點，才比得過迅捷的 -1 費
+    var refine = d === 'a' || d === 'f';
+    if (refine && base.up) Object.keys(base.up).forEach(function (k) { c[k] = base.up[k]; });
+    if (refine && base.up && base.up.fx && base.cost >= 2 && base.up.cost === undefined) c.fx = scaleFx(base.up.fx, 1.25);
+    if (d === 'f') { if (c.type === 'atk') c.fx = legendFx(c.fx); else c.cost = 0; }   // 2 費以上的精煉再強一點，才比得過迅捷的 -1 費
     if (d === 'b') c.cost = Math.max(0, base.cost - 1);   // 迅捷：便宜 1 費（只給 2 費以上的牌）
     if (d === 'c') {   // 共鳴：寶具 +15%、多抽 1；本來就會抽牌的改成寶具 +30%；沒有寶具的小次郎改成格擋 3、多抽 1
       if (base.kit === 'kojiro') c.fx = base.fx.concat([['block', 3], ['draw', 1]]);
