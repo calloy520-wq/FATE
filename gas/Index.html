@@ -173,6 +173,26 @@
   .tabs button { white-space:nowrap; font-size:14px; }
   #foes.picking .foe:not(.dead) { border-color:var(--gold); } #foes.picking .q { pointer-events:none; }
   .toast { position:fixed; left:50%; top:54px; transform:translateX(-50%); width:max-content; max-width:calc(100% - 32px); pointer-events:none; background:#1d2230; border:1px solid var(--gold); color:var(--ink); padding:8px 14px; border-radius:10px; display:none; z-index:30; box-shadow:0 4px 16px rgba(0,0,0,.5); text-align:center; }
+  /* ── 戰鬥畫面簡化（原型）── */
+  .incoming { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .incoming .sub { font-size:12.5px; color:var(--dim); }
+  .energy { flex-direction:column; line-height:1; } .energy small { font-size:9.5px; font-weight:normal; margin-top:2px; }
+  .myblk { font-size:15px; color:var(--blue); font-weight:bold; white-space:nowrap; } .myblk.zero { color:var(--dim); font-weight:normal; }
+  #acts .npbtn { background:linear-gradient(90deg, rgba(217,184,106,.30) var(--np), transparent var(--np)); }
+  #acts .npbtn:disabled { opacity:1; color:var(--dim); border-color:var(--line); }
+  #acts .npbtn.full { animation:pulse 1.6s infinite; background:rgba(217,184,106,.22); }
+  #acts .btn.go { background:rgba(217,184,106,.22); animation:pulse 1.6s infinite; }
+  @media (min-height:780px) {   /* 螢幕夠高：手牌多就排兩行（不用橫捲）；矮螢幕維持橫捲，免得蓋住敵人 */
+    #hand.many { flex-wrap:wrap; overflow:visible; -webkit-mask-image:none; mask-image:none; row-gap:12px; }
+    #hand.many .card { flex:0 0 calc(33.333% - 4px); max-width:none; min-height:92px; }
+    #hand.many.m7 .card { flex-basis:calc(25% - 4px); }
+  }
+  .card .nm { margin:15px 0 3px 1px; font-size:13.5px; }
+  .card .pv { font-size:15px; }
+  .card:not(:disabled):has(.pv.kill) { box-shadow:0 0 0 1px var(--gold), 0 0 10px rgba(217,184,106,.45); }
+  .foe.tgt { border-color:#6b5a32; } .foe.tgt .nm::after { content:' 🎯'; font-size:12px; }
+  .eblk { flex:none; background:var(--blue); color:#0e1118; border-radius:6px; padding:0 5px; font-weight:bold; font-size:13px; line-height:17px; }   /* 敵人現在的格擋（跟意圖裡「要加的格擋」分開） */
+  .chip.hot { border-color:var(--gold); color:#1a1408; background:var(--gold); font-weight:bold; }
   .toast.err { background:#2a1c1c; border-color:var(--red); color:#f0c0c0; }
 </style>
 </head>
@@ -306,7 +326,7 @@
     toast.q.push([m, kind]); if (toast.q.length === 1) toastNext();
   }
   function toastNext() {
-    var t = $('toast'), x = toast.q[0]; if (!x) { t.style.display = 'none'; return; }
+    var t = $('toast'), x = toast.q[0]; if (!t) { toast.q = []; return; } if (!x) { t.style.display = 'none'; return; }
     t.textContent = x[0]; t.className = 'toast' + (x[1] === 'err' ? ' err' : ''); t.style.display = 'block';
     setTimeout(function () { toast.q.shift(); toastNext(); }, 1100 + 60 * x[0].length);
   }
@@ -597,12 +617,13 @@
     var b = run.battle, c = G.card(b.hand[i]); if (c.unplayable) return '';
     var e0 = b.energy; b.energy = 99; var p = G.preview(run, i, target()), q = G.preview(run, i, target(), true); b.energy = e0;
     if (!p || !q) return '';
-    var bits = [], hit = q.per.filter(function (x) { return x > 0; });
-    if (hit.length > 1 && G.cardShort(b.hand[i], run).indexOf('全體') >= 0) bits.push('<span style="color:var(--red)">全體⚔ ' + Math.max.apply(null, hit) + '</span>');
-    else if (q.dmg) bits.push('<span style="color:var(--red)">⚔ ' + q.dmg + '</span>');
+    var bits = [], hit = q.per.filter(function (x) { return x > 0; }), face = G.cardShort(b.hand[i], run).replace(/\s/g, ''), pre = c.link ? '連動' : '';
+    var same = function (sym, n) { return new RegExp('(^|[^0-9+])' + sym + n + '(?![0-9×+])').test(face); };   // 卡面已經寫著同一個數字就不重複
+    if (hit.length > 1 && face.indexOf('全體') >= 0) { var m = Math.max.apply(null, hit); if (pre || !same('全體⚔', m)) bits.push('<span style="color:var(--red)">' + pre + '全體⚔' + m + '</span>'); }
+    else if (q.dmg && (pre || !same('⚔', q.dmg))) bits.push('<span style="color:var(--red)">' + pre + '⚔' + q.dmg + '</span>');
     if (p.kills) bits.push('<span style="color:var(--gold)">擊倒' + (p.kills > 1 ? p.kills : '') + '</span>');
-    if (q.block) bits.push('<span style="color:var(--blue)">🛡 ' + q.block + '</span>');
-    return bits.length ? '<div class="pv">' + bits.join(' ') + '</div>' : '';
+    if (q.block && face.indexOf('🛡') >= 0 && !same('🛡', q.block)) bits.push('<span style="color:var(--blue)">🛡' + q.block + '</span>');
+    return bits.length ? '<div class="pv' + (p.kills ? ' kill' : '') + '">' + bits.join(' ') + '</div>' : '';
   }
   function cardHtml(id, attrs, big, extra) {
     var c = G.card(id), cost = run && run.battle && !big ? G.costOf(run, id) : c.cost;
@@ -652,21 +673,23 @@
       + '<div id="map"><div class="mapbox" style="height:' + H + 'px"><svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' + lines + '</svg>' + nodes + '</div></div>';
     var target = document.querySelector('.node.can') || document.querySelector('.node.here'); if (target) target.scrollIntoView({ block: 'center' });
   }
-  function goNode(l) { sel = { card: -1, foe: -1, np: false }; G.go(run, l); render(); }
+  function goNode(l) { sel = { card: -1, foe: -1, np: false }; summary = ''; G.go(run, l); render(); }
 
   // ── 戰鬥 ──
+  var DEBUFF = { weak: '虛弱', vuln: '易傷' };
   function intentHtml(e) {
-    if (e.stun) return '<span class="buf">🗿 動彈不得</span> <span class="dim">（' + esc(e.intent.n) + '）</span>';
+    if (e.stun) return '<span class="buf">🗿 動彈不得</span>';
     return e.intent.fx.map(function (f) {
       var k = f[0];
-      if (k === 'atk' || k === 'atkP') return '<span class="atk">' + (k === 'atkP' ? '🗡穿透 ' : '⚔ ') + '<span class="num">' + G.intentDmg(run, e, f) + '</span>' + (f[2] ? '<span class="num">×' + f[2] + '</span>' : '') + '</span>';
-      if (k === 'block') return '<span class="def">🛡 ' + f[1] + '</span>';
-      if (k === 'str') return '<span class="buf">▲ 強化</span>';
-      if (k === 'heal') return '<span class="buf">✚ 回復</span>';
-      if (k === 'summon') return '<span class="buf">⚑ 召喚</span>';
-      if (k === 'curse') return '<span class="buf">☠ 塞泥</span>';
-      if (k === 'breakBlock') return '<span class="atk">💥 打碎格擋</span>';
-      return '<span class="buf">☁ 削弱</span>';
+      if (k === 'atk' || k === 'atkP') return '<span class="atk">' + (k === 'atkP' ? '穿透' : '⚔') + '<span class="num">' + G.intentDmg(run, e, f) + (f[2] ? '×' + f[2] : '') + '</span></span>';
+      if (k === 'block') return '<span class="def">🛡' + f[1] + '</span>';
+      if (k === 'str') return '<span class="buf">力量+' + f[1] + '</span>';
+      if (k === 'heal') return '<span class="buf">回復' + f[1] + '</span>';
+      if (k === 'summon') return '<span class="buf">召喚×' + (f[2] || 1) + '</span>';
+      if (k === 'curse') return '<span class="buf">塞泥×' + (f[2] || 1) + '</span>';
+      if (k === 'breakBlock') return '<span class="atk">碎格擋</span>';
+      if (DEBUFF[k]) return '<span class="buf">你' + DEBUFF[k] + f[1] + '</span>';
+      return '<span class="buf">' + esc(e.intent.n) + '</span>';
     }).join(' ') + ' <span class="dim">' + esc(e.intent.n) + '</span>';
   }
   function foeChips(e) {
@@ -676,10 +699,11 @@
     if (e.weak) a.push('虛弱 ' + e.weak);
     if (e.poison) a.push('<span style="color:var(--green)">毒 ' + e.poison + '</span>');
     if (e.wound) a.push('<span style="color:var(--red)">創傷 ' + e.wound + '</span>');
-    if (e.petrify) a.push('石化 ' + e.petrify + '/' + th);
-    if (e.doom) a.push('<span style="color:var(--purple)">刻印 ' + e.doom + (G.ENEMIES[e.id].boss ? '' : '（≤' + e.doom * 4 + (e.hp <= e.doom * 4 ? ' 可收尾！' : ' 可收尾') + '）') + '</span>');
+    if (e.petrify && !e.stun) a.push('石化 ' + e.petrify + '/' + th);
+    if (e.doom) a.push('<span style="color:var(--purple)">刻印 ' + e.doom + '</span>');
+    var reapable = e.doom && !G.ENEMIES[e.id].boss && e.hp <= e.doom * 4;
     if (e.lives) a.push('十二試煉 ' + e.lives);
-    return a.map(function (x) { return '<span class="chip">' + x + '</span>'; }).join('');
+    return a.map(function (x) { return '<span class="chip">' + x + '</span>'; }).join('') + (reapable ? '<span class="chip hot">可收尾</span>' : '');
   }
   function meChips(b) {
     var a = [];
@@ -691,7 +715,7 @@
     if (b.army) a.push(['gold', '軍勢 ' + b.army]);
     if (G.passive(run) === 'madness' || b.kraken) a.push(['gold', '海魔 ' + b.kraken + (b.kraken >= 12 ? '（一次咬 ' + (1 + Math.floor(b.kraken / 12)) + ' 口）' : '')]);
     if (b.stance) a.push(['gold', (b.stance === 'red' ? '紅薔薇' : '黃薔薇') + (G.passive(run) === 'twin' ? '・下次切換刺 ' + (2 + b.switches + (b.pSwitch || 0)) : '')]);
-    if (G.passive(run) === 'wisdom') { var wf = G.wisdomFrom(b); a.push(['gold', '本回合已出 ' + b.played + ' 張' + (b.played + 1 >= wf ? '・下一張攻擊刻印 +1' : '・第 ' + wf + ' 張起攻擊刻印 +1')]); }
+    if (G.passive(run) === 'wisdom') { var wf = G.wisdomFrom(b); a.push(['gold', '第 ' + (b.played + 1) + ' 張' + (b.played + 1 >= wf ? '：攻擊刻印+1' : '')]); }
     if (b.reapNext) a.push(['gold', '⚡ 連鎖：下一張攻擊可收尾']);
     if (G.passive(run) === 'arms' || b.mastery) a.push(['gold', '武練 ' + b.mastery]);
     if (b.str) a.push(['', '力量 ' + b.str]);
@@ -718,19 +742,22 @@
         if (f[0] === 'atk' || f[0] === 'atkP') { var d = G.intentDmg(run, e, f), k = f[2] || 1; tot += d * k; hits += k; if (f[0] === 'atkP') pierce += d * k; }
       });
     });
-    if (!tot) return '<div class="incoming safe">敵人這回合不攻擊</div>';
+    if (!tot) return '<div class="incoming safe">✓ 敵人這回合不攻擊</div>';
     var after = breaks ? tot : Math.max(pierce, tot - b.block);
-    return '<div class="incoming">⚠ 敵人這回合共打 <b>' + tot + '</b>（' + hits + ' 下）　<span style="white-space:nowrap">目前格擋 ' + b.block + ' → 會受到約 <b>' + after + '</b></span>' + (breaks ? '（格擋會被打碎）' : '') + '</div>';
+    if (!after) return '<div class="incoming safe">🛡 擋得住：敵人共打 <b>' + tot + '</b></div>';
+    var why = breaks ? '格擋會被打碎' : b.block ? '共 ' + tot + '，格擋擋 ' + (tot - after) : hits > 1 ? hits + ' 下' : '';
+    return '<div class="incoming">⚠ 將受到 <b>' + after + '</b>' + (why ? '<span class="sub">' + why + '</span>' : '') + '</div>';
   }
   var lastHp = {};
   function battleScreen() {
-    var b = run.battle, S = G.serv(run);
+    var b = run.battle, S = G.serv(run), tgt = target();
+    var canPlay = b.hand.some(function (id) { return !G.card(id).unplayable && G.costOf(run, id) <= b.energy; });
     var foes = b.enemies.map(function (e, i) {
       if (e.hp <= 0 && b.enemies.length > 3) return '';   // 叫來的援軍倒了就收掉，免得畫面擠
       var hit = lastHp[e.key] !== undefined && e.hp < lastHp[e.key];
-      return '<button data-key="' + e.key + '" class="foe' + (e.hp <= 0 ? ' dead' : '') + (sel.foe === i ? ' sel' : '') + (hit ? ' hit' : '') + '" onclick="tapFoe(' + i + ')">'
+      return '<button data-key="' + e.key + '" class="foe' + (e.hp <= 0 ? ' dead' : '') + (sel.foe === i ? ' sel' : '') + (sel.foe < 0 && i === tgt && G.alive(b).length > 1 ? ' tgt' : '') + (hit ? ' hit' : '') + '" onclick="tapFoe(' + i + ')">'
         + '<span class="q" onclick="event.stopPropagation();foeInfo(' + i + ')">?</span><div class="nm">' + esc(e.name) + '</div>'
-        + hpBar(e.key, e.hp, e.maxHp, Math.max(0, e.hp) + '／' + e.maxHp + (e.block ? '　🛡' + e.block : ''))
+        + '<div class="row" style="gap:5px">' + (e.block ? '<span class="eblk">🛡' + e.block + '</span>' : '') + hpBar(e.key, e.hp, e.maxHp, Math.max(0, e.hp) + '／' + e.maxHp) + '</div>'
         + '<div class="chips" style="margin-top:4px">' + foeChips(e) + '</div>'
         + (e.hp > 0 ? '<div class="intent">' + intentHtml(e) + '</div>' : '') + '</button>';
     }).join('');
@@ -739,15 +766,14 @@
     $('app').innerHTML = topBar()
       + '<div id="battle"><div id="foes"' + (sel.card >= 0 ? ' class="picking"' : '') + '>' + foes + '</div><div style="flex:1"></div>'
       + '<div id="dock">' + incomingHtml(b)
-      + '<div id="log"' + (sel.card >= 0 ? ' style="color:var(--gold)">👆 點一個敵人當目標（再點這張牌取消）' : '>' + esc((b.log || []).join('　'))) + '</div>'
-      + '<div id="me"><div class="row"><div class="energy">' + b.energy + '</div><div style="flex:1">'
-      + '<div class="row"><span style="font-size:13px;color:var(--blue)">🛡 ' + b.block + '</span><span class="dim" style="font-size:13px">牌堆 ' + b.draw.length + '・棄牌 ' + b.discard.length + '</span></div>'
-      + '<div class="row" style="margin-top:5px"><span style="font-size:13px;color:var(--gold)">寶具</span><div class="np' + (full ? ' full' : '') + '"><i style="width:' + b.np + '%"></i></div><span style="font-size:13px">' + b.np + '%</span></div>'
-      + '<div class="chips" style="margin-top:5px" onclick="meInfo()">' + meChips(b) + '<span class="chip">? 說明</span></div></div></div></div>'
-      + '<div id="hand"' + (b.hand.length >= 6 ? ' class="many"' : '') + '>' + b.hand.map(function (id, i) { return cardHtml(id, 'onclick="tapCard(' + i + ')"' + (G.costOf(run, id) > b.energy || G.card(id).unplayable ? ' disabled' : ''), false, pvHtml(i)); }).join('') + '</div>'
-      + '<div id="acts">' + (S.np.none ? '<button class="btn" disabled>沒有寶具</button>' : '<button class="btn' + (sel.np ? ' on' : '') + '" ' + (full ? '' : 'disabled') + ' onclick="doNP()">' + (full ? '寶具「' + esc(S.np.name) + '」' : '寶具 ' + b.np + '%') + '</button>')
+      + '<div id="log"' + (sel.card >= 0 ? ' style="color:var(--gold)">👆 點一個敵人當目標（再點這張牌取消）' : '>' + esc(summary || (b.log || []).join('　'))) + '</div>'
+      + '<div id="me" onclick="meInfo()"><div class="row"><div class="energy">' + b.energy + '<small>魔力</small></div>'
+      + '<span class="myblk' + (b.block ? '' : ' zero') + '">🛡 ' + b.block + '</span>'
+      + '<div class="chips" style="flex:1;min-width:0">' + meChips(b) + '</div><span class="chip">?</span></div></div>'
+      + '<div id="hand"' + (b.hand.length >= 6 ? ' class="many' + (b.hand.length >= 7 ? ' m7' : '') + '"' : '') + '>' + b.hand.map(function (id, i) { return cardHtml(id, 'onclick="tapCard(' + i + ')"' + (G.costOf(run, id) > b.energy || G.card(id).unplayable ? ' disabled' : ''), false, pvHtml(i)); }).join('') + '</div>'
+      + '<div id="acts">' + (S.np.none ? '<button class="btn" disabled>沒有寶具</button>' : '<button class="btn npbtn' + (full ? ' full' : '') + (sel.np ? ' on' : '') + '" style="--np:' + b.np + '%" ' + (full ? '' : 'disabled') + ' onclick="doNP()">' + (full ? '★ 放寶具' : '寶具 ' + b.np + '%') + '</button>')
       + '<button class="btn red" ' + (run.seals ? '' : 'disabled') + ' onclick="sealMenu()">令咒 ' + run.seals + '</button>'
-      + '<button class="btn" onclick="endTurn()">結束回合</button></div></div></div>';
+      + '<button class="btn' + (canPlay ? '' : ' go') + '" onclick="endTurn()">結束回合</button></div></div></div>';
     var cs = document.querySelectorAll('#hand .card'); if (sel.card >= 0 && cs[sel.card]) cs[sel.card].classList.add('sel');
     dropBars();
   }
@@ -863,9 +889,10 @@
     after(); showDiff(before, atk, big);
   }
   // 結算前後比一比：敵人掉多少血、格擋被打掉多少、自己受傷／加格擋
+  var summary = '';
   function showDiff(before, atk, big) {
     if (!run.battle) return;
-    var total = 0;
+    var total = 0, kos = [];
     before.foes.forEach(function (f) {
       var e = run.battle.enemies.filter(function (x) { return x.key === f.key; })[0], el = document.querySelector('.foe[data-key="' + f.key + '"]');
       if (!e || !el) return;
@@ -873,7 +900,7 @@
       if (dmg > 0) { total += dmg; popAt(el, '-' + dmg, 'dmg' + (dmg >= 20 ? ' crit' : '')); }
       if (blk > 0 && !(dmg > 0)) popAt(el, '🛡-' + blk, 'blk');
       if (dmg > 0 || blk > 0) { if (atk) { var sl = document.createElement('i'); sl.className = 'slash'; el.appendChild(sl); } }
-      if (f.hp > 0 && e.hp <= 0) popAt(el, '擊倒', 'ko', 30);
+      if (f.hp > 0 && e.hp <= 0) { popAt(el, '擊倒', 'ko', 30); kos.push(e.name); }
       if (e.hp > f.hp) popAt(el, '+' + (e.hp - f.hp), 'heal');
     });
     if ((big || total >= 25) && !CALM) { var fs = $('foes'); if (fs) { fs.classList.remove('shake'); void fs.offsetWidth; fs.classList.add('shake'); } }
@@ -881,6 +908,13 @@
     if (run.hp < before.hp) { popAt(me, '-' + (before.hp - run.hp), 'hurt', -40); if (!CALM) { var fl = document.createElement('div'); fl.className = 'hurtflash'; document.body.appendChild(fl); setTimeout(function () { fl.remove(); }, 400); } }
     if (run.hp > before.hp) popAt(me, '+' + (run.hp - before.hp), 'heal', -40);
     if (run.battle && run.battle.block > before.block) popAt(me, '🛡+' + (run.battle.block - before.block), 'gain', -10);
+    var bits = [];
+    if (total) bits.push('造成 ' + total);
+    if (kos.length) bits.push('擊倒 ' + kos.join('、'));
+    if (run.hp < before.hp) bits.push('你受到 ' + (before.hp - run.hp));
+    else if (!atk && !total && before.block && run.battle.turn) bits.push('格擋全擋下');
+    if (run.battle.block > before.block) bits.push('格擋 +' + (run.battle.block - before.block));
+    summary = bits.join('・'); var lg = $('log'); if (lg && sel.card < 0) lg.textContent = summary || (run.battle.log || []).join('　');
   }
   function after() { if (run.battle && sel.foe >= 0 && (!run.battle.enemies[sel.foe] || run.battle.enemies[sel.foe].hp <= 0)) sel.foe = -1; if (run.screen !== 'battle') lastHp = {}; render(); }
 
