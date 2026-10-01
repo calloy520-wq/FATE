@@ -918,6 +918,7 @@
       });
     });
     if (!tot) return '<div class="incoming safe">✓ 敵人這回合不攻擊</div>';
+    if (b.evadeAll) return '<div class="incoming safe">✦ 空間轉移：這回合的攻擊（共 <b>' + tot + '</b>）全部落空</div>';
     var after = breaks ? tot : Math.max(pierce, tot - b.block);
     if (!after) return '<div class="incoming safe">🛡 擋得住：敵人共打 <b>' + tot + '</b></div>';
     var why = breaks ? '格擋會被打碎' : b.block ? '共 ' + tot + '，格擋擋 ' + (tot - after) : hits > 1 ? hits + ' 下' : '';
