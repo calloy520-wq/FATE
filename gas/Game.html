@@ -316,7 +316,7 @@ var G = (function () {
       np: { name: '萬符必應破戒', fx: [['dispel', 1], ['pierce', 12], ['breakPact', 1], ['draw', 2]] } },
     kojiro: { name: '佐佐木小次郎', cls: 'Assassin', war: 5, hp: 92, sig: 'tsubame1',
       desc: '守山門的無名劍士。沒有寶具——秘劍燕返是練出來的劍技，開場就在牌組裡。一眼看透敵人的弱點，敵人卻永遠摸不清他的劍。',
-      passive: { id: 'sowa', name: '宗和的心得', text: '看透弱點：開場解析生命最多的敵人，易傷 2；每回合第一次打到某個敵人時，那個敵人易傷 1。敵人摸不清你的底細：每回合第一擊無視格擋（每次交手都像第一次）。山門的守門人：第 2 回合起每回合開始回復 5 生命' },
+      passive: { id: 'sowa', name: '宗和的心得', text: '看透弱點：開場解析生命最多的敵人，易傷 2；每回合第一次打到某個敵人時，那個敵人易傷 1。敵人摸不清你的底細：每回合第一擊無視格擋（每次交手都像第一次）。不動：回合結束還有魔力，留 1 點到下回合。山門的守門人：第 2 回合起每回合開始回復 6 生命' },
       np: { name: '（沒有寶具）', none: 1, fx: [] } },
     hassanC: { name: '咒腕的哈桑', cls: 'Assassin', war: 5, hp: 76, sig: 'throwdirk',
       desc: '山之翁之一，以咒腕取人心臟的暗殺者。氣息遮斷從暗處先手，投擲短刀如雨落下；寶具妄想心音直接取走低血量敵人的心臟。',
@@ -1493,7 +1493,7 @@ var G = (function () {
   }
   var KRAKEN_STEP = 12;
   function krakenBites(b) { return 1 + Math.floor(b.kraken / KRAKEN_STEP); }
-  var WIND_MAX = 10, GATE_HEAL = 5;
+  var WIND_MAX = 10, GATE_HEAL = 6;
   function addWind(b, n) { b.wind = Math.min(WIND_MAX, b.wind + n); }
   function randFoe(ctx) { var a = alive(ctx.b); return a.length ? pick(ctx.run, a) : null; }
   function minionHits(ctx, times, bonus) {
@@ -1867,6 +1867,7 @@ var G = (function () {
   function endTurn(run) {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false };
     var log = [], ctx = { run: run, b: b, log: log };
+    if (passive(run) === 'sowa' && b.energy > 0) { b.nextEnergy = (b.nextEnergy || 0) + 1; log.push('不動：留下 1 魔力到下回合'); }   // 不急著出手，留著的魔力不浪費
     if (b.pEnergyBlock && b.energy > 0) { b.block += b.pEnergyBlock * b.energy; log.push('山門：格擋 +' + b.pEnergyBlock * b.energy); }
     b.hand.forEach(function (x) { var h = card(x).hold; if (h) { loseHp(run, h, log); log.push(card(x).name + '侵蝕了你（-' + h + '）'); } });
     if (b.swords) b.swords = passive(run) === 'forge' ? Math.min(5, b.swords) : 0;   // 投影劍：EMIYA 回合結束留 5 把，才囤得起來

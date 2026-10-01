@@ -93,7 +93,7 @@ r=arena('medea'); E(r).block=15; E(r).str=4; r.battle.np=100; G.noble(r,0); t(E(
 r=arena('kojiro'); E(r).block=10; playId(r,'atk'); t(E(r).hp===44&&E(r).block===10&&E(r).vuln===1,'小次郎 宗和的心得：每回合第一擊無視格擋，打到後易傷 1',JSON.stringify([E(r).hp,E(r).block,E(r).vuln])); playId(r,'atk'); t(E(r).hp===44&&E(r).block===1,'第二擊照常吃格擋（易傷 6→9）',JSON.stringify([E(r).hp,E(r).block]));
 r=G.newRun('kojiro',3); step(r,'fight'); { const big=r.battle.enemies.slice().sort((x,y)=>y.hp-x.hp)[0]; t(big.vuln===2&&r.battle.enemies.filter(e=>e!==big).every(e=>!e.vuln),'宗和的心得：開場解析生命最多的敵人，易傷 2'); }
 r=arena('kojiro'); r.battle.np=100; t(!G.noble(r,0).ok&&!G.seal(r,'np').ok&&G.SERVANTS.kojiro.np.none,'小次郎沒有寶具：放不了、令咒也不能充滿寶具');
-r=arena('kojiro'); playId(r,'calm'); G.endTurn(r); t(r.battle.energy===4,'明鏡止水：下回合魔力 +1');
+r=arena('kojiro'); playId(r,'calm'); r.battle.energy=0; G.endTurn(r); t(r.battle.energy===4,'明鏡止水：下回合魔力 +1');
 t(G.newRun('kojiro',3).deck.includes('tsubame1')&&G.SERVANTS.kojiro.sig==='tsubame1','燕返開場就在牌組裡（招牌牌）');
 r=arena('kojiro'); r.battle.sowaFirst=1; r.battle.sowaSeen={d0:1}; E(r).block=30; playId(r,'tsubame1'); t(E(r).hp===50-21&&E(r).block===30,'燕返：三刀同時斬出，7×3 全部無視格擋（多重次元屈折現象）',JSON.stringify([E(r).hp,E(r).block]));
 
@@ -127,7 +127,7 @@ r=arena('medusa'); playId(r,'gorgon'); G.endTurn(r); t(E(r).petrify===2,'蛇髮�
 r=arena('medea'); r.battle.energy=5; playId(r,'chant'); playId(r,'curse'); E(r).vuln=0; playId(r,'bolt'); t(E(r).hp===50-(3+1*3),'魔彈：陣地牌（+2）＋詛咒（+1）→ 3＋陣地 3',E(r).hp); G.endTurn(r); t(r.battle.chant===3,'陣地整場累積，不會每回合歸零',r.battle.chant);
 r=arena('medea'); playId(r,'territory'); playId(r,'chant'); t(r.battle.block===4&&r.battle.chant===2,'陣地作成：每張技能格擋 2；陣地牌算 2 層');
 r=arena('kojiro'); playId(r,'flash'); t(E(r).hp===50-(2+2*3),'一閃：剩 3 魔力 → 2＋6',E(r).hp);
-r=arena('kojiro'); playId(r,'gate'); r.battle.energy=2; E(r).intent={n:'砍',fx:[['atk',20]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===12-5,'山門守護：剩 2 魔力格擋 8（20 → 扣 12，下回合山門的守門人回 5）',hp-r.hp);
+r=arena('kojiro'); playId(r,'gate'); r.battle.energy=2; E(r).intent={n:'砍',fx:[['atk',20]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===12-6,'山門守護：剩 2 魔力格擋 8（20 → 扣 12，下回合山門的守門人回 6）',hp-r.hp);
 r=arena('kojiro'); playId(r,'mastery'); r.battle.played=0; r.battle.energy=3; E(r).vuln=0; r.battle.sowaSeen={x:1}; playId(r,'iai'); t(E(r).hp<50-(5+7+5)+1&&E(r).hp>=50-(5+Math.floor((7+5)*1.5)),'透化：居合 +5',E(r).hp);
 r=arena('diarmuid'); playId(r,'twinart'); playId(r,'twin'); t(r.battle.block===3&&r.battle.stance==='yellow'&&E(r).hp===46&&E(r).wound===1,'雙槍術：切換架勢格擋 3；切換立刻刺一槍（第 1 次＝4，黃薔薇再給創傷 1）',JSON.stringify([E(r).hp,E(r).wound]));
 playId(r,'rose'); t(E(r).hp===46-5-5-6&&E(r).wound===3&&r.battle.block===9,'薔薇交錯：切兩次（第 2 次紅＝5 穿透、第 3 次黃＝6＋創傷），中間 5 傷害',JSON.stringify([E(r).hp,E(r).wound,r.battle.block]));
@@ -342,7 +342,7 @@ r=G.newRun('lancelot',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.inten
 r.hp=1; r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; }); G.endTurn(r); t(r.hp===1&&r.screen==='battle','狂化不會讓自己倒下');
 r=G.newRun('saber',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); hp=r.hp; G.endTurn(r); t(r.hp===hp,'其他職階不扣');
 
-r=G.newRun('kojiro',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); r.hp=30; G.endTurn(r); t(r.hp===35,'小次郎 山門的守門人：每回合開始回復 5',r.hp);
+r=G.newRun('kojiro',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); r.hp=30; G.endTurn(r); t(r.hp===36,'小次郎 山門的守門人：每回合開始回復 6',r.hp);
 console.log('── 斯卡哈');
 r=arena('scathach'); playId(r,'doublespear'); t(E(r).doom===1&&E(r).hp===40,'雙槍・死棘：5×2＋刻印 1（刻印打完才上）');
 r.battle.energy=3; playId(r,'atk'); t(E(r).hp===40-7,'刻印 1：每一擊 +1',E(r).hp);
@@ -544,4 +544,6 @@ t(G.fateSlots(0,false)===1&&G.fateSlots(1,false)===2&&G.fateSlots(1,true)===1,'�
 { const r=G.newRun('saber',6,{fates:['gold','gold','seal4','tough']}); t(r.fates.join()==='gold,seal4','命運重複的不算、最多兩種',r.fates); }
 { const r=G.newRun('saber',6,{fates:['gold','tough'],endless:true}); t(r.fates.length===1,'無盡模式只帶一種命運'); }
 { const r=G.newRun('saber',3,{fates:['heirloom','early']}); const ok1=r.screen==='boon'&&r.boon.kind==='relic'&&G.takeBoon(r,0); const ok2=r.screen==='boon'&&r.boon.kind==='awaken'&&G.takeBoon(r,1); t(ok1&&ok2&&r.screen==='map'&&r.relics.length===1&&r.awaken.length===1,'家傳禮裝＋早熟的靈基：兩個二選一排隊選完才出發'); }
+{ const q=arena('kojiro'); q.battle.energy=2; G.endTurn(q); const k=arena('saber'); k.battle.energy=2; G.endTurn(k); t(q.battle.energy===4&&k.battle.energy===3,'小次郎「不動」：沒用完的魔力留 1 點到下回合（別人不會）',q.battle.energy+'/'+k.battle.energy); }
+{ const q=arena('kojiro'); q.battle.energy=0; G.endTurn(q); t(q.battle.energy===3,'魔力用光就沒有留'); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
