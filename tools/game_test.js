@@ -524,6 +524,7 @@ r=G.newRun('saber',5); step(r,'fight'); t(r.battle.wind===2,'Saber 風王結界�
   win(); t(!r.krakenFed,'打贏 1 場還不長'); r.screen='map'; step(r,'fight'); win(); t(r.krakenFed===1,'打贏 2 場：海魔整局 +1',r.krakenFed);
   r.krakenWins=40; r.screen='map'; step(r,'fight'); win(); t(r.krakenFed===6,'整局成長最多 +6',r.krakenFed); r.screen='map'; step(r,'fight'); t(r.battle.kraken===k0+6,'開場海魔照成長算',r.battle.kraken);
   const q=G.newRun('saber',3); step(q,'fight'); q.battle.enemies.forEach(e=>e.hp=0); G.checkEnd(q); t(!q.krakenFed,'只有吉爾・德・雷的海魔會成長'); }
+{ const r=G.newRun('emiya',5); step(r,'fight'); r.battle.swords=2; const inb=G.cardShort('hrunting',r); r.screen='reward'; t(/\+3\/劍/.test(G.cardShort('hrunting',r))&&!/\+3\/劍/.test(inb),'選牌畫面卡面寫「＋3/劍」看得出加成；戰鬥中才照現在的劍數算好',G.cardShort('hrunting',r)+' / '+inb); }
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位從者 4 局都能打到結束（不卡死）',fin);
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

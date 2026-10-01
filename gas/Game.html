@@ -751,8 +751,10 @@ var G = (function () {
     if (a.ex && !c.ex) out.push('不再消耗');
     return out;
   }
+  // 只有戰鬥中才照「現在的資源」算好數字；選牌、商店、休息時卡面寫「＋N/資源」，玩家才看得出加成
+  function inBattle(run) { return run && run.screen === 'battle' && run.battle && run.battle.hand ? run.battle : null; }
   function shortBits(c, run) {
-    var b = run && run.battle && run.battle.hand ? run.battle : null, mn = run ? minionName(run) : '使魔';
+    var b = inBattle(run), mn = run ? minionName(run) : '使魔';
     if (c.id === 'sword' && b && b.projUp) return ['⚔' + (4 + b.projUp)];
     return c.fx.map(function (f) {
       var t = SHORT[f[0]]; if (!t) return fxText([f], run)[0];
@@ -763,7 +765,7 @@ var G = (function () {
     });
   }
   function cardText(id, run) {
-    var c = card(id), b = run && run.battle, bits = c.text ? [c.text] : fxText(c.fx, run);
+    var c = card(id), b = inBattle(run), bits = c.text ? [c.text] : fxText(c.fx, run);
     if (b && b.hand) c.fx.forEach(function (f, i) { var v = nowValue(f, b, run); if (v !== null) bits[i] += '（現在 ' + v + '）'; });
     if (c.id === 'sword' && b && b.projUp) bits = ['造成 ' + (4 + b.projUp) + ' 傷害'];
     if (c.np && !(run && serv(run) && serv(run).np.none)) bits.push('寶具 +' + c.np + '%');
