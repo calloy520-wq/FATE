@@ -199,7 +199,6 @@
   @media (min-width:900px) { .wrap { max-width:960px; } #hand { justify-content:center; } .card { max-width:130px; } .foe { max-width:220px; } }
   /* 手牌：卡片保持看得清的寬度（太多就橫向捲、右邊淡出提示），卡面文字最多 3 行，完整說明在「?」 */
   #hand .card { min-width:64px; } #hand .card .nm { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; } #hand .card .tx { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
-  #hand.many { -webkit-mask-image:linear-gradient(90deg,#000 88%,transparent); mask-image:linear-gradient(90deg,#000 88%,transparent); }
   .card .pv span { white-space:nowrap; }
   .tabs button { white-space:nowrap; font-size:14px; }
   #foes.picking .foe:not(.dead) { border-color:var(--gold); } #foes.picking .q { pointer-events:none; }
@@ -213,11 +212,11 @@
   #acts .npbtn:disabled { opacity:1; color:var(--dim); border-color:var(--line); }
   #acts .npbtn.full { animation:pulse 1.6s infinite; background:rgba(217,184,106,.22); }
   #acts .btn.go { background:rgba(217,184,106,.22); animation:pulse 1.6s infinite; }
-  @media (min-height:780px) {   /* 螢幕夠高：手牌多就排兩行（不用橫捲）；矮螢幕維持橫捲，免得蓋住敵人 */
-    #hand.many { flex-wrap:wrap; overflow:visible; -webkit-mask-image:none; mask-image:none; row-gap:12px; }
-    #hand.many .card { flex:0 0 calc(33.333% - 4px); max-width:none; min-height:92px; }
-    #hand.many.m7 .card { flex-basis:calc(25% - 4px); }
-  }
+  /* 手牌：固定一排 5 張的大小，第 6 張起排到第二行（最多 10 張＝2×5），牌不會因為張數變大變小 */
+  #hand { display:grid; grid-template-columns:repeat(5, minmax(0, 118px)); justify-content:center; gap:10px 5px; overflow:visible; }
+  #hand .card { width:100%; max-width:none; min-width:0; }
+  #hand.many .card { min-height:96px; }
+  @media (min-width:900px) { #hand { grid-template-columns:repeat(5, minmax(0, 130px)); } }
   .card .nm { margin:15px 0 3px 1px; font-size:13.5px; }
   .card .pv { font-size:15px; }
   .card:not(:disabled):has(.pv.kill) { outline:2px solid #ff8a5c; outline-offset:2px; animation:lethal 1.3s ease-in-out infinite; }   /* 可擊倒：外圈的火色光環（金色留給稀有度外框） */
