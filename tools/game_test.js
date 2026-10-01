@@ -250,7 +250,7 @@ step(as,'fight'); t(as.battle.enemies.every(e=>e.petrify>=1)&&as.battle.enemies.
 as.battle.enemies.forEach(e=>{e.hp=99;e.maxHp=99;e.petrify=0;e.stun=0;}); as.battle.np=100; G.noble(as,0); t(as.battle.enemies[0].petrify>=0&&/石化 2/.test(G.npText(G.serv(as).np,as)),'再臨 IV：寶具追加全體石化 2',G.npText(G.serv(as).np,as));
 t(G.ORDER.every(k=>G.ASC_SVT[k]&&[1,2,3,4,5].every(lv=>G.ascText(k,lv))),'14 位每一級再臨都有自己的說明');
 t(G.ORDER.every(k=>G.ASC_SVT[k].slice(0,2).every(fx=>!G.needsTarget(fx))),'開場效果不會用到要選目標的效果');
-let as1=G.newRun('saber',6,{asc:3}); step(as1,'fight'); t(as1.battle.wind===2&&as1.battle.block===8,'Saber 再臨 III：開場風 2、格擋 8');
+let as1=G.newRun('saber',6,{asc:3}); step(as1,'fight'); t(as1.battle.wind===2&&as1.battle.block===Math.round(8*G.statsOf(as1).def),'Saber 再臨 III：開場風 2、格擋 8（×格擋倍率）');
 t(G.SVT_COST.saber===0&&G.ORDER.every(k=>k==='saber'||G.SVT_COST[k]>0)&&G.ASC.length===6,'一開始只有 Saber 免費，其他都有解鎖價；命座 6 級');
 let cz=G.newRun('saber',8); cz.stats.floors=10; cz.stats.bosses=1; t(G.crystalsFor(cz)===25,'聖晶石：走過 10 格＋打倒 1 位魔王＝25');
 
@@ -288,8 +288,8 @@ t(G.ORDER.every(k=>G.card('atk_'+k).fx[0][0]==='dmg'&&G.card('atk_'+k).fx[0][1]=
 // 官方六圍
 t(G.ORDER.every(k=>G.PARAMS[k]&&G.PARAMS[k].length===6),'15 位都有六圍');
 r=arena('heracles'); r.flat=false; playId(r,'atk_heracles'); t(E(r).hp===50-7,'赫拉克勒斯 筋力 A+：6 傷 ×1.12 → 7',E(r).hp);
-r=arena('medea'); r.flat=false; playId(r,'def_medea'); t(r.battle.block===5,'美狄亞 格擋看筋力 E／敏捷 C／魔力 A+ 平均（≈93%）：5 → 5',r.battle.block);
-r=arena('gilles'); r.flat=false; playId(r,'def_gilles'); t(r.battle.block===4,'吉爾斯 筋力 D／敏捷 D／魔力 C 平均（≈87%）：5 → 4',r.battle.block);
+r=arena('medea'); r.flat=false; playId(r,'def_medea'); t(r.battle.block===6,'美狄亞 格擋看筋力／敏捷／魔力取最高（魔力 A+ 112%）：5 → 6',r.battle.block);
+r=arena('gilles'); r.flat=false; playId(r,'def_gilles'); t(r.battle.block===5,'吉爾斯 筋力 D／敏捷 D／魔力 C 取最高（92%）：5 → 5',r.battle.block);
 t(G.SERVANTS.heracles.hp===81&&G.SERVANTS.gilles.hp===57&&G.SERVANTS.saber.hp===75,'生命照耐久：B 75、A 81、E 57');
 r=arena('medea'); r.flat=false; playId(r,'atk_medea'); t(E(r).hp===50-7,'美狄亞 魔力 A+（術者看魔力）：6 傷 → 7',E(r).hp);
 r=arena('iskandar'); r.flat=false; playId(r,'def_iskandar'); t(r.battle.block===5,'伊斯坎達爾 耐久 A：5 ×1.08 → 5（四捨五入）',r.battle.block);

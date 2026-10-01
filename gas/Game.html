@@ -334,7 +334,7 @@ var G = (function () {
     np: { name: '貫穿死翔之槍', fx: [['pierce', 25], ['doom', 4]] } };
   // ── 官方六圍（筋力／耐久／敏捷／魔力／幸運／寶具；第五次照 Fate/stay night、第四次照 Fate/Zero、斯卡哈照 FGO）──
   // 換算：等級 E1 D2 C3 B4 A5 EX6.5，「+」+0.5；以 B 為 100%
-  //   攻擊（筋力與魔力取高）：所有卡牌傷害 ×(1＋8%×(等級−4))｜耐久：生命＝75×(1＋8%×…)｜格擋：筋力、敏捷、魔力三項平均 ×(1＋8%×…)
+  //   攻擊（筋力與魔力取高）：所有卡牌傷害 ×(1＋8%×(等級−4))｜耐久：生命＝75×(1＋8%×…)｜格擋：筋力、敏捷、魔力取最高 ×(1＋8%×…)（魔力強化防禦、筋力敏捷架招）
   //   敏捷 A 以上：每場開場多抽 1 張｜幸運：打贏拿到的金錢 ×(1＋10%×…)｜寶具：只顯示，不影響數值
   //   不硬拉平衡：原作強的從者就是強（玩家要選弱的也可以）
   var PARAMS = {
@@ -350,7 +350,7 @@ var G = (function () {
   function statsOf(run) {
     var P = !run || run.flat ? null : PARAMS[run.who];
     if (!P) return { atk: 1, hp: 1, def: 1, agi: false, luck: 1 };
-    return { atk: 1 + 0.08 * (Math.max(grade(P[0]), grade(P[3])) - 4), hp: 1 + 0.08 * (grade(P[1]) - 4), def: 1 + 0.08 * ((grade(P[0]) + grade(P[2]) + grade(P[3])) / 3 - 4), agi: grade(P[2]) >= 5, luck: 1 + 0.1 * (grade(P[4]) - 4) };
+    return { atk: 1 + 0.08 * (Math.max(grade(P[0]), grade(P[3])) - 4), hp: 1 + 0.08 * (grade(P[1]) - 4), def: 1 + 0.08 * (Math.max(grade(P[0]), grade(P[2]), grade(P[3])) - 4), agi: grade(P[2]) >= 5, luck: 1 + 0.1 * (grade(P[4]) - 4) };
   }
   // 生命照耐久：B＝75
   var HP_BASE = 75;
