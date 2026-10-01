@@ -19,7 +19,8 @@
   #top { display:flex; align-items:center; gap:10px; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
   #top .who { color:var(--gold); }
   .bar { position:relative; height:17px; background:#262c38; border-radius:7px; overflow:hidden; min-width:90px; flex:1; }
-  .bar i { position:absolute; left:0; top:0; bottom:0; background:var(--red); transition:width .25s; }
+  .bar i { position:absolute; left:0; top:0; bottom:0; background:var(--red); transition:width .3s ease-out; }
+  .bar .ghost { position:absolute; left:0; top:0; bottom:0; background:#f3d9a0; transition:width .5s ease-in .45s; }
   .bar span { position:relative; font-size:12px; padding-left:6px; line-height:17px; display:block; }
   .seals { color:var(--red); letter-spacing:2px; }
   .chips { display:flex; gap:4px; flex-wrap:wrap; }
@@ -52,7 +53,9 @@
   .foe.dead { opacity:.25; }
   .foe.hit { animation:hit .3s; }
   @keyframes hit { 30% { transform:translateX(-4px); background:#3a2020; } 60% { transform:translateX(4px); } }
-  .foe .nm { font-weight:bold; margin-bottom:4px; }
+  .foe { position:relative; } .foe .nm { font-weight:bold; margin:0 22px 4px 0; }
+  .foe .q { position:absolute; top:6px; right:6px; width:22px; height:22px; border-radius:50%; border:1px solid var(--line); color:var(--dim); font-size:13px; line-height:20px; text-align:center; background:#131722; }
+  .terms { margin-top:10px; display:flex; flex-direction:column; gap:6px; font-size:14px; color:var(--dim); border-top:1px dashed var(--line); padding-top:10px; } .terms b { color:var(--gold); font-weight:normal; }
   .intent { margin-top:8px; font-size:16px; line-height:1.5; }
   .intent .num { font-size:22px; font-weight:bold; }
   .incoming { margin:0 12px; padding:6px 10px; border-radius:9px; background:#2a1717; border:1px solid #6b2e2e; color:#f2b3b3; font-size:15px; }
@@ -79,7 +82,7 @@
   .np.full i { animation:glow 1s infinite; } @keyframes glow { 50% { opacity:.6; } }
   #log { min-height:20px; padding:4px 12px; color:var(--dim); font-size:13.5px; }
   #hand { display:flex; gap:5px; overflow-x:auto; padding:12px 10px 6px; }
-  .card { flex:1 0 0; min-width:66px; max-width:118px; min-height:128px; border-radius:10px; border:1px solid var(--line); background:#1b2130; padding:7px 6px; text-align:left; position:relative; display:flex; flex-direction:column; }
+  .card { flex:1 0 0; min-width:58px; max-width:118px; min-height:128px; border-radius:10px; border:1px solid var(--line); background:#1b2130; padding:7px 6px; text-align:left; position:relative; display:flex; flex-direction:column; }
   .pick .card { flex:none; }
   .card .cost { position:absolute; top:-8px; left:-4px; width:24px; height:24px; border-radius:50%; background:var(--gold); color:#1a1408; font-weight:bold; display:flex; align-items:center; justify-content:center; font-size:14px; }
   .card .nm { font-weight:bold; margin:6px 14px 4px 0; font-size:14px; line-height:1.25; }
@@ -110,7 +113,20 @@
   .mbtn.main { border-color:var(--gold); background:rgba(217,184,106,.14); } .mbtn.main b { color:var(--gold); font-size:20px; }
   #lname { font-size:18px; padding:12px 14px; } #lname + .btn { font-size:17px; padding:12px; text-align:center; border-color:var(--gold); color:var(--gold); background:rgba(217,184,106,.14); }
   .msep { height:1px; background:var(--line); margin:6px 0; }
-  .mrow { display:flex; gap:14px; } .mrow .mbtn { padding:13px 14px; } .mrow .mbtn b { font-size:16px; }
+  .mrow { display:flex; gap:10px; } .mrow .mbtn { flex-direction:column; gap:4px; padding:12px 6px; text-align:center; } .mrow .mbtn b { font-size:15px; }
+  /* 打擊感 */
+  .card.flying { position:fixed; z-index:20; margin:0; pointer-events:none; box-shadow:0 0 18px rgba(217,184,106,.6); }
+  .pop { position:fixed; z-index:21; transform:translate(-50%,-50%); pointer-events:none; font-weight:bold; font-size:26px; text-shadow:0 2px 6px #000; animation:pop 1s ease-out forwards; white-space:nowrap; }
+  .pop.dmg { color:#ff7a7a; } .pop.crit { font-size:36px; color:#ffb347; } .pop.blk { color:#b8c0cc; font-size:20px; }
+  .pop.ko { color:var(--gold); font-size:22px; letter-spacing:.2em; } .pop.heal { color:var(--green); } .pop.hurt { color:#ff5a5a; font-size:30px; } .pop.gain { color:var(--blue); font-size:22px; }
+  @keyframes pop { 0% { opacity:0; transform:translate(-50%,-30%) scale(.6); } 15% { opacity:1; transform:translate(-50%,-60%) scale(1.15); } 100% { opacity:0; transform:translate(-50%,-160%) scale(1); } }
+  .foe .slash { position:absolute; left:-10%; right:-10%; top:50%; height:4px; background:linear-gradient(90deg,transparent,#fff,#ffd27a,transparent); transform:rotate(-28deg) scaleX(0); animation:slash .28s ease-out forwards; pointer-events:none; border-radius:2px; box-shadow:0 0 12px #ffd27a; }
+  @keyframes slash { 40% { transform:rotate(-28deg) scaleX(1); opacity:1; } 100% { transform:rotate(-28deg) scaleX(1.1); opacity:0; } }
+  #foes.shake { animation:shake .35s; } @keyframes shake { 20% { transform:translate(-6px,2px); } 40% { transform:translate(5px,-3px); } 60% { transform:translate(-4px,1px); } 80% { transform:translate(3px,0); } }
+  .hurtflash { position:fixed; inset:0; z-index:19; pointer-events:none; box-shadow:inset 0 0 90px rgba(255,40,40,.55); animation:fade .4s forwards; } @keyframes fade { to { opacity:0; } }
+  .npban { position:fixed; left:0; right:0; top:38%; z-index:22; text-align:center; padding:18px 0; background:linear-gradient(90deg,transparent,rgba(40,30,10,.92),transparent); border-top:1px solid var(--gold); border-bottom:1px solid var(--gold); animation:npb .75s ease-out forwards; pointer-events:none; }
+  .npban span { display:block; color:var(--dim); font-size:14px; letter-spacing:.4em; } .npban b { display:block; color:var(--gold); font-size:28px; letter-spacing:.15em; font-weight:normal; }
+  @keyframes npb { 0% { opacity:0; transform:scaleY(.2); } 20% { opacity:1; transform:scaleY(1); } 80% { opacity:1; } 100% { opacity:0; } }
   /* 其他畫面 */
   .panel { padding:22px 16px; display:flex; flex-direction:column; gap:16px; align-items:center; }
   .pick { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
@@ -160,6 +176,13 @@
     if (window.google && google.script && google.script.run) { var r = google.script.run.withSuccessHandler(ok).withFailureHandler(fail || function (e) { ok({ ok: false, offline: true, msg: '連不上伺服器：' + (e && e.message || e) }); }); r[fn].apply(r, args); return; }
     setTimeout(function () { ok(fakeServer(fn, args)); }, 0);
   }
+  // 排行榜的一列（伺服器 Code.gs 的 gpBoardRow_ 算法一樣）
+  function boardRow(name, m) {
+    if (!m || !m.stats) return null;
+    var e = m.stats.endless || {}, who = '', best = 0;
+    Object.keys(e).forEach(function (k) { if (e[k] > best) { best = e[k]; who = k; } });
+    return { name: name, endless: best, who: who, wins: m.stats.wins || 0, trueEnds: m.stats.trueEnds || 0, runs: m.stats.runs || 0 };
+  }
   function fakeServer(fn, a) {
     var db = {}; try { db = JSON.parse(localStorage.getItem('grail_fake_srv') || '{}'); } catch (e) { }
     var put = function () { localStorage.setItem('grail_fake_srv', JSON.stringify(db)); }, u = db[a[0]];
@@ -169,6 +192,7 @@
       return { ok: true, name: a[0], token: 't-' + a[0], meta: u.meta || null, run: u.run || null };
     }
     if (fn === 'gpResume') return u && a[1] === 't-' + a[0] ? { ok: true, name: a[0], token: a[1], meta: u.meta || null, run: u.run || null } : { ok: false, msg: '請重新登入' };
+    if (fn === 'gpBoard') return { ok: true, list: Object.keys(db).map(function (k) { var m = null; try { m = JSON.parse(db[k].meta || 'null'); } catch (e) { } return boardRow(k, m); }).filter(function (r) { return r; }) };
     if (fn === 'gpSave') { if (!u) return { ok: false }; if (a[2] != null) u.meta = a[2]; if (a[3] != null) u.run = a[3]; put(); return { ok: true }; }
   }
   // 存檔：先寫本機快取，停 2 秒沒有新變化再送伺服器
@@ -284,10 +308,17 @@
     ['強化方向', '休息點鍛鍊或事件強化時，從三個方向選一個：精煉（數值變強）、迅捷（費用 -1，只有 2 費以上的牌）、共鳴（寶具 +15%、多抽 1）、英靈之魂（多一個自己從者的機制，只有專屬牌）、極限（數值翻倍但打出後消耗）'],
     ['狂化', '狂戰士（赫拉克勒斯、蘭斯洛特）的職階技能：非常耗魔力，第二回合起每回合開始失去 2 生命（不會因此倒下）'],
     ['六圍', '原作的筋力／耐久／敏捷／魔力／幸運／寶具（E～EX，以 B 為 100%，每差一級 ±8%）。攻擊（筋力、魔力取高）乘上所有卡牌傷害；耐久決定生命（B＝75）；筋力、敏捷、魔力取最高乘上所有卡牌格擋；敏捷 A 以上每場開場多抽 1 張；幸運乘上打贏拿到的金錢；寶具等級只是顯示。原作強的從者就是比較強'],
-    ['虛弱', '造成的攻擊傷害 ×0.75'], ['易傷', '受到的攻擊傷害 ×1.5'], ['消耗', '打出後這場戰鬥不再出現']
+    ['虛弱', '造成的攻擊傷害 ×0.75'], ['易傷', '受到的攻擊傷害 ×1.5'], ['消耗', '打出後這場戰鬥不再出現'],
+    ['力量', '每點力量讓攻擊的每一擊 +1（敵人也一樣）'], ['格擋', '先擋掉受到的傷害；回合開始清空（穿透無視格擋）'],
+    ['動彈不得', '這回合不能行動（石化累積到門檻時發生）'], ['投影劍', 'EMIYA 的代幣牌：0 費、造成 4 傷害、用完就沒；無限劍製會讓每把更強'],
+    ['寶庫', '吉爾伽美什：從王之財寶取出的寶具（代幣牌，0 費）；留在手上的話回合結束自動掃射'],
+    ['武器化', '蘭斯洛特的代幣牌：把手邊的東西變成寶具，用掉時武練 +1'],
+    ['整場', '能力牌：打出後這場戰鬥一直有效'],
+    ['十二試煉', '赫拉克勒斯：倒下時以一半生命站起來；剩幾條命就能站起來幾次']
   ];
 
-  function render() {
+  function render() { renderScreen(); dropBars(); }
+  function renderScreen() {
     if (!ACC) return loginScreen();
     if (run) save();   // 回到標題時不能動存檔（一打開網頁 run 還是空的）
     if (!run) return titleScreen();
@@ -311,11 +342,12 @@
     $('app').innerHTML = '<div class="acct"><span>👤 <b>' + esc(ACC.name) + '</b></span><span>💎 <b>' + M.crystals + '</b></span><button onclick="logout()">登出／換人</button></div>'
       + '<div class="panel home"><div class="hero"><h1>聖杯之路</h1><div class="dim">選一位從者，走到聖杯面前。</div></div>'
       + '<div class="menu">'
-      + (going ? big('cont()', '▶', '繼續冒險', esc(S.cls + '・' + S.name) + '・' + esc((G.ACT_NAMES[saved.act] || '').split('　')[0]) + ' 第 ' + saved.floor + ' 列', 'main') : '')
-      + big('choose()', '⚔', '新的冒險', going ? '放棄目前這一局，重新選從者' : '選從者、選命運，出發', going ? '' : 'main')
+      + (going ? big('cont()', '▶', '繼續冒險', esc(S.cls + '・' + S.name) + '・' + esc((saved.endless ? '♾ ' : '') + (G.actName(saved) || '').split('　')[0]) + ' 第 ' + saved.floor + ' 列', 'main') : '')
+      + big("MODE='normal';choose()", '⚔', '新的冒險', going ? '放棄目前這一局，重新選從者' : '選從者、選命運，出發', going ? '' : 'main')
+      + big("MODE='endless';choose()", '♾', '無盡模式', '兩章之後一層一層往下，看能爬多遠')
       + '<div class="msep"></div>'
       + big("workshop('svt')", '💎', '靈基工坊', '解鎖英靈・靈基再臨・命運')
-      + '<div class="mrow">' + big('recordScreen()', '📜', '戰績') + big("openOv('<b>名詞說明</b>' + glossaryHtml())", '📖', '名詞說明') + '</div>'
+      + '<div class="mrow">' + big('recordScreen()', '📜', '戰績') + big('boardScreen()', '🏆', '排行榜') + big("openOv('<b>名詞說明</b>' + glossaryHtml())", '📖', '說明') + '</div>'
       + '</div></div>';
   }
   // 靈基工坊：用聖晶石解鎖英靈、靈基再臨、解鎖命運
@@ -354,8 +386,29 @@
     var M = me(), st = M.stats;
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">戰績：' + esc(ACC.name) + '</h1>'
       + '<div class="box">出擊 ' + st.runs + ' 次・通關 ' + st.wins + ' 次・真結局 ' + st.trueEnds + ' 次・💎 ' + M.crystals + '</div><div class="list">'
-      + G.ORDER.map(function (k) { var b = st.best[k]; return '<div class="box"><b>' + esc(G.SERVANTS[k].cls + '・' + G.SERVANTS[k].name) + '</b>　<span class="dim">' + (b ? esc(b) : '還沒出擊過') + '</span></div>'; }).join('')
-      + '</div><button class="btn" onclick="titleScreen()">返回</button></div>';
+      + G.ORDER.map(function (k) { var b = st.best[k], e = (st.endless || {})[k]; return '<div class="box urow"><div><b>' + esc(G.SERVANTS[k].cls + '・' + G.SERVANTS[k].name) + '</b><div class="dim" style="font-size:13.5px">' + (b ? esc(b) : '還沒出擊過') + '</div></div>' + (e ? '<span class="tag" style="color:var(--gold)">♾ ' + e + ' 格</span>' : '') + '</div>'; }).join('')
+      + '</div><div class="row"><button class="btn" onclick="boardScreen()">🏆 排行榜</button><button class="btn" onclick="titleScreen()">返回</button></div></div>';
+  }
+  // 排行榜：伺服器彙整所有帳號的戰績（無盡最遠、通關次數）；一分鐘更新一次
+  function boardScreen(tab) {
+    tab = tab || boardScreen.tab || 'endless'; boardScreen.tab = tab;
+    var tabs = [['endless', '♾ 無盡最遠'], ['wins', '👑 通關次數']];
+    var head = '<div class="tabs" style="max-width:460px;width:100%">' + tabs.map(function (t) { return '<button class="' + (tab === t[0] ? 'on' : '') + '" onclick="boardScreen(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>';
+    var shell = function (body) { $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">排行榜</h1>' + head + '<div class="list">' + body + '</div><button class="btn" onclick="' + (run && run.screen === 'over' ? 'render()' : 'titleScreen()') + '">返回</button></div>'; };
+    shell('<div class="dim" style="text-align:center">讀取中…</div>');
+    flushSave();
+    srv('gpBoard', [], function (res) {
+      if (boardScreen.tab !== tab) return;
+      if (!res || !res.ok) return shell('<div class="dim" style="text-align:center">' + esc((res && res.msg) || '連不上伺服器') + '</div>');
+      var key = tab === 'endless' ? 'endless' : 'wins';
+      var rows = res.list.filter(function (r) { return r[key] > 0; }).sort(function (a, b) { return b[key] - a[key] || (b.trueEnds || 0) - (a.trueEnds || 0); }).slice(0, 50);
+      if (!rows.length) return shell('<div class="dim" style="text-align:center">還沒有人上榜，第一名就是你的。</div>');
+      shell(rows.map(function (r, i) {
+        var S = r.who && G.SERVANTS[r.who], medal = ['🥇', '🥈', '🥉'][i] || (i + 1) + '.';
+        var sub = tab === 'endless' ? (S ? S.cls + '・' + S.name : '') : '真結局 ' + (r.trueEnds || 0) + ' 次・出擊 ' + (r.runs || 0) + ' 次';
+        return '<div class="box urow"' + (r.name === ACC.name ? ' style="border-color:var(--gold)"' : '') + '><span style="width:34px;font-size:18px;flex:none">' + medal + '</span><div><b>' + esc(r.name) + '</b>' + (r.name === ACC.name ? '　<span class="dim">（你）</span>' : '') + '<div class="dim" style="font-size:13.5px">' + esc(sub) + '</div></div><span class="tag" style="color:var(--gold);font-size:17px">' + r[key] + (tab === 'endless' ? ' 格' : ' 次') + '</span></div>';
+      }).join(''));
+    });
   }
   function cont() { run = load(); render(); }
   // 選人格子：已解鎖／聖晶石夠可以解鎖／還不夠
@@ -394,7 +447,8 @@
       + '<div class="dim" style="font-size:13.5px;margin-top:2px">寶具「' + esc(S.np.name) + '」：' + esc(G.npText(S.np)) + '</div></button>';
   }
   function choose() {
-    $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">選擇從者</h1>'
+    $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">' + (MODE === 'endless' ? '♾ 無盡模式・' : '') + '選擇從者</h1>'
+      + (MODE === 'endless' ? '<div class="box" style="max-width:460px">先走完兩章，之後不進隱藏關，改成一層一層往下：每層一張新地圖、一位魔王，越來越強。走過的格子數就是成績，會記在戰績和排行榜。</div>' : '')
       + '<div class="dim">💎 聖晶石 ' + me().crystals + '　點格子看詳細；🔒 的可以用聖晶石解鎖</div>'
       + CLASSES.map(function (c) {
         var ks = G.ORDER.filter(function (k) { return G.SERVANTS[k].cls === c; });
@@ -404,7 +458,7 @@
   }
   function newSeed() { return (Date.now() ^ (Math.random() * 1e9)) >>> 0; }
   // 出發前選命運（三選一）
-  var DIFF = 'normal';
+  var DIFF = 'normal', MODE = 'normal';   // MODE：normal 一般｜endless 無盡模式
   function pickFate(who, keepSeed) {
     var seed = keepSeed || newSeed(), opts = G.fateOptions(seed, me().fates);
     if (!diffOpen(DIFF)) DIFF = 'normal';
@@ -413,20 +467,29 @@
       var D = G.DIFFS[d], open = diffOpen(d);
       return '<button class="' + (DIFF === d ? 'on' : '') + '" ' + (open ? 'onclick="DIFF=\'' + d + '\';pickFate(pickFate.ctx.who,pickFate.ctx.seed)"' : 'disabled style="opacity:.4"') + '>' + (open ? '' : '🔒 ') + D.name + '</button>';
     }).join('') + '</div>';
+    if (MODE === 'endless') { DIFF = 'normal'; diffs = ''; }
     var Dn = G.DIFFS[DIFF];
-    $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">難度</h1>' + diffs
-      + '<div class="dim" style="max-width:460px">' + (DIFF === 'normal' ? '標準難度。用這位通關可以開放命座 I～II。' : '敵人生命 +' + Math.round(Dn.hp * 100) + '%、力量 +' + Dn.str + (Dn.rest < 0.3 ? '、休息只回兩成' : '') + '；聖晶石 ×' + Dn.cry + '。用這位通關可以開放命座 ' + (DIFF === 'hard' ? 'III～IV' : 'V～VI') + '。') + (diffOpen('hard') ? '' : '（任一從者通關普通後解鎖困難）') + '</div>'
+    $('app').innerHTML = '<div class="panel">' + (MODE === 'endless' ? '<h1 style="font-size:22px">♾ 無盡模式</h1><div class="dim">固定普通難度，大家站在同一條起跑線上比誰爬得遠。</div>' : '<h1 style="font-size:22px">難度</h1>' + diffs)
+      + (MODE === 'endless' ? '' : '<div class="dim" style="max-width:460px">' + (DIFF === 'normal' ? '標準難度。用這位通關可以開放命座 I～II。' : '敵人生命 +' + Math.round(Dn.hp * 100) + '%、力量 +' + Dn.str + (Dn.rest < 0.3 ? '、休息只回兩成' : '') + '；聖晶石 ×' + Dn.cry + '。用這位通關可以開放命座 ' + (DIFF === 'hard' ? 'III～IV' : 'V～VI') + '。') + (diffOpen('hard') ? '' : '（任一從者通關普通後解鎖困難）') + '</div>')
       + '<h1 style="font-size:22px;margin-top:6px">選擇命運</h1><div class="dim">這一趟的額外強化（到靈基工坊解鎖更多命運）</div>'
       + opts.map(function (k) { var F = G.FATES[k]; return '<button class="svt" onclick="startWith(\'' + k + '\')"><b>' + esc(F.name) + '</b><div style="margin-top:6px">' + esc(F.text) + '</div></button>'; }).join('')
       + '<button class="btn" onclick="choose()">返回</button></div>';
   }
   function startWith(fate) {
     var c = pickFate.ctx;
-    run = G.newRun(c.who, c.seed, { fate: fate, diff: DIFF, asc: me().asc[c.who] || 0 });
+    run = G.newRun(c.who, c.seed, { fate: fate, diff: DIFF, asc: me().asc[c.who] || 0, endless: MODE === 'endless' });
     updateMe(function (m) { m.stats.runs++; });
     render();
   }
 
+  // 一段文字裡出現了哪些名詞（卡牌「?」、敵人與自己的狀態都用它，就不用翻名詞說明）
+  function termsIn(text) {
+    return GLOSSARY.filter(function (g) { return g[0].split('／').some(function (w) { return text.indexOf(w) >= 0; }); });
+  }
+  function termsHtml(text) {
+    var T = termsIn(text); if (!T.length) return '';
+    return '<div class="terms">' + T.map(function (g) { return '<div><b>' + g[0] + '</b>　' + g[1] + '</div>'; }).join('') + '</div>';
+  }
   function glossaryHtml() {
     return '<div class="list" style="margin-top:6px">' + GLOSSARY.map(function (g) { return '<div class="box"><h3>' + g[0] + '</h3>' + g[1] + '</div>'; }).join('') + '</div>';
   }
@@ -453,14 +516,26 @@
   }
 
   // ── 頂列 ──
+  // 血條：生命變少時從舊的長度滑到新的長度，後面拖一段淡色的「剛剛被打掉的」再慢慢縮（格鬥遊戲那種）
+  function hpBar(key, hp, max, label) {
+    var now = Math.max(0, Math.round(hp / max * 100)), old = hpBar.last[key], was = old !== undefined && old > now ? old : now;
+    hpBar.last[key] = now;
+    return '<div class="bar"><b class="ghost" style="width:' + was + '%" data-to="' + now + '"></b><i style="width:' + was + '%" data-to="' + now + '"></i><span>' + label + '</span></div>';
+  }
+  hpBar.last = {};
+  function dropBars() {
+    requestAnimationFrame(function () { requestAnimationFrame(function () {
+      document.querySelectorAll('.bar [data-to]').forEach(function (x) { x.style.width = x.getAttribute('data-to') + '%'; });
+    }); });
+  }
   function topBar() {
     var S = G.serv(run);
     return '<div id="top"><span class="who">' + esc(S.cls) + '</span>'
-      + '<div class="bar"><i style="width:' + Math.round(run.hp / run.maxHp * 100) + '%"></i><span>' + run.hp + '／' + run.maxHp + '</span></div>'
+      + hpBar('me', run.hp, run.maxHp, run.hp + '／' + run.maxHp)
       + (run.lives ? '<span class="chip gold" title="十二試煉">命 +' + run.lives + '</span>' : '')
       + '<span style="color:var(--gold)">💰' + run.gold + '</span>'
       + '<span class="seals" title="令咒">' + '❖'.repeat(run.seals) + '<span class="dim">' + '❖'.repeat(Math.max(0, run.maxSeals - run.seals)) + '</span></span>'
-      + '<span class="dim">' + (run.diff && run.diff !== 'normal' ? G.DIFFS[run.diff].name + '・' : '') + esc((G.ACT_NAMES[run.act] || '').split('　')[0]) + ' ' + run.floor + '/' + run.map.length + '</span>'
+      + '<span class="dim">' + (run.diff && run.diff !== 'normal' ? G.DIFFS[run.diff].name + '・' : '') + esc(run.endless && run.act >= 3 ? '♾ 第 ' + (run.act - 2) + ' 層' : (run.endless ? '♾ ' : '') + (G.actName(run) || '').split('　')[0]) + ' ' + run.floor + '/' + run.map.length + '</span>'
       + '<button class="infobtn" onclick="openInfo(\'svt\')">📜 從者</button>'
       + '<button class="infobtn" onclick="openInfo(\'words\')">📖 說明</button>'
       + '<button class="infobtn" onclick="openInfo(\'deck\')">🂠 ' + run.deck.length + '</button>'
@@ -491,6 +566,7 @@
     openOv('<b style="font-size:17px">' + esc(c.name) + '</b>　<span class="dim">' + (c.unplayable ? '' : c.cost + ' 費・') + (types[c.type] || '') + '</span>'
       + '<div style="margin:10px 0;line-height:1.6">' + esc(G.cardText(id, run)) + '</div>'
       + (up.length ? '<div class="dim" style="font-size:13.5px">可以強化，例如精煉後：' + esc(G.cardText(up[0], run)) + '</div>' : '')
+      + termsHtml(c.name + G.cardText(id, run) + (c.type === 'power' ? '整場' : '') + (c.ex ? '消耗' : ''))
       + '<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" onclick="cardInfoBack()">' + (prev ? '返回' : '知道了') + '</button></div>');
   }
   function cardInfoBack() { if (cardInfo.prev) openOv(cardInfo.prev); else closeOv(); cardInfo.prev = null; }
@@ -517,7 +593,7 @@
       });
     });
     $('app').innerHTML = topBar()
-      + '<div class="maphead"><b>' + esc(G.ACT_NAMES[run.act]) + '</b>'
+      + '<div class="maphead"><b>' + (run.endless ? '♾ ' : '') + esc(G.actName(run)) + '</b>'
       + '<div class="legend"><span>⚔ 戰鬥</span><span>☠ 精英（打贏可靈基覺醒）</span><span>❓ 事件</span><span>🔥 休息</span><span>🎁 寶箱</span><span>🛒 商店</span><span>👑 魔王</span><span>？ 太遠看不清</span></div>'
       + '<div class="dim" style="font-size:13px">由上往下走，只能沿著線前進。金色的是下一步能走的格子。</div></div>'
       + '<div id="map"><div class="mapbox" style="height:' + H + 'px"><svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' + lines + '</svg>' + nodes + '</div></div>';
@@ -597,9 +673,9 @@
     var foes = b.enemies.map(function (e, i) {
       if (e.hp <= 0 && b.enemies.length > 3) return '';   // 叫來的援軍倒了就收掉，免得畫面擠
       var hit = lastHp[e.key] !== undefined && e.hp < lastHp[e.key];
-      return '<button class="foe' + (e.hp <= 0 ? ' dead' : '') + (sel.foe === i ? ' sel' : '') + (hit ? ' hit' : '') + '" onclick="tapFoe(' + i + ')">'
-        + '<div class="nm">' + esc(e.name) + '</div>'
-        + '<div class="bar"><i style="width:' + Math.max(0, Math.round(e.hp / e.maxHp * 100)) + '%"></i><span>' + Math.max(0, e.hp) + '／' + e.maxHp + (e.block ? '　🛡' + e.block : '') + '</span></div>'
+      return '<button data-key="' + e.key + '" class="foe' + (e.hp <= 0 ? ' dead' : '') + (sel.foe === i ? ' sel' : '') + (hit ? ' hit' : '') + '" onclick="tapFoe(' + i + ')">'
+        + '<span class="q" onclick="event.stopPropagation();foeInfo(' + i + ')">?</span><div class="nm">' + esc(e.name) + '</div>'
+        + hpBar(e.key, e.hp, e.maxHp, Math.max(0, e.hp) + '／' + e.maxHp + (e.block ? '　🛡' + e.block : ''))
         + '<div class="chips" style="margin-top:4px">' + foeChips(e) + '</div>'
         + (e.hp > 0 ? '<div class="intent">' + intentHtml(e) + '</div>' : '') + '</button>';
     }).join('');
@@ -612,12 +688,37 @@
       + '<div id="me"><div class="row"><div class="energy">' + b.energy + '</div><div style="flex:1">'
       + '<div class="row"><span style="font-size:13px;color:var(--blue)">🛡 ' + b.block + '</span><span class="dim" style="font-size:13px">牌堆 ' + b.draw.length + '・棄牌 ' + b.discard.length + '</span></div>'
       + '<div class="row" style="margin-top:5px"><span style="font-size:13px;color:var(--gold)">寶具</span><div class="np' + (full ? ' full' : '') + '"><i style="width:' + b.np + '%"></i></div><span style="font-size:13px">' + b.np + '%</span></div>'
-      + '<div class="chips" style="margin-top:5px">' + meChips(b) + '</div></div></div></div>'
+      + '<div class="chips" style="margin-top:5px" onclick="meInfo()">' + meChips(b) + '<span class="chip">? 說明</span></div></div></div></div>'
       + '<div id="hand">' + b.hand.map(function (id, i) { return cardHtml(id, 'onclick="tapCard(' + i + ')"' + (G.costOf(run, id) > b.energy || G.card(id).unplayable ? ' disabled' : ''), false, pvHtml(i)); }).join('') + '</div>'
       + '<div id="acts">' + (S.np.none ? '<button class="btn" disabled>沒有寶具</button>' : '<button class="btn' + (sel.np ? ' on' : '') + '" ' + (full ? '' : 'disabled') + ' onclick="doNP()">寶具「' + esc(S.np.name) + '」</button>')
       + '<button class="btn red" ' + (run.seals ? '' : 'disabled') + ' onclick="sealMenu()">令咒 ' + run.seals + '</button>'
       + '<button class="btn" onclick="endTurn()">結束回合</button></div></div>';
     var cs = document.querySelectorAll('#hand .card'); if (sel.card >= 0 && cs[sel.card]) cs[sel.card].classList.add('sel');
+    dropBars();
+  }
+  // 敵人的「?」：這回合要做什麼（講白話）＋身上每個狀態的說明
+  var INTENT_TEXT = { atk: function (f, e) { return '攻擊 ' + G.intentDmg(run, e, f) + (f[2] ? ' ×' + f[2] : '') + '（已算進力量、虛弱、易傷）'; },
+    atkP: function (f, e) { return '穿透攻擊 ' + G.intentDmg(run, e, f) + (f[2] ? ' ×' + f[2] : '') + '：無視你的格擋'; },
+    block: function (f) { return '獲得格擋 ' + f[1]; }, str: function (f) { return '力量 +' + f[1] + '：之後每一擊都更痛'; }, heal: function (f) { return '回復 ' + f[1] + ' 生命'; },
+    weak: function (f) { return '讓你虛弱 ' + f[1] + '（你的攻擊 ×0.75）'; }, vuln: function (f) { return '讓你易傷 ' + f[1] + '（你受到的攻擊 ×1.5）'; },
+    curse: function (f) { return '把 ' + (f[2] || 1) + ' 張「泥」塞進你的牌堆'; }, summon: function (f) { return '叫來 ' + (f[2] || 1) + ' 個援軍'; },
+    breakBlock: function () { return '打碎你的格擋（格擋歸零）'; } };
+  function foeInfo(i) {
+    var e = run.battle.enemies[i], tmp = document.createElement('div'); tmp.innerHTML = foeChips(e);
+    var st = tmp.textContent, lines = e.stun ? ['動彈不得：這回合不能行動'] : e.intent.fx.map(function (f) { return INTENT_TEXT[f[0]] ? INTENT_TEXT[f[0]](f, e) : f[0]; });
+    openOv('<b style="font-size:17px">' + esc(e.name) + '</b>　<span class="dim">' + Math.max(0, e.hp) + '／' + e.maxHp + (e.block ? '　🛡' + e.block : '') + '</span>'
+      + '<div class="box" style="margin-top:10px"><h3>這回合：' + esc(e.intent.n) + '</h3>' + lines.map(function (x) { return '<div>・' + esc(x) + '</div>'; }).join('') + '</div>'
+      + (st ? '<div class="box" style="margin-top:8px"><h3>身上的狀態</h3><div class="chips">' + foeChips(e) + '</div>' + termsHtml(st + (e.stun ? '動彈不得' : '')) + '</div>' : '')
+      + '<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" onclick="closeOv()">知道了</button></div>');
+  }
+  function meInfo() {
+    var tmp = document.createElement('div'); tmp.innerHTML = meChips(run.battle);
+    var st = tmp.textContent + (run.battle.block ? '格擋' : '');
+    var ps = G.serv(run).passive;
+    openOv('<b style="font-size:17px">我方狀態</b>'
+      + '<div class="box" style="margin-top:10px"><h3>被動「' + esc(ps.name) + '」</h3>' + esc(ps.text) + '</div>'
+      + (termsIn(st).length ? '<div class="box" style="margin-top:8px"><h3>身上的狀態</h3>' + termsHtml(st) + '</div>' : '')
+      + '<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" onclick="closeOv()">知道了</button></div>');
   }
   // 要選目標時：先點牌（或寶具）再點敵人；已經點選過敵人就直接打那個
   function needPick() { var b = run.battle; return G.alive(b).length > 1 && (sel.foe < 0 || !b.enemies[sel.foe] || b.enemies[sel.foe].hp <= 0); }
@@ -636,7 +737,11 @@
     playCard(i);
   }
   function target() { var b = run.battle; return sel.foe >= 0 && b.enemies[sel.foe] && b.enemies[sel.foe].hp > 0 ? sel.foe : b.enemies.indexOf(G.alive(b)[0]); }
-  function playCard(i) { var r = G.play(run, i, target()); if (!r.ok) toast(r.msg); after(); }
+  function playCard(i) {
+    if (busy) return; busy = true;
+    var c = G.card(run.battle.hand[i]), t = target();
+    flyCard(i, c.type === 'atk' ? t : -1, function () { var before = snapBattle(); var r = G.play(run, i, t); busy = false; if (!r.ok) toast(r.msg); resolveFx(before, c.type === 'atk'); });
+  }
   function killTag(e, n) { return n >= e.hp + e.block && !e.lives ? '（擊倒）' : ''; }
   function doNP() {
     var b = run.battle, S = G.serv(run), fx = G.npFx(run, S.np), foes = G.alive(b);
@@ -646,20 +751,71 @@
         + '<button onclick="fireNP(' + target() + ')" style="border-color:var(--gold);color:var(--gold)">放寶具</button>'; })();
     openOv('<b style="color:var(--gold)">寶具「' + esc(S.np.name) + '」</b><div class="dim" style="margin:4px 0 10px">' + esc(G.npText(S.np, run)) + '</div><div class="list">' + rows + '<button onclick="closeOv()">先不要</button></div>');
   }
-  function fireNP(i) { closeOv(); sel.np = false; var r = G.noble(run, i); if (!r.ok) toast(r.msg); after(); }
+  function fireNP(i) {
+    closeOv(); sel.np = false; if (busy) return; busy = true;
+    npBanner(G.serv(run).np.name, function () { var before = snapBattle(); var r = G.noble(run, i); busy = false; if (!r.ok) toast(r.msg); resolveFx(before, true, true); });
+  }
   function sealMenu() {
     openOv('<b>令咒（剩 ' + run.seals + ' 劃，整趟冒險不會回復）</b><div class="list" style="margin-top:12px">'
       + '<button onclick="useSeal(\'all\')">❖ 全力以赴：魔力 +3、抽 2 張</button>'
       + (G.serv(run).np.none ? '' : '<button onclick="useSeal(\'np\')">❖ 解放寶具：寶具量表直接充滿</button>') + '</div>');
   }
   function useSeal(k) { closeOv(); var r = G.seal(run, k); if (!r.ok) toast(r.msg); after(); }
-  function endTurn() { sel.card = -1; sel.np = false; G.endTurn(run); after(); }
+  function endTurn() { if (busy) return; sel.card = -1; sel.np = false; var before = snapBattle(); G.endTurn(run); resolveFx(before, false); }
+  // ── 出牌的打擊感：牌飛向目標 → 刀光、震動、飄出數字（結算本身還是一瞬間，只多 0.2 秒演出）──
+  var busy = false, CALM = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function snapBattle() { var b = run.battle; return { foes: b.enemies.map(function (e) { return { key: e.key, hp: e.hp, block: e.block }; }), hp: run.hp, block: b.block }; }
+  function popAt(el, text, cls, dy) {
+    if (!el) return; var r = el.getBoundingClientRect(), d = document.createElement('div');
+    d.className = 'pop ' + (cls || ''); d.textContent = text; d.style.left = (r.left + r.width / 2) + 'px'; d.style.top = (r.top + r.height * 0.4 + (dy || 0)) + 'px';
+    document.body.appendChild(d); setTimeout(function () { d.remove(); }, 1000);
+  }
+  function flyCard(i, foe, cb) {
+    var el = document.querySelectorAll('#hand .card')[i], to = foe >= 0 ? document.querySelector('.foe[data-key="' + run.battle.enemies[foe].key + '"]') : $('me');
+    if (CALM || !el || !to || !el.animate) return cb();
+    var a = el.getBoundingClientRect(), z = to.getBoundingClientRect(), c = el.cloneNode(true);
+    c.classList.add('flying'); c.style.left = a.left + 'px'; c.style.top = a.top + 'px'; c.style.width = a.width + 'px'; c.style.height = a.height + 'px';
+    document.body.appendChild(c); el.style.visibility = 'hidden';
+    var dx = z.left + z.width / 2 - (a.left + a.width / 2), dy = z.top + z.height / 2 - (a.top + a.height / 2);
+    c.animate([{ transform: 'translate(0,-10px) scale(1.08)', opacity: 1 }, { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.45) rotate(' + (foe >= 0 ? -12 : 0) + 'deg)', opacity: .15 }], { duration: 210, easing: 'cubic-bezier(.5,0,.9,.6)' })
+      .onfinish = function () { c.remove(); cb(); };
+  }
+  function npBanner(name, cb) {
+    if (CALM) return cb();
+    var d = document.createElement('div'); d.className = 'npban'; d.innerHTML = '<span>寶具解放</span><b>' + esc(name) + '</b>';
+    document.body.appendChild(d); setTimeout(function () { d.remove(); cb(); }, 750);
+  }
+  // 打完最後一下（戰鬥結束）：先停在戰鬥畫面 0.7 秒讓刀光、擊倒飄字播完，再換畫面
+  function resolveFx(before, atk, big) {
+    if (run.screen !== 'battle' && run.battle && !CALM) { busy = true; battleScreen(); showDiff(before, atk, big); setTimeout(function () { busy = false; after(); }, 700); return; }
+    after(); showDiff(before, atk, big);
+  }
+  // 結算前後比一比：敵人掉多少血、格擋被打掉多少、自己受傷／加格擋
+  function showDiff(before, atk, big) {
+    if (!run.battle) return;
+    var total = 0;
+    before.foes.forEach(function (f) {
+      var e = run.battle.enemies.filter(function (x) { return x.key === f.key; })[0], el = document.querySelector('.foe[data-key="' + f.key + '"]');
+      if (!e || !el) return;
+      var dmg = f.hp - Math.max(0, e.hp), blk = f.block - e.block;
+      if (dmg > 0) { total += dmg; popAt(el, '-' + dmg, 'dmg' + (dmg >= 20 ? ' crit' : '')); }
+      if (blk > 0 && !(dmg > 0)) popAt(el, '🛡-' + blk, 'blk');
+      if (dmg > 0 || blk > 0) { if (atk) { var sl = document.createElement('i'); sl.className = 'slash'; el.appendChild(sl); } }
+      if (f.hp > 0 && e.hp <= 0) popAt(el, '擊倒', 'ko', 30);
+      if (e.hp > f.hp) popAt(el, '+' + (e.hp - f.hp), 'heal');
+    });
+    if ((big || total >= 25) && !CALM) { var fs = $('foes'); if (fs) { fs.classList.remove('shake'); void fs.offsetWidth; fs.classList.add('shake'); } }
+    var me = $('me') || $('app');
+    if (run.hp < before.hp) { popAt(me, '-' + (before.hp - run.hp), 'hurt', -40); if (!CALM) { var fl = document.createElement('div'); fl.className = 'hurtflash'; document.body.appendChild(fl); setTimeout(function () { fl.remove(); }, 400); } }
+    if (run.hp > before.hp) popAt(me, '+' + (run.hp - before.hp), 'heal', -40);
+    if (run.battle && run.battle.block > before.block) popAt(me, '🛡+' + (run.battle.block - before.block), 'gain', -10);
+  }
   function after() { if (run.battle && sel.foe >= 0 && (!run.battle.enemies[sel.foe] || run.battle.enemies[sel.foe].hp <= 0)) sel.foe = -1; if (run.screen !== 'battle') lastHp = {}; render(); }
 
   // ── 戰後、寶箱、休息、結局 ──
   function rewardScreen() {
     var rw = run.reward;
-    var actDone = rw.next === 'act2' ? '<div class="box" style="max-width:420px">第一章的魔王倒下了。休息一下（回復一半失去的生命），接著進入' + esc(G.ACT_NAMES[2]) + '。</div>' : '';
+    var actDone = rw.next === 'act2' || rw.next === 'deeper' ? '<div class="box" style="max-width:420px">' + esc((G.actName(run) || '').split('　')[0]) + '的魔王倒下了。休息一下（回復一半失去的生命），接著進入' + esc(G.actName(run, run.act + 1)) + '。</div>' : '';
     if (rw.awaken) {
       $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">靈基覺醒</h1><div class="dim">打倒了強敵，從者的靈基有了變化。選一個方向（第 ' + (run.awaken.length + 1) + '／2 層）</div>'
         + rw.awaken.map(function (k, i) { var T = G.talent(run, k); return '<button class="svt" onclick="doAwaken(' + i + ')"><b>' + esc(T.name) + '</b><div style="margin-top:6px">' + esc(G.talentText(T, run)) + '</div></button>'; }).join('') + '</div>';
@@ -740,13 +896,19 @@
       updateMe(function (m) {
         m.crystals += got; if (run.win) m.stats.wins++; if (run.trueEnd) m.stats.trueEnds++;
         if (run.win) { m.clears = m.clears || {}; m.clears[run.who] = m.clears[run.who] || {}; m.clears[run.who][run.diff || 'normal'] = true; }
-        var tag = run.trueEnd ? '真結局' : run.win ? '通關' : (G.ACT_NAMES[run.act] || '').split('　')[0] + '第 ' + run.floor + ' 列', old = m.stats.best[run.who];
+        if (run.endless) {   // 無盡：記走過的格子數（每位從者各自的最遠＋帳號最遠），一般戰績不動
+          m.stats.endless = m.stats.endless || {};
+          if (st.floors > (m.stats.endless[run.who] || 0)) m.stats.endless[run.who] = st.floors;
+          return;
+        }
+        var tag = run.trueEnd ? '真結局' : run.win ? '通關' : (G.actName(run) || '').split('　')[0] + '第 ' + run.floor + ' 列', old = m.stats.best[run.who];
         var score = function (t) { return !t ? -1 : t === '真結局' ? 99 : t === '通關' ? 50 : (t.indexOf('第二章') === 0 ? 20 : 0) + (parseInt(t.replace(/^.*第 /, ''), 10) || 0); };
         if (score(tag) > score(old)) m.stats.best[run.who] = tag;
       });
     }
-    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.trueEnd ? '真・聖杯到手' : run.win ? '聖杯到手' : '敗退') + '</h1>'
-      + '<div class="dim">' + esc(S.cls) + '・' + esc(S.name) + '　' + (run.trueEnd ? '打倒了此世全部之惡' : run.win ? '走完了兩章' : '倒在' + esc(G.ACT_NAMES[run.act]) + '第 ' + run.floor + ' 列') + '</div>'
+    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.trueEnd ? '真・聖杯到手' : run.win ? '聖杯到手' : run.endless ? '♾ 走到這裡' : '敗退') + '</h1>'
+      + '<div class="dim">' + esc(S.cls) + '・' + esc(S.name) + '　' + (run.trueEnd ? '打倒了此世全部之惡' : run.win ? '走完了兩章' : '倒在' + esc(G.actName(run).replace('　', '')) + '第 ' + run.floor + ' 列') + '</div>'
+      + (run.endless ? '<div class="box" style="text-align:center"><div class="dim">♾ 無盡模式成績</div><div style="font-size:30px;color:var(--gold)">' + st.floors + ' 格</div><div class="dim">' + esc(S.name) + '的最遠：' + ((me().stats.endless || {})[run.who] || st.floors) + ' 格</div><button class="infobtn" style="margin-top:8px" onclick="boardScreen()">🏆 看排行榜</button></div>' : '')
       + '<div>擊敗 ' + st.kills + '・寶具 ' + st.np + ' 次・令咒用了 ' + st.seals + ' 劃・牌組 ' + run.deck.length + ' 張</div>'
       + (run.win ? '<div class="box" style="text-align:center;color:var(--gold)">以' + esc(G.DIFFS[run.diff || 'normal'].name) + '難度通關：' + esc(S.name) + '的命座最高可以升到 ' + ROMAN[ascCap(run.who)] + '</div>' : '')
       + '<div class="box" style="text-align:center">💎 得到聖晶石 <b style="color:var(--gold)">' + got + '</b>（現在共 ' + me().crystals + '）<div class="dim" style="margin-top:4px">到靈基工坊解鎖新英靈、靈基再臨、命運</div></div>'

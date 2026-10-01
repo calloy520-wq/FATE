@@ -801,6 +801,9 @@ var G = (function () {
   var ROWS = 12, COLS = 5, ACT_UP = 4;
   var FLOORS = ROWS;
   var ACT_NAMES = { 1: '第一章　冬木之夜', 2: '第二章　聖杯的影子', 3: '隱藏關　大聖杯深處' };
+  // 無盡模式：第二章之後不進隱藏關，一層一層往下（第 3 章起叫「無盡第 N 層」），越來越強，看能爬多遠（走過的格子數＝成績）
+  function actName(run, act) { act = act || run.act; return run.endless && act >= 3 ? '無盡　第 ' + (act - 2) + ' 層' : ACT_NAMES[act]; }
+  function bossAct(run) { var a = run.act || 1; return run.endless && a >= 3 ? { hp: 1.1 * (1 + 0.4 * (a - 2)), str: 2 + 2 * (a - 2) } : BOSS_ACT[a]; }   // 魔王不吃每列的成長，所以無盡層另外每層 +40% 血、+2 力量
   var BOSS_POOL = { 1: ['kirei', 'kraken', 'iskandar', 'heracles'], 2: ['gil', 'alter', 'kiritsugu', 'heracles'] };
   var BOSS_ACT = { 1: { hp: 0.8, str: 0 }, 2: { hp: 1.1, str: 2 }, 3: { hp: 1, str: 0 } };
   var NOT_BOSS_OF = { gilles: 'kraken' };   // 自己的從者不會變成 Boss（吉爾斯＝巨大海魔）
@@ -820,13 +823,16 @@ var G = (function () {
     run.map = makeMap(run, 1);
     if (S.passive && S.passive.id === 'revive') run.lives = 1;
     run.diff = DIFFS[opts.diff] ? opts.diff : 'normal';
+    if (opts.endless) run.endless = true;
     if (opts.asc) applyAsc(run, Math.min(6, opts.asc));
     if (opts.fate && FATES[opts.fate]) applyFate(run, opts.fate);
     return run;
   }
   function startAct(run, act) {
     run.act = act; run.floor = 0; run.lane = -1; run.path = [];
-    run.boss = act === 3 ? 'angra' : run.bosses[act - 1];
+    if (run.endless && act >= 3) {   // 無盡：魔王從兩章的魔王池再抽（不跟上一層重複）
+      var prev = run.boss; run.boss = pick(run, BOSS_POOL[1].concat(BOSS_POOL[2]).filter(function (k, i, a) { return a.indexOf(k) === i && k !== run.who && NOT_BOSS_OF[run.who] !== k && k !== prev; }));
+    } else run.boss = act === 3 ? 'angra' : run.bosses[act - 1];
     run.map = makeMap(run, act);
     run.screen = 'map'; run.battle = null; run.reward = null;
   }
@@ -872,7 +878,7 @@ var G = (function () {
   }
   function makeMap(run, act) {
     var map = [], r, c;
-    if (act === 3) {   // 隱藏關：一條路，休息 → 精英 → 此世全部之惡
+    if (act === 3 && !run.endless) {   // 隱藏關：一條路，休息 → 精英 → 此世全部之惡
       ['rest', 'elite', 'boss'].forEach(function (t, i) { var row = [null, null, null, null, null]; row[2] = { t: t, next: i < 2 ? [2] : [] }; map.push(row); });
       return map;
     }
@@ -928,13 +934,14 @@ var G = (function () {
     return n.t === 'boss' || r < run.floor + SIGHT;
   }
   function hasRelic(run, k) { return run.relics.indexOf(k) >= 0; }
-  function scaleUp(run) { return (run.act - 1) * ACT_UP + Math.max(0, run.floor - 1); }
+  // 敵人變強的程度：每往下一列 +1、每章 +4；無盡模式（第 3 章起）每層 +8，越深越陡
+  function scaleUp(run) { var a = run.act || 1, up = run.endless && a > 2 ? ACT_UP + (a - 2) * ACT_UP * 2 : (a - 1) * ACT_UP; return up + Math.max(0, run.floor - 1); }
 
   function go(run, lane) {
     if (run.screen !== 'map' || reachable(run).indexOf(lane) < 0) return false;
     run.floor++; run.lane = lane; run.path.push([run.floor - 1, lane]); run.stats.floors++;
     var t = run.map[run.floor - 1][lane].t;
-    if (t === 'fight') startBattle(run, pick(run, ENCOUNTERS[(run.act === 2 ? 'act2' : 'act1') + (run.floor <= 3 ? 'easy' : 'hard')]), 'fight');
+    if (t === 'fight') startBattle(run, pick(run, ENCOUNTERS[(run.act >= 2 ? 'act2' : 'act1') + (run.floor <= 3 ? 'easy' : 'hard')]), 'fight');
     else if (t === 'elite') startBattle(run, [pick(run, ELITES.filter(function (k) { return k !== run.who; }))], 'elite');
     else if (t === 'boss') startBattle(run, [run.boss], 'boss');
     else if (t === 'rest') run.screen = 'rest';
@@ -998,7 +1005,7 @@ var G = (function () {
       opts: [{ label: '吸收：最大生命 -8，選兩張牌強化', fx: [['maxHp', -8], ['pick', 'upgrade'], ['pick', 'upgrade']] }, { label: '離開', fx: [] }] }
   };
   function startEvent(run) {
-    var ok = function (E) { return (!E.act || E.act === run.act) && (!E.who || E.who === run.who); };
+    var ok = function (E) { return (!E.act || E.act === Math.min(run.act, 2)) && (!E.who || E.who === run.who); };
     var ids = Object.keys(EVENTS).filter(function (k) { return ok(EVENTS[k]) && run.seenEvents.indexOf(k) < 0; });
     if (!ids.length) ids = Object.keys(EVENTS).filter(function (k) { return ok(EVENTS[k]) && !EVENTS[k].who; });
     var id = pick(run, ids);
@@ -1082,7 +1089,7 @@ var G = (function () {
   function makeEnemy(run, id, up, n) {
     var E = ENEMIES[id], hp = E.hp[0] + Math.floor(rnd(run) * (E.hp[1] - E.hp[0] + 1));
     hp = Math.round(hp * (1 + SCALE.hp * up));
-    var bs = E.boss ? BOSS_ACT[run.act || 1] : { hp: 1, str: 0 }, D = diffOf(run);
+    var bs = E.boss ? bossAct(run) : { hp: 1, str: 0 }, D = diffOf(run);
     hp = Math.round(hp * bs.hp * (1 + D.hp));
     return { id: id, key: id + n, name: E.name, hp: hp, maxHp: hp, block: 0, str: Math.floor(up / SCALE.strEvery) + bs.str + D.str, vuln: 0, weak: hasRelic(run, 'book') ? 1 : 0,
       poison: 0, wound: 0, petrify: 0, stun: 0, doom: 0, lives: E.lives || 0, mi: -1, last: -1, rep: 0, intent: null };
@@ -1601,8 +1608,8 @@ var G = (function () {
     if (!alive(b).length) {
       if (b.kind === 'boss') {
         run.stats.bosses = (run.stats.bosses || 0) + 1;
-        if (run.act === 1) {   // 第一章結束：拿獎勵、喘口氣，進第二章
-          run.screen = 'reward'; run.reward = { cards: cardChoices(run, 1), relic: randomRelic(run), gold: Math.round(80 * statsOf(run).luck), next: 'act2' };
+        if (run.act === 1 || run.endless) {   // 第一章結束（無盡模式每一層都是）：拿獎勵、喘口氣，進下一章
+          run.screen = 'reward'; run.reward = { cards: cardChoices(run, 1), relic: randomRelic(run), gold: Math.round(80 * statsOf(run).luck), next: run.act === 1 ? 'act2' : 'deeper' };
           return 'act';
         }
         if (run.act === 2 && run.seals > 0) { run.screen = 'secret'; return 'secret'; }   // 留著令咒：隱藏關的入口
@@ -1638,7 +1645,7 @@ var G = (function () {
     if (run.reward.gold) run.gold += run.reward.gold;
     var next = run.reward.next;
     run.reward = null; run.battle = null; run.screen = 'map';
-    if (next === 'act2') { run.hp = Math.min(run.maxHp, run.hp + Math.round((run.maxHp - run.hp) * 0.5)); startAct(run, 2); }
+    if (next === 'act2' || next === 'deeper') { run.hp = Math.min(run.maxHp, run.hp + Math.round((run.maxHp - run.hp) * 0.5)); startAct(run, run.act + 1); }
     return true;
   }
   // 隱藏關：燒掉 1 劃令咒打開大聖杯深處；不進去就在這裡結束（勝利）
@@ -1698,7 +1705,7 @@ var G = (function () {
     return true;
   }
 
-  return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, BOSS_POOL: BOSS_POOL, ROWS: ROWS, COLS: COLS, ACT_NAMES: ACT_NAMES, EVENTS: EVENTS,
+  return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, BOSS_POOL: BOSS_POOL, actName: actName, scaleUp: scaleUp, ROWS: ROWS, COLS: COLS, ACT_NAMES: ACT_NAMES, EVENTS: EVENTS,
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff,
     FATES: FATES, FATE_FREE: FATE_FREE, SVT_COST: SVT_COST, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, crystalsFor: crystalsFor, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,

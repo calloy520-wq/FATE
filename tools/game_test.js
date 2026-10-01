@@ -371,6 +371,19 @@ t(JSON.stringify(G.card('rose+d').fx.filter(f=>f[0]==='stance').length)==='3','�
 t(/寶具\+30%/.test(G.cardShort('doublespear+c')),'共鳴：卡面顯示寶具 +%',G.cardShort('doublespear+c'));
 t(G.upDiff('doublespear','doublespear+c').some(x=>/寶具 \+15% → \+30%/.test(x))&&G.upDiff('doublespear','doublespear+a').some(x=>/→/.test(x)&&/6×2/.test(x)),'強化選單列出具體變化（寶具 +15% → +30%、⚔5×2 → ⚔6×2）',JSON.stringify(G.upDiff('doublespear','doublespear+c')));
 t(G.FATES.gold.name==='意外之財','命運不用別的從者的技能名（黃金律是吉爾伽美什的）');
+// 無盡模式：第二章魔王之後不進隱藏關，一層一層往下、越來越強
+{ const toBoss=(r)=>{ r.floor=11; r.lane=r.map[10].findIndex(n=>n); r.screen='map'; G.go(r,2); r.battle.enemies.forEach(e=>{e.hp=1;e.block=0;e.lives=0;}); r.battle.hand=[G.basicOf('saber','atk')]; r.battle.energy=3; G.play(r,0,0); };
+  let r=G.newRun('saber',5,{endless:true}); r.act=2; r.boss='gil'; r.seals=3; toBoss(r);
+  t(r.screen==='reward'&&r.reward.next==='deeper','無盡：第二章魔王倒下 → 有令咒也不進隱藏關，拿獎勵往下',r.screen);
+  G.takeReward(r,-1);
+  t(r.act===3&&r.map.length===12&&G.actName(r)==='無盡　第 1 層'&&r.boss!=='angra'&&r.boss!=='saber','無盡第 1 層：新的 12 列地图、魔王從兩章魔王池抽'.replace('图','圖'),r.act+' '+r.boss);
+  t(step(r,'fight')&&r.battle&&r.battle.enemies.length>0,'無盡層的一般戰鬥用第二章的敵人');
+  r.screen='map'; r.battle=null; r.floor=0; r.lane=-1; t(step(r,'event')&&r.screen==='event','無盡層也有事件');
+  const b2=G.newRun('saber',5); b2.act=2; b2.floor=11; const hp2=(()=>{ b2.lane=b2.map[10].findIndex(n=>n); b2.boss='gil'; G.go(b2,2); return b2.battle.enemies[0].maxHp; })();
+  const r3=G.newRun('saber',5,{endless:true}); r3.act=4; r3.map=r3.map; r3.floor=11; r3.lane=r3.map[10].findIndex(n=>n); r3.boss='gil'; G.go(r3,2);
+  t(r3.battle.enemies[0].maxHp>hp2*1.5&&r3.battle.enemies[0].str>b2.battle.enemies[0].str,'無盡越深越強（第 2 層的吉爾伽美什比第二章強很多）',hp2+'→'+r3.battle.enemies[0].maxHp);
+  { const h=G.newRun('saber',5); h.act=3; h.floor=2; const e=G.newRun('saber',5,{endless:true}); e.act=3; e.floor=2; t(G.scaleUp(h)===9&&G.scaleUp(e)===13,'敵人成長：隱藏關照舊（+8），無盡第 1 層 +12',G.scaleUp(h)+'/'+G.scaleUp(e)); }
+  const n=G.newRun('saber',5); n.act=2; n.boss='gil'; n.seals=1; toBoss(n); t(n.screen==='secret','一般模式不受影響：第二章打完有令咒照樣到隱藏關入口',n.screen); }
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位從者 4 局都能打到結束（不卡死）',fin);
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

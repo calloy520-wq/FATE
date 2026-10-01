@@ -4,6 +4,7 @@ const G=require('./game.js');
 const N=+process.env.N||300, WHO=(process.env.WHO||G.ORDER.join(',')).split(',');
 const J=o=>JSON.parse(JSON.stringify(o));
 const SECRET=process.env.SECRET!=='0';   // 有令咒時要不要進隱藏關（預設進）
+const ENDLESS=process.env.ENDLESS==='1';   // 無盡模式：看平均走幾格
 const AWAKEN=process.env.AWAKEN===undefined?-1:+process.env.AWAKEN;   // 靈基覺醒固定選 0 或 1（不給＝隨機）
 
 // 敵人這回合預計打過來多少（被石化的不算）
@@ -86,8 +87,8 @@ function pickReward(run){
   return best;
 }
 function playRun(who,seed){
-  const run=G.newRun(who,seed); let g=0;
-  while(run.screen!=='over'&&g++<3000){
+  const run=G.newRun(who,seed,{endless:ENDLESS}); let g=0;
+  while(run.screen!=='over'&&g++<(ENDLESS?30000:3000)){
     if(run.screen==='map'){ const opts=G.reachable(run); const t=l=>run.map[run.floor][l].t;
       const pref=run.hp<run.maxHp*0.5?['rest','chest','event','fight','elite','boss']:run.hp>run.maxHp*0.75?['elite','chest','event','fight','rest','boss']:['chest','event','fight','rest','elite','boss'];
       let lane=opts[0], bi=99; opts.forEach(l=>{ const k=pref.indexOf(t(l)); if(k<bi){bi=k;lane=l;} }); G.go(run,lane); }
@@ -109,7 +110,11 @@ function playRun(who,seed){
   return run;
 }
 module.exports={playRun};
-if(require.main===module){
+if(require.main===module&&ENDLESS){
+  WHO.forEach(w=>{ const fl=[]; for(let i=0;i<N;i++){ const r=playRun(w,1000+i); fl.push(r.stats.floors); } fl.sort((a,b)=>a-b);
+    const avg=fl.reduce((a,b)=>a+b,0)/N, deep=fl.filter(x=>x>24).length;
+    console.log(w.padEnd(9),'無盡 平均',avg.toFixed(1).padStart(5),'格｜中位',String(fl[N>>1]).padStart(3),'｜最遠',String(fl[N-1]).padStart(3),'｜進到無盡層',(deep/N*100).toFixed(0).padStart(3)+'%'); });
+} else if(require.main===module){
   WHO.forEach(w=>{ let win=0, act1=0, hidden=0, died={}; for(let i=0;i<N;i++){ const r=playRun(w,1000+i); if(r.win||r.act>=2) act1++; if(r.win||r.act===3) win++; if(r.trueEnd) hidden++;
       if(!r.win){ const k=(r.battle&&r.battle.kind==='boss'?'boss:'+r.boss:(r.battle&&r.battle.kind))||'?'; const key=k.startsWith('boss')?k:r.act+'章'+k+'@'+r.floor; died[key]=(died[key]||0)+1; } }
     const top=Object.keys(died).sort((a,b)=>died[b]-died[a]).slice(0,5).map(k=>k+':'+died[k]).join(' ');

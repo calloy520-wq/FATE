@@ -68,3 +68,23 @@ function gpSave(name, token, meta, run) {
     return { ok: true };
   } finally { lock.releaseLock(); }
 }
+
+// 排行榜：彙整每個帳號的戰績（無盡最遠、通關次數）。大家一起看同一份，快取一分鐘
+function gpBoardRow_(name, m) {
+  if (!m || !m.stats) return null;
+  var e = m.stats.endless || {}, who = '', best = 0;
+  Object.keys(e).forEach(function (k) { if (e[k] > best) { best = e[k]; who = k; } });
+  return { name: name, endless: best, who: who, wins: m.stats.wins || 0, trueEnds: m.stats.trueEnds || 0, runs: m.stats.runs || 0 };
+}
+function gpBoard() {
+  var cache = CacheService.getScriptCache(), hit = cache.get('gp_board');
+  if (hit) return JSON.parse(hit);
+  var sh = gpSheet_(), n = sh.getLastRow(), list = [];
+  if (n >= 2) sh.getRange(2, 1, n - 1, GP_COL.META + 1).getValues().forEach(function (v) {
+    var m = null; try { m = v[GP_COL.META] ? JSON.parse(v[GP_COL.META]) : null; } catch (e) { }
+    var r = gpBoardRow_(String(v[GP_COL.NAME]), m); if (r && (r.endless || r.wins)) list.push(r);
+  });
+  var out = { ok: true, list: list };
+  try { cache.put('gp_board', JSON.stringify(out), 60); } catch (e) { }
+  return out;
+}
