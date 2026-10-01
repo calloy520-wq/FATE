@@ -246,7 +246,7 @@ sh.gold=0; t(!G.buy(sh,'relic').ok,'錢不夠買不起'); G.leaveShop(sh); t(sh.
 let gr=arena('saber'); gr.battle.enemies.forEach(e=>{e.hp=1;}); gr.battle.np=100; const g0=gr.gold; G.noble(gr,0); G.takeReward(gr,-1); t(gr.gold>=g0+12&&gr.gold<=g0+18,'打贏一般戰鬥得到 12～18 金',gr.gold-g0);
 t(G.fateOptions(5,[]).length===3&&G.fateOptions(5,[]).every(k=>G.FATE_FREE.includes(k))&&G.fateOptions(9,['legacy','early','mana']).every(k=>G.FATES[k]),'命運：沒解鎖時只出三個基本命運');
 let ft=G.newRun('saber',6,{fate:'light'}); t(ft.deck.length===7&&ft.fate==='light','輕裝上陣：少 2 張攻擊 1 張防禦');
-ft=G.newRun('saber',6,{fate:'merchant'}); ft.gold=100; step(ft,'shop'); t(G.removePrice(ft)===0&&G.priceOf(ft,{price:100})===80,'商人的眷顧：八折、第一次移除免費'); G.buy(ft,'remove',0); t(G.removePrice(ft)===Math.round(60*0.8),'免費用掉之後恢復原價（再打八折）');
+ft=G.newRun('saber',6,{fate:'merchant'}); ft.gold=100; step(ft,'shop'); t(G.removePrice(ft)===0&&G.priceOf(ft,{price:100})===75,'商人的眷顧：七五折、第一次移除免費'); G.buy(ft,'remove',0); t(G.removePrice(ft)===Math.round(60*0.75),'免費用掉之後是原價七五折'); ft.removed=3; t(G.removePrice(ft)===Math.round(60*0.75),'商人的眷顧：移除之後也不漲價');
 ft=G.newRun('saber',6,{fate:'mana'}); step(ft,'fight'); t(ft.battle.np===30,'魔力充盈：寶具量表從 30% 開始',ft.battle.np);
 let as=G.newRun('medusa',6,{asc:5}); t(as.maxHp===G.SERVANTS.medusa.hp+8&&as.deck.includes('breaker'),'靈基再臨 V：生命 +8、開局帶奧義');
 step(as,'fight'); t(as.battle.enemies.every(e=>e.petrify>=1)&&as.battle.enemies.every(e=>e.weak>=1),'美杜莎再臨 II／III：開場全體石化＋虛弱');
@@ -359,7 +359,7 @@ t(G.newRun('saber',1,{asc:6}).ascStart.some(f=>f[0]==='pWind'),'命座 VI：每�
 
 console.log('── 強化方向');
 t(G.upDirs('invis').join('')==='acde'&&G.upDirs('charge').join('')==='abcde'&&G.upDirs('atk').join('')==='ace'&&G.upDirs('kingly').join('')==='ad'&&G.upDirs('invis+').length===0&&G.upDirs('sword').length===0,'每張牌能往哪幾個方向強化（1 費沒有迅捷、能力牌沒有共鳴與極限、已強化／代幣不能再強化）');
-t(G.card('charge+b').cost===1&&G.card('invis+c').np===30&&G.card('invis+c').fx.some(f=>f[0]==='draw')&&G.card('invis+d').fx.filter(f=>f[0]==='wind').length===1&&G.card('invis+d').fx.some(f=>f[0]==='wind'&&f[1]===3)&&G.card('invis+e').fx[0][1]===10&&G.card('invis+e').ex,'迅捷 -1 費、共鳴 +15% 抽 1、魂加風（原本風 1 → 3）、極限翻倍但消耗');
+t(G.card('charge+b').cost===1&&G.card('invis+c').np===30&&G.card('invis+c').fx.some(f=>f[0]==='draw')&&G.card('invis+d').fx.filter(f=>f[0]==='wind').length===1&&G.card('invis+d').fx.some(f=>f[0]==='wind'&&f[1]===2)&&G.card('invis+e').fx[0][1]===10&&G.card('invis+e').ex,'迅捷 -1 費、共鳴 +15% 抽 1、魂加風（原本風 1 → 2，精煉是 1）、極限翻倍但消耗');
 t(G.card('invis+').name==='看不見的劍＋'&&G.card('invis+').fx[0][1]===7&&G.card('invis+e').name==='看不見的劍・極'&&G.card('invis+c').name==='看不見的劍・共鳴','舊存檔的「+」還是精煉；名字帶方向');
 let ug=G.newRun('saber',77); ug.deck.push('charge'); const ci=ug.deck.length-1, op=G.upgradeOptions(ug,ci);
 t(op.length===3&&op.includes('charge+')&&JSON.stringify(G.upgradeOptions(ug,ci))===JSON.stringify(op),'強化給三個方向（精煉一定在），同一次重畫不會變',op);
@@ -422,6 +422,21 @@ t(!/每場戰鬥開始：每/.test(G.ORDER.map(k=>[2,3,4,6].map(l=>G.ascText(k,l
 { const r=arena('gilles'); r.battle.kraken=12; t(G.krakenBites(r.battle)===2,'海魔大小 12 就咬兩口'); }
 t(G.newRun('cu',1).deck.includes('arrowward'),'庫・丘林開局招牌牌是箭矢加護（原作技能，第 1 回合就能迴避）');
 { const r=arena('lancelot'); playId(r,'reason'); t(r.battle.mastery===1&&!r.battle.tstr,'理性蒸發：武練 +1（不再是本回合力量，跟赫拉克勒斯分開）'); }
+// 稽核第 3 輪：強化方向不再有永遠的最佳解
+t(JSON.stringify(G.card('charge+b').fx[0])==='["windDmg",8,2]'&&G.card('charge+b').cost===1,'迅捷：便宜 1 費，數值七五折（風王鐵槌 10+2/風 → 8+2/風）',JSON.stringify(G.card('charge+b').fx));
+t(JSON.stringify(G.card('charge+e').fx[0])==='["windDmg",20,4]','極限：每點資源的加成也翻倍（10+2/風 → 20+4/風）',JSON.stringify(G.card('charge+e').fx));
+t(!G.upDirs('quickspear').includes('e')&&G.upDirs('invis').includes('e'),'數字太小的牌（疾槍 3）不給極限；5×2 算 10 可以');
+t(G.card('flashstep+c').np===35&&G.card('flashstep+c').fx.filter(f=>f[0]==='draw').length===1,'共鳴：本來會抽牌的改成寶具 +30%（不再多抽一張）');
+{ const k=Object.keys(G.CARDS).find(x=>G.CARDS[x].kit==='kojiro'&&G.upDirs(x).includes('c')); const c=G.card(k+'+c'); t(c.fx.some(f=>f[0]==='block'&&f[1]===3)&&c.np===G.CARDS[k].np,'小次郎沒有寶具：共鳴改成格擋 3、多抽 1',k); }
+t(G.card('riposte+d').fx.some(f=>f[0]==='evade'&&f[1]===2),'庫・丘林的英靈之魂是迴避（迎擊之槍 迴避 1 → 2）',JSON.stringify(G.card('riposte+d').fx));
+// 稽核第 3 輪：禮裝拿完不再白付、新禮裝、小次郎不給寶具相關的東西、每章至少 2 個精英、無盡只用免費命運
+{ const r=G.newRun('saber',3); Object.keys(G.RELICS).forEach(k=>r.relics.push(k)); r.gold=200; t(!G.canChoose(r,G.EVENTS.jeweler.opts[0])&&!G.canChoose(r,G.EVENTS.magus.opts[0])&&G.canChoose(r,G.EVENTS.jeweler.opts[1]),'禮裝全拿了：花錢／花血換禮裝的選項關掉（賣血還能選）'); }
+t(Object.keys(G.RELICS).length>=13,'禮裝池 13 件（凜的寶石墜子、阿佐特劍、月靈髓液、士郎的便當、韋伯的冬木地圖）');
+{ const r=G.newRun('saber',3); r.relics.push('azoth','volumen'); step(r,'fight'); t(r.battle.str>=1&&r.battle.block>=2,'阿佐特劍開場力量 +1、月靈髓液每回合格擋 +2',JSON.stringify([r.battle.str,r.battle.block])); }
+{ const r=G.newRun('saber',3); r.relics.push('waver'); t(G.visible(r,4,r.map[4].findIndex(n=>n)),'韋伯的冬木地圖：多看 2 列（第 5 列也看得到）'); }
+{ let bad=0; for(let i=0;i<40;i++){ const r=G.newRun('kojiro',100+i); if(G.fateOptions(i,Object.keys(G.FATES),'kojiro').includes('mana')) bad++; } t(!bad,'小次郎（沒有寶具）不會抽到魔力充盈'); }
+t(G.fateOptions(7,Object.keys(G.FATES),'saber',true).every(k=>G.FATE_FREE.includes(k)),'無盡模式只出免費命運');
+{ let few=0; for(let i=0;i<200;i++){ const r=G.newRun('saber',500+i); let n=0; r.map.forEach(row=>row.forEach(x=>{ if(x&&x.t==='elite') n++; })); if(n<2) few++; } t(few===0,'每章地圖至少 2 個精英',few); }
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位從者 4 局都能打到結束（不卡死）',fin);
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

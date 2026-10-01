@@ -508,7 +508,7 @@
   // 出發前選命運（三選一）
   var DIFF = 'normal', MODE = 'normal';   // MODE：normal 一般｜endless 無盡模式
   function pickFate(who, keepSeed) {
-    var seed = keepSeed || newSeed(), opts = G.fateOptions(seed, me().fates);
+    var seed = keepSeed || newSeed(), opts = G.fateOptions(seed, me().fates, who, MODE === 'endless');
     if (!diffOpen(DIFF)) DIFF = 'normal';
     pickFate.ctx = { who: who, seed: seed };
     var diffs = '<div class="tabs" style="max-width:460px;width:100%">' + G.DIFF_ORDER.map(function (d) {
@@ -518,7 +518,7 @@
     if (MODE === 'endless') { DIFF = 'normal'; diffs = ''; }
     var Dn = G.DIFFS[DIFF];
     var Sv = G.SERVANTS[who];
-    $('app').innerHTML = '<div class="panel"><div class="box" style="max-width:460px;width:100%;text-align:center">以 <b style="color:var(--gold)">' + esc(Sv.cls + '・' + Sv.name) + '</b> 出發　<span class="dim">生命 ' + Sv.hp + '</span>　<button class="infobtn" onclick="choose()">換從者</button></div>' + (MODE === 'endless' ? '<h1 style="font-size:22px">♾ 無盡模式</h1><div class="dim">固定普通難度，大家站在同一條起跑線上比誰爬得遠。</div>' : '<h1 style="font-size:22px">難度</h1>' + diffs)
+    $('app').innerHTML = '<div class="panel"><div class="box" style="max-width:460px;width:100%;text-align:center">以 <b style="color:var(--gold)">' + esc(Sv.cls + '・' + Sv.name) + '</b> 出發　<span class="dim">生命 ' + Sv.hp + '</span>　<button class="infobtn" onclick="choose()">換從者</button></div>' + (MODE === 'endless' ? '<h1 style="font-size:22px">♾ 無盡模式</h1><div class="dim">固定普通難度、不帶靈基再臨、只用免費命運：大家站在同一條起跑線上比誰爬得遠。</div>' : '<h1 style="font-size:22px">難度</h1>' + diffs)
       + (MODE === 'endless' ? '' : '<div class="dim" style="max-width:460px">' + (DIFF === 'normal' ? '標準難度。用這位通關可以開放靈基再臨 I～II。' : '敵人生命 +' + Math.round(Dn.hp * 100) + '%、力量 +' + Dn.str + (Dn.rest < 0.3 ? '、休息只回兩成' : '') + '；聖晶石 ×' + Dn.cry + '。用這位通關可以開放靈基再臨 ' + (DIFF === 'hard' ? 'III～IV' : 'V～VI') + '。') + (diffOpen('hard') ? '' : '（任一從者通關普通後解鎖困難）') + '</div>')
       + '<h1 style="font-size:22px;margin-top:6px">選擇命運</h1><div class="dim">這一趟的額外強化（到靈基工坊解鎖更多命運）</div>'
       + opts.map(function (k) { var F = G.FATES[k]; return '<button class="svt" onclick="startWith(\'' + k + '\')"><b>' + esc(F.name) + '</b><div style="margin-top:6px">' + esc(F.text) + '</div></button>'; }).join('')
@@ -526,7 +526,7 @@
   }
   function startWith(fate) {
     var c = pickFate.ctx;
-    run = G.newRun(c.who, c.seed, { fate: fate, diff: DIFF, asc: me().asc[c.who] || 0, endless: MODE === 'endless' });
+    run = G.newRun(c.who, c.seed, { fate: fate, diff: DIFF, asc: MODE === 'endless' ? 0 : me().asc[c.who] || 0, endless: MODE === 'endless' });   // 無盡：不帶靈基再臨、只用免費命運，排行榜才公平
     updateMe(function (m) { m.stats.runs++; });
     render();
   }
@@ -944,10 +944,10 @@
       + '<div class="box" style="max-width:460px">移除卡片（每間店一次）：' + (S.removed ? '<span class="dim">已經用過了</span>' : '<button class="infobtn" onclick="shopRm()">💰 ' + rp + '</button>') + '</div>'
       + '<button class="btn" onclick="G.leaveShop(run);render()">離開商店</button></div>';
   }
-  function doBuy(what, i) { var r = G.buy(run, what, i); if (r.msg) toast(r.msg, 'err'); render(); }
+  function doBuy(what, i) { var r = G.buy(run, what, i); if (r.msg) toast(r.msg, r.ok ? '' : 'err'); render(); }
   function shopRm() { openOv('<b>選一張牌移除（💰 ' + G.removePrice(run) + '）</b><div class="pick" style="margin-top:12px">' + deckPick(null, function (i) { return 'shopRmDo(' + i + ')'; }) + '</div><div class="row" style="justify-content:center;margin-top:12px"><button class="btn" onclick="closeOv()">先不要</button></div>'); }
   function shopRmDo(i) { confirmOv('花 💰' + G.removePrice(run) + ' 移除「' + esc(G.card(run.deck[i]).name) + '」？', function () { doBuy('remove', i); }); }
-  function doChoose(i) { var r = G.choose(run, i); if (r.msg) toast(r.msg, 'err'); render(); }
+  function doChoose(i) { var r = G.choose(run, i); if (r.msg) toast(r.msg, r.ok ? '' : 'err'); render(); }
   function pickScreen() {
     var kind = run.pending[0], up = kind === 'upgrade', left = run.pending.filter(function (k) { return k === kind; }).length;
     var title = { upgrade: '選一張牌強化', remove: '選一張牌移除', transform: '選一張牌變形（換成隨機的強化專屬牌）', copy: '選一張牌複製' }[kind] || '選一張牌';
