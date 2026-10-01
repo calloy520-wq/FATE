@@ -128,9 +128,9 @@ r=arena('hassanH'); r.battle.minions=3; playId(r,'stab'); t(E(r).hp===50-2*4,'�
 r=arena('lancelot'); r.battle.mastery=3; playId(r,'mace'); t(E(r).hp===50-(4+3+1),'鐵柱橫掃：4＋武練 3（武練 3 點再讓攻擊 +1）',E(r).hp);
 r=arena('lancelot'); r.battle.mastery=2; playId(r,'lakeflash'); t(E(r).hp===50-(10+2*2)&&r.battle.mastery===2,'湖光斬：10＋武練×2（武練不會用掉）',JSON.stringify([E(r).hp,r.battle.mastery]));
 r.battle.energy=3; let h3=E(r).hp; playId(r,'atk'); t(h3-E(r).hp===6,'歸零之後下一擊從頭算',h3-E(r).hp);
-r=arena('lancelot'); r.battle.mastery=3; playId(r,'blackmist'); t(r.battle.block===7&&E(r).hp===50-3,'黑霧：格擋 4＋武練；技能牌順手攻擊 3',JSON.stringify([r.battle.block,E(r).hp]));
+r=arena('lancelot'); r.battle.mastery=3; playId(r,'blackmist'); t(r.battle.block===7&&E(r).hp===50-3,'己之榮光不為己有：格擋 4＋武練；技能牌順手攻擊 3',JSON.stringify([r.battle.block,E(r).hp]));
 r=arena('heracles'); r.hp=r.maxHp-27; playId(r,'divine'); t(E(r).hp===50-(10+3*2),'神性之擊：少 27 生命 → 10＋3×2',E(r).hp);
-r=arena('heracles'); r.hp=20; playId(r,'godhand'); G.endTurn(r); t(r.battle.str===1,'神之加護：生命低於一半時每回合力量 +1');
+r=arena('heracles'); r.hp=20; playId(r,'godhand'); G.endTurn(r); t(r.battle.str===1,'戰鬥續行：生命低於一半時每回合力量 +1');
 r=arena('gil'); r.battle.hand=['t_sword','t_shield','goldarmor']; G.play(r,2,0); t(r.battle.block===5+3*2,'黃金甲冑：手上每件寶具 +3');
 r=arena('gil'); r.battle.hand=['t_sword','t_spear','volley']; G.play(r,2,0); t(E(r).hp===50-16&&r.battle.hand.length===0,'寶具掃射：射出手上全部寶具，每件 8',E(r).hp);
 t(G.ORDER.every(k=>Object.keys(G.CARDS).filter(c=>G.CARDS[c].kit===k).every(c=>{ const fx=G.CARDS[c].fx; return !(fx.length===1&&['dmg','all','block','draw'].includes(fx[0][0])) && !(fx.length===2&&fx.every(f=>['dmg','all','block','draw'].includes(f[0]))); })),'專屬牌裡沒有只寫「傷害／全體／格擋／抽牌」的通用牌');
@@ -398,6 +398,19 @@ t(G.FATES.gold.name==='意外之財','命運不用別的從者的技能名（黃
   t(r3.battle.enemies[0].maxHp>hp2*1.5&&r3.battle.enemies[0].str>b2.battle.enemies[0].str,'無盡越深越強（第 2 層的吉爾伽美什比第二章強很多）',hp2+'→'+r3.battle.enemies[0].maxHp);
   { const h=G.newRun('saber',5); h.act=3; h.floor=2; const e=G.newRun('saber',5,{endless:true}); e.act=3; e.floor=2; t(G.scaleUp(h)===9&&G.scaleUp(e)===13,'敵人成長：隱藏關照舊（+8），無盡第 1 層 +12',G.scaleUp(h)+'/'+G.scaleUp(e)); }
   const n=G.newRun('saber',5); n.act=2; n.boss='gil'; n.seals=1; toBoss(n); t(n.screen==='secret','一般模式不受影響：第二章打完有令咒照樣到隱藏關入口',n.screen); }
+// 稽核修正：舊存檔強化後綴、命座 V＋奧義傳承、強化選單「不再消耗」、赫拉克勒斯覺醒文字
+{ const m=J(G.newRun('scathach',3)); m.deck.push('mentor+c'); m.shop={cards:[{id:'mentor+b'}]}; G.migrate(m);
+  t(m.deck.includes('flashstep+c')&&m.shop.cards[0].id==='flashstep+b'&&!!G.card('flashstep+c'),'舊存檔被改名的牌保留強化方向（+b～+e），商店裡的也一起換'); }
+t(G.newRun('saber',3,{asc:6,fate:'legacy'}).deck.filter(x=>G.baseId(x)==='avalon').length===1,'命座 V 已經有奧義：奧義傳承改成把它強化，不會拿到兩張');
+t(G.upDiff('breaker','breaker+').includes('不再消耗'),'強化選單列出「不再消耗」');
+{ const h=G.newRun('heracles',3); const T=G.TALENTS?null:null; const txt=G.ORDER.includes('heracles')&&G.talentText(G.talent(h,'1.1'),h); t(/五成/.test(txt),'赫拉克勒斯的多一條命：寫五成生命站起來',txt); }
+// 稽核第 1 輪：令咒只能在戰鬥中用、預計傷害不被剩血截掉、連動帶出的牌也算第 5 張、寶具追加刻印在收尾之前
+{ const r=arena('saber'); r.screen='reward'; t(!G.seal(r,'all').ok&&r.seals===3,'戰鬥結束（勝利停頓中）不能用令咒'); }
+{ const r=arena('iskandar',3,6); r.battle.army=5; r.battle.hand=['order']; const p=G.preview(r,0,0), q=G.preview(r,0,0,true); t(p.per[0]===6&&q.per[0]===8&&p.kills===3,'預計：raw 量實際打出的 3+5=8（不被 6 血截掉）、一般試算數得到擊倒',JSON.stringify([p.per,q.per,p.kills])); }
+{ const r=arena('scathach',1,999); r.battle.played=3; r.battle.hand=['quickspear','flashstep']; r.battle.energy=3; playId(r,'doublespear',0); t(r.battle.played>=5&&r.battle.evade===1,'連動帶出的牌也算張數：衝過第 5 張照樣迴避 1',JSON.stringify([r.battle.played,r.battle.evade])); }
+{ const r=G.newRun('scathach',3,{asc:4}); const fx=G.npFx(r,G.SERVANTS.scathach.np); t(fx[fx.length-1][0]==='reap'&&fx.some(f=>f[0]==='doomAll'),'寶具追加的刻印排在收尾之前',JSON.stringify(fx)); }
+t(G.ascText('hassanH',2).includes('分身')&&G.ascText('medea',2).includes('龍牙兵')&&G.npText(G.SERVANTS.hassanH.np).includes('分身'),'再臨／寶具文字用這位的使魔名字（分身、龍牙兵）');
+t(!/每場戰鬥開始：每/.test(G.ORDER.map(k=>[2,3,4,6].map(l=>G.ascText(k,l)).join('|')).join('|')),'「每回合…」的效果不再疊「每場戰鬥開始：」');
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位從者 4 局都能打到結束（不卡死）',fin);
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
