@@ -51,7 +51,7 @@ G.seal(r,'np'); t(r.battle.np===100&&r.seals===1,'令咒（寶具）：量表充
 { const q=arena('saber',1,500); q.battle.np=100; t(G.noble(q,0).ok,'放寶具'); q.battle.np=100; t(!G.noble(q,0).ok,'同一回合不能放第二次寶具'); t(!G.seal(q,'np').ok&&q.seals===3,'放過寶具的回合，令咒也不能再灌寶具');
   G.endTurn(q); q.battle.np=100; t(G.noble(q,0).ok,'下回合又能放'); }
 // 空間轉移：這回合躲開所有攻擊；回復：生命回滿
-{ const q=arena('saber'); E(q).intent={n:'砍',fx:[['atk',20,3]]}; const h=q.hp; t(G.seal(q,'warp').ok,'令咒（空間轉移）'); G.endTurn(q); t(q.hp===h,'空間轉移：這回合的攻擊全部落空',h-q.hp);
+{ const q=arena('saber'); E(q).intent={n:'砍',fx:[['atk',20,3]]}; const h=q.hp; t(G.seal(q,'warp').ok,'令咒（召回）'); G.endTurn(q); t(q.hp===h,'令咒召回：這回合的攻擊全部落空',h-q.hp);
   E(q).intent={n:'砍',fx:[['atk',5]]}; const h2=q.hp; G.endTurn(q); t(q.hp<h2,'下一回合就沒有了');
   q.hp=10; t(G.seal(q,'heal').ok&&q.hp===q.maxHp,'令咒（回復）：生命回滿'); E(q).intent={n:'發呆',fx:[]}; G.endTurn(q); t(!G.seal(q,'heal').ok,'生命滿的時候不能用回復'); }
 
@@ -61,8 +61,8 @@ r=arena('saber',1,200); r.battle.wind=9; r.battle.hand=[]; r.battle.draw=['atk',
 r=G.newRun('emiya',3); step(r,'fight'); t(SW(r)===1&&r.battle.hand.length===6,'EMIYA 投影魔術：每回合開始 1 把投影劍＋照常抽 5');
 r=arena('emiya'); r.battle.hand=['project','broken']; G.play(r,0,0); t(SW(r)===2&&r.battle.hand.filter(x=>x==='sword').length===1,'投影魔術：2 把投影劍疊成一張「×2」');
 G.play(r,r.battle.hand.indexOf('broken'),0); t(!r.battle.hand.includes('sword')&&SW(r)===0&&E(r).hp===36,'壞幻：引爆 2 把，每把全體 7',E(r).hp);
-r=arena('emiya'); r.battle.np=100; G.noble(r,0); t(r.battle.hand.length===1&&SW(r)===3&&r.battle.ubw===2&&r.battle.projUp===2&&/造成 6 傷害/.test(G.cardText('sword',r)),'無限劍製：3 把投影劍（疊成一張）、之後 2 回合、投影劍 6 傷');
-t(E(r).hp===50-(6+2*3),'無限劍製：展開時全體 6＋每把劍 2',E(r).hp); G.play(r,0,0); t(E(r).hp===38-6,'投影劍 4+2＝6',E(r).hp);
+r=arena('emiya'); r.battle.np=100; G.noble(r,0); t(r.battle.hand.length===1&&SW(r)===3&&r.battle.ubw===2&&r.battle.projUp===2&&/造成 7 傷害/.test(G.cardText('sword',r)),'無限劍製：3 把投影劍（疊成一張）、之後 2 回合、投影劍 7 傷');
+t(E(r).hp===50-(6+2*3),'無限劍製：展開時全體 6＋每把劍 2',E(r).hp); G.play(r,0,0); t(E(r).hp===38-7,'投影劍 5+2＝7',E(r).hp);
 t(SW(r)===2&&r.battle.hand.includes('sword'),'出一把投影劍：還有就留在手上，數字 -1'); G.endTurn(r); t(SW(r)===6&&!r.battle.discard.includes('sword')&&!r.battle.exhaust.includes('sword'),'囤積：沒用完的 2 把留著，下回合再 3 把（加被動 1 把）＝6 把',SW(r));
 { const q=arena('emiya'); swords(q,7); G.endTurn(q); t(SW(q)===5+1,'投影劍回合結束最多留 5 把（再加回合開始的 1 把）',SW(q)); }
 { const q=arena('emiya'); q.battle.hand=Array(9).fill('atk_emiya'); playId(q,'project'); q.battle.energy=3; t(SW(q)===2&&q.battle.hand.length===10,'投影劍那一格不算手牌上限（手上 9 張照樣拿得到）'); q.battle.draw=['atk','atk']; G.endTurn(q); t(q.battle.hand.filter(x=>x!=='sword').length<=10,'手牌上限照樣是 10（不含投影劍）');
@@ -95,7 +95,7 @@ r=G.newRun('kojiro',3); step(r,'fight'); { const big=r.battle.enemies.slice().so
 r=arena('kojiro'); r.battle.np=100; t(!G.noble(r,0).ok&&!G.seal(r,'np').ok&&G.SERVANTS.kojiro.np.none,'小次郎沒有寶具：放不了、令咒也不能充滿寶具');
 r=arena('kojiro'); playId(r,'calm'); G.endTurn(r); t(r.battle.energy===4,'明鏡止水：下回合魔力 +1');
 t(G.newRun('kojiro',3).deck.includes('tsubame1')&&G.SERVANTS.kojiro.sig==='tsubame1','燕返開場就在牌組裡（招牌牌）');
-r=arena('kojiro'); r.battle.sowaFirst=1; r.battle.sowaSeen={d0:1}; E(r).block=30; playId(r,'tsubame1'); t(E(r).hp===50-18&&E(r).block===30,'燕返：三刀同時斬出，6×3 全部無視格擋（多重次元屈折現象）',JSON.stringify([E(r).hp,E(r).block]));
+r=arena('kojiro'); r.battle.sowaFirst=1; r.battle.sowaSeen={d0:1}; E(r).block=30; playId(r,'tsubame1'); t(E(r).hp===50-21&&E(r).block===30,'燕返：三刀同時斬出，7×3 全部無視格擋（多重次元屈折現象）',JSON.stringify([E(r).hp,E(r).block]));
 
 r=arena('hassanC'); r.battle.turn=2; playId(r,'knives'); t(E(r).hp===46&&E(r).poison===4,'咒腕 飛刀：4＋毒 4'); E(r).block=20; G.endTurn(r); t(E(r).hp===42&&E(r).poison===3,'毒：回合開始穿透 4、再減 1',E(r).hp);
 r=arena('hassanC'); r.battle.turn=2; E(r).poison=1; playId(r,'assassinate'); t(E(r).hp===30,'暗殺：中毒時 10＋10',E(r).hp);
@@ -117,7 +117,7 @@ r=arena('saber'); playId(r,'kingly'); t(r.battle.wind===1,'能力牌打出當下
 t(/現在 11/.test(G.cardText('hammer',(()=>{ const q=arena('saber'); q.battle.wind=1; return q; })())),'說明會標出現在的數字（風王鐵槌 7＋4＝11）');
 r=arena('emiya'); r.battle.hand=['hrunting']; swords(r,2); G.play(r,1,0); t(E(r).hp===50-(8+3*2)&&SW(r)===2,'赤原獵犬：手上每把投影劍 +3，劍不消耗',E(r).hp);
 r=arena('emiya'); r.battle.hand=['rhoaias']; swords(r,1); G.play(r,1,0); t(r.battle.block===9,'熾天覆七重圓環：格擋 6＋劍×3');
-r=arena('emiya'); playId(r,'analysis'); r.battle.hand=[]; swords(r,1); G.play(r,0,0); t(E(r).hp===45&&SW(r)===0&&!r.battle.hand.includes('sword'),'構造解析：投影劍 4＋1；最後一把用完卡就消失',E(r).hp);
+r=arena('emiya'); playId(r,'analysis'); r.battle.hand=[]; swords(r,1); G.play(r,0,0); t(E(r).hp===44&&SW(r)===0&&!r.battle.hand.includes('sword'),'構造解析：投影劍 5＋1；最後一把用完卡就消失',E(r).hp);
 r=arena('cu'); playId(r,'riposte'); playId(r,'lightchild'); E(r).intent={n:'砍',fx:[['atk',10]]}; hp=r.hp; G.endTurn(r);
 t(r.hp===hp&&E(r).hp===45&&r.battle.str===1,'迎擊之槍：閃過就反擊 5 穿透；光之子：迴避一次力量 +1',JSON.stringify([E(r).hp,r.battle.str]));
 t(r.battle.riposte===0,'迎擊只在那一回合');
@@ -127,7 +127,7 @@ r=arena('medusa'); playId(r,'gorgon'); G.endTurn(r); t(E(r).petrify===2,'蛇髮�
 r=arena('medea'); r.battle.energy=5; playId(r,'chant'); playId(r,'curse'); E(r).vuln=0; playId(r,'bolt'); t(E(r).hp===50-(3+1*3),'魔彈：陣地牌（+2）＋詛咒（+1）→ 3＋陣地 3',E(r).hp); G.endTurn(r); t(r.battle.chant===3,'陣地整場累積，不會每回合歸零',r.battle.chant);
 r=arena('medea'); playId(r,'territory'); playId(r,'chant'); t(r.battle.block===4&&r.battle.chant===2,'陣地作成：每張技能格擋 2；陣地牌算 2 層');
 r=arena('kojiro'); playId(r,'flash'); t(E(r).hp===50-(2+2*3),'一閃：剩 3 魔力 → 2＋6',E(r).hp);
-r=arena('kojiro'); playId(r,'gate'); r.battle.energy=2; E(r).intent={n:'砍',fx:[['atk',20]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===12-4,'山門守護：剩 2 魔力格擋 8（20 → 扣 12，下回合山門的守門人回 4）',hp-r.hp);
+r=arena('kojiro'); playId(r,'gate'); r.battle.energy=2; E(r).intent={n:'砍',fx:[['atk',20]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===12-5,'山門守護：剩 2 魔力格擋 8（20 → 扣 12，下回合山門的守門人回 5）',hp-r.hp);
 r=arena('kojiro'); playId(r,'mastery'); r.battle.played=0; r.battle.energy=3; E(r).vuln=0; r.battle.sowaSeen={x:1}; playId(r,'iai'); t(E(r).hp<50-(5+7+5)+1&&E(r).hp>=50-(5+Math.floor((7+5)*1.5)),'透化：居合 +5',E(r).hp);
 r=arena('diarmuid'); playId(r,'twinart'); playId(r,'twin'); t(r.battle.block===3&&r.battle.stance==='yellow'&&E(r).hp===47&&E(r).wound===1,'雙槍術：切換架勢格擋 3；切換立刻刺一槍（第 1 次＝3，黃薔薇再給創傷 1）',JSON.stringify([E(r).hp,E(r).wound]));
 playId(r,'rose'); t(E(r).hp===47-4-5-5&&E(r).wound===3&&r.battle.block===9,'薔薇交錯：切兩次（第 2 次紅＝4 穿透、第 3 次黃＝5＋創傷），中間 5 傷害',JSON.stringify([E(r).hp,E(r).wound,r.battle.block]));
@@ -340,7 +340,7 @@ r=G.newRun('lancelot',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.inten
 r.hp=1; r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; }); G.endTurn(r); t(r.hp===1&&r.screen==='battle','狂化不會讓自己倒下');
 r=G.newRun('saber',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); hp=r.hp; G.endTurn(r); t(r.hp===hp,'其他職階不扣');
 
-r=G.newRun('kojiro',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); r.hp=30; G.endTurn(r); t(r.hp===34,'小次郎 山門的守門人：每回合開始回復 4',r.hp);
+r=G.newRun('kojiro',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); r.hp=30; G.endTurn(r); t(r.hp===35,'小次郎 山門的守門人：每回合開始回復 5',r.hp);
 console.log('── 斯卡哈');
 r=arena('scathach'); playId(r,'doublespear'); t(E(r).doom===1&&E(r).hp===40,'雙槍・死棘：5×2＋刻印 1（刻印打完才上）');
 r.battle.energy=3; playId(r,'atk'); t(E(r).hp===40-7,'刻印 1：每一擊 +1',E(r).hp);
@@ -515,7 +515,7 @@ t(G.d20Chance({who:'medea'},10)===55&&G.d20Chance({who:'cu'},10)===40&&G.d20Chan
   t(win>130&&win<200&&hpWin===win,'石階：成功最大生命 +8、失敗失去 10 生命，成功率約 55%',win); }
 { const r=G.newRun('saber',3); r.relics=Object.keys(G.RELICS); t(!G.canChoose(r,G.EVENTS.bridge.opts[0])&&!G.canChoose(r,G.EVENTS.gamble.opts[0]),'禮裝全拿了：擲骰拿禮裝的選項也會關掉'); }
 // 吉爾伽美什的慢心：乖離劍不出鞘（量表停在 99%）、敵人每擊 +1；被打掉 12 生命、精英／魔王撐到第 3 回合、或令咒，就認真起來
-r=arena('gil'); E(r).intent={n:'打',fx:[['atk',5]]}; hp=r.hp; G.endTurn(r); t(r.battle.manshin===1&&hp-r.hp===6,'慢心：敵人每擊 +1（5 → 6）',hp-r.hp);
+r=arena('gil'); E(r).intent={n:'打',fx:[['atk',5]]}; hp=r.hp; G.endTurn(r); t(r.battle.manshin===1&&hp-r.hp===7,'慢心：敵人每擊 +2（5 → 7）',hp-r.hp);
 r.battle.np=90; playId(r,'goldrule'); r.battle.np=95; r.battle.hand.push('atk_gil'); G.play(r,r.battle.hand.length-1,0); t(r.battle.np===99&&!G.noble(r,0).ok,'慢心中寶具量表停在 99%（乖離劍不出鞘）',r.battle.np);
 r.battle.block=0; E(r).intent={n:'打',fx:[['atk',9]]}; const st0=r.battle.str, np0=r.battle.np; G.endTurn(r); t(!r.battle.manshin&&r.battle.str===st0+1&&r.battle.np===100,'失去 12 生命後認真起來：慢心解除、力量 +1、寶具 +25%',[r.battle.manshin,r.battle.hurt,r.battle.str,r.battle.np]);
 r=arena('gil'); E(r).id='saber'; E(r).intent={n:'發呆',fx:[]}; G.endTurn(r); t(r.battle.manshin===1,'精英：第 2 回合還在慢心'); G.endTurn(r); t(!r.battle.manshin,'精英撐到第 3 回合：認可對手，認真起來');

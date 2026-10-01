@@ -15,7 +15,7 @@ var G = (function () {
     def: { name: '防禦', cost: 1, type: 'skill', np: 5, fx: [['block', 5]], up: { fx: [['block', 8]] } }
   });
   kit('token', {
-    sword:    { name: '投影劍', cost: 0, type: 'atk', np: 3, token: 1, fx: [['dmg', 4]], stack: 1 },   // 疊成一張，b.swords＝幾把
+    sword:    { name: '投影劍', cost: 0, type: 'atk', np: 3, token: 1, fx: [['dmg', 5]], stack: 1 },   // 疊成一張，b.swords＝幾把
     weapon:   { name: '武器化', cost: 0, type: 'atk', np: 3, token: 1, fx: [['dmg', 7]] },
     t_sword:  { name: '寶劍', cost: 0, type: 'atk', np: 3, token: 1, fx: [['dmg', 5]] },
     t_spear:  { name: '寶槍', cost: 0, type: 'atk', np: 3, token: 1, fx: [['pierce', 4]] },
@@ -144,7 +144,7 @@ var G = (function () {
   });
   kit('kojiro', {   // 留魔力：剩下的魔力換迴避、換格擋、換一閃的傷害；居合搶第一刀
     iai:     { name: '居合', cost: 1, type: 'atk', np: 10, fx: [['dmg', 5], ['iai', 7]], up: { fx: [['dmg', 7], ['iai', 9]] } },
-    tsubame1:{ name: '燕返', cost: 2, type: 'atk', np: 20, fx: [['pierceHits', 6, 3]], up: { fx: [['pierceHits', 8, 3]] } },   // 多重次元屈折現象：三刀同時斬出，無法防禦
+    tsubame1:{ name: '燕返', cost: 2, type: 'atk', np: 20, fx: [['pierceHits', 7, 3]], up: { fx: [['pierceHits', 9, 3]] } },   // 多重次元屈折現象：三刀同時斬出，無法防禦
     pole:    { name: '物干竿', cost: 1, type: 'atk', np: 10, fx: [['pierce', 6], ['iai', 6]], up: { fx: [['pierce', 8], ['iai', 8]] } },
     flash:   { name: '一閃', cost: 0, type: 'atk', np: 10, fx: [['dmgPerEnergy', 2, 2]], up: { fx: [['dmgPerEnergy', 3, 3]] } },
     falseeye:{ name: '心眼（偽）', cost: 1, type: 'skill', np: 5, fx: [['evade', 1], ['block', 4]], up: { fx: [['evade', 1], ['block', 7]] } },
@@ -168,10 +168,10 @@ var G = (function () {
   // 第四次聖杯戰爭
   kit('diarmuid', {   // 左右開弓：每次切換架勢立刻刺一槍，同一回合換越多次越痛；紅薔薇穿透、黃薔薇留創傷
     twin:       { name: '雙槍', cost: 0, type: 'skill', np: 5, fx: [['stance', 'toggle'], ['draw', 1]], up: { fx: [['stance', 'toggle'], ['draw', 2]] } },
-    dearg:      { name: '破魔的紅薔薇', cost: 1, type: 'atk', np: 10, fx: [['stance', 'red'], ['dmg', 8]], up: { fx: [['stance', 'red'], ['dmg', 11]] } },
-    buidhe:     { name: '必滅的黃薔薇', cost: 1, type: 'atk', np: 10, fx: [['stance', 'yellow'], ['dmg', 5], ['wound', 2]], up: { fx: [['stance', 'yellow'], ['dmg', 7], ['wound', 3]] } },
+    dearg:      { name: '破魔的紅薔薇', cost: 1, type: 'atk', np: 10, fx: [['stance', 'red'], ['dmg', 9]], up: { fx: [['stance', 'red'], ['dmg', 12]] } },
+    buidhe:     { name: '必滅的黃薔薇', cost: 1, type: 'atk', np: 10, fx: [['stance', 'yellow'], ['dmg', 6], ['wound', 2]], up: { fx: [['stance', 'yellow'], ['dmg', 8], ['wound', 3]] } },
     rose:       { name: '薔薇交錯', cost: 1, type: 'atk', np: 10, fx: [['stance', 'toggle'], ['dmg', 5], ['stance', 'toggle']], up: { fx: [['stance', 'toggle'], ['dmg', 8], ['stance', 'toggle']] } },
-    dance:      { name: '槍舞', cost: 1, type: 'atk', np: 10, fx: [['dmg', 4], ['stance', 'toggle'], ['dmg', 4]], up: { fx: [['dmg', 6], ['stance', 'toggle'], ['dmg', 6]] } },
+    dance:      { name: '槍舞', cost: 1, type: 'atk', np: 10, fx: [['dmg', 5], ['stance', 'toggle'], ['dmg', 5]], up: { fx: [['dmg', 7], ['stance', 'toggle'], ['dmg', 7]] } },
     knightpride:{ name: '騎士之誇', cost: 1, type: 'skill', np: 5, fx: [['stance', 'toggle'], ['block', 7]], up: { fx: [['stance', 'toggle'], ['block', 10]] } },
     lovespot:   { name: '愛之黑痣', cost: 1, type: 'skill', np: 5, fx: [['weakAll', 1], ['stance', 'toggle']], up: { fx: [['weakAll', 2], ['stance', 'toggle']] } },
     twinart:    { name: '雙槍術', cost: 1, type: 'power', np: 0, fx: [['pStanceBlock', 3]], up: { fx: [['pStanceBlock', 5]] } },
@@ -316,7 +316,7 @@ var G = (function () {
       np: { name: '萬符必應破戒', fx: [['dispel', 1], ['pierce', 12], ['breakPact', 1], ['draw', 2]] } },
     kojiro: { name: '佐佐木小次郎', cls: 'Assassin', war: 5, hp: 92, sig: 'tsubame1',
       desc: '守山門的無名劍士。沒有寶具——秘劍燕返是練出來的劍技，開場就在牌組裡。一眼看透敵人的弱點，敵人卻永遠摸不清他的劍。',
-      passive: { id: 'sowa', name: '宗和的心得', text: '看透弱點：開場解析生命最多的敵人，易傷 2；每回合第一次打到某個敵人時，那個敵人易傷 1。敵人摸不清你的底細：每回合第一擊無視格擋（每次交手都像第一次）。山門的守門人：第 2 回合起每回合開始回復 4 生命' },
+      passive: { id: 'sowa', name: '宗和的心得', text: '看透弱點：開場解析生命最多的敵人，易傷 2；每回合第一次打到某個敵人時，那個敵人易傷 1。敵人摸不清你的底細：每回合第一擊無視格擋（每次交手都像第一次）。山門的守門人：第 2 回合起每回合開始回復 5 生命' },
       np: { name: '（沒有寶具）', none: 1, fx: [] } },
     hassanC: { name: '咒腕的哈桑', cls: 'Assassin', war: 5, hp: 76, sig: 'throwdirk',
       desc: '山之翁之一，以咒腕取人心臟的暗殺者。氣息遮斷從暗處先手，投擲短刀如雨落下；寶具妄想心音直接取走低血量敵人的心臟。',
@@ -349,7 +349,7 @@ var G = (function () {
       np: { name: '射殺百頭', fx: [['hits', 5, 9]] } },
     gil: { name: '吉爾伽美什', cls: 'Archer', war: 45, hp: 58, sig: 'gate_of',
       desc: '英雄王。寶具越囤越多，回合結束自動掃射；但囤太多會佔住手牌，寶具掃射可以一次清空。',
-      passive: { id: 'golden', name: '王之財寶', text: '寶具（0 費代幣）留在手上不會消失；回合結束時，手上每件寶具自動對隨機敵人射出 2 傷害。每場戰鬥開始取出 1 件。慢心：每場開場不把對手放在眼裡——乖離劍不出鞘（寶具量表停在 99%）、敵人每擊 +1；這場失去 12 生命、精英或魔王撐到第 3 回合、或用令咒解放寶具，就認真起來：力量 +1、寶具 +25%' },
+      passive: { id: 'golden', name: '王之財寶', text: '寶具（0 費代幣）留在手上不會消失；回合結束時，手上每件寶具自動對隨機敵人射出 2 傷害。每場戰鬥開始取出 1 件。慢心：每場開場不把對手放在眼裡——乖離劍不出鞘（寶具量表停在 99%）、敵人每擊 +2；這場失去 12 生命、精英或魔王撐到第 3 回合、或用令咒解放寶具，就認真起來：力量 +1、寶具 +25%' },
       np: { name: '天地乖離開闢之星', fx: [['dispelAll', 1], ['all', 40]] } }
   };
   SERVANTS.scathach = { name: '斯卡哈', cls: 'Lancer', war: 0, hp: 46, sig: 'doublespear',
@@ -755,7 +755,7 @@ var G = (function () {
   function inBattle(run) { return run && run.screen === 'battle' && run.battle && run.battle.hand ? run.battle : null; }
   function shortBits(c, run) {
     var b = inBattle(run), mn = run ? minionName(run) : '使魔';
-    if (c.id === 'sword' && b && b.projUp) return ['⚔' + (4 + b.projUp)];
+    if (c.id === 'sword' && b && b.projUp) return ['⚔' + (CARDS.sword.fx[0][1] + b.projUp)];
     return c.fx.map(function (f) {
       var t = SHORT[f[0]]; if (!t) return fxText([f], run)[0];
       if (typeof t === 'function') return t(f);
@@ -767,7 +767,7 @@ var G = (function () {
   function cardText(id, run) {
     var c = card(id), b = inBattle(run), bits = c.text ? [c.text] : fxText(c.fx, run);
     if (b && b.hand) c.fx.forEach(function (f, i) { var v = nowValue(f, b, run); if (v !== null) bits[i] += '（現在 ' + v + '）'; });
-    if (c.id === 'sword' && b && b.projUp) bits = ['造成 ' + (4 + b.projUp) + ' 傷害'];
+    if (c.id === 'sword' && b && b.projUp) bits = ['造成 ' + (CARDS.sword.fx[0][1] + b.projUp) + ' 傷害'];
     if (c.np && !(run && serv(run) && serv(run).np.none)) bits.push('寶具 +' + c.np + '%');
     if (c.link) bits.push('【連動】打出時，手上其他連動牌一起出手' + (c.chase ? '' : '（這張沒有追擊：被別張連動帶出時直接丟掉）'));
     if (c.chase) bits.push('【追擊】被連動帶出時免費發動（傷害、格擋、回復七成；刻印、抽牌照常）' + (c.ex ? '；被帶出時也會消耗' : ''));
@@ -1396,7 +1396,7 @@ var G = (function () {
   function foeDmg(run, e, base) {
     var b = run.battle, p = passive(run), d = calcDmg(base, e.str - (p === 'gaze' ? Math.floor(e.petrify / 2) : 0), e.weak, b.vuln);
     if (p === 'invisair') d -= Math.floor(b.wind / 3);
-    if (b.manshin && base > 0) d += 1;   // 慢心：大意輕敵
+    if (b.manshin && base > 0) d += 2;   // 慢心：大意輕敵
     return Math.max(0, d);
   }
   function calcDmg(base, str, weak, vuln) {
@@ -1422,7 +1422,7 @@ var G = (function () {
     if (e.petrify >= stunAt(e)) { e.petrify = 0; e.stun = 1; log.push(e.name + '被石化了'); }
   }
   // 玩家受到傷害（戰鬥續行、十二試煉在這裡擋）
-  // 慢心（吉爾伽美什）：乖離劍不出鞘（寶具量表停在 99%）、敵人每擊 +1；被打痛、精英／魔王撐到第 3 回合、或用令咒，就認真起來
+  // 慢心（吉爾伽美什）：乖離劍不出鞘（寶具量表停在 99%）、敵人每擊 +2；被打痛、精英／魔王撐到第 3 回合、或用令咒，就認真起來
   function npMax(b) { return b.manshin ? 99 : 100; }
   function serious(run, log) { var b = run.battle; if (!b || !b.manshin) return; b.manshin = 0; b.str += 1; b.np = Math.min(100, b.np + 25); log.push('「……雜種，竟敢讓本王認真起來。」慢心解除：力量 +1、寶具 +25%，乖離劍可以出鞘了'); }
   function loseHp(run, d, log) {
@@ -1484,7 +1484,7 @@ var G = (function () {
   }
   var KRAKEN_STEP = 12;
   function krakenBites(b) { return 1 + Math.floor(b.kraken / KRAKEN_STEP); }
-  var WIND_MAX = 10, GATE_HEAL = 4;
+  var WIND_MAX = 10, GATE_HEAL = 5;
   function addWind(b, n) { b.wind = Math.min(WIND_MAX, b.wind + n); }
   function randFoe(ctx) { var a = alive(ctx.b); return a.length ? pick(ctx.run, a) : null; }
   function minionHits(ctx, times, bonus) {
@@ -1799,7 +1799,7 @@ var G = (function () {
     return { ok: true, end: end };
   }
   // 令咒：整局有限；all＝魔力 +3、抽 2｜np＝寶具量表充滿
-  // 令咒：每回合最多一劃；解放寶具／全力以赴／空間轉移（原作士郎召回 Saber、肯尼斯讓迪爾姆德撤退）／回復（FGO 的令咒回滿）
+  // 令咒：每回合最多一劃；解放寶具／全力以赴／召回（原作士郎用令咒把 Saber 瞬間叫回身邊、肯尼斯讓迪爾姆德撤退）／回復（FGO 的令咒回滿）
   var SEAL_KINDS = ['np', 'all', 'warp', 'heal'];
   function seal(run, kind) {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false, msg: '不在戰鬥中' };
@@ -1812,7 +1812,7 @@ var G = (function () {
     if (SEAL_KINDS.indexOf(kind) < 0) return { ok: false, msg: '沒有這種命令' };
     run.seals--; run.stats.seals++; b.sealUsed = 1;
     if (kind === 'all') { b.energy += 3; drawCards(run, 2); b.log = ['令咒：全力以赴（魔力 +3、抽 2）']; }
-    else if (kind === 'warp') { b.evadeAll = 1; b.log = ['令咒：空間轉移（這回合躲開所有攻擊）']; }
+    else if (kind === 'warp') { b.evadeAll = 1; b.log = ['令咒：召回（瞬間把從者叫回身邊，這回合躲開所有攻擊）']; }
     else if (kind === 'heal') { var hh = run.maxHp - run.hp; run.hp = run.maxHp; b.log = ['令咒：回復（生命回滿，+' + hh + '）']; }
     else { b.log = ['令咒：解放寶具（量表充滿）']; serious(run, b.log); b.np = 100; }
     return { ok: true };
@@ -1821,7 +1821,7 @@ var G = (function () {
   // 敵人的一次攻擊：迴避整次躲開｜格擋｜使魔替你擋下最多 4｜穿透攻擊只有迴避擋得住
   function enemyHit(run, e, n, pierce, log) {
     var b = run.battle, d = foeDmg(run, e, n);
-    if (b.evadeAll) { log.push('空間轉移：' + e.name + '的攻擊落空'); return; }
+    if (b.evadeAll) { log.push('令咒召回：' + e.name + '的攻擊落空'); return; }
     if (b.evade > 0) {
       b.evade--; log.push('閃過了' + e.name + '的攻擊');
       if (b.pEvadeStr) b.str += b.pEvadeStr;
