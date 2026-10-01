@@ -14,7 +14,6 @@ function incoming(run){
 }
 function expectedLoss(run){
   const b=run.battle; let block=b.block, evade=b.evade, minions=b.minions, loss=0;
-  if(G.passive(run)==='mind') evade+=Math.min(2,b.energy);
   incoming(run).sort((x,y)=>y[0]-x[0]).forEach(([d,p])=>{
     if(evade>0){evade--;return;}
     if(!p){ const t=Math.min(block,d); block-=t; d-=t; if(d>0&&minions>0){minions--; d=Math.max(0,d-6);} }
@@ -51,13 +50,13 @@ function bestAction(run){
     const c=G.card(id);
     (c.t?tgs:[tgs[0]]).forEach(t=>{ const r=J(run); if(!G.play(r,i,t).ok) return; const d=value(r)-base; if(d>bv){bv=d;best={k:'card',i,t};} });
   });
-  if(b.np>=100){ const S=G.serv(run); (G.needsTarget(S.np.fx)?tgs:[tgs[0]]).forEach(t=>{ const r=J(run); if(!G.noble(r,t).ok) return; const d=value(r)-base+5; if(d>bv){bv=d;best={k:'np',t};} }); }
+  if(b.np>=100&&!G.serv(run).np.none){ const S=G.serv(run); (G.needsTarget(S.np.fx)?tgs:[tgs[0]]).forEach(t=>{ const r=J(run); if(!G.noble(r,t).ok) return; const d=value(r)-base+5; if(d>bv){bv=d;best={k:'np',t};} }); }
   return best;
 }
 function playTurn(run){
   const b=run.battle; let guard=0;
   while(run.screen==='battle'&&guard++<40){
-    if(run.seals>(SECRET&&run.act===2?1:0)&&b.turn===1&&(b.kind==='boss'||(b.kind==='elite'&&run.seals>1))&&G.alive(b).some(e=>e.hp>40)){ G.seal(run,b.np>=60?'np':'all'); continue; }
+    if(run.seals>(SECRET&&run.act===2?1:0)&&b.turn===1&&(b.kind==='boss'||(b.kind==='elite'&&run.seals>1))&&G.alive(b).some(e=>e.hp>40)){ G.seal(run,b.np>=60&&!G.serv(run).np.none?'np':'all'); continue; }
     const a=bestAction(run); if(!a) break;
     const r=a.k==='np'?G.noble(run,a.t):G.play(run,a.i,a.t); if(!r.ok) break;
   }

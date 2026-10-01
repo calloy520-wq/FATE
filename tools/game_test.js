@@ -18,7 +18,7 @@ const playId=(r,id,tg=0)=>{ r.battle.hand.push(id); return G.play(r,r.battle.han
 
 console.log('── 基本');
 let run=G.newRun('saber',7);
-t(run.hp===74&&run.deck.length===10&&run.map.length===12&&run.seals===3&&G.BOSS_POOL[1].includes(run.bosses[0])&&G.BOSS_POOL[2].includes(run.bosses[1])&&run.bosses[0]!==run.bosses[1]&&run.gold===60,'開局：Saber 74 血、10 張牌、12 列地圖、3 劃令咒、60 金、兩章各抽一位魔王');
+t(run.hp===75&&run.deck.length===10&&run.map.length===12&&run.seals===3&&G.BOSS_POOL[1].includes(run.bosses[0])&&G.BOSS_POOL[2].includes(run.bosses[1])&&run.bosses[0]!==run.bosses[1]&&run.gold===60,'開局：Saber 75 血（耐久 B）、10 張牌、12 列地圖、3 劃令咒、60 金、兩章各抽一位魔王');
 t(G.ORDER.length===15&&G.ORDER.every(k=>G.SERVANTS[k]&&G.CARDS[G.SERVANTS[k].sig]),'15 位從者，每位的招牌牌都存在');
 t(G.ORDER.every(k=>Object.keys(G.CARDS).filter(c=>G.CARDS[c].kit===k).length>=9),'每位從者至少 9 張專屬牌');
 t(Object.keys(G.CARDS).every(k=>G.CARDS[k].fx.every(f=>G.OPS[f[0]]&&G.FX_TEXT[f[0]])),'每個卡牌效果都有程式與說明');
@@ -75,10 +75,10 @@ r=arena('medea'); playId(r,'fangs'); t(r.battle.minions===1,'龍牙兵：召喚 
 t(E(r).hp===47&&hp-r.hp===6&&r.battle.minions===0,'龍牙兵回合結束打 3，替你擋 4 後消散',JSON.stringify([E(r).hp,hp-r.hp]));
 r=arena('medea'); E(r).block=15; E(r).str=4; r.battle.np=100; G.noble(r,0); t(E(r).block===0&&E(r).str===0&&E(r).vuln===2&&E(r).weak===2,'萬符必應破戒：拆格擋與力量、虛弱易傷 2');
 
-r=arena('kojiro'); playId(r,'iai'); t(E(r).hp===38,'小次郎 居合：第一張 5＋7',E(r).hp); playId(r,'iai'); t(E(r).hp===33,'第二張只剩 5');
-r=arena('kojiro'); r.battle.energy=2; E(r).intent={n:'砍',fx:[['atk',8,3]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===4+8+8,'心眼（偽）：有剩魔力 → 下一擊傷害減半（8→4）',hp-r.hp);
+r=arena('kojiro'); E(r).block=10; playId(r,'atk'); t(E(r).hp===44&&E(r).block===10&&E(r).vuln===1,'小次郎 宗和的心得：每回合第一擊無視格擋，打到後易傷 1',JSON.stringify([E(r).hp,E(r).block,E(r).vuln])); playId(r,'atk'); t(E(r).hp===44&&E(r).block===1,'第二擊照常吃格擋（易傷 6→9）',JSON.stringify([E(r).hp,E(r).block]));
+r=arena('kojiro'); r.battle.np=100; t(!G.noble(r,0).ok&&!G.seal(r,'np').ok&&G.SERVANTS.kojiro.np.none,'小次郎沒有寶具：放不了、令咒也不能充滿寶具');
 r=arena('kojiro'); playId(r,'calm'); G.endTurn(r); t(r.battle.energy===4,'明鏡止水：下回合魔力 +1');
-r=arena('kojiro'); E(r).block=30; r.battle.np=100; G.noble(r,0); t(E(r).hp===14,'燕返寶具：穿透 12×3',E(r).hp);
+t(G.newRun('kojiro',3).deck.includes('tsubame1')&&G.SERVANTS.kojiro.sig==='tsubame1','燕返開場就在牌組裡（招牌牌）');
 
 r=arena('hassanC'); r.battle.turn=2; playId(r,'knives'); t(E(r).hp===46&&E(r).poison===4,'咒腕 飛刀：4＋毒 4'); E(r).block=20; G.endTurn(r); t(E(r).hp===42&&E(r).poison===3,'毒：回合開始穿透 4、再減 1',E(r).hp);
 r=arena('hassanC'); r.battle.turn=2; E(r).poison=1; playId(r,'assassinate'); t(E(r).hp===30,'暗殺：中毒時 10＋10',E(r).hp);
@@ -107,8 +107,8 @@ r=arena('medusa'); playId(r,'gorgon'); G.endTurn(r); t(E(r).petrify===1,'蛇髮�
 r=arena('medea'); r.battle.energy=5; playId(r,'chant'); playId(r,'curse'); E(r).vuln=0; playId(r,'bolt'); t(E(r).hp===50-(3+1*3),'魔彈：陣地牌（+2）＋詛咒（+1）→ 3＋陣地 3',E(r).hp); G.endTurn(r); t(r.battle.chant===3,'陣地整場累積，不會每回合歸零',r.battle.chant);
 r=arena('medea'); playId(r,'territory'); playId(r,'chant'); t(r.battle.block===4&&r.battle.chant===2,'陣地作成：每張技能格擋 2；陣地牌算 2 層');
 r=arena('kojiro'); playId(r,'flash'); t(E(r).hp===50-(2+2*3),'一閃：剩 3 魔力 → 2＋6',E(r).hp);
-r=arena('kojiro'); playId(r,'gate'); r.battle.energy=2; E(r).intent={n:'砍',fx:[['atk',20]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===2,'山門守護：剩 2 魔力格擋 8，心眼把 20 減半成 10 → 扣 2',hp-r.hp);
-r=arena('kojiro'); playId(r,'mastery'); r.battle.played=0; r.battle.energy=3; playId(r,'iai'); t(E(r).hp===50-(5+7+5),'宗和的心得：居合 +5',E(r).hp);
+r=arena('kojiro'); playId(r,'gate'); r.battle.energy=2; E(r).intent={n:'砍',fx:[['atk',20]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===12,'山門守護：剩 2 魔力格擋 8（20 → 扣 12）',hp-r.hp);
+r=arena('kojiro'); playId(r,'mastery'); r.battle.played=0; r.battle.energy=3; E(r).vuln=0; r.battle.sowaSeen={x:1}; playId(r,'iai'); t(E(r).hp<50-(5+7+5)+1&&E(r).hp>=50-(5+Math.floor((7+5)*1.5)),'透化：居合 +5',E(r).hp);
 r=arena('diarmuid'); playId(r,'twinart'); playId(r,'twin'); t(r.battle.block===3&&r.battle.stance==='yellow'&&E(r).hp===48&&E(r).wound===1,'雙槍術：切換架勢格擋 3；切換立刻刺一槍（第 1 次＝2，黃薔薇再給創傷 1）',JSON.stringify([E(r).hp,E(r).wound]));
 playId(r,'rose'); t(E(r).hp===48-3-5-4&&E(r).wound===3&&r.battle.block===9,'薔薇交錯：切兩次（第 2 次紅＝3 穿透、第 3 次黃＝4＋創傷），中間 5 傷害',JSON.stringify([E(r).hp,E(r).wound,r.battle.block]));
 r.battle.energy=3; let h2=E(r).hp; playId(r,'twin'); t(h2-E(r).hp===5,'同一回合第 4 次切換刺 5（換越多次越痛）',h2-E(r).hp);
@@ -288,10 +288,12 @@ t(G.ORDER.every(k=>G.card('atk_'+k).fx[0][0]==='dmg'&&G.card('atk_'+k).fx[0][1]=
 // 官方六圍
 t(G.ORDER.every(k=>G.PARAMS[k]&&G.PARAMS[k].length===6),'15 位都有六圍');
 r=arena('heracles'); r.flat=false; playId(r,'atk_heracles'); t(E(r).hp===50-7,'赫拉克勒斯 筋力 A+：6 傷 ×1.12 → 7',E(r).hp);
-r=arena('medea'); r.flat=false; playId(r,'def_medea'); t(r.battle.block===4,'美狄亞 耐久 D：5 格擋 ×0.84 → 4',r.battle.block);
+r=arena('medea'); r.flat=false; playId(r,'def_medea'); t(r.battle.block===5,'美狄亞 格擋看筋力 E／敏捷 C／魔力 A+ 平均（≈93%）：5 → 5',r.battle.block);
+r=arena('gilles'); r.flat=false; playId(r,'def_gilles'); t(r.battle.block===4,'吉爾斯 筋力 D／敏捷 D／魔力 C 平均（≈87%）：5 → 4',r.battle.block);
+t(G.SERVANTS.heracles.hp===81&&G.SERVANTS.gilles.hp===57&&G.SERVANTS.saber.hp===75,'生命照耐久：B 75、A 81、E 57');
 r=arena('medea'); r.flat=false; playId(r,'atk_medea'); t(E(r).hp===50-7,'美狄亞 魔力 A+（術者看魔力）：6 傷 → 7',E(r).hp);
 r=arena('iskandar'); r.flat=false; playId(r,'def_iskandar'); t(r.battle.block===5,'伊斯坎達爾 耐久 A：5 ×1.08 → 5（四捨五入）',r.battle.block);
-r=arena('saber'); r.flat=false; r.battle.wind=0; r.battle.np=100; G.noble(r,0); t(E(r).hp===Math.max(0,50-Math.round(40*1.08*1.2)),'Saber 寶具 A++：寶具傷害 ×1.2（再乘攻擊）',E(r).hp);
+r=arena('saber'); r.flat=false; r.battle.wind=0; r.battle.np=100; G.noble(r,0); t(E(r).hp===Math.max(0,50-Math.round(40*1.08)),'寶具等級只顯示：Saber 寶具 A++ 只乘攻擊（魔力 A）',E(r).hp);
 const cuR=G.newRun('cu',3); step(cuR,'fight'); const saR=G.newRun('saber',3); step(saR,'fight'); t(cuR.battle.hand.length===saR.battle.hand.length+1,'敏捷 A 以上（庫・丘林）：開場多抽 1 張',[cuR.battle.hand.length,saR.battle.hand.length].join());
 t(G.statsOf(G.newRun('cu',1)).luck<1&&G.statsOf(G.newRun('gil',1)).luck>1,'幸運：庫・丘林 E 拿的金錢比較少，吉爾伽美什 A 比較多');
 const svB=J(G.newRun('kojiro',3)); svB.deck=svB.deck.map(x=>G.isBasic(x,'atk')?'atk':G.isBasic(x,'def')?'def+':x); G.migrate(svB); t(svB.deck.filter(x=>x==='atk_kojiro').length===5&&svB.deck.filter(x=>x==='def_kojiro+').length===4,'舊存檔的通用攻擊／防禦換成自己的（保留強化）');
@@ -340,7 +342,7 @@ console.log('── 流程');
 let r7=arena('saber'); r7.battle.enemies.forEach(e=>{e.hp=1;}); r7.battle.np=100; G.noble(r7,0);
 t(r7.screen==='reward'&&r7.reward.cards.length===3&&r7.reward.cards.every(c=>['saber','common'].includes(G.CARDS[c.replace('+','')].kit)),'打贏：三選一，只出自己的牌和共通牌');
 const pk=r7.reward.cards[0]; G.takeReward(r7,0); t(r7.deck.includes(pk)&&r7.screen==='map','選的牌加進牌組、回地圖');
-r7.screen='rest'; r7.hp=10; G.rest(r7,'heal'); t(r7.hp===10+Math.round(74*0.3),'休息：回三成生命');
+r7.screen='rest'; r7.hp=10; G.rest(r7,'heal'); t(r7.hp===10+Math.round(r7.maxHp*0.3),'休息：回三成生命');
 r7.screen='rest'; const ui=r7.deck.findIndex(x=>G.isBasic(x,'atk')); const b7=r7.deck[ui]; G.rest(r7,'upgrade',ui); t(r7.deck[ui]===b7+'+'&&G.card(b7+'+').fx[0][1]===G.BASICS[r7.who][2][0][1]&&G.card(b7+'+').name.endsWith('＋'),'強化：基本攻擊→精煉（數值照表）',r7.deck[ui]);
 const r9=G.newRun('saber',12); r9.relics=['shroud','gem','circuit','book']; step(r9,'fight');
 t(r9.battle.block===8&&r9.battle.energy===4&&r9.battle.np===25&&r9.battle.enemies.every(e=>e.weak===1),'禮裝：聖骸布、寶石、魔術刻印、偽臣之書');

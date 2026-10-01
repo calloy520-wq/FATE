@@ -127,7 +127,7 @@ var G = (function () {
     calm:    { name: '明鏡止水', cost: 1, type: 'skill', np: 5, fx: [['block', 5], ['nextEnergy', 1]], up: { fx: [['block', 8], ['nextEnergy', 1]] } },
     mikiri:  { name: '見切', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['evade', 1]], up: { ex: 0 } },
     gate:    { name: '山門守護', cost: 1, type: 'power', np: 0, fx: [['pEnergyBlock', 4]], up: { fx: [['pEnergyBlock', 6]] } },
-    mastery: { name: '宗和的心得', cost: 2, type: 'power', np: 0, fx: [['iaiUp', 5]], up: { cost: 1 } }
+    mastery: { name: '透化', cost: 2, type: 'power', np: 0, fx: [['iaiUp', 5]], up: { cost: 1 } }
   });
   kit('hassanC', {   // 開局照原作：氣息遮斷先手、投擲短刀、妄想心音；後面的選牌有毒（每回合穿透、遞減）與暗殺
     throwdirk:  { name: '投擲短刀', cost: 1, type: 'atk', np: 10, fx: [['hits', 4, 3]], up: { fx: [['hits', 5, 3]] } },
@@ -290,10 +290,10 @@ var G = (function () {
       passive: { id: 'hsw', name: '高速神言', text: '每回合第一張技能牌 0 費；每打一張技能，陣地 +1（整場累積）；回合開始格擋＝陣地÷2（最多 6）' },
       minion: { name: '龍牙兵', atk: 3 },
       np: { name: '萬符必應破戒', fx: [['dispelAll', 1], ['weakAll', 2], ['vulnAll', 2], ['draw', 2]] } },
-    kojiro: { name: '佐佐木小次郎', cls: 'Assassin', war: 5, hp: 92, sig: 'iai',
-      desc: '守山門的劍士。剩下的魔力換看穿（傷害減半）、格擋與一閃的傷害；居合搶第一刀。',
-      passive: { id: 'mind', name: '心眼（偽）', text: '回合結束時若還剩魔力，敵人下一次攻擊的傷害減半' },
-      np: { name: '燕返', fx: [['pierceHits', 12, 3]] } },
+    kojiro: { name: '佐佐木小次郎', cls: 'Assassin', war: 5, hp: 92, sig: 'tsubame1',
+      desc: '守山門的無名劍士。沒有寶具——秘劍燕返是練出來的劍技，開場就在牌組裡。一眼看透敵人的弱點，敵人卻永遠摸不清他的劍。',
+      passive: { id: 'sowa', name: '宗和的心得', text: '看透弱點：每回合第一次打到某個敵人時，那個敵人易傷 1。敵人摸不清你的底細：每回合第一擊無視格擋（每次交手都像第一次）' },
+      np: { name: '（沒有寶具）', none: 1, fx: [] } },
     hassanC: { name: '咒腕的哈桑', cls: 'Assassin', war: 5, hp: 76, sig: 'throwdirk',
       desc: '山之翁之一，以咒腕取人心臟的暗殺者。氣息遮斷從暗處先手，投擲短刀如雨落下；寶具妄想心音直接取走低血量敵人的心臟。',
       passive: { id: 'ambush', name: '氣息遮斷', text: '每場戰鬥第一回合，攻擊傷害 ×1.5（敵人還沒察覺你）' },
@@ -334,8 +334,9 @@ var G = (function () {
     np: { name: '貫穿死翔之槍', fx: [['pierce', 25], ['doom', 4]] } };
   // ── 官方六圍（筋力／耐久／敏捷／魔力／幸運／寶具；第五次照 Fate/stay night、第四次照 Fate/Zero、斯卡哈照 FGO）──
   // 換算：等級 E1 D2 C3 B4 A5 EX6.5，「+」+0.5；以 B 為 100%
-  //   攻擊（筋力與魔力取高）：所有卡牌傷害 ×(1＋8%×(等級−4))｜耐久：所有卡牌格擋 ×(1＋8%×…)｜寶具：寶具傷害 ×(1＋10%×…)
-  //   敏捷 A 以上：每場開場多抽 1 張｜幸運：打贏拿到的金錢 ×(1＋10%×…)
+  //   攻擊（筋力與魔力取高）：所有卡牌傷害 ×(1＋8%×(等級−4))｜耐久：生命＝75×(1＋8%×…)｜格擋：筋力、敏捷、魔力三項平均 ×(1＋8%×…)
+  //   敏捷 A 以上：每場開場多抽 1 張｜幸運：打贏拿到的金錢 ×(1＋10%×…)｜寶具：只顯示，不影響數值
+  //   不硬拉平衡：原作強的從者就是強（玩家要選弱的也可以）
   var PARAMS = {
     saber:    ['B', 'B', 'B', 'A', 'A+', 'A++'], emiya:   ['D', 'C', 'C', 'B', 'E', '?'],  cu:      ['B', 'C', 'A', 'C', 'E', 'B'],
     medusa:   ['B', 'D', 'A', 'B', 'E', 'A+'],   medea:   ['E', 'D', 'C', 'A+', 'B', 'C'], kojiro:  ['C', 'E', 'A+', 'E', 'A', '—'],
@@ -348,10 +349,12 @@ var G = (function () {
   // 這一局套用的倍率（run.flat＝不套六圍，測試卡牌機制用）
   function statsOf(run) {
     var P = !run || run.flat ? null : PARAMS[run.who];
-    if (!P) return { atk: 1, def: 1, np: 1, agi: false, luck: 1 };
-    return { atk: 1 + 0.08 * (Math.max(grade(P[0]), grade(P[3])) - 4), def: 1 + 0.08 * (grade(P[1]) - 4), np: 1 + 0.1 * (grade(P[5]) - 4),
-      agi: grade(P[2]) >= 5, luck: 1 + 0.1 * (grade(P[4]) - 4) };
+    if (!P) return { atk: 1, hp: 1, def: 1, agi: false, luck: 1 };
+    return { atk: 1 + 0.08 * (Math.max(grade(P[0]), grade(P[3])) - 4), hp: 1 + 0.08 * (grade(P[1]) - 4), def: 1 + 0.08 * ((grade(P[0]) + grade(P[2]) + grade(P[3])) / 3 - 4), agi: grade(P[2]) >= 5, luck: 1 + 0.1 * (grade(P[4]) - 4) };
   }
+  // 生命照耐久：B＝75
+  var HP_BASE = 75;
+  Object.keys(PARAMS).forEach(function (k) { if (SERVANTS[k]) SERVANTS[k].hp = Math.round(HP_BASE * statsOf({ who: k }).hp); });
   var ORDER = ['saber', 'emiya', 'cu', 'medusa', 'medea', 'kojiro', 'hassanC', 'diarmuid', 'iskandar', 'gilles', 'hassanH', 'lancelot', 'heracles', 'gil', 'scathach'];
 
   // ── 資料：靈基覺醒 ──────────────────────────────────
@@ -368,8 +371,8 @@ var G = (function () {
                [{ name: '天馬護身', np: [['block', 15]] }, { name: '蛇之眷屬', start: [['weakAll', 1]] }]],
     medea:    [[{ name: '神殿結界', start: [['block', 6], ['pBlock', 1]] }, { name: '龍牙兵團', start: [['minion', 2]] }],
                [{ name: '神代魔術', np: [['all', 20]] }, { name: '魔女的契約', start: [['energy', 1]] }]],
-    kojiro:   [[{ name: '燕返之理', start: [['evade', 1]] }, { name: '宗和的心得', start: [['str', 1], ['block', 4]] }],
-               [{ name: '秘劍・多重次元', np: [['pierce', 12]] }, { name: '明鏡止水（A）', start: [['draw', 1]] }]],
+    kojiro:   [[{ name: '燕返之理', start: [['evade', 1]] }, { name: '心眼（偽）', start: [['str', 1], ['block', 4]] }],
+               [{ name: '多重次元屈折現象', start: [['iaiUp', 5]] }, { name: '明鏡止水（A）', start: [['draw', 1]] }]],
     hassanC:  [[{ name: '毒霧瀰漫', start: [['poisonAll', 3]] }, { name: '氣息遮斷（A+）', start: [['evade', 1], ['block', 4]] }],
                [{ name: '心臟收集', np: [['heal', 10]] }, { name: '毒身', start: [['pVenom', 1]] }]],
     diarmuid: [[{ name: '愛之黑痣', start: [['weakAll', 1]] }, { name: '騎士道', start: [['block', 6], ['draw', 1]] }],
@@ -662,7 +665,7 @@ var G = (function () {
     if (c.ex || c.token) bits.push('消耗');
     return bits.join('，');
   }
-  function npText(N, run) { return fxText(npFx(run, N), run).join('，'); }
+  function npText(N, run) { return N.none ? '原作沒有寶具' : fxText(npFx(run, N), run).join('，'); }
   function talentsOf(run) { return TALENTS[run.who] || []; }
   function talent(run, key) { var p = key.split('.'), t = talentsOf(run); return t[+p[0]] && t[+p[0]][+p[1]]; }
   function talentText(T, run) {
@@ -718,7 +721,7 @@ var G = (function () {
     cu:       [[['evade', 1]], [['str', 1]], [['pierce', 15]], [['pEvade', 1]]],
     medusa:   [[['petrifyAll', 1]], [['weakAll', 1]], [['petrifyAll', 2]], [['pPetrifyAll', 1]]],
     medea:    [[['minion', 1]], [['block', 6]], [['all', 15]], [['pSkillBlock', 2]]],
-    kojiro:   [[['evade', 1]], [['iaiUp', 3]], [['pierce', 12]], [['pEnergyBlock', 3]]],
+    kojiro:   [[['evade', 1]], [['iaiUp', 3]], [['str', 1]], [['pEnergyBlock', 3]]],
     hassanC:  [[['poisonAll', 3]], [['evade', 1]], [['poisonAll', 5]], [['pVenom', 1]]],
     diarmuid: [[['weakAll', 1]], [['pStanceBlock', 2]], [['wound', 3]], [['pStanceBlock', 3]]],
     iskandar: [[['army', 2]], [['block', 6]], [['army', 3]], [['army', 4]]],
@@ -735,7 +738,7 @@ var G = (function () {
     var A = ASC_SVT[k]; if (!A) return '';
     if (lv === 1) return '最大生命 +8';
     if (lv === 2 || lv === 3) return '每場戰鬥開始：' + fxText(A[lv - 2]).join('，');
-    if (lv === 4) return '寶具追加：' + fxText(A[2]).join('，');
+    if (lv === 4) return (SERVANTS[k].np.none ? '每場戰鬥開始：' : '寶具追加：') + fxText(A[2]).join('，');
     if (lv === 5) { var r = rareOf(k); return r ? '開局牌組多一張奧義「' + CARDS[r].name + '」' : ''; }
     if (lv === 6) return (A[3].every(function (f) { return f[0].charAt(0) === 'p'; }) ? '' : '每場戰鬥開始：') + fxText(A[3]).join('，');
     return '';
@@ -743,8 +746,9 @@ var G = (function () {
   function applyAsc(run, lv) {
     var A = ASC_SVT[run.who]; if (!A) return;
     if (lv >= 1) { run.maxHp += 8; run.hp += 8; }
-    run.ascStart = [].concat(lv >= 2 ? A[0] : [], lv >= 3 ? A[1] : [], lv >= 6 ? A[3] : []);
-    run.ascNp = lv >= 4 ? A[2] : [];
+    var noNp = SERVANTS[run.who].np.none;
+    run.ascStart = [].concat(lv >= 2 ? A[0] : [], lv >= 3 ? A[1] : [], lv >= 4 && noNp ? A[2] : [], lv >= 6 ? A[3] : []);
+    run.ascNp = lv >= 4 && !noNp ? A[2] : [];
     if (lv >= 5) { var rare = rareOf(run.who); if (rare && run.deck.indexOf(rare) < 0) run.deck.push(rare); }
     run.asc = lv;
   }
@@ -1081,7 +1085,7 @@ var G = (function () {
     var b = run.battle;
     b.turn++;
     if (!first) b.block = 0;
-    b.evade = 0; b.played = 0; b.attacks = 0; b.haste = 0; b.switches = 0; b.skills = 0; b.hswUsed = 0;
+    b.evade = 0; b.played = 0; b.attacks = 0; b.sowaFirst = 0; b.sowaSeen = {}; b.haste = 0; b.switches = 0; b.skills = 0; b.hswUsed = 0;
     b.energy = 3 + b.pEnergy + b.nextEnergy + (first && hasRelic(run, 'gem') ? 1 : 0); b.nextEnergy = 0;
     if (b.pBlock) b.block += b.pBlock;
     if (b.pStr) b.str += b.pStr;
@@ -1180,7 +1184,7 @@ var G = (function () {
     var b = ctx.b, d = base + b.str + b.tstr, st = statsOf(ctx.run);
     if (ctx.atk && b.firstAtk) { d += 6; b.firstAtk = false; }
     if (ctx.atk && passive(ctx.run) === 'arms') d += Math.floor(b.mastery / 3);
-    d = Math.round(d * st.atk * (ctx.id === 'np' ? st.np : 1));   // 六圍：攻擊（筋力／魔力）、寶具
+    d = Math.round(d * st.atk);   // 六圍：攻擊（筋力／魔力取高）
     if (ctx.atk && b.turn === 1 && passive(ctx.run) === 'ambush') d = d * 1.5;
     if (b.weak > 0) d = d * 0.75;
     return d;
@@ -1189,8 +1193,15 @@ var G = (function () {
   // 一次命中：紅薔薇架勢的攻擊無視格擋；毒身每次命中加毒
   function strike(ctx, e, base, pierce) {
     var b = ctx.b; if (!e || e.hp <= 0) return 0;
+    var seen = false;
+    if (ctx.atk && passive(ctx.run) === 'sowa') {   // 宗和的心得
+      if (!b.sowaFirst) { b.sowaFirst = 1; pierce = true; ctx.log.push('宗和的心得：看不透的第一擊'); }
+      b.sowaSeen = b.sowaSeen || {};
+      if (!b.sowaSeen[e.key]) { b.sowaSeen[e.key] = 1; seen = true; }
+    }
     var dealt = hitEnemy(ctx.run, e, dmgTo(e, pDmg(ctx, base) + (e.doom || 0)), ctx.log, pierce || (ctx.atk && b.stance === 'red'));   // 死兆：每層讓每一擊 +1
     if (ctx.atk && b.pVenom && e.hp > 0) e.poison += b.pVenom;
+    if (seen && e.hp > 0) e.vuln += 1;   // 看透弱點：打過之後易傷 1
     return dealt;
   }
   // 雙槍：切換架勢立刻刺一槍（本回合第 N 次切換＝1＋N；紅薔薇穿透、黃薔薇再加創傷 1）
@@ -1450,7 +1461,8 @@ var G = (function () {
   }
   // 寶具：量表滿了才能放
   function noble(run, target) {
-    var b = run.battle; if (!b || b.np < 100) return { ok: false, msg: '寶具量表還沒滿' };
+    var b = run.battle; if (b && serv(run).np.none) return { ok: false, msg: '沒有寶具' };
+    if (!b || b.np < 100) return { ok: false, msg: '寶具量表還沒滿' };
     var N = serv(run).np, fx = npFx(run, N), tg = null;
     if (needsTarget(fx)) { tg = pickTarget(b, target); if (!tg) return { ok: false, msg: '選一個目標', needTarget: true }; }
     b.np = 0; run.stats.np++;
@@ -1464,6 +1476,7 @@ var G = (function () {
   // 令咒：整局有限；all＝魔力 +3、抽 2｜np＝寶具量表充滿
   function seal(run, kind) {
     var b = run.battle; if (!b || run.seals <= 0) return { ok: false, msg: '令咒用完了' };
+    if (kind === 'np' && serv(run).np.none) return { ok: false, msg: '沒有寶具' };
     if (kind === 'np' && b.np >= 100) return { ok: false, msg: '寶具已經充滿了' };
     run.seals--; run.stats.seals++;
     if (kind === 'all') { b.energy += 3; drawCards(run, 2); b.log = ['令咒：全力以赴（魔力 +3、抽 2）']; }
@@ -1511,7 +1524,6 @@ var G = (function () {
   function endTurn(run) {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false };
     var log = [], ctx = { run: run, b: b, log: log };
-    if (passive(run) === 'mind' && b.energy > 0) { b.halve = 1; log.push('心眼：看穿下一擊'); }
     if (b.pEnergyBlock && b.energy > 0) { b.block += b.pEnergyBlock * b.energy; log.push('山門：格擋 +' + b.pEnergyBlock * b.energy); }
     var mud = b.hand.filter(function (x) { return x === 'mud'; }).length;
     if (mud) { loseHp(run, 2 * mud, log); log.push('泥侵蝕了你（-' + 2 * mud + '）'); }
