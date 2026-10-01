@@ -100,7 +100,7 @@
   .uplegend { color:#ffd27a; text-shadow:0 0 8px rgba(255,210,122,.7); font-weight:bold; }
   .card.rare { box-shadow:0 0 0 1px var(--gold) inset; }
   .chip:disabled { opacity:.3; }
-  .card .cost.free { background:var(--green); }
+  .card .cost.free { background:var(--green); } .card .cost.tax { background:#a33; color:#fff; }
   .card .pv { margin-top:auto; padding-top:5px; font-size:13.5px; font-weight:bold; }
   .card .q::before, .foe .q::before { content:''; position:absolute; inset:-11px; }
   .card .q { position:absolute; top:3px; right:3px; width:18px; height:18px; border-radius:50%; border:1px solid var(--line); color:var(--dim); font-size:12px; line-height:16px; text-align:center; background:#131722; }
@@ -339,6 +339,7 @@
   function deckPick(ok, onclick) {
     var seen = {}, list = [];
     run.deck.forEach(function (id, i) { if (ok && !ok(id)) return; if (seen[id]) seen[id].n++; else list.push(seen[id] = { id: id, i: i, n: 1 }); });
+    list.sort(function (x, y) { return G.isCurse(y.id) - G.isCurse(x.id) || x.i - y.i; });   // 詛咒牌排最前面，想甩掉一眼就找到
     return list.map(function (x) { return cardHtml(x.id, 'onclick="' + onclick(x.i) + '"', true, x.n > 1 ? '<div class="pv dim">×' + x.n + '</div>' : ''); }).join('');
   }
   function closeOv() { $('ov').style.display = 'none'; }
@@ -361,7 +362,11 @@
     ['石化', '累積到門檻（一般 3、精英 4、魔王 5）時動彈不得一回合，層數歸零；美杜莎的魔眼還有重壓：每 2 層讓那個敵人攻擊 -1'],
     ['武練', '蘭斯洛特：每用掉一件「武器化」+1，整場累積；連斬、湖光斬、己之榮光不為己有照武練加成；每 3 點武練，攻擊牌每一擊 +1。蘭斯洛特打出技能牌時也會順手攻擊'],
     ['架勢', '迪爾姆德的紅薔薇（攻擊無視格擋）／黃薔薇（攻擊牌給目標創傷 1）；每次切換立刻刺一槍，本回合第 N 次切換＝1＋N 傷害（紅穿透、黃再加創傷）'],
-    ['泥', '敵人塞進你牌堆的狀態牌（只在這場戰鬥）：打不出來，回合結束時還在手上就失去 2 生命'],
+    ['泥', '敵人塞進你牌堆的狀態牌（只在這場戰鬥，打完就消失）：回合結束時還在手上就失去 2 生命；花 1 魔力可以打掉（這場消耗）'],
+    ['刻印蟲／保留', '間桐的蟲群直接塞進你手牌的狀態牌：保留（回合結束不會丟掉），每回合結束失去 2 生命、一直佔著手牌（手牌最多 10 張），直到花 1 魔力打掉（這場消耗）。戰鬥結束就消失'],
+    ['無力', '亡靈塞進你手牌的狀態牌：在手上時攻擊傷害減半；花 1 魔力打掉（這場消耗）。戰鬥結束就消失'],
+    ['束縛', '魔術師塞進你手牌的狀態牌：在手上時每張牌多 1 費（0 費的也要 1 費）；花 1 魔力打掉（這場消耗）。戰鬥結束就消失'],
+    ['詛咒牌／疲憊／罪業／黑泥的侵蝕', '留在牌組裡的壞牌，是事件好處與★傳說強化的代價：疲憊（在手上時攻擊每擊 -1）、黑泥的侵蝕（留在手上回合結束 -3 生命）、罪業（打不出來，佔位置）。疲憊、黑泥的侵蝕可以花魔力打掉（這場消耗）；要永久甩掉就在商店移除、事件或休息的淨化'],
     ['奧義', '每位從者一張的稀有牌：精英獎勵（約三成）、商店、部分事件、命運「奧義傳承」與靈基再臨 V 能拿到'],
     ['金錢與商店', '打贏戰鬥得到金（精英、魔王更多）；地圖上的 🛒 商店可以買專屬牌、奧義、禮裝，也能花錢移除卡片（每間店一次，越移越貴）'],
     ['難度', '普通／困難／深淵：困難要任一從者通關普通、深淵要通關困難；越難敵人越強，聖晶石越多。靈基再臨的上限看那位通關過的最高難度：普通 II、困難 IV、深淵 VI'],
@@ -630,7 +635,7 @@
   }
   function cardHtml(id, attrs, big, extra) {
     var c = G.card(id), cost = run && run.battle && !big ? G.costOf(run, id) : c.cost;
-    return '<button class="card ' + c.type + (c.token ? ' token' : '') + (c.rare ? ' rare' : '') + (c.dir === 'f' ? ' legend' : '') + '" ' + (attrs || '') + (big ? ' style="width:calc((100vw - 60px) / 3);max-width:120px;min-width:96px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : '') + '">' + (c.unplayable ? '✕' : cost) + '</span>' + (c.rare ? '<span class="rare-tag">奧義</span>' : '')
+    return '<button class="card ' + c.type + (c.token ? ' token' : '') + (c.rare ? ' rare' : '') + (c.dir === 'f' ? ' legend' : '') + '" ' + (attrs || '') + (big ? ' style="width:calc((100vw - 60px) / 3);max-width:120px;min-width:96px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : cost > c.cost ? ' tax' : '') + '">' + (c.unplayable ? '✕' : cost) + '</span>' + (c.rare ? '<span class="rare-tag">奧義</span>' : '')
       + '<span class="q" onclick="event.stopPropagation();cardInfo(\'' + id + '\')">?</span>'
       + '<div class="nm">' + esc(c.name) + '</div><div class="tx">' + esc(G.cardShort(id, run)) + '</div>' + (extra || '') + '</button>';
   }
@@ -638,12 +643,12 @@
   function cardInfo(id) {
     var c = G.card(id), ov = $('ov'), prev = ov.style.display === 'flex' ? $('sheet').innerHTML : null;
     cardInfo.prev = prev && prev.replace(/^<button class="ovx"[^>]*>✕<\/button>/, ''); cardInfo.top = $('sheet').scrollTop;
-    var types = { atk: '攻擊', skill: '技能', power: '能力', curse: '狀態' };
+    var types = { atk: '攻擊', skill: '技能', power: '能力', curse: c.kit === 'curse' ? '詛咒' : '狀態' };
     var up = G.upDirs(id).indexOf('a') >= 0 ? [id + '+'] : [];
     openOv('<b style="font-size:17px">' + esc(c.name) + '</b>　<span class="dim">' + (c.unplayable ? '' : c.cost + ' 費・') + (types[c.type] || '') + '</span>'
       + '<div style="margin:10px 0;line-height:1.6">' + esc(G.cardText(id, run)) + '</div>'
       + (up.length ? '<div class="dim" style="font-size:13.5px">可以強化，例如精煉後：' + esc(G.cardText(up[0], run)) + '</div>' : '')
-      + termsHtml(c.name + G.cardText(id, run) + (c.type === 'power' ? '整場' : '') + (c.ex ? '消耗' : ''))
+      + termsHtml(c.name + G.cardText(id, run) + (c.type === 'power' ? '整場' : '') + (c.ex ? '消耗' : '') + (c.kit === 'curse' ? '詛咒牌' : ''))
       + '<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" onclick="cardInfoBack()">' + (prev ? '返回' : '知道了') + '</button></div>');
   }
   function cardInfoBack() { if (cardInfo.prev) { openOv(cardInfo.prev); $('sheet').scrollTop = cardInfo.top || 0; } else closeOv(); cardInfo.prev = null; }
@@ -690,6 +695,7 @@
       if (k === 'heal') return '<span class="buf">回復' + f[1] + '</span>';
       if (k === 'summon') return '<span class="buf">召喚×' + (f[2] || 1) + '</span>';
       if (k === 'curse') return '<span class="buf">塞泥×' + (f[2] || 1) + '</span>';
+      if (k === 'plant') return '<span class="buf">塞「' + esc(G.card(f[1]).name) + '」進手牌' + ((f[2] || 1) > 1 ? '×' + f[2] : '') + '</span>';
       if (k === 'breakBlock') return '<span class="atk">碎格擋</span>';
       if (DEBUFF[k]) return '<span class="buf">你' + DEBUFF[k] + f[1] + '</span>';
       return '<span class="buf">' + esc(e.intent.n) + '</span>';
@@ -726,6 +732,9 @@
     if (b.vuln) a.push(['', '易傷 ' + b.vuln]);
     if (b.weak) a.push(['', '虛弱 ' + b.weak]);
     if (b.thorns) a.push(['', '反擊 ' + b.thorns]);
+    if (G.dullOf(b)) a.push(['', '疲憊：攻擊每擊 -' + G.dullOf(b)]);
+    if (b.hand.some(function (x) { return G.card(x).half; })) a.push(['', '無力：攻擊減半']);
+    if (b.hand.some(function (x) { return G.card(x).tax; })) a.push(['', '束縛：每張牌 +1 費']);
     if (b.nextFree) a.push(['gold', '下一張 0 費']);
     if (b.nextEnergy) a.push(['', '下回合魔力 +' + b.nextEnergy]);
     if (b.ubw) a.push(['gold', '無限劍製：還有 ' + b.ubw + ' 回合']);
@@ -785,7 +794,7 @@
     atkP: function (f, e) { return '穿透攻擊 ' + G.intentDmg(run, e, f) + (f[2] ? ' ×' + f[2] : '') + '：無視你的格擋'; },
     block: function (f) { return '獲得格擋 ' + f[1]; }, str: function (f) { return '力量 +' + f[1] + '：之後每一擊都更痛'; }, heal: function (f) { return '回復 ' + f[1] + ' 生命'; },
     weak: function (f) { return '讓你虛弱 ' + f[1] + '（你的攻擊 ×0.75）'; }, vuln: function (f) { return '讓你易傷 ' + f[1] + '（你受到的攻擊 ×1.5）'; },
-    curse: function (f) { return '把 ' + (f[2] || 1) + ' 張「泥」塞進你的牌堆'; }, summon: function (f) { return '叫來 ' + (f[2] || 1) + ' 個援軍'; },
+    curse: function (f) { return '把 ' + (f[2] || 1) + ' 張「泥」塞進你的牌堆'; }, plant: function (f) { return '把 ' + (f[2] || 1) + ' 張「' + G.card(f[1]).name + '」直接塞進你的手牌（' + G.card(f[1]).short + '）'; }, summon: function (f) { return '叫來 ' + (f[2] || 1) + ' 個援軍'; },
     breakBlock: function () { return '打碎你的格擋（格擋歸零）'; } };
   function foeInfo(i) {
     var e = run.battle.enemies[i], tmp = document.createElement('div'); tmp.innerHTML = foeChips(e);

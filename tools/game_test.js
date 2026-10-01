@@ -220,8 +220,9 @@ let mw=arena('medea'); mw.awaken=['0.1']; step(mw,'fight'); t(mw.battle.minions=
 
 console.log('── 特殊卡牌');
 t(G.ORDER.every(k=>Object.keys(G.CARDS).some(c=>G.CARDS[c].rare===k)),'每位從者一張奧義');
-r=arena('saber'); r.battle.hand=['mud']; x=G.play(r,0,0); t(!x.ok&&r.battle.hand.length===1,'泥打不出來');
-hp=r.hp; G.endTurn(r); t(r.hp===hp-2&&r.battle.discard.includes('mud'),'泥留在手上：回合結束失去 2 生命',hp-r.hp);
+r=arena('saber'); r.battle.hand=['mud']; r.battle.energy=0; x=G.play(r,0,0); t(!x.ok&&r.battle.hand.length===1,'泥要 1 魔力才打得掉');
+r.battle.energy=1; r.battle.nextFree=1; x=G.play(r,0,0); t(x.ok&&r.battle.energy===0&&r.battle.exhaust.includes('mud')&&r.battle.played===0&&r.battle.nextFree===1,'花 1 魔力打掉泥：這場消耗、不算出牌、不吃「下一張 0 費」');
+r=arena('saber'); r.battle.hand=['mud']; hp=r.hp; G.endTurn(r); t(r.hp===hp-2&&r.battle.discard.includes('mud'),'泥留在手上：回合結束失去 2 生命',hp-r.hp);
 r=arena('saber'); E(r).intent={n:'汙',fx:[['atk',1],['curse','mud',2]]}; G.endTurn(r); t(r.battle.discard.concat(r.battle.hand,r.battle.draw).filter(c=>c==='mud').length===2&&!r.deck.includes('mud'),'敵人塞 2 張泥進牌堆，不會留在牌組');
 let rr=G.newRun('saber',8); let seenRare=0, rareOk=true; for(let i=0;i<200;i++){ const q=J(rr); q.rs=i*7919; step(q,'elite'); q.battle.enemies.forEach(e=>{e.hp=0;}); q.battle.enemies[0].hp=1; q.battle.enemies[0].block=0; q.battle.np=100; G.noble(q,0); if(q.reward&&q.reward.cards.some(c=>G.CARDS[c.replace('+','')].rare)){ seenRare++; if(!q.reward.cards.every(c=>{ const d=G.CARDS[c.replace('+','')]; return !d.rare||d.rare==='saber'||d.rare==='common'; })) rareOk=false; } }
 t(seenRare>20&&seenRare<110&&rareOk,'精英獎勵約三成出奧義，只出自己的或共通的',seenRare);
@@ -448,6 +449,35 @@ t(G.fateOptions(7,Object.keys(G.FATES),'saber',true).every(k=>G.FATE_FREE.includ
 t(G.card('tsubame1+f').fx[0][2]===6&&G.card('heavy+f').fx[0][0]==='hits'&&G.card('heavy+f').fx[0][2]===2&&G.card('bounded+f').cost===0&&G.card('invis+f').fx[0][2]===4,'★傳說：燕返 3 刀 → 6 刀、重擊變兩下、結界 0 費、看不見的劍 2 → 4 下');
 { const r=G.newRun('saber',5); let n=0; for(let f=0;f<600;f++){ r.stats.floors=f; if(G.upgradeOptions(r,9).some(x=>G.card(x).dir==='f')) n++; } t(n>20&&n<110,'★傳說大約一成機率出現',n); }
 t(!G.upDirs('invis').includes('f'),'★傳說不會固定出現（只有一成機率替換）');
+// 詛咒牌：留在牌組的代價（★傳說、事件），可以花魔力打掉這場、商店／事件／淨化永久移除
+r=arena('saber'); r.battle.hand=['fatigue']; playId(r,'atk_saber'); t(E(r).hp===50-5,'疲憊在手上：攻擊每擊 -1（6 → 5）',E(r).hp);
+r.battle.hand=['fatigue','fatigue']; playId(r,'atk_saber'); t(E(r).hp===45-4,'兩張疲憊：每擊 -2',E(r).hp);
+r.battle.hand=['fatigue']; r.battle.energy=3; playId(r,'def_saber'); t(r.battle.block===5,'疲憊不影響格擋',r.battle.block);
+r=arena('saber'); r.battle.hand=['corrosion','sin']; hp=r.hp; G.endTurn(r); t(r.hp===hp-3,'黑泥的侵蝕留在手上：回合結束 -3 生命',hp-r.hp);
+r=arena('saber'); r.battle.hand=['sin']; r.battle.energy=3; t(!G.play(r,0,0).ok,'罪業打不出來');
+t(['fatigue','corrosion','sin','mud'].every(c=>!G.canUpgrade(c))&&G.isCurse('fatigue')&&!G.isCurse('atk_saber'),'詛咒牌不能強化');
+t(['fatigue','corrosion','sin','mud'].every(c=>G.cardShort(c)&&!/undefined/.test(G.cardShort(c))),'詛咒牌卡面有簡短說明');
+{ const r=G.newRun('saber',5); const i=r.deck.indexOf('atk_saber'); let f=0; while(f<2000&&!G.upgradeOptions(r,i).some(x=>G.card(x).dir==='f')) r.stats.floors=++f;
+  const v=G.upgradeOptions(r,i).find(x=>G.card(x).dir==='f'), n=r.deck.length; r.screen='rest'; G.rest(r,'upgrade',i,v);
+  t(r.deck[i]===v&&r.deck.length===n+1&&r.deck.includes('fatigue'),'★傳說強化的代價：牌組多一張疲憊');
+  const w=G.upgradeOptions(r,0).find(x=>G.card(x).dir!=='f'), n2=r.deck.length; r.screen='rest'; G.rest(r,'upgrade',0,w); t(r.deck.length===n2,'一般強化不會多疲憊'); }
+{ const r=G.newRun('saber',5); for(let k=0;k<40;k++){ r.screen='event'; r.event='dojo'; r.deck=G.newRun('saber',5).deck; G.choose(r,0); if(r.deck.some(x=>G.card(x).dir==='f')) break; } t(!r.deck.some(x=>G.card(x).dir==='f'),'事件的隨機強化不會抽到★傳說（★傳說一定要自己選、付疲憊）'); }
+{ const r=G.newRun('saber',5); r.act=2; const d=r.deck.length;
+  r.screen='event'; r.event='training'; G.choose(r,0); t(r.deck.includes('fatigue')&&r.deck.length===d+1,'深夜的特訓：強化 3 張，代價疲憊');
+  r.screen='event'; r.event='pact'; const g=r.gold, rl=r.relics.length; G.choose(r,0); t(r.deck.includes('sin')&&r.gold===g+100&&r.relics.length===rl+1,'血之契約：禮裝＋100 金，代價罪業');
+  r.screen='event'; r.event='allevil'; G.choose(r,0); t(r.deck.includes('corrosion'),'此世全部之惡的呢喃：代價黑泥的侵蝕');
+  r.screen='rest'; const n=r.deck.length; G.rest(r,'remove',r.deck.indexOf('sin')); t(!r.deck.includes('sin')&&r.deck.length===n-1,'休息的淨化可以移除詛咒');
+  step(r,'fight'); t(r.battle.draw.includes('fatigue')||r.battle.hand.includes('fatigue'),'詛咒牌會跟著進戰鬥'); }
+// 間桐的蟲群：不打人，把刻印蟲直接塞進手牌；刻印蟲保留、每回合扣血，花 1 魔力打掉
+r=arena('saber'); E(r).intent={n:'寄生',fx:[['plant','worm',1]]}; G.endTurn(r); t(r.battle.hand.includes('worm'),'刻印蟲直接塞進手牌');
+hp=r.hp; E(r).intent={n:'發呆',fx:[]}; G.endTurn(r); t(r.battle.hand.includes('worm')&&r.hp===hp-2,'刻印蟲保留：回合結束不丟掉、扣 2 生命',hp-r.hp);
+r.battle.energy=3; x=G.play(r,r.battle.hand.indexOf('worm'),0); hp=r.hp; r.battle.block=99; G.endTurn(r); t(x.ok&&!r.battle.hand.includes('worm')&&r.hp===hp,'花 1 魔力打掉刻印蟲就不再扣血');
+r=arena('saber'); r.battle.hand=Array(10).fill('atk_saber'); E(r).intent={n:'寄生',fx:[['plant','worm',1]]}; G.endTurn(r); t(r.battle.hand.length<=10,'手牌最多 10 張',r.battle.hand.length);
+r=arena('gil'); r.battle.hand=['worm','t_sword']; hp=E(r).hp; G.endTurn(r); t(r.battle.hand.includes('worm')&&r.battle.hand.includes('t_sword')&&E(r).hp===hp-2,'吉爾伽美什：刻印蟲不會被當成寶具射出',hp-E(r).hp);
+// 無力（攻擊減半）、束縛（每張牌 +1 費）：一個卡傷害、一個卡魔力
+r=arena('saber'); r.battle.hand=['enfeeble']; playId(r,'atk_saber'); t(E(r).hp===50-3,'無力在手上：攻擊減半（6 → 3）',E(r).hp);
+r=arena('saber'); r.battle.hand=['bind','atk_saber','sword']; t(G.costOf(r,'atk_saber')===2&&G.costOf(r,'sword')===1&&G.costOf(r,'bind')===1,'束縛在手上：每張牌 +1 費（0 費的變 1），打掉束縛本身還是 1 費');
+r.battle.energy=3; G.play(r,0,0); t(G.costOf(r,'atk_saber')===1&&r.battle.energy===2,'打掉束縛後費用恢復');
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位從者 4 局都能打到結束（不卡死）',fin);
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

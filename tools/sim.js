@@ -27,11 +27,12 @@ function value(run){
   if(run.screen==='over') return run.win?1e6:-1e6;
   if(run.screen!=='battle') return 5e5+run.hp*10;
   let v=0;
-  G.alive(b).forEach(e=>{ v-=e.hp+e.block*0.5+(e.lives||0)*e.maxHp*0.6; v+=e.poison*1.5+e.wound*3+e.petrify*2.5+(e.stun?18:0)+Math.min(e.weak,3)*2+Math.min(e.vuln,3)*3-Math.max(-3,e.str)*3; });
-  v-=G.alive(b).length*6;
+  G.alive(b).forEach(e=>{ v-=e.hp+e.block*0.5+(e.lives||0)*e.maxHp*0.6; v+=e.poison*1.5+e.wound*3+e.petrify*2.5+(e.stun?18:0)+Math.min(e.weak,3)*2+Math.min(e.vuln,3)*3-Math.max(0,e.str)*3+Math.min(3,Math.max(0,-e.str))*1.5; });   // 敵人力量被壓低是好事，但不能好到讓自動玩家捨不得打倒它
+  v-=G.alive(b).length*(6+Math.max(0,b.turn-8)*3);   // 戰鬥拖越久越想把敵人清掉（防止跟打不痛的敵人耗到天荒地老）
   const left=4; // 估計這場還要打幾回合
   v+=run.hp*1.5-expectedLoss(run)*1.6;
-  b.hand.forEach(id=>{ const c=G.card(id); v+=c.token?(c.type==='atk'?5:3.5):2.5; });
+  const atks=b.hand.filter(id=>G.card(id).type==='atk').length;
+  b.hand.forEach(id=>{ const c=G.card(id); if(c.type==='curse'){ v-=(c.hold||0)*2.5+(c.dull?2+2.5*atks:0)+(c.half?2+4*atks:0)+(c.tax?3*b.hand.length:0); return; } v+=c.token?(c.type==='atk'?5:3.5):2.5; });
   v+=b.str*5+b.tstr*1.2+b.energy*4+b.np*0.35+b.minions*4+b.army*3.5+(b.attacks||0)*0.8+(b.mastery||0)*3+(b.chant||0)*2+(b.nextFree?4:0)+b.nextEnergy*4;
   v+=(b.pBlock*3+b.pDraw*6+b.pEnergy*9+b.pStr*6+b.pEvade*8+b.pTreasure*6+b.pMinion*7+b.pVenom*6+(b.pWeaponize||0)*6)*left/4;
   v+=b.ubw*12+b.projUp*6+b.thorns*0.5;
@@ -99,10 +100,10 @@ function playRun(who,seed){
     else if(run.screen==='event'){ const E=G.EVENTS[run.event];   // 不燒令咒、不扣最大生命、扣血後要留五成；都不行就選最後一個（通常是離開）
       const bad=o=>o.fx.some(f=>(f[0]==='seal'&&f[1]<0)||(f[0]==='maxHp'&&f[1]<0));
       let i=E.opts.findIndex(o=>G.canChoose(run,o)&&!bad(o)&&!(o.need&&o.need.hp&&run.hp-o.need.hp<run.maxHp*0.5)); if(i<0) i=E.opts.length-1; G.choose(run,i); }
-    else if(run.screen==='pick'){ const kind=run.pending[0]; let i=(kind==='remove'||kind==='transform')?run.deck.findIndex(x=>G.isBasic(x)||x==='mud'):run.deck.findIndex(x=>G.canUpgrade(x)&&!G.isBasic(x)); if(i<0) i=run.deck.findIndex(x=>G.canUpgrade(x)); G.pickCard(run,i,i>=0&&kind==='upgrade'?bestUp(run,i):undefined); }
+    else if(run.screen==='pick'){ const kind=run.pending[0]; let i=(kind==='remove'||kind==='transform')?(run.deck.findIndex(G.isCurse)>=0?run.deck.findIndex(G.isCurse):run.deck.findIndex(x=>G.isBasic(x))):run.deck.findIndex(x=>G.canUpgrade(x)&&!G.isBasic(x)); if(i<0) i=run.deck.findIndex(x=>G.canUpgrade(x)); G.pickCard(run,i,i>=0&&kind==='upgrade'?bestUp(run,i):undefined); }
     else if(run.screen==='secret') G.secret(run,SECRET);
     else if(run.screen==='shop'){ const S=run.shop; let bought=false;
-      if(!S.removed&&run.gold>=G.removePrice(run)){ const i=run.deck.findIndex(x=>G.isBasic(x)); if(i>=0&&G.buy(run,'remove',i).ok) bought=true; }
+      if(!S.removed&&run.gold>=G.removePrice(run)){ const c=run.deck.findIndex(G.isCurse), i=c>=0?c:run.deck.findIndex(x=>G.isBasic(x)); if(i>=0&&G.buy(run,'remove',i).ok) bought=true; }
       if(!bought){ const cs=S.cards.map((c,i)=>[c,i]).filter(([c])=>!c.sold&&c.price<=run.gold).sort((a,b)=>rate(run,b[0].id)-rate(run,a[0].id)); if(cs.length&&rate(run,cs[0][0].id)>4&&run.deck.length<24&&G.buy(run,'card',cs[0][1]).ok) bought=true; }
       if(!bought&&S.relic&&!S.relic.sold&&run.gold>=S.relic.price&&G.buy(run,'relic').ok) bought=true;
       if(!bought) G.leaveShop(run); }

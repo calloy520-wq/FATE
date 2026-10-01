@@ -23,10 +23,22 @@ var G = (function () {
     t_staff:  { name: '寶杖', cost: 0, type: 'skill', np: 3, token: 1, fx: [['weakAll', 1], ['vulnAll', 1]] }
   });
   var TREASURE = ['t_sword', 't_sword', 't_spear', 't_shield', 't_staff'];
-  // 狀態牌：敵人塞進你的牌堆，只存在這場戰鬥；打不出來
+  // 狀態牌：敵人塞進你的牌堆，只存在這場戰鬥；花魔力打掉（這場消耗），不打掉留在手上就扣血
   kit('status', {
-    mud: { name: '泥', cost: 0, type: 'curse', np: 0, unplayable: 1, fx: [], text: '打不出來；回合結束時還在手上就失去 2 生命' }
+    mud: { name: '泥', cost: 1, type: 'curse', np: 0, hold: 2, fx: [], short: '留手上 -2 生命', text: '回合結束時還在手上就失去 2 生命；花 1 魔力打掉（這場消耗）。只存在這場戰鬥' },
+    // 間桐的刻印蟲：直接塞進手牌、保留（回合結束不會丟掉），一直佔位置、一直扣血，直到你花魔力打掉
+    worm: { name: '刻印蟲', cost: 1, type: 'curse', np: 0, hold: 2, retain: 1, fx: [], short: '保留 每回合 -2 生命', text: '保留：回合結束不會丟掉，每回合結束失去 2 生命、一直佔著手牌，直到你花 1 魔力把牠打掉（這場消耗）。只存在這場戰鬥' },
+    // 亡靈的哀嚎：攻擊打一半；魔術師的束縛：每張牌多 1 費（打掉它也要多花）——一個卡傷害、一個卡魔力
+    enfeeble: { name: '無力', cost: 1, type: 'curse', np: 0, half: 1, fx: [], short: '在手上：攻擊減半', text: '在手上時，你的攻擊傷害減半；花 1 魔力打掉（這場消耗）。只存在這場戰鬥' },
+    bind:     { name: '束縛', cost: 1, type: 'curse', np: 0, tax: 1, fx: [], short: '在手上：每張牌 +1 費', text: '在手上時，你的每張牌多 1 費（0 費的也是）；花 1 魔力打掉（這場消耗）。只存在這場戰鬥' }
   });
+  // 詛咒牌：留在牌組裡（事件、★傳說強化的代價）；商店、事件、休息的淨化可以移除
+  kit('curse', {
+    fatigue:   { name: '疲憊', cost: 1, type: 'curse', np: 0, dull: 1, fx: [], short: '在手上：攻擊每擊 -1', text: '在手上時，你的攻擊每擊 -1；花 1 魔力打掉（這場消耗）' },
+    corrosion: { name: '黑泥的侵蝕', cost: 2, type: 'curse', np: 0, hold: 3, fx: [], short: '留手上 -3 生命', text: '回合結束時還在手上就失去 3 生命；花 2 魔力打掉（這場消耗）' },
+    sin:       { name: '罪業', cost: 0, type: 'curse', np: 0, unplayable: 1, fx: [], short: '打不出來', text: '打不出來，只會佔著手牌的位置' }
+  });
+  function isCurse(id) { var c = CARDS[baseId(id)]; return !!c && c.type === 'curse'; }
   // 奧義：只會在打贏精英的獎勵裡出現（稀有），每位從者一張，另有共通的聖杯碎片
   kit('rare', {
     grail:      { name: '聖杯碎片', cost: 0, type: 'skill', np: 50, ex: 1, rare: 'common', fx: [['draw', 1]], up: { np: 70 } },
@@ -414,13 +426,14 @@ var G = (function () {
     bat:     { name: '使魔', hp: [8, 10], moves: [{ n: '撲咬', fx: [['atk', 3, 2]], w: 2 }, { n: '尖嘯', fx: [['weak', 1]], w: 1 }] },
     shadow:  { name: '影', hp: [24, 28], moves: [{ n: '侵蝕', fx: [['atk', 9]], w: 2 }, { n: '纏繞', fx: [['atk', 4], ['vuln', 2]], w: 1 }, { n: '汙染', fx: [['atk', 5], ['curse', 'mud', 2]], w: 1 }] },
     ghoul:   { name: '死徒', hp: [34, 38], moves: [{ n: '撕裂', fx: [['atk', 11]], w: 2 }, { n: '吸血', fx: [['atk', 6], ['heal', 6]], w: 1 }, { n: '狂暴', fx: [['str', 3]], w: 1 }] },
-    magus:   { name: '魔術師', hp: [26, 30], moves: [{ n: '魔彈', fx: [['atk', 8]], w: 2 }, { n: '詛咒', fx: [['weak', 2], ['atk', 4]], w: 1 }, { n: '結界', fx: [['block', 10]], w: 1 }] },
+    magus:   { name: '魔術師', hp: [26, 30], moves: [{ n: '魔彈', fx: [['atk', 8]], w: 2 }, { n: '束縛魔術', fx: [['plant', 'bind', 1], ['atk', 4]], w: 1 }, { n: '結界', fx: [['block', 10]], w: 1 }] },
     tentacle:{ name: '海魔', hp: [10, 12], moves: [{ n: '纏繞', fx: [['atk', 4]], w: 2 }, { n: '吸附', fx: [['weak', 1], ['atk', 2]], w: 1 }] },
     // 第二章的雜兵
     hound:   { name: '魔犬', hp: [16, 19], moves: [{ n: '撕咬', fx: [['atk', 5, 2]], w: 2 }, { n: '嚎叫', fx: [['str', 1], ['atk', 3]], w: 1 }] },
-    wraith:  { name: '亡靈', hp: [22, 26], moves: [{ n: '穿透之觸', fx: [['atkP', 8]], w: 2 }, { n: '哀嚎', fx: [['weak', 2], ['vuln', 1]], w: 1 }] },
+    wraith:  { name: '亡靈', hp: [22, 26], moves: [{ n: '穿透之觸', fx: [['atkP', 8]], w: 2 }, { n: '哀嚎', fx: [['plant', 'enfeeble', 1], ['vuln', 1]], w: 1 }] },
     golem:   { name: '魔像', hp: [42, 48], moves: [{ n: '重拳', fx: [['atk', 14]], w: 2 }, { n: '硬化', fx: [['block', 14], ['atk', 4]], w: 1 }] },
     shade:   { name: '黑影從者', hp: [50, 56], moves: [{ n: '斬擊', fx: [['atk', 9, 2]], w: 2 }, { n: '黑泥', fx: [['atk', 6], ['curse', 'mud', 1]], w: 1 }, { n: '侵蝕', fx: [['str', 2], ['block', 8]], w: 1 }] },
+    worms:   { name: '間桐的蟲群', hp: [18, 22], moves: [{ n: '寄生', fx: [['plant', 'worm', 1]], w: 2 }, { n: '啃咬', fx: [['atk', 5]], w: 1 }] },
     soldier: { name: '馬其頓兵', hp: [12, 14], moves: [{ n: '突刺', fx: [['atk', 6]], w: 2 }, { n: '列陣', fx: [['block', 6], ['atk', 3]], w: 1 }] },
     // 精英：其他從者（自己選的那位不會出現）
     saber:   { name: '阿爾托莉亞', hp: [80, 84], elite: 1, cycle: 1, moves: [{ n: '風王鐵槌', fx: [['atk', 13]] }, { n: '魔力放出', fx: [['block', 10], ['str', 3]] }, { n: '連斬', fx: [['atk', 7, 2]] }, { n: '誓約勝利之劍', fx: [['atk', 28]] }] },
@@ -458,10 +471,10 @@ var G = (function () {
   var SCALE = { hp: 0.05, strEvery: 3 };
   // 一場最多 3 隻（叫援軍最多到 4 隻）
   var ENCOUNTERS = {
-    act1easy: [['fang'], ['bat', 'bat'], ['shadow'], ['fang', 'bat']],
-    act1hard: [['fang', 'fang', 'bat'], ['ghoul'], ['magus', 'fang'], ['shadow', 'bat'], ['ghoul', 'bat'], ['magus', 'shadow']],
+    act1easy: [['fang'], ['bat', 'bat'], ['shadow'], ['fang', 'bat'], ['worms', 'bat']],
+    act1hard: [['fang', 'fang', 'bat'], ['ghoul'], ['magus', 'fang'], ['shadow', 'bat'], ['ghoul', 'bat'], ['magus', 'shadow'], ['worms', 'ghoul']],
     act2easy: [['hound', 'hound'], ['wraith'], ['golem'], ['ghoul', 'bat']],
-    act2hard: [['golem', 'wraith'], ['shade'], ['hound', 'hound', 'hound'], ['shade', 'hound'], ['wraith', 'wraith', 'hound'], ['ghoul', 'wraith'], ['golem', 'magus']]
+    act2hard: [['golem', 'wraith'], ['shade'], ['hound', 'hound', 'hound'], ['shade', 'hound'], ['wraith', 'wraith', 'hound'], ['ghoul', 'wraith'], ['golem', 'magus'], ['worms', 'worms', 'golem']]
   };
 
   // ── 資料：禮裝（整局的被動道具） ─────────────────────
@@ -499,7 +512,7 @@ var G = (function () {
     c: { name: '共鳴', tag: '・共鳴', text: '寶具 +15%、多抽 1 張（本來會抽牌的：寶具 +30%）' },
     d: { name: '英靈之魂', tag: '・魂', text: '多一個自己從者的機制' },
     e: { name: '極限', tag: '・極', text: '數值翻倍，但打出後消耗' },
-    f: { name: '★傳說', tag: '・傳說', text: '精煉＋攻擊次數翻倍（技能、能力改成 0 費）', legend: 1 }   // 強化時一成機率出現
+    f: { name: '★傳說', tag: '・傳說', text: '精煉＋攻擊次數翻倍（技能、能力改成 0 費）；代價：牌組多一張「疲憊」', legend: 1 }   // 強化時一成機率出現
   };
   // 英靈之魂：各從者的招牌機制（只給專屬牌）
   var KIT_SOUL = { saber: ['wind', 1], emiya: ['proj', 1], cu: ['evade', 1], medusa: ['petrifyAll', 1], medea: ['skillCount', 1], kojiro: ['nextEnergy', 1],
@@ -516,7 +529,7 @@ var G = (function () {
   function upId(id, d) { return baseId(id) + (d === 'a' ? '+' : '+' + d); }
   // 這張牌能往哪些方向強化
   function upDirs(id) {
-    var B = CARDS[baseId(id)]; if (!B || isUp(id) || B.token || B.unplayable) return [];
+    var B = CARDS[baseId(id)]; if (!B || isUp(id) || B.token || B.type === 'curse') return [];
     var out = [];
     if (B.up) out.push('a');
     if (B.cost >= 2 && !(B.up && B.up.cost !== undefined)) out.push('b');   // 1 費變 0 費太強，只給 2 費以上
@@ -526,6 +539,9 @@ var G = (function () {
     return out;
   }
   function canUpgrade(id) { return upDirs(id).length > 0; }
+  // 把牌組第 i 張換成強化後的 v；★傳說的代價：牌組多一張疲憊
+  function setUpgrade(run, i, v) { run.deck[i] = v; if (upDir(v) === 'f') run.deck.push('fatigue'); }
+  function dullOf(b) { return b.hand.reduce(function (a, x) { return a + (card(x).dull || 0); }, 0); }
   // 強化時給玩家選的三個方向：用局的種子＋牌組位置＋走過的格數決定，同一次重畫不會變
   var LEGEND_RATE = 0.1;
   function upgradeOptions(run, i) {
@@ -592,10 +608,12 @@ var G = (function () {
   // 這張牌現在實際要花多少魔力（高速神言、下一張 0 費）
   function costOf(run, id) {
     var c = card(id), b = run && run.battle;
-    if (!b || c.cost === 0) return c.cost;
+    if (!b || c.type === 'curse') return c.cost;
+    var tax = b.hand.reduce(function (a, x) { return a + (card(x).tax || 0); }, 0);   // 束縛：每張牌 +1 費
+    if (c.cost === 0) return tax;
     if (b.nextFree) return 0;
     if (c.type === 'skill' && passive(run) === 'hsw' && !b.hswUsed) return 0;
-    return c.cost;
+    return c.cost + tax;
   }
 
   // 效果說明：{1}{2}＝數字，{m}＝使魔的名字
@@ -701,7 +719,7 @@ var G = (function () {
   };
   function cardShort(id, run) {
     var c = card(id);
-    if (c.text) return '打不出來';
+    if (c.type === 'curse') return c.short;
     var bits = shortBits(c, run);
     if (c.dir === 'c') bits.push('寶具+' + c.np + '%');   // 共鳴：寶具量表加得比較多，卡面也看得到
     if (c.link) bits.push(c.chase ? '連動・追擊' : '連動');
@@ -1080,6 +1098,13 @@ var G = (function () {
       opts: [{ label: '獻上祭品：最大生命 -6，得到奧義「普雷拉蒂的激勵」', fx: [['maxHp', -6], ['addCard', 'prelati']] }, { label: '再等等', fx: [] }] },
     jeanne:  { who: 'gilles', name: '聖女的幻影', text: '火光中，你看見了那個身影——貞德。神啊，為何奪走她？',
       opts: [{ label: '褻瀆神明：本局海魔每回合多長大 1', fx: [['krakenGrow', 1]] }, { label: '跪下祈禱：回復 15 生命', fx: [['hp', 15]] }] },
+    // 拿詛咒換更強的好處：詛咒會一直留在牌組，之後要花錢（商店）或事件、休息淨化才甩得掉
+    training:{ name: '深夜的特訓', text: '衛宮家的道場燈還亮著。再練下去會累垮，但手上的招式會更俐落。',
+      opts: [{ label: '練到天亮：隨機強化 3 張牌，牌組多一張詛咒「疲憊」', fx: [['upRandom', 3], ['addCard', 'fatigue']] }, { label: '去睡覺：回復 10 生命', fx: [['hp', 10]] }] },
+    pact:    { name: '血之契約', text: '間桐臟硯拄著拐杖笑：「老夫可以給你力量，代價嘛……你會一直記得。」',
+      opts: [{ label: '簽下：得到一件禮裝、100 金，牌組多一張詛咒「罪業」', fx: [['relic'], ['gold', 100], ['addCard', 'sin']] }, { label: '拒絕', fx: [] }] },
+    allevil: { act: 2, name: '此世全部之惡的呢喃', text: '泥裡傳來無數人的聲音：「接受我們吧。你會變得很強——只要你還撐得住。」',
+      opts: [{ label: '接受：隨機強化 2 張牌、得到一件禮裝，牌組多一張詛咒「黑泥的侵蝕」', fx: [['upRandom', 2], ['relic'], ['addCard', 'corrosion']] }, { label: '拒絕：失去 5 生命', fx: [['hp', -5]] }] },
     overflow:{ act: 2, name: '溢出的魔力', text: '大聖杯的魔力從地脈湧出，濃得讓人喘不過氣。',
       opts: [{ label: '吸收：最大生命 -8，選兩張牌強化', fx: [['maxHp', -8], ['pick', 'upgrade'], ['pick', 'upgrade']] }, { label: '離開', fx: [] }] }
   };
@@ -1113,7 +1138,7 @@ var G = (function () {
       else if (k === 'addCard') { run.deck.push(n); msg.push('「' + card(n).name + '」加進牌組'); }
       else if (k === 'upRandom') {
         var can = run.deck.map(function (id, j) { return j; }).filter(function (j) { return canUpgrade(run.deck[j]); });
-        can = shuffle(run, can).slice(0, n); can.forEach(function (j) { var o = upgradeOptions(run, j); run.deck[j] = pick(run, o); msg.push('強化了「' + card(run.deck[j]).name + '」'); });
+        can = shuffle(run, can).slice(0, n); can.forEach(function (j) { var o = upgradeOptions(run, j).filter(function (v) { return upDir(v) !== 'f'; }); run.deck[j] = pick(run, o); msg.push('強化了「' + card(run.deck[j]).name + '」'); });
       }
       else if (k === 'cards') { run.screen = 'reward'; run.reward = { cards: ownCards(run, n, true), relic: null }; }
       else if (k === 'nextWeak') { run.nextWeak = (run.nextWeak || 0) + n; msg.push('下一場戰鬥開場虛弱 ' + n); }
@@ -1136,7 +1161,7 @@ var G = (function () {
     var kind = run.pending[0], id = run.deck[i];
     if (i >= 0) {
       if (kind === 'remove') { if (!id || run.deck.length <= 5) return false; run.deck.splice(i, 1); }
-      else if (kind === 'upgrade') { var o = upgradeOptions(run, i), v = variant || o[0]; if (!id || o.indexOf(v) < 0) return false; run.deck[i] = v; }
+      else if (kind === 'upgrade') { var o = upgradeOptions(run, i), v = variant || o[0]; if (!id || o.indexOf(v) < 0) return false; setUpgrade(run, i, v); }
       else if (kind === 'transform') { if (!id) return false; run.deck[i] = ownCards(run, 1, true)[0] || id; }   // 英靈座的回響：換成一張隨機的強化專屬牌
       else if (kind === 'copy') { if (!id) return false; run.deck.push(id); }
     }
@@ -1309,11 +1334,13 @@ var G = (function () {
   // 玩家的攻擊數字（不含敵人易傷）
   function pDmg(ctx, base) {
     var b = ctx.b, d = base + b.str + b.tstr, st = statsOf(ctx.run);
+    if (ctx.atk) d -= dullOf(b);   // 疲憊：在手上時攻擊每擊 -1
     if (ctx.atk && b.firstAtk) { d += 6; b.firstAtk = false; }
     if (ctx.atk && passive(ctx.run) === 'arms') d += Math.floor(b.mastery / 3);
     d = Math.round(d * st.atk);   // 六圍：攻擊（筋力／魔力取高）
     if (ctx.atk && b.turn === 1 && passive(ctx.run) === 'ambush') d = d * 1.5;
     if (b.weak > 0) d = d * 0.75;
+    if (ctx.atk && b.hand.some(function (x) { return card(x).half; })) d = d * 0.5;   // 無力
     return d;
   }
   function dmgTo(e, raw) { return Math.max(0, Math.floor(e.vuln > 0 ? raw * 1.5 : raw)); }
@@ -1589,6 +1616,10 @@ var G = (function () {
     if (c.unplayable) return { ok: false, msg: c.name + '打不出來' };
     var cost = costOf(run, id);
     if (cost > b.energy) return { ok: false, msg: '魔力不夠' };
+    if (c.type === 'curse') {   // 花魔力把詛咒打掉：這場消耗，不算出牌、不觸發任何效果
+      b.energy -= cost; b.hand.splice(i, 1); b.exhaust.push(id); b.log = ['打掉了' + c.name];
+      return { ok: true, end: null };
+    }
     var tg = null;
     if (c.t) { tg = pickTarget(b, target); if (!tg) return { ok: false, msg: '選一個目標', needTarget: true }; }
     b.energy -= cost;
@@ -1687,6 +1718,7 @@ var G = (function () {
     else if (k === 'weak' || k === 'vuln') debuffPlayer(run, k, n, log);
     else if (k === 'heal') e.hp = Math.min(e.maxHp, e.hp + n);
     else if (k === 'curse') { for (var c = 0; c < f[2]; c++) b.discard.push(n); log.push('牌堆裡混進了' + card(n).name); }
+    else if (k === 'plant') { for (var c2 = 0; c2 < f[2]; c2++) (b.hand.length < 10 ? b.hand : b.discard).push(n); log.push(card(n).name + '鑽進了你的手牌'); }
     else if (k === 'summon') {
       for (var s = 0; s < f[2] && alive(b).length < FOES_MAX; s++) {
         var m = makeEnemy(run, n, b.up, b.enemies.length); chooseIntent(run, m); b.enemies.push(m);
@@ -1698,16 +1730,16 @@ var G = (function () {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false };
     var log = [], ctx = { run: run, b: b, log: log };
     if (b.pEnergyBlock && b.energy > 0) { b.block += b.pEnergyBlock * b.energy; log.push('山門：格擋 +' + b.pEnergyBlock * b.energy); }
-    var mud = b.hand.filter(function (x) { return x === 'mud'; }).length;
-    if (mud) { loseHp(run, 2 * mud, log); log.push('泥侵蝕了你（-' + 2 * mud + '）'); }
-    var keep = passive(run) === 'golden' ? b.hand.filter(isTreasure) : [];
+    b.hand.forEach(function (x) { var h = card(x).hold; if (h) { loseHp(run, h, log); log.push(card(x).name + '侵蝕了你（-' + h + '）'); } });
+    var keep = b.hand.filter(function (x) { return card(x).retain || (passive(run) === 'golden' && isTreasure(x)); });   // 保留：刻印蟲、王之財寶
     b.hand.forEach(function (x) { if (keep.indexOf(x) >= 0) return; (card(x).token ? b.exhaust : b.discard).push(x); });
     b.hand = keep; b.tstr = 0; b.nextFree = 0;
     if (b.vuln > 0) b.vuln--; if (b.weak > 0) b.weak--;
     // 我方的持續攻擊：軍勢衝鋒、使魔
     if (b.army > 0 && alive(b).length) { alive(b).forEach(function (t) { hitEnemy(run, t, dmgTo(t, b.army), log); }); log.push('軍勢 ' + b.army + ' 衝過全體敵人'); }
     if (b.minions > 0 && alive(b).length && passive(run) !== 'hundred') { minionHits(ctx, 1, 0); log.push(minionName(run) + '×' + b.minions + ' 出擊'); }
-    if (keep.length) { keep.forEach(function () { var t2 = randFoe(ctx); if (t2) hitEnemy(run, t2, dmgTo(t2, 2), log); }); log.push('王之財寶：' + keep.length + ' 件寶具自動射出'); }
+    var treas = keep.filter(isTreasure);
+    if (treas.length) { treas.forEach(function () { var t2 = randFoe(ctx); if (t2) hitEnemy(run, t2, dmgTo(t2, 2), log); }); log.push('王之財寶：' + treas.length + ' 件寶具自動射出'); }
     if (b.kraken > 0) {   // 海魔：咬生命最少的敵人，每大 12 多咬一口
       for (var bite = 0; bite < krakenBites(b); bite++) {
         var t3 = alive(b).sort(function (p, q) { return p.hp - q.hp; })[0]; if (!t3) break;
@@ -1839,7 +1871,7 @@ var G = (function () {
   function rest(run, what, i, variant) {
     if (run.screen !== 'rest') return false;
     if (what === 'heal') run.hp = Math.min(run.maxHp, run.hp + restHeal(run));
-    else if (what === 'upgrade') { var o = upgradeOptions(run, i), v = variant || o[0]; if (!run.deck[i] || o.indexOf(v) < 0) return false; run.deck[i] = v; }
+    else if (what === 'upgrade') { var o = upgradeOptions(run, i), v = variant || o[0]; if (!run.deck[i] || o.indexOf(v) < 0) return false; setUpgrade(run, i, v); }
     else if (what === 'remove') { if (!run.deck[i] || run.deck.length <= 5) return false; run.deck.splice(i, 1); }
     else return false;
     run.screen = 'map';
@@ -1850,7 +1882,7 @@ var G = (function () {
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff, CHASE: CHASE,
     FATES: FATES, FATE_FREE: FATE_FREE, takeBoon: takeBoon, SVT_COST: SVT_COST, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, crystalsFor: crystalsFor, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
-    card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,
+    card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, isCurse: isCurse, dullOf: dullOf, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,
     newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
     takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic, needsTarget: needsTarget };
 })();
