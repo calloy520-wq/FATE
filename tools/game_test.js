@@ -42,10 +42,10 @@ r=arena('saber'); r.battle.weak=1; playId(r,'atk'); t(E(r).hp===46,'自己虛弱
 r=arena('saber',2); r.battle.hand=['atk']; x=G.play(r,0,-1); t(!x.ok&&x.needTarget,'兩個敵人時單體牌要選目標');
 r=arena('saber'); E(r).intent={n:'砍',fx:[['atk',10]]}; r.battle.block=4; let hp=r.hp; G.endTurn(r);
 t(hp-r.hp===6&&r.battle.turn===2&&r.battle.hand.length===5,'敵人打 10、格擋 4 → 扣 6；新回合重抽',hp-r.hp);
-r=arena('saber',2); r.battle.wind=3; r.battle.np=100; G.noble(r,0); t(r.battle.enemies.every(e=>e.hp===1)&&r.battle.wind===0,'Saber 寶具：解放 3 層風，全體 40＋3×3',E(r).hp);
+r=arena('saber',2,70); r.battle.wind=3; r.battle.np=100; G.noble(r,0); t(r.battle.enemies.every(e=>e.hp===70-62)&&r.battle.wind===0,'Saber 寶具：解放 3 層風，全體 50＋3×4',E(r).hp);
 t(!G.noble(arena('saber'),0).ok,'量表沒滿不能放寶具');
 r=arena('saber'); let hl=r.battle.hand.length; G.seal(r,'all'); t(r.seals===2&&r.battle.energy===6&&r.battle.hand.length===hl+2,'令咒（全力）：魔力 +3、抽 2');
-t(!G.seal(r,'np').ok&&r.seals===2,'令咒每回合只能用一劃'); G.endTurn(r);
+t(G.seal(r,'warp').ok&&r.seals===1,'令咒同一回合可以連用（原作沒限制）'); r.seals=2; G.endTurn(r);
 G.seal(r,'np'); t(r.battle.np===100&&r.seals===1,'令咒（寶具）：量表充滿'); r.seals=0; G.endTurn(r); t(!G.seal(r,'all').ok,'令咒用完不能用');
 // 寶具每回合一次：放完再用令咒灌滿也放不出第二次（不能連發蒸發魔王）
 { const q=arena('saber',1,500); q.battle.np=100; t(G.noble(q,0).ok,'放寶具'); q.battle.np=100; t(!G.noble(q,0).ok,'同一回合不能放第二次寶具'); t(!G.seal(q,'np').ok&&q.seals===3,'放過寶具的回合，令咒也不能再灌寶具');
@@ -110,9 +110,9 @@ r=arena('hassanC'); E(r).id='gil'; E(r).hp=10; r.battle.np=100; G.noble(r,0); t(
 r=arena('hassanC'); E(r).id='heracles'; E(r).hp=10; E(r).maxHp=100; r.battle.np=100; G.noble(r,0); t(E(r).hp===0||E(r).lives>=0,'Boss 不吃即死、改吃穿透');
 
 console.log('── 機制牌（每張專屬牌都吃自己的資源）');
-r=arena('saber'); playId(r,'invis'); playId(r,'burst'); t(r.battle.wind===3,'Saber：看不見的劍、魔力放出累積風');
-playId(r,'windwall'); t(r.battle.block===4+2*3&&r.battle.wind===3,'風王結界：格擋 4＋風×2（風不用掉）',r.battle.block);
-r.battle.tstr=0; let h1=E(r).hp; r.battle.energy=3; playId(r,'hammer'); t(h1-E(r).hp===7+4*3&&r.battle.wind===0,'風王鐵槌：解放全部風（7＋風×4）',h1-E(r).hp);
+r=arena('saber'); playId(r,'invis'); playId(r,'burst'); t(r.battle.wind===4,'Saber：看不見的劍（風 2）、魔力放出（風 2）累積風');
+playId(r,'windwall'); t(r.battle.block===4+2*4&&r.battle.wind===4,'風之障壁：格擋 4＋風×2（風不用掉）',r.battle.block);
+r.battle.tstr=0; let h1=E(r).hp; r.battle.energy=3; playId(r,'hammer'); t(h1-E(r).hp===7+4*4&&r.battle.wind===0,'風王鐵槌：解放全部風（7＋風×4）',h1-E(r).hp);
 r=arena('saber'); playId(r,'kingly'); t(r.battle.wind===1,'能力牌打出當下先生效一次：王者風範風 +1'); G.endTurn(r); t(r.battle.wind===2,'王者風範：之後每回合開始風 +1');
 t(/現在 11/.test(G.cardText('hammer',(()=>{ const q=arena('saber'); q.battle.wind=1; return q; })())),'說明會標出現在的數字（風王鐵槌 7＋4＝11）');
 r=arena('emiya'); r.battle.hand=['hrunting']; swords(r,2); G.play(r,1,0); t(E(r).hp===50-(8+3*2)&&SW(r)===2,'赤原獵犬：手上每把投影劍 +3，劍不消耗',E(r).hp);
@@ -234,7 +234,7 @@ step(aw,'fight'); t(aw.battle.str===2,'魔力放出（A）：每場開始力量 
 aw.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); aw.battle.np=100; G.noble(aw,0); t(!aw.reward.awaken,'普通戰鬥不給覺醒'); G.takeReward(aw,-1);
 step(aw,'elite'); aw.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); aw.battle.np=100; G.noble(aw,0);
 t(JSON.stringify(aw.reward.awaken)==='["1.0","1.1"]','第二次精英：第二層');
-G.awaken(aw,0); G.takeReward(aw,-1); t(/每層風再 \+3，對全體造成 15 傷害/.test(G.npText(G.serv(aw).np,aw)),'聖劍解放：寶具追加全體 15',G.npText(G.serv(aw).np,aw));
+G.awaken(aw,0); G.takeReward(aw,-1); t(/每層風再 \+4，對全體造成 15 傷害/.test(G.npText(G.serv(aw).np,aw)),'聖劍解放：寶具追加全體 15',G.npText(G.serv(aw).np,aw));
 step(aw,'elite'); aw.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); aw.battle.np=100; G.noble(aw,0); t(!aw.reward.awaken,'兩層都選完就不再出現');
 let hk=G.newRun('heracles',3); hk.awaken=['0.0']; hk.screen='reward'; hk.reward={cards:['atk'],relic:null,awaken:['1.0','1.1']}; G.awaken(hk,1); t(hk.lives===2,'第二試煉：多一條命');
 let mw=arena('medea'); mw.awaken=['0.1']; step(mw,'fight'); t(mw.battle.minions===2,'龍牙兵團：每場開場 2 隻龍牙兵');
@@ -319,7 +319,7 @@ r=arena('gilles'); r.flat=false; playId(r,'def_gilles'); t(r.battle.block===5,'�
 t(G.SERVANTS.heracles.hp===81&&G.SERVANTS.gilles.hp===57&&G.SERVANTS.saber.hp===75,'生命照耐久：B 75、A 81、E 57');
 r=arena('medea'); r.flat=false; playId(r,'atk_medea'); t(E(r).hp===50-7,'美狄亞 魔力 A+（術者看魔力）：6 傷 → 7',E(r).hp);
 r=arena('iskandar'); r.flat=false; playId(r,'def_iskandar'); t(r.battle.block===5,'伊斯坎達爾 耐久 A：5 ×1.08 → 5（四捨五入）',r.battle.block);
-r=arena('saber'); r.flat=false; r.battle.wind=0; r.battle.np=100; G.noble(r,0); t(E(r).hp===Math.max(0,50-Math.round(40*1.08)),'寶具等級只顯示：Saber 寶具 A++ 只乘攻擊（魔力 A）',E(r).hp);
+r=arena('saber',1,100); r.flat=false; r.battle.wind=0; r.battle.np=100; G.noble(r,0); t(E(r).hp===100-Math.round(50*1.08),'寶具等級只顯示：Saber 寶具 A++ 只乘攻擊（魔力 A）',E(r).hp);
 const cuR=G.newRun('cu',3); step(cuR,'fight'); const saR=G.newRun('saber',3); step(saR,'fight'); t(cuR.battle.hand.length===saR.battle.hand.length+1,'敏捷 A 以上（庫・丘林）：開場多抽 1 張',[cuR.battle.hand.length,saR.battle.hand.length].join());
 t(G.statsOf(G.newRun('cu',1)).luck<1&&G.statsOf(G.newRun('gil',1)).luck>1,'幸運：庫・丘林 E 拿的金錢比較少，吉爾伽美什 A 比較多');
 const svB=J(G.newRun('kojiro',3)); svB.deck=svB.deck.map(x=>G.isBasic(x,'atk')?'atk':G.isBasic(x,'def')?'def+':x); G.migrate(svB); t(svB.deck.filter(x=>x==='atk_kojiro').length===5&&svB.deck.filter(x=>x==='def_kojiro+').length===4,'舊存檔的通用攻擊／防禦換成自己的（保留強化）');
@@ -386,7 +386,7 @@ t(G.newRun('saber',1,{asc:6}).ascStart.some(f=>f[0]==='pWind'),'命座 VI：每�
 
 console.log('── 強化方向');
 t(G.upDirs('invis').join('')==='acde'&&G.upDirs('charge').join('')==='abcde'&&G.upDirs('atk').join('')==='ace'&&G.upDirs('kingly').join('')==='ad'&&G.card('kingly+d').fx.some(f=>f[0]==='pWind')&&G.upDirs('invis+').length===0&&G.upDirs('sword').length===0,'每張牌能往哪幾個方向強化（1 費沒有迅捷、能力牌沒有共鳴與極限、能力牌的英靈之魂是每回合版，已強化／代幣不能再強化）');
-t(G.card('charge+b').cost===1&&G.card('invis+c').np===30&&G.card('invis+c').fx.some(f=>f[0]==='draw')&&G.card('invis+d').fx.filter(f=>f[0]==='wind').length===1&&G.card('invis+d').fx.some(f=>f[0]==='wind'&&f[1]===2)&&G.card('invis+e').fx[0][1]===12&&G.card('invis+e').ex,'迅捷 -1 費、共鳴 +15% 抽 1、魂加風（原本風 1 → 2，精煉是 1）、極限翻倍但消耗');
+t(G.card('charge+b').cost===1&&G.card('invis+c').np===30&&G.card('invis+c').fx.some(f=>f[0]==='draw')&&G.card('invis+d').fx.filter(f=>f[0]==='wind').length===1&&G.card('invis+d').fx.some(f=>f[0]==='wind'&&f[1]===3)&&G.card('invis+e').fx[0][1]===12&&G.card('invis+e').ex,'迅捷 -1 費、共鳴 +15% 抽 1、魂加風（原本風 2 → 3，精煉是 2）、極限翻倍但消耗');
 t(G.card('invis+').name==='看不見的劍＋'&&G.card('invis+').fx[0][1]===8&&G.card('invis+e').name==='看不見的劍・極'&&G.card('invis+c').name==='看不見的劍・共鳴','舊存檔的「+」還是精煉；名字帶方向');
 let ug=G.newRun('saber',77); ug.deck.push('charge'); const ci=ug.deck.length-1, op=G.upgradeOptions(ug,ci);
 t(op.length===3&&op.includes('charge+')&&JSON.stringify(G.upgradeOptions(ug,ci))===JSON.stringify(op),'強化給三個方向（精煉一定在），同一次重畫不會變',op);
@@ -533,6 +533,7 @@ r=G.newRun('saber',5); step(r,'fight'); t(r.battle.wind===2,'Saber 風王結界�
   r.krakenWins=40; r.screen='map'; step(r,'fight'); win(); t(r.krakenFed===6,'整局成長最多 +6',r.krakenFed); r.screen='map'; step(r,'fight'); t(r.battle.kraken===k0+6,'開場海魔照成長算',r.battle.kraken);
   const q=G.newRun('saber',3); step(q,'fight'); q.battle.enemies.forEach(e=>e.hp=0); G.checkEnd(q); t(!q.krakenFed,'只有吉爾・德・雷的海魔會成長'); }
 { const r=G.newRun('emiya',5); step(r,'fight'); r.battle.swords=2; const inb=G.cardShort('hrunting',r); r.screen='reward'; t(/\+3\/劍/.test(G.cardShort('hrunting',r))&&!/\+3\/劍/.test(inb),'選牌畫面卡面寫「＋3/劍」看得出加成；戰鬥中才照現在的劍數算好',G.cardShort('hrunting',r)+' / '+inb); }
+{ const q=arena('saber'); E(q).intent={n:'詛咒',fx:[['weak',2],['vuln',2]]}; G.endTurn(q); t(!q.battle.weak&&!q.battle.vuln,'Saber 對魔力：不會被施加虛弱、易傷'); const c=arena('cu'); E(c).intent={n:'詛咒',fx:[['weak',2]]}; G.endTurn(c); t(c.battle.weak>0,'別人照樣會被施加虛弱'); }
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位從者 4 局都能打到結束（不卡死）',fin);
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

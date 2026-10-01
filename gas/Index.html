@@ -501,6 +501,7 @@
   var CLASSES = ['Saber', 'Archer', 'Lancer', 'Rider', 'Caster', 'Assassin', 'Berserker'];
   var GLOSSARY = [
     ['風', 'Saber 的資源：看不見的劍、魔力放出等累積，最多 10 層；累積時每 3 層讓敵人每一擊 -1（風之屏障）；風王鐵槌與寶具「誓約勝利之劍」一次解放，每解放 3 層抽 1 張（風王結界）'],
+    ['對魔力', 'Saber 的職階技能（A）：魔術對她無效，不會被施加虛弱、易傷'],
     ['迴避', '完全躲開下一次攻擊（連穿透也躲得掉），回合開始清空'],
     ['迎擊', '庫・丘林：本回合迴避成功時，對攻擊者造成穿透傷害；迴避成功還會讓寶具量表 +10（箭矢加護）'],
     ['挑釁', '庫・丘林：這回合不打人的敵人改成衝著你來，好讓迴避與迎擊派上用場'],
@@ -948,7 +949,7 @@
       + '<div class="chips" style="flex:1;min-width:0">' + meChips(b) + '</div><span class="chip">?</span></div></div>'
       + '<div id="hand"' + (b.hand.length >= 6 ? ' class="many' + (b.hand.length >= 7 ? ' m7' : '') + '"' : '') + '>' + b.hand.map(function (id, i) { return cardHtml(id, 'onclick="tapCard(' + i + ')"' + (G.costOf(run, id) > b.energy || G.card(id).unplayable ? ' disabled' : ''), false, pvHtml(i)); }).join('') + '</div>'
       + '<div id="acts">' + (S.np.none ? '<button class="btn" disabled>沒有寶具</button>' : '<button class="btn npbtn' + (full ? ' full' : '') + (sel.np ? ' on' : '') + '" style="--np:' + b.np + '%" ' + (full ? '' : 'disabled') + ' onclick="doNP()">' + (full ? '★ 放寶具' : b.npUsed ? '寶具（本回合已放）' : '寶具 ' + b.np + '%') + '</button>')
-      + '<button class="btn red" ' + (run.seals && !run.battle.sealUsed ? '' : 'disabled') + ' onclick="sealMenu()">令咒 ' + run.seals + '</button>'
+      + '<button class="btn red" ' + (run.seals ? '' : 'disabled') + ' onclick="sealMenu()">令咒 ' + run.seals + '</button>'
       + '<button class="btn' + (canPlay ? '' : ' go') + '" onclick="endTurn()">結束回合</button></div></div></div>';
     var cs = document.querySelectorAll('#hand .card'); if (sel.card >= 0 && cs[sel.card]) cs[sel.card].classList.add('sel');
     dropBars();
@@ -1019,8 +1020,7 @@
   function sealMenu() {
     if (busy || run.screen !== 'battle') return;
     var b = run.battle;
-    if (b.sealUsed) { toast('這回合已經用過令咒了（每回合一劃）', 'err'); return; }
-    openOv('<b>令咒（剩 ' + run.seals + ' 劃・每回合一劃，整趟冒險只有禮裝、命運能補）</b><div class="list" style="margin-top:12px">'
+    openOv('<b>令咒（剩 ' + run.seals + ' 劃，整趟冒險只有禮裝、命運能補）</b><div class="list" style="margin-top:12px">'
       + (G.serv(run).np.none || b.np >= 100 || b.npUsed ? '' : '<button onclick="useSeal(\'np\')">❖ 解放寶具：寶具量表直接充滿</button>')
       + '<button onclick="useSeal(\'all\')">❖ 全力以赴：魔力 +3、抽 2 張</button>'
       + '<button onclick="useSeal(\'warp\')">❖ 召回：瞬間把從者叫回身邊，這回合躲開所有攻擊</button>'

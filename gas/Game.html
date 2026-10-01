@@ -83,7 +83,7 @@ var G = (function () {
   // 第五次聖杯戰爭
   // 每位從者的專屬牌都要吃或餵自己的機制（沒有「換個名字的通用牌」）
   kit('saber', {   // 風王結界：攻擊累積「風」，風王鐵槌與寶具一次解放
-    invis:   { name: '看不見的劍', cost: 1, type: 'atk', np: 15, fx: [['hits', 6, 2], ['wind', 1]], up: { fx: [['hits', 8, 2], ['wind', 1]] } },
+    invis:   { name: '看不見的劍', cost: 1, type: 'atk', np: 15, fx: [['hits', 6, 2], ['wind', 2]], up: { fx: [['hits', 8, 2], ['wind', 2]] } },
     hammer:  { name: '風王鐵槌', cost: 2, type: 'atk', np: 15, fx: [['windAll', 7, 4]], up: { fx: [['windAll', 10, 5]] } },
     burst:   { name: '魔力放出', cost: 1, type: 'skill', np: 5, fx: [['tstr', 3], ['wind', 2]], up: { fx: [['tstr', 4], ['wind', 2]] } },
     instinct:{ name: '直感', cost: 0, type: 'skill', np: 0, fx: [['draw', 1], ['wind', 1]], up: { fx: [['draw', 2], ['wind', 1]] } },
@@ -295,8 +295,8 @@ var G = (function () {
   var SERVANTS = {
     saber: { name: '阿爾托莉亞', cls: 'Saber', war: 5, hp: 74, sig: 'invis',
       desc: '風王結界藏起聖劍。蓄力型：出牌累積「風」，最多 10 層，滿了就該放——風王鐵槌與寶具一次解放，解放時還會抽牌。',
-      passive: { id: 'invisair', name: '風王結界', text: '每場開場風 2（劍一直被風包著）；風最多 10 層；每 3 層風，敵人每一擊 -1（風之屏障）；解放風時，每解放 3 層抽 1 張' },
-      np: { name: '誓約勝利之劍', fx: [['windAll', 40, 3]] } },
+      passive: { id: 'invisair', name: '風王結界', text: '對魔力（A）：不會被施加虛弱、易傷。每場開場風 2（劍一直被風包著）；風最多 10 層；每 3 層風，敵人每一擊 -1（風之屏障）；解放風時，每解放 3 層抽 1 張' },
+      np: { name: '誓約勝利之劍', fx: [['windAll', 50, 4]] } },
     emiya: { name: 'EMIYA', cls: 'Archer', war: 5, hp: 71, sig: 'project',
       desc: '把劍投影出來用完即丟的弓兵。手上的投影劍越多，赤原獵犬、熾天覆越強，最後壞幻引爆。',
       passive: { id: 'forge', name: '投影魔術', text: '每回合開始得到 1 把投影劍；投影劍疊成一張「投影劍 ×N」（不佔手牌上限，最多 10 把），回合結束留下 5 把，囤起來再一口氣引爆' },
@@ -1286,7 +1286,7 @@ var G = (function () {
 
   // ── 戰鬥 ─────────────────────────────────────────────
   // 一場戰鬥的初始欄位（p 開頭＝能力牌，每回合生效）
-  var BATTLE0 = { npUsed: 0, sealUsed: 0, evadeAll: 0, turn: 0, energy: 0, block: 0, np: 0, str: 0, tstr: 0, vuln: 0, weak: 0, thorns: 0, manshin: 0, hurt: 0, swords: 0,
+  var BATTLE0 = { npUsed: 0, evadeAll: 0, turn: 0, energy: 0, block: 0, np: 0, str: 0, tstr: 0, vuln: 0, weak: 0, thorns: 0, manshin: 0, hurt: 0, swords: 0,
     pBlock: 0, pDraw: 0, pEnergy: 0, pStr: 0, pEvade: 0, pTreasure: 0, pMinion: 0, pVenom: 0, pWeaponize: 0, mastery: 0,
     ubw: 0, projUp: 0, firstAtk: false, evade: 0, minions: 0, army: 0, attacks: 0, stance: '', played: 0,
     nextFree: 0, nextEnergy: 0, hswUsed: 0,
@@ -1336,7 +1336,7 @@ var G = (function () {
     if (!first) b.block = 0;
     if (hasRelic(run, 'volumen')) b.block += 2;   // 月靈髓液
     if (b.manshin && b.turn >= 3 && alive(b).some(function (e) { var E = ENEMIES[e.id]; return E.boss || E.elite; })) serious(run, b.log || (b.log = []));   // 認可對手
-    b.npUsed = 0; b.sealUsed = 0; b.evadeAll = 0;   // 寶具、令咒每回合各一次；空間轉移撐到下回合開始
+    b.npUsed = 0; b.evadeAll = 0;   // 寶具每回合一次；令咒召回撐到下回合開始
     b.evade = 0; b.played = 0; b.attacks = 0; b.sowaFirst = 0; b.sowaSeen = {}; b.haste = 0; b.reapNext = 0; b.switches = 0; b.skills = 0; b.hswUsed = 0;
     b.energy = 3 + b.pEnergy + b.nextEnergy + (first && hasRelic(run, 'gem') ? 1 : 0); b.nextEnergy = 0;
     if (b.pBlock) b.block += b.pBlock;
@@ -1442,6 +1442,7 @@ var G = (function () {
   function debuffPlayer(run, k, n, log) {
     var b = run.battle, p = passive(run);
     if (k === 'weak' && p === 'madness') return;
+    if (p === 'invisair' && (k === 'weak' || k === 'vuln')) { if (log) log.push('對魔力：魔術對 Saber 無效'); return; }   // 對魔力 A
     b[k] += n;
   }
   // 玩家的攻擊數字（不含敵人易傷）
@@ -1799,18 +1800,17 @@ var G = (function () {
     return { ok: true, end: end };
   }
   // 令咒：整局有限；all＝魔力 +3、抽 2｜np＝寶具量表充滿
-  // 令咒：每回合最多一劃；解放寶具／全力以赴／召回（原作士郎用令咒把 Saber 瞬間叫回身邊、肯尼斯讓迪爾姆德撤退）／回復（FGO 的令咒回滿）
+  // 令咒：不限每回合幾劃（原作也沒限制）；寶具每回合一次另外擋住連發；解放寶具／全力以赴／召回（原作士郎用令咒把 Saber 瞬間叫回身邊、肯尼斯讓迪爾姆德撤退）／回復（FGO 的令咒回滿）
   var SEAL_KINDS = ['np', 'all', 'warp', 'heal'];
   function seal(run, kind) {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false, msg: '不在戰鬥中' };
     if (run.seals <= 0) return { ok: false, msg: '令咒用完了' };
     if (kind === 'np' && serv(run).np.none) return { ok: false, msg: '沒有寶具' };
-    if (b.sealUsed) return { ok: false, msg: '這回合已經用過令咒了（每回合一劃）' };
     if (kind === 'np' && b.np >= 100) return { ok: false, msg: '寶具已經充滿了' };
     if (kind === 'np' && b.npUsed) return { ok: false, msg: '這回合已經放過寶具了' };
     if (kind === 'heal' && run.hp >= run.maxHp) return { ok: false, msg: '生命已經是滿的' };
     if (SEAL_KINDS.indexOf(kind) < 0) return { ok: false, msg: '沒有這種命令' };
-    run.seals--; run.stats.seals++; b.sealUsed = 1;
+    run.seals--; run.stats.seals++;
     if (kind === 'all') { b.energy += 3; drawCards(run, 2); b.log = ['令咒：全力以赴（魔力 +3、抽 2）']; }
     else if (kind === 'warp') { b.evadeAll = 1; b.log = ['令咒：召回（瞬間把從者叫回身邊，這回合躲開所有攻擊）']; }
     else if (kind === 'heal') { var hh = run.maxHp - run.hp; run.hp = run.maxHp; b.log = ['令咒：回復（生命回滿，+' + hh + '）']; }
