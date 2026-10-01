@@ -804,8 +804,9 @@ var G = (function () {
 
   var RENAMED_V4 = { mentor: 'flashstep', dunscaith: 'godspeed', wild: 'provoke', pegasus: 'kick', mount: 'monstrous', land: 'kick' };   // 斯卡哈改版：借牌拿掉；庫・丘林：野性直覺→挑釁
 
-  // ── 命運（開局三選一的強化）與局外：聖晶石 ─────────────
-  // cost＝在「命運殿堂」解鎖要花多少聖晶石（0＝一開始就有）。每局結束依表現得到聖晶石。
+  // ── 命運（出發前自己選的強化）與局外：聖晶石 ─────────────
+  // cost＝在靈基工坊解鎖要花多少聖晶石（0＝一開始就有）。每局結束依表現得到聖晶石。
+  // 出發前從已解鎖的命運裡自己挑；工坊買「命運的第二格」（FATE_SLOT2）之後一次可以帶兩種。
   var FATES = {
     gold:    { name: '意外之財', text: '路上撿到一袋金幣：開局多 120 金', cost: 0 },
     tough:   { name: '靈基強韌', text: '召喚時靈基特別穩定：最大生命 +10', cost: 0 },
@@ -818,7 +819,7 @@ var G = (function () {
     early:   { name: '早熟的靈基', text: '開局就先得到第一層靈基覺醒（兩個選一個）', cost: 80 },
     legacy:  { name: '奧義傳承', text: '開局牌組就有自己的奧義牌', cost: 80 }
   };
-  var FATE_FREE = ['gold', 'tough', 'seal4'];
+  var FATE_FREE = ['gold', 'tough', 'seal4'], FATE_SLOT2 = 150;
   // 英靈解鎖：一開始只有 Saber；其他用聖晶石解鎖
   var SVT_COST = { saber: 0, emiya: 50, cu: 50, medusa: 50, medea: 50, kojiro: 50, hassanC: 50,
     diarmuid: 70, iskandar: 70, gilles: 70, hassanH: 70, lancelot: 70, heracles: 100, gil: 100, scathach: 100 };
@@ -871,24 +872,28 @@ var G = (function () {
     if (lv >= 5) { var rare = rareOf(run.who); if (rare && run.deck.indexOf(rare) < 0) run.deck.push(rare); }
     run.asc = lv;
   }
-  // 從已解鎖的命運裡抽三個給玩家選
+  // 這位出發時可以選的命運（已解鎖的全部，照 FATES 的順序）
   // who：沒有寶具的（小次郎）不出魔力充盈；endless：無盡模式只用免費命運，大家起跑線一樣
   function fateOptions(seed, unlocked, who, endless) {
-    var tmp = { rs: seed | 0 }, have = FATE_FREE.concat(endless ? [] : (unlocked || []).filter(function (k) { return FATES[k] && FATE_FREE.indexOf(k) < 0; }));
+    var have = Object.keys(FATES).filter(function (k) { return FATE_FREE.indexOf(k) >= 0 || (!endless && (unlocked || []).indexOf(k) >= 0); });
     if (who && SERVANTS[who] && SERVANTS[who].np.none) have = have.filter(function (k) { return k !== 'mana'; });
-    return shuffle(tmp, have).slice(0, 3);
+    return have;
   }
+  // 一次能帶幾種命運：買了第二格是 2；無盡模式固定 1（排行榜才公平）
+  function fateSlots(slot2, endless) { return slot2 && !endless ? 2 : 1; }
+  // 出發前的二選一可能有兩個（家傳禮裝＋早熟的靈基）：排隊一個一個選
+  function queueBoon(run, B) { if (run.boon) (run.boonQ = run.boonQ || []).push(B); else run.boon = B; }
   function applyFate(run, k) {
-    run.fate = k;
+    run.fates = (run.fates || []).concat(k); run.fate = run.fates[0];
     if (k === 'gold') run.gold += 120;
     else if (k === 'tough') { run.maxHp += 10; run.hp += 10; }
     else if (k === 'seal4') { run.maxSeals += 1; run.seals += 1; }
     else if (k === 'mana') run.npStart = (run.npStart || 0) + 30;
-    else if (k === 'heirloom') { var r1 = randomRelic(run), r2 = Object.keys(RELICS).filter(function (x) { return x !== r1 && !hasRelic(run, x) && !(x === 'circuit' && serv(run).np.none); }); r2 = r2.length ? pick(run, r2) : null; run.boon = { kind: 'relic', opts: [r1, r2].filter(Boolean) }; }
+    else if (k === 'heirloom') { var r1 = randomRelic(run), r2 = Object.keys(RELICS).filter(function (x) { return x !== r1 && !hasRelic(run, x) && !(x === 'circuit' && serv(run).np.none); }); r2 = r2.length ? pick(run, r2) : null; queueBoon(run, { kind: 'relic', opts: [r1, r2].filter(Boolean) }); }
     else if (k === 'forged') { shuffle(run, run.deck.map(function (x, i) { return i; }).filter(function (i) { return canUpgrade(run.deck[i]); })).slice(0, 3).forEach(function (i) { run.deck[i] = pick(run, upgradeOptions(run, i)); }); }
     else if (k === 'light') { ['atk', 'atk', 'def'].forEach(function (x) { var i = run.deck.findIndex(function (y) { return isBasic(y, x); }); if (i >= 0) run.deck.splice(i, 1); }); }
     else if (k === 'merchant') { run.discount = 0.75; run.removed = -1; run.flatRemove = 1; }
-    else if (k === 'early') { if (talentsOf(run)[0]) run.boon = { kind: 'awaken', opts: ['0.0', '0.1'] }; }
+    else if (k === 'early') { if (talentsOf(run)[0]) queueBoon(run, { kind: 'awaken', opts: ['0.0', '0.1'] }); }
     else if (k === 'legacy') { var rare = Object.keys(CARDS).filter(function (c) { return CARDS[c].rare === run.who; })[0]; if (rare && !run.deck.some(function (x) { return baseId(x) === rare; })) run.deck.push(rare); else if (rare) run.deck = run.deck.map(function (x) { return x === rare ? rare + '+' : x; }); }   // 命座 V 已經給過：改成把它強化
   }
   // 這一局結束時得到的聖晶石：走過的格子 1、打倒魔王 15、通關 20、真結局 30
@@ -908,7 +913,7 @@ var G = (function () {
   var BOSS_POOL = { 1: ['kirei', 'kraken', 'iskandar', 'heracles'], 2: ['gil', 'alter', 'kiritsugu', 'heracles'] };
   var BOSS_ACT = { 1: { hp: 0.8, str: 0 }, 2: { hp: 1.2, str: 5 }, 3: { hp: 1, str: 0 } };
   var NOT_BOSS_OF = { gilles: 'kraken' };   // 自己的從者不會變成 Boss（吉爾・德・雷＝巨大海魔）
-  // opts：{ fate 命運, asc 靈基再臨等級 }（舊寫法直接傳命運的字串也可以）
+  // opts：{ fates 命運（最多兩種；舊寫法 fate 單一個也可以）, asc 靈基再臨等級 }（舊寫法直接傳命運的字串也可以）
   function newRun(who, seed, opts) {
     if (typeof opts === 'string') opts = { fate: opts };
     opts = opts || {};
@@ -926,7 +931,8 @@ var G = (function () {
     run.diff = DIFFS[opts.diff] ? opts.diff : 'normal';
     if (opts.endless) run.endless = true;
     if (opts.asc) applyAsc(run, Math.min(6, opts.asc));
-    if (opts.fate && FATES[opts.fate]) applyFate(run, opts.fate);
+    var fs = (opts.fates || (opts.fate ? [opts.fate] : [])).filter(function (k, i, a) { return FATES[k] && a.indexOf(k) === i; }).slice(0, fateSlots(true, opts.endless));
+    fs.forEach(function (k) { applyFate(run, k); });
     if (run.boon) run.screen = 'boon';   // 命運給的二選一：出發前先選
     return run;
   }
@@ -1961,7 +1967,7 @@ var G = (function () {
     var B = run.boon; if (run.screen !== 'boon' || !B || !B.opts[i]) return false;
     if (B.kind === 'relic') gainRelic(run, B.opts[i]);
     else { var k = B.opts[i], T = talent(run, k); run.awaken.push(k); if (T.lives) run.lives += T.lives; if (T.maxHp) { run.maxHp += T.maxHp; run.hp += T.maxHp; } }
-    run.boon = null; run.screen = 'map';
+    run.boon = (run.boonQ || []).shift() || null; run.screen = run.boon ? 'boon' : 'map';
     return true;
   }
   function awaken(run, i) {
@@ -2015,7 +2021,7 @@ var G = (function () {
 
   return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, BOSS_POOL: BOSS_POOL, actName: actName, scaleUp: scaleUp, krakenBites: krakenBites, ROWS: ROWS, COLS: COLS, ACT_NAMES: ACT_NAMES, EVENTS: EVENTS,
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff, CHASE: CHASE,
-    FATES: FATES, FATE_FREE: FATE_FREE, takeBoon: takeBoon, SVT_COST: SVT_COST, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, crystalsFor: crystalsFor, priceOf: priceOf,
+    FATES: FATES, FATE_FREE: FATE_FREE, FATE_SLOT2: FATE_SLOT2, fateSlots: fateSlots, takeBoon: takeBoon, SVT_COST: SVT_COST, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, crystalsFor: crystalsFor, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
     card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, isCurse: isCurse, focus: focus, makeEnemy: makeEnemy, checkEnd: checkEnd, luckMod: luckMod, d20Chance: d20Chance, dullOf: dullOf, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,
     newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,

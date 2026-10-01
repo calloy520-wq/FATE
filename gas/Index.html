@@ -269,6 +269,11 @@
   .box h3 { font-family:var(--serif); font-weight:700; letter-spacing:.06em; }
   .box h3::before { content:'◆ '; font-size:.7em; vertical-align:2px; color:rgba(227,194,122,.7); }
   .svt b { font-family:var(--serif); }
+  .fategrid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; width:100%; max-width:460px; }
+  .fategrid .svt { padding:10px 12px; font-size:13.5px; }
+  .fategrid .svt b { font-size:15.5px; }
+  .svt.fon { border-color:var(--gold2); box-shadow:0 0 0 1px var(--gold2), 0 0 16px rgba(227,194,122,.45); background:linear-gradient(180deg,rgba(90,70,30,.5),rgba(20,18,14,.6)); }
+  .btn.go2 { background:rgba(217,184,106,.22); font-size:16.5px; padding:12px 22px; }
   .mbtn { padding:15px 18px; } .mbtn b { font-family:var(--serif); font-weight:700; letter-spacing:.08em; }
   .mbtn .mi { filter:drop-shadow(0 0 6px rgba(227,194,122,.35)); }
   .mbtn.main { --orn-c:var(--gold2); border-color:var(--gold); background:var(--orn), radial-gradient(120% 140% at 0% 50%,rgba(196,36,58,.28),transparent 60%), linear-gradient(180deg,rgba(80,62,28,.6),rgba(28,22,14,.7)); box-shadow:0 0 18px rgba(227,194,122,.25), inset 0 1px 0 rgba(255,240,200,.15); }
@@ -525,7 +530,7 @@
     ['奧義', '每位從者一張的稀有牌：精英獎勵（約三成）、商店、部分事件、命運「奧義傳承」與靈基再臨 V 能拿到'],
     ['金錢與商店', '打贏戰鬥得到金（精英、魔王更多）；地圖上的 🛒 商店可以買專屬牌、奧義、禮裝，也能花錢移除卡片（每間店一次，越移越貴）'],
     ['難度', '普通／困難／深淵：困難要任一從者通關普通、深淵要通關困難；越難敵人越強，聖晶石越多。靈基再臨的上限看那位通關過的最高難度：普通 II、困難 IV、深淵 VI'],
-    ['命運', '每次出發前三選一的強化；到靈基工坊用聖晶石解鎖更多'],
+    ['命運', '每次出發前自己挑的強化（一種；靈基工坊買了第二格可以帶兩種）；到靈基工坊用聖晶石解鎖更多'],
     ['聖晶石與靈基工坊', '每局結束依表現得到聖晶石（走過的格子、打倒魔王、通關）；拿來解鎖新英靈、靈基再臨（每位英靈各自升級）、命運。每個帳號分開記'],
     ['刻印', '盧恩刻印（斯卡哈，原初的盧恩）：每層讓那個敵人受到的每一擊 +1。刻印本身不會殺人，要用「收尾」'],
     ['收尾', '斯卡哈的死棘、死翔之槍與寶具：目標生命 ≤ 刻印×4 就當場倒下（魔王只吃加傷，不會即死）。收尾成功魔力 +1、抽 1，下一張攻擊也能收尾（連鎖）'],
@@ -607,7 +612,8 @@
               : '<div class="urow" style="margin-top:6px"><div>升到 ' + ROMAN[lv + 1] + '</div>' + buyBtn('ascend(\'' + k + '\')', nx.cost, '再臨') + '</div>') + '</div>';
         }).join('');
     } else {
-      body = '<div class="dim" style="max-width:460px">每次出發前，從已解鎖的命運裡抽三個選一個。解鎖越多，選擇越多。</div>'
+      body = '<div class="dim" style="max-width:460px">每次出發前，從已解鎖的命運裡自己挑一種帶上；買下「命運的第二格」就能一次帶兩種。</div>'
+        + '<div class="box urow"><div><b>命運的第二格</b><div class="dim" style="font-size:13.5px;margin-top:2px">出發時可以同時帶兩種命運（無盡模式仍然只帶一種）</div></div>' + (M.fate2 ? '<span class="tag">✔ 已解鎖</span>' : buyBtn('unlockSlot2()', G.FATE_SLOT2, '解鎖')) + '</div>'
         + Object.keys(G.FATES).map(function (k) {
           var F = G.FATES[k], have = G.FATE_FREE.indexOf(k) >= 0 || M.fates.indexOf(k) >= 0;
           return '<div class="box urow"><div><b>' + esc(F.name) + '</b><div class="dim" style="font-size:13.5px;margin-top:2px">' + esc(F.text) + '</div></div>' + (have ? '<span class="tag">✔ 已解鎖</span>' : buyBtn('unlockFate(\'' + k + '\')', F.cost, '解鎖')) + '</div>';
@@ -621,6 +627,7 @@
   function spend(cost, fn) { if (me().crystals < cost) return toast('聖晶石不夠（每局結束依表現得到）', 'err'); confirmOv('花 💎' + cost + '？（現有 ' + me().crystals + '）', function () { updateMe(function (m) { m.crystals -= cost; fn(m); }); workshop(workshop.tab); }); }
   function unlockSvt(k) { spend(G.SVT_COST[k], function (m) { if (m.svts.indexOf(k) < 0) m.svts.push(k); }); }
   function ascend(k) { var lv = me().asc[k] || 0; if (!G.ASC[lv] || lv >= ascCap(k)) return; spend(G.ASC[lv].cost, function (m) { m.asc[k] = lv + 1; }); }
+  function unlockSlot2() { spend(G.FATE_SLOT2, function (m) { m.fate2 = 1; }); }
   function unlockFate(k) { spend(G.FATES[k].cost, function (m) { if (m.fates.indexOf(k) < 0) m.fates.push(k); }); }
   function recordScreen() {
     var M = me(), st = M.stats;
@@ -689,12 +696,13 @@
       + '<button class="btn" onclick="run=null;render()">返回</button></div>';
   }
   function newSeed() { return (Date.now() ^ (Math.random() * 1e9)) >>> 0; }
-  // 出發前選命運（三選一）
+  // 出發前選命運（從已解鎖的自己挑；有第二格可以帶兩種）
   var DIFF = 'normal', MODE = 'normal';   // MODE：normal 一般｜endless 無盡模式
   function pickFate(who, keepSeed) {
-    var seed = keepSeed || newSeed(), opts = G.fateOptions(seed, me().fates, who, MODE === 'endless');
+    var seed = keepSeed || newSeed(), opts = G.fateOptions(seed, me().fates, who, MODE === 'endless'), slots = G.fateSlots(me().fate2, MODE === 'endless');
     if (!diffOpen(DIFF)) DIFF = 'normal';
-    pickFate.ctx = { who: who, seed: seed };
+    var sel = pickFate.ctx && pickFate.ctx.who === who ? pickFate.ctx.sel.filter(function (k) { return opts.indexOf(k) >= 0; }).slice(0, slots) : [];
+    pickFate.ctx = { who: who, seed: seed, sel: sel };
     var diffs = '<div class="tabs" style="max-width:460px;width:100%">' + G.DIFF_ORDER.map(function (d) {
       var D = G.DIFFS[d], open = diffOpen(d);
       return '<button class="' + (DIFF === d ? 'on' : '') + '" ' + (open ? 'onclick="DIFF=\'' + d + '\';pickFate(pickFate.ctx.who,pickFate.ctx.seed)"' : 'disabled style="opacity:.4"') + '>' + (open ? '' : '🔒 ') + D.name + '</button>';
@@ -704,13 +712,19 @@
     var Sv = G.SERVANTS[who];
     $('app').innerHTML = '<div class="panel"><div class="box" style="max-width:460px;width:100%;text-align:center">以 <b style="color:var(--gold)">' + esc(Sv.cls + '・' + Sv.name) + '</b> 出發　<span class="dim">生命 ' + Sv.hp + '</span>　<button class="infobtn" onclick="choose()">換從者</button></div>' + (MODE === 'endless' ? '<h1 style="font-size:22px">♾ 無盡模式</h1><div class="dim">固定普通難度、不帶靈基再臨、只用免費命運：大家站在同一條起跑線上比誰爬得遠。</div>' : '<h1 style="font-size:22px">難度</h1>' + diffs)
       + (MODE === 'endless' ? '' : '<div class="dim" style="max-width:460px">' + (DIFF === 'normal' ? '標準難度。用這位通關可以開放靈基再臨 I～II。' : '敵人生命 +' + Math.round(Dn.hp * 100) + '%、力量 +' + Dn.str + (Dn.rest < 0.3 ? '、休息只回兩成' : '') + '；聖晶石 ×' + Dn.cry + '。用這位通關可以開放靈基再臨 ' + (DIFF === 'hard' ? 'III～IV' : 'V～VI') + '。') + (diffOpen('hard') ? '' : '（任一從者通關普通後解鎖困難）') + '</div>')
-      + '<h1 style="font-size:22px;margin-top:6px">選擇命運</h1><div class="dim">這一趟的額外強化（到靈基工坊解鎖更多命運）</div>'
-      + opts.map(function (k) { var F = G.FATES[k]; return '<button class="svt" onclick="startWith(\'' + k + '\')"><b>' + esc(F.name) + '</b><div style="margin-top:6px">' + esc(F.text) + '</div></button>'; }).join('')
+      + '<h1 style="font-size:22px;margin-top:6px">選擇命運 <span class="dim" style="font-size:15px">' + sel.length + '／' + slots + '</span></h1><div class="dim">這一趟的額外強化，自己挑' + (slots > 1 ? '兩種' : '一種') + '（到靈基工坊解鎖更多命運' + (slots > 1 || MODE === 'endless' ? '' : '、買第二格一次帶兩種') + '）</div>'
+      + '<div class="fategrid">' + opts.map(function (k) { var F = G.FATES[k], on = sel.indexOf(k) >= 0; return '<button class="svt' + (on ? ' fon' : '') + '" onclick="toggleFate(\'' + k + '\')"><b>' + (on ? '✔ ' : '') + esc(F.name) + '</b><div style="margin-top:6px">' + esc(F.text) + '</div></button>'; }).join('') + '</div>'
+      + '<button class="btn go2" onclick="startWith()">' + (sel.length ? '帶著「' + sel.map(function (k) { return G.FATES[k].name; }).join('」「') + '」出發' : '不帶命運出發') + '</button>'
       + '<button class="btn" onclick="choose()">返回</button></div>';
   }
-  function startWith(fate) {
+  function toggleFate(k) {
+    var c = pickFate.ctx, i = c.sel.indexOf(k), slots = G.fateSlots(me().fate2, MODE === 'endless');
+    if (i >= 0) c.sel.splice(i, 1); else { c.sel.push(k); if (c.sel.length > slots) c.sel.shift(); }   // 滿了：換掉最早選的
+    pickFate(c.who, c.seed);
+  }
+  function startWith() {
     var c = pickFate.ctx;
-    run = G.newRun(c.who, c.seed, { fate: fate, diff: DIFF, asc: MODE === 'endless' ? 0 : me().asc[c.who] || 0, endless: MODE === 'endless' });   // 無盡：不帶靈基再臨、只用免費命運，排行榜才公平
+    run = G.newRun(c.who, c.seed, { fates: c.sel, diff: DIFF, asc: MODE === 'endless' ? 0 : me().asc[c.who] || 0, endless: MODE === 'endless' });   // 無盡：不帶靈基再臨、只用免費命運，排行榜才公平
     updateMe(function (m) { m.stats.runs++; });
     render();
   }

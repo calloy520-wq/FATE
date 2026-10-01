@@ -538,4 +538,10 @@ r=G.newRun('saber',5); step(r,'fight'); t(r.battle.wind===2,'Saber 風王結界�
 { const q=arena('saber'); E(q).intent={n:'詛咒',fx:[['weak',2],['vuln',2]]}; G.endTurn(q); t(!q.battle.weak&&!q.battle.vuln,'Saber 對魔力：不會被施加虛弱、易傷'); const c=arena('cu'); E(c).intent={n:'詛咒',fx:[['weak',2]]}; G.endTurn(c); t(c.battle.weak>0,'別人照樣會被施加虛弱'); }
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位從者 4 局都能打到結束（不卡死）',fin);
+t(G.fateOptions(5,[]).join()===G.FATE_FREE.join()&&G.fateOptions(5,['merchant','legacy']).length===5&&G.fateOptions(5,['legacy'],'saber',true).length===3,'命運：已解鎖的全部都能自己挑（不再隨機抽三個）；無盡只有免費的');
+t(G.fateSlots(0,false)===1&&G.fateSlots(1,false)===2&&G.fateSlots(1,true)===1,'命運欄位：買了第二格帶兩種、無盡模式固定一種');
+{ const r=G.newRun('saber',6,{fates:['gold','tough']}); t(r.gold===180&&r.maxHp===G.SERVANTS.saber.hp+10&&r.fates.length===2,'一次帶兩種命運：兩個都生效'); }
+{ const r=G.newRun('saber',6,{fates:['gold','gold','seal4','tough']}); t(r.fates.join()==='gold,seal4','命運重複的不算、最多兩種',r.fates); }
+{ const r=G.newRun('saber',6,{fates:['gold','tough'],endless:true}); t(r.fates.length===1,'無盡模式只帶一種命運'); }
+{ const r=G.newRun('saber',3,{fates:['heirloom','early']}); const ok1=r.screen==='boon'&&r.boon.kind==='relic'&&G.takeBoon(r,0); const ok2=r.screen==='boon'&&r.boon.kind==='awaken'&&G.takeBoon(r,1); t(ok1&&ok2&&r.screen==='map'&&r.relics.length===1&&r.awaken.length===1,'家傳禮裝＋早熟的靈基：兩個二選一排隊選完才出發'); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
