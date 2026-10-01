@@ -517,6 +517,12 @@ var G = (function () {
     shuffle(tmp, dirs.filter(function (d) { return keep.indexOf(d) < 0; })).slice(0, 3 - keep.length).forEach(function (d) { keep.push(d); });
     return 'abcde'.split('').filter(function (d) { return keep.indexOf(d) >= 0; }).map(function (d) { return upId(id, d); });
   }
+  // 英靈之魂：牌上已經有同一個資源（例：死兆 1）就合併、而且加兩倍（死兆 3），不要印成「死兆1 死兆1」，也不會輸給精煉；切換架勢這種非數字的照樣多加一次
+  function soulFx(fx, soul) {
+    var j = typeof soul[1] === 'number' ? fx.findIndex(function (f) { return f[0] === soul[0] && f.length === 2 && typeof f[1] === 'number'; }) : -1;
+    if (j < 0) return fx.concat([soul]);
+    return fx.map(function (f, i) { return i === j ? [f[0], f[1] + soul[1] * 2] : f; });
+  }
   function card(id) {
     var b0 = baseId(id), d = upDir(id), base = CARDS[b0];
     if (!base) return null;
@@ -524,7 +530,7 @@ var G = (function () {
     if (d === 'a' && base.up) Object.keys(base.up).forEach(function (k) { c[k] = base.up[k]; });
     if (d === 'b') c.cost = Math.max(0, base.cost - 1);
     if (d === 'c') { c.np = (base.np || 0) + 15; c.fx = base.fx.concat([['draw', 1]]); }
-    if (d === 'd' && KIT_SOUL[base.kit]) c.fx = base.fx.concat([KIT_SOUL[base.kit]]);
+    if (d === 'd' && KIT_SOUL[base.kit]) c.fx = soulFx(base.fx, KIT_SOUL[base.kit]);
     if (d === 'e') { c.fx = base.fx.map(function (f) { return SCALABLE[f[0]] ? [f[0], f[1] * 2].concat(f.slice(2)) : f; }); c.ex = 1; }
     if (d) c.name += UP_DIRS[d].tag;
     c.t = needsTarget(c.fx);
@@ -642,19 +648,33 @@ var G = (function () {
     stance: function (f) { return f[1] === 'red' ? '紅薔薇' : f[1] === 'yellow' ? '黃薔薇' : '切架勢'; }
   };
   function cardShort(id, run) {
-    var c = card(id), b = run && run.battle && run.battle.hand ? run.battle : null, mn = run ? minionName(run) : '使魔';
+    var c = card(id);
     if (c.text) return '打不出來';
-    if (c.id === 'sword' && b && b.projUp) return '⚔' + (4 + b.projUp);
-    var bits = c.fx.map(function (f) {
+    var bits = shortBits(c, run);
+    if (c.dir === 'c') bits.push('寶具+' + c.np + '%');   // 共鳴：寶具量表加得比較多，卡面也看得到
+    if (c.type === 'power') bits.push('（整場）');
+    if (c.ex || c.token) bits.push('消耗');
+    return bits.join(' ');
+  }
+  // 強化方向選單用：跟原本的牌比，具體變了什麼（費用、寶具量表、效果、消耗）
+  function upDiff(id, v) {
+    var a = card(id), c = card(v), out = [], sa = shortBits(a), sc = shortBits(c);
+    if (c.cost !== a.cost) out.push('費用 ' + a.cost + ' → ' + c.cost);
+    sc.forEach(function (x, i) { if (i >= sa.length) out.push('多 ' + x); else if (x !== sa[i]) out.push(sa[i] + ' → ' + x); });   // 只列有變的那幾項
+    if ((c.np || 0) !== (a.np || 0)) out.push('寶具 +' + (a.np || 0) + '% → +' + (c.np || 0) + '%');
+    if (c.ex && !a.ex) out.push('打出後消耗');
+    return out;
+  }
+  function shortBits(c, run) {
+    var b = run && run.battle && run.battle.hand ? run.battle : null, mn = run ? minionName(run) : '使魔';
+    if (c.id === 'sword' && b && b.projUp) return ['⚔' + (4 + b.projUp)];
+    return c.fx.map(function (f) {
       var t = SHORT[f[0]]; if (!t) return fxText([f], run)[0];
       if (typeof t === 'function') return t(f);
       var fill = function (x) { return x.replace('{1}', f[1]).replace('{2}', f[2]).replace(/\{m\}/g, mn); };
       if (Array.isArray(t)) { var v = b ? nowValue(f, b, run) : null; return v !== null ? fill(t[1]) + v : fill(t[0]); }
       return fill(t);
     });
-    if (c.type === 'power') bits.push('（整場）');
-    if (c.ex || c.token) bits.push('消耗');
-    return bits.join(' ');
   }
   function cardText(id, run) {
     var c = card(id), b = run && run.battle, bits = c.text ? [c.text] : fxText(c.fx, run);
@@ -689,7 +709,7 @@ var G = (function () {
   // ── 命運（開局三選一的強化）與局外：聖晶石 ─────────────
   // cost＝在「命運殿堂」解鎖要花多少聖晶石（0＝一開始就有）。每局結束依表現得到聖晶石。
   var FATES = {
-    gold:    { name: '黃金律', text: '開局多 120 金', cost: 0 },
+    gold:    { name: '意外之財', text: '路上撿到一袋金幣：開局多 120 金', cost: 0 },
     tough:   { name: '頑強', text: '最大生命 +12', cost: 0 },
     seal4:   { name: '第四劃令咒', text: '令咒 +1（上限也 +1）', cost: 0 },
     mana:    { name: '魔力充盈', text: '每場戰鬥寶具量表從 30% 開始', cost: 40 },
@@ -1679,7 +1699,7 @@ var G = (function () {
   }
 
   return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, BOSS_POOL: BOSS_POOL, ROWS: ROWS, COLS: COLS, ACT_NAMES: ACT_NAMES, EVENTS: EVENTS,
-    UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions,
+    UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff,
     FATES: FATES, FATE_FREE: FATE_FREE, SVT_COST: SVT_COST, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, crystalsFor: crystalsFor, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
     card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,

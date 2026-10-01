@@ -345,7 +345,7 @@ t(G.newRun('saber',1,{asc:6}).ascStart.some(f=>f[0]==='pWind'),'命座 VI：每�
 
 console.log('── 強化方向');
 t(G.upDirs('invis').join('')==='acde'&&G.upDirs('charge').join('')==='abcde'&&G.upDirs('atk').join('')==='ace'&&G.upDirs('kingly').join('')==='ad'&&G.upDirs('invis+').length===0&&G.upDirs('sword').length===0,'每張牌能往哪幾個方向強化（1 費沒有迅捷、能力牌沒有共鳴與極限、已強化／代幣不能再強化）');
-t(G.card('charge+b').cost===1&&G.card('invis+c').np===30&&G.card('invis+c').fx.some(f=>f[0]==='draw')&&G.card('invis+d').fx.some(f=>f[0]==='wind'&&f[1]===1)&&G.card('invis+e').fx[0][1]===10&&G.card('invis+e').ex,'迅捷 -1 費、共鳴 +15% 抽 1、魂加風、極限翻倍但消耗');
+t(G.card('charge+b').cost===1&&G.card('invis+c').np===30&&G.card('invis+c').fx.some(f=>f[0]==='draw')&&G.card('invis+d').fx.filter(f=>f[0]==='wind').length===1&&G.card('invis+d').fx.some(f=>f[0]==='wind'&&f[1]===3)&&G.card('invis+e').fx[0][1]===10&&G.card('invis+e').ex,'迅捷 -1 費、共鳴 +15% 抽 1、魂加風（原本風 1 → 3）、極限翻倍但消耗');
 t(G.card('invis+').name==='看不見的劍＋'&&G.card('invis+').fx[0][1]===7&&G.card('invis+e').name==='看不見的劍・極'&&G.card('invis+c').name==='看不見的劍・共鳴','舊存檔的「+」還是精煉；名字帶方向');
 let ug=G.newRun('saber',77); ug.deck.push('charge'); const ci=ug.deck.length-1, op=G.upgradeOptions(ug,ci);
 t(op.length===3&&op.includes('charge+')&&JSON.stringify(G.upgradeOptions(ug,ci))===JSON.stringify(op),'強化給三個方向（精煉一定在），同一次重畫不會變',op);
@@ -365,6 +365,12 @@ const r10=J(G.newRun('lancelot',21)); step(r10,'fight'); const saved=J(r10); x=G
 const old={v:1,who:'archer',hp:50,maxHp:72,deck:['atk'],relics:[],seals:3,maxSeals:3,floor:3,lane:1,screen:'battle',map:G.newRun('saber',1).map,
   battle:{kind:'fight',turn:1,energy:3,block:0,np:0,str:0,tstr:0,vuln:0,weak:0,thorns:0,pBlock:0,pDraw:0,pEnergy:0,ubw:0,projUp:0,firstAtk:false,draw:[],hand:['atk','sword'],discard:[],exhaust:[],enemies:[{id:'hercules',key:'h0',name:'赫拉克勒斯',hp:50,maxHp:100,block:0,str:0,vuln:0,weak:0,lives:1,mi:0,last:-1,rep:0,intent:{n:'怒吼',fx:[['str',3]]}}],log:[]},stats:{kills:0,np:0,seals:0,floors:3},rs:5};
 G.migrate(old); t(old.who==='emiya'&&old.boss==='heracles'&&old.battle.enemies[0].id==='heracles'&&G.play(old,0,0).ok&&G.endTurn(old).ok,'第一版的舊存檔（Archer）轉得過來、繼續能打');
+// 強化畫面看得出差別：英靈之魂不重複印同一個資源、共鳴的寶具量表上卡面、upDiff 列出具體變化
+t(JSON.stringify(G.card('doublespear+d').fx)==='[["hits",5,2],["doom",3]]'&&G.cardShort('doublespear+d')==='⚔5×2 死兆3','英靈之魂：牌上已有死兆 1 → 合併成死兆 3（不印兩次、也不輸給精煉）',G.cardShort('doublespear+d'));
+t(JSON.stringify(G.card('rose+d').fx.filter(f=>f[0]==='stance').length)==='3','英靈之魂：切換架勢（非數字）照樣多加一次');
+t(/寶具\+30%/.test(G.cardShort('doublespear+c')),'共鳴：卡面顯示寶具 +%',G.cardShort('doublespear+c'));
+t(G.upDiff('doublespear','doublespear+c').some(x=>/寶具 \+15% → \+30%/.test(x))&&G.upDiff('doublespear','doublespear+a').some(x=>/→/.test(x)&&/6×2/.test(x)),'強化選單列出具體變化（寶具 +15% → +30%、⚔5×2 → ⚔6×2）',JSON.stringify(G.upDiff('doublespear','doublespear+c')));
+t(G.FATES.gold.name==='意外之財','命運不用別的從者的技能名（黃金律是吉爾伽美什的）');
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位從者 4 局都能打到結束（不卡死）',fin);
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
