@@ -116,6 +116,7 @@
   .mrow { display:flex; gap:10px; } .mrow .mbtn { flex-direction:column; gap:4px; padding:12px 6px; text-align:center; } .mrow .mbtn b { font-size:15px; }
   /* 打擊感 */
   .card.flying { position:fixed; z-index:20; margin:0; pointer-events:none; box-shadow:0 0 18px rgba(217,184,106,.6); }
+  .card.flying.chase { box-shadow:0 0 18px rgba(124,199,154,.8); } .card.flying.drop { filter:grayscale(1); box-shadow:none; }
   .pop { position:fixed; z-index:21; transform:translate(-50%,-50%); pointer-events:none; font-weight:bold; font-size:26px; text-shadow:0 2px 6px #000; animation:pop 1s ease-out forwards; white-space:nowrap; }
   .pop.dmg { color:#ff7a7a; } .pop.crit { font-size:36px; color:#ffb347; } .pop.blk { color:#b8c0cc; font-size:20px; }
   .pop.ko { color:var(--gold); font-size:22px; letter-spacing:.2em; } .pop.heal { color:var(--green); } .pop.hurt { color:#ff5a5a; font-size:30px; } .pop.gain { color:var(--blue); font-size:22px; }
@@ -303,6 +304,8 @@
     ['聖晶石與靈基工坊', '每局結束依表現得到聖晶石（走過的格子、打倒魔王、通關）；拿來解鎖新英靈、靈基再臨（每位英靈各自升級）、命運。每位玩家分開記'],
     ['刻印', '盧恩刻印（斯卡哈，原初的盧恩）：每層讓那個敵人受到的每一擊 +1。刻印本身不會殺人，要用「收尾」'],
     ['收尾', '斯卡哈的死棘、死翔之槍與寶具：目標生命 ≤ 刻印×4 就當場倒下（魔王只吃加傷，不會即死）。收尾成功魔力 +1、抽 1，下一張攻擊也能收尾（連鎖）'],
+    ['連動', '斯卡哈（參考卡厄斯海德瑪麗的「連結」）：手動打出一張連動牌時，手上其他連動牌一起出手——有追擊的免費發動，沒有的直接丟進棄牌堆。一起出手的牌也算本回合張數，也能接收尾連鎖。取捨：一次全出，就不能留到下回合'],
+    ['追擊', '被連動帶出去時免費發動，效果七成（不花魔力）'],
     ['魔境之智慧', '斯卡哈的被動：每回合從第 3 張牌起（技能也算張數），每打出一張攻擊牌目標刻印 +1；出到第 5 張時迴避 1；收尾成功時魔力 +1、抽 1，下一張攻擊也能收尾。先把刻印疊好，再一口氣刺過去'],
     ['地圖', '由上往下走，只能沿線前進；看得到接下來 3 列與魔王。精英比較難，但打贏有禮裝與靈基覺醒；事件是有取捨的選擇'],
     ['兩章與隱藏關', '第一章、第二章各有一位魔王；第二章打完時手上還留著令咒，就能燒掉 1 劃進入隱藏關'],
@@ -779,8 +782,20 @@
     c.classList.add('flying'); c.style.left = a.left + 'px'; c.style.top = a.top + 'px'; c.style.width = a.width + 'px'; c.style.height = a.height + 'px';
     document.body.appendChild(c); el.style.visibility = 'hidden';
     var dx = z.left + z.width / 2 - (a.left + a.width / 2), dy = z.top + z.height / 2 - (a.top + a.height / 2);
-    c.animate([{ transform: 'translate(0,-10px) scale(1.08)', opacity: 1 }, { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.45) rotate(' + (foe >= 0 ? -12 : 0) + 'deg)', opacity: .15 }], { duration: 210, easing: 'cubic-bezier(.5,0,.9,.6)' })
-      .onfinish = function () { c.remove(); cb(); };
+    var fly = function (node, from, delay, done) {
+      node.animate([{ transform: 'translate(0,-10px) scale(1.08)', opacity: 1 }, { transform: 'translate(' + (z.left + z.width / 2 - (from.left + from.width / 2)) + 'px,' + (z.top + z.height / 2 - (from.top + from.height / 2)) + 'px) scale(.45) rotate(' + (foe >= 0 ? -12 : 0) + 'deg)', opacity: .15 }], { duration: 210, delay: delay, easing: 'cubic-bezier(.5,0,.9,.6)', fill: 'backwards' })
+        .onfinish = function () { node.remove(); if (done) done(); };
+    };
+    // 連動：手上其他連動牌一張接一張跟著飛出去（等最後一張到了才結算）
+    var links = [], hand = run.battle.hand, all = document.querySelectorAll('#hand .card');
+    if (G.card(hand[i]).link) hand.forEach(function (id, k) { if (k !== i && G.card(id).link && all[k]) links.push(all[k]); });
+    fly(c, a, 0, links.length ? null : cb);
+    links.forEach(function (node, n) {
+      var r = node.getBoundingClientRect(), cl = node.cloneNode(true);
+      cl.classList.add('flying', G.card(hand[[].indexOf.call(all, node)]).chase ? 'chase' : 'drop'); cl.style.left = r.left + 'px'; cl.style.top = r.top + 'px'; cl.style.width = r.width + 'px'; cl.style.height = r.height + 'px';
+      document.body.appendChild(cl); node.style.visibility = 'hidden';
+      fly(cl, r, 110 * (n + 1), n === links.length - 1 ? cb : null);
+    });
   }
   function npBanner(name, cb) {
     if (CALM) return cb();

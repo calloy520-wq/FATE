@@ -200,16 +200,16 @@ var G = (function () {
     endless:  { name: '無窮之武練', cost: 2, type: 'power', np: 0, fx: [['pWeaponize', 1]], up: { cost: 1 } }
   });
   kit('scathach', {   // 神速與盧恩刻印：一回合出越多張牌，刻印疊越快；刺穿類的牌（死棘、死翔）收尾即死，回魔力、抽牌，下一張攻擊也能收尾——一路刺下去
-    doublespear:{ name: '雙槍・死棘', cost: 1, type: 'atk', np: 15, fx: [['hits', 5, 2], ['doom', 1], ['reap']], up: { fx: [['hits', 6, 2], ['doom', 2], ['reap']] } },
-    quickspear: { name: '疾槍', cost: 0, type: 'atk', np: 5, fx: [['dmg', 3], ['doom', 1]], up: { fx: [['dmg', 5], ['doom', 1]] } },
-    flashstep:  { name: '瞬步', cost: 0, type: 'skill', np: 5, fx: [['draw', 1], ['haste', 1]], up: { fx: [['draw', 2], ['haste', 1]] } },
-    chainthrust:{ name: '連環刺突', cost: 1, type: 'atk', np: 10, fx: [['hitsPerPlayed', 3]], up: { fx: [['hitsPerPlayed', 4]] } },
-    runefire:   { name: '盧恩・火', cost: 1, type: 'atk', np: 10, fx: [['all', 3], ['doomAll', 1]], up: { fx: [['all', 5], ['doomAll', 1]] } },
+    doublespear:{ name: '雙槍・死棘', cost: 1, type: 'atk', np: 15, link: 1, fx: [['hits', 5, 2], ['doom', 1], ['reap']], up: { fx: [['hits', 6, 2], ['doom', 2], ['reap']] } },
+    quickspear: { name: '疾槍', cost: 0, type: 'atk', np: 5, link: 1, chase: 1, fx: [['dmg', 3], ['doom', 1]], up: { fx: [['dmg', 5], ['doom', 1]] } },
+    flashstep:  { name: '瞬步', cost: 0, type: 'skill', np: 5, link: 1, chase: 1, fx: [['draw', 1], ['haste', 1]], up: { fx: [['draw', 2], ['haste', 1]] } },
+    chainthrust:{ name: '連環刺突', cost: 1, type: 'atk', np: 10, link: 1, chase: 1, fx: [['hitsPerPlayed', 3]], up: { fx: [['hitsPerPlayed', 4]] } },
+    runefire:   { name: '盧恩・火', cost: 1, type: 'atk', np: 10, link: 1, chase: 1, fx: [['all', 3], ['doomAll', 1]], up: { fx: [['all', 5], ['doomAll', 1]] } },
     runebind:   { name: '盧恩・束縛', cost: 1, type: 'skill', np: 5, fx: [['weak', 1], ['doom', 2]], up: { fx: [['weak', 2], ['doom', 3]] } },
     shadowgate: { name: '影之國之門', cost: 1, type: 'skill', np: 5, fx: [['block', 6], ['doomAll', 1]], up: { fx: [['block', 9], ['doomAll', 1]] } },
-    deathflight:{ name: '死翔之槍', cost: 2, type: 'atk', np: 20, fx: [['doomDmg', 10, 3], ['reap']], up: { fx: [['doomDmg', 13, 4], ['reap']] } },
+    deathflight:{ name: '死翔之槍', cost: 2, type: 'atk', np: 20, link: 1, fx: [['doomDmg', 10, 3], ['reap']], up: { fx: [['doomDmg', 13, 4], ['reap']] } },
     godslayer:  { name: '弒神', cost: 1, type: 'atk', np: 10, fx: [['dmgIfElite', 7, 8]], up: { fx: [['dmgIfElite', 10, 10]] } },
-    runeheal:   { name: '原初的盧恩', cost: 0, type: 'skill', np: 5, ex: 1, fx: [['heal', 4], ['doomAll', 1]], up: { fx: [['heal', 7], ['doomAll', 1]] } },
+    runeheal:   { name: '原初的盧恩', cost: 0, type: 'skill', np: 5, ex: 1, link: 1, chase: 1, fx: [['heal', 4], ['doomAll', 1]], up: { fx: [['heal', 7], ['doomAll', 1]] } },
     godspeed:   { name: '神速', cost: 2, type: 'power', np: 0, fx: [['pHaste', 1]], up: { cost: 1 } }
   });
   // 兩屆都在（第四次、第五次）
@@ -653,6 +653,7 @@ var G = (function () {
     if (c.text) return '打不出來';
     var bits = shortBits(c, run);
     if (c.dir === 'c') bits.push('寶具+' + c.np + '%');   // 共鳴：寶具量表加得比較多，卡面也看得到
+    if (c.link) bits.push(c.chase ? '連動・追擊' : '連動');
     if (c.type === 'power') bits.push('（整場）');
     if (c.ex || c.token) bits.push('消耗');
     return bits.join(' ');
@@ -682,6 +683,8 @@ var G = (function () {
     if (b && b.hand) c.fx.forEach(function (f, i) { var v = nowValue(f, b, run); if (v !== null) bits[i] += '（現在 ' + v + '）'; });
     if (c.id === 'sword' && b && b.projUp) bits = ['造成 ' + (4 + b.projUp) + ' 傷害'];
     if (c.np) bits.push('寶具 +' + c.np + '%');
+    if (c.link) bits.push('【連動】打出時，手上其他連動牌一起出手');
+    if (c.chase) bits.push('【追擊】被連動帶出時免費發動（效果七成）');
     if (c.type === 'power') bits.push('（持續整場）');
     if (c.ex || c.token) bits.push('消耗');
     return bits.join('，');
@@ -1444,14 +1447,44 @@ var G = (function () {
   function wisdomRefund(run, before, log) {
     var b = run.battle; if (!b || passive(run) !== 'wisdom' || run.screen !== 'battle') return;
     var n = (b.doomKills || 0) - before; if (n <= 0) return;
-    b.energy += n; drawCards(run, n); b.reapNext = 1; log.push('收尾：魔力 +' + n + '、抽 ' + n + ' 張，下一張攻擊也能收尾');
+    b.energy += n; drawCards(run, n); b.reapNext = 1; log.push('收尾 ' + n + ' 個：魔力 +' + n + '、抽 ' + n + ' 張，下一張攻擊也能收尾');
   }
   // 收尾：敵人（魔王除外）生命 ≤ 刻印×4 就即死。不會自己發生：要刺穿類的牌（死棘、死翔、寶具）或連鎖中的下一張攻擊
+  function chainReap(run, tg, log) { var b = run.battle; if (tg && tg.hp > 0) reapOne(run, tg, log); else if (!tg) alive(b).forEach(function (e) { reapOne(run, e, log); }); }
+  // 連動／追擊（參考卡厄斯的海德瑪麗「連結／安息」）：手動打出一張【連動】牌，手上其他連動牌一起出手；
+  // 有【追擊】的免費發動（效果七成），沒有的就丟進棄牌堆。一起出手的牌也算本回合張數（魔境之智慧、連環刺突吃得到），也能接收尾連鎖
+  var CHASE = 0.7;
+  function chaseFx(fx) { return fx.map(function (f) { return SCALABLE[f[0]] && typeof f[1] === 'number' ? [f[0], Math.max(1, Math.round(f[1] * CHASE))].concat(f.slice(2)) : f; }); }
+  function linkCascade(run, tg, log) {
+    var b = run.battle, ids = b.hand.filter(function (id) { return card(id).link; });
+    if (!ids.length) return;
+    b.hand = b.hand.filter(function (id) { return !card(id).link; });
+    ids.forEach(function (id) {
+      var c = card(id);
+      if (c.chase && run.screen === 'battle' && alive(b).length) {
+        var atk = c.type === 'atk', chained = atk && b.reapNext;
+        // 原本的目標倒了：追擊自動找下一個——連鎖中先找「可收尾」的，不然打生命最少的
+        var t = tg && tg.hp > 0 ? tg : alive(b).slice().sort(function (x, y) { var kx = chained && canReap(x) ? 0 : 1, ky = chained && canReap(y) ? 0 : 1; return kx - ky || x.hp - y.hp; })[0];
+        var ctx = { run: run, b: b, tg: t, log: log, id: baseId(c.id), atk: atk, first: false };
+        if (chained) b.reapNext = 0;
+        log.push('追擊：' + c.name);
+        runFx(ctx, chaseFx(c.fx));
+        if (atk) b.attacks++;
+        b.played++;
+        if (atk) wisdomHit(run, t, log);
+        if (chained) chainReap(run, t, log);
+        b.np = Math.min(100, b.np + Math.round((c.np || 0) * CHASE));
+      } else log.push('連動丟棄：' + c.name);
+      (c.ex ? b.exhaust : b.discard).push(id);
+    });
+  }
+  function canReap(e) { return e && e.hp > 0 && e.doom > 0 && !ENEMIES[e.id].boss && e.hp <= e.doom * 4; }
   function reapOne(run, e, log) {
     var b = run.battle;
     if (!e || !(e.doom > 0) || ENEMIES[e.id].boss || e.reaped) return false;
     if (e.hp > 0 && e.hp > e.doom * 4) return false;
     e.reaped = 1; b.doomKills = (b.doomKills || 0) + 1;   // 收尾這一刺本身就打倒了也算收尾成功（連鎖照樣接下去）
+    if (passive(run) === 'wisdom') b.reapNext = 1;
     if (e.hp > 0) { e.lives = 0; hitEnemy(run, e, e.hp, log, true); log.push('刻印應驗：' + e.name); }
     return true;
   }
@@ -1477,6 +1510,7 @@ var G = (function () {
     b.hand.splice(i, 1);
     var dk = b.doomKills || 0;   // 收尾成功幾個（這張牌打完再比）
     var ctx = { run: run, b: b, tg: tg, log: [c.name], id: baseId(c.id), atk: c.type === 'atk', first: b.played === 0 };
+    var chained = ctx.atk && b.reapNext; if (chained) b.reapNext = 0;   // 連鎖中：這張攻擊打完也收尾
     runFx(ctx, c.fx);
     if (c.type === 'skill' && !c.token) { b.skills++; if (passive(run) === 'hsw') b.chant = (b.chant || 0) + 1; if (b.pSkillBlock) b.block += b.pSkillBlock; }
     if (ctx.atk) { if (b.stance === 'yellow' && tg && tg.hp > 0) tg.wound += 1; b.attacks++; b.firstAtk = false; }
@@ -1484,10 +1518,11 @@ var G = (function () {
     if (c.type === 'skill' && !c.token && passive(run) === 'arms') { var foe = randFoe(ctx); if (foe) { strike({ run: run, b: b, log: ctx.log, atk: false }, foe, 3); ctx.log.push('順手一擊'); } }
     b.played++;
     if (ctx.atk) wisdomHit(run, tg, ctx.log);
-    if (ctx.atk && b.reapNext) { b.reapNext = 0; if (tg) reapOne(run, tg, ctx.log); else alive(b).forEach(function (e) { reapOne(run, e, ctx.log); }); }
+    if (chained) chainReap(run, tg, ctx.log);
     if (passive(run) === 'wisdom' && b.played === 5) { b.evade += 1; ctx.log.push('魔境之智慧：身法迴避 1'); }
     b.np = Math.min(100, b.np + (c.np || 0));
     if (c.type !== 'power') (c.ex || c.token ? b.exhaust : b.discard).push(id);
+    if (c.link) linkCascade(run, tg, ctx.log);
     b.log = ctx.log;
     var end = checkEnd(run);
     wisdomRefund(run, dk, ctx.log);
@@ -1715,7 +1750,7 @@ var G = (function () {
   }
 
   return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, BOSS_POOL: BOSS_POOL, actName: actName, scaleUp: scaleUp, ROWS: ROWS, COLS: COLS, ACT_NAMES: ACT_NAMES, EVENTS: EVENTS,
-    UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff,
+    UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff, CHASE: CHASE,
     FATES: FATES, FATE_FREE: FATE_FREE, SVT_COST: SVT_COST, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, crystalsFor: crystalsFor, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
     card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,

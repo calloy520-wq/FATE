@@ -339,6 +339,16 @@ r.battle.energy=1; playId(r,'doublespear',1); t(r.battle.enemies[1].hp<=0&&r.bat
 playId(r,'quickspear',2); t(r.battle.enemies[2].hp<=0&&r.battle.reapNext===1,'連鎖中：下一張攻擊（疾槍）也收尾，連鎖繼續',r.battle.enemies[2].hp);
 G.endTurn(r); t(!r.battle.reapNext,'連鎖到回合結束就斷');
 r=arena('saber',2,50); E(r).hp=4; E(r).doom=1; r.battle.energy=1; playId(r,'atk',0); t(E(r).hp<=0||E(r).hp===4-0,'別的從者沒有收尾');
+// 連動／追擊（參考卡厄斯海德瑪麗）：打出連動牌 → 手上其他連動牌一起出手；追擊的免費發動七成，沒有追擊的丟掉
+r=arena('scathach',2,50); r.battle.hand=['quickspear','runefire','deathflight','atk']; r.battle.energy=3; playId(r,'doublespear',0);
+t(r.battle.hand.length===1&&r.battle.hand[0]==='atk'&&r.battle.discard.includes('deathflight')&&r.battle.played===3,'連動：疾槍、盧恩・火追擊，死翔之槍（沒追擊）被丟掉，普通牌留在手上；一起出手的算張數',JSON.stringify([r.battle.hand,r.battle.played]));
+t(r.battle.log.some(x=>x==='追擊：疾槍')&&r.battle.log.some(x=>x==='連動丟棄：死翔之槍'),'連動的紀錄寫得出來');
+t(G.CHASE===0.7&&r.battle.enemies[1].hp===50-2&&r.battle.enemies[1].doom===1,'追擊效果七成：盧恩・火全體 3 → 2，刻印照給',r.battle.enemies[1].hp);
+r=arena('scathach',2,50); E(r).hp=30; E(r).doom=8; r.battle.enemies[1].hp=10; r.battle.enemies[1].doom=3; r.battle.hand=['quickspear']; r.battle.energy=3; playId(r,'doublespear',0);
+t(r.battle.enemies.every(e=>e.hp<=0),'一按刺倒一排：死棘收尾 → 連鎖 → 追擊的疾槍也收尾下一個',JSON.stringify(r.battle.enemies.map(e=>e.hp)));
+r=arena('scathach',2,50); r.battle.hand=['doublespear']; r.battle.energy=3; playId(r,'atk',0); t(r.battle.hand.length===1,'普通牌不會觸發連動');
+r=arena('scathach',3,50); E(r).hp=30; E(r).doom=8; r.battle.enemies[1].hp=40; r.battle.enemies[2].hp=12; r.battle.enemies[2].doom=3; r.battle.hand=['quickspear']; r.battle.energy=3; playId(r,'doublespear',0);
+t(r.battle.enemies[2].hp<=0&&r.battle.enemies[1].hp===40,'目標倒了：連鎖中的追擊自動找「可收尾」的敵人，不會亂打',JSON.stringify(r.battle.enemies.map(e=>e.hp)));
 const svM=J(G.newRun('scathach',3)); svM.deck.push('mentor','dunscaith+'); G.migrate(svM); t(svM.deck.includes('flashstep')&&svM.deck.includes('godspeed+'),'舊存檔的師匠的教誨／魔境之智慧換成瞬步／神速');
 console.log('── 難度');
 let dn=G.newRun('saber',9,{diff:'normal'}), dh=G.newRun('saber',9,{diff:'abyss'}); step(dn,'fight'); step(dh,'fight');
@@ -370,7 +380,7 @@ const old={v:1,who:'archer',hp:50,maxHp:72,deck:['atk'],relics:[],seals:3,maxSea
   battle:{kind:'fight',turn:1,energy:3,block:0,np:0,str:0,tstr:0,vuln:0,weak:0,thorns:0,pBlock:0,pDraw:0,pEnergy:0,ubw:0,projUp:0,firstAtk:false,draw:[],hand:['atk','sword'],discard:[],exhaust:[],enemies:[{id:'hercules',key:'h0',name:'赫拉克勒斯',hp:50,maxHp:100,block:0,str:0,vuln:0,weak:0,lives:1,mi:0,last:-1,rep:0,intent:{n:'怒吼',fx:[['str',3]]}}],log:[]},stats:{kills:0,np:0,seals:0,floors:3},rs:5};
 G.migrate(old); t(old.who==='emiya'&&old.boss==='heracles'&&old.battle.enemies[0].id==='heracles'&&G.play(old,0,0).ok&&G.endTurn(old).ok,'第一版的舊存檔（Archer）轉得過來、繼續能打');
 // 強化畫面看得出差別：英靈之魂不重複印同一個資源、共鳴的寶具量表上卡面、upDiff 列出具體變化
-t(JSON.stringify(G.card('doublespear+d').fx)==='[["hits",5,2],["doom",3],["reap"]]'&&G.cardShort('doublespear+d')==='⚔5×2 刻印3 收尾','英靈之魂：牌上已有刻印 1 → 合併成刻印 3（不印兩次、也不輸給精煉）',G.cardShort('doublespear+d'));
+t(JSON.stringify(G.card('doublespear+d').fx)==='[["hits",5,2],["doom",3],["reap"]]'&&G.cardShort('doublespear+d')==='⚔5×2 刻印3 收尾 連動','英靈之魂：牌上已有刻印 1 → 合併成刻印 3（不印兩次、也不輸給精煉）',G.cardShort('doublespear+d'));
 t(JSON.stringify(G.card('rose+d').fx.filter(f=>f[0]==='stance').length)==='3','英靈之魂：切換架勢（非數字）照樣多加一次');
 t(/寶具\+30%/.test(G.cardShort('doublespear+c')),'共鳴：卡面顯示寶具 +%',G.cardShort('doublespear+c'));
 t(G.upDiff('doublespear','doublespear+c').some(x=>/寶具 \+15% → \+30%/.test(x))&&G.upDiff('doublespear','doublespear+a').some(x=>/→/.test(x)&&/6×2/.test(x)),'強化選單列出具體變化（寶具 +15% → +30%、⚔5×2 → ⚔6×2）',JSON.stringify(G.upDiff('doublespear','doublespear+c')));
