@@ -95,6 +95,7 @@ function playRun(who,seed){
     else if(run.screen==='battle') playTurn(run);
     else if(run.screen==='reward'){ if(run.reward.awaken) G.awaken(run,AWAKEN>=0?AWAKEN:(seed+run.floor)%2); G.takeReward(run,pickReward(run)); }
     else if(run.screen==='chest') G.takeChest(run);
+    else if(run.screen==='boon') G.takeBoon(run,0);
     else if(run.screen==='event'){ const E=G.EVENTS[run.event];   // 不燒令咒、不扣最大生命、扣血後要留五成；都不行就選最後一個（通常是離開）
       const bad=o=>o.fx.some(f=>(f[0]==='seal'&&f[1]<0)||(f[0]==='maxHp'&&f[1]<0));
       let i=E.opts.findIndex(o=>G.canChoose(run,o)&&!bad(o)&&!(o.need&&o.need.hp&&run.hp-o.need.hp<run.maxHp*0.5)); if(i<0) i=E.opts.length-1; G.choose(run,i); }
