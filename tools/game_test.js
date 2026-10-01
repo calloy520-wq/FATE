@@ -45,7 +45,15 @@ t(hp-r.hp===6&&r.battle.turn===2&&r.battle.hand.length===5,'敵人打 10、格�
 r=arena('saber',2); r.battle.wind=3; r.battle.np=100; G.noble(r,0); t(r.battle.enemies.every(e=>e.hp===1)&&r.battle.wind===0,'Saber 寶具：解放 3 層風，全體 40＋3×3',E(r).hp);
 t(!G.noble(arena('saber'),0).ok,'量表沒滿不能放寶具');
 r=arena('saber'); let hl=r.battle.hand.length; G.seal(r,'all'); t(r.seals===2&&r.battle.energy===6&&r.battle.hand.length===hl+2,'令咒（全力）：魔力 +3、抽 2');
-G.seal(r,'np'); t(r.battle.np===100&&r.seals===1,'令咒（寶具）：量表充滿'); r.seals=0; t(!G.seal(r,'all').ok,'令咒用完不能用');
+t(!G.seal(r,'np').ok&&r.seals===2,'令咒每回合只能用一劃'); G.endTurn(r);
+G.seal(r,'np'); t(r.battle.np===100&&r.seals===1,'令咒（寶具）：量表充滿'); r.seals=0; G.endTurn(r); t(!G.seal(r,'all').ok,'令咒用完不能用');
+// 寶具每回合一次：放完再用令咒灌滿也放不出第二次（不能連發蒸發魔王）
+{ const q=arena('saber',1,500); q.battle.np=100; t(G.noble(q,0).ok,'放寶具'); q.battle.np=100; t(!G.noble(q,0).ok,'同一回合不能放第二次寶具'); t(!G.seal(q,'np').ok&&q.seals===3,'放過寶具的回合，令咒也不能再灌寶具');
+  G.endTurn(q); q.battle.np=100; t(G.noble(q,0).ok,'下回合又能放'); }
+// 空間轉移：這回合躲開所有攻擊；回復：生命回滿
+{ const q=arena('saber'); E(q).intent={n:'砍',fx:[['atk',20,3]]}; const h=q.hp; t(G.seal(q,'warp').ok,'令咒（空間轉移）'); G.endTurn(q); t(q.hp===h,'空間轉移：這回合的攻擊全部落空',h-q.hp);
+  E(q).intent={n:'砍',fx:[['atk',5]]}; const h2=q.hp; G.endTurn(q); t(q.hp<h2,'下一回合就沒有了');
+  q.hp=10; t(G.seal(q,'heal').ok&&q.hp===q.maxHp,'令咒（回復）：生命回滿'); E(q).intent={n:'發呆',fx:[]}; G.endTurn(q); t(!G.seal(q,'heal').ok,'生命滿的時候不能用回復'); }
 
 console.log('── 第五次');
 r=arena('saber'); r.battle.wind=9; playId(r,'sheath'); t(r.battle.wind===10,'Saber 風王結界：風最多 10 層',r.battle.wind);

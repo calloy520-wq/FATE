@@ -879,6 +879,7 @@
     var a = [];
     if (b.wind || b.pWind || G.passive(run) === 'invisair') a.push(['gold', '風 ' + b.wind + '／10']);
     if (b.evade) a.push(['gold', '迴避 ' + b.evade]);
+    if (b.evadeAll) a.push(['gold', '空間轉移：這回合不會被打到']);
     if (b.riposte) a.push(['gold', '迎擊 ' + b.riposte]);
     if (G.passive(run) === 'hsw') a.push(['gold', '陣地 ' + (b.chant || 0)]);
     if (b.minions) a.push(['gold', G.minionName(run) + ' ×' + b.minions]);
@@ -936,7 +937,7 @@
         + (e.hp > 0 ? '<div class="intent">' + intentHtml(e) + '</div>' : '') + '</button>';
     }).join('');
     b.enemies.forEach(function (e) { lastHp[e.key] = e.hp; });
-    var full = b.np >= 100;
+    var full = b.np >= 100 && !b.npUsed;
     $('app').innerHTML = topBar()
       + '<div id="battle"><div id="foes"' + (sel.card >= 0 ? ' class="picking"' : '') + '>' + foes + '</div><div style="flex:1"></div>'
       + '<div id="dock">' + incomingHtml(b)
@@ -945,8 +946,8 @@
       + '<span class="myblk' + (b.block ? '' : ' zero') + '">🛡 ' + b.block + '</span>'
       + '<div class="chips" style="flex:1;min-width:0">' + meChips(b) + '</div><span class="chip">?</span></div></div>'
       + '<div id="hand"' + (b.hand.length >= 6 ? ' class="many' + (b.hand.length >= 7 ? ' m7' : '') + '"' : '') + '>' + b.hand.map(function (id, i) { return cardHtml(id, 'onclick="tapCard(' + i + ')"' + (G.costOf(run, id) > b.energy || G.card(id).unplayable ? ' disabled' : ''), false, pvHtml(i)); }).join('') + '</div>'
-      + '<div id="acts">' + (S.np.none ? '<button class="btn" disabled>沒有寶具</button>' : '<button class="btn npbtn' + (full ? ' full' : '') + (sel.np ? ' on' : '') + '" style="--np:' + b.np + '%" ' + (full ? '' : 'disabled') + ' onclick="doNP()">' + (full ? '★ 放寶具' : '寶具 ' + b.np + '%') + '</button>')
-      + '<button class="btn red" ' + (run.seals ? '' : 'disabled') + ' onclick="sealMenu()">令咒 ' + run.seals + '</button>'
+      + '<div id="acts">' + (S.np.none ? '<button class="btn" disabled>沒有寶具</button>' : '<button class="btn npbtn' + (full ? ' full' : '') + (sel.np ? ' on' : '') + '" style="--np:' + b.np + '%" ' + (full ? '' : 'disabled') + ' onclick="doNP()">' + (full ? '★ 放寶具' : b.npUsed ? '寶具（本回合已放）' : '寶具 ' + b.np + '%') + '</button>')
+      + '<button class="btn red" ' + (run.seals && !run.battle.sealUsed ? '' : 'disabled') + ' onclick="sealMenu()">令咒 ' + run.seals + '</button>'
       + '<button class="btn' + (canPlay ? '' : ' go') + '" onclick="endTurn()">結束回合</button></div></div></div>';
     var cs = document.querySelectorAll('#hand .card'); if (sel.card >= 0 && cs[sel.card]) cs[sel.card].classList.add('sel');
     dropBars();
@@ -1016,9 +1017,14 @@
   }
   function sealMenu() {
     if (busy || run.screen !== 'battle') return;
-    openOv('<b>令咒（剩 ' + run.seals + ' 劃，整趟冒險只有禮裝、命運能補）</b><div class="list" style="margin-top:12px">'
+    var b = run.battle;
+    if (b.sealUsed) { toast('這回合已經用過令咒了（每回合一劃）', 'err'); return; }
+    openOv('<b>令咒（剩 ' + run.seals + ' 劃・每回合一劃，整趟冒險只有禮裝、命運能補）</b><div class="list" style="margin-top:12px">'
+      + (G.serv(run).np.none || b.np >= 100 || b.npUsed ? '' : '<button onclick="useSeal(\'np\')">❖ 解放寶具：寶具量表直接充滿</button>')
       + '<button onclick="useSeal(\'all\')">❖ 全力以赴：魔力 +3、抽 2 張</button>'
-      + (G.serv(run).np.none || run.battle.np >= 100 ? '' : '<button onclick="useSeal(\'np\')">❖ 解放寶具：寶具量表直接充滿</button>') + '<button onclick="closeOv()">先不要</button></div>');
+      + '<button onclick="useSeal(\'warp\')">❖ 空間轉移：這回合躲開所有攻擊</button>'
+      + (run.hp < run.maxHp ? '<button onclick="useSeal(\'heal\')">❖ 回復：生命回滿（+' + (run.maxHp - run.hp) + '）</button>' : '')
+      + '<button onclick="closeOv()">先不要</button></div>');
   }
   function useSeal(k) { closeOv(); if (busy || run.screen !== 'battle') return; var r = G.seal(run, k); if (!r.ok) toast(r.msg, 'err'); after(); }
   function endTurn() { if (busy) return; sel.card = -1; sel.np = false; var before = snapBattle(); G.endTurn(run); resolveFx(before, false); }

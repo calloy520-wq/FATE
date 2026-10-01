@@ -1286,7 +1286,7 @@ var G = (function () {
 
   // ── 戰鬥 ─────────────────────────────────────────────
   // 一場戰鬥的初始欄位（p 開頭＝能力牌，每回合生效）
-  var BATTLE0 = { turn: 0, energy: 0, block: 0, np: 0, str: 0, tstr: 0, vuln: 0, weak: 0, thorns: 0, manshin: 0, hurt: 0, swords: 0,
+  var BATTLE0 = { npUsed: 0, sealUsed: 0, evadeAll: 0, turn: 0, energy: 0, block: 0, np: 0, str: 0, tstr: 0, vuln: 0, weak: 0, thorns: 0, manshin: 0, hurt: 0, swords: 0,
     pBlock: 0, pDraw: 0, pEnergy: 0, pStr: 0, pEvade: 0, pTreasure: 0, pMinion: 0, pVenom: 0, pWeaponize: 0, mastery: 0,
     ubw: 0, projUp: 0, firstAtk: false, evade: 0, minions: 0, army: 0, attacks: 0, stance: '', played: 0,
     nextFree: 0, nextEnergy: 0, hswUsed: 0,
@@ -1336,6 +1336,7 @@ var G = (function () {
     if (!first) b.block = 0;
     if (hasRelic(run, 'volumen')) b.block += 2;   // 月靈髓液
     if (b.manshin && b.turn >= 3 && alive(b).some(function (e) { var E = ENEMIES[e.id]; return E.boss || E.elite; })) serious(run, b.log || (b.log = []));   // 認可對手
+    b.npUsed = 0; b.sealUsed = 0; b.evadeAll = 0;   // 寶具、令咒每回合各一次；空間轉移撐到下回合開始
     b.evade = 0; b.played = 0; b.attacks = 0; b.sowaFirst = 0; b.sowaSeen = {}; b.haste = 0; b.reapNext = 0; b.switches = 0; b.skills = 0; b.hswUsed = 0;
     b.energy = 3 + b.pEnergy + b.nextEnergy + (first && hasRelic(run, 'gem') ? 1 : 0); b.nextEnergy = 0;
     if (b.pBlock) b.block += b.pBlock;
@@ -1785,9 +1786,10 @@ var G = (function () {
   function noble(run, target) {
     var b = run.battle; if (b && serv(run).np.none) return { ok: false, msg: '沒有寶具' };
     if (!b || b.np < 100) return { ok: false, msg: '寶具量表還沒滿' };
+    if (b.npUsed) return { ok: false, msg: '這回合已經放過寶具了（每回合一次）' };
     var N = serv(run).np, fx = npFx(run, N), tg = null;
     if (needsTarget(fx)) { tg = pickTarget(b, target); if (!tg) return { ok: false, msg: '選一個目標', needTarget: true }; }
-    b.np = 0; run.stats.np++;
+    b.np = 0; b.npUsed = 1; run.stats.np++;
     var dk = b.doomKills || 0;
     var ctx = { run: run, b: b, tg: tg, log: [N.name], id: 'np', atk: false, first: false };
     runFx(ctx, fx);
@@ -1797,13 +1799,21 @@ var G = (function () {
     return { ok: true, end: end };
   }
   // 令咒：整局有限；all＝魔力 +3、抽 2｜np＝寶具量表充滿
+  // 令咒：每回合最多一劃；解放寶具／全力以赴／空間轉移（原作士郎召回 Saber、肯尼斯讓迪爾姆德撤退）／回復（FGO 的令咒回滿）
+  var SEAL_KINDS = ['np', 'all', 'warp', 'heal'];
   function seal(run, kind) {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false, msg: '不在戰鬥中' };
     if (run.seals <= 0) return { ok: false, msg: '令咒用完了' };
     if (kind === 'np' && serv(run).np.none) return { ok: false, msg: '沒有寶具' };
+    if (b.sealUsed) return { ok: false, msg: '這回合已經用過令咒了（每回合一劃）' };
     if (kind === 'np' && b.np >= 100) return { ok: false, msg: '寶具已經充滿了' };
-    run.seals--; run.stats.seals++;
+    if (kind === 'np' && b.npUsed) return { ok: false, msg: '這回合已經放過寶具了' };
+    if (kind === 'heal' && run.hp >= run.maxHp) return { ok: false, msg: '生命已經是滿的' };
+    if (SEAL_KINDS.indexOf(kind) < 0) return { ok: false, msg: '沒有這種命令' };
+    run.seals--; run.stats.seals++; b.sealUsed = 1;
     if (kind === 'all') { b.energy += 3; drawCards(run, 2); b.log = ['令咒：全力以赴（魔力 +3、抽 2）']; }
+    else if (kind === 'warp') { b.evadeAll = 1; b.log = ['令咒：空間轉移（這回合躲開所有攻擊）']; }
+    else if (kind === 'heal') { var hh = run.maxHp - run.hp; run.hp = run.maxHp; b.log = ['令咒：回復（生命回滿，+' + hh + '）']; }
     else { b.log = ['令咒：解放寶具（量表充滿）']; serious(run, b.log); b.np = 100; }
     return { ok: true };
   }
@@ -1811,6 +1821,7 @@ var G = (function () {
   // 敵人的一次攻擊：迴避整次躲開｜格擋｜使魔替你擋下最多 4｜穿透攻擊只有迴避擋得住
   function enemyHit(run, e, n, pierce, log) {
     var b = run.battle, d = foeDmg(run, e, n);
+    if (b.evadeAll) { log.push('空間轉移：' + e.name + '的攻擊落空'); return; }
     if (b.evade > 0) {
       b.evade--; log.push('閃過了' + e.name + '的攻擊');
       if (b.pEvadeStr) b.str += b.pEvadeStr;

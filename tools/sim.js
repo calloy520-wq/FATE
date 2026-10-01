@@ -59,7 +59,9 @@ function bestAction(run){
 function playTurn(run){
   const b=run.battle; let guard=0;
   while(run.screen==='battle'&&guard++<40){
-    if(run.seals>(SECRET&&run.act===2?1:0)&&b.turn===1&&(b.kind==='boss'||(b.kind==='elite'&&run.seals>1))&&G.alive(b).some(e=>e.hp>40)){ G.seal(run,b.np>=60&&!G.serv(run).np.none?'np':'all'); continue; }
+    if(run.seals>(SECRET&&run.act===2?1:0)&&!b.sealUsed){   // 令咒每回合一劃：要被打死就空間轉移、精英魔王戰血少就回滿、魔王開場就全力
+      const k=expectedLoss(run)>=run.hp?'warp':(b.kind!=='fight'&&run.hp<run.maxHp*0.3)?'heal':(b.turn===1&&(b.kind==='boss'||(b.kind==='elite'&&run.seals>1))&&G.alive(b).some(e=>e.hp>40))?(b.np>=60&&!G.serv(run).np.none&&!b.npUsed?'np':'all'):null;
+      if(k&&G.seal(run,k).ok) continue; }
     const a=bestAction(run); if(!a) break;
     const r=a.k==='np'?G.noble(run,a.t):G.play(run,a.i,a.t); if(!r.ok) break;
   }
