@@ -52,10 +52,10 @@ r=G.newRun('emiya',3); step(r,'fight'); t(r.battle.hand.filter(x=>x==='sword').l
 r=arena('emiya'); r.battle.hand=['project','broken']; G.play(r,0,0); t(r.battle.hand.filter(x=>x==='sword').length===2,'投影魔術：2 張投影劍');
 G.play(r,r.battle.hand.indexOf('broken'),0); t(!r.battle.hand.includes('sword')&&E(r).hp===40,'壞幻：引爆 2 把，每把全體 5',E(r).hp);
 r=arena('emiya'); r.battle.np=100; G.noble(r,0); t(r.battle.hand.length===3&&r.battle.ubw===2&&r.battle.projUp===2&&/造成 6 傷害/.test(G.cardText('sword',r)),'無限劍製：3 張投影劍、之後 2 回合、投影劍 6 傷');
-G.play(r,0,0); t(E(r).hp===44,'投影劍 4+2＝6',E(r).hp);
+t(E(r).hp===50-(6+2*3),'無限劍製：展開時全體 6＋每把劍 2',E(r).hp); G.play(r,0,0); t(E(r).hp===38-6,'投影劍 4+2＝6',E(r).hp);
 G.endTurn(r); t(r.battle.hand.filter(x=>x==='sword').length===4&&!r.battle.discard.includes('sword'),'下回合又 3 張（加被動 1 張）；沒用完的投影劍消失、不進棄牌');
 
-r=arena('cu'); E(r).block=10; playId(r,'thrust'); t(E(r).hp===43&&E(r).block===10,'庫・丘林 突刺：穿透 7 無視格擋',E(r).hp);
+r=arena('cu'); E(r).block=10; playId(r,'thrust'); t(E(r).hp===44&&E(r).block===10&&r.battle.riposte===4,'庫・丘林 突刺：穿透 6 無視格擋、迎擊 4',E(r).hp);
 r=arena('cu'); playId(r,'arrowward'); E(r).intent={n:'砍',fx:[['atk',20],['atk',5]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===3,'箭矢加護：閃過第一擊，第二擊被 2 格擋擋掉 2',hp-r.hp);
 r=arena('cu'); r.battle.evade=1; r.battle.np=0; E(r).intent={n:'砍',fx:[['atk',30]]}; hp=r.hp; G.endTurn(r); t(r.hp===hp&&E(r).hp===50&&r.battle.np===10,'庫・丘林 箭矢加護：迴避成功寶具 +10',JSON.stringify([E(r).hp,r.battle.np]));
 r=arena('cu',2); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',8]]}; }); playId(r,'provoke'); t(r.battle.enemies.every(e=>e.intent.fx.some(f=>f[0]==='atk'))&&r.battle.evade===1&&r.battle.riposte===3,'挑釁：不攻擊的敵人改成攻擊你；迴避 1、迎擊 3');
@@ -73,7 +73,7 @@ G.play(r,0,0); t(r.battle.energy===1&&G.costOf(r,'warp')===1,'用掉之後第二
 r=arena('medea'); playId(r,'word'); t(G.costOf(r,'agemagic')===0,'高速神言牌：下一張（神代魔術）0 費'); playId(r,'agemagic'); t(E(r).hp===40&&r.battle.energy===3&&r.battle.chant===1&&r.battle.exhaust.includes('agemagic'),'神代魔術 0 費：8＋陣地 1×2；陣地不用掉（儀式是永久的），一場一次（消耗）',E(r).hp);
 r=arena('medea'); playId(r,'fangs'); t(r.battle.minions===1,'龍牙兵：召喚 1'); E(r).intent={n:'砍',fx:[['atk',10]]}; hp=r.hp; G.endTurn(r);
 t(E(r).hp===47&&hp-r.hp===6&&r.battle.minions===0,'龍牙兵回合結束打 3，替你擋 4 後消散',JSON.stringify([E(r).hp,hp-r.hp]));
-r=arena('medea'); E(r).block=15; E(r).str=4; r.battle.np=100; G.noble(r,0); t(E(r).block===0&&E(r).str===0&&E(r).vuln===2&&E(r).weak===2,'萬符必應破戒：拆格擋與力量、虛弱易傷 2');
+r=arena('medea'); E(r).block=15; E(r).str=4; r.battle.np=100; G.noble(r,0); t(E(r).block===0&&E(r).str===0&&E(r).hp===38&&E(r).stun===1,'萬符必應破戒：破除契約——拆格擋與力量、穿透 12、下次行動作廢',JSON.stringify([E(r).hp,E(r).stun]));
 
 r=arena('kojiro'); E(r).block=10; playId(r,'atk'); t(E(r).hp===44&&E(r).block===10&&E(r).vuln===1,'小次郎 宗和的心得：每回合第一擊無視格擋，打到後易傷 1',JSON.stringify([E(r).hp,E(r).block,E(r).vuln])); playId(r,'atk'); t(E(r).hp===44&&E(r).block===1,'第二擊照常吃格擋（易傷 6→9）',JSON.stringify([E(r).hp,E(r).block]));
 r=G.newRun('kojiro',3); step(r,'fight'); { const big=r.battle.enemies.slice().sort((x,y)=>y.hp-x.hp)[0]; t(big.vuln===2&&r.battle.enemies.filter(e=>e!==big).every(e=>!e.vuln),'宗和的心得：開場解析生命最多的敵人，易傷 2'); }
@@ -88,7 +88,10 @@ r=arena('hassanC'); playId(r,'atk'); t(E(r).hp===41,'咒腕 氣息遮斷：第�
 r=arena('hassanC'); r.battle.turn=2; playId(r,'throwdirk'); t(E(r).hp===38&&G.SERVANTS.hassanC.sig==='throwdirk','投擲短刀（招牌牌）：4×3',E(r).hp);
 r=arena('hassanC'); E(r).poison=4; playId(r,'plague'); t(E(r).poison===8,'毒素擴散：毒加倍');
 r=arena('hassanC'); E(r).hp=24; r.battle.np=100; G.noble(r,0); t(E(r).hp===0,'妄想心音：五成以下直接擊殺');
-r=arena('hassanC'); r.battle.np=100; G.noble(r,0); t(E(r).hp===25,'妄想心音：血多時穿透 25',E(r).hp);
+r=arena('hassanC'); r.battle.np=100; G.noble(r,0); t(E(r).hp===0,'妄想心音：一般敵人抵抗不了咒殺，直接死亡',E(r).hp);
+r=arena('hassanC'); E(r).id='saber'; r.battle.np=100; G.noble(r,0); t(E(r).hp===25,'妄想心音：精英血多時咒不死，穿透 25',E(r).hp);
+r=arena('hassanC'); E(r).id='saber'; E(r).hp=24; r.battle.np=100; G.noble(r,0); t(E(r).hp===0,'妄想心音：精英生命五成以下咒殺');
+r=arena('hassanC'); E(r).id='gil'; E(r).hp=10; r.battle.np=100; G.noble(r,0); t(E(r).hp===0&&E(r).maxHp===50,'妄想心音：魔王就算只剩兩成也咒不死（是被穿透 25 打死的）'); r=arena('hassanC'); E(r).id='gil'; E(r).hp=40; r.battle.np=100; G.noble(r,0); t(E(r).hp===15,'妄想心音：魔王只吃穿透 25',E(r).hp);
 r=arena('hassanC'); E(r).id='heracles'; E(r).hp=10; E(r).maxHp=100; r.battle.np=100; G.noble(r,0); t(E(r).hp===0||E(r).lives>=0,'Boss 不吃即死、改吃穿透');
 
 console.log('── 機制牌（每張專屬牌都吃自己的資源）');
@@ -116,9 +119,9 @@ playId(r,'rose'); t(E(r).hp===48-3-5-4&&E(r).wound===3&&r.battle.block===9,'薔�
 r.battle.energy=3; let h2=E(r).hp; playId(r,'twin'); t(h2-E(r).hp===5,'同一回合第 4 次切換刺 5（換越多次越痛）',h2-E(r).hp);
 G.endTurn(r); h2=E(r).hp; r.battle.energy=3; playId(r,'twin'); t(h2-E(r).hp===2,'下回合重新從 2 開始',h2-E(r).hp);
 r=arena('diarmuid'); playId(r,'fianna'); playId(r,'twin'); t(E(r).hp===50-(2+2),'費奧納騎士團：切換那一槍 +2',E(r).hp);
-r=arena('diarmuid'); E(r).block=20; r.battle.np=100; G.noble(r,0); t(E(r).hp===50-20-3&&E(r).block===18&&r.battle.stance==='red','寶具紅黃薔薇：切到黃（2 被格擋吃掉）→ 20 穿透 → 切回紅（3 穿透）',JSON.stringify([E(r).hp,E(r).block]));
+r=arena('diarmuid'); E(r).block=20; E(r).str=3; r.battle.np=100; G.noble(r,0); t(E(r).block===0&&E(r).str===0&&E(r).hp<=50-20&&E(r).wound>=5&&r.battle.stance==='yellow','寶具：紅薔薇破魔（拆格擋與力量）→ 20 穿透 → 黃薔薇創傷 5',JSON.stringify([E(r).hp,E(r).block,E(r).wound,r.battle.stance]));
 r=arena('iskandar',2); r.battle.army=5; playId(r,'allcharge'); t(r.battle.enemies.every(e=>e.hp===40)&&r.battle.army===0,'全軍突擊：花光軍勢，全體 5×2');
-r=arena('iskandar',2); r.battle.army=4; playId(r,'trample'); t(r.battle.enemies.every(e=>e.hp===38)&&r.battle.army===0,'蹂躪：花光軍勢，全體 4×3');
+r=arena('iskandar',2); r.battle.army=4; playId(r,'trample'); t(r.battle.enemies.every(e=>e.hp===42)&&r.battle.army===4,'遙遠的蹂躪制霸：全體軍勢×2，不用掉軍勢',r.battle.enemies.map(e=>e.hp));
 r=arena('iskandar'); r.battle.army=6; playId(r,'bucephalus'); t(r.battle.block===10,'布塞弗勒斯：格擋 4＋軍勢 6');
 r=arena('gilles'); r.battle.kraken=6; playId(r,'blasphemy'); t(E(r).hp===50-11,'瀆神：5＋海魔大小 6',E(r).hp);
 r=arena('gilles'); r.battle.kraken=4; playId(r,'zealot'); t(r.battle.kraken===1&&r.battle.tstr===5,'狂信：海魔縮小 3 換力量 5');
@@ -126,7 +129,7 @@ r.battle.kraken=2; playId(r,'zealot'); t(r.battle.kraken===2&&r.battle.tstr===5,
 r=arena('gilles'); r.battle.kraken=5; E(r).intent={n:'砍',fx:[['atk',8]]}; hp=r.hp; G.endTurn(r); t(E(r).hp===45&&hp-r.hp===4&&r.battle.kraken===1+1,'大海魔：回合結束咬 5；被打 8 時吃下一半 4 並縮小；下回合長大 1',JSON.stringify([E(r).hp,hp-r.hp,r.battle.kraken]));
 r=arena('hassanH'); r.battle.minions=3; playId(r,'stab'); t(E(r).hp===50-2*4,'同時刺擊：分身 3 → 刺 4 下',E(r).hp);
 r=arena('lancelot'); r.battle.mastery=3; playId(r,'mace'); t(E(r).hp===50-(4+3+1),'鐵柱橫掃：4＋武練 3（武練 3 點再讓攻擊 +1）',E(r).hp);
-r=arena('lancelot'); r.battle.mastery=2; playId(r,'lakeflash'); t(E(r).hp===50-(10+2*2)&&r.battle.mastery===2,'湖光斬：10＋武練×2（武練不會用掉）',JSON.stringify([E(r).hp,r.battle.mastery]));
+r=arena('lancelot'); r.battle.mastery=2; playId(r,'lakeflash'); t(E(r).hp===50-(8+2*2)&&r.battle.mastery===2&&r.battle.hand.includes('weapon'),'奪來的寶具：8＋武練×2，再拿一件武器化（騎士不死於徒手）',JSON.stringify([E(r).hp,r.battle.mastery]));
 r.battle.energy=3; let h3=E(r).hp; playId(r,'atk'); t(h3-E(r).hp===6,'歸零之後下一擊從頭算',h3-E(r).hp);
 r=arena('lancelot'); r.battle.mastery=3; playId(r,'blackmist'); t(r.battle.block===7&&E(r).hp===50-3,'己之榮光不為己有：格擋 4＋武練；技能牌順手攻擊 3',JSON.stringify([r.battle.block,E(r).hp]));
 r=arena('heracles'); r.hp=r.maxHp-27; playId(r,'divine'); t(E(r).hp===50-(10+3*2),'神性之擊：少 27 生命 → 10＋3×2',E(r).hp);
@@ -181,7 +184,7 @@ t(r.battle.hand.filter(x=>/^t_/.test(x)).length>=1,'戰鬥開始從寶庫取出 
 r=arena('gil'); r.battle.hand=['t_sword','t_shield','atk']; G.endTurn(r); t(r.battle.hand.filter(x=>/^t_/.test(x)).length===2&&E(r).hp===46,'王之財寶：寶具留在手上，回合結束 2 件各射 2',JSON.stringify([r.battle.hand,E(r).hp]));
 r=arena('gil'); r.battle.hand=['t_sword','t_sword','thousand']; G.play(r,2,0); t(E(r).hp===50-3*4,'千之寶具：手上 2 件寶具＋2 → 射 4 下',E(r).hp);
 r=arena('gil'); playId(r,'gate_of'); t(r.battle.hand.filter(x=>/^t_/.test(x)).length===2,'王之財寶：2 件寶具');
-r=arena('gil'); E(r).str=3; playId(r,'enkidu'); t(E(r).str===1&&E(r).weak===2,'天之鎖：虛弱 2、力量 -2');
+r=arena('gil'); playId(r,'enkidu'); t(E(r).stun===1&&E(r).weak===2,'天之鎖：綁住（下次行動動彈不得）、虛弱 2');
 
 console.log('── 敵人');
 r=arena('saber'); E(r).id='medea'; E(r).name='美狄亞'; E(r).intent=G.ENEMIES.medea.moves[0]; G.endTurn(r); t(r.battle.enemies.length===3&&r.battle.enemies.filter(e=>e.id==='fang').length===2,'敵方美狄亞召喚 2 隻龍牙兵');
@@ -232,7 +235,8 @@ rr.screen='rest'; rr.deck=rr.deck.slice(0,5); t(!G.rest(rr,'remove',0)&&rr.deck.
 t(G.migrate({who:'custom',custom:{name:'舊英靈'},deck:['atk']})===null&&!('custom' in G.SVT_COST)&&!G.makeCustom,'自創英靈拿掉了：舊的自創英靈那一局讀檔作廢、工坊不再賣');
 
 console.log('── 事件・商店・命運・靈基再臨');
-t(Object.keys(G.EVENTS).every(k=>G.EVENTS[k].opts.length>=2&&G.EVENTS[k].opts.every(o=>o.fx.every(f=>['hp','maxHp','healPct','relic','seal','pick','addCard','upRandom','cards','commons','fight','gamble','gold','krakenStart','krakenGrow','nextWeak'].includes(f[0])))),'每個事件至少兩個選項，效果都認得');
+{ const KN=['hp','maxHp','healPct','relic','seal','pick','addCard','upRandom','cards','commons','fight','gamble','gold','krakenStart','krakenGrow','nextWeak','d20']; const okFx=l=>l.every(f=>KN.includes(f[0])&&(f[0]!=='d20'||(typeof f[1]==='number'&&okFx(f[2])&&okFx(f[3]))));
+t(Object.keys(G.EVENTS).every(k=>G.EVENTS[k].opts.length>=2&&G.EVENTS[k].opts.every(o=>okFx(o.fx))),'每個事件至少兩個選項，效果都認得（擲骰的成功／失敗也是）'); }
 let ev=G.newRun('saber',41); step(ev,'event'); t(ev.screen==='event'&&G.EVENTS[ev.event]&&(!G.EVENTS[ev.event].act||G.EVENTS[ev.event].act===1),'事件格：抽一個這一章的事件');
 ev.event='church'; let hp0=ev.hp, d0=ev.deck.length; G.choose(ev,0); t(ev.hp===hp0-6&&ev.screen==='pick'&&ev.pending[0]==='remove','懺悔：先扣血，再選一張牌移除');
 G.pickCard(ev,ev.deck.indexOf('def_saber')); t(ev.deck.length===d0-1&&ev.screen==='map','選完回地圖');
@@ -274,8 +278,8 @@ t(G.CARDS.nails&&G.CARDS.chain&&G.SERVANTS.medusa.sig==='chain','鎖鏈（招牌
 t(Object.keys(G.CARDS).every(k=>{ const t2=G.cardShort(k); return t2&&!/undefined|\{|null/.test(t2)&&t2.length<=G.cardText(k).length; }),'每張牌都有簡短說明（沒有漏字、比完整說明短）');
 
 r=G.newRun('medusa',3); step(r,'fight'); t(r.battle.enemies.every(e=>e.petrify===1)&&!r.battle.mounted,'美杜莎 石化魔眼：開場全體石化 1（不會開場就騎天馬）');
-r=arena('medusa'); playId(r,'monstrous'); t(r.battle.tstr===3,'怪力：本回合力量 +3');
-r=arena('medusa',1,60); r.battle.np=100; G.noble(r,0); t(E(r).hp===15&&E(r).stun===1,'騎英之手綱：召喚天馬衝撞 45＋石化 3（一般敵人直接動彈不得）',JSON.stringify([E(r).hp,E(r).stun]));
+r=arena('medusa'); playId(r,'monstrous'); t(r.battle.tstr===2&&E(r).petrify===1,'怪力：本回合力量 +2、石化 1');
+r=arena('medusa',2,60); r.battle.np=100; G.noble(r,0); t(r.battle.enemies.every(e=>e.hp===22&&e.petrify>=2),'騎英之手綱：騎上天馬化作流星衝過全體 38＋全體石化 2',JSON.stringify(r.battle.enemies.map(e=>[e.hp,e.petrify,e.stun])));
 t(['chain','nails','kick','monstrous','bloodfort','mystic'].every(k=>G.CARDS[k]&&G.CARDS[k].kit==='medusa')&&!G.CARDS.mount&&!G.CARDS.land,'美杜莎的牌照原作：鎖鏈、釘劍、踢擊、怪力、鮮血神殿、石化魔眼；沒有騎乘牌');
 const svMd=J(G.newRun('medusa',3)); svMd.deck.push('mount','land+','pegasus'); G.migrate(svMd); t(svMd.deck.includes('monstrous')&&svMd.deck.includes('kick+')&&svMd.deck.includes('kick'),'舊存檔的天馬召喚／急降／天馬衝撞換成怪力／迴旋踢');
 r=arena('saber'); r.battle.wind=3; t(G.cardShort('hammer',r).startsWith('全體⚔17'),'戰鬥中簡短說明照資源算好數字（風王鐵槌 5＋風 3×4）',G.cardShort('hammer',r));
@@ -304,7 +308,11 @@ const svB=J(G.newRun('kojiro',3)); svB.deck=svB.deck.map(x=>G.isBasic(x,'atk')?'
 let lt=G.newRun('saber',6,{fate:'light'}); t(lt.deck.filter(x=>G.isBasic(x,'atk')).length===3&&lt.deck.filter(x=>G.isBasic(x,'def')).length===3,'輕裝上陣：拿掉的是自己的基本牌');
 
 // 吉爾斯專屬的作惡事件
-t(Array.from({length:40},(_,i)=>{ const q=G.newRun('saber',500+i); step(q,'event'); return q.event; }).every(id=>!G.EVENTS[id].who),'別的從者不會遇到吉爾斯的作惡事件');
+t(Array.from({length:40},(_,i)=>{ const q=G.newRun('saber',500+i); step(q,'event'); return q.event; }).every(id=>!G.EVENTS[id].who||G.EVENTS[id].who==='saber'),'只會遇到自己的專屬事件（Saber 不會遇到吉爾斯的作惡事件）');
+t(G.ORDER.every(w=>Object.keys(G.EVENTS).filter(k=>G.EVENTS[k].who===w).length>=2),'每位從者至少 2 個專屬事件（原作名場面）');
+{ const r=G.newRun('lancelot',3); r.screen='event'; r.event='arthur'; G.choose(r,0); t(r.screen==='battle'&&r.battle.enemies[0].id==='saber','騎士王的背影：指定對手是阿爾托莉亞');
+  const q=G.newRun('saber',3); q.screen='event'; q.event='pupil'; q.who='saber'; G.choose(q,0); t(q.battle&&q.battle.enemies[0].id==='cu','指定對手的精英戰'); }
+{ const r=G.newRun('gilles',3); r.deck.push('prelati'); const n=r.deck.length; r.screen='event'; r.event='riverside'; G.choose(r,0); t(r.deck.length===n&&r.deck.includes('prelati+'),'奧義已經有了：事件改成強化它，不會拿到第二張'); }
 ev=G.newRun('gilles',41); step(ev,'event'); ev.event='spellbook'; hp0=ev.hp; G.choose(ev,0); t(ev.hp===hp0-8&&ev.krakenStart===3,'螺湮城教本的低語：失去 8 生命，每場開場海魔 +3');
 step(ev,'fight'); t(ev.battle.kraken===6,'下一場開場海魔 3＋3',ev.battle.kraken);
 ev=G.newRun('gilles',41); step(ev,'event'); ev.event='jeanne'; G.choose(ev,0); step(ev,'fight'); ev.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); const k0=ev.battle.kraken; G.endTurn(ev); t(ev.battle.kraken===k0+2,'聖女的幻影（褻瀆）：海魔每回合長大 2',ev.battle.kraken-k0);
@@ -359,7 +367,7 @@ dn.stats.floors=10; dh.stats.floors=10; t(G.crystalsFor(dh)===G.crystalsFor(dn)*
 t(G.newRun('saber',1,{asc:6}).ascStart.some(f=>f[0]==='pWind'),'命座 VI：每回合的專屬強化（Saber 每回合風 +1）');
 
 console.log('── 強化方向');
-t(G.upDirs('invis').join('')==='acde'&&G.upDirs('charge').join('')==='abcde'&&G.upDirs('atk').join('')==='ace'&&G.upDirs('kingly').join('')==='ad'&&G.upDirs('invis+').length===0&&G.upDirs('sword').length===0,'每張牌能往哪幾個方向強化（1 費沒有迅捷、能力牌沒有共鳴與極限、已強化／代幣不能再強化）');
+t(G.upDirs('invis').join('')==='acde'&&G.upDirs('charge').join('')==='abcde'&&G.upDirs('atk').join('')==='ace'&&G.upDirs('kingly').join('')==='ad'&&G.card('kingly+d').fx.some(f=>f[0]==='pWind')&&G.upDirs('invis+').length===0&&G.upDirs('sword').length===0,'每張牌能往哪幾個方向強化（1 費沒有迅捷、能力牌沒有共鳴與極限、能力牌的英靈之魂是每回合版，已強化／代幣不能再強化）');
 t(G.card('charge+b').cost===1&&G.card('invis+c').np===30&&G.card('invis+c').fx.some(f=>f[0]==='draw')&&G.card('invis+d').fx.filter(f=>f[0]==='wind').length===1&&G.card('invis+d').fx.some(f=>f[0]==='wind'&&f[1]===2)&&G.card('invis+e').fx[0][1]===10&&G.card('invis+e').ex,'迅捷 -1 費、共鳴 +15% 抽 1、魂加風（原本風 1 → 2，精煉是 1）、極限翻倍但消耗');
 t(G.card('invis+').name==='看不見的劍＋'&&G.card('invis+').fx[0][1]===7&&G.card('invis+e').name==='看不見的劍・極'&&G.card('invis+c').name==='看不見的劍・共鳴','舊存檔的「+」還是精煉；名字帶方向');
 let ug=G.newRun('saber',77); ug.deck.push('charge'); const ci=ug.deck.length-1, op=G.upgradeOptions(ug,ci);
@@ -432,7 +440,11 @@ t(JSON.stringify(G.card('heavy+').fx[0])==='["dmg",21]'&&G.card('heavy+').cost==
 t(JSON.stringify(G.card('charge+e').fx[0])==='["windDmg",20,4]','極限：每點資源的加成也翻倍（10+2/風 → 20+4/風）',JSON.stringify(G.card('charge+e').fx));
 t(!G.upDirs('quickspear').includes('e')&&G.upDirs('invis').includes('e'),'數字太小的牌（疾槍 3）不給極限；5×2 算 10 可以');
 t(G.card('flashstep+c').np===35&&G.card('flashstep+c').fx.filter(f=>f[0]==='draw').length===1,'共鳴：本來會抽牌的改成寶具 +30%（不再多抽一張）');
-{ const k=Object.keys(G.CARDS).find(x=>G.CARDS[x].kit==='kojiro'&&G.upDirs(x).includes('c')); const c=G.card(k+'+c'); t(c.fx.some(f=>f[0]==='block'&&f[1]===3)&&c.np===G.CARDS[k].np,'小次郎沒有寶具：共鳴改成格擋 3、多抽 1',k); }
+{ const k=Object.keys(G.CARDS).find(x=>G.CARDS[x].kit==='kojiro'&&G.upDirs(x).includes('c')); const c=G.card(k+'+c'), b=G.card(k); const bl=f=>(f.find(x=>x[0]==='block')||[0,0])[1]; t(bl(c.fx)===bl(b.fx)+3&&c.fx.filter(f=>f[0]==='block').length<=1&&c.fx.some(f=>f[0]==='draw')&&c.np===0,'小次郎沒有寶具：共鳴改成格擋 +3（合併）、多抽 1，牌不累積寶具',k); }
+{ const r=G.newRun('kojiro',3); t(G.card('atk_kojiro').np===0&&!/寶具/.test(G.cardText('atk_kojiro',r))&&!/寶具/.test(G.cardText('jewel',r)),'小次郎的牌（還有他拿到的共通牌）不寫寶具 +N%');
+  let leak=0; for(let f=0;f<300;f++){ r.deck=['jewel']; r.stats.floors=f; if(G.upgradeOptions(r,0).some(v=>G.card(v).dir==='c')) leak++; } t(leak===0,'小次郎拿到的共通牌不會出現共鳴（寶具對他沒用）',leak); }
+t(G.card('runefire+d').fx.every(f=>f[0]!=='doom')&&!G.card('runefire+d').t,'斯卡哈：全體牌的英靈之魂加全體刻印，不會突然要選目標');
+{ let bad=[]; Object.keys(G.CARDS).forEach(k=>{ if(!G.upDirs(k).length) return; const r={seed:1,deck:[k],stats:{floors:0},who:G.CARDS[k].kit in G.SERVANTS?G.CARDS[k].kit:'saber'}; for(let f=0;f<200;f++){ r.stats.floors=f; const o=G.upgradeOptions(r,0); const v=o.find(x=>G.card(x).dir==='f'); if(v){ const a=G.card(k+'+'),l=G.card(v); if(JSON.stringify(a.fx)===JSON.stringify(l.fx)&&a.cost===l.cost) bad.push(k); break; } } }); t(!bad.length,'★傳說一定跟精煉不一樣（不然只是白拿疲憊）',bad.join(',')); }
 t(G.card('riposte+d').fx.some(f=>f[0]==='evade'&&f[1]===2),'庫・丘林的英靈之魂是迴避（迎擊之槍 迴避 1 → 2）',JSON.stringify(G.card('riposte+d').fx));
 // 稽核第 3 輪：禮裝拿完不再白付、新禮裝、小次郎不給寶具相關的東西、每章至少 2 個精英、無盡只用免費命運
 { const r=G.newRun('saber',3); Object.keys(G.RELICS).forEach(k=>r.relics.push(k)); r.gold=200; t(!G.canChoose(r,G.EVENTS.jeweler.opts[0])&&!G.canChoose(r,G.EVENTS.magus.opts[0])&&G.canChoose(r,G.EVENTS.jeweler.opts[1]),'禮裝全拿了：花錢／花血換禮裝的選項關掉（賣血還能選）'); }
@@ -478,6 +490,19 @@ r=arena('gil'); r.battle.hand=['worm','t_sword']; hp=E(r).hp; G.endTurn(r); t(r.
 r=arena('saber'); r.battle.hand=['enfeeble']; playId(r,'atk_saber'); t(E(r).hp===50-3,'無力在手上：攻擊減半（6 → 3）',E(r).hp);
 r=arena('saber'); r.battle.hand=['bind','atk_saber','sword']; t(G.costOf(r,'atk_saber')===2&&G.costOf(r,'sword')===1&&G.costOf(r,'bind')===1,'束縛在手上：每張牌 +1 費（0 費的變 1），打掉束縛本身還是 1 費');
 r.battle.energy=3; G.play(r,0,0); t(G.costOf(r,'atk_saber')===1&&r.battle.energy===2,'打掉束縛後費用恢復');
+// 擲骰事件：d20＋幸運修正（B＝0、每級 ±1），20 必成功、1 必失敗
+t(G.luckMod({who:'cu'})===-3&&G.luckMod({who:'saber'})===2&&G.luckMod({who:'medea'})===0,'幸運修正：庫・丘林 E＝-3、Saber A+＝+2、美狄亞 B＝0');
+t(G.d20Chance({who:'medea'},10)===55&&G.d20Chance({who:'cu'},10)===40&&G.d20Chance({who:'cu'},30)===5&&G.d20Chance({who:'saber'},1)===95,'成功率：20 必成功、1 必失敗');
+{ let win=0, hpWin=0; for(let s=0;s<300;s++){ const r=G.newRun('medea',s); r.screen='event'; r.event='stairs'; const m=r.maxHp, h=r.hp; const x=G.choose(r,0); if(x.roll.ok){ win++; if(r.maxHp===m+8) hpWin++; } else if(r.hp!==h-10||r.maxHp!==m) hpWin=-999; }
+  t(win>130&&win<200&&hpWin===win,'石階：成功最大生命 +8、失敗失去 10 生命，成功率約 55%',win); }
+{ const r=G.newRun('saber',3); r.relics=Object.keys(G.RELICS); t(!G.canChoose(r,G.EVENTS.bridge.opts[0])&&!G.canChoose(r,G.EVENTS.gamble.opts[0]),'禮裝全拿了：擲骰拿禮裝的選項也會關掉'); }
+// 吉爾伽美什的慢心：乖離劍不出鞘（量表停在 99%）、敵人每擊 +1；被打掉 12 生命、精英／魔王撐到第 3 回合、或令咒，就認真起來
+r=arena('gil'); E(r).intent={n:'打',fx:[['atk',5]]}; hp=r.hp; G.endTurn(r); t(r.battle.manshin===1&&hp-r.hp===6,'慢心：敵人每擊 +1（5 → 6）',hp-r.hp);
+r.battle.np=90; playId(r,'goldrule'); r.battle.np=95; r.battle.hand.push('atk_gil'); G.play(r,r.battle.hand.length-1,0); t(r.battle.np===99&&!G.noble(r,0).ok,'慢心中寶具量表停在 99%（乖離劍不出鞘）',r.battle.np);
+r.battle.block=0; E(r).intent={n:'打',fx:[['atk',9]]}; const st0=r.battle.str, np0=r.battle.np; G.endTurn(r); t(!r.battle.manshin&&r.battle.str===st0+2&&r.battle.np===100,'失去 12 生命後認真起來：慢心解除、力量 +2、寶具 +25%',[r.battle.manshin,r.battle.hurt,r.battle.str,r.battle.np]);
+r=arena('gil'); E(r).id='saber'; E(r).intent={n:'發呆',fx:[]}; G.endTurn(r); t(r.battle.manshin===1,'精英：第 2 回合還在慢心'); G.endTurn(r); t(!r.battle.manshin,'精英撐到第 3 回合：認可對手，認真起來');
+r=arena('gil'); r.seals=3; G.seal(r,'np'); t(!r.battle.manshin&&r.battle.np===100,'令咒解放寶具：也會讓英雄王認真起來');
+r=arena('saber'); t(!r.battle.manshin,'只有吉爾伽美什有慢心');
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位從者 4 局都能打到結束（不卡死）',fin);
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

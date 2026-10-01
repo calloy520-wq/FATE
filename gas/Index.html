@@ -366,6 +366,8 @@
     ['刻印蟲／保留', '間桐的蟲群直接塞進你手牌的狀態牌：保留（回合結束不會丟掉），每回合結束失去 2 生命、一直佔著手牌（手牌最多 10 張），直到花 1 魔力打掉（這場消耗）。戰鬥結束就消失'],
     ['無力', '亡靈塞進你手牌的狀態牌：在手上時攻擊傷害減半；花 1 魔力打掉（這場消耗）。戰鬥結束就消失'],
     ['束縛', '魔術師塞進你手牌的狀態牌：在手上時每張牌多 1 費（0 費的也要 1 費）；花 1 魔力打掉（這場消耗）。戰鬥結束就消失'],
+    ['慢心', '吉爾伽美什：每場開場看不起對手，敵人每擊 +2；這場失去 15 生命後認真起來——慢心解除、力量 +2、寶具量表 +30（原作裡英雄王總是因為慢心吃虧）'],
+    ['🎲／擲骰', '事件裡的擲骰選項：丟 20 面骰，加上幸運修正（幸運 B＝0，每級 ±1；A+＝+2、E＝-3）達到難度就成功。擲出 20 一定成功、1 一定失敗'],
     ['詛咒牌／疲憊／罪業／黑泥的侵蝕', '留在牌組裡的壞牌，是事件好處與★傳說強化的代價：疲憊（在手上時攻擊每擊 -1）、黑泥的侵蝕（留在手上回合結束 -3 生命）、罪業（打不出來，佔位置）。疲憊、黑泥的侵蝕可以花魔力打掉（這場消耗）；要永久甩掉就在商店移除、事件或休息的淨化'],
     ['奧義', '每位從者一張的稀有牌：精英獎勵（約三成）、商店、部分事件、命運「奧義傳承」與靈基再臨 V 能拿到'],
     ['金錢與商店', '打贏戰鬥得到金（精英、魔王更多）；地圖上的 🛒 商店可以買專屬牌、奧義、禮裝，也能花錢移除卡片（每間店一次，越移越貴）'],
@@ -732,6 +734,7 @@
     if (b.vuln) a.push(['', '易傷 ' + b.vuln]);
     if (b.weak) a.push(['', '虛弱 ' + b.weak]);
     if (b.thorns) a.push(['', '反擊 ' + b.thorns]);
+    if (b.manshin) a.push(['', '慢心：敵人每擊 +2（再失去 ' + Math.max(0, 15 - (b.hurt || 0)) + ' 生命就認真起來）']);
     if (G.dullOf(b)) a.push(['', '疲憊：攻擊每擊 -' + G.dullOf(b)]);
     if (b.hand.some(function (x) { return G.card(x).half; })) a.push(['', '無力：攻擊減半']);
     if (b.hand.some(function (x) { return G.card(x).tax; })) a.push(['', '束縛：每張牌 +1 費']);
@@ -975,7 +978,7 @@
   function upChoose(i, src) {
     var id = run.deck[i], opts = G.upgradeOptions(run, i);
     openOv('<b>「' + esc(G.card(id).name) + '」要往哪個方向強化？</b><div class="dim" style="margin:4px 0 10px">原本：' + esc(G.cardText(id, run)) + '</div><div class="pick">'
-      + opts.map(function (v) { var D = G.UP_DIRS[G.card(v).dir]; return '<div style="text-align:center"><div style="color:var(--gold);font-size:14px;margin-bottom:4px;min-height:86px">' + (D.legend ? '<span class="uplegend">' + esc(D.name) + '</span>' : esc(D.name)) + '<div class="dim" style="font-size:12px">' + esc(D.text) + '</div><div style="max-width:130px;margin:4px auto 0;font-size:13px;line-height:1.45;color:var(--green)">' + G.upDiff(id, v).map(esc).join('<br>') + '</div></div>' + cardHtml(v, 'onclick="doUpV(' + i + ',\'' + v + '\',\'' + src + '\')"', true) + '</div>'; }).join('')
+      + opts.map(function (v) { var D = G.UP_DIRS[G.card(v).dir]; return '<div style="text-align:center"><div style="color:var(--gold);font-size:14px;margin-bottom:4px;min-height:86px">' + (D.legend ? '<span class="uplegend">' + esc(D.name) + '</span>' : esc(D.name)) + '<div class="dim" style="font-size:12px">' + esc(D.text) + '</div><div style="max-width:130px;margin:4px auto 0;font-size:13px;line-height:1.45;color:var(--green)">' + G.upDiff(id, v, run).map(esc).join('<br>') + '</div></div>' + cardHtml(v, 'onclick="doUpV(' + i + ',\'' + v + '\',\'' + src + '\')"', true) + '</div>'; }).join('')
       + '</div><button class="btn" style="margin-top:12px" onclick="' + (src === 'rest' ? 'upMenu()' : 'closeOv()') + '">換一張</button>');
   }
   function doUpV(i, v, src) { closeOv(); if (src === 'rest') G.rest(run, 'upgrade', i, v); else G.pickCard(run, i, v); render(); }
@@ -987,7 +990,7 @@
   function eventScreen() {
     var E = G.EVENTS[run.event];
     $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">❓ ' + esc(E.name) + '</h1><div style="max-width:420px">' + esc(E.text) + '</div><div class="list">'
-      + E.opts.map(function (o, i) { var ok = G.canChoose(run, o); return '<button ' + (ok ? 'onclick="doChoose(' + i + ')"' : 'disabled style="opacity:.4"') + '>' + esc(o.label) + (ok ? '' : '（' + needText(o) + '）') + '</button>'; }).join('') + '</div></div>';
+      + E.opts.map(function (o, i) { var ok = G.canChoose(run, o); return '<button ' + (ok ? 'onclick="doChoose(' + i + ')"' : 'disabled style="opacity:.4"') + '>' + esc(o.label) + (ok ? '' : '（' + needText(o) + '）') + d20Hint(o) + '</button>'; }).join('') + '</div></div>';
   }
   function shopScreen() {
     var S = run.shop, rp = G.removePrice(run);
@@ -1000,7 +1003,24 @@
   function doBuy(what, i) { var r = G.buy(run, what, i); if (r.msg) toast(r.msg, r.ok ? '' : 'err'); render(); }
   function shopRm() { openOv('<b>選一張牌移除（💰 ' + G.removePrice(run) + '）</b><div class="pick" style="margin-top:12px">' + deckPick(null, function (i) { return 'shopRmDo(' + i + ')'; }) + '</div><div class="row" style="justify-content:center;margin-top:12px"><button class="btn" onclick="closeOv()">先不要</button></div>'); }
   function shopRmDo(i) { confirmOv('花 💰' + G.removePrice(run) + ' 移除「' + esc(G.card(run.deck[i]).name) + '」？', function () { doBuy('remove', i); }); }
-  function doChoose(i) { var r = G.choose(run, i); if (r.msg) toast(r.msg, r.ok ? '' : 'err'); render(); }
+  function doChoose(i) { var r = G.choose(run, i); render(); if (r.roll) diceOv(r); else if (r.msg) toast(r.msg, r.ok ? '' : 'err'); }
+  // 擲骰選項：顯示成功率（含幸運修正）
+  function d20Hint(o) {
+    var f = o.fx.filter(function (x) { return x[0] === 'd20'; })[0]; if (!f) return '';
+    var l = G.luckMod(run);
+    return '<div class="dim" style="font-size:13px;margin-top:3px">🎲 成功率 ' + G.d20Chance(run, f[1]) + '%' + (l ? '（幸運 ' + G.PARAMS[run.who][4] + '：' + (l > 0 ? '+' : '') + l + '）' : '') + '</div>';
+  }
+  // 擲骰動畫：數字跳一下再停在結果
+  function diceOv(r) {
+    var R = r.roll;
+    openOv('<div style="text-align:center"><div class="dim">🎲 擲 20 面骰（需要 ' + R.dc + ' 以上）</div><div id="d20n" style="font-size:72px;font-weight:700;margin:6px 0">?</div><div id="d20r" style="min-height:64px"></div><button class="btn" onclick="closeOv()">知道了</button></div>');
+    var n = 0, t = setInterval(function () {
+      var el = $('d20n'); if (!el) { clearInterval(t); return; }
+      if (++n < 12) { el.textContent = 1 + Math.floor(Math.random() * 20); return; }
+      clearInterval(t); el.textContent = R.roll; el.style.color = R.ok ? 'var(--green)' : 'var(--red)';
+      $('d20r').innerHTML = (R.luck ? '<div class="dim">幸運修正 ' + (R.luck > 0 ? '+' : '') + R.luck + ' → ' + (R.roll + R.luck) + '</div>' : '') + '<b style="font-size:20px">' + (R.roll === 20 ? '大成功！' : R.roll === 1 ? '大失敗……' : R.ok ? '成功！' : '失敗……') + '</b><div class="dim" style="font-size:13px;margin-top:4px">' + esc(r.msg.replace(/^🎲[^：]*：(成功|失敗)；?/, '')) + '</div>';
+    }, 60);
+  }
   function pickScreen() {
     var kind = run.pending[0], up = kind === 'upgrade', left = run.pending.filter(function (k) { return k === kind; }).length;
     var title = { upgrade: '選一張牌強化', remove: '選一張牌移除', transform: '選一張牌變形（換成隨機的強化專屬牌）', copy: '選一張牌複製' }[kind] || '選一張牌';
