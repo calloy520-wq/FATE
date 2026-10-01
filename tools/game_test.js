@@ -411,6 +411,17 @@ t(G.upDiff('breaker','breaker+').includes('不再消耗'),'強化選單列出「
 { const r=G.newRun('scathach',3,{asc:4}); const fx=G.npFx(r,G.SERVANTS.scathach.np); t(fx[fx.length-1][0]==='reap'&&fx.some(f=>f[0]==='doomAll'),'寶具追加的刻印排在收尾之前',JSON.stringify(fx)); }
 t(G.ascText('hassanH',2).includes('分身')&&G.ascText('medea',2).includes('龍牙兵')&&G.npText(G.SERVANTS.hassanH.np).includes('分身'),'再臨／寶具文字用這位的使魔名字（分身、龍牙兵）');
 t(!/每場戰鬥開始：每/.test(G.ORDER.map(k=>[2,3,4,6].map(l=>G.ascText(k,l)).join('|')).join('|')),'「每回合…」的效果不再疊「每場戰鬥開始：」');
+// 全部玩家看得到的文字（所有牌與強化方向、寶具、再臨、覺醒、被動、禮裝、事件、命運）沒有 undefined／NaN／{1} 殘留
+{ const bad=[], chk=(w,x)=>{ if(/undefined|NaN|\{\d\}|\{m\}|null/.test(x)) bad.push(w); };
+  Object.keys(G.CARDS).forEach(k=>[k].concat(G.upDirs(k).map(d=>d==='a'?k+'+':k+'+'+d)).forEach(id=>{ chk(id,G.cardText(id,null)); chk(id,G.cardShort(id,null)); }));
+  G.ORDER.forEach(k=>{ const r=G.newRun(k,1); chk(k,G.npText(G.SERVANTS[k].np)); for(let l=1;l<=6;l++) chk(k+l,G.ascText(k,l)); (G.TALENTS[k]||[]).flat().forEach(T=>chk(k+T.name,G.talentText(T,r))); });
+  Object.keys(G.RELICS).forEach(k=>chk(k,G.RELICS[k].text)); Object.keys(G.EVENTS).forEach(k=>G.EVENTS[k].opts.forEach(o=>chk(k,o.label))); Object.keys(G.FATES).forEach(k=>chk(k,G.FATES[k].text));
+  t(!bad.length,'所有文字沒有 undefined／NaN／{1} 殘留',bad.slice(0,5).join(',')); }
+// 稽核第 2 輪：EMIYA 鶴翼三連、吉爾斯海魔每 12 多咬一口、庫・丘林開局迎擊之槍、理性蒸發換武練
+{ const r=arena('emiya',1,99); r.battle.hand=['sword','sword']; playId(r,'kakuyoku'); t(E(r).hp===99-(5+2)*3,'鶴翼三連：手上 2 把投影劍 → (5+2)×3（劍不消耗）',E(r).hp); t(r.battle.hand.filter(x=>x==='sword').length===2,'鶴翼三連不用掉投影劍'); }
+{ const r=arena('gilles'); r.battle.kraken=12; t(G.krakenBites(r.battle)===2,'海魔大小 12 就咬兩口'); }
+t(G.newRun('cu',1).deck.includes('arrowward'),'庫・丘林開局招牌牌是箭矢加護（原作技能，第 1 回合就能迴避）');
+{ const r=arena('lancelot'); playId(r,'reason'); t(r.battle.mastery===1&&!r.battle.tstr,'理性蒸發：武練 +1（不再是本回合力量，跟赫拉克勒斯分開）'); }
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位從者 4 局都能打到結束（不卡死）',fin);
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

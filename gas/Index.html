@@ -305,7 +305,7 @@
     ['穿透', '無視格擋的傷害；敵人的穿透攻擊也不會被使魔、海魔擋下'],
     ['使魔／分身／龍牙兵', '龍牙兵等使魔回合結束時各自攻擊一名隨機敵人；百貌的分身不會自己出手，每回合 +1，拿來花（擋刀、換魔力、換抽牌）。敵人攻擊你時，先扣格擋，剩下的由一名使魔替你擋下最多 4 點後消散'],
     ['軍勢', '伊斯坎達爾：回合結束時，軍隊衝過全體敵人，每個都受到等同軍勢的傷害；整場保留'],
-    ['海魔', '吉爾斯：一隻會長大的海魔。回合結束咬生命最少的敵人（每大 15 多咬一口），被打時替你吃下一半傷害並縮小'],
+    ['海魔', '吉爾斯：一隻會長大的海魔。回合結束咬生命最少的敵人（每大 12 多咬一口），被打時替你吃下一半傷害並縮小'],
     ['陣地', '美狄亞（陣地作成）：每打一張技能 +1，整場累積不歸零；累積時回合開始格擋＝陣地÷2（最多 6）；魔彈照陣地加成，神代魔術一次解放全部陣地'],
     ['毒', '敵人行動前受到等同層數的穿透傷害，之後少 1 層'],
     ['創傷', '敵人行動前受到等同層數的穿透傷害，不會自己好'],
@@ -661,7 +661,7 @@
     if (G.passive(run) === 'hsw') a.push(['gold', '陣地 ' + (b.chant || 0)]);
     if (b.minions) a.push(['gold', G.minionName(run) + ' ×' + b.minions]);
     if (b.army) a.push(['gold', '軍勢 ' + b.army]);
-    if (G.passive(run) === 'madness' || b.kraken) a.push(['gold', '海魔 ' + b.kraken + (b.kraken >= 15 ? '（一次咬 ' + (1 + Math.floor(b.kraken / 15)) + ' 口）' : '')]);
+    if (G.passive(run) === 'madness' || b.kraken) a.push(['gold', '海魔 ' + b.kraken + (b.kraken >= 12 ? '（一次咬 ' + (1 + Math.floor(b.kraken / 12)) + ' 口）' : '')]);
     if (b.stance) a.push(['gold', (b.stance === 'red' ? '紅薔薇' : '黃薔薇') + (G.passive(run) === 'twin' ? '・下次切換刺 ' + (2 + b.switches + (b.pSwitch || 0)) : '')]);
     if (G.passive(run) === 'wisdom') { var wf = G.wisdomFrom(b); a.push(['gold', '本回合已出 ' + b.played + ' 張' + (b.played + 1 >= wf ? '・下一張攻擊刻印 +1' : '・第 ' + wf + ' 張起攻擊刻印 +1')]); }
     if (b.reapNext) a.push(['gold', '⚡ 連鎖：下一張攻擊可收尾']);
