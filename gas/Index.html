@@ -883,7 +883,7 @@
     if (b.riposte) a.push(['gold', '迎擊 ' + b.riposte]);
     if (G.passive(run) === 'hsw') a.push(['gold', '陣地 ' + (b.chant || 0)]);
     if (b.minions) a.push(['gold', G.minionName(run) + ' ×' + b.minions]);
-    if (b.army) a.push(['gold', '軍勢 ' + b.army]);
+    if (b.army || G.passive(run) === 'charisma') a.push(['gold', '軍勢 ' + b.army + (G.focus(run, 10) > 10 ? '・集中突擊 ×1.5' : '')]);
     if (G.passive(run) === 'madness' || b.kraken) a.push(['gold', '海魔 ' + b.kraken + (b.kraken >= 12 ? '（一次咬 ' + (1 + Math.floor(b.kraken / 12)) + ' 口）' : '')]);
     if (b.stance) a.push(['gold', (b.stance === 'red' ? '紅薔薇' : '黃薔薇') + (G.passive(run) === 'twin' ? '・下次切換刺 ' + (2 + b.switches + (b.pSwitch || 0)) : '')]);
     if (G.passive(run) === 'wisdom') { var wf = G.wisdomFrom(b); a.push(['gold', '第 ' + (b.played + 1) + ' 張' + (b.played + 1 >= wf ? '：攻擊刻印+1' : '')]); }

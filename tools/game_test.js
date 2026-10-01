@@ -152,8 +152,11 @@ playId(r,'twin'); t(r.battle.stance==='yellow','雙槍：切換架勢'); E(r).bl
 playId(r,'buidhe'); t(E(r).wound===5,'必滅的黃薔薇：創傷 2＋架勢 1',E(r).wound); let h0=E(r).hp; E(r).block=50; G.endTurn(r); t(h0-E(r).hp===5&&E(r).wound===5,'創傷：每回合穿透、不會自己好',h0-E(r).hp);
 r=arena('diarmuid'); E(r).wound=3; playId(r,'bleedout'); t(E(r).hp===31,'放血：10＋創傷 3×3',E(r).hp);
 
-r=G.newRun('iskandar',3); step(r,'fight'); t(r.battle.army===8,'伊斯坎達爾 開場軍勢 8'); G.endTurn(r); t(r.battle.army===9,'領袖氣質：大軍陸續趕到，每回合軍勢 +1',r.battle.army);
-r=arena('iskandar'); r.battle.army=2; playId(r,'rally'); t(r.battle.army===4,'集結：軍勢 +2'); G.endTurn(r); t(E(r).hp===46,'回合結束軍勢衝鋒 4',E(r).hp);
+r=G.newRun('iskandar',3); step(r,'fight'); t(r.battle.army===6,'伊斯坎達爾 開場軍勢 6'); G.endTurn(r); t(r.battle.army===7,'領袖氣質：大軍陸續趕到，每回合軍勢 +1',r.battle.army);
+r=arena('iskandar'); r.battle.army=2; playId(r,'rally'); t(r.battle.army===4,'集結：軍勢 +2'); G.endTurn(r); t(E(r).hp===44,'回合結束軍勢衝鋒：只剩一個敵人，集中衝過去 4×1.5＝6',E(r).hp);
+r=arena('iskandar',2); r.battle.army=4; G.endTurn(r); t(r.battle.enemies.every(e=>e.hp===46),'兩個敵人：軍勢照樣衝過全體各 4');
+r=arena('iskandar',2); r.battle.enemies[1].hp=0; playId(r,'atk_iskandar'); t(E(r).hp===50-Math.round(5*1.5),'只剩一個敵人：戰車輾壓全體 5 → 單體 8',E(r).hp);
+r=arena('saber'); playId(r,'jewel'); t(E(r).hp===50-G.card('jewel').fx.find(f=>f[0]==='all')[1],'別的從者的全體攻擊不受影響',E(r).hp);
 r=arena('iskandar',2); r.battle.army=5; playId(r,'order'); t(r.battle.enemies.every(e=>e.hp===41),'突擊令：全體 4＋軍勢 5');
 r=arena('iskandar',3); playId(r,'atk_iskandar'); playId(r,'zeus'); t(r.battle.enemies.every(e=>e.hp===50-5-6),'伊斯坎達爾一直駕著戰車：戰車輾壓、宙斯之雷都打全體（5、6）');
 r=arena('iskandar',2); r.battle.army=2; r.battle.np=100; G.noble(r,0); t(r.battle.army===7&&r.battle.enemies.every(e=>e.hp===36),'王之軍勢：軍勢 +5、全體軍勢×2',E(r).hp);
