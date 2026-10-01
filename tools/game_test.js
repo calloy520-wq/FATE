@@ -516,6 +516,11 @@ r=arena('saber'); playId(r,'leyline'); t(r.battle.block===3&&/打出當下先生
 { const mk=(act,floor)=>{ const r=G.newRun('saber',5); r.act=act; r.floor=floor; return G.makeEnemy(r,'golem',G.scaleUp(r),0); }; const a1=mk(1,10), b1=mk(2,1), b9=mk(2,9), b12=mk(2,12);
   t(b1.str>a1.str&&b9.str>b1.str+3&&b12.str>=b9.str&&b9.hp>b1.hp,'第二章的敵人隨樓層變強（開頭就比第一章尾巴硬、第 9 列起全額）',[a1.str,b1.str,b9.str,b12.str]); }
 r=G.newRun('saber',5); step(r,'fight'); t(r.battle.wind===2,'Saber 風王結界：每場開場風 2');
+// 吉爾・德・雷：海魔整局成長（獻祭），每打贏 2 場之後每場開場 +1，最多 +6
+{ const r=G.newRun('gilles',3); step(r,'fight'); const k0=r.battle.kraken; const win=()=>{ r.battle.enemies.forEach(e=>e.hp=0); G.checkEnd(r); };
+  win(); t(!r.krakenFed,'打贏 1 場還不長'); r.screen='map'; step(r,'fight'); win(); t(r.krakenFed===1,'打贏 2 場：海魔整局 +1',r.krakenFed);
+  r.krakenWins=40; r.screen='map'; step(r,'fight'); win(); t(r.krakenFed===6,'整局成長最多 +6',r.krakenFed); r.screen='map'; step(r,'fight'); t(r.battle.kraken===k0+6,'開場海魔照成長算',r.battle.kraken);
+  const q=G.newRun('saber',3); step(q,'fight'); q.battle.enemies.forEach(e=>e.hp=0); G.checkEnd(q); t(!q.krakenFed,'只有吉爾・德・雷的海魔會成長'); }
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位從者 4 局都能打到結束（不卡死）',fin);
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

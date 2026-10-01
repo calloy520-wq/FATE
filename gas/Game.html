@@ -332,7 +332,7 @@ var G = (function () {
       np: { name: '王之軍勢', fx: [['army', 5], ['armyAll', 2]] } },
     gilles: { name: '吉爾・德・雷', cls: 'Caster', war: 4, hp: 86, sig: 'horror',
       desc: '瘋狂的元帥。用自己的血餵一隻海魔，越餵越恐怖：它每回合咬生命最少的敵人、替你吃傷害，每大 12 多咬一口；最後一口氣吞掉換全體傷害。',
-      passive: { id: 'madness', name: '精神汙染', text: '不會被施加虛弱；每場戰鬥開始時海魔大小 5，之後每回合長大 1。海魔回合結束咬生命最少的敵人（每大 12 多咬一口）；打穿格擋的傷害，海魔替你吃下一半（海魔跟著縮小）' },
+      passive: { id: 'madness', name: '精神汙染', text: '不會被施加虛弱；每場戰鬥開始時海魔大小 5，之後每回合長大 1；每打贏兩場，之後每場開場海魔再 +1（獻祭，整局最多 +6）。海魔回合結束咬生命最少的敵人（每大 12 多咬一口）；打穿格擋的傷害，海魔替你吃下一半（海魔跟著縮小）' },
       np: { name: '螺湮城教本', fx: [['kraken', 8], ['weakAll', 1]] } },
     hassanH: { name: '百貌的哈桑', cls: 'Assassin', war: 4, hp: 55, sig: 'clone',
       desc: '一人即是群體。分身每回合自己多一名，不會自己出手——它們是拿來花的：擋刀、換魔力、換抽牌，或留著讓同時刺擊越刺越多。',
@@ -905,7 +905,7 @@ var G = (function () {
   function bossAct(run) { var a = run.act || 1; return run.endless && a >= 3 ? { hp: 1.1 * (1 + 0.4 * (a - 2)), str: 2 + 2 * (a - 2) } : BOSS_ACT[a]; }   // 魔王不吃每列的成長，所以無盡層另外每層 +40% 血、+2 力量
   var BOSS_POOL = { 1: ['kirei', 'kraken', 'iskandar', 'heracles'], 2: ['gil', 'alter', 'kiritsugu', 'heracles'] };
   var BOSS_ACT = { 1: { hp: 0.8, str: 0 }, 2: { hp: 1.2, str: 5 }, 3: { hp: 1, str: 0 } };
-  var NOT_BOSS_OF = { gilles: 'kraken' };   // 自己的從者不會變成 Boss（吉爾斯＝巨大海魔）
+  var NOT_BOSS_OF = { gilles: 'kraken' };   // 自己的從者不會變成 Boss（吉爾・德・雷＝巨大海魔）
   // opts：{ fate 命運, asc 靈基再臨等級 }（舊寫法直接傳命運的字串也可以）
   function newRun(who, seed, opts) {
     if (typeof opts === 'string') opts = { fate: opts };
@@ -1114,7 +1114,7 @@ var G = (function () {
       opts: [{ label: '伸手：失去 8 生命，選一張牌複製一張', need: { hp: 8 }, fx: [['hp', -8], ['pick', 'copy']] }, { label: '離開', fx: [] }] },
     confess: { act: 2, name: '言峰的告解室', text: '神父隔著簾子低聲說：「把你不需要的東西，都交給主吧。」',
       opts: [{ label: '燒掉 1 劃令咒：從牌組移除三張牌', need: { seal: 1 }, fx: [['seal', -1], ['pick', 'remove'], ['pick', 'remove'], ['pick', 'remove']] }, { label: '失去 15 生命：移除兩張牌', need: { hp: 15 }, fx: [['hp', -15], ['pick', 'remove'], ['pick', 'remove']] }, { label: '離開', fx: [] }] },
-    // 只有吉爾斯會遇到的作惡事件（照 Fate/Zero：螺湮城教本、未遠川的大海魔、對聖女貞德的狂信）
+    // 只有吉爾・德・雷會遇到的作惡事件（照 Fate/Zero：螺湮城教本、未遠川的大海魔、對聖女貞德的狂信）
     spellbook:{ who: 'gilles', name: '螺湮城教本的低語', text: '人皮裝訂的魔導書自己翻開了。書頁上的海魔在蠕動，渴望著鮮血。',
       opts: [{ label: '以血餵書：失去 8 生命，本局每場開場海魔 +3', need: { hp: 8 }, fx: [['hp', -8], ['krakenStart', 3]] }, { label: '闔上書', fx: [] }] },
     riverside:{ who: 'gilles', name: '未遠川的儀式', text: '深夜的河岸邊，你準備了祭品。河面下有巨大的東西在等待。',
@@ -1315,7 +1315,7 @@ var G = (function () {
     if (p === 'twin') b.stance = 'red';
     if (p === 'gaze') b.enemies.forEach(function (e) { petrify(run, e, 1, b.log); });
     if (p === 'golden') { addTreasure(run, 1); b.manshin = 1; }   // 慢心：英雄王一開始總是不把對手放在眼裡
-    if (p === 'madness') b.kraken = 5 + (run.krakenStart || 0);
+    if (p === 'madness') b.kraken = 5 + (run.krakenStart || 0) + (run.krakenFed || 0);   // 獻祭：打贏過的每一場都把海魔養大一點
     if (p === 'sowa') { var big = b.enemies.slice().sort(function (x, y) { return y.hp - x.hp; })[0]; if (big) { big.vuln += 2; b.log.push('宗和的心得：看透' + big.name + '的弱點'); } }
     if (run.trialStr) b.str += run.trialStr;   // 十二試煉：之前復活換來的力量
     b.enemies.forEach(function (e) { chooseIntent(run, e); });
@@ -1882,10 +1882,12 @@ var G = (function () {
     return { ok: true, end: end };
   }
 
+  var KRAKEN_FED_MAX = 6, KRAKEN_FED_EVERY = 2;   // 吉爾・德・雷：每打贏 2 場，海魔整局 +1，最多 +6
   function checkEnd(run) {
     var b = run.battle;
     if (run.hp <= 0) { run.hp = 0; run.screen = 'over'; run.win = false; return 'lose'; }
     if (!alive(b).length) {
+      if (passive(run) === 'madness') { run.krakenWins = (run.krakenWins || 0) + 1; var fed = Math.min(KRAKEN_FED_MAX, Math.floor(run.krakenWins / KRAKEN_FED_EVERY)); if (fed > (run.krakenFed || 0)) { run.krakenFed = fed; b.log = (b.log || []).concat(['獻祭完成：之後每場開場海魔 +' + fed]); } }   // 吉爾・德・雷：海魔整局成長
       if (b.kind === 'boss') {
         run.stats.bosses = (run.stats.bosses || 0) + 1;
         if (run.act === 1 || run.endless) {   // 第一章結束（無盡模式每一層都是）：拿獎勵、喘口氣，進下一章
@@ -1998,7 +2000,7 @@ var G = (function () {
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff, CHASE: CHASE,
     FATES: FATES, FATE_FREE: FATE_FREE, takeBoon: takeBoon, SVT_COST: SVT_COST, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, crystalsFor: crystalsFor, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
-    card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, isCurse: isCurse, makeEnemy: makeEnemy, luckMod: luckMod, d20Chance: d20Chance, dullOf: dullOf, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,
+    card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, isCurse: isCurse, makeEnemy: makeEnemy, checkEnd: checkEnd, luckMod: luckMod, d20Chance: d20Chance, dullOf: dullOf, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, minionName: minionName, wisdomFrom: wisdomFrom,
     newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
     takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic, needsTarget: needsTarget };
 })();
