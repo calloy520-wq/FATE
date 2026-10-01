@@ -120,7 +120,7 @@ var G = (function () {
   });
   kit('kojiro', {   // 留魔力：剩下的魔力換迴避、換格擋、換一閃的傷害；居合搶第一刀
     iai:     { name: '居合', cost: 1, type: 'atk', np: 10, fx: [['dmg', 5], ['iai', 7]], up: { fx: [['dmg', 7], ['iai', 9]] } },
-    tsubame1:{ name: '燕返', cost: 2, type: 'atk', np: 20, fx: [['hits', 6, 3]], up: { fx: [['hits', 8, 3]] } },
+    tsubame1:{ name: '燕返', cost: 2, type: 'atk', np: 20, fx: [['pierceHits', 6, 3]], up: { fx: [['pierceHits', 8, 3]] } },   // 多重次元屈折現象：三刀同時斬出，無法防禦
     pole:    { name: '物干竿', cost: 1, type: 'atk', np: 10, fx: [['pierce', 6], ['iai', 6]], up: { fx: [['pierce', 8], ['iai', 8]] } },
     flash:   { name: '一閃', cost: 0, type: 'atk', np: 10, fx: [['dmgPerEnergy', 2, 2]], up: { fx: [['dmgPerEnergy', 3, 3]] } },
     falseeye:{ name: '心眼（偽）', cost: 1, type: 'skill', np: 5, fx: [['evade', 1], ['block', 4]], up: { fx: [['evade', 1], ['block', 7]] } },
