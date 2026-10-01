@@ -58,7 +58,7 @@ G.seal(r,'np'); t(r.battle.np===100&&r.seals===1,'令咒（寶具）：量表充
 console.log('── 第五次');
 r=arena('saber'); r.battle.wind=9; playId(r,'sheath'); t(r.battle.wind===10,'Saber 風王結界：風最多 10 層',r.battle.wind);
 r=arena('saber',1,200); r.battle.wind=9; r.battle.hand=[]; r.battle.draw=['atk','atk','atk','atk']; playId(r,'hammer'); t(r.battle.wind===0&&r.battle.hand.length===3,'解放 9 層風：每 3 層抽 1（抽 3）',r.battle.hand.length);
-r=G.newRun('emiya',3); step(r,'fight'); t(SW(r)===1&&r.battle.hand.length===6,'EMIYA 投影魔術：每回合開始 1 把投影劍＋照常抽 5');
+r=G.newRun('emiya',3); step(r,'fight'); t(SW(r)===3&&r.battle.hand.length===6,'EMIYA 投影魔術：開戰先投影 2 把＋回合開始 1 把（疊成一張）＋照常抽 5',SW(r));
 r=arena('emiya'); r.battle.hand=['project','broken']; G.play(r,0,0); t(SW(r)===2&&r.battle.hand.filter(x=>x==='sword').length===1,'投影魔術：2 把投影劍疊成一張「×2」');
 G.play(r,r.battle.hand.indexOf('broken'),0); t(!r.battle.hand.includes('sword')&&SW(r)===0&&E(r).hp===36,'壞幻：引爆 2 把，每把全體 7',E(r).hp);
 r=arena('emiya'); r.battle.np=100; G.noble(r,0); t(r.battle.hand.length===1&&SW(r)===3&&r.battle.ubw===2&&r.battle.projUp===2&&/造成 7 傷害/.test(G.cardText('sword',r)),'無限劍製：3 把投影劍（疊成一張）、之後 2 回合、投影劍 7 傷');
@@ -129,11 +129,11 @@ r=arena('medea'); playId(r,'territory'); playId(r,'chant'); t(r.battle.block===4
 r=arena('kojiro'); playId(r,'flash'); t(E(r).hp===50-(2+2*3),'一閃：剩 3 魔力 → 2＋6',E(r).hp);
 r=arena('kojiro'); playId(r,'gate'); r.battle.energy=2; E(r).intent={n:'砍',fx:[['atk',20]]}; hp=r.hp; G.endTurn(r); t(hp-r.hp===12-5,'山門守護：剩 2 魔力格擋 8（20 → 扣 12，下回合山門的守門人回 5）',hp-r.hp);
 r=arena('kojiro'); playId(r,'mastery'); r.battle.played=0; r.battle.energy=3; E(r).vuln=0; r.battle.sowaSeen={x:1}; playId(r,'iai'); t(E(r).hp<50-(5+7+5)+1&&E(r).hp>=50-(5+Math.floor((7+5)*1.5)),'透化：居合 +5',E(r).hp);
-r=arena('diarmuid'); playId(r,'twinart'); playId(r,'twin'); t(r.battle.block===3&&r.battle.stance==='yellow'&&E(r).hp===47&&E(r).wound===1,'雙槍術：切換架勢格擋 3；切換立刻刺一槍（第 1 次＝3，黃薔薇再給創傷 1）',JSON.stringify([E(r).hp,E(r).wound]));
-playId(r,'rose'); t(E(r).hp===47-4-5-5&&E(r).wound===3&&r.battle.block===9,'薔薇交錯：切兩次（第 2 次紅＝4 穿透、第 3 次黃＝5＋創傷），中間 5 傷害',JSON.stringify([E(r).hp,E(r).wound,r.battle.block]));
-r.battle.energy=3; let h2=E(r).hp; playId(r,'twin'); t(h2-E(r).hp===6,'同一回合第 4 次切換刺 6（換越多次越痛）',h2-E(r).hp);
-G.endTurn(r); h2=E(r).hp; r.battle.energy=3; playId(r,'twin'); t(h2-E(r).hp===3,'下回合重新從 3 開始',h2-E(r).hp);
-r=arena('diarmuid'); playId(r,'fianna'); playId(r,'twin'); t(E(r).hp===50-(3+2),'費奧納騎士團：切換那一槍 +2',E(r).hp);
+r=arena('diarmuid'); playId(r,'twinart'); playId(r,'twin'); t(r.battle.block===3&&r.battle.stance==='yellow'&&E(r).hp===46&&E(r).wound===1,'雙槍術：切換架勢格擋 3；切換立刻刺一槍（第 1 次＝4，黃薔薇再給創傷 1）',JSON.stringify([E(r).hp,E(r).wound]));
+playId(r,'rose'); t(E(r).hp===46-5-5-6&&E(r).wound===3&&r.battle.block===9,'薔薇交錯：切兩次（第 2 次紅＝5 穿透、第 3 次黃＝6＋創傷），中間 5 傷害',JSON.stringify([E(r).hp,E(r).wound,r.battle.block]));
+r.battle.energy=3; let h2=E(r).hp; playId(r,'twin'); t(h2-E(r).hp===7,'同一回合第 4 次切換刺 7（換越多次越痛）',h2-E(r).hp);
+G.endTurn(r); h2=E(r).hp; r.battle.energy=3; playId(r,'twin'); t(h2-E(r).hp===4,'下回合重新從 4 開始',h2-E(r).hp);
+r=arena('diarmuid'); playId(r,'fianna'); playId(r,'twin'); t(E(r).hp===50-(4+2),'費奧納騎士團：切換那一槍 +2',E(r).hp);
 r=arena('diarmuid'); E(r).block=20; E(r).str=3; r.battle.np=100; G.noble(r,0); t(E(r).block===0&&E(r).str===0&&E(r).hp<=50-20&&E(r).wound>=5&&r.battle.stance==='yellow','寶具：紅薔薇破魔（拆格擋與力量）→ 20 穿透 → 黃薔薇創傷 5',JSON.stringify([E(r).hp,E(r).block,E(r).wound,r.battle.stance]));
 r=arena('iskandar',2); r.battle.army=5; playId(r,'allcharge'); t(r.battle.enemies.every(e=>e.hp===35)&&r.battle.army===0,'全軍突擊：花光軍勢，全體 5×3、抽 1');
 r=arena('iskandar',2); r.battle.army=4; playId(r,'trample'); t(r.battle.enemies.every(e=>e.hp===42)&&r.battle.army===4,'遙遠的蹂躪制霸：全體軍勢×2，不用掉軍勢',r.battle.enemies.map(e=>e.hp));
@@ -144,8 +144,8 @@ r.battle.kraken=2; playId(r,'zealot'); t(r.battle.kraken===2&&r.battle.tstr===6,
 r=arena('gilles'); r.battle.kraken=5; E(r).intent={n:'砍',fx:[['atk',8]]}; hp=r.hp; G.endTurn(r); t(E(r).hp===45&&hp-r.hp===4&&r.battle.kraken===1+1,'大海魔：回合結束咬 5；被打 8 時吃下一半 4 並縮小；下回合長大 1',JSON.stringify([E(r).hp,hp-r.hp,r.battle.kraken]));
 r=arena('hassanH'); r.battle.minions=3; playId(r,'stab'); t(E(r).hp===50-2*4,'同時刺擊：分身 3 → 刺 4 下',E(r).hp);
 r=arena('lancelot'); r.battle.mastery=3; playId(r,'mace'); t(E(r).hp===50-(4+3+1),'鐵柱橫掃：4＋武練 3（武練 3 點再讓攻擊 +1）',E(r).hp);
-r=arena('lancelot'); r.battle.mastery=2; playId(r,'lakeflash'); t(E(r).hp===50-(8+2*2)&&r.battle.mastery===2&&r.battle.hand.includes('weapon'),'奪來的寶具：8＋武練×2，再拿一件武器化（騎士不死於徒手）',JSON.stringify([E(r).hp,r.battle.mastery]));
-r.battle.energy=3; let h3=E(r).hp; playId(r,'atk'); t(h3-E(r).hp===6,'歸零之後下一擊從頭算',h3-E(r).hp);
+r=arena('lancelot'); r.battle.mastery=2; playId(r,'lakeflash'); t(E(r).hp===50-(8+2*2+1)&&r.battle.mastery===2&&r.battle.hand.includes('weapon'),'奪來的寶具：8＋武練×2（每 2 武練每擊再 +1），再拿一件武器化（騎士不死於徒手）',JSON.stringify([E(r).hp,r.battle.mastery]));
+r.battle.energy=3; let h3=E(r).hp; playId(r,'atk'); t(h3-E(r).hp===7,'歸零之後下一擊從頭算（武練 2：每擊 +1）',h3-E(r).hp);
 r=arena('lancelot'); r.battle.mastery=3; playId(r,'blackmist'); t(r.battle.block===7&&E(r).hp===50-4,'己之榮光不為己有：格擋 4＋武練；技能牌順手攻擊 4',JSON.stringify([r.battle.block,E(r).hp]));
 r=arena('heracles'); r.hp=r.maxHp-27; playId(r,'divine'); t(E(r).hp===50-(10+3*2),'神性之擊：少 27 生命 → 10＋3×2',E(r).hp);
 r=arena('heracles'); r.hp=20; playId(r,'godhand'); G.endTurn(r); t(r.battle.str===1,'戰鬥續行：生命低於一半時每回合力量 +1');
@@ -336,7 +336,9 @@ step(ev,'fight'); t(ev.battle.kraken===8,'下一場開場海魔 5＋3',ev.battle
 ev=G.newRun('gilles',41); step(ev,'event'); ev.event='jeanne'; G.choose(ev,0); step(ev,'fight'); ev.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); const k0=ev.battle.kraken; G.endTurn(ev); t(ev.battle.kraken===k0+2,'聖女的幻影（褻瀆）：海魔每回合長大 2',ev.battle.kraken-k0);
 ev=G.newRun('gilles',41); step(ev,'event'); ev.event='riverside'; G.choose(ev,0); t(ev.deck.includes('prelati')&&ev.maxHp===G.SERVANTS.gilles.hp-6,'未遠川的儀式：最大生命 -6，得到普雷拉蒂的激勵');
 
-r=G.newRun('lancelot',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); hp=r.hp; G.endTurn(r); t(r.hp===hp-2,'狂戰士 狂化：每回合開始失去 2 生命',hp-r.hp);
+r=G.newRun('lancelot',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); hp=r.hp; G.endTurn(r); t(r.hp===hp-1,'蘭斯洛特 狂化（C）：每回合開始失去 1 生命',hp-r.hp);
+{ const q=G.newRun('heracles',3); step(q,'fight'); q.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); const h=q.hp; G.endTurn(q); t(q.hp===h-2,'赫拉克勒斯 狂化（B）：每回合開始失去 2 生命',h-q.hp); }
+{ const q=arena('hassanH'); q.battle.minions=1; q.battle.block=0; E(q).intent={n:'砍',fx:[['atk',8]]}; const h=q.hp; G.endTurn(q); t(h-q.hp===3,'百貌：分身替你擋下 5',h-q.hp); }
 r.hp=1; r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; }); G.endTurn(r); t(r.hp===1&&r.screen==='battle','狂化不會讓自己倒下');
 r=G.newRun('saber',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); hp=r.hp; G.endTurn(r); t(r.hp===hp,'其他職階不扣');
 

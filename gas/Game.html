@@ -299,7 +299,7 @@ var G = (function () {
       np: { name: '誓約勝利之劍', fx: [['windAll', 50, 4]] } },
     emiya: { name: 'EMIYA', cls: 'Archer', war: 5, hp: 71, sig: 'project',
       desc: '把劍投影出來用完即丟的弓兵。手上的投影劍越多，赤原獵犬、熾天覆越強，最後壞幻引爆。',
-      passive: { id: 'forge', name: '投影魔術', text: '每回合開始得到 1 把投影劍；投影劍疊成一張「投影劍 ×N」（不佔手牌上限，最多 10 把），回合結束留下 5 把，囤起來再一口氣引爆' },
+      passive: { id: 'forge', name: '投影魔術', text: '開戰先投影 2 把、之後每回合開始再 1 把投影劍；投影劍疊成一張「投影劍 ×N」（不佔手牌上限，最多 10 把），回合結束留下 5 把，囤起來再一口氣引爆' },
       np: { name: '無限劍製', fx: [['ubw', 1], ['projAll', 6, 2]] } },
     cu: { name: '庫・丘林', cls: 'Lancer', war: 5, hp: 64, sig: 'arrowward',
       desc: '必中之槍與箭矢加護。反擊型：挑釁敵人全都衝著你來，迴避成功就回敬一槍、寶具量表跟著漲；穿透傷害無視格擋。',
@@ -324,7 +324,7 @@ var G = (function () {
       np: { name: '妄想心音', fx: [['exec', 50, 25]] } },
     diarmuid: { name: '迪爾姆德・奧迪那', cls: 'Lancer', war: 4, hp: 74, sig: 'twin',
       desc: '雙槍騎士，左右開弓。每次切換架勢立刻刺一槍，同一回合換越多次越痛：紅薔薇破魔穿透，黃薔薇留下永不癒合的創傷。',
-      passive: { id: 'twin', name: '雙槍', text: '開場紅薔薇。每次切換架勢立刻刺一槍（2＋本回合第幾次切換；紅＝穿透、黃＝再加創傷 1）。紅薔薇時攻擊無視格擋，黃薔薇時攻擊給創傷 1' },
+      passive: { id: 'twin', name: '雙槍', text: '開場紅薔薇。每次切換架勢立刻刺一槍（3＋本回合第幾次切換；紅＝穿透、黃＝再加創傷 1）。紅薔薇時攻擊無視格擋，黃薔薇時攻擊給創傷 1' },
       np: { name: '破魔的紅薔薇・必滅的黃薔薇', fx: [['stance', 'red'], ['dispel', 1], ['pierce', 20], ['stance', 'yellow'], ['wound', 5]] } },
     iskandar: { name: '伊斯坎達爾', cls: 'Rider', war: 4, hp: 90, sig: 'rally',
       desc: '征服王。一直駕著神威車輪，攻擊都打全體；人海戰術：軍勢每回合結束衝過全體敵人，敵人越多越划算；也能一次花光打爆發，花掉就要重新召集。',
@@ -336,12 +336,12 @@ var G = (function () {
       np: { name: '螺湮城教本', fx: [['kraken', 8], ['weakAll', 1]] } },
     hassanH: { name: '百貌的哈桑', cls: 'Assassin', war: 4, hp: 55, sig: 'clone',
       desc: '一人即是群體。分身每回合自己多一名，不會自己出手——它們是拿來花的：擋刀、換魔力、換抽牌，或留著讓同時刺擊越刺越多。',
-      passive: { id: 'hundred', name: '百貌', text: '每場戰鬥開始時 4 名分身，之後每回合開始 +1（分身不會在回合結束自己攻擊）；被打時一名分身替你擋下 4 點傷害' },
+      passive: { id: 'hundred', name: '百貌', text: '每場戰鬥開始時 4 名分身，之後每回合開始 +1（分身不會在回合結束自己攻擊）；被打時一名分身替你擋下 5 點傷害' },
       minion: { name: '分身', atk: 3 },
       np: { name: '妄想幻像', fx: [['minion', 4], ['minionRand', 3]] } },
     lancelot: { name: '蘭斯洛特', cls: 'Berserker', war: 4, hp: 68, sig: 'owner',
       desc: '湖之騎士。拿到手的東西都是武器：技能牌也會順手攻擊；把技能變成武器化、用掉武器累積武練，越打越熟練。',
-      passive: { id: 'arms', name: '無窮之武練', text: '打出技能牌時順手攻擊隨機敵人 4。每用掉一件武器化，武練 +1（整場累積）；每 3 點武練，攻擊牌每一擊 +1。（職階技能狂化：第 2 回合起每回合失去 2 生命）' },
+      passive: { id: 'arms', name: '無窮之武練', text: '打出技能牌時順手攻擊隨機敵人 4。每用掉一件武器化，武練 +1（整場累積）；每 2 點武練，攻擊牌每一擊 +1。（職階技能狂化（C）：第 2 回合起每回合失去 1 生命）' },
       np: { name: '無毀的湖光', fx: [['masteryDmg', 20, 4], ['str', 2]] } },
     heracles: { name: '赫拉克勒斯', cls: 'Berserker', war: 45, hp: 70, sig: 'rampage',
       desc: '希臘最強的大英雄。用自己的血換力量，少掉的生命越多打得越重；倒下也會以五成生命再站起來，而且每死一次就更強。',
@@ -899,7 +899,7 @@ var G = (function () {
   // ── 開局與地圖 ───────────────────────────────────────
   // 兩章（第三章是隱藏關）。每章由上往下走 12 列：第 1 列進場（左中右三個入口），第 11 列休息，第 12 列 Boss。
   // 地圖是分岔路：每一格只連到下一列固定的一到三格；迷霧：看得到接下來 3 列與 Boss。
-  var ROWS = 12, COLS = 5, ACT_UP = 4, ACT2_UP = 8, ACT2 = { hp: 0.4, str: 7 };   // 第二章：敵人多長 8 列，再隨樓層加到四成血、力量 +7（自動玩家通關約三成，真人約五成）
+  var ROWS = 12, COLS = 5, ACT_UP = 4, ACT2_UP = 8, ACT2 = { hp: 0.5, str: 8 };   // 第二章：敵人多長 8 列，再隨樓層加到五成血、力量 +8（自動玩家通關約三成，真人約五成）
   var FLOORS = ROWS;
   var ACT_NAMES = { 1: '第一章　冬木之夜', 2: '第二章　聖杯的影子', 3: '隱藏關　大聖杯深處' };
   // 無盡模式：第二章之後不進隱藏關，一層一層往下（第 3 章起叫「無盡第 N 層」），越來越強，看能爬多遠（走過的格子數＝成績）
@@ -1316,7 +1316,8 @@ var G = (function () {
     if (p === 'invisair') b.wind = 2;   // 風王結界：劍一直被風包著
     if (p === 'twin') b.stance = 'red';
     if (p === 'gaze') b.enemies.forEach(function (e) { petrify(run, e, 1, b.log); });
-    if (p === 'golden') { addTreasure(run, 1); b.manshin = 1; }   // 慢心：英雄王一開始總是不把對手放在眼裡
+    if (p === 'golden') { addTreasure(run, 1); b.manshin = 1; }   // 慢心
+    if (p === 'forge') addProj(b, 2);   // 投影魔術：開戰前先投影兩把：英雄王一開始總是不把對手放在眼裡
     if (p === 'madness') b.kraken = 5 + (run.krakenStart || 0) + (run.krakenFed || 0);   // 獻祭：打贏過的每一場都把海魔養大一點
     if (p === 'sowa') { var big = b.enemies.slice().sort(function (x, y) { return y.hp - x.hp; })[0]; if (big) { big.vuln += 2; b.log.push('宗和的心得：看透' + big.name + '的弱點'); } }
     if (run.trialStr) b.str += run.trialStr;   // 十二試煉：之前復活換來的力量
@@ -1330,6 +1331,7 @@ var G = (function () {
       runFx(ctx, T.start);
     });
   }
+  var MADNESS = { heracles: 2, lancelot: 1 };   // 狂化等級：赫拉克勒斯 B、蘭斯洛特 C（比較輕）
   function startTurn(run, first) {
     var b = run.battle;
     b.turn++;
@@ -1352,7 +1354,7 @@ var G = (function () {
     if (passive(run) === 'charisma' && !first) b.army += 1;   // 領袖氣質：大軍陸續趕到，每回合軍勢 +1
     if (passive(run) === 'madness' && !first) b.kraken += 1 + (run.krakenGrow || 0);
     if (passive(run) === 'sowa' && !first) run.hp = Math.min(run.maxHp, run.hp + GATE_HEAL);   // 山門的守門人
-    if (!first && !run.flat && SERVANTS[run.who] && SERVANTS[run.who].cls === 'Berserker' && run.hp > 1) { run.hp = Math.max(1, run.hp - 2); (b.log = b.log || []).push('狂化：魔力負擔，失去 2 生命'); }   // 職階技能：狂戰士很耗魔
+    if (!first && !run.flat && SERVANTS[run.who] && SERVANTS[run.who].cls === 'Berserker' && run.hp > 1) { var md = MADNESS[run.who] || 2; run.hp = Math.max(1, run.hp - md); (b.log = b.log || []).push('狂化：魔力負擔，失去 ' + md + ' 生命'); }   // 職階技能：狂戰士很耗魔
     if (b.pRage && run.hp < run.maxHp / 2) b.str += b.pRage;
     if (b.pPetrifyAll) alive(b).forEach(function (e) { petrify(run, e, b.pPetrifyAll, b.log); });
     if (passive(run) === 'forge') addProj(b, 1);
@@ -1450,7 +1452,7 @@ var G = (function () {
     var b = ctx.b, d = base + b.str + b.tstr, st = statsOf(ctx.run);
     if (ctx.atk) d -= dullOf(b);   // 疲憊：在手上時攻擊每擊 -1
     if (ctx.atk && b.firstAtk) { d += 6; b.firstAtk = false; }
-    if (ctx.atk && passive(ctx.run) === 'arms') d += Math.floor(b.mastery / 3);
+    if (ctx.atk && passive(ctx.run) === 'arms') d += Math.floor(b.mastery / 2);
     d = Math.round(d * st.atk);   // 六圍：攻擊（筋力／魔力取高）
     if (ctx.atk && b.turn === 1 && passive(ctx.run) === 'ambush') d = d * 1.5;
     if (b.weak > 0) d = d * 0.75;
@@ -1474,11 +1476,11 @@ var G = (function () {
     if (seen && e.hp > 0) e.vuln += 1;   // 看透弱點：打過之後易傷 1
     return dealt;
   }
-  // 雙槍：切換架勢立刻刺一槍（本回合第 N 次切換＝2＋N；紅薔薇穿透、黃薔薇再加創傷 1）
+  // 雙槍：切換架勢立刻刺一槍（本回合第 N 次切換＝3＋N；紅薔薇穿透、黃薔薇再加創傷 1）
   function switchHit(x) {
     var b = x.b; b.switches = (b.switches || 0) + 1;
     var e = x.tg && x.tg.hp > 0 ? x.tg : randFoe(x); if (!e) return;
-    var n = 2 + b.switches + (b.pSwitch || 0), red = b.stance === 'red';
+    var n = 3 + b.switches + (b.pSwitch || 0), red = b.stance === 'red';
     strike({ run: x.run, b: b, log: x.log, atk: false }, e, n, red);
     if (!red && e.hp > 0) e.wound += 1;
     x.log.push((red ? '紅薔薇' : '黃薔薇') + '一閃（第 ' + b.switches + ' 次切換）');
@@ -1833,7 +1835,7 @@ var G = (function () {
       var took = Math.min(b.block, d); b.block -= took; d -= took;
       if (d > 0 && b.kraken > 0) { var eat = Math.min(Math.ceil(d / 2), b.kraken); b.kraken -= eat; d -= eat; log.push('海魔替你吃下 ' + eat); }
       if (d > 0 && b.minions > 0) {
-        b.minions--; d = Math.max(0, d - MINION_GUARD); log.push(minionName(run) + '替你擋下一擊');
+        b.minions--; d = Math.max(0, d - MINION_GUARD - (passive(run) === 'hundred' ? 1 : 0)); log.push(minionName(run) + '替你擋下一擊');   // 百貌的分身擋 5
       }
     }
     if (d > 0) loseHp(run, d, log);
