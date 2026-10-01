@@ -38,7 +38,7 @@ function value(run){
   // 改版後的資源：風、迴避反擊、各種每回合效果
   const hits=incoming(run).length;
   v+=b.wind*3+b.iaiUp*2+(hits&&b.evade?b.riposte*0.8:0);
-  v+=b.kraken*3+b.pKraken*6*left/4;
+  v+=b.kraken*3+b.pKraken*6*left/4+(b.mounted?(b.ride||0)*5:0);
   G.alive(b).forEach(e=>{ if(e.doom) v+=e.doom*3+(!G.ENEMIES[e.id].boss&&e.hp<=e.doom*4+8?6:0); }); v+=(b.pHaste||0)*6*left/4+(b.haste||0)*2;
   v+=(b.pWind*6+b.pEvadeStr*5+b.pPetrifyAll*8+b.pSkillBlock*5+b.pEnergyBlock*3+b.pStanceBlock*3+b.pRage*4)*left/4;
   return v;
@@ -96,7 +96,7 @@ function playRun(who,seed){
     else if(run.screen==='reward'){ if(run.reward.awaken) G.awaken(run,AWAKEN>=0?AWAKEN:(seed+run.floor)%2); G.takeReward(run,pickReward(run)); }
     else if(run.screen==='chest') G.takeChest(run);
     else if(run.screen==='event'){ const E=G.EVENTS[run.event]; let i=E.opts.findIndex(o=>G.canChoose(run,o)&&!(o.need&&o.need.hp&&run.hp-o.need.hp<run.maxHp*0.5)); if(i<0) i=E.opts.length-1; G.choose(run,i); }
-    else if(run.screen==='pick'){ const kind=run.pending[0]; let i=kind==='remove'?run.deck.findIndex(x=>x==='atk'||x==='def'||x==='mud'):run.deck.findIndex(x=>G.canUpgrade(x)&&x!=='atk'&&x!=='def'); if(i<0) i=run.deck.findIndex(x=>G.canUpgrade(x)); G.pickCard(run,i,i>=0&&kind==='upgrade'?bestUp(run,i):undefined); }
+    else if(run.screen==='pick'){ const kind=run.pending[0]; let i=(kind==='remove'||kind==='transform')?run.deck.findIndex(x=>x==='atk'||x==='def'||x==='mud'):run.deck.findIndex(x=>G.canUpgrade(x)&&x!=='atk'&&x!=='def'); if(i<0) i=run.deck.findIndex(x=>G.canUpgrade(x)); G.pickCard(run,i,i>=0&&kind==='upgrade'?bestUp(run,i):undefined); }
     else if(run.screen==='secret') G.secret(run,SECRET);
     else if(run.screen==='shop'){ const S=run.shop; let bought=false;
       if(!S.removed&&run.gold>=G.removePrice(run)){ const i=run.deck.findIndex(x=>x==='atk'||x==='def'); if(i>=0&&G.buy(run,'remove',i).ok) bought=true; }

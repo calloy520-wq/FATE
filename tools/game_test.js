@@ -227,7 +227,7 @@ rr.screen='rest'; rr.deck=rr.deck.slice(0,5); t(!G.rest(rr,'remove',0)&&rr.deck.
 t(G.migrate({who:'custom',custom:{name:'舊英靈'},deck:['atk']})===null&&!('custom' in G.SVT_COST)&&!G.makeCustom,'自創英靈拿掉了：舊的自創英靈那一局讀檔作廢、工坊不再賣');
 
 console.log('── 事件・商店・命運・靈基再臨');
-t(Object.keys(G.EVENTS).every(k=>G.EVENTS[k].opts.length>=2&&G.EVENTS[k].opts.every(o=>o.fx.every(f=>['hp','maxHp','healPct','relic','seal','pick','addCard','upRandom','cards','fight','gamble','gold'].includes(f[0])))),'每個事件至少兩個選項，效果都認得');
+t(Object.keys(G.EVENTS).every(k=>G.EVENTS[k].opts.length>=2&&G.EVENTS[k].opts.every(o=>o.fx.every(f=>['hp','maxHp','healPct','relic','seal','pick','addCard','upRandom','cards','commons','fight','gamble','gold'].includes(f[0])))),'每個事件至少兩個選項，效果都認得');
 let ev=G.newRun('saber',41); step(ev,'event'); t(ev.screen==='event'&&G.EVENTS[ev.event]&&(!G.EVENTS[ev.event].act||G.EVENTS[ev.event].act===1),'事件格：抽一個這一章的事件');
 ev.event='church'; let hp0=ev.hp, d0=ev.deck.length; G.choose(ev,0); t(ev.hp===hp0-6&&ev.screen==='pick'&&ev.pending[0]==='remove','懺悔：先扣血，再選一張牌移除');
 G.pickCard(ev,ev.deck.indexOf('def')); t(ev.deck.length===d0-1&&ev.screen==='map','選完回地圖');
@@ -252,6 +252,25 @@ t(G.ORDER.every(k=>G.ASC_SVT[k].slice(0,2).every(fx=>!G.needsTarget(fx))),'開�
 let as1=G.newRun('saber',6,{asc:3}); step(as1,'fight'); t(as1.battle.wind===2&&as1.battle.block===8,'Saber 再臨 III：開場風 2、格擋 8');
 t(G.SVT_COST.saber===0&&G.ORDER.every(k=>k==='saber'||G.SVT_COST[k]>0)&&G.ASC.length===6,'一開始只有 Saber 免費，其他都有解鎖價；命座 6 級');
 let cz=G.newRun('saber',8); cz.stats.floors=10; cz.stats.bosses=1; t(G.crystalsFor(cz)===25,'聖晶石：走過 10 格＋打倒 1 位魔王＝25');
+
+// 新事件：扣血移除兩張、變形、複製、共通牌
+ev=G.newRun('saber',41); step(ev,'event'); ev.event='purge'; hp0=ev.hp; d0=ev.deck.length; G.choose(ev,0); t(ev.hp===hp0-12&&ev.screen==='pick'&&ev.pending.join()==='remove,remove','地下聖堂：失去 12 生命，移除兩張');
+G.pickCard(ev,0); G.pickCard(ev,0); t(ev.deck.length===d0-2&&ev.screen==='map','移除兩張後回地圖');
+ev=G.newRun('saber',41); step(ev,'event'); ev.event='throne'; G.choose(ev,0); G.pickCard(ev,0); t(ev.deck[0]!=='atk'&&G.CARDS[G.baseId(ev.deck[0])].kit==='saber'&&G.isUp(ev.deck[0]),'英靈座的回響：選的牌變成一張強化過的專屬牌',ev.deck[0]);
+ev=G.newRun('saber',41); step(ev,'event'); ev.event='mirror'; d0=ev.deck.length; G.choose(ev,0); G.pickCard(ev,ev.deck.length-1); t(ev.deck.length===d0+1&&ev.deck[ev.deck.length-1]==='invis','鏡中的自己：複製一張（招牌牌）');
+ev=G.newRun('saber',41); step(ev,'event'); ev.event='storehouse'; G.choose(ev,0); t(ev.screen==='reward'&&ev.reward.cards.length===3&&ev.reward.cards.every(c=>G.CARDS[c].kit==='common'),'衛宮家的土藏：從三張共通牌選一張');
+ev=G.newRun('saber',41); step(ev,'event'); ev.event='castle'; ev.gold=30; t(!G.canChoose(ev,G.EVENTS.castle.opts[0])&&!G.canChoose(ev,G.EVENTS.castle.opts[1]),'錢不夠就不能選');
+t(Object.keys(G.EVENTS).filter(k=>!G.EVENTS[k].act||G.EVENTS[k].act===1).length>=16,'第一章至少 16 個事件可抽');
+
+// 美杜莎：天馬騎乘
+r=G.newRun('medusa',3); step(r,'fight'); t(r.battle.mounted===1&&r.battle.ride===1,'美杜莎 騎乘：每場開場就騎在天馬上（速度 1）');
+r=arena('medusa',2,60); r.battle.mounted=0; r.battle.ride=0; r.battle.enemies.forEach(e=>{ e.petrify=0; e.intent={n:'守',fx:[['block',0]]}; }); playId(r,'mount'); t(r.battle.mounted===1&&r.battle.ride===1&&r.battle.block===5,'天馬召喚：騎上天馬，速度 1、格擋 5');
+G.endTurn(r); t(r.battle.enemies.every(e=>e.hp===57)&&r.battle.ride===2,'騎乘中回合結束衝撞全體 3×速度，之後速度 +1',JSON.stringify([r.battle.enemies.map(e=>e.hp),r.battle.ride]));
+G.endTurn(r); t(r.battle.enemies.every(e=>e.hp===51)&&r.battle.ride===3,'越跑越快：第二回合衝撞 6');
+r.battle.energy=3; playId(r,'land',0); t(E(r).hp===51-(5+3*3)&&r.battle.enemies.every(e=>e.stun===1||e.petrify===3)&&!r.battle.mounted&&r.battle.ride===0,'急降：5＋速度 3×3，下馬時全體石化 3（一般敵人剛好動彈不得）',JSON.stringify([E(r).hp,r.battle.enemies.map(e=>[e.petrify,e.stun])]));
+r=arena('medusa'); r.battle.ride=4; r.battle.mounted=1; playId(r,'mount'); t(r.battle.ride===5,'速度最多 5');
+r=arena('medusa',2,60); r.battle.np=100; G.noble(r,0); t(r.battle.mounted===1&&r.battle.ride===5&&r.battle.enemies.every(e=>e.hp===35),'騎英之手綱：全體 25，騎上天馬速度拉滿',JSON.stringify(r.battle.enemies.map(e=>e.hp)));
+r=arena('medusa'); r.battle.mounted=0; r.battle.ride=0; E(r).petrify=1; playId(r,'land',0); t(E(r).petrify===1&&E(r).hp===45,'沒騎乘時急降只有傷害 5，不會石化',E(r).petrify);
 
 console.log('── 斯卡哈');
 r=arena('scathach'); playId(r,'doublespear'); t(E(r).doom===1&&E(r).hp===40,'雙槍・死棘：5×2＋死兆 1（死兆打完才上）');
