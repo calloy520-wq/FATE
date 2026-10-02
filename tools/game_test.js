@@ -160,7 +160,7 @@ G.BOSSES.forEach(k=>{ const q=toBoss(G.newRun('qingli',5),k); t(q.battle.kind===
 r=toBoss(G.newRun('qingli',11),'niumo'); const hb=r.battle.enemies[0];
 hb.hp=5; hb.block=0; r.battle.hand=['heavy']; r.battle.energy=2; G.play(r,0,0); t(hb.hp===Math.round(hb.maxHp*0.6)&&hb.lives===1&&r.screen==='battle','不死牛魔打倒一次：以六成血站起來',hb.hp);
 hb.lives=0; hb.hp=1; r.battle.hand=['atk']; r.battle.energy=1; G.play(r,0,0); t(r.screen==='reward'&&r.reward.next==='act2'&&r.reward.gold===Math.round(80*G.statsOf(r).luck),'打倒第一章魔王：獎勵（80 金×氣運），接著第二章');
-r.hp=20; G.takeReward(r,-1); t(r.act===2&&r.floor===0&&r.screen==='map'&&r.boss===r.bosses[1]&&r.hp===20+Math.round((r.maxHp-20)*0.5),'進第二章：新地圖、換魔王、回復一半失去的生命');
+r.hp=20; G.takeReward(r,-1); t(r.screen==='major'&&r.act===1,'第一章魔王倒下：先選專精或兼修',r.screen); t(!G.chooseMajor(r,'nope')&&G.chooseMajor(r,'master')&&r.mastered&&r.pathPicked,'選專精'); t(r.act===2&&r.floor===0&&r.screen==='map'&&r.boss===r.bosses[1]&&r.hp===20+Math.round((r.maxHp-20)*0.5),'進第二章：新地圖、換魔王、回復一半失去的生命');
 step(r,'fight'); t(r.battle.enemies.every(e=>['mingquan','yuanling','shikui','jiangshi','bianfu','mohua','xiexiu','shichong'].includes(e.id)),'第二章換一批敵人');
 let s2=toBoss(J(r),r.bosses[1]); s2.battle.enemies.forEach(e=>{e.hp=1;e.lives=0;e.block=0;}); s2.battle.hand=['atk']; s2.battle.energy=1; G.play(s2,0,0);
 t(s2.screen==='secret','第二章魔王倒下、手上還有玉符：出現隱藏關的入口');
@@ -186,7 +186,7 @@ let hk=G.newRun('chilian',3); hk.awaken=['0.0']; hk.screen='reward'; hk.reward={
 { const h=G.newRun('chilian',3); const txt=G.talentText(G.talent(h,'1.1'),h); t(/五成/.test(txt),'赤練的多一條命：寫五成生命站起來',txt); }
 
 console.log('── 特殊卡牌');
-t(G.ORDER.every(k=>Object.keys(G.CARDS).filter(c=>G.CARDS[c].rare===k).length===1)&&Object.keys(G.CARDS).some(c=>G.CARDS[c].rare==='common'),'每位一張秘傳，另有共通的天書殘頁');
+t(G.ORDER.every(k=>G.pathsOf(k).every(P=>P.cards.filter(c=>G.CARDS[c].rare===k).length===1))&&Object.keys(G.CARDS).some(c=>G.CARDS[c].rare==='common'),'每條主修一張秘傳，另有共通的天書殘頁');
 r=arena(); r.battle.hand=['mud']; r.battle.energy=0; x=G.play(r,0,0); t(!x.ok&&r.battle.hand.length===1,'魔氣要 1 靈力才打得掉');
 r.battle.energy=1; x=G.play(r,0,0); t(x.ok&&r.battle.energy===0&&r.battle.exhaust.includes('mud')&&r.battle.played===0&&r.battle.np===0,'花 1 靈力打掉魔氣：這場消耗、不算出牌、不加神通');
 r=arena(); r.battle.hand=['mud']; hp=r.hp; G.endTurn(r); t(r.hp===hp-2&&r.battle.discard.includes('mud'),'魔氣留在手上：回合結束失去 2 生命',hp-r.hp);
@@ -251,7 +251,7 @@ t(Object.keys(G.EVENTS).filter(k=>!G.EVENTS[k].who&&(!G.EVENTS[k].act||G.EVENTS[
 t(Object.keys(G.CARDS).every(k=>{ const t2=G.cardShort(k); return t2&&!/undefined|\{|null/.test(t2)&&t2.length<=G.cardText(k).length; }),'每張牌都有簡短說明（沒有漏字、比完整說明短）');
 
 // 每位自己的基本牌
-t(G.ORDER.every(k=>{ const d=G.newRun(k,3).deck; return d.filter(x=>x==='atk_'+k).length===5&&d.filter(x=>x==='def_'+k).length===(G.SERVANTS[k].extra?3:4)&&G.card('atk_'+k).name!=='攻擊'&&G.card('def_'+k).name!=='防禦'; }),'每位開局 5 張自己的攻擊、4 張自己的防禦（青璃一張換成定身符），名字各不相同');
+t(G.ORDER.every(k=>{ const d=G.newRun(k,3).deck; return d.filter(x=>x==='atk_'+k).length===5&&d.filter(x=>x==='def_'+k).length===(G.pathsOf(k)[0].extra?3:4)&&G.card('atk_'+k).name!=='攻擊'&&G.card('def_'+k).name!=='防禦'; }),'每位開局 5 張自己的攻擊、4 張自己的防禦（主修有 extra 的換掉一張），名字各不相同');
 t(G.newRun('qingli',3).deck.includes('mystic'),'青璃開局就有一張定身符');
 t(new Set(G.ORDER.map(k=>G.card('atk_'+k).name)).size===G.ORDER.length,'5 位的基本攻擊名字都不一樣');
 t(G.ORDER.every(k=>G.card('atk_'+k).fx[0][0]==='dmg'&&G.card('atk_'+k).fx[0][1]===6&&G.card('def_'+k).fx[0][1]===5),'基本牌數字全員一樣（6／5），定位交給根骨');

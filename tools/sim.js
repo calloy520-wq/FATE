@@ -6,11 +6,14 @@ const J=o=>JSON.parse(JSON.stringify(o));
 const SECRET=process.env.SECRET!=='0';   // 有玉符時要不要進隱藏關（預設進）
 const ENDLESS=process.env.ENDLESS==='1';   // 無盡模式：看平均走幾格
 const AWAKEN=process.env.AWAKEN===undefined?-1:+process.env.AWAKEN;   // 頓悟固定選 0 或 1（不給＝隨機）
+const MAJOR=process.env.MAJOR||'';   // 主修（不給＝第一條）
+const MAJOR2=process.env.MAJOR2||'master';   // 第一章魔王後：master＝專精、其他＝兼修那條（找不到就專精）
 
 // 敵人這回合預計打過來多少（動彈不得的不算）
 function incoming(run){
   const b=run.battle; let hits=[];
-  G.alive(b).forEach(e=>{ if(e.stun) return; e.intent.fx.forEach(f=>{ if(f[0]==='atk'||f[0]==='atkP') for(let h=0;h<(f[2]||1);h++) hits.push([G.intentDmg(run,e,f),f[0]==='atkP']); }); });
+  if(b.evadeAll) return hits;
+  G.alive(b).forEach(e=>{ if(e.stun) return; let ch=e.charm||0; e.intent.fx.forEach(f=>{ if(f[0]==='atk'||f[0]==='atkP') for(let h=0;h<(f[2]||1);h++){ const d=G.intentDmg(run,e,f); if(ch>0){ch--;hits.push([Math.floor(d/2),f[0]==='atkP']);continue;} hits.push([d,f[0]==='atkP']); } }); });
   return hits;
 }
 function expectedLoss(run){
@@ -27,7 +30,7 @@ function value(run){
   if(run.screen==='over') return run.win?1e6:-1e6;
   if(run.screen!=='battle') return 5e5+run.hp*10;
   let v=0;
-  G.alive(b).forEach(e=>{ v-=e.hp+e.block*0.5+(e.lives||0)*e.maxHp*0.6; v+=e.poison*1.5+e.petrify*2.5+(e.stun?18:0)+Math.min(e.weak,3)*2+Math.min(e.vuln,3)*3-Math.max(0,e.str)*3+Math.min(3,Math.max(0,-e.str))*1.5; });   // 敵人力量被壓低是好事，但不能好到讓自動玩家捨不得打倒它
+  G.alive(b).forEach(e=>{ v-=e.hp+e.block*0.5+(e.lives||0)*e.maxHp*0.6; v+=e.poison*1.5+e.petrify*2.5+(e.stun?18:0)+(e.parasite||0)*3.5+(e.charm||0)*5+Math.min(e.weak,3)*2+Math.min(e.vuln,3)*3-Math.max(0,e.str)*3+Math.min(3,Math.max(0,-e.str))*1.5; });   // 敵人力量被壓低是好事，但不能好到讓自動玩家捨不得打倒它
   v-=G.alive(b).length*(6+Math.max(0,b.turn-8)*3);   // 戰鬥拖越久越想把敵人清掉（防止跟打不痛的敵人耗到天荒地老）
   const left=4; // 估計這場還要打幾回合
   v+=run.hp*1.5-expectedLoss(run)*1.6;
@@ -39,6 +42,10 @@ function value(run){
   v+=b.ubw*12+b.projUp*6+b.thorns*0.5;
   v+=b.kraken*3+b.pKraken*6*left/4;   // 阿白
   v+=(b.pPetrifyAll*8+b.pRage*4)*left/4;
+  // 門派主修的資源
+  const na=G.alive(b).length;
+  v+=(b.jy||0)*1.2+(b.yuyin||0)*1.6*na+(b.fire||0)*1.5*Math.max(1,na)+(b.dbl?8:0)+(b.ambNext?5:0)+(b.freeAtk?4:0)+(b.mulNext||0)*8+(b.pendStr||0)*5;
+  v+=((b.pJy||0)*6+(b.pYuyin||0)*8+(b.pFire||0)*8+(b.pNilin||0)*6+(b.pHualong||0)*5+(b.pLeech||0)*0.15+(b.pBT||0)*3+(b.pCharm||0)*8+(b.pGumu||0)*7+(b.pNeedle||0)*3)*left/4;
   return v;
 }
 function bestAction(run){
@@ -76,6 +83,7 @@ function rate(run0,id){
     b.enemies=[b.enemies[0]]; while(b.enemies.length<2) b.enemies.push(J(b.enemies[0]));
     b.enemies.forEach((e,i)=>{ e.key='d'+i; e.hp=e.maxHp=40; e.block=0; e.weak=0; e.intent={n:'測',fx:[['atk',9]]}; });
     b.hand=[id,'atk','def']; b.energy=3; b.np=0; b.turn=2;
+    b.jy=6; b.fire=3; b.enemies.forEach(e=>{ e.parasite=3; e.petrify=2; });   // 主修的牌要有點資源才看得出價值
     const base=value(r); const x=J(r); G.play(x,0,0); tot+=value(x)-base;
   }
   return RATE[k]=tot/3;
@@ -90,7 +98,7 @@ function pickReward(run){
   return best;
 }
 function playRun(who,seed){
-  const run=G.newRun(who,seed,{endless:ENDLESS}); let g=0;
+  const run=G.newRun(who,seed,{endless:ENDLESS,major:MAJOR||undefined}); let g=0;
   while(run.screen!=='over'&&g++<(ENDLESS?30000:3000)){
     if(run.screen==='map'){ const opts=G.reachable(run); const t=l=>run.map[run.floor][l].t;
       const pref=run.hp<run.maxHp*0.5?['rest','chest','event','fight','elite','boss']:run.hp>run.maxHp*0.75?['elite','chest','event','fight','rest','boss']:['chest','event','fight','rest','elite','boss'];
@@ -104,6 +112,7 @@ function playRun(who,seed){
       let i=E.opts.findIndex(o=>G.canChoose(run,o)&&!bad(o)&&!(o.need&&o.need.hp&&run.hp-o.need.hp<run.maxHp*0.5)); if(i<0) i=E.opts.length-1; G.choose(run,i); }
     else if(run.screen==='pick'){ const kind=run.pending[0]; let i=(kind==='remove'||kind==='transform')?(run.deck.findIndex(G.isCurse)>=0?run.deck.findIndex(G.isCurse):run.deck.findIndex(x=>G.isBasic(x))):run.deck.findIndex(x=>G.canUpgrade(x)&&!G.isBasic(x)); if(i<0) i=run.deck.findIndex(x=>G.canUpgrade(x)); G.pickCard(run,i,i>=0&&kind==='upgrade'?bestUp(run,i):undefined); }
     else if(run.screen==='secret') G.secret(run,SECRET);
+    else if(run.screen==='major'){ if(!(MAJOR2!=='master'&&G.chooseMajor(run,MAJOR2))) G.chooseMajor(run,'master'); }
     else if(run.screen==='shop'){ const S=run.shop; let bought=false;
       if(!S.removed&&run.gold>=G.removePrice(run)){ const c=run.deck.findIndex(G.isCurse), i=c>=0?c:run.deck.findIndex(x=>G.isBasic(x)); if(i>=0&&G.buy(run,'remove',i).ok) bought=true; }
       if(!bought){ const cs=S.cards.map((c,i)=>[c,i]).filter(([c])=>!c.sold&&c.price<=run.gold).sort((a,b)=>rate(run,b[0].id)-rate(run,a[0].id)); if(cs.length&&rate(run,cs[0][0].id)>4&&run.deck.length<24&&G.buy(run,'card',cs[0][1]).ok) bought=true; }
@@ -113,7 +122,7 @@ function playRun(who,seed){
   }
   return run;
 }
-module.exports={playRun};
+module.exports={playRun,playTurn,value};
 if(require.main===module&&ENDLESS){
   WHO.forEach(w=>{ const fl=[]; for(let i=0;i<N;i++){ const r=playRun(w,1000+i); fl.push(r.stats.floors); } fl.sort((a,b)=>a-b);
     const avg=fl.reduce((a,b)=>a+b,0)/N, deep=fl.filter(x=>x>24).length;
