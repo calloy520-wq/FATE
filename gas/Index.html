@@ -1471,10 +1471,10 @@
       return '<button class="cdxi' + (got ? '' : ' locked') + '"' + (got ? ' onclick="codexOne(\'' + k + '\')"' : '') + '><div class="cfig">' + (got ? FIG.fig(k, true) : '<span class="q">？</span>') + '</div><b>' + (got ? esc(E.name) : '？？？') + '</b></button>';
     }).join('') + '</div><div class="dim" style="font-size:13px">擊敗過的敵人會收錄在這裡，點開可以看介紹與招式。</div>';
     if (tab === 'sect') body = '<div class="list">' + G.SECTS_LORE.map(function (X) {
-      var tag = X.who ? '門下：' + G.SERVANTS[X.who].name + '｜絕學：' + X.arts : X.foe ? '已經在路上交過手：' + G.ENEMIES[X.foe].name : '還沒有人見過——只是傳聞';
+      var tag = X.who ? '門下：' + G.SERVANTS[X.who].name + '｜絕學：' + X.arts : X.foe ? '交過手：' + G.ENEMIES[X.foe].name : '尚未現身';
       return '<div class="box"><b style="color:var(--gold)">' + esc(X.name) + '</b>　<span class="dim">' + esc(X.kind + (X.five ? '・五大宗門' : '') + '｜' + X.place) + '</span>'
         + '<div class="lore" style="text-align:left;margin-top:6px">' + esc(X.text) + '</div><div class="dim" style="font-size:13px;margin-top:4px">' + esc(tag) + '</div></div>';
-    }).join('') + '</div><div class="dim" style="font-size:13px">三百年前封印九幽魔淵的，是雲隱劍宗、玄真觀、靈獸山莊、天機閣、丹鼎宗——五大宗門。</div>';
+    }).join('') + '</div>';
     if (tab === 'end') body = '<div class="list">' + G.ORDER.map(function (k) { var S = G.SERVANTS[k], E = G.ENDINGS[k], got = endingSeen(M, k);
       return '<button class="box urow" style="text-align:left"' + (got ? ' onclick="openOv(endingHtml(\'' + k + '\'))"' : ' disabled style="opacity:.5"') + '><div><b>' + esc(S.name) + '：' + (got ? '「' + esc(E.title) + '」' : '？？？') + '</b><div class="dim" style="font-size:13px">' + (got ? '點開重看' : '用她在九幽魔淵打倒心魔') + '</div></div></button>'; }).join('') + '</div>';
     if (tab === 'goal') { var done = goalsDone(M);
