@@ -51,7 +51,7 @@ var G = (function () {
     buhuai:     { name: '不壞血身', cost: 2, type: 'power', np: 0, rare: 'chilian', fx: [['pBlock', 10]], up: { cost: 1 } },
     huoshui:    { name: '紅顏禍水', cost: 2, type: 'skill', np: 0, ex: 1, rare: 'chilian', fx: [['charmAll', 2]], up: { ex: 0 } },
     wandie:     { name: '萬蝶迷蹤', cost: 2, type: 'skill', np: 0, ex: 1, rare: 'aduo', fx: [['evadeAll', 1], ['mulNext', 2]], up: { cost: 1 } },
-    wangu:      { name: '萬蠱歸宗', cost: 1, type: 'skill', np: 0, ex: 1, rare: 'aduo', fx: [['parasiteToPoison', 2]], up: { fx: [['parasiteToPoison', 3]] } }
+    wangu:      { name: '化蟲為毒', cost: 1, type: 'skill', np: 0, ex: 1, rare: 'aduo', fx: [['parasiteToPoison', 2]], up: { fx: [['parasiteToPoison', 3]] } }
   });
   // 中立牌（大家都拿得到）：各自開一條玩法——全體、穿透、抽牌、靈力、控場、防守
   kit('common', {
@@ -85,7 +85,7 @@ var G = (function () {
     kanshou: { name: '劍影雙飛', cost: 1, type: 'atk', np: 15, fx: [['hits', 4, 2], ['proj', 1]], up: { fx: [['hits', 6, 2], ['proj', 1]] } },
     hawkeye: { name: '劍心通明', cost: 1, type: 'skill', np: 5, fx: [['vuln', 2], ['proj', 1]], up: { fx: [['vuln', 3], ['proj', 1]] } },
     rhoaias: { name: '劍陣護體', cost: 2, type: 'skill', np: 10, fx: [['projBlock', 6, 3]], up: { fx: [['projBlock', 9, 4]] } },
-    analysis:{ name: '劍意淬鍊', cost: 1, type: 'power', np: 0, fx: [['projUp', 1]], up: { fx: [['projUp', 2]] } },
+    analysis:{ name: '淬劍', cost: 1, type: 'power', np: 0, fx: [['projUp', 1]], up: { fx: [['projUp', 2]] } },
     broken:  { name: '劍氣迸裂', cost: 1, type: 'skill', np: 10, fx: [['burst', 7], ['draw', 1]], up: { fx: [['burst', 9], ['draw', 1]] } },
     kakuyoku:{ name: '劍浪三疊', cost: 2, type: 'atk', np: 20, fx: [['projHits', 5, 1, 3]], up: { fx: [['projHits', 6, 2, 3]] } },
     // 歸一（斬）：把飛劍收成劍意，一劍斬出
@@ -96,7 +96,7 @@ var G = (function () {
     hanfeng:  { name: '寒鋒蓄勢', cost: 1, type: 'power', np: 0, fx: [['pJy', 4]], up: { fx: [['pJy', 6]] } },
     // 琴心（韻）：琴音留下餘音，每回合結束震傷全體、再散去三分之一
     gaoshan:  { name: '高山流水', cost: 1, type: 'skill', np: 0, fx: [['yuyin', 10]], up: { fx: [['yuyin', 13]] } },
-    puzhan:   { name: '清心普善咒', cost: 1, type: 'skill', np: 0, fx: [['block', 6], ['yuyin', 4]], up: { fx: [['block', 9], ['yuyin', 5]] } },
+    puzhan:   { name: '清心曲', cost: 1, type: 'skill', np: 0, fx: [['block', 6], ['yuyin', 4]], up: { fx: [['block', 9], ['yuyin', 5]] } },
     shimian:  { name: '十面埋伏', cost: 1, type: 'skill', np: 0, fx: [['weakAll', 1], ['vulnAll', 1], ['yuyin', 3]], up: { fx: [['weakAll', 1], ['vulnAll', 1], ['yuyin', 5]] } },
     buju:     { name: '流水不絕', cost: 2, type: 'power', np: 0, fx: [['pYuyin', 4]], up: { cost: 1 } },
     yangguan: { name: '陽關三疊', cost: 2, type: 'skill', np: 0, fx: [['yuyinX2', 1]], up: { cost: 1 } },
@@ -183,7 +183,7 @@ var G = (function () {
     plague:     { name: '催蠱', cost: 0, type: 'skill', np: 5, ex: 1, fx: [['poisonX2', 1]], up: { ex: 0 } },
     venombody:  { name: '以身養蠱', cost: 2, type: 'power', np: 0, fx: [['pVenom', 1]], up: { cost: 1 } },
     // 暗器（隱）：銀針飛刀從暗處來，躲著打、專挑破綻
-    dieyin:     { name: '蝶隱', cost: 1, type: 'skill', np: 0, fx: [['evade', 1], ['ambushNext', 1]], up: { fx: [['evade', 2], ['ambushNext', 1]] } },
+    dieyin:     { name: '斂息', cost: 1, type: 'skill', np: 0, fx: [['evade', 1], ['ambushNext', 1]], up: { fx: [['evade', 2], ['ambushNext', 1]] } },
     chuanxin:   { name: '穿心針', cost: 1, type: 'atk', np: 0, fx: [['hitsIfWeak', 3, 3, 1]], up: { fx: [['hitsIfWeak', 4, 3, 2]] } },
     wuying:     { name: '無影', cost: 0, type: 'skill', np: 0, fx: [['freeAtk', 1]], up: { fx: [['freeAtk', 1], ['draw', 1]] } },
     xiuli:      { name: '袖裡藏針', cost: 1, type: 'power', np: 0, fx: [['pNeedle', 3]], up: { fx: [['pNeedle', 4]] } },
@@ -355,10 +355,10 @@ var G = (function () {
     shichong:{ name: '屍蟲群', hp: [18, 22], moves: [{ n: '鑽入', fx: [['plant', 'worm', 1]], w: 2 }, { n: '啃咬', fx: [['atk', 5]], w: 1 }] },
     yinbing: { name: '陰兵', hp: [12, 14], moves: [{ n: '突刺', fx: [['atk', 6]], w: 2 }, { n: '列陣', fx: [['blockAll', 5], ['atk', 3]], w: 1 }] },
     // 精英
-    jianmo:  { name: '劍魔', hp: [80, 84], elite: 1, cycle: 1, moves: [{ n: '劍氣縱橫', fx: [['atk', 13]] }, { n: '運功', fx: [['block', 10], ['str', 3]] }, { n: '連斬', fx: [['atk', 7, 2]] }, { n: '天外一劍', fx: [['atk', 28]] }] },
+    jianmo:  { name: '劍魔', hp: [80, 84], elite: 1, cycle: 1, moves: [{ n: '魔劍斬', fx: [['atk', 13]] }, { n: '運功', fx: [['block', 10], ['str', 3]] }, { n: '連斬', fx: [['atk', 7, 2]] }, { n: '天外一劍', fx: [['atk', 28]] }] },
     kuilei:  { name: '機關傀儡', hp: [68, 72], elite: 1, cycle: 1, moves: [{ n: '弩箭', fx: [['atk', 11]] }, { n: '千機刃', fx: [['atk', 5, 3]] }, { n: '鎖定', fx: [['block', 14], ['vuln', 2]] }, { n: '破甲弩', fx: [['atkP', 20]] }] },
     qianghun:{ name: '槍魂', hp: [76, 80], elite: 1, cycle: 1, moves: [{ n: '刺擊', fx: [['atk', 12]] }, { n: '收槍', fx: [['block', 12], ['str', 2]] }, { n: '連刺', fx: [['atk', 6, 2]] }, { n: '穿心一槍', fx: [['atkP', 26]] }] },
-    sheyao:  { name: '蛇妖', hp: [74, 78], elite: 1, cycle: 1, moves: [{ n: '蛇尾鞭', fx: [['atk', 10]] }, { n: '妖瞳', fx: [['vuln', 2], ['weak', 2]] }, { n: '毒牙', fx: [['atk', 5, 3]] }, { n: '吞天', fx: [['atk', 30]] }] },
+    sheyao:  { name: '蛇妖', hp: [74, 78], elite: 1, cycle: 1, moves: [{ n: '蛇尾鞭', fx: [['atk', 10]] }, { n: '妖瞳', fx: [['vuln', 2], ['weak', 2]] }, { n: '蛇吻', fx: [['atk', 5, 3]] }, { n: '吞天', fx: [['atk', 30]] }] },
     yaodao:  { name: '妖道', hp: [58, 62], elite: 1, cycle: 1, moves: [{ n: '剪紙成兵', fx: [['summon', 'zhiren', 2], ['block', 8]] }, { n: '陰火', fx: [['atk', 5, 3]] }, { n: '詛咒', fx: [['weak', 2], ['vuln', 2]] }, { n: '天火', fx: [['atk', 22]] }] },
     daoke:   { name: '無名刀客', hp: [70, 74], elite: 1, cycle: 1, moves: [{ n: '拔刀', fx: [['atk', 6, 3]] }, { n: '架勢', fx: [['block', 14], ['str', 3]] }, { n: '一閃', fx: [['atk', 15]] }] },
     cike:    { name: '血衣刺客', hp: [58, 62], elite: 1, cycle: 1, moves: [{ n: '飛刀', fx: [['atk', 4, 3]] }, { n: '隱身', fx: [['block', 14], ['weak', 1]] }, { n: '穿心', fx: [['atkP', 22]] }] },
@@ -1441,7 +1441,7 @@ var G = (function () {
     if (ctx.atk && b.firstAtk) { d += 6; b.firstAtk = false; }
     d = Math.round(d * st.atk);   // 根骨：攻擊（力道／靈力取高）
     if (ctx.atk && b.turn === 1 && passive(ctx.run) === 'ambush') d = d * 1.5;   // 隱蠱
-    if (ctx.atk && ctx.mul) d = d * ctx.mul;   // 萬法歸一（×2）、蝶隱（×1.5）：這張攻擊牌
+    if (ctx.atk && ctx.mul) d = d * ctx.mul;   // 萬法歸一（×2）、斂息（×1.5）：這張攻擊牌
     if (ctx.atk && b.mulTurn) d = d * b.mulTurn;   // 萬蝶迷蹤：這回合攻擊加倍
     if (b.weak > 0) d = d * 0.75;
     if (ctx.atk && b.hand.some(function (x) { return card(x).half; })) d = d * 0.5;   // 散功

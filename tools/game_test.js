@@ -74,7 +74,7 @@ t(SW(r)===2&&r.battle.hand.includes('sword'),'出一把飛劍：還有就留在�
 { const q=arena(); swords(q,2); G.endTurn(q); t(SW(q)===0&&!q.battle.hand.includes('sword'),'不是凌霜：飛劍回合結束就消失'); }
 r=arena('shuang'); r.battle.hand=['hrunting']; swords(r,2); G.play(r,1,0); t(E(r).hp===50-(8+3*2)&&SW(r)===2,'飛劍追魂：手上每把飛劍 +3，劍不消耗',E(r).hp);
 r=arena('shuang'); r.battle.hand=['rhoaias']; swords(r,1); G.play(r,1,0); t(r.battle.block===9,'劍陣護體：格擋 6＋劍×3');
-r=arena('shuang'); playId(r,'analysis'); r.battle.hand=[]; swords(r,1); G.play(r,0,0); t(E(r).hp===44&&SW(r)===0&&!r.battle.hand.includes('sword'),'劍意淬鍊：飛劍 5＋1；最後一把用完卡就消失',E(r).hp);
+r=arena('shuang'); playId(r,'analysis'); r.battle.hand=[]; swords(r,1); G.play(r,0,0); t(E(r).hp===44&&SW(r)===0&&!r.battle.hand.includes('sword'),'淬劍：飛劍 5＋1；最後一把用完卡就消失',E(r).hp);
 t(/現在 11/.test(G.cardText('hrunting',(()=>{ const q=arena('shuang'); swords(q,1); return q; })())),'說明會標出現在的數字（飛劍追魂 8＋3＝11）');
 { const q=arena('shuang'); swords(q,2); t(G.cardShort('hrunting',q).startsWith('⚔14'),'戰鬥中簡短說明照資源算好數字（飛劍追魂 8＋2×3）',G.cardShort('hrunting',q)); }
 { const q=arena('shuang',1,99); swords(q,2); playId(q,'kakuyoku'); t(E(q).hp===99-(5+2)*3,'劍浪三疊：手上 2 把飛劍 → (5+2)×3（劍不消耗）',E(q).hp); t(SW(q)===2,'劍浪三疊不用掉飛劍'); }
@@ -489,4 +489,10 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
   t(G.ORDER.every(w=>G.ENDINGS[w]&&G.ENDINGS[w].text.length>=3)&&G.EPILOGUE&&G.EPILOGUE.text.length>=3,'五位真結局＋共同尾聲');
   t(!/心魔/.test(JSON.stringify([G.ENEMIES,G.LORE,G.ENDINGS,G.EPILOGUE,G.SECTS_LORE,G.EVENTS,G.SERVANTS,G.GOALS,G.FATES])),'畫面資料裡不再出現「心魔」'); }
 { const q=G.newRun('chilian',3); q.hp=40; const n=(q.relics||[]).length; q.screen='event'; q.event='inlaw'; G.choose(q,0); t(q.hp===32&&(q.relics||[]).length===n+1,'未來的岳母：背白辰一路，失去 8 生命、拿到見面禮（法寶）'); t(G.EVENTS.inlaw.who==='chilian','未來的岳母只有赤練會遇到'); }
+{ const m={}; const add=(n,w)=>{ if(n) (m[n]=m[n]||[]).push(w); };
+  for(const k in G.CARDS) if(!k.endsWith('+')) add(G.CARDS[k].name,'卡'); for(const k in G.RELICS) add(G.RELICS[k].name,'法寶'); for(const k in G.PILLS) add(G.PILLS[k].name,'丹藥');
+  for(const k of G.ORDER){ add(G.SERVANTS[k].np.name,'神通'); add(G.SERVANTS[k].passive.name,'被動'); } for(const k in G.ENEMIES){ add(G.ENEMIES[k].name,'敵人'); (G.ENEMIES[k].moves||[]).forEach(mv=>add(mv.n,'招式')); }
+  const ok=new Set(['重擊']);   // 很普通的通用詞，卡牌和牛魔的招式都叫重擊沒關係
+  const dup=Object.entries(m).filter(([n,v])=>v.length>1&&!v.every(x=>x==='招式')&&!ok.has(n)).map(([n,v])=>n+'('+v.join('/')+')');
+  t(!dup.length,'卡牌、法寶、丹藥、神通、敵人與招式不撞名',dup.join(' ')); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
