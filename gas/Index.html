@@ -786,7 +786,7 @@
   var PROLOGUE = [
     ['abyss', '三百年前，一個叫做<b>「魘」</b>的東西從地底醒來。<br>它沒有形體，靠吃人心裡放不下的念頭長大；吃掉誰，就學會誰。妖魔跟著它出世，天下大亂。'],
     ['abyss', '五大宗門——劍、符、龍、卦、丹——合力把它逼進<b>九幽魔淵</b>。<br>最後一刻魘要逃，雲隱劍宗的劍主追了進去，在裡面死死拖住它：「別進來——人越多，它越強。封！」<br>門就在她身後關上了。'],
-    ['city', '三百年來，每到夜裡，落霞山頂的塔上有人撫琴，魔淵深處就有一聲劍鳴回應。<br>今年中秋，紅月升起，劍鳴斷了。封印跟著鬆動，逃出來的妖魔佔了<b>鬼哭城</b>。'],
+    ['city', '三百年來，每到夜裡，落霞山頂的塔上有人撫琴；琴聲一停，她腰間的劍就輕輕一鳴——那是師父的劍，在魔淵深處回她。<br>今年中秋，紅月升起，劍鳴斷了。封印跟著鬆動，逃出來的妖魔佔了魔淵口上的<b>鬼哭城</b>。'],
     ['hill', '去的人越多，魘吃得越多。天機閣卜了一卦，卦上只有五個字：<b>劍、符、龍、血、蠱</b>。<br><b>落霞山</b>頂，撫了三百年琴的劍主弟子，第一個下了山。', 'shuang'],
     ['hill', '玄真觀送來唯一畫得出鎮魂印的小師妹；靈獸山莊的老祖宗親自出關——當年關上那扇門的，就是她。<br>還有一個在塔下聽了一個月琴、劍仙一下山就跟上去的合歡宗血修，和一個帶著吃魔氣的蠱、從南疆來的苗女。', 'others'],
     ['tower', '師門給每個人留了一枚<b style="color:var(--red)">玉符</b>。<br>危急時捏碎它，能保住一命；把它留到最後，它能打開魔淵的門。<br><br>去把劍主接回來，把魘重新封上。']
@@ -1365,7 +1365,7 @@
   // 機緣給的出發前二選一（天生慧根：第一層頓悟；師門傳承：兩件法寶）
   function boonScreen() {
     var B = run.boon, relic = B.kind === 'relic';
-    $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">' + (relic ? '師門傳承' : '天生慧根') + '</h1><div class="dim">' + (relic ? '師父讓你從師門帶走一件法寶' : '下山前就先有了第一層頓悟') + '，選一個</div>'
+    $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">' + (relic ? '師門傳承' : '天生慧根') + '</h1><div class="dim">' + (relic ? '下山前，師門讓你帶走一件法寶' : '下山前就先有了第一層頓悟') + '，選一個</div>'
       + B.opts.map(function (k, i) { var t = relic ? { name: G.RELICS[k].name, text: G.RELICS[k].text } : { name: G.talent(run, k).name, text: G.talentText(G.talent(run, k), run) }; return '<button class="svt" onclick="G.takeBoon(run,' + i + ');render()"><b>' + esc(t.name) + '</b><div style="margin-top:6px">' + esc(t.text) + '</div></button>'; }).join('') + '</div>';
   }
   function takeCard(i) { G.takeReward(run, i); render(); }
@@ -1447,9 +1447,9 @@
   function pickAsk(i) { var kind = run.pending[0], nm = esc(G.card(run.deck[i]).name); if (kind === 'remove' || kind === 'transform') return confirmOv((kind === 'remove' ? '移除' : '變形') + '「' + nm + '」？', function () { doPick(i); }); doPick(i); }
   function secretScreen() {
     $('app').innerHTML = topBar() + '<div class="panel" style="min-height:70vh;justify-content:center"><h1>九幽魔淵</h1>'
-      + '<div style="max-width:420px;text-align:center" class="lore">第二章的魔王倒下了。懷裡的玉符還在發燙，地底深處傳來一陣一陣的心跳聲。<br>捏碎玉符，就能打開通往九幽魔淵的路——最深處等著的，是劍主的身體、劍主的劍——裡面是魘。進去就不能回頭。</div>'
+      + '<div style="max-width:420px;text-align:center" class="lore">第二章的魔王倒下了。懷裡的玉符還在發燙。鬼哭城底下就是魔淵，地底深處，隱約有一聲劍鳴。<br>捏碎玉符，就能打開通往九幽魔淵的路——最深處等著的，是劍主的身體、劍主的劍——裡面是魘。進去就不能回頭。</div>'
       + '<button class="btn red" onclick="G.secret(run,true);render()">捏碎玉符，往深處走（隱藏關）</button>'
-      + '<button class="btn" onclick="G.secret(run,false);render()">就到這裡（封印完成）</button></div>';
+      + '<button class="btn" onclick="G.secret(run,false);render()">就到這裡，回去</button></div>';
   }
   // 真結局：CG（end_<角色>，還沒有就用立繪）＋故事
   function endingHtml(who) {
@@ -1525,8 +1525,8 @@
       syncCodex(); run.unlockMsgs = newUnlocks(); updateMe(function () { }); save();
     }
     var um = run.unlockMsgs || [];
-    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.trueEnd ? '魘已封印' : run.win ? '封印完成' : run.endless ? '♾ 走到這裡' : '敗退') + '</h1>'
-      + '<div class="dim">' + esc(S.cls) + '・' + esc(S.name) + '　' + (run.trueEnd ? '魘重新封回魔淵深處，劍主可以安息了' : run.win ? '走完了兩章' : '倒在' + esc(run.endless && run.act >= 3 ? '鎮妖塔第 ' + (run.act - 2) + ' 層' : G.actName(run).split('　')[0] + '「' + G.actName(run).split('　')[1] + '」') + '・第 ' + run.floor + ' 列') + '</div>'
+    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.trueEnd ? '魘已封印' : run.win ? '妖魔平定' : run.endless ? '♾ 走到這裡' : '敗退') + '</h1>'
+      + '<div class="dim">' + esc(S.cls) + '・' + esc(S.name) + '　' + (run.trueEnd ? '魘重新封回魔淵深處，劍主可以安息了' : run.win ? '鬼哭城的妖魔平定了。魔淵深處的劍鳴，還是沒有回來' : '倒在' + esc(run.endless && run.act >= 3 ? '鎮妖塔第 ' + (run.act - 2) + ' 層' : G.actName(run).split('　')[0] + '「' + G.actName(run).split('　')[1] + '」') + '・第 ' + run.floor + ' 列') + '</div>'
       + (run.endless ? '<div class="box" style="text-align:center"><div class="dim">♾ 鎮妖塔成績</div><div style="font-size:30px;color:var(--gold)">' + st.floors + ' 格</div><div class="dim">' + esc(S.name) + '的最遠：' + ((me().stats.endless || {})[run.who] || st.floors) + ' 格</div><button class="infobtn" style="margin-top:8px" onclick="boardScreen()">🏆 看排行榜</button></div>' : '')
       + (run.trueEnd ? endingHtml(run.who) : '')
       + '<div>擊敗 ' + st.kills + '・神通 ' + st.np + ' 次・丹藥吃了 ' + (st.pills || 0) + ' 顆' + (st.seals ? '・捏碎了玉符' : '') + '・牌組 ' + run.deck.length + ' 張</div>'
