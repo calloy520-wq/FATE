@@ -61,7 +61,7 @@ var G = (function () {
     suggest:  { name: '攝心術', cost: 1, type: 'skill', np: 5, fx: [['strDown', 2], ['weak', 1]], up: { fx: [['strDown', 3], ['weak', 2]] } },
     baptism:  { name: '獅子吼', cost: 2, type: 'skill', np: 10, fx: [['weakAll', 2], ['block', 6]], up: { fx: [['weakAll', 2], ['block', 10]] } },
     counterward:{ name: '反震', cost: 1, type: 'skill', np: 5, fx: [['block', 5], ['thorns', 4]], up: { fx: [['block', 7], ['thorns', 6]] } },
-    leyline:  { name: '靈脈', cost: 1, type: 'power', np: 0, fx: [['pBlock', 3]], up: { fx: [['pBlock', 5]] } },   // 接上地底的靈脈，每回合都有靈氣護身
+    leyline:  { name: '靈脈', cost: 1, type: 'power', np: 0, fx: [['pBlock', 4]], up: { fx: [['pBlock', 6]] } },   // 接上地底的靈脈，每回合都有靈氣護身
     shroudward:{ name: '移形換影', cost: 1, type: 'skill', np: 5, ex: 1, fx: [['evade', 1], ['block', 3]], up: { fx: [['evade', 1], ['block', 6]] } }
   });
 
@@ -152,7 +152,7 @@ var G = (function () {
       desc: '隱世三百年的劍仙，清冷疏離，琴劍雙絕。飛劍一把把祭出、越囤越多，追魂、護體都看劍數；最後劍氣迸裂，一口氣全數引爆。',
       passive: { id: 'forge', name: '御劍訣', text: '開戰先祭出 2 把飛劍，每回合開始再祭出 1 把（第一回合手上就有 3 把）；飛劍疊成一張「飛劍 ×N」（不佔手牌上限，最多 10 把），回合結束留下 5 把，囤起來再一口氣引爆' },
       np: { name: '萬劍歸宗', fx: [['ubw', 1], ['projAll', 6, 2]] } },
-    qingli: { name: '顧青璃', cls: '符修', hp: 63, sig: 'chain',
+    qingli: { name: '顧青璃', cls: '符修', hp: 63, sig: 'chain', extra: 'mystic',   // extra：起始牌組拿一張防禦換成它
       desc: '玄真觀的小道姑，畫符天才，嘴毒又愛錢。定身符一層層貼上去，貼滿了敵人就動彈不得，貼得越多敵人越虛；最後五雷轟頂，把符一次引爆。',
       passive: { id: 'gaze', name: '鎮魂符', text: '每場戰鬥開始時，全體敵人定身 1；敵人每層定身，攻擊 -1（符的重壓）；定身疊滿就動彈不得一回合' },
       np: { name: '天羅地網', fx: [['all', 38], ['petrifyAll', 2]] } },
@@ -199,11 +199,11 @@ var G = (function () {
   // 打贏精英時，從該層的兩個頓悟裡選一個（第一次精英選第一層、第二次選第二層）。
   // start＝每場戰鬥開始（第一回合抽牌後）執行的效果｜np＝神通追加的效果｜lives＝多幾條命｜maxHp＝最大生命
   var TALENTS = {
-    shuang:  [[{ name: '御劍入微', start: [['proj', 2]] }, { name: '靈覺', start: [['evade', 1], ['block', 5]] }],
+    shuang:  [[{ name: '御劍入微', start: [['proj', 3]] }, { name: '靈覺', start: [['evade', 1], ['block', 5]] }],
               [{ name: '琴劍合鳴', np: [['proj', 3]] }, { name: '天眼', start: [['projUp', 1]] }]],
     qingli:  [[{ name: '符力加持', start: [['petrifyAll', 1]] }, { name: '回氣符', start: [['heal', 4]] }],
               [{ name: '護身金光', np: [['block', 15]] }, { name: '驅邪', start: [['weakAll', 1]] }]],
-    xiaoman: [[{ name: '阿白長大了', start: [['kraken', 4]] }, { name: '老祖宗生氣了', start: [['str', 2]] }],
+    xiaoman: [[{ name: '阿白長大了', start: [['kraken', 4]] }, { name: '老祖宗生氣了', start: [['str', 3]] }],
               [{ name: '神龍降世', np: [['kraken', 6]] }, { name: '龍珠共鳴', start: [['pKraken', 1]] }]],
     chilian: [[{ name: '血煞入體', start: [['str', 2]] }, { name: '血霧護身', start: [['block', 10]] }],
               [{ name: '血河倒灌', np: [['rageDmg', 6, 3]] }, { name: '浴血重生', lives: 1 }]],
@@ -330,7 +330,7 @@ var G = (function () {
     azoth:   { name: '龍虎丹', text: '每場戰鬥開始時力量 +1' },
     volumen: { name: '玄龜甲', text: '每回合開始時格擋 +2' },
     bento:   { name: '桂花糕', text: '每打贏一場戰鬥，回復 4 生命' },
-    waver:   { name: '山海圖', text: '地圖看得更遠：多看 2 列' },
+    waver:   { name: '山海圖', text: '地圖多看 2 列；事件擲骰 +2（熟悉地形）' },
     // 以下要達成目標才會出現在法寶池（lock＝GOALS 的 id）
     tassel:  { name: '劍穗', text: '每場戰鬥開始時多抽 1 張牌', lock: 'clear' },
     lamp:    { name: '心燈', text: '每場戰鬥第一次生命掉到一半以下時，回復 12 生命', lock: 'xinmo' },
@@ -496,10 +496,10 @@ var G = (function () {
     poison: '毒 {1}', poisonAll: '全體毒 {1}', dmgIfPoison: '造成 {1} 傷害；目標中毒時再 +{2}', poisonX2: '目標的毒加倍',
     exec: '一般敵人直接倒下；精英生命 {1}% 以下才咬得死（魔王咬不死）；沒咬死就造成 {2} 穿透傷害',
     projUp: '本場飛劍傷害 +{1}', projDmg: '造成 {1} 傷害，手上每把飛劍再 +{2}', projAll: '對全體造成 {1} 傷害，手上每把飛劍再 +{2}', projBlock: '格擋 {1}，手上每把飛劍再 +{2}',
-    shatter: '引爆目標身上全部定身符：造成 {1} 傷害，每層再 +{2}', dmgIfStun: '造成 {1} 傷害；目標動彈不得時再 +{2}', pPetrifyAll: '每回合開始全體定身 {1}',
+    shatter: '引爆目標身上的定身符：造成 {1} 傷害，每層再 +{2}（引爆後留下一半的符）', dmgIfStun: '造成 {1} 傷害；目標動彈不得時再 +{2}', pPetrifyAll: '每回合開始全體定身 {1}',
     rageDmg: '造成 {1} 傷害，每少 10 點生命再 +{2}', rageAll: '對全體造成 {1} 傷害，每少 10 點生命再 +{2}', rageBlock: '格擋 {1}，每少 10 點生命再 +{2}', pRage: '每回合開始若生命低於一半，力量 +{1}',
     kraken: '阿白 +{1}', pKraken: '每回合開始阿白 +{1}', krakenDmg: '造成 {1} 傷害，阿白每大 1 再 +{2}', krakenBlock: '格擋 {1}，阿白每大 1 再 +{2}',
-    krakenStr: '阿白縮小 {1}：本回合力量 +{2}', krakenAll: '全力龍息：對全體造成阿白大小 ×{1} 的傷害（阿白縮回 0）', krakenX2: '阿白大小翻倍',
+    krakenStr: '阿白縮小 {1}：本回合力量 +{2}', krakenAll: '全力龍息：對全體造成阿白大小 ×{1} 的傷害（阿白縮小一半）', krakenX2: '阿白大小翻倍',
     projHits: function (f) { return '造成 ' + f[1] + ' 傷害 ×' + f[3] + '，手上每把飛劍讓每一擊再 +' + f[2]; }
   };
   function fxText(fx) {
@@ -608,13 +608,13 @@ var G = (function () {
     mana:    { name: '靈氣充盈', text: '每場戰鬥神通量表從 30% 開始' },
     heirloom:{ name: '師門傳承', text: '開局從兩件隨機法寶選一件' },
     forged:  { name: '千錘百鍊', text: '開局隨機強化 3 張牌' },
-    light:   { name: '輕裝上陣', text: '開局從牌組拿掉 2 張攻擊、1 張防禦' },
+    light:   { name: '輕裝上陣', text: '開局從牌組拿掉 1 張攻擊、1 張防禦' },
     merchant:{ name: '商人的眷顧', text: '商店七五折；移除卡片第一次免費，之後也不漲價' },
     early:   { name: '天生慧根', text: '開局就先得到第一層頓悟（兩個選一個）' },
     legacy:  { name: '師父的秘傳', text: '開局牌組就有自己的秘傳牌' },
     // 以下要達成目標才解鎖（lock＝GOALS 的 id）：只是多一種取捨，不是直接變強
-    bloodpact:{ name: '以血換寶', text: '最大生命 -12，開局得到 2 件隨機法寶', lock: 'clear' },
-    trial:   { name: '心魔試煉', text: '牌組多一張詛咒「業障」，但每場戰鬥神通量表從 50% 開始', lock: 'xinmo' },
+    bloodpact:{ name: '以血換寶', text: '最大生命 -6，開局得到 2 件隨機法寶', lock: 'clear' },
+    trial:   { name: '心魔試煉', text: '牌組多一張詛咒「業障」，但每場戰鬥神通量表從 35% 開始', lock: 'xinmo' },
     wander:  { name: '雲遊四方', text: '地圖多看 2 列，開局多 60 金', lock: 'tower' }
   };
   // 局外解鎖的目標（2026-10-02 玩家定：達成目標直接解鎖，不用貨幣）。判斷在 Index 的 goalsDone（看戰績與圖鑑）
@@ -631,9 +631,9 @@ var G = (function () {
   var REALMS = ['', '築基', '金丹', '元嬰', '化神', '煉虛', '渡劫'];
   // 難度：困難要先用任一角色通關普通、深淵要先通關困難；境界 I～II 要用那位通關普通、III～IV 通關困難、V～VI 通關深淵
   var DIFFS = {
-    normal: { name: '普通', hp: 0, str: 0, cry: 1, rest: 0.3, cap: 2 },
-    hard:   { name: '困難', hp: 0.2, str: 1, cry: 1.5, rest: 0.3, cap: 4 },
-    abyss:  { name: '深淵', hp: 0.4, str: 2, cry: 2, rest: 0.2, cap: 6 }
+    normal: { name: '普通', hp: 0, str: 0, rest: 0.3 },
+    hard:   { name: '困難', hp: 0.15, str: 0, rest: 0.3 },
+    abyss:  { name: '深淵', hp: 0.3, str: 1, rest: 0.25 }
   };
   var DIFF_ORDER = ['normal', 'hard', 'abyss'];
   function diffOf(run) { return DIFFS[run.diff] || DIFFS.normal; }
@@ -677,11 +677,11 @@ var G = (function () {
     else if (k === 'mana') run.npStart = (run.npStart || 0) + 30;
     else if (k === 'heirloom') { var r1 = randomRelic(run), r2 = relicPool(run).filter(function (x) { return x !== r1 && !hasRelic(run, x); }); r2 = r2.length ? pick(run, r2) : null; queueBoon(run, { kind: 'relic', opts: [r1, r2].filter(Boolean) }); }
     else if (k === 'forged') { shuffle(run, run.deck.map(function (x, i) { return i; }).filter(function (i) { return canUpgrade(run.deck[i]); })).slice(0, 3).forEach(function (i) { run.deck[i] = pick(run, upgradeOptions(run, i).filter(function (v) { return upDir(v) !== 'f'; })); }); }
-    else if (k === 'light') { ['atk', 'atk', 'def'].forEach(function (x) { var i = run.deck.findIndex(function (y) { return isBasic(y, x); }); if (i >= 0) run.deck.splice(i, 1); }); }
+    else if (k === 'light') { ['atk', 'def'].forEach(function (x) { var i = run.deck.findIndex(function (y) { return isBasic(y, x); }); if (i >= 0) run.deck.splice(i, 1); }); }
     else if (k === 'merchant') { run.discount = 0.75; run.removed = -1; run.flatRemove = 1; }
     else if (k === 'early') { if (talentsOf(run)[0]) queueBoon(run, { kind: 'awaken', opts: ['0.0', '0.1'] }); }
-    else if (k === 'bloodpact') { run.maxHp -= 12; run.hp = Math.min(run.hp, run.maxHp); gainRelic(run, randomRelic(run)); gainRelic(run, randomRelic(run)); }
-    else if (k === 'trial') { run.deck.push('sin'); run.npStart = (run.npStart || 0) + 50; }
+    else if (k === 'bloodpact') { run.maxHp -= 6; run.hp = Math.min(run.hp, run.maxHp); gainRelic(run, randomRelic(run)); gainRelic(run, randomRelic(run)); }
+    else if (k === 'trial') { run.deck.push('sin'); run.npStart = (run.npStart || 0) + 35; }
     else if (k === 'wander') { run.sightUp = (run.sightUp || 0) + 2; run.gold += 60; }
     else if (k === 'legacy') { var rare = rareOf(run.who); if (rare && !run.deck.some(function (x) { return baseId(x) === rare; })) run.deck.push(rare); else if (rare) run.deck = run.deck.map(function (x) { return x === rare ? rare + '+' : x; }); }   // 境界 V 已經給過：改成把它強化
   }
@@ -695,14 +695,14 @@ var G = (function () {
   function actName(run, act) { act = act || run.act; return run.endless && act >= 3 ? '鎮妖塔　第 ' + (act - 2) + ' 層' : ACT_NAMES[act]; }
   function bossAct(run) { var a = run.act || 1; return run.endless && a >= 3 ? { hp: 1.1 * (1 + 0.4 * (a - 2)), str: BOSS_ACT[2].str + 2 * (a - 2) } : BOSS_ACT[a]; }   // 魔王不吃每列的成長，所以無盡層另外每層 +40% 血、+2 力量
   var BOSS_POOL = { 1: ['zhanglao', 'shuyao', 'guijiang', 'niumo'], 2: ['huyao', 'duoxian', 'panguan', 'niumo'] };
-  var BOSS_ACT = { 1: { hp: 0.8, str: 0 }, 2: { hp: 1.3, str: 6 }, 3: { hp: 1.5, str: 4 } };
+  var BOSS_ACT = { 1: { hp: 0.8, str: 0 }, 2: { hp: 1.3, str: 6 }, 3: { hp: 1.5, str: 6 } };
   // opts：{ fates 機緣（最多兩種；舊寫法 fate 單一個也可以）, asc 境界, diff 難度, endless 無盡 }（直接傳機緣的字串也可以）
   function newRun(who, seed, opts) {
     if (typeof opts === 'string') opts = { fate: opts };
     opts = opts || {};
     var S = SERVANTS[who];
     var run = { v: 4, who: who, seed: seed >>> 0, rs: seed | 0, hp: S.hp, maxHp: S.hp,
-      deck: [0, 0, 0, 0, 0].map(function () { return basicOf(who, 'atk'); }).concat([0, 0, 0, 0].map(function () { return basicOf(who, 'def'); }), [S.sig]), relics: [], seals: 1, maxSeals: 1, pills: [], pillSlots: PILL_SLOTS,
+      deck: [0, 0, 0, 0, 0].map(function () { return basicOf(who, 'atk'); }).concat((S.extra ? [0, 0, 0] : [0, 0, 0, 0]).map(function () { return basicOf(who, 'def'); }), [S.sig], S.extra ? [S.extra] : []), relics: [], seals: 1, maxSeals: 1, pills: [], pillSlots: PILL_SLOTS,
       act: 1, floor: 0, lane: -1, path: [], map: null, bosses: [], boss: null, screen: 'map', battle: null, reward: null, event: null, pending: [], seenEvents: [],
       awaken: [], lives: 0, gold: 60, removed: 0, shop: null, stats: { kills: 0, np: 0, seals: 0, pills: 0, floors: 0 } };
     run.bosses[0] = pick(run, BOSS_POOL[1]);
@@ -918,7 +918,7 @@ var G = (function () {
     run.seenEvents.push(id); run.event = id; run.screen = 'event';
   }
   // 氣運修正：B＝0，每級 ±1（氣運 E＝-3）
-  function luckMod(run) { var P = !run || run.flat ? null : PARAMS[run.who]; return P ? Math.round(grade(P[4]) - 4) : 0; }
+  function luckMod(run) { var P = !run || run.flat ? null : PARAMS[run.who]; return (P ? Math.round(grade(P[4]) - 4) : 0) + (run && run.relics && hasRelic(run, 'waver') ? 2 : 0); }
   function d20Chance(run, dc) { var n = 0; for (var r = 1; r <= 20; r++) if (r === 20 || (r !== 1 && r + luckMod(run) >= dc)) n++; return n * 5; }
   function canChoose(run, o) {
     var need = o.need || {};
@@ -1044,7 +1044,7 @@ var G = (function () {
   var MADNESS = { chilian: 2 };   // 血煞反噬：第 2 回合起每回合開始失去的生命
   // 神通量表（2026-10-02 去 Fate 味）：不再靠出牌累積，而是靠各自的機制——
   // 凌霜每祭出一把飛劍｜青璃每貼一層定身｜白辰阿白每長大 1、每咬一口｜赤練每失去 1 生命｜阿朵每讓敵人多中 1 層毒
-  var NP_GAIN = { forge: 10, gaze: 7, madness: 0.5, bite: 1, revive: 9, ambush: 5 };
+  var NP_GAIN = { forge: 10, gaze: 6, madness: 0.5, bite: 1, revive: 9, ambush: 5 };
   function npHow(who) {   // 給玩家看：這位的神通量表怎麼漲
     var p = (SERVANTS[who].passive || {}).id;
     return p === 'forge' ? '每祭出 1 把飛劍 +' + NP_GAIN.forge + '%' : p === 'gaze' ? '每貼 1 層定身 +' + NP_GAIN.gaze + '%' : p === 'madness' ? '阿白每長大 2 +1%、每咬一口 +' + NP_GAIN.bite + '%'
@@ -1136,12 +1136,15 @@ var G = (function () {
     }
     return before - Math.max(0, e.hp);
   }
-  function stunAt(e) { var E = ENEMIES[e.id]; return (E.stunAt || (E.boss ? 5 : E.elite ? 4 : 3)) + (E.boss ? Math.max(0, (e.stuns || 0) - 1) : 0); }   // 魔王第二次起每被定住一次，門檻 +1（定不死）
+  function stunAt(e, run) {   // 第二章起 +1、鎮妖塔每往下一層再 +1；魔王第二次起每被定住一次 +1（定不死）
+    var E = ENEMIES[e.id], a = run ? run.act || 1 : 1;
+    return (E.stunAt || (E.boss ? 5 : E.elite ? 4 : 3)) + (a >= 2 ? 1 : 0) + (run && run.endless && a >= 3 ? a - 2 : 0) + (E.boss ? Math.max(0, (e.stuns || 0) - 1) : 0);
+  }
   function petrify(run, e, n, log) {
     if (!e || e.hp <= 0) return;
     e.petrify += n;
     if (passive(run) === 'gaze') npAdd(run.battle, n * NP_GAIN.gaze);   // 青璃：貼上的定身累積神通
-    if (e.petrify >= stunAt(e)) { e.petrify = 0; e.stun = 1; e.stuns = (e.stuns || 0) + 1; log.push(e.name + '被定住了'); }
+    if (e.petrify >= stunAt(e, run)) { e.petrify = 0; e.stun = 1; e.stuns = (e.stuns || 0) + 1; log.push(e.name + '被定住了'); }
   }
   // 玩家受到傷害（不滅血體、九轉還魂丹在這裡擋）
   function loseHp(run, d, log) {
@@ -1243,14 +1246,14 @@ var G = (function () {
       else strike(x, e, f[2], true);
     },
     projUp: function (x, f) { x.b.projUp += f[1]; },
-    shatter: function (x, f) { var e = x.tg; if (!e) return; var n = f[1] + f[2] * e.petrify; e.petrify = 0; strike(x, e, n); },
+    shatter: function (x, f) { var e = x.tg; if (!e) return; var n = f[1] + f[2] * e.petrify; e.petrify = Math.floor(e.petrify / 2); strike(x, e, n); },
     dmgIfStun: function (x, f) { if (x.tg) strike(x, x.tg, f[1] + (x.tg.stun ? f[2] : 0)); },
     pPetrifyAll: function (x, f) { x.b.pPetrifyAll += f[1]; },
     pRage: function (x, f) { x.b.pRage += f[1]; },
     kraken: function (x, f) { x.b.kraken += f[1]; },
     pKraken: function (x, f) { x.b.pKraken += f[1]; },
     krakenStr: function (x, f) { if (x.b.kraken >= f[1]) { x.b.kraken -= f[1]; x.b.tstr += f[2]; x.log.push('借了阿白的力氣'); } },
-    krakenAll: function (x, f) { var n = x.b.kraken * f[1]; x.log.push('阿白（' + x.b.kraken + '）全力龍息'); x.b.kraken = 0; alive(x.b).forEach(function (e) { hitEnemy(x.run, e, dmgTo(e, n), x.log); }); },
+    krakenAll: function (x, f) { var n = x.b.kraken * f[1]; x.log.push('阿白（' + x.b.kraken + '）全力龍息'); x.b.kraken = Math.floor(x.b.kraken / 2); alive(x.b).forEach(function (e) { hitEnemy(x.run, e, dmgTo(e, n), x.log); }); },
     krakenX2: function (x) { x.b.kraken *= 2; },
     projHits: function (x, f) { var sw = x.b.swords || 0; for (var h = 0; h < f[3]; h++) if (x.tg && x.tg.hp > 0) strike(x, x.tg, f[1] + f[2] * sw); }
   };
