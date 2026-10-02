@@ -1526,7 +1526,7 @@
     }
     var um = run.unlockMsgs || [];
     $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.trueEnd ? '魘已封印' : run.win ? '妖魔平定' : run.endless ? '♾ 走到這裡' : '敗退') + '</h1>'
-      + '<div class="dim">' + esc(S.cls) + '・' + esc(S.name) + '　' + (run.trueEnd ? '魘重新封回魔淵深處，劍主可以安息了' : run.win ? '鬼哭城的妖魔平定了。魔淵深處的劍鳴，還是沒有回來' : '倒在' + esc(run.endless && run.act >= 3 ? '鎮妖塔第 ' + (run.act - 2) + ' 層' : G.actName(run).split('　')[0] + '「' + G.actName(run).split('　')[1] + '」') + '・第 ' + run.floor + ' 列') + '</div>'
+      + '<div class="dim">' + esc(S.cls) + '・' + esc(S.name) + '　' + (run.trueEnd ? '魘重新封回魔淵深處，劍主被接了出來' : run.win ? '鬼哭城的妖魔平定了。魔淵深處的劍鳴，還是沒有回來' : '倒在' + esc(run.endless && run.act >= 3 ? '鎮妖塔第 ' + (run.act - 2) + ' 層' : G.actName(run).split('　')[0] + '「' + G.actName(run).split('　')[1] + '」') + '・第 ' + run.floor + ' 列') + '</div>'
       + (run.endless ? '<div class="box" style="text-align:center"><div class="dim">♾ 鎮妖塔成績</div><div style="font-size:30px;color:var(--gold)">' + st.floors + ' 格</div><div class="dim">' + esc(S.name) + '的最遠：' + ((me().stats.endless || {})[run.who] || st.floors) + ' 格</div><button class="infobtn" style="margin-top:8px" onclick="boardScreen()">🏆 看排行榜</button></div>' : '')
       + (run.trueEnd ? endingHtml(run.who) : '')
       + '<div>擊敗 ' + st.kills + '・神通 ' + st.np + ' 次・丹藥吃了 ' + (st.pills || 0) + ' 顆' + (st.seals ? '・捏碎了玉符' : '') + '・牌組 ' + run.deck.length + ' 張</div>'
