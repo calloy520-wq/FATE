@@ -22,7 +22,7 @@ const playId=(r,id,tg=0)=>{ r.battle.hand.push(id); return G.play(r,r.battle.han
 
 console.log('── 基本');
 let run=G.newRun('qingli',7);
-t(run.hp===G.SERVANTS.qingli.hp&&run.deck.length===10&&run.map.length===12&&run.seals===3&&G.BOSS_POOL[1].includes(run.bosses[0])&&G.BOSS_POOL[2].includes(run.bosses[1])&&run.bosses[0]!==run.bosses[1]&&run.gold===60&&run.v===4,'開局：生命照體魄、10 張牌、12 列地圖、3 枚玉符、60 金、兩章各抽一位魔王');
+t(run.hp===G.SERVANTS.qingli.hp&&run.deck.length===10&&run.map.length===12&&run.seals===1&&run.pills.length===1&&run.pills.every(k=>G.PILLS[k])&&G.BOSS_POOL[1].includes(run.bosses[0])&&G.BOSS_POOL[2].includes(run.bosses[1])&&run.bosses[0]!==run.bosses[1]&&run.gold===60&&run.v===4,'開局：生命照體魄、10 張牌、12 列地圖、1 枚師門玉符、1 顆丹藥、60 金、兩章各抽一位魔王');
 t(G.ORDER.length===5&&G.ORDER.every(k=>G.SERVANTS[k]&&G.CARDS[G.SERVANTS[k].sig]&&G.CARDS[G.SERVANTS[k].sig].kit===k),'5 位女修，每位的招牌牌都存在、是自己的');
 t(G.ORDER.every(k=>Object.keys(G.CARDS).filter(c=>G.CARDS[c].kit===k).length>=9),'每位至少 9 張專屬牌');
 t(Object.keys(G.CARDS).every(k=>G.CARDS[k].fx.concat((G.CARDS[k].up&&G.CARDS[k].up.fx)||[]).every(f=>G.OPS[f[0]]&&G.FX_TEXT[f[0]])),'每個卡牌效果（含強化後）都有程式與說明');
@@ -47,16 +47,18 @@ r=arena(); E(r).intent={n:'砍',fx:[['atk',10]]}; r.battle.block=4; let hp=r.hp;
 t(hp-r.hp===6&&r.battle.turn===2&&r.battle.hand.length===5,'敵人打 10、格擋 4 → 扣 6；新回合重抽',hp-r.hp);
 r=arena('qingli',2,70); r.battle.np=100; G.noble(r,0); t(r.battle.enemies.every(e=>e.hp===70-38&&e.petrify===2),'青璃神通天羅地網：全體 38＋全體定身 2',JSON.stringify(r.battle.enemies.map(e=>[e.hp,e.petrify])));
 t(!G.noble(arena(),0).ok,'量表沒滿不能放神通');
-r=arena(); let hl=r.battle.hand.length; G.seal(r,'all'); t(r.seals===2&&r.battle.energy===6&&r.battle.hand.length===hl+2,'玉符（全力以赴）：靈力 +3、抽 2');
-t(G.seal(r,'warp').ok&&r.seals===1,'玉符同一回合可以連用'); r.seals=2; G.endTurn(r);
-G.seal(r,'np'); t(r.battle.np===100&&r.seals===1,'玉符（解放神通）：量表充滿'); r.seals=0; G.endTurn(r); t(!G.seal(r,'all').ok,'玉符用完不能用');
-// 神通每回合一次：放完再用玉符灌滿也放不出第二次（不能連發蒸發魔王）
-{ const q=arena('qingli',1,500); q.battle.np=100; t(G.noble(q,0).ok,'放神通'); q.battle.np=100; t(!G.noble(q,0).ok,'同一回合不能放第二次神通'); t(!G.seal(q,'np').ok&&q.seals===3,'放過神通的回合，玉符也不能再灌神通');
-  G.endTurn(q); q.battle.np=100; t(G.noble(q,0).ok,'下回合又能放'); }
-// 土遁：這回合躲開所有攻擊；回春：生命回滿
-{ const q=arena(); E(q).intent={n:'砍',fx:[['atk',20,3]]}; const h=q.hp; t(G.seal(q,'warp').ok,'玉符（土遁）'); G.endTurn(q); t(q.hp===h,'玉符土遁：這回合的攻擊全部落空',h-q.hp);
-  E(q).intent={n:'砍',fx:[['atk',5]]}; const h2=q.hp; G.endTurn(q); t(q.hp<h2,'下一回合就沒有了');
-  q.hp=10; t(G.seal(q,'heal').ok&&q.hp===q.maxHp,'玉符（回春）：生命回滿'); E(q).intent={n:'發呆',fx:[]}; G.endTurn(q); t(!G.seal(q,'heal').ok,'生命滿的時候不能用回春'); }
+// 丹藥：戰鬥中隨時吃、不限次數，吃了就沒了
+{ const q=arena(); q.pills=['juling','dunxing','tongshen']; const hl=q.battle.hand.length; t(G.usePill(q,0).ok&&q.battle.energy===5&&q.battle.hand.length===hl+2&&q.pills.length===2,'聚靈丹：靈力 +2、抽 2；吃了就少一顆');
+  E(q).intent={n:'砍',fx:[['atk',20,3]]}; const h=q.hp; t(G.usePill(q,0).ok,'同一回合可以連吃'); G.endTurn(q); t(q.hp===h,'遁形丹：這回合的攻擊全部落空',h-q.hp);
+  E(q).intent={n:'砍',fx:[['atk',5]]}; const h2=q.hp; G.endTurn(q); t(q.hp<h2,'遁形丹下一回合就沒有了');
+  q.battle.np=0; t(G.usePill(q,0).ok&&q.battle.np===50&&!q.pills.length,'通神丹：神通量表 +50%'); t(!G.usePill(q,0).ok,'沒有丹藥就吃不了'); }
+{ const q=arena(); q.pills=['huichun','jingang','dali','shigu','qingxin']; q.hp=10; G.usePill(q,0); t(q.hp===10+Math.round(q.maxHp*0.3),'回春丹：回復三成最大生命');
+  G.usePill(q,0); t(q.battle.block===15,'金剛丹：格擋 +15'); G.usePill(q,0); t(q.battle.str===2,'大力丹：力量 +2'); G.usePill(q,0); t(E(q).vuln===2&&E(q).weak===1,'蝕骨散：全體易傷 2、虛弱 1');
+  q.battle.hand=['mud','sin','atk_qingli']; G.usePill(q,0); t(!q.battle.hand.some(x=>G.card(x).type==='curse')&&q.battle.exhaust.includes('mud')&&q.battle.exhaust.includes('sin'),'清心丹：手上的妨礙牌、詛咒全部消耗'); }
+{ const q=arena(); q.pills=[]; q.pillSlots=3; t(G.gainPill(q,'dali')&&G.gainPill(q,'dali')&&G.gainPill(q,'dali')&&!G.gainPill(q,'dali')&&q.pills.length===3,'丹藥袋最多 3 顆，滿了拿不下'); }
+// 師門玉符：整局一枚，戰鬥中捏碎＝生命回滿
+{ const q=arena(); q.hp=10; t(G.seal(q,'heal').ok&&q.hp===q.maxHp&&q.seals===0,'捏碎師門玉符：生命回滿'); q.hp=10; t(!G.seal(q,'heal').ok,'玉符只有一枚'); }
+{ const q=arena(); t(!G.seal(q,'heal').ok&&q.seals===1,'生命滿的時候不能捏玉符'); t(!G.seal(q,'all').ok,'玉符不再有全力以赴、土遁、解放神通'); }
 
 console.log('── 蘇凌霜（飛劍）');
 r=G.newRun('shuang',3); step(r,'fight'); t(SW(r)===3&&r.battle.hand.length===6,'凌霜 御劍訣：開戰先祭出 2 把＋回合開始 1 把（疊成一張）＋照常抽 5',SW(r));
@@ -315,12 +317,12 @@ t(G.FATES.gold.name==='意外之財','機緣的名字');
   r.screen='map'; r.battle=null; r.floor=0; r.lane=-1; t(step(r,'event')&&r.screen==='event','無盡層也有事件');
   const b2=G.newRun('qingli',5); b2.act=2; b2.floor=11; const hp2=(()=>{ b2.lane=b2.map[10].findIndex(n=>n); b2.boss='huyao'; G.go(b2,2); return b2.battle.enemies[0].maxHp; })();
   const r3=G.newRun('qingli',5,{endless:true}); r3.act=4; r3.floor=11; r3.lane=r3.map[10].findIndex(n=>n); r3.boss='huyao'; G.go(r3,2);
-  t(r3.battle.enemies[0].maxHp>hp2*1.5&&r3.battle.enemies[0].str>b2.battle.enemies[0].str,'無盡越深越強（第 2 層的九尾妖狐比第二章強很多）',hp2+'→'+r3.battle.enemies[0].maxHp);
+  t(r3.battle.enemies[0].maxHp>hp2*1.4&&r3.battle.enemies[0].str>b2.battle.enemies[0].str,'無盡越深越強（第 2 層的九尾妖狐比第二章強很多）',hp2+'→'+r3.battle.enemies[0].maxHp);
   { const h=G.newRun('qingli',5); h.act=3; h.floor=2; const e=G.newRun('qingli',5,{endless:true}); e.act=3; e.floor=2; t(G.scaleUp(h)===9&&G.scaleUp(e)===17,'敵人成長：隱藏關照舊（+8），無盡第 1 層 +16（第二章 8＋每層 8）',G.scaleUp(h)+'/'+G.scaleUp(e)); }
   const n=G.newRun('qingli',5); n.act=2; n.boss='huyao'; n.seals=1; toBoss(n); t(n.screen==='secret','一般模式不受影響：第二章打完有玉符照樣到隱藏關入口',n.screen); }
 t(G.newRun('qingli',3,{asc:6,fate:'legacy'}).deck.filter(x=>G.baseId(x)==='breaker').length===1,'境界 V 已經有秘傳：師父的秘傳改成把它強化，不會拿到兩張');
 t(G.upDiff('breaker','breaker+').includes('不再消耗'),'強化選單列出「不再消耗」');
-{ const q=arena(); q.screen='reward'; t(!G.seal(q,'all').ok&&q.seals===3,'戰鬥結束（勝利停頓中）不能用玉符'); }
+{ const q=arena(); q.screen='reward'; q.hp=10; q.pills=['dali']; t(!G.seal(q,'heal').ok&&q.seals===1&&!G.usePill(q,0).ok,'戰鬥結束（勝利停頓中）不能用玉符、丹藥'); }
 { const q=arena('qingli',1,6); q.battle.hand=['heavy']; const p=G.preview(q,0,0), p2=G.preview(q,0,0,true); t(p.per[0]===6&&p2.per[0]===12&&p.kills===1&&E(q).hp===6,'預計：raw 量實際打出的 12（不被 6 血截掉）、一般試算數得到擊倒，不動到真的局面',JSON.stringify([p.per,p2.per,p.kills])); }
 t(!/每場戰鬥開始：每/.test(G.ORDER.map(k=>[2,3,4,6].map(l=>G.ascText(k,l)).join('|')).join('|')),'「每回合…」的效果不再疊「每場戰鬥開始：」');
 // 全部玩家看得到的文字（所有牌與強化方向、神通、境界、頓悟、被動、法寶、事件、機緣）沒有 undefined／NaN／{1} 殘留
@@ -399,7 +401,7 @@ r.battle.energy=3; G.play(r,0,0); t(G.costOf(r,'atk_qingli')===1&&r.battle.energ
 // 擲骰事件：d20＋氣運修正（B＝0、每級 ±1），20 必成功、1 必失敗
 t(G.luckMod({who:'qingli'})===1&&G.luckMod({who:'chilian'})===-2&&G.luckMod({who:'xiaoman'})===0&&G.luckMod({who:'qingli',flat:true})===0,'氣運修正：青璃天＝+1、赤練黃＝-2、白辰地＝0（flat 不套）');
 t(G.d20Chance({who:'xiaoman'},10)===55&&G.d20Chance({who:'qingli'},10)===60&&G.d20Chance({who:'chilian'},10)===45&&G.d20Chance({who:'chilian'},30)===5&&G.d20Chance({who:'qingli'},1)===95,'成功率：20 必成功、1 必失敗');
-{ let win=0, hpWin=0; for(let s=0;s<300;s++){ const q=G.newRun('chilian',s); q.screen='event'; q.event='stairs'; const m=q.maxHp, h=q.hp; const x=G.choose(q,0); if(x.roll.ok){ win++; if(q.maxHp===m+8) hpWin++; } else if(q.hp!==h-10||q.maxHp!==m) hpWin=-999; }
+{ let win=0, hpWin=0; for(let s=0;s<300;s++){ const q=G.newRun('xiaoman',s); q.screen='event'; q.event='stairs'; const m=q.maxHp, h=q.hp; const x=G.choose(q,0); if(x.roll.ok){ win++; if(q.maxHp===m+8) hpWin++; } else if(q.hp!==h-10||q.maxHp!==m) hpWin=-999; }
   t(win>130&&win<200&&hpWin===win,'通天石階：成功最大生命 +8、失敗失去 10 生命，成功率約 55%',win); }
 { const q=G.newRun('qingli',3); q.relics=Object.keys(G.RELICS); t(!G.canChoose(q,G.EVENTS.bridge.opts[0])&&!G.canChoose(q,G.EVENTS.gamble.opts[0]),'法寶全拿了：擲骰拿法寶的選項也會關掉'); }
 r=arena(); playId(r,'leyline'); t(r.battle.block===3&&/打出當下先生效一次/.test(G.cardText('leyline')),'靈脈：打出當下先格擋 3（卡面寫得出來）',r.battle.block);
@@ -417,10 +419,18 @@ t(G.fateSlots(false)===2&&G.fateSlots(true)===1,'機緣欄位：一般帶兩種�
 console.log('── 神通量表：靠各自的機制累積（不靠出牌）');
 { const q=arena('shuang'); q.battle.npForge=1; q.battle.np=0; q.battle.energy=9; playId(q,'atk_shuang'); const n0=q.battle.np; G.endTurn(q); t(n0===0&&q.battle.np>=G.NP_GAIN.forge,'凌霜：出牌不累積，祭出飛劍才累積',JSON.stringify([n0,q.battle.np])); }
 { const q=arena('qingli'); q.battle.np=0; q.battle.energy=9; playId(q,'nails'); t(q.battle.np===G.NP_GAIN.gaze,'青璃：貼定身累積',q.battle.np); }
+{ const q=arena('qingli',1,200); q.battle.np=100; G.noble(q,0); q.battle.energy=99; playId(q,'nails'); playId(q,'nails'); const np1=q.battle.np; G.endTurn(q); playId(q,'nails'); t(np1===0&&q.battle.np===G.NP_GAIN.gaze,'放過神通的那回合機制不累積（擋定身→神通的無限循環），下回合照常',[np1,q.battle.np]); }
 { const q=arena('xiaoman'); q.battle.np=0; q.battle.kraken=5; q.battle.mKraken=5; playId(q,'horror'); t(q.battle.np===Math.round(3*G.NP_GAIN.madness),'白辰：阿白長大累積',q.battle.np); }
 { const q=arena('chilian'); q.battle.np=0; E(q).intent={n:'砍',fx:[['atk',10]]}; G.endTurn(q); t(q.battle.np>=Math.min(100,10*G.NP_GAIN.revive),'赤練：失去生命累積',q.battle.np); }
 { const q=arena('aduo'); q.battle.np=0; q.battle.energy=9; playId(q,'venom'); t(q.battle.np===7*G.NP_GAIN.ambush,'阿朵：讓敵人中毒累積',q.battle.np); }
 { const q=G.newRun('qingli',3); step(q,'fight'); t(q.battle.np===0,'開戰時的被動（青璃全體定身）不算進量表：從 0 開始',q.battle.np); }
+console.log('── 丹藥的取得');
+{ let got=0; for(let i=0;i<60;i++){ const q=G.newRun('qingli',700+i); q.pills=[]; step(q,'elite'); q.battle.enemies.forEach(e=>{e.hp=1;e.block=0;e.lives=0;}); q.battle.np=100; G.noble(q,0); if(q.reward&&q.reward.pill) got++; } t(got===60,'打贏精英一定有丹藥',got); }
+{ let got=0; for(let i=0;i<200;i++){ const q=G.newRun('qingli',900+i); q.pills=[]; step(q,'fight'); q.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); q.battle.np=100; G.noble(q,0); if(q.reward&&q.reward.pill) got++; } t(got>40&&got<110,'一般戰鬥大約三成五有丹藥',got); }
+{ const q=G.newRun('qingli',5); q.gold=500; q.pills=[]; step(q,'shop'); t(q.shop.pills.length===2&&G.buy(q,'pill',0).ok&&q.pills.length===1&&!G.buy(q,'pill',0).ok,'商店賣兩顆丹藥，賣完就沒了'); q.pills=['a','b','c']; t(!G.buy(q,'pill',1).ok,'丹藥袋滿了不能買'); }
+{ const q=G.newRun('qingli',5,{fates:['seal4']}); t(q.pillSlots===4&&q.pills.length===3,'丹藥滿袋：欄位 +1、開局多 2 顆（共 3 顆）'); }
+{ const q=G.newRun('qingli',5); q.pills=[]; q.screen='chest'; q.reward={relic:'seal'}; G.takeChest(q); t(q.pillSlots===4&&q.pills.length===2,'隨身丹爐：欄位 +1、立刻 2 顆'); }
+{ const old=JSON.parse(JSON.stringify(G.newRun('qingli',5))); delete old.pills; delete old.pillSlots; old.seals=3; old.maxSeals=3; const m=G.migrate(old); t(m.pills.length===0&&m.pillSlots===3&&m.seals===1,'舊存檔（三枚玉符）：改成一枚玉符＋空的丹藥袋'); }
 console.log('── 局外解鎖（目標→機緣、法寶池）、圖鑑、真結局');
 const ALLG=Object.keys(G.GOALS);
 t(Object.keys(G.FATES).filter(k=>G.FATES[k].lock).every(k=>G.GOALS[G.FATES[k].lock])&&Object.keys(G.RELICS).filter(k=>G.RELICS[k].lock).every(k=>G.GOALS[G.RELICS[k].lock]),'鎖起來的機緣、法寶都對得上一個目標');

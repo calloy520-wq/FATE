@@ -325,7 +325,7 @@ var G = (function () {
     tea:     { name: '一壺靈茶', text: '在休息點回復的生命多 15 點' },
     amulet:  { name: '長生鎖', text: '最大生命 +10' },
     book:    { name: '懾魂鈴', text: '每場戰鬥開始時所有敵人虛弱 1' },
-    seal:    { name: '師父的私藏玉符', text: '玉符上限 +1（並立刻補 1 枚）' },
+    seal:    { name: '隨身丹爐', text: '丹藥欄位 +1，並立刻得到 2 顆丹藥' },
     pendant: { name: '九轉還魂丹', text: '多一條命：倒下時以兩成生命復活一次' },
     azoth:   { name: '龍虎丹', text: '每場戰鬥開始時力量 +1' },
     volumen: { name: '玄龜甲', text: '每回合開始時格擋 +2' },
@@ -339,6 +339,20 @@ var G = (function () {
   };
   function relicPool(run) { return Object.keys(RELICS).filter(function (k) { return unlocked(run.unlocks, RELICS[k].lock); }); }
 
+  // ── 資料：丹藥（2026-10-02 取代三枚玉符）：一路撿，身上最多 3 顆；戰鬥中自己的回合隨時吃，不限次數，吃了就沒了 ──
+  var PILLS = {
+    huichun: { name: '回春丹', text: '回復三成最大生命' },
+    juling:  { name: '聚靈丹', text: '靈力 +2、抽 2 張' },
+    dunxing: { name: '遁形丹', text: '這回合躲開所有攻擊' },
+    tongshen:{ name: '通神丹', text: '神通量表 +50%' },
+    jingang: { name: '金剛丹', text: '格擋 +15' },
+    dali:    { name: '大力丹', text: '這場戰鬥力量 +2' },
+    shigu:   { name: '蝕骨散', text: '所有敵人易傷 2、虛弱 1' },
+    qingxin: { name: '清心丹', text: '手上的妨礙牌與詛咒全部消耗，再抽 2 張' }
+  };
+  var PILL_SLOTS = 3;
+  function randomPill(run) { return pick(run, Object.keys(PILLS)); }
+  function gainPill(run, id) { if (!id || !PILLS[id] || run.pills.length >= (run.pillSlots || PILL_SLOTS)) return false; run.pills.push(id); return true; }
   // ── 亂數 ─────────────────────────────────────────────
   function rnd(run) { var t = (run.rs = (run.rs + 0x6D2B79F5) | 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
   function pick(run, a) { return a[Math.floor(rnd(run) * a.length)]; }
@@ -585,7 +599,7 @@ var G = (function () {
   var FATES = {
     gold:    { name: '意外之財', text: '路上撿到一袋碎銀：開局多 120 金' },
     tough:   { name: '根骨奇佳', text: '天生根骨好：最大生命 +10' },
-    seal4:   { name: '多一枚玉符', text: '玉符 +1（上限也 +1）' },
+    seal4:   { name: '丹藥滿袋', text: '丹藥欄位 +1，開局多 2 顆丹藥' },
     mana:    { name: '靈氣充盈', text: '每場戰鬥神通量表從 30% 開始' },
     heirloom:{ name: '師門傳承', text: '開局從兩件隨機法寶選一件' },
     forged:  { name: '千錘百鍊', text: '開局隨機強化 3 張牌' },
@@ -654,7 +668,7 @@ var G = (function () {
     run.fates = (run.fates || []).concat(k); run.fate = run.fates[0];
     if (k === 'gold') run.gold += 120;
     else if (k === 'tough') { run.maxHp += 10; run.hp += 10; }
-    else if (k === 'seal4') { run.maxSeals += 1; run.seals += 1; }
+    else if (k === 'seal4') { run.pillSlots += 1; gainPill(run, randomPill(run)); gainPill(run, randomPill(run)); }
     else if (k === 'mana') run.npStart = (run.npStart || 0) + 30;
     else if (k === 'heirloom') { var r1 = randomRelic(run), r2 = relicPool(run).filter(function (x) { return x !== r1 && !hasRelic(run, x); }); r2 = r2.length ? pick(run, r2) : null; queueBoon(run, { kind: 'relic', opts: [r1, r2].filter(Boolean) }); }
     else if (k === 'forged') { shuffle(run, run.deck.map(function (x, i) { return i; }).filter(function (i) { return canUpgrade(run.deck[i]); })).slice(0, 3).forEach(function (i) { run.deck[i] = pick(run, upgradeOptions(run, i).filter(function (v) { return upDir(v) !== 'f'; })); }); }
@@ -669,27 +683,28 @@ var G = (function () {
   // ── 開局與地圖 ───────────────────────────────────────
   // 兩章（第三章是隱藏關）。每章由上往下走 12 列：第 1 列進場（左中右三個入口），第 11 列休息，第 12 列魔王。
   // 地圖是分岔路：每一格只連到下一列固定的一到三格；迷霧：看得到接下來 3 列與魔王。
-  var ROWS = 12, COLS = 5, ACT_UP = 4, ACT2_UP = 8, ACT2 = { hp: 0.5, str: 8 };   // 第二章：敵人多長 8 列，再隨樓層加到五成血、力量 +8（自動玩家通關約三成，真人約五成）
+  var ROWS = 12, COLS = 5, ACT_UP = 4, ACT2_UP = 8, ACT2 = { hp: 0.6, str: 9 };   // 第二章：敵人多長 8 列，再隨樓層加到五成血、力量 +8（自動玩家通關約三成，真人約五成）
   var FLOORS = ROWS;
   var ACT_NAMES = { 1: '第一章　落霞山', 2: '第二章　鬼哭城', 3: '隱藏關　九幽魔淵' };
   // 無盡模式：第二章之後不進隱藏關，改下鎮妖塔一層一層往下（第 3 章起叫「鎮妖塔第 N 層」），越來越強，看能爬多遠（走過的格子數＝成績）
   function actName(run, act) { act = act || run.act; return run.endless && act >= 3 ? '鎮妖塔　第 ' + (act - 2) + ' 層' : ACT_NAMES[act]; }
-  function bossAct(run) { var a = run.act || 1; return run.endless && a >= 3 ? { hp: 1.1 * (1 + 0.4 * (a - 2)), str: 2 + 2 * (a - 2) } : BOSS_ACT[a]; }   // 魔王不吃每列的成長，所以無盡層另外每層 +40% 血、+2 力量
+  function bossAct(run) { var a = run.act || 1; return run.endless && a >= 3 ? { hp: 1.1 * (1 + 0.4 * (a - 2)), str: BOSS_ACT[2].str + 2 * (a - 2) } : BOSS_ACT[a]; }   // 魔王不吃每列的成長，所以無盡層另外每層 +40% 血、+2 力量
   var BOSS_POOL = { 1: ['zhanglao', 'shuyao', 'guijiang', 'niumo'], 2: ['huyao', 'duoxian', 'panguan', 'niumo'] };
-  var BOSS_ACT = { 1: { hp: 0.8, str: 0 }, 2: { hp: 1.2, str: 5 }, 3: { hp: 1, str: 0 } };
+  var BOSS_ACT = { 1: { hp: 0.8, str: 0 }, 2: { hp: 1.3, str: 6 }, 3: { hp: 1.5, str: 4 } };
   // opts：{ fates 機緣（最多兩種；舊寫法 fate 單一個也可以）, asc 境界, diff 難度, endless 無盡 }（直接傳機緣的字串也可以）
   function newRun(who, seed, opts) {
     if (typeof opts === 'string') opts = { fate: opts };
     opts = opts || {};
     var S = SERVANTS[who];
     var run = { v: 4, who: who, seed: seed >>> 0, rs: seed | 0, hp: S.hp, maxHp: S.hp,
-      deck: [0, 0, 0, 0, 0].map(function () { return basicOf(who, 'atk'); }).concat([0, 0, 0, 0].map(function () { return basicOf(who, 'def'); }), [S.sig]), relics: [], seals: 3, maxSeals: 3,
+      deck: [0, 0, 0, 0, 0].map(function () { return basicOf(who, 'atk'); }).concat([0, 0, 0, 0].map(function () { return basicOf(who, 'def'); }), [S.sig]), relics: [], seals: 1, maxSeals: 1, pills: [], pillSlots: PILL_SLOTS,
       act: 1, floor: 0, lane: -1, path: [], map: null, bosses: [], boss: null, screen: 'map', battle: null, reward: null, event: null, pending: [], seenEvents: [],
-      awaken: [], lives: 0, gold: 60, removed: 0, shop: null, stats: { kills: 0, np: 0, seals: 0, floors: 0 } };
+      awaken: [], lives: 0, gold: 60, removed: 0, shop: null, stats: { kills: 0, np: 0, seals: 0, pills: 0, floors: 0 } };
     run.bosses[0] = pick(run, BOSS_POOL[1]);
     run.bosses[1] = pick(run, BOSS_POOL[2].filter(function (k) { return k !== run.bosses[0]; }));
     run.boss = run.bosses[0];
     run.map = makeMap(run, 1);
+    gainPill(run, randomPill(run));   // 開局帶一顆丹藥
     if (S.passive && S.passive.id === 'revive') run.lives = 1;
     run.diff = DIFFS[opts.diff] ? opts.diff : 'normal';
     if (opts.endless) run.endless = true;
@@ -713,6 +728,7 @@ var G = (function () {
     if (!run || !SERVANTS[run.who] || !run.v || run.v < 4) return null;
     if (!run.awaken) run.awaken = [];
     if (!run.lives) run.lives = 0;
+    if (!run.pills) { run.pills = []; run.pillSlots = PILL_SLOTS; run.seals = Math.min(1, run.seals || 0); run.maxSeals = 1; }   // 玉符改丹藥之前的局
     var b = run.battle;
     if (b) Object.keys(BATTLE0).forEach(function (k) { if (b[k] === undefined) b[k] = JSON.parse(JSON.stringify(BATTLE0[k])); });
     return run;
@@ -972,7 +988,7 @@ var G = (function () {
     if (!k || hasRelic(run, k)) return;
     run.relics.push(k);
     if (k === 'amulet') { run.maxHp += 10; run.hp += 10; }
-    if (k === 'seal') { run.maxSeals += 1; run.seals = Math.min(run.maxSeals, run.seals + 1); }
+    if (k === 'seal') { run.pillSlots = (run.pillSlots || PILL_SLOTS) + 1; gainPill(run, randomPill(run)); gainPill(run, randomPill(run)); }
     if (k === 'pendant') run.lives = (run.lives || 0) + 1;
     if (k === 'pouch') run.discount = (run.discount || 1) * 0.85;
   }
@@ -1023,13 +1039,16 @@ var G = (function () {
   var MADNESS = { chilian: 2 };   // 血煞反噬：第 2 回合起每回合開始失去的生命
   // 神通量表（2026-10-02 去 Fate 味）：不再靠出牌累積，而是靠各自的機制——
   // 凌霜每祭出一把飛劍｜青璃每貼一層定身｜白辰阿白每長大 1、每咬一口｜赤練每失去 1 生命｜阿朵每讓敵人多中 1 層毒
-  var NP_GAIN = { forge: 10, gaze: 6, madness: 0.5, bite: 1, revive: 11, ambush: 5 };
+  var NP_GAIN = { forge: 10, gaze: 7, madness: 0.5, bite: 1, revive: 11, ambush: 5 };
   function npHow(who) {   // 給玩家看：這位的神通量表怎麼漲
     var p = (SERVANTS[who].passive || {}).id;
     return p === 'forge' ? '每祭出 1 把飛劍 +' + NP_GAIN.forge + '%' : p === 'gaze' ? '每貼 1 層定身 +' + NP_GAIN.gaze + '%' : p === 'madness' ? '阿白每長大 2 +1%、每咬一口 +' + NP_GAIN.bite + '%'
       : p === 'revive' ? '每失去 1 生命 +' + NP_GAIN.revive + '%' : p === 'ambush' ? '敵人每多中 1 層毒 +' + NP_GAIN.ambush + '%' : '';
   }
-  function npAdd(b, n) { if (b && n > 0) b.np = Math.min(100, b.np + Math.round(n)); }
+  function npAdd(b, n, free) {   // 放過神通的那回合，機制不再累積（擋住定身→神通→定身的無限循環）
+    if (!b || !(n > 0) || (!free && b.npUsed)) return;
+    b.np = Math.min(100, b.np + Math.round(n));
+  }
   function poisonSum(b) { return b.enemies.reduce(function (a, e) { return a + (e.hp > 0 ? e.poison || 0 : 0); }, 0); }
   function meterSync(run) { var b = run.battle; if (!b) return; b.mKraken = b.kraken || 0; b.mPoison = poisonSum(b); }
   function meterCharge(run) {   // 阿白、毒：比對上次記下的量，有增加才累積
@@ -1043,7 +1062,7 @@ var G = (function () {
     b.turn++;
     if (!first) b.block = 0;
     if (hasRelic(run, 'volumen')) b.block += 2;   // 玄龜甲
-    b.npUsed = 0; b.evadeAll = 0;   // 神通每回合一次；玉符土遁撐到下回合開始
+    b.npUsed = 0; b.evadeAll = 0;   // 神通每回合一次；遁形丹撐到下回合開始
     b.evade = 0; b.played = 0; b.attacks = 0;
     b.energy = 3 + b.pEnergy + b.nextEnergy + (first && hasRelic(run, 'gem') ? 1 : 0); b.nextEnergy = 0;
     if (b.pBlock) b.block += b.pBlock;
@@ -1269,7 +1288,7 @@ var G = (function () {
     if (c.type === 'power') c.fx.forEach(function (f) { var now = POWER_NOW[f[0]]; if (now) OPS[now](ctx, [now, f[1]]); });   // 能力牌：打出當下先生效一次
     if (ctx.atk) { b.attacks++; b.firstAtk = false; }
     b.played++;
-    npAdd(b, c.npBonus || 0);   // 出牌本身不累積神通；共鳴強化的牌才有
+    npAdd(b, c.npBonus || 0, true);   // 出牌本身不累積神通；共鳴強化的牌才有（不算進每回合上限）
     meterCharge(run);
     if (c.type !== 'power' && id !== 'sword') (c.ex || c.token ? b.exhaust : b.discard).push(id);
     b.log = ctx.log;
@@ -1303,32 +1322,45 @@ var G = (function () {
     b.np = 0; b.npUsed = 1; run.stats.np++;
     var ctx = { run: run, b: b, tg: tg, log: [N.name], id: 'np', atk: false, first: false };
     runFx(ctx, fx);
-    meterSync(run);
+    b.np = 0; meterSync(run);   // 神通自己貼的定身、加的阿白與毒不算進量表（不然青璃能一直連放）
     b.log = ctx.log;
     return { ok: true, end: checkEnd(run) };
   }
-  // 師門玉符：整局 3 枚，一回合要捏幾枚都行；神通每回合一次另外擋住連發
-  // np 解放神通（量表充滿）｜all 全力以赴（靈力 +3、抽 2）｜warp 土遁（這回合躲開所有攻擊）｜heal 回春（生命回滿）
-  var SEAL_KINDS = ['np', 'all', 'warp', 'heal'];
+  // 丹藥：戰鬥中自己的回合隨時吃（不限次數），吃了就沒了
+  function usePill(run, i) {
+    var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false, msg: '不在戰鬥中' };
+    var id = run.pills[i], P = PILLS[id]; if (!P) return { ok: false, msg: '沒有這顆丹藥' };
+    if (id === 'huichun' && run.hp >= run.maxHp) return { ok: false, msg: '生命已經是滿的' };
+    if (id === 'tongshen' && b.np >= 100) return { ok: false, msg: '神通量表已經滿了' };
+    run.pills.splice(i, 1); run.stats.pills = (run.stats.pills || 0) + 1;
+    var log = ['吃下' + P.name];
+    if (id === 'huichun') { var h0 = run.hp; run.hp = Math.min(run.maxHp, run.hp + Math.round(run.maxHp * 0.3)); log.push('回復 ' + (run.hp - h0) + ' 生命'); }
+    else if (id === 'juling') { b.energy += 2; drawCards(run, 2); }
+    else if (id === 'dunxing') b.evadeAll = 1;
+    else if (id === 'tongshen') npAdd(b, 50, true);
+    else if (id === 'jingang') b.block += 15;
+    else if (id === 'dali') b.str += 2;
+    else if (id === 'shigu') alive(b).forEach(function (e) { e.vuln += 2; e.weak += 1; });
+    else if (id === 'qingxin') { var bad = b.hand.filter(function (x) { return card(x).type === 'curse'; }); b.hand = b.hand.filter(function (x) { return card(x).type !== 'curse'; }); b.exhaust = b.exhaust.concat(bad); drawCards(run, 2); if (bad.length) log.push('消耗了 ' + bad.length + ' 張'); }
+    b.log = log;
+    return { ok: true };
+  }
+  // 師門玉符：整局只有一枚。戰鬥中捏碎＝生命回滿；留到第二章魔王後，才能打開九幽魔淵（兩者只能選一個）
+  var SEAL_KINDS = ['heal'];
   function seal(run, kind) {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false, msg: '不在戰鬥中' };
-    if (run.seals <= 0) return { ok: false, msg: '玉符用完了' };
-    if (kind === 'np' && b.np >= 100) return { ok: false, msg: '神通已經充滿了' };
-    if (kind === 'np' && b.npUsed) return { ok: false, msg: '這回合已經放過神通了' };
-    if (kind === 'heal' && run.hp >= run.maxHp) return { ok: false, msg: '生命已經是滿的' };
-    if (SEAL_KINDS.indexOf(kind) < 0) return { ok: false, msg: '沒有這種玉符' };
+    if (run.seals <= 0) return { ok: false, msg: '玉符已經捏碎了' };
+    if (SEAL_KINDS.indexOf(kind) < 0) return { ok: false, msg: '玉符只能用來保命' };
+    if (run.hp >= run.maxHp) return { ok: false, msg: '生命已經是滿的' };
     run.seals--; run.stats.seals++;
-    if (kind === 'all') { b.energy += 3; drawCards(run, 2); b.log = ['玉符：全力以赴（靈力 +3、抽 2）']; }
-    else if (kind === 'warp') { b.evadeAll = 1; b.log = ['玉符：土遁（這回合躲開所有攻擊）']; }
-    else if (kind === 'heal') { var hh = run.maxHp - run.hp; run.hp = run.maxHp; b.log = ['玉符：回春（生命回滿，+' + hh + '）']; }
-    else { b.log = ['玉符：解放神通（量表充滿）']; b.np = 100; }
+    var hh = run.maxHp - run.hp; run.hp = run.maxHp; b.log = ['捏碎師門玉符：生命回滿（+' + hh + '）'];
     return { ok: true };
   }
 
   // 敵人的一次攻擊：土遁全部躲開｜迴避整次躲開｜格擋｜阿白替你擋一半｜穿透攻擊只有迴避擋得住
   function enemyHit(run, e, n, pierce, log) {
     var b = run.battle, d = foeDmg(run, e, n);
-    if (b.evadeAll) { log.push('土遁：' + e.name + '的攻擊落空'); return; }
+    if (b.evadeAll) { log.push('遁形：' + e.name + '的攻擊落空'); return; }
     if (b.evade > 0) { b.evade--; log.push('閃過了' + e.name + '的攻擊'); return; }
     if (!pierce) {
       var took = Math.min(b.block, d); b.block -= took; d -= took;
@@ -1397,7 +1429,7 @@ var G = (function () {
       if (b.kind === 'boss') {
         run.stats.bosses = (run.stats.bosses || 0) + 1;
         if (run.act === 1 || run.endless) {   // 第一章結束（無盡模式每一層都是）：拿獎勵、喘口氣，進下一章
-          run.screen = 'reward'; run.reward = { cards: cardChoices(run, 1), relic: randomRelic(run), gold: Math.round(80 * statsOf(run).luck), next: run.act === 1 ? 'act2' : 'deeper' };
+          run.screen = 'reward'; run.reward = { cards: cardChoices(run, 1), relic: randomRelic(run), pill: randomPill(run), gold: Math.round(80 * statsOf(run).luck), next: run.act === 1 ? 'act2' : 'deeper' };
           return 'act';
         }
         if (run.act === 2 && run.seals > 0) { run.screen = 'secret'; return 'secret'; }   // 留著玉符：九幽魔淵的入口
@@ -1405,7 +1437,7 @@ var G = (function () {
       }
       if (hasRelic(run, 'bento')) run.hp = Math.min(run.maxHp, run.hp + 4);
       run.screen = 'reward';
-      run.reward = { cards: cardChoices(run, b.kind === 'elite' ? 1 : 0), relic: b.kind === 'elite' ? randomRelic(run) : null, gold: Math.round((b.kind === 'elite' ? 30 + Math.floor(rnd(run) * 11) : 12 + Math.floor(rnd(run) * 7)) * statsOf(run).luck) };
+      run.reward = { cards: cardChoices(run, b.kind === 'elite' ? 1 : 0), relic: b.kind === 'elite' ? randomRelic(run) : null, pill: b.kind === 'elite' || rnd(run) < 0.25 ? randomPill(run) : null, gold: Math.round((b.kind === 'elite' ? 30 + Math.floor(rnd(run) * 11) : 12 + Math.floor(rnd(run) * 7)) * statsOf(run).luck) };
       var tier = run.awaken.length;
       if (b.kind === 'elite' && talentsOf(run)[tier]) run.reward.awaken = [tier + '.0', tier + '.1'];
       return 'won';
@@ -1429,6 +1461,7 @@ var G = (function () {
     if (run.screen !== 'reward' || (run.reward.awaken && run.reward.awaken.length)) return false;
     if (idx >= 0 && run.reward.cards[idx]) run.deck.push(run.reward.cards[idx]);
     if (run.reward.relic) gainRelic(run, run.reward.relic);
+    if (run.reward.pill) gainPill(run, run.reward.pill);   // 袋子滿了就拿不下
     if (run.reward.gold) run.gold += run.reward.gold;
     var next = run.reward.next;
     run.reward = null; run.battle = null; run.screen = 'map';
@@ -1460,14 +1493,15 @@ var G = (function () {
     return true;
   }
   // ── 商店：賣專屬牌、中立牌、秘傳、法寶，也能花錢移除卡片（每移除一次貴 25） ──
-  var PRICE = { card: 50, cardUp: 75, rare: 120, relic: 130, remove: 60 };
+  var PRICE = { card: 50, cardUp: 75, rare: 120, relic: 130, remove: 60, pill: 45 };
   function openShop(run) {
     var own = ownCards(run, 3, false), common = shuffle(run, Object.keys(CARDS).filter(function (k) { return CARDS[k].kit === 'common'; }))[0];
     var cards = own.concat([common]).map(function (id) { var up = rnd(run) < 0.25 && CARDS[id].up; return { id: up ? upId(id, 'a') : id, price: (up ? PRICE.cardUp : PRICE.card) + Math.floor(rnd(run) * 11) - 5, sold: false }; });
     var rares = rareChoices(run);
     if (rares.length) cards.push({ id: pick(run, rares), price: PRICE.rare, sold: false });
     var rl = randomRelic(run);
-    run.shop = { cards: cards, relic: rl ? { id: rl, price: PRICE.relic + Math.floor(rnd(run) * 21) - 10, sold: false } : null, removed: false };
+    run.shop = { cards: cards, relic: rl ? { id: rl, price: PRICE.relic + Math.floor(rnd(run) * 21) - 10, sold: false } : null, removed: false,
+      pills: [randomPill(run), randomPill(run)].map(function (id) { return { id: id, price: PRICE.pill + Math.floor(rnd(run) * 21) - 10, sold: false }; }) };
     run.screen = 'shop';
   }
   function removePrice(run) { return run.removed < 0 ? 0 : Math.round((PRICE.remove + (run.flatRemove ? 0 : 25 * (run.removed || 0))) * (run.discount || 1)); }
@@ -1475,14 +1509,16 @@ var G = (function () {
   // 買東西：what＝'card'（i＝第幾張）｜'relic'｜'remove'（i＝牌組索引；每間店只能移除一次）；回傳 { ok, msg }
   function buy(run, what, i) {
     var S = run.shop; if (run.screen !== 'shop' || !S) return { ok: false };
-    var item = what === 'card' ? S.cards[i] : what === 'relic' ? S.relic : null;
+    var item = what === 'card' ? S.cards[i] : what === 'relic' ? S.relic : what === 'pill' ? (S.pills || [])[i] : null;
     var price = what === 'remove' ? removePrice(run) : item && priceOf(run, item);
     if (what !== 'remove' && (!item || item.sold)) return { ok: false, msg: '賣完了' };
     if (what === 'remove' && (S.removed || !run.deck[i] || run.deck.length <= 5)) return { ok: false, msg: '這間店已經幫你移除過了' };
+    if (what === 'pill' && run.pills.length >= (run.pillSlots || PILL_SLOTS)) return { ok: false, msg: '丹藥袋滿了（最多 ' + (run.pillSlots || PILL_SLOTS) + ' 顆）' };
     if (run.gold < price) return { ok: false, msg: '錢不夠' };
     run.gold -= price;
     if (what === 'card') { run.deck.push(item.id); item.sold = true; return { ok: true, msg: '買了「' + card(item.id).name + '」' }; }
     if (what === 'relic') { gainRelic(run, item.id); item.sold = true; return { ok: true, msg: '買了「' + RELICS[item.id].name + '」' }; }
+    if (what === 'pill') { gainPill(run, item.id); item.sold = true; return { ok: true, msg: '買了「' + PILLS[item.id].name + '」' }; }
     var gone = run.deck.splice(i, 1)[0]; S.removed = true; run.removed = Math.max(0, (run.removed || 0) + 1);
     return { ok: true, msg: '移除了「' + card(gone).name + '」' };
   }
@@ -1505,7 +1541,7 @@ var G = (function () {
     FATES: FATES, NP_GAIN: NP_GAIN, npHow: npHow, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
     card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, isCurse: isCurse, makeEnemy: makeEnemy, checkEnd: checkEnd, luckMod: luckMod, d20Chance: d20Chance, dullOf: dullOf, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, ownerOf: ownerOf,
-    newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
+    PILLS: PILLS, PILL_SLOTS: PILL_SLOTS, usePill: usePill, gainPill: gainPill, newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
     takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic, needsTarget: needsTarget };
 })();
 </script>

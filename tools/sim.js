@@ -55,9 +55,12 @@ function bestAction(run){
 function playTurn(run){
   const b=run.battle; let guard=0;
   while(run.screen==='battle'&&guard++<40){
-    if(run.seals>(SECRET&&run.act===2?1:0)&&b.sealTurn!==b.turn){ b.sealTurn=b.turn;   // 玉符（每回合只考慮一次，免得卡迴圈）：要被打死就土遁、精英魔王戰血少就回春、魔王開場就全力
-      const k=expectedLoss(run)>=run.hp?'warp':(b.kind!=='fight'&&run.hp<run.maxHp*0.3)?'heal':(b.turn===1&&(b.kind==='boss'||(b.kind==='elite'&&run.seals>1))&&G.alive(b).some(e=>e.hp>40))?(b.np>=60&&!b.npUsed?'np':'all'):null;
-      if(k&&G.seal(run,k).ok) continue; }
+    if(b.pillTurn!==b.turn){ b.pillTurn=b.turn;   // 丹藥（每回合只考慮一次）：要被打死先遁形、血少回春；精英魔王第一回合把攻擊型的丹藥吃掉
+      const lethal=expectedLoss(run)>=run.hp, big=b.kind!=='fight'&&b.turn===1;
+      const want=id=>id==='dunxing'?lethal:id==='huichun'?run.hp<run.maxHp*0.35:id==='qingxin'?b.hand.some(x=>G.card(x).type==='curse'):id==='tongshen'?(big&&!b.npUsed&&b.np<100):big;
+      for(let i=run.pills.length-1;i>=0;i--) if(want(run.pills[i])) G.usePill(run,i);
+      if(expectedLoss(run)>=run.hp&&run.seals>(SECRET&&run.act<=2?1:0)) G.seal(run,'heal');   // 師門玉符：快死了才捏（想進隱藏關的話留著）
+    }
     const a=bestAction(run); if(!a) break;
     const r=a.k==='np'?G.noble(run,a.t):G.play(run,a.i,a.t); if(!r.ok) break;
   }
