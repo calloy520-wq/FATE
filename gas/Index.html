@@ -608,7 +608,7 @@
 
   var GLOSSARY = [
     ['靈力', '每回合 3 點，出牌要花（卡片左上角的數字）；回合結束沒用完就沒了'],
-    ['神通／神通量表', '每打一張牌累積（卡上寫「神通 +N%」），滿 100% 就能施展角色的神通大招；每回合最多一次'],
+    ['神通／神通量表', '不是靠出牌，而是靠各自的機制累積：凌霜祭出飛劍、青璃貼定身、白辰的阿白長大與咬人、赤練失去生命、阿朵讓敵人中毒。滿 100% 就能施展神通大招，每回合最多一次（共鳴強化過的牌打出時也會加一點）'],
     ['玉符', '師門給的玉符，整局 3 枚（機緣、法寶能多補），一回合要捏幾枚都行：解放神通（量表充滿，本回合還沒施展過才行）、全力以赴（靈力 +3、抽 2）、土遁（這回合躲開所有攻擊）、回春（生命回滿）。第二章打完還留著，就能捏碎 1 枚進九幽魔淵'],
     ['飛劍', '蘇凌霜的代幣牌：0 費、造成 5 傷害，疊成一張「飛劍 ×N」（不佔手牌上限、最多 10 把、回合結束留 5 把），用完就沒；萬劍歸宗會讓每把更強。飛劍追魂、劍陣護體照手上的飛劍數加成，劍氣迸裂一次全部引爆'],
     ['定身', '顧青璃的符：一層層貼上去，累積到門檻（一般 3、精英 4、魔王 5）就動彈不得一回合、層數歸零；鎮魂符的重壓：每 2 層讓那個敵人攻擊 -1。五雷轟頂把身上的符一次引爆'],
@@ -741,7 +741,7 @@
       + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + (k === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>'
       + '<div class="list" style="margin-top:10px"><div class="box">' + esc(S.desc) + '</div>' + paramsHtml(k)
       + '<div class="box"><h3>被動「' + esc(S.passive.name) + '」</h3>' + esc(S.passive.text) + '</div>'
-      + '<div class="box"><h3>神通「' + esc(S.np.name) + '」</h3>' + esc(G.npText(S.np)) + '</div>'
+      + '<div class="box"><h3>神通「' + esc(S.np.name) + '」</h3>' + esc(G.npText(S.np)) + '<div class="dim" style="margin-top:6px;font-size:13.5px">量表怎麼漲：' + esc(G.npHow(k)) + '</div></div>'
       + skinsHtml(k)
       + '<div class="stick"><button class="btn" style="width:100%" onclick="closeOv();pickFate(\'' + k + '\')">以這位出發</button></div>'
       + '</div>');
@@ -815,7 +815,7 @@
     return head + '<div class="list">'
       + '<div class="box"><h3>' + esc(S.cls + '・' + S.name) + '</h3>' + esc(S.desc) + '</div>' + paramsHtml(run.who)
       + '<div class="box"><h3>被動「' + esc(S.passive.name) + '」</h3>' + esc(S.passive.text) + '</div>'
-      + '<div class="box"><h3>神通「' + esc(S.np.name) + '」（量表滿 100% 才能施展）</h3>' + esc(G.npText(S.np, run)) + '</div>'
+      + '<div class="box"><h3>神通「' + esc(S.np.name) + '」（量表滿 100% 才能施展）</h3>' + esc(G.npText(S.np, run)) + '<div class="dim" style="margin-top:6px;font-size:13.5px">量表怎麼漲：' + esc(G.npHow(run.who)) + '</div></div>'
       + '<div class="box"><h3>頓悟（打贏精英時二選一，共兩層）</h3>' + (run.awaken.length ? run.awaken.map(function (k) { var T = G.talent(run, k); return '<div><b>' + esc(T.name) + '</b>：' + esc(G.talentText(T, run)) + '</div>'; }).join('') : '<span class="dim">還沒有</span>') + '</div>'
       + '<div class="box"><h3>這趟的魔王</h3>第一章：' + esc(G.ENEMIES[run.bosses[0]].name) + '　第二章：' + esc(G.ENEMIES[run.bosses[1]].name) + (run.endless && run.act >= 3 ? '　' + esc(G.actName(run).replace('　', '')) + '：' + esc(G.ENEMIES[run.boss].name) : '') + (run.endless ? '' : '<div class="dim" style="margin-top:4px">傳說第二章打完時手上還留著玉符，會看到別的東西……</div>') + '</div>'
       + '</div>';

@@ -177,7 +177,7 @@ var G = (function () {
   var PARAMS = {
     shuang:  ['玄', '黃', '地', '天', '黃', '天'],   // 隱世三百年的劍仙：靈力深厚、身輕，劍在心裡不靠蠻力
     qingli:  ['玄', '黃', '天', '地', '天', '天'],   // 符修：身法靈活；愛錢，氣運最好（金錢多、擲骰準）
-    xiaoman: ['黃', '黃', '玄', '地', '地', '天'],   // 千年老祖宗：小孩身體很弱，修為還在
+    xiaoman: ['黃', '黃', '玄', '玄', '地', '天'],   // 千年老祖宗：小孩身體很弱，修為還在
     chilian: ['地', '天', '地', '天', '黃', '天'],   // 血修：血體耐打、血煞之力強；身段柔，不再是蠻力
     aduo:    ['玄', '玄', '天', '天', '玄', '地']    // 蠱師：身法輕盈，蠱術靠靈力
   };
@@ -353,7 +353,7 @@ var G = (function () {
   var UP_DIRS = {
     a: { name: '精煉', tag: '＋', text: '數值變強' },
     b: { name: '迅捷', tag: '・迅', text: '費用 -1' },
-    c: { name: '共鳴', tag: '・共鳴', text: '神通 +15%、多抽 1 張（本來會抽牌的：神通 +30%）' },
+    c: { name: '共鳴', tag: '・共鳴', text: '打出時神通 +15%、多抽 1 張（本來會抽牌的：神通 +30%）' },
     d: { name: '道心', tag: '・道', text: '多一個自己流派的機制' },
     e: { name: '極限', tag: '・極', text: '數值翻倍，但打出後消耗' },
     f: { name: '★傳說', tag: '・傳說', text: '精煉＋攻擊次數翻倍（技能、能力改成 0 費）；代價：牌組多一張「內傷」', legend: 1 }   // 強化時一成機率出現
@@ -434,8 +434,8 @@ var G = (function () {
     if (d === 'f') { if (c.type === 'atk') c.fx = legendFx(c.fx); else c.cost = 0; }
     if (d === 'b') c.cost = Math.max(0, base.cost - 1);   // 迅捷：便宜 1 費（只給 2 費以上的牌）
     if (d === 'c') {   // 共鳴：神通 +15%、多抽 1；本來就會抽牌的改成神通 +30%
-      if (base.fx.some(function (f) { return f[0] === 'draw'; })) c.np = (base.np || 0) + 30;
-      else { c.np = (base.np || 0) + 15; c.fx = base.fx.concat([['draw', 1]]); }
+      if (base.fx.some(function (f) { return f[0] === 'draw'; })) c.npBonus = 30;
+      else { c.npBonus = 15; c.fx = base.fx.concat([['draw', 1]]); }
     }
     if (d === 'd' && KIT_SOUL[base.kit]) {
       var soul = KIT_SOUL[base.kit];
@@ -518,7 +518,7 @@ var G = (function () {
     var c = card(id);
     if (c.type === 'curse') return c.short;
     var bits = shortBits(c, run);
-    if (c.dir === 'c' || (c.type !== 'atk' && c.np >= 20)) bits.push('神通+' + c.np + '%');   // 共鳴、或主打神通量表的技能，卡面看得到
+    if (c.npBonus) bits.push('神通+' + c.npBonus + '%');   // 共鳴強化：卡面看得到
     if (c.type === 'power') bits.push('（整場）');
     if ((c.ex || c.token) && !c.stack) bits.push('消耗');
     return bits.join(' ');
@@ -528,7 +528,7 @@ var G = (function () {
     var a = card(id), c = card(v), out = [], r0 = run && { who: run.who }, sa = shortBits(a, r0), sc = shortBits(c, r0);
     if (c.cost !== a.cost) out.push('費用 ' + a.cost + ' → ' + c.cost);
     sc.forEach(function (x, i) { if (i >= sa.length) out.push('多 ' + x); else if (x !== sa[i]) out.push(sa[i] + ' → ' + x); });   // 只列有變的那幾項
-    if ((c.np || 0) !== (a.np || 0)) out.push('神通 +' + (a.np || 0) + '% → +' + (c.np || 0) + '%');
+    if ((c.npBonus || 0) !== (a.npBonus || 0)) out.push('打出時神通 +' + (c.npBonus || 0) + '%');
     if (c.ex && !a.ex) out.push('打出後消耗');
     if (a.ex && !c.ex) out.push('不再消耗');
     return out;
@@ -550,7 +550,7 @@ var G = (function () {
     var c = card(id), b = inBattle(run), bits = c.text ? [c.text] : fxText(c.fx);
     if (b && b.hand) c.fx.forEach(function (f, i) { var v = nowValue(f, b, run); if (v !== null) bits[i] += '（現在 ' + v + '）'; });
     if (c.id === 'sword' && b && b.projUp) bits = ['造成 ' + (CARDS.sword.fx[0][1] + b.projUp) + ' 傷害'];
-    if (c.np) bits.push('神通 +' + c.np + '%');
+    if (c.npBonus) bits.push('神通 +' + c.npBonus + '%');
     if (c.type === 'power') bits[bits.length - 1] += c.fx.some(function (f) { return POWER_NOW[f[0]]; }) ? '（持續整場；打出當下先生效一次）' : '（持續整場）';
     if (c.ex || c.token) bits.push('消耗');
     return bits.join('，');
@@ -996,7 +996,7 @@ var G = (function () {
   }
   function startBattle(run, ids, kind) {
     var b = JSON.parse(JSON.stringify(BATTLE0)), p = passive(run);
-    Object.assign(b, { kind: kind, np: Math.min(99, (hasRelic(run, 'circuit') ? 25 : 0) + (run.npStart || 0)), firstAtk: hasRelic(run, 'blackkey'),
+    Object.assign(b, { kind: kind, np: Math.min(99, (hasRelic(run, 'circuit') ? 25 : 0) + (run.npStart || 0)), np0: Math.min(99, (hasRelic(run, 'circuit') ? 25 : 0) + (run.npStart || 0)), firstAtk: hasRelic(run, 'blackkey'),
       draw: shuffle(run, run.deck), hand: [], discard: [], exhaust: [], enemies: [], up: kind === 'boss' ? 0 : scaleUp(run) });
     ids.forEach(function (id, i) { b.enemies.push(makeEnemy(run, id, b.up, i)); });
     if (hasRelic(run, 'azoth')) b.str += 1;
@@ -1005,6 +1005,7 @@ var G = (function () {
     if (hasRelic(run, 'shroud')) b.block = 8;
     if (hasRelic(run, 'bead')) b.enemies.forEach(function (e) { petrify(run, e, 1, b.log); });   // 定魂珠
     if (p === 'gaze') b.enemies.forEach(function (e) { petrify(run, e, 1, b.log); });   // 鎮魂符
+    b.npForge = p === 'forge' ? 1 : 0;
     if (p === 'forge') addProj(b, 2);   // 御劍訣：開戰先祭出兩把
     if (p === 'madness') b.kraken = 5 + (run.krakenStart || 0) + (run.krakenFed || 0);   // 龍之契約：打贏過的每一場都把阿白養大一點
     if (run.trialStr) b.str += run.trialStr;   // 不滅血體：之前站起來換到的力量
@@ -1017,8 +1018,26 @@ var G = (function () {
       var T = talent(run, k); if (!T || !T.start) return;
       runFx({ run: run, b: b, tg: null, log: b.log, id: 'awaken', atk: false, first: false }, T.start);
     });
+    b.np = b.np0; meterSync(run);   // 量表從法寶、機緣給的起點開始（開場被動、頓悟的效果不算進去）
   }
   var MADNESS = { chilian: 2 };   // 血煞反噬：第 2 回合起每回合開始失去的生命
+  // 神通量表（2026-10-02 去 Fate 味）：不再靠出牌累積，而是靠各自的機制——
+  // 凌霜每祭出一把飛劍｜青璃每貼一層定身｜白辰阿白每長大 1、每咬一口｜赤練每失去 1 生命｜阿朵每讓敵人多中 1 層毒
+  var NP_GAIN = { forge: 10, gaze: 6, madness: 0.5, bite: 1, revive: 11, ambush: 5 };
+  function npHow(who) {   // 給玩家看：這位的神通量表怎麼漲
+    var p = (SERVANTS[who].passive || {}).id;
+    return p === 'forge' ? '每祭出 1 把飛劍 +' + NP_GAIN.forge + '%' : p === 'gaze' ? '每貼 1 層定身 +' + NP_GAIN.gaze + '%' : p === 'madness' ? '阿白每長大 2 +1%、每咬一口 +' + NP_GAIN.bite + '%'
+      : p === 'revive' ? '每失去 1 生命 +' + NP_GAIN.revive + '%' : p === 'ambush' ? '敵人每多中 1 層毒 +' + NP_GAIN.ambush + '%' : '';
+  }
+  function npAdd(b, n) { if (b && n > 0) b.np = Math.min(100, b.np + Math.round(n)); }
+  function poisonSum(b) { return b.enemies.reduce(function (a, e) { return a + (e.hp > 0 ? e.poison || 0 : 0); }, 0); }
+  function meterSync(run) { var b = run.battle; if (!b) return; b.mKraken = b.kraken || 0; b.mPoison = poisonSum(b); }
+  function meterCharge(run) {   // 阿白、毒：比對上次記下的量，有增加才累積
+    var b = run.battle, p = passive(run); if (!b) return;
+    if (p === 'madness' && (b.kraken || 0) > (b.mKraken || 0)) npAdd(b, (b.kraken - (b.mKraken || 0)) * NP_GAIN.madness);
+    if (p === 'ambush') { var ps = poisonSum(b); if (ps > (b.mPoison || 0)) npAdd(b, (ps - (b.mPoison || 0)) * NP_GAIN.ambush); }
+    meterSync(run);
+  }
   function startTurn(run, first) {
     var b = run.battle;
     b.turn++;
@@ -1033,11 +1052,12 @@ var G = (function () {
     if (b.ubw > 0) { addProj(b, 3); b.ubw--; }
     if (b.pKraken) b.kraken += b.pKraken;
     if (passive(run) === 'madness' && !first) b.kraken += 1 + (run.krakenGrow || 0);
-    if (!first && !run.flat && MADNESS[run.who] && run.hp > 1) { var md = MADNESS[run.who]; run.hp = Math.max(1, run.hp - md); (b.log = b.log || []).push('血煞反噬：失去 ' + md + ' 生命'); }
+    if (!first && !run.flat && MADNESS[run.who] && run.hp > 1) { var md = MADNESS[run.who]; var hp0 = run.hp; run.hp = Math.max(1, run.hp - md); if (passive(run) === 'revive') npAdd(b, (hp0 - run.hp) * NP_GAIN.revive); (b.log = b.log || []).push('血煞反噬：失去 ' + md + ' 生命'); }
     if (b.pRage && run.hp < run.maxHp / 2) b.str += b.pRage;
     if (b.pPetrifyAll) alive(b).forEach(function (e) { petrify(run, e, b.pPetrifyAll, b.log); });
     if (passive(run) === 'forge') addProj(b, 1);
     drawCards(run, 5 + b.pDraw);
+    if (!first) meterCharge(run);
   }
   function drawCards(run, n) {
     var b = run.battle;
@@ -1049,7 +1069,7 @@ var G = (function () {
   }
   // 飛劍疊成一張「飛劍 ×N」：只佔一格、不算手牌上限，最多 SWORD_MAX 把
   var SWORD_MAX = 10;
-  function addProj(b, n) { b.swords = Math.min(SWORD_MAX, (b.swords || 0) + n); syncSword(b); }
+  function addProj(b, n) { var s0 = b.swords || 0; b.swords = Math.min(SWORD_MAX, s0 + n); syncSword(b); if (b.npForge) npAdd(b, (b.swords - s0) * NP_GAIN.forge); }   // 凌霜：祭出的飛劍累積神通
   function syncSword(b) { var has = b.hand.indexOf('sword') >= 0; if (b.swords > 0 && !has) b.hand.unshift('sword'); if (!(b.swords > 0) && has) b.hand = b.hand.filter(function (y) { return y !== 'sword'; }); }
   function handFull(b) { return b.hand.filter(function (y) { return y !== 'sword'; }).length >= 10; }   // 飛劍那一格不算
   function alive(b) { return b.enemies.filter(function (e) { return e.hp > 0; }); }
@@ -1095,12 +1115,14 @@ var G = (function () {
   function petrify(run, e, n, log) {
     if (!e || e.hp <= 0) return;
     e.petrify += n;
+    if (passive(run) === 'gaze') npAdd(run.battle, n * NP_GAIN.gaze);   // 青璃：貼上的定身累積神通
     if (e.petrify >= stunAt(e)) { e.petrify = 0; e.stun = 1; log.push(e.name + '被定住了'); }
   }
   // 玩家受到傷害（不滅血體、九轉還魂丹在這裡擋）
   function loseHp(run, d, log) {
     var b = run.battle, p = passive(run);
     run.hp -= d;
+    if (p === 'revive') npAdd(b, Math.min(d, d + run.hp) * NP_GAIN.revive);   // 赤練：失去的生命累積神通
     if (b && run.hp > 0 && run.hp <= run.maxHp / 2 && !b.lampUsed && hasRelic(run, 'lamp')) { b.lampUsed = 1; run.hp = Math.min(run.maxHp, run.hp + 12); log.push('心燈亮了：回復 12 生命'); }
     if (run.hp > 0) return;
     if (run.lives > 0) {
@@ -1247,7 +1269,8 @@ var G = (function () {
     if (c.type === 'power') c.fx.forEach(function (f) { var now = POWER_NOW[f[0]]; if (now) OPS[now](ctx, [now, f[1]]); });   // 能力牌：打出當下先生效一次
     if (ctx.atk) { b.attacks++; b.firstAtk = false; }
     b.played++;
-    b.np = Math.min(100, b.np + (c.np || 0));
+    npAdd(b, c.npBonus || 0);   // 出牌本身不累積神通；共鳴強化的牌才有
+    meterCharge(run);
     if (c.type !== 'power' && id !== 'sword') (c.ex || c.token ? b.exhaust : b.discard).push(id);
     b.log = ctx.log;
     return { ok: true, end: checkEnd(run) };
@@ -1280,6 +1303,7 @@ var G = (function () {
     b.np = 0; b.npUsed = 1; run.stats.np++;
     var ctx = { run: run, b: b, tg: tg, log: [N.name], id: 'np', atk: false, first: false };
     runFx(ctx, fx);
+    meterSync(run);
     b.log = ctx.log;
     return { ok: true, end: checkEnd(run) };
   }
@@ -1342,7 +1366,7 @@ var G = (function () {
     if (b.kraken > 0) {   // 阿白：咬生命最少的敵人，每大 12 多咬一口
       for (var bite = 0; bite < krakenBites(b); bite++) {
         var t3 = alive(b).sort(function (p, q) { return p.hp - q.hp; })[0]; if (!t3) break;
-        hitEnemy(run, t3, dmgTo(t3, b.kraken), log); log.push('阿白咬了' + t3.name + '（' + b.kraken + '）');
+        hitEnemy(run, t3, dmgTo(t3, b.kraken), log); log.push('阿白咬了' + t3.name + '（' + b.kraken + '）'); npAdd(b, NP_GAIN.bite);
       }
     }
     var end = checkEnd(run);
@@ -1478,7 +1502,7 @@ var G = (function () {
 
   return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, ENCOUNTERS: ENCOUNTERS, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, BOSS_POOL: BOSS_POOL, actName: actName, scaleUp: scaleUp, krakenBites: krakenBites, ROWS: ROWS, COLS: COLS, ACT_NAMES: ACT_NAMES, EVENTS: EVENTS,
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff, REALMS: REALMS,
-    FATES: FATES, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
+    FATES: FATES, NP_GAIN: NP_GAIN, npHow: npHow, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
     card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, isCurse: isCurse, makeEnemy: makeEnemy, checkEnd: checkEnd, luckMod: luckMod, d20Chance: d20Chance, dullOf: dullOf, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, ownerOf: ownerOf,
     newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,

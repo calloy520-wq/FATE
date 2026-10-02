@@ -38,7 +38,7 @@ t(G.visible(run,0,G.reachable(run)[0])&&G.visible(run,2,nodes(2).length?run.map[
 step(run,'fight'); t(run.screen==='battle'&&run.battle.hand.length===5+(G.statsOf(run).agi?1:0)&&run.battle.energy===3,'進戰鬥：抽 5 張（身法 A 多 1）、3 點靈力');
 
 let r=arena(); r.battle.hand=['atk']; let x=G.play(r,0,0);
-t(x.ok&&E(r).hp===44&&r.battle.energy===2&&r.battle.np===10&&r.battle.discard.includes('atk'),'攻擊：6 傷、扣 1 靈力、神通 +10%、進棄牌堆',E(r).hp);
+t(x.ok&&E(r).hp===44&&r.battle.energy===2&&r.battle.np===0&&r.battle.discard.includes('atk'),'攻擊：6 傷、扣 1 靈力、進棄牌堆（出牌本身不累積神通）',E(r).hp);
 r.battle.energy=0; r.battle.hand=['atk']; t(!G.play(r,0,0).ok,'靈力不夠不能出');
 r=arena(); E(r).vuln=1; playId(r,'atk'); t(E(r).hp===41,'敵人易傷：6→9',E(r).hp);
 r=arena(); r.battle.weak=1; playId(r,'atk'); t(E(r).hp===46,'自己虛弱：6→4',E(r).hp);
@@ -255,7 +255,7 @@ t(G.ORDER.every(k=>G.card('atk_'+k).fx[0][0]==='dmg'&&G.card('atk_'+k).fx[0][1]=
 // 根骨
 t(G.ORDER.every(k=>G.PARAMS[k]&&G.PARAMS[k].length===6&&G.PARAMS[k].every(g=>'天地玄黃'.includes(g)))&&G.PARAM_NAMES.length===6,'5 位都有根骨，全用天地玄黃（不用 Fate 的字母等級）');
 r=arena('shuang'); r.flat=false; playId(r,'atk_shuang'); t(E(r).hp===50-Math.round(6*1.08)&&G.statsOf(r).atk===1.08,'凌霜 力道玄／靈力天 取高（108%）：6 傷 → 6',E(r).hp);
-r=arena('xiaoman'); r.flat=false; E(r).hp=200; r.battle.energy=9; for(let i=0;i<5;i++) playId(r,'atk_xiaoman'); t(G.statsOf(r).atk===1&&E(r).hp===200-30,'白辰 力道黃／靈力地 取高（100%）：5 下 6 傷 = 30',E(r).hp);
+r=arena('xiaoman'); r.flat=false; E(r).hp=200; r.battle.energy=9; for(let i=0;i<5;i++) playId(r,'atk_xiaoman'); t(G.statsOf(r).atk===0.92&&E(r).hp===200-5*Math.round(6*0.92),'白辰 力道黃／靈力玄 取高（92%）：5 下',E(r).hp);
 r=arena('shuang'); r.flat=false; playId(r,'atk_shuang'); t(E(r).hp===50-6,'凌霜 力道 D、靈力 B（攻擊取高）：6 傷 → 6',E(r).hp);
 r=arena('chilian'); r.flat=false; r.battle.energy=9; for(let i=0;i<4;i++) playId(r,'def_chilian'); t(G.statsOf(r).def===1.08&&r.battle.block===4*Math.round(5*1.08),'赤練 格擋看力道／身法／靈力取最高（靈力天 108%）',r.battle.block);
 r=arena('xiaoman'); r.flat=false; playId(r,'def_xiaoman'); t(r.battle.block===5,'白辰 力道 D／身法 D／靈力 C 取最高（92%）：5 → 5',r.battle.block);
@@ -284,7 +284,7 @@ t(G.newRun('qingli',1,{asc:6}).ascStart.some(f=>f[0]==='pPetrifyAll'),'境界 VI
 
 console.log('── 強化方向');
 t(G.upDirs('chain').join('')==='acde'&&G.upDirs('hrunting').join('')==='abcde'&&G.upDirs('atk').join('')==='ace'&&G.upDirs('gorgon').join('')==='ad'&&G.card('gorgon+d').fx.some(f=>f[0]==='pPetrifyAll'&&f[1]===2)&&G.upDirs('chain+').length===0&&G.upDirs('sword').length===0,'每張牌能往哪幾個方向強化（1 費沒有迅捷、能力牌沒有共鳴與極限、能力牌的道心是每回合版，已強化／代幣不能再強化）');
-t(G.card('hrunting+b').cost===1&&G.card('chain+c').np===25&&G.card('chain+c').fx.some(f=>f[0]==='draw')&&G.card('nails+d').fx.filter(f=>f[0]==='petrifyAll').length===1&&G.card('nails+d').fx.some(f=>f[0]==='petrifyAll'&&f[1]===2)&&G.card('chain+e').fx[0][1]===12&&G.card('chain+e').ex,'迅捷 -1 費、共鳴 +15% 抽 1、道心加定身（符針全體定身 1 → 2，精煉是 1）、極限翻倍但消耗');
+t(G.card('hrunting+b').cost===1&&G.card('chain+c').npBonus===15&&G.card('chain+c').fx.some(f=>f[0]==='draw')&&G.card('nails+d').fx.filter(f=>f[0]==='petrifyAll').length===1&&G.card('nails+d').fx.some(f=>f[0]==='petrifyAll'&&f[1]===2)&&G.card('chain+e').fx[0][1]===12&&G.card('chain+e').ex,'迅捷 -1 費、共鳴 +15% 抽 1、道心加定身（符針全體定身 1 → 2，精煉是 1）、極限翻倍但消耗');
 t(G.card('chain+').name==='縛靈索＋'&&G.card('chain+').fx[0][1]===9&&G.card('chain+e').name==='縛靈索・極'&&G.card('chain+c').name==='縛靈索・共鳴','「+」是精煉；名字帶方向');
 let ug=G.newRun('qingli',77); ug.deck.push('bloodfort'); const ci=ug.deck.length-1, op=G.upgradeOptions(ug,ci);
 t(op.length===3&&op.includes('bloodfort+')&&JSON.stringify(G.upgradeOptions(ug,ci))===JSON.stringify(op),'強化給三個方向（精煉一定在），同一次重畫不會變',op);
@@ -302,8 +302,8 @@ const r9=G.newRun('qingli',12); r9.relics=['shroud','gem','circuit','book']; ste
 t(r9.battle.block===8&&r9.battle.energy===4&&r9.battle.np===25&&r9.battle.enemies.every(e=>e.weak===1),'法寶：護體金鐘、聚靈玉、通神香、懾魂鈴');
 // 強化畫面看得出差別：道心不重複印同一個資源、共鳴的神通量表上卡面、upDiff 列出具體變化
 t(JSON.stringify(G.card('nails+d').fx)==='[["hits",3,2],["petrifyAll",2]]'&&G.cardShort('nails+d')==='⚔3×2 全體定身2','道心：牌上已有全體定身 1 → 合併成 2（不印兩次、也不輸給精煉）',G.cardShort('nails+d'));
-t(/神通\+25%/.test(G.cardShort('nails+c')),'共鳴：卡面顯示神通 +%',G.cardShort('nails+c'));
-t(G.upDiff('nails','nails+c').some(x=>/神通 \+10% → \+25%/.test(x))&&G.upDiff('nails','nails+a').some(x=>/→/.test(x)&&/4×2/.test(x)),'強化選單列出具體變化（神通 +10% → +25%、⚔3×2 → ⚔4×2）',JSON.stringify(G.upDiff('nails','nails+c')));
+t(/神通\+15%/.test(G.cardShort('nails+c'))&&!/神通/.test(G.cardShort('nails')),'共鳴：卡面顯示神通 +%（沒共鳴的牌不顯示）',G.cardShort('nails+c'));
+t(G.upDiff('nails','nails+c').some(x=>/打出時神通 \+15%/.test(x))&&G.upDiff('nails','nails+a').some(x=>/→/.test(x)&&/4×2/.test(x)),'強化選單列出具體變化（打出時神通 +15%、⚔3×2 → ⚔4×2）',JSON.stringify(G.upDiff('nails','nails+c')));
 t(G.FATES.gold.name==='意外之財','機緣的名字');
 // 無盡模式：第二章魔王之後不進隱藏關，一層一層往下、越來越強
 { const toBoss=(r)=>{ r.floor=11; r.lane=r.map[10].findIndex(n=>n); r.screen='map'; G.go(r,2); r.battle.enemies.forEach(e=>{e.hp=1;e.block=0;e.lives=0;}); r.battle.hand=[G.basicOf('qingli','atk')]; r.battle.energy=3; G.play(r,0,0); };
@@ -351,7 +351,7 @@ t(JSON.stringify(G.card('heavy+').fx[0])==='["dmg",21]'&&G.card('heavy+').cost==
 { const q=G.newRun('qingli',3); q.screen='event'; q.event='mapo'; G.choose(q,0); step(q,'fight'); t(q.battle.weak===2&&!q.nextWeak,'路邊的黑店：回 25，下一場開場虛弱 2（只有下一場）'); }
 t(JSON.stringify(G.card('hrunting+e').fx[0])==='["projDmg",16,6]','極限：每點資源的加成也翻倍（8+3/劍 → 16+6/劍）',JSON.stringify(G.card('hrunting+e').fx));
 t(!G.upDirs('dirk').includes('e')&&G.upDirs('nails').includes('e'),'數字太小的牌（毒牙 2＋毒 2）不給極限；3×2 算 6 可以');
-t(G.card('tracing+c').np===35&&G.card('tracing+c').fx.filter(f=>f[0]==='draw').length===1,'共鳴：本來會抽牌的改成神通 +30%（不再多抽一張）');
+t(G.card('tracing+c').npBonus===30&&G.card('tracing+c').fx.filter(f=>f[0]==='draw').length===1,'共鳴：本來會抽牌的改成神通 +30%（不再多抽一張）');
 { let bad=[]; Object.keys(G.CARDS).forEach(k=>{ if(!G.upDirs(k).length) return; const q={seed:1,deck:[k],stats:{floors:0},who:G.CARDS[k].kit in G.SERVANTS?G.CARDS[k].kit:'qingli'}; for(let f=0;f<200;f++){ q.stats.floors=f; const o=G.upgradeOptions(q,0); const v=o.find(x=>G.card(x).dir==='f'); if(v){ const a=G.card(k+'+'),l=G.card(v); if(JSON.stringify(a.fx)===JSON.stringify(l.fx)&&a.cost===l.cost) bad.push(k); break; } } }); t(!bad.length,'★傳說一定跟精煉不一樣（不然只是白拿內傷）',bad.join(',')); }
 // 法寶拿完不再白付、每章至少 2 個精英、無盡只用免費機緣
 { const q=G.newRun('qingli',3); Object.keys(G.RELICS).forEach(k=>q.relics.push(k)); q.gold=200; t(!G.canChoose(q,G.EVENTS.jeweler.opts[0])&&!G.canChoose(q,G.EVENTS.magus.opts[0])&&G.canChoose(q,G.EVENTS.jeweler.opts[1]),'法寶全拿了：花錢／花血換法寶的選項關掉（試丹還能選）'); }
@@ -414,6 +414,13 @@ t(G.fateSlots(false)===2&&G.fateSlots(true)===1,'機緣欄位：一般帶兩種�
 { const q=G.newRun('qingli',6,{fates:['gold','gold','seal4','tough']}); t(q.fates.join()==='gold,seal4','機緣重複的不算、最多兩種',q.fates); }
 { const q=G.newRun('qingli',6,{fates:['gold','tough'],endless:true}); t(q.fates.length===1,'無盡模式只帶一種機緣'); }
 { const q=G.newRun('qingli',3,{fates:['heirloom','early']}); const ok1=q.screen==='boon'&&q.boon.kind==='relic'&&G.takeBoon(q,0); const ok2=q.screen==='boon'&&q.boon.kind==='awaken'&&G.takeBoon(q,1); t(ok1&&ok2&&q.screen==='map'&&q.relics.length===1&&q.awaken.length===1,'師門傳承＋天生慧根：兩個二選一排隊選完才出發'); }
+console.log('── 神通量表：靠各自的機制累積（不靠出牌）');
+{ const q=arena('shuang'); q.battle.npForge=1; q.battle.np=0; q.battle.energy=9; playId(q,'atk_shuang'); const n0=q.battle.np; G.endTurn(q); t(n0===0&&q.battle.np>=G.NP_GAIN.forge,'凌霜：出牌不累積，祭出飛劍才累積',JSON.stringify([n0,q.battle.np])); }
+{ const q=arena('qingli'); q.battle.np=0; q.battle.energy=9; playId(q,'nails'); t(q.battle.np===G.NP_GAIN.gaze,'青璃：貼定身累積',q.battle.np); }
+{ const q=arena('xiaoman'); q.battle.np=0; q.battle.kraken=5; q.battle.mKraken=5; playId(q,'horror'); t(q.battle.np===Math.round(3*G.NP_GAIN.madness),'白辰：阿白長大累積',q.battle.np); }
+{ const q=arena('chilian'); q.battle.np=0; E(q).intent={n:'砍',fx:[['atk',10]]}; G.endTurn(q); t(q.battle.np>=Math.min(100,10*G.NP_GAIN.revive),'赤練：失去生命累積',q.battle.np); }
+{ const q=arena('aduo'); q.battle.np=0; q.battle.energy=9; playId(q,'venom'); t(q.battle.np===7*G.NP_GAIN.ambush,'阿朵：讓敵人中毒累積',q.battle.np); }
+{ const q=G.newRun('qingli',3); step(q,'fight'); t(q.battle.np===0,'開戰時的被動（青璃全體定身）不算進量表：從 0 開始',q.battle.np); }
 console.log('── 局外解鎖（目標→機緣、法寶池）、圖鑑、真結局');
 const ALLG=Object.keys(G.GOALS);
 t(Object.keys(G.FATES).filter(k=>G.FATES[k].lock).every(k=>G.GOALS[G.FATES[k].lock])&&Object.keys(G.RELICS).filter(k=>G.RELICS[k].lock).every(k=>G.GOALS[G.RELICS[k].lock]),'鎖起來的機緣、法寶都對得上一個目標');
