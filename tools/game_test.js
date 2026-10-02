@@ -277,7 +277,8 @@ ev=G.newRun('xiaoman',41); step(ev,'event'); ev.event='alone'; G.choose(ev,0); s
 ev=G.newRun('xiaoman',41); step(ev,'event'); ev.event='dragonhome'; G.choose(ev,0); t(ev.deck.includes('prelati')&&ev.maxHp===G.SERVANTS.xiaoman.hp-6,'舊蛻：最大生命 -6，得到蛻龍訣');
 { const q=G.newRun('shuang',3); q.screen='event'; q.event='swordtomb'; const h=q.hp; G.choose(q,0); t(q.hp===h-10&&q.deck.includes('sword_rain'),'劍冢：失去 10 生命，得到漫天劍雨'); }
 { const q=G.newRun('qingli',3); q.screen='event'; q.event='sellfu'; const g=q.gold; G.choose(q,0); t(q.gold===g+80&&q.deck.includes('sin'),'賣符：漫天喊價得 80 金，代價業障'); }
-{ const q=G.newRun('aduo',3); q.screen='event'; q.event='guking'; G.choose(q,1); t(q.deck.includes('shaitan')&&q.deck.includes('sin'),'蠱王：得到金蠶蠱，代價業障'); }
+{ const q=G.newRun('aduo',3); q.gold=80; q.screen='event'; q.event='guking'; G.choose(q,1); t(q.deck.includes('shaitan')&&!q.deck.includes('sin')&&q.gold===30,'蠱王：花 50 金買豬心，得到金蠶蠱');
+  const r=G.newRun('aduo',3); r.gold=20; r.screen='event'; r.event='guking'; G.choose(r,1); t(!r.deck.includes('shaitan'),'蠱王：錢不夠買不了豬心'); }
 
 console.log('── 難度');
 let dn=G.newRun('qingli',9,{diff:'normal'}), dh=G.newRun('qingli',9,{diff:'abyss'}); step(dn,'fight'); step(dh,'fight');

@@ -1103,8 +1103,8 @@ var G = (function () {
       opts: [{ label: '掀桌開打（精英戰）', fx: [['fight', 'elite', 'daoke']] }, { label: '坐下喝到天亮：回復 20 生命，最大生命 +4', fx: [['hp', 20], ['maxHp', 4]] }] },
     villageletter:{ who: 'aduo', name: '寨子的來信', text: '一隻紫色的蝴蝶停在你指尖，捎來寨子老巫婆的口信：「地脈裡的魔氣又往南滲了一點，蠱睡不安穩。阿朵，路開得怎麼樣了？」',
       opts: [{ label: '以身試毒（🎲≥13）：成功→隨機強化 3 張牌；失敗→最大生命 -8', fx: [['d20', 13, [['upRandom', 3]], [['maxHp', -8]]]] }, { label: '拿自己的血養新蠱：失去 10 生命，從牌組移除兩張牌', need: { hp: 10 }, fx: [['hp', -10], ['pick', 'remove'], ['pick', 'remove']] }, { label: '先繼續趕路', fx: [] }] },
-    guking:  { who: 'aduo', name: '蠱王', text: '深山的古樹洞裡，一隻金色的蠶在發光。牠開口說話了：「餵我，我就跟妳走。」',
-      opts: [{ label: '讓牠鑽進手臂：最大生命 -6，選一張牌變成強化專屬牌', fx: [['maxHp', -6], ['pick', 'transform']] }, { label: '餵牠一顆人心：得到秘傳「金蠶蠱」，牌組多一張詛咒「業障」', fx: [['addCard', 'shaitan'], ['addCard', 'sin']] }, { label: '恭敬地退下：回復 10 生命', fx: [['hp', 10]] }] },
+    guking:  { who: 'aduo', name: '蠱王', text: '深山的古樹洞裡，一隻金色的蠶在發光。牠開口說話了：「以前的人，都拿人心餵我。餵我，我就跟妳走。」',
+      opts: [{ label: '讓牠鑽進手臂：最大生命 -6，選一張牌變成強化專屬牌', fx: [['maxHp', -6], ['pick', 'transform']] }, { label: '花 50 金買一顆大豬心給牠（牠嫌了半天，還是吃光了）：得到秘傳「金蠶蠱」', need: { gold: 50 }, fx: [['gold', -50], ['addCard', 'shaitan']] }, { label: '恭敬地退下：回復 10 生命', fx: [['hp', 10]] }] },
     // ── 主修專屬事件（走那條主修才會遇到）──
     sword_furnace:{ who: 'shuang', major: 'wanjian', name: '劍廬', text: '山腰有一座荒廢的劍廬，爐火居然還沒熄。爐邊堆著一排沒開鋒的劍胚。',
       opts: [{ label: '把一把飛劍投進爐裡淬火：失去 8 生命，之後每場開場飛劍 +1', need: { hp: 8 }, fx: [['hp', -8], ['startFx', 'proj', 1]] }, { label: '帶走一把劍胚：得到強化過的「劍影雙飛」', fx: [['addCard', 'kanshou+']] }, { label: '離開', fx: [] }] },
