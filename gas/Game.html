@@ -155,7 +155,7 @@ var G = (function () {
     rockbody:{ name: '凝血成甲', cost: 1, type: 'skill', np: 5, fx: [['rageBlock', 5, 2]], up: { fx: [['rageBlock', 7, 3]] } },
     monster: { name: '破軍', cost: 3, type: 'atk', np: 30, fx: [['rageDmg', 16, 3]], up: { fx: [['rageDmg', 21, 4]] } },
     godhand: { name: '積怨', cost: 1, type: 'power', np: 0, fx: [['pRage', 1]], up: { cost: 0 } },
-    xisui:   { name: '吸髓', cost: 1, type: 'atk', np: 0, fx: [['drain', 6]], up: { fx: [['drain', 9]] } },
+    xisui:   { name: '吸髓', cost: 1, type: 'atk', np: 0, fx: [['drain', 5]], up: { fx: [['drain', 8]] } },
     xuelian: { name: '血蓮', cost: 1, type: 'power', np: 0, fx: [['pLeech', 15]], up: { cost: 0 } },
     yinhen:  { name: '飲恨', cost: 2, type: 'atk', np: 0, fx: [['rageDrain', 10, 3]], up: { fx: [['rageDrain', 13, 4]] } },
     // 血甲（扛）：身子單薄，扛傷靠的是凝在身上的血
@@ -267,7 +267,7 @@ var G = (function () {
         cards: ['zealot', 'pages', 'longlin', 'nilin', 'longwei', 'hualong', 'fawei', 'longshen'] }
     ],
     chilian: [
-      { id: 'kuangxue', name: '狂血', feel: '痛', sig: 'rampage', soul: ['tstr', 2], master: [['tstr', 4]], desc: '自傷換力量，再從敵人身上吸回來。',
+      { id: 'kuangxue', name: '狂血', feel: '痛', sig: 'rampage', soul: ['tstr', 2], master: [['block', 3]], desc: '自傷換力量，再從敵人身上吸回來。',
         cards: ['rampage', 'roar', 'bloodlust', 'divine', 'monster', 'godhand', 'xisui', 'xuelian', 'yinhen', 'nine_lives'] },
       { id: 'xuejia', name: '血甲', feel: '扛', sig: 'rockbody', soul: ['block', 4], master: [['block', 6]], desc: '血凝成甲，扛傷反擊；挨打越多，反擊越重。',
         cards: ['rockbody', 'madness', 'crush', 'xueji', 'yingjie', 'huanxue', 'hongxiu', 'buhuai'] },
@@ -284,10 +284,12 @@ var G = (function () {
     ]
   };
   var PATH_OF = {};   // 卡片 id → 主修 id
-  Object.keys(PATHS).forEach(function (w) { SERVANTS[w].paths = PATHS[w]; PATHS[w].forEach(function (P) { P.cards.forEach(function (k) { PATH_OF[k] = P.id; CARDS[k].path = P.id; }); }); });
+  var SECTS = { shuang: '雲隱劍宗', qingli: '玄真觀', xiaoman: '靈獸山莊', chilian: '血煞宗', aduo: '百蠱寨' };   // 門派（赤練已叛出血煞宗）
+  Object.keys(PATHS).forEach(function (w) { SERVANTS[w].sect = SECTS[w]; SERVANTS[w].paths = PATHS[w]; PATHS[w].forEach(function (P) { P.cards.forEach(function (k) { PATH_OF[k] = P.id; CARDS[k].path = P.id; }); }); });
   function pathsOf(who) { return PATHS[who] || []; }
   function pathById(who, id) { return pathsOf(who).filter(function (P) { return P.id === id; })[0] || pathsOf(who)[0]; }
   function majorOf(run) { return pathById(run.who, run.major); }
+  function masterText(P) { return startText(P.master); }
   // ── 根骨（力道／體魄／身法／靈力／氣運／神通）──
   // 換算：等級 E1 D2 C3 B4 A5 EX6.5，「+」+0.5；以 B 為 100%
   //   攻擊（力道與靈力取高）：所有卡牌傷害 ×(1＋8%×(等級−4))｜體魄：生命＝75×(1＋8%×…)｜格擋：力道、身法、靈力取最高 ×(1＋8%×…)
@@ -348,7 +350,7 @@ var G = (function () {
     yuanling:{ name: '怨靈', hp: [22, 26], moves: [{ n: '穿心之觸', fx: [['atkP', 8]], w: 2 }, { n: '哀嚎', fx: [['plant', 'enfeeble', 1], ['vuln', 1]], w: 1 }] },
     shikui:  { name: '石傀儡', hp: [42, 48], moves: [{ n: '重拳', fx: [['atk', 14]], w: 2 }, { n: '硬化', fx: [['block', 14], ['atk', 4]], w: 1 }] },
     mohua:   { name: '魔化劍修', hp: [50, 56], moves: [{ n: '魔劍連斬', fx: [['atk', 9, 2]], w: 2 }, { n: '魔氣灌注', fx: [['atk', 6], ['curse', 'mud', 1]], w: 1 }, { n: '入魔', fx: [['str', 2], ['block', 8]], w: 1 }] },
-    shichong:{ name: '屍蟲群', hp: [18, 22], moves: [{ n: '寄生', fx: [['plant', 'worm', 1]], w: 2 }, { n: '啃咬', fx: [['atk', 5]], w: 1 }] },
+    shichong:{ name: '屍蟲群', hp: [18, 22], moves: [{ n: '鑽入', fx: [['plant', 'worm', 1]], w: 2 }, { n: '啃咬', fx: [['atk', 5]], w: 1 }] },
     yinbing: { name: '陰兵', hp: [12, 14], moves: [{ n: '突刺', fx: [['atk', 6]], w: 2 }, { n: '列陣', fx: [['block', 6], ['atk', 3]], w: 1 }] },
     // 精英
     jianmo:  { name: '劍魔', hp: [80, 84], elite: 1, cycle: 1, moves: [{ n: '劍氣縱橫', fx: [['atk', 13]] }, { n: '運功', fx: [['block', 10], ['str', 3]] }, { n: '連斬', fx: [['atk', 7, 2]] }, { n: '天外一劍', fx: [['atk', 28]] }] },
@@ -636,7 +638,7 @@ var G = (function () {
     burnHand: '燒掉手上一張牌（先燒妨礙牌與詛咒，其次最貴的），火勢 +{1}', fireNuke: '對全體造成火勢 ×{1} 的傷害，火勢歸零',
     krakenHalfBlock: '格擋 {1}＋阿白大小的一半（阿白不會縮小）', pNilin: '每次被攻擊，反擊阿白大小÷3 的傷害', krakenTstr: '本回合力量 +阿白大小÷{1}',
     pHualong: '每回合開始阿白縮小 2，力量 +{1}', strHits: '造成 {1} 傷害 ×（力量÷2＋1）次（最多 6 次）',
-    drain: '造成 {1} 傷害，回復等量生命', pLeech: '生命低於一半時，攻擊吸血 {1}%', rageDrain: '造成 {1} 傷害，每少 10 點生命再 +{2}，回復造成傷害的一半',
+    drain: '造成 {1} 傷害，回復等量生命', pLeech: '生命低於一半時，攻擊吸血 {1}%', rageDrain: '造成 {1} 傷害，每少 10 點生命再 +{2}，回復造成傷害的三分之一',
     pBloodThorn: '每次被攻擊，反擊 {1} 傷害（每少 10 點生命再 +1）', hitStr: '這一輪每被攻擊一次，下回合力量 +{1}', revenge: '造成上一輪到現在你失去的生命 ×{1} 的傷害',
     lowBlock: '格擋 {1}；生命低於一半時改成 {2}',
     charm: '魅惑 {1}（它這一輪的出手，每層讓一擊分一半打到自己人，你只挨一半；沒用完就散了）', charmAll: '全體魅惑 {1}', pCharm: '每回合開始，生命最多的敵人魅惑 {1}', charmDmg: '造成 {1} 傷害；目標被魅惑時翻倍', drawIfCharm: '目標被魅惑時抽 {1} 張',
@@ -1214,7 +1216,7 @@ var G = (function () {
   var MADNESS = { chilian: 2 };   // 血煞反噬：第 2 回合起每回合開始失去的生命
   // 神通量表（2026-10-02 去 Fate 味）：不再靠出牌累積，而是靠各自的機制——
   // 凌霜每祭出一把飛劍｜青璃每貼一層定身｜白辰阿白每長大 1、每咬一口｜赤練每失去 1 生命｜阿朵每讓敵人多中 1 層毒
-  var NP_GAIN = { forge: 10, gaze: 6, madness: 0.5, bite: 1, revive: 9, ambush: 5, fire: 6, anqi: 6 };   // fire：青璃火符每點火勢｜anqi：阿朵暗器每打出一張攻擊牌
+  var NP_GAIN = { forge: 10, gaze: 6, madness: 0.5, bite: 1, revive: 8, ambush: 5, fire: 6, anqi: 6 };   // fire：青璃火符每點火勢｜anqi：阿朵暗器每打出一張攻擊牌
   function npHow(who) {   // 給玩家看：這位的神通量表怎麼漲
     var p = (SERVANTS[who].passive || {}).id;
     return p === 'forge' ? '每祭出 1 把飛劍 +' + NP_GAIN.forge + '%' : p === 'gaze' ? '每貼 1 層定身、每 1 點火勢 +' + NP_GAIN.gaze + '%' : p === 'madness' ? '阿白每長大 2 +1%、每咬一口 +' + NP_GAIN.bite + '%'
@@ -1485,7 +1487,7 @@ var G = (function () {
     // 赤練・狂血、血甲
     drain: function (x, f) { var got = strike(x, x.tg, f[1]); healP(x.run, got, x.log); },
     pLeech: function (x, f) { x.b.pLeech = (x.b.pLeech || 0) + f[1]; },
-    rageDrain: function (x, f) { var got = strike(x, x.tg, f[1] + f[2] * RES.rage(x.b, x.run)); healP(x.run, Math.floor(got / 2), x.log); },
+    rageDrain: function (x, f) { var got = strike(x, x.tg, f[1] + f[2] * RES.rage(x.b, x.run)); healP(x.run, Math.floor(got / 3), x.log); },
     pBloodThorn: function (x, f) { x.b.pBT = (x.b.pBT || 0) + f[1]; },
     hitStr: function (x, f) { x.b.hitStr = (x.b.hitStr || 0) + f[1]; },
     revenge: function (x, f) { strike(x, x.tg, (x.b.lost || 0) * f[1]); },
@@ -1665,7 +1667,7 @@ var G = (function () {
       enemyHit(run, e, f[1], f[0] === 'atkP', log, true);   // 你只挨一半
       var others = alive(b).filter(function (o) { return o !== e; }), t = others.length ? pick(run, others) : e;
       var d = calcDmg(Math.ceil(f[1] / 2), e.str - (passive(run) === 'gaze' ? e.petrify : 0), e.weak, 0);
-      if (ENEMIES[e.id].boss) d = Math.floor(d / 2);   // 魔王心智堅定，打歪的再少一半
+      d = Math.floor(d * (ENEMIES[e.id].boss ? 1 : 2) / 3);   // 打歪的那一半，打到自己人時剩三分之二力道（魔王心智堅定，只剩三分之一）
       hitEnemy(run, t, dmgTo(t, d), log, f[0] === 'atkP');
     }
   }
@@ -1866,7 +1868,7 @@ var G = (function () {
 
   return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, ENCOUNTERS: ENCOUNTERS, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, BOSS_POOL: BOSS_POOL, actName: actName, scaleUp: scaleUp, krakenBites: krakenBites, ROWS: ROWS, COLS: COLS, ACT_NAMES: ACT_NAMES, EVENTS: EVENTS,
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff, REALMS: REALMS,
-    FATES: FATES, NP_GAIN: NP_GAIN, stunAt: stunAt, PATHS: PATHS, pathsOf: pathsOf, pathById: pathById, majorOf: majorOf, chooseMajor: chooseMajor, ownPool: ownPool, parasiteSum: parasiteSum, npHow: npHow, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
+    FATES: FATES, NP_GAIN: NP_GAIN, stunAt: stunAt, PATHS: PATHS, pathsOf: pathsOf, pathById: pathById, majorOf: majorOf, chooseMajor: chooseMajor, ownPool: ownPool, masterText: masterText, parasiteSum: parasiteSum, npHow: npHow, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
     card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, isCurse: isCurse, makeEnemy: makeEnemy, checkEnd: checkEnd, luckMod: luckMod, d20Chance: d20Chance, dullOf: dullOf, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, ownerOf: ownerOf,
     PILLS: PILLS, PILL_SLOTS: PILL_SLOTS, usePill: usePill, swapPill: swapPill, gainPill: gainPill, newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,

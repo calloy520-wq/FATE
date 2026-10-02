@@ -459,4 +459,18 @@ t(G.ORDER.every(k=>G.ENDINGS[k]&&G.ENDINGS[k].title&&G.ENDINGS[k].text.length>=3
 
 { const q=arena('qingli'); const e=E(q); e.id='niumo'; e.hp=e.maxHp=500; q.battle.energy=99; const th=[]; for(let k=0;k<3;k++){ th.push(G.stunAt(e)); e.petrify=G.stunAt(e)-1; playId(q,'chain'); e.stun=0; } t(th.join()==='5,5,6','魔王第二次起每被定住一次門檻 +1（定不死）',th.join()); }
 { const q=arena('qingli'); const e=E(q); q.battle.energy=99; const th=[]; for(let k=0;k<3;k++){ th.push(G.stunAt(e)); e.petrify=G.stunAt(e)-1; playId(q,'chain'); e.stun=0; } t(th.join()==='3,3,3','一般敵人照舊（定身門檻不會變高）',th.join()); }
+// 門派主修（2026-10-02）
+{ const q=G.newRun('shuang',3,{major:'guiyi'}); t(q.major==='guiyi'&&q.deck.includes('hanshuang')&&q.deck.includes('guiyi')&&!q.deck.includes('project'),'出發選主修：招牌牌換成那條的（歸一：一劍霜寒＋歸一）',q.deck.join()); }
+{ const q=arena('shuang'); q.major='guiyi'; q.battle.swords=3; q.battle.jy=0; G.endTurn(q); t(q.battle.jy===9,'歸一：回合結束沒用完的飛劍化成劍意（每把 3）',q.battle.jy); }
+{ const q=arena('shuang',1,200); q.battle.jy=4; q.battle.swords=2; playId(q,'hanshuang'); t(E(q).hp===200-(10+3*(4+6))&&q.battle.jy===0&&!q.battle.swords,'一劍霜寒：劍意＋飛劍（每把 3）一起斬出，穿透',E(q).hp); }
+{ const q=arena('shuang',2,50); q.battle.yuyin=9; G.endTurn(q); t(q.battle.enemies.every(e=>e.hp===41)&&q.battle.yuyin===6,'琴心：回合結束餘音震傷全體，再散去三分之一',[q.battle.enemies.map(e=>e.hp),q.battle.yuyin]); }
+{ const q=arena('qingli',2,60); q.battle.fire=2; playId(q,'huofu'); t(q.battle.enemies.every(e=>e.hp===60-(6+2*2))&&q.battle.fire===3,'火符：全體 6＋火勢×2，打完火勢 +1',[E(q).hp,q.battle.fire]); }
+{ const q=arena('xiaoman'); q.major='longyou'; q.battle.kraken=9; q.battle.tstr=0; const hp0=E(q).hp; G.endTurn(q); t(E(q).hp===hp0&&q.battle.tstr===Math.floor(10*2/3),'龍佑：阿白不咬人，改成每回合開始給白辰本回合力量（阿白的三分之二）',[E(q).hp,q.battle.tstr]); }
+{ const q=arena('chilian',2,60); E(q).charm=2; E(q).intent={n:'砍',fx:[['atk',20]]}; q.battle.block=0; const hp0=q.hp; G.endTurn(q); t(hp0-q.hp===10+0&&q.battle.enemies[1].hp<60&&E(q).charm===0,'魅惑：那一擊你只挨一半，另一半打到它自己人；用完就散',[hp0-q.hp,q.battle.enemies[1].hp]); }
+{ const q=arena('aduo',2,30); E(q).parasite=4; E(q).hp=3; G.endTurn(q); t(E(q).hp===0&&q.battle.enemies[1].parasite===6,'寄生：每輪扣血不遞減；宿主倒下，蠱蟲爬到下一個身上 +2',[E(q).hp,q.battle.enemies[1].parasite]); }
+{ const q=G.newRun('chilian',8,{major:'meigu'}); q.screen='major'; t(G.chooseMajor(q,'xuejia')&&q.majors.join()==='meigu,xuejia'&&q.deck.includes('rockbody')&&!q.mastered,'兼修：再開一條主修，送它的招牌牌',q.majors.join());
+  const P=G.ownPool(q); t(P.side.length===0&&P.main.some(k=>G.CARDS[k].path==='xuejia')&&P.main.some(k=>G.CARDS[k].path==='meigu')&&!P.main.some(k=>G.CARDS[k].path==='kuangxue'),'兼修之後：兩條主修的牌都會出，第三條不出'); }
+{ const q=G.newRun('aduo',8,{major:'anqi'}); t(G.ownPool(q).side.length>0,'第一章魔王前：其他主修的牌也偶爾會出'); q.screen='major'; G.chooseMajor(q,'master'); const P=G.ownPool(q); t(q.mastered&&P.side.length===0&&P.main.every(k=>G.CARDS[k].path==='anqi'),'專精之後：只出這條主修的牌'); step(q,'fight'); t(q.battle.evade>=1,'專精暗器：每場開場迴避 1'); }
+t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&&G.CARDS[P.sig].path===P.id)),'每位至少兩條主修，招牌牌屬於自己那條');
+{ const feels=[].concat(...G.ORDER.map(w=>G.pathsOf(w).map(P=>P.feel))); t(new Set(feels).size===feels.length,'主修的手感詞不能撞',feels.join()); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
