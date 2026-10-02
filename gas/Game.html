@@ -22,14 +22,14 @@ var G = (function () {
   kit('status', {
     mud: { name: '魔氣', cost: 1, type: 'curse', np: 0, hold: 2, fx: [], short: '留手上 -2 生命', text: '回合結束時還在手上就失去 2 生命；花 1 靈力打掉（這場消耗）。只存在這場戰鬥' },
     // 屍蟲：直接塞進手牌、保留（回合結束不會丟掉），一直佔位置、一直扣血，直到你花靈力打掉
-    worm: { name: '屍蟲', cost: 1, type: 'curse', np: 0, hold: 2, retain: 1, fx: [], short: '保留 每回合 -2 生命', text: '保留：回合結束不會丟掉，每回合結束失去 2 生命、一直佔著手牌，直到你花 1 靈力把牠打掉（這場消耗）。只存在這場戰鬥' },
+    worm: { name: '屍蟲', cost: 1, type: 'curse', np: 0, hold: 2, retain: 1, fx: [], short: '保留 每回合 -2 生命', text: '保留：回合結束不會丟掉，每回合結束失去 2 生命、一直佔著手牌，直到妳花 1 靈力把牠打掉（這場消耗）。只存在這場戰鬥' },
     // 怨靈的哀嚎：攻擊打一半；邪修的縛靈術：每張牌多 1 費（打掉它也要多花）——一個卡傷害、一個卡靈力
-    enfeeble: { name: '散功', cost: 1, type: 'curse', np: 0, half: 1, fx: [], short: '在手上：攻擊減半', text: '在手上時，你的攻擊傷害減半；花 1 靈力打掉（這場消耗）。只存在這場戰鬥' },
-    bind:     { name: '縛靈', cost: 1, type: 'curse', np: 0, tax: 1, fx: [], short: '在手上：每張牌 +1 費', text: '在手上時，你的每張牌多 1 費（0 費的也是）；花 1 靈力打掉（這場消耗）。只存在這場戰鬥' }
+    enfeeble: { name: '散功', cost: 1, type: 'curse', np: 0, half: 1, fx: [], short: '在手上：攻擊減半', text: '在手上時，妳的攻擊傷害減半；花 1 靈力打掉（這場消耗）。只存在這場戰鬥' },
+    bind:     { name: '縛靈', cost: 1, type: 'curse', np: 0, tax: 1, fx: [], short: '在手上：每張牌 +1 費', text: '在手上時，妳的每張牌多 1 費（0 費的也是）；花 1 靈力打掉（這場消耗）。只存在這場戰鬥' }
   });
   // 詛咒牌：留在牌組裡（事件、★傳說強化的代價）；商店、事件、休息的淨化可以移除
   kit('curse', {
-    fatigue:   { name: '內傷', cost: 1, type: 'curse', np: 0, dull: 1, fx: [], short: '在手上：攻擊每擊 -1', text: '在手上時，你的攻擊每擊 -1；花 1 靈力打掉（這場消耗）' },
+    fatigue:   { name: '內傷', cost: 1, type: 'curse', np: 0, dull: 1, fx: [], short: '在手上：攻擊每擊 -1', text: '在手上時，妳的攻擊每擊 -1；花 1 靈力打掉（這場消耗）' },
     corrosion: { name: '魔氣侵體', cost: 2, type: 'curse', np: 0, hold: 3, fx: [], short: '留手上 -3 生命', text: '回合結束時還在手上就失去 3 生命；花 2 靈力打掉（這場消耗）' },
     sin:       { name: '業障', cost: 0, type: 'curse', np: 0, unplayable: 1, fx: [], short: '打不出來', text: '打不出來，只會佔著手牌的位置' }
   });
@@ -229,7 +229,7 @@ var G = (function () {
       np: { name: '天羅地網', fx: [['all', 38], ['petrifyAll', 2]] } },
     xiaoman: { name: '白辰', cls: '御獸', hp: 57, sig: 'horror',
       desc: '靈獸山莊的老祖宗。三百年前封印魔淵的五人裡，還在世上的只剩她。那一戰燒掉她半身龍元，從此是孩童模樣（大家私下叫她「小滿」，她一聽就炸毛）。身邊盤著本命靈龍「阿白」：每回合長大，會自己咬人，會替她擋傷害，整趟冒險越養越大。',
-      passive: { id: 'madness', name: '龍之契約', text: '不會被施加虛弱（活了一千年，什麼沒見過）；每場戰鬥開始時阿白大小 5，之後每回合長大 1；每打贏兩場，之後每場開場阿白再 +1（吃飽了，整局最多 +6）。阿白回合結束咬生命最少的敵人（每大 12 多咬一口）；打穿格擋的傷害，阿白替你擋下一半（擋了會縮小）' },
+      passive: { id: 'madness', name: '龍之契約', text: '不會被施加虛弱（活了一千年，什麼沒見過）；每場戰鬥開始時阿白大小 5，之後每回合長大 1；每打贏兩場，之後每場開場阿白再 +1（吃飽了，整局最多 +6）。阿白回合結束咬生命最少的敵人（每大 12 多咬一口）；打穿格擋的傷害，阿白替妳擋下一半（擋了會縮小）' },
       np: { name: '龍吟', fx: [['kraken', 8], ['weakAll', 1]] } },
     chilian: { name: '赤練', cls: '血修', hp: 81, sig: 'rampage',
       desc: '合歡宗的血修。合歡宗以情入道，門規只有一條：兩情相悅。她路過落霞山，在塔下聽劍仙撫琴，一聽就是一個月——就這麼喜歡上了。劍仙一下山，她二話不說跟了上去，只想找她一起合修。拿自己的血換力量：傷得越重，刀越狠。倒下了，也會笑著再站起來。',
@@ -443,13 +443,13 @@ var G = (function () {
     mojiang: '魔軍的黑甲將領。盾硬，刀重，腳步沉。',
     tengyao: '藤蔓纏成的妖。打著打著，就長出一堆血藤。',
     yingwei: '藏在影子裡的護衛首領。身後，還有一群看不見的手下。',
-    zhanglao: '看起來二十出頭，其實活了幾百年的魔教女長老。笑得溫柔，袖子裡全是毒鏢。',
-    shuyao: '從萬年古樹裡長出來的女妖，血藤纏身。砍掉的枝條，會再長回來。',
-    guijiang: '陰間的女將軍，白髮，古甲。身後是殘破的戰旗，和殺不完的陰兵。',
-    niumo: '頂著一對巨大牛角的牛魔女王，肩上扛著雙刃巨斧。死過兩次，兩次都笑著站了起來。',
-    huyao: '九條尾巴的白狐美人。狐火燒身，媚術迷心——一不小心，就被她牽著走。',
-    duoxian: '從天上掉下來的女仙。白衣被墨染黑，光環碎了，眼角掛著一滴墨淚。',
-    panguan: '陰間的女判官。判官筆一勾，就勾走妳的格擋。生死簿上，早就寫好了妳的名字。',
+    zhanglao: '看起來二十出頭，其實活了幾百年的魔教女長老。笑得溫柔，袖子裡全是毒鏢。天魔教等這個中秋，等了三百年。',
+    shuyao: '從萬年古樹裡長出來的女妖，血藤纏身。砍掉的枝條，會再長回來。她的根一路扎進魔淵的裂縫，喝了三百年的魔氣。',
+    guijiang: '陰間的女將軍，白髮，古甲。身後是殘破的戰旗，和殺不完的陰兵。三百年前那一戰戰死的兵，如今都在她的旗下。',
+    niumo: '頂著一對巨大牛角的牛魔女王，肩上扛著雙刃巨斧。死過兩次，兩次都笑著站了起來。封印一鬆，她是第一個從魔淵裡爬出來的。',
+    huyao: '九條尾巴的白狐美人。狐火燒身，媚術迷心——一不小心，就被她牽著走。三百年前被封進魔淵的妖裡，她最記仇。',
+    duoxian: '從天上掉下來的女仙。白衣被墨染黑，光環碎了，眼角掛著一滴墨淚。她本是下凡來封魔的——魘吃過她一回，又把她吐了出來。',
+    panguan: '陰間的女判官。判官筆一勾，就勾走妳的格擋。生死簿上，早就寫好了妳的名字。鬼哭城一夜沒了活人，是她站在城門口，一個一個勾的名。',
     xinmo: '三百年前被封進魔淵的東西，靠吃人心裡放不下的念頭長大。那一戰死了很多人。魘把他們一個一個吃掉，學他們的樣子，最後挑了最強的那一個——劍主沈望舒。如今它有劍主的身體、劍主的劍。裡面，是魘。',
   };
   // 真結局：用那位角色在九幽魔淵封印魘才看得到（CG 檔名 end_<角色>，沒有圖就用立繪）；看完接共同的尾聲 EPILOGUE
@@ -666,19 +666,19 @@ var G = (function () {
     jy: '劍意 +{1}', pJy: '每回合開始劍意 +{1}', guiyi: '收回手上所有飛劍，每把化成 {1} 層劍意',
     jyStrike: '收回手上飛劍（每把算 3 層劍意）、消耗全部劍意：造成 {1} 穿透傷害，每層劍意再 +{2}', breakDmg: '打掉目標全部格擋與力量，再造成 {1} 傷害，每層劍意再 +{2}（不消耗）', dbl: '下一張攻擊牌傷害翻倍',
     yuyin: '餘音 +{1}', pYuyin: '每回合開始餘音 +{1}', yuyinX2: '餘音翻倍', yuyinAll: '對全體造成餘音 ×{1} 的傷害，餘音歸零',
-    cleanse: '清掉你身上的虛弱與易傷', borrow: '消耗目標 1 層定身：靈力 +1，抽 {1} 張', goldTstr: '花 {1} 金：本回合力量 +{2}（錢不夠就沒有效果）',
+    cleanse: '清掉妳身上的虛弱與易傷', borrow: '消耗目標 1 層定身：靈力 +1，抽 {1} 張', goldTstr: '花 {1} 金：本回合力量 +{2}（錢不夠就沒有效果）',
     thunderAll: function (f) { return '全體敵人受到 ' + (f[1] ? f[1] + ' 傷害，身上每層定身再 +' + f[2] : '身上每層定身 ' + f[2] + ' 點的傷害') + '（符不會消失）'; },
     fire: '火勢 +{1}', pFire: '每回合開始火勢 +{1}', fireAll: '對全體造成 {1} 傷害，每點火勢再 +{2}', fireBlock: '格擋 {1}，每點火勢再 +{2}',
     burnHand: '燒掉手上一張牌（先燒妨礙牌與詛咒，其次最貴的），火勢 +{1}', fireNuke: '對全體造成火勢 ×{1} 的傷害，火勢歸零',
     krakenHalfBlock: '格擋 {1}＋阿白大小的一半（阿白不會縮小）', pNilin: '每次被攻擊，反擊阿白大小÷3 的傷害', krakenTstr: '本回合力量 +阿白大小÷{1}',
     pHualong: '每回合開始阿白縮小 2，力量 +{1}', strHits: '造成 {1} 傷害 ×（力量÷2＋1）次（最多 6 次）',
     drain: '造成 {1} 傷害，回復等量生命', pLeech: '生命低於一半時，攻擊吸血 {1}%', rageDrain: '造成 {1} 傷害，每少 10 點生命再 +{2}，回復造成傷害的三分之一',
-    pBloodThorn: '每次被攻擊，反擊 {1} 傷害（每少 10 點生命再 +1）', hitStr: '這一輪每被攻擊一次，下回合力量 +{1}', revenge: '造成上一輪到現在你失去的生命 ×{1} 的傷害',
+    pBloodThorn: '每次被攻擊，反擊 {1} 傷害（每少 10 點生命再 +1）', hitStr: '這一輪每被攻擊一次，下回合力量 +{1}', revenge: '造成上一輪到現在妳失去的生命 ×{1} 的傷害',
     lowBlock: '格擋 {1}；生命低於一半時改成 {2}',
-    charm: '魅惑 {1}（它這一輪的出手，每層讓一擊分一半打到自己人，你只挨一半；沒用完就散了）', charmAll: '全體魅惑 {1}', pCharm: '每回合開始，生命最多的敵人魅惑 {1}', charmDmg: '造成 {1} 傷害；目標被魅惑時翻倍', drawIfCharm: '目標被魅惑時抽 {1} 張',
+    charm: '魅惑 {1}（它這一輪的出手，每層讓一擊分一半打到自己人，妳只挨一半；沒用完就散了）', charmAll: '全體魅惑 {1}', pCharm: '每回合開始，生命最多的敵人魅惑 {1}', charmDmg: '造成 {1} 傷害；目標被魅惑時翻倍', drawIfCharm: '目標被魅惑時抽 {1} 張',
     ambushNext: '下一張攻擊牌傷害 ×1.5', freeAtk: '下一張攻擊牌不花靈力', pNeedle: '每回合第一次閃過攻擊，對攻擊者射出 {1} 傷害 ×3',
-    hitsIfWeak: function (f) { return '造成 ' + f[1] + ' 傷害 ×' + f[2] + '；目標虛弱或你有迴避時，每擊再 +' + f[3]; },
-    dmgIfUnhit: '造成 {1} 傷害；敵人上一輪沒打中你時再 +{2}', evadeAll: '這回合躲開所有攻擊', mulNext: '下回合攻擊傷害 ×{1}',
+    hitsIfWeak: function (f) { return '造成 ' + f[1] + ' 傷害 ×' + f[2] + '；目標虛弱或妳有迴避時，每擊再 +' + f[3]; },
+    dmgIfUnhit: '造成 {1} 傷害；敵人上一輪沒打中妳時再 +{2}', evadeAll: '這回合躲開所有攻擊', mulNext: '下回合攻擊傷害 ×{1}',
     parasite: '寄生 {1}', parasiteAll: '全體寄生 {1}', parasiteDmg: '造成目標寄生數 ×{1} 的傷害', pGumu: '每回合開始，寄生最多的敵人寄生 +{1}',
     parasiteX2: '目標寄生翻倍', parasiteBlock: '格擋 {1}＋全體敵人的寄生總數', parasiteToPoison: '每個敵人身上的寄生全部轉成毒 ×{1}'
   };
@@ -1722,7 +1722,7 @@ var G = (function () {
     }
     if (!pierce) {
       var took = Math.min(b.block, d); b.block -= took; d -= took;
-      if (d > 0 && b.kraken > 0) { var eat = Math.min(Math.ceil(d / 2), b.kraken); b.kraken -= eat; d -= eat; log.push('阿白替你擋下 ' + eat); }
+      if (d > 0 && b.kraken > 0) { var eat = Math.min(Math.ceil(d / 2), b.kraken); b.kraken -= eat; d -= eat; log.push('阿白替妳擋下 ' + eat); }
     }
     if (d > 0) { loseHp(run, d, log); b.wasHit = 1; }
     if (b.hitStr) b.pendStr += b.hitStr;   // 硬接
@@ -1747,17 +1747,17 @@ var G = (function () {
     var b = run.battle, k = f[0], n = f[1];
     if (k === 'atk' || k === 'atkP') { for (var h = 0; h < (f[2] || 1) && run.hp > 0 && e.hp > 0; h++) enemyHit(run, e, n, k === 'atkP', log); }
     else if (k === 'block') e.block += n;
-    else if (k === 'breakBlock') { if (b.block) log.push(e.name + '勾掉了你的格擋'); b.block = 0; }
+    else if (k === 'breakBlock') { if (b.block) log.push(e.name + '勾掉了妳的格擋'); b.block = 0; }
     else if (k === 'strAll') alive(b).forEach(function (o) { o.str += n; });
     else if (k === 'blockAll') alive(b).forEach(function (o) { o.block += n; });
-    else if (k === 'sapEnergy') { b.nextEnergy -= n; log.push(e.name + '索走了你的靈力'); }
-    else if (k === 'stealBlock') { if (b.block) { e.block += b.block; log.push(e.name + '奪走了你 ' + b.block + ' 格擋'); b.block = 0; } }
+    else if (k === 'sapEnergy') { b.nextEnergy -= n; log.push(e.name + '索走了妳的靈力'); }
+    else if (k === 'stealBlock') { if (b.block) { e.block += b.block; log.push(e.name + '奪走了妳 ' + b.block + ' 格擋'); b.block = 0; } }
     else if (k === 'thornsSelf') e.thorns = n;
     else if (k === 'str') e.str += n;
     else if (k === 'weak' || k === 'vuln') debuffPlayer(run, k, n);
     else if (k === 'heal') e.hp = Math.min(e.maxHp, e.hp + n);
     else if (k === 'curse') { for (var c = 0; c < f[2]; c++) b.discard.push(n); log.push('牌堆裡混進了' + card(n).name); }
-    else if (k === 'plant') { for (var c2 = 0; c2 < f[2]; c2++) (!handFull(b) ? b.hand : b.discard).push(n); log.push(card(n).name + '鑽進了你的手牌'); }
+    else if (k === 'plant') { for (var c2 = 0; c2 < f[2]; c2++) (!handFull(b) ? b.hand : b.discard).push(n); log.push(card(n).name + '鑽進了妳的手牌'); }
     else if (k === 'summon') {
       for (var s = 0; s < f[2] && alive(b).length < FOES_MAX; s++) {
         var m = makeEnemy(run, n, b.up, b.enemies.length); chooseIntent(run, m); b.enemies.push(m);
@@ -1769,7 +1769,7 @@ var G = (function () {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false };
     var log = [];
     b.lost = 0; b.wasHit = 0;   // 以血還血、斷魂一刺：從這一輪重新算
-    b.hand.forEach(function (x) { var h = card(x).hold; if (h) { loseHp(run, h, log); log.push(card(x).name + '侵蝕了你（-' + h + '）'); } });
+    b.hand.forEach(function (x) { var h = card(x).hold; if (h) { loseHp(run, h, log); log.push(card(x).name + '侵蝕了妳（-' + h + '）'); } });
     if (b.swords && run.major === 'guiyi') { b.jy += 3 * b.swords; b.swords = 0; }   // 歸一：沒用完的飛劍收回來化成劍意（每把 3 層）
     if (b.swords) b.swords = passive(run) === 'forge' ? Math.min(5, b.swords) : 0;   // 飛劍：凌霜回合結束留 5 把，才囤得起來
     var keep = b.hand.filter(function (x) { return card(x).retain || (x === 'sword' && b.swords > 0); });   // 保留：屍蟲、飛劍
@@ -1918,7 +1918,7 @@ var G = (function () {
     var item = what === 'card' ? S.cards[i] : what === 'relic' ? S.relic : what === 'pill' ? (S.pills || [])[i] : null;
     var price = what === 'remove' ? removePrice(run) : item && priceOf(run, item);
     if (what !== 'remove' && (!item || item.sold)) return { ok: false, msg: '賣完了' };
-    if (what === 'remove' && (S.removed || !run.deck[i])) return { ok: false, msg: '這間店已經幫你移除過了' };
+    if (what === 'remove' && (S.removed || !run.deck[i])) return { ok: false, msg: '這間店已經幫妳移除過了' };
     if (what === 'remove' && run.deck.length <= 5) return { ok: false, msg: '牌組只剩 5 張，不能再移除了' };
     if (what === 'pill' && run.pills.length >= (run.pillSlots || PILL_SLOTS)) return { ok: false, msg: '丹藥袋滿了（最多 ' + (run.pillSlots || PILL_SLOTS) + ' 顆）' };
     if (run.gold < price) return { ok: false, msg: '錢不夠' };
