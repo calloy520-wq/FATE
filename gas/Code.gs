@@ -7,7 +7,7 @@ function doGet() {
 function include(name) { return HtmlService.createHtmlOutputFromFile(name).getContent(); }
 
 var GP_SHEET = '聖杯之路帳號';   // 分頁名沿用舊版（帳號資料都在這裡，不能改名）；「密碼雜湊」欄現在只用來算通行碼
-var GP_COL = { NAME: 0, SALT: 1, HASH: 2, CREATED: 3, UPDATED: 4, META: 5, RUN: 6 };   // META＝靈石、解鎖、境界、戰績；RUN＝進行中的一局
+var GP_COL = { NAME: 0, SALT: 1, HASH: 2, CREATED: 3, UPDATED: 4, META: 5, RUN: 6 };   // META＝戰績、圖鑑、解鎖、設定；RUN＝進行中的一局
 var GP_CELL_MAX = 49000;   // 試算表一格最多五萬字
 
 function gpSheet_() {
@@ -79,8 +79,8 @@ function gpLog(name, token, d) {
   d = d || {};
   var ss = SpreadsheetApp.getActiveSpreadsheet(), lg = ss.getSheetByName(GP_LOG);
   if (!lg) { lg = ss.insertSheet(GP_LOG); lg.appendRow(GP_LOG_HEAD); lg.setFrozenRows(1); }
-  var cut = function (x) { return String(x == null ? '' : x).slice(0, 80); };
-  lg.appendRow([new Date(), name, cut(d.who), cut(d.major), cut(d.second), cut(d.diff), cut(d.mode), cut(d.fates), cut(d.result), +d.act || 0, +d.floor || 0, +d.floors || 0,
+  var cut = function (x) { var s = String(x == null ? '' : x).slice(0, 80); return /^[=+\-@]/.test(s) ? "'" + s : s; };   // 開頭是 = + - @ 的會被試算表當成公式，前面加 ' 當純文字
+  lg.appendRow([new Date(), cut(name), cut(d.who), cut(d.major), cut(d.second), cut(d.diff), cut(d.mode), cut(d.fates), cut(d.result), +d.act || 0, +d.floor || 0, +d.floors || 0,
     cut(d.killer), cut(d.kind), +d.deck || 0, +d.relics || 0, +d.maxHp || 0, +d.kills || 0, +d.np || 0, +d.pills || 0]);
   return { ok: true };
 }
