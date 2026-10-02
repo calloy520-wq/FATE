@@ -1,13 +1,13 @@
-// 網頁入口：聖杯之路（Fate 題材的卡牌冒險）。遊戲規則全在 Game.html、跑在玩家的瀏覽器裡。
+// 網頁入口：封魔錄（東方仙俠的卡牌冒險）。遊戲規則全在 Game.html、跑在玩家的瀏覽器裡。
 // 伺服器只做一件事：帳號（只要帳號名稱）與存檔。存在這個專案綁定的試算表「聖杯之路帳號」分頁，換裝置也接得上。
 function doGet() {
-  return HtmlService.createTemplateFromFile('Index').evaluate().setTitle('聖杯之路')
+  return HtmlService.createTemplateFromFile('Index').evaluate().setTitle('封魔錄')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 function include(name) { return HtmlService.createHtmlOutputFromFile(name).getContent(); }
 
-var GP_SHEET = '聖杯之路帳號';   // 「密碼雜湊」欄現在只用來算通行碼
-var GP_COL = { NAME: 0, SALT: 1, HASH: 2, CREATED: 3, UPDATED: 4, META: 5, RUN: 6 };   // META＝聖晶石、解鎖、命座、戰績；RUN＝進行中的一局
+var GP_SHEET = '聖杯之路帳號';   // 分頁名沿用舊版（帳號資料都在這裡，不能改名）；「密碼雜湊」欄現在只用來算通行碼
+var GP_COL = { NAME: 0, SALT: 1, HASH: 2, CREATED: 3, UPDATED: 4, META: 5, RUN: 6 };   // META＝靈石、解鎖、境界、戰績；RUN＝進行中的一局
 var GP_CELL_MAX = 49000;   // 試算表一格最多五萬字
 
 function gpSheet_() {

@@ -1,0 +1,186 @@
+<script>
+// ═══ 封魔錄：角色、敵人與場景的圖（只負責畫面） ═══
+// ART：有立繪就填網址（透明背景的 PNG／WebP；角色面向右、敵人面向左），沒填的用下面程式畫的「皮影」剪影頂著。
+//   例：shuang: 'https://raw.githubusercontent.com/帳號/repo/main/art/shuang.png'
+var ART = {
+};
+var FIG = (function () {
+  var INK = '#0b0d14';   // 剪影本體的顏色（皮影戲）
+  // ── 角色：每位的主色、髮型、武器、身邊的東西 ──
+  var HERO = {
+    shuang:  { c: '#8fd0ff', hair: 'pony', wpn: 'jian' },
+    qingli:  { c: '#f2c14e', hair: 'bob', wpn: 'peach' },
+    xiaoman: { c: '#ffd36e', hair: 'buns', wpn: '', kid: 1 },
+    chilian: { c: '#ff4d5e', hair: 'loose', wpn: 'dao', tall: 1 },
+    aduo:    { c: '#c18cff', hair: 'braid', wpn: 'needle' }
+  };
+  // ── 敵人：k＝畫法，c＝發光的顏色，其他是配件 ──
+  var FOE = {
+    zhiren: { k: 'paper', c: '#e8473f' }, bianfu: { k: 'bat', c: '#ff5a5a' }, heiwu: { k: 'mist', c: '#b36bff' },
+    jiangshi: { k: 'jiangshi', c: '#7dffb0' }, xiexiu: { k: 'robe', c: '#7aa8ff', hat: 'hood', wpn: 'staff' }, xueteng: { k: 'vine', c: '#ff4060' },
+    mingquan: { k: 'dog', c: '#4dff9a' }, yuanling: { k: 'ghost', c: '#bfe8ff' }, shikui: { k: 'golem', c: '#7dd6ff' },
+    mohua: { k: 'robe', c: '#ff3355', hat: 'bun', wpn: 'sword' }, shichong: { k: 'worms', c: '#e8f0c8' }, yinbing: { k: 'armor', c: '#66e0c0', wpn: 'spear', small: 1 },
+    jianmo: { k: 'robe', c: '#ff5c5c', hat: 'bun', wpn: 'sword' }, kuilei: { k: 'puppet', c: '#ffb347' }, qianghun: { k: 'armor', c: '#ff7a3d', wpn: 'spear' },
+    sheyao: { k: 'snake', c: '#9cff5a' }, yaodao: { k: 'robe', c: '#ffd04d', hat: 'guan', wpn: 'fan' }, daoke: { k: 'robe', c: '#e0e0e0', hat: 'douli', wpn: 'sword' },
+    cike: { k: 'robe', c: '#ff3b3b', hat: 'hood', wpn: 'blade2' }, shuangdao: { k: 'robe', c: '#ff8a3d', hat: 'mask', wpn: 'blade2' }, qianmian: { k: 'robe', c: '#ff7ad9', hat: 'mask', wpn: 'fan' },
+    mojiang: { k: 'armor', c: '#ff2a44', wpn: 'blade', big: 1 }, tengyao: { k: 'vine', c: '#7dff6a', big: 1 }, yingwei: { k: 'robe', c: '#9a8cff', hat: 'hood', wpn: 'blade2' },
+    niumo: { k: 'ox', c: '#ff6a2a' }, huyao: { k: 'fox', c: '#ff9ad5' }, guijiang: { k: 'armor', c: '#5affd2', wpn: 'spear', big: 1, banner: 1 },
+    zhanglao: { k: 'robe', c: '#c06bff', hat: 'bun', wpn: 'none', old: 1 }, shuyao: { k: 'tree', c: '#9dff5c' }, duoxian: { k: 'robe', c: '#d9b3ff', hat: 'crown', wpn: 'sword', wings: 1 },
+    panguan: { k: 'robe', c: '#ff4040', hat: 'guan', wpn: 'brush' }, xinmo: { k: 'mirror', c: '#b04dff' }
+  };
+  function eye(x, y, c, r) { return '<circle cx="' + x + '" cy="' + y + '" r="' + (r || 1.4) + '" fill="' + c + '" class="eye"/>'; }
+  // 女修的身體（面向右）：頭、身體＋飄開的長裙、後手袖子、前手往前伸
+  function girl(o) {
+    var c = o.c, s = '';
+    // 頭髮（後面那一層）
+    if (o.hair === 'pony') s += '<path d="M45 16 Q36 18 30 34 Q26 50 30 64 Q34 46 40 36 Q44 28 47 24 Z" fill="' + INK + '"/>';
+    if (o.hair === 'loose') s += '<path d="M44 16 Q38 30 36 52 Q40 66 34 80 Q46 70 48 52 L50 30 Z" fill="' + INK + '"/>';
+    if (o.hair === 'braid') s += '<path d="M45 24 Q38 44 40 70" stroke="' + INK + '" stroke-width="4" fill="none" stroke-linecap="round"/>';
+    // 長裙與身體
+    s += '<path d="M46 33 L58 33 L62 58 Q67 94 78 136 L28 136 Q37 94 43 58 Z" fill="' + INK + '"/>';
+    s += '<path d="M43 57 L62 57 L62 61 L43 61 Z" fill="' + c + '" opacity=".85"/>';   // 腰帶
+    s += '<path d="M40 136 Q44 110 50 90" stroke="' + c + '" stroke-width=".8" fill="none" opacity=".55"/>';   // 裙襬的紋
+    // 後手（袖子垂下）
+    s += '<path d="M47 36 Q37 50 35 74 Q40 79 45 75 Q45 58 51 45 Z" fill="' + INK + '"/>';
+    // 前手往前伸
+    s += '<path d="M55 36 Q66 45 75 57 L71 62 Q62 53 53 45 Z" fill="' + INK + '"/>';
+    s += '<path d="M64 48 Q70 68 60 82 L56 76 Q62 66 60 52 Z" fill="' + INK + '"/>';   // 飄起的袖子
+    // 頭
+    s += '<circle cx="52" cy="24" r="' + (o.kid ? 11 : 9) + '" fill="' + INK + '"/>';
+    // 頭髮（前面那一層）
+    if (o.hair === 'pony') s += '<path d="M43 22 Q44 12 53 13 Q62 14 61 24 L57 19 Q50 16 45 25 Z" fill="' + INK + '"/><path d="M47 13 L40 8" stroke="' + c + '" stroke-width="1.2"/>';
+    if (o.hair === 'bob') s += '<path d="M42 26 Q41 13 52 13 Q63 13 62 27 L60 32 L58 21 Q51 17 46 23 L44 33 Z" fill="' + INK + '"/><rect x="40" y="26" width="3" height="7" fill="' + c + '"/><rect x="61" y="26" width="3" height="7" fill="' + c + '"/>';
+    if (o.hair === 'buns') s += '<circle cx="43" cy="13" r="6" fill="' + INK + '"/><circle cx="61" cy="13" r="6" fill="' + INK + '"/><circle cx="38" cy="17" r="1.6" fill="' + c + '"/><circle cx="66" cy="17" r="1.6" fill="' + c + '"/>';
+    if (o.hair === 'loose') s += '<path d="M43 24 Q43 12 53 13 Q63 14 62 25 L58 19 Q50 17 45 26 Z" fill="' + INK + '"/>';
+    if (o.hair === 'braid') s += '<path d="M43 18 L46 9 L50 15 L53 7 L56 15 L60 9 L62 19 Z" fill="' + c + '" opacity=".9"/>';
+    s += eye(57, 24, c, o.kid ? 1.8 : 1.4);
+    return s;
+  }
+  function weaponSvg(w, c) {
+    if (w === 'jian') return '<path d="M73 59 L98 30" stroke="' + c + '" stroke-width="1.8" stroke-linecap="round"/><path d="M71 55 L77 62" stroke="' + c + '" stroke-width="2"/>';
+    if (w === 'peach') return '<path d="M73 59 L96 34" stroke="#c9874a" stroke-width="2.4" stroke-linecap="round"/><rect x="88" y="36" width="5" height="9" fill="' + c + '" transform="rotate(-40 90 40)"/>';
+    if (w === 'dao') return '<path d="M44 48 L94 6 L99 12 L52 56 Z" fill="' + c + '" opacity=".9"/><path d="M40 52 L48 46" stroke="' + INK + '" stroke-width="4"/>';
+    if (w === 'needle') return '<path d="M74 58 L92 50 M74 60 L93 56 M74 62 L92 62" stroke="' + c + '" stroke-width="1" stroke-linecap="round"/>';
+    return '';
+  }
+  // 小白龍阿白：大小跟著阿白的數字長大（5 是小小一條，24 以上盤滿半個畫面）
+  function dragon(size) {
+    var k = Math.max(0.55, Math.min(1.9, 0.45 + size / 16)), w = 'w' + Math.round(k * 100);
+    return '<svg class="dragon" viewBox="0 0 120 100" style="width:' + Math.round(k * 62) + '%" aria-hidden="true">'
+      + '<path d="M8 86 C26 100 46 64 66 78 S102 76 96 44" stroke="#eef4ff" stroke-width="9" fill="none" stroke-linecap="round"/>'
+      + '<path d="M8 86 C26 100 46 64 66 78 S102 76 96 44" stroke="#9ed0ff" stroke-width="2" fill="none" stroke-dasharray="2 5" opacity=".7"/>'
+      + '<path d="M90 44 Q94 30 106 32 Q114 36 108 44 Q100 50 92 48 Z" fill="#eef4ff"/>'
+      + '<path d="M98 32 L94 20 M104 32 L106 20" stroke="#ffd36e" stroke-width="2" stroke-linecap="round"/>'
+      + '<path d="M110 42 Q118 46 120 54 M108 44 Q114 52 112 58" stroke="#eef4ff" stroke-width="1" fill="none"/>'
+      + '<circle cx="104" cy="38" r="1.8" fill="#ff5050"/><text x="60" y="98" class="dsize" text-anchor="middle">' + size + '</text></svg>';
+  }
+  // 凌霜背後的飛劍：手上幾把就浮幾把
+  function swords(n) {
+    var s = '';
+    for (var i = 0; i < Math.min(10, n); i++) {
+      var a = -150 + i * (120 / Math.max(1, Math.min(10, n) - 1 || 1)), r = 44, x = 50 + Math.cos(a * Math.PI / 180) * r, y = 70 + Math.sin(a * Math.PI / 180) * r;
+      s += '<g transform="translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ') rotate(' + (a + 90) + ')"><path d="M0 -12 L0 9" stroke="#bfe6ff" stroke-width="1.6" stroke-linecap="round"/><path d="M-3 6 L3 6" stroke="#8fd0ff" stroke-width="1.4"/></g>';
+    }
+    return s;
+  }
+  function heroSvg(who, st) {
+    var o = HERO[who] || HERO.shuang, c = o.c, inner = '';
+    if (who === 'shuang') inner += '<g class="swords">' + swords(st.swords || 0) + '</g>';
+    var body = girl(o) + weaponSvg(o.wpn, c);
+    if (o.kid) body = '<g transform="translate(16 40) scale(.7)">' + body + '</g>';
+    if (o.tall) body = '<g transform="translate(-4 -6) scale(1.06)">' + body + '</g>';
+    inner += body;
+    if (who === 'qingli') inner += '<g class="fu"><rect x="78" y="70" width="7" height="12" fill="' + c + '"/><rect x="86" y="52" width="7" height="12" fill="' + c + '"/><rect x="22" y="40" width="7" height="12" fill="' + c + '"/></g>';
+    if (who === 'aduo') inner += '<g class="bfly"><path d="M80 34 l-5 -5 l1 7 z M80 34 l5 -5 l-1 7 z" fill="' + c + '"/><path d="M24 58 l-4 -4 l1 6 z M24 58 l4 -4 l-1 6 z" fill="' + c + '"/></g>';
+    return '<svg class="fsvg" viewBox="0 0 100 140" style="--fc:' + c + '" aria-hidden="true">' + inner + '</svg>';
+  }
+  // ── 敵人（畫成面向右，畫面上再左右翻轉）──
+  function robe(o) {
+    var c = o.c, s = '';
+    if (o.wings) s += '<path d="M44 40 Q14 20 4 44 Q20 42 18 60 Q30 48 44 54 Z" fill="' + INK + '" opacity=".9"/><path d="M8 44 Q22 40 20 56" stroke="' + c + '" stroke-width=".8" fill="none"/>';
+    s += '<path d="M43 33 L61 33 L66 60 Q70 96 74 136 L30 136 Q34 96 38 60 Z" fill="' + INK + '"/>';
+    s += '<path d="M38 60 L66 60 L66 64 L38 64 Z" fill="' + c + '" opacity=".8"/>';
+    s += '<path d="M44 36 Q32 52 31 78 Q37 82 41 78 Q42 60 50 46 Z" fill="' + INK + '"/>';
+    s += '<path d="M58 36 Q70 46 77 58 L72 63 Q63 54 55 46 Z" fill="' + INK + '"/>';
+    s += '<circle cx="52" cy="24" r="9.5" fill="' + INK + '"/>';
+    if (o.hat === 'bun') s += '<circle cx="50" cy="12" r="4.5" fill="' + INK + '"/><path d="M46 12 L55 11" stroke="' + c + '" stroke-width="1"/>';
+    if (o.hat === 'hood') s += '<path d="M40 30 Q40 10 54 11 Q66 13 64 30 L60 22 Q52 18 46 24 Z" fill="' + INK + '"/>';
+    if (o.hat === 'douli') s += '<path d="M30 20 L52 6 L74 20 Z" fill="' + INK + '"/><path d="M30 20 L74 20" stroke="' + c + '" stroke-width="1"/>';
+    if (o.hat === 'guan') s += '<path d="M42 16 L62 16 L60 6 L44 6 Z M30 12 L42 14 M62 14 L74 12" fill="' + INK + '" stroke="' + INK + '" stroke-width="3"/>';
+    if (o.hat === 'crown') s += '<path d="M44 14 L47 6 L52 12 L57 6 L60 14 Z" fill="' + c + '"/><circle cx="52" cy="24" r="15" fill="none" stroke="' + c + '" stroke-width=".8" stroke-dasharray="3 3" opacity=".7"/>';
+    if (o.hat === 'mask') s += '<path d="M48 18 Q58 16 61 24 Q58 32 50 30 Z" fill="#e9e2d0"/><path d="M53 22 l3 1 M53 26 l4 0" stroke="' + c + '" stroke-width="1"/>';
+    if (o.old) s += '<path d="M54 30 Q56 44 50 50 Q52 40 48 32 Z" fill="#d8d8d8"/>';
+    var w = o.wpn;
+    if (w === 'sword') s += '<path d="M75 60 L98 28" stroke="' + c + '" stroke-width="2" stroke-linecap="round"/>';
+    if (w === 'blade2') s += '<path d="M75 60 L94 40 M34 76 L20 98" stroke="' + c + '" stroke-width="2.4" stroke-linecap="round"/>';
+    if (w === 'staff') s += '<path d="M76 30 L72 120" stroke="#8a6a44" stroke-width="2.4"/><circle cx="76" cy="28" r="4" fill="' + c + '"/>';
+    if (w === 'fan') s += '<path d="M74 60 L90 44 A18 18 0 0 1 96 66 Z" fill="' + c + '" opacity=".85"/>';
+    if (w === 'brush') s += '<path d="M74 60 L92 34" stroke="#c8a070" stroke-width="2.4"/><path d="M92 34 L96 26" stroke="' + c + '" stroke-width="4" stroke-linecap="round"/><rect x="22" y="70" width="12" height="16" fill="' + c + '" opacity=".8"/>';
+    if (o.hat !== 'mask') s += eye(57, 23, c, 1.5);
+    return s;
+  }
+  function armor(o) {
+    var c = o.c, s = '';
+    if (o.banner) s += '<path d="M22 4 L22 90" stroke="' + INK + '" stroke-width="2.4"/><path d="M22 6 L4 12 L22 20 L4 26 L22 32 Z" fill="' + c + '" opacity=".7"/>';
+    s += '<path d="M38 34 L66 34 L68 76 L60 80 L64 136 L52 136 L52 92 L48 92 L46 136 L34 136 L40 80 L34 76 Z" fill="' + INK + '"/>';
+    s += '<path d="M30 34 Q40 26 48 34 L44 46 Z M74 34 Q64 26 56 34 L60 46 Z" fill="' + INK + '" stroke="' + c + '" stroke-width=".8"/>';
+    s += '<path d="M38 62 L68 62" stroke="' + c + '" stroke-width="2"/>';
+    s += '<path d="M66 40 Q74 50 78 60 L73 64 Q66 54 62 46 Z" fill="' + INK + '"/>';
+    s += '<path d="M42 30 Q42 12 53 12 Q64 12 63 30 L60 32 L44 32 Z" fill="' + INK + '"/><path d="M53 12 Q50 2 44 0" stroke="' + c + '" stroke-width="2" fill="none"/>';
+    s += '<path d="M50 22 L62 22" stroke="' + c + '" stroke-width="2"/>';
+    if (o.wpn === 'spear') s += '<path d="M76 136 L84 8" stroke="#7a6a5a" stroke-width="2.4"/><path d="M84 8 L80 22 L88 22 Z" fill="' + c + '"/>';
+    if (o.wpn === 'blade') s += '<path d="M76 62 L98 20 L100 26 L80 66 Z" fill="' + c + '"/>';
+    return s;
+  }
+  var SHAPE = {
+    robe: robe, armor: armor,
+    jiangshi: function (o) { return '<path d="M42 34 L62 34 L64 136 L54 136 L52 96 L50 136 L40 136 Z" fill="' + INK + '"/><path d="M50 40 L92 40 L92 47 L50 47 Z M50 50 L90 50 L90 56 L50 56 Z" fill="' + INK + '"/><circle cx="52" cy="24" r="9" fill="' + INK + '"/><path d="M40 16 L64 16 L60 4 L44 4 Z" fill="' + INK + '"/><rect x="53" y="14" width="7" height="16" fill="#f2d24e"/><path d="M55 17 l3 0 M55 21 l3 0 M55 25 l3 0" stroke="#d23" stroke-width=".8"/>' + eye(58, 26, o.c, 1.3); },
+    paper: function (o) { return '<path d="M50 30 L72 120 L28 120 Z" fill="#e9e2d0" stroke="#b9ad94"/><path d="M50 50 L84 64 L50 60 Z M50 50 L18 66 L50 62 Z" fill="#e9e2d0" stroke="#b9ad94"/><path d="M40 120 L36 136 M60 120 L64 136" stroke="#e9e2d0" stroke-width="4"/><circle cx="50" cy="22" r="11" fill="#e9e2d0" stroke="#b9ad94"/><circle cx="46" cy="22" r="1.6" fill="#111"/><circle cx="55" cy="22" r="1.6" fill="#111"/><path d="M44 27 Q50 32 56 27" stroke="' + o.c + '" stroke-width="1.6" fill="none"/><circle cx="43" cy="26" r="2.2" fill="' + o.c + '" opacity=".6"/><circle cx="58" cy="26" r="2.2" fill="' + o.c + '" opacity=".6"/>'; },
+    bat: function (o) { return '<path d="M50 70 Q34 40 8 46 Q18 54 14 64 Q24 60 26 72 Q36 66 42 78 Z M50 70 Q66 40 92 46 Q82 54 86 64 Q76 60 74 72 Q64 66 58 78 Z" fill="' + INK + '"/><ellipse cx="50" cy="74" rx="8" ry="11" fill="' + INK + '"/><path d="M44 64 L46 56 L49 64 M51 64 L54 56 L56 64" fill="' + INK + '"/>' + eye(47, 70, o.c, 1.5) + eye(53, 70, o.c, 1.5); },
+    mist: function (o) { return '<path d="M20 120 Q8 100 22 88 Q18 66 40 64 Q46 44 64 52 Q84 50 82 72 Q98 82 88 100 Q96 118 78 124 Z" fill="' + INK + '" opacity=".92"/><path d="M30 110 Q50 96 74 110" stroke="' + o.c + '" stroke-width="1" fill="none" opacity=".6"/>' + eye(46, 84, o.c, 2.2) + eye(62, 84, o.c, 2.2); },
+    worms: function (o) { var s = ''; [[30, 128], [50, 124], [70, 130], [42, 112], [62, 114], [52, 100]].forEach(function (p, i) { s += '<path d="M' + p[0] + ' ' + p[1] + ' q8 -10 16 0 q8 10 16 0" stroke="#e8eccd" stroke-width="7" fill="none" stroke-linecap="round" transform="rotate(' + (i * 23 - 40) + ' ' + p[0] + ' ' + p[1] + ')"/>'; }); return s + eye(54, 98, '#ff4d4d', 1.6); },
+    vine: function (o) { var s = '', big = o.big; s += '<path d="M50 136 Q30 100 48 80 Q66 60 44 34 Q36 22 46 14" stroke="' + INK + '" stroke-width="' + (big ? 9 : 6) + '" fill="none" stroke-linecap="round"/><path d="M50 136 Q72 108 62 86 Q56 72 74 58" stroke="' + INK + '" stroke-width="' + (big ? 7 : 5) + '" fill="none" stroke-linecap="round"/><path d="M40 92 l-8 -3 M58 70 l8 -4 M46 50 l-8 2 M66 98 l8 2" stroke="' + o.c + '" stroke-width="1.6"/>'; if (big) s += '<circle cx="46" cy="16" r="10" fill="' + INK + '"/><path d="M38 10 Q46 0 54 8 Q60 2 58 14" fill="' + o.c + '" opacity=".8"/>' + eye(50, 17, o.c, 1.8); else s += eye(46, 16, o.c, 1.6); return s; },
+    dog: function (o) { return '<path d="M20 96 Q20 78 40 76 L70 74 Q84 66 88 56 L96 60 Q94 74 86 82 L84 104 L78 104 L76 88 L44 92 L40 110 L34 110 L34 94 Q26 100 24 112 L18 112 Z" fill="' + INK + '"/><path d="M84 58 L80 46 L88 54 Z" fill="' + INK + '"/><path d="M22 92 Q10 80 14 66 Q20 78 26 82" fill="' + o.c + '" opacity=".7"/>' + eye(90, 62, o.c, 1.6); },
+    ghost: function (o) { return '<path d="M50 14 Q66 14 66 34 L70 80 Q72 108 60 122 Q54 112 50 126 Q44 112 38 124 Q28 106 32 80 L34 34 Q34 14 50 14 Z" fill="#dfeefa" opacity=".55"/><path d="M38 20 Q36 60 30 90 M62 20 Q64 60 70 88" stroke="' + INK + '" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M40 40 L76 50 L74 56 L40 48 Z" fill="#dfeefa" opacity=".6"/>' + eye(55, 30, '#0b0d14', 1.6); },
+    golem: function (o) { return '<path d="M30 62 L36 40 L64 38 L72 62 L70 96 L30 96 Z" fill="' + INK + '"/><path d="M38 96 L34 136 L50 136 L50 98 M54 98 L56 136 L70 136 L66 96" fill="' + INK + '"/><path d="M30 46 L14 60 L18 96 L28 92 L28 66 M70 46 L86 58 L84 96 L74 92 L74 64" fill="' + INK + '"/><path d="M40 20 L62 20 L64 38 L38 38 Z" fill="' + INK + '"/><path d="M44 60 L50 70 L56 60 M50 70 L50 82" stroke="' + o.c + '" stroke-width="1.4" fill="none"/>' + eye(46, 29, o.c, 2) + eye(57, 29, o.c, 2); },
+    puppet: function (o) { return '<path d="M44 34 L60 34 L62 74 L42 74 Z" fill="' + INK + '"/><path d="M46 74 L42 104 L46 136 M58 74 L62 104 L58 136" stroke="' + INK + '" stroke-width="6" fill="none"/><circle cx="42" cy="104" r="3" fill="' + o.c + '"/><circle cx="62" cy="104" r="3" fill="' + o.c + '"/><path d="M58 40 L78 52 L92 46" stroke="' + INK + '" stroke-width="5" fill="none"/><path d="M84 38 L100 50 L84 60 M90 42 L90 56" stroke="' + o.c + '" stroke-width="1.6" fill="none"/><rect x="42" y="14" width="18" height="18" fill="' + INK + '"/><path d="M50 4 L50 14" stroke="' + INK + '" stroke-width="2"/>' + eye(55, 23, o.c, 2); },
+    snake: function (o) { return '<path d="M46 34 L58 34 L60 72 Q70 92 88 96 Q100 110 80 124 Q50 136 22 128 Q10 120 22 112 Q40 118 54 108 Q44 92 44 72 Z" fill="' + INK + '"/><path d="M56 38 Q68 48 76 58 L72 62 Q62 52 54 46 Z" fill="' + INK + '"/><circle cx="52" cy="24" r="9" fill="' + INK + '"/><path d="M43 22 Q34 40 36 58 Q44 42 46 30 Z" fill="' + INK + '"/><path d="M30 122 Q50 128 78 118" stroke="' + o.c + '" stroke-width="1" fill="none" stroke-dasharray="3 3"/>' + eye(57, 24, o.c, 1.5); },
+    fox: function (o) { var s = ''; for (var i = 0; i < 9; i++) { var a = -170 + i * 18; s += '<path d="M44 92 Q' + (44 + Math.cos(a * Math.PI / 180) * 30).toFixed(0) + ' ' + (92 + Math.sin(a * Math.PI / 180) * 30).toFixed(0) + ' ' + (44 + Math.cos(a * Math.PI / 180) * 52).toFixed(0) + ' ' + (92 + Math.sin(a * Math.PI / 180) * 52).toFixed(0) + '" stroke="#f4eef8" stroke-width="7" fill="none" stroke-linecap="round" opacity=".85"/>'; } return s + girl({ c: o.c, hair: 'loose' }) + '<path d="M45 14 L44 4 L50 12 Z M58 13 L62 4 L63 15 Z" fill="' + INK + '"/>'; },
+    ox: function (o) { return '<path d="M28 48 Q50 36 76 48 L80 92 L70 96 L72 136 L56 136 L52 100 L48 136 L32 136 L34 96 L22 92 Z" fill="' + INK + '"/><path d="M76 52 L92 74 L86 80 L74 64 Z M28 52 L14 74 L20 80 L30 64 Z" fill="' + INK + '"/><path d="M90 76 L98 30 L104 32 L96 80 Z" fill="' + o.c + '" opacity=".8"/><path d="M38 40 Q36 16 52 14 Q68 16 66 40 Q60 46 52 46 Q44 46 38 40 Z" fill="' + INK + '"/><path d="M40 22 Q26 18 22 6 Q34 12 42 16 Z M64 22 Q78 18 82 6 Q70 12 62 16 Z" fill="#e8e0cc"/><circle cx="52" cy="40" r="3" fill="none" stroke="' + o.c + '" stroke-width="1.2"/>' + eye(46, 28, o.c, 1.8) + eye(58, 28, o.c, 1.8); },
+    tree: function (o) { return '<path d="M34 136 Q40 100 36 70 Q20 60 10 40 Q26 50 34 48 Q30 30 40 16 Q46 36 50 34 Q54 14 66 8 Q62 30 66 40 Q80 30 94 34 Q78 44 70 64 Q66 100 74 136 Z" fill="' + INK + '"/><path d="M14 136 Q26 126 34 132 M74 132 Q84 124 96 134" stroke="' + INK + '" stroke-width="5" fill="none"/><path d="M42 76 Q46 72 50 76 M56 76 Q60 72 64 76 M44 96 Q53 104 62 96" stroke="' + o.c + '" stroke-width="2" fill="none"/>' + eye(46, 78, o.c, 2.2) + eye(60, 78, o.c, 2.2) + '<circle cx="20" cy="42" r="3" fill="' + o.c + '" opacity=".7"/><circle cx="88" cy="36" r="3" fill="' + o.c + '" opacity=".7"/><circle cx="64" cy="10" r="3" fill="' + o.c + '" opacity=".7"/>'; },
+    mirror: function (o) { return girl({ c: o.c, hair: 'loose' }) + '<path d="M73 59 L98 30" stroke="' + o.c + '" stroke-width="2"/>'; }
+  };
+  function foeSvg(id) {
+    var o = FOE[id] || { k: 'robe', c: '#ff5a5a' };
+    var inner = SHAPE[o.k](o);
+    if (o.small) inner = '<g transform="translate(12 30) scale(.78)">' + inner + '</g>';
+    return '<svg class="fsvg" viewBox="0 0 100 140" style="--fc:' + o.c + '" aria-hidden="true"><g transform="translate(100 0) scale(-1 1)">' + inner + '</g></svg>';
+  }
+  // 一個角色或敵人的圖：ART 有網址就用立繪，沒有就用剪影
+  function fig(id, foe, st) {
+    if (ART[id]) return '<img class="fimg" src="' + ART[id] + '" alt="" draggable="false">';
+    return foe ? foeSvg(id) : heroSvg(id, st || {});
+  }
+  // ── 場景：照章換（落霞山的黃昏、鬼哭城的紅月、九幽魔淵、鎮妖塔）──
+  function scene(run) {
+    var a = run.act || 1, tower = run.endless && a >= 3, k = tower ? 'tower' : a === 3 ? 'abyss' : a === 2 ? 'city' : 'hill', s = '';
+    if (k === 'hill') s = '<circle cx="300" cy="118" r="34" fill="#ffb26b" opacity=".75"/>'
+      + '<path d="M0 140 L40 96 L80 120 L130 80 L190 124 L250 92 L310 126 L360 98 L400 118 L400 200 L0 200 Z" fill="#3a2440" opacity=".85"/>'
+      + '<path d="M0 160 L60 124 L120 150 L170 118 L240 156 L300 128 L360 152 L400 136 L400 200 L0 200 Z" fill="#24172c"/>'
+      + '<path d="M20 170 l6 -26 l6 26 Z M34 172 l5 -20 l5 20 Z M352 168 l6 -28 l6 28 Z M368 170 l5 -20 l5 20 Z" fill="#120b17"/>'
+      + '<rect x="0" y="150" width="400" height="14" fill="#f3c6a0" opacity=".08"/>';
+    if (k === 'city') s = '<circle cx="290" cy="58" r="30" fill="#e33a4a" opacity=".85"/><circle cx="290" cy="58" r="44" fill="#e33a4a" opacity=".12"/>'
+      + '<path d="M0 150 L0 120 L40 120 L40 108 L30 108 L55 94 L80 108 L70 108 L70 120 L150 120 L150 104 L138 104 L170 86 L202 104 L190 104 L190 120 L260 120 L260 110 L250 110 L275 98 L300 110 L290 110 L290 120 L400 120 L400 150 Z" fill="#1d0c12"/>'
+      + '<path d="M0 200 L0 150 L400 150 L400 200 Z" fill="#120609"/>'
+      + '<circle cx="62" cy="116" r="2" fill="#fff4d6"/><circle cx="160" cy="114" r="2" fill="#fff4d6"/><circle cx="182" cy="114" r="2" fill="#fff4d6"/><circle cx="276" cy="116" r="2" fill="#fff4d6"/>';
+    if (k === 'abyss') s = '<ellipse cx="200" cy="190" rx="160" ry="30" fill="#7a2fd0" opacity=".25"/><path d="M180 200 L196 150 L204 170 L214 140 L222 200 Z" fill="#b46bff" opacity=".35"/>'
+      + '<path d="M40 0 Q46 60 40 120 M360 0 Q352 70 362 130 M120 0 Q126 40 118 70" stroke="#3b2f4a" stroke-width="3" stroke-dasharray="6 3" fill="none"/>'
+      + '<path d="M300 150 L306 96 L332 96 L338 150 Z" fill="#160f20"/><path d="M312 106 L326 106 M312 114 L326 114 M312 122 L326 122" stroke="#9a5cff" stroke-width="1" opacity=".6"/>';
+    if (k === 'tower') s = '<path d="M180 160 L184 40 L176 40 L200 10 L224 40 L216 40 L220 160 Z" fill="#141a33"/><path d="M168 64 L232 64 M164 96 L236 96 M160 128 L240 128" stroke="#141a33" stroke-width="8"/>'
+      + '<path d="M0 200 L0 160 L400 160 L400 200 Z" fill="#0a0d1c"/><circle cx="200" cy="30" r="3" fill="#ffd36e"/>';
+    return '<svg class="scene-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMax slice" aria-hidden="true">' + s + '</svg>';
+  }
+  function sceneClass(run) { var a = run.act || 1; return run.endless && a >= 3 ? 'sc-tower' : a === 3 ? 'sc-abyss' : a === 2 ? 'sc-city' : 'sc-hill'; }
+  return { fig: fig, dragon: dragon, scene: scene, sceneClass: sceneClass, HERO: HERO, FOE: FOE };
+})();
+</script>

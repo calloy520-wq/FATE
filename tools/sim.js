@@ -1,23 +1,23 @@
-// 自動玩家：一次打很多局看勝率。用法：N=300 WHO=saber,cu node tools/sim.js
-// 出牌方式：每張能出的牌（和寶具）都先在複本上試打一次，看局面分數變多少，挑最好的；沒有會變好的就結束回合。
+// 自動玩家：一次打很多局看勝率。用法：N=300 WHO=shuang,aduo node tools/sim.js
+// 出牌方式：每張能出的牌（和神通）都先在複本上試打一次，看局面分數變多少，挑最好的；沒有會變好的就結束回合。
 const G=require('./game.js');
 const N=+process.env.N||300, WHO=(process.env.WHO||G.ORDER.join(',')).split(',');
 const J=o=>JSON.parse(JSON.stringify(o));
-const SECRET=process.env.SECRET!=='0';   // 有令咒時要不要進隱藏關（預設進）
+const SECRET=process.env.SECRET!=='0';   // 有玉符時要不要進隱藏關（預設進）
 const ENDLESS=process.env.ENDLESS==='1';   // 無盡模式：看平均走幾格
-const AWAKEN=process.env.AWAKEN===undefined?-1:+process.env.AWAKEN;   // 靈基覺醒固定選 0 或 1（不給＝隨機）
+const AWAKEN=process.env.AWAKEN===undefined?-1:+process.env.AWAKEN;   // 頓悟固定選 0 或 1（不給＝隨機）
 
-// 敵人這回合預計打過來多少（被石化的不算）
+// 敵人這回合預計打過來多少（動彈不得的不算）
 function incoming(run){
   const b=run.battle; let hits=[];
   G.alive(b).forEach(e=>{ if(e.stun) return; e.intent.fx.forEach(f=>{ if(f[0]==='atk'||f[0]==='atkP') for(let h=0;h<(f[2]||1);h++) hits.push([G.intentDmg(run,e,f),f[0]==='atkP']); }); });
   return hits;
 }
 function expectedLoss(run){
-  const b=run.battle; let block=b.block, evade=b.evade, minions=b.minions, loss=0;
+  const b=run.battle; let block=b.block, evade=b.evade, loss=0;
   incoming(run).sort((x,y)=>y[0]-x[0]).forEach(([d,p])=>{
     if(evade>0){evade--;return;}
-    if(!p){ const t=Math.min(block,d); block-=t; d-=t; if(d>0&&minions>0){minions--; d=Math.max(0,d-6);} }
+    if(!p){ const t=Math.min(block,d); block-=t; d-=t; }
     loss+=d; });
   return loss;
 }
@@ -27,22 +27,18 @@ function value(run){
   if(run.screen==='over') return run.win?1e6:-1e6;
   if(run.screen!=='battle') return 5e5+run.hp*10;
   let v=0;
-  G.alive(b).forEach(e=>{ v-=e.hp+e.block*0.5+(e.lives||0)*e.maxHp*0.6; v+=e.poison*1.5+e.wound*3+e.petrify*2.5+(e.stun?18:0)+Math.min(e.weak,3)*2+Math.min(e.vuln,3)*3-Math.max(0,e.str)*3+Math.min(3,Math.max(0,-e.str))*1.5; });   // 敵人力量被壓低是好事，但不能好到讓自動玩家捨不得打倒它
+  G.alive(b).forEach(e=>{ v-=e.hp+e.block*0.5+(e.lives||0)*e.maxHp*0.6; v+=e.poison*1.5+e.petrify*2.5+(e.stun?18:0)+Math.min(e.weak,3)*2+Math.min(e.vuln,3)*3-Math.max(0,e.str)*3+Math.min(3,Math.max(0,-e.str))*1.5; });   // 敵人力量被壓低是好事，但不能好到讓自動玩家捨不得打倒它
   v-=G.alive(b).length*(6+Math.max(0,b.turn-8)*3);   // 戰鬥拖越久越想把敵人清掉（防止跟打不痛的敵人耗到天荒地老）
   const left=4; // 估計這場還要打幾回合
   v+=run.hp*1.5-expectedLoss(run)*1.6;
   const atks=b.hand.filter(id=>G.card(id).type==='atk').length;
   b.hand.forEach(id=>{ const c=G.card(id); if(c.type==='curse'){ v-=(c.hold||0)*2.5+(c.dull?2+2.5*atks:0)+(c.half?2+4*atks:0)+(c.tax?3*b.hand.length:0); return; } v+=c.token?(c.type==='atk'?5:3.5):2.5; });
-  v+=Math.max(0,(b.swords||0)-1)*5;   // 投影劍疊成一張：多出來的每把也算
-  v+=b.str*5+b.tstr*1.2+b.energy*4+b.np*0.35+b.minions*4+b.army*3.5+(b.attacks||0)*0.8+(b.mastery||0)*3+(b.chant||0)*2+(b.nextFree?4:0)+b.nextEnergy*4;
-  v+=(b.pBlock*3+b.pDraw*6+b.pEnergy*9+b.pStr*6+b.pEvade*8+b.pTreasure*6+b.pMinion*7+b.pVenom*6+(b.pWeaponize||0)*6)*left/4;
+  v+=Math.max(0,(b.swords||0)-1)*5;   // 飛劍疊成一張：多出來的每把也算
+  v+=b.str*5+b.tstr*1.2+b.energy*4+b.np*0.35+(b.attacks||0)*0.8+b.nextEnergy*4;
+  v+=(b.pBlock*3+b.pDraw*6+b.pEnergy*9+b.pStr*6+b.pEvade*8+b.pVenom*6)*left/4;
   v+=b.ubw*12+b.projUp*6+b.thorns*0.5;
-  // 改版後的資源：風、迴避反擊、各種每回合效果
-  const hits=incoming(run).length;
-  v+=b.wind*3+b.iaiUp*2+(hits&&b.evade?b.riposte*0.8:0);
-  v+=b.kraken*3+b.pKraken*6*left/4;
-  G.alive(b).forEach(e=>{ if(e.doom) v+=e.doom*3+(!G.ENEMIES[e.id].boss&&e.hp<=e.doom*4+8?6:0); }); v+=(b.pHaste||0)*6*left/4+(b.haste||0)*2+(b.reapNext?5:0);
-  v+=(b.pWind*6+b.pEvadeStr*5+b.pPetrifyAll*8+b.pSkillBlock*5+b.pEnergyBlock*3+b.pStanceBlock*3+b.pRage*4)*left/4;
+  v+=b.kraken*3+b.pKraken*6*left/4;   // 阿白
+  v+=(b.pPetrifyAll*8+b.pRage*4)*left/4;
   return v;
 }
 function bestAction(run){
@@ -53,14 +49,14 @@ function bestAction(run){
     const c=G.card(id);
     (c.t?tgs:[tgs[0]]).forEach(t=>{ const r=J(run); if(!G.play(r,i,t).ok) return; const d=value(r)-base; if(d>bv){bv=d;best={k:'card',i,t};} });
   });
-  if(b.np>=100&&!G.serv(run).np.none){ const S=G.serv(run); (G.needsTarget(S.np.fx)?tgs:[tgs[0]]).forEach(t=>{ const r=J(run); if(!G.noble(r,t).ok) return; const d=value(r)-base+5; if(d>bv){bv=d;best={k:'np',t};} }); }
+  if(b.np>=100&&!b.npUsed){ const S=G.serv(run); (G.needsTarget(S.np.fx)?tgs:[tgs[0]]).forEach(t=>{ const r=J(run); if(!G.noble(r,t).ok) return; const d=value(r)-base+5; if(d>bv){bv=d;best={k:'np',t};} }); }
   return best;
 }
 function playTurn(run){
   const b=run.battle; let guard=0;
   while(run.screen==='battle'&&guard++<40){
-    if(run.seals>(SECRET&&run.act===2?1:0)&&b.sealTurn!==b.turn){ b.sealTurn=b.turn;   // 令咒（每回合只考慮一次，免得卡迴圈）：要被打死就空間轉移、精英魔王戰血少就回滿、魔王開場就全力
-      const k=expectedLoss(run)>=run.hp?'warp':(b.kind!=='fight'&&run.hp<run.maxHp*0.3)?'heal':(b.turn===1&&(b.kind==='boss'||(b.kind==='elite'&&run.seals>1))&&G.alive(b).some(e=>e.hp>40))?(b.np>=60&&!G.serv(run).np.none&&!b.npUsed?'np':'all'):null;
+    if(run.seals>(SECRET&&run.act===2?1:0)&&b.sealTurn!==b.turn){ b.sealTurn=b.turn;   // 玉符（每回合只考慮一次，免得卡迴圈）：要被打死就土遁、精英魔王戰血少就回春、魔王開場就全力
+      const k=expectedLoss(run)>=run.hp?'warp':(b.kind!=='fight'&&run.hp<run.maxHp*0.3)?'heal':(b.turn===1&&(b.kind==='boss'||(b.kind==='elite'&&run.seals>1))&&G.alive(b).some(e=>e.hp>40))?(b.np>=60&&!b.npUsed?'np':'all'):null;
       if(k&&G.seal(run,k).ok) continue; }
     const a=bestAction(run); if(!a) break;
     const r=a.k==='np'?G.noble(run,a.t):G.play(run,a.i,a.t); if(!r.ok) break;
@@ -100,7 +96,7 @@ function playRun(who,seed){
     else if(run.screen==='reward'){ if(run.reward.awaken) G.awaken(run,AWAKEN>=0?AWAKEN:(seed+run.floor)%2); G.takeReward(run,pickReward(run)); }
     else if(run.screen==='chest') G.takeChest(run);
     else if(run.screen==='boon') G.takeBoon(run,0);
-    else if(run.screen==='event'){ const E=G.EVENTS[run.event];   // 不燒令咒、不扣最大生命、扣血後要留五成；都不行就選最後一個（通常是離開）
+    else if(run.screen==='event'){ const E=G.EVENTS[run.event];   // 不捏玉符、不扣最大生命、扣血後要留五成；都不行就選最後一個（通常是離開）
       const bad=o=>o.fx.some(f=>(f[0]==='seal'&&f[1]<0)||(f[0]==='maxHp'&&f[1]<0));
       let i=E.opts.findIndex(o=>G.canChoose(run,o)&&!bad(o)&&!(o.need&&o.need.hp&&run.hp-o.need.hp<run.maxHp*0.5)); if(i<0) i=E.opts.length-1; G.choose(run,i); }
     else if(run.screen==='pick'){ const kind=run.pending[0]; let i=(kind==='remove'||kind==='transform')?(run.deck.findIndex(G.isCurse)>=0?run.deck.findIndex(G.isCurse):run.deck.findIndex(x=>G.isBasic(x))):run.deck.findIndex(x=>G.canUpgrade(x)&&!G.isBasic(x)); if(i<0) i=run.deck.findIndex(x=>G.canUpgrade(x)); G.pickCard(run,i,i>=0&&kind==='upgrade'?bestUp(run,i):undefined); }
