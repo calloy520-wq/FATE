@@ -1,5 +1,5 @@
 // 各魔王的難度：所有角色打到各章魔王時，打贏的比例。用法：N=60 node tools/bosses.js
-// 第一章魔王＝run.bosses[0]、第二章＝run.bosses[1]、隱藏關＝心魔（地圖一章 12 列，第 12 列是魔王）
+// 第一章魔王＝run.bosses[0]、第二章＝run.bosses[1]、隱藏關＝魘（id xinmo）（地圖一章 12 列，第 12 列是魔王）
 const G=require('./game.js'); const {playRun}=require('./sim.js');
 const N=+process.env.N||60, reach={}, win={};
 const add=(k,w)=>{ reach[k]=(reach[k]||0)+1; if(w) win[k]=(win[k]||0)+1; };

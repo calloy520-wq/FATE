@@ -165,8 +165,8 @@ step(r,'fight'); t(r.battle.enemies.every(e=>['mingquan','yuanling','shikui','ji
 let s2=toBoss(J(r),r.bosses[1]); s2.battle.enemies.forEach(e=>{e.hp=1;e.lives=0;e.block=0;}); s2.battle.hand=['atk']; s2.battle.energy=1; G.play(s2,0,0);
 t(s2.screen==='secret','第二章魔王倒下、手上還有玉符：出現隱藏關的入口');
 let s3=J(s2); G.secret(s3,false); t(s3.screen==='over'&&s3.win&&!s3.trueEnd,'不進去：一般勝利');
-const sealsBefore=s2.seals; G.secret(s2,true); t(s2.act===3&&s2.seals===sealsBefore-1&&s2.boss==='xinmo'&&s2.map.length===3,'捏碎 1 枚玉符進隱藏關：休息→精英→心魔',JSON.stringify([s2.act,s2.seals,s2.boss,s2.map.length]));
-s2=toBoss(s2,'xinmo'); s2.floor=2; s2.screen='map'; s2.battle=null; G.go(s2,2); s2.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); s2.battle.hand=['atk']; s2.battle.energy=1; G.play(s2,0,0); t(s2.screen==='over'&&s2.trueEnd,'打倒心魔：真結局');
+const sealsBefore=s2.seals; G.secret(s2,true); t(s2.act===3&&s2.seals===sealsBefore-1&&s2.boss==='xinmo'&&s2.map.length===3,'捏碎 1 枚玉符進隱藏關：休息→精英→魘',JSON.stringify([s2.act,s2.seals,s2.boss,s2.map.length]));
+s2=toBoss(s2,'xinmo'); s2.floor=2; s2.screen='map'; s2.battle=null; G.go(s2,2); s2.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); s2.battle.hand=['atk']; s2.battle.energy=1; G.play(s2,0,0); t(s2.screen==='over'&&s2.trueEnd,'封印魘：真結局');
 let s4=toBoss(G.newRun('qingli',12),'huyao'); s4.act=2; s4.seals=0; s4.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); s4.battle.hand=['atk']; s4.battle.energy=1; G.play(s4,0,0); t(s4.screen==='over'&&s4.win,'玉符用完：打倒第二章魔王就直接勝利');
 
 console.log('── 頓悟');
@@ -438,7 +438,7 @@ t(Object.keys(G.FATES).filter(k=>G.FATES[k].lock).every(k=>G.GOALS[G.FATES[k].lo
 t(Object.keys(G.GOALS).every(g=>Object.keys(G.FATES).some(k=>G.FATES[k].lock===g)||Object.keys(G.RELICS).some(k=>G.RELICS[k].lock===g)),'每個目標都至少解鎖一樣東西');
 { const q=G.newRun('qingli',6,{fates:['bloodpact','gold']}); t(!q.fates.includes('bloodpact')&&q.fates.join()==='gold','沒達成目標：鎖著的機緣帶不進去'); }
 { const q=G.newRun('qingli',6,{fates:['bloodpact'],goals:['clear']}); t(q.maxHp===G.SERVANTS.qingli.hp-6&&q.relics.length===2,'以血換寶：最大生命 -6、開局 2 件法寶',JSON.stringify([q.maxHp,q.relics])); }
-{ const q=G.newRun('qingli',6,{fates:['trial'],goals:['xinmo']}); step(q,'fight'); t(q.deck.includes('sin')&&q.battle.np>=35,'心魔試煉：牌組多業障、神通量表從 35% 開始'); }
+{ const q=G.newRun('qingli',6,{fates:['trial'],goals:['xinmo']}); step(q,'fight'); t(q.deck.includes('sin')&&q.battle.np>=35,'問心試煉：牌組多業障、神通量表從 35% 開始'); }
 { const q=G.newRun('qingli',6,{fates:['wander'],goals:['tower']}); t(q.gold===120&&G.visible(q,4,q.map[4].findIndex(n=>n)),'雲遊四方：多 60 金、多看 2 列'); }
 { const q=G.newRun('qingli',900); let leak=0; for(let i=0;i<60;i++){ step(q,'chest'); if(q.reward.relic&&G.RELICS[q.reward.relic].lock) leak++; G.takeChest(q); if(q.floor>=10) q.floor=0; } t(!G.relicPool(q).some(k=>G.RELICS[k].lock)&&leak===0,'沒達成目標：鎖著的法寶不在法寶池、寶箱也開不出來'); }
 { const q=G.newRun('qingli',6,{goals:ALLG}); t(G.relicPool(q).length===Object.keys(G.RELICS).length,'目標全達成：法寶池全開'); }
@@ -482,4 +482,9 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
 { const evs=Object.keys(G.EVENTS).filter(k=>G.EVENTS[k].major); t(G.ORDER.every(w=>G.pathsOf(w).every(P=>evs.some(k=>G.EVENTS[k].major===P.id&&G.EVENTS[k].who===w))),'每條主修都有自己的事件',evs.length);
   const q=G.newRun('shuang',4,{major:'qinxin'}); let seen=new Set(); for(let k=0;k<60;k++){ q.seenEvents=[]; q.screen='map'; G.startEvent?G.startEvent(q):0; if(q.event) seen.add(q.event); } t(!seen.has('waterfall')&&!seen.has('sword_furnace'),'沒走的主修，不會遇到它的事件'); }
 { const q=G.newRun('shuang',4,{major:'guiyi'}); q.screen='event'; q.event='waterfall'; q.hp=40; G.choose(q,1); t(q.deck.includes('hanshuang+')&&q.hp===34,'主修事件：給強化過的牌'); q.screen='event'; q.event='sword_furnace'; G.choose(q,0); step(q,'fight'); t(q.battle.swords>=4,'主修事件：之後每場開場的效果（startFx）'); }
+{ const xs=G.ORDER.map(w=>{ const q=arena(w,2,60); const e=q.battle.enemies[0]; e.id='xinmo'; e.mi=-1; const ns=[]; for(let k=0;k<4;k++){ G.chooseIntent(q,e); ns.push(e.intent&&e.intent.n); } return ns; });
+  t(G.ENEMIES.xinmo.name==='魘'&&new Set(xs.map(x=>x.join())).size===5&&xs.every((x,i)=>x.join()===G.ENEMIES.xinmo.names[G.ORDER[i]].join()),'隱藏魔王是魘：招式名跟著眼前的角色換',JSON.stringify(xs[0]));
+  t(G.ENEMIES.xinmo.moves.every(m=>m.n&&!/心魔/.test(m.n))&&G.ENEMIES.xinmo.names.shuang.length===G.ENEMIES.xinmo.moves.length,'魘的招式數字不變、名字一一對上');
+  t(G.ORDER.every(w=>G.ENDINGS[w]&&G.ENDINGS[w].text.length>=3)&&G.EPILOGUE&&G.EPILOGUE.text.length>=3,'五位真結局＋共同尾聲');
+  t(!/心魔/.test(JSON.stringify([G.ENEMIES,G.LORE,G.ENDINGS,G.EPILOGUE,G.SECTS_LORE,G.EVENTS,G.SERVANTS,G.GOALS,G.FATES])),'畫面資料裡不再出現「心魔」'); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

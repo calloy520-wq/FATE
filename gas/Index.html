@@ -481,7 +481,7 @@
     if (Object.keys(M.pathClears || {}).length >= 5) g.push('paths');
     return g;
   }
-  function endingSeen(M, who) { return !!((M.endings || {})[who] || (M.stats.best || {})[who] === '斬心魔'); }
+  function endingSeen(M, who) { return !!((M.endings || {})[who] || (M.stats.best || {})[who] === '封魘' || (M.stats.best || {})[who] === '斬心魔'); }   // 舊戰績寫的是「斬心魔」
   function skinOpen(M, who, goal) {
     var c = (M.clears || {})[who] || {};
     if (goal === 'clear') return Object.keys(c).length > 0;
@@ -674,7 +674,7 @@
     ['難度', '普通／困難／深淵：困難要任一角色通關普通、深淵要通關困難；越難敵人越強'],
     ['機緣', '出發前選擇的加持，一次帶兩種（鎮妖塔一種）；有些要達成目標才會出現'],
     ['地圖', '由上往下走，只能沿線前進；看得到接下來 3 列與魔王。精英比較難，但打贏有法寶與頓悟（還沒滿兩層時）；事件是有取捨的選擇'],
-    ['兩章與隱藏關', '第一章落霞山、第二章鬼哭城各有一位魔王；第二章打完時師門玉符還在，就能捏碎它進入九幽魔淵，面對心魔'],
+    ['兩章與隱藏關', '第一章落霞山、第二章鬼哭城各有一位魔王；第二章打完時師門玉符還在，就能捏碎它進入九幽魔淵，把魘重新封上'],
     ['強化方向', '休息點鍛鍊或事件強化時，從三個方向選一個：精煉（數值變強）、迅捷（費用 -1，只有 2 費以上的牌）、共鳴（神通 +15%、多抽 1）、道心（多一個自己流派的機制，只有專屬牌）、極限（數值翻倍但打出後消耗）；偶爾出現★傳說（攻擊次數翻倍，代價是牌組多一張內傷）'],
     ['根骨', '力道／體魄／身法／靈力／氣運／神通，分天、地、玄、黃四品（地品＝100%，每差一品 ±8%；氣運每品 ±10%）。攻擊（力道、靈力取高）乘上所有卡牌傷害；體魄決定生命（地品＝75）；力道、身法、靈力取最高乘上所有卡牌格擋；身法天品每場開場多抽 1 張；氣運乘上打贏拿到的金錢、也影響擲骰；神通只是顯示'],
     ['虛弱', '造成的攻擊傷害 ×0.75'], ['易傷', '受到的攻擊傷害 ×1.5'], ['消耗', '打出後這場戰鬥不再出現'],
@@ -784,16 +784,17 @@
   }
   // 前情提要：標題畫面「新的冒險」上面，一頁一頁看（背景用各章的戰鬥背景）
   var PROLOGUE = [
-    ['abyss', '三百年前，作亂人間的妖魔被五大宗門合力封進地底的<b>九幽魔淵</b>。<br>落下最後一道封印的，是一位年輕的劍修。'],
-    ['city', '三百年後的中秋，紅月升起，封印鬆了。<br>山裡的精怪成群下山，死人從墳裡爬出來；<b>鬼哭城</b>一夜之間，沒了活人。'],
-    ['hill', '宗門還在爭論該派誰去。<br><b>落霞山</b>頂，那位隱居了三百年的劍修，已經下山了。', 'heroes'],
-    ['hill', '跟在她身後的，有愛錢的小道姑、自稱「本座」的千年老祖宗、叛出血煞宗的血修，和從南疆來找解藥的苗女。<br>五個人，一路往魔淵走。'],
-    ['tower', '師門給每個人留了一枚<b style="color:var(--red)">玉符</b>。<br>危急時捏碎它，能保住一命；把它留到最後，它能打開魔淵的門。<br><br>門後面等著的——是你自己。']
+    ['abyss', '三百年前，一個叫做<b>「魘」</b>的東西從地底醒來。<br>它沒有形體，靠吃人心裡放不下的念頭長大；妖魔跟著它出世，天下大亂。'],
+    ['abyss', '五大宗門——劍、符、龍、卦、丹——合力把它封進<b>九幽魔淵</b>。<br>封印要有人留在裡面鎮著。雲隱劍宗的劍主走了進去，再也沒有出來。'],
+    ['city', '三百年後的中秋，紅月升起。劍主的魂快散了，封印跟著鬆動；逃出來的妖魔佔了<b>鬼哭城</b>。<br>五大宗門各守一角陣腳，一步也離不開。'],
+    ['hill', '天機閣卜了一卦，卦上只有五個字：<b>劍、符、龍、血、蠱</b>。<br><b>落霞山</b>頂，守了三百年塔的劍主弟子，第一個下了山。', 'shuang'],
+    ['hill', '玄真觀送來唯一畫得出鎮魂印的小師妹；靈獸山莊的老祖宗親自出關——當年封印的五人，只剩她還在。<br>還有一個砍了合歡宗宗主的「血皿」，和一個帶著吃魔氣的蠱、從南疆來的苗女。', 'others'],
+    ['tower', '師門給每個人留了一枚<b style="color:var(--red)">玉符</b>。<br>危急時捏碎它，能保住一命；把它留到最後，它能打開魔淵的門。<br><br>去把劍主接回來，把魘重新封上。']
   ];
   function prologue(i) {
     var P = PROLOGUE[i], last = i === PROLOGUE.length - 1, sc = { abyss: { act: 3 }, city: { act: 2 }, hill: { act: 1 }, tower: { act: 3, endless: 1 } }[P[0]];
-    var figs = P[2] === 'heroes' ? '<div class="pfigs"><div class="pfig">' + FIG.fig('shuang', false, { swords: 3 }) + '</div></div>'
-      : i === 3 ? '<div class="pfigs">' + G.ORDER.filter(function (k) { return k !== 'shuang'; }).map(function (k) { return '<div class="pfig">' + FIG.fig(k, false, { swords: 0 }) + '</div>'; }).join('') + '</div>' : '';
+    var figs = P[2] === 'shuang' ? '<div class="pfigs"><div class="pfig">' + FIG.fig('shuang', false, { swords: 3 }) + '</div></div>'
+      : P[2] === 'others' ? '<div class="pfigs">' + G.ORDER.filter(function (k) { return k !== 'shuang'; }).map(function (k) { return '<div class="pfig">' + FIG.fig(k, false, { swords: 0 }) + '</div>'; }).join('') + '</div>' : '';
     $('app').innerHTML = '<div class="panel prolog"><div class="pscene">' + FIG.scene(sc) + figs + '</div>'
       + '<div class="lore ptext">' + P[1] + '</div>'
       + '<div class="pdots">' + PROLOGUE.map(function (_, j) { return '<span' + (j === i ? ' class="on"' : '') + '></span>'; }).join('') + '</div>'
@@ -803,7 +804,7 @@
   function recordScreen() {
     var M = me(), st = M.stats;
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">戰績：' + esc(ACC.name) + '</h1>'
-      + '<div class="box">出擊 ' + st.runs + ' 次・通關 ' + st.wins + ' 次・斬心魔 ' + st.trueEnds + ' 次</div><div class="list">'
+      + '<div class="box">出擊 ' + st.runs + ' 次・通關 ' + st.wins + ' 次・封魘 ' + st.trueEnds + ' 次</div><div class="list">'
       + G.ORDER.map(function (k) { var b = st.best[k], e = (st.endless || {})[k]; return '<div class="box urow"><div><b>' + esc(G.SERVANTS[k].cls + '・' + G.SERVANTS[k].name) + '</b><div class="dim" style="font-size:13.5px">' + (b ? esc(b) : '還沒出擊過') + '</div></div>' + (e ? '<span class="tag" style="color:var(--gold)">♾ ' + e + ' 格</span>' : '') + '</div>'; }).join('')
       + '</div><div class="row"><button class="btn" onclick="boardScreen()">🏆 排行榜</button><button class="btn" onclick="titleScreen()">返回</button></div></div>';
   }
@@ -823,7 +824,7 @@
       if (!rows.length) return shell('<div class="dim" style="text-align:center">還沒有人上榜，第一名就是你的。</div>');
       shell(rows.map(function (r, i) {
         var S = r.who && G.SERVANTS[r.who], medal = ['🥇', '🥈', '🥉'][i] || (i + 1) + '.';
-        var sub = tab === 'endless' ? (S ? S.cls + '・' + S.name : '') : '斬心魔 ' + (r.trueEnds || 0) + ' 次・出擊 ' + (r.runs || 0) + ' 次';
+        var sub = tab === 'endless' ? (S ? S.cls + '・' + S.name : '') : '封魘 ' + (r.trueEnds || 0) + ' 次・出擊 ' + (r.runs || 0) + ' 次';
         return '<div class="box urow"' + (r.name === ACC.name ? ' style="border-color:var(--gold)"' : '') + '><span style="width:34px;font-size:18px;flex:none">' + medal + '</span><div><b>' + esc(r.name) + '</b>' + (r.name === ACC.name ? '　<span class="dim">（你）</span>' : '') + '<div class="dim" style="font-size:13.5px">' + esc(sub) + '</div></div><span class="tag" style="color:var(--gold);font-size:17px">' + r[key] + (tab === 'endless' ? ' 格' : ' 次') + '</span></div>';
       }).join(''));
     });
@@ -1446,7 +1447,7 @@
   function pickAsk(i) { var kind = run.pending[0], nm = esc(G.card(run.deck[i]).name); if (kind === 'remove' || kind === 'transform') return confirmOv((kind === 'remove' ? '移除' : '變形') + '「' + nm + '」？', function () { doPick(i); }); doPick(i); }
   function secretScreen() {
     $('app').innerHTML = topBar() + '<div class="panel" style="min-height:70vh;justify-content:center"><h1>九幽魔淵</h1>'
-      + '<div style="max-width:420px;text-align:center" class="lore">第二章的魔王倒下了。懷裡的玉符還在發燙，地底深處傳來一陣一陣的心跳聲。<br>捏碎玉符，就能打開通往九幽魔淵的路——封印最深處，有個跟你長得一模一樣的東西在等你。進去就不能回頭。</div>'
+      + '<div style="max-width:420px;text-align:center" class="lore">第二章的魔王倒下了。懷裡的玉符還在發燙，地底深處傳來一陣一陣的心跳聲。<br>捏碎玉符，就能打開通往九幽魔淵的路——劍主還在最深處鎮著，魘也在。進去就不能回頭。</div>'
       + '<button class="btn red" onclick="G.secret(run,true);render()">捏碎玉符，往深處走（隱藏關）</button>'
       + '<button class="btn" onclick="G.secret(run,false);render()">就到這裡（封印完成）</button></div>';
   }
@@ -1455,7 +1456,8 @@
     var E = G.ENDINGS[who]; if (!E) return '';
     var pic = ART['end_' + who] ? '<img src="' + ART['end_' + who] + '" alt="" style="width:100%;border-radius:10px;display:block" onerror="this.remove()">' : '<div class="svtfig sc-abyss" style="height:200px">' + FIG.fig(who, false, { swords: 5 }) + '</div>';
     return '<div class="box ending" style="max-width:460px;width:100%"><div class="dim" style="text-align:center">真結局</div><h3 style="text-align:center;font-size:19px;margin:4px 0 8px">「' + esc(E.title) + '」</h3>' + pic
-      + E.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0">' + esc(t) + '</p>'; }).join('') + '</div>';
+      + E.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0">' + esc(t) + '</p>'; }).join('')
+      + (G.EPILOGUE ? '<div class="msep" style="margin:14px 0 6px"></div><div class="dim" style="text-align:center">尾聲・' + esc(G.EPILOGUE.title) + '</div>' + G.EPILOGUE.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0">' + esc(t) + '</p>'; }).join('') : '') + '</div>';
   }
   // 圖鑑：魔王／精英／妖物（第一次打倒才看得到）、真結局（重看）、解鎖目標
   function codexScreen(tab) {
@@ -1476,7 +1478,7 @@
         + '<div class="lore" style="text-align:left;margin-top:6px">' + esc(X.text) + '</div><div class="dim" style="font-size:13px;margin-top:4px">' + esc(tag) + '</div></div>';
     }).join('') + '</div>';
     if (tab === 'end') body = '<div class="list">' + G.ORDER.map(function (k) { var S = G.SERVANTS[k], E = G.ENDINGS[k], got = endingSeen(M, k);
-      return '<button class="box urow" style="text-align:left"' + (got ? ' onclick="openOv(endingHtml(\'' + k + '\'))"' : ' disabled style="opacity:.5"') + '><div><b>' + esc(S.name) + '：' + (got ? '「' + esc(E.title) + '」' : '？？？') + '</b><div class="dim" style="font-size:13px">' + (got ? '點開重看' : '用她在九幽魔淵打倒心魔') + '</div></div></button>'; }).join('') + '</div>';
+      return '<button class="box urow" style="text-align:left"' + (got ? ' onclick="openOv(endingHtml(\'' + k + '\'))"' : ' disabled style="opacity:.5"') + '><div><b>' + esc(S.name) + '：' + (got ? '「' + esc(E.title) + '」' : '？？？') + '</b><div class="dim" style="font-size:13px">' + (got ? '點開重看' : '用她在九幽魔淵封印魘') + '</div></div></button>'; }).join('') + '</div>';
     if (tab === 'goal') { var done = goalsDone(M);
       body = '<div class="list">' + Object.keys(G.GOALS).map(function (g) { var Gx = G.GOALS[g], ok = done.indexOf(g) >= 0;
         var what = Object.keys(G.FATES).filter(function (k) { return G.FATES[k].lock === g; }).map(function (k) { return '機緣「' + G.FATES[k].name + '」'; }).concat(Object.keys(G.RELICS).filter(function (k) { return G.RELICS[k].lock === g; }).map(function (k) { return '法寶「' + G.RELICS[k].name + '」'; }));
@@ -1497,7 +1499,7 @@
       var S = G.serv(r), P = function (id) { return G.pathById(r.who, id).name; }, b = r.battle;
       var d = { who: S.name, major: P(r.major), second: !r.pathPicked ? '' : r.mastered ? '專精' : '兼修' + (r.majors[1] ? P(r.majors[1]) : ''),
         diff: G.DIFFS[r.diff || 'normal'].name, mode: r.endless ? '鎮妖塔' : '一般', fates: (r.fates || []).map(function (k) { return G.FATES[k].name; }).join('、'),
-        result: r.trueEnd ? '斬心魔' : r.win ? '通關' : '陣亡', act: r.act, floor: r.floor, floors: r.stats.floors,
+        result: r.trueEnd ? '封魘' : r.win ? '通關' : '陣亡', act: r.act, floor: r.floor, floors: r.stats.floors,
         killer: !r.win && b ? b.enemies.filter(function (e) { return e.hp > 0; }).map(function (e) { return e.name; }).join('＋') : '', kind: !r.win && b ? b.kind : '',
         deck: r.deck.length, relics: r.relics.length, maxHp: r.maxHp, kills: r.stats.kills, np: r.stats.np, pills: r.stats.pills || 0 };
       srv('gpLog', [ACC.name, ACC.token, d], function () { }, function () { });
@@ -1516,15 +1518,15 @@
           if (st.floors > (m.stats.endless[run.who] || 0)) m.stats.endless[run.who] = st.floors;
           return;
         }
-        var tag = run.trueEnd ? '斬心魔' : run.win ? '通關' : (G.actName(run) || '').split('　')[0] + '第 ' + run.floor + ' 列', old = m.stats.best[run.who];
-        var score = function (t) { return !t ? -1 : t === '斬心魔' ? 99 : t === '通關' ? 50 : (t.indexOf('第二章') === 0 ? 20 : 0) + (parseInt(t.replace(/^.*第 /, ''), 10) || 0); };
+        var tag = run.trueEnd ? '封魘' : run.win ? '通關' : (G.actName(run) || '').split('　')[0] + '第 ' + run.floor + ' 列', old = m.stats.best[run.who];
+        var score = function (t) { return !t ? -1 : (t === '封魘' || t === '斬心魔') ? 99 : t === '通關' ? 50 : (t.indexOf('第二章') === 0 ? 20 : 0) + (parseInt(t.replace(/^.*第 /, ''), 10) || 0); };
         if (score(tag) > score(old)) m.stats.best[run.who] = tag;
       });
       syncCodex(); run.unlockMsgs = newUnlocks(); updateMe(function () { }); save();
     }
     var um = run.unlockMsgs || [];
-    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.trueEnd ? '心魔已斬' : run.win ? '封印完成' : run.endless ? '♾ 走到這裡' : '敗退') + '</h1>'
-      + '<div class="dim">' + esc(S.cls) + '・' + esc(S.name) + '　' + (run.trueEnd ? '斬了自己的心魔，魔淵重新封上' : run.win ? '走完了兩章' : '倒在' + esc(run.endless && run.act >= 3 ? '鎮妖塔第 ' + (run.act - 2) + ' 層' : G.actName(run).split('　')[0] + '「' + G.actName(run).split('　')[1] + '」') + '・第 ' + run.floor + ' 列') + '</div>'
+    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.trueEnd ? '魘已封印' : run.win ? '封印完成' : run.endless ? '♾ 走到這裡' : '敗退') + '</h1>'
+      + '<div class="dim">' + esc(S.cls) + '・' + esc(S.name) + '　' + (run.trueEnd ? '魘重新封回魔淵深處，劍主可以安息了' : run.win ? '走完了兩章' : '倒在' + esc(run.endless && run.act >= 3 ? '鎮妖塔第 ' + (run.act - 2) + ' 層' : G.actName(run).split('　')[0] + '「' + G.actName(run).split('　')[1] + '」') + '・第 ' + run.floor + ' 列') + '</div>'
       + (run.endless ? '<div class="box" style="text-align:center"><div class="dim">♾ 鎮妖塔成績</div><div style="font-size:30px;color:var(--gold)">' + st.floors + ' 格</div><div class="dim">' + esc(S.name) + '的最遠：' + ((me().stats.endless || {})[run.who] || st.floors) + ' 格</div><button class="infobtn" style="margin-top:8px" onclick="boardScreen()">🏆 看排行榜</button></div>' : '')
       + (run.trueEnd ? endingHtml(run.who) : '')
       + '<div>擊敗 ' + st.kills + '・神通 ' + st.np + ' 次・丹藥吃了 ' + (st.pills || 0) + ' 顆' + (st.seals ? '・捏碎了玉符' : '') + '・牌組 ' + run.deck.length + ' 張</div>'
