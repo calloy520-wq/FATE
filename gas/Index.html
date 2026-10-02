@@ -799,7 +799,7 @@
       + big("MODE='normal';choose()", '⚔', '新的冒險', going ? '放棄目前這一局，重新選角色' : '選角色、選機緣，下山', going || !M.stats.runs ? '' : 'main')
       + big("MODE='endless';choose()", '♾', '鎮妖塔（無盡）', going ? '放棄目前這一局，改闖鎮妖塔' : '兩章之後下鎮妖塔，看能走多遠')
       + '<div class="msep"></div>'
-      + '<div class="mrow">' + big('codexScreen()', '📚', '圖鑑') + big('recordScreen()', '📜', '戰績') + big('boardScreen()', '🏆', '排行榜') + big('showHelp()', '📖', '說明') + '</div>'
+      + '<div class="mrow">' + big('codexScreen()', '📚', '圖鑑') + big('recordScreen()', '📜', '戰績') + big('boardScreen(null,\'\')', '🏆', '排行榜') + big('showHelp()', '📖', '說明') + '</div>'
       + '</div></div>';
   }
   // 前情提要：標題畫面「新的冒險」上面，一頁一頁看（背景用各章的戰鬥背景）
@@ -826,14 +826,15 @@
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">戰績：' + esc(ACC.name) + '</h1>'
       + '<div class="box">出擊 ' + st.runs + ' 次・通關 ' + st.wins + ' 次・封魘 ' + st.trueEnds + ' 次</div><div class="list">'
       + G.ORDER.map(function (k) { var b = st.best[k], e = (st.endless || {})[k]; return '<div class="box urow"><div><b>' + esc(G.SERVANTS[k].cls + '・' + G.SERVANTS[k].name) + '</b><div class="dim" style="font-size:13.5px">' + (b ? esc(b) : e ? '只闖過鎮妖塔' : '還沒出擊過') + '</div></div>' + (e ? '<span class="tag" style="color:var(--gold)">♾ ' + e + ' 格</span>' : '') + '</div>'; }).join('')
-      + '</div><div class="row"><button class="btn" onclick="boardScreen()">🏆 排行榜</button><button class="btn" onclick="titleScreen()">返回</button></div></div>';
+      + '</div><div class="row"><button class="btn" onclick="boardScreen(null,\'record\')">🏆 排行榜</button><button class="btn" onclick="titleScreen()">返回</button></div></div>';
   }
   // 排行榜：伺服器彙整所有帳號的戰績（無盡最遠、通關次數）；一分鐘更新一次
-  function boardScreen(tab) {
+  function boardScreen(tab, from) {
+    if (from !== undefined) boardScreen.from = from;   // 從戰績進來的，返回戰績
     tab = tab || boardScreen.tab || 'endless'; boardScreen.tab = tab;
     var tabs = [['endless', '♾ 鎮妖塔最遠'], ['wins', '👑 通關次數']];
     var head = '<div class="tabs" style="max-width:460px;width:100%">' + tabs.map(function (t) { return '<button class="' + (tab === t[0] ? 'on' : '') + '" onclick="boardScreen(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>';
-    var shell = function (body) { $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">排行榜</h1>' + head + '<div class="list">' + body + '</div><button class="btn" onclick="' + (run && run.screen === 'over' ? 'render()' : 'titleScreen()') + '">返回</button></div>'; };
+    var shell = function (body) { $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">排行榜</h1>' + head + '<div class="list">' + body + '</div><button class="btn" onclick="' + (run && run.screen === 'over' ? 'render()' : boardScreen.from === 'record' ? 'recordScreen()' : 'titleScreen()') + '">返回</button></div>'; };
     shell('<div class="dim" style="text-align:center">讀取中…</div>');
     flushSave();
     srv('gpBoard', [], function (res) {
