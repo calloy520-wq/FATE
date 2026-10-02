@@ -74,7 +74,9 @@
   .intent .num { font-size:22px; font-weight:bold; }
   .incoming { margin:0 12px; padding:6px 10px; border-radius:9px; background:#2a1717; border:1px solid #6b2e2e; color:#f2b3b3; font-size:15px; }
   .incoming b { font-size:18px; color:#ff8a8a; }
+  #me .chips { max-height:46px; overflow:hidden; }   /* 最多兩行，其他的點「?」看 */
   .incoming.safe { background:#172419; border-color:#2e6b3d; color:#b3f2c2; }
+  .incoming.lethal { background:#3a1010; border-color:#ff5a5a; color:#ffd0d0; animation:pulse 1s infinite; }
   .infobtn { border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:3px 8px; font-size:13.5px; }
   /* 清單的一列：左邊名字與說明，右邊固定位置的標籤 */
   .urow { display:flex; gap:10px; align-items:center; } .urow > div { flex:1; min-width:0; }
@@ -137,6 +139,9 @@
   .card:disabled { opacity:.4; }
   #acts { display:flex; gap:8px; padding:6px 12px calc(12px + env(safe-area-inset-bottom)); }
   #acts .btn { flex:1; padding:11px 6px; }
+  #acts .endbtn { background:linear-gradient(180deg, #e8c879, #b8913e); color:#1a1408; border-color:#f3d78f; font-weight:bold; }   /* 結束回合：一直是最顯眼的那顆 */
+  #acts .pillbtn { color:#ff9a9a; border-color:#8a3b3b; }
+  #log:empty { display:none; }
   /* 標題畫面：帳號列在最上面，中間大按鈕一顆一顆分開 */
   .acct { display:flex; align-items:center; gap:14px; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--panel); font-size:15px; }
   .acct b { color:var(--gold); } .acct > span:first-child b { display:inline-block; max-width:38vw; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; vertical-align:bottom; } .acct button { white-space:nowrap; } .acct button { margin-left:auto; border:1px solid var(--line); border-radius:8px; padding:5px 10px; color:var(--dim); font-size:14px; }
@@ -195,7 +200,7 @@
     .incoming { font-size:13.5px; padding:4px 8px; line-height:1.4; } .incoming b { font-size:16px; }
     #log { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:0; padding:2px 12px; }
     #me { padding:6px 10px; } .energy { width:38px; height:38px; }
-    #me .chips { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; } #me .chip { flex:none; white-space:nowrap; }
+    #me .chip { flex:none; white-space:nowrap; }
     .card { min-height:104px; } #hand { padding:10px 8px 4px; } .foe { padding:6px 7px; } .foe .nm { margin-bottom:2px; } .intent { margin-top:3px; }
     #acts .btn { padding:9px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:15px; }
     .intent .dim { display:none; }
@@ -219,7 +224,7 @@
   /* 手牌：固定一排 5 張的大小，第 6 張起排到第二行（最多 10 張＝2×5），牌不會因為張數變大變小 */
   #hand { display:grid; grid-template-columns:repeat(5, minmax(0, 118px)); justify-content:center; gap:10px 5px; overflow:visible; }
   #hand .card { width:100%; max-width:none; min-width:0; }
-  #hand.many .card { min-height:96px; }
+  #hand.many .card { min-height:96px; } #hand.m7 .card .tx { -webkit-line-clamp:2; }   /* 兩排手牌：說明最多兩行（完整的點「?」），不把舞台擠到底下 */
   @media (min-width:900px) { #hand { grid-template-columns:repeat(5, minmax(0, 130px)); } }
   .card .nm { margin:15px 0 3px 1px; font-size:13.5px; }
   .card .pv { font-size:15px; }
@@ -387,9 +392,11 @@
   @keyframes breathe { 50% { transform:scaleY(1.022) translateY(-1px); } }
   @keyframes float { 50% { transform:translateY(-4px); } }
   .shadow { position:absolute; bottom:2px; left:20%; right:20%; height:10px; border-radius:50%; background:radial-gradient(rgba(0,0,0,.65),transparent 70%); z-index:-1; }
-  #stage #foes { position:relative; z-index:1; flex:1; height:100%; display:flex; align-items:flex-end; justify-content:space-evenly; gap:2px; padding:0; flex-wrap:nowrap; }
+  #stage #foes { position:relative; z-index:1; flex:1; height:100%; display:flex; align-items:flex-end; justify-content:space-evenly; gap:2px; padding:0 0 4px; flex-wrap:nowrap; }
   #stage .foe { flex:1 1 0; min-width:0; max-width:150px; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; gap:2px; padding:0 1px; background:none; border:none; box-shadow:none; border-radius:8px; text-align:center; }
-  #stage .foe .fig { height:40%; width:100%; animation-delay:var(--d,0s); }
+  #stage .foe .fig { height:40%; width:100%; animation-delay:var(--d,0s); flex-shrink:1; min-height:44px; }
+  #stage .foe > :not(.fig) { flex-shrink:0; }   /* 狀態一多，縮的是立繪，意圖、名字、血條都要看得到 */
+  #stage .foe .chips { max-height:34px; overflow:hidden; }
   #stage .foe.elite .fig { height:50%; } #stage .foe.boss .fig { height:60%; }
   #stage .foe .intent { margin:0 0 2px; font-size:13px; line-height:1.25; background:rgba(8,9,15,.78); border:1px solid rgba(255,255,255,.12); border-radius:8px; padding:2px 6px; max-width:100%; }
   #stage .foe .intent:empty { display:none; }
@@ -404,6 +411,7 @@
   #stage .foe.tgt .fig::after, #stage .foe.sel .fig::after { background:radial-gradient(rgba(255,214,120,.85),transparent 70%); }
   #stage .foe.tgt .nm::after { content:none; } #stage .foe.tgt .fname::before { content:'🎯'; font-size:10px; margin-right:2px; }
   #stage #foes.picking .foe:not(.dead) .fig::after { background:radial-gradient(rgba(255,214,120,.95),transparent 70%); animation:pulse 1s infinite; }
+  #stage #foes.picking .foe:not(.dead) { outline:2px dashed rgba(255,214,120,.75); outline-offset:-3px; animation:pulse 1s infinite; }
   #stage #foes.picking .foe:not(.dead) .fsvg { filter:drop-shadow(0 0 3px #ffd678) drop-shadow(0 0 10px #ffd678); }
   #stage .foe.dead .fig { opacity:.18; filter:grayscale(1); transform:translateY(10px); animation:none; transition:opacity .5s, transform .5s; }
   #stage .foe.dead .intent, #stage .foe.dead .chips { display:none; }
@@ -665,7 +673,7 @@
     ['丹藥', '一路撿到的丹藥（戰後有機會掉、精英與魔王一定掉、商店有賣），丹藥袋一開始有 3 格。戰鬥中自己的回合隨時吃、不限次數，吃了就沒了：回春（回三成生命）、聚靈（靈力 +2、抽 2）、遁形（這回合躲開所有攻擊）、通神（神通 +50%）、金剛（格擋 +15）、大力（力量 +2）、蝕骨（全體易傷、虛弱）、清心（手上的妨礙牌與詛咒全部消耗）'],
     ['師門玉符', '整趟只有一枚。戰鬥中捏碎它生命回滿；但只有留到第二章魔王之後，才能捏碎它打開九幽魔淵——保命還是闖隱藏關，只能選一個'],
     ['飛劍', '蘇凌霜祭出的飛劍：0 費、造成 5 傷害，疊成一張「飛劍 ×N」（不佔手牌上限、最多 10 把、回合結束留 5 把），用完就沒；萬劍歸宗會讓每把更強。飛劍追魂、劍陣護體照手上的飛劍數加成，劍氣迸裂一次全部引爆'],
-    ['定身', '顧青璃的符：一層層貼上去，累積到門檻（第一章一般 3、精英 4、魔王 5，第二章起各 +1；魔王被定住過一次之後，每次再 +1）就動彈不得一回合、層數歸零；鎮魂符的重壓：每層定身讓那個敵人攻擊 -1。五雷轟頂把身上的符一次引爆'],
+    ['定身', '顧青璃的符：一層層貼上去，累積到門檻（第一章一般 3、精英 4、魔王 5，第二章起各 +1；魔王第二次被定住之後，每次再 +1）就動彈不得一回合、層數歸零；鎮魂符的重壓：每層定身讓那個敵人攻擊 -1。五雷轟頂把身上的符一次引爆'],
     ['阿白', '白辰的本命靈龍：每回合長大 1，回合結束咬生命最少的敵人（每大 12 多咬一口）；被打穿格擋時替妳擋下一半（擋了會縮小）。每打贏兩場，之後每場開場再大 1（整局最多 +6）'],
     ['血煞反噬', '赤練：第 2 回合起每回合開始失去 2 生命（不會因此倒下）——用自己的血換力量'],
     ['不滅血體', '赤練：整趟有 1 條備用的命，倒下時以五成生命站起來、整趟力量 +2'],
@@ -1075,7 +1083,7 @@
     if (e.stun) return '<span class="buf">🗿 動彈不得</span>';
     return e.intent.fx.map(function (f) {
       var k = f[0];
-      if (k === 'atk' || k === 'atkP') return '<span class="atk">' + (k === 'atkP' ? '穿透' : '⚔') + '<span class="num">' + G.intentDmg(run, e, f) + (f[2] ? '×' + f[2] : '') + '</span></span>';
+      if (k === 'atk' || k === 'atkP') return '<span class="atk">⚔' + (k === 'atkP' ? '穿' : '') + '<span class="num">' + G.intentDmg(run, e, f) + (f[2] ? '×' + f[2] : '') + '</span>' + (e.charm ? '<span style="color:#ff8fb8">♥½</span>' : '') + '</span>';
       if (k === 'block') return '<span class="def">🛡' + f[1] + '</span>';
       if (k === 'str') return '<span class="buf">力量+' + f[1] + '</span>';
       if (k === 'heal') return '<span class="buf">回復' + f[1] + '</span>';
@@ -1085,25 +1093,26 @@
       if (k === 'breakBlock') return '<span class="atk">碎格擋</span>';
       if (k === 'strAll') return '<span class="buf">全隊力量+' + f[1] + '</span>';
       if (k === 'blockAll') return '<span class="def">全隊🛡' + f[1] + '</span>';
-      if (k === 'sapEnergy') return '<span class="atk">妳下回合靈力-' + f[1] + '</span>';
-      if (k === 'stealBlock') return '<span class="atk">奪妳格擋</span>';
+      if (k === 'sapEnergy') return '<span class="atk">靈力-' + f[1] + '</span>';
+      if (k === 'stealBlock') return '<span class="atk">奪一半格擋</span>';
       if (k === 'thornsSelf') return '<span class="def">反震' + f[1] + '</span>';
       if (DEBUFF[k]) return '<span class="buf">妳' + DEBUFF[k] + f[1] + '</span>';
       return '<span class="buf">' + esc(e.intent.n) + '</span>';
     }).join(' ') + ' <span class="dim">' + esc(e.intent.n) + '</span>';
   }
   function foeChips(e) {
-    var a = [], th = G.stunAt(e, run);
-    if (e.str) a.push('力量 ' + e.str);
-    if (e.vuln) a.push('易傷 ' + e.vuln);
-    if (e.weak) a.push('虛弱 ' + e.weak);
-    if (e.poison) a.push('<span style="color:var(--green)">毒 ' + e.poison + '</span>');
-    if (e.petrify && !e.stun) a.push('<span style="color:#f2c14e">定身 ' + e.petrify + '/' + th + '</span>');
-    if (e.charm) a.push('<span style="color:#ff8fb8">魅惑 ' + e.charm + '</span>');
-    if (e.parasite) a.push('<span style="color:#b48cff">寄生 ' + e.parasite + '</span>');
-    if (e.thorns) a.push('反震 ' + e.thorns);
-    if (e.lives) a.push('再起 ' + e.lives);
-    return a.map(function (x) { return '<span class="chip">' + x + '</span>'; }).join('');
+    var a = [], th = G.stunAt(e, run);   // [全名, 短字, 顏色]：狀態多了（四個以上）用短字，免得把敵人擠掉
+    if (e.poison) a.push(['毒 ', '毒', e.poison, 'var(--green)']);
+    if (e.petrify && !e.stun) a.push(['定身 ', '定', e.petrify + '/' + th, '#f2c14e']);
+    if (e.charm) a.push(['魅惑 ', '魅', e.charm, '#ff8fb8']);
+    if (e.parasite) a.push(['寄生 ', '寄', e.parasite, '#b48cff']);
+    if (e.str) a.push(['力量 ', '力', e.str, '']);
+    if (e.vuln) a.push(['易傷 ', '易', e.vuln, '']);
+    if (e.weak) a.push(['虛弱 ', '弱', e.weak, '']);
+    if (e.thorns) a.push(['反震 ', '反', e.thorns, '']);
+    if (e.lives) a.push(['再起 ', '起', e.lives, '']);
+    var short = a.length > 3;
+    return a.map(function (x) { return '<span class="chip"' + (x[3] ? ' style="color:' + x[3] + '"' : '') + '>' + (short ? x[1] : x[0]) + x[2] + '</span>'; }).join('');
   }
   function meChips(b) {
     var a = [], p = G.passive(run);
@@ -1134,24 +1143,24 @@
       ['pPetrifyAll', '每回合全體定身 '], ['pRage', '低血力量 +'], ['pKraken', '每回合阿白 +'], ['projUp', '飛劍 +'],
       ['pJy', '每回合劍意 +'], ['pYuyin', '每回合餘音 +'], ['pFire', '每回合火勢 +'], ['pNilin', '逆鱗 ×'], ['pHualong', '化龍：每回合力量 +'], ['pLeech', '殘血吸血 %'],
       ['pBT', '血棘反擊 '], ['pCharm', '每回合魅惑 '], ['pNeedle', '閃過射針 '], ['pGumu', '蠱母：每回合寄生 +']].forEach(function (q) { if (b[q[0]]) a.push(['', q[1] + b[q[0]]]); });
+    a = a.filter(function (x) { return x[0]; }).concat(a.filter(function (x) { return !x[0]; }));   // 金色（自己的資源）排前面，擠不下的點「?」看
     return a.map(function (x) { return '<span class="chip ' + x[0] + '">' + esc(x[1]) + '</span>'; }).join('');
   }
   // 這回合敵人總共會打過來多少（算進力量、虛弱、易傷；格擋先擋）
   function incomingHtml(b) {
-    var tot = 0, hits = 0, pierce = 0, breaks = false;
+    var tot = 0, hits = 0;
     G.alive(b).forEach(function (e) {
       if (e.stun) return;
       e.intent.fx.forEach(function (f) {
-        if (f[0] === 'breakBlock') breaks = true;
-        if (f[0] === 'atk' || f[0] === 'atkP') { var d = G.intentDmg(run, e, f), k = f[2] || 1, ch = Math.min(k, e.charm || 0), dd = d * (k - ch) + Math.floor(d / 2) * ch; tot += dd; hits += k; if (f[0] === 'atkP') pierce += dd; }   // 魅惑：那幾擊你只挨一半
+        if (f[0] === 'atk' || f[0] === 'atkP') { var d = G.intentDmg(run, e, f), k = f[2] || 1, ch = Math.min(k, e.charm || 0); tot += d * (k - ch) + Math.floor(d / 2) * ch; hits += k; }   // 魅惑：那幾擊妳只挨一半
       });
     });
-    if (!tot) return '<div class="incoming safe">✓ 敵人這回合不攻擊</div>';
-    if (b.evadeAll) return '<div class="incoming safe">✦ 遁形：這回合的攻擊（共 <b>' + tot + '</b>）全部落空</div>';
-    var after = breaks ? tot : Math.max(pierce, tot - b.block);
+    var fc = G.forecast(run) || { loss: 0 }, after = fc.loss;   // 真的跑一次敵人回合：格擋、迴避、阿白、奪勢、碎格擋、手上的魔氣都算進去
+    if (!tot && !after) return '<div class="incoming safe">✓ 敵人這回合不攻擊</div>';
+    if (b.evadeAll && !after) return '<div class="incoming safe">✦ 遁形：這回合的攻擊（共 <b>' + tot + '</b>）全部落空</div>';
     if (!after) return '<div class="incoming safe">🛡 擋得住：敵人共打 <b>' + tot + '</b></div>';
-    var why = breaks ? '格擋會被打碎' : b.block ? '共 ' + tot + '，格擋擋 ' + (tot - after) : hits > 1 ? hits + ' 下' : '';
-    return '<div class="incoming">⚠ 將受到 <b>' + after + '</b>' + (why ? '<span class="sub">' + why + '</span>' : '') + '</div>';
+    var why = tot > after ? '共 ' + tot + '，擋下 ' + (tot - after) : hits > 1 ? '共 ' + hits + ' 擊' : '';
+    return '<div class="incoming' + (fc.lethal ? ' lethal' : '') + '">' + (fc.lethal ? '☠ 致命：將受到 ' : fc.revive ? '⚠ 會倒下（還有一條命）：將受到 ' : '⚠ 將受到 ') + '<b>' + after + '</b>' + (why ? '<span class="sub">' + why + '</span>' : '') + '</div>';
   }
   var lastHp = {};
   // 舞台：背景照章換；你的角色站左邊（凌霜背後浮著飛劍、白辰身邊盤著阿白、赤練越痛紅光越重），敵人站右邊
@@ -1175,7 +1184,7 @@
         + '<div class="intent">' + (e.hp > 0 ? intentHtml(e) : '') + '</div>'
         + '<div class="fig">' + FIG.fig(e.id, true) + marks + '</div>'
         + '<div class="fname">' + esc(e.name) + '<span class="q" onclick="event.stopPropagation();foeInfo(' + i + ')">?</span></div>'
-        + '<div class="row" style="gap:3px">' + (e.block ? '<span class="eblk">🛡' + e.block + '</span>' : '') + hpBar(e.key, e.hp, e.maxHp, Math.max(0, e.hp) + '／' + e.maxHp) + '</div>'
+        + '<div class="row" style="gap:3px">' + (e.block ? '<span class="eblk">🛡' + e.block + '</span>' : '') + hpBar(e.key, e.hp, e.maxHp, Math.max(0, e.hp) + (G.alive(b).length >= 3 || e.block ? '' : '／' + e.maxHp)) + '</div>'
         + '<div class="chips">' + foeChips(e) + '</div></button>';
     }).join('');
     return '<div id="stage" class="' + FIG.sceneClass(run) + (hpc === 'hp2' ? ' danger' : hpc === 'hp3' ? ' dying' : '') + '">' + FIG.scene(run) + me + '<div id="foes"' + (sel.card >= 0 ? ' class="picking"' : '') + '>' + foes + '</div>' + (hpc === 'hp2' || hpc === 'hp3' ? '<div class="vig"></div>' : '') + '</div>';
@@ -1195,15 +1204,15 @@
       + '<div class="chips" style="flex:1;min-width:0">' + meChips(b) + '</div><span class="chip">?</span></div></div>'
       + '<div id="hand"' + (b.hand.length >= 6 ? ' class="many' + (b.hand.length >= 7 ? ' m7' : '') + '"' : '') + '>' + b.hand.map(function (id, i) { return cardHtml(id, 'onclick="tapCard(' + i + ')"' + (G.costOf(run, id) > b.energy || G.card(id).unplayable ? ' disabled' : ''), false, pvHtml(i)); }).join('') + '</div>'
       + '<div id="acts"><button class="btn npbtn' + (full ? ' full' : '') + (sel.np ? ' on' : '') + '" style="--np:' + b.np + '%" ' + (full ? '' : 'disabled') + ' onclick="doNP()">' + (full ? '★ 施展神通' : b.npUsed ? '神通・已施展' : '神通 ' + b.np + '%') + '</button>'
-      + '<button class="btn red" ' + ((run.pills || []).length || run.seals ? '' : 'disabled') + ' onclick="sealMenu()">丹藥 ' + (run.pills || []).length + (run.seals ? '・◈' : '') + '</button>'
-      + '<button class="btn' + (canPlay ? '' : ' go') + '" onclick="endTurn()">結束回合</button></div></div></div>';
+      + '<button class="btn pillbtn" ' + ((run.pills || []).length || run.seals ? '' : 'disabled') + ' onclick="sealMenu()">丹藥 ' + (run.pills || []).length + (run.seals ? '・◈' : '') + '</button>'
+      + '<button class="btn endbtn' + (canPlay ? '' : ' go') + '" onclick="endTurn()">結束回合</button></div></div></div>';
     var cs = document.querySelectorAll('#hand .card'); if (sel.card >= 0 && cs[sel.card]) cs[sel.card].classList.add('sel');
     fitStage(); dropBars();
   }
-  // 舞台填滿頂列與下方操作區之間剩下的高度（至少 240px）
+  // 舞台填滿頂列與下方操作區之間剩下的高度（至少 200px）
   function fitStage() {
     var st = $('stage'), dock = $('dock'), top = $('top'); if (!st || !dock) return;
-    st.style.height = Math.max(240, Math.min(520, window.innerHeight - dock.offsetHeight - (top ? top.offsetHeight : 0))) + 'px';
+    st.style.height = Math.max(200, Math.min(520, window.innerHeight - dock.offsetHeight - (top ? top.offsetHeight : 0))) + 'px';
   }
   window.addEventListener('resize', function () { fitStage(); });
   // 敵人的「?」：這回合要做什麼（講白話）＋身上每個狀態的說明
@@ -1214,7 +1223,7 @@
     curse: function (f) { return '把 ' + (f[2] || 1) + ' 張「' + G.card(f[1]).name + '」塞進妳的牌堆'; }, plant: function (f) { return '把 ' + (f[2] || 1) + ' 張「' + G.card(f[1]).name + '」直接塞進妳的手牌（' + G.card(f[1]).short + '）'; }, summon: function (f) { return '叫來 ' + (f[2] || 1) + ' 個援軍'; },
     breakBlock: function () { return '勾掉妳的格擋（格擋歸零）'; },
     strAll: function (f) { return '整隊力量 +' + f[1] + '（先把它打倒）'; }, blockAll: function (f) { return '整隊每個人都得到格擋 ' + f[1]; },
-    sapEnergy: function (f) { return '索走靈力：妳下回合靈力 -' + f[1]; }, stealBlock: function () { return '奪走妳身上全部的格擋，變成它自己的'; },
+    sapEnergy: function (f) { return '索走靈力：妳下回合靈力 -' + f[1]; }, stealBlock: function () { return '奪走妳身上一半的格擋，變成它自己的'; },
     thornsSelf: function (f) { return '到它下次出手前，妳每張攻擊牌打到它，妳會被震傷 ' + f[1]; } };
   function foeInfo(i) {
     var e = run.battle.enemies[i], tmp = document.createElement('div'); tmp.innerHTML = foeChips(e);
@@ -1260,12 +1269,14 @@
     flyCard(i, c.type === 'atk' ? t : -1, function () { var before = snapBattle(); var r = G.play(run, i, t); busy = false; if (!r.ok) toast(r.msg, 'err'); resolveFx(before, c.type === 'atk'); });
   }
   function killTag(e, n) { return n >= e.hp + e.block && !e.lives ? '（擊倒）' : ''; }
+  function npNum(e, n) { return n >= 5000 ? '必死' : n; }   // 萬蠱噬心這種直接咬死的：不要秀出內部的大數字
   function doNP() {
     if (busy) return; sel.card = -1;
     var b = run.battle, S = G.serv(run), fx = G.npFx(run, S.np), foes = G.alive(b);
     var one = G.needsTarget(fx) && foes.length > 1;
-    var rows = one ? foes.map(function (e) { var i = b.enemies.indexOf(e), p = G.preview(run, 'np', i, true) || { per: [] }; return '<button onclick="fireNP(' + i + ')">對「' + esc(e.name) + '」施展：預計造成 <b style="color:var(--red)">' + (p ? p.per[i] : 0) + '</b>' + (p ? killTag(e, p.per[i]) : '') + '</button>'; }).join('')
-      : (function () { var p = G.preview(run, 'np', target(), true) || { per: [] }; return '<div class="box">' + (p ? b.enemies.map(function (e, i) { return e.hp > 0 || p.per[i] ? '<div>' + esc(e.name) + '：預計 <b style="color:var(--red)">' + p.per[i] + '</b>' + killTag(e, p.per[i]) + '</div>' : ''; }).join('') + (p.block ? '<div>自己格擋 +' + p.block + '</div>' : '') : '') + '</div>'
+    var rows = one ? foes.map(function (e) { var i = b.enemies.indexOf(e), p = G.preview(run, 'np', i, true) || { per: [] }; return '<button onclick="fireNP(' + i + ')">對「' + esc(e.name) + '」施展：預計造成 <b style="color:var(--red)">' + npNum(e, p.per[i] || 0) + '</b>' + (p.per[i] < 5000 ? killTag(e, p.per[i] || 0) : '') + '</button>'; }).join('')
+      : (function () { var p = G.preview(run, 'np', target(), true) || { per: [] }; var any = (p.per || []).some(function (x) { return x > 0; });   // 沒有傷害的神通（加阿白、上狀態）就不列一排 0
+        return (any || p.block ? '<div class="box">' + (any ? b.enemies.map(function (e, i) { return e.hp > 0 || p.per[i] ? '<div>' + esc(e.name) + '：預計 <b style="color:var(--red)">' + npNum(e, p.per[i]) + '</b>' + (p.per[i] < 5000 ? killTag(e, p.per[i]) : '') + '</div>' : ''; }).join('') : '') + (p.block ? '<div>自己格擋 +' + p.block + '</div>' : '') + '</div>' : '')
         + '<button onclick="fireNP(' + target() + ')" style="border-color:var(--gold);color:var(--gold)">施展神通</button>'; })();
     openOv('<b style="color:var(--gold)">神通「' + esc(S.np.name) + '」</b><div class="dim" style="margin:4px 0 10px">' + esc(G.npText(S.np, run)) + '</div><div class="list">' + rows + '<button onclick="closeOv()">先不要</button></div>');
   }

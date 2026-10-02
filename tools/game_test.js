@@ -479,7 +479,7 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
 // 內容深度（2026-10-02）：第二章雜兵的特殊招式、主修專屬事件
 { const q=arena('qingli',2,60); E(q).intent={n:'群嚎',fx:[['strAll',1]]}; q.battle.enemies[1].intent={n:'發呆',fx:[]}; G.endTurn(q); t(q.battle.enemies.every(e=>e.str===1),'冥犬群嚎：整群力量 +1'); }
 { const q=arena('qingli'); E(q).intent={n:'索命',fx:[['sapEnergy',1]]}; G.endTurn(q); t(q.battle.energy===2,'怨靈索命：你下回合少 1 靈力',q.battle.energy); }
-{ const q=arena('qingli'); q.battle.block=9; E(q).intent={n:'奪勢',fx:[['stealBlock',1]]}; G.endTurn(q); t(E(q).block===9,'魔化劍修奪勢：搶走你的格擋',E(q).block); }
+{ const q=arena('qingli'); q.battle.block=9; E(q).intent={n:'奪勢',fx:[['stealBlock',1]]}; G.endTurn(q); t(E(q).block===5,'魔化劍修奪勢：搶走妳一半的格擋（9 → 它 5）',E(q).block); }
 { const q=arena('shuang',1,80); E(q).thorns=3; const hp=q.hp; playId(q,'kanshou'); t(hp-q.hp===3,'石傀儡反震：攻擊牌打它被震傷（每張牌一次）',hp-q.hp); }
 { const q=arena('qingli',2,60); E(q).intent={n:'列陣',fx:[['blockAll',5]]}; q.battle.enemies[1].intent={n:'發呆',fx:[]}; G.endTurn(q); t(q.battle.enemies[1].block===5,'陰兵列陣：全隊格擋'); }
 { const evs=Object.keys(G.EVENTS).filter(k=>G.EVENTS[k].major); t(G.ORDER.every(w=>G.pathsOf(w).every(P=>evs.some(k=>G.EVENTS[k].major===P.id&&G.EVENTS[k].who===w))),'每條主修都有自己的事件',evs.length);
@@ -511,4 +511,16 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
 { const GEN=new Set(['dmg','hits','all','rand','block','draw','drainAll','pierce','pierceHits','heal','healP','energy','weak','vuln','weakAll','vulnAll','drain','nextEnergy','str','tstr']);
   const bare=Object.keys(G.CARDS).filter(k=>!k.endsWith('+')&&(G.ORDER.includes(G.CARDS[k].kit)||G.CARDS[k].path)&&!G.CARDS[k].isBasic&&!/^(atk|def)_/.test(k)&&G.CARDS[k].fx.every(f=>GEN.has(f[0])));
   t(!bare.length,'專屬牌都綁著自己的機制（不只是傷害／格擋／抽牌）',bare.map(k=>G.CARDS[k].name).join()); }
+// 戰鬥稽核（2026-10-02 第二輪）：意圖數字就是真的打過來的、預計、時序
+{ const q=arena('qingli'); E(q).intent={n:'群嚎',fx:[['strAll',1],['atk',3]]}; const shown=G.intentDmg(q,E(q),['atk',3]), hp=q.hp; G.endTurn(q); t(hp-q.hp===shown&&E(q).str===1,'意圖數字＝真的傷害（群嚎：先打，力量打完才加）',[shown,hp-q.hp]); }
+{ const q=arena('qingli',2,60); E(q).intent={n:'低語',fx:[['vuln',2]]}; q.battle.enemies[1].intent={n:'砍',fx:[['atk',10]]}; const shown=G.intentDmg(q,q.battle.enemies[1],['atk',10]), hp=q.hp; G.endTurn(q); t(hp-q.hp===shown&&shown===10,'別的敵人上的易傷，這一輪打完才生效（意圖不會偷偷變大）',[shown,hp-q.hp]); }
+{ let bad2=G.forecast?0:1; for(let s=1;s<=150&&G.forecast;s++){ const q=G.newRun(G.ORDER[s%5],s); q.screen='map'; G.reachable(q).forEach(c=>q.map[0][c].t='fight'); G.go(q,G.reachable(q)[0]); for(let k=0;k<6&&q.screen==='battle';k++){ const fc=G.forecast(q), hp=q.hp; G.endTurn(q); if(q.screen==='battle'&&fc.loss!==Math.max(0,hp-q.hp)) bad2++; } } t(!bad2,'「將受到」＝結束回合後真的掉的血（150 場隨機戰鬥）',bad2); }
+{ const q=arena('aduo',1,40); q.battle.turn=2; E(q).id='jianmo'; E(q).hp=15; E(q).maxHp=60; q.battle.hand=['shaitan']; q.battle.energy=9; const p=G.preview(q,0,0,true); t(p.per[0]===15,'金蠶蠱預計：精英三成以下咬得死，數字是它剩的血（不是內部的大數字）',p.per[0]); }
+{ const q=arena('shuang',1,50); q.battle.turn=2; E(q).block=20; q.battle.hand=['zhannian']; const p=G.preview(q,0,0); t(p.per[0]===6,'斬念預計：打掉的格擋不算傷害',p.per[0]); }
+{ const q=arena('qingli',1,80); E(q).id='niumo'; E(q).stun=1; E(q).petrify=0; G.OPS.petrify({run:q,b:q.battle,tg:E(q),log:[]},['petrify',5]); t(E(q).stun===1&&E(q).petrify===5&&!(E(q).stuns>0),'已經定住的再貼定身：層數留著，不會白白重置',[E(q).petrify,E(q).stuns]); }
+{ const q=arena('chilian'); q.battle.np=100; G.noble(q,0); E(q).intent={n:'砍',fx:[['atk',10]]}; q.battle.block=0; G.endTurn(q); t(q.battle.np>0,'放過神通後，敵人回合挨打照樣累積神通',q.battle.np); }
+{ const q=arena('qingli',1,5); q.battle.np=0; playId(q,'atk_qingli'); const rw=JSON.stringify(q.reward); q.battle.np=100; const r=G.noble(q,0); t(!r.ok&&JSON.stringify(q.reward)===rw,'打贏之後不能再放神通（不會重抽戰利品）'); }
+{ const q=arena('qingli',1,200); E(q).id='niumo'; E(q).lives=1; E(q).weak=2; E(q).hp=1; G.OPS.dmg({run:q,b:q.battle,tg:E(q),log:[],atk:false},['dmg',5]); t(E(q).weak===2&&E(q).hp>1,'敵人倒下又站起來：身上的虛弱還在',E(q).weak); }
+{ const q=arena('aduo'); q.battle.turn=2; q.battle.freeAtk=1; swords(q,2); G.play(q,0,0); t(q.battle.freeAtk===1,'無影：0 費的飛劍不會吃掉「下一張攻擊不花靈力」'); }
+{ const q=arena('qingli',2,30); E(q,1).hp=0; E(q).intent={n:'叫人',fx:[['summon','zhiren',1]]}; G.endTurn(q); t(q.battle.enemies.length===2&&q.battle.enemies[1].hp>0,'叫來的援軍補進倒下的空位（不會越積越多）',q.battle.enemies.length); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

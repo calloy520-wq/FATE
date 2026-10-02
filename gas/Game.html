@@ -261,7 +261,7 @@ var G = (function () {
         cards: ['huofu', 'liaoyuan', 'yinhuo', 'sanmei', 'fenfu', 'huoyun', 'nanming'] }
     ],
     xiaoman: [
-      { id: 'longzhan', name: '龍戰', feel: '養', sig: 'horror', soul: ['kraken', 2], master: [['kraken', 2]], desc: '讓阿白上場打：越養越大，自己咬人、替她擋傷害。',
+      { id: 'longzhan', name: '龍戰', feel: '養', sig: 'horror', soul: ['kraken', 2], master: [['kraken', 1]], desc: '讓阿白上場打：越養越大，自己咬人、替她擋傷害。',
         cards: ['horror', 'sacrifice', 'abyss', 'frenzy', 'feastdeep', 'tentacle', 'blasphemy', 'prelati'] },
       { id: 'longyou', name: '龍佑', feel: '化', sig: 'zealot', extra: 'fawei', soul: ['tstr', 2], master: [['str', 3]], desc: '阿白不咬人了，改在身邊加持：長得更快（每回合 +2），每回合開始白辰本回合力量 +阿白大小的三分之二，老祖宗親自出手。',
         cards: ['zealot', 'pages', 'longlin', 'nilin', 'longwei', 'hualong', 'fawei', 'longshen'] }
@@ -271,7 +271,7 @@ var G = (function () {
         cards: ['rampage', 'roar', 'bloodlust', 'divine', 'monster', 'godhand', 'xisui', 'xuelian', 'yinhen', 'nine_lives'] },
       { id: 'xuejia', name: '血甲', feel: '扛', sig: 'rockbody', soul: ['block', 4], master: [['block', 6]], desc: '血凝成甲，扛傷反擊；挨打越多，反擊越重。',
         cards: ['rockbody', 'madness', 'crush', 'xueji', 'yingjie', 'huanxue', 'hongxiu', 'buhuai'] },
-      { id: 'meigu', name: '媚骨', feel: '媚', sig: 'huimou', soul: ['charm', 1], master: [['block', 4]], desc: '一個眼神就讓敵人失了魂：被魅惑的敵人會打到自己人。',
+      { id: 'meigu', name: '媚骨', feel: '媚', sig: 'huimou', soul: ['charm', 1], master: [['block', 4], ['charmAll', 1]], desc: '一個眼神就讓敵人失了魂：被魅惑的敵人會打到自己人。',
         cards: ['huimou', 'zuiyan', 'gouhun', 'qingcheng', 'wenrou', 'hongsha', 'huoshui'] }
     ],
     aduo: [
@@ -335,7 +335,7 @@ var G = (function () {
   // ── 資料：敵人 ──────────────────────────────────────
   // moves：{n 名稱, fx}｜fx：['atk',n,k] 攻擊 n×k｜['atkP',n,k] 穿透攻擊（無視格擋）｜['block',n]｜['str',n]
   //        ['weak',n]/['vuln',n] 給玩家｜['heal',n]｜['summon',敵人id,n] 叫援軍（場上最多 4 名）｜['breakBlock'] 拆掉你的格擋
-  //        ['strAll',n] 全隊力量｜['blockAll',n] 全隊格擋｜['sapEnergy',n] 你下回合少 n 靈力｜['stealBlock'] 搶走你的格擋｜['thornsSelf',n] 到它下次出手前，你的攻擊牌打它會被震傷 n
+  //        ['strAll',n] 全隊力量｜['blockAll',n] 全隊格擋｜['sapEnergy',n] 你下回合少 n 靈力｜['stealBlock'] 搶走你一半的格擋｜['thornsSelf',n] 到它下次出手前，你的攻擊牌打它會被震傷 n
   //        ['curse',牌,n] 塞進你的牌堆｜['plant',牌,n] 塞進你的手牌
   // cycle＝照順序輪；否則依權重 w 隨機；lives＝倒下後以 revive 比例的血復活幾次；stunAt＝定身幾層會動彈不得
   var ENEMIES = {
@@ -348,10 +348,10 @@ var G = (function () {
     xueteng: { name: '血藤', hp: [10, 12], moves: [{ n: '纏繞', fx: [['atk', 4]], w: 2 }, { n: '吸附', fx: [['weak', 1], ['atk', 2]], w: 1 }] },
     // 第二章：鬼哭城
     // 第二章的雜兵各有一招麻煩的：冥犬群嚎（整群變強，先殺狗）、怨靈索命（下回合少 1 靈力）、石傀儡反震（打它會痛）、魔化劍修奪勢（搶走你的格擋）、陰兵列陣（全隊格擋）
-    mingquan:{ name: '冥犬', hp: [16, 19], moves: [{ n: '撕咬', fx: [['atk', 5, 2]], w: 2 }, { n: '群嚎', fx: [['strAll', 1], ['atk', 3]], w: 1 }] },
-    yuanling:{ name: '怨靈', hp: [22, 26], moves: [{ n: '穿心之觸', fx: [['atkP', 8]], w: 2 }, { n: '哀嚎', fx: [['plant', 'enfeeble', 1], ['vuln', 1]], w: 1 }, { n: '索命', fx: [['atkP', 5], ['sapEnergy', 1]], w: 1 }] },
+    mingquan:{ name: '冥犬', hp: [16, 19], moves: [{ n: '撕咬', fx: [['atk', 4, 2]], w: 2 }, { n: '群嚎', fx: [['strAll', 1], ['atk', 3]], w: 1 }] },
+    yuanling:{ name: '怨靈', hp: [22, 26], moves: [{ n: '穿心之觸', fx: [['atkP', 6]], w: 2 }, { n: '哀嚎', fx: [['plant', 'enfeeble', 1], ['vuln', 1]], w: 1 }, { n: '索命', fx: [['atk', 5], ['sapEnergy', 1]], w: 1 }] },
     shikui:  { name: '石傀儡', hp: [42, 48], moves: [{ n: '重拳', fx: [['atk', 14]], w: 2 }, { n: '硬化', fx: [['block', 12], ['thornsSelf', 3]], w: 1 }] },
-    mohua:   { name: '魔化劍修', hp: [50, 56], moves: [{ n: '魔劍連斬', fx: [['atk', 9, 2]], w: 2 }, { n: '奪勢', fx: [['stealBlock', 1], ['atk', 7]], w: 1 }, { n: '入魔', fx: [['str', 2], ['block', 8]], w: 1 }] },
+    mohua:   { name: '魔化劍修', hp: [50, 56], moves: [{ n: '魔劍連斬', fx: [['atk', 8, 2]], w: 2 }, { n: '奪勢', fx: [['stealBlock', 1], ['atk', 7]], w: 1 }, { n: '入魔', fx: [['str', 2], ['block', 8]], w: 1 }] },
     shichong:{ name: '屍蟲群', hp: [18, 22], moves: [{ n: '鑽入', fx: [['plant', 'worm', 1]], w: 2 }, { n: '啃咬', fx: [['atk', 5]], w: 1 }] },
     yinbing: { name: '陰兵', hp: [12, 14], moves: [{ n: '突刺', fx: [['atk', 6]], w: 2 }, { n: '列陣', fx: [['blockAll', 5], ['atk', 3]], w: 1 }] },
     // 精英
@@ -467,7 +467,7 @@ var G = (function () {
     act1easy: [['zhiren'], ['bianfu', 'bianfu'], ['heiwu'], ['zhiren', 'bianfu'], ['shichong', 'bianfu']],
     act1hard: [['zhiren', 'zhiren', 'bianfu'], ['jiangshi'], ['xiexiu', 'zhiren'], ['heiwu', 'bianfu'], ['jiangshi', 'bianfu'], ['xiexiu', 'heiwu'], ['shichong', 'jiangshi']],
     act2easy: [['mingquan', 'mingquan'], ['yuanling'], ['shikui'], ['jiangshi', 'bianfu']],
-    act2hard: [['shikui', 'yuanling'], ['mohua'], ['mingquan', 'mingquan', 'mingquan'], ['mohua', 'mingquan'], ['yuanling', 'yuanling', 'mingquan'], ['jiangshi', 'yuanling'], ['shikui', 'xiexiu'], ['shichong', 'shichong', 'shikui']]
+    act2hard: [['shikui', 'yuanling'], ['mohua'], ['mingquan', 'mingquan', 'mingquan'], ['mohua', 'mingquan'], ['yuanling', 'yinbing', 'yinbing'], ['jiangshi', 'yuanling'], ['shikui', 'xiexiu'], ['shichong', 'shichong', 'shikui']]
   };
 
   // ── 資料：法寶（整局的被動道具；id 沿用舊版） ─────────
@@ -675,7 +675,7 @@ var G = (function () {
     drain: '造成 {1} 傷害，回復等量生命', pLeech: '生命低於一半時，攻擊吸血 {1}%', rageDrain: '造成 {1} 傷害，每少 10 點生命再 +{2}，回復造成傷害的三分之一',
     pBloodThorn: '每次被攻擊，反擊 {1} 傷害（每少 10 點生命再 +1）', hitStr: '這一輪每被攻擊一次，力量 +{1}（下回合起，整場）', revenge: '造成上一輪到現在妳失去的生命 ×{1} 的傷害',
     lowBlock: '格擋 {1}；生命低於一半時改成 {2}',
-    charm: '魅惑 {1}（它這一輪的出手，每層讓一擊打歪：妳只挨一半，另一半落到它自己人身上；沒用完就散了）', charmAll: '全體魅惑 {1}', pCharm: '每回合開始，生命最多的敵人魅惑 {1}', charmDmg: '造成 {1} 傷害；目標被魅惑時翻倍', drawIfCharm: '目標被魅惑時抽 {1} 張',
+    charm: '魅惑 {1}（它這一輪的出手，每層讓一擊打歪：妳只挨一半，另一半打歪到它自己人身上（力道剩三分之二，魔王剩三分之一）；沒用完就散了）', charmAll: '全體魅惑 {1}', pCharm: '每回合開始，生命最多的敵人魅惑 {1}', charmDmg: '造成 {1} 傷害；目標被魅惑時翻倍', drawIfCharm: '目標被魅惑時抽 {1} 張',
     ambushNext: '下一張攻擊牌傷害 ×1.5', freeAtk: '下一張攻擊牌不花靈力', pNeedle: '每回合第一次閃過攻擊，對攻擊者射出 {1} 傷害 ×3',
     hitsIfWeak: function (f) { return '造成 ' + f[1] + ' 傷害 ×' + f[2] + '；目標虛弱或妳有迴避時，每擊再 +' + f[3]; },
     dmgIfUnhit: '造成 {1} 傷害；敵人上一輪沒打中妳時再 +{2}', evadeAll: '這回合躲開所有攻擊', mulNext: '下回合攻擊傷害 ×{1}',
@@ -883,14 +883,14 @@ var G = (function () {
   // ── 開局與地圖 ───────────────────────────────────────
   // 兩章（第三章是隱藏關）。每章由上往下走 12 列：第 1 列進場（左中右三個入口），第 11 列休息，第 12 列魔王。
   // 地圖是分岔路：每一格只連到下一列固定的一到三格；迷霧：看得到接下來 3 列與魔王。
-  var ROWS = 12, COLS = 5, ACT_UP = 4, ACT2_UP = 8, HIDDEN_UP = 5, HIDDEN_RAMP = 0.7, ACT2 = { hp: 0.6, str: 9 };   // 第二章：敵人多長 8 列，再隨樓層加到五成血、力量 +8（自動玩家通關約三成，真人約五成）
+  var ROWS = 12, COLS = 5, ACT_UP = 4, ACT2_UP = 8, HIDDEN_UP = 5, HIDDEN_RAMP = 0.7, ACT2 = { hp: 0.7, str: 9 }, ELITE2 = { hp: 0.35, str: 3 };   // 第二章：敵人多長 8 列，再隨樓層加到五成血、力量 +8（自動玩家通關約三成，真人約五成）
   var FLOORS = ROWS;
   var ACT_NAMES = { 1: '第一章　落霞山', 2: '第二章　鬼哭城', 3: '隱藏關　九幽魔淵' };
   // 無盡模式：第二章之後不進隱藏關，改下鎮妖塔一層一層往下（第 3 章起叫「鎮妖塔第 N 層」），越來越強，看能爬多遠（走過的格子數＝成績）
   function actName(run, act) { act = act || run.act; return run.endless && act >= 3 ? '鎮妖塔　第 ' + (act - 2) + ' 層' : ACT_NAMES[act]; }
-  function bossAct(run) { var a = run.act || 1; return run.endless && a >= 3 ? { hp: 1.1 * (1 + 0.4 * (a - 2)), str: BOSS_ACT[2].str + 2 * (a - 2) } : BOSS_ACT[a]; }   // 魔王不吃每列的成長，所以無盡層另外每層 +40% 血、+2 力量
+  function bossAct(run) { var a = run.act || 1; return run.endless && a >= 3 ? { hp: 1.4 * (1 + 0.4 * (a - 2)), str: BOSS_ACT[2].str + 2 * (a - 2) } : BOSS_ACT[a]; }   // 魔王不吃每列的成長，所以無盡層另外每層 +40% 血、+2 力量
   var BOSS_POOL = { 1: ['zhanglao', 'shuyao', 'guijiang', 'niumo'], 2: ['huyao', 'duoxian', 'panguan', 'niumo'] };
-  var BOSS_ACT = { 1: { hp: 0.8, str: 0 }, 2: { hp: 1.3, str: 6 }, 3: { hp: 1.5, str: 6 } };
+  var BOSS_ACT = { 1: { hp: 0.9, str: 0 }, 2: { hp: 1.65, str: 6 }, 3: { hp: 1.5, str: 6 } };
   // opts：{ major 主修, fates 機緣（最多兩種；舊寫法 fate 單一個也可以）, asc 境界, diff 難度, endless 無盡 }（直接傳機緣的字串也可以）
   function newRun(who, seed, opts) {
     if (typeof opts === 'string') opts = { fate: opts };
@@ -1256,13 +1256,14 @@ var G = (function () {
     kraken: 0, pKraken: 0, pPetrifyAll: 0, pRage: 0,
     jy: 0, pJy: 0, dbl: 0, yuyin: 0, pYuyin: 0, fire: 0, pFire: 0, pNilin: 0, pHualong: 0, pLeech: 0, pBT: 0, hitStr: 0, pendStr: 0, lost: 0,
     pCharm: 0, ambNext: 0, freeAtk: 0, pNeedle: 0, needleUsed: 0, wasHit: 0, mulNext: 0, mulTurn: 0, pGumu: 0, log: [] };
-  var FOES_MAX = 4;
+  var LATER = { str: 1, strAll: 1, vuln: 1 };   // 敵人加力量、給妳易傷：這一輪全部的攻擊打完才生效
+  var FOES_MAX = 4, PACK_STR = [1, 1, 1, 0.75, 0.6];
   function makeEnemy(run, id, up, n) {
     var E = ENEMIES[id], hp = E.hp[0] + Math.floor(rnd(run) * (E.hp[1] - E.hp[0] + 1));
     hp = Math.round(hp * (1 + SCALE.hp * up));
     var bs = E.boss ? bossAct(run) : { hp: 1, str: 0 }, D = diffOf(run);
     var rampF = (run.act || 1) >= 3 ? (run.endless ? 1 : HIDDEN_RAMP) : Math.min(1, 0.4 + 0.6 * Math.max(0, (run.floor || 1) - 1) / 8);   // 第二章越往下越硬：開頭四成、第 9 列起全額（不要一進第二章就撞牆）
-    var A2 = (run.act || 1) >= 2 && !E.boss ? { hp: ACT2.hp * rampF, str: Math.round(ACT2.str * rampF) } : { hp: 0, str: 0 };   // 第二章（含隱藏關、無盡）的一般敵人與精英
+    var A2 = (run.act || 1) >= 2 && !E.boss ? { hp: ACT2.hp * rampF + (E.elite ? ELITE2.hp : 0), str: Math.round(ACT2.str * rampF) + (E.elite ? ELITE2.str : 0) } : { hp: 0, str: 0 };   // 第二章的精英再硬一點（難度放在精英與魔王，不放在雜兵的一輪爆發）   // 第二章（含隱藏關、無盡）的一般敵人與精英
     hp = Math.round(hp * bs.hp * (1 + D.hp) * (1 + A2.hp));
     return { id: id, key: id + n, name: E.name, hp: hp, maxHp: hp, block: 0, str: Math.floor(up / SCALE.strEvery) + bs.str + D.str + A2.str, vuln: 0, weak: 0,
       poison: 0, petrify: 0, stun: 0, charm: 0, parasite: 0, lives: E.lives || 0, mi: -1, last: -1, rep: 0, intent: null };
@@ -1272,6 +1273,7 @@ var G = (function () {
     Object.assign(b, { kind: kind, np: Math.min(99, (hasRelic(run, 'circuit') ? 25 : 0) + (run.npStart || 0)), np0: Math.min(99, (hasRelic(run, 'circuit') ? 25 : 0) + (run.npStart || 0)), firstAtk: hasRelic(run, 'blackkey'),
       draw: shuffle(run, run.deck), hand: [], discard: [], exhaust: [], enemies: [], up: kind === 'boss' ? 0 : scaleUp(run) });
     ids.forEach(function (id, i) { b.enemies.push(makeEnemy(run, id, b.up, i)); });
+    if (ids.length >= 3) b.enemies.forEach(function (e) { e.str = Math.round(e.str * PACK_STR[Math.min(ids.length, 4)]); });   // 成群的：每隻的力量少一點，不然一輪疊起來秒人
     if (hasRelic(run, 'azoth')) b.str += 1;
     if (hasRelic(run, 'book')) b.enemies.forEach(function (e) { e.weak += 1; });   // 懾魂鈴：只鎮得住開場就在的（之後叫來的不算）
     if (run.nextWeak) { if (p !== 'madness') b.weak += run.nextWeak; run.nextWeak = 0; }   // 白辰天不怕地不怕   // 黑店包子的後勁
@@ -1381,10 +1383,12 @@ var G = (function () {
     e.intent = nm ? Object.assign({}, mv, { n: nm[E.moves.indexOf(mv)] }) : mv;
   }
   // 敵人這一招畫面上要顯示的傷害（算進力量、虛弱、玩家易傷）
-  function intentDmg(run, e, f) { return foeDmg(run, e, f[1]); }
+  function intentDmg(run, e, f) { return foeDmg(run, e, f[1], f[2]); }
+  // 敵人的力量打在連擊上每擊加得少一點（兩下約七成、四下一半），不然多段攻擊一長力量就爆掉
+  function strPerHit(str, hits) { return hits > 1 ? Math.round(str / Math.sqrt(hits)) : str; }
   // 敵人一擊打你多少：力量、虛弱、你的易傷；鎮魂符的重壓（每層定身 -1）
-  function foeDmg(run, e, base) {
-    var b = run.battle, p = passive(run), d = calcDmg(base, e.str - (p === 'gaze' ? e.petrify : 0), e.weak, b.vuln);
+  function foeDmg(run, e, base, hits) {
+    var b = run.battle, p = passive(run), d = calcDmg(base, strPerHit(e.str - (p === 'gaze' ? e.petrify : 0), hits || 1), e.weak, b.vuln);
     return Math.max(0, d);
   }
   function calcDmg(base, str, weak, vuln) {
@@ -1398,7 +1402,7 @@ var G = (function () {
     if (!pierce) { var took = Math.min(e.block, d); e.block -= took; d -= took; }
     var before = e.hp; e.hp -= d;
     if (e.hp <= 0) {
-      if (e.lives > 0) { e.lives--; e.hp = Math.round(e.maxHp * ENEMIES[e.id].revive); e.block = 0; e.vuln = 0; e.weak = 0; log.push(e.name + '倒下了，又站了起來（還剩 ' + e.lives + ' 次）'); return before; }
+      if (e.lives > 0) { e.lives--; e.hp = Math.round(e.maxHp * ENEMIES[e.id].revive); e.block = 0; e.vuln = 0; log.push(e.name + '倒下了，又站了起來（還剩 ' + e.lives + ' 次）'); return before; }
       e.hp = 0; run.stats.kills++; log.push(e.name + '倒下了');
       if (e.parasite > 0 && run.battle) {   // 蟲蠱：宿主倒下，蟲子爬到下一個身上（再多 2）
         var nx = alive(run.battle).filter(function (o) { return o !== e; });
@@ -1417,7 +1421,7 @@ var G = (function () {
     if (!e || e.hp <= 0) return;
     e.petrify += n;
     if (passive(run) === 'gaze') npAdd(run.battle, n * NP_GAIN.gaze);   // 青璃：貼上的定身累積神通
-    if (e.petrify >= stunAt(e, run)) { e.petrify = 0; e.stun = 1; e.stuns = (e.stuns || 0) + 1; log.push(e.name + '被定住了'); }
+    if (!e.stun && e.petrify >= stunAt(e, run)) { e.petrify = 0; e.stun = 1; e.stuns = (e.stuns || 0) + 1; log.push(e.name + '被定住了'); }
   }
   // 玩家受到傷害（不滅血體、九轉還魂丹在這裡擋）
   function loseHp(run, d, log) {
@@ -1520,8 +1524,8 @@ var G = (function () {
     poisonX2: function (x) { if (x.tg) x.tg.poison *= 2; },
     exec: function (x, f) {
       var e = x.tg; if (!e || e.hp <= 0) return;
-      var E = ENEMIES[e.id], lim = E.boss ? 0 : E.elite ? f[1] : 100;   // 一般敵人抵抗不了；精英要先削弱；魔王咬不死
-      if (e.hp <= e.maxHp * lim / 100) { e.lives = 0; hitEnemy(x.run, e, e.hp, x.log, true); x.log.push('萬蠱噬心——' + e.name + '倒下了'); }
+      var E = ENEMIES[e.id], lim = E.boss ? 0 : E.elite ? f[1] : 100, pad = x.b.pvPad || 0;   // 一般敵人抵抗不了；精英要先削弱；魔王咬不死（pad：預計時墊的血不算）
+      if (e.hp - pad <= (e.maxHp - pad) * lim / 100) { e.lives = 0; hitEnemy(x.run, e, e.hp - pad, x.log, true); x.log.push('萬蠱噬心——' + e.name + '倒下了'); }
       else strike(x, e, f[2], true);
     },
     projUp: function (x, f) { x.b.projUp += f[1]; },
@@ -1541,7 +1545,7 @@ var G = (function () {
     pJy: function (x, f) { x.b.pJy = (x.b.pJy || 0) + f[1]; },
     guiyi: function (x, f) { var n = x.b.swords || 0; x.b.swords = 0; syncSword(x.b); x.b.jy = (x.b.jy || 0) + n * f[1]; x.log.push('收回 ' + n + ' 把飛劍，劍意 ' + x.b.jy); },
     jyStrike: function (x, f) { var j = RES.jy(x.b); x.b.jy = 0; x.b.swords = 0; syncSword(x.b); if (x.tg) strike(x, x.tg, f[1] + f[2] * j, true); if (j) x.log.push('萬劍歸於一劍（劍意 ' + j + '）'); },
-    breakDmg: function (x, f) { var e = x.tg; if (!e) return; e.block = 0; if (e.str > 0) e.str = 0; strike(x, e, f[1] + (f[2] || 0) * RES.jy(x.b)); },
+    breakDmg: function (x, f) { var e = x.tg; if (!e) return; if (x.b.pvStrip) x.b.pvStrip[e.key] = (x.b.pvStrip[e.key] || 0) + e.block; e.block = 0; if (e.str > 0) e.str = 0; strike(x, e, f[1] + (f[2] || 0) * RES.jy(x.b)); },
     dbl: function (x) { x.b.dbl = 1; },
     // 凌霜・琴心：餘音（回合結束震傷全體，再散去三分之一）
     yuyin: function (x, f) { x.b.yuyin = (x.b.yuyin || 0) + f[1]; },
@@ -1651,7 +1655,7 @@ var G = (function () {
     b.hand.splice(i, 1);
     if (id === 'sword') { b.swords = Math.max(0, (b.swords || 1) - 1); if (b.swords > 0) b.hand.splice(i, 0, 'sword'); }   // 飛劍：用一把，還有就留在原位
     var ctx = { run: run, b: b, tg: tg, log: [c.name], id: baseId(c.id), atk: c.type === 'atk', first: b.played === 0 };
-    if (ctx.atk) { ctx.mul = (b.dbl ? 2 : 1) * (b.ambNext ? 1.5 : 1); if (ctx.mul === 1) ctx.mul = 0; b.dbl = 0; b.ambNext = 0; b.freeAtk = 0; }   // 下一張攻擊牌的加成用在這張
+    if (ctx.atk) { ctx.mul = (b.dbl ? 2 : 1) * (b.ambNext ? 1.5 : 1); if (ctx.mul === 1) ctx.mul = 0; b.dbl = 0; b.ambNext = 0; if (c.cost > 0) b.freeAtk = 0; }   // 下一張攻擊牌的加成用在這張（無影：0 費的飛劍不吃掉它）
     runFx(ctx, c.fx);
     if (ctx.atk && passive(run) === 'ambush' && c.path === 'anqi') npAdd(b, NP_GAIN.anqi);   // 阿朵・暗器：出暗器累積神通
     if (c.type === 'power') c.fx.forEach(function (f) { var now = POWER_NOW[f[0]]; if (now) OPS[now](ctx, [now, f[1]]); });   // 能力牌：打出當下先生效一次
@@ -1668,13 +1672,14 @@ var G = (function () {
   // raw＝true：先把敵人生命墊高再試打，量「實際打出多少」（不會被剩下的生命截掉）
   function preview(run, i, target, raw) {
     var r = JSON.parse(JSON.stringify(run)), b = r.battle; if (!b) return null;
-    if (raw) b.enemies.forEach(function (e) { if (e.hp > 0) { e.hp += 9999; e.maxHp += 9999; } });
+    if (raw) { b.pvPad = 9999; b.enemies.forEach(function (e) { if (e.hp > 0) { e.hp += 9999; e.maxHp += 9999; } }); }
+    b.pvStrip = {};   // 斬念打掉的格擋不算傷害
     var before = b.enemies.map(function (e) { return { hp: e.hp, block: e.block, lives: e.lives }; }), blk = b.block;
     var res = i === 'np' ? noble(r, target) : play(r, i, target);
     if (!res.ok) return null;
     var per = r.battle ? r.battle.enemies.map(function (e, k) {
       var o = before[k]; if (!o) return 0;
-      var lost = (o.hp - Math.max(0, e.hp)) + (o.block - e.block);
+      var lost = (o.hp - Math.max(0, e.hp)) + (o.block - e.block) - ((r.battle.pvStrip || {})[e.key] || 0);
       if (e.lives < o.lives) lost = o.hp + o.block + (e.maxHp * ENEMIES[e.id].revive - e.hp);   // 打倒一次又站起來
       return Math.max(0, Math.round(lost));
     }) : [];
@@ -1684,7 +1689,8 @@ var G = (function () {
   // 神通：量表滿了才能放，每回合一次
   function noble(run, target) {
     var b = run.battle;
-    if (!b || b.np < 100) return { ok: false, msg: '神通量表還沒滿' };
+    if (!b || run.screen !== 'battle') return { ok: false, msg: '不在戰鬥中' };
+    if (b.np < 100) return { ok: false, msg: '神通量表還沒滿' };
     if (b.npUsed) return { ok: false, msg: '這回合已經放過神通了（每回合一次）' };
     var N = serv(run).np, fx = npFx(run, N), tg = null;
     if (needsTarget(fx)) { tg = pickTarget(b, target); if (!tg) return { ok: false, msg: '選一個目標', needTarget: true }; }
@@ -1727,8 +1733,8 @@ var G = (function () {
   }
 
   // 敵人的一次攻擊：土遁全部躲開｜迴避整次躲開｜格擋｜阿白替你擋一半｜穿透攻擊只有迴避擋得住
-  function enemyHit(run, e, n, pierce, log, half) {
-    var b = run.battle, d = half ? Math.floor(foeDmg(run, e, n) / 2) : foeDmg(run, e, n);   // half：被魅惑的一擊，你只挨一半
+  function enemyHit(run, e, n, pierce, log, half, hits) {
+    var b = run.battle, d = half ? Math.floor(foeDmg(run, e, n, hits) / 2) : foeDmg(run, e, n, hits);   // half：被魅惑的一擊，你只挨一半
     if (b.evadeAll) { log.push('遁形：' + e.name + '的攻擊落空'); return; }
     if (b.evade > 0) {
       b.evade--; log.push('閃過了' + e.name + '的攻擊');
@@ -1749,24 +1755,24 @@ var G = (function () {
   function charmHit(run, e, f, log) {
     var b = run.battle;
     for (var h = 0; h < (f[2] || 1) && e.hp > 0 && run.hp > 0; h++) {
-      if (!(e.charm > 0)) { enemyHit(run, e, f[1], f[0] === 'atkP', log); continue; }
+      if (!(e.charm > 0)) { enemyHit(run, e, f[1], f[0] === 'atkP', log, false, f[2]); continue; }
       e.charm--;
-      enemyHit(run, e, f[1], f[0] === 'atkP', log, true);   // 你只挨一半
+      enemyHit(run, e, f[1], f[0] === 'atkP', log, true, f[2]);   // 你只挨一半
       var others = alive(b).filter(function (o) { return o !== e; }), t = others.length ? pick(run, others) : e;
-      var d = calcDmg(Math.ceil(f[1] / 2), e.str - (passive(run) === 'gaze' ? e.petrify : 0), e.weak, 0);
+      var d = calcDmg(Math.ceil(f[1] / 2), strPerHit(e.str - (passive(run) === 'gaze' ? e.petrify : 0), f[2] || 1), e.weak, 0);
       d = Math.floor(d * (ENEMIES[e.id].boss ? 1 : 2) / 3);   // 打歪的那一半，打到自己人時剩三分之二力道（魔王心智堅定，只剩三分之一）
       hitEnemy(run, t, dmgTo(t, d), log, f[0] === 'atkP');
     }
   }
   function enemyAct(run, e, f, log) {
     var b = run.battle, k = f[0], n = f[1];
-    if (k === 'atk' || k === 'atkP') { for (var h = 0; h < (f[2] || 1) && run.hp > 0 && e.hp > 0; h++) enemyHit(run, e, n, k === 'atkP', log); }
+    if (k === 'atk' || k === 'atkP') { for (var h = 0; h < (f[2] || 1) && run.hp > 0 && e.hp > 0; h++) enemyHit(run, e, n, k === 'atkP', log, false, f[2]); }
     else if (k === 'block') e.block += n;
     else if (k === 'breakBlock') { if (b.block) log.push(e.name + '勾掉了妳的格擋'); b.block = 0; }
     else if (k === 'strAll') alive(b).forEach(function (o) { o.str += n; });
     else if (k === 'blockAll') alive(b).forEach(function (o) { o.block += n; });
     else if (k === 'sapEnergy') { b.nextEnergy -= n; log.push(e.name + '索走了妳的靈力'); }
-    else if (k === 'stealBlock') { if (b.block) { e.block += b.block; log.push(e.name + '奪走了妳 ' + b.block + ' 格擋'); b.block = 0; } }
+    else if (k === 'stealBlock') { var sb = Math.ceil(b.block / 2); if (sb) { e.block += sb; b.block -= sb; log.push(e.name + '奪走了妳 ' + sb + ' 格擋'); } }   // 奪一半
     else if (k === 'thornsSelf') e.thorns = n;
     else if (k === 'str') e.str += n;
     else if (k === 'weak' || k === 'vuln') debuffPlayer(run, k, n);
@@ -1775,14 +1781,25 @@ var G = (function () {
     else if (k === 'plant') { for (var c2 = 0; c2 < f[2]; c2++) (!handFull(b) ? b.hand : b.discard).push(n); log.push(card(n).name + '鑽進了妳的手牌'); }
     else if (k === 'summon') {
       for (var s = 0; s < f[2] && alive(b).length < FOES_MAX; s++) {
-        var m = makeEnemy(run, n, b.up, b.enemies.length); chooseIntent(run, m); b.enemies.push(m);
+        var m = makeEnemy(run, n, b.up, 's' + (b.sumN = (b.sumN || 0) + 1)); chooseIntent(run, m);
+        var slot = b.enemies.findIndex(function (o) { return o.hp <= 0 && !ENEMIES[o.id].boss; });   // 倒下的援軍讓出位置（不然叫一次多一格，越積越多）
+        if (slot >= 0) b.enemies[slot] = m; else b.enemies.push(m);
       }
     }
   }
 
+  // 現在結束回合會掉多少血：拿一份複本把敵人回合真的跑一次（格擋、迴避、阿白、奪勢、碎格擋、手上的魔氣都算進去）
+  function forecast(run) {
+    var r = JSON.parse(JSON.stringify(run)), hp0 = r.hp, lives0 = r.lives || 0;
+    if (!r.battle || r.screen !== 'battle') return null;
+    endTurn(r);
+    var fell = r.hp <= 0 || (r.lives || 0) < lives0;
+    return { loss: fell ? hp0 : Math.max(0, hp0 - r.hp), lethal: r.hp <= 0, revive: (r.lives || 0) < lives0 && r.hp > 0 };
+  }
   function endTurn(run) {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false };
     var log = [];
+    b.npUsed = 0;   // 每回合一次的限制只管妳的回合：敵人回合裡挨打、阿白咬人照樣累積神通
     b.lost = 0; b.wasHit = 0;   // 以血還血、斷魂一刺：從這一輪重新算
     b.hand.forEach(function (x) { var h = card(x).hold; if (h) { loseHp(run, h, log); log.push(card(x).name + '侵蝕了妳（-' + h + '）'); } });
     if (b.swords && run.major === 'guiyi') { b.jy += 3 * b.swords; b.swords = 0; }   // 歸一：沒用完的飛劍收回來化成劍意（每把 3 層）
@@ -1804,6 +1821,7 @@ var G = (function () {
     }
     var end = checkEnd(run);
     if (end) { b.log = log; return { ok: true, end: end }; }
+    var later = [];
     alive(b).forEach(function (e) { e.block = 0; e.thorns = 0; });   // 敵人的格擋、反震撐到它們這一輪開始（陰兵列陣給隊友的格擋才不會被洗掉）
     alive(b).forEach(function (e) {
       if (run.hp <= 0 || e.hp <= 0) return;
@@ -1813,13 +1831,14 @@ var G = (function () {
       if (e.stun) { e.stun = 0; e.charm = 0; log.push(e.name + '動彈不得'); }   // 動彈不得的這一輪，魅惑也一起散掉
       else {
         var charmed = e.charm > 0 && e.intent.fx.some(function (f) { return f[0] === 'atk' || f[0] === 'atkP'; });
-        e.intent.fx.forEach(function (f) { if (charmed && (f[0] === 'atk' || f[0] === 'atkP')) charmHit(run, e, f, log); else enemyAct(run, e, f, log); });
+        e.intent.fx.forEach(function (f) { if (LATER[f[0]]) later.push([e, f]); else if (charmed && (f[0] === 'atk' || f[0] === 'atkP')) charmHit(run, e, f, log); else enemyAct(run, e, f, log); });
         log.push(e.name + '：' + e.intent.n + (charmed ? '（被魅惑了）' : ''));
         e.charm = 0;   // 魅惑只管這一輪：沒用完的也散了
       }
       if (e.vuln > 0) e.vuln--; if (e.weak > 0) e.weak--;
       if (e.hp > 0 && !e.stun) chooseIntent(run, e);
     });
+    later.forEach(function (x) { if (x[0].hp > 0 && run.hp > 0) enemyAct(run, x[0], x[1], log); });   // 力量、易傷等全部的攻擊打完才生效：妳看到的意圖數字就是這一輪真的打過來的
     b.thorns = 0;
     if (vulnBefore > 0 && b.vuln > 0) b.vuln--;
     b.log = log;
@@ -1963,7 +1982,7 @@ var G = (function () {
   return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, ENCOUNTERS: ENCOUNTERS, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, BOSS_POOL: BOSS_POOL, actName: actName, scaleUp: scaleUp, krakenBites: krakenBites, ROWS: ROWS, COLS: COLS, ACT_NAMES: ACT_NAMES, EVENTS: EVENTS,
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff, REALMS: REALMS,
     FATES: FATES, chooseIntent: chooseIntent, NP_GAIN: NP_GAIN, stunAt: stunAt, SECTS_LORE: SECTS_LORE, startEvent: startEvent, PATHS: PATHS, pathsOf: pathsOf, pathById: pathById, majorOf: majorOf, chooseMajor: chooseMajor, ownPool: ownPool, masterText: masterText, parasiteSum: parasiteSum, npHow: npHow, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, EPILOGUE: EPILOGUE, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
-    preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
+    preview: preview, forecast: forecast, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
     card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, isCurse: isCurse, makeEnemy: makeEnemy, checkEnd: checkEnd, luckMod: luckMod, d20Chance: d20Chance, dullOf: dullOf, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, ownerOf: ownerOf,
     PILLS: PILLS, PILL_SLOTS: PILL_SLOTS, usePill: usePill, swapPill: swapPill, gainPill: gainPill, newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
     takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic, needsTarget: needsTarget };
