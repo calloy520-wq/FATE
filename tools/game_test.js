@@ -91,8 +91,8 @@ r=arena(); E(r).petrify=2; playId(r,'shatter'); t(E(r).hp===50-(6+7*2)&&E(r).pet
 r=arena(); E(r).stun=1; playId(r,'kick'); t(E(r).hp===30,'掌心雷：動彈不得的目標 8＋12',E(r).hp);
 r=arena(); playId(r,'gorgon'); t(E(r).petrify===1,'能力牌打出當下先生效一次：符籙通神全體定身 1'); G.endTurn(r); t(E(r).petrify===2,'符籙通神：之後每回合全體定身 1');
 r=arena(); playId(r,'monstrous'); t(r.battle.tstr===2&&E(r).petrify===1,'大力符：本回合力量 +2、定身 1');
-r=arena(); E(r).petrify=2; E(r).intent={n:'砍',fx:[['atk',10]]}; t(G.intentDmg(r,E(r),E(r).intent.fx[0])===9,'鎮魂符的重壓：定身 2 層，攻擊 -1（每 2 層 -1），預告也照算');
-hp=r.hp; G.endTurn(r); t(hp-r.hp===9,'實際也只受到 9',hp-r.hp);
+r=arena(); E(r).petrify=2; E(r).intent={n:'砍',fx:[['atk',10]]}; t(G.intentDmg(r,E(r),E(r).intent.fx[0])===8,'鎮魂符的重壓：定身 2 層，攻擊 -2（每層 -1），預告也照算');
+hp=r.hp; G.endTurn(r); t(hp-r.hp===8,'實際也只受到 8',hp-r.hp);
 { const q=arena('shuang'); E(q).petrify=2; E(q).intent={n:'砍',fx:[['atk',10]]}; t(G.intentDmg(q,E(q),E(q).intent.fx[0])===10,'別人沒有符的重壓'); }
 t(G.SERVANTS.qingli.sig==='chain'&&['chain','nails','kick','monstrous','bloodfort','mystic'].every(k=>G.CARDS[k]&&G.CARDS[k].kit==='qingli'),'捆妖索（招牌牌）、符針、掌心雷、大力符、化煞陣、定身符都是青璃的');
 
@@ -456,4 +456,6 @@ t(G.ORDER.every(k=>G.ENDINGS[k]&&G.ENDINGS[k].title&&G.ENDINGS[k].text.length>=3
 { const q=arena('xiaoman'); q.battle=null; q.nextWeak=2; step(q,'fight'); t(q.battle.weak===0,'白辰：黑店包子也虛弱不了她'); }
 { const q=G.newRun('qingli',5); q.pills=['huichun','juling','dunxing']; q.screen='reward'; q.reward={cards:[],pill:'tongshen'}; G.swapPill(q,1); t(q.pills[1]==='tongshen'&&!q.reward.pill,'丹藥袋滿了：可以拿新的換掉一顆',q.pills.join()); }
 
+{ const q=arena('qingli'); const e=E(q); e.id='niumo'; e.hp=e.maxHp=500; q.battle.energy=99; const th=[]; for(let k=0;k<3;k++){ th.push(G.stunAt(e)); e.petrify=G.stunAt(e)-1; playId(q,'chain'); e.stun=0; } t(th.join()==='5,5,6','魔王第二次起每被定住一次門檻 +1（定不死）',th.join()); }
+{ const q=arena('qingli'); const e=E(q); q.battle.energy=99; const th=[]; for(let k=0;k<3;k++){ th.push(G.stunAt(e)); e.petrify=G.stunAt(e)-1; playId(q,'chain'); e.stun=0; } t(th.join()==='3,3,3','一般敵人照舊（定身門檻不會變高）',th.join()); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

@@ -154,7 +154,7 @@ var G = (function () {
       np: { name: '萬劍歸宗', fx: [['ubw', 1], ['projAll', 6, 2]] } },
     qingli: { name: '顧青璃', cls: '符修', hp: 63, sig: 'chain',
       desc: '玄真觀的小道姑，畫符天才，嘴毒又愛錢。定身符一層層貼上去，貼滿了敵人就動彈不得，貼得越多敵人越虛；最後五雷轟頂，把符一次引爆。',
-      passive: { id: 'gaze', name: '鎮魂符', text: '每場戰鬥開始時，全體敵人定身 1；敵人每 2 層定身，攻擊 -1（符的重壓）；定身疊滿就動彈不得一回合' },
+      passive: { id: 'gaze', name: '鎮魂符', text: '每場戰鬥開始時，全體敵人定身 1；敵人每層定身，攻擊 -1（符的重壓）；定身疊滿就動彈不得一回合' },
       np: { name: '天羅地網', fx: [['all', 38], ['petrifyAll', 2]] } },
     xiaoman: { name: '白辰', cls: '御獸', hp: 57, sig: 'horror',
       desc: '活了一千多年、蛻回孩童模樣的御獸老祖宗（大家私下叫她「小滿」，她一聽就炸毛），身邊盤著本命靈龍「阿白」。阿白每回合長大，會自己咬人、替她擋傷害，整趟冒險越養越大。',
@@ -1044,7 +1044,7 @@ var G = (function () {
   var MADNESS = { chilian: 2 };   // 血煞反噬：第 2 回合起每回合開始失去的生命
   // 神通量表（2026-10-02 去 Fate 味）：不再靠出牌累積，而是靠各自的機制——
   // 凌霜每祭出一把飛劍｜青璃每貼一層定身｜白辰阿白每長大 1、每咬一口｜赤練每失去 1 生命｜阿朵每讓敵人多中 1 層毒
-  var NP_GAIN = { forge: 10, gaze: 7, madness: 0.5, bite: 1, revive: 11, ambush: 5 };
+  var NP_GAIN = { forge: 10, gaze: 7, madness: 0.5, bite: 1, revive: 9, ambush: 5 };
   function npHow(who) {   // 給玩家看：這位的神通量表怎麼漲
     var p = (SERVANTS[who].passive || {}).id;
     return p === 'forge' ? '每祭出 1 把飛劍 +' + NP_GAIN.forge + '%' : p === 'gaze' ? '每貼 1 層定身 +' + NP_GAIN.gaze + '%' : p === 'madness' ? '阿白每長大 2 +1%、每咬一口 +' + NP_GAIN.bite + '%'
@@ -1114,9 +1114,9 @@ var G = (function () {
   }
   // 敵人這一招畫面上要顯示的傷害（算進力量、虛弱、玩家易傷）
   function intentDmg(run, e, f) { return foeDmg(run, e, f[1]); }
-  // 敵人一擊打你多少：力量、虛弱、你的易傷；鎮魂符的重壓（每 2 層定身 -1）
+  // 敵人一擊打你多少：力量、虛弱、你的易傷；鎮魂符的重壓（每層定身 -1）
   function foeDmg(run, e, base) {
-    var b = run.battle, p = passive(run), d = calcDmg(base, e.str - (p === 'gaze' ? Math.floor(e.petrify / 2) : 0), e.weak, b.vuln);
+    var b = run.battle, p = passive(run), d = calcDmg(base, e.str - (p === 'gaze' ? e.petrify : 0), e.weak, b.vuln);
     return Math.max(0, d);
   }
   function calcDmg(base, str, weak, vuln) {
@@ -1136,12 +1136,12 @@ var G = (function () {
     }
     return before - Math.max(0, e.hp);
   }
-  function stunAt(e) { var E = ENEMIES[e.id]; return E.stunAt || (E.boss ? 5 : E.elite ? 4 : 3); }
+  function stunAt(e) { var E = ENEMIES[e.id]; return (E.stunAt || (E.boss ? 5 : E.elite ? 4 : 3)) + (E.boss ? Math.max(0, (e.stuns || 0) - 1) : 0); }   // 魔王第二次起每被定住一次，門檻 +1（定不死）
   function petrify(run, e, n, log) {
     if (!e || e.hp <= 0) return;
     e.petrify += n;
     if (passive(run) === 'gaze') npAdd(run.battle, n * NP_GAIN.gaze);   // 青璃：貼上的定身累積神通
-    if (e.petrify >= stunAt(e)) { e.petrify = 0; e.stun = 1; log.push(e.name + '被定住了'); }
+    if (e.petrify >= stunAt(e)) { e.petrify = 0; e.stun = 1; e.stuns = (e.stuns || 0) + 1; log.push(e.name + '被定住了'); }
   }
   // 玩家受到傷害（不滅血體、九轉還魂丹在這裡擋）
   function loseHp(run, d, log) {
@@ -1552,7 +1552,7 @@ var G = (function () {
 
   return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, ENCOUNTERS: ENCOUNTERS, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, BOSS_POOL: BOSS_POOL, actName: actName, scaleUp: scaleUp, krakenBites: krakenBites, ROWS: ROWS, COLS: COLS, ACT_NAMES: ACT_NAMES, EVENTS: EVENTS,
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff, REALMS: REALMS,
-    FATES: FATES, NP_GAIN: NP_GAIN, npHow: npHow, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
+    FATES: FATES, NP_GAIN: NP_GAIN, stunAt: stunAt, npHow: npHow, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
     card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, isCurse: isCurse, makeEnemy: makeEnemy, checkEnd: checkEnd, luckMod: luckMod, d20Chance: d20Chance, dullOf: dullOf, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, ownerOf: ownerOf,
     PILLS: PILLS, PILL_SLOTS: PILL_SLOTS, usePill: usePill, swapPill: swapPill, gainPill: gainPill, newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
