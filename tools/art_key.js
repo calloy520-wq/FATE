@@ -24,16 +24,19 @@ const JOBS=process.argv.length>2?process.argv.slice(2).map(a=>{const [id,h]=a.sp
       const rs=[],gs=[],bs=[]; const push=i=>{rs.push(a[i]);gs.push(a[i+1]);bs.push(a[i+2]);};
       for(let i=0;i<W;i+=4){push((i)*4);push(((H-1)*W+i)*4);} for(let j=0;j<H;j+=4){push((j*W)*4);push((j*W+W-1)*4);}
       const med=v=>v.sort((p,q)=>p-q)[v.length>>1]; const kr=med(rs),kg=med(gs),kb=med(bs);
-      const dk=kg-Math.max(kr,kb), lo=dk*0.06, hi=dk*0.55;   // 透明度＝混進多少綠幕（薄紗、墨霧才會正確變半透明）
+      const mag=kg<Math.min(kr,kb);   // 洋紅幕（綠色的角色，例如樹妖）：紅藍高、綠低
+      const ex=(r,g,bl)=>mag?Math.min(r,bl)-g:g-Math.max(r,bl);   // 幕色有多「純」
+      const dk=ex(kr,kg,kb), lo=dk*0.06, hi=dk*0.55;   // 透明度＝混進多少幕色（薄紗、墨霧才會正確變半透明）
+      const despill=(i,cap)=>{const r=a[i],g=a[i+1],bl=a[i+2]; if(mag){const s=Math.max(0,Math.min(Math.min(r,bl)-g,cap)); a[i]=r-s;a[i+2]=bl-s;} else a[i+1]=Math.min(g,Math.max(r,bl)+cap);};
       let minX=W,minY=H,maxX=0,maxY=0;
       for(let y=0;y<H;y++)for(let X=0;X<W;X++){const i=(y*W+X)*4,r=a[i],g=a[i+1],bl=a[i+2];
-        const dd=g-Math.max(r,bl); let al=dd<=lo?1:dd>=hi?0:1-(dd-lo)/(hi-lo);
+        const dd=ex(r,g,bl); let al=dd<=lo?1:dd>=hi?0:1-(dd-lo)/(hi-lo);
         if(al<0.06) al=0;
         if(al>0&&al<1){ // 還原被綠幕混到的顏色，再去溢色
           let R=(r-(1-al)*kr)/al,Gg=(g-(1-al)*kg)/al,B=(bl-(1-al)*kb)/al;
           R=Math.max(0,Math.min(255,R));Gg=Math.max(0,Math.min(255,Gg));B=Math.max(0,Math.min(255,B));
-          a[i]=R;a[i+1]=Math.min(Gg,Math.max(R,B));a[i+2]=B;
-        } else if(al===1 && dd>0){ a[i+1]=Math.max(r,bl)+Math.round(Math.min(dd,lo)*0.5); }
+          a[i]=R;a[i+1]=Gg;a[i+2]=B; despill(i,0);
+        } else if(al===1 && dd>0){ despill(i,mag?dd-Math.round(Math.min(dd,lo)*0.5):Math.round(Math.min(dd,lo)*0.5)); }
         a[i+3]=Math.round(al*255);
         if(al>0.1){ if(X<minX)minX=X; if(X>maxX)maxX=X; if(y<minY)minY=y; if(y>maxY)maxY=y; }
       }
