@@ -6,7 +6,8 @@ var ART_BASE = 'https://raw.githubusercontent.com/calloy520-wq/FATE/claude/tradi
 var ART = {
   shuang: ART_BASE + 'shuang.webp', qingli: ART_BASE + 'qingli.webp', xiaoman: ART_BASE + 'xiaoman.webp',
   chilian: ART_BASE + 'chilian.webp', aduo: ART_BASE + 'aduo.webp',
-  abai: ART_BASE + 'abai.webp'   // 阿白（白辰的龍）
+  abai: ART_BASE + 'abai.webp',   // 阿白（白辰的龍）
+  bg_hill: ART_BASE + 'bg_hill.webp', bg_city: ART_BASE + 'bg_city.webp', bg_abyss: ART_BASE + 'bg_abyss.webp', bg_tower: ART_BASE + 'bg_tower.webp'   // 戰鬥背景（16:9，手機會切掉左右）
 };
 var FIG = (function () {
   // 圖讀不到時：藏起圖、改顯示緊接在後的剪影（凌霜疊在圖後的飛劍也藏起來，剪影自己有畫）
@@ -197,7 +198,10 @@ var FIG = (function () {
       + '<path d="M300 150 L306 96 L332 96 L338 150 Z" fill="#160f20"/><path d="M312 106 L326 106 M312 114 L326 114 M312 122 L326 122" stroke="#9a5cff" stroke-width="1" opacity=".6"/>';
     if (k === 'tower') s = '<path d="M180 160 L184 40 L176 40 L200 10 L224 40 L216 40 L220 160 Z" fill="#141a33"/><path d="M168 64 L232 64 M164 96 L236 96 M160 128 L240 128" stroke="#141a33" stroke-width="8"/>'
       + '<path d="M0 200 L0 160 L400 160 L400 200 Z" fill="#0a0d1c"/><circle cx="200" cy="30" r="3" fill="#ffd36e"/>';
-    return '<svg class="scene-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMax slice" aria-hidden="true">' + s + '</svg>';
+    var svg = '<svg class="scene-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMax slice" aria-hidden="true">' + s + '</svg>';
+    // 有背景圖就用圖（讀不到再換回程式畫的）
+    if (ART['bg_' + k]) return '<img class="scene-img" src="' + ART['bg_' + k] + '" alt="" draggable="false" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'\'">' + svg.replace('<svg class="scene-svg"', '<svg class="scene-svg" style="display:none"');
+    return svg;
   }
   function sceneClass(run) { var a = run.act || 1; return run.endless && a >= 3 ? 'sc-tower' : a === 3 ? 'sc-abyss' : a === 2 ? 'sc-city' : 'sc-hill'; }
   return { fig: fig, dragon: dragon, scene: scene, sceneClass: sceneClass, HERO: HERO, FOE: FOE };
