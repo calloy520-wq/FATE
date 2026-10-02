@@ -675,7 +675,7 @@ var G = (function () {
     drain: '造成 {1} 傷害，回復等量生命', pLeech: '生命低於一半時，攻擊吸血 {1}%', rageDrain: '造成 {1} 傷害，每少 10 點生命再 +{2}，回復造成傷害的三分之一',
     pBloodThorn: '每次被攻擊，反擊 {1} 傷害（每少 10 點生命再 +1）', hitStr: '這一輪每被攻擊一次，下回合力量 +{1}', revenge: '造成上一輪到現在妳失去的生命 ×{1} 的傷害',
     lowBlock: '格擋 {1}；生命低於一半時改成 {2}',
-    charm: '魅惑 {1}（它這一輪的出手，每層讓一擊分一半打到自己人，妳只挨一半；沒用完就散了）', charmAll: '全體魅惑 {1}', pCharm: '每回合開始，生命最多的敵人魅惑 {1}', charmDmg: '造成 {1} 傷害；目標被魅惑時翻倍', drawIfCharm: '目標被魅惑時抽 {1} 張',
+    charm: '魅惑 {1}（它這一輪的出手，每層讓一擊打歪：妳只挨一半，另一半落到它自己人身上；沒用完就散了）', charmAll: '全體魅惑 {1}', pCharm: '每回合開始，生命最多的敵人魅惑 {1}', charmDmg: '造成 {1} 傷害；目標被魅惑時翻倍', drawIfCharm: '目標被魅惑時抽 {1} 張',
     ambushNext: '下一張攻擊牌傷害 ×1.5', freeAtk: '下一張攻擊牌不花靈力', pNeedle: '每回合第一次閃過攻擊，對攻擊者射出 {1} 傷害 ×3',
     hitsIfWeak: function (f) { return '造成 ' + f[1] + ' 傷害 ×' + f[2] + '；目標虛弱或妳有迴避時，每擊再 +' + f[3]; },
     dmgIfUnhit: '造成 {1} 傷害；敵人上一輪沒打中妳時再 +{2}', evadeAll: '這回合躲開所有攻擊', mulNext: '下回合攻擊傷害 ×{1}',
@@ -1031,7 +1031,7 @@ var G = (function () {
       opts: [{ label: '失去 7 生命，從三張強化過的專屬牌選一張', need: { hp: 7 }, fx: [['hp', -7], ['cards', 3]] }, { label: '離開', fx: [] }] },
     shard:   { name: '天書殘頁', text: '石縫裡夾著一張發光的紙。紙上的字，自己會動。',
       opts: [{ label: '收下：得到秘傳「天書殘頁」', fx: [['addCard', 'grail']] }, { label: '不碰：回復 15 生命', fx: [['hp', 15]] }] },
-    resonance:{ name: '玉符的共鳴', text: '懷裡的師門玉符在發燙。捏碎它，靈力會流進妳的招式——但魔淵的門，也就再也打不開了。',
+    resonance:{ noEndless: 1, name: '玉符的共鳴', text: '懷裡的師門玉符在發燙。捏碎它，靈力會流進妳的招式——但魔淵的門，也就再也打不開了。',
       opts: [{ label: '捏碎師門玉符：選兩張牌強化', need: { seal: 1 }, fx: [['seal', -1], ['pick', 'upgrade'], ['pick', 'upgrade']] }, { label: '忍住', fx: [] }] },
     spring:  { name: '山中靈泉', text: '竹林深處有一口泉。水面冒著白煙，泉水冰冷清澈。',
       opts: [{ label: '喝下：回復三成生命', fx: [['healPct', 30]] }, { label: '浸泡：最大生命 +6', fx: [['maxHp', 6]] }] },
@@ -1088,7 +1088,7 @@ var G = (function () {
       opts: [{ label: '接下劍意（🎲≥13）：成功→從牌組移除兩張牌；失敗→被劍意所傷，失去 14 生命', fx: [['d20', 13, [['pick', 'remove'], ['pick', 'remove']], [['hp', -14]]]] }, { label: '在劍痕前坐一會兒：選一張牌強化', fx: [['pick', 'upgrade']] }] },
     sellfu:  { who: 'qingli', name: '賣符', text: '鎮上鬧鬼，家家戶戶搶著買符。妳攤開一疊黃紙，算盤打得劈啪響。',
       opts: [{ label: '漫天喊價：得到 80 金，牌組多一張詛咒「業障」', fx: [['gold', 80], ['addCard', 'sin']] }, { label: '老老實實畫好每一張：選一張牌強化', fx: [['pick', 'upgrade']] }, { label: '免費送給窮人家：最大生命 +5（心安）', fx: [['maxHp', 5]] }] },
-    letter:  { who: 'qingli', name: '觀裡的來信', text: '師兄來信了：「觀主說，最後那一筆畫不出來，就別硬撐。還有——山下的義塾又缺錢了，妳上次說要包的。」',
+    letter:  { who: 'qingli', name: '觀裡的來信', text: '師兄來信了：「觀主說，最後那一筆，畫的時候別逞強——祖師就是在那一筆被吞的。還有——山下的義塾又缺錢了，妳上次說要包的。」',
       opts: [{ label: '寄 60 金回去給義塾：選兩張牌強化（師兄們回寄了新畫的符）', need: { gold: 60 }, fx: [['gold', -60], ['pick', 'upgrade'], ['pick', 'upgrade']] }, { label: '連夜畫一張大符寄回去（🎲≥12）：成功→得到秘傳「太上鎮魂印」；失敗→畫到吐血，失去 10 生命', fx: [['d20', 12, [['addCard', 'breaker']], [['hp', -10]]]] }, { label: '先不管了', fx: [] }] },
     silverthread:{ who: 'qingli', name: '銀線', text: '阿朵的袖口被妖物勾破了，苗繡的銀線散了一截。她不在意，笑嘻嘻的：「回寨子再補呀。」妳盯著那個破口，看了一路。鎮上的銀線，一捲三十金——貴得離譜。',
       opts: [{ label: '買下來，丟給她：「記帳上了，欠著。」：花 30 金，選一張牌強化（阿朵連夜在妳袖口裡繡了一道護身紋）', need: { gold: 30 }, fx: [['gold', -30], ['pick', 'upgrade']] }, { label: '「拿來，我縫。」畫符的手，穿針也穩：最大生命 +4（阿朵摸著那道針腳，笑了一路）', fx: [['maxHp', 4]] }, { label: '「回寨子再補吧。」：回復 10 生命', fx: [['hp', 10]] }] },
@@ -1140,7 +1140,7 @@ var G = (function () {
       opts: [{ label: '把蟲后收進蠱罐：失去 8 生命，之後每場開場全體寄生 +2', need: { hp: 8 }, fx: [['hp', -8], ['startFx', 'parasiteAll', 2]] }, { label: '抓幾隻小的就好：得到「放蠱」', fx: [['addCard', 'fanggu']] }] }
   };
   function startEvent(run) {
-    var ok = function (E) { return (!E.act || E.act === Math.min(run.act, 2)) && (!E.who || E.who === run.who) && (!E.major || (run.majors || []).indexOf(E.major) >= 0); };
+    var ok = function (E) { return (!E.noEndless || !run.endless) && (!E.act || E.act === Math.min(run.act, 2)) && (!E.who || E.who === run.who) && (!E.major || (run.majors || []).indexOf(E.major) >= 0); };
     var ids = Object.keys(EVENTS).filter(function (k) { return ok(EVENTS[k]) && run.seenEvents.indexOf(k) < 0; });
     if (!ids.length) ids = Object.keys(EVENTS).filter(function (k) { return ok(EVENTS[k]) && !EVENTS[k].who; });
     var id = pick(run, ids);
@@ -1173,7 +1173,7 @@ var G = (function () {
       else if (k === 'maxHp') { run.maxHp = Math.max(10, run.maxHp + n); run.hp = Math.max(1, Math.min(run.maxHp, run.hp + Math.max(0, n))); msg.push('最大生命 ' + (n > 0 ? '+' : '') + n); }
       else if (k === 'healPct') { run.hp = Math.min(run.maxHp, run.hp + Math.round(run.maxHp * n / 100)); msg.push('回復了生命'); }
       else if (k === 'relic') { var rl = randomRelic(run); gainRelic(run, rl); if (rl) msg.push('得到法寶「' + RELICS[rl].name + '」'); }
-      else if (k === 'gold') { run.gold = Math.max(0, run.gold + n); msg.push((n > 0 ? '得到 ' : '花了 ') + Math.abs(n) + ' 金'); }
+      else if (k === 'gold') { run.gold = Math.max(0, run.gold + n); msg.push((n > 0 ? '得到 ' : '失去 ') + Math.abs(n) + ' 金'); }
       else if (k === 'seal') { run.seals = Math.max(0, run.seals + n); msg.push('玉符 ' + n); }
       else if (k === 'pick') run.pending.push(n);
       else if (k === 'addCard') {

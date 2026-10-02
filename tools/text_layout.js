@@ -27,6 +27,12 @@ const scan=()=>{ // returns orphan lines (last line ≤2 chars) per text block
   for(const k of evs) await go('ev_'+k,k=>{ const E=G.EVENTS[k]; run=G.newRun(E.who||'shuang',7,E.major?{major:E.major}:{}); run.gold=999; run.screen='event'; run.event=k; render(); },k);
   for(const t of ['sect','boss','elite','mob','goal']) await go('codex_'+t,t=>{ run=null; META.codex=Object.fromEntries(Object.keys(G.ENEMIES).map(k=>[k,1])); codexScreen(t); },t);
   await go('choose',()=>{ run=null; MODE='normal'; choose(); });
+  await go('help',()=>{ run=null; titleScreen(); showHelp(); });
+  for(const w of ['shuang','qingli','xiaoman','chilian','aduo']) await go('svt_'+w,w=>{ closeOv(); MODE='normal'; choose(); svtInfo(w); },w);
+  for(const t of ['battle','map','reward','pill','curse','rest','shop','event','path','major']) await go('tip_'+t,t=>{ closeOv(); run=null; titleScreen(); META.tips={}; tip(t); META.tips={all:1}; },t);
+  await go('over_win',()=>{ closeOv(); run=G.newRun('aduo',7); run.win=1; run.screen='over'; run.metaDone=1; render(); });
+  await go('over_true',()=>{ closeOv(); run=G.newRun('aduo',7); run.win=1; run.trueEnd=1; run.screen='over'; run.metaDone=1; render(); });
+  await go('info_svt',()=>{ closeOv(); run=G.newRun('qingli',7); run.screen='map'; render(); openInfo('svt'); });
   await go('secret',()=>{ run=G.newRun('shuang',7); run.screen='secret'; render(); });
   let tot=0; for(const [k,v] of Object.entries(res)) if(v.length){ tot+=v.length; console.log(k, v.join(' ‖ ')); }
   console.log(TAG,'W',W,'orphans total',tot); await b.close();
