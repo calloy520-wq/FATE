@@ -3,7 +3,7 @@
 const fs=require('fs');
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 const Gd=require('path').join(__dirname,'..','gas')+'/', D=require('os').tmpdir(), TAG=process.argv[2]||'x', W=+(process.argv[3]||390);
-let art=fs.readFileSync(Gd+'Art.html','utf8').replace(/var ART_BASE = '[^']*';/,"var ART_BASE = 'file://'+require('path').join(__dirname,'..','art')+'/';");
+let art=fs.readFileSync(Gd+'Art.html','utf8').replace(/var ART_BASE = '[^']*';/,"var ART_BASE = 'file://"+require('path').join(__dirname,'..','art')+"/';");
 fs.writeFileSync(D+'/page.html', fs.readFileSync(Gd+'Index.html','utf8').replace("<?!= include('Game'); ?>", fs.readFileSync(Gd+'Game.html','utf8')).replace("<?!= include('Art'); ?>", art));
 const scan=()=>{ // returns orphan lines (last line ≤2 chars) per text block
   const out=[]; const els=[...document.querySelectorAll('#app *, .ov *')].filter(e=>[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim().length>8));
