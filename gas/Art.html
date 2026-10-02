@@ -9,7 +9,7 @@ var ART = {
   abai: ART_BASE + 'abai.webp',   // 阿白（白辰的龍）
   bg_hill: ART_BASE + 'bg_hill.webp', bg_city: ART_BASE + 'bg_city.webp', bg_abyss: ART_BASE + 'bg_abyss.webp', bg_tower: ART_BASE + 'bg_tower.webp'   // 戰鬥背景（16:9，手機會切掉左右）
 };
-// 之後才補的圖（造型 <角色>_<造型>、真結局 CG end_<角色>、魘借各角色的臉 xinmo_<角色>、敵人）：有圖就把檔名（不含 .webp）加進這裡
+// 之後才補的圖（造型 <角色>_<造型>、真結局 CG end_<角色>、魘的另一種樣子 xinmo_<角色>（可選，現在不用）、敵人）：有圖就把檔名（不含 .webp）加進這裡
 var ART_MORE = ['zhanglao', 'shuyao', 'guijiang', 'niumo', 'huyao', 'duoxian', 'panguan', 'xinmo'];   // 魔王（2026-10-02）
 ART_MORE.forEach(function (k) { ART[k] = ART_BASE + k + '.webp'; });
 // 造型：每位三套，用那位角色達成目標就解鎖（判斷在 Index 的 skinOpen）；有圖（ART[角色_造型]）才能穿上
@@ -184,7 +184,7 @@ var FIG = (function () {
     return '<svg class="fsvg" viewBox="0 0 100 140" style="--fc:' + o.c + '" aria-hidden="true"><g transform="translate(100 0) scale(-1 1)">' + inner + '</g></svg>';
   }
   // 一個角色或敵人的圖：ART 有網址就用立繪，沒有就用剪影
-  // 用哪張圖：女修看帳號穿的造型（META.skin）；魘看這局是誰（它借眼前那人的臉：有她自己的黑化版就用）
+  // 用哪張圖：女修看帳號穿的造型（META.skin）；魘（劍主的身體）有 xinmo_<角色> 就用，沒有就用共用那張
   function artOf(id, foe) {
     var sk = !foe && typeof META !== 'undefined' && META && META.skin && META.skin[id];
     if (sk && ART[id + '_' + sk]) return ART[id + '_' + sk];
