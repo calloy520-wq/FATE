@@ -69,6 +69,22 @@ function gpSave(name, token, meta, run) {
   } finally { lock.releaseLock(); }
 }
 
+// 對局紀錄：每局結束記一列（真人的勝率、死在哪、主修選了什麼），調平衡用。新分頁「對局紀錄」
+var GP_LOG = '對局紀錄';
+var GP_LOG_HEAD = ['時間', '帳號', '角色', '主修', '第一章後', '難度', '模式', '機緣', '結果', '章', '列', '走過格數', '死在', '戰鬥', '牌組張數', '法寶數', '最大生命', '擊敗', '神通次數', '丹藥'];
+function gpLog(name, token, d) {
+  name = gpName_(name);
+  var sh = gpSheet_(), row = gpFind_(sh, name); if (!row) return { ok: false };
+  if (gpToken_(name, sh.getRange(row, GP_COL.HASH + 1).getValue()) !== token) return { ok: false };
+  d = d || {};
+  var ss = SpreadsheetApp.getActiveSpreadsheet(), lg = ss.getSheetByName(GP_LOG);
+  if (!lg) { lg = ss.insertSheet(GP_LOG); lg.appendRow(GP_LOG_HEAD); lg.setFrozenRows(1); }
+  var cut = function (x) { return String(x == null ? '' : x).slice(0, 80); };
+  lg.appendRow([new Date(), name, cut(d.who), cut(d.major), cut(d.second), cut(d.diff), cut(d.mode), cut(d.fates), cut(d.result), +d.act || 0, +d.floor || 0, +d.floors || 0,
+    cut(d.killer), cut(d.kind), +d.deck || 0, +d.relics || 0, +d.maxHp || 0, +d.kills || 0, +d.np || 0, +d.pills || 0]);
+  return { ok: true };
+}
+
 // 排行榜：彙整每個帳號的戰績（無盡最遠、通關次數）。大家一起看同一份，快取一分鐘
 function gpBoardRow_(name, m) {
   if (!m || !m.stats) return null;

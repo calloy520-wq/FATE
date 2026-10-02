@@ -407,6 +407,34 @@
   .fig.me.cast { animation:cast .8s ease-out; } @keyframes cast { 30% { transform:scale(1.14); filter:brightness(1.6) drop-shadow(0 0 22px var(--fc,#ffd36e)); } }
   .stunmark { position:absolute; top:6%; left:50%; transform:translateX(-50%) rotate(-8deg); background:#f2d24e; color:#a3121c; font-weight:900; font-size:14px; padding:4px 3px; border-radius:2px; box-shadow:0 0 10px rgba(242,210,78,.8); font-family:var(--serif); line-height:1; }
   .fumark { position:absolute; top:10%; right:16%; display:flex; gap:2px; } .fumark i { display:block; width:5px; height:11px; background:#f2d24e; box-shadow:0 0 5px rgba(242,210,78,.8); transform:rotate(8deg); }
+  /* 受傷狀態（不影響赤練的血光：她用 .blood 自己的濾鏡） */
+  .fig.me.hp1:not(.blood) .fimg { filter:drop-shadow(0 4px 10px rgba(0,0,0,.6)) saturate(.9); }
+  .fig.me.hp2 .fimg, .fig.me.hp2 .fsvg { transform:rotate(-2.5deg) translateY(2%); transform-origin:50% 100%; }
+  .fig.me.hp2:not(.blood) .fimg { filter:drop-shadow(0 0 6px rgba(255,40,60,.35)) brightness(.86) saturate(.8); }
+  .fig.me.hp3 .fimg, .fig.me.hp3 .fsvg { transform:rotate(-4.5deg) translateY(4%); transform-origin:50% 100%; }
+  .fig.me.hp3:not(.blood) .fimg { filter:drop-shadow(0 0 10px rgba(255,30,50,.55)) grayscale(.35) brightness(.74); }
+  .fig.me.hp2:not(.lunge):not(.hurt):not(.cast) { animation-duration:2.2s; } .fig.me.hp3:not(.lunge):not(.hurt):not(.cast) { animation-duration:1.2s; }
+  #stage .vig { position:absolute; inset:0; z-index:3; pointer-events:none; box-shadow:inset 0 0 60px rgba(200,20,40,.42); }
+  #stage.dying .vig { box-shadow:inset 0 0 100px rgba(220,20,40,.72); animation:heartbeat 1.1s ease-in-out infinite; }
+  #stage.dying .scene-img, #stage.dying .scene-svg { filter:saturate(.5) brightness(.85); }
+  @keyframes heartbeat { 0%, 100% { opacity:.5; } 14% { opacity:1; } 28% { opacity:.62; } 42% { opacity:.95; } }
+  /* 主修的資源 */
+  .jyaura { position:absolute; left:50%; bottom:6%; width:62%; height:78%; transform:translateX(-50%); border-radius:50%; z-index:0; pointer-events:none; opacity:var(--n);
+    background:radial-gradient(ellipse at 50% 60%, rgba(150,220,255,.55), rgba(120,190,255,.12) 55%, transparent 72%); animation:glow 1.6s ease-in-out infinite; }
+  .flame { position:absolute; left:50%; bottom:2%; width:56%; height:calc(6% + var(--n) * 10%); transform:translateX(-50%); z-index:0; pointer-events:none; display:flex; justify-content:space-around; align-items:flex-end; opacity:calc(.35 + var(--n) * .4); }
+  .flame i { display:block; width:26%; height:100%; border-radius:50% 50% 30% 30%; background:radial-gradient(ellipse at 50% 85%, #fff2b0, #ff9a2e 40%, rgba(255,60,20,.5) 65%, transparent 75%); filter:blur(1px); animation:flick .5s ease-in-out infinite alternate; }
+  .flame i:nth-child(2) { height:130%; animation-delay:.15s; } .flame i:nth-child(3) { animation-delay:.3s; }
+  @keyframes flick { to { transform:scaleY(.82) translateY(4%); opacity:.8; } }
+  .ripples { position:absolute; left:58%; bottom:34%; width:0; height:0; z-index:2; pointer-events:none; opacity:var(--n); }
+  .ripples i { position:absolute; left:-30px; top:-30px; width:60px; height:60px; border-radius:50%; border:2px solid rgba(190,230,255,.75); box-shadow:0 0 8px rgba(160,220,255,.6); animation:ripple 2.4s ease-out infinite; }
+  .ripples i:nth-child(2) { animation-delay:.8s; } .ripples i:nth-child(3) { animation-delay:1.6s; }
+  @keyframes ripple { from { transform:scale(.3) translateX(0); opacity:.9; } to { transform:scale(3.4) translateX(40px); opacity:0; } }
+  .charmmark { position:absolute; top:4%; left:50%; transform:translateX(-50%); color:#ff7fb0; font-size:16px; letter-spacing:1px; text-shadow:0 0 6px rgba(255,90,160,.9); animation:float 1.6s ease-in-out infinite; pointer-events:none; }
+  .worms { position:absolute; left:22%; right:22%; bottom:18%; display:flex; justify-content:space-around; pointer-events:none; }
+  .worms i { display:block; width:9px; height:4px; border-radius:3px; background:#b48cff; box-shadow:0 0 5px rgba(180,140,255,.9); animation:wiggle .7s ease-in-out infinite alternate; }
+  .worms i:nth-child(even) { animation-delay:.35s; margin-top:8px; }
+  @keyframes wiggle { to { transform:translateY(-5px) rotate(18deg) scaleX(1.3); } }
+  .tipbox h3 { color:var(--gold); font-family:var(--serif); }
   .poisonmist { position:absolute; inset:30% 10% 0; border-radius:50%; background:radial-gradient(rgba(110,230,120,.35),transparent 70%); animation:float 2s ease-in-out infinite; pointer-events:none; }
   .svtfig { height:180px; display:flex; justify-content:center; align-items:flex-end; margin-top:10px; border-radius:8px; position:relative; overflow:hidden; padding-bottom:6px; }
   .svtfig .fsvg { height:92%; width:auto; filter:drop-shadow(0 0 2px var(--fc)) drop-shadow(0 0 8px var(--fc)); }
@@ -422,7 +450,7 @@
   .fig .fimg.kid, .tfig .fimg.kid, .svtfig .fimg.kid { height:78%; }   /* 白辰外表是小孩，立繪比大人矮 */
   .tile .tfig { position:relative; height:120px; display:flex; justify-content:center; align-items:flex-end; } .tile .tfig .fsvg { height:100%; width:auto; filter:drop-shadow(0 0 2px var(--fc)) drop-shadow(0 0 5px var(--fc)); }
   @media (max-width:420px) { #stage { height:clamp(250px, 40vh, 330px); } #stage .foe .intent { font-size:11.5px; padding:1px 4px; } #stage .foe .intent .num { font-size:15px; } }
-  @media (prefers-reduced-motion:reduce) { .fig, .fig .pet .dragon, .fsvg .swords, .fsvg .fu, .fsvg .bfly, .poisonmist { animation:none !important; } }
+  @media (prefers-reduced-motion:reduce) { .fig, .fig .pet .dragon, .fsvg .swords, .fsvg .fu, .fsvg .bfly, .poisonmist, .jyaura, .flame i, .ripples i, .charmmark, .worms i, #stage.dying .vig { animation:none !important; } }
   @media (prefers-reduced-motion:reduce) {
     .sky .sigil-bg, .sky .motes, .hero .crest .sigil, .node.boss::before, .card.f-gold::before, .card.f-rainbow::before, .seals, #acts .npbtn.full, .card:not(:disabled):has(.pv.kill) { animation:none; }
   }
@@ -442,7 +470,7 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   // ── 帳號：第一個畫面先登入；每個帳號各自的存檔與戰績都存在伺服器（換裝置也接得上），本機另留一份快取 ──
   var ACC = null, META = null, SAVED_RUN = null, AKEY = 'grail_acc_v1', CKEY = 'grail_cache_v1:';
-  function newMeta() { return { v: 5, clears: {}, stats: { runs: 0, wins: 0, trueEnds: 0, best: {} }, codex: {}, endings: {}, skin: {}, seen: { goals: [], skins: [] }, ts: 0 }; }   // 局外沒有貨幣（2026-10-02）；達成目標解鎖造型、機緣、法寶
+  function newMeta() { return { v: 5, clears: {}, stats: { runs: 0, wins: 0, trueEnds: 0, best: {} }, codex: {}, endings: {}, skin: {}, seen: { goals: [], skins: [] }, tips: {}, ts: 0 }; }   // 局外沒有貨幣（2026-10-02）；達成目標解鎖造型、機緣、法寶
   // ── 局外解鎖：全部從戰績與圖鑑算出來（之前打過的也算），不另外存「解鎖了什麼」 ──
   function goalsDone(M) {
     M = M || META; var g = [], e = (M.stats && M.stats.endless) || {};
@@ -514,6 +542,7 @@
     }
     if (fn === 'gpResume') return u && a[1] === 't-' + a[0] ? { ok: true, name: a[0], token: a[1], meta: u.meta || null, run: u.run || null } : { ok: false, msg: '請重新登入' };
     if (fn === 'gpBoard') return { ok: true, list: Object.keys(db).map(function (k) { var m = null; try { m = JSON.parse(db[k].meta || 'null'); } catch (e) { } return boardRow(k, m); }).filter(function (r) { return r && (r.endless || r.wins); }) };
+    if (fn === 'gpLog') { try { var lg = JSON.parse(localStorage.getItem('grail_fake_log') || '[]'); lg.push(a[2]); localStorage.setItem('grail_fake_log', JSON.stringify(lg.slice(-50))); } catch (e) { } return { ok: true }; }
     if (fn === 'gpSave') { if (!u) return { ok: false }; if (a[2] != null) u.meta = a[2]; if (a[3] != null) u.run = a[3]; put(); return { ok: true }; }
   }
   // 存檔：先寫本機快取，停 2 秒沒有新變化再送伺服器
@@ -552,6 +581,7 @@
     try { META = res.meta ? JSON.parse(res.meta) : null; } catch (e) { }
     if (!META) { var L = legacyData(); if (L) { META = L.meta; SAVED_RUN = L.run; localStorage.setItem('grail_legacy_done', '1'); toast('已把這台裝置上的舊進度搬進帳號'); } }
     META = META || newMeta();
+    if (META.tips === undefined) META.tips = META.stats && META.stats.runs > 0 ? { all: 1 } : {};   // 新手提示：已經玩過的帳號就不跳了
     Object.keys(newMeta()).forEach(function (k) { if (META[k] === undefined && k !== 'v') META[k] = newMeta()[k]; });   // v 留給下面的改版搬家判斷
     // 本機快取比伺服器新（上次沒送出去）：用本機的，並補送
     try { var C = JSON.parse(localStorage.getItem(CKEY + ACC.name) || 'null'); if (C && C.ts > (META.ts || 0)) { META = JSON.parse(C.meta); SAVED_RUN = C.run || ''; dirty = { meta: true, run: true }; flushSave(); } } catch (e) { }
@@ -664,7 +694,7 @@
   function render() {
     var scr = run ? run.screen + (run.act || '') : ACC ? 'title' : 'login';
     if (scr !== render.last) { closeOv(); document.querySelectorAll('.pop,.npban').forEach(function (x) { x.remove(); }); if (run && run.screen === 'battle') Object.keys(hpBar.last).forEach(function (k) { if (k !== 'me') delete hpBar.last[k]; }); }
-    render.last = scr; renderScreen(); dropBars();
+    render.last = scr; renderScreen(); dropBars(); checkTips();
   }
   function renderScreen() {
     if (!ACC) return loginScreen();
@@ -685,6 +715,57 @@
     if (s === 'boon') return boonScreen();
   }
 
+  // ── 新手提示：每個只跳一次；已經打過任何一局的帳號（老玩家）不跳 ──
+  var TIPS = {
+    battle: ['第一場戰鬥', '每回合有 <b>3 點靈力</b>（左下角），卡片左上角是費用。點一張牌打出——攻擊牌再點一個敵人。<br>敵人頭上寫著牠這回合要做什麼：<b>⚔</b> 是要打你多少。用防禦牌的 🛡 擋下，再按「結束回合」。'],
+    map: ['地圖', '由上往下走，只能沿著線前進，金色的是下一步能走的格子。<br>☠ 精英比較難，但會掉法寶；🔥 休息點能回血或強化；👑 每章最後是魔王。'],
+    reward: ['戰利品', '打贏可以選一張牌加進牌組，也可以不拿——牌組越精簡，好牌越常抽到。'],
+    np: ['神通量表滿了', '按「★ 施展神通」放出大招，每回合一次。'],
+    pill: ['丹藥與師門玉符', '戰鬥中點「丹藥」就能隨時吃。<br>真的撐不住時，師門玉符也能捏碎、生命回滿——但把它留到第二章魔王之後，才進得了九幽魔淵。'],
+    curse: ['妨礙牌', '敵人把壞牌塞進你的手牌了：留在手上會扣血或拖累你，花靈力就能把它打掉。'],
+    rest: ['休息點', '回復生命，或強化一張牌（從三個方向選一個）。'],
+    shop: ['商店', '能買牌、法寶、丹藥，也能花錢移除一張牌。'],
+    event: ['事件', '每個選項都寫了代價。標 🎲 的要擲骰，選項下面有成功率。'],
+    path: ['主修', '主修決定開局的招牌牌，和之後戰利品多半出哪一類牌。第一次玩，選第一條最好上手。'],
+    major: ['修行的方向', '這個選擇只有一次：專精讓這條主修更強；兼修多開一條主修，之後兩條的牌都會出現。']
+  };
+  var RES_TIPS = [['jy', '劍意'], ['yuyin', '餘音'], ['fire', '火勢']];
+  function tip(id, title, html) {
+    if (!META || !META.tips || META.tips.all || META.tips[id]) return false;
+    if ($('ov').style.display === 'flex') return false;   // 已經開著別的視窗：下次再說
+    META.tips[id] = 1; queueSave(true, false);
+    var T = TIPS[id] || [title, html];
+    openOv('<div class="tipbox"><div class="dim" style="font-size:13px">新手提示</div><h3 style="margin:2px 0 8px">' + T[0] + '</h3><div class="lore" style="text-align:left">' + T[1] + '</div>'
+      + '<div class="row" style="justify-content:center;margin-top:12px"><button class="btn" onclick="closeOv();setTimeout(checkTips,200)">知道了</button></div></div>');
+    return true;
+  }
+  function checkTips() {
+    if (!META || !META.tips || META.tips.all) return;
+    setTimeout(function () {
+      if (!run) { if ($('app').innerHTML.indexOf('選擇主修') >= 0) tip('path'); return; }
+      var s = run.screen, b = run.battle;
+      if (s === 'map') tip('map');
+      else if (s === 'reward') tip('reward');
+      else if (s === 'rest') tip('rest');
+      else if (s === 'shop') tip('shop');
+      else if (s === 'event') tip('event');
+      else if (s === 'major') tip('major');
+      else if (s === 'battle' && b) {
+        if (tip('battle')) return;
+        if (b.np >= 100 && !b.npUsed && tip('np')) return;
+        if (b.turn >= 2 && ((run.pills || []).length || run.seals) && tip('pill')) return;
+        if (b.hand.some(function (x) { return G.card(x).type === 'curse'; }) && tip('curse')) return;
+        var g = function (k) { var r = GLOSSARY.filter(function (x) { return x[0] === k; })[0]; return r ? r[1] : ''; };
+        for (var i = 0; i < RES_TIPS.length; i++) if (b[RES_TIPS[i][0]] && tip('r_' + RES_TIPS[i][0], RES_TIPS[i][1], g(RES_TIPS[i][1]))) return;
+        if (b.enemies.some(function (e) { return e.charm > 0; }) && tip('r_charm', '魅惑', g('魅惑'))) return;
+        if (b.enemies.some(function (e) { return e.parasite > 0; }) && tip('r_parasite', '寄生', g('寄生'))) return;
+      }
+    }, 450);
+  }
+  function showHelp() {
+    openOv('<b>名詞說明</b>' + glossaryHtml() + (META && META.tips && Object.keys(META.tips).length ? '<div class="row" style="justify-content:center;margin-top:10px"><button class="btn" onclick="resetTips()">重新顯示新手提示</button></div>' : ''));
+  }
+  function resetTips() { META.tips = {}; queueSave(true, false); closeOv(); toast('新手提示會再跳一次'); }
   // ── 標題與選角色 ──
   function titleScreen() {
     var saved = load(), S = saved && G.serv(saved), M = me(), going = saved && S && saved.screen !== 'over';
@@ -697,7 +778,7 @@
       + big("MODE='normal';choose()", '⚔', '新的冒險', going ? '放棄目前這一局，重新選角色' : '選角色、選機緣，下山', going || !M.stats.runs ? '' : 'main')
       + big("MODE='endless';choose()", '♾', '鎮妖塔（無盡）', going ? '放棄目前這一局，改闖鎮妖塔' : '兩章之後下鎮妖塔，一層一層往下，看能走多遠')
       + '<div class="msep"></div>'
-      + '<div class="mrow">' + big('codexScreen()', '📚', '圖鑑') + big('recordScreen()', '📜', '戰績') + big('boardScreen()', '🏆', '排行榜') + big("openOv('<b>名詞說明</b>' + glossaryHtml())", '📖', '說明') + '</div>'
+      + '<div class="mrow">' + big('codexScreen()', '📚', '圖鑑') + big('recordScreen()', '📜', '戰績') + big('boardScreen()', '🏆', '排行榜') + big('showHelp()', '📖', '說明') + '</div>'
       + '</div></div>';
   }
   // 前情提要：標題畫面「新的冒險」上面，一頁一頁看（背景用各章的戰鬥背景）
@@ -817,6 +898,7 @@
       + Object.keys(G.FATES).filter(function (k) { return opts.indexOf(k) < 0; }).map(function (k) { var F = G.FATES[k]; return '<button class="svt" disabled style="opacity:.45"><b>🔒 ' + esc(F.name) + '</b><div style="margin-top:6px">' + esc(F.text) + '</div><div class="dim" style="margin-top:4px;font-size:13px">解鎖：' + esc(G.GOALS[F.lock].text) + '</div></button>'; }).join('') + '</div>'
       + '<button class="btn go2" onclick="startWith()">' + (sel.length ? '帶著「' + sel.map(function (k) { return G.FATES[k].name; }).join('」「') + '」出發' : '不帶機緣出發') + '</button>'
       + '<button class="btn" onclick="choose()">返回</button></div>';
+    checkTips();
   }
   function toggleFate(k) {
     var c = pickFate.ctx, i = c.sel.indexOf(k), slots = G.fateSlots(MODE === 'endless');
@@ -1044,12 +1126,20 @@
   // 舞台：背景照章換；你的角色站左邊（凌霜背後浮著飛劍、白辰身邊盤著阿白、赤練越痛紅光越重），敵人站右邊
   function stageHtml(b) {
     var tgt = target(), p = G.passive(run), rage = Math.max(0, Math.min(1, (run.maxHp - run.hp) / run.maxHp));
-    var me = '<div class="mespot"><div class="fig me' + (p === 'revive' ? ' blood' : '') + '" id="mefig" style="--rage:' + rage.toFixed(2) + '">' + FIG.fig(run.who, false, { swords: b.swords || 0 })
+    // 受傷狀態：七成以下受傷、四成以下重傷（前傾、變暗、畫面泛紅）、一成五以下瀕死（心跳般的紅光、褪色）
+    var hr = run.hp / run.maxHp, hpc = hr <= 0.15 ? 'hp3' : hr < 0.4 ? 'hp2' : hr < 0.7 ? 'hp1' : '';
+    // 主修的資源畫在角色身上：劍意（冰藍劍氣）、火勢（腳下的火）、餘音（往外擴散的音波）
+    var fx = (b.jy ? '<span class="jyaura" style="--n:' + Math.min(1, 0.25 + b.jy / 30).toFixed(2) + '"></span>' : '')
+      + (b.fire ? '<span class="flame" style="--n:' + Math.min(1, 0.3 + b.fire / 12).toFixed(2) + '"><i></i><i></i><i></i></span>' : '')
+      + (b.yuyin ? '<span class="ripples" style="--n:' + Math.min(1, 0.3 + b.yuyin / 20).toFixed(2) + '"><i></i><i></i><i></i></span>' : '');
+    var me = '<div class="mespot">' + fx + '<div class="fig me' + (p === 'revive' ? ' blood' : '') + (hpc ? ' ' + hpc : '') + '" id="mefig" style="--rage:' + rage.toFixed(2) + '">' + FIG.fig(run.who, false, { swords: b.swords || 0 })
       + (p === 'madness' && b.kraken > 0 ? '<div class="pet">' + FIG.dragon(b.kraken) + '</div>' : '') + '<i class="shadow"></i></div></div>';
     var foes = b.enemies.map(function (e, i) {
       if (e.hp <= 0 && b.enemies.length > 3) return '';   // 叫來的援軍倒了就收掉，免得畫面擠
       var E = G.ENEMIES[e.id], hit = lastHp[e.key] !== undefined && e.hp < lastHp[e.key];
-      var marks = (e.stun && e.hp > 0 ? '<span class="stunmark">定</span>' : '') + (e.petrify && !e.stun && e.hp > 0 ? '<span class="fumark">' + new Array(e.petrify + 1).join('<i></i>') + '</span>' : '') + (e.poison && e.hp > 0 ? '<span class="poisonmist"></span>' : '');
+      var marks = (e.stun && e.hp > 0 ? '<span class="stunmark">定</span>' : '') + (e.petrify && !e.stun && e.hp > 0 ? '<span class="fumark">' + new Array(e.petrify + 1).join('<i></i>') + '</span>' : '') + (e.poison && e.hp > 0 ? '<span class="poisonmist"></span>' : '')
+        + (e.charm && e.hp > 0 ? '<span class="charmmark">' + new Array(Math.min(e.charm, 4) + 1).join('♥') + '</span>' : '')
+        + (e.parasite && e.hp > 0 ? '<span class="worms">' + new Array(Math.min(Math.ceil(e.parasite / 3), 5) + 1).join('<i></i>') + '</span>' : '');
       return '<button data-key="' + e.key + '" class="foe' + (E.boss ? ' boss' : E.elite ? ' elite' : '') + (e.hp <= 0 ? ' dead' : '') + (sel.foe === i ? ' sel' : '') + (sel.foe < 0 && i === tgt && G.alive(b).length > 1 ? ' tgt' : '') + (hit ? ' hit' : '') + '" style="--d:' + (i * 0.4) + 's" onclick="tapFoe(' + i + ')">'
         + '<div class="intent">' + (e.hp > 0 ? intentHtml(e) : '') + '</div>'
         + '<div class="fig">' + FIG.fig(e.id, true) + marks + '</div>'
@@ -1057,7 +1147,7 @@
         + '<div class="row" style="gap:3px">' + (e.block ? '<span class="eblk">🛡' + e.block + '</span>' : '') + hpBar(e.key, e.hp, e.maxHp, Math.max(0, e.hp) + '／' + e.maxHp) + '</div>'
         + '<div class="chips">' + foeChips(e) + '</div></button>';
     }).join('');
-    return '<div id="stage" class="' + FIG.sceneClass(run) + '">' + FIG.scene(run) + me + '<div id="foes"' + (sel.card >= 0 ? ' class="picking"' : '') + '>' + foes + '</div></div>';
+    return '<div id="stage" class="' + FIG.sceneClass(run) + (hpc === 'hp2' ? ' danger' : hpc === 'hp3' ? ' dying' : '') + '">' + FIG.scene(run) + me + '<div id="foes"' + (sel.card >= 0 ? ' class="picking"' : '') + '>' + foes + '</div>' + (hpc === 'hp2' || hpc === 'hp3' ? '<div class="vig"></div>' : '') + '</div>';
   }
   function battleScreen() {
     var b = run.battle, S = G.serv(run);
@@ -1385,10 +1475,22 @@
       + '<div class="svtfig ' + (E.boss && k === 'xinmo' ? 'sc-abyss' : 'sc-city') + '">' + FIG.fig(k, true) + '</div>'
       + '<div class="list" style="margin-top:10px"><div class="box">' + esc(G.LORE[k] || '') + '</div><div class="box"><h3>招式</h3>' + E.moves.map(function (m) { return esc(m.n); }).join('、') + '</div></div>');
   }
+  // 對局紀錄：每局結束送一列到伺服器（調平衡用；送不出去就算了）
+  function logRun(r) {
+    try {
+      var S = G.serv(r), P = function (id) { return G.pathById(r.who, id).name; }, b = r.battle;
+      var d = { who: S.name, major: P(r.major), second: !r.pathPicked ? '' : r.mastered ? '專精' : '兼修' + (r.majors[1] ? P(r.majors[1]) : ''),
+        diff: G.DIFFS[r.diff || 'normal'].name, mode: r.endless ? '鎮妖塔' : '一般', fates: (r.fates || []).map(function (k) { return G.FATES[k].name; }).join('、'),
+        result: r.trueEnd ? '斬心魔' : r.win ? '通關' : '陣亡', act: r.act, floor: r.floor, floors: r.stats.floors,
+        killer: !r.win && b ? b.enemies.filter(function (e) { return e.hp > 0; }).map(function (e) { return e.name; }).join('＋') : '', kind: !r.win && b ? b.kind : '',
+        deck: r.deck.length, relics: r.relics.length, maxHp: r.maxHp, kills: r.stats.kills, np: r.stats.np, pills: r.stats.pills || 0 };
+      srv('gpLog', [ACC.name, ACC.token, d], function () { }, function () { });
+    } catch (e) { }
+  }
   function overScreen() {
     var st = run.stats, S = G.serv(run);
     if (!run.metaDone) {   // 一局只結算一次
-      run.metaDone = true; save();
+      run.metaDone = true; save(); logRun(run);
       updateMe(function (m) {
         if (run.win) m.stats.wins++; if (run.trueEnd) { m.stats.trueEnds++; m.endings = m.endings || {}; m.endings[run.who] = 1; }
         if (run.win) { m.clears = m.clears || {}; m.clears[run.who] = m.clears[run.who] || {}; m.clears[run.who][run.diff || 'normal'] = true; }
