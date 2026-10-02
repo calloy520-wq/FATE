@@ -387,6 +387,34 @@ var G = (function () {
   };
   var ELITES = ['jianmo', 'kuilei', 'qianghun', 'sheyao', 'yaodao', 'daoke', 'cike', 'shuangdao', 'qianmian', 'mojiang', 'tengyao', 'yingwei'];
   var BOSSES = ['zhanglao', 'shuyao', 'guijiang', 'niumo', 'huyao', 'duoxian', 'panguan', 'xinmo'];
+  // 圖鑑・門派（2026-10-02）：已登場的五個門派＋還沒登場的（傳聞，之後可以做成新角色、新事件、新敵人）
+  // kind：正道／魔道／南疆／佛門／奇門／朝廷／江湖｜five：三百年前封印魔淵的五大宗門之一｜who：門下的女修（已登場）｜arts：絕學（主修）
+  var SECTS_LORE = [
+    { id: 'yunyin', name: '雲隱劍宗', kind: '正道', five: 1, place: '落霞山以北的雲海之上', who: 'shuang', arts: '萬劍・歸一・琴心',
+      text: '以劍入道。門規只有一條：「劍不出鞘，心不動。」三百年前封印魔淵，劍宗死傷最重；如今山門空蕩蕩的，只剩一個名義上去守塔、三百年沒去上過班的劍仙。' },
+    { id: 'xuanzhen', name: '玄真觀', kind: '正道', five: 1, place: '江南小鎮的後山', who: 'qingli', arts: '鎮符・雷符・火符',
+      text: '符籙一脈。畫符講究心誠——還有價錢。三百年前鎮住魔淵的符陣，就出自玄真觀的祖師之手。如今香火凋零、屋頂漏水，觀裡的師兄弟靠小師妹寄回來的銀子過日子。' },
+    { id: 'lingshou', name: '靈獸山莊', kind: '正道', five: 1, place: '北方雪原深處的山谷', who: 'xiaoman', arts: '龍戰・龍佑',
+      text: '人與靈獸締結本命契約，一起修行、一起老去。山莊正殿供著一位活了一千多年的老祖宗——每隔幾百年，她會和本命靈龍一起蛻回小時候。弟子們都知道，千萬別當面叫她「小滿」。' },
+    { id: 'tianji', name: '天機閣', kind: '正道', five: 1, place: '東海邊一座看不見頂的書樓',
+      text: '推演天機、記錄天下事。三百年前，天機閣就算出封印會在今年中秋鬆動，卻沒有人相信。閣中執事常在路上攔下修士出題考驗——答得好的，能帶走一卷天書殘頁。' },
+    { id: 'danding', name: '丹鼎宗', kind: '正道', five: 1, place: '南嶺終年不熄的丹火谷',
+      text: '以丹入道。天下的丹藥大多出自他們的丹爐：回春丹、聚靈丹、遁形丹……一路撿到的那些，都是丹鼎宗的方子。傳聞宗主閉關了一百年，在煉一爐能讓死人站起來的丹。' },
+    { id: 'xuesha', name: '血煞宗', kind: '魔道', place: '西北荒原的血色石林', who: 'chilian', arts: '狂血・血甲・媚骨',
+      text: '以血煉功的魔道宗門，靠屠村煉血壯大。護法赤練一刀斬了宗主、叛出山門，宗門從此群龍無首；殘黨分成好幾派，唯一的共識是要她的命。' },
+    { id: 'baigu', name: '百蠱寨', kind: '南疆', place: '南疆十萬大山深處', who: 'aduo', arts: '毒蠱・暗器・蟲蠱',
+      text: '以蠱為伴的苗寨，不入中原的正魔之爭。寨子的蠱會被汙染，是因為魔淵深處的東西一直在呼喚牠們。老巫婆說，能救寨子的那個人，會笑著把蠱種進敵人心口。' },
+    { id: 'tianmo', name: '天魔教', kind: '魔道', place: '行蹤不定', foe: 'zhanglao',
+      text: '三百年前與妖魔勾結的魔教，封印之後隱入地下。如今教中長老重出江湖——看起來二十出頭、笑得溫柔，袖子裡全是毒鏢。她們想趁封印鬆動，把魔淵整個打開。' },
+    { id: 'jingang', name: '金剛寺', kind: '佛門', place: '西山雲霧裡的古寺',
+      text: '僧人修金剛不壞之身，一聲獅子吼能震退百鬼。佛門向來不涉世事，三百年前卻派出十八位武僧守在魔淵外圍——至今只回來一個，而且再也沒開口說過話。' },
+    { id: 'wanxiang', name: '萬象機關門', kind: '奇門', place: '地圖上找不到的山腹工坊', foe: 'kuilei',
+      text: '不修靈力、只修機關的工匠宗門。路上遇到的機關傀儡，都是他們流落在外的作品。傳聞門主做出了一具會自己思考的傀儡，傀儡第一句話是：「我是誰？」' },
+    { id: 'zhenyao', name: '鎮妖司', kind: '朝廷', place: '京城地底', foe: 'yingwei',
+      text: '朝廷管修士與妖物的衙門，鎮妖塔歸他們管——所以三百年沒去上班的守塔人，名義上也算是他們的人。影衛是鎮妖司的暗衛；有人說，影衛統領早就被魔氣滲透了。' },
+    { id: 'guishi', name: '鬼市', kind: '江湖', place: '鬼哭城地下，只在月黑時開',
+      text: '散修與商人的黑市，什麼都買得到，代價常常不是錢。攤販戴著面具，誰也不知道誰是人、誰是鬼。據說在鬼市最深處，有人在賣三百年前封印魔淵的那份名單。' }
+  ];
   // 圖鑑的介紹（第一次打倒才看得到）
   var LORE = {
     zhiren: '邪修用黃紙剪出來的兵，臉上畫著笑。刀也是紙做的——砍在身上一樣會痛。',
@@ -1909,7 +1937,7 @@ var G = (function () {
 
   return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, ENCOUNTERS: ENCOUNTERS, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, BOSS_POOL: BOSS_POOL, actName: actName, scaleUp: scaleUp, krakenBites: krakenBites, ROWS: ROWS, COLS: COLS, ACT_NAMES: ACT_NAMES, EVENTS: EVENTS,
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff, REALMS: REALMS,
-    FATES: FATES, NP_GAIN: NP_GAIN, stunAt: stunAt, startEvent: startEvent, PATHS: PATHS, pathsOf: pathsOf, pathById: pathById, majorOf: majorOf, chooseMajor: chooseMajor, ownPool: ownPool, masterText: masterText, parasiteSum: parasiteSum, npHow: npHow, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
+    FATES: FATES, NP_GAIN: NP_GAIN, stunAt: stunAt, SECTS_LORE: SECTS_LORE, startEvent: startEvent, PATHS: PATHS, pathsOf: pathsOf, pathById: pathById, majorOf: majorOf, chooseMajor: chooseMajor, ownPool: ownPool, masterText: masterText, parasiteSum: parasiteSum, npHow: npHow, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
     card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, isCurse: isCurse, makeEnemy: makeEnemy, checkEnd: checkEnd, luckMod: luckMod, d20Chance: d20Chance, dullOf: dullOf, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, ownerOf: ownerOf,
     PILLS: PILLS, PILL_SLOTS: PILL_SLOTS, usePill: usePill, swapPill: swapPill, gainPill: gainPill, newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
