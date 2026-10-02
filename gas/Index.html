@@ -28,7 +28,7 @@
   /* 頂列 */
   #top .topbtns { display:flex; gap:5px; margin-left:auto; } #top .infobtn { min-width:36px; min-height:32px; padding:3px 7px; }
   #top { display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
-  #top .who { color:var(--gold); }
+  #top .who { color:var(--gold); } #top .brk { display:none; }
   .bar { position:relative; height:17px; background:#262c38; border-radius:7px; overflow:hidden; min-width:90px; flex:1; }
   .bar i { position:absolute; left:0; top:0; bottom:0; background:var(--red); transition:width .3s ease-out; }
   .bar .ghost { position:absolute; left:0; top:0; bottom:0; background:#f3d9a0; transition:width .5s ease-in .45s; }
@@ -186,7 +186,9 @@
   .ovx { position:sticky; top:-14px; float:right; margin:-6px -6px 0 8px; width:40px; height:40px; border-radius:50%; border:1px solid var(--line); color:var(--dim); background:var(--panel); font-size:16px; z-index:2; }
   .ov .sheet { background:var(--panel); width:100%; max-width:640px; max-height:75vh; overflow:auto; border-radius:14px 14px 0 0; padding:14px; }
   @media (max-width:420px) {
-    #top { flex-wrap:nowrap; gap:5px; padding:6px 8px; } #top .who, #top .dn { display:none; } #top .bar { min-width:0; flex:1 1 50px; }
+    /* 手機：分兩排——上排血條＋三個按鈕，下排命、金錢、玉符、丹藥、進度（狀態多了也不會把血條擠扁） */
+    #top { flex-wrap:wrap; gap:4px 8px; padding:6px 8px; } #top .who, #top .dn { display:none; } #top .bar { order:1; min-width:120px; flex:1 1 auto; }
+    #top .topbtns { order:2; } #top .brk { display:block; order:3; flex-basis:100%; height:0; } #top > span:not(.topbtns):not(.brk), #top > .chip { order:4; }
     #top > span, #top > .chip { white-space:nowrap; font-size:13px; } #top .seals { letter-spacing:0; } #top .topbtns { gap:3px; } #top .infobtn { min-width:32px; padding:3px 4px; font-size:13px; }
     .incoming { font-size:13.5px; padding:4px 8px; line-height:1.4; } .incoming b { font-size:16px; }
     #log { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-height:0; padding:2px 12px; }
@@ -493,7 +495,7 @@
     if (goal === 'master') return !!(c.hard || c.abyss || ((M.stats.endless || {})[who] || 0) >= 50);
     return false;
   }
-  function skinsOpen(M) { var a = []; G.ORDER.forEach(function (k) { (SKINS[k] || []).forEach(function (S) { if (skinOpen(M, k, S.goal)) a.push(k + '_' + S.id); }); }); return a; }
+  function skinsOpen(M) { var a = []; G.ORDER.forEach(function (k) { (SKINS[k] || []).forEach(function (S) { if (ART[k + '_' + S.id] && skinOpen(M, k, S.goal)) a.push(k + '_' + S.id); }); }); return a; }   // 圖還沒做好的造型不算（不宣布、不列出）
   // 圖鑑：這局打倒過的敵人收進帳號（存檔時順便做，中途放棄也算）
   function syncCodex() {
     if (!run || !run.slain || !META) return;
@@ -504,6 +506,8 @@
     queueSave(true, false);
   }
   // 結算時：這次新解鎖的東西（目標、造型）列出來；看過就記進 seen
+  // 結算的解鎖說明：只說這次真的有解鎖的那幾類
+  function umHint(um) { var j = um.join(''), a = []; if (j.indexOf('的造型「') >= 0) a.push('造型可在角色詳情中更換'); if (j.indexOf('機緣「') >= 0) a.push('新機緣在出發前選擇'); if (j.indexOf('法寶「') >= 0) a.push('新法寶會出現在之後的冒險中'); return a.length ? a.join('；') + '。' : ''; }
   function newUnlocks() {
     var M = META; M.seen = M.seen || { goals: [], skins: [] };
     var g = goalsDone(M).filter(function (x) { return M.seen.goals.indexOf(x) < 0; }), sk = skinsOpen(M).filter(function (x) { return M.seen.skins.indexOf(x) < 0; });
@@ -862,10 +866,12 @@
     var row = function (id, name, open, note) {
       var has = !id || ART[k + '_' + id], on = cur === id;
       return '<div class="urow" style="padding:6px 0;border-top:1px solid var(--line)"><div><b>' + (on ? '✔ ' : '') + esc(name) + '</b><div class="dim" style="font-size:13px">' + esc(note) + '</div></div>'
-        + (open && has && !on ? '<button class="infobtn" onclick="wearSkin(\'' + k + '\',\'' + id + '\')">穿上</button>' : open && !has ? '<span class="dim" style="font-size:13px">敬請期待</span>' : on ? '<span class="tag" style="color:var(--gold)">穿著</span>' : '<span class="dim">🔒</span>') + '</div>';
+        + (open && has && !on ? '<button class="infobtn" onclick="wearSkin(\'' + k + '\',\'' + id + '\')">穿上</button>' : on ? '<span class="tag" style="color:var(--gold)">穿著</span>' : '<span class="dim">🔒</span>') + '</div>';
     };
+    var list = (SKINS[k] || []).filter(function (S) { return ART[k + '_' + S.id]; });   // 只列已經有圖的造型
+    if (!list.length) return '';
     return '<div class="box"><h3>造型</h3>' + row('', '原本的樣子', true, '一開始就有')
-      + (SKINS[k] || []).map(function (S) { var open = skinOpen(META, k, S.goal); return row(S.id, S.name, open, (open ? '已解鎖・' : '解鎖：') + SKIN_GOALS[S.goal]); }).join('') + '</div>';
+      + list.map(function (S) { var open = skinOpen(META, k, S.goal); return row(S.id, S.name, open, (open ? '已解鎖・' : '解鎖：') + SKIN_GOALS[S.goal]); }).join('') + '</div>';
   }
   function wearSkin(k, id) { updateMe(function (m) { m.skin = m.skin || {}; if (id) m.skin[k] = id; else delete m.skin[k]; }); svtInfo(k); }
   function svtInfo(k) {
@@ -958,7 +964,7 @@
       + '<div class="box"><h3>' + esc(S.sect) + '・主修</h3>' + run.majors.map(function (id) { var P = G.pathById(run.who, id); return '<div><b>' + esc(P.name) + '</b>（' + esc(P.feel) + '）：' + esc(P.desc) + '</div>'; }).join('') + (run.mastered ? '<div style="margin-top:4px;color:var(--gold)">專精：' + esc(G.masterText(G.majorOf(run))) + '</div>' : run.pathPicked ? '' : '<div class="dim" style="margin-top:4px">打倒第一章魔王時再選專精或兼修</div>') + '</div>'
       + '<div class="box"><h3>頓悟（打贏精英時二選一，共兩層）</h3>' + (run.awaken.length ? run.awaken.map(function (k) { var T = G.talent(run, k); return '<div><b>' + esc(T.name) + '</b>：' + esc(G.talentText(T, run)) + '</div>'; }).join('') : '<span class="dim">還沒有</span>') + '</div>'
       + '<div class="box"><h3>這趟的魔王</h3>第一章：' + esc(G.ENEMIES[run.bosses[0]].name) + '　第二章：' + esc(G.ENEMIES[run.bosses[1]].name) + (run.endless && run.act >= 3 ? '　' + esc(G.actName(run).replace('　', '')) + '：' + esc(G.ENEMIES[run.boss].name) : '') + (run.endless ? '' : '<div class="dim" style="margin-top:4px">傳說第二章打完時手上還留著玉符，會看到別的東西……</div>') + '</div>'
-      + '</div>';
+      + '</div><div class="row" style="justify-content:center;margin-top:12px"><button class="btn" onclick="closeOv();save();flushSave();run=null;render()">回到標題（這趟會留著）</button></div>';
   }
 
   // ── 頂列 ──
@@ -985,7 +991,7 @@
       + '<span class="dim">' + (run.diff && run.diff !== 'normal' ? '<span class="dn">' + G.DIFFS[run.diff].name + '・</span>' : '') + esc(run.endless && run.act >= 3 ? '塔' + (run.act - 2) + '層' : (run.endless ? '♾' : '') + (run.act === 3 ? '魔淵' : run.act + '章')) + ' ' + run.floor + '/' + run.map.length + '</span>'
       + '<span class="topbtns"><button class="infobtn" onclick="openInfo(\'svt\')" aria-label="角色">📜</button>'
       + '<button class="infobtn" onclick="openInfo(\'words\')" aria-label="名詞說明">📖</button>'
-      + '<button class="infobtn" onclick="openInfo(\'deck\')" aria-label="牌組">🂠 ' + run.deck.length + '</button></span>'
+      + '<button class="infobtn" onclick="openInfo(\'deck\')" aria-label="牌組">🂠 ' + run.deck.length + '</button></span><span class="brk"></span>'
       + '</div>';
   }
   // 手牌上的「預計」：用目前的力量、虛弱、目標的易傷與格擋實際試算（靈力不夠時也照算）
@@ -1542,7 +1548,7 @@
       + (run.endless ? '<div class="box" style="text-align:center"><div class="dim">♾ 鎮妖塔成績</div><div style="font-size:30px;color:var(--gold)">' + st.floors + ' 格</div><div class="dim">' + esc(S.name) + '的最遠：' + ((me().stats.endless || {})[run.who] || st.floors) + ' 格</div><button class="infobtn" style="margin-top:8px" onclick="boardScreen()">🏆 看排行榜</button></div>' : '')
       + (run.trueEnd ? endingHtml(run.who) : '')
       + '<div>擊敗 ' + st.kills + '・神通 ' + st.np + ' 次・丹藥吃了 ' + (st.pills || 0) + ' 顆' + (st.seals ? '・捏碎了玉符' : '') + '・牌組 ' + run.deck.length + ' 張</div>'
-      + (um.length ? '<div class="box" style="max-width:460px;width:100%"><h3>🎁 解鎖了</h3>' + um.map(function (x) { return '<div style="margin-top:4px">' + esc(x) + '</div>'; }).join('') + '<div class="dim" style="margin-top:6px;font-size:13px">造型可在角色詳情中更換；新機緣在出發前選擇；新法寶會出現在之後的冒險中。</div></div>' : '')
+      + (um.length ? '<div class="box" style="max-width:460px;width:100%"><h3>🎁 解鎖了</h3>' + um.map(function (x) { return '<div style="margin-top:4px">' + esc(x) + '</div>'; }).join('') + (umHint(um) ? '<div class="dim" style="margin-top:6px;font-size:13px">' + umHint(um) + '</div>' : '') + '</div>' : '')
       + (run.win && (run.diff || 'normal') !== 'abyss' ? '<div class="box" style="text-align:center;color:var(--gold)">以' + esc(G.DIFFS[run.diff || 'normal'].name) + '難度通關：' + (run.diff === 'hard' ? '深淵' : '困難') + '難度開放了</div>' : '')
       + '<div class="row" style="flex-wrap:wrap;justify-content:center"><button class="btn" onclick="MODE=' + (run.endless ? '\'endless\'' : '\'normal\'') + ';run=null;save();choose()">再來一次</button><button class="btn" onclick="run=null;save();titleScreen()">回到標題</button></div></div>';
   }
