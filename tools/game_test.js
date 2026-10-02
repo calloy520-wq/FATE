@@ -253,16 +253,16 @@ t(G.ORDER.every(k=>{ const d=G.newRun(k,3).deck; return d.filter(x=>x==='atk_'+k
 t(new Set(G.ORDER.map(k=>G.card('atk_'+k).name)).size===G.ORDER.length,'5 位的基本攻擊名字都不一樣');
 t(G.ORDER.every(k=>G.card('atk_'+k).fx[0][0]==='dmg'&&G.card('atk_'+k).fx[0][1]===6&&G.card('def_'+k).fx[0][1]===5),'基本牌數字全員一樣（6／5），定位交給根骨');
 // 根骨
-t(G.ORDER.every(k=>G.PARAMS[k]&&G.PARAMS[k].length===6)&&G.PARAM_NAMES.length===6,'5 位都有根骨');
-r=arena('shuang'); r.flat=false; playId(r,'atk_shuang'); t(E(r).hp===50-Math.round(6*1.08)&&G.statsOf(r).atk===1.08,'凌霜 力道 C／靈力 A 取高（108%）：6 傷 → 6',E(r).hp);
-r=arena('xiaoman'); r.flat=false; E(r).hp=200; r.battle.energy=9; for(let i=0;i<5;i++) playId(r,'atk_xiaoman'); t(G.statsOf(r).atk===1&&E(r).hp===200-30,'白辰 力道 E／靈力 B 取高（100%）：5 下 6 傷 = 30',E(r).hp);
+t(G.ORDER.every(k=>G.PARAMS[k]&&G.PARAMS[k].length===6&&G.PARAMS[k].every(g=>'天地玄黃'.includes(g)))&&G.PARAM_NAMES.length===6,'5 位都有根骨，全用天地玄黃（不用 Fate 的字母等級）');
+r=arena('shuang'); r.flat=false; playId(r,'atk_shuang'); t(E(r).hp===50-Math.round(6*1.08)&&G.statsOf(r).atk===1.08,'凌霜 力道玄／靈力天 取高（108%）：6 傷 → 6',E(r).hp);
+r=arena('xiaoman'); r.flat=false; E(r).hp=200; r.battle.energy=9; for(let i=0;i<5;i++) playId(r,'atk_xiaoman'); t(G.statsOf(r).atk===1&&E(r).hp===200-30,'白辰 力道黃／靈力地 取高（100%）：5 下 6 傷 = 30',E(r).hp);
 r=arena('shuang'); r.flat=false; playId(r,'atk_shuang'); t(E(r).hp===50-6,'凌霜 力道 D、靈力 B（攻擊取高）：6 傷 → 6',E(r).hp);
-r=arena('chilian'); r.flat=false; r.battle.energy=9; for(let i=0;i<4;i++) playId(r,'def_chilian'); t(G.statsOf(r).def===1.08&&r.battle.block===4*Math.round(5*1.08),'赤練 格擋看力道／身法／靈力取最高（靈力 A 108%）',r.battle.block);
+r=arena('chilian'); r.flat=false; r.battle.energy=9; for(let i=0;i<4;i++) playId(r,'def_chilian'); t(G.statsOf(r).def===1.08&&r.battle.block===4*Math.round(5*1.08),'赤練 格擋看力道／身法／靈力取最高（靈力天 108%）',r.battle.block);
 r=arena('xiaoman'); r.flat=false; playId(r,'def_xiaoman'); t(r.battle.block===5,'白辰 力道 D／身法 D／靈力 C 取最高（92%）：5 → 5',r.battle.block);
-t(G.SERVANTS.chilian.hp===81&&G.SERVANTS.aduo.hp===69&&G.SERVANTS.shuang.hp===63&&G.SERVANTS.xiaoman.hp===57&&G.ORDER.every(k=>G.newRun(k,3).maxHp===G.SERVANTS[k].hp),'生命照體魄：A 81、C 69、D 63、E 57',G.ORDER.map(k=>G.SERVANTS[k].hp).join());
-r=arena('chilian',1,100); r.flat=false; r.battle.np=100; G.noble(r,0); t(E(r).hp===100-9*Math.round(5*1.08),'神通等級只顯示：赤練血河九斬只乘攻擊（靈力 A）',E(r).hp);
+t(G.SERVANTS.chilian.hp===81&&G.SERVANTS.aduo.hp===69&&G.SERVANTS.shuang.hp===63&&G.SERVANTS.xiaoman.hp===63&&G.ORDER.every(k=>G.newRun(k,3).maxHp===G.SERVANTS[k].hp),'生命照體魄：天 81、玄 69、黃 63',G.ORDER.map(k=>G.SERVANTS[k].hp).join());
+r=arena('chilian',1,100); r.flat=false; r.battle.np=100; G.noble(r,0); t(E(r).hp===100-9*Math.round(5*1.08),'神通等級只顯示：赤練血河九斬只乘攻擊（靈力天）',E(r).hp);
 const qlR=G.newRun('qingli',3); step(qlR,'fight'); const xmR=G.newRun('xiaoman',3); step(xmR,'fight'); t(qlR.battle.hand.length===xmR.battle.hand.length+1,'身法 A 以上（青璃）：開場多抽 1 張',[qlR.battle.hand.length,xmR.battle.hand.length].join());
-t(G.statsOf(G.newRun('qingli',1)).luck>1&&G.statsOf(G.newRun('chilian',1)).luck<1&&G.statsOf(G.newRun('xiaoman',1)).luck===1,'氣運：青璃 A（愛錢）拿得多、赤練 D 拿得少、白辰 B 照常');
+t(G.statsOf(G.newRun('qingli',1)).luck>1&&G.statsOf(G.newRun('chilian',1)).luck<1&&G.statsOf(G.newRun('xiaoman',1)).luck===1,'氣運：青璃天品（愛錢）拿得多、赤練黃品拿得少、白辰地品照常');
 let lt=G.newRun('qingli',6,{fate:'light'}); t(lt.deck.filter(x=>G.isBasic(x,'atk')).length===3&&lt.deck.filter(x=>G.isBasic(x,'def')).length===3,'輕裝上陣：拿掉的是自己的基本牌');
 
 // 角色專屬事件
@@ -397,7 +397,7 @@ r=arena(); r.battle.hand=['enfeeble']; playId(r,'atk_qingli'); t(E(r).hp===50-3,
 r=arena(); r.battle.hand=['bind','atk_qingli','sword']; t(G.costOf(r,'atk_qingli')===2&&G.costOf(r,'sword')===1&&G.costOf(r,'bind')===1,'縛靈在手上：每張牌 +1 費（0 費的變 1），打掉縛靈本身還是 1 費');
 r.battle.energy=3; G.play(r,0,0); t(G.costOf(r,'atk_qingli')===1&&r.battle.energy===2,'打掉縛靈後費用恢復');
 // 擲骰事件：d20＋氣運修正（B＝0、每級 ±1），20 必成功、1 必失敗
-t(G.luckMod({who:'qingli'})===1&&G.luckMod({who:'chilian'})===-2&&G.luckMod({who:'xiaoman'})===0&&G.luckMod({who:'qingli',flat:true})===0,'氣運修正：青璃 A＝+1、赤練 D＝-2、白辰 B＝0（flat 不套）');
+t(G.luckMod({who:'qingli'})===1&&G.luckMod({who:'chilian'})===-2&&G.luckMod({who:'xiaoman'})===0&&G.luckMod({who:'qingli',flat:true})===0,'氣運修正：青璃天＝+1、赤練黃＝-2、白辰地＝0（flat 不套）');
 t(G.d20Chance({who:'xiaoman'},10)===55&&G.d20Chance({who:'qingli'},10)===60&&G.d20Chance({who:'chilian'},10)===45&&G.d20Chance({who:'chilian'},30)===5&&G.d20Chance({who:'qingli'},1)===95,'成功率：20 必成功、1 必失敗');
 { let win=0, hpWin=0; for(let s=0;s<300;s++){ const q=G.newRun('chilian',s); q.screen='event'; q.event='stairs'; const m=q.maxHp, h=q.hp; const x=G.choose(q,0); if(x.roll.ok){ win++; if(q.maxHp===m+8) hpWin++; } else if(q.hp!==h-10||q.maxHp!==m) hpWin=-999; }
   t(win>130&&win<200&&hpWin===win,'通天石階：成功最大生命 +8、失敗失去 10 生命，成功率約 55%',win); }

@@ -172,24 +172,25 @@ var G = (function () {
   // ── 根骨（力道／體魄／身法／靈力／氣運／神通）──
   // 換算：等級 E1 D2 C3 B4 A5 EX6.5，「+」+0.5；以 B 為 100%
   //   攻擊（力道與靈力取高）：所有卡牌傷害 ×(1＋8%×(等級−4))｜體魄：生命＝75×(1＋8%×…)｜格擋：力道、身法、靈力取最高 ×(1＋8%×…)
-  //   身法 A 以上：每場開場多抽 1 張｜氣運：打贏拿到的金錢 ×(1＋10%×…)、擲骰修正｜神通：只顯示，不影響數值
+  //   身法天品：每場開場多抽 1 張｜氣運：打贏拿到的金錢 ×(1＋10%×…)、擲骰修正｜神通：只顯示，不影響數值
   // 2026-10-02 照新設定重配（玩家：新遊戲，根骨可以隨便調）
   var PARAMS = {
-    shuang:  ['C', 'D', 'B', 'A', 'D', 'A+'],   // 隱世三百年的劍仙：靈力深厚、身輕，劍在心裡不靠蠻力
-    qingli:  ['C', 'D', 'A', 'B', 'A', 'A'],    // 符修：身法靈活；愛錢，氣運最好（金錢多、擲骰準）
-    xiaoman: ['E', 'E', 'C', 'B', 'B', 'EX'],   // 千年老祖宗：小孩身體很弱，修為還在
-    chilian: ['B', 'A', 'B', 'A', 'D', 'A'],    // 血修：血體耐打、血煞之力強；身段柔，不再是蠻力
-    aduo:    ['C', 'C', 'A', 'A', 'C', 'B']     // 蠱師：身法輕盈，蠱術靠靈力
+    shuang:  ['玄', '黃', '地', '天', '黃', '天'],   // 隱世三百年的劍仙：靈力深厚、身輕，劍在心裡不靠蠻力
+    qingli:  ['玄', '黃', '天', '地', '天', '天'],   // 符修：身法靈活；愛錢，氣運最好（金錢多、擲骰準）
+    xiaoman: ['黃', '黃', '玄', '地', '地', '天'],   // 千年老祖宗：小孩身體很弱，修為還在
+    chilian: ['地', '天', '地', '天', '黃', '天'],   // 血修：血體耐打、血煞之力強；身段柔，不再是蠻力
+    aduo:    ['玄', '玄', '天', '天', '玄', '地']    // 蠱師：身法輕盈，蠱術靠靈力
   };
   var PARAM_NAMES = ['力道', '體魄', '身法', '靈力', '氣運', '神通'];
-  function grade(g) { var v = { E: 1, D: 2, C: 3, B: 4, A: 5, EX: 6.5 }[String(g).replace(/\+/g, '')]; return v ? v + 0.5 * (String(g).match(/\+/g) || []).length : 4; }
+  // 品階：天、地、玄、黃（地＝基準 100%，每差一品 ±8%；氣運每品 ±10%）。舊的字母等級也認得
+  function grade(g) { var v = { 天: 5, 地: 4, 玄: 3, 黃: 2, E: 1, D: 2, C: 3, B: 4, A: 5, EX: 6.5 }[String(g).replace(/\+/g, '')]; return v ? v + 0.5 * (String(g).match(/\+/g) || []).length : 4; }
   // 這一局套用的倍率（run.flat＝不套根骨，測試卡牌機制用）
   function statsOf(run) {
     var P = !run || run.flat ? null : PARAMS[run.who];
     if (!P) return { atk: 1, hp: 1, def: 1, agi: false, luck: 1 };
     return { atk: 1 + 0.08 * (Math.max(grade(P[0]), grade(P[3])) - 4), hp: 1 + 0.08 * (grade(P[1]) - 4), def: 1 + 0.08 * (Math.max(grade(P[0]), grade(P[2]), grade(P[3])) - 4), agi: grade(P[2]) >= 5, luck: 1 + 0.1 * (grade(P[4]) - 4) };
   }
-  // 生命照體魄：B＝75
+  // 生命照體魄：地品＝75
   var HP_BASE = 75;
   Object.keys(PARAMS).forEach(function (k) { if (SERVANTS[k]) SERVANTS[k].hp = Math.round(HP_BASE * statsOf({ who: k }).hp); });
   var ORDER = ['shuang', 'qingli', 'xiaoman', 'chilian', 'aduo'];
