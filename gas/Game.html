@@ -883,14 +883,14 @@ var G = (function () {
   // ── 開局與地圖 ───────────────────────────────────────
   // 兩章（第三章是隱藏關）。每章由上往下走 12 列：第 1 列進場（左中右三個入口），第 11 列休息，第 12 列魔王。
   // 地圖是分岔路：每一格只連到下一列固定的一到三格；迷霧：看得到接下來 3 列與魔王。
-  var ROWS = 12, COLS = 5, ACT_UP = 4, ACT2_UP = 8, HIDDEN_UP = 5, HIDDEN_RAMP = 0.7, ACT2 = { hp: 0.7, str: 9 }, ELITE2 = { hp: 0.35, str: 3 };   // 第二章：敵人多長 8 列，再隨樓層加到五成血、力量 +8（自動玩家通關約三成，真人約五成）
+  var ROWS = 12, COLS = 5, ACT_UP = 4, ACT2_UP = 8, HIDDEN_UP = 5, HIDDEN_RAMP = 0.7, ACT2 = { hp: 0.7, str: 9 }, ELITE2 = { hp: 0.45, str: 4 };   // 第二章：敵人多長 8 列，再隨樓層加到五成血、力量 +8（自動玩家通關約三成，真人約五成）
   var FLOORS = ROWS;
   var ACT_NAMES = { 1: '第一章　落霞山', 2: '第二章　鬼哭城', 3: '隱藏關　九幽魔淵' };
   // 無盡模式：第二章之後不進隱藏關，改下鎮妖塔一層一層往下（第 3 章起叫「鎮妖塔第 N 層」），越來越強，看能爬多遠（走過的格子數＝成績）
   function actName(run, act) { act = act || run.act; return run.endless && act >= 3 ? '鎮妖塔　第 ' + (act - 2) + ' 層' : ACT_NAMES[act]; }
   function bossAct(run) { var a = run.act || 1; return run.endless && a >= 3 ? { hp: 1.4 * (1 + 0.4 * (a - 2)), str: BOSS_ACT[2].str + 2 * (a - 2) } : BOSS_ACT[a]; }   // 魔王不吃每列的成長，所以無盡層另外每層 +40% 血、+2 力量
   var BOSS_POOL = { 1: ['zhanglao', 'shuyao', 'guijiang', 'niumo'], 2: ['huyao', 'duoxian', 'panguan', 'niumo'] };
-  var BOSS_ACT = { 1: { hp: 0.9, str: 0 }, 2: { hp: 1.65, str: 6 }, 3: { hp: 1.5, str: 6 } };
+  var BOSS_ACT = { 1: { hp: 0.95, str: 0 }, 2: { hp: 1.8, str: 6 }, 3: { hp: 1.5, str: 6 } };
   // opts：{ major 主修, fates 機緣（最多兩種；舊寫法 fate 單一個也可以）, asc 境界, diff 難度, endless 無盡 }（直接傳機緣的字串也可以）
   function newRun(who, seed, opts) {
     if (typeof opts === 'string') opts = { fate: opts };
