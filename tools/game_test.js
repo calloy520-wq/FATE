@@ -86,7 +86,7 @@ r=arena(); playId(r,'mystic'); t(E(r).petrify===2&&E(r).weak===1,'定身符：�
 playId(r,'chain'); t(E(r).stun===1&&E(r).petrify===0,'累積到 3 層：動彈不得、層數歸零');
 E(r).intent={n:'砍',fx:[['atk',30]]}; hp=r.hp; G.endTurn(r); t(r.hp===hp&&E(r).stun===0,'被定住的敵人跳過這回合',hp-r.hp);
 r=arena(); E(r).petrify=2; playId(r,'stare'); t(E(r).hp===40,'破邪符：4＋定身 2×3＝10',E(r).hp);
-r=arena('qingli',2); r.hp=30; playId(r,'bloodfort'); t(r.battle.enemies.every(e=>e.hp===44)&&r.hp===36,'攝魂陣：全體 6、回復一半（6）',r.hp);
+r=arena('qingli',2); r.hp=30; playId(r,'bloodfort'); t(r.battle.enemies.every(e=>e.hp===44)&&r.hp===36,'化煞陣：全體 6、回復一半（6）',r.hp);
 r=arena(); E(r).petrify=2; playId(r,'shatter'); t(E(r).hp===50-(6+7*2)&&E(r).petrify===0,'五雷轟頂：引爆定身符換傷害',E(r).hp);
 r=arena(); E(r).stun=1; playId(r,'kick'); t(E(r).hp===30,'掌心雷：動彈不得的目標 8＋12',E(r).hp);
 r=arena(); playId(r,'gorgon'); t(E(r).petrify===1,'能力牌打出當下先生效一次：符籙通神全體定身 1'); G.endTurn(r); t(E(r).petrify===2,'符籙通神：之後每回合全體定身 1');
@@ -94,7 +94,7 @@ r=arena(); playId(r,'monstrous'); t(r.battle.tstr===2&&E(r).petrify===1,'大力�
 r=arena(); E(r).petrify=2; E(r).intent={n:'砍',fx:[['atk',10]]}; t(G.intentDmg(r,E(r),E(r).intent.fx[0])===9,'鎮魂符的重壓：定身 2 層，攻擊 -1（每 2 層 -1），預告也照算');
 hp=r.hp; G.endTurn(r); t(hp-r.hp===9,'實際也只受到 9',hp-r.hp);
 { const q=arena('shuang'); E(q).petrify=2; E(q).intent={n:'砍',fx:[['atk',10]]}; t(G.intentDmg(q,E(q),E(q).intent.fx[0])===10,'別人沒有符的重壓'); }
-t(G.SERVANTS.qingli.sig==='chain'&&['chain','nails','kick','monstrous','bloodfort','mystic'].every(k=>G.CARDS[k]&&G.CARDS[k].kit==='qingli'),'縛靈索（招牌牌）、符針、掌心雷、大力符、攝魂陣、定身符都是青璃的');
+t(G.SERVANTS.qingli.sig==='chain'&&['chain','nails','kick','monstrous','bloodfort','mystic'].every(k=>G.CARDS[k]&&G.CARDS[k].kit==='qingli'),'捆妖索（招牌牌）、符針、掌心雷、大力符、化煞陣、定身符都是青璃的');
 
 console.log('── 白辰（阿白）');
 r=G.newRun('xiaoman',3); step(r,'fight'); t(r.battle.kraken===5,'白辰 龍之契約：開場阿白 5',r.battle.kraken);
@@ -106,7 +106,7 @@ r=arena('xiaoman'); E(r).intent={n:'咒',fx:[['weak',3]]}; G.endTurn(r); t(r.bat
 { const q=arena(); E(q).intent={n:'咒',fx:[['weak',2],['vuln',2]]}; G.endTurn(q); t(q.battle.weak>0&&q.battle.vuln>0,'別人照樣會被施加虛弱、易傷'); }
 r=arena('xiaoman',2); r.battle.kraken=9; playId(r,'feastdeep'); t(r.battle.kraken===0&&r.battle.enemies.every(e=>e.hp===23),'全力龍息：吐光大小 9 的阿白，全體 27',E(r).hp);
 r=arena('xiaoman'); r.battle.kraken=5; playId(r,'abyss'); t(r.battle.kraken===10,'龍族血脈：阿白翻倍');
-r=arena('xiaoman'); hp=r.hp; playId(r,'sacrifice'); t(r.hp===hp-2&&r.battle.kraken===4,'分你一口靈氣：失去 2 生命、阿白 +4');
+r=arena('xiaoman'); hp=r.hp; playId(r,'sacrifice'); t(r.hp===hp-2&&r.battle.kraken===4,'賞你一口靈氣：失去 2 生命、阿白 +4');
 r=arena('xiaoman'); r.hp=2; playId(r,'sacrifice'); t(r.hp===1,'自傷不會把自己弄死');
 r=arena('xiaoman',3); r.battle.kraken=15; r.battle.enemies.forEach((e,i)=>{ e.hp=[30,8,20][i]; e.intent={n:'守',fx:[['block',0]]}; }); G.endTurn(r); t(r.battle.enemies[1].hp===0&&r.battle.enemies[2].hp===5&&r.battle.enemies[0].hp===30,'阿白咬生命最少的敵人；大小 15 咬兩口',JSON.stringify(r.battle.enemies.map(e=>e.hp)));
 { const q=arena('xiaoman'); q.battle.kraken=12; t(G.krakenBites(q.battle)===2,'阿白大小 12 就咬兩口'); }
@@ -118,7 +118,7 @@ r=arena('xiaoman',3); r.battle.kraken=15; r.battle.enemies.forEach((e,i)=>{ e.hp
 
 console.log('── 赤練（血修）');
 r=arena('chilian'); r.hp=r.maxHp-27; playId(r,'divine'); t(E(r).hp===50-(10+3*2),'搏命一擊：少 27 生命 → 10＋3×2',E(r).hp);
-r=arena('chilian'); r.hp=20; playId(r,'godhand'); G.endTurn(r); t(r.battle.str===1,'越戰越勇：生命低於一半時每回合力量 +1');
+r=arena('chilian'); r.hp=20; playId(r,'godhand'); G.endTurn(r); t(r.battle.str===1,'積怨：生命低於一半時每回合力量 +1');
 r=arena('chilian'); t(r.lives===1,'赤練 不滅血體：整趟 1 條備用的命'); r.hp=5; E(r).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(r); t(r.hp===Math.round(G.SERVANTS.chilian.hp*0.5)&&r.screen==='battle'&&r.lives===0&&r.battle.str===2&&r.trialStr===2,'倒下以五成血站起來、力量 +2、命用掉',JSON.stringify([r.hp,r.battle.str]));
 const tr=J(r); tr.battle=null; tr.screen='map'; step(tr,'fight'); t(tr.battle.str===2,'不滅血體換來的力量整趟保留（下一場開場就有）',tr.battle.str);
 const rk=arena(); rk.lives=1; rk.hp=5; E(rk).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(rk); t(rk.hp===Math.round(rk.maxHp*0.2)&&!rk.trialStr,'別人的備用命（九轉還魂丹等）照舊兩成、不加力量');
@@ -273,7 +273,7 @@ let lt=G.newRun('qingli',6,{fate:'light'}); t(lt.deck.filter(x=>G.isBasic(x,'atk
 ev=G.newRun('xiaoman',41); step(ev,'event'); ev.event='tanghulu'; const gd=ev.gold; G.choose(ev,0); t(ev.gold===gd-40&&ev.krakenStart===3,'糖葫蘆攤：花 40 金，每場開場阿白 +3');
 step(ev,'fight'); t(ev.battle.kraken===8,'下一場開場阿白 5＋3',ev.battle.kraken);
 ev=G.newRun('xiaoman',41); step(ev,'event'); ev.event='alone'; G.choose(ev,0); step(ev,'fight'); ev.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); const k0=ev.battle.kraken; G.endTurn(ev); t(ev.battle.kraken===k0+2,'一個人的夜路：阿白每回合長大 2',ev.battle.kraken-k0);
-ev=G.newRun('xiaoman',41); step(ev,'event'); ev.event='dragonhome'; G.choose(ev,0); t(ev.deck.includes('prelati')&&ev.maxHp===G.SERVANTS.xiaoman.hp-6,'舊蛻：最大生命 -6，得到龍王的祝福');
+ev=G.newRun('xiaoman',41); step(ev,'event'); ev.event='dragonhome'; G.choose(ev,0); t(ev.deck.includes('prelati')&&ev.maxHp===G.SERVANTS.xiaoman.hp-6,'舊蛻：最大生命 -6，得到蛻龍訣');
 { const q=G.newRun('shuang',3); q.screen='event'; q.event='swordtomb'; const h=q.hp; G.choose(q,0); t(q.hp===h-10&&q.deck.includes('sword_rain'),'劍冢：失去 10 生命，得到漫天劍雨'); }
 { const q=G.newRun('qingli',3); q.screen='event'; q.event='sellfu'; const g=q.gold; G.choose(q,0); t(q.gold===g+80&&q.deck.includes('sin'),'賣符：漫天喊價得 80 金，代價業障'); }
 { const q=G.newRun('aduo',3); q.screen='event'; q.event='guking'; G.choose(q,1); t(q.deck.includes('shaitan')&&q.deck.includes('sin'),'蠱王：得到金蠶蠱，代價業障'); }
@@ -287,11 +287,11 @@ t(G.newRun('qingli',1,{asc:6}).ascStart.some(f=>f[0]==='pPetrifyAll'),'境界 VI
 console.log('── 強化方向');
 t(G.upDirs('chain').join('')==='acde'&&G.upDirs('hrunting').join('')==='abcde'&&G.upDirs('atk').join('')==='ace'&&G.upDirs('gorgon').join('')==='ad'&&G.card('gorgon+d').fx.some(f=>f[0]==='pPetrifyAll'&&f[1]===2)&&G.upDirs('chain+').length===0&&G.upDirs('sword').length===0,'每張牌能往哪幾個方向強化（1 費沒有迅捷、能力牌沒有共鳴與極限、能力牌的道心是每回合版，已強化／代幣不能再強化）');
 t(G.card('hrunting+b').cost===1&&G.card('chain+c').npBonus===15&&G.card('chain+c').fx.some(f=>f[0]==='draw')&&G.card('nails+d').fx.filter(f=>f[0]==='petrifyAll').length===1&&G.card('nails+d').fx.some(f=>f[0]==='petrifyAll'&&f[1]===2)&&G.card('chain+e').fx[0][1]===12&&G.card('chain+e').ex,'迅捷 -1 費、共鳴 +15% 抽 1、道心加定身（符針全體定身 1 → 2，精煉是 1）、極限翻倍但消耗');
-t(G.card('chain+').name==='縛靈索＋'&&G.card('chain+').fx[0][1]===9&&G.card('chain+e').name==='縛靈索・極'&&G.card('chain+c').name==='縛靈索・共鳴','「+」是精煉；名字帶方向');
+t(G.card('chain+').name==='捆妖索＋'&&G.card('chain+').fx[0][1]===9&&G.card('chain+e').name==='捆妖索・極'&&G.card('chain+c').name==='捆妖索・共鳴','「+」是精煉；名字帶方向');
 let ug=G.newRun('qingli',77); ug.deck.push('bloodfort'); const ci=ug.deck.length-1, op=G.upgradeOptions(ug,ci);
 t(op.length===3&&op.includes('bloodfort+')&&JSON.stringify(G.upgradeOptions(ug,ci))===JSON.stringify(op),'強化給三個方向（精煉一定在），同一次重畫不會變',op);
 ug.screen='rest'; t(!G.rest(ug,'upgrade',ci,'bloodfort+x')&&G.rest(ug,'upgrade',ci,op[1])&&ug.deck[ci]===op[1],'只能選給的方向');
-let ug2=G.newRun('qingli',78); let seenDirs=new Set(); for(let k=0;k<40;k++){ ug2.stats.floors=k; G.upgradeOptions(ug2,9).forEach(v=>{ if(G.card(v).dir!=='f') seenDirs.add(G.card(v).dir); }); } t(seenDirs.size===4,'換個時間點，另外兩個方向會變（縛靈索 4 個方向都出現過）',[...seenDirs].join(''));
+let ug2=G.newRun('qingli',78); let seenDirs=new Set(); for(let k=0;k<40;k++){ ug2.stats.floors=k; G.upgradeOptions(ug2,9).forEach(v=>{ if(G.card(v).dir!=='f') seenDirs.add(G.card(v).dir); }); } t(seenDirs.size===4,'換個時間點，另外兩個方向會變（捆妖索 4 個方向都出現過）',[...seenDirs].join(''));
 r=arena(); r.battle.hand=['chain+e']; G.play(r,0,0); t(E(r).hp===38&&r.battle.exhaust.includes('chain+e'),'極限：12、打完消耗',E(r).hp);
 
 console.log('── 流程');

@@ -39,7 +39,7 @@ var G = (function () {
     grail:      { name: '天書殘頁', cost: 0, type: 'skill', np: 50, ex: 1, rare: 'common', fx: [['draw', 1]], up: { np: 70 } },
     sword_rain: { name: '漫天劍雨', cost: 1, type: 'skill', np: 20, ex: 1, rare: 'shuang', fx: [['proj', 5]], up: { fx: [['proj', 7]] } },
     breaker:    { name: '太上鎮魂印', cost: 1, type: 'skill', np: 10, ex: 1, rare: 'qingli', fx: [['petrifyAll', 3], ['draw', 1]], up: { ex: 0 } },
-    prelati:    { name: '龍王的祝福', cost: 1, type: 'power', np: 0, rare: 'xiaoman', fx: [['str', 1], ['pKraken', 1]], up: { fx: [['str', 2], ['pKraken', 1]] } },
+    prelati:    { name: '蛻龍訣', cost: 1, type: 'power', np: 0, rare: 'xiaoman', fx: [['str', 1], ['pKraken', 1]], up: { fx: [['str', 2], ['pKraken', 1]] } },
     nine_lives: { name: '千刃血雨', cost: 3, type: 'atk', np: 30, rare: 'chilian', fx: [['rand', 5, 9]], up: { cost: 2 } },
     shaitan:    { name: '金蠶蠱', cost: 2, type: 'atk', np: 10, ex: 1, rare: 'aduo', fx: [['exec', 30, 12]], up: { fx: [['exec', 40, 16]] } }
   });
@@ -53,7 +53,7 @@ var G = (function () {
     feint:    { name: '牽制', cost: 0, type: 'atk', np: 5, fx: [['dmg', 3], ['weak', 1]], up: { fx: [['dmg', 5], ['weak', 2]] } },
     gandr:    { name: '破甲指', cost: 1, type: 'atk', np: 10, fx: [['dmg', 7], ['vuln', 1]], up: { fx: [['dmg', 10], ['vuln', 1]] } },
     bounded:  { name: '金光罩', cost: 2, type: 'skill', np: 10, fx: [['block', 12], ['draw', 1]], up: { fx: [['block', 16], ['draw', 1]] } },
-    jewel:    { name: '火球術', cost: 1, type: 'atk', np: 10, ex: 1, fx: [['all', 9]], up: { fx: [['all', 13]] } },
+    jewel:    { name: '離火訣', cost: 1, type: 'atk', np: 10, ex: 1, fx: [['all', 9]], up: { fx: [['all', 13]] } },
     blackkeys:{ name: '柳葉飛刀', cost: 1, type: 'atk', np: 10, fx: [['pierceHits', 2, 3]], up: { fx: [['pierceHits', 3, 3]] } },   // 指間夾著三把一起擲出
     familiar: { name: '紙鶴傳訊', cost: 0, type: 'skill', np: 5, ex: 1, fx: [['draw', 2]], up: { fx: [['draw', 3]] } },
     supply:   { name: '吐納', cost: 1, type: 'skill', np: 5, fx: [['nextEnergy', 2], ['block', 3]], up: { fx: [['nextEnergy', 2], ['block', 7]] } },
@@ -68,11 +68,11 @@ var G = (function () {
   // 每位角色的專屬牌都要吃或餵自己的機制（沒有「換個名字的通用牌」）
   kit('shuang', {   // 蘇凌霜（劍修）：飛劍越囤越多，照手上劍數加成，最後劍氣迸裂引爆
     project: { name: '祭劍', cost: 1, type: 'skill', np: 5, fx: [['proj', 2]], up: { fx: [['proj', 3]] } },
-    tracing: { name: '劍訣', cost: 0, type: 'skill', np: 5, fx: [['proj', 1], ['draw', 1]], up: { fx: [['proj', 2], ['draw', 1]] } },
-    traceon: { name: '燃血祭劍', cost: 0, type: 'skill', np: 5, fx: [['proj', 2], ['selfDmg', 3]], up: { fx: [['proj', 3], ['selfDmg', 3]] } },
+    tracing: { name: '撫琴', cost: 0, type: 'skill', np: 5, fx: [['proj', 1], ['draw', 1]], up: { fx: [['proj', 2], ['draw', 1]] } },
+    traceon: { name: '斷弦', cost: 0, type: 'skill', np: 5, fx: [['proj', 2], ['selfDmg', 3]], up: { fx: [['proj', 3], ['selfDmg', 3]] } },
     hrunting:{ name: '飛劍追魂', cost: 2, type: 'atk', np: 20, fx: [['projDmg', 8, 3]], up: { fx: [['projDmg', 10, 4]] } },
     calad:   { name: '劍氣縱橫', cost: 2, type: 'atk', np: 20, fx: [['projAll', 6, 2]], up: { fx: [['projAll', 9, 3]] } },
-    kanshou: { name: '雙劍合璧', cost: 1, type: 'atk', np: 15, fx: [['hits', 4, 2], ['proj', 1]], up: { fx: [['hits', 6, 2], ['proj', 1]] } },
+    kanshou: { name: '劍影雙飛', cost: 1, type: 'atk', np: 15, fx: [['hits', 4, 2], ['proj', 1]], up: { fx: [['hits', 6, 2], ['proj', 1]] } },
     hawkeye: { name: '劍心通明', cost: 1, type: 'skill', np: 5, fx: [['vuln', 2], ['proj', 1]], up: { fx: [['vuln', 3], ['proj', 1]] } },
     rhoaias: { name: '劍陣護體', cost: 2, type: 'skill', np: 10, fx: [['projBlock', 6, 3]], up: { fx: [['projBlock', 9, 4]] } },
     analysis:{ name: '劍意淬鍊', cost: 1, type: 'power', np: 0, fx: [['projUp', 1]], up: { fx: [['projUp', 2]] } },
@@ -81,37 +81,37 @@ var G = (function () {
   });
   kit('qingli', {   // 顧青璃（符修）：定身符一層層貼上去，貼滿就動彈不得；五雷轟頂把符一次引爆
     mystic:   { name: '定身符', cost: 1, type: 'skill', np: 5, fx: [['petrify', 2], ['weak', 1]], up: { fx: [['petrify', 3], ['weak', 1]] } },
-    chain:    { name: '縛靈索', cost: 1, type: 'atk', np: 10, fx: [['dmg', 6], ['petrify', 1]], up: { fx: [['dmg', 9], ['petrify', 1]] } },
+    chain:    { name: '捆妖索', cost: 1, type: 'atk', np: 10, fx: [['dmg', 6], ['petrify', 1]], up: { fx: [['dmg', 9], ['petrify', 1]] } },
     nails:    { name: '符針', cost: 1, type: 'atk', np: 10, fx: [['hits', 3, 2], ['petrifyAll', 1]], up: { fx: [['hits', 4, 2], ['petrifyAll', 1]] } },
     monstrous:{ name: '大力符', cost: 0, type: 'skill', np: 5, fx: [['tstr', 2], ['petrify', 1]], up: { fx: [['tstr', 4], ['petrify', 1]] } },
     stare:    { name: '破邪符', cost: 1, type: 'atk', np: 10, fx: [['petrifyDmg', 4, 3]], up: { fx: [['petrifyDmg', 6, 4]] } },
     shatter:  { name: '五雷轟頂', cost: 1, type: 'atk', np: 15, fx: [['shatter', 6, 7]], up: { fx: [['shatter', 8, 9]] } },
     kick:     { name: '掌心雷', cost: 1, type: 'atk', np: 10, fx: [['dmgIfStun', 8, 12]], up: { fx: [['dmgIfStun', 11, 15]] } },
     spread:   { name: '鎮山符陣', cost: 2, type: 'skill', np: 10, fx: [['petrifyAll', 2]], up: { cost: 1 } },
-    bloodfort:{ name: '攝魂陣', cost: 2, type: 'atk', np: 15, fx: [['drainAll', 6]], up: { fx: [['drainAll', 9]] } },
+    bloodfort:{ name: '化煞陣', cost: 2, type: 'atk', np: 15, fx: [['drainAll', 6]], up: { fx: [['drainAll', 9]] } },
     gorgon:   { name: '符籙通神', cost: 2, type: 'power', np: 0, fx: [['pPetrifyAll', 1]], up: { cost: 1 } }
   });
   kit('xiaoman', {   // 白辰（御獸）：小白龍阿白越養越大，回合結束咬人、替你擋傷害；最後全力龍息
     horror:   { name: '呼喚阿白', cost: 1, type: 'skill', np: 5, fx: [['kraken', 3], ['block', 3]], up: { fx: [['kraken', 4], ['block', 4]] } },
-    sacrifice:{ name: '分你一口靈氣', cost: 0, type: 'skill', np: 5, fx: [['selfDmg', 2], ['kraken', 4]], up: { fx: [['selfDmg', 2], ['kraken', 6]] } },
+    sacrifice:{ name: '賞你一口靈氣', cost: 0, type: 'skill', np: 5, fx: [['selfDmg', 2], ['kraken', 4]], up: { fx: [['selfDmg', 2], ['kraken', 6]] } },
     blasphemy:{ name: '龍爪', cost: 1, type: 'atk', np: 10, fx: [['krakenDmg', 5, 1]], up: { fx: [['krakenDmg', 7, 1]] } },
     tentacle: { name: '龍尾纏', cost: 1, type: 'skill', np: 5, fx: [['weak', 1], ['krakenBlock', 3, 1]], up: { fx: [['weak', 2], ['krakenBlock', 4, 1]] } },
     zealot:   { name: '借龍力', cost: 0, type: 'skill', np: 5, fx: [['krakenStr', 3, 6], ['draw', 1]], up: { fx: [['krakenStr', 3, 8], ['draw', 1]] } },
     feastdeep:{ name: '全力龍息', cost: 2, type: 'atk', np: 20, fx: [['krakenAll', 3]], up: { fx: [['krakenAll', 4]] } },
     abyss:    { name: '龍族血脈', cost: 2, type: 'skill', np: 10, fx: [['krakenX2', 1]], up: { cost: 1 } },
-    pages:    { name: '偷看御獸經', cost: 0, type: 'skill', np: 0, fx: [['draw', 2], ['selfDmg', 2]], up: { fx: [['draw', 3], ['selfDmg', 2]] } },
+    pages:    { name: '回想當年', cost: 0, type: 'skill', np: 0, fx: [['draw', 2], ['selfDmg', 2]], up: { fx: [['draw', 3], ['selfDmg', 2]] } },
     frenzy:   { name: '龍珠', cost: 2, type: 'power', np: 0, fx: [['pKraken', 2]], up: { cost: 1 } }
   });
   kit('chilian', {   // 赤練（血修）：用自己的血換力量，少掉的生命越多打得越重
     rampage: { name: '血刃', cost: 1, type: 'atk', np: 15, fx: [['dmg', 9], ['selfDmg', 3]], up: { fx: [['dmg', 13], ['selfDmg', 3]] } },
-    roar:    { name: '燃血', cost: 0, type: 'skill', np: 5, fx: [['tstr', 3], ['selfDmg', 2]], up: { fx: [['tstr', 5], ['selfDmg', 2]] } },
+    roar:    { name: '一口烈酒', cost: 0, type: 'skill', np: 5, fx: [['tstr', 3], ['selfDmg', 2]], up: { fx: [['tstr', 5], ['selfDmg', 2]] } },
     bloodlust:{ name: '嗜血', cost: 0, type: 'skill', np: 5, fx: [['selfDmg', 4], ['draw', 2]], up: { fx: [['selfDmg', 4], ['draw', 3]] } },
     madness: { name: '以傷換傷', cost: 1, type: 'skill', np: 5, fx: [['rageBlock', 3, 2], ['tstr', 2]], up: { fx: [['rageBlock', 5, 3], ['tstr', 3]] } },
     divine:  { name: '搏命一擊', cost: 2, type: 'atk', np: 20, fx: [['rageDmg', 10, 3]], up: { fx: [['rageDmg', 13, 4]] } },
     crush:   { name: '裂地', cost: 2, type: 'atk', np: 20, fx: [['rageAll', 5, 2]], up: { fx: [['rageAll', 7, 2]] } },
-    rockbody:{ name: '鋼筋鐵骨', cost: 1, type: 'skill', np: 5, fx: [['rageBlock', 5, 2]], up: { fx: [['rageBlock', 7, 3]] } },
+    rockbody:{ name: '凝血成甲', cost: 1, type: 'skill', np: 5, fx: [['rageBlock', 5, 2]], up: { fx: [['rageBlock', 7, 3]] } },
     monster: { name: '破軍', cost: 3, type: 'atk', np: 30, fx: [['rageDmg', 16, 3]], up: { fx: [['rageDmg', 21, 4]] } },
-    godhand: { name: '越戰越勇', cost: 1, type: 'power', np: 0, fx: [['pRage', 1]], up: { cost: 0 } }
+    godhand: { name: '積怨', cost: 1, type: 'power', np: 0, fx: [['pRage', 1]], up: { cost: 0 } }
   });
   kit('aduo', {   // 阿朵（蠱師）：開場隱蠱先手、銀針如雨；毒每回合穿透扣血、遞減，疊深了再蠱發或萬蠱噬心
     throwdirk:  { name: '銀針', cost: 1, type: 'atk', np: 10, fx: [['hits', 4, 3]], up: { fx: [['hits', 5, 3]] } },
@@ -131,8 +131,8 @@ var G = (function () {
   var BASICS = {
     shuang:  ['出劍', [['dmg', 6]], [['dmg', 9]], '橫劍', [['block', 5]], [['block', 8]]],
     qingli:  ['桃木劍', [['dmg', 6]], [['dmg', 9]], '護身咒', [['block', 5]], [['block', 8]]],
-    xiaoman: ['小拳頭', [['dmg', 6]], [['dmg', 9]], '躲到阿白後面', [['block', 5]], [['block', 8]]],
-    chilian: ['斬馬刀', [['dmg', 6]], [['dmg', 9]], '硬扛', [['block', 5]], [['block', 8]]],
+    xiaoman: ['本座一拳', [['dmg', 6]], [['dmg', 9]], '阿白，護駕', [['block', 5]], [['block', 8]]],
+    chilian: ['斬馬刀', [['dmg', 6]], [['dmg', 9]], '拂袖', [['block', 5]], [['block', 8]]],
     aduo:    ['銀刀', [['dmg', 6]], [['dmg', 9]], '蝶步', [['block', 5]], [['block', 8]]]
   };
   Object.keys(BASICS).forEach(function (w) {
@@ -149,23 +149,23 @@ var G = (function () {
   // cls＝流派｜passive：被動（id 寫死在引擎裡的判斷）｜np：神通（fx 跟卡牌一樣）｜sig：招牌牌（開局就在牌組）
   var SERVANTS = {
     shuang: { name: '蘇凌霜', cls: '劍修', hp: 69, sig: 'project',
-      desc: '隱世三百年的劍仙，清冷疏離，琴劍雙絕；背後浮著一圈飛劍。囤劍型：飛劍越囤越多，飛劍追魂、劍陣護體照手上劍數變強，最後劍氣迸裂一口氣引爆。',
+      desc: '隱世三百年的劍仙，清冷疏離，琴劍雙絕。飛劍一把把祭出、越囤越多，追魂、護體都看劍數；最後劍氣迸裂，一口氣全數引爆。',
       passive: { id: 'forge', name: '御劍訣', text: '開戰先祭出 2 把飛劍、之後每回合開始再 1 把；飛劍疊成一張「飛劍 ×N」（不佔手牌上限，最多 10 把），回合結束留下 5 把，囤起來再一口氣引爆' },
       np: { name: '萬劍歸宗', fx: [['ubw', 1], ['projAll', 6, 2]] } },
     qingli: { name: '顧青璃', cls: '符修', hp: 63, sig: 'chain',
-      desc: '玄真觀的小道姑，畫符天才、嘴巴很毒、很愛錢。控場型：定身符一層層貼上去，貼滿就讓敵人動彈不得；貼得越多敵人越虛，五雷轟頂再把符一次引爆。',
+      desc: '玄真觀的小道姑，畫符天才，嘴毒又愛錢。定身符一層層貼上去，貼滿了敵人就動彈不得，貼得越多敵人越虛；最後五雷轟頂，把符一次引爆。',
       passive: { id: 'gaze', name: '鎮魂符', text: '每場戰鬥開始時，全體敵人定身 1；敵人每 2 層定身，攻擊 -1（符的重壓）；定身疊滿就動彈不得一回合' },
       np: { name: '天羅地網', fx: [['all', 38], ['petrifyAll', 2]] } },
     xiaoman: { name: '白辰', cls: '御獸', hp: 57, sig: 'horror',
-      desc: '活了一千多年、蛻回孩童模樣的御獸老祖宗（大家私下叫她「小滿」，她一聽就炸毛），身邊盤著本命靈龍「阿白」。養成型：阿白每回合長大，回合結束自己咬人、替你擋傷害；整趟冒險越打越大。',
+      desc: '活了一千多年、蛻回孩童模樣的御獸老祖宗（大家私下叫她「小滿」，她一聽就炸毛），身邊盤著本命靈龍「阿白」。阿白每回合長大，會自己咬人、替她擋傷害，整趟冒險越養越大。',
       passive: { id: 'madness', name: '龍之契約', text: '不會被施加虛弱（活了一千年，什麼沒見過）；每場戰鬥開始時阿白大小 5，之後每回合長大 1；每打贏兩場，之後每場開場阿白再 +1（吃飽了，整局最多 +6）。阿白回合結束咬生命最少的敵人（每大 12 多咬一口）；打穿格擋的傷害，阿白替你擋下一半（擋了會縮小）' },
       np: { name: '龍吟', fx: [['kraken', 8], ['weakAll', 1]] } },
     chilian: { name: '赤練', cls: '血修', hp: 81, sig: 'rampage',
-      desc: '青樓出身的血煞宗叛徒，倚著比她還高的斬馬刀。越痛越強：用自己的血換力量，少掉的生命越多打得越重；倒下也會以五成生命再站起來，而且更強。',
+      desc: '青樓出身的血煞宗叛徒，倚著比她還高的斬馬刀。拿自己的血換力量，傷得越重、刀越狠；倒下了，也會笑著再站起來。',
       passive: { id: 'revive', name: '不滅血體', text: '整趟冒險有 1 條備用的命：倒下時以五成生命站起來，而且整趟力量 +2（頓悟「浴血重生」再多一條）。血煞反噬：第 2 回合起每回合開始失去 2 生命（不會因此倒下）' },
       np: { name: '血河九斬', fx: [['hits', 5, 9]] } },
     aduo: { name: '阿朵', cls: '蠱師', hp: 69, sig: 'throwdirk',
-      desc: '南疆來的苗女，笑著笑著就下了毒。毒每回合扣血、慢慢遞減；疊得夠深，蠱發吃中毒加成，神通萬蠱噬心直接取命。',
+      desc: '南疆來的苗女，笑著笑著就下了毒。毒一層層疊上去、每回合蝕骨；疊得夠深，蠱發吃下中毒加成，萬蠱噬心直接取命。',
       passive: { id: 'ambush', name: '隱蠱', text: '每場戰鬥第一回合，攻擊傷害 ×1.5（蠱早就悄悄種下了）' },
       np: { name: '萬蠱噬心', fx: [['exec', 50, 25]] } }
   };
@@ -200,12 +200,12 @@ var G = (function () {
   // start＝每場戰鬥開始（第一回合抽牌後）執行的效果｜np＝神通追加的效果｜lives＝多幾條命｜maxHp＝最大生命
   var TALENTS = {
     shuang:  [[{ name: '御劍入微', start: [['proj', 2]] }, { name: '靈覺', start: [['evade', 1], ['block', 5]] }],
-              [{ name: '劍冢', np: [['proj', 3]] }, { name: '天眼', start: [['projUp', 1]] }]],
-    qingli:  [[{ name: '符力加持', start: [['petrifyAll', 1]] }, { name: '回氣丹', start: [['heal', 4]] }],
+              [{ name: '琴劍合鳴', np: [['proj', 3]] }, { name: '天眼', start: [['projUp', 1]] }]],
+    qingli:  [[{ name: '符力加持', start: [['petrifyAll', 1]] }, { name: '回氣符', start: [['heal', 4]] }],
               [{ name: '護身金光', np: [['block', 15]] }, { name: '驅邪', start: [['weakAll', 1]] }]],
     xiaoman: [[{ name: '阿白長大了', start: [['kraken', 4]] }, { name: '老祖宗生氣了', start: [['str', 2]] }],
               [{ name: '神龍降世', np: [['kraken', 6]] }, { name: '龍珠共鳴', start: [['pKraken', 1]] }]],
-    chilian: [[{ name: '血煞入體', start: [['str', 2]] }, { name: '金剛不壞', start: [['block', 10]] }],
+    chilian: [[{ name: '血煞入體', start: [['str', 2]] }, { name: '血霧護身', start: [['block', 10]] }],
               [{ name: '血河倒灌', np: [['rageDmg', 6, 3]] }, { name: '浴血重生', lives: 1 }]],
     aduo:    [[{ name: '瘴林', start: [['poisonAll', 3]] }, { name: '隱身蠱', start: [['evade', 1], ['block', 4]] }],
               [{ name: '噬心回春', np: [['heal', 10]] }, { name: '本命毒蠱', start: [['pVenom', 1]] }]]
@@ -325,7 +325,7 @@ var G = (function () {
     tea:     { name: '一壺靈茶', text: '在休息點回復的生命多 15 點' },
     amulet:  { name: '長生鎖', text: '最大生命 +10' },
     book:    { name: '懾魂鈴', text: '每場戰鬥開始時所有敵人虛弱 1' },
-    seal:    { name: '隨身丹爐', text: '丹藥欄位 +1，並立刻得到 2 顆丹藥' },
+    seal:    { name: '隨身丹爐', text: '丹藥袋 +1 格，並立刻得到 2 顆丹藥' },
     pendant: { name: '九轉還魂丹', text: '多一條命：倒下時以兩成生命復活一次' },
     azoth:   { name: '龍虎丹', text: '每場戰鬥開始時力量 +1' },
     volumen: { name: '玄龜甲', text: '每回合開始時格擋 +2' },
@@ -599,7 +599,7 @@ var G = (function () {
   var FATES = {
     gold:    { name: '意外之財', text: '路上撿到一袋碎銀：開局多 120 金' },
     tough:   { name: '根骨奇佳', text: '天生根骨好：最大生命 +10' },
-    seal4:   { name: '丹藥滿袋', text: '丹藥欄位 +1，開局多 2 顆丹藥' },
+    seal4:   { name: '丹藥滿袋', text: '丹藥袋 +1 格，開局多 2 顆丹藥' },
     mana:    { name: '靈氣充盈', text: '每場戰鬥神通量表從 30% 開始' },
     heirloom:{ name: '師門傳承', text: '開局從兩件隨機法寶選一件' },
     forged:  { name: '千錘百鍊', text: '開局隨機強化 3 張牌' },
@@ -830,8 +830,8 @@ var G = (function () {
       opts: [{ label: '失去 7 生命，從三張強化過的專屬牌選一張', need: { hp: 7 }, fx: [['hp', -7], ['cards', 3]] }, { label: '離開', fx: [] }] },
     shard:   { name: '天書殘頁', text: '石縫裡夾著一張發光的紙，上面的字會自己動。',
       opts: [{ label: '收下：得到秘傳「天書殘頁」', fx: [['addCard', 'grail']] }, { label: '不碰：回復 15 生命', fx: [['hp', 15]] }] },
-    resonance:{ name: '玉符的共鳴', text: '懷裡的師門玉符在發燙。捏碎一枚，靈力會流進你的招式。',
-      opts: [{ label: '捏碎 1 枚玉符：選兩張牌強化', need: { seal: 1 }, fx: [['seal', -1], ['pick', 'upgrade'], ['pick', 'upgrade']] }, { label: '忍住', fx: [] }] },
+    resonance:{ name: '玉符的共鳴', text: '懷裡的師門玉符在發燙。捏碎它，靈力會流進你的招式——但魔淵的門，也就再也打不開了。',
+      opts: [{ label: '捏碎師門玉符：選兩張牌強化', need: { seal: 1 }, fx: [['seal', -1], ['pick', 'upgrade'], ['pick', 'upgrade']] }, { label: '忍住', fx: [] }] },
     spring:  { name: '山中靈泉', text: '竹林深處有一口冒著白煙的泉水，冰冷清澈。',
       opts: [{ label: '喝下：回復三成生命', fx: [['healPct', 30]] }, { label: '浸泡：最大生命 +6', fx: [['maxHp', 6]] }] },
     duel:    { name: '攔路的高手', text: '一個人抱著兵器擋在路中間：「過去之前，先跟我打一場。」',
@@ -851,8 +851,8 @@ var G = (function () {
       opts: [{ label: '吞下：最大生命 +12，牌組多一張詛咒「業障」', fx: [['maxHp', 12], ['addCard', 'sin']] }, { label: '捏碎：最大生命 +3', fx: [['maxHp', 3]] }] },
     jeweler: { name: '行腳商人', text: '背著大木箱的商人坐在路邊：「法寶可以換錢，錢也可以換法寶。」',
       opts: [{ label: '花 90 金：買一件法寶', need: { gold: 90 }, fx: [['gold', -90], ['relic']] }, { label: '替他試新煉的丹：失去 8 生命，得到 50 金', need: { hp: 8 }, fx: [['hp', -8], ['gold', 50]] }, { label: '離開', fx: [] }] },
-    whisper: { act: 2, name: '魔淵的低語', text: '地底傳來聲音：「留著玉符的人，才找得到我……」',
-      opts: [{ label: '傾聽：最大生命 -6，得到一件法寶', fx: [['maxHp', -6], ['relic']] }, { label: '捂住耳朵（記住：第二章魔王後還留著玉符，就能進入九幽魔淵）', fx: [] }] },
+    whisper: { act: 2, name: '魔淵的低語', text: '地底傳來聲音：「把玉符留到最後的人，才找得到我……」',
+      opts: [{ label: '傾聽：最大生命 -6，得到一件法寶', fx: [['maxHp', -6], ['relic']] }, { label: '捂住耳朵，繼續趕路', fx: [] }] },
     mud:     { act: 2, name: '魔氣泉眼', text: '黑色的魔氣從地縫湧出，裡面好像有什麼在發光。',
       opts: [{ label: '伸手：失去 10 生命，從三張強化過的專屬牌選一張', need: { hp: 10 }, fx: [['hp', -10], ['cards', 3]] }, { label: '後退：回復 6 生命', fx: [['hp', 6]] }] },
     purge:   { name: '苦修洞', text: '洞壁上刻著前人留下的字：「捨棄得越多，走得越輕。」',
@@ -868,7 +868,7 @@ var G = (function () {
     mirror:  { name: '鏡中的自己', text: '水面倒映出另一個你，正打出一張你熟悉的牌。',
       opts: [{ label: '伸手：失去 8 生命，選一張牌複製一張', need: { hp: 8 }, fx: [['hp', -8], ['pick', 'copy']] }, { label: '離開', fx: [] }] },
     confess: { act: 2, name: '判官廟', text: '泥塑的判官像低聲說：「把你不需要的東西，都交出來吧。」',
-      opts: [{ label: '捏碎 1 枚玉符：從牌組移除三張牌', need: { seal: 1 }, fx: [['seal', -1], ['pick', 'remove'], ['pick', 'remove'], ['pick', 'remove']] }, { label: '失去 15 生命：移除兩張牌', need: { hp: 15 }, fx: [['hp', -15], ['pick', 'remove'], ['pick', 'remove']] }, { label: '離開', fx: [] }] },
+      opts: [{ label: '捏碎師門玉符：從牌組移除三張牌', need: { seal: 1 }, fx: [['seal', -1], ['pick', 'remove'], ['pick', 'remove'], ['pick', 'remove']] }, { label: '失去 15 生命：移除兩張牌', need: { hp: 15 }, fx: [['hp', -15], ['pick', 'remove'], ['pick', 'remove']] }, { label: '離開', fx: [] }] },
     // 拿詛咒換更強的好處：詛咒會一直留在牌組，之後要花錢（商店）或事件、休息淨化才甩得掉
     training:{ name: '深夜的苦練', text: '月亮升到頭頂了。再練下去會受內傷，但手上的招式會更俐落。',
       opts: [{ label: '練到天亮：隨機強化 3 張牌，牌組多一張詛咒「內傷」', fx: [['upRandom', 3], ['addCard', 'fatigue']] }, { label: '去睡覺：回復 10 生命', fx: [['hp', 10]] }] },
@@ -892,7 +892,7 @@ var G = (function () {
     tanghulu:{ who: 'xiaoman', name: '糖葫蘆攤', text: '街角的糖葫蘆紅通通的。本座活了一千年，什麼山珍海味沒吃過——可這副小身子就是饞。阿白的口水滴到了你的頭上。',
       opts: [{ label: '花 40 金買一大把，分阿白一半：之後每場開場阿白 +3', need: { gold: 40 }, fx: [['gold', -40], ['krakenStart', 3]] }, { label: '全部自己吃掉（本座說了算）：回復 15 生命', fx: [['hp', 15]] }] },
     dragonhome:{ who: 'xiaoman', name: '舊蛻', text: '溪邊有一片碎掉的白色蛋殼——是阿白上一次蛻回幼龍時留下的，五百年了還在。阿白對著溪水叫了好久好久。',
-      opts: [{ label: '讓阿白泡一泡五百年前的溪水：最大生命 -6，得到秘傳「龍王的祝福」', fx: [['maxHp', -6], ['addCard', 'prelati']] },
+      opts: [{ label: '讓阿白泡一泡五百年前的溪水：最大生命 -6，得到秘傳「蛻龍訣」', fx: [['maxHp', -6], ['addCard', 'prelati']] },
         { label: '讓阿白對著溪水大吼（🎲≥12）：成功→之後每場開場阿白 +5；失敗→吵醒了水裡的東西，失去 15 生命', fx: [['d20', 12, [['krakenStart', 5]], [['hp', -15]]]] }, { label: '帶著阿白離開', fx: [] }] },
     alone:   { who: 'xiaoman', name: '一個人的夜路', text: '天黑了，隊伍走散了。本座才不怕黑——只是這副小身子的腿，不聽使喚地發抖。',
       opts: [{ label: '抱緊阿白往前走（本座是在保護牠）：最大生命 -5，之後阿白每回合多長大 1', fx: [['maxHp', -5], ['krakenGrow', 1]] }, { label: '找棵樹坐下，等腿不抖了再走：回復 15 生命', fx: [['hp', 15]] }] },
@@ -1468,7 +1468,7 @@ var G = (function () {
     if (next === 'act2' || next === 'deeper') { run.hp = Math.min(run.maxHp, run.hp + Math.round((run.maxHp - run.hp) * 0.5)); startAct(run, run.act + 1); }
     return true;
   }
-  // 隱藏關：捏碎 1 枚玉符打開九幽魔淵；不進去就在這裡結束（勝利）
+  // 隱藏關：捏碎師門玉符打開九幽魔淵；不進去就在這裡結束（勝利）
   function secret(run, enter) {
     if (run.screen !== 'secret') return false;
     if (enter && run.seals > 0) { run.seals--; startAct(run, 3); }
