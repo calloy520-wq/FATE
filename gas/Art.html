@@ -158,7 +158,12 @@ var FIG = (function () {
   }
   // 一個角色或敵人的圖：ART 有網址就用立繪，沒有就用剪影
   function fig(id, foe, st) {
-    if (ART[id]) return '<img class="fimg" src="' + ART[id] + '" alt="" draggable="false">';
+    if (ART[id]) {
+      var img = '<img class="fimg" src="' + ART[id] + '" alt="" draggable="false">';
+      // 凌霜的立繪不畫劍（劍在心裡），飛劍照數量浮在立繪身後
+      if (!foe && id === 'shuang') img = '<svg class="fsvg fover" viewBox="0 0 100 140" style="--fc:' + HERO.shuang.c + '" aria-hidden="true"><g class="swords">' + swords((st || {}).swords || 0) + '</g></svg>' + img;
+      return img;
+    }
     return foe ? foeSvg(id) : heroSvg(id, st || {});
   }
   // ── 場景：照章換（落霞山的黃昏、鬼哭城的紅月、九幽魔淵、鎮妖塔）──

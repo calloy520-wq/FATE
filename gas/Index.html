@@ -355,10 +355,11 @@
   .mespot { position:relative; z-index:1; flex:0 0 33%; height:100%; display:flex; align-items:flex-end; justify-content:center; }
   .fig { position:relative; height:100%; display:flex; align-items:flex-end; justify-content:center; transform-origin:50% 100%; animation:breathe 3.4s ease-in-out infinite; }
   .fig .fsvg, .fig .fimg { height:100%; width:auto; max-width:100%; overflow:visible; filter:drop-shadow(0 0 2px var(--fc,#fff)) drop-shadow(0 0 7px var(--fc,#fff)); }
-  .fig .fimg { object-fit:contain; filter:drop-shadow(0 4px 10px rgba(0,0,0,.6)); }
+  .fig .fimg { position:relative; z-index:1; object-fit:contain; filter:drop-shadow(0 4px 10px rgba(0,0,0,.6)); }
+  .fig .fover { position:absolute; z-index:0; left:50%; bottom:0; transform:translateX(-50%); pointer-events:none; }
   .fsvg .eye { filter:drop-shadow(0 0 2px #fff); }
   .fig.me { height:84%; width:100%; }
-  .fig.me.blood .fsvg { filter:drop-shadow(0 0 2px var(--fc)) drop-shadow(0 0 calc(4px + var(--rage,0) * 16px) rgba(255,40,60,calc(.35 + var(--rage,0) * .6))); }
+  .fig.me.blood .fsvg, .fig.me.blood .fimg { filter:drop-shadow(0 0 2px var(--fc)) drop-shadow(0 0 calc(4px + var(--rage,0) * 16px) rgba(255,40,60,calc(.35 + var(--rage,0) * .6))); }
   .fig .pet { position:absolute; left:-6%; bottom:0; width:100%; display:flex; align-items:flex-end; pointer-events:none; }
   .fig .pet .dragon { filter:drop-shadow(0 0 6px #9ed0ff); animation:float 2.6s ease-in-out infinite; }
   .dragon .dsize { font-size:11px; fill:#ffd36e; font-weight:bold; }
