@@ -320,7 +320,9 @@ t(G.FATES.gold.name==='意外之財','機緣的名字');
   const b2=G.newRun('qingli',5); b2.act=2; b2.floor=11; const hp2=(()=>{ b2.lane=b2.map[10].findIndex(n=>n); b2.boss='huyao'; G.go(b2,2); return b2.battle.enemies[0].maxHp; })();
   const r3=G.newRun('qingli',5,{endless:true}); r3.act=4; r3.floor=11; r3.lane=r3.map[10].findIndex(n=>n); r3.boss='huyao'; G.go(r3,2);
   t(r3.battle.enemies[0].maxHp>hp2*1.4&&r3.battle.enemies[0].str>b2.battle.enemies[0].str,'無盡越深越強（第 2 層的九尾妖狐比第二章強很多）',hp2+'→'+r3.battle.enemies[0].maxHp);
-  { const h=G.newRun('qingli',5); h.act=3; h.floor=2; const e=G.newRun('qingli',5,{endless:true}); e.act=3; e.floor=2; t(G.scaleUp(h)===9&&G.scaleUp(e)===17,'敵人成長：隱藏關照舊（+8），無盡第 1 層 +16（第二章 8＋每層 8）',G.scaleUp(h)+'/'+G.scaleUp(e)); }
+  { const h=G.newRun('qingli',5); h.act=3; h.floor=2; const e=G.newRun('qingli',5,{endless:true}); e.act=3; e.floor=2; const a2=G.newRun('qingli',5); a2.act=2; a2.floor=11; const e2=G.newRun('qingli',5,{endless:true}); e2.act=4; e2.floor=0; const l2=G.scaleUp(e2);
+  const mid=G.newRun('qingli',5); mid.act=2; mid.floor=6;
+  t(G.scaleUp(e)===19&&G.scaleUp(e)>=G.scaleUp(a2)&&l2===26&&G.scaleUp(h)>=G.scaleUp(mid)&&G.scaleUp(h)<G.scaleUp(a2),'敵人成長：鎮妖塔每層開頭至少跟第二章最後一列一樣硬；隱藏關的精英約第二章中段（第二章最後 '+G.scaleUp(a2)+'）',G.scaleUp(h)+'/'+G.scaleUp(e)+'/'+l2); }
   const n=G.newRun('qingli',5); n.act=2; n.boss='huyao'; n.seals=1; toBoss(n); t(n.screen==='secret','一般模式不受影響：第二章打完有玉符照樣到隱藏關入口',n.screen); }
 t(G.newRun('qingli',3,{asc:6,fate:'legacy'}).deck.filter(x=>G.baseId(x)==='breaker').length===1,'境界 V 已經有秘傳：師父的秘傳改成把它強化，不會拿到兩張');
 t(G.upDiff('breaker','breaker+').includes('不再消耗'),'強化選單列出「不再消耗」');
@@ -495,4 +497,15 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
   const ok=new Set(['重擊']);   // 很普通的通用詞，卡牌和牛魔的招式都叫重擊沒關係
   const dup=Object.entries(m).filter(([n,v])=>v.length>1&&!v.every(x=>x==='招式')&&!ok.has(n)).map(([n,v])=>n+'('+v.join('/')+')');
   t(!dup.length,'卡牌、法寶、丹藥、神通、敵人與招式不撞名',dup.join(' ')); }
+// 引擎稽核修正（2026-10-02）
+{ const q=arena('qingli'); q.battle.vuln=1; E(q).intent={n:'砍',fx:[['atk',10]]}; const hp=q.hp; G.endTurn(q); t(hp-q.hp===15&&q.battle.vuln===0,'易傷撐到敵人出手才減（10 打成 15）',[hp-q.hp,q.battle.vuln]); }
+{ const q=arena('qingli'); q.battle.fxDrawn=14; const n=q.battle.hand.length; G.OPS.draw({run:q,b:q.battle,log:[]},['draw',5]); t(q.battle.hand.length===n+1,'效果抽牌每回合最多 15 張（擋無限抽）',q.battle.hand.length-n); }
+{ const q=arena('qingli'); q.hp=0; G.OPS.heal({run:q,b:q.battle,log:[]},['heal',10]); t(q.hp===0,'已經倒下就不會被同一張牌的回血救回來',q.hp); }
+{ const q=arena('chilian',1,60); E(q).stun=1; E(q).charm=2; E(q).intent={n:'砍',fx:[['atk',20]]}; const hp=q.hp; G.endTurn(q); t(E(q).charm===0&&hp===q.hp,'被定住的那輪魅惑也一起散掉',[E(q).charm,hp-q.hp]); }
+{ const q=G.newRun('qingli',3,{fates:['merchant']}); t(Math.abs(q.discount-0.75)<1e-9&&/merchant'\) \{ run\.discount = \(run\.discount \|\| 1\) \*/.test(SRC),'行商：七五折，跟乾坤袋疊乘（不會互相蓋掉）',q.discount); }
+{ const q=G.newRun('qingli',9); q.relics=['book']; step(q,'fight'); t(q.battle.enemies.every(e=>e.weak===1),'懾魂鈴：開場的敵人虛弱 1');
+  const p=arena('qingli'); p.relics=['book']; E(p).intent={n:'叫人',fx:[['summon','zhiren',1]]}; G.endTurn(p); const s=p.battle.enemies.slice(1); t(s.length>=1&&s.every(e=>e.weak===0),'懾魂鈴：之後叫來的援軍不吃虛弱',s.map(e=>e.weak).join()); }
+{ const q=arena('qingli',1,80); q.battle.firstAtk=true; playId(q,'atk_qingli'); const a=80-E(q).hp; playId(q,'atk_qingli'); const b2=80-E(q).hp-a; t(a===12&&b2===6,'破甲針：第一次命中 +6，只算一次',[a,b2]); }
+{ let miss=0; for(let s=1;s<=300;s++){ const q=G.newRun(G.ORDER[s%5],s); if(!q.map.some(row=>row.some(n=>n&&n.t==='shop'))) miss++; } t(!miss,'300 張地圖每章都有商店',miss); }
+{ const q=G.newRun('qingli',4); q.deck=q.deck.slice(0,5); t(!G.canChoose(q,G.EVENTS.purge.opts[0])&&G.canChoose(q,G.EVENTS.purge.opts[1]),'牌組只剩 5 張：要移除牌的事件選項選不了'); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
