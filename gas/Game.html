@@ -114,10 +114,10 @@ var G = (function () {
     spread:   { name: '鎮山符陣', cost: 2, type: 'skill', np: 10, fx: [['petrifyAll', 2]], up: { cost: 1 } },
     bloodfort:{ name: '化煞陣', cost: 2, type: 'atk', np: 15, fx: [['drainAll', 6]], up: { fx: [['drainAll', 9]] } },
     gorgon:   { name: '符籙通神', cost: 2, type: 'power', np: 0, fx: [['pPetrifyAll', 1]], up: { cost: 1 } },
-    hushen:   { name: '護身符', cost: 1, type: 'skill', np: 0, fx: [['block', 6], ['petrifyAll', 1]], up: { fx: [['block', 9], ['petrifyAll', 1]] } },
+    hushen:   { name: '護身符', cost: 1, type: 'skill', np: 0, fx: [['block', 5], ['petrifyAll', 1]], up: { fx: [['block', 8], ['petrifyAll', 1]] } },
     quxie:    { name: '驅邪符', cost: 1, type: 'skill', np: 0, fx: [['cleanse', 1], ['block', 4], ['petrify', 1], ['draw', 1]], up: { fx: [['cleanse', 1], ['block', 7], ['petrify', 1], ['draw', 1]] } },
     // 雷符（爆）：定身符是引信，雷法引爆
-    tianlei:  { name: '天雷引', cost: 1, type: 'atk', np: 0, fx: [['petrifyAll', 1], ['thunderAll', 0, 3]], up: { fx: [['petrifyAll', 1], ['thunderAll', 0, 4]] } },
+    tianlei:  { name: '天雷引', cost: 1, type: 'atk', np: 0, fx: [['petrifyAll', 1], ['thunderAll', 0, 4]], up: { fx: [['petrifyAll', 1], ['thunderAll', 0, 5]] } },
     jiefa:    { name: '借法', cost: 0, type: 'skill', np: 0, fx: [['borrow', 1]], up: { fx: [['borrow', 2]] } },
     shiliang: { name: '十兩一張', cost: 0, type: 'skill', np: 0, fx: [['goldTstr', 10, 3], ['petrify', 1]], up: { fx: [['goldTstr', 10, 5], ['petrify', 1]] } },
     // 火符（燎）：火勢越燒越旺，專打一群
@@ -159,8 +159,8 @@ var G = (function () {
     xuelian: { name: '血蓮', cost: 1, type: 'power', np: 0, fx: [['pLeech', 15]], up: { cost: 0 } },
     yinhen:  { name: '飲恨', cost: 2, type: 'atk', np: 0, fx: [['rageDrain', 10, 3]], up: { fx: [['rageDrain', 13, 4]] } },
     // 血甲（扛）：身子單薄，扛傷靠的是凝在身上的血
-    xueji:   { name: '血棘', cost: 1, type: 'power', np: 0, fx: [['pBloodThorn', 3]], up: { fx: [['pBloodThorn', 5]] } },
-    yingjie: { name: '硬接', cost: 1, type: 'skill', np: 0, fx: [['block', 8], ['hitStr', 1]], up: { fx: [['block', 11], ['hitStr', 1]] } },
+    xueji:   { name: '血棘', cost: 1, type: 'power', np: 0, fx: [['pBloodThorn', 4]], up: { fx: [['pBloodThorn', 6]] } },
+    yingjie: { name: '硬接', cost: 1, type: 'skill', np: 0, fx: [['block', 9], ['hitStr', 1]], up: { fx: [['block', 12], ['hitStr', 1]] } },
     huanxue: { name: '以血還血', cost: 2, type: 'atk', np: 0, fx: [['revenge', 2]], up: { fx: [['revenge', 3]] } },
     hongxiu: { name: '紅袖護身', cost: 0, type: 'skill', np: 0, fx: [['lowBlock', 4, 9]], up: { fx: [['lowBlock', 6, 12]] } },
     // 媚骨（媚）：一個眼神就讓敵人失了魂
@@ -184,12 +184,12 @@ var G = (function () {
     venombody:  { name: '以身養蠱', cost: 2, type: 'power', np: 0, fx: [['pVenom', 1]], up: { cost: 1 } },
     // 暗器（隱）：銀針飛刀從暗處來，躲著打、專挑破綻
     dieyin:     { name: '蝶隱', cost: 1, type: 'skill', np: 0, fx: [['evade', 1], ['ambushNext', 1]], up: { fx: [['evade', 2], ['ambushNext', 1]] } },
-    chuanxin:   { name: '穿心針', cost: 1, type: 'atk', np: 0, fx: [['hitsIfWeak', 3, 3, 2]], up: { fx: [['hitsIfWeak', 4, 3, 3]] } },
+    chuanxin:   { name: '穿心針', cost: 1, type: 'atk', np: 0, fx: [['hitsIfWeak', 3, 3, 1]], up: { fx: [['hitsIfWeak', 4, 3, 2]] } },
     wuying:     { name: '無影', cost: 0, type: 'skill', np: 0, fx: [['freeAtk', 1]], up: { fx: [['freeAtk', 1], ['draw', 1]] } },
     xiuli:      { name: '袖裡藏針', cost: 1, type: 'power', np: 0, fx: [['pNeedle', 3]], up: { fx: [['pNeedle', 4]] } },
     duanhun:    { name: '斷魂一刺', cost: 2, type: 'atk', np: 0, fx: [['dmgIfUnhit', 18, 8]], up: { fx: [['dmgIfUnhit', 24, 10]] } },
     // 蟲蠱（噬）：蠱蟲寄生在敵人身上，宿主倒下就爬到下一個
-    fanggu:     { name: '放蠱', cost: 1, type: 'skill', np: 0, fx: [['parasite', 4]], up: { fx: [['parasite', 6]] } },
+    fanggu:     { name: '放蠱', cost: 1, type: 'skill', np: 0, fx: [['parasite', 5]], up: { fx: [['parasite', 7]] } },
     chongchao:  { name: '蟲潮', cost: 2, type: 'skill', np: 0, fx: [['parasiteAll', 3]], up: { fx: [['parasiteAll', 4]] } },
     chongshi:   { name: '蟲噬', cost: 1, type: 'atk', np: 0, fx: [['parasiteDmg', 3]], up: { fx: [['parasiteDmg', 4]] } },
     gumu:       { name: '蠱母', cost: 1, type: 'power', np: 0, fx: [['pGumu', 2]], up: { fx: [['pGumu', 3]] } },
@@ -253,7 +253,7 @@ var G = (function () {
         cards: ['gaoshan', 'puzhan', 'shimian', 'buju', 'yangguan', 'xianwai', 'qinjian', 'guangling'] }
     ],
     qingli: [
-      { id: 'zhenfu', name: '鎮符', feel: '控', sig: 'chain', extra: 'mystic', soul: ['petrifyAll', 1], master: [['block', 4]], desc: '定身把敵人定在原地，再補護身、驅邪。',
+      { id: 'zhenfu', name: '鎮符', feel: '控', sig: 'chain', extra: 'mystic', soul: ['petrifyAll', 1], master: [['block', 2]], desc: '定身把敵人定在原地，再補護身、驅邪。',
         cards: ['mystic', 'chain', 'nails', 'spread', 'gorgon', 'bloodfort', 'hushen', 'quxie', 'breaker'] },
       { id: 'leifu', name: '雷符', feel: '爆', sig: 'kick', extra: 'mystic', soul: ['petrifyAll', 1], master: [['petrifyAll', 2]], desc: '定身符當引信，雷法一口氣引爆，打單體最痛。',
         cards: ['kick', 'shatter', 'stare', 'monstrous', 'tianlei', 'jiefa', 'shiliang', 'jiutian'] },
@@ -335,6 +335,7 @@ var G = (function () {
   // ── 資料：敵人 ──────────────────────────────────────
   // moves：{n 名稱, fx}｜fx：['atk',n,k] 攻擊 n×k｜['atkP',n,k] 穿透攻擊（無視格擋）｜['block',n]｜['str',n]
   //        ['weak',n]/['vuln',n] 給玩家｜['heal',n]｜['summon',敵人id,n] 叫援軍（場上最多 4 名）｜['breakBlock'] 拆掉你的格擋
+  //        ['strAll',n] 全隊力量｜['blockAll',n] 全隊格擋｜['sapEnergy',n] 你下回合少 n 靈力｜['stealBlock'] 搶走你的格擋｜['thornsSelf',n] 到它下次出手前，你的攻擊牌打它會被震傷 n
   //        ['curse',牌,n] 塞進你的牌堆｜['plant',牌,n] 塞進你的手牌
   // cycle＝照順序輪；否則依權重 w 隨機；lives＝倒下後以 revive 比例的血復活幾次；stunAt＝定身幾層會動彈不得
   var ENEMIES = {
@@ -346,12 +347,13 @@ var G = (function () {
     xiexiu:  { name: '邪修', hp: [26, 30], moves: [{ n: '陰火彈', fx: [['atk', 8]], w: 2 }, { n: '縛靈術', fx: [['plant', 'bind', 1], ['atk', 4]], w: 1 }, { n: '護身陣', fx: [['block', 10]], w: 1 }] },
     xueteng: { name: '血藤', hp: [10, 12], moves: [{ n: '纏繞', fx: [['atk', 4]], w: 2 }, { n: '吸附', fx: [['weak', 1], ['atk', 2]], w: 1 }] },
     // 第二章：鬼哭城
-    mingquan:{ name: '冥犬', hp: [16, 19], moves: [{ n: '撕咬', fx: [['atk', 5, 2]], w: 2 }, { n: '嚎叫', fx: [['str', 1], ['atk', 3]], w: 1 }] },
-    yuanling:{ name: '怨靈', hp: [22, 26], moves: [{ n: '穿心之觸', fx: [['atkP', 8]], w: 2 }, { n: '哀嚎', fx: [['plant', 'enfeeble', 1], ['vuln', 1]], w: 1 }] },
-    shikui:  { name: '石傀儡', hp: [42, 48], moves: [{ n: '重拳', fx: [['atk', 14]], w: 2 }, { n: '硬化', fx: [['block', 14], ['atk', 4]], w: 1 }] },
-    mohua:   { name: '魔化劍修', hp: [50, 56], moves: [{ n: '魔劍連斬', fx: [['atk', 9, 2]], w: 2 }, { n: '魔氣灌注', fx: [['atk', 6], ['curse', 'mud', 1]], w: 1 }, { n: '入魔', fx: [['str', 2], ['block', 8]], w: 1 }] },
+    // 第二章的雜兵各有一招麻煩的：冥犬群嚎（整群變強，先殺狗）、怨靈索命（下回合少 1 靈力）、石傀儡反震（打它會痛）、魔化劍修奪勢（搶走你的格擋）、陰兵列陣（全隊格擋）
+    mingquan:{ name: '冥犬', hp: [16, 19], moves: [{ n: '撕咬', fx: [['atk', 5, 2]], w: 2 }, { n: '群嚎', fx: [['strAll', 1], ['atk', 3]], w: 1 }] },
+    yuanling:{ name: '怨靈', hp: [22, 26], moves: [{ n: '穿心之觸', fx: [['atkP', 8]], w: 2 }, { n: '哀嚎', fx: [['plant', 'enfeeble', 1], ['vuln', 1]], w: 1 }, { n: '索命', fx: [['atkP', 5], ['sapEnergy', 1]], w: 1 }] },
+    shikui:  { name: '石傀儡', hp: [42, 48], moves: [{ n: '重拳', fx: [['atk', 14]], w: 2 }, { n: '硬化', fx: [['block', 12], ['thornsSelf', 3]], w: 1 }] },
+    mohua:   { name: '魔化劍修', hp: [50, 56], moves: [{ n: '魔劍連斬', fx: [['atk', 9, 2]], w: 2 }, { n: '奪勢', fx: [['stealBlock', 1], ['atk', 7]], w: 1 }, { n: '入魔', fx: [['str', 2], ['block', 8]], w: 1 }] },
     shichong:{ name: '屍蟲群', hp: [18, 22], moves: [{ n: '鑽入', fx: [['plant', 'worm', 1]], w: 2 }, { n: '啃咬', fx: [['atk', 5]], w: 1 }] },
-    yinbing: { name: '陰兵', hp: [12, 14], moves: [{ n: '突刺', fx: [['atk', 6]], w: 2 }, { n: '列陣', fx: [['block', 6], ['atk', 3]], w: 1 }] },
+    yinbing: { name: '陰兵', hp: [12, 14], moves: [{ n: '突刺', fx: [['atk', 6]], w: 2 }, { n: '列陣', fx: [['blockAll', 5], ['atk', 3]], w: 1 }] },
     // 精英
     jianmo:  { name: '劍魔', hp: [80, 84], elite: 1, cycle: 1, moves: [{ n: '劍氣縱橫', fx: [['atk', 13]] }, { n: '運功', fx: [['block', 10], ['str', 3]] }, { n: '連斬', fx: [['atk', 7, 2]] }, { n: '天外一劍', fx: [['atk', 28]] }] },
     kuilei:  { name: '機關傀儡', hp: [68, 72], elite: 1, cycle: 1, moves: [{ n: '弩箭', fx: [['atk', 11]] }, { n: '千機刃', fx: [['atk', 5, 3]] }, { n: '鎖定', fx: [['block', 14], ['vuln', 2]] }, { n: '破甲弩', fx: [['atkP', 20]] }] },
@@ -456,7 +458,8 @@ var G = (function () {
     tassel:  { name: '劍穗', text: '每場戰鬥開始時多抽 1 張牌', lock: 'clear' },
     lamp:    { name: '心燈', text: '每場戰鬥第一次生命掉到一半以下時，回復 12 生命', lock: 'xinmo' },
     pouch:   { name: '乾坤袋', text: '商店的東西與移除卡片打八五折', lock: 'tower' },
-    bead:    { name: '定魂珠', text: '每場戰鬥開始時所有敵人定身 1', lock: 'bosses' }
+    bead:    { name: '定魂珠', text: '每場戰鬥開始時所有敵人定身 1', lock: 'bosses' },
+    peijade: { name: '同門玉佩', text: '開局牌組多一張另一條主修的招牌牌（拿到時就給）', lock: 'paths' }
   };
   function relicPool(run) { return Object.keys(RELICS).filter(function (k) { return unlocked(run.unlocks, RELICS[k].lock); }); }
 
@@ -781,7 +784,8 @@ var G = (function () {
     clear:  { name: '初次封印', text: '任一角色通關（任何難度）' },
     xinmo:  { name: '斬心魔', text: '任一角色在九幽魔淵打倒心魔' },
     tower:  { name: '塔中行者', text: '鎮妖塔走過 50 格' },
-    bosses: { name: '群魔圖錄', text: '圖鑑收齊八位魔王' }
+    bosses: { name: '群魔圖錄', text: '圖鑑收齊八位魔王' },
+    paths:  { name: '百家所長', text: '用五條不同的主修通關（任何角色、任何難度）' }
   };
   function unlocked(goals, lock) { return !lock || (goals || []).indexOf(lock) >= 0; }
   // 境界 I～VI（築基、金丹、元嬰、化神、煉虛、渡劫）：局外成長，2026-10-02 玩家定「先不要」——畫面不用，引擎留著（newRun 的 opts.asc），之後要開再接回去
@@ -1069,10 +1073,39 @@ var G = (function () {
     villageletter:{ who: 'aduo', name: '寨子的來信', text: '一隻紫色的蝴蝶停在你指尖，捎來寨子老巫婆的口信：「蠱又死了一批，阿朵，快找到解藥。」',
       opts: [{ label: '以身試毒（🎲≥13）：成功→隨機強化 3 張牌；失敗→最大生命 -8', fx: [['d20', 13, [['upRandom', 3]], [['maxHp', -8]]]] }, { label: '拿自己的血養新蠱：失去 10 生命，從牌組移除兩張牌', need: { hp: 10 }, fx: [['hp', -10], ['pick', 'remove'], ['pick', 'remove']] }, { label: '先繼續趕路', fx: [] }] },
     guking:  { who: 'aduo', name: '蠱王', text: '深山的古樹洞裡，一隻金色的蠶在發光。牠開口說話了：「餵我，我就跟妳走。」',
-      opts: [{ label: '讓牠鑽進手臂：最大生命 -6，選一張牌變成強化專屬牌', fx: [['maxHp', -6], ['pick', 'transform']] }, { label: '餵牠一顆人心：得到秘傳「金蠶蠱」，牌組多一張詛咒「業障」', fx: [['addCard', 'shaitan'], ['addCard', 'sin']] }, { label: '恭敬地退下：回復 10 生命', fx: [['hp', 10]] }] }
+      opts: [{ label: '讓牠鑽進手臂：最大生命 -6，選一張牌變成強化專屬牌', fx: [['maxHp', -6], ['pick', 'transform']] }, { label: '餵牠一顆人心：得到秘傳「金蠶蠱」，牌組多一張詛咒「業障」', fx: [['addCard', 'shaitan'], ['addCard', 'sin']] }, { label: '恭敬地退下：回復 10 生命', fx: [['hp', 10]] }] },
+    // ── 主修專屬事件（走那條主修才會遇到）──
+    sword_furnace:{ who: 'shuang', major: 'wanjian', name: '劍廬', text: '山腰有一座荒廢的劍廬，爐火居然還沒熄。爐邊堆著一排沒開鋒的劍胚。',
+      opts: [{ label: '把一把飛劍投進爐裡淬火：失去 8 生命，之後每場開場飛劍 +1', need: { hp: 8 }, fx: [['hp', -8], ['startFx', 'proj', 1]] }, { label: '帶走一把劍胚：得到強化過的「劍影雙飛」', fx: [['addCard', 'kanshou+']] }, { label: '離開', fx: [] }] },
+    waterfall:{ who: 'shuang', major: 'guiyi', name: '斷崖觀瀑', text: '瀑布從千丈高的斷崖落下，水聲大得聽不見自己的心跳。三百年前，她就是在這裡學會一劍。',
+      opts: [{ label: '靜坐觀瀑（🎲≥12）：成功→之後每場開場劍意 +6；失敗→被寒氣所傷，失去 10 生命', fx: [['d20', 12, [['startFx', 'jy', 6]], [['hp', -10]]]] }, { label: '拔劍斷瀑：失去 6 生命，得到強化過的「一劍霜寒」', need: { hp: 6 }, fx: [['hp', -6], ['addCard', 'hanshuang+']] }] },
+    oldqin:  { who: 'shuang', major: 'qinxin', name: '古琴', text: '破廟的供桌上躺著一張斷了三根弦的古琴，琴身刻著「流水」兩個字。',
+      opts: [{ label: '花 50 金重新上弦：得到秘傳「廣陵散」', need: { gold: 50 }, fx: [['gold', -50], ['addCard', 'guangling']] }, { label: '用剩下的弦撥一曲：回復 15 生命，之後每場開場餘音 +3', fx: [['hp', 15], ['startFx', 'yuyin', 3]] }, { label: '離開', fx: [] }] },
+    hauntedhouse:{ who: 'qingli', major: 'zhenfu', name: '鬧鬼的宅子', text: '富商捧著銀子求她：「宅子裡夜夜有東西在哭，道長救命！」',
+      opts: [{ label: '把整座宅子貼滿符：最大生命 -5，之後每場開場全體定身 +1', fx: [['maxHp', -5], ['startFx', 'petrifyAll', 1]] }, { label: '貼兩張意思意思，收錢走人：得到 70 金', fx: [['gold', 70]] }] },
+    thunderstorm:{ who: 'qingli', major: 'leifu', name: '雷雨夜', text: '山頂烏雲壓得很低，一道道雷劈在對面的山頭上。這種天氣，最適合畫雷符。',
+      opts: [{ label: '站到山頂引雷入符（🎲≥13）：成功→得到秘傳「九天應元雷」；失敗→被雷劈中，失去 15 生命', fx: [['d20', 13, [['addCard', 'jiutian']], [['hp', -15]]]] }, { label: '找個山洞躲雨，順手畫幾張：選一張牌強化', fx: [['pick', 'upgrade']] }] },
+    wildfire:{ who: 'qingli', major: 'huofu', name: '野火', text: '山下的村子燒起來了，火勢順著風往林子裡竄。',
+      opts: [{ label: '把火收進符裡：失去 8 生命，之後每場開場火勢 +2', need: { hp: 8 }, fx: [['hp', -8], ['startFx', 'fire', 2]] }, { label: '幫村民滅火：最大生命 +5（村民塞了一籃雞蛋給妳）', fx: [['maxHp', 5]] }] },
+    hunting: { who: 'xiaoman', major: 'longzhan', name: '阿白的獵場', text: '林子裡有一頭成精的大野豬。阿白的眼睛亮了。',
+      opts: [{ label: '放阿白去打獵（🎲≥11）：成功→之後每場開場阿白 +4；失敗→阿白被頂了一下，失去 10 生命', fx: [['d20', 11, [['krakenStart', 4]], [['hp', -10]]]] }, { label: '本座不准牠亂跑：回復 10 生命', fx: [['hp', 10]] }] },
+    bandits: { who: 'xiaoman', major: 'longyou', name: '山賊', text: '一群山賊攔路，帶頭的蹲下來摸摸她的頭：「小妹妹，家裡大人呢？」',
+      opts: [{ label: '擺出老祖宗的架子（🎲≥11）：成功→山賊跪地磕頭，之後每場開場力量 +1；失敗→被當成走失的小孩，零錢被搜走 30 金', fx: [['d20', 11, [['startFx', 'str', 1]], [['gold', -30]]]] }, { label: '讓阿白從後面探出頭來：山賊嚇跑了，丟下 40 金', fx: [['gold', 40]] }] },
+    bloodpool:{ who: 'chilian', major: 'kuangxue', name: '血池', text: '血煞宗廢棄的分壇裡，有一池還溫熱的血。她太熟悉這個味道了。',
+      opts: [{ label: '泡進去：最大生命 -6，之後每場開場力量 +1', fx: [['maxHp', -6], ['startFx', 'str', 1]] }, { label: '一把火燒了它：從牌組移除一張牌', fx: [['pick', 'remove']] }] },
+    oldarmor:{ who: 'chilian', major: 'xuejia', name: '舊日的血甲', text: '一副血煞宗護法的血甲掛在樹上，甲片上還刻著她的名字。',
+      opts: [{ label: '穿回去：之後每場開場格擋 +6，牌組多一張詛咒「內傷」', fx: [['startFx', 'block', 6], ['addCard', 'fatigue']] }, { label: '拆了拿去賣：得到 50 金', fx: [['gold', 50]] }] },
+    oldfriend:{ who: 'chilian', major: 'meigu', name: '故人', text: '鎮上最大的樓裡，當年一起長大的姊妹倚在窗邊，認出了她：「是妳……妳還活著。」',
+      opts: [{ label: '上樓陪她喝一杯：回復 20 生命，得到「一笑傾城」', fx: [['hp', 20], ['addCard', 'qingcheng']] }, { label: '「我已經不是那時候的人了。」轉身離開：從牌組移除一張牌', fx: [['pick', 'remove']] }] },
+    swamp:   { who: 'aduo', major: 'dugu', name: '毒沼', text: '沼澤冒著五顏六色的泡泡。阿朵眼睛發亮：「好漂亮的毒！」',
+      opts: [{ label: '下去採毒（🎲≥11）：成功→之後每場開場全體毒 +3；失敗→自己也中毒了，最大生命 -6', fx: [['d20', 11, [['startFx', 'poisonAll', 3]], [['maxHp', -6]]]] }, { label: '繞路走', fx: [] }] },
+    needleshop:{ who: 'aduo', major: 'anqi', name: '暗器鋪', text: '巷子深處的暗器鋪，老闆瞎了一隻眼，手卻穩得嚇人。',
+      opts: [{ label: '花 60 金買一包淬毒銀針：得到強化過的「穿心針」', need: { gold: 60 }, fx: [['gold', -60], ['addCard', 'chuanxin+']] }, { label: '偷看老闆練手（🎲≥14）：成功→得到秘傳「萬蝶迷蹤」；失敗→被一根針釘在牆上，失去 12 生命', fx: [['d20', 14, [['addCard', 'wandie']], [['hp', -12]]]] }, { label: '離開', fx: [] }] },
+    wormnest:{ who: 'aduo', major: 'chonggu', name: '蟲穴', text: '山洞裡爬滿了發光的蟲子，最深處有一隻肥嘟嘟的蟲后。',
+      opts: [{ label: '把蟲后收進蠱罐：失去 8 生命，之後每場開場全體寄生 +2', need: { hp: 8 }, fx: [['hp', -8], ['startFx', 'parasiteAll', 2]] }, { label: '抓幾隻小的就好：得到「放蠱」', fx: [['addCard', 'fanggu']] }] }
   };
   function startEvent(run) {
-    var ok = function (E) { return (!E.act || E.act === Math.min(run.act, 2)) && (!E.who || E.who === run.who); };
+    var ok = function (E) { return (!E.act || E.act === Math.min(run.act, 2)) && (!E.who || E.who === run.who) && (!E.major || (run.majors || []).indexOf(E.major) >= 0); };
     var ids = Object.keys(EVENTS).filter(function (k) { return ok(EVENTS[k]) && run.seenEvents.indexOf(k) < 0; });
     if (!ids.length) ids = Object.keys(EVENTS).filter(function (k) { return ok(EVENTS[k]) && !EVENTS[k].who; });
     var id = pick(run, ids);
@@ -1109,7 +1142,7 @@ var G = (function () {
       else if (k === 'seal') { run.seals = Math.max(0, run.seals + n); msg.push('玉符 ' + n); }
       else if (k === 'pick') run.pending.push(n);
       else if (k === 'addCard') {
-        if (CARDS[n].rare && run.deck.indexOf(n) >= 0 && canUpgrade(n)) { var j = run.deck.indexOf(n); run.deck[j] = upId(n, 'a'); msg.push('已經有「' + card(n).name + '」，改成強化它'); }   // 秘傳不重複拿
+        if (CARDS[baseId(n)].rare && run.deck.indexOf(n) >= 0 && canUpgrade(n)) { var j = run.deck.indexOf(n); run.deck[j] = upId(n, 'a'); msg.push('已經有「' + card(n).name + '」，改成強化它'); }   // 秘傳不重複拿
         else { run.deck.push(n); msg.push('「' + card(n).name + '」加進牌組'); }
       }
       else if (k === 'upRandom') {
@@ -1118,6 +1151,7 @@ var G = (function () {
       }
       else if (k === 'cards') { run.screen = 'reward'; run.reward = { cards: ownCards(run, n, true), relic: null }; }
       else if (k === 'nextWeak') { run.nextWeak = (run.nextWeak || 0) + n; msg.push('下一場戰鬥開場虛弱 ' + n); }
+      else if (k === 'startFx') { run.ascStart = (run.ascStart || []).concat([[f[1], f[2]]]); msg.push('之後每場開場：' + fxText([[f[1], f[2]]])[0]); }
       else if (k === 'krakenStart') { run.krakenStart = (run.krakenStart || 0) + n; msg.push('之後每場開場阿白 +' + n); }
       else if (k === 'krakenGrow') { run.krakenGrow = (run.krakenGrow || 0) + n; msg.push('之後阿白每回合多長大 ' + n); }
       else if (k === 'commons') { run.screen = 'reward'; run.reward = { cards: shuffle(run, Object.keys(CARDS).filter(function (c) { return CARDS[c].kit === 'common'; })).slice(0, n), relic: null }; }
@@ -1165,6 +1199,7 @@ var G = (function () {
     if (k === 'seal') { run.pillSlots = (run.pillSlots || PILL_SLOTS) + 1; gainPill(run, randomPill(run)); gainPill(run, randomPill(run)); }
     if (k === 'pendant') run.lives = (run.lives || 0) + 1;
     if (k === 'pouch') run.discount = (run.discount || 1) * 0.85;
+    if (k === 'peijade') { var oth = pathsOf(run.who).filter(function (P) { return (run.majors || []).indexOf(P.id) < 0; }); if (oth.length) run.deck.push(pick(run, oth).sig); }   // 同門玉佩：另一條主修的招牌牌
   }
 
   // ── 戰鬥 ─────────────────────────────────────────────
@@ -1216,7 +1251,7 @@ var G = (function () {
   var MADNESS = { chilian: 2 };   // 血煞反噬：第 2 回合起每回合開始失去的生命
   // 神通量表（2026-10-02 去 Fate 味）：不再靠出牌累積，而是靠各自的機制——
   // 凌霜每祭出一把飛劍｜青璃每貼一層定身｜白辰阿白每長大 1、每咬一口｜赤練每失去 1 生命｜阿朵每讓敵人多中 1 層毒
-  var NP_GAIN = { forge: 10, gaze: 6, madness: 0.5, bite: 1, revive: 8, ambush: 5, fire: 6, anqi: 6 };   // fire：青璃火符每點火勢｜anqi：阿朵暗器每打出一張攻擊牌
+  var NP_GAIN = { forge: 10, gaze: 6, madness: 0.5, bite: 1, revive: 8, ambush: 5, fire: 6, anqi: 4 };   // fire：青璃火符每點火勢｜anqi：阿朵暗器每打出一張攻擊牌
   function npHow(who) {   // 給玩家看：這位的神通量表怎麼漲
     var p = (SERVANTS[who].passive || {}).id;
     return p === 'forge' ? '每祭出 1 把飛劍 +' + NP_GAIN.forge + '%' : p === 'gaze' ? '每貼 1 層定身、每 1 點火勢 +' + NP_GAIN.gaze + '%' : p === 'madness' ? '阿白每長大 2 +1%、每咬一口 +' + NP_GAIN.bite + '%'
@@ -1381,6 +1416,7 @@ var G = (function () {
   function strike(ctx, e, base, pierce) {
     var b = ctx.b; if (!e || e.hp <= 0) return 0;
     var dealt = hitEnemy(ctx.run, e, dmgTo(e, pDmg(ctx, base)), ctx.log, pierce);
+    if (ctx.atk && e.thorns > 0 && !(ctx.thorned = ctx.thorned || {})[e.key]) { ctx.thorned[e.key] = 1; loseHp(ctx.run, e.thorns, ctx.log); ctx.log.push(e.name + '反震 ' + e.thorns); }   // 石傀儡：打它會被震傷（每張牌一次）
     if (ctx.atk && b.pVenom && e.hp > 0) e.poison += b.pVenom;
     if (ctx.atk && b.pLeech && ctx.run.hp < ctx.run.maxHp / 2) healP(ctx.run, Math.floor(dealt * b.pLeech / 100), null);   // 血蓮：殘血時吸血
     return dealt;
@@ -1676,6 +1712,11 @@ var G = (function () {
     if (k === 'atk' || k === 'atkP') { for (var h = 0; h < (f[2] || 1) && run.hp > 0 && e.hp > 0; h++) enemyHit(run, e, n, k === 'atkP', log); }
     else if (k === 'block') e.block += n;
     else if (k === 'breakBlock') { if (b.block) log.push(e.name + '勾掉了你的格擋'); b.block = 0; }
+    else if (k === 'strAll') alive(b).forEach(function (o) { o.str += n; });
+    else if (k === 'blockAll') alive(b).forEach(function (o) { o.block += n; });
+    else if (k === 'sapEnergy') { b.nextEnergy -= n; log.push(e.name + '索走了你的靈力'); }
+    else if (k === 'stealBlock') { if (b.block) { e.block += b.block; log.push(e.name + '奪走了你 ' + b.block + ' 格擋'); b.block = 0; } }
+    else if (k === 'thornsSelf') e.thorns = n;
     else if (k === 'str') e.str += n;
     else if (k === 'weak' || k === 'vuln') debuffPlayer(run, k, n);
     else if (k === 'heal') e.hp = Math.min(e.maxHp, e.hp + n);
@@ -1711,9 +1752,9 @@ var G = (function () {
     }
     var end = checkEnd(run);
     if (end) { b.log = log; return { ok: true, end: end }; }
+    alive(b).forEach(function (e) { e.block = 0; e.thorns = 0; });   // 敵人的格擋、反震撐到它們這一輪開始（陰兵列陣給隊友的格擋才不會被洗掉）
     alive(b).forEach(function (e) {
       if (run.hp <= 0 || e.hp <= 0) return;
-      e.block = 0;
       if (e.poison > 0) { hitEnemy(run, e, e.poison, log, true); e.poison--; }
       if (e.parasite > 0 && e.hp > 0) hitEnemy(run, e, e.parasite, log, true);   // 寄生：不遞減
       if (e.hp <= 0) return;
@@ -1868,7 +1909,7 @@ var G = (function () {
 
   return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, ENCOUNTERS: ENCOUNTERS, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, BOSS_POOL: BOSS_POOL, actName: actName, scaleUp: scaleUp, krakenBites: krakenBites, ROWS: ROWS, COLS: COLS, ACT_NAMES: ACT_NAMES, EVENTS: EVENTS,
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff, REALMS: REALMS,
-    FATES: FATES, NP_GAIN: NP_GAIN, stunAt: stunAt, PATHS: PATHS, pathsOf: pathsOf, pathById: pathById, majorOf: majorOf, chooseMajor: chooseMajor, ownPool: ownPool, masterText: masterText, parasiteSum: parasiteSum, npHow: npHow, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
+    FATES: FATES, NP_GAIN: NP_GAIN, stunAt: stunAt, startEvent: startEvent, PATHS: PATHS, pathsOf: pathsOf, pathById: pathById, majorOf: majorOf, chooseMajor: chooseMajor, ownPool: ownPool, masterText: masterText, parasiteSum: parasiteSum, npHow: npHow, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
     card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, isCurse: isCurse, makeEnemy: makeEnemy, checkEnd: checkEnd, luckMod: luckMod, d20Chance: d20Chance, dullOf: dullOf, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, ownerOf: ownerOf,
     PILLS: PILLS, PILL_SLOTS: PILL_SLOTS, usePill: usePill, swapPill: swapPill, gainPill: gainPill, newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,

@@ -151,7 +151,7 @@ t(G.ELITES.every(k=>G.ENEMIES[k]&&G.ENEMIES[k].elite)&&G.BOSSES.every(k=>G.ENEMI
 { const moves=Object.keys(G.ENEMIES).flatMap(k=>G.ENEMIES[k].moves.flatMap(m=>m.fx));
   t(moves.filter(f=>f[0]==='summon').every(f=>G.ENEMIES[f[1]]&&!G.ENEMIES[f[1]].boss),'召喚的援軍都存在');
   t(moves.filter(f=>f[0]==='curse'||f[0]==='plant').every(f=>G.CARDS[f[1]]&&G.CARDS[f[1]].type==='curse'),'塞進牌堆／手牌的都是存在的妨礙牌');
-  t(moves.every(f=>['atk','atkP','block','str','weak','vuln','heal','summon','breakBlock','curse','plant'].includes(f[0])),'敵人招式的效果都認得'); }
+  t(moves.every(f=>['atk','atkP','block','str','weak','vuln','heal','summon','breakBlock','curse','plant','strAll','blockAll','sapEnergy','stealBlock','thornsSelf'].includes(f[0])),'敵人招式的效果都認得'); }
 r=arena(); E(r).id='yaodao'; E(r).name='妖道'; E(r).intent=G.ENEMIES.yaodao.moves[0]; G.endTurn(r); t(r.battle.enemies.length===3&&r.battle.enemies.filter(e=>e.id==='zhiren').length===2,'敵方妖道剪紙成兵：召喚 2 隻紙人兵');
 r=arena(); E(r).intent={n:'穿',fx:[['atkP',10]]}; r.battle.block=20; hp=r.hp; G.endTurn(r); t(hp-r.hp===10,'穿透攻擊無視格擋',hp-r.hp);
 r=arena(); E(r).intent={n:'勾魂筆',fx:[['breakBlock',1],['atk',14]]}; r.battle.block=20; hp=r.hp; G.endTurn(r); t(hp-r.hp===14,'鬼面判官的勾魂筆：先拆掉你的格擋再打',hp-r.hp);
@@ -205,10 +205,10 @@ t(G.migrate({who:'custom',custom:{name:'舊英靈'},deck:['atk']})===null&&!G.ma
 const r10=J(G.newRun('aduo',21)); step(r10,'fight'); const saved=J(r10); x=G.play(saved,0,0); t(x.ok||x.msg,'存檔（JSON）來回後照樣能出牌');
 
 console.log('── 事件・商店・機緣・境界');
-{ const KN=['hp','maxHp','healPct','relic','seal','pick','addCard','upRandom','cards','commons','fight','gold','krakenStart','krakenGrow','nextWeak','d20']; const okFx=l=>l.every(f=>KN.includes(f[0])&&(f[0]!=='d20'||(typeof f[1]==='number'&&okFx(f[2])&&okFx(f[3]))));
+{ const KN=['hp','maxHp','healPct','relic','seal','pick','addCard','upRandom','cards','commons','fight','gold','krakenStart','krakenGrow','nextWeak','d20','startFx']; const okFx=l=>l.every(f=>KN.includes(f[0])&&(f[0]!=='d20'||(typeof f[1]==='number'&&okFx(f[2])&&okFx(f[3]))));
   t(Object.keys(G.EVENTS).every(k=>G.EVENTS[k].opts.length>=2&&G.EVENTS[k].opts.every(o=>okFx(o.fx))),'每個事件至少兩個選項，效果都認得（擲骰的成功／失敗也是）');
   const all=l=>l.flatMap(f=>f[0]==='d20'?all(f[2]).concat(all(f[3])):[f]), fx=Object.keys(G.EVENTS).flatMap(k=>G.EVENTS[k].opts.flatMap(o=>all(o.fx)));
-  t(fx.filter(f=>f[0]==='addCard').every(f=>G.CARDS[f[1]]),'事件給的牌都存在',fx.filter(f=>f[0]==='addCard'&&!G.CARDS[f[1]]).map(f=>f[1]).join());
+  t(fx.filter(f=>f[0]==='addCard').every(f=>G.card(f[1])),'事件給的牌都存在',fx.filter(f=>f[0]==='addCard'&&!G.card(f[1])).map(f=>f[1]).join());
   t(fx.filter(f=>f[0]==='fight').every(f=>f[1]==='elite'&&(!f[2]||G.ELITES.includes(f[2]))),'事件指定的對手都是精英',fx.filter(f=>f[0]==='fight').map(f=>f[2]).join());
   t(fx.filter(f=>f[0]==='pick').every(f=>['remove','upgrade','transform','copy'].includes(f[1])),'事件的選牌種類都認得'); }
 t(Object.keys(G.EVENTS).every(k=>!G.EVENTS[k].who||G.ORDER.includes(G.EVENTS[k].who)),'專屬事件的角色都存在');
@@ -473,4 +473,13 @@ t(G.ORDER.every(k=>G.ENDINGS[k]&&G.ENDINGS[k].title&&G.ENDINGS[k].text.length>=3
 { const q=G.newRun('aduo',8,{major:'anqi'}); t(G.ownPool(q).side.length>0,'第一章魔王前：其他主修的牌也偶爾會出'); q.screen='major'; G.chooseMajor(q,'master'); const P=G.ownPool(q); t(q.mastered&&P.side.length===0&&P.main.every(k=>G.CARDS[k].path==='anqi'),'專精之後：只出這條主修的牌'); step(q,'fight'); t(q.battle.evade>=1,'專精暗器：每場開場迴避 1'); }
 t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&&G.CARDS[P.sig].path===P.id)),'每位至少兩條主修，招牌牌屬於自己那條');
 { const feels=[].concat(...G.ORDER.map(w=>G.pathsOf(w).map(P=>P.feel))); t(new Set(feels).size===feels.length,'主修的手感詞不能撞',feels.join()); }
+// 內容深度（2026-10-02）：第二章雜兵的特殊招式、主修專屬事件
+{ const q=arena('qingli',2,60); E(q).intent={n:'群嚎',fx:[['strAll',1]]}; q.battle.enemies[1].intent={n:'發呆',fx:[]}; G.endTurn(q); t(q.battle.enemies.every(e=>e.str===1),'冥犬群嚎：整群力量 +1'); }
+{ const q=arena('qingli'); E(q).intent={n:'索命',fx:[['sapEnergy',1]]}; G.endTurn(q); t(q.battle.energy===2,'怨靈索命：你下回合少 1 靈力',q.battle.energy); }
+{ const q=arena('qingli'); q.battle.block=9; E(q).intent={n:'奪勢',fx:[['stealBlock',1]]}; G.endTurn(q); t(E(q).block===9,'魔化劍修奪勢：搶走你的格擋',E(q).block); }
+{ const q=arena('shuang',1,80); E(q).thorns=3; const hp=q.hp; playId(q,'kanshou'); t(hp-q.hp===3,'石傀儡反震：攻擊牌打它被震傷（每張牌一次）',hp-q.hp); }
+{ const q=arena('qingli',2,60); E(q).intent={n:'列陣',fx:[['blockAll',5]]}; q.battle.enemies[1].intent={n:'發呆',fx:[]}; G.endTurn(q); t(q.battle.enemies[1].block===5,'陰兵列陣：全隊格擋'); }
+{ const evs=Object.keys(G.EVENTS).filter(k=>G.EVENTS[k].major); t(G.ORDER.every(w=>G.pathsOf(w).every(P=>evs.some(k=>G.EVENTS[k].major===P.id&&G.EVENTS[k].who===w))),'每條主修都有自己的事件',evs.length);
+  const q=G.newRun('shuang',4,{major:'qinxin'}); let seen=new Set(); for(let k=0;k<60;k++){ q.seenEvents=[]; q.screen='map'; G.startEvent?G.startEvent(q):0; if(q.event) seen.add(q.event); } t(!seen.has('waterfall')&&!seen.has('sword_furnace'),'沒走的主修，不會遇到它的事件'); }
+{ const q=G.newRun('shuang',4,{major:'guiyi'}); q.screen='event'; q.event='waterfall'; q.hp=40; G.choose(q,1); t(q.deck.includes('hanshuang+')&&q.hp===34,'主修事件：給強化過的牌'); q.screen='event'; q.event='sword_furnace'; G.choose(q,0); step(q,'fight'); t(q.battle.swords>=4,'主修事件：之後每場開場的效果（startFx）'); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

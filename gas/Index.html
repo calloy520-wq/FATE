@@ -478,6 +478,7 @@
     if ((M.stats.trueEnds || 0) > 0) g.push('xinmo');
     if (Object.keys(e).some(function (k) { return e[k] >= 50; })) g.push('tower');
     if (G.BOSSES.every(function (k) { return (M.codex || {})[k]; })) g.push('bosses');
+    if (Object.keys(M.pathClears || {}).length >= 5) g.push('paths');
     return g;
   }
   function endingSeen(M, who) { return !!((M.endings || {})[who] || (M.stats.best || {})[who] === '斬心魔'); }
@@ -1058,6 +1059,11 @@
       if (k === 'curse') return '<span class="buf">塞魔氣×' + (f[2] || 1) + '</span>';
       if (k === 'plant') return '<span class="buf">塞「' + esc(G.card(f[1]).name) + '」進手牌' + ((f[2] || 1) > 1 ? '×' + f[2] : '') + '</span>';
       if (k === 'breakBlock') return '<span class="atk">碎格擋</span>';
+      if (k === 'strAll') return '<span class="buf">全隊力量+' + f[1] + '</span>';
+      if (k === 'blockAll') return '<span class="def">全隊🛡' + f[1] + '</span>';
+      if (k === 'sapEnergy') return '<span class="atk">你下回合靈力-' + f[1] + '</span>';
+      if (k === 'stealBlock') return '<span class="atk">奪你格擋</span>';
+      if (k === 'thornsSelf') return '<span class="def">反震' + f[1] + '</span>';
       if (DEBUFF[k]) return '<span class="buf">你' + DEBUFF[k] + f[1] + '</span>';
       return '<span class="buf">' + esc(e.intent.n) + '</span>';
     }).join(' ') + ' <span class="dim">' + esc(e.intent.n) + '</span>';
@@ -1071,6 +1077,7 @@
     if (e.petrify && !e.stun) a.push('<span style="color:#f2c14e">定身 ' + e.petrify + '/' + th + '</span>');
     if (e.charm) a.push('<span style="color:#ff8fb8">魅惑 ' + e.charm + '</span>');
     if (e.parasite) a.push('<span style="color:#b48cff">寄生 ' + e.parasite + '</span>');
+    if (e.thorns) a.push('反震 ' + e.thorns);
     if (e.lives) a.push('再起 ' + e.lives);
     return a.map(function (x) { return '<span class="chip">' + x + '</span>'; }).join('');
   }
@@ -1181,7 +1188,10 @@
     block: function (f) { return '獲得格擋 ' + f[1]; }, str: function (f) { return '力量 +' + f[1] + '：之後每一擊都更痛'; }, heal: function (f) { return '回復 ' + f[1] + ' 生命'; },
     weak: function (f) { return '讓你虛弱 ' + f[1] + '（你的攻擊 ×0.75）'; }, vuln: function (f) { return '讓你易傷 ' + f[1] + '（你受到的攻擊 ×1.5）'; },
     curse: function (f) { return '把 ' + (f[2] || 1) + ' 張「' + G.card(f[1]).name + '」塞進你的牌堆'; }, plant: function (f) { return '把 ' + (f[2] || 1) + ' 張「' + G.card(f[1]).name + '」直接塞進你的手牌（' + G.card(f[1]).short + '）'; }, summon: function (f) { return '叫來 ' + (f[2] || 1) + ' 個援軍'; },
-    breakBlock: function () { return '勾掉你的格擋（格擋歸零）'; } };
+    breakBlock: function () { return '勾掉你的格擋（格擋歸零）'; },
+    strAll: function (f) { return '整隊力量 +' + f[1] + '（先把它打倒）'; }, blockAll: function (f) { return '整隊每個人都得到格擋 ' + f[1]; },
+    sapEnergy: function (f) { return '索走靈力：你下回合靈力 -' + f[1]; }, stealBlock: function () { return '奪走你身上全部的格擋，變成它自己的'; },
+    thornsSelf: function (f) { return '到它下次出手前，你每張攻擊牌打到它，你會被震傷 ' + f[1]; } };
   function foeInfo(i) {
     var e = run.battle.enemies[i], tmp = document.createElement('div'); tmp.innerHTML = foeChips(e);
     var st = tmp.textContent, lines = e.stun ? ['動彈不得：這回合不能行動'] : e.intent.fx.map(function (f) { return INTENT_TEXT[f[0]] ? INTENT_TEXT[f[0]](f, e) : f[0]; });
@@ -1466,6 +1476,7 @@
       body = '<div class="list">' + Object.keys(G.GOALS).map(function (g) { var Gx = G.GOALS[g], ok = done.indexOf(g) >= 0;
         var what = Object.keys(G.FATES).filter(function (k) { return G.FATES[k].lock === g; }).map(function (k) { return '機緣「' + G.FATES[k].name + '」'; }).concat(Object.keys(G.RELICS).filter(function (k) { return G.RELICS[k].lock === g; }).map(function (k) { return '法寶「' + G.RELICS[k].name + '」'; }));
         return '<div class="box"><b>' + (ok ? '✅ ' : '🔒 ') + esc(Gx.name) + '</b>　<span class="dim">' + esc(Gx.text) + '</span><div style="font-size:13.5px;margin-top:4px">解鎖：' + esc(what.join('、')) + '</div></div>'; }).join('')
+        + '<div class="box"><b>主修通關</b>　<span class="dim">' + Object.keys(M.pathClears || {}).length + '／' + G.ORDER.reduce(function (a, w) { return a + G.pathsOf(w).length; }, 0) + '</span>' + G.ORDER.map(function (w) { return '<div style="font-size:13.5px;margin-top:4px">' + esc(G.SERVANTS[w].name) + '：' + G.pathsOf(w).map(function (P) { return ((M.pathClears || {})[P.id] ? '✅' : '・') + esc(P.name); }).join('　') + '</div>'; }).join('') + '</div>'
         + '<div class="box"><b>造型</b><div class="dim" style="font-size:13.5px">每位三套：' + esc(SKIN_GOALS.clear) + '／' + esc(SKIN_GOALS.xinmo) + '／' + esc(SKIN_GOALS.master) + '。已解鎖 ' + skinsOpen(M).length + '／' + G.ORDER.length * 3 + '</div></div></div>'; }
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">📚 圖鑑</h1>' + head + body + '<button class="btn" onclick="titleScreen()">返回</button></div>';
   }
@@ -1494,6 +1505,7 @@
       updateMe(function (m) {
         if (run.win) m.stats.wins++; if (run.trueEnd) { m.stats.trueEnds++; m.endings = m.endings || {}; m.endings[run.who] = 1; }
         if (run.win) { m.clears = m.clears || {}; m.clears[run.who] = m.clears[run.who] || {}; m.clears[run.who][run.diff || 'normal'] = true; }
+        if (run.win && !run.endless && run.major) { m.pathClears = m.pathClears || {}; m.pathClears[run.major] = 1; }   // 用哪條主修通關過（圖鑑的目標頁）
         if (run.endless) {   // 無盡（鎮妖塔）：記走過的格子數（每位角色各自的最遠＋帳號最遠），一般戰績不動
           m.stats.endless = m.stats.endless || {};
           if (st.floors > (m.stats.endless[run.who] || 0)) m.stats.endless[run.who] = st.floors;
