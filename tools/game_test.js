@@ -133,7 +133,7 @@ r=arena('aduo'); r.battle.turn=2; playId(r,'knives'); t(E(r).hp===46&&E(r).poiso
 r=arena('aduo'); r.battle.turn=2; E(r).poison=1; playId(r,'assassinate'); t(E(r).hp===30,'蠱發：中毒時 10＋10',E(r).hp);
 r=arena('aduo'); playId(r,'atk'); t(E(r).hp===41,'阿朵 隱蠱：第一回合攻擊 ×1.5（6→9）',E(r).hp); r.battle.turn=2; playId(r,'atk'); t(E(r).hp===35,'第二回合照常 6',E(r).hp);
 { const q=arena(); playId(q,'atk'); t(E(q).hp===44,'別人第一回合沒有隱蠱'); }
-r=arena('aduo'); r.battle.turn=2; playId(r,'throwdirk'); t(E(r).hp===38&&G.SERVANTS.aduo.sig==='throwdirk','銀針（招牌牌）：4×3',E(r).hp);
+r=arena('aduo'); r.battle.turn=2; playId(r,'throwdirk'); t(E(r).hp===41&&G.SERVANTS.aduo.sig==='throwdirk','銀針（招牌牌）：3×3（有破綻每擊 +1）',E(r).hp);
 r=arena('aduo'); E(r).poison=4; playId(r,'plague'); t(E(r).poison===8,'催蠱：毒加倍');
 r=arena('aduo'); E(r).hp=24; r.battle.np=100; G.noble(r,0); t(E(r).hp===0,'萬蠱噬心：五成以下直接倒下');
 r=arena('aduo'); r.battle.np=100; G.noble(r,0); t(E(r).hp===0,'萬蠱噬心：一般敵人抵抗不了，直接倒下',E(r).hp);
@@ -508,4 +508,7 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
 { const q=arena('qingli',1,80); q.battle.firstAtk=true; playId(q,'atk_qingli'); const a=80-E(q).hp; playId(q,'atk_qingli'); const b2=80-E(q).hp-a; t(a===12&&b2===6,'破甲針：第一次命中 +6，只算一次',[a,b2]); }
 { let miss=0; for(let s=1;s<=300;s++){ const q=G.newRun(G.ORDER[s%5],s); if(!q.map.some(row=>row.some(n=>n&&n.t==='shop'))) miss++; } t(!miss,'300 張地圖每章都有商店',miss); }
 { const q=G.newRun('qingli',4); q.deck=q.deck.slice(0,5); t(!G.canChoose(q,G.EVENTS.purge.opts[0])&&G.canChoose(q,G.EVENTS.purge.opts[1]),'牌組只剩 5 張：要移除牌的事件選項選不了'); }
+{ const GEN=new Set(['dmg','hits','all','rand','block','draw','drainAll','pierce','pierceHits','heal','healP','energy','weak','vuln','weakAll','vulnAll','drain','nextEnergy','str','tstr']);
+  const bare=Object.keys(G.CARDS).filter(k=>!k.endsWith('+')&&(G.ORDER.includes(G.CARDS[k].kit)||G.CARDS[k].path)&&!G.CARDS[k].isBasic&&!/^(atk|def)_/.test(k)&&G.CARDS[k].fx.every(f=>GEN.has(f[0])));
+  t(!bare.length,'專屬牌都綁著自己的機制（不只是傷害／格擋／抽牌）',bare.map(k=>G.CARDS[k].name).join()); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
