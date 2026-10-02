@@ -699,8 +699,16 @@
   function render() {
     var scr = run ? run.screen + (run.act || '') : ACC ? 'title' : 'login';
     if (scr !== render.last) { closeOv(); document.querySelectorAll('.pop,.npban').forEach(function (x) { x.remove(); }); if (run && run.screen === 'battle') Object.keys(hpBar.last).forEach(function (k) { if (k !== 'me') delete hpBar.last[k]; }); }
-    render.last = scr; renderScreen(); dropBars(); checkTips();
+    render.last = scr; renderScreen(); dropBars(); checkTips(); preloadArt();
   }
+  // 預先載入：在地圖畫面先把這章的戰鬥背景、這章魔王、自己的立繪抓下來（第一次遇到魔王時不會晚一拍才出圖）
+  function preloadArt() {
+    if (!run || run.screen !== 'map') return;
+    var a = run.act || 1, k = run.endless && a >= 3 ? 'tower' : a === 3 ? 'abyss' : a === 2 ? 'city' : 'hill', sk = META && META.skin && META.skin[run.who];
+    [ART['bg_' + k], ART[run.who], sk && ART[run.who + '_' + sk], run.boss && ART[run.boss]].forEach(function (u) {
+      if (!u || preloadArt.done[u]) return; preloadArt.done[u] = 1; var im = new Image(); im.src = u; });
+  }
+  preloadArt.done = {};
   function renderScreen() {
     if (!ACC) return loginScreen();
     if (run) save();   // 回到標題時不能動存檔（一打開網頁 run 還是空的）
