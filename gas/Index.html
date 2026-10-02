@@ -302,6 +302,8 @@
   .pdots { display:flex; gap:7px; justify-content:center; } .pdots span { width:7px; height:7px; border-radius:50%; background:rgba(227,194,122,.25); } .pdots span.on { background:var(--gold); }
   @keyframes pfade { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
   .lore { font-family:var(--serif); line-height:1.85; color:#ddd6c6; text-align:center; letter-spacing:.03em; padding:2px 6px; }
+  /* 排版：不讓最後一行只剩一兩個字（pretty＝避開孤字；置中的短段落用 balance 讓每行差不多長） */
+  body { text-wrap:pretty; } .lore, .ptext, .ptext > div, .lore > div, h1, h2, h3, button, .dim { text-wrap:balance; }
   /* 選人格子：職階名用拉丁大寫字 */
   .war { font-family:var(--latin); font-weight:800; text-transform:uppercase; letter-spacing:.32em; border-bottom:none; display:flex; align-items:center; gap:12px; text-shadow:0 0 10px rgba(227,194,122,.35); }
   .war::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,rgba(227,194,122,.7),transparent); }
@@ -468,6 +470,8 @@
   var KEY = 'grail_run_v1', run = null, sel = { card: -1, foe: -1, np: false };
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  // 長段落的保險：最後四個字綁在一起不拆行，最後一行就不會只剩一兩個字（短段落交給 CSS 的 text-wrap）
+  function keepTail(h) { var m = /((?:&[a-z#0-9]+;|[^\s<>&]){4})$/.exec(h); return m ? h.slice(0, m.index) + '<span style="white-space:nowrap">' + m[1] + '</span>' : h; }
   // ── 帳號：第一個畫面先登入；每個帳號各自的存檔與戰績都存在伺服器（換裝置也接得上），本機另留一份快取 ──
   var ACC = null, META = null, SAVED_RUN = null, AKEY = 'grail_acc_v1', CKEY = 'grail_cache_v1:';
   function newMeta() { return { v: 5, clears: {}, stats: { runs: 0, wins: 0, trueEnds: 0, best: {} }, codex: {}, endings: {}, skin: {}, seen: { goals: [], skins: [] }, tips: {}, ts: 0 }; }   // 局外沒有貨幣（2026-10-02）；達成目標解鎖造型、機緣、法寶
@@ -796,7 +800,7 @@
     var figs = P[2] === 'shuang' ? '<div class="pfigs"><div class="pfig">' + FIG.fig('shuang', false, { swords: 3 }) + '</div></div>'
       : P[2] === 'others' ? '<div class="pfigs">' + G.ORDER.filter(function (k) { return k !== 'shuang'; }).map(function (k) { return '<div class="pfig">' + FIG.fig(k, false, { swords: 0 }) + '</div>'; }).join('') + '</div>' : '';
     $('app').innerHTML = '<div class="panel prolog"><div class="pscene">' + FIG.scene(sc) + figs + '</div>'
-      + '<div class="lore ptext">' + P[1] + '</div>'
+      + '<div class="lore ptext">' + P[1].split('<br>').map(function (l) { return '<div>' + l + '</div>'; }).join('') + '</div>'
       + '<div class="pdots">' + PROLOGUE.map(function (_, j) { return '<span' + (j === i ? ' class="on"' : '') + '></span>'; }).join('') + '</div>'
       + '<div class="row">' + (last ? '<button class="btn" onclick="titleScreen()">回到標題</button><button class="btn" style="border-color:var(--gold);color:var(--gold)" onclick="MODE=\'normal\';choose()">⚔ 踏上旅程</button>'
         : '<button class="btn" onclick="titleScreen()">跳過</button><button class="btn" style="border-color:var(--gold);color:var(--gold)" onclick="prologue(' + (i + 1) + ')">繼續 ›</button>') + '</div></div>';
@@ -1403,7 +1407,7 @@
   function needText(o) { var n = o.need || {}, a = []; if (n.hp && run.hp <= n.hp) a.push('生命要多於 ' + n.hp); if (n.seal && run.seals < n.seal) a.push('要 ' + n.seal + ' 枚玉符'); if (n.gold && run.gold < n.gold) a.push('要 ' + n.gold + ' 金'); return a.join('、') || '條件不夠'; }
   function eventScreen() {
     var E = G.EVENTS[run.event];
-    $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">❓ ' + esc(E.name) + '</h1><div class="lore" style="max-width:420px">' + esc(E.text) + '</div><div class="list">'
+    $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">❓ ' + esc(E.name) + '</h1><div class="lore" style="max-width:420px">' + keepTail(esc(E.text)) + '</div><div class="list">'
       + E.opts.map(function (o, i) { var ok = G.canChoose(run, o); return '<button ' + (ok ? 'onclick="doChoose(' + i + ')"' : 'disabled style="opacity:.4"') + '>' + esc(o.label) + (ok ? '' : '（' + needText(o) + '）') + d20Hint(o) + '</button>'; }).join('') + '</div></div>';
   }
   function shopScreen() {
@@ -1456,7 +1460,7 @@
     var E = G.ENDINGS[who]; if (!E) return '';
     var pic = ART['end_' + who] ? '<img src="' + ART['end_' + who] + '" alt="" style="width:100%;border-radius:10px;display:block" onerror="this.remove()">' : '<div class="svtfig sc-abyss" style="height:200px">' + FIG.fig(who, false, { swords: 5 }) + '</div>';
     return '<div class="box ending" style="max-width:460px;width:100%"><div class="dim" style="text-align:center">真結局</div><h3 style="text-align:center;font-size:19px;margin:4px 0 8px">「' + esc(E.title) + '」</h3>' + pic
-      + E.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0">' + esc(t) + '</p>'; }).join('')
+      + E.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0">' + keepTail(esc(t)) + '</p>'; }).join('')
       + (G.EPILOGUE ? '<div class="msep" style="margin:14px 0 6px"></div><div class="dim" style="text-align:center">尾聲・' + esc(G.EPILOGUE.title) + '</div>' + G.EPILOGUE.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0">' + esc(t) + '</p>'; }).join('') : '') + '</div>';
   }
   // 圖鑑：魔王／精英／妖物（第一次打倒才看得到）、真結局（重看）、解鎖目標
@@ -1474,8 +1478,8 @@
     }).join('') + '</div><div class="dim" style="font-size:13px">擊敗過的敵人會收錄在這裡，點開可以看介紹與招式。</div>';
     if (tab === 'sect') body = '<div class="list">' + G.SECTS_LORE.map(function (X) {
       var tag = X.who ? '門下：' + G.SERVANTS[X.who].name + '｜絕學：' + X.arts : X.foe ? '交過手：' + G.ENEMIES[X.foe].name : '尚未現身';
-      return '<div class="box"><b style="color:var(--gold)">' + esc(X.name) + '</b>　<span class="dim">' + esc(X.kind + (X.five ? '・五大宗門' : '') + '｜' + X.place) + '</span>'
-        + '<div class="lore" style="text-align:left;margin-top:6px">' + esc(X.text) + '</div><div class="dim" style="font-size:13px;margin-top:4px">' + esc(tag) + '</div></div>';
+      return '<div class="box"><b style="color:var(--gold)">' + esc(X.name) + '</b><div class="dim" style="font-size:13px">' + esc(X.kind + (X.five ? '・五大宗門' : '') + '｜' + X.place) + '</div>'
+        + '<div class="lore" style="text-align:left;margin-top:6px">' + keepTail(esc(X.text)) + '</div><div class="dim" style="font-size:13px;margin-top:4px">' + esc(tag) + '</div></div>';
     }).join('') + '</div>';
     if (tab === 'end') body = '<div class="list">' + G.ORDER.map(function (k) { var S = G.SERVANTS[k], E = G.ENDINGS[k], got = endingSeen(M, k);
       return '<button class="box urow" style="text-align:left"' + (got ? ' onclick="openOv(endingHtml(\'' + k + '\'))"' : ' disabled style="opacity:.5"') + '><div><b>' + esc(S.name) + '：' + (got ? '「' + esc(E.title) + '」' : '？？？') + '</b><div class="dim" style="font-size:13px">' + (got ? '點開重看' : '用她在九幽魔淵封印魘') + '</div></div></button>'; }).join('') + '</div>';
@@ -1491,7 +1495,7 @@
     var E = G.ENEMIES[k];
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(E.name) + '</b>　<span class="dim">' + (E.boss ? '魔王' : E.elite ? '精英' : '妖物') + '</span>'
       + '<div class="svtfig ' + (E.boss && k === 'xinmo' ? 'sc-abyss' : 'sc-city') + '">' + FIG.fig(k, true) + '</div>'
-      + '<div class="list" style="margin-top:10px"><div class="box">' + esc(G.LORE[k] || '') + '</div><div class="box"><h3>招式</h3>' + E.moves.map(function (m) { return esc(m.n); }).join('、') + '</div></div>');
+      + '<div class="list" style="margin-top:10px"><div class="box">' + keepTail(esc(G.LORE[k] || '')) + '</div><div class="box"><h3>招式</h3>' + E.moves.map(function (m) { return esc(m.n); }).join('、') + '</div></div>');
   }
   // 對局紀錄：每局結束送一列到伺服器（調平衡用；送不出去就算了）
   function logRun(r) {
