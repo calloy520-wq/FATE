@@ -36,7 +36,7 @@ var G = (function () {
   function isCurse(id) { var c = CARDS[baseId(id)]; return !!c && c.type === 'curse'; }
   // 秘傳：只會在打贏精英的獎勵裡出現（稀有），每位角色一張，另有共通的天書殘頁
   kit('rare', {
-    grail:      { name: '天書殘頁', cost: 0, type: 'skill', np: 50, ex: 1, rare: 'common', fx: [['draw', 1]], up: { np: 70 } },
+    grail:      { name: '天書殘頁', cost: 0, type: 'skill', np: 0, ex: 1, rare: 'common', fx: [['np', 50], ['draw', 1]], up: { fx: [['np', 70], ['draw', 1]] } },
     sword_rain: { name: '漫天劍雨', cost: 1, type: 'skill', np: 20, ex: 1, rare: 'shuang', fx: [['proj', 5]], up: { fx: [['proj', 7]] } },
     breaker:    { name: '太上鎮魂印', cost: 1, type: 'skill', np: 10, ex: 1, rare: 'qingli', fx: [['petrifyAll', 3], ['draw', 1]], up: { ex: 0 } },
     prelati:    { name: '蛻龍訣', cost: 1, type: 'power', np: 0, rare: 'xiaoman', fx: [['str', 1], ['pKraken', 1]], up: { fx: [['str', 2], ['pKraken', 1]] } },
@@ -47,7 +47,7 @@ var G = (function () {
   kit('common', {
     heavy:    { name: '重擊', cost: 2, type: 'atk', np: 15, fx: [['dmg', 12]], up: { fx: [['dmg', 17]] } },
     dodge:    { name: '護體', cost: 1, type: 'skill', np: 5, fx: [['block', 8]], up: { fx: [['block', 11]] } },
-    circuit:  { name: '運轉周天', cost: 0, type: 'skill', np: 20, ex: 1, fx: [['energy', 1]], up: { np: 30, fx: [['energy', 1]] } },
+    circuit:  { name: '運轉周天', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['energy', 1]], up: { fx: [['energy', 1], ['draw', 1]] } },
     reinforce:{ name: '淬體', cost: 1, type: 'power', np: 0, fx: [['str', 2]], up: { fx: [['str', 3]] } },
     healing:  { name: '回春術', cost: 1, type: 'skill', np: 0, ex: 1, fx: [['heal', 6]], up: { fx: [['heal', 10]] } },
     feint:    { name: '牽制', cost: 0, type: 'atk', np: 5, fx: [['dmg', 3], ['weak', 1]], up: { fx: [['dmg', 5], ['weak', 2]] } },
@@ -61,7 +61,7 @@ var G = (function () {
     suggest:  { name: '攝心術', cost: 1, type: 'skill', np: 5, fx: [['strDown', 2], ['weak', 1]], up: { fx: [['strDown', 3], ['weak', 2]] } },
     baptism:  { name: '獅子吼', cost: 2, type: 'skill', np: 10, fx: [['weakAll', 2], ['block', 6]], up: { fx: [['weakAll', 2], ['block', 10]] } },
     counterward:{ name: '反震', cost: 1, type: 'skill', np: 5, fx: [['block', 5], ['thorns', 4]], up: { fx: [['block', 7], ['thorns', 6]] } },
-    leyline:  { name: '靈脈', cost: 1, type: 'power', np: 0, fx: [['pBlock', 3]], up: { cost: 1 } },   // 接上地底的靈脈，每回合都有靈氣護身
+    leyline:  { name: '靈脈', cost: 1, type: 'power', np: 0, fx: [['pBlock', 3]], up: { fx: [['pBlock', 5]] } },   // 接上地底的靈脈，每回合都有靈氣護身
     shroudward:{ name: '移形換影', cost: 1, type: 'skill', np: 5, ex: 1, fx: [['evade', 1], ['block', 3]], up: { fx: [['evade', 1], ['block', 6]] } }
   });
 
@@ -150,7 +150,7 @@ var G = (function () {
   var SERVANTS = {
     shuang: { name: '蘇凌霜', cls: '劍修', hp: 69, sig: 'project',
       desc: '隱世三百年的劍仙，清冷疏離，琴劍雙絕。飛劍一把把祭出、越囤越多，追魂、護體都看劍數；最後劍氣迸裂，一口氣全數引爆。',
-      passive: { id: 'forge', name: '御劍訣', text: '開戰先祭出 2 把飛劍、之後每回合開始再 1 把；飛劍疊成一張「飛劍 ×N」（不佔手牌上限，最多 10 把），回合結束留下 5 把，囤起來再一口氣引爆' },
+      passive: { id: 'forge', name: '御劍訣', text: '開戰先祭出 2 把飛劍，每回合開始再祭出 1 把（第一回合手上就有 3 把）；飛劍疊成一張「飛劍 ×N」（不佔手牌上限，最多 10 把），回合結束留下 5 把，囤起來再一口氣引爆' },
       np: { name: '萬劍歸宗', fx: [['ubw', 1], ['projAll', 6, 2]] } },
     qingli: { name: '顧青璃', cls: '符修', hp: 63, sig: 'chain',
       desc: '玄真觀的小道姑，畫符天才，嘴毒又愛錢。定身符一層層貼上去，貼滿了敵人就動彈不得，貼得越多敵人越虛；最後五雷轟頂，把符一次引爆。',
@@ -326,7 +326,7 @@ var G = (function () {
     amulet:  { name: '長生鎖', text: '最大生命 +10' },
     book:    { name: '懾魂鈴', text: '每場戰鬥開始時所有敵人虛弱 1' },
     seal:    { name: '隨身丹爐', text: '丹藥袋 +1 格，並立刻得到 2 顆丹藥' },
-    pendant: { name: '九轉還魂丹', text: '多一條命：倒下時以兩成生命復活一次' },
+    pendant: { name: '九轉還魂丹', text: '多一條命：倒下時以兩成生命復活一次（赤練是五成，還會力量 +2）' },
     azoth:   { name: '龍虎丹', text: '每場戰鬥開始時力量 +1' },
     volumen: { name: '玄龜甲', text: '每回合開始時格擋 +2' },
     bento:   { name: '桂花糕', text: '每打贏一場戰鬥，回復 4 生命' },
@@ -352,6 +352,11 @@ var G = (function () {
   };
   var PILL_SLOTS = 3;
   function randomPill(run) { return pick(run, Object.keys(PILLS)); }
+  // 戰後丹藥袋滿了：拿新的換掉身上第 i 顆
+  function swapPill(run, i) {
+    if (run.screen !== 'reward' || !run.reward || !run.reward.pill || !run.pills[i]) return false;
+    run.pills[i] = run.reward.pill; run.reward.pill = null; return true;
+  }
   function gainPill(run, id) { if (!id || !PILLS[id] || run.pills.length >= (run.pillSlots || PILL_SLOTS)) return false; run.pills.push(id); return true; }
   // ── 亂數 ─────────────────────────────────────────────
   function rnd(run) { var t = (run.rs = (run.rs + 0x6D2B79F5) | 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
@@ -489,7 +494,7 @@ var G = (function () {
     drainAll: '對全體造成 {1} 傷害，回復造成傷害的一半',
     selfDmg: '自己失去 {1} 生命',
     poison: '毒 {1}', poisonAll: '全體毒 {1}', dmgIfPoison: '造成 {1} 傷害；目標中毒時再 +{2}', poisonX2: '目標的毒加倍',
-    exec: '萬蠱噬心：一般敵人直接倒下；精英生命 {1}% 以下才咬得死（魔王咬不死）；沒咬死就造成 {2} 穿透傷害',
+    exec: '一般敵人直接倒下；精英生命 {1}% 以下才咬得死（魔王咬不死）；沒咬死就造成 {2} 穿透傷害',
     projUp: '本場飛劍傷害 +{1}', projDmg: '造成 {1} 傷害，手上每把飛劍再 +{2}', projAll: '對全體造成 {1} 傷害，手上每把飛劍再 +{2}', projBlock: '格擋 {1}，手上每把飛劍再 +{2}',
     shatter: '引爆目標身上全部定身符：造成 {1} 傷害，每層再 +{2}', dmgIfStun: '造成 {1} 傷害；目標動彈不得時再 +{2}', pPetrifyAll: '每回合開始全體定身 {1}',
     rageDmg: '造成 {1} 傷害，每少 10 點生命再 +{2}', rageAll: '對全體造成 {1} 傷害，每少 10 點生命再 +{2}', rageBlock: '格擋 {1}，每少 10 點生命再 +{2}', pRage: '每回合開始若生命低於一半，力量 +{1}',
@@ -1016,7 +1021,7 @@ var G = (function () {
       draw: shuffle(run, run.deck), hand: [], discard: [], exhaust: [], enemies: [], up: kind === 'boss' ? 0 : scaleUp(run) });
     ids.forEach(function (id, i) { b.enemies.push(makeEnemy(run, id, b.up, i)); });
     if (hasRelic(run, 'azoth')) b.str += 1;
-    if (run.nextWeak) { b.weak += run.nextWeak; run.nextWeak = 0; }   // 黑店包子的後勁
+    if (run.nextWeak) { if (p !== 'madness') b.weak += run.nextWeak; run.nextWeak = 0; }   // 白辰天不怕地不怕   // 黑店包子的後勁
     run.battle = b; run.screen = 'battle';
     if (hasRelic(run, 'shroud')) b.block = 8;
     if (hasRelic(run, 'bead')) b.enemies.forEach(function (e) { petrify(run, e, 1, b.log); });   // 定魂珠
@@ -1047,7 +1052,8 @@ var G = (function () {
   }
   function npAdd(b, n, free) {   // 放過神通的那回合，機制不再累積（擋住定身→神通→定身的無限循環）
     if (!b || !(n > 0) || (!free && b.npUsed)) return;
-    b.np = Math.min(100, b.np + Math.round(n));
+    var x = n + (b.npRem || 0), whole = Math.floor(x + 1e-9);   // 零頭留著下次湊（阿白長大 2 才 +1%）
+    b.npRem = x - whole; b.np = Math.min(100, b.np + whole);
   }
   function poisonSum(b) { return b.enemies.reduce(function (a, e) { return a + (e.hp > 0 ? e.poison || 0 : 0); }, 0); }
   function meterSync(run) { var b = run.battle; if (!b) return; b.mKraken = b.kraken || 0; b.mPoison = poisonSum(b); }
@@ -1071,7 +1077,7 @@ var G = (function () {
     if (b.ubw > 0) { addProj(b, 3); b.ubw--; }
     if (b.pKraken) b.kraken += b.pKraken;
     if (passive(run) === 'madness' && !first) b.kraken += 1 + (run.krakenGrow || 0);
-    if (!first && !run.flat && MADNESS[run.who] && run.hp > 1) { var md = MADNESS[run.who]; var hp0 = run.hp; run.hp = Math.max(1, run.hp - md); if (passive(run) === 'revive') npAdd(b, (hp0 - run.hp) * NP_GAIN.revive); (b.log = b.log || []).push('血煞反噬：失去 ' + md + ' 生命'); }
+    if (!first && !run.flat && MADNESS[run.who] && run.hp > 1) { var md = MADNESS[run.who]; selfHurt(run, md, (b.log = b.log || [])); b.log.push('血煞反噬：失去 ' + md + ' 生命'); }
     if (b.pRage && run.hp < run.maxHp / 2) b.str += b.pRage;
     if (b.pPetrifyAll) alive(b).forEach(function (e) { petrify(run, e, b.pPetrifyAll, b.log); });
     if (passive(run) === 'forge') addProj(b, 1);
@@ -1153,6 +1159,13 @@ var G = (function () {
     }
     else run.hp = 0;
   }
+  // 自傷（牌、丹藥試吃）：不會因此倒下；赤練照樣累積神通、心燈照樣會亮
+  function selfHurt(run, n, log) {
+    var b = run.battle, lost = Math.max(0, Math.min(n, run.hp - 1));
+    run.hp -= lost;
+    if (b && passive(run) === 'revive') npAdd(b, lost * NP_GAIN.revive);
+    if (b && run.hp <= run.maxHp / 2 && !b.lampUsed && hasRelic(run, 'lamp')) { b.lampUsed = 1; run.hp = Math.min(run.maxHp, run.hp + 12); (log || b.log || []).push('心燈亮了：回復 12 生命'); }
+  }
   function debuffPlayer(run, k, n) {
     var b = run.battle;
     if (k === 'weak' && passive(run) === 'madness') return;   // 白辰天不怕地不怕
@@ -1218,7 +1231,7 @@ var G = (function () {
     petrifyAll: function (x, f) { alive(x.b).forEach(function (e) { petrify(x.run, e, f[1], x.log); }); },
     petrifyDmg: function (x, f) { if (x.tg) strike(x, x.tg, f[1] + f[2] * x.tg.petrify); },
     drainAll: function (x, f) { var got = 0; alive(x.b).forEach(function (e) { got += strike(x, e, f[1]); }); var h = Math.floor(got / 2); x.run.hp = Math.min(x.run.maxHp, x.run.hp + h); if (h) x.log.push('吸取 ' + h + ' 生命'); },
-    selfDmg: function (x, f) { x.run.hp = Math.max(1, x.run.hp - f[1]); },
+    selfDmg: function (x, f) { selfHurt(x.run, f[1], x.log); },
     poison: function (x, f) { if (x.tg && x.tg.hp > 0) x.tg.poison += f[1]; },
     poisonAll: function (x, f) { alive(x.b).forEach(function (e) { e.poison += f[1]; }); },
     dmgIfPoison: function (x, f) { if (x.tg) strike(x, x.tg, f[1] + (x.tg.poison > 0 ? f[2] : 0)); },
@@ -1512,7 +1525,8 @@ var G = (function () {
     var item = what === 'card' ? S.cards[i] : what === 'relic' ? S.relic : what === 'pill' ? (S.pills || [])[i] : null;
     var price = what === 'remove' ? removePrice(run) : item && priceOf(run, item);
     if (what !== 'remove' && (!item || item.sold)) return { ok: false, msg: '賣完了' };
-    if (what === 'remove' && (S.removed || !run.deck[i] || run.deck.length <= 5)) return { ok: false, msg: '這間店已經幫你移除過了' };
+    if (what === 'remove' && (S.removed || !run.deck[i])) return { ok: false, msg: '這間店已經幫你移除過了' };
+    if (what === 'remove' && run.deck.length <= 5) return { ok: false, msg: '牌組只剩 5 張，不能再移除了' };
     if (what === 'pill' && run.pills.length >= (run.pillSlots || PILL_SLOTS)) return { ok: false, msg: '丹藥袋滿了（最多 ' + (run.pillSlots || PILL_SLOTS) + ' 顆）' };
     if (run.gold < price) return { ok: false, msg: '錢不夠' };
     run.gold -= price;
@@ -1541,7 +1555,7 @@ var G = (function () {
     FATES: FATES, NP_GAIN: NP_GAIN, npHow: npHow, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
     card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, isCurse: isCurse, makeEnemy: makeEnemy, checkEnd: checkEnd, luckMod: luckMod, d20Chance: d20Chance, dullOf: dullOf, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, ownerOf: ownerOf,
-    PILLS: PILLS, PILL_SLOTS: PILL_SLOTS, usePill: usePill, gainPill: gainPill, newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
+    PILLS: PILLS, PILL_SLOTS: PILL_SLOTS, usePill: usePill, swapPill: swapPill, gainPill: gainPill, newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,
     takeReward: takeReward, takeChest: takeChest, rest: rest, intentDmg: intentDmg, alive: alive, hasRelic: hasRelic, needsTarget: needsTarget };
 })();
 </script>

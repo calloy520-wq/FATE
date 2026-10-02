@@ -420,7 +420,7 @@ console.log('── 神通量表：靠各自的機制累積（不靠出牌）');
 { const q=arena('shuang'); q.battle.npForge=1; q.battle.np=0; q.battle.energy=9; playId(q,'atk_shuang'); const n0=q.battle.np; G.endTurn(q); t(n0===0&&q.battle.np>=G.NP_GAIN.forge,'凌霜：出牌不累積，祭出飛劍才累積',JSON.stringify([n0,q.battle.np])); }
 { const q=arena('qingli'); q.battle.np=0; q.battle.energy=9; playId(q,'nails'); t(q.battle.np===G.NP_GAIN.gaze,'青璃：貼定身累積',q.battle.np); }
 { const q=arena('qingli',1,200); q.battle.np=100; G.noble(q,0); q.battle.energy=99; playId(q,'nails'); playId(q,'nails'); const np1=q.battle.np; G.endTurn(q); playId(q,'nails'); t(np1===0&&q.battle.np===G.NP_GAIN.gaze,'放過神通的那回合機制不累積（擋定身→神通的無限循環），下回合照常',[np1,q.battle.np]); }
-{ const q=arena('xiaoman'); q.battle.np=0; q.battle.kraken=5; q.battle.mKraken=5; playId(q,'horror'); t(q.battle.np===Math.round(3*G.NP_GAIN.madness),'白辰：阿白長大累積',q.battle.np); }
+{ const q=arena('xiaoman'); q.battle.np=0; q.battle.kraken=5; q.battle.mKraken=5; playId(q,'horror'); t(q.battle.np===Math.floor(3*G.NP_GAIN.madness),'白辰：阿白長大累積（零頭留著下次湊）',q.battle.np); playId(q,'horror'); t(q.battle.np===Math.floor(6*G.NP_GAIN.madness),'白辰：阿白長大 6 → 量表 +3%（不會每次四捨五入多算）',q.battle.np); }
 { const q=arena('chilian'); q.battle.np=0; E(q).intent={n:'砍',fx:[['atk',10]]}; G.endTurn(q); t(q.battle.np>=Math.min(100,10*G.NP_GAIN.revive),'赤練：失去生命累積',q.battle.np); }
 { const q=arena('aduo'); q.battle.np=0; q.battle.energy=9; playId(q,'venom'); t(q.battle.np===7*G.NP_GAIN.ambush,'阿朵：讓敵人中毒累積',q.battle.np); }
 { const q=G.newRun('qingli',3); step(q,'fight'); t(q.battle.np===0,'開戰時的被動（青璃全體定身）不算進量表：從 0 開始',q.battle.np); }
@@ -447,4 +447,13 @@ t(Object.keys(G.GOALS).every(g=>Object.keys(G.FATES).some(k=>G.FATES[k].lock===g
 { const q=arena(); E(q).hp=3; playId(q,'atk_qingli'); t(q.slain&&q.slain.zhiren===1,'打倒的敵人記進 run.slain（圖鑑用）',JSON.stringify(q.slain)); }
 t(Object.keys(G.ENEMIES).every(k=>G.LORE[k]&&G.LORE[k].length>=10),'每個敵人都有圖鑑介紹');
 t(G.ORDER.every(k=>G.ENDINGS[k]&&G.ENDINGS[k].title&&G.ENDINGS[k].text.length>=3),'五位都有真結局');
+
+// 稽核修正（2026-10-02）
+{ const q=arena('chilian'); q.battle.np=0; const hp=q.hp; playId(q,'rampage'); t(q.hp===hp-3&&q.battle.np===3*G.NP_GAIN.revive,'赤練：血刃的自傷也累積神通',[q.hp,q.battle.np]); }
+{ const q=arena('chilian'); q.relics=['lamp']; q.hp=Math.floor(q.maxHp/2)+2; playId(q,'pages'); t(q.battle.lampUsed===1,'自傷掉到一半以下，心燈也會亮'); }
+{ const q=arena('shuang'); q.battle.np=0; playId(q,'grail'); t(q.battle.np===50,'天書殘頁：神通 +50%',q.battle.np); }
+{ const bad=Object.keys(G.CARDS).filter(k=>{ const c=G.CARDS[k]; return c.up&&!['status','curse','token'].includes(c.kit)&&!G.upDiff(k,k+'+').length; }); t(!bad.length,'每張可強化的牌，精煉都真的有變化',bad.join()); }
+{ const q=arena('xiaoman'); q.battle=null; q.nextWeak=2; step(q,'fight'); t(q.battle.weak===0,'白辰：黑店包子也虛弱不了她'); }
+{ const q=G.newRun('qingli',5); q.pills=['huichun','juling','dunxing']; q.screen='reward'; q.reward={cards:[],pill:'tongshen'}; G.swapPill(q,1); t(q.pills[1]==='tongshen'&&!q.reward.pill,'丹藥袋滿了：可以拿新的換掉一顆',q.pills.join()); }
+
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
