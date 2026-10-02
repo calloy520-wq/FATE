@@ -270,7 +270,7 @@ let lt=G.newRun('qingli',6,{fate:'light'}); t(lt.deck.filter(x=>G.isBasic(x,'atk
 ev=G.newRun('xiaoman',41); step(ev,'event'); ev.event='tanghulu'; const gd=ev.gold; G.choose(ev,0); t(ev.gold===gd-40&&ev.krakenStart===3,'糖葫蘆攤：花 40 金，每場開場阿白 +3');
 step(ev,'fight'); t(ev.battle.kraken===8,'下一場開場阿白 5＋3',ev.battle.kraken);
 ev=G.newRun('xiaoman',41); step(ev,'event'); ev.event='alone'; G.choose(ev,0); step(ev,'fight'); ev.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); const k0=ev.battle.kraken; G.endTurn(ev); t(ev.battle.kraken===k0+2,'一個人的夜路：阿白每回合長大 2',ev.battle.kraken-k0);
-ev=G.newRun('xiaoman',41); step(ev,'event'); ev.event='dragonhome'; G.choose(ev,0); t(ev.deck.includes('prelati')&&ev.maxHp===G.SERVANTS.xiaoman.hp-6,'龍的故鄉：最大生命 -6，得到龍王的祝福');
+ev=G.newRun('xiaoman',41); step(ev,'event'); ev.event='dragonhome'; G.choose(ev,0); t(ev.deck.includes('prelati')&&ev.maxHp===G.SERVANTS.xiaoman.hp-6,'舊蛻：最大生命 -6，得到龍王的祝福');
 { const q=G.newRun('shuang',3); q.screen='event'; q.event='swordtomb'; const h=q.hp; G.choose(q,0); t(q.hp===h-10&&q.deck.includes('sword_rain'),'劍冢：失去 10 生命，得到漫天劍雨'); }
 { const q=G.newRun('qingli',3); q.screen='event'; q.event='sellfu'; const g=q.gold; G.choose(q,0); t(q.gold===g+80&&q.deck.includes('sin'),'賣符：漫天喊價得 80 金，代價業障'); }
 { const q=G.newRun('aduo',3); q.screen='event'; q.event='guking'; G.choose(q,1); t(q.deck.includes('shaitan')&&q.deck.includes('sin'),'蠱王：得到金蠶蠱，代價業障'); }
