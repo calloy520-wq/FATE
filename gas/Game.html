@@ -173,12 +173,13 @@ var G = (function () {
   // 換算：等級 E1 D2 C3 B4 A5 EX6.5，「+」+0.5；以 B 為 100%
   //   攻擊（力道與靈力取高）：所有卡牌傷害 ×(1＋8%×(等級−4))｜體魄：生命＝75×(1＋8%×…)｜格擋：力道、身法、靈力取最高 ×(1＋8%×…)
   //   身法 A 以上：每場開場多抽 1 張｜氣運：打贏拿到的金錢 ×(1＋10%×…)、擲骰修正｜神通：只顯示，不影響數值
+  // 2026-10-02 照新設定重配（玩家：新遊戲，根骨可以隨便調）
   var PARAMS = {
-    shuang:  ['D', 'C', 'C', 'B', 'E', 'A'],
-    qingli:  ['B', 'D', 'A', 'B', 'E', 'A'],
-    xiaoman: ['D', 'E', 'D', 'C', 'E', 'A'],
-    chilian: ['A+', 'A', 'A', 'A', 'B', 'A'],
-    aduo:    ['B', 'C', 'A', 'C', 'E', 'C']
+    shuang:  ['C', 'D', 'B', 'A', 'D', 'A+'],   // 隱世三百年的劍仙：靈力深厚、身輕，劍在心裡不靠蠻力
+    qingli:  ['C', 'D', 'A', 'B', 'A', 'A'],    // 符修：身法靈活；愛錢，氣運最好（金錢多、擲骰準）
+    xiaoman: ['E', 'E', 'C', 'B', 'B', 'EX'],   // 千年老祖宗：小孩身體很弱，修為還在
+    chilian: ['B', 'A', 'B', 'A', 'D', 'A'],    // 血修：血體耐打、血煞之力強；身段柔，不再是蠻力
+    aduo:    ['C', 'C', 'A', 'A', 'C', 'B']     // 蠱師：身法輕盈，蠱術靠靈力
   };
   var PARAM_NAMES = ['力道', '體魄', '身法', '靈力', '氣運', '神通'];
   function grade(g) { var v = { E: 1, D: 2, C: 3, B: 4, A: 5, EX: 6.5 }[String(g).replace(/\+/g, '')]; return v ? v + 0.5 * (String(g).match(/\+/g) || []).length : 4; }
@@ -262,6 +263,49 @@ var G = (function () {
   };
   var ELITES = ['jianmo', 'kuilei', 'qianghun', 'sheyao', 'yaodao', 'daoke', 'cike', 'shuangdao', 'qianmian', 'mojiang', 'tengyao', 'yingwei'];
   var BOSSES = ['zhanglao', 'shuyao', 'guijiang', 'niumo', 'huyao', 'duoxian', 'panguan', 'xinmo'];
+  // 圖鑑的介紹（第一次打倒才看得到）
+  var LORE = {
+    zhiren: '邪修用黃紙剪出來的兵，臉上畫著笑。刀也是紙做的——砍在身上一樣會痛。',
+    bianfu: '落霞山洞裡的紅眼大蝙蝠，成群撲咬，尖嘯聲讓人手腳發軟。',
+    heiwu: '一團會走路的黑霧，喜歡把魔氣吐進你的牌堆。',
+    jiangshi: '穿著前朝官服、額頭貼著符的殭屍。咬一口就吸血，越打越凶。',
+    xiexiu: '黑袍道士。縛靈術一上身，每張牌都要多花 1 點靈力。',
+    xueteng: '樹妖身上長出來的紅色藤蔓，會纏人，也會吸血。',
+    mingquan: '背上燒著綠色鬼火的黑狗，總是一群一起來。',
+    yuanling: '半透明的白衣女鬼。聽見她的哀嚎，功力就散了一半。',
+    shikui: '長滿青苔的石頭巨人，胸口的符文還在發光。皮硬得像城牆。',
+    mohua: '被魔氣吞掉的劍修，雙眼發紅。劍招都還在，人已經不在了。',
+    shichong: '一地蠕動的白蟲，會鑽進你的手牌，一回合咬你一口。',
+    yinbing: '鬼將軍從陰間叫來的士兵，殺不完。',
+    jianmo: '為了劍入魔的前輩高手，劍比人還有殺氣。',
+    kuilei: '失傳宗門留下的機關人，齒輪一轉起來就停不下來。',
+    qianghun: '戰死沙場的槍客，魂魄到現在還握著那桿槍。',
+    sheyao: '下半身是蛇的妖女，毒牙和纏身一樣難防。',
+    yaodao: '會剪紙人的妖道，打不過就叫紙人兵上。',
+    daoke: '沒人知道他叫什麼。他只出一刀，所以沒有人看過第二刀。',
+    cike: '一身血衣的刺客，專挑你最弱的時候下手。',
+    shuangdao: '戴著白色面具的雙刀鬼，雙刀亂舞，刀刀見血。',
+    qianmian: '有一千張臉的妖怪，最愛變成你最熟悉的人。',
+    mojiang: '魔軍的黑甲將領，盾硬、刀重、腳步沉。',
+    tengyao: '藤蔓纏成的妖，打著打著就長出一堆血藤。',
+    yingwei: '影子裡的護衛首領，身後有一群看不見的手下。',
+    zhanglao: '看起來四十來歲、其實活了幾百年的魔教女宗主。笑得像慈母，袖子裡全是毒鏢。',
+    shuyao: '從萬年古樹裡長出來的女妖，血藤纏身，砍掉的枝條會再長回來。',
+    guijiang: '陰間的女將軍，白髮古甲，身後是殘破的戰旗與殺不完的陰兵。',
+    niumo: '頭上一對巨大牛角的牛魔女王，扛著雙刃巨斧。死過兩次，兩次都笑著站起來。',
+    huyao: '九條尾巴的白狐美女。狐火燒身，媚術迷心，一不小心就被她牽著走。',
+    duoxian: '從天上掉下來的女仙。白衣被墨染黑，光環碎了，眼角流著一滴墨淚。',
+    panguan: '陰間的女判官。判官筆一勾就勾走你的格擋，生死簿上早就寫好你的名字。',
+    xinmo: '封印最深處等著你的東西——跟你一模一樣，只是黑的。'
+  };
+  // 真結局：用那位角色在九幽魔淵打倒心魔才看得到（CG 檔名 end_<角色>，沒有圖就用立繪）
+  var ENDINGS = {
+    shuang: { title: '三百年後', text: ['心魔散去的那一刻，凌霜看見的是三百年前的自己——那個第一次把妖魔封進魔淵、以為從此天下太平的少女。', '她坐在裂開的石碑前，撥了一曲很久沒彈的調子。封印慢慢合上。', '下山的路上，白辰問她在笑什麼。「沒什麼。」她說，「劍還是這把劍，我好像不太一樣了。」', '鎮妖塔的守塔人，今年終於去上班了。'] },
+    qingli: { title: '最後一張符', text: ['心魔臨死前開價：放我走，給妳一座金山。', '顧青璃想了很久——真的想了很久——然後把最後一張、也是最貴的一張符貼了上去。', '「不好意思，這張是拿來保護人的，不賣。」', '回到玄真觀，她把這一路賺的銀子全倒在師兄面前，若無其事地說：「順路而已。」'] },
+    xiaoman: { title: '第一千零一十九年', text: ['白辰的心魔不是黑的，是長大以後的自己——高挑、冷淡，什麼都不在乎。', '「再過幾百年，妳就會變成我。」', '白辰把阿白抱緊，哼了一聲：「本座活了一千年，還輪得到妳來教？」', '心魔散了。回程她吃了三串糖葫蘆，誰也不准說出去。阿白在她懷裡，又長大了一點點。'] },
+    chilian: { title: '沒人來，我來', text: ['心魔穿著當年青樓的衣裳，哭著問她：那時候，為什麼沒有人來救我們？', '赤練握刀的手，第一次抖了。', '她把刀插進地裡，抱住了那個小時候的自己。「沒人來，我來。」', '血河退去，她第一次覺得身體不痛了。那些人她還是不原諒——但她原諒了自己。'] },
+    aduo: { title: '回寨子', text: ['阿朵在心魔身上找到了解藥：寨子裡的蠱會被汙染，是因為魔淵深處的東西一直在呼喚牠們。', '斬了心魔，蠱就醒了。', '她笑著把最後一根銀針插回頭飾，拍拍肩上的蝴蝶：「走，回家。」', '後來十萬大山裡多了一個傳說：有個愛笑的苗女一個人下山，斬了封印最深處的魔。'] }
+  };
   var SCALE = { hp: 0.05, strEvery: 3 };
   // 一場最多 3 隻（叫援軍最多到 4 隻）
   var ENCOUNTERS = {
@@ -285,8 +329,14 @@ var G = (function () {
     azoth:   { name: '龍虎丹', text: '每場戰鬥開始時力量 +1' },
     volumen: { name: '玄龜甲', text: '每回合開始時格擋 +2' },
     bento:   { name: '桂花糕', text: '每打贏一場戰鬥，回復 4 生命' },
-    waver:   { name: '山海圖', text: '地圖看得更遠：多看 2 列' }
+    waver:   { name: '山海圖', text: '地圖看得更遠：多看 2 列' },
+    // 以下要達成目標才會出現在法寶池（lock＝GOALS 的 id）
+    tassel:  { name: '劍穗', text: '每場戰鬥開始時多抽 1 張牌', lock: 'clear' },
+    lamp:    { name: '心燈', text: '每場戰鬥第一次生命掉到一半以下時，回復 12 生命', lock: 'xinmo' },
+    pouch:   { name: '乾坤袋', text: '商店的東西與移除卡片打八五折', lock: 'tower' },
+    bead:    { name: '定魂珠', text: '每場戰鬥開始時所有敵人定身 1', lock: 'bosses' }
   };
+  function relicPool(run) { return Object.keys(RELICS).filter(function (k) { return unlocked(run.unlocks, RELICS[k].lock); }); }
 
   // ── 亂數 ─────────────────────────────────────────────
   function rnd(run) { var t = (run.rs = (run.rs + 0x6D2B79F5) | 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
@@ -541,8 +591,20 @@ var G = (function () {
     light:   { name: '輕裝上陣', text: '開局從牌組拿掉 2 張攻擊、1 張防禦' },
     merchant:{ name: '商人的眷顧', text: '商店七五折；移除卡片第一次免費，之後也不漲價' },
     early:   { name: '天生慧根', text: '開局就先得到第一層頓悟（兩個選一個）' },
-    legacy:  { name: '師父的秘傳', text: '開局牌組就有自己的秘傳牌' }
+    legacy:  { name: '師父的秘傳', text: '開局牌組就有自己的秘傳牌' },
+    // 以下要達成目標才解鎖（lock＝GOALS 的 id）：只是多一種取捨，不是直接變強
+    bloodpact:{ name: '以血換寶', text: '最大生命 -12，開局得到 2 件隨機法寶', lock: 'clear' },
+    trial:   { name: '心魔試煉', text: '牌組多一張詛咒「業障」，但每場戰鬥神通量表從 50% 開始', lock: 'xinmo' },
+    wander:  { name: '雲遊四方', text: '地圖多看 2 列，開局多 60 金', lock: 'tower' }
   };
+  // 局外解鎖的目標（2026-10-02 玩家定：達成目標直接解鎖，不用貨幣）。判斷在 Index 的 goalsDone（看戰績與圖鑑）
+  var GOALS = {
+    clear:  { name: '初次封印', text: '任一角色通關（任何難度）' },
+    xinmo:  { name: '斬心魔', text: '任一角色在九幽魔淵打倒心魔' },
+    tower:  { name: '塔中行者', text: '鎮妖塔走過 50 格' },
+    bosses: { name: '群魔圖錄', text: '圖鑑收齊八位魔王' }
+  };
+  function unlocked(goals, lock) { return !lock || (goals || []).indexOf(lock) >= 0; }
   // 境界 I～VI（築基、金丹、元嬰、化神、煉虛、渡劫）：局外成長，2026-10-02 玩家定「先不要」——畫面不用，引擎留著（newRun 的 opts.asc），之後要開再接回去
   // I 最大生命 +8｜II、III 每場戰鬥開場的效果（強化自己的機制）｜IV 神通追加｜V 開局就帶自己的秘傳牌｜VI 每回合的專屬強化
   var ASC = [{ cost: 20 }, { cost: 40 }, { cost: 60 }, { cost: 80 }, { cost: 100 }, { cost: 120 }];
@@ -582,7 +644,7 @@ var G = (function () {
     run.asc = lv;
   }
   // 出發時可以選的機緣：全部開放，照 FATES 的順序
-  function fateOptions() { return Object.keys(FATES); }
+  function fateOptions(goals) { return Object.keys(FATES).filter(function (k) { return unlocked(goals, FATES[k].lock); }); }   // 沒給 goals＝只有一開始就開放的
   // 一次能帶幾種機緣：一般 2 種；無盡模式（鎮妖塔）1 種，排行榜比較公平
   function fateSlots(endless) { return endless ? 1 : 2; }
   // 出發前的二選一可能有兩個（師門傳承＋天生慧根）：排隊一個一個選
@@ -593,11 +655,14 @@ var G = (function () {
     else if (k === 'tough') { run.maxHp += 10; run.hp += 10; }
     else if (k === 'seal4') { run.maxSeals += 1; run.seals += 1; }
     else if (k === 'mana') run.npStart = (run.npStart || 0) + 30;
-    else if (k === 'heirloom') { var r1 = randomRelic(run), r2 = Object.keys(RELICS).filter(function (x) { return x !== r1 && !hasRelic(run, x); }); r2 = r2.length ? pick(run, r2) : null; queueBoon(run, { kind: 'relic', opts: [r1, r2].filter(Boolean) }); }
+    else if (k === 'heirloom') { var r1 = randomRelic(run), r2 = relicPool(run).filter(function (x) { return x !== r1 && !hasRelic(run, x); }); r2 = r2.length ? pick(run, r2) : null; queueBoon(run, { kind: 'relic', opts: [r1, r2].filter(Boolean) }); }
     else if (k === 'forged') { shuffle(run, run.deck.map(function (x, i) { return i; }).filter(function (i) { return canUpgrade(run.deck[i]); })).slice(0, 3).forEach(function (i) { run.deck[i] = pick(run, upgradeOptions(run, i).filter(function (v) { return upDir(v) !== 'f'; })); }); }
     else if (k === 'light') { ['atk', 'atk', 'def'].forEach(function (x) { var i = run.deck.findIndex(function (y) { return isBasic(y, x); }); if (i >= 0) run.deck.splice(i, 1); }); }
     else if (k === 'merchant') { run.discount = 0.75; run.removed = -1; run.flatRemove = 1; }
     else if (k === 'early') { if (talentsOf(run)[0]) queueBoon(run, { kind: 'awaken', opts: ['0.0', '0.1'] }); }
+    else if (k === 'bloodpact') { run.maxHp -= 12; run.hp = Math.min(run.hp, run.maxHp); gainRelic(run, randomRelic(run)); gainRelic(run, randomRelic(run)); }
+    else if (k === 'trial') { run.deck.push('sin'); run.npStart = (run.npStart || 0) + 50; }
+    else if (k === 'wander') { run.sightUp = (run.sightUp || 0) + 2; run.gold += 60; }
     else if (k === 'legacy') { var rare = rareOf(run.who); if (rare && !run.deck.some(function (x) { return baseId(x) === rare; })) run.deck.push(rare); else if (rare) run.deck = run.deck.map(function (x) { return x === rare ? rare + '+' : x; }); }   // 境界 V 已經給過：改成把它強化
   }
   // ── 開局與地圖 ───────────────────────────────────────
@@ -627,8 +692,9 @@ var G = (function () {
     if (S.passive && S.passive.id === 'revive') run.lives = 1;
     run.diff = DIFFS[opts.diff] ? opts.diff : 'normal';
     if (opts.endless) run.endless = true;
+    run.unlocks = (opts.goals || []).filter(function (g) { return GOALS[g]; });   // 已達成的局外目標：這局的法寶池、機緣跟著它
     if (opts.asc) applyAsc(run, Math.min(6, opts.asc));
-    var fs = (opts.fates || (opts.fate ? [opts.fate] : [])).filter(function (k, i, a) { return FATES[k] && a.indexOf(k) === i; }).slice(0, fateSlots(opts.endless));
+    var fs = (opts.fates || (opts.fate ? [opts.fate] : [])).filter(function (k, i, a) { return FATES[k] && unlocked(run.unlocks, FATES[k].lock) && a.indexOf(k) === i; }).slice(0, fateSlots(opts.endless));
     fs.forEach(function (k) { applyFate(run, k); });
     if (run.boon) run.screen = 'boon';   // 機緣給的二選一：出發前先選
     return run;
@@ -713,7 +779,7 @@ var G = (function () {
   var SIGHT = 3;
   function visible(run, r, c) {
     var n = run.map[r] && run.map[r][c]; if (!n) return false;
-    return n.t === 'boss' || r < run.floor + SIGHT + (hasRelic(run, 'waver') ? 2 : 0);
+    return n.t === 'boss' || r < run.floor + SIGHT + (hasRelic(run, 'waver') ? 2 : 0) + (run.sightUp || 0);
   }
   function hasRelic(run, k) { return run.relics.indexOf(k) >= 0; }
   // 敵人變強的程度：每往下一列 +1、每章 +4；無盡模式（第 3 章起）每層 +8，越深越陡
@@ -896,9 +962,9 @@ var G = (function () {
     var own = Object.keys(CARDS).filter(function (k) { return CARDS[k].kit === run.who && CARDS[k].up; });
     return shuffle(run, own).slice(0, n).map(function (k) { return up ? upId(k, 'a') : k; });
   }
-  function randomRelicLeft(run) { return Object.keys(RELICS).some(function (k) { return !hasRelic(run, k); }); }
+  function randomRelicLeft(run) { return relicPool(run).some(function (k) { return !hasRelic(run, k); }); }
   function randomRelic(run) {
-    var left = Object.keys(RELICS).filter(function (k) { return !hasRelic(run, k); });
+    var left = relicPool(run).filter(function (k) { return !hasRelic(run, k); });
     return left.length ? pick(run, left) : null;
   }
   function gainRelic(run, k) {
@@ -907,6 +973,7 @@ var G = (function () {
     if (k === 'amulet') { run.maxHp += 10; run.hp += 10; }
     if (k === 'seal') { run.maxSeals += 1; run.seals = Math.min(run.maxSeals, run.seals + 1); }
     if (k === 'pendant') run.lives = (run.lives || 0) + 1;
+    if (k === 'pouch') run.discount = (run.discount || 1) * 0.85;
   }
 
   // ── 戰鬥 ─────────────────────────────────────────────
@@ -935,6 +1002,7 @@ var G = (function () {
     if (run.nextWeak) { b.weak += run.nextWeak; run.nextWeak = 0; }   // 黑店包子的後勁
     run.battle = b; run.screen = 'battle';
     if (hasRelic(run, 'shroud')) b.block = 8;
+    if (hasRelic(run, 'bead')) b.enemies.forEach(function (e) { petrify(run, e, 1, b.log); });   // 定魂珠
     if (p === 'gaze') b.enemies.forEach(function (e) { petrify(run, e, 1, b.log); });   // 鎮魂符
     if (p === 'forge') addProj(b, 2);   // 御劍訣：開戰先祭出兩把
     if (p === 'madness') b.kraken = 5 + (run.krakenStart || 0) + (run.krakenFed || 0);   // 龍之契約：打贏過的每一場都把阿白養大一點
@@ -942,6 +1010,7 @@ var G = (function () {
     b.enemies.forEach(function (e) { chooseIntent(run, e); });
     startTurn(run, true);
     if (statsOf(run).agi) { drawCards(run, 1); b.log.push('身法：先手多抽 1 張'); }
+    if (hasRelic(run, 'tassel')) drawCards(run, 1);   // 劍穗
     if (run.ascStart && run.ascStart.length) runFx({ run: run, b: b, tg: null, log: b.log, id: 'asc', atk: false, first: false }, run.ascStart);
     run.awaken.forEach(function (k) {
       var T = talent(run, k); if (!T || !T.start) return;
@@ -1017,6 +1086,7 @@ var G = (function () {
     if (e.hp <= 0) {
       if (e.lives > 0) { e.lives--; e.hp = Math.round(e.maxHp * ENEMIES[e.id].revive); e.block = 0; e.vuln = 0; e.weak = 0; log.push(e.name + '倒下了，又站了起來（還剩 ' + e.lives + ' 次）'); return before; }
       e.hp = 0; run.stats.kills++; log.push(e.name + '倒下了');
+      (run.slain = run.slain || {})[e.id] = 1;   // 圖鑑：這局打倒過的（結算或存檔時收進帳號）
     }
     return before - Math.max(0, e.hp);
   }
@@ -1030,6 +1100,7 @@ var G = (function () {
   function loseHp(run, d, log) {
     var b = run.battle, p = passive(run);
     run.hp -= d;
+    if (b && run.hp > 0 && run.hp <= run.maxHp / 2 && !b.lampUsed && hasRelic(run, 'lamp')) { b.lampUsed = 1; run.hp = Math.min(run.maxHp, run.hp + 12); log.push('心燈亮了：回復 12 生命'); }
     if (run.hp > 0) return;
     if (run.lives > 0) {
       run.lives--;
@@ -1406,7 +1477,7 @@ var G = (function () {
 
   return { CARDS: CARDS, SERVANTS: SERVANTS, ORDER: ORDER, ENEMIES: ENEMIES, ENCOUNTERS: ENCOUNTERS, RELICS: RELICS, FLOORS: FLOORS, ELITES: ELITES, BOSSES: BOSSES, BOSS_POOL: BOSS_POOL, actName: actName, scaleUp: scaleUp, krakenBites: krakenBites, ROWS: ROWS, COLS: COLS, ACT_NAMES: ACT_NAMES, EVENTS: EVENTS,
     UP_DIRS: UP_DIRS, KIT_SOUL: KIT_SOUL, baseId: baseId, isUp: isUp, upDirs: upDirs, canUpgrade: canUpgrade, upgradeOptions: upgradeOptions, upDiff: upDiff, REALMS: REALMS,
-    FATES: FATES, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
+    FATES: FATES, GOALS: GOALS, LORE: LORE, ENDINGS: ENDINGS, relicPool: relicPool, fateSlots: fateSlots, takeBoon: takeBoon, ASC: ASC, DIFFS: DIFFS, DIFF_ORDER: DIFF_ORDER, restHeal: restHeal, ASC_SVT: ASC_SVT, ascText: ascText, fateOptions: fateOptions, priceOf: priceOf,
     preview: preview, foeDmg: foeDmg, visible: visible, buy: buy, leaveShop: leaveShop, removePrice: removePrice, PRICE: PRICE, choose: choose, canChoose: canChoose, pickCard: pickCard, secret: secret, startAct: startAct, OPS: OPS, FX_TEXT: FX_TEXT,
     card: card, PARAMS: PARAMS, PARAM_NAMES: PARAM_NAMES, statsOf: statsOf, grade: grade, isBasic: isBasic, isCurse: isCurse, makeEnemy: makeEnemy, checkEnd: checkEnd, luckMod: luckMod, d20Chance: d20Chance, dullOf: dullOf, basicOf: basicOf, BASICS: BASICS, cardText: cardText, cardShort: cardShort, SHORT: SHORT, fxText: fxText, npText: npText, npFx: npFx, talent: talent, talentText: talentText, talentsOf: talentsOf, awaken: awaken, TALENTS: TALENTS, costOf: costOf, serv: serv, passive: passive, ownerOf: ownerOf,
     newRun: newRun, migrate: migrate, reachable: reachable, go: go, play: play, noble: noble, seal: seal, endTurn: endTurn,

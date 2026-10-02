@@ -224,7 +224,7 @@ let price=G.priceOf(sh,sh.shop.cards[0]), dl=sh.deck.length; t(G.buy(sh,'card',0
 let rp=G.removePrice(sh); t(G.buy(sh,'remove',0).ok&&sh.gold===300-price-rp&&!G.buy(sh,'remove',0).ok&&G.removePrice(sh)===rp+25,'移除卡片：每間店一次，下次貴 25');
 sh.gold=0; t(!G.buy(sh,'relic').ok,'錢不夠買不起'); G.leaveShop(sh); t(sh.screen==='map','離開商店');
 let gr=arena(); gr.battle.enemies.forEach(e=>{e.hp=1;}); gr.battle.np=100; const g0=gr.gold; G.noble(gr,0); G.takeReward(gr,-1); t(gr.gold>=g0+12&&gr.gold<=g0+18,'打贏一般戰鬥得到 12～18 金',gr.gold-g0);
-t(G.fateOptions().length===Object.keys(G.FATES).length&&G.fateOptions().every(k=>G.FATES[k]&&!('cost' in G.FATES[k])),'機緣全部開放（局外沒有貨幣，不用解鎖）');
+t(G.fateOptions().length===Object.keys(G.FATES).filter(k=>!G.FATES[k].lock).length&&Object.keys(G.FATES).every(k=>!('cost' in G.FATES[k])),'一開始就開放的機緣全部能選（沒有貨幣；鎖起來的要達成目標）');
 let ft=G.newRun('qingli',6,{fate:'light'}); t(ft.deck.length===7&&ft.fate==='light','輕裝上陣：少 2 張攻擊 1 張防禦');
 ft=G.newRun('qingli',6,{fate:'merchant'}); ft.gold=100; step(ft,'shop'); t(G.removePrice(ft)===0&&G.priceOf(ft,{price:100})===75,'商人的眷顧：七五折、第一次移除免費'); G.buy(ft,'remove',0); t(G.removePrice(ft)===Math.round(60*0.75),'免費用掉之後是原價七五折'); ft.removed=3; t(G.removePrice(ft)===Math.round(60*0.75),'商人的眷顧：移除之後也不漲價');
 ft=G.newRun('qingli',6,{fate:'mana'}); step(ft,'fight'); t(ft.battle.np===30,'靈氣充盈：神通量表從 30% 開始',ft.battle.np);
@@ -254,14 +254,15 @@ t(new Set(G.ORDER.map(k=>G.card('atk_'+k).name)).size===G.ORDER.length,'5 位的
 t(G.ORDER.every(k=>G.card('atk_'+k).fx[0][0]==='dmg'&&G.card('atk_'+k).fx[0][1]===6&&G.card('def_'+k).fx[0][1]===5),'基本牌數字全員一樣（6／5），定位交給根骨');
 // 根骨
 t(G.ORDER.every(k=>G.PARAMS[k]&&G.PARAMS[k].length===6)&&G.PARAM_NAMES.length===6,'5 位都有根骨');
-r=arena('chilian'); r.flat=false; playId(r,'atk_chilian'); t(E(r).hp===50-7,'赤練 力道 A+：6 傷 ×1.12 → 7',E(r).hp);
+r=arena('shuang'); r.flat=false; playId(r,'atk_shuang'); t(E(r).hp===50-Math.round(6*1.08)&&G.statsOf(r).atk===1.08,'凌霜 力道 C／靈力 A 取高（108%）：6 傷 → 6',E(r).hp);
+r=arena('xiaoman'); r.flat=false; E(r).hp=200; r.battle.energy=9; for(let i=0;i<5;i++) playId(r,'atk_xiaoman'); t(G.statsOf(r).atk===1&&E(r).hp===200-30,'白辰 力道 E／靈力 B 取高（100%）：5 下 6 傷 = 30',E(r).hp);
 r=arena('shuang'); r.flat=false; playId(r,'atk_shuang'); t(E(r).hp===50-6,'凌霜 力道 D、靈力 B（攻擊取高）：6 傷 → 6',E(r).hp);
-r=arena('chilian'); r.flat=false; playId(r,'def_chilian'); t(r.battle.block===6,'赤練 格擋看力道／身法／靈力取最高（力道 A+ 112%）：5 → 6',r.battle.block);
+r=arena('chilian'); r.flat=false; r.battle.energy=9; for(let i=0;i<4;i++) playId(r,'def_chilian'); t(G.statsOf(r).def===1.08&&r.battle.block===4*Math.round(5*1.08),'赤練 格擋看力道／身法／靈力取最高（靈力 A 108%）',r.battle.block);
 r=arena('xiaoman'); r.flat=false; playId(r,'def_xiaoman'); t(r.battle.block===5,'白辰 力道 D／身法 D／靈力 C 取最高（92%）：5 → 5',r.battle.block);
-t(G.SERVANTS.chilian.hp===81&&G.SERVANTS.xiaoman.hp===57&&G.SERVANTS.shuang.hp===69&&G.ORDER.every(k=>G.newRun(k,3).maxHp===G.SERVANTS[k].hp),'生命照體魄：A 81、C 69、E 57',G.ORDER.map(k=>G.SERVANTS[k].hp).join());
-r=arena('chilian',1,100); r.flat=false; r.battle.np=100; G.noble(r,0); t(E(r).hp===100-9*Math.round(5*1.12),'神通等級只顯示：赤練血河九斬只乘攻擊（力道 A+）',E(r).hp);
+t(G.SERVANTS.chilian.hp===81&&G.SERVANTS.aduo.hp===69&&G.SERVANTS.shuang.hp===63&&G.SERVANTS.xiaoman.hp===57&&G.ORDER.every(k=>G.newRun(k,3).maxHp===G.SERVANTS[k].hp),'生命照體魄：A 81、C 69、D 63、E 57',G.ORDER.map(k=>G.SERVANTS[k].hp).join());
+r=arena('chilian',1,100); r.flat=false; r.battle.np=100; G.noble(r,0); t(E(r).hp===100-9*Math.round(5*1.08),'神通等級只顯示：赤練血河九斬只乘攻擊（靈力 A）',E(r).hp);
 const qlR=G.newRun('qingli',3); step(qlR,'fight'); const xmR=G.newRun('xiaoman',3); step(xmR,'fight'); t(qlR.battle.hand.length===xmR.battle.hand.length+1,'身法 A 以上（青璃）：開場多抽 1 張',[qlR.battle.hand.length,xmR.battle.hand.length].join());
-t(G.statsOf(G.newRun('qingli',1)).luck<1&&G.statsOf(G.newRun('chilian',1)).luck===1,'氣運：青璃 E 拿的金錢比較少，赤練 B 照常');
+t(G.statsOf(G.newRun('qingli',1)).luck>1&&G.statsOf(G.newRun('chilian',1)).luck<1&&G.statsOf(G.newRun('xiaoman',1)).luck===1,'氣運：青璃 A（愛錢）拿得多、赤練 D 拿得少、白辰 B 照常');
 let lt=G.newRun('qingli',6,{fate:'light'}); t(lt.deck.filter(x=>G.isBasic(x,'atk')).length===3&&lt.deck.filter(x=>G.isBasic(x,'def')).length===3,'輕裝上陣：拿掉的是自己的基本牌');
 
 // 角色專屬事件
@@ -358,7 +359,7 @@ t(Object.keys(G.RELICS).length>=13,'法寶池 13 件');
 { const q=G.newRun('qingli',3); q.relics.push('azoth','volumen'); step(q,'fight'); t(q.battle.str>=1&&q.battle.block>=2,'龍虎丹開場力量 +1、玄龜甲每回合格擋 +2',JSON.stringify([q.battle.str,q.battle.block])); }
 { const q=G.newRun('qingli',3); q.relics.push('waver'); t(G.visible(q,4,q.map[4].findIndex(n=>n)),'山海圖：多看 2 列（第 5 列也看得到）'); }
 { const z=G.newRun('qingli',3); const l0=z.lives; z.screen='chest'; z.reward={relic:'pendant'}; G.takeChest(z); t(z.lives===l0+1&&z.relics.includes('pendant')&&z.screen==='map','九轉還魂丹：多一條命（寶箱）'); }
-t(G.fateOptions().length===Object.keys(G.FATES).length,'鎮妖塔也能選全部的機緣（只是只帶一種）');
+t(G.fateOptions(Object.keys(G.GOALS)).length===Object.keys(G.FATES).length,'目標全達成：全部機緣都能選');
 { let few=0; for(let i=0;i<200;i++){ const q=G.newRun('qingli',500+i); let n=0; q.map.forEach(row=>row.forEach(x=>{ if(x&&x.t==='elite') n++; })); if(n<2) few++; } t(few===0,'每章地圖至少 2 個精英',few); }
 // 中立牌（大家都拿得到）：至少 18 張，涵蓋全體、穿透、抽牌、靈力、控場、防守
 { const C=Object.keys(G.CARDS).filter(k=>G.CARDS[k].kit==='common'); const ops=new Set(C.flatMap(k=>G.CARDS[k].fx.map(f=>f[0])));
@@ -396,8 +397,8 @@ r=arena(); r.battle.hand=['enfeeble']; playId(r,'atk_qingli'); t(E(r).hp===50-3,
 r=arena(); r.battle.hand=['bind','atk_qingli','sword']; t(G.costOf(r,'atk_qingli')===2&&G.costOf(r,'sword')===1&&G.costOf(r,'bind')===1,'縛靈在手上：每張牌 +1 費（0 費的變 1），打掉縛靈本身還是 1 費');
 r.battle.energy=3; G.play(r,0,0); t(G.costOf(r,'atk_qingli')===1&&r.battle.energy===2,'打掉縛靈後費用恢復');
 // 擲骰事件：d20＋氣運修正（B＝0、每級 ±1），20 必成功、1 必失敗
-t(G.luckMod({who:'qingli'})===-3&&G.luckMod({who:'chilian'})===0&&G.luckMod({who:'chilian',flat:true})===0&&G.luckMod({who:'qingli',flat:true})===0,'氣運修正：青璃 E＝-3、赤練 B＝0（flat 不套）');
-t(G.d20Chance({who:'chilian'},10)===55&&G.d20Chance({who:'qingli'},10)===40&&G.d20Chance({who:'qingli'},30)===5&&G.d20Chance({who:'chilian'},1)===95,'成功率：20 必成功、1 必失敗');
+t(G.luckMod({who:'qingli'})===1&&G.luckMod({who:'chilian'})===-2&&G.luckMod({who:'xiaoman'})===0&&G.luckMod({who:'qingli',flat:true})===0,'氣運修正：青璃 A＝+1、赤練 D＝-2、白辰 B＝0（flat 不套）');
+t(G.d20Chance({who:'xiaoman'},10)===55&&G.d20Chance({who:'qingli'},10)===60&&G.d20Chance({who:'chilian'},10)===45&&G.d20Chance({who:'chilian'},30)===5&&G.d20Chance({who:'qingli'},1)===95,'成功率：20 必成功、1 必失敗');
 { let win=0, hpWin=0; for(let s=0;s<300;s++){ const q=G.newRun('chilian',s); q.screen='event'; q.event='stairs'; const m=q.maxHp, h=q.hp; const x=G.choose(q,0); if(x.roll.ok){ win++; if(q.maxHp===m+8) hpWin++; } else if(q.hp!==h-10||q.maxHp!==m) hpWin=-999; }
   t(win>130&&win<200&&hpWin===win,'通天石階：成功最大生命 +8、失敗失去 10 生命，成功率約 55%',win); }
 { const q=G.newRun('qingli',3); q.relics=Object.keys(G.RELICS); t(!G.canChoose(q,G.EVENTS.bridge.opts[0])&&!G.canChoose(q,G.EVENTS.gamble.opts[0]),'法寶全拿了：擲骰拿法寶的選項也會關掉'); }
@@ -413,4 +414,20 @@ t(G.fateSlots(false)===2&&G.fateSlots(true)===1,'機緣欄位：一般帶兩種�
 { const q=G.newRun('qingli',6,{fates:['gold','gold','seal4','tough']}); t(q.fates.join()==='gold,seal4','機緣重複的不算、最多兩種',q.fates); }
 { const q=G.newRun('qingli',6,{fates:['gold','tough'],endless:true}); t(q.fates.length===1,'無盡模式只帶一種機緣'); }
 { const q=G.newRun('qingli',3,{fates:['heirloom','early']}); const ok1=q.screen==='boon'&&q.boon.kind==='relic'&&G.takeBoon(q,0); const ok2=q.screen==='boon'&&q.boon.kind==='awaken'&&G.takeBoon(q,1); t(ok1&&ok2&&q.screen==='map'&&q.relics.length===1&&q.awaken.length===1,'師門傳承＋天生慧根：兩個二選一排隊選完才出發'); }
+console.log('── 局外解鎖（目標→機緣、法寶池）、圖鑑、真結局');
+const ALLG=Object.keys(G.GOALS);
+t(Object.keys(G.FATES).filter(k=>G.FATES[k].lock).every(k=>G.GOALS[G.FATES[k].lock])&&Object.keys(G.RELICS).filter(k=>G.RELICS[k].lock).every(k=>G.GOALS[G.RELICS[k].lock]),'鎖起來的機緣、法寶都對得上一個目標');
+t(Object.keys(G.GOALS).every(g=>Object.keys(G.FATES).some(k=>G.FATES[k].lock===g)||Object.keys(G.RELICS).some(k=>G.RELICS[k].lock===g)),'每個目標都至少解鎖一樣東西');
+{ const q=G.newRun('qingli',6,{fates:['bloodpact','gold']}); t(!q.fates.includes('bloodpact')&&q.fates.join()==='gold','沒達成目標：鎖著的機緣帶不進去'); }
+{ const q=G.newRun('qingli',6,{fates:['bloodpact'],goals:['clear']}); t(q.maxHp===G.SERVANTS.qingli.hp-12&&q.relics.length===2,'以血換寶：最大生命 -12、開局 2 件法寶',JSON.stringify([q.maxHp,q.relics])); }
+{ const q=G.newRun('qingli',6,{fates:['trial'],goals:['xinmo']}); step(q,'fight'); t(q.deck.includes('sin')&&q.battle.np>=50,'心魔試煉：牌組多業障、神通量表從 50% 開始'); }
+{ const q=G.newRun('qingli',6,{fates:['wander'],goals:['tower']}); t(q.gold===120&&G.visible(q,4,q.map[4].findIndex(n=>n)),'雲遊四方：多 60 金、多看 2 列'); }
+{ const q=G.newRun('qingli',900); let leak=0; for(let i=0;i<60;i++){ step(q,'chest'); if(q.reward.relic&&G.RELICS[q.reward.relic].lock) leak++; G.takeChest(q); if(q.floor>=10) q.floor=0; } t(!G.relicPool(q).some(k=>G.RELICS[k].lock)&&leak===0,'沒達成目標：鎖著的法寶不在法寶池、寶箱也開不出來'); }
+{ const q=G.newRun('qingli',6,{goals:ALLG}); t(G.relicPool(q).length===Object.keys(G.RELICS).length,'目標全達成：法寶池全開'); }
+{ const q=G.newRun('qingli',3,{goals:ALLG}); q.relics.push('tassel','bead'); step(q,'fight'); t(q.battle.hand.length===6+(G.statsOf(q).agi?1:0)&&q.battle.enemies.every(e=>e.petrify>=1+1),'劍穗多抽 1、定魂珠開場全體定身 1（加上青璃自己的 1）',JSON.stringify([q.battle.hand.length,q.battle.enemies.map(e=>e.petrify)])); }
+{ const q=arena(); q.relics.push('lamp'); const h=q.maxHp; q.hp=Math.floor(h/2)+3; E(q).intent={n:'砍',fx:[['atk',8]]}; G.endTurn(q); const a1=q.hp; t(a1===Math.floor(h/2)+3-8+12,'心燈：第一次掉到一半以下回 12',a1); q.hp=Math.floor(h/2)-1; E(q).intent={n:'砍',fx:[['atk',3]]}; G.endTurn(q); t(q.hp===Math.floor(h/2)-4,'心燈每場只亮一次',q.hp); }
+{ const q=G.newRun('qingli',6,{goals:['tower']}); q.relics=[]; q.gold=200; step(q,'shop'); const p0=G.priceOf(q,{price:100}); q.screen='chest'; q.reward={relic:'pouch'}; G.takeChest(q); t(p0===100&&G.priceOf(q,{price:100})===85,'乾坤袋：商店八五折',G.priceOf(q,{price:100})); }
+{ const q=arena(); E(q).hp=3; playId(q,'atk_qingli'); t(q.slain&&q.slain.zhiren===1,'打倒的敵人記進 run.slain（圖鑑用）',JSON.stringify(q.slain)); }
+t(Object.keys(G.ENEMIES).every(k=>G.LORE[k]&&G.LORE[k].length>=10),'每個敵人都有圖鑑介紹');
+t(G.ORDER.every(k=>G.ENDINGS[k]&&G.ENDINGS[k].title&&G.ENDINGS[k].text.length>=3),'五位都有真結局');
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
