@@ -1,10 +1,17 @@
 <script>
 // ═══ 封魔錄：角色、敵人與場景的圖（只負責畫面） ═══
 // ART：有立繪就填網址（透明背景的 PNG／WebP；角色面向右、敵人面向左），沒填的用下面程式畫的「皮影」剪影頂著。
-//   例：shuang: 'https://raw.githubusercontent.com/帳號/repo/main/art/shuang.png'
+//   圖檔在 repo 的 art/（原圖 art/raw/ 去背、裁切後的 WebP），從 GitHub 直接讀；讀不到就自動退回剪影。
+var ART_BASE = 'https://raw.githubusercontent.com/calloy520-wq/FATE/claude/traditional-chinese-chat-q8ptho/art/';
 var ART = {
+  shuang: ART_BASE + 'shuang.webp', qingli: ART_BASE + 'qingli.webp', xiaoman: ART_BASE + 'xiaoman.webp',
+  chilian: ART_BASE + 'chilian.webp', aduo: ART_BASE + 'aduo.webp',
+  abai: ART_BASE + 'abai.webp'   // 阿白（白辰的龍）
 };
 var FIG = (function () {
+  // 圖讀不到時：藏起圖、改顯示緊接在後的剪影（凌霜疊在圖後的飛劍也藏起來，剪影自己有畫）
+  var FALLBACK = "this.style.display='none';this.nextElementSibling.style.display='contents';var o=this.previousElementSibling;if(o&&o.classList.contains('fover'))o.style.display='none'";
+  var DFALLBACK = "var d=this.parentNode;d.style.display='none';d.nextElementSibling.style.display='contents'";
   var INK = '#0b0d14';   // 剪影本體的顏色（皮影戲）
   // ── 角色：每位的主色、髮型、武器、身邊的東西 ──
   var HERO = {
@@ -65,7 +72,14 @@ var FIG = (function () {
   }
   // 小白龍阿白：大小跟著阿白的數字長大（5 是小小一條，24 以上盤滿半個畫面）
   function dragon(size) {
-    var k = Math.max(0.55, Math.min(1.9, 0.45 + size / 16)), w = 'w' + Math.round(k * 100);
+    var svg = dragonSvg(size);
+    if (!ART.abai) return svg;
+    var k = Math.max(0.55, Math.min(1.9, 0.45 + size / 16));
+    return '<span class="dragon dimg" style="width:' + Math.round(k * 58) + '%"><img src="' + ART.abai + '" alt="" draggable="false" onerror="' + DFALLBACK + '"><b class="dsz">' + size + '</b></span>'
+      + '<span class="ffb" style="display:none">' + svg + '</span>';
+  }
+  function dragonSvg(size) {
+    var k = Math.max(0.55, Math.min(1.9, 0.45 + size / 16));
     return '<svg class="dragon" viewBox="0 0 120 100" style="width:' + Math.round(k * 62) + '%" aria-hidden="true">'
       + '<path d="M8 86 C26 100 46 64 66 78 S102 76 96 44" stroke="#eef4ff" stroke-width="9" fill="none" stroke-linecap="round"/>'
       + '<path d="M8 86 C26 100 46 64 66 78 S102 76 96 44" stroke="#9ed0ff" stroke-width="2" fill="none" stroke-dasharray="2 5" opacity=".7"/>'
@@ -158,13 +172,13 @@ var FIG = (function () {
   }
   // 一個角色或敵人的圖：ART 有網址就用立繪，沒有就用剪影
   function fig(id, foe, st) {
-    if (ART[id]) {
-      var img = '<img class="fimg" src="' + ART[id] + '" alt="" draggable="false">';
-      // 凌霜的立繪不畫劍（劍在心裡），飛劍照數量浮在立繪身後
-      if (!foe && id === 'shuang') img = '<svg class="fsvg fover" viewBox="0 0 100 140" style="--fc:' + HERO.shuang.c + '" aria-hidden="true"><g class="swords">' + swords((st || {}).swords || 0) + '</g></svg>' + img;
-      return img;
-    }
-    return foe ? foeSvg(id) : heroSvg(id, st || {});
+    var svg = foe ? foeSvg(id) : heroSvg(id, st || {});
+    if (!ART[id]) return svg;
+    // 立繪＋藏起來的剪影：圖讀不到（斷網、GitHub 擋）就換回剪影
+    var img = '<img class="fimg' + (!foe && HERO[id] && HERO[id].kid ? ' kid' : '') + '" src="' + ART[id] + '" alt="" draggable="false" onerror="' + FALLBACK + '"><span class="ffb" style="display:none">' + svg + '</span>';
+    // 凌霜的立繪不畫劍（劍在心裡），飛劍照數量浮在立繪身後
+    if (!foe && id === 'shuang') img = '<svg class="fsvg fover" viewBox="0 0 100 140" style="--fc:' + HERO.shuang.c + '" aria-hidden="true"><g class="swords">' + swords((st || {}).swords || 0) + '</g></svg>' + img;
+    return img;
   }
   // ── 場景：照章換（落霞山的黃昏、鬼哭城的紅月、九幽魔淵、鎮妖塔）──
   function scene(run) {

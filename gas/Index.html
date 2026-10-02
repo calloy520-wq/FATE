@@ -360,9 +360,11 @@
   .fsvg .eye { filter:drop-shadow(0 0 2px #fff); }
   .fig.me { height:84%; width:100%; }
   .fig.me.blood .fsvg, .fig.me.blood .fimg { filter:drop-shadow(0 0 2px var(--fc)) drop-shadow(0 0 calc(4px + var(--rage,0) * 16px) rgba(255,40,60,calc(.35 + var(--rage,0) * .6))); }
-  .fig .pet { position:absolute; left:-6%; bottom:0; width:100%; display:flex; align-items:flex-end; pointer-events:none; }
+  .fig .pet { position:absolute; z-index:2; left:-6%; bottom:0; width:100%; display:flex; align-items:flex-end; pointer-events:none; }
   .fig .pet .dragon { filter:drop-shadow(0 0 6px #9ed0ff); animation:float 2.6s ease-in-out infinite; }
   .dragon .dsize { font-size:11px; fill:#ffd36e; font-weight:bold; }
+  .dragon.dimg { position:relative; display:inline-block; } .dragon.dimg img { width:100%; display:block; }
+  .dragon.dimg .dsz { position:absolute; left:50%; bottom:2%; transform:translateX(-50%); font-size:12px; color:#ffd36e; text-shadow:0 0 3px #000,0 0 6px #000; }
   .fsvg .swords { animation:float 2.2s ease-in-out infinite; } .fsvg .fu { animation:float 3s ease-in-out infinite; } .fsvg .bfly { animation:float 1.8s ease-in-out infinite; }
   @keyframes breathe { 50% { transform:scaleY(1.022) translateY(-1px); } }
   @keyframes float { 50% { transform:translateY(-4px); } }
@@ -398,7 +400,10 @@
   .svtfig .fsvg { height:92%; width:auto; filter:drop-shadow(0 0 2px var(--fc)) drop-shadow(0 0 8px var(--fc)); }
   .svtfig .pet { position:absolute; left:4%; bottom:0; width:70%; } .svtfig .pet .dragon { width:56% !important; }
   .grid.heroes { grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); max-width:520px; } .grid.heroes .tile { min-height:190px; justify-content:flex-end; padding-top:4px; }
-  .tile .tfig { height:120px; display:flex; justify-content:center; align-items:flex-end; } .tile .tfig .fsvg { height:100%; width:auto; filter:drop-shadow(0 0 2px var(--fc)) drop-shadow(0 0 5px var(--fc)); }
+  .tile .tfig .fimg, .svtfig .fimg { position:relative; z-index:1; height:100%; width:auto; max-width:100%; object-fit:contain; filter:drop-shadow(0 2px 6px rgba(0,0,0,.6)); }
+  .tile .tfig .fover, .svtfig .fover { position:absolute; z-index:0; left:50%; bottom:0; transform:translateX(-50%); height:100%; width:auto; }
+  .fig .fimg.kid, .tfig .fimg.kid, .svtfig .fimg.kid { height:78%; }   /* 白辰外表是小孩，立繪比大人矮 */
+  .tile .tfig { position:relative; height:120px; display:flex; justify-content:center; align-items:flex-end; } .tile .tfig .fsvg { height:100%; width:auto; filter:drop-shadow(0 0 2px var(--fc)) drop-shadow(0 0 5px var(--fc)); }
   @media (max-width:420px) { #stage { height:clamp(250px, 40vh, 330px); } #stage .foe .intent { font-size:11.5px; padding:1px 4px; } #stage .foe .intent .num { font-size:15px; } }
   @media (prefers-reduced-motion:reduce) { .fig, .fig .pet .dragon, .fsvg .swords, .fsvg .fu, .fsvg .bfly, .poisonmist { animation:none !important; } }
   @media (prefers-reduced-motion:reduce) {
