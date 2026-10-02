@@ -197,7 +197,7 @@ rr.screen='rest'; rr.deck=rr.deck.slice(0,5); t(!G.rest(rr,'remove',0)&&rr.deck.
 console.log('── 讀檔');
 t(G.migrate({v:3,who:'saber',hp:50,maxHp:75,deck:['atk_saber'],relics:[],screen:'map'})===null&&G.migrate({v:1,who:'archer',deck:['atk']})===null,'《聖杯之路》的舊局（Fate 角色）讀檔作廢');
 t(G.migrate(Object.assign(J(G.newRun('shuang',3)),{v:3}))===null&&G.migrate(J(Object.assign(G.newRun('qingli',3),{who:'medusa'})))===null&&G.migrate(null)===null,'版本太舊、角色不認得的一律作廢');
-t(G.migrate({who:'custom',custom:{name:'舊英靈'},deck:['atk']})===null&&!('custom' in G.SVT_COST)&&!G.makeCustom,'沒有自創角色：舊的自創角色那一局讀檔作廢、洞府不賣');
+t(G.migrate({who:'custom',custom:{name:'舊英靈'},deck:['atk']})===null&&!G.makeCustom,'沒有自創角色：舊的自創角色那一局讀檔作廢');
 { const o=J(G.newRun('shuang',3)), m=G.migrate(J(o)); t(m&&m.who==='shuang'&&JSON.stringify(m.deck)===JSON.stringify(o.deck)&&m.v===4,'現在的局存檔來回照樣讀得回來（牌組不變）'); }
 { const o=G.newRun('xiaoman',3); step(o,'fight'); const s=J(o); delete s.battle.kraken; delete s.battle.pRage; delete s.awaken; const m=G.migrate(s); t(m&&m.battle.kraken===0&&m.battle.pRage===0&&Array.isArray(m.awaken)&&G.endTurn(m).ok,'讀檔補上缺的戰鬥欄位，照樣能打'); }
 const r10=J(G.newRun('aduo',21)); step(r10,'fight'); const saved=J(r10); x=G.play(saved,0,0); t(x.ok||x.msg,'存檔（JSON）來回後照樣能出牌');
@@ -224,7 +224,7 @@ let price=G.priceOf(sh,sh.shop.cards[0]), dl=sh.deck.length; t(G.buy(sh,'card',0
 let rp=G.removePrice(sh); t(G.buy(sh,'remove',0).ok&&sh.gold===300-price-rp&&!G.buy(sh,'remove',0).ok&&G.removePrice(sh)===rp+25,'移除卡片：每間店一次，下次貴 25');
 sh.gold=0; t(!G.buy(sh,'relic').ok,'錢不夠買不起'); G.leaveShop(sh); t(sh.screen==='map','離開商店');
 let gr=arena(); gr.battle.enemies.forEach(e=>{e.hp=1;}); gr.battle.np=100; const g0=gr.gold; G.noble(gr,0); G.takeReward(gr,-1); t(gr.gold>=g0+12&&gr.gold<=g0+18,'打贏一般戰鬥得到 12～18 金',gr.gold-g0);
-t(G.fateOptions(5,[]).length===3&&G.fateOptions(5,[]).every(k=>G.FATE_FREE.includes(k))&&G.fateOptions(9,['legacy','early','mana']).every(k=>G.FATES[k]),'機緣：沒解鎖時只出三個基本機緣');
+t(G.fateOptions().length===Object.keys(G.FATES).length&&G.fateOptions().every(k=>G.FATES[k]&&!('cost' in G.FATES[k])),'機緣全部開放（局外沒有貨幣，不用解鎖）');
 let ft=G.newRun('qingli',6,{fate:'light'}); t(ft.deck.length===7&&ft.fate==='light','輕裝上陣：少 2 張攻擊 1 張防禦');
 ft=G.newRun('qingli',6,{fate:'merchant'}); ft.gold=100; step(ft,'shop'); t(G.removePrice(ft)===0&&G.priceOf(ft,{price:100})===75,'商人的眷顧：七五折、第一次移除免費'); G.buy(ft,'remove',0); t(G.removePrice(ft)===Math.round(60*0.75),'免費用掉之後是原價七五折'); ft.removed=3; t(G.removePrice(ft)===Math.round(60*0.75),'商人的眷顧：移除之後也不漲價');
 ft=G.newRun('qingli',6,{fate:'mana'}); step(ft,'fight'); t(ft.battle.np===30,'靈氣充盈：神通量表從 30% 開始',ft.battle.np);
@@ -235,8 +235,7 @@ t(G.ORDER.every(k=>G.ASC_SVT[k]&&[1,2,3,4,5,6].every(lv=>G.ascText(k,lv))),'5 �
 t(G.REALMS.length===7&&G.REALMS.slice(1).every(x=>x),'境界名稱 I～VI 都有');
 t(G.ORDER.every(k=>G.ASC_SVT[k].slice(0,2).every(fx=>!G.needsTarget(fx))),'開場效果不會用到要選目標的效果');
 let as1=G.newRun('xiaoman',6,{asc:3}); step(as1,'fight'); t(as1.battle.kraken===5+3&&as1.battle.str===1,'小滿境界 II／III：開場阿白再 +3（被動已有 5）、力量 +1',JSON.stringify([as1.battle.kraken,as1.battle.str]));
-t(G.SVT_COST.shuang===0&&G.ORDER.every(k=>k==='shuang'||G.SVT_COST[k]>0)&&G.ASC.length===6,'一開始只有凌霜免費，其他都有解鎖價；境界 6 級');
-let cz=G.newRun('qingli',8); cz.stats.floors=10; cz.stats.bosses=1; t(G.crystalsFor(cz)===25,'靈石：走過 10 格＋打倒 1 位魔王＝25');
+t(!G.SVT_COST&&!G.crystalsFor&&!G.FATE_SLOT2&&G.ASC.length===6,'局外沒有貨幣：沒有解鎖價、沒有靈石（境界暫停但引擎留著 6 級）');
 
 // 事件：扣血移除兩張、變形、複製、中立牌
 ev=G.newRun('qingli',41); step(ev,'event'); ev.event='purge'; hp0=ev.hp; d0=ev.deck.length; G.choose(ev,0); t(ev.hp===hp0-12&&ev.screen==='pick'&&ev.pending.join()==='remove,remove','苦修洞：失去 12 生命，移除兩張');
@@ -280,7 +279,6 @@ console.log('── 難度');
 let dn=G.newRun('qingli',9,{diff:'normal'}), dh=G.newRun('qingli',9,{diff:'abyss'}); step(dn,'fight'); step(dh,'fight');
 t(dh.battle.enemies[0].maxHp>=Math.round(dn.battle.enemies[0].maxHp*1.35)&&dh.battle.enemies[0].str===dn.battle.enemies[0].str+2,'深淵：敵人生命 +40%、力量 +2',JSON.stringify([dn.battle.enemies[0].maxHp,dh.battle.enemies[0].maxHp]));
 t(G.restHeal(dh)===Math.round(dh.maxHp*0.2)&&G.restHeal(dn)===Math.round(dn.maxHp*0.3),'深淵休息只回兩成');
-dn.stats.floors=10; dh.stats.floors=10; t(G.crystalsFor(dh)===G.crystalsFor(dn)*2,'深淵靈石 ×2');
 t(G.newRun('qingli',1,{asc:6}).ascStart.some(f=>f[0]==='pPetrifyAll'),'境界 VI：每回合的專屬強化（青璃每回合全體定身 1）');
 
 console.log('── 強化方向');
@@ -360,7 +358,7 @@ t(Object.keys(G.RELICS).length>=13,'法寶池 13 件');
 { const q=G.newRun('qingli',3); q.relics.push('azoth','volumen'); step(q,'fight'); t(q.battle.str>=1&&q.battle.block>=2,'龍虎丹開場力量 +1、玄龜甲每回合格擋 +2',JSON.stringify([q.battle.str,q.battle.block])); }
 { const q=G.newRun('qingli',3); q.relics.push('waver'); t(G.visible(q,4,q.map[4].findIndex(n=>n)),'山海圖：多看 2 列（第 5 列也看得到）'); }
 { const z=G.newRun('qingli',3); const l0=z.lives; z.screen='chest'; z.reward={relic:'pendant'}; G.takeChest(z); t(z.lives===l0+1&&z.relics.includes('pendant')&&z.screen==='map','九轉還魂丹：多一條命（寶箱）'); }
-t(G.fateOptions(7,Object.keys(G.FATES),'qingli',true).every(k=>G.FATE_FREE.includes(k)),'無盡模式只出免費機緣');
+t(G.fateOptions().length===Object.keys(G.FATES).length,'鎮妖塔也能選全部的機緣（只是只帶一種）');
 { let few=0; for(let i=0;i<200;i++){ const q=G.newRun('qingli',500+i); let n=0; q.map.forEach(row=>row.forEach(x=>{ if(x&&x.t==='elite') n++; })); if(n<2) few++; } t(few===0,'每章地圖至少 2 個精英',few); }
 // 中立牌（大家都拿得到）：至少 18 張，涵蓋全體、穿透、抽牌、靈力、控場、防守
 { const C=Object.keys(G.CARDS).filter(k=>G.CARDS[k].kit==='common'); const ops=new Set(C.flatMap(k=>G.CARDS[k].fx.map(f=>f[0])));
@@ -410,8 +408,7 @@ r=arena(); playId(r,'leyline'); t(r.battle.block===3&&/打出當下先生效一�
   t(b1.str>a1.str&&b9.str>b1.str+3&&b12.str>=b9.str&&b9.hp>b1.hp,'第二章的敵人隨樓層變強（開頭就比第一章尾巴硬、第 9 列起全額）',[a1.str,b1.str,b9.str,b12.str]); }
 let fin=0; for(let i=0;i<G.ORDER.length*4;i++){ const q=playRun(G.ORDER[i%G.ORDER.length],500+i); if(q.screen==='over') fin++; }
 t(fin===G.ORDER.length*4,'自動玩家每位 4 局都能打到結束（不卡死）',fin);
-t(G.fateOptions(5,[]).join()===G.FATE_FREE.join()&&G.fateOptions(5,['merchant','legacy']).length===5&&G.fateOptions(5,['legacy'],'qingli',true).length===3,'機緣：已解鎖的全部都能自己挑；無盡只有免費的');
-t(G.fateSlots(0,false)===1&&G.fateSlots(1,false)===2&&G.fateSlots(1,true)===1,'機緣欄位：買了第二格帶兩種、無盡模式固定一種');
+t(G.fateSlots(false)===2&&G.fateSlots(true)===1,'機緣欄位：一般帶兩種、鎮妖塔固定一種');
 { const q=G.newRun('qingli',6,{fates:['gold','tough']}); t(q.gold===180&&q.maxHp===G.SERVANTS.qingli.hp+10&&q.fates.length===2,'一次帶兩種機緣：兩個都生效'); }
 { const q=G.newRun('qingli',6,{fates:['gold','gold','seal4','tough']}); t(q.fates.join()==='gold,seal4','機緣重複的不算、最多兩種',q.fates); }
 { const q=G.newRun('qingli',6,{fates:['gold','tough'],endless:true}); t(q.fates.length===1,'無盡模式只帶一種機緣'); }

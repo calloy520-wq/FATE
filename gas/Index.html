@@ -76,7 +76,7 @@
   .incoming b { font-size:18px; color:#ff8a8a; }
   .incoming.safe { background:#172419; border-color:#2e6b3d; color:#b3f2c2; }
   .infobtn { border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:3px 8px; font-size:13.5px; }
-  /* 洞府的一列：左邊名字與說明，右邊固定位置的按鈕（夠買＝綠、不夠＝暗） */
+  /* 清單的一列：左邊名字與說明，右邊固定位置的標籤 */
   .urow { display:flex; gap:10px; align-items:center; } .urow > div { flex:1; min-width:0; }
   .list .buy { flex:none; text-align:center; white-space:nowrap; border:1px solid var(--green); color:var(--green); background:rgba(90,180,110,.1); border-radius:8px; padding:6px 10px; font-size:14px; }
   .list .buy.no { border-color:var(--line); color:var(--dim); background:none; }
@@ -417,14 +417,12 @@
   var KEY = 'grail_run_v1', run = null, sel = { card: -1, foe: -1, np: false };
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
-  // ── 帳號：第一個畫面先登入；每個帳號各自的存檔、靈石、解鎖與戰績都存在伺服器（換裝置也接得上），本機另留一份快取 ──
-  var ACC = null, META = null, SAVED_RUN = null, AKEY = 'grail_acc_v1', CKEY = 'grail_cache_v1:', STARTER_GIFT = 100;
-  function newMeta() { return { v: 4, crystals: 0, svts: ['shuang'], asc: {}, fates: [], clears: {}, stats: { runs: 0, wins: 0, trueEnds: 0, best: {} }, ts: 0 }; }   // crystals＝靈石、asc＝境界（欄位名沿用舊版）
-  // 難度與境界上限：困難要任一角色通關普通、深淵要通關困難；境界上限看「這位」通關過的最高難度（普通 2、困難 4、深淵 6）
-  function cleared(k, d) { return !!(META.clears[k] && META.clears[k][d]); }
+  // ── 帳號：第一個畫面先登入；每個帳號各自的存檔與戰績都存在伺服器（換裝置也接得上），本機另留一份快取 ──
+  var ACC = null, META = null, SAVED_RUN = null, AKEY = 'grail_acc_v1', CKEY = 'grail_cache_v1:';
+  function newMeta() { return { v: 5, clears: {}, stats: { runs: 0, wins: 0, trueEnds: 0, best: {} }, ts: 0 }; }   // 局外沒有貨幣：角色、機緣全部開放（2026-10-02）
+  // 難度：困難要任一角色通關普通、深淵要通關困難
   function anyCleared(d) { return Object.keys(META.clears).some(function (k) { return META.clears[k][d]; }); }
   function diffOpen(d) { return d === 'normal' || (d === 'hard' && anyCleared('normal')) || (d === 'abyss' && anyCleared('hard')); }
-  function ascCap(k) { return cleared(k, 'abyss') ? 6 : cleared(k, 'hard') ? 4 : cleared(k, 'normal') ? 2 : 0; }
   function me() { return META; }
   function updateMe(fn) { fn(META); queueSave(true, false); }
   function save() { SAVED_RUN = run ? JSON.stringify(run) : ''; queueSave(false, true); }
@@ -478,21 +476,11 @@
       var run0 = localStorage.getItem(KEY);
       if (!prof && !run0) return null;
       var m = newMeta(); if (prof) Object.keys(prof).forEach(function (k) { m[k] = prof[k]; });
-      if (run0 && m.svts.indexOf(JSON.parse(run0).who) < 0 && JSON.parse(run0).who !== 'custom') m.svts.push(JSON.parse(run0).who);   // 已經在玩的那位先算解鎖
       return { meta: m, run: run0 || '' };
     } catch (e) { return null; }
   }
-  // 《聖杯之路》（Fate 版）改版成《封魔錄》：舊的角色都下架了——花在解鎖角色與再臨上的全數退還成靈石（一個帳號一次）
-  var OLD_SVT_COST = { emiya: 50, cu: 50, medusa: 50, medea: 50, kojiro: 50, hassanC: 50, diarmuid: 70, iskandar: 70, gilles: 70, hassanH: 70, lancelot: 70, heracles: 100, gil: 100, scathach: 100, custom: 120 };
-  function migrateMeta(M) {
-    if (M.v >= 4) return 0;
-    var back = 0;
-    M.svts.forEach(function (k) { if (!G.SERVANTS[k]) back += OLD_SVT_COST[k] || 0; });
-    Object.keys(M.asc || {}).forEach(function (k) { if (!G.SERVANTS[k]) { for (var i = 0; i < M.asc[k]; i++) back += G.ASC[i].cost; delete M.asc[k]; } });
-    M.svts = M.svts.filter(function (k) { return G.SERVANTS[k]; }); if (M.svts.indexOf('shuang') < 0) M.svts.unshift('shuang');
-    delete M.heroes; M.crystals += back; M.v = 4;
-    return back;
-  }
+  // 舊帳號（Fate 版、有貨幣的版本）：拿掉靈石、解鎖、境界這些局外欄位；戰績與難度的解鎖留著
+  function migrateMeta(M) { ['crystals', 'svts', 'asc', 'fates', 'fate2', 'starter', 'heroes', 'xianxiaNote'].forEach(function (k) { delete M[k]; }); M.v = 5; }
   function onLogin(res) {
     ACC = { name: res.name, token: res.token };
     try { localStorage.setItem(AKEY, JSON.stringify(ACC)); } catch (e) { }
@@ -501,17 +489,13 @@
     if (!META) { var L = legacyData(); if (L) { META = L.meta; SAVED_RUN = L.run; localStorage.setItem('grail_legacy_done', '1'); toast('已把這台裝置上的舊進度搬進帳號'); } }
     META = META || newMeta();
     Object.keys(newMeta()).forEach(function (k) { if (META[k] === undefined && k !== 'v') META[k] = newMeta()[k]; });   // v 留給下面的改版搬家判斷
-    var starter = !META.starter;
     // 本機快取比伺服器新（上次沒送出去）：用本機的，並補送
     try { var C = JSON.parse(localStorage.getItem(CKEY + ACC.name) || 'null'); if (C && C.ts > (META.ts || 0)) { META = JSON.parse(C.meta); SAVED_RUN = C.run || ''; dirty = { meta: true, run: true }; flushSave(); } } catch (e) { }
-    // 開場禮：每個帳號一次 100 靈石（夠解鎖 2 位 50 的角色）；已經建立的帳號下次登入補發
-    // 舊版（Fate）的帳號：退還解鎖與再臨花的靈石；進行中的舊局作廢（G.migrate 回傳 null）
-    if (META.v !== 4) { var back = migrateMeta(META); if (back) toast('改版成《封魔錄》：以前解鎖的角色與再臨，退還 💎' + back + ' 靈石'); queueSave(true, false); }
+    // 舊版的帳號：清掉局外欄位；進行中的舊局（Fate 版）作廢（G.migrate 回傳 null）
+    if (META.v !== 5) { migrateMeta(META); queueSave(true, false); }
     try { if (SAVED_RUN && !G.migrate(JSON.parse(SAVED_RUN))) { SAVED_RUN = ''; queueSave(false, true); } } catch (e) { SAVED_RUN = ''; }
-    if (!META.starter) { META.starter = 1; META.crystals += STARTER_GIFT; queueSave(true, false); }
     if (res.created || !res.meta) queueSave(true, true);
     run = null; titleScreen();
-    if (starter) toast('開場禮：💎' + STARTER_GIFT + ' 靈石，到選人畫面或洞府解鎖角色');
   }
   // 標題的紋章：旋轉的八卦陣＋一把劍
   function heroHtml(sub) {
@@ -556,7 +540,7 @@
     t.textContent = x[0]; t.className = 'toast' + (x[1] === 'err' ? ' err' : ''); t.style.display = 'block';
     setTimeout(function () { toast.q.shift(); toastNext(); }, 1100 + 60 * x[0].length);
   }
-  // 移除、花靈石這類不能反悔的事：先問一次
+  // 移除這類不能反悔的事：先問一次
   function confirmOv(msg, yes) { confirmOv.fn = yes; openOv('<b>' + msg + '</b><div class="list" style="margin-top:12px"><button style="border-color:var(--gold);color:var(--gold);text-align:center" onclick="var f=confirmOv.fn;closeOv();f()">確定</button><button style="text-align:center" onclick="closeOv()">取消</button></div>'); }
   // 牌組裡同一張牌只顯示一次＋「×N」（基本牌 5 張不用排成一大片）
   function deckPick(ok, onclick) {
@@ -589,12 +573,10 @@
     ['縛靈', '邪修塞進你手牌的妨礙牌：在手上時每張牌多 1 費（0 費的也要 1 費）；花 1 靈力打掉（這場消耗）。戰鬥結束就消失'],
     ['詛咒牌／內傷／業障／魔氣侵體', '留在牌組裡的壞牌，是事件好處與★傳說強化的代價：內傷（在手上時攻擊每擊 -1）、魔氣侵體（留在手上回合結束 -3 生命）、業障（打不出來，佔位置）。內傷、魔氣侵體可以花靈力打掉（這場消耗）；要永久甩掉就在商店移除、事件或休息時淨化'],
     ['🎲／擲骰', '事件裡的擲骰選項：丟 20 面骰，加上氣運修正（氣運 B＝0，每級 ±1；E＝-3）達到難度就成功。擲出 20 一定成功、1 一定失敗'],
-    ['秘傳', '每位角色一張的稀有牌：精英獎勵（約三成）、商店、部分事件、機緣「師父的秘傳」與境界「煉虛」能拿到'],
+    ['秘傳', '每位角色一張的稀有牌：精英獎勵（約三成）、商店、部分事件、機緣「師父的秘傳」能拿到'],
     ['金錢與商店', '打贏戰鬥得到金（精英、魔王更多）；地圖上的 🛒 商店可以買專屬牌、秘傳、法寶，也能花錢移除卡片（每間店一次，越移越貴）'],
-    ['難度', '普通／困難／深淵：困難要任一角色通關普通、深淵要通關困難；越難敵人越強，靈石越多。境界的上限看那位通關過的最高難度：普通到金丹、困難到化神、深淵到渡劫'],
-    ['機緣', '每次出發前自己挑的強化（一種；洞府買了第二格可以帶兩種）；到洞府用靈石解鎖更多'],
-    ['靈石與洞府', '每局結束依表現得到靈石（走過的格子、打倒魔王、通關）；拿來解鎖新角色、突破境界（每位角色各自突破）、機緣。每個帳號分開記'],
-    ['境界', '每位角色各自突破：築基（生命 +8）、金丹／元嬰（每場開場效果）、化神（神通追加）、煉虛（開局帶秘傳牌）、渡劫（每回合強化）'],
+    ['難度', '普通／困難／深淵：困難要任一角色通關普通、深淵要通關困難；越難敵人越強'],
+    ['機緣', '每次出發前自己挑的強化，全部開放，一次帶兩種（鎮妖塔一種）'],
     ['地圖', '由上往下走，只能沿線前進；看得到接下來 3 列與魔王。精英比較難，但打贏有法寶與頓悟（還沒滿兩層時）；事件是有取捨的選擇'],
     ['兩章與隱藏關', '第一章落霞山、第二章鬼哭城各有一位魔王；第二章打完時手上還留著玉符，就能捏碎 1 枚進入九幽魔淵，面對心魔'],
     ['強化方向', '休息點鍛鍊或事件強化時，從三個方向選一個：精煉（數值變強）、迅捷（費用 -1，只有 2 費以上的牌）、共鳴（神通 +15%、多抽 1）、道心（多一個自己流派的機制，只有專屬牌）、極限（數值翻倍但打出後消耗）；偶爾出現★傳說（攻擊次數翻倍，代價是牌組多一張內傷）'],
@@ -635,55 +617,20 @@
   function titleScreen() {
     var saved = load(), S = saved && G.serv(saved), M = me(), going = saved && S && saved.screen !== 'over';
     var big = function (act, icon, label, sub, cls) { return '<button class="mbtn' + (cls ? ' ' + cls : '') + '" onclick="' + act + '"><span class="mi">' + icon + '</span><span><b>' + label + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span></button>'; };
-    $('app').innerHTML = '<div class="acct"><span>👤 <b>' + esc(ACC.name) + '</b></span><span>💎 <b>' + M.crystals + '</b></span><button onclick="logout()">登出／換人</button></div>'
+    $('app').innerHTML = '<div class="acct"><span>👤 <b>' + esc(ACC.name) + '</b></span><button onclick="logout()">登出／換人</button></div>'
       + '<div class="panel home">' + heroHtml('五位女修，一副牌，一路斬妖封魔。')
       + '<div class="menu">'
       + (going ? big('cont()', '▶', '繼續冒險', esc(S.cls + '・' + S.name) + '・' + esc((saved.endless ? '♾ ' : '') + (G.actName(saved) || '').split('　')[0]) + (saved.floor ? ' 第 ' + saved.floor + ' 列' : ' 剛出發'), 'main') : '')
       + big("MODE='normal';choose()", '⚔', '新的冒險', going ? '放棄目前這一局，重新選角色' : '選角色、選機緣，下山', going ? '' : 'main')
       + big("MODE='endless';choose()", '♾', '鎮妖塔（無盡）', going ? '放棄目前這一局，改闖鎮妖塔' : '兩章之後下鎮妖塔，一層一層往下，看能走多遠')
       + '<div class="msep"></div>'
-      + big("workshop('svt')", '💎', '洞府', '解鎖角色・突破境界・機緣')
       + '<div class="mrow">' + big('recordScreen()', '📜', '戰績') + big('boardScreen()', '🏆', '排行榜') + big("openOv('<b>名詞說明</b>' + glossaryHtml())", '📖', '說明') + '</div>'
       + '</div></div>';
   }
-  // 洞府：用靈石解鎖角色、突破境界、解鎖機緣
-  function realm(lv) { return lv ? G.REALMS[lv] : '未突破'; }
-  function workshop(tab) {
-    var M = me(), tabs = [['svt', '角色・境界'], ['fate', '機緣']], body = '';
-    var head = '<div class="tabs" style="max-width:460px;width:100%">' + tabs.map(function (t) { return '<button class="' + (tab === t[0] ? 'on' : '') + '" onclick="workshop(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>';
-    if (tab === 'svt') {
-      body = '<div class="dim" style="max-width:460px">境界：每位角色各自突破、各有特色，開局生效。築基 生命、金丹／元嬰 開場效果、化神 神通追加、煉虛 秘傳牌、渡劫 每回合強化。用這位通關普通開放築基～金丹、困難元嬰～化神、深淵煉虛～渡劫。</div>'
-        + G.ORDER.map(function (k) {
-          var S = G.SERVANTS[k], have = M.svts.indexOf(k) >= 0, lv = M.asc[k] || 0, line = '<b>' + esc(S.cls + '・' + S.name) + '</b>';
-          if (!have) return '<div class="box urow"><div>' + line + '<div class="dim" style="font-size:13.5px;margin-top:2px">' + esc(S.desc) + '</div></div>' + buyBtn('unlockSvt(\'' + k + '\')', G.SVT_COST[k], '解鎖') + '</div>';
-          var nx = G.ASC[lv];
-          return '<div class="box">' + line + '　<span style="color:var(--gold)">' + (lv ? '境界 ' + realm(lv) : '<span class="dim">尚未突破</span>') + '</span>'
-            + '<div style="margin-top:4px;font-size:13.5px">' + (lv ? '<div>✔ 已到' + realm(lv) + '</div>' : '') + (G.ASC[lv] ? '<div class="dim">下一步 ' + realm(lv + 1) + '　' + esc(G.ascText(k, lv + 1)) + '</div>' : '') + '</div>'
-            + (!nx ? '<div class="dim">已經渡劫，到頂了</div>' : lv >= ascCap(k) ? '<div class="dim" style="margin-top:6px">🔒 突破到' + realm(lv + 1) + '要先用這位通關' + ['普通', '普通', '困難', '困難', '深淵', '深淵'][lv] + '</div>'
-              : '<div class="urow" style="margin-top:6px"><div>突破到' + realm(lv + 1) + '</div>' + buyBtn('ascend(\'' + k + '\')', nx.cost, '突破') + '</div>') + '</div>';
-        }).join('');
-    } else {
-      body = '<div class="dim" style="max-width:460px">每次出發前，從已解鎖的機緣裡自己挑一種帶上；買下「機緣的第二格」就能一次帶兩種。</div>'
-        + '<div class="box urow"><div><b>機緣的第二格</b><div class="dim" style="font-size:13.5px;margin-top:2px">出發時可以同時帶兩種機緣（鎮妖塔仍然只帶一種）</div></div>' + (M.fate2 ? '<span class="tag">✔ 已解鎖</span>' : buyBtn('unlockSlot2()', G.FATE_SLOT2, '解鎖')) + '</div>'
-        + Object.keys(G.FATES).map(function (k) {
-          var F = G.FATES[k], have = G.FATE_FREE.indexOf(k) >= 0 || M.fates.indexOf(k) >= 0;
-          return '<div class="box urow"><div><b>' + esc(F.name) + '</b><div class="dim" style="font-size:13.5px;margin-top:2px">' + esc(F.text) + '</div></div>' + (have ? '<span class="tag">✔ 已解鎖</span>' : buyBtn('unlockFate(\'' + k + '\')', F.cost, '解鎖')) + '</div>';
-        }).join('');
-    }
-    workshop.tab = tab;
-    $('app').innerHTML = '<div class="panel"><div class="stickybar"><button class="btn" onclick="titleScreen()">← 返回</button><span>💎 ' + M.crystals + '</span></div><h1 style="font-size:22px">洞府</h1><div>💎 靈石 <b style="color:var(--gold)">' + M.crystals + '</b></div>' + head
-      + '<div class="list">' + body + '</div><button class="btn" onclick="titleScreen()">返回</button></div>';
-  }
-  function buyBtn(act, cost, verb) { var ok = me().crystals >= cost; return '<button class="buy' + (ok ? '' : ' no') + '" onclick="' + act + '">' + (ok ? '' : '🔒 ') + verb + ' 💎' + cost + '</button>'; }
-  function spend(cost, fn) { if (me().crystals < cost) return toast('靈石不夠（每局結束依表現得到）', 'err'); confirmOv('花 💎' + cost + '？（現有 ' + me().crystals + '）', function () { updateMe(function (m) { m.crystals -= cost; fn(m); }); workshop(workshop.tab); }); }
-  function unlockSvt(k) { spend(G.SVT_COST[k], function (m) { if (m.svts.indexOf(k) < 0) m.svts.push(k); }); }
-  function ascend(k) { var lv = me().asc[k] || 0; if (!G.ASC[lv] || lv >= ascCap(k)) return; spend(G.ASC[lv].cost, function (m) { m.asc[k] = lv + 1; }); }
-  function unlockSlot2() { spend(G.FATE_SLOT2, function (m) { m.fate2 = 1; }); }
-  function unlockFate(k) { spend(G.FATES[k].cost, function (m) { if (m.fates.indexOf(k) < 0) m.fates.push(k); }); }
   function recordScreen() {
     var M = me(), st = M.stats;
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">戰績：' + esc(ACC.name) + '</h1>'
-      + '<div class="box">出擊 ' + st.runs + ' 次・通關 ' + st.wins + ' 次・斬心魔 ' + st.trueEnds + ' 次・💎 ' + M.crystals + '</div><div class="list">'
+      + '<div class="box">出擊 ' + st.runs + ' 次・通關 ' + st.wins + ' 次・斬心魔 ' + st.trueEnds + ' 次</div><div class="list">'
       + G.ORDER.map(function (k) { var b = st.best[k], e = (st.endless || {})[k]; return '<div class="box urow"><div><b>' + esc(G.SERVANTS[k].cls + '・' + G.SERVANTS[k].name) + '</b><div class="dim" style="font-size:13.5px">' + (b ? esc(b) : '還沒出擊過') + '</div></div>' + (e ? '<span class="tag" style="color:var(--gold)">♾ ' + e + ' 格</span>' : '') + '</div>'; }).join('')
       + '</div><div class="row"><button class="btn" onclick="boardScreen()">🏆 排行榜</button><button class="btn" onclick="titleScreen()">返回</button></div></div>';
   }
@@ -709,12 +656,12 @@
     });
   }
   function cont() { run = load(); MODE = run && run.endless ? 'endless' : 'normal'; render(); }
-  // 選人格子：已解鎖／靈石夠可以解鎖／還不夠
+  // 選人格子：五位全部開放
   function tileHtml(k) {
-    var S = G.SERVANTS[k], M = me(), have = M.svts.indexOf(k) >= 0, cost = G.SVT_COST[k], can = !have && M.crystals >= cost, lv = M.asc[k] || 0;
-    return '<button class="tile' + (have ? ' have' : can ? ' can' : ' lock') + '" onclick="svtInfo(\'' + k + '\')">'
-      + '<div class="tfig">' + FIG.fig(k, false, { swords: 2 }) + '</div><div class="tcls">' + esc(S.cls) + '</div><div class="tname">' + (have ? '' : '🔒 ') + esc(S.name) + '</div>'
-      + '<div class="tsub">' + (have ? (lv ? '境界 ' + realm(lv) : '生命 ' + S.hp) : can ? '可解鎖 💎' + cost : '💎' + cost) + '</div></button>';
+    var S = G.SERVANTS[k];
+    return '<button class="tile have" onclick="svtInfo(\'' + k + '\')">'
+      + '<div class="tfig">' + FIG.fig(k, false, { swords: 2 }) + '</div><div class="tcls">' + esc(S.cls) + '</div><div class="tname">' + esc(S.name) + '</div>'
+      + '<div class="tsub">生命 ' + S.hp + '</div></button>';
   }
   // 根骨＋換算後的效果
   function paramsHtml(k) {
@@ -724,31 +671,27 @@
       + '<div class="dim" style="font-size:13.5px">攻擊 ' + pct(st.atk) + '（力道／靈力取高）・格擋 ' + pct(st.def) + '（力道／身法／靈力取高）・生命 ' + G.SERVANTS[k].hp + '（體魄）' + (st.agi ? '・身法：開場多抽 1 張' : '') + '・金錢 ×' + (Math.round(st.luck * 100) / 100) + '（氣運）</div></div>';
   }
   function svtInfo(k) {
-    var S = G.SERVANTS[k], M = me(), have = M.svts.indexOf(k) >= 0, cost = G.SVT_COST[k];
-    openOv('<b style="color:var(--gold);font-size:17px">' + esc(S.cls + '・' + S.name) + '</b>　<span class="dim">生命 ' + S.hp + (M.asc[k] ? '　境界 ' + realm(M.asc[k]) : '') + '</span>'
+    var S = G.SERVANTS[k];
+    openOv('<b style="color:var(--gold);font-size:17px">' + esc(S.cls + '・' + S.name) + '</b>　<span class="dim">生命 ' + S.hp + '</span>'
       + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + (k === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>'
       + '<div class="list" style="margin-top:10px"><div class="box">' + esc(S.desc) + '</div>' + paramsHtml(k)
       + '<div class="box"><h3>被動「' + esc(S.passive.name) + '」</h3>' + esc(S.passive.text) + '</div>'
       + '<div class="box"><h3>神通「' + esc(S.np.name) + '」</h3>' + esc(G.npText(S.np)) + '</div>'
-      + '<div class="box"><h3>境界（' + realm(M.asc[k] || 0) + '）</h3>' + G.ASC.map(function (a, i) { return '<div class="' + (i < (M.asc[k] || 0) ? '' : 'dim') + '">' + realm(i + 1) + '　' + esc(G.ascText(k, i + 1)) + '</div>'; }).join('') + '</div>'
-      + '<div class="stick">' + (have ? '<button class="btn" style="width:100%" onclick="closeOv();pickFate(\'' + k + '\')">以這位出發</button>'
-        : '<button class="btn" style="width:100%" ' + (M.crystals >= cost ? '' : 'disabled') + ' onclick="unlockFromChoose(\'' + k + '\')">🔒 用 💎' + cost + ' 解鎖（現有 ' + M.crystals + '）</button>'
-          + (M.crystals >= cost ? '' : '<div class="dim">靈石不夠：每局結束依表現得到</div>')) + '</div>'
+      + '<div class="stick"><button class="btn" style="width:100%" onclick="closeOv();pickFate(\'' + k + '\')">以這位出發</button></div>'
       + '</div>');
   }
-  function unlockFromChoose(k) { var c = G.SVT_COST[k]; if (me().crystals < c) return; updateMe(function (m) { m.crystals -= c; if (m.svts.indexOf(k) < 0) m.svts.push(k); }); toast('解鎖了 ' + G.SERVANTS[k].name); svtInfo(k); choose(); }
   function choose() {
-    $('app').innerHTML = '<div class="panel"><div class="stickybar" style="max-width:640px"><button class="btn" onclick="run=null;render()">← 返回</button><span>💎 ' + me().crystals + '</span></div><h1 style="font-size:22px">' + (MODE === 'endless' ? '♾ 鎮妖塔・' : '') + '選擇角色</h1>'
+    $('app').innerHTML = '<div class="panel"><div class="stickybar" style="max-width:640px"><button class="btn" onclick="run=null;render()">← 返回</button></div><h1 style="font-size:22px">' + (MODE === 'endless' ? '♾ 鎮妖塔・' : '') + '選擇角色</h1>'
       + (MODE === 'endless' ? '<div class="box" style="max-width:460px">先走完兩章，之後不進九幽魔淵，改下鎮妖塔一層一層往下：每層一張新地圖、一位魔王，越來越強。走過的格子數就是成績，會記在戰績和排行榜。</div>' : '')
-      + '<div class="dim">💎 靈石 ' + me().crystals + '　點格子看詳細；🔒 的可以用靈石解鎖</div>'
+      + '<div class="dim">點格子看詳細，想玩誰就玩誰</div>'
       + '<div class="grid heroes">' + G.ORDER.map(tileHtml).join('') + '</div>'
       + '<button class="btn" onclick="run=null;render()">返回</button></div>';
   }
   function newSeed() { return (Date.now() ^ (Math.random() * 1e9)) >>> 0; }
-  // 出發前選機緣（從已解鎖的自己挑；有第二格可以帶兩種）
+  // 出發前選機緣（全部開放，一次帶兩種；鎮妖塔一種）
   var DIFF = 'normal', MODE = 'normal';   // MODE：normal 一般｜endless 無盡模式
   function pickFate(who, keepSeed) {
-    var seed = keepSeed || newSeed(), opts = G.fateOptions(seed, me().fates, who, MODE === 'endless'), slots = G.fateSlots(me().fate2, MODE === 'endless');
+    var seed = keepSeed || newSeed(), opts = G.fateOptions(), slots = G.fateSlots(MODE === 'endless');
     if (!diffOpen(DIFF)) DIFF = 'normal';
     var sel = pickFate.ctx && pickFate.ctx.who === who ? pickFate.ctx.sel.filter(function (k) { return opts.indexOf(k) >= 0; }).slice(0, slots) : [];
     pickFate.ctx = { who: who, seed: seed, sel: sel };
@@ -759,21 +702,21 @@
     if (MODE === 'endless') { DIFF = 'normal'; diffs = ''; }
     var Dn = G.DIFFS[DIFF];
     var Sv = G.SERVANTS[who];
-    $('app').innerHTML = '<div class="panel"><div class="box" style="max-width:460px;width:100%;text-align:center">以 <b style="color:var(--gold)">' + esc(Sv.cls + '・' + Sv.name) + '</b> 出發　<span class="dim">生命 ' + Sv.hp + '</span>　<button class="infobtn" onclick="choose()">換角色</button></div>' + (MODE === 'endless' ? '<h1 style="font-size:22px">♾ 鎮妖塔</h1><div class="dim">固定普通難度、不帶境界、只用免費機緣：大家站在同一條起跑線上比誰走得遠。</div>' : '<h1 style="font-size:22px">難度</h1>' + diffs)
-      + (MODE === 'endless' ? '' : '<div class="dim" style="max-width:460px">' + (DIFF === 'normal' ? '標準難度。用這位通關可以突破到築基～金丹。' : '敵人生命 +' + Math.round(Dn.hp * 100) + '%、力量 +' + Dn.str + (Dn.rest < 0.3 ? '、休息只回兩成' : '') + '；靈石 ×' + Dn.cry + '。用這位通關可以突破到' + (DIFF === 'hard' ? '元嬰～化神' : '煉虛～渡劫') + '。') + (diffOpen('hard') ? '' : '（任一角色通關普通後解鎖困難）') + '</div>')
-      + '<h1 style="font-size:22px;margin-top:6px">選擇機緣 <span class="dim" style="font-size:15px">' + sel.length + '／' + slots + '</span></h1><div class="dim">這一趟的額外強化，自己挑' + (slots > 1 ? '兩種' : '一種') + '（到洞府解鎖更多機緣' + (slots > 1 || MODE === 'endless' ? '' : '、買第二格一次帶兩種') + '）</div>'
+    $('app').innerHTML = '<div class="panel"><div class="box" style="max-width:460px;width:100%;text-align:center">以 <b style="color:var(--gold)">' + esc(Sv.cls + '・' + Sv.name) + '</b> 出發　<span class="dim">生命 ' + Sv.hp + '</span>　<button class="infobtn" onclick="choose()">換角色</button></div>' + (MODE === 'endless' ? '<h1 style="font-size:22px">♾ 鎮妖塔</h1><div class="dim">固定普通難度、只帶一種機緣：大家站在同一條起跑線上比誰走得遠。</div>' : '<h1 style="font-size:22px">難度</h1>' + diffs)
+      + (MODE === 'endless' ? '' : '<div class="dim" style="max-width:460px">' + (DIFF === 'normal' ? '標準難度。' : '敵人生命 +' + Math.round(Dn.hp * 100) + '%、力量 +' + Dn.str + (Dn.rest < 0.3 ? '、休息只回兩成' : '') + '。') + (diffOpen('hard') ? '' : '（任一角色通關普通後解鎖困難）') + '</div>')
+      + '<h1 style="font-size:22px;margin-top:6px">選擇機緣 <span class="dim" style="font-size:15px">' + sel.length + '／' + slots + '</span></h1><div class="dim">這一趟的額外強化，自己挑' + (slots > 1 ? '兩種' : '一種') + '</div>'
       + '<div class="fategrid">' + opts.map(function (k) { var F = G.FATES[k], on = sel.indexOf(k) >= 0; return '<button class="svt' + (on ? ' fon' : '') + '" onclick="toggleFate(\'' + k + '\')"><b>' + (on ? '✔ ' : '') + esc(F.name) + '</b><div style="margin-top:6px">' + esc(F.text) + '</div></button>'; }).join('') + '</div>'
       + '<button class="btn go2" onclick="startWith()">' + (sel.length ? '帶著「' + sel.map(function (k) { return G.FATES[k].name; }).join('」「') + '」出發' : '不帶機緣出發') + '</button>'
       + '<button class="btn" onclick="choose()">返回</button></div>';
   }
   function toggleFate(k) {
-    var c = pickFate.ctx, i = c.sel.indexOf(k), slots = G.fateSlots(me().fate2, MODE === 'endless');
+    var c = pickFate.ctx, i = c.sel.indexOf(k), slots = G.fateSlots(MODE === 'endless');
     if (i >= 0) c.sel.splice(i, 1); else { c.sel.push(k); if (c.sel.length > slots) c.sel.shift(); }   // 滿了：換掉最早選的
     pickFate(c.who, c.seed);
   }
   function startWith() {
     var c = pickFate.ctx;
-    run = G.newRun(c.who, c.seed, { fates: c.sel, diff: DIFF, asc: MODE === 'endless' ? 0 : me().asc[c.who] || 0, endless: MODE === 'endless' });   // 無盡：不帶境界、只用免費機緣，排行榜才公平
+    run = G.newRun(c.who, c.seed, { fates: c.sel, diff: DIFF, endless: MODE === 'endless' });
     updateMe(function (m) { m.stats.runs++; });
     render();
   }
@@ -1269,11 +1212,11 @@
       + '<button class="btn" onclick="G.secret(run,false);render()">就到這裡（封印完成）</button></div>';
   }
   function overScreen() {
-    var st = run.stats, S = G.serv(run), got = G.crystalsFor(run);
+    var st = run.stats, S = G.serv(run);
     if (!run.metaDone) {   // 一局只結算一次
       run.metaDone = true; save();
       updateMe(function (m) {
-        m.crystals += got; if (run.win) m.stats.wins++; if (run.trueEnd) m.stats.trueEnds++;
+        if (run.win) m.stats.wins++; if (run.trueEnd) m.stats.trueEnds++;
         if (run.win) { m.clears = m.clears || {}; m.clears[run.who] = m.clears[run.who] || {}; m.clears[run.who][run.diff || 'normal'] = true; }
         if (run.endless) {   // 無盡（鎮妖塔）：記走過的格子數（每位角色各自的最遠＋帳號最遠），一般戰績不動
           m.stats.endless = m.stats.endless || {};
@@ -1289,9 +1232,8 @@
       + '<div class="dim">' + esc(S.cls) + '・' + esc(S.name) + '　' + (run.trueEnd ? '斬了自己的心魔，魔淵重新封上' : run.win ? '走完了兩章' : '倒在' + esc(run.endless && run.act >= 3 ? '鎮妖塔第 ' + (run.act - 2) + ' 層' : G.actName(run).split('　')[0] + '「' + G.actName(run).split('　')[1] + '」') + '・第 ' + run.floor + ' 列') + '</div>'
       + (run.endless ? '<div class="box" style="text-align:center"><div class="dim">♾ 鎮妖塔成績</div><div style="font-size:30px;color:var(--gold)">' + st.floors + ' 格</div><div class="dim">' + esc(S.name) + '的最遠：' + ((me().stats.endless || {})[run.who] || st.floors) + ' 格</div><button class="infobtn" style="margin-top:8px" onclick="boardScreen()">🏆 看排行榜</button></div>' : '')
       + '<div>擊敗 ' + st.kills + '・神通 ' + st.np + ' 次・玉符用了 ' + st.seals + ' 枚・牌組 ' + run.deck.length + ' 張</div>'
-      + (run.win ? '<div class="box" style="text-align:center;color:var(--gold)">以' + esc(G.DIFFS[run.diff || 'normal'].name) + '難度通關：' + esc(S.name) + '的境界最高可以突破到「' + realm(ascCap(run.who)) + '」</div>' : '')
-      + '<div class="box" style="text-align:center">💎 得到靈石 <b style="color:var(--gold)">' + got + '</b>（現在共 ' + me().crystals + '）' + (got ? '' : '<div class="dim">走過的格子、打倒魔王、通關都會換成靈石；走遠一點就有</div>') + '<div class="dim" style="margin-top:4px">到洞府解鎖新角色、突破境界、機緣</div></div>'
-      + '<div class="row" style="flex-wrap:wrap;justify-content:center"><button class="btn" onclick="MODE=' + (run.endless ? '\'endless\'' : '\'normal\'') + ';run=null;save();choose()">再來一次</button><button class="btn" onclick="run=null;save();workshop(\'svt\')">💎 洞府</button><button class="btn" onclick="run=null;save();titleScreen()">回到標題</button></div></div>';
+      + (run.win && (run.diff || 'normal') !== 'abyss' ? '<div class="box" style="text-align:center;color:var(--gold)">以' + esc(G.DIFFS[run.diff || 'normal'].name) + '難度通關：' + (run.diff === 'hard' ? '深淵' : '困難') + '難度開放了</div>' : '')
+      + '<div class="row" style="flex-wrap:wrap;justify-content:center"><button class="btn" onclick="MODE=' + (run.endless ? '\'endless\'' : '\'normal\'') + ';run=null;save();choose()">再來一次</button><button class="btn" onclick="run=null;save();titleScreen()">回到標題</button></div></div>';
   }
 
   boot();
