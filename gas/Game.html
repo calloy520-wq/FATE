@@ -192,7 +192,7 @@ var G = (function () {
     fanggu:     { name: '放蠱', cost: 1, type: 'skill', np: 0, fx: [['parasite', 4]], up: { fx: [['parasite', 6]] } },
     chongchao:  { name: '蟲潮', cost: 2, type: 'skill', np: 0, fx: [['parasiteAll', 3]], up: { fx: [['parasiteAll', 4]] } },
     chongshi:   { name: '蟲噬', cost: 1, type: 'atk', np: 0, fx: [['parasiteDmg', 3]], up: { fx: [['parasiteDmg', 4]] } },
-    gumu:       { name: '蠱母', cost: 2, type: 'power', np: 0, fx: [['pGumu', 2]], up: { cost: 1 } },
+    gumu:       { name: '蠱母', cost: 1, type: 'power', np: 0, fx: [['pGumu', 2]], up: { fx: [['pGumu', 3]] } },
     yangchong:  { name: '以蟲養蟲', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['parasiteX2', 1], ['selfDmg', 2]], up: { ex: 0 } },
     chongjia:   { name: '蟲甲', cost: 1, type: 'skill', np: 0, fx: [['parasiteBlock', 5]], up: { fx: [['parasiteBlock', 8]] } }
   });
@@ -263,7 +263,7 @@ var G = (function () {
     xiaoman: [
       { id: 'longzhan', name: '龍戰', feel: '養', sig: 'horror', soul: ['kraken', 2], master: [['kraken', 2]], desc: '讓阿白上場打：越養越大，自己咬人、替她擋傷害。',
         cards: ['horror', 'sacrifice', 'abyss', 'frenzy', 'feastdeep', 'tentacle', 'blasphemy', 'prelati'] },
-      { id: 'longyou', name: '龍佑', feel: '化', sig: 'zealot', extra: 'fawei', soul: ['tstr', 2], master: [['str', 2]], desc: '阿白不咬人了，改在身邊加持：每回合開始白辰本回合力量 +阿白大小的三分之二，龍鱗護身，老祖宗親自出手。',
+      { id: 'longyou', name: '龍佑', feel: '化', sig: 'zealot', extra: 'fawei', soul: ['tstr', 2], master: [['str', 3]], desc: '阿白不咬人了，改在身邊加持：長得更快（每回合 +2），每回合開始白辰本回合力量 +阿白大小的三分之二，老祖宗親自出手。',
         cards: ['zealot', 'pages', 'longlin', 'nilin', 'longwei', 'hualong', 'fawei', 'longshen'] }
     ],
     chilian: [
@@ -279,7 +279,7 @@ var G = (function () {
         cards: ['knives', 'dirk', 'venom', 'miasma', 'plague', 'assassinate', 'venombody', 'daggers', 'shaitan'] },
       { id: 'anqi', name: '暗器', feel: '隱', sig: 'throwdirk', soul: ['evade', 1], master: [['evade', 1]], desc: '銀針飛刀從暗處來：躲著打，專挑破綻下手。',
         cards: ['throwdirk', 'presence', 'dieyin', 'chuanxin', 'wuying', 'xiuli', 'duanhun', 'wandie'] },
-      { id: 'chonggu', name: '蟲蠱', feel: '噬', sig: 'fanggu', extra: 'chongshi', soul: ['parasiteAll', 1], master: [['parasiteAll', 2]], desc: '蠱蟲寄生在敵人身上，宿主倒下就爬到下一個，越養越多。',
+      { id: 'chonggu', name: '蟲蠱', feel: '噬', sig: 'fanggu', extra: 'chongshi', soul: ['parasiteAll', 1], master: [['parasiteAll', 3]], desc: '蠱蟲寄生在敵人身上，宿主倒下就爬到下一個，越養越多。',
         cards: ['fanggu', 'chongchao', 'chongshi', 'gumu', 'yangchong', 'chongjia', 'wangu'] }
     ]
   };
@@ -1248,7 +1248,7 @@ var G = (function () {
     if (b.pEvade) b.evade += b.pEvade;
     if (b.ubw > 0) { addProj(b, 3); b.ubw--; }
     if (b.pKraken) b.kraken += b.pKraken;
-    if (passive(run) === 'madness' && !first) b.kraken += 1 + (run.krakenGrow || 0);
+    if (passive(run) === 'madness' && !first) b.kraken += 1 + (run.krakenGrow || 0) + (run.major === 'longyou' ? 1 : 0);   // 龍佑：阿白不咬人，長得更快
     if (!first && !run.flat && MADNESS[run.who] && run.hp > 1) { var md = MADNESS[run.who]; selfHurt(run, md, (b.log = b.log || [])); b.log.push('血煞反噬：失去 ' + md + ' 生命'); }
     if (b.pRage && run.hp < run.maxHp / 2) b.str += b.pRage;
     if (b.pPetrifyAll) alive(b).forEach(function (e) { petrify(run, e, b.pPetrifyAll, b.log); });
