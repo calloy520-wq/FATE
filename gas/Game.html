@@ -91,7 +91,7 @@ var G = (function () {
     bloodfort:{ name: '攝魂陣', cost: 2, type: 'atk', np: 15, fx: [['drainAll', 6]], up: { fx: [['drainAll', 9]] } },
     gorgon:   { name: '符籙通神', cost: 2, type: 'power', np: 0, fx: [['pPetrifyAll', 1]], up: { cost: 1 } }
   });
-  kit('xiaoman', {   // 小滿（御獸）：小白龍阿白越養越大，回合結束咬人、替你擋傷害；最後全力龍息
+  kit('xiaoman', {   // 白辰（御獸）：小白龍阿白越養越大，回合結束咬人、替你擋傷害；最後全力龍息
     horror:   { name: '呼喚阿白', cost: 1, type: 'skill', np: 5, fx: [['kraken', 3], ['block', 3]], up: { fx: [['kraken', 4], ['block', 4]] } },
     sacrifice:{ name: '分你一口靈氣', cost: 0, type: 'skill', np: 5, fx: [['selfDmg', 2], ['kraken', 4]], up: { fx: [['selfDmg', 2], ['kraken', 6]] } },
     blasphemy:{ name: '龍爪', cost: 1, type: 'atk', np: 10, fx: [['krakenDmg', 5, 1]], up: { fx: [['krakenDmg', 7, 1]] } },
@@ -156,8 +156,8 @@ var G = (function () {
       desc: '玄真觀的小道姑，畫符天才、嘴巴很毒、很愛錢。控場型：定身符一層層貼上去，貼滿就讓敵人動彈不得；貼得越多敵人越虛，五雷轟頂再把符一次引爆。',
       passive: { id: 'gaze', name: '鎮魂符', text: '每場戰鬥開始時，全體敵人定身 1；敵人每 2 層定身，攻擊 -1（符的重壓）；定身疊滿就動彈不得一回合' },
       np: { name: '天羅地網', fx: [['all', 38], ['petrifyAll', 2]] } },
-    xiaoman: { name: '小滿', cls: '御獸', hp: 57, sig: 'horror',
-      desc: '活了一千多年、蛻回孩童模樣的御獸老祖宗，身邊盤著本命靈龍「阿白」。養成型：阿白每回合長大，回合結束自己咬人、替你擋傷害；整趟冒險越打越大。',
+    xiaoman: { name: '白辰', cls: '御獸', hp: 57, sig: 'horror',
+      desc: '活了一千多年、蛻回孩童模樣的御獸老祖宗（大家私下叫她「白辰」，她一聽就炸毛），身邊盤著本命靈龍「阿白」。養成型：阿白每回合長大，回合結束自己咬人、替你擋傷害；整趟冒險越打越大。',
       passive: { id: 'madness', name: '龍之契約', text: '不會被施加虛弱（活了一千年，什麼沒見過）；每場戰鬥開始時阿白大小 5，之後每回合長大 1；每打贏兩場，之後每場開場阿白再 +1（吃飽了，整局最多 +6）。阿白回合結束咬生命最少的敵人（每大 12 多咬一口）；打穿格擋的傷害，阿白替你擋下一半（擋了會縮小）' },
       np: { name: '龍吟', fx: [['kraken', 8], ['weakAll', 1]] } },
     chilian: { name: '赤練', cls: '血修', hp: 81, sig: 'rampage',
@@ -201,7 +201,7 @@ var G = (function () {
               [{ name: '劍冢', np: [['proj', 3]] }, { name: '天眼', start: [['projUp', 1]] }]],
     qingli:  [[{ name: '符力加持', start: [['petrifyAll', 1]] }, { name: '回氣丹', start: [['heal', 4]] }],
               [{ name: '護身金光', np: [['block', 15]] }, { name: '驅邪', start: [['weakAll', 1]] }]],
-    xiaoman: [[{ name: '阿白長大了', start: [['kraken', 4]] }, { name: '小滿生氣了', start: [['str', 2]] }],
+    xiaoman: [[{ name: '阿白長大了', start: [['kraken', 4]] }, { name: '老祖宗生氣了', start: [['str', 2]] }],
               [{ name: '神龍降世', np: [['kraken', 6]] }, { name: '龍珠共鳴', start: [['pKraken', 1]] }]],
     chilian: [[{ name: '血煞入體', start: [['str', 2]] }, { name: '金剛不壞', start: [['block', 10]] }],
               [{ name: '血河倒灌', np: [['rageDmg', 6, 3]] }, { name: '浴血重生', lives: 1 }]],
@@ -1042,7 +1042,7 @@ var G = (function () {
   }
   function debuffPlayer(run, k, n) {
     var b = run.battle;
-    if (k === 'weak' && passive(run) === 'madness') return;   // 小滿天不怕地不怕
+    if (k === 'weak' && passive(run) === 'madness') return;   // 白辰天不怕地不怕
     b[k] += n;
   }
   // 玩家的攻擊數字（不含敵人易傷）
@@ -1292,12 +1292,12 @@ var G = (function () {
     return { ok: true, end: end };
   }
 
-  var KRAKEN_FED_MAX = 6, KRAKEN_FED_EVERY = 2;   // 小滿：每打贏 2 場，阿白整局 +1，最多 +6
+  var KRAKEN_FED_MAX = 6, KRAKEN_FED_EVERY = 2;   // 白辰：每打贏 2 場，阿白整局 +1，最多 +6
   function checkEnd(run) {
     var b = run.battle;
     if (run.hp <= 0) { run.hp = 0; run.screen = 'over'; run.win = false; return 'lose'; }
     if (!alive(b).length) {
-      if (passive(run) === 'madness') { run.krakenWins = (run.krakenWins || 0) + 1; var fed = Math.min(KRAKEN_FED_MAX, Math.floor(run.krakenWins / KRAKEN_FED_EVERY)); if (fed > (run.krakenFed || 0)) { run.krakenFed = fed; b.log = (b.log || []).concat(['阿白吃飽了：之後每場開場阿白 +' + fed]); } }   // 小滿：阿白整局成長
+      if (passive(run) === 'madness') { run.krakenWins = (run.krakenWins || 0) + 1; var fed = Math.min(KRAKEN_FED_MAX, Math.floor(run.krakenWins / KRAKEN_FED_EVERY)); if (fed > (run.krakenFed || 0)) { run.krakenFed = fed; b.log = (b.log || []).concat(['阿白吃飽了：之後每場開場阿白 +' + fed]); } }   // 白辰：阿白整局成長
       if (b.kind === 'boss') {
         run.stats.bosses = (run.stats.bosses || 0) + 1;
         if (run.act === 1 || run.endless) {   // 第一章結束（無盡模式每一層都是）：拿獎勵、喘口氣，進下一章

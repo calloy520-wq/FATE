@@ -94,13 +94,13 @@ hp=r.hp; G.endTurn(r); t(hp-r.hp===9,'實際也只受到 9',hp-r.hp);
 { const q=arena('shuang'); E(q).petrify=2; E(q).intent={n:'砍',fx:[['atk',10]]}; t(G.intentDmg(q,E(q),E(q).intent.fx[0])===10,'別人沒有符的重壓'); }
 t(G.SERVANTS.qingli.sig==='chain'&&['chain','nails','kick','monstrous','bloodfort','mystic'].every(k=>G.CARDS[k]&&G.CARDS[k].kit==='qingli'),'縛靈索（招牌牌）、符針、掌心雷、大力符、攝魂陣、定身符都是青璃的');
 
-console.log('── 小滿（阿白）');
-r=G.newRun('xiaoman',3); step(r,'fight'); t(r.battle.kraken===5,'小滿 龍之契約：開場阿白 5',r.battle.kraken);
+console.log('── 白辰（阿白）');
+r=G.newRun('xiaoman',3); step(r,'fight'); t(r.battle.kraken===5,'白辰 龍之契約：開場阿白 5',r.battle.kraken);
 r=arena('xiaoman'); r.battle.kraken=6; playId(r,'blasphemy'); t(E(r).hp===50-11,'龍爪：5＋阿白大小 6',E(r).hp);
 r=arena('xiaoman'); r.battle.kraken=4; playId(r,'zealot'); t(r.battle.kraken===1&&r.battle.tstr===6,'借龍力：阿白縮小 3 換力量 6');
 r.battle.kraken=2; playId(r,'zealot'); t(r.battle.kraken===2&&r.battle.tstr===6,'阿白不夠大就沒效果');
 r=arena('xiaoman'); r.battle.kraken=5; E(r).intent={n:'砍',fx:[['atk',8]]}; hp=r.hp; G.endTurn(r); t(E(r).hp===45&&hp-r.hp===4&&r.battle.kraken===1+1,'阿白：回合結束咬 5；被打 8 時替你擋一半 4 並縮小；下回合長大 1',JSON.stringify([E(r).hp,hp-r.hp,r.battle.kraken]));
-r=arena('xiaoman'); E(r).intent={n:'咒',fx:[['weak',3]]}; G.endTurn(r); t(r.battle.weak===0,'小滿天不怕地不怕：不會虛弱');
+r=arena('xiaoman'); E(r).intent={n:'咒',fx:[['weak',3]]}; G.endTurn(r); t(r.battle.weak===0,'白辰天不怕地不怕：不會虛弱');
 { const q=arena(); E(q).intent={n:'咒',fx:[['weak',2],['vuln',2]]}; G.endTurn(q); t(q.battle.weak>0&&q.battle.vuln>0,'別人照樣會被施加虛弱、易傷'); }
 r=arena('xiaoman',2); r.battle.kraken=9; playId(r,'feastdeep'); t(r.battle.kraken===0&&r.battle.enemies.every(e=>e.hp===23),'全力龍息：吐光大小 9 的阿白，全體 27',E(r).hp);
 r=arena('xiaoman'); r.battle.kraken=5; playId(r,'abyss'); t(r.battle.kraken===10,'龍族血脈：阿白翻倍');
@@ -112,7 +112,7 @@ r=arena('xiaoman',3); r.battle.kraken=15; r.battle.enemies.forEach((e,i)=>{ e.hp
 { const q=G.newRun('xiaoman',3); step(q,'fight'); const k0=q.battle.kraken; const win=()=>{ q.battle.enemies.forEach(e=>e.hp=0); G.checkEnd(q); };
   win(); t(!q.krakenFed,'打贏 1 場還不長'); q.screen='map'; step(q,'fight'); win(); t(q.krakenFed===1,'打贏 2 場：阿白整局 +1',q.krakenFed);
   q.krakenWins=40; q.screen='map'; step(q,'fight'); win(); t(q.krakenFed===6,'整局成長最多 +6',q.krakenFed); q.screen='map'; step(q,'fight'); t(q.battle.kraken===k0+6,'開場阿白照成長算',q.battle.kraken);
-  const o=G.newRun('qingli',3); step(o,'fight'); o.battle.enemies.forEach(e=>e.hp=0); G.checkEnd(o); t(!o.krakenFed,'只有小滿的阿白會成長'); }
+  const o=G.newRun('qingli',3); step(o,'fight'); o.battle.enemies.forEach(e=>e.hp=0); G.checkEnd(o); t(!o.krakenFed,'只有白辰的阿白會成長'); }
 
 console.log('── 赤練（血修）');
 r=arena('chilian'); r.hp=r.maxHp-27; playId(r,'divine'); t(E(r).hp===50-(10+3*2),'搏命一擊：少 27 生命 → 10＋3×2',E(r).hp);
@@ -211,7 +211,7 @@ console.log('── 事件・商店・機緣・境界');
   t(fx.filter(f=>f[0]==='pick').every(f=>['remove','upgrade','transform','copy'].includes(f[1])),'事件的選牌種類都認得'); }
 t(Object.keys(G.EVENTS).every(k=>!G.EVENTS[k].who||G.ORDER.includes(G.EVENTS[k].who)),'專屬事件的角色都存在');
 t(G.ORDER.every(w=>Object.keys(G.EVENTS).filter(k=>G.EVENTS[k].who===w).length>=2),'每位至少 2 個專屬事件');
-t(Array.from({length:40},(_,i)=>{ const q=G.newRun('qingli',500+i); step(q,'event'); return q.event; }).every(id=>!G.EVENTS[id].who||G.EVENTS[id].who==='qingli'),'只會遇到自己的專屬事件（青璃不會遇到小滿的事件）');
+t(Array.from({length:40},(_,i)=>{ const q=G.newRun('qingli',500+i); step(q,'event'); return q.event; }).every(id=>!G.EVENTS[id].who||G.EVENTS[id].who==='qingli'),'只會遇到自己的專屬事件（青璃不會遇到白辰的事件）');
 let ev=G.newRun('qingli',41); step(ev,'event'); t(ev.screen==='event'&&G.EVENTS[ev.event]&&(!G.EVENTS[ev.event].act||G.EVENTS[ev.event].act===1),'事件格：抽一個這一章的事件');
 ev.event='church'; let hp0=ev.hp, d0=ev.deck.length; G.choose(ev,0); t(ev.hp===hp0-6&&ev.screen==='pick'&&ev.pending[0]==='remove','荒廢的山神廟：先扣血，再選一張牌移除');
 G.pickCard(ev,ev.deck.indexOf('def_qingli')); t(ev.deck.length===d0-1&&ev.screen==='map','選完回地圖');
@@ -234,7 +234,7 @@ t(G.npFx(as,G.SERVANTS.qingli.np).length===G.SERVANTS.qingli.np.fx.length+1&&/�
 t(G.ORDER.every(k=>G.ASC_SVT[k]&&[1,2,3,4,5,6].every(lv=>G.ascText(k,lv))),'5 位每一級境界都有自己的說明');
 t(G.REALMS.length===7&&G.REALMS.slice(1).every(x=>x),'境界名稱 I～VI 都有');
 t(G.ORDER.every(k=>G.ASC_SVT[k].slice(0,2).every(fx=>!G.needsTarget(fx))),'開場效果不會用到要選目標的效果');
-let as1=G.newRun('xiaoman',6,{asc:3}); step(as1,'fight'); t(as1.battle.kraken===5+3&&as1.battle.str===1,'小滿境界 II／III：開場阿白再 +3（被動已有 5）、力量 +1',JSON.stringify([as1.battle.kraken,as1.battle.str]));
+let as1=G.newRun('xiaoman',6,{asc:3}); step(as1,'fight'); t(as1.battle.kraken===5+3&&as1.battle.str===1,'白辰境界 II／III：開場阿白再 +3（被動已有 5）、力量 +1',JSON.stringify([as1.battle.kraken,as1.battle.str]));
 t(!G.SVT_COST&&!G.crystalsFor&&!G.FATE_SLOT2&&G.ASC.length===6,'局外沒有貨幣：沒有解鎖價、沒有靈石（境界暫停但引擎留著 6 級）');
 
 // 事件：扣血移除兩張、變形、複製、中立牌
@@ -257,7 +257,7 @@ t(G.ORDER.every(k=>G.PARAMS[k]&&G.PARAMS[k].length===6)&&G.PARAM_NAMES.length===
 r=arena('chilian'); r.flat=false; playId(r,'atk_chilian'); t(E(r).hp===50-7,'赤練 力道 A+：6 傷 ×1.12 → 7',E(r).hp);
 r=arena('shuang'); r.flat=false; playId(r,'atk_shuang'); t(E(r).hp===50-6,'凌霜 力道 D、靈力 B（攻擊取高）：6 傷 → 6',E(r).hp);
 r=arena('chilian'); r.flat=false; playId(r,'def_chilian'); t(r.battle.block===6,'赤練 格擋看力道／身法／靈力取最高（力道 A+ 112%）：5 → 6',r.battle.block);
-r=arena('xiaoman'); r.flat=false; playId(r,'def_xiaoman'); t(r.battle.block===5,'小滿 力道 D／身法 D／靈力 C 取最高（92%）：5 → 5',r.battle.block);
+r=arena('xiaoman'); r.flat=false; playId(r,'def_xiaoman'); t(r.battle.block===5,'白辰 力道 D／身法 D／靈力 C 取最高（92%）：5 → 5',r.battle.block);
 t(G.SERVANTS.chilian.hp===81&&G.SERVANTS.xiaoman.hp===57&&G.SERVANTS.shuang.hp===69&&G.ORDER.every(k=>G.newRun(k,3).maxHp===G.SERVANTS[k].hp),'生命照體魄：A 81、C 69、E 57',G.ORDER.map(k=>G.SERVANTS[k].hp).join());
 r=arena('chilian',1,100); r.flat=false; r.battle.np=100; G.noble(r,0); t(E(r).hp===100-9*Math.round(5*1.12),'神通等級只顯示：赤練血河九斬只乘攻擊（力道 A+）',E(r).hp);
 const qlR=G.newRun('qingli',3); step(qlR,'fight'); const xmR=G.newRun('xiaoman',3); step(xmR,'fight'); t(qlR.battle.hand.length===xmR.battle.hand.length+1,'身法 A 以上（青璃）：開場多抽 1 張',[qlR.battle.hand.length,xmR.battle.hand.length].join());
