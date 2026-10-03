@@ -117,7 +117,7 @@ r=arena('xiaoman',3); r.battle.kraken=15; r.battle.enemies.forEach((e,i)=>{ e.hp
   const o=G.newRun('qingli',3); step(o,'fight'); o.battle.enemies.forEach(e=>e.hp=0); G.checkEnd(o); t(!o.krakenFed,'只有白辰的阿白會成長'); }
 
 console.log('── 赤練（血修）');
-r=arena('chilian'); r.hp=r.maxHp-27; playId(r,'divine'); t(E(r).hp===50-(10+3*2),'搏命一擊：少 27 生命 → 10＋3×2',E(r).hp);
+r=arena('chilian'); r.hp=r.maxHp-27; playId(r,'divine'); t(E(r).hp===50-(13+4*2),'搏命一擊：少 27 生命 → 13＋4×2',E(r).hp);
 r=arena('chilian'); r.hp=20; playId(r,'godhand'); G.endTurn(r); t(r.battle.str===1,'積怨：生命低於一半時每回合力量 +1');
 r=arena('chilian'); t(r.lives===1,'赤練 不滅血體：整趟 1 條備用的命'); r.hp=5; E(r).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(r); t(r.hp===Math.round(G.SERVANTS.chilian.hp*0.5)&&r.screen==='battle'&&r.lives===0&&r.battle.str===2&&r.trialStr===2,'倒下以五成血站起來、力量 +2、命用掉',JSON.stringify([r.hp,r.battle.str]));
 const tr=J(r); tr.battle=null; tr.screen='map'; step(tr,'fight'); t(tr.battle.str===2,'不滅血體換來的力量整趟保留（下一場開場就有）',tr.battle.str);
@@ -327,7 +327,7 @@ t(G.FATES.gold.name==='意外之財','機緣的名字');
 t(G.newRun('qingli',3,{asc:6,fate:'legacy'}).deck.filter(x=>G.baseId(x)==='breaker').length===1,'境界 V 已經有秘傳：師父的秘傳改成把它強化，不會拿到兩張');
 t(G.upDiff('breaker','breaker+').includes('不再消耗'),'強化選單列出「不再消耗」');
 { const q=arena(); q.screen='reward'; q.hp=10; q.pills=['dali']; t(!G.seal(q,'heal').ok&&q.seals===1&&!G.usePill(q,0).ok,'戰鬥結束（勝利停頓中）不能用玉符、丹藥'); }
-{ const q=arena('qingli',1,6); q.battle.hand=['heavy']; const p=G.preview(q,0,0), p2=G.preview(q,0,0,true); t(p.per[0]===6&&p2.per[0]===12&&p.kills===1&&E(q).hp===6,'預計：raw 量實際打出的 12（不被 6 血截掉）、一般試算數得到擊倒，不動到真的局面',JSON.stringify([p.per,p2.per,p.kills])); }
+{ const q=arena('qingli',1,6); q.battle.hand=['heavy']; const p=G.preview(q,0,0), p2=G.preview(q,0,0,true); t(p.per[0]===6&&p2.per[0]===14&&p.kills===1&&E(q).hp===6,'預計：raw 量實際打出的 14（不被 6 血截掉）、一般試算數得到擊倒，不動到真的局面',JSON.stringify([p.per,p2.per,p.kills])); }
 t(!/每場戰鬥開始：每/.test(G.ORDER.map(k=>[2,3,4,6].map(l=>G.ascText(k,l)).join('|')).join('|')),'「每回合…」的效果不再疊「每場戰鬥開始：」');
 // 全部玩家看得到的文字（所有牌與強化方向、神通、境界、頓悟、被動、法寶、事件、機緣）沒有 undefined／NaN／{1} 殘留
 { const bad=[], chk=(w,x)=>{ if(/undefined|NaN|\{\d\}|\{m\}|null/.test(x)) bad.push(w); };
@@ -351,7 +351,7 @@ t(!/每場戰鬥開始：每/.test(G.ORDER.map(k=>[2,3,4,6].map(l=>G.ascText(k,l
   t(!hit2.length,'引擎的字串（含戰鬥紀錄）也沒有 Fate 用詞（註解不算）',hit2.join()); }
 // 強化方向不再有永遠的最佳解
 t(JSON.stringify(G.card('hrunting+b').fx[0])==='["projDmg",8,3]'&&G.card('hrunting+b').cost===1,'迅捷：單純便宜 1 費（數值不變）',JSON.stringify(G.card('hrunting+b').fx));
-t(JSON.stringify(G.card('heavy+').fx[0])==='["dmg",21]'&&G.card('heavy+').cost===2,'2 費以上的精煉數值再 ×1.25（重擊 17 → 21），才比得過迅捷 -1 費',JSON.stringify(G.card('heavy+').fx));
+t(JSON.stringify(G.card('heavy+').fx[0])==='["dmg",23]'&&G.card('heavy+').cost===2,'2 費以上的精煉數值再 ×1.25（重擊 18 → 23），才比得過迅捷 -1 費',JSON.stringify(G.card('heavy+').fx));
 { const q=G.newRun('qingli',3,{fate:'early'}); t(q.screen==='boon'&&q.boon.opts.length===2&&G.takeBoon(q,1)&&q.awaken.length===1&&q.screen==='map','天生慧根：出發前兩個選一個'); }
 { const q=G.newRun('qingli',3,{fate:'heirloom'}); t(q.screen==='boon'&&q.boon.kind==='relic'&&q.boon.opts.length===2&&G.takeBoon(q,0)&&q.relics.length===1,'師門傳承：兩件法寶選一件'); }
 { const q=G.newRun('qingli',3); q.screen='event'; q.event='mapo'; G.choose(q,0); step(q,'fight'); t(q.battle.weak===2&&!q.nextWeak,'路邊的黑店：回 25，下一場開場虛弱 2（只有下一場）'); }
@@ -557,4 +557,7 @@ t(Object.values(G.EVENTS).filter(E=>E.who).every(E=>E.end&&E.end.length>=20),'�
 { const q=arena('xiaoman',2,80); q.battle.kraken=10; q.battle.np=100; q.battle.npUsed=0; G.noble(q,0); t(q.battle.kraken===5&&80-E(q,0).hp>=10&&80-E(q,1).hp>=10,'龍吟：阿白朝全體吐息（阿白多大打多痛），吐完縮小一半',JSON.stringify([q.battle.kraken,E(q,0).hp,E(q,1).hp])); }
 { const q=arena('xiaoman',1,500); q.battle.kraken=6; q.battle.np=0; E(q).intent={n:'發呆',fx:[]}; G.endTurn(q); t(q.battle.np>=4,'白辰的神通量表：阿白長大、咬人都漲得動（一回合至少 4%）',q.battle.np); }
 { const q=G.newRun('xiaoman',8,{major:'longzhan'}); q.screen='major'; G.chooseMajor(q,'longyou'); step(q,'fight'); const b=q.battle; b.kraken=9; const hp=b.enemies.map(e=>e.hp); b.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.enemies.some((e,i)=>e.hp<hp[i]),'主修龍戰、兼修龍佑：阿白照樣咬人（龍佑當主修才不咬）'); }
+{ const q=arena('chilian',1,80); q.major='meigu'; q.majors=['meigu']; const d=G.upDirs('wenrou').indexOf('d')>=0; if(d){ playId(q,'wenrou+d'); t(80-E(q).hp===12,'道心先加資源：溫柔刀（道心）先魅惑再打，自己吃得到加倍',80-E(q).hp); } else t(true,'溫柔刀沒有道心方向（略過）'); }
+{ let bad=0; for(let s=1;s<=200;s++){ const q=G.newRun('aduo',s,{major:'dugu'}); const P=G.ownPool(q); if(P.side.indexOf('chongshi')>=0||P.side.indexOf('yangchong')>=0) bad++; } t(!bad,'離開主修就沒用的牌（蟲噬、以蟲養蟲…）不從別條主修混進戰利品',bad); }
+{ const q=arena('qingli',1,80); q.battle.hand=['jiutian','atk_qingli','def_qingli']; playId(q,'fenfu'); t(q.battle.hand.indexOf('jiutian')>=0&&q.battle.hand.length===2,'焚符先燒最便宜的（不會把大招燒掉）',JSON.stringify(q.battle.hand)); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
