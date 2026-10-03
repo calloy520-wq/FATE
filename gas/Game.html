@@ -229,7 +229,7 @@ var G = (function () {
       np: { name: '天羅地網', fx: [['all', 38], ['petrifyAll', 2]] } },
     xiaoman: { name: '白辰', cls: '御獸', hp: 57, sig: 'horror',
       desc: '靈獸山莊的老祖宗。三百年前封印魔淵的五人裡，只有她還站在魔淵外頭。那一戰燒掉她半身龍元，從此是孩童模樣（大家私下叫她「小滿」，她一聽就炸毛）。身邊盤著陪了她一千年的本命靈龍「阿白」。三百年前，關上那扇門的是她——門後，是她拜過天地的道侶。',
-      passive: { id: 'madness', name: '龍之契約', text: '不會被施加虛弱（活了一千年，什麼沒見過）；每場戰鬥開始時阿白大小 5，之後每回合長大 1；每打贏兩場，之後每場開場阿白再 +1（吃飽了，整局最多 +6）。阿白回合結束咬生命最少的敵人（每大 12 多咬一口）；打穿格擋的傷害，阿白替妳擋下一半（擋了會縮小；穿透攻擊擋不了）' },
+      passive: { id: 'madness', name: '龍之契約', text: '不會被施加虛弱（活了一千年，什麼沒見過）；每場戰鬥開始時阿白大小 5，之後每回合長大 1；每打贏兩場，之後每場開場阿白再 +1（吃飽了，整局最多 +6）。阿白回合結束咬生命最少的敵人（每大 12 多咬一口，最多 4 口）；打穿格擋的傷害，阿白替妳擋下一半（擋了會縮小；穿透攻擊擋不了）' },
       np: { name: '龍吟', fx: [['kraken', 8], ['weakAll', 1]] } },
     chilian: { name: '赤練', cls: '血修', hp: 81, sig: 'rampage',
       desc: '合歡宗的血修。合歡宗以情入道，門規只有一條：兩情相悅。她路過落霞山，在塔下聽劍仙撫琴，一聽就是一個月——就這麼喜歡上了。劍仙一下山，她二話不說就跟了上去，只想找她一起合修。拿自己的血換力量：傷得越重，刀越狠。倒下了，也會笑著再站起來。',
@@ -533,7 +533,7 @@ var G = (function () {
     c: { name: '共鳴', tag: '・共鳴', text: '打出時神通 +15%、多抽 1 張（本來會抽牌的：神通 +30%）' },
     d: { name: '道心', tag: '・道', text: '多一個自己流派的機制' },
     e: { name: '極限', tag: '・極', text: '傷害、格擋等數值翻倍，但打出後消耗' },
-    f: { name: '★傳說', tag: '・傳說', text: '精煉＋多段攻擊次數翻倍（單段的攻擊改成傷害翻倍；技能、能力改成 0 費）；代價：牌組多一張「內傷」', legend: 1 }   // 強化時一成機率出現
+    f: { name: '★傳說', tag: '・傳說', text: '精煉＋多段攻擊次數翻倍（單段的攻擊改成傷害翻倍；技能、能力改成 0 費；翻倍類的牌費用不變）；代價：牌組多一張「內傷」', legend: 1 }   // 強化時一成機率出現
   };
   // 道心：各角色的招牌機制（只給專屬牌）；有主修的牌用那條主修的（PATHS 的 soul）
   var KIT_SOUL = { shuang: ['proj', 1], qingli: ['petrifyAll', 1], xiaoman: ['kraken', 2], chilian: ['tstr', 2], aduo: ['poisonAll', 2] };
@@ -598,6 +598,7 @@ var G = (function () {
     });
   }
   // ★傳說：攻擊次數翻倍——本來就打好幾下的次數 ×2；只打一下的變兩下；其他攻擊數值 ×2
+  var DOUBLE_OPS = { krakenX2: 1, yuyinX2: 1, poisonX2: 1, parasiteX2: 1, dbl: 1 };
   function legendFx(fx) {
     var cnt = { hits: 2, pierceHits: 2, rand: 2, projHits: 3, hitsIfWeak: 2 };
     if (fx.some(function (f) { return cnt[f[0]]; })) return fx.map(function (f) { if (!cnt[f[0]]) return f; var g = f.slice(); g[cnt[f[0]]] = f[cnt[f[0]]] * 2; return g; });
@@ -611,7 +612,7 @@ var G = (function () {
     var refine = d === 'a' || d === 'f';
     if (refine && base.up) Object.keys(base.up).forEach(function (k) { c[k] = base.up[k]; });
     if (refine && base.up && base.up.fx && base.cost >= 2 && base.up.cost === undefined) c.fx = scaleFx(base.up.fx, 1.25);   // 2 費以上的精煉再強一點，才比得過迅捷的 -1 費
-    if (d === 'f') { if (c.type === 'atk') c.fx = legendFx(c.fx); else c.cost = 0; }
+    if (d === 'f') { if (c.type === 'atk') c.fx = legendFx(c.fx); else if (!c.fx.some(function (f) { return DOUBLE_OPS[f[0]]; })) c.cost = 0; }   // 翻倍類的牌不變 0 費（0 費又不消耗，重抽就能一直翻倍）
     if (d === 'b') c.cost = Math.max(0, base.cost - 1);   // 迅捷：便宜 1 費（只給 2 費以上的牌）
     if (d === 'c') {   // 共鳴：神通 +15%、多抽 1；本來就會抽牌的改成神通 +30%
       if (base.fx.some(function (f) { return f[0] === 'draw' || f[0] === 'borrow' || f[0] === 'drawIfCharm'; })) c.npBonus = 30;
@@ -889,7 +890,7 @@ var G = (function () {
   var ACT_NAMES = { 1: '第一章　落霞山', 2: '第二章　鬼哭城', 3: '隱藏關　九幽魔淵' };
   // 無盡模式：第二章之後不進隱藏關，改下鎮妖塔一層一層往下（第 3 章起叫「鎮妖塔第 N 層」），越來越強，看能爬多遠（走過的格子數＝成績）
   function actName(run, act) { act = act || run.act; return run.endless && act >= 3 ? '鎮妖塔　第 ' + (act - 2) + ' 層' : ACT_NAMES[act]; }
-  function bossAct(run) { var a = run.act || 1; return run.endless && a >= 3 ? { hp: 1.4 * (1 + 0.4 * (a - 2)), str: BOSS_ACT[2].str + 2 * (a - 2) } : BOSS_ACT[a]; }   // 魔王不吃每列的成長，所以無盡層另外每層 +40% 血、+2 力量
+  function bossAct(run) { var a = run.act || 1; return run.endless && a >= 3 ? { hp: 1.4 * (1 + 0.4 * (a - 2)), str: BOSS_ACT[2].str + 4 * (a - 2) } : BOSS_ACT[a]; }   // 魔王不吃每列的成長，所以無盡層另外每層 +40% 血、+4 力量（+2 的時候塔裡的魔王比精英還軟）
   var BOSS_POOL = { 1: ['zhanglao', 'shuyao', 'guijiang', 'niumo'], 2: ['huyao', 'duoxian', 'panguan', 'niumo'] };
   var BOSS_ACT = { 1: { hp: 0.95, str: 0 }, 2: { hp: 1.8, str: 6 }, 3: { hp: 1.5, str: 6 } };
   // opts：{ major 主修, fates 機緣（最多兩種；舊寫法 fate 單一個也可以）, asc 境界, diff 難度, endless 無盡 }（直接傳機緣的字串也可以）
@@ -917,6 +918,9 @@ var G = (function () {
       if (!B || B.kind !== 'relic') return;
       B.opts = B.opts.map(function (x) { if (!x || !hasRelic(run, x)) return x; var alt = relicPool(run).filter(function (y) { return !hasRelic(run, y) && B.opts.indexOf(y) < 0; }); return alt.length ? pick(run, alt) : null; }).filter(Boolean);
     });
+    var hasOpts = function (B) { return B && (B.kind !== 'relic' || B.opts.length); };   // 換完一件都不剩的就跳過（不然沒有按鈕可按）
+    if (run.boonQ) run.boonQ = run.boonQ.filter(hasOpts);
+    if (!hasOpts(run.boon)) run.boon = (run.boonQ || []).shift() || null;
     if (run.boon) run.screen = 'boon';   // 機緣給的二選一：出發前先選
     return run;
   }
@@ -1021,7 +1025,7 @@ var G = (function () {
     else if (t === 'elite') startBattle(run, [pick(run, ELITES)], 'elite');
     else if (t === 'boss') startBattle(run, [run.boss], 'boss');
     else if (t === 'rest') run.screen = 'rest';
-    else if (t === 'chest') { run.screen = 'chest'; run.reward = { relic: randomRelic(run) }; }
+    else if (t === 'chest') { run.screen = 'chest'; run.reward = { relic: randomRelic(run) }; if (!run.reward.relic) run.reward.gold = 60; }   // 法寶拿光了（鎮妖塔深處）：改成一袋碎銀
     else if (t === 'event') startEvent(run);
     else if (t === 'shop') openShop(run);
     return true;
@@ -1152,7 +1156,11 @@ var G = (function () {
   function startEvent(run) {
     var ok = function (E) { return (!E.noEndless || !run.endless) && (!E.act || E.act === Math.min(run.act, 2)) && (!E.who || E.who === run.who) && (!E.major || (run.majors || []).indexOf(E.major) >= 0); };
     var ids = Object.keys(EVENTS).filter(function (k) { return ok(EVENTS[k]) && run.seenEvents.indexOf(k) < 0; });
-    if (!ids.length) ids = Object.keys(EVENTS).filter(function (k) { return ok(EVENTS[k]) && !EVENTS[k].who; });
+    if (!ids.length) {   // 都遇過了（鎮妖塔深處）：再遇一次，但加最大生命的不重複（不然一路疊上去）
+      var growth = function (k) { return /"maxHp",\d/.test(JSON.stringify(EVENTS[k].opts)); };
+      ids = Object.keys(EVENTS).filter(function (k) { return ok(EVENTS[k]) && !EVENTS[k].who && !growth(k); });
+      if (!ids.length) ids = Object.keys(EVENTS).filter(function (k) { return ok(EVENTS[k]) && !EVENTS[k].who; });
+    }
     var id = pick(run, ids);
     run.seenEvents.push(id); run.event = id; run.screen = 'event';
   }
@@ -1481,7 +1489,8 @@ var G = (function () {
     return dealt;
   }
   var KRAKEN_STEP = 12;
-  function krakenBites(b) { return 1 + Math.floor(b.kraken / KRAKEN_STEP); }
+  var KRAKEN_BITES_MAX = 4;   // 最多咬 4 口：咬幾口×每口多大是平方成長，阿白養到上百就失控
+  function krakenBites(b) { return Math.min(KRAKEN_BITES_MAX, 1 + Math.floor(b.kraken / KRAKEN_STEP)); }
   function randFoe(ctx) { var a = alive(ctx.b); return a.length ? pick(ctx.run, a) : null; }
 
   // ── 效果表：卡牌與神通共用。ctx＝{run, b, tg 目標, log, id 卡片, atk 是否攻擊牌, first 是否本回合第一張} ──
@@ -1975,7 +1984,7 @@ var G = (function () {
     return { ok: true, msg: '移除了「' + card(gone).name + '」' };
   }
   function leaveShop(run) { if (run.screen !== 'shop') return false; run.shop = null; run.screen = 'map'; return true; }
-  function takeChest(run) { if (run.screen !== 'chest') return false; gainRelic(run, run.reward.relic); run.reward = null; run.screen = 'map'; return true; }
+  function takeChest(run) { if (run.screen !== 'chest') return false; if (run.reward.relic) gainRelic(run, run.reward.relic); else run.gold += run.reward.gold || 0; run.reward = null; run.screen = 'map'; return true; }
   // 休息：heal 回復三成生命｜upgrade 強化一張牌｜remove 從牌組移除一張牌（i＝牌組索引；牌組至少留 5 張）
   function restHeal(run) { return Math.round(run.maxHp * diffOf(run).rest) + (hasRelic(run, 'tea') ? 15 : 0); }
   function rest(run, what, i, variant) {

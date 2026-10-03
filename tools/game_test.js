@@ -540,4 +540,10 @@ t(G.EVENTS.whisper.noEndless,'鎮妖塔不會遇到「把玉符留到最後」')
 { t(G.card('jiefa+c').npBonus===30&&G.card('jiefa+c').fx.filter(f=>f[0]==='draw').length===0,'共鳴：借法本來就抽牌，改成神通 +30%（不會多一個抽 1 張）'); }
 { const q=arena('shuang',1,80); q.battle.projUp=2; swords(q,3); playId(q,'broken'); t(80-E(q).hp===27,'劍氣迸裂也吃「本場飛劍傷害 +N」（3 把 ×(7+2)）',80-E(q).hp); }
 { const q=G.newRun('chilian',4); step(q,'fight'); q.battle.pBlock=10; q.battle.block=0; q.battle.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.block===Math.round(10*G.statsOf(q).def),'每回合格擋也吃根骨',q.battle.block); }
+// 困難模式與鎮妖塔深處（2026-10-03）
+{ t(G.card('abyss+f').cost===G.card('abyss+a').cost&&G.card('yangguan+f').cost===G.card('yangguan+a').cost&&G.card('abyss+f').cost>0,'★傳說：龍族血脈、陽關三疊這類翻倍的牌不會變 0 費（0 費又不消耗，重抽就一直翻倍）'); }
+{ const q=arena('xiaoman'); q.battle.kraken=200; t(G.krakenBites(q.battle)===4,'阿白最多咬 4 口',G.krakenBites(q.battle)); }
+{ const q=G.newRun('qingli',7); q.relics=G.relicPool(q).slice(); const g=q.gold; step(q,'chest'); t(!q.reward.relic&&q.reward.gold===60,'法寶拿光了：寶箱改成 60 金',JSON.stringify(q.reward)); G.takeChest(q); t(q.gold===g+60&&q.screen==='map','收下碎銀'); }
+{ const q=G.newRun('shuang',8,{endless:true}); q.act=5; q.seenEvents=Object.keys(G.EVENTS); let bad=0; for(let i=0;i<200;i++){ q.screen='map'; G.startEvent(q); if(/"maxHp",\d/.test(JSON.stringify(G.EVENTS[q.event].opts))) bad++; } t(!bad,'事件都遇過了：再遇的不會是加最大生命的（不然鎮妖塔裡一路疊）',bad); }
+{ const q=G.newRun('shuang',9,{endless:true}); q.act=5; t(G.makeEnemy(q,'huyao',0,0).str===18,'鎮妖塔魔王：每層力量 +4（第 3 層 6+12）',G.makeEnemy(q,'huyao',0,0).str); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

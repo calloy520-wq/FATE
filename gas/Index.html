@@ -717,7 +717,7 @@
     ['師門玉符', '整趟只有一枚。戰鬥中捏碎它生命回滿；但只有留到第二章魔王之後，才能捏碎它打開九幽魔淵——保命還是闖隱藏關，只能選一個'],
     ['飛劍', '蘇凌霜祭出的飛劍：0 費、造成 5 傷害，疊成一張「飛劍 ×N」（不佔手牌上限、最多 10 把、回合結束留 5 把），用完就沒；萬劍歸宗會讓每把更強。飛劍追魂、劍陣護體照手上的飛劍數加成，劍氣迸裂一次全部引爆'],
     ['定身', '顧青璃的符：一層層貼上去，累積到門檻（第一章一般 3、精英 4、魔王 5，第二章起各 +1；魔王第二次被定住之後，每次再 +1）就動彈不得一回合、層數歸零；鎮魂符的重壓：每層定身讓那個敵人力量 -1。五雷轟頂把身上的符一次引爆'],
-    ['阿白', '白辰的本命靈龍：每回合長大 1，回合結束咬生命最少的敵人（每大 12 多咬一口）；被打穿格擋時替妳擋下一半（擋了會縮小）。每打贏兩場，之後每場開場再大 1（整局最多 +6）'],
+    ['阿白', '白辰的本命靈龍：每回合長大 1，回合結束咬生命最少的敵人（每大 12 多咬一口，最多 4 口）；被打穿格擋時替妳擋下一半（擋了會縮小）。每打贏兩場，之後每場開場再大 1（整局最多 +6）'],
     ['血煞反噬', '赤練：第 2 回合起每回合開始失去 2 生命（不會因此倒下）——用自己的血換力量'],
     ['不滅血體', '赤練：整趟有 1 條備用的命，倒下時以五成生命站起來、整趟力量 +2'],
     ['隱蠱', '阿朵：每場戰鬥第一回合攻擊 ×1.5（蠱早就悄悄種下了）'],
@@ -801,7 +801,7 @@
     major: ['修行的方向', '這個選擇只有一次：專精讓這條主修更強；兼修多開一條主修，之後兩條的牌都會出現。'],
     hero_shuang: ['凌霜的飛劍', '開戰先祭出 2 把飛劍，之後每回合再 1 把，疊成手上那張「飛劍 ×N」（0 費，點一下放一把，或按「全放」）。不急著放也行：回合結束留 5 把，飛劍追魂、劍陣護體這些牌看手上的劍數變強。神通量表靠祭劍累積（開場那 2 把不算）。'],
     hero_qingli: ['青璃的定身', '敵人身上的「定身 1/4」：貼滿門檻就動彈不得一回合，層數歸零。每層定身也讓那個敵人力量 -1。開戰全體先貼 1 層；神通量表靠貼定身累積。'],
-    hero_xiaoman: ['白辰的阿白', '阿白每回合長大 1，回合結束咬生命最少的敵人（每大 12 多咬一口）；打穿格擋的傷害，阿白替妳擋一半（擋了會縮小）。每打贏兩場，之後開場就更大。走龍佑的話，阿白不咬人，改成每回合給妳力量。'],
+    hero_xiaoman: ['白辰的阿白', '阿白每回合長大 1，回合結束咬生命最少的敵人（每大 12 多咬一口，最多 4 口）；打穿格擋的傷害，阿白替妳擋一半（擋了會縮小）。每打贏兩場，之後開場就更大。走龍佑的話，阿白不咬人，改成每回合給妳力量。'],
     hero_chilian: ['赤練的血煞', '從第 2 回合起，每回合開始血煞反噬 -2 生命（不會因此倒下）；少掉的生命越多，攻擊越狠。倒下時有一次站起來的機會（五成生命、力量 +2）。神通量表靠失去生命累積。'],
     hero_aduo: ['阿朵的毒', '第一回合的攻擊 ×1.5。毒在敵人回合開始扣血（無視格擋），扣完減 1；蠱發這類牌打中毒的敵人更痛。神通量表靠讓敵人多中毒（或寄生）累積；走暗器的話，每打出一張攻擊牌也會漲。']
   };
@@ -1352,7 +1352,7 @@
     (function step(n) {
       if (!run.battle || run.screen !== 'battle' || n > 12) return;
       if (busy) return setTimeout(function () { step(n); }, 120);
-      var i = run.battle.hand.indexOf('sword'); if (i < 0 || !G.alive(run.battle).length) return;
+      var i = run.battle.hand.indexOf('sword'); if (i < 0 || !G.alive(run.battle).length || G.costOf(run, 'sword') > run.battle.energy) return;   // 縛靈讓飛劍要花靈力：付不起就停
       playCard(i); setTimeout(function () { step(n + 1); }, 380);
     })(0);
   }
@@ -1503,7 +1503,7 @@
   function chestScreen() {
     var k = run.reward.relic;
     $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">寶箱</h1>'
-      + (k ? '<div>法寶「<b style="color:var(--gold)">' + esc(G.RELICS[k].name) + '</b>」：' + esc(G.RELICS[k].text) + '</div>' : '<div class="dim">空的。</div>')
+      + (k ? '<div>法寶「<b style="color:var(--gold)">' + esc(G.RELICS[k].name) + '</b>」：' + esc(G.RELICS[k].text) + '</div>' : (run.reward.gold ? '<div>一袋碎銀：<b style="color:var(--gold)">' + run.reward.gold + ' 金</b></div>' : '<div class="dim">空的。</div>'))
       + '<button class="btn" onclick="G.takeChest(run);render()">收下</button></div>';
   }
   function restScreen() {
@@ -1549,7 +1549,7 @@
   function doBuy(what, i) { var r = G.buy(run, what, i); if (r.msg) toast(r.msg, r.ok ? '' : 'err'); render(); }
   function shopRm() { openOv('<b>選一張牌移除（💰 ' + G.removePrice(run) + '）</b><div class="pick" style="margin-top:12px">' + deckPick(null, function (i) { return 'shopRmDo(' + i + ')'; }) + '</div><div class="row" style="justify-content:center;margin-top:12px"><button class="btn" onclick="closeOv()">先不要</button></div>'); }
   function shopRmDo(i) { confirmOv('花 💰' + G.removePrice(run) + ' 移除「' + esc(G.card(run.deck[i]).name) + '」？', function () { doBuy('remove', i); }); }
-  function breaksJade(o) { return o.fx.some(function (f) { return f[0] === 'seal' && f[1] < 0; }); }
+  function breaksJade(o) { return JSON.stringify(o.fx).indexOf('["seal",-') >= 0; }   // 擲骰的成功／失敗裡有捏碎玉符也算
   function doChoose(i, sure) {
     var o = G.EVENTS[run.event].opts[i];
     if (!sure && breaksJade(o)) return confirmOv('真的要捏碎師門玉符嗎？' + (run.endless ? '（整趟只有一枚）' : '（這趟就進不了九幽魔淵了）'), function () { doChoose(i, true); });
