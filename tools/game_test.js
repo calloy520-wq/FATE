@@ -523,4 +523,6 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
 { const q=arena('qingli',1,200); E(q).id='niumo'; E(q).lives=1; E(q).weak=2; E(q).hp=1; G.OPS.dmg({run:q,b:q.battle,tg:E(q),log:[],atk:false},['dmg',5]); t(E(q).weak===2&&E(q).hp>1,'敵人倒下又站起來：身上的虛弱還在',E(q).weak); }
 { const q=arena('aduo'); q.battle.turn=2; q.battle.freeAtk=1; swords(q,2); G.play(q,0,0); t(q.battle.freeAtk===1,'無影：0 費的飛劍不會吃掉「下一張攻擊不花靈力」'); }
 { const q=arena('qingli',2,30); E(q,1).hp=0; E(q).intent={n:'叫人',fx:[['summon','zhiren',1]]}; G.endTurn(q); t(q.battle.enemies.length===2&&q.battle.enemies[1].hp>0,'叫來的援軍補進倒下的空位（不會越積越多）',q.battle.enemies.length); }
+{ const q=arena('shuang',1,5); E(q).thorns=3; q.hp=2; playId(q,'atk_shuang'); t(q.screen!=='over'&&q.hp===2,'打倒最後一個敵人的那一下，不會被它的反震震死',[q.screen,q.hp]); }
+{ const q=arena('chilian',1,5); q.hp=2; playId(q,'rampage'); t(q.screen!=='over'&&q.hp===2,'血刃打倒最後一個敵人：自傷就不用付了',[q.screen,q.hp]); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

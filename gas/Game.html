@@ -1471,7 +1471,7 @@ var G = (function () {
   function strike(ctx, e, base, pierce) {
     var b = ctx.b; if (!e || e.hp <= 0) return 0;
     var dealt = hitEnemy(ctx.run, e, dmgTo(e, pDmg(ctx, base)), ctx.log, pierce);
-    if (ctx.atk && e.thorns > 0 && !(ctx.thorned = ctx.thorned || {})[e.key]) { ctx.thorned[e.key] = 1; loseHp(ctx.run, e.thorns, ctx.log); ctx.log.push(e.name + '反震 ' + e.thorns); }   // 石傀儡：打它會被震傷（每張牌一次）
+    if (ctx.atk && e.thorns > 0 && e.hp > 0 && !(ctx.thorned = ctx.thorned || {})[e.key]) { ctx.thorned[e.key] = 1; loseHp(ctx.run, e.thorns, ctx.log); ctx.log.push(e.name + '反震 ' + e.thorns); }   // 石傀儡：打它會被震傷（每張牌一次）
     if (ctx.atk && b.pVenom && e.hp > 0) e.poison += b.pVenom;
     if (ctx.atk && b.pLeech && ctx.run.hp < ctx.run.maxHp / 2) healP(ctx.run, Math.floor(dealt * b.pLeech / 100), null);   // 血蓮：殘血時吸血
     return dealt;
@@ -1630,7 +1630,7 @@ var G = (function () {
     };
     OPS[d[0]].res = d[1];
   });
-  function runFx(ctx, fx) { fx.forEach(function (f) { if (ctx.run && ctx.run.hp <= 0) return; if (OPS[f[0]]) OPS[f[0]](ctx, f); }); }   // 倒下了，這張牌剩下的效果（吸血、回血）就不算了
+  function runFx(ctx, fx) { fx.forEach(function (f) { if (ctx.run && ctx.run.hp <= 0) return; if (f[0] === 'selfDmg' && ctx.b && ctx.b.enemies && !alive(ctx.b).length) return; if (OPS[f[0]]) OPS[f[0]](ctx, f); }); }   // 倒下了，這張牌剩下的效果（吸血、回血）就不算了；敵人都倒了，自傷也不用付
   function pickTarget(b, target) {
     var tg = b.enemies[target];
     if (tg && tg.hp > 0) return tg;
