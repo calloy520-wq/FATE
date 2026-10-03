@@ -180,7 +180,7 @@ var G = (function () {
     presence:   { name: '蝶影', cost: 1, type: 'skill', np: 5, fx: [['evade', 2]], up: { fx: [['evade', 2], ['block', 4]] } },
     daggers:    { name: '蠱蟲亂舞', cost: 1, type: 'atk', np: 10, fx: [['rand', 3, 3], ['poisonAll', 1]], up: { fx: [['rand', 4, 3], ['poisonAll', 1]] } },
     miasma:     { name: '瘴氣', cost: 2, type: 'skill', np: 10, fx: [['poisonAll', 4]], up: { fx: [['poisonAll', 6]] } },
-    plague:     { name: '催蠱', cost: 0, type: 'skill', np: 5, ex: 1, fx: [['poisonX2', 1]], up: { ex: 0 } },
+    plague:     { name: '催蠱', cost: 0, type: 'skill', np: 5, ex: 1, fx: [['poisonX2', 1]], up: { fx: [['poisonX2', 1], ['draw', 1]] } },   // 0 費的翻倍牌強化也留著消耗（重抽就能一直翻倍）
     venombody:  { name: '以身養蠱', cost: 2, type: 'power', np: 0, fx: [['pVenom', 1]], up: { cost: 1 } },
     // 暗器（隱）：銀針飛刀從暗處來，躲著打、專挑破綻
     dieyin:     { name: '斂息', cost: 1, type: 'skill', np: 0, fx: [['evade', 1], ['ambushNext', 1]], up: { fx: [['evade', 2], ['ambushNext', 1]] } },
@@ -193,7 +193,7 @@ var G = (function () {
     chongchao:  { name: '蟲潮', cost: 2, type: 'skill', np: 0, fx: [['parasiteAll', 3]], up: { fx: [['parasiteAll', 4]] } },
     chongshi:   { name: '蟲噬', cost: 1, type: 'atk', np: 0, fx: [['parasiteDmg', 3]], up: { fx: [['parasiteDmg', 4]] } },
     gumu:       { name: '蠱母', cost: 1, type: 'power', np: 0, fx: [['pGumu', 2]], up: { fx: [['pGumu', 3]] } },
-    yangchong:  { name: '以蟲養蟲', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['parasiteX2', 1], ['selfDmg', 2]], up: { ex: 0 } },
+    yangchong:  { name: '以蟲養蟲', cost: 0, type: 'skill', np: 0, ex: 1, fx: [['parasiteX2', 1], ['selfDmg', 2]], up: { fx: [['parasiteX2', 1], ['selfDmg', 2], ['draw', 1]] } },   // 0 費的翻倍牌強化也留著消耗
     chongjia:   { name: '蟲甲', cost: 1, type: 'skill', np: 0, fx: [['parasiteBlock', 5]], up: { fx: [['parasiteBlock', 8]] } }
   });
 

@@ -24,13 +24,16 @@ function gpToken_(name, hash) { return gpHash_('token', name + '|' + hash); }
 // 找帳號在第幾列：先看快取（列不會刪，只會往下加），讀到的那列名字不對再整欄找
 function gpOldName_(name) { return String(name || '').replace(/[\s<>"'&]/g, '').slice(0, 16); }   // 改版前的整理方式（舊帳號用）
 function gpFind_(sh, name, raw) {
-  var cache = CacheService.getScriptCache(), key = 'row:' + name, hit = +cache.get(key), old = raw != null ? gpOldName_(raw) : null;
-  var same = function (cell) { return gpName_(cell) === name || (old && String(cell) === old); };
-  if (hit >= 2 && hit <= sh.getLastRow() && same(sh.getRange(hit, 1).getValue())) return hit;
+  var old = raw != null ? gpOldName_(raw) : null, cache = CacheService.getScriptCache(), key = 'row:' + (old != null ? old : name), hit = +cache.get(key);
+  var exact = function (cell) { return String(cell) === (old != null ? old : name); };   // 存的名字跟輸入的一字不差：一定是這列
+  if (hit >= 2 && hit <= sh.getLastRow() && exact(sh.getRange(hit, 1).getValue())) return hit;
   var n = sh.getLastRow(); if (n < 2) return 0;
-  var names = sh.getRange(2, 1, n - 1, 1).getValues();
-  for (var i = 0; i < names.length; i++) if (same(names[i][0])) { try { cache.put(key, String(i + 2), 21600); } catch (e) { } return i + 2; }
-  return 0;
+  var names = sh.getRange(2, 1, n - 1, 1).getValues(), loose = 0;
+  for (var i = 0; i < names.length; i++) {
+    if (exact(names[i][0])) { try { cache.put(key, String(i + 2), 21600); } catch (e) { } return i + 2; }
+    if (!loose && gpName_(names[i][0]) === name) loose = i + 2;   // 全形半形不同、開頭多了符號的舊帳號：沒有一字不差的才用它
+  }
+  return loose;
 }
 // 帳號名稱：全形半形一致（NFKC）、拿掉看不見的字與空白、開頭不能是 = + - @（試算表會當成公式）
 function gpName_(name) {
@@ -90,7 +93,7 @@ function gpResume(name, token) {
 // 存檔：meta、run 都是字串（run＝'' 代表這局結束了）；傳 null 的那一格不動
 // 一次讀整列、一次寫回（以前一次存檔要叫試算表八次）；鎖只鎖這一下，搶不到就請瀏覽器等一下再送
 // meta：跟伺服器上的合併（數字取大、清單聯集）；run：帶著這一局的版本 runTs 與「從哪一版接著玩」baseTs
-// 伺服器上的版本比 baseTs 新（別的分頁、裝置已經往前玩了）就不蓋，回 stale 叫瀏覽器重新接上；沒帶版本的（改版前開著的舊頁面）照舊直接寫
+// 伺服器上的版本比 baseTs 新（別的分頁、裝置已經往前玩了）就不蓋，回 stale 叫瀏覽器重新接上；沒帶 baseTs 的（改版前開著的舊頁面）照舊的規則：比伺服器上的舊才不寫
 function gpSave(name, token, meta, run, runTs, baseTs) {
   var raw = name; name = gpName_(name);
   var lock = LockService.getScriptLock(); if (!lock.tryLock(5000)) return { ok: false, busy: true, msg: '伺服器忙，等一下再存' };
@@ -106,7 +109,10 @@ function gpSave(name, token, meta, run, runTs, baseTs) {
     }
     if (run != null) {
       if (String(run).length > GP_CELL_MAX) return { ok: false, msg: '存檔太大' };
-      if (runTs == null) { outRun = String(run); outTs = Math.max(outTs + 1, Date.now()); }   // 舊頁面：照舊直接寫
+      if (baseTs == null) {   // 改版前開著的舊頁面（沒帶 baseTs）：照舊的規則，比伺服器上的舊才不寫
+        if (runTs != null && +runTs < outTs) stale = true;
+        else { outRun = String(run); outTs = Math.max(outTs + 1, +runTs || Date.now()); }
+      }
       else if (outTs > (+baseTs || 0)) stale = true;   // 伺服器上已經有更新的一局：不蓋
       else { outRun = String(run); outTs = Math.max(+runTs || 0, outTs + 1); }
     }

@@ -389,7 +389,7 @@
   .fig .pet .dragon { filter:drop-shadow(0 0 6px #9ed0ff); animation:float 2.6s ease-in-out infinite; }
   .dragon .dsize { font-size:11px; fill:#ffd36e; font-weight:bold; }
   .dragon.dimg { position:relative; display:inline-block; } .dragon.dimg img { width:100%; display:block; }
-  .ending .dragon .dsz, .ending .dragon .dsize { display:none; }
+  .ending .dragon .dsz, .ending .dragon .dsize, .ov .svtfig .dragon .dsz, .ov .svtfig .dragon .dsize { display:none; }
   .dragon.dimg .dsz { position:absolute; left:50%; bottom:2%; transform:translateX(-50%); font-size:12px; color:#ffd36e; text-shadow:0 0 3px #000,0 0 6px #000; }
   .fsvg .swords { animation:float 2.2s ease-in-out infinite; } .fsvg .fu { animation:float 3s ease-in-out infinite; } .fsvg .bfly { animation:float 1.8s ease-in-out infinite; }
   @keyframes breathe { 50% { transform:scaleY(1.022) translateY(-1px); } }
@@ -576,7 +576,7 @@
     if (fn === 'gpResume') return u && a[1] === 't-' + a[0] ? { ok: true, name: a[0], token: a[1], meta: u.meta || null, run: u.run || null, runTs: u.runTs || 0 } : { ok: false, msg: '請重新登入' };
     if (fn === 'gpBoard') return { ok: true, me: 'k-' + a[0], list: Object.keys(db).map(function (k) { var m = null; try { m = JSON.parse(db[k].meta || 'null'); } catch (e) { } var r = boardRow(k, m); if (r) { r.key = 'k-' + k; r.name = '○' + Array.from(k).slice(1).join(''); } return r; }).filter(function (r) { return r && (r.endless || r.wins); }) };
     if (fn === 'gpLog') { try { var lg = JSON.parse(localStorage.getItem('grail_fake_log') || '[]'); lg.push(a[2]); localStorage.setItem('grail_fake_log', JSON.stringify(lg.slice(-50))); } catch (e) { } return { ok: true }; }
-    if (fn === 'gpSave') { if (!u) return { ok: false }; if (a[2] != null) u.meta = a[2]; var st = false; if (a[3] != null) { if (a[4] == null) { u.run = a[3]; u.runTs = Math.max((u.runTs || 0) + 1, Date.now()); } else if ((u.runTs || 0) > (+a[5] || 0)) st = true; else { u.run = a[3]; u.runTs = Math.max(+a[4] || 0, (u.runTs || 0) + 1); } } put(); return { ok: true, stale: st, runTs: u.runTs || 0 }; }
+    if (fn === 'gpSave') { if (!u) return { ok: false }; if (a[2] != null) u.meta = a[2]; var st = false; if (a[3] != null) { if (a[5] == null) { if (a[4] != null && +a[4] < (u.runTs || 0)) st = true; else { u.run = a[3]; u.runTs = Math.max((u.runTs || 0) + 1, +a[4] || Date.now()); } } else if ((u.runTs || 0) > (+a[5] || 0)) st = true; else { u.run = a[3]; u.runTs = Math.max(+a[4] || 0, (u.runTs || 0) + 1); } } put(); return { ok: true, stale: st, runTs: u.runTs || 0 }; }
   }
   // 存檔：先寫本機快取；伺服器停 5 秒沒有新變化才送（最多等 30 秒），一次只送一筆；送不出去就退一步再試（5／15／60 秒）
   var dirty = { meta: false, run: false }, saveTimer = null, syncState = '', firstDirty = 0, inflight = false, failN = 0;
@@ -584,21 +584,24 @@
     if (!ACC || !META) return;
     META.ts = Date.now();
     if (m) dirty.meta = true; if (r) dirty.run = true;
-    try { localStorage.setItem(CKEY + ACC.name, JSON.stringify({ meta: JSON.stringify(META), run: SAVED_RUN, runTs: RUN_TS, base: BASE_TS, ts: META.ts })); } catch (e) { }
+    writeCache();
     if (!firstDirty) firstDirty = Date.now();
     clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, Math.max(0, Math.min(5000, firstDirty + 30000 - Date.now())));
   }
+  function writeCache() { try { localStorage.setItem(CKEY + ACC.name, JSON.stringify({ meta: JSON.stringify(META), run: SAVED_RUN, runTs: RUN_TS, base: BASE_TS, ts: META.ts })); } catch (e) { } }
+  var SENT = {};   // 這個分頁送出過的版本（回覆丟了、伺服器其實寫進去了，就認得出是自己的）
   function flushSave() {
     clearTimeout(saveTimer); if (!ACC || (!dirty.meta && !dirty.run)) return;
     if (inflight) { saveTimer = setTimeout(flushSave, 1500); return; }   // 上一筆還在路上：等它回來再送
     var was = dirty, m = JSON.stringify(META), r = was.run ? SAVED_RUN : null, rt = RUN_TS;   // 戰績每次都送（伺服器會合併）；這一局只有變了才送
     dirty = { meta: false, run: false }; firstDirty = 0; inflight = true;
+    if (r != null) { SENT[rt] = r; var ks = Object.keys(SENT); if (ks.length > 30) delete SENT[ks[0]]; }
     srv('gpSave', [ACC.name, ACC.token, m, r, rt, BASE_TS], function (res) {
       inflight = false;
       if (res && res.ok) {
         syncState = ''; failN = 0;
         if (res.stale) return resyncRun();   // 別的分頁、裝置已經往前玩了：不蓋它，改成接上它的進度
-        if (r != null && res.runTs) BASE_TS = Math.max(BASE_TS, +res.runTs);
+        if (r != null && res.runTs) { BASE_TS = Math.max(BASE_TS, +res.runTs); writeCache(); }
         return;
       }
       dirty = { meta: dirty.meta || was.meta, run: dirty.run || was.run }; syncState = '⚠';   // 沒送到：記回去，等一下再試
@@ -611,9 +614,17 @@
   function resyncRun() {
     srv('gpResume', [ACC.name, ACC.token], function (res) {
       if (!res || !res.ok) return;
-      SAVED_RUN = res.run || ''; RUN_TS = BASE_TS = +res.runTs || 0; dirty.run = false;
-      try { localStorage.setItem(CKEY + ACC.name, JSON.stringify({ meta: JSON.stringify(META), run: SAVED_RUN, runTs: RUN_TS, base: BASE_TS, ts: META.ts })); } catch (e) { }
-      run = null; closeOv(); titleScreen(); toast('這一局在別的分頁或裝置有更新的進度，已經幫妳接上', 'err');
+      var ts = +res.runTs || 0;
+      if (SENT[ts] !== undefined && SENT[ts] === (res.run || '')) {   // 伺服器上那一版其實是自己送的（上次的回覆丟了）：接著送就好
+        BASE_TS = Math.max(BASE_TS, ts); RUN_TS = Math.max(RUN_TS, BASE_TS + 1); writeCache();
+        if (SAVED_RUN !== (res.run || '')) { dirty.run = true; flushSave(); }
+        return;
+      }
+      (function apply() {
+        if (busy) return setTimeout(apply, 200);   // 動畫播完再換（不然播到一半的出牌找不到戰鬥）
+        SAVED_RUN = res.run || ''; RUN_TS = BASE_TS = ts; dirty.run = false; writeCache();
+        run = null; closeOv(); titleScreen(); toast('這一局在別的分頁或裝置有更新的進度，已經幫妳接上', 'err');
+      })();
     });
   }
   document.addEventListener('visibilitychange', function () { if (document.hidden) flushSave(); });
@@ -643,9 +654,10 @@
     Object.keys(newMeta()).forEach(function (k) { if (META[k] === undefined && k !== 'v') META[k] = newMeta()[k]; });   // v 留給下面的改版搬家判斷
     // 本機快取比伺服器新（上次沒送出去）：用本機的，並補送
     try { var C = JSON.parse(localStorage.getItem(CKEY + ACC.name) || 'null'); if (C) {
-      if (C.ts > (META.ts || 0)) { META = JSON.parse(C.meta); dirty.meta = true; }   // 戰績：本機比較新就補送（伺服器會合併）
-      // 這一局：本機的是從伺服器現在這一版接著玩、而且比較新，才用本機的；舊版快取沒有版本資訊，照舊看時間
-      var useLocal = C.runTs !== undefined ? (C.run !== SAVED_RUN && (+C.runTs || 0) > BASE_TS && (+C.base || 0) >= BASE_TS) : (C.ts > (META.ts || 0) && C.run !== SAVED_RUN);
+      var srvTs = META.ts || 0;
+      if (C.ts > srvTs) { META = JSON.parse(C.meta); dirty.meta = true; }   // 戰績：本機比較新就補送（伺服器會合併）
+      // 這一局：本機的是從伺服器現在這一版接著玩、而且比較新，才用本機的；舊版快取沒有 base 就只看版本、更舊的沒有版本就看時間
+      var useLocal = C.run !== SAVED_RUN && (C.base !== undefined ? (+C.runTs || 0) > BASE_TS && (+C.base || 0) >= BASE_TS : C.runTs !== undefined ? (+C.runTs || 0) > BASE_TS : C.ts > srvTs);
       if (useLocal) { SAVED_RUN = C.run || ''; RUN_TS = Math.max(+C.runTs || 0, BASE_TS + 1); dirty.run = true; }
       if (dirty.meta || dirty.run) flushSave();
     } } catch (e) { }
@@ -1351,7 +1363,7 @@
   function fireAll() {
     if (busy || !run.battle) return;
     (function step(n) {
-      if (!run.battle || run.screen !== 'battle' || n > 12) return;
+      if (!run || !run.battle || run.screen !== 'battle' || n > 12) return;
       if (busy) return setTimeout(function () { step(n); }, 120);
       var i = run.battle.hand.indexOf('sword'); if (i < 0 || !G.alive(run.battle).length || G.costOf(run, 'sword') > run.battle.energy) return;   // 縛靈讓飛劍要花靈力：付不起就停
       playCard(i); setTimeout(function () { step(n + 1); }, 380);
