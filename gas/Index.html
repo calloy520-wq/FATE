@@ -805,9 +805,9 @@
       + '<div class="panel home">' + heroHtml('五位女修，一副牌，一路斬妖封魔。')
       + '<div class="menu">'
       + (going ? big('cont()', '▶', '繼續冒險', esc(S.cls + '・' + S.name) + '・' + esc((saved.endless ? '♾ ' : '') + (G.actName(saved) || '').split('　')[0]) + (saved.floor ? ' 第 ' + saved.floor + ' 列' : ' 剛出發'), 'main') : '')
-      + big('storyScreen()', '🏮', '劇情', '前情提要、五位女修、真結局', going || M.stats.runs ? '' : 'main')
-      + big("MODE='normal';choose()", '⚔', '新的冒險', going ? '放棄目前這一局，重新選角色' : '選角色、選機緣，下山', going || !M.stats.runs ? '' : 'main')
+      + big("MODE='normal';choose()", '⚔', '新的冒險', going ? '放棄目前這一局，重新選角色' : '選角色、選機緣，出發', going ? '' : 'main')
       + big("MODE='endless';choose()", '♾', '鎮妖塔（無盡）', going ? '放棄目前這一局，改闖鎮妖塔' : '兩章之後下鎮妖塔，看能走多遠')
+      + big('storyScreen()', '🏮', '劇情', '前情提要、五位女修、真結局')
       + '<div class="msep"></div>'
       + '<div class="mrow">' + big('codexScreen()', '📚', '圖鑑') + big('recordScreen()', '📜', '戰績') + big('boardScreen(null,\'\')', '🏆', '排行榜') + big('showHelp()', '📖', '說明') + '</div>'
       + '</div></div>';
@@ -922,7 +922,7 @@
     var S = G.SERVANTS[k];
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(S.cls + '・' + S.name) + '</b>　<span class="dim">生命 ' + S.hp + '</span>'
       + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + (k === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>'
-      + '<div class="list" style="margin-top:10px"><div class="box">' + keepTail(esc(S.desc)) + '</div>' + paramsHtml(k)
+      + '<div class="list" style="margin-top:10px">' + paramsHtml(k)
       + '<div class="box"><h3>被動「' + esc(S.passive.name) + '」</h3>' + keepTail(esc(S.passive.text)) + '</div>'
       + '<div class="box"><h3>神通「' + esc(S.np.name) + '」</h3>' + esc(G.npText(S.np)) + '<div class="dim" style="margin-top:6px;font-size:13.5px">量表怎麼漲：' + esc(G.npHow(k)) + '</div></div>'
       + '<div class="box"><h3>' + esc(S.sect) + '・主修</h3>' + S.paths.map(function (P) { return '<div style="margin-top:4px"><b>' + esc(P.name) + '</b>（' + esc(P.feel) + '）：' + keepTail(esc(P.desc)) + '</div>'; }).join('') + '<div class="dim" style="margin-top:6px;font-size:13.5px">出發時選一條；打倒第一章魔王時再選專精或兼修。</div></div>'
@@ -1002,7 +1002,7 @@
     }
     var S = G.serv(run);
     return head + '<div class="list">'
-      + '<div class="box"><h3>' + esc(S.cls + '・' + S.name) + '</h3>' + keepTail(esc(S.desc)) + '</div>' + paramsHtml(run.who)
+      + '<div class="box"><h3>' + esc(S.cls + '・' + S.name) + '</h3><span class="dim">' + esc(S.sect) + '</span></div>' + paramsHtml(run.who)
       + '<div class="box"><h3>被動「' + esc(S.passive.name) + '」</h3>' + keepTail(esc(S.passive.text)) + '</div>'
       + '<div class="box"><h3>神通「' + esc(S.np.name) + '」（量表滿 100% 才能施展）</h3>' + esc(G.npText(S.np, run)) + '<div class="dim" style="margin-top:6px;font-size:13.5px">量表怎麼漲：' + esc(G.npHow(run.who)) + '</div></div>'
       + '<div class="box"><h3>' + esc(S.sect) + '・主修</h3>' + run.majors.map(function (id) { var P = G.pathById(run.who, id); return '<div><b>' + esc(P.name) + '</b>（' + esc(P.feel) + '）：' + keepTail(esc(P.desc)) + '</div>'; }).join('') + (run.mastered ? '<div style="margin-top:4px;color:var(--gold)">專精：' + esc(G.masterText(G.majorOf(run))) + '</div>' : run.pathPicked ? '' : '<div class="dim" style="margin-top:4px">打倒第一章魔王時再選專精或兼修</div>') + '</div>'
@@ -1466,9 +1466,10 @@
   }
   function doRm(i) { confirmOv('移除「' + esc(G.card(run.deck[i]).name) + '」？', function () { G.rest(run, 'remove', i); render(); }); }
   function needText(o) { var n = o.need || {}, a = []; if (n.hp && run.hp <= n.hp) a.push('生命要多於 ' + n.hp); if (n.seal && run.seals < n.seal) a.push('要 ' + n.seal + ' 枚玉符'); if (n.gold && run.gold < n.gold) a.push('要 ' + n.gold + ' 金'); return a.join('、') || '條件不夠'; }
+  // 事件：冒險裡只放標題與選項（故事收在「劇情」）
   function eventScreen() {
     var E = G.EVENTS[run.event];
-    $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">❓ ' + esc(E.name) + '</h1><div class="lore" style="max-width:420px">' + keepTail(esc(E.text)) + '</div><div class="list">'
+    $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">❓ ' + esc(E.name) + '</h1><div class="list">'
       + E.opts.map(function (o, i) { var ok = G.canChoose(run, o); return '<button ' + (ok ? 'onclick="doChoose(' + i + ')"' : 'disabled style="opacity:.4"') + '>' + esc(o.label) + (ok ? '' : '（' + needText(o) + '）') + d20Hint(o) + '</button>'; }).join('') + '</div></div>';
   }
   function shopScreen() {
@@ -1512,7 +1513,7 @@
   function pickAsk(i) { var kind = run.pending[0], nm = esc(G.card(run.deck[i]).name); if (kind === 'remove' || kind === 'transform') return confirmOv((kind === 'remove' ? '移除' : '變形') + '「' + nm + '」？', function () { doPick(i); }); doPick(i); }
   function secretScreen() {
     $('app').innerHTML = topBar() + '<div class="panel" style="min-height:70vh;justify-content:center"><h1>九幽魔淵</h1>'
-      + '<div style="max-width:420px;text-align:center" class="lore">第二章的魔王倒下了。懷裡的玉符還在發燙。鬼哭城底下就是魔淵，地底深處，隱約有一聲劍鳴。<br>捏碎玉符，魔淵的門只會開一人寬——人進得越多，魘吃得越多。其他四個人留在門外鎮住陣腳，只有妳進去。<br>最深處等著的，是劍主的身體、劍主的劍——裡面是魘。進去就不能回頭。</div>'
+      + '<div style="max-width:420px;text-align:center" class="lore">捏碎玉符進九幽魔淵：休息 → 精英 → 魘。<br>進去就不能回頭。<br>回去的話，這一局以通關結束。</div>'
       + '<button class="btn red" onclick="G.secret(run,true);render()">捏碎玉符，往深處走（隱藏關）</button>'
       + '<button class="btn" onclick="G.secret(run,false);render()">就到這裡，回去</button></div>';
   }
@@ -1591,10 +1592,10 @@
       syncCodex(); run.unlockMsgs = newUnlocks(); updateMe(function () { }); save();
     }
     var um = run.unlockMsgs || [];
-    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.trueEnd ? '魘已封印' : run.win ? '妖魔平定' : run.endless ? '♾ 走到這裡' : '敗退') + '</h1>'
-      + '<div class="dim" style="text-align:center">' + esc(S.cls) + '・' + esc(S.name) + '<br>' + (run.trueEnd ? '魘重新封回魔淵深處，劍主被接了出來' : run.win ? '鬼哭城的妖魔平定了。<br>魔淵深處的劍鳴，還是沒有回來' : '倒在' + esc(run.endless && run.act >= 3 ? '鎮妖塔第 ' + (run.act - 2) + ' 層' : G.actName(run).split('　')[0] + '「' + G.actName(run).split('　')[1] + '」') + '・第 ' + run.floor + ' 列') + '</div>'
+    $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.trueEnd ? '魘已封印' : run.win ? '通關' : run.endless ? '♾ 走到這裡' : '敗退') + '</h1>'
+      + '<div class="dim" style="text-align:center">' + esc(S.cls) + '・' + esc(S.name) + '<br>' + (run.trueEnd ? '隱藏關通關' : run.win ? '兩章的魔王都倒下了' : '倒在' + esc(run.endless && run.act >= 3 ? '鎮妖塔第 ' + (run.act - 2) + ' 層' : G.actName(run).split('　')[0] + '「' + G.actName(run).split('　')[1] + '」') + '・第 ' + run.floor + ' 列') + '</div>'
       + (run.endless ? '<div class="box" style="text-align:center"><div class="dim">♾ 鎮妖塔成績</div><div style="font-size:30px;color:var(--gold)">' + st.floors + ' 格</div><div class="dim">' + esc(S.name) + '的最遠：' + ((me().stats.endless || {})[run.who] || st.floors) + ' 格</div><button class="infobtn" style="margin-top:8px" onclick="boardScreen()">🏆 看排行榜</button></div>' : '')
-      + (run.trueEnd ? endingHtml(run.who) : '')
+      + (run.trueEnd ? '<div class="box" style="text-align:center;max-width:460px;width:100%">📜 真結局「' + esc(G.ENDINGS[run.who].title) + '」收進了「劇情」<div style="margin-top:8px"><button class="infobtn" onclick="openOv(endingHtml(run.who))">現在看</button></div></div>' : '')
       + '<div>擊敗 ' + st.kills + '・神通 ' + st.np + ' 次・丹藥吃了 ' + (st.pills || 0) + ' 顆' + (st.seals ? '・捏碎了玉符' : '') + '・牌組 ' + run.deck.length + ' 張</div>'
       + (um.length ? '<div class="box" style="max-width:460px;width:100%"><h3>🎁 解鎖了</h3>' + um.map(function (x) { return '<div style="margin-top:4px">' + esc(x) + '</div>'; }).join('') + (umHint(um) ? '<div class="dim" style="margin-top:6px;font-size:13px">' + umHint(um) + '</div>' : '') + '</div>' : '')
       + (run.diffNew ? '<div class="box" style="text-align:center;color:var(--gold)">以' + esc(G.DIFFS[run.diff || 'normal'].name) + '難度通關：' + esc(G.DIFFS[run.diffNew].name) + '難度開放了</div>' : '')
