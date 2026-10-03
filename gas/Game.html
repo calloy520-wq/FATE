@@ -1331,7 +1331,7 @@ var G = (function () {
     if (p === 'ambush') { var ps = poisonSum(b); if (ps > (b.mPoison || 0)) npAdd(b, (ps - (b.mPoison || 0)) * NP_GAIN.ambush); }
     meterSync(run);
   }
-  function longyouMode(run) { return run.major === 'longyou'; }   // 龍佑當主修才換成「不咬人、加持白辰」；龍戰兼修龍佑，阿白照樣咬
+  function longyouMode(run) { return run.major === 'longyou' && (run.majors || []).length < 2; }   // 只走龍佑才換成「不咬人、加持白辰」；龍戰、龍佑都修了，阿白照樣咬（不然另一條的牌全廢）
   function startTurn(run, first) {
     var b = run.battle;
     b.turn++; b.fxDrawn = 0;

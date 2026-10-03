@@ -1519,7 +1519,7 @@
     var MJ = G.majorOf(run), others = G.pathsOf(run.who).filter(function (P) { return run.majors.indexOf(P.id) < 0; });
     $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">修行的方向</h1><div class="dim" style="max-width:460px;text-align:center">第一章的魔王倒下了。接下來的路，要往哪裡走？</div>'
       + '<button class="svt" onclick="pickMajor(\'master\',\'專精「' + esc(MJ.name) + '」\')"><b>專精「' + esc(MJ.name) + '」</b><div style="margin-top:6px">' + esc(G.masterText(MJ)) + '</div><div class="dim" style="margin-top:4px;font-size:13px">之後戰利品只出「' + esc(MJ.name) + '」的專屬牌</div></button>'
-      + others.map(function (P) { return '<button class="svt" onclick="pickMajor(\'' + P.id + '\',\'兼修「' + esc(P.name) + '」\')"><b>兼修「' + esc(P.name) + '」（' + esc(P.feel) + '）</b><div style="margin-top:6px">' + keepTail(esc(P.id === 'longyou' ? '多一條龍佑的牌路：借阿白的力量出手。阿白照樣咬人。' : P.desc)) + '</div><div class="dim" style="margin-top:4px;font-size:13px">送一張招牌牌「' + esc(G.CARDS[P.sig].name) + '」；之後兩條主修的牌都會出現</div></button>'; }).join('')
+      + others.map(function (P) { return '<button class="svt" onclick="pickMajor(\'' + P.id + '\',\'兼修「' + esc(P.name) + '」\')"><b>兼修「' + esc(P.name) + '」（' + esc(P.feel) + '）</b><div style="margin-top:6px">' + keepTail(esc(P.id === 'longyou' ? '多一條龍佑的牌路：借阿白的力量出手。兩條都修，阿白照樣咬人。' : P.desc)) + '</div><div class="dim" style="margin-top:4px;font-size:13px">送一張招牌牌「' + esc(G.CARDS[P.sig].name) + '」；之後兩條主修的牌都會出現（路子寬，但牌組比較雜）</div></button>'; }).join('')
       + '</div>';
   }
   // 機緣給的出發前二選一（天生慧根：第一層頓悟；師門傳承：兩件法寶）
