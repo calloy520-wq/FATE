@@ -235,7 +235,7 @@ var G = (function () {
       desc: '合歡宗的血修。合歡宗以情入道，只講兩情相悅。那年她路過落霞山，在塔下聽了一個月的琴，就喜歡上了撫琴的人；凌霜下山，她也跟著下了山。她修的是自己的血，傷得越重，刀越利。看人很準，對弱小的人總會多照顧一些。',
       passive: { id: 'revive', name: '不滅血體', text: '燒自己的血保命：整趟冒險有 1 條備用的命，倒下時以五成生命站起來，而且整趟力量 +2（頓悟「浴血重生」再多一條）。血煞反噬（燒血的代價）：第 2 回合起每回合開始失去 2 生命（不會因此倒下）' },
       np: { name: '血河九斬', fx: [['hits', 5, 9]] } },
-    aduo: { name: '阿朵', cls: '蠱師', hp: 69, sig: 'throwdirk',
+    aduo: { name: '阿朵', cls: '蠱師', hp: 69, sig: 'knives',
       desc: '百蠱寨最會養蠱的苗女。寨裡的人敬她，也有點怕她——養蠱的人，向來一個人住在寨子最高處。她的蠱以魔氣為食，往魔淵的路，要靠牠們開。對生人愛理不理，對認定的人卻很黏。',
       passive: { id: 'ambush', name: '隱蠱', text: '每場戰鬥第一回合，攻擊傷害 ×1.5（蠱早就悄悄種下了）' },
       np: { name: '萬蠱噬心', fx: [['exec', 50, 25]] } }
@@ -989,6 +989,13 @@ var G = (function () {
         if (cand.length) pick(run, cand).t = 'elite';
       }
     });
+    // 每章至少一個半路的休息（第 7～9 列挑一格一般戰鬥或事件；前後不能也是休息）
+    if (!map.some(function (row, r) { return r < ROWS - 2 && row.some(function (n) { return n && n.t === 'rest'; }); })) {
+      for (var rr = 7; rr >= 5; rr = rr === 7 ? 8 : rr === 8 ? 6 : 0) {
+        var rc = map[rr].filter(function (n, c) { return n && (n.t === 'fight' || n.t === 'event') && !parents(rr, c).some(function (p) { return p.t === 'rest'; }); });
+        if (rc.length) { pick(run, rc).t = 'rest'; break; }
+      }
+    }
     // 每章至少一間商店（第 8 列挑一格）
     if (!map.some(function (row) { return row.some(function (n) { return n && n.t === 'shop'; }); })) {
       for (var sr = 7; sr >= 2; sr = sr === 7 ? 8 : sr === 8 ? 6 : sr - 1) {   // 第 8 列優先；整列都是精英就往旁邊找

@@ -133,7 +133,7 @@ r=arena('aduo'); r.battle.turn=2; playId(r,'knives'); t(E(r).hp===46&&E(r).poiso
 r=arena('aduo'); r.battle.turn=2; E(r).poison=1; playId(r,'assassinate'); t(E(r).hp===30,'蠱發：中毒時 10＋10',E(r).hp);
 r=arena('aduo'); playId(r,'atk'); t(E(r).hp===41,'阿朵 隱蠱：第一回合攻擊 ×1.5（6→9）',E(r).hp); r.battle.turn=2; playId(r,'atk'); t(E(r).hp===35,'第二回合照常 6',E(r).hp);
 { const q=arena(); playId(q,'atk'); t(E(q).hp===44,'別人第一回合沒有隱蠱'); }
-r=arena('aduo'); r.battle.turn=2; playId(r,'throwdirk'); t(E(r).hp===41&&G.SERVANTS.aduo.sig==='throwdirk','銀針（招牌牌）：3×3（有破綻每擊 +1）',E(r).hp);
+r=arena('aduo'); r.battle.turn=2; playId(r,'throwdirk'); t(E(r).hp===41,'銀針（暗器招牌）：3×3（有破綻每擊 +1）',E(r).hp);
 r=arena('aduo'); E(r).poison=4; playId(r,'plague'); t(E(r).poison===8,'催蠱：毒加倍');
 r=arena('aduo'); E(r).hp=24; r.battle.np=100; G.noble(r,0); t(E(r).hp===0,'萬蠱噬心：五成以下直接倒下');
 r=arena('aduo'); r.battle.np=100; G.noble(r,0); t(E(r).hp===0,'萬蠱噬心：一般敵人抵抗不了，直接倒下',E(r).hp);
@@ -558,6 +558,7 @@ t(Object.values(G.EVENTS).filter(E=>E.who).every(E=>E.end&&E.end.length>=20),'�
 { const q=arena('xiaoman',1,500); q.battle.kraken=6; q.battle.np=0; E(q).intent={n:'發呆',fx:[]}; G.endTurn(q); t(q.battle.np>=4,'白辰的神通量表：阿白長大、咬人都漲得動（一回合至少 4%）',q.battle.np); }
 { const q=G.newRun('xiaoman',8,{major:'longzhan'}); q.screen='major'; G.chooseMajor(q,'longyou'); step(q,'fight'); const b=q.battle; b.kraken=9; const hp=b.enemies.map(e=>e.hp); b.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.enemies.some((e,i)=>e.hp<hp[i]),'主修龍戰、兼修龍佑：阿白照樣咬人（龍佑當主修才不咬）'); }
 { const q=arena('chilian',1,80); q.major='meigu'; q.majors=['meigu']; const d=G.upDirs('wenrou').indexOf('d')>=0; if(d){ playId(q,'wenrou+d'); t(80-E(q).hp===12,'道心先加資源：溫柔刀（道心）先魅惑再打，自己吃得到加倍',80-E(q).hp); } else t(true,'溫柔刀沒有道心方向（略過）'); }
+{ let bad=0; for(let s=1;s<=300;s++){ const q=G.newRun('shuang',s); for(const a of [1,2]){ if(a===2) G.startAct(q,2); if(!q.map.some((row,r)=>r<G.ROWS-2&&row.some(n=>n&&n.t==='rest'))) bad++; } } t(!bad,'每章半路至少一個休息（不是只有魔王前那一排）',bad); }
 { const d=G.newRun('aduo',3,{major:'anqi'}).deck; t(d.indexOf('throwdirk')>=0&&d.indexOf('dieyin')>=0&&d.filter(x=>x==='def_aduo').length===3,'暗器開局：銀針＋斂息（換掉一張防禦）',d.join(',')); }
 { let bad=0; for(let s=1;s<=200;s++){ const q=G.newRun('aduo',s,{major:'dugu'}); const P=G.ownPool(q); if(P.side.indexOf('chongshi')>=0||P.side.indexOf('yangchong')>=0) bad++; } t(!bad,'離開主修就沒用的牌（蟲噬、以蟲養蟲…）不從別條主修混進戰利品',bad); }
 { const q=arena('qingli',1,80); q.battle.hand=['jiutian','atk_qingli','def_qingli']; playId(q,'fenfu'); t(q.battle.hand.indexOf('jiutian')>=0&&q.battle.hand.length===2,'焚符先燒最便宜的（不會把大招燒掉）',JSON.stringify(q.battle.hand)); }
