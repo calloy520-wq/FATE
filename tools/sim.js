@@ -76,10 +76,10 @@ function playTurn(run){
 // 選牌：每張牌在固定的測試局面裡試打一次的分數（快取）；能力牌同一張最多拿 2 張
 const RATE={};
 function rate(run0,id){
-  const who=run0.who, k=who+'|'+id; if(RATE[k]!==undefined) return RATE[k];
+  const who=run0.who, k=who+'|'+run0.major+'|'+id; if(RATE[k]!==undefined) return RATE[k];   // 主修不同，同一張牌的價值也不同
   let tot=0;
   for(let s=1;s<=3;s++){
-    const r=G.newRun(who,s); r.map[0].forEach(n=>{ if(n) n.t='fight'; }); G.go(r,G.reachable(r)[0]); const b=r.battle;
+    const r=G.newRun(who,s,{major:run0.major}); r.map[0].forEach(n=>{ if(n) n.t='fight'; }); G.go(r,G.reachable(r)[0]); const b=r.battle;
     b.enemies=[b.enemies[0]]; while(b.enemies.length<2) b.enemies.push(J(b.enemies[0]));
     b.enemies.forEach((e,i)=>{ e.key='d'+i; e.hp=e.maxHp=40; e.block=0; e.weak=0; e.intent={n:'測',fx:[['atk',9]]}; });
     b.hand=[id,'atk','def']; b.energy=3; b.np=0; b.turn=2;

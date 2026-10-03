@@ -673,7 +673,7 @@ var G = (function () {
     fire: '火勢 +{1}', pFire: '每回合開始火勢 +{1}', fireAll: '對全體造成 {1} 傷害，每點火勢再 +{2}', fireBlock: '格擋 {1}，每點火勢再 +{2}',
     burnHand: '燒掉手上一張牌（先燒妨礙牌與詛咒，其次最貴的），火勢 +{1}', fireNuke: '對全體造成火勢 ×{1} 的傷害，火勢歸零',
     krakenHalfBlock: '格擋 {1}＋阿白大小的一半（阿白不會縮小）', pNilin: '每次被攻擊，反擊阿白大小÷3 的傷害', krakenTstr: '本回合力量 +阿白大小÷{1}',
-    pHualong: '每回合開始阿白縮小 2，力量 +{1}', strHits: '造成 {1} 傷害 ×（力量÷2＋1）次（最多 6 次）',
+    pHualong: '每回合開始阿白縮小 2，力量 +{1}', strHits: '造成 {1} 傷害 ×（力量÷2＋1）次（最多 4 次）',
     drain: '造成 {1} 傷害，回復等量生命', pLeech: '生命低於一半時，攻擊吸血 {1}%', rageDrain: '造成 {1} 傷害，每少 10 點生命再 +{2}，回復造成傷害的三分之一',
     pBloodThorn: '每次被攻擊，反擊 {1} 傷害（每少 10 點生命再 +1）', hitStr: '這一輪每被攻擊一次，力量 +{1}（下回合起，整場）', revenge: '造成上一輪到現在妳失去的生命 ×{1} 的傷害',
     lowBlock: '格擋 {1}；生命低於一半時改成 {2}',
@@ -1591,7 +1591,7 @@ var G = (function () {
     pNilin: function (x, f) { x.b.pNilin = (x.b.pNilin || 0) + f[1]; },
     krakenTstr: function (x, f) { x.b.tstr += Math.floor((x.b.kraken || 0) / f[1]); },
     pHualong: function (x, f) { x.b.pHualong = (x.b.pHualong || 0) + f[1]; },
-    strHits: function (x, f) { var n = Math.min(6, 1 + Math.floor(Math.max(0, x.b.str + x.b.tstr) / 2)); for (var h = 0; h < n; h++) strike(x, x.tg, f[1]); },
+    strHits: function (x, f) { var n = Math.min(4, 1 + Math.floor(Math.max(0, x.b.str + x.b.tstr) / 2)); for (var h = 0; h < n; h++) strike(x, x.tg, f[1]); },
     // 赤練・狂血、血甲
     drain: function (x, f) { var got = strike(x, x.tg, f[1]); healP(x.run, got, x.log); },
     pLeech: function (x, f) { x.b.pLeech = (x.b.pLeech || 0) + f[1]; },
