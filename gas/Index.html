@@ -459,6 +459,8 @@
   .cdxi { border:1px solid var(--line); border-radius:10px; padding:6px 4px; background:var(--panel); display:flex; flex-direction:column; align-items:center; gap:4px; font-size:13.5px; }
   .cdxi .cfig { height:84px; width:100%; display:flex; align-items:flex-end; justify-content:center; }
   .cdxi .cfig .fsvg, .cdxi .cfig .fimg { height:100%; width:auto; max-width:100%; object-fit:contain; }
+  .urow > .sfig, .sfig { width:56px; height:72px; flex:none; display:flex; align-items:flex-end; justify-content:center; overflow:hidden; position:relative; }   /* 劇情・五位女修的小立繪 */
+  .sfig .fsvg, .sfig .fimg { height:100%; width:auto; max-width:100%; object-fit:contain; position:static; }
   .cdxi.locked { opacity:.5; } .cdxi .q { font-size:34px; color:var(--dim); align-self:center; }
   .tile .tfig .fimg, .svtfig .fimg { position:relative; z-index:1; height:100%; width:auto; max-width:100%; object-fit:contain; filter:drop-shadow(0 2px 6px rgba(0,0,0,.6)); }
   .tile .tfig .fover, .svtfig .fover { position:absolute; z-index:0; left:50%; bottom:0; transform:translateX(-50%); height:100%; width:auto; }
@@ -803,14 +805,14 @@
       + '<div class="panel home">' + heroHtml('五位女修，一副牌，一路斬妖封魔。')
       + '<div class="menu">'
       + (going ? big('cont()', '▶', '繼續冒險', esc(S.cls + '・' + S.name) + '・' + esc((saved.endless ? '♾ ' : '') + (G.actName(saved) || '').split('　')[0]) + (saved.floor ? ' 第 ' + saved.floor + ' 列' : ' 剛出發'), 'main') : '')
-      + big('prologue(0)', '🏮', '前情提要', '三百年前的封印，鬆了', going || M.stats.runs ? '' : 'main')
+      + big('storyScreen()', '🏮', '劇情', '前情提要、五位女修、真結局', going || M.stats.runs ? '' : 'main')
       + big("MODE='normal';choose()", '⚔', '新的冒險', going ? '放棄目前這一局，重新選角色' : '選角色、選機緣，下山', going || !M.stats.runs ? '' : 'main')
       + big("MODE='endless';choose()", '♾', '鎮妖塔（無盡）', going ? '放棄目前這一局，改闖鎮妖塔' : '兩章之後下鎮妖塔，看能走多遠')
       + '<div class="msep"></div>'
       + '<div class="mrow">' + big('codexScreen()', '📚', '圖鑑') + big('recordScreen()', '📜', '戰績') + big('boardScreen(null,\'\')', '🏆', '排行榜') + big('showHelp()', '📖', '說明') + '</div>'
       + '</div></div>';
   }
-  // 前情提要：標題畫面「新的冒險」上面，一頁一頁看（背景用各章的戰鬥背景）
+  // 前情提要：從「劇情」進來，一頁一頁看（背景用各章的戰鬥背景）
   var PROLOGUE = [
     ['abyss', '三百年前，地底有東西醒了。人們叫它<b>「魘」</b>。<br>它沒有形體，專吃人心裡放不下的那一念。吞了誰，便學會誰。<br>妖魔隨它出世，天下大亂。'],
     ['abyss', '劍、符、龍、卦、丹——五大宗門合力，將它逼入<b>九幽魔淵</b>。<br>鎮魂印只差最後一筆，畫符的人卻被魘吞了。<br>印缺一筆，封不住。<br>雲隱劍宗的劍主追了進去，在淵中死死拖住它：「缺的那一筆，我來補。別進來——人越多，它越強。封！」<br>門，在她身後闔上了。'],
@@ -826,8 +828,37 @@
     $('app').innerHTML = '<div class="panel prolog"><div class="pscene">' + FIG.scene(sc) + figs + '</div>'
       + '<div class="lore ptext">' + P[1].split('<br>').map(function (l) { return '<div>' + l + '</div>'; }).join('') + '</div>'
       + '<div class="pdots">' + PROLOGUE.map(function (_, j) { return '<span' + (j === i ? ' class="on"' : '') + '></span>'; }).join('') + '</div>'
-      + '<div class="row">' + (last ? '<button class="btn" onclick="titleScreen()">回到標題</button><button class="btn" style="border-color:var(--gold);color:var(--gold)" onclick="MODE=\'normal\';choose()">⚔ 踏上旅程</button>'
-        : '<button class="btn" onclick="titleScreen()">跳過</button><button class="btn" style="border-color:var(--gold);color:var(--gold)" onclick="prologue(' + (i + 1) + ')">繼續 ›</button>') + '</div></div>';
+      + '<div class="row">' + (last ? '<button class="btn" onclick="storyScreen(\'pro\')">回到劇情</button><button class="btn" style="border-color:var(--gold);color:var(--gold)" onclick="MODE=\'normal\';choose()">⚔ 踏上旅程</button>'
+        : '<button class="btn" onclick="storyScreen(\'pro\')">跳過</button><button class="btn" style="border-color:var(--gold);color:var(--gold)" onclick="prologue(' + (i + 1) + ')">繼續 ›</button>') + '</div></div>';
+  }
+  // 劇情：跟冒險分開，想看就看——前情提要、五位女修（各自的插曲）、宗門、真結局（封印魘之後才看得到）
+  function storyScreen(tab) {
+    tab = tab || storyScreen.tab || 'pro'; storyScreen.tab = tab;
+    var M = META, tabs = [['pro', '序章'], ['who', '五位女修'], ['sect', '宗門'], ['end', '真結局']];
+    var head = '<div class="tabs" style="max-width:520px;width:100%">' + tabs.map(function (t) { return '<button class="' + (tab === t[0] ? 'on' : '') + '" onclick="storyScreen(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>';
+    var body = '';
+    if (tab === 'pro') body = '<div class="list"><button class="box urow" style="text-align:left" onclick="prologue(0)"><div><b style="color:var(--gold)">前情提要</b><div class="dim" style="font-size:13px">三百年前的封印，鬆了（六頁）</div></div><span class="tag">›</span></button>'
+      + '<div class="lore box" style="text-align:left">' + keepTail('魔淵裡封著魘。三百年來，劍主在淵底拖住它；落霞山頂，她的弟子夜夜撫琴，等一聲劍鳴。今年中秋，劍鳴斷了。') + '</div></div>';
+    if (tab === 'who') body = '<div class="list">' + G.ORDER.map(function (k) { var S = G.SERVANTS[k];
+      return '<button class="box urow" style="text-align:left" onclick="storyWho(\'' + k + '\')"><div class="sfig">' + FIG.fig(k, false, { swords: 0 }) + '</div><div><b>' + esc(S.name) + '</b><div class="dim" style="font-size:13px">' + esc(S.sect + '・' + S.cls) + '・' + storyEvents(k).length + ' 段插曲</div></div><span class="tag">›</span></button>'; }).join('') + '</div>';
+    if (tab === 'sect') body = '<div class="list">' + G.SECTS_LORE.map(function (X) {
+      return '<div class="box"><b style="color:var(--gold)">' + esc(X.name) + '</b><div class="dim" style="font-size:13px">' + esc(X.kind + (X.five ? '・五大宗門' : '') + '｜' + X.place) + '</div><div class="lore" style="text-align:left;margin-top:6px">' + keepTail(esc(X.text)) + '</div></div>';
+    }).join('') + '</div>';
+    if (tab === 'end') { var any = G.ORDER.some(function (k) { return endingSeen(M, k); });
+      body = '<div class="list">' + G.ORDER.map(function (k) { var S = G.SERVANTS[k], E = G.ENDINGS[k], got = endingSeen(M, k);
+        return '<button class="box urow" style="text-align:left"' + (got ? ' onclick="openOv(endingHtml(\'' + k + '\'))"' : ' disabled data-locked="1"') + '><div><b>' + esc(S.name) + '：' + (got ? '「' + esc(E.title) + '」' : '？？？') + '</b><div class="dim" style="font-size:13px">' + (got ? '點開看' : '用她在九幽魔淵封印魘') + '</div></div></button>'; }).join('')
+        + '<div class="box"><b>尾聲・' + (any ? esc(G.EPILOGUE.title) : '？？？') + '</b><div class="dim" style="font-size:13px">' + (any ? '五個人的結局之後（在每段真結局的最後）' : '封印魘一次，就看得到') + '</div></div></div>'; }
+    $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">🏮 劇情</h1>' + head + body + '<button class="btn" onclick="titleScreen()">返回</button></div>';
+  }
+  // 每位女修自己的插曲：她的專屬事件（只看故事，不用選）
+  function storyEvents(who) { return Object.keys(G.EVENTS).filter(function (k) { return G.EVENTS[k].who === who; }); }
+  function storyWho(k) {
+    var S = G.SERVANTS[k];
+    openOv('<b style="color:var(--gold);font-size:17px">' + esc(S.name) + '</b>　<span class="dim">' + esc(S.sect + '・' + S.cls) + '</span>'
+      + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + '</div>'
+      + '<div class="list" style="margin-top:10px"><div class="box lore" style="text-align:left">' + keepTail(esc(S.desc)) + '</div>'
+      + storyEvents(k).map(function (e) { var E = G.EVENTS[e]; return '<div class="box"><b>' + esc(E.name) + '</b><div class="lore" style="text-align:left;margin-top:6px">' + keepTail(esc(E.text)) + '</div></div>'; }).join('')
+      + '<button onclick="closeOv()">返回</button></div>');
   }
   function recordScreen() {
     var M = me(), st = M.stats;

@@ -1,4 +1,4 @@
-// 文字排版檢查：用 playwright 開各畫面（前情提要、真結局、所有事件、圖鑑、選角色），找最後一行只剩一兩個字的段落
+// 文字排版檢查：用 playwright 開各畫面（前情提要、劇情、真結局、所有事件、圖鑑、選角色），找最後一行只剩一兩個字的段落
 // 用法：node tools/text_layout.js 標籤 [寬度=390]（建議 360／390／430 各跑一次，要看到 orphans total 0）
 const fs=require('fs');
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
@@ -26,6 +26,9 @@ const scan=()=>{ // returns orphan lines (last line ≤2 chars) per text block
   const evs=await p.evaluate(()=>Object.keys(G.EVENTS));
   for(const k of evs) await go('ev_'+k,k=>{ const E=G.EVENTS[k]; run=G.newRun(E.who||'shuang',7,E.major?{major:E.major}:{}); run.gold=999; run.screen='event'; run.event=k; render(); },k);
   for(const t of ['sect','boss','elite','mob','goal']) await go('codex_'+t,t=>{ run=null; META.codex=Object.fromEntries(Object.keys(G.ENEMIES).map(k=>[k,1])); codexScreen(t); },t);
+  for(const t of ['pro','who','sect','end']) await go('story_'+t,t=>{ closeOv(); run=null; META.endings=Object.fromEntries(G.ORDER.map(k=>[k,1])); storyScreen(t); },t);
+  for(const w of ['shuang','qingli','xiaoman','chilian','aduo']) await go('storywho_'+w,w=>{ closeOv(); storyWho(w); },w);
+  await p.evaluate(()=>{ closeOv(); META.endings={}; });
   await go('choose',()=>{ run=null; MODE='normal'; choose(); });
   await go('help',()=>{ run=null; titleScreen(); showHelp(); });
   for(const w of ['shuang','qingli','xiaoman','chilian','aduo']) await go('svt_'+w,w=>{ closeOv(); MODE='normal'; choose(); svtInfo(w); },w);
