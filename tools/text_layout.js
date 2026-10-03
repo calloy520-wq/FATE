@@ -32,7 +32,7 @@ const scan=()=>{ // returns orphan lines (last line ≤2 chars) per text block
   await go('choose',()=>{ run=null; MODE='normal'; choose(); });
   await go('help',()=>{ run=null; titleScreen(); showHelp(); });
   for(const w of ['shuang','qingli','xiaoman','chilian','aduo']) await go('svt_'+w,w=>{ closeOv(); MODE='normal'; choose(); svtInfo(w); },w);
-  for(const t of ['battle','map','reward','pill','curse','rest','shop','event','path','major']) await go('tip_'+t,t=>{ closeOv(); run=null; titleScreen(); META.tips={}; tip(t); META.tips={all:1}; },t);
+  for(const t of ['battle','map','reward','pill','curse','rest','shop','event','path','major','hero_shuang','hero_qingli','hero_xiaoman','hero_chilian','hero_aduo']) await go('tip_'+t,t=>{ closeOv(); run=null; titleScreen(); META.tips={}; tip(t); META.tips={all:1}; },t);
   await go('over_win',()=>{ closeOv(); run=G.newRun('aduo',7); run.win=1; run.screen='over'; run.metaDone=1; render(); });
   await go('over_true',()=>{ closeOv(); run=G.newRun('aduo',7); run.win=1; run.trueEnd=1; run.screen='over'; run.metaDone=1; render(); });
   await go('info_svt',()=>{ closeOv(); run=G.newRun('qingli',7); run.screen='map'; render(); openInfo('svt'); });
