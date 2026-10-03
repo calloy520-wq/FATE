@@ -740,7 +740,7 @@ var G = (function () {
   function upDiff(id, v, run) {
     var a = card(id), c = card(v), out = [], r0 = run && { who: run.who }, sa = shortBits(a, r0), sc = shortBits(c, r0);
     if (c.cost !== a.cost) out.push('費用 ' + a.cost + ' → ' + c.cost);
-    sc.forEach(function (x, i) { if (i >= sa.length) out.push('多 ' + x); else if (x !== sa[i]) out.push(sa[i] + ' → ' + x); });   // 只列有變的那幾項
+    sc.forEach(function (x, i) { if (i >= sa.length) out.push('＋' + x); else if (x !== sa[i]) out.push(sa[i] + ' → ' + x); });   // 只列有變的那幾項
     if ((c.npBonus || 0) !== (a.npBonus || 0)) out.push('打出時神通 +' + (c.npBonus || 0) + '%');
     if (c.ex && !a.ex) out.push('打出後消耗');
     if (a.ex && !c.ex) out.push('不再消耗');
@@ -1101,7 +1101,7 @@ var G = (function () {
     letter:  { who: 'qingli', name: '觀裡的來信', text: '師兄來信了：「觀主說，最後那一筆，畫的時候別逞強——祖師就是在那一筆被吞的。還有——山下的義塾又缺錢了，妳上次說要包的。」',
       opts: [{ label: '寄 60 金回去給義塾：選兩張牌強化（師兄們回寄了新畫的符）', need: { gold: 60 }, fx: [['gold', -60], ['pick', 'upgrade'], ['pick', 'upgrade']] }, { label: '連夜畫一張大符寄回去（🎲≥12）：成功→得到秘傳「太上鎮魂印」；失敗→畫到吐血，失去 10 生命', fx: [['d20', 12, [['addCard', 'breaker']], [['hp', -10]]]] }, { label: '先不管了', fx: [] }] },
     silverthread:{ who: 'qingli', name: '銀線', text: '阿朵的袖口被妖物勾破了，苗繡的銀線散了一截。她不在意，笑嘻嘻的：「回寨子再補呀。」妳盯著那個破口，看了一路。鎮上的銀線，一捲三十金——貴得離譜。',
-      opts: [{ label: '買下來，丟給她：「記帳上了，欠著。」：花 30 金，選一張牌強化（阿朵連夜在妳袖口裡繡了一道護身紋）', need: { gold: 30 }, fx: [['gold', -30], ['pick', 'upgrade']] }, { label: '「拿來，我縫。」畫符的手，穿針也穩：最大生命 +4（阿朵摸著那道針腳，笑了一路）', fx: [['maxHp', 4]] }, { label: '「回寨子再補吧。」：回復 10 生命', fx: [['hp', 10]] }] },
+      opts: [{ label: '買一捲銀線丟給阿朵：「記帳上了，欠著。」：花 30 金，選一張牌強化（阿朵連夜在妳袖口裡繡了一道護身紋）', need: { gold: 30 }, fx: [['gold', -30], ['pick', 'upgrade']] }, { label: '「拿來，我縫。」替阿朵補袖口，畫符的手穿針也穩：最大生命 +4（阿朵摸著那道針腳，笑了一路）', fx: [['maxHp', 4]] }, { label: '「回寨子再補吧。」由著阿朵：回復 10 生命', fx: [['hp', 10]] }] },
     tanghulu:{ who: 'xiaoman', name: '糖葫蘆攤', text: '街角的糖葫蘆，紅通通的。本座活了一千年，什麼山珍海味沒吃過——可這副小身子，就是饞。阿白的口水，滴到了本座頭上。',
       opts: [{ label: '花 40 金買一大把，分阿白一半：之後每場開場阿白 +3', need: { gold: 40 }, fx: [['gold', -40], ['krakenStart', 3]] }, { label: '全部自己吃掉（本座說了算）：回復 15 生命', fx: [['hp', 15]] }] },
     dragonhome:{ who: 'xiaoman', name: '舊蛻', text: '溪邊有一片碎掉的白色蛋殼。三百年前那一戰之後，阿白就是在這裡蛻回幼龍的。阿白對著溪水，叫了好久好久。',
@@ -1141,7 +1141,7 @@ var G = (function () {
     oldarmor:{ who: 'chilian', major: 'xuejia', name: '前輩的血甲', text: '山神廟裡供著一副古舊的血甲，甲片上刻著合歡宗的紋樣——不知是哪位前輩師姐留下的。',
       opts: [{ label: '穿上它：之後每場開場格擋 +6，牌組多一張詛咒「內傷」', fx: [['startFx', 'block', 6], ['addCard', 'fatigue']] }, { label: '拆了拿去賣：得到 50 金', fx: [['gold', 50]] }] },
     oldfriend:{ who: 'chilian', major: 'meigu', name: '故人', text: '鎮上最大的那座樓裡，當年一起長大的姊妹倚在窗邊，認出了妳。「是妳……妳還活著。」',
-      opts: [{ label: '上樓陪她喝一杯：回復 20 生命，得到「一笑傾城」', fx: [['hp', 20], ['addCard', 'qingcheng']] }, { label: '「我已經不是那時候的人了。」轉身離開：從牌組移除一張牌', fx: [['pick', 'remove']] }] },
+      opts: [{ label: '上樓陪當年的姊妹喝一杯：回復 20 生命，得到「一笑傾城」', fx: [['hp', 20], ['addCard', 'qingcheng']] }, { label: '「我已經不是那時候的人了。」轉身離開：從牌組移除一張牌', fx: [['pick', 'remove']] }] },
     swamp:   { who: 'aduo', major: 'dugu', name: '毒沼', text: '沼澤咕嘟咕嘟，冒著五顏六色的泡泡。妳眼睛一亮：「好漂亮的毒！」',
       opts: [{ label: '下去採毒（🎲≥11）：成功→之後每場開場全體毒 +3；失敗→自己也中毒了，最大生命 -6', fx: [['d20', 11, [['startFx', 'poisonAll', 3]], [['maxHp', -6]]]] }, { label: '繞路走', fx: [] }] },
     needleshop:{ who: 'aduo', major: 'anqi', name: '暗器鋪', text: '巷子深處的暗器鋪。老闆瞎了一隻眼，手卻穩得嚇人。',
