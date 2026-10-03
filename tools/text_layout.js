@@ -25,7 +25,7 @@ const scan=()=>{ // returns orphan lines (last line ≤2 chars) per text block
   await p.evaluate(()=>closeOv());
   const evs=await p.evaluate(()=>Object.keys(G.EVENTS));
   for(const k of evs) await go('ev_'+k,k=>{ const E=G.EVENTS[k]; run=G.newRun(E.who||'shuang',7,E.major?{major:E.major}:{}); run.gold=999; run.screen='event'; run.event=k; render(); },k);
-  for(const t of ['sect','boss','elite','mob','goal']) await go('codex_'+t,t=>{ run=null; META.codex=Object.fromEntries(Object.keys(G.ENEMIES).map(k=>[k,1])); codexScreen(t); },t);
+  for(const t of ['boss','elite','mob','goal']) await go('codex_'+t,t=>{ run=null; META.codex=Object.fromEntries(Object.keys(G.ENEMIES).map(k=>[k,1])); codexScreen(t); },t);
   for(const t of ['pro','who','sect','end']) await go('story_'+t,t=>{ closeOv(); run=null; META.endings=Object.fromEntries(G.ORDER.map(k=>[k,1])); storyScreen(t); },t);
   for(const w of ['shuang','qingli','xiaoman','chilian','aduo']) await go('storywho_'+w,w=>{ closeOv(); storyWho(w); },w);
   await p.evaluate(()=>{ closeOv(); META.endings={}; });

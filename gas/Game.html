@@ -489,7 +489,7 @@ var G = (function () {
     // 以下要達成目標才會出現在法寶池（lock＝GOALS 的 id）
     tassel:  { name: '劍穗', text: '每場戰鬥開始時多抽 1 張牌', lock: 'clear' },
     lamp:    { name: '心燈', text: '每場戰鬥第一次受傷後生命在一半以下（還站著，或倒下又站起來）時，回復 12 生命', lock: 'xinmo' },
-    pouch:   { name: '乾坤袋', text: '商店的東西與移除卡片打八五折', lock: 'tower' },
+    pouch:   { name: '乾坤袋', text: '商店的東西與移除牌打八五折', lock: 'tower' },
     bead:    { name: '定魂珠', text: '每場戰鬥開始時所有敵人定身 1', lock: 'bosses' },
     peijade: { name: '同門玉佩', text: '牌組多一張還沒修的那條主修的招牌牌（拿到時就給）', lock: 'paths' }
   };
@@ -533,7 +533,7 @@ var G = (function () {
     c: { name: '共鳴', tag: '・共鳴', text: '打出時神通 +15%、多抽 1 張（本來會抽牌的：神通 +30%）' },
     d: { name: '道心', tag: '・道', text: '多一個自己流派的機制' },
     e: { name: '極限', tag: '・極', text: '傷害、格擋等數值翻倍，但打出後消耗' },
-    f: { name: '★傳說', tag: '・傳說', text: '精煉＋多段攻擊次數翻倍（單段的攻擊改成傷害翻倍；技能、能力改成 0 費；翻倍類的牌費用不變）；代價：牌組多一張「內傷」', legend: 1 }   // 強化時一成機率出現
+    f: { name: '★傳說', tag: '・傳說', text: '精煉，攻擊次數翻倍（只打一下的改成傷害翻倍；不是攻擊的牌改成 0 費）；代價：牌組多一張「內傷」', legend: 1 }   // 強化時一成機率出現
   };
   // 道心：各角色的招牌機制（只給專屬牌）；有主修的牌用那條主修的（PATHS 的 soul）
   var KIT_SOUL = { shuang: ['proj', 1], qingli: ['petrifyAll', 1], xiaoman: ['kraken', 2], chilian: ['tstr', 2], aduo: ['poisonAll', 2] };
@@ -804,7 +804,7 @@ var G = (function () {
     heirloom:{ name: '師門傳承', text: '開局從兩件隨機法寶選一件' },
     forged:  { name: '千錘百鍊', text: '開局隨機強化 3 張牌' },
     light:   { name: '輕裝上陣', text: '開局從牌組拿掉 1 張攻擊、1 張防禦' },
-    merchant:{ name: '商人的眷顧', text: '商店七五折；移除卡片第一次免費，之後也不漲價' },
+    merchant:{ name: '商人的眷顧', text: '商店七五折；移除牌第一次免費，之後也不漲價' },
     early:   { name: '天生慧根', text: '開局就先得到第一層頓悟（兩個選一個）' },
     legacy:  { name: '師門秘傳', text: '開局牌組就有自己的秘傳牌' },
     // 以下要達成目標才解鎖（lock＝GOALS 的 id）：只是多一種取捨，不是直接變強
@@ -1957,7 +1957,7 @@ var G = (function () {
     if (T.maxHp) { run.maxHp += T.maxHp; run.hp += T.maxHp; }
     return true;
   }
-  // ── 商店：賣專屬牌、中立牌、秘傳、法寶，也能花錢移除卡片（每移除一次貴 25） ──
+  // ── 商店：賣專屬牌、中立牌、秘傳、法寶，也能花錢移除牌（每移除一次貴 25） ──
   var PRICE = { card: 50, cardUp: 75, rare: 120, relic: 130, remove: 60, pill: 45 };
   function openShop(run) {
     var own = ownCards(run, 3, false), common = shuffle(run, Object.keys(CARDS).filter(function (k) { return CARDS[k].kit === 'common'; }))[0];
