@@ -72,7 +72,7 @@ function gpMerge_(a, b, key) {
 function gpLogin(name) {
   var raw = name; name = gpName_(name);
   if (!name) return { ok: false, msg: '先輸入帳號' };
-  var lock = LockService.getScriptLock(); lock.waitLock(10000);
+  var lock = LockService.getScriptLock(); if (!lock.tryLock(10000)) return { ok: false, busy: true, msg: '伺服器忙，等一下再試' };   // 等不到鎖：講清楚是忙，不要當成斷線
   try {
     var sh = gpSheet_(), row = gpFind_(sh, name, raw);
     if (!row) {
@@ -109,10 +109,10 @@ function gpSave(name, token, meta, run, runTs, baseTs) {
     if (meta != null) {
       var a = null, b = null; try { a = outMeta ? JSON.parse(outMeta) : null; } catch (e) { } try { b = JSON.parse(meta); } catch (e) { }
       outMeta = b && a ? JSON.stringify(gpMerge_(a, b, '')) : String(meta);
-      if (outMeta.length > GP_CELL_MAX) return { ok: false, msg: '資料太大' };
+      if (outMeta.length > GP_CELL_MAX) return { ok: false, fatal: true, msg: '資料太大' };
     }
     if (run != null) {
-      if (String(run).length > GP_CELL_MAX) return { ok: false, msg: '存檔太大' };
+      if (String(run).length > GP_CELL_MAX) return { ok: false, fatal: true, msg: '存檔太大' };
       if (baseTs == null) {   // 改版前開著的舊頁面（沒帶 baseTs）：照舊的規則，比伺服器上的舊才不寫
         if (runTs != null && +runTs < outTs) stale = true;
         else { outRun = String(run); outTs = Math.max(outTs + 1, +runTs || Date.now()); }
@@ -121,6 +121,7 @@ function gpSave(name, token, meta, run, runTs, baseTs) {
       else { outRun = String(run); outTs = Math.max(+runTs || 0, outTs + 1); }
     }
     sh.getRange(row, GP_COL.UPDATED + 1, 1, 4).setValues([[new Date(), outMeta, outRun, outTs]]);
+    SpreadsheetApp.flush();   // 放鎖之前寫進去：下一個讀的人才看得到
     return { ok: true, stale: stale, runTs: outTs };
   } finally { lock.releaseLock(); }
 }

@@ -23,8 +23,9 @@ var SKINS = {
 var SKIN_GOALS = { clear: '用她通關（任何難度）', xinmo: '用她在九幽魔淵封印魘', master: '用她通關困難，或在鎮妖塔走過 50 格' };
 var FIG = (function () {
   // 圖讀不到時：藏起圖、改顯示緊接在後的剪影（凌霜疊在圖後的飛劍也藏起來，剪影自己有畫）
-  var FALLBACK = "this.style.display='none';this.nextElementSibling.style.display='contents';var o=this.previousElementSibling;if(o&&o.classList.contains('fover'))o.style.display='none'";
-  var DFALLBACK = "var d=this.parentNode;d.style.display='none';d.nextElementSibling.style.display='contents'";
+  window.ART_BAD = window.ART_BAD || {};   // 讀不到的圖記下來：之後直接畫剪影，不每次重畫都再抓一次
+  var FALLBACK = "ART_BAD[this.getAttribute('src')]=1;this.style.display='none';this.nextElementSibling.style.display='contents';var o=this.previousElementSibling;if(o&&o.classList.contains('fover'))o.style.display='none'";
+  var DFALLBACK = "ART_BAD[this.getAttribute('src')]=1;var d=this.parentNode;d.style.display='none';d.nextElementSibling.style.display='contents'";
   var INK = '#0b0d14';   // 剪影本體的顏色（皮影戲）
   // ── 角色：每位的主色、髮型、武器、身邊的東西 ──
   var HERO = {
@@ -86,7 +87,7 @@ var FIG = (function () {
   // 小白龍阿白：大小跟著阿白的數字長大（5 是小小一條，24 以上盤滿半個畫面）
   function dragon(size) {
     var svg = dragonSvg(size);
-    if (!ART.abai) return svg;
+    if (!ART.abai || ART_BAD[ART.abai]) return svg;
     var k = Math.max(0.55, Math.min(1.9, 0.45 + size / 16));
     return '<span class="dragon dimg" style="width:' + Math.round(k * 58) + '%"><img src="' + ART.abai + '" alt="" draggable="false" onerror="' + DFALLBACK + '"><b class="dsz">' + size + '</b></span>'
       + '<span class="ffb" style="display:none">' + svg + '</span>';
@@ -193,7 +194,7 @@ var FIG = (function () {
   }
   function fig(id, foe, st) {
     var svg = foe ? foeSvg(id) : heroSvg(id, st || {}), src = artOf(id, foe);
-    if (!src) return svg;
+    if (!src || ART_BAD[src]) return svg;
     // 立繪＋藏起來的剪影：圖讀不到（斷網、GitHub 擋）就換回剪影
     var img = '<img class="fimg' + (!foe && HERO[id] && HERO[id].kid ? ' kid' : '') + '" src="' + src + '" alt="" draggable="false" onerror="' + FALLBACK + '"><span class="ffb" style="display:none">' + svg + '</span>';
     // 凌霜的立繪不畫劍（劍在心裡），飛劍照數量浮在立繪身後
@@ -219,7 +220,7 @@ var FIG = (function () {
       + '<path d="M0 200 L0 160 L400 160 L400 200 Z" fill="#0a0d1c"/><circle cx="200" cy="30" r="3" fill="#ffd36e"/>';
     var svg = '<svg class="scene-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMax slice" aria-hidden="true">' + s + '</svg>';
     // 有背景圖就用圖（讀不到再換回程式畫的）
-    if (ART['bg_' + k]) return '<img class="scene-img" src="' + ART['bg_' + k] + '" alt="" draggable="false" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'\'">' + svg.replace('<svg class="scene-svg"', '<svg class="scene-svg" style="display:none"');
+    if (ART['bg_' + k] && !ART_BAD[ART['bg_' + k]]) return '<img class="scene-img" src="' + ART['bg_' + k] + '" alt="" draggable="false" onerror="ART_BAD[this.getAttribute(\'src\')]=1;this.style.display=\'none\';this.nextElementSibling.style.display=\'\'">' + svg.replace('<svg class="scene-svg"', '<svg class="scene-svg" style="display:none"');
     return svg;
   }
   function sceneClass(run) { var a = run.act || 1; return run.endless && a >= 3 ? 'sc-tower' : a === 3 ? 'sc-abyss' : a === 2 ? 'sc-city' : 'sc-hill'; }
