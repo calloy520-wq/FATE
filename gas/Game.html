@@ -117,7 +117,7 @@ var G = (function () {
     hushen:   { name: '護身符', cost: 1, type: 'skill', np: 0, fx: [['block', 5], ['petrifyAll', 1]], up: { fx: [['block', 8], ['petrifyAll', 1]] } },
     quxie:    { name: '驅邪符', cost: 1, type: 'skill', np: 0, fx: [['cleanse', 1], ['block', 4], ['petrify', 1], ['draw', 1]], up: { fx: [['cleanse', 1], ['block', 7], ['petrify', 1], ['draw', 1]] } },
     // 雷符（爆）：定身符是引信，雷法引爆
-    tianlei:  { name: '天雷引', cost: 1, type: 'atk', np: 0, fx: [['petrifyAll', 1], ['thunderAll', 0, 4]], up: { fx: [['petrifyAll', 1], ['thunderAll', 0, 5]] } },
+    tianlei:  { name: '天雷引', cost: 1, type: 'atk', np: 0, fx: [['thunderAll', 0, 5], ['petrifyAll', 1]], up: { fx: [['thunderAll', 0, 6], ['petrifyAll', 1]] } },
     jiefa:    { name: '借法', cost: 0, type: 'skill', np: 0, fx: [['borrow', 1]], up: { fx: [['borrow', 2]] } },
     shiliang: { name: '十兩一張', cost: 0, type: 'skill', np: 0, fx: [['goldTstr', 10, 3], ['petrify', 1]], up: { fx: [['goldTstr', 10, 5], ['petrify', 1]] } },
     // 火符（燎）：火勢越燒越旺，專打一群
@@ -225,11 +225,11 @@ var G = (function () {
       np: { name: '萬劍歸宗', fx: [['ubw', 1], ['projAll', 6, 2]] } },
     qingli: { name: '顧青璃', cls: '符修', hp: 63, sig: 'chain',
       desc: '玄真觀的小師妹，三百年來第一個把「鎮魂印」畫完整的人。嘴毒，愛錢——錢全悄悄寄回了山下的義塾。定身符一層層貼上去，貼滿了，敵人動彈不得；貼得越多，敵人越虛。最後五雷轟頂，把符一次引爆。',
-      passive: { id: 'gaze', name: '鎮魂符', text: '每場戰鬥開始時，全體敵人定身 1；敵人每層定身，攻擊 -1（符的重壓）；定身疊滿就動彈不得一回合' },
+      passive: { id: 'gaze', name: '鎮魂符', text: '每場戰鬥開始時，全體敵人定身 1；敵人每層定身，力量 -1（符的重壓）；定身疊滿就動彈不得一回合' },
       np: { name: '天羅地網', fx: [['all', 38], ['petrifyAll', 2]] } },
     xiaoman: { name: '白辰', cls: '御獸', hp: 57, sig: 'horror',
       desc: '靈獸山莊的老祖宗。三百年前封印魔淵的五人裡，還在世上的只剩她。那一戰燒掉她半身龍元，從此是孩童模樣（大家私下叫她「小滿」，她一聽就炸毛）。身邊盤著本命靈龍「阿白」：每回合長大，會自己咬人，會替她擋傷害，整趟冒險越養越大。',
-      passive: { id: 'madness', name: '龍之契約', text: '不會被施加虛弱（活了一千年，什麼沒見過）；每場戰鬥開始時阿白大小 5，之後每回合長大 1；每打贏兩場，之後每場開場阿白再 +1（吃飽了，整局最多 +6）。阿白回合結束咬生命最少的敵人（每大 12 多咬一口）；打穿格擋的傷害，阿白替妳擋下一半（擋了會縮小）' },
+      passive: { id: 'madness', name: '龍之契約', text: '不會被施加虛弱（活了一千年，什麼沒見過）；每場戰鬥開始時阿白大小 5，之後每回合長大 1；每打贏兩場，之後每場開場阿白再 +1（吃飽了，整局最多 +6）。阿白回合結束咬生命最少的敵人（每大 12 多咬一口）；打穿格擋的傷害，阿白替妳擋下一半（擋了會縮小；穿透攻擊擋不了）' },
       np: { name: '龍吟', fx: [['kraken', 8], ['weakAll', 1]] } },
     chilian: { name: '赤練', cls: '血修', hp: 81, sig: 'rampage',
       desc: '合歡宗的血修。合歡宗以情入道，門規只有一條：兩情相悅。她路過落霞山，在塔下聽劍仙撫琴，一聽就是一個月——就這麼喜歡上了。劍仙一下山，她二話不說跟了上去，只想找她一起合修。拿自己的血換力量：傷得越重，刀越狠。倒下了，也會笑著再站起來。',
@@ -480,7 +480,7 @@ var G = (function () {
     tea:     { name: '一壺靈茶', text: '在休息點回復的生命多 15 點' },
     amulet:  { name: '長生鎖', text: '最大生命 +10' },
     book:    { name: '懾魂鈴', text: '每場戰鬥開始時所有敵人虛弱 1' },
-    seal:    { name: '隨身丹爐', text: '丹藥袋 +1 格，並立刻得到 2 顆丹藥' },
+    seal:    { name: '隨身丹爐', text: '丹藥袋 +1 格，並立刻得到丹藥（最多 2 顆，袋子裝得下為止）' },
     pendant: { name: '九轉還魂丹', text: '多一條命：倒下時以兩成生命復活一次（赤練是五成，還會力量 +2）' },
     azoth:   { name: '龍虎丹', text: '每場戰鬥開始時力量 +1' },
     volumen: { name: '玄龜甲', text: '每回合開始時格擋 +2' },
@@ -532,8 +532,8 @@ var G = (function () {
     b: { name: '迅捷', tag: '・迅', text: '費用 -1' },
     c: { name: '共鳴', tag: '・共鳴', text: '打出時神通 +15%、多抽 1 張（本來會抽牌的：神通 +30%）' },
     d: { name: '道心', tag: '・道', text: '多一個自己流派的機制' },
-    e: { name: '極限', tag: '・極', text: '數值翻倍，但打出後消耗' },
-    f: { name: '★傳說', tag: '・傳說', text: '精煉＋攻擊次數翻倍（技能、能力改成 0 費）；代價：牌組多一張「內傷」', legend: 1 }   // 強化時一成機率出現
+    e: { name: '極限', tag: '・極', text: '傷害、格擋等數值翻倍，但打出後消耗' },
+    f: { name: '★傳說', tag: '・傳說', text: '精煉＋多段攻擊次數翻倍（單段的攻擊改成傷害翻倍；技能、能力改成 0 費）；代價：牌組多一張「內傷」', legend: 1 }   // 強化時一成機率出現
   };
   // 道心：各角色的招牌機制（只給專屬牌）；有主修的牌用那條主修的（PATHS 的 soul）
   var KIT_SOUL = { shuang: ['proj', 1], qingli: ['petrifyAll', 1], xiaoman: ['kraken', 2], chilian: ['tstr', 2], aduo: ['poisonAll', 2] };
@@ -614,7 +614,7 @@ var G = (function () {
     if (d === 'f') { if (c.type === 'atk') c.fx = legendFx(c.fx); else c.cost = 0; }
     if (d === 'b') c.cost = Math.max(0, base.cost - 1);   // 迅捷：便宜 1 費（只給 2 費以上的牌）
     if (d === 'c') {   // 共鳴：神通 +15%、多抽 1；本來就會抽牌的改成神通 +30%
-      if (base.fx.some(function (f) { return f[0] === 'draw'; })) c.npBonus = 30;
+      if (base.fx.some(function (f) { return f[0] === 'draw' || f[0] === 'borrow' || f[0] === 'drawIfCharm'; })) c.npBonus = 30;
       else { c.npBonus = 15; c.fx = base.fx.concat([['draw', 1]]); }
     }
     if (d === 'd' && soulOf(base)) {
@@ -661,13 +661,13 @@ var G = (function () {
     shatter: '引爆目標身上的定身符：造成 {1} 傷害，每層再 +{2}（引爆後留下一半的符）', dmgIfStun: '造成 {1} 傷害；目標動彈不得時再 +{2}', pPetrifyAll: '每回合開始全體定身 {1}',
     rageDmg: '造成 {1} 傷害，每少 10 點生命再 +{2}', rageAll: '對全體造成 {1} 傷害，每少 10 點生命再 +{2}', rageBlock: '格擋 {1}，每少 10 點生命再 +{2}', pRage: '每回合開始若生命低於一半，力量 +{1}',
     kraken: '阿白 +{1}', pKraken: '每回合開始阿白 +{1}', krakenDmg: '造成 {1} 傷害，阿白每大 1 再 +{2}', krakenBlock: '格擋 {1}，阿白每大 1 再 +{2}',
-    krakenStr: '阿白縮小 {1}：本回合力量 +{2}', krakenAll: '對全體造成阿白大小 ×{1} 的傷害（阿白縮小一半）', krakenX2: '阿白大小翻倍',
+    krakenStr: '阿白縮小 {1}：本回合力量 +{2}（阿白不夠大就沒有效果）', krakenAll: '對全體造成阿白大小 ×{1} 的傷害（阿白縮小一半）', krakenX2: '阿白大小翻倍',
     projHits: function (f) { return '造成 ' + f[1] + ' 傷害 ×' + f[3] + '，手上每把飛劍讓每一擊再 +' + f[2]; },
     // 門派主修
     jy: '劍意 +{1}', pJy: '每回合開始劍意 +{1}', guiyi: '收回手上所有飛劍，每把化成 {1} 層劍意',
-    jyStrike: '收回手上飛劍（每把算 3 層劍意）、消耗全部劍意：造成 {1} 穿透傷害，每層劍意再 +{2}', breakDmg: '打掉目標全部格擋與力量，再造成 {1} 傷害，每層劍意再 +{2}（不消耗）', dbl: '下一張攻擊牌傷害翻倍',
+    jyStrike: '收回手上飛劍（每把算 3 層劍意）、用掉全部劍意：造成 {1} 穿透傷害，每層劍意再 +{2}', breakDmg: '打掉目標全部格擋與力量，再造成 {1} 傷害，每層劍意再 +{2}（手上每把飛劍算 3 層；劍意不會用掉）', dbl: '下一張攻擊牌傷害翻倍',
     yuyin: '餘音 +{1}', pYuyin: '每回合開始餘音 +{1}', yuyinX2: '餘音翻倍', yuyinAll: '對全體造成餘音 ×{1} 的傷害，餘音歸零',
-    cleanse: '清掉妳身上的虛弱與易傷', borrow: '消耗目標 1 層定身：靈力 +1，抽 {1} 張', goldTstr: '花 {1} 金：本回合力量 +{2}（錢不夠就沒有效果）',
+    cleanse: '清掉妳身上的虛弱與易傷', borrow: '用掉目標 1 層定身：靈力 +1，抽 {1} 張', goldTstr: '花 {1} 金：本回合力量 +{2}（錢不夠就沒有效果）',
     thunderAll: function (f) { return (f[1] ? '全體敵人受到 ' + f[1] + ' 傷害，身上每層定身再 +' + f[2] : '每個敵人身上每層定身，受到 ' + f[2] + ' 傷害') + '（符不會消失）'; },
     fire: '火勢 +{1}', pFire: '每回合開始火勢 +{1}', fireAll: '對全體造成 {1} 傷害，每點火勢再 +{2}', fireBlock: '格擋 {1}，每點火勢再 +{2}',
     burnHand: '燒掉手上一張牌（先燒妨礙牌與詛咒，其次最貴的），火勢 +{1}', fireNuke: '對全體造成火勢 ×{1} 的傷害，火勢歸零',
@@ -679,7 +679,7 @@ var G = (function () {
     charm: '魅惑 {1}（它這一輪的出手，每層讓一擊打歪：妳只挨一半，另一半打歪到它自己人身上（力道剩三分之二，魔王剩三分之一）；沒用完就散了）', charmAll: '全體魅惑 {1}', pCharm: '每回合開始，生命最多的敵人魅惑 {1}', charmDmg: '造成 {1} 傷害；目標被魅惑時翻倍', drawIfCharm: '目標被魅惑時抽 {1} 張',
     ambushNext: '下一張攻擊牌傷害 ×1.5', freeAtk: '下一張攻擊牌不花靈力', pNeedle: '每回合第一次閃過攻擊，對攻擊者射出 {1} 傷害 ×3',
     hitsIfWeak: function (f) { return '造成 ' + f[1] + ' 傷害 ×' + f[2] + '；目標虛弱或妳有迴避時，每擊再 +' + f[3]; },
-    dmgIfUnhit: '造成 {1} 傷害；敵人上一輪沒打中妳時再 +{2}', evadeAll: '這回合躲開所有攻擊', mulNext: '下回合攻擊傷害 ×{1}',
+    dmgIfUnhit: '造成 {1} 傷害；敵人上一輪沒傷到妳（沒掉血）時再 +{2}', evadeAll: '這回合躲開所有攻擊', mulNext: '下回合攻擊傷害 ×{1}',
     parasite: '寄生 {1}', parasiteAll: '全體寄生 {1}', parasiteDmg: '造成目標寄生數 ×{1} 的傷害', pGumu: '每回合開始，寄生最多的敵人寄生 +{1}',
     parasiteX2: '目標寄生翻倍', parasiteBlock: '格擋 {1}＋全體敵人的寄生總數', parasiteToPoison: '每個敵人身上的寄生全部轉成毒 ×{1}'
   };
@@ -724,7 +724,7 @@ var G = (function () {
     drain: '吸血⚔{1}', pLeech: '殘血吸血{1}%', rageDrain: ['吸血⚔{1}+{2}/少10血', '吸血⚔'], pBloodThorn: '受擊→反擊{1}+', hitStr: '挨打→力量+{1}（整場）', revenge: '⚔失去的生命×{1}', lowBlock: '🛡{1}（殘血{2}）',
     charm: '魅惑{1}', charmAll: '全體魅惑{1}', pCharm: '每回合魅惑{1}', charmDmg: '⚔{1}（魅惑×2）', drawIfCharm: '魅惑中抽{1}',
     ambushNext: '下張攻擊×1.5', freeAtk: '下張攻擊0費', pNeedle: '閃過→⚔{1}×3', hitsIfWeak: function (f) { return '⚔' + f[1] + '×' + f[2] + '（破綻+' + f[3] + '）'; },
-    dmgIfUnhit: '⚔{1}（沒被打中+{2}）', evadeAll: '躲開所有攻擊', mulNext: '下回合攻擊×{1}',
+    dmgIfUnhit: '⚔{1}（沒掉血+{2}）', evadeAll: '躲開所有攻擊', mulNext: '下回合攻擊×{1}',
     parasite: '寄生{1}', parasiteAll: '全體寄生{1}', parasiteDmg: '⚔寄生×{1}', pGumu: '每回合寄生+{1}', parasiteX2: '寄生×2', parasiteBlock: '🛡{1}+寄生', parasiteToPoison: '寄生→毒×{1}'
   };
   function cardShort(id, run) {
@@ -1331,7 +1331,7 @@ var G = (function () {
     b.npUsed = 0; b.evadeAll = 0;   // 神通每回合一次；遁形丹撐到下回合開始
     b.evade = 0; b.played = 0; b.attacks = 0;
     b.energy = 3 + b.pEnergy + b.nextEnergy + (first && hasRelic(run, 'gem') ? 1 : 0); b.nextEnergy = 0;
-    if (b.pBlock) b.block += b.pBlock;
+    if (b.pBlock) b.block += Math.round(b.pBlock * statsOf(run).def);   // 跟打出當下一樣吃根骨
     if (b.pStr) b.str += b.pStr;
     if (b.pEvade) b.evade += b.pEvade;
     if (b.ubw > 0) { addProj(b, 3); b.ubw--; }
@@ -1509,7 +1509,7 @@ var G = (function () {
     burst: function (x, f) {
       var b = x.b, cnt = b.swords || 0;
       b.swords = 0; syncSword(b);
-      for (var s = 0; s < cnt; s++) alive(b).forEach(function (e) { strike(x, e, f[1]); });
+      for (var s = 0; s < cnt; s++) alive(b).forEach(function (e) { strike(x, e, f[1] + (b.projUp || 0)); });   // 淬劍、天眼的「飛劍傷害 +N」也算
       x.log.push('引爆 ' + cnt + ' 把飛劍');
     },
     ubw: function (x) { addProj(x.b, 3); x.b.ubw = 2; x.b.projUp += 2; x.log.push('萬劍歸宗'); },

@@ -534,4 +534,10 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
 { let bad3=0; for(let s=1;s<=3000;s++){ const q=G.newRun(G.ORDER[s%5],s); const m=q.map; for(let r=0;r<m.length-1;r++) m[r].forEach(n=>{ if(n&&n.t==='elite'&&n.next.some(c=>m[r+1][c]&&m[r+1][c].t==='elite')) bad3++; }); } t(!bad3,'3000 張地圖沒有連著兩格精英',bad3); }
 { const r=G.newRun('qingli',3); r.act=2; r.floor=11; r.lane=r.map[10].findIndex(n=>n); r.boss='huyao'; G.go(r,2); r.battle.enemies.forEach(e=>{e.hp=1;e.lives=0;e.block=0;}); r.battle.hand=['atk']; r.battle.energy=1; G.play(r,0,0); t(r.screen==='reward'&&r.reward.pill&&r.reward.next==='secret','第二章魔王（留著玉符）：先拿獎勵再到魔淵入口',r.screen); G.takeReward(r,-1); t(r.screen==='secret','拿完獎勵到九幽魔淵入口',r.screen); }
 t(G.EVENTS.whisper.noEndless,'鎮妖塔不會遇到「把玉符留到最後」');
+// 卡牌說明對上實際（2026-10-03）
+{ const q=arena('qingli'); E(q).petrify=2; E(q).str=0; t(G.intentDmg(q,E(q),['atk',6,1])===4&&G.intentDmg(q,E(q),['atk',6,4])===5,'鎮魂符：每層定身＝敵人力量 -1（連擊照力量的規則打折）',G.intentDmg(q,E(q),['atk',6,4])); }
+{ const q=arena('qingli',1,80); E(q).petrify=2; E(q).stuns=0; playId(q,'tianlei'); t(80-E(q).hp===10,'天雷引：先劈雷（2 層 ×5）再貼符，不會因為定住層數歸零而劈空',80-E(q).hp); }
+{ t(G.card('jiefa+c').npBonus===30&&G.card('jiefa+c').fx.filter(f=>f[0]==='draw').length===0,'共鳴：借法本來就抽牌，改成神通 +30%（不會多一個抽 1 張）'); }
+{ const q=arena('shuang',1,80); q.battle.projUp=2; swords(q,3); playId(q,'broken'); t(80-E(q).hp===27,'劍氣迸裂也吃「本場飛劍傷害 +N」（3 把 ×(7+2)）',80-E(q).hp); }
+{ const q=G.newRun('chilian',4); step(q,'fight'); q.battle.pBlock=10; q.battle.block=0; q.battle.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.block===Math.round(10*G.statsOf(q).def),'每回合格擋也吃根骨',q.battle.block); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
