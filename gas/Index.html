@@ -904,7 +904,7 @@
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(S.name) + '</b>　<span class="dim">' + esc(S.sect + '・' + S.cls) + '</span>'
       + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + '</div>'
       + '<div class="list" style="margin-top:10px"><div class="box lore" style="text-align:left">' + keepTail(esc(S.desc)) + '</div>'
-      + storyEvents(k).map(function (e) { var E = G.EVENTS[e]; return '<div class="box"><b>' + esc(E.name) + '</b><div class="lore" style="text-align:left;margin-top:6px">' + keepTail(esc(E.text)) + '</div></div>'; }).join('')
+      + storyEvents(k).map(function (e) { var E = G.EVENTS[e]; return '<div class="box"><b>' + esc(E.name) + '</b><div class="lore" style="text-align:left;margin-top:6px">' + keepTail(esc(E.text)) + '</div>' + (E.end ? '<div class="lore" style="text-align:left;margin-top:8px;opacity:.85">' + keepTail(esc(E.end)) + '</div>' : '') + '</div>'; }).join('')
       + '<button onclick="closeOv()">返回</button></div>');
   }
   function recordScreen() {

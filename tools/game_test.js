@@ -546,4 +546,5 @@ t(G.EVENTS.whisper.noEndless,'鎮妖塔不會遇到「把玉符留到最後」')
 { const q=G.newRun('qingli',7); q.relics=G.relicPool(q).slice(); const g=q.gold; step(q,'chest'); t(!q.reward.relic&&q.reward.gold===60,'法寶拿光了：寶箱改成 60 金',JSON.stringify(q.reward)); G.takeChest(q); t(q.gold===g+60&&q.screen==='map','收下碎銀'); }
 { const q=G.newRun('shuang',8,{endless:true}); q.act=5; q.seenEvents=Object.keys(G.EVENTS); let bad=0; for(let i=0;i<200;i++){ q.screen='map'; G.startEvent(q); if(/"maxHp",\d/.test(JSON.stringify(G.EVENTS[q.event].opts))) bad++; } t(!bad,'事件都遇過了：再遇的不會是加最大生命的（不然鎮妖塔裡一路疊）',bad); }
 { const q=G.newRun('shuang',9,{endless:true}); q.act=5; t(G.makeEnemy(q,'huyao',0,0).str===18,'鎮妖塔魔王：每層力量 +4（第 3 層 6+12）',G.makeEnemy(q,'huyao',0,0).str); }
+t(Object.values(G.EVENTS).filter(E=>E.who).every(E=>E.end&&E.end.length>=20),'劇情模式的插曲都有收尾（專屬事件的 end）');
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
