@@ -227,7 +227,7 @@
   /* 手牌：固定一排 5 張的大小，第 6 張起排到第二行（最多 10 張＝2×5），牌不會因為張數變大變小 */
   #hand { display:grid; grid-template-columns:repeat(5, minmax(0, 118px)); justify-content:center; gap:10px 5px; overflow:visible; }
   #hand .card { width:100%; max-width:none; min-width:0; }
-  #hand.many .card { min-height:96px; } #hand.m7 .card .tx { -webkit-line-clamp:2; }
+  #hand.many .card { min-height:96px; } #hand.m7 .card .tx { -webkit-line-clamp:2; } #hand .card .nm.nml { font-size:12px; letter-spacing:0; }   /* 長名字（★傳說、共鳴…）縮一點，兩行放得下 */
   #hand.m11 { grid-template-columns:repeat(6, minmax(0, 98px)); gap:10px 4px; } #hand.m11 .card .tx { -webkit-line-clamp:1; }   /* 10 張＋飛劍那一格：排成 2×6，不排出第三排 */   /* 兩排手牌：說明最多兩行（完整的點「?」），不把舞台擠到底下 */
   @media (min-width:900px) { #hand { grid-template-columns:repeat(5, minmax(0, 130px)); } }
   .card .nm { margin:15px 0 3px 1px; font-size:13.5px; }
@@ -1137,7 +1137,7 @@
     var c = G.card(id), cost = run && run.battle && !big ? G.costOf(run, id) : c.cost;
     return '<button class="card ' + c.type + ' f-' + cardTier(c) + (c.token ? ' token' : '') + (c.rare ? ' rare' : '') + (c.dir === 'f' ? ' legend' : '') + '" ' + (attrs || '') + (big ? ' style="width:calc((100vw - 60px) / 3);max-width:120px;min-width:96px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : cost > c.cost ? ' tax' : '') + '">' + (c.unplayable ? '✕' : cost) + '</span>' + (c.rare ? '<span class="rare-tag">秘傳</span>' : '')
       + '<span class="q" onclick="event.stopPropagation();cardInfo(\'' + id + '\')">?</span>'
-      + '<div class="nm">' + esc(c.name) + (c.stack && run && run.battle ? ' <span class="stackn">×' + (run.battle.swords || 0) + '</span>' : '') + '</div><div class="tx">' + esc(G.cardShort(id, run)) + '</div>' + (c.stack && run && run.battle ? (attrs && (run.battle.swords || 0) >= 2 ? '<span class="allbtn" onclick="event.stopPropagation();fireAll()">全放</span>' : '') : '') + (extra || '') + '</button>';
+      + '<div class="nm' + (Array.from(c.name).length > 6 ? ' nml' : '') + '">' + esc(c.name) + (c.stack && run && run.battle ? ' <span class="stackn">×' + (run.battle.swords || 0) + '</span>' : '') + '</div><div class="tx">' + esc(G.cardShort(id, run)) + '</div>' + (c.stack && run && run.battle ? (attrs && (run.battle.swords || 0) >= 2 ? '<span class="allbtn" onclick="event.stopPropagation();fireAll()">全放</span>' : '') : '') + (extra || '') + '</button>';
   }
   // 卡片的「?」：完整說明（在彈出面板裡點的話，看完回到原本的面板）
   function cardInfo(id) {
@@ -1213,7 +1213,8 @@
     if (e.petrify && !e.stun) a.push(['定身 ', '定', e.petrify + '/' + th, '#f2c14e']);
     if (e.charm) a.push(['魅惑 ', '魅', e.charm, '#ff8fb8']);
     if (e.parasite) a.push(['寄生 ', '寄', e.parasite, '#b48cff']);
-    if (e.str) a.push(['力量 ', '力', e.str, '']);
+    var es = e.str - (G.passive(run) === 'gaze' && !e.stun ? e.petrify : 0);   // 鎮魂符：每層定身力量 -1，直接顯示算完的
+    if (e.str || es) a.push(['力量 ', '力', es !== e.str ? e.str + '→' + es : e.str, es < e.str ? '#f2c14e' : '']);
     if (e.vuln) a.push(['易傷 ', '易', e.vuln, '']);
     if (e.weak) a.push(['虛弱 ', '弱', e.weak, '']);
     if (e.thorns) a.push(['反震 ', '反', e.thorns, '']);
