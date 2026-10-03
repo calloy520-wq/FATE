@@ -474,7 +474,7 @@ var G = (function () {
   // ── 資料：法寶（整局的被動道具；id 沿用舊版） ─────────
   var RELICS = {
     gem:     { name: '聚靈玉', text: '每場戰鬥第一回合靈力 +1' },
-    blackkey:{ name: '破甲針', text: '每場戰鬥第一次攻擊命中 +6' },
+    blackkey:{ name: '破甲針', text: '每場戰鬥第一次攻擊，第一擊 +6（會被格擋吃掉）' },
     shroud:  { name: '護體金鐘', text: '每場戰鬥開始時獲得 8 格擋' },
     circuit: { name: '通神香', text: '每場戰鬥神通量表從 25% 開始' },
     tea:     { name: '一壺靈茶', text: '在休息點回復的生命多 15 點' },
@@ -488,12 +488,12 @@ var G = (function () {
     waver:   { name: '山海圖', text: '地圖多看 2 列；事件擲骰 +2（熟悉地形）' },
     // 以下要達成目標才會出現在法寶池（lock＝GOALS 的 id）
     tassel:  { name: '劍穗', text: '每場戰鬥開始時多抽 1 張牌', lock: 'clear' },
-    lamp:    { name: '心燈', text: '每場戰鬥第一次生命掉到一半以下時，回復 12 生命', lock: 'xinmo' },
+    lamp:    { name: '心燈', text: '每場戰鬥第一次受傷後生命在一半以下（還站著，或倒下又站起來）時，回復 12 生命', lock: 'xinmo' },
     pouch:   { name: '乾坤袋', text: '商店的東西與移除卡片打八五折', lock: 'tower' },
     bead:    { name: '定魂珠', text: '每場戰鬥開始時所有敵人定身 1', lock: 'bosses' },
-    peijade: { name: '同門玉佩', text: '開局牌組多一張另一條主修的招牌牌（拿到時就給）', lock: 'paths' }
+    peijade: { name: '同門玉佩', text: '牌組多一張還沒修的那條主修的招牌牌（拿到時就給）', lock: 'paths' }
   };
-  function relicPool(run) { return Object.keys(RELICS).filter(function (k) { return unlocked(run.unlocks, RELICS[k].lock); }); }
+  function relicPool(run) { return Object.keys(RELICS).filter(function (k) { return unlocked(run.unlocks, RELICS[k].lock) && (k !== 'peijade' || pathsOf(run.who).some(function (P) { return (run.majors || []).indexOf(P.id) < 0; })); }); }   // 同門玉佩：主修都修了（白辰兼修後）就不出
 
   // ── 資料：丹藥（2026-10-02 取代三枚玉符）：一路撿，身上最多 3 顆；戰鬥中自己的回合隨時吃，不限次數，吃了就沒了 ──
   var PILLS = {
@@ -1315,8 +1315,8 @@ var G = (function () {
   var NP_GAIN = { forge: 10, gaze: 6, madness: 0.5, bite: 1, revive: 8, ambush: 5, fire: 6, anqi: 4 };   // fire：青璃火符每點火勢｜anqi：阿朵暗器每打出一張攻擊牌
   function npHow(who) {   // 給玩家看：這位的神通量表怎麼漲
     var p = (SERVANTS[who].passive || {}).id;
-    return p === 'forge' ? '每祭出 1 把飛劍 +' + NP_GAIN.forge + '%' : p === 'gaze' ? '每貼 1 層定身、每 1 點火勢 +' + NP_GAIN.gaze + '%' : p === 'madness' ? '阿白每長大 2，量表 +1%；每咬一口 +' + NP_GAIN.bite + '%'
-      : p === 'revive' ? '每失去 1 生命 +' + NP_GAIN.revive + '%' : p === 'ambush' ? '敵人每多中 1 層毒或寄生 +' + NP_GAIN.ambush + '%；暗器每打出一張攻擊牌 +' + NP_GAIN.anqi + '%' : '';
+    return p === 'forge' ? '每祭出 1 把飛劍 +' + NP_GAIN.forge + '%' : p === 'gaze' ? '每貼 1 層定身、每 1 點火勢 +' + NP_GAIN.gaze + '%' : p === 'madness' ? '阿白長大（扣掉擋傷縮小的）每 2 點 +1%；每咬一口 +' + NP_GAIN.bite + '%'
+      : p === 'revive' ? '每失去 1 生命 +' + NP_GAIN.revive + '%' : p === 'ambush' ? '敵人身上的毒與寄生，比之前多出的每 1 層 +' + NP_GAIN.ambush + '%；暗器每打出一張攻擊牌 +' + NP_GAIN.anqi + '%' : '';
   }
   function npAdd(b, n, free) {   // 放過神通的那回合，機制不再累積（擋住定身→神通→定身的無限循環）
     if (!b || !(n > 0) || (!free && b.npUsed)) return;
@@ -1441,7 +1441,7 @@ var G = (function () {
     run.hp -= d;
     if (b) b.lost = (b.lost || 0) + Math.min(d, d + run.hp);   // 以血還血：這一輪失去的生命
     if (p === 'revive') npAdd(b, Math.min(d, d + run.hp) * NP_GAIN.revive);   // 赤練：失去的生命累積神通
-    if (b && run.hp > 0 && run.hp <= run.maxHp / 2 && !b.lampUsed && hasRelic(run, 'lamp')) { b.lampUsed = 1; run.hp = Math.min(run.maxHp, run.hp + 12); log.push('心燈亮了：回復 12 生命'); }
+    lampCheck(run, log);
     if (run.hp > 0) return;
     if (run.lives > 0) {
       run.lives--;
@@ -1449,16 +1449,19 @@ var G = (function () {
         run.hp = Math.round(run.maxHp * 0.5); run.trialStr = (run.trialStr || 0) + 2; if (b) b.str += 2;
         log.push('不滅血體：又站了起來，力量 +2（還剩 ' + run.lives + ' 條命）');
       } else { run.hp = Math.round(run.maxHp * 0.2); log.push('又站了起來（還剩 ' + run.lives + ' 條命）'); }
+      lampCheck(run, log);
     }
     else run.hp = 0;
   }
+  // 心燈：受傷後生命在一半以下、還站著（倒下又站起來的也算）
+  function lampCheck(run, log) { var b = run.battle; if (b && run.hp > 0 && run.hp <= run.maxHp / 2 && !b.lampUsed && hasRelic(run, 'lamp')) { b.lampUsed = 1; run.hp = Math.min(run.maxHp, run.hp + 12); (log || b.log || []).push('心燈亮了：回復 12 生命'); } }
   // 自傷（牌、丹藥試吃）：不會因此倒下；赤練照樣累積神通、心燈照樣會亮
   function selfHurt(run, n, log) {
     var b = run.battle, lost = Math.max(0, Math.min(n, run.hp - 1));
     run.hp -= lost;
     if (b) b.lost = (b.lost || 0) + lost;
     if (b && passive(run) === 'revive') npAdd(b, lost * NP_GAIN.revive);
-    if (b && run.hp <= run.maxHp / 2 && !b.lampUsed && hasRelic(run, 'lamp')) { b.lampUsed = 1; run.hp = Math.min(run.maxHp, run.hp + 12); (log || b.log || []).push('心燈亮了：回復 12 生命'); }
+    lampCheck(run, log);
   }
   function debuffPlayer(run, k, n) {
     var b = run.battle;

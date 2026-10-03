@@ -551,4 +551,6 @@ t(Object.values(G.EVENTS).filter(E=>E.who).every(E=>E.end&&E.end.length>=20),'�
 { const q=arena('shuang',1,80); q.hp=1; q.battle.block=3; E(q).intent={n:'砍',fx:[['atk',5]]}; E(q).str=0; const f=G.forecast(q); t(f.lethal&&f.loss===2,'將受到：會倒下的那一輪也顯示真的會挨多少（5 擋 3＝2，不是剩下的生命）',JSON.stringify(f)); }
 { const q=arena('aduo',1,80); E(q).hp=3; E(q).poison=9; E(q).intent={n:'砍',fx:[['atk',30]]}; const f=G.forecast(q); t(f.cleared&&f.loss===0,'敵人被毒先收掉：預告「撐不到出手」',JSON.stringify(f)); }
 { let dup=0; for(let s=1;s<=300;s++){ const q=G.newRun('qingli',s); step(q,'shop'); if(q.shop&&q.shop.pills[0].id===q.shop.pills[1].id) dup++; } t(!dup,'商店的兩顆丹藥不重複',dup); }
+{ const q=G.newRun('xiaoman',3,{goals:['paths']}); const before=G.relicPool(q).includes('peijade'); q.screen='major'; G.chooseMajor(q,G.pathsOf('xiaoman').find(P=>!q.majors.includes(P.id)).id); t(before&&q.majors.length===2&&!G.relicPool(q).includes('peijade'),'白辰兩條主修都修了：同門玉佩不會出（拿到也沒東西給）'); }
+{ const q=arena('qingli',1,80); q.relics=['lamp','pendant']; q.lives=1; q.maxHp=60; q.hp=40; E(q).intent={n:'砍',fx:[['atk',45]]}; G.endTurn(q); t(q.battle.lampUsed&&q.hp===12+12,'心燈：倒下又站起來（兩成生命）也會亮',q.hp); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
