@@ -553,4 +553,5 @@ t(Object.values(G.EVENTS).filter(E=>E.who).every(E=>E.end&&E.end.length>=20),'�
 { let dup=0; for(let s=1;s<=300;s++){ const q=G.newRun('qingli',s); step(q,'shop'); if(q.shop&&q.shop.pills[0].id===q.shop.pills[1].id) dup++; } t(!dup,'商店的兩顆丹藥不重複',dup); }
 { const q=G.newRun('xiaoman',3,{goals:['paths']}); const before=G.relicPool(q).includes('peijade'); q.screen='major'; G.chooseMajor(q,G.pathsOf('xiaoman').find(P=>!q.majors.includes(P.id)).id); t(before&&q.majors.length===2&&!G.relicPool(q).includes('peijade'),'白辰兩條主修都修了：同門玉佩不會出（拿到也沒東西給）'); }
 { const q=arena('qingli',1,80); q.relics=['lamp','pendant']; q.lives=1; q.maxHp=60; q.hp=40; E(q).intent={n:'砍',fx:[['atk',45]]}; G.endTurn(q); t(q.battle.lampUsed&&q.hp===12+12,'心燈：倒下又站起來（兩成生命）也會亮',q.hp); }
+{ const q=arena('qingli',1,80); q.act=3; q.endless=false; q.hp=1; E(q).intent={n:'砍',fx:[['atk',30]]}; G.endTurn(q); t(q.screen==='over'&&q.win&&!q.trueEnd,'倒在九幽魔淵：兩章魔王都打倒了，照樣算通關（只是沒封住魘）',JSON.stringify([q.screen,q.win])); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

@@ -718,7 +718,7 @@ var G = (function () {
     projHits: function (f) { return '⚔' + f[1] + '×' + f[3] + '（+' + f[2] + '/劍）'; },
     jy: '劍意+{1}', pJy: '每回合劍意+{1}', guiyi: '收劍→劍意×{1}', jyStrike: ['穿透⚔{1}+{2}/劍意', '穿透⚔'], breakDmg: ['破甲⚔{1}+{2}/劍意', '破甲⚔'], dbl: '下張攻擊×2',
     yuyin: '餘音+{1}', pYuyin: '每回合餘音+{1}', yuyinX2: '餘音×2', yuyinAll: '全體⚔餘音×{1}',
-    cleanse: '淨化', borrow: '借定身→靈力+1 抽{1}', goldTstr: '花{1}金 本回合力量+{2}',
+    cleanse: '解除虛弱易傷', borrow: '借定身→靈力+1 抽{1}', goldTstr: '花{1}金 本回合力量+{2}',
     thunderAll: function (f) { return '全體⚔' + (f[1] ? f[1] + '+' : '') + f[2] + '/定身'; },
     fire: '火勢+{1}', pFire: '每回合火勢+{1}', fireAll: ['全體⚔{1}+{2}/火勢', '全體⚔'], fireBlock: ['🛡{1}+{2}/火勢', '🛡'], burnHand: '燒一張 火勢+{1}', fireNuke: '全體⚔火勢×{1}',
     krakenHalfBlock: '🛡{1}+阿白/2', pNilin: '受擊→反擊阿白/3', krakenTstr: '本回合力量+阿白/{1}', pHualong: '每回合阿白-2 力量+{1}', strHits: '⚔{1}×(力量/2+1)',
@@ -1869,7 +1869,7 @@ var G = (function () {
   var KRAKEN_FED_MAX = 6, KRAKEN_FED_EVERY = 2;   // 白辰：每打贏 2 場，阿白整局 +1，最多 +6
   function checkEnd(run) {
     var b = run.battle;
-    if (run.hp <= 0) { run.hp = 0; run.screen = 'over'; run.win = false; return 'lose'; }
+    if (run.hp <= 0) { run.hp = 0; run.screen = 'over'; run.win = (run.act || 1) >= 3 && !run.endless; return 'lose'; }   // 倒在九幽魔淵：兩章魔王都打倒了，照樣算通關（只是沒封住魘）
     if (!alive(b).length) {
       if (passive(run) === 'madness') { run.krakenWins = (run.krakenWins || 0) + 1; var fed = Math.min(KRAKEN_FED_MAX, Math.floor(run.krakenWins / KRAKEN_FED_EVERY)); if (fed > (run.krakenFed || 0)) { run.krakenFed = fed; b.log = (b.log || []).concat(['阿白吃飽了：之後每場開場阿白 +' + fed + '（累計）']); } }   // 白辰：阿白整局成長
       if (hasRelic(run, 'bento')) run.hp = Math.min(run.maxHp, run.hp + 4);   // 桂花糕：打贏就回（魔王也算）
