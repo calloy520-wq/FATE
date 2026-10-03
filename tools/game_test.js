@@ -525,4 +525,6 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
 { const q=arena('qingli',2,30); E(q,1).hp=0; E(q).intent={n:'叫人',fx:[['summon','zhiren',1]]}; G.endTurn(q); t(q.battle.enemies.length===2&&q.battle.enemies[1].hp>0,'叫來的援軍補進倒下的空位（不會越積越多）',q.battle.enemies.length); }
 { const q=arena('shuang',1,5); E(q).thorns=3; q.hp=2; playId(q,'atk_shuang'); t(q.screen!=='over'&&q.hp===2,'打倒最後一個敵人的那一下，不會被它的反震震死',[q.screen,q.hp]); }
 { const q=arena('chilian',1,5); q.hp=2; playId(q,'rampage'); t(q.screen!=='over'&&q.hp===2,'血刃打倒最後一個敵人：自傷就不用付了',[q.screen,q.hp]); }
+{ const q=G.newRun('shuang',8,{major:'wanjian'}); q.screen='major'; G.chooseMajor(q,'guiyi'); step(q,'fight'); const b=q.battle; b.swords=3; b.jy=0; b.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.jy>=9,'兼修歸一：沒用完的飛劍照說明化成劍意',q.battle.jy); }
+{ const q=G.newRun('xiaoman',8,{major:'longzhan'}); q.screen='major'; G.chooseMajor(q,'longyou'); step(q,'fight'); const b=q.battle; b.kraken=9; const hp=b.enemies.map(e=>e.hp); b.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.enemies.every((e,i)=>e.hp===hp[i])&&q.battle.tstr>0,'兼修龍佑：阿白照說明不咬人、改加持白辰',q.battle.tstr); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);
