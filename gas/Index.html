@@ -389,6 +389,7 @@
   .fig .pet .dragon { filter:drop-shadow(0 0 6px #9ed0ff); animation:float 2.6s ease-in-out infinite; }
   .dragon .dsize { font-size:11px; fill:#ffd36e; font-weight:bold; }
   .dragon.dimg { position:relative; display:inline-block; } .dragon.dimg img { width:100%; display:block; }
+  .ending .dragon .dsz, .ending .dragon .dsize { display:none; }
   .dragon.dimg .dsz { position:absolute; left:50%; bottom:2%; transform:translateX(-50%); font-size:12px; color:#ffd36e; text-shadow:0 0 3px #000,0 0 6px #000; }
   .fsvg .swords { animation:float 2.2s ease-in-out infinite; } .fsvg .fu { animation:float 3s ease-in-out infinite; } .fsvg .bfly { animation:float 1.8s ease-in-out infinite; }
   @keyframes breathe { 50% { transform:scaleY(1.022) translateY(-1px); } }
@@ -902,7 +903,7 @@
   function storyWho(k) {
     var S = G.SERVANTS[k];
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(S.name) + '</b>　<span class="dim">' + esc(S.sect + '・' + S.cls) + '</span>'
-      + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + '</div>'
+      + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + (k === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>'
       + '<div class="list" style="margin-top:10px"><div class="box lore" style="text-align:left">' + keepTail(esc(S.desc)) + '</div>'
       + storyEvents(k).map(function (e) { var E = G.EVENTS[e]; return '<div class="box"><b>' + esc(E.name) + '</b><div class="lore" style="text-align:left;margin-top:6px">' + keepTail(esc(E.text)) + '</div>' + (E.end ? '<div class="lore" style="text-align:left;margin-top:8px;opacity:.85">' + keepTail(esc(E.end)) + '</div>' : '') + '</div>'; }).join('')
       + '<button onclick="closeOv()">返回</button></div>');
@@ -1589,7 +1590,7 @@
   // 真結局：CG（end_<角色>，還沒有就用立繪）＋故事
   function endingHtml(who) {
     var E = G.ENDINGS[who]; if (!E) return '';
-    var pic = ART['end_' + who] ? '<img src="' + ART['end_' + who] + '" alt="" style="width:100%;border-radius:10px;display:block" onerror="this.remove()">' : '<div class="svtfig sc-abyss" style="height:200px">' + FIG.fig(who, false, { swords: 5 }) + '</div>';
+    var pic = ART['end_' + who] ? '<img src="' + ART['end_' + who] + '" alt="" style="width:100%;border-radius:10px;display:block" onerror="this.remove()">' : '<div class="svtfig sc-abyss" style="height:200px">' + FIG.fig(who, false, { swords: 5 }) + (who === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>';
     return '<div class="box ending" style="max-width:460px;width:100%"><div class="dim" style="text-align:center">真結局</div><h3 style="text-align:center;font-size:19px;margin:4px 0 8px">「' + esc(E.title) + '」</h3>' + pic
       + E.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0">' + keepTail(esc(t)) + '</p>'; }).join('')
       + (G.EPILOGUE ? '<div class="msep" style="margin:14px 0 6px"></div><div class="dim" style="text-align:center">尾聲・' + esc(G.EPILOGUE.title) + '</div>' + G.EPILOGUE.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0">' + keepTail(esc(t)) + '</p>'; }).join('') : '') + '</div>';
@@ -1626,7 +1627,7 @@
     var E = G.ENEMIES[k];
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(E.name) + '</b>　<span class="dim">' + (E.boss ? '魔王' : E.elite ? '精英' : '妖物') + '</span>'
       + '<div class="svtfig ' + (E.boss && k === 'xinmo' ? 'sc-abyss' : 'sc-city') + '">' + FIG.fig(k, true) + '</div>'
-      + '<div class="list" style="margin-top:10px"><div class="box">' + keepTail(esc(G.LORE[k] || '')) + '</div><div class="box"><h3>招式</h3>' + keepTail(E.moves.map(function (m) { return esc(m.n); }).join('、')) + '</div></div>');
+      + '<div class="list" style="margin-top:10px"><div class="box">' + keepTail(esc(G.LORE[k] || '')) + '</div><div class="box"><h3>招式</h3>' + (E.names ? G.ORDER.map(function (w) { return '<div style="margin-top:4px"><b>' + esc(G.SERVANTS[w].name) + '</b>：' + E.names[w].map(esc).join('、') + '</div>'; }).join('') : keepTail(E.moves.map(function (m) { return esc(m.n); }).join('、'))) + '</div></div>');   // 魘：對每個人說的話不一樣
   }
   // 對局紀錄：每局結束送一列到伺服器（調平衡用；送不出去就算了）
   function logRun(r) {
