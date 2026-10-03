@@ -548,4 +548,7 @@ t(['plague','yangchong','abyss','yangguan'].every(k=>['a','b','c','d','e','f'].e
 { const q=G.newRun('shuang',8,{endless:true}); q.act=5; q.seenEvents=Object.keys(G.EVENTS); let bad=0; for(let i=0;i<200;i++){ q.screen='map'; G.startEvent(q); if(/"maxHp",\d/.test(JSON.stringify(G.EVENTS[q.event].opts))) bad++; } t(!bad,'事件都遇過了：再遇的不會是加最大生命的（不然鎮妖塔裡一路疊）',bad); }
 { const q=G.newRun('shuang',9,{endless:true}); q.act=5; t(G.makeEnemy(q,'huyao',0,0).str===18,'鎮妖塔魔王：每層力量 +4（第 3 層 6+12）',G.makeEnemy(q,'huyao',0,0).str); }
 t(Object.values(G.EVENTS).filter(E=>E.who).every(E=>E.end&&E.end.length>=20),'劇情模式的插曲都有收尾（專屬事件的 end）');
+{ const q=arena('shuang',1,80); q.hp=1; q.battle.block=3; E(q).intent={n:'砍',fx:[['atk',5]]}; E(q).str=0; const f=G.forecast(q); t(f.lethal&&f.loss===2,'將受到：會倒下的那一輪也顯示真的會挨多少（5 擋 3＝2，不是剩下的生命）',JSON.stringify(f)); }
+{ const q=arena('aduo',1,80); E(q).hp=3; E(q).poison=9; E(q).intent={n:'砍',fx:[['atk',30]]}; const f=G.forecast(q); t(f.cleared&&f.loss===0,'敵人被毒先收掉：預告「撐不到出手」',JSON.stringify(f)); }
+{ let dup=0; for(let s=1;s<=300;s++){ const q=G.newRun('qingli',s); step(q,'shop'); if(q.shop&&q.shop.pills[0].id===q.shop.pills[1].id) dup++; } t(!dup,'商店的兩顆丹藥不重複',dup); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

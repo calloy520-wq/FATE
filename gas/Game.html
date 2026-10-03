@@ -1056,7 +1056,7 @@ var G = (function () {
     dojo:    { name: '廢棄的演武場', text: '木人樁，石鎖。牆上刻著四個大字：「每日練功」。',
       opts: [{ label: '練功：隨機強化 2 張牌', fx: [['upRandom', 2]] }, { label: '打坐：從牌組移除一張牌', fx: [['pick', 'remove']] }] },
     gamble:  { name: '賭坊', text: '賭坊老闆搖著骰盅，笑了：「要試試手氣嗎？」',
-      opts: [{ label: '賭（🎲≥11）：成功→贏到一件法寶；失敗→被打手揍一頓，失去 15 生命、被拿走 25 金', need: { hp: 15 }, fx: [['d20', 11, [['relic']], [['hp', -15], ['gold', -25]]]] }, { label: '拒絕', fx: [] }] },
+      opts: [{ label: '賭（🎲≥11）：成功→贏到一件法寶；失敗→被打手揍一頓，失去 15 生命、被拿走 25 金', fx: [['d20', 11, [['relic']], [['hp', -15], ['gold', -25]]]] }, { label: '拒絕', fx: [] }] },
     // 擲骰事件：成功拿大獎、失敗付代價；氣運好的角色比較容易成功
     stairs:  { name: '通天石階', text: '山崖上的石階，又長又陡。據說爬到頂的人，能得到山神的加護——也有人滾了下來。',
       opts: [{ label: '一口氣衝上去（🎲≥10）：成功→最大生命 +8；失敗→失去 10 生命', fx: [['d20', 10, [['maxHp', 8]], [['hp', -10]]]] }, { label: '慢慢走：回復 8 生命', fx: [['hp', 8]] }] },
@@ -1805,9 +1805,12 @@ var G = (function () {
   function forecast(run) {
     var r = JSON.parse(JSON.stringify(run)), hp0 = r.hp, lives0 = r.lives || 0;
     if (!r.battle || r.screen !== 'battle') return null;
+    var big = JSON.parse(JSON.stringify(run)), K = 100000;   // 另一份把生命墊高：倒下的那一輪也算得出真的會挨多少（不然只看得到「剩下的生命」）
+    big.hp += K; big.maxHp += K; endTurn(big);
     endTurn(r);
-    var fell = r.hp <= 0 || (r.lives || 0) < lives0;
-    return { loss: fell ? hp0 : Math.max(0, hp0 - r.hp), lethal: r.hp <= 0, revive: (r.lives || 0) < lives0 && r.hp > 0 };
+    var fell = r.hp <= 0 || (r.lives || 0) < lives0, loss = Math.max(0, hp0 + K - big.hp);
+    return { loss: fell ? Math.max(loss, hp0) : Math.max(0, hp0 - r.hp), lethal: r.hp <= 0, revive: (r.lives || 0) < lives0 && r.hp > 0,
+      cleared: r.hp > 0 && (r.screen !== 'battle' || !alive(r.battle).length) };   // 敵人撐不到出手（毒、餘音、阿白…先收掉了）
   }
   function endTurn(run) {
     var b = run.battle; if (!b || run.screen !== 'battle') return { ok: false };
@@ -1960,7 +1963,7 @@ var G = (function () {
     if (rares.length) cards.push({ id: pick(run, rares), price: PRICE.rare, sold: false });
     var rl = randomRelic(run);
     run.shop = { cards: cards, relic: rl ? { id: rl, price: PRICE.relic + Math.floor(rnd(run) * 21) - 10, sold: false } : null, removed: false,
-      pills: [randomPill(run), randomPill(run)].map(function (id) { return { id: id, price: PRICE.pill + Math.floor(rnd(run) * 21) - 10, sold: false }; }) };
+      pills: (function () { var p1 = randomPill(run); return [p1, pick(run, Object.keys(PILLS).filter(function (k) { return k !== p1; }))]; })().map(function (id) { return { id: id, price: PRICE.pill + Math.floor(rnd(run) * 21) - 10, sold: false }; }) };   // 兩顆丹藥不重複
     run.screen = 'shop';
   }
   function removePrice(run) { return run.removed < 0 ? 0 : Math.round((PRICE.remove + (run.flatRemove ? 0 : 25 * (run.removed || 0))) * (run.discount || 1)); }

@@ -77,6 +77,7 @@
   #me .chips { max-height:46px; overflow:hidden; }   /* 最多兩行，其他的點「?」看 */
   .incoming.safe { background:#172419; border-color:#2e6b3d; color:#b3f2c2; }
   .infobtn { min-height:36px; } .box.lore { padding:12px 14px; }
+  .card:has(.allbtn) .pv { padding-bottom:12px; }   /* 預計傷害讓出位置給「全放」 */
   .allbtn { position:absolute; left:50%; bottom:-10px; transform:translateX(-50%); font-size:12px; padding:2px 8px; border-radius:10px; background:#e8c879; color:#1a1408; border:1px solid #f3d78f; white-space:nowrap; z-index:2; }
   .incoming.lethal { background:#3a1010; border-color:#ff5a5a; color:#ffd0d0; animation:pulse 1s infinite; }
   .infobtn { border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:3px 8px; font-size:13.5px; }
@@ -103,7 +104,7 @@
   .card { flex:1 0 0; min-width:58px; max-width:118px; min-height:128px; border-radius:10px; border:1px solid var(--line); background:#1b2130; padding:7px 6px; text-align:left; position:relative; display:flex; flex-direction:column; }
   .pick .card { flex:none; }
   .card .cost { position:absolute; top:-8px; left:-4px; width:24px; height:24px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#fff3c9,#e5bd62 45%,#94691f); color:#1a1205; font-weight:bold; display:flex; align-items:center; justify-content:center; font-size:14px; box-shadow:0 0 0 2px #0a0c13, 0 2px 5px rgba(0,0,0,.6); z-index:2; }
-  .card .nm { font-weight:bold; margin:11px 14px 4px 2px; font-size:14px; line-height:1.25; word-break:keep-all; overflow-wrap:anywhere; }
+  .card .nm { font-weight:bold; margin:11px 14px 4px 2px; font-size:14px; line-height:1.25; word-break:keep-all; overflow-wrap:anywhere; text-wrap:balance; }
   .card .tx { font-size:13px; color:var(--ink); line-height:1.45; }
   /* 卡片外框（稀有度，cardTier）：無邊框（基本牌、代幣）／銀框（一般）／金光（強化過、秘傳）／炫彩光（★傳說、強化過的奧義）；詛咒與狀態牌是暗紫色 */
   .card { isolation:isolate; background:linear-gradient(172deg,#232938,#161a25 70%); border-color:#30374a; box-shadow:0 3px 8px rgba(0,0,0,.45); }
@@ -129,7 +130,7 @@
   .uplegend { background:linear-gradient(90deg,#ff8ad8,#ffd36e,#7fe3ff); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; font-weight:bold; filter:drop-shadow(0 0 6px rgba(255,200,230,.55)); }
   .chip:disabled { opacity:.3; }
   .card .cost.free { background:radial-gradient(circle at 35% 30%,#dcffe8,#6cc58f 50%,#2c7448); } .card .cost.tax { background:radial-gradient(circle at 35% 30%,#ffb8b8,#c23b3b 50%,#6c1414); color:#fff; }
-  .card .stackn { position:absolute; right:8px; bottom:6px; z-index:3; font-size:24px; font-weight:800; color:var(--gold); text-shadow:0 0 8px rgba(217,184,106,.8), 0 1px 2px #000; pointer-events:none; }
+  .card .stackn { white-space:nowrap; font-size:19px; font-weight:800; color:var(--gold); text-shadow:0 0 8px rgba(217,184,106,.8), 0 1px 2px #000; pointer-events:none; }
   .card.curse .cost { background:radial-gradient(circle at 35% 30%,#8d5a9e,#3a1a45 70%); color:#f0e0f6; }
   .card .pv { margin-top:auto; padding-top:5px; font-size:13.5px; font-weight:bold; }
   .card .q::before, .foe .q::before { content:''; position:absolute; inset:-11px; }
@@ -226,7 +227,8 @@
   /* 手牌：固定一排 5 張的大小，第 6 張起排到第二行（最多 10 張＝2×5），牌不會因為張數變大變小 */
   #hand { display:grid; grid-template-columns:repeat(5, minmax(0, 118px)); justify-content:center; gap:10px 5px; overflow:visible; }
   #hand .card { width:100%; max-width:none; min-width:0; }
-  #hand.many .card { min-height:96px; } #hand.m7 .card .tx { -webkit-line-clamp:2; }   /* 兩排手牌：說明最多兩行（完整的點「?」），不把舞台擠到底下 */
+  #hand.many .card { min-height:96px; } #hand.m7 .card .tx { -webkit-line-clamp:2; }
+  #hand.m11 { grid-template-columns:repeat(6, minmax(0, 98px)); gap:10px 4px; } #hand.m11 .card .tx { -webkit-line-clamp:1; }   /* 10 張＋飛劍那一格：排成 2×6，不排出第三排 */   /* 兩排手牌：說明最多兩行（完整的點「?」），不把舞台擠到底下 */
   @media (min-width:900px) { #hand { grid-template-columns:repeat(5, minmax(0, 130px)); } }
   .card .nm { margin:15px 0 3px 1px; font-size:13.5px; }
   .card .pv { font-size:15px; }
@@ -1125,7 +1127,7 @@
     var c = G.card(id), cost = run && run.battle && !big ? G.costOf(run, id) : c.cost;
     return '<button class="card ' + c.type + ' f-' + cardTier(c) + (c.token ? ' token' : '') + (c.rare ? ' rare' : '') + (c.dir === 'f' ? ' legend' : '') + '" ' + (attrs || '') + (big ? ' style="width:calc((100vw - 60px) / 3);max-width:120px;min-width:96px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : cost > c.cost ? ' tax' : '') + '">' + (c.unplayable ? '✕' : cost) + '</span>' + (c.rare ? '<span class="rare-tag">秘傳</span>' : '')
       + '<span class="q" onclick="event.stopPropagation();cardInfo(\'' + id + '\')">?</span>'
-      + '<div class="nm">' + esc(c.name) + '</div><div class="tx">' + esc(G.cardShort(id, run)) + '</div>' + (c.stack && run && run.battle ? '<span class="stackn">×' + (run.battle.swords || 0) + '</span>' + (attrs && (run.battle.swords || 0) >= 2 ? '<span class="allbtn" onclick="event.stopPropagation();fireAll()">全放</span>' : '') : '') + (extra || '') + '</button>';
+      + '<div class="nm">' + esc(c.name) + (c.stack && run && run.battle ? ' <span class="stackn">×' + (run.battle.swords || 0) + '</span>' : '') + '</div><div class="tx">' + esc(G.cardShort(id, run)) + '</div>' + (c.stack && run && run.battle ? (attrs && (run.battle.swords || 0) >= 2 ? '<span class="allbtn" onclick="event.stopPropagation();fireAll()">全放</span>' : '') : '') + (extra || '') + '</button>';
   }
   // 卡片的「?」：完整說明（在彈出面板裡點的話，看完回到原本的面板）
   function cardInfo(id) {
@@ -1253,6 +1255,7 @@
     var fc = G.forecast(run) || { loss: 0 }, after = fc.loss;   // 真的跑一次敵人回合：格擋、迴避、阿白、奪勢、碎格擋、手上的魔氣都算進去
     if (!tot && !after) return '<div class="incoming safe">✓ 敵人這回合不攻擊</div>';
     if (b.evadeAll && !after) return '<div class="incoming safe">✦ 遁形：這回合的攻擊（共 <b>' + tot + '</b>）全部落空</div>';
+    if (!after && fc.cleared) return '<div class="incoming safe">✓ 敵人撐不到出手</div>';
     if (!after) return '<div class="incoming safe">🛡 擋得住：敵人共打 <b>' + tot + '</b></div>';
     var self = [], hold = 0, mad = G.passive(run) === 'revive' && run.hp > 1 ? (G.MADNESS[run.who] || 0) : 0; b.hand.forEach(function (x) { hold += G.card(x).hold || 0; });
     if (hold) self.push('手上妨礙牌 ' + hold); if (mad) self.push('血煞反噬 ' + mad);   // 不是敵人打的：寫出來
@@ -1300,7 +1303,7 @@
       + '<div id="me" onclick="meInfo()"><div class="row"><div class="energy">' + b.energy + '<small>靈力</small></div>'
       + '<span class="myblk' + (b.block ? '' : ' zero') + '">🛡 ' + b.block + '</span>'
       + '<div class="chips" style="flex:1;min-width:0">' + meChips(b) + '</div><span class="chip">?</span></div></div>'
-      + '<div id="hand"' + (b.hand.length >= 6 ? ' class="many' + (b.hand.length >= 7 ? ' m7' : '') + '"' : '') + '>' + b.hand.map(function (id, i) { return cardHtml(id, 'onclick="tapCard(' + i + ')"' + (G.costOf(run, id) > b.energy || G.card(id).unplayable ? ' disabled' : ''), false, pvHtml(i)); }).join('') + '</div>'
+      + '<div id="hand"' + (b.hand.length >= 6 ? ' class="many' + (b.hand.length >= 7 ? ' m7' : '') + (b.hand.length > 10 ? ' m11' : '') + '"' : '') + '>' + b.hand.map(function (id, i) { return cardHtml(id, 'onclick="tapCard(' + i + ')"' + (G.costOf(run, id) > b.energy || G.card(id).unplayable ? ' disabled' : ''), false, pvHtml(i)); }).join('') + '</div>'
       + '<div id="acts"><button class="btn npbtn' + (full ? ' full' : '') + (sel.np ? ' on' : '') + '" style="--np:' + b.np + '%" ' + (full ? '' : 'disabled') + ' onclick="doNP()">' + (full ? '★ 施展神通' : b.npUsed ? '神通・已施展' : '神通 ' + b.np + '%') + '</button>'
       + '<button class="btn pillbtn" ' + ((run.pills || []).length || run.seals ? '' : 'disabled') + ' onclick="sealMenu()">丹藥 ' + (run.pills || []).length + (run.seals ? '・◈' : '') + '</button>'
       + '<button class="btn endbtn' + (canPlay ? '' : ' go') + '" onclick="endTurn()">結束回合</button></div></div></div>';
@@ -1614,7 +1617,7 @@
     var groups = { boss: G.BOSSES, elite: G.ELITES, mob: Object.keys(G.ENEMIES).filter(function (k) { return !G.ENEMIES[k].boss && !G.ENEMIES[k].elite; }) };
     var tabs = [['boss', '魔王'], ['elite', '精英'], ['mob', '妖物'], ['sect', '宗門'], ['end', '真結局'], ['goal', '目標']];
     var count = function (g) { return groups[g].filter(function (k) { return cx[k]; }).length + '／' + groups[g].length; };
-    var head = '<div class="tabs" style="max-width:520px;width:100%">' + tabs.map(function (t) { return '<button class="' + (tab === t[0] ? 'on' : '') + '" onclick="codexScreen(\'' + t[0] + '\')">' + t[1] + (groups[t[0]] ? ' <span class="dim" style="font-size:12px">' + count(t[0]) + '</span>' : '') + '</button>'; }).join('') + '</div>';
+    var head = '<div class="tabs" style="max-width:520px;width:100%">' + tabs.map(function (t) { return '<button class="' + (tab === t[0] ? 'on' : '') + '" onclick="codexScreen(\'' + t[0] + '\')">' + t[1] + (groups[t[0]] ? ' <span class="dim" style="font-size:12px;white-space:nowrap;display:inline-block">' + count(t[0]) + '</span>' : '') + '</button>'; }).join('') + '</div>';
     var body = '';
     if (groups[tab]) body = '<div class="cdx">' + groups[tab].map(function (k) {
       var E = G.ENEMIES[k], got = cx[k];
