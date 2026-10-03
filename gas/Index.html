@@ -489,7 +489,7 @@
   // 長段落的保險：最後六個字（含標點）綁在一起不拆行，最後一行就不會只剩一兩個字（短段落交給 CSS 的 text-wrap）
   function keepTail(h) { var m = /((?:(?:&[a-z#0-9]+;|[^\s<>&])\s?){6})$/.exec(h); return m ? h.slice(0, m.index) + '<span style="white-space:nowrap">' + m[1] + '</span>' : h; }
   // ── 帳號：第一個畫面先登入；每個帳號各自的存檔與戰績都存在伺服器（換裝置也接得上），本機另留一份快取 ──
-  var ACC = null, META = null, SAVED_RUN = null, AKEY = 'grail_acc_v1', CKEY = 'grail_cache_v1:';
+  var ACC = null, META = null, SAVED_RUN = null, RUN_TS = 0, AKEY = 'grail_acc_v1', CKEY = 'grail_cache_v1:';   // RUN_TS：這一局最後一次變動的時間（伺服器拿來擋舊的蓋新的）
   function newMeta() { return { v: 5, clears: {}, stats: { runs: 0, wins: 0, trueEnds: 0, best: {} }, codex: {}, endings: {}, skin: {}, seen: { goals: [], skins: [] }, tips: {}, ts: 0 }; }   // 局外沒有貨幣（2026-10-02）；達成目標解鎖造型、機緣、法寶
   // ── 局外解鎖：全部從戰績與圖鑑算出來（之前打過的也算），不另外存「解鎖了什麼」 ──
   function goalsDone(M) {
@@ -540,7 +540,7 @@
   function diffOpen(d) { return d === 'normal' || (d === 'hard' && anyCleared('normal')) || (d === 'abyss' && anyCleared('hard')); }
   function me() { return META; }
   function updateMe(fn) { fn(META); queueSave(true, false); }
-  function save() { SAVED_RUN = run ? JSON.stringify(run) : ''; syncCodex(); queueSave(false, true); }
+  function save() { var s = run ? JSON.stringify(run) : ''; syncCodex(); if (s === SAVED_RUN) return; SAVED_RUN = s; RUN_TS = Math.max(Date.now(), RUN_TS + 1); queueSave(false, true); }   // 時間只往前（這台的時鐘慢也不會被當成舊的）   // 沒變就不存（點牌、點敵人的重畫不算）
   function load() { try { return SAVED_RUN ? G.migrate(JSON.parse(SAVED_RUN)) : null; } catch (e) { return null; } }
   // 呼叫伺服器（Code.gs）；在本機直接開檔案時（沒有 google.script）改用瀏覽器裡的假伺服器，方便測試
   function srv(fn, args, ok, fail) {
@@ -561,29 +561,40 @@
     if (fn === 'gpLogin') {
       if (!a[0]) return { ok: false, msg: '先輸入帳號' };
       if (!u) { db[a[0]] = { meta: '', run: '' }; put(); return { ok: true, created: true, name: a[0], token: 't-' + a[0], meta: null, run: null }; }
-      return { ok: true, name: a[0], token: 't-' + a[0], meta: u.meta || null, run: u.run || null };
+      return { ok: true, name: a[0], token: 't-' + a[0], meta: u.meta || null, run: u.run || null, runTs: u.runTs || 0 };
     }
-    if (fn === 'gpResume') return u && a[1] === 't-' + a[0] ? { ok: true, name: a[0], token: a[1], meta: u.meta || null, run: u.run || null } : { ok: false, msg: '請重新登入' };
+    if (fn === 'gpResume') return u && a[1] === 't-' + a[0] ? { ok: true, name: a[0], token: a[1], meta: u.meta || null, run: u.run || null, runTs: u.runTs || 0 } : { ok: false, msg: '請重新登入' };
     if (fn === 'gpBoard') return { ok: true, list: Object.keys(db).map(function (k) { var m = null; try { m = JSON.parse(db[k].meta || 'null'); } catch (e) { } return boardRow(k, m); }).filter(function (r) { return r && (r.endless || r.wins); }) };
     if (fn === 'gpLog') { try { var lg = JSON.parse(localStorage.getItem('grail_fake_log') || '[]'); lg.push(a[2]); localStorage.setItem('grail_fake_log', JSON.stringify(lg.slice(-50))); } catch (e) { } return { ok: true }; }
-    if (fn === 'gpSave') { if (!u) return { ok: false }; if (a[2] != null) u.meta = a[2]; if (a[3] != null) u.run = a[3]; put(); return { ok: true }; }
+    if (fn === 'gpSave') { if (!u) return { ok: false }; if (a[2] != null) u.meta = a[2]; var st = false; if (a[3] != null) { if (+a[4] && u.runTs && +a[4] < u.runTs) st = true; else { u.run = a[3]; u.runTs = +a[4] || Date.now(); } } put(); return { ok: true, stale: st }; }
   }
-  // 存檔：先寫本機快取，停 2 秒沒有新變化再送伺服器
-  var dirty = { meta: false, run: false }, saveTimer = null, syncState = '';
+  // 存檔：先寫本機快取；伺服器停 5 秒沒有新變化才送（最多等 30 秒），一次只送一筆；送不出去就退一步再試（5／15／60 秒）
+  var dirty = { meta: false, run: false }, saveTimer = null, syncState = '', firstDirty = 0, inflight = false, failN = 0;
   function queueSave(m, r) {
     if (!ACC || !META) return;
     META.ts = Date.now();
     if (m) dirty.meta = true; if (r) dirty.run = true;
-    try { localStorage.setItem(CKEY + ACC.name, JSON.stringify({ meta: JSON.stringify(META), run: SAVED_RUN, ts: META.ts })); } catch (e) { }
-    clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, 2000); syncState = '…';
+    try { localStorage.setItem(CKEY + ACC.name, JSON.stringify({ meta: JSON.stringify(META), run: SAVED_RUN, runTs: RUN_TS, ts: META.ts })); } catch (e) { }
+    if (!firstDirty) firstDirty = Date.now();
+    clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, Math.max(0, Math.min(5000, firstDirty + 30000 - Date.now())));
   }
   function flushSave() {
     clearTimeout(saveTimer); if (!ACC || (!dirty.meta && !dirty.run)) return;
-    var m = dirty.meta || dirty.run ? JSON.stringify(META) : null, r = dirty.run ? SAVED_RUN : null;   // 每次都順便帶 meta（有時間戳）
-    dirty = { meta: false, run: false };
-    srv('gpSave', [ACC.name, ACC.token, m, r], function (res) { syncState = res && res.ok ? '' : '⚠'; if (res && !res.ok && !res.offline) toast('存檔失敗：' + (res.msg || '')); });
+    if (inflight) { saveTimer = setTimeout(flushSave, 1500); return; }   // 上一筆還在路上：等它回來再送
+    var m = JSON.stringify(META), r = SAVED_RUN, rt = RUN_TS, was = dirty;   // 戰績和這一局每次都一起送（哪一筆送到了都是完整的）
+    dirty = { meta: false, run: false }; firstDirty = 0; inflight = true;
+    srv('gpSave', [ACC.name, ACC.token, m, r, rt], function (res) {
+      inflight = false;
+      if (res && res.ok) { syncState = ''; failN = 0; if (res.stale && !flushSave.warned) { flushSave.warned = 1; toast('這一局在別的分頁或裝置有更新的進度，重新整理就會接上', 'err'); } return; }
+      dirty = { meta: dirty.meta || was.meta, run: dirty.run || was.run }; syncState = '⚠';   // 沒送到：記回去，等一下再試
+      if (res && !res.offline && !res.busy) toast('存檔失敗：' + (res.msg || ''), 'err');
+      clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, [5000, 15000, 60000][Math.min(2, failN++)]);
+      var sb = document.querySelector('.syncwarn'); if (sb) sb.style.display = '';
+    });
   }
   document.addEventListener('visibilitychange', function () { if (document.hidden) flushSave(); });
+  window.addEventListener('pagehide', function () { flushSave(); });
+  window.addEventListener('online', function () { failN = 0; flushSave(); });
   // 舊版在本機玩出來的進度（還沒有帳號的時候）：第一個登入的帳號沒有資料就搬過來
   function legacyData() {
     try {
@@ -600,14 +611,14 @@
   function onLogin(res) {
     ACC = { name: res.name, token: res.token };
     try { localStorage.setItem(AKEY, JSON.stringify(ACC)); } catch (e) { }
-    META = null; SAVED_RUN = res.run || '';
+    META = null; SAVED_RUN = res.run || ''; RUN_TS = +res.runTs || 0;
     try { META = res.meta ? JSON.parse(res.meta) : null; } catch (e) { }
     if (!META) { var L = legacyData(); if (L) { META = L.meta; SAVED_RUN = L.run; localStorage.setItem('grail_legacy_done', '1'); toast('已把這台裝置上的舊進度搬進帳號'); } }
     META = META || newMeta();
     if (META.tips === undefined) META.tips = META.stats && META.stats.runs > 0 ? { all: 1 } : {};   // 新手提示：已經玩過的帳號就不跳了
     Object.keys(newMeta()).forEach(function (k) { if (META[k] === undefined && k !== 'v') META[k] = newMeta()[k]; });   // v 留給下面的改版搬家判斷
     // 本機快取比伺服器新（上次沒送出去）：用本機的，並補送
-    try { var C = JSON.parse(localStorage.getItem(CKEY + ACC.name) || 'null'); if (C && C.ts > (META.ts || 0)) { META = JSON.parse(C.meta); SAVED_RUN = C.run || ''; dirty = { meta: true, run: true }; flushSave(); } } catch (e) { }
+    try { var C = JSON.parse(localStorage.getItem(CKEY + ACC.name) || 'null'); if (C && C.ts > (META.ts || 0)) { META = JSON.parse(C.meta); SAVED_RUN = C.run || ''; RUN_TS = +C.runTs || Date.now(); dirty = { meta: true, run: true }; flushSave(); } } catch (e) { }
     // 舊版的帳號：清掉局外欄位；進行中的舊局（Fate 版）作廢（G.migrate 回傳 null）
     if (META.v !== 5) { migrateMeta(META); queueSave(true, false); }
     try { if (SAVED_RUN && !G.migrate(JSON.parse(SAVED_RUN))) { SAVED_RUN = ''; queueSave(false, true); } } catch (e) { SAVED_RUN = ''; }
@@ -643,7 +654,7 @@
     srv('gpResume', [A.name, A.token], function (res) {
       if (res && res.ok) return onLogin(res);
       if (res && res.offline) {   // 連不上：用本機快取先玩，之後再同步
-        try { var C = JSON.parse(localStorage.getItem(CKEY + A.name) || 'null'); if (C) { ACC = A; META = JSON.parse(C.meta); SAVED_RUN = C.run || ''; run = null; toast('離線中：進度先存在這台裝置'); return titleScreen(); } } catch (e) { }
+        try { var C = JSON.parse(localStorage.getItem(CKEY + A.name) || 'null'); if (C) { ACC = A; META = JSON.parse(C.meta); SAVED_RUN = C.run || ''; RUN_TS = +C.runTs || 0; run = null; toast('離線中：進度先存在這台裝置'); return titleScreen(); } } catch (e) { }
       }
       loginScreen((res && res.msg) || '');
     });
@@ -1030,7 +1041,7 @@
   }
   function topBar() {
     var S = G.serv(run);
-    return '<div id="top"><span class="who">' + esc(S.cls) + '</span>'
+    return '<div id="top"><span class="who">' + esc(S.cls) + '</span><span class="syncwarn chip" style="color:var(--red)' + (syncState === '⚠' ? '' : ';display:none') + '" title="存檔還沒送到伺服器，會自動再試">⚠ 未同步</span>'
       + hpBar('me', run.hp, run.maxHp, run.hp + '／' + run.maxHp)
       + (run.lives ? '<span class="chip gold" title="備用的命">命 +' + run.lives + '</span>' : '')
       + '<span style="color:var(--gold)">💰' + run.gold + '</span>'
