@@ -163,7 +163,7 @@ hb.lives=0; hb.hp=1; r.battle.hand=['atk']; r.battle.energy=1; G.play(r,0,0); t(
 r.hp=20; G.takeReward(r,-1); t(r.screen==='major'&&r.act===1,'第一章魔王倒下：先選專精或兼修',r.screen); t(!G.chooseMajor(r,'nope')&&G.chooseMajor(r,'master')&&r.mastered&&r.pathPicked,'選專精'); t(r.act===2&&r.floor===0&&r.screen==='map'&&r.boss===r.bosses[1]&&r.hp===20+Math.round((r.maxHp-20)*0.5),'進第二章：新地圖、換魔王、回復一半失去的生命');
 step(r,'fight'); t(r.battle.enemies.every(e=>['mingquan','yuanling','shikui','jiangshi','bianfu','mohua','xiexiu','shichong'].includes(e.id)),'第二章換一批敵人');
 let s2=toBoss(J(r),r.bosses[1]); s2.battle.enemies.forEach(e=>{e.hp=1;e.lives=0;e.block=0;}); s2.battle.hand=['atk']; s2.battle.energy=1; G.play(s2,0,0);
-t(s2.screen==='secret','第二章魔王倒下、手上還有玉符：出現隱藏關的入口');
+t(s2.screen==='reward'&&s2.reward.next==='secret','第二章魔王倒下、手上還有玉符：先拿獎勵'); G.takeReward(s2,-1); t(s2.screen==='secret','拿完獎勵：出現隱藏關的入口');
 let s3=J(s2); G.secret(s3,false); t(s3.screen==='over'&&s3.win&&!s3.trueEnd,'不進去：一般勝利');
 const sealsBefore=s2.seals; G.secret(s2,true); t(s2.act===3&&s2.seals===sealsBefore-1&&s2.boss==='xinmo'&&s2.map.length===3,'捏碎 1 枚玉符進隱藏關：休息→精英→魘',JSON.stringify([s2.act,s2.seals,s2.boss,s2.map.length]));
 s2=toBoss(s2,'xinmo'); s2.floor=2; s2.screen='map'; s2.battle=null; G.go(s2,2); s2.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); s2.battle.hand=['atk']; s2.battle.energy=1; G.play(s2,0,0); t(s2.screen==='over'&&s2.trueEnd,'封印魘：真結局');
@@ -323,7 +323,7 @@ t(G.FATES.gold.name==='意外之財','機緣的名字');
   { const h=G.newRun('qingli',5); h.act=3; h.floor=2; const e=G.newRun('qingli',5,{endless:true}); e.act=3; e.floor=2; const a2=G.newRun('qingli',5); a2.act=2; a2.floor=11; const e2=G.newRun('qingli',5,{endless:true}); e2.act=4; e2.floor=0; const l2=G.scaleUp(e2);
   const mid=G.newRun('qingli',5); mid.act=2; mid.floor=6;
   t(G.scaleUp(e)===19&&G.scaleUp(e)>=G.scaleUp(a2)&&l2===26&&G.scaleUp(h)>=G.scaleUp(mid)&&G.scaleUp(h)<G.scaleUp(a2),'敵人成長：鎮妖塔每層開頭至少跟第二章最後一列一樣硬；隱藏關的精英約第二章中段（第二章最後 '+G.scaleUp(a2)+'）',G.scaleUp(h)+'/'+G.scaleUp(e)+'/'+l2); }
-  const n=G.newRun('qingli',5); n.act=2; n.boss='huyao'; n.seals=1; toBoss(n); t(n.screen==='secret','一般模式不受影響：第二章打完有玉符照樣到隱藏關入口',n.screen); }
+  const n=G.newRun('qingli',5); n.act=2; n.boss='huyao'; n.seals=1; toBoss(n); if(n.screen==='reward') G.takeReward(n,-1); t(n.screen==='secret','一般模式不受影響：第二章打完有玉符照樣到隱藏關入口',n.screen); }
 t(G.newRun('qingli',3,{asc:6,fate:'legacy'}).deck.filter(x=>G.baseId(x)==='breaker').length===1,'境界 V 已經有秘傳：師父的秘傳改成把它強化，不會拿到兩張');
 t(G.upDiff('breaker','breaker+').includes('不再消耗'),'強化選單列出「不再消耗」');
 { const q=arena(); q.screen='reward'; q.hp=10; q.pills=['dali']; t(!G.seal(q,'heal').ok&&q.seals===1&&!G.usePill(q,0).ok,'戰鬥結束（勝利停頓中）不能用玉符、丹藥'); }
@@ -527,4 +527,11 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
 { const q=arena('chilian',1,5); q.hp=2; playId(q,'rampage'); t(q.screen!=='over'&&q.hp===2,'血刃打倒最後一個敵人：自傷就不用付了',[q.screen,q.hp]); }
 { const q=G.newRun('shuang',8,{major:'wanjian'}); q.screen='major'; G.chooseMajor(q,'guiyi'); step(q,'fight'); const b=q.battle; b.swords=3; b.jy=0; b.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.jy>=9,'兼修歸一：沒用完的飛劍照說明化成劍意',q.battle.jy); }
 { const q=G.newRun('xiaoman',8,{major:'longzhan'}); q.screen='major'; G.chooseMajor(q,'longyou'); step(q,'fight'); const b=q.battle; b.kraken=9; const hp=b.enemies.map(e=>e.hp); b.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.enemies.every((e,i)=>e.hp===hp[i])&&q.battle.tstr>0,'兼修龍佑：阿白照說明不咬人、改加持白辰',q.battle.tstr); }
+// 系統稽核（2026-10-03）
+{ const r=G.newRun('qingli',1); r.deck=r.deck.map(x=>x+'+'); r.gold=100; t(!G.canChoose(r,G.EVENTS.castle.opts[1]),'沒有牌可以強化：花錢強化的選項選不了'); }
+{ const r=G.newRun('shuang',1); r.deck.push('sword_rain+b'); r.hp=50; r.screen='event'; r.event='swordtomb'; const g=r.gold; G.choose(r,0); t(r.deck.filter(x=>x.startsWith('sword_rain')).length===1&&r.gold===g+50,'秘傳不重複拿：強化過的也算（換成 50 金）',r.deck.filter(x=>x.startsWith('sword_rain')).join()); }
+{ const r=G.newRun('qingli',4); r.deck=r.deck.slice(0,6); r.hp=60; t(!G.canChoose(r,G.EVENTS.purge.opts[0])&&!G.canChoose(r,G.EVENTS.confess.opts[0]),'要移除兩、三張的事件：移除完牌組會少於 5 張就選不了'); r.deck=G.newRun('qingli',4).deck.slice(0,7); t(G.canChoose(r,G.EVENTS.purge.opts[0]),'七張牌：可以移除兩張'); }
+{ let bad3=0; for(let s=1;s<=3000;s++){ const q=G.newRun(G.ORDER[s%5],s); const m=q.map; for(let r=0;r<m.length-1;r++) m[r].forEach(n=>{ if(n&&n.t==='elite'&&n.next.some(c=>m[r+1][c]&&m[r+1][c].t==='elite')) bad3++; }); } t(!bad3,'3000 張地圖沒有連著兩格精英',bad3); }
+{ const r=G.newRun('qingli',3); r.act=2; r.floor=11; r.lane=r.map[10].findIndex(n=>n); r.boss='huyao'; G.go(r,2); r.battle.enemies.forEach(e=>{e.hp=1;e.lives=0;e.block=0;}); r.battle.hand=['atk']; r.battle.energy=1; G.play(r,0,0); t(r.screen==='reward'&&r.reward.pill&&r.reward.next==='secret','第二章魔王（留著玉符）：先拿獎勵再到魔淵入口',r.screen); G.takeReward(r,-1); t(r.screen==='secret','拿完獎勵到九幽魔淵入口',r.screen); }
+t(G.EVENTS.whisper.noEndless,'鎮妖塔不會遇到「把玉符留到最後」');
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

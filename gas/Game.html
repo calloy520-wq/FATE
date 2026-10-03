@@ -979,9 +979,9 @@ var G = (function () {
     }
     // 每章至少 2 個精英（頓悟與精英法寶只從精英來）：第 4～8 列找不相鄰的一般戰鬥改成精英
     var elites = function () { var n = 0; map.forEach(function (row) { row.forEach(function (x) { if (x && x.t === 'elite') n++; }); }); return n; };
-    [true, false].forEach(function (strict) {   // 先找前後都不相鄰的；還不夠再放寬（只要上一格不是精英）
+    [true, false].forEach(function (strict) {   // 先找一般戰鬥；還不夠再放寬到事件（前後都不能是精英）
       for (var er = 3; er <= ROWS - 4 && elites() < 2; er++) {
-        var cand = map[er].filter(function (n, c) { return n && (n.t === 'fight' || (!strict && n.t === 'event')) && !parents(er, c).some(function (p) { return p.t === 'elite'; }) && (!strict || !n.next.some(function (q) { return map[er + 1][q] && map[er + 1][q].t === 'elite'; })); });
+        var cand = map[er].filter(function (n, c) { return n && (n.t === 'fight' || (!strict && n.t === 'event')) && !parents(er, c).some(function (p) { return p.t === 'elite'; }) && (!n.next.some(function (q) { return map[er + 1][q] && map[er + 1][q].t === 'elite'; })); });
         if (cand.length) pick(run, cand).t = 'elite';
       }
     });
@@ -1062,7 +1062,7 @@ var G = (function () {
       opts: [{ label: '吞下：最大生命 +12，牌組多一張詛咒「業障」', fx: [['maxHp', 12], ['addCard', 'sin']] }, { label: '捏碎：最大生命 +3', fx: [['maxHp', 3]] }] },
     jeweler: { name: '行腳商人', text: '背著大木箱的商人坐在路邊。「要寶貝，拿錢來；沒錢——替我試試新煉的丹也行。」',
       opts: [{ label: '花 90 金：買一件法寶', need: { gold: 90 }, fx: [['gold', -90], ['relic']] }, { label: '替他試新煉的丹：失去 8 生命，得到 50 金', need: { hp: 8 }, fx: [['hp', -8], ['gold', 50]] }, { label: '離開', fx: [] }] },
-    whisper: { act: 2, name: '魔淵的低語', text: '地底傳來一聲極輕的劍鳴。接著是一個聲音，分不清是誰：「把玉符留到最後……就找得到我。」',
+    whisper: { act: 2, noEndless: 1, name: '魔淵的低語', text: '地底傳來一聲極輕的劍鳴。接著是一個聲音，分不清是誰：「把玉符留到最後……就找得到我。」',
       opts: [{ label: '傾聽：最大生命 -6，得到一件法寶', fx: [['maxHp', -6], ['relic']] }, { label: '捂住耳朵，繼續趕路', fx: [] }] },
     mud:     { act: 2, name: '魔氣泉眼', text: '黑色的魔氣從地縫裡湧出來。裡面，好像有什麼在發光。',
       opts: [{ label: '伸手：失去 10 生命，從三張強化過的專屬牌選一張', need: { hp: 10 }, fx: [['hp', -10], ['cards', 3]] }, { label: '後退：回復 6 生命', fx: [['hp', 6]] }] },
@@ -1163,8 +1163,9 @@ var G = (function () {
     var need = o.need || {};
     var relicIn = function (l) { return l.some(function (f) { return f[0] === 'relic' || (f[0] === 'd20' && relicIn(f[2])); }); };
     if (relicIn(o.fx) && !randomRelicLeft(run)) return false;   // 法寶全拿了
-    var removeIn = function (l) { return l.some(function (f) { return (f[0] === 'pick' && f[1] === 'remove') || (f[0] === 'd20' && removeIn(f[2])); }); };
-    if (removeIn(o.fx) && run.deck.length <= 5) return false;   // 牌組只剩 5 張，移除不了
+    var picks = function (l, kind) { var n = 0; l.forEach(function (f) { if (f[0] === 'pick' && f[1] === kind) n++; if (f[0] === 'd20') n = Math.max(n, picks(f[2], kind)); }); return n; };
+    if (picks(o.fx, 'remove') && run.deck.length - picks(o.fx, 'remove') < 5) return false;   // 移除完牌組不能少於 5 張（要移除兩張，就要有 7 張）
+    if (picks(o.fx, 'upgrade') && !run.deck.some(canUpgrade)) return false;   // 沒有牌可以強化，就不要白付代價
     return !(need.hp && run.hp <= need.hp) && !(need.seal && run.seals < need.seal) && !(need.gold && run.gold < need.gold);
   }
   // 選事件的第 i 個選項；回傳 { ok, msg, roll }
@@ -1189,19 +1190,21 @@ var G = (function () {
       else if (k === 'seal') { run.seals = Math.max(0, run.seals + n); msg.push('玉符 ' + n); }
       else if (k === 'pick') run.pending.push(n);
       else if (k === 'addCard') {
-        if (CARDS[baseId(n)].rare && run.deck.indexOf(n) >= 0 && canUpgrade(n)) { var j = run.deck.indexOf(n); run.deck[j] = upId(n, 'a'); msg.push('已經有「' + card(n).name + '」，改成強化它'); }   // 秘傳不重複拿
+        var j = CARDS[baseId(n)].rare ? run.deck.map(baseId).indexOf(baseId(n)) : -1;   // 秘傳不重複拿（強化過的也算）
+        if (j >= 0 && canUpgrade(run.deck[j])) { run.deck[j] = upId(n, 'a'); msg.push('已經有「' + card(n).name + '」，改成強化它'); }
+        else if (j >= 0) { run.gold += 50; msg.push('已經有「' + card(run.deck[j]).name + '」，換成 50 金'); }   // 秘傳不重複拿
         else { run.deck.push(n); msg.push('「' + card(n).name + '」加進牌組'); }
       }
       else if (k === 'upRandom') {
         var can = run.deck.map(function (id, j) { return j; }).filter(function (j) { return canUpgrade(run.deck[j]); });
         can = shuffle(run, can).slice(0, n); can.forEach(function (j) { var o = upgradeOptions(run, j).filter(function (v) { return upDir(v) !== 'f'; }); run.deck[j] = pick(run, o); msg.push('強化了「' + card(run.deck[j]).name + '」'); });
       }
-      else if (k === 'cards') { run.screen = 'reward'; run.reward = { cards: ownCards(run, n, true), relic: null }; }
+      else if (k === 'cards') { run.screen = 'reward'; run.reward = { cards: ownCards(run, n, true), relic: null, ev: 1 }; }
       else if (k === 'nextWeak') { run.nextWeak = (run.nextWeak || 0) + n; msg.push('下一場戰鬥開場虛弱 ' + n); }
       else if (k === 'startFx') { run.ascStart = (run.ascStart || []).concat([[f[1], f[2]]]); msg.push('之後每場開場：' + fxText([[f[1], f[2]]])[0]); }
       else if (k === 'krakenStart') { run.krakenStart = (run.krakenStart || 0) + n; msg.push('之後每場開場阿白 +' + n); }
       else if (k === 'krakenGrow') { run.krakenGrow = (run.krakenGrow || 0) + n; msg.push('之後阿白每回合多長大 ' + n); }
-      else if (k === 'commons') { run.screen = 'reward'; run.reward = { cards: shuffle(run, Object.keys(CARDS).filter(function (c) { return CARDS[c].kit === 'common'; })).slice(0, n), relic: null }; }
+      else if (k === 'commons') { run.screen = 'reward'; run.reward = { cards: shuffle(run, Object.keys(CARDS).filter(function (c) { return CARDS[c].kit === 'common'; })).slice(0, n), relic: null, ev: 1 }; }
       else if (k === 'fight') startBattle(run, [f[2] && ENEMIES[f[2]] ? f[2] : pick(run, ELITES)], 'elite');   // f[2]：指定對手
     });
     if (run.pending.length && run.screen === 'map') run.screen = 'pick';
@@ -1861,7 +1864,10 @@ var G = (function () {
           run.screen = 'reward'; run.reward = { cards: cardChoices(run, 1), relic: randomRelic(run), pill: randomPill(run), gold: Math.round(80 * statsOf(run).luck), next: run.act === 1 ? 'act2' : 'deeper' };
           return 'act';
         }
-        if (run.act === 2 && run.seals > 0) { run.screen = 'secret'; return 'secret'; }   // 留著玉符：九幽魔淵的入口
+        if (run.act === 2 && run.seals > 0) {   // 留著玉符：先拿魔王的獎勵，再到九幽魔淵的入口
+          run.screen = 'reward'; run.reward = { cards: cardChoices(run, 1), relic: null, pill: randomPill(run), gold: Math.round(60 * statsOf(run).luck), next: 'secret' };
+          return 'secret';
+        }
         run.screen = 'over'; run.win = true; run.trueEnd = run.act === 3; return 'win';
       }
       run.screen = 'reward';
@@ -1895,6 +1901,7 @@ var G = (function () {
     run.reward = null; run.battle = null; run.screen = 'map';
     if (next === 'act2' && !run.pathPicked && pathsOf(run.who).length > 1) { run.screen = 'major'; return true; }   // 第一章魔王倒下：先選專精或兼修
     if (next === 'act2' || next === 'deeper') nextAct(run);
+    if (next === 'secret') run.screen = 'secret';
     return true;
   }
   function nextAct(run) { run.hp = Math.min(run.maxHp, run.hp + Math.round((run.maxHp - run.hp) * 0.5)); startAct(run, run.act + 1); }
@@ -1955,7 +1962,8 @@ var G = (function () {
     var item = what === 'card' ? S.cards[i] : what === 'relic' ? S.relic : what === 'pill' ? (S.pills || [])[i] : null;
     var price = what === 'remove' ? removePrice(run) : item && priceOf(run, item);
     if (what !== 'remove' && (!item || item.sold)) return { ok: false, msg: '賣完了' };
-    if (what === 'remove' && (S.removed || !run.deck[i])) return { ok: false, msg: '這間店已經幫妳移除過了' };
+    if (what === 'remove' && S.removed) return { ok: false, msg: '這間店已經幫妳移除過了' };
+    if (what === 'remove' && !run.deck[i]) return { ok: false, msg: '選一張牌' };
     if (what === 'remove' && run.deck.length <= 5) return { ok: false, msg: '牌組只剩 5 張，不能再移除了' };
     if (what === 'pill' && run.pills.length >= (run.pillSlots || PILL_SLOTS)) return { ok: false, msg: '丹藥袋滿了（最多 ' + (run.pillSlots || PILL_SLOTS) + ' 顆）' };
     if (run.gold < price) return { ok: false, msg: '錢不夠' };

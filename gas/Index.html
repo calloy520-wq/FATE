@@ -1410,7 +1410,7 @@
         + rw.awaken.map(function (k, i) { var T = G.talent(run, k); return '<button class="svt" onclick="doAwaken(' + i + ')"><b>' + esc(T.name) + '</b><div style="margin-top:6px">' + esc(G.talentText(T, run)) + '</div></button>'; }).join('') + '</div>';
       return;
     }
-    $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">勝利</h1>' + actDone
+    $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">' + (rw.ev ? '選一張牌' : '勝利') + '</h1>' + actDone
       + (rw.gold ? '<div>💰 得到 ' + rw.gold + ' 金</div>' : '')
       + (rw.relic ? '<div>得到法寶「<b style="color:var(--gold)">' + esc(G.RELICS[rw.relic].name) + '</b>」：' + esc(G.RELICS[rw.relic].text) + '</div>' : '')
       + (rw.pill ? (run.pills.length < (run.pillSlots || 3) ? '<div>💊 得到丹藥「<b style="color:var(--gold)">' + esc(G.PILLS[rw.pill].name) + '</b>」：' + esc(G.PILLS[rw.pill].text) + '</div>'
