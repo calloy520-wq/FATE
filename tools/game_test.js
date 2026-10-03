@@ -389,7 +389,7 @@ t(['fatigue','corrosion','sin','mud','worm','enfeeble','bind'].every(c=>G.cardSh
 { const q=G.newRun('qingli',5); for(let k=0;k<40;k++){ q.screen='event'; q.event='dojo'; q.deck=G.newRun('qingli',5).deck; G.choose(q,0); if(q.deck.some(x=>G.card(x).dir==='f')) break; } t(!q.deck.some(x=>G.card(x).dir==='f'),'事件的隨機強化不會抽到★傳說（★傳說一定要自己選、付內傷）'); }
 { const q=G.newRun('qingli',5); q.act=2; const d=q.deck.length;
   q.screen='event'; q.event='training'; G.choose(q,0); t(q.deck.includes('fatigue')&&q.deck.length===d+1,'深夜的苦練：強化 3 張，代價內傷');
-  q.screen='event'; q.event='pact'; const g=q.gold, rl=q.relics.length; G.choose(q,0); t(q.deck.includes('sin')&&q.gold===g+100&&q.relics.length===rl+1,'魔修的契約：法寶＋100 金，代價業障');
+  q.screen='event'; q.event='pact'; const g=q.gold, rl=q.relics.length; G.choose(q,0); t(q.deck.includes('sin')&&q.gold===g+30&&q.relics.length===rl+1,'魔修的契約：法寶＋30 金，代價業障');
   q.screen='event'; q.event='allevil'; G.choose(q,0); t(q.deck.includes('corrosion'),'萬鬼的呢喃：代價魔氣侵體');
   q.screen='rest'; const n=q.deck.length; G.rest(q,'remove',q.deck.indexOf('sin')); t(!q.deck.includes('sin')&&q.deck.length===n-1,'休息的淨化可以移除詛咒');
   step(q,'fight'); t(q.battle.draw.includes('fatigue')||q.battle.hand.includes('fatigue'),'詛咒牌會跟著進戰鬥'); }
@@ -546,7 +546,7 @@ t(['plague','yangchong','abyss','yangguan'].every(k=>['a','b','c','d','e','f'].e
 { const q=arena('xiaoman'); q.battle.kraken=200; t(G.krakenBites(q.battle)===4,'阿白最多咬 4 口',G.krakenBites(q.battle)); }
 { const q=G.newRun('qingli',7); q.relics=G.relicPool(q).slice(); const g=q.gold; step(q,'chest'); t(!q.reward.relic&&q.reward.gold===60,'法寶拿光了：寶箱改成 60 金',JSON.stringify(q.reward)); G.takeChest(q); t(q.gold===g+60&&q.screen==='map','收下碎銀'); }
 { const q=G.newRun('shuang',8,{endless:true}); q.act=5; q.seenEvents=Object.keys(G.EVENTS); let bad=0; for(let i=0;i<200;i++){ q.screen='map'; G.startEvent(q); if(/"maxHp",\d/.test(JSON.stringify(G.EVENTS[q.event].opts))) bad++; } t(!bad,'事件都遇過了：再遇的不會是加最大生命的（不然鎮妖塔裡一路疊）',bad); }
-{ const q=G.newRun('shuang',9,{endless:true}); q.act=5; t(G.makeEnemy(q,'huyao',0,0).str===18,'鎮妖塔魔王：每層力量 +4（第 3 層 6+12）',G.makeEnemy(q,'huyao',0,0).str); }
+{ const q=G.newRun('shuang',9,{endless:true}); q.act=5; t(G.makeEnemy(q,'huyao',0,0).str===23,'鎮妖塔魔王：每層力量 +5（第 3 層 8+15）',G.makeEnemy(q,'huyao',0,0).str); }
 t(Object.values(G.EVENTS).filter(E=>E.who).every(E=>E.end&&E.end.length>=20),'劇情模式的插曲都有收尾（專屬事件的 end）');
 { const q=arena('shuang',1,80); q.hp=1; q.battle.block=3; E(q).intent={n:'砍',fx:[['atk',5]]}; E(q).str=0; const f=G.forecast(q); t(f.lethal&&f.loss===2,'將受到：會倒下的那一輪也顯示真的會挨多少（5 擋 3＝2，不是剩下的生命）',JSON.stringify(f)); }
 { const q=arena('aduo',1,80); E(q).hp=3; E(q).poison=9; E(q).intent={n:'砍',fx:[['atk',30]]}; const f=G.forecast(q); t(f.cleared&&f.loss===0,'敵人被毒先收掉：預告「撐不到出手」',JSON.stringify(f)); }
@@ -560,4 +560,5 @@ t(Object.values(G.EVENTS).filter(E=>E.who).every(E=>E.end&&E.end.length>=20),'�
 { const q=arena('chilian',1,80); q.major='meigu'; q.majors=['meigu']; const d=G.upDirs('wenrou').indexOf('d')>=0; if(d){ playId(q,'wenrou+d'); t(80-E(q).hp===12,'道心先加資源：溫柔刀（道心）先魅惑再打，自己吃得到加倍',80-E(q).hp); } else t(true,'溫柔刀沒有道心方向（略過）'); }
 { let bad=0; for(let s=1;s<=200;s++){ const q=G.newRun('aduo',s,{major:'dugu'}); const P=G.ownPool(q); if(P.side.indexOf('chongshi')>=0||P.side.indexOf('yangchong')>=0) bad++; } t(!bad,'離開主修就沒用的牌（蟲噬、以蟲養蟲…）不從別條主修混進戰利品',bad); }
 { const q=arena('qingli',1,80); q.battle.hand=['jiutian','atk_qingli','def_qingli']; playId(q,'fenfu'); t(q.battle.hand.indexOf('jiutian')>=0&&q.battle.hand.length===2,'焚符先燒最便宜的（不會把大招燒掉）',JSON.stringify(q.battle.hand)); }
+{ const q=G.newRun('qingli',5); q.screen='secret'; q.seals=1; q.maxHp=80; q.hp=20; G.secret(q,true); t(q.hp===50&&q.act===3,'捏碎玉符進九幽魔淵：跟換章一樣回一半失去的生命',q.hp); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

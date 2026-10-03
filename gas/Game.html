@@ -885,14 +885,14 @@ var G = (function () {
   // ── 開局與地圖 ───────────────────────────────────────
   // 兩章（第三章是隱藏關）。每章由上往下走 12 列：第 1 列進場（左中右三個入口），第 11 列休息，第 12 列魔王。
   // 地圖是分岔路：每一格只連到下一列固定的一到三格；迷霧：看得到接下來 3 列與魔王。
-  var ROWS = 12, COLS = 5, ACT_UP = 4, ACT2_UP = 8, HIDDEN_UP = 5, HIDDEN_RAMP = 0.7, ACT2 = { hp: 0.7, str: 9 }, ELITE2 = { hp: 0.45, str: 4 };   // 第二章：敵人多長 8 列，再隨樓層加到五成血、力量 +8（自動玩家通關約三成，真人約五成）
+  var ROWS = 12, COLS = 5, ACT_UP = 4, ACT2_UP = 8, HIDDEN_UP = 5, HIDDEN_RAMP = 0.7, ACT2 = { hp: 0.65, str: 8 }, ELITE2 = { hp: 0.6, str: 7 };   // 第二章：敵人多長 8 列，再隨樓層加到五成血、力量 +8（自動玩家通關約三成，真人約五成）
   var FLOORS = ROWS;
   var ACT_NAMES = { 1: '第一章　落霞山', 2: '第二章　鬼哭城', 3: '隱藏關　九幽魔淵' };
   // 無盡模式：第二章之後不進隱藏關，改下鎮妖塔一層一層往下（第 3 章起叫「鎮妖塔第 N 層」），越來越強，看能爬多遠（走過的格子數＝成績）
   function actName(run, act) { act = act || run.act; return run.endless && act >= 3 ? '鎮妖塔　第 ' + (act - 2) + ' 層' : ACT_NAMES[act]; }
-  function bossAct(run) { var a = run.act || 1; return run.endless && a >= 3 ? { hp: 1.4 * (1 + 0.4 * (a - 2)), str: BOSS_ACT[2].str + 4 * (a - 2) } : BOSS_ACT[a]; }   // 魔王不吃每列的成長，所以無盡層另外每層 +40% 血、+4 力量（+2 的時候塔裡的魔王比精英還軟）
+  function bossAct(run) { var a = run.act || 1; return run.endless && a >= 3 ? { hp: 1.4 * (1 + 0.4 * (a - 2)), str: BOSS_ACT[2].str + 5 * (a - 2) } : BOSS_ACT[a]; }   // 魔王不吃每列的成長，所以無盡層另外每層 +40% 血、+5 力量（太少的話塔裡的魔王比精英還軟）
   var BOSS_POOL = { 1: ['zhanglao', 'shuyao', 'guijiang', 'niumo'], 2: ['huyao', 'duoxian', 'panguan', 'niumo'] };
-  var BOSS_ACT = { 1: { hp: 0.95, str: 0 }, 2: { hp: 1.8, str: 6 }, 3: { hp: 1.5, str: 6 } };
+  var BOSS_ACT = { 1: { hp: 0.95, str: 0 }, 2: { hp: 1.8, str: 8 }, 3: { hp: 1.5, str: 6 } };
   // opts：{ major 主修, fates 機緣（最多兩種；舊寫法 fate 單一個也可以）, asc 境界, diff 難度, endless 無盡 }（直接傳機緣的字串也可以）
   function newRun(who, seed, opts) {
     if (typeof opts === 'string') opts = { fate: opts };
@@ -1063,7 +1063,7 @@ var G = (function () {
     bridge:  { name: '斷橋', text: '吊橋斷了一半。底下的急流裡，漂著一個發光的東西。',
       opts: [{ label: '跳下去撈（🎲≥13）：成功→得到一件法寶；失敗→被急流沖走，失去 15 生命', fx: [['d20', 13, [['relic']], [['hp', -15]]]] }, { label: '撿橋邊的碎銀：得到 25 金', fx: [['gold', 25]] }] },
     blood:   { name: '妖丹', text: '妖獸的屍骨旁，滾出一顆紅色的妖丹。吞下去，身體會變強……也會沾上妖氣。',
-      opts: [{ label: '吞下：最大生命 +12，牌組多一張詛咒「業障」', fx: [['maxHp', 12], ['addCard', 'sin']] }, { label: '捏碎：最大生命 +3', fx: [['maxHp', 3]] }] },
+      opts: [{ label: '吞下：最大生命 +9，牌組多一張詛咒「業障」', fx: [['maxHp', 9], ['addCard', 'sin']] }, { label: '捏碎：最大生命 +3', fx: [['maxHp', 3]] }] },
     jeweler: { name: '行腳商人', text: '背著大木箱的商人坐在路邊。「要寶貝，拿錢來；沒錢——替我試試新煉的丹也行。」',
       opts: [{ label: '花 90 金：買一件法寶', need: { gold: 90 }, fx: [['gold', -90], ['relic']] }, { label: '替他試新煉的丹：失去 8 生命，得到 50 金', need: { hp: 8 }, fx: [['hp', -8], ['gold', 50]] }, { label: '離開', fx: [] }] },
     whisper: { act: 2, noEndless: 1, name: '魔淵的低語', text: '地底傳來極輕的一聲——像劍鳴，又不太像。接著是一個聲音，分不清是誰：「把玉符留到最後……就找得到我。」',
@@ -1088,7 +1088,7 @@ var G = (function () {
     training:{ name: '深夜的苦練', text: '月亮升到了頭頂。再練下去會受內傷，但手上的招式會更俐落。',
       opts: [{ label: '練到天亮：隨機強化 3 張牌，牌組多一張詛咒「內傷」', fx: [['upRandom', 3], ['addCard', 'fatigue']] }, { label: '去睡覺：回復 10 生命', fx: [['hp', 10]] }] },
     pact:    { name: '魔修的契約', text: '黑袍老人拄著拐杖，笑了：「老夫可以給妳力量。代價嘛……妳會一直記得。」',
-      opts: [{ label: '簽下：得到一件法寶、100 金，牌組多一張詛咒「業障」', fx: [['relic'], ['gold', 100], ['addCard', 'sin']] }, { label: '拒絕', fx: [] }] },
+      opts: [{ label: '簽下：得到一件法寶、30 金，牌組多一張詛咒「業障」', fx: [['relic'], ['gold', 30], ['addCard', 'sin']] }, { label: '拒絕', fx: [] }] },
     allevil: { act: 2, name: '萬鬼的呢喃', text: '城裡的白燈籠，一盞一盞亮了起來。無數聲音貼在妳耳邊：「接受我們吧。妳會變得很強——只要妳還撐得住。」',
       opts: [{ label: '接受：隨機強化 2 張牌、得到一件法寶，牌組多一張詛咒「魔氣侵體」', fx: [['upRandom', 2], ['relic'], ['addCard', 'corrosion']] }, { label: '拒絕：失去 5 生命', fx: [['hp', -5]] }] },
     trial:   { act: 2, name: '天機閣的考驗', text: '天機閣的執事擋住了妳：「卦上點了妳的名，閣裡還是得親眼看一看。證明給我看——或者，留下一點東西。」',
@@ -1937,7 +1937,7 @@ var G = (function () {
   // 隱藏關：捏碎師門玉符打開九幽魔淵；不進去就在這裡結束（勝利）
   function secret(run, enter) {
     if (run.screen !== 'secret') return false;
-    if (enter && run.seals > 0) { run.seals--; startAct(run, 3); }
+    if (enter && run.seals > 0) { run.seals--; run.hp = Math.min(run.maxHp, run.hp + Math.round((run.maxHp - run.hp) * 0.5)); startAct(run, 3); }   // 進魔淵前跟換章一樣，回一半失去的生命
     else { run.screen = 'over'; run.win = true; }
     return true;
   }
