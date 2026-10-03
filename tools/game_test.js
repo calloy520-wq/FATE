@@ -554,4 +554,6 @@ t(Object.values(G.EVENTS).filter(E=>E.who).every(E=>E.end&&E.end.length>=20),'�
 { const q=G.newRun('xiaoman',3,{goals:['paths']}); const before=G.relicPool(q).includes('peijade'); q.screen='major'; G.chooseMajor(q,G.pathsOf('xiaoman').find(P=>!q.majors.includes(P.id)).id); t(before&&q.majors.length===2&&!G.relicPool(q).includes('peijade'),'白辰兩條主修都修了：同門玉佩不會出（拿到也沒東西給）'); }
 { const q=arena('qingli',1,80); q.relics=['lamp','pendant']; q.lives=1; q.maxHp=60; q.hp=40; E(q).intent={n:'砍',fx:[['atk',45]]}; G.endTurn(q); t(q.battle.lampUsed&&q.hp===12+12,'心燈：倒下又站起來（兩成生命）也會亮',q.hp); }
 { const q=arena('qingli',1,80); q.act=3; q.endless=false; q.hp=1; E(q).intent={n:'砍',fx:[['atk',30]]}; G.endTurn(q); t(q.screen==='over'&&q.win&&!q.trueEnd,'倒在九幽魔淵：兩章魔王都打倒了，照樣算通關（只是沒封住魘）',JSON.stringify([q.screen,q.win])); }
+{ const q=arena('xiaoman',2,80); q.battle.kraken=10; q.battle.np=100; q.battle.npUsed=0; G.noble(q,0); t(q.battle.kraken===5&&80-E(q,0).hp>=10&&80-E(q,1).hp>=10,'龍吟：阿白朝全體吐息（阿白多大打多痛），吐完縮小一半',JSON.stringify([q.battle.kraken,E(q,0).hp,E(q,1).hp])); }
+{ const q=arena('xiaoman',1,500); q.battle.kraken=6; q.battle.np=0; E(q).intent={n:'發呆',fx:[]}; G.endTurn(q); t(q.battle.np>=4,'白辰的神通量表：阿白長大、咬人都漲得動（一回合至少 4%）',q.battle.np); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

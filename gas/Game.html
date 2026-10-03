@@ -230,7 +230,7 @@ var G = (function () {
     xiaoman: { name: '白辰', cls: '御獸', hp: 57, sig: 'horror',
       desc: '靈獸山莊的老祖宗，活了一千多年。三百年前封印魔淵的五人裡，留在門外、還活著的只剩她；那一戰燒掉她半身龍元，從此是孩童模樣。莊裡的人私下叫她「小滿」，當面沒人敢。身邊跟著陪了她一千年的本命靈龍阿白。那扇門是她親手關上的——門後的人，是她拜過天地的道侶。',
       passive: { id: 'madness', name: '龍之契約', text: '不會被施加虛弱（活了一千年，什麼沒見過）；每場戰鬥開始時阿白大小 5，之後每回合長大 1；每打贏兩場，之後每場開場阿白再 +1（吃飽了，整局最多 +6）。阿白回合結束咬生命最少的敵人（每大 12 多咬一口，最多 4 口）；打穿格擋的傷害，阿白替妳擋下一半（擋了會縮小；穿透攻擊擋不了）' },
-      np: { name: '龍吟', fx: [['kraken', 8], ['weakAll', 1]] } },
+      np: { name: '龍吟', fx: [['krakenAll', 1], ['weakAll', 1]] } },
     chilian: { name: '赤練', cls: '血修', hp: 81, sig: 'rampage',
       desc: '合歡宗的血修。合歡宗以情入道，只講兩情相悅。那年她路過落霞山，在塔下聽了一個月的琴，就喜歡上了撫琴的人；凌霜下山，她也跟著下了山。她修的是自己的血，傷得越重，刀越利。看人很準，對弱小的人總會多照顧一些。',
       passive: { id: 'revive', name: '不滅血體', text: '燒自己的血保命：整趟冒險有 1 條備用的命，倒下時以五成生命站起來，而且整趟力量 +2（頓悟「浴血重生」再多一條）。血煞反噬（燒血的代價）：第 2 回合起每回合開始失去 2 生命（不會因此倒下）' },
@@ -1312,10 +1312,10 @@ var G = (function () {
   var MADNESS = { chilian: 2 };   // 血煞反噬：第 2 回合起每回合開始失去的生命
   // 神通量表（2026-10-02 去 Fate 味）：不再靠出牌累積，而是靠各自的機制——
   // 凌霜每祭出一把飛劍｜青璃每貼一層定身｜白辰阿白每長大 1、每咬一口｜赤練每失去 1 生命｜阿朵每讓敵人多中 1 層毒
-  var NP_GAIN = { forge: 10, gaze: 6, madness: 0.5, bite: 1, revive: 8, ambush: 5, fire: 6, anqi: 4 };   // fire：青璃火符每點火勢｜anqi：阿朵暗器每打出一張攻擊牌
+  var NP_GAIN = { forge: 10, gaze: 6, madness: 2, bite: 1, revive: 8, ambush: 5, fire: 6, anqi: 4 };   // fire：青璃火符每點火勢｜anqi：阿朵暗器每打出一張攻擊牌
   function npHow(who) {   // 給玩家看：這位的神通量表怎麼漲
     var p = (SERVANTS[who].passive || {}).id;
-    return p === 'forge' ? '每祭出 1 把飛劍 +' + NP_GAIN.forge + '%' : p === 'gaze' ? '每貼 1 層定身、每 1 點火勢 +' + NP_GAIN.gaze + '%' : p === 'madness' ? '阿白長大（扣掉擋傷縮小的）每 2 點 +1%；每咬一口 +' + NP_GAIN.bite + '%'
+    return p === 'forge' ? '每祭出 1 把飛劍 +' + NP_GAIN.forge + '%' : p === 'gaze' ? '每貼 1 層定身、每 1 點火勢 +' + NP_GAIN.gaze + '%' : p === 'madness' ? '阿白每長大 1 點 +' + NP_GAIN.madness + '%（擋傷縮小的先扣掉）；每咬一口 +' + NP_GAIN.bite + '%'
       : p === 'revive' ? '每失去 1 生命 +' + NP_GAIN.revive + '%' : p === 'ambush' ? '敵人身上的毒與寄生，比之前多出的每 1 層 +' + NP_GAIN.ambush + '%；暗器每打出一張攻擊牌 +' + NP_GAIN.anqi + '%' : '';
   }
   function npAdd(b, n, free) {   // 放過神通的那回合，機制不再累積（擋住定身→神通→定身的無限循環）
