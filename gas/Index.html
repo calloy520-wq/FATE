@@ -825,7 +825,7 @@
     major: ['修行的方向', '這個選擇只有一次：專精讓這條主修更強；兼修多開一條主修，之後兩條的牌都會出現。'],
     hero_shuang: ['凌霜的飛劍', '開戰先祭出 2 把飛劍，之後每回合再 1 把，疊成手上那張「飛劍 ×N」（0 費，點一下放一把，或按「全放」）。不急著放也行：回合結束留 5 把，飛劍追魂、劍陣護體這些牌看手上的劍數變強。神通量表靠祭劍累積（開場那 2 把不算）。'],
     hero_qingli: ['青璃的定身', '敵人身上的「定身 1/3」：貼滿門檻就動彈不得一回合，層數歸零（門檻：一般敵人 3、精英 4、魔王 5，第二章起再高一點；魔王每被定住一次，下次也再高一點）。每層定身也讓那個敵人力量 -1。開戰全體先貼 1 層；神通量表靠貼定身累積。'],
-    hero_xiaoman: ['白辰的阿白', '阿白每回合長大 1，回合結束咬生命最少的敵人（每大 12 多咬一口，最多 4 口）；打穿格擋的傷害，阿白替妳擋一半（擋了會縮小）。每打贏兩場，之後開場就更大。走龍佑的話，阿白不咬人，改成每回合給妳力量。'],
+    hero_xiaoman: ['白辰的阿白', '阿白每回合長大 1，回合結束咬生命最少的敵人（每大 12 多咬一口，最多 4 口）；打穿格擋的傷害，阿白替妳擋一半（擋了會縮小）。每打贏兩場，之後開場就更大。主修龍佑的話，阿白不咬人，改成每回合給妳力量。'],
     hero_chilian: ['赤練的血煞', '從第 2 回合起，每回合開始血煞反噬 -2 生命（不會因此倒下）；少掉的生命越多，攻擊越狠。倒下時有一次站起來的機會（五成生命、力量 +2）。神通量表靠失去生命累積。'],
     hero_aduo: ['阿朵的毒', '第一回合的攻擊 ×1.5。毒在敵人回合開始扣血（無視格擋），扣完減 1；蠱發這類牌打中毒的敵人更痛。神通量表靠讓敵人多中毒（或寄生）累積；走暗器的話，每打出一張攻擊牌也會漲。']
   };
@@ -1365,8 +1365,9 @@
     if (sel.card >= 0) { var c = sel.card; sel.card = -1; return playCard(c); }
     render();
   }
+  var tapQ = null;   // 動畫播放中點的那一張：播完再出（不會白點）
   function tapCard(i) {
-    if (busy) return;
+    if (busy) { tapQ = run.battle ? { id: run.battle.hand[i], t: Date.now() } : null; return; }
     var b = run.battle, id = b.hand[i], c = G.card(id);
     if (sel.card === i) { sel.card = -1; return render(); }   // 再點一次同一張＝取消選取
     if (G.costOf(run, id) > b.energy) return toast('靈力不夠', 'err');
@@ -1445,7 +1446,7 @@
     if (CALM || !el || !to || !el.animate) return cb();
     var a = el.getBoundingClientRect(), z = to.getBoundingClientRect(), c = el.cloneNode(true);
     c.classList.add('flying'); c.style.left = a.left + 'px'; c.style.top = a.top + 'px'; c.style.width = a.width + 'px'; c.style.height = a.height + 'px';
-    document.body.appendChild(c); el.style.visibility = 'hidden';
+    document.body.appendChild(c); el.style.opacity = '0';   // 用透明不用 hidden：動畫中再點同一格還收得到（排隊出下一張一樣的牌）
     var dx = z.left + z.width / 2 - (a.left + a.width / 2), dy = z.top + z.height / 2 - (a.top + a.height / 2);
     var fly = function (node, from, delay, done) {
       node.animate([{ transform: 'translate(0,-10px) scale(1.08)', opacity: 1 }, { transform: 'translate(' + (z.left + z.width / 2 - (from.left + from.width / 2)) + 'px,' + (z.top + z.height / 2 - (from.top + from.height / 2)) + 'px) scale(.45) rotate(' + (foe >= 0 ? -12 : 0) + 'deg)', opacity: .15 }], { duration: 210, delay: delay, easing: 'cubic-bezier(.5,0,.9,.6)', fill: 'backwards' })
@@ -1491,7 +1492,8 @@
     if (run.battle.block > before.block) bits.push('格擋 +' + (run.battle.block - before.block));
     summary = bits.join('・'); var lg = $('log'); if (lg && sel.card < 0) lg.textContent = summary || (run.battle.log || []).join('　');
   }
-  function after() { if (run.battle && sel.foe >= 0 && (!run.battle.enemies[sel.foe] || run.battle.enemies[sel.foe].hp <= 0)) sel.foe = -1; if (run.screen !== 'battle') lastHp = {}; render(); }
+  function after() { if (run.battle && sel.foe >= 0 && (!run.battle.enemies[sel.foe] || run.battle.enemies[sel.foe].hp <= 0)) sel.foe = -1; if (run.screen !== 'battle') lastHp = {}; render();
+    var q = tapQ; tapQ = null; if (q && !busy && run.screen === 'battle' && Date.now() - q.t < 1500) { var j = run.battle.hand.indexOf(q.id); if (j >= 0) tapCard(j); } }
 
   // ── 戰後、寶箱、休息、結局 ──
   function rewardScreen() {
@@ -1517,7 +1519,7 @@
     var MJ = G.majorOf(run), others = G.pathsOf(run.who).filter(function (P) { return run.majors.indexOf(P.id) < 0; });
     $('app').innerHTML = topBar() + '<div class="panel"><h1 style="font-size:22px">修行的方向</h1><div class="dim" style="max-width:460px;text-align:center">第一章的魔王倒下了。接下來的路，要往哪裡走？</div>'
       + '<button class="svt" onclick="pickMajor(\'master\',\'專精「' + esc(MJ.name) + '」\')"><b>專精「' + esc(MJ.name) + '」</b><div style="margin-top:6px">' + esc(G.masterText(MJ)) + '</div><div class="dim" style="margin-top:4px;font-size:13px">之後戰利品只出「' + esc(MJ.name) + '」的專屬牌</div></button>'
-      + others.map(function (P) { return '<button class="svt" onclick="pickMajor(\'' + P.id + '\',\'兼修「' + esc(P.name) + '」\')"><b>兼修「' + esc(P.name) + '」（' + esc(P.feel) + '）</b><div style="margin-top:6px">' + keepTail(esc(P.desc)) + '</div><div class="dim" style="margin-top:4px;font-size:13px">送一張招牌牌「' + esc(G.CARDS[P.sig].name) + '」；之後兩條主修的牌都會出現</div></button>'; }).join('')
+      + others.map(function (P) { return '<button class="svt" onclick="pickMajor(\'' + P.id + '\',\'兼修「' + esc(P.name) + '」\')"><b>兼修「' + esc(P.name) + '」（' + esc(P.feel) + '）</b><div style="margin-top:6px">' + keepTail(esc(P.id === 'longyou' ? '多一條龍佑的牌路：借阿白的力量出手。阿白照樣咬人。' : P.desc)) + '</div><div class="dim" style="margin-top:4px;font-size:13px">送一張招牌牌「' + esc(G.CARDS[P.sig].name) + '」；之後兩條主修的牌都會出現</div></button>'; }).join('')
       + '</div>';
   }
   // 機緣給的出發前二選一（天生慧根：第一層頓悟；師門傳承：兩件法寶）

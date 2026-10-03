@@ -526,7 +526,7 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
 { const q=arena('shuang',1,5); E(q).thorns=3; q.hp=2; playId(q,'atk_shuang'); t(q.screen!=='over'&&q.hp===2,'打倒最後一個敵人的那一下，不會被它的反震震死',[q.screen,q.hp]); }
 { const q=arena('chilian',1,5); q.hp=2; playId(q,'rampage'); t(q.screen!=='over'&&q.hp===2,'血刃打倒最後一個敵人：自傷就不用付了',[q.screen,q.hp]); }
 { const q=G.newRun('shuang',8,{major:'wanjian'}); q.screen='major'; G.chooseMajor(q,'guiyi'); step(q,'fight'); const b=q.battle; b.swords=3; b.jy=0; b.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.jy>=9,'兼修歸一：沒用完的飛劍照說明化成劍意',q.battle.jy); }
-{ const q=G.newRun('xiaoman',8,{major:'longzhan'}); q.screen='major'; G.chooseMajor(q,'longyou'); step(q,'fight'); const b=q.battle; b.kraken=9; const hp=b.enemies.map(e=>e.hp); b.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.enemies.every((e,i)=>e.hp===hp[i])&&q.battle.tstr>0,'兼修龍佑：阿白照說明不咬人、改加持白辰',q.battle.tstr); }
+{ const q=G.newRun('xiaoman',8,{major:'longyou'}); step(q,'fight'); const b=q.battle; b.kraken=9; const hp=b.enemies.map(e=>e.hp); b.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.enemies.every((e,i)=>e.hp===hp[i])&&q.battle.tstr>0,'主修龍佑：阿白照說明不咬人、改加持白辰',q.battle.tstr); }
 // 系統稽核（2026-10-03）
 { const r=G.newRun('qingli',1); r.deck=r.deck.map(x=>x+'+'); r.gold=100; t(!G.canChoose(r,G.EVENTS.castle.opts[1]),'沒有牌可以強化：花錢強化的選項選不了'); }
 { const r=G.newRun('shuang',1); r.deck.push('sword_rain+b'); r.hp=50; r.screen='event'; r.event='swordtomb'; const g=r.gold; G.choose(r,0); t(r.deck.filter(x=>x.startsWith('sword_rain')).length===1&&r.gold===g+50,'秘傳不重複拿：強化過的也算（換成 50 金）',r.deck.filter(x=>x.startsWith('sword_rain')).join()); }
@@ -556,4 +556,5 @@ t(Object.values(G.EVENTS).filter(E=>E.who).every(E=>E.end&&E.end.length>=20),'�
 { const q=arena('qingli',1,80); q.act=3; q.endless=false; q.hp=1; E(q).intent={n:'砍',fx:[['atk',30]]}; G.endTurn(q); t(q.screen==='over'&&q.win&&!q.trueEnd,'倒在九幽魔淵：兩章魔王都打倒了，照樣算通關（只是沒封住魘）',JSON.stringify([q.screen,q.win])); }
 { const q=arena('xiaoman',2,80); q.battle.kraken=10; q.battle.np=100; q.battle.npUsed=0; G.noble(q,0); t(q.battle.kraken===5&&80-E(q,0).hp>=10&&80-E(q,1).hp>=10,'龍吟：阿白朝全體吐息（阿白多大打多痛），吐完縮小一半',JSON.stringify([q.battle.kraken,E(q,0).hp,E(q,1).hp])); }
 { const q=arena('xiaoman',1,500); q.battle.kraken=6; q.battle.np=0; E(q).intent={n:'發呆',fx:[]}; G.endTurn(q); t(q.battle.np>=4,'白辰的神通量表：阿白長大、咬人都漲得動（一回合至少 4%）',q.battle.np); }
+{ const q=G.newRun('xiaoman',8,{major:'longzhan'}); q.screen='major'; G.chooseMajor(q,'longyou'); step(q,'fight'); const b=q.battle; b.kraken=9; const hp=b.enemies.map(e=>e.hp); b.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.enemies.some((e,i)=>e.hp<hp[i]),'主修龍戰、兼修龍佑：阿白照樣咬人（龍佑當主修才不咬）'); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

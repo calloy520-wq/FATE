@@ -1331,6 +1331,7 @@ var G = (function () {
     if (p === 'ambush') { var ps = poisonSum(b); if (ps > (b.mPoison || 0)) npAdd(b, (ps - (b.mPoison || 0)) * NP_GAIN.ambush); }
     meterSync(run);
   }
+  function longyouMode(run) { return run.major === 'longyou'; }   // 龍佑當主修才換成「不咬人、加持白辰」；龍戰兼修龍佑，阿白照樣咬
   function startTurn(run, first) {
     var b = run.battle;
     b.turn++; b.fxDrawn = 0;
@@ -1344,7 +1345,7 @@ var G = (function () {
     if (b.pEvade) b.evade += b.pEvade;
     if (b.ubw > 0) { addProj(b, 3); b.ubw--; }
     if (b.pKraken) b.kraken += b.pKraken;
-    if (passive(run) === 'madness' && !first) b.kraken += 1 + (run.krakenGrow || 0) + (hasMajor(run, 'longyou') ? 1 : 0);   // 龍佑：阿白不咬人，長得更快
+    if (passive(run) === 'madness' && !first) b.kraken += 1 + (run.krakenGrow || 0) + (longyouMode(run) ? 1 : 0);   // 龍佑：阿白不咬人，長得更快
     if (!first && !run.flat && MADNESS[run.who] && run.hp > 1) { var md = MADNESS[run.who]; selfHurt(run, md, (b.log = b.log || [])); b.log.push('血煞反噬：失去 ' + md + ' 生命'); }
     if (b.pRage && run.hp < run.maxHp / 2) b.str += b.pRage;
     if (b.pPetrifyAll) alive(b).forEach(function (e) { petrify(run, e, b.pPetrifyAll, b.log); });
@@ -1355,7 +1356,7 @@ var G = (function () {
     if (b.pYuyin) b.yuyin += b.pYuyin;
     if (b.pFire) addFire(run, b.pFire);
     if (b.pHualong) { b.kraken = Math.max(0, b.kraken - 2 * b.pHualong); b.str += b.pHualong; }
-    if (hasMajor(run, 'longyou') && b.kraken >= 2) b.tstr += Math.floor(b.kraken * 2 / 3);   // 龍佑：阿白在身邊加持，本回合力量 +阿白大小的三分之二
+    if (longyouMode(run) && b.kraken >= 2) b.tstr += Math.floor(b.kraken * 2 / 3);   // 龍佑：阿白在身邊加持，本回合力量 +阿白大小的三分之二
     if (b.pCharm) { var tc = alive(b).sort(function (p, q) { return q.hp - p.hp; })[0]; if (tc) tc.charm += b.pCharm; }
     if (b.pGumu) { var tg2 = alive(b).sort(function (p, q) { return (q.parasite || 0) - (p.parasite || 0); })[0]; if (tg2) tg2.parasite = (tg2.parasite || 0) + b.pGumu; }
     if (passive(run) === 'forge') addProj(b, 1);
@@ -1828,7 +1829,7 @@ var G = (function () {
     b.hand = keep; b.tstr = 0;
     if (b.weak > 0) b.weak--;   // 虛弱只影響自己出手：自己的回合結束就減
     var vulnBefore = b.vuln;   // 易傷要撐到敵人出手：敵人這一輪打完才減（這一輪剛被上的易傷不減，留給下一輪）
-    if (b.kraken > 0 && !hasMajor(run, 'longyou')) {   // 阿白：咬生命最少的敵人，每大 12 多咬一口（龍佑不咬，改成加持白辰）
+    if (b.kraken > 0 && !longyouMode(run)) {   // 阿白：咬生命最少的敵人，每大 12 多咬一口（龍佑不咬，改成加持白辰）
       for (var bite = 0; bite < krakenBites(b); bite++) {
         var t3 = alive(b).sort(function (p, q) { return p.hp - q.hp; })[0]; if (!t3) break;
         hitEnemy(run, t3, dmgTo(t3, b.kraken), log); log.push('阿白咬了' + t3.name + '（' + b.kraken + '）'); npAdd(b, NP_GAIN.bite);
