@@ -501,6 +501,7 @@
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   // 長段落的保險：最後六個字（含標點）綁在一起不拆行，最後一行就不會只剩一兩個字（短段落交給 CSS 的 text-wrap）
+  function keepQuote(h) { return h.replace(/「[^「」<>]{1,10}」/g, function (m) { return '<span style="white-space:nowrap">' + m + '</span>'; }); }   // 「名字」不要從中間斷行
   function keepTail(h) { var m = /((?:(?:&[a-z#0-9]+;|[^\s<>&])\s?){6})$/.exec(h); return m ? h.slice(0, m.index) + '<span style="white-space:nowrap">' + m[1] + '</span>' : h; }
   // ── 帳號：第一個畫面先登入；每個帳號各自的存檔與戰績都存在伺服器（換裝置也接得上），本機另留一份快取 ──
   var ACC = null, META = null, SAVED_RUN = null, RUN_TS = 0, BASE_TS = 0, AKEY = 'grail_acc_v1', CKEY = 'grail_cache_v1:';   // RUN_TS：這一局的版本；BASE_TS：這一局是從伺服器哪一版接著玩的（伺服器上的比它新，就不蓋，改成重新接上）
@@ -1696,7 +1697,7 @@
       + (run.endless ? '<div class="box" style="text-align:center"><div class="dim">♾ 鎮妖塔成績</div><div style="font-size:30px;color:var(--gold)">' + st.floors + ' 格</div><div class="dim">' + esc(S.name) + '的最遠：' + ((me().stats.endless || {})[run.who] || st.floors) + ' 格</div><button class="infobtn" style="margin-top:8px" onclick="boardScreen()">🏆 看排行榜</button></div>' : '')
       + (run.trueEnd ? '<div class="box" style="text-align:center;max-width:460px;width:100%">📜 真結局「' + esc(G.ENDINGS[run.who].title) + '」收進了「劇情」<div style="margin-top:8px"><button class="infobtn" onclick="openOv(endingHtml(run.who))">現在看</button></div></div>' : '')
       + '<div style="text-align:center">' + keepTail('擊敗 ' + st.kills + ' 個敵人・神通 ' + st.np + ' 次・<span style="white-space:nowrap">丹藥吃了 ' + (st.pills || 0) + ' 顆</span>' + (st.seals ? '・捏碎了玉符' : '') + '・牌組 ' + run.deck.length + ' 張') + '</div>'
-      + (um.length ? '<div class="box" style="max-width:460px;width:100%"><h3>🎁 解鎖了</h3>' + um.map(function (x) { return '<div style="margin-top:4px">' + keepTail(esc(x)) + '</div>'; }).join('') + (umHint(um) ? '<div class="dim" style="margin-top:6px;font-size:13px">' + umHint(um) + '</div>' : '') + '</div>' : '')
+      + (um.length ? '<div class="box" style="max-width:460px;width:100%"><h3>🎁 解鎖了</h3>' + um.map(function (x) { return '<div style="margin-top:4px">' + keepTail(keepQuote(esc(x))) + '</div>'; }).join('') + (umHint(um) ? '<div class="dim" style="margin-top:6px;font-size:13px">' + umHint(um) + '</div>' : '') + '</div>' : '')
       + (run.diffNew ? '<div class="box" style="text-align:center;color:var(--gold)">以' + esc(G.DIFFS[run.diff || 'normal'].name) + '難度通關：' + esc(G.DIFFS[run.diffNew].name) + '難度開放了</div>' : '')
       + '<div class="row" style="flex-wrap:wrap;justify-content:center"><button class="btn" onclick="MODE=' + (run.endless ? '\'endless\'' : '\'normal\'') + ';run=null;save();choose()">再來一次</button><button class="btn" onclick="run=null;save();titleScreen()">回到標題</button></div></div>';
   }
