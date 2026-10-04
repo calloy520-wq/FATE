@@ -54,7 +54,7 @@
   .node.boss small { top:64px; }
   .node.walked { border-color:var(--blue); opacity:.6; }
   .node.here { border-color:var(--blue); box-shadow:0 0 0 3px rgba(106,164,216,.35); opacity:1; }
-  .node.can { border-color:var(--gold); background:#2a2415; color:var(--ink); cursor:pointer; position:relative; }
+  .node.can { border-color:var(--gold); background:#2a2415; color:var(--ink); cursor:pointer; }
   .node.can::after, #acts .btn.go::after, #acts .npbtn.full::after, .incoming.lethal::after { content:''; position:absolute; inset:0; border-radius:inherit; box-shadow:0 0 14px rgba(227,194,122,.6); opacity:0; pointer-events:none; animation:glow 1.6s ease-in-out infinite; will-change:opacity; }
   .incoming.lethal::after { box-shadow:0 0 14px rgba(255,90,90,.7); animation-duration:1s; }
   @keyframes glow { 50% { opacity:1; } }
