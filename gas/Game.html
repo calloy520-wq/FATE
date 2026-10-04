@@ -384,7 +384,7 @@ var G = (function () {
     panguan: { name: '鬼面判官', hp: [165, 165], boss: 1, cycle: 1,
       moves: [{ n: '勾魂筆', fx: [['breakBlock', 1], ['atk', 14]] }, { n: '亂筆', fx: [['atk', 4, 5]] }, { n: '鬼霧', fx: [['block', 15], ['weak', 2]] }, { n: '判決', fx: [['atkP', 20]] }] },
     xinmo:   { name: '魘', hp: [260, 260], boss: 1, cycle: 1,   // id 沿用舊的 xinmo（存檔、戰績、圖鑑都認這個）
-      moves: [{ n: '魔氣洪流', fx: [['atk', 6, 3], ['curse', 'mud', 2]] }, { n: '低語', fx: [['weak', 2], ['vuln', 2]] }, { n: '執念', fx: [['str', 3], ['block', 20]] }, { n: '魘噬', fx: [['atk', 42]] }],
+      moves: [{ n: '魔氣洪流', fx: [['atk', 6, 3], ['curse', 'mud', 2]] }, { n: '低語', fx: [['weak', 2], ['vuln', 2]] }, { n: '執念', fx: [['str', 5], ['block', 20]] }, { n: '魘噬', fx: [['atk', 42]] }],
       names: { shuang: ['師父的劍招', '「長這麼高了」', '三百年', '師父的最後一劍'], qingli: ['金山銀山', '「開個價吧」', '一筆勾銷', '傾家蕩產'],
         xiaoman: ['龍元反噬', '「是妳關的門」', '千年舊帳', '蛻骨'], chilian: ['紅線', '「她等的是我」', '她心裡只有師父', '一廂情願'], aduo: ['萬蠱噤聲', '「她們都會走」', '曲終人散', '孤身一人'] } }
   };
@@ -892,7 +892,7 @@ var G = (function () {
   function actName(run, act) { act = act || run.act; return run.endless && act >= 3 ? '鎮妖塔　第 ' + (act - 2) + ' 層' : ACT_NAMES[act]; }
   function bossAct(run) { var a = run.act || 1; return run.endless && a >= 3 ? { hp: 1.4 * (1 + 0.4 * (a - 2)), str: BOSS_ACT[2].str + 5 * (a - 2) } : BOSS_ACT[a]; }   // 魔王不吃每列的成長，所以無盡層另外每層 +40% 血、+5 力量（太少的話塔裡的魔王比精英還軟）
   var BOSS_POOL = { 1: ['zhanglao', 'shuyao', 'guijiang', 'niumo'], 2: ['huyao', 'duoxian', 'panguan', 'niumo'] };
-  var BOSS_ACT = { 1: { hp: 0.95, str: 0 }, 2: { hp: 1.8, str: 8 }, 3: { hp: 1.5, str: 6 } };
+  var BOSS_ACT = { 1: { hp: 0.95, str: 0 }, 2: { hp: 1.8, str: 8 }, 3: { hp: 2.0, str: 6 } };
   // opts：{ major 主修, fates 機緣（最多兩種；舊寫法 fate 單一個也可以）, asc 境界, diff 難度, endless 無盡 }（直接傳機緣的字串也可以）
   function newRun(who, seed, opts) {
     if (typeof opts === 'string') opts = { fate: opts };
