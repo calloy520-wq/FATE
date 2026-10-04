@@ -94,8 +94,8 @@ var G = (function () {
     zhannian: { name: '斬念', cost: 1, type: 'atk', np: 0, fx: [['breakDmg', 6, 1]], up: { fx: [['breakDmg', 9, 1]] } },
     ningshen: { name: '凝神', cost: 0, onPath: 1, type: 'skill', np: 0, fx: [['jy', 5]], up: { fx: [['jy', 8]] } },
     hanfeng:  { name: '寒鋒蓄勢', cost: 1, onPath: 1, type: 'power', np: 0, fx: [['pJy', 4]], up: { fx: [['pJy', 6]] } },
-    // 琴心（韻）：琴音留下餘音，每回合結束震傷全體、再散去三分之一
-    gaoshan:  { name: '高山流水', cost: 1, type: 'skill', np: 0, fx: [['yuyin', 10]], up: { fx: [['yuyin', 13]] } },
+    // 琴心（韻）：琴音留下餘音，每回合結束震傷全體、再散去三分之一（只剩一個敵人時不散）
+    gaoshan:  { name: '高山流水', cost: 1, type: 'skill', np: 0, fx: [['yuyin', 8]], up: { fx: [['yuyin', 11]] } },
     puzhan:   { name: '清心曲', cost: 1, type: 'skill', np: 0, fx: [['block', 6], ['yuyin', 4]], up: { fx: [['block', 9], ['yuyin', 5]] } },
     shimian:  { name: '十面埋伏', cost: 1, type: 'skill', np: 0, fx: [['weakAll', 1], ['vulnAll', 1], ['yuyin', 3]], up: { fx: [['weakAll', 1], ['vulnAll', 1], ['yuyin', 5]] } },
     buju:     { name: '流水不絕', cost: 2, type: 'power', np: 0, fx: [['pYuyin', 4]], up: { cost: 1 } },
@@ -249,7 +249,7 @@ var G = (function () {
         cards: ['project', 'tracing', 'traceon', 'kanshou', 'rhoaias', 'kakuyoku', 'calad', 'hrunting', 'analysis', 'sword_rain'] },
       { id: 'guiyi', name: '歸一', feel: '斬', sig: 'hanshuang', extra: 'guiyi', soul: ['jy', 3], master: [['jy', 8]], desc: '一劍破萬法：沒用完的飛劍化成劍意，一劍斬出，破格擋。',
         cards: ['guiyi', 'hanshuang', 'zhannian', 'ningshen', 'hanfeng', 'hawkeye', 'broken', 'wanfa'] },
-      { id: 'qinxin', name: '琴心', feel: '韻', sig: 'gaoshan', extra: 'puzhan', soul: ['yuyin', 3], master: [['yuyin', 8]], desc: '劍藏在琴裡：琴音留下餘音，每回合結束震傷全體。',
+      { id: 'qinxin', name: '琴心', feel: '韻', sig: 'gaoshan', extra: 'puzhan', soul: ['yuyin', 3], master: [['yuyin', 5]], desc: '劍藏在琴裡：琴音留下餘音，每回合結束震傷全體。',
         cards: ['gaoshan', 'puzhan', 'shimian', 'buju', 'yangguan', 'xianwai', 'qinjian', 'guangling'] }
     ],
     qingli: [
@@ -1571,7 +1571,7 @@ var G = (function () {
     jyStrike: function (x, f) { var j = RES.jy(x.b); x.b.jy = 0; x.b.swords = 0; syncSword(x.b); if (x.tg) strike(x, x.tg, f[1] + f[2] * j, true); if (j) x.log.push('萬劍歸於一劍（劍意 ' + j + '）'); },
     breakDmg: function (x, f) { var e = x.tg; if (!e) return; if (x.b.pvStrip) x.b.pvStrip[e.key] = (x.b.pvStrip[e.key] || 0) + e.block; e.block = 0; if (e.str > 0) e.str = 0; strike(x, e, f[1] + (f[2] || 0) * RES.jy(x.b)); },
     dbl: function (x) { x.b.dbl = 1; },
-    // 凌霜・琴心：餘音（回合結束震傷全體，再散去三分之一）
+    // 凌霜・琴心：餘音（回合結束震傷全體，再散去三分之一；只剩一個敵人時不散）
     yuyin: function (x, f) { x.b.yuyin = (x.b.yuyin || 0) + f[1]; },
     pYuyin: function (x, f) { x.b.pYuyin = (x.b.pYuyin || 0) + f[1]; },
     yuyinX2: function (x) { x.b.yuyin = (x.b.yuyin || 0) * 2; },
@@ -1842,9 +1842,9 @@ var G = (function () {
         hitEnemy(run, t3, dmgTo(t3, b.kraken), log); log.push('阿白咬了' + t3.name + '（' + b.kraken + '）'); npAdd(b, NP_GAIN.bite);
       }
     }
-    if (b.yuyin > 0) {   // 琴心：餘音震傷全體（穿透），再散去三分之一
+    if (b.yuyin > 0) {   // 琴心：餘音震傷全體（穿透），再散去三分之一；只剩一個敵人時不散（琴心打魔王、魘才不會太吃虧）
       var yy = b.yuyin; alive(b).forEach(function (e) { hitEnemy(run, e, dmgTo(e, yy), log, true); }); log.push('餘音繞梁（' + yy + '）');
-      b.yuyin = Math.floor(yy * 2 / 3);
+      b.yuyin = alive(b).length === 1 ? yy : Math.floor(yy * 2 / 3);
     }
     var end = checkEnd(run);
     if (end) { b.log = log; return { ok: true, end: end }; }

@@ -466,6 +466,7 @@ t(G.ORDER.every(k=>G.ENDINGS[k]&&G.ENDINGS[k].title&&G.ENDINGS[k].text.length>=3
 { const q=G.newRun('shuang',3,{major:'guiyi'}); t(q.major==='guiyi'&&q.deck.includes('hanshuang')&&q.deck.includes('guiyi')&&!q.deck.includes('project'),'出發選主修：招牌牌換成那條的（歸一：一劍霜寒＋歸一）',q.deck.join()); }
 { const q=arena('shuang'); q.major='guiyi'; q.battle.swords=3; q.battle.jy=0; G.endTurn(q); t(q.battle.jy===9,'歸一：回合結束沒用完的飛劍化成劍意（每把 3）',q.battle.jy); }
 { const q=arena('shuang',1,200); q.battle.jy=4; q.battle.swords=2; playId(q,'hanshuang'); t(E(q).hp===200-(10+3*(4+6))&&q.battle.jy===0&&!q.battle.swords,'一劍霜寒：劍意＋飛劍（每把 3）一起斬出，穿透',E(q).hp); }
+{ const q=arena('shuang',1,50); q.battle.yuyin=9; G.endTurn(q); t(q.battle.yuyin===9,'琴心：只剩一個敵人時餘音不散',q.battle.yuyin); }
 { const q=arena('shuang',2,50); q.battle.yuyin=9; G.endTurn(q); t(q.battle.enemies.every(e=>e.hp===41)&&q.battle.yuyin===6,'琴心：回合結束餘音震傷全體，再散去三分之一',[q.battle.enemies.map(e=>e.hp),q.battle.yuyin]); }
 { const q=arena('qingli',2,60); q.battle.fire=2; playId(q,'huofu'); t(q.battle.enemies.every(e=>e.hp===60-(6+2*2))&&q.battle.fire===3,'火符：全體 6＋火勢×2，打完火勢 +1',[E(q).hp,q.battle.fire]); }
 { const q=arena('xiaoman'); q.major='longyou'; q.battle.kraken=9; q.battle.tstr=0; const hp0=E(q).hp; G.endTurn(q); t(E(q).hp===hp0&&q.battle.kraken===11&&q.battle.tstr===Math.floor(11*2/3),'龍佑：阿白不咬人、每回合長大 2，改成每回合開始給白辰本回合力量（阿白的三分之二）',[E(q).hp,q.battle.tstr]); }
