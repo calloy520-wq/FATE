@@ -677,7 +677,7 @@ var G = (function () {
     drain: '造成 {1} 傷害，回復等量生命', pLeech: '生命低於一半時，攻擊吸血 {1}%', rageDrain: '造成 {1} 傷害，每少 10 點生命再 +{2}，回復造成傷害的三分之一',
     pBloodThorn: '每次被攻擊，反擊 {1} 傷害（每少 10 點生命再 +1）', hitStr: '這一輪每被攻擊一次，力量 +{1}（下回合起，整場）', revenge: '造成上一輪到現在妳失去的生命 ×{1} 的傷害',
     lowBlock: '格擋 {1}；生命低於一半時改成 {2}',
-    charm: '魅惑 {1}', charmAll: '全體魅惑 {1}', pCharm: '每回合開始，生命最多的敵人魅惑 {1}', charmDmg: '造成 {1} 傷害；目標被魅惑時翻倍', drawIfCharm: '目標被魅惑時抽 {1} 張',
+    charm: '魅惑 {1}', charmAll: '全體魅惑 {1}', pCharm: '每回合開始，魅惑 {1}（先挑這輪要攻擊的敵人，再挑生命最多的）', charmDmg: '造成 {1} 傷害；目標被魅惑時翻倍', drawIfCharm: '目標被魅惑時抽 {1} 張',
     ambushNext: '下一張攻擊牌傷害 ×1.5', freeAtk: '下一張攻擊牌不花靈力', pNeedle: '每回合第一次閃過攻擊，對攻擊者射出 {1} 傷害 ×3',
     hitsIfWeak: function (f) { return '造成 ' + f[1] + ' 傷害 ×' + f[2] + '；目標虛弱或妳有迴避時，每擊再 +' + f[3]; },
     dmgIfUnhit: '造成 {1} 傷害；敵人上一輪沒傷到妳（沒掉血）時再 +{2}', evadeAll: '這回合躲開所有攻擊', mulNext: '下回合攻擊傷害 ×{1}',
@@ -1364,7 +1364,7 @@ var G = (function () {
     if (b.pFire) addFire(run, b.pFire);
     if (b.pHualong) { b.kraken = Math.max(0, b.kraken - 2 * b.pHualong); b.str += b.pHualong; }
     if (longyouMode(run) && b.kraken >= 2) b.tstr += Math.floor(b.kraken * 2 / 3);   // 龍佑：阿白在身邊加持，本回合力量 +阿白大小的三分之二
-    if (b.pCharm) { var tc = alive(b).sort(function (p, q) { return q.hp - p.hp; })[0]; if (tc) tc.charm += b.pCharm; }
+    if (b.pCharm) { var tc = alive(b).sort(function (p, q) { return (attacks(q) - attacks(p)) || (q.hp - p.hp); })[0]; if (tc) tc.charm += b.pCharm; }   // 一笑傾城：先挑這輪要出手攻擊的，再挑生命最多的
     if (b.pGumu) { var tg2 = alive(b).sort(function (p, q) { return (q.parasite || 0) - (p.parasite || 0); })[0]; if (tg2) tg2.parasite = (tg2.parasite || 0) + b.pGumu; }
     if (passive(run) === 'forge') addProj(b, 1);
     drawCards(run, 5 + b.pDraw);
@@ -1776,6 +1776,7 @@ var G = (function () {
     if (b.pNilin && e.hp > 0 && b.kraken >= 3) hitEnemy(run, e, Math.floor(b.kraken / 3) * b.pNilin, log);   // 逆鱗
   }
   // 被魅惑的敵人：每層魅惑讓一擊分一半打到另一個敵人（只剩自己就打自己；魔王打歪的再少一半），你只挨另一半；魅惑用完剩下的照常打你
+  function attacks(e) { return e.intent && !e.stun && e.intent.fx.some(function (f) { return f[0] === 'atk' || f[0] === 'atkP'; }) ? 1 : 0; }
   function charmHit(run, e, f, log) {
     var b = run.battle;
     for (var h = 0; h < (f[2] || 1) && e.hp > 0 && run.hp > 0; h++) {
@@ -1858,12 +1859,12 @@ var G = (function () {
       if (e.poison > 0) { hitEnemy(run, e, e.poison, log, true); e.poison--; }
       if (e.parasite > 0 && e.hp > 0) hitEnemy(run, e, e.parasite, log, true);   // 寄生：不遞減
       if (e.hp <= 0) return;
-      if (e.stun) { e.stun = 0; e.charm = 0; log.push(e.name + '動彈不得'); }   // 動彈不得的這一輪，魅惑也一起散掉
+      if (e.stun) { e.stun = 0; log.push(e.name + '動彈不得'); }
       else {
         var charmed = e.charm > 0 && e.intent.fx.some(function (f) { return f[0] === 'atk' || f[0] === 'atkP'; });
         e.intent.fx.forEach(function (f) { if (LATER[f[0]]) later.push([e, f]); else if (charmed && (f[0] === 'atk' || f[0] === 'atkP')) charmHit(run, e, f, log); else enemyAct(run, e, f, log); });
         log.push(e.name + '：' + e.intent.n + (charmed ? '（被魅惑了）' : ''));
-        e.charm = 0;   // 魅惑只管這一輪：沒用完的也散了
+        if (charmed) e.charm = 0;   // 魅惑留到它真的出手攻擊：攻擊過了，沒用完的才散（這輪沒攻擊就留著）
       }
       if (e.vuln > 0) e.vuln--; if (e.weak > 0) e.weak--;
       if (e.hp > 0 && !e.stun) chooseIntent(run, e);
