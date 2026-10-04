@@ -426,7 +426,7 @@ console.log('── 神通量表：靠各自的機制累積（不靠出牌）');
 { const q=arena('qingli',1,200); q.battle.np=100; G.noble(q,0); q.battle.energy=99; playId(q,'nails'); playId(q,'nails'); const np1=q.battle.np; G.endTurn(q); playId(q,'nails'); t(np1===0&&q.battle.np===G.NP_GAIN.gaze,'放過神通的那回合機制不累積（擋定身→神通的無限循環），下回合照常',[np1,q.battle.np]); }
 { const q=arena('xiaoman'); q.battle.np=0; q.battle.kraken=5; q.battle.mKraken=5; playId(q,'horror'); t(q.battle.np===Math.floor(3*G.NP_GAIN.madness),'白辰：阿白長大累積（零頭留著下次湊）',q.battle.np); playId(q,'horror'); t(q.battle.np===Math.floor(6*G.NP_GAIN.madness),'白辰：阿白長大 6 → 量表 +3%（不會每次四捨五入多算）',q.battle.np); }
 { const q=arena('chilian'); q.battle.np=0; E(q).intent={n:'砍',fx:[['atk',10]]}; G.endTurn(q); t(q.battle.np>=Math.min(100,10*G.NP_GAIN.revive),'赤練：失去生命累積',q.battle.np); }
-{ const q=arena('aduo'); q.battle.np=0; q.battle.energy=9; playId(q,'venom'); t(q.battle.np===7*G.NP_GAIN.ambush,'阿朵：讓敵人中毒累積',q.battle.np); }
+{ const q=arena('aduo'); q.battle.np=0; q.battle.energy=9; playId(q,'venom'); t(q.battle.np===G.CARDS.venom.fx[0][1]*G.NP_GAIN.ambush,'阿朵：讓敵人中毒累積',q.battle.np); }
 { const q=G.newRun('qingli',3); step(q,'fight'); t(q.battle.np===0,'開戰時的被動（青璃全體定身）不算進量表：從 0 開始',q.battle.np); }
 console.log('── 丹藥的取得');
 { let got=0; for(let i=0;i<60;i++){ const q=G.newRun('qingli',700+i); q.pills=[]; step(q,'elite'); q.battle.enemies.forEach(e=>{e.hp=1;e.block=0;e.lives=0;}); q.battle.np=100; G.noble(q,0); if(q.reward&&q.reward.pill) got++; } t(got===60,'打贏精英一定有丹藥',got); }
@@ -473,7 +473,7 @@ t(G.ORDER.every(k=>G.ENDINGS[k]&&G.ENDINGS[k].title&&G.ENDINGS[k].text.length>=3
 { const q=arena('aduo',2,30); E(q).parasite=4; E(q).hp=3; G.endTurn(q); t(E(q).hp===0&&q.battle.enemies[1].parasite===6,'寄生：每輪扣血不遞減；宿主倒下，蠱蟲爬到下一個身上 +2',[E(q).hp,q.battle.enemies[1].parasite]); }
 { const q=G.newRun('chilian',8,{major:'meigu'}); q.screen='major'; t(G.chooseMajor(q,'xuejia')&&q.majors.join()==='meigu,xuejia'&&q.deck.includes('rockbody')&&!q.mastered,'兼修：再開一條主修，送它的招牌牌',q.majors.join());
   const P=G.ownPool(q); t(P.side.length===0&&P.main.some(k=>G.CARDS[k].path==='xuejia')&&P.main.some(k=>G.CARDS[k].path==='meigu')&&!P.main.some(k=>G.CARDS[k].path==='kuangxue'),'兼修之後：兩條主修的牌都會出，第三條不出'); }
-{ const q=G.newRun('aduo',8,{major:'anqi'}); t(G.ownPool(q).side.length>0,'第一章魔王前：其他主修的牌也偶爾會出'); q.screen='major'; G.chooseMajor(q,'master'); const P=G.ownPool(q); t(q.mastered&&P.side.length===0&&P.main.every(k=>G.CARDS[k].path==='anqi'),'專精之後：只出這條主修的牌'); step(q,'fight'); t(q.battle.evade>=1,'專精暗器：每場開場迴避 1'); }
+{ const q=G.newRun('aduo',8,{major:'anqi'}); t(G.ownPool(q).side.length>0,'第一章魔王前：其他主修的牌也偶爾會出'); q.screen='major'; G.chooseMajor(q,'master'); const P=G.ownPool(q); t(q.mastered&&P.side.length===0&&P.main.every(k=>G.CARDS[k].path==='anqi'),'專精之後：只出這條主修的牌'); step(q,'fight'); t(q.battle.block>=4,'專精暗器：每場開場格擋 4'); }
 t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&&G.CARDS[P.sig].path===P.id)),'每位至少兩條主修，招牌牌屬於自己那條');
 { const feels=[].concat(...G.ORDER.map(w=>G.pathsOf(w).map(P=>P.feel))); t(new Set(feels).size===feels.length,'主修的手感詞不能撞',feels.join()); }
 // 內容深度（2026-10-02）：第二章雜兵的特殊招式、主修專屬事件
