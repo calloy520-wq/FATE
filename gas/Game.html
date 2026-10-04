@@ -808,8 +808,8 @@ var G = (function () {
     early:   { name: '天生慧根', text: '開局就先得到第一層頓悟（兩個選一個）' },
     legacy:  { name: '師門秘傳', text: '開局牌組就有自己的秘傳牌' },
     // 以下要達成目標才解鎖（lock＝GOALS 的 id）：只是多一種取捨，不是直接變強
-    bloodpact:{ name: '以血換寶', text: '最大生命 -6，開局得到 2 件隨機法寶', lock: 'clear' },
-    trial:   { name: '問心試煉', text: '牌組多一張詛咒「業障」，但每場戰鬥神通量表從 35% 開始', lock: 'xinmo' },
+    bloodpact:{ name: '以血換寶', text: '最大生命 -12，開局得到 2 件隨機法寶', lock: 'clear' },
+    trial:   { name: '問心試煉', text: '牌組多一張詛咒「業障」，但每場戰鬥神通量表從 40% 開始', lock: 'xinmo' },
     wander:  { name: '雲遊四方', text: '地圖多看 2 列，開局多 60 金', lock: 'tower' }
   };
   // 局外解鎖的目標（2026-10-02 玩家定：達成目標直接解鎖，不用貨幣）。判斷在 Index 的 goalsDone（看戰績與圖鑑）
@@ -877,8 +877,8 @@ var G = (function () {
     else if (k === 'light') { ['atk', 'def'].forEach(function (x) { var i = run.deck.findIndex(function (y) { return isBasic(y, x); }); if (i >= 0) run.deck.splice(i, 1); }); }
     else if (k === 'merchant') { run.discount = (run.discount || 1) * 0.75; run.removed = -1; run.flatRemove = 1; }
     else if (k === 'early') { if (talentsOf(run)[0]) queueBoon(run, { kind: 'awaken', opts: ['0.0', '0.1'] }); }
-    else if (k === 'bloodpact') { run.maxHp -= 6; run.hp = Math.min(run.hp, run.maxHp); gainRelic(run, randomRelic(run)); gainRelic(run, randomRelic(run)); }
-    else if (k === 'trial') { run.deck.push('sin'); run.npStart = (run.npStart || 0) + 35; }
+    else if (k === 'bloodpact') { run.maxHp -= 12; run.hp = Math.min(run.hp, run.maxHp); gainRelic(run, randomRelic(run)); gainRelic(run, randomRelic(run)); }
+    else if (k === 'trial') { run.deck.push('sin'); run.npStart = (run.npStart || 0) + 40; }
     else if (k === 'wander') { run.sightUp = (run.sightUp || 0) + 2; run.gold += 60; }
     else if (k === 'legacy') { var rare = majorRare(run); if (rare && !run.deck.some(function (x) { return baseId(x) === rare; })) run.deck.push(rare); else if (rare) run.deck = run.deck.map(function (x) { return x === rare ? rare + '+' : x; }); }   // 境界 V 已經給過：改成把它強化
   }

@@ -440,8 +440,8 @@ const ALLG=Object.keys(G.GOALS);
 t(Object.keys(G.FATES).filter(k=>G.FATES[k].lock).every(k=>G.GOALS[G.FATES[k].lock])&&Object.keys(G.RELICS).filter(k=>G.RELICS[k].lock).every(k=>G.GOALS[G.RELICS[k].lock]),'鎖起來的機緣、法寶都對得上一個目標');
 t(Object.keys(G.GOALS).every(g=>Object.keys(G.FATES).some(k=>G.FATES[k].lock===g)||Object.keys(G.RELICS).some(k=>G.RELICS[k].lock===g)),'每個目標都至少解鎖一樣東西');
 { const q=G.newRun('qingli',6,{fates:['bloodpact','gold']}); t(!q.fates.includes('bloodpact')&&q.fates.join()==='gold','沒達成目標：鎖著的機緣帶不進去'); }
-{ const q=G.newRun('qingli',6,{fates:['bloodpact'],goals:['clear']}); t(q.maxHp===G.SERVANTS.qingli.hp-6&&q.relics.length===2,'以血換寶：最大生命 -6、開局 2 件法寶',JSON.stringify([q.maxHp,q.relics])); }
-{ const q=G.newRun('qingli',6,{fates:['trial'],goals:['xinmo']}); step(q,'fight'); t(q.deck.includes('sin')&&q.battle.np>=35,'問心試煉：牌組多業障、神通量表從 35% 開始'); }
+{ const q=G.newRun('qingli',6,{fates:['bloodpact'],goals:['clear']}); t(q.maxHp===G.SERVANTS.qingli.hp-12&&q.relics.length===2,'以血換寶：最大生命 -12、開局 2 件法寶',JSON.stringify([q.maxHp,q.relics])); }
+{ const q=G.newRun('qingli',6,{fates:['trial'],goals:['xinmo']}); step(q,'fight'); t(q.deck.includes('sin')&&q.battle.np>=40,'問心試煉：牌組多業障、神通量表從 40% 開始'); }
 { const q=G.newRun('qingli',6,{fates:['wander'],goals:['tower']}); t(q.gold===120&&G.visible(q,4,q.map[4].findIndex(n=>n)),'雲遊四方：多 60 金、多看 2 列'); }
 { const q=G.newRun('qingli',900); let leak=0; for(let i=0;i<60;i++){ step(q,'chest'); if(q.reward.relic&&G.RELICS[q.reward.relic].lock) leak++; G.takeChest(q); if(q.floor>=10) q.floor=0; } t(!G.relicPool(q).some(k=>G.RELICS[k].lock)&&leak===0,'沒達成目標：鎖著的法寶不在法寶池、寶箱也開不出來'); }
 { const q=G.newRun('qingli',6,{goals:ALLG}); t(G.relicPool(q).length===Object.keys(G.RELICS).length,'目標全達成：法寶池全開'); }
