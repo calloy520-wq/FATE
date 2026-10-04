@@ -563,6 +563,7 @@ t(Object.values(G.EVENTS).filter(E=>E.who).every(E=>E.end&&E.end.length>=20),'�
 { const d=G.newRun('aduo',3,{major:'anqi'}).deck; t(d.indexOf('throwdirk')>=0&&d.indexOf('dieyin')>=0&&d.filter(x=>x==='def_aduo').length===3,'暗器開局：銀針＋斂息（換掉一張防禦）',d.join(',')); }
 { let bad=0; for(let s=1;s<=200;s++){ const q=G.newRun('aduo',s,{major:'dugu'}); const P=G.ownPool(q); if(P.side.indexOf('chongshi')>=0||P.side.indexOf('yangchong')>=0) bad++; } t(!bad,'離開主修就沒用的牌（蟲噬、以蟲養蟲…）不從別條主修混進戰利品',bad); }
 { const q=arena('qingli',1,80); q.battle.hand=['jiutian','atk_qingli','def_qingli']; playId(q,'fenfu'); t(q.battle.hand.indexOf('jiutian')>=0&&q.battle.hand.length===2,'焚符先燒最便宜的（不會把大招燒掉）',JSON.stringify(q.battle.hand)); }
+{ const q=arena('chilian',2,50); const [a,b]=q.battle.enemies; a.intent={n:'砍',fx:[['atk',12]]}; b.intent={n:'等',fx:[['block',1]]}; a.charm=1; const hp=q.hp; G.endTurn(q); const c=(q.battle.charmLog||[])[0]; t(b.hp===44&&c&&c.d===6&&c.saved===6,'魅惑：一擊劈成兩半，另一半整個砍在自己人身上（畫面記下打歪多少、擋下多少）',[b.hp,JSON.stringify(c),hp-q.hp]); }
 { const q=G.newRun('shuang',3); q.flat=1; G.startAct(q,3); q.floor=2; q.lane=2; G.go(q,2); const e=q.battle.enemies[0]; t(e.id==='xinmo'&&e.maxHp===520&&G.ENEMIES.xinmo.moves[2].fx[0][1]===5,'魘：血 260×2、執念每次力量 +5（比第二章魔王難一截）',[e.maxHp]); }
 { const q=G.newRun('qingli',5); q.screen='secret'; q.seals=1; q.maxHp=80; q.hp=20; G.secret(q,true); t(q.hp===50&&q.act===3,'捏碎玉符進九幽魔淵：跟換章一樣回一半失去的生命',q.hp); }
 console.log(bad?'❌ '+bad+' 條失敗（通過 '+ok+'）':'✅ 全部 '+ok+' 條通過'); process.exit(bad?1:0);

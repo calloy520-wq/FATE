@@ -170,6 +170,7 @@
   .card.flying.chase { box-shadow:0 0 18px rgba(124,199,154,.8); } .card.flying.drop { filter:grayscale(1); box-shadow:none; }
   .pop { position:fixed; z-index:21; transform:translate(-50%,-50%); pointer-events:none; font-weight:bold; font-size:26px; text-shadow:0 2px 6px #000; animation:pop 1s ease-out forwards; white-space:nowrap; }
   .pop.dmg { color:#ff7a7a; } .pop.crit { font-size:36px; color:#ffb347; } .pop.blk { color:#b8c0cc; font-size:20px; }
+  .pop.charm { color:#ff8fc0; font-size:16px; letter-spacing:.05em; } .intent s.was, .atk s.was { opacity:.55; font-size:.8em; margin-right:2px; } .atk .chm { color:#ff8fb8; font-size:.85em; margin-left:1px; }
   .pop.ko { color:var(--gold); font-size:22px; letter-spacing:.2em; } .pop.heal { color:var(--green); } .pop.hurt { color:#ff5a5a; font-size:30px; } .pop.gain { color:var(--blue); font-size:22px; }
   @keyframes pop { 0% { opacity:0; transform:translate(-50%,-30%) scale(.6); } 15% { opacity:1; transform:translate(-50%,-60%) scale(1.15); } 100% { opacity:0; transform:translate(-50%,-160%) scale(1); } }
   .foe .slash { position:absolute; left:-10%; right:-10%; top:50%; height:4px; background:linear-gradient(90deg,transparent,#fff,#ffd27a,transparent); transform:rotate(-28deg) scaleX(0); animation:slash .28s ease-out forwards; pointer-events:none; border-radius:2px; box-shadow:0 0 12px #ffd27a; }
@@ -781,7 +782,7 @@
     ['劍意', '凌霜・歸一：沒用完的飛劍回合結束化成劍意（每把 3 層）；一劍霜寒消耗全部劍意（手上飛劍每把也算 3 層）斬出一劍，斬念看劍意加傷害但不消耗'],
     ['餘音', '凌霜・琴心：每回合結束，對全體敵人造成等同餘音的穿透傷害，之後散去三分之一；只剩一個敵人時不散'],
     ['火勢', '青璃・火符：這場越燒越旺，火符、燎原、火雲護體都照火勢加成；打出火符本身也讓火勢 +1'],
-    ['魅惑', '赤練・媚骨：被魅惑的敵人這一輪出手時，每層讓一擊打歪：妳只挨一半，打歪的那一半落到它自己人身上（力道剩三分之二，魔王只剩三分之一；只剩它就打自己）；沒用完的魅惑會散掉'],
+    ['魅惑', '赤練・媚骨：被魅惑的敵人這一輪出手時，每層把一擊劈成兩半：妳只挨一半，另一半砍在它自己人身上（只剩它就砍自己；魔王心智堅定，打歪的只剩三分之一）；沒用完的魅惑這一輪結束就散'],
     ['寄生', '阿朵・蟲蠱：敵人回合時失去等同寄生數的生命（不遞減）；宿主倒下時，蠱蟲爬到另一個敵人身上，還會多 2'],
     ['精英／魔王', '精英（☠）比較難，打贏有法寶與頓悟；魔王（👑）在每章最後一列。魔王不吃即死類效果；不死牛魔倒下還會站起來兩次']
   ];
@@ -1193,11 +1194,18 @@
 
   // ── 戰鬥 ──
   var DEBUFF = { weak: '虛弱', vuln: '易傷' };
+  // 意圖的傷害數字：被魅惑的那幾擊直接寫成妳真的會挨的（劃掉原本的），旁邊一顆 ♥
+  function charmNum(e, f) {
+    var d = G.intentDmg(run, e, f), k = f[2] || 1, ch = Math.min(k, e.charm || 0);
+    if (!ch) return '<span class="num">' + d + (f[2] ? '×' + f[2] : '') + '</span>';
+    if (ch >= k) return '<span class="num"><s class="was">' + d + '</s>' + Math.floor(d / 2) + (f[2] ? '×' + f[2] : '') + '</span><span class="chm">♥</span>';
+    return '<span class="num">' + d + '×' + k + '</span><span class="chm">♥' + ch + '擊減半</span>';
+  }
   function intentHtml(e) {
     if (e.stun) return '<span class="buf">🗿 動彈不得</span>';
     return e.intent.fx.map(function (f) {
       var k = f[0];
-      if (k === 'atk' || k === 'atkP') return '<span class="atk">⚔' + (k === 'atkP' ? '穿' : '') + '<span class="num">' + G.intentDmg(run, e, f) + (f[2] ? '×' + f[2] : '') + '</span>' + (e.charm ? '<span style="color:#ff8fb8">♥½</span>' : '') + '</span>';
+      if (k === 'atk' || k === 'atkP') return '<span class="atk">⚔' + (k === 'atkP' ? '穿' : '') + charmNum(e, f) + '</span>';
       if (k === 'block') return '<span class="def">🛡' + f[1] + '</span>';
       if (k === 'str') return '<span class="buf">力量+' + f[1] + '</span>';
       if (k === 'heal') return '<span class="buf">回復' + f[1] + '</span>';
@@ -1497,6 +1505,13 @@
     if (total) bits.push('造成 ' + total);
     if (kos.length) bits.push('擊倒 ' + kos.join('、'));
     if (run.hp < before.hp) bits.push('妳受到 ' + (before.hp - run.hp));
+    var cl = !atk && run.battle.charmLog || [];
+    if (cl.length) {
+      var hitSum = 0, saved = 0;
+      cl.forEach(function (c) { hitSum += c.d; saved += c.saved; var el = document.querySelector('.foe[data-key="' + c.to + '"]'); if (c.d > 0) popAt(el, '♥ 打歪了', 'charm', -46); });
+      bits.push('魅惑替妳擋下 ' + saved + (hitSum ? '、打歪 ' + hitSum : ''));
+      run.battle.charmLog = [];
+    }
     else if (!atk && !total && before.block && run.battle.turn) bits.push('格擋全擋下');
     if (run.battle.block > before.block) bits.push('格擋 +' + (run.battle.block - before.block));
     summary = bits.join('・'); var lg = $('log'); if (lg && sel.card < 0) lg.textContent = summary || (run.battle.log || []).join('　');
