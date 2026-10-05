@@ -534,8 +534,9 @@
   .vntop .vnt { flex:1; color:var(--gold); font-size:15px; text-shadow:0 1px 4px #000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .vntop button { background:rgba(10,10,22,.7); border:1px solid rgba(227,194,122,.4); color:var(--ink); border-radius:8px; padding:5px 10px; font-size:13px; }
   .vntop button.on { border-color:var(--gold); color:var(--gold); }
-  .vnbox { position:absolute; z-index:2; left:50%; transform:translateX(-50%); bottom:max(14px, env(safe-area-inset-bottom)); width:min(680px, calc(100% - 24px)); min-height:7.6em; box-sizing:border-box;
+  .vnbox { position:absolute; z-index:2; left:50%; transform:translateX(-50%); bottom:max(14px, env(safe-area-inset-bottom)); width:min(680px, calc(100% - 24px)); min-height:8.4em; box-sizing:border-box;
     background:rgba(10,10,22,.88); border:1px solid rgba(227,194,122,.45); border-radius:12px; padding:14px 16px 28px; font-size:17px; line-height:1.8; text-wrap:wrap; cursor:pointer; }
+  .vnname { position:absolute; z-index:3; left:max(12px, calc(50% - 340px)); padding:3px 14px; border-radius:8px 8px 0 0; background:rgba(40,30,12,.92); border:1px solid rgba(227,194,122,.55); border-bottom:none; color:var(--gold); font-size:15px; letter-spacing:.08em; }
   .vnbox .vnbrk { text-align:center; letter-spacing:.6em; opacity:.6; }
   .vnbox .vnn { position:absolute; left:14px; bottom:6px; font-size:12px; opacity:.5; }
   .vnbox .vnnext { position:absolute; right:14px; bottom:4px; color:var(--gold); font-size:13px; animation:vnb 1s ease-in-out infinite; }
@@ -956,10 +957,11 @@
     ['abyss', '五個人在往鬼哭城的路上會合了。白辰從山莊帶來五枚<b style="color:var(--red)">師門玉符</b>，是當年丹鼎宗與玄真觀一同煉的，一人一枚。<br>危急的時候捏碎它，能保住一命。若是一路留到最後，它能打開魔淵的門——只開一人寬。<br>門後，有人撐了一百年。<br>去吧。把那道印畫完，把她接回來。']
   ];
   function prologue(i) {
-    var beats = [];
-    PROLOGUE.slice(i || 0).forEach(function (P) {
+    var beats = [], q = { i: 0 };
+    PROLOGUE.forEach(function (P, j) {
       var who = P[2] === 'shuang' ? 'shuang' : null;
-      var bs = vnBeats([P[1]], { bg: P[0], who: who });
+      var bs = vnBeats([P[1]], { bg: P[0], who: who, say: VN_SAY.PRO, q: q });
+      if (j < (i || 0)) return;
       if (P[2] === 'others') bs.forEach(function (b) { b.who = ['chilian', 'qingli', 'aduo', 'xiaoman']; });
       beats = beats.concat(bs);
     });
@@ -1013,32 +1015,77 @@
   }
   // ── 劇情閱讀器（文字冒險）：一段一段點著看 ──
   // 段落太長就在句號處切開（大約一個文字框的量）；單獨一行「——」是換場
+  // 名字框：每段劇情裡「」依序是誰說的（'-'＝不是台詞，例如「魘」「本座」；英文代號＝五位女修，會亮她的立繪）
+  // 文字改了、「」的數量變了，這裡要跟著改；對不上就整段不顯示名字（vnBeats 會檢查）
+  var VN_SAY = {
+    'PRO': ['-', '沈望舒', '白辰（信）'],
+    'shuang:desc': ['沈望舒', '白辰（信）'],
+    'shuang:origin': ['沈望舒', '沈望舒', '-', 'shuang', '白辰（信）'],
+    'qingli:origin': ['祖師', '祖師', '祖師', 'xiaoman', 'xiaoman', 'qingli', '-', 'qingli', 'qingli', 'xiaoman'],
+    'xiaoman:desc': ['-'],
+    'xiaoman:origin': ['沈望舒', '沈望舒', '-', 'xiaoman', 'xiaoman'],
+    'chilian:origin': ['師姊', '師妹', '師妹', '師妹', '師姊', '師妹', 'chilian', '宗主', '？？？'],
+    'aduo:desc': ['-'],
+    'aduo:origin': ['阿婆', '擺攤的漢子', '？？？', '？？？', 'aduo', 'qingli', 'qingli', 'aduo', 'aduo'],
+    'ev:letter': ['師兄（信）', '師兄（信）', '青璃（回信）'],
+    'ev:tanghulu': ['攤販'],
+    'ev:pursuers': ['師妹', '宗主（信）'],
+    'ev:wine': ['刀客'],
+    'ev:inlaw': ['xiaoman', 'chilian'],
+    'ev:villageletter': ['阿婆（口信）', 'aduo'],
+    'ev:guking': ['蠱王'],
+    'ev:oldqin': ['-', 'chilian'],
+    'ev:hauntedhouse': ['富商'],
+    'ev:bandits': ['山賊'],
+    'ev:oldarmor': ['-', '-'],
+    'ev:oldfriend': ['師姊', '師姊'],
+    'ev:needleshop': ['老闆'],
+    'end:shuang': ['魘', '魘', '-', '沈望舒', '沈望舒', '沈望舒', 'xiaoman', 'xiaoman', 'chilian', 'chilian', 'shuang'],
+    'end:qingli': ['qingli', '祖師的聲音', '祖師的聲音', 'qingli', 'qingli', 'qingli', 'qingli', 'aduo', 'qingli', 'aduo', 'aduo'],
+    'end:xiaoman': ['xiaoman', '魘', '魘', 'xiaoman', 'xiaoman', 'xiaoman', '沈望舒', 'xiaoman', 'xiaoman', 'xiaoman', 'xiaoman', 'xiaoman', '沈望舒', 'xiaoman'],
+    'end:chilian': ['chilian', '魘', '魘', 'chilian', 'chilian', '沈望舒', 'chilian', 'shuang', 'shuang', 'chilian', 'chilian', 'chilian', 'shuang'],
+    'end:aduo': ['魘', '魘', 'aduo', 'aduo', 'aduo', 'qingli', 'aduo'],
+    'epi': ['？？？', '？？？', '沈望舒', '沈望舒', '白辰', '白辰', '沈望舒', 'chilian', 'shuang', 'qingli', '白辰', 'chilian', '白辰', '沈望舒', '白辰', '白辰', '-',
+      'qingli', 'aduo', 'aduo', 'aduo', 'qingli', 'aduo', 'aduo', 'qingli', 'qingli', 'aduo',
+      '沈望舒', '沈望舒', '白辰', '白辰', '沈望舒', '沈望舒', '白辰', '白辰', '白辰', '沈望舒', '白辰', '沈望舒', '白辰', '白辰', '沈望舒', 'aduo', 'shuang', 'chilian']
+  };
   var VN_NAMES = { '凌霜': 'shuang', '青璃': 'qingli', '白辰': 'xiaoman', '赤灼': 'chilian', '阿朵': 'aduo' };
-  function vnChunks(p) {
+  function vnSents(p) {
     var sents = [], cur = '', i, c, n;
     for (i = 0; i < p.length; i++) { c = p[i]; n = p[i + 1] || ''; cur += c;
       if (('。！？'.indexOf(c) >= 0 && '」』…'.indexOf(n) < 0) || ('」』'.indexOf(c) >= 0 && '。！？…—'.indexOf(p[i - 1]) >= 0 && n !== '」')) { sents.push(cur); cur = ''; } }
     if (cur) sents.push(cur);
-    var out = [], buf = '';
-    sents.forEach(function (x) { if (buf && (buf + x).length > 64) { out.push(buf); buf = x; } else buf += x; });
-    if (buf) out.push(buf);
-    return out;
+    return sents;
   }
-  // paras：段落陣列；o.who：主角（站中間）；o.bg：'hill'／'city'／'abyss'；o.snow：雪夜色調；o.noKid：不畫白辰（大人模樣的場景）
+  function vnChunks(p) { return vnBeats([p], {}).map(function (b) { return b.t; }); }
+  // paras：段落陣列；o.who：主角；o.bg：'hill'／'city'／'abyss'；o.noKid：不畫白辰（大人模樣的場景）；o.say：VN_SAY 的那一段；o.q：共用的「」計數（序章分頁用）
   function vnBeats(paras, o) {
-    var beats = [], bg = o.bg || 'hill';
+    var beats = [], bg = o.bg || 'hill', say = o.say || null, q = o.q || { i: 0 }, cur = null, open = 0;
     paras.forEach(function (p) {
       p = String(p).replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '');
-      p.split('\n').forEach(function (q) { q = q.trim(); if (!q) return;
-        if (q === '——') { beats.push({ brk: 1, bg: bg, who: o.who ? [o.who] : [] }); return; }
-        if (o.bgSwitch) o.bgSwitch.forEach(function (r) { if (q.indexOf(r[0]) >= 0) bg = r[1]; });
-        vnChunks(q).forEach(function (t) {
+      p.split('\n').forEach(function (line) { line = line.trim(); if (!line) return;
+        if (line === '——') { beats.push({ brk: 1, bg: bg, who: o.who ? [o.who] : [] }); return; }
+        if (o.bgSwitch) o.bgSwitch.forEach(function (r) { if (line.indexOf(r[0]) >= 0) bg = r[1]; });
+        var parts = vnSents(line).map(function (t) {   // 每一句是誰在說
+          var sp = open > 0 ? cur : null;
+          for (var k = 0; k < t.length; k++) {
+            if (t[k] === '「') { if (open === 0) { var who = say ? say[q.i] : null; q.i++; cur = who && who !== '-' ? who : null; if (!sp) sp = cur; } open++; }
+            else if (t[k] === '」') open = Math.max(0, open - 1);
+          }
+          return { t: t, sp: sp };
+        });
+        var out = [];
+        parts.forEach(function (x) { var last = out[out.length - 1];
+          if (last && (last.t + x.t).length <= 64 && (!x.sp || !last.sp || x.sp === last.sp)) { last.t += x.t; last.sp = last.sp || x.sp; } else out.push({ t: x.t, sp: x.sp }); });
+        out.forEach(function (x) {
           var who = o.who ? [o.who] : [];
-          Object.keys(VN_NAMES).forEach(function (nm) { var k = VN_NAMES[nm]; if (t.indexOf(nm) >= 0 && who.indexOf(k) < 0 && !(o.noKid && k === 'xiaoman')) who.push(k); });
-          beats.push({ t: t, bg: bg, who: who.slice(0, o.who ? 3 : 2) });
+          Object.keys(VN_NAMES).forEach(function (nm) { var k = VN_NAMES[nm]; if (x.t.indexOf(nm) >= 0 && who.indexOf(k) < 0 && !(o.noKid && k === 'xiaoman')) who.push(k); });
+          if (x.sp && G.SERVANTS[x.sp] && who.indexOf(x.sp) < 0 && !(o.noKid && x.sp === 'xiaoman')) who.push(x.sp);
+          beats.push({ t: x.t, bg: bg, who: who.slice(0, o.who ? 3 : 2), say: x.sp });
         });
       });
     });
+    if (say && q.i !== say.length && !o.q) beats.forEach(function (b) { b.say = null; });   // 對不上就不顯示名字
     return beats;
   }
   var VN = null;
@@ -1049,7 +1096,7 @@
     el.innerHTML = '<div class="vnbg"></div><div class="vnfigs"></div>'
       + '<div class="vntop"><span class="vnt">' + esc(o.title || '') + '</span><button onclick="vnStep(-1)" aria-label="上一段">‹</button><button id="vnauto" onclick="vnAuto()">自動</button>'
       + (o.full ? '<button onclick="vnFull()">全文</button>' : '') + '<button onclick="vnClose()" aria-label="關閉">✕</button></div>'
-      + '<div class="vnbox" onclick="vnStep(1)"></div>';
+      + '<div class="vnname" style="display:none"></div><div class="vnbox" onclick="vnStep(1)"></div>';
     document.body.appendChild(el);
     document.addEventListener('keydown', vnKey);
     vnStep(1);
@@ -1073,7 +1120,7 @@
     var i = VN.i + d; if (i < 0) return;
     if (i >= VN.beats.length) {   // 讀完了
       VN.i = VN.beats.length;
-      box.onclick = null;
+      box.onclick = null; $('vn').querySelector('.vnname').style.display = 'none';
       box.innerHTML = '<div class="vnend">' + (VN.o.endBtns || '<button class="btn" onclick="vnClose()">返回</button>') + '</div>';
       return;
     }
@@ -1085,10 +1132,15 @@
     if (b.bg !== VN.bg) { VN.bg = b.bg; var sc = { abyss: { act: 3 }, city: { act: 2 }, hill: { act: 1 }, tower: { act: 3, endless: 1 } }[b.bg] || { act: 1 }; el.querySelector('.vnbg').innerHTML = FIG.scene(sc); }
     var fk = b.who.join(',');
     if (fk !== VN.figs) { VN.figs = fk; var fs = el.querySelector('.vnfigs'); fs.className = 'vnfigs' + (b.who.length > 2 ? ' many' : '');
-      fs.innerHTML = b.who.map(function (k, j) { return '<div class="vnfig' + (j && VN.o.who ? ' back' : '') + '">' + FIG.fig(k, false, { swords: k === 'shuang' ? 3 : 0 }) + '</div>'; }).join(''); }
+      fs.innerHTML = b.who.map(function (k) { return '<div class="vnfig" data-k="' + k + '">' + FIG.fig(k, false, { swords: k === 'shuang' ? 3 : 0 }) + '</div>'; }).join(''); }
+    var lit = b.say && b.who.indexOf(b.say) >= 0 ? b.say : (VN.o.who || null);
+    Array.prototype.forEach.call(el.querySelectorAll('.vnfig'), function (f) { f.classList.toggle('back', !!lit && f.getAttribute('data-k') !== lit); });
+    var nameEl = el.querySelector('.vnname'), nm = b.say ? (G.SERVANTS[b.say] ? G.SERVANTS[b.say].name.replace('蘇', '').replace('顧', '') : b.say) : '';
+    nameEl.textContent = nm; nameEl.style.display = nm ? '' : 'none';
+    VN.place = function () { nameEl.style.bottom = (window.innerHeight - box.getBoundingClientRect().top) + 'px'; }; VN.place();
     var n = '<span class="vnn">' + (VN.i + 1) + '／' + VN.beats.length + '</span>';
     if (b.brk) { box.innerHTML = '<div class="vnbrk">・・・</div>' + n + '<span class="vnnext">▼</span>'; return vnAfter(); }
-    var t = b.t, full = function () { box.innerHTML = '<div>' + storyTail(esc(t)) + '</div>' + n + '<span class="vnnext">▼</span>'; };
+    var t = b.t, full = function () { box.innerHTML = '<div>' + storyTail(esc(t)) + '</div>' + n + '<span class="vnnext">▼</span>'; VN.place(); };
     var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (instant || reduce) { full(); return vnAfter(); }
     var k = 0; box.innerHTML = '<div></div>' + n; var tx = box.firstChild;
@@ -1101,12 +1153,13 @@
     if (part === 'desc') { paras = S.desc.split('\n'); title = S.name; }
     else if (part === 'origin') { paras = S.origin.text.split('\n'); title = '初遇・' + S.origin.title; }
     else { var E = G.EVENTS[part]; paras = E.text.split('\n').concat(E.end ? ['——'].concat(E.end.split('\n')) : []); title = E.name; }
+    o.say = VN_SAY[part === 'desc' ? k + ':desc' : part === 'origin' ? k + ':origin' : 'ev:' + part];
     vnPlay({ title: title, who: k, beats: vnBeats(paras, o), full: function () { storyWhoText(k); } });
   }
   function vnEnding(k) {
     var E = G.ENDINGS[k];
-    var beats = vnBeats(E.text, { who: k, bg: 'abyss', bgSwitch: [['回到落霞山', 'hill'], ['回玄真觀', 'hill'], ['回山莊的路', 'hill'], ['那年冬天', 'hill']] });
-    var ep = G.EPILOGUE ? vnBeats(G.EPILOGUE.text, { bg: 'hill', noKid: 1 }) : [];
+    var beats = vnBeats(E.text, { who: k, bg: 'abyss', say: VN_SAY['end:' + k], bgSwitch: [['回到落霞山', 'hill'], ['回玄真觀', 'hill'], ['回山莊的路', 'hill'], ['那年冬天', 'hill']] });
+    var ep = G.EPILOGUE ? vnBeats(G.EPILOGUE.text, { bg: 'hill', noKid: 1, say: VN_SAY.epi }) : [];
     ep.forEach(function (b) { b.snow = 1; });
     vnPlay({ title: '真結局「' + E.title + '」', who: k, beats: beats.concat(ep.length ? [{ brk: 1, bg: 'hill', who: [] }] : [], ep), full: function () { openOv(endingHtml(k)); } });
   }
