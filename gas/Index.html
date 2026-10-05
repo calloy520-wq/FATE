@@ -984,7 +984,7 @@
     if (tab === 'end') { var any = G.ORDER.some(function (k) { return endingSeen(M, k); });
       body = '<div class="list">' + G.ORDER.map(function (k) { var S = G.SERVANTS[k], E = G.ENDINGS[k], got = endingSeen(M, k);
         return '<button class="box urow" style="text-align:left"' + (got ? ' onclick="vnEnding(\'' + k + '\')"' : ' disabled data-locked="1"') + '><div><b>' + esc(S.name) + '：' + (got ? '「' + esc(E.title) + '」' : '？？？') + '</b><div class="dim" style="font-size:13px">' + (got ? '點開看' : '用她在九幽魔淵封印魘') + '</div></div></button>'; }).join('')
-        + '<div class="box"><b>尾聲・' + (any ? esc(G.EPILOGUE.title) : '？？？') + '</b><div class="dim" style="font-size:13px">' + (any ? '接在每段真結局之後' : '封印魘一次，就看得到') + '</div></div></div>'; }
+        + '<button class="box urow" style="text-align:left"' + (any ? ' onclick="vnEpilogue()"' : ' disabled data-locked="1"') + '><div><b>尾聲・' + (any ? '「' + esc(G.EPILOGUE.title) + '」' : '？？？') + '</b><div class="dim" style="font-size:13px">' + (any ? '隔年中秋，五個人又聚在一起' : '封印魘一次，就看得到') + '</div></div></button></div>'; }
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">🏮 劇情</h1>' + head + body + '<button class="btn" onclick="titleScreen()">返回</button></div>';
   }
   // 每位女修自己的插曲：她的專屬事件（只看故事，不用選）
@@ -1078,9 +1078,10 @@
         parts.forEach(function (x) { var last = out[out.length - 1];
           if (last && (last.t + x.t).length <= 64 && (!x.sp || !last.sp || x.sp === last.sp)) { last.t += x.t; last.sp = last.sp || x.sp; } else out.push({ t: x.t, sp: x.sp }); });
         out.forEach(function (x) {
-          var who = o.who ? [o.who] : [];
-          Object.keys(VN_NAMES).forEach(function (nm) { var k = VN_NAMES[nm]; if (x.t.indexOf(nm) >= 0 && who.indexOf(k) < 0 && !(o.noKid && k === 'xiaoman')) who.push(k); });
+          var who = o.who ? [o.who] : [];   // 主角、說話的人、文中提到的人（照出現的順序）；人太多時說話的人不會被擠掉
           if (x.sp && G.SERVANTS[x.sp] && who.indexOf(x.sp) < 0 && !(o.noKid && x.sp === 'xiaoman')) who.push(x.sp);
+          Object.keys(VN_NAMES).filter(function (nm) { return x.t.indexOf(nm) >= 0; }).sort(function (m, n) { return x.t.indexOf(m) - x.t.indexOf(n); })
+            .forEach(function (nm) { var k = VN_NAMES[nm]; if (who.indexOf(k) < 0 && !(o.noKid && k === 'xiaoman')) who.push(k); });
           beats.push({ t: x.t, bg: bg, who: who.slice(0, o.who ? 3 : 2), say: x.sp });
         });
       });
@@ -1155,6 +1156,10 @@
     else { var E = G.EVENTS[part]; paras = E.text.split('\n').concat(E.end ? ['——'].concat(E.end.split('\n')) : []); title = E.name; }
     o.say = VN_SAY[part === 'desc' ? k + ':desc' : part === 'origin' ? k + ':origin' : 'ev:' + part];
     vnPlay({ title: title, who: k, beats: vnBeats(paras, o), full: function () { storyWhoText(k); } });
+  }
+  function vnEpilogue() {
+    var ep = vnBeats(G.EPILOGUE.text, { bg: 'hill', noKid: 1, say: VN_SAY.epi });
+    vnPlay({ title: '尾聲「' + G.EPILOGUE.title + '」', snow: 1, beats: ep, full: function () { openOv(epilogueHtml()); } });
   }
   function vnEnding(k) {
     var E = G.ENDINGS[k];
@@ -1894,6 +1899,10 @@
     return '<div class="box ending" style="max-width:460px;width:100%"><div class="dim" style="text-align:center">真結局</div><h3 style="text-align:center;font-size:19px;margin:4px 0 8px">「' + esc(E.title) + '」</h3>' + pic
       + E.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(t)) + '</p>'; }).join('')
       + (G.EPILOGUE ? '<div class="msep" style="margin:14px 0 6px"></div><div class="dim" style="text-align:center">尾聲・' + esc(G.EPILOGUE.title) + '</div>' + G.EPILOGUE.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(t)) + '</p>'; }).join('') : '') + '</div>';
+  }
+  function epilogueHtml() {
+    return '<div class="box ending" style="max-width:460px;width:100%"><div class="dim" style="text-align:center">尾聲</div><h3 style="text-align:center;font-size:19px;margin:4px 0 8px">「' + esc(G.EPILOGUE.title) + '」</h3>'
+      + G.EPILOGUE.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(t)) + '</p>'; }).join('') + '</div>';
   }
   // 圖鑑：魔王／精英／妖物（第一次打倒才看得到）、真結局（重看）、解鎖目標
   function codexScreen(tab) {
