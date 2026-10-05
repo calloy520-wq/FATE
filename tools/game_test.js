@@ -339,7 +339,7 @@ t(!/每場戰鬥開始：每/.test(G.ORDER.map(k=>[2,3,4,6].map(l=>G.ascText(k,l
 { const TERMS=['寶具','令咒','從者','聖杯','英靈','靈基','禮裝','冬木','Saber','Servant','魔力','投影','石化','海魔','征服王','騎士王','Boss'];
   const txt=[], add=(w,s)=>{ if(s) txt.push([w,String(s)]); };
   Object.keys(G.CARDS).forEach(k=>{ const C=G.CARDS[k]; add(k,C.name); add(k,C.text); add(k,C.short); [k].concat(G.upDirs(k).map(d=>d==='a'?k+'+':k+'+'+d)).forEach(id=>{ add(id,G.card(id).name); add(id,G.cardText(id,null)); add(id,G.cardShort(id,null)); }); });
-  G.ORDER.forEach(k=>{ const S=G.SERVANTS[k], q=G.newRun(k,1); [S.name,S.cls,S.desc,S.passive.name,S.passive.text,S.np.name,G.npText(S.np)].forEach(s=>add(k,s)); for(let l=1;l<=6;l++) add(k+l,G.ascText(k,l)); G.TALENTS[k].flat().forEach(T=>{ add(k,T.name); add(k,G.talentText(T,q)); }); });
+  G.ORDER.forEach(k=>{ const S=G.SERVANTS[k], q=G.newRun(k,1); [S.name,S.cls,S.desc,S.origin&&S.origin.text,S.passive.name,S.passive.text,S.np.name,G.npText(S.np)].forEach(s=>add(k,s)); for(let l=1;l<=6;l++) add(k+l,G.ascText(k,l)); G.TALENTS[k].flat().forEach(T=>{ add(k,T.name); add(k,G.talentText(T,q)); }); });
   Object.keys(G.ENEMIES).forEach(k=>{ add(k,G.ENEMIES[k].name); G.ENEMIES[k].moves.forEach(m=>add(k,m.n)); });
   Object.keys(G.RELICS).forEach(k=>{ add(k,G.RELICS[k].name); add(k,G.RELICS[k].text); }); Object.keys(G.FATES).forEach(k=>{ add(k,G.FATES[k].name); add(k,G.FATES[k].text); });
   Object.keys(G.EVENTS).forEach(k=>{ const V=G.EVENTS[k]; add(k,V.name); add(k,V.text); V.opts.forEach(o=>add(k,o.label)); });
@@ -549,6 +549,7 @@ t(['plague','yangchong','abyss','yangguan'].every(k=>['a','b','c','d','e','f'].e
 { const q=G.newRun('shuang',8,{endless:true}); q.act=5; q.seenEvents=Object.keys(G.EVENTS); let bad=0; for(let i=0;i<200;i++){ q.screen='map'; G.startEvent(q); if(/"maxHp",\d/.test(JSON.stringify(G.EVENTS[q.event].opts))) bad++; } t(!bad,'事件都遇過了：再遇的不會是加最大生命的（不然鎮妖塔裡一路疊）',bad); }
 { const q=G.newRun('shuang',9,{endless:true}); q.act=5; t(G.makeEnemy(q,'huyao',0,0).str===23,'鎮妖塔魔王：每層力量 +5（第 3 層 8+15）',G.makeEnemy(q,'huyao',0,0).str); }
 t(Object.values(G.EVENTS).filter(E=>E.who).every(E=>E.end&&E.end.length>=20),'劇情模式的插曲都有收尾（專屬事件的 end）');
+t(G.ORDER.every(k=>{ const O=G.SERVANTS[k].origin; return O&&O.title&&O.text.length>=600&&!/心魔|岳母/.test(O.text); }),'劇情模式：五位女修都有自己的初遇（介紹之後、插曲之前）');
 { const q=arena('shuang',1,80); q.hp=1; q.battle.block=3; E(q).intent={n:'砍',fx:[['atk',5]]}; E(q).str=0; const f=G.forecast(q); t(f.lethal&&f.loss===2,'將受到：會倒下的那一輪也顯示真的會挨多少（5 擋 3＝2，不是剩下的生命）',JSON.stringify(f)); }
 { const q=arena('aduo',1,80); E(q).hp=3; E(q).poison=9; E(q).intent={n:'砍',fx:[['atk',30]]}; const f=G.forecast(q); t(f.cleared&&f.loss===0,'敵人被毒先收掉：預告「撐不到出手」',JSON.stringify(f)); }
 { let dup=0; for(let s=1;s<=300;s++){ const q=G.newRun('qingli',s); step(q,'shop'); if(q.shop&&q.shop.pills[0].id===q.shop.pills[1].id) dup++; } t(!dup,'商店的兩顆丹藥不重複',dup); }
