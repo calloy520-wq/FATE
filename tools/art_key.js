@@ -2,7 +2,7 @@
 const fs=require('fs'), path=require('path');
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 const ROOT=path.join(__dirname,'..'), RAW=path.join(ROOT,'art/raw'), OUT=path.join(ROOT,'art');
-// 用法：node tools/art_key.js [id:最大高度 ...]（不給就跑全部角色）；bg_ 開頭的是背景：不去背，數字當最大寬度（建議 bg_hill:1280）；輸出 art/<id>.webp 和預覽 art/raw/_preview.png（不進 repo）
+// 用法：node tools/art_key.js [id:最大高度 ...]（不給就跑全部角色）；bg_ 開頭的是背景、card_ 開頭的是卡圖：不去背，數字當最大寬度（建議 bg_hill:1280、card_project:768）；輸出 art/<id>.webp 和預覽 art/raw/_preview.png（不進 repo）
 const DEF=[['shuang',1100],['qingli',1100],['xiaoman',1000],['chilian',1100],['aduo',1100],['abai',700]];
 const JOBS=process.argv.length>2?process.argv.slice(2).map(a=>{const [id,h]=a.split(':');return [id,+(h||1100)];}):DEF;
 (async()=>{
@@ -46,7 +46,7 @@ const JOBS=process.argv.length>2?process.argv.slice(2).map(a=>{const [id,h]=a.sp
       const o=document.createElement('canvas'); o.width=Math.round(cw*s); o.height=Math.round(ch*s);
       const ox=o.getContext('2d'); ox.imageSmoothingQuality='high'; ox.drawImage(c,minX,minY,cw,ch,0,0,o.width,o.height);
       return {key:[kr,kg,kb], size:[o.width,o.height], url:o.toDataURL('image/webp',0.9)};
-    },{src,maxH,bg:id.indexOf('bg_')===0});
+    },{src,maxH,bg:id.indexOf('bg_')===0||id.indexOf('card_')===0});
     const buf=Buffer.from(res.url.split(',')[1],'base64'); fs.writeFileSync(path.join(OUT,id+'.webp'),buf);
     console.log(id,'key',res.key.join(','),'size',res.size.join('x'),(buf.length/1024).toFixed(0)+'KB');
   }

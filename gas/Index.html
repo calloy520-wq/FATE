@@ -487,6 +487,38 @@
   @media (prefers-reduced-motion:reduce) {
     .sky .sigil-bg, .sky .motes, .hero .crest .sigil, .node.boss::before, .node.can::after, #acts .btn.go::after, #acts .npbtn.full::after, .incoming.lethal::after, .seals.on, .card.f-gold::before, .card.f-rainbow::before, .seals, #acts .npbtn.full, .card:not(:disabled):has(.pv.kill) { animation:none; }
   }
+  /* ── 卡牌外觀 2.0（2026-10-05 玩家要「像有插圖的卡牌遊戲」）：上半插圖窗、名字橫幅壓在圖下緣、下半說明框，外框照稀有度 ── */
+  .card { padding:0 0 6px; text-align:center; overflow:visible; }
+  .card .art { position:relative; height:var(--ah,46px); margin:3px 3px 0; border-radius:7px 7px 2px 2px; overflow:hidden; flex:none; background-color:#141824;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.09), inset 0 -18px 18px -6px rgba(8,10,16,.85); }
+  .card .art::after { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(to top, rgba(10,12,19,.92), rgba(10,12,19,0) 58%); }
+  .card .art::before { content:''; position:absolute; inset:0; pointer-events:none; mix-blend-mode:soft-light; background:var(--tint,transparent); }
+  .card.atk { --tint:radial-gradient(90% 80% at 50% 30%, rgba(255,120,120,.35), transparent 70%); --band:#c94a55; }
+  .card.skill { --tint:radial-gradient(90% 80% at 50% 30%, rgba(120,180,255,.32), transparent 70%); --band:#4f8fd0; }
+  .card.power { --tint:radial-gradient(90% 80% at 50% 30%, rgba(200,150,255,.36), transparent 70%); --band:#9b6fd0; }
+  .card.curse { --band:#7a3d8e; }
+  .art-shuang { background-color:#1b2b3d !important; } .art-qingli { background-color:#3a2d16 !important; } .art-xiaoman { background-color:#2b3036 !important; }
+  .art-chilian { background-color:#3a1418 !important; } .art-aduo { background-color:#231a33 !important; }
+  .card .art .glyph { position:absolute; left:50%; top:46%; transform:translate(-50%,-50%); font-style:normal; font-size:calc(var(--ah,46px) * .62); line-height:1; font-weight:900;
+    color:rgba(255,236,190,.82); text-shadow:0 0 10px rgba(255,210,120,.55), 0 2px 4px #000; z-index:1; font-family:'Noto Serif TC',serif; }
+  .card .art-curse { background:radial-gradient(70% 90% at 50% 60%, #5b2470, #1a0b22 70%, #0d0610) !important; }
+  .card .art-curse .glyph { color:rgba(230,190,255,.75); text-shadow:0 0 12px rgba(190,90,255,.8); }
+  .card .nm { position:relative; z-index:1; margin:-13px 4px 4px; padding:2px 3px 2px; border-radius:3px; font-size:13px; line-height:1.25; text-align:center;
+    background:linear-gradient(180deg, rgba(20,22,32,.92), rgba(12,14,22,.96)); border-top:2px solid var(--band,#596079); box-shadow:0 2px 4px rgba(0,0,0,.6); text-shadow:0 1px 2px #000; }
+  .card .tx { padding:0 5px; text-align:center; text-wrap:balance; word-break:keep-all; overflow-wrap:anywhere; }
+  .card .pv { padding:4px 4px 0; text-align:center; }
+  .card .cost { top:-7px; left:-6px; width:25px; height:25px; font-size:14.5px; }
+  .card .q { top:5px; right:5px; z-index:2; background:rgba(9,11,18,.7); }
+  .card::after { display:none; }
+  .card.f-gold .nm { border-top-color:#e9c46a; } .card.f-rainbow .nm { border-image:linear-gradient(90deg,#ff9ad5,#ffe08a,#8fe3ff) 1; border-top-width:2px; border-top-style:solid; }
+  .pick .card, .card[style*="max-width:120px"] { --ah:96px; min-height:178px; }
+  .pick .card .tx, .card[style*="max-width:120px"] .tx { flex:1; margin:0 5px; padding:5px 4px; border-radius:4px; background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(0,0,0,.18)); box-shadow:inset 0 0 0 1px rgba(255,255,255,.05); font-size:13px; }
+  .card .tx .nw { white-space:nowrap; }
+  .cardview { display:flex; justify-content:center; margin:2px 0 12px; } .cardview .card { pointer-events:none; --ah:110px; min-height:196px; width:132px !important; max-width:132px !important; }
+  .card .tyl { margin:5px 6px 0; font-size:10.5px; letter-spacing:.12em; color:rgba(220,210,190,.62); border-top:1px solid rgba(255,255,255,.07); padding-top:3px; }
+  #hand .card { --ah:54px; }
+  #hand.many .card { --ah:32px; } #hand.m11 .card { --ah:22px; }
+  #hand.many .card .nm { margin-top:-11px; }
 </style>
 </head>
 <body>
@@ -503,7 +535,6 @@
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   // 長段落的保險：最後六個字（含標點）綁在一起不拆行，最後一行就不會只剩一兩個字（短段落交給 CSS 的 text-wrap）
   function keepQuote(h) { return h.replace(/「[^「」<>]{1,10}」/g, function (m) { return '<span style="white-space:nowrap">' + m + '</span>'; }); }   // 「名字」不要從中間斷行
-  function keepParen(h) { return h.replace(/（[^（）<>]{1,8}）/g, function (m) { return '<span style="white-space:nowrap">' + m + '</span>'; }); }   // 卡面：括號裡的條件整段換行，不從中間斷
   function keepTail(h) { var m = /((?:(?:&[a-z#0-9]+;|[^\s<>&])\s?){6})$/.exec(h); return m ? h.slice(0, m.index) + '<span style="white-space:nowrap">' + m[1] + '</span>' : h; }
   // ── 帳號：第一個畫面先登入；每個帳號各自的存檔與戰績都存在伺服器（換裝置也接得上），本機另留一份快取 ──
   var ACC = null, META = null, SAVED_RUN = null, RUN_TS = 0, BASE_TS = 0, AKEY = 'grail_acc_v1', CKEY = 'grail_cache_v1:';   // RUN_TS：這一局的版本；BASE_TS：這一局是從伺服器哪一版接著玩的（伺服器上的比它新，就不蓋，改成重新接上）
@@ -1142,11 +1173,35 @@
     var lv = c.token ? 0 : (G.isBasic(c.id) ? 0 : c.rare ? 2 : 1) + (c.dir ? 1 : 0);   // c.up 是強化規格（物件），強化過沒有看 c.dir
     return ['plain', 'silver', 'gold', 'rainbow'][Math.min(3, lv)];
   }
+  // 卡圖：有自己的圖（CARD_ART，之後玩家補）就用；專屬牌先用那位女修的立繪（攻擊拉近臉、技能半身、能力全身），中立牌用章節背景，詛咒是一團暗紫
+  var CARD_ART = window.CARD_ART || {};
+  var KIT_BG = { shuang: 'bg_hill', qingli: 'bg_city', xiaoman: 'bg_tower', chilian: 'bg_city', aduo: 'bg_abyss' };
+  var TYPE_GLYPH = { atk: '攻', skill: '技', power: '能', curse: '咒' };
+  function cardArt(id) {
+    var c = G.card(id), b0 = G.baseId(id), o = G.ownerOf(id), url = function (k) { return ART[k] && !ART_BAD[ART[k]] ? 'url(' + ART[k] + ')' : ''; }, bgs = [];
+    if (CARD_ART[b0] && !ART_BAD[CARD_ART[b0]]) bgs.push('url(' + CARD_ART[b0] + ') center/cover no-repeat');
+    else if (c.type === 'curse') return '<div class="art art-curse"><i class="glyph">' + (c.kit === 'curse' ? '咒' : '妨') + '</i></div>';
+    else if (ART[o]) {   // 專屬牌：立繪＋那位的章節背景
+      var crop = c.type === 'atk' ? '50% 6%/190% auto' : c.type === 'skill' ? '50% 14%/140% auto' : '50% 22%/105% auto';
+      if (url(o)) bgs.push(url(o) + ' ' + crop + ' no-repeat');
+      if (url(KIT_BG[o])) bgs.push(url(KIT_BG[o]) + ' center/cover no-repeat');
+    } else {   // 中立牌、代幣：章節背景＋牌種的字
+      var bg = ['bg_hill', 'bg_city', 'bg_abyss', 'bg_tower'][Array.from(b0).reduce(function (h, ch) { return (h * 31 + ch.charCodeAt(0)) % 997; }, 7) % 4];
+      if (url(bg)) bgs.push(url(bg) + ' center/cover no-repeat');
+      return '<div class="art art-' + (o || 'common') + '" style="background:' + (bgs.join(',') || 'none') + '"><i class="glyph">' + (c.id === 'sword' ? '劍' : TYPE_GLYPH[c.type] || '') + '</i></div>';
+    }
+    return '<div class="art art-' + (o || 'common') + '"' + (bgs.length ? ' style="background:' + bgs.join(',') + '"' : '') + '></div>';
+  }
+  function typeLabel(c) {
+    var T = { atk: '攻擊', skill: '技能', power: '能力', curse: c.kit === 'curse' ? '詛咒' : '妨礙' }, P = null;
+    if (c.path) G.ORDER.some(function (w) { return G.pathsOf(w).some(function (x) { if (x.id === c.path) P = x; return P; }); });
+    return (P ? P.name + '・' : c.rare ? '秘傳・' : '') + (T[c.type] || '');
+  }
   function cardHtml(id, attrs, big, extra) {
     var c = G.card(id), cost = run && run.battle && !big ? G.costOf(run, id) : c.cost;
     return '<button class="card ' + c.type + ' f-' + cardTier(c) + (c.token ? ' token' : '') + (c.rare ? ' rare' : '') + (c.dir === 'f' ? ' legend' : '') + '" ' + (attrs || '') + (big ? ' style="width:calc((100vw - 60px) / 3);max-width:120px;min-width:96px"' : '') + '><span class="cost' + (cost < c.cost ? ' free' : cost > c.cost ? ' tax' : '') + '">' + (c.unplayable ? '✕' : cost) + '</span>' + (c.rare ? '<span class="rare-tag">秘傳</span>' : '')
-      + '<span class="q" onclick="event.stopPropagation();cardInfo(\'' + id + '\')">?</span>'
-      + '<div class="nm' + (Array.from(c.name).length > 6 ? ' nml' : '') + '">' + esc(c.name) + (c.stack && run && run.battle ? ' <span class="stackn">×' + (run.battle.swords || 0) + '</span>' : '') + '</div><div class="tx">' + keepParen(esc(G.cardShort(id, run))) + '</div>' + (c.stack && run && run.battle ? (attrs && (run.battle.swords || 0) >= 2 ? '<span class="allbtn" onclick="event.stopPropagation();fireAll()">全放</span>' : '') : '') + (extra || '') + '</button>';
+      + '<span class="q" onclick="event.stopPropagation();cardInfo(\'' + id + '\')">?</span>' + cardArt(id)
+      + '<div class="nm' + (Array.from(c.name).length > 6 ? ' nml' : '') + '">' + esc(c.name) + (c.stack && run && run.battle ? ' <span class="stackn">×' + (run.battle.swords || 0) + '</span>' : '') + '</div><div class="tx">' + esc(G.cardShort(id, run)).replace(/([^\s\d<>;&#])(\d+)/g, '<span class="nw">$1$2</span>') + '</div>' + (c.stack && run && run.battle ? (attrs && (run.battle.swords || 0) >= 2 ? '<span class="allbtn" onclick="event.stopPropagation();fireAll()">全放</span>' : '') : '') + (extra || '') + (big ? '<div class="tyl">' + esc(typeLabel(c)) + '</div>' : '') + '</button>';
   }
   // 卡片的「?」：完整說明（在彈出面板裡點的話，看完回到原本的面板）
   function cardInfo(id) {
@@ -1154,7 +1209,7 @@
     cardInfo.prev = prev && prev.replace(/^<button class="ovx"[^>]*>✕<\/button>/, ''); cardInfo.top = $('sheet').scrollTop;
     var types = { atk: '攻擊', skill: '技能', power: '能力', curse: c.kit === 'curse' ? '詛咒' : '妨礙' };
     var up = G.upDirs(id).indexOf('a') >= 0 ? [id + '+'] : [];
-    openOv('<b style="font-size:17px">' + esc(c.name) + '</b>　<span class="dim">' + (c.unplayable ? '' : c.cost + ' 費・') + (types[c.type] || '') + '</span>'
+    openOv('<div class="cardview">' + cardHtml(id, 'tabindex="-1"', true) + '</div>' + '<b style="font-size:17px">' + esc(c.name) + '</b>　<span class="dim">' + (c.unplayable ? '' : c.cost + ' 費・') + (types[c.type] || '') + '</span>'
       + '<div style="margin:10px 0;line-height:1.6">' + esc(G.cardText(id, run)) + '</div>'
       + (up.length ? '<div class="dim" style="font-size:13.5px">可以強化，例如精煉後：' + esc(G.upDiff(id, up[0], run).join('、') || G.cardText(up[0], run)) + '</div>' : '')
       + termsHtml(c.name + G.cardText(id, run) + (c.type === 'power' ? '整場' : '') + (c.ex ? '消耗' : '') + (c.kit === 'curse' ? '詛咒牌' : ''))

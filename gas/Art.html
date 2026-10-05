@@ -12,6 +12,9 @@ var ART = {
 // 之後才補的圖（造型 <角色>_<造型>、真結局 CG end_<角色>、魘的另一種樣子 xinmo_<角色>（可選，現在不用）、敵人）：有圖就把檔名（不含 .webp）加進這裡
 var ART_MORE = ['zhanglao', 'shuyao', 'guijiang', 'niumo', 'huyao', 'duoxian', 'panguan', 'xinmo'];   // 魔王（2026-10-02）
 ART_MORE.forEach(function (k) { ART[k] = ART_BASE + k + '.webp'; });
+// 卡圖（2026-10-05）：每張牌自己的插圖。有圖就把卡片 id 加進 CARD_IDS（檔名 card_<id>.webp），沒列的牌照舊用立繪／章節背景（Index 的 cardArt）
+var CARD_IDS = [];
+var CARD_ART = {}; CARD_IDS.forEach(function (k) { CARD_ART[k] = ART_BASE + 'card_' + k + '.webp'; });
 // 造型：每位三套，用那位角色達成目標就解鎖（判斷在 Index 的 skinOpen）；有圖（ART[角色_造型]）才能穿上
 var SKINS = {
   shuang:  [{ id: 's2', name: '月下撫琴', goal: 'clear' }, { id: 's3', name: '劍主親傳', goal: 'xinmo' }, { id: 's4', name: '守塔人', goal: 'master' }],
