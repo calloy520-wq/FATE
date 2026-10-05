@@ -3,3 +3,4 @@
 __pycache__/
 *.pyc
 art/raw/_preview.png
+.claude/worktrees/
