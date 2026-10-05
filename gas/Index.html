@@ -519,6 +519,29 @@
   #hand .card { --ah:54px; }
   #hand.many .card { --ah:32px; } #hand.m11 .card { --ah:22px; }
   #hand.many .card .nm { margin-top:-11px; }
+  /* 劇情閱讀器（文字冒險）：全螢幕、背景＋立繪＋下方文字框，點一下下一段 */
+  .vn { position:fixed; inset:0; z-index:25; background:#07070d; overflow:hidden; -webkit-user-select:none; user-select:none; }
+  .vnbg { position:absolute; inset:0; transition:opacity .6s; } .vnbg .scene-img, .vnbg .scene-svg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 70%; }
+  .vnbg::after { content:''; position:absolute; inset:0; background:linear-gradient(rgba(8,8,16,.35), transparent 30%, transparent 45%, rgba(8,8,16,.85)); }
+  .vn.snow .vnbg { filter:hue-rotate(185deg) saturate(.45) brightness(.85); }
+  .vnfigs { position:absolute; left:0; right:0; bottom:0; height:min(78%, 640px); display:flex; justify-content:center; align-items:flex-end; pointer-events:none; }
+  .vnfig { height:100%; flex:0 1 46%; max-width:300px; display:flex; align-items:flex-end; justify-content:center; animation:pfade .5s ease; transition:filter .4s; }
+  .vnfigs.many .vnfig { flex-basis:25%; height:74%; }
+  .vnfig.back { filter:brightness(.55); }
+  .vnfig .fimg, .vnfig .fsvg { height:100%; width:auto; max-width:100%; object-fit:contain; filter:drop-shadow(0 4px 10px rgba(0,0,0,.7)); }
+  .vnfig .fimg.kid { height:76%; }
+  .vntop { position:absolute; top:0; left:0; right:0; z-index:3; display:flex; align-items:center; gap:8px; padding:10px 12px; padding-top:max(10px, env(safe-area-inset-top)); }
+  .vntop .vnt { flex:1; color:var(--gold); font-size:15px; text-shadow:0 1px 4px #000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .vntop button { background:rgba(10,10,22,.7); border:1px solid rgba(227,194,122,.4); color:var(--ink); border-radius:8px; padding:5px 10px; font-size:13px; }
+  .vntop button.on { border-color:var(--gold); color:var(--gold); }
+  .vnbox { position:absolute; z-index:2; left:50%; transform:translateX(-50%); bottom:max(14px, env(safe-area-inset-bottom)); width:min(680px, calc(100% - 24px)); min-height:7.6em; box-sizing:border-box;
+    background:rgba(10,10,22,.88); border:1px solid rgba(227,194,122,.45); border-radius:12px; padding:14px 16px 28px; font-size:17px; line-height:1.8; text-wrap:wrap; cursor:pointer; }
+  .vnbox .vnbrk { text-align:center; letter-spacing:.6em; opacity:.6; }
+  .vnbox .vnn { position:absolute; left:14px; bottom:6px; font-size:12px; opacity:.5; }
+  .vnbox .vnnext { position:absolute; right:14px; bottom:4px; color:var(--gold); font-size:13px; animation:vnb 1s ease-in-out infinite; }
+  .vnbox .vnend { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:4px; }
+  @keyframes vnb { 50% { opacity:.25; transform:translateY(2px); } }
+  @media (max-height:500px) { .vnbox { min-height:5.6em; font-size:15.5px; padding:10px 14px 24px; } .vnfigs { height:84%; } }
 </style>
 </head>
 <body>
@@ -933,14 +956,15 @@
     ['abyss', '五個人在往鬼哭城的路上會合了。白辰從山莊帶來五枚<b style="color:var(--red)">師門玉符</b>，是當年丹鼎宗與玄真觀一同煉的，一人一枚。<br>危急的時候捏碎它，能保住一命。若是一路留到最後，它能打開魔淵的門——只開一人寬。<br>門後，有人撐了一百年。<br>去吧。把那道印畫完，把她接回來。']
   ];
   function prologue(i) {
-    var P = PROLOGUE[i], last = i === PROLOGUE.length - 1, sc = { abyss: { act: 3 }, city: { act: 2 }, hill: { act: 1 }, tower: { act: 3, endless: 1 } }[P[0]];
-    var figs = P[2] === 'shuang' ? '<div class="pfigs"><div class="pfig">' + FIG.fig('shuang', false, { swords: 3 }) + '</div></div>'
-      : P[2] === 'others' ? '<div class="pfigs">' + G.ORDER.filter(function (k) { return k !== 'shuang'; }).map(function (k) { return '<div class="pfig">' + FIG.fig(k, false, { swords: 0 }) + '</div>'; }).join('') + '</div>' : '';
-    $('app').innerHTML = '<div class="panel prolog"><div class="pscene">' + FIG.scene(sc) + figs + '</div>'
-      + '<div class="lore ptext">' + P[1].split('<br>').map(function (l, j) { return '<div' + (j ? ' style="margin-top:.55em"' : '') + '>' + keepTail(l) + '</div>'; }).join('') + '</div>'
-      + '<div class="pdots">' + PROLOGUE.map(function (_, j) { return '<span' + (j === i ? ' class="on"' : '') + '></span>'; }).join('') + '</div>'
-      + '<div class="row">' + (last ? '<button class="btn" onclick="storyScreen(\'pro\')">回到劇情</button><button class="btn" style="border-color:var(--gold);color:var(--gold)" onclick="MODE=\'normal\';choose()">⚔ 踏上旅程</button>'
-        : '<button class="btn" onclick="storyScreen(\'pro\')">跳過</button><button class="btn" style="border-color:var(--gold);color:var(--gold)" onclick="prologue(' + (i + 1) + ')">繼續 ›</button>') + '</div></div>';
+    var beats = [];
+    PROLOGUE.slice(i || 0).forEach(function (P) {
+      var who = P[2] === 'shuang' ? 'shuang' : null;
+      var bs = vnBeats([P[1]], { bg: P[0], who: who });
+      if (P[2] === 'others') bs.forEach(function (b) { b.who = ['chilian', 'qingli', 'aduo', 'xiaoman']; });
+      beats = beats.concat(bs);
+    });
+    vnPlay({ title: '前情提要', beats: beats,
+      endBtns: '<button class="btn" onclick="vnClose();storyScreen(\'pro\')">回到劇情</button><button class="btn" style="border-color:var(--gold);color:var(--gold)" onclick="vnClose();MODE=\'normal\';choose()">⚔ 踏上旅程</button>' });
   }
   // 劇情：跟冒險分開，想看就看——前情提要、五位女修（各自的插曲）、宗門、真結局（封印魘之後才看得到）
   function storyScreen(tab) {
@@ -957,7 +981,7 @@
     }).join('') + '</div>';
     if (tab === 'end') { var any = G.ORDER.some(function (k) { return endingSeen(M, k); });
       body = '<div class="list">' + G.ORDER.map(function (k) { var S = G.SERVANTS[k], E = G.ENDINGS[k], got = endingSeen(M, k);
-        return '<button class="box urow" style="text-align:left"' + (got ? ' onclick="openOv(endingHtml(\'' + k + '\'))"' : ' disabled data-locked="1"') + '><div><b>' + esc(S.name) + '：' + (got ? '「' + esc(E.title) + '」' : '？？？') + '</b><div class="dim" style="font-size:13px">' + (got ? '點開看' : '用她在九幽魔淵封印魘') + '</div></div></button>'; }).join('')
+        return '<button class="box urow" style="text-align:left"' + (got ? ' onclick="vnEnding(\'' + k + '\')"' : ' disabled data-locked="1"') + '><div><b>' + esc(S.name) + '：' + (got ? '「' + esc(E.title) + '」' : '？？？') + '</b><div class="dim" style="font-size:13px">' + (got ? '點開看' : '用她在九幽魔淵封印魘') + '</div></div></button>'; }).join('')
         + '<div class="box"><b>尾聲・' + (any ? esc(G.EPILOGUE.title) : '？？？') + '</b><div class="dim" style="font-size:13px">' + (any ? '接在每段真結局之後' : '封印魘一次，就看得到') + '</div></div></div>'; }
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">🏮 劇情</h1>' + head + body + '<button class="btn" onclick="titleScreen()">返回</button></div>';
   }
@@ -969,13 +993,122 @@
   // 單獨一行「——」是場景分隔，畫成置中的淡色小記號
   function storyParas(s) { return String(s || '').split('\n').map(function (p, j) { return p === '——' ? '<div class="dim" style="text-align:center;margin:10px 0 2px;letter-spacing:.6em">・・・</div>' : '<div class="lore" style="text-align:left;text-wrap:wrap;margin-top:' + (j ? 8 : 6) + 'px">' + storyTail(esc(p)) + '</div>'; }).join(''); }
   function storyWho(k) {
+    var S = G.SERVANTS[k], row = function (on, name, sub) { return '<button class="box urow" style="text-align:left" onclick="' + on + '"><div><b>' + name + '</b>' + (sub ? '<div class="dim" style="font-size:13px">' + sub + '</div>' : '') + '</div><span class="tag">▶</span></button>'; };
+    openOv('<b style="color:var(--gold);font-size:17px">' + esc(S.name) + '</b>　<span class="dim">' + esc(S.sect + '・' + S.cls) + '</span>'
+      + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + (k === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>'
+      + '<div class="list" style="margin-top:10px">'
+      + row("vnWho('" + k + "','desc')", '介紹', '')
+      + (S.origin ? row("vnWho('" + k + "','origin')", '初遇・' + esc(S.origin.title), '她怎麼走進這一趟') : '')
+      + storyEvents(k).map(function (e) { return row("vnWho('" + k + "','" + e + "')", '插曲・' + esc(G.EVENTS[e].name), ''); }).join('')
+      + '<div class="row"><button onclick="storyWhoText(\'' + k + '\')">全文</button><button onclick="closeOv()">返回</button></div></div>');
+  }
+  function storyWhoText(k) {
     var S = G.SERVANTS[k];
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(S.name) + '</b>　<span class="dim">' + esc(S.sect + '・' + S.cls) + '</span>'
       + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + (k === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>'
       + '<div class="list" style="margin-top:10px"><div class="box">' + storyParas(S.desc) + '</div>'
       + (S.origin ? '<div class="box"><b style="color:var(--gold)">初遇・' + esc(S.origin.title) + '</b>' + storyParas(S.origin.text) + '</div>' : '')
       + storyEvents(k).map(function (e) { var E = G.EVENTS[e]; return '<div class="box"><b>' + esc(E.name) + '</b>' + storyParas(E.text) + (E.end ? '<div style="margin-top:10px;padding-top:4px;border-top:1px dashed rgba(227,194,122,.2);opacity:.85">' + storyParas(E.end) + '</div>' : '') + '</div>'; }).join('')
-      + '<button onclick="closeOv()">返回</button></div>');
+      + '<button onclick="storyWho(\'' + k + '\')">返回</button></div>');
+  }
+  // ── 劇情閱讀器（文字冒險）：一段一段點著看 ──
+  // 段落太長就在句號處切開（大約一個文字框的量）；單獨一行「——」是換場
+  var VN_NAMES = { '凌霜': 'shuang', '青璃': 'qingli', '白辰': 'xiaoman', '赤灼': 'chilian', '阿朵': 'aduo' };
+  function vnChunks(p) {
+    var sents = [], cur = '', i, c, n;
+    for (i = 0; i < p.length; i++) { c = p[i]; n = p[i + 1] || ''; cur += c;
+      if (('。！？'.indexOf(c) >= 0 && '」』…'.indexOf(n) < 0) || ('」』'.indexOf(c) >= 0 && '。！？…—'.indexOf(p[i - 1]) >= 0 && n !== '」')) { sents.push(cur); cur = ''; } }
+    if (cur) sents.push(cur);
+    var out = [], buf = '';
+    sents.forEach(function (x) { if (buf && (buf + x).length > 64) { out.push(buf); buf = x; } else buf += x; });
+    if (buf) out.push(buf);
+    return out;
+  }
+  // paras：段落陣列；o.who：主角（站中間）；o.bg：'hill'／'city'／'abyss'；o.snow：雪夜色調；o.noKid：不畫白辰（大人模樣的場景）
+  function vnBeats(paras, o) {
+    var beats = [], bg = o.bg || 'hill';
+    paras.forEach(function (p) {
+      p = String(p).replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '');
+      p.split('\n').forEach(function (q) { q = q.trim(); if (!q) return;
+        if (q === '——') { beats.push({ brk: 1, bg: bg, who: o.who ? [o.who] : [] }); return; }
+        if (o.bgSwitch) o.bgSwitch.forEach(function (r) { if (q.indexOf(r[0]) >= 0) bg = r[1]; });
+        vnChunks(q).forEach(function (t) {
+          var who = o.who ? [o.who] : [];
+          Object.keys(VN_NAMES).forEach(function (nm) { var k = VN_NAMES[nm]; if (t.indexOf(nm) >= 0 && who.indexOf(k) < 0 && !(o.noKid && k === 'xiaoman')) who.push(k); });
+          beats.push({ t: t, bg: bg, who: who.slice(0, o.who ? 3 : 2) });
+        });
+      });
+    });
+    return beats;
+  }
+  var VN = null;
+  function vnPlay(o) {
+    vnClose();
+    VN = { o: o, beats: o.beats, i: -1, bg: null, figs: null, timer: null, auto: false, wait: null };
+    var el = document.createElement('div'); el.className = 'vn' + (o.snow ? ' snow' : ''); el.id = 'vn';
+    el.innerHTML = '<div class="vnbg"></div><div class="vnfigs"></div>'
+      + '<div class="vntop"><span class="vnt">' + esc(o.title || '') + '</span><button onclick="vnStep(-1)" aria-label="上一段">‹</button><button id="vnauto" onclick="vnAuto()">自動</button>'
+      + (o.full ? '<button onclick="vnFull()">全文</button>' : '') + '<button onclick="vnClose()" aria-label="關閉">✕</button></div>'
+      + '<div class="vnbox" onclick="vnStep(1)"></div>';
+    document.body.appendChild(el);
+    document.addEventListener('keydown', vnKey);
+    vnStep(1);
+  }
+  function vnKey(e) {
+    if (!VN) return;
+    if (e.key === 'Escape') vnClose();
+    else if (e.key === 'ArrowLeft') vnStep(-1);
+    else if (e.key === ' ' || e.key === 'Enter' || e.key === 'ArrowRight') { e.preventDefault(); vnStep(1); }
+  }
+  function vnClose() {
+    if (!VN) return; clearInterval(VN.timer); clearTimeout(VN.wait);
+    var el = $('vn'); if (el) el.remove(); document.removeEventListener('keydown', vnKey); VN = null;
+  }
+  function vnFull() { var f = VN && VN.o.full; vnClose(); if (f) f(); }
+  function vnAuto() { if (!VN) return; VN.auto = !VN.auto; $('vnauto').className = VN.auto ? 'on' : ''; if (VN.auto && !VN.timer) vnStep(1); }
+  function vnStep(d) {
+    if (!VN) return; clearTimeout(VN.wait);
+    var box = document.querySelector('#vn .vnbox');
+    if (d > 0 && VN.timer) { clearInterval(VN.timer); VN.timer = null; vnShow(true); return; }   // 還在打字：先整段顯示
+    var i = VN.i + d; if (i < 0) return;
+    if (i >= VN.beats.length) {   // 讀完了
+      VN.i = VN.beats.length;
+      box.onclick = null;
+      box.innerHTML = '<div class="vnend">' + (VN.o.endBtns || '<button class="btn" onclick="vnClose()">返回</button>') + '</div>';
+      return;
+    }
+    VN.i = i; box.onclick = function () { vnStep(1); }; vnShow(d < 0);
+  }
+  function vnShow(instant) {
+    var b = VN.beats[VN.i], el = $('vn'), box = el.querySelector('.vnbox');
+    el.className = 'vn' + (b.snow || VN.o.snow ? ' snow' : '');
+    if (b.bg !== VN.bg) { VN.bg = b.bg; var sc = { abyss: { act: 3 }, city: { act: 2 }, hill: { act: 1 }, tower: { act: 3, endless: 1 } }[b.bg] || { act: 1 }; el.querySelector('.vnbg').innerHTML = FIG.scene(sc); }
+    var fk = b.who.join(',');
+    if (fk !== VN.figs) { VN.figs = fk; var fs = el.querySelector('.vnfigs'); fs.className = 'vnfigs' + (b.who.length > 2 ? ' many' : '');
+      fs.innerHTML = b.who.map(function (k, j) { return '<div class="vnfig' + (j && VN.o.who ? ' back' : '') + '">' + FIG.fig(k, false, { swords: k === 'shuang' ? 3 : 0 }) + '</div>'; }).join(''); }
+    var n = '<span class="vnn">' + (VN.i + 1) + '／' + VN.beats.length + '</span>';
+    if (b.brk) { box.innerHTML = '<div class="vnbrk">・・・</div>' + n + '<span class="vnnext">▼</span>'; return vnAfter(); }
+    var t = b.t, full = function () { box.innerHTML = '<div>' + storyTail(esc(t)) + '</div>' + n + '<span class="vnnext">▼</span>'; };
+    var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (instant || reduce) { full(); return vnAfter(); }
+    var k = 0; box.innerHTML = '<div></div>' + n; var tx = box.firstChild;
+    VN.timer = setInterval(function () { k += 1; tx.textContent = t.slice(0, k); if (k >= t.length) { clearInterval(VN.timer); VN.timer = null; full(); vnAfter(); } }, 32);
+  }
+  function vnAfter() { if (VN && VN.auto) VN.wait = setTimeout(function () { vnStep(1); }, 1400 + (VN.beats[VN.i].t || '').length * 45); }
+  // 各段劇情
+  function vnWho(k, part) {
+    var S = G.SERVANTS[k], o = { who: k, bg: 'hill' }, paras, title;
+    if (part === 'desc') { paras = S.desc.split('\n'); title = S.name; }
+    else if (part === 'origin') { paras = S.origin.text.split('\n'); title = '初遇・' + S.origin.title; }
+    else { var E = G.EVENTS[part]; paras = E.text.split('\n').concat(E.end ? ['——'].concat(E.end.split('\n')) : []); title = E.name; }
+    vnPlay({ title: title, who: k, beats: vnBeats(paras, o), full: function () { storyWhoText(k); } });
+  }
+  function vnEnding(k) {
+    var E = G.ENDINGS[k];
+    var beats = vnBeats(E.text, { who: k, bg: 'abyss', bgSwitch: [['回到落霞山', 'hill'], ['回玄真觀', 'hill'], ['回山莊的路', 'hill'], ['那年冬天', 'hill']] });
+    var ep = G.EPILOGUE ? vnBeats(G.EPILOGUE.text, { bg: 'hill', noKid: 1 }) : [];
+    ep.forEach(function (b) { b.snow = 1; });
+    vnPlay({ title: '真結局「' + E.title + '」', who: k, beats: beats.concat(ep.length ? [{ brk: 1, bg: 'hill', who: [] }] : [], ep), full: function () { openOv(endingHtml(k)); } });
   }
   function recordScreen() {
     var M = me(), st = M.stats;
@@ -1772,7 +1905,7 @@
     $('app').innerHTML = '<div class="panel" style="min-height:100vh;justify-content:center"><h1>' + (run.trueEnd ? '魘已封印' : run.win ? '通關' : run.endless ? '♾ 走到這裡' : '敗退') + '</h1>'
       + '<div class="dim" style="text-align:center">' + esc(S.cls) + '・' + esc(S.name) + '<br>' + (run.trueEnd ? '劍主回家了' : run.win && run.act >= 3 ? '兩章的魔王都倒下了<br>在九幽魔淵力竭倒下' : run.win ? '兩章的魔王都倒下了' : '倒在' + esc(run.endless && run.act >= 3 ? '鎮妖塔第 ' + (run.act - 2) + ' 層' : G.actName(run).split('　')[0] + '「' + G.actName(run).split('　')[1] + '」') + '・第 ' + run.floor + ' 列') + '</div>'
       + (run.endless ? '<div class="box" style="text-align:center"><div class="dim">♾ 鎮妖塔成績</div><div style="font-size:30px;color:var(--gold)">' + st.floors + ' 格</div><div class="dim">' + esc(S.name) + '的最遠：' + ((me().stats.endless || {})[run.who] || st.floors) + ' 格</div><button class="infobtn" style="margin-top:8px" onclick="boardScreen()">🏆 看排行榜</button></div>' : '')
-      + (run.trueEnd ? '<div class="box" style="text-align:center;max-width:460px;width:100%">📜 真結局「' + esc(G.ENDINGS[run.who].title) + '」收進了「劇情」<div style="margin-top:8px"><button class="infobtn" onclick="openOv(endingHtml(run.who))">現在看</button></div></div>' : '')
+      + (run.trueEnd ? '<div class="box" style="text-align:center;max-width:460px;width:100%">📜 真結局「' + esc(G.ENDINGS[run.who].title) + '」收進了「劇情」<div style="margin-top:8px"><button class="infobtn" onclick="vnEnding(run.who)">現在看</button></div></div>' : '')
       + '<div style="text-align:center">' + keepTail('擊敗 ' + st.kills + ' 個敵人・神通 ' + st.np + ' 次・<span style="white-space:nowrap">丹藥吃了 ' + (st.pills || 0) + ' 顆</span>' + (st.seals ? '・捏碎了玉符' : '') + '・牌組 ' + run.deck.length + ' 張') + '</div>'
       + (um.length ? '<div class="box" style="max-width:460px;width:100%"><h3>🎁 解鎖了</h3>' + um.map(function (x) { return '<div style="margin-top:4px">' + keepTail(keepQuote(esc(x))) + '</div>'; }).join('') + (umHint(um) ? '<div class="dim" style="margin-top:6px;font-size:13px">' + umHint(um) + '</div>' : '') + '</div>' : '')
       + (run.diffNew ? '<div class="box" style="text-align:center;color:var(--gold)">以' + esc(G.DIFFS[run.diff || 'normal'].name) + '難度通關：' + esc(G.DIFFS[run.diffNew].name) + '難度開放了</div>' : '')
