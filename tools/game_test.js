@@ -116,16 +116,16 @@ r=arena('xiaoman',3); r.battle.kraken=15; r.battle.enemies.forEach((e,i)=>{ e.hp
   q.krakenWins=40; q.screen='map'; step(q,'fight'); win(); t(q.krakenFed===6,'整局成長最多 +6',q.krakenFed); q.screen='map'; step(q,'fight'); t(q.battle.kraken===k0+6,'開場阿白照成長算',q.battle.kraken);
   const o=G.newRun('qingli',3); step(o,'fight'); o.battle.enemies.forEach(e=>e.hp=0); G.checkEnd(o); t(!o.krakenFed,'只有白辰的阿白會成長'); }
 
-console.log('── 赤練（血修）');
+console.log('── 赤灼（酒修）');
 r=arena('chilian'); r.hp=r.maxHp-27; playId(r,'divine'); t(E(r).hp===50-(13+4*2),'搏命一擊：少 27 生命 → 13＋4×2',E(r).hp);
 r=arena('chilian'); r.hp=20; playId(r,'godhand'); G.endTurn(r); t(r.battle.str===1,'積怨：生命低於一半時每回合力量 +1');
-r=arena('chilian'); t(r.lives===1,'赤練 不滅血體：整趟 1 條備用的命'); r.hp=5; E(r).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(r); t(r.hp===Math.round(G.SERVANTS.chilian.hp*0.5)&&r.screen==='battle'&&r.lives===0&&r.battle.str===2&&r.trialStr===2,'倒下以五成血站起來、力量 +2、命用掉',JSON.stringify([r.hp,r.battle.str]));
-const tr=J(r); tr.battle=null; tr.screen='map'; step(tr,'fight'); t(tr.battle.str===2,'不滅血體換來的力量整趟保留（下一場開場就有）',tr.battle.str);
+r=arena('chilian'); t(r.lives===1,'赤灼 千杯不倒：整趟 1 條備用的命'); r.hp=5; E(r).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(r); t(r.hp===Math.round(G.SERVANTS.chilian.hp*0.5)&&r.screen==='battle'&&r.lives===0&&r.battle.str===2&&r.trialStr===2,'倒下以五成血站起來、力量 +2、命用掉',JSON.stringify([r.hp,r.battle.str]));
+const tr=J(r); tr.battle=null; tr.screen='map'; step(tr,'fight'); t(tr.battle.str===2,'千杯不倒換來的力量整趟保留（下一場開場就有）',tr.battle.str);
 const rk=arena(); rk.lives=1; rk.hp=5; E(rk).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(rk); t(rk.hp===Math.round(rk.maxHp*0.2)&&!rk.trialStr,'別人的備用命（九轉還魂丹等）照舊兩成、不加力量');
 r.hp=5; r.lives=0; E(r).intent={n:'砍',fx:[['atk',40]]}; G.endTurn(r); t(r.screen==='over','命用完就真的倒下');
-{ const q=G.newRun('chilian',3); step(q,'fight'); q.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); const h=q.hp; G.endTurn(q); t(q.hp===h-2,'赤練 血煞反噬：每回合開始失去 2 生命',h-q.hp);
-  q.hp=1; q.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; }); G.endTurn(q); t(q.hp===1&&q.screen==='battle','血煞反噬不會讓自己倒下'); }
-{ const q=arena('chilian'); const h=q.hp; G.endTurn(q); t(q.hp===h,'測試用的 flat 不扣血煞反噬',h-q.hp); }
+{ const q=G.newRun('chilian',3); step(q,'fight'); q.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); const h=q.hp; G.endTurn(q); t(q.hp===h-2,'赤灼 酒火焚身：每回合開始失去 2 生命',h-q.hp);
+  q.hp=1; q.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; }); G.endTurn(q); t(q.hp===1&&q.screen==='battle','酒火焚身不會讓自己倒下'); }
+{ const q=arena('chilian'); const h=q.hp; G.endTurn(q); t(q.hp===h,'測試用的 flat 不扣酒火焚身',h-q.hp); }
 r=G.newRun('qingli',3); step(r,'fight'); r.battle.enemies.forEach(e=>{ e.intent={n:'守',fx:[['block',0]]}; e.hp=999; }); hp=r.hp; G.endTurn(r); t(r.hp===hp,'其他人不扣');
 
 console.log('── 阿朵（蠱）');
@@ -182,8 +182,8 @@ step(aw,'elite'); aw.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); aw.battle.n
 t(JSON.stringify(aw.reward.awaken)==='["1.0","1.1"]','第二次精英：第二層');
 G.awaken(aw,0); G.takeReward(aw,-1); t(/全體定身 2，格擋 15/.test(G.npText(G.serv(aw).np,aw)),'護身金光：神通追加格擋 15',G.npText(G.serv(aw).np,aw));
 step(aw,'elite'); aw.battle.enemies.forEach(e=>{e.hp=1;e.block=0;}); aw.battle.np=100; G.noble(aw,0); t(!aw.reward.awaken,'兩層都選完就不再出現');
-let hk=G.newRun('chilian',3); hk.awaken=['0.0']; hk.screen='reward'; hk.reward={cards:['atk'],relic:null,awaken:['1.0','1.1']}; G.awaken(hk,1); t(hk.lives===2,'浴血重生：多一條命');
-{ const h=G.newRun('chilian',3); const txt=G.talentText(G.talent(h,'1.1'),h); t(/五成/.test(txt),'赤練的多一條命：寫五成生命站起來',txt); }
+let hk=G.newRun('chilian',3); hk.awaken=['0.0']; hk.screen='reward'; hk.reward={cards:['atk'],relic:null,awaken:['1.0','1.1']}; G.awaken(hk,1); t(hk.lives===2,'再醉一回：多一條命');
+{ const h=G.newRun('chilian',3); const txt=G.talentText(G.talent(h,'1.1'),h); t(/五成/.test(txt),'赤灼的多一條命：寫五成生命站起來',txt); }
 
 console.log('── 特殊卡牌');
 t(G.ORDER.every(k=>G.pathsOf(k).every(P=>P.cards.filter(c=>G.CARDS[c].rare===k).length===1))&&Object.keys(G.CARDS).some(c=>G.CARDS[c].rare==='common'),'每條主修一張秘傳，另有共通的天書殘頁');
@@ -260,12 +260,12 @@ t(G.ORDER.every(k=>G.PARAMS[k]&&G.PARAMS[k].length===6&&G.PARAMS[k].every(g=>'�
 r=arena('shuang'); r.flat=false; playId(r,'atk_shuang'); t(E(r).hp===50-Math.round(6*1.08)&&G.statsOf(r).atk===1.08,'凌霜 力道玄／靈力天 取高（108%）：6 傷 → 6',E(r).hp);
 r=arena('xiaoman'); r.flat=false; E(r).hp=200; r.battle.energy=9; for(let i=0;i<5;i++) playId(r,'atk_xiaoman'); t(G.statsOf(r).atk===0.92&&E(r).hp===200-5*Math.round(6*0.92),'白辰 力道黃／靈力玄 取高（92%）：5 下',E(r).hp);
 r=arena('shuang'); r.flat=false; playId(r,'atk_shuang'); t(E(r).hp===50-6,'凌霜 力道 D、靈力 B（攻擊取高）：6 傷 → 6',E(r).hp);
-r=arena('chilian'); r.flat=false; r.battle.energy=9; for(let i=0;i<4;i++) playId(r,'def_chilian'); t(G.statsOf(r).def===1.08&&r.battle.block===4*Math.round(5*1.08),'赤練 格擋看力道／身法／靈力取最高（靈力天 108%）',r.battle.block);
+r=arena('chilian'); r.flat=false; r.battle.energy=9; for(let i=0;i<4;i++) playId(r,'def_chilian'); t(G.statsOf(r).def===1.08&&r.battle.block===4*Math.round(5*1.08),'赤灼 格擋看力道／身法／靈力取最高（靈力天 108%）',r.battle.block);
 r=arena('xiaoman'); r.flat=false; playId(r,'def_xiaoman'); t(r.battle.block===5,'白辰 力道 D／身法 D／靈力 C 取最高（92%）：5 → 5',r.battle.block);
 t(G.SERVANTS.chilian.hp===81&&G.SERVANTS.aduo.hp===69&&G.SERVANTS.shuang.hp===63&&G.SERVANTS.xiaoman.hp===63&&G.ORDER.every(k=>G.newRun(k,3).maxHp===G.SERVANTS[k].hp),'生命照體魄：天 81、玄 69、黃 63',G.ORDER.map(k=>G.SERVANTS[k].hp).join());
-r=arena('chilian',1,100); r.flat=false; r.battle.np=100; G.noble(r,0); t(E(r).hp===100-9*Math.round(5*1.08),'神通等級只顯示：赤練血河九斬只乘攻擊（靈力天）',E(r).hp);
+r=arena('chilian',1,100); r.flat=false; r.battle.np=100; G.noble(r,0); t(E(r).hp===100-9*Math.round(5*1.08),'神通等級只顯示：赤灼醉仙九斬只乘攻擊（靈力天）',E(r).hp);
 const qlR=G.newRun('qingli',3); step(qlR,'fight'); const xmR=G.newRun('xiaoman',3); step(xmR,'fight'); t(qlR.battle.hand.length===xmR.battle.hand.length+1,'身法 A 以上（青璃）：開場多抽 1 張',[qlR.battle.hand.length,xmR.battle.hand.length].join());
-t(G.statsOf(G.newRun('qingli',1)).luck>1&&G.statsOf(G.newRun('chilian',1)).luck<1&&G.statsOf(G.newRun('xiaoman',1)).luck===1,'氣運：青璃天品（愛錢）拿得多、赤練黃品拿得少、白辰地品照常');
+t(G.statsOf(G.newRun('qingli',1)).luck>1&&G.statsOf(G.newRun('chilian',1)).luck<1&&G.statsOf(G.newRun('xiaoman',1)).luck===1,'氣運：青璃天品（愛錢）拿得多、赤灼黃品拿得少、白辰地品照常');
 let lt=G.newRun('qingli',6,{fate:'light'}); t(lt.deck.filter(x=>G.isBasic(x,'atk')).length===4&&lt.deck.filter(x=>G.isBasic(x,'def')).length===2,'輕裝上陣：拿掉的是自己的基本牌');
 
 // 角色專屬事件
@@ -403,7 +403,7 @@ r=arena(); r.battle.hand=['enfeeble']; playId(r,'atk_qingli'); t(E(r).hp===50-3,
 r=arena(); r.battle.hand=['bind','atk_qingli','sword']; t(G.costOf(r,'atk_qingli')===2&&G.costOf(r,'sword')===1&&G.costOf(r,'bind')===1,'縛靈在手上：每張牌 +1 費（0 費的變 1），打掉縛靈本身還是 1 費');
 r.battle.energy=3; G.play(r,0,0); t(G.costOf(r,'atk_qingli')===1&&r.battle.energy===2,'打掉縛靈後費用恢復');
 // 擲骰事件：d20＋氣運修正（B＝0、每級 ±1），20 必成功、1 必失敗
-t(G.luckMod({who:'qingli'})===1&&G.luckMod({who:'chilian'})===-2&&G.luckMod({who:'xiaoman'})===0&&G.luckMod({who:'qingli',flat:true})===0,'氣運修正：青璃天＝+1、赤練黃＝-2、白辰地＝0（flat 不套）');
+t(G.luckMod({who:'qingli'})===1&&G.luckMod({who:'chilian'})===-2&&G.luckMod({who:'xiaoman'})===0&&G.luckMod({who:'qingli',flat:true})===0,'氣運修正：青璃天＝+1、赤灼黃＝-2、白辰地＝0（flat 不套）');
 t(G.d20Chance({who:'xiaoman'},10)===55&&G.d20Chance({who:'qingli'},10)===60&&G.d20Chance({who:'chilian'},10)===45&&G.d20Chance({who:'chilian'},30)===5&&G.d20Chance({who:'qingli'},1)===95,'成功率：20 必成功、1 必失敗');
 { let win=0, hpWin=0; for(let s=0;s<300;s++){ const q=G.newRun('xiaoman',s); q.screen='event'; q.event='stairs'; const m=q.maxHp, h=q.hp; const x=G.choose(q,0); if(x.roll.ok){ win++; if(q.maxHp===m+8) hpWin++; } else if(q.hp!==h-10||q.maxHp!==m) hpWin=-999; }
   t(win>130&&win<200&&hpWin===win,'通天石階：成功最大生命 +8、失敗失去 10 生命，成功率約 55%',win); }
@@ -425,7 +425,7 @@ console.log('── 神通量表：靠各自的機制累積（不靠出牌）');
 { const q=arena('qingli'); q.battle.np=0; q.battle.energy=9; playId(q,'nails'); t(q.battle.np===G.NP_GAIN.gaze,'青璃：貼定身累積',q.battle.np); }
 { const q=arena('qingli',1,200); q.battle.np=100; G.noble(q,0); q.battle.energy=99; playId(q,'nails'); playId(q,'nails'); const np1=q.battle.np; G.endTurn(q); playId(q,'nails'); t(np1===0&&q.battle.np===G.NP_GAIN.gaze,'放過神通的那回合機制不累積（擋定身→神通的無限循環），下回合照常',[np1,q.battle.np]); }
 { const q=arena('xiaoman'); q.battle.np=0; q.battle.kraken=5; q.battle.mKraken=5; playId(q,'horror'); t(q.battle.np===Math.floor(3*G.NP_GAIN.madness),'白辰：阿白長大累積（零頭留著下次湊）',q.battle.np); playId(q,'horror'); t(q.battle.np===Math.floor(6*G.NP_GAIN.madness),'白辰：阿白長大 6 → 量表 +3%（不會每次四捨五入多算）',q.battle.np); }
-{ const q=arena('chilian'); q.battle.np=0; E(q).intent={n:'砍',fx:[['atk',10]]}; G.endTurn(q); t(q.battle.np>=Math.min(100,10*G.NP_GAIN.revive),'赤練：失去生命累積',q.battle.np); }
+{ const q=arena('chilian'); q.battle.np=0; E(q).intent={n:'砍',fx:[['atk',10]]}; G.endTurn(q); t(q.battle.np>=Math.min(100,10*G.NP_GAIN.revive),'赤灼：失去生命累積',q.battle.np); }
 { const q=arena('aduo'); q.battle.np=0; q.battle.energy=9; playId(q,'venom'); t(q.battle.np===G.CARDS.venom.fx[0][1]*G.NP_GAIN.ambush,'阿朵：讓敵人中毒累積',q.battle.np); }
 { const q=G.newRun('qingli',3); step(q,'fight'); t(q.battle.np===0,'開戰時的被動（青璃全體定身）不算進量表：從 0 開始',q.battle.np); }
 console.log('── 丹藥的取得');
@@ -453,7 +453,7 @@ t(Object.keys(G.ENEMIES).every(k=>G.LORE[k]&&G.LORE[k].length>=10),'每個敵人
 t(G.ORDER.every(k=>G.ENDINGS[k]&&G.ENDINGS[k].title&&G.ENDINGS[k].text.length>=3),'五位都有真結局');
 
 // 稽核修正（2026-10-02）
-{ const q=arena('chilian'); q.battle.np=0; const hp=q.hp; playId(q,'rampage'); t(q.hp===hp-3&&q.battle.np===3*G.NP_GAIN.revive,'赤練：血刃的自傷也累積神通',[q.hp,q.battle.np]); }
+{ const q=arena('chilian'); q.battle.np=0; const hp=q.hp; playId(q,'rampage'); t(q.hp===hp-3&&q.battle.np===3*G.NP_GAIN.revive,'赤灼：烈刃的自傷也累積神通',[q.hp,q.battle.np]); }
 { const q=arena('chilian'); q.relics=['lamp']; q.hp=Math.floor(q.maxHp/2)+2; playId(q,'pages'); t(q.battle.lampUsed===1,'自傷掉到一半以下，心燈也會亮'); }
 { const q=arena('shuang'); q.battle.np=0; playId(q,'grail'); t(q.battle.np===50,'天書殘頁：神通 +50%',q.battle.np); }
 { const bad=Object.keys(G.CARDS).filter(k=>{ const c=G.CARDS[k]; return c.up&&!['status','curse','token'].includes(c.kit)&&!G.upDiff(k,k+'+').length; }); t(!bad.length,'每張可強化的牌，精煉都真的有變化',bad.join()); }
@@ -491,7 +491,7 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
   t(G.ENEMIES.xinmo.moves.every(m=>m.n&&!/心魔/.test(m.n))&&G.ENEMIES.xinmo.names.shuang.length===G.ENEMIES.xinmo.moves.length,'魘的招式數字不變、名字一一對上');
   t(G.ORDER.every(w=>G.ENDINGS[w]&&G.ENDINGS[w].text.length>=3)&&G.EPILOGUE&&G.EPILOGUE.text.length>=3,'五位真結局＋共同尾聲');
   t(!/心魔/.test(JSON.stringify([G.ENEMIES,G.LORE,G.ENDINGS,G.EPILOGUE,G.SECTS_LORE,G.EVENTS,G.SERVANTS,G.GOALS,G.FATES])),'畫面資料裡不再出現「心魔」'); }
-{ const q=G.newRun('chilian',3); q.hp=40; const n=(q.relics||[]).length; q.screen='event'; q.event='inlaw'; G.choose(q,0); t(q.hp===32&&(q.relics||[]).length===n+1,'背一程：背白辰一路，失去 8 生命、拿到謝禮（法寶）'); t(G.EVENTS.inlaw.who==='chilian','背一程只有赤練會遇到'); }
+{ const q=G.newRun('chilian',3); q.hp=40; const n=(q.relics||[]).length; q.screen='event'; q.event='inlaw'; G.choose(q,0); t(q.hp===32&&(q.relics||[]).length===n+1,'背一程：背白辰一路，失去 8 生命、拿到謝禮（法寶）'); t(G.EVENTS.inlaw.who==='chilian','背一程只有赤灼會遇到'); }
 { const m={}; const add=(n,w)=>{ if(n) (m[n]=m[n]||[]).push(w); };
   for(const k in G.CARDS) if(!k.endsWith('+')) add(G.CARDS[k].name,'卡'); for(const k in G.RELICS) add(G.RELICS[k].name,'法寶'); for(const k in G.PILLS) add(G.PILLS[k].name,'丹藥');
   for(const k of G.ORDER){ add(G.SERVANTS[k].np.name,'神通'); add(G.SERVANTS[k].passive.name,'被動'); } for(const k in G.ENEMIES){ add(G.ENEMIES[k].name,'敵人'); (G.ENEMIES[k].moves||[]).forEach(mv=>add(mv.n,'招式')); }
@@ -525,7 +525,7 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
 { const q=arena('aduo'); q.battle.turn=2; q.battle.freeAtk=1; swords(q,2); G.play(q,0,0); t(q.battle.freeAtk===1,'無影：0 費的飛劍不會吃掉「下一張攻擊不花靈力」'); }
 { const q=arena('qingli',2,30); E(q,1).hp=0; E(q).intent={n:'叫人',fx:[['summon','zhiren',1]]}; G.endTurn(q); t(q.battle.enemies.length===2&&q.battle.enemies[1].hp>0,'叫來的援軍補進倒下的空位（不會越積越多）',q.battle.enemies.length); }
 { const q=arena('shuang',1,5); E(q).thorns=3; q.hp=2; playId(q,'atk_shuang'); t(q.screen!=='over'&&q.hp===2,'打倒最後一個敵人的那一下，不會被它的反震震死',[q.screen,q.hp]); }
-{ const q=arena('chilian',1,5); q.hp=2; playId(q,'rampage'); t(q.screen!=='over'&&q.hp===2,'血刃打倒最後一個敵人：自傷就不用付了',[q.screen,q.hp]); }
+{ const q=arena('chilian',1,5); q.hp=2; playId(q,'rampage'); t(q.screen!=='over'&&q.hp===2,'烈刃打倒最後一個敵人：自傷就不用付了',[q.screen,q.hp]); }
 { const q=G.newRun('shuang',8,{major:'wanjian'}); q.screen='major'; G.chooseMajor(q,'guiyi'); step(q,'fight'); const b=q.battle; b.swords=3; b.jy=0; b.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.jy>=9,'兼修歸一：沒用完的飛劍照說明化成劍意',q.battle.jy); }
 { const q=G.newRun('xiaoman',8,{major:'longyou'}); step(q,'fight'); const b=q.battle; b.kraken=9; const hp=b.enemies.map(e=>e.hp); b.enemies.forEach(e=>e.intent={n:'發呆',fx:[]}); G.endTurn(q); t(q.battle.enemies.every((e,i)=>e.hp===hp[i])&&q.battle.tstr>0,'主修龍佑：阿白照說明不咬人、改加持白辰',q.battle.tstr); }
 // 系統稽核（2026-10-03）
