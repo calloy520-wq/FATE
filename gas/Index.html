@@ -520,6 +520,7 @@
   #hand.many .card { --ah:32px; } #hand.m11 .card { --ah:22px; }
   #hand.many .card .nm { margin-top:-11px; }
   /* 劇情閱讀器（文字冒險）：全螢幕、背景＋立繪＋下方文字框，點一下下一段 */
+  .poem { text-align:center; margin:8px 0 2px; color:var(--dim); font-size:14px; line-height:1.7; letter-spacing:.06em; } .poem b { color:var(--gold); font-size:15px; letter-spacing:.3em; } .vnbox .poem { margin:0; font-size:16px; color:var(--ink); }
   .vn { position:fixed; inset:0; z-index:25; background:#07070d; overflow:hidden; -webkit-user-select:none; user-select:none; }
   .vnbg { position:absolute; inset:0; transition:opacity .6s; } .vnbg .scene-img, .vnbg .scene-svg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:50% 70%; }
   .vnbg::after { content:''; position:absolute; inset:0; background:linear-gradient(rgba(8,8,16,.35), transparent 30%, transparent 45%, rgba(8,8,16,.85)); }
@@ -977,7 +978,7 @@
     if (tab === 'pro') body = '<div class="list"><button class="box urow" style="text-align:left" onclick="prologue(0)"><div><b style="color:var(--gold)">前情提要</b><div class="dim" style="font-size:13px">百年前的封印，鬆了（六頁）</div></div><span class="tag">›</span></button>'
       + '<div class="lore box" style="text-align:left">' + keepTail('魔淵裡封著魘。百年來，劍主拿自己的身體當籠子關著它，世人都以為她死了。今年中秋，紅月升起，封印鬆了。') + '</div></div>';
     if (tab === 'who') body = '<div class="list">' + G.ORDER.map(function (k) { var S = G.SERVANTS[k];
-      return '<button class="box urow" style="text-align:left" onclick="storyWho(\'' + k + '\')"><div class="sfig">' + FIG.fig(k, false, { swords: 0 }) + '</div><div><b>' + esc(S.name) + '</b><div class="dim" style="font-size:13px">' + esc(S.sect + '・' + S.cls) + '・' + storyEvents(k).length + ' 段插曲</div></div><span class="tag">›</span></button>'; }).join('') + '</div>';
+      return '<button class="box urow" style="text-align:left" onclick="storyWho(\'' + k + '\')"><div class="sfig">' + FIG.fig(k, false, { swords: 0 }) + '</div><div><b>' + esc(S.name) + '</b><div class="dim" style="font-size:13px">' + esc(S.sect + '・' + S.cls + (S.hao ? '・' + S.hao : '')) + '・' + storyEvents(k).length + ' 段插曲</div></div><span class="tag">›</span></button>'; }).join('') + '</div>';
     if (tab === 'sect') body = '<div class="list">' + G.SECTS_LORE.map(function (X) {
       return '<div class="box"><b style="color:var(--gold)">' + esc(X.name) + '</b><div class="dim" style="font-size:13px">' + esc(X.kind + (X.five ? '・五大宗門' : '') + '｜' + X.place) + '</div><div class="lore" style="text-align:left;margin-top:6px">' + keepTail(esc(X.text)) + '</div></div>';
     }).join('') + '</div>';
@@ -994,10 +995,11 @@
   function storyTail(h) { var P = '。，、！？」』…—）：；「『（', n = 0, i = h.length; while (i > 0 && n < 3) { i--; if (P.indexOf(h[i]) < 0) n++; } while (i > 0 && '「『（—'.indexOf(h[i - 1]) >= 0) i--; return h.slice(0, i) + '<span style="white-space:nowrap">' + h.slice(i) + '</span>'; }
   // 單獨一行「——」是場景分隔，畫成置中的淡色小記號
   function storyParas(s) { return String(s || '').split('\n').map(function (p, j) { return p === '——' ? '<div class="dim" style="text-align:center;margin:10px 0 2px;letter-spacing:.6em">・・・</div>' : '<div class="lore" style="text-align:left;text-wrap:wrap;margin-top:' + (j ? 8 : 6) + 'px">' + storyTail(esc(p)) + '</div>'; }).join(''); }
+  function poemHtml(S) { return S.poem ? '<div class="poem"><b>' + esc(S.hao) + '</b><div>' + S.poem.split('；').map(function (x, i, a) { return esc(x + (i < a.length - 1 ? '；' : '')); }).join('<br>') + '</div></div>' : ''; }
   function storyWho(k) {
     var S = G.SERVANTS[k], row = function (on, name, sub) { return '<button class="box urow" style="text-align:left" onclick="' + on + '"><div><b>' + name + '</b>' + (sub ? '<div class="dim" style="font-size:13px">' + sub + '</div>' : '') + '</div><span class="tag">▶</span></button>'; };
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(S.name) + '</b>　<span class="dim">' + esc(S.sect + '・' + S.cls) + '</span>'
-      + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + (k === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>'
+      + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + (k === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>' + poemHtml(S)
       + '<div class="list" style="margin-top:10px">'
       + row("vnWho('" + k + "','desc')", '介紹', '')
       + (S.origin ? row("vnWho('" + k + "','origin')", '初遇・' + esc(S.origin.title), '她怎麼走進這一趟') : '')
@@ -1007,7 +1009,7 @@
   function storyWhoText(k) {
     var S = G.SERVANTS[k];
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(S.name) + '</b>　<span class="dim">' + esc(S.sect + '・' + S.cls) + '</span>'
-      + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + (k === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>'
+      + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + (k === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>' + poemHtml(S)
       + '<div class="list" style="margin-top:10px"><div class="box">' + storyParas(S.desc) + '</div>'
       + (S.origin ? '<div class="box"><b style="color:var(--gold)">初遇・' + esc(S.origin.title) + '</b>' + storyParas(S.origin.text) + '</div>' : '')
       + storyEvents(k).map(function (e) { var E = G.EVENTS[e]; return '<div class="box"><b>' + esc(E.name) + '</b>' + storyParas(E.text) + (E.end ? '<div style="margin-top:10px;padding-top:4px;border-top:1px dashed rgba(227,194,122,.2);opacity:.85">' + storyParas(E.end) + '</div>' : '') + '</div>'; }).join('')
@@ -1141,6 +1143,7 @@
     VN.place = function () { nameEl.style.bottom = (window.innerHeight - box.getBoundingClientRect().top) + 'px'; }; VN.place();
     var n = '<span class="vnn">' + (VN.i + 1) + '／' + VN.beats.length + '</span>';
     if (b.brk) { box.innerHTML = '<div class="vnbrk">・・・</div>' + n + '<span class="vnnext">▼</span>'; return vnAfter(); }
+    if (b.poem) { box.innerHTML = poemHtml(G.SERVANTS[b.who[0]]) + n + '<span class="vnnext">▼</span>'; return vnAfter(); }
     var t = b.t, full = function () { box.innerHTML = '<div>' + storyTail(esc(t)) + '</div>' + n + '<span class="vnnext">▼</span>'; VN.place(); };
     var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (instant || reduce) { full(); return vnAfter(); }
@@ -1155,7 +1158,9 @@
     else if (part === 'origin') { paras = S.origin.text.split('\n'); title = '初遇・' + S.origin.title; }
     else { var E = G.EVENTS[part]; paras = E.text.split('\n').concat(E.end ? ['——'].concat(E.end.split('\n')) : []); title = E.name; }
     o.say = VN_SAY[part === 'desc' ? k + ':desc' : part === 'origin' ? k + ':origin' : 'ev:' + part];
-    vnPlay({ title: title, who: k, beats: vnBeats(paras, o), full: function () { storyWhoText(k); } });
+    var beats = vnBeats(paras, o);
+    if (part === 'desc' && S.poem) beats.unshift({ poem: 1, t: S.hao + S.poem, bg: 'hill', who: [k] });   // 介紹開頭：稱號＋詩句
+    vnPlay({ title: title, who: k, beats: beats, full: function () { storyWhoText(k); } });
   }
   function vnEpilogue() {
     var ep = vnBeats(G.EPILOGUE.text, { bg: 'hill', noKid: 1, say: VN_SAY.epi });
@@ -1229,7 +1234,7 @@
   function svtInfo(k) {
     var S = G.SERVANTS[k];
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(S.cls + '・' + S.name) + '</b>　<span class="dim">生命 ' + S.hp + '</span>'
-      + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + (k === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>'
+      + '<div class="svtfig sc-hill">' + FIG.fig(k, false, { swords: 3 }) + (k === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>' + poemHtml(S)
       + '<div class="list" style="margin-top:10px">' + paramsHtml(k)
       + '<div class="box"><h3>被動「' + esc(S.passive.name) + '」</h3>' + keepTail(esc(S.passive.text)) + '</div>'
       + '<div class="box"><h3>神通「' + esc(S.np.name) + '」</h3>' + esc(G.npText(S.np)) + '<div class="dim" style="margin-top:6px;font-size:13.5px">量表怎麼漲：' + esc(G.npHow(k)) + '</div></div>'
