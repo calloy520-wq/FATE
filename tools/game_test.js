@@ -490,6 +490,7 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
   t(G.ENEMIES.xinmo.name==='魘'&&new Set(xs.map(x=>x.join())).size===5&&xs.every((x,i)=>x.join()===G.ENEMIES.xinmo.names[G.ORDER[i]].join()),'隱藏魔王是魘：招式名跟著眼前的角色換',JSON.stringify(xs[0]));
   t(G.ENEMIES.xinmo.moves.every(m=>m.n&&!/心魔/.test(m.n))&&G.ENEMIES.xinmo.names.shuang.length===G.ENEMIES.xinmo.moves.length,'魘的招式數字不變、名字一一對上');
   t(G.ORDER.every(w=>G.ENDINGS[w]&&G.ENDINGS[w].text.length>=3)&&G.EPILOGUE&&G.EPILOGUE.text.length>=3,'五位真結局＋共同尾聲');
+  t(G.ORDER.every(w=>G.ENDINGS[w].text.every(p=>!/[^」]〔[^〕]*〕/.test(p))),'真結局的說話人標記〔…〕都緊跟在台詞「」後面（不然會露在畫面上）');
   t(!/心魔/.test(JSON.stringify([G.ENEMIES,G.LORE,G.ENDINGS,G.EPILOGUE,G.SECTS_LORE,G.EVENTS,G.SERVANTS,G.GOALS,G.FATES])),'畫面資料裡不再出現「心魔」'); }
 { const q=G.newRun('chilian',3); q.hp=40; const n=(q.relics||[]).length; q.screen='event'; q.event='inlaw'; G.choose(q,0); t(q.hp===32&&(q.relics||[]).length===n+1,'背一程：背白辰一路，失去 8 生命、拿到謝禮（法寶）'); t(G.EVENTS.inlaw.who==='chilian','背一程只有赤灼會遇到'); }
 { const m={}; const add=(n,w)=>{ if(n) (m[n]=m[n]||[]).push(w); };

@@ -825,7 +825,7 @@
     ['難度', '普通／困難／深淵：困難要任一角色通關普通、深淵要通關困難；越難敵人越強'],
     ['機緣', '出發前選擇的加持，一次帶兩種（鎮妖塔一種）；有些要達成目標才會出現'],
     ['地圖', '由上往下走，只能沿線前進；看得到接下來 3 列與魔王。精英比較難，但打贏有法寶，還可能頓悟；事件是有取捨的選擇'],
-    ['兩章與隱藏關', '第一章落霞山、第二章鬼哭城各有一位魔王；第二章打完時師門玉符還在，就能捏碎它進入九幽魔淵（門只開一人寬，其他人在門外守著），把魘徹底封上'],
+    ['兩章與隱藏關', '第一章落霞山、第二章鬼哭城各有一位魔王；第二章打完時師門玉符還在，就能捏碎它進入九幽魔淵，把魘徹底封上'],
     ['強化方向', '休息點鍛鍊或事件強化時，從三個方向選一個：精煉（數值變強）、迅捷（費用 -1，只有 2 費以上的牌）、共鳴（神通 +15%、多抽 1）、道心（多一個自己流派的機制，只有專屬牌）、極限（數值翻倍但打出後消耗）；偶爾出現★傳說（攻擊次數翻倍，代價是牌組多一張內傷）'],
     ['根骨', '力道／體魄／身法／靈力／氣運／神通，分天、地、玄、黃四品（地品＝100%，每差一品 ±8%；氣運每品 ±10%）。攻擊（力道、靈力取高）乘上所有卡牌傷害；體魄決定生命（地品＝75）；力道、身法、靈力取最高乘上所有卡牌格擋；身法天品每場開場多抽 1 張；氣運乘上打贏拿到的金錢、也影響擲骰；神通代表修為深淺'],
     ['虛弱', '造成的攻擊傷害 ×0.75'], ['易傷', '受到的攻擊傷害 ×1.5'], ['消耗', '打出後這場戰鬥不再出現'],
@@ -956,7 +956,7 @@
     ['city', '世人都以為劍主死了。她的關門弟子蘇凌霜接下掌門，住在落霞山頂的塔上，白天練劍，夜裡撫琴。<br>只有白辰知道不是。淵裡那半身龍元一直亮著，護著那個人。<br>她把淵前的事告訴了玄真觀祖師最後收的弟子顧青璃，等她把那道印練成，一等就是一百年。<br>今年中秋，紅月升起，白辰忽然感覺不到那半身龍元了。封印跟著鬆動，逃出來的妖魔，佔了魔淵口上的<b>鬼哭城</b>。'],
     ['hill', '這一次，沒有人敢再帶一大群人去。百年前的教訓還在。<br>那一夜，落霞山頂的塔上飛進來一道傳信符，只有幾行字：「妳師父還活著。往魔淵去，路上會合。」<br>凌霜提起劍，走下了<b>落霞山</b>。', 'shuang'],
     ['hill', '劍宗的客房裡住著一個合歡宗的酒修，叫赤灼。夏末她跟凌霜並肩斬過一群妖，又在塔下聽了一個月的琴。凌霜一下山，她就拎起刀跟了上去。<br>傳信符是青璃畫的。今年春天，她終於把鎮魂印畫完整了；跟在她身邊的苗女阿朵，是夏天在江南遇上的。<br>白辰帶著她們兩個往北走，要在路上跟凌霜會合。', 'others'],
-    ['abyss', '五個人在往鬼哭城的路上會合了。白辰從山莊帶來五枚<b style="color:var(--red)">師門玉符</b>，是當年丹鼎宗與玄真觀一同煉的，一人一枚。<br>危急的時候捏碎它，能保住一命。若是一路留到最後，它能打開魔淵的門——只開一人寬。<br>門後，有人撐了一百年。<br>去吧。把那道印畫完，把她接回來。']
+    ['abyss', '五個人在往鬼哭城的路上會合了。白辰從山莊帶來五枚<b style="color:var(--red)">師門玉符</b>，是當年丹鼎宗與玄真觀一同煉的，一人一枚。<br>危急的時候捏碎它，能保住一命。若是五枚都留到最後，一起捏碎，就能打開魔淵的門。<br>門後，有人撐了一百年。<br>去吧。把那道印畫完，把她接回來。']
   ];
   function prologue(i) {
     var beats = [], q = { i: 0 };
@@ -1044,11 +1044,6 @@
     'ev:oldarmor': ['-', '-'],
     'ev:oldfriend': ['師姊', '師姊'],
     'ev:needleshop': ['老闆'],
-    'end:shuang': ['魘', 'shuang', 'shuang', 'shuang', 'shuang', 'shuang', '魘', 'shuang', 'shuang', '沈望舒', 'shuang', 'xiaoman', 'shuang', 'chilian', 'chilian', 'shuang'],
-    'end:qingli': ['qingli', '祖師的聲音', '祖師的聲音', 'qingli', 'qingli', 'qingli', 'qingli', 'aduo'],
-    'end:xiaoman': ['xiaoman', '魘', '魘', 'xiaoman', 'xiaoman', '沈望舒', 'xiaoman', 'xiaoman', 'xiaoman', 'xiaoman', 'xiaoman', '沈望舒', 'xiaoman'],
-    'end:chilian': ['chilian', '魘', '魘', 'chilian', 'chilian', '沈望舒', 'chilian', 'shuang', 'shuang', 'chilian', 'chilian', 'chilian', 'shuang'],
-    'end:aduo': ['aduo', '魘', '魘', 'aduo', 'aduo'],
     'epi': ['？？？', '？？？', '沈望舒', '沈望舒', '白辰', '白辰', '沈望舒', 'chilian', 'shuang', 'qingli', '白辰', 'chilian', '白辰', '沈望舒', '白辰', '白辰', '-',
       'qingli', 'aduo', 'aduo', 'aduo', 'qingli', 'aduo', 'aduo', 'qingli', 'qingli', 'aduo',
       '沈望舒', '沈望舒', '白辰', '白辰', '沈望舒', '沈望舒', '白辰', '白辰', '白辰', '沈望舒', '白辰', '沈望舒', '白辰', '白辰', '沈望舒', 'aduo', 'shuang', 'chilian']
@@ -1195,7 +1190,8 @@
   }
   function vnEnding(k) {
     var E = G.ENDINGS[k];
-    var beats = vnBeats(E.text, { who: k, bg: 'abyss', say: VN_SAY['end:' + k], bgSwitch: [['回到落霞山', 'hill'], ['回玄真觀', 'hill'], ['回山莊的路', 'hill'], ['那年冬天', 'hill']] });
+    var T = vnTags(E.text);
+    var beats = vnBeats(T.paras, { who: k, bg: 'abyss', say: T.say, bgSwitch: [['回到落霞山', 'hill'], ['回玄真觀', 'hill'], ['回山莊的路', 'hill'], ['那年冬天', 'hill']] });
     var ep = G.EPILOGUE ? vnBeats(G.EPILOGUE.text, { bg: 'hill', noKid: 1, say: VN_SAY.epi }) : [];
     ep.forEach(function (b) { b.snow = 1; });
     vnPlay({ title: '真結局「' + E.title + '」', who: k, beats: beats.concat(ep.length ? [{ brk: 1, bg: 'hill', who: [] }] : [], ep), full: function () { openOv(endingHtml(k)); } });
@@ -1920,7 +1916,7 @@
   function pickAsk(i) { var kind = run.pending[0], nm = esc(G.card(run.deck[i]).name); if (kind === 'remove' || kind === 'transform') return confirmOv((kind === 'remove' ? '移除' : '變形') + '「' + nm + '」？', function () { doPick(i); }); doPick(i); }
   function secretScreen() {
     $('app').innerHTML = topBar() + '<div class="panel" style="min-height:70vh;justify-content:center"><h1>九幽魔淵</h1>'
-      + '<div style="max-width:420px;text-align:center" class="lore">玉符在掌心發燙。捏碎它，魔淵的門只開一人寬——進去，就不能回頭。</div>'
+      + '<div style="max-width:420px;text-align:center" class="lore">玉符在掌心發燙。五個人一起捏碎它，魔淵的門就會打開——進去，就不能回頭。</div>'
       + '<button class="btn red" onclick="G.secret(run,true);render()">捏碎玉符，走進魔淵</button>'
       + '<button class="btn" onclick="G.secret(run,false);render()">到此為止（這一趟以通關收場）</button></div>';
   }
@@ -1929,7 +1925,7 @@
     var E = G.ENDINGS[who]; if (!E) return '';
     var pic = ART['end_' + who] && !ART_BAD[ART['end_' + who]] ? '<img src="' + ART['end_' + who] + '" alt="" style="width:100%;border-radius:10px;display:block" onerror="ART_BAD[this.getAttribute(\'src\')]=1;this.remove()">' : '<div class="svtfig sc-abyss" style="height:200px">' + FIG.fig(who, false, { swords: 5 }) + (who === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>';
     return '<div class="box ending" style="max-width:460px;width:100%"><div class="dim" style="text-align:center">真結局</div><h3 style="text-align:center;font-size:19px;margin:4px 0 8px">「' + esc(E.title) + '」</h3>' + pic
-      + E.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(t)) + '</p>'; }).join('')
+      + E.text.map(function (t) { return t.replace(/〔[^〕]*〕/g, ''); }).map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(t)) + '</p>'; }).join('')
       + (G.EPILOGUE ? '<div class="msep" style="margin:14px 0 6px"></div><div class="dim" style="text-align:center">尾聲・' + esc(G.EPILOGUE.title) + '</div>' + G.EPILOGUE.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(t)) + '</p>'; }).join('') : '') + '</div>';
   }
   function epilogueHtml() {
