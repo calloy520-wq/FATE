@@ -1181,7 +1181,7 @@
   function vnChapter(i) {
     var C = NOVEL[i], T = vnTags(C.text);
     vnPlay({ title: C.title, beats: vnBeats(T.paras, { bg: C.bg || 'hill', say: T.say, keep: 1 }),
-      endBtns: (NOVEL[i + 1] ? '<button class="btn" onclick="vnChapter(' + (i + 1) + ')">下一章：' + esc(NOVEL[i + 1].title) + '</button>' : '') + '<button class="btn" onclick="vnClose();storyScreen(\'pro\')">回到劇情</button>',
+      endBtns: (NOVEL[i + 1] ? '<button class="btn" onclick="vnChapter(' + (i + 1) + ')">下一章：' + esc(NOVEL[i + 1].title) + '</button>' : '<button class="btn" onclick="vnClose();storyScreen(\'end\')">門後：真結局</button>') + '<button class="btn" onclick="vnClose();storyScreen(\'pro\')">回到劇情</button>',
       full: function () { openOv('<b style="color:var(--gold);font-size:17px">' + esc(C.title) + '</b><div class="list" style="margin-top:10px"><div class="box">' + storyParas(T.paras.filter(function (p) { return !/^〔景：/.test(p); }).join('\n')) + '</div><button onclick="closeOv()">返回</button></div>'); } });
   }
   function vnEpilogue() {
