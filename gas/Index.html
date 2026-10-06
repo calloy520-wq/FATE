@@ -553,6 +553,7 @@
 <div class="toast" id="toast"></div>
 <?!= include('Game'); ?>
 <?!= include('Art'); ?>
+<?!= include('Story'); ?>
 <script>
   // ═══ 畫面：只負責顯示與把按鈕轉成 G 的動作；所有規則在 Game.html ═══
   var KEY = 'grail_run_v1', run = null, sel = { card: -1, foe: -1, np: false };
@@ -972,10 +973,11 @@
   // 劇情：跟冒險分開，想看就看——前情提要、五位女修（各自的插曲）、宗門、真結局（封印魘之後才看得到）
   function storyScreen(tab) {
     tab = tab || storyScreen.tab || 'pro'; storyScreen.tab = tab;
-    var M = META, tabs = [['pro', '序章'], ['who', '五位女修'], ['sect', '宗門'], ['end', '真結局']];
+    var M = META, tabs = [['pro', '主線'], ['who', '五位女修'], ['sect', '宗門'], ['end', '真結局']];
     var head = '<div class="tabs" style="max-width:520px;width:100%">' + tabs.map(function (t) { return '<button class="' + (tab === t[0] ? 'on' : '') + '" onclick="storyScreen(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>';
     var body = '';
     if (tab === 'pro') body = '<div class="list"><button class="box urow" style="text-align:left" onclick="prologue(0)"><div><b style="color:var(--gold)">前情提要</b><div class="dim" style="font-size:13px">百年前的封印，鬆了（六頁）</div></div><span class="tag">›</span></button>'
+      + NOVEL.map(function (C, i) { return '<button class="box urow" style="text-align:left" onclick="vnChapter(' + i + ')"><div><b>' + esc(C.title) + '</b>' + (C.sub ? '<div class="dim" style="font-size:13px">' + esc(C.sub) + '</div>' : '') + '</div><span class="tag">▶</span></button>'; }).join('')
       + '<div class="lore box" style="text-align:left">' + keepTail('魔淵裡封著魘。百年來，劍主拿自己的身體當籠子關著它，世人都以為她死了。今年中秋，紅月升起，封印鬆了。') + '</div></div>';
     if (tab === 'who') body = '<div class="list">' + G.ORDER.map(function (k) { var S = G.SERVANTS[k];
       return '<button class="box urow" style="text-align:left" onclick="storyWho(\'' + k + '\')"><div class="sfig">' + FIG.fig(k, false, { swords: 0 }) + '</div><div><b>' + esc(S.name) + '</b><div class="dim" style="font-size:13px">' + esc(S.sect + '・' + S.cls + (S.hao ? '・' + S.hao : '')) + '・' + storyEvents(k).length + ' 段插曲</div></div><span class="tag">›</span></button>'; }).join('') + '</div>';
@@ -1059,6 +1061,23 @@
     if (cur) sents.push(cur);
     return sents;
   }
+  // 台詞後面的〔誰〕：拆掉標記、排出這幾段的說話人名單（給 vnBeats 的 say 用）
+  var VN_TAG = { '霜': 'shuang', '凌霜': 'shuang', '璃': 'qingli', '青璃': 'qingli', '辰': 'xiaoman', '白辰': 'xiaoman', '灼': 'chilian', '赤灼': 'chilian', '朵': 'aduo', '阿朵': 'aduo' };
+  function vnTags(paras) {
+    var say = [], out = paras.map(function (p) {
+      var res = '', depth = 0, mine = [], i, c;
+      for (i = 0; i < p.length; i++) { c = p[i];
+        if (c === '「') { if (depth === 0) mine.push(null); depth++; }
+        if (c === '」') { depth = Math.max(0, depth - 1); res += c;
+          if (depth === 0 && p[i + 1] === '〔') { var j = p.indexOf('〕', i); if (j > 0) { var nm = p.slice(i + 2, j); mine[mine.length - 1] = VN_TAG[nm] || nm; i = j; } }
+          continue; }
+        res += c; }
+      // 沒標的：跟著同一段裡後面最近的標記，沒有就跟前面的
+      for (i = 0; i < mine.length; i++) if (mine[i] === null) { var k; for (k = i + 1; k < mine.length && mine[k] === null; k++); var f = mine[k] || null; if (!f) for (k = i - 1; k >= 0 && !f; k--) f = mine[k]; mine[i] = f || '-'; }
+      say = say.concat(mine); return res;
+    });
+    return { paras: out, say: say };
+  }
   function vnChunks(p) { return vnBeats([p], {}).map(function (b) { return b.t; }); }
   // paras：段落陣列；o.who：主角；o.bg：'hill'／'city'／'abyss'；o.noKid：不畫白辰（大人模樣的場景）；o.say：VN_SAY 的那一段；o.q：共用的「」計數（序章分頁用）
   function vnBeats(paras, o) {
@@ -1067,6 +1086,7 @@
       p = String(p).replace(/<br\s*\/?>/g, '\n').replace(/<[^>]+>/g, '');
       p.split('\n').forEach(function (line) { line = line.trim(); if (!line) return;
         if (line === '——') { beats.push({ brk: 1, bg: bg, who: o.who ? [o.who] : [] }); return; }
+        var sc = line.match(/^〔景：(\w+)〕$/); if (sc) { bg = sc[1]; return; }
         if (o.bgSwitch) o.bgSwitch.forEach(function (r) { if (line.indexOf(r[0]) >= 0) bg = r[1]; });
         var parts = vnSents(line).map(function (t) {   // 每一句是誰在說
           var sp = open > 0 ? cur : null;
@@ -1084,6 +1104,7 @@
           if (x.sp && G.SERVANTS[x.sp] && who.indexOf(x.sp) < 0 && !(o.noKid && x.sp === 'xiaoman')) who.push(x.sp);
           Object.keys(VN_NAMES).filter(function (nm) { return x.t.indexOf(nm) >= 0; }).sort(function (m, n) { return x.t.indexOf(m) - x.t.indexOf(n); })
             .forEach(function (nm) { var k = VN_NAMES[nm]; if (who.indexOf(k) < 0 && !(o.noKid && k === 'xiaoman')) who.push(k); });
+          if (o.keep && !who.length && beats.length && beats[beats.length - 1].who) who = beats[beats.length - 1].who.slice();   // 小說：這段沒提到人，就留著上一段的人在台上
           beats.push({ t: x.t, bg: bg, who: who.slice(0, o.who ? 3 : 2), say: x.sp });
         });
       });
@@ -1161,6 +1182,12 @@
     var beats = vnBeats(paras, o);
     if (part === 'desc' && S.poem) beats.unshift({ poem: 1, t: S.hao + S.poem, bg: 'hill', who: [k] });   // 介紹開頭：稱號＋詩句
     vnPlay({ title: title, who: k, beats: beats, full: function () { storyWhoText(k); } });
+  }
+  function vnChapter(i) {
+    var C = NOVEL[i], T = vnTags(C.text);
+    vnPlay({ title: C.title, beats: vnBeats(T.paras, { bg: C.bg || 'hill', say: T.say, keep: 1 }),
+      endBtns: (NOVEL[i + 1] ? '<button class="btn" onclick="vnChapter(' + (i + 1) + ')">下一章：' + esc(NOVEL[i + 1].title) + '</button>' : '') + '<button class="btn" onclick="vnClose();storyScreen(\'pro\')">回到劇情</button>',
+      full: function () { openOv('<b style="color:var(--gold);font-size:17px">' + esc(C.title) + '</b><div class="list" style="margin-top:10px"><div class="box">' + storyParas(T.paras.filter(function (p) { return !/^〔景：/.test(p); }).join('\n')) + '</div><button onclick="closeOv()">返回</button></div>'); } });
   }
   function vnEpilogue() {
     var ep = vnBeats(G.EPILOGUE.text, { bg: 'hill', noKid: 1, say: VN_SAY.epi });
