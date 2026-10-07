@@ -491,6 +491,8 @@ t(G.ORDER.every(w=>G.pathsOf(w).length>=2&&G.pathsOf(w).every(P=>G.CARDS[P.sig]&
   t(G.ENEMIES.xinmo.moves.every(m=>m.n&&!/心魔/.test(m.n))&&G.ENEMIES.xinmo.names.shuang.length===G.ENEMIES.xinmo.moves.length,'魘的招式數字不變、名字一一對上');
   t(G.ORDER.every(w=>G.ENDINGS[w]&&G.ENDINGS[w].text.length>=3)&&G.EPILOGUE&&G.EPILOGUE.text.length>=3,'五位真結局＋共同尾聲');
   t(G.ORDER.every(w=>G.ENDINGS[w].text.every(p=>!/[^」]〔[^〕]*〕/.test(p))),'真結局的說話人標記〔…〕都緊跟在台詞「」後面（不然會露在畫面上）');
+  { const bad=x=>/[^」]〔[^〕]*〕/.test(x)||/^〔[^景]/.test(x), all=[].concat(G.EPILOGUE.text, ...G.ORDER.map(w=>[G.SERVANTS[w].desc,G.SERVANTS[w].origin.text]), ...Object.values(G.EVENTS).map(E=>[E.text||'',E.end||'']));
+    t(!all.some(bad),'尾聲、介紹、初遇、插曲的說話人標記也都緊跟在「」後面',all.find(bad)); }
   { const S=require('fs').readFileSync(__dirname+'/../gas/Story.html','utf8'); const NOVEL=eval(S.match(/var NOVEL = (\[[\s\S]*?\n  \]);/)[1]);
     t(NOVEL.length>0&&NOVEL.every(c=>c.title&&c.text.length&&c.text.every(p=>/^〔景：\w+〕$/.test(p)||!/[^」]〔[^〕]*〕/.test(p))),'小說主線每章都有標題與內容，說話人標記都緊跟在「」後面'); }
   t(!/心魔/.test(JSON.stringify([G.ENEMIES,G.LORE,G.ENDINGS,G.EPILOGUE,G.SECTS_LORE,G.EVENTS,G.SERVANTS,G.GOALS,G.FATES])),'畫面資料裡不再出現「心魔」'); }
