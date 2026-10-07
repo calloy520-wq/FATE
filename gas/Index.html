@@ -1244,7 +1244,7 @@
     return '<div class="box"><h3>根骨 <span class="dim" style="font-size:12.5px;font-weight:normal">天＞地＞玄＞黃</span></h3><div class="chips" style="gap:6px;margin-bottom:6px">' + P.map(function (g, i) { return '<span class="chip gold" style="font-size:13.5px;padding:3px 8px">' + G.PARAM_NAMES[i] + ' ' + esc(g) + '</span>'; }).join('') + '</div>'
       + '<div class="dim" style="font-size:13.5px">攻擊 ' + pct(st.atk) + '（力道／靈力取高）・格擋 ' + pct(st.def) + '（力道／身法／靈力取高）・生命 ' + G.SERVANTS[k].hp + '（體魄）' + (st.agi ? '・身法：開場多抽 1 張' : '') + '・金錢 ×' + (Math.round(st.luck * 100) / 100) + '（氣運）</div></div>';
   }
-  // 造型：原本的＋三套解鎖的；解鎖了但圖還沒做好就顯示「製作中」
+  // 造型：原本的＋三套解鎖的；圖還沒做好的不列出
   function skinsHtml(k) {
     var cur = (META.skin || {})[k] || '';
     var row = function (id, name, open, note) {

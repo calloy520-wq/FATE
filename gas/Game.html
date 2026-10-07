@@ -764,7 +764,7 @@ var G = (function () {
   // ── 資料：法寶（整局的被動道具；id 沿用舊版） ─────────
   var RELICS = {
     gem:     { name: '聚靈玉', text: '每場戰鬥第一回合靈力 +1' },
-    blackkey:{ name: '破甲針', text: '每場戰鬥第一次攻擊，第一擊 +6（會被格擋吃掉）' },
+    blackkey:{ name: '破甲針', text: '每場戰鬥的第一擊傷害 +6' },
     shroud:  { name: '護體金鐘', text: '每場戰鬥開始時獲得 8 格擋' },
     circuit: { name: '通神香', text: '每場戰鬥神通量表從 25% 開始' },
     tea:     { name: '一壺靈茶', text: '在休息點回復的生命多 15 點' },
@@ -778,7 +778,7 @@ var G = (function () {
     waver:   { name: '山海圖', text: '地圖多看 2 列；事件擲骰 +2（熟悉地形）' },
     // 以下要達成目標才會出現在法寶池（lock＝GOALS 的 id）
     tassel:  { name: '劍穗', text: '每場戰鬥開始時多抽 1 張牌', lock: 'clear' },
-    lamp:    { name: '心燈', text: '每場戰鬥第一次受傷後生命在一半以下（還站著，或倒下又站起來）時，回復 12 生命', lock: 'xinmo' },
+    lamp:    { name: '心燈', text: '每場戰鬥一次：生命掉到一半以下時，回復 12 生命', lock: 'xinmo' },
     pouch:   { name: '乾坤袋', text: '商店的東西與移除牌打八五折', lock: 'tower' },
     bead:    { name: '定魂珠', text: '每場戰鬥開始時所有敵人定身 1', lock: 'bosses' },
     peijade: { name: '同門玉佩', text: '牌組多一張還沒修的那條主修的招牌牌（拿到時就給）', lock: 'paths' }
