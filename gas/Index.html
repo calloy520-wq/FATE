@@ -1930,11 +1930,11 @@
     var pic = ART['end_' + who] && !ART_BAD[ART['end_' + who]] ? '<img src="' + ART['end_' + who] + '" alt="" style="width:100%;border-radius:10px;display:block" onerror="ART_BAD[this.getAttribute(\'src\')]=1;this.remove()">' : '<div class="svtfig sc-abyss" style="height:200px">' + FIG.fig(who, false, { swords: 5 }) + (who === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>';
     return '<div class="box ending" style="max-width:460px;width:100%"><div class="dim" style="text-align:center">真結局</div><h3 style="text-align:center;font-size:19px;margin:4px 0 8px">「' + esc(E.title) + '」</h3>' + pic
       + E.text.map(function (t) { return t.replace(/〔[^〕]*〕/g, ''); }).map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(t)) + '</p>'; }).join('')
-      + (G.EPILOGUE ? '<div class="msep" style="margin:14px 0 6px"></div><div class="dim" style="text-align:center">尾聲・' + esc(G.EPILOGUE.title) + '</div>' + G.EPILOGUE.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(noTags(t))) + '</p>'; }).join('') : '') + '</div>';
+      + (G.EPILOGUE ? '<div class="msep" style="margin:14px 0 6px"></div><div class="dim" style="text-align:center">尾聲・' + esc(G.EPILOGUE.title) + '</div>' + G.EPILOGUE.text.map(function (t) { return t === '——' ? '<div class="dim" style="text-align:center;margin:10px 0 2px;letter-spacing:.6em">・・・</div>' : '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(noTags(t))) + '</p>'; }).join('') : '') + '</div>';
   }
   function epilogueHtml() {
     return '<div class="box ending" style="max-width:460px;width:100%"><div class="dim" style="text-align:center">尾聲</div><h3 style="text-align:center;font-size:19px;margin:4px 0 8px">「' + esc(G.EPILOGUE.title) + '」</h3>'
-      + G.EPILOGUE.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(noTags(t))) + '</p>'; }).join('') + '</div>';
+      + G.EPILOGUE.text.map(function (t) { return t === '——' ? '<div class="dim" style="text-align:center;margin:10px 0 2px;letter-spacing:.6em">・・・</div>' : '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(noTags(t))) + '</p>'; }).join('') + '</div>';
   }
   // 圖鑑：魔王／精英／妖物（第一次打倒才看得到）、真結局（重看）、解鎖目標
   function codexScreen(tab) {
