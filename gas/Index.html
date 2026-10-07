@@ -962,7 +962,7 @@
     var beats = [], q = { i: 0 };
     PROLOGUE.forEach(function (P, j) {
       var who = P[2] === 'shuang' ? 'shuang' : null;
-      var bs = vnBeats([P[1]], { bg: P[0], who: who, say: VN_SAY.PRO, q: q });
+      var T = vnSay([P[1]], VN_SAY.PRO), bs = vnBeats(T.paras, { bg: P[0], who: who, say: T.say, q: T.say === VN_SAY.PRO ? q : { i: 0 } });
       if (j < (i || 0)) return;
       if (P[2] === 'others') bs.forEach(function (b) { b.who = ['chilian', 'qingli', 'aduo', 'xiaoman']; });
       beats = beats.concat(bs);
@@ -996,7 +996,7 @@
   // 只把最後三個字（連同後面的標點）綁在一起：最後一行至少三個字，前一行也不會空出一大截
   function storyTail(h) { var P = '。，、！？」』…—）：；「『（', n = 0, i = h.length; while (i > 0 && n < 3) { i--; if (P.indexOf(h[i]) < 0) n++; } while (i > 0 && '「『（—'.indexOf(h[i - 1]) >= 0) i--; return h.slice(0, i) + '<span style="white-space:nowrap">' + h.slice(i) + '</span>'; }
   // 單獨一行「——」是場景分隔，畫成置中的淡色小記號
-  function storyParas(s) { return String(s || '').split('\n').map(function (p, j) { return p === '——' ? '<div class="dim" style="text-align:center;margin:10px 0 2px;letter-spacing:.6em">・・・</div>' : '<div class="lore" style="text-align:left;text-wrap:wrap;margin-top:' + (j ? 8 : 6) + 'px">' + storyTail(esc(p)) + '</div>'; }).join(''); }
+  function storyParas(s) { return noTags(s).split('\n').map(function (p, j) { return p === '——' ? '<div class="dim" style="text-align:center;margin:10px 0 2px;letter-spacing:.6em">・・・</div>' : '<div class="lore" style="text-align:left;text-wrap:wrap;margin-top:' + (j ? 8 : 6) + 'px">' + storyTail(esc(p)) + '</div>'; }).join(''); }
   function poemHtml(S) { return S.poem ? '<div class="poem"><b>' + esc(S.hao) + '</b><div>' + S.poem.split('；').map(function (x, i, a) { return esc(x + (i < a.length - 1 ? '；' : '')); }).join('<br>') + '</div></div>' : ''; }
   function storyWho(k) {
     var S = G.SERVANTS[k], row = function (on, name, sub) { return '<button class="box urow" style="text-align:left" onclick="' + on + '"><div><b>' + name + '</b>' + (sub ? '<div class="dim" style="font-size:13px">' + sub + '</div>' : '') + '</div><span class="tag">▶</span></button>'; };
@@ -1073,6 +1073,9 @@
     });
     return { paras: out, say: say };
   }
+  // 有〔誰〕標記就照標記排說話人，沒有就用 VN_SAY（舊寫法）
+  function vnSay(paras, fallback) { return paras.join('\n').indexOf('」〔') >= 0 ? vnTags(paras) : { paras: paras, say: fallback }; }
+  function noTags(s) { return String(s || '').replace(/」〔[^〕]*〕/g, '」'); }
   function vnChunks(p) { return vnBeats([p], {}).map(function (b) { return b.t; }); }
   // paras：段落陣列；o.who：主角；o.bg：'hill'／'city'／'abyss'；o.noKid：不畫白辰（大人模樣的場景）；o.say：VN_SAY 的那一段；o.q：共用的「」計數（序章分頁用）
   function vnBeats(paras, o) {
@@ -1173,8 +1176,9 @@
     if (part === 'desc') { paras = S.desc.split('\n'); title = S.name; }
     else if (part === 'origin') { paras = S.origin.text.split('\n'); title = '初遇・' + S.origin.title; }
     else { var E = G.EVENTS[part]; paras = E.text.split('\n').concat(E.end ? ['——'].concat(E.end.split('\n')) : []); title = E.name; }
-    o.say = VN_SAY[part === 'desc' ? k + ':desc' : part === 'origin' ? k + ':origin' : 'ev:' + part];
-    var beats = vnBeats(paras, o);
+    var T = vnSay(paras, VN_SAY[part === 'desc' ? k + ':desc' : part === 'origin' ? k + ':origin' : 'ev:' + part]);
+    o.say = T.say;
+    var beats = vnBeats(T.paras, o);
     if (part === 'desc' && S.poem) beats.unshift({ poem: 1, t: S.hao + S.poem, bg: 'hill', who: [k] });   // 介紹開頭：稱號＋詩句
     vnPlay({ title: title, who: k, beats: beats, full: function () { storyWhoText(k); } });
   }
@@ -1185,14 +1189,14 @@
       full: function () { openOv('<b style="color:var(--gold);font-size:17px">' + esc(C.title) + '</b><div class="list" style="margin-top:10px"><div class="box">' + storyParas(T.paras.filter(function (p) { return !/^〔景：/.test(p); }).join('\n')) + '</div><button onclick="closeOv()">返回</button></div>'); } });
   }
   function vnEpilogue() {
-    var ep = vnBeats(G.EPILOGUE.text, { bg: 'hill', noKid: 1, say: VN_SAY.epi });
+    var T = vnSay(G.EPILOGUE.text, VN_SAY.epi), ep = vnBeats(T.paras, { bg: 'hill', noKid: 1, say: T.say });
     vnPlay({ title: '尾聲「' + G.EPILOGUE.title + '」', snow: 1, beats: ep, full: function () { openOv(epilogueHtml()); } });
   }
   function vnEnding(k) {
     var E = G.ENDINGS[k];
     var T = vnTags(E.text);
     var beats = vnBeats(T.paras, { who: k, bg: 'abyss', say: T.say, bgSwitch: [['回到落霞山', 'hill'], ['回玄真觀', 'hill'], ['回山莊的路', 'hill'], ['那年冬天', 'hill']] });
-    var ep = G.EPILOGUE ? vnBeats(G.EPILOGUE.text, { bg: 'hill', noKid: 1, say: VN_SAY.epi }) : [];
+    var ET = G.EPILOGUE ? vnSay(G.EPILOGUE.text, VN_SAY.epi) : null, ep = ET ? vnBeats(ET.paras, { bg: 'hill', noKid: 1, say: ET.say }) : [];
     ep.forEach(function (b) { b.snow = 1; });
     vnPlay({ title: '真結局「' + E.title + '」', who: k, beats: beats.concat(ep.length ? [{ brk: 1, bg: 'hill', who: [] }] : [], ep), full: function () { openOv(endingHtml(k)); } });
   }
@@ -1926,11 +1930,11 @@
     var pic = ART['end_' + who] && !ART_BAD[ART['end_' + who]] ? '<img src="' + ART['end_' + who] + '" alt="" style="width:100%;border-radius:10px;display:block" onerror="ART_BAD[this.getAttribute(\'src\')]=1;this.remove()">' : '<div class="svtfig sc-abyss" style="height:200px">' + FIG.fig(who, false, { swords: 5 }) + (who === 'xiaoman' ? '<div class="pet">' + FIG.dragon(5) + '</div>' : '') + '</div>';
     return '<div class="box ending" style="max-width:460px;width:100%"><div class="dim" style="text-align:center">真結局</div><h3 style="text-align:center;font-size:19px;margin:4px 0 8px">「' + esc(E.title) + '」</h3>' + pic
       + E.text.map(function (t) { return t.replace(/〔[^〕]*〕/g, ''); }).map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(t)) + '</p>'; }).join('')
-      + (G.EPILOGUE ? '<div class="msep" style="margin:14px 0 6px"></div><div class="dim" style="text-align:center">尾聲・' + esc(G.EPILOGUE.title) + '</div>' + G.EPILOGUE.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(t)) + '</p>'; }).join('') : '') + '</div>';
+      + (G.EPILOGUE ? '<div class="msep" style="margin:14px 0 6px"></div><div class="dim" style="text-align:center">尾聲・' + esc(G.EPILOGUE.title) + '</div>' + G.EPILOGUE.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(noTags(t))) + '</p>'; }).join('') : '') + '</div>';
   }
   function epilogueHtml() {
     return '<div class="box ending" style="max-width:460px;width:100%"><div class="dim" style="text-align:center">尾聲</div><h3 style="text-align:center;font-size:19px;margin:4px 0 8px">「' + esc(G.EPILOGUE.title) + '」</h3>'
-      + G.EPILOGUE.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(t)) + '</p>'; }).join('') + '</div>';
+      + G.EPILOGUE.text.map(function (t) { return '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(noTags(t))) + '</p>'; }).join('') + '</div>';
   }
   // 圖鑑：魔王／精英／妖物（第一次打倒才看得到）、真結局（重看）、解鎖目標
   function codexScreen(tab) {
