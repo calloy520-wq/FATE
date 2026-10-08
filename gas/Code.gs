@@ -1,4 +1,4 @@
-// 網頁入口：封魔錄（東方仙俠的卡牌冒險）。遊戲規則全在 Game.html、跑在玩家的瀏覽器裡。
+// 網頁入口：封魔錄（東方仙俠的戰棋，2026-10-08 起照機器人大戰的玩法）。遊戲規則全在 Game.html、跑在玩家的瀏覽器裡。
 // 伺服器只做一件事：帳號（只要帳號名稱）與存檔。存在這個專案綁定的試算表「聖杯之路帳號」分頁，換裝置也接得上。
 function doGet() {
   return HtmlService.createTemplateFromFile('Index').evaluate().setTitle('封魔錄')
@@ -140,6 +140,22 @@ function gpLog(name, token, d) {
   var cut = function (x) { var s = String(x == null ? '' : x).slice(0, 80); return /^[=+\-@]/.test(s) ? "'" + s : s; };   // 開頭是 = + - @ 的會被試算表當成公式，前面加 ' 當純文字
   lg.appendRow([new Date(), cut(name), cut(d.who), cut(d.major), cut(d.second), cut(d.diff), cut(d.mode), cut(d.fates), cut(d.result), +d.act || 0, +d.floor || 0, +d.floors || 0,
     cut(d.killer), cut(d.kind), +d.deck || 0, +d.relics || 0, +d.maxHp || 0, +d.kills || 0, +d.np || 0, +d.pills || 0]);
+  return { ok: true };
+}
+
+// 戰棋紀錄（2026-10-08）：每關打完記一列（哪一關、勝敗、回合數、平均等級），調關卡難度用。新分頁「戰棋紀錄」
+var GP_SLOG = '戰棋紀錄';
+var GP_SLOG_HEAD = ['時間', '帳號', '關卡', '結果', '回合', '平均等級', '靈石', '功勳', '累計回合'];
+function gpStageLog(name, token, d) {
+  var raw = name; name = gpName_(name);
+  var sh = gpSheet_(), row = gpFind_(sh, name, raw); if (!row) return { ok: false };
+  var v = sh.getRange(row, 1, 1, 3).getValues()[0];
+  if (gpToken_(String(v[GP_COL.NAME]), v[GP_COL.HASH]) !== token) return { ok: false };
+  d = d || {};
+  var ss = SpreadsheetApp.getActiveSpreadsheet(), lg = ss.getSheetByName(GP_SLOG);
+  if (!lg) { lg = ss.insertSheet(GP_SLOG); lg.appendRow(GP_SLOG_HEAD); lg.setFrozenRows(1); }
+  var cut = function (x) { var s = String(x == null ? '' : x).slice(0, 80); return /^[=+\-@]/.test(s) ? "'" + s : s; };
+  lg.appendRow([new Date(), cut(name), cut(d.stage), cut(d.result), +d.turns || 0, +d.lv || 0, +d.gold || 0, +d.merit || 0, +d.total || 0]);
   return { ok: true };
 }
 

@@ -554,6 +554,8 @@
 <?!= include('Game'); ?>
 <?!= include('Art'); ?>
 <?!= include('Story'); ?>
+<?!= include('Srw'); ?>
+<?!= include('SrwUi'); ?>
 <script>
   // ═══ 畫面：只負責顯示與把按鈕轉成 G 的動作；所有規則在 Game.html ═══
   var KEY = 'grail_run_v1', run = null, sel = { card: -1, foe: -1, np: false };
@@ -615,7 +617,7 @@
   function me() { return META; }
   function updateMe(fn) { fn(META); queueSave(true, false); }
   function save() { var s = run ? JSON.stringify(run) : ''; syncCodex(); if (s === SAVED_RUN) return; SAVED_RUN = s; RUN_TS = Math.max(Date.now(), RUN_TS + 1, BASE_TS + 1); queueSave(false, true); }   // 時間只往前（這台的時鐘慢也不會被當成舊的）   // 沒變就不存（點牌、點敵人的重畫不算）
-  function load() { try { return SAVED_RUN ? G.migrate(JSON.parse(SAVED_RUN)) : null; } catch (e) { return null; } }
+  function load() { try { return SAVED_RUN ? T.migrate(JSON.parse(SAVED_RUN)) : null; } catch (e) { return null; } }   // 2026-10-08 起是戰棋的戰役（卡牌版的舊局不接）
   // 呼叫伺服器（Code.gs）；在本機直接開檔案時（沒有 google.script）改用瀏覽器裡的假伺服器，方便測試
   function srv(fn, args, ok, fail) {
     if (window.google && google.script && google.script.run) { var r = google.script.run.withSuccessHandler(ok).withFailureHandler(fail || function (e) { ok({ ok: false, offline: true, msg: '連不上伺服器，稍後再試' }); if (window.console) console.warn(e); }); r[fn].apply(r, args); return; }
@@ -650,6 +652,7 @@
     }
     if (fn === 'gpResume') return u && a[1] === 't-' + a[0] ? { ok: true, name: a[0], token: a[1], meta: u.meta || null, run: u.run || null, runTs: u.runTs || 0 } : { ok: false, msg: '請重新登入' };
     if (fn === 'gpBoard') return { ok: true, me: 'k-' + a[0], list: Object.keys(db).map(function (k) { var m = null; try { m = JSON.parse(db[k].meta || 'null'); } catch (e) { } var r = boardRow(k, m); if (r) { r.key = 'k-' + k; r.name = '○' + Array.from(k).slice(1).join(''); } return r; }).filter(function (r) { return r && (r.endless || r.wins); }) };
+    if (fn === 'gpStageLog') return { ok: true };
     if (fn === 'gpLog') { try { var lg = JSON.parse(localStorage.getItem('grail_fake_log') || '[]'); lg.push(a[2]); localStorage.setItem('grail_fake_log', JSON.stringify(lg.slice(-50))); } catch (e) { } return { ok: true }; }
     if (fn === 'gpSave') { if (!u) return { ok: false }; if (a[2] != null) u.meta = a[2]; var st = false; if (a[3] != null) { if (a[5] == null) { if (a[4] != null && +a[4] < (u.runTs || 0)) st = true; else { u.run = a[3]; u.runTs = Math.max((u.runTs || 0) + 1, +a[4] || Date.now()); } } else if ((u.runTs || 0) > (+a[5] || 0)) st = true; else { u.run = a[3]; u.runTs = Math.max(+a[4] || 0, (u.runTs || 0) + 1); } } put(); return { ok: true, stale: st, runTs: u.runTs || 0 }; }
   }
@@ -739,7 +742,7 @@
     } } catch (e) { }
     // 舊版的帳號：清掉局外欄位；進行中的舊局（Fate 版）作廢（G.migrate 回傳 null）
     if (META.v !== 5) { migrateMeta(META); queueSave(true, false); }
-    try { if (SAVED_RUN && !G.migrate(JSON.parse(SAVED_RUN))) { SAVED_RUN = ''; queueSave(false, true); } } catch (e) { SAVED_RUN = ''; }
+    try { if (SAVED_RUN && !T.migrate(JSON.parse(SAVED_RUN))) { SAVED_RUN = ''; queueSave(false, true); } } catch (e) { SAVED_RUN = ''; }
     if (res.created || !res.meta) queueSave(true, true);
     run = null; titleScreen();
   }
@@ -797,7 +800,7 @@
   }
   function closeOv() { $('ov').style.display = 'none'; }
   function openOv(html) { $('sheet').innerHTML = '<button class="ovx" onclick="closeOv()" aria-label="關閉">✕</button>' + html; $('ov').style.display = 'flex'; $('sheet').scrollTop = 0; }
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeOv(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !window.NO_ESC) closeOv(); });
 
   var GLOSSARY = [
     ['靈力', '每回合 3 點，出牌要花（卡片左上角的數字）；回合結束沒用完就沒了'],
@@ -861,6 +864,7 @@
     if (!ACC) return loginScreen();
     if (run) save();   // 回到標題時不能動存檔（一打開網頁 run 還是空的）
     if (!run) return titleScreen();
+    if (run.srw) return srwRender();
     var s = run.screen;
     if (s === 'map') return mapScreen();
     if (s === 'battle') return battleScreen();
@@ -907,6 +911,7 @@
     return true;
   }
   function checkTips() {
+    if (run && run.srw) return srwTips();
     if (!META || !META.tips || META.tips.all) return;
     setTimeout(function () {
       if (!run) { if ($('app').innerHTML.indexOf('選擇主修') >= 0) tip('path'); return; }
@@ -936,17 +941,17 @@
   function resetTips() { META.tips = {}; queueSave(true, false); closeOv(); toast('新手提示會再跳一次'); }
   // ── 標題與選角色 ──
   function titleScreen() {
-    var saved = load(), S = saved && G.serv(saved), M = me(), going = saved && S && saved.screen !== 'over';
+    var saved = load(), going = saved && saved.srw, S = going && T.curStage(saved);
     var big = function (act, icon, label, sub, cls) { return '<button class="mbtn' + (cls ? ' ' + cls : '') + '" onclick="' + act + '"><span class="mi">' + icon + '</span><span><b>' + label + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span></button>'; };
+    var where = going ? (saved.screen === 'end' ? '封魔已畢' : '第 ' + (S.idx + 1) + ' 關・' + S.n + (saved.screen === 'battle' && saved.battle ? '（第 ' + saved.battle.turn + ' 回合）' : '')) : '';
     $('app').innerHTML = '<div class="acct"><span>👤 <b>' + esc(ACC.name) + '</b></span><button onclick="logout()">登出／換人</button></div>'
-      + '<div class="panel home">' + heroHtml('五位女修，一副牌，一路斬妖封魔。')
+      + '<div class="panel home">' + heroHtml('五位女修，一張地圖，一路斬妖封魔。')
       + '<div class="menu">'
-      + (going ? big('cont()', '▶', '繼續冒險', esc(S.cls + '・' + S.name) + '・' + esc((saved.endless ? '♾ ' : '') + (G.actName(saved) || '').split('　')[0]) + (saved.floor ? ' 第 ' + saved.floor + ' 列' : ' 剛出發'), 'main') : '')
-      + big("MODE='normal';choose()", '⚔', '新的冒險', going ? '放棄目前這一局，重新選角色' : '選角色、選機緣，出發', going ? '' : 'main')
-      + big("MODE='endless';choose()", '♾', '鎮妖塔（無盡）', going ? '放棄目前這一局，改闖鎮妖塔' : '兩章之後下鎮妖塔，看能走多遠')
-      + big('storyScreen()', '🏮', '劇情', '前情提要、五位女修、真結局')
+      + (going ? big('cont()', '▶', '繼續戰役', esc(where), 'main') : '')
+      + big(going ? "confirmOv('重新開始戰役？目前的等級、淬鍊、法寶都會重來。',srwNew)" : 'srwNew()', '⚔', '新的戰役', going ? '從第一關重新開始' : '從落霞山下山開始', going ? '' : 'main')
+      + big('storyScreen()', '🏮', '劇情', '前情提要、主線小說、五位女修、真結局')
       + '<div class="msep"></div>'
-      + '<div class="mrow">' + big('codexScreen()', '📚', '圖鑑') + big('recordScreen()', '📜', '戰績') + big('boardScreen(null,\'\')', '🏆', '排行榜') + big('showHelp()', '📖', '說明') + '</div>'
+      + '<div class="mrow">' + big('codexScreen()', '📚', '圖鑑') + big('recordScreen()', '📜', '戰績') + big('showHelp()', '📖', '說明') + '</div>'
       + '</div></div>';
   }
   // 前情提要：從「劇情」進來，一頁一頁看（背景用各章的戰鬥背景）
@@ -1201,11 +1206,12 @@
     vnPlay({ title: '真結局「' + E.title + '」', who: k, beats: beats.concat(ep.length ? [{ brk: 1, bg: 'hill', who: [] }] : [], ep), full: function () { openOv(endingHtml(k)); } });
   }
   function recordScreen() {
-    var M = me(), st = M.stats;
+    var M = me(), st = M.stats, c = load(), done = c && c.srw ? Math.min(c.cleared || 0, T.STAGES.length) : 0;
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">戰績：' + esc(ACC.name) + '</h1>'
-      + '<div class="box">出擊 ' + st.runs + ' 次・通關 ' + st.wins + ' 次・封魘 ' + st.trueEnds + ' 次</div><div class="list">'
-      + G.ORDER.map(function (k) { var b = st.best[k], e = (st.endless || {})[k]; return '<div class="box urow"><div><b>' + esc(G.SERVANTS[k].cls + '・' + G.SERVANTS[k].name) + '</b><div class="dim" style="font-size:13.5px">' + (b ? esc(b) : e ? '只闖過鎮妖塔' : '還沒出擊過') + '</div></div>' + (e ? '<span class="tag" style="color:var(--gold)">♾ ' + e + ' 格</span>' : '') + '</div>'; }).join('')
-      + '</div><div class="row"><button class="btn" onclick="boardScreen(null,\'record\')">🏆 排行榜</button><button class="btn" onclick="titleScreen()">返回</button></div></div>';
+      + '<div class="box">戰役 ' + (st.runs || 0) + ' 次・封魘 ' + (st.trueEnds || 0) + ' 次</div>'
+      + (c && c.srw ? '<div class="list"><div class="box">這一輪：過了 ' + done + '／' + T.STAGES.length + ' 關・功勳 ' + Object.keys(c.merit || {}).length + ' 個・累計 ' + (c.turns || 0) + ' 回合</div>'
+        + T.ORDER.map(function (k) { var h = c.heroes[k]; return '<div class="box urow"><div><b>' + esc(G.SERVANTS[k].cls + '・' + G.SERVANTS[k].name) + '</b><div class="dim" style="font-size:13.5px">Lv ' + h.lv + '・擊破 ' + h.kills + '</div></div></div>'; }).join('') + '</div>' : '')
+      + '<button class="btn" onclick="titleScreen()">返回</button></div>';
   }
   // 排行榜：伺服器彙整所有帳號的戰績（無盡最遠、通關次數）；一分鐘更新一次
   function boardScreen(tab, from) {
@@ -1229,7 +1235,7 @@
       }).join(''));
     });
   }
-  function cont() { run = load(); MODE = run && run.endless ? 'endless' : 'normal'; render(); }
+  function cont() { run = load(); SUI = { mode: 'idle' }; render(); }
   // 選人格子：五位全部開放
   function tileHtml(k) {
     var S = G.SERVANTS[k];
@@ -1328,7 +1334,7 @@
     return '<div class="terms">' + T.map(function (g) { return '<div><b>' + g[0] + '</b>　' + keepTail(g[1]) + '</div>'; }).join('') + '</div>';
   }
   function glossaryHtml() {
-    return '<div class="list" style="margin-top:6px">' + GLOSSARY.map(function (g) { return '<div class="box"><h3>' + g[0] + '</h3>' + keepTail(g[1]) + '</div>'; }).join('') + '</div>';
+    return '<div class="list" style="margin-top:6px">' + SRW_GLOSSARY.map(function (g) { return '<div class="box"><h3>' + g[0] + '</h3>' + keepTail(g[1]) + '</div>'; }).join('') + '</div>';
   }
   // 資訊面板：角色｜名詞說明｜牌組與法寶（戰鬥中也能開）
   var infoTab = 'svt';
@@ -1938,10 +1944,10 @@
   }
   // 圖鑑：魔王／精英／妖物（第一次打倒才看得到）、真結局（重看）、解鎖目標
   function codexScreen(tab) {
-    tab = tab || codexScreen.tab || 'boss'; if (['boss', 'elite', 'mob', 'goal'].indexOf(tab) < 0) tab = 'boss'; codexScreen.tab = tab;
+    tab = tab || codexScreen.tab || 'boss'; if (['boss', 'elite', 'mob'].indexOf(tab) < 0) tab = 'boss'; codexScreen.tab = tab;
     var M = META, cx = M.codex || {};
     var groups = { boss: G.BOSSES, elite: G.ELITES, mob: Object.keys(G.ENEMIES).filter(function (k) { return !G.ENEMIES[k].boss && !G.ENEMIES[k].elite; }) };
-    var tabs = [['boss', '魔王'], ['elite', '精英'], ['mob', '妖物'], ['goal', '目標']];   // 宗門、真結局在「劇情」裡
+    var tabs = [['boss', '魔王'], ['elite', '精英'], ['mob', '妖物']];   // 宗門、真結局在「劇情」裡
     var count = function (g) { return groups[g].filter(function (k) { return cx[k]; }).length + '／' + groups[g].length; };
     var head = '<div class="tabs" style="max-width:520px;width:100%">' + tabs.map(function (t) { return '<button class="' + (tab === t[0] ? 'on' : '') + '" onclick="codexScreen(\'' + t[0] + '\')">' + t[1] + (groups[t[0]] ? ' <span class="dim" style="font-size:12px;white-space:nowrap;display:inline-block">' + count(t[0]) + '</span>' : '') + '</button>'; }).join('') + '</div>';
     var body = '';

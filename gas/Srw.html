@@ -197,9 +197,9 @@ var T = (function () {
   function rankOf(id) { var E = (typeof G !== 'undefined' && G.ENEMIES[id]) || {}; return E.boss ? 'b' : E.elite ? 'e' : 'z'; }
   function foeName(id) { var E = (typeof G !== 'undefined' && G.ENEMIES[id]) || {}; return E.name || id; }
   // 敵人的數值：照等級與階級算
-  var FOE_BASE = { z: { atk: [108, 2.5], hit: [112, 2], eva: [120, 2], skl: [100, 2], def: [100, 2], hp: 2800, hpL: 230, arm: 800, armL: 15, mob: 105, aim: 152, will: 100, xp: 120, gold: [1000, 80], pp: 5 },
-                   e: { atk: [120, 2.5], hit: [128, 2], eva: [135, 2], skl: [120, 2], def: [110, 2], hp: 6000, hpL: 380, arm: 950, armL: 18, mob: 115, aim: 162, will: 105, xp: 400, gold: [4000, 250], pp: 15 },
-                   b: { atk: [128, 2.5], hit: [138, 2], eva: [140, 2], skl: [140, 2], def: [115, 2], hp: 12000, hpL: 700, arm: 1050, armL: 18, mob: 120, aim: 168, will: 110, xp: 1200, gold: [15000, 800], pp: 40 } };
+  var FOE_BASE = { z: { atk: [114, 2.5], hit: [118, 2], eva: [120, 2], skl: [100, 2], def: [100, 2], hp: 3100, hpL: 250, arm: 800, armL: 15, mob: 105, aim: 152, will: 100, xp: 120, gold: [1000, 80], pp: 5 },
+                   e: { atk: [126, 2.5], hit: [134, 2], eva: [135, 2], skl: [120, 2], def: [110, 2], hp: 6600, hpL: 420, arm: 950, armL: 18, mob: 115, aim: 162, will: 105, xp: 400, gold: [4000, 250], pp: 15 },
+                   b: { atk: [134, 2.5], hit: [144, 2], eva: [140, 2], skl: [140, 2], def: [115, 2], hp: 13000, hpL: 760, arm: 1050, armL: 18, mob: 120, aim: 168, will: 110, xp: 1200, gold: [15000, 800], pp: 40 } };
 
   // ── 關卡（照小說主線） ──
   // map：每行一列（地形字元見 TERRAIN）｜bg：舞台背景（hill／city／abyss）｜heroes：[誰, x, y]｜foes：[id, 等級, x, y, 選項]（選項：hold 守著不動、tr 有人進到幾格內才動、hp 氣血改成、boss 這關的魔王、retreat 半血退走）
@@ -212,58 +212,58 @@ var T = (function () {
     { id: 's2', n: '破廟夜襲', place: '山神廟', bg: 'hill', ch: 0, win: 'all', merit: { nodown: 1, reward: 'qingshen' },
       map: ['fff...fff', 'f.......f', '..f...f..', '.f.....f.', '..#hhh#..', '..#hhh#..', '.f.....f.', '..f...f..', 'f...f...f', 'fff...fff'],
       heroes: [['shuang', 4, 4], ['chilian', 4, 5]],
-      foes: [['bianfu', 3, 1, 1], ['bianfu', 3, 7, 1], ['bianfu', 3, 4, 1], ['bianfu', 3, 1, 8], ['bianfu', 3, 7, 8], ['heiwu', 4, 2, 7], ['heiwu', 4, 6, 7]],
-      add: [{ turn: 2, foes: [['xiexiu', 4, 3, 0], ['xiexiu', 4, 5, 0]] }] },
+      foes: [['bianfu', 4, 1, 1], ['bianfu', 4, 7, 1], ['bianfu', 4, 4, 1], ['bianfu', 4, 1, 8], ['bianfu', 4, 7, 8], ['heiwu', 5, 2, 7], ['heiwu', 5, 6, 7]],
+      add: [{ turn: 2, foes: [['xiexiu', 5, 3, 0], ['xiexiu', 5, 5, 0]] }] },
     { id: 's3', n: '北上', place: '江南官道', bg: 'hill', ch: 1, win: 'all', merit: { turns: 4, reward: 'yingyan' },
       map: ['hh..r..hh', 'h...r...h', '..f.r.f..', '....r....', 'ww..r..ff', 'ww..r....', 'ww..r.f..', '....r....', '..f.r.f..', '.f..r..f.', '....r....'],
       heroes: [['qingli', 3, 10], ['xiaoman', 4, 9], ['aduo', 5, 10]],
-      foes: [['jiangshi', 5, 2, 2], ['jiangshi', 5, 6, 2], ['jiangshi', 5, 3, 4], ['jiangshi', 5, 5, 4], ['xiexiu', 5, 1, 1], ['xiexiu', 5, 7, 1]] },
+      foes: [['jiangshi', 6, 2, 2], ['jiangshi', 6, 6, 2], ['jiangshi', 6, 3, 4], ['jiangshi', 6, 5, 4], ['xiexiu', 6, 1, 1], ['xiexiu', 6, 7, 1]] },
     { id: 's4', n: '渡江', place: '長江渡口', bg: 'hill', ch: 1, win: 'boss', merit: { turns: 5, reward: 'juling' },
       map: ['ffmfffmff', 'ff.....ff', 'f.......f', '...f.f...', 'wwwwrwwww', 'wwwwrwwww', 'wwwwrwwww', '...f.f...', 'f.......f', 'ff.....ff'],
       heroes: [['qingli', 3, 8], ['xiaoman', 4, 9], ['aduo', 5, 8]],
-      foes: [['shuyao', 7, 4, 1, { boss: 1, hold: 1, hp: 12000 }], ['xueteng', 6, 2, 2, { hold: 1 }], ['xueteng', 6, 6, 2, { hold: 1 }], ['xueteng', 6, 1, 3, { hold: 1 }], ['xueteng', 6, 7, 3, { hold: 1 }], ['xueteng', 6, 4, 3, { hold: 1 }]] },
+      foes: [['shuyao', 8, 4, 1, { boss: 1, hold: 1, hp: 12000 }], ['xueteng', 7, 2, 2, { hold: 1 }], ['xueteng', 7, 6, 2, { hold: 1 }], ['xueteng', 7, 1, 3, { hold: 1 }], ['xueteng', 7, 7, 3, { hold: 1 }], ['xueteng', 7, 4, 3, { hold: 1 }]] },
     { id: 's5', n: '茶棚會合', place: '官道茶棚', bg: 'city', ch: 2, win: 'all', merit: { turns: 4, reward: 'lieJiu' },
       map: ['ff..r..ff', 'f...r...f', '..f.r.f..', '....r....', '...hhh...', '...hhh...', '....r....', '.f..r..f.', '....r....', 'f...r...f', 'ff..r..ff'],
       heroes: [['qingli', 3, 5], ['xiaoman', 4, 4], ['aduo', 5, 5], ['shuang', 4, 9], ['chilian', 4, 10]],
-      foes: [['mingquan', 7, 1, 1], ['mingquan', 7, 7, 1], ['mingquan', 7, 0, 3], ['mingquan', 7, 8, 3], ['mingquan', 7, 3, 0], ['mingquan', 7, 5, 0], ['yuanling', 7, 1, 7], ['yuanling', 7, 7, 7]] },
+      foes: [['mingquan', 9, 1, 1], ['mingquan', 9, 7, 1], ['mingquan', 9, 0, 3], ['mingquan', 9, 8, 3], ['mingquan', 9, 3, 0], ['mingquan', 9, 5, 0], ['yuanling', 9, 1, 7], ['yuanling', 9, 7, 7]] },
     { id: 's6', n: '黑紗', place: '城外荒原', bg: 'city', ch: 3, win: 'boss', merit: { nodown: 1, reward: 'huxin' },
       map: ['m.f...f.m', '..f...f..', '....m....', '.f.....f.', '...f.f...', '.........', '..f...f..', '.........', '.f..m..f.', '.........', 'm.......m'],
       heroes: [['shuang', 2, 9], ['chilian', 3, 10], ['xiaoman', 4, 9], ['qingli', 5, 10], ['aduo', 6, 9]],
-      foes: [['zhanglao', 9, 4, 1, { boss: 1, hold: 1, tr: 5, retreat: 0.5 }], ['cike', 8, 4, 3], ['xiexiu', 8, 1, 3], ['xiexiu', 8, 7, 3], ['xiexiu', 8, 3, 4], ['xiexiu', 8, 5, 4]] },
+      foes: [['zhanglao', 11, 4, 1, { boss: 1, hold: 1, tr: 5, retreat: 0.5 }], ['cike', 10, 4, 3], ['xiexiu', 10, 1, 3], ['xiexiu', 10, 7, 3], ['xiexiu', 10, 3, 4], ['xiexiu', 10, 5, 4]] },
     { id: 's7', n: '荒野', place: '城外亂石', bg: 'city', ch: 3, win: 'boss', merit: { turns: 5, reward: 'longlin' },
       map: ['mm.....mm', 'm..m.m..m', '.........', '.m..f..m.', '.........', '..m...m..', '.........', '.f.m.m.f.', '.........', 'm...m...m', 'mm.....mm'],
       heroes: [['shuang', 2, 9], ['chilian', 3, 10], ['xiaoman', 4, 9], ['qingli', 5, 10], ['aduo', 6, 9]],
-      foes: [['niumo', 10, 4, 1, { boss: 1, hold: 1, tr: 4 }], ['shikui', 9, 2, 2], ['shikui', 9, 6, 2], ['shikui', 9, 4, 4], ['mingquan', 9, 0, 4], ['mingquan', 9, 8, 4], ['mingquan', 9, 4, 6]] },
+      foes: [['niumo', 12, 4, 1, { boss: 1, hold: 1, tr: 4 }], ['shikui', 11, 2, 2], ['shikui', 11, 6, 2], ['shikui', 11, 4, 4], ['mingquan', 11, 0, 4], ['mingquan', 11, 8, 4], ['mingquan', 11, 4, 6]] },
     { id: 's8', n: '城門', place: '鬼哭城城門', bg: 'city', ch: 4, win: 'boss', merit: { turns: 6, reward: 'zhangu' },
       map: ['h..hrh..h', '....r....', '####r####', '....r....', '.f..r..f.', '....r....', '.m.....m.', '....r....', '.f..r..f.', '....r....', 'm...r...m'],
       heroes: [['shuang', 2, 9], ['chilian', 3, 10], ['xiaoman', 4, 9], ['qingli', 5, 10], ['aduo', 6, 9]],
-      foes: [['guijiang', 12, 4, 1, { boss: 1, hold: 1, tr: 4 }], ['yinbing', 11, 3, 3], ['yinbing', 11, 5, 3], ['yinbing', 11, 1, 4], ['yinbing', 11, 7, 4], ['yinbing', 11, 4, 5]],
-      add: [{ turn: 2, foes: [['yinbing', 11, 1, 1], ['yinbing', 11, 7, 1], ['yinbing', 11, 4, 0]] }, { turn: 4, foes: [['yinbing', 12, 0, 9], ['yinbing', 12, 8, 9]] }] },
+      foes: [['guijiang', 15, 4, 1, { boss: 1, hold: 1, tr: 4 }], ['yinbing', 14, 3, 3], ['yinbing', 14, 5, 3], ['yinbing', 14, 1, 4], ['yinbing', 14, 7, 4], ['yinbing', 14, 4, 5]],
+      add: [{ turn: 2, foes: [['yinbing', 14, 1, 1], ['yinbing', 14, 7, 1], ['yinbing', 14, 4, 0]] }, { turn: 4, foes: [['yinbing', 15, 0, 9], ['yinbing', 15, 8, 9]] }] },
     { id: 's9', n: '狐香', place: '城中街巷', bg: 'city', ch: 4, win: 'boss', merit: { nodown: 1, reward: 'qingxinD' },
       map: ['#..h.h..#', '#.......#', '..##.##..', '..##.##..', '.........', '##.#.#.##', '##.....##', '...#.#...', '.........', 'h.##.##.h', '..##.##..', '.........'],
       heroes: [['shuang', 2, 11], ['chilian', 3, 11], ['xiaoman', 4, 11], ['qingli', 5, 11], ['aduo', 6, 11]],
-      foes: [['huyao', 13, 4, 1, { boss: 1, hold: 1, tr: 5 }], ['qianmian', 12, 1, 4], ['sheyao', 12, 7, 4], ['yuanling', 12, 4, 4], ['yuanling', 12, 2, 6], ['yuanling', 12, 6, 6]] },
+      foes: [['huyao', 16, 4, 1, { boss: 1, hold: 1, tr: 5 }], ['qianmian', 15, 1, 4], ['sheyao', 15, 7, 4], ['yuanling', 15, 4, 4], ['yuanling', 15, 2, 6], ['yuanling', 15, 6, 6]] },
     { id: 's10', n: '鬼市', place: '城下鬼市', bg: 'city', ch: 4, win: 'boss', merit: { turns: 6, reward: 'suodi' },
       map: ['XXXhhhXXX', 'X.......X', 'X.h...h.X', '.........', '.h.h.h.h.', '.........', 'X.......X', 'X.h...h.X', '.........', 'X...r...X', 'XX..r..XX'],
       heroes: [['shuang', 3, 9], ['chilian', 4, 10], ['xiaoman', 4, 8], ['qingli', 5, 9], ['aduo', 3, 10]],
-      foes: [['panguan', 15, 4, 0, { boss: 1, hold: 1, tr: 5 }], ['yaodao', 14, 4, 2], ['shichong', 14, 1, 3], ['shichong', 14, 7, 3], ['shichong', 14, 2, 5], ['shichong', 14, 6, 5], ['yuanling', 14, 1, 1], ['yuanling', 14, 7, 1]] },
+      foes: [['panguan', 18, 4, 0, { boss: 1, hold: 1, tr: 5 }], ['yaodao', 17, 4, 2], ['shichong', 17, 1, 3], ['shichong', 17, 7, 3], ['shichong', 17, 2, 5], ['shichong', 17, 6, 5], ['yuanling', 17, 1, 1], ['yuanling', 17, 7, 1]] },
     { id: 's11', n: '鐘樓', place: '城北鐘樓', bg: 'city', ch: 4, win: 'boss', merit: { turns: 6, reward: 'jingxin' },
       map: ['..#hhh#..', '..#...#..', '.........', '.f.m.m.f.', '.........', '..f...f..', '.........', '.m.....m.', '.........', '..f...f..', '.........'],
       heroes: [['shuang', 2, 9], ['chilian', 3, 10], ['xiaoman', 4, 9], ['qingli', 5, 10], ['aduo', 6, 9]],
-      foes: [['duoxian', 18, 4, 1, { boss: 1, hold: 1, tr: 5 }], ['jianmo', 17, 2, 3], ['daoke', 17, 6, 3], ['mohua', 17, 1, 5], ['mohua', 17, 7, 5], ['mohua', 17, 3, 5], ['mohua', 17, 5, 5]] },
+      foes: [['duoxian', 21, 4, 1, { boss: 1, hold: 1, tr: 5 }], ['jianmo', 20, 2, 3], ['daoke', 20, 6, 3], ['mohua', 20, 1, 5], ['mohua', 20, 7, 5], ['mohua', 20, 3, 5], ['mohua', 20, 5, 5]] },
     { id: 's12', n: '祠堂', place: '城北祠堂', bg: 'city', ch: 4, win: 'boss', merit: { nodown: 1, reward: 'huiyuanD' },
       map: ['XX#hhh#XX', 'X.......X', 'X.f...f.X', '.........', '.f..r..f.', '....r....', '.m..r..m.', '....r....', 'f...r...f', '....r....', '....r....'],
       heroes: [['shuang', 2, 9], ['chilian', 3, 10], ['xiaoman', 4, 9], ['qingli', 5, 10], ['aduo', 6, 9]],
-      foes: [['zhanglao', 21, 4, 0, { boss: 1, hold: 1, tr: 4 }], ['mojiang', 20, 4, 2], ['tengyao', 20, 1, 2], ['jiangshi', 19, 2, 4], ['jiangshi', 19, 6, 4], ['jiangshi', 19, 4, 5], ['xiexiu', 19, 0, 3], ['xiexiu', 19, 8, 3], ['xiexiu', 19, 7, 2]] },
+      foes: [['zhanglao', 24, 4, 0, { boss: 1, hold: 1, tr: 4 }], ['mojiang', 23, 4, 2], ['tengyao', 23, 1, 2], ['jiangshi', 22, 2, 4], ['jiangshi', 22, 6, 4], ['jiangshi', 22, 4, 5], ['xiexiu', 22, 0, 3], ['xiexiu', 22, 8, 3], ['xiexiu', 22, 7, 2]] },
     { id: 's13', n: '門前', place: '地底石階', bg: 'abyss', ch: 5, win: 'all', merit: { turns: 6, reward: 'longlin' },
       map: ['XX.....XX', 'XX.....XX', 'XXX...XXX', 'XX.....XX', 'X...m...X', 'X.......X', 'XX.....XX', 'XXX...XXX', 'XX.....XX', 'X.......X', 'X.......X', 'XX.....XX'],
       heroes: [['shuang', 2, 10], ['chilian', 3, 11], ['xiaoman', 4, 10], ['qingli', 5, 11], ['aduo', 6, 10]],
-      foes: [['qianghun', 22, 3, 1], ['shuangdao', 22, 5, 1], ['yingwei', 22, 4, 3], ['kuilei', 22, 4, 0, { hold: 1, tr: 6 }], ['yinbing', 21, 2, 4], ['yinbing', 21, 6, 4], ['yinbing', 21, 3, 5], ['yinbing', 21, 5, 5]] },
+      foes: [['qianghun', 25, 3, 1], ['shuangdao', 25, 5, 1], ['yingwei', 25, 4, 3], ['kuilei', 25, 4, 0, { hold: 1, tr: 6 }], ['yinbing', 24, 2, 4], ['yinbing', 24, 6, 4], ['yinbing', 24, 3, 5], ['yinbing', 24, 5, 5]] },
     { id: 's14', n: '九幽魔淵', place: '魔淵底', bg: 'abyss', ch: 6, win: 'boss', merit: { turns: 7, reward: 'zhangu' },
       map: ['XX.....XX', 'X.......X', '.........', '..m...m..', '.........', '.m.....m.', '.........', '...m.m...', '.........', '.........', 'X.......X', 'XX.....XX'],
       heroes: [['shuang', 2, 10], ['chilian', 3, 11], ['xiaoman', 4, 10], ['qingli', 5, 11], ['aduo', 6, 10]],
-      foes: [['xinmo', 22, 4, 1, { boss: 1, hold: 1, tr: 5 }], ['mohua', 22, 2, 3], ['mohua', 22, 6, 3], ['yuanling', 22, 1, 5], ['yuanling', 22, 7, 5]],
-      add: [{ turn: 3, foes: [['yuanling', 23, 0, 2], ['yuanling', 23, 8, 2]] }, { turn: 5, foes: [['mohua', 23, 1, 1], ['mohua', 23, 7, 1]] }] }
+      foes: [['xinmo', 25, 4, 1, { boss: 1, hold: 1, tr: 5 }], ['mohua', 25, 2, 3], ['mohua', 25, 6, 3], ['yuanling', 25, 1, 5], ['yuanling', 25, 7, 5]],
+      add: [{ turn: 3, foes: [['yuanling', 26, 0, 2], ['yuanling', 26, 8, 2]] }, { turn: 5, foes: [['mohua', 26, 1, 1], ['mohua', 26, 7, 1]] }] }
   ];
   var STAGE_BY = {}; STAGES.forEach(function (S, i) { S.idx = i; STAGE_BY[S.id] = S; });
   function stageOf(b) { return STAGE_BY[b.stage]; }
@@ -697,7 +697,7 @@ var T = (function () {
     if (u.stun) return { uid: u.uid, x: u.x, y: u.y, stun: 1 };
     var awake = !u.hold || u.hp < u.hpMax || foes.some(function (t) { return dist(u, t) <= (u.tr || 0); }) || b.turn >= 6;
     var R = awake && u.mv > 0 ? moveRange(b, u) : {}; R[tkey(u.x, u.y)] = 0;
-    var best = null, bestS = -1;
+    var best = null, bestS = -Infinity;   // 打得到就一定打（機戰的敵人不怕還手）
     keys(R).forEach(function (k) {
       var p = k.split(','), x = +p[0], y = +p[1], moved = x !== u.x || y !== u.y, ox = u.x, oy = u.y;
       u.x = x; u.y = y;
@@ -712,7 +712,7 @@ var T = (function () {
         foes.forEach(function (t) {
           if (!inRange(w, dist(u, t))) return;
           var h = hitChance(b, u, w, t, ''), d = damage(b, u, w, t, '', false), s = h * Math.min(t.hp, d) + (d >= t.hp ? h * 40 : 0) + (u.side === 'p' && t.boss ? h * 10 : 0);
-          var ci = counterWpn(b, t, u); if (ci >= 0) { var cw = W(t, ci); s -= 0.35 * hitChance(b, t, cw, u, '') * Math.min(u.hp, damage(b, t, cw, u, '', false)); }
+          var ci = counterWpn(b, t, u); if (ci >= 0) { var cw = W(t, ci); s -= (u.side === 'p' ? 0.3 : 0.08) * hitChance(b, t, cw, u, '') * Math.min(u.hp, damage(b, t, cw, u, '', false)); }
           if (u.side === 'p') { var tb = terr(b, x, y); if (tb && !u.fly) s += tb.eva * 8; }
           if (s > bestS) { bestS = s; best = { uid: u.uid, x: x, y: y, wi: i, target: t.uid }; }
         });

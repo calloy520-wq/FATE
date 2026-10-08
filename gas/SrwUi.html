@@ -1,0 +1,541 @@
+<style>
+  /* ══ 戰棋：整備、地圖戰、交手、結算 ══ */
+  .sbw { flex:1; display:flex; flex-direction:column; min-height:100vh; min-height:100dvh; }
+  .sbtop { display:flex; align-items:center; gap:8px; padding:7px 10px; background:var(--panel); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .sbtop b { color:var(--gold); font-family:var(--serif); letter-spacing:.06em; }
+  .sbtop .ph { font-size:13px; padding:1px 8px; border-radius:6px; border:1px solid var(--line); }
+  .sbtop .ph.p { color:#9cd0ff; border-color:#3d6c99; } .sbtop .ph.e { color:#ff9a9a; border-color:#8a3a3a; }
+  .sbtop .sp { margin-left:auto; display:flex; gap:6px; } .sbtop .sp button { border:1px solid var(--line); border-radius:8px; padding:3px 10px; min-height:32px; color:var(--dim); }
+  .sbmapw { padding:8px 0 4px; display:flex; justify-content:center; overflow-x:auto; }
+  .sbmap { position:relative; display:grid; border:1px solid rgba(227,194,122,.35); box-shadow:0 6px 24px rgba(0,0,0,.5); touch-action:manipulation; }
+  .sbmap::after { content:''; position:absolute; inset:0; pointer-events:none; z-index:1; }
+  .sbmap.sc-city::after { background:rgba(120,10,30,.16); } .sbmap.sc-abyss::after { background:rgba(70,20,120,.22); } .sbmap.sc-hill::after { background:rgba(255,150,80,.05); }
+  .tl { position:relative; width:var(--ts); height:var(--ts); box-shadow:inset 0 0 0 .5px rgba(0,0,0,.35); cursor:pointer; }
+  .t-p { background:#36442e; } .t-r { background:linear-gradient(90deg,#3a432d 18%,#5a4f3a 18% 82%,#3a432d 82%); }
+  .t-f { background:radial-gradient(circle at 30% 35%,#2f5a2c 0 22%,transparent 23%),radial-gradient(circle at 70% 65%,#2a5228 0 24%,transparent 25%),#1f3820; }
+  .t-m { background:linear-gradient(135deg,transparent 40%,#6a6470 40% 60%,transparent 60%),linear-gradient(45deg,#4e4a55 30%,#5d5864 30% 70%,#4e4a55 70%); }
+  .t-w { background:repeating-linear-gradient(170deg,#1c3a5c 0 5px,#234670 5px 10px); }
+  .t-h { background:linear-gradient(180deg,#7a3a2a 0 38%,#5a4532 38%); } .t-h::before { content:'⌂'; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:rgba(255,230,190,.35); font-size:calc(var(--ts) * .55); }
+  .t-wall { background:repeating-linear-gradient(0deg,#2a2530 0 6px,#1d1a22 6px 7px); } .t-X { background:#07060b; }
+  .tl.mv::after, .tl.ar::after, .tl.tg::after, .tl.ma::after, .tl.dz::after, .tl.mc::after { content:''; position:absolute; inset:0; z-index:2; pointer-events:none; }
+  .tl.mv::after { background:rgba(80,160,255,.38); box-shadow:inset 0 0 0 1px rgba(150,200,255,.6); }
+  .tl.ar::after { background:rgba(255,80,80,.22); } .tl.dz::after { background:rgba(255,70,70,.28); }
+  .tl.tg::after { background:rgba(255,80,80,.45); box-shadow:inset 0 0 0 2px #ffd36e; animation:glow 1s ease-in-out infinite; }
+  .tl.mc::after { background:rgba(255,200,80,.3); box-shadow:inset 0 0 0 1px rgba(255,220,140,.7); }
+  .tl.ma::after { background:rgba(255,150,40,.5); }
+  .sbunits { position:absolute; left:0; top:0; z-index:3; pointer-events:none; }
+  .un { position:absolute; width:var(--ts); height:var(--ts); transition:left .28s ease-out, top .28s ease-out; display:flex; align-items:center; justify-content:center; }
+  .un .pf { width:84%; height:84%; border-radius:50%; background:#1a1f2c center 8%/180% no-repeat; border:2px solid #6fb7ff; box-shadow:0 2px 6px rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; font-weight:900; font-family:var(--serif); font-size:calc(var(--ts) * .38); color:#fff; text-shadow:0 1px 2px #000; overflow:hidden; }
+  .un.e .pf { border-color:#ff5a5a; } .un.boss .pf { border-color:var(--gold); box-shadow:0 0 10px rgba(227,194,122,.8); } .un.elite .pf { border-color:#ff9a5a; }
+  .un.acted .pf { filter:grayscale(.9) brightness(.65); }
+  .un.selu .pf { box-shadow:0 0 0 2px #fff, 0 0 12px #9cd0ff; }
+  .un .hb { position:absolute; left:10%; right:10%; bottom:2%; height:4px; background:rgba(0,0,0,.7); border-radius:2px; overflow:hidden; }
+  .un .hb i { display:block; height:100%; background:#5ad17a; } .un.e .hb i { background:#ff6060; }
+  .un .bd { position:absolute; top:-2px; right:-2px; font-size:10px; line-height:1; padding:2px 3px; border-radius:4px; background:#f2d24e; color:#8a1018; font-weight:900; }
+  .un .bd.psn { top:auto; bottom:6px; right:-2px; background:#6fd06f; color:#0b2a0b; }
+  .un.hit .pf { animation:knock .38s ease-out; } .un.gone { opacity:0; transition:opacity .4s; }
+  .sbinfo { padding:8px 10px 14px; display:flex; flex-direction:column; gap:8px; }
+  .uinfo { display:flex; gap:10px; align-items:center; background:var(--pbg); border:1px solid var(--line); border-radius:12px; padding:8px 10px; }
+  .uinfo .pf2 { width:52px; height:52px; flex:none; border-radius:10px; background:#1a1f2c center 8%/180% no-repeat; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-family:var(--serif); font-size:22px; }
+  .uinfo .nm { font-weight:bold; } .uinfo .nm small { color:var(--dim); font-weight:normal; margin-left:6px; }
+  .uinfo .st { font-size:12.5px; color:var(--dim); display:flex; flex-wrap:wrap; gap:2px 10px; }
+  .uinfo .bars { display:flex; flex-direction:column; gap:3px; margin-top:3px; }
+  .mbar { position:relative; height:16px; background:#262c38; border-radius:6px; overflow:hidden; } .mbar i { position:absolute; left:0; top:0; bottom:0; background:#3f9d5a; }
+  .mbar.en i { background:#3d78c0; } .mbar.e i { background:#c04848; } .mbar span { position:relative; display:block; font-size:11px; line-height:16px; padding-left:6px; text-shadow:0 1px 2px #000; white-space:nowrap; }
+  .acts { display:flex; gap:6px; flex-wrap:wrap; } .acts .btn { flex:1 1 30%; padding:10px 6px; text-align:center; min-width:84px; }
+  .acts .btn.go { background:rgba(227,194,122,.12); }
+  .hint { font-size:13.5px; color:var(--dim); text-align:center; text-wrap:balance; }
+  .wrow { display:flex; gap:8px; align-items:center; width:100%; text-align:left; border:1px solid var(--line); border-radius:10px; padding:9px 11px; background:#131722; }
+  .wrow:disabled { opacity:.45; } .wrow b { font-family:var(--serif); } .wrow .r { margin-left:auto; text-align:right; font-size:12.5px; color:var(--dim); white-space:nowrap; }
+  .wrow .why { color:#ff9a8a; font-size:12px; }
+  .fc { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .fc .side { border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:#131722; }
+  .fc .side.p { border-color:#3d6c99; } .fc .side.e { border-color:#8a3a3a; }
+  .fc .big { font-size:24px; font-weight:900; font-family:var(--serif); color:var(--gold2); } .fc .lab { font-size:12px; color:var(--dim); }
+  .fc .kill { color:#ff7a7a; font-weight:bold; font-size:13px; }
+  .resp { display:flex; flex-direction:column; gap:6px; } .resp button { border:1px solid var(--line); border-radius:10px; padding:10px 12px; text-align:left; }
+  .resp button.rec { border-color:var(--gold); background:rgba(227,194,122,.1); } .resp button small { display:block; color:var(--dim); font-size:12.5px; }
+  .banner { position:fixed; left:0; right:0; top:38%; z-index:30; text-align:center; pointer-events:none; font-family:var(--serif); font-size:30px; letter-spacing:.3em; color:var(--gold2); text-shadow:0 0 18px rgba(227,194,122,.8), 0 2px 4px #000; animation:bann 1.2s ease-out forwards; }
+  .banner.e { color:#ffb0b0; text-shadow:0 0 18px rgba(255,60,60,.8), 0 2px 4px #000; }
+  @keyframes bann { 0% { opacity:0; transform:scale(1.3); } 20% { opacity:1; transform:scale(1); } 80% { opacity:1; } 100% { opacity:0; } }
+  /* 交手的畫面：沿用舞台（女修在左、敵人在右） */
+  .bsc { position:fixed; inset:0; z-index:25; display:flex; flex-direction:column; justify-content:center; background:rgba(5,6,10,.86); }
+  .bsc #stage { height:min(62vh, 440px); max-width:640px; width:100%; margin:0 auto; border:none; }
+  .bsc .side { position:relative; z-index:1; flex:0 0 46%; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; }
+  .bsc .side .fig { height:74%; width:100%; } .bsc .side.foe .fig .fsvg, .bsc .side.foe .fig .fimg { }
+  .bsc .side .who { font-size:13px; font-weight:bold; text-shadow:0 1px 3px #000; margin-top:2px; } .bsc .side .mbar { width:86%; margin-top:3px; }
+  .bsc .wname { position:absolute; left:0; right:0; top:8%; z-index:4; text-align:center; font-family:var(--serif); font-size:22px; letter-spacing:.2em; color:var(--gold2); text-shadow:0 0 12px rgba(227,194,122,.7), 0 2px 3px #000; pointer-events:none; }
+  .bsc .wname small { display:block; font-size:12px; letter-spacing:.1em; color:#ddd; }
+  .bsc .skip { position:absolute; right:12px; bottom:14px; z-index:5; color:var(--dim); font-size:13px; }
+  .bsc .fig.lunge-r { animation:lungeR .34s ease-out; } @keyframes lungeR { 40% { transform:translateX(30%) scale(1.04); } }
+  .bsc .fig.lunge-l { animation:lungeL .34s ease-out; } @keyframes lungeL { 40% { transform:translateX(-30%) scale(1.04); } }
+  .bsc .fig.hurt2 { animation:hurt .42s ease-out; }
+  .bsc .side.foe .fig .fimg { transform:none; }
+  .prep .hd { width:100%; max-width:520px; display:flex; flex-direction:column; gap:4px; }
+  .prep .hd b { font-family:var(--serif); color:var(--gold); font-size:20px; letter-spacing:.08em; }
+  .hcard { display:flex; gap:10px; align-items:center; text-align:left; width:100%; }
+  .hcard .pf2 { width:54px; height:54px; flex:none; border-radius:10px; background:#1a1f2c center 8%/180% no-repeat; border:1px solid var(--line); }
+  .uprow { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+  .uprow .lvb { display:flex; gap:2px; } .uprow .lvb i { width:8px; height:10px; background:#2a3142; border-radius:1px; } .uprow .lvb i.on { background:var(--gold); }
+  .uprow .k { width:3.2em; flex:none; } .uprow .v { width:4.2em; flex:none; text-align:right; font-variant-numeric:tabular-nums; } .uprow button { margin-left:auto; border:1px solid var(--gold); color:var(--gold); border-radius:8px; padding:4px 10px; font-size:13px; white-space:nowrap; }
+  .uprow button:disabled { opacity:.35; border-color:var(--line); color:var(--dim); }
+  .res .gain { display:flex; gap:10px; align-items:center; text-align:left; }
+</style>
+<script>
+  // ═══ 戰棋的畫面：只負責顯示與把點擊轉成 T 的動作；規則在 Srw.html ═══
+  var SUI = { mode: 'idle', sel: null, wi: -1, R: null, tg: null, cen: null, dz: null };
+  function srwSet() { META.srw = META.srw || { anim: 1, autoDef: 0 }; return META.srw; }
+  function sB() { return run && run.battle; }
+  function portrait(u, cls) {
+    var src = u.side === 'p' ? FIG_art(u.id) : ART[u.id];
+    var nm = u.name || '';
+    if (src && !ART_BAD[src]) return '<i class="' + cls + '" style="background-image:url(\'' + src + '\')"><img src="' + src + '" alt="" style="display:none" onerror="ART_BAD[this.getAttribute(\'src\')]=1;this.parentNode.style.backgroundImage=\'none\';this.parentNode.textContent=\'' + esc(nm.slice(-1)) + '\'"></i>';
+    var c = (FIG.FOE[u.id] || FIG.HERO[u.id] || {}).c || '#888';
+    return '<i class="' + cls + '" style="background:radial-gradient(circle at 50% 35%,' + c + '55,#11131c 70%);color:' + c + '">' + esc(nm.slice(u.side === 'p' ? -1 : 0, u.side === 'p' ? undefined : 1)) + '</i>';
+  }
+  function FIG_art(id) { var sk = META && META.skin && META.skin[id]; return (sk && ART[id + '_' + sk]) || ART[id]; }
+  function bgOf(S) { return S.bg === 'abyss' ? 'sc-abyss' : S.bg === 'city' ? 'sc-city' : 'sc-hill'; }
+  function stageNo(S) { return '第 ' + (S.idx + 1) + ' 關'; }
+
+  // ── 整備 ──
+  function prepScreen(tab) {
+    tab = tab || prepScreen.tab || 'hero'; prepScreen.tab = tab;
+    var c = run, S = T.curStage(c), M = S.merit || {};
+    var goal = S.win === 'boss' ? '擊破' + T.foeName(S.foes.filter(function (f) { return f[4] && f[4].boss; })[0][0]) : '敵人全滅';
+    var merit = M.turns ? M.turns + ' 回合內勝利' : M.nodown ? '沒有人倒下' : '';
+    var tabs = [['hero', '人物'], ['shop', '商店'], ['bag', '法寶']];
+    var head = '<div class="tabs" style="max-width:520px;width:100%">' + tabs.map(function (t) { return '<button class="' + (tab === t[0] ? 'on' : '') + '" onclick="prepScreen(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>';
+    var body = '';
+    if (tab === 'hero') body = '<div class="list">' + T.ORDER.map(function (k) {
+      var h = c.heroes[k], s = T.heroStats(c, k), on = S.heroes.some(function (x) { return x[0] === k; });
+      return '<button class="box hcard" onclick="heroSheet(\'' + k + '\')">' + portrait({ id: k, side: 'p', name: G.SERVANTS[k].name }, 'pf2') + '<div style="flex:1;min-width:0"><b>' + esc(G.SERVANTS[k].name) + '</b> <span class="dim">Lv ' + h.lv + '</span>' + (on ? ' <span class="chip gold">出擊</span>' : '')
+        + '<div class="dim" style="font-size:12.5px">氣血 ' + s.hpMax + '・護體 ' + s.arm + '・輕身 ' + s.mob + '・悟道點 ' + h.pp + '</div></div><span class="tag">›</span></button>'; }).join('') + '</div>';
+    if (tab === 'shop') body = '<div class="list">' + T.shopList(c).map(function (id) { var I = T.ITEMS[id];
+      return '<div class="box urow"><div><b>' + esc(I.n) + '</b>　<span class="dim" style="font-size:13px">' + esc(I.d) + '</span><div class="dim" style="font-size:12.5px">背包裡有 ' + (c.inv[id] || 0) + ' 件</div></div><button class="btn" style="padding:6px 12px"' + (c.gold < I.price ? ' disabled' : '') + ' onclick="srwBuy(\'' + id + '\')">💎 ' + I.price + '</button></div>'; }).join('') + '</div>';
+    if (tab === 'bag') { var items = Object.keys(c.inv).filter(function (id) { return c.inv[id] > 0; });
+      body = '<div class="list">' + (items.length ? items.map(function (id) { var I = T.ITEMS[id]; return '<div class="box"><b>' + esc(I.n) + '</b> ×' + c.inv[id] + '　<span class="dim" style="font-size:13px">' + esc(I.d) + '</span></div>'; }).join('') : '<div class="dim" style="text-align:center">背包是空的。功勳與商店拿得到法寶。</div>')
+        + '<div class="dim" style="font-size:13px;text-align:center">到「人物」裡點一位女修，就能裝上法寶（每人 ' + T.EQ_SLOTS + ' 格）。</div></div>'; }
+    var ch = S.ch < NOVEL.length ? NOVEL[S.ch] : null;
+    $('app').innerHTML = '<div class="panel prep"><div class="hd"><span class="dim">' + stageNo(S) + '・' + esc(S.place) + '</span><b>' + esc(S.n) + '</b>'
+      + '<div class="dim" style="font-size:13.5px">勝利：' + goal + (merit ? '　｜　功勳：' + merit + (c.merit[S.id] ? '（已達成）' : '') : '') + '</div>'
+      + '<div style="font-size:14px">💎 靈石 <b style="color:var(--gold2);font-size:15px">' + c.gold + '</b></div></div>'
+      + '<button class="mbtn main" onclick="srwSortie()"><span class="mi">⚔</span><span><b>出擊</b><small>' + S.heroes.map(function (x) { return G.SERVANTS[x[0]].name; }).join('、') + '</small></span></button>'
+      + head + body
+      + '<div class="row" style="flex-wrap:wrap;justify-content:center">' + (ch ? '<button class="btn" onclick="vnChapter(' + S.ch + ')">🏮 ' + esc(ch.title.split('　')[0]) + '</button>' : '') + '<button class="btn" onclick="run=null;titleScreen()">回標題</button></div></div>';
+  }
+  function srwBuy(id) { var e = T.buy(run, id); if (e) toast(e, 'err'); else { toast('買了' + T.ITEMS[id].n); save(); } prepScreen(); }
+  function heroSheet(k, tab) {
+    tab = tab || heroSheet.tab || 'up'; heroSheet.tab = tab;
+    var c = run, h = c.heroes[k], s = T.heroStats(c, k), H = T.HEROES[k], Sv = G.SERVANTS[k];
+    var tabs = [['up', '淬鍊'], ['tr', '修為'], ['sk', '功法'], ['eq', '法寶'], ['info', '招式']];
+    var head = '<div class="tabs">' + tabs.map(function (t) { return '<button class="' + (tab === t[0] ? 'on' : '') + '" onclick="heroSheet(\'' + k + '\',\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>';
+    var lvb = function (n) { var a = ''; for (var i = 0; i < T.UP_MAX; i++) a += '<i' + (i < n ? ' class="on"' : '') + '></i>'; return '<span class="lvb">' + a + '</span>'; };
+    var body = '';
+    if (tab === 'up') {
+      var val = { hp: s.hpMax, en: s.enMax, arm: s.arm, mob: s.mob, aim: s.aim, wpn: '+' + h.up.wpn * T.UP_STEP.wpn };
+      body = '<div class="dim" style="font-size:13px">花靈石淬鍊身法器。五項（招式以外）都到 5 級：<b style="color:var(--gold)">淬鍊圓滿</b>（' + esc(H.full) + '）' + (s.full ? ' ✅' : '') + '</div>'
+        + T.UP_KEYS.map(function (key) { var cost = T.upCost(key, h.up[key]); return '<div class="uprow"><span class="k">' + T.UP_NAME[key] + '</span><span class="v">' + val[key] + '</span>' + lvb(h.up[key]) + '<button' + (!cost || c.gold < cost ? ' disabled' : '') + ' onclick="srwUp(\'' + k + '\',\'' + key + '\')">' + (cost ? '💎 ' + cost : '到頂') + '</button></div>'; }).join('')
+        + '<div class="dim" style="font-size:12.5px;margin-top:6px">每級：氣血 +' + T.UP_STEP.hp + '、真元 +' + T.UP_STEP.en + '、護體 +' + T.UP_STEP.arm + '、輕身 +' + T.UP_STEP.mob + '、準頭 +' + T.UP_STEP.aim + '、招式威力 +' + T.UP_STEP.wpn + '。靈石 ' + c.gold + '</div>';
+    }
+    if (tab === 'tr') body = '<div class="dim" style="font-size:13px">花悟道點加修為：每次 +' + T.TRAIN_STEP + '，要 ' + T.TRAIN_COST + ' 點（現在 ' + h.pp + ' 點）。升級也會成長。</div>'
+      + T.TRAIN_KEYS.map(function (key) { return '<div class="uprow"><span class="k">' + T.TRAIN_NAME[key] + '</span><span class="v">' + s[key] + '</span><span class="dim" style="font-size:12px">+' + (h.tr[key] || 0) * T.TRAIN_STEP + '</span><button' + (h.pp < T.TRAIN_COST || (h.tr[key] || 0) >= T.TRAIN_MAX ? ' disabled' : '') + ' onclick="srwTrain(\'' + k + '\',\'' + key + '\')">+' + T.TRAIN_STEP + '（' + T.TRAIN_COST + '）</button></div>'; }).join('')
+      + '<div class="uprow"><span class="k">心力</span><span class="v">' + s.spMax + '</span></div>';
+    if (tab === 'sk') body = '<div class="dim" style="font-size:13px">花悟道點學功法（現在 ' + h.pp + ' 點）。</div>' + Object.keys(T.SKILLS).map(function (sk) {
+      var S2 = T.SKILLS[sk], lv = s.skills[sk] || 0, cost = T.skillCost(c, k, sk);
+      return '<div class="uprow" style="align-items:flex-start"><div style="flex:1"><b>' + S2.n + '</b>' + (lv ? ' <span class="chip gold">Lv' + lv + '</span>' : '') + '<div class="dim" style="font-size:12.5px">' + esc(S2.d) + '</div></div><button' + (!cost || h.pp < cost ? ' disabled' : '') + ' onclick="srwLearn(\'' + k + '\',\'' + sk + '\')">' + (cost ? cost + ' 點' : '學滿') + '</button></div>'; }).join('');
+    if (tab === 'eq') { var inv = Object.keys(c.inv).filter(function (id) { return c.inv[id] > 0; });
+      body = '<div class="dim" style="font-size:13px">每人 ' + T.EQ_SLOTS + ' 格。丹藥類每關能用一次（戰鬥中點她 →「法寶」）。</div>'
+        + '<div class="list">' + [0, 1].map(function (i) { var id = h.eq[i]; return '<div class="box urow"><div>' + (id ? '<b>' + esc(T.ITEMS[id].n) + '</b>　<span class="dim" style="font-size:13px">' + esc(T.ITEMS[id].d) + '</span>' : '<span class="dim">（空）</span>') + '</div>' + (id ? '<button class="btn" style="padding:5px 10px" onclick="srwUneq(\'' + k + '\',' + i + ')">卸下</button>' : '') + '</div>'; }).join('')
+        + (h.eq.length < T.EQ_SLOTS ? inv.map(function (id) { return '<button class="wrow" onclick="srwEq(\'' + k + '\',\'' + id + '\')"><b>' + esc(T.ITEMS[id].n) + '</b><span class="dim" style="font-size:12.5px">' + esc(T.ITEMS[id].d) + '</span><span class="r">×' + c.inv[id] + '　裝上</span></button>'; }).join('') : '') + '</div>'; }
+    if (tab === 'info') body = '<div class="box" style="text-align:left"><b>' + esc(T.TRAITS[H.trait].n) + '</b>　<span class="dim" style="font-size:13px">' + esc(T.TRAITS[H.trait].d) + '</span></div>'
+      + '<div class="list" style="margin-top:8px">' + H.w.map(function (w) { return '<div class="box" style="padding:8px 12px"><b>' + esc(w.n) + '</b>　<span class="dim" style="font-size:12.5px">' + wpnLine(w, s.wpnUp) + '</span></div>'; }).join('') + '</div>'
+      + '<h3 style="margin:12px 0 6px">心訣</h3><div class="list">' + H.sp.map(function (p) { var S2 = T.SPIRITS[p[0]]; return '<div class="box" style="padding:8px 12px' + (h.lv >= p[1] ? '' : ';opacity:.5') + '"><b>' + S2.n + '</b> <span class="dim">心力 ' + S2.c + '</span>' + (h.lv >= p[1] ? '' : ' <span class="chip">Lv' + p[1] + ' 學會</span>') + '<div class="dim" style="font-size:12.5px">' + esc(S2.d) + '</div></div>'; }).join('') + '</div>';
+    openOv('<b style="color:var(--gold);font-size:17px">' + esc(Sv.name) + '</b>　<span class="dim">Lv ' + h.lv + '・經驗 ' + h.exp + '/' + T.EXP_LV + '・擊破 ' + h.kills + '</span>'
+      + '<div class="dim" style="font-size:12.5px;margin:4px 0 8px">近戰 ' + s.mel + '・術法 ' + s.rng + '・命中 ' + s.hit + '・迴避 ' + s.eva + '・悟性 ' + s.skl + '・防禦 ' + s.def + '・腳程 ' + s.mv + '・體積 ' + T.SIZE_NAME[s.size] + (s.fly ? '・飛行' : '') + '</div>' + head + body);
+  }
+  function wpnLine(w, up) {
+    var a = ['威力 ' + (w.p + (up || 0) * T.UP_STEP.wpn), '射程 ' + (w.map ? (w.map.shape === 'burst' ? '自身周圍 ' + w.map.r : w.r[0] + '–' + w.r[1] + '（範圍 ' + w.map.r + '）') : w.r[0] === w.r[1] ? w.r[0] : w.r[0] + '–' + w.r[1])];
+    if (w.hit) a.push('命中 ' + (w.hit > 0 ? '+' : '') + w.hit); if (w.crit) a.push('爆擊 +' + w.crit);
+    if (w.en) a.push('真元 ' + w.en); if (w.ammo) a.push('次數 ' + w.ammo); if (w.will) a.push('戰意 ' + w.will);
+    if (w.mv) a.push('➚移動後可用'); if (w.mel) a.push('近戰');
+    if (w.map) a.push('陣法（對方不能還手）'); if (w.combo) a.push('合擊：' + G.SERVANTS[w.combo].name + '在旁邊');
+    if (w.ding) a.push('定身 +' + w.ding); if (w.poison) a.push('毒 +' + w.poison); if (w.vsDing) a.push('打定身的 ×1.3'); if (w.vsPoison) a.push('毒越多越痛'); if (w.drain) a.push('吸血'); if (w.sap) a.push('戰意 −' + w.sap); if (w.pierce) a.push('無視招架');
+    return a.join('・');
+  }
+  function srwUp(k, key) { var e = T.upgrade(run, k, key); if (e) toast(e, 'err'); save(); heroSheet(k); }
+  function srwTrain(k, key) { var e = T.train(run, k, key); if (e) toast(e, 'err'); save(); heroSheet(k); }
+  function srwLearn(k, sk) { var e = T.learn(run, k, sk); if (e) toast(e, 'err'); else toast('學會' + T.SKILLS[sk].n); save(); heroSheet(k); }
+  function srwEq(k, id) { var e = T.equip(run, k, id); if (e) toast(e, 'err'); save(); heroSheet(k); }
+  function srwUneq(k, i) { T.unequip(run, k, i); save(); heroSheet(k); }
+  function srwSortie() { closeOv(); T.startStage(run); SUI = { mode: 'idle' }; save(); render(); setTimeout(function () { banner('我方階段'); }, 200); }
+
+  // ── 地圖戰 ──
+  function tsize(b) { var W = T.stageOf(b).map[0].length; return Math.max(30, Math.floor(Math.min(48, (Math.min(window.innerWidth || 400, 640) - 18) / W))); }
+  function srwBattleScreen() {
+    var b = sB(), S = T.stageOf(b), W = S.map[0].length, ts = tsize(b);
+    var top = '<div class="sbtop"><b>' + stageNo(S) + '・' + esc(S.n) + '</b><span class="ph ' + b.phase + '">第 ' + b.turn + ' 回合・' + (b.phase === 'p' ? '我方' : '敵方') + '</span>'
+      + '<span class="sp"><button onclick="srwMenu()">≡ 選單</button></span></div>';
+    var tiles = '';
+    S.map.forEach(function (row, y) { for (var x = 0; x < row.length; x++) tiles += '<div class="' + tcls(row[x]) + '" id="tl' + x + '_' + y + '" onclick="srwTap(' + x + ',' + y + ')"></div>'; });
+    $('app').innerHTML = '<div class="sbw">' + top + '<div class="sbmapw"><div class="sbmap ' + bgOf(S) + '" id="sbmap" style="--ts:' + ts + 'px;grid-template-columns:repeat(' + W + ',' + ts + 'px)">' + tiles + '<div class="sbunits" id="sbunits"></div></div></div><div class="sbinfo" id="sbinfo"></div></div>';
+    srwDraw();
+  }
+  function tcls(ch) { return 'tl t-' + ({ '.': 'p', '#': 'wall' }[ch] || ch); }   // 地形格子的 class（. 與 # 不能直接當 class 名）
+  // 重畫：格子上的範圍、單位、下方資訊
+  function srwDraw() {
+    var b = sB(); if (!b || !$('sbmap')) return;
+    var S = T.stageOf(b), sel = SUI.sel && T.byUid(b, SUI.sel);
+    S.map.forEach(function (row, y) { for (var x = 0; x < row.length; x++) { var el = $('tl' + x + '_' + y), k = x + ',' + y, cl = tcls(row[x]);
+      if (SUI.R && SUI.R[k] != null) cl += ' mv';
+      if (SUI.ar && SUI.ar[k]) cl += ' ar';
+      if (SUI.dz && SUI.dz[k]) cl += ' dz';
+      if (SUI.tg && SUI.tg[k]) cl += ' tg';
+      if (SUI.mc && SUI.mc[k]) cl += ' mc';
+      if (SUI.ma && SUI.ma[k]) cl += ' ma';
+      el.className = cl; } });
+    drawUnits();
+    $('sbinfo').innerHTML = infoHtml2(b, sel);
+  }
+  function drawUnits() {
+    var b = sB(), box = $('sbunits'); if (!b || !box) return;
+    var ts = tsize(b), have = {};
+    Array.prototype.forEach.call(box.children, function (el) { have[el.getAttribute('data-uid')] = el; });
+    b.units.forEach(function (u) {
+      var el = have[u.uid]; delete have[u.uid];
+      if (!T.live(u)) { if (el) { el.classList.add('gone'); setTimeout(function () { if (el.parentNode) el.remove(); }, 450); } return; }
+      if (!el) { el = document.createElement('div'); el.setAttribute('data-uid', u.uid); box.appendChild(el); el.innerHTML = portrait(u, 'pf') + '<span class="hb"><i></i></span><span class="bd" style="display:none"></span><span class="bd psn" style="display:none"></span>'; }
+      el.className = 'un ' + u.side + (u.boss ? ' boss' : u.rank === 'e' ? ' elite' : '') + (u.side === 'p' && u.acted && b.phase === 'p' ? ' acted' : '') + (SUI.sel === u.uid ? ' selu' : '');
+      el.style.left = (u.x * ts) + 'px'; el.style.top = (u.y * ts) + 'px';
+      el.querySelector('.hb i').style.width = Math.max(0, Math.round(100 * u.hp / u.hpMax)) + '%';
+      var bd = el.querySelectorAll('.bd'); bd[0].style.display = u.stun || u.ding ? '' : 'none'; bd[0].textContent = u.stun ? '停' : '定' + u.ding; bd[1].style.display = u.poison ? '' : 'none'; bd[1].textContent = '毒' + u.poison;
+    });
+    Object.keys(have).forEach(function (k) { have[k].remove(); });
+  }
+  function bar(cls, v, m, lab) { return '<div class="mbar ' + cls + '"><i style="width:' + Math.max(0, Math.round(100 * v / m)) + '%"></i><span>' + lab + ' ' + v + '/' + m + '</span></div>'; }
+  function infoHtml2(b, u) {
+    var acts = '';
+    if (b.over) return '<div class="hint">' + (b.over === 'win' ? '勝利！' : '敗北……') + '</div><div class="acts"><button class="btn go" onclick="srwFinish()">結算</button></div>';
+    if (b.phase !== 'p') return '<div class="hint">敵方行動中…</div>';
+    if (!u) {
+      var left = T.units(b, 'p').filter(function (v) { return !v.acted; }).length;
+      return '<div class="hint">點自己人移動、行動；點敵人看它的數值與攻擊範圍。還有 ' + left + ' 人沒行動。</div><div class="acts"><button class="btn" onclick="srwNextUnit()">下一位</button><button class="btn go" onclick="srwEndTurn()">結束回合</button></div>';
+    }
+    var t = T.terr(b, u.x, u.y), ter = u.fly ? '飛行中' : t.n + (t.eva || t.def ? '（迴避 ' + (t.eva >= 0 ? '+' : '') + t.eva + '、防禦 ' + (t.def >= 0 ? '+' : '') + t.def + '%）' : '');
+    var stx = [];
+    if (u.side === 'p') { ['ningshen', 'dongming', 'taying', 'pofu', 'guzhu', 'jinshen', 'suodi', 'fuyuan', 'qinxiu', 'tuojin'].forEach(function (k) { if (u.st[k]) stx.push(T.SPIRITS[k].n); }); if (u.trait === 'longqi' && u.grow) stx.push('阿白長大 ' + u.grow); if (u.trait === 'yujian') stx.push('飛劍 ' + (u.ammo.feijian || 0)); if (u.revive) stx.push('千杯不倒'); if (u.ambush) stx.push('隱蠱'); }
+    else { if (u.stun) stx.push('動彈不得'); if (u.ding) stx.push('定身 ' + u.ding + '/' + T.stunAt(u)); if (u.poison) stx.push('毒 ' + u.poison); if (u.lives) stx.push('還能站起來 ' + u.lives + ' 次'); if (u.retreat) stx.push('半血會退走'); if (u.regen) stx.push('每階段回 ' + Math.round(u.regen * 100) + '% 氣血'); if (u.hold && !u.woke) stx.push('守著不動'); }
+    var info = '<div class="uinfo">' + portrait(u, 'pf2') + '<div style="flex:1;min-width:0"><div class="nm">' + esc(u.name) + '<small>Lv ' + u.lv + (u.side === 'e' ? '・' + (u.boss ? '魔王' : u.rank === 'e' ? '精英' : '妖物') : '') + '・' + T.SIZE_NAME[u.size] + '</small></div>'
+      + '<div class="bars">' + bar(u.side === 'e' ? 'e' : '', u.hp, u.hpMax, '氣血') + (u.side === 'p' ? bar('en', u.en, u.enMax, '真元') : '') + '</div>'
+      + '<div class="st"><span>戰意 ' + u.will + '</span>' + (u.side === 'p' ? '<span>心力 ' + u.sp + '/' + u.spMax + '</span>' : '') + '<span>腳程 ' + T.curMv(u) + '</span><span>' + esc(ter) + '</span>' + (stx.length ? '<span style="color:var(--gold)">' + esc(stx.join('・')) + '</span>' : '') + '</div></div></div>';
+    if (u.side === 'e') return info + '<div class="hint">紅色是它這回合打得到的範圍。</div><div class="acts"><button class="btn" onclick="foeSheet(\'' + u.uid + '\')">招式</button><button class="btn" onclick="srwCancel()">關閉</button></div>';
+    if (u.acted && SUI.mode !== 'move2') return info + '<div class="hint">這回合已經行動過了。</div><div class="acts"><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwCancel()">關閉</button></div>';
+    if (SUI.mode === 'move2') return info + '<div class="hint">游擊：還能移動（點藍色格子）。</div><div class="acts"><button class="btn" onclick="srwCancel()">不移動</button></div>';
+    if (SUI.mode === 'move') return info + '<div class="hint">點藍色格子移動；點她自己＝原地行動。</div><div class="acts"><button class="btn" onclick="srwStay()">原地行動</button><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwItem()">法寶</button><button class="btn" onclick="srwCancel()">取消</button></div>';
+    if (SUI.mode === 'act') { var hasMap = u.w.some(function (_, i) { return T.W(u, i).map; });
+      return info + '<div class="acts"><button class="btn go" onclick="srwWeapons()">攻擊</button><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwItem()">法寶</button><button class="btn" onclick="srwWait()">待機</button>' + (u.moveDone && u.moved ? '<button class="btn" onclick="srwUndo()">回原位</button>' : '') + '</div>'; }
+    if (SUI.mode === 'target') return info + '<div class="hint">點閃著的敵人出手（' + esc(T.W(u, SUI.wi).n) + '）。</div><div class="acts"><button class="btn" onclick="srwBackAct()">換招式</button></div>';
+    if (SUI.mode === 'mapaim') return info + '<div class="hint">' + (SUI.cen ? '橘色是範圍：打到 ' + (SUI.mt || []).length + ' 個。' : '點黃色格子選陣法的中心。') + '</div><div class="acts">' + (SUI.cen ? '<button class="btn go" onclick="srwMapGo()">發動</button>' : '') + '<button class="btn" onclick="srwBackAct()">換招式</button></div>';
+    if (SUI.mode === 'sptarget') return info + '<div class="hint">點要施展「' + T.SPIRITS[SUI.sp].n + '」的對象。</div><div class="acts"><button class="btn" onclick="srwCancelSp()">取消</button></div>';
+    return info;
+  }
+  function clearHl() { SUI.R = null; SUI.ar = null; SUI.tg = null; SUI.dz = null; SUI.mc = null; SUI.ma = null; SUI.cen = null; SUI.mt = null; }
+  function threat(b, e) { var R = T.moveRange(b, e), out = {}, mx = 0, S = T.stageOf(b); e.w.forEach(function (_, i) { var w = T.W(e, i); if (!w.map) mx = Math.max(mx, w.r[1]); }); if (e.hold && !e.woke && !e.tr) R = {}; R[e.x + ',' + e.y] = 0;
+    Object.keys(R).forEach(function (k) { var p = k.split(','), x0 = +p[0], y0 = +p[1]; for (var y = 0; y < S.map.length; y++) for (var x = 0; x < S.map[0].length; x++) if (Math.abs(x - x0) + Math.abs(y - y0) <= mx) out[x + ',' + y] = 1; }); return out; }
+  function srwTap(x, y) {
+    var b = sB(); if (!b || busy || b.over || b.phase !== 'p') return;
+    var u = SUI.sel && T.byUid(b, SUI.sel), o = T.unitAt(b, x, y), k = x + ',' + y;
+    if (SUI.mode === 'move' && u) {
+      if (o === u) return srwStay();
+      if (SUI.R && SUI.R[k] != null) { T.moveTo(run, u, x, y); clearHl(); SUI.mode = 'act'; drawUnits(); return srwDraw(); }
+    }
+    if (SUI.mode === 'move2' && u && SUI.R && SUI.R[k] != null) { T.moveAfter(run, u, x, y); return srwCancel(); }
+    if (SUI.mode === 'target' && u && o && SUI.tg && SUI.tg[k]) return forecastSheet(u, SUI.wi, o);
+    if (SUI.mode === 'mapaim' && u) { if (SUI.mc && SUI.mc[k]) { SUI.cen = [x, y]; var cells = T.mapCells(b, u, T.W(u, SUI.wi), x, y); SUI.ma = {}; cells.forEach(function (p) { SUI.ma[p[0] + ',' + p[1]] = 1; }); SUI.mt = T.mapTargets(b, u, SUI.wi, x, y); return srwDraw(); } return; }
+    if (SUI.mode === 'sptarget' && u && o) { var Sp = T.SPIRITS[SUI.sp]; if ((Sp.t === 'ally' && o.side === 'p') || (Sp.t === 'foe' && o.side === 'e')) { if (T.useSpirit(run, u, SUI.sp, o.uid)) { toast(u.name + '：' + Sp.n + ' → ' + o.name); save(); } SUI.mode = SUI.spBack || 'idle'; if (SUI.mode === 'move') SUI.R = T.moveRange(b, u); return srwDraw(); } return; }
+    if (SUI.mode === 'act' && u) return;   // 移動完要先選動作（或回原位）
+    // 選人
+    clearHl();
+    if (!o) { SUI.sel = null; SUI.mode = 'idle'; return srwDraw(); }
+    SUI.sel = o.uid;
+    if (o.side === 'p' && !o.acted) { SUI.mode = 'move'; SUI.R = T.moveRange(b, o); }
+    else if (o.side === 'e') { SUI.mode = 'idle'; SUI.dz = threat(b, o); }
+    else SUI.mode = 'idle';
+    srwDraw();
+  }
+  function srwStay() { var b = sB(), u = T.byUid(b, SUI.sel); if (!u) return; T.moveTo(run, u, u.x, u.y); clearHl(); SUI.mode = 'act'; srwDraw(); }
+  function srwUndo() { var b = sB(), u = T.byUid(b, SUI.sel); if (!u) return; T.undoMove(run, u); clearHl(); SUI.mode = 'move'; SUI.R = T.moveRange(b, u); srwDraw(); }
+  function srwCancel() { var b = sB(), u = SUI.sel && T.byUid(b, SUI.sel); if (u && SUI.mode === 'act') T.undoMove(run, u); clearHl(); SUI.sel = null; SUI.mode = 'idle'; srwDraw(); }
+  function srwBackAct() { clearHl(); SUI.mode = 'act'; srwDraw(); srwWeapons(); }
+  function srwNextUnit() { var b = sB(), list = T.units(b, 'p').filter(function (v) { return !v.acted; }); if (!list.length) return; var u = list[0]; clearHl(); SUI.sel = u.uid; SUI.mode = 'move'; SUI.R = T.moveRange(b, u); srwDraw(); }
+  function srwWait() { var b = sB(), u = T.byUid(b, SUI.sel); T.wait(run, u); clearHl(); SUI.sel = null; SUI.mode = 'idle'; save(); afterAction(); }
+  function srwWeapons() {
+    var b = sB(), u = T.byUid(b, SUI.sel), moved = !!u.moved;
+    openOv('<b style="color:var(--gold)">' + esc(u.name) + '的招式</b>　<span class="dim" style="font-size:13px">戰意 ' + u.will + '・真元 ' + u.en + '</span><div class="list" style="margin-top:10px">' + u.w.map(function (_, i) {
+      var w = T.W(u, i), why = T.whyNot(b, u, i, moved), n = w.map ? '' : T.targetsFrom(b, u, i, u.x, u.y).length;
+      if (!why && !w.map && !n) why = '射程內沒有敵人';
+      return '<button class="wrow"' + (why ? ' disabled' : ' onclick="srwPickW(' + i + ')"') + '><div><b>' + esc(w.n) + '</b>' + (w.ammo ? ' <span class="dim">（剩 ' + (u.ammo[w.id] || 0) + '）</span>' : '') + '<div class="dim" style="font-size:12px">' + wpnLine(w, u.wpnUp) + '</div>' + (why ? '<div class="why">' + esc(why) + '</div>' : '') + '</div></button>'; }).join('') + '</div>');
+  }
+  function srwPickW(i) {
+    closeOv(); var b = sB(), u = T.byUid(b, SUI.sel), w = T.W(u, i); SUI.wi = i; clearHl();
+    if (w.map) {
+      SUI.mode = 'mapaim'; SUI.mc = {};
+      if (w.map.shape === 'burst') { SUI.mc[u.x + ',' + u.y] = 1; srwTap(u.x, u.y); return; }
+      var S = T.stageOf(b); for (var y = 0; y < S.map.length; y++) for (var x = 0; x < S.map[0].length; x++) if (T.mapCenterOk(b, u, i, x, y)) SUI.mc[x + ',' + y] = 1;
+      return srwDraw();
+    }
+    SUI.mode = 'target'; SUI.ar = {}; SUI.tg = {};
+    var S2 = T.stageOf(b); for (var yy = 0; yy < S2.map.length; yy++) for (var xx = 0; xx < S2.map[0].length; xx++) if (T.inRange(w, Math.abs(xx - u.x) + Math.abs(yy - u.y))) SUI.ar[xx + ',' + yy] = 1;
+    T.targetsFrom(b, u, i, u.x, u.y).forEach(function (t) { SUI.tg[t.x + ',' + t.y] = 1; });
+    srwDraw();
+  }
+  // 出手前的預覽
+  function forecastSheet(u, wi, d) {
+    var b = sB(), f = T.forecast(b, u, wi, d), G0 = f.guard && T.byUid(b, f.guard);
+    var resp = f.resp === 'counter' ? '還手：' + esc(f.cw) : f.resp === 'guard' ? '招架（傷害減半）' : '閃身（命中減半）';
+    forecastSheet.go = function (sup) { closeOv(); doAttack(u.uid, wi, d.uid, sup); };
+    openOv('<b style="color:var(--gold)">交手預覽</b><div class="fc" style="margin-top:10px">'
+      + '<div class="side p"><b>' + esc(u.name) + '</b><div class="lab">' + esc(f.w) + '</div><div class="big">' + f.hit + '%</div><div class="lab">命中</div><div class="big" style="font-size:20px">' + f.dmg + '</div><div class="lab">傷害・爆擊 ' + f.crit + '%</div>' + (f.kill ? '<div class="kill">可以擊破</div>' : '') + '</div>'
+      + '<div class="side e"><b>' + esc((G0 || d).name) + '</b>' + (G0 ? '<div class="lab" style="color:var(--gold)">替' + esc(d.name) + '掩護</div>' : '') + '<div class="lab">' + resp + '</div>' + (f.cw ? '<div class="big">' + f.chit + '%</div><div class="lab">命中</div><div class="big" style="font-size:20px">' + f.cdmg + '</div><div class="lab">傷害・爆擊 ' + f.ccrit + '%</div>' : '<div class="dim" style="margin-top:8px">不能還手</div>') + '<div class="lab" style="margin-top:4px">氣血 ' + (G0 || d).hp + '/' + (G0 || d).hpMax + '</div></div></div>'
+      + (f.sup ? '<div class="box" style="margin-top:8px;padding:8px 12px">助攻：<b>' + esc(f.sup.name) + '</b> 的 ' + esc(f.sup.w) + '・命中 ' + f.sup.hit + '%・傷害 ' + f.sup.dmg + '</div>' : '')
+      + '<div class="row" style="margin-top:12px;justify-content:center;flex-wrap:wrap"><button class="btn go" onclick="forecastSheet.go(true)">出手</button>' + (f.sup ? '<button class="btn" onclick="forecastSheet.go(false)">不要助攻</button>' : '') + '<button class="btn" onclick="closeOv()">取消</button></div>');
+  }
+  function doAttack(au, wi, du, sup) {
+    var b = sB(), u = T.byUid(b, au), d = T.byUid(b, du), snap = snapHp(b);
+    var sc = T.attack(run, u, wi, d, null, { support: sup !== false });
+    clearHl(); SUI.mode = 'idle';
+    playScene(sc, snap, function () {
+      save();
+      if (T.canMoveAfter(u) && !b.over) { SUI.sel = u.uid; SUI.mode = 'move2'; SUI.R = T.moveRange(b, u); srwDraw(); return; }
+      SUI.sel = null; afterAction();
+    });
+  }
+  function srwMapGo() {
+    var b = sB(), u = T.byUid(b, SUI.sel), snap = snapHp(b), sc = T.mapAttack(run, u, SUI.wi, SUI.cen[0], SUI.cen[1]);
+    clearHl(); SUI.mode = 'idle'; SUI.sel = null;
+    playScene(sc, snap, function () { save(); afterAction(); });
+  }
+  function afterAction() { var b = sB(); srwDraw(); if (b.over) return overBanner(); if (!T.units(b, 'p').some(function (v) { return !v.acted; })) setTimeout(function () { if (!busy && sB() && sB().phase === 'p') srwEndTurn(true); }, 350); }
+  // 心訣
+  function srwSpirit() {
+    var b = sB(), u = T.byUid(b, SUI.sel);
+    openOv('<b style="color:var(--gold)">' + esc(u.name) + '的心訣</b>　<span class="dim">心力 ' + u.sp + '/' + u.spMax + '</span><div class="list" style="margin-top:10px">' + (u.spirits || []).map(function (k) {
+      var S2 = T.SPIRITS[k], c2 = T.spCost(u, k), ok = T.canSpirit(b, u, k), on = u.st[k];
+      return '<button class="wrow"' + (ok ? ' onclick="srwUseSp(\'' + k + '\')"' : ' disabled') + '><div><b>' + S2.n + '</b>' + (on ? ' <span class="chip gold">生效中</span>' : '') + '<div class="dim" style="font-size:12.5px">' + esc(S2.d) + '</div></div><span class="r">心力 ' + c2 + '</span></button>'; }).join('') + '</div>');
+  }
+  function srwUseSp(k) {
+    closeOv(); var b = sB(), u = T.byUid(b, SUI.sel), S2 = T.SPIRITS[k];
+    if (S2.t !== 'self') { SUI.spBack = SUI.mode; SUI.mode = 'sptarget'; SUI.sp = k; clearHl(); return srwDraw(); }
+    if (T.useSpirit(run, u, k)) { toast(u.name + '：' + S2.n); save(); }
+    if (k === 'chengshi') { clearHl(); SUI.mode = 'move'; SUI.R = T.moveRange(b, u); }
+    else if (SUI.mode === 'move') SUI.R = T.moveRange(b, u);
+    srwDraw();
+  }
+  function srwCancelSp() { var b = sB(), u = T.byUid(b, SUI.sel); SUI.mode = SUI.spBack || 'idle'; if (SUI.mode === 'move' && u) SUI.R = T.moveRange(b, u); srwDraw(); }
+  function srwItem() {
+    var b = sB(), u = T.byUid(b, SUI.sel), list = (u.eq || []).filter(function (id) { return T.ITEMS[id].use; });
+    openOv('<b style="color:var(--gold)">' + esc(u.name) + '的法寶</b><div class="list" style="margin-top:10px">' + (list.length ? list.map(function (id) { var I = T.ITEMS[id]; return '<button class="wrow"' + (u.used[id] ? ' disabled' : ' onclick="srwUseItem(\'' + id + '\')"') + '><div><b>' + esc(I.n) + '</b><div class="dim" style="font-size:12.5px">' + esc(I.d) + '</div></div><span class="r">' + (u.used[id] ? '這關用過了' : '使用') + '</span></button>'; }).join('') : '<div class="dim">她身上沒有能用的丹藥。整備時可以在「人物」裡裝上。</div>') + '</div>');
+  }
+  function srwUseItem(id) { closeOv(); var b = sB(), u = T.byUid(b, SUI.sel); if (T.useItem(run, u, id)) { toast(u.name + '用了' + T.ITEMS[id].n); save(); } srwDraw(); }
+  function foeSheet(uid) {
+    var b = sB(), e = T.byUid(b, uid);
+    openOv('<b style="color:var(--gold)">' + esc(e.name) + '</b>　<span class="dim">Lv ' + e.lv + '</span><div class="dim" style="font-size:12.5px;margin:4px 0 8px">氣血 ' + e.hp + '/' + e.hpMax + '・護體 ' + e.arm + '・輕身 ' + Math.max(0, e.mob - 10 * e.ding) + '・準頭 ' + e.aim + '・腳程 ' + e.mv + (e.fly ? '・飛行' : '') + '</div><div class="list">'
+      + e.w.map(function (_, i) { var w = T.W(e, i); return '<div class="box" style="padding:8px 12px"><b>' + esc(w.n) + '</b><div class="dim" style="font-size:12.5px">' + wpnLine(w, 0) + '</div></div>'; }).join('') + '<div class="box dim" style="font-size:13px">' + keepTail(esc(G.LORE[e.id] || '')) + '</div></div>');
+  }
+  function srwMenu() {
+    var s = srwSet();
+    openOv('<b style="color:var(--gold)">選單</b><div class="list" style="margin-top:10px">'
+      + '<button onclick="closeOv();srwEndTurn()">結束回合</button>'
+      + '<button onclick="srwToggle(\'anim\')">交手動畫：' + (s.anim ? '開' : '關') + '</button>'
+      + '<button onclick="srwToggle(\'autoDef\')">敵方階段自動應戰：' + (s.autoDef ? '開' : '關（每次自己選）') + '</button>'
+      + '<button onclick="closeOv();srwAutoTurn()">這回合交給自動（我方）</button>'
+      + '<button onclick="closeOv();showHelp()">說明</button>'
+      + '<button onclick="confirmOv(\'放棄這一關？經驗與靈石會留著，可以重打。\',srwGiveUp)">放棄這一關</button>'
+      + '<button onclick="closeOv();run=null;titleScreen()">回標題（存著，之後接著打）</button></div>');
+  }
+  function srwToggle(k) { var s = srwSet(); s[k] = s[k] ? 0 : 1; queueSave(true, false); srwMenu(); }
+  function srwGiveUp() { var b = sB(); b.over = 'lose'; srwFinish(); }
+  function srwAutoTurn() {
+    var b = sB(); if (busy || b.phase !== 'p') return; busy = true;
+    var list = T.units(b, 'p').filter(function (v) { return !v.acted; });
+    (function next() {
+      if (!list.length || b.over) { busy = false; save(); return afterAction(); }
+      var u = list.shift(), snap = snapHp(b), sc = T.autoUnit(run, u); drawUnits();
+      if (sc) playScene(sc, snap, next); else setTimeout(next, 200);
+    })();
+  }
+
+  // ── 敵方階段 ──
+  function srwEndTurn(auto) {
+    var b = sB(); if (busy || b.phase !== 'p' || b.over) return;
+    var left = T.units(b, 'p').filter(function (v) { return !v.acted; }).length;
+    if (!auto && left) return confirmOv('還有 ' + left + ' 人沒行動，結束回合？', function () { goEnemy(); });
+    goEnemy();
+  }
+  function goEnemy() {
+    var b = sB(); clearHl(); SUI.sel = null; SUI.mode = 'idle';
+    T.endPlayerPhase(run); busy = true; srwBattleScreen(); banner('敵方階段', 'e');
+    (b.ticks || []).forEach(function (t) { var el = document.querySelector('.un[data-uid="' + t.uid + '"]'); if (el) popAt(el, '毒 −' + t.dmg, 'dmg'); }); b.ticks = [];
+    setTimeout(enemyStep, 1000);
+  }
+  function enemyStep() {
+    var b = sB(); if (!b) { busy = false; return; }
+    if (b.over) { busy = false; save(); srwDraw(); return overBanner(); }
+    var plan = T.enemyNext(run);
+    if (!plan) { T.enemyDone(run); busy = false; save(); srwBattleScreen(); if (b.over) return overBanner(); banner('我方階段'); return; }
+    var e = T.byUid(b, plan.uid);
+    T.enemyMove(run, plan); drawUnits();
+    var go = function () {
+      if (plan.stun) { var el = document.querySelector('.un[data-uid="' + plan.uid + '"]'); if (el) popAt(el, '動彈不得', 'blk'); return setTimeout(enemyStep, 500); }
+      if (!plan.target && !plan.map) return setTimeout(enemyStep, 120);
+      if (plan.map) { var snap = snapHp(b), sc = T.enemyAct(run, plan); return playScene(sc, snap, function () { srwDraw(); setTimeout(enemyStep, 150); }); }
+      var t = T.byUid(b, plan.target);
+      if (srwSet().autoDef) return defend(plan, T.bestResp(b, e, plan.wi, t));
+      defenseSheet(plan);
+    };
+    setTimeout(go, plan.x !== e.x || plan.y !== e.y ? 380 : 120);
+  }
+  function defend(plan, resp) { window.NO_ESC = 0; $('ov').onclick = function (ev) { if (ev.target === this) closeOv(); }; closeOv(); var b = sB(), snap = snapHp(b), sc = T.enemyAct(run, plan, resp); playScene(sc, snap, function () { srwDraw(); setTimeout(enemyStep, 150); }); }
+  // 被打：選還手／招架／閃身
+  function defenseSheet(plan) {
+    var b = sB(), e = T.byUid(b, plan.uid), t = T.byUid(b, plan.target), rec = T.bestResp(b, e, plan.wi, t), ci = T.counterWpn(b, t, e);
+    var opt = function (resp, label) {
+      var f = T.forecast(b, e, plan.wi, t, resp), g = f.guard && T.byUid(b, f.guard);
+      var sub = '對方命中 ' + f.hit + '%・傷害 ' + f.dmg + (f.kill ? '（會倒下）' : '') + (f.cw ? '｜還手 ' + esc(f.cw) + ' 命中 ' + f.chit + '%・傷害 ' + f.cdmg : '');
+      return '<button class="' + (resp === rec ? 'rec' : '') + '" onclick="defend(defenseSheet.plan,\'' + resp + '\')"><b>' + label + (g ? '（' + esc(g.name) + '掩護）' : '') + '</b>' + (resp === rec ? ' <span class="chip gold">建議</span>' : '') + '<small>' + sub + '</small></button>';
+    };
+    defenseSheet.plan = plan; window.NO_ESC = 1;
+    openOv('<b style="color:#ffb0b0">' + esc(e.name) + '</b> 用「' + esc(T.W(e, plan.wi).n) + '」打 <b>' + esc(t.name) + '</b><div class="dim" style="font-size:12.5px;margin:2px 0 8px">' + esc(t.name) + ' 氣血 ' + t.hp + '/' + t.hpMax + '・戰意 ' + t.will + '</div><div class="resp">'
+      + (ci >= 0 ? opt('counter', '還手') : '') + opt('guard', '招架') + opt('evade', '閃身') + '</div>');
+    $('ov').onclick = function () { };   // 一定要選一個（點外面、按 Esc 都不關）
+    var x = document.querySelector('#sheet .ovx'); if (x) x.style.display = 'none';
+  }
+
+  // ── 交手的動畫 ──
+  function snapHp(b) { var o = {}; b.units.forEach(function (u) { o[u.uid] = u.hp; }); return o; }
+  function playScene(sc, snap, cb) {
+    var b = sB(); if (!sc || !sc.steps || !sc.steps.length) { drawUnits(); return cb(); }
+    var done = false, finish = function () { if (done) return; done = true; var ov = $('bsc'); if (ov) ov.remove(); busy = wasBusy; drawUnits(); srwDraw(); cb(); };
+    var wasBusy = busy; busy = true;
+    if (!srwSet().anim || CALM) { sc.steps.forEach(function (s) { var el = document.querySelector('.un[data-uid="' + s.d + '"]'); if (el) popAt(el, s.hit ? String(s.dmg) : '閃過', s.hit ? 'dmg' : 'blk'); }); drawUnits(); return setTimeout(finish, 450); }
+    var hp = {}; Object.keys(snap).forEach(function (k) { hp[k] = snap[k]; });
+    var heroId = null, foeId = null;
+    sc.steps.forEach(function (s) { [s.a, s.d].forEach(function (id) { var u = T.byUid(b, id); if (!u) return; if (u.side === 'p' && !heroId) heroId = id; if (u.side === 'e' && !foeId) foeId = id; }); });
+    var S = T.stageOf(b), ov = document.createElement('div'); ov.className = 'bsc'; ov.id = 'bsc'; ov.onclick = finish;
+    var side = function (uid, cls) { var u = T.byUid(b, uid); if (!u) return '<div class="side ' + cls + '"></div>';
+      return '<div class="side ' + cls + '" data-uid="' + uid + '"><div class="fig ' + (cls === 'me' ? 'me' : '') + '">' + FIG.fig(u.id, u.side === 'e', { swords: (u.ammo && u.ammo.feijian) || 0 }) + '</div><div class="who">' + esc(u.name) + '</div>' + bar(u.side === 'e' ? 'e' : '', hp[uid], u.hpMax, '') + '</div>'; };
+    ov.innerHTML = '<div id="stage" class="' + bgOf(S) + '">' + FIG.scene({ act: S.bg === 'abyss' ? 3 : S.bg === 'city' ? 2 : 1 }) + side(heroId, 'me') + '<div style="flex:1"></div>' + side(foeId, 'foe') + '<div class="wname" id="bscw"></div></div><div class="skip">點一下跳過</div>';
+    document.body.appendChild(ov);
+    var i = 0;
+    (function step() {
+      if (done) return; if (i >= sc.steps.length) return setTimeout(finish, 650);
+      var s = sc.steps[i++], A = T.byUid(b, s.a), D = T.byUid(b, s.d);
+      // 助攻、掩護的人換上場
+      [[s.a, A], [s.d, D]].forEach(function (p) { var u = p[1]; if (!u) return; var cls = u.side === 'p' ? 'me' : 'foe', el = ov.querySelector('.side.' + cls); if (el && el.getAttribute('data-uid') !== p[0]) { var tmp = document.createElement('div'); tmp.innerHTML = side(p[0], cls); el.replaceWith(tmp.firstChild); } });
+      var tag = s.tag === 'counter' ? '還手' : s.tag === 'support' ? '助攻' : s.tag === 'map' ? '陣法' : '';
+      $('bscw').innerHTML = esc(s.w) + '<small>' + esc(A.name) + (tag ? '・' + tag : '') + (s.resp === 'guard' ? '｜' + esc(D.name) + '招架' : s.resp === 'evade' ? '｜' + esc(D.name) + '閃身' : '') + '</small>';
+      var aEl = ov.querySelector('.side[data-uid="' + s.a + '"] .fig'), dSide = ov.querySelector('.side[data-uid="' + s.d + '"]'), dEl = dSide && dSide.querySelector('.fig');
+      if (aEl) { aEl.classList.remove('lunge-r', 'lunge-l'); void aEl.offsetWidth; aEl.classList.add(A.side === 'p' ? 'lunge-r' : 'lunge-l'); }
+      setTimeout(function () {
+        if (done) return;
+        if (s.hit) {
+          hp[s.d] = Math.max(0, hp[s.d] - s.dmg); if (s.revive || s.retreat) hp[s.d] = D.hp; if (s.drain) hp[s.a] = Math.min(A.hpMax, hp[s.a] + s.drain);
+          if (dEl) { dEl.classList.remove('hurt2'); void dEl.offsetWidth; dEl.classList.add('hurt2'); }
+          if (dSide) { dSide.querySelector('.mbar').outerHTML = bar(D.side === 'e' ? 'e' : '', hp[s.d], D.hpMax, ''); popAt(dSide, (s.crit ? '爆擊 ' : '') + s.dmg, s.crit ? 'crit' : 'dmg'); }
+          if (s.kill && dSide) setTimeout(function () { popAt(dSide, '擊破', 'ko'); if (dEl) dEl.style.opacity = '.2'; }, 320);
+          if (s.revive && dSide) setTimeout(function () { popAt(dSide, D.id === 'chilian' ? '千杯不倒！' : '又站起來了', 'heal'); }, 320);
+          if (s.retreat && dSide) setTimeout(function () { popAt(dSide, '退走', 'blk'); }, 320);
+          if (s.stun && dSide) setTimeout(function () { popAt(dSide, '定住了', 'gain'); }, 360);
+        } else if (dSide) popAt(dSide, s.taying ? '踏影' : '閃過', 'blk');
+        setTimeout(step, s.kill ? 900 : 650);
+      }, 300);
+    })();
+  }
+  function banner(t, cls) { var el = document.createElement('div'); el.className = 'banner' + (cls ? ' ' + cls : ''); el.textContent = t; document.body.appendChild(el); setTimeout(function () { el.remove(); }, 1300); }
+  function overBanner() { var b = sB(); banner(b.over === 'win' ? '勝利' : '敗北', b.over === 'win' ? '' : 'e'); srwDraw(); }
+
+  // ── 結算 ──
+  function srwFinish() {
+    closeOv(); var b = sB(), S = T.stageOf(b), r = T.finishStage(run);
+    srvLogStage(S, r);
+    if (r.win && S.idx === T.STAGES.length - 1) campaignClear();
+    save(); render();
+  }
+  function srvLogStage(S, r) { try { var lv = S.heroes.map(function (h) { return run.heroes[h[0]].lv; }); srv('gpStageLog', [ACC.name, ACC.token, { stage: S.id + ' ' + S.n, result: r.win ? '勝利' : '敗北', turns: r.turns, lv: (lv.reduce(function (a, x) { return a + x; }, 0) / lv.length).toFixed(1), gold: run.gold, merit: r.merit ? 1 : 0, total: run.turns }], function () { }, function () { }); } catch (e) { } }
+  function campaignClear() {
+    var M = META; M.endings = M.endings || {}; M.clears = M.clears || {};
+    T.ORDER.forEach(function (k) { M.endings[k] = 1; M.clears[k] = M.clears[k] || {}; M.clears[k].normal = 1; M.stats.best[k] = '封魘'; });
+    M.stats.wins = (M.stats.wins || 0) + 1; M.stats.trueEnds = (M.stats.trueEnds || 0) + 1;
+    queueSave(true, false);
+  }
+  function resultScreen() {
+    var r = run.result, S = T.STAGES.filter(function (x) { return x.id === r.stage; })[0];
+    var rows = Object.keys(r.gain).map(function (k) { var g = r.gain[k]; return '<div class="box gain">' + portrait({ id: k, side: 'p', name: G.SERVANTS[k].name }, 'pf2') + '<div style="flex:1"><b>' + esc(G.SERVANTS[k].name) + '</b> <span class="dim">Lv ' + run.heroes[k].lv + '</span>' + (g.lvUp ? ' <span class="chip gold">升了 ' + g.lvUp + ' 級</span>' : '') + '<div class="dim" style="font-size:12.5px">經驗 +' + g.exp + '・悟道點 +' + g.pp + '・擊破 ' + g.kills + '</div></div></div>'; }).join('');
+    $('app').innerHTML = '<div class="panel res"><h1 style="font-size:24px">' + (r.win ? '勝利' : '敗北') + '</h1><div class="dim">' + stageNo(S) + '・' + esc(S.n) + '・' + r.turns + ' 回合</div>'
+      + '<div class="box" style="text-align:center">💎 擊破 ' + r.gold + (r.clearGold ? '＋過關 ' + r.clearGold : '') + '　現在 ' + run.gold + '</div>'
+      + (r.merit ? '<div class="box" style="text-align:center;border-color:var(--gold)">🏅 功勳達成：拿到<b>' + esc(T.ITEMS[r.item].n) + '</b></div>' : '')
+      + (!r.win ? '<div class="dim" style="text-align:center;text-wrap:balance">經驗、悟道點、靈石都留著。整備一下再來。</div>' : '')
+      + '<div class="list">' + rows + '</div><button class="btn" onclick="T.toPrep(run);save();render()">' + (run.stage >= T.STAGES.length ? '繼續' : '回整備') + '</button></div>';
+  }
+  function endScreen() {
+    $('app').innerHTML = '<div class="panel">' + heroHtml('封魔已畢') + '<div class="lore box" style="text-align:left;max-width:460px">' + keepTail('魘封住了。五篇真結局與尾聲都收進了「劇情」。') + '</div>'
+      + '<div class="menu" style="max-width:460px;width:100%"><button class="mbtn main" onclick="storyScreen(\'end\')"><span class="mi">🏮</span><span><b>看真結局</b><small>五個視角、同一場仗</small></span></button>'
+      + '<button class="mbtn" onclick="confirmOv(\'重新開始戰役？等級、淬鍊、法寶都會重來。\',srwNew)"><span class="mi">⚔</span><span><b>重新開始戰役</b></span></button>'
+      + '<button class="mbtn" onclick="run=null;titleScreen()"><span class="mi">↩</span><span><b>回標題</b></span></button></div></div>';
+  }
+  function srwNew() { run = T.newCampaign(newSeed()); META.stats.runs = (META.stats.runs || 0) + 1; queueSave(true, false); save(); render(); }
+  function srwRender() {
+    var s = run.screen;
+    if (s === 'prep') return prepScreen();
+    if (s === 'battle') {
+      srwBattleScreen();
+      var b = sB(); if (b && b.phase === 'e' && !b.over && !busy) { busy = true; setTimeout(enemyStep, 600); }   // 敵方階段中途重新整理：接著讓敵人動
+      return;
+    }
+    if (s === 'result') return resultScreen();
+    if (s === 'end') return endScreen();
+    return prepScreen();
+  }
+  // 新手提示（戰棋）：每個只跳一次，跟以前的卡牌提示分開記（老玩家也沒看過戰棋）
+  var SRW_TIPS = {
+    prep: ['整備', '每一關打之前在這裡整備：<b>淬鍊</b>花靈石強化氣血、護體、輕身這些身法器；<b>修為</b>與<b>功法</b>花悟道點；<b>法寶</b>每人兩格。準備好就按「出擊」。'],
+    battle: ['地圖戰', '點自己人，藍色格子是走得到的地方；走完再選攻擊、心訣或待機。每人一回合動一次，全部動完（或按「結束回合」）換敵人。<br>點敵人看它的數值，紅色是它打得到的範圍。'],
+    forecast: ['交手預覽', '出手前會先看到雙方的命中率與傷害。被打的一方會還手（射程夠的話），所以先想好誰去打誰。'],
+    defense: ['被打的時候', '敵人打過來時妳可以選：<b>還手</b>、<b>招架</b>（傷害減半）、<b>閃身</b>（對方命中減半）。金框是建議。<br>選單裡可以開「自動應戰」。'],
+    spirit: ['心訣', '每人有自己的心訣，花心力發動：洞明（必中）、破釜（傷害兩倍）、金身（傷害四分之一）……心力每回合回一點，關卡之間回滿。'],
+    will: ['戰意', '打中、閃過、挨打、擊破都會讓戰意上升。戰意越高越強，大招要戰意到一定程度才能用。']
+  };
+  function srwTip(id) {
+    if (!META) return false; META.tips2 = META.tips2 || {}; if (META.tips2[id] || $('ov').style.display === 'flex') return false;
+    META.tips2[id] = 1; queueSave(true, false);
+    var Tp = SRW_TIPS[id];
+    openOv('<div class="tipbox"><div class="dim" style="font-size:13px">新手提示</div><h3 style="margin:2px 0 8px">' + Tp[0] + '</h3><div class="lore" style="text-align:left">' + keepTail(Tp[1]) + '</div><div class="row" style="justify-content:center;margin-top:12px"><button class="btn" onclick="closeOv();setTimeout(srwTips,200)">知道了</button></div></div>');
+    return true;
+  }
+  function srwTips() {
+    if (!run || !run.srw) return;
+    setTimeout(function () {
+      if (run.screen === 'prep') return srwTip('prep');
+      if (run.screen === 'battle' && !busy) { var b = sB(); if (srwTip('battle')) return; if (b.turn >= 2 && srwTip('spirit')) return; if (b.turn >= 2 && srwTip('defense')) return; if (b.turn >= 3) srwTip('will'); }
+    }, 500);
+  }
+  var SRW_GLOSSARY = [
+    ['回合', '我方階段：每人移動一次、行動一次（攻擊、心訣、待機）。全部動完換敵方階段。'],
+    ['命中／迴避', '命中率＝（命中 ÷ 2 ＋ 準頭 ＋ 招式命中）−（對方迴避 ÷ 2 ＋ 輕身），再看對方體積與站的地形。同一個階段被打越多次越難閃（每次 +5）。'],
+    ['傷害', '威力 ×（近戰或術法 ＋ 戰意）÷ 200，減掉 護體 ×（防禦 ＋ 戰意）÷ 200。爆擊 ×1.25（看悟性差）。'],
+    ['還手／招架／閃身', '被打的一方三選一：射程夠就能還手；招架傷害減半；閃身讓對方命中減半。'],
+    ['戰意', '出擊 100，最高 150。打中、閃過、挨打 +1，擊破 +4，隊友擊破全隊 +1。戰意同時讓攻擊與防禦變強，大招要戰意到門檻。'],
+    ['心訣', '花心力發動。心力每個我方階段 +3，下一關回滿。'],
+    ['助攻／掩護', '功法。助攻：旁邊的隊友出手後接著補一招。掩護：旁邊的隊友快倒時替她招架。白辰天生掩護 Lv2。'],
+    ['陣法', '範圍招式：範圍裡的敵人都打，對方不能還手。'],
+    ['合擊', '兩個人站在一起才能用的大招：凌霜與赤灼「劍酒雙絕」、青璃與阿朵「符蠱同心」。兩個人都要付真元。'],
+    ['地形', '林：迴避 +15、防禦 +10%；山岩：迴避 +20、防禦 +20%；水：迴避 −10、受傷 +10%；屋舍：防禦 +15%，回合開始回氣血與真元。飛行不吃地形加成，但能越過牆。'],
+    ['體積', '小、中、大、巨。體積越大越好打中（大 ×1.2、巨 ×1.4）。'],
+    ['定身', '青璃的招式打中就貼一層，每層輕身 −10。貼滿門檻（雜兵 2、精英 3、魔王 4）就停一個敵方階段。'],
+    ['毒', '阿朵的蠱：每層在敵方階段開始扣 150 氣血，之後少一層。'],
+    ['淬鍊', '整備時花靈石強化：氣血、真元、護體、輕身、準頭、招式各 10 級。五項（招式以外）都到 5 級：淬鍊圓滿，每人一個專屬獎勵。'],
+    ['修為／功法', '悟道點：擊破與過關拿得到。加修為（命中、迴避……）或學功法。'],
+    ['法寶', '每人兩格：裝備類一直有效；丹藥類每關能用一次。'],
+    ['功勳', '每關一個額外條件（例：幾回合內勝利），達成拿法寶。'],
+    ['輸了', '經驗、悟道點、靈石都留著，回整備再打一次。']
+  ];
+</script>
