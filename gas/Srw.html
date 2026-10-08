@@ -165,6 +165,9 @@ var T = (function () {
   var ACE_KILLS = 18;
   var ACE = { shuang: '戰意 130 以上，爆擊率 +20', qingli: '招式打中多貼 1 層定身', xiaoman: '阿白最多長大 7 次', chilian: '每關可以倒下站起來兩次', aduo: '毒每層多扣 100' };
 
+  // 魔王第一次掉到一半氣血（機戰 OG 的戰中事件）：說幾句話（SrwTalk 的 MID）、用一個心訣
+  var BOSS_SP = { zhanglao: 'ningshen', shuyao: 'zhenfen', guijiang: 'jinshen', niumo: 'zhenfen', huyao: 'shepo', duoxian: 'ningshen', panguan: 'dongming', xinmo: 'zhenfen' };
+
   // ── 敵人 ──（名字、圖鑑沿用 G.ENEMIES；這裡是戰棋的數值）
   // rank：z 雜兵｜e 精英｜b 魔王；k：氣血、護體倍率｜mob：輕身加減｜special：retreat 半血退走、lives 倒下再站起來幾次、regen 每階段回幾成氣血
   var FOES = {
@@ -342,7 +345,7 @@ var T = (function () {
   function wpns(u) { return u.w.map(function (x, i) { return W(u, i); }); }
 
   function startStage(c) {
-    var S = curStage(c), b = { stage: S.id, turn: 0, phase: 'p', units: [], rs: (c.rs = (c.rs * 1103515245 + 12345) >>> 0) || 7, gold: 0, gain: {}, log: [], over: null, fired: {}, queue: [], downs: 0, kills: {} };
+    var S = curStage(c), b = { stage: S.id, turn: 0, phase: 'p', units: [], rs: (c.rs = (c.rs * 1103515245 + 12345) >>> 0) || 7, gold: 0, gain: {}, log: [], over: null, fired: {}, queue: [], downs: 0, kills: {}, ev: [] };
     uidN = 0;
     S.heroes.forEach(function (h) { b.units.push(mkHeroUnit(c, h[0], h[1], h[2])); b.gain[h[0]] = { exp: 0, pp: 0, kills: 0, lvUp: 0 }; });
     S.foes.forEach(function (f) { b.units.push(mkFoeUnit(f[0], f[1], f[2], f[3], f[4])); });
@@ -522,7 +525,8 @@ var T = (function () {
   }
   function gainExp(c, b, u, xp) {
     if (!xp || u.side !== 'p') return 0;
-    var h = c.heroes[u.id], H = HEROES[u.id], ups = 0; b.gain[u.id].exp += xp; h.exp += xp;
+    var h = c.heroes[u.id], H = HEROES[u.id], ups = 0, st0 = {}, sp0l = (u.spirits || []).slice(); b.gain[u.id].exp += xp; h.exp += xp;
+    TRAIN_KEYS.forEach(function (k) { st0[k] = u[k]; });
     while (h.exp >= EXP_LV) {
       h.exp -= EXP_LV; h.lv++; ups++;
       TRAIN_KEYS.forEach(function (k) { var before = Math.round(H.st[k] + H.g[k] * (h.lv - 2)), after = Math.round(H.st[k] + H.g[k] * (h.lv - 1)); u[k] += after - before; });
@@ -530,6 +534,7 @@ var T = (function () {
       u.lv = h.lv; u.spirits = H.sp.filter(function (p) { return h.lv >= p[1]; }).map(function (p) { return p[0]; });
     }
     b.gain[u.id].lvUp += ups;
+    if (ups) { var d = {}; TRAIN_KEYS.forEach(function (k) { if (u[k] !== st0[k]) d[k] = u[k] - st0[k]; }); (b.ev = b.ev || []).push({ k: 'lv', uid: u.uid, id: u.id, lv: h.lv, from: h.lv - ups, st: d, sp: u.spirits.filter(function (p) { return sp0l.indexOf(p) < 0; }) }); }   // 升級的演出
     return ups;
   }
   function addWill(u, n) { if (!live(u)) return; u.will = clamp(u.will + n, 50, u.willMax); }
@@ -561,12 +566,22 @@ var T = (function () {
       gainExp(c, b, A, xpFor(b, A, D, false));
       if (D.retreat && D.hp > 0 && D.hp <= D.hpMax * D.retreat) { D.gone = 1; rec.retreat = 1; b.gold += Math.round(FOE_BASE[D.rank].gold[0] / 2); }
       if (D.hp <= 0) down(c, b, D, A, rec);
+      else bossHalf(b, D, rec);
     } else {
       addWill(D, 1 + (D.skills && D.skills.jianren ? 1 : 0));
     }
     if (amb) A.ambush = 0;
     scene.push(rec);
     return rec;
+  }
+  function bossHalf(b, D, rec) {
+    if (!D.boss || D.halfDone || D.gone || D.hp <= 0 || D.hp > D.hpMax / 2) return;
+    D.halfDone = 1; var sp = BOSS_SP[D.id] || '', ev = { k: 'half', uid: D.uid, id: D.id, sp: sp };
+    if (sp === 'zhenfen') addWill(D, 10);
+    else if (sp === 'shepo') { var t = null, md = 999; units(b, 'p').forEach(function (v) { var d = dist(D, v); if (d < md) { md = d; t = v; } }); if (t) { addWill(t, -10); ev.tgt = t.uid; } }
+    else if (sp) { D.st[sp] = 1; D.stUntil = b.phase === 'p' ? b.turn : b.turn + 1; }   // 撐到下一個我方階段開始（敵方階段用的就再撐一輪）
+    if (D.id === 'xinmo' && D.regen) { D.regen = 0; ev.seal = 1; }   // 魘：青璃開始畫鎮魂印，不再回復
+    (b.ev = b.ev || []).push(ev); rec.half = 1;
   }
   function down(c, b, D, A, rec) {
     if (D.revive) { D.revive--; D.hp = Math.round(D.hpMax * 0.3); rec.revive = 1; return; }
@@ -665,7 +680,7 @@ var T = (function () {
   // ════ 階段 ════
   function startPlayerPhase(c) {
     var b = c.battle; b.phase = 'p'; b.turn++;
-    units(b, 'e').forEach(function (u) { u.hitN = 0; });
+    units(b, 'e').forEach(function (u) { u.hitN = 0; if (u.stUntil != null && b.turn > u.stUntil) { TURN_ST.forEach(function (k) { u.st[k] = 0; }); u.stUntil = null; } });
     units(b, 'p').forEach(function (u) {
       u.acted = 0; u.moved = 0; u.moveDone = 0; u.hitN = 0; u.yhUsed = 0; u.zgUsed = 0;
       TURN_ST.forEach(function (k) { u.st[k] = 0; });
@@ -694,7 +709,7 @@ var T = (function () {
     });
     var S = stageOf(b);
     (S.add || []).forEach(function (a, i) {
-      if (a.turn !== b.turn || b.fired[i]) return; b.fired[i] = 1;
+      if (a.turn !== b.turn || b.fired[i]) return; b.fired[i] = 1; (b.ev = b.ev || []).push({ k: 'add', i: i });
       a.foes.forEach(function (f) { var x = f[2], y = f[3]; if (unitAt(b, x, y)) { var p = freeNear(b, x, y); if (!p) return; x = p[0]; y = p[1]; } var u = mkFoeUnit(f[0], f[1], x, y, f[4]); u.acted = 1; u.fresh = 1; b.units.push(u); });
     });
     b.queue = units(b, 'e').filter(function (u) { return !u.acted; }).sort(function (a, c2) { return (a.boss ? 1 : 0) - (c2.boss ? 1 : 0) || nearest(b, a) - nearest(b, c2); }).map(function (u) { return u.uid; });
@@ -703,11 +718,17 @@ var T = (function () {
   function freeNear(b, x, y) { for (var r = 1; r < 4; r++) for (var dy = -r; dy <= r; dy++) for (var dx = -r; dx <= r; dx++) { if (Math.abs(dx) + Math.abs(dy) !== r) continue; var t = terr(b, x + dx, y + dy); if (t && !t.wall && !unitAt(b, x + dx, y + dy)) return [x + dx, y + dy]; } return null; }
   function nearest(b, u) { var m = 999; units(b, u.side === 'e' ? 'p' : 'e').forEach(function (t) { m = Math.min(m, dist(u, t)); }); return m; }
 
+  // 守著不動的敵人：挨打、有人走進 tr 格內、或第 6 回合起就動起來（動了就不再停）
+  function isAwake(b, u) {
+    if (!u.hold || u.woke) return true;
+    if (u.hp < u.hpMax || b.turn >= 6 || units(b, u.side === 'e' ? 'p' : 'e').some(function (t) { return dist(u, t) <= (u.tr || 0); })) u.woke = 1;
+    return !!u.woke;
+  }
   // ── AI ── 算出這個單位這一步要做什麼（不動到局面）：{ uid, x, y, wi, target } 或 { map, cx, cy } 或只移動
   function aiPlan(b, u) {
     var foes = units(b, u.side === 'e' ? 'p' : 'e'); if (!foes.length) return { uid: u.uid, x: u.x, y: u.y };
     if (u.stun) return { uid: u.uid, x: u.x, y: u.y, stun: 1 };
-    var awake = !u.hold || u.hp < u.hpMax || foes.some(function (t) { return dist(u, t) <= (u.tr || 0); }) || b.turn >= 6;
+    var awake = isAwake(b, u);
     var R = awake && u.mv > 0 ? moveRange(b, u) : {}; R[tkey(u.x, u.y)] = 0;
     var best = null, bestS = -Infinity;   // 打得到就一定打（機戰的敵人不怕還手）
     keys(R).forEach(function (k) {
@@ -757,6 +778,7 @@ var T = (function () {
     var t = byUid(b, plan.target); if (!live(t)) { u.acted = 1; return null; }
     return attack(c, u, plan.wi, t, resp, { cwi: cwi });
   }
+  function takeEv(c) { var b = c.battle; if (!b || !b.ev || !b.ev.length) return null; return b.ev.shift(); }
   function enemyDone(c) { var b = c.battle; if (b.over) return; startPlayerPhase(c); }
 
   // ── 勝負 ──
@@ -849,7 +871,7 @@ var T = (function () {
     whyNot: whyNot, usable: usable, counterList: counterList, inRange: inRange, targetsFrom: targetsFrom, hitChance: hitChance, critChance: critChance, damage: damage, forecast: forecast, bestResp: bestResp, counterWpn: counterWpn, power: power,
     attack: attack, mapCells: mapCells, mapTargets: mapTargets, mapCenterOk: mapCenterOk, mapAttack: mapAttack, stunAt: stunAt,
     spCost: spCost, canSpirit: canSpirit, useSpirit: useSpirit, useItem: useItem,
-    endPlayerPhase: endPlayerPhase, enemyNext: enemyNext, enemyMove: enemyMove, enemyAct: enemyAct, enemyDone: enemyDone, aiPlan: aiPlan, checkOver: checkOver,
+    BOSS_SP: BOSS_SP, takeEv: takeEv, endPlayerPhase: endPlayerPhase, enemyNext: enemyNext, enemyMove: enemyMove, enemyAct: enemyAct, enemyDone: enemyDone, aiPlan: aiPlan, isAwake: isAwake, checkOver: checkOver,
     finishStage: finishStage, toPrep: toPrep, autoUnit: autoUnit, autoPhase: autoPhase, autoPrep: autoPrep, foeName: foeName, rankOf: rankOf
   };
 })();

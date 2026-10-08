@@ -4,6 +4,8 @@
 // LINES[誰]：atk 一般出手｜w[招式 id] 那一招的台詞｜hit 挨打｜dodge 閃過｜kill 擊破｜down 倒下｜revive 站起來｜support 助攻｜guard 掩護｜vs[魔王 id] 打那位魔王時
 // 魔王：atk｜hit｜down 倒下｜retreat 退走｜revive 站起來
 // TALK[關卡 id]：開打前的對話 [說話的人（女修 id 或魔王 id）, 台詞]（盡量呼應小說裡的原句）
+// MID[關卡 id]：魔王第一次掉到一半氣血時（第一句是魔王，接著她用心訣 T.BOSS_SP，再接其他人）｜ADD[關卡 id][第幾波]：增援登場｜WIN[關卡 id]：打贏之後
+// NAMES：不在戰場上的人（名字框不是紅色）
 var SRW_TALK = (function () {
   var LINES = {
     shuang: {
@@ -67,6 +69,38 @@ var SRW_TALK = (function () {
     s13: [['qingli', '怕啊……畫了一百年，要是手一抖，畫歪了怎麼辦。'], ['aduo', '那就牽著。牽著就不抖了。']],
     s14: [['xinmo', '霜兒。長這麼高了。過來，讓師父看看。'], ['shuang', '……師父，回家再算帳。'], ['xiaoman', '本座不是來陪妳的。這一次，換本座進來，帶她走。']]
   };
+  var MID = {
+    s4: [['shuyao', '別走……陪我，等到春天。'], ['aduo', '……她好寂寞。'], ['xiaoman', '寂寞，也不能攔路。']],
+    s7: [['niumo', '好！這才像話！'], ['chilian', '姊姊才剛熱身呢。']],
+    s8: [['guijiang', '城門……不破。'], ['qingli', '她開了金身！這一輪先打旁邊的，等金身散了再打她。']],
+    s9: [['huyao', '討厭。妳們誰先看著我？'], ['aduo', '……別看她的眼睛。']],
+    s10: [['panguan', '本官的筆，從不落空。'], ['qingli', '她開了洞明，閃不掉的！挨打的時候招架。']],
+    s11: [['duoxian', '凡人的劍，也能傷我？'], ['shuang', '能。']],
+    s12: [['zhanglao', '……小看妳們了。'], ['xiaoman', '現在才知道，晚了。']],
+    s14: [['xinmo', '別畫了。這道印畫完，師父就真的不在了。'], ['qingli', '師父早就不在了。她教我這道印，就是要我畫完。']]
+  };
+  var ADD = {
+    s2: [[['chilian', '門外還有兩個。'], ['shuang', '……一起收。']]],
+    s8: [[['guijiang', '陰兵，列陣。'], ['qingli', '兩邊都來了！別被包住。']], [['xiaoman', '後面也有。小輩們，背靠背。']]],
+    s14: [[['xinmo', '別急著走。人多一點，才熱鬧。']], [['shuang', '……劍宗的劍路。'], ['xiaoman', '別停手。它吃過的，它都學得會。']]]
+  };
+  var WIN = {
+    s1: [['chilian', '姊姊靠得住吧？'], ['shuang', '嗯。'], ['chilian', '……啊。那、那就好。']],
+    s2: [['shuang', '……我師父還活著。'], ['chilian', '那就去把人接回來，再好好罵一頓。罵人我在行。']],
+    s3: [['qingli', '那個人……是什麼樣的人？'], ['xiaoman', '愛撒嬌，愛惹事。惹完了，就往本座身後躲。'], ['xiaoman', '這次，本座要把她拎回來。']],
+    s4: [['aduo', '……牠們越往北，越吵。'], ['qingli', '怎麼了？'], ['aduo', '牠們認得前面那個味道。從我們寨子裡跑出去的東西。']],
+    s5: [['qingli', '那道傳信符，是我畫的！'], ['chilian', '我們掌門摺了一路，摺得都起毛邊了。']],
+    s6: [['aduo', '那個罐子，是我們寨子禁地裡的。'], ['xiaoman', '那這一趟，妳跟本座一樣。都是來收自己家的東西。']],
+    s7: [['xiaoman', '起手太規矩了。妳師父使劍，從來不照招式起手。'], ['shuang', '我知道。我學不來。'], ['xiaoman', '學不來也好。妳這一劍，是妳自己練出來的。']],
+    s8: [['xiaoman', '這城本來叫長寧。百年前那一仗打完，回來的人取的名字。'], ['xiaoman', '那時候，這裡有人賣糖人。']],
+    s9: [['qingli', '妳們怎麼都沒被勾走？'], ['chilian', '香是香，底下什麼情也沒有。勾不動的。']],
+    s10: [['qingli', '她不是真的判官吧？'], ['xiaoman', '陰間的判官，才不會跑到人間開堂。']],
+    s11: [['shuang', '……怎麼不說了？'], ['chilian', '我以為妳嫌我吵。'], ['shuang', '沒嫌。']],
+    s12: [['aduo', '寨子裡的人，會來接妳回去。'], ['qingli', '白辰，這塊牌位……'], ['xiaoman', '她還沒死，用不著這個。']],
+    s13: [['qingli', '寫得這麼急。她那時候，一定已經很累了。'], ['chilian', '五個人呢。這回，她推得過來嗎？'], ['shuang', '一起。']],
+    s14: [['jianzhu', '阿辰，妳怎麼變這麼小。'], ['xiaoman', '還不是因為妳。'], ['jianzhu', '……霜兒，妳生氣了？'], ['shuang', '回家再說。']]
+  };
+  var NAMES = { jianzhu: '沈望舒' };
   function pick(a, k) { return a && a.length ? a[Math.abs(k || 0) % a.length] : ''; }
   // 這一擊要說的話：出手的人（vs 魔王優先、招式台詞、一般）
   function atkLine(id, wid, foeId, n, useVs) {
@@ -76,6 +110,6 @@ var SRW_TALK = (function () {
     return pick(L.atk, n);
   }
   function react(id, kind, n) { var L = LINES[id]; return L ? pick(L[kind], n) : ''; }
-  return { LINES: LINES, TALK: TALK, atkLine: atkLine, react: react };
+  return { LINES: LINES, TALK: TALK, MID: MID, ADD: ADD, WIN: WIN, NAMES: NAMES, atkLine: atkLine, react: react };
 })();
 </script>

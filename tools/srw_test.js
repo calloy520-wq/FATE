@@ -210,5 +210,59 @@ Object.keys(T.FOES).forEach(k => ok(T.FOES[k].w.length > 0, k + ' 至少一招')
   c.heroes.aduo.up.wpn = 5; c.battle = null; b = T.startStage(c); const a = P(b, 'aduo'); eq(a.ammo.dieying, 4, '開發出的蝶影有次數');
   T.ORDER.forEach(k => eq(T.devOf(k).length, 1, k + ' 有一招開發的招式'));
 }
+const allEv = c => { const a = []; let e; while ((e = T.takeEv(c))) a.push(e); return a; }, halfEv = c => allEv(c).filter(e => e.k === 'half')[0];
+{
+  // 魔王半血（機戰 OG 的戰中事件）：第一次掉到一半說話、用心訣；金身撐到下一個我方階段開始
+  const c = T.newCampaign(8); c.stage = 7; const b = T.startStage(c);
+  const g = b.units.filter(u => u.boss)[0], s = P(b, 'shuang'); only(b, [g, s]);
+  eq(g.id, 'guijiang', '城門的魔王是鬼將軍'); s.x = g.x - 1; s.y = g.y; s.st.dongming = 1;
+  g.hp = Math.floor(g.hpMax / 2) + 50; const wi = s.w.indexOf('feijian');
+  T.attack(c, s, wi, g, 'guard');
+  const ev = halfEv(c);
+  ok(ev && ev.k === 'half' && ev.id === 'guijiang', '魔王掉到一半：有戰中事件');
+  eq(g.st.jinshen, 1, '鬼將軍半血開金身'); eq(T.takeEv(c), null, '事件拿完就沒了');
+  s.acted = 0; s.st.dongming = 1; const hp0 = g.hp; T.attack(c, s, wi, g, 'guard');
+  eq(halfEv(c), undefined, '半血事件只有一次'); ok(hp0 - g.hp < 2000, '金身：傷害 ×¼');
+  T.endPlayerPhase(c); b.queue = []; T.enemyDone(c); eq(g.st.jinshen, 0, '金身到下一個我方階段就散');
+}
+{
+  const c0 = T.newCampaign(11); c0.stage = 13; const b0 = T.startStage(c0), x = b0.units.filter(u => u.boss)[0], q = P(b0, 'qingli'); only(b0, [x, q]);
+  q.x = x.x - 1; q.y = x.y; q.st.dongming = 1; x.hp = Math.floor(x.hpMax / 2) + 5; T.attack(c0, q, 0, x, 'guard');
+  const e0 = halfEv(c0); ok(e0 && e0.seal && !x.regen, '魘半血：鎮魂印，不再回復');
+}
+{
+  const c1 = T.newCampaign(12); c1.stage = 7; const b1 = T.startStage(c1), g1 = b1.units.filter(u => u.boss)[0];
+  ok(g1.hold && !T.isAwake(b1, g1), '鬼將軍一開始守著不動'); g1.hp -= 10; ok(T.isAwake(b1, g1), '挨打就動起來'); g1.hp = g1.hpMax; ok(T.isAwake(b1, g1), '動了就不再停');
+}
+{
+  const c2 = T.newCampaign(13), b2 = T.startStage(c2), s2 = P(b2, 'shuang'); c2.heroes.shuang.exp = T.EXP_LV - 1; b2.ev = [];
+  const z2 = b2.units.filter(u => u.side === 'e')[0]; only(b2, [s2, z2]); s2.x = z2.x - 1; s2.y = z2.y; s2.st.dongming = 1; T.attack(c2, s2, 0, z2, 'guard');
+  const lv = b2.ev.filter(e => e.k === 'lv')[0]; ok(lv && lv.lv === lv.from + 1 && Object.keys(lv.st).length > 0, '升級有演出（等級、修為加多少）');
+}
+{
+  const c = T.newCampaign(9); c.stage = 5; const b = T.startStage(c);   // 黑紗：長老半血退走，不觸發半血事件
+  const z = b.units.filter(u => u.boss)[0], s = P(b, 'shuang'); only(b, [z, s]); s.x = z.x - 1; s.y = z.y; s.st.dongming = 1;
+  z.hp = Math.floor(z.hpMax / 2) + 50; T.attack(c, s, s.w.indexOf('feijian'), z, 'guard');
+  ok(z.gone, '長老退走'); eq(halfEv(c), undefined, '退走不算半血事件');
+}
+{
+  const c = T.newCampaign(10); c.stage = 1; const b = T.startStage(c); b.turn = 2; T.endPlayerPhase(c);
+  const ev = allEv(c).filter(e => e.k === 'add')[0]; ok(ev && ev.i === 0, '增援登場有事件');
+}
+{
+  // 台詞資料：說話的人要在那一關（或是 NAMES 裡不在戰場上的人）
+  const fs = require('fs'), vm = require('vm'), ctx = {}; vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(__dirname + '/../gas/SrwTalk.html', 'utf8').replace(/^\s*<script>/, '').replace(/<\/script>\s*$/, '') + ';this.K=SRW_TALK;', ctx); const K = ctx.K;
+  const by = {}; T.STAGES.forEach(S => by[S.id] = S);
+  const who = S => new Set(S.heroes.map(h => h[0]).concat(S.foes.map(f => f[0])).concat((S.add || []).reduce((a, g) => a.concat(g.foes.map(f => f[0])), [])).concat(Object.keys(K.NAMES)));
+  const chk = (S, lines, tag) => lines.forEach(L => ok(who(S).has(L[0]) && L[1], tag + ' 說話的人在場：' + L[0]));
+  Object.keys(K.TALK).concat(Object.keys(K.MID), Object.keys(K.ADD), Object.keys(K.WIN)).forEach(k => ok(by[k], k + ' 是關卡'));
+  Object.keys(K.TALK).forEach(k => chk(by[k], K.TALK[k], k + ' 開打'));
+  Object.keys(K.WIN).forEach(k => chk(by[k], K.WIN[k], k + ' 打完'));
+  Object.keys(K.MID).forEach(k => { const boss = by[k].foes.filter(f => f[4] && f[4].boss)[0]; ok(boss && K.MID[k][0][0] === boss[0], k + ' 半血第一句是魔王'); chk(by[k], K.MID[k], k + ' 半血'); });
+  T.STAGES.forEach(S => { const boss = S.foes.filter(f => f[4] && f[4].boss)[0]; if (boss && !boss[4].retreat) ok(K.MID[S.id], S.id + ' 有半血對話'); ok(K.WIN[S.id], S.id + ' 有打完的對話'); });
+  Object.keys(K.ADD).forEach(k => { eq(K.ADD[k].length, (by[k].add || []).length, k + ' 每一波增援都有對話'); K.ADD[k].forEach(ls => chk(by[k], ls, k + ' 增援')); });
+  Object.keys(T.BOSS_SP).forEach(k => ok(T.SPIRITS[T.BOSS_SP[k]], k + ' 半血心訣存在'));
+}
 console.log((fail ? '❌ ' : '✅ ') + pass + ' 項通過' + (fail ? '，' + fail + ' 項沒過' : ''));
 if (fail) process.exit(1);
