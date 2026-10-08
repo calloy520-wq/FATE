@@ -752,6 +752,7 @@ var T = (function () {
           var h = hitChance(b, u, w, t, ''), d = damage(b, u, w, t, '', false), s = h * Math.min(t.hp, d) + (d >= t.hp ? h * 40 : 0) + (u.side === 'p' && t.boss ? h * 10 : 0);
           var ci = counterWpn(b, t, u); if (ci >= 0) { var cw = W(t, ci); s -= (u.side === 'p' ? 0.3 : 0.08) * hitChance(b, t, cw, u, '') * Math.min(u.hp, damage(b, t, cw, u, '', false)); }
           if (u.side === 'p') s *= fq || (fq = formation(b, u, x, y));   // 站位分數：每個格子算一次
+          else s *= 1 + 0.1 * Math.max(0, 2 - units(b, t.side).filter(function (v) { return v !== t && dist(v, t) === 1; }).length);   // 敵人：先挑落單的打（站在一起比較安全）
           if (s > bestS) { bestS = s; best = { uid: u.uid, x: x, y: y, wi: i, target: t.uid }; }
         });
       });
