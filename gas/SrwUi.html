@@ -374,8 +374,8 @@
     if (!u) {
       var left = T.units(b, 'p').filter(function (v) { return !v.acted; }).length;
       var tt = SUI.tile && T.terr(b, SUI.tile[0], SUI.tile[1]);
-      var sw = T.canSwap(b);
-      return '<div class="hint">' + (tt ? terrText(tt) : sw ? '開打前可以按「布陣」調整站位。' : left ? '點自己人移動、行動；點敵人看它的數值與攻擊範圍；點空格子看地形。' : '') + (left ? '還有 ' + left + ' 人沒行動。' : '全員行動完畢，可以結束回合了。') + '</div><div class="acts">' + (sw ? '<button class="btn" onclick="srwSwap()">布陣</button>' : '<button class="btn" onclick="srwNextUnit()">下一位</button>') + '<button class="btn' + (SUI.dzAll ? ' on' : '') + '" onclick="srwDanger()">敵人範圍</button><button class="btn go" onclick="srwEndTurn()">結束回合</button></div>';
+      var sw = T.canSwap(b), mr = meritLeft(b);
+      return '<div class="hint">' + (tt ? terrText(tt) : sw ? '開打前可以按「布陣」調整站位。' : left ? '點自己人移動、行動；點敵人看它的數值與攻擊範圍；點空格子看地形。' : '') + (left ? '還有 ' + left + ' 人沒行動。' : '全員行動完畢，可以結束回合了。') + (mr ? '<br><span style="color:var(--gold)">' + mr + '</span>' : '') + '</div><div class="acts">' + (sw ? '<button class="btn" onclick="srwSwap()">布陣</button>' : '<button class="btn" onclick="srwNextUnit()">下一位</button>') + '<button class="btn' + (SUI.dzAll ? ' on' : '') + '" onclick="srwDanger()">敵人範圍</button><button class="btn go" onclick="srwEndTurn()">結束回合</button></div>';
     }
     var t = T.terr(b, u.x, u.y), ter = u.fly ? '飛行中' : t.n + (t.eva || t.def ? '（迴避 ' + (t.eva >= 0 ? '+' : '') + t.eva + '、防禦 ' + (t.def >= 0 ? '+' : '') + t.def + '%）' : '');
     var stx = [];
@@ -460,6 +460,11 @@
   }
   // 出手前的預覽
   // 身上生效中的心訣（交手預覽看得到魔王開了金身之類）
+  function meritLeft(b) {   // 功勳還拿得到的話，提醒一句
+    var S = T.stageOf(b), M = S.merit; if (!M || run.merit[S.id]) return '';
+    if (M.turns) { var n = M.turns - b.turn + 1; return n < 1 ? '' : n === 1 ? '功勳：這回合要打完。' : '功勳：還剩 ' + n + ' 回合（含這回合）。'; }
+    return M.nodown && !b.downs ? '功勳：別讓任何人倒下。' : '';
+  }
   function nwj(a) { return a.map(function (x) { return '<i class="nw">' + x + '</i>'; }).join('・'); }   // 一串數值：每一段不拆開
   function stLab(u) { var a = ['ningshen', 'dongming', 'taying', 'pofu', 'guzhu', 'jinshen', 'tuojin'].filter(function (k) { return u.st[k]; }).map(function (k) { return T.SPIRITS[k].n; }); return a.length ? '<div class="lab" style="color:var(--gold)">' + a.join('・') + '</div>' : ''; }
   function forecastSheet(u, wi, d) {
