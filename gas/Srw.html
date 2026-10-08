@@ -287,13 +287,15 @@ var T = (function () {
     ORDER.forEach(function (k) { c.heroes[k] = newHero(k); });
     return c;
   }
-  function migrate(c) { if (!c || !c.srw || c.v !== 10) return null; ORDER.forEach(function (k) { if (!c.heroes[k]) c.heroes[k] = newHero(k); }); c.inv = c.inv || {}; c.merit = c.merit || {}; c.slain = c.slain || {}; return c; }
+  function migrate(c) { if (!c || !c.srw || c.v !== 10) return null; ORDER.forEach(function (k) { if (!c.heroes[k]) c.heroes[k] = newHero(k);
+      var h = c.heroes[k], base = HEROES[k].skills || {}; Object.keys(h.sk || {}).forEach(function (s) { if (SKILLS[s]) h.sk[s] = Math.max(0, Math.min(h.sk[s], SKILLS[s].max - (base[s] || 0))); }); });   // 天生功法加上之前學滿的：夾回上限
+    c.inv = c.inv || {}; c.merit = c.merit || {}; c.slain = c.slain || {}; return c; }
   function curStage(c) { return STAGES[Math.min(c.stage, STAGES.length - 1)]; }
 
   // 這位女修現在的完整數值（等級、修為、淬鍊、法寶、功法都算進去）
   function upTotal(c) { return ORDER.reduce(function (a, k) { var u = c.heroes[k].up; return a + keys(u).reduce(function (x, kk) { return x + (u[kk] || 0); }, 0); }, 0); }   // 全隊淬鍊總級數（不強化＝0）
   function fullDone(h) { return ['hp', 'en', 'arm', 'mob', 'aim'].every(function (k) { return h.up[k] >= 5; }); }
-  function skillLv(h, who, k) { return ((HEROES[who].skills || {})[k] || 0) + (h.sk[k] || 0); }
+  function skillLv(h, who, k) { return Math.min(SKILLS[k] ? SKILLS[k].max : 9, ((HEROES[who].skills || {})[k] || 0) + (h.sk[k] || 0)); }   // 天生＋學的，不超過上限
   function heroStats(c, who) {
     var H = HEROES[who], h = c.heroes[who], L = h.lv - 1, s = {};
     TRAIN_KEYS.forEach(function (k) { s[k] = Math.round(H.st[k] + H.g[k] * L + (h.tr[k] || 0) * TRAIN_STEP); });
@@ -554,7 +556,7 @@ var T = (function () {
     var amb = A.ambush;
     if (hit) {
       var cr = rnd(b) * 100 < critChance(A, w, D), dmg = damage(b, A, w, D, resp, cr);
-      rec.crit = cr; rec.dmg = dmg; D.hp -= dmg;
+      rec.crit = cr; rec.dmg = dmg; D.hp -= dmg; if (dmg > 0 && D.hold) D.woke = 1;   // 守著不動的挨了打就動起來（回滿血也一樣）
       if (tag !== 'map') { if (A.st.pofu || A.st.guzhu) { A.st.pofu = 0; A.st.guzhu = 0; } if (A.st.tuojin) A.st.tuojin = 0; }   // 陣法：範圍內每個目標都算，打完才散
       if (w.drain && A.hp > 0) { A.hp = Math.min(A.hpMax, A.hp + Math.round(dmg * w.drain)); rec.drain = Math.round(dmg * w.drain); }
       if (D.hp > 0) {
@@ -766,8 +768,9 @@ var T = (function () {
           if (!inRange(w, dist(u, t))) return;
           var h = hitChance(b, u, w, t, ''), d = damage(b, u, w, t, '', false), s = h * Math.min(t.hp, d) + (d >= t.hp ? h * 40 : 0) + (u.side === 'p' && t.boss ? h * 10 : 0);
           var ci = counterWpn(b, t, u); if (ci >= 0) { var cw = W(t, ci); s -= (u.side === 'p' ? 0.3 : 0.08) * hitChance(b, t, cw, u, '') * Math.min(u.hp, damage(b, t, cw, u, '', false)); }
-          if (u.side === 'p') s *= fq || (fq = formation(b, u, x, y));   // 站位分數：每個格子算一次
-          else s *= 1 + 0.1 * Math.max(0, 2 - units(b, t.side).filter(function (v) { return v !== t && dist(v, t) === 1; }).length);   // 敵人：先挑落單的打（站在一起比較安全）
+          var k2 = u.side === 'p' ? fq || (fq = formation(b, u, x, y))   // 站位分數：每個格子算一次
+            : 1 + 0.1 * Math.max(0, 2 - units(b, t.side).filter(function (v) { return v !== t && dist(v, t) === 1; }).length);   // 敵人：先挑落單的打（站在一起比較安全）
+          s = s >= 0 ? s * k2 : s / k2;   // 負分（還手比打出去痛）時用除的，好位置才不會反而扣更多
           if (s > bestS) { bestS = s; best = { uid: u.uid, x: x, y: y, wi: i, target: t.uid }; }
         });
       });

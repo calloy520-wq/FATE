@@ -545,7 +545,9 @@
         + '<div class="dim" style="font-size:12.5px">' + nwj(['氣血 ' + u.hp + '/' + u.hpMax, '真元 ' + u.en + '/' + u.enMax, '心力 ' + u.sp + '/' + u.spMax, '戰意 ' + u.will]) + '</div></div></button>';
     }).join('') + '</div>');
   }
-  function srwPick(uid) { closeOv(); var b = sB(), u = T.byUid(b, uid); if (!u || !T.live(u)) return; if (busy || b.phase !== 'p') return; clearHl(); srwTap(u.x, u.y); var el = document.querySelector('.un[data-uid="' + uid + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+  function srwPick(uid) { closeOv(); var b = sB(), u = T.byUid(b, uid); if (!u || !T.live(u)) return; if (busy || b.phase !== 'p') return;
+    var cur = SUI.sel && T.byUid(b, SUI.sel), sw = SUI.mode === 'swap'; if (cur && cur.side === 'p') T.undoMove(run, cur);   // 先離開原本在做的事（走了還沒行動的退回原位），再選她
+    clearHl(); SUI.sel = null; SUI.mode = sw ? 'swap' : 'idle'; srwTap(u.x, u.y); var el = document.querySelector('.un[data-uid="' + uid + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
   function srwGoal() { var S = T.stageOf(sB()); openOv('<b style="color:var(--gold)">' + stageNo(S) + '・' + esc(S.n) + '</b><div class="box" style="margin-top:10px;line-height:1.9">' + condText(S) + '</div>'); }
   function srwToggle(k) { var s = srwSet(); s[k] = k === 'anim' ? (s.anim === 1 ? 2 : s.anim === 2 ? 0 : 1) : s[k] ? 0 : 1; queueSave(true, false); srwMenu(); }
   function srwGiveUp() { var b = sB(); b.over = 'lose'; srwFinish(); }
@@ -628,7 +630,8 @@
   }
   function snapHp(b) { var o = {}, w = {}; b.units.forEach(function (u) { o[u.uid] = u.hp; w[u.uid] = u.will; }); Object.defineProperty(o, '_w', { value: w }); return o; }   // 交手前的氣血與戰意（_w 不列舉）
   function playScene(sc, snap, cb0) {
-    var b = sB(), cb = function () { if (sB() !== b) { busy = false; return; } srwEv(cb0, b); };   // 播完時戰鬥換了（回標題、重新載入）就不接著做 if (!sc || !sc.steps || !sc.steps.length) { drawUnits(); return cb(); }
+    var b = sB(), cb = function () { if (sB() !== b) { busy = false; return; } srwEv(cb0, b); };   // 播完時戰鬥換了（回標題、重新載入）就不接著做
+    if (!sc || !sc.steps || !sc.steps.length) { drawUnits(); return cb(); }
     var done = false, finish = function () { if (done) return; done = true; var ov = $('bsc'); if (ov) ov.remove(); busy = wasBusy; drawUnits(); srwDraw(); cb(); };
     var wasBusy = busy; busy = true;
     var A0 = T.byUid(b, sc.a), an = srwSet().anim;
@@ -761,7 +764,7 @@
   // 新手提示（戰棋）：每個只跳一次，跟以前的卡牌提示分開記（老玩家也沒看過戰棋）
   var SRW_TIPS = {
     prep: ['整備', '每一關打之前在這裡整備：<b>淬鍊</b>花靈石強化氣血、護體、輕身這些身法器；<b>修為</b>與<b>功法</b>花悟道點；<b>法寶</b>每人兩格。準備好就按「出擊」。<br>強化得越多仗越好打；不強化也過得去，但要好好排陣。'],
-    battle: ['地圖戰', '點自己人，藍色格子是走得到的地方；走完再選攻擊、心訣或待機。每人一回合動一次，全部動完（或按「結束回合」）換敵人。<br>站在隊友旁邊：妳出手後，旁邊的隊友會接著補一招（助攻）；白辰在旁邊會替妳擋（掩護）。<br>點敵人看它的數值，紅色是它打得到的範圍；「敵人範圍」一次看全部。點空格子看地形。<br>第一回合誰都還沒動之前，可以按「布陣」換位置。'],
+    battle: ['地圖戰', '點自己人，藍色格子是走得到的地方；走完再選攻擊、心訣或待機。每人一回合動一次；都動完了按「結束回合」換敵人。<br>站在隊友旁邊：妳出手後，旁邊的隊友會接著補一招（助攻）；白辰在旁邊會替妳擋（掩護）。<br>點敵人看它的數值，紅色是它打得到的範圍；「敵人範圍」一次看全部。點空格子看地形。<br>第一回合誰都還沒動之前，可以按「布陣」換位置。'],
     forecast: ['交手預覽', '出手前會先看到雙方的命中率與傷害。被打的一方會還手（射程夠的話），所以先想好誰去打誰。'],
     defense: ['被打的時候', '敵人打過來時妳可以選：<b>還手</b>、<b>招架</b>（傷害減半）、<b>閃身</b>（對方命中減半）。金框是建議。<br>選單裡可以開「自動應戰」。'],
     spirit: ['心訣', '每人有自己的心訣，花心力發動：洞明（必中）、破釜（傷害兩倍）、金身（傷害四分之一）……心力每回合回一點，關卡之間回滿。'],
@@ -777,12 +780,13 @@
   function srwTips() {
     if (!run || !run.srw) return;
     setTimeout(function () {
+      if (!run || !run.srw) return;   // 這半秒內回了標題
       if (run.screen === 'prep') return srwTip('prep');
-      if (run.screen === 'battle' && !busy) { var b = sB(); if (srwTip('battle')) return; if (b.turn >= 2 && srwTip('spirit')) return; if (b.turn >= 2 && srwTip('defense')) return; if (b.turn >= 3) srwTip('will'); }
+      if (run.screen === 'battle' && !busy && sB()) { var b = sB(); if (srwTip('battle')) return; if (b.turn >= 2 && srwTip('spirit')) return; if (b.turn >= 2 && srwTip('defense')) return; if (b.turn >= 3) srwTip('will'); }
     }, 500);
   }
   var SRW_GLOSSARY = [
-    ['回合', '我方階段：每人移動一次、行動一次（攻擊、心訣、待機）。全部動完換敵方階段。'],
+    ['回合', '我方階段：每人移動一次、行動一次（攻擊、心訣、待機）。按「結束回合」換敵方階段。'],
     ['命中／迴避', '命中率＝（命中 ÷ 2 ＋ 準頭 ＋ 招式命中）−（對方迴避 ÷ 2 ＋ 輕身），再看對方體積與站的地形。同一個階段被打越多次越難閃（每次 +5）。'],
     ['格鬥／射擊／靈力', '招式分三種：近身的用格鬥算，飛劍、銀針這類打出去的用射擊算，符、蠱、龍息、劍陣這類法術用靈力算。'],
     ['傷害', '威力 ×（格鬥、射擊或靈力 ＋ 戰意）÷ 200，減掉 護體 ×（防禦 ＋ 戰意）÷ 200。爆擊 ×1.25（看悟性差）。'],

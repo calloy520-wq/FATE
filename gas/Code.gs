@@ -155,6 +155,7 @@ function gpStageLog(name, token, d) {
   d = d || {};
   var ss = SpreadsheetApp.getActiveSpreadsheet(), lg = ss.getSheetByName(GP_SLOG);
   if (!lg) { lg = ss.insertSheet(GP_SLOG); lg.appendRow(GP_SLOG_HEAD); lg.setFrozenRows(1); }
+  else if (lg.getRange(1, GP_SLOG_HEAD.length).getValue() !== GP_SLOG_HEAD[GP_SLOG_HEAD.length - 1]) lg.getRange(1, 1, 1, GP_SLOG_HEAD.length).setValues([GP_SLOG_HEAD]);   // 舊分頁後來多了欄位：表頭補齊
   var cut = function (x) { var s = String(x == null ? '' : x).slice(0, 80); return /^[=+\-@]/.test(s) ? "'" + s : s; };
   lg.appendRow([new Date(), cut(name), cut(d.stage), cut(d.result), +d.turns || 0, +d.lv || 0, +d.gold || 0, +d.merit || 0, +d.total || 0, +d.up || 0]);
   return { ok: true };

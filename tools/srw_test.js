@@ -344,5 +344,19 @@ const allEv = c => { const a = []; let e; while ((e = T.takeEv(c))) a.push(e); r
   s.hp = s.hpMax = 9999999; f = T.forecast(b, s, wi, z, 'counter'); ok(f.cw && !f.ckill, '預覽：氣血夠就不會');
   s.hp = 1; s.revive = 1; f = T.forecast(b, s, wi, z, 'counter'); ok(f.cw && !f.ckill, '預覽：還能站起來的不算倒下');
 }
+{
+  // 舊存檔：天生助攻之前就學滿的，加起來不超過上限
+  const c = T.newCampaign(44); c.heroes.shuang.sk.zhugong = 3; c.heroes.xiaoman.sk.yanhu = 3;
+  ok(T.heroStats(c, 'shuang').skills.zhugong <= 3 && T.heroStats(c, 'xiaoman').skills.yanhu <= T.SKILLS.yanhu.max, '功法：天生＋學的不超過上限', T.heroStats(c, 'shuang').skills.zhugong);
+  const m = T.migrate(JSON.parse(JSON.stringify(c))); eq(m.heroes.shuang.sk.zhugong, 2, '讀舊存檔：學的助攻夾到 上限−天生');
+}
+{
+  // 守著不動的魔王挨了打，就算回滿血也會動
+  const c = T.newCampaign(45); c.stage = 11; const b = T.startStage(c), z = b.units.filter(u => u.boss && u.hold)[0], s = P(b, 'shuang');
+  ok(z && !T.isAwake(b, z), '祠堂：長老一開始守著不動');
+  only(b, [z, s]); s.x = z.x; s.y = z.y + 1; s.will = 150; s.st.dongming = 1; const wi = s.w.findIndex((_, i) => T.usable(b, s, i, false) && T.inRange(T.W(s, i), 1));
+  T.attack(c, s, wi, z, 'guard'); s.x = 0; s.y = b.units.length ? T.stageOf(b).map.length - 1 : 0; z.hp = z.hpMax;
+  ok(z.hp === z.hpMax && T.isAwake(b, z), '挨過打：回滿血也醒著');
+}
 console.log((fail ? '❌ ' : '✅ ') + pass + ' 項通過' + (fail ? '，' + fail + ' 項沒過' : ''));
 if (fail) process.exit(1);
