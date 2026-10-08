@@ -28,6 +28,8 @@ const all = [].concat(G.EPILOGUE.text, ...G.ORDER.map(w => G.ENDINGS[w].text), .
 ok(!all.some(bad), '真結局、尾聲、介紹、初遇、插曲的說話人標記都緊跟在「」後面', all.find(bad));
 const S = fs.readFileSync(path.join(GAS, 'Story.html'), 'utf8'), NOVEL = eval(S.match(/var NOVEL = (\[[\s\S]*?\n  \]);/)[1]);
 ok(NOVEL.length > 0 && NOVEL.every(c => c.title && c.text.length && c.text.every(p => /^〔景：\w+〕$/.test(p) || !/[^」]〔[^〕]*〕/.test(p))), '小說主線每章都有標題與內容，說話人標記都緊跟在「」後面');
+{ const miss = []; NOVEL.forEach(c => c.text.forEach(p => { if (/「/.test(p) && !/〔[^〕]*〕/.test(p)) miss.push(c.title + '：' + p.slice(0, 20)); }));
+  ok(!miss.length, '小說主線有台詞的段落都標了說話人（沒標的話名字框是空的）', miss.slice(0, 3).join('｜')); }
 
 // 用詞：不用「心魔」、不留 Fate 的詞
 const data = JSON.stringify([G.ENEMIES, G.LORE, G.ENDINGS, G.EPILOGUE, G.SECTS_LORE, G.EVENTS, G.SERVANTS, K.LINES, K.TALK, K.MID, K.ADD, K.WIN]);
