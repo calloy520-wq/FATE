@@ -31,6 +31,7 @@
   .t-X { background:radial-gradient(circle at 30% 30%,#2c2636 0 18%,transparent 19%),radial-gradient(circle at 72% 66%,#221d2b 0 24%,transparent 25%),radial-gradient(circle at 70% 22%,rgba(150,90,220,.12) 0 6%,transparent 7%),#100d16; }
   .tl.mv::after, .tl.ar::after, .tl.tg::after, .tl.ma::after, .tl.dz::after, .tl.mc::after { content:''; position:absolute; inset:0; z-index:2; pointer-events:none; }
   .tl.mv::after { background:rgba(80,160,255,.38); box-shadow:inset 0 0 0 1px rgba(150,200,255,.6); }
+  .tl.mv.sup::after { box-shadow:inset 0 0 0 1px rgba(150,200,255,.6), inset 0 -3px 0 0 rgba(255,210,110,.95); }
   .tl.ar::after { background:rgba(255,80,80,.22); } .tl.dz::after { background:rgba(255,70,70,.28); }
   .tl.tg::after { background:rgba(255,80,80,.45); box-shadow:inset 0 0 0 2px #ffd36e; animation:glow 1s ease-in-out infinite; }
   .tl.mc::after { background:rgba(255,200,80,.3); box-shadow:inset 0 0 0 1px rgba(255,220,140,.7); }
@@ -333,8 +334,9 @@
   function srwDraw() {
     var b = sB(); if (!b || !$('sbmap')) return;
     var S = T.stageOf(b), sel = SUI.sel && T.byUid(b, SUI.sel);
+    var mates = sel && sel.side === 'p' && (SUI.mode === 'move' || SUI.mode === 'move2') ? T.units(b, 'p').filter(function (v) { return v !== sel; }) : [];   // 移動時：旁邊有隊友的格子（能互相助攻、掩護）
     S.map.forEach(function (row, y) { for (var x = 0; x < row.length; x++) { var el = $('tl' + x + '_' + y), k = x + ',' + y, cl = tcls(row[x]);
-      if (SUI.R && SUI.R[k] != null) cl += ' mv';
+      if (SUI.R && SUI.R[k] != null) { cl += ' mv'; if (mates.some(function (v) { return Math.abs(v.x - x) + Math.abs(v.y - y) === 1; })) cl += ' sup'; }
       if (SUI.ar && SUI.ar[k]) cl += ' ar';
       if (SUI.dz && SUI.dz[k]) cl += ' dz';
       if (SUI.tile && SUI.tile[0] === x && SUI.tile[1] === y) cl += ' cur';
@@ -383,7 +385,7 @@
     if (u.side === 'e') return info + '<div class="hint">紅色是它這回合打得到的範圍。</div><div class="acts"><button class="btn" onclick="foeSheet(\'' + u.uid + '\')">招式</button><button class="btn" onclick="srwCancel()">關閉</button></div>';
     if (u.acted && SUI.mode !== 'move2') return info + '<div class="hint">這回合已經行動過了。</div><div class="acts"><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwCancel()">關閉</button></div>';
     if (SUI.mode === 'move2') return info + '<div class="hint">游擊：還能移動（點藍色格子）。</div><div class="acts"><button class="btn" onclick="srwCancel()">不移動</button></div>';
-    if (SUI.mode === 'move') return info + '<div class="hint">點藍色格子移動；點她自己＝原地行動。</div><div class="acts"><button class="btn" onclick="srwStay()">原地行動</button><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwItem()">法寶</button><button class="btn" onclick="srwCancel()">取消</button></div>';
+    if (SUI.mode === 'move') return info + '<div class="hint">點藍色格子移動；點她自己＝原地行動。<br>金色底線：旁邊有隊友，能互相助攻、掩護。</div><div class="acts"><button class="btn" onclick="srwStay()">原地行動</button><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwItem()">法寶</button><button class="btn" onclick="srwCancel()">取消</button></div>';
     if (SUI.mode === 'act') { var hasMap = u.w.some(function (_, i) { return T.W(u, i).map; });
       return info + '<div class="acts"><button class="btn go" onclick="srwWeapons()">攻擊</button><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwItem()">法寶</button><button class="btn" onclick="srwWait()">待機</button>' + (u.moveDone && u.moved ? '<button class="btn" onclick="srwUndo()">回原位</button>' : '') + '</div>'; }
     if (SUI.mode === 'target') return info + '<div class="hint">點閃著的敵人出手（' + esc(T.W(u, SUI.wi).n) + '）。</div><div class="acts"><button class="btn" onclick="srwBackAct()">換招式</button></div>';
