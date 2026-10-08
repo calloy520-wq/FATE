@@ -549,8 +549,8 @@
     (function next() {
       if (sB() !== b) { busy = false; return; }
       if (!list.length || b.over) { busy = false; save(); afterAction(); if (!b.over) srwEndTurn(true); return; }
-      var u = list.shift(), snap = snapHp(b), sc = T.autoUnit(run, u); drawUnits();
-      if (sc) playScene(sc, snap, next); else setTimeout(next, 200);
+      var u = list.shift(), ox = u.x, oy = u.y, snap = snapHp(b), sc = T.autoUnit(run, u); drawUnits();
+      setTimeout(function () { if (sB() !== b) { busy = false; return; } if (sc) playScene(sc, snap, next); else next(); }, u.x !== ox || u.y !== oy ? 340 : sc ? 0 : 200);   // 走過去滑完再出手
     })();
   }
 
@@ -573,7 +573,7 @@
     save();   // 每個敵人動之前存一次：重新整理會從這裡接著
     var plan = T.enemyNext(run), again = function (ms) { setTimeout(function () { enemyStep(b); }, ms); };
     if (!plan) { T.enemyDone(run); busy = false; save(); srwBattleScreen(); if (b.over) return overBanner(); banner('我方階段'); srwTips(); return; }
-    var e = T.byUid(b, plan.uid);
+    var e = T.byUid(b, plan.uid), walk = plan.x !== e.x || plan.y !== e.y;   // 走過去要等滑完（.28s）再出手
     T.enemyMove(run, plan); drawUnits();
     var go = function () {
       if (sB() !== b) { busy = false; return; }
@@ -584,7 +584,7 @@
       if (srwSet().autoDef) return defend(plan, T.bestResp(b, e, plan.wi, t));
       defenseSheet(plan);
     };
-    setTimeout(go, plan.x !== e.x || plan.y !== e.y ? 380 : 120);
+    setTimeout(go, walk ? 380 : 120);
   }
   function defend(plan, resp, cwi) { window.NO_ESC = 0; $('ov').onclick = function (ev) { if (ev.target === this) closeOv(); }; closeOv(); var b = sB(); if (!b) return; var snap = snapHp(b), sc = T.enemyAct(run, plan, resp, cwi); playScene(sc, snap, function () { srwDraw(); setTimeout(function () { enemyStep(b); }, 150); }); }
   // 被打：選還手／招架／閃身
