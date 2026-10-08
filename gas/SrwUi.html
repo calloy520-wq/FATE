@@ -35,6 +35,7 @@
   .tl.tg::after { background:rgba(255,80,80,.45); box-shadow:inset 0 0 0 2px #ffd36e; animation:glow 1s ease-in-out infinite; }
   .tl.mc::after { background:rgba(255,200,80,.3); box-shadow:inset 0 0 0 1px rgba(255,220,140,.7); }
   .tl.ma::after { background:rgba(255,150,40,.5); }
+  .nw { font-style:normal; white-space:nowrap; }
   .tl.cur { box-shadow:inset 0 0 0 2px var(--gold2); }
   .acts .btn.on { background:rgba(217,184,106,.22); border-color:var(--gold); color:var(--gold2); }
   .sbunits { position:absolute; left:0; top:0; z-index:3; pointer-events:none; }
@@ -379,7 +380,7 @@
     else { ['ningshen', 'dongming', 'jinshen'].forEach(function (k) { if (u.st[k]) stx.push(T.SPIRITS[k].n); }); if (u.stun) stx.push('動彈不得'); if (u.ding) stx.push('定身 ' + u.ding + '/' + T.stunAt(u)); if (u.poison) stx.push('毒 ' + u.poison); if (u.lives) stx.push('還能站起來 ' + u.lives + ' 次'); if (u.retreat) stx.push('半血會退走'); if (u.regen) stx.push('每階段回 ' + Math.round(u.regen * 100) + '% 氣血'); if (u.hold && !T.isAwake(b, u)) stx.push(u.tr ? '守著不動（有人走進 ' + u.tr + ' 格內才動）' : '守著不動'); }
     var info = '<div class="uinfo">' + portrait(u, 'pf2') + '<div style="flex:1;min-width:0"><div class="nm">' + esc(u.name) + '<small>Lv ' + u.lv + (u.side === 'e' ? '・' + (u.boss ? '魔王' : u.rank === 'e' ? '精英' : '妖物') : '') + '・' + T.SIZE_NAME[u.size] + '</small></div>'
       + '<div class="bars">' + bar(u.side === 'e' ? 'e' : '', u.hp, u.hpMax, '氣血') + (u.side === 'p' ? bar('en', u.en, u.enMax, '真元') : '') + '</div>'
-      + '<div class="st"><span>戰意 ' + u.will + '</span>' + (u.side === 'p' ? '<span>心力 ' + u.sp + '/' + u.spMax + '</span>' : '') + '<span>腳程 ' + T.curMv(u) + '</span><span>' + esc(ter) + '</span>' + (stx.length ? '<span style="color:var(--gold)">' + esc(stx.join('・')) + '</span>' : '') + '</div></div></div>';
+      + '<div class="st"><span>戰意 ' + u.will + '</span>' + (u.side === 'p' ? '<span>心力 ' + u.sp + '/' + u.spMax + '</span>' : '') + '<span>腳程 ' + T.curMv(u) + '</span><span>' + esc(ter) + '</span>' + (stx.length ? '<span style="color:var(--gold)">' + stx.map(function (x) { return '<i class="nw">' + esc(x) + '</i>'; }).join('・') + '</span>' : '') + '</div></div></div>';
     if (u.side === 'e') return info + '<div class="hint">紅色是它這回合打得到的範圍。</div><div class="acts"><button class="btn" onclick="foeSheet(\'' + u.uid + '\')">招式</button><button class="btn" onclick="srwCancel()">關閉</button></div>';
     if (u.acted && SUI.mode !== 'move2') return info + '<div class="hint">這回合已經行動過了。</div><div class="acts"><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwCancel()">關閉</button></div>';
     if (SUI.mode === 'move2') return info + '<div class="hint">游擊：還能移動（點藍色格子）。</div><div class="acts"><button class="btn" onclick="srwCancel()">不移動</button></div>';
@@ -565,7 +566,7 @@
     var b = sB(), e = T.byUid(b, plan.uid), t = T.byUid(b, plan.target), rec = T.bestResp(b, e, plan.wi, t), ci = T.counterWpn(b, t, e);
     var opt = function (resp, label, cwi, isRec) {
       var f = T.forecast(b, e, plan.wi, t, resp, cwi), g = f.guard && T.byUid(b, f.guard);
-      var sub = '對方命中 ' + f.hit + '%・傷害 ' + f.dmg + (f.kill ? '（會倒下）' : '') + (f.cw ? '｜' + esc(f.cw) + ' 命中 ' + f.chit + '%・傷害 ' + f.cdmg : '');
+      var nw = function (x) { return '<i class="nw">' + x + '</i>'; }, sub = nw('對方命中 ' + f.hit + '%') + '・' + nw('傷害 ' + f.dmg + (f.kill ? '（會倒下）' : '')) + (f.cw ? '｜' + nw(esc(f.cw) + ' 命中 ' + f.chit + '%') + '・' + nw('傷害 ' + f.cdmg) : '');   // 每一段不拆開
       return '<button class="' + (isRec ? 'rec' : '') + '" onclick="defend(defenseSheet.plan,\'' + resp + '\'' + (cwi != null ? ',' + cwi : '') + ')"><b>' + label + (g ? '（' + esc(g.name) + '掩護）' : '') + '</b>' + (isRec ? ' <span class="chip gold">建議</span>' : '') + '<small>' + sub + '</small></button>';
     };
     defenseSheet.plan = plan; window.NO_ESC = 1;
