@@ -1,12 +1,11 @@
 #!/bin/bash
-# 改完必跑：戰棋引擎測試、自動對戰跑得完、網頁 JS 語法、repo 裡沒有簡體字。
+# 改完必跑：戰棋引擎測試、自動對戰跑得完、劇情與圖鑑的資料、網頁 JS 語法、repo 裡沒有簡體字。
 set -o pipefail
 cd "$(dirname "$0")"
 fail=0
 echo "── 戰棋引擎"; node tools/srw_test.js | tail -1 || fail=1
 echo "── 戰棋自動對戰（每關最多重打 3 次）"; N=6 node tools/srw_sim.js | tail -1 || fail=1
-echo "── 卡牌引擎（舊版，畫面已經不用）"; node tools/game_test.js | tail -1 || fail=1
-echo "── 卡牌自動玩家（舊版）"; N=60 node tools/sim.js > /dev/null || fail=1
+echo "── 劇情與圖鑑的資料"; node tools/story_test.js | tail -1 || fail=1
 echo "── 網頁 JS 語法"
 for f in gas/*.html; do
   node -e "const s=require('fs').readFileSync('$f','utf8').replace(/<\?!=[\s\S]*?\?>/g,''); const js=[...s.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n'); new Function(js);" && echo "  ✅ $f" || { echo "  ❌ $f"; fail=1; }
