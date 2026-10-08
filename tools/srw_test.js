@@ -191,5 +191,24 @@ Object.keys(T.FOES).forEach(k => ok(T.FOES[k].w.length > 0, k + ' 至少一招')
   while (!b.over && n++ < 30) { T.autoPhase(c); if (b.over) break; T.endPlayerPhase(c); let p; while ((p = T.enemyNext(c))) { T.enemyMove(c, p); if (p.target || p.map) T.enemyAct(c, p); if (b.over) break; } if (!b.over) T.enemyDone(c); }
   eq(b.over, 'win', '自動玩家打贏第一關');
 }
+{
+  // 成名：擊破夠多，專屬加成
+  const c = T.newCampaign(3); c.heroes.chilian.kills = T.ACE_KILLS; c.heroes.qingli.kills = T.ACE_KILLS; c.stage = 4; const b = T.startStage(c);
+  const r = P(b, 'chilian'); eq(r.revive, 2, '赤灼成名：站起來兩次'); ok(T.heroStats(c, 'chilian').ace, '擊破 ' + T.ACE_KILLS + ' 隻成名');
+  const q = P(b, 'qingli'), z = E(b, 'mingquan'); only(b, [q, z]); q.x = 1; q.y = 8; z.x = 1; z.y = 7; z.hp = z.hpMax = 999999; z.rank = 'b'; q.st.dongming = 1;
+  T.attack(c, q, 0, z, 'guard'); eq(z.ding, 2, '青璃成名：桃木劍也貼 2 層');
+  ok(!T.heroStats(c, 'aduo').ace, '擊破不夠不成名');
+}
+{
+  // 格鬥／射擊／靈力：法術招用靈力算；開發的招式要招式淬鍊到 5 級
+  const c = T.newCampaign(4); c.stage = 4; let b = T.startStage(c);
+  const q = P(b, 'qingli'), z = E(b, 'mingquan'); q.x = 1; q.y = 8; z.x = 1; z.y = 7;
+  const w = T.HEROES.qingli.w.filter(x => x.id === 'dingshen')[0], d0 = T.damage(b, q, w, z, '', false); q.spi += 50; ok(T.damage(b, q, w, z, '', false) > d0, '定身符照靈力算');
+  q.spi -= 50; const d1 = T.damage(b, q, w, z, '', false); q.rng += 50; eq(T.damage(b, q, w, z, '', false), d1, '定身符不看射擊');
+  ok(!T.heroStats(c, 'shuang').w.some(x => x.id === 'duanxian'), '還沒開發：沒有斷弦');
+  c.heroes.shuang.up.wpn = 5; ok(T.heroStats(c, 'shuang').w.some(x => x.id === 'duanxian'), '招式淬鍊 5 級：開發出斷弦');
+  c.heroes.aduo.up.wpn = 5; c.battle = null; b = T.startStage(c); const a = P(b, 'aduo'); eq(a.ammo.dieying, 4, '開發出的蝶影有次數');
+  T.ORDER.forEach(k => eq(T.devOf(k).length, 1, k + ' 有一招開發的招式'));
+}
 console.log((fail ? '❌ ' : '✅ ') + pass + ' 項通過' + (fail ? '，' + fail + ' 項沒過' : ''));
 if (fail) process.exit(1);

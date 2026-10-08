@@ -71,6 +71,37 @@
   .bsc .fig.lunge-l { animation:lungeL .34s ease-out; } @keyframes lungeL { 40% { transform:translateX(-30%) scale(1.04); } }
   .bsc .fig.hurt2 { animation:hurt .42s ease-out; }
   .bsc .side.foe .fig .fimg { transform:none; }
+  .bsc .qbox { width:100%; max-width:640px; margin:0 auto; min-height:64px; display:flex; gap:10px; align-items:center; padding:8px 12px; background:linear-gradient(180deg,rgba(20,24,36,.96),rgba(10,12,20,.96)); border-top:1px solid rgba(227,194,122,.45); border-bottom:1px solid rgba(227,194,122,.25); }
+  .bsc .qbox:empty { visibility:hidden; }
+  .qf { width:48px; height:48px; flex:none; border-radius:8px; background:#1a1f2c center 6%/190% no-repeat; border:1px solid rgba(227,194,122,.5); display:flex; align-items:center; justify-content:center; font-family:var(--serif); font-size:20px; font-style:normal; }
+  .bsc .qbox b { color:var(--gold); font-size:13px; display:block; } .bsc .qbox span { font-size:16px; font-family:var(--serif); }
+  .bsc .qbox.foe b { color:#ffb0b0; }
+  .cutin { position:absolute; left:0; right:0; top:22%; height:46%; z-index:6; overflow:hidden; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.0),rgba(10,8,20,.92) 18%,rgba(10,8,20,.92) 82%,rgba(0,0,0,0)); border-top:2px solid var(--gold); border-bottom:2px solid var(--gold); animation:cutin .9s ease-out forwards; }
+  .cutin .cf { position:absolute; left:4%; top:0; bottom:0; width:56%; background:center 10%/cover no-repeat; animation:cutf .9s ease-out forwards; mask-image:linear-gradient(90deg,transparent,#000 20%,#000 70%,transparent); -webkit-mask-image:linear-gradient(90deg,transparent,#000 20%,#000 70%,transparent); }
+  .cutin .cw { position:absolute; right:5%; top:50%; transform:translateY(-50%); font-family:var(--serif); font-size:26px; letter-spacing:.2em; color:var(--gold2); text-shadow:0 0 14px rgba(227,194,122,.9), 0 2px 3px #000; writing-mode:vertical-rl; }
+  .cutin.e { border-color:#d04050; } .cutin.e .cw { color:#ffc2c8; text-shadow:0 0 14px rgba(255,80,100,.9), 0 2px 3px #000; }
+  @keyframes cutin { 0% { transform:scaleY(0); } 18% { transform:scaleY(1); } 85% { opacity:1; } 100% { opacity:0; } }
+  @keyframes cutf { 0% { transform:translateX(-30%); opacity:0; } 25% { transform:translateX(0); opacity:1; } 100% { transform:translateX(6%); } }
+  .tcard { position:fixed; inset:0; z-index:28; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:24px 16px; background:radial-gradient(ellipse at 50% 45%,rgba(40,30,12,.92),rgba(5,6,10,.97) 70%); text-align:center; animation:fadein .5s ease-out; }
+  .tcard .no { font-family:var(--latin); letter-spacing:.4em; color:var(--dim); font-size:14px; }
+  .tcard h2 { margin:0; font-family:var(--serif); font-size:36px; letter-spacing:.3em; color:var(--gold2); text-shadow:0 0 18px rgba(227,194,122,.6); }
+  .tcard .pl { color:var(--dim); letter-spacing:.2em; }
+  .tcard .cond { margin-top:14px; border-top:1px solid rgba(227,194,122,.35); border-bottom:1px solid rgba(227,194,122,.35); padding:10px 4px; font-size:14.5px; line-height:1.9; max-width:420px; width:100%; }
+  .tcard .cond b { color:var(--gold); margin-right:8px; } .tcard .go2 { margin-top:18px; color:var(--dim); font-size:13px; animation:vnb 1.2s ease-in-out infinite; }
+  @keyframes fadein { from { opacity:0; } }
+  .talk { position:fixed; left:0; right:0; bottom:0; z-index:27; padding:0 0 env(safe-area-inset-bottom); }
+  .talk .tb { max-width:640px; margin:0 auto 10px; display:flex; gap:12px; align-items:flex-start; padding:12px 14px; min-height:96px; background:linear-gradient(180deg,rgba(24,28,42,.97),rgba(12,14,22,.97)); border:1px solid rgba(227,194,122,.55); border-radius:12px; box-shadow:0 -8px 30px rgba(0,0,0,.6); }
+  .talk .tb .qf { width:64px; height:64px; } .talk .tb b { color:var(--gold); display:block; font-size:14px; } .talk .tb b.e { color:#ffb0b0; } .talk .tb span { font-family:var(--serif); font-size:17px; }
+  .talk .skip2 { position:absolute; right:12px; top:-30px; color:var(--dim); font-size:13px; border:1px solid var(--line); border-radius:8px; padding:2px 10px; background:rgba(10,12,20,.8); }
+  .talkveil { position:fixed; inset:0; z-index:26; background:rgba(0,0,0,.35); }
+  .fx { position:absolute; z-index:5; pointer-events:none; }
+  .fx.slash { left:-10%; right:-10%; top:50%; height:5px; background:linear-gradient(90deg,transparent,#fff,#ffd27a,transparent); box-shadow:0 0 14px #ffd27a; transform:rotate(-24deg) scaleX(0); animation:slash .3s ease-out forwards; }
+  .fx.bolt { top:40%; height:4px; border-radius:2px; background:linear-gradient(90deg,transparent,#bfe6ff,#fff); box-shadow:0 0 12px #8fd0ff; animation:bolt .28s ease-in forwards; }
+  .fx.bolt.e { background:linear-gradient(270deg,transparent,#ffb0b0,#fff); box-shadow:0 0 12px #ff6070; }
+  .fx.burst { width:120px; height:120px; margin:-60px 0 0 -60px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,.95),rgba(255,210,120,.6) 35%,transparent 70%); animation:burst .4s ease-out forwards; }
+  @keyframes bolt { from { left:20%; width:0; opacity:1; } to { left:30%; width:50%; opacity:.2; } }
+  @keyframes burst { from { transform:scale(.2); opacity:1; } to { transform:scale(1.6); opacity:0; } }
+  .bsc.shake #stage { animation:shake .35s ease-out; } @keyframes shake { 20% { transform:translate(-6px,3px); } 40% { transform:translate(6px,-3px); } 60% { transform:translate(-4px,2px); } 80% { transform:translate(3px,-1px); } }
   .prep .hd { width:100%; max-width:520px; display:flex; flex-direction:column; gap:4px; }
   .prep .hd b { font-family:var(--serif); color:var(--gold); font-size:20px; letter-spacing:.08em; }
   .hcard { display:flex; gap:10px; align-items:center; text-align:left; width:100%; }
@@ -135,6 +166,7 @@
       var val = { hp: s.hpMax, en: s.enMax, arm: s.arm, mob: s.mob, aim: s.aim, wpn: '+' + h.up.wpn * T.UP_STEP.wpn };
       body = '<div class="dim" style="font-size:13px">花靈石淬鍊身法器。五項（招式以外）都到 5 級：<b style="color:var(--gold)">淬鍊圓滿</b>（' + esc(H.full) + '）' + (s.full ? ' ✅' : '') + '</div>'
         + T.UP_KEYS.map(function (key) { var cost = T.upCost(key, h.up[key]); return '<div class="uprow"><span class="k">' + T.UP_NAME[key] + '</span><span class="v">' + val[key] + '</span>' + lvb(h.up[key]) + '<button' + (!cost || c.gold < cost ? ' disabled' : '') + ' onclick="srwUp(\'' + k + '\',\'' + key + '\')">' + (cost ? '💎 ' + cost : '到頂') + '</button></div>'; }).join('')
+        + T.devOf(k).map(function (w) { return '<div class="box" style="margin-top:8px;padding:8px 12px' + (h.up.wpn >= w.dev ? ';border-color:var(--gold)' : '') + '"><b>' + (h.up.wpn >= w.dev ? '已開發' : '開發') + '「' + esc(w.n) + '」</b>　<span class="dim" style="font-size:12.5px">' + (h.up.wpn >= w.dev ? '' : '招式淬鍊到 ' + w.dev + ' 級・') + wpnLine(w, h.up.wpn) + '</span></div>'; }).join('')
         + '<div class="dim" style="font-size:12.5px;margin-top:6px">每級：氣血 +' + T.UP_STEP.hp + '、真元 +' + T.UP_STEP.en + '、護體 +' + T.UP_STEP.arm + '、輕身 +' + T.UP_STEP.mob + '、準頭 +' + T.UP_STEP.aim + '、招式威力 +' + T.UP_STEP.wpn + '。靈石 ' + c.gold + '</div>';
     }
     if (tab === 'tr') body = '<div class="dim" style="font-size:13px">花悟道點加修為：每次 +' + T.TRAIN_STEP + '，要 ' + T.TRAIN_COST + ' 點（現在 ' + h.pp + ' 點）。升級也會成長。</div>'
@@ -148,26 +180,56 @@
         + '<div class="list">' + [0, 1].map(function (i) { var id = h.eq[i]; return '<div class="box urow"><div>' + (id ? '<b>' + esc(T.ITEMS[id].n) + '</b>　<span class="dim" style="font-size:13px">' + esc(T.ITEMS[id].d) + '</span>' : '<span class="dim">（空）</span>') + '</div>' + (id ? '<button class="btn" style="padding:5px 10px" onclick="srwUneq(\'' + k + '\',' + i + ')">卸下</button>' : '') + '</div>'; }).join('')
         + (h.eq.length < T.EQ_SLOTS ? inv.map(function (id) { return '<button class="wrow" onclick="srwEq(\'' + k + '\',\'' + id + '\')"><b>' + esc(T.ITEMS[id].n) + '</b><span class="dim" style="font-size:12.5px">' + esc(T.ITEMS[id].d) + '</span><span class="r">×' + c.inv[id] + '　裝上</span></button>'; }).join('') : '') + '</div>'; }
     if (tab === 'info') body = '<div class="box" style="text-align:left"><b>' + esc(T.TRAITS[H.trait].n) + '</b>　<span class="dim" style="font-size:13px">' + keepTail(esc(T.TRAITS[H.trait].d)) + '</span></div>'
-      + '<div class="list" style="margin-top:8px">' + H.w.map(function (w) { return '<div class="box" style="padding:8px 12px"><b>' + esc(w.n) + '</b>　<span class="dim" style="font-size:12.5px">' + wpnLine(w, s.wpnUp) + '</span></div>'; }).join('') + '</div>'
+      + '<div class="list" style="margin-top:8px">' + H.w.map(function (w) { var lock = w.dev && h.up.wpn < w.dev; return '<div class="box" style="padding:8px 12px' + (lock ? ';opacity:.5' : '') + '"><b>' + esc(w.n) + '</b>' + (lock ? ' <span class="chip">招式淬鍊 ' + w.dev + ' 級開發</span>' : '') + '　<span class="dim" style="font-size:12.5px">' + wpnLine(w, s.wpnUp) + '</span></div>'; }).join('') + '</div>'
       + '<h3 style="margin:12px 0 6px">心訣</h3><div class="list">' + H.sp.map(function (p) { var S2 = T.SPIRITS[p[0]]; return '<div class="box" style="padding:8px 12px' + (h.lv >= p[1] ? '' : ';opacity:.5') + '"><b>' + S2.n + '</b> <span class="dim">心力 ' + S2.c + '</span>' + (h.lv >= p[1] ? '' : ' <span class="chip">Lv' + p[1] + ' 學會</span>') + '<div class="dim" style="font-size:12.5px">' + esc(S2.d) + '</div></div>'; }).join('') + '</div>';
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(Sv.name) + '</b>　<span class="dim">Lv ' + h.lv + '・經驗 ' + h.exp + '/' + T.EXP_LV + '・擊破 ' + h.kills + '</span>'
-      + '<div class="dim" style="font-size:12.5px;margin:4px 0 8px">近戰 ' + s.mel + '・術法 ' + s.rng + '・命中 ' + s.hit + '・迴避 ' + s.eva + '・悟性 ' + s.skl + '・防禦 ' + s.def + '・腳程 ' + s.mv + '・體積 ' + T.SIZE_NAME[s.size] + (s.fly ? '・飛行' : '') + '</div>' + head + body);
+      + '<div style="font-size:12.5px;margin-top:2px">' + (s.ace ? '<span style="color:var(--gold)">成名「' + esc(Sv.hao) + '」</span>：' + keepTail(esc(T.ACE[k])) : '<span class="dim">擊破 ' + h.kills + '／' + T.ACE_KILLS + ' 成名「' + esc(Sv.hao) + '」：' + keepTail(esc(T.ACE[k])) + '</span>') + '</div>'
+      + '<div class="dim" style="font-size:12.5px;margin:4px 0 8px">格鬥 ' + s.mel + '・射擊 ' + s.rng + '・靈力 ' + s.spi + '・命中 ' + s.hit + '・迴避 ' + s.eva + '・悟性 ' + s.skl + '・防禦 ' + s.def + '・腳程 ' + s.mv + '・體積 ' + T.SIZE_NAME[s.size] + (s.fly ? '・飛行' : '') + '</div>' + head + body);
   }
   function wpnLine(w, up) {
     var a = ['威力 ' + (w.p + (up || 0) * T.UP_STEP.wpn), '射程 ' + (w.map ? (w.map.shape === 'burst' ? '自身周圍 ' + w.map.r : w.r[0] + '–' + w.r[1] + '（範圍 ' + w.map.r + '）') : w.r[0] === w.r[1] ? w.r[0] : w.r[0] + '–' + w.r[1])];
     if (w.hit) a.push('命中 ' + (w.hit > 0 ? '+' : '') + w.hit); if (w.crit) a.push('爆擊 +' + w.crit);
     if (w.en) a.push('真元 ' + w.en); if (w.ammo) a.push('次數 ' + w.ammo); if (w.will) a.push('戰意 ' + w.will);
-    if (w.mv) a.push('➚移動後可用'); if (w.mel) a.push('近戰');
+    a.splice(1, 0, w.mel ? '格鬥' : w.spi ? '靈力' : '射擊');
+    if (w.mv) a.push('➚移動後可用');
     if (w.map) a.push('陣法（對方不能還手）'); if (w.combo) a.push('合擊：' + G.SERVANTS[w.combo].name + '在旁邊');
     if (w.ding) a.push('定身 +' + w.ding); if (w.poison) a.push('毒 +' + w.poison); if (w.vsDing) a.push('打定身的 ×1.3'); if (w.vsPoison) a.push('毒越多越痛'); if (w.drain) a.push('吸血'); if (w.sap) a.push('戰意 −' + w.sap); if (w.pierce) a.push('無視招架');
     return keepTail(a.join('・'));
   }
-  function srwUp(k, key) { var e = T.upgrade(run, k, key); if (e) toast(e, 'err'); save(); heroSheet(k); }
+  function srwUp(k, key) { var before = run.heroes[k].up.wpn, e = T.upgrade(run, k, key); if (e) toast(e, 'err'); else T.devOf(k).forEach(function (w) { if (key === 'wpn' && before < w.dev && run.heroes[k].up.wpn >= w.dev) toast(G.SERVANTS[k].name + '開發出新招式「' + w.n + '」'); }); save(); heroSheet(k); }
   function srwTrain(k, key) { var e = T.train(run, k, key); if (e) toast(e, 'err'); save(); heroSheet(k); }
   function srwLearn(k, sk) { var e = T.learn(run, k, sk); if (e) toast(e, 'err'); else toast('學會' + T.SKILLS[sk].n); save(); heroSheet(k); }
   function srwEq(k, id) { var e = T.equip(run, k, id); if (e) toast(e, 'err'); save(); heroSheet(k); }
   function srwUneq(k, i) { T.unequip(run, k, i); save(); heroSheet(k); }
-  function srwSortie() { closeOv(); T.startStage(run); SUI = { mode: 'idle' }; save(); render(); setTimeout(function () { banner('我方階段'); }, 200); }
+  function srwSortie() { closeOv(); T.startStage(run); SUI = { mode: 'idle' }; save(); render(); titleCard(T.stageOf(sB()), function () { talkPlay(SRW_TALK.TALK[sB().stage] || [], function () { banner('我方階段'); srwTips(); }); }); }
+  function condText(S) {
+    var M = S.merit || {}, boss = S.foes.filter(function (f) { return f[4] && f[4].boss; })[0];
+    return '<div><b>勝利條件</b>' + (S.win === 'boss' ? '擊破' + esc(T.foeName(boss[0])) + (boss[4].retreat ? '（打到一半就會退走）' : '') : '敵人全滅') + '</div><div><b>敗北條件</b>出擊的人全部倒下</div>'
+      + (M.turns || M.nodown ? '<div><b>功勳</b>' + (M.turns ? M.turns + ' 回合內勝利' : '沒有人倒下') + '（' + esc(T.ITEMS[M.reward].n) + '）</div>' : '');
+  }
+  // 關卡標題卡（機戰每一話開頭那張）：點一下開始
+  function titleCard(S, cb) {
+    busy = true;
+    var el = document.createElement('div'); el.className = 'tcard';
+    el.innerHTML = '<div class="no">STAGE ' + (S.idx + 1) + '</div><h2>' + esc(S.n) + '</h2><div class="pl">' + esc(S.place) + '</div><div class="cond">' + condText(S) + '</div><div class="go2">點一下開始</div>';
+    el.onclick = function () { el.remove(); busy = false; cb && cb(); };
+    document.body.appendChild(el);
+  }
+  // 開打前的幾句話（點一下下一句）
+  function whoName(id) { return (G.SERVANTS[id] && G.SERVANTS[id].name) || T.foeName(id); }
+  function talkPlay(lines, cb) {
+    if (!lines || !lines.length) return cb && cb();
+    busy = true; var i = 0, veil = document.createElement('div'), box = document.createElement('div'); veil.className = 'talkveil'; box.className = 'talk';
+    var end = function () { veil.remove(); box.remove(); busy = false; cb && cb(); };
+    var show = function () {
+      if (i >= lines.length) return end();
+      var L = lines[i++], id = L[0], hero = !!G.SERVANTS[id];
+      box.innerHTML = '<button class="skip2">略過</button><div class="tb">' + portrait({ id: id, side: hero ? 'p' : 'e', name: whoName(id) }, 'qf') + '<div><b' + (hero ? '' : ' class="e"') + '>' + esc(whoName(id)) + '</b><span>「' + esc(L[1]) + '」</span></div></div>';
+      box.querySelector('.skip2').onclick = function (e) { e.stopPropagation(); end(); };
+    };
+    veil.onclick = show; box.onclick = show;
+    document.body.appendChild(veil); document.body.appendChild(box); show();
+  }
 
   // ── 地圖戰 ──
   function tsize(b) { var W = T.stageOf(b).map[0].length; return Math.max(30, Math.floor(Math.min(48, (Math.min(window.innerWidth || 400, 640) - 18) / W))); }
@@ -344,6 +406,7 @@
   function srwMenu() {
     var s = srwSet();
     openOv('<b style="color:var(--gold)">選單</b><div class="list" style="margin-top:10px">'
+      + '<button onclick="srwGoal()">作戰目標</button>'
       + '<button onclick="closeOv();srwEndTurn()">結束回合</button>'
       + '<button onclick="srwToggle(\'anim\')">交手動畫：' + (s.anim ? '開' : '關') + '</button>'
       + '<button onclick="srwToggle(\'autoDef\')">敵方階段自動應戰：' + (s.autoDef ? '開' : '關（每次自己選）') + '</button>'
@@ -352,6 +415,7 @@
       + '<button onclick="confirmOv(\'放棄這一關？經驗與靈石會留著，可以重打。\',srwGiveUp)">放棄這一關</button>'
       + '<button onclick="closeOv();run=null;titleScreen()">回標題（存著，之後接著打）</button></div>');
   }
+  function srwGoal() { var S = T.stageOf(sB()); openOv('<b style="color:var(--gold)">' + stageNo(S) + '・' + esc(S.n) + '</b><div class="box" style="margin-top:10px;line-height:1.9">' + condText(S) + '</div>'); }
   function srwToggle(k) { var s = srwSet(); s[k] = s[k] ? 0 : 1; queueSave(true, false); srwMenu(); }
   function srwGiveUp() { var b = sB(); b.over = 'lose'; srwFinish(); }
   function srwAutoTurn() {
@@ -423,7 +487,10 @@
     var S = T.stageOf(b), ov = document.createElement('div'); ov.className = 'bsc'; ov.id = 'bsc'; ov.onclick = finish;
     var side = function (uid, cls) { var u = T.byUid(b, uid); if (!u) return '<div class="side ' + cls + '"></div>';
       return '<div class="side ' + cls + '" data-uid="' + uid + '"><div class="fig ' + (cls === 'me' ? 'me' : '') + '">' + FIG.fig(u.id, u.side === 'e', { swords: (u.ammo && u.ammo.feijian) || 0 }) + '</div><div class="who">' + esc(u.name) + '</div>' + bar(u.side === 'e' ? 'e' : '', hp[uid], u.hpMax, '') + '</div>'; };
-    ov.innerHTML = '<div id="stage" class="' + bgOf(S) + '">' + FIG.scene({ act: S.bg === 'abyss' ? 3 : S.bg === 'city' ? 2 : 1 }) + side(heroId, 'me') + '<div style="flex:1"></div>' + side(foeId, 'foe') + '<div class="wname" id="bscw"></div></div><div class="skip">點一下跳過</div>';
+    ov.innerHTML = '<div id="stage" class="' + bgOf(S) + '">' + FIG.scene({ act: S.bg === 'abyss' ? 3 : S.bg === 'city' ? 2 : 1 }) + side(heroId, 'me') + '<div style="flex:1"></div>' + side(foeId, 'foe') + '<div class="wname" id="bscw"></div></div><div class="qbox" id="bscq"></div><div class="skip">點一下跳過</div>';
+    var said = 0;
+    var say = function (u, text) { var q = $('bscq'); if (!q || !text || !u) return; q.className = 'qbox' + (u.side === 'e' ? ' foe' : ''); q.innerHTML = portrait(u, 'qf') + '<div><b>' + esc(u.name) + '</b><span>「' + esc(text) + '」</span></div>'; said++; };
+    var cutin = function (u, wn) { var st = $('stage'); if (!st) return; var c2 = document.createElement('div'), src = u.side === 'p' ? FIG_art(u.id) : ART[u.id]; c2.className = 'cutin' + (u.side === 'e' ? ' e' : ''); c2.innerHTML = '<i class="cf"' + (src && !ART_BAD[src] ? ' style="background-image:url(\'' + src + '\')"' : '') + '></i><div class="cw">' + esc(wn) + '</div>'; st.appendChild(c2); setTimeout(function () { c2.remove(); }, 950); };
     document.body.appendChild(ov);
     var i = 0;
     (function step() {
@@ -434,9 +501,27 @@
       var tag = s.tag === 'counter' ? '還手' : s.tag === 'support' ? '助攻' : s.tag === 'map' ? '陣法' : '';
       $('bscw').innerHTML = esc(s.w) + '<small>' + esc(A.name) + (tag ? '・' + tag : '') + (s.resp === 'guard' ? '｜' + esc(D.name) + '招架' : s.resp === 'evade' ? '｜' + esc(D.name) + '閃身' : '') + '</small>';
       var aEl = ov.querySelector('.side[data-uid="' + s.a + '"] .fig'), dSide = ov.querySelector('.side[data-uid="' + s.d + '"]'), dEl = dSide && dSide.querySelector('.fig');
+      var foeOf = A.side === 'p' ? D : null, nn = i + (b.turn || 0);
+      var vk = foeOf && foeOf.boss ? A.id + '>' + foeOf.id : '', useVs = vk && !(SUI.vsSaid = SUI.vsSaid || {})[vk];
+      var line = s.tag === 'support' ? SRW_TALK.react(A.id, 'support', nn) || SRW_TALK.atkLine(A.id, s.wid, '', nn, false) : SRW_TALK.atkLine(A.id, s.wid, vk ? foeOf.id : '', nn, useVs);
+      if (useVs && line === (SRW_TALK.LINES[A.id] && SRW_TALK.LINES[A.id].vs && SRW_TALK.LINES[A.id].vs[foeOf.id])) SUI.vsSaid[vk] = 1;
+      say(A, line);
+      var big = s.big && (A.side === 'p' || A.boss), pre = big ? 900 : 0;
+      if (big) cutin(A, s.w);
+      setTimeout(function () {
+      if (done) return;
       if (aEl) { aEl.classList.remove('lunge-r', 'lunge-l'); void aEl.offsetWidth; aEl.classList.add(A.side === 'p' ? 'lunge-r' : 'lunge-l'); }
       setTimeout(function () {
         if (done) return;
+        var st2 = $('stage');
+        if (st2) { var w0 = s.wid ? null : null, melee = (A.side === 'p' ? (T.HEROES[A.id].w.filter(function (x) { return x.id === s.wid; })[0] || {}) : {}).mel;
+          var fx = document.createElement('div');
+          if (melee || (A.side === 'e' && /斬|刀|拳|爪|咬|刺|擊|掌|鞭|撞|刃/.test(s.w))) fx.className = 'fx slash';
+          else { fx.className = 'fx bolt' + (A.side === 'e' ? ' e' : ''); if (A.side === 'e') { fx.style.transform = 'scaleX(-1)'; fx.style.left = '10%'; } }
+          if (dSide) { var r0 = dSide.getBoundingClientRect(), r1 = st2.getBoundingClientRect(); if (fx.className === 'fx slash') { fx.style.left = (r0.left - r1.left - 20) + 'px'; fx.style.right = 'auto'; fx.style.width = (r0.width + 40) + 'px'; } }
+          st2.appendChild(fx); setTimeout(function () { fx.remove(); }, 450);
+          if (s.hit && dSide) { var bu = document.createElement('div'), r2 = dSide.getBoundingClientRect(), r3 = st2.getBoundingClientRect(); bu.className = 'fx burst'; bu.style.left = (r2.left - r3.left + r2.width / 2) + 'px'; bu.style.top = (r2.top - r3.top + r2.height * 0.45) + 'px'; st2.appendChild(bu); setTimeout(function () { bu.remove(); }, 450); }
+          if (s.crit || s.big) { ov.classList.remove('shake'); void ov.offsetWidth; ov.classList.add('shake'); } }
         if (s.hit) {
           hp[s.d] = Math.max(0, hp[s.d] - s.dmg); if (s.revive || s.retreat) hp[s.d] = D.hp; if (s.drain) hp[s.a] = Math.min(A.hpMax, hp[s.a] + s.drain);
           if (dEl) { dEl.classList.remove('hurt2'); void dEl.offsetWidth; dEl.classList.add('hurt2'); }
@@ -446,8 +531,16 @@
           if (s.retreat && dSide) setTimeout(function () { popAt(dSide, '退走', 'blk'); }, 320);
           if (s.stun && dSide) setTimeout(function () { popAt(dSide, '定住了', 'gain'); }, 360);
         } else if (dSide) popAt(dSide, s.taying ? '踏影' : '閃過', 'blk');
-        setTimeout(step, s.kill ? 900 : 650);
+        // 被打的人的反應（女修與魔王才說話）
+        var rk = s.retreat ? 'retreat' : s.revive ? 'revive' : s.kill ? 'down' : s.hit ? 'hit' : 'dodge', rl = (D.side === 'p' || D.boss) ? SRW_TALK.react(D.id, rk, nn) : '';
+        if (s.kill && A.side === 'p' && !rl) rl = '';
+        var wait = s.kill ? 900 : 650;
+        if (rl) setTimeout(function () { if (!done) say(D, rl); }, 380);
+        else if (s.kill && A.side === 'p') { var kl = SRW_TALK.react(A.id, 'kill', nn); if (kl) setTimeout(function () { if (!done) say(A, kl); }, 420); }
+        if (rl || s.kill) wait += 600;
+        setTimeout(step, wait);
       }, 300);
+      }, pre);
     })();
   }
   function banner(t, cls) { var el = document.createElement('div'); el.className = 'banner' + (cls ? ' ' + cls : ''); el.textContent = t; document.body.appendChild(el); setTimeout(function () { el.remove(); }, 1300); }
@@ -469,7 +562,12 @@
   }
   function resultScreen() {
     var r = run.result, S = T.STAGES.filter(function (x) { return x.id === r.stage; })[0];
-    var rows = Object.keys(r.gain).map(function (k) { var g = r.gain[k]; return '<div class="box gain">' + portrait({ id: k, side: 'p', name: G.SERVANTS[k].name }, 'pf2') + '<div style="flex:1"><b>' + esc(G.SERVANTS[k].name) + '</b> <span class="dim">Lv ' + run.heroes[k].lv + '</span>' + (g.lvUp ? ' <span class="chip gold">升了 ' + g.lvUp + ' 級</span>' : '') + '<div class="dim" style="font-size:12.5px">經驗 +' + g.exp + '・悟道點 +' + g.pp + '・擊破 ' + g.kills + '</div></div></div>'; }).join('');
+    var rows = Object.keys(r.gain).map(function (k) { var g = r.gain[k], h = run.heroes[k], lv0 = h.lv - g.lvUp, k0 = h.kills - g.kills;
+      var learned = T.HEROES[k].sp.filter(function (p) { return p[1] > lv0 && p[1] <= h.lv; }).map(function (p) { return T.SPIRITS[p[0]].n; });
+      var ace = k0 < T.ACE_KILLS && h.kills >= T.ACE_KILLS;
+      return '<div class="box gain">' + portrait({ id: k, side: 'p', name: G.SERVANTS[k].name }, 'pf2') + '<div style="flex:1"><b>' + esc(G.SERVANTS[k].name) + '</b> <span class="dim">Lv ' + h.lv + '</span>' + (g.lvUp ? ' <span class="chip gold">升了 ' + g.lvUp + ' 級</span>' : '') + '<div class="dim" style="font-size:12.5px">經驗 +' + g.exp + '・悟道點 +' + g.pp + '・擊破 ' + g.kills + '</div>'
+        + (learned.length ? '<div style="font-size:13px;color:var(--gold)">學會心訣：' + learned.join('、') + '</div>' : '')
+        + (ace ? '<div style="font-size:13px;color:var(--gold)">成名「' + esc(G.SERVANTS[k].hao) + '」：' + esc(T.ACE[k]) + '</div>' : '') + '</div></div>'; }).join('');
     $('app').innerHTML = '<div class="panel res"><h1 style="font-size:24px">' + (r.win ? '勝利' : '敗北') + '</h1><div class="dim">' + stageNo(S) + '・' + esc(S.n) + '・' + r.turns + ' 回合</div>'
       + '<div class="box" style="text-align:center">💎 擊破 ' + r.gold + (r.clearGold ? '＋過關 ' + r.clearGold : '') + '　現在 ' + run.gold + '</div>'
       + (r.merit ? '<div class="box" style="text-align:center;border-color:var(--gold)">🏅 功勳達成：拿到<b>' + esc(T.ITEMS[r.item].n) + '</b></div>' : '')
@@ -521,7 +619,8 @@
   var SRW_GLOSSARY = [
     ['回合', '我方階段：每人移動一次、行動一次（攻擊、心訣、待機）。全部動完換敵方階段。'],
     ['命中／迴避', '命中率＝（命中 ÷ 2 ＋ 準頭 ＋ 招式命中）−（對方迴避 ÷ 2 ＋ 輕身），再看對方體積與站的地形。同一個階段被打越多次越難閃（每次 +5）。'],
-    ['傷害', '威力 ×（近戰或術法 ＋ 戰意）÷ 200，減掉 護體 ×（防禦 ＋ 戰意）÷ 200。爆擊 ×1.25（看悟性差）。'],
+    ['格鬥／射擊／靈力', '招式分三種：近身的用格鬥算，飛劍、銀針這類打出去的用射擊算，符、蠱、龍息、劍陣這類法術用靈力算。'],
+    ['傷害', '威力 ×（格鬥、射擊或靈力 ＋ 戰意）÷ 200，減掉 護體 ×（防禦 ＋ 戰意）÷ 200。爆擊 ×1.25（看悟性差）。'],
     ['還手／招架／閃身', '被打的一方三選一：射程夠就能還手；招架傷害減半；閃身讓對方命中減半。'],
     ['戰意', '出擊 100，最高 150。打中、閃過、挨打 +1，擊破 +4，隊友擊破全隊 +1。戰意同時讓攻擊與防禦變強，大招要戰意到門檻。'],
     ['心訣', '花心力發動。心力每個我方階段 +3，下一關回滿。'],
@@ -532,10 +631,11 @@
     ['體積', '小、中、大、巨。體積越大越好打中（大 ×1.2、巨 ×1.4）。'],
     ['定身', '青璃的招式打中就貼一層，每層輕身 −10。貼滿門檻（雜兵 2、精英 3、魔王 4）就停一個敵方階段。'],
     ['毒', '阿朵的蠱：每層在敵方階段開始扣 150 氣血，之後少一層。'],
-    ['淬鍊', '整備時花靈石強化：氣血、真元、護體、輕身、準頭、招式各 10 級。五項（招式以外）都到 5 級：淬鍊圓滿，每人一個專屬獎勵。'],
+    ['淬鍊', '整備時花靈石強化：氣血、真元、護體、輕身、準頭、招式各 10 級。五項（招式以外）都到 5 級：淬鍊圓滿，每人一個專屬獎勵。招式淬鍊到 5 級：開發出一招新招式。'],
     ['修為／功法', '悟道點：擊破與過關拿得到。加修為（命中、迴避……）或學功法。'],
     ['法寶', '每人兩格：裝備類一直有效；丹藥類每關能用一次。'],
     ['功勳', '每關一個額外條件（例：幾回合內勝利），達成拿法寶。'],
+    ['成名', '擊破 18 隻以上，用她的名號成名：每人一個專屬加成（人物頁看得到）。'],
     ['輸了', '經驗、悟道點、靈石都留著，回整備再打一次。']
   ];
 </script>

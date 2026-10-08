@@ -1,0 +1,81 @@
+<script>
+// ═══ 戰棋的台詞（機戰 OG 的戰鬥台詞＋每關開打前的幾句對話） ═══
+// 寫法照劇情：含蓄、短、不要每句都在演人設；白辰孩童模樣，不進曖昧的話。
+// LINES[誰]：atk 一般出手｜w[招式 id] 那一招的台詞｜hit 挨打｜dodge 閃過｜kill 擊破｜down 倒下｜revive 站起來｜support 助攻｜guard 掩護｜vs[魔王 id] 打那位魔王時
+// 魔王：atk｜hit｜down 倒下｜retreat 退走｜revive 站起來
+// TALK[關卡 id]：開打前的對話 [說話的人（女修 id 或魔王 id）, 台詞]（盡量呼應小說裡的原句）
+var SRW_TALK = (function () {
+  var LINES = {
+    shuang: {
+      atk: ['去。', '讓開。', '……礙事。', '一劍就好。'],
+      w: { feijian: ['飛劍。', '劍，去。'], jianzhen: ['劍陣，起。'], wanjian: ['萬劍——歸宗。', '這一劍，是師父教的。'], jianjiu: ['赤灼。'], duanxian: ['弦斷了，劍還在。'] },
+      hit: ['……嘖。', '無妨。', '還站得住。'], dodge: ['太慢。', '看得見。'], kill: ['下一個。', '……結束了。'],
+      down: ['……先退一步。'], support: ['我來。'],
+      vs: { xinmo: '師父，回家再算帳。', zhanglao: '鑰匙不在妳手上。' }
+    },
+    qingli: {
+      atk: ['看符！', '這張畫得不錯吧？', '別亂動喔。'],
+      w: { dingshen: ['定身——貼！', '定！'], wulei: ['五雷，聽令！'], tianluo: ['天羅地網，收！'], fugu: ['阿朵，一起！'], huoyun: ['火雲，燒過去！'] },
+      hit: ['好痛……還好還好。', '唔，袖子又燒了。'], dodge: ['沒打到！', '嘿，這邊。'], kill: ['收工！', '好，下一隻。'],
+      down: ['抱歉，先休息一下……'], support: ['我也來！'],
+      vs: { xinmo: '這道印，我畫得完。', shuyao: '再生也沒用，我貼到妳長不出來。' }
+    },
+    xiaoman: {
+      atk: ['小輩，退下。', '本座親自來。', '阿白，上。'],
+      w: { quan: ['本座一拳！'], longwei: ['掃乾淨。'], longxi: ['阿白，吐。'], longyin: ['阿白——吟！'], tuilong: ['蛻龍訣。看清楚了，小輩。'] },
+      hit: ['……放肆。', '這點小傷。'], dodge: ['慢得很。', '本座看過的比妳多。'], kill: ['哼。', '早該如此。'],
+      down: ['……阿白，帶她們走。'], guard: ['躲到本座後面。'], support: ['本座也打一下。'],
+      vs: { xinmo: '這一次，換本座進來。', guijiang: '妳守的城，本座記得。' }
+    },
+    chilian: {
+      atk: ['姊姊來陪你玩。', '別眨眼喔。', '喝！'],
+      w: { zhanma: ['嘿——咻！'], jiuhuo: ['一口烈酒……燒吧！'], zuixian: ['九斬，醉到底！'], jianjiu: ['掌門，一起！'], liaoyuan: ['都過來，陪姊姊醉一場。'] },
+      hit: ['痛痛痛……', '這一下，記住了。'], dodge: ['哎呀，差一點。', '跳舞我也會的。'], kill: ['乾了。', '下一個是誰？'],
+      down: ['掌門……後面交給妳了。'], revive: ['……還沒醉倒呢。', '再來一杯。'], support: ['後面我顧著！'],
+      vs: { huyao: '勾得一點誠意也沒有。', niumo: '比力氣？姊姊奉陪。' }
+    },
+    aduo: {
+      atk: ['去吧。', '……咬它。', '乖，吃飯了。'],
+      w: { yinzhen: ['針。'], dugu: ['別怕，不痛的。'], gufa: ['……時候到了。'], wangu: ['全部，出來。'], fugu: ['好呀。'], dieying: ['蝶，去。'] },
+      hit: ['……唔。', '好痛。'], dodge: ['不在這裡喔。', '呆呆的，是你吧。'], kill: ['吃飽了。', '……睡吧。'],
+      down: ['青璃……'], support: ['我也要。'],
+      vs: { zhanglao: '偷了東西，要還的。' }
+    },
+    // 魔王
+    zhanglao: { atk: ['乖，別動。', '鑰匙，交出來。'], hit: ['……有意思。'], retreat: ['鬼哭城等妳們。'], down: ['一百年……就差這一步……'] },
+    shuyao: { atk: ['留下來，當我的養分。', '根，扎進來了喔。'], hit: ['才剛長出來的枝……'], down: ['……我只是，想再開一次花。'] },
+    guijiang: { atk: ['長寧，不許踏進一步。', '陰兵，列陣。'], hit: ['……還不夠。'], down: ['城……守住了嗎……'] },
+    niumo: { atk: ['站穩了，小姑娘們。', '撞飛妳們！'], hit: ['就這點力氣？'], revive: ['還沒完呢！'], down: ['……下次，再來比力氣。'] },
+    huyao: { atk: ['看著我的眼睛……', '乖孩子，過來。'], hit: ['討厭，弄亂我的尾巴了。'], down: ['……不好玩了。'] },
+    duoxian: { atk: ['仙界，不過如此。', '跪下。'], hit: ['凡人……'], down: ['原來墜下來，是這種感覺……'] },
+    panguan: { atk: ['判妳——有罪。', '勾魂筆下，沒有冤枉的。'], hit: ['放肆，公堂之上！'], down: ['……這一筆，算我的。'] },
+    xinmo: { atk: ['霜兒，過來。', '留下來陪我。', '扶我一把，好孩子。'], hit: ['……疼。'], down: ['為什麼……沒有一個人走過來……'] }
+  };
+  var TALK = {
+    s1: [['chilian', '紙糊的也敢出來擋路？'], ['shuang', '……走了。']],
+    s2: [['chilian', '掌門，外面好多翅膀的聲音。'], ['shuang', '嗯。後面——'], ['chilian', '後面我顧著。']],
+    s3: [['qingli', '照這個走法，九天就能到長寧城外。'], ['xiaoman', '十天。'], ['aduo', '……前面有東西，在等我們。']],
+    s4: [['shuyao', '留下來，當我的養分。'], ['xiaoman', '本座要過江，誰也擋不了。']],
+    s5: [['xiaoman', '小丫頭。'], ['shuang', '……先把人接回來。其他的，回去再算。'], ['qingli', '那個……狗、狗來了！']],
+    s6: [['zhanglao', '五個人。百年前，也是五個。'], ['zhanglao', '那罐子，是我親手打開的。'], ['aduo', '那妳應該知道，牠們餓了一百年。']],
+    s7: [['niumo', '站穩了，小姑娘們。'], ['chilian', '比力氣？姊姊奉陪。']],
+    s8: [['xiaoman', '那面旗，是當年守城的。'], ['guijiang', '長寧，不許踏進一步。']],
+    s9: [['aduo', '有狐狸的味道。'], ['chilian', '還是隻很會勾人的狐狸。'], ['huyao', '乖孩子們，過來呀。']],
+    s10: [['panguan', '堂下何人？'], ['qingli', '路過的，順便收妳。']],
+    s11: [['duoxian', '凡人，也想往下走？'], ['shuang', '讓開。']],
+    s12: [['zhanglao', '妳們身上，帶著玉符吧？我等了一百年，就等有人把鑰匙送來。'], ['qingli', '那妳白等了。']],
+    s13: [['qingli', '怕啊……畫了一百年，要是手一抖，畫歪了怎麼辦。'], ['aduo', '那就牽著。牽著就不抖了。']],
+    s14: [['xinmo', '霜兒。長這麼高了。過來，讓師父看看。'], ['shuang', '……師父，回家再算帳。'], ['xiaoman', '本座不是來陪妳的。這一次，換本座進來，帶她走。']]
+  };
+  function pick(a, k) { return a && a.length ? a[Math.abs(k || 0) % a.length] : ''; }
+  // 這一擊要說的話：出手的人（vs 魔王優先、招式台詞、一般）
+  function atkLine(id, wid, foeId, n, useVs) {
+    var L = LINES[id]; if (!L) return '';
+    if (foeId && useVs && L.vs && L.vs[foeId]) return L.vs[foeId];
+    if (wid && L.w && L.w[wid]) return pick(L.w[wid], n);
+    return pick(L.atk, n);
+  }
+  function react(id, kind, n) { var L = LINES[id]; return L ? pick(L[kind], n) : ''; }
+  return { LINES: LINES, TALK: TALK, atkLine: atkLine, react: react };
+})();
+</script>
