@@ -936,10 +936,11 @@
       }
     }, 450);
   }
+  function goCampaign() { var s = load(); if (s && s.srw) cont(); else srwNew(); }   // 前情提要看完：接著打戰役，沒有就開新的
   function showHelp() {
-    openOv('<b>名詞說明</b>' + glossaryHtml() + (META && META.tips && Object.keys(META.tips).length ? '<div class="row" style="justify-content:center;margin-top:10px"><button class="btn" onclick="resetTips()">重新顯示新手提示</button></div>' : ''));
+    openOv('<b>名詞說明</b>' + glossaryHtml() + (META && META.tips2 && Object.keys(META.tips2).length ? '<div class="row" style="justify-content:center;margin-top:10px"><button class="btn" onclick="resetTips()">重新顯示新手提示</button></div>' : ''));
   }
-  function resetTips() { META.tips = {}; queueSave(true, false); closeOv(); toast('新手提示會再跳一次'); }
+  function resetTips() { META.tips2 = {}; queueSave(true, false); closeOv(); toast('新手提示會再跳一次'); }
   // ── 標題與選角色 ──
   function titleScreen() {
     var saved = load(), going = saved && saved.srw, S = going && T.curStage(saved);
@@ -974,7 +975,7 @@
       beats = beats.concat(bs);
     });
     vnPlay({ title: '前情提要', beats: beats,
-      endBtns: '<button class="btn" onclick="vnClose();storyScreen(\'pro\')">回到劇情</button><button class="btn" style="border-color:var(--gold);color:var(--gold)" onclick="vnClose();MODE=\'normal\';choose()">⚔ 踏上旅程</button>' });
+      endBtns: '<button class="btn" onclick="vnClose();storyScreen(\'pro\')">回到劇情</button><button class="btn" style="border-color:var(--gold);color:var(--gold)" onclick="vnClose();goCampaign()">⚔ 踏上旅程</button>' });
   }
   // 劇情：跟冒險分開，想看就看——前情提要、五位女修（各自的插曲）、宗門、真結局（封印魘之後才看得到）
   function storyScreen(tab) {
