@@ -12,15 +12,15 @@ var ART = {
 // 之後才補的圖（造型 <角色>_<造型>、真結局 CG end_<角色>、魘的另一種樣子 xinmo_<角色>（可選，現在不用）、敵人）：有圖就把檔名（不含 .webp）加進這裡
 var ART_MORE = ['zhanglao', 'shuyao', 'guijiang', 'niumo', 'huyao', 'duoxian', 'panguan', 'xinmo'];   // 魔王（2026-10-02）
 ART_MORE.forEach(function (k) { ART[k] = ART_BASE + k + '.webp'; });
-// 造型：每位三套，用那位角色達成目標就解鎖（判斷在 Index 的 skinOpen）；有圖（ART[角色_造型]）才能穿上
+// 造型：每位三套，達成目標就解鎖（判斷在 Index 的 skinOpen）；有圖（ART[角色_造型]）才會出現在人物頁、才能穿上
 var SKINS = {
-  shuang:  [{ id: 's2', name: '月下撫琴', goal: 'clear' }, { id: 's3', name: '劍主親傳', goal: 'xinmo' }, { id: 's4', name: '守塔人', goal: 'master' }],
-  qingli:  [{ id: 's2', name: '紫金道袍', goal: 'clear' }, { id: 's3', name: '雷符天師', goal: 'xinmo' }, { id: 's4', name: '夏夜祭典', goal: 'master' }],
-  xiaoman: [{ id: 's2', name: '新春小襖', goal: 'clear' }, { id: 's3', name: '雪原老祖', goal: 'xinmo' }, { id: 's4', name: '糖葫蘆攤主', goal: 'master' }],
-  chilian: [{ id: 's2', name: '舊日紅妝', goal: 'clear' }, { id: 's3', name: '醉臥沙場', goal: 'xinmo' }, { id: 's4', name: '醉臥花間', goal: 'master' }],
-  aduo:    [{ id: 's2', name: '蝶舞', goal: 'clear' }, { id: 's3', name: '蠱后', goal: 'xinmo' }, { id: 's4', name: '苗疆節慶', goal: 'master' }]
+  shuang:  [{ id: 's2', name: '月下撫琴', goal: 'clear' }, { id: 's3', name: '劍主親傳', goal: 'ace' }, { id: 's4', name: '守塔人', goal: 'noup' }],
+  qingli:  [{ id: 's2', name: '紫金道袍', goal: 'clear' }, { id: 's3', name: '雷符天師', goal: 'ace' }, { id: 's4', name: '夏夜祭典', goal: 'noup' }],
+  xiaoman: [{ id: 's2', name: '新春小襖', goal: 'clear' }, { id: 's3', name: '雪原老祖', goal: 'ace' }, { id: 's4', name: '糖葫蘆攤主', goal: 'noup' }],
+  chilian: [{ id: 's2', name: '舊日紅妝', goal: 'clear' }, { id: 's3', name: '醉臥沙場', goal: 'ace' }, { id: 's4', name: '醉臥花間', goal: 'noup' }],
+  aduo:    [{ id: 's2', name: '蝶舞', goal: 'clear' }, { id: 's3', name: '蠱后', goal: 'ace' }, { id: 's4', name: '苗疆節慶', goal: 'noup' }]
 };
-var SKIN_GOALS = { clear: '用她通關（任何難度）', xinmo: '用她在九幽魔淵封印魘', master: '用她通關困難，或在鎮妖塔走過 50 格' };
+var SKIN_GOALS = { clear: '封印魘（通關一次）', ace: '她成名之後通關', noup: '不淬鍊通關' };
 var FIG = (function () {
   // 圖讀不到時：藏起圖、改顯示緊接在後的剪影（凌霜疊在圖後的飛劍也藏起來，剪影自己有畫）
   window.ART_BAD = window.ART_BAD || {};   // 讀不到的圖記下來：之後直接畫剪影，不每次重畫都再抓一次

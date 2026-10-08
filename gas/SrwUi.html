@@ -206,6 +206,7 @@
       + '<div class="row" style="flex-wrap:wrap;justify-content:center">' + (ch ? '<button class="btn" onclick="vnChapter(' + S.ch + ')">🏮 ' + esc(ch.title.split('　')[0]) + '</button>' : '') + '<button class="btn" onclick="run=null;titleScreen()">回標題</button></div></div>';
   }
   function srwBuy(id) { var e = T.buy(run, id); if (e) toast(e, 'err'); else { toast('買了' + T.ITEMS[id].n); save(); } prepScreen(); }
+  function srwSkin(k, id) { META.skin = META.skin || {}; if (id) META.skin[k] = id; else delete META.skin[k]; queueSave(true, false); render(); heroSheet(k, 'info'); }
   function heroSheet(k, tab) {
     tab = tab || heroSheet.tab || 'up'; heroSheet.tab = tab;
     var c = run, h = c.heroes[k], s = T.heroStats(c, k), H = T.HEROES[k], Sv = G.SERVANTS[k];
@@ -233,9 +234,14 @@
     if (tab === 'info') body = '<div class="box" style="text-align:left"><b>' + esc(T.TRAITS[H.trait].n) + '</b>　<span class="dim" style="font-size:13px">' + keepTail(esc(T.TRAITS[H.trait].d)) + '</span></div>'
       + '<div class="list" style="margin-top:8px">' + H.w.map(function (w) { var lock = w.dev && h.up.wpn < w.dev; return '<div class="box" style="padding:8px 12px' + (lock ? ';opacity:.5' : '') + '"><b>' + esc(w.n) + '</b>' + (lock ? ' <span class="chip">招式淬鍊 ' + w.dev + ' 級開發</span>' : '') + '　<span class="dim" style="font-size:12.5px">' + wpnLine(w, s.wpnUp) + '</span></div>'; }).join('') + '</div>'
       + '<h3 style="margin:12px 0 6px">心訣</h3><div class="list">' + H.sp.map(function (p) { var S2 = T.SPIRITS[p[0]]; return '<div class="box" style="padding:8px 12px' + (h.lv >= p[1] ? '' : ';opacity:.5') + '"><b>' + S2.n + '</b> <span class="dim">心力 ' + S2.c + '</span>' + (h.lv >= p[1] ? '' : ' <span class="chip">Lv' + p[1] + ' 學會</span>') + '<div class="dim" style="font-size:12.5px">' + esc(S2.d) + '</div></div>'; }).join('') + '</div>';
+    if (tab === 'info') {   // 造型：有圖的才列出來
+      var sks = (SKINS[k] || []).filter(function (S2) { return ART[k + '_' + S2.id]; }), cur = (META.skin || {})[k] || '';
+      if (sks.length) body += '<h3 style="margin:12px 0 6px">造型</h3><div class="list">' + [{ id: '', name: '原本的樣子', goal: '' }].concat(sks).map(function (S2) { var open = !S2.goal || skinOpen(META, k, S2.goal);
+        return '<button class="wrow"' + (open && cur !== S2.id ? ' onclick="srwSkin(\'' + k + '\',\'' + S2.id + '\')"' : open ? '' : ' disabled') + '><div><b>' + esc(S2.name) + '</b>' + (open ? '' : '<div class="dim" style="font-size:12.5px">' + esc(SKIN_GOALS[S2.goal]) + '</div>') + '</div><span class="r">' + (cur === S2.id ? '穿著' : open ? '換上' : '🔒') + '</span></button>'; }).join('') + '</div>';
+    }
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(Sv.name) + '</b>　<span class="dim">Lv ' + h.lv + '・經驗 ' + h.exp + '/' + T.EXP_LV + '・擊破 ' + h.kills + '</span>'
       + '<div style="font-size:12.5px;margin-top:2px">' + (s.ace ? '<span style="color:var(--gold)">成名「' + esc(Sv.hao) + '」</span>：' + keepTail(esc(T.ACE[k])) : '<span class="dim">擊破 ' + h.kills + '／' + T.ACE_KILLS + ' 成名「' + esc(Sv.hao) + '」：' + keepTail(esc(T.ACE[k])) + '</span>') + '</div>'
-      + '<div class="dim" style="font-size:12.5px;margin:4px 0 8px">格鬥 ' + s.mel + '・射擊 ' + s.rng + '・靈力 ' + s.spi + '・命中 ' + s.hit + '・迴避 ' + s.eva + '・悟性 ' + s.skl + '・防禦 ' + s.def + '・腳程 ' + s.mv + '・體積 ' + T.SIZE_NAME[s.size] + (s.fly ? '・飛行' : '') + '</div>' + head + body);
+      + '<div class="dim" style="font-size:12.5px;margin:4px 0 8px">' + nwj(['格鬥 ' + s.mel, '射擊 ' + s.rng, '靈力 ' + s.spi, '命中 ' + s.hit, '迴避 ' + s.eva, '悟性 ' + s.skl, '防禦 ' + s.def, '腳程 ' + s.mv, '體積 ' + T.SIZE_NAME[s.size]].concat(s.fly ? ['飛行'] : [])) + '</div>' + head + body);
   }
   function wpnLine(w, up) {
     var a = ['威力 ' + (w.p + (up || 0) * T.UP_STEP.wpn), '射程 ' + (w.map ? (w.map.shape === 'burst' ? '自身周圍 ' + w.map.r : w.r[0] + '–' + w.r[1] + '（範圍 ' + w.map.r + '）') : w.r[0] === w.r[1] ? w.r[0] : w.r[0] + '–' + w.r[1])];
@@ -728,6 +734,7 @@
     M.stats.wins = (M.stats.wins || 0) + 1; M.stats.trueEnds = (M.stats.trueEnds || 0) + 1;
     if (run.turns && (!M.stats.srwTurns || run.turns < M.stats.srwTurns)) M.stats.srwTurns = run.turns;   // 排行榜：通關最少總回合
     if (!T.upTotal(run)) M.stats.noUpClear = 1;   // 不淬鍊就通關（戰績上標出來）
+    M.aces = M.aces || {}; T.ORDER.forEach(function (k) { if (run.heroes[k] && run.heroes[k].kills >= T.ACE_KILLS) M.aces[k] = 1; });   // 成名之後通關（造型）
     queueSave(true, false);
   }
   function resultScreen() {

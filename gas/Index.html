@@ -492,25 +492,13 @@
   // ── 帳號：第一個畫面先登入；每個帳號各自的存檔與戰績都存在伺服器（換裝置也接得上），本機另留一份快取 ──
   var ACC = null, META = null, SAVED_RUN = null, RUN_TS = 0, BASE_TS = 0, AKEY = 'grail_acc_v1', CKEY = 'grail_cache_v1:';   // RUN_TS：這一局的版本；BASE_TS：這一局是從伺服器哪一版接著玩的（伺服器上的比它新，就不蓋，改成重新接上）
   function newMeta() { return { v: 5, clears: {}, stats: { runs: 0, wins: 0, trueEnds: 0, best: {} }, codex: {}, endings: {}, skin: {}, seen: { goals: [], skins: [] }, tips: {}, ts: 0 }; }   // 局外沒有貨幣（2026-10-02）；達成目標解鎖造型、機緣、法寶
-  // ── 局外解鎖：全部從戰績與圖鑑算出來（之前打過的也算），不另外存「解鎖了什麼」 ──
-  function goalsDone(M) {
-    M = M || META; var g = [], e = (M.stats && M.stats.endless) || {};
-    if (Object.keys(M.clears || {}).length) g.push('clear');
-    if ((M.stats.trueEnds || 0) > 0) g.push('xinmo');
-    if (Object.keys(e).some(function (k) { return e[k] >= 50; })) g.push('tower');
-    if (G.BOSSES.every(function (k) { return (M.codex || {})[k]; })) g.push('bosses');
-    if (Object.keys(M.pathClears || {}).length >= 5) g.push('paths');
-    return g;
-  }
   function endingSeen(M, who) { return !!((M.endings || {})[who] || (M.stats.best || {})[who] === '封魘' || (M.stats.best || {})[who] === '斬心魔'); }   // 舊戰績寫的是「斬心魔」
-  function skinOpen(M, who, goal) {
-    var c = (M.clears || {})[who] || {};
-    if (goal === 'clear') return Object.keys(c).length > 0;
-    if (goal === 'xinmo') return endingSeen(M, who);
-    if (goal === 'master') return !!(c.hard || c.abyss || ((M.stats.endless || {})[who] || 0) >= 50);
+  function skinOpen(M, who, goal) {   // 造型解鎖：從戰績算（之前打過的也算）
+    if (goal === 'clear') return Object.keys((M.clears || {})[who] || {}).length > 0;
+    if (goal === 'ace') return !!(M.aces || {})[who];
+    if (goal === 'noup') return !!(M.stats || {}).noUpClear;
     return false;
   }
-  function skinsOpen(M) { var a = []; G.ORDER.forEach(function (k) { (SKINS[k] || []).forEach(function (S) { if (ART[k + '_' + S.id] && skinOpen(M, k, S.goal)) a.push(k + '_' + S.id); }); }); return a; }   // 圖還沒做好的造型不算（不宣布、不列出）
   // 圖鑑：這局打倒過的敵人收進帳號（存檔時順便做，中途放棄也算）
   function syncCodex() {
     if (!run || !run.slain || !META) return;
@@ -1041,7 +1029,7 @@
     return '<div class="box ending" style="max-width:460px;width:100%"><div class="dim" style="text-align:center">尾聲</div><h3 style="text-align:center;font-size:19px;margin:4px 0 8px">「' + esc(G.EPILOGUE.title) + '」</h3>'
       + G.EPILOGUE.text.map(function (t) { return t === '——' ? '<div class="dim" style="text-align:center;margin:10px 0 2px;letter-spacing:.6em">・・・</div>' : '<p class="lore" style="margin:8px 0 0;text-align:left;text-wrap:wrap">' + storyTail(esc(noTags(t))) + '</p>'; }).join('') + '</div>';
   }
-  // 圖鑑：魔王／精英／妖物（第一次打倒才看得到）、真結局（重看）、解鎖目標
+  // 圖鑑：魔王／精英／妖物（第一次打倒才看得到）
   function codexScreen(tab) {
     tab = tab || codexScreen.tab || 'boss'; if (['boss', 'elite', 'mob'].indexOf(tab) < 0) tab = 'boss'; codexScreen.tab = tab;
     var M = META, cx = M.codex || {};
@@ -1054,12 +1042,6 @@
       var E = G.ENEMIES[k], got = cx[k];
       return '<button class="cdxi' + (got ? '' : ' locked') + '"' + (got ? ' onclick="codexOne(\'' + k + '\')"' : '') + '><div class="cfig">' + (got ? FIG.fig(k, true) : '<span class="q">？</span>') + '</div><b>' + (got ? esc(E.name) : '？？？') + '</b></button>';
     }).join('') + '</div><div class="dim" style="font-size:13px">擊敗過的敵人會收錄在這裡，點開可以看介紹與招式。</div>';
-    if (tab === 'goal') { var done = goalsDone(M);
-      body = '<div class="list">' + Object.keys(G.GOALS).map(function (g) { var Gx = G.GOALS[g], ok = done.indexOf(g) >= 0;
-        var what = Object.keys(G.FATES).filter(function (k) { return G.FATES[k].lock === g; }).map(function (k) { return '機緣「' + G.FATES[k].name + '」'; }).concat(Object.keys(G.RELICS).filter(function (k) { return G.RELICS[k].lock === g; }).map(function (k) { return '法寶「' + G.RELICS[k].name + '」'; }));
-        return '<div class="box"><b>' + (ok ? '✅ ' : '🔒 ') + esc(Gx.name) + '</b>　<span class="dim">' + keepTail(esc(Gx.text)) + '</span><div style="font-size:13.5px;margin-top:4px">解鎖：' + esc(what.join('、')) + '</div></div>'; }).join('')
-        + '<div class="box"><b>主修通關</b>　<span class="dim">' + Object.keys(M.pathClears || {}).length + '／' + G.ORDER.reduce(function (a, w) { return a + G.pathsOf(w).length; }, 0) + '</span>' + G.ORDER.map(function (w) { return '<div style="font-size:13.5px;margin-top:4px">' + esc(G.SERVANTS[w].name) + '：' + G.pathsOf(w).map(function (P) { return ((M.pathClears || {})[P.id] ? '✅' : '・') + esc(P.name); }).join('　') + '</div>'; }).join('') + '</div>'
-        + (Object.keys(SKINS).some(function (w) { return (SKINS[w] || []).some(function (S) { return ART[w + '_' + S.id]; }); }) ? '<div class="box"><b>造型</b><div class="dim" style="font-size:13.5px">每位三套：' + esc(SKIN_GOALS.clear) + '／' + esc(SKIN_GOALS.xinmo) + '／' + esc(SKIN_GOALS.master) + '。已解鎖 ' + skinsOpen(M).length + '／' + G.ORDER.length * 3 + '</div></div>' : '') + '</div>'; }
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">📚 圖鑑</h1>' + head + body + '<button class="btn" onclick="titleScreen()">返回</button></div>';
   }
   function codexOne(k) {
