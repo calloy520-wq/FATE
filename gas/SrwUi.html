@@ -95,6 +95,7 @@
   .cutin { position:absolute; left:0; right:0; top:22%; height:46%; z-index:6; overflow:hidden; pointer-events:none; background:linear-gradient(90deg,rgba(0,0,0,.0),rgba(10,8,20,.92) 18%,rgba(10,8,20,.92) 82%,rgba(0,0,0,0)); border-top:2px solid var(--gold); border-bottom:2px solid var(--gold); animation:cutin .9s ease-out forwards; }
   .cutin .cf { position:absolute; left:4%; top:0; bottom:0; width:56%; background:center 10%/cover no-repeat; animation:cutf .9s ease-out forwards; mask-image:linear-gradient(90deg,transparent,#000 20%,#000 70%,transparent); -webkit-mask-image:linear-gradient(90deg,transparent,#000 20%,#000 70%,transparent); }
   .cutin .cw { position:absolute; right:5%; top:50%; transform:translateY(-50%); font-family:var(--serif); font-size:26px; letter-spacing:.2em; color:var(--gold2); text-shadow:0 0 14px rgba(227,194,122,.9), 0 2px 3px #000; writing-mode:vertical-rl; }
+  .cutin.duo .cf { width:44%; left:2%; } .cutin.duo .cf.c2 { left:36%; animation-delay:.25s; animation-fill-mode:backwards; }
   .cutin.e { border-color:#d04050; } .cutin.e .cw { color:#ffc2c8; text-shadow:0 0 14px rgba(255,80,100,.9), 0 2px 3px #000; }
   @keyframes cutin { 0% { transform:scaleY(0); } 18% { transform:scaleY(1); } 85% { opacity:1; } 100% { opacity:0; } }
   @keyframes cutf { 0% { transform:translateX(-30%); opacity:0; } 25% { transform:translateX(0); opacity:1; } 100% { transform:translateX(6%); } }
@@ -601,7 +602,8 @@
     ov.innerHTML = '<div id="stage" class="' + bgOf(S) + '">' + FIG.scene({ act: S.bg === 'abyss' ? 3 : S.bg === 'city' ? 2 : 1 }) + side(heroId, 'me') + '<div style="flex:1"></div>' + side(foeId, 'foe') + '<div class="wname" id="bscw"></div></div><div class="qbox" id="bscq"></div><div class="skip">點一下跳過</div>';
     var said = 0;
     var say = function (u, text) { var q = $('bscq'); if (!q || !text || !u) return; q.className = 'qbox' + (u.side === 'e' ? ' foe' : ''); q.innerHTML = portrait(u, 'qf') + '<div><b>' + esc(u.name) + '</b><span>「' + esc(text) + '」</span></div>'; said++; };
-    var cutin = function (u, wn) { var st = $('stage'); if (!st) return; var c2 = document.createElement('div'), src = u.side === 'p' ? FIG_art(u.id) : ART[u.id]; c2.className = 'cutin' + (u.side === 'e' ? ' e' : ''); c2.innerHTML = '<i class="cf"' + (src && !ART_BAD[src] ? ' style="background-image:url(\'' + src + '\')"' : '') + '></i><div class="cw">' + esc(wn) + '</div>'; st.appendChild(c2); setTimeout(function () { c2.remove(); }, 950); };
+    var face = function (u, cls) { var src = u.side === 'p' ? FIG_art(u.id) : ART[u.id]; return '<i class="cf' + (cls || '') + '"' + (src && !ART_BAD[src] ? ' style="background-image:url(\'' + src + '\')"' : '') + '></i>'; };
+    var cutin = function (u, wn, u2) { var st = $('stage'); if (!st) return; var c2 = document.createElement('div'); c2.className = 'cutin' + (u.side === 'e' ? ' e' : '') + (u2 ? ' duo' : ''); c2.innerHTML = face(u) + (u2 ? face(u2, ' c2') : '') + '<div class="cw">' + esc(wn) + '</div>'; st.appendChild(c2); setTimeout(function () { c2.remove(); }, u2 ? 1250 : 950); };
     document.body.appendChild(ov);
     var i = 0;
     (function step() {
@@ -619,8 +621,11 @@
       var saidVs = useVs && line && line === VS(A.id, tgt.id), replyVs = '';
       if (saidVs) { SV[vk] = 1; if (A.boss && !SV[D.id + '>' + A.id] && VS(D.id, A.id)) { replyVs = VS(D.id, A.id); SV[D.id + '>' + A.id] = 1; } }
       say(A, line);
-      var big = s.big && (A.side === 'p' || A.boss), pre = big ? 900 : 0;
-      if (big) cutin(A, s.w);
+      // 合擊：兩個人一起切入，夥伴接一句
+      var cw = A.side === 'p' && T.HEROES[A.id].w.filter(function (x) { return x.id === s.wid; })[0], pal = cw && cw.combo && T.units(b, 'p').filter(function (v) { return v.id === cw.combo; })[0];
+      var big = s.big && (A.side === 'p' || A.boss), pre = big ? (pal ? 1300 : 900) : 0;
+      if (big) cutin(A, s.w, pal);
+      if (pal) setTimeout(function () { if (!done) say(pal, SRW_TALK.react(pal.id, 'combo', nn)); }, 650);
       setTimeout(function () {
       if (done) return;
       if (aEl) { aEl.classList.remove('lunge-r', 'lunge-l'); void aEl.offsetWidth; aEl.classList.add(A.side === 'p' ? 'lunge-r' : 'lunge-l'); }
