@@ -59,7 +59,7 @@ var T = (function () {
     tiaoxi:   { n: '調息', max: 1, c: [70], d: '每個我方階段多回 5 心力' },
     jingzhuan:{ n: '精專', max: 1, c: [120], d: '心訣消耗 −20%' },
     houfa:    { n: '後發先至', max: 1, c: [120], d: '還手時先出手' },
-    youji:    { n: '游擊', max: 1, c: [100], d: '還沒移動就出手的話，打完還能移動' },
+    youji:    { n: '游擊', max: 1, c: [100], d: '還沒移動就出手（原地行動也算），打完還能移動一次' },
     kanpo:    { n: '看破', max: 1, c: [100], d: '戰意 130 以上：命中、迴避、爆擊 +15' },
     hushen:   { n: '護身', max: 1, c: [100], d: '戰意 130 以上：受到的傷害 −20%' }
   };
@@ -568,8 +568,7 @@ var T = (function () {
     if (hit) {
       var cr = rnd(b) * 100 < critChance(A, w, D), dmg = damage(b, A, w, D, resp, cr);
       rec.crit = cr; rec.dmg = dmg; D.hp -= dmg;
-      if (A.st.pofu || A.st.guzhu) { A.st.pofu = 0; A.st.guzhu = 0; }
-      if (A.st.tuojin) A.st.tuojin = 0;
+      if (tag !== 'map') { if (A.st.pofu || A.st.guzhu) { A.st.pofu = 0; A.st.guzhu = 0; } if (A.st.tuojin) A.st.tuojin = 0; }   // 陣法：範圍內每個目標都算，打完才散
       if (w.drain && A.hp > 0) { A.hp = Math.min(A.hpMax, A.hp + Math.round(dmg * w.drain)); rec.drain = Math.round(dmg * w.drain); }
       if (D.hp > 0) {
         var dn = (A.trait === 'zhenhun' ? 1 + (A.ace ? 1 : 0) : 0) + (w.ding || 0);
@@ -586,7 +585,7 @@ var T = (function () {
     } else {
       addWill(D, 1 + (D.skills && D.skills.jianren ? 1 : 0));
     }
-    if (amb) A.ambush = 0;
+    if (amb && tag !== 'map') A.ambush = 0;
     scene.push(rec);
     return rec;
   }
@@ -595,7 +594,7 @@ var T = (function () {
     D.halfDone = 1; var sp = BOSS_SP[D.id] || '', ev = { k: 'half', uid: D.uid, id: D.id, sp: sp };
     if (sp === 'zhenfen') addWill(D, 10);
     else if (sp === 'shepo') { var t = null, md = 999; units(b, 'p').forEach(function (v) { var d = dist(D, v); if (d < md) { md = d; t = v; } }); if (t) { addWill(t, -10); ev.tgt = t.uid; } }
-    else if (sp) { D.st[sp] = 1; D.stUntil = b.phase === 'p' ? b.turn : b.turn + 1; }   // 撐到下一個我方階段開始（敵方階段用的就再撐一輪）
+    else if (sp) { D.st[sp] = 1; D.stUntil = b.turn; D.stPh = b.phase; }   // 撐一輪：我方階段開的撐到下一個我方階段開始，敵方階段開的撐到下一個敵方階段開始
     if (D.id === 'xinmo' && D.regen) { D.regen = 0; ev.seal = 1; }   // 魘：青璃開始畫鎮魂印，不再回復
     (b.ev = b.ev || []).push(ev); rec.half = 1;
   }
@@ -627,7 +626,7 @@ var T = (function () {
     if (live(A) && live(T0)) strike(c, b, A, w, T0, f.resp, scene.steps, '');
     if (!counterFirst && f.resp === 'counter' && f.cwi != null && live(D) && live(A) && usable(b, D, f.cwi, false)) strike(c, b, D, W(D, f.cwi), A, '', scene.steps, 'counter');
     if (f.sup && opt.support !== false && live(D)) { var S = byUid(b, f.sup.uid); if (live(S) && usable(b, S, f.sup.wi, false)) { S.zgUsed = (S.zgUsed || 0) + 1; strike(c, b, S, W(S, f.sup.wi), D, '', scene.steps, 'support'); } }
-    if (A.st.qinxiu) A.st.qinxiu = 0;
+    scene.steps.forEach(function (r) { var X = byUid(b, r.a); if (X && X.st.qinxiu) X.st.qinxiu = 0; });   // 勤修：這次交手出過手的人（還手、助攻也算）都用掉
     afterAct(c, A);
     return scene;
   }
@@ -644,7 +643,7 @@ var T = (function () {
     if (w.en) A.en -= w.en;
     var w2 = {}; keys(w).forEach(function (k) { if (k !== 'en' && k !== 'ammo') w2[k] = w[k]; });
     ts.forEach(function (t) { if (live(t) && live(A)) strike(c, b, A, w2, t, '', scene.steps, 'map'); });
-    if (A.st.qinxiu) A.st.qinxiu = 0;
+    A.st.pofu = 0; A.st.guzhu = 0; A.st.tuojin = 0; A.ambush = 0; A.st.qinxiu = 0;
     afterAct(c, A);
     return scene;
   }
@@ -652,7 +651,7 @@ var T = (function () {
 
   // ── 心訣 ──
   function spCost(u, id) { return Math.round(SPIRITS[id].c * (u.skills && u.skills.jingzhuan ? 0.8 : 1)); }
-  function canSpirit(b, u, id) { return u.side === 'p' && (u.spirits || []).indexOf(id) >= 0 && u.sp >= spCost(u, id) && b.phase === 'p'; }
+  function canSpirit(b, u, id) { return u.side === 'p' && live(u) && (u.spirits || []).indexOf(id) >= 0 && u.sp >= spCost(u, id) && b.phase === 'p'; }
   function useSpirit(c, u, id, tgtUid) {
     var b = c.battle, S = SPIRITS[id]; if (!canSpirit(b, u, id)) return false;
     var T0 = tgtUid ? byUid(b, tgtUid) : u;
@@ -690,15 +689,16 @@ var T = (function () {
   function undoMove(c, u) { if (u.acted || !u.moveDone) return false; u.x = u.ox; u.y = u.oy; u.moved = 0; u.moveDone = 0; return true; }
   function wait(c, u) { u.acted = 1; checkOver(c); }
   // 游擊：還沒移動就出手的話，打完還能走
-  function canMoveAfter(u) { return u.acted && !u.moveDone && u.skills && u.skills.youji && live(u); }
-  function moveAfter(c, u, x, y) { var b = c.battle; if (!canMoveAfter(u)) return false; var R = moveRange(b, u); if (R[tkey(x, y)] == null) return false; u.x = x; u.y = y; u.moveDone = 1; return true; }
+  function canMoveAfter(u) { return u.acted && !u.moved && !u.mv2 && u.skills && u.skills.youji && live(u); }
+  function moveAfter(c, u, x, y) { var b = c.battle; if (!canMoveAfter(u)) return false; var R = moveRange(b, u); if (R[tkey(x, y)] == null) return false; u.x = x; u.y = y; u.moveDone = 1; u.moved = 1; u.mv2 = 1; return true; }
 
+  function clearSt(u) { TURN_ST.forEach(function (k) { u.st[k] = 0; }); u.stUntil = null; u.stPh = null; }
   // ════ 階段 ════
   function startPlayerPhase(c) {
     var b = c.battle; b.phase = 'p'; b.turn++;
-    units(b, 'e').forEach(function (u) { u.hitN = 0; u.fresh = 0; if (u.stUntil != null && b.turn > u.stUntil) { TURN_ST.forEach(function (k) { u.st[k] = 0; }); u.stUntil = null; } });
+    units(b, 'e').forEach(function (u) { u.hitN = 0; u.fresh = 0; if (u.stUntil != null && u.stPh !== 'e' && b.turn > u.stUntil) clearSt(u); });
     units(b, 'p').forEach(function (u) {
-      u.acted = 0; u.moved = 0; u.moveDone = 0; u.hitN = 0; u.yhUsed = 0; u.zgUsed = 0;
+      u.acted = 0; u.moved = 0; u.moveDone = 0; u.mv2 = 0; u.hitN = 0; u.yhUsed = 0; u.zgUsed = 0;
       TURN_ST.forEach(function (k) { u.st[k] = 0; });
       if (b.turn > 1) {
         u.sp = Math.min(u.spMax, u.sp + 3 + (u.skills.tiaoxi ? 5 : 0));
@@ -718,12 +718,14 @@ var T = (function () {
     units(b, 'p').forEach(function (u) { u.hitN = 0; u.yhUsed = 0; u.zgUsed = 0; });
     units(b, 'e').forEach(function (u) {
       u.acted = 0; u.moved = 0; u.yhUsed = 0; u.zgUsed = 0;
+      if (u.stUntil != null && u.stPh === 'e' && b.turn > u.stUntil) clearSt(u);
       if (u.poison > 0) { var pd = Math.round((POISON_DMG + (c.heroes.aduo.kills >= ACE_KILLS ? 100 : 0)) * (fullDone(c.heroes.aduo) ? 1.5 : 1) * u.poison); u.hp = Math.max(1, u.hp - pd); u.poison--; (b.ticks = b.ticks || []).push({ uid: u.uid, dmg: pd }); }
       if (u.regen) u.hp = Math.min(u.hpMax, u.hp + Math.round(u.hpMax * u.regen));
       heal(b, u);
       addWill(u, 2);
     });
     var S = stageOf(b);
+    b.units.forEach(function (u) { var m = /^e(\d+)_/.exec(u.uid); if (m) uidN = Math.max(uidN, +m[1]); });   // 重新整理後 uidN 會歸零：增援的號碼接著現有的
     (S.add || []).forEach(function (a, i) {
       if (a.turn !== b.turn || b.fired[i]) return; b.fired[i] = 1; (b.ev = b.ev || []).push({ k: 'add', i: i });
       a.foes.forEach(function (f) { var x = f[2], y = f[3]; if (unitAt(b, x, y)) { var p = freeNear(b, x, y); if (!p) return; x = p[0]; y = p[1]; } var u = loopUp(c, mkFoeUnit(f[0], f[1] + loopLv(c), x, y, f[4])); u.acted = 1; u.fresh = 1; b.units.push(u); });
@@ -737,18 +739,18 @@ var T = (function () {
   // 守著不動的敵人：挨打、有人走進 tr 格內、或第 6 回合起就動起來（動了就不再停）
   function isAwake(b, u) {
     if (!u.hold || u.woke) return true;
-    if (u.hp < u.hpMax || b.turn >= 6 || units(b, u.side === 'e' ? 'p' : 'e').some(function (t) { return dist(u, t) <= (u.tr || 0); })) u.woke = 1;
-    return !!u.woke;
+    return u.hp < u.hpMax || b.turn >= 6 || units(b, u.side === 'e' ? 'p' : 'e').some(function (t) { return dist(u, t) <= (u.tr || 0); });
   }
   // ── AI ── 算出這個單位這一步要做什麼（不動到局面）：{ uid, x, y, wi, target } 或 { map, cx, cy } 或只移動
-  function aiPlan(b, u) {
+  // stay：已經移動過（自動行動接手時），只在原地出手
+  function aiPlan(b, u, stay) {
     var foes = units(b, u.side === 'e' ? 'p' : 'e'); if (!foes.length) return { uid: u.uid, x: u.x, y: u.y };
     if (u.stun) return { uid: u.uid, x: u.x, y: u.y, stun: 1 };
     var awake = isAwake(b, u);
-    var R = awake && u.mv > 0 ? moveRange(b, u) : {}; R[tkey(u.x, u.y)] = 0;
+    var R = awake && u.mv > 0 && !stay ? moveRange(b, u) : {}; R[tkey(u.x, u.y)] = 0;
     var best = null, bestS = -Infinity;   // 打得到就一定打（機戰的敵人不怕還手）
     keys(R).forEach(function (k) {
-      var p = k.split(','), x = +p[0], y = +p[1], moved = x !== u.x || y !== u.y, ox = u.x, oy = u.y;
+      var p = k.split(','), x = +p[0], y = +p[1], moved = x !== u.x || y !== u.y || !!(stay && u.moved), ox = u.x, oy = u.y;
       u.x = x; u.y = y;
       u.w.forEach(function (_, i) {
         if (!usable(b, u, i, moved)) return;
@@ -787,7 +789,7 @@ var T = (function () {
     }
     return null;
   }
-  function enemyMove(c, plan) { var b = c.battle, u = byUid(b, plan.uid); if (!u) return; u.x = plan.x; u.y = plan.y; if (!plan.target && !plan.map) u.acted = 1; }
+  function enemyMove(c, plan) { var b = c.battle, u = byUid(b, plan.uid); if (!u) return; if (isAwake(b, u)) u.woke = 1; u.x = plan.x; u.y = plan.y; if (!plan.target && !plan.map) u.acted = 1; }
   function enemyAct(c, plan, resp, cwi) {
     var b = c.battle, u = byUid(b, plan.uid); if (!live(u)) return null;
     if (plan.map) return mapAttack(c, u, plan.wi, plan.cx, plan.cy);
@@ -852,14 +854,14 @@ var T = (function () {
     var b = c.battle; if (!live(u) || u.acted || b.over) return null;
     autoSpirits(c, u);
     if (u.hp < u.hpMax * 0.3) (u.eq || []).forEach(function (id) { if (ITEMS[id].use && ITEMS[id].use.hp) useItem(c, u, id); });
-    var plan = aiPlan(b, u);
+    var plan = aiPlan(b, u, !!u.moveDone);
     // 快倒了：打不死對方就退到敵人最少打得到的地方（優先屋舍）
-    if (u.hp < u.hpMax * 0.35 && !(plan.target && forecast(b, u, plan.wi, byUid(b, plan.target)).kill)) {
+    if (!u.moveDone && u.hp < u.hpMax * 0.35 && !(plan.target && forecast(b, u, plan.wi, byUid(b, plan.target)).kill)) {
       var R = moveRange(b, u), pick = null, ps = 1e9;
       keys(R).forEach(function (k) { var p = k.split(','), x = +p[0], y = +p[1], t = terr(b, x, y), sc = danger(b, u, x, y) * 100 - (t.heal && !u.fly ? 50 : 0) - t.eva; if (sc < ps) { ps = sc; pick = [x, y]; } });
       if (pick) plan = { uid: u.uid, x: pick[0], y: pick[1] };
     }
-    u.ox = u.x; u.oy = u.y; u.moved = (plan.x !== u.x || plan.y !== u.y) ? 1 : 0; u.moveDone = 1; u.x = plan.x; u.y = plan.y;
+    if (!u.moveDone) { u.ox = u.x; u.oy = u.y; u.moved = (plan.x !== u.x || plan.y !== u.y) ? 1 : 0; u.moveDone = 1; u.x = plan.x; u.y = plan.y; }
     if (plan.map) return mapAttack(c, u, plan.wi, plan.cx, plan.cy);
     if (plan.target) return attack(c, u, plan.wi, byUid(b, plan.target));
     wait(c, u); return null;

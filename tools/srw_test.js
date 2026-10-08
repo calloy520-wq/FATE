@@ -232,7 +232,7 @@ const allEv = c => { const a = []; let e; while ((e = T.takeEv(c))) a.push(e); r
 }
 {
   const c1 = T.newCampaign(12); c1.stage = 7; const b1 = T.startStage(c1), g1 = b1.units.filter(u => u.boss)[0];
-  ok(g1.hold && !T.isAwake(b1, g1), '鬼將軍一開始守著不動'); g1.hp -= 10; ok(T.isAwake(b1, g1), '挨打就動起來'); g1.hp = g1.hpMax; ok(T.isAwake(b1, g1), '動了就不再停');
+  ok(g1.hold && !T.isAwake(b1, g1), '鬼將軍一開始守著不動'); g1.hp -= 10; ok(T.isAwake(b1, g1) && !g1.woke, '挨打就動起來（看一眼不會改狀態）'); T.enemyMove(c1, { uid: g1.uid, x: g1.x, y: g1.y, target: 'x' }); g1.hp = g1.hpMax; ok(T.isAwake(b1, g1), '動了就不再停');
 }
 {
   const c2 = T.newCampaign(13), b2 = T.startStage(c2), s2 = P(b2, 'shuang'); c2.heroes.shuang.exp = T.EXP_LV - 1; b2.ev = [];
@@ -285,6 +285,50 @@ const allEv = c => { const a = []; let e; while ((e = T.takeEv(c))) a.push(e); r
   ok(m.stats.srwTurns === 95 && m.stats.wins === 2 && m.stats.srwLoop === 2, '合併：最少回合取小、通關次數與周目取大');
   eq(ctx.gpMerge_({ stats: { srwTurns: 0 } }, { stats: { srwTurns: 95 } }, '').stats.srwTurns, 95, '合併：還沒有紀錄（0）不算最少');
   eq(ctx.gpMerge_({ stats: { srwTurns: 80 } }, { stats: { srwTurns: 0 } }, '').stats.srwTurns, 80, '合併：新的是 0 不蓋掉舊紀錄');
+}
+{
+  // 稽核修正（2026-10-08）
+  // 重新整理後增援的 uid 不能跟開場的撞號
+  const c = T.newCampaign(31); c.stage = 7; const b = T.startStage(c); const saved = JSON.parse(JSON.stringify(c));
+  delete require.cache[require.resolve('./srw')]; const T2 = require('./srw');   // 模擬重新整理：新載入的引擎，計數器從 0 開始
+  const c2 = saved; c2.battle.turn = 2; T2.endPlayerPhase(c2);
+  const ids = c2.battle.units.map(u => u.uid); eq(new Set(ids).size, ids.length, '重新整理後增援的 uid 不重複');
+}
+{
+  // 游擊：原地出手也能再走；只能走一次
+  const c = T.newCampaign(32); c.stage = 1; const b = T.startStage(c), s = P(b, 'shuang'), z = b.units.filter(u => u.side === 'e')[0];
+  only(b, [s, z]); s.skills = { youji: 1 }; s.x = z.x - 1; s.y = z.y; s.st.dongming = 1; z.hp = 99999; z.hpMax = 99999;
+  T.moveTo(c, s, s.x, s.y); T.attack(c, s, 0, z, 'guard');
+  ok(T.canMoveAfter(s), '游擊：原地出手後還能移動'); const R = T.moveRange(b, s), k = Object.keys(R).filter(k2 => k2 !== s.x + ',' + s.y)[0].split(',');
+  ok(T.moveAfter(c, s, +k[0], +k[1]) && !T.canMoveAfter(s), '游擊：只能再走一次');
+}
+{
+  // 勤修：還手時也算一次，用掉就沒了
+  const c = T.newCampaign(33); c.stage = 1; const b = T.startStage(c), s = P(b, 'shuang'), z = b.units.filter(u => u.side === 'e')[0];
+  only(b, [s, z]); s.x = z.x - 1; s.y = z.y; s.st.qinxiu = 1; z.hp = 99999; z.hpMax = 99999; z.st.dongming = 1;
+  b.phase = 'e'; const ci = T.counterList(b, s, z)[0]; T.attack(c, z, 0, s, 'counter', { cwi: ci });
+  ok(!s.st.qinxiu, '勤修：還手出過手就用掉');
+}
+{
+  // 陣法：破釜對範圍內每個目標都算
+  const c = T.newCampaign(34); c.stage = 13; c.heroes.chilian.up.wpn = 5; const b = T.startStage(c), r = P(b, 'chilian');
+  const es = b.units.filter(u => u.side === 'e').slice(0, 2); only(b, [r].concat(es)); r.x = 5; r.y = 5; es[0].x = 5; es[0].y = 4; es[1].x = 5; es[1].y = 6; r.will = 150;
+  es.forEach(e => { e.hp = e.hpMax = 999999; e.st.ningshen = 0; }); r.st.dongming = 1;
+  const wi = r.w.indexOf('liaoyuan'), plain = {}; es.forEach(e => plain[e.uid] = T.damage(b, r, T.W(r, wi), e, '', false)); r.st.pofu = 1;
+  const sc = T.mapAttack(c, r, wi, r.x, r.y), d = sc.steps.map(x => x.dmg / plain[x.d]);
+  ok(d.length === 2 && d.every(x => x >= 1.9) && !r.st.pofu, '陣法：破釜對每個目標都翻倍，打完才散', JSON.stringify(d));
+}
+{
+  // 自動行動：已經移動過的人不會再走
+  const c = T.newCampaign(35); c.stage = 0; const b = T.startStage(c), s = P(b, 'shuang'); const R = T.moveRange(b, s), k = Object.keys(R).filter(k2 => k2 !== s.x + ',' + s.y)[0].split(',');
+  T.moveTo(c, s, +k[0], +k[1]); T.autoUnit(c, s); ok(s.x === +k[0] && s.y === +k[1] && s.acted, '自動行動：移動過的人在原地行動');
+}
+{
+  // 魔王的心訣撐一輪：敵方階段開的，撐到下一個敵方階段開始
+  const c = T.newCampaign(36); c.stage = 7; const b = T.startStage(c), g = b.units.filter(u => u.boss)[0], s = P(b, 'shuang'); only(b, [g, s]);
+  s.x = g.x - 1; s.y = g.y; g.hp = Math.floor(g.hpMax / 2) + 5; b.phase = 'e'; g.st.dongming = 1; s.st.dongming = 1;
+  const ci = T.counterList(b, s, g)[0]; T.attack(c, g, 0, s, 'counter', { cwi: ci }); ok(g.st.jinshen, '敵方階段被打到半血：金身');
+  b.queue = []; T.enemyDone(c); ok(g.st.jinshen, '下一個我方階段還在'); T.endPlayerPhase(c); ok(!g.st.jinshen, '下一個敵方階段開始就散');
 }
 console.log((fail ? '❌ ' : '✅ ') + pass + ' 項通過' + (fail ? '，' + fail + ' 項沒過' : ''));
 if (fail) process.exit(1);

@@ -296,9 +296,10 @@
     busy = true; el.onclick = fin; document.body.appendChild(el); setTimeout(fin, CALM ? 600 : ev.sp.length ? 2200 : 1500);
   }
   // 戰中事件（機戰 OG 打到一半的對話）：魔王半血說話、用心訣；增援登場
-  function srwEv(cb) {
-    var b = sB(), ev = b && T.takeEv(run); if (!ev) return cb();
-    var S = T.stageOf(b), next = function () { srwEv(cb); };
+  function srwEv(cb, b0) {
+    var b = sB(); if (!b || (b0 && b !== b0)) { busy = false; return; }
+    var ev = T.takeEv(run); if (!ev) return cb();
+    var S = T.stageOf(b), next = function () { srwEv(cb, b); };
     if (ev.k === 'add') return talkPlay((SRW_TALK.ADD[S.id] || [])[ev.i] || [], next);
     if (ev.k === 'lv') return lvCut(ev, next);
     if (ev.k !== 'half') return next();
@@ -370,7 +371,7 @@
     if (!u) {
       var left = T.units(b, 'p').filter(function (v) { return !v.acted; }).length;
       var tt = SUI.tile && T.terr(b, SUI.tile[0], SUI.tile[1]);
-      return '<div class="hint">' + (tt ? terrText(tt) : '點自己人移動、行動；點敵人看它的數值與攻擊範圍；點空格子看地形。') + '還有 ' + left + ' 人沒行動。</div><div class="acts"><button class="btn" onclick="srwNextUnit()">下一位</button><button class="btn' + (SUI.dzAll ? ' on' : '') + '" onclick="srwDanger()">敵人範圍</button><button class="btn go" onclick="srwEndTurn()">結束回合</button></div>';
+      return '<div class="hint">' + (tt ? terrText(tt) : left ? '點自己人移動、行動；點敵人看它的數值與攻擊範圍；點空格子看地形。' : '') + (left ? '還有 ' + left + ' 人沒行動。' : '全員行動完畢，可以結束回合了。') + '</div><div class="acts"><button class="btn" onclick="srwNextUnit()">下一位</button><button class="btn' + (SUI.dzAll ? ' on' : '') + '" onclick="srwDanger()">敵人範圍</button><button class="btn go" onclick="srwEndTurn()">結束回合</button></div>';
     }
     var t = T.terr(b, u.x, u.y), ter = u.fly ? '飛行中' : t.n + (t.eva || t.def ? '（迴避 ' + (t.eva >= 0 ? '+' : '') + t.eva + '、防禦 ' + (t.def >= 0 ? '+' : '') + t.def + '%）' : '');
     var stx = [];
@@ -394,7 +395,7 @@
   function terrText(t) { return '<b>' + t.n + '</b>：' + (t.solid ? '誰都過不去。' : t.wall ? '走不過（飛行可以越過、停在上面）。' : '移動 ' + t.cost + (t.eva ? '、迴避 ' + (t.eva > 0 ? '+' : '') + t.eva : '') + (t.def ? '、受到的傷害 ' + (t.def > 0 ? '−' : '+') + Math.abs(t.def) + '%' : '') + (t.heal ? '、回合開始回氣血 10%、真元 10' : '') + '（飛行不吃地形）。') + '<br>'; }
   // 所有敵人這回合打得到的範圍（機戰的敵攻擊範圍）
   function srwDanger() { var b = sB(), on = !SUI.dzAll; clearHl(); SUI.sel = null; SUI.mode = 'idle'; if (on) { SUI.dzAll = 1; SUI.dz = {}; T.units(b, 'e').forEach(function (e) { var z = threat(b, e); Object.keys(z).forEach(function (k) { SUI.dz[k] = 1; }); }); } srwDraw(); }
-  function threat(b, e) { var R = T.moveRange(b, e), out = {}, mx = 0, S = T.stageOf(b); e.w.forEach(function (_, i) { var w = T.W(e, i); if (!w.map) mx = Math.max(mx, w.r[1]); }); if (e.hold && !T.isAwake(b, e) && !e.tr) R = {}; R[e.x + ',' + e.y] = 0;
+  function threat(b, e) { if (e.stun) return {}; var R = T.moveRange(b, e), out = {}, mx = 0, S = T.stageOf(b); e.w.forEach(function (_, i) { var w = T.W(e, i); if (!w.map) mx = Math.max(mx, w.r[1]); }); if (e.hold && !T.isAwake(b, e)) R = {}; R[e.x + ',' + e.y] = 0;
     Object.keys(R).forEach(function (k) { var p = k.split(','), x0 = +p[0], y0 = +p[1]; for (var y = 0; y < S.map.length; y++) for (var x = 0; x < S.map[0].length; x++) if (Math.abs(x - x0) + Math.abs(y - y0) <= mx) out[x + ',' + y] = 1; }); return out; }
   function srwTap(x, y) {
     var b = sB(); if (!b || busy || b.over || b.phase !== 'p') return;
@@ -404,7 +405,7 @@
       if (SUI.R && SUI.R[k] != null) { T.moveTo(run, u, x, y); clearHl(); SUI.mode = 'act'; drawUnits(); return srwDraw(); }
     }
     if (SUI.mode === 'move2' && u && SUI.R && SUI.R[k] != null) { T.moveAfter(run, u, x, y); return srwCancel(); }
-    if (SUI.mode === 'target' && u && o && SUI.tg && SUI.tg[k]) return forecastSheet(u, SUI.wi, o);
+    if (SUI.mode === 'target' && u) { if (o && SUI.tg && SUI.tg[k]) return forecastSheet(u, SUI.wi, o); return srwBackAct(); }
     if (SUI.mode === 'mapaim' && u) { if (SUI.mc && SUI.mc[k]) { SUI.cen = [x, y]; var cells = T.mapCells(b, u, T.W(u, SUI.wi), x, y); SUI.ma = {}; cells.forEach(function (p) { SUI.ma[p[0] + ',' + p[1]] = 1; }); SUI.mt = T.mapTargets(b, u, SUI.wi, x, y); return srwDraw(); } return; }
     if (SUI.mode === 'sptarget' && u && o) { var Sp = T.SPIRITS[SUI.sp]; if ((Sp.t === 'ally' && o.side === 'p') || (Sp.t === 'foe' && o.side === 'e')) { if (T.useSpirit(run, u, SUI.sp, o.uid)) { spCut(u, Sp.n, function () { var el = document.querySelector('.un[data-uid="' + o.uid + '"]'); if (el) popAt(el, Sp.n, Sp.t === 'foe' ? 'dmg' : 'gain'); }); save(); } SUI.mode = SUI.spBack || 'idle'; if (SUI.mode === 'move') SUI.R = T.moveRange(b, u); return srwDraw(); } return; }
     if (SUI.mode === 'act' && u) return;   // 移動完要先選動作（或回原位）
@@ -473,7 +474,7 @@
     clearHl(); SUI.mode = 'idle'; SUI.sel = null;
     playScene(sc, snap, function () { save(); afterAction(); });
   }
-  function afterAction() { var b = sB(); srwDraw(); if (b.over) return overBanner(); if (!T.units(b, 'p').some(function (v) { return !v.acted; })) setTimeout(function () { if (!busy && sB() && sB().phase === 'p') srwEndTurn(true); }, 350); }
+  function afterAction() { var b = sB(); srwDraw(); if (b.over) return overBanner(); }   // 全員行動完不自動結束回合：還能用乘勢、回春
   // 心訣
   function srwSpirit() {
     var b = sB(), u = T.byUid(b, SUI.sel);
@@ -501,25 +502,26 @@
       + e.w.map(function (_, i) { var w = T.W(e, i); return '<div class="box" style="padding:8px 12px"><b>' + esc(w.n) + '</b><div class="dim" style="font-size:12.5px">' + wpnLine(w, 0) + '</div></div>'; }).join('') + '<div class="box dim" style="font-size:13px">' + keepTail(esc(G.LORE[e.id] || '')) + '</div></div>');
   }
   function srwMenu() {
-    var s = srwSet();
+    var s = srwSet(), b = sB(), act = !busy && b && b.phase === 'p' && !b.over;   // 動畫、敵方階段進行中：只能看、改設定
     openOv('<b style="color:var(--gold)">選單</b><div class="list" style="margin-top:10px">'
       + '<button onclick="srwGoal()">作戰目標</button>'
-      + '<button onclick="closeOv();srwEndTurn()">結束回合</button>'
+      + (act ? '<button onclick="closeOv();srwEndTurn()">結束回合</button>' : '')
       + '<button onclick="srwToggle(\'anim\')">交手動畫：' + (s.anim === 2 ? '只看我方出手' : s.anim ? '全部' : '關') + '</button>'
       + '<button onclick="srwToggle(\'autoDef\')">敵方階段自動應戰：' + (s.autoDef ? '開' : '關（每次自己選）') + '</button>'
-      + '<button onclick="closeOv();srwAutoTurn()">這回合交給自動（我方）</button>'
+      + (act ? '<button onclick="closeOv();srwAutoTurn()">這回合交給自動（我方）</button>' : '')
       + '<button onclick="closeOv();showHelp()">說明</button>'
-      + '<button onclick="confirmOv(\'放棄這一關？經驗與靈石會留著，可以重打。\',srwGiveUp)">放棄這一關</button>'
-      + '<button onclick="closeOv();run=null;titleScreen()">回標題（存著，之後接著打）</button></div>');
+      + (act ? '<button onclick="confirmOv(\'放棄這一關？經驗與靈石會留著，可以重打。\',srwGiveUp)">放棄這一關</button>'
+      + '<button onclick="closeOv();run=null;titleScreen()">回標題（存著，之後接著打）</button>' : '<div class="dim" style="font-size:13px;text-align:center">交手、敵方行動中；回標題、放棄要等我方階段。</div>') + '</div>');
   }
   function srwGoal() { var S = T.stageOf(sB()); openOv('<b style="color:var(--gold)">' + stageNo(S) + '・' + esc(S.n) + '</b><div class="box" style="margin-top:10px;line-height:1.9">' + condText(S) + '</div>'); }
   function srwToggle(k) { var s = srwSet(); s[k] = k === 'anim' ? (s.anim === 1 ? 2 : s.anim === 2 ? 0 : 1) : s[k] ? 0 : 1; queueSave(true, false); srwMenu(); }
   function srwGiveUp() { var b = sB(); b.over = 'lose'; srwFinish(); }
   function srwAutoTurn() {
-    var b = sB(); if (busy || b.phase !== 'p') return; busy = true;
+    var b = sB(); if (busy || b.phase !== 'p') return; busy = true; clearHl(); SUI.sel = null; SUI.mode = 'idle';
     var list = T.units(b, 'p').filter(function (v) { return !v.acted; });
     (function next() {
-      if (!list.length || b.over) { busy = false; save(); return afterAction(); }
+      if (sB() !== b) { busy = false; return; }
+      if (!list.length || b.over) { busy = false; save(); afterAction(); if (!b.over) srwEndTurn(true); return; }
       var u = list.shift(), snap = snapHp(b), sc = T.autoUnit(run, u); drawUnits();
       if (sc) playScene(sc, snap, next); else setTimeout(next, 200);
     })();
@@ -534,28 +536,30 @@
   }
   function goEnemy() {
     var b = sB(); clearHl(); SUI.sel = null; SUI.mode = 'idle';
-    T.endPlayerPhase(run); busy = true; srwBattleScreen(); banner('敵方階段', 'e');
+    T.endPlayerPhase(run); save(); busy = true; srwBattleScreen(); banner('敵方階段', 'e');
     (b.ticks || []).forEach(function (t) { var el = document.querySelector('.un[data-uid="' + t.uid + '"]'); if (el) popAt(el, '毒 −' + t.dmg, 'dmg'); }); b.ticks = [];
-    setTimeout(function () { srwEv(function () { busy = true; enemyStep(); }); }, 1000);
+    setTimeout(function () { if (sB() !== b) return; srwEv(function () { busy = true; enemyStep(b); }, b); }, 1000);
   }
-  function enemyStep() {
-    var b = sB(); if (!b) { busy = false; return; }
+  function enemyStep(b0) {
+    var b = sB(); if (!b || (b0 && b !== b0)) { busy = false; return; }
     if (b.over) { busy = false; save(); srwDraw(); return overBanner(); }
-    var plan = T.enemyNext(run);
-    if (!plan) { T.enemyDone(run); busy = false; save(); srwBattleScreen(); if (b.over) return overBanner(); banner('我方階段'); return; }
+    save();   // 每個敵人動之前存一次：重新整理會從這裡接著
+    var plan = T.enemyNext(run), again = function (ms) { setTimeout(function () { enemyStep(b); }, ms); };
+    if (!plan) { T.enemyDone(run); busy = false; save(); srwBattleScreen(); if (b.over) return overBanner(); banner('我方階段'); srwTips(); return; }
     var e = T.byUid(b, plan.uid);
     T.enemyMove(run, plan); drawUnits();
     var go = function () {
-      if (plan.stun) { var el = document.querySelector('.un[data-uid="' + plan.uid + '"]'); if (el) popAt(el, '動彈不得', 'blk'); return setTimeout(enemyStep, 500); }
-      if (!plan.target && !plan.map) return setTimeout(enemyStep, 120);
-      if (plan.map) { var snap = snapHp(b), sc = T.enemyAct(run, plan); return playScene(sc, snap, function () { srwDraw(); setTimeout(enemyStep, 150); }); }
+      if (sB() !== b) { busy = false; return; }
+      if (plan.stun) { var el = document.querySelector('.un[data-uid="' + plan.uid + '"]'); if (el) popAt(el, '動彈不得', 'blk'); return again(500); }
+      if (!plan.target && !plan.map) return again(120);
+      if (plan.map) { var snap = snapHp(b), sc = T.enemyAct(run, plan); return playScene(sc, snap, function () { srwDraw(); again(150); }); }
       var t = T.byUid(b, plan.target);
       if (srwSet().autoDef) return defend(plan, T.bestResp(b, e, plan.wi, t));
       defenseSheet(plan);
     };
     setTimeout(go, plan.x !== e.x || plan.y !== e.y ? 380 : 120);
   }
-  function defend(plan, resp, cwi) { window.NO_ESC = 0; $('ov').onclick = function (ev) { if (ev.target === this) closeOv(); }; closeOv(); var b = sB(), snap = snapHp(b), sc = T.enemyAct(run, plan, resp, cwi); playScene(sc, snap, function () { srwDraw(); setTimeout(enemyStep, 150); }); }
+  function defend(plan, resp, cwi) { window.NO_ESC = 0; $('ov').onclick = function (ev) { if (ev.target === this) closeOv(); }; closeOv(); var b = sB(); if (!b) return; var snap = snapHp(b), sc = T.enemyAct(run, plan, resp, cwi); playScene(sc, snap, function () { srwDraw(); setTimeout(function () { enemyStep(b); }, 150); }); }
   // 被打：選還手／招架／閃身
   function defenseSheet(plan) {
     var b = sB(), e = T.byUid(b, plan.uid), t = T.byUid(b, plan.target), rec = T.bestResp(b, e, plan.wi, t), ci = T.counterWpn(b, t, e);
@@ -591,7 +595,7 @@
   }
   function snapHp(b) { var o = {}, w = {}; b.units.forEach(function (u) { o[u.uid] = u.hp; w[u.uid] = u.will; }); Object.defineProperty(o, '_w', { value: w }); return o; }   // 交手前的氣血與戰意（_w 不列舉）
   function playScene(sc, snap, cb0) {
-    var b = sB(), cb = function () { srwEv(cb0); }; if (!sc || !sc.steps || !sc.steps.length) { drawUnits(); return cb(); }
+    var b = sB(), cb = function () { if (sB() !== b) { busy = false; return; } srwEv(cb0, b); };   // 播完時戰鬥換了（回標題、重新載入）就不接著做 if (!sc || !sc.steps || !sc.steps.length) { drawUnits(); return cb(); }
     var done = false, finish = function () { if (done) return; done = true; var ov = $('bsc'); if (ov) ov.remove(); busy = wasBusy; drawUnits(); srwDraw(); cb(); };
     var wasBusy = busy; busy = true;
     var A0 = T.byUid(b, sc.a), an = srwSet().anim;
@@ -761,7 +765,7 @@
     ['修為／功法', '悟道點：擊破與過關拿得到。加修為（命中、迴避……）或學功法。'],
     ['法寶', '每人兩格：裝備類一直有效；丹藥類每關能用一次。'],
     ['功勳', '每關一個額外條件（例：幾回合內勝利），達成拿法寶。'],
-    ['魔王', '天生背水（氣血越少越強）。第一次掉到一半氣血會用一個心訣：鬼將軍金身、鬼面判官洞明、九尾妖狐懾魄……撐到下一個我方階段開始。點魔王看得到她身上的心訣。'],
+    ['魔王', '天生背水（氣血越少越強）。第一次掉到一半氣血會用一個心訣：鬼將軍金身、鬼面判官洞明、九尾妖狐懾魄……效果撐一輪。點魔王看得到她身上的心訣。'],
     ['成名', '擊破 18 隻以上，用她的名號成名：每人一個專屬加成（人物頁看得到）。'],
     ['輸了', '經驗、悟道點、靈石都留著，回整備再打一次。'],
     ['二周目', '封住魘之後，可以帶著等級、淬鍊、修為、功法、法寶、靈石從第一關再打一次。功勳重新算，敵人每周目更強。']
