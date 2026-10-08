@@ -319,5 +319,22 @@ const allEv = c => { const a = []; let e; while ((e = T.takeEv(c))) a.push(e); r
   b.queue = []; T.enemyDone(c); ok(g.st.jinshen, '下一個我方階段還在'); T.endPlayerPhase(c); ok(!g.st.jinshen, '下一個敵方階段開始就散');
 }
 { const c = T.newCampaign(41); eq(T.upTotal(c), 0, '沒淬鍊：總級數 0'); c.gold = 99999; T.upgrade(c, 'aduo', 'hp'); T.upgrade(c, 'aduo', 'hp'); eq(T.upTotal(c), 2, '淬鍊兩級：總級數 2'); }
+{
+  // 布陣：第一回合誰都還沒動之前才能換；牆上只有會飛的站得住
+  const c = T.newCampaign(42); c.stage = 8; const b = T.startStage(c), s = P(b, 'shuang'), x = P(b, 'xiaoman'), r = P(b, 'chilian');
+  const sp = [s.x, s.y], xp = [x.x, x.y];
+  ok(T.canSwap(b) && T.swapPos(c, s, x) && s.x === xp[0] && s.y === xp[1] && x.x === sp[0] && x.y === sp[1], '布陣：兩人互換位置');
+  ok(!T.swapPos(c, s, b.units.filter(u => u.side === 'e')[0]), '布陣：不能跟敵人換');
+  const S = T.stageOf(b), wy = S.map.findIndex(row => row.indexOf('#') >= 0);
+  if (wy >= 0 && T.terr(b, S.map[wy].indexOf('#'), wy).wall) { const ox = r.x, oy = r.y; x.x = S.map[wy].indexOf('#'); x.y = wy; ok(x.fly && !T.swapPos(c, x, r) && r.x === ox, '布陣：赤灼不會飛，換不到牆上'); x.x = xp[0]; x.y = xp[1]; }
+  const D = T.deployCells(b, r), dk = Object.keys(D), far = Object.keys(T.moveRange(b, r)).filter(k2 => D[k2] == null && !T.unitAt(b, +k2.split(',')[0], +k2.split(',')[1]))[0];
+  ok(dk.length > 0 && dk.every(k2 => { const q = k2.split(',').map(Number); return !T.unitAt(b, q[0], q[1]) && T.stageOf(b).heroes.some(h => Math.abs(h[1] - q[0]) + Math.abs(h[2] - q[1]) <= 1); }), '布陣：出擊區是起始位置旁邊一格的空格');
+  ok(far && !T.placeAt(c, r, +far.split(',')[0], +far.split(',')[1]), '布陣：出擊區外面站不過去');
+  ok(!T.placeAt(c, r, s.x, s.y), '布陣：有人的格子站不過去（要用互換）');
+  const q0 = dk[0].split(',').map(Number); ok(T.placeAt(c, r, q0[0], q0[1]) && r.x === q0[0] && r.y === q0[1], '布陣：站到出擊區的空格');
+  T.moveTo(c, r, r.x, r.y); ok(!T.canSwap(b) && !T.swapPos(c, s, x) && !Object.keys(T.deployCells(b, s)).length, '布陣：有人動過就不能換');
+  T.undoMove(c, r); ok(T.canSwap(b), '布陣：回原位又能換');
+  b.turn = 2; ok(!T.canSwap(b), '布陣：第二回合不能換');
+}
 console.log((fail ? '❌ ' : '✅ ') + pass + ' 項通過' + (fail ? '，' + fail + ' 項沒過' : ''));
 if (fail) process.exit(1);

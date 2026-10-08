@@ -189,7 +189,7 @@
     if (tab === 'hero') body = '<div class="list">' + T.ORDER.map(function (k) {
       var h = c.heroes[k], s = T.heroStats(c, k), on = S.heroes.some(function (x) { return x[0] === k; });
       return '<button class="box hcard" onclick="heroSheet(\'' + k + '\')">' + portrait({ id: k, side: 'p', name: G.SERVANTS[k].name }, 'pf2') + '<div style="flex:1;min-width:0"><b>' + esc(G.SERVANTS[k].name) + '</b> <span class="dim">Lv ' + h.lv + '</span>' + (on ? ' <span class="chip gold">出擊</span>' : '')
-        + '<div class="dim" style="font-size:12.5px">氣血 ' + s.hpMax + '・護體 ' + s.arm + '・輕身 ' + s.mob + '・悟道點 ' + h.pp + '・' + (s.ace ? '<span style="color:var(--gold)">★成名</span>' : '擊破 ' + h.kills + '/' + T.ACE_KILLS) + '</div></div><span class="tag">›</span></button>'; }).join('') + '</div>';
+        + '<div class="dim" style="font-size:12.5px">' + nwj(['氣血 ' + s.hpMax, '護體 ' + s.arm, '輕身 ' + s.mob, '悟道點 ' + h.pp, s.ace ? '<span style="color:var(--gold)">★成名</span>' : '擊破 ' + h.kills + '/' + T.ACE_KILLS]) + '</div></div><span class="tag">›</span></button>'; }).join('') + '</div>';
     if (tab === 'shop') body = '<div class="list">' + T.shopList(c).map(function (id) { var I = T.ITEMS[id];
       return '<div class="box urow"><div><b>' + esc(I.n) + '</b>　<span class="dim" style="font-size:13px">' + esc(I.d) + '</span><div class="dim" style="font-size:12.5px">背包裡有 ' + (c.inv[id] || 0) + ' 件</div></div><button class="btn" style="padding:6px 12px"' + (c.gold < I.price ? ' disabled' : '') + ' onclick="srwBuy(\'' + id + '\')">💎 ' + I.price + '</button></div>'; }).join('') + '</div>';
     if (tab === 'bag') { var items = Object.keys(c.inv).filter(function (id) { return c.inv[id] > 0; });
@@ -334,7 +334,7 @@
   function srwDraw() {
     var b = sB(); if (!b || !$('sbmap')) return;
     var S = T.stageOf(b), sel = SUI.sel && T.byUid(b, SUI.sel);
-    var mates = sel && sel.side === 'p' && (SUI.mode === 'move' || SUI.mode === 'move2') ? T.units(b, 'p').filter(function (v) { return v !== sel; }) : [];   // 移動時：旁邊有隊友的格子（能互相助攻、掩護）
+    var mates = sel && sel.side === 'p' && (SUI.mode === 'move' || SUI.mode === 'move2' || SUI.mode === 'swap') ? T.units(b, 'p').filter(function (v) { return v !== sel; }) : [];   // 移動時：旁邊有隊友的格子（能互相助攻、掩護）
     S.map.forEach(function (row, y) { for (var x = 0; x < row.length; x++) { var el = $('tl' + x + '_' + y), k = x + ',' + y, cl = tcls(row[x]);
       if (SUI.R && SUI.R[k] != null) { cl += ' mv'; if (mates.some(function (v) { return Math.abs(v.x - x) + Math.abs(v.y - y) === 1; })) cl += ' sup'; }
       if (SUI.ar && SUI.ar[k]) cl += ' ar';
@@ -370,10 +370,12 @@
     var acts = '';
     if (b.over) return '<div class="hint">' + (b.over === 'win' ? '勝利！' : '敗北……') + '</div><div class="acts"><button class="btn go" onclick="srwFinish()">結算</button></div>';
     if (b.phase !== 'p') return '<div class="hint">敵方行動中…</div>';
+    if (SUI.mode === 'swap') return '<div class="hint">' + (u ? '點藍色格子站過去，或點另一位女修跟' + esc(u.name) + '換位置。' : '點一位女修，再點藍色格子或另一位女修，換位置。') + '</div><div class="acts"><button class="btn go" onclick="srwSwapDone()">布好了</button><button class="btn' + (SUI.dzAll ? ' on' : '') + '" onclick="srwDanger()">敵人範圍</button></div>';
     if (!u) {
       var left = T.units(b, 'p').filter(function (v) { return !v.acted; }).length;
       var tt = SUI.tile && T.terr(b, SUI.tile[0], SUI.tile[1]);
-      return '<div class="hint">' + (tt ? terrText(tt) : left ? '點自己人移動、行動；點敵人看它的數值與攻擊範圍；點空格子看地形。' : '') + (left ? '還有 ' + left + ' 人沒行動。' : '全員行動完畢，可以結束回合了。') + '</div><div class="acts"><button class="btn" onclick="srwNextUnit()">下一位</button><button class="btn' + (SUI.dzAll ? ' on' : '') + '" onclick="srwDanger()">敵人範圍</button><button class="btn go" onclick="srwEndTurn()">結束回合</button></div>';
+      var sw = T.canSwap(b);
+      return '<div class="hint">' + (tt ? terrText(tt) : sw ? '開打前可以按「布陣」調整站位。' : left ? '點自己人移動、行動；點敵人看它的數值與攻擊範圍；點空格子看地形。' : '') + (left ? '還有 ' + left + ' 人沒行動。' : '全員行動完畢，可以結束回合了。') + '</div><div class="acts">' + (sw ? '<button class="btn" onclick="srwSwap()">布陣</button>' : '<button class="btn" onclick="srwNextUnit()">下一位</button>') + '<button class="btn' + (SUI.dzAll ? ' on' : '') + '" onclick="srwDanger()">敵人範圍</button><button class="btn go" onclick="srwEndTurn()">結束回合</button></div>';
     }
     var t = T.terr(b, u.x, u.y), ter = u.fly ? '飛行中' : t.n + (t.eva || t.def ? '（迴避 ' + (t.eva >= 0 ? '+' : '') + t.eva + '、防禦 ' + (t.def >= 0 ? '+' : '') + t.def + '%）' : '');
     var stx = [];
@@ -381,7 +383,7 @@
     else { ['ningshen', 'dongming', 'jinshen'].forEach(function (k) { if (u.st[k]) stx.push(T.SPIRITS[k].n); }); if (u.stun) stx.push('動彈不得'); if (u.ding) stx.push('定身 ' + u.ding + '/' + T.stunAt(u)); if (u.poison) stx.push('毒 ' + u.poison); if (u.lives) stx.push('還能站起來 ' + u.lives + ' 次'); if (u.retreat) stx.push('半血會退走'); if (u.regen) stx.push('每階段回 ' + Math.round(u.regen * 100) + '% 氣血'); if (u.hold && !T.isAwake(b, u)) stx.push(u.tr ? '守著不動（有人走進 ' + u.tr + ' 格內才動）' : '守著不動'); }
     var info = '<div class="uinfo">' + portrait(u, 'pf2') + '<div style="flex:1;min-width:0"><div class="nm">' + esc(u.name) + '<small>Lv ' + u.lv + (u.side === 'e' ? '・' + (u.boss ? '魔王' : u.rank === 'e' ? '精英' : '妖物') : '') + '・' + T.SIZE_NAME[u.size] + '</small></div>'
       + '<div class="bars">' + bar(u.side === 'e' ? 'e' : '', u.hp, u.hpMax, '氣血') + (u.side === 'p' ? bar('en', u.en, u.enMax, '真元') : '') + '</div>'
-      + '<div class="st"><span>戰意 ' + u.will + '</span>' + (u.side === 'p' ? '<span>心力 ' + u.sp + '/' + u.spMax + '</span>' : '') + '<span>腳程 ' + T.curMv(u) + '</span><span>' + esc(ter) + '</span>' + (stx.length ? '<span style="color:var(--gold)">' + stx.map(function (x) { return '<i class="nw">' + esc(x) + '</i>'; }).join('・') + '</span>' : '') + '</div></div></div>';
+      + '<div class="st"><span>戰意 ' + u.will + '</span>' + (u.side === 'p' ? '<span>心力 ' + u.sp + '/' + u.spMax + '</span>' : '') + '<span>腳程 ' + T.curMv(u) + '</span><span>' + esc(ter) + '</span>' + (stx.length ? '<span style="color:var(--gold)">' + nwj(stx.map(esc)) + '</span>' : '') + '</div></div></div>';
     if (u.side === 'e') return info + '<div class="hint">紅色是它這回合打得到的範圍。</div><div class="acts"><button class="btn" onclick="foeSheet(\'' + u.uid + '\')">招式</button><button class="btn" onclick="srwCancel()">關閉</button></div>';
     if (u.acted && SUI.mode !== 'move2') return info + '<div class="hint">這回合已經行動過了。</div><div class="acts"><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwCancel()">關閉</button></div>';
     if (SUI.mode === 'move2') return info + '<div class="hint">游擊：還能移動（點藍色格子）。</div><div class="acts"><button class="btn" onclick="srwCancel()">不移動</button></div>';
@@ -396,12 +398,20 @@
   function clearHl() { SUI.R = null; SUI.ar = null; SUI.tg = null; SUI.dz = null; SUI.dzAll = 0; SUI.tile = null; SUI.mc = null; SUI.ma = null; SUI.cen = null; SUI.mt = null; }
   function terrText(t) { return '<b>' + t.n + '</b>：' + (t.solid ? '誰都過不去。' : t.wall ? '走不過（飛行可以越過、停在上面）。' : '移動 ' + t.cost + (t.eva ? '、迴避 ' + (t.eva > 0 ? '+' : '') + t.eva : '') + (t.def ? '、受到的傷害 ' + (t.def > 0 ? '−' : '+') + Math.abs(t.def) + '%' : '') + (t.heal ? '、回合開始回氣血 10%、真元 10' : '') + '（飛行不吃地形）。') + '<br>'; }
   // 所有敵人這回合打得到的範圍（機戰的敵攻擊範圍）
-  function srwDanger() { var b = sB(), on = !SUI.dzAll; clearHl(); SUI.sel = null; SUI.mode = 'idle'; if (on) { SUI.dzAll = 1; SUI.dz = {}; T.units(b, 'e').forEach(function (e) { var z = threat(b, e); Object.keys(z).forEach(function (k) { SUI.dz[k] = 1; }); }); } srwDraw(); }
+  function srwDanger() { var b = sB(), on = !SUI.dzAll; clearHl(); SUI.sel = null; SUI.mode = SUI.mode === 'swap' ? 'swap' : 'idle'; if (on) { SUI.dzAll = 1; SUI.dz = {}; T.units(b, 'e').forEach(function (e) { var z = threat(b, e); Object.keys(z).forEach(function (k) { SUI.dz[k] = 1; }); }); } srwDraw(); }
   function threat(b, e) { if (e.stun) return {}; var R = T.moveRange(b, e), out = {}, mx = 0, S = T.stageOf(b); e.w.forEach(function (_, i) { var w = T.W(e, i); if (!w.map) mx = Math.max(mx, w.r[1]); }); if (e.hold && !T.isAwake(b, e)) R = {}; R[e.x + ',' + e.y] = 0;
     Object.keys(R).forEach(function (k) { var p = k.split(','), x0 = +p[0], y0 = +p[1]; for (var y = 0; y < S.map.length; y++) for (var x = 0; x < S.map[0].length; x++) if (Math.abs(x - x0) + Math.abs(y - y0) <= mx) out[x + ',' + y] = 1; }); return out; }
   function srwTap(x, y) {
     var b = sB(); if (!b || busy || b.over || b.phase !== 'p') return;
     var u = SUI.sel && T.byUid(b, SUI.sel), o = T.unitAt(b, x, y), k = x + ',' + y;
+    if (SUI.mode === 'swap') {   // 布陣：點兩位女修互換
+      if (!T.canSwap(b)) return srwSwapDone();
+      if (u && !o && SUI.R && SUI.R[k] != null) { if (T.placeAt(run, u, x, y)) { SUI.sel = null; SUI.R = null; save(); } return srwDraw(); }
+      if (!o || o.side !== 'p') return;
+      if (!u || u === o) { SUI.sel = u === o ? null : o.uid; SUI.R = SUI.sel ? T.deployCells(b, o) : null; return srwDraw(); }
+      if (T.swapPos(run, u, o)) { SUI.sel = null; SUI.R = null; save(); } else toast('那裡只有會飛的人站得住');
+      return srwDraw();
+    }
     if (SUI.mode === 'move' && u) {
       if (o === u) return srwStay();
       if (SUI.R && SUI.R[k] != null) { T.moveTo(run, u, x, y); clearHl(); SUI.mode = 'act'; drawUnits(); return srwDraw(); }
@@ -420,6 +430,8 @@
     else SUI.mode = 'idle';
     srwDraw();
   }
+  function srwSwap() { clearHl(); SUI.sel = null; SUI.mode = 'swap'; srwDraw(); }
+  function srwSwapDone() { clearHl(); SUI.sel = null; SUI.mode = 'idle'; srwDraw(); }
   function srwStay() { var b = sB(), u = T.byUid(b, SUI.sel); if (!u) return; T.moveTo(run, u, u.x, u.y); clearHl(); SUI.mode = 'act'; srwDraw(); }
   function srwUndo() { var b = sB(), u = T.byUid(b, SUI.sel); if (!u) return; T.undoMove(run, u); clearHl(); SUI.mode = 'move'; SUI.R = T.moveRange(b, u); srwDraw(); }
   function srwCancel() { var b = sB(), u = SUI.sel && T.byUid(b, SUI.sel); if (u && SUI.mode === 'act') T.undoMove(run, u); clearHl(); SUI.sel = null; SUI.mode = 'idle'; srwDraw(); }
@@ -448,6 +460,7 @@
   }
   // 出手前的預覽
   // 身上生效中的心訣（交手預覽看得到魔王開了金身之類）
+  function nwj(a) { return a.map(function (x) { return '<i class="nw">' + x + '</i>'; }).join('・'); }   // 一串數值：每一段不拆開
   function stLab(u) { var a = ['ningshen', 'dongming', 'taying', 'pofu', 'guzhu', 'jinshen', 'tuojin'].filter(function (k) { return u.st[k]; }).map(function (k) { return T.SPIRITS[k].n; }); return a.length ? '<div class="lab" style="color:var(--gold)">' + a.join('・') + '</div>' : ''; }
   function forecastSheet(u, wi, d) {
     var b = sB(), f = T.forecast(b, u, wi, d), G0 = f.guard && T.byUid(b, f.guard);
@@ -500,7 +513,7 @@
   function srwUseItem(id) { closeOv(); var b = sB(), u = T.byUid(b, SUI.sel); if (T.useItem(run, u, id)) { toast(u.name + '用了' + T.ITEMS[id].n); save(); } srwDraw(); }
   function foeSheet(uid) {
     var b = sB(), e = T.byUid(b, uid);
-    openOv('<b style="color:var(--gold)">' + esc(e.name) + '</b>　<span class="dim">Lv ' + e.lv + '</span><div class="dim" style="font-size:12.5px;margin:4px 0 8px">氣血 ' + e.hp + '/' + e.hpMax + '・護體 ' + e.arm + '・輕身 ' + Math.max(0, e.mob - 10 * e.ding) + '・準頭 ' + e.aim + '・腳程 ' + e.mv + (e.fly ? '・飛行' : '') + '</div><div class="list">'
+    openOv('<b style="color:var(--gold)">' + esc(e.name) + '</b>　<span class="dim">Lv ' + e.lv + '</span><div class="dim" style="font-size:12.5px;margin:4px 0 8px">' + nwj(['氣血 ' + e.hp + '/' + e.hpMax, '護體 ' + e.arm, '輕身 ' + Math.max(0, e.mob - 10 * e.ding), '準頭 ' + e.aim, '腳程 ' + e.mv].concat(e.fly ? ['飛行'] : [])) + '</div><div class="list">'
       + e.w.map(function (_, i) { var w = T.W(e, i); return '<div class="box" style="padding:8px 12px"><b>' + esc(w.n) + '</b><div class="dim" style="font-size:12.5px">' + wpnLine(w, 0) + '</div></div>'; }).join('') + '<div class="box dim" style="font-size:13px">' + keepTail(esc(G.LORE[e.id] || '')) + '</div></div>');
   }
   function srwMenu() {
@@ -523,7 +536,7 @@
       var down = !T.live(u), can = !down && !u.acted && b.phase === 'p' && !busy;
       return '<button class="wrow"' + (down ? ' disabled' : ' onclick="srwPick(\'' + u.uid + '\')"') + ' style="align-items:center">' + portrait(u, 'qf') + '<div style="flex:1;min-width:0;text-align:left"><b>' + esc(u.name) + '</b> <span class="dim">Lv ' + u.lv + '</span>'
         + (down ? ' <span class="chip">退場</span>' : can ? ' <span class="chip gold">可以行動</span>' : '')
-        + '<div class="dim" style="font-size:12.5px">' + ['氣血 ' + u.hp + '/' + u.hpMax, '真元 ' + u.en + '/' + u.enMax, '心力 ' + u.sp + '/' + u.spMax, '戰意 ' + u.will].map(function (x) { return '<i class="nw">' + x + '</i>'; }).join('・') + '</div></div></button>';
+        + '<div class="dim" style="font-size:12.5px">' + nwj(['氣血 ' + u.hp + '/' + u.hpMax, '真元 ' + u.en + '/' + u.enMax, '心力 ' + u.sp + '/' + u.spMax, '戰意 ' + u.will]) + '</div></div></button>';
     }).join('') + '</div>');
   }
   function srwPick(uid) { closeOv(); var b = sB(), u = T.byUid(b, uid); if (!u || !T.live(u)) return; if (busy || b.phase !== 'p') return; clearHl(); srwTap(u.x, u.y); var el = document.querySelector('.un[data-uid="' + uid + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
@@ -707,7 +720,7 @@
     var rows = Object.keys(r.gain).map(function (k) { var g = r.gain[k], h = run.heroes[k], lv0 = h.lv - g.lvUp, k0 = h.kills - g.kills;
       var learned = T.HEROES[k].sp.filter(function (p) { return p[1] > lv0 && p[1] <= h.lv; }).map(function (p) { return T.SPIRITS[p[0]].n; });
       var ace = k0 < T.ACE_KILLS && h.kills >= T.ACE_KILLS;
-      return '<div class="box gain">' + portrait({ id: k, side: 'p', name: G.SERVANTS[k].name }, 'pf2') + '<div style="flex:1"><b>' + esc(G.SERVANTS[k].name) + '</b> <span class="dim">Lv ' + h.lv + '</span>' + (g.lvUp ? ' <span class="chip gold">升了 ' + g.lvUp + ' 級</span>' : '') + '<div class="dim" style="font-size:12.5px">經驗 +' + g.exp + '・悟道點 +' + g.pp + '・擊破 ' + g.kills + '</div>'
+      return '<div class="box gain">' + portrait({ id: k, side: 'p', name: G.SERVANTS[k].name }, 'pf2') + '<div style="flex:1"><b>' + esc(G.SERVANTS[k].name) + '</b> <span class="dim">Lv ' + h.lv + '</span>' + (g.lvUp ? ' <span class="chip gold">升了 ' + g.lvUp + ' 級</span>' : '') + '<div class="dim" style="font-size:12.5px">' + nwj(['經驗 +' + g.exp, '悟道點 +' + g.pp, '擊破 ' + g.kills]) + '</div>'
         + (learned.length ? '<div style="font-size:13px;color:var(--gold)">學會心訣：' + learned.join('、') + '</div>' : '')
         + (ace ? '<div style="font-size:13px;color:var(--gold)">成名「' + esc(G.SERVANTS[k].hao) + '」：' + esc(T.ACE[k]) + '</div>' : '') + '</div></div>'; }).join('');
     $('app').innerHTML = '<div class="panel res"><h1 style="font-size:24px">' + (r.win ? '勝利' : '敗北') + '</h1><div class="dim">' + stageNo(S) + '・' + esc(S.n) + '・' + r.turns + ' 回合</div>'
@@ -738,7 +751,7 @@
   // 新手提示（戰棋）：每個只跳一次，跟以前的卡牌提示分開記（老玩家也沒看過戰棋）
   var SRW_TIPS = {
     prep: ['整備', '每一關打之前在這裡整備：<b>淬鍊</b>花靈石強化氣血、護體、輕身這些身法器；<b>修為</b>與<b>功法</b>花悟道點；<b>法寶</b>每人兩格。準備好就按「出擊」。<br>強化得越多仗越好打；不強化也過得去，但要好好排陣。'],
-    battle: ['地圖戰', '點自己人，藍色格子是走得到的地方；走完再選攻擊、心訣或待機。每人一回合動一次，全部動完（或按「結束回合」）換敵人。<br>站在隊友旁邊：妳出手後，旁邊的隊友會接著補一招（助攻）；白辰在旁邊會替妳擋（掩護）。<br>點敵人看它的數值，紅色是它打得到的範圍；「敵人範圍」一次看全部。點空格子看地形。'],
+    battle: ['地圖戰', '點自己人，藍色格子是走得到的地方；走完再選攻擊、心訣或待機。每人一回合動一次，全部動完（或按「結束回合」）換敵人。<br>站在隊友旁邊：妳出手後，旁邊的隊友會接著補一招（助攻）；白辰在旁邊會替妳擋（掩護）。<br>點敵人看它的數值，紅色是它打得到的範圍；「敵人範圍」一次看全部。點空格子看地形。<br>第一回合誰都還沒動之前，可以按「布陣」換位置。'],
     forecast: ['交手預覽', '出手前會先看到雙方的命中率與傷害。被打的一方會還手（射程夠的話），所以先想好誰去打誰。'],
     defense: ['被打的時候', '敵人打過來時妳可以選：<b>還手</b>、<b>招架</b>（傷害減半）、<b>閃身</b>（對方命中減半）。金框是建議。<br>選單裡可以開「自動應戰」。'],
     spirit: ['心訣', '每人有自己的心訣，花心力發動：洞明（必中）、破釜（傷害兩倍）、金身（傷害四分之一）……心力每回合回一點，關卡之間回滿。'],
@@ -769,7 +782,7 @@
     ['助攻／掩護', '助攻：旁邊的隊友出手後接著補一招（每人天生 Lv1，功法再加）。掩護：旁邊的隊友挨打時替她招架（白辰天生 Lv2）。'],
     ['陣法', '範圍招式：範圍裡的敵人都打，對方不能還手。'],
     ['合擊', '兩個人站在一起才能用的大招：凌霜與赤灼「劍酒雙絕」、青璃與阿朵「符蠱同心」。兩個人都要付真元。'],
-    ['排陣', '不強化也打得過，靠的是站位：站在隊友旁邊（助攻、掩護、合擊；移動時有金色底線的格子）；躲進林、山岩、屋舍；別讓一個人被一群敵人圍住，先看「敵人範圍」；大招前先用心訣（凝神、洞明、破釜）。'],
+    ['排陣', '不強化也打得過，靠的是站位：開打前按「布陣」把能扛的換到前面；站在隊友旁邊（助攻、掩護、合擊；移動時有金色底線的格子）；躲進林、山岩、屋舍；別讓一個人被一群敵人圍住，先看「敵人範圍」；大招前先用心訣（凝神、洞明、破釜）。'],
     ['地形', '林：迴避 +15、防禦 +10%；山岩：迴避 +20、防禦 +20%；水：迴避 −10、受傷 +10%；屋舍：防禦 +15%，回合開始回氣血與真元。飛行不吃地形加成，但能越過牆。'],
     ['體積', '小、中、大、巨。體積越大越好打中（大 ×1.2、巨 ×1.4）。'],
     ['定身', '青璃的招式打中就貼一層，每層輕身 −10。貼滿門檻（雜兵 2、精英 3、魔王 4）就停一個敵方階段。'],

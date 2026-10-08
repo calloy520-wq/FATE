@@ -673,6 +673,21 @@ var T = (function () {
     u.ox = u.x; u.oy = u.y; u.x = x; u.y = y; u.moved = (x !== u.ox || y !== u.oy) ? 1 : 0; u.moveDone = 1;
     return true;
   }
+  // 布陣：第一回合誰都還沒動之前，可以換位置（兩人互換，或站到出擊區的空格）
+  function canSwap(b) { return !!b && b.turn === 1 && b.phase === 'p' && !b.over && units(b, 'p').every(function (v) { return !v.moveDone && !v.acted; }); }
+  function standOk(b, u, x, y) { var t = terr(b, x, y); return !!t && !t.solid && (!t.wall || !!u.fly); }
+  function swapPos(c, u, v) {
+    var b = c.battle; if (!canSwap(b) || !u || !v || u === v || u.side !== 'p' || v.side !== 'p' || !live(u) || !live(v)) return false;
+    if (!standOk(b, u, v.x, v.y) || !standOk(b, v, u.x, u.y)) return false;
+    var x = u.x, y = u.y; u.x = v.x; u.y = v.y; v.x = x; v.y = y; return true;
+  }
+  // 出擊區：起始位置和它旁邊一格；空著、站得住的格子都能站
+  function deployCells(b, u) {
+    var out = {}; if (!canSwap(b) || !u) return out;
+    stageOf(b).heroes.forEach(function (h) { [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { var x = h[1] + d[0], y = h[2] + d[1]; if (standOk(b, u, x, y) && !unitAt(b, x, y)) out[tkey(x, y)] = 0; }); });
+    return out;
+  }
+  function placeAt(c, u, x, y) { var b = c.battle; if (!u || u.side !== 'p' || !live(u) || deployCells(b, u)[tkey(x, y)] == null) return false; u.x = x; u.y = y; return true; }
   function undoMove(c, u) { if (u.acted || !u.moveDone) return false; u.x = u.ox; u.y = u.oy; u.moved = 0; u.moveDone = 0; return true; }
   function wait(c, u) { u.acted = 1; checkOver(c); }
   // 游擊：還沒移動就出手的話，打完還能走
@@ -879,7 +894,7 @@ var T = (function () {
     TUNE: TUNE, devOf: devOf, newCampaign: newCampaign, migrate: migrate, curStage: curStage, stageOf: stageOf, heroStats: heroStats, fullDone: fullDone, upTotal: upTotal, upCost: upCost, skillCost: skillCost,
     upgrade: upgrade, train: train, learn: learn, equip: equip, unequip: unequip, buy: buy, shopList: shopList,
     startStage: startStage, tile: tile, terr: terr, units: units, byUid: byUid, unitAt: unitAt, live: live, dist: dist, W: W, wpns: wpns, curMv: curMv,
-    moveRange: moveRange, moveTo: moveTo, undoMove: undoMove, wait: wait, canMoveAfter: canMoveAfter, moveAfter: moveAfter,
+    moveRange: moveRange, moveTo: moveTo, undoMove: undoMove, canSwap: canSwap, swapPos: swapPos, deployCells: deployCells, placeAt: placeAt, wait: wait, canMoveAfter: canMoveAfter, moveAfter: moveAfter,
     whyNot: whyNot, usable: usable, counterList: counterList, inRange: inRange, targetsFrom: targetsFrom, hitChance: hitChance, critChance: critChance, damage: damage, forecast: forecast, bestResp: bestResp, counterWpn: counterWpn, power: power,
     attack: attack, mapCells: mapCells, mapTargets: mapTargets, mapCenterOk: mapCenterOk, mapAttack: mapAttack, stunAt: stunAt,
     spCost: spCost, canSpirit: canSpirit, useSpirit: useSpirit, useItem: useItem,
