@@ -443,6 +443,15 @@
     else SUI.mode = 'idle';
     srwDraw();
   }
+  function srwEsc() {   // Esc：選目標→回招式、移動完→回原位、選人→取消、布陣選了人→取消選取
+    var b = sB(); if (!b || busy || b.phase !== 'p' || b.over) return;
+    var m = SUI.mode;
+    if (m === 'target' || m === 'mapaim') return srwBackAct();
+    if (m === 'act') return srwUndo();
+    if (m === 'sptarget') return srwCancelSp();
+    if (m === 'swap') { if (SUI.sel) { SUI.sel = null; SUI.R = null; return srwDraw(); } return srwSwapDone(); }
+    srwCancel();
+  }
   function srwSwap() { clearHl(); SUI.sel = null; SUI.mode = 'swap'; srwDraw(); }
   function srwSwapDone() { clearHl(); SUI.sel = null; SUI.mode = 'idle'; srwDraw(); }
   function srwStay() { var b = sB(), u = T.byUid(b, SUI.sel); if (!u) return; T.moveTo(run, u, u.x, u.y); clearHl(); SUI.mode = 'act'; srwDraw(); }
@@ -799,7 +808,7 @@
     }, 500);
   }
   var SRW_GLOSSARY = [
-    ['回合', '我方階段：每人移動一次、行動一次（攻擊、心訣、待機）。按「結束回合」換敵方階段。'],
+    ['回合', '我方階段：每人移動一次、行動一次（攻擊、心訣、待機）。按「結束回合」換敵方階段。走錯了在她出手前按「回原位」（電腦上按 Esc 也能退一步）。'],
     ['命中／迴避', '命中率＝（命中 ÷ 2 ＋ 準頭 ＋ 招式命中）−（對方迴避 ÷ 2 ＋ 輕身），再看對方體積與站的地形。同一個階段被打越多次越難閃（每次 +5）。'],
     ['格鬥／射擊／靈力', '招式分三種：近身的用格鬥算，飛劍、銀針這類打出去的用射擊算，符、蠱、龍息、劍陣這類法術用靈力算。'],
     ['傷害', '威力 ×（格鬥、射擊或靈力 ＋ 戰意）÷ 200，減掉 護體 ×（防禦 ＋ 戰意）÷ 200。爆擊 ×1.25（看悟性差）。'],

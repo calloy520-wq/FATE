@@ -686,7 +686,11 @@
   function confirmOv(msg, yes) { confirmOv.fn = yes; openOv('<b>' + msg + '</b><div class="list" style="margin-top:12px"><button style="border-color:var(--gold);color:var(--gold);text-align:center" onclick="var f=confirmOv.fn;closeOv();f()">確定</button><button style="text-align:center" onclick="closeOv()">取消</button></div>'); }
   function closeOv() { $('ov').style.display = 'none'; }
   function openOv(html) { $('sheet').innerHTML = '<button class="ovx" onclick="closeOv()" aria-label="關閉">✕</button>' + html; $('ov').style.display = 'flex'; $('sheet').scrollTop = 0; }
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !window.NO_ESC) closeOv(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape' || window.NO_ESC || $('vn')) return;
+    if ($('ov').style.display === 'flex') return closeOv();
+    if (run && run.srw && run.screen === 'battle') srwEsc();   // 地圖上：退一步
+  });
 
   function render() {
     var scr = run ? run.screen + (run.act || '') : ACC ? 'title' : 'login';
