@@ -944,7 +944,7 @@
   function titleScreen() {
     var saved = load(), going = saved && saved.srw, S = going && T.curStage(saved);
     var big = function (act, icon, label, sub, cls) { return '<button class="mbtn' + (cls ? ' ' + cls : '') + '" onclick="' + act + '"><span class="mi">' + icon + '</span><span><b>' + label + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span></button>'; };
-    var where = going ? (saved.screen === 'end' ? '封魔已畢' : '第 ' + (S.idx + 1) + ' 關・' + S.n + (saved.screen === 'battle' && saved.battle ? '（第 ' + saved.battle.turn + ' 回合）' : '')) : '';
+    var where = going ? (saved.screen === 'end' ? '封魔已畢' : loopName(saved) + '第 ' + (S.idx + 1) + ' 關・' + S.n + (saved.screen === 'battle' && saved.battle ? '（第 ' + saved.battle.turn + ' 回合）' : '')) : '';
     $('app').innerHTML = '<div class="acct"><span>👤 <b>' + esc(ACC.name) + '</b></span><button onclick="logout()">登出／換人</button></div>'
       + '<div class="panel home">' + heroHtml('五位女修，一張地圖，一路斬妖封魔。')
       + '<div class="menu">'

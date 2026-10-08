@@ -172,7 +172,8 @@
   }
   function FIG_art(id) { var sk = META && META.skin && META.skin[id]; return (sk && ART[id + '_' + sk]) || ART[id]; }
   function bgOf(S) { return S.bg === 'abyss' ? 'sc-abyss' : S.bg === 'city' ? 'sc-city' : 'sc-hill'; }
-  function stageNo(S) { return '第 ' + (S.idx + 1) + ' 關'; }
+  function stageNo(S) { return loopName(run) + '第 ' + (S.idx + 1) + ' 關'; }
+  function loopName(c) { var L = c && c.loop; return L ? (['', '二', '三', '四', '五', '六', '七', '八', '九', '十'][L] || (L + 1)) + '周目・' : ''; }
 
   // ── 整備 ──
   function prepScreen(tab) {
@@ -672,7 +673,7 @@
     if (r.win && S.idx === T.STAGES.length - 1) campaignClear();
     save(); render();
   }
-  function srvLogStage(S, r) { try { var lv = S.heroes.map(function (h) { return run.heroes[h[0]].lv; }); srv('gpStageLog', [ACC.name, ACC.token, { stage: S.id + ' ' + S.n, result: r.win ? '勝利' : '敗北', turns: r.turns, lv: (lv.reduce(function (a, x) { return a + x; }, 0) / lv.length).toFixed(1), gold: run.gold, merit: r.merit ? 1 : 0, total: run.turns }], function () { }, function () { }); } catch (e) { } }
+  function srvLogStage(S, r) { try { var lv = S.heroes.map(function (h) { return run.heroes[h[0]].lv; }); srv('gpStageLog', [ACC.name, ACC.token, { stage: loopName(run) + S.id + ' ' + S.n, result: r.win ? '勝利' : '敗北', turns: r.turns, lv: (lv.reduce(function (a, x) { return a + x; }, 0) / lv.length).toFixed(1), gold: run.gold, merit: r.merit ? 1 : 0, total: run.turns }], function () { }, function () { }); } catch (e) { } }
   function campaignClear() {
     var M = META; M.endings = M.endings || {}; M.clears = M.clears || {};
     T.ORDER.forEach(function (k) { M.endings[k] = 1; M.clears[k] = M.clears[k] || {}; M.clears[k].normal = 1; M.stats.best[k] = '封魘'; });
@@ -696,9 +697,11 @@
   function endScreen() {
     $('app').innerHTML = '<div class="panel">' + heroHtml('封魔已畢') + '<div class="lore box" style="text-align:left;max-width:460px">' + keepTail('魘封住了。五篇真結局與尾聲都收進了「劇情」。') + '</div>'
       + '<div class="menu" style="max-width:460px;width:100%"><button class="mbtn main" onclick="storyScreen(\'end\')"><span class="mi">🏮</span><span><b>看真結局</b><small>五個視角、同一場仗</small></span></button>'
+      + '<button class="mbtn" onclick="confirmOv(\'帶著現在的等級、淬鍊、修為、功法、法寶與靈石，從第一關再打一次？敵人每周目強 ' + T.LOOP_LV + ' 級，功勳重新算。\',srwLoop)"><span class="mi">⟳</span><span><b>' + loopName({ loop: (run.loop || 0) + 1 }).replace('・', '') + '</b><small>帶著養成重打一次，敵人更強</small></span></button>'
       + '<button class="mbtn" onclick="confirmOv(\'重新開始戰役？等級、淬鍊、法寶都會重來。\',srwNew)"><span class="mi">⚔</span><span><b>重新開始戰役</b></span></button>'
       + '<button class="mbtn" onclick="run=null;titleScreen()"><span class="mi">↩</span><span><b>回標題</b></span></button></div></div>';
   }
+  function srwLoop() { var n = T.newLoop(run); if (!n) return; run = n; META.stats.runs = (META.stats.runs || 0) + 1; queueSave(true, false); save(); render(); }
   function srwNew() { run = T.newCampaign(newSeed()); META.stats.runs = (META.stats.runs || 0) + 1; queueSave(true, false); save(); render(); }
   function srwRender() {
     var s = run.screen;

@@ -266,5 +266,17 @@ const allEv = c => { const a = []; let e; while ((e = T.takeEv(c))) a.push(e); r
   Object.keys(K.LINES).forEach(k => Object.keys(K.LINES[k].vs || {}).forEach(t => ok(T.ORDER.indexOf(k) >= 0 ? T.BOSS_SP[t] : T.ORDER.indexOf(t) >= 0, k + ' 對 ' + t + ' 的專屬台詞：女修對魔王、魔王對女修')));
   ok(T.ORDER.every(k => K.LINES.xinmo.vs[k] && K.LINES[k].vs.xinmo), '魘對五個人各有一句，五個人各回一句');
 }
+{
+  // 二周目：帶著養成重新打，敵人變強、功勳重來
+  const c = T.newCampaign(21); c.heroes.shuang.lv = 30; c.heroes.shuang.up.hp = 7; c.gold = 123456; c.merit.s1 = 1; c.inv.longlin = 2;
+  eq(T.newLoop(c), null, '還沒通關不能二周目');
+  c.stage = T.STAGES.length; const n = T.newLoop(c);
+  ok(n && n.loop === 1 && n.stage === 0 && n.screen === 'prep', '二周目從第 1 關整備開始');
+  ok(n.heroes.shuang.lv === 30 && n.heroes.shuang.up.hp === 7 && n.gold === 123456 && n.inv.longlin === 2, '等級、淬鍊、靈石、法寶都帶著');
+  ok(!n.merit.s1, '功勳重來');
+  const b0 = T.startStage(T.newCampaign(21)), b1 = T.startStage(n), e0 = b0.units.filter(u => u.side === 'e')[0], e1 = b1.units.filter(u => u.side === 'e')[0];
+  eq(e1.lv - e0.lv, T.LOOP_LV, '二周目敵人 +' + T.LOOP_LV + ' 級');
+  n.stage = T.STAGES.length; eq(T.newLoop(n).loop, 2, '三周目');
+}
 console.log((fail ? '❌ ' : '✅ ') + pass + ' 項通過' + (fail ? '，' + fail + ' 項沒過' : ''));
 if (fail) process.exit(1);
