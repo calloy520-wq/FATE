@@ -34,6 +34,10 @@ const scan=()=>{ // returns orphan lines (last line ≤2 chars) per text block
   for(const w of ['shuang','qingli','xiaoman','chilian','aduo']) for(const t of ['up','tr','sk','eq','info']) await go('hero_'+w+'_'+t,a=>{ closeOv(); heroSheet(a[0],a[1]); },[w,t]);
   await go('result',()=>{ closeOv(); run=T.newCampaign(7); T.startStage(run); run.battle.over='win'; T.finishStage(run); render(); });
   await go('end',()=>{ closeOv(); run=T.newCampaign(7); run.stage=99; run.screen='end'; render(); });
+  // 戰鬥：魔王資訊欄（狀態一長串）、選回應（好幾個還手招式）
+  for(const st of [7,8,13]) for(const hurt of [0,1]) await go('battle_info_'+st+'_'+hurt,a=>{ closeOv(); busy=false; run=T.newCampaign(7); run.stage=a[0]; T.startStage(run); SUI={mode:'idle'}; render(); var b=sB(), x=b.units.filter(u=>u.boss)[0]; x.st.jinshen=1; x.st.ningshen=1; x.ding=2; x.poison=3; if(a[1]) x.hp=Math.floor(x.hpMax*0.4); srwTap(x.x,x.y); },[st,hurt]);
+  await go('defense',()=>{ closeOv(); run=T.newCampaign(7); run.stage=13; Object.keys(run.heroes).forEach(k=>{ run.heroes[k].lv=24; run.heroes[k].up.wpn=5; }); T.startStage(run); SUI={mode:'idle'}; render(); var b=sB(), x=b.units.filter(u=>u.boss)[0], s=b.units.filter(u=>u.id==='shuang')[0]; s.x=x.x; s.y=x.y+2; s.will=140; b.phase='e'; defenseSheet({uid:x.uid,x:x.x,y:x.y,wi:0,target:s.uid}); });
+  await p.evaluate(()=>{ window.NO_ESC=0; closeOv(); });
   for(const t of ['prep','battle','spirit','defense','will']) await go('tip_'+t,t=>{ closeOv(); META.tips2={}; srwTip(t); META.tips2={all:1}; },t);
   let tot=0; for(const [k,v] of Object.entries(res)) if(v.length){ tot+=v.length; console.log(k, v.join(' ‖ ')); }
   console.log(TAG,'W',W,'orphans total',tot); await b.close();
