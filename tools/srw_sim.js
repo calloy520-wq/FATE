@@ -3,6 +3,8 @@
 const T=require('./srw');
 // PREP=none 完全不強化｜pp 只花悟道點｜（預設）全部強化
 const PREP={none:{noUp:1,noPP:1},pp:{noUp:1}}[process.env.PREP]||{};
+// 試數字：TUNE_HP=0.9 TUNE_ATK=-10 TUNE_HIT=-5（敵人整體）
+if(process.env.TUNE_HP) T.TUNE.hp=+process.env.TUNE_HP; if(process.env.TUNE_ATK) T.TUNE.atk=+process.env.TUNE_ATK; if(process.env.TUNE_HIT) T.TUNE.hit=+process.env.TUNE_HIT;
 const N=+process.env.N||30, RETRY=+(process.env.RETRY||3), MAXT=30, V=process.env.VERBOSE;
 const st={}; T.STAGES.forEach(S=>st[S.id]={tries:0,wins:0,turns:0,downs:0,hit:0,hitN:0,ehit:0,ehitN:0,lv:0,lvN:0});
 let full=0, totalTries=0;

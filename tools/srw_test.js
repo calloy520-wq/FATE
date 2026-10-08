@@ -164,7 +164,7 @@ Object.keys(T.FOES).forEach(k => ok(T.FOES[k].w.length > 0, k + ' 至少一招')
   eq(c.screen, 'result', '結算畫面');
   T.toPrep(c); eq(c.screen, 'prep', '回整備');
   const g = c.gold, cost = T.upCost('hp', 0); eq(T.upgrade(c, 'shuang', 'hp'), '', '淬鍊氣血'); eq(c.gold, g - cost, '扣靈石'); eq(T.heroStats(c, 'shuang').hpMax, T.HEROES.shuang.body.hp + T.UP_STEP.hp, '氣血加上去');
-  c.heroes.shuang.pp = 100; eq(T.learn(c, 'shuang', 'zhugong'), '', '學助攻'); ok(T.heroStats(c, 'shuang').skills.zhugong === 1, '助攻 Lv1');
+  c.heroes.shuang.pp = 100; ok(T.heroStats(c, 'shuang').skills.zhugong === 1, '天生助攻 Lv1'); eq(T.learn(c, 'shuang', 'zhugong'), '', '學助攻'); ok(T.heroStats(c, 'shuang').skills.zhugong === 2, '學了變助攻 Lv2');
   eq(T.train(c, 'shuang', 'hit'), '', '加命中'); eq(T.heroStats(c, 'shuang').hit, Math.round(T.HEROES.shuang.st.hit + T.HEROES.shuang.g.hit * (c.heroes.shuang.lv - 1)) + T.TRAIN_STEP, '命中 +2');
   c.inv.qingshen = 1; eq(T.equip(c, 'shuang', 'qingshen'), '', '裝法寶'); eq(T.heroStats(c, 'shuang').mob, T.HEROES.shuang.body.mob + 15, '輕身符 +15');
   eq(T.unequip(c, 'shuang', 0), '', '卸下'); eq(c.inv.qingshen, 1, '卸下回到背包');
