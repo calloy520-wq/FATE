@@ -505,6 +505,7 @@
     var s = srwSet(), b = sB(), act = !busy && b && b.phase === 'p' && !b.over;   // 動畫、敵方階段進行中：只能看、改設定
     openOv('<b style="color:var(--gold)">選單</b><div class="list" style="margin-top:10px">'
       + '<button onclick="srwGoal()">作戰目標</button>'
+      + '<button onclick="srwRoster()">部隊表</button>'
       + (act ? '<button onclick="closeOv();srwEndTurn()">結束回合</button>' : '')
       + '<button onclick="srwToggle(\'anim\')">交手動畫：' + (s.anim === 2 ? '只看我方出手' : s.anim ? '全部' : '關') + '</button>'
       + '<button onclick="srwToggle(\'autoDef\')">敵方階段自動應戰：' + (s.autoDef ? '開' : '關（每次自己選）') + '</button>'
@@ -513,6 +514,17 @@
       + (act ? '<button onclick="confirmOv(\'放棄這一關？經驗與靈石會留著，可以重打。\',srwGiveUp)">放棄這一關</button>'
       + '<button onclick="closeOv();run=null;titleScreen()">回標題（存著，之後接著打）</button>' : '<div class="dim" style="font-size:13px;text-align:center">交手、敵方行動中；回標題、放棄要等我方階段。</div>') + '</div>');
   }
+  // 部隊表（機戰的部隊一覽）：全隊的氣血、真元、心力、戰意、還沒行動的；點一下選她
+  function srwRoster() {
+    var b = sB(), us = b.units.filter(function (u) { return u.side === 'p'; });
+    openOv('<b style="color:var(--gold)">部隊表</b><div class="list" style="margin-top:10px">' + us.map(function (u) {
+      var down = !T.live(u), can = !down && !u.acted && b.phase === 'p' && !busy;
+      return '<button class="wrow"' + (down ? ' disabled' : ' onclick="srwPick(\'' + u.uid + '\')"') + ' style="align-items:center">' + portrait(u, 'qf') + '<div style="flex:1;min-width:0;text-align:left"><b>' + esc(u.name) + '</b> <span class="dim">Lv ' + u.lv + '</span>'
+        + (down ? ' <span class="chip">退場</span>' : can ? ' <span class="chip gold">可以行動</span>' : '')
+        + '<div class="dim" style="font-size:12.5px">' + ['氣血 ' + u.hp + '/' + u.hpMax, '真元 ' + u.en + '/' + u.enMax, '心力 ' + u.sp + '/' + u.spMax, '戰意 ' + u.will].map(function (x) { return '<i class="nw">' + x + '</i>'; }).join('・') + '</div></div></button>';
+    }).join('') + '</div>');
+  }
+  function srwPick(uid) { closeOv(); var b = sB(), u = T.byUid(b, uid); if (!u || !T.live(u)) return; if (busy || b.phase !== 'p') return; clearHl(); srwTap(u.x, u.y); var el = document.querySelector('.un[data-uid="' + uid + '"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
   function srwGoal() { var S = T.stageOf(sB()); openOv('<b style="color:var(--gold)">' + stageNo(S) + '・' + esc(S.n) + '</b><div class="box" style="margin-top:10px;line-height:1.9">' + condText(S) + '</div>'); }
   function srwToggle(k) { var s = srwSet(); s[k] = k === 'anim' ? (s.anim === 1 ? 2 : s.anim === 2 ? 0 : 1) : s[k] ? 0 : 1; queueSave(true, false); srwMenu(); }
   function srwGiveUp() { var b = sB(); b.over = 'lose'; srwFinish(); }
