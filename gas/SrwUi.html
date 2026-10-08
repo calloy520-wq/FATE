@@ -47,6 +47,7 @@
   .un.spawn .pf { animation:spawnIn .9s ease-out; } @keyframes spawnIn { 0% { transform:scale(0); box-shadow:0 0 0 0 rgba(255,80,80,.9); } 60% { transform:scale(1.2); box-shadow:0 0 18px 6px rgba(255,80,80,.7); } 100% { transform:scale(1); } }
   .un.acted .pf { filter:grayscale(.9) brightness(.65); }
   .un.selu .pf { box-shadow:0 0 0 2px #fff, 0 0 12px #9cd0ff; }
+  .un.actu .pf { box-shadow:0 0 0 2px #ffd0c8, 0 0 14px #ff6a5a; }
   .un .hb { position:absolute; left:10%; right:10%; bottom:2%; height:4px; background:rgba(0,0,0,.7); border-radius:2px; overflow:hidden; }
   .un .hb i { display:block; height:100%; background:#5ad17a; } .un.e .hb i { background:#ff6060; }
   .un .bd { position:absolute; top:-2px; right:-2px; font-size:10px; line-height:1; padding:2px 3px; border-radius:4px; background:#f2d24e; color:#8a1018; font-weight:900; }
@@ -356,7 +357,7 @@
       if (!T.live(u)) { if (el) { el.classList.add('gone'); setTimeout(function () { if (el.parentNode) el.remove(); }, 450); } return; }
       if (!el) { el = document.createElement('div'); el.setAttribute('data-uid', u.uid); box.appendChild(el); el.innerHTML = portrait(u, 'pf') + '<span class="hb"><i></i></span><span class="bd" style="display:none"></span><span class="bd psn" style="display:none"></span><span class="bd2" style="display:none"></span>'; }
       var SP = SUI.spawn = SUI.spawn || {}; if (u.fresh && !SP[u.uid]) SP[u.uid] = Date.now();   // 增援登場：頭像從光裡冒出來
-      el.className = 'un ' + u.side + (u.boss ? ' boss' : u.rank === 'e' ? ' elite' : '') + (u.side === 'p' && u.acted && b.phase === 'p' ? ' acted' : '') + (SUI.sel === u.uid ? ' selu' : '') + (SP[u.uid] && Date.now() - SP[u.uid] < 900 ? ' spawn' : '');
+      el.className = 'un ' + u.side + (u.boss ? ' boss' : u.rank === 'e' ? ' elite' : '') + (u.side === 'p' && u.acted && b.phase === 'p' ? ' acted' : '') + (SUI.sel === u.uid ? ' selu' : '') + (b.phase === 'e' && SUI.act === u.uid ? ' actu' : '') + (SP[u.uid] && Date.now() - SP[u.uid] < 900 ? ' spawn' : '');
       el.style.left = (u.x * ts) + 'px'; el.style.top = (u.y * ts) + 'px';
       el.querySelector('.hb i').style.width = Math.max(0, Math.round(100 * u.hp / u.hpMax)) + '%';
       var bd = el.querySelectorAll('.bd'); bd[0].style.display = u.stun || u.ding ? '' : 'none'; bd[0].textContent = u.stun ? '停' : '定' + u.ding; bd[1].style.display = u.poison ? '' : 'none'; bd[1].textContent = '毒' + u.poison;
@@ -369,7 +370,7 @@
   function infoHtml2(b, u) {
     var acts = '';
     if (b.over) return '<div class="hint">' + (b.over === 'win' ? '勝利！' : '敗北……') + '</div><div class="acts"><button class="btn go" onclick="srwFinish()">結算</button></div>';
-    if (b.phase !== 'p') return '<div class="hint">敵方行動中…</div>';
+    if (b.phase !== 'p') { var a = SUI.act && T.byUid(b, SUI.act); return '<div class="hint">' + (a && T.live(a) ? esc(a.name) + '行動中…' : '敵方行動中…') + '</div>'; }
     if (SUI.mode === 'swap') return '<div class="hint">' + (u ? '點藍色格子站過去，或點另一位女修跟' + esc(u.name) + '換位置。' : '點一位女修，再點藍色格子或另一位女修，換位置。') + '</div><div class="acts"><button class="btn go" onclick="srwSwapDone()">布好了</button><button class="btn' + (SUI.dzAll ? ' on' : '') + '" onclick="srwDanger()">敵人範圍</button></div>';
     if (!u) {
       var left = T.units(b, 'p').filter(function (v) { return !v.acted; }).length;
@@ -577,9 +578,9 @@
     if (b.over) { busy = false; save(); srwDraw(); return overBanner(); }
     save();   // 每個敵人動之前存一次：重新整理會從這裡接著
     var plan = T.enemyNext(run), again = function (ms) { setTimeout(function () { enemyStep(b); }, ms); };
-    if (!plan) { T.enemyDone(run); busy = false; save(); srwBattleScreen(); if (b.over) return overBanner(); banner('我方階段'); srwTips(); return; }
+    if (!plan) { SUI.act = null; T.enemyDone(run); busy = false; save(); srwBattleScreen(); if (b.over) return overBanner(); banner('我方階段'); srwTips(); return; }
     var e = T.byUid(b, plan.uid), walk = plan.x !== e.x || plan.y !== e.y;   // 走過去要等滑完（.28s）再出手
-    T.enemyMove(run, plan); drawUnits();
+    SUI.act = plan.uid; T.enemyMove(run, plan); srwDraw();   // 正在動的敵人亮紅框
     var go = function () {
       if (sB() !== b) { busy = false; return; }
       if (plan.stun) { var el = document.querySelector('.un[data-uid="' + plan.uid + '"]'); if (el) popAt(el, '動彈不得', 'blk'); return again(500); }
