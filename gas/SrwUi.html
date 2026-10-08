@@ -199,6 +199,7 @@
     var ch = S.ch < NOVEL.length ? NOVEL[S.ch] : null;
     $('app').innerHTML = '<div class="panel prep"><div class="hd"><span class="dim">' + stageNo(S) + '・' + esc(S.place) + '</span><b>' + esc(S.n) + '</b>'
       + '<div class="dim" style="font-size:13.5px">勝利：' + goal + (merit ? '　｜　功勳：' + merit + (c.merit[S.id] ? '（已達成）' : '') : '') + '</div>'
+      + '<div class="dim" style="font-size:13.5px">' + foeLine(S) + '</div>'
       + '<div style="font-size:14px">💎 靈石 <b style="color:var(--gold2);font-size:15px">' + c.gold + '</b></div></div>'
       + '<button class="mbtn main" onclick="srwSortie()"><span class="mi">⚔</span><span><b>出擊</b><small>' + S.heroes.map(function (x) { return G.SERVANTS[x[0]].name; }).join('、') + '</small></span></button>'
       + head + body
@@ -252,6 +253,11 @@
   function srwEq(k, id) { var e = T.equip(run, k, id); if (e) toast(e, 'err'); save(); heroSheet(k); }
   function srwUneq(k, i) { T.unequip(run, k, i); save(); heroSheet(k); }
   function srwSortie() { closeOv(); T.startStage(run); SUI = { mode: 'idle' }; save(); render(); titleCard(T.stageOf(sB()), function () { talkPlay(SRW_TALK.TALK[sB().stage] || [], function () { banner('我方階段'); srwTips(); }); }); }
+  function foeLine(S) {   // 整備：這關一開始的敵人（增援不說）
+    var bs = S.foes.filter(function (f) { return f[4] && f[4].boss; }), rest = S.foes.filter(function (f) { return !(f[4] && f[4].boss); });
+    var el = rest.filter(function (f) { return T.rankOf(f[0]) === 'e'; }).length, lv = rest.map(function (f) { return f[1]; }), lo = Math.min.apply(null, lv), hi = Math.max.apply(null, lv);
+    return '敵人：' + nwj(bs.map(function (f) { return esc(T.foeName(f[0])) + ' Lv ' + f[1]; }).concat(el ? ['精英 ' + el] : [], rest.length - el ? ['妖物 ' + (rest.length - el)] : [], rest.length ? ['Lv ' + lo + (hi > lo ? '～' + hi : '')] : []));
+  }
   function condText(S) {
     var M = S.merit || {}, boss = S.foes.filter(function (f) { return f[4] && f[4].boss; })[0];
     return '<div><b>勝利條件</b>' + (S.win === 'boss' ? '擊破' + esc(T.foeName(boss[0])) + (boss[4].retreat ? '（打到一半就會退走）' : '') : '敵人全滅') + '</div><div><b>敗北條件</b>出擊的人全部倒下</div>'
