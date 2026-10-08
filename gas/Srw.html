@@ -514,7 +514,7 @@ var T = (function () {
     if (resp === 'counter' && ci < 0) resp = 'guard';
     var f = { wi: wi, w: w.n, hit: hitChance(b, A, w, T0, resp), dmg: damage(b, A, w, T0, resp, false), crit: critChance(A, w, T0), resp: resp, guard: g ? g.uid : null, target: T0.uid };
     f.kill = f.dmg >= T0.hp && !T0.lives && !T0.revive;
-    if (ci >= 0) { var cw = W(D, ci); f.cwi = ci; f.cw = cw.n; f.chit = hitChance(b, D, cw, A, ''); f.cdmg = damage(b, D, cw, A, '', false); f.ccrit = critChance(D, cw, A); }
+    if (ci >= 0) { var cw = W(D, ci); f.cwi = ci; f.cw = cw.n; f.chit = hitChance(b, D, cw, A, ''); f.cdmg = damage(b, D, cw, A, '', false); f.ccrit = critChance(D, cw, A); f.ckill = f.cdmg >= A.hp && !A.lives && !A.revive; }
     var s = supportFor(b, A, D); if (s) { var S = byUid(b, s.uid), sw = W(S, s.wi); f.sup = { uid: s.uid, name: S.name, wi: s.wi, w: sw.n, hit: hitChance(b, S, sw, D), dmg: damage(b, S, sw, D, '', false) }; }
     return f;
   }

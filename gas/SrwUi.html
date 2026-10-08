@@ -467,7 +467,7 @@
     var resp = f.resp === 'counter' ? '還手：' + esc(f.cw) : f.resp === 'guard' ? '招架（傷害減半）' : '閃身（命中減半）';
     forecastSheet.go = function (sup) { closeOv(); doAttack(u.uid, wi, d.uid, sup); };
     openOv('<b style="color:var(--gold)">交手預覽</b><div class="fc" style="margin-top:10px">'
-      + '<div class="side p"><b>' + esc(u.name) + '</b>' + stLab(u) + '<div class="lab">' + esc(f.w) + '</div><div class="big">' + f.hit + '%</div><div class="lab">命中</div><div class="big" style="font-size:20px">' + f.dmg + '</div><div class="lab">傷害・爆擊 ' + f.crit + '%</div>' + (f.kill ? '<div class="kill">可以擊破</div>' : '') + '</div>'
+      + '<div class="side p"><b>' + esc(u.name) + '</b>' + stLab(u) + '<div class="lab">' + esc(f.w) + '</div><div class="big">' + f.hit + '%</div><div class="lab">命中</div><div class="big" style="font-size:20px">' + f.dmg + '</div><div class="lab">傷害・爆擊 ' + f.crit + '%</div>' + (f.kill ? '<div class="kill">可以擊破</div>' : '') + '<div class="lab" style="margin-top:4px">氣血 ' + u.hp + '/' + u.hpMax + '</div>' + (f.ckill ? '<div class="kill">挨了還手會倒下</div>' : '') + '</div>'
       + '<div class="side e"><b>' + esc((G0 || d).name) + '</b>' + stLab(G0 || d) + (G0 ? '<div class="lab" style="color:var(--gold)">替' + esc(d.name) + '掩護</div>' : '') + '<div class="lab">' + resp + '</div>' + (f.cw ? '<div class="big">' + f.chit + '%</div><div class="lab">命中</div><div class="big" style="font-size:20px">' + f.cdmg + '</div><div class="lab">傷害・爆擊 ' + f.ccrit + '%</div>' : '<div class="dim" style="margin-top:8px">不能還手</div>') + '<div class="lab" style="margin-top:4px">氣血 ' + (G0 || d).hp + '/' + (G0 || d).hpMax + '</div></div></div>'
       + (function () { var alt = u.w.map(function (_, i) { return i; }).filter(function (i) { var w2 = T.W(u, i); return i !== wi && !w2.map && T.usable(b, u, i, !!u.moved) && T.inRange(w2, T.dist(u, d)); });
           return alt.length ? '<div class="row" style="margin-top:8px;flex-wrap:wrap;gap:6px"><span class="dim" style="font-size:12.5px">換招式：</span>' + alt.map(function (i) { return '<button class="chip gold" style="padding:4px 9px;font-size:13px" onclick="forecastSheet(T.byUid(sB(),\'' + u.uid + '\'),' + i + ',T.byUid(sB(),\'' + d.uid + '\'))">' + esc(T.W(u, i).n) + '</button>'; }).join('') + '</div>' : ''; })()
@@ -592,7 +592,7 @@
     var b = sB(), e = T.byUid(b, plan.uid), t = T.byUid(b, plan.target), rec = T.bestResp(b, e, plan.wi, t), ci = T.counterWpn(b, t, e);
     var opt = function (resp, label, cwi, isRec) {
       var f = T.forecast(b, e, plan.wi, t, resp, cwi), g = f.guard && T.byUid(b, f.guard);
-      var nw = function (x) { return '<i class="nw">' + x + '</i>'; }, sub = nw('對方命中 ' + f.hit + '%') + '・' + nw('傷害 ' + f.dmg + (f.kill ? '（會倒下）' : '')) + (f.cw ? '｜' + nw(esc(f.cw) + ' 命中 ' + f.chit + '%') + '・' + nw('傷害 ' + f.cdmg) : '');   // 每一段不拆開
+      var nw = function (x) { return '<i class="nw">' + x + '</i>'; }, sub = nw('對方命中 ' + f.hit + '%') + '・' + nw('傷害 ' + f.dmg + (f.kill ? '（會倒下）' : '')) + (f.cw ? '｜' + nw(esc(f.cw) + ' 命中 ' + f.chit + '%') + '・' + nw('傷害 ' + f.cdmg + (f.ckill ? '（擊破）' : '')) : '');   // 每一段不拆開
       return '<button class="' + (isRec ? 'rec' : '') + '" onclick="defend(defenseSheet.plan,\'' + resp + '\'' + (cwi != null ? ',' + cwi : '') + ')"><b>' + label + (g ? '（' + esc(g.name) + '掩護）' : '') + '</b>' + (isRec ? ' <span class="chip gold">建議</span>' : '') + '<small>' + sub + '</small></button>';
     };
     defenseSheet.plan = plan; window.NO_ESC = 1;

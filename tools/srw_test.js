@@ -336,5 +336,13 @@ const allEv = c => { const a = []; let e; while ((e = T.takeEv(c))) a.push(e); r
   T.undoMove(c, r); ok(T.canSwap(b), '布陣：回原位又能換');
   b.turn = 2; ok(!T.canSwap(b), '布陣：第二回合不能換');
 }
+{
+  // 預覽：還手打得倒出手的人要標出來（千杯不倒、還有命的不算）
+  const c = T.newCampaign(43); c.stage = 1; const b = T.startStage(c), s = P(b, 'shuang'), z = b.units.filter(u => u.side === 'e')[0];
+  only(b, [s, z]); s.x = z.x - 1; s.y = z.y; z.hp = z.hpMax = 999999; const wi = s.w.findIndex((_, i) => T.inRange(T.W(s, i), 1) && T.usable(b, s, i, false));
+  s.hp = 1; let f = T.forecast(b, s, wi, z, 'counter'); ok(f.cw && f.ckill, '預覽：氣血 1 挨還手會倒下');
+  s.hp = s.hpMax = 9999999; f = T.forecast(b, s, wi, z, 'counter'); ok(f.cw && !f.ckill, '預覽：氣血夠就不會');
+  s.hp = 1; s.revive = 1; f = T.forecast(b, s, wi, z, 'counter'); ok(f.cw && !f.ckill, '預覽：還能站起來的不算倒下');
+}
 console.log((fail ? '❌ ' : '✅ ') + pass + ' 項通過' + (fail ? '，' + fail + ' 項沒過' : ''));
 if (fail) process.exit(1);
