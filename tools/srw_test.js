@@ -358,5 +358,16 @@ const allEv = c => { const a = []; let e; while ((e = T.takeEv(c))) a.push(e); r
   T.attack(c, s, wi, z, 'guard'); s.x = 0; s.y = b.units.length ? T.stageOf(b).map.length - 1 : 0; z.hp = z.hpMax;
   ok(z.hp === z.hpMax && T.isAwake(b, z), '挨過打：回滿血也醒著');
 }
+{
+  // 真元：我方每個我方階段回 10%（第一回合不回），敵人也有真元、每個敵方階段回 10%；大招耗真元，不夠就放不出來
+  const c = T.newCampaign(46); c.stage = 8; const b = T.startStage(c), s = P(b, 'shuang'), z = b.units.filter(u => u.boss)[0];
+  ok(z.enMax > 0 && z.enMax < 999, '敵人有真元上限', z.enMax);
+  s.en = 0; z.en = 0; b.queue = []; T.endPlayerPhase(c); eq(z.en, Math.round(z.enMax * 0.1), '敵方階段開始：敵人回 10% 真元');
+  b.queue = []; T.enemyDone(c); eq(s.en, Math.round(s.enMax * 0.1), '我方階段開始：女修回 10% 真元');
+  const ui = z.w.findIndex((_, i) => T.W(z, i).en >= 50); z.will = 150; z.en = T.W(z, ui).en - 1;
+  ok(ui > 0 && !T.usable(b, z, ui, false) && T.whyNot(b, z, ui, false) === '真元不夠', '敵人真元不夠就放不出大招');
+  z.en = T.W(z, ui).en; ok(T.usable(b, z, ui, false), '真元夠就能放');
+  ok(Object.keys(T.FOES).every(k => T.FOES[k].w[0].en === 0), '每個敵人的第一招不耗真元（一定打得出來）');
+}
 console.log((fail ? '❌ ' : '✅ ') + pass + ' 項通過' + (fail ? '，' + fail + ' 項沒過' : ''));
 if (fail) process.exit(1);

@@ -204,14 +204,17 @@ var T = (function () {
     huyao:   { mv: 5, mob: 30, k: [0.9, 0.9], w: [{ n: '狐火連射', spi: 1, p: 3000, r: [1, 4], hit: 15, mv: 1 }, { n: '媚術', spi: 1, p: 2400, r: [2, 4], hit: 20, sap: 10 }, { n: '九尾天燼', spi: 1, p: 4600, r: [1, 3], hit: 10, will: 130 }] },
     duoxian: { mv: 5, fly: 1, mob: 15, w: [{ n: '墮天斬', p: 3400, r: [1, 1], hit: 10, crit: 15, mel: 1, mv: 1 }, { n: '誅仙一劍', spi: 1, p: 4800, r: [1, 4], hit: 10, will: 130 }] },
     panguan: { mv: 4, w: [{ n: '勾魂筆', spi: 1, p: 3200, r: [1, 3], hit: 10, mv: 1 }, { n: '判決', spi: 1, p: 4400, r: [1, 2], hit: 10, will: 125, pierce: 1 }] },
-    xinmo:   { mv: 4, size: 'L', regen: 0.04, k: [1.15, 1.1], w: [{ n: '魘噬', spi: 1, p: 4200, r: [1, 3], hit: 10, drain: 0.3, mv: 1 }, { n: '魔氣洪流', spi: 1, p: 3600, r: [0, 0], hit: 5, will: 110, map: { shape: 'burst', r: 2 } }, { n: '師父的最後一劍', p: 5600, r: [1, 2], hit: 15, crit: 20, will: 140 }] }
+    xinmo:   { mv: 4, size: 'L', regen: 0.04, en: 60, k: [1.15, 1.1], w: [{ n: '魘噬', spi: 1, p: 4200, r: [1, 3], hit: 10, drain: 0.3, mv: 1 }, { n: '魔氣洪流', spi: 1, p: 3600, r: [0, 0], hit: 5, will: 110, map: { shape: 'burst', r: 2 } }, { n: '師父的最後一劍', p: 5600, r: [1, 2], hit: 15, crit: 20, will: 140 }] }
   };
+  // 敵人的招式也耗真元（沒寫就照規則算）：第一招不耗；其他普通招 10；有戰意門檻的大招 30，戰意 130 以上 50；陣法 40
+  Object.keys(FOES).forEach(function (k) { FOES[k].w.forEach(function (w, i) { if (w.en == null) w.en = i === 0 ? 0 : w.map ? 40 : w.will >= 130 ? 50 : w.will ? 30 : 10; }); });
+  var EN_REGEN = 0.1;   // 真元：每個自己的階段開始回 10%（我方從第二回合起）
   function rankOf(id) { var E = (typeof G !== 'undefined' && G.ENEMIES[id]) || {}; return E.boss ? 'b' : E.elite ? 'e' : 'z'; }
   function foeName(id) { var E = (typeof G !== 'undefined' && G.ENEMIES[id]) || {}; return E.name || id; }
   // 敵人的數值：照等級與階級算
-  var FOE_BASE = { z: { atk: [114, 2.5], hit: [118, 2], eva: [120, 2], skl: [100, 2], def: [100, 2], hp: 3100, hpL: 250, arm: 800, armL: 15, mob: 105, aim: 152, will: 100, xp: 120, gold: [1000, 80], pp: 5 },
-                   e: { atk: [126, 2.5], hit: [134, 2], eva: [135, 2], skl: [120, 2], def: [110, 2], hp: 6600, hpL: 420, arm: 950, armL: 18, mob: 115, aim: 162, will: 105, xp: 400, gold: [4000, 250], pp: 15 },
-                   b: { atk: [134, 2.5], hit: [144, 2], eva: [140, 2], skl: [140, 2], def: [115, 2], hp: 13000, hpL: 760, arm: 1050, armL: 18, mob: 120, aim: 168, will: 110, xp: 1200, gold: [15000, 800], pp: 40 } };
+  var FOE_BASE = { z: { en: 100, atk: [114, 2.5], hit: [118, 2], eva: [120, 2], skl: [100, 2], def: [100, 2], hp: 3100, hpL: 250, arm: 800, armL: 15, mob: 105, aim: 152, will: 100, xp: 120, gold: [1000, 80], pp: 5 },
+                   e: { en: 150, atk: [126, 2.5], hit: [134, 2], eva: [135, 2], skl: [120, 2], def: [110, 2], hp: 6600, hpL: 420, arm: 950, armL: 18, mob: 115, aim: 162, will: 105, xp: 400, gold: [4000, 250], pp: 15 },
+                   b: { en: 200, atk: [134, 2.5], hit: [144, 2], eva: [140, 2], skl: [140, 2], def: [115, 2], hp: 13000, hpL: 760, arm: 1050, armL: 18, mob: 120, aim: 168, will: 110, xp: 1200, gold: [15000, 800], pp: 40 } };
 
   // ── 關卡（照小說主線） ──
   // map：每行一列（地形字元見 TERRAIN）｜bg：舞台背景（hill／city／abyss）｜heroes：[誰, x, y]｜foes：[id, 等級, x, y, 選項]（選項：hold 守著不動、tr 有人進到幾格內才動、hp 氣血改成、boss 這關的魔王、retreat 半血退走）
@@ -340,7 +343,7 @@ var T = (function () {
     var sv = function (k2) { return Math.round(B[k2][0] + B[k2][1] * lv + (k2 === 'atk' ? TUNE.atk : k2 === 'hit' ? TUNE.hit : 0)); }, hp = o.hp || Math.round((B.hp + B.hpL * lv) * k[0] * TUNE.hp / 10) * 10, at = sv('atk');
     var u = { uid: 'e' + (++uidN) + '_' + id, side: 'e', id: id, name: foeName(id), rank: R, x: x, y: y, lv: lv,
       mel: at, rng: at, spi: at, hit: sv('hit'), eva: sv('eva'), skl: sv('skl'), def: sv('def'), arm: Math.round((B.arm + B.armL * lv) * k[1]), mob: Math.round(B.mob + lv / 2 + (F.mob || 0)), aim: B.aim + lv, mv: F.mv, size: F.size || 'M', fly: !!F.fly,
-      hp: hp, hpMax: hp, en: 999, enMax: 999, sp: 0, spMax: 0, will: B.will, willMax: 150, wpnUp: 0, w: F.w.map(function (w, i) { return i; }), ammo: {},
+      hp: hp, hpMax: hp, en: B.en + (F.en || 0), enMax: B.en + (F.en || 0), sp: 0, spMax: 0, will: B.will, willMax: 150, wpnUp: 0, w: F.w.map(function (w, i) { return i; }), ammo: {},
       st: {}, ding: 0, poison: 0, hitN: 0, acted: 0, moved: 0, grow: 0, hold: !!o.hold, tr: o.tr || 0, boss: !!o.boss, retreat: o.retreat || 0,
       lives: F.lives || 0, reviveR: F.revive || 0, regen: F.regen || 0, stuns: 0, skills: R === 'b' ? { beishui: 2 } : {} };   // 魔王天生背水 Lv2（機戰的底力）
     return u;
@@ -706,6 +709,7 @@ var T = (function () {
       TURN_ST.forEach(function (k) { u.st[k] = 0; });
       if (b.turn > 1) {
         u.sp = Math.min(u.spMax, u.sp + 3 + (u.skills.tiaoxi ? 5 : 0));
+        u.en = Math.min(u.enMax, u.en + Math.round(u.enMax * EN_REGEN));
         if (u.trait === 'yujian') u.ammo.feijian = Math.min(u.ammoCap, (u.ammo.feijian || 0) + 1);
         if (u.trait === 'longqi' && u.grow < GROW_MAX + (u.ace ? 2 : 0)) u.grow++;
         if (u.trait === 'qianbei') { u.hp = Math.max(1, u.hp - Math.round(u.hpMax * BURN)); addWill(u, 2); }
@@ -725,6 +729,7 @@ var T = (function () {
       if (u.stUntil != null && u.stPh === 'e' && b.turn > u.stUntil) clearSt(u);
       if (u.poison > 0) { var pd = Math.round((POISON_DMG + (c.heroes.aduo.kills >= ACE_KILLS ? 100 : 0)) * (fullDone(c.heroes.aduo) ? 1.5 : 1) * u.poison); u.hp = Math.max(1, u.hp - pd); u.poison--; (b.ticks = b.ticks || []).push({ uid: u.uid, dmg: pd }); }
       if (u.regen) u.hp = Math.min(u.hpMax, u.hp + Math.round(u.hpMax * u.regen));
+      u.en = Math.min(u.enMax, u.en + Math.round(u.enMax * EN_REGEN));
       heal(b, u);
       addWill(u, 2);
     });
@@ -894,7 +899,7 @@ var T = (function () {
   return {
     TERRAIN: TERRAIN, SIZE_NAME: SIZE_NAME, ACE: ACE, ACE_KILLS: ACE_KILLS, SPIRITS: SPIRITS, SKILLS: SKILLS, ITEMS: ITEMS, HEROES: HEROES, TRAITS: TRAITS, FOES: FOES, STAGES: STAGES, ORDER: ORDER,
     TRAIN_KEYS: TRAIN_KEYS, TRAIN_NAME: TRAIN_NAME, TRAIN_COST: TRAIN_COST, TRAIN_STEP: TRAIN_STEP, TRAIN_MAX: TRAIN_MAX, UP_KEYS: UP_KEYS, UP_NAME: UP_NAME, UP_STEP: UP_STEP, UP_MAX: UP_MAX, EQ_SLOTS: EQ_SLOTS, EXP_LV: EXP_LV,
-    TUNE: TUNE, devOf: devOf, newCampaign: newCampaign, migrate: migrate, curStage: curStage, stageOf: stageOf, heroStats: heroStats, fullDone: fullDone, upTotal: upTotal, upCost: upCost, skillCost: skillCost,
+    TUNE: TUNE, EN_REGEN: EN_REGEN, devOf: devOf, newCampaign: newCampaign, migrate: migrate, curStage: curStage, stageOf: stageOf, heroStats: heroStats, fullDone: fullDone, upTotal: upTotal, upCost: upCost, skillCost: skillCost,
     upgrade: upgrade, train: train, learn: learn, equip: equip, unequip: unequip, buy: buy, shopList: shopList,
     startStage: startStage, tile: tile, terr: terr, units: units, byUid: byUid, unitAt: unitAt, live: live, dist: dist, W: W, wpns: wpns, curMv: curMv,
     moveRange: moveRange, moveTo: moveTo, undoMove: undoMove, canSwap: canSwap, swapPos: swapPos, deployCells: deployCells, placeAt: placeAt, wait: wait, canMoveAfter: canMoveAfter, moveAfter: moveAfter,
