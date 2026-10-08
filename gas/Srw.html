@@ -737,7 +737,7 @@ var T = (function () {
     var R = awake && u.mv > 0 && !stay ? moveRange(b, u) : {}; R[tkey(u.x, u.y)] = 0;
     var best = null, bestS = -Infinity;   // 打得到就一定打（機戰的敵人不怕還手）
     keys(R).forEach(function (k) {
-      var p = k.split(','), x = +p[0], y = +p[1], moved = x !== u.x || y !== u.y || !!(stay && u.moved), ox = u.x, oy = u.y;
+      var p = k.split(','), x = +p[0], y = +p[1], moved = x !== u.x || y !== u.y || !!(stay && u.moved), ox = u.x, oy = u.y, fq = 0;
       u.x = x; u.y = y;
       u.w.forEach(function (_, i) {
         if (!usable(b, u, i, moved)) return;
@@ -751,7 +751,7 @@ var T = (function () {
           if (!inRange(w, dist(u, t))) return;
           var h = hitChance(b, u, w, t, ''), d = damage(b, u, w, t, '', false), s = h * Math.min(t.hp, d) + (d >= t.hp ? h * 40 : 0) + (u.side === 'p' && t.boss ? h * 10 : 0);
           var ci = counterWpn(b, t, u); if (ci >= 0) { var cw = W(t, ci); s -= (u.side === 'p' ? 0.3 : 0.08) * hitChance(b, t, cw, u, '') * Math.min(u.hp, damage(b, t, cw, u, '', false)); }
-          if (u.side === 'p') s *= formation(b, u, x, y);
+          if (u.side === 'p') s *= fq || (fq = formation(b, u, x, y));   // 站位分數：每個格子算一次
           if (s > bestS) { bestS = s; best = { uid: u.uid, x: x, y: y, wi: i, target: t.uid }; }
         });
       });
