@@ -565,7 +565,7 @@
       return '<button class="' + (isRec ? 'rec' : '') + '" onclick="defend(defenseSheet.plan,\'' + resp + '\'' + (cwi != null ? ',' + cwi : '') + ')"><b>' + label + (g ? '（' + esc(g.name) + '掩護）' : '') + '</b>' + (isRec ? ' <span class="chip gold">建議</span>' : '') + '<small>' + sub + '</small></button>';
     };
     defenseSheet.plan = plan; window.NO_ESC = 1;
-    openOv('<b style="color:#ffb0b0">' + esc(e.name) + '</b> 用「' + esc(T.W(e, plan.wi).n) + '」打 <b>' + esc(t.name) + '</b><div class="dim" style="font-size:12.5px;margin:2px 0 8px">' + esc(t.name) + ' 氣血 ' + t.hp + '/' + t.hpMax + '・戰意 ' + t.will + '</div><div class="resp">'
+    openOv('<b style="color:#ffb0b0">' + esc(e.name) + '</b> 用「' + esc(T.W(e, plan.wi).n) + '」打 <b>' + esc(t.name) + '</b>' + stLab(e) + '<div class="dim" style="font-size:12.5px;margin:2px 0 8px">' + esc(t.name) + ' 氣血 ' + t.hp + '/' + t.hpMax + '・戰意 ' + t.will + '</div><div class="resp">'
       + T.counterList(b, t, e).map(function (i) { return opt('counter', '還手：' + esc(T.W(t, i).n), i, rec === 'counter' && i === ci); }).join('') + opt('guard', '招架', null, rec === 'guard') + opt('evade', '閃身', null, rec === 'evade') + '</div>');
     $('ov').onclick = function () { };   // 一定要選一個（點外面、按 Esc 都不關）
     var x = document.querySelector('#sheet .ovx'); if (x) x.style.display = 'none';
