@@ -61,6 +61,7 @@ function gpMerge_(a, b, key) {
   if (b === undefined || b === null) return a;
   if (a === undefined || a === null) return b;
   if (key === 'best' && typeof a === 'object' && typeof b === 'object') { var o0 = {}; Object.keys(a).forEach(function (k) { o0[k] = a[k]; }); Object.keys(b).forEach(function (k) { if (gpTagScore_(b[k]) >= gpTagScore_(o0[k])) o0[k] = b[k]; }); return o0; }
+  if (key === 'srwTurns' && typeof a === 'number' && typeof b === 'number') return a > 0 && b > 0 ? Math.min(a, b) : Math.max(a, b);   // 最少回合：越小越好（0＝還沒有）
   if (typeof a === 'number' && typeof b === 'number') return Math.max(a, b);
   if (Array.isArray(a) && Array.isArray(b)) { var o1 = a.slice(); b.forEach(function (x) { if (o1.indexOf(x) < 0) o1.push(x); }); return o1; }
   if (typeof a === 'object' && typeof b === 'object' && !Array.isArray(a) && !Array.isArray(b)) { var o = {}; Object.keys(a).forEach(function (k) { o[k] = a[k]; }); Object.keys(b).forEach(function (k) { o[k] = gpMerge_(a[k], b[k], k); }); return o; }
@@ -159,13 +160,13 @@ function gpStageLog(name, token, d) {
   return { ok: true };
 }
 
-// 排行榜：彙整每個帳號的戰績（無盡最遠、通關次數）。大家一起看同一份，快取一分鐘
+// 排行榜：彙整每個帳號的戰績（戰棋：一周目通關最少總回合 srwTurns、打過幾周目 srwLoop；通關次數；舊卡牌版的無盡最遠）。大家一起看同一份，快取一分鐘
 function gpBoardRow_(name, m) {
   if (!m || !m.stats) return null;
   var e = m.stats.endless || {}, who = '', best = 0;
   Object.keys(e).forEach(function (k) { if (e[k] > best) { best = e[k]; who = k; } });
   var num = function (x) { x = Math.floor(Number(x) || 0); return x > 0 ? Math.min(x, 1e6) : 0; };   // 存檔是瀏覽器送來的：只認數字
-  return { name: gpMask_(name), key: gpHash_('board', gpName_(name)).slice(0, 10), endless: num(best), who: who, wins: num(m.stats.wins), trueEnds: num(m.stats.trueEnds), runs: num(m.stats.runs) };
+  return { name: gpMask_(name), key: gpHash_('board', gpName_(name)).slice(0, 10), endless: num(best), who: who, wins: num(m.stats.wins), trueEnds: num(m.stats.trueEnds), runs: num(m.stats.runs), srwTurns: num(m.stats.srwTurns), srwLoop: num(m.stats.srwLoop) };
 }
 function gpBoard(me) {
   var cache = CacheService.getScriptCache(), hit = cache.get('gp_board'), mine = me ? gpHash_('board', gpName_(me)).slice(0, 10) : '';
@@ -173,10 +174,10 @@ function gpBoard(me) {
   var sh = gpSheet_(), n = sh.getLastRow(), list = [];
   if (n >= 2) sh.getRange(2, 1, n - 1, GP_COL.META + 1).getValues().forEach(function (v) {
     var m = null; try { m = v[GP_COL.META] ? JSON.parse(v[GP_COL.META]) : null; } catch (e) { }
-    var r = gpBoardRow_(String(v[GP_COL.NAME]), m); if (r && (r.endless || r.wins)) list.push(r);
+    var r = gpBoardRow_(String(v[GP_COL.NAME]), m); if (r && (r.endless || r.wins || r.srwTurns || r.srwLoop)) list.push(r);
   });
-  var top = function (k) { return list.slice().sort(function (x, y) { return y[k] - x[k]; }).slice(0, 60); };   // 只回兩個榜的前段
-  var pickd = {}, short = top('endless').concat(top('wins')).filter(function (r) { if (pickd[r.key]) return false; pickd[r.key] = 1; return true; });
+  var top = function (k, asc) { return list.filter(function (r) { return r[k] > 0; }).sort(function (x, y) { return asc ? x[k] - y[k] : y[k] - x[k]; }).slice(0, 60); };   // 只回每個榜的前段
+  var pickd = {}, short = top('endless').concat(top('wins'), top('srwTurns', true), top('srwLoop')).filter(function (r) { if (pickd[r.key]) return false; pickd[r.key] = 1; return true; });
   var out = { ok: true, list: short };
   try { cache.put('gp_board', JSON.stringify(out), 60); } catch (e) { }
   out.me = mine; return out;

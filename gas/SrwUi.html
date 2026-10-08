@@ -678,6 +678,8 @@
     var M = META; M.endings = M.endings || {}; M.clears = M.clears || {};
     T.ORDER.forEach(function (k) { M.endings[k] = 1; M.clears[k] = M.clears[k] || {}; M.clears[k].normal = 1; M.stats.best[k] = '封魘'; });
     M.stats.wins = (M.stats.wins || 0) + 1; M.stats.trueEnds = (M.stats.trueEnds || 0) + 1;
+    if (!run.loop && run.turns && (!M.stats.srwTurns || run.turns < M.stats.srwTurns)) M.stats.srwTurns = run.turns;   // 排行榜：一周目最少總回合
+    M.stats.srwLoop = Math.max(M.stats.srwLoop || 0, (run.loop || 0) + 1);   // 打過幾周目
     queueSave(true, false);
   }
   function resultScreen() {

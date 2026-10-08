@@ -278,5 +278,13 @@ const allEv = c => { const a = []; let e; while ((e = T.takeEv(c))) a.push(e); r
   eq(e1.lv - e0.lv, T.LOOP_LV, '二周目敵人 +' + T.LOOP_LV + ' 級');
   n.stage = T.STAGES.length; eq(T.newLoop(n).loop, 2, '三周目');
 }
+{
+  // 伺服器合併存檔：最少回合取小的（其他數字取大的）
+  const fs = require('fs'), vm = require('vm'), ctx = {}; vm.createContext(ctx); vm.runInContext(fs.readFileSync(__dirname + '/../gas/Code.gs', 'utf8'), ctx);
+  const m = ctx.gpMerge_({ stats: { srwTurns: 120, wins: 2, srwLoop: 1 } }, { stats: { srwTurns: 95, wins: 1, srwLoop: 2 } }, '');
+  ok(m.stats.srwTurns === 95 && m.stats.wins === 2 && m.stats.srwLoop === 2, '合併：最少回合取小、通關次數與周目取大');
+  eq(ctx.gpMerge_({ stats: { srwTurns: 0 } }, { stats: { srwTurns: 95 } }, '').stats.srwTurns, 95, '合併：還沒有紀錄（0）不算最少');
+  eq(ctx.gpMerge_({ stats: { srwTurns: 80 } }, { stats: { srwTurns: 0 } }, '').stats.srwTurns, 80, '合併：新的是 0 不蓋掉舊紀錄');
+}
 console.log((fail ? '❌ ' : '✅ ') + pass + ' 項通過' + (fail ? '，' + fail + ' 項沒過' : ''));
 if (fail) process.exit(1);

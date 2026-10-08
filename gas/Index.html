@@ -629,7 +629,7 @@
     if (!m || !m.stats) return null;
     var e = m.stats.endless || {}, who = '', best = 0;
     Object.keys(e).forEach(function (k) { if (e[k] > best) { best = e[k]; who = k; } });
-    return { name: name, endless: best, who: who, wins: m.stats.wins || 0, trueEnds: m.stats.trueEnds || 0, runs: m.stats.runs || 0 };
+    return { name: name, endless: best, who: who, wins: m.stats.wins || 0, trueEnds: m.stats.trueEnds || 0, runs: m.stats.runs || 0, srwTurns: m.stats.srwTurns || 0, srwLoop: m.stats.srwLoop || 0 };
   }
   // 假伺服器也照伺服器的規則：新帳號只能用繁體中文、2 到 10 個字（Big5 收得到的漢字）
   var TRAD_B64 = 'i/9zw0BoDxus6UzzAAIIwFx5Psp2eUgG3y/w9zoD/6g37z8jBLBZ/crz//+f3vn//6v3fQDA7I6/7tv/A9D6ReH6/t/vv6sQ6/+q/D/v/SSteHZ/DPD/7fbP+iz592vr/R+/lXdmv7/7O7T+rnviEYGmvkE1FMNycH2RcQMAayfLV89wMkfvDdp+dPwG/rS9nz/Ki0l+AFiPIuzrXIq73WDv57YPpJPyuzeeVEvQr5sUxNT3sDAUCggv0Ih+/y8Z2v8H+/F/63vvxRAA/5n//dd5ZwXn/8v9/8NAQPdvjr3635cEwPT/W3vt59B+BOD4n/8+t/59Loj9/3++/oPE9lfz/biA1n3vZ1eIR33/38P/8Kk34H38cG8/muyzTIGGnj9c3Q33GUij/gcAVq//OA2YuO89QGC3ztg1kL9y/z/3fxF6u/f/qwD/vm88qXL+788b8WvbCvzmw37vnJsQ9kjw9Ba1/oJRsce7FYdu3/s/5M1j/8F+fuv9X317d/78C5bq2yli6FPfN+/99TaBvRjcvfzk0v//1z/g/29/+K+um9lu+/UV8al5+708Wq+tutusH/xxeYP3fF/D/99nBZr/Z4Q0FYvf8/lzM733Gl5Avz+g///rAcDf3c8AddOrw/jW7v1D/7evXidCrJuG9tcnvPaH97c1zap24edJn+JcVPKvPyvYYTv8uLvP/317lb/gHP19/0P2X/7/79POxLaNvK3cY+sRWd/QI7S+2/PnH8fbY//k+iuy92M77bqtAf7/fvf/vAL/Mj3v/P8FgPt39bwNAff/+/86v1cA/9977329iNvUyPP/fO3uXf9WDX5frJb/f9XuP0DB+W/n/5t3d46/bl3kz28fX3/g3/7b1/4BAP97+9T/3x8A+P//j/t7AAC/XH////MHoOvnPb/31/u//wNg/f/tv7vvfwJA/v3d//354gtoH/vj+/2vpJ/t9316D/i+7tUPXbuf/dvy+Tt//szraof6c/yV/J+fEPf6t93Nu374zexm8z88/f8/sPfpfgaulgb+dtXXX9E/86MHz7dv0Z9Ef1l73dM7r72pz306/+D76/YBtP//+nq/twDA/Q9//x///P7/lQAA3LVj7z4/f/sbAADo9vvvnt+4n/8/ANB7//Xb3/8/8P2/ACCEvbs3397/bf/zD0xg+177//v6Xv4ZAvR53vn3p/rr6wE0/9Prc+/Xr0DAu3L/3H/x2C/suAv+o90LHx2Pz0crsd7/7n9z2v8kxMtd9/LL/ezttPm/3U3dmY37f7t7r/vdWclP/LX6469fbf//fT8AeNv//7b/fq/7LwKb/8fvpf///wcAAMf/9/H//X+/AQDcvP31v///f///PikAAL7/+X//+25+/f/LngMA4937/8zf9v//fxEA+Pb77+c81+/+798LwL/t3/7N/fV7/UD//1+33/8w+d/7l9zz/vK/34+/338X5u1/D1M1fER+hxL6u0Xg7Z53F4DZv1V+id5vwUcE3npd9/9XBSn3hpX+s5cv8//PdZ/3cRf77jQZ7sw3Ye/Wn0zvj9bd+3N7723+1zGkf17Xl1sP2P+Dnc577CL/3D12h+/n3+39/0/8oHc7/NvtPdx/qW9w9fs/QCx//3+EV+y33pzmL/LrD7XV66/n7S+M8P9/U/Donbn/tWb/j+eB2RC+fJzB49GcMye8DG3/t/y379+g//8Lv3v+/6M/NcwTzZc3dif71s9sflDsMe18Zxz8+va/X7oPL66to/5/8Px03u//APK/+6L+rz3/vJT2uV+t848/bPIfoO//vwEodwVwNf8D2vvS+se/Px1cOv8z7K+3nP42Up96+r8i5/ef//y7Lx22Bu39Hdd93+8j62bx2X7ADT09v99FyYO60X3QnYd7c8/zn/XDDd/+xbMMAoN56MCuc8cPb339Pwnx/1cB+2L/AbT98zsTsLJD014w//8Pn+vv/gPy7z+J+6k3mZ753iynMzf2wa6BPv4gXffyhdXXaf////8H22///8R/2c7vD7578V7wz/a3//dehO/L198OCP///D/u////E//XD6/9f8e9+h8AAAAAAAAAAAAAAAAAAAAAAABA5zi9M/nrf+3+6H92fPez7/+v/rfYb/+/+/v499tSF/niyIVHdZCQ7+P0nm0/Lu42Bbz38397oD9/ZwVg6766AWbY/D9Y98rfh82/oP/NW7/+/ban7+93nN+3P3f4J538t7XK799a+7bxOewf77/7+38NAP7a+71/Tv8zwFr1v/6fv/9fAAAA+P3K//1v/c8BoP/f8vu/33//2v4PCAi6/7/9etfu6/v5Z0Tgk/+X31ef9/7fCIDf3/7F//73+/8DaPtn+mv/f+Jf//9z/9+H++f966f3fr/H7/Megt//dn7fyXl92r7vmx7gfPt3vof7//8b2/9cP+BP/38OX/93v91P8P/////4D76j3/0c/P3/fR+e+/+93N5vP/u6f9/v+xt97C6Or/fyD3vuz5YdxncH/vX/gtnff+Ze/8fu/u95VprP/1/+Xt5uiej5XvTE5gEAfL5/O9/dndXv6aw0U95z9fdLT3v/nv64bkf7DUX//av++9fp/9337f9//d3rfufP/7fpvZHvdV181wAAAAAAAAAAAAAAAAAAAAAAAID67v/xtHa/7y93tr93v5/9/7+Vrvb/dTt/9af5CgAAAAAAAAAA0PvdKzP2f5qr/fzW5vnrv9/fH/T9pv///0p787d/+f7/tlwd9n//5XsfBCQFvp7549vy3+9v//151vzL/ev/7x8AAAAAAACYSOEXgHRq/gB/bfH9f7jz/h/gdvGW7j97jev9//+ts8vvhH/hqk3wvz+/P/7/69f/3/9/z/v/7YU/17wH/64P/q/9v3bv+rs33H+6o/+291b4YN/nYf/fTPuwRf/tffo//x/8Gv//r+PTx4PfV/t97//veBPA/vdfuzTjXg339u/+178AnfX3995R4P/J/n8DAV/vv/Gfp2Ad7//xDwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgDxN+x/ZOnvj/uk/f9w/AAAAAAAAUB/1B74d/Bv5Hrz/cflvvluWVxub/3/8/y6H56/160/z/d8l59wLRF1HV939P+2Qd399yIr6+vnzKiBL7//1z3nTq6ULeveP+72OHwAAAAAAAPNO/VcaAIisrlR2rRf/zbL/L/SqW//bAgAAAAAAwHPq+T8ujvr/u7x20//+7nJ+vX7353/3/c71DwAAAAAAAACpm9vHpH+RyvjOfnp958e9y67cfv12j9OR83zlAS9Md+1go9sH+F73HYEh4GucMDo73vpTf/XDzWG6BwAAAAAAAAAAAAAAAOAm/r75A7XrbePL6S+c3r+Dn7+r9x/V/9+3/t+u/e//fvv97/+qv24AAAAAAAAAAAAAILbNf56+s2LxWA3xe/3x6f2+w8ZtXz3//2nP//T7+9z3TwAgNxEV', TRAD_BITS = null;
@@ -652,7 +652,7 @@
       return { ok: true, name: a[0], token: 't-' + a[0], meta: u.meta || null, run: u.run || null, runTs: u.runTs || 0 };
     }
     if (fn === 'gpResume') return u && a[1] === 't-' + a[0] ? { ok: true, name: a[0], token: a[1], meta: u.meta || null, run: u.run || null, runTs: u.runTs || 0 } : { ok: false, msg: '請重新登入' };
-    if (fn === 'gpBoard') return { ok: true, me: 'k-' + a[0], list: Object.keys(db).map(function (k) { var m = null; try { m = JSON.parse(db[k].meta || 'null'); } catch (e) { } var r = boardRow(k, m); if (r) { r.key = 'k-' + k; r.name = '○' + Array.from(k).slice(1).join(''); } return r; }).filter(function (r) { return r && (r.endless || r.wins); }) };
+    if (fn === 'gpBoard') return { ok: true, me: 'k-' + a[0], list: Object.keys(db).map(function (k) { var m = null; try { m = JSON.parse(db[k].meta || 'null'); } catch (e) { } var r = boardRow(k, m); if (r) { r.key = 'k-' + k; r.name = '○' + Array.from(k).slice(1).join(''); } return r; }).filter(function (r) { return r && (r.endless || r.wins || r.srwTurns || r.srwLoop); }) };
     if (fn === 'gpStageLog') return { ok: true };
     if (fn === 'gpLog') { try { var lg = JSON.parse(localStorage.getItem('grail_fake_log') || '[]'); lg.push(a[2]); localStorage.setItem('grail_fake_log', JSON.stringify(lg.slice(-50))); } catch (e) { } return { ok: true }; }
     if (fn === 'gpSave') { if (!u) return { ok: false }; if (a[2] != null) u.meta = a[2]; var st = false; if (a[3] != null) { if (a[5] == null) { if (a[4] != null && +a[4] < (u.runTs || 0)) st = true; else { u.run = a[3]; u.runTs = Math.max((u.runTs || 0) + 1, +a[4] || Date.now()); } } else if ((u.runTs || 0) > (+a[5] || 0)) st = true; else { u.run = a[3]; u.runTs = Math.max(+a[4] || 0, (u.runTs || 0) + 1); } } put(); return { ok: true, stale: st, runTs: u.runTs || 0 }; }
@@ -1209,16 +1209,16 @@
   function recordScreen() {
     var M = me(), st = M.stats, c = load(), done = c && c.srw ? Math.min(c.cleared || 0, T.STAGES.length) : 0;
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">戰績：' + esc(ACC.name) + '</h1>'
-      + '<div class="box">戰役 ' + (st.runs || 0) + ' 次・封魘 ' + (st.trueEnds || 0) + ' 次</div>'
+      + '<div class="box">戰役 ' + (st.runs || 0) + ' 次・封魘 ' + (st.trueEnds || 0) + ' 次' + (st.srwTurns ? '・一周目最少 ' + st.srwTurns + ' 回合' : '') + (st.srwLoop > 1 ? '・打完' + loopName({ loop: st.srwLoop - 1 }).replace('・', '') : '') + '</div>'
       + (c && c.srw ? '<div class="list"><div class="box">這一輪：過了 ' + done + '／' + T.STAGES.length + ' 關・功勳 ' + Object.keys(c.merit || {}).length + ' 個・累計 ' + (c.turns || 0) + ' 回合</div>'
         + T.ORDER.map(function (k) { var h = c.heroes[k]; return '<div class="box urow"><div><b>' + esc(G.SERVANTS[k].cls + '・' + G.SERVANTS[k].name) + '</b><div class="dim" style="font-size:13.5px">Lv ' + h.lv + '・擊破 ' + h.kills + '</div></div></div>'; }).join('') + '</div>' : '')
-      + '<button class="btn" onclick="titleScreen()">返回</button></div>';
+      + '<div class="row" style="justify-content:center"><button class="btn" onclick="boardScreen(\'turns\',\'record\')">排行榜</button><button class="btn" onclick="titleScreen()">返回</button></div></div>';
   }
   // 排行榜：伺服器彙整所有帳號的戰績（無盡最遠、通關次數）；一分鐘更新一次
   function boardScreen(tab, from) {
     if (from !== undefined) boardScreen.from = from;   // 從戰績進來的，返回戰績
-    tab = tab || boardScreen.tab || 'endless'; boardScreen.tab = tab;
-    var tabs = [['endless', '♾ 鎮妖塔最遠'], ['wins', '👑 通關次數']];
+    tab = tab || boardScreen.tab || 'turns'; boardScreen.tab = tab;
+    var tabs = [['turns', '⏱ 最少回合'], ['loop', '⟳ 周目'], ['wins', '👑 封魘次數']];
     var head = '<div class="tabs" style="max-width:460px;width:100%">' + tabs.map(function (t) { return '<button class="' + (tab === t[0] ? 'on' : '') + '" onclick="boardScreen(\'' + t[0] + '\')">' + t[1] + '</button>'; }).join('') + '</div>';
     var shell = function (body) { $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">排行榜</h1>' + head + '<div class="list">' + body + '</div><button class="btn" onclick="' + (run && run.screen === 'over' ? 'render()' : boardScreen.from === 'record' ? 'recordScreen()' : 'titleScreen()') + '">返回</button></div>'; };
     shell('<div class="dim" style="text-align:center">讀取中…</div>');
@@ -1226,13 +1226,13 @@
     srv('gpBoard', [ACC && ACC.name], function (res) {
       if (boardScreen.tab !== tab) return;
       if (!res || !res.ok) return shell('<div class="dim" style="text-align:center">' + esc((res && res.msg) || '連不上伺服器，稍後再試') + '</div><button class="btn" onclick="boardScreen()">重新整理</button>');
-      var key = tab === 'endless' ? 'endless' : 'wins';
-      var rows = res.list.filter(function (r) { return r[key] > 0; }).sort(function (a, b) { return b[key] - a[key] || (b.trueEnds || 0) - (a.trueEnds || 0); }).slice(0, 50);
+      var key = { turns: 'srwTurns', loop: 'srwLoop', wins: 'wins', endless: 'endless' }[tab] || 'wins', asc = tab === 'turns';   // 回合越少越前面
+      var rows = res.list.filter(function (r) { return r[key] > 0; }).sort(function (a, b) { return (asc ? a[key] - b[key] : b[key] - a[key]) || (b.trueEnds || 0) - (a.trueEnds || 0); }).slice(0, 50);
       if (!rows.length) return shell('<div class="dim" style="text-align:center">還沒有人上榜，第一名就是妳的。</div>');
       shell(rows.map(function (r, i) {
         var S = r.who && G.SERVANTS[r.who], medal = ['🥇', '🥈', '🥉'][i] || (i + 1) + '.';
-        var sub = tab === 'endless' ? (S ? S.cls + '・' + S.name : '') : '封魘 ' + (r.trueEnds || 0) + ' 次・出擊 ' + (r.runs || 0) + ' 次';
-        return '<div class="box urow"' + (r.key === res.me ? ' style="border-color:var(--gold)"' : '') + '><span style="width:34px;font-size:18px;flex:none">' + medal + '</span><div><b>' + esc(r.name) + '</b>' + (r.key === res.me ? '　<span class="dim">（妳）</span>' : '') + '<div class="dim" style="font-size:13.5px">' + esc(sub) + '</div></div><span class="tag" style="color:var(--gold);font-size:17px">' + r[key] + (tab === 'endless' ? ' 格' : ' 次') + '</span></div>';
+        var sub = tab === 'endless' ? (S ? S.cls + '・' + S.name : '') : tab === 'turns' ? '一周目・含重打的回合' : tab === 'loop' ? (r.srwTurns ? '最少 ' + r.srwTurns + ' 回合通關' : '') : '封魘 ' + (r.trueEnds || 0) + ' 次・出擊 ' + (r.runs || 0) + ' 次';
+        return '<div class="box urow"' + (r.key === res.me ? ' style="border-color:var(--gold)"' : '') + '><span style="width:34px;font-size:18px;flex:none">' + medal + '</span><div><b>' + esc(r.name) + '</b>' + (r.key === res.me ? '　<span class="dim">（妳）</span>' : '') + '<div class="dim" style="font-size:13.5px">' + esc(sub) + '</div></div><span class="tag" style="color:var(--gold);font-size:17px">' + r[key] + (tab === 'endless' ? ' 格' : tab === 'turns' ? ' 回合' : tab === 'loop' ? ' 周目' : ' 次') + '</span></div>';
       }).join(''));
     });
   }
