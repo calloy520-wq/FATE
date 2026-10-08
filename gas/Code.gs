@@ -160,13 +160,13 @@ function gpStageLog(name, token, d) {
   return { ok: true };
 }
 
-// 排行榜：彙整每個帳號的戰績（戰棋：一周目通關最少總回合 srwTurns、打過幾周目 srwLoop；通關次數；舊卡牌版的無盡最遠）。大家一起看同一份，快取一分鐘
+// 排行榜：彙整每個帳號的戰績（戰棋：通關最少總回合 srwTurns；通關次數；舊卡牌版的無盡最遠）。大家一起看同一份，快取一分鐘
 function gpBoardRow_(name, m) {
   if (!m || !m.stats) return null;
   var e = m.stats.endless || {}, who = '', best = 0;
   Object.keys(e).forEach(function (k) { if (e[k] > best) { best = e[k]; who = k; } });
   var num = function (x) { x = Math.floor(Number(x) || 0); return x > 0 ? Math.min(x, 1e6) : 0; };   // 存檔是瀏覽器送來的：只認數字
-  return { name: gpMask_(name), key: gpHash_('board', gpName_(name)).slice(0, 10), endless: num(best), who: who, wins: num(m.stats.wins), trueEnds: num(m.stats.trueEnds), runs: num(m.stats.runs), srwTurns: num(m.stats.srwTurns), srwLoop: num(m.stats.srwLoop) };
+  return { name: gpMask_(name), key: gpHash_('board', gpName_(name)).slice(0, 10), endless: num(best), who: who, wins: num(m.stats.wins), trueEnds: num(m.stats.trueEnds), runs: num(m.stats.runs), srwTurns: num(m.stats.srwTurns) };
 }
 function gpBoard(me) {
   var cache = CacheService.getScriptCache(), hit = cache.get('gp_board'), mine = me ? gpHash_('board', gpName_(me)).slice(0, 10) : '';
@@ -174,10 +174,10 @@ function gpBoard(me) {
   var sh = gpSheet_(), n = sh.getLastRow(), list = [];
   if (n >= 2) sh.getRange(2, 1, n - 1, GP_COL.META + 1).getValues().forEach(function (v) {
     var m = null; try { m = v[GP_COL.META] ? JSON.parse(v[GP_COL.META]) : null; } catch (e) { }
-    var r = gpBoardRow_(String(v[GP_COL.NAME]), m); if (r && (r.endless || r.wins || r.srwTurns || r.srwLoop)) list.push(r);
+    var r = gpBoardRow_(String(v[GP_COL.NAME]), m); if (r && (r.endless || r.wins || r.srwTurns)) list.push(r);
   });
   var top = function (k, asc) { return list.filter(function (r) { return r[k] > 0; }).sort(function (x, y) { return asc ? x[k] - y[k] : y[k] - x[k]; }).slice(0, 60); };   // 只回每個榜的前段
-  var pickd = {}, short = top('endless').concat(top('wins'), top('srwTurns', true), top('srwLoop')).filter(function (r) { if (pickd[r.key]) return false; pickd[r.key] = 1; return true; });
+  var pickd = {}, short = top('endless').concat(top('wins'), top('srwTurns', true)).filter(function (r) { if (pickd[r.key]) return false; pickd[r.key] = 1; return true; });
   var out = { ok: true, list: short };
   try { cache.put('gp_board', JSON.stringify(out), 60); } catch (e) { }
   out.me = mine; return out;

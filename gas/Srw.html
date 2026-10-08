@@ -288,22 +288,6 @@ var T = (function () {
     return c;
   }
   function migrate(c) { if (!c || !c.srw || c.v !== 10) return null; ORDER.forEach(function (k) { if (!c.heroes[k]) c.heroes[k] = newHero(k); }); c.inv = c.inv || {}; c.merit = c.merit || {}; c.slain = c.slain || {}; return c; }
-  // 二周目（機戰的周回）：通關後帶著等級、淬鍊、修為、功法、法寶、靈石重新打；功勳重來；敵人每周目 +LOOP_LV 級
-  var LOOP_LV = 10;
-  function loopLv(c) { return (c.loop || 0) * LOOP_LV; }
-  // 周目越多，敵人除了等級，數值也加（我方的淬鍊會一路累積到滿）
-  var LOOP_UP = { hp: 0.4, atk: 12, hit: 12, eva: 12, arm: 150, wpn: 3 };
-  function loopUp(c, u) {
-    var L = c.loop || 0; if (!L) return u;
-    u.hp = u.hpMax = Math.round(u.hpMax * (1 + LOOP_UP.hp * L) / 10) * 10;
-    u.mel += LOOP_UP.atk * L; u.rng += LOOP_UP.atk * L; u.spi += LOOP_UP.atk * L; u.hit += LOOP_UP.hit * L; u.eva += LOOP_UP.eva * L; u.arm += LOOP_UP.arm * L; u.wpnUp = LOOP_UP.wpn * L;
-    return u;
-  }
-  function newLoop(c) {
-    if (c.stage < STAGES.length) return null;
-    var n = newCampaign(c.rs); n.loop = (c.loop || 0) + 1; n.heroes = c.heroes; n.inv = c.inv; n.gold = c.gold; n.slain = c.slain; n.turns = 0;
-    return n;
-  }
   function curStage(c) { return STAGES[Math.min(c.stage, STAGES.length - 1)]; }
 
   // 這位女修現在的完整數值（等級、修為、淬鍊、法寶、功法都算進去）
@@ -364,7 +348,7 @@ var T = (function () {
     var S = curStage(c), b = { stage: S.id, turn: 0, phase: 'p', units: [], rs: (c.rs = (c.rs * 1103515245 + 12345) >>> 0) || 7, gold: 0, gain: {}, log: [], over: null, fired: {}, queue: [], downs: 0, kills: {}, ev: [] };
     uidN = 0;
     S.heroes.forEach(function (h) { b.units.push(mkHeroUnit(c, h[0], h[1], h[2])); b.gain[h[0]] = { exp: 0, pp: 0, kills: 0, lvUp: 0 }; });
-    S.foes.forEach(function (f) { b.units.push(loopUp(c, mkFoeUnit(f[0], f[1] + loopLv(c), f[2], f[3], f[4]))); });
+    S.foes.forEach(function (f) { b.units.push(mkFoeUnit(f[0], f[1], f[2], f[3], f[4])); });
     c.battle = b; c.screen = 'battle'; c.result = null;
     startPlayerPhase(c);
     return b;
@@ -728,7 +712,7 @@ var T = (function () {
     b.units.forEach(function (u) { var m = /^e(\d+)_/.exec(u.uid); if (m) uidN = Math.max(uidN, +m[1]); });   // 重新整理後 uidN 會歸零：增援的號碼接著現有的
     (S.add || []).forEach(function (a, i) {
       if (a.turn !== b.turn || b.fired[i]) return; b.fired[i] = 1; (b.ev = b.ev || []).push({ k: 'add', i: i });
-      a.foes.forEach(function (f) { var x = f[2], y = f[3]; if (unitAt(b, x, y)) { var p = freeNear(b, x, y); if (!p) return; x = p[0]; y = p[1]; } var u = loopUp(c, mkFoeUnit(f[0], f[1] + loopLv(c), x, y, f[4])); u.acted = 1; u.fresh = 1; b.units.push(u); });
+      a.foes.forEach(function (f) { var x = f[2], y = f[3]; if (unitAt(b, x, y)) { var p = freeNear(b, x, y); if (!p) return; x = p[0]; y = p[1]; } var u = mkFoeUnit(f[0], f[1], x, y, f[4]); u.acted = 1; u.fresh = 1; b.units.push(u); });
     });
     b.queue = units(b, 'e').filter(function (u) { return !u.acted; }).sort(function (a, c2) { return (a.boss ? 1 : 0) - (c2.boss ? 1 : 0) || nearest(b, a) - nearest(b, c2); }).map(function (u) { return u.uid; });
     checkOver(c);
@@ -868,21 +852,22 @@ var T = (function () {
   }
   function autoPhase(c) { var b = c.battle; units(b, 'p').forEach(function (u) { if (!b.over) autoUnit(c, u); }); }
   // 整備的自動花錢（模擬器用）：靈石平均淬鍊、悟道點先學助攻掩護
-  function autoPrep(c) {
-    var guard = 0;
-    while (c.gold > 2000 && guard++ < 200) {
+  // o.noUp：不淬鍊｜o.noPP：不花悟道點（修為、功法）——量「不強化」要多難
+  function autoPrep(c, o) {
+    o = o || {}; var guard = 0;
+    while (!o.noUp && c.gold > 2000 && guard++ < 200) {
       var best = null, bc = 1e9;
       ORDER.forEach(function (k) { ['hp', 'arm', 'mob', 'wpn', 'aim', 'en'].forEach(function (key) { var cost = upCost(key, c.heroes[k].up[key]); if (cost && cost < bc) { bc = cost; best = [k, key]; } }); });
       if (!best || c.gold < bc) break; upgrade(c, best[0], best[1]);
     }
-    ORDER.forEach(function (k) { ['zhugong', 'yanhu', 'douzhi', 'tiaoxi'].forEach(function (s) { if (skillCost(c, k, s) && c.heroes[k].pp >= skillCost(c, k, s) + 10) learn(c, k, s); }); while (c.heroes[k].pp >= TRAIN_COST + 30) train(c, k, ['hit', 'eva', 'mel', 'rng'][c.heroes[k].pp % 4]); });
+    if (!o.noPP) ORDER.forEach(function (k) { ['zhugong', 'yanhu', 'douzhi', 'tiaoxi'].forEach(function (s) { if (skillCost(c, k, s) && c.heroes[k].pp >= skillCost(c, k, s) + 10) learn(c, k, s); }); while (c.heroes[k].pp >= TRAIN_COST + 30) train(c, k, ['hit', 'eva', 'mel', 'rng'][c.heroes[k].pp % 4]); });
     ORDER.forEach(function (k) { keys(c.inv).forEach(function (id) { if (c.inv[id] > 0 && c.heroes[k].eq.length < EQ_SLOTS) equip(c, k, id); }); });
   }
 
   return {
     TERRAIN: TERRAIN, SIZE_NAME: SIZE_NAME, ACE: ACE, ACE_KILLS: ACE_KILLS, SPIRITS: SPIRITS, SKILLS: SKILLS, ITEMS: ITEMS, HEROES: HEROES, TRAITS: TRAITS, FOES: FOES, STAGES: STAGES, ORDER: ORDER,
     TRAIN_KEYS: TRAIN_KEYS, TRAIN_NAME: TRAIN_NAME, TRAIN_COST: TRAIN_COST, TRAIN_STEP: TRAIN_STEP, TRAIN_MAX: TRAIN_MAX, UP_KEYS: UP_KEYS, UP_NAME: UP_NAME, UP_STEP: UP_STEP, UP_MAX: UP_MAX, EQ_SLOTS: EQ_SLOTS, EXP_LV: EXP_LV,
-    devOf: devOf, newCampaign: newCampaign, newLoop: newLoop, LOOP_LV: LOOP_LV, migrate: migrate, curStage: curStage, stageOf: stageOf, heroStats: heroStats, fullDone: fullDone, upCost: upCost, skillCost: skillCost,
+    devOf: devOf, newCampaign: newCampaign, migrate: migrate, curStage: curStage, stageOf: stageOf, heroStats: heroStats, fullDone: fullDone, upCost: upCost, skillCost: skillCost,
     upgrade: upgrade, train: train, learn: learn, equip: equip, unequip: unequip, buy: buy, shopList: shopList,
     startStage: startStage, tile: tile, terr: terr, units: units, byUid: byUid, unitAt: unitAt, live: live, dist: dist, W: W, wpns: wpns, curMv: curMv,
     moveRange: moveRange, moveTo: moveTo, undoMove: undoMove, wait: wait, canMoveAfter: canMoveAfter, moveAfter: moveAfter,

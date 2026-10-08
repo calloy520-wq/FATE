@@ -1,6 +1,8 @@
 // 戰棋自動對戰：自動玩家從第一關打到最後（每關最多重打 RETRY 次），看每關的勝率、回合數、等級、靈石
-// 用法：N=50 node tools/srw_sim.js     VERBOSE=1 印每關細節
+// 用法：N=50 node tools/srw_sim.js     VERBOSE=1 印每關細節     PREP=none 不強化
 const T=require('./srw');
+// PREP=none 完全不強化｜pp 只花悟道點｜（預設）全部強化
+const PREP={none:{noUp:1,noPP:1},pp:{noUp:1}}[process.env.PREP]||{};
 const N=+process.env.N||30, RETRY=+(process.env.RETRY||3), MAXT=30, V=process.env.VERBOSE;
 const st={}; T.STAGES.forEach(S=>st[S.id]={tries:0,wins:0,turns:0,downs:0,hit:0,hitN:0,ehit:0,ehitN:0,lv:0,lvN:0});
 let full=0, totalTries=0;
@@ -19,7 +21,7 @@ function play(c){
 for(let i=0;i<N;i++){
   const c=T.newCampaign(1000+i*7919); let ok=true;
   while(c.stage<T.STAGES.length){
-    T.autoPrep(c); const S=T.curStage(c); let won=false;
+    T.autoPrep(c, PREP); const S=T.curStage(c); let won=false;
     const hs=S.heroes.map(h=>c.heroes[h[0]].lv); st[S.id].lv+=hs.reduce((a,x)=>a+x,0)/hs.length; st[S.id].lvN++;
     for(let r=0;r<RETRY&&!won;r++){ const b=play(c); const s=st[S.id]; s.tries++; totalTries++; s.turns+=b.turn; s.downs+=b.downs; const res=T.finishStage(c); if(res.win){s.wins++;won=true;} T.toPrep(c); }
     if(!won){ ok=false; break; }
