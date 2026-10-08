@@ -147,7 +147,7 @@
       body = '<div class="dim" style="font-size:13px">每人 ' + T.EQ_SLOTS + ' 格。丹藥類每關能用一次（戰鬥中點她 →「法寶」）。</div>'
         + '<div class="list">' + [0, 1].map(function (i) { var id = h.eq[i]; return '<div class="box urow"><div>' + (id ? '<b>' + esc(T.ITEMS[id].n) + '</b>　<span class="dim" style="font-size:13px">' + esc(T.ITEMS[id].d) + '</span>' : '<span class="dim">（空）</span>') + '</div>' + (id ? '<button class="btn" style="padding:5px 10px" onclick="srwUneq(\'' + k + '\',' + i + ')">卸下</button>' : '') + '</div>'; }).join('')
         + (h.eq.length < T.EQ_SLOTS ? inv.map(function (id) { return '<button class="wrow" onclick="srwEq(\'' + k + '\',\'' + id + '\')"><b>' + esc(T.ITEMS[id].n) + '</b><span class="dim" style="font-size:12.5px">' + esc(T.ITEMS[id].d) + '</span><span class="r">×' + c.inv[id] + '　裝上</span></button>'; }).join('') : '') + '</div>'; }
-    if (tab === 'info') body = '<div class="box" style="text-align:left"><b>' + esc(T.TRAITS[H.trait].n) + '</b>　<span class="dim" style="font-size:13px">' + esc(T.TRAITS[H.trait].d) + '</span></div>'
+    if (tab === 'info') body = '<div class="box" style="text-align:left"><b>' + esc(T.TRAITS[H.trait].n) + '</b>　<span class="dim" style="font-size:13px">' + keepTail(esc(T.TRAITS[H.trait].d)) + '</span></div>'
       + '<div class="list" style="margin-top:8px">' + H.w.map(function (w) { return '<div class="box" style="padding:8px 12px"><b>' + esc(w.n) + '</b>　<span class="dim" style="font-size:12.5px">' + wpnLine(w, s.wpnUp) + '</span></div>'; }).join('') + '</div>'
       + '<h3 style="margin:12px 0 6px">心訣</h3><div class="list">' + H.sp.map(function (p) { var S2 = T.SPIRITS[p[0]]; return '<div class="box" style="padding:8px 12px' + (h.lv >= p[1] ? '' : ';opacity:.5') + '"><b>' + S2.n + '</b> <span class="dim">心力 ' + S2.c + '</span>' + (h.lv >= p[1] ? '' : ' <span class="chip">Lv' + p[1] + ' 學會</span>') + '<div class="dim" style="font-size:12.5px">' + esc(S2.d) + '</div></div>'; }).join('') + '</div>';
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(Sv.name) + '</b>　<span class="dim">Lv ' + h.lv + '・經驗 ' + h.exp + '/' + T.EXP_LV + '・擊破 ' + h.kills + '</span>'
@@ -160,7 +160,7 @@
     if (w.mv) a.push('➚移動後可用'); if (w.mel) a.push('近戰');
     if (w.map) a.push('陣法（對方不能還手）'); if (w.combo) a.push('合擊：' + G.SERVANTS[w.combo].name + '在旁邊');
     if (w.ding) a.push('定身 +' + w.ding); if (w.poison) a.push('毒 +' + w.poison); if (w.vsDing) a.push('打定身的 ×1.3'); if (w.vsPoison) a.push('毒越多越痛'); if (w.drain) a.push('吸血'); if (w.sap) a.push('戰意 −' + w.sap); if (w.pierce) a.push('無視招架');
-    return a.join('・');
+    return keepTail(a.join('・'));
   }
   function srwUp(k, key) { var e = T.upgrade(run, k, key); if (e) toast(e, 'err'); save(); heroSheet(k); }
   function srwTrain(k, key) { var e = T.train(run, k, key); if (e) toast(e, 'err'); save(); heroSheet(k); }

@@ -1,10 +1,10 @@
-// 文字排版檢查：用 playwright 開各畫面（前情提要、劇情、真結局、所有事件、圖鑑、選角色），找最後一行只剩一兩個字的段落
+// 文字排版檢查：用 playwright 開各畫面（前情提要、劇情、真結局、圖鑑、戰棋的整備／人物／結算／通關／提示／說明），找最後一行只剩一兩個字的段落
 // 用法：node tools/text_layout.js 標籤 [寬度=390]（建議 360／390／430 各跑一次，要看到 orphans total 0）
 const fs=require('fs');
 const { chromium } = require('/opt/node22/lib/node_modules/playwright');
 const Gd=require('path').join(__dirname,'..','gas')+'/', D=require('os').tmpdir(), TAG=process.argv[2]||'x', W=+(process.argv[3]||390);
 let art=fs.readFileSync(Gd+'Art.html','utf8').replace(/var ART_BASE = '[^']*';/,"var ART_BASE = 'file://"+require('path').join(__dirname,'..','art')+"/';");
-fs.writeFileSync(D+'/page.html', fs.readFileSync(Gd+'Index.html','utf8').replace("<?!= include('Game'); ?>", fs.readFileSync(Gd+'Game.html','utf8')).replace("<?!= include('Art'); ?>", art).replace("<?!= include('Story'); ?>", fs.readFileSync(Gd+'Story.html','utf8')));
+fs.writeFileSync(D+'/page.html', fs.readFileSync(Gd+'Index.html','utf8').replace(/<\?!= include\('(\w+)'\); \?>/g, (m,n)=> n==='Art' ? art : fs.readFileSync(Gd+n+'.html','utf8')));
 const scan=()=>{ // returns orphan lines (last line ≤2 chars) per text block
   const out=[]; const els=[...document.querySelectorAll('#app *, .ov *')].filter(e=>[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim().length>8));
   for(const el of els){ const lines=new Map(); const w=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);
@@ -23,20 +23,18 @@ const scan=()=>{ // returns orphan lines (last line ≤2 chars) per text block
   for(let i=0;i<6;i++) await go('prologue'+i,i=>prologue(i),i);
   for(const w of ['shuang','qingli','xiaoman','chilian','aduo']) await go('end_'+w,w=>{closeOv&&closeOv();openOv(endingHtml(w));},w);
   await p.evaluate(()=>closeOv());
-  const evs=await p.evaluate(()=>Object.keys(G.EVENTS));
-  for(const k of evs) await go('ev_'+k,k=>{ const E=G.EVENTS[k]; run=G.newRun(E.who||'shuang',7,E.major?{major:E.major}:{}); run.gold=999; run.screen='event'; run.event=k; render(); },k);
-  for(const t of ['boss','elite','mob','goal']) await go('codex_'+t,t=>{ run=null; META.codex=Object.fromEntries(Object.keys(G.ENEMIES).map(k=>[k,1])); codexScreen(t); },t);
+  for(const t of ['boss','elite','mob']) await go('codex_'+t,t=>{ run=null; META.codex=Object.fromEntries(Object.keys(G.ENEMIES).map(k=>[k,1])); codexScreen(t); },t);
   for(const t of ['pro','who','sect','end']) await go('story_'+t,t=>{ closeOv(); run=null; META.endings=Object.fromEntries(G.ORDER.map(k=>[k,1])); storyScreen(t); },t);
   for(const w of ['shuang','qingli','xiaoman','chilian','aduo']) await go('storywho_'+w,w=>{ closeOv(); storyWho(w); },w);
-  await p.evaluate(()=>{ closeOv(); META.endings={}; });
-  await go('choose',()=>{ run=null; MODE='normal'; choose(); });
+  await p.evaluate(()=>{ closeOv(); META.endings={}; META.tips2={all:1}; });
+  await go('title',()=>{ run=null; titleScreen(); });
   await go('help',()=>{ run=null; titleScreen(); showHelp(); });
-  for(const w of ['shuang','qingli','xiaoman','chilian','aduo']) await go('svt_'+w,w=>{ closeOv(); MODE='normal'; choose(); svtInfo(w); },w);
-  for(const t of ['battle','map','reward','pill','curse','rest','shop','event','path','major','hero_shuang','hero_qingli','hero_xiaoman','hero_chilian','hero_aduo']) await go('tip_'+t,t=>{ closeOv(); run=null; titleScreen(); META.tips={}; tip(t); META.tips={all:1}; },t);
-  await go('over_win',()=>{ closeOv(); run=G.newRun('aduo',7); run.win=1; run.screen='over'; run.metaDone=1; render(); });
-  await go('over_true',()=>{ closeOv(); run=G.newRun('aduo',7); run.win=1; run.trueEnd=1; run.screen='over'; run.metaDone=1; render(); });
-  await go('info_svt',()=>{ closeOv(); run=G.newRun('qingli',7); run.screen='map'; render(); openInfo('svt'); });
-  await go('secret',()=>{ run=G.newRun('shuang',7); run.screen='secret'; render(); });
+  await go('record',()=>{ closeOv(); recordScreen(); });
+  for(const t of ['hero','shop','bag']) await go('prep_'+t,t=>{ closeOv(); run=T.newCampaign(7); run.inv={huichunD:1,qingshen:1}; prepScreen(t); },t);
+  for(const w of ['shuang','qingli','xiaoman','chilian','aduo']) for(const t of ['up','tr','sk','eq','info']) await go('hero_'+w+'_'+t,a=>{ closeOv(); heroSheet(a[0],a[1]); },[w,t]);
+  await go('result',()=>{ closeOv(); run=T.newCampaign(7); T.startStage(run); run.battle.over='win'; T.finishStage(run); render(); });
+  await go('end',()=>{ closeOv(); run=T.newCampaign(7); run.stage=99; run.screen='end'; render(); });
+  for(const t of ['prep','battle','spirit','defense','will']) await go('tip_'+t,t=>{ closeOv(); META.tips2={}; srwTip(t); META.tips2={all:1}; },t);
   let tot=0; for(const [k,v] of Object.entries(res)) if(v.length){ tot+=v.length; console.log(k, v.join(' ‖ ')); }
   console.log(TAG,'W',W,'orphans total',tot); await b.close();
 })();
