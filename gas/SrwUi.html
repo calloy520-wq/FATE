@@ -33,6 +33,11 @@
   .tl.mv::after { background:rgba(80,160,255,.38); box-shadow:inset 0 0 0 1px rgba(150,200,255,.6); }
   .tl.mv.sup::after { box-shadow:inset 0 0 0 1px rgba(150,200,255,.6), inset 0 -3px 0 0 rgba(255,210,110,.95); }
   .tl.ar::after { background:rgba(255,80,80,.22); } .tl.dz::after { background:rgba(255,70,70,.28); }
+  .tl.mv.dz::after { background:linear-gradient(135deg, rgba(80,160,255,.38) 62%, rgba(255,70,70,.55) 62%); }   /* 走得到、但敵人打得到 */
+  .tl.dz1::after { background:rgba(255,70,70,.13); } .tl.dz2::after { background:rgba(255,70,70,.3); } .tl.dz3::after { background:rgba(255,60,60,.5); }
+  .tl.mv.dz1::after { background:linear-gradient(135deg, rgba(80,160,255,.38) 66%, rgba(255,70,70,.3) 66%); }
+  .tl.mv.dz2::after { background:linear-gradient(135deg, rgba(80,160,255,.38) 58%, rgba(255,70,70,.6) 58%); }
+  .tl.mv.dz3::after { background:linear-gradient(135deg, rgba(80,160,255,.38) 48%, rgba(255,50,50,.9) 48%); }
   .tl.tg::after { background:rgba(255,80,80,.45); box-shadow:inset 0 0 0 2px #ffd36e; animation:glow 1s ease-in-out infinite; }
   .tl.mc::after { background:rgba(255,200,80,.3); box-shadow:inset 0 0 0 1px rgba(255,220,140,.7); }
   .tl.ma::after { background:rgba(255,150,40,.5); }
@@ -348,10 +353,11 @@
     var b = sB(); if (!b || !$('sbmap')) return;
     var S = T.stageOf(b), sel = SUI.sel && T.byUid(b, SUI.sel);
     var mates = sel && sel.side === 'p' && (SUI.mode === 'move' || SUI.mode === 'move2' || SUI.mode === 'swap') ? T.units(b, 'p').filter(function (v) { return v !== sel; }) : [];   // 移動時：旁邊有隊友的格子（能互相助攻、掩護）
+    var dzA = SUI.dzOn ? dangerAll(b) : null;
     S.map.forEach(function (row, y) { for (var x = 0; x < row.length; x++) { var el = $('tl' + x + '_' + y), k = x + ',' + y, cl = tcls(row[x]);
       if (SUI.R && SUI.R[k] != null) { cl += ' mv'; if (mates.some(function (v) { return Math.abs(v.x - x) + Math.abs(v.y - y) === 1; })) cl += ' sup'; }
       if (SUI.ar && SUI.ar[k]) cl += ' ar';
-      if (SUI.dz && SUI.dz[k]) cl += ' dz';
+      if (SUI.dz && SUI.dz[k]) cl += ' dz'; else if (dzA && dzA[k]) cl += ' dz dz' + (dzA[k] >= 5 ? 3 : dzA[k] >= 3 ? 2 : 1);   // 越多敵人打得到越紅（1～2、3～4、5 個以上）
       if (SUI.tile && SUI.tile[0] === x && SUI.tile[1] === y) cl += ' cur';
       if (SUI.tg && SUI.tg[k]) cl += ' tg';
       if (SUI.mc && SUI.mc[k]) cl += ' mc';
@@ -383,12 +389,12 @@
     var acts = '';
     if (b.over) return '<div class="hint">' + (b.over === 'win' ? '勝利！' : '敗北……') + '</div><div class="acts"><button class="btn go" onclick="srwFinish()">結算</button></div>';
     if (b.phase !== 'p') { var a = SUI.act && T.byUid(b, SUI.act); return '<div class="hint">' + (a && T.live(a) ? esc(a.name) + '行動中…' : '敵方行動中…') + '</div>'; }
-    if (SUI.mode === 'swap') return '<div class="hint">' + (u ? '點藍色格子站過去，或點另一位女修跟' + esc(u.name) + '換位置。' : '點一位女修，再點藍色格子或另一位女修，換位置。') + '</div><div class="acts"><button class="btn go" onclick="srwSwapDone()">布好了</button><button class="btn' + (SUI.dzAll ? ' on' : '') + '" onclick="srwDanger()">敵人範圍</button></div>';
+    if (SUI.mode === 'swap') return '<div class="hint">' + (u ? '點藍色格子站過去，或點另一位女修跟' + esc(u.name) + '換位置。' : '點一位女修，再點藍色格子或另一位女修，換位置。') + '</div><div class="acts"><button class="btn go" onclick="srwSwapDone()">布好了</button><button class="btn' + (SUI.dzOn ? ' on' : '') + '" onclick="srwDanger()">敵人範圍</button></div>';
     if (!u) {
       var left = T.units(b, 'p').filter(function (v) { return !v.acted; }).length;
       var tt = SUI.tile && T.terr(b, SUI.tile[0], SUI.tile[1]);
       var sw = T.canSwap(b), mr = meritLeft(b);
-      return '<div class="hint">' + (tt ? terrText(tt) : sw ? '開打前可以按「布陣」調整站位。' : left ? '點自己人移動、行動；點敵人看它的數值與攻擊範圍；點空格子看地形。' : '') + (left ? '還有 ' + left + ' 人沒行動。' : '全員行動完畢，可以結束回合了。') + (mr ? '<br><span style="color:var(--gold)">' + mr + '</span>' : '') + '</div><div class="acts">' + (sw ? '<button class="btn" onclick="srwSwap()">布陣</button>' : '<button class="btn" onclick="srwNextUnit()">下一位</button>') + '<button class="btn' + (SUI.dzAll ? ' on' : '') + '" onclick="srwDanger()">敵人範圍</button><button class="btn go" onclick="srwEndTurn()">結束回合</button></div>';
+      return '<div class="hint">' + (tt ? terrText(tt) : sw ? '開打前可以按「布陣」調整站位。' : left ? '點自己人移動、行動；點敵人看它的數值與攻擊範圍；點空格子看地形。' : '') + (left ? '還有 ' + left + ' 人沒行動。' : '全員行動完畢，可以結束回合了。') + (mr ? '<br><span style="color:var(--gold)">' + mr + '</span>' : '') + '</div><div class="acts">' + (sw ? '<button class="btn" onclick="srwSwap()">布陣</button>' : '<button class="btn" onclick="srwNextUnit()">下一位</button>') + '<button class="btn' + (SUI.dzOn ? ' on' : '') + '" onclick="srwDanger()">敵人範圍</button><button class="btn go" onclick="srwEndTurn()">結束回合</button></div>';
     }
     var t = T.terr(b, u.x, u.y), ter = u.fly ? '飛行中' : t.n + (t.eva || t.def ? '（迴避 ' + (t.eva >= 0 ? '+' : '') + t.eva + '、防禦 ' + (t.def >= 0 ? '+' : '') + t.def + '%）' : '');
     var stx = [];
@@ -400,7 +406,7 @@
     if (u.side === 'e') return info + '<div class="hint">紅色是它這回合打得到的範圍。</div><div class="acts"><button class="btn" onclick="foeSheet(\'' + u.uid + '\')">招式</button><button class="btn" onclick="srwCancel()">關閉</button></div>';
     if (u.acted && SUI.mode !== 'move2') return info + '<div class="hint">這回合已經行動過了。</div><div class="acts"><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwCancel()">關閉</button></div>';
     if (SUI.mode === 'move2') return info + '<div class="hint">游擊：還能移動（點藍色格子）。</div><div class="acts"><button class="btn" onclick="srwCancel()">不移動</button></div>';
-    if (SUI.mode === 'move') return info + '<div class="hint">點藍色格子移動；點她自己＝原地行動。<br>金色底線：旁邊有隊友，能互相助攻、掩護。</div><div class="acts"><button class="btn" onclick="srwStay()">原地行動</button><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwItem()">法寶</button><button class="btn" onclick="srwCancel()">取消</button></div>';
+    if (SUI.mode === 'move') return info + '<div class="hint">點藍色格子移動；點她自己＝原地行動。<br>金色底線：旁邊有隊友，能互相助攻、掩護。' + (SUI.dzOn ? '<br>紅角：越大越多敵人打得到。' : '') + '</div><div class="acts"><button class="btn" onclick="srwStay()">原地行動</button><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwItem()">法寶</button><button class="btn" onclick="srwCancel()">取消</button></div>';
     if (SUI.mode === 'act') { var hasMap = u.w.some(function (_, i) { return T.W(u, i).map; });
       return info + '<div class="acts"><button class="btn go" onclick="srwWeapons()">攻擊</button><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwItem()">法寶</button><button class="btn" onclick="srwWait()">待機</button>' + (u.moveDone && u.moved ? '<button class="btn" onclick="srwUndo()">回原位</button>' : '') + '</div>'; }
     if (SUI.mode === 'target') return info + '<div class="hint">點閃著的敵人出手（' + esc(T.W(u, SUI.wi).n) + '）。</div><div class="acts"><button class="btn" onclick="srwBackAct()">換招式</button></div>';
@@ -408,10 +414,11 @@
     if (SUI.mode === 'sptarget') return info + '<div class="hint">點要施展「' + T.SPIRITS[SUI.sp].n + '」的對象。</div><div class="acts"><button class="btn" onclick="srwCancelSp()">取消</button></div>';
     return info;
   }
-  function clearHl() { SUI.R = null; SUI.ar = null; SUI.tg = null; SUI.dz = null; SUI.dzAll = 0; SUI.tile = null; SUI.mc = null; SUI.ma = null; SUI.cen = null; SUI.mt = null; }
+  function clearHl() { SUI.R = null; SUI.ar = null; SUI.tg = null; SUI.dz = null; SUI.tile = null; SUI.mc = null; SUI.ma = null; SUI.cen = null; SUI.mt = null; }
   function terrText(t) { return '<b>' + t.n + '</b>：' + (t.solid ? '誰都過不去。' : t.wall ? '走不過（飛行可以越過、停在上面）。' : '移動 ' + t.cost + (t.eva ? '、迴避 ' + (t.eva > 0 ? '+' : '') + t.eva : '') + (t.def ? '、受到的傷害 ' + (t.def > 0 ? '−' : '+') + Math.abs(t.def) + '%' : '') + (t.heal ? '、回合開始回氣血 10%、真元 10' : '') + '（飛行不吃地形）。') + '<br>'; }
   // 所有敵人這回合打得到的範圍（機戰的敵攻擊範圍）
-  function srwDanger() { var b = sB(), on = !SUI.dzAll; clearHl(); SUI.sel = null; SUI.mode = SUI.mode === 'swap' ? 'swap' : 'idle'; if (on) { SUI.dzAll = 1; SUI.dz = {}; T.units(b, 'e').forEach(function (e) { var z = threat(b, e); Object.keys(z).forEach(function (k) { SUI.dz[k] = 1; }); }); } srwDraw(); }
+  function srwDanger() { SUI.dzOn = !SUI.dzOn; srwDraw(); }   // 敵人範圍：開關，選人、移動時也一直顯示
+  function dangerAll(b) { var out = {}; T.units(b, 'e').forEach(function (e) { var z = threat(b, e); Object.keys(z).forEach(function (k) { out[k] = (out[k] || 0) + 1; }); }); return out; }   // 每格有幾個敵人打得到
   function threat(b, e) { if (e.stun) return {}; var R = T.moveRange(b, e), out = {}, mx = 0, S = T.stageOf(b); e.w.forEach(function (_, i) { var w = T.W(e, i); if (!w.map) mx = Math.max(mx, w.r[1]); }); if (e.hold && !T.isAwake(b, e)) R = {}; R[e.x + ',' + e.y] = 0;
     Object.keys(R).forEach(function (k) { var p = k.split(','), x0 = +p[0], y0 = +p[1]; for (var y = 0; y < S.map.length; y++) for (var x = 0; x < S.map[0].length; x++) if (Math.abs(x - x0) + Math.abs(y - y0) <= mx) out[x + ',' + y] = 1; }); return out; }
   function srwTap(x, y) {
