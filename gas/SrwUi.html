@@ -712,7 +712,7 @@
     $('app').innerHTML = '<div class="panel res"><h1 style="font-size:24px">' + (r.win ? '勝利' : '敗北') + '</h1><div class="dim">' + stageNo(S) + '・' + esc(S.n) + '・' + r.turns + ' 回合</div>'
       + '<div class="box" style="text-align:center">💎 擊破 ' + r.gold + (r.clearGold ? '＋過關 ' + r.clearGold : '') + '　現在 ' + run.gold + '</div>'
       + (r.merit ? '<div class="box" style="text-align:center;border-color:var(--gold)">🏅 功勳達成：拿到<b>' + esc(T.ITEMS[r.item].n) + '</b></div>' : '')
-      + (!r.win ? '<div class="dim" style="text-align:center;text-wrap:balance">經驗、悟道點、靈石都留著。整備一下再來。</div>' : '')
+      + (!r.win ? '<div class="dim" style="text-align:center;text-wrap:balance">經驗、悟道點、靈石都留著。<br>到整備淬鍊、學功法會好打很多；不想強化，就讓大家站在一起，多用地形與心訣。</div>' : '')
       + '<div class="list">' + rows + '</div><button class="btn" onclick="T.toPrep(run);save();render()">' + (run.stage >= T.STAGES.length ? '繼續' : '回整備') + '</button></div>';
   }
   function endScreen() {
