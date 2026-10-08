@@ -79,7 +79,7 @@
   .bsc #stage { height:min(62vh, 440px); max-width:640px; width:100%; margin:0 auto; border:none; }
   .bsc .side { position:relative; z-index:1; flex:0 0 46%; height:100%; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; }
   .bsc .side .fig { height:74%; width:100%; } .bsc .side.foe .fig .fsvg, .bsc .side.foe .fig .fimg { }
-  .bsc .side .who { font-size:13px; font-weight:bold; text-shadow:0 1px 3px #000; margin-top:2px; } .bsc .side .mbar { width:86%; margin-top:3px; }
+  .bsc .side .who { font-size:13px; font-weight:bold; text-shadow:0 1px 3px #000; margin-top:2px; } .bsc .side .who small { font-weight:normal; color:var(--gold); margin-left:8px; font-size:12px; } .bsc .side .mbar { width:86%; margin-top:3px; }
   .bsc .wname { position:absolute; left:0; right:0; top:8%; z-index:4; text-align:center; font-family:var(--serif); font-size:22px; letter-spacing:.2em; color:var(--gold2); text-shadow:0 0 12px rgba(227,194,122,.7), 0 2px 3px #000; pointer-events:none; }
   .bsc .wname small { display:block; font-size:12px; letter-spacing:.1em; color:#ddd; }
   .bsc .skip { position:absolute; right:12px; bottom:14px; z-index:5; color:var(--dim); font-size:13px; }
@@ -586,7 +586,7 @@
     else if (kind === 'bolt' && foe) { fx.style.transform = 'scaleX(-1)'; fx.style.left = '10%'; }
     st.appendChild(fx); setTimeout(function () { fx.remove(); }, 800);
   }
-  function snapHp(b) { var o = {}; b.units.forEach(function (u) { o[u.uid] = u.hp; }); return o; }
+  function snapHp(b) { var o = {}, w = {}; b.units.forEach(function (u) { o[u.uid] = u.hp; w[u.uid] = u.will; }); Object.defineProperty(o, '_w', { value: w }); return o; }   // 交手前的氣血與戰意（_w 不列舉）
   function playScene(sc, snap, cb0) {
     var b = sB(), cb = function () { srwEv(cb0); }; if (!sc || !sc.steps || !sc.steps.length) { drawUnits(); return cb(); }
     var done = false, finish = function () { if (done) return; done = true; var ov = $('bsc'); if (ov) ov.remove(); busy = wasBusy; drawUnits(); srwDraw(); cb(); };
@@ -598,7 +598,7 @@
     sc.steps.forEach(function (s) { [s.a, s.d].forEach(function (id) { var u = T.byUid(b, id); if (!u) return; if (u.side === 'p' && !heroId) heroId = id; if (u.side === 'e' && !foeId) foeId = id; }); });
     var S = T.stageOf(b), ov = document.createElement('div'); ov.className = 'bsc'; ov.id = 'bsc'; ov.onclick = finish;
     var side = function (uid, cls) { var u = T.byUid(b, uid); if (!u) return '<div class="side ' + cls + '"></div>';
-      return '<div class="side ' + cls + '" data-uid="' + uid + '"><div class="fig ' + (cls === 'me' ? 'me' : '') + '">' + FIG.fig(u.id, u.side === 'e', { swords: (u.ammo && u.ammo.feijian) || 0 }) + '</div><div class="who">' + esc(u.name) + '</div>' + bar(u.side === 'e' ? 'e' : '', hp[uid], u.hpMax, '') + '</div>'; };
+      return '<div class="side ' + cls + '" data-uid="' + uid + '"><div class="fig ' + (cls === 'me' ? 'me' : '') + '">' + FIG.fig(u.id, u.side === 'e', { swords: (u.ammo && u.ammo.feijian) || 0 }) + '</div><div class="who">' + esc(u.name) + '<small>戰意 ' + ((snap._w || {})[uid] != null ? snap._w[uid] : u.will) + '</small></div>' + bar(u.side === 'e' ? 'e' : '', hp[uid], u.hpMax, '') + '</div>'; };
     ov.innerHTML = '<div id="stage" class="' + bgOf(S) + '">' + FIG.scene({ act: S.bg === 'abyss' ? 3 : S.bg === 'city' ? 2 : 1 }) + side(heroId, 'me') + '<div style="flex:1"></div>' + side(foeId, 'foe') + '<div class="wname" id="bscw"></div></div><div class="qbox" id="bscq"></div><div class="skip">點一下跳過</div>';
     var said = 0;
     var say = function (u, text) { var q = $('bscq'); if (!q || !text || !u) return; q.className = 'qbox' + (u.side === 'e' ? ' foe' : ''); q.innerHTML = portrait(u, 'qf') + '<div><b>' + esc(u.name) + '</b><span>「' + esc(text) + '」</span></div>'; said++; };
