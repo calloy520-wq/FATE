@@ -47,6 +47,7 @@
   .un .hb { position:absolute; left:10%; right:10%; bottom:2%; height:4px; background:rgba(0,0,0,.7); border-radius:2px; overflow:hidden; }
   .un .hb i { display:block; height:100%; background:#5ad17a; } .un.e .hb i { background:#ff6060; }
   .un .bd { position:absolute; top:-2px; right:-2px; font-size:10px; line-height:1; padding:2px 3px; border-radius:4px; background:#f2d24e; color:#8a1018; font-weight:900; }
+  .un .bd2 { position:absolute; top:-2px; left:-2px; font-size:10px; line-height:1; padding:2px 3px; border-radius:4px; background:#1a1f2c; border:1px solid var(--gold); color:var(--gold2); font-weight:900; }
   .un .bd.psn { top:auto; bottom:6px; right:-2px; background:#6fd06f; color:#0b2a0b; }
   .un.hit .pf { animation:knock .38s ease-out; } .un.gone { opacity:0; transition:opacity .4s; }
   .sbinfo { padding:8px 10px 14px; display:flex; flex-direction:column; gap:8px; }
@@ -184,7 +185,7 @@
     if (tab === 'hero') body = '<div class="list">' + T.ORDER.map(function (k) {
       var h = c.heroes[k], s = T.heroStats(c, k), on = S.heroes.some(function (x) { return x[0] === k; });
       return '<button class="box hcard" onclick="heroSheet(\'' + k + '\')">' + portrait({ id: k, side: 'p', name: G.SERVANTS[k].name }, 'pf2') + '<div style="flex:1;min-width:0"><b>' + esc(G.SERVANTS[k].name) + '</b> <span class="dim">Lv ' + h.lv + '</span>' + (on ? ' <span class="chip gold">出擊</span>' : '')
-        + '<div class="dim" style="font-size:12.5px">氣血 ' + s.hpMax + '・護體 ' + s.arm + '・輕身 ' + s.mob + '・悟道點 ' + h.pp + '</div></div><span class="tag">›</span></button>'; }).join('') + '</div>';
+        + '<div class="dim" style="font-size:12.5px">氣血 ' + s.hpMax + '・護體 ' + s.arm + '・輕身 ' + s.mob + '・悟道點 ' + h.pp + '・' + (s.ace ? '<span style="color:var(--gold)">★成名</span>' : '擊破 ' + h.kills + '/' + T.ACE_KILLS) + '</div></div><span class="tag">›</span></button>'; }).join('') + '</div>';
     if (tab === 'shop') body = '<div class="list">' + T.shopList(c).map(function (id) { var I = T.ITEMS[id];
       return '<div class="box urow"><div><b>' + esc(I.n) + '</b>　<span class="dim" style="font-size:13px">' + esc(I.d) + '</span><div class="dim" style="font-size:12.5px">背包裡有 ' + (c.inv[id] || 0) + ' 件</div></div><button class="btn" style="padding:6px 12px"' + (c.gold < I.price ? ' disabled' : '') + ' onclick="srwBuy(\'' + id + '\')">💎 ' + I.price + '</button></div>'; }).join('') + '</div>';
     if (tab === 'bag') { var items = Object.keys(c.inv).filter(function (id) { return c.inv[id] > 0; });
@@ -347,11 +348,13 @@
     b.units.forEach(function (u) {
       var el = have[u.uid]; delete have[u.uid];
       if (!T.live(u)) { if (el) { el.classList.add('gone'); setTimeout(function () { if (el.parentNode) el.remove(); }, 450); } return; }
-      if (!el) { el = document.createElement('div'); el.setAttribute('data-uid', u.uid); box.appendChild(el); el.innerHTML = portrait(u, 'pf') + '<span class="hb"><i></i></span><span class="bd" style="display:none"></span><span class="bd psn" style="display:none"></span>'; }
+      if (!el) { el = document.createElement('div'); el.setAttribute('data-uid', u.uid); box.appendChild(el); el.innerHTML = portrait(u, 'pf') + '<span class="hb"><i></i></span><span class="bd" style="display:none"></span><span class="bd psn" style="display:none"></span><span class="bd2" style="display:none"></span>'; }
       el.className = 'un ' + u.side + (u.boss ? ' boss' : u.rank === 'e' ? ' elite' : '') + (u.side === 'p' && u.acted && b.phase === 'p' ? ' acted' : '') + (SUI.sel === u.uid ? ' selu' : '');
       el.style.left = (u.x * ts) + 'px'; el.style.top = (u.y * ts) + 'px';
       el.querySelector('.hb i').style.width = Math.max(0, Math.round(100 * u.hp / u.hpMax)) + '%';
       var bd = el.querySelectorAll('.bd'); bd[0].style.display = u.stun || u.ding ? '' : 'none'; bd[0].textContent = u.stun ? '停' : '定' + u.ding; bd[1].style.display = u.poison ? '' : 'none'; bd[1].textContent = '毒' + u.poison;
+      var sp = u.side === 'e' && ['jinshen', 'dongming', 'ningshen'].filter(function (k) { return u.st[k]; })[0], b2 = el.querySelector('.bd2'), mk = u.side === 'p' && u.ace ? '★' : sp ? T.SPIRITS[sp].n.charAt(0) : '';   // 成名的星、魔王開著的心訣
+      b2.style.display = mk ? '' : 'none'; b2.textContent = mk;
     });
     Object.keys(have).forEach(function (k) { have[k].remove(); });
   }
@@ -498,7 +501,7 @@
     openOv('<b style="color:var(--gold)">選單</b><div class="list" style="margin-top:10px">'
       + '<button onclick="srwGoal()">作戰目標</button>'
       + '<button onclick="closeOv();srwEndTurn()">結束回合</button>'
-      + '<button onclick="srwToggle(\'anim\')">交手動畫：' + (s.anim ? '開' : '關') + '</button>'
+      + '<button onclick="srwToggle(\'anim\')">交手動畫：' + (s.anim === 2 ? '只看我方出手' : s.anim ? '全部' : '關') + '</button>'
       + '<button onclick="srwToggle(\'autoDef\')">敵方階段自動應戰：' + (s.autoDef ? '開' : '關（每次自己選）') + '</button>'
       + '<button onclick="closeOv();srwAutoTurn()">這回合交給自動（我方）</button>'
       + '<button onclick="closeOv();showHelp()">說明</button>'
@@ -506,7 +509,7 @@
       + '<button onclick="closeOv();run=null;titleScreen()">回標題（存著，之後接著打）</button></div>');
   }
   function srwGoal() { var S = T.stageOf(sB()); openOv('<b style="color:var(--gold)">' + stageNo(S) + '・' + esc(S.n) + '</b><div class="box" style="margin-top:10px;line-height:1.9">' + condText(S) + '</div>'); }
-  function srwToggle(k) { var s = srwSet(); s[k] = s[k] ? 0 : 1; queueSave(true, false); srwMenu(); }
+  function srwToggle(k) { var s = srwSet(); s[k] = k === 'anim' ? (s.anim === 1 ? 2 : s.anim === 2 ? 0 : 1) : s[k] ? 0 : 1; queueSave(true, false); srwMenu(); }
   function srwGiveUp() { var b = sB(); b.over = 'lose'; srwFinish(); }
   function srwAutoTurn() {
     var b = sB(); if (busy || b.phase !== 'p') return; busy = true;
@@ -587,7 +590,8 @@
     var b = sB(), cb = function () { srwEv(cb0); }; if (!sc || !sc.steps || !sc.steps.length) { drawUnits(); return cb(); }
     var done = false, finish = function () { if (done) return; done = true; var ov = $('bsc'); if (ov) ov.remove(); busy = wasBusy; drawUnits(); srwDraw(); cb(); };
     var wasBusy = busy; busy = true;
-    if (!srwSet().anim || CALM) { sc.steps.forEach(function (s) { var el = document.querySelector('.un[data-uid="' + s.d + '"]'); if (el) popAt(el, s.hit ? String(s.dmg) : '閃過', s.hit ? 'dmg' : 'blk'); }); drawUnits(); return setTimeout(finish, 450); }
+    var A0 = T.byUid(b, sc.a), an = srwSet().anim;
+    if (!an || CALM || (an === 2 && A0 && A0.side === 'e')) { sc.steps.forEach(function (s) { var el = document.querySelector('.un[data-uid="' + s.d + '"]'); if (el) popAt(el, s.hit ? String(s.dmg) : '閃過', s.hit ? 'dmg' : 'blk'); }); drawUnits(); return setTimeout(finish, 450); }
     var hp = {}; Object.keys(snap).forEach(function (k) { hp[k] = snap[k]; });
     var heroId = null, foeId = null;
     sc.steps.forEach(function (s) { [s.a, s.d].forEach(function (id) { var u = T.byUid(b, id); if (!u) return; if (u.side === 'p' && !heroId) heroId = id; if (u.side === 'e' && !foeId) foeId = id; }); });
@@ -608,10 +612,12 @@
       var tag = s.tag === 'counter' ? '還手' : s.tag === 'support' ? '助攻' : s.tag === 'map' ? '陣法' : '';
       $('bscw').innerHTML = esc(s.w) + '<small>' + esc(A.name) + (tag ? '・' + tag : '') + (s.resp === 'guard' ? '｜' + esc(D.name) + '招架' : s.resp === 'evade' ? '｜' + esc(D.name) + '閃身' : '') + '</small>';
       var aEl = ov.querySelector('.side[data-uid="' + s.a + '"] .fig'), dSide = ov.querySelector('.side[data-uid="' + s.d + '"]'), dEl = dSide && dSide.querySelector('.fig');
-      var foeOf = A.side === 'p' ? D : null, nn = i + (b.turn || 0);
-      var vk = foeOf && foeOf.boss ? A.id + '>' + foeOf.id : '', useVs = vk && !(SUI.vsSaid = SUI.vsSaid || {})[vk];
-      var line = s.tag === 'support' ? SRW_TALK.react(A.id, 'support', nn) || SRW_TALK.atkLine(A.id, s.wid, '', nn, false) : SRW_TALK.atkLine(A.id, s.wid, vk ? foeOf.id : '', nn, useVs);
-      if (useVs && line === (SRW_TALK.LINES[A.id] && SRW_TALK.LINES[A.id].vs && SRW_TALK.LINES[A.id].vs[foeOf.id])) SUI.vsSaid[vk] = 1;
+      // 女修打魔王、魔王打女修：第一次碰上說專屬的話（魔王先開口的，女修接她那句）
+      var nn = i + (b.turn || 0), SV = SUI.vsSaid = SUI.vsSaid || {}, VS = function (x, y) { var L = SRW_TALK.LINES[x]; return (L && L.vs && L.vs[y]) || ''; };
+      var tgt = (A.side === 'p' && D.boss) || (A.boss && D.side === 'p') ? D : null, vk = tgt ? A.id + '>' + tgt.id : '', useVs = vk && !SV[vk] && s.tag !== 'support';
+      var line = s.tag === 'support' ? SRW_TALK.react(A.id, 'support', nn) || SRW_TALK.atkLine(A.id, s.wid, '', nn, false) : SRW_TALK.atkLine(A.id, s.wid, tgt ? tgt.id : '', nn, useVs);
+      var saidVs = useVs && line && line === VS(A.id, tgt.id), replyVs = '';
+      if (saidVs) { SV[vk] = 1; if (A.boss && !SV[D.id + '>' + A.id] && VS(D.id, A.id)) { replyVs = VS(D.id, A.id); SV[D.id + '>' + A.id] = 1; } }
       say(A, line);
       var big = s.big && (A.side === 'p' || A.boss), pre = big ? 900 : 0;
       if (big) cutin(A, s.w);
@@ -637,7 +643,7 @@
         } else if (dSide) popAt(dSide, s.taying ? '踏影' : '閃過', 'blk');
         // 被打的人的反應（女修與魔王才說話）
         var rk = s.retreat ? 'retreat' : s.revive ? 'revive' : s.kill ? 'down' : s.hit ? 'hit' : 'dodge', rl = (D.side === 'p' || D.boss) ? SRW_TALK.react(D.id, rk, nn) : '';
-        if (s.kill && A.side === 'p' && !rl) rl = '';
+        if (replyVs && !s.kill && !s.revive) rl = replyVs;
         var wait = s.kill ? 900 : 650;
         if (rl) setTimeout(function () { if (!done) say(D, rl); }, 380);
         else if (s.kill && A.side === 'p') { var kl = SRW_TALK.react(A.id, 'kill', nn); if (kl) setTimeout(function () { if (!done) say(A, kl); }, 420); }

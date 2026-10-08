@@ -263,6 +263,8 @@ const allEv = c => { const a = []; let e; while ((e = T.takeEv(c))) a.push(e); r
   T.STAGES.forEach(S => { const boss = S.foes.filter(f => f[4] && f[4].boss)[0]; if (boss && !boss[4].retreat) ok(K.MID[S.id], S.id + ' 有半血對話'); ok(K.WIN[S.id], S.id + ' 有打完的對話'); });
   Object.keys(K.ADD).forEach(k => { eq(K.ADD[k].length, (by[k].add || []).length, k + ' 每一波增援都有對話'); K.ADD[k].forEach(ls => chk(by[k], ls, k + ' 增援')); });
   Object.keys(T.BOSS_SP).forEach(k => ok(T.SPIRITS[T.BOSS_SP[k]], k + ' 半血心訣存在'));
+  Object.keys(K.LINES).forEach(k => Object.keys(K.LINES[k].vs || {}).forEach(t => ok(T.ORDER.indexOf(k) >= 0 ? T.BOSS_SP[t] : T.ORDER.indexOf(t) >= 0, k + ' 對 ' + t + ' 的專屬台詞：女修對魔王、魔王對女修')));
+  ok(T.ORDER.every(k => K.LINES.xinmo.vs[k] && K.LINES[k].vs.xinmo), '魘對五個人各有一句，五個人各回一句');
 }
 console.log((fail ? '❌ ' : '✅ ') + pass + ' 項通過' + (fail ? '，' + fail + ' 項沒過' : ''));
 if (fail) process.exit(1);
