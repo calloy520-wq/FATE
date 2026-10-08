@@ -334,7 +334,7 @@ var T = (function () {
       mel: at, rng: at, spi: at, hit: sv('hit'), eva: sv('eva'), skl: sv('skl'), def: sv('def'), arm: Math.round((B.arm + B.armL * lv) * k[1]), mob: Math.round(B.mob + lv / 2 + (F.mob || 0)), aim: B.aim + lv, mv: F.mv, size: F.size || 'M', fly: !!F.fly,
       hp: hp, hpMax: hp, en: 999, enMax: 999, sp: 0, spMax: 0, will: B.will, willMax: 150, wpnUp: 0, w: F.w.map(function (w, i) { return i; }), ammo: {},
       st: {}, ding: 0, poison: 0, hitN: 0, acted: 0, moved: 0, grow: 0, hold: !!o.hold, tr: o.tr || 0, boss: !!o.boss, retreat: o.retreat || 0,
-      lives: F.lives || 0, reviveR: F.revive || 0, regen: F.regen || 0, stuns: 0 };
+      lives: F.lives || 0, reviveR: F.revive || 0, regen: F.regen || 0, stuns: 0, skills: R === 'b' ? { beishui: 2 } : {} };   // 魔王天生背水 Lv2（機戰的底力）
     return u;
   }
   // 招式的資料（女修存 id，敵人存索引）
@@ -498,10 +498,13 @@ var T = (function () {
   }
 
   // 交手前的預覽（畫面顯示用，也給 AI 決定）
-  function forecast(b, A, wi, D, resp) {
+  // 能拿來還手的招（射程夠、用得出來、不是陣法或合擊）
+  function counterOk(b, D, A, i) { var w = W(D, i); return !!w && !w.map && !w.combo && inRange(w, dist(A, D)) && usable(b, D, i, false); }
+  function counterList(b, D, A) { return D.w.map(function (_, i) { return i; }).filter(function (i) { return counterOk(b, D, A, i); }); }
+  function forecast(b, A, wi, D, resp, cwi) {
     var w = W(A, wi), g = guardFor(b, A, w, D), T0 = g || D;
     resp = g ? 'guard' : resp || bestResp(b, A, wi, D);
-    var ci = (!g && resp === 'counter') ? counterWpn(b, D, A) : -1;
+    var ci = (!g && resp === 'counter') ? (cwi != null && counterOk(b, D, A, cwi) ? cwi : counterWpn(b, D, A)) : -1;
     if (resp === 'counter' && ci < 0) resp = 'guard';
     var f = { wi: wi, w: w.n, hit: hitChance(b, A, w, T0, resp), dmg: damage(b, A, w, T0, resp, false), crit: critChance(A, w, T0), resp: resp, guard: g ? g.uid : null, target: T0.uid };
     f.kill = f.dmg >= T0.hp && !T0.lives && !T0.revive;
@@ -586,7 +589,7 @@ var T = (function () {
   // ── 交手 ──（resp：被打的一方怎麼回應；不給就自動選）回傳交手的紀錄（畫面播動畫用）
   function attack(c, A, wi, D, resp, opt) {
     var b = c.battle; opt = opt || {};
-    var f = forecast(b, A, wi, D, resp), w = W(A, wi), T0 = f.guard ? byUid(b, f.guard) : D, scene = { a: A.uid, d: D.uid, steps: [], guard: f.guard };
+    var f = forecast(b, A, wi, D, resp, opt.cwi), w = W(A, wi), T0 = f.guard ? byUid(b, f.guard) : D, scene = { a: A.uid, d: D.uid, steps: [], guard: f.guard };
     if (f.guard) T0.yhUsed = (T0.yhUsed || 0) + 1;
     var counterFirst = f.resp === 'counter' && f.cwi != null && D.skills && D.skills.houfa;
     if (counterFirst) { strike(c, b, D, W(D, f.cwi), A, '', scene.steps, 'counter'); }
@@ -748,11 +751,11 @@ var T = (function () {
     return null;
   }
   function enemyMove(c, plan) { var b = c.battle, u = byUid(b, plan.uid); if (!u) return; u.x = plan.x; u.y = plan.y; if (!plan.target && !plan.map) u.acted = 1; }
-  function enemyAct(c, plan, resp) {
+  function enemyAct(c, plan, resp, cwi) {
     var b = c.battle, u = byUid(b, plan.uid); if (!live(u)) return null;
     if (plan.map) return mapAttack(c, u, plan.wi, plan.cx, plan.cy);
     var t = byUid(b, plan.target); if (!live(t)) { u.acted = 1; return null; }
-    return attack(c, u, plan.wi, t, resp);
+    return attack(c, u, plan.wi, t, resp, { cwi: cwi });
   }
   function enemyDone(c) { var b = c.battle; if (b.over) return; startPlayerPhase(c); }
 
@@ -843,7 +846,7 @@ var T = (function () {
     upgrade: upgrade, train: train, learn: learn, equip: equip, unequip: unequip, buy: buy, shopList: shopList,
     startStage: startStage, tile: tile, terr: terr, units: units, byUid: byUid, unitAt: unitAt, live: live, dist: dist, W: W, wpns: wpns, curMv: curMv,
     moveRange: moveRange, moveTo: moveTo, undoMove: undoMove, wait: wait, canMoveAfter: canMoveAfter, moveAfter: moveAfter,
-    whyNot: whyNot, usable: usable, inRange: inRange, targetsFrom: targetsFrom, hitChance: hitChance, critChance: critChance, damage: damage, forecast: forecast, bestResp: bestResp, counterWpn: counterWpn, power: power,
+    whyNot: whyNot, usable: usable, counterList: counterList, inRange: inRange, targetsFrom: targetsFrom, hitChance: hitChance, critChance: critChance, damage: damage, forecast: forecast, bestResp: bestResp, counterWpn: counterWpn, power: power,
     attack: attack, mapCells: mapCells, mapTargets: mapTargets, mapCenterOk: mapCenterOk, mapAttack: mapAttack, stunAt: stunAt,
     spCost: spCost, canSpirit: canSpirit, useSpirit: useSpirit, useItem: useItem,
     endPlayerPhase: endPlayerPhase, enemyNext: enemyNext, enemyMove: enemyMove, enemyAct: enemyAct, enemyDone: enemyDone, aiPlan: aiPlan, checkOver: checkOver,

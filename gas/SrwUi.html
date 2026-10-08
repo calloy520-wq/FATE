@@ -26,6 +26,7 @@
   .sbunits { position:absolute; left:0; top:0; z-index:3; pointer-events:none; }
   .un { position:absolute; width:var(--ts); height:var(--ts); transition:left .28s ease-out, top .28s ease-out; display:flex; align-items:center; justify-content:center; }
   .un .pf { width:84%; height:84%; border-radius:50%; background:#1a1f2c center 8%/180% no-repeat; border:2px solid #6fb7ff; box-shadow:0 2px 6px rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; font-weight:900; font-family:var(--serif); font-size:calc(var(--ts) * .38); color:#fff; text-shadow:0 1px 2px #000; overflow:hidden; }
+  .sil { position:relative; overflow:hidden; } .sil .fsvg { position:absolute; height:112%; width:auto; left:50%; top:-2%; transform:translateX(-50%); filter:drop-shadow(0 0 1.5px var(--fc)) drop-shadow(0 0 3px var(--fc)); }
   .un.e .pf { border-color:#ff5a5a; } .un.boss .pf { border-color:var(--gold); box-shadow:0 0 10px rgba(227,194,122,.8); } .un.elite .pf { border-color:#ff9a5a; }
   .un.acted .pf { filter:grayscale(.9) brightness(.65); }
   .un.selu .pf { box-shadow:0 0 0 2px #fff, 0 0 12px #9cd0ff; }
@@ -122,6 +123,7 @@
     var nm = u.name || '';
     if (src && !ART_BAD[src]) return '<i class="' + cls + '" style="background-image:url(\'' + src + '\')"><img src="' + src + '" alt="" style="display:none" onerror="ART_BAD[this.getAttribute(\'src\')]=1;this.parentNode.style.backgroundImage=\'none\';this.parentNode.textContent=\'' + esc(nm.slice(-1)) + '\'"></i>';
     var c = (FIG.FOE[u.id] || FIG.HERO[u.id] || {}).c || '#888';
+    if (u.side === 'e' && FIG.FOE[u.id]) return '<i class="' + cls + ' sil" style="background:radial-gradient(circle at 50% 40%,' + c + '44,#0d0f17 72%)">' + FIG.fig(u.id, true) + '</i>';   // 沒有立繪：剪影的上半身
     return '<i class="' + cls + '" style="background:radial-gradient(circle at 50% 35%,' + c + '55,#11131c 70%);color:' + c + '">' + esc(nm.slice(u.side === 'p' ? -1 : 0, u.side === 'p' ? undefined : 1)) + '</i>';
   }
   function FIG_art(id) { var sk = META && META.skin && META.skin[id]; return (sk && ART[id + '_' + sk]) || ART[id]; }
@@ -358,6 +360,8 @@
     openOv('<b style="color:var(--gold)">交手預覽</b><div class="fc" style="margin-top:10px">'
       + '<div class="side p"><b>' + esc(u.name) + '</b><div class="lab">' + esc(f.w) + '</div><div class="big">' + f.hit + '%</div><div class="lab">命中</div><div class="big" style="font-size:20px">' + f.dmg + '</div><div class="lab">傷害・爆擊 ' + f.crit + '%</div>' + (f.kill ? '<div class="kill">可以擊破</div>' : '') + '</div>'
       + '<div class="side e"><b>' + esc((G0 || d).name) + '</b>' + (G0 ? '<div class="lab" style="color:var(--gold)">替' + esc(d.name) + '掩護</div>' : '') + '<div class="lab">' + resp + '</div>' + (f.cw ? '<div class="big">' + f.chit + '%</div><div class="lab">命中</div><div class="big" style="font-size:20px">' + f.cdmg + '</div><div class="lab">傷害・爆擊 ' + f.ccrit + '%</div>' : '<div class="dim" style="margin-top:8px">不能還手</div>') + '<div class="lab" style="margin-top:4px">氣血 ' + (G0 || d).hp + '/' + (G0 || d).hpMax + '</div></div></div>'
+      + (function () { var alt = u.w.map(function (_, i) { return i; }).filter(function (i) { var w2 = T.W(u, i); return i !== wi && !w2.map && T.usable(b, u, i, !!u.moved) && T.inRange(w2, T.dist(u, d)); });
+          return alt.length ? '<div class="row" style="margin-top:8px;flex-wrap:wrap;gap:6px"><span class="dim" style="font-size:12.5px">換招式：</span>' + alt.map(function (i) { return '<button class="chip gold" style="padding:4px 9px;font-size:13px" onclick="forecastSheet(T.byUid(sB(),\'' + u.uid + '\'),' + i + ',T.byUid(sB(),\'' + d.uid + '\'))">' + esc(T.W(u, i).n) + '</button>'; }).join('') + '</div>' : ''; })()
       + (f.sup ? '<div class="box" style="margin-top:8px;padding:8px 12px">助攻：<b>' + esc(f.sup.name) + '</b> 的 ' + esc(f.sup.w) + '・命中 ' + f.sup.hit + '%・傷害 ' + f.sup.dmg + '</div>' : '')
       + '<div class="row" style="margin-top:12px;justify-content:center;flex-wrap:wrap"><button class="btn go" onclick="forecastSheet.go(true)">出手</button>' + (f.sup ? '<button class="btn" onclick="forecastSheet.go(false)">不要助攻</button>' : '') + '<button class="btn" onclick="closeOv()">取消</button></div>');
   }
@@ -458,18 +462,18 @@
     };
     setTimeout(go, plan.x !== e.x || plan.y !== e.y ? 380 : 120);
   }
-  function defend(plan, resp) { window.NO_ESC = 0; $('ov').onclick = function (ev) { if (ev.target === this) closeOv(); }; closeOv(); var b = sB(), snap = snapHp(b), sc = T.enemyAct(run, plan, resp); playScene(sc, snap, function () { srwDraw(); setTimeout(enemyStep, 150); }); }
+  function defend(plan, resp, cwi) { window.NO_ESC = 0; $('ov').onclick = function (ev) { if (ev.target === this) closeOv(); }; closeOv(); var b = sB(), snap = snapHp(b), sc = T.enemyAct(run, plan, resp, cwi); playScene(sc, snap, function () { srwDraw(); setTimeout(enemyStep, 150); }); }
   // 被打：選還手／招架／閃身
   function defenseSheet(plan) {
     var b = sB(), e = T.byUid(b, plan.uid), t = T.byUid(b, plan.target), rec = T.bestResp(b, e, plan.wi, t), ci = T.counterWpn(b, t, e);
-    var opt = function (resp, label) {
-      var f = T.forecast(b, e, plan.wi, t, resp), g = f.guard && T.byUid(b, f.guard);
-      var sub = '對方命中 ' + f.hit + '%・傷害 ' + f.dmg + (f.kill ? '（會倒下）' : '') + (f.cw ? '｜還手 ' + esc(f.cw) + ' 命中 ' + f.chit + '%・傷害 ' + f.cdmg : '');
-      return '<button class="' + (resp === rec ? 'rec' : '') + '" onclick="defend(defenseSheet.plan,\'' + resp + '\')"><b>' + label + (g ? '（' + esc(g.name) + '掩護）' : '') + '</b>' + (resp === rec ? ' <span class="chip gold">建議</span>' : '') + '<small>' + sub + '</small></button>';
+    var opt = function (resp, label, cwi, isRec) {
+      var f = T.forecast(b, e, plan.wi, t, resp, cwi), g = f.guard && T.byUid(b, f.guard);
+      var sub = '對方命中 ' + f.hit + '%・傷害 ' + f.dmg + (f.kill ? '（會倒下）' : '') + (f.cw ? '｜' + esc(f.cw) + ' 命中 ' + f.chit + '%・傷害 ' + f.cdmg : '');
+      return '<button class="' + (isRec ? 'rec' : '') + '" onclick="defend(defenseSheet.plan,\'' + resp + '\'' + (cwi != null ? ',' + cwi : '') + ')"><b>' + label + (g ? '（' + esc(g.name) + '掩護）' : '') + '</b>' + (isRec ? ' <span class="chip gold">建議</span>' : '') + '<small>' + sub + '</small></button>';
     };
     defenseSheet.plan = plan; window.NO_ESC = 1;
     openOv('<b style="color:#ffb0b0">' + esc(e.name) + '</b> 用「' + esc(T.W(e, plan.wi).n) + '」打 <b>' + esc(t.name) + '</b><div class="dim" style="font-size:12.5px;margin:2px 0 8px">' + esc(t.name) + ' 氣血 ' + t.hp + '/' + t.hpMax + '・戰意 ' + t.will + '</div><div class="resp">'
-      + (ci >= 0 ? opt('counter', '還手') : '') + opt('guard', '招架') + opt('evade', '閃身') + '</div>');
+      + T.counterList(b, t, e).map(function (i) { return opt('counter', '還手：' + esc(T.W(t, i).n), i, rec === 'counter' && i === ci); }).join('') + opt('guard', '招架', null, rec === 'guard') + opt('evade', '閃身', null, rec === 'evade') + '</div>');
     $('ov').onclick = function () { };   // 一定要選一個（點外面、按 Esc 都不關）
     var x = document.querySelector('#sheet .ovx'); if (x) x.style.display = 'none';
   }
@@ -603,7 +607,7 @@
     will: ['戰意', '打中、閃過、挨打、擊破都會讓戰意上升。戰意越高越強，大招要戰意到一定程度才能用。']
   };
   function srwTip(id) {
-    if (!META) return false; META.tips2 = META.tips2 || {}; if (META.tips2[id] || $('ov').style.display === 'flex') return false;
+    if (!META) return false; META.tips2 = META.tips2 || {}; if (META.tips2.all || META.tips2[id] || $('ov').style.display === 'flex') return false;
     META.tips2[id] = 1; queueSave(true, false);
     var Tp = SRW_TIPS[id];
     openOv('<div class="tipbox"><div class="dim" style="font-size:13px">新手提示</div><h3 style="margin:2px 0 8px">' + Tp[0] + '</h3><div class="lore" style="text-align:left">' + keepTail(Tp[1]) + '</div><div class="row" style="justify-content:center;margin-top:12px"><button class="btn" onclick="closeOv();setTimeout(srwTips,200)">知道了</button></div></div>');

@@ -1968,7 +1968,7 @@
     var E = G.ENEMIES[k];
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(E.name) + '</b>　<span class="dim">' + (E.boss ? '魔王' : E.elite ? '精英' : '妖物') + '</span>'
       + '<div class="svtfig ' + (E.boss && k === 'xinmo' ? 'sc-abyss' : 'sc-city') + '">' + FIG.fig(k, true) + '</div>'
-      + '<div class="list" style="margin-top:10px"><div class="box">' + keepTail(esc(G.LORE[k] || '')) + '</div><div class="box"><h3>招式</h3>' + (E.names ? G.ORDER.map(function (w) { return '<div style="margin-top:4px"><b>' + esc(G.SERVANTS[w].name) + '</b>：' + keepTail(E.names[w].map(esc).join('、')) + '</div>'; }).join('') : keepTail(E.moves.map(function (m) { return esc(m.n); }).join('、'))) + '</div></div>');   // 魘：對每個人說的話不一樣
+      + '<div class="list" style="margin-top:10px"><div class="box">' + keepTail(esc(G.LORE[k] || '')) + '</div><div class="box"><h3>招式</h3>' + ((T.FOES[k] || { w: [] }).w.map(function (w) { return '<div style="margin-top:4px"><b>' + esc(w.n) + '</b>　<span class="dim" style="font-size:12.5px">' + wpnLine(w, 0) + '</span></div>'; }).join('')) + '</div></div>');   // 戰棋的招式（T.FOES）
   }
   // 對局紀錄：每局結束送一列到伺服器（調平衡用；送不出去就算了）
   function logRun(r) {
