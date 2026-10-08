@@ -146,7 +146,7 @@ function gpLog(name, token, d) {
 
 // 戰棋紀錄（2026-10-08）：每關打完記一列（哪一關、勝敗、回合數、平均等級），調關卡難度用。新分頁「戰棋紀錄」
 var GP_SLOG = '戰棋紀錄';
-var GP_SLOG_HEAD = ['時間', '帳號', '關卡', '結果', '回合', '平均等級', '靈石', '功勳', '累計回合'];
+var GP_SLOG_HEAD = ['時間', '帳號', '關卡', '結果', '回合', '平均等級', '靈石', '功勳', '累計回合', '淬鍊總級'];
 function gpStageLog(name, token, d) {
   var raw = name; name = gpName_(name);
   var sh = gpSheet_(), row = gpFind_(sh, name, raw); if (!row) return { ok: false };
@@ -156,7 +156,7 @@ function gpStageLog(name, token, d) {
   var ss = SpreadsheetApp.getActiveSpreadsheet(), lg = ss.getSheetByName(GP_SLOG);
   if (!lg) { lg = ss.insertSheet(GP_SLOG); lg.appendRow(GP_SLOG_HEAD); lg.setFrozenRows(1); }
   var cut = function (x) { var s = String(x == null ? '' : x).slice(0, 80); return /^[=+\-@]/.test(s) ? "'" + s : s; };
-  lg.appendRow([new Date(), cut(name), cut(d.stage), cut(d.result), +d.turns || 0, +d.lv || 0, +d.gold || 0, +d.merit || 0, +d.total || 0]);
+  lg.appendRow([new Date(), cut(name), cut(d.stage), cut(d.result), +d.turns || 0, +d.lv || 0, +d.gold || 0, +d.merit || 0, +d.total || 0, +d.up || 0]);
   return { ok: true };
 }
 

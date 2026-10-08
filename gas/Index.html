@@ -986,7 +986,7 @@
   function recordScreen() {
     var M = me(), st = M.stats, c = load(), done = c && c.srw ? Math.min(c.cleared || 0, T.STAGES.length) : 0;
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">戰績：' + esc(ACC.name) + '</h1>'
-      + '<div class="box">戰役 ' + (st.runs || 0) + ' 次・封魘 ' + (st.trueEnds || 0) + ' 次' + (st.srwTurns ? '・通關最少 ' + st.srwTurns + ' 回合' : '') + '</div>'
+      + '<div class="box">戰役 ' + (st.runs || 0) + ' 次・封魘 ' + (st.trueEnds || 0) + ' 次' + (st.srwTurns ? '・通關最少 ' + st.srwTurns + ' 回合' : '') + (st.noUpClear ? '・<span style="color:var(--gold)">★ 不淬鍊通關</span>' : '') + '</div>'
       + (c && c.srw ? '<div class="list"><div class="box">這一輪：過了 ' + done + '／' + T.STAGES.length + ' 關・功勳 ' + Object.keys(c.merit || {}).length + ' 個・累計 ' + (c.turns || 0) + ' 回合</div>'
         + T.ORDER.map(function (k) { var h = c.heroes[k]; return '<div class="box urow"><div><b>' + esc(G.SERVANTS[k].cls + '・' + G.SERVANTS[k].name) + '</b><div class="dim" style="font-size:13.5px">Lv ' + h.lv + '・擊破 ' + h.kills + '</div></div></div>'; }).join('') + '</div>' : '')
       + '<div class="row" style="justify-content:center"><button class="btn" onclick="boardScreen(\'turns\',\'record\')">排行榜</button><button class="btn" onclick="titleScreen()">返回</button></div></div>';

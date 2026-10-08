@@ -291,6 +291,7 @@ var T = (function () {
   function curStage(c) { return STAGES[Math.min(c.stage, STAGES.length - 1)]; }
 
   // 這位女修現在的完整數值（等級、修為、淬鍊、法寶、功法都算進去）
+  function upTotal(c) { return ORDER.reduce(function (a, k) { var u = c.heroes[k].up; return a + keys(u).reduce(function (x, kk) { return x + (u[kk] || 0); }, 0); }, 0); }   // 全隊淬鍊總級數（不強化＝0）
   function fullDone(h) { return ['hp', 'en', 'arm', 'mob', 'aim'].every(function (k) { return h.up[k] >= 5; }); }
   function skillLv(h, who, k) { return ((HEROES[who].skills || {})[k] || 0) + (h.sk[k] || 0); }
   function heroStats(c, who) {
@@ -874,7 +875,7 @@ var T = (function () {
   return {
     TERRAIN: TERRAIN, SIZE_NAME: SIZE_NAME, ACE: ACE, ACE_KILLS: ACE_KILLS, SPIRITS: SPIRITS, SKILLS: SKILLS, ITEMS: ITEMS, HEROES: HEROES, TRAITS: TRAITS, FOES: FOES, STAGES: STAGES, ORDER: ORDER,
     TRAIN_KEYS: TRAIN_KEYS, TRAIN_NAME: TRAIN_NAME, TRAIN_COST: TRAIN_COST, TRAIN_STEP: TRAIN_STEP, TRAIN_MAX: TRAIN_MAX, UP_KEYS: UP_KEYS, UP_NAME: UP_NAME, UP_STEP: UP_STEP, UP_MAX: UP_MAX, EQ_SLOTS: EQ_SLOTS, EXP_LV: EXP_LV,
-    TUNE: TUNE, devOf: devOf, newCampaign: newCampaign, migrate: migrate, curStage: curStage, stageOf: stageOf, heroStats: heroStats, fullDone: fullDone, upCost: upCost, skillCost: skillCost,
+    TUNE: TUNE, devOf: devOf, newCampaign: newCampaign, migrate: migrate, curStage: curStage, stageOf: stageOf, heroStats: heroStats, fullDone: fullDone, upTotal: upTotal, upCost: upCost, skillCost: skillCost,
     upgrade: upgrade, train: train, learn: learn, equip: equip, unequip: unequip, buy: buy, shopList: shopList,
     startStage: startStage, tile: tile, terr: terr, units: units, byUid: byUid, unitAt: unitAt, live: live, dist: dist, W: W, wpns: wpns, curMv: curMv,
     moveRange: moveRange, moveTo: moveTo, undoMove: undoMove, wait: wait, canMoveAfter: canMoveAfter, moveAfter: moveAfter,

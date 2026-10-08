@@ -318,5 +318,6 @@ const allEv = c => { const a = []; let e; while ((e = T.takeEv(c))) a.push(e); r
   const ci = T.counterList(b, s, g)[0]; T.attack(c, g, 0, s, 'counter', { cwi: ci }); ok(g.st.jinshen, '敵方階段被打到半血：金身');
   b.queue = []; T.enemyDone(c); ok(g.st.jinshen, '下一個我方階段還在'); T.endPlayerPhase(c); ok(!g.st.jinshen, '下一個敵方階段開始就散');
 }
+{ const c = T.newCampaign(41); eq(T.upTotal(c), 0, '沒淬鍊：總級數 0'); c.gold = 99999; T.upgrade(c, 'aduo', 'hp'); T.upgrade(c, 'aduo', 'hp'); eq(T.upTotal(c), 2, '淬鍊兩級：總級數 2'); }
 console.log((fail ? '❌ ' : '✅ ') + pass + ' 項通過' + (fail ? '，' + fail + ' 項沒過' : ''));
 if (fail) process.exit(1);
