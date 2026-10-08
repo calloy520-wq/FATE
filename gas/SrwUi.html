@@ -736,7 +736,11 @@
       + '<div class="list">' + rows + '</div><button class="btn" onclick="T.toPrep(run);save();render()">' + (run.stage >= T.STAGES.length ? '繼續' : '回整備') + '</button></div>';
   }
   function endScreen() {
-    $('app').innerHTML = '<div class="panel">' + heroHtml('封魔已畢') + '<div class="lore box" style="text-align:left;max-width:460px">' + keepTail('魘封住了。五篇真結局與尾聲都收進了「劇情」。') + '</div>'
+    var ks = T.ORDER.filter(function (k) { return run.heroes[k]; }).sort(function (a, c) { return run.heroes[c].kills - run.heroes[a].kills; }), up = T.upTotal(run);
+    var sum = '<div class="box" style="max-width:460px;width:100%"><div class="dim" style="font-size:13px;margin-bottom:4px">這一輪</div>'
+      + '<div>' + nwj(['總回合 ' + (run.turns || 0) + '（含重打）', '功勳 ' + Object.keys(run.merit || {}).length + '／' + T.STAGES.length, up ? '淬鍊 ' + up + ' 級' : '<span style="color:var(--gold)">★ 不淬鍊通關</span>']) + '</div>'
+      + '<div style="margin-top:6px">' + ks.map(function (k, i) { var h = run.heroes[k]; return '<div style="font-size:14px">' + (i ? '' : '👑 ') + nwj(['<b>' + esc(G.SERVANTS[k].name) + '</b> <span class="dim">Lv ' + h.lv + '</span>', '擊破 ' + h.kills].concat(h.kills >= T.ACE_KILLS ? ['<span style="color:var(--gold)">★「' + esc(G.SERVANTS[k].hao) + '」</span>'] : [])) + '</div>'; }).join('') + '</div></div>';
+    $('app').innerHTML = '<div class="panel">' + heroHtml('封魔已畢') + '<div class="lore box" style="text-align:left;max-width:460px">' + keepTail('魘封住了。五篇真結局與尾聲都收進了「劇情」。') + '</div>' + sum
       + '<div class="menu" style="max-width:460px;width:100%"><button class="mbtn main" onclick="storyScreen(\'end\')"><span class="mi">🏮</span><span><b>看真結局</b><small>五個視角、同一場仗</small></span></button>'
       + '<button class="mbtn" onclick="confirmOv(\'重新開始戰役？等級、淬鍊、法寶都會重來。\',srwNew)"><span class="mi">⚔</span><span><b>重新開始戰役</b></span></button>'
       + '<button class="mbtn" onclick="run=null;titleScreen()"><span class="mi">↩</span><span><b>回標題</b></span></button></div></div>';
