@@ -42,6 +42,7 @@
   .un .pf { width:84%; height:84%; border-radius:50%; background:#1a1f2c center 8%/180% no-repeat; border:2px solid #6fb7ff; box-shadow:0 2px 6px rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; font-weight:900; font-family:var(--serif); font-size:calc(var(--ts) * .38); color:#fff; text-shadow:0 1px 2px #000; overflow:hidden; }
   .sil { position:relative; overflow:hidden; } .sil .fsvg { position:absolute; height:112%; width:auto; left:50%; top:-2%; transform:translateX(-50%); filter:drop-shadow(0 0 1.5px var(--fc)) drop-shadow(0 0 3px var(--fc)); }
   .un.e .pf { border-color:#ff5a5a; } .un.boss .pf { border-color:var(--gold); box-shadow:0 0 10px rgba(227,194,122,.8); } .un.elite .pf { border-color:#ff9a5a; }
+  .un.spawn .pf { animation:spawnIn .9s ease-out; } @keyframes spawnIn { 0% { transform:scale(0); box-shadow:0 0 0 0 rgba(255,80,80,.9); } 60% { transform:scale(1.2); box-shadow:0 0 18px 6px rgba(255,80,80,.7); } 100% { transform:scale(1); } }
   .un.acted .pf { filter:grayscale(.9) brightness(.65); }
   .un.selu .pf { box-shadow:0 0 0 2px #fff, 0 0 12px #9cd0ff; }
   .un .hb { position:absolute; left:10%; right:10%; bottom:2%; height:4px; background:rgba(0,0,0,.7); border-radius:2px; overflow:hidden; }
@@ -351,7 +352,8 @@
       var el = have[u.uid]; delete have[u.uid];
       if (!T.live(u)) { if (el) { el.classList.add('gone'); setTimeout(function () { if (el.parentNode) el.remove(); }, 450); } return; }
       if (!el) { el = document.createElement('div'); el.setAttribute('data-uid', u.uid); box.appendChild(el); el.innerHTML = portrait(u, 'pf') + '<span class="hb"><i></i></span><span class="bd" style="display:none"></span><span class="bd psn" style="display:none"></span><span class="bd2" style="display:none"></span>'; }
-      el.className = 'un ' + u.side + (u.boss ? ' boss' : u.rank === 'e' ? ' elite' : '') + (u.side === 'p' && u.acted && b.phase === 'p' ? ' acted' : '') + (SUI.sel === u.uid ? ' selu' : '');
+      var SP = SUI.spawn = SUI.spawn || {}; if (u.fresh && !SP[u.uid]) SP[u.uid] = Date.now();   // 增援登場：頭像從光裡冒出來
+      el.className = 'un ' + u.side + (u.boss ? ' boss' : u.rank === 'e' ? ' elite' : '') + (u.side === 'p' && u.acted && b.phase === 'p' ? ' acted' : '') + (SUI.sel === u.uid ? ' selu' : '') + (SP[u.uid] && Date.now() - SP[u.uid] < 900 ? ' spawn' : '');
       el.style.left = (u.x * ts) + 'px'; el.style.top = (u.y * ts) + 'px';
       el.querySelector('.hb i').style.width = Math.max(0, Math.round(100 * u.hp / u.hpMax)) + '%';
       var bd = el.querySelectorAll('.bd'); bd[0].style.display = u.stun || u.ding ? '' : 'none'; bd[0].textContent = u.stun ? '停' : '定' + u.ding; bd[1].style.display = u.poison ? '' : 'none'; bd[1].textContent = '毒' + u.poison;

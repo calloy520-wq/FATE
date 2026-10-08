@@ -696,7 +696,7 @@ var T = (function () {
   // ════ 階段 ════
   function startPlayerPhase(c) {
     var b = c.battle; b.phase = 'p'; b.turn++;
-    units(b, 'e').forEach(function (u) { u.hitN = 0; if (u.stUntil != null && b.turn > u.stUntil) { TURN_ST.forEach(function (k) { u.st[k] = 0; }); u.stUntil = null; } });
+    units(b, 'e').forEach(function (u) { u.hitN = 0; u.fresh = 0; if (u.stUntil != null && b.turn > u.stUntil) { TURN_ST.forEach(function (k) { u.st[k] = 0; }); u.stUntil = null; } });
     units(b, 'p').forEach(function (u) {
       u.acted = 0; u.moved = 0; u.moveDone = 0; u.hitN = 0; u.yhUsed = 0; u.zgUsed = 0;
       TURN_ST.forEach(function (k) { u.st[k] = 0; });
