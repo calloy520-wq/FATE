@@ -88,8 +88,6 @@
   #me { padding:8px 12px; border-top:1px solid var(--line); background:var(--panel); }
   .row { display:flex; gap:8px; align-items:center; }
 
-  .np { height:12px; background:#262c38; border-radius:6px; overflow:hidden; flex:1; } .np i { display:block; height:100%; background:linear-gradient(90deg,#8a6d2e,var(--gold)); transition:width .25s; }
-  .np.full i { animation:glow 1s infinite; } @keyframes glow { 50% { opacity:.6; } }
   #log { min-height:20px; padding:4px 12px; color:var(--dim); font-size:13.5px; }
 
   .card { flex:1 0 0; min-width:58px; max-width:118px; min-height:128px; border-radius:10px; border:1px solid var(--line); background:#1b2130; padding:7px 6px; text-align:left; position:relative; display:flex; flex-direction:column; }
@@ -732,7 +730,7 @@
     ['city', '世人都以為劍主死了。她的關門弟子蘇凌霜接下掌門，住在落霞山頂的塔上，白天練劍，夜裡撫琴。<br>只有白辰知道不是。淵裡那半身龍元一直亮著，護著那個人。<br>她把淵前的事告訴了玄真觀祖師最後收的弟子顧青璃，等她把那道印練成，一等就是一百年。<br>今年中秋，紅月升起，白辰忽然感覺不到那半身龍元了。封印跟著鬆動，逃出來的妖魔，佔了魔淵口上的長寧城。城裡的人連夜逃走，從此，人們都叫它<b>鬼哭城</b>。'],
     ['hill', '這一次，沒有人敢再帶一大群人去。百年前的教訓還在。<br>那一夜，落霞山頂的塔上飛進來一道傳信符，只有幾行字：「妳師父還活著。往魔淵去，路上會合。」<br>凌霜提起劍，走下了<b>落霞山</b>。', 'shuang'],
     ['hill', '劍宗的客房裡住著一個合歡宗的酒修，叫赤灼。夏末她跟凌霜並肩斬過一群妖，又在塔下聽了一個月的琴。凌霜一下山，她就拎起刀跟了上去。<br>傳信符是青璃畫的。今年春天，她終於把鎮魂印畫完整了；苗女阿朵，是她夏天在江南遇上的。<br>白辰帶著她們兩個往北走，要在路上跟凌霜會合。', 'others'],
-    ['abyss', '五個人在往鬼哭城的路上會合了。白辰從山莊帶來五枚<b style="color:var(--red)">師門玉符</b>，是當年丹鼎宗與玄真觀一同煉的，一人一枚。<br>玉符能在危急時保住一命；五枚一起捏碎，魔淵的門就會打開。<br>門後，有人撐了一百年。<br>去吧。把那道印畫完，把她接回來。']
+    ['abyss', '五個人在往鬼哭城的路上會合了。白辰從山莊帶來五枚<b style="color:var(--red)">玉符</b>，是當年丹鼎宗與玄真觀一同煉的，一人一枚。<br>玉符能在危急時保住一命；五枚一起捏碎，魔淵的門就會打開。<br>門後，有人撐了一百年。<br>去吧。把那道印畫完，把她接回來。']
   ];
   function prologue(i) {
     var beats = [], q = { i: 0 };
@@ -762,8 +760,8 @@
     }).join('') + '</div>';
     if (tab === 'end') { var any = G.ORDER.some(function (k) { return endingSeen(M, k); });
       body = '<div class="list">' + G.ORDER.map(function (k) { var S = G.SERVANTS[k], E = G.ENDINGS[k], got = endingSeen(M, k);
-        return '<button class="box urow" style="text-align:left"' + (got ? ' onclick="vnEnding(\'' + k + '\')"' : ' disabled data-locked="1"') + '><div><b>' + esc(S.name) + '：' + (got ? '「' + esc(E.title) + '」' : '？？？') + '</b><div class="dim" style="font-size:13px">' + (got ? '點開看' : '用她在九幽魔淵封印魘') + '</div></div></button>'; }).join('')
-        + '<button class="box urow" style="text-align:left"' + (any ? ' onclick="vnEpilogue()"' : ' disabled data-locked="1"') + '><div><b>尾聲・' + (any ? '「' + esc(G.EPILOGUE.title) + '」' : '？？？') + '</b><div class="dim" style="font-size:13px">' + (any ? '隔年中秋，五個人又聚在一起' : '封印魘一次，就看得到') + '</div></div></button></div>'; }
+        return '<button class="box urow" style="text-align:left"' + (got ? ' onclick="vnEnding(\'' + k + '\')"' : ' disabled data-locked="1"') + '><div><b>' + esc(S.name) + '：' + (got ? '「' + esc(E.title) + '」' : '？？？') + '</b><div class="dim" style="font-size:13px">' + (got ? '點開看' : '封印魘之後就看得到') + '</div></div></button>'; }).join('')
+        + '<button class="box urow" style="text-align:left"' + (any ? ' onclick="vnEpilogue()"' : ' disabled data-locked="1"') + '><div><b>尾聲・' + (any ? '「' + esc(G.EPILOGUE.title) + '」' : '？？？') + '</b><div class="dim" style="font-size:13px">' + (any ? '隔年中秋，五個人又聚在一起' : '封印魘之後就看得到') + '</div></div></button></div>'; }
     $('app').innerHTML = '<div class="panel"><h1 style="font-size:22px">🏮 劇情</h1>' + head + body + '<button class="btn" onclick="titleScreen()">返回</button></div>';
   }
   // 每位女修自己的插曲：她的專屬事件（只看故事，不用選）
@@ -983,7 +981,7 @@
         + T.ORDER.map(function (k) { var h = c.heroes[k]; return '<div class="box urow"><div><b>' + esc(G.SERVANTS[k].cls + '・' + G.SERVANTS[k].name) + '</b><div class="dim" style="font-size:13.5px">Lv ' + h.lv + '・擊破 ' + h.kills + '</div></div></div>'; }).join('') + '</div>' : '')
       + '<div class="row" style="justify-content:center"><button class="btn" onclick="boardScreen(\'turns\',\'record\')">排行榜</button><button class="btn" onclick="titleScreen()">返回</button></div></div>';
   }
-  // 排行榜：伺服器彙整所有帳號的戰績（無盡最遠、通關次數）；一分鐘更新一次
+  // 排行榜：伺服器彙整所有帳號的戰績（通關最少回合、封魘次數）；一分鐘更新一次
   function boardScreen(tab, from) {
     if (from !== undefined) boardScreen.from = from;   // 從戰績進來的，返回戰績
     tab = tab || boardScreen.tab || 'turns'; boardScreen.tab = tab;
@@ -995,13 +993,13 @@
     srv('gpBoard', [ACC && ACC.name], function (res) {
       if (boardScreen.tab !== tab) return;
       if (!res || !res.ok) return shell('<div class="dim" style="text-align:center">' + esc((res && res.msg) || '連不上伺服器，稍後再試') + '</div><button class="btn" onclick="boardScreen()">重新整理</button>');
-      var key = { turns: 'srwTurns', wins: 'wins', endless: 'endless' }[tab] || 'wins', asc = tab === 'turns';   // 回合越少越前面
+      var key = tab === 'turns' ? 'srwTurns' : 'wins', asc = tab === 'turns';   // 回合越少越前面
       var rows = res.list.filter(function (r) { return r[key] > 0; }).sort(function (a, b) { return (asc ? a[key] - b[key] : b[key] - a[key]) || (b.trueEnds || 0) - (a.trueEnds || 0); }).slice(0, 50);
       if (!rows.length) return shell('<div class="dim" style="text-align:center">還沒有人上榜，第一名就是妳的。</div>');
       shell(rows.map(function (r, i) {
-        var S = r.who && G.SERVANTS[r.who], medal = ['🥇', '🥈', '🥉'][i] || (i + 1) + '.';
-        var sub = tab === 'endless' ? (S ? S.cls + '・' + S.name : '') : tab === 'turns' ? '通關的總回合（含重打）' : '封魘 ' + (r.trueEnds || 0) + ' 次・出擊 ' + (r.runs || 0) + ' 次';
-        return '<div class="box urow"' + (r.key === res.me ? ' style="border-color:var(--gold)"' : '') + '><span style="width:34px;font-size:18px;flex:none">' + medal + '</span><div><b>' + esc(r.name) + '</b>' + (r.key === res.me ? '　<span class="dim">（妳）</span>' : '') + '<div class="dim" style="font-size:13.5px">' + esc(sub) + '</div></div><span class="tag" style="color:var(--gold);font-size:17px">' + r[key] + (tab === 'endless' ? ' 格' : tab === 'turns' ? ' 回合' : ' 次') + '</span></div>';
+        var medal = ['🥇', '🥈', '🥉'][i] || (i + 1) + '.';
+        var sub = tab === 'turns' ? '通關的總回合（含重打）' : '戰役 ' + (r.runs || 0) + ' 次';
+        return '<div class="box urow"' + (r.key === res.me ? ' style="border-color:var(--gold)"' : '') + '><span style="width:34px;font-size:18px;flex:none">' + medal + '</span><div><b>' + esc(r.name) + '</b>' + (r.key === res.me ? '　<span class="dim">（妳）</span>' : '') + '<div class="dim" style="font-size:13.5px">' + esc(sub) + '</div></div><span class="tag" style="color:var(--gold);font-size:17px">' + r[key] + (tab === 'turns' ? ' 回合' : ' 次') + '</span></div>';
       }).join(''));
     });
   }

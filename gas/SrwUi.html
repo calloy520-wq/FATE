@@ -399,14 +399,14 @@
     var t = T.terr(b, u.x, u.y), ter = u.fly ? '飛行中' : t.n + (t.eva || t.def ? '（迴避 ' + (t.eva >= 0 ? '+' : '') + t.eva + '、防禦 ' + (t.def >= 0 ? '+' : '') + t.def + '%）' : '');
     var stx = [];
     if (u.side === 'p') { ['ningshen', 'dongming', 'taying', 'pofu', 'guzhu', 'jinshen', 'suodi', 'fuyuan', 'qinxiu', 'tuojin'].forEach(function (k) { if (u.st[k]) stx.push(T.SPIRITS[k].n); }); if (u.trait === 'longqi' && u.grow) stx.push('阿白長大 ' + u.grow); if (u.trait === 'yujian') stx.push('飛劍 ' + (u.ammo.feijian || 0)); if (u.revive) stx.push('千杯不倒'); if (u.ambush) stx.push('隱蠱'); }
-    else { ['ningshen', 'dongming', 'jinshen'].forEach(function (k) { if (u.st[k]) stx.push(T.SPIRITS[k].n); }); if (u.stun) stx.push('動彈不得'); if (u.ding) stx.push('定身 ' + u.ding + '/' + T.stunAt(u)); if (u.poison) stx.push('毒 ' + u.poison); if (u.lives) stx.push('還能站起來 ' + u.lives + ' 次'); if (u.retreat) stx.push('半血會退走'); if (u.regen) stx.push('每階段回 ' + Math.round(u.regen * 100) + '% 氣血'); if (u.hold && !T.isAwake(b, u)) stx.push(u.tr ? '守著不動（有人走進 ' + u.tr + ' 格內才動）' : '守著不動'); }
+    else { ['ningshen', 'dongming', 'jinshen'].forEach(function (k) { if (u.st[k]) stx.push(T.SPIRITS[k].n); }); if (u.stun) stx.push('動彈不得'); if (u.ding) stx.push('定身 ' + u.ding + '/' + T.stunAt(u)); if (u.poison) stx.push('毒 ' + u.poison); if (u.lives) stx.push('還能站起來 ' + u.lives + ' 次'); if (u.retreat) stx.push('半血會退走'); if (u.regen) stx.push('每階段回 ' + Math.round(u.regen * 100) + '% 氣血'); if (u.hold && !T.isAwake(b, u)) stx.push(u.tr ? '守著不動（有人走進 ' + u.tr + ' 格內或挨了打就會動）' : '守著不動'); }
     var info = '<div class="uinfo">' + portrait(u, 'pf2') + '<div style="flex:1;min-width:0"><div class="nm">' + esc(u.name) + '<small>Lv ' + u.lv + (u.side === 'e' ? '・' + (u.boss ? '魔王' : u.rank === 'e' ? '精英' : '妖物') : '') + '・' + T.SIZE_NAME[u.size] + '</small></div>'
       + '<div class="bars">' + bar(u.side === 'e' ? 'e' : '', u.hp, u.hpMax, '氣血') + bar('en', u.en, u.enMax, '真元') + '</div>'
       + '<div class="st"><span>戰意 ' + u.will + '</span>' + (u.side === 'p' ? '<span>心力 ' + u.sp + '/' + u.spMax + '</span>' : '') + '<span>腳程 ' + T.curMv(u) + '</span><span>' + esc(ter) + '</span>' + (stx.length ? '<span style="color:var(--gold)">' + nwj(stx.map(esc)) + '</span>' : '') + '</div></div></div>';
     if (u.side === 'e') return info + '<div class="hint">紅色是它這回合打得到的範圍。</div><div class="acts"><button class="btn" onclick="foeSheet(\'' + u.uid + '\')">招式</button><button class="btn" onclick="srwCancel()">關閉</button></div>';
     if (u.acted && SUI.mode !== 'move2') return info + '<div class="hint">這回合已經行動過了。</div><div class="acts"><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwCancel()">關閉</button></div>';
     if (SUI.mode === 'move2') return info + '<div class="hint">游擊：還能移動（點藍色格子）。</div><div class="acts"><button class="btn" onclick="srwCancel()">不移動</button></div>';
-    if (SUI.mode === 'move') return info + '<div class="hint">點藍色格子移動；點她自己＝原地行動。<br>金色底線：旁邊有隊友，能互相助攻、掩護。' + (SUI.dzOn ? '<br>紅角：越大越多敵人打得到。' : '') + '</div><div class="acts"><button class="btn" onclick="srwStay()">原地行動</button><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwItem()">法寶</button><button class="btn" onclick="srwCancel()">取消</button></div>';
+    if (SUI.mode === 'move') return info + '<div class="hint">點藍色格子移動；點她自己＝原地行動。<br>金色底線：旁邊有隊友，能互相助攻、掩護。' + (SUI.dzOn ? '<br>紅角：越大，打得到這格的敵人越多。' : '') + '</div><div class="acts"><button class="btn" onclick="srwStay()">原地行動</button><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwItem()">法寶</button><button class="btn" onclick="srwCancel()">取消</button></div>';
     if (SUI.mode === 'act') { var hasMap = u.w.some(function (_, i) { return T.W(u, i).map; });
       return info + '<div class="acts"><button class="btn go" onclick="srwWeapons()">攻擊</button><button class="btn" onclick="srwSpirit()">心訣</button><button class="btn" onclick="srwItem()">法寶</button><button class="btn" onclick="srwWait()">待機</button>' + (u.moveDone && u.moved ? '<button class="btn" onclick="srwUndo()">回原位</button>' : '') + '</div>'; }
     if (SUI.mode === 'target') return info + '<div class="hint">點閃著的敵人出手（' + esc(T.W(u, SUI.wi).n) + '）。</div><div class="acts"><button class="btn" onclick="srwBackAct()">換招式</button></div>';
@@ -415,7 +415,7 @@
     return info;
   }
   function clearHl() { SUI.R = null; SUI.ar = null; SUI.tg = null; SUI.dz = null; SUI.tile = null; SUI.mc = null; SUI.ma = null; SUI.cen = null; SUI.mt = null; }
-  function terrText(t) { return '<b>' + t.n + '</b>：' + (t.solid ? '誰都過不去。' : t.wall ? '走不過（飛行可以越過、停在上面）。' : '移動 ' + t.cost + (t.eva ? '、迴避 ' + (t.eva > 0 ? '+' : '') + t.eva : '') + (t.def ? '、受到的傷害 ' + (t.def > 0 ? '−' : '+') + Math.abs(t.def) + '%' : '') + (t.heal ? '、回合開始回氣血 10%、真元 10' : '') + '（飛行不吃地形）。') + '<br>'; }
+  function terrText(t) { return '<b>' + t.n + '</b>：' + (t.solid ? '誰都過不去。' : t.wall ? '走不過（飛行可以越過、停在上面）。' : '移動 ' + t.cost + (t.eva ? '、迴避 ' + (t.eva > 0 ? '+' : '') + t.eva : '') + (t.def ? '、受到的傷害 ' + (t.def > 0 ? '−' : '+') + Math.abs(t.def) + '%' : '') + (t.heal ? '、回合開始回氣血 10%、真元 10' : '') + '（飛行沒有地形加成）。') + '<br>'; }
   // 所有敵人這回合打得到的範圍（機戰的敵攻擊範圍）
   function srwDanger() { SUI.dzOn = !SUI.dzOn; srwDraw(); }   // 敵人範圍：開關，選人、移動時也一直顯示
   function dangerAll(b) { var out = {}; T.units(b, 'e').forEach(function (e) { var z = threat(b, e); Object.keys(z).forEach(function (k) { out[k] = (out[k] || 0) + 1; }); }); return out; }   // 每格有幾個敵人打得到
@@ -560,8 +560,8 @@
       + '<button onclick="srwToggle(\'autoDef\')">敵方階段自動應戰：' + (s.autoDef ? '開' : '關（每次自己選）') + '</button>'
       + (act ? '<button onclick="closeOv();srwAutoTurn()">這回合交給自動（我方）</button>' : '')
       + '<button onclick="closeOv();showHelp()">說明</button>'
-      + (act ? '<button onclick="confirmOv(\'放棄這一關？經驗與靈石會留著，可以重打。\',srwGiveUp)">放棄這一關</button>'
-      + '<button onclick="closeOv();run=null;titleScreen()">回標題（存著，之後接著打）</button>' : '<div class="dim" style="font-size:13px;text-align:center">交手、敵方行動中；回標題、放棄要等我方階段。</div>') + '</div>');
+      + (act ? '<button onclick="confirmOv(\'放棄這一關？經驗、悟道點、靈石都會留著，可以重打。\',srwGiveUp)">放棄這一關</button>'
+      + '<button onclick="closeOv();run=null;titleScreen()">回標題（存著，之後接著打）</button>' : '<div class="dim" style="font-size:13px;text-align:center">交手或敵方行動中，要等回到我方階段才能回標題、放棄。</div>') + '</div>');
   }
   // 部隊表（機戰的部隊一覽）：全隊的氣血、真元、心力、戰意、還沒行動的；點一下選她
   function srwRoster() {
@@ -827,9 +827,9 @@
     ['陣法', '範圍招式：範圍裡的敵人都打，對方不能還手。'],
     ['合擊', '兩個人站在一起才能用的大招：凌霜與赤灼「劍酒雙絕」、青璃與阿朵「符蠱同心」。兩個人都要付真元。'],
     ['排陣', '不強化也打得過，靠的是站位：開打前按「布陣」把能扛的換到前面；站在隊友旁邊（助攻、掩護、合擊；移動時有金色底線的格子）；躲進林、山岩、屋舍；別讓一個人被一群敵人圍住，先開「敵人範圍」（越紅越多敵人打得到）；大招前先用心訣（凝神、洞明、破釜）。'],
-    ['地形', '林：迴避 +15、防禦 +10%；山岩：迴避 +20、防禦 +20%；水：迴避 −10、受傷 +10%；屋舍：防禦 +15%，回合開始回氣血與真元。飛行不吃地形加成，但能越過牆。'],
+    ['地形', '林：迴避 +15、防禦 +10%；山岩：迴避 +20、防禦 +20%；水：迴避 −10、受傷 +10%；屋舍：防禦 +15%，回合開始回氣血與真元。飛行沒有地形加成，但能越過牆。'],
     ['體積', '小、中、大、巨。體積越大越好打中（大 ×1.2、巨 ×1.4）。'],
-    ['定身', '青璃的招式打中就貼一層，每層輕身 −10。貼滿門檻（雜兵 2、精英 3、魔王 4）就停一個敵方階段。'],
+    ['定身', '青璃的招式打中就貼一層，每層輕身 −10。貼滿門檻（雜兵 2、精英 3、魔王 4，魔王每被定住一次 +1）就停一個敵方階段。'],
     ['毒', '阿朵的蠱：每層在敵方階段開始扣 150 氣血，之後少一層。'],
     ['淬鍊', '整備時花靈石強化：氣血、真元、護體、輕身、準頭、招式各 10 級。五項（招式以外）都到 5 級：淬鍊圓滿，每人一個專屬獎勵。招式淬鍊到 5 級：開發出一招新招式。'],
     ['修為／功法', '悟道點：擊破與過關拿得到。加修為（命中、迴避……）或學功法。'],
