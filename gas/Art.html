@@ -24,8 +24,9 @@ var SKIN_GOALS = { clear: '封印魘（通關一次）', ace: '她成名之後�
 var FIG = (function () {
   // 圖讀不到時：藏起圖、改顯示緊接在後的剪影（凌霜疊在圖後的飛劍也藏起來，剪影自己有畫）
   window.ART_BAD = window.ART_BAD || {};   // 讀不到的圖記下來：之後直接畫剪影，不每次重畫都再抓一次
-  var FALLBACK = "ART_BAD[this.getAttribute('src')]=1;this.style.display='none';this.nextElementSibling.style.display='contents';var o=this.previousElementSibling;if(o&&o.classList.contains('fover'))o.style.display='none'";
-  var DFALLBACK = "ART_BAD[this.getAttribute('src')]=1;var d=this.parentNode;d.style.display='none';d.nextElementSibling.style.display='contents'";
+  // 圖已經被換掉（畫面重畫、閱讀器換人）才讀失敗時，旁邊的剪影可能已經不在：先確認還在再切
+  var FALLBACK = "ART_BAD[this.getAttribute('src')]=1;this.style.display='none';var n=this.nextElementSibling;if(n)n.style.display='contents';var o=this.previousElementSibling;if(o&&o.classList.contains('fover'))o.style.display='none'";
+  var DFALLBACK = "ART_BAD[this.getAttribute('src')]=1;var d=this.parentNode;if(!d)return;d.style.display='none';var n=d.nextElementSibling;if(n)n.style.display='contents'";
   var INK = '#0b0d14';   // 剪影本體的顏色（皮影戲）
   // ── 角色：每位的主色、髮型、武器、身邊的東西 ──
   var HERO = {
@@ -220,7 +221,7 @@ var FIG = (function () {
       + '<path d="M0 200 L0 160 L400 160 L400 200 Z" fill="#0a0d1c"/><circle cx="200" cy="30" r="3" fill="#ffd36e"/>';
     var svg = '<svg class="scene-svg" viewBox="0 0 400 200" preserveAspectRatio="xMidYMax slice" aria-hidden="true">' + s + '</svg>';
     // 有背景圖就用圖（讀不到再換回程式畫的）
-    if (ART['bg_' + k] && !ART_BAD[ART['bg_' + k]]) return '<img class="scene-img" src="' + ART['bg_' + k] + '" alt="" draggable="false" onerror="ART_BAD[this.getAttribute(\'src\')]=1;this.style.display=\'none\';this.nextElementSibling.style.display=\'\'">' + svg.replace('<svg class="scene-svg"', '<svg class="scene-svg" style="display:none"');
+    if (ART['bg_' + k] && !ART_BAD[ART['bg_' + k]]) return '<img class="scene-img" src="' + ART['bg_' + k] + '" alt="" draggable="false" onerror="ART_BAD[this.getAttribute(\'src\')]=1;this.style.display=\'none\';var n=this.nextElementSibling;if(n)n.style.display=\'\'">' + svg.replace('<svg class="scene-svg"', '<svg class="scene-svg" style="display:none"');
     return svg;
   }
   return { fig: fig, dragon: dragon, scene: scene, HERO: HERO, FOE: FOE };
