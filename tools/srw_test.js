@@ -96,6 +96,7 @@ Object.keys(T.FOES).forEach(k => ok(T.FOES[k].w.length > 0, k + ' 至少一招')
   const q = P(b, 'qingli'), z = E(b, 'mingquan'); only(b, [q, z]); q.x = 1; q.y = 8; z.x = 1; z.y = 7; z.hp = z.hpMax = 999999; q.st.dongming = 1; z.ding = 0;
   T.attack(c, q, 0, z, 'guard'); eq(z.ding, 1, '桃木劍打中貼 1 層');
   q.acted = 0; T.attack(c, q, 0, z, 'guard'); ok(z.stun === 1 && z.ding === 0, '貼滿 2 層：定住、層數歸零');
+  ok(T.counterList(b, z, q).length === 0 && T.forecast(b, q, 0, z).resp === 'none', '定住的敵人不還手也不招架');
   T.endPlayerPhase(c); const plan = T.enemyNext(c); ok(plan && plan.stun, '定住的敵人這個敵方階段不動');
 }
 {
@@ -115,6 +116,14 @@ Object.keys(T.FOES).forEach(k => ok(T.FOES[k].w.length > 0, k + ' 至少一招')
   ok(d1 > d2 * 1.4, '阿朵第一次出手 ×1.5'); a.ambush = 1;
   T.attack(c, a, 1, z, 'guard'); eq(z.poison, 2, '毒蠱打中上 2 層毒'); eq(a.ambush, 0, '出手後隱蠱用掉');
   const hp = z.hp; T.endPlayerPhase(c); ok(z.hp < hp && z.poison === 1, '敵方階段開始扣毒、毒 −1');
+  ok(hp - z.hp === Math.round(z.hpMax * 0.02) * 2, '毒每層 200 或氣血上限 2%（取大）：兩層');
+  b.phase = 'p'; a.acted = 0; a.moved = 0; a.ambush = 1; a.st.dongming = 0; const ev0 = z.eva; z.eva = 99999;
+  T.attack(c, a, 0, z, 'guard'); eq(a.ambush, 1, '隱蠱打空了不算用掉'); z.eva = ev0; a.st.dongming = 1;
+  z.poison = 0; eq(T.targetsFrom(b, a, 2, a.x, a.y).length, 0, '蠱發只能打中了毒的目標'); z.poison = 2; eq(T.targetsFrom(b, a, 2, a.x, a.y).length, 1, '中了毒就打得到');
+  const g0 = T.damage(b, a, T.W(a, 2), z, '', false); z.poison = 0; const g1 = T.damage(b, a, T.W(a, 2), z, '', false); ok(Math.abs(g0 - g1 * 1.5) <= 2, '蠱發：毒每層 +25%');
+  z.hp = 100; z.poison = 1; const k0 = b.gain.aduo.kills; T.endPlayerPhase(c); ok(z.hp === 0 && b.gain.aduo.kills === k0 + 1, '毒死的算阿朵的擊破');
+  const z2 = E(b, 'mingquan'); only(b, [a, z2]); z2.x = 1; z2.y = 7; z2.hp = z2.hpMax = 999999; a.skills = { kanpo: 1 }; a.st.dongming = 0; a.will = 119; const h0 = T.hitChance(b, a, T.W(a, 0), z2, '');
+  a.will = 120; ok(T.hitChance(b, a, T.W(a, 0), z2, '') >= h0 + 10, '看破：戰意 120 以上命中 +15');
 }
 {
   const { c, b } = arena(6, { lv: 12 });   // 不死牛魔
