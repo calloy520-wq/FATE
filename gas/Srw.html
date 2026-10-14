@@ -337,7 +337,7 @@ var T = (function () {
     return u;
   }
   // 敵人整體難度（調平衡用；hp 倍率，atk／hit 加減）
-  var TUNE = { hp: 1.0, atk: -10, hit: 0 };   // 2026-10-08 玩家定：不強化要排兵布陣才過得去，強化了輕鬆很多（2026-10-14 五位女修照數字修過之後重調）
+  var TUNE = { hp: 1.25, atk: 10, hit: 10 };   // 2026-10-08 玩家定：不強化要排兵布陣才過得去，強化了輕鬆很多（2026-10-14 稽核④：毒、定身、自動心訣都變強之後重調）
   function mkFoeUnit(id, lv, x, y, o) {
     o = o || {}; var F = FOES[id] || FOES.zhiren, R = rankOf(id), B = FOE_BASE[R], k = F.k || [1, 1];
     var sv = function (k2) { return Math.round(B[k2][0] + B[k2][1] * lv + (k2 === 'atk' ? TUNE.atk : k2 === 'hit' ? TUNE.hit : 0)); }, hp = o.hp || Math.round((B.hp + B.hpL * lv) * k[0] * TUNE.hp / 10) * 10, at = sv('atk');

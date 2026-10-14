@@ -329,7 +329,7 @@ const allEv = c => { const a = []; let e; while ((e = T.takeEv(c))) a.push(e); r
 {
   // 魔王的心訣撐一輪：敵方階段開的，撐到下一個敵方階段開始
   const c = T.newCampaign(36); c.stage = 7; const b = T.startStage(c), g = b.units.filter(u => u.boss)[0], s = P(b, 'shuang'); only(b, [g, s]);
-  s.x = g.x - 1; s.y = g.y; g.hp = Math.floor(g.hpMax / 2) + 5; b.phase = 'e'; g.st.dongming = 1; s.st.dongming = 1;
+  s.x = g.x - 1; s.y = g.y; g.hp = Math.floor(g.hpMax / 2) + 5; b.phase = 'e'; g.st.dongming = 1; s.st.dongming = 1; s.hp = s.hpMax = 99999;   // 凌霜要活著才還得了手
   const ci = T.counterList(b, s, g)[0]; T.attack(c, g, 0, s, 'counter', { cwi: ci }); ok(g.st.jinshen, '敵方階段被打到半血：金身');
   b.queue = []; T.enemyDone(c); ok(g.st.jinshen, '下一個我方階段還在'); T.endPlayerPhase(c); ok(!g.st.jinshen, '下一個敵方階段開始就散');
 }
