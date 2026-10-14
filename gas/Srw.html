@@ -146,10 +146,10 @@ var T = (function () {
       w: [{ id: 'yinzhen', n: '銀針', p: 1900, r: [1, 3], hit: 20, ammo: 8, mv: 1 },
           { id: 'dugu', n: '毒蠱', p: 2300, r: [1, 2], hit: 10, spi: 1, en: 10, mv: 1, poison: 2 },
           { id: 'gufa', n: '蠱發', p: 3000, r: [1, 3], hit: 5, spi: 1, en: 20, will: 110, vsPoison: 1 },
-          { id: 'wangu', n: '萬蠱噬心', p: 4400, r: [1, 3], hit: 15, crit: 15, spi: 1, en: 50, will: 130, vsPoison: 1, poison: 3 },
+          { id: 'wangu', n: '萬蠱噬心', p: 4400, r: [1, 3], hit: 15, crit: 15, spi: 1, en: 50, will: 120, vsPoison: 1, poison: 3 },
           { id: 'fugu', n: '符蠱同心', p: 5000, r: [1, 3], hit: 20, spi: 1, en: 40, will: 110, combo: 'qingli', ding: 2, poison: 3 },
           { id: 'dieying', n: '蝶影', p: 3400, r: [1, 4], hit: 25, ammo: 4, mv: 1, dev: 5 }],
-      sp: [['taying', 1], ['fuyuan', 1], ['qinxiu', 5], ['suodi', 9], ['tuojin', 14], ['cifu', 20]],
+      sp: [['taying', 1], ['fuyuan', 1], ['ningshen', 5], ['suodi', 9], ['tuojin', 14], ['pofu', 20]],
       full: '毒傷 +50%、輕身 +10' }
   };
   var ORDER = ['shuang', 'qingli', 'xiaoman', 'chilian', 'aduo'];
@@ -158,9 +158,9 @@ var T = (function () {
     zhenhun: { n: '鎮魂', d: '招式打中就貼定身（符 2 層、桃木劍 1 層）：每層輕身 −10；貼滿門檻（雜兵 2、精英 3、魔王 4，魔王每被定住一次 +1）就停一個敵方階段' },
     longqi: { n: '龍之契約', d: '騎著阿白（飛行、體積大）。每個我方階段阿白長大一次：招式威力 +100、護體 +50（最多 5 次）。天生掩護 Lv2（旁邊的隊友快倒時替她擋）' },
     qianbei: { n: '千杯不倒', d: '天生背水 Lv3；每關一次倒下時以 30% 氣血站起來。酒火焚身：第二個我方階段起，每階段失去 4% 氣血、戰意 +2（燒到一半就不再燒）' },
-    yingu: { n: '隱蠱', d: '每關第一次出手傷害 ×1.5；毒每層在敵方階段開始扣 150，之後 −1' }
+    yingu: { n: '隱蠱', d: '每關第一次出手傷害 ×1.5；毒每層在敵方階段開始扣 200，之後 −1' }
   };
-  var POISON_DMG = 150, BURN = 0.04, GROW_MAX = 5, AMMO_CAP = 10;
+  var POISON_DMG = 200, BURN = 0.04, GROW_MAX = 5, AMMO_CAP = 10;
   // 成名（機戰的王牌）：擊破 ACE_KILLS 隻以上，用她的名號（SERVANTS.hao）成名，拿一個專屬加成
   var ACE_KILLS = 15;
   var ACE = { shuang: '爆擊率 +10，戰意 120 以上再 +10', qingli: '招式打中多貼 1 層定身', xiaoman: '出擊時阿白就已經長大 2 次', chilian: '每關可以倒下站起來兩次', aduo: '毒每層多扣 100' };
