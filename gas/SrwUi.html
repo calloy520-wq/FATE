@@ -226,9 +226,10 @@
         + T.devOf(k).map(function (w) { return '<div class="box" style="margin-top:8px;padding:8px 12px' + (h.up.wpn >= w.dev ? ';border-color:var(--gold)' : '') + '"><b>' + (h.up.wpn >= w.dev ? '已開發' : '開發') + '「' + esc(w.n) + '」</b>　<span class="dim" style="font-size:12.5px">' + (h.up.wpn >= w.dev ? '' : '招式淬鍊到 ' + w.dev + ' 級・') + wpnLine(w, h.up.wpn) + '</span></div>'; }).join('')
         + '<div class="dim" style="font-size:12.5px;margin-top:6px">每級：氣血 +' + T.UP_STEP.hp + '、真元 +' + T.UP_STEP.en + '、護體 +' + T.UP_STEP.arm + '、輕身 +' + T.UP_STEP.mob + '、準頭 +' + T.UP_STEP.aim + '、招式威力 +' + T.UP_STEP.wpn + '。靈石 ' + c.gold + '</div>';
     }
-    if (tab === 'tr') body = '<div class="dim" style="font-size:13px">花悟道點加修為：每次 +' + T.TRAIN_STEP + '，要 ' + T.TRAIN_COST + ' 點（現在 ' + h.pp + ' 點）。升級也會成長。</div>'
-      + T.TRAIN_KEYS.map(function (key) { return '<div class="uprow"><span class="k">' + T.TRAIN_NAME[key] + '</span><span class="v">' + s[key] + '</span><span class="dim" style="font-size:12px">+' + (h.tr[key] || 0) * T.TRAIN_STEP + '</span><button' + (h.pp < T.TRAIN_COST || (h.tr[key] || 0) >= T.TRAIN_MAX ? ' disabled' : '') + ' onclick="srwTrain(\'' + k + '\',\'' + key + '\')">+' + T.TRAIN_STEP + '（' + T.TRAIN_COST + '）</button></div>'; }).join('')
-      + '<div class="uprow"><span class="k">心力</span><span class="v">' + s.spMax + '</span></div>';
+    if (tab === 'tr') { var useSt = { mel: H.w.some(function (w) { return w.mel; }), spi: H.w.some(function (w) { return w.spi; }), rng: H.w.some(function (w) { return !w.mel && !w.spi; }) };   // 沒有招式用到的修為，加了也沒用
+      body = '<div class="dim" style="font-size:13px">花悟道點加修為：每次 +' + T.TRAIN_STEP + '，要 ' + T.TRAIN_COST + ' 點（現在 ' + h.pp + ' 點）。升級也會成長。</div>'
+      + T.TRAIN_KEYS.map(function (key) { var dead = useSt[key] === false, note = dead ? '沒有招式用到' : (key === 'eva' && s.size === 'L' ? '體積大，被打幾乎必中' : ''); return '<div class="uprow"><span class="k">' + T.TRAIN_NAME[key] + '</span><span class="v">' + s[key] + '</span><span class="dim" style="font-size:12px">' + (note ? note : '+' + (h.tr[key] || 0) * T.TRAIN_STEP) + '</span><button' + (dead || h.pp < T.TRAIN_COST || (h.tr[key] || 0) >= T.TRAIN_MAX ? ' disabled' : '') + ' onclick="srwTrain(\'' + k + '\',\'' + key + '\')">+' + T.TRAIN_STEP + '（' + T.TRAIN_COST + '）</button></div>'; }).join('')
+      + '<div class="uprow"><span class="k">心力</span><span class="v">' + s.spMax + '</span></div>'; }
     if (tab === 'sk') body = '<div class="dim" style="font-size:13px">花悟道點學功法（現在 ' + h.pp + ' 點）。</div>' + Object.keys(T.SKILLS).map(function (sk) {
       var S2 = T.SKILLS[sk], lv = s.skills[sk] || 0, cost = T.skillCost(c, k, sk);
       return '<div class="uprow" style="align-items:flex-start"><div style="flex:1"><b>' + S2.n + '</b>' + (lv ? ' <span class="chip gold">Lv' + lv + '</span>' : '') + '<div class="dim" style="font-size:12.5px">' + esc(S2.d) + '</div></div><button' + (!cost || h.pp < cost ? ' disabled' : '') + ' onclick="srwLearn(\'' + k + '\',\'' + sk + '\')">' + (cost ? cost + ' 點' : '學滿') + '</button></div>'; }).join('');
@@ -251,7 +252,7 @@
   function wpnLine(w, up) {
     var a = ['威力 ' + (w.p + (up || 0) * T.UP_STEP.wpn), '射程 ' + (w.map ? (w.map.shape === 'burst' ? '自身周圍 ' + w.map.r : w.r[0] + '–' + w.r[1] + '（範圍 ' + w.map.r + '）') : w.r[0] === w.r[1] ? w.r[0] : w.r[0] + '–' + w.r[1])];
     if (w.hit) a.push('命中 ' + (w.hit > 0 ? '+' : '') + w.hit); if (w.crit) a.push('爆擊 +' + w.crit);
-    if (w.en) a.push('真元 ' + w.en); if (w.ammo) a.push('次數 ' + w.ammo); if (w.will) a.push('戰意 ' + w.will);
+    if (w.en) a.push('真元 ' + w.en); if (w.ammo) a.push('次數 ' + w.ammo); if (w.will) a.push('戰意 ' + w.will); if (w.useAmmo) a.push('飛劍至少 ' + w.minAmmo + ' 把，每把威力 +' + w.perAmmo + '，放完歸零');
     a.splice(1, 0, w.mel ? '格鬥' : w.spi ? '靈力' : '射擊');
     if (w.mv) a.push('➚移動後可用');
     if (w.map) a.push('陣法（對方不能還手）'); if (w.combo) a.push('合擊：' + G.SERVANTS[w.combo].name + '在旁邊');
@@ -793,7 +794,7 @@
   // 新手提示（戰棋）：每個只跳一次，跟以前的卡牌提示分開記（老玩家也沒看過戰棋）
   var SRW_TIPS = {
     prep: ['整備', '每一關打之前在這裡整備：<b>淬鍊</b>花靈石強化氣血、護體、輕身這些身法器；<b>修為</b>與<b>功法</b>花悟道點；<b>法寶</b>每人兩格。準備好就按「出擊」。<br>強化得越多仗越好打；不強化也過得去，但要好好排陣。'],
-    battle: ['地圖戰', '點自己人，藍色格子是走得到的地方；走完再選攻擊、心訣或待機。每人一回合動一次；都動完了按「結束回合」換敵人。<br>站在隊友旁邊：妳出手後，旁邊的隊友會接著補一招（助攻）；白辰在旁邊會替妳擋（掩護）。<br>點敵人看它的數值，紅色是它打得到的範圍；「敵人範圍」一次看全部。點空格子看地形。<br>第一回合誰都還沒動之前，可以按「布陣」換位置。'],
+    battle: ['地圖戰', '點自己人，藍色格子是走得到的地方；走完再選攻擊、心訣或待機。每人一回合動一次；都動完了按「結束回合」換敵人。<br>站在隊友旁邊：妳出手後，旁邊的隊友會接著補一招（助攻）；白辰在旁邊、妳快倒的時候會替妳擋（掩護）。<br>點敵人看它的數值，紅色是它打得到的範圍；「敵人範圍」一次看全部。點空格子看地形。<br>第一回合誰都還沒動之前，可以按「布陣」換位置。'],
     forecast: ['交手預覽', '出手前會先看到雙方的命中率與傷害。被打的一方會還手（射程夠的話），所以先想好誰去打誰。'],
     defense: ['被打的時候', '敵人打過來時妳可以選：<b>還手</b>、<b>招架</b>（傷害減半）、<b>閃身</b>（對方命中減半）。金框是建議。<br>選單裡可以開「自動應戰」。'],
     spirit: ['心訣', '每人有自己的心訣，花心力發動：洞明（必中）、破釜（傷害兩倍）、金身（傷害四分之一）……心力每回合回一點，關卡之間回滿。'],
@@ -823,20 +824,20 @@
     ['還手／招架／閃身', '被打的一方三選一：射程夠就能還手；招架傷害減半；閃身讓對方命中減半。'],
     ['戰意', '出擊 100，最高 150。打中、閃過、挨打 +1，擊破 +4，隊友擊破全隊 +1。戰意同時讓攻擊與防禦變強，大招要戰意到門檻。'],
     ['心訣', '花心力發動。心力每個我方階段 +3，下一關回滿。'],
-    ['助攻／掩護', '助攻：旁邊的隊友出手後接著補一招（每人天生 Lv1，功法再加）。掩護：旁邊的隊友挨打時替她招架（白辰天生 Lv2）。'],
+    ['助攻／掩護', '助攻：旁邊的隊友出手後接著補一招（每人天生 Lv1，功法再加）。掩護：旁邊的隊友快倒時（這一擊會打掉她六成以上的氣血）替她招架，所以平常不會搶著擋（白辰天生 Lv2）。'],
     ['陣法', '範圍招式：範圍裡的敵人都打，對方不能還手。'],
     ['合擊', '兩個人站在一起才能用的大招：凌霜與赤灼「劍酒雙絕」、青璃與阿朵「符蠱同心」。兩個人都要付真元。'],
     ['排陣', '不強化也打得過，靠的是站位：開打前按「布陣」把能扛的換到前面；站在隊友旁邊（助攻、掩護、合擊；移動時有金色底線的格子）；躲進林、山岩、屋舍；別讓一個人被一群敵人圍住，先開「敵人範圍」（越紅越多敵人打得到）；大招前先用心訣（凝神、洞明、破釜）。'],
-    ['地形', '林：迴避 +15、防禦 +10%；山岩：迴避 +20、防禦 +20%；水：迴避 −10、受傷 +10%；屋舍：防禦 +15%，回合開始回氣血與真元。飛行沒有地形加成，但能越過牆。'],
+    ['地形', '林：迴避 +15、防禦 +10%；山岩：迴避 +20、防禦 +20%；水：迴避 −10、受傷 +10%；屋舍：防禦 +15%，回合開始回氣血與真元。飛行沒有地形的迴避、防禦加成，但能越過牆；站在屋舍一樣回氣血與真元。'],
     ['體積', '小、中、大、巨。體積越大越好打中（大 ×1.2、巨 ×1.4）。'],
-    ['定身', '青璃的招式打中就貼一層，每層輕身 −10。貼滿門檻（雜兵 2、精英 3、魔王 4，魔王每被定住一次 +1）就停一個敵方階段。'],
+    ['定身', '青璃的招式打中就貼定身（符 2 層、桃木劍 1 層），每層輕身 −10。貼滿門檻（雜兵 2、精英 3、魔王 4，魔王每被定住一次 +1）就停一個敵方階段。'],
     ['毒', '阿朵的蠱：每層在敵方階段開始扣 150 氣血，之後少一層。'],
     ['淬鍊', '整備時花靈石強化：氣血、真元、護體、輕身、準頭、招式各 10 級。五項（招式以外）都到 5 級：淬鍊圓滿，每人一個專屬獎勵。招式淬鍊到 5 級：開發出一招新招式。'],
     ['修為／功法', '悟道點：擊破與過關拿得到。加修為（命中、迴避……）或學功法。'],
     ['法寶', '每人兩格：裝備類一直有效；丹藥類每關能用一次。'],
     ['功勳', '每關一個額外條件（例：幾回合內勝利），達成拿法寶。'],
     ['魔王', '天生背水（氣血越少越強）。第一次掉到一半氣血會用一個心訣：鬼將軍金身、鬼面判官洞明、九尾妖狐懾魄……效果撐一輪。點魔王看得到她身上的心訣。'],
-    ['成名', '擊破 18 隻以上，用她的名號成名：每人一個專屬加成（人物頁看得到）。'],
+    ['成名', '擊破 15 隻以上，用她的名號成名：每人一個專屬加成（人物頁看得到）。'],
     ['輸了', '經驗、悟道點、靈石都留著，回整備再打一次。']
   ];
 </script>

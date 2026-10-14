@@ -62,8 +62,12 @@ Object.keys(T.FOES).forEach(k => ok(T.FOES[k].w.length > 0, k + ' 至少一招')
   const s = P(b, 'shuang'), z = E(b, 'zhiren'); only(b, [s, z]);
   s.x = 4; s.y = 5; z.x = 4; z.y = 4; z.hp = 999999; z.hpMax = 999999; s.st.dongming = 1;
   const w0 = s.will; T.attack(c, s, 0, z, 'guard'); eq(s.will, w0 + 1, '打中戰意 +1');
-  ok(T.whyNot(b, s, 3, false).indexOf('戰意') >= 0, '戰意不夠不能用大招');
-  s.will = 130; s.en = 0; ok(T.whyNot(b, s, 3, false).indexOf('真元') >= 0, '真元不夠不能用');
+  ok(T.whyNot(b, s, 2, false).indexOf('戰意') >= 0, '戰意不夠不能用大招');
+  s.will = 130; s.en = 0; ok(T.whyNot(b, s, 2, false).indexOf('真元') >= 0, '真元不夠不能用');
+  // 萬劍歸宗：囤著的飛劍是燃料，至少 4 把，每把 +300 威力，放完歸零
+  s.en = 100; s.ammo.feijian = 3; ok(T.whyNot(b, s, 3, false).indexOf('飛劍') >= 0, '萬劍歸宗飛劍不夠不能放');
+  s.ammo.feijian = 6; ok(!T.whyNot(b, s, 3, false), '飛劍夠就能放'); eq(T.power(s, T.W(s, 3)), 2800 + 6 * 300, '萬劍歸宗威力照囤的飛劍算');
+  T.attack(c, s, 3, z, 'guard'); eq(s.ammo.feijian, 0, '萬劍歸宗放完飛劍歸零'); ok(T.counterList(b, s, z).indexOf(3) < 0, '還手不會自動用萬劍歸宗');
 }
 // ── 擊破、掩護、助攻 ──
 {
@@ -99,8 +103,10 @@ Object.keys(T.FOES).forEach(k => ok(T.FOES[k].w.length > 0, k + ' 至少一招')
   const r = P(b, 'chilian'), z = E(b, 'mingquan'); only(b, [r, z]);
   r.x = 1; r.y = 8; z.x = 1; z.y = 7; r.hp = 10; z.st.dongming = 1;
   T.attack(c, z, 0, r, 'guard'); ok(r.hp > 0 && r.revive === 0, '赤灼倒下站起來一次');
-  const hp = r.hp; T.endPlayerPhase(c); let p; while ((p = T.enemyNext(c))) T.enemyMove(c, p); T.enemyDone(c);
-  ok(r.hp < hp || r.hp === 1, '赤灼酒火焚身扣血');
+  r.hp = r.hpMax; const hp = r.hp; T.endPlayerPhase(c); let p; while ((p = T.enemyNext(c))) T.enemyMove(c, p); T.enemyDone(c);
+  ok(r.hp < hp, '赤灼酒火焚身扣血');
+  r.hp = Math.round(r.hpMax * 0.4); const hp2 = r.hp; T.endPlayerPhase(c); while ((p = T.enemyNext(c))) T.enemyMove(c, p); T.enemyDone(c);
+  eq(r.hp, hp2, '酒火燒到一半就不再燒');
 }
 {
   const { c, b } = arena(4, { lv: 10 });

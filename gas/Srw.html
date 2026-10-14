@@ -50,7 +50,7 @@ var T = (function () {
   // ── 功法（悟道點買） ──（max＝最高級；c＝每一級的價錢）
   var SKILLS = {
     zhugong:  { n: '助攻', max: 3, c: [40, 60, 80], d: '旁邊的隊友出手後，接著補一招（每級每階段 1 次）' },
-    yanhu:    { n: '掩護', max: 3, c: [40, 60, 80], d: '旁邊的隊友挨打時，替她招架（每級每階段 1 次）' },
+    yanhu:    { n: '掩護', max: 3, c: [40, 60, 80], d: '旁邊的隊友快倒時（這一擊會打掉她六成以上的氣血），替她招架（每級每階段 1 次）' },
     beishui:  { n: '背水', max: 5, c: [30, 40, 50, 60, 70], d: '氣血一半以下：命中、迴避、爆擊每級 +3，受傷每級 −3%；四分之一以下加倍' },
     haozhan:  { n: '好戰', max: 1, c: [60], d: '出手時戰意多 +1' },
     jianren:  { n: '堅忍', max: 1, c: [60], d: '挨打、閃過時戰意多 +1' },
@@ -100,34 +100,34 @@ var T = (function () {
     shuang: { size: 'M', fly: 1, trait: 'yujian', lv: 5, skills: { zhugong: 1 },
       st: { mel: 140, rng: 150, spi: 150, hit: 160, eva: 150, skl: 155, def: 110, sp: 50 }, g: { mel: 2.5, rng: 3, spi: 3, hit: 3, eva: 3, skl: 2.5, def: 2, sp: 2 },
       body: { hp: 3600, en: 180, arm: 1000, mob: 115, aim: 160, mv: 5 },
-      w: [{ id: 'jianqi', n: '劍氣', p: 2300, r: [1, 1], hit: 15, crit: 10, mel: 1, mv: 1 },
+      w: [{ id: 'jianqi', n: '劍氣', p: 2900, r: [1, 1], hit: 15, crit: 10, mel: 1, mv: 1 },
           { id: 'feijian', n: '飛劍', p: 2500, r: [1, 4], hit: 10, ammo: 6, mv: 1 },
           { id: 'jianzhen', n: '劍陣', p: 3200, r: [2, 5], hit: 5, spi: 1, en: 25, will: 110 },
-          { id: 'wanjian', n: '萬劍歸宗', p: 4600, r: [1, 5], hit: 20, crit: 20, spi: 1, en: 60, will: 130 },
-          { id: 'jianjiu', n: '劍酒雙絕', p: 5400, r: [1, 2], hit: 15, crit: 10, en: 40, will: 120, combo: 'chilian' },
-          { id: 'duanxian', n: '斷弦', p: 4300, r: [1, 1], hit: 10, crit: 30, mel: 1, en: 30, will: 115, dev: 5 }],
-      sp: [['ningshen', 1], ['dongming', 1], ['taying', 7], ['pofu', 11], ['chengshi', 18], ['guzhu', 24]],
+          { id: 'wanjian', n: '萬劍歸宗', p: 2800, r: [1, 5], hit: 20, crit: 20, spi: 1, useAmmo: 'feijian', minAmmo: 4, perAmmo: 300 },
+          { id: 'jianjiu', n: '劍酒雙絕', p: 5400, r: [1, 2], hit: 15, crit: 10, en: 40, will: 110, mv: 1, combo: 'chilian' },
+          { id: 'duanxian', n: '斷弦', p: 4300, r: [1, 1], hit: 10, crit: 30, mel: 1, en: 30, will: 115, mv: 1, dev: 5 }],
+      sp: [['zhenfen', 1], ['dongming', 1], ['taying', 7], ['pofu', 11], ['chengshi', 15], ['guzhu', 20]],
       full: '飛劍上限 +4、腳程 +1' },
     qingli: { size: 'M', trait: 'zhenhun', lv: 5, skills: { zhugong: 1 },
       st: { mel: 115, rng: 135, spi: 160, hit: 155, eva: 140, skl: 150, def: 105, sp: 65 }, g: { mel: 2, rng: 2, spi: 3.5, hit: 3, eva: 2.5, skl: 2.5, def: 2, sp: 2.5 },
-      body: { hp: 3300, en: 200, arm: 950, mob: 105, aim: 160, mv: 5 },
-      w: [{ id: 'taomu', n: '桃木劍', p: 2000, r: [1, 1], hit: 10, mel: 1, mv: 1 },
+      body: { hp: 3600, en: 200, arm: 1000, mob: 105, aim: 160, mv: 5 },
+      w: [{ id: 'taomu', n: '桃木劍', p: 2600, r: [1, 1], hit: 10, crit: 15, spi: 1, mv: 1 },
           { id: 'dingshen', n: '定身符', p: 2200, r: [1, 3], hit: 20, spi: 1, en: 10, mv: 1, ding: 1 },
-          { id: 'wulei', n: '五雷符', p: 3000, r: [2, 4], hit: 5, spi: 1, en: 20, will: 110, vsDing: 1 },
-          { id: 'tianluo', n: '天羅地網', p: 2600, r: [1, 4], hit: 10, spi: 1, en: 60, will: 125, map: { shape: 'aim', r: 1 }, ding: 1 },
-          { id: 'fugu', n: '符蠱同心', p: 5000, r: [1, 3], hit: 20, spi: 1, en: 40, will: 120, combo: 'aduo', ding: 2, poison: 3 },
-          { id: 'huoyun', n: '火雲符', p: 3800, r: [2, 5], hit: 10, spi: 1, en: 30, will: 115, dev: 5 }],
+          { id: 'wulei', n: '五雷符', p: 3000, r: [2, 4], hit: 5, spi: 1, en: 20, will: 110, vsDing: 1, ding: 1 },
+          { id: 'tianluo', n: '天羅地網', p: 2600, r: [1, 4], hit: 10, spi: 1, en: 60, will: 110, map: { shape: 'aim', r: 1 }, ding: 1 },
+          { id: 'fugu', n: '符蠱同心', p: 5000, r: [1, 3], hit: 20, spi: 1, en: 40, will: 110, combo: 'aduo', ding: 2, poison: 3 },
+          { id: 'huoyun', n: '火雲符', p: 3800, r: [2, 5], hit: 10, spi: 1, en: 30, will: 115, mv: 1, ding: 1, dev: 5 }],
       sp: [['dongming', 1], ['huichun', 1], ['ningshen', 6], ['shepo', 10], ['chuannian', 15], ['pofu', 21]],
       full: '定身門檻 −1' },
     xiaoman: { size: 'L', fly: 1, trait: 'longqi', lv: 5, skills: { yanhu: 2, zhugong: 1 },
       st: { mel: 150, rng: 120, spi: 150, hit: 145, eva: 120, skl: 150, def: 150, sp: 55 }, g: { mel: 3, rng: 1.5, spi: 3, hit: 2.5, eva: 2, skl: 2.5, def: 3, sp: 2 },
-      body: { hp: 5400, en: 160, arm: 1350, mob: 85, aim: 150, mv: 4 },
-      w: [{ id: 'quan', n: '本座一拳', p: 2300, r: [1, 1], hit: 5, mel: 1, mv: 1 },
+      body: { hp: 5400, en: 160, arm: 1350, mob: 85, aim: 160, mv: 4 },
+      w: [{ id: 'quan', n: '本座一拳', p: 2300, r: [1, 1], hit: 25, mel: 1, mv: 1 },
           { id: 'longwei', n: '龍尾掃', p: 2700, r: [1, 2], hit: 0, mel: 1, mv: 1, en: 10 },
           { id: 'longxi', n: '龍息', p: 3200, r: [2, 4], hit: 5, spi: 1, en: 25, will: 110 },
           { id: 'longyin', n: '龍吟', p: 4600, r: [1, 4], hit: 15, crit: 10, spi: 1, en: 50, will: 130 },
-          { id: 'tuilong', n: '蛻龍訣', p: 5600, r: [1, 3], hit: 15, crit: 10, spi: 1, en: 60, will: 140, dev: 5 }],
-      sp: [['jinshen', 1], ['zhenfen', 1], ['huichun', 6], ['pofu', 10], ['jiang', 16], ['tongxin', 22]],
+          { id: 'tuilong', n: '蛻龍訣', p: 5600, r: [1, 3], hit: 15, crit: 10, spi: 1, en: 60, will: 130, dev: 5 }],
+      sp: [['jinshen', 1], ['zhenfen', 1], ['huichun', 6], ['pofu', 10], ['jiang', 16], ['tongxin', 20]],
       full: '掩護次數 +1、護體 +10%' },
     chilian: { size: 'M', trait: 'qianbei', lv: 5, skills: { beishui: 3, zhugong: 1 },
       st: { mel: 165, rng: 115, spi: 110, hit: 145, eva: 135, skl: 145, def: 135, sp: 50 }, g: { mel: 3.5, rng: 1.5, spi: 1.5, hit: 2.5, eva: 2.5, skl: 2.5, def: 2.5, sp: 2 },
@@ -135,10 +135,10 @@ var T = (function () {
       w: [{ id: 'fuxiu', n: '拂袖', p: 2300, r: [1, 1], hit: 10, mel: 1, mv: 1 },
           { id: 'zhanma', n: '斬馬刀', p: 3000, r: [1, 1], hit: 0, mel: 1, mv: 1, en: 10 },
           { id: 'jiuhuo', n: '酒火刀', p: 3400, r: [1, 2], hit: 0, mel: 1, en: 20, will: 110 },
-          { id: 'zuixian', n: '醉仙九斬', p: 5200, r: [1, 1], hit: 10, crit: 20, mel: 1, en: 50, will: 130 },
-          { id: 'jianjiu', n: '劍酒雙絕', p: 5400, r: [1, 2], hit: 15, crit: 10, mel: 1, en: 40, will: 120, combo: 'shuang' },
-          { id: 'liaoyuan', n: '酒火燎原', p: 3600, r: [0, 0], hit: 10, mel: 1, en: 40, will: 120, map: { shape: 'burst', r: 1 }, dev: 5 }],
-      sp: [['zhenfen', 1], ['pofu', 1], ['suodi', 6], ['jinshen', 10], ['jiang', 15], ['guzhu', 21]],
+          { id: 'zuixian', n: '醉仙九斬', p: 5200, r: [1, 1], hit: 10, crit: 20, mel: 1, en: 50, will: 140, mv: 1 },
+          { id: 'jianjiu', n: '劍酒雙絕', p: 5400, r: [1, 2], hit: 15, crit: 10, mel: 1, en: 40, will: 110, mv: 1, combo: 'shuang' },
+          { id: 'liaoyuan', n: '酒火燎原', p: 3600, r: [0, 0], hit: 10, mel: 1, en: 40, will: 120, map: { shape: 'burst', r: 2 }, dev: 5 }],
+      sp: [['dongming', 1], ['pofu', 1], ['suodi', 6], ['jinshen', 8], ['jiang', 15], ['guzhu', 21]],
       full: '戰意上限 +20' },
     aduo: { size: 'S', trait: 'yingu', lv: 5, skills: { zhugong: 1 },
       st: { mel: 120, rng: 150, spi: 155, hit: 150, eva: 150, skl: 160, def: 105, sp: 60 }, g: { mel: 1.5, rng: 3, spi: 3, hit: 2.5, eva: 3.5, skl: 3, def: 2, sp: 2 },
@@ -147,23 +147,23 @@ var T = (function () {
           { id: 'dugu', n: '毒蠱', p: 2300, r: [1, 2], hit: 10, spi: 1, en: 10, mv: 1, poison: 2 },
           { id: 'gufa', n: '蠱發', p: 3000, r: [1, 3], hit: 5, spi: 1, en: 20, will: 110, vsPoison: 1 },
           { id: 'wangu', n: '萬蠱噬心', p: 4400, r: [1, 3], hit: 15, crit: 15, spi: 1, en: 50, will: 130, vsPoison: 1, poison: 3 },
-          { id: 'fugu', n: '符蠱同心', p: 5000, r: [1, 3], hit: 20, spi: 1, en: 40, will: 120, combo: 'qingli', ding: 2, poison: 3 },
+          { id: 'fugu', n: '符蠱同心', p: 5000, r: [1, 3], hit: 20, spi: 1, en: 40, will: 110, combo: 'qingli', ding: 2, poison: 3 },
           { id: 'dieying', n: '蝶影', p: 3400, r: [1, 4], hit: 25, ammo: 4, mv: 1, dev: 5 }],
       sp: [['taying', 1], ['fuyuan', 1], ['qinxiu', 5], ['suodi', 9], ['tuojin', 14], ['cifu', 20]],
       full: '毒傷 +50%、輕身 +10' }
   };
   var ORDER = ['shuang', 'qingli', 'xiaoman', 'chilian', 'aduo'];
   var TRAITS = {
-    yujian: { n: '御劍', d: '飛行（每格消耗 1、能越過牆，但沒有地形加成）；每個我方階段飛劍次數 +1，最多 10' },
-    zhenhun: { n: '鎮魂', d: '招式打中就貼定身 1 層：每層輕身 −10；貼滿門檻（雜兵 2、精英 3、魔王 4，魔王每被定住一次 +1）就停一個敵方階段' },
-    longqi: { n: '龍之契約', d: '騎著阿白（飛行、體積大）。第二個我方階段起，阿白每階段長大一次：招式威力 +100、護體 +50（最多 5 次）。天生掩護 Lv2' },
-    qianbei: { n: '千杯不倒', d: '天生背水 Lv3；每關一次倒下時以 30% 氣血站起來。酒火焚身：第二個我方階段起，每階段失去 4% 氣血（不會因此倒下）、戰意 +2' },
+    yujian: { n: '御劍', d: '飛行（每格消耗 1、能越過牆，但沒有地形的迴避與防禦加成）；每個我方階段飛劍次數 +1，最多 10。囤著的飛劍是萬劍歸宗的燃料：至少 4 把才放得出來，每一把多 300 威力，放完歸零' },
+    zhenhun: { n: '鎮魂', d: '招式打中就貼定身（符 2 層、桃木劍 1 層）：每層輕身 −10；貼滿門檻（雜兵 2、精英 3、魔王 4，魔王每被定住一次 +1）就停一個敵方階段' },
+    longqi: { n: '龍之契約', d: '騎著阿白（飛行、體積大）。每個我方階段阿白長大一次：招式威力 +100、護體 +50（最多 5 次）。天生掩護 Lv2（旁邊的隊友快倒時替她擋）' },
+    qianbei: { n: '千杯不倒', d: '天生背水 Lv3；每關一次倒下時以 30% 氣血站起來。酒火焚身：第二個我方階段起，每階段失去 4% 氣血、戰意 +2（燒到一半就不再燒）' },
     yingu: { n: '隱蠱', d: '每關第一次出手傷害 ×1.5；毒每層在敵方階段開始扣 150，之後 −1' }
   };
   var POISON_DMG = 150, BURN = 0.04, GROW_MAX = 5, AMMO_CAP = 10;
   // 成名（機戰的王牌）：擊破 ACE_KILLS 隻以上，用她的名號（SERVANTS.hao）成名，拿一個專屬加成
-  var ACE_KILLS = 18;
-  var ACE = { shuang: '戰意 130 以上，爆擊率 +20', qingli: '招式打中多貼 1 層定身', xiaoman: '阿白最多長大 7 次', chilian: '每關可以倒下站起來兩次', aduo: '毒每層多扣 100' };
+  var ACE_KILLS = 15;
+  var ACE = { shuang: '爆擊率 +10，戰意 120 以上再 +10', qingli: '招式打中多貼 1 層定身', xiaoman: '出擊時阿白就已經長大 2 次', chilian: '每關可以倒下站起來兩次', aduo: '毒每層多扣 100' };
 
   // 魔王第一次掉到一半氣血（機戰 OG 的戰中事件）：說幾句話（SrwTalk 的 MID）、用一個心訣
   var BOSS_SP = { zhanglao: 'ningshen', shuyao: 'zhenfen', guijiang: 'jinshen', niumo: 'zhenfen', huyao: 'shepo', duoxian: 'ningshen', panguan: 'dongming', xinmo: 'zhenfen' };
@@ -212,9 +212,9 @@ var T = (function () {
   function rankOf(id) { var E = (typeof G !== 'undefined' && G.ENEMIES[id]) || {}; return E.boss ? 'b' : E.elite ? 'e' : 'z'; }
   function foeName(id) { var E = (typeof G !== 'undefined' && G.ENEMIES[id]) || {}; return E.name || id; }
   // 敵人的數值：照等級與階級算
-  var FOE_BASE = { z: { en: 100, atk: [114, 2.5], hit: [118, 2], eva: [120, 2], skl: [100, 2], def: [100, 2], hp: 3100, hpL: 250, arm: 800, armL: 15, mob: 105, aim: 152, will: 100, xp: 120, gold: [1000, 80], pp: 5 },
-                   e: { en: 150, atk: [126, 2.5], hit: [134, 2], eva: [135, 2], skl: [120, 2], def: [110, 2], hp: 6600, hpL: 420, arm: 950, armL: 18, mob: 115, aim: 162, will: 105, xp: 400, gold: [4000, 250], pp: 15 },
-                   b: { en: 200, atk: [134, 2.5], hit: [144, 2], eva: [140, 2], skl: [140, 2], def: [115, 2], hp: 13000, hpL: 760, arm: 1050, armL: 18, mob: 120, aim: 168, will: 110, xp: 1200, gold: [15000, 800], pp: 40 } };
+  var FOE_BASE = { z: { en: 100, atk: [114, 2.5], hit: [118, 2], eva: [120, 2], skl: [100, 2], def: [100, 2], hp: 3100, hpL: 250, arm: 800, armL: 12, mob: 105, aim: 152, will: 100, xp: 120, gold: [1000, 80], pp: 5 },
+                   e: { en: 150, atk: [126, 2.5], hit: [134, 2], eva: [135, 2], skl: [120, 2], def: [110, 2], hp: 6600, hpL: 420, arm: 950, armL: 14, mob: 115, aim: 162, will: 105, xp: 400, gold: [4000, 250], pp: 15 },
+                   b: { en: 200, atk: [134, 2.5], hit: [144, 2], eva: [140, 2], skl: [140, 2], def: [115, 2], hp: 13000, hpL: 760, arm: 1050, armL: 14, mob: 120, aim: 168, will: 110, xp: 1200, gold: [15000, 800], pp: 40 } };
 
   // ── 關卡（照小說主線） ──
   // map：每行一列（地形字元見 TERRAIN）｜bg：舞台背景（hill／city／abyss）｜heroes：[誰, x, y]｜foes：[id, 等級, x, y, 選項]（選項：hold 守著不動、tr 有人進到幾格內才動、hp 氣血改成、boss 這關的魔王、retreat 半血退走）
@@ -310,7 +310,7 @@ var T = (function () {
     if (full) {
       if (who === 'shuang') { s.ammoCap += 4; s.mv += 1; }
       if (who === 'xiaoman') s.arm = Math.round(s.arm * 1.1);
-      if (who === 'chilian') s.willMax += 20;
+      if (who === 'chilian') { s.willMax += 20; s.will0 += 10; }
       if (who === 'aduo') s.mob += 10;
     }
     s.will0 += 5 * skillLv(h, who, 'douzhi'); s.willMax += 10 * skillLv(h, who, 'poxian');
@@ -330,7 +330,7 @@ var T = (function () {
       mel: s.mel, rng: s.rng, spi: s.spi, hit: s.hit, eva: s.eva, skl: s.skl, def: s.def, arm: s.arm, mob: s.mob, aim: s.aim, mv: s.mv, size: s.size, fly: s.fly,
       hp: s.hpMax, hpMax: s.hpMax, en: s.enMax, enMax: s.enMax, sp: s.spMax, spMax: s.spMax, will: Math.min(s.will0, s.willMax), willMax: s.willMax,
       wpnUp: s.wpnUp, w: s.w.map(function (w) { return w.id; }), ammo: {}, ammoCap: s.ammoCap, trait: s.trait, skills: s.skills, spirits: s.spirits,
-      st: {}, ding: 0, poison: 0, hitN: 0, acted: 0, moved: 0, grow: 0, eq: (c.heroes[who].eq || []).slice(), used: {}, ace: s.ace };
+      st: {}, ding: 0, poison: 0, hitN: 0, acted: 0, moved: 0, grow: (who === 'xiaoman' && s.ace) ? 2 : 0, eq: (c.heroes[who].eq || []).slice(), used: {}, ace: s.ace };
     s.w.forEach(function (w) { if (w.ammo) u.ammo[w.id] = w.ammo; });
     if (who === 'chilian') u.revive = s.ace ? 2 : 1;
     if (who === 'aduo') u.ambush = 1;
@@ -417,6 +417,7 @@ var T = (function () {
     if (w.en && u.en < w.en) return '真元不夠';
     if (w.ammo != null && (u.ammo[w.id] || 0) <= 0) return '次數用完';
     if (w.will && u.will < w.will) return '戰意要 ' + w.will;
+    if (w.useAmmo && (u.ammo[w.useAmmo] || 0) < w.minAmmo) return '飛劍要 ' + w.minAmmo + ' 把';
     if (w.combo) { var p = partnerOf(b, u, w); if (!p) return '要跟' + ((SV[w.combo] || {}).name || '') + '站在一起'; if (p.en < w.en) return '夥伴真元不夠'; if (p.will < w.will) return '夥伴戰意要 ' + w.will; }
     return '';
   }
@@ -447,8 +448,8 @@ var T = (function () {
     if (A.st.dongming) h = 100;
     return h;
   }
-  function critChance(A, w, D) { if (A.st.pofu || A.st.guzhu) return 0; return clamp(Math.round(A.skl - D.skl + (w.crit || 0) + bw(A).crit + (A.ace && A.id === 'shuang' && A.will >= 130 ? 20 : 0)), 0, 100); }
-  function power(A, w) { return w.p + (A.wpnUp || 0) * UP_STEP.wpn + (A.grow || 0) * 100; }
+  function critChance(A, w, D) { if (A.st.pofu || A.st.guzhu) return 0; return clamp(Math.round(A.skl - D.skl + (w.crit || 0) + bw(A).crit + (A.ace && A.id === 'shuang' ? 10 + (A.will >= 120 ? 10 : 0) : 0)), 0, 100); }
+  function power(A, w) { return w.p + (A.wpnUp || 0) * UP_STEP.wpn + (A.grow || 0) * 100 + (w.useAmmo ? (w.perAmmo || 0) * (A.ammo[w.useAmmo] || 0) : 0); }   // 萬劍歸宗：囤著的飛劍每一把加威力
   function damage(b, A, w, D, resp, crit) {
     var atk = power(A, w) * ((w.mel ? A.mel : w.spi ? (A.spi || A.rng) : A.rng) + A.will) / 200;
     var def = (D.arm + (D.grow || 0) * 50) * (D.def + D.will) / 200;
@@ -470,7 +471,7 @@ var T = (function () {
   // ── 還手用哪一招、被打的人怎麼回應 ──
   function counterWpn(b, D, A) {
     var best = -1, bestV = -1, d = dist(A, D);
-    D.w.forEach(function (x, i) { var w = W(D, i); if (w.map || w.combo || !inRange(w, d) || !usable(b, D, i, false)) return; var v = hitChance(b, D, w, A) * damage(b, D, w, A, '', false); if (v > bestV) { bestV = v; best = i; } });
+    D.w.forEach(function (x, i) { var w = W(D, i); if (w.map || w.combo || w.useAmmo || !inRange(w, d) || !usable(b, D, i, false)) return; var v = hitChance(b, D, w, A) * damage(b, D, w, A, '', false); if (v > bestV) { bestV = v; best = i; } });
     return best;
   }
   // 自動選回應：敵人能還手就還手、不能就招架；女修選活下來的機會最大的（一樣就還手 > 閃身 > 招架）
@@ -503,14 +504,14 @@ var T = (function () {
     var best = null, bestV = 0;
     units(b, A.side).forEach(function (s) {
       if (s === A || dist(s, A) !== 1 || !(s.skills && s.skills.zhugong) || (s.zgUsed || 0) >= s.skills.zhugong) return;
-      s.w.forEach(function (x, i) { var w = W(s, i); if (w.map || w.combo || !inRange(w, dist(s, D)) || !usable(b, s, i, false)) return; var v = hitChance(b, s, w, D) * damage(b, s, w, D, '', false); if (v > bestV) { bestV = v; best = { uid: s.uid, wi: i }; } });
+      s.w.forEach(function (x, i) { var w = W(s, i); if (w.map || w.combo || w.useAmmo || !inRange(w, dist(s, D)) || !usable(b, s, i, false)) return; var v = hitChance(b, s, w, D) * damage(b, s, w, D, '', false); if (v > bestV) { bestV = v; best = { uid: s.uid, wi: i }; } });
     });
     return best;
   }
 
   // 交手前的預覽（畫面顯示用，也給 AI 決定）
   // 能拿來還手的招（射程夠、用得出來、不是陣法或合擊）
-  function counterOk(b, D, A, i) { var w = W(D, i); return !!w && !w.map && !w.combo && inRange(w, dist(A, D)) && usable(b, D, i, false); }
+  function counterOk(b, D, A, i) { var w = W(D, i); return !!w && !w.map && !w.combo && !w.useAmmo && inRange(w, dist(A, D)) && usable(b, D, i, false); }
   function counterList(b, D, A) { return D.w.map(function (_, i) { return i; }).filter(function (i) { return counterOk(b, D, A, i); }); }
   function forecast(b, A, wi, D, resp, cwi) {
     var w = W(A, wi), g = guardFor(b, A, w, D), T0 = g || D;
@@ -578,6 +579,7 @@ var T = (function () {
       addWill(D, 1 + (D.skills && D.skills.jianren ? 1 : 0));
     }
     if (amb && tag !== 'map') A.ambush = 0;
+    if (w.useAmmo) A.ammo[w.useAmmo] = 0;   // 燃料招：放完歸零
     scene.push(rec);
     return rec;
   }
@@ -707,18 +709,18 @@ var T = (function () {
     units(b, 'p').forEach(function (u) {
       u.acted = 0; u.moved = 0; u.moveDone = 0; u.mv2 = 0; u.hitN = 0; u.yhUsed = 0; u.zgUsed = 0;
       TURN_ST.forEach(function (k) { u.st[k] = 0; });
+      if (u.trait === 'longqi' && u.grow < GROW_MAX) u.grow++;   // 阿白每個我方階段長大（第一回合就長）
       if (b.turn > 1) {
         u.sp = Math.min(u.spMax, u.sp + 3 + (u.skills.tiaoxi ? 5 : 0));
         u.en = Math.min(u.enMax, u.en + Math.round(u.enMax * EN_REGEN));
         if (u.trait === 'yujian') u.ammo.feijian = Math.min(u.ammoCap, (u.ammo.feijian || 0) + 1);
-        if (u.trait === 'longqi' && u.grow < GROW_MAX + (u.ace ? 2 : 0)) u.grow++;
-        if (u.trait === 'qianbei') { u.hp = Math.max(1, u.hp - Math.round(u.hpMax * BURN)); addWill(u, 2); }
+        if (u.trait === 'qianbei') { if (u.hp > u.hpMax * 0.5) u.hp = Math.max(Math.round(u.hpMax * 0.5), u.hp - Math.round(u.hpMax * BURN)); addWill(u, 2); }   // 燒到一半就不再燒
         heal(b, u);
       }
     });
     checkOver(c);
   }
-  function heal(b, u) { var t = terr(b, u.x, u.y); if (t && t.heal && !u.fly) { u.hp = Math.min(u.hpMax, u.hp + Math.round(u.hpMax * 0.1)); u.en = Math.min(u.enMax, u.en + 10); } }
+  function heal(b, u) { var t = terr(b, u.x, u.y); if (t && t.heal) { u.hp = Math.min(u.hpMax, u.hp + Math.round(u.hpMax * 0.1)); u.en = Math.min(u.enMax, u.en + 10); } }
   // 我方結束 → 敵方階段：先處理毒、增援，再排出手順序
   function endPlayerPhase(c) {
     var b = c.battle; if (b.over) return;
@@ -766,7 +768,7 @@ var T = (function () {
         var w = W(u, i);
         if (w.map) {
           var cands = w.map.shape === 'burst' ? [[x, y]] : foes.map(function (t) { return [t.x, t.y]; }).filter(function (q) { var d = Math.abs(q[0] - x) + Math.abs(q[1] - y); return d >= w.r[0] && d <= w.r[1]; });
-          cands.forEach(function (q) { var ts = mapTargets(b, u, i, q[0], q[1]); if (ts.length < 2) return; var s = ts.reduce(function (a, t) { return a + hitChance(b, u, w, t, '') * Math.min(t.hp, damage(b, u, w, t, '', false)); }, 0) * 1.1; if (s > bestS) { bestS = s; best = { uid: u.uid, x: x, y: y, wi: i, map: 1, cx: q[0], cy: q[1] }; } });
+          cands.forEach(function (q) { var ts = mapTargets(b, u, i, q[0], q[1]); if (ts.length < 2) return; var s = ts.reduce(function (a, t) { var v = hitChance(b, u, w, t, '') * Math.min(t.hp, damage(b, u, w, t, '', false)); if (u.side === 'p' && (w.ding || u.trait === 'zhenhun') && t.side === 'e' && !t.stun && t.ding + (w.ding || 0) + (u.trait === 'zhenhun' ? 1 : 0) >= stunAt(t)) { var tw = W(t, 0), near = units(b, 'p').sort(function (p1, p2) { return dist(p1, t) - dist(p2, t); })[0]; if (tw && near) v += hitChance(b, u, w, t, '') * damage(b, t, tw, near, '', false); } return a + v; }, 0) * 1.1; if (s > bestS) { bestS = s; best = { uid: u.uid, x: x, y: y, wi: i, map: 1, cx: q[0], cy: q[1] }; } });
           return;
         }
         foes.forEach(function (t) {
@@ -858,6 +860,9 @@ var T = (function () {
     if (bossNear && can('dongming') && u.sp >= 40) useSpirit(c, u, 'dongming');
     if (u.will < 120 && u.sp >= 60 && can('zhenfen')) useSpirit(c, u, 'zhenfen');
     if (u.hp < u.hpMax * 0.4 && can('jinshen')) useSpirit(c, u, 'jinshen');
+    var boss = units(b, 'e').filter(function (e) { return e.boss; })[0];   // 懾魄：魔王快到大招門檻就壓它一下
+    if (boss && can('shepo')) { var top = Math.max.apply(null, wpns(boss).map(function (w) { return w.will || 0; })); if (top && boss.will >= top - 10) useSpirit(c, u, 'shepo', boss.uid); }
+    if (can('chuannian')) { var dry = units(b, 'p').filter(function (v) { return v !== u && v.sp < 30 && (v.spirits || []).some(function (k) { return k === 'pofu' || k === 'guzhu'; }); })[0]; if (dry) useSpirit(c, u, 'chuannian', dry.uid); }
   }
   // 這一格有幾個敵人打得到（粗算：腳程＋最遠射程）
   // 我方站位的好壞（自動行動用）：旁邊有隊友能助攻、掩護；地形加迴避；越多敵人打得到越差（快倒的人更怕）
@@ -874,7 +879,7 @@ var T = (function () {
     // 快倒了：打不死對方就退到敵人最少打得到的地方（優先屋舍）
     if (!u.moveDone && u.hp < u.hpMax * 0.35 && !(plan.target && forecast(b, u, plan.wi, byUid(b, plan.target)).kill)) {
       var R = moveRange(b, u), pick = null, ps = 1e9;
-      keys(R).forEach(function (k) { var p = k.split(','), x = +p[0], y = +p[1], t = terr(b, x, y), sc = danger(b, u, x, y) * 100 - (t.heal && !u.fly ? 50 : 0) - t.eva; if (sc < ps) { ps = sc; pick = [x, y]; } });
+      keys(R).forEach(function (k) { var p = k.split(','), x = +p[0], y = +p[1], t = terr(b, x, y), sc = danger(b, u, x, y) * 100 - (t.heal ? 50 : 0) - t.eva; if (sc < ps) { ps = sc; pick = [x, y]; } });
       if (pick) plan = { uid: u.uid, x: pick[0], y: pick[1] };
     }
     if (!u.moveDone) { u.ox = u.x; u.oy = u.y; u.moved = (plan.x !== u.x || plan.y !== u.y) ? 1 : 0; u.moveDone = 1; u.x = plan.x; u.y = plan.y; }
@@ -885,6 +890,7 @@ var T = (function () {
   function autoPhase(c) { var b = c.battle; units(b, 'p').forEach(function (u) { if (!b.over) autoUnit(c, u); }); }
   // 整備的自動花錢（模擬器用）：靈石平均淬鍊、悟道點先學助攻掩護
   // o.noUp：不淬鍊｜o.noPP：不花悟道點（修為、功法）——量「不強化」要多難
+  var MAIN_ST = { shuang: 'rng', qingli: 'spi', xiaoman: 'mel', chilian: 'mel', aduo: 'spi' };   // 每個人主力招用的修為
   function autoPrep(c, o) {
     o = o || {}; var guard = 0;
     while (!o.noUp && c.gold > 2000 && guard++ < 200) {
@@ -892,7 +898,7 @@ var T = (function () {
       ORDER.forEach(function (k) { ['hp', 'arm', 'mob', 'wpn', 'aim', 'en'].forEach(function (key) { var cost = upCost(key, c.heroes[k].up[key]); if (cost && cost < bc) { bc = cost; best = [k, key]; } }); });
       if (!best || c.gold < bc) break; upgrade(c, best[0], best[1]);
     }
-    if (!o.noPP) ORDER.forEach(function (k) { ['zhugong', 'yanhu', 'douzhi', 'tiaoxi'].forEach(function (s) { if (skillCost(c, k, s) && c.heroes[k].pp >= skillCost(c, k, s) + 10) learn(c, k, s); }); while (c.heroes[k].pp >= TRAIN_COST + 30) train(c, k, ['hit', 'eva', 'mel', 'rng'][c.heroes[k].pp % 4]); });
+    if (!o.noPP) ORDER.forEach(function (k) { ['zhugong', 'yanhu', 'douzhi', 'tiaoxi'].forEach(function (s) { if (skillCost(c, k, s) && c.heroes[k].pp >= skillCost(c, k, s) + 10) learn(c, k, s); }); while (c.heroes[k].pp >= TRAIN_COST + 30) train(c, k, ['hit', 'eva', MAIN_ST[k], MAIN_ST[k]][c.heroes[k].pp % 4]); });
     ORDER.forEach(function (k) { keys(c.inv).forEach(function (id) { if (c.inv[id] > 0 && c.heroes[k].eq.length < EQ_SLOTS) equip(c, k, id); }); });
   }
 
