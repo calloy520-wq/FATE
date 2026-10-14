@@ -473,7 +473,7 @@
     openOv('<b style="color:var(--gold)">' + esc(u.name) + '的招式</b>　<span class="dim" style="font-size:13px">戰意 ' + u.will + '・真元 ' + u.en + '</span><div class="list" style="margin-top:10px">' + u.w.map(function (_, i) {
       var w = T.W(u, i), why = T.whyNot(b, u, i, moved), n = w.map ? '' : T.targetsFrom(b, u, i, u.x, u.y).length;
       if (!why && !w.map && !n) why = '射程內沒有敵人';
-      return '<button class="wrow"' + (why ? ' disabled' : ' onclick="srwPickW(' + i + ')"') + '><div><b>' + esc(w.n) + '</b>' + (w.ammo ? ' <span class="dim">（剩 ' + (u.ammo[w.id] || 0) + '）</span>' : '') + '<div class="dim" style="font-size:12px">' + wpnLine(w, u.wpnUp) + '</div>' + (why ? '<div class="why">' + esc(why) + '</div>' : '') + '</div></button>'; }).join('') + '</div>');
+      return '<button class="wrow"' + (why ? ' disabled' : ' onclick="srwPickW(' + i + ')"') + '><div><b>' + esc(w.n) + '</b>' + (w.ammo ? ' <span class="dim">（剩 ' + (u.ammo[w.id] || 0) + '）</span>' : '') + '<div class="dim" style="font-size:12px">' + wpnLine(w, u.wpnUp + (w.useAmmo ? w.perAmmo * (u.ammo[w.useAmmo] || 0) / T.UP_STEP.wpn : 0)) + '</div>' + (why ? '<div class="why">' + esc(why) + '</div>' : '') + '</div></button>'; }).join('') + '</div>');
   }
   function srwPickW(i) {
     closeOv(); var b = sB(), u = T.byUid(b, SUI.sel), w = T.W(u, i); SUI.wi = i; clearHl();
