@@ -600,9 +600,15 @@
   }
   function goEnemy() {
     var b = sB(); clearHl(); SUI.sel = null; SUI.mode = 'idle';
-    T.endPlayerPhase(run); save(); busy = true; srwBattleScreen(); banner('敵方階段', 'e');
-    (b.ticks || []).forEach(function (t) { var el = document.querySelector('.un[data-uid="' + t.uid + '"]'); if (el) { popAt(el, '毒 −' + t.dmg, 'dmg'); if (t.kill) { el.style.opacity = '.2'; setTimeout(function () { popAt(el, '擊破', 'ko'); }, 350); } } }); b.ticks = [];
-    setTimeout(function () { if (sB() !== b) return; srwEv(function () { busy = true; enemyStep(b); }, b); }, 1000);
+    T.endPlayerPhase(run); save(); busy = true;
+    var ticks = b.ticks || [], killed = ticks.filter(function (t) { return t.kill; }); b.ticks = [];
+    killed.forEach(function (t) { var el = document.querySelector('.un[data-uid="' + t.uid + '"]'); if (el) { popAt(el, '毒 −' + t.dmg, 'dmg'); el.style.opacity = '.2'; setTimeout(function () { popAt(el, '擊破', 'ko'); }, 350); } });   // 毒死的：重畫之前就不在地圖上了，先在舊畫面上跳
+    setTimeout(function () {
+      if (sB() !== b) return;
+      srwBattleScreen(); banner('敵方階段', 'e');
+      ticks.forEach(function (t) { if (t.kill) return; var el = document.querySelector('.un[data-uid="' + t.uid + '"]'); if (el) popAt(el, '毒 −' + t.dmg, 'dmg'); });
+      setTimeout(function () { if (sB() !== b) return; srwEv(function () { busy = true; enemyStep(b); }, b); }, 1000);
+    }, killed.length ? 900 : 0);
   }
   function enemyStep(b0) {
     var b = sB(); if (!b || (b0 && b !== b0)) { busy = false; return; }
