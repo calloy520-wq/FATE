@@ -195,7 +195,7 @@
     if (tab === 'hero') body = '<div class="list">' + T.ORDER.map(function (k) {
       var h = c.heroes[k], s = T.heroStats(c, k), on = S.heroes.some(function (x) { return x[0] === k; });
       return '<button class="box hcard" onclick="heroSheet(\'' + k + '\')">' + portrait({ id: k, side: 'p', name: G.SERVANTS[k].name }, 'pf2') + '<div style="flex:1;min-width:0"><b>' + esc(G.SERVANTS[k].name) + '</b> <span class="dim">Lv ' + h.lv + '</span>' + (on ? ' <span class="chip gold">出擊</span>' : '')
-        + '<div class="dim" style="font-size:12.5px">' + nwj(['氣血 ' + s.hpMax, '護體 ' + s.arm, '輕身 ' + s.mob, '悟道點 ' + h.pp, s.ace ? '<span style="color:var(--gold)">★成名</span>' : '擊破 ' + h.kills + '/' + T.ACE_KILLS]) + '</div></div><span class="tag">›</span></button>'; }).join('') + '</div>';
+        + '<div class="dim" style="font-size:12.5px">' + nwj(['氣血 ' + s.hpMax, '護體 ' + s.arm, '輕身 ' + s.mob, '悟道點 ' + h.pp, s.ace ? '<span style="color:var(--gold)">★成名</span>' : '擊破 ' + h.kills + '/' + T.aceKills(k)]) + '</div></div><span class="tag">›</span></button>'; }).join('') + '</div>';
     if (tab === 'shop') body = '<div class="list">' + T.shopList(c).map(function (id) { var I = T.ITEMS[id];
       return '<div class="box urow"><div><b>' + esc(I.n) + '</b>　<span class="dim" style="font-size:13px">' + esc(I.d) + '</span><div class="dim" style="font-size:12.5px">背包裡有 ' + (c.inv[id] || 0) + ' 件</div></div><button class="btn" style="padding:6px 12px"' + (c.gold < I.price ? ' disabled' : '') + ' onclick="srwBuy(\'' + id + '\')">💎 ' + I.price + '</button></div>'; }).join('') + '</div>';
     if (tab === 'bag') { var items = Object.keys(c.inv).filter(function (id) { return c.inv[id] > 0; });
@@ -246,7 +246,7 @@
         return '<button class="wrow"' + (open && cur !== S2.id ? ' onclick="srwSkin(\'' + k + '\',\'' + S2.id + '\')"' : open ? '' : ' disabled') + '><div><b>' + esc(S2.name) + '</b>' + (open ? '' : '<div class="dim" style="font-size:12.5px">' + esc(SKIN_GOALS[S2.goal]) + '</div>') + '</div><span class="r">' + (cur === S2.id ? '穿著' : open ? '換上' : '🔒') + '</span></button>'; }).join('') + '</div>';
     }
     openOv('<b style="color:var(--gold);font-size:17px">' + esc(Sv.name) + '</b>　<span class="dim">Lv ' + h.lv + '・經驗 ' + h.exp + '/' + T.EXP_LV + '・擊破 ' + h.kills + '</span>'
-      + '<div style="font-size:12.5px;margin-top:2px">' + (s.ace ? '<span style="color:var(--gold)">成名「' + esc(Sv.hao) + '」</span>：' + keepTail(esc(T.ACE[k])) : '<span class="dim">擊破 ' + h.kills + '／' + T.ACE_KILLS + ' 成名「' + esc(Sv.hao) + '」：' + keepTail(esc(T.ACE[k])) + '</span>') + '</div>'
+      + '<div style="font-size:12.5px;margin-top:2px">' + (s.ace ? '<span style="color:var(--gold)">成名「' + esc(Sv.hao) + '」</span>：' + keepTail(esc(T.ACE[k])) : '<span class="dim">擊破 ' + h.kills + '／' + T.aceKills(k) + ' 成名「' + esc(Sv.hao) + '」：' + keepTail(esc(T.ACE[k])) + '</span>') + '</div>'
       + '<div class="dim" style="font-size:12.5px;margin:4px 0 8px">' + nwj(['格鬥 ' + s.mel, '射擊 ' + s.rng, '靈力 ' + s.spi, '命中 ' + s.hit, '迴避 ' + s.eva, '悟性 ' + s.skl, '防禦 ' + s.def, '腳程 ' + s.mv, '體積 ' + T.SIZE_NAME[s.size]].concat(s.fly ? ['飛行'] : [])) + '</div>' + head + body);
   }
   function wpnLine(w, up) {
@@ -273,7 +273,7 @@
   function condText(S) {
     var M = S.merit || {}, boss = S.foes.filter(function (f) { return f[4] && f[4].boss; })[0];
     return '<div><b>勝利條件</b>' + (S.win === 'boss' ? '擊破' + esc(T.foeName(boss[0])) + (boss[4].retreat ? '（打到一半就會退走）' : '') : '敵人全滅') + '</div><div><b>敗北條件</b>出擊的人全部倒下</div>'
-      + (M.turns || M.nodown ? '<div><b>功勳</b>' + (M.turns ? M.turns + ' 回合內勝利' : '沒有人倒下') + '（' + esc(T.ITEMS[M.reward].n) + '）</div>' : '');
+      + (M.turns || M.nodown ? '<div><b>功勳</b>' + (M.turns ? M.turns + ' 回合內勝利' : '沒有人倒下') + (M.reward ? '（' + esc(T.ITEMS[M.reward].n) + '）' : '') + '</div>' : '');
   }
   // 關卡標題卡（機戰每一話開頭那張）：點一下開始
   function titleCard(S, cb) {
@@ -757,20 +757,20 @@
     M.stats.wins = (M.stats.wins || 0) + 1; M.stats.trueEnds = (M.stats.trueEnds || 0) + 1;
     if (run.turns && (!M.stats.srwTurns || run.turns < M.stats.srwTurns)) M.stats.srwTurns = run.turns;   // 排行榜：通關最少總回合
     if (!T.upTotal(run)) M.stats.noUpClear = 1;   // 不淬鍊就通關（戰績上標出來）
-    M.aces = M.aces || {}; T.ORDER.forEach(function (k) { if (run.heroes[k] && run.heroes[k].kills >= T.ACE_KILLS) M.aces[k] = 1; });   // 成名之後通關（造型）
+    M.aces = M.aces || {}; T.ORDER.forEach(function (k) { if (run.heroes[k] && run.heroes[k].kills >= T.aceKills(k)) M.aces[k] = 1; });   // 成名之後通關（造型）
     queueSave(true, false);
   }
   function resultScreen() {
     var r = run.result, S = T.STAGES.filter(function (x) { return x.id === r.stage; })[0];
     var rows = Object.keys(r.gain).map(function (k) { var g = r.gain[k], h = run.heroes[k], lv0 = h.lv - g.lvUp, k0 = h.kills - g.kills;
       var learned = T.HEROES[k].sp.filter(function (p) { return p[1] > lv0 && p[1] <= h.lv; }).map(function (p) { return T.SPIRITS[p[0]].n; });
-      var ace = k0 < T.ACE_KILLS && h.kills >= T.ACE_KILLS;
+      var ace = k0 < T.aceKills(k) && h.kills >= T.aceKills(k);
       return '<div class="box gain">' + portrait({ id: k, side: 'p', name: G.SERVANTS[k].name }, 'pf2') + '<div style="flex:1"><b>' + esc(G.SERVANTS[k].name) + '</b> <span class="dim">Lv ' + h.lv + '</span>' + (g.lvUp ? ' <span class="chip gold">升了 ' + g.lvUp + ' 級</span>' : '') + '<div class="dim" style="font-size:12.5px">' + nwj(['經驗 +' + g.exp, '悟道點 +' + g.pp, '擊破 ' + g.kills]) + '</div>'
         + (learned.length ? '<div style="font-size:13px;color:var(--gold)">學會心訣：' + learned.join('、') + '</div>' : '')
         + (ace ? '<div style="font-size:13px;color:var(--gold)">成名「' + esc(G.SERVANTS[k].hao) + '」：' + esc(T.ACE[k]) + '</div>' : '') + '</div></div>'; }).join('');
     $('app').innerHTML = '<div class="panel res"><h1 style="font-size:24px">' + (r.win ? '勝利' : '敗北') + '</h1><div class="dim">' + stageNo(S) + '・' + esc(S.n) + '・' + r.turns + ' 回合</div>'
       + '<div class="box" style="text-align:center">💎 擊破 ' + r.gold + (r.clearGold ? '＋過關 ' + r.clearGold : '') + '　現在 ' + run.gold + '</div>'
-      + (r.merit ? '<div class="box" style="text-align:center;border-color:var(--gold)">🏅 功勳達成：拿到<b>' + esc(T.ITEMS[r.item].n) + '</b></div>' : '')
+      + (r.merit ? '<div class="box" style="text-align:center;border-color:var(--gold)">🏅 功勳達成' + (r.item ? '：拿到<b>' + esc(T.ITEMS[r.item].n) + '</b>' : '') + '</div>' : '')
       + (!r.win ? '<div class="dim" style="text-align:center;text-wrap:balance">經驗、悟道點、靈石都留著。<br>到整備淬鍊、學功法會好打很多；不想強化，就讓大家站在一起，多用地形與心訣。</div>' : '')
       + '<div class="list">' + rows + '</div><button class="btn" onclick="T.toPrep(run);save();render()">' + (run.stage >= T.STAGES.length ? '繼續' : '回整備') + '</button></div>';
   }
@@ -778,7 +778,7 @@
     var ks = T.ORDER.filter(function (k) { return run.heroes[k]; }).sort(function (a, c) { return run.heroes[c].kills - run.heroes[a].kills; }), up = T.upTotal(run);
     var sum = '<div class="box" style="max-width:460px;width:100%"><div class="dim" style="font-size:13px;margin-bottom:4px">這一輪</div>'
       + '<div>' + nwj(['總回合 ' + (run.turns || 0) + '（含重打）', '功勳 ' + Object.keys(run.merit || {}).length + '／' + T.STAGES.length, up ? '淬鍊 ' + up + ' 級' : '<span style="color:var(--gold)">★ 不淬鍊通關</span>']) + '</div>'
-      + '<div style="margin-top:6px">' + ks.map(function (k, i) { var h = run.heroes[k]; return '<div style="font-size:14px">' + (i ? '' : '👑 ') + nwj(['<b>' + esc(G.SERVANTS[k].name) + '</b> <span class="dim">Lv ' + h.lv + '</span>', '擊破 ' + h.kills].concat(h.kills >= T.ACE_KILLS ? ['<span style="color:var(--gold)">★「' + esc(G.SERVANTS[k].hao) + '」</span>'] : [])) + '</div>'; }).join('') + '</div></div>';
+      + '<div style="margin-top:6px">' + ks.map(function (k, i) { var h = run.heroes[k]; return '<div style="font-size:14px">' + (i ? '' : '👑 ') + nwj(['<b>' + esc(G.SERVANTS[k].name) + '</b> <span class="dim">Lv ' + h.lv + '</span>', '擊破 ' + h.kills].concat(h.kills >= T.aceKills(k) ? ['<span style="color:var(--gold)">★「' + esc(G.SERVANTS[k].hao) + '」</span>'] : [])) + '</div>'; }).join('') + '</div></div>';
     $('app').innerHTML = '<div class="panel">' + heroHtml('封魔已畢') + '<div class="lore box" style="text-align:left;max-width:460px">' + keepTail('魘封住了。五篇真結局與尾聲都收進了「劇情」。') + '</div>' + sum
       + '<div class="menu" style="max-width:460px;width:100%"><button class="mbtn main" onclick="storyScreen(\'end\')"><span class="mi">🏮</span><span><b>看真結局</b><small>五個視角、同一場仗</small></span></button>'
       + '<button class="mbtn" onclick="confirmOv(\'重新開始戰役？等級、淬鍊、法寶都會重來。\',srwNew)"><span class="mi">⚔</span><span><b>重新開始戰役</b></span></button>'
@@ -841,9 +841,9 @@
     ['淬鍊', '整備時花靈石強化：氣血、真元、護體、輕身、準頭、招式各 10 級。五項（招式以外）都到 5 級：淬鍊圓滿，每人一個專屬獎勵。招式淬鍊到 5 級：開發出一招新招式。'],
     ['修為／功法', '悟道點：擊破與過關拿得到。加修為（命中、迴避……）或學功法。'],
     ['法寶', '每人兩格：裝備類一直有效；丹藥類每關能用一次。'],
-    ['功勳', '每關一個額外條件（例：幾回合內勝利），達成拿法寶。'],
+    ['功勳', '每關一個額外條件（例：幾回合內勝利），達成拿法寶；最後一關只記在戰績。'],
     ['魔王', '天生背水（氣血越少越強）。第一次掉到一半氣血會用一個心訣：鬼將軍金身、鬼面判官洞明、九尾妖狐懾魄……效果撐一輪。點魔王看得到她身上的心訣。'],
-    ['成名', '擊破 15 隻以上，用她的名號成名：每人一個專屬加成（人物頁看得到）。'],
+    ['成名', '擊破一定數量（每人不同，人物頁看得到）就用她的名號成名：每人一個專屬加成。'],
     ['輸了', '經驗、悟道點、靈石都留著，回整備再打一次。']
   ];
 </script>

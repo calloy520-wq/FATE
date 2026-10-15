@@ -208,8 +208,8 @@ Object.keys(T.FOES).forEach(k => ok(T.FOES[k].w.length > 0, k + ' 至少一招')
 }
 {
   // 成名：擊破夠多，專屬加成
-  const c = T.newCampaign(3); c.heroes.chilian.kills = T.ACE_KILLS; c.heroes.qingli.kills = T.ACE_KILLS; c.stage = 4; const b = T.startStage(c);
-  const r = P(b, 'chilian'); eq(r.revive, 2, '赤灼成名：站起來兩次'); ok(T.heroStats(c, 'chilian').ace, '擊破 ' + T.ACE_KILLS + ' 隻成名');
+  const c = T.newCampaign(3); c.heroes.chilian.kills = T.aceKills('chilian'); c.heroes.qingli.kills = T.aceKills('qingli'); c.stage = 4; const b = T.startStage(c);
+  const r = P(b, 'chilian'); eq(r.revive, 2, '赤灼成名：站起來兩次'); ok(T.heroStats(c, 'chilian').ace, '擊破 ' + T.aceKills('chilian') + ' 隻成名');
   const q = P(b, 'qingli'), z = E(b, 'mingquan'); only(b, [q, z]); q.x = 1; q.y = 8; z.x = 1; z.y = 7; z.hp = z.hpMax = 999999; z.rank = 'b'; q.st.dongming = 1;
   T.attack(c, q, 0, z, 'guard'); eq(z.ding, 2, '青璃成名：桃木劍也貼 2 層');
   ok(!T.heroStats(c, 'aduo').ace, '擊破不夠不成名');
@@ -383,6 +383,28 @@ const allEv = c => { const a = []; let e; while ((e = T.takeEv(c))) a.push(e); r
   ok(ui > 0 && !T.usable(b, z, ui, false) && T.whyNot(b, z, ui, false) === '真元不夠', '敵人真元不夠就放不出大招');
   z.en = T.W(z, ui).en; ok(T.usable(b, z, ui, false), '真元夠就能放');
   ok(Object.keys(T.FOES).every(k => T.FOES[k].w[0].en === 0), '每個敵人的第一招不耗真元（一定打得出來）');
+}
+{
+  // 稽核⑤：每關種子的低位元要散開（浮點乘法會把低位元捨掉）
+  const c = T.newCampaign(1); const seen = new Set(); for (let i = 0; i < 200; i++) { c.stage = i % 14; c.battle = null; const b = T.startStage(c); seen.add(b.rs & 1023); }
+  ok(seen.size > 150, '每關的亂數種子低位元散得開', seen.size);
+  // 最後一關的功勳只記在戰績、不給法寶
+  ok(T.STAGES[13].merit && !T.STAGES[13].merit.reward, '最後一關的功勳沒有法寶');
+  // 成名門檻每人不同
+  eq(T.aceKills('qingli'), 10, '青璃擊破 10 隻成名'); eq(T.aceKills('aduo'), 10, '阿朵擊破 10 隻成名'); eq(T.aceKills('shuang'), 12, '凌霜擊破 12 隻成名'); eq(T.aceKills('chilian'), 15, '赤灼擊破 15 隻成名');
+  const c2 = T.newCampaign(5); c2.heroes.aduo.kills = 9; ok(!T.heroStats(c2, 'aduo').ace, '阿朵 9 隻還沒成名'); c2.heroes.aduo.kills = 10; ok(T.heroStats(c2, 'aduo').ace, '阿朵 10 隻成名');
+  // 淬鍊圓滿：凌霜出擊 9 把飛劍、上限 14；赤灼出擊戰意 120
+  const c3 = T.newCampaign(6); ['shuang', 'chilian'].forEach(k => { ['hp', 'en', 'arm', 'mob', 'aim'].forEach(x => { c3.heroes[k].up[x] = 5; }); });
+  ok(T.heroStats(c3, 'shuang').full && T.heroStats(c3, 'chilian').full, '淬鍊圓滿');
+  c3.stage = 1; const b3 = T.startStage(c3), s3 = P(b3, 'shuang'), r3 = P(b3, 'chilian');
+  eq(s3.ammo.feijian, 9, '凌霜圓滿：出擊飛劍 9 把'); eq(s3.ammoCap, 14, '凌霜圓滿：飛劍上限 14'); eq(r3.will, 120, '赤灼圓滿：出擊戰意 120');
+}
+{
+  // 自動行動：還手打得死自己就不出手；只剩自己一個就拚
+  const c = T.newCampaign(8); c.heroes.xiaoman.lv = 21; c.stage = 13; const b = T.startStage(c), x = P(b, 'xiaoman'), m = b.units.filter(u => u.boss)[0], q = P(b, 'qingli');
+  only(b, [x, m, q]); x.x = m.x - 1; x.y = m.y; q.x = 0; q.y = 0; b.phase = 'p'; m.eva += 400; x.hp = Math.round(x.hpMax * 0.6);   // 打不中、還手又痛
+  const p1 = T.aiPlan(b, x, true); ok(p1 && !p1.target, '自動行動：划不來（還手比打出去痛）就不打');
+  only(b, [x, m]); const p2 = T.aiPlan(b, x, true); ok(p2 && p2.target === m.uid, '自動行動：只剩自己一個就拚');
 }
 console.log((fail ? '❌ ' : '✅ ') + pass + ' 項通過' + (fail ? '，' + fail + ' 項沒過' : ''));
 if (fail) process.exit(1);

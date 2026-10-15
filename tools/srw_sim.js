@@ -5,7 +5,7 @@ const T=require('./srw');
 const PREP={none:{noUp:1,noPP:1},pp:{noUp:1}}[process.env.PREP]||{};
 // 試數字：TUNE_HP=0.9 TUNE_ATK=-10 TUNE_HIT=-5（敵人整體）
 if(process.env.TUNE_HP) T.TUNE.hp=+process.env.TUNE_HP; if(process.env.TUNE_ATK) T.TUNE.atk=+process.env.TUNE_ATK; if(process.env.TUNE_HIT) T.TUNE.hit=+process.env.TUNE_HIT;
-const N=+process.env.N||30, RETRY=+(process.env.RETRY||3), MAXT=30, V=process.env.VERBOSE;
+const START=+process.env.START||0, N=+process.env.N||30, RETRY=+(process.env.RETRY||3), MAXT=30, V=process.env.VERBOSE;
 const st={}; T.STAGES.forEach(S=>st[S.id]={tries:0,wins:0,turns:0,downs:0,hit:0,hitN:0,ehit:0,ehitN:0,lv:0,lvN:0});
 let full=0, totalTries=0;
 function play(c){
@@ -21,7 +21,7 @@ function play(c){
   return b;
 }
 for(let i=0;i<N;i++){
-  const c=T.newCampaign(1000+i*7919); let ok=true;
+  const c=T.newCampaign(1000+(START+i)*7919); let ok=true;
   while(c.stage<T.STAGES.length){
     T.autoPrep(c, PREP); const S=T.curStage(c); let won=false;
     const hs=S.heroes.map(h=>c.heroes[h[0]].lv); st[S.id].lv+=hs.reduce((a,x)=>a+x,0)/hs.length; st[S.id].lvN++;
