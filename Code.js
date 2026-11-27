@@ -438,7 +438,7 @@ function autoAdaptSmartOutfit_(charId, currentOutfit, dbInfo, userAction, storyT
     }
     // 回到據點（本回合結束時人在廢棄洋館）且沒有開戰：還穿著戰鬥靈衣的從者自動換上便服
     // 只看「人在哪、有沒有開戰」，不看對話字眼（玩家在家裡討論「要不要出擊」不代表已經出門）
-    if (casualOutfit && locKey === '廢棄洋館' && !isCombat && cur === defaultOutfit) {
+    if (casualOutfit && locKey === '廢棄洋館' && !isCombat && (cur === defaultOutfit || outfitSimilarity_(cur, defaultOutfit) >= 0.5)) {
       return casualOutfit;
     }
   }
@@ -1424,6 +1424,13 @@ function pickBgmMood_(turnJson, st, story, outcome, assess) {
   if (st && st.locationKey === '廢棄洋館' && /休息|睡|泡澡|吃飯|晚餐|聊天/.test(body)) return 'home';
   if (st && st.timePeriod === '黃昏') return 'dusk';
   return (st && st.timePeriod === '深夜') ? 'night' : 'day';
+}
+
+// 非戰鬥畫面把動作描述裡的武器字眼拿掉（例如 holding spear、pointing with spear），避免日常也畫出武器
+function stripWeaponTags_(str) {
+  return String(str || '').split(',').map(t => t.trim())
+    .filter(t => t && !/\b(spear|lance|polearm|sword|blade|weapon|gae bolg|katana|bow|dagger|axe)\b/i.test(t))
+    .join(', ');
 }
 
 // 玩家本回合是不是在休息（睡覺、冥想、調息…）
@@ -4068,7 +4075,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     const core = nudeMode ? stripClothesFromCore_(normCore) : normCore;
     if (nudeMode) anyNude = true;
     const weightedOutfit = formatCharacterOutfitPrompt_(profile.outfit);
-    const directAction = String(c.action_en || '').trim();
+    let directAction = String(c.action_en || '').trim();
 
     if (profile.gender === 'boy') boys++;
     else girls++;
@@ -4081,6 +4088,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
 
     // 非戰鬥、沒有解放寶具時，武器不出現在畫面上（劇情就算寫了也不畫）
     const noWeaponUc = (!isCombat && !c.use_np && c.id !== 'player_master') ? 'holding weapon, weapon, spear, polearm, sword' : '';
+    if (noWeaponUc) directAction = stripWeaponTags_(directAction);
     return {
       id: c.id,
       baseCore: normCore,
@@ -4328,7 +4336,8 @@ function generateTurnCgAsync(imgPayload) {
             ? formatCharacterOutfitPrompt_(isNude ? 'nude, completely nude, no clothes' : d.outfit)
             : ch.weightedOutfit;
 
-          const actionParts = [sanitizeNaiInteraction_(d.interaction), stripBadInteractionPrefix_(d.action)].filter(Boolean).join(', ')
+          const calmScene = !((working._directorContext || {}).isCombat) && !d.use_np && ch.id !== 'player_master';
+          const actionParts = [sanitizeNaiInteraction_(d.interaction), calmScene ? stripWeaponTags_(stripBadInteractionPrefix_(d.action)) : stripBadInteractionPrefix_(d.action)].filter(Boolean).join(', ')
             .split(',').map(t => t.trim()).filter(t => t && !/^in_view\s*[:=]/i.test(t)).join(', ');
 
           return Object.assign({}, ch, {
