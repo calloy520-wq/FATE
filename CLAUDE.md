@@ -88,7 +88,7 @@
 - NovelAI 免費範圍（Opus）：一次 1 張、不用底圖、尺寸 ≤ 約 1024×1024 像素量（目前 1216×832）、steps ≤ 28。V5 的免費額度是會自動回復的用量條，用完會**自動改扣 Anlas**，所以不要調高尺寸、steps 或一次生多張。
 
 ## 內建資料（不在試算表）
-- 角色：`GameData.js` 的 `FATE_CHARACTERS_`。新增角色時填 id、names（第一個為顯示名稱）、gender、core、outfit、uc、summonable；`saber_alter` 一律不可開局召喚。要畫寶具特效再到 `Code.js` 的 `NP_VISUAL_EFFECTS_` 補一筆。
+- 角色：`GameData.js` 的 `FATE_CHARACTERS_`。角色的 Danbooru 標籤拼法要正確（例如小次郎是 `sasaki kojirou (fate)`，拼成 kojiro 會認不出角色、畫成路人）。新增角色時填 id、names（第一個為顯示名稱）、gender、core、outfit、uc、summonable；`saber_alter` 一律不可開局召喚。要畫寶具特效再到 `Code.js` 的 `NP_VISUAL_EFFECTS_` 補一筆。
 - 陣營：`Code.js` 的 `CANONICAL_7_FACTIONS_`（陣營名稱／御主ID／從者ID／預設狀態／預設態度／內幕）。新增陣營記得補 `FACTION_ALIAS_GROUPS_`。
 - 世界書：`Lore.js` 的 `FATE_LORE_BUILTIN_`（cat 分類／pri 優先度／keys 關鍵字／text 內容）。
   - 優先度 10 每回合必載入（控制在 5 條內）；其餘依關鍵字命中來源加權——玩家本回合行動 ×3、目前狀態（地點、從者、重要事件、擴散中流言、背包）×2、最近 2 回合劇情 ×1，不分大小寫。依分數→優先度排序，最多 8 條、3200 字，載入時附 `[分類]`。

@@ -309,5 +309,9 @@ eq('羈絆 100：戰力判定 +2', (() => { const st = baseSt(); st.bondLevel = 
 eq('非戰鬥刪掉武器字眼', T.stripWeaponTags_('pointing with spear, smiling, holding gae bolg, looking at viewer'), 'smiling, looking at viewer');
 eq('便服：AI 改寫過的戰鬥服回洋館也換便服', T.autoAdaptSmartOutfit_('scathach', 'scathach battle bodysuit, black veil, gauntlets', { defaultOutfit: 'scathach battle bodysuit, black veil', casualOutfit: 'white sweater' }, '回洋館做晚餐', '', false, '廢棄洋館'), 'white sweater');
 
+eq('新地點：間桐家', (T.matchFuyukiLocation_('深夜潛入間桐家的地下蟲倉') || {}).key, '間桐邸');
+eq('新地點：學校', (T.matchFuyukiLocation_('放學後的穗群原學園弓道場') || {}).key, '穗群原學園');
+eq('洋館屋頂仍是洋館', (T.matchFuyukiLocation_('廢棄洋館的屋頂') || {}).key, '廢棄洋館');
+
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

@@ -124,6 +124,7 @@ function normalizeGameToneKey_(rawTone) {
 
 // 冬木市 8 大核心地標戰略資料庫 (座標、靈脈濃度、自動回魔量、戰略特性)
 const FUYUKI_LOCATIONS_ = {
+  // 注意：地點比對是照順序找別名，新增地點時別名不要和既有地點重疊（例如不要用「屋頂」「地下」這種通用詞）
   '廢棄洋館': {
     id: 'mansion',
     fullName: '冬木市・廢棄洋館地下室',
@@ -133,6 +134,26 @@ const FUYUKI_LOCATIONS_ = {
     danger: '低 (秘密據點)',
     x: 24, y: 74,
     desc: '位於深山町邊緣的秘密據點，設有基礎隱匿結界，適合安全休整與煉成禮裝，但大源魔力稀薄。'
+  },
+  '間桐邸': {
+    id: 'matou',
+    fullName: '深山町・間桐邸',
+    aliases: ['間桐邸', '間桐家', '間桐宅', '蟲倉', '慎二家', '櫻家'],
+    leyline: '✨ 中靈脈 (陰濕蟲倉)',
+    manaRegen: 20,
+    danger: '高 (間桐的蟲之巢穴)',
+    x: 9, y: 41,
+    desc: '深山町坡道上陰暗潮濕的老舊西式宅邸，表面是慎二與櫻的家；地下蟲倉是間桐臟硯飼養刻印蟲的巢穴，充滿腐臭與魔力的低語。'
+  },
+  '穗群原學園': {
+    id: 'school',
+    fullName: '深山町・私立穗群原學園',
+    aliases: ['穗群原', '學園', '學校', '校園', '弓道場'],
+    leyline: '弱靈脈 (日常學舍)',
+    manaRegen: 10,
+    danger: '中 (白天人多・夜間無人)',
+    x: 10, y: 60,
+    desc: '士郎、凜、櫻、慎二就讀的私立高中。白天學生眾多，魔術必須隱匿；入夜後空無一人，校舍、屋頂與弓道場常成為御主密會或交戰的場所。'
   },
   '冬木大橋': {
     id: 'bridge',
@@ -1292,7 +1313,7 @@ const COMBAT_TARGET_ALIASES_ = [
   ['遠坂', ['遠坂', '凜', 'Archer', 'archer']],
   ['衛宮', ['衛宮', '士郎', 'Saber', 'saber', '阿爾托莉雅']]
 ];
-const FACTION_HOME_ = { '柳洞寺': '柳洞寺', '遠坂邸': '遠坂', '衛宮邸': '衛宮', '聖堂教會': '教會', '愛因茲貝倫森林': '愛因茲貝倫' };
+const FACTION_HOME_ = { '柳洞寺': '柳洞寺', '遠坂邸': '遠坂', '衛宮邸': '衛宮', '聖堂教會': '教會', '愛因茲貝倫森林': '愛因茲貝倫', '間桐邸': '間桐' };
 
 function findCombatTarget_(userAction, factionsObj, locationKey) {
   const f = factionsObj || {};
@@ -1806,7 +1827,8 @@ function simulateOffscreenFactionWar_(factionsObj, day, period, ownedServantIds)
   const facA = aliveFactions[idxA];
   const facB = aliveFactions[idxB];
   const facBWeakened = isWeakenedStatusText_(factionsObj[facB]);
-  const battleSite = ['冬木大橋', '柳洞寺', '新都商業區', '衛宮邸', '遠坂邸', '愛因茲貝倫森林'][Math.floor(Math.random() * 6)];
+  const sites = ['冬木大橋', '柳洞寺', '新都商業區', '衛宮邸', '遠坂邸', '愛因茲貝倫森林', '間桐邸', '穗群原學園'];
+  const battleSite = sites[Math.floor(Math.random() * sites.length)];
 
   // 淘汰機率下調，且至少要剩 4 組以上才可能被後台淘汰，避免七組被後台打光
   const isElimination = (Number(day) >= 3 && facBWeakened && Math.random() < 0.12 && aliveFactions.length > 3);
@@ -1830,6 +1852,8 @@ function simulateOffscreenFactionWar_(factionsObj, day, period, ownedServantIds)
     '新都商業區': ['新都大樓之間有怪光', '凌晨有好幾棟大樓的玻璃同時碎掉，新聞說是瓦斯氣爆'],
     '衛宮邸': ['深山町那棟日式老宅好吵', '半夜聽到金屬撞擊的聲音，圍牆好像塌了一角'],
     '遠坂邸': ['坡上的洋館附近有怪聲', '半夜有紅光跟爆炸聲，早上去看庭院樹倒了好幾棵'],
+    '間桐邸': ['間桐家那棟老房子好可怕', '半夜經過聽到地底傳來像蟲在爬的沙沙聲，窗戶裡好像有人影在看我'],
+    '穗群原學園': ['學校半夜有人在打架？', '早上到校發現操場有好幾個大坑，弓道場的牆也裂了，學校說是施工'],
     '愛因茲貝倫森林': ['郊外森林半夜在震動', '開車經過郊外的時候看到森林裡一整片樹倒下，還有像巨人吼叫的聲音']
   }[battleSite] || ['半夜的怪聲', '昨晚好像有什麼東西爆炸了'];
   return {
