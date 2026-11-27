@@ -927,7 +927,7 @@
               </div>
               <div id="cs-advice" class="advice-box hidden"></div>
             </div>
-            <div class="form-group"><label class="form-label">官方角色標籤（可選，例如 scathach (fate)；官方比對時只用這個）</label><input type="text" id="cs-official" maxlength="80" /></div>
+            <div class="form-group"><label class="form-label">官方角色標籤（可選，例如 scathach (fate)；現有作品角色填這個最準）</label><input type="text" id="cs-official" maxlength="80" /></div>
             <div class="form-group"><label class="form-label">核心外觀 Tags（髮、瞳、體型）</label><input type="text" id="cs-core" maxlength="500" /></div>
             <div class="form-group"><label class="form-label">戰鬥服裝 Tags</label><input type="text" id="cs-outfit" maxlength="400" /></div>
             <div class="form-group cs-row" style="grid-template-columns: 1fr 1fr;">
@@ -941,13 +941,9 @@
             </div>
             <div class="form-group"><label class="form-label">寶具特效 Tags（解放寶具時畫的特效）</label><input type="text" id="cs-np-visual" maxlength="200" /></div>
             <div class="form-group"><label class="form-label">個性</label><input type="text" id="cs-personality" maxlength="150" placeholder="例如：高傲但對御主很溫柔、說話古風" /></div>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn btn-sm" type="button" style="flex: 1;" onclick="runPreviewServant('game')">🎨 遊戲畫法預覽</button>
-              <button class="btn btn-sm" type="button" style="flex: 1;" onclick="runPreviewServant('official')">🆚 官方畫法比對</button>
-            </div>
-            <div class="cs-preview-grid">
-              <div><div class="preview-frame" id="cs-preview-game"><span style="color: var(--text-muted); font-size: 12px;">遊戲畫法</span></div><div class="cs-preview-cap">遊戲實際畫法</div></div>
-              <div><div class="preview-frame" id="cs-preview-official"><span style="color: var(--text-muted); font-size: 12px;">官方畫法</span></div><div class="cs-preview-cap">官方預設（只打角色標籤）</div></div>
+            <button class="btn btn-sm" type="button" style="width: 100%;" onclick="runPreviewServant('game')">🎨 英靈定裝預覽</button>
+            <div class="cs-preview-grid" style="grid-template-columns: 1fr;">
+              <div class="preview-frame" id="cs-preview-game" style="max-height: 420px;"><span style="color: var(--text-muted); font-size: 12px;">填好外貌後按上方按鈕預覽</span></div>
             </div>
           </div>
           <div class="form-group">
@@ -1732,7 +1728,7 @@
       google.script.run
         .withSuccessHandler(res => {
           hideLoading();
-          document.getElementById(mode === 'official' ? 'cs-preview-official' : 'cs-preview-game').innerHTML = `<img src="${res.base64}" alt="Preview" />`;
+          document.getElementById('cs-preview-game').innerHTML = `<img src="${res.base64}" alt="Preview" />`;
         })
         .withFailureHandler(err => {
           hideLoading();
