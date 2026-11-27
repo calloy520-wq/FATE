@@ -5,7 +5,8 @@
  *
  * 每個角色：id / names（第一個是顯示名稱，其餘是別名）/ gender（girl/boy）
  *   core：永遠不變的體貌 tags（英文 Danbooru）
- *   outfit：預設服裝 tags
+ *   outfit：預設服裝 tags（戰鬥／外出用的靈衣）
+ *   casual：便服 tags（可省略）；在據點休息、沒有戰鬥時自動換上，外出或開戰時換回 outfit
  *   uc：該角色專用的負面提示詞
  *   summonable：能否在開局召喚（saber_alter 一律 false，只能由劇情黑化）
  * ============================================================
@@ -19,6 +20,7 @@ const FATE_CHARACTERS_ = [
   { id: "scathach", names: "斯卡哈,師匠,影之國女王", gender: "girl",
     core: "scathach (fate), fate/grand order, very long purple hair, red eyes, large breasts, slender",
     outfit: "purple bodysuit, tight bodysuit, black veil, gold trim, thighhighs",
+    casual: "white sweater, long sweater, sweater dress, turtleneck, long sleeves, black pantyhose",
     uc: "short hair", summonable: true },
   { id: "prisma_illya", names: "魔法少女伊莉雅,魔伊,紅寶石之星", gender: "girl",
     core: "illyasviel von einzbern (prisma illya), fate/kaleid liner prisma illya, long silver hair, white hair, twintails, red eyes, petite",
@@ -35,6 +37,7 @@ const FATE_CHARACTERS_ = [
   { id: "saber", names: "Saber,阿爾托莉雅,亞瑟王", gender: "girl",
     core: "artoria pendragon (fate), fate/stay night, blonde hair, hair bun, single hair bun, ahoge, green eyes",
     outfit: "blue dress, silver chestplate, silver gauntlets, armored skirt, blue ribbon",
+    casual: "white blouse, blue ribbon, long blue skirt",
     uc: "alter", summonable: false },
   { id: "saber_alter", names: "黑Saber,Saber Alter", gender: "girl",
     core: "artoria pendragon (alter), fate/stay night, pale skin, blonde hair, hair bun, yellow eyes",
@@ -51,6 +54,7 @@ const FATE_CHARACTERS_ = [
   { id: "rider", names: "Rider,美杜莎,R姐", gender: "girl",
     core: "medusa (fate), fate/stay night, 1.1::very long purple hair::, absurdly long hair, purple eyes, square pupils, large breasts, slender, tall female",
     outfit: "black turtleneck sleeveless dress, detached sleeves, black thighhighs, high heels",
+    casual: "glasses, turtleneck sweater, jeans",
     uc: "short hair, pink hair, red hair, blindfold, covered eyes, visor", summonable: false },
   { id: "caster", names: "Caster,美狄亞,C媽", gender: "girl",
     core: "medea (fate), fate/stay night, long purple hair, pointed ears, elf ears, purple eyes",

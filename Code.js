@@ -397,10 +397,16 @@ function autoAdaptSmartOutfit_(charId, currentOutfit, dbInfo, userAction, storyT
   }
 
   if (charId !== 'player_master') {
-    const isCasualOrSleepwear = /睡衣|家居|浴袍|圍裙|便服|居家服|睡覺|洗澡|\b(pajamas|sleepwear|bathrobe|apron|casual clothes|loungewear)\b/i.test(cur);
+    const casualOutfit = String((dbInfo && dbInfo.casualOutfit) || '').trim();
+    const isCasualOrSleepwear = (casualOutfit && cur === casualOutfit) || /睡衣|家居|浴袍|圍裙|便服|居家服|睡覺|洗澡|\b(pajamas|sleepwear|bathrobe|apron|casual clothes|loungewear)\b/i.test(cur);
     const isOutdoorCombatOrPatrol = Boolean(isCombat) || /交戰|戰鬥|迎戰|突襲|夜襲|巡邏|警戒|出擊|戰場|寶具|魔槍|聖劍/.test(combinedText) || (locKey && locKey !== '廢棄洋館');
     if (isOutdoorCombatOrPatrol && isCasualOrSleepwear) {
       return defaultOutfit || cur;
+    }
+    // 回到據點（本回合結束時人在廢棄洋館）且沒有開戰：還穿著戰鬥靈衣的從者自動換上便服
+    // 只看「人在哪、有沒有開戰」，不看對話字眼（玩家在家裡討論「要不要出擊」不代表已經出門）
+    if (casualOutfit && locKey === '廢棄洋館' && !isCombat && cur === defaultOutfit) {
+      return casualOutfit;
     }
   }
 
@@ -2344,7 +2350,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '3. 每個行動都要有確實的結果並留下紀錄：數值、陣營狀態、流言、道具、關係變化都要反映在對應的 JSON 欄位，不能只寫在劇情裡。',
   '4. 只控制玩家輸入的部分：不替玩家寫出沒輸入的行動或台詞，也不替玩家做決定；從者、NPC、敵對陣營依各自性格與目的主動行動。',
   '5. 世界是活的：各陣營有自己的計畫，會依情報、流言與局勢變化而行動；在場人物一定會對玩家的言行有所反應，不會無視或憑空消失。',
-  '6. 只寫本回合的新發展：前幾回合是已確定的歷史，開頭不要重複或改寫上一回合的結尾。',
+  '6. 只寫本回合的新發展：前幾回合是已確定的歷史，開頭不要重複或改寫上一回合的結尾。劇情停在玩家這次行動自然結束的那一刻，不要自己替玩家移動到別的地方、跳過時間或安排下一步（例如玩家只說去遠坂邸談判，就停在遠坂邸，不要寫「之後回到洋館」）。',
   '',
   '## 二、型月世界邏輯（判斷結果時的常識，不是禁止清單）',
   '- 神秘法則：神秘只能被更強的神秘壓制。現代武器與普通魔術幾乎傷不了英靈本體，但可以牽制、干擾、爭取時間，或對付御主與使魔。',
@@ -3172,7 +3178,7 @@ function excerptForDirector_(storyText) {
 
 function translateSceneToNaiV5_(directorCtx) {
   const charSummary = (directorCtx.chars || []).map(c =>
-    `- id: "${c.id}", name: "${c.name}", gender: "${c.gender}", use_np: ${Boolean(c.use_np)}, reference_outfit: "${c.referenceOutfit || ''}", battle_outfit: "${c.battleOutfit || ''}", hint: "${c.hint || ''}"`
+    `- id: "${c.id}", name: "${c.name}", gender: "${c.gender}", use_np: ${Boolean(c.use_np)}, reference_outfit: "${c.referenceOutfit || ''}", battle_outfit: "${c.battleOutfit || ''}", casual_outfit: "${c.casualOutfit || ''}", hint: "${c.hint || ''}"`
   ).join('\n');
 
   const systemPrompt = [
@@ -3184,10 +3190,13 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - Bathing / showering / hot spring / undressing / nude scene: MUST set "is_nude": true and "outfit": "nude, completely nude, no clothes" (add "wet skin, steam" if bathing).',
     '   - Combat / fighting / ambush / night raid: MUST wear combat-ready attire (use "battle_outfit" or appropriate battle gear/armor).',
     '   - Sleeping / bed / changing clothes: Wear appropriate pajamas/nightwear or whatever the story explicitly describes.',
+    '   - casual_outfit may be used ONLY when "At Home Base" is yes and Is Combat is false. Anywhere else (streets, patrol, enemy territory) Servants wear reference_outfit / battle_outfit, never casual_outfit.',
     '   - Normal scene with no outfit change: Use "reference_outfit" (translate it into clean English Danbooru tags if it is in Chinese).',
     '   - Never put hair color, eye color, body type or character names inside "outfit"; those come from a fixed character sheet.',
     '   - Reflect "Current Site Appearance/Modifications" in scene_prompt (battle damage, decorations, barriers persist between turns and must be visible).',
+    '   - Servants keep their weapons dematerialized outside battle: draw a weapon ONLY when Is Combat is true or the excerpt explicitly shows the weapon being drawn or swung in that very moment. Casual talk, planning, resting, negotiating = no weapon in hand.',
     '   - The setting is Japan in 2004: any mobile phone must be a "flip phone" (clamshell feature phone with antenna and physical keypad). Never draw smartphones, touchscreens or other post-2004 technology.',
+    '   - PEOPLE FIRST: the characters (faces, expressions, poses, outfits) are the subject. Props, phones, weapons and effects are minor atmosphere — never let an object dominate or fill the frame.',
     '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event. Only include props, weapons and magic effects that the excerpt explicitly shows in that moment (do not add a character\'s signature item unless it is being used).',
     '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Describe the overall composition in one short natural-language clause (who is where relative to whom, depth and distance). Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
     '5. Characters (char_directions): For each present character output (keep every character\'s tags strictly in its own entry so features do not bleed between characters):',
@@ -3197,7 +3206,7 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - "action": the character\'s placement and spatial relation FIRST (foreground / background / center, beside / behind / in front of / facing another character, near or far, above or below), then pose, expression, gaze, weapon/prop action, in English (NO hair/eyes color). Do NOT give coordinates or left/right grid positions — NovelAI decides the exact layout from these relations.',
     '   - "interaction": ONLY if 2+ characters directly interact, use NAI V5 syntax ("source#<action>" + "target#<action>", or "mutual#<action>"). Empty string "" otherwise.',
     directorCtx.cameraMode === 'pov'
-      ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. If the player\'s hands are doing something (reaching, holding, touching, casting), add "pov hands" plus that hand action to scene_prompt. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees. CHARACTER FOCUS: in POV the visible characters are the subject of the picture — frame them close (use "close-up" or "upper body" or "cowboy shot" for one character, "medium shot" for two or three) so they fill most of the frame with clear faces and expressions; keep the background simple and secondary ("depth of field", "blurry background"), showing only enough to identify the place. Use a wide shot only when no character is visible. Never mention out-of-view characters in scene_prompt. For EVERY character also output "in_view": true/false — false when the character is outside the player\'s field of view (behind the player, beside and out of frame, behind a wall, hidden in darkness); true only if the player would actually see them right now (e.g. "leaning in from over your shoulder" counts as visible).'
+      ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. Only add "pov hands" when the player\'s hand directly interacts with a character (holding hands, being handed something by them, touching them); keep the hands small at the edge of the frame. Objects the player holds (phones, papers, weapons) are never the focus — mention them briefly or not at all. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees. CHARACTER FOCUS: in POV the visible characters are the subject of the picture — frame them close (use "close-up" or "upper body" or "cowboy shot" for one character, "medium shot" for two or three) so they fill most of the frame with clear faces and expressions; keep the background simple and secondary ("depth of field", "blurry background"), showing only enough to identify the place. Use a wide shot only when no character is visible. Never mention out-of-view characters in scene_prompt. For EVERY character also output "in_view": true/false — false when the character is outside the player\'s field of view (behind the player, beside and out of frame, behind a wall, hidden in darkness); true only if the player would actually see them right now (e.g. "leaning in from over your shoulder" counts as visible).'
       : '',
     'Output strictly valid JSON: { "scene_prompt": "...", "char_directions": [{ "id": "...", "is_nude": false, "outfit": "...", "action": "...", "interaction": "" }] }'
   ].join('\n');
@@ -3208,6 +3217,7 @@ function translateSceneToNaiV5_(directorCtx) {
     `Is Combat: ${Boolean(directorCtx.isCombat)}`,
     `Adult Mode: ${Boolean(directorCtx.adultMode)}`,
     `Camera: ${directorCtx.cameraMode === 'pov' ? 'FIRST-PERSON POV (player is the camera)' : 'third-person'}`,
+    `At Home Base: ${directorCtx.atHomeBase ? 'yes' : 'no'}`,
     `Player Action: ${directorCtx.userAction || ''}`,
     `Present Characters:\n${charSummary}`,
     `Story Excerpt (the END is the current moment):\n${excerptForDirector_(directorCtx.storyText)}`
@@ -3313,6 +3323,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
       isCombat: Boolean(isCombat || anyNpActive),
       adultMode: adultMode,
       cameraMode: povMode ? 'pov' : 'third',
+      atHomeBase: statusObj.locationKey === '廢棄洋館',
       userAction: String(userAction || ''),
       storyText: String(storyText || ''),
       chars: validChars.map((c, idx) => {
@@ -3325,6 +3336,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
           use_np: Boolean(c.use_np),
           referenceOutfit: refOutfit,
           battleOutfit: String(dbInfo.defaultOutfit || refOutfit).trim(),
+          casualOutfit: String(dbInfo.casualOutfit || '').trim(),
           hint: String(c.action_en || '')
         };
       })
@@ -3394,6 +3406,14 @@ function buildCountTags_(chars, povMode) {
   return tags;
 }
 
+// 兩組服裝 tags 的相似度（重疊 tag 比例），用來判斷導演是不是把服裝改回了戰鬥裝
+function outfitSimilarity_(a, b) {
+  const ta = String(a || '').toLowerCase().split(',').map(t => t.trim()).filter(Boolean);
+  const tb = new Set(String(b || '').toLowerCase().split(',').map(t => t.trim()).filter(Boolean));
+  if (ta.length === 0 || tb.size === 0) return 0;
+  return ta.filter(t => tb.has(t)).length / Math.min(ta.length, tb.size);
+}
+
 function generateTurnCgAsync(imgPayload) {
   if (!imgPayload) throw new Error('無場景資料');
   const working = JSON.parse(JSON.stringify(imgPayload));
@@ -3437,6 +3457,12 @@ function generateTurnCgAsync(imgPayload) {
           const d = dirMap[ch.id];
           if (!d) return ch;
 
+          const ctxChar = ((working._directorContext || {}).chars || []).find(x => x.id === ch.id) || {};
+          const ctxInfo = working._directorContext || {};
+          const atHomeCalm = ctxInfo.atHomeBase && !ctxInfo.isCombat;
+          if (atHomeCalm && ctxChar.casualOutfit && ctxChar.referenceOutfit === ctxChar.casualOutfit && d.outfit && outfitSimilarity_(d.outfit, ctxChar.battleOutfit) >= 0.5) {
+            d.outfit = ctxChar.casualOutfit;
+          }
           const isNude = Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit);
           const finalCore = isNude ? stripClothesFromCore_(ch.baseCore) : ch.baseCore;
           const finalOutfit = d.outfit
@@ -3648,6 +3674,7 @@ function getCharAppearanceMap_(ss) {
       gender: c.gender === 'boy' ? 'boy' : 'girl',
       coreTraits: c.core,
       defaultOutfit: c.outfit,
+      casualOutfit: c.casual || '',
       uc: c.uc || '',
       summonable: c.id === 'saber_alter' ? false : Boolean(c.summonable)
     };

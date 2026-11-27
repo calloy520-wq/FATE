@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, removeCharacterMentions_, pickNaiSize_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -145,6 +145,14 @@ eq('系統提示詞包含感知範圍限制（防上帝視角）', T.FATE_GM_SYS
 // ---- 其他 ----
 eq('全裸後沒說穿衣 → 維持全裸', T.autoAdaptSmartOutfit_('player_master', 'nude, completely nude, no clothes', { defaultOutfit: 'dress' }, '去洗臉', '', false, '廢棄洋館'), 'nude, completely nude, no clothes');
 eq('全裸後穿上衣服 → 還原預設', T.autoAdaptSmartOutfit_('player_master', 'nude, completely nude, no clothes', { defaultOutfit: 'dress' }, '穿上衣服', '', false, '廢棄洋館'), 'dress');
+const sca = { defaultOutfit: 'purple bodysuit', casualOutfit: 'white sweater, black pantyhose' };
+eq('便服：回到據點、沒開戰 → 換便服', T.autoAdaptSmartOutfit_('scathach', 'purple bodysuit', sca, '跟斯卡哈討論作戰', '', false, '廢棄洋館'), 'white sweater, black pantyhose');
+eq('便服：在家討論「要不要出擊」仍換便服', T.autoAdaptSmartOutfit_('scathach', 'purple bodysuit', sca, '我們該主動出擊還是收集情報？', '', false, '廢棄洋館'), 'white sweater, black pantyhose');
+eq('便服：出門 → 換回戰鬥裝', T.autoAdaptSmartOutfit_('scathach', 'white sweater, black pantyhose', sca, '前往新都', '', false, '新都商業區'), 'purple bodysuit');
+eq('便服：在據點遭到突襲（開戰）→ 戰鬥裝', T.autoAdaptSmartOutfit_('scathach', 'white sweater, black pantyhose', sca, '迎戰', '', true, '廢棄洋館'), 'purple bodysuit');
+eq('便服：劇情換過的特殊服裝不會被蓋掉', T.autoAdaptSmartOutfit_('scathach', 'yukata', sca, '休息', '', false, '廢棄洋館'), 'yukata');
+eq('服裝相似度：導演改回戰鬥服可偵測', T.outfitSimilarity_('purple bodysuit, tight bodysuit, black veil, gold trim', 'purple bodysuit, tight bodysuit, black veil, gold trim, thighhighs') >= 0.5, true);
+eq('服裝相似度：浴衣不算戰鬥服', T.outfitSimilarity_('yukata, obi', 'purple bodysuit, tight bodysuit') < 0.5, true);
 eq('JSON 容錯解析', T.parseJsonLoose_('```json\n{"a":1}\n```'), { a: 1 });
 eq('深夜 → 隔天清晨', T.advanceTimePeriod_(1, '深夜'), { day: 2, period: '清晨' });
 
