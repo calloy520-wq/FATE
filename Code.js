@@ -1114,6 +1114,27 @@ function describeGodHandForPrompt_(godHand, factionsObj) {
   return `【十二試煉】Berserker 目前還剩 ${GOD_HAND_LIVES_ - lost}/${GOD_HAND_LIVES_} 條命（以這個數字為準）。${methods.length ? `以下手段已經殺過他，對他**完全無效**（要寫成攻擊被肉體彈開、毫髮無傷，不算擊破）：${methods.join('、')}。` : ''}每回合最多擊破 1 條（A 級以上寶具最多 2 條），同一種手段不能殺他兩次；命數歸零前不會退場，除非御主伊莉雅被打倒、投降或放棄。玩家這邊確實殺死他一次時，填 berserker_lives_lost。`;
 }
 
+// ==================== 英靈名冊：副從者位置滿了，收服的英靈在據點待命，可以換上場 ====================
+const MAX_SERVANT_ROSTER_ = 3;
+
+// 玩家這回合想讓名冊裡的哪一騎上場（只能在據點換）；回傳該英靈 id 或 ''
+function findRosterSwapTarget_(userAction, roster, charDb, locationKey) {
+  if (locationKey !== '廢棄洋館') return '';
+  const text = String(userAction || '');
+  if (!/上場|出門|跟我|跟著我|同行|出戰|換成|換.{0,6}(來|上)|帶.{0,4}(去|走|出)/.test(text)) return '';
+  const hit = (Array.isArray(roster) ? roster : []).find(r => {
+    const names = String((charDb[r.id] && charDb[r.id].triggers) || r.name || '').split(',').map(x => x.trim()).filter(x => x.length >= 1);
+    return names.some(n => text.includes(n));
+  });
+  return hit ? hit.id : '';
+}
+
+function describeRosterForPrompt_(roster) {
+  const list = Array.isArray(roster) ? roster : [];
+  if (list.length === 0) return '';
+  return `【英靈名冊（已締約、在廢棄洋館待命，這回合不在玩家身邊）】${list.map(r => `${r.name}（${r.id}・${r.condition || '靈基穩定'}）`).join('、')}。玩家回到洋館時他們在那裡；不要寫他們跟著出門。`;
+}
+
 // ==================== 陣營好感（−100～100）與約定集合 ====================
 const FACTION_FAVOR_START_ = { '衛宮': 20, '遠坂': 10, '間桐': 0, '教會': -10, '柳洞寺': -20, '愛因茲貝倫': -30, '臟硯': -50 };
 const ALLIANCE_FAVOR_MIN_ = 40; // 好感到 40 才可能正式結盟（常理與鐵血）
@@ -3106,7 +3127,15 @@ function processFateTurnTextOnly(params) {
     const worldEvent = drawWorldDirectorEvent_(statusObj, metaBefore, turnNum);
     const combatAssess = (statusObj.gameMode === 'WAR' && normalizeGameToneKey_(statusObj.gameTone) !== 'STORY_PLAYER_FIRST') ? assessCombat_(statusObj, metaBefore, userAction) : null;
     const worldEventHint = worldEvent.text;
-    const canFormSecondContract = (!statusObj.servant1.id) || (statusObj.master.commandSpells >= 1 && statusObj.master.mp >= 80 && !statusObj.servant2.id);
+    // 英靈名冊：在據點打字「讓某某上場」→ 本回合起換成副從者（先讓提示詞知道新陣容，寫回時才真正換）
+    const rosterBefore = Array.isArray(metaBefore.servantRoster) ? metaBefore.servantRoster : [];
+    const swapId = findRosterSwapTarget_(userAction, rosterBefore, charDb, statusObj.locationKey);
+    if (swapId) {
+      const inc = rosterBefore.find(r => r.id === swapId);
+      statusObj.servant2 = { id: swapId, class: '契約從者', name: inc.name, condition: inc.condition || '靈基穩定' };
+    }
+    const rosterFull = rosterBefore.length >= MAX_SERVANT_ROSTER_;
+    const canFormSecondContract = (!statusObj.servant1.id) || (statusObj.master.commandSpells >= 1 && statusObj.master.mp >= 80 && (!statusObj.servant2.id || !rosterFull));
 
     // 系統提示詞：固定不變的規則與型月世界觀（每回合相同，模型端可快取）；每回合變動的資料一律放在 statePrompt
     const systemPrompt = FATE_GM_SYSTEM_PROMPT_;
@@ -3119,7 +3148,8 @@ function processFateTurnTextOnly(params) {
       inventoryRuleHint,
       !statusObj.servant1.id
         ? '【失去從者】御主目前沒有從者，非常危險。若劇情中與失去御主的從者達成協議，可填 `new_servant2_id` 締結新契約（成為主從者）。'
-        : (canFormSecondContract ? '【副契約】條件已滿足：若劇情中合理收服敵方英靈，可填 `new_servant2_id`。' : '【副契約】目前條件不足，不可新增副從者。'),
+        : (canFormSecondContract ? `【副契約】條件已滿足：若劇情中合理收服敵方英靈，可填 \`new_servant2_id\`${statusObj.servant2.id ? '（副從者位置已滿，新收服的會進英靈名冊、回洋館待命）' : ''}。` : '【副契約】目前條件不足，不可新增副從者。'),
+      describeRosterForPrompt_(swapId ? rosterBefore.filter(r => r.id !== swapId).concat(row[23] ? [{ id: String(row[23]), name: String(row[25]), condition: String(metaBefore.servant2Condition || '靈基穩定') }] : []) : rosterBefore),
       worldEventHint,
       phoneBridgeHints,
       `【冬木市地標】\n${locCatalogText}`,
@@ -3244,12 +3274,45 @@ function processFateTurnTextOnly(params) {
     }
 
     const nonServants = new Set(['player_master', 'shirou', 'rin', 'sakura', 'dark_sakura', 'illya', 'kirei', 'souichirou']);
+    // 套用英靈名冊的換人（以寫回時的最新存檔為準）
+    let rosterSwap = null;
+    meta.servantRoster = Array.isArray(meta.servantRoster) ? meta.servantRoster.slice() : [];
+    if (swapId) {
+      const incIdx = meta.servantRoster.findIndex(r => r.id === swapId);
+      if (incIdx !== -1) {
+        const inc = meta.servantRoster.splice(incIdx, 1)[0];
+        const outgoing = row[23] ? { id: String(row[23]), name: String(row[25]), condition: String(meta.servant2Condition || '靈基穩定') } : null;
+        if (outgoing) meta.servantRoster.push(outgoing);
+        row[23] = inc.id; row[24] = '契約從者'; row[25] = inc.name; row[26] = 1000; row[27] = 0;
+        meta.servant2Condition = inc.condition || '靈基穩定';
+        rosterSwap = { inName: inc.name, outName: outgoing ? outgoing.name : '' };
+      }
+    }
+    let rosterAdded = '';
     let capturedServantId = '';
     if (
       turnJson.new_servant2_id &&
       charDb[turnJson.new_servant2_id] &&
       !nonServants.has(turnJson.new_servant2_id) &&
       String(turnJson.new_servant2_id) !== String(row[17]) &&
+      String(turnJson.new_servant2_id) !== String(row[23]) &&
+      !meta.servantRoster.some(r => r.id === turnJson.new_servant2_id) &&
+      canFormSecondContract &&
+      row[23] && row[17] && meta.servantRoster.length < MAX_SERVANT_ROSTER_
+    ) {
+      // 副從者位置已滿 → 收進英靈名冊，回洋館待命
+      const sInfo = charDb[turnJson.new_servant2_id];
+      row[15] = Math.max(0, Number(row[15]) - 80);
+      meta.servantRoster.push({ id: turnJson.new_servant2_id, name: sInfo.triggers.split(',')[0], condition: '靈基穩定' });
+      rosterAdded = sInfo.triggers.split(',')[0];
+      capturedServantId = String(turnJson.new_servant2_id);
+      currentFactions = syncCapturedServantFaction_(currentFactions, turnJson.new_servant2_id, '');
+    } else if (
+      turnJson.new_servant2_id &&
+      charDb[turnJson.new_servant2_id] &&
+      !nonServants.has(turnJson.new_servant2_id) &&
+      String(turnJson.new_servant2_id) !== String(row[17]) &&
+      !row[23] &&
       canFormSecondContract
     ) {
       const s2Info = charDb[turnJson.new_servant2_id];
@@ -3658,7 +3721,9 @@ function processFateTurnTextOnly(params) {
     if (String(row[10]) !== String(statusObj.location)) summaryParts.push(`移動至 ${resolvedLoc.key}`);
     if (String(meta.masterCondition) !== String(statusObj.master.condition)) summaryParts.push(`御主：${meta.masterCondition}`);
     if (String(meta.servantCondition) !== String(statusObj.servant1.condition)) summaryParts.push(`${statusObj.servant1.name}：${meta.servantCondition}`);
-    if (capturedServantId) summaryParts.push(`締結副契約：${row[25]}`);
+    if (rosterSwap) summaryParts.push(rosterSwap.outName ? `🔄 ${rosterSwap.inName} 上場，${rosterSwap.outName} 回洋館待命` : `🔄 ${rosterSwap.inName} 上場`);
+    if (rosterAdded) summaryParts.push(`📜 ${rosterAdded} 收入英靈名冊（回洋館待命，在洋館說「讓${rosterAdded}上場」就能換）`);
+    else if (capturedServantId) summaryParts.push(`締結副契約：${row[25]}`);
     (invResult.consumedIds || []).forEach(cid => {
       const it = (statusObj.inventory || []).find(x => x.id === cid);
       summaryParts.push(`使用 ${it ? it.name : cid}`);
@@ -4634,6 +4699,7 @@ function parseSaveRow_(row) {
       name: String(row[25]),
       condition: String(meta.servant2Condition || '靈基穩定')
     },
+    servantRoster: Array.isArray(meta.servantRoster) ? meta.servantRoster : [],
     outfits: parsedOutfits,
     factions: parsedFactions,
     memorySummary: String(row[30])

@@ -210,6 +210,23 @@ const ith = inc.status.phoneState.smsThreads['愛因茲貝倫組 (Berserker陣�
 check('主動傳訊寫入聯絡頁並加上管道標頭', ith && /^（白色小鳥銜來的字條）大哥哥/.test(ith.messages.slice(-1)[0].text));
 check('主動傳訊後可以回覆（取得聯絡方式）', Boolean(inc.status.smsContacts['愛因茲貝倫組 (Berserker陣營)']));
 
+// 8g. 英靈名冊：副從者位置滿了再收服 → 進名冊；在洋館說「讓某某上場」→ 互換
+{
+  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
+  row[23] = 'rider'; row[24] = '契約從者'; row[25] = '美杜莎'; row[15] = 140; row[16] = 3;
+}
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '美狄亞屈膝立誓。', ap_cost: 0, location: '廢棄洋館', new_servant2_id: 'caster', present_chars: [], scene_env_en: 'room' });
+const cap2 = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '收服美狄亞' });
+check('副從者已滿 → 收進英靈名冊', cap2.status.servant2.id === 'rider' && cap2.status.servantRoster.some(r => r.id === 'caster') && /收入英靈名冊/.test(cap2.story));
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '美狄亞走到你身邊。', ap_cost: 0, location: '廢棄洋館', present_chars: [], scene_env_en: 'room' });
+const sw = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '讓美狄亞上場，今天帶她出門' });
+check('在洋館換人 → 美狄亞上場、美杜莎回名冊', sw.status.servant2.id === 'caster' && sw.status.servantRoster.some(r => r.id === 'rider') && !sw.status.servantRoster.some(r => r.id === 'caster'));
+{
+  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
+  row[23] = ''; row[24] = ''; row[25] = '';
+  const m = JSON.parse(row[31]); m.servantRoster = []; row[31] = JSON.stringify(m);
+}
+
 // 9. 第一人稱視角：畫面不畫御主、加上 pov
 ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'pov' });
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '凜瞪著你。', ap_cost: 0, location: '廢棄洋館', present_chars: [{ id: 'player_master', action_en: 'x' }, { id: 'rin', action_en: 'glaring' }], scene_env_en: 'room' });

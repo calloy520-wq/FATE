@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -300,6 +300,14 @@ rs = T.resolveAppointments_(metaF, facF, T.timeIndex_(3, '黃昏'), '廢棄洋�
 eq('放鴿子 → 好感 −10', [rs.missed.length, T.getFactionFavor_(metaF, '遠坂組 (Archer陣營)')], [1, favBefore - 10]);
 
 eq('JSON 後面多一段文字也能解析', T.parseJsonLoose_('{"a":"x}y","b":{"c":1}}\n{"extra":2} 多餘說明'), { a: 'x}y', b: { c: 1 } });
+
+// ---- 英靈名冊 ----
+const dbR = { rider: { triggers: '美杜莎,Rider' }, caster: { triggers: '美狄亞,Caster' } };
+const rosterR = [{ id: 'rider', name: '美杜莎' }, { id: 'caster', name: '美狄亞' }];
+eq('在洋館叫 Rider 上場', T.findRosterSwapTarget_('讓 Rider 上場', rosterR, dbR, '廢棄洋館'), 'rider');
+eq('用名字也可以', T.findRosterSwapTarget_('今天帶美狄亞出門', rosterR, dbR, '廢棄洋館'), 'caster');
+eq('不在洋館不能換', T.findRosterSwapTarget_('讓 Rider 上場', rosterR, dbR, '新都商業區'), '');
+eq('只是提到名字不算換人', T.findRosterSwapTarget_('問 Rider 今天吃什麼', rosterR, dbR, '廢棄洋館'), '');
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);
