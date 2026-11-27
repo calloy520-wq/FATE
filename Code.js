@@ -4556,7 +4556,7 @@ function generateTurnCgAsync(imgPayload) {
 
           const calmScene = !((working._directorContext || {}).isCombat) && !d.use_np && ch.id !== 'player_master';
           const actionParts = [sanitizeNaiInteraction_(d.interaction), calmScene ? stripWeaponTags_(stripBadInteractionPrefix_(d.action)) : stripBadInteractionPrefix_(d.action)].filter(Boolean).join(', ')
-            .split(',').map(t => t.trim()).filter(t => t && !/^in_view\s*[:=]/i.test(t)).join(', ');
+            .split(',').map(t => t.trim()).filter(t => t && !/^in[ _]view\s*[:=]/i.test(t)).join(', ');
 
           const actionWithExpr = isNude ? actionParts : ensureExpression_(actionParts, ch.defaultExpression || '');
           const presentIds = working.characters.map(x => x.id).concat(((working._directorContext || {}).chars || []).map(x => x.id));
