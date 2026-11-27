@@ -714,7 +714,7 @@ function generateAllySmsReply_(playerName, factionName, statusText, history, pla
       `這個陣營的聯絡管道：${channel.label}。回覆的人：${channel.who}。寫法：${channel.style}。`,
       channel.prefix ? `回覆一律以「${channel.prefix}」開頭。` : '',
       '照回覆者本人的個性寫，不要旁白、不要署名。',
-      '先判斷這次聯絡有沒有接通：依時間（深夜、上學時間）、陣營狀態（交戰中、重傷休整、正在移動）與管道特性（家用電話要有人在家、使魔要找得到人）合理決定。沒接通時 answered 為 false，reply 寫成沒有回應的情形（例如電話響了很久沒人接、使魔遲遲沒有回來）。',
+      '先判斷這次聯絡有沒有接通：依時間（深夜、上學時間）、陣營狀態（交戰中、重傷休整、正在移動）與管道特性（家用電話要有人在家、使魔要找得到人）合理決定。沒接通時 answered 為 false，reply 用一兩句寫出沒有回應的情形，要合乎常理、不要有互相矛盾的細節（例如電話響到自動斷線都沒人接、使魔繞了一圈找不到人飛了回來）。',
       isCapturedOrDefeatedStatusText_(statusText) ? '這個陣營已經淘汰：御主可能已死亡、重傷或躲進教會，多半沒有回應；除非情況顯示御主還活著，才可能回覆，而且是退出戰爭後的口吻。' : '',
       allied
         ? '你們目前是同盟：被要求支援時，依陣營狀態明確表示能否支援、何時、怎麼配合。'
@@ -768,6 +768,7 @@ function getContactChannel_(factionName) {
 // 能否傳簡訊：同盟陣營，或在劇情中取得了聯絡方式（meta.smsContacts）
 function canSmsFaction_(meta, factionKey, statusText) {
   if (isAllianceStatusText_(statusText)) return true;
+  if (String(factionKey || '').includes('教會')) return true; // 監督者的教會是公開據點，電話與地址人人皆知
   const contacts = (meta && meta.smsContacts && typeof meta.smsContacts === 'object') ? meta.smsContacts : {};
   return Boolean(contacts[factionKey]);
 }
@@ -1360,14 +1361,19 @@ function stripRepeatedPreviousEnding_(storyText, prevStoryText) {
 function segmentDialogue_(par, names, playerName) {
   const p = String(par || '').trim();
   if (!p || /^[^「『\n]{1,12}[:：]\s*「[^」]*」$/.test(p)) return p;
-  const cands = (Array.isArray(names) ? names : []).filter(Boolean).slice().sort((a, b) => b.length - a.length);
+  const baseNames = (Array.isArray(names) ? names : []).filter(Boolean);
+  const expanded = [];
+  baseNames.forEach(n => { expanded.push(n); if (/^[\u4e00-\u9fff]{4}$/.test(n) && n !== playerName) expanded.push(n.slice(2)); });
+  const cands = Array.from(new Set(expanded)).sort((a, b) => b.length - a.length);
+  // 「綺禮」要對回「言峰綺禮」這類完整名稱來標示
+  const fullNameOf = n => baseNames.find(b => b === n) || baseNames.find(b => b.length === 4 && b.slice(2) === n) || n;
   const startsWithName = str => {
     const t = String(str || '').replace(/^[\s，、]+/, '');
     if (/^我/.test(t) && playerName) return playerName;
     return cands.find(n => t.startsWith(n)) || '';
   };
   // 名字前面若是「對著／向／看著／身旁的」這類受詞標記，代表他不是主詞
-  const objectMarker = /(對著|對|向|朝|看著|望著|盯著|把|和|跟|與|替|給|身旁的|身邊的|身後的)\s*$/;
+  const objectMarker = /(對著|對|向|朝|看著|望著|盯著|把|和|跟|與|替|給|身旁的|身邊的|身後的|扣在|按在|壓在|抵在|落在|架在|來自|是|將)\s*$/;
   const asSubjectCandidates = t => cands.filter(n => {
     let idx = t.indexOf(n);
     while (idx !== -1) {
@@ -1387,9 +1393,13 @@ function segmentDialogue_(par, names, playerName) {
   };
   const subjectOf = (sentence, narrationSoFar) => {
     const t = String(sentence || '').trim();
-    const clause = t.split(/[，、；]/).pop().trim();
+    const clauses = t.replace(/[，、；\s]+$/, '').split(/[，、；]/);
+    const clause = (clauses.pop() || '').trim();
     const head = startsWithName(clause) || startsWithName(t);
     if (head) return head;
+    // 「（訊息／簡訊／電話）來自某某」→ 說話者是寄件人
+    const from = cands.find(n => t.includes('來自' + n));
+    if (from) return from;
     if (/^(她|他)/.test(clause) || /^(她|他)/.test(t)) {
       const prevSentences = String(narrationSoFar || '').slice(0, String(narrationSoFar || '').length - t.length);
       return lastNamedSubject(prevSentences);
@@ -1433,7 +1443,7 @@ function segmentDialogue_(par, names, playerName) {
     }
     if (narration.trim()) out.push(narration.trim());
     narration = '';
-    out.push(speaker ? `${speaker}：「${m[1]}」` : `「${m[1]}」`);
+    out.push(speaker ? `${fullNameOf(speaker)}：「${m[1]}」` : `「${m[1]}」`);
     lastIdx = m.index + m[0].length;
   }
   narration += p.slice(lastIdx);
@@ -1499,9 +1509,13 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
       // 優先看前一段敘述（通常會先交代是誰開口），其次看後一段；
       // 前一段只用「她／他」指稱時，沿用最近一位說話者；都找不到就不亂標
       // 前後段各提到不同角色時無法判斷是誰說的，寧可不標也不要標錯
-      const prevName = findNameIn(prevText);
-      const nextName = findNameIn(nextText);
-      let speaker = (prevName && nextName && prevName !== nextName) ? '' : (prevName || nextName);
+      const lastSentenceOf = t => String(t || '').split(/(?<=[。！？…])/).map(x => x.trim()).filter(Boolean).pop() || '';
+      const startName = t => { const s2 = String(t || '').trim(); return candidateNames.find(n => s2.startsWith(n)) || ''; };
+      const prevName = startName(lastSentenceOf(prevText));
+      const nextName = startName(nextText);
+      const nextMention = findNameIn(nextText);
+      const ambiguous = (prevName && nextName && prevName !== nextName) || (prevName && nextMention && nextMention !== prevName);
+      let speaker = ambiguous ? '' : (prevName || nextName);
       if (!speaker && !prevName && !nextName && lastSpeaker && /^(她|他)/.test(String(prevText).trim())) speaker = lastSpeaker;
       if (speaker) {
         lastSpeaker = speaker;
@@ -2181,23 +2195,74 @@ function completeCreationAndSummon(params) {
 
 // ==================== 3. 機率雙軌世界事件 + 隱藏王牌/路線變異 + 2004手機連動 ====================
 
-function drawWorldDirectorEvent_(statusObj) {
-  if (statusObj.gameMode !== 'WAR') return '';
+// ==================== 陣營主動行動：讓冬木的其他陣營主動找上玩家 ====================
+// 機率：基本 25%＋警戒度加成＋距離上次主動事件越久越高（上限 75%）；剛發生過的下一回合不會再來
+const PROACTIVE_DECK_ = {
+  hostile: [
+    '派出使魔在玩家所在地附近窺探，被玩家或從者察覺',
+    '主從趁玩家落單或鬆懈時發動突襲',
+    '送來挑戰書或嗆聲的口信，指定時間地點決鬥',
+    '在玩家常去的地方設下結界陷阱或埋伏'
+  ],
+  neutral: [
+    '親自登門拜訪，試探玩家的底細與意圖',
+    '派人或使魔捎來口信，提出情報交換或交易',
+    '在路上與玩家「偶遇」，藉機觀察或搭話'
+  ],
+  allied: [
+    '主動傳來消息，分享剛查到的敵方情報',
+    '遭遇麻煩，傳訊向玩家求援',
+    '登門拜訪，想商量下一步的聯合作戰',
+    '邀玩家今晚一起行動'
+  ],
+  church: [
+    '言峰綺禮以監督者身分親自來訪，表面關心、實則試探',
+    '教會送來通知：提醒神秘隱匿、或通報某陣營的動向'
+  ]
+};
 
+function drawProactiveEvent_(statusObj, meta, turnNum) {
+  if (statusObj.gameMode !== 'WAR') return null;
+  const f = statusObj.factions || {};
+  const last = Number(meta.lastProactiveTurn) || 0;
+  const gap = turnNum - last;
+  if (last && gap < 2) return null;
+  const chance = Math.min(0.75, 0.25 + (Number(statusObj.threatLevel) || 0) / 250 + Math.min(0.3, gap * 0.06));
+  if (Math.random() > chance) return null;
+
+  const candidates = [];
+  Object.keys(f).forEach(name => {
+    const st = String(f[name] || '');
+    if (isCapturedOrDefeatedStatusText_(st)) return;
+    const resting = /負傷|休整|重傷|重創/.test(st);
+    let kind = isAllianceStatusText_(st) ? 'allied' : (/敵對|獵殺|暗算|報復|追殺/.test(st) ? 'hostile' : 'neutral');
+    if (name.includes('教會') && kind !== 'hostile') kind = Math.random() < 0.5 ? 'church' : kind;
+    let deck = PROACTIVE_DECK_[kind].slice();
+    if (resting) deck = deck.filter(e => !/突襲|設下|決鬥/.test(e));
+    if (deck.length === 0) return;
+    const weight = kind === 'hostile' ? 1 + (Number(statusObj.threatLevel) || 0) / 50 : 1;
+    candidates.push({ name, kind, deck, weight });
+  });
+  if (candidates.length === 0) return null;
+  const total = candidates.reduce((a, c) => a + c.weight, 0);
+  let r = Math.random() * total;
+  const pick = candidates.find(c => (r -= c.weight) <= 0) || candidates[0];
+  const action = pick.deck[Math.floor(Math.random() * pick.deck.length)];
+  return { faction: pick.name, kind: pick.kind, action: action };
+}
+
+function drawWorldDirectorEvent_(statusObj, meta, turnNum) {
+  if (statusObj.gameMode !== 'WAR') return { text: '', proactive: null };
   if (statusObj.timePeriod === '深夜' && statusObj.threatLevel >= 100) {
-    return '【夜襲危機】警戒度已滿，深夜可能遭遇敵對陣營或使魔試探，依玩家防禦與應對自然推演並結算交戰勝負。';
+    return { text: '【夜襲危機】警戒度已滿，今晚敵對陣營會找上門，依玩家防禦與應對推演並結算交戰勝負。', proactive: null };
   }
-
-  if (Math.random() > 0.35) return '';
-
-  const eventDeck = [
-    '【世界事件：冬木大橋的深夜激戰】遠方冬木大橋傳來強烈魔力與兵器交鋒波動。玩家可選擇趕往、觀望或留在原地，事件會隨局勢自然演進並結算交戰結果。',
-    '【世界事件：柳洞寺的靈脈波動】圓藏山方向出現濃郁魔力氣息。玩家可自由決定前往探查、防備或按兵不動。',
-    '【世界事件：遠坂陣營的試探訊號】偵測到魔術使魔在附近徘徊。玩家可選擇接觸、警戒或避開。',
-    '【世界事件：新都暗巷的異常氣息】新都一帶傳出不祥的魔力騷動。玩家可自行決定是否前往查看。',
-    '【世界事件：教會方面的動態】言峰綺禮與監督者立場在暗中觀察局勢，玩家可依行動自由應對。'
-  ];
-  return eventDeck[Math.floor(Math.random() * eventDeck.length)];
+  const p = drawProactiveEvent_(statusObj, meta || {}, turnNum || 0);
+  if (!p) return { text: '', proactive: null };
+  const ch = getContactChannel_(p.faction);
+  return {
+    text: `【陣營主動行動（本回合一定要發生，融入玩家的行動之中）】${p.faction}：${p.action}。依該陣營目前狀態與性格演出，留給玩家回應的空間。若是傳訊，透過「${ch.label}」送達，並填入 incoming_messages。`,
+    proactive: p
+  };
 }
 
 // 只掃描「玩家本回合輸入」推測撿取道具，且背包已有同名道具時不再重複 +1
@@ -2412,6 +2477,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '## 四、活的冬木市與反饋機制',
   '- 論壇：玩家做了引人注目的事（公開交戰、怪事、流言擴散），用 `forum_posts` 寫 0～2 則冬木市民的 2004 年留言板貼文（每則是含 board／author／title／body 的物件）；路人只知道自己看得到的部分。',
   '- 流言：依各陣營的情報能力與性格，判斷誰相信、誰識破狀態資料中的流言，用 `rumor_updates` 記錄；被相信的流言會實際改變該陣營行動（寫進 `faction_updates`），被識破的假消息可能引來報復。',
+  '- 其他陣營主動傳訊給玩家時（求援、情報、挑釁、邀約），填入 `incoming_messages`，會出現在玩家手機的聯絡頁。',
   '- 通訊錄：只有劇情中**明確寫出**玩家與某陣營交換手機號碼、拿到名片或聯絡方式時，才把陣營名稱填入 `new_contacts`；只是見面、交談、談判都不算。',
   '- 路線傾向：依玩家本回合的行動方式，在 `route_tendency_delta` 為各路線加減分（-3～+3）；已確立路線時，劇情重心照狀態資料中的路線說明發展。',
   '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
@@ -2454,6 +2520,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '  "new_contacts": [],',
   '  "route_tendency_delta": { "fate": 0, "ubw": 0, "hf": 0, "shadow": 0, "conquest": 0 },',
   '  "location_changes": {},',
+  '  "incoming_messages": [{ "faction": "陣營名稱", "text": "其他陣營主動傳給玩家的訊息（80字內）" }],',
   '  "servants_out": [],',
   '  "new_servant2_id": "",',
   '  "memory_update": "200字內前情提要",',
@@ -2577,7 +2644,8 @@ function processFateTurnTextOnly(params) {
         : '消耗背包道具請填入 `consumed_item_ids`（填背包裡的 id）；只要拾取、收納或取得物品，務必填入 `gained_items`（階級 1～3）。\n固定道具 id：魔力結晶(小)=`mana_gem_s`、高純度魔力寶石(中)=`mana_gem_m`、煙霧魔術彈=`smoke_bomb`、對魔術防禦禮裝(保命符)=`aegis_charm`、未充能天然寶石媒介=`empty_gem`、基礎黑鍵套組=`black_keys`；煉成或取得這些道具時務必沿用同一個 id。\n魔力寶石／結晶的 MP 回復與煙霧彈降低警戒度由系統自動結算，`master_mp_delta` 與 `threat_delta` 不要重複計入。'
     ].join('\n');
 
-    const worldEventHint = drawWorldDirectorEvent_(statusObj);
+    const worldEvent = drawWorldDirectorEvent_(statusObj, metaBefore, turnNum);
+    const worldEventHint = worldEvent.text;
     const canFormSecondContract = (statusObj.master.commandSpells >= 1 && statusObj.master.mp >= 80 && !statusObj.servant2.id);
 
     // 系統提示詞：固定不變的規則與型月世界觀（每回合相同，模型端可快取）；每回合變動的資料一律放在 statePrompt
@@ -2875,6 +2943,8 @@ function processFateTurnTextOnly(params) {
       }
     });
 
+    if (worldEvent.proactive) meta.lastProactiveTurn = turnNum;
+
     const routeAnnounce = applyRouteTendency_(meta, turnJson.route_tendency_delta);
     if (routeAnnounce) {
       meta.keyEvents = updateKeyEvents_(meta.keyEvents, [routeAnnounce.replace(/^【[^】]+】/, '').slice(0, 60)], [], cleanName);
@@ -2950,6 +3020,24 @@ function processFateTurnTextOnly(params) {
       meta.phoneState.unreadCount = (Number(meta.phoneState.unreadCount) || 0) + 1;
     });
     if (meta.phoneState.forumPosts.length > MAX_FORUM_POSTS) meta.phoneState.forumPosts.length = MAX_FORUM_POSTS;
+
+    // 其他陣營主動傳來的訊息（透過各自的聯絡管道）
+    const incomingFrom = [];
+    (Array.isArray(turnJson.incoming_messages) ? turnJson.incoming_messages : []).slice(0, 2).forEach(im => {
+      const fk = resolveFactionKey_(im && im.faction, currentFactions);
+      const text = String((im && im.text) || '').trim().slice(0, 160);
+      if (!fk || !text) return;
+      const ch = getContactChannel_(fk);
+      meta.phoneState.smsThreads = meta.phoneState.smsThreads || {};
+      const th = meta.phoneState.smsThreads[fk] || (meta.phoneState.smsThreads[fk] = { factionName: fk, allied: isAllianceStatusText_(currentFactions[fk]), statusText: currentFactions[fk], lastDistressStatus: '', messages: [] });
+      th.messages.push({ sender: fk, fromPlayer: false, time: `Day ${row[6]}・${row[7]}`, text: ch.prefix && !text.startsWith('（') ? `${ch.prefix}${text}` : text });
+      if (th.messages.length > MAX_SMS_PER_THREAD) th.messages = th.messages.slice(-MAX_SMS_PER_THREAD);
+      meta.phoneState.unreadCount = (Number(meta.phoneState.unreadCount) || 0) + 1;
+      // 主動傳訊等於給了聯絡管道，之後可以回覆
+      meta.smsContacts = Object.assign({}, meta.smsContacts || {});
+      if (!meta.smsContacts[fk]) meta.smsContacts[fk] = { addedTurn: turnNum };
+      incomingFrom.push(fk);
+    });
     meta.turnCount = turnNum;
 
     meta.inventory = updatedInventory;
@@ -2982,6 +3070,8 @@ function processFateTurnTextOnly(params) {
     changedLocations.forEach(k => summaryParts.push(`🏚 ${k} 現況改變：${String(meta.customLocationNotes[k]).slice(0, 30)}`));
     rumorRes.changes.forEach(c => summaryParts.push(`📢 流言${c}`));
     if (aiPosts.length > 0) summaryParts.push(`📱 論壇新增 ${aiPosts.length} 則目擊`);
+    incomingFrom.forEach(k => summaryParts.push(`✉ ${k.replace(/\s*\(.*\)$/, '')} 傳來訊息（${getContactChannel_(k).label}）`));
+    if (worldEvent.proactive) summaryParts.push(`⚡ ${worldEvent.proactive.faction.replace(/\s*\(.*\)$/, '')} 主動行動`);
     if (summaryParts.length > 0 && outcome !== 'FATAL_DEATH') {
       formattedStory += `\n\n【本回合結算】${summaryParts.join('｜')}`;
     }

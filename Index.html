@@ -1779,7 +1779,7 @@
 
     function canSmsTo(facName) {
       const stText = String((currentState.factions || {})[facName] || '');
-      return /同盟|結盟|停戰|互助|合作|友方/.test(stText) || Boolean((currentState.smsContacts || {})[facName]);
+      return /同盟|結盟|停戰|互助|合作|友方/.test(stText) || Boolean((currentState.smsContacts || {})[facName]) || facName.includes('教會');
     }
 
     function renderSmsThread() {

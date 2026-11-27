@@ -137,9 +137,14 @@ const sm2 = ctx.sendAllySmsMessage('測試者', '遠坂組 (Archer陣營)', '快
 check('沒接通：不啟動支援', !/簡訊支援待命中/.test(sm2.factions['遠坂組 (Archer陣營)']) || /簡訊支援待命中/.test(sm.factions['遠坂組 (Archer陣營)']));
 check('沒接通：假情報不算放出', sm2.rumors.length === rumorCountBefore);
 
+// 5c. 教會是公開據點，不用先取得聯絡方式
+geminiQueue.push({ answered: true, reply: '主的大門永遠為迷途者敞開。', believed: 'yes', reaction: '答應赴約' });
+const ch1 = ctx.sendAllySmsMessage('測試者', '教會組 (Lancer陣營)', '神父，今晚來洋館吃麻婆豆腐嗎？', false);
+check('教會隨時聯絡得到，回覆帶教會管道標頭', /^（教會的回信）/.test(ch1.phoneState.smsThreads['教會組 (Lancer陣營)'].messages.slice(-1)[0].text));
+
 // 6. 無聯絡方式的陣營不能傳
 let blocked = false;
-try { ctx.sendAllySmsMessage('測試者', '教會組 (Lancer陣營)', '你好', false); } catch (e) { blocked = /聯絡方式/.test(e.message); }
+try { ctx.sendAllySmsMessage('測試者', '愛因茲貝倫組 (Berserker陣營)', '你好', false); } catch (e) { blocked = /聯絡方式/.test(e.message); }
 check('沒有聯絡方式的陣營擋下', blocked);
 
 // 7. Gemini 回傳壞掉的 JSON → 重試一次成功
@@ -182,6 +187,13 @@ check('沒要求就不會憑空得到保命符', !noOver.status.inventory.some(i
 check('沒要求就不會消耗道具', noOver.status.inventory.map(i => i.id + ':' + i.qty).join(',') === invBefore);
 check('提示詞包含御主性別', geminiRequests[geminiRequests.length - 1].messages[1].content.includes('性別:女'));
 
+// 8e. 其他陣營主動傳訊：出現在聯絡頁、加上管道標頭、增加未讀、之後可以回覆
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '一隻白色小鳥停在窗邊。', ap_cost: 0, location: '廢棄洋館', incoming_messages: [{ faction: '伊莉雅', text: '大哥哥的朋友，要不要來城堡玩？' }], present_chars: [], scene_env_en: 'room' });
+const inc = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '在洋館休息' });
+const ith = inc.status.phoneState.smsThreads['愛因茲貝倫組 (Berserker陣營)'];
+check('主動傳訊寫入聯絡頁並加上管道標頭', ith && /^（白色小鳥銜來的字條）大哥哥/.test(ith.messages.slice(-1)[0].text));
+check('主動傳訊後可以回覆（取得聯絡方式）', Boolean(inc.status.smsContacts['愛因茲貝倫組 (Berserker陣營)']));
+
 // 9. 第一人稱視角：畫面不畫御主、加上 pov
 ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'pov' });
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '凜瞪著你。', ap_cost: 0, location: '廢棄洋館', present_chars: [{ id: 'player_master', action_en: 'x' }, { id: 'rin', action_en: 'glaring' }], scene_env_en: 'room' });
@@ -192,7 +204,7 @@ ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'third' });
 
 // 10. 讀檔
 const ld = ctx.loadExistingGame('測試者');
-check('讀檔取得最近紀錄', ld.logs.length === 11);
+check('讀檔取得最近紀錄', ld.logs.length === 12);
 
 console.log(`\n${fails === 0 ? '全部通過' : fails + ' 項失敗'}`);
 process.exit(fails ? 1 : 0);

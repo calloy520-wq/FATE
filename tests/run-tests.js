@@ -125,6 +125,8 @@ const lancerStory = '「真是警覺啊，陌生御主。」Lancer 舔了舔嘴�
 const lancerLines = T.formatNovelStoryText_(lancerStory, ['斯卡哈', '測試者', 'Lancer', '庫夫林'], '', '測試者').split('\n\n').filter(x => x.includes('「'));
 eq('實測台詞說話者：台詞後接主詞／主詞是我／她指回前句', lancerLines.map(x => x.split('：')[0]), ['Lancer', 'Lancer', '測試者', '斯卡哈']);
 eq('句中引用「……」的 不拆段', T.formatNovelStoryText_('空氣中瀰漫著特有的「既然決定合作就別再耍花招」的警告意味。', ['遠坂凜'], '', 'x'), '空氣中瀰漫著特有的「既然決定合作就別再耍花招」的警告意味。');
+eq('實測：綺禮的台詞（名字只寫「綺禮」）', T.formatNovelStoryText_('綺禮的手指如同鐵鉗般扣在測試者的頸側，眼神中只有愉悅感，「這就是妳的『邀請』嗎？測試者。」', ['斯卡哈', '測試者', '言峰綺禮'], '', '測試者').split('\n\n').pop(), '言峰綺禮：「這就是妳的『邀請』嗎？測試者。」');
+eq('實測：簡訊「來自衛宮士郎」', T.formatNovelStoryText_('測試者的手機收到簡訊。是來自衛宮士郎的，內容是：「我在新都車站附近，希望能談談。」', ['測試者', '衛宮士郎'], '', '測試者').split('\n\n').pop(), '衛宮士郎：「我在新都車站附近，希望能談談。」');
 eq('敘述中用「」強調名字不會被拆段', T.formatNovelStoryText_('那股屬於「庫・夫林」的魔力特徵很強烈。', [], '', 'x'), '那股屬於「庫・夫林」的魔力特徵很強烈。');
 eq('對話後接敘述會拆段', T.formatNovelStoryText_('斯卡哈：「走吧。」她轉身離開。', ['斯卡哈'], '', 'x').split('\n\n').length, 2);
 eq('互動語法：角色名# 前綴被去掉，source#/target#/mutual# 保留', T.stripBadInteractionPrefix_('rin#facing the player, source#hug, mutual#holding hands, standing'), 'facing the player, source#hug, mutual#holding hands, standing');
