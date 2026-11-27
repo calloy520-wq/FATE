@@ -100,6 +100,9 @@ eq('了結後移除', ev, []);
 ev = T.updateKeyEvents_(Array.from({ length: 15 }, (_, i) => `事件${i}號紀錄`), ['新事件紀錄'], [], 'x');
 eq('上限 15 條，捨棄最舊', [ev.length, ev[0], ev[14]], [15, '事件1號紀錄', '新事件紀錄']);
 
+eq('重要事件：Gemini 回傳物件也能讀', T.updateKeyEvents_([], [{ event: '與遠坂凜結盟對抗Caster' }], [], 'x'), ['與遠坂凜結盟對抗Caster']);
+eq('重要事件：清掉舊的 [object Object]', T.updateKeyEvents_(['[object Object]', '正常事件'], [], [], 'x'), ['正常事件']);
+
 // ---- NovelAI 提示詞 ----
 eq('角色欄去掉人數標籤', T.normalizeCharCoreForNai_('1girl, solo, black hair, golden eyes', 'girl'), 'girl, black hair, golden eyes');
 eq('男性角色', T.normalizeCharCoreForNai_('1boy, short hair', 'boy'), 'boy, short hair');

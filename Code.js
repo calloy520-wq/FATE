@@ -1025,13 +1025,16 @@ function updateRyuudouRoute_(meta, factionsObj, servantsOut, capturedId, present
 
 // 重要事件清單：移除已了結的、加入新的、去重，最多保留 MAX_KEY_EVENTS 條（超過時捨棄最舊的）
 function updateKeyEvents_(current, addList, resolveList, playerName) {
-  let list = Array.isArray(current) ? current.map(x => String(x || '').trim()).filter(Boolean) : [];
-  const resolves = (Array.isArray(resolveList) ? resolveList : []).map(x => String(x || '').trim()).filter(Boolean);
+  let list = Array.isArray(current) ? current.map(x => String(x || '').trim()).filter(x => x && x !== '[object Object]') : [];
+  const resolves = (Array.isArray(resolveList) ? resolveList : []).map(x => String((x && typeof x === 'object') ? (x.text || x.event || x.content || '') : (x || '')).trim()).filter(Boolean);
   if (resolves.length > 0) {
     list = list.filter(e => !resolves.some(r => e === r || (r.length >= 6 && (e.includes(r) || r.includes(e)))));
   }
+  const asText = x => (x && typeof x === 'object')
+    ? String(x.text || x.event || x.content || x.description || x.summary || Object.values(x).filter(v => typeof v === 'string').join('：') || '')
+    : String(x || '');
   (Array.isArray(addList) ? addList : []).forEach(x => {
-    const t = cleanAwkwardMasterTitle_(String(x || '').trim(), playerName).slice(0, 60);
+    const t = cleanAwkwardMasterTitle_(asText(x).trim(), playerName).slice(0, 60);
     if (t && !list.some(e => e === t || e.includes(t) || t.includes(e))) list.push(t);
   });
   if (list.length > MAX_KEY_EVENTS) list = list.slice(list.length - MAX_KEY_EVENTS);
@@ -1257,7 +1260,7 @@ function simulateOffscreenFactionWar_(factionsObj, day, period, ownedServantIds)
   const battleSite = ['冬木大橋', '柳洞寺', '新都商業區', '衛宮邸', '遠坂邸', '愛因茲貝倫森林'][Math.floor(Math.random() * 6)];
 
   // 淘汰機率下調，且至少要剩 4 組以上才可能被後台淘汰，避免七組被後台打光
-  const isElimination = (Math.random() < 0.12 && aliveFactions.length > 3);
+  const isElimination = (Number(day) >= 3 && Math.random() < 0.12 && aliveFactions.length > 3);
   const updated = Object.assign({}, factionsObj);
   let report = '';
 
@@ -2075,7 +2078,7 @@ function completeCreationTextOnly(params) {
       '- "scene_env_en": Concise English background/lighting tags ONLY (NO text/speech bubbles, NO character appearance).'
     ].join('\n');
 
-    const userMsg = `Master Name: ${cleanName}\nOrigin: ${originName} (${originPreset.desc})\nHoly Grail Wish: ${wishText}\nMode: ${row[3]}\nSummoned Servant ID: ${targetServantId} (${servantInfo.triggers})\nRelic/Catalyst used: ${params.relicNote || '大聖杯共鳴'}`;
+    const userMsg = `Master Name: ${cleanName}\nMaster Gender: ${params.masterGender === 'boy' ? 'male（用「他」）' : 'female（用「她」）'}\nOrigin: ${originName} (${originPreset.desc})\nHoly Grail Wish: ${wishText}\nMode: ${row[3]}\nSummoned Servant ID: ${targetServantId} (${servantInfo.triggers})\nRelic/Catalyst used: ${params.relicNote || '大聖杯共鳴'}`;
 
     lock.releaseLock();
     lockHeld = false;
@@ -2373,7 +2376,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
   '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。',
   '- 陣營更新：`faction_updates` 的鍵必須用狀態資料中既有的陣營完整名稱。',
-  '- 場地會留下痕跡：劇情確實改變了某個地標的樣子（戰鬥破壞、佈置房間、設下結界、教會修復等），在 `location_changes` 用地標名稱寫下「現在的樣子」（60 字內）。這個狀態會一直保留，之後回到那裡要照現況描寫，直到劇情再次改變它；只是路過、沒有改變就不要填。',
+  '- 場地會留下痕跡：劇情確實改變了某個地標的樣子（戰鬥破壞、佈置房間、設下結界、教會修復等），在 `location_changes` 用地標名稱寫下戰鬥或事件結束後**留下來的樣子**（60 字內，例如「石階佈滿劍痕、山門一側崩塌」，不要寫「兩人正在交戰」這種進行中的事）。這個狀態會一直保留，之後回到那裡要照現況描寫，直到劇情再次改變它；只是路過、沒有改變就不要填。',
   '',
   '## 五、死亡與勝利',
   '- `FATAL_DEATH`：只在真正致命時使用（例如人類肉身硬吃寶具、魔力枯竭又沒令咒卻強開寶具、極端自殺式挑釁、對低好感從者持續騷擾導致致命反擊）。嘴砲、虛張聲勢、非致命的失誤都不算。死亡時描寫悲劇結局與大聖杯黑泥圍繞玩家願望編織的虛假美夢，並填寫 `tiger_dojo_tip`（老虎道場的吐槽點評）。',
@@ -2557,7 +2560,7 @@ function processFateTurnTextOnly(params) {
       `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}% | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
       `【當前場地現況】${statusObj.locationInfo.desc}`,
       `【近期戰況速報】${statusObj.warTicker}`,
-      `【御主(${cleanName})】ID:player_master | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
+      `【御主(${cleanName})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
       `【御主固定六維等階】魔術迴路:${p.circuit} | 近戰體術:${p.combat} | 隱藏氣息:${p.stealth} | 幸運:${p.luck}`,
       `【主從者】ID:${statusObj.servant1.id} (${statusObj.servant1.class}・${statusObj.servant1.name}) | 羈絆好感:${statusObj.bondLevel}/100 | 靈基狀態:${statusObj.servant1.condition}`,
       statusObj.servant2.id ? `【副從者】ID:${statusObj.servant2.id} (${statusObj.servant2.class}・${statusObj.servant2.name}) | 靈基狀態:${statusObj.servant2.condition || '靈基穩定'}` : '【副從者】無',
@@ -2727,7 +2730,14 @@ function processFateTurnTextOnly(params) {
 
     meta.masterParams = Object.assign({}, statusObj.master.params);
 
-    let mergedGainedItems = Array.isArray(turnJson.gained_items) ? turnJson.gained_items.slice() : [];
+    // 道具只在玩家本回合有「取得／製作」意圖時才入袋，有「使用」意圖時才扣除（AI 常在玩家沒要求時自己煉成或消耗道具）
+    const wantsGain = /撿|拾|拿|取|收|奪|搶|買|購|煉成|製作|做|灌注|搜|接過|收下|領|偷|摸走|帶走|裝進|放進/.test(userAction);
+    const wantsUse = /使用|用掉|捏碎|消耗|吃|喝|丟|投擲|擲|煉成|灌注|製作|做|發動|啟動|點燃|拔出|揮|射|施放|喝下|服用/.test(userAction);
+    if (!wantsUse) {
+      turnJson.consumed_item_ids = (Array.isArray(turnJson.consumed_item_ids) ? turnJson.consumed_item_ids : [])
+        .filter(cid => { const it = (meta.inventory || []).find(x => x.id === cid); return it && userAction.includes(it.name); });
+    }
+    let mergedGainedItems = (wantsGain || !Array.isArray(turnJson.gained_items)) ? (Array.isArray(turnJson.gained_items) ? turnJson.gained_items.slice() : []) : [];
     if (!isSandboxMode && mergedGainedItems.length === 0) {
       mergedGainedItems = inferGainedItemsFromNarrative_(userAction, formattedStory, meta.inventory || []);
     }

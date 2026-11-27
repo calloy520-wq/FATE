@@ -166,6 +166,14 @@ ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '休息' });
 const promptAway = geminiRequests[geminiRequests.length - 1].messages[1].content;
 check('離開後，地標清單仍記得大橋已被破壞', promptAway.includes('現況已改變：鋼架扭曲斷裂'));
 
+// 8d. 玩家沒有取得或使用意圖時，AI 不能自己做出道具或消耗道具
+const invBefore = ctx.loadExistingGame('測試者').status.inventory.map(i => i.id + ':' + i.qty).join(',');
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '你佈置了房間，順手煉成了保命符。', ap_cost: 0, location: '廢棄洋館', consumed_item_ids: ['empty_gem'], gained_items: [{ id: 'aegis_charm', name: '對魔術防禦禮裝(保命符)', tier: 3, type: 'equipment', qty: 1 }], present_chars: [], scene_env_en: 'room' });
+const noOver = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '用布幕把地下室隔出休息區' });
+check('沒要求就不會憑空得到保命符', !noOver.status.inventory.some(i => i.id === 'aegis_charm'));
+check('沒要求就不會消耗道具', noOver.status.inventory.map(i => i.id + ':' + i.qty).join(',') === invBefore);
+check('提示詞包含御主性別', geminiRequests[geminiRequests.length - 1].messages[1].content.includes('性別:女'));
+
 // 9. 第一人稱視角：畫面不畫御主、加上 pov
 ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'pov' });
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '凜瞪著你。', ap_cost: 0, location: '廢棄洋館', present_chars: [{ id: 'player_master', action_en: 'x' }, { id: 'rin', action_en: 'glaring' }], scene_env_en: 'room' });
@@ -176,7 +184,7 @@ ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'third' });
 
 // 10. 讀檔
 const ld = ctx.loadExistingGame('測試者');
-check('讀檔取得最近紀錄', ld.logs.length === 10);
+check('讀檔取得最近紀錄', ld.logs.length === 11);
 
 console.log(`\n${fails === 0 ? '全部通過' : fails + ' 項失敗'}`);
 process.exit(fails ? 1 : 0);
