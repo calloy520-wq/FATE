@@ -3156,7 +3156,7 @@ function processFateTurnTextOnly(params) {
       `【玩家】名號「${cleanName}」（劇情中稱呼玩家用這個名字、「御主」或角色習慣的叫法）｜聖杯願望：「${statusObj.master.wish}」`,
       `【寫作基調：${tonePreset.label}】${tonePreset.desc}`,
       rankCheckHint,
-      `【主從者好感】${statusObj.bondLevel}/100`,
+      `【主從者好感】${statusObj.bondLevel}/100${statusObj.bondLevel <= 10 && toneKey !== 'COMEDY_CHAOS' && toneKey !== 'STORY_PLAYER_FIRST' ? '（主從關係緊張：從者可能拒絕危險或荒唐的命令，令咒可以強制但會再扣好感；好感歸零還一直惹她會解約離去）' : ''}。bond_delta 每回合 ±10 內，依從者在意的事判斷（道歉、認真修行、並肩作戰、尊重、好好相處會加分）`,
       inventoryRuleHint,
       !statusObj.servant1.id
         ? '【失去從者】御主目前沒有從者，非常危險。若劇情中與失去御主的從者達成協議，可填 `new_servant2_id` 締結新契約（成為主從者）。'
@@ -3420,8 +3420,13 @@ function processFateTurnTextOnly(params) {
     row[15] = Math.max(0, Math.min(maxMp, Number(row[15]) + mpDelta));
 
     const curBond = Number(meta.bondLevel != null ? meta.bondLevel : (row[21] || 25));
-    const bondDelta = Number(turnJson.bond_delta) || 0;
-    const nextBond = Math.max(0, Math.min(100, curBond + bondDelta));
+    const bondDelta = Math.max(-10, Math.min(10, Math.round(Number(turnJson.bond_delta) || 0))); // 每回合最多 ±10
+    let nextBond = Math.max(0, Math.min(100, curBond + bondDelta));
+    // 好感歸零還一直惹她：連續 3 回合就解約離去（常理、鐵血；有回升就重新計算）
+    if (nextBond === 0 && bondDelta < 0) meta.bondZeroStreak = (Number(meta.bondZeroStreak) || 0) + 1;
+    else if (bondDelta > 0 || nextBond > 0) meta.bondZeroStreak = 0;
+    const bondLeave = Boolean(row[17]) && (toneKey === 'BALANCED' || toneKey === 'HARDCORE_WAR') && Number(meta.bondZeroStreak) >= 3;
+    const bondLeaverName = String(row[19] || '');
     meta.bondLevel = nextBond;
     row[21] = nextBond;
 
@@ -3483,8 +3488,11 @@ function processFateTurnTextOnly(params) {
       meta.servant2Condition = '靈基穩定';
     }
 
-    if (row[17] && /消滅/.test(String(meta.servantCondition || ''))) {
+    if (bondLeave) meta.servantCondition = '契約斷絕 (好感歸零，解約離去)';
+    if (row[17] && /消滅|解約離去/.test(String(meta.servantCondition || ''))) {
       const lostName = row[19];
+      const lostWord = /解約離去/.test(String(meta.servantCondition || '')) ? '對你徹底失望，解約離去' : '消滅';
+      if (bondLeave) { meta.bondLevel = 25; row[21] = 25; meta.bondZeroStreak = 0; }
       if (row[23]) {
         row[17] = row[23];
         row[18] = row[24] === '契約從者' ? '從者' : row[24];
@@ -3493,12 +3501,12 @@ function processFateTurnTextOnly(params) {
         meta.servantCondition = meta.servant2Condition || '靈基穩定';
         row[23] = ''; row[24] = ''; row[25] = ''; row[26] = 0; row[27] = 0;
         meta.servant2Condition = '靈基穩定';
-        formattedStory += `\n\n【契約遞補】主從者「${lostName}」消滅了。副從者「${row[19]}」成為你的主從者。`;
+        formattedStory += `\n\n【契約遞補】主從者「${lostName}」${lostWord}了。副從者「${row[19]}」成為你的主從者。`;
       } else {
         row[17] = ''; row[18] = '無'; row[19] = '（失去從者）';
         meta.servantCondition = '契約斷絕';
         meta.servantLost = true;
-        formattedStory += `\n\n【失去從者】「${lostName}」消滅了，契約之線斷絕。你可以尋找失去御主的從者重新締約，或前往教會尋求監督者的保護。`;
+        formattedStory += `\n\n【失去從者】「${lostName}」${lostWord}了，契約之線斷絕。你可以尋找失去御主的從者重新締約，或前往教會尋求監督者的保護。`;
       }
     }
     // 失去從者後重新締約：新契約的從者直接成為主從者
@@ -3731,6 +3739,8 @@ function processFateTurnTextOnly(params) {
     if (restRecovered > 0) summaryParts.push(`💤 休息回復 +${restRecovered} MP（${resolvedLoc.key}）`);
     if (statusObj.gameMode === 'WAR' && Number(row[9]) !== statusObj.threatLevel) summaryParts.push(`警戒 ${statusObj.threatLevel}%→${row[9]}%`);
     if (nextBond !== statusObj.bondLevel) summaryParts.push(`好感 ${statusObj.bondLevel}→${nextBond}`);
+    if (bondLeave) summaryParts.push(`💔 ${bondLeaverName} 對你徹底失望，解約離去`);
+    else if (nextBond === 0 && row[17] && (toneKey === 'BALANCED' || toneKey === 'HARDCORE_WAR')) summaryParts.push(`⚠ ${row[19]} 的忍耐快到極限了（好感 0，再惹她 ${Math.max(1, 3 - (Number(meta.bondZeroStreak) || 0))} 回合就會解約；道歉、認真修行、好好相處可以挽回）`);
     if (Number(row[16]) !== statusObj.master.commandSpells) summaryParts.push(`令咒 ${statusObj.master.commandSpells}→${row[16]}`);
     if (String(row[10]) !== String(statusObj.location)) summaryParts.push(`移動至 ${resolvedLoc.key}`);
     if (String(meta.masterCondition) !== String(statusObj.master.condition)) summaryParts.push(`御主：${meta.masterCondition}`);

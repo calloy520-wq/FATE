@@ -227,6 +227,31 @@ check('在洋館換人 → 美狄亞上場、美杜莎回名冊', sw.status.serv
   const m = JSON.parse(row[31]); m.servantRoster = []; row[31] = JSON.stringify(m);
 }
 
+// 8h. 主從好感歸零還一直惹她：先警告，連續 3 回合才解約
+{
+  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
+  row[21] = 0; const m = JSON.parse(row[31]); m.bondLevel = 0; m.bondZeroStreak = 0; row[31] = JSON.stringify(m);
+}
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '斯卡哈皺眉。', ap_cost: 0, location: '廢棄洋館', bond_delta: -30, present_chars: [], scene_env_en: 'room' });
+const bz1 = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '繼續整斯卡哈' });
+check('好感 0：先警告不解約', bz1.status.servant1.id === 'scathach' && /忍耐快到極限/.test(bz1.story));
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '斯卡哈嘆氣。', ap_cost: 0, location: '廢棄洋館', bond_delta: 5, present_chars: [], scene_env_en: 'room' });
+const bzUp = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '向斯卡哈道歉' });
+check('道歉回升 → 計數歸零、好感上升', bzUp.status.bondLevel === 5);
+{
+  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
+  row[21] = 0; const m = JSON.parse(row[31]); m.bondLevel = 0; m.bondZeroStreak = 2; row[31] = JSON.stringify(m);
+}
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '斯卡哈轉身。', ap_cost: 0, location: '廢棄洋館', bond_delta: -5, present_chars: [], scene_env_en: 'room' });
+const bz3 = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '又整斯卡哈' });
+check('連續 3 回合 → 解約離去', bz3.status.servant1.id !== 'scathach' && /解約離去/.test(bz3.story));
+{
+  // 還原斯卡哈，讓後面的測試照常進行
+  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
+  row[17] = 'scathach'; row[18] = 'Lancer'; row[19] = '斯卡哈'; row[21] = 50;
+  const m = JSON.parse(row[31]); m.servantCondition = '靈基穩定'; m.servantLost = false; m.bondLevel = 50; m.bondZeroStreak = 0; row[31] = JSON.stringify(m);
+}
+
 // 9. 第一人稱視角：畫面不畫御主、加上 pov
 ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'pov' });
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '凜瞪著你。', ap_cost: 0, location: '廢棄洋館', present_chars: [{ id: 'player_master', action_en: 'x' }, { id: 'rin', action_en: 'glaring' }], scene_env_en: 'room' });
