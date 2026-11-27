@@ -394,10 +394,13 @@ function autoAdaptSmartOutfit_(charId, currentOutfit, dbInfo, userAction, storyT
   if (isNudeOutfitTags_(cur)) {
     // 御主只看玩家本人輸入（避免他人穿衣服的劇情句子誤觸發）；其他角色看整段文字
     const dressCheckText = (charId === 'player_master') ? String(userAction || '') : combinedText;
-    const wantsPutOnClothes = /穿上|穿好|換上|套上|披上|遮住|遮起來|穿衣服|穿回/.test(dressCheckText);
-    if (!wantsPutOnClothes) {
+    const wantsPutOnClothes = /穿上|穿好|換上|套上|披上|遮住|遮起來|穿衣服|穿回|具現|靈衣/.test(dressCheckText);
+    // 從者可以瞬間具現靈衣：全裸時一旦開戰或離開據點，自動換回戰鬥裝（御主仍由玩家決定）
+    const servantMustArmor = charId !== 'player_master' && (Boolean(isCombat) || (locKey && locKey !== '廢棄洋館'));
+    if (!wantsPutOnClothes && !servantMustArmor) {
       return 'nude, completely nude, no clothes';
     }
+    if (servantMustArmor && !wantsPutOnClothes) return defaultOutfit || 'casual clothes, shirt, pants';
     // 主動穿衣：還原為預設服裝，若無預設則用一般便服
     return defaultOutfit || 'casual clothes, shirt, pants';
   }

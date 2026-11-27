@@ -162,6 +162,10 @@ eq('服裝相似度：浴衣不算戰鬥服', T.outfitSimilarity_('yukata, obi',
 eq('聯絡管道：遠坂＝使魔字條', T.getContactChannel_('遠坂組 (Archer陣營)').icon + T.getContactChannel_('遠坂組 (Archer陣營)').label, '🕊使魔字條（Archer 轉達）');
 eq('聯絡管道：衛宮＝家用電話', T.getContactChannel_('衛宮組 (Saber陣營)').label, '衛宮邸的家用電話');
 eq('聯絡管道：臟硯組不會被當成間桐', T.getContactChannel_('臟硯組 (真Assassin陣營)').marker, '臟硯');
+eq('全裸從者開戰 → 自動具現戰鬥裝', T.autoAdaptSmartOutfit_('scathach', 'nude, completely nude, no clothes', sca, '迎戰', '', true, '廢棄洋館'), 'purple bodysuit');
+eq('全裸從者出門 → 自動具現戰鬥裝', T.autoAdaptSmartOutfit_('scathach', 'nude, completely nude, no clothes', sca, '出發', '', false, '新都商業區'), 'purple bodysuit');
+eq('全裸從者在據點休息 → 維持全裸', T.autoAdaptSmartOutfit_('scathach', 'nude, completely nude, no clothes', sca, '聊天', '', false, '廢棄洋館'), 'nude, completely nude, no clothes');
+eq('全裸御主出門 → 仍由玩家決定（維持全裸）', T.autoAdaptSmartOutfit_('player_master', 'nude, completely nude, no clothes', { defaultOutfit: 'dress' }, '出發', '', false, '新都商業區'), 'nude, completely nude, no clothes');
 eq('JSON 容錯解析', T.parseJsonLoose_('```json\n{"a":1}\n```'), { a: 1 });
 eq('深夜 → 隔天清晨', T.advanceTimePeriod_(1, '深夜'), { day: 2, period: '清晨' });
 
