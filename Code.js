@@ -2467,7 +2467,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 路線傾向：依玩家本回合的行動方式，在 `route_tendency_delta` 為各路線加減分（-3～+3）；已確立路線時，劇情重心照狀態資料中的路線說明發展。',
   '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
   '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。',
-  '- 陣營更新：`faction_updates` 的鍵必須用狀態資料中既有的陣營完整名稱。',
+  '- 陣營更新：`faction_updates` 的鍵必須用狀態資料中既有的陣營完整名稱；值寫該陣營的存亡與對玩家的態度（例如「存活 (同盟)」「存活 (敵對・負傷休整)」），不要寫一時的動作（例如「發送訊息中」）。',
   '- 場地會留下痕跡：劇情確實改變了某個地標的樣子（戰鬥破壞、佈置房間、設下結界、教會修復等），在 `location_changes` 用地標名稱寫下戰鬥或事件結束後**留下來的樣子**（60 字內，例如「石階佈滿劍痕、山門一側崩塌」，不要寫「兩人正在交戰」這種進行中的事）。這個狀態會一直保留，之後回到那裡要照現況描寫，直到劇情再次改變它；只是路過、沒有改變就不要填。',
   '',
   '## 五、死亡與勝利',
@@ -3050,7 +3050,7 @@ function processFateTurnTextOnly(params) {
       // 主動傳訊等於給了聯絡管道，之後可以回覆
       meta.smsContacts = Object.assign({}, meta.smsContacts || {});
       if (!meta.smsContacts[fk]) meta.smsContacts[fk] = { addedTurn: turnNum };
-      incomingFrom.push(fk);
+      incomingFrom.push({ fk, text, label: ch.label });
     });
     meta.turnCount = turnNum;
 
@@ -3084,8 +3084,11 @@ function processFateTurnTextOnly(params) {
     changedLocations.forEach(k => summaryParts.push(`🏚 ${k} 現況改變：${String(meta.customLocationNotes[k]).slice(0, 30)}`));
     rumorRes.changes.forEach(c => summaryParts.push(`📢 流言${c}`));
     if (aiPosts.length > 0) summaryParts.push(`📱 論壇新增 ${aiPosts.length} 則目擊`);
-    incomingFrom.forEach(k => summaryParts.push(`✉ ${k.replace(/\s*\(.*\)$/, '')} 傳來訊息（${getContactChannel_(k).label}）`));
-    if (worldEvent.proactive) summaryParts.push(`⚡ ${worldEvent.proactive.faction.replace(/\s*\(.*\)$/, '')} 主動行動`);
+    const shortFac = k => k.replace(/\s*\(.*\)$/, '');
+    incomingFrom.forEach(m => summaryParts.push(`✉ ${shortFac(m.fk)}（${m.label}）：「${m.text.slice(0, 60)}${m.text.length > 60 ? '…' : ''}」→ 可在行動欄輸入「傳簡訊給${shortFac(m.fk).replace(/組$/, '')}：…」回覆`));
+    if (worldEvent.proactive && !incomingFrom.some(m => m.fk === worldEvent.proactive.faction)) {
+      summaryParts.push(`⚡ ${shortFac(worldEvent.proactive.faction)} 主動找上你（${worldEvent.proactive.action}），詳見上方劇情`);
+    }
     if (summaryParts.length > 0 && outcome !== 'FATAL_DEATH') {
       formattedStory += `\n\n【本回合結算】${summaryParts.join('｜')}`;
     }
