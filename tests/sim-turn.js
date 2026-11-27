@@ -43,12 +43,16 @@ const facRows = [['陣營名稱', '御主ID', '從者ID', '預設狀態', '預�
 const sheets = {
   Char_Appearance: makeSheet('Char_Appearance', charRows),
   Factions_Relations: makeSheet('Factions_Relations', facRows),
-  Lorebook: makeSheet('Lorebook', [['關鍵字', '分類', '優先', '內容'], ['靈脈', '規則', 10, '靈脈說明']]),
+  Lorebook: makeSheet('Lorebook', [['關鍵字', '分類', '優先', '內容'],
+    ['靈脈', '規則', 10, '必載入的核心規則LORE10'],
+    ['Berserker,海克力士', '型月生態', 8, '狂戰士設定LOREBSK'],
+    ['起源彈', '現代禮裝', 7, '起源彈設定LOREORI']]),
   Players_Save: makeSheet('Players_Save', [Array.from({ length: 32 }, (_, i) => 'H' + i)]),
   ChatLog: makeSheet('ChatLog', [['玩家', '回合', '時間', '地點', '行動', '劇情', '角色', 'payload', 'seed']])
 };
 
 let geminiQueue = [];
+const geminiRequests = [];
 const props = {};
 const cache = {};
 const ctx = {
@@ -61,6 +65,7 @@ const ctx = {
   UrlFetchApp: {
     fetch: (url, opt) => {
       const body = JSON.parse(opt.payload);
+      geminiRequests.push(body);
       const next = geminiQueue.shift();
       if (!next) throw new Error('unexpected Gemini call: ' + body.messages[0].content.slice(0, 60));
       return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ choices: [{ message: { content: typeof next === 'string' ? next : JSON.stringify(next) } }] }) };
@@ -141,9 +146,28 @@ geminiQueue.push({ outcome_type: 'CONTINUE', story: '平靜的一夜。', ap_cos
 const t3 = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '休息' });
 check('壞 JSON 自動重試', t3.story.startsWith('平靜的一夜'));
 
-// 8. 讀檔
+// 8. 世界書：不分大小寫命中、無關條目不載入、必載入條目一定在
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '你思考著狂戰士的弱點。', ap_cost: 0, location: '廢棄洋館', present_chars: [], scene_env_en: 'night' });
+ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '我想研究 berserker 的弱點' });
+const lorePrompt = geminiRequests[geminiRequests.length - 1].messages[1].content;
+check('世界書：小寫 berserker 命中 Berserker 條目', lorePrompt.includes('狂戰士設定LOREBSK'));
+check('世界書：無關條目不載入', !lorePrompt.includes('起源彈設定LOREORI'));
+check('世界書：優先度 10 必載入', lorePrompt.includes('必載入的核心規則LORE10'));
+check('世界書：附上分類標籤', lorePrompt.includes('[型月生態]'));
+
+// 9. 內建世界書只補一次：玩家刪掉後、版本升級也不會補回
+const loreSheet = sheets.Lorebook;
+const seededCount = loreSheet.data.filter(r => r[1] === '禮裝煉成').length;
+check('內建世界書已補上（同分類不重複）', seededCount === 1 && loreSheet.data.filter(r => r[1] === '型月生態').length === 1);
+loreSheet.data.splice(loreSheet.data.findIndex(r => r[1] === '禮裝煉成'), 1);
+props.FATE_SCHEMA_VERSION = 'old';
+ctx.clearFateConfigCache();
+ctx.loadExistingGame('測試者');
+check('玩家刪掉的內建條目不會被補回', loreSheet.data.filter(r => r[1] === '禮裝煉成').length === 0);
+
+// 10. 讀檔
 const ld = ctx.loadExistingGame('測試者');
-check('讀檔取得最近紀錄', ld.logs.length === 4);
+check('讀檔取得最近紀錄', ld.logs.length === 5);
 
 console.log(`\n${fails === 0 ? '全部通過' : fails + ' 項失敗'}`);
 process.exit(fails ? 1 : 0);

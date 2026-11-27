@@ -38,7 +38,9 @@ const MAX_FORUM_POSTS = 25;
 const META_JSON_SOFT_LIMIT = 45000;
 
 // 試算表結構版本：只有版本號變動時才會執行一次「試算表自動升級」，不再每回合檢查
-const SCHEMA_VERSION_ = '2026-11-27-adult-on';
+const SCHEMA_VERSION_ = '2026-11-27-lore-seed';
+const LORE_MAX_MATCHED = 8;
+const LORE_MAX_CHARS = 3200;
 const MAX_RUMORS = 10;
 const MAX_FORUM_POSTS_PER_TURN = 2;
 
@@ -1184,9 +1186,13 @@ function ensureFateLorebookUpgraded_(ss) {
 
   const data = sheet.getDataRange().getValues();
   const existingKeys = new Set();
+  const existingCats = new Set();
   for (let i = 1; i < data.length; i++) {
     if (data[i][0]) existingKeys.add(String(data[i][0]).trim());
+    if (data[i][1]) existingCats.add(String(data[i][1]).trim());
   }
+  const props = PropertiesService.getScriptProperties();
+  const seeded = new Set(safeJsonParse_(props.getProperty('FATE_LORE_SEEDED'), []));
 
   const canonicalEntries = [
     ['靈脈,大源,柳洞寺,遠坂邸,魔力回復,吸取', '世界規則', 8, '冬木市的主要靈脈節點為「柳洞寺（圓藏山）」與「遠坂邸」。靈脈不會產出礦石，而是蘊含高濃度的自然魔力「大源（Mana）」。處於大靈脈據點時，隨時間推進可大幅吸收大源回復 MP（+35 MP），並適合進行高消耗儀式；都市區（廢棄洋館、冬木大橋、新都）大源稀薄，僅能微量回復（+10 MP）。'],
@@ -1210,10 +1216,14 @@ function ensureFateLorebookUpgraded_(ss) {
 
   const toAppend = [];
   canonicalEntries.forEach(entry => {
-    if (!existingKeys.has(entry[0])) {
+    const cat = String(entry[1]).trim();
+    // 已經補過（玩家可能刪掉或改寫了）、或試算表已有同關鍵字／同分類的條目，就不再補
+    if (!seeded.has(cat) && !existingKeys.has(entry[0]) && !existingCats.has(cat)) {
       toAppend.push(entry);
     }
+    seeded.add(cat);
   });
+  props.setProperty('FATE_LORE_SEEDED', JSON.stringify(Array.from(seeded)));
 
   if (toAppend.length > 0) {
     sheet.getRange(sheet.getLastRow() + 1, 1, toAppend.length, 4).setValues(toAppend);
@@ -2495,7 +2505,18 @@ function processFateTurnTextOnly(params) {
 
     const stripSystemLines = t => String(t || '').split('\n').filter(line => !/^【(本回合結算|時段推進|道具欄已滿)/.test(line.trim())).join('\n').trim();
     const recentContextText = allRecentLogs.map(l => `玩家: ${l.user}\n劇情: ${stripSystemLines(l.ai)}`).join('\n---\n');
-    const loreSnippets = searchLorebook_(ss, userAction + ' ' + statusObj.location + ' ' + recentContextText);
+    const loreSnippets = searchLorebook_(ss, {
+      action: userAction,
+      state: [
+        statusObj.location,
+        statusObj.servant1.name, statusObj.servant1.class,
+        statusObj.servant2.name, statusObj.servant2.class,
+        (Array.isArray(metaBefore.keyEvents) ? metaBefore.keyEvents.join(' ') : ''),
+        (Array.isArray(metaBefore.rumors) ? metaBefore.rumors.filter(r => r.status === '擴散中').map(r => r.text).join(' ') : ''),
+        statusObj.inventory.map(it => it.name).join(' ')
+      ].filter(Boolean).join(' '),
+      recent: allRecentLogs.slice(-2).map(l => `${l.user} ${stripSystemLines(l.ai)}`).join(' ')
+    });
     const charDb = getCharAppearanceMap_(ss);
 
     const p = statusObj.master.params;
@@ -3612,7 +3633,8 @@ function getLorebookRows_(ss) {
       const content = String(data[i][3] || '').trim();
       if (!content) continue;
       rows.push({
-        keywords: String(data[i][0] || '').split(',').map(k => k.trim()).filter(Boolean),
+        keywords: String(data[i][0] || '').split(/[,，、]/).map(k => k.trim()).filter(Boolean),
+        category: String(data[i][1] || '').trim(),
         priority: Number(data[i][2]) || 5,
         content: content
       });
@@ -3623,14 +3645,47 @@ function getLorebookRows_(ss) {
   return rows;
 }
 
-function searchLorebook_(ss, contextText) {
-  const hits = [];
+// 世界書檢索：
+// - 優先度 ≥ 10：每回合必載入（核心規則）
+// - 其餘依關鍵字命中來源加權：玩家本回合行動 ×3、目前狀態（地點／從者／重要事件／流言）×2、最近劇情 ×1；不分大小寫
+// - 依「分數 → 優先度」排序，最多 LORE_MAX_MATCHED 條、總長 LORE_MAX_CHARS 字，避免每回合塞滿無關設定
+function searchLorebook_(ss, ctx) {
+  const c = (typeof ctx === 'string') ? { action: ctx, state: '', recent: '' } : (ctx || {});
+  const action = String(c.action || '').toLowerCase();
+  const state = String(c.state || '').toLowerCase();
+  const recent = String(c.recent || '').toLowerCase();
+
+  const always = [];
+  const matched = [];
   getLorebookRows_(ss).forEach(r => {
-    if (r.priority >= 10 || r.keywords.some(kw => contextText.includes(kw))) {
-      hits.push(`- ${r.content}`);
+    if (r.priority >= 10) {
+      always.push(r);
+      return;
     }
+    let score = 0;
+    r.keywords.forEach(kw => {
+      const k = kw.toLowerCase();
+      if (!k) return;
+      if (action.includes(k)) score += 3;
+      else if (state.includes(k)) score += 2;
+      else if (recent.includes(k)) score += 1;
+    });
+    if (score > 0) matched.push({ r: r, score: score });
   });
-  return hits.join('\n');
+  matched.sort((a, b) => (b.score - a.score) || (b.r.priority - a.r.priority));
+
+  const lines = [];
+  let total = 0;
+  const push = r => {
+    const line = `- ${r.category ? '[' + r.category + '] ' : ''}${r.content}`;
+    if (total + line.length > LORE_MAX_CHARS && lines.length > 0) return false;
+    lines.push(line);
+    total += line.length;
+    return true;
+  };
+  always.forEach(push);
+  matched.slice(0, LORE_MAX_MATCHED).forEach(m => push(m.r));
+  return lines.join('\n');
 }
 
 function findPlayerRowIndex_(saveSheet, playerName) {
