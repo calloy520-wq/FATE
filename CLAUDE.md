@@ -41,7 +41,7 @@
 - 設計方針：**自由但合乎邏輯**——玩家可以嘗試任何行動，以型月世界邏輯與能力決定成功程度和代價；規則寫成原則，不要一條條加禁止事項。模型是輕量的 flash-lite，提示詞越短越有條理越穩。
 - 每回合只送「相關角色」的服裝（御主、契約從者、最近出場者、服裝偏離預設者），角色清單只送 ID 與前兩個名稱；地標只有當前地點附完整描述。
 - 長期記憶：`row[30]` 前情提要（200 字內）＋ `meta.keyEvents` 重要事件清單（最多 15 條，AI 以 `key_events_add`／`key_events_resolve` 增減），會顯示在「📊 情報」視窗。
-- 簡訊：同盟陣營，或劇情中取得聯絡方式的陣營（`meta.smsContacts`，AI 以 `new_contacts` 新增）可傳。AI 以陣營口吻回覆並判斷是否相信（`generateAllySmsReply_` 回傳 reply／believed／reaction），內容與反應寫入 `pendingSmsNote` 交給下一回合。可勾選「假情報」。
+- 簡訊：同盟陣營，或劇情中取得聯絡方式的陣營（`meta.smsContacts`，AI 以 `new_contacts` 新增；伺服器另外要求玩家輸入或劇情中出現手機／號碼／電話／名片等字眼才承認）可傳。AI 以陣營口吻回覆並判斷是否相信（`generateAllySmsReply_` 回傳 reply／believed／reaction），內容與反應寫入 `pendingSmsNote` 交給下一回合。可勾選「假情報」。
 - 流言：論壇貼文與簡訊假情報記錄在 `meta.rumors`（最多 10 條），AI 以 `rumor_updates` 更新相信／識破的陣營與影響；8 回合沒人理會自然平息。手機論壇頁有「流言追蹤」。
 - 活的論壇：AI 每回合可用 `forum_posts` 產生 0～2 則市民目擊貼文。
 - 路線傾向：`meta.routeTendency`（fate／ubw／hf／shadow／conquest，0～100），AI 每回合以 `route_tendency_delta` 加減；最高分 ≥ 40 且領先 ≥ 12 時確立 `meta.activeRoute`，轉線需領先現路線 24 分。定義在 `ROUTE_DEFS_`，顯示在「📊 情報」。
@@ -52,6 +52,7 @@
 - 成人模式（`Players_Save` F 欄、設定視窗開關）**預設開啟**（新角色預設 TRUE；既有存檔已一次性設為 TRUE，記錄在指令碼屬性 `FATE_ADULT_DEFAULT_APPLIED`，不會再覆蓋玩家之後的選擇）。只有畫面有裸露時才加 `nsfw`，普通場面不加；關閉時不加。
 - 視覺導演取劇情「開頭＋結尾」摘錄，以結尾（最新畫面）為準；服裝欄不得含髮色、瞳色、體型。
 - **角色位置絕對不寫死**：`use_coords: false`、所有角色中心都是 0.5，由 NovelAI 自行構圖（AI's Choice）。導演只用文字描述位置關係（前景／背景、誰在誰身後、面向誰、遠近），不給座標或左右格位。
+- 第一人稱視角（設定開關，`meta.cameraMode` = `pov`／`third`，預設 third）：繪圖時移除 `player_master`、主提示詞加 `pov, first-person view`（沒有其他角色時加 `no humans, scenery`），導演改以「離鏡頭多近、是否看向鏡頭」描述，玩家用手做事時加 `pov hands`。不會多生圖。
 - 互動語法只允許 `source#`／`target#`／`mutual#` 前綴，其他「xxx#」前綴會被 `stripBadInteractionPrefix_` 去掉。
 - NovelAI 免費範圍（Opus）：一次 1 張、不用底圖、尺寸 ≤ 約 1024×1024 像素量（目前 1216×832）、steps ≤ 28。V5 的免費額度是會自動回復的用量條，用完會**自動改扣 Anlas**，所以不要調高尺寸、steps 或一次生多張。
 

@@ -117,6 +117,7 @@ const nr2 = T.applyRumorUpdates_([], [{ id: 'x', status: '已被識破', text: '
 eq('未知 id 又是識破狀態 → 忽略', nr2.rumors.length, 0);
 const told = T.formatNovelStoryText_('斯卡哈：「這座城市很吵。」\n\n她睜開雙眼。\n\n「大橋那邊有動靜。」', ['斯卡哈', '測試者'], '', '測試者');
 eq('代名詞「她」後的台詞沿用上一位說話者', told.split('\n\n')[2], '斯卡哈：「大橋那邊有動靜。」');
+eq('前後段各有不同角色時不亂標說話者', T.formatNovelStoryText_('斯卡哈站在身後。\n\n「大半夜的，是誰？」\n\n大門打開，遠坂凜一臉戒備。', ['斯卡哈', '遠坂凜'], '', 'x').split('\n\n')[1], '「大半夜的，是誰？」');
 eq('敘述中用「」強調名字不會被拆段', T.formatNovelStoryText_('那股屬於「庫・夫林」的魔力特徵很強烈。', [], '', 'x'), '那股屬於「庫・夫林」的魔力特徵很強烈。');
 eq('對話後接敘述會拆段', T.formatNovelStoryText_('斯卡哈：「走吧。」她轉身離開。', ['斯卡哈'], '', 'x').split('\n\n').length, 2);
 eq('互動語法：角色名# 前綴被去掉，source#/target#/mutual# 保留', T.stripBadInteractionPrefix_('rin#facing the player, source#hug, mutual#holding hands, standing'), 'facing the player, source#hug, mutual#holding hands, standing');

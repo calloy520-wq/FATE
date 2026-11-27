@@ -83,7 +83,7 @@ check('召喚完成', cr.status.servant1.id === 'scathach' && cr.status.inventor
 
 // 3. 一般回合：用寶石、未知地名、陣營別名、流言、聯絡人、論壇、路線、重要事件
 geminiQueue.push({
-  judge_reason: '合理', outcome_type: 'CONTINUE', tiger_dojo_tip: '', story: '你捏碎了寶石。\n\n遠坂凜：「這是我的號碼。」',
+  judge_reason: '合理', outcome_type: 'CONTINUE', tiger_dojo_tip: '', story: '你捏碎了寶石。\n\n遠坂凜：「這是我的手機號碼。」',
   is_combat: false, ap_cost: 1, threat_delta: 5, bond_delta: 2, location: '冬木中學屋頂', master_mp_delta: 0, command_spells_used: 0,
   master_condition: '完好無損', servant_condition: '靈基穩定', servant2_condition: '', consumed_item_ids: ['mana_gem_m'], gained_items: [],
   servant_form_morph: '', outfit_updates: {}, faction_updates: { 'Archer陣營': '同盟 (與第8組結盟)', '路人甲': 'x' },
@@ -148,9 +148,22 @@ check('世界書：小寫 berserker 命中 Berserker 條目', lorePrompt.include
 check('世界書：無關條目不載入', !lorePrompt.includes('[現代禮裝]'));
 check('世界書：優先度 10 必載入', lorePrompt.includes('[角色認知邊界]') && lorePrompt.includes('[世界觀與遭遇]'));
 
+// 8b. 沒有交換號碼的證據 → 不給聯絡方式
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '你在教會門口跟神父打了招呼。', ap_cost: 0, location: '廢棄洋館', new_contacts: ['教會組'], present_chars: [], scene_env_en: 'church' });
+const nc = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '跟神父打招呼' });
+check('只是見面不給聯絡方式', !nc.status.smsContacts['教會組 (Lancer陣營)']);
+
+// 9. 第一人稱視角：畫面不畫御主、加上 pov
+ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'pov' });
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '凜瞪著你。', ap_cost: 0, location: '廢棄洋館', present_chars: [{ id: 'player_master', action_en: 'x' }, { id: 'rin', action_en: 'glaring' }], scene_env_en: 'room' });
+const pv = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '看著凜' });
+check('第一人稱：不畫御主', pv.status.cameraMode === 'pov' && !pv.imagePayload.characters.some(c => c.id === 'player_master'));
+check('第一人稱：主提示詞有 pov、人數只算凜', /^1girl, solo, pov/.test(pv.imagePayload.prompt));
+ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'third' });
+
 // 10. 讀檔
 const ld = ctx.loadExistingGame('測試者');
-check('讀檔取得最近紀錄', ld.logs.length === 5);
+check('讀檔取得最近紀錄', ld.logs.length === 7);
 
 console.log(`\n${fails === 0 ? '全部通過' : fails + ' 項失敗'}`);
 process.exit(fails ? 1 : 0);

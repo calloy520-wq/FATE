@@ -1380,8 +1380,11 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
 
       // 優先看前一段敘述（通常會先交代是誰開口），其次看後一段；
       // 前一段只用「她／他」指稱時，沿用最近一位說話者；都找不到就不亂標
-      let speaker = findNameIn(prevText) || findNameIn(nextText);
-      if (!speaker && lastSpeaker && /^(她|他)/.test(String(prevText).trim())) speaker = lastSpeaker;
+      // 前後段各提到不同角色時無法判斷是誰說的，寧可不標也不要標錯
+      const prevName = findNameIn(prevText);
+      const nextName = findNameIn(nextText);
+      let speaker = (prevName && nextName && prevName !== nextName) ? '' : (prevName || nextName);
+      if (!speaker && !prevName && !nextName && lastSpeaker && /^(她|他)/.test(String(prevText).trim())) speaker = lastSpeaker;
       if (speaker) {
         lastSpeaker = speaker;
         return `${speaker}：${trimmed}`;
@@ -1772,6 +1775,7 @@ function savePlayerSettingsOnly(playerName, patch) {
     const meta = safeJsonParse_(row[31], {});
     if (patch.artStyle && ART_STYLE_PRESETS_[String(patch.artStyle)]) meta.artStyle = String(patch.artStyle);
     if (patch.gameTone) meta.gameTone = normalizeGameToneKey_(patch.gameTone);
+    if (patch.cameraMode) meta.cameraMode = (patch.cameraMode === 'pov') ? 'pov' : 'third';
     row[31] = serializeMeta_(meta);
 
     saveSheet.getRange(rowIndex, 1, 1, 32).setValues([row]);
@@ -2247,6 +2251,7 @@ function applyPendingSettingsToRow_(row, ps) {
   const metaSync = safeJsonParse_(row[31], {});
   if (ps.artStyle && ART_STYLE_PRESETS_[String(ps.artStyle)]) metaSync.artStyle = ps.artStyle;
   if (ps.gameTone) metaSync.gameTone = normalizeGameToneKey_(ps.gameTone);
+  if (ps.cameraMode) metaSync.cameraMode = (ps.cameraMode === 'pov') ? 'pov' : 'third';
   row[31] = serializeMeta_(metaSync);
 }
 
@@ -2709,7 +2714,9 @@ function processFateTurnTextOnly(params) {
     meta.rumors = rumorRes.rumors;
 
     const newContactNames = [];
-    (Array.isArray(turnJson.new_contacts) ? turnJson.new_contacts : []).forEach(n => {
+    // 伺服器端把關：劇情或玩家輸入裡真的出現交換聯絡方式的字眼才承認（AI 常在剛見面時就給）
+    const contactEvidence = /手機|號碼|電話|名片|聯絡方式|聯繫方式|簡訊|郵件|mail|line/i.test(`${userAction} ${turnJson.story || ''}`);
+    (contactEvidence && Array.isArray(turnJson.new_contacts) ? turnJson.new_contacts : []).forEach(n => {
       const k = resolveFactionKey_(n, currentFactions);
       if (!k) return;
       meta.smsContacts = Object.assign({}, meta.smsContacts || {});
@@ -3077,6 +3084,9 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - "outfit": final English Danbooru clothing tags for THIS EXACT SCENE.',
     '   - "action": the character\'s placement and spatial relation FIRST (foreground / background / center, beside / behind / in front of / facing another character, near or far, above or below), then pose, expression, gaze, weapon/prop action, in English (NO hair/eyes color). Do NOT give coordinates or left/right grid positions — NovelAI decides the exact layout from these relations.',
     '   - "interaction": ONLY if 2+ characters directly interact, use NAI V5 syntax ("source#<action>" + "target#<action>", or "mutual#<action>"). Empty string "" otherwise.',
+    directorCtx.cameraMode === 'pov'
+      ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. If the player\'s hands are doing something (reaching, holding, touching, casting), add "pov hands" plus that hand action to scene_prompt. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees.'
+      : '',
     'Output strictly valid JSON: { "scene_prompt": "...", "char_directions": [{ "id": "...", "is_nude": false, "outfit": "...", "action": "...", "interaction": "" }] }'
   ].join('\n');
 
@@ -3085,6 +3095,7 @@ function translateSceneToNaiV5_(directorCtx) {
     directorCtx.locationDesc ? `Current Site Appearance/Modifications: ${directorCtx.locationDesc}` : '',
     `Is Combat: ${Boolean(directorCtx.isCombat)}`,
     `Adult Mode: ${Boolean(directorCtx.adultMode)}`,
+    `Camera: ${directorCtx.cameraMode === 'pov' ? 'FIRST-PERSON POV (player is the camera)' : 'third-person'}`,
     `Player Action: ${directorCtx.userAction || ''}`,
     `Present Characters:\n${charSummary}`,
     `Story Excerpt (the END is the current moment):\n${excerptForDirector_(directorCtx.storyText)}`
@@ -3101,7 +3112,9 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const charDb = getCharAppearanceMap_(ss);
 
-  const validChars = presentChars.filter(c => c && charDb[c.id]).slice(0, 4);
+  // 第一人稱：鏡頭就是御主的眼睛，畫面中不畫御主本人
+  const povMode = statusObj.cameraMode === 'pov';
+  const validChars = presentChars.filter(c => c && charDb[c.id] && !(povMode && c.id === 'player_master')).slice(0, 4);
   let girls = 0;
   let boys = 0;
   let anyNpActive = false;
@@ -3147,6 +3160,10 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
   else if (boys > 1) countTags.push(`${boys}boys`);
   if (girls + boys === 1) countTags.push('solo');
   else if (girls + boys > 1) countTags.push('multiple characters');
+  if (povMode) {
+    if (girls + boys === 0) countTags.push('no humans', 'scenery');
+    countTags.push('pov', 'first-person view');
+  }
 
   const combatEnvTags = (isCombat || anyNpActive)
     ? 'dynamic action, magic energy sparks, motion blur, dramatic rim lighting'
@@ -3161,6 +3178,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     prompt: finalScenePrompt,
     countPrefix: countTags.join(', '),
     adultMode: adultMode,
+    cameraMode: povMode ? 'pov' : 'third',
     combatEnvTags: combatEnvTags,
     artStyle: statusObj.artStyle || 'official',
     characters: charSlots,
@@ -3181,6 +3199,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
       timePeriod: statusObj.timePeriod || '',
       isCombat: Boolean(isCombat || anyNpActive),
       adultMode: adultMode,
+      cameraMode: povMode ? 'pov' : 'third',
       userAction: String(userAction || ''),
       storyText: String(storyText || ''),
       chars: validChars.map((c, idx) => {
@@ -3601,6 +3620,7 @@ function parseSaveRow_(row) {
     gameTone: toneVal,
     autoImage: String(row[4]).toUpperCase() === 'TRUE',
     adultMode: String(row[5]).toUpperCase() === 'TRUE',
+    cameraMode: meta.cameraMode === 'pov' ? 'pov' : 'third',
     keyEvents: Array.isArray(meta.keyEvents) ? meta.keyEvents : [],
     rumors: Array.isArray(meta.rumors) ? meta.rumors : [],
     smsContacts: (meta.smsContacts && typeof meta.smsContacts === 'object') ? meta.smsContacts : {},
