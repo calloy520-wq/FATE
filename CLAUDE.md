@@ -1,16 +1,18 @@
 # FATE 第五次聖杯戰爭（第8組異常參戰者）— 專案說明
 
-這是一個用 Google Apps Script（GAS）寫的繁體中文文字 RPG，後端 `Code.js`，前端 `Index.html`，資料庫是一份 Google 試算表。請用**繁體中文**回覆使用者（Alsea）。
+這是一個用 Google Apps Script（GAS）寫的繁體中文文字 RPG，後端 `Code.js`，前端 `Index.html`。**試算表只保留最低限度的存檔資料**（`Players_Save`、`ChatLog`），角色、陣營、世界書全部內建在 GAS 程式裡。請用**繁體中文**回覆使用者（Alsea）。
 
 ## 檔案結構
 - `Code.js`：後端主程式（GAS 上叫 `Code.gs`，本機 clasp 會轉成 `.js`，推送時自動轉回）。
 - `Index.html`：前端畫面與全部前端 JS，透過 `google.script.run` 呼叫後端函式。
-- `SetupDB.js`：建立試算表分頁的初始化腳本（`initFateDatabase`）。
+- `GameData.js`：內建角色資料 `FATE_CHARACTERS_`（外觀、服裝、負面提示詞、可否開局召喚）。
+- `Lore.js`：內建世界書 `FATE_LORE_BUILTIN_`。
+- `SetupDB.js`：`initFateDatabase` 只建立缺少的 `Players_Save`、`ChatLog` 分頁並寫標題，**絕不清除或刪除既有資料**。
 - `appsscript.json`：GAS 專案設定。
 - `.github/workflows/deploy.yml`：自動部署流程（先跑語法檢查與 `tests/`，失敗就不部署）。
 - `tests/run-tests.js`：Node 單元測試，載入 `Code.js` 測純邏輯函式。
 - `tests/sim-turn.js`：用假試算表＋假 Gemini 跑完整流程（新遊戲→召喚→回合→論壇假消息→簡訊→讀檔），抓執行期錯誤。改動回合流程後一定要跑。
-- `.claspignore`：白名單，只推 `Code.js`、`Index.html`、`SetupDB.js`、`appsscript.json` 到 GAS。新增要上 GAS 的檔案時必須加進白名單；**測試或工具腳本絕對不能被推上去**（會在 GAS 造成函式衝突）。
+- `.claspignore`：白名單，只推 `Code.js`、`GameData.js`、`Lore.js`、`Index.html`、`SetupDB.js`、`appsscript.json` 到 GAS。GAS 所有 `.js` 檔共用同一個全域空間（測試也照 GameData → Lore → Code 的順序載入）。新增要上 GAS 的檔案時必須加進白名單；**測試或工具腳本絕對不能被推上去**（會在 GAS 造成函式衝突）。
 
 ## 部署流程（重要）
 - **推送到 `main` 會立刻部署到正式遊戲**：GitHub Actions 先 `clasp push`，再 `clasp deploy -i <部署ID>` 更新既有網頁應用程式部署，網址不變。
@@ -31,7 +33,7 @@
 - 回合推演用 `ScriptLock`，但**只在讀存檔與寫回時持有**；等待 Gemini 時會放開，寫回前重新讀取並比對 `meta.turnCount`，被別的視窗推進過就放棄寫入。召喚流程、同盟簡訊 AI 回覆同理。不要改回「整個回合都鎖著」（多人同時玩會互相卡住、逾時）。
 - 生圖用獨立的 `UserLock`，不要和回合推演共用同一把鎖。網頁以部署者身分執行，所以這把鎖實際上是全體玩家共用，一次只畫一張（配合 NovelAI 同時只能生成一張）。
 - 前端生圖逾時：一般 60 秒、重骰 45 秒；改後端流程時別讓生圖耗時遠超過這個範圍。
-- 新增或修改「試算表自動升級」內容（補陣營／角色／世界書）時，要把 `SCHEMA_VERSION_` 改成新值，否則不會執行。
+- `ensureSchemaUpgraded_` 只處理 `Players_Save` 的標題修正與成人模式預設；修改它時要把 `SCHEMA_VERSION_` 改成新值，否則不會執行。
 - AI 回傳的 `faction_updates` 會經 `resolveFactionKey_` 對應回既有陣營名稱，對不上的會被丟棄；新增陣營時記得補 `FACTION_ALIAS_GROUPS_`。
 
 ## 提示詞與記憶
@@ -50,15 +52,15 @@
 - 成人模式（`Players_Save` F 欄、設定視窗開關）**預設開啟**（新角色預設 TRUE；既有存檔已一次性設為 TRUE，記錄在指令碼屬性 `FATE_ADULT_DEFAULT_APPLIED`，不會再覆蓋玩家之後的選擇）。只有畫面有裸露時才加 `nsfw`，普通場面不加；關閉時不加。
 - 視覺導演取劇情「開頭＋結尾」摘錄，以結尾（最新畫面）為準；服裝欄不得含髮色、瞳色、體型。
 
-## 世界書（Lorebook）
-- 檢索（`searchLorebook_`）：優先度 ≥ 10 每回合必載入；其餘依關鍵字命中來源加權——玩家本回合行動 ×3、目前狀態（地點、從者、重要事件、擴散中流言、背包道具）×2、最近 2 回合劇情 ×1，不分大小寫，關鍵字可用 `,`／`，`／`、` 分隔。依分數→優先度排序，最多 8 條、總長 3200 字。載入時附上 `[分類]`。
-- 內建標準條目（`ensureFateLorebookUpgraded_`）只補一次：試算表已有同關鍵字或同分類就不補；補過的分類記在指令碼屬性 `FATE_LORE_SEEDED`，玩家刪掉或改寫後不會再被補回。
-- 世界書只用在回合推演；系統提示詞已涵蓋的核心規則不必再重複寫成世界書。
+## 內建資料（不在試算表）
+- 角色：`GameData.js` 的 `FATE_CHARACTERS_`。新增角色時填 id、names（第一個為顯示名稱）、gender、core、outfit、uc、summonable；`saber_alter` 一律不可開局召喚。要畫寶具特效再到 `Code.js` 的 `NP_VISUAL_EFFECTS_` 補一筆。
+- 陣營：`Code.js` 的 `CANONICAL_7_FACTIONS_`（陣營名稱／御主ID／從者ID／預設狀態／預設態度／內幕）。新增陣營記得補 `FACTION_ALIAS_GROUPS_`。
+- 世界書：`Lore.js` 的 `FATE_LORE_BUILTIN_`（cat 分類／pri 優先度／keys 關鍵字／text 內容）。
+  - 優先度 10 每回合必載入（控制在 5 條內）；其餘依關鍵字命中來源加權——玩家本回合行動 ×3、目前狀態（地點、從者、重要事件、擴散中流言、背包）×2、最近 2 回合劇情 ×1，不分大小寫。依分數→優先度排序，最多 8 條、3200 字，載入時附 `[分類]`。
+  - 已寫進系統提示詞的核心規則不要再寫成世界書。標示「隱藏真相」的條目要提醒 AI 只在深入調查時揭露。
+- 這些資料在單次執行內以記憶變數快取，不需要 CacheService。
 
-## 讀取與快取
-- `Char_Appearance`、`Lorebook`、`Factions_Relations` 是設定資料，讀一次後放進 CacheService（6 小時）＋單次執行內的記憶變數。
-- 在試算表手動編輯這三個分頁時，`onEdit` 簡易觸發器會自動清快取；若沒生效，到 GAS 編輯器執行 `clearFateConfigCache()`。
-- 試算表升級（`ensureSchemaUpgraded_`）只在 `SCHEMA_VERSION_` 變動時跑一次，版本記在指令碼屬性 `FATE_SCHEMA_VERSION`。
+## 讀取與寫入（試算表）
 - `Players_Save` 找玩家只讀 A 欄；`ChatLog` 先讀 A 欄定位，再只讀需要的列。不要改回 `getDataRange()` 讀整張表。
 - `ChatLog` 的 H 欄（繪圖 payload）每位玩家只保留最近 6 回合（`CHATLOG_PAYLOAD_KEEP`），更舊的會清空；劇情文字保留。
 
@@ -66,12 +68,10 @@
 - 劇情：OpenRouter，模型 `google/gemini-3.1-flash-lite`。
 - 繪圖：NovelAI V5（`nai-diffusion-5-full`），由「視覺導演」先把中文劇情翻成英文 Danbooru 標籤再繪圖。
 
-## 試算表分頁（欄位順序不可隨意更動）
-- `Char_Appearance`：A 角色ID／B 觸發名稱／C 性別／D 核心體貌／E 預設服裝／F 負面UC／G 可召喚（TRUE/FALSE）。`saber_alter` 永遠不可開局召喚。
-- `Factions_Relations`：A 陣營名稱／B 御主ID／C 從者ID／D 預設狀態／E 預設態度／F 原作主從關係與人際內幕。共 6 組陣營，另有玩家獨立的第 8 組；真Assassin 路線觸發後，存檔裡會多出「臟硯組 (真Assassin陣營)」（不寫進這個分頁）。
-- `Lorebook`：A 關鍵字／B 類別／C 優先度（≥10 每回合必載入）／D 內容。
-- `Players_Save`：32 欄（程式用 0 起算索引）。`row[5]` 成人模式、`row[21]` 好感度、`row[28]` 服裝 JSON、`row[29]` 陣營狀態 JSON、`row[31]` meta JSON（回合數、背包、手機簡訊與論壇、傷勢、路線旗標、重要事件等）。HP／副從者 NP 欄位未使用但保留，**不可刪欄**（會讓後面所有索引錯位）。
+## 試算表分頁（只有兩個，欄位順序不可更動）
+- `Players_Save`：32 欄（程式用 0 起算索引）。`row[5]` 成人模式、`row[21]` 好感度、`row[28]` 服裝 JSON、`row[29]` 陣營狀態 JSON、`row[31]` meta JSON（回合數、背包、手機簡訊與論壇、傷勢、路線旗標、重要事件、流言、聯絡人等）。HP／副從者 NP 欄位未使用但保留，**不可刪欄**（會讓後面所有索引錯位）。
 - `ChatLog`：A 玩家／B 回合／C 時間／D 時間地點／E 玩家行動／F AI劇情／G 出場角色／H 繪圖 payload／I seed。
+- 舊的 `Char_Appearance`、`Factions_Relations`、`Lorebook` 分頁已不再使用，程式不會讀取。
 
 ## 核心遊戲規則（不要破壞）
 - 玩家是正規陣營之外獨立參戰的第 8 組，不頂替任何陣營；只有真正收服副從者時，原陣營才改為「已歸屬第8組」。

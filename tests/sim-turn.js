@@ -8,10 +8,11 @@ function makeSheet(name, rows) {
   const data = rows.map(r => r.slice());
   const width = () => Math.max(...data.map(r => r.length), 1);
   const ensure = (r, c) => { while (data.length < r) data.push([]); while (data[r - 1].length < c) data[r - 1].push(''); };
+  const chain = { setBackground: () => chain, setFontColor: () => chain, setFontWeight: () => chain };
   const range = (r, c, nr, nc) => ({
     getValues: () => Array.from({ length: nr || 1 }, (_, i) => Array.from({ length: nc || 1 }, (_, j) => (data[r - 1 + i] || [])[c - 1 + j] ?? '')),
     getValue: () => (data[r - 1] || [])[c - 1] ?? '',
-    setValues: v => { v.forEach((row, i) => row.forEach((x, j) => { ensure(r + i, c + j); data[r - 1 + i][c - 1 + j] = x; })); },
+    setValues: function (v) { v.forEach((row, i) => row.forEach((x, j) => { ensure(r + i, c + j); data[r - 1 + i][c - 1 + j] = x; })); return chain; },
     setValue: v => { ensure(r, c); data[r - 1][c - 1] = v; }
   });
   return {
@@ -26,29 +27,12 @@ function makeSheet(name, rows) {
   };
 }
 
-const charRows = [['角色ID', '觸發名稱', '性別', '核心', '服裝', 'UC', '可召喚'],
-  ['player_master', '玩家,御主', 'girl', '1girl, black hair', 'black sweater', '', false],
-  ['scathach', '斯卡哈,師匠', 'girl', 'scathach (fate), purple hair', 'purple bodysuit', '', true],
-  ['saber_alter', '黑Saber', 'girl', 'artoria alter', 'black armor', '', true],
-  ['caster', 'Caster,美狄亞', 'girl', 'medea (fate)', 'purple cloak', '', false],
-  ['assassin', 'Assassin,小次郎', 'boy', 'sasaki kojirou', 'haori', '', false],
-  ['rin', '遠坂凜,凜', 'girl', 'tohsaka rin', 'red sweater', '', false]];
-const facRows = [['陣營名稱', '御主ID', '從者ID', '預設狀態', '預設態度', '內幕'],
-  ['衛宮組 (Saber陣營)', 'shirou', 'saber', '存活', '中立警戒', ''],
-  ['遠坂組 (Archer陣營)', 'rin', 'archer', '存活', '中立試探', ''],
-  ['教會組 (Lancer陣營)', 'kirei', 'lancer', '存活', '敵對暗算', ''],
-  ['間桐組 (Rider陣營)', 'sakura', 'rider', '存活', '隱蔽觀察', ''],
-  ['柳洞寺組 (Caster/Assassin陣營)', 'souichirou', 'caster', '存活', '敵對防備', ''],
-  ['愛因茲貝倫組 (Berserker陣營)', 'illya', 'berserker', '存活', '敵對獵殺', '']];
-const sheets = {
-  Char_Appearance: makeSheet('Char_Appearance', charRows),
-  Factions_Relations: makeSheet('Factions_Relations', facRows),
-  Lorebook: makeSheet('Lorebook', [['關鍵字', '分類', '優先', '內容'],
-    ['靈脈', '規則', 10, '必載入的核心規則LORE10'],
-    ['Berserker,海克力士', '型月生態', 8, '狂戰士設定LOREBSK'],
-    ['起源彈', '現代禮裝', 7, '起源彈設定LOREORI']]),
-  Players_Save: makeSheet('Players_Save', [Array.from({ length: 32 }, (_, i) => 'H' + i)]),
-  ChatLog: makeSheet('ChatLog', [['玩家', '回合', '時間', '地點', '行動', '劇情', '角色', 'payload', 'seed']])
+// 試算表只剩 Players_Save 與 ChatLog（由 SetupDB 的 initFateDatabase 建立）
+const sheets = {};
+const mockSS = {
+  getSheetByName: n => sheets[n] || null,
+  insertSheet: n => { sheets[n] = makeSheet(n, []); return Object.assign(sheets[n], { setFrozenRows() {} }); },
+  getName: () => 'mock'
 };
 
 let geminiQueue = [];
@@ -57,7 +41,8 @@ const props = {};
 const cache = {};
 const ctx = {
   console,
-  SpreadsheetApp: { getActiveSpreadsheet: () => ({ getSheetByName: n => sheets[n] || null, getName: () => 'mock' }), flush: () => {} },
+  SpreadsheetApp: { getActiveSpreadsheet: () => mockSS, flush: () => {} },
+  Logger: { log() {} },
   LockService: { getScriptLock: () => ({ waitLock() {}, tryLock: () => true, releaseLock() {} }), getUserLock: () => ({ waitLock() {}, releaseLock() {} }) },
   CacheService: { getScriptCache: () => ({ get: k => cache[k] || null, put: (k, v) => { cache[k] = v; }, removeAll: ks => ks.forEach(k => delete cache[k]) }) },
   PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? (k === 'OAPIKEY' ? 'x' : null), setProperty: (k, v) => { props[k] = v; } }) },
@@ -73,15 +58,23 @@ const ctx = {
   }
 };
 vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'Code.js'), 'utf8'), ctx);
+vm.runInContext(['GameData.js', 'Lore.js', 'Code.js', 'SetupDB.js'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n;\n'), ctx);
 
 let fails = 0;
 const check = (name, cond) => { console.log(`${cond ? 'PASS' : 'FAIL'} ${name}`); if (!cond) fails++; };
 
+// 0. 初始化試算表（只建立兩個分頁）
+ctx.initFateDatabase();
+check('SetupDB 只建立 Players_Save 與 ChatLog', Object.keys(sheets).sort().join(',') === 'ChatLog,Players_Save' && sheets.Players_Save.data[0].length === 32);
+sheets.Players_Save.data.push(['不能被清掉的舊存檔']);
+ctx.initFateDatabase();
+check('SetupDB 重跑不會清除既有資料', sheets.Players_Save.data.some(r => r[0] === '不能被清掉的舊存檔'));
+sheets.Players_Save.data.pop();
+
 // 1. 新遊戲
 const ng = ctx.startNewGame('測試者');
 check('新遊戲建立', ng.status.playerName === '測試者' && ng.status.adultMode === true);
-check('試算表升級：補上 hassan、saber_alter 不可召喚', sheets.Char_Appearance.data.some(r => r[0] === 'hassan') && sheets.Char_Appearance.data.find(r => r[0] === 'saber_alter')[6] === false);
+check('召喚池來自內建資料、不含 saber_alter／hassan', ng.summonPool.length > 0 && !ng.summonPool.some(p => p.id === 'saber_alter' || p.id === 'hassan'));
 
 // 2. 召喚
 geminiQueue.push({ story: '召喚陣亮起。\n\n斯卡哈：「你就是我的御主？」', servant_class: 'Lancer', servant_name: '斯卡哈', servant_params: '筋力:B', servant_action_en: 'standing', master_action_en: 'surprised', scene_env_en: 'magic circle' });
@@ -146,24 +139,13 @@ geminiQueue.push({ outcome_type: 'CONTINUE', story: '平靜的一夜。', ap_cos
 const t3 = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '休息' });
 check('壞 JSON 自動重試', t3.story.startsWith('平靜的一夜'));
 
-// 8. 世界書：不分大小寫命中、無關條目不載入、必載入條目一定在
+// 8. 世界書（內建 Lore.js）：不分大小寫命中、無關條目不載入、必載入條目一定在
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '你思考著狂戰士的弱點。', ap_cost: 0, location: '廢棄洋館', present_chars: [], scene_env_en: 'night' });
 ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '我想研究 berserker 的弱點' });
 const lorePrompt = geminiRequests[geminiRequests.length - 1].messages[1].content;
-check('世界書：小寫 berserker 命中 Berserker 條目', lorePrompt.includes('狂戰士設定LOREBSK'));
-check('世界書：無關條目不載入', !lorePrompt.includes('起源彈設定LOREORI'));
-check('世界書：優先度 10 必載入', lorePrompt.includes('必載入的核心規則LORE10'));
-check('世界書：附上分類標籤', lorePrompt.includes('[型月生態]'));
-
-// 9. 內建世界書只補一次：玩家刪掉後、版本升級也不會補回
-const loreSheet = sheets.Lorebook;
-const seededCount = loreSheet.data.filter(r => r[1] === '禮裝煉成').length;
-check('內建世界書已補上（同分類不重複）', seededCount === 1 && loreSheet.data.filter(r => r[1] === '型月生態').length === 1);
-loreSheet.data.splice(loreSheet.data.findIndex(r => r[1] === '禮裝煉成'), 1);
-props.FATE_SCHEMA_VERSION = 'old';
-ctx.clearFateConfigCache();
-ctx.loadExistingGame('測試者');
-check('玩家刪掉的內建條目不會被補回', loreSheet.data.filter(r => r[1] === '禮裝煉成').length === 0);
+check('世界書：小寫 berserker 命中 Berserker 條目', lorePrompt.includes('[從者・Berserker]'));
+check('世界書：無關條目不載入', !lorePrompt.includes('[現代禮裝]'));
+check('世界書：優先度 10 必載入', lorePrompt.includes('[角色認知邊界]') && lorePrompt.includes('[世界觀與遭遇]'));
 
 // 10. 讀檔
 const ld = ctx.loadExistingGame('測試者');

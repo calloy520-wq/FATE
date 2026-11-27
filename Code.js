@@ -5,7 +5,7 @@
  * 1. NAI V5 專職視覺導演／翻譯層：劇情推演與繪圖翻譯分離，自動轉譯為「英文 Danbooru 標籤＋簡短自然語言」、鏡頭視角、AI's Choice 自動構圖（use_coords: false）、high complexity 品質尾綴與多人互動語法 (source# / target# / mutual#)
  * 2. 服裝「劇情絕對優先」：手動換裝僅作預設參考，洗澡自動脫衣、開打自動換戰鬥裝；全裸後主動穿衣會自動還原
  * 3. 零翻譯重骰 CG：重骰 CG (retrySceneImage) 直接換 Seed 叫 NAI 重畫，不重跑 Gemini 翻譯；導演翻譯後的 payload 會回寫 ChatLog，重新讀檔後重骰仍保留裸體／戰鬥裝
- * 4. 回歸試算表 Char_Appearance 唯一基準：支援 G 欄「可召喚(TRUE/FALSE)」控制開局召喚池，並禁止開局召喚黑 Saber (saber_alter)
+ * 4. 角色資料內建於 GameData.js（summonable 控制開局召喚池），並禁止開局召喚黑 Saber (saber_alter)；試算表只保留 Players_Save 與 ChatLog
  * 5. 完整 7 組敵對陣營（＋玩家第 8 組）與隱藏王牌／路線變異（金閃閃、黑櫻＋黑 Saber 反轉、真 Assassin 咒腕哈桑）
  * 6. 劇情、隊伍狀態與圖片提示三向連動（動態場地進圖、副從者寶具與靈基狀態、地圖危險度同步）
  * 7. 2004 復古手機系統：冬木論壇留言板＋結盟陣營簡訊求援與雙向支援連動
@@ -22,7 +22,7 @@
  * - TRUE_VICTORY 伺服器端驗證（仍有敵對陣營時降回 CONTINUE；日常模式不會通關）
  * - 後台陣營廝殺節奏放緩，不再輕易把七組打光
  * - 道具自動推測只掃玩家輸入並去重，避免重複 +1
- * - 陣營初始狀態與試算表 Factions_Relations 欄位對齊（D 預設狀態／E 預設態度），補列也使用 6 欄結構
+ * - 陣營初始狀態內建於 CANONICAL_7_FACTIONS_（D 預設狀態／E 預設態度）
  * - 修正全裸 tag 被洗成 "no," 的問題（"no clothes" 會完整移除並補上標準裸體 tag）
  * - 回合數改存 meta.turnCount，不再每回合掃描整張 ChatLog
  * - 時段推進訊息在「保命禮裝」觸發時也會正確顯示
@@ -38,7 +38,7 @@ const MAX_FORUM_POSTS = 25;
 const META_JSON_SOFT_LIMIT = 45000;
 
 // 試算表結構版本：只有版本號變動時才會執行一次「試算表自動升級」，不再每回合檢查
-const SCHEMA_VERSION_ = '2026-11-27-lore-seed';
+const SCHEMA_VERSION_ = '2026-11-27-gas-data';
 const LORE_MAX_MATCHED = 8;
 const LORE_MAX_CHARS = 3200;
 const MAX_RUMORS = 10;
@@ -56,25 +56,11 @@ const ROUTE_LOCK_SCORE = 40;
 const ROUTE_LOCK_LEAD = 12;
 const MAX_KEY_EVENTS = 15;
 const CHATLOG_PAYLOAD_KEEP = 6;
-// 設定類分頁（角色／世界書／陣營）快取秒數；CacheService 上限 6 小時
-const CONFIG_CACHE_SECONDS_ = 21600;
-const CONFIG_CACHE_KEYS_ = ['fate_cfg_char_v2', 'fate_cfg_lore_v2', 'fate_cfg_fac_v2'];
-const CONFIG_SHEET_NAMES_ = ['Char_Appearance', 'Lorebook', 'Factions_Relations'];
 
 // 柳洞寺組（Caster＋Assassin 同一陣營）與真 Assassin 路線專用的陣營名稱
 const RYUUDOU_FACTION_KEY_ = '柳洞寺組 (Caster/Assassin陣營)';
 const ZOUKEN_FACTION_KEY_ = '臟硯組 (真Assassin陣營)';
 
-// 真Assassin（咒腕哈桑）角色資料：Char_Appearance 沒有時會自動補上（不可開局召喚）
-const HASSAN_CHAR_ROW_ = [
-  'hassan',
-  '咒腕哈桑,真Assassin,哈桑,咒腕',
-  'boy',
-  '1.2::hassan of the cursed arm (fate)::, fate/stay night, white skull mask, dark skin, tall, thin, long right arm',
-  'black cloak, tattered cloak, bandaged right arm, wrapped arm',
-  'visible face, eyes, short arms',
-  false
-];
 
 // 背包道具的固定效果由伺服器結算（AI 不需要、也不應該重複計入）
 const ITEM_EFFECTS_ = {
@@ -110,7 +96,7 @@ const GAME_TONE_PRESETS_ = {
   }
 };
 
-// 陣營基準：欄位與試算表 Factions_Relations 完全一致
+// 陣營基準（內建資料，不再讀試算表）
 // A 陣營名稱 / B 御主ID / C 從者ID / D 預設狀態 / E 預設態度 / F 原作主從關係與人際內幕
 // 七位從者分屬六個陣營（Caster 與 Assassin 同屬柳洞寺組），再加上玩家獨立的第 8 組
 const CANONICAL_7_FACTIONS_ = [
@@ -1069,21 +1055,11 @@ function syncCapturedServantFaction_(factionsObj, servantId, servantClass) {
   return updated;
 }
 
-// 自動把試算表 Factions_Relations 升級為完整 7 組（＋玩家第 8 組＝共 8 組），並將 saber_alter 可召喚設為 FALSE
-function ensureFactionsAndPoolUpgraded_(ss) {
-  const facSheet = ss.getSheetByName('Factions_Relations');
-  if (facSheet) {
-    const fData = facSheet.getDataRange().getValues();
-    const existingNames = new Set();
-    for (let i = 1; i < fData.length; i++) {
-      if (fData[i][0]) existingNames.add(String(fData[i][0]).trim());
-    }
-    const missingRows = CANONICAL_7_FACTIONS_.filter(r => !existingNames.has(r[0]));
-    if (missingRows.length > 0) {
-      facSheet.getRange(facSheet.getLastRow() + 1, 1, missingRows.length, 6).setValues(missingRows);
-    }
-  }
-
+// 試算表只保留 Players_Save 與 ChatLog；角色、陣營、世界書都內建在 GAS（GameData.js、Lore.js、CANONICAL_7_FACTIONS_）
+// 只有 SCHEMA_VERSION_ 變動時才執行一次：修正 Players_Save 標題、既有存檔成人模式預設開啟
+function ensureSchemaUpgraded_(ss) {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('FATE_SCHEMA_VERSION') === SCHEMA_VERSION_) return;
   const saveSheetH = ss.getSheetByName('Players_Save');
   if (saveSheetH && saveSheetH.getLastColumn() >= 32) {
     const headerFixes = {
@@ -1097,138 +1073,13 @@ function ensureFactionsAndPoolUpgraded_(ss) {
     };
     Object.keys(headerFixes).forEach(col => saveSheetH.getRange(1, Number(col)).setValue(headerFixes[col]));
     const lastSaveRow = saveSheetH.getLastRow();
-    if (lastSaveRow >= 2 && PropertiesService.getScriptProperties().getProperty('FATE_ADULT_DEFAULT_APPLIED') !== 'TRUE') {
+    if (lastSaveRow >= 2 && props.getProperty('FATE_ADULT_DEFAULT_APPLIED') !== 'TRUE') {
       const fCol = saveSheetH.getRange(2, 6, lastSaveRow - 1, 1);
       fCol.setValues(fCol.getValues().map(() => ['TRUE']));
-      PropertiesService.getScriptProperties().setProperty('FATE_ADULT_DEFAULT_APPLIED', 'TRUE');
+      props.setProperty('FATE_ADULT_DEFAULT_APPLIED', 'TRUE');
     }
   }
-
-  const charSheet = ss.getSheetByName('Char_Appearance');
-  if (charSheet) {
-    const cLast = charSheet.getLastRow();
-    if (cLast >= 2) {
-      const cData = charSheet.getRange(2, 1, cLast - 1, 7).getValues();
-      let dirty = false;
-      for (let i = 0; i < cData.length; i++) {
-        if (String(cData[i][0]).trim() === 'saber_alter' && cData[i][6] !== false && String(cData[i][6]).toUpperCase() !== 'FALSE') {
-          cData[i][6] = false;
-          dirty = true;
-        }
-      }
-      if (dirty) {
-        charSheet.getRange(2, 1, cLast - 1, 7).setValues(cData);
-      }
-      if (!cData.some(r => String(r[0]).trim() === HASSAN_CHAR_ROW_[0])) {
-        charSheet.getRange(charSheet.getLastRow() + 1, 1, 1, 7).setValues([HASSAN_CHAR_ROW_]);
-      }
-    }
-  }
-  SpreadsheetApp.flush();
-}
-
-// 只有 SCHEMA_VERSION_ 變動時才執行試算表升級（補陣營、補角色、補世界書），平常只讀一個指令碼屬性
-function ensureSchemaUpgraded_(ss) {
-  const props = PropertiesService.getScriptProperties();
-  if (props.getProperty('FATE_SCHEMA_VERSION') === SCHEMA_VERSION_) return;
-  // 呼叫端多半已持有 ScriptLock；升級內容只會「補缺少的列」，重複執行也安全
-  ensureFateLorebookUpgraded_(ss);
-  ensureFactionsAndPoolUpgraded_(ss);
   props.setProperty('FATE_SCHEMA_VERSION', SCHEMA_VERSION_);
-  clearFateConfigCache();
-}
-
-// ==================== 設定類分頁快取（角色／世界書／陣營） ====================
-
-let CHAR_DB_MEMO_ = null;
-let LORE_ROWS_MEMO_ = null;
-let DEFAULT_FACTIONS_MEMO_ = null;
-
-function readConfigCache_(key) {
-  try {
-    const raw = CacheService.getScriptCache().get(key);
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) {
-    return null;
-  }
-}
-
-function writeConfigCache_(key, value) {
-  try {
-    const s = JSON.stringify(value);
-    if (s.length < 95000) CacheService.getScriptCache().put(key, s, CONFIG_CACHE_SECONDS_);
-  } catch (e) {
-    // 快取失敗不影響遊戲，下次會直接讀試算表
-  }
-}
-
-// 手動修改角色／世界書／陣營分頁後，可在 GAS 編輯器執行這個函式立刻套用（onEdit 也會自動呼叫）
-function clearFateConfigCache() {
-  CHAR_DB_MEMO_ = null;
-  LORE_ROWS_MEMO_ = null;
-  DEFAULT_FACTIONS_MEMO_ = null;
-  try {
-    CacheService.getScriptCache().removeAll(CONFIG_CACHE_KEYS_);
-  } catch (e) {}
-}
-
-// 簡易觸發器：在試算表中手動編輯設定類分頁時，自動清除快取
-function onEdit(e) {
-  try {
-    const name = e && e.range ? e.range.getSheet().getName() : '';
-    if (CONFIG_SHEET_NAMES_.indexOf(name) !== -1) clearFateConfigCache();
-  } catch (err) {}
-}
-
-function ensureFateLorebookUpgraded_(ss) {
-  const sheet = ss.getSheetByName('Lorebook');
-  if (!sheet) return;
-
-  const data = sheet.getDataRange().getValues();
-  const existingKeys = new Set();
-  const existingCats = new Set();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0]) existingKeys.add(String(data[i][0]).trim());
-    if (data[i][1]) existingCats.add(String(data[i][1]).trim());
-  }
-  const props = PropertiesService.getScriptProperties();
-  const seeded = new Set(safeJsonParse_(props.getProperty('FATE_LORE_SEEDED'), []));
-
-  const canonicalEntries = [
-    ['靈脈,大源,柳洞寺,遠坂邸,魔力回復,吸取', '世界規則', 8, '冬木市的主要靈脈節點為「柳洞寺（圓藏山）」與「遠坂邸」。靈脈不會產出礦石，而是蘊含高濃度的自然魔力「大源（Mana）」。處於大靈脈據點時，隨時間推進可大幅吸收大源回復 MP（+35 MP），並適合進行高消耗儀式；都市區（廢棄洋館、冬木大橋、新都）大源稀薄，僅能微量回復（+10 MP）。'],
-    ['寶石,結晶,灌注,儲存魔力,遠坂,媒介', '禮裝煉成', 7, '正統寶石魔術（如遠坂家秘傳）是將魔術師平日溢出的魔力壓縮灌注進天然寶石媒介中，製成「魔力寶石」。製作需在工房消耗自身 MP 與時間（AP）把魔力存進石頭裡（一階結晶(小)耗 1 AP + 40 MP，使用回復 +35 MP；二階寶石(中)耗 2 AP + 70 MP，使用回復 +65 MP）。野生環境不會掉落已充魔的寶石，僅能從遠坂邸工房奪取或自行灌注。'],
-    ['黑鍵,聖骸布,教會,洗禮,代行者', '教會禮裝', 7, '「黑鍵」與「聖骸布」為聖堂教會代行者專用禮裝，僅能於聖堂教會取得或由代行者出身自帶。黑鍵為投擲用概念武裝，可有效殺傷敵方魔術師與使魔，但對正規英靈本體無法造成致死傷害；聖骸布可用於壓制魔力暴走或遮蔽氣息。'],
-    ['起源彈,新都,現代,禮裝,干擾,古董', '現代禮裝', 7, '模仿衛宮切嗣「起源彈」概念製作的二階禮裝（需於新都商業區購得現代媒介，並在工房耗 2 AP + 40 MP 煉成，要求魔術迴路 ≥ C）。命中敵方魔術師可打亂其迴路、封鎖施法 1 回合（消耗品），但對已受肉的英靈完全無效。'],
-    ['偽臣之書,副契約,收服,卷軸,間桐,慎二', '契約禮裝', 8, '「偽臣之書」為間桐家仿造令咒術式製作的三階契約禮裝（可從間桐慎二處奪取，或由魔術迴路 ≥ B 者耗 2 AP + 60 MP 煉成）。僅能在「敵方從者失去原御主」或「敵方從者重傷瀕死、失去抵抗能力」時使用，藉此建立副從者契約；對滿狀態敵方從者或人類（間桐櫻、遠坂凜）使用一律無效。'],
-    ['防禦禮裝,保命,結界,護符,抵銷,愛因茲貝倫', '防禦禮裝', 8, '「對魔術防禦禮裝（保命符）」為三階工房大禮裝（需魔術迴路 ≥ B，耗稀有戰利品素材 + 2 AP + 60 MP 煉成，全背包限持 1 件）。屬於一次性被動保命結界，當御主遭遇原本會導致當場死亡（FATAL_DEATH）的致命攻擊時，禮裝會自動碎裂代受過，改寫為重傷逃生。'],
-    ['狂戰士,Berserker,海克力斯,使魔,氣息遮斷,魔力放出', '型月生態', 8, '在第五次聖杯戰爭中，Berserker 陣營是單一狂化英靈（非群體獵犬），其狂化會剝奪理性換取基礎能力值提升，且缺乏靈體化或精細魔術戰術；使魔（Familiar）多由魔術師或 Caster 驅使，真名看破與氣息遮斷、魔力放出、結界魔術等皆須嚴格符合型月設定。'],
-    ['英靈位階,從者,御主,神秘,羈絆,信賴,契約', '從者與御主', 8, '英靈是凝聚傳說與神秘的靈體／怪異，與人類御主存在明顯的位階與規格落差，但互動以自然演進為主。從者與御主的羈絆會隨並肩作戰或坦誠而加深，揮霍令咒或作死則會降溫，並體現各自性格。'],
-    ['好感,羈絆,補魔,魔力交換,色色,親密,騷擾', '羈絆與分寸', 8, '「補魔」與「色色」分開處理：好感未滿 80 時單純補魔可走一般接觸或魔力交換，不會因此被打死；好感未滿 80 硬要色色會先被拒絕或警告並扣好感，持續騷擾才加重扣好感或反制，極端失控才致死；80 以上解鎖色色，敘事與畫面自然演進。'],
-    ['控制權,自主意志,玩家主體,不能代控,令咒', '角色控制邊界', 8, '玩家控制御主自身的行動與發言，不替玩家寫出未輸入的後續行動，也不替從者、NPC 或敵對陣營預設行動，讓各方依性格與情境自然互動。'],
-    ['戰鬥勝負,交戰,靈基傷勢,撤退,淘汰', '戰鬥結算', 8, '御主的肉身傷勢與從者的靈基狀態各自獨立結算。交戰必須根據戰術、陣營特性與實際行動分出實質勝負或明確結果（如一方負傷／靈基受損／靈核重創／被迫撤退／陣營淘汰），不可只打嘴砲或互砍卻沒人受傷、沒人退場、只推進時間。'],
-    ['能力值鎖定,鍛鍊,六維等階,禁止提升', '能力規則', 9, '御主的六維能力值（魔術迴路、近戰體術、隱藏氣息、幸運）與從者參數一經創角設定即完全固定鎖定，玩家與 AI 皆禁止透過鍛鍊或任何方式變動能力值；鍛鍊或日常切磋僅作為劇情與互動描寫，不改動任何能力等階。'],
-    ['七組狀態,交戰連貫,陣營機制,延伸後果,洗澡', '陣營與戰局', 9, '推演前必須先檢視七組陣營狀態與當前是否處於交戰：已淘汰或重傷休整的陣營不得無故滿血突襲；若正與敵對陣營交戰，敵人就在眼前，不可突然跑去洗澡或鍛鍊，不合時宜的行動會有相應後果，交戰也需帶出該陣營的特殊機制與後續連鎖後果。'],
-    ['在場反應,難度基調,搞笑鬧劇,無限制,鐵血', '互動與基調', 9, '所有在場人物（從者、對手、在場角色）對玩家的任何動作都必須有真實反應，不能無視或神隱；同時依所選基調（搞笑鬧劇輕鬆向／符合常理／無限制／鐵血嚴重戰場風）調整反應味道與後果輕重。'],
-    ['第8組獨立,同盟陣營,不頂替,陣營歸屬', '陣營與同盟', 10, '玩家是正規七組之外獨立參戰的第8組，不頂替其他陣營或英靈（即便職階相同也只是不同英靈）；若與某陣營結為同盟，雙方彼此照應、不內鬥，也不會在後台莫名被視為敵對陣營；只有實際擊敗並收服該陣營從者時，原陣營才改為歸屬第8組。'],
-    ['固定御主,我方在場,不神隱', '固定角色', 10, '「我（御主 `player_master`）」是固定核心人物，只要不是純粹兩位從者正面交鋒，每次出圖與劇情都必須確保御主本人（`player_master`）在場，不得擅自把御主弄不見。'],
-    ['真Assassin,咒腕,哈桑,臟硯,山門,小次郎,美狄亞', '隱藏路線', 8, '柳洞寺組由 Caster 美狄亞與山門守衛 Assassin 佐佐木小次郎組成。只要兩人其中一位退場、且間桐陣營仍在，間桐臟硯就會以小次郎的殘骸為媒介召喚「真Assassin・咒腕的哈桑（`hassan`）」，成為獨立的「臟硯組 (真Assassin陣營)」。真Assassin 擅長氣息遮斷與暗殺，寶具「妄想心音（Zabaniya）」以咒腕複製並捏碎目標心臟，對御主極度致命。']
-  ];
-
-  const toAppend = [];
-  canonicalEntries.forEach(entry => {
-    const cat = String(entry[1]).trim();
-    // 已經補過（玩家可能刪掉或改寫了）、或試算表已有同關鍵字／同分類的條目，就不再補
-    if (!seeded.has(cat) && !existingKeys.has(entry[0]) && !existingCats.has(cat)) {
-      toAppend.push(entry);
-    }
-    seeded.add(cat);
-  });
-  props.setProperty('FATE_LORE_SEEDED', JSON.stringify(Array.from(seeded)));
-
-  if (toAppend.length > 0) {
-    sheet.getRange(sheet.getLastRow() + 1, 1, toAppend.length, 4).setValues(toAppend);
-    SpreadsheetApp.flush();
-  }
 }
 
 // ==================== API 金鑰讀取 ====================
@@ -2042,7 +1893,7 @@ function completeCreationTextOnly(params) {
       throw new Error('黑 Saber（saber_alter）無法於開局直接召喚，僅能透過櫻線黑泥吞噬原版 Saber 的劇情事件覺醒！');
     }
     if (!targetServantId || targetServantId === 'RANDOM') {
-      if (pool.length === 0) throw new Error('目前沒有可召喚的英靈！請檢查 Char_Appearance 的 G 欄「可召喚」設定。');
+      if (pool.length === 0) throw new Error('目前沒有可召喚的英靈！請檢查 GameData.js 的 summonable 設定。');
       targetServantId = pool[Math.floor(Math.random() * pool.length)].id;
     } else if (!pool.some(p => p.id === targetServantId)) {
       throw new Error('指定的英靈不在可召喚名單中！');
@@ -3531,42 +3382,23 @@ function callOpenRouterChat_(apiKey, model, systemPrompt, userMessage, temperatu
   return { text: text };
 }
 
+// 角色資料內建在 GameData.js（FATE_CHARACTERS_），保留原本的資料格式給其他函式使用
+let CHAR_DB_MEMO_ = null;
 function getCharAppearanceMap_(ss) {
   if (CHAR_DB_MEMO_) return CHAR_DB_MEMO_;
-  const cached = readConfigCache_(CONFIG_CACHE_KEYS_[0]);
-  if (cached) {
-    CHAR_DB_MEMO_ = cached;
-    return cached;
-  }
-  const map = readCharAppearanceSheet_(ss || SpreadsheetApp.getActiveSpreadsheet());
-  CHAR_DB_MEMO_ = map;
-  writeConfigCache_(CONFIG_CACHE_KEYS_[0], map);
-  return map;
-}
-
-function readCharAppearanceSheet_(ss) {
-  const sheet = ss.getSheetByName('Char_Appearance');
-  const data = sheet.getDataRange().getValues();
   const map = {};
-  for (let i = 1; i < data.length; i++) {
-    const id = String(data[i][0]).trim();
-    if (!id) continue;
-    const rawSummon = data[i].length > 6 ? data[i][6] : '';
-    const hasSummonFlag = rawSummon !== '' && rawSummon !== null && rawSummon !== undefined;
-    let summonFlag = hasSummonFlag ? (rawSummon === true || String(rawSummon).trim().toUpperCase() === 'TRUE') : null;
-    if (id === 'saber_alter') {
-      summonFlag = false;
-    }
-    map[id] = {
-      id: id,
-      triggers: String(data[i][1] || ''),
-      gender: String(data[i][2] || 'girl').trim(),
-      coreTraits: String(data[i][3] || '').trim(),
-      defaultOutfit: String(data[i][4] || '').trim(),
-      uc: String(data[i][5] || '').trim(),
-      summonable: summonFlag
+  FATE_CHARACTERS_.forEach(c => {
+    map[c.id] = {
+      id: c.id,
+      triggers: c.names,
+      gender: c.gender === 'boy' ? 'boy' : 'girl',
+      coreTraits: c.core,
+      defaultOutfit: c.outfit,
+      uc: c.uc || '',
+      summonable: c.id === 'saber_alter' ? false : Boolean(c.summonable)
     };
-  }
+  });
+  CHAR_DB_MEMO_ = map;
   return map;
 }
 
@@ -3589,60 +3421,26 @@ function getSummonableServantsList_(charDb) {
     }));
 }
 
-// 陣營初始狀態：讀取試算表 D 欄「預設狀態」與 E 欄「預設態度」，格式例如「存活 (中立警戒)」
+// 陣營初始狀態：內建在 CANONICAL_7_FACTIONS_（D 預設狀態／E 預設態度），格式例如「存活 (中立警戒)」
 function getDefaultFactionsState_(ss) {
-  if (!DEFAULT_FACTIONS_MEMO_) {
-    DEFAULT_FACTIONS_MEMO_ = readConfigCache_(CONFIG_CACHE_KEYS_[2]);
-  }
-  if (!DEFAULT_FACTIONS_MEMO_) {
-    DEFAULT_FACTIONS_MEMO_ = readDefaultFactionsSheet_(ss);
-    writeConfigCache_(CONFIG_CACHE_KEYS_[2], DEFAULT_FACTIONS_MEMO_);
-  }
-  return Object.assign({}, DEFAULT_FACTIONS_MEMO_);
-}
-
-function readDefaultFactionsSheet_(ss) {
-  const sheet = ss.getSheetByName('Factions_Relations');
   const res = {};
-  if (sheet) {
-    const data = sheet.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-      if (data[i][0]) {
-        const st = String(data[i][3] || '').trim() || '存活';
-        const att = String(data[i][4] || '').trim();
-        res[String(data[i][0]).trim()] = att ? `${st} (${att})` : st;
-      }
-    }
-  }
   CANONICAL_7_FACTIONS_.forEach(r => {
-    if (!res[r[0]]) {
-      res[r[0]] = `${r[3]} (${r[4]})`;
-    }
+    res[r[0]] = r[4] ? `${r[3]} (${r[4]})` : r[3];
   });
   return res;
 }
 
+// 世界書內建在 Lore.js（FATE_LORE_BUILTIN_）
+let LORE_ROWS_MEMO_ = null;
 function getLorebookRows_(ss) {
   if (LORE_ROWS_MEMO_) return LORE_ROWS_MEMO_;
-  let rows = readConfigCache_(CONFIG_CACHE_KEYS_[1]);
-  if (!rows) {
-    const sheet = ss.getSheetByName('Lorebook');
-    const data = sheet ? sheet.getDataRange().getValues() : [];
-    rows = [];
-    for (let i = 1; i < data.length; i++) {
-      const content = String(data[i][3] || '').trim();
-      if (!content) continue;
-      rows.push({
-        keywords: String(data[i][0] || '').split(/[,，、]/).map(k => k.trim()).filter(Boolean),
-        category: String(data[i][1] || '').trim(),
-        priority: Number(data[i][2]) || 5,
-        content: content
-      });
-    }
-    writeConfigCache_(CONFIG_CACHE_KEYS_[1], rows);
-  }
-  LORE_ROWS_MEMO_ = rows;
-  return rows;
+  LORE_ROWS_MEMO_ = FATE_LORE_BUILTIN_.map(e => ({
+    keywords: (e.keys || []).map(k => String(k).trim()).filter(Boolean),
+    category: String(e.cat || '').trim(),
+    priority: Number(e.pri) || 5,
+    content: String(e.text || '').trim()
+  })).filter(r => r.content);
+  return LORE_ROWS_MEMO_;
 }
 
 // 世界書檢索：

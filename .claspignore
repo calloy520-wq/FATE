@@ -1,6 +1,8 @@
 # 只把遊戲本體推到 Google Apps Script；tests/、文件等一律不推（否則會在 GAS 裡造成函式衝突）
 **/**
 !Code.js
+!GameData.js
+!Lore.js
 !Index.html
 !SetupDB.js
 !appsscript.json

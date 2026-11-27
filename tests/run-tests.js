@@ -4,7 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const src = fs.readFileSync(path.join(__dirname, '..', 'Code.js'), 'utf8');
+// GAS 會把所有 .js 檔放在同一個全域空間，這裡照同樣順序載入
+const src = ['GameData.js', 'Lore.js', 'Code.js'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n;\n');
 const ctx = { console };
 vm.createContext(ctx);
 vm.runInContext(src + `
