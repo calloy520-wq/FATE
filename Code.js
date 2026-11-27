@@ -4004,6 +4004,34 @@ function excerptForDirector_(storyText) {
   return t.slice(0, 300) + '\n……\n' + t.slice(-1300);
 }
 
+// 各角色常見的英文稱呼：導演偶爾把別人的名字寫進某角色欄位（"standing behind Archer"），NovelAI 會因此多畫一個 Archer
+const CHAR_EN_NAMES_ = {
+  saber: ['saber', 'artoria', 'arturia'], saber_alter: ['saber alter', 'artoria alter'], archer: ['archer', 'emiya'],
+  lancer: ['lancer', 'cu chulainn', 'cuchulainn'], rider: ['rider', 'medusa'], caster: ['caster', 'medea'],
+  assassin: ['assassin', 'sasaki kojirou', 'kojirou', 'kojiro'], berserker: ['berserker', 'heracles'], gilgamesh: ['gilgamesh'],
+  shirou: ['emiya shirou', 'shirou'], rin: ['tohsaka rin', 'tohsaka', 'rin'], sakura: ['matou sakura', 'sakura'], dark_sakura: ['dark sakura', 'sakura alter'],
+  shinji: ['matou shinji', 'shinji'], illya: ['illyasviel', 'illya'], prisma_illya: ['illyasviel', 'illya'], kirei: ['kotomine kirei', 'kotomine', 'kirei'],
+  souichirou: ['kuzuki souichirou', 'kuzuki', 'souichirou'], scathach: ['scathach'], jeanne: ['jeanne'], jalter: ['jeanne alter', 'jalter'],
+  mordred: ['mordred'], okita: ['okita souji', 'okita'], tamamo: ['tamamo'], ereshkigal: ['ereshkigal'], karna: ['karna'], hassan: ['hassan'],
+  chloe: ['chloe'], miyu: ['miyu']
+};
+
+// 把角色欄位裡「別人的名字」換成中性說法（自己的名字、Danbooru 角色標籤都不動）
+function stripOtherCharNames_(text, selfId, presentIds, replacement) {
+  const rep = replacement || 'another character';
+  let out = String(text || '');
+  (presentIds || []).forEach(id => {
+    if (!id || id === selfId) return;
+    const names = (CHAR_EN_NAMES_[id] || []).concat([String(id).replace(/_/g, ' ')]);
+    if (id === CUSTOM_SERVANT_ID_ && ACTIVE_CUSTOM_SERVANT_ && /^[\x20-\x7e]+$/.test(ACTIVE_CUSTOM_SERVANT_.name)) names.push(ACTIVE_CUSTOM_SERVANT_.name);
+    names.sort((a, b) => b.length - a.length).forEach(n => {
+      const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      out = out.replace(new RegExp('\\b' + esc + '(?:\'s)?\\b(?!\\s*\\()', 'gi'), rep);
+    });
+  });
+  return out.replace(/(another character)(\s+and\s+another character)+/gi, 'the others').replace(/the another character/gi, 'another character');
+}
+
 function translateSceneToNaiV5_(directorCtx) {
   const charSummary = (directorCtx.chars || []).map(c =>
     `- id: "${c.id}", name: "${c.name}", gender: "${c.gender}", use_np: ${Boolean(c.use_np)}, reference_outfit: "${c.referenceOutfit || ''}", battle_outfit: "${c.battleOutfit || ''}", casual_outfit: "${c.casualOutfit || ''}", hint: "${c.hint || ''}"`
@@ -4028,13 +4056,14 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - NATURAL, ALIVE POSES: never a stiff, symmetrical, straight-on standing pose. Give each character specific body language that fits the moment and their personality — weight on one leg (contrapposto), head tilt, hand on hip or chin, arms behind back, leaning on something, looking over shoulder, mid-step, sitting casually; add motion (hair blowing, sway). Prefer three-quarter view or from the side, and a camera angle that adds life (slightly from below, from above, dutch angle for tension). Show a clear facial expression (smirk, gentle smile, raised eyebrow, pout, determined glare) rather than a blank stare.',
     '   - ROMANTIC MOMENTS (kiss, embrace, confession, tender touch): make it beautiful and intimate — close-up or upper body framing, the kiss must actually be visible (lips touching or about to touch), closed or half-closed eyes, blush, gentle expressions; soft lighting, warm color tone, bokeh, floating light particles, background softly blurred. Third-person kisses use "kiss" with mutual#kiss; POV uses "incoming kiss". Only make it comedic or shocked if the story clearly says so.',
     '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event. Only include props, weapons and magic effects that the excerpt explicitly shows in that moment (do not add a character\'s signature item unless it is being used).',
-    '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Describe the overall composition in one short natural-language clause (who is where relative to whom, depth and distance). Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
+    '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Describe the overall layout in one short natural-language clause WITHOUT any character name (e.g. "two figures facing off across the bridge", "a group gathered around a table"). Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
     '5. Characters (char_directions): For each present character output (keep every character\'s tags strictly in its own entry so features do not bleed between characters):',
     '   - "id": exact character id.',
     '   - "is_nude": boolean (true if unclothed/bathing/nude in this scene).',
     '   - "outfit": final English Danbooru clothing tags for THIS EXACT SCENE.',
     '   - "action": the character\'s placement and spatial relation FIRST (foreground / background / center, beside / behind / in front of / facing another character, near or far, above or below), then pose, expression, gaze, weapon/prop action, in English (NO hair/eyes color). Do NOT give coordinates or left/right grid positions — NovelAI decides the exact layout from these relations.',
-    '   - "interaction": ONLY if 2+ characters directly interact, use NAI V5 syntax ("source#<action>" + "target#<action>", or "mutual#<action>"). Empty string "" otherwise.',
+    '   - "interaction": ONLY if 2+ characters directly interact, use NAI V5 syntax ("source#<action>" + "target#<action>", or "mutual#<action>"). Example: the one touching writes "source#hand on another\'s shoulder", the one being touched writes "target#hand on another\'s shoulder"; both hugging write "mutual#hug". Never put a name before or after "#". Empty string "" otherwise.',
+    '   - NAMES STAY OUT (CRITICAL): never write another character\'s name or id inside a character\'s "action", "outfit" or "interaction", and never name characters in scene_prompt. Refer to others only as "another character", "the girl", "the man", "an ally", "the enemy". A name inside someone else\'s entry makes NovelAI draw that person twice. Relations between characters go in "interaction" with source#/target#/mutual#.',
     directorCtx.cameraMode === 'pov'
       ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. Only add "pov hands" when the player\'s hand directly interacts with a character (holding hands, being handed something by them, touching them); keep the hands small at the edge of the frame. Objects the player holds (phones, papers, weapons) are never the focus — mention them briefly or not at all. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees. CHARACTER FOCUS: in POV the visible characters are the subject of the picture — frame them close (use "close-up" or "upper body" or "cowboy shot" for one character, "medium shot" for two or three) so they fill most of the frame with clear faces and expressions; keep the background simple and secondary ("depth of field", "blurry background"), showing only enough to identify the place. Use a wide shot only when no character is visible. If a character kisses the player, use "incoming kiss" with a close-up of her face (eyes closed or half-closed, blush). Never mention out-of-view characters in scene_prompt. For EVERY character also output "in_view": true/false — false when the character is outside the player\'s field of view (behind the player, beside and out of frame, behind a wall, hidden in darkness); true only if the player would actually see them right now (e.g. "leaning in from over your shoulder" counts as visible).'
       : '',
@@ -4248,7 +4277,20 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
 // NovelAI 的互動語法只認 source# / target# / mutual# 三種前綴；其他「xxx#」前綴（例如角色名#）會被當成雜訊，直接去掉前綴保留動作
 function stripBadInteractionPrefix_(str) {
   return String(str || '').split(',').map(t => t.trim()).filter(Boolean)
-    .map(t => (/^(source|target|mutual)#/i.test(t) ? t : t.replace(/^[^\s#,]{1,24}#/, '')))
+    .map(t => {
+      if (/^(source|target|mutual)#[^#]*$/i.test(t)) return t;
+      // 導演常寫成「名字#動作#對象」（archer#protecting#rin）→ 轉成 NovelAI 認得的 source#動作
+      const tri = t.match(/^(?:(source|target|mutual)#)?[^#]{1,40}#([^#]+)#[^#]{1,40}$/i);
+      if (tri) return `${(tri[1] || 'source').toLowerCase()}#${tri[2].replace(/_/g, ' ').trim()}`;
+      // 「動作#對象」（protective_hand_on_shoulder#rin，前半是多字動作）→ source#動作
+      const duo = t.match(/^([^#]{1,60})#([^#]{1,40})$/);
+      if (duo && /[_ ]/.test(duo[1].trim())) return `source#${duo[1].replace(/_/g, ' ').trim()}`;
+      // 其他不認得的前綴（多半是名字，可能好幾層）全部去掉，只留動作
+      let r = t;
+      while (/^[^\s#,]{1,40}#/.test(r) && !/^(source|target|mutual)#/i.test(r)) r = r.replace(/^[^\s#,]{1,40}#/, '');
+      return r.replace(/_/g, ' ');
+    })
+    .filter(Boolean)
     .join(', ');
 }
 
@@ -4373,6 +4415,8 @@ function generateTurnCgAsync(imgPayload) {
         directed.scene_prompt = String(directed.scene_prompt).split(',').map(t => t.trim()).filter(t => t && !/^pov hands?$/i.test(t)).join(', ');
       }
       if (directed.scene_prompt) {
+        // 主提示詞也不放角色名字（名字只該出現在該角色自己的欄位）
+        directed.scene_prompt = stripOtherCharNames_(directed.scene_prompt, '', (working.characters || []).map(x => x.id), 'a figure');
         working.prompt = [working.countPrefix, ratingTag, stripCountTags_(directed.scene_prompt), working.combatEnvTags].filter(Boolean).join(', ');
       } else if (ratingTag && !alreadyNude) {
         working.prompt = [working.countPrefix, ratingTag, stripCountTags_(working.prompt)].filter(Boolean).join(', ');
@@ -4402,8 +4446,10 @@ function generateTurnCgAsync(imgPayload) {
             .split(',').map(t => t.trim()).filter(t => t && !/^in_view\s*[:=]/i.test(t)).join(', ');
 
           const actionWithExpr = isNude ? actionParts : ensureExpression_(actionParts, ch.defaultExpression || '');
+          const presentIds = working.characters.map(x => x.id).concat(((working._directorContext || {}).chars || []).map(x => x.id));
+          const cleanAction = stripOtherCharNames_(actionWithExpr, ch.id, presentIds);
           return Object.assign({}, ch, {
-            prompt: [finalCore, finalOutfit, actionWithExpr, ch.npBoost].filter(Boolean).join(', ')
+            prompt: [finalCore, finalOutfit, cleanAction, ch.npBoost].filter(Boolean).join(', ')
           });
         });
       }

@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -362,6 +362,15 @@ eq('能力值文字', T.customServantParamsText_({ str: 'a+', end: 'X', agi: 'B'
   const c = T.formatNovelStoryText_('風雪捲起。\n\n「芙蕾雅，退後！」\n\n芙蕾雅：「遵命。」', ['芙蕾雅', '測驗員'], '', '測驗員');
   eq('判斷不出就不標，不會標成被叫的人', c.split('\n\n')[1], '「芙蕾雅，退後！」');
 }
+
+// 互動語法修正與角色名字清除
+eq('名字#動作#對象 → source#動作', T.stripBadInteractionPrefix_('archer#protecting#rin'), 'source#protecting');
+eq('動作#對象 → source#動作', T.stripBadInteractionPrefix_('protective_hand_on_shoulder#rin'), 'source#protective hand on shoulder');
+eq('名字#動作 → 動作', T.stripBadInteractionPrefix_('rin#hug'), 'hug');
+eq('正確語法不動', T.stripBadInteractionPrefix_('mutual#kiss, smile'), 'mutual#kiss, smile');
+eq('別人名字換成中性說法', T.stripOtherCharNames_('standing behind Archer, looking at Rin', 'lancer', ['archer', 'rin', 'lancer']), 'standing behind another character, looking at another character');
+eq('自己的名字與角色標籤不動', T.stripOtherCharNames_('archer (fate), smirking at Lancer and Rin', 'archer', ['archer', 'rin', 'lancer']), 'archer (fate), smirking at the others');
+eq('不在場的人不動（sakura 花）', T.stripOtherCharNames_('under sakura trees', 'rin', ['rin']), 'under sakura trees');
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);
