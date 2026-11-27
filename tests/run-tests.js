@@ -193,6 +193,10 @@ np = T.buildNaiPayloadFromScene_(pst(false), [{ id: 'scathach' }], 'bathroom, st
 eq('繪圖：成人模式關閉無 nsfw', /nsfw/.test(np.prompt), false);
 eq('繪圖：成人模式關閉改浴巾', /nude/.test(np.characters[0].prompt) || !/towel/.test(np.characters[0].prompt), false);
 np = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'rin' }], 'bathroom', false, '泡澡', '', 1);
+{
+  const crowd = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'player_master' }, { id: 'scathach' }, { id: 'lancer' }, { id: 'archer' }, { id: 'rin' }], 'bridge, night', true, '開打', '', 1);
+  eq('一張圖最多 3 人、先省略御主', crowd.characters.map(c => c.id), ['scathach', 'lancer', 'archer']);
+}
 eq('繪圖：只有凜時沒有 nsfw', /nsfw/.test(np.prompt), false);
 
 // ---- 戰鬥分量：淘汰要兩步 ----
@@ -331,6 +335,8 @@ eq('洋館屋頂仍是洋館', (T.matchFuyukiLocation_('廢棄洋館的屋頂') 
 // 表情補強、夜景補光、自創英靈
 eq('沒表情 → 補預設表情', T.ensureExpression_('standing, cowboy shot', 'confident smile'), 'standing, cowboy shot, confident smile');
 eq('已有表情 → 不補', T.ensureExpression_('standing, grin', 'confident smile'), 'standing, grin');
+eq('皺眉也算表情 → 不補', T.ensureExpression_('frowning at the blizzard', 'determined expression'), 'frowning at the blizzard');
+eq('shouting 也算表情', T.ensureExpression_('looking shocked and shouting', 'smile'), 'looking shocked and shouting');
 eq('空動作 → 只放表情', T.ensureExpression_('', 'smirk'), 'smirk');
 eq('夜景沒光源 → 補暖光', T.addNightFillLight_('1girl, night, city'), '1girl, night, city, warm ambient light, natural skin tone');
 eq('夜景已有路燈 → 不補', T.addNightFillLight_('1girl, night, street lights'), '1girl, night, street lights');
@@ -342,6 +348,16 @@ eq('能力值文字', T.customServantParamsText_({ str: 'a+', end: 'X', agi: 'B'
 {
   const cs = T.sanitizeCustomServant_({ name: '  斯卡蒂\n', cls: '亂寫', gender: 'boy', core: 'boy, white hair{evil}', stats: {} });
   eq('自創英靈清理：名字、未知職階改 Saber、去掉大括號', [cs.name, cs.cls, cs.gender, cs.core, cs.id], ['斯卡蒂', 'Saber', 'boy', 'boy, white hairevil', 'custom_servant']);
+}
+
+// 說話者判斷：在叫某人的台詞不會標成被叫的人
+{
+  const a = T.formatNovelStoryText_('面對夾擊，測驗員沒有猶豫，果斷下達了戰鬥指令。\n\n「芙蕾雅，解放寶具。」\n\n芙蕾雅：「遵命，契約者。」', ['芙蕾雅', '測驗員'], '', '測驗員');
+  eq('叫名字的命令標成御主', a.split('\n\n')[1], '測驗員：「芙蕾雅，解放寶具。」');
+  const b = T.formatNovelStoryText_('測驗員沒有猶豫，果斷下達了戰鬥指令：「芙蕾雅，解放寶具。」', ['芙蕾雅', '測驗員'], '', '測驗員');
+  eq('冒號前的主詞是說話者', b.split('\n\n')[1], '測驗員：「芙蕾雅，解放寶具。」');
+  const c = T.formatNovelStoryText_('風雪捲起。\n\n「芙蕾雅，退後！」\n\n芙蕾雅：「遵命。」', ['芙蕾雅', '測驗員'], '', '測驗員');
+  eq('判斷不出就不標，不會標成被叫的人', c.split('\n\n')[1], '「芙蕾雅，退後！」');
 }
 
 console.log(`\n${ok} passed, ${bad} failed`);
