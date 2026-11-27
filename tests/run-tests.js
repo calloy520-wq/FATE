@@ -384,6 +384,7 @@ eq('不在場的人不動（sakura 花）', T.stripOtherCharNames_('under sakura
 // 繪圖文字修正
 eq('從背後抱 → hug from behind', T.detectIntimacyTags_(['source#hugging another character from behind, smile']).map(t => t.tag), ['hug from behind']);
 eq('親臉頰 → kissing cheek', T.detectIntimacyTags_(['lips touching viewer\'s cheek, closed eyes']).map(t => t.tag), ['kissing cheek']);
+eq('掏耳朵 → mimikaki', T.detectIntimacyTags_(['cleaning the viewer\'s ear with an ear pick']).map(t => t.tag)[0], 'mimikaki, holding ear pick');
 eq('膝枕＋摸頭', T.detectIntimacyTags_(['head resting on another character\'s lap', 'stroking the hair on her head']).map(t => t.tag), ['lap pillow', 'headpat']);
 eq('擁抱拉近也去掉 cowboy shot', T.refineRomanceFraming_('2girls, cowboy shot, kitchen'), 'upper body, 2girls, kitchen');
 eq('特寫拿掉下半身（加權結尾保留）', T.stripLowerBodyForCloseUp_('girl, purple hair, 1.15::red hair ribbon, white blouse, pink cardigan, long skirt, black pantyhose::, crying'), 'girl, purple hair, 1.15::red hair ribbon, white blouse, pink cardigan::, crying');
