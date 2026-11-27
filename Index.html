@@ -1325,6 +1325,8 @@
       window.addEventListener('error', function (e) { showErr((e.message || '') + ' @' + (e.lineno || '?') + ':' + (e.colno || '?')); });
       window.addEventListener('unhandledrejection', function (e) { showErr('Promise：' + (e.reason && e.reason.message ? e.reason.message : String(e.reason))); });
     })();
+  </script>
+  <script>
     const MASTER_CACHE_KEY = 'fate_hgc_cached_master_name_v1';
     const ORIGIN_NOTES = {
       '冬木市隱居古家族': '魔術迴路:B | 近戰體術:D | 隱藏氣息:C | 幸運:C (自帶高純度魔力寶石(中)×1、未充能天然寶石媒介×2)',
@@ -2193,7 +2195,7 @@
 
 
     // ==================== 打字操作手機 ====================
-    const PHONE_FACTION_ALIASES = [
+    var PHONE_FACTION_ALIASES = [
       ['臟硯', ['臟硯', '咒腕', '哈桑', '真Assassin']],
       ['衛宮', ['衛宮', '士郎', 'Saber', 'saber', '阿爾托莉雅']],
       ['遠坂', ['遠坂', '凜', 'Archer', 'archer']],
@@ -2301,9 +2303,9 @@
 
     // ==================== 背景音樂：依情境切換，淡入淡出 ====================
     // 音樂檔放在倉庫 music/ 資料夾，透過公開 CDN 載入；檔案不存在就安靜略過
-    const BGM_BASE = 'https://cdn.jsdelivr.net/gh/calloy520-wq/FATE@main/music/';
-    const BGM_FALLBACK = { home: 'day', ending: 'day', boss: 'battle', tension: 'night', romance: 'home', sad: 'night', dusk: 'night' };
-    const bgm = { on: false, volume: 0.45, mood: '', current: null, missing: {} };
+    var BGM_BASE = 'https://cdn.jsdelivr.net/gh/calloy520-wq/FATE@main/music/';
+    var BGM_FALLBACK = { home: 'day', ending: 'day', boss: 'battle', tension: 'night', romance: 'home', sad: 'night', dusk: 'night' };
+    var bgm = { on: false, volume: 0.45, mood: '', current: null, missing: {} };
     try {
       bgm.on = localStorage.getItem('fate_bgm_on') === '1';
       const v = Number(localStorage.getItem('fate_bgm_vol'));
