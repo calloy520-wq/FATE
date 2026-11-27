@@ -2303,7 +2303,8 @@
 
     // ==================== 背景音樂：依情境切換，淡入淡出 ====================
     // 音樂檔放在倉庫 music/ 資料夾，透過公開 CDN 載入；檔案不存在就安靜略過
-    var BGM_BASE = 'https://cdn.jsdelivr.net/gh/calloy520-wq/FATE@main/music/';
+    // 注意：GAS 送出網頁時會把 JS 裡的雙斜線當成註解刪掉，所以網址的雙斜線要拆開寫
+    var BGM_BASE = 'https:' + '/' + '/cdn.jsdelivr.net/gh/calloy520-wq/FATE@main/music/';
     var BGM_FALLBACK = { home: 'day', ending: 'day', boss: 'battle', tension: 'night', romance: 'home', sad: 'night', dusk: 'night' };
     var bgm = { on: false, volume: 0.45, mood: '', current: null, missing: {} };
     try {

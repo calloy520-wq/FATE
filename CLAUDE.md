@@ -30,6 +30,7 @@
 - 不要改變六維能力值鎖定、第8組獨立不頂替等遊戲設計規則（見下方）。
 
 ## 修改程式時的檢查
+- **`Index.html` 的 JavaScript 裡不能出現雙斜線字串**（例如 `'https://...'`）：GAS 送出網頁時會把 JS 的雙斜線註解刪掉，連字串裡的也會被刪，整段程式就壞掉（2026-11 曾因音樂網址讓全員卡在登入畫面）。網址要寫成 `'https:' + '/' + '/...'`。錯誤顯示器放在獨立的第一個 `<script>`，主程式壞掉時畫面頂端會出現紅條。
 - 推送前用 `node --check Code.js` 做語法檢查，並跑 `node tests/run-tests.js` 與 `node tests/sim-turn.js`（GAS 是 V8 環境，`Code.js` 裡不能用 Node 模組）。新增純邏輯函式時順手補測試；新增前端呼叫的後端參數時，模擬測試也要跟著補。
 - 改後端函式名稱或回傳格式前，先全文搜尋 `Index.html`，前後端必須同步。前端呼叫的後端函式包括：`startNewGame`、`loadExistingGame`、`processFateTurnTextOnly`、`completeCreationAndSummon`、`generateTurnCgAsync`、`retrySceneImage`、`savePlayerSettingsOnly`、`updateCustomLocationDesc`、`postFuyukiForumMessage`、`sendAllySmsMessage`、`markPhoneMessagesRead`、`resetCurrentRunKeepCareer`、`startNextLoopReincarnation`、`enhanceMasterAppearance`、`extractMasterFromImage`、`previewMasterOutfit`。
 - 回合推演用 `ScriptLock`，但**只在讀存檔與寫回時持有**；等待 Gemini 時會放開，寫回前重新讀取並比對 `meta.turnCount`，被別的視窗推進過就放棄寫入。召喚流程、同盟簡訊 AI 回覆同理。不要改回「整個回合都鎖著」（多人同時玩會互相卡住、逾時）。
