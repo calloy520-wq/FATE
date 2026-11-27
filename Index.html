@@ -1817,7 +1817,7 @@
       sel.innerHTML = '';
       allKeys.forEach(facName => {
         const stText = String(factions[facName] || '');
-        const isAllied = /同盟|結盟|停戰|互助|合作|友方/.test(stText);
+        const isAllied = isAlliedText(stText);
         const isContact = Boolean((currentState.smsContacts || {})[facName]);
         const opt = document.createElement('option');
         opt.value = facName;
@@ -1837,9 +1837,15 @@
       renderSmsThread();
     }
 
+    // 與後端 isAllianceStatusText_ 相同：談判中、意向、解除、破裂都不算同盟
+    function isAlliedText(t) {
+      const s = String(t || '');
+      return /同盟|結盟|停戰|互助|合作|友方/.test(s) && !/談判|意向|考慮|提議|拒絕|破裂|解除|背叛|假意|觀望|中止|撕毀|試探|尚未/.test(s);
+    }
+
     function canSmsTo(facName) {
       const stText = String((currentState.factions || {})[facName] || '');
-      return /同盟|結盟|停戰|互助|合作|友方/.test(stText) || Boolean((currentState.smsContacts || {})[facName]) || facName.includes('教會');
+      return isAlliedText(stText) || Boolean((currentState.smsContacts || {})[facName]) || facName.includes('教會');
     }
 
     function renderSmsThread() {

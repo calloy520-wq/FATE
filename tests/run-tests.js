@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -221,6 +221,14 @@ ch = T.updateFactionIntel_(metaI, facs2, { aiIntel: { '間桐組': '聽說 Rider
 eq('劇情中打聽到 → 記錄玩家得知的內容', [metaI.factionIntel['間桐組 (Rider陣營)'].text, metaI.factionIntel['間桐組 (Rider陣營)'].source], ['聽說 Rider 陣營在森林被打敗了', '情報']);
 
 eq('句中短詞引用不當台詞', /斯卡哈：「將自身當作消耗品」/.test(T.formatNovelStoryText_('她的眼中閃過一絲對御主這種「將自身當作消耗品」行為的複雜情緒。', ['斯卡哈'], '', '測試者')), false);
+
+// ---- 結盟分階段 ----
+eq('結盟談判中不算同盟', T.isAllianceStatusText_('存活 (中立・結盟談判中)'), false);
+eq('同盟解除不算同盟', T.isAllianceStatusText_('存活 (同盟解除)'), false);
+eq('同盟・合作中算同盟', T.isAllianceStatusText_('存活 (同盟・合作中)'), true);
+eq('常理：敵對一回合變同盟 → 降為談判中', T.gateFactionAlliance_('存活 (敵對獵殺)', '存活 (同盟)', 'BALANCED'), '存活 (態度軟化・談判中)');
+eq('常理：中立可以直接結盟', T.gateFactionAlliance_('存活 (中立警戒)', '存活 (同盟)', 'BALANCED'), '存活 (同盟)');
+eq('故事模式：不限制', T.gateFactionAlliance_('存活 (敵對獵殺)', '存活 (同盟)', 'STORY_PLAYER_FIRST'), '存活 (同盟)');
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

@@ -946,7 +946,17 @@ function markPhoneMessagesRead(playerName) {
 
 function isAllianceStatusText_(statusStr) {
   const s = String(statusStr || '');
-  return /同盟|結盟|停戰|互助|合作|友方/.test(s);
+  // 「結盟談判中」「初步結盟意向」「同盟解除」這類還沒成立或已破裂的不算
+  return /同盟|結盟|停戰|互助|合作|友方/.test(s) && !/談判|意向|考慮|提議|拒絕|破裂|解除|背叛|假意|觀望|中止|撕毀|試探|尚未/.test(s);
+}
+
+// 結盟要分階段：敵對陣營不會一回合就變同盟，先軟化成談判中（符合常理與鐵血；搞笑、故事模式不限）
+function gateFactionAlliance_(prevStatus, newStatus, toneKey) {
+  const prev = String(prevStatus || ''), next = String(newStatus || '');
+  if (toneKey !== 'BALANCED' && toneKey !== 'HARDCORE_WAR') return next;
+  if (!isAllianceStatusText_(next) || isAllianceStatusText_(prev)) return next;
+  if (/敵對|獵殺|暗算|防備|追殺|報復|敵意/.test(prev)) return '存活 (態度軟化・談判中)';
+  return next;
 }
 
 function isCapturedOrDefeatedStatusText_(statusStr) {
@@ -2563,6 +2573,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 御主是最大破綻：攻擊御主是正當戰術。失去御主的從者靠單獨行動技能撐一段時間，會尋找新御主或消失。',
   '- 魔術必須隱匿：在人多的地方或白天公開交戰，會引來聖堂教會善後、警方與其他陣營的注意（論壇也會出現目擊）。聖杯戰爭主要在夜間進行，白天是日常、調查與佈局。',
   '- 陣地優勢：在敵方工房、結界或陣地內作戰極為不利；Caster 的陣地與山門結界尤其危險。',
+  '- 結盟看立場與利益：對方要有理由才會合作（共同的敵人、情報、救命之恩、交換條件），敵對陣營要經過多次互動才可能從敵意轉為談判、停戰、結盟；言峰綺禮表面合作、暗中利用，伊莉雅的態度取決於能否打動她、她與士郎的關係，Caster 只信任葛木。一次談話通常只能讓態度軟化，不會直接結盟。',
   '- 從者戰力依原作：每騎都是傳說級英雄，打倒一騎要靠情報、弱點、地利、寶具與犧牲累積，通常要好幾回合（偵查→削弱→決戰）；Berserker 的十二試煉要多次致命傷或高階寶具才能突破，吉爾伽美什的王之財寶近乎無窮。一次漂亮的行動可以重創對手、逼退對手，但不會讓滿狀態的從者當場退場。',
   '- 不硬塞情報：吃飯、休息、閒聊等日常場景就好好寫日常，不要讓從者主動報告戰況；角色只會提到確實得知的事（親眼所見、使魔回報、論壇、聯絡），而且只知道得到的那部分。玩家主動問起或去打聽時，才依情報來源回答。',
   '- 感知有極限：從者的氣息感知大約只到數百公尺，只能察覺「附近有從者、魔力大概多強、是否有敵意」，無法隔著整座城市辨認其他陣營在哪、是誰、什麼職階。遠方的事只能透過使魔、目擊、情報、論壇風聲得知；Assassin 的氣息遮斷甚至能完全避開感知。',
@@ -2852,7 +2863,7 @@ function processFateTurnTextOnly(params) {
         const realKey = resolveFactionKey_(fname, currentFactions);
         if (val && realKey) {
           const prevSt = String(currentFactions[realKey] || '');
-          const nextSt = gateFactionElimination_(prevSt, val.slice(0, 120));
+          const nextSt = gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val.slice(0, 120)), toneKey);
           // 已淘汰的陣營不會復活；唯一例外是教會亮出隱藏王牌吉爾伽美什（只有一次）
           const wasOut = isCapturedOrDefeatedStatusText_(prevSt) && !/收服|已歸屬第8組/.test(prevSt);
           if (wasOut && !isCapturedOrDefeatedStatusText_(nextSt)) {
