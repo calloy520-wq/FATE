@@ -2356,6 +2356,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 神秘法則：神秘只能被更強的神秘壓制。現代武器與普通魔術幾乎傷不了英靈本體，但可以牽制、干擾、爭取時間，或對付御主與使魔。',
   '- 魔力即代價：寶具、高階魔術、維持從者現界都消耗御主魔力；魔力枯竭時從者會衰弱甚至消失。魔力可從靈脈、魔力寶石、魔力供給（補魔）取得。',
   '- 令咒：三劃絕對命令，可強制行動、瞬間轉移、短時間強化或硬開寶具；用完即失去約束從者的手段。令咒可以被奪取或轉讓。',
+  '- 武器靈體化：從者在非戰鬥時會把武器收起（靈體化），日常、談判、休息時不要寫她們手持或倚著武器；只有開戰或刻意威嚇時才具現。',
   '- 從者是有自我意志的英雄：依傳說與性格行事，會評價御主，可以拒絕不合理的命令（除非動用令咒），也會因御主的作為而信任或失望。',
   '- 真名即弱點：真名曝光代表傳說中的弱點與寶具被看穿；寶具解放常伴隨真名宣告。',
   '- 御主是最大破綻：攻擊御主是正當戰術。失去御主的從者靠單獨行動技能撐一段時間，會尋找新御主或消失。',
@@ -3262,13 +3263,15 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
       anyNpActive = true;
     }
 
+    // 非戰鬥、沒有解放寶具時，武器不出現在畫面上（劇情就算寫了也不畫）
+    const noWeaponUc = (!isCombat && !c.use_np && c.id !== 'player_master') ? 'holding weapon, weapon, spear, polearm, sword' : '';
     return {
       id: c.id,
       baseCore: normCore,
       weightedOutfit: weightedOutfit,
       npBoost: npBoost,
       prompt: [core, weightedOutfit, directAction, npBoost].filter(Boolean).join(', '),
-      uc: profile.uc,
+      uc: [profile.uc, noWeaponUc].filter(Boolean).join(', '),
       gender: profile.gender,
       x: 0.5,
       y: 0.5

@@ -106,6 +106,7 @@ check('美狄亞退場 → 臟硯組成立', '臟硯組 (真Assassin陣營)' in 
 check('路線傾向累積', st.routeTendency.ubw === 3);
 check('重要事件記錄', st.keyEvents.includes('與遠坂凜交換手機號碼並結盟'));
 check('劇情附上本回合結算', /【本回合結算】/.test(t1.story));
+check('非戰鬥場景：角色負面提示詞排除武器', t1.imagePayload.characters.every(c => c.id === 'player_master' || /holding weapon/.test(c.uc)));
 check('繪圖 payload 角色欄以 girl 開頭', t1.imagePayload.characters.every(c => /^(girl|boy)/.test(c.prompt)));
 check('ChatLog 有寫入', sheets.ChatLog.data.length === 3);
 
