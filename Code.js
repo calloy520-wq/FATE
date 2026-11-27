@@ -951,6 +951,35 @@ function isCapturedOrDefeatedStatusText_(statusStr) {
   return /淘汰|消滅|陣亡|擊潰|覆滅|收服|戰敗|已死|已歸屬第8組|原御主已退場/.test(s);
 }
 
+// 已被削弱（負傷、重創、劣勢…）的陣營才可能在下一步被淘汰
+function isWeakenedStatusText_(statusStr) {
+  return /負傷|重傷|重創|瀕|劣勢|休整|受創|受損|敗退|撤退|虛弱|殘存|苟延|潰散|窮途|殘破|崩解/.test(String(statusStr || ''));
+}
+
+// 淘汰要分兩步：滿狀態的陣營一回合內最多被打成「重創敗退」，之後的回合才能淘汰（收服、歸屬第8組不受影響）
+function gateFactionElimination_(prevStatus, newStatus) {
+  const next = String(newStatus || '');
+  const isKill = /淘汰|消滅|陣亡|擊潰|覆滅|戰敗|已死/.test(next) && !/收服|已歸屬第8組|原御主已退場/.test(next);
+  if (!isKill) return next;
+  if (isCapturedOrDefeatedStatusText_(prevStatus) || isWeakenedStatusText_(prevStatus)) return next;
+  return '存活 (重創敗退・靈基受損)';
+}
+
+// 戰局提示：還有哪些陣營未化解、魔力是否見底（每回合放進 statePrompt）
+function describeWarStateForPrompt_(factionsObj, mp, maxMp, gameMode) {
+  if (gameMode !== 'WAR') return '';
+  const f = factionsObj || {};
+  const open = Object.keys(f).filter(k => !isCapturedOrDefeatedStatusText_(f[k]) && !isAllianceStatusText_(f[k]));
+  const lines = [];
+  lines.push(open.length > 0
+    ? `【戰局】尚未化解的陣營：${open.join('、')}（全部擊敗、收服或結盟後才能迎來終局）。擊敗滿狀態的從者需要多回合：先削弱（負傷、重創、劣勢），之後的回合才能淘汰；系統只接受已被削弱的陣營改為淘汰。`
+    : '【終局】所有陣營都已擊敗、收服或結盟。大聖杯即將在圓藏山（柳洞寺地下）顯現；玩家前往並完成儀式、許下願望時，可判定 `TRUE_VICTORY`。');
+  const m = Number(mp) || 0, mx = Math.max(1, Number(maxMp) || 1);
+  if (m <= 0) lines.push('【魔力枯竭】御主魔力見底：從者無法解放寶具、戰力大幅下降，御主頭暈虛弱；強行作戰或施展魔術必須付出實際代價（靈基受損、昏倒、被迫撤退），並反映在 master_condition／servant_condition。');
+  else if (m / mx < 0.25) lines.push(`【魔力不足】御主魔力只剩 ${m}/${mx}：寶具最多勉強發動一次且代價沉重，大型魔術難以施展。`);
+  return lines.join('\n');
+}
+
 function isDefeatedOrCapturedFaction_(factionsObj, keyword) {
   const f = factionsObj || {};
   const entryKey = Object.keys(f).find(k => k.includes(keyword));
@@ -1314,10 +1343,11 @@ function simulateOffscreenFactionWar_(factionsObj, day, period, ownedServantIds)
 
   const facA = aliveFactions[idxA];
   const facB = aliveFactions[idxB];
+  const facBWeakened = isWeakenedStatusText_(factionsObj[facB]);
   const battleSite = ['冬木大橋', '柳洞寺', '新都商業區', '衛宮邸', '遠坂邸', '愛因茲貝倫森林'][Math.floor(Math.random() * 6)];
 
   // 淘汰機率下調，且至少要剩 4 組以上才可能被後台淘汰，避免七組被後台打光
-  const isElimination = (Number(day) >= 3 && Math.random() < 0.12 && aliveFactions.length > 3);
+  const isElimination = (Number(day) >= 3 && facBWeakened && Math.random() < 0.12 && aliveFactions.length > 3);
   const updated = Object.assign({}, factionsObj);
   let report = '';
 
@@ -2445,6 +2475,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 御主是最大破綻：攻擊御主是正當戰術。失去御主的從者靠單獨行動技能撐一段時間，會尋找新御主或消失。',
   '- 魔術必須隱匿：在人多的地方或白天公開交戰，會引來聖堂教會善後、警方與其他陣營的注意（論壇也會出現目擊）。聖杯戰爭主要在夜間進行，白天是日常、調查與佈局。',
   '- 陣地優勢：在敵方工房、結界或陣地內作戰極為不利；Caster 的陣地與山門結界尤其危險。',
+  '- 從者戰力依原作：每騎都是傳說級英雄，打倒一騎要靠情報、弱點、地利、寶具與犧牲累積，通常要好幾回合（偵查→削弱→決戰）；Berserker 的十二試煉要多次致命傷或高階寶具才能突破，吉爾伽美什的王之財寶近乎無窮。一次漂亮的行動可以重創對手、逼退對手，但不會讓滿狀態的從者當場退場。',
   '- 感知有極限：從者的氣息感知大約只到數百公尺，只能察覺「附近有從者、魔力大概多強、是否有敵意」，無法隔著整座城市辨認其他陣營在哪、是誰、什麼職階。遠方的事只能透過使魔、目擊、情報、論壇風聲得知；Assassin 的氣息遮斷甚至能完全避開感知。',
   '- 隱藏真相（大聖杯的汙染、此世之惡、言峰綺禮的真面目等）只在玩家深入調查時逐步揭露，不要一次說破。',
   '- 時代是 2004 年的日本冬木市：手機是翻蓋手機（只能通話、簡訊、手機郵件、低畫質相機），沒有智慧型手機、LINE、社群網站或觸控螢幕；網路論壇用電腦或手機網頁瀏覽。',
@@ -2663,6 +2694,7 @@ function processFateTurnTextOnly(params) {
       statusObj.servant2.id ? `【副從者】ID:${statusObj.servant2.id} (${statusObj.servant2.class}・${statusObj.servant2.name}) | 靈基狀態:${statusObj.servant2.condition || '靈基穩定'}` : '【副從者】無',
       `【相關角色目前穿著（未列出者為預設服裝）】${JSON.stringify(relevantOutfits)}`,
       `【七組陣營狀態（推演前必先對照，同盟陣營須彼此照應）】${JSON.stringify(statusObj.factions)}`,
+      describeWarStateForPrompt_(statusObj.factions, statusObj.master.mp, statusObj.master.maxMp, statusObj.gameMode),
       describeRyuudouRoute_(metaBefore),
       `【長期記憶前情提要】${statusObj.memorySummary}`,
       `【重要事件與伏筆清單（約定、結盟原因、恩怨、未解之謎；請保持連貫）】\n${keyEventsText}`,
@@ -2727,7 +2759,7 @@ function processFateTurnTextOnly(params) {
         const val = String(turnJson.faction_updates[fname] || '').trim();
         const realKey = resolveFactionKey_(fname, currentFactions);
         if (val && realKey) {
-          currentFactions[realKey] = val.slice(0, 120);
+          currentFactions[realKey] = gateFactionElimination_(currentFactions[realKey], val.slice(0, 120));
         }
       });
     }
@@ -2763,7 +2795,16 @@ function processFateTurnTextOnly(params) {
     const isCombatTurn = Boolean(turnJson.is_combat);
     currentFactions = applyRouteAndHiddenServantEvolution_(currentFactions, turnJson, charDb, isCombatTurn);
     const presentIdSet = new Set((turnJson.present_chars || []).map(c => String((c && c.id) || '').trim()));
-    const servantsOutList = Array.isArray(turnJson.servants_out) ? turnJson.servants_out : [];
+    // 英靈退場也要先被削弱：所屬陣營在本回合開始前還是滿狀態時，不接受退場
+    const servantFactionMarker_ = sid => ({ caster: '柳洞寺', assassin: '柳洞寺', hassan: '臟硯', gilgamesh: '教會' })[sid]
+      || ((CANONICAL_7_FACTIONS_.find(r => r[2] === sid) || [])[0] || '').replace(/組.*$/, '');
+    const servantsOutList = (Array.isArray(turnJson.servants_out) ? turnJson.servants_out : []).filter(sid => {
+      const marker = servantFactionMarker_(String(sid || ''));
+      const fk = marker ? Object.keys(statusObj.factions || {}).find(k => k.includes(marker)) : '';
+      if (!fk) return true;
+      const prev = String(statusObj.factions[fk] || '');
+      return isCapturedOrDefeatedStatusText_(prev) || isWeakenedStatusText_(prev) || String(sid) === capturedServantId;
+    });
     let routeRes = updateRyuudouRoute_(meta, currentFactions, servantsOutList, capturedServantId, presentIdSet);
     currentFactions = routeRes.factions;
     const routeReports = routeRes.report ? [routeRes.report] : [];

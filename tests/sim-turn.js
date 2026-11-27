@@ -92,6 +92,11 @@ geminiQueue.push({
   memory_update: '與凜結盟', key_events_add: ['與遠坂凜交換手機號碼並結盟'], key_events_resolve: [],
   present_chars: [{ id: 'rin', use_np: false, action_en: 'smile' }], scene_env_en: 'school rooftop, night'
 });
+// 英靈退場需要所屬陣營已被削弱：先把柳洞寺組設成負傷
+{
+  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
+  const f = JSON.parse(row[29]); f['柳洞寺組 (Caster/Assassin陣營)'] = '存活 (敵對・重創負傷)'; row[29] = JSON.stringify(f);
+}
 const mpBefore = ctx.loadExistingGame('測試者').status.master.mp;
 const t1 = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '捏碎魔力寶石，然後跟凜交換手機號碼' });
 const st = t1.status;
