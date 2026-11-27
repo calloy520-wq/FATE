@@ -2037,7 +2037,16 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
   text = stripRepeatedPreviousEnding_(text, prevStoryText);
   text = cleanAwkwardMasterTitle_(text, playerName);
 
-  const candidateNames = Array.isArray(contextNames) ? contextNames.filter(Boolean) : [];
+  // 名單裡是全名（佐佐木小次郎、言峰綺禮），劇情常寫簡稱（小次郎、綺禮）→ 加入簡稱，標示時換回全名
+  const baseNames = Array.isArray(contextNames) ? contextNames.filter(Boolean) : [];
+  const aliasToFull = {};
+  baseNames.forEach(n => {
+    if (n === playerName || !/^[\u4e00-\u9fff]+$/.test(n)) return;
+    if (n.length === 4) aliasToFull[n.slice(2)] = aliasToFull[n.slice(2)] || n;
+    if (n.length >= 5) aliasToFull[n.slice(-3)] = aliasToFull[n.slice(-3)] || n;
+  });
+  const candidateNames = Array.from(new Set(baseNames.concat(Object.keys(aliasToFull).filter(a => baseNames.indexOf(a) === -1)))).sort((a, b) => b.length - a.length);
+  const fullOf = n => aliasToFull[n] && baseNames.indexOf(n) === -1 ? aliasToFull[n] : n;
   const paragraphs = text.split('\n\n');
 
   const findNameIn = (str) => {
@@ -2072,7 +2081,9 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
       const nextIsLabeledLine = /^[^「『\n]{1,12}[:：]\s*[「『]/.test(String(nextText || '').trim());
       const nextName = nextIsLabeledLine ? '' : startName(nextText);
       const nextMention = findNameIn(nextText);
-      const ambiguous = (prevName && nextName && prevName !== nextName) || (prevName && nextMention && nextMention !== prevName);
+      // 前一段以逗號或冒號收尾（敘述直接接到這句台詞），說話的就是前一段的主詞
+      const flowsIn = prevName && /[，、：:]\s*$/.test(String(prevText || '').trim());
+      const ambiguous = !flowsIn && ((prevName && nextName && prevName !== nextName) || (prevName && nextMention && nextMention !== prevName));
       let speaker = ambiguous ? '' : (prevName || nextName);
       if (!speaker && !prevName && !nextName && lastSpeaker && /^(她|他)/.test(String(prevText).trim())) speaker = lastSpeaker;
       const calledName = candidateNames.find(n => new RegExp('^「' + n + '[，,！!、…]').test(trimmed));
@@ -2083,6 +2094,7 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
         if (others.length === 1) speaker = others[0];
       }
       if (speaker) {
+        speaker = fullOf(speaker);
         lastSpeaker = speaker;
         return `${speaker}：${trimmed}`;
       }
@@ -4043,7 +4055,7 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - The setting is Japan in 2004: any mobile phone must be a "flip phone" (clamshell feature phone with antenna and physical keypad). Never draw smartphones, touchscreens or other post-2004 technology.',
     '   - PEOPLE FIRST: the characters (faces, expressions, poses, outfits) are the subject. Props, phones, weapons and effects are minor atmosphere — never let an object dominate or fill the frame.',
     '   - NATURAL, ALIVE POSES: never a stiff, symmetrical, straight-on standing pose. Give each character specific body language that fits the moment and their personality — weight on one leg (contrapposto), head tilt, hand on hip or chin, arms behind back, leaning on something, looking over shoulder, mid-step, sitting casually; add motion (hair blowing, sway). Prefer three-quarter view or from the side, and a camera angle that adds life (slightly from below, from above, dutch angle for tension). Show a clear facial expression (smirk, gentle smile, raised eyebrow, pout, determined glare) rather than a blank stare.',
-    '   - ROMANTIC MOMENTS (kiss, embrace, confession, tender touch): make it beautiful and intimate — close-up or upper body framing, the kiss must actually be visible (lips touching or about to touch), closed or half-closed eyes, blush, gentle expressions; soft lighting, warm color tone, bokeh, floating light particles, background softly blurred. Third-person kisses use "kiss" with mutual#kiss; POV uses "incoming kiss" (lips only). Use Danbooru tags for intimacy: "hug from behind", "kissing cheek" (never incoming kiss for a cheek kiss), "lap pillow", "headpat", "holding hands", "forehead-to-forehead". Only make it comedic or shocked if the story clearly says so.',
+    '   - ROMANTIC MOMENTS (kiss, embrace, confession, tender touch): make it beautiful and intimate — close-up or upper body framing, the kiss must actually be visible (lips touching or about to touch), closed or half-closed eyes, blush, gentle expressions; soft lighting, warm color tone, bokeh, floating light particles, background softly blurred. Third-person kisses use "kiss" with mutual#kiss; POV uses "incoming kiss" (lips only). Use Danbooru tags for intimacy: "mimikaki" (ear cleaning), "hug from behind", "kissing cheek" (never incoming kiss for a cheek kiss), "lap pillow", "headpat", "holding hands", "forehead-to-forehead". Only make it comedic or shocked if the story clearly says so.',
     '   - FRAMING (faces are the heart of this game): pick the closest shot that still fits everyone. One character: "cowboy shot" or "upper body" (a solo Noble Phantasm: "cowboy shot, from below" with the effect filling the background). Two or three characters: "medium shot" or "cowboy shot" with faces large and clear. Use "wide shot" ONLY for four or more people, a battle where two fighters are far apart, or pure scenery with no character. Romantic or tender moments: "upper body" or "close-up". Nothing (fences, bars, glass, crowds, weapons) may stand between the camera and a face. Never put a character with their back to the camera unless the story says they turn away: two people fighting or facing each other are shot from the side ("from side", both in profile or three-quarter view) so both faces are visible — do not stack one in the foreground facing away from the camera toward the other.',
     '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event. Only include props, weapons and magic effects that the excerpt explicitly shows in that moment (do not add a character\'s signature item unless it is being used).',
     '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Describe the overall layout in one short natural-language clause WITHOUT any character name (e.g. "two figures facing off across the bridge", "a group gathered around a table"). Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
@@ -4085,7 +4097,7 @@ const CHAR_DEFAULT_EXPRESSION_ = {
   rin: 'confident smile', sakura: 'gentle smile', dark_sakura: 'empty smile, half-closed eyes', saber: 'serious, calm expression',
   saber_alter: 'cold expression', archer: 'smirk', lancer: 'grin', rider: 'calm expression, faint smile', caster: 'smug smile',
   assassin: 'calm smile', berserker: 'angry, glowing eyes', gilgamesh: 'arrogant smirk', shirou: 'determined expression',
-  shinji: 'smug, smirk', illya: 'playful smile', kirei: 'faint smile', souichirou: 'expressionless', scathach: 'slight smile',
+  shinji: 'smirk', illya: 'playful smile', kirei: 'faint smile', souichirou: 'expressionless', scathach: 'slight smile',
   jeanne: 'gentle smile', jalter: 'smug smile', mordred: 'grin', okita: 'cheerful smile', tamamo: 'playful smile',
   ereshkigal: 'pout, blush', karna: 'calm expression', hassan: 'mask', prisma_illya: 'smile', chloe: 'smirk', miyu: 'shy',
   player_master: 'light smile'
@@ -4131,8 +4143,10 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
   if (validChars.length > MAX_CG_CHARS) {
     // 保留順序：自己的從者（主／副）→ 正在解放寶具的 → 其他人照 AI 列出的順序；御主最先省略
     const own = new Set([statusObj.servant1 && statusObj.servant1.id, statusObj.servant2 && statusObj.servant2.id].filter(Boolean));
-    const rank = c => (own.has(c.id) ? 0 : (c.use_np ? 1 : 2));
-    validChars = validChars.filter(c => c.id !== 'player_master')
+    // 玩家這回合跟人有肢體接觸（牽手、擁抱、親吻…）時御主要留在畫面，否則牽手會變成跟別人牽（實測斯卡哈牽著慎二）
+    const masterTouching = /牽|抱|吻|親|摸|握|靠|依偎|膝枕|撒嬌|挽|摟|貼/.test(String(userAction || ''));
+    const rank = c => (own.has(c.id) ? 0 : (c.id === 'player_master' ? 0.5 : (c.use_np ? 1 : 2)));
+    validChars = validChars.filter(c => masterTouching || c.id !== 'player_master')
       .map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i).map(x => x.c);
   }
   validChars = validChars.slice(0, MAX_CG_CHARS);
@@ -4381,6 +4395,7 @@ function refineFramingTags_(prompt, nChars) {
 const INTIMACY_TAGS_ = [
   { re: /\b(hug(ging|s|ged)?|embrac(e|ing|ed)|arms wrapped around)\b[^,]*\bfrom behind\b|\bback hug\b|\bbeing hugged from behind\b/i, tag: 'hug from behind' },
   { re: /\bkiss(ing|es)? (on )?(the |her |his |another character's |the other character's |viewer's |the viewer's )?cheek\b|\bcheek kiss\b|\blips touching [^,]*cheek\b/i, tag: 'kissing cheek', cheek: true },
+  { re: /\b(mimikaki|ear ?cleaning|cleaning [^,]*ears?|ear ?pick)\b/i, tag: 'mimikaki, holding ear pick' },
   { re: /\b(lap pillow|head (resting )?on [^,]*lap|lying [^,]*on [^,]*lap)\b/i, tag: 'lap pillow' },
   { re: /\b(patting|pats?|stroking|rubbing|ruffling) [^,]*head\b|\bheadpat\b/i, tag: 'headpat' },
   { re: /\bforehead (to|against) forehead\b|\bforeheads? (pressed|touching)\b/i, tag: 'forehead-to-forehead' },
@@ -4525,6 +4540,8 @@ function generateTurnCgAsync(imgPayload) {
         // 第一人稱親臉頰：畫面裡看不到自己的臉，改成她從側面湊近、閉眼
         let tag = (t.cheek && working.cameraMode === 'pov') ? 'from side, face focus, leaning in, closed eyes, blush' : t.tag;
         // 第一人稱膝枕：鏡頭是躺在她腿上的你 → 從下往上看，她低頭看著你；摸頭同理（她的手伸向鏡頭上方）
+        // 第一人稱掏耳朵：躺在腿上側著頭，她從上方低頭、手拿耳挖
+        if (working.cameraMode === 'pov' && t.tag.indexOf('mimikaki') === 0) tag = 'mimikaki, holding ear pick, lap pillow, pov, from below, looking down at viewer, close-up';
         if (working.cameraMode === 'pov' && t.tag === 'lap pillow') tag = 'lap pillow, pov, from below, looking down at viewer, close-up, face focus, ceiling';
         if (working.cameraMode === 'pov' && t.tag === 'hug') tag = 'incoming hug, close-up, face focus';
         if (working.cameraMode === 'pov' && t.tag === 'headpat') tag = 'headpat, headpat pov, from below, looking down at viewer, reaching towards viewer';
@@ -4557,6 +4574,14 @@ function generateTurnCgAsync(imgPayload) {
       if (pairFacing && !/\b(from side|profile)\b/i.test(working.prompt) && working.cameraMode !== 'pov') {
         working.prompt = `${working.prompt}, from side`;
         working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: String(ch.prompt || '').replace(/,\s*(in the )?foreground\b/gi, '').replace(/,\s*back to (the )?(viewer|camera)\b/gi, '') }));
+      }
+      // 單人解放寶具：導演常為了拍進整個特效選遠景，或寫「雙腳分開、站在正中央、高舉大旗」讓人被畫成遠處小人（實測貞德、黑貞德）
+      // → cowboy shot＋仰角放在人數標籤後面，拿掉全身字眼，特效留在背後
+      if (Array.isArray(working.characters) && working.characters.length === 1 && working.characters[0].npBoost && working.cameraMode !== 'pov') {
+        const restNp = stripCountTags_(String(working.prompt).replace(/,?\s*\b(wide shot|full body|long shot|medium shot|cowboy shot|from below)\b/gi, '')).replace(/^,\s*/, '');
+        working.prompt = [working.countPrefix, 'cowboy shot, from below, dynamic pose', restNp].filter(Boolean).join(', ');
+        const FULL_RE = /\b(feet|legs apart|full body|standing (firmly )?(in the )?center|center|wide stance)\b/i;
+        working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: String(ch.prompt || '').split(',').map(t => t.trim()).filter(t => t && (/::/.test(t) || !FULL_RE.test(t))).join(', ') }));
       }
       // 情緒高點（哭泣、流淚）：1～2 人時拉成上半身＋臉部特寫，不然全身鏡頭看不到眼淚（實測櫻哭著告白卻畫成站在客廳中間）
       const nNow = Array.isArray(working.characters) ? working.characters.length : 0;

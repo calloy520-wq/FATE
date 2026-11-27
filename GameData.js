@@ -85,7 +85,7 @@ const FATE_CHARACTERS_ = [
     outfit: "red turtleneck sweater, black pleated skirt, black thighhighs, cross necklace",
     uc: "blonde hair, ponytail, school uniform, holding gem, gemstone, holding jewelry, pendant, cellphone, holding phone, flip phone", summonable: false },
   { id: "shinji", names: "間桐慎二,慎二", gender: "boy",
-    core: "matou shinji, fate/stay night, wavy hair, dark blue hair, medium hair, brown eyes, smug",
+    core: "matou shinji, fate/stay night, bishounen, wavy hair, dark blue hair, medium hair, brown eyes",
     outfit: "white shirt, open collar, brown jacket, dark pants",
     uc: "orange hair, red hair, spiky hair", summonable: false },
   { id: "sakura", names: "間桐櫻,櫻", gender: "girl",
