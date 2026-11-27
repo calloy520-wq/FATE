@@ -4645,11 +4645,7 @@ function generateTurnCgAsync(imgPayload) {
           });
         }
       }
-      // 膝枕／掏耳朵：大腿本來就在畫面裡，保留褲襪、過膝襪，只拿掉鞋子（使用者想看膝枕時的黑絲）
-      const lapScene = /\b(lap pillow|mimikaki)\b/i.test(String(working.prompt || ''));
-      if (lapScene && Array.isArray(working.characters)) {
-        working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: stripLowerBodyForCloseUp_(ch.prompt, true) }));
-      } else if (/\b(upper body|close-up|portrait|face focus)\b/i.test(String(working.prompt || '')) && Array.isArray(working.characters)) {
+      if (/\b(upper body|close-up|portrait|face focus)\b/i.test(String(working.prompt || '')) && Array.isArray(working.characters)) {
         working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: stripLowerBodyForCloseUp_(ch.prompt) }));
       } else if (/\bcowboy shot\b/i.test(String(working.prompt || '')) && Array.isArray(working.characters)) {
         // cowboy shot（大腿以上）鞋子本來就不入鏡；服裝寫了高跟鞋、靴子會被拉成全身（Rider 幾乎每張都全身就是這個原因）
