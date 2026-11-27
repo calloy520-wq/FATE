@@ -1093,7 +1093,7 @@ function describeGodHandForPrompt_(godHand, factionsObj) {
   if (!fk || isCapturedOrDefeatedStatusText_(factionsObj[fk])) return '';
   const lost = Number((godHand && godHand.lost) || 0);
   const methods = (godHand && Array.isArray(godHand.methods)) ? godHand.methods : [];
-  return `【十二試煉】Berserker 還剩 ${GOD_HAND_LIVES_ - lost}/${GOD_HAND_LIVES_} 條命${methods.length ? `；已殺過他、對他不再有效的手段：${methods.join('、')}` : ''}。每回合最多擊破 1 條（A 級以上寶具最多 2 條），同一種手段不能殺他兩次；命數歸零前不會退場，除非御主伊莉雅被打倒、投降或放棄。玩家這邊確實殺死他一次時，填 berserker_lives_lost。`;
+  return `【十二試煉】Berserker 目前還剩 ${GOD_HAND_LIVES_ - lost}/${GOD_HAND_LIVES_} 條命（以這個數字為準）。${methods.length ? `以下手段已經殺過他，對他**完全無效**（要寫成攻擊被肉體彈開、毫髮無傷，不算擊破）：${methods.join('、')}。` : ''}每回合最多擊破 1 條（A 級以上寶具最多 2 條），同一種手段不能殺他兩次；命數歸零前不會退場，除非御主伊莉雅被打倒、投降或放棄。玩家這邊確實殺死他一次時，填 berserker_lives_lost。`;
 }
 
 // 玩家本回合是不是在休息（睡覺、冥想、調息…）
@@ -3297,6 +3297,15 @@ function processFateTurnTextOnly(params) {
 
     meta.inventory = updatedInventory;
 
+    // AI 寫的情報裡若提到十二試煉的命數，一律改成伺服器的正確數字
+    if (turnJson.intel_updates && typeof turnJson.intel_updates === 'object' && meta.godHand) {
+      Object.keys(turnJson.intel_updates).forEach(k => {
+        if (!resolveFactionKey_(k, currentFactions) || !resolveFactionKey_(k, currentFactions).includes('愛因茲貝倫')) return;
+        turnJson.intel_updates[k] = String(turnJson.intel_updates[k] || '')
+          .replace(/(剩餘?|還剩|尚存)\s*\d+\s*條/g, `$1 ${GOD_HAND_LIVES_ - meta.godHand.lost} 條`)
+          .replace(/(失去|擊破|死了)\s*\d+\s*條/g, `$1 ${meta.godHand.lost} 條`);
+      });
+    }
     const intelChanges = updateFactionIntel_(meta, currentFactions, {
       presentIds: (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => String((c && c.id) || '')),
       contactFacs: incomingFrom.map(m => m.fk),
