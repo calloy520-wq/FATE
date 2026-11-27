@@ -699,6 +699,9 @@ function sendAllySmsMessage(playerName, factionName, messageText, isDeception) {
     const note = `玩家用手機${deceive ? '對' : '聯絡'}「${targetFac}」（對方管道：${ch.label}）${deceive ? '放出假情報' : ''}：${msg}${reaction}`;
     meta.pendingSmsNote = [meta.pendingSmsNote, note].filter(Boolean).join('\n').slice(-600);
 
+    if (answeredCall) {
+      updateFactionIntel_(meta, factionsObj, { contactFacs: [targetFac], when: `Day ${row[6]}・${row[7]}` });
+    }
     if (deceive && answeredCall) {
       meta.rumors = addRumor_(meta.rumors, {
         text: msg,
@@ -963,6 +966,73 @@ function gateFactionElimination_(prevStatus, newStatus) {
   if (!isKill) return next;
   if (isCapturedOrDefeatedStatusText_(prevStatus) || isWeakenedStatusText_(prevStatus)) return next;
   return '存活 (重創敗退・靈基受損)';
+}
+
+// ==================== 情報檔案：玩家「知道的」陣營狀態，與真相分開記錄 ====================
+// 角色 ID 對應到陣營名稱中的關鍵字（看到這些人就等於親眼得知該陣營現況）
+const CHAR_FACTION_MARKERS_ = {
+  shirou: '衛宮', saber: '衛宮', saber_alter: '衛宮',
+  rin: '遠坂', archer: '遠坂',
+  kirei: '教會', lancer: '教會', gilgamesh: '教會',
+  sakura: '間桐', rider: '間桐', dark_sakura: '間桐',
+  souichirou: '柳洞寺', caster: '柳洞寺', assassin: '柳洞寺',
+  illya: '愛因茲貝倫', berserker: '愛因茲貝倫',
+  hassan: '臟硯'
+};
+
+// 對外看得到的狀態：去掉幕後細節（例如「曾於某地與某組激戰」「遭某組擊潰」）
+function publicIntelText_(statusStr) {
+  return String(statusStr || '').replace(/\s*\((曾於|於\s*Day|於)[^)]*\)/g, '').trim() || '不明';
+}
+
+function initFactionIntel_(factionsObj, fromTruth) {
+  const intel = {};
+  Object.keys(factionsObj || {}).forEach(k => {
+    const st = String(factionsObj[k] || '');
+    let text = '不明';
+    if (fromTruth || isAllianceStatusText_(st)) text = publicIntelText_(st);
+    else if (k.includes('教會')) text = '監督者據點（表面中立）';
+    intel[k] = { text: text, when: '開局', source: fromTruth ? '舊存檔' : '初始' };
+  });
+  return intel;
+}
+
+// 依本回合實際接觸更新情報；回傳有變動的陣營清單
+function updateFactionIntel_(meta, factionsObj, opts) {
+  const o = opts || {};
+  if (!meta.factionIntel || typeof meta.factionIntel !== 'object') meta.factionIntel = initFactionIntel_(factionsObj, true);
+  const intel = meta.factionIntel;
+  const presentMarkers = new Set((o.presentIds || []).map(id => CHAR_FACTION_MARKERS_[id]).filter(Boolean));
+  const contactSet = new Set(o.contactFacs || []);
+  const changes = [];
+  const setIntel = (fk, text, source) => {
+    const t = String(text || '').trim().slice(0, 60);
+    if (!t) return;
+    const prev = intel[fk];
+    if (prev && prev.text === t) return;
+    intel[fk] = { text: t, when: o.when || '', source: source };
+    changes.push({ fk: fk, text: t, source: source, isNew: !prev });
+  };
+  Object.keys(factionsObj || {}).forEach(fk => {
+    const st = String(factionsObj[fk] || '');
+    const marker = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m)) || '';
+    if (isAllianceStatusText_(st)) setIntel(fk, publicIntelText_(st), '同盟');
+    else if (marker && presentMarkers.has(marker)) setIntel(fk, publicIntelText_(st), '親眼所見');
+    else if (contactSet.has(fk)) setIntel(fk, publicIntelText_(st), '聯絡');
+  });
+  Object.keys(o.aiIntel || {}).forEach(name => {
+    const fk = resolveFactionKey_(name, factionsObj);
+    if (fk) setIntel(fk, o.aiIntel[name], '情報');
+  });
+  return changes;
+}
+
+function describeIntelForPrompt_(meta) {
+  const intel = (meta && meta.factionIntel) || {};
+  const keys = Object.keys(intel);
+  if (keys.length === 0) return '';
+  return '【玩家目前掌握的情報（角色對話只能引用這些；其餘真相要等玩家查到）】\n' +
+    keys.map(k => `- ${k}：${intel[k].text}（${intel[k].source}${intel[k].when ? '・' + intel[k].when : ''}）`).join('\n');
 }
 
 // 戰局提示：還有哪些陣營未化解、魔力是否見底（每回合放進 statePrompt）
@@ -1660,6 +1730,7 @@ function resetCurrentRunKeepCareer(playerName) {
       inventory: [],
       mapHotspot: '冬木大橋',
       warTicker: '本輪進度已清空，等待重新展開聖杯戰爭。',
+      factionIntel: initFactionIntel_(defaultFactions, false),
       bondLevel: 25,
       turnCount: 0,
       customLocationNotes: {},
@@ -1756,6 +1827,7 @@ function startNewGame(playerName) {
       inventory: [],
       mapHotspot: '冬木大橋',
       warTicker: '第五次聖杯戰爭剛剛拉開序幕，七組陣營與獨立第 8 組正暗中偵察冬木市靈脈。',
+      factionIntel: initFactionIntel_(defaultFactions, false),
       bondLevel: 25,
       turnCount: 0,
       customLocationNotes: {},
@@ -1891,6 +1963,7 @@ function startNextLoopReincarnation(playerName) {
       inventory: [],
       mapHotspot: '冬木大橋',
       warTicker: '新輪迴開啟，冬木市七組陣營重新降臨。',
+      factionIntel: initFactionIntel_(defaultFactions, false),
       bondLevel: 25,
       turnCount: 0,
       routeFlags: { medeaOut: false, kojirouOut: false, trueAssassin: 'NONE' },
@@ -2159,6 +2232,7 @@ function completeCreationTextOnly(params) {
       inventory: starterInv,
       mapHotspot: '冬木大橋',
       warTicker: '第一夜深夜，冬木大橋方向隱約傳來各陣營試探的魔力火花。',
+      factionIntel: initFactionIntel_(defaultFactions, false),
       bondLevel: 25,
       customLocationNotes: {},
       phoneState: {
@@ -2506,6 +2580,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 論壇：玩家做了引人注目的事（公開交戰、怪事、流言擴散），用 `forum_posts` 寫 0～2 則冬木市民的 2004 年留言板貼文（每則是含 board／author／title／body 的物件）；路人只知道自己看得到的部分。',
   '- 流言：依各陣營的情報能力與性格，判斷誰相信、誰識破狀態資料中的流言，用 `rumor_updates` 記錄；被相信的流言會實際改變該陣營行動（寫進 `faction_updates`），被識破的假消息可能引來報復。',
   '- 其他陣營主動傳訊給玩家時（求援、情報、挑釁、邀約），填入 `incoming_messages`，會出現在玩家手機的聯絡頁。',
+  '- 情報：玩家這回合透過偵查、使魔、他人告知、論壇推敲等方式**確實得知**某陣營的狀況時，用 `intel_updates` 寫下玩家得知的內容（30 字內，只寫玩家知道的部分）；親眼見到的陣營與同盟由系統自動記錄。',
   '- 通訊錄：只有劇情中**明確寫出**玩家與某陣營交換手機號碼、拿到名片或聯絡方式時，才把陣營名稱填入 `new_contacts`；只是見面、交談、談判都不算。',
   '- 路線傾向：依玩家本回合的行動方式，在 `route_tendency_delta` 為各路線加減分（-3～+3）；已確立路線時，劇情重心照狀態資料中的路線說明發展。',
   '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
@@ -2546,6 +2621,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '  "forum_posts": [],',
   '  "rumor_updates": [{ "id": "既有流言ID（新傳聞留空）", "text": "新傳聞才填：傳聞內容", "status": "擴散中 / 已被識破 / 已被證實 / 已平息", "believers": [], "doubters": [], "effect": "30字內影響" }],',
   '  "new_contacts": [],',
+  '  "intel_updates": {},',
   '  "route_tendency_delta": { "fate": 0, "ubw": 0, "hf": 0, "shadow": 0, "conquest": 0 },',
   '  "location_changes": {},',
   '  "incoming_messages": [{ "faction": "陣營名稱", "text": "其他陣營主動傳給玩家的訊息（80字內）" }],',
@@ -2707,6 +2783,7 @@ function processFateTurnTextOnly(params) {
       `【相關角色目前穿著（未列出者為預設服裝）】${JSON.stringify(relevantOutfits)}`,
       `【七組陣營狀態（幕後真相，推演前必先對照，同盟陣營須彼此照應；角色只知道自己見過或打聽到的部分）】${JSON.stringify(statusObj.factions)}`,
       describeWarStateForPrompt_(statusObj.factions, statusObj.master.mp, statusObj.master.maxMp, statusObj.gameMode),
+      describeIntelForPrompt_({ factionIntel: metaBefore.factionIntel || initFactionIntel_(statusObj.factions, true) }),
       describeRyuudouRoute_(metaBefore),
       `【長期記憶前情提要】${statusObj.memorySummary}`,
       `【重要事件與伏筆清單（約定、結盟原因、恩怨、未解之謎；請保持連貫）】\n${keyEventsText}`,
@@ -3134,6 +3211,13 @@ function processFateTurnTextOnly(params) {
 
     meta.inventory = updatedInventory;
 
+    const intelChanges = updateFactionIntel_(meta, currentFactions, {
+      presentIds: (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => String((c && c.id) || '')),
+      contactFacs: incomingFrom.map(m => m.fk),
+      aiIntel: (turnJson.intel_updates && typeof turnJson.intel_updates === 'object') ? turnJson.intel_updates : {},
+      when: `Day ${row[6]}・${row[7]}`
+    });
+
     // 每回合結算：把本回合造成的確實變化列出來，讓玩家看到行動的反饋（也存進紀錄）
     const summaryParts = [];
     const mpAfter = Number(row[15]);
@@ -3152,11 +3236,10 @@ function processFateTurnTextOnly(params) {
     if (invResult.addedCount > 0) {
       mergedGainedItems.forEach(g => { if (g && g.name) summaryParts.push(`獲得 ${g.name}`); });
     }
-    Object.keys(currentFactions).forEach(k => {
-      const before = statusObj.factions ? statusObj.factions[k] : undefined;
-      if (before !== currentFactions[k]) {
-        summaryParts.push(before === undefined ? `新勢力：${k}` : `${k.replace(/\s*\(.*\)$/, '')}→${String(currentFactions[k]).slice(0, 24)}`);
-      }
+    // 結算只列玩家「得知」的陣營變化（親眼所見、同盟、聯絡、劇情中打聽到），幕後變化不顯示
+    intelChanges.forEach(c => {
+      const nm = c.fk.replace(/\s*\(.*\)$/, '');
+      summaryParts.push(c.isNew ? `新勢力：${c.fk}（${c.text}）` : `${nm}→${c.text.slice(0, 24)}（${c.source}）`);
     });
     newContactNames.forEach(k => summaryParts.push(`📇 取得聯絡方式：${k.replace(/\s*\(.*\)$/, '')}`));
     changedLocations.forEach(k => summaryParts.push(`🏚 ${k} 現況改變：${String(meta.customLocationNotes[k]).slice(0, 30)}`));
@@ -4090,6 +4173,7 @@ function parseSaveRow_(row) {
     mapHotspot: mapHotspot,
     warTicker: String(meta.warTicker || ''),
     warTickerPublic: String(meta.warTickerPublic || ''),
+    factionIntel: (meta.factionIntel && typeof meta.factionIntel === 'object') ? meta.factionIntel : initFactionIntel_(safeJsonParse_(row[29], {}), true),
     inventory: Array.isArray(meta.inventory) ? meta.inventory : [],
     phoneState: syncedPhone,
     master: {

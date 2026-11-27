@@ -1822,7 +1822,8 @@
         const opt = document.createElement('option');
         opt.value = facName;
         const ch = (currentState.contactChannels || {})[facName] || { icon: '📱', label: '手機簡訊' };
-        const isOut = /淘汰|消滅|陣亡|覆滅|戰敗/.test(stText);
+        const knownText = String(((currentState.factionIntel || {})[facName] || {}).text || '');
+        const isOut = /淘汰|消滅|陣亡|覆滅|戰敗/.test(knownText);
         opt.textContent = (isOut ? `⚰ [已淘汰] ` : (isAllied ? `🤝 [同盟] ` : (isContact ? `📇 [聯絡人] ` : `📜 [僅紀錄] `))) + `${facName} · ${ch.icon} ${ch.label}`;
         sel.appendChild(opt);
       });
@@ -2450,11 +2451,18 @@
     function openFactionsModal() {
       const box = document.getElementById('factions-list-content');
       box.innerHTML = '';
-      const f = currentState.factions || {};
-      Object.keys(f).forEach(k => {
+      // 只顯示玩家「知道的」陣營狀況（親眼所見、同盟、聯絡、打聽到），不是幕後真相
+      const intel = currentState.factionIntel || {};
+      const head = document.createElement('div');
+      head.style.cssText = 'font-size:11.5px; color: var(--text-muted);';
+      head.innerText = '🕵️ 這裡是你掌握的情報，不一定是最新的真相。親眼見到、同盟、聯絡或打聽之後才會更新。';
+      box.appendChild(head);
+      Object.keys(intel).forEach(k => {
+        const it = intel[k] || {};
         const row = document.createElement('div');
         row.style.cssText = 'padding: 8px 12px; background: var(--bg-card); border: 1px solid var(--border-dim); border-radius: 8px; display:flex; justify-content:space-between; gap:10px;';
-        row.innerHTML = `<strong>${escapeHtml(k)}</strong><span style="color: var(--gold-bright);">${escapeHtml(f[k])}</span>`;
+        const unknown = !it.text || it.text === '不明';
+        row.innerHTML = `<strong>${escapeHtml(k)}</strong><span style="text-align:right;"><span style="color: ${unknown ? 'var(--text-muted)' : 'var(--gold-bright)'};">${escapeHtml(it.text || '不明')}</span>${it.when || it.source ? `<br><span style="font-size:11px; color: var(--text-muted);">${escapeHtml([it.source, it.when].filter(Boolean).join('・'))}</span>` : ''}</span>`;
         box.appendChild(row);
       });
 

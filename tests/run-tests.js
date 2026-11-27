@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -204,6 +204,20 @@ eq('戰局：列出未化解陣營', /尚未化解的陣營：衛宮組/.test(T.
 eq('戰局：全部化解 → 終局提示', /終局/.test(T.describeWarStateForPrompt_({ '衛宮組': '已淘汰', '遠坂組': '同盟' }, 50, 140, 'WAR')), true);
 eq('戰局：魔力枯竭提示', /魔力枯竭/.test(T.describeWarStateForPrompt_({}, 0, 140, 'WAR')), true);
 eq('戰局：日常模式不提示', T.describeWarStateForPrompt_({}, 0, 140, 'SANDBOX'), '');
+
+// ---- 情報檔案：知道與不知道分開 ----
+eq('對外狀態去掉幕後細節', T.publicIntelText_('已淘汰 (於 Day 3 白天 在愛因茲貝倫森林遭 教會組 擊潰)'), '已淘汰');
+const facsI = { '衛宮組 (Saber陣營)': '存活 (同盟)', '間桐組 (Rider陣營)': '存活 (隱蔽觀察)', '教會組 (Lancer陣營)': '存活 (敵對暗算)', '遠坂組 (Archer陣營)': '存活 (中立試探)' };
+const intel0 = T.initFactionIntel_(facsI, false);
+eq('開局：同盟知道、其他不明', [intel0['衛宮組 (Saber陣營)'].text, intel0['間桐組 (Rider陣營)'].text], ['存活 (同盟)', '不明']);
+eq('開局：教會只知道表面', intel0['教會組 (Lancer陣營)'].text, '監督者據點（表面中立）');
+const metaI = { factionIntel: intel0 };
+const facs2 = Object.assign({}, facsI, { '間桐組 (Rider陣營)': '已淘汰 (於 Day 3 白天 在森林遭 教會組 擊潰)', '遠坂組 (Archer陣營)': '存活 (負傷休整)' });
+let ch = T.updateFactionIntel_(metaI, facs2, { presentIds: ['rin'], when: 'Day 3・夜晚' });
+eq('親眼見到凜 → 遠坂組更新', metaI.factionIntel['遠坂組 (Archer陣營)'].text, '存活 (負傷休整)');
+eq('幕後淘汰沒見到 → 仍不明', metaI.factionIntel['間桐組 (Rider陣營)'].text, '不明');
+ch = T.updateFactionIntel_(metaI, facs2, { aiIntel: { '間桐組': '聽說 Rider 陣營在森林被打敗了' }, when: 'Day 4・白天' });
+eq('劇情中打聽到 → 記錄玩家得知的內容', [metaI.factionIntel['間桐組 (Rider陣營)'].text, metaI.factionIntel['間桐組 (Rider陣營)'].source], ['聽說 Rider 陣營在森林被打敗了', '情報']);
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);
