@@ -3288,6 +3288,7 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - Servants keep their weapons dematerialized outside battle: draw a weapon ONLY when Is Combat is true or the excerpt explicitly shows the weapon being drawn or swung in that very moment. Casual talk, planning, resting, negotiating = no weapon in hand.',
     '   - The setting is Japan in 2004: any mobile phone must be a "flip phone" (clamshell feature phone with antenna and physical keypad). Never draw smartphones, touchscreens or other post-2004 technology.',
     '   - PEOPLE FIRST: the characters (faces, expressions, poses, outfits) are the subject. Props, phones, weapons and effects are minor atmosphere — never let an object dominate or fill the frame.',
+    '   - ROMANTIC MOMENTS (kiss, embrace, confession, tender touch): make it beautiful and intimate — close-up or upper body framing, the kiss must actually be visible (lips touching or about to touch), closed or half-closed eyes, blush, gentle expressions; soft lighting, warm color tone, bokeh, floating light particles, background softly blurred. Third-person kisses use "kiss" with mutual#kiss; POV uses "incoming kiss". Only make it comedic or shocked if the story clearly says so.',
     '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event. Only include props, weapons and magic effects that the excerpt explicitly shows in that moment (do not add a character\'s signature item unless it is being used).',
     '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Describe the overall composition in one short natural-language clause (who is where relative to whom, depth and distance). Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
     '5. Characters (char_directions): For each present character output (keep every character\'s tags strictly in its own entry so features do not bleed between characters):',
@@ -3377,6 +3378,12 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
       const others = [];
       charSlots.forEach(o => { if (o !== slot) hairOf(o).forEach(h => { if (!own.has(h) && others.indexOf(h) === -1) others.push(h); }); });
       if (others.length > 0) slot.uc = [slot.uc, others.join(', ')].filter(Boolean).join(', ');
+    });
+    // 同時把每個角色自己的髮色加權，貼身互動（親吻、擁抱）時也不容易被染色
+    charSlots.forEach(slot => {
+      const boost = str => String(str || '').replace(/(^|,\s*)((?:[a-z]+ )*(?:black|white|silver|blonde|purple|red|blue|pink|orange|brown|grey|gray|green|aqua) hair)(?=\s*,|$)/gi, (m0, sep, tag) => `${sep}1.25::${tag}::`);
+      slot.baseCore = boost(slot.baseCore);
+      slot.prompt = boost(slot.prompt);
     });
   }
 
