@@ -79,7 +79,7 @@
 - 畫面方向由導演決定（`orientation`）：1 人或兩人貼身互動 → 直式；戰鬥、廣角、3 人以上、兩人有距離 → 橫式。導演沒回報時用 `pickNaiSize_`（1 人直式、其他橫式）。點擊 CG 會全螢幕放大（`openCgLightbox`），點擊或 Esc 關閉。
 - CG 兩種重畫：「🔄 重骰」用同一組提示詞換 seed（構圖不滿意）；「🎬 重新導演」用保存的原始 payload（含 `_directorContext`）重新跑導演翻譯（圖跟劇情不符）。
 - 浪漫場景（親吻、擁抱、告白）：導演用特寫、閉眼、臉紅、柔光散景光點；第三人稱 `kiss`＋`mutual#kiss`，第一人稱 `incoming kiss`。多人同場時互相把對方髮色加進負面，並把自己的髮色加權 1.25；貼身場景仍可能混色（NovelAI 限制），預設第一人稱可避開。
-- 人是重點：導演不讓道具（手機、武器、紙條）成為畫面焦點；第一人稱只有手直接和角色互動時才畫 `pov hands`，而且要小。
+- 人是重點：導演不讓道具（手機、武器、紙條）成為畫面焦點；第一人稱只有手直接和角色互動時才畫 `pov hands`，而且要小。另外伺服器會檢查玩家輸入：沒有握、牽、摸、遞、抱等用手的動作時，直接從場景刪掉 `pov hands`。非戰鬥時動作描述裡的武器字眼（spear、sword…）由 `stripWeaponTags_` 刪除。
 - 時代背景 2004 年：系統提示詞與導演都要求手機是翻蓋手機（flip phone），主負面提示詞含 `smartphone`。
 - 第一人稱「以角色為主」：導演以特寫／上半身／中景框住看得到的角色，背景加景深退到次要；沒有角色時才用廣角。
 - 主負面提示詞（`generateNovelAIImageSafe_` 的 `defaultUc`）刻意保持精簡：只排除品質底線、文字浮水印、馬賽克。不要加回 V1～V3 時代的長串（bad, error, extra, bad hands…），實測會讓 V5 畫面變灰、細節變少。角色專屬負面放在 `GameData.js` 的 uc。
@@ -121,7 +121,7 @@
 - 道具固定效果由伺服器結算：`mana_gem_s` +35 MP、`mana_gem_m` +65 MP、`smoke_bomb` 警戒度 −15（`ITEM_EFFECTS_`）；保命符的 id 必須是 `aegis_charm`。
 - 道具防越權：玩家本回合輸入沒有「取得／製作」意圖（撿、拿、買、煉成…）時不收 `gained_items`；沒有「使用」意圖（用、捏碎、投擲…）時不扣道具（除非輸入直接提到該道具名稱）。
 - 後台陣營廝殺在第 3 天以前不會淘汰任何陣營。
-- 戰力判定（`assessCombat_`）：回合前從玩家行動找出對手陣營（`COMBAT_TARGET_ALIASES_`、或身處對方據點 `FACTION_HOME_`），依從者等級 `SERVANT_TIER_`、情報（真名／弱點）、事前準備／奇襲、在對方陣地（柳洞寺 −2）、盟友參戰、令咒 +2、魔力、雙方傷勢加總成 大優勢／小優勢／均勢／劣勢／絕望，寫進 statePrompt 要 AI 依等級裁定，開戰時結算顯示。
+- 戰力判定（`assessCombat_`）：回合前從玩家行動找出對手陣營（`COMBAT_TARGET_ALIASES_`、或身處對方據點 `FACTION_HOME_`），依從者等級 `SERVANT_TIER_`、主從羈絆（好感 ≥80 +1、100 +2）、情報（真名／弱點）、事前準備／奇襲、在對方陣地（柳洞寺 −2）、盟友參戰、令咒 +2、魔力、雙方傷勢加總成 大優勢／小優勢／均勢／劣勢／絕望，寫進 statePrompt 要 AI 依等級裁定，開戰時結算顯示。
 - 最終 Boss（`maybeSummonFinalBoss_`）：其他陣營都化解、英雄王還沒亮相時，教會組改為「英雄王吉爾伽美什現身・大聖杯守門者」（`meta.gilFinal`），當回合不能通關；打倒後 `meta.gilDefeated`。
 - Berserker 十二試煉（`meta.godHand` = { lost, methods }）：AI 以 `berserker_lives_lost` 回報玩家這邊殺死他幾次；伺服器限制 Berserker 在場且開戰才算、一般最多 1 條、寶具最多 2 條，殺過他的同一種手段之後無效（`applyGodHandHits_`）。命數未歸零時愛因茲貝倫組不會因戰鬥淘汰，除非御主伊莉雅被打倒／投降（`gateGodHandElimination_`）。後台廝殺不扣命數。情報視窗顯示已擊破數與免疫手段。
 - 狀態資料會告訴 AI 御主性別（她／他）。

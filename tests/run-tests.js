@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -210,6 +210,7 @@ eq('句中短詞引用不當台詞', /斯卡哈：「將自身當作消耗品」
 // ---- 結盟分階段 ----
 eq('結盟談判中不算同盟', T.isAllianceStatusText_('存活 (中立・結盟談判中)'), false);
 eq('同盟解除不算同盟', T.isAllianceStatusText_('存活 (同盟解除)'), false);
+eq('結盟嘗試中不算同盟', T.isAllianceStatusText_('存活 (態度軟化・結盟嘗試中)'), false);
 eq('盟友也算同盟', T.isAllianceStatusText_('存活 (盟友・戰爭結束)'), true);
 eq('同盟・合作中算同盟', T.isAllianceStatusText_('存活 (同盟・合作中)'), true);
 eq('常理：敵對一回合變同盟 → 降為談判中', T.gateFactionAlliance_('存活 (敵對獵殺)', '存活 (同盟)', 'BALANCED'), '存活 (態度軟化・談判中)');
@@ -302,6 +303,11 @@ eq('只是提到名字不算換人', T.findRosterSwapTarget_('問 Rider 今天�
   scripts.forEach((code, i) => { try { new Function(code.replace(/\/\/.*$/gm, '')); } catch (e) { okParse = false; why = `script ${i}: ${e.message}`; } });
   eq('Index.html 在 GAS 刪除雙斜線註解後仍能解析' + (why ? `（${why}）` : ''), okParse, true);
 }
+
+eq('羈絆 100：戰力判定 +2', (() => { const st = baseSt(); st.bondLevel = 100; return T.assessCombat_(st, {}, '直接衝上柳洞寺砍了 Caster').reasons.includes('羈絆・生死與共'); })(), true);
+
+eq('非戰鬥刪掉武器字眼', T.stripWeaponTags_('pointing with spear, smiling, holding gae bolg, looking at viewer'), 'smiling, looking at viewer');
+eq('便服：AI 改寫過的戰鬥服回洋館也換便服', T.autoAdaptSmartOutfit_('scathach', 'scathach battle bodysuit, black veil, gauntlets', { defaultOutfit: 'scathach battle bodysuit, black veil', casualOutfit: 'white sweater' }, '回洋館做晚餐', '', false, '廢棄洋館'), 'white sweater');
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

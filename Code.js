@@ -427,7 +427,7 @@ function autoAdaptSmartOutfit_(charId, currentOutfit, dbInfo, userAction, storyT
     }
     // 回到據點（本回合結束時人在廢棄洋館）且沒有開戰：還穿著戰鬥靈衣的從者自動換上便服
     // 只看「人在哪、有沒有開戰」，不看對話字眼（玩家在家裡討論「要不要出擊」不代表已經出門）
-    if (casualOutfit && locKey === '廢棄洋館' && !isCombat && cur === defaultOutfit) {
+    if (casualOutfit && locKey === '廢棄洋館' && !isCombat && (cur === defaultOutfit || outfitSimilarity_(cur, defaultOutfit) >= 0.5)) {
       return casualOutfit;
     }
   }
@@ -953,7 +953,7 @@ function markPhoneMessagesRead(playerName) {
 function isAllianceStatusText_(statusStr) {
   const s = String(statusStr || '');
   // 「結盟談判中」「初步結盟意向」「同盟解除」這類還沒成立或已破裂的不算
-  return /同盟|結盟|盟友|停戰|互助|合作|友方/.test(s) && !/談判|意向|考慮|提議|拒絕|破裂|解除|背叛|假意|觀望|中止|撕毀|試探|尚未/.test(s);
+  return /同盟|結盟|盟友|停戰|互助|合作|友方/.test(s) && !/談判|意向|考慮|提議|拒絕|破裂|解除|背叛|假意|觀望|中止|撕毀|試探|尚未|嘗試|軟化/.test(s);
 }
 
 // 結盟要分階段：敵對陣營不會一回合就變同盟，先軟化成談判中（符合常理與鐵血；搞笑、故事模式不限）
@@ -991,7 +991,7 @@ const CHAR_FACTION_MARKERS_ = {
   shirou: '衛宮', saber: '衛宮', saber_alter: '衛宮',
   rin: '遠坂', archer: '遠坂',
   kirei: '教會', lancer: '教會', gilgamesh: '教會',
-  sakura: '間桐', rider: '間桐', dark_sakura: '間桐',
+  sakura: '間桐', rider: '間桐', dark_sakura: '間桐', shinji: '間桐',
   souichirou: '柳洞寺', caster: '柳洞寺', assassin: '柳洞寺',
   illya: '愛因茲貝倫', berserker: '愛因茲貝倫',
   hassan: '臟硯'
@@ -1356,6 +1356,10 @@ function assessCombat_(statusObj, meta, userAction) {
   else if (mp / mx < 0.25) { score -= 1; reasons.push('魔力不足'); }
   // 雙方狀態
   if (/受創|重傷|瀕|受損/.test(String(statusObj.servant1.condition || ''))) { score -= 1; reasons.push('我方從者帶傷'); }
+  // 為愛無敵：主從羈絆越深，從者越願意為御主拚命
+  const bondLv = Number(statusObj.bondLevel) || 0;
+  if (statusObj.servant1.id && bondLv >= 100) { score += 2; reasons.push('羈絆・生死與共'); }
+  else if (statusObj.servant1.id && bondLv >= 80) { score += 1; reasons.push('羈絆深厚'); }
   if (isWeakenedStatusText_(f[target])) { score += 1; reasons.push('對方帶傷'); }
   const level = score >= 3 ? '大優勢' : score >= 1 ? '小優勢' : score === 0 ? '均勢' : score >= -2 ? '劣勢' : '絕望';
   const guide = {
@@ -1409,6 +1413,13 @@ function pickBgmMood_(turnJson, st, story, outcome, assess) {
   if (st && st.locationKey === '廢棄洋館' && /休息|睡|泡澡|吃飯|晚餐|聊天/.test(body)) return 'home';
   if (st && st.timePeriod === '黃昏') return 'dusk';
   return (st && st.timePeriod === '深夜') ? 'night' : 'day';
+}
+
+// 非戰鬥畫面把動作描述裡的武器字眼拿掉（例如 holding spear、pointing with spear），避免日常也畫出武器
+function stripWeaponTags_(str) {
+  return String(str || '').split(',').map(t => t.trim())
+    .filter(t => t && !/\b(spear|lance|polearm|sword|blade|weapon|gae bolg|katana|bow|dagger|axe)\b/i.test(t))
+    .join(', ');
 }
 
 // 玩家本回合是不是在休息（睡覺、冥想、調息…）
@@ -3162,7 +3173,7 @@ function processFateTurnTextOnly(params) {
       `【玩家】名號「${cleanName}」（劇情中稱呼玩家用這個名字、「御主」或角色習慣的叫法）｜聖杯願望：「${statusObj.master.wish}」`,
       `【寫作基調：${tonePreset.label}】${tonePreset.desc}`,
       rankCheckHint,
-      `【主從者好感】${statusObj.bondLevel}/100${statusObj.bondLevel <= 10 && toneKey !== 'COMEDY_CHAOS' && toneKey !== 'STORY_PLAYER_FIRST' ? '（主從關係緊張：從者可能拒絕危險或荒唐的命令，令咒可以強制但會再扣好感；好感歸零還一直惹她會解約離去）' : ''}。bond_delta 每回合 ±10 內，依從者在意的事判斷（道歉、認真修行、並肩作戰、尊重、好好相處會加分）`,
+      `【主從者好感】${statusObj.bondLevel}/100${statusObj.bondLevel <= 10 && toneKey !== 'COMEDY_CHAOS' && toneKey !== 'STORY_PLAYER_FIRST' ? '（主從關係緊張：從者可能拒絕危險或荒唐的命令，令咒可以強制但會再扣好感；好感歸零還一直惹她會解約離去）' : ''}。bond_delta 每回合 ±10 內，依從者在意的事判斷：平常的相處與對話 0～+3，真正打動她的事（真誠道歉、並肩死戰、說中她的心事、重要承諾）才 +5～+10；惹她不快就扣分`,
       inventoryRuleHint,
       !statusObj.servant1.id
         ? '【失去從者】御主目前沒有從者，非常危險。若劇情中與失去御主的從者達成協議，可填 `new_servant2_id` 締結新契約（成為主從者）。'
@@ -3291,7 +3302,7 @@ function processFateTurnTextOnly(params) {
       row[19] = morphInfo.triggers.split(',')[0];
     }
 
-    const nonServants = new Set(['player_master', 'shirou', 'rin', 'sakura', 'dark_sakura', 'illya', 'kirei', 'souichirou']);
+    const nonServants = new Set(['player_master', 'shirou', 'rin', 'sakura', 'dark_sakura', 'illya', 'kirei', 'souichirou', 'shinji']);
     // 套用英靈名冊的換人（以寫回時的最新存檔為準）
     let rosterSwap = null;
     meta.servantRoster = Array.isArray(meta.servantRoster) ? meta.servantRoster.slice() : [];
@@ -4051,7 +4062,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     const core = nudeMode ? stripClothesFromCore_(normCore) : normCore;
     if (nudeMode) anyNude = true;
     const weightedOutfit = formatCharacterOutfitPrompt_(nudeMode && !isNudeOutfitTags_(profile.outfit) ? 'nude, completely nude, no clothes' : profile.outfit);
-    const directAction = String(c.action_en || '').trim();
+    let directAction = String(c.action_en || '').trim();
 
     if (profile.gender === 'boy') boys++;
     else girls++;
@@ -4064,6 +4075,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
 
     // 非戰鬥、沒有解放寶具時，武器不出現在畫面上（劇情就算寫了也不畫）
     const noWeaponUc = (!isCombat && !c.use_np && c.id !== 'player_master') ? 'holding weapon, weapon, spear, polearm, sword' : '';
+    if (noWeaponUc) directAction = stripWeaponTags_(directAction);
     return {
       id: c.id,
       baseCore: normCore,
@@ -4270,6 +4282,11 @@ function generateTurnCgAsync(imgPayload) {
       const directedNude = Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && (Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit)));
       const alreadyNude = /(^|,\s*)nsfw(\s*,|$)/.test(String(working.prompt || ''));
       const ratingTag = (working.adultMode && (directedNude || alreadyNude)) ? 'nsfw' : '';
+      // 第一人稱：玩家這回合沒有用手碰角色或接東西時，不畫 pov hands（避免畫面兩側出現一雙大手）
+      const handAction = /握|牽|摸|撫|遞|接過|拿|抓|抱|拍|推|拉|觸|摟|伸手|手/.test(String((working._directorContext || {}).userAction || ''));
+      if (directed.scene_prompt && !handAction) {
+        directed.scene_prompt = String(directed.scene_prompt).split(',').map(t => t.trim()).filter(t => t && !/^pov hands?$/i.test(t)).join(', ');
+      }
       if (directed.scene_prompt) {
         working.prompt = [working.countPrefix, ratingTag, stripCountTags_(directed.scene_prompt), working.combatEnvTags].filter(Boolean).join(', ');
       } else if (ratingTag && !alreadyNude) {
@@ -4295,7 +4312,8 @@ function generateTurnCgAsync(imgPayload) {
             ? formatCharacterOutfitPrompt_(isNude ? 'nude, completely nude, no clothes' : d.outfit)
             : ch.weightedOutfit;
 
-          const actionParts = [sanitizeNaiInteraction_(d.interaction), stripBadInteractionPrefix_(d.action)].filter(Boolean).join(', ')
+          const calmScene = !((working._directorContext || {}).isCombat) && !d.use_np && ch.id !== 'player_master';
+          const actionParts = [sanitizeNaiInteraction_(d.interaction), calmScene ? stripWeaponTags_(stripBadInteractionPrefix_(d.action)) : stripBadInteractionPrefix_(d.action)].filter(Boolean).join(', ')
             .split(',').map(t => t.trim()).filter(t => t && !/^in_view\s*[:=]/i.test(t)).join(', ');
 
           return Object.assign({}, ch, {
