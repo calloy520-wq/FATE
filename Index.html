@@ -213,6 +213,15 @@
     .badge-bond { border-color: #f472b6; color: #f9a8d4; }
 
     .top-actions-clean { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .cg-viewport.cg-empty { aspect-ratio: auto; min-height: 72px; }
+    @media (max-width: 640px) {
+      .top-bar { padding: 8px 10px; gap: 6px; }
+      .status-badges { gap: 5px; font-size: 12px; }
+      .badge { padding: 3px 7px; }
+      .top-actions-clean { gap: 5px; }
+      .top-actions-clean .btn-sm { padding: 4px 8px; font-size: 12px; }
+      .command-spells-box { padding: 3px 6px; }
+    }
     .command-spells-box {
       display: inline-flex;
       align-items: center;
@@ -899,11 +908,11 @@
     <div class="top-bar">
       <div class="status-badges">
         <span class="badge badge-gold" id="ui-player-badge">御主：-</span>
-        <span class="badge" id="ui-career-badge">🏆0勝 💀0敗</span>
+        <span class="badge hidden" id="ui-career-badge"></span>
         <span class="badge badge-bond" id="ui-bond-badge">💖 好感: 25/100</span>
-        <span class="badge" id="ui-tone-badge">⚖️ 符合常理</span>
+        <span class="badge hidden" id="ui-tone-badge"></span>
         <span class="badge" id="ui-time-badge">Day 1・深夜</span>
-        <span class="badge" id="ui-ap-badge">AP: 3/3</span>
+        <span class="badge hidden" id="ui-ap-badge"></span>
         <span class="badge badge-red" id="ui-threat-badge">警戒度: 10%</span>
         <span class="badge badge-loc" id="ui-loc-badge" title="點擊開啟冬木市魔術戰略地圖" onclick="openMapModal()">🗺️ 冬木市</span>
       </div>
@@ -917,13 +926,11 @@
         </div>
 
         <button class="btn btn-sm" onclick="openPhoneModal()">
-          📱 手機 (2004)
+          📱 手機
           <span id="ui-phone-unread" class="unread-dot hidden">0</span>
         </button>
         <button class="btn btn-sm" onclick="openFactionsModal()">📊 情報</button>
         <button class="btn btn-sm" onclick="openSettingsModal()">⚙️ 設定</button>
-        <button class="btn btn-sm" onclick="document.getElementById('help-modal').classList.remove('hidden')">❓ 玩法</button>
-        <button class="btn btn-sm" onclick="logoutSwitchMaster()">🚪 切換</button>
       </div>
     </div>
 
@@ -931,7 +938,7 @@
       <!-- 左側：即時 CG 畫框 + 純型月狀態與6格物品欄 -->
       <div>
         <div class="cg-box">
-          <div class="cg-viewport" id="main-cg-viewport">
+          <div class="cg-viewport cg-empty" id="main-cg-viewport">
             <span style="color: var(--text-muted); font-size: 13px;">等待劇情觸發或點擊重骰生成畫面...</span>
           </div>
           <div class="cg-toolbar">
@@ -1147,8 +1154,12 @@
   <div id="settings-modal" class="modal-backdrop hidden">
     <div class="modal-card">
       <div class="panel-header">
-        <span>⚙️ 聖杯戰爭終端設定 (切換後自動背景存檔)</span>
+        <span>⚙️ 設定（切換後自動存檔）</span>
         <button class="btn btn-sm" onclick="closeModal('settings-modal')">✕</button>
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <button class="btn btn-sm" onclick="closeModal('settings-modal'); document.getElementById('help-modal').classList.remove('hidden')">❓ 玩法說明</button>
+        <button class="btn btn-sm" onclick="closeModal('settings-modal'); logoutSwitchMaster()">🚪 切換御主</button>
       </div>
 
       <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 6px;">
@@ -1220,6 +1231,7 @@
         <p>🎭 <strong>難度與寫作基調</strong>（⚙️ 設定）：符合常理／搞笑鬧劇／故事模式（玩家為主）／鐵血戰場，結果的輕重會完全不同。</p>
         <p>📷 <strong>第一人稱視角</strong>（⚙️ 設定，預設開啟）：CG 以你的眼睛為鏡頭；關掉就是第三人稱。畫風可在 CG 下方切換，包含型月原作風、ufotable 動畫風。</p>
         <p>📱 <strong>2004 手機</strong>：冬木論壇可以看風聲、發文，勾選 🎭 就是放假消息（會追蹤誰相信、誰識破）。「聯絡」頁可以聯絡同盟、拿到聯絡方式的陣營與教會，每個陣營用不同管道回覆（☎ 電話、🕊 使魔字條、✉ 回信…），也可能沒人接。</p>
+        <p>⌨️ <strong>打字用手機</strong>（不消耗回合）：在行動欄輸入「傳簡訊給士郎：今晚見面嗎？」或「@凜：小心 Lancer」就會直接傳訊；「發文：標題｜內容」會發到冬木論壇；前面加「假消息」就是放假情報（例如「假消息 發文：教會神父在賣麻婆｜…」）。一定要有冒號才算手機操作。</p>
         <p>🗺️ <strong>地圖</strong>：點上方地點徽章打開；你造成的破壞、佈置會永久保留。</p>
         <p>📊 <strong>情報</strong>：七組陣營狀態、重要事件與伏筆、路線傾向（你的玩法會把劇情帶往不同路線）。</p>
         <p>⚡ <strong>冬木是活的</strong>：其他陣營會主動找上你：拜訪、偷襲、求援、傳訊。</p>
@@ -1595,13 +1607,13 @@
       const tone = normalizeToneKey(s.gameTone);
       s.gameTone = tone;
 
-      document.getElementById('ui-player-badge').innerText = `御主：${s.playerName}`;
+      document.getElementById('ui-player-badge').innerText = s.playerName;
       document.getElementById('ui-career-badge').innerText = `🏆${s.wins}勝 💀${s.losses}敗`;
-      document.getElementById('ui-bond-badge').innerText = `💖 好感: ${bond}/100`;
+      document.getElementById('ui-bond-badge').innerText = `💖 ${bond}`;
       document.getElementById('ui-tone-badge').innerText = TONE_META[tone].short;
-      document.getElementById('ui-time-badge').innerText = `Day ${s.day}・${s.timePeriod}`;
+      document.getElementById('ui-time-badge').innerText = `Day ${s.day}・${s.timePeriod}｜AP ${s.gameMode === 'WAR' ? `${s.ap}/${s.maxAp}` : '∞'}`;
       document.getElementById('ui-ap-badge').innerText = s.gameMode === 'WAR' ? `AP: ${s.ap}/${s.maxAp}` : 'AP: ∞';
-      document.getElementById('ui-threat-badge').innerText = s.gameMode === 'WAR' ? `警戒度: ${s.threatLevel}%` : '日常結界';
+      document.getElementById('ui-threat-badge').innerText = s.gameMode === 'WAR' ? `警戒 ${s.threatLevel}%` : '日常結界';
       document.getElementById('ui-loc-badge').innerText = `🗺️ ${s.location}`;
 
       const unread = Number((s.phoneState && s.phoneState.unreadCount) || 0);
@@ -2058,6 +2070,113 @@
 
     // ==================== 兩段式非同步推演：Step 1 先出字 -> Step 2 背景補圖 ====================
 
+
+    // ==================== 打字操作手機 ====================
+    const PHONE_FACTION_ALIASES = [
+      ['臟硯', ['臟硯', '咒腕', '哈桑', '真Assassin']],
+      ['衛宮', ['衛宮', '士郎', 'Saber', 'saber', '阿爾托莉雅']],
+      ['遠坂', ['遠坂', '凜', 'Archer', 'archer']],
+      ['間桐', ['間桐', '慎二', '櫻', 'Rider', 'rider', '美杜莎']],
+      ['教會', ['教會', '綺禮', '言峰', '神父', 'Lancer', 'lancer', '庫丘林']],
+      ['柳洞寺', ['柳洞寺', '葛木', '美狄亞', 'Caster', 'caster', '小次郎', 'Assassin', 'assassin']],
+      ['愛因茲貝倫', ['愛因茲貝倫', '伊莉雅', 'Berserker', 'berserker']]
+    ];
+
+    function resolvePhoneFaction(target) {
+      const keys = Object.keys((currentState && currentState.factions) || {});
+      const t = String(target || '').trim();
+      if (!t) return '';
+      const direct = keys.find(k => k === t || k.includes(t));
+      if (direct) return direct;
+      for (const [groupWord, aliases] of PHONE_FACTION_ALIASES) {
+        if (aliases.some(a => t.includes(a))) {
+          const hit = keys.find(k => k.includes(groupWord));
+          if (hit) return hit;
+        }
+      }
+      return '';
+    }
+
+    function parsePhoneCommand(text) {
+      let t = String(text || '').trim();
+      let fake = false;
+      const fakeHead = t.match(/^(?:放)?假(?:消息|情報)\s*[：:，,]?\s*/);
+      if (fakeHead) { fake = true; t = t.slice(fakeHead[0].length); }
+      // 一定要有冒號，避免把一般劇情行動（例如「聯絡士郎後出門」）誤判成手機操作
+      const sms = t.match(/^(?:用手機)?(?:傳簡訊|傳訊息|發簡訊|發訊息|傳訊|簡訊|打電話|聯絡|傳話|寫信)\s*(?:給|跟|向|到)?\s*([^：:\n]{1,20}?)\s*[：:]\s*([\s\S]+)$/)
+        || t.match(/^@\s*([^\s：:]{1,20})\s*[：:]?\s*([\s\S]+)$/);
+      if (sms) return { kind: 'sms', target: sms[1].trim(), body: sms[2].trim(), fake };
+      const forum = t.match(/^(?:在論壇|論壇)?(?:發文|貼文|留言|PO文|po文|發帖)\s*[：:]\s*([\s\S]+)$/);
+      if (forum) {
+        const raw = forum[1].trim();
+        const parts = raw.split(/[｜|\n]/);
+        const title = parts.length > 1 ? parts[0].trim() : raw.slice(0, 18);
+        const body = parts.length > 1 ? parts.slice(1).join(' ').trim() : raw;
+        return { kind: 'forum', title, body, fake };
+      }
+      return null;
+    }
+
+    function runPhoneCommand(cmd, rawText) {
+      appendNovelMessage('user', rawText);
+      if (cmd.kind === 'sms') {
+        const fac = resolvePhoneFaction(cmd.target);
+        if (!fac) {
+          appendNovelMessage('ai', `📱 找不到「${cmd.target}」這個聯絡對象。可以寫陣營或人名，例如：傳簡訊給士郎：今晚見面嗎？`, '系統提示');
+          return;
+        }
+        if (!canSmsTo(fac)) {
+          appendNovelMessage('ai', `📱 你還沒有「${fac}」的聯絡方式。結盟，或在劇情中跟對方交換聯絡方式後才能傳訊。`, '系統提示');
+          return;
+        }
+        isSubmittingTurn = true;
+        syncActionButtonsState();
+        showLoading(`📱 正在聯絡 ${fac}...`);
+        google.script.run
+          .withSuccessHandler(updatedStatus => {
+            hideLoading();
+            isSubmittingTurn = false;
+            syncActionButtonsState();
+            currentState = updatedStatus;
+            refreshStatusUI();
+            const th = ((updatedStatus.phoneState || {}).smsThreads || {})[fac];
+            const msgs = (th && Array.isArray(th.messages)) ? th.messages : [];
+            const last = msgs.length ? msgs[msgs.length - 1] : null;
+            const reply = (last && !last.fromPlayer) ? `${last.sender || fac}：${last.text}` : '（對方沒有回應）';
+            appendNovelMessage('ai', `📱 ${cmd.fake ? '🎭 [假情報] ' : ''}已送出給 ${fac}\n${reply}`, '手機');
+          })
+          .withFailureHandler(err => {
+            hideLoading();
+            isSubmittingTurn = false;
+            syncActionButtonsState();
+            appendNovelMessage('ai', `⚠️ 傳訊失敗：${err.message}`, '系統提示');
+          })
+          .sendAllySmsMessage(currentState.playerName, fac, cmd.body.slice(0, 140), cmd.fake);
+        return;
+      }
+      if (cmd.kind === 'forum') {
+        isSubmittingTurn = true;
+        syncActionButtonsState();
+        showLoading('📱 正在發文到冬木論壇...');
+        google.script.run
+          .withSuccessHandler(updatedStatus => {
+            hideLoading();
+            isSubmittingTurn = false;
+            syncActionButtonsState();
+            currentState = updatedStatus;
+            refreshStatusUI();
+            appendNovelMessage('ai', `📱 ${cmd.fake ? '🎭 [假消息] ' : ''}已在冬木論壇發文：「${cmd.title}」\n效果會在接下來的劇情中慢慢發酵（手機「流言追蹤」可以查看）。`, '手機');
+          })
+          .withFailureHandler(err => {
+            hideLoading();
+            isSubmittingTurn = false;
+            syncActionButtonsState();
+            appendNovelMessage('ai', `⚠️ 發文失敗：${err.message}`, '系統提示');
+          })
+          .postFuyukiForumMessage(currentState.playerName, cmd.title.slice(0, 36), cmd.body.slice(0, 140), cmd.fake);
+      }
+    }
+
     function sendQuickAction(text) {
       if (isWaitingForImage || isSubmittingTurn) return;
       document.getElementById('player-action-input').value = text;
@@ -2070,6 +2189,10 @@
       const actionText = input.value.trim();
       if (!actionText) return;
       input.value = '';
+
+      // 打字直接用手機：「傳簡訊給衛宮：…」「發文：標題｜內容」（前面加「假消息」就是放假情報），不消耗回合
+      const phoneCmd = parsePhoneCommand(actionText);
+      if (phoneCmd) { runPhoneCommand(phoneCmd, actionText); return; }
 
       isSubmittingTurn = true;
       syncActionButtonsState();
@@ -2158,6 +2281,7 @@
       setControlsLocked(true);
       const viewport = document.getElementById('main-cg-viewport');
 
+      viewport.classList.remove('cg-empty');
       const existingOverlay = viewport.querySelector('.cg-async-overlay');
       if (existingOverlay) existingOverlay.remove();
 
@@ -2200,6 +2324,7 @@
       if (imgRes.resolvedPayload) {
         lastImagePayload = imgRes.resolvedPayload;
       }
+      viewport.classList.remove('cg-empty');
       viewport.innerHTML = `<img src="${imgRes.base64}" alt="Scene CG" />`;
       const imgEl = viewport.querySelector('img');
       imgEl.onclick = () => openCgLightbox(imgEl.src);
