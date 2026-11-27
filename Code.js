@@ -3695,7 +3695,8 @@ function processFateTurnTextOnly(params) {
     const compRes = updateCompanions_(meta, currentFactions, apptAdded.length ? userAction.replace(/一起|跟我|同行|聯手|會合/g, '') : userAction, nowIdx,
       (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => String((c && c.id) || '')),
       apptRes.due.map(a => a.fk),
-      [String(row[17] || ''), String(row[23] || '')].concat((meta.servantRoster || []).map(r => r.id)).filter(Boolean));
+      // 只看收服來的（副從者與名冊）；開局召喚的主從者可能和其他陣營同一個英靈 ID，不能算
+      [String(row[23] || '')].concat((meta.servantRoster || []).map(r => r.id)).filter(Boolean));
 
     // AI 寫的情報裡若提到十二試煉的命數，一律改成伺服器的正確數字
     if (turnJson.intel_updates && typeof turnJson.intel_updates === 'object' && meta.godHand) {
