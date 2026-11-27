@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -327,6 +327,22 @@ eq('便服：AI 改寫過的戰鬥服回洋館也換便服', T.autoAdaptSmartOut
 eq('新地點：間桐家', (T.matchFuyukiLocation_('深夜潛入間桐家的地下蟲倉') || {}).key, '間桐邸');
 eq('新地點：學校', (T.matchFuyukiLocation_('放學後的穗群原學園弓道場') || {}).key, '穗群原學園');
 eq('洋館屋頂仍是洋館', (T.matchFuyukiLocation_('廢棄洋館的屋頂') || {}).key, '廢棄洋館');
+
+// 表情補強、夜景補光、自創英靈
+eq('沒表情 → 補預設表情', T.ensureExpression_('standing, cowboy shot', 'confident smile'), 'standing, cowboy shot, confident smile');
+eq('已有表情 → 不補', T.ensureExpression_('standing, grin', 'confident smile'), 'standing, grin');
+eq('空動作 → 只放表情', T.ensureExpression_('', 'smirk'), 'smirk');
+eq('夜景沒光源 → 補暖光', T.addNightFillLight_('1girl, night, city'), '1girl, night, city, warm ambient light, natural skin tone');
+eq('夜景已有路燈 → 不補', T.addNightFillLight_('1girl, night, street lights'), '1girl, night, street lights');
+eq('白天 → 不補', T.addNightFillLight_('1girl, day, park'), '1girl, day, park');
+eq('能力全 A 以上 → 最高級 5', T.customServantTier_({ str: 'A', end: 'A', agi: 'A+', mana: 'EX', luck: 'A', np: 'EX' }), 5);
+eq('Saber 原作能力 → 4', T.customServantTier_({ str: 'B', end: 'B', agi: 'B', mana: 'A', luck: 'A+', np: 'A++' }), 4);
+eq('全 E → 2', T.customServantTier_({ str: 'E', end: 'E', agi: 'E', mana: 'E', luck: 'E', np: 'E' }), 2);
+eq('能力值文字', T.customServantParamsText_({ str: 'a+', end: 'X', agi: 'B', mana: 'EX', luck: 'C', np: 'A' }), '筋力:A+ 耐久:C 敏捷:B 魔力:EX 幸運:C 寶具:A');
+{
+  const cs = T.sanitizeCustomServant_({ name: '  斯卡蒂\n', cls: '亂寫', gender: 'boy', core: 'boy, white hair{evil}', stats: {} });
+  eq('自創英靈清理：名字、未知職階改 Saber、去掉大括號', [cs.name, cs.cls, cs.gender, cs.core, cs.id], ['斯卡蒂', 'Saber', 'boy', 'boy, white hairevil', 'custom_servant']);
+}
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

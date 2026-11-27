@@ -1354,7 +1354,7 @@ function assessCombat_(statusObj, meta, userAction) {
   const canon = CANONICAL_7_FACTIONS_.find(r => target.includes(r[0].replace(/組.*$/, '')));
   let enemyServant = canon ? canon[2] : (target.includes('臟硯') ? 'hassan' : '');
   if (target.includes('教會') && (meta.churchRevived || meta.gilFinal || /吉爾伽美什|金閃閃|英雄王/.test(text + f[target]))) enemyServant = 'gilgamesh';
-  const mine = statusObj.servant1.id ? (SERVANT_TIER_[statusObj.servant1.id] || 3) : 0;
+  const mine = statusObj.servant1.id ? getServantTier_(statusObj.servant1.id) : 0;
   const theirs = SERVANT_TIER_[enemyServant] || 3;
   const tierDiff = mine + (statusObj.servant2.id ? 1 : 0) - theirs;
   score += tierDiff;
@@ -2536,49 +2536,6 @@ function enhanceMasterAppearance(zhDesc, gender, isAdult) {
   return callGeminiLiteJson_(systemPrompt, userMsg, 0.2, 900);
 }
 
-function extractMasterFromImage(base64DataUrl) {
-  const apiKey = getOpenRouterKey_();
-  const systemPrompt = [
-    'You are a NovelAI Diffusion V5 & Danbooru image tagger.',
-    'Analyze the character image and output strictly valid JSON with keys:',
-    '- "gender": "girl" or "boy"',
-    '- "core_tags": English Danbooru tags starting with "1girl" or "1boy" (hair, eyes, body traits ONLY; NO clothes)',
-    '- "outfit_tags": English Danbooru tags for clothes, legwear, and accessories ONLY',
-    '- "advice_zh": Short Traditional Chinese tip.',
-    'NO quality tags, NO art style, NO background tags.'
-  ].join('\n');
-
-  const payload = {
-    model: GEMINI_MODEL,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: 'Extract character core traits and outfit tags into JSON.' },
-          { type: 'image_url', image_url: { url: base64DataUrl } }
-        ]
-      }
-    ],
-    response_format: { type: 'json_object' },
-    temperature: 0.1,
-    max_tokens: 900
-  };
-
-  const resp = UrlFetchApp.fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'post',
-    contentType: 'application/json',
-    headers: { Authorization: 'Bearer ' + apiKey, 'HTTP-Referer': 'https://script.google.com', 'X-Title': 'FATE GAS RPG' },
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  });
-
-  if (resp.getResponseCode() !== 200) throw new Error(`圖片視覺提取失敗 (${resp.getResponseCode()})`);
-  const json = JSON.parse(resp.getContentText());
-  const content = json && json.choices && json.choices[0] && json.choices[0].message ? json.choices[0].message.content : '';
-  return parseJsonLoose_(content);
-}
-
 function previewMasterOutfit(gender, coreTags, outfitTags) {
   const nudeMode = isNudeOutfitTags_(outfitTags);
   const normCore = normalizeCharCoreForNai_(coreTags, gender === 'boy' ? 'boy' : 'girl');
@@ -2623,16 +2580,25 @@ function completeCreationTextOnly(params) {
     const pool = getSummonableServantsList_(charDb);
 
     let targetServantId = params.servantId;
+    let customServant = null;
+    if (targetServantId === 'CUSTOM') {
+      customServant = sanitizeCustomServant_(params.customServant);
+      setActiveCustomServant_(customServant);
+      targetServantId = CUSTOM_SERVANT_ID_;
+    } else {
+      setActiveCustomServant_(null);
+    }
+    const charDbNow = getCharAppearanceMap_(ss);
     if (targetServantId === 'saber_alter') {
       throw new Error('黑 Saber（saber_alter）無法於開局直接召喚，僅能透過櫻線黑泥吞噬原版 Saber 的劇情事件覺醒！');
     }
     if (!targetServantId || targetServantId === 'RANDOM') {
       if (pool.length === 0) throw new Error('目前沒有可召喚的英靈！請檢查 GameData.js 的 summonable 設定。');
       targetServantId = pool[Math.floor(Math.random() * pool.length)].id;
-    } else if (!pool.some(p => p.id === targetServantId)) {
+    } else if (!customServant && !pool.some(p => p.id === targetServantId)) {
       throw new Error('指定的英靈不在可召喚名單中！');
     }
-    const servantInfo = charDb[targetServantId];
+    const servantInfo = charDbNow[targetServantId];
     if (!servantInfo) throw new Error('指定的英靈不存在於資料庫中！');
 
     const originName = ORIGIN_PRESETS_[params.masterOrigin] ? params.masterOrigin : '時鐘塔叛逃魔術師';
@@ -2664,6 +2630,7 @@ function completeCreationTextOnly(params) {
       warTicker: '第一夜深夜，冬木大橋方向隱約傳來各陣營試探的魔力火花。',
       factionIntel: initFactionIntel_(defaultFactions, false),
       bondLevel: 25,
+      customServant: customServant,
       customLocationNotes: {},
       phoneState: {
         forumPosts: buildInitialForumPosts_(1, '深夜'),
@@ -2696,7 +2663,7 @@ function completeCreationTextOnly(params) {
       '- "scene_env_en": Concise English background/lighting tags ONLY (NO text/speech bubbles, NO character appearance).'
     ].join('\n');
 
-    const userMsg = `Master Name: ${cleanName}\nMaster Gender: ${params.masterGender === 'boy' ? 'male（用「他」）' : 'female（用「她」）'}\nOrigin: ${originName} (${originPreset.desc})\nHoly Grail Wish: ${wishText}\nMode: ${row[3]}\nSummoned Servant ID: ${targetServantId} (${servantInfo.triggers})\nRelic/Catalyst used: ${params.relicNote || '大聖杯共鳴'}`;
+    const userMsg = `Master Name: ${cleanName}\nMaster Gender: ${params.masterGender === 'boy' ? 'male（用「他」）' : 'female（用「她」）'}\nOrigin: ${originName} (${originPreset.desc})\nHoly Grail Wish: ${wishText}\nMode: ${row[3]}\nSummoned Servant ID: ${targetServantId} (${servantInfo.triggers})\nRelic/Catalyst used: ${params.relicNote || '大聖杯共鳴'}${customServant ? `\nORIGINAL SERVANT (player-designed; use EXACTLY this name, class and params, invent nothing that contradicts it): name=${customServant.name}, class=${customServant.cls}, params=${customServantParamsText_(customServant.stats)}, noble phantasm=${customServant.npName || 'unrevealed'} ${customServant.npEffect}, personality=${customServant.personality || 'free'}` : ''}`;
 
     lock.releaseLock();
     lockHeld = false;
@@ -2711,14 +2678,14 @@ function completeCreationTextOnly(params) {
     if (phaseNow !== 'CHAR_CREATION') {
       throw new Error('這個御主剛剛已在另一個視窗完成召喚，請重新【讀取世界線】。');
     }
-    const sName = summonData.servant_name || servantInfo.triggers.split(',')[0];
+    const sName = customServant ? customServant.name : (summonData.servant_name || servantInfo.triggers.split(',')[0]);
     const formattedStory = formatNovelStoryText_(summonData.story, [sName, cleanName], '', cleanName);
 
-    row[18] = summonData.servant_class || 'Lancer';
-    row[19] = sName;
+    row[18] = customServant ? customServant.cls : (summonData.servant_class || 'Lancer');
+    row[19] = customServant ? customServant.name : sName;
     row[20] = 1200;
     row[21] = 25;
-    row[22] = summonData.servant_params || '筋力:A 耐久:B 敏捷:A 魔力:B 幸運:C 寶具:A+';
+    row[22] = customServant ? customServantParamsText_(customServant.stats) : (summonData.servant_params || '筋力:A 耐久:B 敏捷:A 魔力:B 幸運:C 寶具:A+');
     row[30] = `第1夜，出身「${originName}」的御主「${cleanName}」懷抱願望【${wishText}】，以獨立第8組身分召喚了【${row[18]}・${row[19]}】參戰。`;
 
     newMeta.turnCount = 1;
@@ -3229,6 +3196,7 @@ function processFateTurnTextOnly(params) {
       `【御主(${cleanName})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
       `【御主固定六維等階】魔術迴路:${p.circuit} | 近戰體術:${p.combat} | 隱藏氣息:${p.stealth} | 幸運:${p.luck}`,
       `【主從者】ID:${statusObj.servant1.id} (${statusObj.servant1.class}・${statusObj.servant1.name}) | 羈絆好感:${statusObj.bondLevel}/100 | 靈基狀態:${statusObj.servant1.condition}`,
+      statusObj.servant1.id === CUSTOM_SERVANT_ID_ ? describeCustomServantForPrompt_(ACTIVE_CUSTOM_SERVANT_) : '',
       statusObj.servant2.id ? `【副從者】ID:${statusObj.servant2.id} (${statusObj.servant2.class}・${statusObj.servant2.name}) | 靈基狀態:${statusObj.servant2.condition || '靈基穩定'}` : '【副從者】無',
       `【相關角色目前穿著（未列出者為預設服裝）】${JSON.stringify(relevantOutfits)}`,
       `【七組陣營狀態（幕後真相，推演前必先對照，同盟陣營須彼此照應；角色只知道自己見過或打聽到的部分）】${JSON.stringify(statusObj.factions)}`,
@@ -4077,6 +4045,39 @@ function translateSceneToNaiV5_(directorCtx) {
   }
 }
 
+// 角色預設表情：導演或 AI 沒給表情時補上，避免面無表情的「證件照」（實測補表情後明顯生動）
+const CHAR_DEFAULT_EXPRESSION_ = {
+  rin: 'confident smile', sakura: 'gentle smile', dark_sakura: 'empty smile, half-closed eyes', saber: 'serious, calm expression',
+  saber_alter: 'cold expression', archer: 'smirk', lancer: 'grin', rider: 'calm expression, faint smile', caster: 'smug smile',
+  assassin: 'calm smile', berserker: 'angry, glowing eyes', gilgamesh: 'arrogant smirk', shirou: 'determined expression',
+  shinji: 'smug, smirk', illya: 'playful smile', kirei: 'faint smile', souichirou: 'expressionless', scathach: 'slight smile',
+  jeanne: 'gentle smile', jalter: 'smug smile', mordred: 'grin', okita: 'cheerful smile', tamamo: 'playful smile',
+  ereshkigal: 'pout, blush', karna: 'calm expression', hassan: 'mask', prisma_illya: 'smile', chloe: 'smirk', miyu: 'shy',
+  player_master: 'light smile'
+};
+const EXPRESSION_TAG_RE_ = /\b(smile|smiling|smirk|grin|frown|expression|expressionless|blush|angry|serious|crying|tears|surprised|shocked|open mouth|pout|closed eyes|laughing|laugh|scowl|annoyed|sad|happy|embarrassed|determined|scared|nervous|glare|glaring|worried|kiss|sleeping|mask|wince|panicking|shouting|screaming|teeth|tongue)\b/i;
+
+function defaultExpressionFor_(id, isCombat) {
+  if (id === CUSTOM_SERVANT_ID_) return isCombat ? 'determined expression' : ((ACTIVE_CUSTOM_SERVANT_ && ACTIVE_CUSTOM_SERVANT_.expression) || 'light smile');
+  if (isCombat && !/^(berserker|gilgamesh|hassan|dark_sakura|saber_alter)$/.test(id)) return 'determined expression';
+  return CHAR_DEFAULT_EXPRESSION_[id] || 'light smile';
+}
+
+// 動作描述裡完全沒有表情字眼時，補上預設表情
+function ensureExpression_(actionStr, expr) {
+  const a = String(actionStr || '').trim();
+  if (!expr || EXPRESSION_TAG_RE_.test(a)) return a;
+  return a ? `${a}, ${expr}` : expr;
+}
+
+// 夜景沒有其他光源時，整張會被染成藍色霓虹、人物膚色發青；補一點暖色環境光（實測膚色恢復正常）
+function addNightFillLight_(prompt) {
+  const p = String(prompt || '');
+  if (!/\b(night|midnight|night sky|dark)\b/i.test(p)) return p;
+  if (/\b(warm|lamp|lantern|street ?lights?|candle|fire|bonfire|sunset|sunrise|natural skin tone)\b/i.test(p)) return p;
+  return p ? `${p}, warm ambient light, natural skin tone` : p;
+}
+
 function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat, userAction, storyText, turnNum) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const charDb = getCharAppearanceMap_(ss);
@@ -4106,16 +4107,20 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     else girls++;
 
     let npBoost = '';
-    if (c.use_np && NP_VISUAL_EFFECTS_[c.id]) {
-      npBoost = NP_VISUAL_EFFECTS_[c.id];
+    const npVisual = c.id === CUSTOM_SERVANT_ID_ ? ((ACTIVE_CUSTOM_SERVANT_ && ACTIVE_CUSTOM_SERVANT_.npVisual) || 'noble phantasm, overwhelming magic energy, glowing aura') : NP_VISUAL_EFFECTS_[c.id];
+    if (c.use_np && npVisual) {
+      npBoost = npVisual;
       anyNpActive = true;
     }
 
     // 非戰鬥、沒有解放寶具時，武器不出現在畫面上（劇情就算寫了也不畫）
     const noWeaponUc = (!isCombat && !c.use_np && c.id !== 'player_master') ? 'holding weapon, weapon, spear, polearm, sword' : '';
     if (noWeaponUc) directAction = stripWeaponTags_(directAction);
+    const defaultExpression = nudeMode ? '' : defaultExpressionFor_(c.id, Boolean(isCombat || c.use_np));
+    directAction = ensureExpression_(directAction, defaultExpression);
     return {
       id: c.id,
+      defaultExpression: defaultExpression,
       baseCore: normCore,
       weightedOutfit: weightedOutfit,
       npBoost: npBoost,
@@ -4370,8 +4375,9 @@ function generateTurnCgAsync(imgPayload) {
           const actionParts = [sanitizeNaiInteraction_(d.interaction), calmScene ? stripWeaponTags_(stripBadInteractionPrefix_(d.action)) : stripBadInteractionPrefix_(d.action)].filter(Boolean).join(', ')
             .split(',').map(t => t.trim()).filter(t => t && !/^in_view\s*[:=]/i.test(t)).join(', ');
 
+          const actionWithExpr = isNude ? actionParts : ensureExpression_(actionParts, ch.defaultExpression || '');
           return Object.assign({}, ch, {
-            prompt: [finalCore, finalOutfit, actionParts, ch.npBoost].filter(Boolean).join(', ')
+            prompt: [finalCore, finalOutfit, actionWithExpr, ch.npBoost].filter(Boolean).join(', ')
           });
         });
       }
@@ -4400,13 +4406,13 @@ function generateNovelAIImageSafe_(params) {
   try {
     // V5 品質已經很穩，負面提示詞保持精簡：舊時代那一長串（bad, error, extra, bad hands...）會讓畫面變灰、變保守
     // 只排除品質底線、文字浮水印、馬賽克；角色專屬的負面（GameData.js 的 uc）另外照常套用
-    const defaultUc = 'worst quality, bad quality, lowres, jpeg artifacts, watermark, signature, text, speech bubble, censored, mosaic censoring, bar censor, smartphone';
+    const defaultUc = (typeof params.baseUc === 'string' && params.baseUc) ? params.baseUc : 'worst quality, bad quality, lowres, jpeg artifacts, watermark, signature, text, speech bubble, censored, mosaic censoring, bar censor, smartphone';
     const cleanedChars = (Array.isArray(params.characters) ? params.characters : []).filter(c => String(c.prompt || '').trim().length > 0);
 
     const styleKey = params.artStyle || 'official';
-    const styleTags = ART_STYLE_PRESETS_[styleKey] || ART_STYLE_PRESETS_['official'];
+    const styleTags = params.noStyle ? '' : (ART_STYLE_PRESETS_[styleKey] || ART_STYLE_PRESETS_['official']);
 
-    let finalPrompt = String(params.prompt || '').trim();
+    let finalPrompt = params.noStyle ? String(params.prompt || '').trim() : addNightFillLight_(String(params.prompt || '').trim());
     if (styleTags) {
       finalPrompt = finalPrompt ? `${finalPrompt}, ${styleTags}` : styleTags;
     }
@@ -4561,6 +4567,178 @@ function callOpenRouterChat_(apiKey, model, systemPrompt, userMessage, temperatu
   return { text: text };
 }
 
+// ==================== 自創英靈：玩家自訂外貌、職階、能力、寶具，存在自己的 meta.customServant ====================
+// 只能當玩家的主從者，不頂替原作七組；強度依能力值換算，上限與現有最強的英靈相同
+const CUSTOM_SERVANT_ID_ = 'custom_servant';
+let ACTIVE_CUSTOM_SERVANT_ = null;
+const CUSTOM_SERVANT_CLASSES_ = ['Saber', 'Archer', 'Lancer', 'Rider', 'Caster', 'Assassin', 'Berserker', 'Ruler', 'Avenger', 'Alter Ego', 'Moon Cancer', 'Foreigner', 'Shielder', 'Pretender'];
+const SERVANT_RANKS_ = ['EX', 'A++', 'A+', 'A', 'B+', 'B', 'C+', 'C', 'D+', 'D', 'E+', 'E'];
+const SERVANT_STAT_KEYS_ = [['str', '筋力'], ['end', '耐久'], ['agi', '敏捷'], ['mana', '魔力'], ['luck', '幸運'], ['np', '寶具']];
+
+// 帶入現有英靈：只帶外貌與能力值當起點，玩家可以再改（黑 Saber 不可開局召喚，所以不提供）
+const SERVANT_TEMPLATES_ = {
+  saber: { cls: 'Saber', stats: 'B,B,B,A,A+,A++', np: '誓約勝利之劍' },
+  archer: { cls: 'Archer', stats: 'D,C,C,B,E,C', np: '無限劍製' },
+  lancer: { cls: 'Lancer', stats: 'B,C,A,C,E,B', np: '刺穿死棘之槍' },
+  rider: { cls: 'Rider', stats: 'B,D,A,C,E,A+', np: '騎英之韁繩' },
+  caster: { cls: 'Caster', stats: 'E,D,C,A+,B,C', np: '萬符必應破戒' },
+  assassin: { cls: 'Assassin', stats: 'C,E,A+,E,A,E', np: '燕返' },
+  berserker: { cls: 'Berserker', stats: 'A+,A,A,A,B,A', np: '十二試煉' },
+  gilgamesh: { cls: 'Archer', stats: 'B,C,C,B,A,EX', np: '天地乖離開闢之星' },
+  scathach: { cls: 'Lancer', stats: 'B,A,A,C,D,A+', np: '貫穿死翔之槍' },
+  jeanne: { cls: 'Ruler', stats: 'B,B,A,A,C,A', np: '吾主在此' },
+  jalter: { cls: 'Avenger', stats: 'A,C,A,A+,D,A+', np: '吼哮吧，吾之憤怒' },
+  mordred: { cls: 'Saber', stats: 'B+,A,B,B,D,A', np: '向我敬愛的父王叛逆' },
+  okita: { cls: 'Saber', stats: 'C,E,A+,E,D,C', np: '無明三段突' },
+  tamamo: { cls: 'Caster', stats: 'E,E,B,A,D,B', np: '水天日光天照八野鎮石' },
+  ereshkigal: { cls: 'Lancer', stats: 'B,A,C,A,EX,A+', np: '靈峰踏抱冥府鞴' },
+  karna: { cls: 'Lancer', stats: 'B,C,A,B,D,EX', np: '日輪啊，順從死亡' },
+  hassan: { cls: 'Assassin', stats: 'B,C,A,C,E,C', np: '妄想心音' }
+};
+
+function setActiveCustomServant_(cs) {
+  const next = (cs && typeof cs === 'object' && cs.name && cs.core) ? cs : null;
+  if (JSON.stringify(next) === JSON.stringify(ACTIVE_CUSTOM_SERVANT_)) return;
+  ACTIVE_CUSTOM_SERVANT_ = next;
+  CHAR_DB_MEMO_ = null;
+}
+
+function cleanTagText_(v, maxLen) {
+  return String(v || '').replace(/[\r\n\t]+/g, ' ').replace(/[{}<>`]/g, '').replace(/\s+/g, ' ').trim().slice(0, maxLen);
+}
+
+function normalizeServantRank_(v) {
+  const r = String(v || '').toUpperCase().replace(/\s+/g, '');
+  return SERVANT_RANKS_.indexOf(r) >= 0 ? r : 'C';
+}
+
+function customServantParamsText_(stats) {
+  return SERVANT_STAT_KEYS_.map(([k, zh]) => `${zh}:${normalizeServantRank_(stats && stats[k])}`).join(' ');
+}
+
+// 能力值換算成戰力等級（2～5）：全 A 以上才到最高級
+function customServantTier_(stats) {
+  const val = r => ({ 'EX': 6, 'A++': 5.6, 'A+': 5.3, 'A': 5, 'B+': 4.3, 'B': 4, 'C+': 3.3, 'C': 3, 'D+': 2.3, 'D': 2, 'E+': 1.3, 'E': 1 })[normalizeServantRank_(r)];
+  const avg = SERVANT_STAT_KEYS_.reduce((sum, [k]) => sum + val(stats && stats[k]), 0) / SERVANT_STAT_KEYS_.length;
+  if (avg >= 4.8) return 5;
+  if (avg >= 4.0) return 4;
+  if (avg >= 3.0) return 3;
+  return 2;
+}
+
+function sanitizeCustomServant_(raw) {
+  const r = raw || {};
+  const name = cleanTagText_(r.name, 24);
+  if (!name) throw new Error('請替自創英靈取一個真名！');
+  const core = cleanTagText_(r.core, 500);
+  if (!core) throw new Error('請填寫自創英靈的核心外觀 Tags（可先輸入中文描述再按「✨ 找提示」）。');
+  const stats = {};
+  SERVANT_STAT_KEYS_.forEach(([k]) => { stats[k] = normalizeServantRank_(r.stats && r.stats[k]); });
+  return {
+    id: CUSTOM_SERVANT_ID_,
+    name: name,
+    cls: CUSTOM_SERVANT_CLASSES_.indexOf(String(r.cls)) >= 0 ? String(r.cls) : 'Saber',
+    gender: r.gender === 'boy' ? 'boy' : 'girl',
+    core: core,
+    outfit: cleanTagText_(r.outfit, 400),
+    uc: cleanTagText_(r.uc, 300),
+    officialTag: cleanTagText_(r.officialTag, 80),
+    expression: cleanTagText_(r.expression, 60),
+    npVisual: cleanTagText_(r.npVisual, 200),
+    stats: stats,
+    npName: cleanTagText_(r.npName, 30),
+    npEffect: cleanTagText_(r.npEffect, 150),
+    personality: cleanTagText_(r.personality, 150),
+    tier: customServantTier_(stats)
+  };
+}
+
+function getServantTier_(id) {
+  if (id === CUSTOM_SERVANT_ID_ && ACTIVE_CUSTOM_SERVANT_) return Number(ACTIVE_CUSTOM_SERVANT_.tier) || 3;
+  return SERVANT_TIER_[id] || 3;
+}
+
+function describeCustomServantForPrompt_(cs) {
+  if (!cs || !cs.name) return '';
+  return `【自創英靈設定（原創英靈，依此扮演，不要套用其他既有英靈的身分、寶具或口吻）】ID:${CUSTOM_SERVANT_ID_} | 真名:${cs.name} | 職階:${cs.cls} | 性別:${cs.gender === 'boy' ? '男' : '女'} | 能力:${customServantParamsText_(cs.stats)} | 寶具:「${cs.npName || '未公開'}」${cs.npEffect ? '— ' + cs.npEffect : ''}${cs.personality ? ' | 個性:' + cs.personality : ''}`;
+}
+
+// 前端「帶入現有英靈」用：外貌取自 GameData.js，職階、能力值、寶具取自上面的表
+function getServantTemplates() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const charDb = getCharAppearanceMap_(ss);
+  const order = ['', 'str', 'end', 'agi', 'mana', 'luck', 'np'];
+  return Object.keys(SERVANT_TEMPLATES_).filter(id => charDb[id]).map(id => {
+    const t = SERVANT_TEMPLATES_[id];
+    const ranks = t.stats.split(',');
+    const stats = {};
+    order.slice(1).forEach((k, i) => { stats[k] = ranks[i]; });
+    return {
+      id: id,
+      name: charDb[id].triggers.split(',')[0].trim(),
+      gender: charDb[id].gender,
+      cls: t.cls,
+      core: charDb[id].coreTraits,
+      outfit: charDb[id].defaultOutfit,
+      uc: charDb[id].uc,
+      expression: CHAR_DEFAULT_EXPRESSION_[id] || '',
+      npVisual: NP_VISUAL_EFFECTS_[id] || '',
+      npName: t.np,
+      stats: stats
+    };
+  });
+}
+
+// 「✨ 找提示」：把中文描述翻成 Danbooru 標籤；如果描述的是現有作品角色，推薦正確的官方角色標籤拼法
+function enhanceServantAppearance(zhDesc, gender, name, cls) {
+  const genderTag = gender === 'boy' ? 'boy' : 'girl';
+  const systemPrompt = [
+    'You are an expert NovelAI Diffusion V5 & Danbooru prompt writer for Fate/Type-Moon style characters.',
+    'The user is designing an original (or existing) Heroic Spirit. Convert the Traditional Chinese description into precise Danbooru tags.',
+    'Output strictly valid JSON with keys: "official_tag", "core_tags", "outfit_tags", "uc_tags", "expression_tag", "np_visual_tags", "advice_zh".',
+    '- official_tag: if the name/description clearly refers to an existing character with a Danbooru character tag, give the EXACT tag spelling (e.g. "scathach (fate)", "sasaki kojirou (fate)", "artoria pendragon (fate)"). Otherwise "".',
+    `- core_tags: start with "${genderTag}", then official_tag if any, then permanent physical traits ONLY (hair color, hair length/style, eye color, skin, body, age look). NO clothes, NO style, NO background.`,
+    '- outfit_tags: the default battle outfit (clothes, armor, legwear, footwear, accessories) ONLY. Must be clothed.',
+    '- uc_tags: 3-6 negative tags that prevent the most likely mistakes (wrong hair color/length, wrong skin, etc.).',
+    '- expression_tag: one short default facial expression fitting the personality (e.g. "confident smile").',
+    '- np_visual_tags: short English tags for the Noble Phantasm visual effect.',
+    '- advice_zh: 1-2 short Traditional Chinese tips (e.g. which tag to weight with 1.2::tag:: if the model may get it wrong).'
+  ].join('\n');
+  const userMsg = `Name: ${String(name || '').slice(0, 40)}\nClass: ${String(cls || '').slice(0, 20)}\nGender: ${genderTag}\nChinese Description: ${String(zhDesc || '').slice(0, 400)}`;
+  return callGeminiLiteJson_(systemPrompt, userMsg, 0.2, 900);
+}
+
+// 預覽：mode = 'game'（遊戲實際畫法）或 'official'（模擬 NovelAI 官網預設：只打角色標籤、負面預設「重」、步驟 23、引導 7）
+function previewCustomServant(raw, mode) {
+  const cs = sanitizeCustomServant_(raw);
+  const gTag = cs.gender === 'boy' ? '1boy' : '1girl';
+  if (mode === 'official') {
+    const base = cs.officialTag
+      ? `${gTag}, solo, ${cs.officialTag}`
+      : [gTag, 'solo', normalizeCharCoreForNai_(cs.core, cs.gender).replace(/^(girl|boy),\s*/i, ''), cs.outfit].filter(Boolean).join(', ');
+    return generateNovelAIImageSafe_({
+      prompt: base,
+      noStyle: true,
+      qualityTags: 'very aesthetic, masterpiece, no text',
+      baseUc: 'lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, dithering, halftone, screentone, multiple views, logo, too many watermarks, negative space, blank page',
+      characters: [],
+      width: 832, height: 1216, steps: 23, scale: 7, cfgRescale: 0
+    });
+  }
+  const core = normalizeCharCoreForNai_(cs.core, cs.gender);
+  const action = ensureExpression_('standing, looking at viewer, cowboy shot, dynamic pose', cs.expression || 'light smile');
+  return generateNovelAIImageSafe_({
+    prompt: `${gTag}, solo, glowing magic circle, summoning, mana particles, dramatic lighting`,
+    artStyle: 'official',
+    characters: [{
+      prompt: [core, formatCharacterOutfitPrompt_(cs.outfit), action].filter(Boolean).join(', '),
+      uc: [cs.uc, 'holding weapon, multiple views'].filter(Boolean).join(', '),
+      gender: cs.gender, x: 0.5, y: 0.5
+    }],
+    width: 832, height: 1216, steps: 28, scale: 5.0, cfgRescale: 0.25
+  });
+}
+
 // 角色資料內建在 GameData.js（FATE_CHARACTERS_），保留原本的資料格式給其他函式使用
 let CHAR_DB_MEMO_ = null;
 function getCharAppearanceMap_(ss) {
@@ -4578,6 +4756,19 @@ function getCharAppearanceMap_(ss) {
       summonable: c.id === 'saber_alter' ? false : Boolean(c.summonable)
     };
   });
+  const cs = ACTIVE_CUSTOM_SERVANT_;
+  if (cs) {
+    map[CUSTOM_SERVANT_ID_] = {
+      id: CUSTOM_SERVANT_ID_,
+      triggers: `${cs.name},${cs.cls},自創英靈`,
+      gender: cs.gender,
+      coreTraits: cs.core,
+      defaultOutfit: cs.outfit,
+      casualOutfit: '',
+      uc: cs.uc || '',
+      summonable: false
+    };
+  }
   CHAR_DB_MEMO_ = map;
   return map;
 }
@@ -4704,6 +4895,8 @@ function parseSaveRow_(row) {
   try {
     if (row[31]) meta = Object.assign(meta, JSON.parse(row[31]));
   } catch (e) {}
+  // 自創英靈存在玩家自己的存檔裡；讀檔時登記進本次執行的角色資料庫
+  setActiveCustomServant_(meta.customServant);
 
   const parsedFactions = safeJsonParse_(row[29], {});
   const parsedOutfits = safeJsonParse_(row[28], {});
@@ -4732,6 +4925,7 @@ function parseSaveRow_(row) {
     autoImage: String(row[4]).toUpperCase() === 'TRUE',
     adultMode: String(row[5]).toUpperCase() === 'TRUE',
     cameraMode: meta.cameraMode === 'third' ? 'third' : 'pov',
+    customServant: ACTIVE_CUSTOM_SERVANT_ ? { name: ACTIVE_CUSTOM_SERVANT_.name, cls: ACTIVE_CUSTOM_SERVANT_.cls, npName: ACTIVE_CUSTOM_SERVANT_.npName } : null,
     keyEvents: Array.isArray(meta.keyEvents) ? meta.keyEvents : [],
     rumors: Array.isArray(meta.rumors) ? meta.rumors : [],
     smsContacts: (meta.smsContacts && typeof meta.smsContacts === 'object') ? meta.smsContacts : {},

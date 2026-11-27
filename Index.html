@@ -209,6 +209,16 @@
       margin-bottom: 12px;
     }
     .preview-frame img { width: 100%; height: 100%; object-fit: contain; }
+    .custom-servant-panel { border: 1px solid var(--border-gold); border-radius: 10px; padding: 12px; margin-bottom: 14px; background: rgba(212, 175, 55, 0.05); }
+    .custom-servant-panel .cs-title { font-weight: bold; color: var(--gold, #d4af37); margin-bottom: 8px; }
+    .cs-row { display: grid; gap: 8px; }
+    .cs-row-3 { grid-template-columns: 1.4fr 1fr 0.8fr; }
+    .cs-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+    .cs-stats label { font-size: 11.5px; color: var(--text-muted); display: block; text-align: center; }
+    .cs-preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .cs-preview-grid .preview-frame { margin-bottom: 4px; }
+    .cs-preview-cap { font-size: 12px; color: var(--text-muted); text-align: center; }
+    @media (max-width: 640px) { .cs-row-3 { grid-template-columns: 1fr 1fr; } .cs-stats { grid-template-columns: repeat(3, 1fr); } }
 
     /* ================= 畫面 3：極簡作戰終端 ================= */
     #game-screen { max-width: 1440px; margin: 0 auto; padding: 12px; }
@@ -884,7 +894,7 @@
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;" class="form-group">
             <div>
               <label class="form-label">✨ 召喚對象</label>
-              <select id="create-servant-select">
+              <select id="create-servant-select" onchange="toggleCustomServantPanel()">
                 <option value="RANDOM">🎲 隨機感應召喚</option>
               </select>
             </div>
@@ -894,15 +904,57 @@
             </div>
           </div>
 
+
+          <div id="custom-servant-panel" class="custom-servant-panel hidden">
+            <div class="cs-title">✨ 自創英靈（只能當你的主從者，不頂替原作七組）</div>
+            <div class="form-group cs-row cs-row-3">
+              <div><label class="form-label">真名</label><input type="text" id="cs-name" maxlength="24" placeholder="例如：斯卡蒂" /></div>
+              <div><label class="form-label">職階</label><select id="cs-cls"><option value="Saber">Saber</option><option value="Archer">Archer</option><option value="Lancer">Lancer</option><option value="Rider">Rider</option><option value="Caster">Caster</option><option value="Assassin">Assassin</option><option value="Berserker">Berserker</option><option value="Ruler">Ruler</option><option value="Avenger">Avenger</option><option value="Alter Ego">Alter Ego</option><option value="Moon Cancer">Moon Cancer</option><option value="Foreigner">Foreigner</option><option value="Shielder">Shielder</option><option value="Pretender">Pretender</option></select></div>
+              <div><label class="form-label">性別</label><select id="cs-gender"><option value="girl">女</option><option value="boy">男</option></select></div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">📥 帶入現有英靈（外貌＋能力值當起點，可再修改）</label>
+              <div style="display: flex; gap: 8px;">
+                <select id="cs-template"><option value="">（不帶入）</option></select>
+                <button class="btn btn-sm" type="button" onclick="applyServantTemplate()">帶入</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">中文外觀描述（按「找提示」轉成標籤，並推薦官方角色標籤拼法）</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="cs-zh" placeholder="例如：銀白長髮、紅瞳、黑色鎧甲披風的冰之女王..." />
+                <button class="btn btn-sm" type="button" onclick="runEnhanceServant()">✨ 找提示</button>
+              </div>
+              <div id="cs-advice" class="advice-box hidden"></div>
+            </div>
+            <div class="form-group"><label class="form-label">官方角色標籤（可選，例如 scathach (fate)；官方比對時只用這個）</label><input type="text" id="cs-official" maxlength="80" /></div>
+            <div class="form-group"><label class="form-label">核心外觀 Tags（髮、瞳、體型）</label><input type="text" id="cs-core" maxlength="500" /></div>
+            <div class="form-group"><label class="form-label">戰鬥服裝 Tags</label><input type="text" id="cs-outfit" maxlength="400" /></div>
+            <div class="form-group cs-row" style="grid-template-columns: 1fr 1fr;">
+              <div><label class="form-label">負面 Tags（避免畫錯）</label><input type="text" id="cs-uc" maxlength="300" /></div>
+              <div><label class="form-label">預設表情 Tag</label><input type="text" id="cs-expression" maxlength="60" placeholder="confident smile" /></div>
+            </div>
+            <div class="form-group"><label class="form-label">能力值</label><div class="cs-stats"><div><label>筋力</label><select id="cs-stat-str"><option value="EX">EX</option><option value="A++">A++</option><option value="A+">A+</option><option value="A">A</option><option value="B+">B+</option><option value="B" selected>B</option><option value="C+">C+</option><option value="C">C</option><option value="D+">D+</option><option value="D">D</option><option value="E+">E+</option><option value="E">E</option></select></div><div><label>耐久</label><select id="cs-stat-end"><option value="EX">EX</option><option value="A++">A++</option><option value="A+">A+</option><option value="A">A</option><option value="B+">B+</option><option value="B" selected>B</option><option value="C+">C+</option><option value="C">C</option><option value="D+">D+</option><option value="D">D</option><option value="E+">E+</option><option value="E">E</option></select></div><div><label>敏捷</label><select id="cs-stat-agi"><option value="EX">EX</option><option value="A++">A++</option><option value="A+">A+</option><option value="A">A</option><option value="B+">B+</option><option value="B" selected>B</option><option value="C+">C+</option><option value="C">C</option><option value="D+">D+</option><option value="D">D</option><option value="E+">E+</option><option value="E">E</option></select></div><div><label>魔力</label><select id="cs-stat-mana"><option value="EX">EX</option><option value="A++">A++</option><option value="A+">A+</option><option value="A">A</option><option value="B+">B+</option><option value="B" selected>B</option><option value="C+">C+</option><option value="C">C</option><option value="D+">D+</option><option value="D">D</option><option value="E+">E+</option><option value="E">E</option></select></div><div><label>幸運</label><select id="cs-stat-luck"><option value="EX">EX</option><option value="A++">A++</option><option value="A+">A+</option><option value="A">A</option><option value="B+">B+</option><option value="B" selected>B</option><option value="C+">C+</option><option value="C">C</option><option value="D+">D+</option><option value="D">D</option><option value="E+">E+</option><option value="E">E</option></select></div><div><label>寶具</label><select id="cs-stat-np"><option value="EX">EX</option><option value="A++">A++</option><option value="A+">A+</option><option value="A">A</option><option value="B+">B+</option><option value="B" selected>B</option><option value="C+">C+</option><option value="C">C</option><option value="D+">D+</option><option value="D">D</option><option value="E+">E+</option><option value="E">E</option></select></div></div></div>
+            <div class="form-group cs-row" style="grid-template-columns: 1fr 1.6fr;">
+              <div><label class="form-label">寶具名稱</label><input type="text" id="cs-np-name" maxlength="30" /></div>
+              <div><label class="form-label">寶具效果</label><input type="text" id="cs-np-effect" maxlength="150" placeholder="例如：凍結周圍一切的冰之結界" /></div>
+            </div>
+            <div class="form-group"><label class="form-label">寶具特效 Tags（解放寶具時畫的特效）</label><input type="text" id="cs-np-visual" maxlength="200" /></div>
+            <div class="form-group"><label class="form-label">個性</label><input type="text" id="cs-personality" maxlength="150" placeholder="例如：高傲但對御主很溫柔、說話古風" /></div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-sm" type="button" style="flex: 1;" onclick="runPreviewServant('game')">🎨 遊戲畫法預覽</button>
+              <button class="btn btn-sm" type="button" style="flex: 1;" onclick="runPreviewServant('official')">🆚 官方畫法比對</button>
+            </div>
+            <div class="cs-preview-grid">
+              <div><div class="preview-frame" id="cs-preview-game"><span style="color: var(--text-muted); font-size: 12px;">遊戲畫法</span></div><div class="cs-preview-cap">遊戲實際畫法</div></div>
+              <div><div class="preview-frame" id="cs-preview-official"><span style="color: var(--text-muted); font-size: 12px;">官方畫法</span></div><div class="cs-preview-cap">官方預設（只打角色標籤）</div></div>
+            </div>
+          </div>
           <div class="form-group">
             <label class="form-label">中文外觀描述 (可選・點右側補強)</label>
             <div style="display: flex; gap: 8px;">
               <input type="text" id="create-zh-desc" placeholder="輸入中文外觀描述..." />
               <button class="btn btn-sm" type="button" onclick="runEnhanceAppearance()">✨ 補強</button>
-              <label class="btn btn-sm" style="cursor:pointer;">
-                🖼️ 抽詞
-                <input type="file" accept="image/*" class="hidden" onchange="runExtractFromImage(this)" />
-              </label>
             </div>
             <div id="create-advice-box" class="advice-box hidden"></div>
           </div>
@@ -1553,6 +1605,11 @@
         opt.textContent = `${s.name} (${s.id})`;
         sel.appendChild(opt);
       });
+      const customOpt = document.createElement('option');
+      customOpt.value = 'CUSTOM';
+      customOpt.textContent = '✨ 自創英靈';
+      sel.appendChild(customOpt);
+      toggleCustomServantPanel();
       applyGenderDefaultAppearance(true);
     }
 
@@ -1583,31 +1640,105 @@
         .enhanceMasterAppearance(zh, gender, false);
     }
 
-    function runExtractFromImage(input) {
-      const file = input.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        showLoading('Gemini 正在解析圖片角色外觀與服裝...');
+    let servantTemplatesCache = null;
+    function toggleCustomServantPanel() {
+      const isCustom = document.getElementById('create-servant-select').value === 'CUSTOM';
+      document.getElementById('custom-servant-panel').classList.toggle('hidden', !isCustom);
+      if (isCustom && !servantTemplatesCache) {
         google.script.run
-          .withSuccessHandler(res => {
-            hideLoading();
-            if (res.gender) document.getElementById('create-gender').value = res.gender;
-            if (res.core_tags) document.getElementById('create-core-tags').value = res.core_tags;
-            if (res.outfit_tags) document.getElementById('create-outfit-tags').value = res.outfit_tags;
-            if (res.advice_zh) {
-              const box = document.getElementById('create-advice-box');
-              box.innerText = '💡 看圖初篩完成：' + res.advice_zh;
-              box.classList.remove('hidden');
-            }
+          .withSuccessHandler(list => {
+            servantTemplatesCache = list || [];
+            const sel = document.getElementById('cs-template');
+            servantTemplatesCache.forEach(t => {
+              const opt = document.createElement('option');
+              opt.value = t.id;
+              opt.textContent = `${t.name}（${t.cls}）`;
+              sel.appendChild(opt);
+            });
           })
-          .withFailureHandler(err => {
-            hideLoading();
-            showNotice('creation-inline-notice', err.message, true);
-          })
-          .extractMasterFromImage(e.target.result);
+          .withFailureHandler(err => showNotice('creation-inline-notice', err.message, true))
+          .getServantTemplates();
+      }
+    }
+
+    function applyServantTemplate() {
+      const id = document.getElementById('cs-template').value;
+      const t = (servantTemplatesCache || []).find(x => x.id === id);
+      if (!t) return;
+      const set = (elId, v) => { document.getElementById(elId).value = v || ''; };
+      if (!document.getElementById('cs-name').value.trim()) set('cs-name', t.name);
+      set('cs-cls', t.cls);
+      set('cs-gender', t.gender);
+      set('cs-core', t.core);
+      set('cs-outfit', t.outfit);
+      set('cs-uc', t.uc);
+      set('cs-expression', t.expression);
+      set('cs-np-name', t.npName);
+      set('cs-np-visual', t.npVisual);
+      Object.keys(t.stats || {}).forEach(k => {
+        const el = document.getElementById('cs-stat-' + k);
+        if (el) el.value = t.stats[k];
+      });
+    }
+
+    function collectCustomServant() {
+      const val = id => document.getElementById(id).value.trim();
+      const stats = {};
+      ['str', 'end', 'agi', 'mana', 'luck', 'np'].forEach(k => { stats[k] = document.getElementById('cs-stat-' + k).value; });
+      return {
+        name: val('cs-name'), cls: val('cs-cls'), gender: val('cs-gender'),
+        officialTag: val('cs-official'), core: val('cs-core'), outfit: val('cs-outfit'), uc: val('cs-uc'),
+        expression: val('cs-expression'), npName: val('cs-np-name'), npEffect: val('cs-np-effect'),
+        npVisual: val('cs-np-visual'), personality: val('cs-personality'), stats: stats
       };
-      reader.readAsDataURL(file);
+    }
+
+    function runEnhanceServant() {
+      const zh = document.getElementById('cs-zh').value.trim();
+      const cs = collectCustomServant();
+      if (!zh && !cs.name) {
+        showNotice('creation-inline-notice', '請先輸入英靈真名或中文外觀描述！', true);
+        return;
+      }
+      showLoading('Gemini 正在翻譯外觀並尋找官方角色標籤...');
+      google.script.run
+        .withSuccessHandler(res => {
+          hideLoading();
+          const put = (elId, v) => { if (v) document.getElementById(elId).value = v; };
+          put('cs-official', res.official_tag);
+          put('cs-core', res.core_tags);
+          put('cs-outfit', res.outfit_tags);
+          put('cs-uc', res.uc_tags);
+          put('cs-expression', res.expression_tag);
+          put('cs-np-visual', res.np_visual_tags);
+          const box = document.getElementById('cs-advice');
+          box.innerText = (res.official_tag ? '🏷️ 推薦官方角色標籤：' + res.official_tag + '\n' : '') + (res.advice_zh ? '💡 ' + res.advice_zh : '');
+          box.classList.toggle('hidden', !box.innerText.trim());
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          showNotice('creation-inline-notice', err.message, true);
+        })
+        .enhanceServantAppearance(zh || cs.name, cs.gender, cs.name, cs.cls);
+    }
+
+    function runPreviewServant(mode) {
+      const cs = collectCustomServant();
+      if (mode === 'official' && !cs.officialTag && !cs.core) {
+        showNotice('creation-inline-notice', '官方比對需要「官方角色標籤」或核心外觀 Tags！', true);
+        return;
+      }
+      showLoading(mode === 'official' ? 'NovelAI 正以官方預設繪製比對圖...' : 'NovelAI 正以遊戲畫法繪製英靈預覽...');
+      google.script.run
+        .withSuccessHandler(res => {
+          hideLoading();
+          document.getElementById(mode === 'official' ? 'cs-preview-official' : 'cs-preview-game').innerHTML = `<img src="${res.base64}" alt="Preview" />`;
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          showNotice('creation-inline-notice', err.message, true);
+        })
+        .previewCustomServant(cs, mode);
     }
 
     function runPreviewMaster() {
@@ -1640,6 +1771,7 @@
         masterCoreTags: document.getElementById('create-core-tags').value.trim(),
         masterOutfitTags: document.getElementById('create-outfit-tags').value.trim(),
         servantId: document.getElementById('create-servant-select').value,
+        customServant: document.getElementById('create-servant-select').value === 'CUSTOM' ? collectCustomServant() : null,
         relicNote: document.getElementById('create-relic').value.trim(),
         gameMode: document.getElementById('create-mode').value
       };

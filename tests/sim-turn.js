@@ -279,6 +279,41 @@ geminiQueue.push({ outcome_type: 'CONTINUE', story: '小次郎同意與你締約
 const re2 = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '請小次郎與我締約' });
 check('失去從者後重新締約 → 成為主從者', re2.status.servant1.id === 'assassin' && !re2.status.servant2.id);
 
+// 9d. 自創英靈：召喚、名字職階能力照玩家設定、每回合提示詞帶設定、畫圖用自訂外貌、預覽兩種畫法
+ctx.startNewGame('自創者');
+const tpl = ctx.getServantTemplates();
+check('帶入現有英靈：有斯卡哈、沒有黑 Saber', tpl.some(t => t.id === 'scathach' && t.cls === 'Lancer' && t.stats.np === 'A+') && !tpl.some(t => t.id === 'saber_alter'));
+geminiQueue.push({ story: '冰霧之中，銀髮的女王現身。\n\n斯卡蒂：「妳就是我的御主？」', servant_class: 'Saber', servant_name: '亂取的名字', servant_params: '筋力:E', servant_action_en: 'standing', master_action_en: 'surprised', scene_env_en: 'magic circle' });
+const customReq = { name: '斯卡蒂', cls: 'Caster', gender: 'girl', core: '1girl, white hair, very long hair, red eyes', outfit: 'black dress, fur cape', uc: 'short hair', expression: 'cold smile',
+  npName: '冰封王座', npEffect: '凍結周圍一切', personality: '高傲但溫柔', npVisual: 'ice, frost, snowflakes', stats: { str: 'C', end: 'B', agi: 'B', mana: 'EX', luck: 'A', np: 'A+' } };
+const cc = ctx.completeCreationAndSummon({ playerName: '自創者', servantId: 'CUSTOM', customServant: customReq, masterOrigin: '冬木市隱居古家族', masterGender: 'girl', masterWish: '願望', gameMode: 'WAR', masterCoreTags: '1girl, black hair', masterOutfitTags: 'black sweater' });
+check('自創英靈召喚：名字職階照玩家設定', cc.status.servant1.id === 'custom_servant' && cc.status.servant1.name === '斯卡蒂' && cc.status.servant1.class === 'Caster');
+check('自創英靈召喚：能力值照玩家設定', cc.status.servant1.params === '筋力:C 耐久:B 敏捷:B 魔力:EX 幸運:A 寶具:A+');
+check('自創英靈召喚：召喚提示有原創設定', /ORIGINAL SERVANT/.test(JSON.stringify(geminiRequests[geminiRequests.length - 1])));
+check('自創英靈召喚圖：用自訂外貌', cc.imagePayload.characters.some(c => c.id === 'custom_servant' && /white hair/.test(c.prompt)));
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '斯卡蒂冷冷一笑，解放了寶具。', ap_cost: 1, location: '廢棄洋館', is_combat: true,
+  present_chars: [{ id: 'custom_servant', use_np: true, action_en: 'casting spell' }], scene_env_en: 'night, mansion' });
+const ct = ctx.processFateTurnTextOnly({ playerName: '自創者', userAction: '斯卡蒂，解放寶具！' });
+const turnReq = JSON.stringify(geminiRequests[geminiRequests.length - 1]);
+check('自創英靈：每回合提示詞附上設定', /自創英靈設定/.test(turnReq) && /冰封王座/.test(turnReq));
+const cch = ct.imagePayload.characters.find(c => c.id === 'custom_servant');
+check('自創英靈：解放寶具畫自訂特效、補表情', Boolean(cch) && /snowflakes/.test(cch.prompt) && /determined expression/.test(cch.prompt));
+check('自創英靈：讀檔後仍認得', ctx.loadExistingGame('自創者').status.customServant.name === '斯卡蒂');
+const realGen = ctx.generateNovelAIImageSafe_;
+ctx.generateNovelAIImageSafe_ = p => ({ base64: 'data:image/png;base64,AA', params: p });
+const pvGame = ctx.previewCustomServant(customReq, 'game');
+const pvOff = ctx.previewCustomServant(Object.assign({}, customReq, { officialTag: 'scathach (fate)' }), 'official');
+ctx.generateNovelAIImageSafe_ = realGen;
+check('自創英靈預覽（遊戲畫法）：自訂外貌、表情、遊戲參數', /white hair/.test(pvGame.params.characters[0].prompt) && /cold smile/.test(pvGame.params.characters[0].prompt) && pvGame.params.steps === 28);
+check('自創英靈預覽（官方畫法）：只打官方標籤、官方預設參數', pvOff.params.prompt === '1girl, solo, scathach (fate)' && pvOff.params.noStyle && pvOff.params.steps === 23 && pvOff.params.scale === 7 && pvOff.params.cfgRescale === 0);
+let noName = false; try { ctx.previewCustomServant({ core: 'x' }, 'game'); } catch (e) { noName = /真名/.test(e.message); }
+check('自創英靈：沒有真名會擋下', noName);
+// 換回一般英靈的新玩家，不會殘留別人的自創英靈
+ctx.startNewGame('一般者');
+geminiQueue.push({ story: '召喚完成。', servant_class: 'Lancer', servant_name: '斯卡哈', servant_params: '筋力:B', servant_action_en: 'standing', master_action_en: 'surprised', scene_env_en: 'magic circle' });
+const nc2 = ctx.completeCreationAndSummon({ playerName: '一般者', servantId: 'scathach', masterOrigin: '冬木市隱居古家族', masterGender: 'girl', masterWish: '願望', gameMode: 'WAR', masterCoreTags: '1girl', masterOutfitTags: 'dress' });
+check('一般召喚不殘留自創英靈', nc2.status.customServant === null && nc2.status.servant1.id === 'scathach');
+
 // 10. 讀檔
 const ld = ctx.loadExistingGame('測試者');
 check('讀檔取得最近紀錄（最多 12 筆）', ld.logs.length === 12);
