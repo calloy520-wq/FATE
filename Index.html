@@ -311,6 +311,9 @@
     }
     .cg-viewport img { width: 100%; height: 100%; object-fit: contain; }
     /* 直式 CG（單人特寫）：畫框跟著變成直式，但限制高度避免太長 */
+    .cg-viewport img { cursor: zoom-in; }
+    #cg-lightbox { position: fixed; inset: 0; z-index: 9000; background: rgba(0,0,0,0.92); display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+    #cg-lightbox img { max-width: 96vw; max-height: 96vh; object-fit: contain; box-shadow: 0 0 40px rgba(0,0,0,0.8); }
     .cg-viewport.portrait { aspect-ratio: 832 / 1216; max-height: 78vh; margin: 0 auto; }
 
     .cg-async-overlay {
@@ -2191,6 +2194,7 @@
       }
       viewport.innerHTML = `<img src="${imgRes.base64}" alt="Scene CG" />`;
       const imgEl = viewport.querySelector('img');
+      imgEl.onclick = () => openCgLightbox(imgEl.src);
       const applyOrientation = () => viewport.classList.toggle('portrait', imgEl.naturalHeight > imgEl.naturalWidth);
       if (imgEl.complete) applyOrientation(); else imgEl.onload = applyOrientation;
       document.getElementById('ui-seed-label').innerText = `Seed: ${imgRes.seed}`;
@@ -2269,6 +2273,18 @@
         })
         .startNextLoopReincarnation(currentState.playerName);
     }
+
+    // 點擊 CG 全螢幕放大，再點一下或按 Esc 關閉
+    function openCgLightbox(src) {
+      const old = document.getElementById('cg-lightbox');
+      if (old) old.remove();
+      const box = document.createElement('div');
+      box.id = 'cg-lightbox';
+      box.innerHTML = `<img src="${src}" alt="CG" />`;
+      box.onclick = () => box.remove();
+      document.body.appendChild(box);
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { const lb = document.getElementById('cg-lightbox'); if (lb) lb.remove(); } });
 
     function handleRedirectCg() {
       if (!lastDirectorPayload || !lastDirectorPayload._directorContext) {
