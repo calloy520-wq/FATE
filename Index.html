@@ -940,7 +940,8 @@
                 <option value="takeuchi">✒️ 型月原作風（武內崇）</option>
                 <option value="ufotable">🎞️ 型月動畫風（ufotable）</option>
               </select>
-              <button class="btn btn-sm" id="btn-retry-cg" onclick="handleRetryCg()">🔄 重骰 CG</button>
+              <button class="btn btn-sm" id="btn-retry-cg" onclick="handleRetryCg()" title="同樣的提示詞換一張（構圖或臉不滿意時）">🔄 重骰 CG</button>
+              <button class="btn btn-sm" id="btn-redirect-cg" onclick="handleRedirectCg()" title="讓導演重新讀劇情、重新翻譯提示詞（圖跟劇情對不上時）">🎬 重新導演</button>
             </div>
             <span id="ui-seed-label" style="font-size: 11.5px; color: var(--text-muted);">Seed: -</span>
           </div>
@@ -1274,6 +1275,7 @@
     let mapLocationsCache = {};
     let selectedMapKey = '廢棄洋館';
     let lastImagePayload = null;
+    let lastDirectorPayload = null; // 含導演資料的原始 payload，供「重新導演」使用
     let pendingSettingsPatch = {};
     let isWaitingForImage = false;
     let isSubmittingTurn = false;
@@ -1530,6 +1532,7 @@
           hideLoading();
           currentState = res.status;
           lastImagePayload = res.imagePayload;
+          lastDirectorPayload = res.imagePayload ? JSON.parse(JSON.stringify(res.imagePayload)) : null;
           document.getElementById('creation-screen').classList.add('hidden');
           initGameScreen([]);
           appendNovelMessage('ai', res.story, `Day 1・深夜 (${currentState.location})`);
@@ -1573,6 +1576,8 @@
       document.querySelectorAll('.lockable-btn').forEach(el => { el.disabled = locked; });
       const retryBtn = document.getElementById('btn-retry-cg');
       if (retryBtn) retryBtn.disabled = locked;
+      const redirectBtn = document.getElementById('btn-redirect-cg');
+      if (redirectBtn) redirectBtn.disabled = locked;
 
       const lockBar = document.getElementById('async-lock-bar');
       if (lockBar) lockBar.classList.toggle('hidden', !isWaitingForImage);
@@ -2070,6 +2075,7 @@
           isSubmittingTurn = false;
           currentState = res.status;
           lastImagePayload = res.imagePayload;
+          lastDirectorPayload = res.imagePayload ? JSON.parse(JSON.stringify(res.imagePayload)) : null;
           refreshStatusUI();
 
           const headerMeta = `Day ${currentState.day}・${currentState.timePeriod} (${currentState.location})`;
@@ -2262,6 +2268,16 @@
           appendNovelMessage('ai', `⚠️ 開啟下一輪迴失敗：${err.message}`, '系統提示');
         })
         .startNextLoopReincarnation(currentState.playerName);
+    }
+
+    function handleRedirectCg() {
+      if (!lastDirectorPayload || !lastDirectorPayload._directorContext) {
+        appendNovelMessage('ai', '⚠️ 這一幕沒有可以重新導演的劇情資料（讀檔後需要先推進一回合）。', '畫面提示');
+        return;
+      }
+      const p = JSON.parse(JSON.stringify(lastDirectorPayload));
+      p.artStyle = document.getElementById('sel-art-style').value;
+      triggerAsyncBgImage(p, false);
     }
 
     function handleRetryCg() {
