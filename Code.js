@@ -3076,7 +3076,7 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - Sleeping / bed / changing clothes: Wear appropriate pajamas/nightwear or whatever the story explicitly describes.',
     '   - Normal scene with no outfit change: Use "reference_outfit" (translate it into clean English Danbooru tags if it is in Chinese).',
     '   - Never put hair color, eye color, body type or character names inside "outfit"; those come from a fixed character sheet.',
-    '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event.',
+    '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event. Only include props, weapons and magic effects that the excerpt explicitly shows in that moment (do not add a character\'s signature item unless it is being used).',
     '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Describe the overall composition in one short natural-language clause (who is where relative to whom, depth and distance). Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
     '5. Characters (char_directions): For each present character output (keep every character\'s tags strictly in its own entry so features do not bleed between characters):',
     '   - "id": exact character id.',
@@ -3085,7 +3085,7 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - "action": the character\'s placement and spatial relation FIRST (foreground / background / center, beside / behind / in front of / facing another character, near or far, above or below), then pose, expression, gaze, weapon/prop action, in English (NO hair/eyes color). Do NOT give coordinates or left/right grid positions — NovelAI decides the exact layout from these relations.',
     '   - "interaction": ONLY if 2+ characters directly interact, use NAI V5 syntax ("source#<action>" + "target#<action>", or "mutual#<action>"). Empty string "" otherwise.',
     directorCtx.cameraMode === 'pov'
-      ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. If the player\'s hands are doing something (reaching, holding, touching, casting), add "pov hands" plus that hand action to scene_prompt. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees.'
+      ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. If the player\'s hands are doing something (reaching, holding, touching, casting), add "pov hands" plus that hand action to scene_prompt. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees. Never mention out-of-view characters in scene_prompt. For EVERY character also output "in_view": true/false — false when the character is outside the player\'s field of view (behind the player, beside and out of frame, behind a wall, hidden in darkness); true only if the player would actually see them right now (e.g. "leaning in from over your shoulder" counts as visible).'
       : '',
     'Output strictly valid JSON: { "scene_prompt": "...", "char_directions": [{ "id": "...", "is_nude": false, "outfit": "...", "action": "...", "interaction": "" }] }'
   ].join('\n');
@@ -3230,6 +3230,49 @@ function sanitizeNaiInteraction_(str) {
   return stripBadInteractionPrefix_(str);
 }
 
+// 第一人稱視野判斷：Gemini 有時把 in_view 寫進文字、或寫了「站在身後」卻標成看得到，所以程式端再判斷一次
+function isOutOfPovView_(d) {
+  const text = `${d.action || ''} ${d.interaction || ''}`.toLowerCase();
+  if (d.in_view === false || String(d.in_view).toLowerCase() === 'false' || /in_view\s*[:=]\s*false/.test(text)) return true;
+  const visibleHint = /over (the |your |viewer'?s )?shoulder|leaning (in|over|towards)|peeking|in front of viewer|facing viewer|looking at viewer/.test(text);
+  const hiddenHint = /behind (the )?viewer|behind the player|behind you|out of (frame|view|sight)|off-?screen|unseen|hidden from view/.test(text);
+  return hiddenHint && !visibleHint;
+}
+
+// 從場景描述中移除提到指定角色的片段（以逗號分段；比對角色 ID 與英文名常見寫法）
+function removeCharacterMentions_(scenePrompt, ids, ctxChars) {
+  const needles = [];
+  (ids || []).forEach(id => {
+    needles.push(String(id).toLowerCase().replace(/_/g, ' '));
+    const c = (ctxChars || []).find(x => x.id === id);
+    if (c && c.name) needles.push(String(c.name).toLowerCase());
+  });
+  const extra = { lancer: ['cu chulainn', 'cú chulainn'], saber: ['artoria'], archer: ['emiya'], rider: ['medusa'], caster: ['medea'], assassin: ['kojirou', 'kojiro'], berserker: ['heracles'], rin: ['tohsaka'], hassan: ['hassan'] };
+  (ids || []).forEach(id => (extra[id] || []).forEach(n => needles.push(n)));
+  return String(scenePrompt || '').split(',').map(t => t.trim())
+    .filter(t => t && !needles.some(n => n && t.toLowerCase().includes(n)))
+    .join(', ');
+}
+
+// 依實際畫進畫面的角色重算人數標籤（第一人稱會濾掉視野外的角色）
+function buildCountTags_(chars, povMode) {
+  let girls = 0;
+  let boys = 0;
+  (chars || []).forEach(c => { if (c.gender === 'boy') boys++; else girls++; });
+  const tags = [];
+  if (girls === 1) tags.push('1girl');
+  else if (girls > 1) tags.push(`${girls}girls`);
+  if (boys === 1) tags.push('1boy');
+  else if (boys > 1) tags.push(`${boys}boys`);
+  if (girls + boys === 1) tags.push('solo');
+  else if (girls + boys > 1) tags.push('multiple characters');
+  if (povMode) {
+    if (girls + boys === 0) tags.push('no humans', 'scenery');
+    tags.push('pov', 'first-person view');
+  }
+  return tags;
+}
+
 function generateTurnCgAsync(imgPayload) {
   if (!imgPayload) throw new Error('無場景資料');
   const working = JSON.parse(JSON.stringify(imgPayload));
@@ -3239,6 +3282,21 @@ function generateTurnCgAsync(imgPayload) {
     const directed = translateSceneToNaiV5_(working._directorContext);
     if (directed) {
       directedApplied = true;
+      if (working.cameraMode === 'pov' && Array.isArray(directed.char_directions) && Array.isArray(working.characters)) {
+        const outOfView = new Set(directed.char_directions.filter(d => d && d.id && isOutOfPovView_(d)).map(d => d.id));
+        if (outOfView.size > 0) {
+          working.characters = working.characters.filter(ch => !outOfView.has(ch.id));
+          working.countPrefix = buildCountTags_(working.characters, true).join(', ');
+          if (directed.scene_prompt) {
+            directed.scene_prompt = removeCharacterMentions_(directed.scene_prompt, Array.from(outOfView), (working._directorContext || {}).chars || []);
+          }
+          if (!directed.scene_prompt) {
+            const restTags = stripCountTags_(working.prompt).split(',').map(t => t.trim())
+              .filter(t => t && !/^(pov|first-person view|no humans|scenery)$/i.test(t)).join(', ');
+            working.prompt = [working.countPrefix, restTags].filter(Boolean).join(', ');
+          }
+        }
+      }
       const directedNude = Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && (Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit)));
       const alreadyNude = /(^|,\s*)nsfw(\s*,|$)/.test(String(working.prompt || ''));
       const ratingTag = (working.adultMode && (directedNude || alreadyNude)) ? 'nsfw' : '';
@@ -3261,7 +3319,8 @@ function generateTurnCgAsync(imgPayload) {
             ? formatCharacterOutfitPrompt_(isNude ? 'nude, completely nude, no clothes' : d.outfit)
             : ch.weightedOutfit;
 
-          const actionParts = [sanitizeNaiInteraction_(d.interaction), stripBadInteractionPrefix_(d.action)].filter(Boolean).join(', ');
+          const actionParts = [sanitizeNaiInteraction_(d.interaction), stripBadInteractionPrefix_(d.action)].filter(Boolean).join(', ')
+            .split(',').map(t => t.trim()).filter(t => t && !/^in_view\s*[:=]/i.test(t)).join(', ');
 
           return Object.assign({}, ch, {
             prompt: [finalCore, finalOutfit, actionParts, ch.npBoost].filter(Boolean).join(', ')
