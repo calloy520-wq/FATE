@@ -4404,6 +4404,9 @@ function refineFramingTags_(prompt, nChars) {
 }
 
 // 親密動作 → NovelAI 熟悉的 Danbooru 標籤（自然語言的「從背後抱」「親臉頰」常被畫成並肩站、親嘴）
+// 第一人稱膝枕／掏耳朵的構圖標籤（躺在她腿上往上看）
+let LAP_POV_TAGS_ = 'lap pillow, pov, from below, looking down at viewer, close-up, face focus, ceiling';
+let MIMIKAKI_POV_TAGS_ = 'mimikaki, holding ear pick, lap pillow, pov, from below, looking down at viewer, close-up';
 const INTIMACY_TAGS_ = [
   { re: /\b(hug(ging|s|ged)?|embrac(e|ing|ed)|arms wrapped around)\b[^,]*\bfrom behind\b|\bback hug\b|\bbeing hugged from behind\b/i, tag: 'hug from behind' },
   { re: /\bkiss(ing|es)? (on )?(the |her |his |another character's |the other character's |viewer's |the viewer's )?cheek\b|\bcheek kiss\b|\blips touching [^,]*cheek\b/i, tag: 'kissing cheek', cheek: true },
@@ -4580,8 +4583,8 @@ function generateTurnCgAsync(imgPayload) {
         let tag = (t.cheek && working.cameraMode === 'pov') ? 'from side, face focus, leaning in, closed eyes, blush' : t.tag;
         // 第一人稱膝枕：鏡頭是躺在她腿上的你 → 從下往上看，她低頭看著你；摸頭同理（她的手伸向鏡頭上方）
         // 第一人稱掏耳朵：躺在腿上側著頭，她從上方低頭、手拿耳挖
-        if (working.cameraMode === 'pov' && t.tag.indexOf('mimikaki') === 0) tag = 'mimikaki, holding ear pick, lap pillow, pov, from below, looking down at viewer, close-up';
-        if (working.cameraMode === 'pov' && t.tag === 'lap pillow') tag = 'lap pillow, pov, from below, looking down at viewer, close-up, face focus, ceiling';
+        if (working.cameraMode === 'pov' && t.tag.indexOf('mimikaki') === 0) tag = MIMIKAKI_POV_TAGS_;
+        if (working.cameraMode === 'pov' && t.tag === 'lap pillow') tag = LAP_POV_TAGS_;
         if (working.cameraMode === 'pov' && t.tag === 'hug') tag = 'incoming hug, close-up, face focus';
         if (working.cameraMode === 'pov' && t.tag === 'headpat') tag = 'headpat, headpat pov, from below, looking down at viewer, reaching towards viewer';
         if (!new RegExp('\\b' + tag.split(',')[0].replace(/[-]/g, '\\-') + '\\b', 'i').test(working.prompt)) working.prompt = `${working.prompt}, ${tag}`;
