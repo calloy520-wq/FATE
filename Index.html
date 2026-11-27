@@ -25,13 +25,33 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: "Noto Serif TC", "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif;
-      background: radial-gradient(circle at top, #181a2c 0%, var(--bg-void) 75%);
+      background: radial-gradient(circle at top, var(--sky-tint, #181a2c) 0%, var(--bg-void) 75%);
+      background-attachment: fixed;
+      transition: background 1.2s ease;
       color: var(--text-main);
       min-height: 100vh;
       line-height: 1.65;
     }
 
     .hidden { display: none !important; }
+
+    /* 時段氛圍：頁面上方的天色跟著時段變化，時間標籤也換色 */
+    body[data-period="清晨"] { --sky-tint: #4f4277; }
+    body[data-period="白天"] { --sky-tint: #31608f; }
+    body[data-period="黃昏"] { --sky-tint: #84401f; }
+    body[data-period="深夜"] { --sky-tint: #10122a; }
+    body[data-period="清晨"] #ui-time-badge { border-color: #c4b5fd; color: #ddd6fe; }
+    body[data-period="白天"] #ui-time-badge { border-color: #7dd3fc; color: #e0f2fe; }
+    body[data-period="黃昏"] #ui-time-badge { border-color: #fb923c; color: #fed7aa; }
+    body[data-period="深夜"] #ui-time-badge { border-color: #6366f1; color: #c7d2fe; }
+    #period-toast {
+      position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 8000;
+      padding: 10px 22px; border-radius: 999px; font-weight: 800; font-size: 15px;
+      background: rgba(10, 11, 16, 0.88); border: 1px solid var(--border-gold); color: var(--gold-bright);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5); pointer-events: none; white-space: nowrap;
+      animation: periodToast 3.2s ease forwards;
+    }
+    @keyframes periodToast { 0% { opacity: 0; transform: translate(-50%, -12px); } 12% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: 1; } 100% { opacity: 0; } }
 
     .btn {
       padding: 10px 16px;
@@ -1351,6 +1371,7 @@
     }
 
     function logoutSwitchMaster() {
+      window.__lastPeriodKey = '';
       clearImageWaitState();
       isSubmittingTurn = false;
       showNotice('login-inline-notice', '', false);
@@ -1623,7 +1644,24 @@
       document.getElementById('ui-career-badge').innerText = `🏆${s.wins}勝 💀${s.losses}敗`;
       document.getElementById('ui-bond-badge').innerText = `💖 ${bond}`;
       document.getElementById('ui-tone-badge').innerText = TONE_META[tone].short;
-      document.getElementById('ui-time-badge').innerText = `Day ${s.day}・${s.timePeriod}｜AP ${s.gameMode === 'WAR' ? `${s.ap}/${s.maxAp}` : '∞'}`;
+      const PERIOD_ICON = { '清晨': '🌅', '白天': '☀️', '黃昏': '🌇', '深夜': '🌙' };
+      document.getElementById('ui-time-badge').innerText = `${PERIOD_ICON[s.timePeriod] || ''} Day ${s.day}・${s.timePeriod}｜AP ${s.gameMode === 'WAR' ? `${s.ap}/${s.maxAp}` : '∞'}`;
+      // 時段一變就換天色，並跳出提示
+      const periodKey = `${s.day}-${s.timePeriod}`;
+      if (document.body.dataset.period !== s.timePeriod || window.__lastPeriodKey !== periodKey) {
+        const changed = Boolean(window.__lastPeriodKey) && window.__lastPeriodKey !== periodKey;
+        document.body.dataset.period = s.timePeriod;
+        window.__lastPeriodKey = periodKey;
+        if (changed) {
+          const old = document.getElementById('period-toast');
+          if (old) old.remove();
+          const toast = document.createElement('div');
+          toast.id = 'period-toast';
+          toast.innerText = `${PERIOD_ICON[s.timePeriod] || '⏳'} 時間來到 Day ${s.day}・${s.timePeriod}`;
+          document.body.appendChild(toast);
+          setTimeout(() => toast.remove(), 3400);
+        }
+      }
       document.getElementById('ui-ap-badge').innerText = s.gameMode === 'WAR' ? `AP: ${s.ap}/${s.maxAp}` : 'AP: ∞';
       document.getElementById('ui-threat-badge').innerText = s.gameMode === 'WAR' ? `警戒 ${s.threatLevel}%` : '日常結界';
       document.getElementById('ui-loc-badge').innerText = `🗺️ ${s.location}`;
