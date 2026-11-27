@@ -192,7 +192,17 @@ check('沒要求就不會憑空得到保命符', !noOver.status.inventory.some(i
 check('沒要求就不會消耗道具', noOver.status.inventory.map(i => i.id + ':' + i.qty).join(',') === invBefore);
 check('提示詞包含御主性別', geminiRequests[geminiRequests.length - 1].messages[1].content.includes('性別:女'));
 
-// 8e. 其他陣營主動傳訊：出現在聯絡頁、加上管道標頭、增加未讀、之後可以回覆
+// 8e. 非同盟陣營不會傳訊到手機
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '一隻白色小鳥停在窗邊。', ap_cost: 0, location: '廢棄洋館', incoming_messages: [{ faction: '伊莉雅', text: '要不要來城堡玩？' }], present_chars: [], scene_env_en: 'room' });
+const incNo = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '在洋館休息' });
+const ithNo = incNo.status.phoneState.smsThreads['愛因茲貝倫組 (Berserker陣營)'];
+check('非同盟陣營的來訊被擋下', !ithNo || !ithNo.messages.some(m => /要不要來城堡玩/.test(m.text)));
+
+// 8f. 同盟陣營主動傳訊：出現在聯絡頁、加上管道標頭、增加未讀、之後可以回覆
+{
+  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
+  const f = JSON.parse(row[29]); f['愛因茲貝倫組 (Berserker陣營)'] = '存活 (同盟)'; row[29] = JSON.stringify(f);
+}
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '一隻白色小鳥停在窗邊。', ap_cost: 0, location: '廢棄洋館', incoming_messages: [{ faction: '伊莉雅', text: '大哥哥的朋友，要不要來城堡玩？' }], present_chars: [], scene_env_en: 'room' });
 const inc = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '在洋館休息' });
 const ith = inc.status.phoneState.smsThreads['愛因茲貝倫組 (Berserker陣營)'];

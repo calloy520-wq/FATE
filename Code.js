@@ -2354,7 +2354,7 @@ const PROACTIVE_DECK_ = {
   ],
   neutral: [
     '親自登門拜訪，試探玩家的底細與意圖',
-    '派人或使魔捎來口信，提出情報交換或交易',
+    '派使魔在玩家附近現身，當面提出情報交換或交易',
     '在路上與玩家「偶遇」，藉機觀察或搭話'
   ],
   allied: [
@@ -2365,7 +2365,7 @@ const PROACTIVE_DECK_ = {
   ],
   church: [
     '言峰綺禮以監督者身分親自來訪，表面關心、實則試探',
-    '教會送來通知：提醒神秘隱匿、或通報某陣營的動向'
+    '在路上遇到教會的人，被提醒神秘隱匿、或聽到某陣營的動向'
   ]
 };
 
@@ -2374,8 +2374,8 @@ function drawProactiveEvent_(statusObj, meta, turnNum) {
   const f = statusObj.factions || {};
   const last = Number(meta.lastProactiveTurn) || 0;
   const gap = turnNum - last;
-  if (last && gap < 2) return null;
-  const chance = Math.min(0.75, 0.25 + (Number(statusObj.threatLevel) || 0) / 250 + Math.min(0.3, gap * 0.06));
+  if (last && gap < 3) return null;
+  const chance = Math.min(0.45, 0.15 + (Number(statusObj.threatLevel) || 0) / 400 + Math.min(0.15, gap * 0.03));
   if (Math.random() > chance) return null;
 
   const candidates = [];
@@ -2408,7 +2408,7 @@ function drawWorldDirectorEvent_(statusObj, meta, turnNum) {
   if (!p) return { text: '', proactive: null };
   const ch = getContactChannel_(p.faction);
   return {
-    text: `【陣營主動行動（本回合一定要發生，融入玩家的行動之中）】${p.faction}：${p.action}。依該陣營目前狀態與性格演出，留給玩家回應的空間。若是傳訊，透過「${ch.label}」送達，並填入 incoming_messages。`,
+    text: `【陣營主動行動（本回合一定要發生，融入玩家的行動之中）】${p.faction}：${p.action}。依該陣營目前狀態與性格演出，留給玩家回應的空間。${p.kind === 'allied' ? `若是傳訊，透過「${ch.label}」送達，並填入 incoming_messages。` : '非同盟陣營不會傳訊到玩家手機，要在劇情中當面發生。'}`,
     proactive: p
   };
 }
@@ -2593,7 +2593,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '## 四、活的冬木市與反饋機制',
   '- 論壇：玩家做了引人注目的事（公開交戰、怪事、流言擴散），用 `forum_posts` 寫 0～2 則冬木市民的 2004 年留言板貼文（每則是含 board／author／title／body 的物件）；路人只知道自己看得到的部分。',
   '- 流言：依各陣營的情報能力與性格，判斷誰相信、誰識破狀態資料中的流言，用 `rumor_updates` 記錄；被相信的流言會實際改變該陣營行動（寫進 `faction_updates`），被識破的假消息可能引來報復。',
-  '- 其他陣營主動傳訊給玩家時（求援、情報、挑釁、邀約），填入 `incoming_messages`，會出現在玩家手機的聯絡頁。',
+  '- 只有**同盟陣營**會主動傳訊到玩家手機（求援、情報、邀約），填入 `incoming_messages`；非同盟陣營的接觸（挑戰書、交易、試探）要在劇情中當面發生，不要填 `incoming_messages`。',
   '- 情報：玩家這回合透過偵查、使魔、他人告知、論壇推敲等方式**確實得知**某陣營的狀況時，用 `intel_updates` 寫下玩家得知的內容（30 字內，只寫玩家知道的部分）；親眼見到的陣營與同盟由系統自動記錄。',
   '- 通訊錄：只有劇情中**明確寫出**玩家與某陣營交換手機號碼、拿到名片或聯絡方式時，才把陣營名稱填入 `new_contacts`；只是見面、交談、談判都不算。',
   '- 路線傾向：依玩家本回合的行動方式，在 `route_tendency_delta` 為各路線加減分（-3～+3）；已確立路線時，劇情重心照狀態資料中的路線說明發展。',
@@ -3210,6 +3210,8 @@ function processFateTurnTextOnly(params) {
       const fk = resolveFactionKey_(im && im.faction, currentFactions);
       const text = String((im && im.text) || '').trim().slice(0, 160);
       if (!fk || !text) return;
+      // 只有同盟陣營會主動傳訊到手機
+      if (!isAllianceStatusText_(currentFactions[fk])) return;
       const ch = getContactChannel_(fk);
       meta.phoneState.smsThreads = meta.phoneState.smsThreads || {};
       const th = meta.phoneState.smsThreads[fk] || (meta.phoneState.smsThreads[fk] = { factionName: fk, allied: isAllianceStatusText_(currentFactions[fk]), statusText: currentFactions[fk], lastDistressStatus: '', messages: [] });
