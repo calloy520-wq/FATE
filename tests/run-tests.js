@@ -6,13 +6,13 @@ const vm = require('vm');
 
 // GAS 會把所有 .js 檔放在同一個全域空間，這裡照同樣順序載入
 const src = ['GameData.js', 'Lore.js', 'Code.js'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n;\n');
-const ctx = { console };
+const ctx = { console, SpreadsheetApp: { getActiveSpreadsheet: () => ({}) } };
 vm.createContext(ctx);
 vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -168,6 +168,32 @@ eq('全裸從者在據點休息 → 維持全裸', T.autoAdaptSmartOutfit_('scat
 eq('全裸御主出門 → 仍由玩家決定（維持全裸）', T.autoAdaptSmartOutfit_('player_master', 'nude, completely nude, no clothes', { defaultOutfit: 'dress' }, '出發', '', false, '新都商業區'), 'nude, completely nude, no clothes');
 eq('JSON 容錯解析', T.parseJsonLoose_('```json\n{"a":1}\n```'), { a: 1 });
 eq('深夜 → 隔天清晨', T.advanceTimePeriod_(1, '深夜'), { day: 2, period: '清晨' });
+
+// ---- 全裸流程 ----
+const NUDE = 'nude, completely nude, no clothes';
+const scaN = { defaultOutfit: 'scathach battle bodysuit', casualOutfit: 'white sweater' };
+eq('全裸：在據點沒穿衣 → 維持全裸', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '一起泡澡', '熱氣蒸騰', false, '廢棄洋館'), NUDE);
+eq('全裸：從者開戰 → 自動具現戰鬥裝', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '有人闖入', '', true, '廢棄洋館'), 'scathach battle bodysuit');
+eq('全裸：從者離開據點 → 戰鬥裝', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '出門', '', false, '新都'), 'scathach battle bodysuit');
+eq('全裸：從者穿上衣服 → 還原', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '幫她穿上衣服', '', false, '廢棄洋館'), 'scathach battle bodysuit');
+eq('全裸：御主開戰也不會自動穿', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '迎戰', '', true, '新都'), NUDE);
+eq('全裸：御主劇情別人穿衣不算', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '看著她', '斯卡哈穿上衣服', false, '廢棄洋館'), NUDE);
+eq('全裸：御主自己穿上 → 還原', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '我穿上衣服', '', false, '廢棄洋館'), 'coat');
+eq('裸露把關：成人模式成人角色 → 全裸', T.sanitizeNudeOutfitForChar_('scathach', NUDE, true, 'x'), NUDE);
+eq('裸露把關：成人模式關閉 → 浴巾', T.sanitizeNudeOutfitForChar_('scathach', NUDE, false, 'x'), 'bath towel, towel wrapped around body');
+eq('裸露把關：浴巾不算裸露', T.isNudeOutfitTags_('bath towel, towel wrapped around body'), false);
+['rin', 'sakura', 'illya', 'prisma_illya', 'miyu', 'chloe', 'shirou', 'dark_sakura'].forEach(id =>
+  eq(`裸露把關：${id} 一律穿著`, T.sanitizeNudeOutfitForChar_(id, NUDE, true, 'default'), 'default'));
+const pst = (adult) => ({ cameraMode: 'third', adultMode: adult, locationKey: '廢棄洋館', master: { gender: 'girl', coreTags: 'black hair' }, outfits: { scathach: NUDE, rin: NUDE, player_master: NUDE } });
+let np = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'scathach' }, { id: 'rin' }], 'bathroom, steam', false, '泡澡', '', 1);
+eq('繪圖：成人模式有 nsfw', /(^|, )nsfw(,|$)/.test(np.prompt), true);
+eq('繪圖：斯卡哈全裸', /nude/.test(np.characters.find(c => c.id === 'scathach').prompt), true);
+eq('繪圖：凜不畫裸', /nude/.test(np.characters.find(c => c.id === 'rin').prompt), false);
+np = T.buildNaiPayloadFromScene_(pst(false), [{ id: 'scathach' }], 'bathroom, steam', false, '泡澡', '', 1);
+eq('繪圖：成人模式關閉無 nsfw', /nsfw/.test(np.prompt), false);
+eq('繪圖：成人模式關閉改浴巾', /nude/.test(np.characters[0].prompt) || !/towel/.test(np.characters[0].prompt), false);
+np = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'rin' }], 'bathroom', false, '泡澡', '', 1);
+eq('繪圖：只有凜時沒有 nsfw', /nsfw/.test(np.prompt), false);
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

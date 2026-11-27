@@ -345,6 +345,17 @@ function isNudeOutfitTags_(outfitStr) {
   return /\b(nude|naked|completely nude|no clothes|topless|bottomless|undressed)\b/.test(s) || /全裸|裸體|沒穿|赤裸|一絲不掛/.test(s);
 }
 
+// 未成年／孩童外觀的角色：任何情況都不畫裸露（洗澡等劇情照常寫，畫面維持穿著）
+const NO_NUDE_CHAR_IDS_ = new Set(['prisma_illya', 'chloe', 'miyu', 'illya', 'rin', 'sakura', 'dark_sakura', 'shirou']);
+
+// 畫面上的裸露把關：未成年角色一律改回 fallback（預設服裝）；成人模式關閉時改成浴巾包裹
+function sanitizeNudeOutfitForChar_(charId, outfit, adultMode, fallback) {
+  if (!isNudeOutfitTags_(outfit)) return outfit;
+  if (NO_NUDE_CHAR_IDS_.has(charId)) return String(fallback || '').trim() || 'casual clothes, shirt, pants';
+  if (!adultMode) return 'bath towel, towel wrapped around body';
+  return outfit;
+}
+
 function stripClothesFromCore_(coreStr) {
   let c = String(coreStr || '');
   const clothesNoise = [
@@ -2904,7 +2915,7 @@ function processFateTurnTextOnly(params) {
         const val = String(turnJson.outfit_updates[cid] || '').trim();
         if (val.length >= 2 && charDb[cid]) {
           currentOutfits[cid] = isNudeOutfitTags_(val)
-            ? 'nude, completely nude, no clothes'
+            ? (NO_NUDE_CHAR_IDS_.has(cid) ? (currentOutfits[cid] || charDb[cid].defaultOutfit) : 'nude, completely nude, no clothes')
             : val;
         }
       });
@@ -3342,11 +3353,13 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     const dbInfo = charDb[c.id] || {};
     const profile = resolveCharacterVisualProfile_(c.id, dbInfo, statusObj, userAction, storyText, isCombat);
 
-    const nudeMode = isNudeOutfitTags_(profile.outfit) || /全裸|裸體|沒穿|赤裸|一絲不掛|\b(nude|naked|no clothes|topless)\b/i.test(String(c.action_en || ''));
+    const wantsNude = isNudeOutfitTags_(profile.outfit) || /全裸|裸體|沒穿|赤裸|一絲不掛|\b(nude|naked|no clothes|topless)\b/i.test(String(c.action_en || ''));
+    profile.outfit = sanitizeNudeOutfitForChar_(c.id, wantsNude && !isNudeOutfitTags_(profile.outfit) ? 'nude, completely nude, no clothes' : profile.outfit, Boolean(statusObj.adultMode), dbInfo.defaultOutfit);
+    const nudeMode = isNudeOutfitTags_(profile.outfit);
     const normCore = normalizeCharCoreForNai_(profile.core, profile.gender);
     const core = nudeMode ? stripClothesFromCore_(normCore) : normCore;
     if (nudeMode) anyNude = true;
-    const weightedOutfit = formatCharacterOutfitPrompt_(nudeMode && !isNudeOutfitTags_(profile.outfit) ? 'nude, completely nude, no clothes' : profile.outfit);
+    const weightedOutfit = formatCharacterOutfitPrompt_(profile.outfit);
     const directAction = String(c.action_en || '').trim();
 
     if (profile.gender === 'boy') boys++;
@@ -3563,9 +3576,25 @@ function generateTurnCgAsync(imgPayload) {
       } else if (directed.orientation === 'landscape') {
         working.width = 1216; working.height = 832;
       }
+      // 導演回報的裸露先經過把關（未成年角色、成人模式關閉）
+      if (Array.isArray(directed.char_directions)) {
+        directed.char_directions.forEach(d => {
+          if (!d || !d.id) return;
+          const wants = Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit);
+          if (!wants) return;
+          const ctxC = ((working._directorContext || {}).chars || []).find(x => x.id === d.id) || {};
+          const safe = sanitizeNudeOutfitForChar_(d.id, 'nude, completely nude, no clothes', Boolean(working.adultMode), ctxC.referenceOutfit && !isNudeOutfitTags_(ctxC.referenceOutfit) ? ctxC.referenceOutfit : ctxC.battleOutfit);
+          if (!isNudeOutfitTags_(safe)) { d.is_nude = false; d.outfit = safe; }
+        });
+      }
       const directedNude = Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && (Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit)));
       const alreadyNude = /(^|,\s*)nsfw(\s*,|$)/.test(String(working.prompt || ''));
       const ratingTag = (working.adultMode && (directedNude || alreadyNude)) ? 'nsfw' : '';
+      // 畫面上沒有人裸露時，場景描述也不能殘留裸露字眼
+      if (!directedNude && directed.scene_prompt) {
+        directed.scene_prompt = String(directed.scene_prompt).split(',').map(t => t.trim())
+          .filter(t => t && !isNudeOutfitTags_(t) && !/^(nsfw|bare skin|nipples|pussy|breasts out)$/i.test(t)).join(', ');
+      }
       if (directed.scene_prompt) {
         working.prompt = [working.countPrefix, ratingTag, stripCountTags_(directed.scene_prompt), working.combatEnvTags].filter(Boolean).join(', ');
       } else if (ratingTag && !alreadyNude) {
