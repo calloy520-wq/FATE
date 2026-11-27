@@ -12,9 +12,9 @@
 | `battle.mp3` | 一般戰鬥 | （不播） |
 | `boss.mp3` | 強敵、決戰 | battle |
 | `tension.mp3` | 高警戒、潛入 | night |
-| `romance.mp3` | 親吻、擁抱、告白 | day |
+| `romance.mp3` | 親吻、擁抱、告白（可選） | home |
 | `sad.mp3` | 死亡、失去從者 | night |
-| `home.mp3` | 據點休息（可選） | day |
+| `home.mp3` | 據點休息、親密（沒有 romance 時也播這首） | day |
 | `ending.mp3` | 通關結局（可選，不循環） | day |
 
 規格：純音樂、60～120 秒可無縫循環、MP3 128kbps、每首 3MB 以內、各首音量一致。倉庫是公開的，放進來的音樂任何人都能下載。
