@@ -3993,6 +3993,34 @@ function excerptForDirector_(storyText) {
   return t.slice(0, 300) + '\n……\n' + t.slice(-1300);
 }
 
+// 各角色常見的英文稱呼：導演偶爾把別人的名字寫進某角色欄位（"standing behind Archer"），NovelAI 會因此多畫一個 Archer
+const CHAR_EN_NAMES_ = {
+  saber: ['saber', 'artoria', 'arturia'], saber_alter: ['saber alter', 'artoria alter'], archer: ['archer', 'emiya'],
+  lancer: ['lancer', 'cu chulainn', 'cuchulainn'], rider: ['rider', 'medusa'], caster: ['caster', 'medea'],
+  assassin: ['assassin', 'sasaki kojirou', 'kojirou', 'kojiro'], berserker: ['berserker', 'heracles'], gilgamesh: ['gilgamesh'],
+  shirou: ['emiya shirou', 'shirou'], rin: ['tohsaka rin', 'tohsaka', 'rin'], sakura: ['matou sakura', 'sakura'], dark_sakura: ['dark sakura', 'sakura alter'],
+  shinji: ['matou shinji', 'shinji'], illya: ['illyasviel', 'illya'], prisma_illya: ['illyasviel', 'illya'], kirei: ['kotomine kirei', 'kotomine', 'kirei'],
+  souichirou: ['kuzuki souichirou', 'kuzuki', 'souichirou'], scathach: ['scathach'], jeanne: ['jeanne'], jalter: ['jeanne alter', 'jalter'],
+  mordred: ['mordred'], okita: ['okita souji', 'okita'], tamamo: ['tamamo'], ereshkigal: ['ereshkigal'], karna: ['karna'], hassan: ['hassan'],
+  chloe: ['chloe'], miyu: ['miyu']
+};
+
+// 把角色欄位裡「別人的名字」換成中性說法（自己的名字、Danbooru 角色標籤都不動）
+function stripOtherCharNames_(text, selfId, presentIds, replacement) {
+  const rep = replacement || 'another character';
+  let out = String(text || '');
+  (presentIds || []).forEach(id => {
+    if (!id || id === selfId) return;
+    const names = (CHAR_EN_NAMES_[id] || []).concat([String(id).replace(/_/g, ' ')]);
+    if (id === CUSTOM_SERVANT_ID_ && ACTIVE_CUSTOM_SERVANT_ && /^[\x20-\x7e]+$/.test(ACTIVE_CUSTOM_SERVANT_.name)) names.push(ACTIVE_CUSTOM_SERVANT_.name);
+    names.sort((a, b) => b.length - a.length).forEach(n => {
+      const esc = n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      out = out.replace(new RegExp('\\b' + esc + '(?:\'s)?\\b(?!\\s*\\()', 'gi'), rep);
+    });
+  });
+  return out.replace(/(another character)(\s+and\s+another character)+/gi, 'the others').replace(/the another character/gi, 'another character');
+}
+
 function translateSceneToNaiV5_(directorCtx) {
   const charSummary = (directorCtx.chars || []).map(c =>
     `- id: "${c.id}", name: "${c.name}", gender: "${c.gender}", use_np: ${Boolean(c.use_np)}, reference_outfit: "${c.referenceOutfit || ''}", battle_outfit: "${c.battleOutfit || ''}", casual_outfit: "${c.casualOutfit || ''}", hint: "${c.hint || ''}"`
@@ -4015,19 +4043,21 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - The setting is Japan in 2004: any mobile phone must be a "flip phone" (clamshell feature phone with antenna and physical keypad). Never draw smartphones, touchscreens or other post-2004 technology.',
     '   - PEOPLE FIRST: the characters (faces, expressions, poses, outfits) are the subject. Props, phones, weapons and effects are minor atmosphere — never let an object dominate or fill the frame.',
     '   - NATURAL, ALIVE POSES: never a stiff, symmetrical, straight-on standing pose. Give each character specific body language that fits the moment and their personality — weight on one leg (contrapposto), head tilt, hand on hip or chin, arms behind back, leaning on something, looking over shoulder, mid-step, sitting casually; add motion (hair blowing, sway). Prefer three-quarter view or from the side, and a camera angle that adds life (slightly from below, from above, dutch angle for tension). Show a clear facial expression (smirk, gentle smile, raised eyebrow, pout, determined glare) rather than a blank stare.',
-    '   - ROMANTIC MOMENTS (kiss, embrace, confession, tender touch): make it beautiful and intimate — close-up or upper body framing, the kiss must actually be visible (lips touching or about to touch), closed or half-closed eyes, blush, gentle expressions; soft lighting, warm color tone, bokeh, floating light particles, background softly blurred. Third-person kisses use "kiss" with mutual#kiss; POV uses "incoming kiss". Only make it comedic or shocked if the story clearly says so.',
+    '   - ROMANTIC MOMENTS (kiss, embrace, confession, tender touch): make it beautiful and intimate — close-up or upper body framing, the kiss must actually be visible (lips touching or about to touch), closed or half-closed eyes, blush, gentle expressions; soft lighting, warm color tone, bokeh, floating light particles, background softly blurred. Third-person kisses use "kiss" with mutual#kiss; POV uses "incoming kiss" (lips only). Use Danbooru tags for intimacy: "hug from behind", "kissing cheek" (never incoming kiss for a cheek kiss), "lap pillow", "headpat", "holding hands", "forehead-to-forehead". Only make it comedic or shocked if the story clearly says so.',
+    '   - FRAMING (faces are the heart of this game): pick the closest shot that still fits everyone. One character: "cowboy shot" or "upper body" (a solo Noble Phantasm: "cowboy shot, from below" with the effect filling the background). Two or three characters: "medium shot" or "cowboy shot" with faces large and clear. Use "wide shot" ONLY for four or more people, a battle where two fighters are far apart, or pure scenery with no character. Romantic or tender moments: "upper body" or "close-up". Nothing (fences, bars, glass, crowds, weapons) may stand between the camera and a face. Never put a character with their back to the camera unless the story says they turn away: two people fighting or facing each other are shot from the side ("from side", both in profile or three-quarter view) so both faces are visible — do not stack one in the foreground facing away from the camera toward the other.',
     '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event. Only include props, weapons and magic effects that the excerpt explicitly shows in that moment (do not add a character\'s signature item unless it is being used).',
-    '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Describe the overall composition in one short natural-language clause (who is where relative to whom, depth and distance). Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
+    '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Describe the overall layout in one short natural-language clause WITHOUT any character name (e.g. "two figures facing off across the bridge", "a group gathered around a table"). Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
     '5. Characters (char_directions): For each present character output (keep every character\'s tags strictly in its own entry so features do not bleed between characters):',
     '   - "id": exact character id.',
     '   - "is_nude": boolean (true if unclothed/bathing/nude in this scene).',
     '   - "outfit": final English Danbooru clothing tags for THIS EXACT SCENE.',
     '   - "action": the character\'s placement and spatial relation FIRST (foreground / background / center, beside / behind / in front of / facing another character, near or far, above or below), then pose, expression, gaze, weapon/prop action, in English (NO hair/eyes color). Do NOT give coordinates or left/right grid positions — NovelAI decides the exact layout from these relations.',
-    '   - "interaction": ONLY if 2+ characters directly interact, use NAI V5 syntax ("source#<action>" + "target#<action>", or "mutual#<action>"). Empty string "" otherwise.',
+    '   - "interaction": ONLY if 2+ characters directly interact, use NAI V5 syntax ("source#<action>" + "target#<action>", or "mutual#<action>"). Example: the one touching writes "source#hand on another\'s shoulder", the one being touched writes "target#hand on another\'s shoulder"; both hugging write "mutual#hug". Never put a name before or after "#". Empty string "" otherwise.',
+    '   - NAMES STAY OUT (CRITICAL): never write another character\'s name or id inside a character\'s "action", "outfit" or "interaction", and never name characters in scene_prompt. Refer to others only as "another character", "the girl", "the man", "an ally", "the enemy". A name inside someone else\'s entry makes NovelAI draw that person twice. Relations between characters go in "interaction" with source#/target#/mutual#.',
     directorCtx.cameraMode === 'pov'
       ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. Only add "pov hands" when the player\'s hand directly interacts with a character (holding hands, being handed something by them, touching them); keep the hands small at the edge of the frame. Objects the player holds (phones, papers, weapons) are never the focus — mention them briefly or not at all. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees. CHARACTER FOCUS: in POV the visible characters are the subject of the picture — frame them close (use "close-up" or "upper body" or "cowboy shot" for one character, "medium shot" for two or three) so they fill most of the frame with clear faces and expressions; keep the background simple and secondary ("depth of field", "blurry background"), showing only enough to identify the place. Use a wide shot only when no character is visible. If a character kisses the player, use "incoming kiss" with a close-up of her face (eyes closed or half-closed, blush). Never mention out-of-view characters in scene_prompt. For EVERY character also output "in_view": true/false — false when the character is outside the player\'s field of view (behind the player, beside and out of frame, behind a wall, hidden in darkness); true only if the player would actually see them right now (e.g. "leaning in from over your shoulder" counts as visible).'
       : '',
-    'ORIENTATION: also output "orientation": "portrait" for one character or two characters in close interaction (kiss, embrace, face-to-face, leaning on each other); "landscape" for battles, wide scenery, three or more characters, or two characters apart.',
+    'ORIENTATION: also output "orientation": "portrait" for one character (always, even in battle) or two characters in close interaction (kiss, embrace, face-to-face, leaning on each other); "landscape" for battles, wide scenery, three or more characters, or two characters apart.',
     'Output strictly valid JSON: { "orientation": "portrait or landscape", "scene_prompt": "...", "char_directions": [{ "id": "...", "is_nude": false, "outfit": "...", "action": "...", "interaction": "" }] }'
   ].join('\n');
 
@@ -4077,7 +4107,13 @@ function ensureExpression_(actionStr, expr) {
 
 // 夜景沒有其他光源時，整張會被染成藍色霓虹、人物膚色發青；補一點暖色環境光（實測膚色恢復正常）
 function addNightFillLight_(prompt) {
-  const p = String(prompt || '');
+  let p = String(prompt || '');
+  // 黃昏：導演常寫 orange-hued lighting，整張連人物都被染成橘色 → 改成暖光並保留膚色
+  if (/\b(sunset|golden hour|dusk|twilight|evening)\b/i.test(p)) {
+    p = p.replace(/\b(orange|amber)[- ]hued (lighting|light|glow)/gi, 'warm lighting').replace(/,\s*orange[- ]hued sky/gi, ', orange sky');
+    if (!/natural skin tone/i.test(p)) p = `${p}, natural skin tone, soft lighting`;
+    return p;
+  }
   if (!/\b(night|midnight|night sky|dark)\b/i.test(p)) return p;
   if (/\b(warm|lamp|lantern|street ?lights?|candle|fire|bonfire|sunset|sunrise|natural skin tone)\b/i.test(p)) return p;
   return p ? `${p}, warm ambient light, natural skin tone` : p;
@@ -4092,7 +4128,13 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
   // 一張圖最多 3 人：尺寸固定，4 人以上每張臉太小、容易畫歪或把同一人畫兩次；超過時先省略御主（多半站在後方）
   const MAX_CG_CHARS = 3;
   let validChars = presentChars.filter(c => c && charDb[c.id] && !(povMode && c.id === 'player_master'));
-  if (validChars.length > MAX_CG_CHARS) validChars = validChars.filter(c => c.id !== 'player_master');
+  if (validChars.length > MAX_CG_CHARS) {
+    // 保留順序：自己的從者（主／副）→ 正在解放寶具的 → 其他人照 AI 列出的順序；御主最先省略
+    const own = new Set([statusObj.servant1 && statusObj.servant1.id, statusObj.servant2 && statusObj.servant2.id].filter(Boolean));
+    const rank = c => (own.has(c.id) ? 0 : (c.use_np ? 1 : 2));
+    validChars = validChars.filter(c => c.id !== 'player_master')
+      .map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i).map(x => x.c);
+  }
   validChars = validChars.slice(0, MAX_CG_CHARS);
   let girls = 0;
   let boys = 0;
@@ -4103,11 +4145,13 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     const dbInfo = charDb[c.id] || {};
     const profile = resolveCharacterVisualProfile_(c.id, dbInfo, statusObj, userAction, storyText, isCombat);
 
-    const nudeMode = isNudeOutfitTags_(profile.outfit) || /全裸|裸體|沒穿|赤裸|一絲不掛|\b(nude|naked|no clothes|topless)\b/i.test(String(c.action_en || ''));
+    const wantsNude = isNudeOutfitTags_(profile.outfit) || /全裸|裸體|沒穿|赤裸|一絲不掛|\b(nude|naked|no clothes|topless)\b/i.test(String(c.action_en || ''));
+    if (wantsNude && !isNudeOutfitTags_(profile.outfit)) profile.outfit = 'nude, completely nude, no clothes';
+    const nudeMode = isNudeOutfitTags_(profile.outfit);
     const normCore = normalizeCharCoreForNai_(profile.core, profile.gender);
     const core = nudeMode ? stripClothesFromCore_(normCore) : normCore;
     if (nudeMode) anyNude = true;
-    const weightedOutfit = formatCharacterOutfitPrompt_(nudeMode && !isNudeOutfitTags_(profile.outfit) ? 'nude, completely nude, no clothes' : profile.outfit);
+    const weightedOutfit = formatCharacterOutfitPrompt_(profile.outfit);
     let directAction = String(c.action_en || '').trim();
 
     if (profile.gender === 'boy') boys++;
@@ -4229,7 +4273,20 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
 // NovelAI 的互動語法只認 source# / target# / mutual# 三種前綴；其他「xxx#」前綴（例如角色名#）會被當成雜訊，直接去掉前綴保留動作
 function stripBadInteractionPrefix_(str) {
   return String(str || '').split(',').map(t => t.trim()).filter(Boolean)
-    .map(t => (/^(source|target|mutual)#/i.test(t) ? t : t.replace(/^[^\s#,]{1,24}#/, '')))
+    .map(t => {
+      if (/^(source|target|mutual)#[^#]*$/i.test(t)) return t;
+      // 導演常寫成「名字#動作#對象」（archer#protecting#rin）→ 轉成 NovelAI 認得的 source#動作
+      const tri = t.match(/^(?:(source|target|mutual)#)?[^#]{1,40}#([^#]+)#[^#]{1,40}$/i);
+      if (tri) return `${(tri[1] || 'source').toLowerCase()}#${tri[2].replace(/_/g, ' ').trim()}`;
+      // 「動作#對象」（protective_hand_on_shoulder#rin，前半是多字動作）→ source#動作
+      const duo = t.match(/^([^#]{1,60})#([^#]{1,40})$/);
+      if (duo && /[_ ]/.test(duo[1].trim())) return `source#${duo[1].replace(/_/g, ' ').trim()}`;
+      // 其他不認得的前綴（多半是名字，可能好幾層）全部去掉，只留動作
+      let r = t;
+      while (/^[^\s#,]{1,40}#/.test(r) && !/^(source|target|mutual)#/i.test(r)) r = r.replace(/^[^\s#,]{1,40}#/, '');
+      return r.replace(/_/g, ' ');
+    })
+    .filter(Boolean)
     .join(', ');
 }
 
@@ -4296,6 +4353,75 @@ function outfitSimilarity_(a, b) {
   return ta.filter(t => tb.has(t)).length / Math.min(ta.length, tb.size);
 }
 
+// 導演文字的最後修正：視線方向、擁抱／親吻構圖（NovelAI 對自然語言的「別過頭」常會畫成看鏡頭）
+const AVERTED_GAZE_RE_ = /\b(looking away|looking to the side|looking down|looking out|looking back|averting (her|his|their) (gaze|eyes)|averted gaze|eyes closed|closed eyes|looking at another character|looking at the other|looking towards the window|looking up at another)\b/i;
+function refineGazeAction_(action) {
+  let a = String(action || '');
+  a = a.replace(/looking away from (the )?viewer/gi, 'looking away, looking to the side').replace(/away from (the )?viewer/gi, 'away');
+  const averted = AVERTED_GAZE_RE_.test(a) && !/\blooking at viewer\b/i.test(a);
+  return { action: a, averted: averted };
+}
+function isRomanticInteraction_(text) {
+  return /\b(hug|hugging|embrace|embracing|kiss|kissing|cuddl)/i.test(String(text || ''));
+}
+function refineRomanceFraming_(scenePrompt) {
+  let p = String(scenePrompt || '');
+  if (!/\b(upper body|close-up|portrait)\b/i.test(p)) p = `upper body, ${p}`;
+  return p.replace(/,?\s*\b(medium shot|wide shot|full body|long shot|cowboy shot)\b/gi, '').replace(/^,\s*/, '');
+}
+
+// 鏡頭字眼換成 NovelAI 認得的 Danbooru 標籤：medium shot 不是 Danbooru 標籤，1～2 人時常被畫成全身遠景（實測小次郎在山門只剩小人）
+function refineFramingTags_(prompt, nChars) {
+  let p = String(prompt || '');
+  if (nChars >= 1 && nChars <= 2 && !/\b(cowboy shot|upper body|close-up|portrait)\b/i.test(p)) p = p.replace(/\bmedium shot\b/i, 'cowboy shot');
+  return p;
+}
+
+// 親密動作 → NovelAI 熟悉的 Danbooru 標籤（自然語言的「從背後抱」「親臉頰」常被畫成並肩站、親嘴）
+const INTIMACY_TAGS_ = [
+  { re: /\b(hug(ging|s|ged)?|embrac(e|ing|ed)|arms wrapped around)\b[^,]*\bfrom behind\b|\bback hug\b|\bbeing hugged from behind\b/i, tag: 'hug from behind' },
+  { re: /\bkiss(ing|es)? (on )?(the |her |his |another character's |the other character's |viewer's |the viewer's )?cheek\b|\bcheek kiss\b|\blips touching [^,]*cheek\b/i, tag: 'kissing cheek', cheek: true },
+  { re: /\b(lap pillow|head (resting )?on [^,]*lap|lying [^,]*on [^,]*lap)\b/i, tag: 'lap pillow' },
+  { re: /\b(patting|pats?|stroking|rubbing|ruffling) [^,]*head\b|\bheadpat\b/i, tag: 'headpat' },
+  { re: /\bforehead (to|against) forehead\b|\bforeheads? (pressed|touching)\b/i, tag: 'forehead-to-forehead' },
+  { re: /\bholding hands\b|\bhand in hand\b|\binterlocked fingers\b/i, tag: 'holding hands' },
+  { re: /(^|[\s,#])(hug|hugging|embracing (the )?viewer)\b(?! from behind)/i, tag: 'hug' }
+];
+function detectIntimacyTags_(texts) {
+  const joined = (texts || []).join(' , ');
+  const hits = INTIMACY_TAGS_.filter(t => t.re.test(joined));
+  // 從背後抱已經涵蓋一般擁抱，不再重複加 hug
+  return hits.some(t => t.tag === 'hug from behind') ? hits.filter(t => t.tag !== 'hug') : hits;
+}
+
+// 上半身／特寫鏡頭時拿掉下半身衣物標籤：服裝欄位加權寫了長裙、褲襪、靴子時，NovelAI 會為了畫出它們而拉成全身（實測櫻哭泣怎樣都是全身）
+const LOWER_BODY_RE_ = /\b(skirt|miniskirt|pleated skirt|long skirt|hakama|pants|trousers|jeans|shorts|pantyhose|tights|thighhighs|thigh highs|kneehighs|socks|stockings|leggings|garter( belt| straps)?|shoes|boots|heels|high heels|sandals|loafers|sneakers|footwear|geta|zettai ryouiki)\b/i;
+const FOOTWEAR_RE_ = /\b(shoes|boots|armored boots|heels|high heels|sandals|loafers|sneakers|footwear|geta)\b/i;
+function stripLowerBodyForCloseUp_(charPrompt, footwearOnly) {
+  const re = footwearOnly ? FOOTWEAR_RE_ : LOWER_BODY_RE_;
+  const tokens = String(charPrompt || '').split(',');
+  const out = [];
+  let carryPrefix = '';
+  tokens.forEach(raw => {
+    let t = raw.trim();
+    if (!t) return;
+    const pre = (t.match(/^(-?\d+(\.\d+)?::)/) || [''])[0];
+    const suf = /::$/.test(t) && !/^-?\d+(\.\d+)?::$/.test(t) ? '::' : '';
+    const core = t.slice(pre.length, suf ? t.length - 2 : t.length).trim();
+    if (re.test(core) && !/\b(hair|eyes)\b/i.test(core)) {
+      if (pre) carryPrefix = carryPrefix || pre;
+      if (suf) {
+        if (carryPrefix) carryPrefix = ''; // 整段加權都被拿掉了
+        else if (out.length) out[out.length - 1] = out[out.length - 1] + '::';
+      }
+      return;
+    }
+    if (carryPrefix) { t = carryPrefix + t; carryPrefix = ''; }
+    out.push(t);
+  });
+  return out.join(', ');
+}
+
 function generateTurnCgAsync(imgPayload) {
   if (!imgPayload) throw new Error('無場景資料');
   const working = JSON.parse(JSON.stringify(imgPayload));
@@ -4324,7 +4450,9 @@ function generateTurnCgAsync(imgPayload) {
         }
       }
       // 導演決定畫面方向（兩種尺寸像素量相同，都在免費範圍）
-      if (directed.orientation === 'portrait' && Array.isArray(working.characters) && working.characters.length <= 2) {
+      // 只有 1 個角色時一律直式：橫式會把單人畫得很小（實測黑櫻在橫式大空洞裡只剩一個小點）
+      const nChars = Array.isArray(working.characters) ? working.characters.length : 0;
+      if (nChars === 1 || (directed.orientation === 'portrait' && nChars <= 2)) {
         working.width = 832; working.height = 1216;
       } else if (directed.orientation === 'landscape') {
         working.width = 1216; working.height = 832;
@@ -4332,12 +4460,19 @@ function generateTurnCgAsync(imgPayload) {
       const directedNude = Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && (Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit)));
       const alreadyNude = /(^|,\s*)nsfw(\s*,|$)/.test(String(working.prompt || ''));
       const ratingTag = (working.adultMode && (directedNude || alreadyNude)) ? 'nsfw' : '';
+      // 畫面上沒有人裸露時，場景描述也不能殘留裸露字眼
+      if (!directedNude && directed.scene_prompt) {
+        directed.scene_prompt = String(directed.scene_prompt).split(',').map(t => t.trim())
+          .filter(t => t && !isNudeOutfitTags_(t) && !/^(nsfw|bare skin|nipples|pussy|breasts out)$/i.test(t)).join(', ');
+      }
       // 第一人稱：玩家這回合沒有用手碰角色或接東西時，不畫 pov hands（避免畫面兩側出現一雙大手）
       const handAction = /握|牽|摸|撫|遞|接過|拿|抓|抱|拍|推|拉|觸|摟|伸手|手/.test(String((working._directorContext || {}).userAction || ''));
       if (directed.scene_prompt && !handAction) {
         directed.scene_prompt = String(directed.scene_prompt).split(',').map(t => t.trim()).filter(t => t && !/^pov hands?$/i.test(t)).join(', ');
       }
       if (directed.scene_prompt) {
+        // 主提示詞也不放角色名字（名字只該出現在該角色自己的欄位）
+        directed.scene_prompt = stripOtherCharNames_(directed.scene_prompt, '', (working.characters || []).map(x => x.id), 'a figure');
         working.prompt = [working.countPrefix, ratingTag, stripCountTags_(directed.scene_prompt), working.combatEnvTags].filter(Boolean).join(', ');
       } else if (ratingTag && !alreadyNude) {
         working.prompt = [working.countPrefix, ratingTag, stripCountTags_(working.prompt)].filter(Boolean).join(', ');
@@ -4367,10 +4502,90 @@ function generateTurnCgAsync(imgPayload) {
             .split(',').map(t => t.trim()).filter(t => t && !/^in_view\s*[:=]/i.test(t)).join(', ');
 
           const actionWithExpr = isNude ? actionParts : ensureExpression_(actionParts, ch.defaultExpression || '');
+          const presentIds = working.characters.map(x => x.id).concat(((working._directorContext || {}).chars || []).map(x => x.id));
+          const gaze = refineGazeAction_(stripOtherCharNames_(actionWithExpr, ch.id, presentIds).replace(/\bmutual#embrac(e|ing)\b/gi, 'mutual#hug'));
+          // 視線不看鏡頭時，這個角色的負面加 looking at viewer（否則 NovelAI 很容易讓她直視鏡頭）
+          const gazeUc = gaze.averted && !/looking at viewer/i.test(String(ch.uc || '')) ? 'looking at viewer' : '';
           return Object.assign({}, ch, {
-            prompt: [finalCore, finalOutfit, actionWithExpr, ch.npBoost].filter(Boolean).join(', ')
+            prompt: [finalCore, finalOutfit, gaze.action, ch.npBoost].filter(Boolean).join(', '),
+            uc: [ch.uc, gazeUc].filter(Boolean).join(', ')
           });
         });
+      }
+      // 親密動作補上 Danbooru 標籤（主提示詞），親臉頰不當成親嘴
+      const intimacy = Array.isArray(directed.char_directions)
+        ? detectIntimacyTags_(directed.char_directions.map(d => `${(d && d.interaction) || ''} , ${(d && d.action) || ''}`))
+        : [];
+      const cheekKiss = intimacy.some(t => t.cheek);
+      if (cheekKiss && Array.isArray(working.characters)) {
+        working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: String(ch.prompt || '').replace(/,\s*(source#|target#|mutual#)?incoming kiss\b/gi, '').replace(/,\s*puckered lips\b/gi, '') }));
+        working.prompt = String(working.prompt || '').replace(/,\s*incoming kiss\b/gi, '');
+      }
+      intimacy.forEach(t => {
+        // 第一人稱親臉頰：畫面裡看不到自己的臉，改成她從側面湊近、閉眼
+        let tag = (t.cheek && working.cameraMode === 'pov') ? 'from side, face focus, leaning in, closed eyes, blush' : t.tag;
+        // 第一人稱膝枕：鏡頭是躺在她腿上的你 → 從下往上看，她低頭看著你；摸頭同理（她的手伸向鏡頭上方）
+        if (working.cameraMode === 'pov' && t.tag === 'lap pillow') tag = 'lap pillow, pov, from below, looking down at viewer, close-up, face focus, ceiling';
+        if (working.cameraMode === 'pov' && t.tag === 'hug') tag = 'incoming hug, close-up, face focus';
+        if (working.cameraMode === 'pov' && t.tag === 'headpat') tag = 'headpat, headpat pov, from below, looking down at viewer, reaching towards viewer';
+        if (!new RegExp('\\b' + tag.split(',')[0].replace(/[-]/g, '\\-') + '\\b', 'i').test(working.prompt)) working.prompt = `${working.prompt}, ${tag}`;
+      });
+      // 第一人稱：畫面裡沒有可以當「對象」的角色，source#／target#／mutual# 前綴會讓 incoming kiss 這類動作失效 → 去掉前綴
+      if (working.cameraMode === 'pov' && Array.isArray(working.characters)) {
+        working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: String(ch.prompt || '').replace(/(^|,\s*)(source|target|mutual)#/gi, '$1') }));
+        // 導演有時寫「kissing viewer」「kiss」而不是 incoming kiss → 統一成 incoming kiss（親臉頰除外）
+        if (!cheekKiss) {
+          working.characters = working.characters.map(ch => {
+            const p0 = String(ch.prompt || '');
+            if (/\bincoming kiss\b/i.test(p0) || !/\bkiss(es|ing)?\b/i.test(p0)) return ch;
+            return Object.assign({}, ch, { prompt: `${p0}, incoming kiss` });
+          });
+        }
+        if (!cheekKiss && working.characters.some(ch => /\bincoming kiss\b/i.test(ch.prompt))) {
+          // 親吻要看得出來：臉部特寫、閉眼、嘟唇；拿掉會搶戲的「微笑」
+          working.characters = working.characters.map(ch => /\bincoming kiss\b/i.test(ch.prompt)
+            ? Object.assign({}, ch, { prompt: ch.prompt.replace(/,\s*(soft |gentle |light |slight )?smile\b/gi, '').replace(/,\s*(eyes half-closed|half-closed eyes|looking at viewer)\b/gi, '') + ', closed eyes, puckered lips' })
+            : ch);
+          if (!/\bincoming kiss\b/i.test(working.prompt)) working.prompt = `${working.prompt}, incoming kiss`;
+          if (!/\bface focus\b/i.test(working.prompt)) working.prompt = `${working.prompt}, face focus`;
+        }
+      }
+      working.prompt = refineFramingTags_(working.prompt, Array.isArray(working.characters) ? working.characters.length : 0);
+      // 兩人對打或面對面：導演常把一人放前景背對鏡頭 → 加 from side，並刪掉「前景」字眼，讓兩人的臉都看得到
+      const pairFacing = Array.isArray(working.characters) && working.characters.length === 2 && Array.isArray(directed.char_directions)
+        && directed.char_directions.some(d => d && /\b(clash|clashing|facing (each other|another character|the other)|confront|duel|sword fight|parry|parrying|crossed blades)/i.test(`${d.interaction || ''} ${d.action || ''}`));
+      if (pairFacing && !/\b(from side|profile)\b/i.test(working.prompt) && working.cameraMode !== 'pov') {
+        working.prompt = `${working.prompt}, from side`;
+        working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: String(ch.prompt || '').replace(/,\s*(in the )?foreground\b/gi, '').replace(/,\s*back to (the )?(viewer|camera)\b/gi, '') }));
+      }
+      // 情緒高點（哭泣、流淚）：1～2 人時拉成上半身＋臉部特寫，不然全身鏡頭看不到眼淚（實測櫻哭著告白卻畫成站在客廳中間）
+      const nNow = Array.isArray(working.characters) ? working.characters.length : 0;
+      if (nNow >= 1 && nNow <= 2 && Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && /\b(crying|tears|tearing up|sobbing|tearful|weeping)\b/i.test(String(d.action || '')))) {
+        // 鏡頭標籤放在人數標籤後面（越前面權重越高；放最後會被一大段場景描述蓋過）
+        const rest = stripCountTags_(String(working.prompt).replace(/,?\s*\b(cowboy shot|medium shot|wide shot|full body|upper body|close-up)\b/gi, '')).replace(/^,\s*/, '');
+        working.prompt = [working.countPrefix, 'upper body, face focus, streaming tears', rest].filter(Boolean).join(', ');
+      }
+      // 擁抱、親吻：鏡頭拉近到上半身，避免 upper body 和 medium shot 同時出現互相抵銷
+      if (Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && isRomanticInteraction_(`${d.interaction || ''} ${d.action || ''}`))) {
+        working.prompt = refineRomanceFraming_(working.prompt).replace(/,?\s*[^,]*\bsilhouettes?\b[^,]*/gi, '');
+        // 第三人稱接吻：臉部特寫＋Danbooru 的 kiss 標籤放前面（實測只寫 upper body 時偶爾會畫成遠處剪影）
+        const lipKiss = !cheekKiss && working.cameraMode !== 'pov' && directed.char_directions.some(d => d && /\bkiss(es|ing)?\b/i.test(`${d.interaction || ''} ${d.action || ''}`));
+        if (lipKiss) {
+          const rest = stripCountTags_(String(working.prompt).replace(/,?\s*\b(upper body|close-up|kiss)\b/gi, '')).replace(/^,\s*/, '');
+          working.prompt = [working.countPrefix, 'upper body, kiss, faces close together', rest].filter(Boolean).join(', ');
+          // 角色欄位的站位／腳部字眼會讓其中一人被畫成全身、站到背景（實測一大一小、遠近對不上）→ 接吻時拿掉
+          const STANCE_RE = /\b(standing|tiptoe(s|ing)?|on tiptoes?|in front of|behind|foreground|background|center|walking|full body|legs?|feet|barefoot)\b/i;
+          working.characters = working.characters.map(ch => {
+            const toks = String(ch.prompt || '').split(',').map(t => t.trim()).filter(Boolean);
+            return Object.assign({}, ch, { prompt: toks.filter(t => /::/.test(t) || !STANCE_RE.test(t)).join(', ') });
+          });
+        }
+      }
+      if (/\b(upper body|close-up|portrait|face focus)\b/i.test(String(working.prompt || '')) && Array.isArray(working.characters)) {
+        working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: stripLowerBodyForCloseUp_(ch.prompt) }));
+      } else if (/\bcowboy shot\b/i.test(String(working.prompt || '')) && Array.isArray(working.characters)) {
+        // cowboy shot（大腿以上）鞋子本來就不入鏡；服裝寫了高跟鞋、靴子會被拉成全身（Rider 幾乎每張都全身就是這個原因）
+        working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: stripLowerBodyForCloseUp_(ch.prompt, true) }));
       }
     }
     delete working._directorContext;
@@ -4609,6 +4824,15 @@ function customServantParamsText_(stats) {
   return SERVANT_STAT_KEYS_.map(([k, zh]) => `${zh}:${normalizeServantRank_(stats && stats[k])}`).join(' ');
 }
 
+// 身形選單 → 標籤（自創英靈預設沒有身高資訊時，NovelAI 常把成熟女性角色畫得很高）
+function customServantCore_(cs) {
+  const core = String((cs && cs.core) || '');
+  const b = cs && cs.build;
+  const tag = b === 'petite' ? 'petite, short' : (b === 'tall' ? (cs.gender === 'boy' ? 'tall male' : 'tall female') : '');
+  if (!tag || /\b(petite|tall female|tall male|short stature)\b/i.test(core)) return core;
+  return `${core}, ${tag}`;
+}
+
 // 能力值換算成戰力等級（2～5）：全 A 以上才到最高級
 function customServantTier_(stats) {
   const val = r => ({ 'EX': 6, 'A++': 5.6, 'A+': 5.3, 'A': 5, 'B+': 4.3, 'B': 4, 'C+': 3.3, 'C': 3, 'D+': 2.3, 'D': 2, 'E+': 1.3, 'E': 1 })[normalizeServantRank_(r)];
@@ -4637,6 +4861,7 @@ function sanitizeCustomServant_(raw) {
     uc: cleanTagText_(r.uc, 300),
     officialTag: cleanTagText_(r.officialTag, 80),
     expression: cleanTagText_(r.expression, 60),
+    build: ['petite', 'average', 'tall'].indexOf(String(r.build)) >= 0 ? String(r.build) : '',
     npVisual: cleanTagText_(r.npVisual, 200),
     stats: stats,
     npName: cleanTagText_(r.npName, 30),
@@ -4688,7 +4913,8 @@ function enhanceServantAppearance(zhDesc, gender, name, cls) {
   const systemPrompt = [
     'You are an expert NovelAI Diffusion V5 & Danbooru prompt writer for Fate/Type-Moon style characters.',
     'The user is designing an original (or existing) Heroic Spirit. Convert the Traditional Chinese description into precise Danbooru tags.',
-    'Output strictly valid JSON with keys: "official_tag", "core_tags", "outfit_tags", "uc_tags", "expression_tag", "np_visual_tags", "advice_zh".',
+    'Output strictly valid JSON with keys: "official_tag", "core_tags", "outfit_tags", "uc_tags", "expression_tag", "np_visual_tags", "build", "advice_zh".',
+    '- build: body height judged from the description: "petite" (small, childlike, short), "tall" (tall, imposing, mature goddess-like only if the description says tall), otherwise "average". Do NOT put height tags in core_tags.',
     '- official_tag: if the name/description clearly refers to an existing character with a Danbooru character tag, give the EXACT tag spelling (e.g. "scathach (fate)", "sasaki kojirou (fate)", "artoria pendragon (fate)"). Otherwise "".',
     `- core_tags: start with "${genderTag}", then official_tag if any, then permanent physical traits ONLY (hair color, hair length/style, eye color, skin, body, age look). NO clothes, NO style, NO background.`,
     '- outfit_tags: the default battle outfit (clothes, armor, legwear, footwear, accessories) ONLY. Must be clothed.',
@@ -4708,7 +4934,7 @@ function previewCustomServant(raw, mode) {
   if (mode === 'official') {
     const base = cs.officialTag
       ? `${gTag}, solo, ${cs.officialTag}`
-      : [gTag, 'solo', normalizeCharCoreForNai_(cs.core, cs.gender).replace(/^(girl|boy),\s*/i, ''), cs.outfit].filter(Boolean).join(', ');
+      : [gTag, 'solo', normalizeCharCoreForNai_(customServantCore_(cs), cs.gender).replace(/^(girl|boy),\s*/i, ''), cs.outfit].filter(Boolean).join(', ');
     return generateNovelAIImageSafe_({
       prompt: base,
       noStyle: true,
@@ -4718,7 +4944,7 @@ function previewCustomServant(raw, mode) {
       width: 832, height: 1216, steps: 23, scale: 7, cfgRescale: 0
     });
   }
-  const core = normalizeCharCoreForNai_(cs.core, cs.gender);
+  const core = normalizeCharCoreForNai_(customServantCore_(cs), cs.gender);
   const action = ensureExpression_('standing, looking at viewer, cowboy shot, dynamic pose', cs.expression || 'light smile');
   return generateNovelAIImageSafe_({
     prompt: `${gTag}, solo, glowing magic circle, summoning, mana particles, dramatic lighting`,
@@ -4755,7 +4981,7 @@ function getCharAppearanceMap_(ss) {
       id: CUSTOM_SERVANT_ID_,
       triggers: `${cs.name},${cs.cls},自創英靈`,
       gender: cs.gender,
-      coreTraits: cs.core,
+      coreTraits: customServantCore_(cs),
       defaultOutfit: cs.outfit,
       casualOutfit: '',
       uc: cs.uc || '',

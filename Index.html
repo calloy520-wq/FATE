@@ -913,6 +913,15 @@
               <div><label class="form-label">性別</label><select id="cs-gender"><option value="girl">女</option><option value="boy">男</option></select></div>
             </div>
             <div class="form-group">
+              <label class="form-label">身形（影響畫面上的身高）</label>
+              <select id="cs-build">
+                <option value="">不指定（交給 NovelAI）</option>
+                <option value="petite">嬌小</option>
+                <option value="average">普通</option>
+                <option value="tall">高挑</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label class="form-label">📥 帶入現有英靈（外貌＋能力值當起點，可再修改）</label>
               <div style="display: flex; gap: 8px;">
                 <select id="cs-template"><option value="">（不帶入）</option></select>
@@ -1682,7 +1691,7 @@
       const stats = {};
       ['str', 'end', 'agi', 'mana', 'luck', 'np'].forEach(k => { stats[k] = document.getElementById('cs-stat-' + k).value; });
       return {
-        name: val('cs-name'), cls: val('cs-cls'), gender: val('cs-gender'),
+        name: val('cs-name'), cls: val('cs-cls'), gender: val('cs-gender'), build: val('cs-build'),
         officialTag: val('cs-official'), core: val('cs-core'), outfit: val('cs-outfit'), uc: val('cs-uc'),
         expression: val('cs-expression'), npName: val('cs-np-name'), npEffect: val('cs-np-effect'),
         npVisual: val('cs-np-visual'), personality: val('cs-personality'), stats: stats
@@ -1707,6 +1716,7 @@
           put('cs-uc', res.uc_tags);
           put('cs-expression', res.expression_tag);
           put('cs-np-visual', res.np_visual_tags);
+          if (['petite', 'average', 'tall'].indexOf(res.build) >= 0) document.getElementById('cs-build').value = res.build;
           const box = document.getElementById('cs-advice');
           box.innerText = (res.official_tag ? '🏷️ 推薦官方角色標籤：' + res.official_tag + '\n' : '') + (res.advice_zh ? '💡 ' + res.advice_zh : '');
           box.classList.toggle('hidden', !box.innerText.trim());

@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, stripLowerBodyForCloseUp_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -179,10 +179,13 @@ eq('全裸：從者穿上衣服 → 還原', T.autoAdaptSmartOutfit_('scathach',
 eq('全裸：御主開戰也不會自動穿', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '迎戰', '', true, '新都'), NUDE);
 eq('全裸：御主劇情別人穿衣不算', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '看著她', '斯卡哈穿上衣服', false, '廢棄洋館'), NUDE);
 eq('全裸：御主自己穿上 → 還原', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '我穿上衣服', '', false, '廢棄洋館'), 'coat');
+const pst = (adult) => ({ cameraMode: 'third', adultMode: adult, locationKey: '廢棄洋館', master: { gender: 'girl', coreTags: 'black hair' }, outfits: { scathach: NUDE, rin: NUDE, player_master: NUDE } });
 {
-  const pst3 = { cameraMode: 'third', adultMode: true, locationKey: '廢棄洋館', master: { gender: 'girl', coreTags: 'black hair' }, outfits: {} };
-  const crowd = T.buildNaiPayloadFromScene_(pst3, [{ id: 'player_master' }, { id: 'scathach' }, { id: 'lancer' }, { id: 'archer' }, { id: 'rin' }], 'bridge, night', true, '開打', '', 1);
+  const crowd = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'player_master' }, { id: 'scathach' }, { id: 'lancer' }, { id: 'archer' }, { id: 'rin' }], 'bridge, night', true, '開打', '', 1);
   eq('一張圖最多 3 人、先省略御主', crowd.characters.map(c => c.id), ['scathach', 'lancer', 'archer']);
+  const own = Object.assign({}, pst(true), { servant1: { id: 'scathach' } });
+  const crowd2 = T.buildNaiPayloadFromScene_(own, [{ id: 'rin' }, { id: 'archer' }, { id: 'lancer', use_np: true }, { id: 'scathach' }, { id: 'player_master' }], 'bridge, night', true, '開打', '', 1);
+  eq('超過 3 人：自己的從者排第一、寶具中的優先', crowd2.characters.map(c => c.id), ['scathach', 'lancer', 'rin']);
 }
 
 // ---- 戰鬥分量：淘汰要兩步 ----
@@ -327,6 +330,11 @@ eq('空動作 → 只放表情', T.ensureExpression_('', 'smirk'), 'smirk');
 eq('夜景沒光源 → 補暖光', T.addNightFillLight_('1girl, night, city'), '1girl, night, city, warm ambient light, natural skin tone');
 eq('夜景已有路燈 → 不補', T.addNightFillLight_('1girl, night, street lights'), '1girl, night, street lights');
 eq('白天 → 不補', T.addNightFillLight_('1girl, day, park'), '1girl, day, park');
+eq('身形嬌小 → petite', T.customServantCore_({ core: 'girl, silver hair', build: 'petite', gender: 'girl' }), 'girl, silver hair, petite, short');
+eq('身形高挑男性 → tall male', T.customServantCore_({ core: 'boy, black hair', build: 'tall', gender: 'boy' }), 'boy, black hair, tall male');
+eq('身形普通／不指定 → 不加', T.customServantCore_({ core: 'girl', build: 'average' }), 'girl');
+eq('已手動寫 petite → 不重複', T.customServantCore_({ core: 'girl, petite', build: 'petite' }), 'girl, petite');
+eq('身形清理：亂填 → 不指定', T.sanitizeCustomServant_({ name: 'a', core: 'girl', build: 'giant' }).build, '');
 eq('能力全 A 以上 → 最高級 5', T.customServantTier_({ str: 'A', end: 'A', agi: 'A+', mana: 'EX', luck: 'A', np: 'EX' }), 5);
 eq('Saber 原作能力 → 4', T.customServantTier_({ str: 'B', end: 'B', agi: 'B', mana: 'A', luck: 'A+', np: 'A++' }), 4);
 eq('全 E → 2', T.customServantTier_({ str: 'E', end: 'E', agi: 'E', mana: 'E', luck: 'E', np: 'E' }), 2);
@@ -345,6 +353,32 @@ eq('能力值文字', T.customServantParamsText_({ str: 'a+', end: 'X', agi: 'B'
   const c = T.formatNovelStoryText_('風雪捲起。\n\n「芙蕾雅，退後！」\n\n芙蕾雅：「遵命。」', ['芙蕾雅', '測驗員'], '', '測驗員');
   eq('判斷不出就不標，不會標成被叫的人', c.split('\n\n')[1], '「芙蕾雅，退後！」');
 }
+
+// 互動語法修正與角色名字清除
+eq('名字#動作#對象 → source#動作', T.stripBadInteractionPrefix_('archer#protecting#rin'), 'source#protecting');
+eq('動作#對象 → source#動作', T.stripBadInteractionPrefix_('protective_hand_on_shoulder#rin'), 'source#protective hand on shoulder');
+eq('名字#動作 → 動作', T.stripBadInteractionPrefix_('rin#hug'), 'hug');
+eq('正確語法不動', T.stripBadInteractionPrefix_('mutual#kiss, smile'), 'mutual#kiss, smile');
+eq('別人名字換成中性說法', T.stripOtherCharNames_('standing behind Archer, looking at Rin', 'lancer', ['archer', 'rin', 'lancer']), 'standing behind another character, looking at another character');
+eq('自己的名字與角色標籤不動', T.stripOtherCharNames_('archer (fate), smirking at Lancer and Rin', 'archer', ['archer', 'rin', 'lancer']), 'archer (fate), smirking at the others');
+eq('不在場的人不動（sakura 花）', T.stripOtherCharNames_('under sakura trees', 'rin', ['rin']), 'under sakura trees');
+
+// 繪圖文字修正
+eq('從背後抱 → hug from behind', T.detectIntimacyTags_(['source#hugging another character from behind, smile']).map(t => t.tag), ['hug from behind']);
+eq('親臉頰 → kissing cheek', T.detectIntimacyTags_(['lips touching viewer\'s cheek, closed eyes']).map(t => t.tag), ['kissing cheek']);
+eq('膝枕＋摸頭', T.detectIntimacyTags_(['head resting on another character\'s lap', 'stroking the hair on her head']).map(t => t.tag), ['lap pillow', 'headpat']);
+eq('擁抱拉近也去掉 cowboy shot', T.refineRomanceFraming_('2girls, cowboy shot, kitchen'), 'upper body, 2girls, kitchen');
+eq('特寫拿掉下半身（加權結尾保留）', T.stripLowerBodyForCloseUp_('girl, purple hair, 1.15::red hair ribbon, white blouse, pink cardigan, long skirt, black pantyhose::, crying'), 'girl, purple hair, 1.15::red hair ribbon, white blouse, pink cardigan::, crying');
+eq('特寫拿掉下半身（加權開頭轉移）', T.stripLowerBodyForCloseUp_('girl, 1.15::black thighhighs, red sweater::, smile'), 'girl, 1.15::red sweater::, smile');
+eq('cowboy shot 只拿掉鞋子', T.stripLowerBodyForCloseUp_('girl, 1.15::black dress, black thighhighs, high heels::, smile', true), 'girl, 1.15::black dress, black thighhighs::, smile');
+eq('整段加權都是下半身 → 全部拿掉', T.stripLowerBodyForCloseUp_('girl, 1.2::boots, skirt::, smile'), 'girl, smile');
+eq('1 人 medium shot → cowboy shot', T.refineFramingTags_('1boy, solo, medium shot, temple', 1), '1boy, solo, cowboy shot, temple');
+eq('3 人保留 medium shot', T.refineFramingTags_('3girls, medium shot', 3), '3girls, medium shot');
+eq('已有 upper body 不改', T.refineFramingTags_('upper body, medium shot', 2), 'upper body, medium shot');
+eq('looking away from viewer → looking away', T.refineGazeAction_('blush, looking away from the viewer').action, 'blush, looking away, looking to the side');
+eq('別過頭 → 視線不看鏡頭', T.refineGazeAction_('looking at another character, smile').averted, true);
+eq('看鏡頭 → 不算別過頭', T.refineGazeAction_('looking at viewer, smile').averted, false);
+eq('擁抱 → 上半身、去掉 medium shot', T.refineRomanceFraming_('2girls, medium shot, rooftop'), 'upper body, 2girls, rooftop');
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

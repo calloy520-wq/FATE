@@ -76,19 +76,34 @@
 - 導演只畫劇情當下明確出現的道具、武器與魔術效果，不自動加角色招牌物品。
 - 畫面方向自動切換（`pickNaiSize_`）：畫面只有 1 個角色 → 直式 832×1216；2 人以上或純風景 → 橫式 1216×832（兩者像素量相同，都在免費範圍）。第一人稱濾掉視野外角色後會重新判斷。前端畫框依圖片比例切換（`.cg-viewport.portrait`，高度上限 78vh），圖片用 contain 不裁切。
 - 便服：`GameData.js` 的 `casual`（目前有斯卡哈、Saber、Rider）。本回合結束時人在據點（廢棄洋館）且沒開戰，就從戰鬥靈衣換成便服；離開據點或開戰換回。導演收到 `At Home Base`，只有在據點才能用便服；導演若把便服改回戰鬥服（`outfitSimilarity_` ≥ 0.5），程式會改回便服。武器只在戰鬥或解放寶具時才畫：系統提示詞要求非戰鬥時武器靈體化，非戰鬥場景的角色負面提示詞自動加入 `holding weapon, weapon, spear, polearm, sword`。
+- 鏡頭規則（FRAMING，2026-11 八場景實測後加入）：臉是核心，導演選「能容下所有人的最近鏡頭」——1 人 cowboy shot／upper body（單人寶具 cowboy shot, from below），2～3 人 medium shot，wide shot 只限 4 人以上、兩方遠距離對戰或純風景；浪漫場景 upper body／close-up；鐵絲網、玻璃、人群不可擋在臉前面。實測 8 張有 4 張原本是遠景小人，改後都變成半身清楚。
+- 導演文字的程式修正（`generateTurnCgAsync` 合併導演結果後）：
+  - `refineFramingTags_`：medium shot 不是 Danbooru 標籤，1～2 人時換成 `cowboy shot`（實測小次郎從遠景小人變半身、戰鬥時臉也清楚）。
+  - `refineGazeAction_`：「looking away from the viewer」裡的 viewer 反而讓角色看鏡頭 → 改成 `looking away, looking to the side`；視線不看鏡頭時該角色負面加 `looking at viewer`。
+  - 擁抱／親吻（`isRomanticInteraction_`）：主提示詞改成 upper body 並去掉 medium／wide shot（`refineRomanceFraming_`）；`mutual#embrace` 換成 Danbooru 的 `mutual#hug`。
+  - 第一人稱：畫面裡沒有對象，去掉 source#／target#／mutual# 前綴；有 `incoming kiss` 時主提示詞加 `incoming kiss, face focus`，角色加 `closed eyes, puckered lips` 並去掉微笑、半睜眼、看鏡頭。
+  - 親密動作補 Danbooru 標籤（`INTIMACY_TAGS_`、`detectIntimacyTags_`，加在主提示詞）：從背後抱 `hug from behind`、親臉頰 `kissing cheek`（不用 incoming kiss，也不加嘟唇）、膝枕 `lap pillow`、摸頭 `headpat`、額頭相抵 `forehead-to-forehead`、牽手 `holding hands`、擁抱 `hug`。第一人稱另換構圖：膝枕 `lap pillow, pov, from below, looking down at viewer, close-up, face focus, ceiling`（躺在腿上往上看）；摸頭 `headpat pov, from below, reaching towards viewer`；擁抱 `incoming hug`；親臉頰改成她從側面湊近閉眼。實測都比自然語言描述準。
+  - 情緒高點（哭泣、流淚，1～2 人）：主提示詞人數標籤後面直接放 `upper body, face focus, streaming tears`（鏡頭標籤越前面權重越高）。
+  - **重要發現**：角色服裝欄位加權寫了長裙、褲襪、靴子、高跟鞋時，NovelAI 會為了畫出它們把鏡頭拉成全身，導演寫上半身也沒用。`stripLowerBodyForCloseUp_`：鏡頭是 upper body／close-up／portrait／face focus 時拿掉下半身衣物標籤；cowboy shot 時只拿掉鞋類（`FOOTWEAR_RE_`）。實測櫻哭泣從全身變成淚眼特寫、Rider 不再每張都全身。
+  - 兩人對打或面對面（2 人、互動含 clash／confront／duel／facing each other）：主提示詞加 `from side`、刪掉角色欄位的 foreground，避免一人站前景背對鏡頭（實測 Saber 背影 → 三次都是側面對峙、雙方臉都看得到）。導演規則也禁止無故背對鏡頭。
+  - 權重檢查（2026-11）：服裝整段 1.15 權重保留（拿掉後士郎的圍裙會消失），拉成全身的問題改用特寫時刪下半身標籤解決；多人髮色 1.25、Archer／小次郎／哈桑角色名 1.2、Rider 眼睛與眼罩負面、黑 Saber 頭盔負面都是修正用，保留。
+  - 接吻容錯：第一人稱只要角色欄位出現 kiss／kissing（導演常寫 kissing viewer）就補 `incoming kiss`；第三人稱接吻主提示詞人數後面放 `upper body, kiss, faces close together`，刪掉含 silhouette（剪影）的片段，並刪掉角色欄位的站位／腳部字眼（standing、tiptoes、foreground、in front of…，加權的服裝段不動）——close-up 加上站位字眼曾畫出一人特寫、一人站在遠處背景的怪圖，改後 4 個 seed 都正常。**兩人畫面不可用 face focus**（實測會畫出一張巨臉加一個小全身人）；face focus 只給單人。
+  - 黃昏：`addNightFillLight_` 把 orange-hued lighting 換成 warm lighting，並加 `natural skin tone, soft lighting`（避免整張連人物都變橘）。
+- 只有 1 個角色時程式一律改直式（導演選橫式也會被蓋掉）；橫式會把單人畫成小點。
 - 畫面方向由導演決定（`orientation`）：1 人或兩人貼身互動 → 直式；戰鬥、廣角、3 人以上、兩人有距離 → 橫式。導演沒回報時用 `pickNaiSize_`（1 人直式、其他橫式）。點擊 CG 會全螢幕放大（`openCgLightbox`），點擊或 Esc 關閉。
 - CG 兩種重畫：「🔄 重骰」用同一組提示詞換 seed（構圖不滿意）；「🎬 重新導演」用保存的原始 payload（含 `_directorContext`）重新跑導演翻譯（圖跟劇情不符）。
 - 浪漫場景（親吻、擁抱、告白）：導演用特寫、閉眼、臉紅、柔光散景光點；第三人稱 `kiss`＋`mutual#kiss`，第一人稱 `incoming kiss`。多人同場時互相把對方髮色加進負面，並把自己的髮色加權 1.25；貼身場景仍可能混色（NovelAI 限制），預設第一人稱可避開。
-- 自創英靈（`meta.customServant`，ID 固定 `custom_servant`）：創角時召喚對象選「✨ 自創英靈」，填真名、職階、性別、外貌／服裝／負面標籤、預設表情、六項能力、寶具名稱效果與特效、個性。可「帶入現有英靈」（`SERVANT_TEMPLATES_`，外貌取自 GameData.js，不含黑 Saber）當起點；「✨ 找提示」（`enhanceServantAppearance`）把中文翻成標籤並推薦正確的官方 Danbooru 角色標籤；前端只有一顆「🎨 英靈定裝預覽」（`previewCustomServant(cs, 'game')`）；後端另有 `'official'` 模式（只打角色標籤、負面預設重、steps 23、scale 7、cfg_rescale 0）給開發比對用，使用者說玩家不需要，所以畫面上不放。只能當玩家的主從者，不頂替原作七組。`parseSaveRow_` 讀檔時用 `setActiveCustomServant_` 把它登記進本次執行的角色資料庫；每回合 statePrompt 附 `describeCustomServantForPrompt_`；戰力等級由能力值換算（`customServantTier_`，2～5，全 A 以上才到 5）。
+- 自創英靈（`meta.customServant`，ID 固定 `custom_servant`）：創角時召喚對象選「✨ 自創英靈」，填真名、職階、性別、身形（嬌小／普通／高挑 → `customServantCore_` 加 `petite, short`／不加／`tall female`、`tall male`；「找提示」也會判斷）、外貌／服裝／負面標籤、預設表情、六項能力、寶具名稱效果與特效、個性。可「帶入現有英靈」（`SERVANT_TEMPLATES_`，外貌取自 GameData.js，不含黑 Saber）當起點；「✨ 找提示」（`enhanceServantAppearance`）把中文翻成標籤並推薦正確的官方 Danbooru 角色標籤；前端只有一顆「🎨 英靈定裝預覽」（`previewCustomServant(cs, 'game')`）；後端另有 `'official'` 模式（只打角色標籤、負面預設重、steps 23、scale 7、cfg_rescale 0）給開發比對用，使用者說玩家不需要，所以畫面上不放。只能當玩家的主從者，不頂替原作七組。`parseSaveRow_` 讀檔時用 `setActiveCustomServant_` 把它登記進本次執行的角色資料庫；每回合 statePrompt 附 `describeCustomServantForPrompt_`；戰力等級由能力值換算（`customServantTier_`，2～5，全 A 以上才到 5）。
 - 自然姿勢：導演規則要求避免僵硬、對稱、正面直立的站姿，每個角色要有符合當下與個性的肢體語言（重心在單腳、歪頭、手托下巴、倚靠、回頭）、動態（頭髮飄動）、三分之二側面或有角度的鏡頭、明確表情（使用者反映斯卡哈太僵硬後加上，實測明顯改善）。
 - 預設表情：導演或 AI 沒給表情時，依角色補 `CHAR_DEFAULT_EXPRESSION_`（凜得意笑、Archer 嘲諷笑…；戰鬥中多半 determined），`ensureExpression_` 在組 payload 與導演合併兩處都會套。夜景補光：`addNightFillLight_` 在夜景沒有光源字眼時補 `warm ambient light, natural skin tone`，避免整張被染成藍色霓虹（官方比對後實測改善）。比對結論：scale、cfg_rescale、畫風前綴對畫面影響很小；遊戲的長角色標籤讓服裝比官方更忠於原作，要保留。
-- 人數上限：一張 CG 最多畫 3 人（`MAX_CG_CHARS`），超過時先省略御主；4 人以上臉太小會畫歪、偶爾把同一人畫兩次。3 人以上的畫面負面另加 `clone`。
+- 人數上限：一張 CG 最多畫 3 人（`MAX_CG_CHARS`），超過時先省略御主，保留順序為「自己的主／副從者 → 解放寶具中 → AI 列出順序」；4 人以上臉太小會畫歪、偶爾把同一人畫兩次。3 人以上的畫面負面另加 `clone`。
 - 說話者判斷：台詞開頭在叫某人（「芙蕾雅，解放寶具」）時，說話者不會是被叫的人；下一段已是「某某：「…」」的回話不拿來當這句的說話者；冒號前整句只有一個主詞候選時就是他。判斷不出寧可不標。
 - 人是重點：導演不讓道具（手機、武器、紙條）成為畫面焦點；第一人稱只有手直接和角色互動時才畫 `pov hands`，而且要小。另外伺服器會檢查玩家輸入：沒有握、牽、摸、遞、抱等用手的動作時，直接從場景刪掉 `pov hands`。非戰鬥時動作描述裡的武器字眼（spear、sword…）由 `stripWeaponTags_` 刪除。
 - 時代背景 2004 年：系統提示詞與導演都要求手機是翻蓋手機（flip phone），主負面提示詞含 `smartphone`。
 - 第一人稱「以角色為主」：導演以特寫／上半身／中景框住看得到的角色，背景加景深退到次要；沒有角色時才用廣角。
 - 主負面提示詞（`generateNovelAIImageSafe_` 的 `defaultUc`）刻意保持精簡：只排除品質底線、文字浮水印、馬賽克。不要加回 V1～V3 時代的長串（bad, error, extra, bad hands…），實測會讓 V5 畫面變灰、細節變少。角色專屬負面放在 `GameData.js` 的 uc。
-- 互動語法只允許 `source#`／`target#`／`mutual#` 前綴，其他「xxx#」前綴會被 `stripBadInteractionPrefix_` 去掉。
+- 互動語法只允許 `source#`／`target#`／`mutual#` 前綴。導演常寫成「名字#動作#對象」或「動作#對象」，`stripBadInteractionPrefix_` 會轉成 `source#動作`，名字前綴則去掉。
+- 角色名字只出現在該角色自己的欄位：導演規則禁止在別人欄位與主提示詞寫名字；程式另用 `stripOtherCharNames_`（`CHAR_EN_NAMES_` 英文稱呼表）把別人欄位裡的名字換成 another character、主提示詞裡的換成 a figure（自己的名字與 Danbooru 角色標籤不動）。名字寫進別人欄位會讓 NovelAI 多畫一個那個人。
 - NovelAI 免費範圍（Opus）：一次 1 張、不用底圖、尺寸 ≤ 約 1024×1024 像素量（目前 1216×832）、steps ≤ 28。V5 的免費額度是會自動回復的用量條，用完會**自動改扣 Anlas**，所以不要調高尺寸、steps 或一次生多張。
 
 ## 內建資料（不在試算表）

@@ -284,13 +284,14 @@ ctx.startNewGame('自創者');
 const tpl = ctx.getServantTemplates();
 check('帶入現有英靈：有斯卡哈、沒有黑 Saber', tpl.some(t => t.id === 'scathach' && t.cls === 'Lancer' && t.stats.np === 'A+') && !tpl.some(t => t.id === 'saber_alter'));
 geminiQueue.push({ story: '冰霧之中，銀髮的女王現身。\n\n斯卡蒂：「妳就是我的御主？」', servant_class: 'Saber', servant_name: '亂取的名字', servant_params: '筋力:E', servant_action_en: 'standing', master_action_en: 'surprised', scene_env_en: 'magic circle' });
-const customReq = { name: '斯卡蒂', cls: 'Caster', gender: 'girl', core: '1girl, white hair, very long hair, red eyes', outfit: 'black dress, fur cape', uc: 'short hair', expression: 'cold smile',
+const customReq = { name: '斯卡蒂', cls: 'Caster', gender: 'girl', build: 'petite', core: '1girl, white hair, very long hair, red eyes', outfit: 'black dress, fur cape', uc: 'short hair', expression: 'cold smile',
   npName: '冰封王座', npEffect: '凍結周圍一切', personality: '高傲但溫柔', npVisual: 'ice, frost, snowflakes', stats: { str: 'C', end: 'B', agi: 'B', mana: 'EX', luck: 'A', np: 'A+' } };
 const cc = ctx.completeCreationAndSummon({ playerName: '自創者', servantId: 'CUSTOM', customServant: customReq, masterOrigin: '冬木市隱居古家族', masterGender: 'girl', masterWish: '願望', gameMode: 'WAR', masterCoreTags: '1girl, black hair', masterOutfitTags: 'black sweater' });
 check('自創英靈召喚：名字職階照玩家設定', cc.status.servant1.id === 'custom_servant' && cc.status.servant1.name === '斯卡蒂' && cc.status.servant1.class === 'Caster');
 check('自創英靈召喚：能力值照玩家設定', cc.status.servant1.params === '筋力:C 耐久:B 敏捷:B 魔力:EX 幸運:A 寶具:A+');
 check('自創英靈召喚：召喚提示有原創設定', /ORIGINAL SERVANT/.test(JSON.stringify(geminiRequests[geminiRequests.length - 1])));
 check('自創英靈召喚圖：用自訂外貌', cc.imagePayload.characters.some(c => c.id === 'custom_servant' && /white hair/.test(c.prompt)));
+check('自創英靈：身形嬌小會畫進角色標籤', cc.imagePayload.characters.some(c => c.id === 'custom_servant' && /petite/.test(c.prompt)));
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '斯卡蒂冷冷一笑，解放了寶具。', ap_cost: 1, location: '廢棄洋館', is_combat: true,
   present_chars: [{ id: 'custom_servant', use_np: true, action_en: 'casting spell' }], scene_env_en: 'night, mansion' });
 const ct = ctx.processFateTurnTextOnly({ playerName: '自創者', userAction: '斯卡蒂，解放寶具！' });
