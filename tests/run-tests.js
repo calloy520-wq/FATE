@@ -196,6 +196,9 @@ np = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'rin' }], 'bathroom', false, 
 {
   const crowd = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'player_master' }, { id: 'scathach' }, { id: 'lancer' }, { id: 'archer' }, { id: 'rin' }], 'bridge, night', true, '開打', '', 1);
   eq('一張圖最多 3 人、先省略御主', crowd.characters.map(c => c.id), ['scathach', 'lancer', 'archer']);
+  const own = Object.assign({}, pst(true), { servant1: { id: 'scathach' } });
+  const crowd2 = T.buildNaiPayloadFromScene_(own, [{ id: 'rin' }, { id: 'archer' }, { id: 'lancer', use_np: true }, { id: 'scathach' }, { id: 'player_master' }], 'bridge, night', true, '開打', '', 1);
+  eq('超過 3 人：自己的從者排第一、寶具中的優先', crowd2.characters.map(c => c.id), ['scathach', 'lancer', 'rin']);
 }
 eq('繪圖：只有凜時沒有 nsfw', /nsfw/.test(np.prompt), false);
 
