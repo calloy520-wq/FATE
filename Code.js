@@ -4690,6 +4690,15 @@ function customServantParamsText_(stats) {
   return SERVANT_STAT_KEYS_.map(([k, zh]) => `${zh}:${normalizeServantRank_(stats && stats[k])}`).join(' ');
 }
 
+// 身形選單 → 標籤（自創英靈預設沒有身高資訊時，NovelAI 常把成熟女性角色畫得很高）
+function customServantCore_(cs) {
+  const core = String((cs && cs.core) || '');
+  const b = cs && cs.build;
+  const tag = b === 'petite' ? 'petite, short' : (b === 'tall' ? (cs.gender === 'boy' ? 'tall male' : 'tall female') : '');
+  if (!tag || /\b(petite|tall female|tall male|short stature)\b/i.test(core)) return core;
+  return `${core}, ${tag}`;
+}
+
 // 能力值換算成戰力等級（2～5）：全 A 以上才到最高級
 function customServantTier_(stats) {
   const val = r => ({ 'EX': 6, 'A++': 5.6, 'A+': 5.3, 'A': 5, 'B+': 4.3, 'B': 4, 'C+': 3.3, 'C': 3, 'D+': 2.3, 'D': 2, 'E+': 1.3, 'E': 1 })[normalizeServantRank_(r)];
@@ -4718,6 +4727,7 @@ function sanitizeCustomServant_(raw) {
     uc: cleanTagText_(r.uc, 300),
     officialTag: cleanTagText_(r.officialTag, 80),
     expression: cleanTagText_(r.expression, 60),
+    build: ['petite', 'average', 'tall'].indexOf(String(r.build)) >= 0 ? String(r.build) : '',
     npVisual: cleanTagText_(r.npVisual, 200),
     stats: stats,
     npName: cleanTagText_(r.npName, 30),
@@ -4769,7 +4779,8 @@ function enhanceServantAppearance(zhDesc, gender, name, cls) {
   const systemPrompt = [
     'You are an expert NovelAI Diffusion V5 & Danbooru prompt writer for Fate/Type-Moon style characters.',
     'The user is designing an original (or existing) Heroic Spirit. Convert the Traditional Chinese description into precise Danbooru tags.',
-    'Output strictly valid JSON with keys: "official_tag", "core_tags", "outfit_tags", "uc_tags", "expression_tag", "np_visual_tags", "advice_zh".',
+    'Output strictly valid JSON with keys: "official_tag", "core_tags", "outfit_tags", "uc_tags", "expression_tag", "np_visual_tags", "build", "advice_zh".',
+    '- build: body height judged from the description: "petite" (small, childlike, short), "tall" (tall, imposing, mature goddess-like only if the description says tall), otherwise "average". Do NOT put height tags in core_tags.',
     '- official_tag: if the name/description clearly refers to an existing character with a Danbooru character tag, give the EXACT tag spelling (e.g. "scathach (fate)", "sasaki kojirou (fate)", "artoria pendragon (fate)"). Otherwise "".',
     `- core_tags: start with "${genderTag}", then official_tag if any, then permanent physical traits ONLY (hair color, hair length/style, eye color, skin, body, age look). NO clothes, NO style, NO background.`,
     '- outfit_tags: the default battle outfit (clothes, armor, legwear, footwear, accessories) ONLY. Must be clothed.',
@@ -4789,7 +4800,7 @@ function previewCustomServant(raw, mode) {
   if (mode === 'official') {
     const base = cs.officialTag
       ? `${gTag}, solo, ${cs.officialTag}`
-      : [gTag, 'solo', normalizeCharCoreForNai_(cs.core, cs.gender).replace(/^(girl|boy),\s*/i, ''), cs.outfit].filter(Boolean).join(', ');
+      : [gTag, 'solo', normalizeCharCoreForNai_(customServantCore_(cs), cs.gender).replace(/^(girl|boy),\s*/i, ''), cs.outfit].filter(Boolean).join(', ');
     return generateNovelAIImageSafe_({
       prompt: base,
       noStyle: true,
@@ -4799,7 +4810,7 @@ function previewCustomServant(raw, mode) {
       width: 832, height: 1216, steps: 23, scale: 7, cfgRescale: 0
     });
   }
-  const core = normalizeCharCoreForNai_(cs.core, cs.gender);
+  const core = normalizeCharCoreForNai_(customServantCore_(cs), cs.gender);
   const action = ensureExpression_('standing, looking at viewer, cowboy shot, dynamic pose', cs.expression || 'light smile');
   return generateNovelAIImageSafe_({
     prompt: `${gTag}, solo, glowing magic circle, summoning, mana particles, dramatic lighting`,
@@ -4836,7 +4847,7 @@ function getCharAppearanceMap_(ss) {
       id: CUSTOM_SERVANT_ID_,
       triggers: `${cs.name},${cs.cls},自創英靈`,
       gender: cs.gender,
-      coreTraits: cs.core,
+      coreTraits: customServantCore_(cs),
       defaultOutfit: cs.outfit,
       casualOutfit: '',
       uc: cs.uc || '',

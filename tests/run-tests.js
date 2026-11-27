@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -344,6 +344,11 @@ eq('空動作 → 只放表情', T.ensureExpression_('', 'smirk'), 'smirk');
 eq('夜景沒光源 → 補暖光', T.addNightFillLight_('1girl, night, city'), '1girl, night, city, warm ambient light, natural skin tone');
 eq('夜景已有路燈 → 不補', T.addNightFillLight_('1girl, night, street lights'), '1girl, night, street lights');
 eq('白天 → 不補', T.addNightFillLight_('1girl, day, park'), '1girl, day, park');
+eq('身形嬌小 → petite', T.customServantCore_({ core: 'girl, silver hair', build: 'petite', gender: 'girl' }), 'girl, silver hair, petite, short');
+eq('身形高挑男性 → tall male', T.customServantCore_({ core: 'boy, black hair', build: 'tall', gender: 'boy' }), 'boy, black hair, tall male');
+eq('身形普通／不指定 → 不加', T.customServantCore_({ core: 'girl', build: 'average' }), 'girl');
+eq('已手動寫 petite → 不重複', T.customServantCore_({ core: 'girl, petite', build: 'petite' }), 'girl, petite');
+eq('身形清理：亂填 → 不指定', T.sanitizeCustomServant_({ name: 'a', core: 'girl', build: 'giant' }).build, '');
 eq('能力全 A 以上 → 最高級 5', T.customServantTier_({ str: 'A', end: 'A', agi: 'A+', mana: 'EX', luck: 'A', np: 'EX' }), 5);
 eq('Saber 原作能力 → 4', T.customServantTier_({ str: 'B', end: 'B', agi: 'B', mana: 'A', luck: 'A+', np: 'A++' }), 4);
 eq('全 E → 2', T.customServantTier_({ str: 'E', end: 'E', agi: 'E', mana: 'E', luck: 'E', np: 'E' }), 2);
