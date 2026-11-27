@@ -1418,7 +1418,8 @@ function pickBgmMood_(turnJson, st, story, outcome, assess) {
   if (/親吻|吻了|吻上|擁抱|相擁|告白|臉紅|心跳|依偎/.test(body)) return 'romance';
   if (Number(st && st.threatLevel) >= 70 || /潛入|跟蹤|埋伏|殺氣|窺視/.test(body)) return 'tension';
   if (st && st.locationKey === '廢棄洋館' && /休息|睡|泡澡|吃飯|晚餐|聊天/.test(body)) return 'home';
-  return (st && (st.timePeriod === '黃昏' || st.timePeriod === '深夜')) ? 'night' : 'day';
+  if (st && st.timePeriod === '黃昏') return 'dusk';
+  return (st && st.timePeriod === '深夜') ? 'night' : 'day';
 }
 
 // 玩家本回合是不是在休息（睡覺、冥想、調息…）

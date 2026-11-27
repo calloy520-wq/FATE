@@ -61,7 +61,7 @@
 
 ## 背景音樂
 - 音樂檔放在倉庫 `music/`（不推上 GAS），前端經 jsDelivr（`cdn.jsdelivr.net/gh/calloy520-wq/FATE@main/music/`）載入；清單與規格見 `music/README.md`。
-- 後端 `pickBgmMood_` 依本回合結果回傳 `bgmMood`（sad／ending／boss／battle／romance／tension／home／night／day），前端 `playBgmMood` 淡入淡出切換；缺檔時依 `BGM_FALLBACK` 改播替代曲。
+- 後端 `pickBgmMood_` 依本回合結果回傳 `bgmMood`（sad／ending／boss／battle／romance／tension／home／dusk／night／day），前端 `playBgmMood` 淡入淡出切換；缺檔時依 `BGM_FALLBACK` 改播替代曲。
 - 開關與音量存在瀏覽器 localStorage（只影響該裝置），預設關閉；瀏覽器規定第一次點擊畫面後才會開始播放。
 - jsDelivr 對 `@main` 有快取，新上傳的音樂可能要幾小時才生效。
 

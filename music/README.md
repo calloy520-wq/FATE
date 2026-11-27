@@ -7,7 +7,8 @@
 |---|---|---|
 | `title.mp3` | 登入、創角 | （不播） |
 | `day.mp3` | 清晨、白天 | （不播） |
-| `night.mp3` | 黃昏、深夜 | （不播） |
+| `night.mp3` | 深夜（沒有 dusk 時黃昏也播這首） | （不播） |
+| `dusk.mp3` | 黃昏（可選） | night |
 | `battle.mp3` | 一般戰鬥 | （不播） |
 | `boss.mp3` | 強敵、決戰 | battle |
 | `tension.mp3` | 高警戒、潛入 | night |

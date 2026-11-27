@@ -2276,7 +2276,7 @@
     // ==================== 背景音樂：依情境切換，淡入淡出 ====================
     // 音樂檔放在倉庫 music/ 資料夾，透過公開 CDN 載入；檔案不存在就安靜略過
     const BGM_BASE = 'https://cdn.jsdelivr.net/gh/calloy520-wq/FATE@main/music/';
-    const BGM_FALLBACK = { home: 'day', ending: 'day', boss: 'battle', tension: 'night', romance: 'day', sad: 'night' };
+    const BGM_FALLBACK = { home: 'day', ending: 'day', boss: 'battle', tension: 'night', romance: 'day', sad: 'night', dusk: 'night' };
     const bgm = { on: false, volume: 0.45, mood: '', current: null, missing: {} };
     try {
       bgm.on = localStorage.getItem('fate_bgm_on') === '1';
@@ -2346,7 +2346,8 @@
 
     function currentPeriodMood() {
       if (!currentState || !currentState.timePeriod) return 'title';
-      return (currentState.timePeriod === '黃昏' || currentState.timePeriod === '深夜') ? 'night' : 'day';
+      if (currentState.timePeriod === '黃昏') return 'dusk';
+      return currentState.timePeriod === '深夜' ? 'night' : 'day';
     }
 
     // 瀏覽器要求使用者先互動才能播放：第一次點擊畫面時補播
