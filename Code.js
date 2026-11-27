@@ -763,9 +763,28 @@ function applyRumorUpdates_(rumors, updates, factionsObj, turnNum) {
   const list = Array.isArray(rumors) ? rumors.map(x => Object.assign({}, x)) : [];
   const changes = [];
   (Array.isArray(updates) ? updates : []).forEach(u => {
-    if (!u || !u.id) return;
-    const r = list.find(x => x.id === String(u.id).trim());
-    if (!r) return;
+    if (!u) return;
+    let r = u.id ? list.find(x => x.id === String(u.id).trim()) : null;
+    if (!r) {
+      // 劇情中自然產生的新傳聞：沒有對應 id、但有內容的，新增為「市井傳聞」
+      const newText = String(u.text || u.effect || '').trim();
+      if (!newText || /識破|揭穿|平息/.test(String(u.status || ''))) return;
+      if (list.some(x => x.text === newText.slice(0, 140))) return;
+      list.push({
+        id: 'N' + turnNum + '_' + list.length,
+        text: newText.slice(0, 140),
+        channel: '市井傳聞',
+        isFake: false,
+        turn: turnNum,
+        status: '擴散中',
+        believers: [],
+        doubters: [],
+        effect: '',
+        updatedTurn: turnNum
+      });
+      changes.push(`新傳聞「${newText.slice(0, 12)}…」開始擴散`);
+      r = list[list.length - 1];
+    }
     const mapFac = arr => (Array.isArray(arr) ? arr : []).map(n => resolveFactionKey_(n, factionsObj) || '').filter(Boolean);
     mapFac(u.believers).forEach(k => {
       if (r.believers.indexOf(k) === -1) r.believers.push(k);
@@ -1301,7 +1320,16 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
 
   text = text.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
   text = text.replace(/([。！？…])\s*「/g, '$1\n\n「');
-  text = text.replace(/」\s*([^，。！？、\n」])/g, '」\n\n$1');
+  text = text.split('\n').map(line => {
+    let out = line;
+    for (let guard = 0; guard < 3; guard++) {
+      const m = out.match(/^((?:[^「『\n]{1,12}[:：]\s*)?「[^」]*」)\s*([^，。！？、」\s][\s\S]*)$/);
+      if (!m) break;
+      out = m[1] + '\n\n' + m[2];
+      break;
+    }
+    return out;
+  }).join('\n');
 
   if (!text.includes('\n\n')) {
     const sentences = text.split(/(?<=[。！？])/);
@@ -1335,11 +1363,14 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
     return '';
   };
 
+  let lastSpeaker = '';
   const labeledParagraphs = paragraphs.map((p, idx) => {
     const trimmed = p.trim();
     if (!trimmed) return '';
 
-    if (/^[^「『\n]{1,12}[:：]\s*[「『]/.test(trimmed)) {
+    const labeled = trimmed.match(/^([^「『\n]{1,12})[:：]\s*[「『]/);
+    if (labeled) {
+      lastSpeaker = labeled[1].trim();
       return trimmed;
     }
 
@@ -1347,9 +1378,12 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
       const prevText = idx > 0 ? paragraphs[idx - 1] : '';
       const nextText = idx + 1 < paragraphs.length ? paragraphs[idx + 1] : '';
 
-      // 優先看前一段敘述（通常會先交代是誰開口），其次看後一段；找不到就不亂標
-      const speaker = findNameIn(prevText) || findNameIn(nextText);
+      // 優先看前一段敘述（通常會先交代是誰開口），其次看後一段；
+      // 前一段只用「她／他」指稱時，沿用最近一位說話者；都找不到就不亂標
+      let speaker = findNameIn(prevText) || findNameIn(nextText);
+      if (!speaker && lastSpeaker && /^(她|他)/.test(String(prevText).trim())) speaker = lastSpeaker;
       if (speaker) {
+        lastSpeaker = speaker;
         return `${speaker}：${trimmed}`;
       }
     }
@@ -2237,6 +2271,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 御主是最大破綻：攻擊御主是正當戰術。失去御主的從者靠單獨行動技能撐一段時間，會尋找新御主或消失。',
   '- 魔術必須隱匿：在人多的地方或白天公開交戰，會引來聖堂教會善後、警方與其他陣營的注意（論壇也會出現目擊）。聖杯戰爭主要在夜間進行，白天是日常、調查與佈局。',
   '- 陣地優勢：在敵方工房、結界或陣地內作戰極為不利；Caster 的陣地與山門結界尤其危險。',
+  '- 感知有極限：從者的氣息感知大約只到數百公尺，只能察覺「附近有從者、魔力大概多強、是否有敵意」，無法隔著整座城市辨認其他陣營在哪、是誰、什麼職階。遠方的事只能透過使魔、目擊、情報、論壇風聲得知；Assassin 的氣息遮斷甚至能完全避開感知。',
   '- 隱藏真相（大聖杯的汙染、此世之惡、言峰綺禮的真面目等）只在玩家深入調查時逐步揭露，不要一次說破。',
   '- 御主六維與從者參數創角後固定，不會因鍛鍊改變；成長體現在情報、羈絆、道具與戰術上。',
   '',
@@ -2250,9 +2285,9 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 傷勢分開判定：御主肉身（`master_condition`）與從者靈基（`servant_condition`、`servant2_condition`）各自結算。交戰要分出明確結果（負傷、靈基受損、撤退、淘汰），不能互砍半天卻什麼都沒發生。',
   '',
   '## 四、活的冬木市與反饋機制',
-  '- 論壇：玩家做了引人注目的事（公開交戰、怪事、流言擴散），用 `forum_posts` 寫 0～2 則冬木市民的 2004 年留言板貼文；路人只知道自己看得到的部分。',
+  '- 論壇：玩家做了引人注目的事（公開交戰、怪事、流言擴散），用 `forum_posts` 寫 0～2 則冬木市民的 2004 年留言板貼文（每則是含 board／author／title／body 的物件）；路人只知道自己看得到的部分。',
   '- 流言：依各陣營的情報能力與性格，判斷誰相信、誰識破狀態資料中的流言，用 `rumor_updates` 記錄；被相信的流言會實際改變該陣營行動（寫進 `faction_updates`），被識破的假消息可能引來報復。',
-  '- 通訊錄：劇情中玩家與某陣營交換手機號碼或取得聯絡方式時，把陣營名稱填入 `new_contacts`。',
+  '- 通訊錄：只有劇情中**明確寫出**玩家與某陣營交換手機號碼、拿到名片或聯絡方式時，才把陣營名稱填入 `new_contacts`；只是見面、交談、談判都不算。',
   '- 路線傾向：依玩家本回合的行動方式，在 `route_tendency_delta` 為各路線加減分（-3～+3）；已確立路線時，劇情重心照狀態資料中的路線說明發展。',
   '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
   '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。',
@@ -2289,7 +2324,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '  "outfit_updates": {},',
   '  "faction_updates": {},',
   '  "forum_posts": [],',
-  '  "rumor_updates": [{ "id": "流言ID", "status": "擴散中 / 已被識破 / 已被證實 / 已平息", "believers": [], "doubters": [], "effect": "30字內影響" }],',
+  '  "rumor_updates": [{ "id": "既有流言ID（新傳聞留空）", "text": "新傳聞才填：傳聞內容", "status": "擴散中 / 已被識破 / 已被證實 / 已平息", "believers": [], "doubters": [], "effect": "30字內影響" }],',
   '  "new_contacts": [],',
   '  "route_tendency_delta": { "fate": 0, "ubw": 0, "hf": 0, "shadow": 0, "conquest": 0 },',
   '  "servants_out": [],',
@@ -2739,10 +2774,14 @@ function processFateTurnTextOnly(params) {
     if (meta.pendingSmsNote === metaBefore.pendingSmsNote) delete meta.pendingSmsNote;
     if (meta.pendingForumNote === metaBefore.pendingForumNote) delete meta.pendingForumNote;
     meta.phoneState = syncPhoneStateWithFactions_(meta.phoneState, currentFactions, row[6], row[7], latestWarReport);
-    const aiPosts = (Array.isArray(turnJson.forum_posts) ? turnJson.forum_posts : []).slice(0, MAX_FORUM_POSTS_PER_TURN);
+    // Gemini 有時回傳純文字字串而不是物件，兩種都接受
+    const aiPosts = (Array.isArray(turnJson.forum_posts) ? turnJson.forum_posts : [])
+      .map(fp => (typeof fp === 'string') ? { body: fp } : (fp || {}))
+      .map(fp => Object.assign({}, fp, { body: String(fp.body || fp.content || fp.text || '').trim().slice(0, 160) }))
+      .filter(fp => fp.body)
+      .slice(0, MAX_FORUM_POSTS_PER_TURN);
     aiPosts.forEach((fp, i) => {
-      const body = String((fp && fp.body) || '').trim().slice(0, 160);
-      if (!body) return;
+      const body = fp.body;
       meta.phoneState.forumPosts.unshift({
         id: `ai_${turnNum}_${i}`,
         board: String(fp.board || '冬木匿名留言板').slice(0, 16),
@@ -3031,12 +3070,12 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - Normal scene with no outfit change: Use "reference_outfit" (translate it into clean English Danbooru tags if it is in Chinese).',
     '   - Never put hair color, eye color, body type or character names inside "outfit"; those come from a fixed character sheet.',
     '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event.',
-    '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
+    '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Describe the overall composition in one short natural-language clause (who is where relative to whom, depth and distance). Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
     '5. Characters (char_directions): For each present character output (keep every character\'s tags strictly in its own entry so features do not bleed between characters):',
     '   - "id": exact character id.',
     '   - "is_nude": boolean (true if unclothed/bathing/nude in this scene).',
     '   - "outfit": final English Danbooru clothing tags for THIS EXACT SCENE.',
-    '   - "action": pose, expression, gaze, weapon/prop action in English (NO hair/eyes color).',
+    '   - "action": the character\'s placement and spatial relation FIRST (foreground / background / center, beside / behind / in front of / facing another character, near or far, above or below), then pose, expression, gaze, weapon/prop action, in English (NO hair/eyes color). Do NOT give coordinates or left/right grid positions — NovelAI decides the exact layout from these relations.',
     '   - "interaction": ONLY if 2+ characters directly interact, use NAI V5 syntax ("source#<action>" + "target#<action>", or "mutual#<action>"). Empty string "" otherwise.',
     'Output strictly valid JSON: { "scene_prompt": "...", "char_directions": [{ "id": "...", "is_nude": false, "outfit": "...", "action": "...", "interaction": "" }] }'
   ].join('\n');
@@ -3161,6 +3200,17 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
   };
 }
 
+// NovelAI 的互動語法只認 source# / target# / mutual# 三種前綴；其他「xxx#」前綴（例如角色名#）會被當成雜訊，直接去掉前綴保留動作
+function stripBadInteractionPrefix_(str) {
+  return String(str || '').split(',').map(t => t.trim()).filter(Boolean)
+    .map(t => (/^(source|target|mutual)#/i.test(t) ? t : t.replace(/^[^\s#,]{1,24}#/, '')))
+    .join(', ');
+}
+
+function sanitizeNaiInteraction_(str) {
+  return stripBadInteractionPrefix_(str);
+}
+
 function generateTurnCgAsync(imgPayload) {
   if (!imgPayload) throw new Error('無場景資料');
   const working = JSON.parse(JSON.stringify(imgPayload));
@@ -3192,7 +3242,7 @@ function generateTurnCgAsync(imgPayload) {
             ? formatCharacterOutfitPrompt_(isNude ? 'nude, completely nude, no clothes' : d.outfit)
             : ch.weightedOutfit;
 
-          const actionParts = [d.interaction, d.action].filter(Boolean).join(', ');
+          const actionParts = [sanitizeNaiInteraction_(d.interaction), stripBadInteractionPrefix_(d.action)].filter(Boolean).join(', ');
 
           return Object.assign({}, ch, {
             prompt: [finalCore, finalOutfit, actionParts, ch.npBoost].filter(Boolean).join(', ')

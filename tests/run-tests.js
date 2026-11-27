@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -109,6 +109,18 @@ eq('一般服裝格式', T.formatCharacterOutfitPrompt_('red coat'), '1.15::red 
 const longStory = '開頭'.repeat(200) + '結尾畫面';
 eq('導演摘錄保留結尾', T.excerptForDirector_(longStory).endsWith('結尾畫面'), true);
 eq('導演摘錄去掉時段推進', T.excerptForDirector_('劇情。\n\n【時段推進・大源回復】xx'), '劇情。');
+
+// ---- 實測抓到的問題 ----
+const nr = T.applyRumorUpdates_([], [{ id: 'bridge_clash', status: '擴散中', effect: '市民流傳大橋出現不明騷亂' }], {}, 3);
+eq('AI 發起的新傳聞會被收錄', [nr.rumors.length, nr.rumors[0].channel, nr.rumors[0].status], [1, '市井傳聞', '擴散中']);
+const nr2 = T.applyRumorUpdates_([], [{ id: 'x', status: '已被識破', text: '不存在的流言' }], {}, 3);
+eq('未知 id 又是識破狀態 → 忽略', nr2.rumors.length, 0);
+const told = T.formatNovelStoryText_('斯卡哈：「這座城市很吵。」\n\n她睜開雙眼。\n\n「大橋那邊有動靜。」', ['斯卡哈', '測試者'], '', '測試者');
+eq('代名詞「她」後的台詞沿用上一位說話者', told.split('\n\n')[2], '斯卡哈：「大橋那邊有動靜。」');
+eq('敘述中用「」強調名字不會被拆段', T.formatNovelStoryText_('那股屬於「庫・夫林」的魔力特徵很強烈。', [], '', 'x'), '那股屬於「庫・夫林」的魔力特徵很強烈。');
+eq('對話後接敘述會拆段', T.formatNovelStoryText_('斯卡哈：「走吧。」她轉身離開。', ['斯卡哈'], '', 'x').split('\n\n').length, 2);
+eq('互動語法：角色名# 前綴被去掉，source#/target#/mutual# 保留', T.stripBadInteractionPrefix_('rin#facing the player, source#hug, mutual#holding hands, standing'), 'facing the player, source#hug, mutual#holding hands, standing');
+eq('系統提示詞包含感知範圍限制（防上帝視角）', T.FATE_GM_SYSTEM_PROMPT_.includes('感知有極限'), true);
 
 // ---- 其他 ----
 eq('全裸後沒說穿衣 → 維持全裸', T.autoAdaptSmartOutfit_('player_master', 'nude, completely nude, no clothes', { defaultOutfit: 'dress' }, '去洗臉', '', false, '廢棄洋館'), 'nude, completely nude, no clothes');

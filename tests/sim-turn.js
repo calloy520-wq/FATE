@@ -87,7 +87,7 @@ geminiQueue.push({
   is_combat: false, ap_cost: 1, threat_delta: 5, bond_delta: 2, location: '冬木中學屋頂', master_mp_delta: 0, command_spells_used: 0,
   master_condition: '完好無損', servant_condition: '靈基穩定', servant2_condition: '', consumed_item_ids: ['mana_gem_m'], gained_items: [],
   servant_form_morph: '', outfit_updates: {}, faction_updates: { 'Archer陣營': '同盟 (與第8組結盟)', '路人甲': 'x' },
-  forum_posts: [{ board: '怪談板', author: '路人', title: '屋頂有人', body: '看到兩個人在屋頂講話' }],
+  forum_posts: [{ board: '怪談板', author: '路人', title: '屋頂有人', body: '看到兩個人在屋頂講話' }, '純文字格式的目擊貼文也要收'],
   rumor_updates: [], new_contacts: ['遠坂凜'], route_tendency_delta: { ubw: 3 }, servants_out: ['caster'], new_servant2_id: '',
   memory_update: '與凜結盟', key_events_add: ['與遠坂凜交換手機號碼並結盟'], key_events_resolve: [],
   present_chars: [{ id: 'rin', use_np: false, action_en: 'smile' }], scene_env_en: 'school rooftop, night'
@@ -101,6 +101,7 @@ check('陣營別名對應（Archer陣營→遠坂組）', st.factions['遠坂組
 check('未知陣營被丟棄', !('路人甲' in st.factions));
 check('聯絡人加入', Boolean(st.smsContacts['遠坂組 (Archer陣營)']));
 check('論壇新增目擊', st.phoneState.forumPosts.some(p => p.title === '屋頂有人'));
+check('論壇接受純文字貼文', st.phoneState.forumPosts.some(p => p.body === '純文字格式的目擊貼文也要收'));
 check('美狄亞退場 → 臟硯組成立', '臟硯組 (真Assassin陣營)' in st.factions);
 check('路線傾向累積', st.routeTendency.ubw === 3);
 check('重要事件記錄', st.keyEvents.includes('與遠坂凜交換手機號碼並結盟'));
