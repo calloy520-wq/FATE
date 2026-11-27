@@ -88,6 +88,7 @@
   - 兩人對打或面對面（2 人、互動含 clash／confront／duel／facing each other）：主提示詞加 `from side`、刪掉角色欄位的 foreground，避免一人站前景背對鏡頭（實測 Saber 背影 → 三次都是側面對峙、雙方臉都看得到）。導演規則也禁止無故背對鏡頭。
   - 權重檢查（2026-11）：服裝整段 1.15 權重保留（拿掉後士郎的圍裙會消失），拉成全身的問題改用特寫時刪下半身標籤解決；多人髮色 1.25、Archer／小次郎／哈桑角色名 1.2、Rider 眼睛與眼罩負面、黑 Saber 頭盔負面都是修正用，保留。
   - 接吻容錯：第一人稱只要角色欄位出現 kiss／kissing（導演常寫 kissing viewer）就補 `incoming kiss`；第三人稱接吻主提示詞人數後面放 `upper body, kiss, faces close together`，刪掉含 silhouette（剪影）的片段，並刪掉角色欄位的站位／腳部字眼（standing、tiptoes、foreground、in front of…，加權的服裝段不動）——close-up 加上站位字眼曾畫出一人特寫、一人站在遠處背景的怪圖，改後 4 個 seed 都正常。**兩人畫面不可用 face focus**（實測會畫出一張巨臉加一個小全身人）；face focus 只給單人。
+  - 單人解放寶具（1 人且有 npBoost、非第一人稱）：主提示詞人數後面固定 `cowboy shot, from below, dynamic pose`，刪 wide／full body，並刪角色欄位的 feet、legs apart、center 等全身字眼（實測貞德、黑貞德原本是遠處小人）。
   - 黃昏：`addNightFillLight_` 把 orange-hued lighting 換成 warm lighting，並加 `natural skin tone, soft lighting`（避免整張連人物都變橘）。
 - 只有 1 個角色時程式一律改直式（導演選橫式也會被蓋掉）；橫式會把單人畫成小點。
 - 畫面方向由導演決定（`orientation`）：1 人或兩人貼身互動 → 直式；戰鬥、廣角、3 人以上、兩人有距離 → 橫式。導演沒回報時用 `pickNaiSize_`（1 人直式、其他橫式）。點擊 CG 會全螢幕放大（`openCgLightbox`），點擊或 Esc 關閉。
@@ -108,7 +109,7 @@
 - NovelAI 免費範圍（Opus）：一次 1 張、不用底圖、尺寸 ≤ 約 1024×1024 像素量（目前 1216×832）、steps ≤ 28。V5 的免費額度是會自動回復的用量條，用完會**自動改扣 Anlas**，所以不要調高尺寸、steps 或一次生多張。
 
 ## 內建資料（不在試算表）
-- 角色：`GameData.js` 的 `FATE_CHARACTERS_`。角色的 Danbooru 標籤拼法要正確（例如小次郎是 `sasaki kojirou (fate)`，拼成 kojiro 會認不出角色、畫成路人）。新增角色時填 id、names（第一個為顯示名稱）、gender、core、outfit、uc、summonable；`saber_alter` 一律不可開局召喚。要畫寶具特效再到 `Code.js` 的 `NP_VISUAL_EFFECTS_` 補一筆。
+- 角色：`GameData.js` 的 `FATE_CHARACTERS_`。角色的 Danbooru 標籤拼法要正確（例如小次郎是 `sasaki kojirou (fate)`，拼成 kojiro 會認不出角色、畫成路人）。表情不要寫死在 core（慎二原本 core 有 smug，疊上預設表情與導演的大笑會變醜，已改成 bishounen），表情交給 `CHAR_DEFAULT_EXPRESSION_` 與當下動作。新增角色時填 id、names（第一個為顯示名稱）、gender、core、outfit、uc、summonable；`saber_alter` 一律不可開局召喚。要畫寶具特效再到 `Code.js` 的 `NP_VISUAL_EFFECTS_` 補一筆。
 - 陣營：`Code.js` 的 `CANONICAL_7_FACTIONS_`（陣營名稱／御主ID／從者ID／預設狀態／預設態度／內幕）。新增陣營記得補 `FACTION_ALIAS_GROUPS_`。
 - 世界書：`Lore.js` 的 `FATE_LORE_BUILTIN_`（cat 分類／pri 優先度／keys 關鍵字／text 內容）。
   - 優先度 10 每回合必載入（控制在 5 條內）；其餘依關鍵字命中來源加權——玩家本回合行動 ×3、目前狀態（地點、從者、重要事件、擴散中流言、背包）×2、最近 2 回合劇情 ×1，不分大小寫。依分數→優先度排序，最多 8 條、3200 字，載入時附 `[分類]`。

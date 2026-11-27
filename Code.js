@@ -4108,7 +4108,7 @@ const CHAR_DEFAULT_EXPRESSION_ = {
   rin: 'confident smile', sakura: 'gentle smile', dark_sakura: 'empty smile, half-closed eyes', saber: 'serious, calm expression',
   saber_alter: 'cold expression', archer: 'smirk', lancer: 'grin', rider: 'calm expression, faint smile', caster: 'smug smile',
   assassin: 'calm smile', berserker: 'angry, glowing eyes', gilgamesh: 'arrogant smirk', shirou: 'determined expression',
-  shinji: 'smug, smirk', illya: 'playful smile', kirei: 'faint smile', souichirou: 'expressionless', scathach: 'slight smile',
+  shinji: 'smirk', illya: 'playful smile', kirei: 'faint smile', souichirou: 'expressionless', scathach: 'slight smile',
   jeanne: 'gentle smile', jalter: 'smug smile', mordred: 'grin', okita: 'cheerful smile', tamamo: 'playful smile',
   ereshkigal: 'pout, blush', karna: 'calm expression', hassan: 'mask', prisma_illya: 'smile', chloe: 'smirk', miyu: 'shy',
   player_master: 'light smile'
@@ -4593,6 +4593,14 @@ function generateTurnCgAsync(imgPayload) {
       if (pairFacing && !/\b(from side|profile)\b/i.test(working.prompt) && working.cameraMode !== 'pov') {
         working.prompt = `${working.prompt}, from side`;
         working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: String(ch.prompt || '').replace(/,\s*(in the )?foreground\b/gi, '').replace(/,\s*back to (the )?(viewer|camera)\b/gi, '') }));
+      }
+      // 單人解放寶具：導演常為了拍進整個特效選遠景，或寫「雙腳分開、站在正中央、高舉大旗」讓人被畫成遠處小人（實測貞德、黑貞德）
+      // → cowboy shot＋仰角放在人數標籤後面，拿掉全身字眼，特效留在背後
+      if (Array.isArray(working.characters) && working.characters.length === 1 && working.characters[0].npBoost && working.cameraMode !== 'pov') {
+        const restNp = stripCountTags_(String(working.prompt).replace(/,?\s*\b(wide shot|full body|long shot|medium shot|cowboy shot|from below)\b/gi, '')).replace(/^,\s*/, '');
+        working.prompt = [working.countPrefix, 'cowboy shot, from below, dynamic pose', restNp].filter(Boolean).join(', ');
+        const FULL_RE = /\b(feet|legs apart|full body|standing (firmly )?(in the )?center|center|wide stance)\b/i;
+        working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: String(ch.prompt || '').split(',').map(t => t.trim()).filter(t => t && (/::/.test(t) || !FULL_RE.test(t))).join(', ') }));
       }
       // 情緒高點（哭泣、流淚）：1～2 人時拉成上半身＋臉部特寫，不然全身鏡頭看不到眼淚（實測櫻哭著告白卻畫成站在客廳中間）
       const nNow = Array.isArray(working.characters) ? working.characters.length : 0;
