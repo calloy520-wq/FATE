@@ -26,6 +26,14 @@
 - 改後端函式名稱或回傳格式前，先全文搜尋 `Index.html`，前後端必須同步。前端呼叫的後端函式包括：`startNewGame`、`loadExistingGame`、`processFateTurnTextOnly`、`completeCreationAndSummon`、`generateTurnCgAsync`、`retrySceneImage`、`savePlayerSettingsOnly`、`updateCustomLocationDesc`、`postFuyukiForumMessage`、`sendAllySmsMessage`、`markPhoneMessagesRead`、`resetCurrentRunKeepCareer`、`startNextLoopReincarnation`、`enhanceMasterAppearance`、`extractMasterFromImage`、`previewMasterOutfit`。
 - 回合推演用 `ScriptLock`，生圖用獨立的 `UserLock`，不要改回共用同一把鎖（會卡住下一回合）。
 - 前端生圖逾時：一般 60 秒、重骰 45 秒；改後端流程時別讓生圖耗時遠超過這個範圍。
+- 新增或修改「試算表自動升級」內容（補陣營／角色／世界書）時，要把 `SCHEMA_VERSION_` 改成新值，否則不會執行。
+- AI 回傳的 `faction_updates` 會經 `resolveFactionKey_` 對應回既有陣營名稱，對不上的會被丟棄；新增陣營時記得補 `FACTION_ALIAS_GROUPS_`。
+
+## 讀取與快取
+- `Char_Appearance`、`Lorebook`、`Factions_Relations` 是設定資料，讀一次後放進 CacheService（6 小時）＋單次執行內的記憶變數。
+- 在試算表手動編輯這三個分頁時，`onEdit` 簡易觸發器會自動清快取；若沒生效，到 GAS 編輯器執行 `clearFateConfigCache()`。
+- 試算表升級（`ensureSchemaUpgraded_`）只在 `SCHEMA_VERSION_` 變動時跑一次，版本記在指令碼屬性 `FATE_SCHEMA_VERSION`。
+- `Players_Save` 找玩家只讀 A 欄；`ChatLog` 先讀 A 欄定位，再只讀需要的列。不要改回 `getDataRange()` 讀整張表。
 
 ## 使用的服務
 - 劇情：OpenRouter，模型 `google/gemini-3.1-flash-lite`。
@@ -33,7 +41,7 @@
 
 ## 試算表分頁（欄位順序不可隨意更動）
 - `Char_Appearance`：A 角色ID／B 觸發名稱／C 性別／D 核心體貌／E 預設服裝／F 負面UC／G 可召喚（TRUE/FALSE）。`saber_alter` 永遠不可開局召喚。
-- `Factions_Relations`：A 陣營名稱／B 御主ID／C 從者ID／D 預設狀態／E 預設態度／F 原作主從關係與人際內幕。共 6 組陣營，另有玩家獨立的第 8 組。
+- `Factions_Relations`：A 陣營名稱／B 御主ID／C 從者ID／D 預設狀態／E 預設態度／F 原作主從關係與人際內幕。共 6 組陣營，另有玩家獨立的第 8 組；真Assassin 路線觸發後，存檔裡會多出「臟硯組 (真Assassin陣營)」（不寫進這個分頁）。
 - `Lorebook`：A 關鍵字／B 類別／C 優先度（≥10 每回合必載入）／D 內容。
 - `Players_Save`：32 欄（程式用 0 起算索引）。`row[28]` 服裝 JSON、`row[29]` 陣營狀態 JSON、`row[31]` meta JSON（回合數、背包、手機簡訊與論壇、傷勢、陣營等）。
 - `ChatLog`：A 玩家／B 回合／C 時間／D 時間地點／E 玩家行動／F AI劇情／G 出場角色／H 繪圖 payload／I seed。
@@ -45,6 +53,9 @@
 - `TRUE_VICTORY` 由伺服器驗證：仍有未化解的敵對陣營，或在日常模式，一律降回 `CONTINUE`。
 - 服裝以劇情為準：洗澡自動脫衣、開打自動換戰鬥裝，全裸後主動穿衣才還原。
 - 黑櫻、黑 Saber 出現時，同場不得再出現原版櫻或 Saber。
+- 真Assassin 路線：`meta.routeFlags` 個別記錄美狄亞（`caster`）與小次郎（`assassin`）是否退場；任一退場且間桐陣營仍在時，自動新增「臟硯組 (真Assassin陣營)」並由咒腕哈桑（`hassan`）接替山門。收服柳洞寺其中一騎時不會整組改為歸屬第8組。
+- 道具固定效果由伺服器結算：`mana_gem_s` +35 MP、`mana_gem_m` +65 MP、`smoke_bomb` 警戒度 −15（`ITEM_EFFECTS_`）；保命符的 id 必須是 `aegis_charm`。
+- AI 回傳不認得的地名時維持原地；副從者靈基「消滅」會清空副從者欄位；御主狀態寫「已死亡」視同死亡結局（保命符仍可擋下）。
 
 ## 已修正的問題（不要改回去）
 - `servant2_condition` 欄位名稱拼寫已修正。
@@ -55,5 +66,5 @@
 - 回合數存在 `meta.turnCount`，不要每回合掃描整張 ChatLog。
 
 ## 已知限制
-- 試算表把 Caster 與 Assassin 合併成同一個「柳洞寺組」，所以「真 Assassin（咒腕哈桑）接替」這條隱藏路線目前不會觸發。
-- 登入只靠御主名號，沒有密碼；如果要開放給他人遊玩，應補上簡單密碼機制（需前後端一起改）。
+- 登入刻意不設密碼：遊戲只給 5 人以內的朋友圈遊玩，御主名號只用來區分各自的存檔。不需要再提議加密碼。
+- 主從者（第一位從者）靈基「消滅」時目前不會自動解約或遞補，交由劇情處理。

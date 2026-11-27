@@ -37,6 +37,35 @@ const MAX_SMS_PER_THREAD = 30;
 const MAX_FORUM_POSTS = 25;
 const META_JSON_SOFT_LIMIT = 45000;
 
+// 試算表結構版本：只有版本號變動時才會執行一次「試算表自動升級」，不再每回合檢查
+const SCHEMA_VERSION_ = '2026-11-27-hassan';
+// 設定類分頁（角色／世界書／陣營）快取秒數；CacheService 上限 6 小時
+const CONFIG_CACHE_SECONDS_ = 21600;
+const CONFIG_CACHE_KEYS_ = ['fate_cfg_char_v2', 'fate_cfg_lore_v2', 'fate_cfg_fac_v2'];
+const CONFIG_SHEET_NAMES_ = ['Char_Appearance', 'Lorebook', 'Factions_Relations'];
+
+// 柳洞寺組（Caster＋Assassin 同一陣營）與真 Assassin 路線專用的陣營名稱
+const RYUUDOU_FACTION_KEY_ = '柳洞寺組 (Caster/Assassin陣營)';
+const ZOUKEN_FACTION_KEY_ = '臟硯組 (真Assassin陣營)';
+
+// 真Assassin（咒腕哈桑）角色資料：Char_Appearance 沒有時會自動補上（不可開局召喚）
+const HASSAN_CHAR_ROW_ = [
+  'hassan',
+  '咒腕哈桑,真Assassin,哈桑,咒腕',
+  'boy',
+  '1.2::hassan of the cursed arm (fate)::, fate/stay night, white skull mask, dark skin, tall, thin, long right arm',
+  'black cloak, tattered cloak, bandaged right arm, wrapped arm',
+  'visible face, eyes, short arms',
+  false
+];
+
+// 背包道具的固定效果由伺服器結算（AI 不需要、也不應該重複計入）
+const ITEM_EFFECTS_ = {
+  'mana_gem_s': { mp: 35 },
+  'mana_gem_m': { mp: 65 },
+  'smoke_bomb': { threat: -15 }
+};
+
 const ART_STYLE_PRESETS_ = {
   'official': 'official art, game cg, type-moon style, detailed shading',
   'anime': 'anime screencap, cinematic lighting, depth of field, soft glow',
@@ -227,6 +256,7 @@ const NP_VISUAL_EFFECTS_ = {
   'tamamo': 'holding floating mirror, pink and blue spirit flames, cherry blossoms, golden magic circle',
   'ereshkigal': 'holding golden lance, ghostly blue flames, underworld cage, dark blue lightning',
   'karna': 'holding golden lance, blazing solar flames, glowing golden armor, blinding sun explosion',
+  'hassan': 'unwrapped long cursed right arm extending, shadowy red glowing arm, grasping a phantom heart, crouching in darkness, zabaniya',
   'dark_sakura': 'dark miasma swirling, black shadow tentacles, glowing red markings on skin, dark purple mana vortex, corrupted grail energy'
 };
 
@@ -665,6 +695,124 @@ function areAllRivalFactionsResolved_(factionsObj) {
   });
 }
 
+// AI 回傳的 faction_updates 陣營名稱常常不完全一致（例如只寫「Saber陣營」「遠坂凜」），
+// 這裡統一對應回存檔裡既有的陣營名稱；完全對不上的就丟棄，避免憑空多出重複陣營
+const FACTION_ALIAS_GROUPS_ = [
+  { marker: '臟硯', aliases: ['臟硯', '真assassin', '哈桑', '咒腕'] },
+  { marker: '柳洞寺', aliases: ['柳洞寺', '葛木', 'caster', '美狄亞', 'assassin', '小次郎', '佐佐木'] },
+  { marker: '衛宮', aliases: ['衛宮', '士郎', 'saber', '阿爾托莉雅'] },
+  { marker: '遠坂', aliases: ['遠坂', '凜', 'archer', '紅a'] },
+  { marker: '教會', aliases: ['教會', '言峰', '綺禮', 'lancer', '庫夫林', '庫·夫林', '吉爾伽美什', '金閃閃'] },
+  { marker: '間桐', aliases: ['間桐', '櫻', '慎二', 'rider', '美杜莎'] },
+  { marker: '愛因茲貝倫', aliases: ['愛因茲貝倫', '伊莉雅', 'berserker', '海克力士'] }
+];
+
+function resolveFactionKey_(rawKey, factionsObj) {
+  const f = factionsObj || {};
+  const k = String(rawKey || '').trim();
+  if (!k) return '';
+  if (Object.prototype.hasOwnProperty.call(f, k)) return k;
+  const keys = Object.keys(f);
+  const direct = keys.find(x => x.includes(k) || k.includes(x));
+  if (direct) return direct;
+  const lower = k.toLowerCase();
+  for (let i = 0; i < FACTION_ALIAS_GROUPS_.length; i++) {
+    const g = FACTION_ALIAS_GROUPS_[i];
+    if (g.aliases.some(a => lower.includes(a))) {
+      const hit = keys.find(x => x.includes(g.marker));
+      if (hit) return hit;
+    }
+  }
+  return '';
+}
+
+function findMatouFactionKey_(factionsObj) {
+  return Object.keys(factionsObj || {}).find(k => (k.includes('間桐') || k.includes('黑櫻')) && k !== ZOUKEN_FACTION_KEY_) || '';
+}
+
+function findRyuudouFactionKey_(factionsObj) {
+  const f = factionsObj || {};
+  if (Object.prototype.hasOwnProperty.call(f, RYUUDOU_FACTION_KEY_)) return RYUUDOU_FACTION_KEY_;
+  return Object.keys(f).find(k => k.includes('柳洞寺')) || '';
+}
+
+// 柳洞寺兩位從者的個別退場追蹤＋真Assassin（咒腕哈桑）觸發
+// 觸發條件：美狄亞或小次郎任一退場，且間桐陣營仍未覆滅 → 新增獨立的「臟硯組 (真Assassin陣營)」
+function updateRyuudouRoute_(meta, factionsObj, servantsOut, capturedId, presentIds) {
+  const f = Object.assign({}, factionsObj || {});
+  const flags = Object.assign({ medeaOut: false, kojirouOut: false, trueAssassin: 'NONE' }, meta.routeFlags || {});
+  const outSet = new Set((Array.isArray(servantsOut) ? servantsOut : []).map(x => String(x || '').trim().toLowerCase()));
+  const cap = String(capturedId || '').trim().toLowerCase();
+  if (cap) outSet.add(cap);
+  const present = presentIds instanceof Set ? presentIds : new Set();
+  const reports = [];
+
+  const ryuKey = findRyuudouFactionKey_(f);
+  const ryuText = ryuKey ? String(f[ryuKey] || '') : '';
+
+  if (outSet.has('caster')) flags.medeaOut = true;
+  if (outSet.has('assassin')) flags.kojirouOut = true;
+  if (ryuKey && isCapturedOrDefeatedStatusText_(ryuText)) {
+    flags.medeaOut = true;
+    flags.kojirouOut = true;
+  }
+  if (/(美狄亞|Caster|C媽)[^，。；;]{0,10}(退場|陣亡|消滅|消散|擊敗|敗退|戰敗|收服|脫落)/i.test(ryuText)) flags.medeaOut = true;
+  if (/(小次郎|佐佐木|(?<!真)Assassin)[^，。；;]{0,10}(退場|陣亡|消滅|消散|擊敗|敗退|戰敗|收服|脫落|取代)/i.test(ryuText)) flags.kojirouOut = true;
+
+  // 收服其中一位時，柳洞寺組不整組改為「歸屬第8組」；兩位都離開才算整組結束
+  if (ryuKey && !isCapturedOrDefeatedStatusText_(ryuText) && !isAllianceStatusText_(ryuText)) {
+    if (cap === 'caster' && !flags.kojirouOut) {
+      f[ryuKey] = '存活・Caster美狄亞已轉投第8組 (山門僅剩Assassin小次郎鎮守)';
+    } else if (cap === 'assassin' && !flags.medeaOut) {
+      f[ryuKey] = '存活・Assassin小次郎已轉投第8組 (Caster美狄亞孤守柳洞寺)';
+    } else if (flags.medeaOut && flags.kojirouOut) {
+      f[ryuKey] = (cap === 'caster' || cap === 'assassin')
+        ? '已歸屬第8組・原御主已退場 (柳洞寺兩騎皆已離開)'
+        : '已淘汰 (美狄亞與小次郎皆已退場)';
+    }
+  }
+
+  const matouKey = findMatouFactionKey_(f);
+  const matouActive = Boolean(matouKey) && !isCapturedOrDefeatedStatusText_(String(f[matouKey] || ''));
+  const zoukenExists = Object.prototype.hasOwnProperty.call(f, ZOUKEN_FACTION_KEY_);
+  const forcedByStory = present.has('hassan');
+
+  if (flags.trueAssassin === 'NONE' && !zoukenExists && ((matouActive && (flags.medeaOut || flags.kojirouOut)) || forcedByStory)) {
+    flags.trueAssassin = 'ACTIVE';
+    flags.kojirouOut = true;
+    f[ZOUKEN_FACTION_KEY_] = '存活 (潛伏暗殺)・間桐臟硯以小次郎殘骸為媒介召喚的真Assassin・咒腕的哈桑';
+    const curRyu = ryuKey ? String(f[ryuKey] || '') : '';
+    if (ryuKey && !isCapturedOrDefeatedStatusText_(curRyu) && !isAllianceStatusText_(curRyu)) {
+      f[ryuKey] = flags.medeaOut
+        ? '已淘汰 (美狄亞與小次郎皆已退場，山門遭真Assassin佔據)'
+        : '存活・Caster美狄亞孤守柳洞寺 (山門小次郎已被真Assassin從內側撕裂取代)';
+    }
+    reports.push('【異變】圓藏山山門傳出骨骼碎裂般的怪聲，有人目擊戴著白骨面具、手臂異常細長的黑影在石階間一閃而逝……');
+  }
+
+  if (zoukenExists || flags.trueAssassin === 'ACTIVE') {
+    const zText = String(f[ZOUKEN_FACTION_KEY_] || '');
+    if (cap === 'hassan' && !isCapturedOrDefeatedStatusText_(zText)) {
+      f[ZOUKEN_FACTION_KEY_] = '已歸屬第8組・原御主已退場 (咒腕哈桑由玩家接手指揮)';
+    }
+    if (outSet.has('hassan') && !isCapturedOrDefeatedStatusText_(String(f[ZOUKEN_FACTION_KEY_] || ''))) {
+      f[ZOUKEN_FACTION_KEY_] = '已淘汰 (咒腕哈桑已退場)';
+    }
+    if (isCapturedOrDefeatedStatusText_(String(f[ZOUKEN_FACTION_KEY_] || ''))) {
+      flags.trueAssassin = 'DEFEATED';
+    }
+  }
+
+  meta.routeFlags = flags;
+  return { factions: f, report: reports.join(' ') };
+}
+
+function describeRyuudouRoute_(meta) {
+  const fl = Object.assign({ medeaOut: false, kojirouOut: false, trueAssassin: 'NONE' }, (meta && meta.routeFlags) || {});
+  const ta = fl.trueAssassin === 'ACTIVE' ? '已現身並潛伏（臟硯組，`hassan`）' : (fl.trueAssassin === 'DEFEATED' ? '已退場' : '尚未出現');
+  return `【柳洞寺路線】Caster美狄亞：${fl.medeaOut ? '已退場' : '仍在'} ｜ Assassin小次郎：${fl.kojirouOut ? '已退場' : '仍在'} ｜ 真Assassin咒腕哈桑：${ta}`;
+}
+
 // 僅在「真正收服」某英靈時呼叫：把對應原陣營改為歸屬第8組
 function syncCapturedServantFaction_(factionsObj, servantId, servantClass) {
   const updated = Object.assign({}, factionsObj || {});
@@ -673,6 +821,10 @@ function syncCapturedServantFaction_(factionsObj, servantId, servantClass) {
 
   if (!cls && !sid) return updated;
   if (sid === 'lancer' || cls === 'lancer') {
+    return updated;
+  }
+  // 柳洞寺兩騎與哈桑由 updateRyuudouRoute_ 個別處理
+  if (sid === 'caster' || sid === 'assassin' || sid === 'hassan') {
     return updated;
   }
 
@@ -721,9 +873,65 @@ function ensureFactionsAndPoolUpgraded_(ss) {
       if (dirty) {
         charSheet.getRange(2, 1, cLast - 1, 7).setValues(cData);
       }
+      if (!cData.some(r => String(r[0]).trim() === HASSAN_CHAR_ROW_[0])) {
+        charSheet.getRange(charSheet.getLastRow() + 1, 1, 1, 7).setValues([HASSAN_CHAR_ROW_]);
+      }
     }
   }
   SpreadsheetApp.flush();
+}
+
+// 只有 SCHEMA_VERSION_ 變動時才執行試算表升級（補陣營、補角色、補世界書），平常只讀一個指令碼屬性
+function ensureSchemaUpgraded_(ss) {
+  const props = PropertiesService.getScriptProperties();
+  if (props.getProperty('FATE_SCHEMA_VERSION') === SCHEMA_VERSION_) return;
+  // 呼叫端多半已持有 ScriptLock；升級內容只會「補缺少的列」，重複執行也安全
+  ensureFateLorebookUpgraded_(ss);
+  ensureFactionsAndPoolUpgraded_(ss);
+  props.setProperty('FATE_SCHEMA_VERSION', SCHEMA_VERSION_);
+  clearFateConfigCache();
+}
+
+// ==================== 設定類分頁快取（角色／世界書／陣營） ====================
+
+let CHAR_DB_MEMO_ = null;
+let LORE_ROWS_MEMO_ = null;
+let DEFAULT_FACTIONS_MEMO_ = null;
+
+function readConfigCache_(key) {
+  try {
+    const raw = CacheService.getScriptCache().get(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function writeConfigCache_(key, value) {
+  try {
+    const s = JSON.stringify(value);
+    if (s.length < 95000) CacheService.getScriptCache().put(key, s, CONFIG_CACHE_SECONDS_);
+  } catch (e) {
+    // 快取失敗不影響遊戲，下次會直接讀試算表
+  }
+}
+
+// 手動修改角色／世界書／陣營分頁後，可在 GAS 編輯器執行這個函式立刻套用（onEdit 也會自動呼叫）
+function clearFateConfigCache() {
+  CHAR_DB_MEMO_ = null;
+  LORE_ROWS_MEMO_ = null;
+  DEFAULT_FACTIONS_MEMO_ = null;
+  try {
+    CacheService.getScriptCache().removeAll(CONFIG_CACHE_KEYS_);
+  } catch (e) {}
+}
+
+// 簡易觸發器：在試算表中手動編輯設定類分頁時，自動清除快取
+function onEdit(e) {
+  try {
+    const name = e && e.range ? e.range.getSheet().getName() : '';
+    if (CONFIG_SHEET_NAMES_.indexOf(name) !== -1) clearFateConfigCache();
+  } catch (err) {}
 }
 
 function ensureFateLorebookUpgraded_(ss) {
@@ -752,7 +960,8 @@ function ensureFateLorebookUpgraded_(ss) {
     ['七組狀態,交戰連貫,陣營機制,延伸後果,洗澡', '陣營與戰局', 9, '推演前必須先檢視七組陣營狀態與當前是否處於交戰：已淘汰或重傷休整的陣營不得無故滿血突襲；若正與敵對陣營交戰，敵人就在眼前，不可突然跑去洗澡或鍛鍊，不合時宜的行動會有相應後果，交戰也需帶出該陣營的特殊機制與後續連鎖後果。'],
     ['在場反應,難度基調,搞笑鬧劇,無限制,鐵血', '互動與基調', 9, '所有在場人物（從者、對手、在場角色）對玩家的任何動作都必須有真實反應，不能無視或神隱；同時依所選基調（搞笑鬧劇輕鬆向／符合常理／無限制／鐵血嚴重戰場風）調整反應味道與後果輕重。'],
     ['第8組獨立,同盟陣營,不頂替,陣營歸屬', '陣營與同盟', 10, '玩家是正規七組之外獨立參戰的第8組，不頂替其他陣營或英靈（即便職階相同也只是不同英靈）；若與某陣營結為同盟，雙方彼此照應、不內鬥，也不會在後台莫名被視為敵對陣營；只有實際擊敗並收服該陣營從者時，原陣營才改為歸屬第8組。'],
-    ['固定御主,我方在場,不神隱', '固定角色', 10, '「我（御主 `player_master`）」是固定核心人物，只要不是純粹兩位從者正面交鋒，每次出圖與劇情都必須確保御主本人（`player_master`）在場，不得擅自把御主弄不見。']
+    ['固定御主,我方在場,不神隱', '固定角色', 10, '「我（御主 `player_master`）」是固定核心人物，只要不是純粹兩位從者正面交鋒，每次出圖與劇情都必須確保御主本人（`player_master`）在場，不得擅自把御主弄不見。'],
+    ['真Assassin,咒腕,哈桑,臟硯,山門,小次郎,美狄亞', '隱藏路線', 8, '柳洞寺組由 Caster 美狄亞與山門守衛 Assassin 佐佐木小次郎組成。只要兩人其中一位退場、且間桐陣營仍在，間桐臟硯就會以小次郎的殘骸為媒介召喚「真Assassin・咒腕的哈桑（`hassan`）」，成為獨立的「臟硯組 (真Assassin陣營)」。真Assassin 擅長氣息遮斷與暗殺，寶具「妄想心音（Zabaniya）」以咒腕複製並捏碎目標心臟，對御主極度致命。']
   ];
 
   const toAppend = [];
@@ -808,6 +1017,20 @@ function callGeminiLiteJson_(systemPrompt, userMessage, temperature, maxTokens) 
 
 // ==================== 地點識別、動態戰況與靈脈大源計算 ====================
 
+// 只在文字中確實出現已知地標時才回傳結果，否則回傳 null（供「維持原地」判斷）
+function matchFuyukiLocation_(rawLocationText) {
+  const text = String(rawLocationText || '').trim();
+  if (!text) return null;
+  const keys = Object.keys(FUYUKI_LOCATIONS_);
+  for (let i = 0; i < keys.length; i++) {
+    const locObj = FUYUKI_LOCATIONS_[keys[i]];
+    if (text.includes(locObj.fullName) || locObj.aliases.some(alias => text.includes(alias))) {
+      return { key: keys[i], info: locObj };
+    }
+  }
+  return null;
+}
+
 function resolveFuyukiLocation_(rawLocationText) {
   const text = String(rawLocationText || '').trim();
   const keys = Object.keys(FUYUKI_LOCATIONS_);
@@ -837,7 +1060,7 @@ function computeDynamicLocationInfo_(locKey, baseInfo, factionsObj, mapHotspot, 
   } else if (locKey === '遠坂邸' && isDefeatedOrCapturedFaction_(f, 'Archer')) {
     info.danger = '🟢 低 (Archer陣營已覆滅或歸屬第8組・可搜刮寶石工房)';
     info.desc = '失去原敵對陣營守護的遠坂魔術工房，地下室仍殘留著部分未使用的魔力寶石與魔術典籍。';
-  } else if (locKey === '柳洞寺' && isDefeatedOrCapturedFaction_(f, 'Caster') && isDefeatedOrCapturedFaction_(f, 'Assassin')) {
+  } else if (locKey === '柳洞寺' && isDefeatedOrCapturedFaction_(f, '柳洞寺')) {
     info.danger = '🟢 低 (柳洞寺陣營已覆滅或歸屬第8組・可安全汲取大源)';
     info.desc = '原本阻擋外敵的結界已經消散或由我方掌控，整座圓藏山大靈脈現在可以汲取龐大魔力。';
   } else if (locKey === '愛因茲貝倫森林' && isDefeatedOrCapturedFaction_(f, 'Berserker')) {
@@ -853,9 +1076,13 @@ function computeDynamicLocationInfo_(locKey, baseInfo, factionsObj, mapHotspot, 
   if ((locKey === '新都商業區' || locKey === '廢棄洋館') && matouKey && /黑櫻|黑影/.test(String(f[matouKey] || '')) && !isDefeatedOrCapturedFaction_(f, '間桐')) {
     info.danger = '🖤 極高 (黑櫻與聖杯黑影出沒・謹防吞噬)';
   }
-  const assassinKey = Object.keys(f).find(k => k.includes('柳洞寺') || k.includes('Assassin'));
-  if (locKey === '柳洞寺' && assassinKey && /咒腕|哈桑|真Assassin/.test(String(f[assassinKey] || '')) && !isDefeatedOrCapturedFaction_(f, 'Assassin')) {
-    info.danger = '🗡️ 極高 (間桐臟硯與真Assassin・咒腕哈桑潛伏山門)';
+  const zoukenText = Object.prototype.hasOwnProperty.call(f, ZOUKEN_FACTION_KEY_) ? String(f[ZOUKEN_FACTION_KEY_] || '') : '';
+  if (zoukenText && !isCapturedOrDefeatedStatusText_(zoukenText) && !isAllianceStatusText_(zoukenText)) {
+    if (locKey === '柳洞寺') {
+      info.danger = '🗡️ 極高 (間桐臟硯與真Assassin・咒腕哈桑潛伏山門)';
+    } else if (locKey === '新都商業區') {
+      info.danger = '🗡️ 極高 (真Assassin・咒腕哈桑在暗巷狩獵魔術師)';
+    }
   }
 
   if (customNotesObj && customNotesObj[locKey]) {
@@ -1058,8 +1285,7 @@ function resetCurrentRunKeepCareer(playerName) {
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    ensureFateLorebookUpgraded_(ss);
-    ensureFactionsAndPoolUpgraded_(ss);
+    ensureSchemaUpgraded_(ss);
 
     const saveSheet = ss.getSheetByName('Players_Save');
     if (!saveSheet) throw new Error('找不到 Players_Save 分頁！');
@@ -1162,17 +1388,13 @@ function startNewGame(playerName) {
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    ensureFateLorebookUpgraded_(ss);
-    ensureFactionsAndPoolUpgraded_(ss);
+    ensureSchemaUpgraded_(ss);
 
     const saveSheet = ss.getSheetByName('Players_Save');
     if (!saveSheet) throw new Error('找不到 Players_Save 分頁，請先執行 SetupDB.gs 的 initFateDatabase！');
 
-    const data = saveSheet.getDataRange().getValues();
-    for (let i = 1; i < data.length; i++) {
-      if (String(data[i][0]).trim() === cleanName) {
-        throw new Error(`御主名號「${cleanName}」已經存在於聖杯戰爭紀錄中！請直接點擊【讀取世界線】，或換一個新名號。`);
-      }
+    if (findPlayerRowIndex_(saveSheet, cleanName) !== -1) {
+      throw new Error(`御主名號「${cleanName}」已經存在於聖杯戰爭紀錄中！請直接點擊【讀取世界線】，或換一個新名號。`);
     }
 
     const charDb = getCharAppearanceMap_(ss);
@@ -1262,20 +1484,13 @@ function startNewGame(playerName) {
 function loadExistingGame(playerName) {
   const cleanName = validatePlayerName_(playerName);
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  ensureFateLorebookUpgraded_(ss);
-  ensureFactionsAndPoolUpgraded_(ss);
+  ensureSchemaUpgraded_(ss);
 
   const saveSheet = ss.getSheetByName('Players_Save');
   if (!saveSheet) throw new Error('找不到 Players_Save 分頁！');
 
-  const data = saveSheet.getDataRange().getValues();
-  let foundRow = null;
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]).trim() === cleanName) {
-      foundRow = data[i];
-      break;
-    }
-  }
+  const foundIndex = findPlayerRowIndex_(saveSheet, cleanName);
+  const foundRow = foundIndex === -1 ? null : saveSheet.getRange(foundIndex, 1, 1, 32).getValues()[0];
 
   if (!foundRow) {
     throw new Error(`找不到御主「${cleanName}」的存檔紀錄！請確認名稱是否正確，或點擊【開始新紀元】建立新角色。`);
@@ -1307,7 +1522,7 @@ function startNextLoopReincarnation(playerName) {
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    ensureFactionsAndPoolUpgraded_(ss);
+    ensureSchemaUpgraded_(ss);
     const saveSheet = ss.getSheetByName('Players_Save');
     const rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
     if (rowIndex === -1) throw new Error('找不到存檔！');
@@ -1342,6 +1557,8 @@ function startNextLoopReincarnation(playerName) {
       mapHotspot: '冬木大橋',
       warTicker: '新輪迴開啟，冬木市七組陣營重新降臨。',
       bondLevel: 25,
+      turnCount: 0,
+      routeFlags: { medeaOut: false, kojirouOut: false, trueAssassin: 'NONE' },
       customLocationNotes: {},
       phoneState: {
         forumPosts: buildInitialForumPosts_(1, '深夜'),
@@ -1549,7 +1766,7 @@ function completeCreationTextOnly(params) {
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    ensureFactionsAndPoolUpgraded_(ss);
+    ensureSchemaUpgraded_(ss);
     const saveSheet = ss.getSheetByName('Players_Save');
     const rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
     if (rowIndex === -1) throw new Error('找不到玩家存檔！');
@@ -1743,12 +1960,14 @@ function applyInventoryChanges_(currentInv, consumedIds, gainedItems, isSandboxM
   let addedCount = 0;
   let skippedFull = false;
 
+  const consumedActual = [];
   if (Array.isArray(consumedIds)) {
     consumedIds.forEach(cid => {
       const targetId = String(cid || '').trim();
       if (!targetId) return;
       const idx = inv.findIndex(item => item.id === targetId);
       if (idx !== -1) {
+        consumedActual.push(targetId);
         inv[idx].qty = Math.max(0, (Number(inv[idx].qty) || 1) - 1);
         if (inv[idx].qty <= 0) {
           inv.splice(idx, 1);
@@ -1758,7 +1977,7 @@ function applyInventoryChanges_(currentInv, consumedIds, gainedItems, isSandboxM
   }
 
   if (isSandboxMode) {
-    return { inventory: inv, addedCount: 0, skippedFull: false };
+    return { inventory: inv, addedCount: 0, skippedFull: false, consumedIds: consumedActual };
   }
 
   if (Array.isArray(gainedItems)) {
@@ -1793,7 +2012,7 @@ function applyInventoryChanges_(currentInv, consumedIds, gainedItems, isSandboxM
     });
   }
 
-  return { inventory: inv, addedCount: addedCount, skippedFull: skippedFull };
+  return { inventory: inv, addedCount: addedCount, skippedFull: skippedFull, consumedIds: consumedActual };
 }
 
 function ensureMasterPresentInList_(presentList, isCombatTurn) {
@@ -1824,7 +2043,7 @@ function applyRouteAndHiddenServantEvolution_(factionsObj, turnJson, charDb, isC
     nextF[churchKey] = '言峰組・英雄王吉爾伽美什已現身 (受肉第八騎・極度危險)';
   }
 
-  const matouKey = findFacKey(k => k.includes('間桐') || k.includes('黑櫻'));
+  const matouKey = findMatouFactionKey_(nextF);
   const saberKey = findFacKey(k => k.includes('衛宮') || k.includes('Saber'));
 
   if (presentIds.has('dark_sakura')) {
@@ -1839,15 +2058,7 @@ function applyRouteAndHiddenServantEvolution_(factionsObj, turnJson, charDb, isC
     }
   }
 
-  const assassinKey = findFacKey(k => k.includes('柳洞寺') || k.includes('Assassin'));
-  const casterKey = findFacKey(k => k.includes('葛木') || k.includes('Caster'));
-  const assassinDefeated = assassinKey && isCapturedOrDefeatedStatusText_(nextF[assassinKey]);
-  const casterDefeated = casterKey && isCapturedOrDefeatedStatusText_(nextF[casterKey]);
-  const matouActive = matouKey && !isCapturedOrDefeatedStatusText_(nextF[matouKey]);
-
-  if (assassinKey && !assassinDefeated && casterDefeated && matouActive && charDb['assassin']) {
-    nextF[assassinKey] = '間桐臟硯組・真Assassin (咒腕的哈桑接替・潛伏暗殺)';
-  }
+  // 真Assassin（咒腕哈桑）路線改由 updateRyuudouRoute_ 個別追蹤美狄亞／小次郎退場後觸發
 
   // 同場絕不出現雙櫻或雙Saber：黑化版本出現時，直接移除原版
   const filteredPresent = [];
@@ -1879,7 +2090,7 @@ function processFateTurnTextOnly(params) {
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    ensureFactionsAndPoolUpgraded_(ss);
+    ensureSchemaUpgraded_(ss);
     const saveSheet = ss.getSheetByName('Players_Save');
     const rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
     if (rowIndex === -1) throw new Error('找不到玩家存檔！');
@@ -1952,7 +2163,7 @@ function processFateTurnTextOnly(params) {
       '【核心原則：重劇情、輕卡關、第8組獨立不頂替、同盟照應不內鬥、智能情境服裝、自然稱呼不喊異常御主、只寫本回合最新推進、固定御主必在場、在場人物必有反應、看戰術與嘴砲邏輯、七組狀態與交戰連貫、能力值固定鎖定】',
       '1. 第8組獨立參戰・不頂替其他陣營或狗哥：玩家是正規七組之外獨立降臨的第8組參戰者（全場共 7 組原陣營＋玩家第 8 組＝8 組），不是頂替任何原陣營或狗哥（庫夫林 / Lancer）；即便玩家召喚的英靈職階與其他陣營相同，也只是「同職階不同英靈」，除非實際擊敗並收服，否則不把原陣營硬改為歸屬第8組。',
       '2. 尊重同盟關係與簡訊支援：若某陣營目前處於「同盟／結盟／合作／互助」狀態，第8組與同盟陣營彼此照應、聯手或互助，不會莫名翻臉或互相殘殺；若玩家透過簡訊呼叫結盟支援，需讓該同盟陣營在劇情與陣營動態上實際配合支援或調動。',
-      '3. 隱藏王牌與路線變異（金閃閃、黑櫻＋黑Saber、真Assassin）：教會組言峰綺禮在教會深入、Lancer退場或終局混戰時可亮出受肉第八騎「吉爾伽美什 (`gilgamesh`)」；間桐Rider敗退或深挖黑影異變時可覺醒「黑櫻 (`dark_sakura`)」，若衛宮組Saber敗於黑影則吞噬反轉為「黑Saber (`saber_alter`)」並歸入黑櫻陣營（同場絕不出現雙櫻或雙Saber）；柳洞寺小次郎 (`assassin`) 退場或美狄亞退場後，間桐臟硯可召喚「真Assassin（咒腕哈桑）」接替Assassin職階。',
+      '3. 隱藏王牌與路線變異（金閃閃、黑櫻＋黑Saber、真Assassin）：教會組言峰綺禮在教會深入、Lancer退場或終局混戰時可亮出受肉第八騎「吉爾伽美什 (`gilgamesh`)」；間桐Rider敗退或深挖黑影異變時可覺醒「黑櫻 (`dark_sakura`)」，若衛宮組Saber敗於黑影則吞噬反轉為「黑Saber (`saber_alter`)」並歸入黑櫻陣營（同場絕不出現雙櫻或雙Saber）；柳洞寺小次郎 (`assassin`) 或美狄亞 (`caster`) 退場後，系統會自動讓間桐臟硯召喚「真Assassin・咒腕哈桑 (`hassan`)」成立「臟硯組 (真Assassin陣營)」；敵方英靈確實退場時務必填入 `servants_out`。',
       '4. 智能情境服裝適配：英靈在交戰、外出巡邏或夜襲時，應自然具現合宜靈衣／戰裝，不卡在睡衣或家居服出戰；在工房／室內休整時可自然切換輕鬆裝扮。御主尊重刻意選擇（如穿睡衣、特定戰裝或全裸），若未刻意指定脫衣，出戰／外出時不會硬把御主扒光；指定全裸則清除衣物干擾並維持全裸狀態直到主動穿衣。',
       '5. 自然稱呼（不要一直叫「異常御主」）：稱呼玩家時直接用「' + cleanName + '」、「御主」或依角色性格自然稱呼，不要刻意一直叫「異常御主」或「第8組異常御主」。',
       '6. 只寫本回合最新推進（不重複上一回合尾巴）：先前幾回合都已經是確定的過往歷史，本回合開頭直接接續最新局勢往下發展，絕對不要在開頭重複、複述或重演上一回合結尾的句子、動作或情節！',
@@ -1971,7 +2182,7 @@ function processFateTurnTextOnly(params) {
       `【物品欄 (上限 ${MAX_INVENTORY_SLOTS} 格)】\n${invSummary}`,
       isSandboxMode
         ? '日常模式：不發放戰鬥道具（`gained_items` 為 `[]`）。'
-        : '消耗背包道具請填入 `consumed_item_ids`；只要拾取、收納或取得物品，務必填入 `gained_items`（階級 1～3）。'
+        : '消耗背包道具請填入 `consumed_item_ids`（填背包裡的 id）；只要拾取、收納或取得物品，務必填入 `gained_items`（階級 1～3）。\n固定道具 id：魔力結晶(小)=`mana_gem_s`、高純度魔力寶石(中)=`mana_gem_m`、煙霧魔術彈=`smoke_bomb`、對魔術防禦禮裝(保命符)=`aegis_charm`、未充能天然寶石媒介=`empty_gem`、基礎黑鍵套組=`black_keys`；煉成或取得這些道具時務必沿用同一個 id。\n魔力寶石／結晶的 MP 回復與煙霧彈降低警戒度由系統自動結算，`master_mp_delta` 與 `threat_delta` 不要重複計入。'
     ].join('\n');
 
     const worldEventHint = drawWorldDirectorEvent_(statusObj);
@@ -1982,7 +2193,7 @@ function processFateTurnTextOnly(params) {
       'Keep gameplay engaging, responsive, and free-flowing while respecting Type-Moon atmosphere, character personality, and player agency.',
       'Follow the selected difficulty/writing tone (' + tonePreset.label + ': ' + tonePreset.desc + ') and resolve actions naturally based on tactics, dialogue/persuasion logic, faction states, and situational causality.',
       'INDEPENDENT 8TH FACTION & ALLIANCE RULE: The player leads the independent 8th faction (7 original factions + 8th faction = 8 factions total)—do NOT replace or overwrite any of the 7 factions or existing Servants just because of matching class/name, and if a faction is allied (`同盟／結盟／合作`), treat them as allies cooperating with the 8th faction rather than enemies.',
-      'HIDDEN ACES & ROUTE VARIATIONS: Kirei/Church can reveal incarnated Gilgamesh (`gilgamesh`) in church depths/Lancer departure/late war; Matou/Shadow events can awaken Dark Sakura (`dark_sakura`) and corrupt defeated Saber into Saber Alter (`saber_alter`) under Dark Sakura\'s faction (never show duplicate Sakura or duplicate Saber together); after Assassin (Kojirou) or Caster (Medea) falls, Zouken can summon True Assassin (Hassan) to replace Assassin.',
+      'HIDDEN ACES & ROUTE VARIATIONS: Kirei/Church can reveal incarnated Gilgamesh (`gilgamesh`) in church depths/Lancer departure/late war; Matou/Shadow events can awaken Dark Sakura (`dark_sakura`) and corrupt defeated Saber into Saber Alter (`saber_alter`) under Dark Sakura\'s faction (never show duplicate Sakura or duplicate Saber together); True Assassin (Hassan of the Cursed Arm, id `hassan`) belongs to the separate faction `臟硯組 (真Assassin陣營)`; the system creates it automatically once Medea (`caster`) or Kojirou (`assassin`) leaves and Matou is still active—when that faction exists, Hassan may stalk and ambush (strongest at Ryuudou-ji gate and Shinto back alleys). Always list enemy Servants that permanently leave this turn in `servants_out`.',
       'SMART CONTEXTUAL OUTFIT ADAPTATION: Adapt outfits intelligently to context and intent—Servants naturally manifest appropriate battle/outdoor attire during combat, patrol, or night raids, or relaxed attire in a safe workshop/indoors; for the Master, respect intentional choices (such as sleepwear, specific outfits, or nudity), do NOT strip the Master accidentally when going out/fighting unless requested, and keep nudity in `outfit_updates` (`nude, completely nude, no clothes`) until the player asks to put clothes back on.',
       'ADDRESSING THE PLAYER NATURALLY: Refer to the player naturally by their name `' + cleanName + '` or as `御主`—do NOT keep calling the player `異常御主` or `第8組異常御主`.',
       'LATEST TURN ONLY — DO NOT REPEAT PREVIOUS ENDING: Previous turns are settled history. Start immediately with what happens NEW in this turn in response to the player\'s action—NEVER repeat, rephrase, or re-enact the ending of the previous turn at the beginning of `story`.',
@@ -2033,8 +2244,9 @@ function processFateTurnTextOnly(params) {
       '  "consumed_item_ids": [],',
       '  "gained_items": [{ "id": "物品英文代碼", "name": "物品繁中名稱", "tier": 1, "type": "material/consumable/equipment", "qty": 1, "desc": "物品說明" }],',
       '  "servant_form_morph": "",',
-      '  "outfit_updates": {},',
-      '  "faction_updates": {},',
+      '  "outfit_updates": { "角色ID": "英文 Danbooru 服裝 tags（只在換裝時填）" },',
+      '  "faction_updates": { "既有陣營完整名稱": "新狀態（只在狀態改變時填）" },',
+      '  "servants_out": ["本回合確實退場（陣亡／消滅／被收服）的敵方英靈 ID，例如 caster、assassin、hassan；沒有就空陣列"],',
       '  "new_servant2_id": "",',
       '  "memory_update": "濃縮截至本回合的120字內前情提要（含當前戰局與陣營動態）",',
       '  "present_chars": [',
@@ -2054,6 +2266,7 @@ function processFateTurnTextOnly(params) {
       statusObj.servant2.id ? `【副從者】ID:${statusObj.servant2.id} (${statusObj.servant2.class}・${statusObj.servant2.name}) | 靈基狀態:${statusObj.servant2.condition || '靈基穩定'}` : '【副從者】無',
       `【各角色目前穿著狀態】${JSON.stringify(statusObj.outfits)}`,
       `【七組陣營狀態（推演前必先對照，同盟陣營須彼此照應）】${JSON.stringify(statusObj.factions)}`,
+      describeRyuudouRoute_(metaBefore),
       `【長期記憶前情提要】${statusObj.memorySummary}`,
       loreSnippets ? `【相關世界書設定】\n${loreSnippets}` : '',
       recentContextText ? `【過往歷史脈絡（僅供背景參照，切勿在本次開頭重複上回合尾巴）】\n${recentContextText}` : '',
@@ -2070,14 +2283,16 @@ function processFateTurnTextOnly(params) {
 
     row[1] = Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyy-MM-dd HH:mm:ss');
 
-    const resolvedLoc = resolveFuyukiLocation_(turnJson.location || row[10]);
+    const resolvedLoc = matchFuyukiLocation_(turnJson.location) || resolveFuyukiLocation_(row[10]);
     row[10] = resolvedLoc.info.fullName;
 
     let currentFactions = safeJsonParse_(row[29], {});
     if (turnJson.faction_updates && typeof turnJson.faction_updates === 'object') {
       Object.keys(turnJson.faction_updates).forEach(fname => {
-        if (turnJson.faction_updates[fname]) {
-          currentFactions[fname] = turnJson.faction_updates[fname];
+        const val = String(turnJson.faction_updates[fname] || '').trim();
+        const realKey = resolveFactionKey_(fname, currentFactions);
+        if (val && realKey) {
+          currentFactions[realKey] = val.slice(0, 120);
         }
       });
     }
@@ -2089,6 +2304,7 @@ function processFateTurnTextOnly(params) {
     }
 
     const nonServants = new Set(['player_master', 'shirou', 'rin', 'sakura', 'dark_sakura', 'illya', 'kirei', 'souichirou']);
+    let capturedServantId = '';
     if (
       turnJson.new_servant2_id &&
       charDb[turnJson.new_servant2_id] &&
@@ -2104,12 +2320,18 @@ function processFateTurnTextOnly(params) {
       row[26] = 1000;
       row[27] = 0;
       meta.servant2Condition = '靈基穩定';
+      capturedServantId = String(row[23]);
       // 只有「真正收服敵方英靈」時，才把原陣營改為歸屬第8組
       currentFactions = syncCapturedServantFaction_(currentFactions, row[23], '');
     }
 
     const isCombatTurn = Boolean(turnJson.is_combat);
     currentFactions = applyRouteAndHiddenServantEvolution_(currentFactions, turnJson, charDb, isCombatTurn);
+    const presentIdSet = new Set((turnJson.present_chars || []).map(c => String((c && c.id) || '').trim()));
+    const servantsOutList = Array.isArray(turnJson.servants_out) ? turnJson.servants_out : [];
+    let routeRes = updateRyuudouRoute_(meta, currentFactions, servantsOutList, capturedServantId, presentIdSet);
+    currentFactions = routeRes.factions;
+    const routeReports = routeRes.report ? [routeRes.report] : [];
 
     let mpDelta = Number(turnJson.master_mp_delta) || 0;
     let periodAdvancedNotice = '';
@@ -2133,6 +2355,9 @@ function processFateTurnTextOnly(params) {
         // 玩家的第8組是獨立陣營，不再以「持有英靈ID」排除原敵對陣營；已收服者已由狀態文字排除
         const warSim = simulateOffscreenFactionWar_(currentFactions, nextTime.day, nextTime.period, []);
         currentFactions = warSim.updatedFactions;
+        routeRes = updateRyuudouRoute_(meta, currentFactions, [], '', new Set());
+        currentFactions = routeRes.factions;
+        if (routeRes.report) routeReports.push(routeRes.report);
         if (warSim.hotspotKey) meta.mapHotspot = warSim.hotspotKey;
         if (warSim.report) {
           latestWarReport = warSim.report;
@@ -2181,6 +2406,22 @@ function processFateTurnTextOnly(params) {
     );
     let updatedInventory = invResult.inventory;
 
+    // 魔力寶石回魔、煙霧彈降警戒：依實際扣掉的道具由伺服器結算
+    let itemMpGain = 0;
+    let itemThreatDelta = 0;
+    (invResult.consumedIds || []).forEach(cid => {
+      const eff = ITEM_EFFECTS_[cid];
+      if (!eff) return;
+      itemMpGain += Number(eff.mp) || 0;
+      itemThreatDelta += Number(eff.threat) || 0;
+    });
+    if (itemMpGain > 0) {
+      row[15] = Math.max(0, Math.min(maxMp, Number(row[15]) + itemMpGain));
+    }
+    if (itemThreatDelta !== 0 && statusObj.gameMode === 'WAR') {
+      row[9] = Math.max(0, Math.min(100, Number(row[9]) + itemThreatDelta));
+    }
+
     if (invResult.skippedFull) {
       formattedStory += '\n\n【道具欄已滿】隨身道具欄已達上限（6/6），無法再自動收進更多新物品。';
     }
@@ -2188,6 +2429,15 @@ function processFateTurnTextOnly(params) {
     if (turnJson.master_condition) meta.masterCondition = String(turnJson.master_condition);
     if (turnJson.servant_condition) meta.servantCondition = String(turnJson.servant_condition);
     if (turnJson.servant2_condition) meta.servant2Condition = String(turnJson.servant2_condition);
+    if (row[23] && /消滅/.test(String(meta.servant2Condition || ''))) {
+      formattedStory += `\n\n【副契約解除】副從者「${row[25]}」的靈基已經消滅，契約之線就此斷絕。`;
+      row[23] = '';
+      row[24] = '';
+      row[25] = '';
+      row[26] = 0;
+      row[27] = 0;
+      meta.servant2Condition = '靈基穩定';
+    }
 
     const currentOutfits = safeJsonParse_(row[28], {});
     Object.keys(charDb).forEach(id => {
@@ -2224,6 +2474,9 @@ function processFateTurnTextOnly(params) {
     }
 
     let outcome = String(turnJson.outcome_type || 'CONTINUE').toUpperCase();
+    if (outcome === 'CONTINUE' && /^已死亡/.test(String(meta.masterCondition || ''))) {
+      outcome = 'FATAL_DEATH';
+    }
 
     // 伺服器端驗證：日常模式不會通關；仍有未化解的敵對陣營時，不接受 TRUE_VICTORY
     if (outcome === 'TRUE_VICTORY' && (isSandboxMode || !areAllRivalFactionsResolved_(currentFactions))) {
@@ -2255,6 +2508,12 @@ function processFateTurnTextOnly(params) {
     // 只要本回合最終仍是 CONTINUE（含保命禮裝逃生），就顯示時段推進與戰況速報
     if (outcome === 'CONTINUE' && periodAdvancedNotice) {
       formattedStory += periodAdvancedNotice;
+    }
+    if (routeReports.length > 0) {
+      const routeText = routeReports.join(' ');
+      if (outcome === 'CONTINUE') formattedStory += `\n\n${routeText}`;
+      latestWarReport = [latestWarReport, routeText].filter(Boolean).join(' ');
+      meta.warTicker = latestWarReport;
     }
 
     delete meta.pendingSmsNote;
@@ -2818,6 +3077,19 @@ function callOpenRouterChat_(apiKey, model, systemPrompt, userMessage, temperatu
 }
 
 function getCharAppearanceMap_(ss) {
+  if (CHAR_DB_MEMO_) return CHAR_DB_MEMO_;
+  const cached = readConfigCache_(CONFIG_CACHE_KEYS_[0]);
+  if (cached) {
+    CHAR_DB_MEMO_ = cached;
+    return cached;
+  }
+  const map = readCharAppearanceSheet_(ss || SpreadsheetApp.getActiveSpreadsheet());
+  CHAR_DB_MEMO_ = map;
+  writeConfigCache_(CONFIG_CACHE_KEYS_[0], map);
+  return map;
+}
+
+function readCharAppearanceSheet_(ss) {
   const sheet = ss.getSheetByName('Char_Appearance');
   const data = sheet.getDataRange().getValues();
   const map = {};
@@ -2864,6 +3136,17 @@ function getSummonableServantsList_(charDb) {
 
 // 陣營初始狀態：讀取試算表 D 欄「預設狀態」與 E 欄「預設態度」，格式例如「存活 (中立警戒)」
 function getDefaultFactionsState_(ss) {
+  if (!DEFAULT_FACTIONS_MEMO_) {
+    DEFAULT_FACTIONS_MEMO_ = readConfigCache_(CONFIG_CACHE_KEYS_[2]);
+  }
+  if (!DEFAULT_FACTIONS_MEMO_) {
+    DEFAULT_FACTIONS_MEMO_ = readDefaultFactionsSheet_(ss);
+    writeConfigCache_(CONFIG_CACHE_KEYS_[2], DEFAULT_FACTIONS_MEMO_);
+  }
+  return Object.assign({}, DEFAULT_FACTIONS_MEMO_);
+}
+
+function readDefaultFactionsSheet_(ss) {
   const sheet = ss.getSheetByName('Factions_Relations');
   const res = {};
   if (sheet) {
@@ -2884,25 +3167,44 @@ function getDefaultFactionsState_(ss) {
   return res;
 }
 
-function searchLorebook_(ss, contextText) {
-  const sheet = ss.getSheetByName('Lorebook');
-  const data = sheet.getDataRange().getValues();
-  const hits = [];
-  for (let i = 1; i < data.length; i++) {
-    const keywords = String(data[i][0] || '').split(',').map(k => k.trim()).filter(Boolean);
-    const priority = Number(data[i][2]) || 5;
-    const content = String(data[i][3] || '').trim();
-    if (priority >= 10 || keywords.some(kw => contextText.includes(kw))) {
-      hits.push(`- ${content}`);
+function getLorebookRows_(ss) {
+  if (LORE_ROWS_MEMO_) return LORE_ROWS_MEMO_;
+  let rows = readConfigCache_(CONFIG_CACHE_KEYS_[1]);
+  if (!rows) {
+    const sheet = ss.getSheetByName('Lorebook');
+    const data = sheet ? sheet.getDataRange().getValues() : [];
+    rows = [];
+    for (let i = 1; i < data.length; i++) {
+      const content = String(data[i][3] || '').trim();
+      if (!content) continue;
+      rows.push({
+        keywords: String(data[i][0] || '').split(',').map(k => k.trim()).filter(Boolean),
+        priority: Number(data[i][2]) || 5,
+        content: content
+      });
     }
+    writeConfigCache_(CONFIG_CACHE_KEYS_[1], rows);
   }
+  LORE_ROWS_MEMO_ = rows;
+  return rows;
+}
+
+function searchLorebook_(ss, contextText) {
+  const hits = [];
+  getLorebookRows_(ss).forEach(r => {
+    if (r.priority >= 10 || r.keywords.some(kw => contextText.includes(kw))) {
+      hits.push(`- ${r.content}`);
+    }
+  });
   return hits.join('\n');
 }
 
 function findPlayerRowIndex_(saveSheet, playerName) {
-  const data = saveSheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]).trim() === playerName) return i + 1;
+  const last = saveSheet.getLastRow();
+  if (last < 2) return -1;
+  const names = saveSheet.getRange(2, 1, last - 1, 1).getValues();
+  for (let i = 0; i < names.length; i++) {
+    if (String(names[i][0]).trim() === playerName) return i + 2;
   }
   return -1;
 }
@@ -3009,21 +3311,29 @@ function parseSaveRow_(row) {
 // 由最新往回掃描，湊滿 limit 筆即停止（不再完整走訪整張表）
 function getPlayerChatLogs_(ss, playerName, limit) {
   const sheet = ss.getSheetByName('ChatLog');
-  const data = sheet.getDataRange().getValues();
-  const userLogs = [];
-  for (let i = data.length - 1; i >= 1 && userLogs.length < limit; i--) {
-    if (String(data[i][0]).trim() === playerName) {
-      userLogs.unshift({
-        turn: data[i][1],
-        timeLoc: data[i][3],
-        user: data[i][4],
-        ai: data[i][5],
-        chars: data[i][6],
-        imgPayload: data[i][7]
-      });
-    }
+  const last = sheet.getLastRow();
+  if (last < 2) return [];
+  const names = sheet.getRange(2, 1, last - 1, 1).getValues();
+  const rowNums = [];
+  for (let i = names.length - 1; i >= 0 && rowNums.length < limit; i--) {
+    if (String(names[i][0]).trim() === playerName) rowNums.unshift(i + 2);
   }
-  return userLogs;
+  if (rowNums.length === 0) return [];
+
+  // 讀取涵蓋這些列的最小區塊（5 人內的小圈子，區塊很小），再挑出本人的列
+  const first = rowNums[0];
+  const block = sheet.getRange(first, 1, rowNums[rowNums.length - 1] - first + 1, 9).getValues();
+  return rowNums.map(r => {
+    const d = block[r - first];
+    return {
+      turn: d[1],
+      timeLoc: d[3],
+      user: d[4],
+      ai: d[5],
+      chars: d[6],
+      imgPayload: d[7]
+    };
+  });
 }
 
 function appendPlayerChatLog_(ss, playerName, turn, timeLoc, userAction, aiStory, chars, imgPayloadStr, seed) {

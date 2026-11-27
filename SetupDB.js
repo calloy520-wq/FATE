@@ -264,6 +264,14 @@ function setupCharAppearanceSheet_(ss) {
       '1.2::karna (fate)::, fate/apocrypha, white hair, medium hair, pale skin, blue eyes',
       'golden armor, red bodysuit, black fur collar, earrings',
       'dark skin'
+    ],
+    [
+      'hassan',
+      '咒腕哈桑,真Assassin,哈桑,咒腕',
+      'boy',
+      '1.2::hassan of the cursed arm (fate)::, fate/stay night, white skull mask, dark skin, tall, thin, long right arm',
+      'black cloak, tattered cloak, bandaged right arm, wrapped arm',
+      'visible face, eyes, short arms'
     ]
   ];
 
