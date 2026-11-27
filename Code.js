@@ -2271,42 +2271,6 @@ function drawWorldDirectorEvent_(statusObj, meta, turnNum) {
   };
 }
 
-// 只掃描「玩家本回合輸入」推測撿取道具，且背包已有同名道具時不再重複 +1
-function inferGainedItemsFromNarrative_(userAction, storyText, currentInv) {
-  const combined = String(userAction || '').trim();
-  if (!combined) return [];
-
-  const pickupPatterns = [
-    /(?:妥善收納|收入懷中|收進背包|收進道具欄|拾起|撿起|拿取|奪取|獲得|收下)(?:了|著)?(?:那枚|那塊|這枚|這塊|一把|一件|一份)?(?:散發著[^，。！？\n]{0,18})?([一二三四五六七八九十一-龥A-Za-z0-9・（）()]{2,18}(?:碎片|殘片|寶石|結晶|媒介|禮裝|卷軸|護符|黑鍵|聖骸布|彈|藥水|殘骸))/g
-  ];
-
-  const existingList = Array.isArray(currentInv) ? currentInv : [];
-  const foundNames = [];
-  pickupPatterns.forEach(re => {
-    let m;
-    while ((m = re.exec(combined)) !== null) {
-      const candidate = String(m[1] || '').trim();
-      if (candidate && !foundNames.includes(candidate) && !existingList.some(it => it.name === candidate)) {
-        foundNames.push(candidate);
-      }
-    }
-  });
-
-  if (foundNames.length === 0) return [];
-
-  return foundNames.slice(0, 2).map((name, idx) => {
-    const slug = 'loot_' + name.replace(/[^a-zA-Z0-9一-龥]/g, '').slice(0, 12) + '_' + idx;
-    return {
-      id: slug,
-      name: name,
-      tier: 1,
-      type: /碎片|殘片|媒介|殘骸/.test(name) ? 'material' : 'consumable',
-      qty: 1,
-      desc: '從劇情探索或戰場中收納的物件'
-    };
-  });
-}
-
 function applyInventoryChanges_(currentInv, consumedIds, gainedItems, isSandboxMode) {
   let inv = Array.isArray(currentInv) ? JSON.parse(JSON.stringify(currentInv)) : [];
   let addedCount = 0;
@@ -2653,7 +2617,7 @@ function processFateTurnTextOnly(params) {
 
     const worldEvent = drawWorldDirectorEvent_(statusObj, metaBefore, turnNum);
     const worldEventHint = worldEvent.text;
-    const canFormSecondContract = (statusObj.master.commandSpells >= 1 && statusObj.master.mp >= 80 && !statusObj.servant2.id);
+    const canFormSecondContract = (!statusObj.servant1.id) || (statusObj.master.commandSpells >= 1 && statusObj.master.mp >= 80 && !statusObj.servant2.id);
 
     // 系統提示詞：固定不變的規則與型月世界觀（每回合相同，模型端可快取）；每回合變動的資料一律放在 statePrompt
     const systemPrompt = FATE_GM_SYSTEM_PROMPT_;
@@ -2664,7 +2628,9 @@ function processFateTurnTextOnly(params) {
       rankCheckHint,
       `【主從者好感】${statusObj.bondLevel}/100`,
       inventoryRuleHint,
-      canFormSecondContract ? '【副契約】條件已滿足：若劇情中合理收服敵方英靈，可填 `new_servant2_id`。' : '【副契約】目前條件不足，不可新增副從者。',
+      !statusObj.servant1.id
+        ? '【失去從者】御主目前沒有從者，非常危險。若劇情中與失去御主的從者達成協議，可填 `new_servant2_id` 締結新契約（成為主從者）。'
+        : (canFormSecondContract ? '【副契約】條件已滿足：若劇情中合理收服敵方英靈，可填 `new_servant2_id`。' : '【副契約】目前條件不足，不可新增副從者。'),
       worldEventHint,
       phoneBridgeHints,
       `【冬木市地標】\n${locCatalogText}`,
@@ -2704,6 +2670,7 @@ function processFateTurnTextOnly(params) {
     rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
     if (rowIndex === -1) throw new Error('找不到玩家存檔！');
     const freshRow = saveSheet.getRange(rowIndex, 1, 1, 32).getValues()[0];
+    const undoSnapshot = freshRow.slice();
     const freshMeta = safeJsonParse_(freshRow[31], {});
     if (Number(freshMeta.turnCount || 0) !== Number(metaBefore.turnCount || 0) || String(freshRow[2]) !== String(row[2])) {
       throw new Error('這個存檔剛剛在另一個視窗推進了一回合，本次行動未寫入。請重新【讀取世界線】後再行動。');
@@ -2855,9 +2822,6 @@ function processFateTurnTextOnly(params) {
         .filter(cid => { const it = (meta.inventory || []).find(x => x.id === cid); return it && userAction.includes(it.name); });
     }
     let mergedGainedItems = (wantsGain || !Array.isArray(turnJson.gained_items)) ? (Array.isArray(turnJson.gained_items) ? turnJson.gained_items.slice() : []) : [];
-    if (!isSandboxMode && mergedGainedItems.length === 0) {
-      mergedGainedItems = inferGainedItemsFromNarrative_(userAction, formattedStory, meta.inventory || []);
-    }
 
     const invResult = applyInventoryChanges_(
       meta.inventory || [],
@@ -2898,6 +2862,34 @@ function processFateTurnTextOnly(params) {
       row[26] = 0;
       row[27] = 0;
       meta.servant2Condition = '靈基穩定';
+    }
+
+    if (row[17] && /消滅/.test(String(meta.servantCondition || ''))) {
+      const lostName = row[19];
+      if (row[23]) {
+        row[17] = row[23];
+        row[18] = row[24] === '契約從者' ? '從者' : row[24];
+        row[19] = row[25];
+        row[22] = '筋力:- 耐久:- 敏捷:- 魔力:- 幸運:- 寶具:-';
+        meta.servantCondition = meta.servant2Condition || '靈基穩定';
+        row[23] = ''; row[24] = ''; row[25] = ''; row[26] = 0; row[27] = 0;
+        meta.servant2Condition = '靈基穩定';
+        formattedStory += `\n\n【契約遞補】主從者「${lostName}」消滅了。副從者「${row[19]}」成為你的主從者。`;
+      } else {
+        row[17] = ''; row[18] = '無'; row[19] = '（失去從者）';
+        meta.servantCondition = '契約斷絕';
+        meta.servantLost = true;
+        formattedStory += `\n\n【失去從者】「${lostName}」消滅了，契約之線斷絕。你可以尋找失去御主的從者重新締約，或前往教會尋求監督者的保護。`;
+      }
+    }
+    // 失去從者後重新締約：新契約的從者直接成為主從者
+    if (!row[17] && row[23]) {
+      row[17] = row[23]; row[18] = row[24] === '契約從者' ? '從者' : row[24]; row[19] = row[25];
+      row[22] = '筋力:- 耐久:- 敏捷:- 魔力:- 幸運:- 寶具:-';
+      meta.servantCondition = meta.servant2Condition || '靈基穩定';
+      row[23] = ''; row[24] = ''; row[25] = ''; row[26] = 0; row[27] = 0;
+      meta.servant2Condition = '靈基穩定';
+      meta.servantLost = false;
     }
 
     const currentOutfits = safeJsonParse_(row[28], {});
@@ -3128,6 +3120,10 @@ function processFateTurnTextOnly(params) {
       ''
     );
     pruneOldChatLogPayloads_(ss, cleanName);
+    // 保存撤回用的快照（只保留最近一回合，6 小時內有效）
+    try {
+      CacheService.getScriptCache().put('fate_undo_' + cleanName, JSON.stringify({ row: undoSnapshot, turn: turnNum, action: userAction }), 21600);
+    } catch (e) {}
 
     return {
       status: updatedStatus,
@@ -3144,72 +3140,35 @@ function processFateTurnTextOnly(params) {
 
 // ==================== 4. 快捷操作：一鍵換裝、消耗令咒急充、重骰CG ====================
 
-function changeCharacterOutfit(playerName, targetCharId, newOutfitZhOrReset) {
-  const cleanName = validatePlayerName_(playerName);
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const charDb = getCharAppearanceMap_(ss);
-  if (!charDb[targetCharId]) throw new Error('無效的角色 ID');
-
-  let finalOutfitTags = '';
-  if (newOutfitZhOrReset === 'RESET_DEFAULT') {
-    finalOutfitTags = charDb[targetCharId].defaultOutfit;
-  } else if (isNudeOutfitTags_(newOutfitZhOrReset)) {
-    finalOutfitTags = 'nude, completely nude, no clothes';
-  } else {
-    const res = callGeminiLite_(
-      'Translate this Traditional Chinese outfit description into precise English Danbooru clothing/accessory tags for NovelAI V5 ONLY (NO hair, NO eyes, NO body type, NO art style, NO background). Expand colloquial Chinese into clear garment, color, and material tags. If nude/unclothed, output "nude, completely nude, no clothes". Output ONLY comma-separated English tags.',
-      newOutfitZhOrReset,
-      0.15,
-      300,
-      false
-    );
-    finalOutfitTags = res.text.trim();
-  }
-
-  const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
-  try {
-    const saveSheet = ss.getSheetByName('Players_Save');
-    const rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
-    if (rowIndex === -1) throw new Error('找不到玩家存檔！');
-    const row = saveSheet.getRange(rowIndex, 1, 1, 32).getValues()[0];
-    const outfits = safeJsonParse_(row[28], {});
-    outfits[targetCharId] = finalOutfitTags;
-    row[28] = JSON.stringify(outfits);
-    saveSheet.getRange(rowIndex, 1, 1, 32).setValues([row]);
-    SpreadsheetApp.flush();
-    return { status: parseSaveRow_(row), appliedTags: finalOutfitTags };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function useCommandSpell(playerName) {
+// ↩ 撤回上一回合：存檔還原到上一回合開始前，刪掉那一回合的對話紀錄，並回傳當時的行動讓玩家修改或重新推演
+function undoLastTurn(playerName) {
   const cleanName = validatePlayerName_(playerName);
   const lock = LockService.getScriptLock();
-  lock.waitLock(10000);
+  lock.waitLock(15000);
   try {
+    const cache = CacheService.getScriptCache();
+    const snap = safeJsonParse_(cache.get('fate_undo_' + cleanName), null);
+    if (!snap || !Array.isArray(snap.row)) throw new Error('沒有可以撤回的回合（只能撤回最近一回合，且需在 6 小時內）。');
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const saveSheet = ss.getSheetByName('Players_Save');
     const rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
     if (rowIndex === -1) throw new Error('找不到玩家存檔！');
-    const row = saveSheet.getRange(rowIndex, 1, 1, 32).getValues()[0];
+    saveSheet.getRange(rowIndex, 1, 1, 32).setValues([snap.row.slice(0, 32)]);
 
-    const spells = Number(row[16]);
-    if (spells <= 0) throw new Error('你的三劃令咒已經全部耗盡了！');
-
-    const meta = safeJsonParse_(row[31], {});
-    const maxMp = Number(meta.maxMp) || 120;
-
-    row[16] = spells - 1;
-    row[15] = maxMp;
-    meta.masterCondition = '完好無損';
-    meta.servantCondition = '靈基穩定 (魔力充盈)';
-    row[31] = serializeMeta_(meta);
-
-    saveSheet.getRange(rowIndex, 1, 1, 32).setValues([row]);
+    const chat = ss.getSheetByName('ChatLog');
+    const last = chat.getLastRow();
+    if (last >= 2) {
+      const keys = chat.getRange(2, 1, last - 1, 2).getValues();
+      for (let i = keys.length - 1; i >= 0; i--) {
+        if (String(keys[i][0]).trim() === cleanName && Number(keys[i][1]) === Number(snap.turn)) {
+          chat.deleteRow(i + 2);
+          break;
+        }
+      }
+    }
+    cache.remove('fate_undo_' + cleanName);
     SpreadsheetApp.flush();
-    return parseSaveRow_(row);
+    return { status: parseSaveRow_(snap.row), logs: getPlayerChatLogs_(ss, cleanName, 12), lastAction: String(snap.action || '') };
   } finally {
     lock.releaseLock();
   }
@@ -3338,7 +3297,7 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - "action": the character\'s placement and spatial relation FIRST (foreground / background / center, beside / behind / in front of / facing another character, near or far, above or below), then pose, expression, gaze, weapon/prop action, in English (NO hair/eyes color). Do NOT give coordinates or left/right grid positions — NovelAI decides the exact layout from these relations.',
     '   - "interaction": ONLY if 2+ characters directly interact, use NAI V5 syntax ("source#<action>" + "target#<action>", or "mutual#<action>"). Empty string "" otherwise.',
     directorCtx.cameraMode === 'pov'
-      ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. Only add "pov hands" when the player\'s hand directly interacts with a character (holding hands, being handed something by them, touching them); keep the hands small at the edge of the frame. Objects the player holds (phones, papers, weapons) are never the focus — mention them briefly or not at all. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees. CHARACTER FOCUS: in POV the visible characters are the subject of the picture — frame them close (use "close-up" or "upper body" or "cowboy shot" for one character, "medium shot" for two or three) so they fill most of the frame with clear faces and expressions; keep the background simple and secondary ("depth of field", "blurry background"), showing only enough to identify the place. Use a wide shot only when no character is visible. Never mention out-of-view characters in scene_prompt. For EVERY character also output "in_view": true/false — false when the character is outside the player\'s field of view (behind the player, beside and out of frame, behind a wall, hidden in darkness); true only if the player would actually see them right now (e.g. "leaning in from over your shoulder" counts as visible).'
+      ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. Only add "pov hands" when the player\'s hand directly interacts with a character (holding hands, being handed something by them, touching them); keep the hands small at the edge of the frame. Objects the player holds (phones, papers, weapons) are never the focus — mention them briefly or not at all. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees. CHARACTER FOCUS: in POV the visible characters are the subject of the picture — frame them close (use "close-up" or "upper body" or "cowboy shot" for one character, "medium shot" for two or three) so they fill most of the frame with clear faces and expressions; keep the background simple and secondary ("depth of field", "blurry background"), showing only enough to identify the place. Use a wide shot only when no character is visible. If a character kisses the player, use "incoming kiss" with a close-up of her face (eyes closed or half-closed, blush). Never mention out-of-view characters in scene_prompt. For EVERY character also output "in_view": true/false — false when the character is outside the player\'s field of view (behind the player, beside and out of frame, behind a wall, hidden in darkness); true only if the player would actually see them right now (e.g. "leaning in from over your shoulder" counts as visible).'
       : '',
     'Output strictly valid JSON: { "scene_prompt": "...", "char_directions": [{ "id": "...", "is_nude": false, "outfit": "...", "action": "...", "interaction": "" }] }'
   ].join('\n');
@@ -3408,6 +3367,18 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
       y: 0.5
     };
   });
+
+  // 多人同場時，把「其他角色的髮色」加進每個角色的負面提示詞，降低特徵互相污染（例如御主被染成斯卡哈的紫髮）
+  const HAIR_COLOR_RE = /\b(black|white|silver|blonde|purple|red|blue|pink|orange|brown|grey|gray|green|aqua)\s+hair\b/gi;
+  const hairOf = slot => (String(slot.baseCore || '').match(HAIR_COLOR_RE) || []).map(x => x.toLowerCase());
+  if (charSlots.length > 1) {
+    charSlots.forEach(slot => {
+      const own = new Set(hairOf(slot));
+      const others = [];
+      charSlots.forEach(o => { if (o !== slot) hairOf(o).forEach(h => { if (!own.has(h) && others.indexOf(h) === -1) others.push(h); }); });
+      if (others.length > 0) slot.uc = [slot.uc, others.join(', ')].filter(Boolean).join(', ');
+    });
+  }
 
   const countTags = [];
   if (girls === 1) countTags.push('1girl');
@@ -3967,7 +3938,7 @@ function parseSaveRow_(row) {
     gameTone: toneVal,
     autoImage: String(row[4]).toUpperCase() === 'TRUE',
     adultMode: String(row[5]).toUpperCase() === 'TRUE',
-    cameraMode: meta.cameraMode === 'pov' ? 'pov' : 'third',
+    cameraMode: meta.cameraMode === 'third' ? 'third' : 'pov',
     keyEvents: Array.isArray(meta.keyEvents) ? meta.keyEvents : [],
     rumors: Array.isArray(meta.rumors) ? meta.rumors : [],
     smsContacts: (meta.smsContacts && typeof meta.smsContacts === 'object') ? meta.smsContacts : {},

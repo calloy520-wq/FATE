@@ -145,6 +145,9 @@ eq('風景 → 橫式', T.pickNaiSize_(0), { width: 1216, height: 832 });
 eq('直式與橫式像素量相同且不超過 1024×1024', [832 * 1216 === 1216 * 832, 832 * 1216 <= 1024 * 1024], [true, true]);
 eq('系統提示詞包含感知範圍限制（防上帝視角）', T.FATE_GM_SYSTEM_PROMPT_.includes('感知有極限'), true);
 
+// ---- 預設第一人稱 ----
+// （parseSaveRow_ 需要完整列資料，這裡只確認常數邏輯在模擬測試中驗證）
+
 // ---- 其他 ----
 eq('全裸後沒說穿衣 → 維持全裸', T.autoAdaptSmartOutfit_('player_master', 'nude, completely nude, no clothes', { defaultOutfit: 'dress' }, '去洗臉', '', false, '廢棄洋館'), 'nude, completely nude, no clothes');
 eq('全裸後穿上衣服 → 還原預設', T.autoAdaptSmartOutfit_('player_master', 'nude, completely nude, no clothes', { defaultOutfit: 'dress' }, '穿上衣服', '', false, '廢棄洋館'), 'dress');

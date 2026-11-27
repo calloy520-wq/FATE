@@ -917,6 +917,7 @@
         </button>
         <button class="btn btn-sm" onclick="openFactionsModal()">📊 情報</button>
         <button class="btn btn-sm" onclick="openSettingsModal()">⚙️ 設定</button>
+        <button class="btn btn-sm" onclick="document.getElementById('help-modal').classList.remove('hidden')">❓ 玩法</button>
         <button class="btn btn-sm" onclick="logoutSwitchMaster()">🚪 切換</button>
       </div>
     </div>
@@ -1007,6 +1008,9 @@
             <div class="input-row">
               <input type="text" id="player-action-input" class="lockable-btn" placeholder="輸入行動、前往某地、使用道具、或「以令咒下令...」(按 Enter 送出)" onkeydown="if(event.key==='Enter') submitTurnAction()" />
               <button class="btn btn-crimson lockable-btn" onclick="submitTurnAction()">送出</button>
+            </div>
+            <div style="display:flex; justify-content:flex-end; margin-top:6px;">
+              <button class="btn btn-sm lockable-btn" style="font-size:11.5px; padding:3px 9px;" onclick="undoLastTurnUI()" title="把存檔還原到上一回合開始前，可以修改後重新送出">↩ 撤回上一回合</button>
             </div>
           </div>
 
@@ -1194,6 +1198,28 @@
           <div style="font-size: 12px; color: var(--text-muted);">開啟時戰敗會附上藤村大河與伊莉雅的死因分析</div>
         </div>
         <div id="cap-tigerDojo" class="capsule-switch on" onclick="this.classList.toggle('on'); showTigerDojo = this.classList.contains('on');"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 彈窗：❓ 玩法說明 ================= -->
+  <div id="help-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="panel-header">
+        <span>❓ 玩法說明</span>
+        <button class="btn btn-sm" onclick="closeModal('help-modal')">✕</button>
+      </div>
+      <div style="font-size:13.5px; line-height:1.9; color:#e2e8f0;">
+        <p>⚔️ <strong>用文字推進一切</strong>：輸入你想做的任何事或想說的話，AI 會依型月世界的邏輯演出結果。每回合下方的「📋 本回合結算」會列出實際改變了什麼。</p>
+        <p>🎭 <strong>難度與寫作基調</strong>（⚙️ 設定）：符合常理／搞笑鬧劇／故事模式（玩家為主）／鐵血戰場，結果的輕重會完全不同。</p>
+        <p>📷 <strong>第一人稱視角</strong>（⚙️ 設定，預設開啟）：CG 以你的眼睛為鏡頭；關掉就是第三人稱。畫風可在 CG 下方切換，包含型月原作風、ufotable 動畫風。</p>
+        <p>📱 <strong>2004 手機</strong>：冬木論壇可以看風聲、發文，勾選 🎭 就是放假消息（會追蹤誰相信、誰識破）。「聯絡」頁可以聯絡同盟、拿到聯絡方式的陣營與教會，每個陣營用不同管道回覆（☎ 電話、🕊 使魔字條、✉ 回信…），也可能沒人接。</p>
+        <p>🗺️ <strong>地圖</strong>：點上方地點徽章打開；你造成的破壞、佈置會永久保留。</p>
+        <p>📊 <strong>情報</strong>：七組陣營狀態、重要事件與伏筆、路線傾向（你的玩法會把劇情帶往不同路線）。</p>
+        <p>⚡ <strong>冬木是活的</strong>：其他陣營會主動找上你：拜訪、偷襲、求援、傳訊。</p>
+        <p>💖 <strong>羈絆</strong>：好感會隨互動變化；從者回到據點會換上便服。</p>
+        <p>✋ <strong>令咒</strong>：直接打字發動，例如「以令咒命令妳——解放寶具！」。</p>
+        <p>↩ <strong>撤回上一回合</strong>：AI 寫歪了，可以撤回最近一回合，修改後重新送出（6 小時內有效）。</p>
       </div>
     </div>
   </div>
@@ -2068,6 +2094,25 @@
           userAction: actionText,
           pendingSettings: patchToSend
         });
+    }
+
+    function undoLastTurnUI() {
+      if (!currentState || isWaitingForImage || isSubmittingTurn) return;
+      if (!confirm('確定要撤回上一回合嗎？存檔會還原到那一回合開始前。')) return;
+      showLoading('正在撤回上一回合...');
+      google.script.run
+        .withSuccessHandler(res => {
+          hideLoading();
+          currentState = res.status;
+          initGameScreen(res.logs || []);
+          document.getElementById('player-action-input').value = res.lastAction || '';
+          appendNovelMessage('ai', '已撤回上一回合。上一回合的行動已放回輸入框，可以修改後重新送出。', '系統提示');
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          appendNovelMessage('ai', `⚠️ ${err.message}`, '系統提示');
+        })
+        .undoLastTurn(currentState.playerName);
     }
 
     function setControlsLocked(locked) {

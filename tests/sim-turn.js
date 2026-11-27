@@ -44,7 +44,7 @@ const ctx = {
   SpreadsheetApp: { getActiveSpreadsheet: () => mockSS, flush: () => {} },
   Logger: { log() {} },
   LockService: { getScriptLock: () => ({ waitLock() {}, tryLock: () => true, releaseLock() {} }), getUserLock: () => ({ waitLock() {}, releaseLock() {} }) },
-  CacheService: { getScriptCache: () => ({ get: k => cache[k] || null, put: (k, v) => { cache[k] = v; }, removeAll: ks => ks.forEach(k => delete cache[k]) }) },
+  CacheService: { getScriptCache: () => ({ get: k => cache[k] || null, put: (k, v) => { cache[k] = v; }, removeAll: ks => ks.forEach(k => delete cache[k]), remove: k => { delete cache[k]; } }) },
   PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] ?? (k === 'OAPIKEY' ? 'x' : null), setProperty: (k, v) => { props[k] = v; } }) },
   Utilities: { formatDate: () => '2026-11-27 12:00:00', sleep() {} },
   UrlFetchApp: {
@@ -202,9 +202,28 @@ check('第一人稱：不畫御主', pv.status.cameraMode === 'pov' && !pv.image
 check('第一人稱：主提示詞有 pov、人數只算凜', /^1girl, solo, pov, first-person view, depth of field/.test(pv.imagePayload.prompt));
 ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'third' });
 
+// 9b. 撤回上一回合：存檔還原、對話紀錄刪除、回傳上一回合的行動
+const beforeUndo = ctx.loadExistingGame('測試者');
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '你打碎了花瓶。', ap_cost: 1, threat_delta: 30, location: '廢棄洋館', present_chars: [], scene_env_en: 'room' });
+ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '打碎花瓶' });
+const un = ctx.undoLastTurn('測試者');
+check('撤回：警戒度還原', un.status.threatLevel === beforeUndo.status.threatLevel);
+check('撤回：回傳上一回合行動', un.lastAction === '打碎花瓶');
+check('撤回：對話紀錄刪除', un.logs.length === beforeUndo.logs.length);
+let undoTwice = false; try { ctx.undoLastTurn('測試者'); } catch (e) { undoTwice = /沒有可以撤回/.test(e.message); }
+check('撤回只能一次', undoTwice);
+
+// 9c. 主從者消滅且沒有副從者 → 失去從者；之後重新締約成為主從者
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '斯卡哈的靈基崩解了。', ap_cost: 0, location: '廢棄洋館', servant_condition: '消滅', present_chars: [], scene_env_en: 'room' });
+const lost = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '撐住' });
+check('主從者消滅 → 失去從者', lost.status.servant1.id === '' && /失去從者/.test(lost.story));
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '小次郎同意與你締約。', ap_cost: 0, location: '廢棄洋館', new_servant2_id: 'assassin', present_chars: [], scene_env_en: 'room' });
+const re2 = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '請小次郎與我締約' });
+check('失去從者後重新締約 → 成為主從者', re2.status.servant1.id === 'assassin' && !re2.status.servant2.id);
+
 // 10. 讀檔
 const ld = ctx.loadExistingGame('測試者');
-check('讀檔取得最近紀錄', ld.logs.length === 12);
+check('讀檔取得最近紀錄（最多 12 筆）', ld.logs.length === 12);
 
 console.log(`\n${fails === 0 ? '全部通過' : fails + ' 項失敗'}`);
 process.exit(fails ? 1 : 0);
