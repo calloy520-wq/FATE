@@ -2308,12 +2308,13 @@ function loadExistingGame(playerName) {
 
   const logs = getPlayerChatLogs_(ss, cleanName, 12);
 
-  return {
+  // 轉成純 JSON 再回傳：試算表讀出的日期物件、NaN 等無法傳給網頁，會讓前端收到 null 而卡在登入畫面
+  return JSON.parse(JSON.stringify({
     status: statusObj,
     logs: logs,
     summonPool: getSummonableServantsList_(charDb),
     mapLocations: statusObj.dynamicLocations
-  };
+  }));
 }
 
 function startNextLoopReincarnation(playerName) {

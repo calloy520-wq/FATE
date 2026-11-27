@@ -1472,6 +1472,11 @@
       const runner = google.script.run
         .withSuccessHandler(res => {
           hideLoading();
+          if (!res || !res.status) {
+            showNotice('login-inline-notice', '⚠️ 讀取失敗：伺服器沒有回傳存檔資料（可能是存檔格式異常），請截圖告訴管理者。', true);
+            return;
+          }
+          try {
           saveMasterNameCache(name);
           currentState = res.status;
           summonPoolCache = res.summonPool || [];
@@ -1485,6 +1490,10 @@
           } else {
             initGameScreen(res.logs || []);
             playBgmMood(currentPeriodMood());
+          }
+          } catch (e) {
+            document.getElementById('login-screen').classList.remove('hidden');
+            showNotice('login-inline-notice', '⚠️ 進入遊戲時發生錯誤：' + (e && e.message ? e.message : e) + '（請截圖告訴管理者）', true);
           }
         })
         .withFailureHandler(err => {
