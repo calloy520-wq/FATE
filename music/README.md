@@ -15,7 +15,7 @@
 | `romance.mp3` | 親吻、擁抱、告白 | home |
 | `sad.mp3` | 死亡、失去從者 | night |
 | `home.mp3` | 據點休息 | day |
-| `ending.mp3` | 通關結局（可選，不循環） | day |
+| `ending.mp3` | 通關結局（只播一次，不循環） | day |
 
 處理方式：剪接成無縫循環後，壓縮突然變大聲的段落、柔化 5kHz 以上的刺耳高頻（−3dB）、限制峰值，統一到 −17 LUFS、動態範圍約 2～4 LU（`remaster` 參數：acompressor threshold −22dB ratio 3、treble −3dB@5kHz、alimiter 0.8、loudnorm I=−17 TP=−2 LRA=5）。
 
