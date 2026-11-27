@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -378,6 +378,10 @@ eq('自己的名字與角色標籤不動', T.stripOtherCharNames_('archer (fate)
 eq('不在場的人不動（sakura 花）', T.stripOtherCharNames_('under sakura trees', 'rin', ['rin']), 'under sakura trees');
 
 // 繪圖文字修正
+eq('從背後抱 → hug from behind', T.detectIntimacyTags_(['source#hugging another character from behind, smile']).map(t => t.tag), ['hug from behind']);
+eq('親臉頰 → kissing cheek', T.detectIntimacyTags_(['lips touching viewer\'s cheek, closed eyes']).map(t => t.tag), ['kissing cheek']);
+eq('膝枕＋摸頭', T.detectIntimacyTags_(['head resting on another character\'s lap', 'stroking the hair on her head']).map(t => t.tag), ['lap pillow', 'headpat']);
+eq('擁抱拉近也去掉 cowboy shot', T.refineRomanceFraming_('2girls, cowboy shot, kitchen'), 'upper body, 2girls, kitchen');
 eq('1 人 medium shot → cowboy shot', T.refineFramingTags_('1boy, solo, medium shot, temple', 1), '1boy, solo, cowboy shot, temple');
 eq('3 人保留 medium shot', T.refineFramingTags_('3girls, medium shot', 3), '3girls, medium shot');
 eq('已有 upper body 不改', T.refineFramingTags_('upper body, medium shot', 2), 'upper body, medium shot');

@@ -4054,7 +4054,7 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - The setting is Japan in 2004: any mobile phone must be a "flip phone" (clamshell feature phone with antenna and physical keypad). Never draw smartphones, touchscreens or other post-2004 technology.',
     '   - PEOPLE FIRST: the characters (faces, expressions, poses, outfits) are the subject. Props, phones, weapons and effects are minor atmosphere — never let an object dominate or fill the frame.',
     '   - NATURAL, ALIVE POSES: never a stiff, symmetrical, straight-on standing pose. Give each character specific body language that fits the moment and their personality — weight on one leg (contrapposto), head tilt, hand on hip or chin, arms behind back, leaning on something, looking over shoulder, mid-step, sitting casually; add motion (hair blowing, sway). Prefer three-quarter view or from the side, and a camera angle that adds life (slightly from below, from above, dutch angle for tension). Show a clear facial expression (smirk, gentle smile, raised eyebrow, pout, determined glare) rather than a blank stare.',
-    '   - ROMANTIC MOMENTS (kiss, embrace, confession, tender touch): make it beautiful and intimate — close-up or upper body framing, the kiss must actually be visible (lips touching or about to touch), closed or half-closed eyes, blush, gentle expressions; soft lighting, warm color tone, bokeh, floating light particles, background softly blurred. Third-person kisses use "kiss" with mutual#kiss; POV uses "incoming kiss". Only make it comedic or shocked if the story clearly says so.',
+    '   - ROMANTIC MOMENTS (kiss, embrace, confession, tender touch): make it beautiful and intimate — close-up or upper body framing, the kiss must actually be visible (lips touching or about to touch), closed or half-closed eyes, blush, gentle expressions; soft lighting, warm color tone, bokeh, floating light particles, background softly blurred. Third-person kisses use "kiss" with mutual#kiss; POV uses "incoming kiss" (lips only). Use Danbooru tags for intimacy: "hug from behind", "kissing cheek" (never incoming kiss for a cheek kiss), "lap pillow", "headpat", "holding hands", "forehead-to-forehead". Only make it comedic or shocked if the story clearly says so.',
     '   - FRAMING (faces are the heart of this game): pick the closest shot that still fits everyone. One character: "cowboy shot" or "upper body" (a solo Noble Phantasm: "cowboy shot, from below" with the effect filling the background). Two or three characters: "medium shot" or "cowboy shot" with faces large and clear. Use "wide shot" ONLY for four or more people, a battle where two fighters are far apart, or pure scenery with no character. Romantic or tender moments: "upper body" or "close-up". Nothing (fences, bars, glass, crowds, weapons) may stand between the camera and a face.',
     '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event. Only include props, weapons and magic effects that the excerpt explicitly shows in that moment (do not add a character\'s signature item unless it is being used).',
     '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Describe the overall layout in one short natural-language clause WITHOUT any character name (e.g. "two figures facing off across the bridge", "a group gathered around a table"). Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
@@ -4378,7 +4378,7 @@ function isRomanticInteraction_(text) {
 function refineRomanceFraming_(scenePrompt) {
   let p = String(scenePrompt || '');
   if (!/\b(upper body|close-up|portrait)\b/i.test(p)) p = `upper body, ${p}`;
-  return p.replace(/,?\s*\b(medium shot|wide shot|full body|long shot)\b/gi, '').replace(/^,\s*/, '');
+  return p.replace(/,?\s*\b(medium shot|wide shot|full body|long shot|cowboy shot)\b/gi, '').replace(/^,\s*/, '');
 }
 
 // 鏡頭字眼換成 NovelAI 認得的 Danbooru 標籤：medium shot 不是 Danbooru 標籤，1～2 人時常被畫成全身遠景（實測小次郎在山門只剩小人）
@@ -4386,6 +4386,23 @@ function refineFramingTags_(prompt, nChars) {
   let p = String(prompt || '');
   if (nChars >= 1 && nChars <= 2 && !/\b(cowboy shot|upper body|close-up|portrait)\b/i.test(p)) p = p.replace(/\bmedium shot\b/i, 'cowboy shot');
   return p;
+}
+
+// 親密動作 → NovelAI 熟悉的 Danbooru 標籤（自然語言的「從背後抱」「親臉頰」常被畫成並肩站、親嘴）
+const INTIMACY_TAGS_ = [
+  { re: /\b(hug(ging|s|ged)?|embrac(e|ing|ed)|arms wrapped around)\b[^,]*\bfrom behind\b|\bback hug\b|\bbeing hugged from behind\b/i, tag: 'hug from behind' },
+  { re: /\bkiss(ing|es)? (on )?(the |her |his |another character's |the other character's |viewer's |the viewer's )?cheek\b|\bcheek kiss\b|\blips touching [^,]*cheek\b/i, tag: 'kissing cheek', cheek: true },
+  { re: /\b(lap pillow|head (resting )?on [^,]*lap|lying [^,]*on [^,]*lap)\b/i, tag: 'lap pillow' },
+  { re: /\b(patting|pats?|stroking|rubbing|ruffling) [^,]*head\b|\bheadpat\b/i, tag: 'headpat' },
+  { re: /\bforehead (to|against) forehead\b|\bforeheads? (pressed|touching)\b/i, tag: 'forehead-to-forehead' },
+  { re: /\bholding hands\b|\bhand in hand\b|\binterlocked fingers\b/i, tag: 'holding hands' },
+  { re: /(^|[\s,#])(hug|hugging|embracing (the )?viewer)\b(?! from behind)/i, tag: 'hug' }
+];
+function detectIntimacyTags_(texts) {
+  const joined = (texts || []).join(' , ');
+  const hits = INTIMACY_TAGS_.filter(t => t.re.test(joined));
+  // 從背後抱已經涵蓋一般擁抱，不再重複加 hug
+  return hits.some(t => t.tag === 'hug from behind') ? hits.filter(t => t.tag !== 'hug') : hits;
 }
 
 function generateTurnCgAsync(imgPayload) {
@@ -4489,10 +4506,28 @@ function generateTurnCgAsync(imgPayload) {
           });
         });
       }
+      // 親密動作補上 Danbooru 標籤（主提示詞），親臉頰不當成親嘴
+      const intimacy = Array.isArray(directed.char_directions)
+        ? detectIntimacyTags_(directed.char_directions.map(d => `${(d && d.interaction) || ''} , ${(d && d.action) || ''}`))
+        : [];
+      const cheekKiss = intimacy.some(t => t.cheek);
+      if (cheekKiss && Array.isArray(working.characters)) {
+        working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: String(ch.prompt || '').replace(/,\s*(source#|target#|mutual#)?incoming kiss\b/gi, '').replace(/,\s*puckered lips\b/gi, '') }));
+        working.prompt = String(working.prompt || '').replace(/,\s*incoming kiss\b/gi, '');
+      }
+      intimacy.forEach(t => {
+        // 第一人稱親臉頰：畫面裡看不到自己的臉，改成她從側面湊近、閉眼
+        let tag = (t.cheek && working.cameraMode === 'pov') ? 'from side, face focus, leaning in, closed eyes, blush' : t.tag;
+        // 第一人稱膝枕：鏡頭是躺在她腿上的你 → 從下往上看，她低頭看著你；摸頭同理（她的手伸向鏡頭上方）
+        if (working.cameraMode === 'pov' && t.tag === 'lap pillow') tag = 'lap pillow, pov, from below, looking down at viewer, close-up, face focus, ceiling';
+        if (working.cameraMode === 'pov' && t.tag === 'hug') tag = 'incoming hug, close-up, face focus';
+        if (working.cameraMode === 'pov' && t.tag === 'headpat') tag = 'headpat, headpat pov, from below, looking down at viewer, reaching towards viewer';
+        if (!new RegExp('\\b' + tag.split(',')[0].replace(/[-]/g, '\\-') + '\\b', 'i').test(working.prompt)) working.prompt = `${working.prompt}, ${tag}`;
+      });
       // 第一人稱：畫面裡沒有可以當「對象」的角色，source#／target#／mutual# 前綴會讓 incoming kiss 這類動作失效 → 去掉前綴
       if (working.cameraMode === 'pov' && Array.isArray(working.characters)) {
         working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: String(ch.prompt || '').replace(/(^|,\s*)(source|target|mutual)#/gi, '$1') }));
-        if (working.characters.some(ch => /\bincoming kiss\b/i.test(ch.prompt))) {
+        if (!cheekKiss && working.characters.some(ch => /\bincoming kiss\b/i.test(ch.prompt))) {
           // 親吻要看得出來：臉部特寫、閉眼、嘟唇；拿掉會搶戲的「微笑」
           working.characters = working.characters.map(ch => /\bincoming kiss\b/i.test(ch.prompt)
             ? Object.assign({}, ch, { prompt: ch.prompt.replace(/,\s*(soft |gentle |light |slight )?smile\b/gi, '').replace(/,\s*(eyes half-closed|half-closed eyes|looking at viewer)\b/gi, '') + ', closed eyes, puckered lips' })
