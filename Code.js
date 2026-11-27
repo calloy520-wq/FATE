@@ -4405,8 +4405,9 @@ function refineFramingTags_(prompt, nChars) {
 
 // 親密動作 → NovelAI 熟悉的 Danbooru 標籤（自然語言的「從背後抱」「親臉頰」常被畫成並肩站、親嘴）
 // 第一人稱膝枕／掏耳朵的構圖標籤（躺在她腿上往上看）
-let LAP_POV_TAGS_ = 'lap pillow, pov, from below, looking down at viewer, close-up, face focus, ceiling';
-let MIMIKAKI_POV_TAGS_ = 'mimikaki, holding ear pick, lap pillow, pov, from below, looking down at viewer, close-up';
+// 2026-11 比對 4 種寫法後選「俯身靠近＋頭髮垂下＋一點點大腿（0.6 降權）」：臉最近、最有被她低頭看著的感覺
+let LAP_POV_TAGS_ = 'lap pillow, pov, from below, looking down at viewer, leaning over viewer, hair hanging down, face close to viewer, upper body, ceiling, 0.6::thighs::';
+let MIMIKAKI_POV_TAGS_ = 'mimikaki, holding ear pick, lap pillow, pov, from below, looking down at viewer, leaning over viewer, hair hanging down, face close to viewer, upper body, ceiling, 0.6::thighs::';
 const INTIMACY_TAGS_ = [
   { re: /\b(hug(ging|s|ged)?|embrac(e|ing|ed)|arms wrapped around)\b[^,]*\bfrom behind\b|\bback hug\b|\bbeing hugged from behind\b/i, tag: 'hug from behind' },
   { re: /\bkiss(ing|es)? (on )?(the |her |his |another character's |the other character's |viewer's |the viewer's )?cheek\b|\bcheek kiss\b|\blips touching [^,]*cheek\b/i, tag: 'kissing cheek', cheek: true },

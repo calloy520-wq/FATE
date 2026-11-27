@@ -82,14 +82,14 @@
   - `refineGazeAction_`：「looking away from the viewer」裡的 viewer 反而讓角色看鏡頭 → 改成 `looking away, looking to the side`；視線不看鏡頭時該角色負面加 `looking at viewer`。
   - 擁抱／親吻（`isRomanticInteraction_`）：主提示詞改成 upper body 並去掉 medium／wide shot（`refineRomanceFraming_`）；`mutual#embrace` 換成 Danbooru 的 `mutual#hug`。
   - 第一人稱：畫面裡沒有對象，去掉 source#／target#／mutual# 前綴；有 `incoming kiss` 時主提示詞加 `incoming kiss, face focus`，角色加 `closed eyes, puckered lips` 並去掉微笑、半睜眼、看鏡頭。
-  - 親密動作補 Danbooru 標籤（`INTIMACY_TAGS_`、`detectIntimacyTags_`，加在主提示詞）：從背後抱 `hug from behind`、親臉頰 `kissing cheek`（不用 incoming kiss，也不加嘟唇）、膝枕 `lap pillow`、摸頭 `headpat`、額頭相抵 `forehead-to-forehead`、牽手 `holding hands`、擁抱 `hug`。第一人稱另換構圖：膝枕 `lap pillow, pov, from below, looking down at viewer, close-up, face focus, ceiling`（躺在腿上往上看）；摸頭 `headpat pov, from below, reaching towards viewer`；擁抱 `incoming hug`；親臉頰改成她從側面湊近閉眼。實測都比自然語言描述準。
+  - 親密動作補 Danbooru 標籤（`INTIMACY_TAGS_`、`detectIntimacyTags_`，加在主提示詞）：從背後抱 `hug from behind`、親臉頰 `kissing cheek`（不用 incoming kiss，也不加嘟唇）、膝枕 `lap pillow`、摸頭 `headpat`、額頭相抵 `forehead-to-forehead`、牽手 `holding hands`、擁抱 `hug`。第一人稱另換構圖：膝枕 `LAP_POV_TAGS_`（`lap pillow, pov, from below, looking down at viewer, leaning over viewer, hair hanging down, face close to viewer, upper body, ceiling, 0.6::thighs::`；比對過「特寫」「上半身＋胸部」「上半身」三種，俯身靠近版臉最近；`0.6::thighs::` 是降權寫法，要有大腿但淡一點）；摸頭 `headpat pov, from below, reaching towards viewer`；擁抱 `incoming hug`；親臉頰改成她從側面湊近閉眼。實測都比自然語言描述準。
   - 情緒高點（哭泣、流淚，1～2 人）：主提示詞人數標籤後面直接放 `upper body, face focus, streaming tears`（鏡頭標籤越前面權重越高）。
   - **重要發現**：角色服裝欄位加權寫了長裙、褲襪、靴子、高跟鞋時，NovelAI 會為了畫出它們把鏡頭拉成全身，導演寫上半身也沒用。`stripLowerBodyForCloseUp_`：鏡頭是 upper body／close-up／portrait／face focus 時拿掉下半身衣物標籤；cowboy shot 時只拿掉鞋類（`FOOTWEAR_RE_`）。實測櫻哭泣從全身變成淚眼特寫、Rider 不再每張都全身。
   - 兩人對打或面對面（2 人、互動含 clash／confront／duel／facing each other）：主提示詞加 `from side`、刪掉角色欄位的 foreground，避免一人站前景背對鏡頭（實測 Saber 背影 → 三次都是側面對峙、雙方臉都看得到）。導演規則也禁止無故背對鏡頭。
   - 權重檢查（2026-11）：服裝整段 1.15 權重保留（拿掉後士郎的圍裙會消失），拉成全身的問題改用特寫時刪下半身標籤解決；多人髮色 1.25、Archer／小次郎／哈桑角色名 1.2、Rider 眼睛與眼罩負面、黑 Saber 頭盔負面都是修正用，保留。
   - 接吻容錯：第一人稱只要角色欄位出現 kiss／kissing（導演常寫 kissing viewer）就補 `incoming kiss`；第三人稱接吻主提示詞人數後面放 `upper body, kiss, faces close together`，刪掉含 silhouette（剪影）的片段，並刪掉角色欄位的站位／腳部字眼（standing、tiptoes、foreground、in front of…，加權的服裝段不動）——close-up 加上站位字眼曾畫出一人特寫、一人站在遠處背景的怪圖，改後 4 個 seed 都正常。**兩人畫面不可用 face focus**（實測會畫出一張巨臉加一個小全身人）；face focus 只給單人。
   - 單人解放寶具（1 人且有 npBoost、非第一人稱）：主提示詞人數後面固定 `cowboy shot, from below, dynamic pose`，刪 wide／full body，並刪角色欄位的 feet、legs apart、center 等全身字眼（實測貞德、黑貞德原本是遠處小人）。
-  - 掏耳朵：`mimikaki, holding ear pick`；第一人稱用膝枕仰角（`mimikaki, holding ear pick, lap pillow, pov, from below, looking down at viewer, close-up`）。2026-11 正式版實測 14 位女性角色膝枕＋掏耳朵都成功（伊莉雅兩版、小黑、美遊是孩童外觀，這類親密測試不做）。
+  - 掏耳朵：`mimikaki, holding ear pick`；第一人稱用 `MIMIKAKI_POV_TAGS_`（掏耳朵標籤＋同一組膝枕仰角）。2026-11 正式版實測 14 位女性角色膝枕＋掏耳朵都成功（伊莉雅兩版、小黑、美遊是孩童外觀，這類親密測試不做）。
   - **負面排除的東西不能出現在該角色自己的服裝與動作裡**（`stripActionTermsInUc_`，用 `removeTagsKeepWeights_` 保住權重語法）：劇情照原作寫 Rider「被眼罩覆蓋的雙眼」，導演把 blindfold 寫進加權 1.15 的服裝，比負面 1.4 還強，就畫出眼罩。現在組 payload 與導演合併時都會刪掉。也順便涵蓋日常場景的武器、別過頭時的 looking at viewer。
   - 黃昏：`addNightFillLight_` 把 orange-hued lighting 換成 warm lighting，並加 `natural skin tone, soft lighting`（避免整張連人物都變橘）。
 - 只有 1 個角色時程式一律改直式（導演選橫式也會被蓋掉）；橫式會把單人畫成小點。
