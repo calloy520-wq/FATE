@@ -922,6 +922,7 @@
         <span class="badge" id="ui-time-badge">Day 1・深夜</span>
         <span class="badge hidden" id="ui-ap-badge"></span>
         <span class="badge badge-red" id="ui-threat-badge">警戒度: 10%</span>
+        <span class="badge badge-bond hidden" id="ui-companion-badge"></span>
         <span class="badge badge-loc" id="ui-loc-badge" title="點擊開啟冬木市魔術戰略地圖" onclick="openMapModal()">🗺️ 冬木市</span>
       </div>
 
@@ -1240,6 +1241,7 @@
         <p>📷 <strong>第一人稱視角</strong>（⚙️ 設定，預設開啟）：CG 以你的眼睛為鏡頭；關掉就是第三人稱。畫風可在 CG 下方切換，包含型月原作風、ufotable 動畫風。</p>
         <p>📱 <strong>2004 手機</strong>：冬木論壇可以看風聲、發文，勾選 🎭 就是放假消息（會追蹤誰相信、誰識破）。「聯絡」頁可以聯絡同盟、拿到聯絡方式的陣營與教會，每個陣營用不同管道回覆（☎ 電話、🕊 使魔字條、✉ 回信…），也可能沒人接。</p>
         <p>💧 <strong>魔力恢復</strong>：① 打字「休息／睡覺／冥想」且沒開戰，回復 20＋所在地靈脈（洋館 +30、柳洞寺與遠坂邸 +55）；② 每次時段推進，自動吸收所在地靈脈（+10～+35）；③ 使用魔力寶石（小 +35、中 +65）。寶具一次約消耗 65，魔力 0 時硬打會讓從者受創。</p>
+        <p>🤝 <strong>同行盟友</strong>：行動裡寫「帶著凜一起去…」「士郎，跟我來」就能讓同盟陣營跟著你，之後每回合都在場、一起戰鬥（戰力判定 +1），最多 2 組。說「解散／先回去吧」、對方重傷或過了隔天就會離開。</p>
         <p>⌨️ <strong>打字用手機</strong>（不消耗回合）：在行動欄輸入「傳簡訊給士郎：今晚見面嗎？」或「@凜：小心 Lancer」就會直接傳訊；「發文：標題｜內容」會發到冬木論壇；前面加「假消息」就是放假情報（例如「假消息 發文：教會神父在賣麻婆｜…」）。一定要有冒號才算手機操作。</p>
         <p>🗺️ <strong>地圖</strong>：點上方地點徽章打開；你造成的破壞、佈置會永久保留。</p>
         <p>📊 <strong>情報</strong>：七組陣營狀態、重要事件與伏筆、路線傾向（你的玩法會把劇情帶往不同路線）。</p>
@@ -1624,6 +1626,12 @@
       document.getElementById('ui-ap-badge').innerText = s.gameMode === 'WAR' ? `AP: ${s.ap}/${s.maxAp}` : 'AP: ∞';
       document.getElementById('ui-threat-badge').innerText = s.gameMode === 'WAR' ? `警戒 ${s.threatLevel}%` : '日常結界';
       document.getElementById('ui-loc-badge').innerText = `🗺️ ${s.location}`;
+      const comps = Array.isArray(s.companions) ? s.companions : [];
+      const compEl = document.getElementById('ui-companion-badge');
+      if (compEl) {
+        compEl.innerText = comps.length ? `🤝 同行：${comps.map(c => c.name).join('、')}` : '';
+        compEl.classList.toggle('hidden', comps.length === 0);
+      }
 
       const unread = Number((s.phoneState && s.phoneState.unreadCount) || 0);
       const unreadEl = document.getElementById('ui-phone-unread');

@@ -627,12 +627,16 @@ function sendAllySmsMessage(playerName, factionName, messageText, isDeception) {
       const facPre = safeJsonParse_(rowPre[29], {});
       const metaPre = safeJsonParse_(rowPre[31], {});
       const stPre = String(facPre[targetFac] || '');
+      if (metaPre.companions && metaPre.companions[targetFac]) {
+        throw new Error(`${companionDisplayName_(targetFac)} 就在你身邊，直接在行動欄跟對方說話吧！`);
+      }
       if (canSmsFaction_(metaPre, targetFac, stPre)) {
         const thread = (metaPre.phoneState && metaPre.phoneState.smsThreads && metaPre.phoneState.smsThreads[targetFac]) || {};
         aiResult = generateAllySmsReply_(cleanName, targetFac, stPre, Array.isArray(thread.messages) ? thread.messages : [], msg, rowPre, deceive);
       }
     }
   } catch (e) {
+    if (/就在你身邊/.test(String(e && e.message))) throw e;
     aiResult = null;
   }
 
@@ -1096,6 +1100,59 @@ function describeGodHandForPrompt_(godHand, factionsObj) {
   return `【十二試煉】Berserker 目前還剩 ${GOD_HAND_LIVES_ - lost}/${GOD_HAND_LIVES_} 條命（以這個數字為準）。${methods.length ? `以下手段已經殺過他，對他**完全無效**（要寫成攻擊被肉體彈開、毫髮無傷，不算擊破）：${methods.join('、')}。` : ''}每回合最多擊破 1 條（A 級以上寶具最多 2 條），同一種手段不能殺他兩次；命數歸零前不會退場，除非御主伊莉雅被打倒、投降或放棄。玩家這邊確實殺死他一次時，填 berserker_lives_lost。`;
 }
 
+// ==================== 同行盟友：邀請同盟一起行動，之後每回合都跟在身邊 ====================
+const COMPANION_NAMES_ = { '衛宮': '士郎＋Saber', '遠坂': '凜＋Archer', '教會': '綺禮', '間桐': '慎二＋Rider', '柳洞寺': '葛木＋Caster', '愛因茲貝倫': '伊莉雅＋Berserker', '臟硯': '哈桑' };
+const MAX_COMPANIONS_ = 2;
+
+function companionDisplayName_(factionKey) {
+  const m = Object.keys(COMPANION_NAMES_).find(k => String(factionKey || '').includes(k));
+  return m ? COMPANION_NAMES_[m] : String(factionKey || '').replace(/\s*\(.*\)$/, '');
+}
+
+function factionMentioned_(factionKey, text) {
+  const t = String(text || '');
+  const entry = COMBAT_TARGET_ALIASES_.find(([mk]) => String(factionKey || '').includes(mk));
+  return Boolean(entry && entry[1].some(a => t.includes(a)));
+}
+
+// 依本回合行動與局勢更新同行名單；回傳加入與離開的陣營
+function updateCompanions_(meta, factionsObj, userAction, dayNum, presentIds) {
+  const f = factionsObj || {};
+  const text = String(userAction || '');
+  const comp = Object.assign({}, (meta.companions && typeof meta.companions === 'object') ? meta.companions : {});
+  const joined = [], left = [];
+  const leaveAll = /解散|各自行動|分頭行動|大家先回去|你們先回去|你們回去/.test(text);
+  Object.keys(comp).forEach(fk => {
+    const st = String(f[fk] || '');
+    let reason = '';
+    if (!st || isCapturedOrDefeatedStatusText_(st)) reason = '已退出戰局';
+    else if (!isAllianceStatusText_(st)) reason = '不再是同盟';
+    else if (/重傷|重創|瀕/.test(st)) reason = '傷勢太重，先回去休養';
+    else if (Number(dayNum) > Number(comp[fk].day || 0) + 1) reason = '有自己的事要處理，先回去了';
+    else if (leaveAll || (/分頭|先回去|回去吧|不用跟|分開|留在|各自/.test(text) && factionMentioned_(fk, text))) reason = '依你的安排分開行動';
+    if (reason) { left.push({ fk, reason }); delete comp[fk]; }
+  });
+  const present = new Set((presentIds || []).map(id => CHAR_FACTION_MARKERS_[id]).filter(Boolean));
+  const wantsJoin = /帶著|帶上|一起|跟我|同行|隨行|陪我|跟著我|一同|會合|聯手/.test(text);
+  Object.keys(f).forEach(fk => {
+    if (comp[fk] || Object.keys(comp).length >= MAX_COMPANIONS_) return;
+    const st = String(f[fk] || '');
+    if (!isAllianceStatusText_(st) || /重傷|重創|瀕/.test(st)) return;
+    const marker = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m));
+    const invited = wantsJoin && factionMentioned_(fk, text);
+    const arrived = /支援待命/.test(st) && marker && present.has(marker);
+    if (invited || arrived) { comp[fk] = { day: Number(dayNum) || 0 }; joined.push(fk); }
+  });
+  meta.companions = comp;
+  return { joined, left };
+}
+
+function describeCompanionsForPrompt_(meta) {
+  const keys = Object.keys((meta && meta.companions) || {});
+  if (keys.length === 0) return '';
+  return `【同行盟友】${keys.map(k => `${companionDisplayName_(k)}（${k}）`).join('、')} 正跟在玩家身邊：本回合一定在場（填進 present_chars），會對話、會依性格行動、開戰時一起出手；不要寫他們出現在別處或從遠方傳訊。`;
+}
+
 // ==================== 戰力判定：依準備、情報、地利、盟友、魔力、令咒算出優劣勢 ====================
 // 從者強度等級（依原作大致排序）
 const SERVANT_TIER_ = {
@@ -1168,7 +1225,8 @@ function assessCombat_(statusObj, meta, userAction) {
     const m = COMBAT_TARGET_ALIASES_.find(([mk]) => k.includes(mk));
     return m && m[1].some(a => text.includes(a));
   });
-  if (allyHelp) { score += 1; reasons.push('盟友參戰'); }
+  const hasCompanion = Object.keys(meta.companions || {}).some(k => isAllianceStatusText_(f[k]));
+  if (allyHelp || hasCompanion) { score += 1; reasons.push(hasCompanion ? '同行盟友參戰' : '盟友參戰'); }
   // 令咒
   if (/令咒/.test(text) && Number(statusObj.master.commandSpells) > 0) { score += 2; reasons.push('動用令咒'); }
   // 魔力
@@ -2564,6 +2622,7 @@ function drawProactiveEvent_(statusObj, meta, turnNum) {
     if (resting) deck = deck.filter(e => !/突襲|設下|決鬥/.test(e));
     if (deck.length === 0) return;
     const weight = kind === 'hostile' ? 1 + (Number(statusObj.threatLevel) || 0) / 50 : 1;
+    if (meta && meta.companions && meta.companions[name]) return; // 同行中的盟友就在身邊，不會從遠方主動找上門
     candidates.push({ name, kind, deck, weight });
   });
   if (candidates.length === 0) return null;
@@ -2976,6 +3035,7 @@ function processFateTurnTextOnly(params) {
       describeWarStateForPrompt_(statusObj.factions, statusObj.master.mp, statusObj.master.maxMp, statusObj.gameMode),
       describeIntelForPrompt_({ factionIntel: metaBefore.factionIntel || initFactionIntel_(statusObj.factions, true) }),
       describeGodHandForPrompt_(metaBefore.godHand, statusObj.factions),
+      describeCompanionsForPrompt_(metaBefore),
       describeCombatAssessForPrompt_(combatAssess),
       describeFinalBossForPrompt_(metaBefore, statusObj.factions),
       describeRyuudouRoute_(metaBefore),
@@ -3443,6 +3503,9 @@ function processFateTurnTextOnly(params) {
 
     meta.inventory = updatedInventory;
 
+    const compRes = updateCompanions_(meta, currentFactions, userAction, Number(row[6]),
+      (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => String((c && c.id) || '')));
+
     // AI 寫的情報裡若提到十二試煉的命數，一律改成伺服器的正確數字
     if (turnJson.intel_updates && typeof turnJson.intel_updates === 'object' && meta.godHand) {
       Object.keys(turnJson.intel_updates).forEach(k => {
@@ -3463,6 +3526,8 @@ function processFateTurnTextOnly(params) {
     const summaryParts = [];
     const mpAfter = Number(row[15]);
     if (mpAfter !== statusObj.master.mp) summaryParts.push(`MP ${statusObj.master.mp}→${mpAfter}`);
+    compRes.joined.forEach(k => summaryParts.push(`🤝 ${companionDisplayName_(k)} 加入同行`));
+    compRes.left.forEach(c => summaryParts.push(`👋 ${companionDisplayName_(c.fk)} 離開隊伍（${c.reason}）`));
     if (combatAssess && turnJson.is_combat) summaryParts.push(`⚔ 戰力判定：${combatAssess.level}（${combatAssess.reasons.join('、') || '條件相當'}）`);
     if (ghRes.killed > 0) summaryParts.push(`⚔ 十二試煉：擊破 ${ghRes.killed} 條（${ghRes.method || '戰鬥'}），還剩 ${GOD_HAND_LIVES_ - meta.godHand.lost} 條`);
     if (ghRes.blocked) summaryParts.push(`🛡 「${ghRes.blocked}」已經殺過 Berserker 一次，十二試煉讓他對這招免疫`);
@@ -4418,6 +4483,7 @@ function parseSaveRow_(row) {
     mapHotspot: mapHotspot,
     warTicker: String(meta.warTicker || ''),
     warTickerPublic: String(meta.warTickerPublic || ''),
+    companions: Object.keys((meta.companions && typeof meta.companions === 'object') ? meta.companions : {}).map(k => ({ faction: k, name: companionDisplayName_(k) })),
     godHand: (meta.godHand && typeof meta.godHand === 'object') ? meta.godHand : { lost: 0, methods: [] },
     factionIntel: (meta.factionIntel && typeof meta.factionIntel === 'object') ? meta.factionIntel : initFactionIntel_(safeJsonParse_(row[29], {}), true),
     inventory: Array.isArray(meta.inventory) ? meta.inventory : [],

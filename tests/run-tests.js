@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -265,6 +265,20 @@ const boss = T.maybeSummonFinalBoss_({ '教會組 (Lancer陣營)': '已淘汰', 
 eq('全部化解 → 英雄王現身', [Boolean(boss), /吉爾伽美什/.test(boss && boss.factions['教會組 (Lancer陣營)']), metaB.gilFinal], [true, true, true]);
 eq('英雄王只出現一次', T.maybeSummonFinalBoss_({ '教會組 (Lancer陣營)': '已淘汰' }, metaB, 'CONTINUE'), null);
 eq('還有敵人時不出現', T.maybeSummonFinalBoss_({ '教會組 (Lancer陣營)': '已淘汰', '間桐組': '存活 (敵對)' }, {}, 'CONTINUE'), null);
+
+// ---- 同行盟友 ----
+const facC = { '遠坂組 (Archer陣營)': '存活 (同盟)', '衛宮組 (Saber陣營)': '存活 (中立警戒)', '間桐組 (Rider陣營)': '存活 (同盟・簡訊支援待命中)' };
+const metaC = {};
+let cr = T.updateCompanions_(metaC, facC, '凜，跟我一起去大橋偵查', 2, []);
+eq('邀請同盟 → 加入同行', cr.joined, ['遠坂組 (Archer陣營)']);
+cr = T.updateCompanions_(metaC, facC, '士郎，跟我一起來', 2, []);
+eq('非同盟不能邀請', cr.joined, []);
+cr = T.updateCompanions_(metaC, facC, '前往柳洞寺', 2, ['rider']);
+eq('簡訊支援的盟友趕到 → 加入同行', cr.joined, ['間桐組 (Rider陣營)']);
+cr = T.updateCompanions_(metaC, Object.assign({}, facC, { '遠坂組 (Archer陣營)': '存活 (同盟解除)' }), '繼續偵查', 2, []);
+eq('不再同盟 → 離開', cr.left.map(x => x.fk), ['遠坂組 (Archer陣營)']);
+cr = T.updateCompanions_(metaC, facC, '繼續偵查', 4, []);
+eq('過了隔天 → 回去', cr.left.map(x => x.fk), ['間桐組 (Rider陣營)']);
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);
