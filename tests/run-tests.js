@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, removeCharacterMentions_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, removeCharacterMentions_, pickNaiSize_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -128,10 +128,15 @@ eq('第一人稱：只剩凜 → 1girl, solo, pov', T.buildCountTags_([{ gender:
 eq('第一人稱：沒人在視野 → 風景', T.buildCountTags_([], true), ['no humans', 'scenery', 'pov', 'first-person view']);
 eq('第三人稱：兩女一男', T.buildCountTags_([{ gender: 'girl' }, { gender: 'girl' }, { gender: 'boy' }], false), ['2girls', '1boy', 'multiple characters']);
 eq('視野：寫了站在身後但標 true → 判為看不到', T.isOutOfPovView_({ action: 'standing behind viewer, arms crossed, in_view: true' }), true);
+eq('視野：站在身後但看著你 → 仍看不到', T.isOutOfPovView_({ action: 'standing behind the viewer, arms crossed, looking at viewer' }), true);
 eq('視野：從肩膀探頭 → 看得到', T.isOutOfPovView_({ action: 'leaning in from over your shoulder, whispering' }), false);
 eq('視野：in_view 寫在文字裡為 false', T.isOutOfPovView_({ action: 'waiting outside, in_view: false' }), true);
 eq('視野：一般在前方', T.isOutOfPovView_({ action: 'standing in the doorway directly in front of viewer', in_view: true }), false);
 eq('場景描述移除視野外角色', T.removeCharacterMentions_("night, Rin Tohsaka at the gate, Scathach standing behind viewer's shoulder, moonlight", ['scathach'], []), 'night, Rin Tohsaka at the gate, moonlight');
+eq('單人 → 直式', T.pickNaiSize_(1), { width: 832, height: 1216 });
+eq('多人 → 橫式', T.pickNaiSize_(3), { width: 1216, height: 832 });
+eq('風景 → 橫式', T.pickNaiSize_(0), { width: 1216, height: 832 });
+eq('直式與橫式像素量相同且不超過 1024×1024', [832 * 1216 === 1216 * 832, 832 * 1216 <= 1024 * 1024], [true, true]);
 eq('系統提示詞包含感知範圍限制（防上帝視角）', T.FATE_GM_SYSTEM_PROMPT_.includes('感知有極限'), true);
 
 // ---- 其他 ----

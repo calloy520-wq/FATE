@@ -309,7 +309,9 @@
       justify-content: center;
       position: relative;
     }
-    .cg-viewport img { width: 100%; height: 100%; object-fit: cover; }
+    .cg-viewport img { width: 100%; height: 100%; object-fit: contain; }
+    /* 直式 CG（單人特寫）：畫框跟著變成直式，但限制高度避免太長 */
+    .cg-viewport.portrait { aspect-ratio: 832 / 1216; max-height: 78vh; margin: 0 auto; }
 
     .cg-async-overlay {
       position: absolute;
@@ -2129,6 +2131,9 @@
         lastImagePayload = imgRes.resolvedPayload;
       }
       viewport.innerHTML = `<img src="${imgRes.base64}" alt="Scene CG" />`;
+      const imgEl = viewport.querySelector('img');
+      const applyOrientation = () => viewport.classList.toggle('portrait', imgEl.naturalHeight > imgEl.naturalWidth);
+      if (imgEl.complete) applyOrientation(); else imgEl.onload = applyOrientation;
       document.getElementById('ui-seed-label').innerText = `Seed: ${imgRes.seed}`;
     }
 

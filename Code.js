@@ -3262,8 +3262,8 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     combatEnvTags: combatEnvTags,
     artStyle: statusObj.artStyle || 'official',
     characters: charSlots,
-    width: 1216,
-    height: 832,
+    width: pickNaiSize_(charSlots.length).width,
+    height: pickNaiSize_(charSlots.length).height,
     steps: 28,
     scale: 5.0,
     cfgRescale: 0.25,
@@ -3314,7 +3314,8 @@ function sanitizeNaiInteraction_(str) {
 function isOutOfPovView_(d) {
   const text = `${d.action || ''} ${d.interaction || ''}`.toLowerCase();
   if (d.in_view === false || String(d.in_view).toLowerCase() === 'false' || /in_view\s*[:=]\s*false/.test(text)) return true;
-  const visibleHint = /over (the |your |viewer'?s )?shoulder|leaning (in|over|towards)|peeking|in front of viewer|facing viewer|looking at viewer/.test(text);
+  // 站在身後的人就算「看著你」也看不到；只有從肩膀探頭、湊過來、出現在面前才算看得到
+  const visibleHint = /over (the |your |viewer'?s )?shoulder|leaning (in|over|towards)|peeking|in front of (the )?viewer/.test(text);
   const hiddenHint = /behind (the )?viewer|behind the player|behind you|out of (frame|view|sight)|off-?screen|unseen|hidden from view/.test(text);
   return hiddenHint && !visibleHint;
 }
@@ -3332,6 +3333,12 @@ function removeCharacterMentions_(scenePrompt, ids, ctxChars) {
   return String(scenePrompt || '').split(',').map(t => t.trim())
     .filter(t => t && !needles.some(n => n && t.toLowerCase().includes(n)))
     .join(', ');
+}
+
+// 自動選擇畫面方向：只有 1 個角色時用直式（角色更大、細節更多），2 人以上或純風景用橫式
+// 兩種尺寸像素量相同（約 101 萬），都在 Opus 免費範圍內
+function pickNaiSize_(charCount) {
+  return Number(charCount) === 1 ? { width: 832, height: 1216 } : { width: 1216, height: 832 };
 }
 
 // 依實際畫進畫面的角色重算人數標籤（第一人稱會濾掉視野外的角色）
@@ -3367,6 +3374,9 @@ function generateTurnCgAsync(imgPayload) {
         if (outOfView.size > 0) {
           working.characters = working.characters.filter(ch => !outOfView.has(ch.id));
           working.countPrefix = buildCountTags_(working.characters, true).join(', ');
+          const newSize = pickNaiSize_(working.characters.length);
+          working.width = newSize.width;
+          working.height = newSize.height;
           if (directed.scene_prompt) {
             directed.scene_prompt = removeCharacterMentions_(directed.scene_prompt, Array.from(outOfView), (working._directorContext || {}).chars || []);
           }
