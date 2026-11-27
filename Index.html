@@ -214,6 +214,14 @@
 
     .top-actions-clean { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .cg-viewport.cg-empty { aspect-ratio: auto; min-height: 72px; }
+    /* 手機與平板：順序改成 CG → 劇情 → 角色狀態，劇情不用往下滑很久 */
+    @media (max-width: 1024px) {
+      #game-screen .game-layout { display: flex; flex-direction: column; }
+      .left-col { display: contents; }
+      .left-col > .cg-box { order: 1; }
+      .game-layout > .story-panel { order: 2; margin-bottom: 12px; }
+      .left-col > .stat-card { order: 3; }
+    }
     @media (max-width: 640px) {
       .top-bar { padding: 8px 10px; gap: 6px; }
       .status-badges { gap: 5px; font-size: 12px; }
@@ -936,7 +944,7 @@
 
     <div class="game-layout">
       <!-- 左側：即時 CG 畫框 + 純型月狀態與6格物品欄 -->
-      <div>
+      <div class="left-col">
         <div class="cg-box">
           <div class="cg-viewport cg-empty" id="main-cg-viewport">
             <span style="color: var(--text-muted); font-size: 13px;">等待劇情觸發或點擊重骰生成畫面...</span>
