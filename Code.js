@@ -1406,6 +1406,21 @@ function describeFinalBossForPrompt_(meta, factionsObj) {
   return '【最終決戰】英雄王吉爾伽美什守在大聖杯前，是最後的敵人。他的王之財寶近乎無窮、乖離劍是對界寶具，正面硬拚幾乎必敗；但他極度傲慢、輕視對手、一開始不會認真，這就是破綻。情報、盟友（Saber、Archer 等）、令咒與奇策都能提高勝算。打倒或化解他之後，玩家抵達大聖杯許願即可 TRUE_VICTORY。';
 }
 
+// 背景音樂情境：依本回合結果挑一種（前端依此切換曲目）
+function pickBgmMood_(turnJson, st, story, outcome, assess) {
+  if (outcome === 'FATAL_DEATH' || /失去從者|解約離去/.test(String(story || ''))) return 'sad';
+  if (outcome === 'TRUE_VICTORY') return 'ending';
+  const body = String(story || '').replace(/【本回合結算】[\s\S]*/, '');
+  if (turnJson && turnJson.is_combat) {
+    const strong = /吉爾伽美什|英雄王|Berserker|海克力士|黑Saber|黑櫻/.test(body) || (assess && /劣勢|絕望/.test(assess.level));
+    return strong ? 'boss' : 'battle';
+  }
+  if (/親吻|吻了|吻上|擁抱|相擁|告白|臉紅|心跳|依偎/.test(body)) return 'romance';
+  if (Number(st && st.threatLevel) >= 70 || /潛入|跟蹤|埋伏|殺氣|窺視/.test(body)) return 'tension';
+  if (st && st.locationKey === '廢棄洋館' && /休息|睡|泡澡|吃飯|晚餐|聊天/.test(body)) return 'home';
+  return (st && (st.timePeriod === '黃昏' || st.timePeriod === '深夜')) ? 'night' : 'day';
+}
+
 // 玩家本回合是不是在休息（睡覺、冥想、調息…）
 function isRestAction_(text) {
   return /休息|睡覺|睡一覺|補眠|小睡|就寢|冥想|調息|靜養|休養|養傷|打坐|恢復魔力|回復魔力|回魔/.test(String(text || ''));
@@ -3831,7 +3846,8 @@ function processFateTurnTextOnly(params) {
       outcomeType: outcome,
       tigerDojoTip: turnJson.tiger_dojo_tip || '',
       imagePayload: imgPayload,
-      needImage: updatedStatus.autoImage
+      needImage: updatedStatus.autoImage,
+      bgmMood: pickBgmMood_(turnJson, updatedStatus, formattedStory, outcome, combatAssess)
     };
   } finally {
     if (lockHeld) lock.releaseLock();

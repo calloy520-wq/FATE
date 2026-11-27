@@ -1248,6 +1248,19 @@
         <div id="cap-adultMode" class="capsule-switch" onclick="optimisticToggle('adultMode')"></div>
       </div>
 
+      <div class="settings-section">🎵 音樂</div>
+      <div class="setting-row">
+        <div>
+          <div style="font-weight: 700; font-size: 14px;">🎵 背景音樂</div>
+          <div style="font-size: 12px; color: var(--text-muted);">依情境自動切換（日常、夜晚、戰鬥、強敵、緊張、浪漫…）；只存在這台裝置</div>
+        </div>
+        <div id="cap-bgm" class="capsule-switch" onclick="toggleBgm()"></div>
+      </div>
+      <div class="setting-row">
+        <div style="font-weight: 700; font-size: 14px;">🔊 音量</div>
+        <input id="bgm-volume" type="range" min="0" max="100" value="45" style="width: 55%;" oninput="setBgmVolume(this.value)">
+      </div>
+
       <div class="settings-section">🧭 其他</div>
       <div style="display:flex; gap:8px; flex-wrap:wrap;">
         <button class="btn btn-sm" onclick="closeModal('settings-modal'); document.getElementById('help-modal').classList.remove('hidden')">❓ 玩法說明</button>
@@ -1381,6 +1394,7 @@
 
     function logoutSwitchMaster() {
       window.__lastPeriodKey = '';
+      playBgmMood('title');
       clearImageWaitState();
       isSubmittingTurn = false;
       showNotice('login-inline-notice', '', false);
@@ -1467,8 +1481,10 @@
           document.getElementById('login-screen').classList.add('hidden');
           if (currentState.gamePhase === 'CHAR_CREATION') {
             initCreationScreen();
+            playBgmMood('title');
           } else {
             initGameScreen(res.logs || []);
+            playBgmMood(currentPeriodMood());
           }
         })
         .withFailureHandler(err => {
@@ -1595,6 +1611,7 @@
           document.getElementById('creation-screen').classList.add('hidden');
           initGameScreen([]);
           appendNovelMessage('ai', res.story, `Day 1・深夜 (${currentState.location})`);
+          playBgmMood('night');
           if (res.needImage) {
             triggerAsyncBgImage(res.imagePayload, false);
           }
@@ -2255,6 +2272,87 @@
       }
     }
 
+
+    // ==================== 背景音樂：依情境切換，淡入淡出 ====================
+    // 音樂檔放在倉庫 music/ 資料夾，透過公開 CDN 載入；檔案不存在就安靜略過
+    const BGM_BASE = 'https://cdn.jsdelivr.net/gh/calloy520-wq/FATE@main/music/';
+    const BGM_FALLBACK = { home: 'day', ending: 'day', boss: 'battle', tension: 'night', romance: 'day', sad: 'night' };
+    const bgm = { on: false, volume: 0.45, mood: '', current: null, missing: {} };
+    try {
+      bgm.on = localStorage.getItem('fate_bgm_on') === '1';
+      const v = Number(localStorage.getItem('fate_bgm_vol'));
+      if (!isNaN(v) && localStorage.getItem('fate_bgm_vol') !== null) bgm.volume = Math.max(0, Math.min(1, v));
+    } catch (e) {}
+
+    function syncBgmUi() {
+      const cap = document.getElementById('cap-bgm');
+      if (cap) cap.classList.toggle('on', bgm.on);
+      const vol = document.getElementById('bgm-volume');
+      if (vol) vol.value = Math.round(bgm.volume * 100);
+    }
+
+    function fadeAudio(audio, to, ms, done) {
+      const from = audio.volume, steps = 15;
+      let i = 0;
+      const timer = setInterval(() => {
+        i++;
+        audio.volume = Math.max(0, Math.min(1, from + (to - from) * (i / steps)));
+        if (i >= steps) { clearInterval(timer); if (done) done(); }
+      }, ms / steps);
+    }
+
+    function playBgmMood(mood) {
+      if (!mood) return;
+      bgm.mood = mood;
+      if (!bgm.on) return;
+      let file = mood;
+      if (bgm.missing[file] && BGM_FALLBACK[file]) file = BGM_FALLBACK[file];
+      if (bgm.current && bgm.current.dataset.file === file) return;
+      const next = new Audio(BGM_BASE + file + '.mp3');
+      next.dataset.file = file;
+      next.loop = file !== 'ending';
+      next.volume = 0;
+      next.onerror = () => {
+        bgm.missing[file] = true;
+        if (bgm.current === next) bgm.current = null;
+        if (BGM_FALLBACK[file] && !bgm.missing[BGM_FALLBACK[file]]) playBgmMood(BGM_FALLBACK[file]);
+      };
+      const prev = bgm.current;
+      bgm.current = next;
+      next.play().then(() => fadeAudio(next, bgm.volume, 1500)).catch(() => {});
+      if (prev) fadeAudio(prev, 0, 1500, () => { prev.pause(); prev.src = ''; });
+    }
+
+    function stopBgm() {
+      if (!bgm.current) return;
+      const a = bgm.current;
+      bgm.current = null;
+      fadeAudio(a, 0, 800, () => { a.pause(); a.src = ''; });
+    }
+
+    function toggleBgm() {
+      bgm.on = !bgm.on;
+      try { localStorage.setItem('fate_bgm_on', bgm.on ? '1' : '0'); } catch (e) {}
+      syncBgmUi();
+      if (bgm.on) playBgmMood(bgm.mood || currentPeriodMood());
+      else stopBgm();
+    }
+
+    function setBgmVolume(v) {
+      bgm.volume = Math.max(0, Math.min(1, Number(v) / 100));
+      try { localStorage.setItem('fate_bgm_vol', String(bgm.volume)); } catch (e) {}
+      if (bgm.current) bgm.current.volume = bgm.volume;
+    }
+
+    function currentPeriodMood() {
+      if (!currentState || !currentState.timePeriod) return 'title';
+      return (currentState.timePeriod === '黃昏' || currentState.timePeriod === '深夜') ? 'night' : 'day';
+    }
+
+    // 瀏覽器要求使用者先互動才能播放：第一次點擊畫面時補播
+    document.addEventListener('click', () => { if (bgm.on && !bgm.current) playBgmMood(bgm.mood || currentPeriodMood()); }, true);
+    syncBgmUi();
+
     function sendQuickAction(text) {
       if (isWaitingForImage || isSubmittingTurn) return;
       document.getElementById('player-action-input').value = text;
@@ -2292,6 +2390,7 @@
 
           const headerMeta = `Day ${currentState.day}・${currentState.timePeriod} (${currentState.location})`;
           appendNovelMessage('ai', res.story, headerMeta);
+          playBgmMood(res.bgmMood || currentPeriodMood());
 
           if (res.outcomeType === 'FATAL_DEATH' || res.outcomeType === 'TRUE_VICTORY') {
             renderEndingBanner(res.outcomeType, res.tigerDojoTip);

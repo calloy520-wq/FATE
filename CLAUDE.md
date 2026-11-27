@@ -59,6 +59,12 @@
 - 情報檔案（`meta.factionIntel`）：玩家「知道的」陣營狀態，和真相 `row[29]` 分開。只有親眼見到該陣營角色（`CHAR_FACTION_MARKERS_`）、同盟、聯絡接通、或 AI 回報 `intel_updates` 時才更新；幕後細節（「曾於…激戰」「遭…擊潰」）用 `publicIntelText_` 去掉。「📊 情報」視窗、手機聯絡頁、回合結算的陣營變化都只用情報；statePrompt 同時給真相（標明 GM 專用）與玩家情報。後台戰況（`meta.warTicker`）只給 GM，玩家只看到 `warTickerPublic` 異象與自動論壇目擊。
 - 每回合結算：伺服器比對回合前後狀態，在劇情尾端附上「【本回合結算】」（MP、警戒、好感、移動、傷勢、道具、陣營變化、聯絡人、流言、論壇）。AI 讀歷史時會自動去掉這類系統行。
 
+## 背景音樂
+- 音樂檔放在倉庫 `music/`（不推上 GAS），前端經 jsDelivr（`cdn.jsdelivr.net/gh/calloy520-wq/FATE@main/music/`）載入；清單與規格見 `music/README.md`。
+- 後端 `pickBgmMood_` 依本回合結果回傳 `bgmMood`（sad／ending／boss／battle／romance／tension／home／night／day），前端 `playBgmMood` 淡入淡出切換；缺檔時依 `BGM_FALLBACK` 改播替代曲。
+- 開關與音量存在瀏覽器 localStorage（只影響該裝置），預設關閉；瀏覽器規定第一次點擊畫面後才會開始播放。
+- jsDelivr 對 `@main` 有快取，新上傳的音樂可能要幾小時才生效。
+
 ## NovelAI 繪圖
 - 主提示詞放人數標籤（`2girls, 1boy, multiple characters`）；角色欄位一律以 `girl`／`boy` 開頭，不放 `1girl`、`solo`（`normalizeCharCoreForNai_`）。
 - 成人模式（`Players_Save` F 欄、設定視窗開關）**預設開啟**（新角色預設 TRUE；既有存檔已一次性設為 TRUE，記錄在指令碼屬性 `FATE_ADULT_DEFAULT_APPLIED`，不會再覆蓋玩家之後的選擇）。只有畫面有裸露時才加 `nsfw`，普通場面不加；關閉時不加。
