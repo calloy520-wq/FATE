@@ -1252,9 +1252,24 @@
       <div class="setting-row">
         <div>
           <div style="font-weight: 700; font-size: 14px;">🎵 背景音樂</div>
-          <div style="font-size: 12px; color: var(--text-muted);">依情境自動切換（日常、夜晚、戰鬥、強敵、緊張、浪漫…）；只存在這台裝置</div>
+          <div style="font-size: 12px; color: var(--text-muted);">固定循環播放選定的曲子；設定只存在這台裝置</div>
         </div>
         <div id="cap-bgm" class="capsule-switch" onclick="toggleBgm()"></div>
+      </div>
+      <div class="setting-row">
+        <div style="font-weight: 700; font-size: 14px;">🎼 曲目</div>
+        <select id="bgm-track" style="width: 60%;" onchange="setBgmTrack(this.value)">
+          <option value="day">清晨・白天｜Lanterns by the Gate</option>
+          <option value="title">登入｜The Clockwork Shrine</option>
+          <option value="night">深夜｜Midnight at the Crossing</option>
+          <option value="home">據點休息｜Sunlight on the Floorboards</option>
+          <option value="romance">親密｜Before the Morning Bell</option>
+          <option value="tension">被盯上｜The Watcher's Pace</option>
+          <option value="battle">戰鬥｜Crimson Steel Resolve</option>
+          <option value="boss">決戰｜Duel of the Fallen Sun</option>
+          <option value="sad">悲傷｜Dusk at the Platform</option>
+          <option value="ending">結局｜Beyond the Longest Night</option>
+        </select>
       </div>
       <div class="setting-row">
         <div style="font-weight: 700; font-size: 14px;">🔊 音量</div>
@@ -2306,9 +2321,10 @@
     // 注意：GAS 送出網頁時會把 JS 裡的雙斜線當成註解刪掉，所以網址的雙斜線要拆開寫
     var BGM_BASE = 'https:' + '/' + '/cdn.jsdelivr.net/gh/calloy520-wq/FATE@main/music/';
     var BGM_FALLBACK = { home: 'day', ending: 'day', boss: 'battle', tension: 'night', romance: 'home', sad: 'night', dusk: 'night' };
-    var bgm = { on: false, volume: 0.45, mood: '', current: null, missing: {} };
+    var bgm = { on: false, volume: 0.45, mood: '', track: 'day', current: null, missing: {} };
     try {
       bgm.on = localStorage.getItem('fate_bgm_on') === '1';
+      bgm.track = localStorage.getItem('fate_bgm_track') || 'day';
       const v = Number(localStorage.getItem('fate_bgm_vol'));
       if (!isNaN(v) && localStorage.getItem('fate_bgm_vol') !== null) bgm.volume = Math.max(0, Math.min(1, v));
     } catch (e) {}
@@ -2318,6 +2334,8 @@
       if (cap) cap.classList.toggle('on', bgm.on);
       const vol = document.getElementById('bgm-volume');
       if (vol) vol.value = Math.round(bgm.volume * 100);
+      const tr = document.getElementById('bgm-track');
+      if (tr) tr.value = bgm.track;
     }
 
     function fadeAudio(audio, to, ms, done) {
@@ -2330,21 +2348,20 @@
       }, ms / steps);
     }
 
+    // 使用者覺得依情境換曲太突兀：現在一律循環播放設定裡選的那一首（mood 參數保留但不使用）
     function playBgmMood(mood) {
-      if (!mood) return;
-      bgm.mood = mood;
+      if (mood) bgm.mood = mood;
       if (!bgm.on) return;
-      let file = mood;
-      if (bgm.missing[file] && BGM_FALLBACK[file]) file = BGM_FALLBACK[file];
+      let file = bgm.track || 'day';
       if (bgm.current && bgm.current.dataset.file === file) return;
       const next = new Audio(BGM_BASE + file + '.mp3');
       next.dataset.file = file;
-      next.loop = file !== 'ending';
+      next.loop = true;
       next.volume = 0;
       next.onerror = () => {
         bgm.missing[file] = true;
         if (bgm.current === next) bgm.current = null;
-        if (BGM_FALLBACK[file] && !bgm.missing[BGM_FALLBACK[file]]) playBgmMood(BGM_FALLBACK[file]);
+        // 選的曲目載入失敗就安靜，不自動改播別首
       };
       const prev = bgm.current;
       bgm.current = next;
@@ -2365,6 +2382,48 @@
       syncBgmUi();
       if (bgm.on) playBgmMood(bgm.mood || currentPeriodMood());
       else stopBgm();
+    }
+
+    // 設定視窗改成分頁：依 .settings-section 標題自動分組（遊戲／畫面／音樂／其他）
+    function initSettingsTabs() {
+      const card = document.querySelector('#settings-modal .modal-card');
+      if (!card || card.querySelector('.modal-tabs')) return;
+      const header = card.querySelector('.panel-header');
+      const nodes = Array.from(card.children).filter(n => n !== header);
+      const tabBar = document.createElement('div');
+      tabBar.className = 'modal-tabs';
+      const panes = [];
+      let pane = null;
+      nodes.forEach(n => {
+        if (n.classList && n.classList.contains('settings-section')) {
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-sm modal-tab';
+          btn.innerText = n.innerText;
+          const idx = panes.length;
+          btn.onclick = () => {
+            panes.forEach((p, i) => p.classList.toggle('hidden', i !== idx));
+            tabBar.querySelectorAll('.modal-tab').forEach((b, i) => b.classList.toggle('active', i === idx));
+            window.__settingsTab = idx;
+          };
+          tabBar.appendChild(btn);
+          pane = document.createElement('div');
+          panes.push(pane);
+          n.remove();
+        } else if (pane) {
+          pane.appendChild(n);
+        }
+      });
+      card.appendChild(tabBar);
+      panes.forEach(p => card.appendChild(p));
+      const start = Number(window.__settingsTab) || 0;
+      tabBar.querySelectorAll('.modal-tab')[Math.min(start, panes.length - 1)].click();
+    }
+    window.addEventListener('DOMContentLoaded', initSettingsTabs);
+
+    function setBgmTrack(v) {
+      bgm.track = v || 'day';
+      try { localStorage.setItem('fate_bgm_track', bgm.track); } catch (e) {}
+      if (bgm.on) playBgmMood(bgm.mood);
     }
 
     function setBgmVolume(v) {
