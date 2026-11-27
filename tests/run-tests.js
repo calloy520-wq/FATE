@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -376,6 +376,15 @@ eq('正確語法不動', T.stripBadInteractionPrefix_('mutual#kiss, smile'), 'mu
 eq('別人名字換成中性說法', T.stripOtherCharNames_('standing behind Archer, looking at Rin', 'lancer', ['archer', 'rin', 'lancer']), 'standing behind another character, looking at another character');
 eq('自己的名字與角色標籤不動', T.stripOtherCharNames_('archer (fate), smirking at Lancer and Rin', 'archer', ['archer', 'rin', 'lancer']), 'archer (fate), smirking at the others');
 eq('不在場的人不動（sakura 花）', T.stripOtherCharNames_('under sakura trees', 'rin', ['rin']), 'under sakura trees');
+
+// 繪圖文字修正
+eq('1 人 medium shot → cowboy shot', T.refineFramingTags_('1boy, solo, medium shot, temple', 1), '1boy, solo, cowboy shot, temple');
+eq('3 人保留 medium shot', T.refineFramingTags_('3girls, medium shot', 3), '3girls, medium shot');
+eq('已有 upper body 不改', T.refineFramingTags_('upper body, medium shot', 2), 'upper body, medium shot');
+eq('looking away from viewer → looking away', T.refineGazeAction_('blush, looking away from the viewer').action, 'blush, looking away, looking to the side');
+eq('別過頭 → 視線不看鏡頭', T.refineGazeAction_('looking at another character, smile').averted, true);
+eq('看鏡頭 → 不算別過頭', T.refineGazeAction_('looking at viewer, smile').averted, false);
+eq('擁抱 → 上半身、去掉 medium shot', T.refineRomanceFraming_('2girls, medium shot, rooftop'), 'upper body, 2girls, rooftop');
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

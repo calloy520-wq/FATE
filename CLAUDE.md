@@ -77,6 +77,12 @@
 - 畫面方向自動切換（`pickNaiSize_`）：畫面只有 1 個角色 → 直式 832×1216；2 人以上或純風景 → 橫式 1216×832（兩者像素量相同，都在免費範圍）。第一人稱濾掉視野外角色後會重新判斷。前端畫框依圖片比例切換（`.cg-viewport.portrait`，高度上限 78vh），圖片用 contain 不裁切。
 - 便服：`GameData.js` 的 `casual`（目前有斯卡哈、Saber、Rider）。本回合結束時人在據點（廢棄洋館）且沒開戰，就從戰鬥靈衣換成便服；離開據點或開戰換回。導演收到 `At Home Base`，只有在據點才能用便服；導演若把便服改回戰鬥服（`outfitSimilarity_` ≥ 0.5），程式會改回便服。武器只在戰鬥或解放寶具時才畫：系統提示詞要求非戰鬥時武器靈體化，非戰鬥場景的角色負面提示詞自動加入 `holding weapon, weapon, spear, polearm, sword`。
 - 鏡頭規則（FRAMING，2026-11 八場景實測後加入）：臉是核心，導演選「能容下所有人的最近鏡頭」——1 人 cowboy shot／upper body（單人寶具 cowboy shot, from below），2～3 人 medium shot，wide shot 只限 4 人以上、兩方遠距離對戰或純風景；浪漫場景 upper body／close-up；鐵絲網、玻璃、人群不可擋在臉前面。實測 8 張有 4 張原本是遠景小人，改後都變成半身清楚。
+- 導演文字的程式修正（`generateTurnCgAsync` 合併導演結果後）：
+  - `refineFramingTags_`：medium shot 不是 Danbooru 標籤，1～2 人時換成 `cowboy shot`（實測小次郎從遠景小人變半身、戰鬥時臉也清楚）。
+  - `refineGazeAction_`：「looking away from the viewer」裡的 viewer 反而讓角色看鏡頭 → 改成 `looking away, looking to the side`；視線不看鏡頭時該角色負面加 `looking at viewer`。
+  - 擁抱／親吻（`isRomanticInteraction_`）：主提示詞改成 upper body 並去掉 medium／wide shot（`refineRomanceFraming_`）；`mutual#embrace` 換成 Danbooru 的 `mutual#hug`。
+  - 第一人稱：畫面裡沒有對象，去掉 source#／target#／mutual# 前綴；有 `incoming kiss` 時主提示詞加 `incoming kiss, face focus`，角色加 `closed eyes, puckered lips` 並去掉微笑、半睜眼、看鏡頭。
+  - 黃昏：`addNightFillLight_` 把 orange-hued lighting 換成 warm lighting，並加 `natural skin tone, soft lighting`（避免整張連人物都變橘）。
 - 只有 1 個角色時程式一律改直式（導演選橫式也會被蓋掉）；橫式會把單人畫成小點。
 - 畫面方向由導演決定（`orientation`）：1 人或兩人貼身互動 → 直式；戰鬥、廣角、3 人以上、兩人有距離 → 橫式。導演沒回報時用 `pickNaiSize_`（1 人直式、其他橫式）。點擊 CG 會全螢幕放大（`openCgLightbox`），點擊或 Esc 關閉。
 - CG 兩種重畫：「🔄 重骰」用同一組提示詞換 seed（構圖不滿意）；「🎬 重新導演」用保存的原始 payload（含 `_directorContext`）重新跑導演翻譯（圖跟劇情不符）。

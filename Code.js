@@ -4118,7 +4118,13 @@ function ensureExpression_(actionStr, expr) {
 
 // 夜景沒有其他光源時，整張會被染成藍色霓虹、人物膚色發青；補一點暖色環境光（實測膚色恢復正常）
 function addNightFillLight_(prompt) {
-  const p = String(prompt || '');
+  let p = String(prompt || '');
+  // 黃昏：導演常寫 orange-hued lighting，整張連人物都被染成橘色 → 改成暖光並保留膚色
+  if (/\b(sunset|golden hour|dusk|twilight|evening)\b/i.test(p)) {
+    p = p.replace(/\b(orange|amber)[- ]hued (lighting|light|glow)/gi, 'warm lighting').replace(/,\s*orange[- ]hued sky/gi, ', orange sky');
+    if (!/natural skin tone/i.test(p)) p = `${p}, natural skin tone, soft lighting`;
+    return p;
+  }
   if (!/\b(night|midnight|night sky|dark)\b/i.test(p)) return p;
   if (/\b(warm|lamp|lantern|street ?lights?|candle|fire|bonfire|sunset|sunrise|natural skin tone)\b/i.test(p)) return p;
   return p ? `${p}, warm ambient light, natural skin tone` : p;
@@ -4358,6 +4364,30 @@ function outfitSimilarity_(a, b) {
   return ta.filter(t => tb.has(t)).length / Math.min(ta.length, tb.size);
 }
 
+// 導演文字的最後修正：視線方向、擁抱／親吻構圖（NovelAI 對自然語言的「別過頭」常會畫成看鏡頭）
+const AVERTED_GAZE_RE_ = /\b(looking away|looking to the side|looking down|looking out|looking back|averting (her|his|their) (gaze|eyes)|averted gaze|eyes closed|closed eyes|looking at another character|looking at the other|looking towards the window|looking up at another)\b/i;
+function refineGazeAction_(action) {
+  let a = String(action || '');
+  a = a.replace(/looking away from (the )?viewer/gi, 'looking away, looking to the side').replace(/away from (the )?viewer/gi, 'away');
+  const averted = AVERTED_GAZE_RE_.test(a) && !/\blooking at viewer\b/i.test(a);
+  return { action: a, averted: averted };
+}
+function isRomanticInteraction_(text) {
+  return /\b(hug|hugging|embrace|embracing|kiss|kissing|cuddl)/i.test(String(text || ''));
+}
+function refineRomanceFraming_(scenePrompt) {
+  let p = String(scenePrompt || '');
+  if (!/\b(upper body|close-up|portrait)\b/i.test(p)) p = `upper body, ${p}`;
+  return p.replace(/,?\s*\b(medium shot|wide shot|full body|long shot)\b/gi, '').replace(/^,\s*/, '');
+}
+
+// 鏡頭字眼換成 NovelAI 認得的 Danbooru 標籤：medium shot 不是 Danbooru 標籤，1～2 人時常被畫成全身遠景（實測小次郎在山門只剩小人）
+function refineFramingTags_(prompt, nChars) {
+  let p = String(prompt || '');
+  if (nChars >= 1 && nChars <= 2 && !/\b(cowboy shot|upper body|close-up|portrait)\b/i.test(p)) p = p.replace(/\bmedium shot\b/i, 'cowboy shot');
+  return p;
+}
+
 function generateTurnCgAsync(imgPayload) {
   if (!imgPayload) throw new Error('無場景資料');
   const working = JSON.parse(JSON.stringify(imgPayload));
@@ -4450,11 +4480,31 @@ function generateTurnCgAsync(imgPayload) {
 
           const actionWithExpr = isNude ? actionParts : ensureExpression_(actionParts, ch.defaultExpression || '');
           const presentIds = working.characters.map(x => x.id).concat(((working._directorContext || {}).chars || []).map(x => x.id));
-          const cleanAction = stripOtherCharNames_(actionWithExpr, ch.id, presentIds);
+          const gaze = refineGazeAction_(stripOtherCharNames_(actionWithExpr, ch.id, presentIds).replace(/\bmutual#embrac(e|ing)\b/gi, 'mutual#hug'));
+          // 視線不看鏡頭時，這個角色的負面加 looking at viewer（否則 NovelAI 很容易讓她直視鏡頭）
+          const gazeUc = gaze.averted && !/looking at viewer/i.test(String(ch.uc || '')) ? 'looking at viewer' : '';
           return Object.assign({}, ch, {
-            prompt: [finalCore, finalOutfit, cleanAction, ch.npBoost].filter(Boolean).join(', ')
+            prompt: [finalCore, finalOutfit, gaze.action, ch.npBoost].filter(Boolean).join(', '),
+            uc: [ch.uc, gazeUc].filter(Boolean).join(', ')
           });
         });
+      }
+      // 第一人稱：畫面裡沒有可以當「對象」的角色，source#／target#／mutual# 前綴會讓 incoming kiss 這類動作失效 → 去掉前綴
+      if (working.cameraMode === 'pov' && Array.isArray(working.characters)) {
+        working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: String(ch.prompt || '').replace(/(^|,\s*)(source|target|mutual)#/gi, '$1') }));
+        if (working.characters.some(ch => /\bincoming kiss\b/i.test(ch.prompt))) {
+          // 親吻要看得出來：臉部特寫、閉眼、嘟唇；拿掉會搶戲的「微笑」
+          working.characters = working.characters.map(ch => /\bincoming kiss\b/i.test(ch.prompt)
+            ? Object.assign({}, ch, { prompt: ch.prompt.replace(/,\s*(soft |gentle |light |slight )?smile\b/gi, '').replace(/,\s*(eyes half-closed|half-closed eyes|looking at viewer)\b/gi, '') + ', closed eyes, puckered lips' })
+            : ch);
+          if (!/\bincoming kiss\b/i.test(working.prompt)) working.prompt = `${working.prompt}, incoming kiss`;
+          if (!/\bface focus\b/i.test(working.prompt)) working.prompt = `${working.prompt}, face focus`;
+        }
+      }
+      working.prompt = refineFramingTags_(working.prompt, Array.isArray(working.characters) ? working.characters.length : 0);
+      // 擁抱、親吻：鏡頭拉近到上半身，避免 upper body 和 medium shot 同時出現互相抵銷
+      if (Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && isRomanticInteraction_(`${d.interaction || ''} ${d.action || ''}`))) {
+        working.prompt = refineRomanceFraming_(working.prompt);
       }
     }
     delete working._directorContext;
