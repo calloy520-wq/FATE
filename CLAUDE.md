@@ -54,6 +54,7 @@
 - **角色位置絕對不寫死**：`use_coords: false`、所有角色中心都是 0.5，由 NovelAI 自行構圖（AI's Choice）。導演只用文字描述位置關係（前景／背景、誰在誰身後、面向誰、遠近），不給座標或左右格位。
 - 第一人稱視角（設定開關，`meta.cameraMode` = `pov`／`third`，預設 third）：繪圖時移除 `player_master`、主提示詞加 `pov, first-person view`（沒有其他角色時加 `no humans, scenery`），導演改以「離鏡頭多近、是否看向鏡頭」描述，玩家用手做事時加 `pov hands`。**視野外的角色不畫**：導演回報 `in_view`，程式另用 `isOutOfPovView_` 檢查（寫了 behind viewer／out of frame 等就算看不到，over shoulder／leaning in 仍算看得到），被排除的角色會從角色欄位與場景描述（`removeCharacterMentions_`）移除，並以 `buildCountTags_` 重算人數。不會多生圖。
 - 導演只畫劇情當下明確出現的道具、武器與魔術效果，不自動加角色招牌物品。
+- 主負面提示詞（`generateNovelAIImageSafe_` 的 `defaultUc`）刻意保持精簡：只排除品質底線、文字浮水印、馬賽克。不要加回 V1～V3 時代的長串（bad, error, extra, bad hands…），實測會讓 V5 畫面變灰、細節變少。角色專屬負面放在 `GameData.js` 的 uc。
 - 互動語法只允許 `source#`／`target#`／`mutual#` 前綴，其他「xxx#」前綴會被 `stripBadInteractionPrefix_` 去掉。
 - NovelAI 免費範圍（Opus）：一次 1 張、不用底圖、尺寸 ≤ 約 1024×1024 像素量（目前 1216×832）、steps ≤ 28。V5 的免費額度是會自動回復的用量條，用完會**自動改扣 Anlas**，所以不要調高尺寸、steps 或一次生多張。
 

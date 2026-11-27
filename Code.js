@@ -3430,7 +3430,9 @@ function generateNovelAIImageSafe_(params) {
   naiLock.waitLock(25000);
 
   try {
-    const defaultUc = 'lowres, bad, error, fewer, extra, missing, worst quality, bad quality, jpeg artifacts, film grain, scan artifacts, watermark, signature, username, scan, extra digits, bad anatomy, bad hands, multiple arms, extra hands, artistic error, displeasing, censored, mosaic censoring, bar censor, text, speech bubble, caption';
+    // V5 品質已經很穩，負面提示詞保持精簡：舊時代那一長串（bad, error, extra, bad hands...）會讓畫面變灰、變保守
+    // 只排除品質底線、文字浮水印、馬賽克；角色專屬的負面（GameData.js 的 uc）另外照常套用
+    const defaultUc = 'worst quality, bad quality, lowres, jpeg artifacts, watermark, signature, text, speech bubble, censored, mosaic censoring, bar censor';
     const cleanedChars = (Array.isArray(params.characters) ? params.characters : []).filter(c => String(c.prompt || '').trim().length > 0);
 
     const styleKey = params.artStyle || 'official';
