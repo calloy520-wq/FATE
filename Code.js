@@ -1096,6 +1096,126 @@ function describeGodHandForPrompt_(godHand, factionsObj) {
   return `【十二試煉】Berserker 目前還剩 ${GOD_HAND_LIVES_ - lost}/${GOD_HAND_LIVES_} 條命（以這個數字為準）。${methods.length ? `以下手段已經殺過他，對他**完全無效**（要寫成攻擊被肉體彈開、毫髮無傷，不算擊破）：${methods.join('、')}。` : ''}每回合最多擊破 1 條（A 級以上寶具最多 2 條），同一種手段不能殺他兩次；命數歸零前不會退場，除非御主伊莉雅被打倒、投降或放棄。玩家這邊確實殺死他一次時，填 berserker_lives_lost。`;
 }
 
+// ==================== 戰力判定：依準備、情報、地利、盟友、魔力、令咒算出優劣勢 ====================
+// 從者強度等級（依原作大致排序）
+const SERVANT_TIER_ = {
+  gilgamesh: 5, berserker: 5, saber_alter: 5, dark_sakura: 5, karna: 5,
+  saber: 4, scathach: 4, jeanne: 4, jalter: 4, mordred: 4, ereshkigal: 4,
+  lancer: 3, archer: 3, rider: 3, caster: 3, assassin: 3, okita: 3, tamamo: 3,
+  hassan: 2
+};
+// 玩家行動中提到誰 → 對手陣營（臟硯放最前面，避免 Assassin 被當成柳洞寺）
+const COMBAT_TARGET_ALIASES_ = [
+  ['臟硯', ['臟硯', '哈桑', '真Assassin', '咒腕']],
+  ['教會', ['綺禮', '言峰', 'Lancer', 'lancer', '庫丘林', '庫夫林', '吉爾伽美什', '金閃閃', '英雄王', 'Gilgamesh', '教會']],
+  ['愛因茲貝倫', ['伊莉雅', 'Berserker', 'berserker', '海克力士', '愛因茲貝倫']],
+  ['柳洞寺', ['葛木', '美狄亞', 'Caster', 'caster', '小次郎', 'Assassin', 'assassin', '柳洞寺']],
+  ['間桐', ['間桐', '慎二', 'Rider', 'rider', '美杜莎', '櫻']],
+  ['遠坂', ['遠坂', '凜', 'Archer', 'archer']],
+  ['衛宮', ['衛宮', '士郎', 'Saber', 'saber', '阿爾托莉雅']]
+];
+const FACTION_HOME_ = { '柳洞寺': '柳洞寺', '遠坂邸': '遠坂', '衛宮邸': '衛宮', '聖堂教會': '教會', '愛因茲貝倫森林': '愛因茲貝倫' };
+
+function findCombatTarget_(userAction, factionsObj, locationKey) {
+  const f = factionsObj || {};
+  const text = String(userAction || '');
+  const isOpen = k => k && !isCapturedOrDefeatedStatusText_(f[k]) && !isAllianceStatusText_(f[k]);
+  for (const [marker, aliases] of COMBAT_TARGET_ALIASES_) {
+    if (!aliases.some(a => text.includes(a))) continue;
+    const fk = Object.keys(f).find(k => k.includes(marker));
+    if (isOpen(fk)) return fk;
+  }
+  const homeMarker = FACTION_HOME_[locationKey];
+  const homeKey = homeMarker ? Object.keys(f).find(k => k.includes(homeMarker)) : '';
+  return isOpen(homeKey) ? homeKey : '';
+}
+
+function assessCombat_(statusObj, meta, userAction) {
+  const f = statusObj.factions || {};
+  const text = String(userAction || '');
+  // 行動裡提到要去的地點也算戰場
+  const dest = matchFuyukiLocation_(text);
+  const battleLoc = dest ? dest.key : statusObj.locationKey;
+  const target = findCombatTarget_(text, f, battleLoc);
+  if (!target) return null;
+  const reasons = [];
+  let score = 0;
+  // 從者相剋
+  const canon = CANONICAL_7_FACTIONS_.find(r => target.includes(r[0].replace(/組.*$/, '')));
+  let enemyServant = canon ? canon[2] : (target.includes('臟硯') ? 'hassan' : '');
+  if (target.includes('教會') && (meta.churchRevived || meta.gilFinal || /吉爾伽美什|金閃閃|英雄王/.test(text + f[target]))) enemyServant = 'gilgamesh';
+  const mine = statusObj.servant1.id ? (SERVANT_TIER_[statusObj.servant1.id] || 3) : 0;
+  const theirs = SERVANT_TIER_[enemyServant] || 3;
+  const tierDiff = mine + (statusObj.servant2.id ? 1 : 0) - theirs;
+  score += tierDiff;
+  if (!statusObj.servant1.id) reasons.push('沒有從者');
+  else if (tierDiff > 0) reasons.push('從者戰力佔優');
+  else if (tierDiff < 0) reasons.push(`對手從者更強（${enemyServant}）`);
+  // 情報
+  const intel = ((meta.factionIntel || {})[target] || {}).text || '';
+  if (/真名|弱點|寶具|底牌|破綻|傲慢|試煉/.test(intel)) { score += 1; reasons.push('掌握對方情報'); }
+  // 事前準備與奇襲
+  if (/埋伏|陷阱|伏擊|偷襲|奇襲|設下|佈置|佈下|預先|事先|誘餌|引誘/.test(text)) { score += 1; reasons.push('事前準備／奇襲'); }
+  // 地利：在對方陣地作戰吃虧
+  const homeMarker = FACTION_HOME_[battleLoc];
+  if (homeMarker && target.includes(homeMarker)) {
+    const penalty = target.includes('柳洞寺') ? 2 : 1;
+    score -= penalty; reasons.push('在對方陣地作戰');
+  }
+  // 盟友參戰
+  const allies = Object.keys(f).filter(k => isAllianceStatusText_(f[k]));
+  const allyHelp = allies.some(k => {
+    const m = COMBAT_TARGET_ALIASES_.find(([mk]) => k.includes(mk));
+    return m && m[1].some(a => text.includes(a));
+  });
+  if (allyHelp) { score += 1; reasons.push('盟友參戰'); }
+  // 令咒
+  if (/令咒/.test(text) && Number(statusObj.master.commandSpells) > 0) { score += 2; reasons.push('動用令咒'); }
+  // 魔力
+  const mp = Number(statusObj.master.mp) || 0, mx = Math.max(1, Number(statusObj.master.maxMp) || 1);
+  if (mp <= 0) { score -= 2; reasons.push('魔力枯竭'); }
+  else if (mp / mx < 0.25) { score -= 1; reasons.push('魔力不足'); }
+  // 雙方狀態
+  if (/受創|重傷|瀕|受損/.test(String(statusObj.servant1.condition || ''))) { score -= 1; reasons.push('我方從者帶傷'); }
+  if (isWeakenedStatusText_(f[target])) { score += 1; reasons.push('對方帶傷'); }
+  const level = score >= 3 ? '大優勢' : score >= 1 ? '小優勢' : score === 0 ? '均勢' : score >= -2 ? '劣勢' : '絕望';
+  const guide = {
+    '大優勢': '計畫大致成功，對方重創或被逼退，玩家代價輕微。',
+    '小優勢': '玩家佔上風、能削弱對方，但要付出一些代價。',
+    '均勢': '互有損傷、勝負未分，關鍵在玩家臨場的判斷。',
+    '劣勢': '玩家吃虧，多半要撤退或付出明顯代價；除非行動中有真正的奇策。',
+    '絕望': '正面打不贏，硬打會重傷甚至死亡；只有撤退、令咒或真正的奇策能扭轉。'
+  }[level];
+  return { target, level, score, reasons, guide };
+}
+
+function describeCombatAssessForPrompt_(a) {
+  if (!a) return '';
+  return `【戰力判定（若本回合與 ${a.target} 交戰）】${a.level}（${a.reasons.join('、') || '條件相當'}）：${a.guide}結果的輕重再依本局基調調整。`;
+}
+
+// 終局：其他陣營都化解後，教會的英雄王若還沒亮相，就在大聖杯前現身擋路
+function maybeSummonFinalBoss_(factionsObj, meta, outcome) {
+  if (meta.churchRevived || meta.gilFinal || meta.gilDefeated) return null;
+  if (!areAllRivalFactionsResolved_(factionsObj)) return null;
+  const ck = Object.keys(factionsObj).find(k => k.includes('教會'));
+  if (!ck || /收服|已歸屬第8組/.test(String(factionsObj[ck] || ''))) return null;
+  meta.gilFinal = true;
+  meta.churchRevived = true;
+  const updated = Object.assign({}, factionsObj, { [ck]: '存活 (敵對・英雄王吉爾伽美什現身・大聖杯守門者)' });
+  return {
+    factions: updated,
+    text: '【終局異變】就在大聖杯即將顯現之際，圓藏山上空亮起無數金色的漣漪。言峰教會藏了十年的王牌——英雄王吉爾伽美什，正站在通往大聖杯的石階上俯視著你。要贏得聖杯，必須先跨過這位最古老的王。'
+  };
+}
+
+function describeFinalBossForPrompt_(meta, factionsObj) {
+  if (!meta.gilFinal) return '';
+  const ck = Object.keys(factionsObj || {}).find(k => k.includes('教會'));
+  if (!ck || isCapturedOrDefeatedStatusText_(factionsObj[ck])) return '';
+  return '【最終決戰】英雄王吉爾伽美什守在大聖杯前，是最後的敵人。他的王之財寶近乎無窮、乖離劍是對界寶具，正面硬拚幾乎必敗；但他極度傲慢、輕視對手、一開始不會認真，這就是破綻。情報、盟友（Saber、Archer 等）、令咒與奇策都能提高勝算。打倒或化解他之後，玩家抵達大聖杯許願即可 TRUE_VICTORY。';
+}
+
 // 玩家本回合是不是在休息（睡覺、冥想、調息…）
 function isRestAction_(text) {
   return /休息|睡覺|睡一覺|補眠|小睡|就寢|冥想|調息|靜養|休養|養傷|打坐|恢復魔力|回復魔力|回魔/.test(String(text || ''));
@@ -1109,7 +1229,7 @@ function describeWarStateForPrompt_(factionsObj, mp, maxMp, gameMode) {
   const lines = [];
   lines.push(open.length > 0
     ? `【戰局】尚未化解的陣營：${open.join('、')}（全部擊敗、收服或結盟後才能迎來終局）。擊敗滿狀態的從者需要多回合：先削弱（負傷、重創、劣勢），之後的回合才能淘汰；系統只接受已被削弱的陣營改為淘汰。`
-    : '【終局】所有陣營都已擊敗、收服或結盟，戰爭的勝負已定。不要再製造新的敵對勢力或背叛；讓大聖杯在圓藏山（柳洞寺地下）顯現，劇情引導玩家前往。玩家抵達大聖杯、許下願望（或選擇破壞聖杯）時，判定 `TRUE_VICTORY`。');
+    : '【終局】所有陣營都已擊敗、收服或結盟，戰爭的勝負已定。不要再製造新的敵對勢力或背叛；讓大聖杯在圓藏山（柳洞寺地下）顯現，劇情引導玩家前往（若英雄王還沒現身，系統會讓他在大聖杯前擋路）。玩家抵達大聖杯、許下願望（或選擇破壞聖杯）時，判定 `TRUE_VICTORY`。');
   const m = Number(mp) || 0, mx = Math.max(1, Number(maxMp) || 1);
   if (m <= 0) lines.push('【魔力枯竭】御主魔力見底：從者無法解放寶具、戰力大幅下降，御主頭暈虛弱；強行作戰或施展魔術必須付出實際代價（靈基受損、昏倒、被迫撤退），並反映在 master_condition／servant_condition。');
   else if (m / mx < 0.25) lines.push(`【魔力不足】御主魔力只剩 ${m}/${mx}：寶具最多勉強發動一次且代價沉重，大型魔術難以施展。`);
@@ -2819,6 +2939,7 @@ function processFateTurnTextOnly(params) {
     ].join('\n');
 
     const worldEvent = drawWorldDirectorEvent_(statusObj, metaBefore, turnNum);
+    const combatAssess = statusObj.gameMode === 'WAR' ? assessCombat_(statusObj, metaBefore, userAction) : null;
     const worldEventHint = worldEvent.text;
     const canFormSecondContract = (!statusObj.servant1.id) || (statusObj.master.commandSpells >= 1 && statusObj.master.mp >= 80 && !statusObj.servant2.id);
 
@@ -2855,6 +2976,8 @@ function processFateTurnTextOnly(params) {
       describeWarStateForPrompt_(statusObj.factions, statusObj.master.mp, statusObj.master.maxMp, statusObj.gameMode),
       describeIntelForPrompt_({ factionIntel: metaBefore.factionIntel || initFactionIntel_(statusObj.factions, true) }),
       describeGodHandForPrompt_(metaBefore.godHand, statusObj.factions),
+      describeCombatAssessForPrompt_(combatAssess),
+      describeFinalBossForPrompt_(metaBefore, statusObj.factions),
       describeRyuudouRoute_(metaBefore),
       `【長期記憶前情提要】${statusObj.memorySummary}`,
       `【重要事件與伏筆清單（約定、結盟原因、恩怨、未解之謎；請保持連貫）】\n${keyEventsText}`,
@@ -3204,6 +3327,18 @@ function processFateTurnTextOnly(params) {
       outcome = 'FATAL_DEATH';
     }
 
+    // 終局：其他陣營都化解後，英雄王若還沒亮相就在大聖杯前現身（本回合不能直接通關）
+    let finalBossText = '';
+    if (!isSandboxMode && outcome !== 'FATAL_DEATH') {
+      const boss = maybeSummonFinalBoss_(currentFactions, meta, outcome);
+      if (boss) { currentFactions = boss.factions; finalBossText = boss.text; }
+    }
+    // 打倒最終 Boss 後記錄，避免再出現
+    if (meta.gilFinal) {
+      const ck = Object.keys(currentFactions).find(k => k.includes('教會'));
+      if (ck && isCapturedOrDefeatedStatusText_(currentFactions[ck])) meta.gilDefeated = true;
+    }
+
     // 伺服器端驗證：日常模式不會通關；仍有未化解的敵對陣營時，不接受 TRUE_VICTORY
     if (outcome === 'TRUE_VICTORY' && (isSandboxMode || !areAllRivalFactionsResolved_(currentFactions))) {
       outcome = 'CONTINUE';
@@ -3238,6 +3373,7 @@ function processFateTurnTextOnly(params) {
     if (routeAnnounce && outcome === 'CONTINUE') {
       formattedStory += `\n\n${routeAnnounce}`;
     }
+    if (finalBossText) formattedStory += `\n\n${finalBossText}`;
     if (routeReports.length > 0) {
       const routeText = routeReports.join(' ');
       if (outcome === 'CONTINUE') formattedStory += `\n\n${routeText}`;
@@ -3317,6 +3453,7 @@ function processFateTurnTextOnly(params) {
     const summaryParts = [];
     const mpAfter = Number(row[15]);
     if (mpAfter !== statusObj.master.mp) summaryParts.push(`MP ${statusObj.master.mp}→${mpAfter}`);
+    if (combatAssess && turnJson.is_combat) summaryParts.push(`⚔ 戰力判定：${combatAssess.level}（${combatAssess.reasons.join('、') || '條件相當'}）`);
     if (ghRes.killed > 0) summaryParts.push(`⚔ 十二試煉：擊破 ${ghRes.killed} 條（${ghRes.method || '戰鬥'}），還剩 ${GOD_HAND_LIVES_ - meta.godHand.lost} 條`);
     if (ghRes.blocked) summaryParts.push(`🛡 「${ghRes.blocked}」已經殺過 Berserker 一次，十二試煉讓他對這招免疫`);
     if (restRecovered > 0) summaryParts.push(`💤 休息回復 +${restRecovered} MP（${resolvedLoc.key}）`);

@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -247,6 +247,24 @@ eq('命數未歸零 → 不淘汰', T.gateGodHandElimination_('愛因茲貝倫�
 eq('伊莉雅被打倒 → 可以淘汰', T.gateGodHandElimination_('愛因茲貝倫組 (Berserker陣營)', '存活 (重創)', '已淘汰 (御主伊莉雅昏迷被俘)', { lost: 3 }), '已淘汰 (御主伊莉雅昏迷被俘)');
 eq('命數歸零 → 可以淘汰', T.gateGodHandElimination_('愛因茲貝倫組 (Berserker陣營)', '存活 (重創)', '已淘汰', { lost: 12 }), '已淘汰');
 eq('其他陣營不受影響', T.gateGodHandElimination_('遠坂組 (Archer陣營)', '存活 (重創)', '已淘汰', { lost: 0 }), '已淘汰');
+
+// ---- 戰力判定 ----
+const baseSt = () => ({ factions: { '柳洞寺組 (Caster/Assassin陣營)': '存活 (敵對防備)', '遠坂組 (Archer陣營)': '存活 (同盟)', '愛因茲貝倫組 (Berserker陣營)': '存活 (敵對獵殺)' },
+  locationKey: '廢棄洋館', master: { mp: 140, maxMp: 140, commandSpells: 3 }, servant1: { id: 'scathach', condition: '靈基穩定' }, servant2: { id: '' } });
+let ca = T.assessCombat_(baseSt(), {}, '直接衝上柳洞寺砍了 Caster');
+eq('硬闖柳洞寺 → 劣勢', [ca.level, ca.target], ['劣勢', '柳洞寺組 (Caster/Assassin陣營)']);
+ca = T.assessCombat_(baseSt(), { factionIntel: { '柳洞寺組 (Caster/Assassin陣營)': { text: '查到 Caster 真名是美狄亞' } } }, '在冬木大橋設下陷阱引誘 Caster，跟凜和 Archer 一起伏擊');
+eq('情報＋陷阱＋盟友＋選戰場 → 大優勢', ca.level, '大優勢');
+eq('沒提到敵人就不判定', T.assessCombat_(baseSt(), {}, '在洋館睡覺'), null);
+ca = T.assessCombat_(Object.assign(baseSt(), { master: { mp: 0, maxMp: 140, commandSpells: 3 } }), {}, '正面挑戰 Berserker');
+eq('魔力枯竭正面打 Berserker → 絕望', ca.level, '絕望');
+eq('同盟不會被當成對手', T.assessCombat_(baseSt(), {}, '跟凜一起吃飯'), null);
+// ---- 最終 Boss ----
+const metaB = {};
+const boss = T.maybeSummonFinalBoss_({ '教會組 (Lancer陣營)': '已淘汰', '遠坂組 (Archer陣營)': '存活 (同盟)' }, metaB, 'TRUE_VICTORY');
+eq('全部化解 → 英雄王現身', [Boolean(boss), /吉爾伽美什/.test(boss && boss.factions['教會組 (Lancer陣營)']), metaB.gilFinal], [true, true, true]);
+eq('英雄王只出現一次', T.maybeSummonFinalBoss_({ '教會組 (Lancer陣營)': '已淘汰' }, metaB, 'CONTINUE'), null);
+eq('還有敵人時不出現', T.maybeSummonFinalBoss_({ '教會組 (Lancer陣營)': '已淘汰', '間桐組': '存活 (敵對)' }, {}, 'CONTINUE'), null);
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);
