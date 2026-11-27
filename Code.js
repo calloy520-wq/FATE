@@ -4594,7 +4594,13 @@ function generateTurnCgAsync(imgPayload) {
         const lipKiss = !cheekKiss && working.cameraMode !== 'pov' && directed.char_directions.some(d => d && /\bkiss(es|ing)?\b/i.test(`${d.interaction || ''} ${d.action || ''}`));
         if (lipKiss) {
           const rest = stripCountTags_(String(working.prompt).replace(/,?\s*\b(upper body|close-up|kiss)\b/gi, '')).replace(/^,\s*/, '');
-          working.prompt = [working.countPrefix, 'close-up, kiss', rest].filter(Boolean).join(', ');
+          working.prompt = [working.countPrefix, 'upper body, kiss, faces close together', rest].filter(Boolean).join(', ');
+          // 角色欄位的站位／腳部字眼會讓其中一人被畫成全身、站到背景（實測一大一小、遠近對不上）→ 接吻時拿掉
+          const STANCE_RE = /\b(standing|tiptoe(s|ing)?|on tiptoes?|in front of|behind|foreground|background|center|walking|full body|legs?|feet|barefoot)\b/i;
+          working.characters = working.characters.map(ch => {
+            const toks = String(ch.prompt || '').split(',').map(t => t.trim()).filter(Boolean);
+            return Object.assign({}, ch, { prompt: toks.filter(t => /::/.test(t) || !STANCE_RE.test(t)).join(', ') });
+          });
         }
       }
       if (/\b(upper body|close-up|portrait|face focus)\b/i.test(String(working.prompt || '')) && Array.isArray(working.characters)) {
