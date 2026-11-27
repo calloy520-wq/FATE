@@ -127,8 +127,15 @@ check('流言被識破並記錄懷疑者', r2.status === '已被識破' && r2.do
 geminiQueue.push({ reply: '收到，今晚我會注意。', believed: 'yes', reaction: '提高戒備' });
 const sm = ctx.sendAllySmsMessage('測試者', '遠坂組 (Archer陣營)', 'Caster 今晚會襲擊遠坂邸', true);
 const th = sm.phoneState.smsThreads['遠坂組 (Archer陣營)'];
-check('簡訊 AI 回覆', th.messages[th.messages.length - 1].text === '收到，今晚我會注意。');
+check('簡訊 AI 回覆＋管道標頭（凜＝使魔字條）', th.messages[th.messages.length - 1].text === '（使魔捎來的字條）收到，今晚我會注意。');
 check('簡訊假情報寫入流言', sm.rumors.some(r => r.channel.includes('簡訊') && r.believers.includes('遠坂組 (Archer陣營)')));
+
+// 5b. 沒有接通：不啟動支援、不放出假情報
+const rumorCountBefore = sm.rumors.length;
+geminiQueue.push({ answered: false, reply: '使魔遲遲沒有回來。', believed: 'no', reaction: '' });
+const sm2 = ctx.sendAllySmsMessage('測試者', '遠坂組 (Archer陣營)', '快來支援！其實 Lancer 已經消滅了', true);
+check('沒接通：不啟動支援', !/簡訊支援待命中/.test(sm2.factions['遠坂組 (Archer陣營)']) || /簡訊支援待命中/.test(sm.factions['遠坂組 (Archer陣營)']));
+check('沒接通：假情報不算放出', sm2.rumors.length === rumorCountBefore);
 
 // 6. 無聯絡方式的陣營不能傳
 let blocked = false;

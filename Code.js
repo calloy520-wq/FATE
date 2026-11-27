@@ -454,7 +454,7 @@ function buildInitialSmsThreads_(factionsObj) {
           sender: facName,
           fromPlayer: false,
           time: '2004 加密短訊',
-          text: `【同盟頻道已建立】我們與第8組暫時休戰互助。若遇強敵或靈基受損，隨時傳訊互通消息。`
+          text: `${getContactChannel_(facName).prefix}【同盟聯絡建立】我們與第8組暫時休戰互助。若遇強敵或靈基受損，隨時互通消息。`
         }
       ] : []
     };
@@ -501,7 +501,7 @@ function syncPhoneStateWithFactions_(phoneState, factionsObj, day, period, warRe
           sender: facName,
           fromPlayer: false,
           time: `Day ${day}・${period}`,
-          text: `【求救簡訊】我們目前處境不妙（${statusText}），急需支援或牽制！第8組能支援嗎？`
+          text: `${getContactChannel_(facName).prefix}【求援】我們目前處境不妙（${statusText}），急需支援或牽制！第8組能支援嗎？`
         });
         th.lastDistressStatus = statusText;
         p.unreadCount = (Number(p.unreadCount) || 0) + 1;
@@ -648,7 +648,8 @@ function sendAllySmsMessage(playerName, factionName, messageText, isDeception) {
       deception: deceive || undefined
     });
 
-    const isSupportCall = allied && /支援|趕來|幫忙|救|會合|牽制|協同|一起/.test(msg);
+    const answeredCall = !(aiResult && aiResult.answered === false);
+    const isSupportCall = answeredCall && allied && /支援|趕來|幫忙|救|會合|牽制|協同|一起/.test(msg);
     const fallback = allied
       ? (isSupportCall
         ? `收到！我們會配合目前戰況調整動向與支援路線（${statusText}）。`
@@ -673,11 +674,12 @@ function sendAllySmsMessage(playerName, factionName, messageText, isDeception) {
     }
 
     // 簡訊內容與對方反應交給下一回合推演，讓結果真正落在劇情與陣營狀態上
-    const reaction = aiResult && aiResult.reaction ? `；對方反應：${aiResult.reaction}` : '';
-    const note = `玩家用簡訊${deceive ? '對' : '聯絡'}「${targetFac}」${deceive ? '放出假情報' : ''}：${msg}${reaction}`;
+    const reaction = !answeredCall ? '；對方沒有回應，訊息沒有送達' : (aiResult && aiResult.reaction ? `；對方反應：${aiResult.reaction}` : '');
+    const ch = getContactChannel_(targetFac);
+    const note = `玩家用手機${deceive ? '對' : '聯絡'}「${targetFac}」（對方管道：${ch.label}）${deceive ? '放出假情報' : ''}：${msg}${reaction}`;
     meta.pendingSmsNote = [meta.pendingSmsNote, note].filter(Boolean).join('\n').slice(-600);
 
-    if (deceive) {
+    if (deceive && answeredCall) {
       meta.rumors = addRumor_(meta.rumors, {
         text: msg,
         channel: `簡訊→${targetFac}`,
@@ -705,20 +707,22 @@ function generateAllySmsReply_(playerName, factionName, statusText, history, pla
     const canon = CANONICAL_7_FACTIONS_.find(r => r[0] === factionName);
     const relation = canon ? canon[5] : '';
     const allied = isAllianceStatusText_(statusText);
+    const channel = getContactChannel_(factionName);
     const recent = (history || []).slice(-6).map(m => `${m.fromPlayer ? playerName : (m.sender || factionName)}：${m.text}`).join('\n');
     const systemPrompt = [
-      '你正在扮演 Fate/stay night 第五次聖杯戰爭中的一個陣營，透過 2004 年的折疊手機回覆玩家（獨立第8組御主）的簡訊。',
-      '用該陣營御主（必要時可帶到從者）的個性與口吻回覆，像真的手機短訊，不要旁白、不要署名。',
+      '你正在扮演 Fate/stay night 第五次聖杯戰爭（2004 年）中的一個陣營，回覆玩家（獨立第8組御主）用手機傳來的聯絡。',
+      `這個陣營的聯絡管道：${channel.label}。回覆的人：${channel.who}。寫法：${channel.style}。`,
+      channel.prefix ? `回覆一律以「${channel.prefix}」開頭。` : '',
+      '照回覆者本人的個性寫，不要旁白、不要署名。',
+      '先判斷這次聯絡有沒有接通：依時間（深夜、上學時間）、陣營狀態（交戰中、重傷休整、正在移動）與管道特性（家用電話要有人在家、使魔要找得到人）合理決定。沒接通時 answered 為 false，reply 寫成沒有回應的情形（例如電話響了很久沒人接、使魔遲遲沒有回來）。',
+      isCapturedOrDefeatedStatusText_(statusText) ? '這個陣營已經淘汰：御主可能已死亡、重傷或躲進教會，多半沒有回應；除非情況顯示御主還活著，才可能回覆，而且是退出戰爭後的口吻。' : '',
       allied
         ? '你們目前是同盟：被要求支援時，依陣營狀態明確表示能否支援、何時、怎麼配合。'
         : '你們不是同盟：依關係與性格回應，可能警戒、試探、挑釁、談條件或冷淡已讀；不要輕易透露自己的弱點。',
-      /遠坂/.test(factionName)
-        ? '遠坂凜沒有手機也不會用（機械白痴）：玩家的簡訊是透過 Archer 或使魔轉達給她的。回覆一律以「（使魔捎來的字條）」開頭，內容是凜親筆寫的字條，用凜的口吻；不要寫成她自己在操作手機。'
-        : '',
       isDeception
         ? '注意：玩家這則簡訊其實是想欺騙你，但你的角色並不知情。依角色的精明程度、手上情報與這則訊息的可信度，自然決定相信、半信半疑或識破。'
         : '',
-      '輸出 JSON：{"reply":"80字內的簡訊回覆（繁體中文）","believed":"yes / unsure / no（玩家訊息內容你信不信；一般聯絡填 yes）","reaction":"20字內，描述你接下來打算怎麼做（給遊戲紀錄用）"}'
+      '輸出 JSON：{"answered":true,"reply":"80字內的回覆（繁體中文）","believed":"yes / unsure / no（玩家訊息內容你信不信；一般聯絡填 yes）","reaction":"20字內，描述你接下來打算怎麼做（給遊戲紀錄用）"}'
     ].filter(Boolean).join('\n');
     const userMsg = [
       `陣營：${factionName}`,
@@ -729,13 +733,36 @@ function generateAllySmsReply_(playerName, factionName, statusText, history, pla
       `玩家剛傳來：${playerMsg}`
     ].filter(Boolean).join('\n');
     const res = callGeminiLiteJson_(systemPrompt, userMsg, 0.8, 400);
-    const reply = String((res && res.reply) || '').replace(/^["「『]|["」』]$/g, '').trim().slice(0, 140);
+    let reply = String((res && res.reply) || '').replace(/^["「『]|["」』]$/g, '').trim().slice(0, 160);
     if (!reply) return null;
+    // 統一管道標頭（Gemini 有時用半形括號或漏寫）
+    if (channel.prefix) {
+      reply = reply.replace(/^[（(][^）)]{1,16}[）)]\s*/, '');
+      reply = `${channel.prefix}${reply}`;
+    }
+    const answered = !(res.answered === false || String(res.answered).toLowerCase() === 'false');
     const believed = /^(yes|unsure|no)$/.test(String(res.believed || '')) ? String(res.believed) : 'unsure';
-    return { reply: reply, believed: believed, reaction: String(res.reaction || '').trim().slice(0, 40) };
+    return { reply: reply, answered: answered, believed: answered ? believed : 'none', reaction: answered ? String(res.reaction || '').trim().slice(0, 40) : '' };
   } catch (e) {
     return null;
   }
+}
+
+// ==================== 各陣營的聯絡管道（玩家用手機送出，但對方依原作設定用不同方式回覆） ====================
+const CONTACT_CHANNELS_ = [
+  { marker: '臟硯', icon: '🐛', label: '蟲使魔的口信', who: '間桐臟硯', prefix: '（蟲使魔帶來的口信）', style: '一隻蟲使魔爬到玩家身邊，用沙啞的聲音轉述臟硯的話' },
+  { marker: '衛宮', icon: '☎', label: '衛宮邸的家用電話', who: '衛宮士郎接聽（有時 Saber 在旁邊插話）', prefix: '（☎ 衛宮邸電話）', style: '寫成電話通話內容（士郎沒有手機，只能打衛宮家的室內電話）' },
+  { marker: '遠坂', icon: '🕊', label: '使魔字條（Archer 轉達）', who: '遠坂凜親筆（她沒有手機，訊息由 Archer 轉達）', prefix: '（使魔捎來的字條）', style: '寫成凜親筆的手寫字條，不要寫成她在操作手機' },
+  { marker: '間桐', icon: '📱', label: '慎二的手機簡訊', who: '間桐慎二', prefix: '', style: '寫成手機簡訊' },
+  { marker: '教會', icon: '✉', label: '教會的回信', who: '言峰綺禮', prefix: '（教會的回信）', style: '寫成簡短的書信體' },
+  { marker: '柳洞寺', icon: '☎', label: '柳洞寺的寺廟電話', who: '葛木宗一郎或寺裡的僧人接聽（有時是 Caster 搶過電話）', prefix: '（☎ 柳洞寺電話）', style: '寫成電話通話內容' },
+  { marker: '愛因茲貝倫', icon: '🕊', label: '白色小鳥使魔', who: '伊莉雅（有時是女僕瑟拉代筆）', prefix: '（白色小鳥銜來的字條）', style: '寫成字條，伊莉雅的字跡' }
+];
+const DEFAULT_CONTACT_CHANNEL_ = { icon: '📱', label: '手機簡訊', who: '該陣營的御主', prefix: '', style: '寫成手機簡訊' };
+
+function getContactChannel_(factionName) {
+  const f = String(factionName || '');
+  return CONTACT_CHANNELS_.find(c => f.includes(c.marker)) || DEFAULT_CONTACT_CHANNEL_;
 }
 
 // 能否傳簡訊：同盟陣營，或在劇情中取得了聯絡方式（meta.smsContacts）
@@ -3846,6 +3873,7 @@ function parseSaveRow_(row) {
     rumors: Array.isArray(meta.rumors) ? meta.rumors : [],
     smsContacts: (meta.smsContacts && typeof meta.smsContacts === 'object') ? meta.smsContacts : {},
     routeTendency: meta.routeTendency || {},
+    contactChannels: Object.fromEntries(Object.keys(parsedFactions).map(k => { const c = getContactChannel_(k); return [k, { icon: c.icon, label: c.label, who: c.who }]; })),
     activeRoute: meta.activeRoute || '',
     routeDefs: Object.keys(ROUTE_DEFS_).map(k => ({ key: k, name: ROUTE_DEFS_[k].name, hint: ROUTE_DEFS_[k].hint })),
     artStyle: meta.artStyle || 'official',

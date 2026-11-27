@@ -1036,7 +1036,7 @@
       <div class="retro-screen-bezel">
         <div class="phone-tabs">
           <button class="btn btn-sm btn-crimson" id="tab-phone-forum" onclick="switchPhoneTab('forum')">🌐 冬木論壇</button>
-          <button class="btn btn-sm" id="tab-phone-sms" onclick="switchPhoneTab('sms')">✉️ 結盟簡訊</button>
+          <button class="btn btn-sm" id="tab-phone-sms" onclick="switchPhoneTab('sms')">✉️ 聯絡</button>
         </div>
 
         <div id="phone-notice-box" class="inline-notice warn hidden"></div>
@@ -1063,7 +1063,7 @@
         <!-- 分頁 2：結盟簡訊 -->
         <div id="phone-view-sms" class="hidden">
           <div style="font-size: 12px; color: #7dd3fc; margin-bottom: 8px;">
-            ※ 同盟陣營，以及在劇情中交換過聯絡方式的陣營（📇）可以傳簡訊。簡訊內容與對方反應會連動到下一回合的劇情與陣營動向。
+            ※ 你用手機送出聯絡，但每個陣營依原作設定用不同管道回覆（☎ 家用電話、🕊 使魔字條、✉ 回信…）。同盟陣營，以及劇情中取得聯絡方式的陣營（📇）可以聯絡；內容與對方反應會連動到下一回合。
           </div>
           <div class="form-group" style="margin-bottom: 8px;">
             <select id="sms-ally-select" onchange="renderSmsThread()" style="padding: 7px 10px; font-size: 12.5px;"></select>
@@ -1762,7 +1762,9 @@
         const isContact = Boolean((currentState.smsContacts || {})[facName]);
         const opt = document.createElement('option');
         opt.value = facName;
-        opt.textContent = isAllied ? `🤝 [同盟] ${facName}` : (isContact ? `📇 [聯絡人] ${facName}` : `🔒 [無聯絡方式] ${facName}`);
+        const ch = (currentState.contactChannels || {})[facName] || { icon: '📱', label: '手機簡訊' };
+        const isOut = /淘汰|消滅|陣亡|覆滅|戰敗/.test(stText);
+        opt.textContent = (isOut ? `⚰ [已淘汰] ` : (isAllied ? `🤝 [同盟] ` : (isContact ? `📇 [聯絡人] ` : `🔒 [無聯絡方式] `))) + `${facName} · ${ch.icon} ${ch.label}`;
         sel.appendChild(opt);
       });
 
@@ -1799,10 +1801,11 @@
         return;
       }
 
-      const rinNote = /遠坂/.test(facName)
-        ? '<div style="font-size:11.5px; color:#fde68a; background:rgba(226,184,87,0.08); border:1px dashed rgba(226,184,87,0.4); border-radius:6px; padding:5px 8px;">📜 凜沒有手機：你的簡訊由 Archer 轉達，回覆是使魔捎來的字條。</div>'
+      const ch = (currentState.contactChannels || {})[facName];
+      const channelNote = ch
+        ? `<div style="font-size:11.5px; color:#fde68a; background:rgba(226,184,87,0.08); border:1px dashed rgba(226,184,87,0.4); border-radius:6px; padding:5px 8px;">${escapeHtml(ch.icon)} 聯絡管道：${escapeHtml(ch.label)}｜回覆：${escapeHtml(ch.who)}</div>`
         : '';
-      box.innerHTML = rinNote + msgs.map(m => `
+      box.innerHTML = channelNote + msgs.map(m => `
         <div class="sms-msg ${m.fromPlayer ? 'outgoing' : 'incoming'}">
           <div style="font-size:10.5px; opacity:0.8; margin-bottom:2px;">${escapeHtml(m.sender || '')}・${escapeHtml(m.time || '')}</div>
           <div>${m.deception ? '🎭 ' : ''}${escapeHtml(m.text || '')}</div>

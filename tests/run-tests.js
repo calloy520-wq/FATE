@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -154,6 +154,9 @@ eq('便服：在據點遭到突襲（開戰）→ 戰鬥裝', T.autoAdaptSmartOu
 eq('便服：劇情換過的特殊服裝不會被蓋掉', T.autoAdaptSmartOutfit_('scathach', 'yukata', sca, '休息', '', false, '廢棄洋館'), 'yukata');
 eq('服裝相似度：導演改回戰鬥服可偵測', T.outfitSimilarity_('purple bodysuit, tight bodysuit, black veil, gold trim', 'purple bodysuit, tight bodysuit, black veil, gold trim, thighhighs') >= 0.5, true);
 eq('服裝相似度：浴衣不算戰鬥服', T.outfitSimilarity_('yukata, obi', 'purple bodysuit, tight bodysuit') < 0.5, true);
+eq('聯絡管道：遠坂＝使魔字條', T.getContactChannel_('遠坂組 (Archer陣營)').icon + T.getContactChannel_('遠坂組 (Archer陣營)').label, '🕊使魔字條（Archer 轉達）');
+eq('聯絡管道：衛宮＝家用電話', T.getContactChannel_('衛宮組 (Saber陣營)').label, '衛宮邸的家用電話');
+eq('聯絡管道：臟硯組不會被當成間桐', T.getContactChannel_('臟硯組 (真Assassin陣營)').marker, '臟硯');
 eq('JSON 容錯解析', T.parseJsonLoose_('```json\n{"a":1}\n```'), { a: 1 });
 eq('深夜 → 隔天清晨', T.advanceTimePeriod_(1, '深夜'), { day: 2, period: '清晨' });
 
