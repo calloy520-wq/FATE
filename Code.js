@@ -4405,6 +4405,34 @@ function detectIntimacyTags_(texts) {
   return hits.some(t => t.tag === 'hug from behind') ? hits.filter(t => t.tag !== 'hug') : hits;
 }
 
+// 上半身／特寫鏡頭時拿掉下半身衣物標籤：服裝欄位加權寫了長裙、褲襪、靴子時，NovelAI 會為了畫出它們而拉成全身（實測櫻哭泣怎樣都是全身）
+const LOWER_BODY_RE_ = /\b(skirt|miniskirt|pleated skirt|long skirt|hakama|pants|trousers|jeans|shorts|pantyhose|tights|thighhighs|thigh highs|kneehighs|socks|stockings|leggings|garter( belt| straps)?|shoes|boots|heels|high heels|sandals|loafers|sneakers|footwear|geta|zettai ryouiki)\b/i;
+const FOOTWEAR_RE_ = /\b(shoes|boots|armored boots|heels|high heels|sandals|loafers|sneakers|footwear|geta)\b/i;
+function stripLowerBodyForCloseUp_(charPrompt, footwearOnly) {
+  const re = footwearOnly ? FOOTWEAR_RE_ : LOWER_BODY_RE_;
+  const tokens = String(charPrompt || '').split(',');
+  const out = [];
+  let carryPrefix = '';
+  tokens.forEach(raw => {
+    let t = raw.trim();
+    if (!t) return;
+    const pre = (t.match(/^(-?\d+(\.\d+)?::)/) || [''])[0];
+    const suf = /::$/.test(t) && !/^-?\d+(\.\d+)?::$/.test(t) ? '::' : '';
+    const core = t.slice(pre.length, suf ? t.length - 2 : t.length).trim();
+    if (re.test(core) && !/\b(hair|eyes)\b/i.test(core)) {
+      if (pre) carryPrefix = carryPrefix || pre;
+      if (suf) {
+        if (carryPrefix) carryPrefix = ''; // 整段加權都被拿掉了
+        else if (out.length) out[out.length - 1] = out[out.length - 1] + '::';
+      }
+      return;
+    }
+    if (carryPrefix) { t = carryPrefix + t; carryPrefix = ''; }
+    out.push(t);
+  });
+  return out.join(', ');
+}
+
 function generateTurnCgAsync(imgPayload) {
   if (!imgPayload) throw new Error('無場景資料');
   const working = JSON.parse(JSON.stringify(imgPayload));
@@ -4537,9 +4565,22 @@ function generateTurnCgAsync(imgPayload) {
         }
       }
       working.prompt = refineFramingTags_(working.prompt, Array.isArray(working.characters) ? working.characters.length : 0);
+      // 情緒高點（哭泣、流淚）：1～2 人時拉成上半身＋臉部特寫，不然全身鏡頭看不到眼淚（實測櫻哭著告白卻畫成站在客廳中間）
+      const nNow = Array.isArray(working.characters) ? working.characters.length : 0;
+      if (nNow >= 1 && nNow <= 2 && Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && /\b(crying|tears|tearing up|sobbing|tearful|weeping)\b/i.test(String(d.action || '')))) {
+        // 鏡頭標籤放在人數標籤後面（越前面權重越高；放最後會被一大段場景描述蓋過）
+        const rest = stripCountTags_(String(working.prompt).replace(/,?\s*\b(cowboy shot|medium shot|wide shot|full body|upper body|close-up)\b/gi, '')).replace(/^,\s*/, '');
+        working.prompt = [working.countPrefix, 'upper body, face focus, streaming tears', rest].filter(Boolean).join(', ');
+      }
       // 擁抱、親吻：鏡頭拉近到上半身，避免 upper body 和 medium shot 同時出現互相抵銷
       if (Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && isRomanticInteraction_(`${d.interaction || ''} ${d.action || ''}`))) {
         working.prompt = refineRomanceFraming_(working.prompt);
+      }
+      if (/\b(upper body|close-up|portrait|face focus)\b/i.test(String(working.prompt || '')) && Array.isArray(working.characters)) {
+        working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: stripLowerBodyForCloseUp_(ch.prompt) }));
+      } else if (/\bcowboy shot\b/i.test(String(working.prompt || '')) && Array.isArray(working.characters)) {
+        // cowboy shot（大腿以上）鞋子本來就不入鏡；服裝寫了高跟鞋、靴子會被拉成全身（Rider 幾乎每張都全身就是這個原因）
+        working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: stripLowerBodyForCloseUp_(ch.prompt, true) }));
       }
     }
     delete working._directorContext;
