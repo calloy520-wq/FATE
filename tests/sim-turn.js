@@ -92,12 +92,6 @@ geminiQueue.push({
   memory_update: '與凜結盟', key_events_add: ['與遠坂凜交換手機號碼並結盟'], key_events_resolve: [],
   present_chars: [{ id: 'rin', use_np: false, action_en: 'smile' }], scene_env_en: 'school rooftop, night'
 });
-// 英靈退場需要所屬陣營已被削弱：先把柳洞寺組設成負傷
-{
-  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
-  const f = JSON.parse(row[29]); f['柳洞寺組 (Caster/Assassin陣營)'] = '存活 (敵對・重創負傷)'; row[29] = JSON.stringify(f);
-  const m = JSON.parse(row[31]); m.factionFavor = { '遠坂組 (Archer陣營)': 50 }; row[31] = JSON.stringify(m);
-}
 const mpBefore = ctx.loadExistingGame('測試者').status.master.mp;
 const t1 = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '捏碎魔力寶石，然後跟凜交換手機號碼' });
 const st = t1.status;
@@ -193,64 +187,12 @@ check('沒要求就不會憑空得到保命符', !noOver.status.inventory.some(i
 check('沒要求就不會消耗道具', noOver.status.inventory.map(i => i.id + ':' + i.qty).join(',') === invBefore);
 check('提示詞包含御主性別', geminiRequests[geminiRequests.length - 1].messages[1].content.includes('性別:女'));
 
-// 8e. 非同盟陣營不會傳訊到手機
-geminiQueue.push({ outcome_type: 'CONTINUE', story: '一隻白色小鳥停在窗邊。', ap_cost: 0, location: '廢棄洋館', incoming_messages: [{ faction: '伊莉雅', text: '要不要來城堡玩？' }], present_chars: [], scene_env_en: 'room' });
-const incNo = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '在洋館休息' });
-const ithNo = incNo.status.phoneState.smsThreads['愛因茲貝倫組 (Berserker陣營)'];
-check('非同盟陣營的來訊被擋下', !ithNo || !ithNo.messages.some(m => /要不要來城堡玩/.test(m.text)));
-
-// 8f. 同盟陣營主動傳訊：出現在聯絡頁、加上管道標頭、增加未讀、之後可以回覆
-{
-  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
-  const f = JSON.parse(row[29]); f['愛因茲貝倫組 (Berserker陣營)'] = '存活 (同盟)'; row[29] = JSON.stringify(f);
-}
+// 8e. 其他陣營主動傳訊：出現在聯絡頁、加上管道標頭、增加未讀、之後可以回覆
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '一隻白色小鳥停在窗邊。', ap_cost: 0, location: '廢棄洋館', incoming_messages: [{ faction: '伊莉雅', text: '大哥哥的朋友，要不要來城堡玩？' }], present_chars: [], scene_env_en: 'room' });
 const inc = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '在洋館休息' });
 const ith = inc.status.phoneState.smsThreads['愛因茲貝倫組 (Berserker陣營)'];
 check('主動傳訊寫入聯絡頁並加上管道標頭', ith && /^（白色小鳥銜來的字條）大哥哥/.test(ith.messages.slice(-1)[0].text));
 check('主動傳訊後可以回覆（取得聯絡方式）', Boolean(inc.status.smsContacts['愛因茲貝倫組 (Berserker陣營)']));
-
-// 8g. 英靈名冊：副從者位置滿了再收服 → 進名冊；在洋館說「讓某某上場」→ 互換
-{
-  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
-  row[23] = 'rider'; row[24] = '契約從者'; row[25] = '美杜莎'; row[15] = 140; row[16] = 3;
-}
-geminiQueue.push({ outcome_type: 'CONTINUE', story: '美狄亞屈膝立誓。', ap_cost: 0, location: '廢棄洋館', new_servant2_id: 'caster', present_chars: [], scene_env_en: 'room' });
-const cap2 = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '收服美狄亞' });
-check('副從者已滿 → 收進英靈名冊', cap2.status.servant2.id === 'rider' && cap2.status.servantRoster.some(r => r.id === 'caster') && /收入英靈名冊/.test(cap2.story));
-geminiQueue.push({ outcome_type: 'CONTINUE', story: '美狄亞走到你身邊。', ap_cost: 0, location: '廢棄洋館', present_chars: [], scene_env_en: 'room' });
-const sw = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '讓美狄亞上場，今天帶她出門' });
-check('在洋館換人 → 美狄亞上場、美杜莎回名冊', sw.status.servant2.id === 'caster' && sw.status.servantRoster.some(r => r.id === 'rider') && !sw.status.servantRoster.some(r => r.id === 'caster'));
-{
-  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
-  row[23] = ''; row[24] = ''; row[25] = '';
-  const m = JSON.parse(row[31]); m.servantRoster = []; row[31] = JSON.stringify(m);
-}
-
-// 8h. 主從好感歸零還一直惹她：先警告，連續 3 回合才解約
-{
-  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
-  row[21] = 0; const m = JSON.parse(row[31]); m.bondLevel = 0; m.bondZeroStreak = 0; row[31] = JSON.stringify(m);
-}
-geminiQueue.push({ outcome_type: 'CONTINUE', story: '斯卡哈皺眉。', ap_cost: 0, location: '廢棄洋館', bond_delta: -30, present_chars: [], scene_env_en: 'room' });
-const bz1 = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '繼續整斯卡哈' });
-check('好感 0：先警告不解約', bz1.status.servant1.id === 'scathach' && /忍耐快到極限/.test(bz1.story));
-geminiQueue.push({ outcome_type: 'CONTINUE', story: '斯卡哈嘆氣。', ap_cost: 0, location: '廢棄洋館', bond_delta: 5, present_chars: [], scene_env_en: 'room' });
-const bzUp = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '向斯卡哈道歉' });
-check('道歉回升 → 計數歸零、好感上升', bzUp.status.bondLevel === 5);
-{
-  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
-  row[21] = 0; const m = JSON.parse(row[31]); m.bondLevel = 0; m.bondZeroStreak = 2; row[31] = JSON.stringify(m);
-}
-geminiQueue.push({ outcome_type: 'CONTINUE', story: '斯卡哈轉身。', ap_cost: 0, location: '廢棄洋館', bond_delta: -5, present_chars: [], scene_env_en: 'room' });
-const bz3 = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '又整斯卡哈' });
-check('連續 3 回合 → 解約離去', bz3.status.servant1.id !== 'scathach' && /解約離去/.test(bz3.story));
-{
-  // 還原斯卡哈，讓後面的測試照常進行
-  const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
-  row[17] = 'scathach'; row[18] = 'Lancer'; row[19] = '斯卡哈'; row[21] = 50;
-  const m = JSON.parse(row[31]); m.servantCondition = '靈基穩定'; m.servantLost = false; m.bondLevel = 50; m.bondZeroStreak = 0; row[31] = JSON.stringify(m);
-}
 
 // 9. 第一人稱視角：畫面不畫御主、加上 pov
 ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'pov' });

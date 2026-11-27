@@ -25,33 +25,13 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: "Noto Serif TC", "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif;
-      background: radial-gradient(circle at top, var(--sky-tint, #181a2c) 0%, var(--bg-void) 75%);
-      background-attachment: fixed;
-      transition: background 1.2s ease;
+      background: radial-gradient(circle at top, #181a2c 0%, var(--bg-void) 75%);
       color: var(--text-main);
       min-height: 100vh;
       line-height: 1.65;
     }
 
     .hidden { display: none !important; }
-
-    /* 時段氛圍：頁面上方的天色跟著時段變化，時間標籤也換色 */
-    body[data-period="清晨"] { --sky-tint: #4f4277; }
-    body[data-period="白天"] { --sky-tint: #31608f; }
-    body[data-period="黃昏"] { --sky-tint: #84401f; }
-    body[data-period="深夜"] { --sky-tint: #10122a; }
-    body[data-period="清晨"] #ui-time-badge { border-color: #c4b5fd; color: #ddd6fe; }
-    body[data-period="白天"] #ui-time-badge { border-color: #7dd3fc; color: #e0f2fe; }
-    body[data-period="黃昏"] #ui-time-badge { border-color: #fb923c; color: #fed7aa; }
-    body[data-period="深夜"] #ui-time-badge { border-color: #6366f1; color: #c7d2fe; }
-    #period-toast {
-      position: fixed; top: 18px; left: 50%; transform: translateX(-50%); z-index: 8000;
-      padding: 10px 22px; border-radius: 999px; font-weight: 800; font-size: 15px;
-      background: rgba(10, 11, 16, 0.88); border: 1px solid var(--border-gold); color: var(--gold-bright);
-      box-shadow: 0 6px 24px rgba(0,0,0,0.5); pointer-events: none; white-space: nowrap;
-      animation: periodToast 3.2s ease forwards;
-    }
-    @keyframes periodToast { 0% { opacity: 0; transform: translate(-50%, -12px); } 12% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: 1; } 100% { opacity: 0; } }
 
     .btn {
       padding: 10px 16px;
@@ -233,27 +213,6 @@
     .badge-bond { border-color: #f472b6; color: #f9a8d4; }
 
     .top-actions-clean { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .cg-viewport.cg-empty { aspect-ratio: auto; min-height: 72px; }
-    .modal-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 4px; position: sticky; top: 0; z-index: 2; background: var(--bg-panel); padding-bottom: 6px; }
-    .modal-tabs .btn.modal-tab { border-color: var(--border-dim); color: #cbd5e1; background: var(--bg-card); }
-    .modal-tabs .btn.modal-tab.active { border-color: var(--gold-main); color: var(--gold-bright); background: rgba(226,184,87,0.16); }
-    .settings-section { font-size: 12.5px; font-weight: 800; color: var(--gold-bright); margin: 14px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--border-dim); letter-spacing: 1px; }
-    /* 手機與平板：順序改成 CG → 劇情 → 角色狀態，劇情不用往下滑很久 */
-    @media (max-width: 1024px) {
-      #game-screen .game-layout { display: flex; flex-direction: column; }
-      .left-col { display: contents; }
-      .left-col > .cg-box { order: 1; }
-      .game-layout > .story-panel { order: 2; margin-bottom: 12px; }
-      .left-col > .stat-card { order: 3; }
-    }
-    @media (max-width: 640px) {
-      .top-bar { padding: 8px 10px; gap: 6px; }
-      .status-badges { gap: 5px; font-size: 12px; }
-      .badge { padding: 3px 7px; }
-      .top-actions-clean { gap: 5px; }
-      .top-actions-clean .btn-sm { padding: 4px 8px; font-size: 12px; }
-      .command-spells-box { padding: 3px 6px; }
-    }
     .command-spells-box {
       display: inline-flex;
       align-items: center;
@@ -940,13 +899,12 @@
     <div class="top-bar">
       <div class="status-badges">
         <span class="badge badge-gold" id="ui-player-badge">御主：-</span>
-        <span class="badge hidden" id="ui-career-badge"></span>
+        <span class="badge" id="ui-career-badge">🏆0勝 💀0敗</span>
         <span class="badge badge-bond" id="ui-bond-badge">💖 好感: 25/100</span>
-        <span class="badge hidden" id="ui-tone-badge"></span>
+        <span class="badge" id="ui-tone-badge">⚖️ 符合常理</span>
         <span class="badge" id="ui-time-badge">Day 1・深夜</span>
-        <span class="badge hidden" id="ui-ap-badge"></span>
+        <span class="badge" id="ui-ap-badge">AP: 3/3</span>
         <span class="badge badge-red" id="ui-threat-badge">警戒度: 10%</span>
-        <span class="badge badge-bond hidden" id="ui-companion-badge"></span>
         <span class="badge badge-loc" id="ui-loc-badge" title="點擊開啟冬木市魔術戰略地圖" onclick="openMapModal()">🗺️ 冬木市</span>
       </div>
 
@@ -959,19 +917,21 @@
         </div>
 
         <button class="btn btn-sm" onclick="openPhoneModal()">
-          📱 手機
+          📱 手機 (2004)
           <span id="ui-phone-unread" class="unread-dot hidden">0</span>
         </button>
         <button class="btn btn-sm" onclick="openFactionsModal()">📊 情報</button>
         <button class="btn btn-sm" onclick="openSettingsModal()">⚙️ 設定</button>
+        <button class="btn btn-sm" onclick="document.getElementById('help-modal').classList.remove('hidden')">❓ 玩法</button>
+        <button class="btn btn-sm" onclick="logoutSwitchMaster()">🚪 切換</button>
       </div>
     </div>
 
     <div class="game-layout">
       <!-- 左側：即時 CG 畫框 + 純型月狀態與6格物品欄 -->
-      <div class="left-col">
+      <div>
         <div class="cg-box">
-          <div class="cg-viewport cg-empty" id="main-cg-viewport">
+          <div class="cg-viewport" id="main-cg-viewport">
             <span style="color: var(--text-muted); font-size: 13px;">等待劇情觸發或點擊重骰生成畫面...</span>
           </div>
           <div class="cg-toolbar">
@@ -1037,7 +997,6 @@
               <span style="font-size:12px; color:#cbd5e1; font-weight:600;">靈基：<strong id="ui-s2-cond" style="color:#fde047;">靈基穩定</strong></span>
             </div>
           </div>
-          <div id="ui-roster" class="hidden" style="margin-top: 6px; font-size: 12.5px; color: #cbd5e1;"></div>
         </div>
       </div>
 
@@ -1188,10 +1147,10 @@
   <div id="settings-modal" class="modal-backdrop hidden">
     <div class="modal-card">
       <div class="panel-header">
-        <span>⚙️ 設定（切換後自動存檔）</span>
+        <span>⚙️ 聖杯戰爭終端設定 (切換後自動背景存檔)</span>
         <button class="btn btn-sm" onclick="closeModal('settings-modal')">✕</button>
       </div>
-      <div class="settings-section">🎮 遊戲</div>
+
       <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 6px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div style="font-weight: 700; font-size: 14px;">🎭 難度與寫作基調 (可不選，預設符合常理)</div>
@@ -1199,7 +1158,7 @@
         <select id="sel-game-tone" onchange="optimisticChangeTone(this.value)">
           <option value="BALANCED">⚖️ 符合常理（預設・在場人物有反應，重劇情輕卡關）</option>
           <option value="COMEDY_CHAOS">😄 搞笑鬧劇輕鬆向（輕鬆吐槽誇張反應，非極端作死不輕易重創）</option>
-          <option value="STORY_PLAYER_FIRST">🐉 龍傲天模式（玩家無敵・不管玩什麼都能實現）</option>
+          <option value="STORY_PLAYER_FIRST">📖 故事模式（玩家為主・完全依照並順從玩家的話延伸劇情）</option>
           <option value="HARDCORE_WAR">⚔️ 鐵血嚴重戰場風（肅殺務實，分心或鬧場招致冷靜反制與硬核代價）</option>
         </select>
         <div id="tone-desc-hint" style="font-size: 12px; color: var(--text-muted);">
@@ -1207,23 +1166,6 @@
         </div>
       </div>
 
-      <div class="setting-row">
-        <div>
-          <div style="font-weight: 700; font-size: 14px;">🌸 無戰爭日常餐桌模式</div>
-          <div style="font-size: 12px; color: var(--text-muted);">開啟後解除時間與警戒限制，並禁止獲得任何戰鬥道具</div>
-        </div>
-        <div id="cap-sandboxMode" class="capsule-switch" onclick="optimisticToggleMode()"></div>
-      </div>
-
-      <div class="setting-row">
-        <div>
-          <div style="font-weight: 700; font-size: 14px;">🐯 戰敗時顯示老虎道場吐槽</div>
-          <div style="font-size: 12px; color: var(--text-muted);">開啟時戰敗會附上藤村大河與伊莉雅的死因分析</div>
-        </div>
-        <div id="cap-tigerDojo" class="capsule-switch on" onclick="this.classList.toggle('on'); showTigerDojo = this.classList.contains('on');"></div>
-      </div>
-
-      <div class="settings-section">🖼️ 畫面</div>
       <div class="setting-row">
         <div>
           <div style="font-weight: 700; font-size: 14px;">🎨 自動繪製場景 CG</div>
@@ -1248,23 +1190,20 @@
         <div id="cap-adultMode" class="capsule-switch" onclick="optimisticToggle('adultMode')"></div>
       </div>
 
-      <div class="settings-section">🎵 音樂</div>
       <div class="setting-row">
         <div>
-          <div style="font-weight: 700; font-size: 14px;">🎵 背景音樂</div>
-          <div style="font-size: 12px; color: var(--text-muted);">依情境自動切換（日常、夜晚、戰鬥、強敵、緊張、浪漫…）；只存在這台裝置</div>
+          <div style="font-weight: 700; font-size: 14px;">🌸 無戰爭日常餐桌模式</div>
+          <div style="font-size: 12px; color: var(--text-muted);">開啟後解除時間與警戒限制，並禁止獲得任何戰鬥道具</div>
         </div>
-        <div id="cap-bgm" class="capsule-switch" onclick="toggleBgm()"></div>
-      </div>
-      <div class="setting-row">
-        <div style="font-weight: 700; font-size: 14px;">🔊 音量</div>
-        <input id="bgm-volume" type="range" min="0" max="100" value="45" style="width: 55%;" oninput="setBgmVolume(this.value)">
+        <div id="cap-sandboxMode" class="capsule-switch" onclick="optimisticToggleMode()"></div>
       </div>
 
-      <div class="settings-section">🧭 其他</div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="btn btn-sm" onclick="closeModal('settings-modal'); document.getElementById('help-modal').classList.remove('hidden')">❓ 玩法說明</button>
-        <button class="btn btn-sm" onclick="closeModal('settings-modal'); logoutSwitchMaster()">🚪 切換御主</button>
+      <div class="setting-row">
+        <div>
+          <div style="font-weight: 700; font-size: 14px;">🐯 戰敗時顯示老虎道場吐槽</div>
+          <div style="font-size: 12px; color: var(--text-muted);">開啟時戰敗會附上藤村大河與伊莉雅的死因分析</div>
+        </div>
+        <div id="cap-tigerDojo" class="capsule-switch on" onclick="this.classList.toggle('on'); showTigerDojo = this.classList.contains('on');"></div>
       </div>
     </div>
   </div>
@@ -1278,14 +1217,9 @@
       </div>
       <div style="font-size:13.5px; line-height:1.9; color:#e2e8f0;">
         <p>⚔️ <strong>用文字推進一切</strong>：輸入你想做的任何事或想說的話，AI 會依型月世界的邏輯演出結果。每回合下方的「📋 本回合結算」會列出實際改變了什麼。</p>
-        <p>🎭 <strong>難度與寫作基調</strong>（⚙️ 設定）：符合常理／搞笑鬧劇／🐉 龍傲天（玩家無敵，想做什麼都能實現）／鐵血戰場，結果的輕重會完全不同。</p>
+        <p>🎭 <strong>難度與寫作基調</strong>（⚙️ 設定）：符合常理／搞笑鬧劇／故事模式（玩家為主）／鐵血戰場，結果的輕重會完全不同。</p>
         <p>📷 <strong>第一人稱視角</strong>（⚙️ 設定，預設開啟）：CG 以你的眼睛為鏡頭；關掉就是第三人稱。畫風可在 CG 下方切換，包含型月原作風、ufotable 動畫風。</p>
         <p>📱 <strong>2004 手機</strong>：冬木論壇可以看風聲、發文，勾選 🎭 就是放假消息（會追蹤誰相信、誰識破）。「聯絡」頁可以聯絡同盟、拿到聯絡方式的陣營與教會，每個陣營用不同管道回覆（☎ 電話、🕊 使魔字條、✉ 回信…），也可能沒人接。</p>
-        <p>💧 <strong>魔力恢復</strong>：① 打字「休息／睡覺／冥想」且沒開戰，回復 20＋所在地靈脈（洋館 +30、柳洞寺與遠坂邸 +55）；② 每次時段推進，自動吸收所在地靈脈（+10～+35）；③ 使用魔力寶石（小 +35、中 +65）。寶具一次約消耗 65，魔力 0 時硬打會讓從者受創。</p>
-        <p>🤝 <strong>同行盟友</strong>：行動裡寫「帶著凜一起去…」「士郎，跟我來」就能讓同盟陣營跟著你，之後每回合都在場、一起戰鬥（戰力判定 +1），最多 2 組，維持 4 個時段（一整天）。也可以約好「明天深夜在大橋集合」，準時到就會出現；沒去會扣好感。</p>
-        <p>📜 <strong>英靈名冊</strong>：副從者位置滿了還收服英靈，會收進名冊回洋館待命（最多 3 騎，待命時不耗魔力）。在洋館輸入「讓 Rider 上場」就能換成副從者，原本的副從者回去待命。</p>
-        <p>💗 <strong>陣營好感</strong>：每個陣營對你都有好感（−100～100），幫忙、守約、分享情報會加，欺騙被識破、放鴿子、攻擊會扣。好感 40 以上才可能正式結盟。在「📊 情報」查看。</p>
-        <p>⌨️ <strong>打字用手機</strong>（不消耗回合）：在行動欄輸入「傳簡訊給士郎：今晚見面嗎？」或「@凜：小心 Lancer」就會直接傳訊；「發文：標題｜內容」會發到冬木論壇；前面加「假消息」就是放假情報（例如「假消息 發文：教會神父在賣麻婆｜…」）。一定要有冒號才算手機操作。</p>
         <p>🗺️ <strong>地圖</strong>：點上方地點徽章打開；你造成的破壞、佈置會永久保留。</p>
         <p>📊 <strong>情報</strong>：七組陣營狀態、重要事件與伏筆、路線傾向（你的玩法會把劇情帶往不同路線）。</p>
         <p>⚡ <strong>冬木是活的</strong>：其他陣營會主動找上你：拜訪、偷襲、求援、傳訊。</p>
@@ -1300,7 +1234,7 @@
   <div id="factions-modal" class="modal-backdrop hidden">
     <div class="modal-card">
       <div class="panel-header">
-        <span>📊 情報</span>
+        <span>📊 第五次聖杯戰爭・七組陣營動態（＋第8組玩家）</span>
         <button class="btn btn-sm" onclick="closeModal('factions-modal')">✕</button>
       </div>
       <div id="factions-list-content" style="font-size: 13.5px; display: flex; flex-direction: column; gap: 8px;"></div>
@@ -1308,23 +1242,6 @@
   </div>
 
   <script>
-    // 錯誤顯示器：網頁程式出錯時在畫面頂端顯示紅條（方便截圖回報）
-    (function () {
-      function showErr(msg) {
-        try {
-          var bar = document.getElementById('fatal-error-bar');
-          if (!bar) {
-            bar = document.createElement('div');
-            bar.id = 'fatal-error-bar';
-            bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#7f1d1d;color:#fff;font-size:12px;padding:8px 10px;white-space:pre-wrap;word-break:break-all;';
-            (document.body || document.documentElement).appendChild(bar);
-          }
-          bar.textContent = '⚠️ 程式錯誤（請截圖回報）：' + msg;
-        } catch (e) {}
-      }
-      window.addEventListener('error', function (e) { showErr((e.message || '') + ' @' + (e.lineno || '?') + ':' + (e.colno || '?')); });
-      window.addEventListener('unhandledrejection', function (e) { showErr('Promise：' + (e.reason && e.reason.message ? e.reason.message : String(e.reason))); });
-    })();
     const MASTER_CACHE_KEY = 'fate_hgc_cached_master_name_v1';
     const ORIGIN_NOTES = {
       '冬木市隱居古家族': '魔術迴路:B | 近戰體術:D | 隱藏氣息:C | 幸運:C (自帶高純度魔力寶石(中)×1、未充能天然寶石媒介×2)',
@@ -1347,7 +1264,7 @@
     const TONE_META = {
       BALANCED: { short: '⚖️ 符合常理', desc: '尊重型月常理與在場人物反應，重劇情、輕卡關，不隨意把非致命小動作判死。' },
       COMEDY_CHAOS: { short: '😄 搞笑鬧劇輕鬆向', desc: '輕鬆幽默、鬧劇吐槽與寬容推進合一；在場角色會對偷吃、香味干擾或荒唐怪招做出生動誇張又好笑的反應（不無視），且非極端作死不輕易重創或判死。' },
-      STORY_PLAYER_FIRST: { short: '🐉 龍傲天模式', desc: '玩家就是主角：不管想做什麼都能實現，計畫一定成功、敵人被碾壓、眾人震驚折服，爽快至上。不受戰力判定、淘汰兩步、十二試煉與結盟門檻限制。' },
+      STORY_PLAYER_FIRST: { short: '📖 故事模式（玩家為主）', desc: '完全依照並順從玩家輸入的話語、意圖與劇情方向自然延伸發展，不刻意唱反調或刁難，順著玩家想要的戲劇張力推進。' },
       HARDCORE_WAR: { short: '⚔️ 鐵血嚴重戰場風', desc: '戰場肅殺務實，敵人與隊友不會被無關玩笑或偷吃小動作輕易唬住，分心或鬧場會招來冷靜反制與真實戰場後果，勝負與傷勢結算更嚴峻。' }
     };
 
@@ -1410,8 +1327,6 @@
     }
 
     function logoutSwitchMaster() {
-      window.__lastPeriodKey = '';
-      playBgmMood('title');
       clearImageWaitState();
       isSubmittingTurn = false;
       showNotice('login-inline-notice', '', false);
@@ -1489,11 +1404,6 @@
       const runner = google.script.run
         .withSuccessHandler(res => {
           hideLoading();
-          if (!res || !res.status) {
-            showNotice('login-inline-notice', '⚠️ 讀取失敗：伺服器沒有回傳存檔資料（可能是存檔格式異常），請截圖告訴管理者。', true);
-            return;
-          }
-          try {
           saveMasterNameCache(name);
           currentState = res.status;
           summonPoolCache = res.summonPool || [];
@@ -1503,14 +1413,8 @@
           document.getElementById('login-screen').classList.add('hidden');
           if (currentState.gamePhase === 'CHAR_CREATION') {
             initCreationScreen();
-            playBgmMood('title');
           } else {
             initGameScreen(res.logs || []);
-            playBgmMood(currentPeriodMood());
-          }
-          } catch (e) {
-            document.getElementById('login-screen').classList.remove('hidden');
-            showNotice('login-inline-notice', '⚠️ 進入遊戲時發生錯誤：' + (e && e.message ? e.message : e) + '（請截圖告訴管理者）', true);
           }
         })
         .withFailureHandler(err => {
@@ -1637,7 +1541,6 @@
           document.getElementById('creation-screen').classList.add('hidden');
           initGameScreen([]);
           appendNovelMessage('ai', res.story, `Day 1・深夜 (${currentState.location})`);
-          playBgmMood('night');
           if (res.needImage) {
             triggerAsyncBgImage(res.imagePayload, false);
           }
@@ -1692,37 +1595,14 @@
       const tone = normalizeToneKey(s.gameTone);
       s.gameTone = tone;
 
-      document.getElementById('ui-player-badge').innerText = s.playerName;
+      document.getElementById('ui-player-badge').innerText = `御主：${s.playerName}`;
       document.getElementById('ui-career-badge').innerText = `🏆${s.wins}勝 💀${s.losses}敗`;
-      document.getElementById('ui-bond-badge').innerText = `💖 ${bond}`;
+      document.getElementById('ui-bond-badge').innerText = `💖 好感: ${bond}/100`;
       document.getElementById('ui-tone-badge').innerText = TONE_META[tone].short;
-      const PERIOD_ICON = { '清晨': '🌅', '白天': '☀️', '黃昏': '🌇', '深夜': '🌙' };
-      document.getElementById('ui-time-badge').innerText = `${PERIOD_ICON[s.timePeriod] || ''} Day ${s.day}・${s.timePeriod}｜AP ${s.gameMode === 'WAR' ? `${s.ap}/${s.maxAp}` : '∞'}`;
-      // 時段一變就換天色，並跳出提示
-      const periodKey = `${s.day}-${s.timePeriod}`;
-      if (document.body.dataset.period !== s.timePeriod || window.__lastPeriodKey !== periodKey) {
-        const changed = Boolean(window.__lastPeriodKey) && window.__lastPeriodKey !== periodKey;
-        document.body.dataset.period = s.timePeriod;
-        window.__lastPeriodKey = periodKey;
-        if (changed) {
-          const old = document.getElementById('period-toast');
-          if (old) old.remove();
-          const toast = document.createElement('div');
-          toast.id = 'period-toast';
-          toast.innerText = `${PERIOD_ICON[s.timePeriod] || '⏳'} 時間來到 Day ${s.day}・${s.timePeriod}`;
-          document.body.appendChild(toast);
-          setTimeout(() => toast.remove(), 3400);
-        }
-      }
+      document.getElementById('ui-time-badge').innerText = `Day ${s.day}・${s.timePeriod}`;
       document.getElementById('ui-ap-badge').innerText = s.gameMode === 'WAR' ? `AP: ${s.ap}/${s.maxAp}` : 'AP: ∞';
-      document.getElementById('ui-threat-badge').innerText = s.gameMode === 'WAR' ? `警戒 ${s.threatLevel}%` : '日常結界';
+      document.getElementById('ui-threat-badge').innerText = s.gameMode === 'WAR' ? `警戒度: ${s.threatLevel}%` : '日常結界';
       document.getElementById('ui-loc-badge').innerText = `🗺️ ${s.location}`;
-      const comps = Array.isArray(s.companions) ? s.companions : [];
-      const compEl = document.getElementById('ui-companion-badge');
-      if (compEl) {
-        compEl.innerText = comps.length ? `🤝 同行：${comps.map(c => c.name).join('、')}` : '';
-        compEl.classList.toggle('hidden', comps.length === 0);
-      }
 
       const unread = Number((s.phoneState && s.phoneState.unreadCount) || 0);
       const unreadEl = document.getElementById('ui-phone-unread');
@@ -1798,12 +1678,6 @@
         }
       } else {
         s2Box.classList.add('hidden');
-      }
-      const rosterEl = document.getElementById('ui-roster');
-      const roster = Array.isArray(s.servantRoster) ? s.servantRoster : [];
-      if (rosterEl) {
-        rosterEl.classList.toggle('hidden', roster.length === 0);
-        rosterEl.innerHTML = roster.length ? `📜 英靈名冊（洋館待命）：${roster.map(r => escapeHtml(r.name)).join('、')}<br><span style="font-size:11.5px; color: var(--text-muted);">在洋館輸入「讓${escapeHtml(roster[0].name)}上場」即可換副從者</span>` : '';
       }
 
       const isEnded = (s.runStatus === 'DEAD' || s.runStatus === 'CLEARED');
@@ -1917,20 +1791,18 @@
       const prevVal = sel.value;
       const threads = (currentState.phoneState && currentState.phoneState.smsThreads) || {};
       const factions = currentState.factions || {};
-      // 只列出聯絡得到的陣營（同盟、聯絡人、教會），或已經有往來紀錄的
-      const allKeys = Object.keys(factions).filter(k => canSmsTo(k) || (threads[k] && Array.isArray(threads[k].messages) && threads[k].messages.length > 0));
+      const allKeys = Object.keys(factions);
 
       sel.innerHTML = '';
       allKeys.forEach(facName => {
         const stText = String(factions[facName] || '');
-        const isAllied = isAlliedText(stText);
+        const isAllied = /同盟|結盟|停戰|互助|合作|友方/.test(stText);
         const isContact = Boolean((currentState.smsContacts || {})[facName]);
         const opt = document.createElement('option');
         opt.value = facName;
         const ch = (currentState.contactChannels || {})[facName] || { icon: '📱', label: '手機簡訊' };
-        const knownText = String(((currentState.factionIntel || {})[facName] || {}).text || '');
-        const isOut = /淘汰|消滅|陣亡|覆滅|戰敗/.test(knownText);
-        opt.textContent = (isOut ? `⚰ [已淘汰] ` : (isAllied ? `🤝 [同盟] ` : (isContact ? `📇 [聯絡人] ` : `📜 [僅紀錄] `))) + `${facName} · ${ch.icon} ${ch.label}`;
+        const isOut = /淘汰|消滅|陣亡|覆滅|戰敗/.test(stText);
+        opt.textContent = (isOut ? `⚰ [已淘汰] ` : (isAllied ? `🤝 [同盟] ` : (isContact ? `📇 [聯絡人] ` : `🔒 [無聯絡方式] `))) + `${facName} · ${ch.icon} ${ch.label}`;
         sel.appendChild(opt);
       });
 
@@ -1943,15 +1815,9 @@
       renderSmsThread();
     }
 
-    // 與後端 isAllianceStatusText_ 相同：談判中、意向、解除、破裂都不算同盟
-    function isAlliedText(t) {
-      const s = String(t || '');
-      return /同盟|結盟|盟友|停戰|互助|合作|友方/.test(s) && !/談判|意向|考慮|提議|拒絕|破裂|解除|背叛|假意|觀望|中止|撕毀|試探|尚未/.test(s);
-    }
-
     function canSmsTo(facName) {
       const stText = String((currentState.factions || {})[facName] || '');
-      return isAlliedText(stText) || Boolean((currentState.smsContacts || {})[facName]) || facName.includes('教會');
+      return /同盟|結盟|停戰|互助|合作|友方/.test(stText) || Boolean((currentState.smsContacts || {})[facName]) || facName.includes('教會');
     }
 
     function renderSmsThread() {
@@ -1964,11 +1830,10 @@
       const threads = (currentState.phoneState && currentState.phoneState.smsThreads) || {};
       const msgs = (threads[facName] && Array.isArray(threads[facName].messages)) ? threads[facName].messages : [];
 
-      if (!facName) {
-        box.innerHTML = `<div style="color:#94a3b8; font-size:12.5px; padding:10px;">目前還沒有聯絡人。結盟，或在劇情中跟對方交換聯絡方式後，就會出現在這裡。</div>`;
+      if (!canSmsTo(facName)) {
+        box.innerHTML = `<div style="color:#fca5a5; font-size:12.5px; padding:10px;">🔒 還沒有「${escapeHtml(facName)}」的聯絡方式（狀態：${escapeHtml(stText || '未知')}）。結盟，或在劇情中跟對方交換手機號碼後就能傳訊。</div>`;
         return;
       }
-      const lockedNote = canSmsTo(facName) ? '' : `<div style="font-size:11.5px; color:#fca5a5; padding:4px 8px;">目前無法再聯絡對方，只能查看過去的紀錄。</div>`;
       if (msgs.length === 0) {
         box.innerHTML = `<div style="color:#94a3b8; font-size:12.5px; padding:10px;">尚未與「${escapeHtml(facName)}」往來簡訊，可發送支援或聯絡訊息。</div>`;
         return;
@@ -1978,7 +1843,7 @@
       const channelNote = ch
         ? `<div style="font-size:11.5px; color:#fde68a; background:rgba(226,184,87,0.08); border:1px dashed rgba(226,184,87,0.4); border-radius:6px; padding:5px 8px;">${escapeHtml(ch.icon)} 聯絡管道：${escapeHtml(ch.label)}｜回覆：${escapeHtml(ch.who)}</div>`
         : '';
-      box.innerHTML = lockedNote + channelNote + msgs.map(m => `
+      box.innerHTML = channelNote + msgs.map(m => `
         <div class="sms-msg ${m.fromPlayer ? 'outgoing' : 'incoming'}">
           <div style="font-size:10.5px; opacity:0.8; margin-bottom:2px;">${escapeHtml(m.sender || '')}・${escapeHtml(m.time || '')}</div>
           <div>${m.deception ? '🎭 ' : ''}${escapeHtml(m.text || '')}</div>
@@ -1992,10 +1857,6 @@
       const facName = document.getElementById('sms-ally-select').value;
       const msgVal = document.getElementById('sms-message-input').value.trim();
       const isFakeSms = document.getElementById('sms-fake-check').checked;
-      if (!facName || !canSmsTo(facName)) {
-        showNotice('phone-notice-box', '目前沒有可以聯絡的對象。', true);
-        return;
-      }
       if (!msgVal) {
         showNotice('phone-notice-box', '請先輸入簡訊內容！', true);
         return;
@@ -2024,7 +1885,7 @@
       if (currentState && currentState.dynamicLocations) {
         mapLocationsCache = currentState.dynamicLocations;
       }
-      document.getElementById('map-war-ticker').innerText = `📡 ${currentState.warTickerPublic || '冬木市目前沒有聽到什麼異狀。'}`;
+      document.getElementById('map-war-ticker').innerText = `📡 ${currentState.warTicker || '冬木市結界監測正常。'}`;
       selectedMapKey = currentState.locationKey || '廢棄洋館';
       renderFuyukiMapNodes();
       selectMapNode(selectedMapKey);
@@ -2191,195 +2052,6 @@
 
     // ==================== 兩段式非同步推演：Step 1 先出字 -> Step 2 背景補圖 ====================
 
-
-    // ==================== 打字操作手機 ====================
-    const PHONE_FACTION_ALIASES = [
-      ['臟硯', ['臟硯', '咒腕', '哈桑', '真Assassin']],
-      ['衛宮', ['衛宮', '士郎', 'Saber', 'saber', '阿爾托莉雅']],
-      ['遠坂', ['遠坂', '凜', 'Archer', 'archer']],
-      ['間桐', ['間桐', '慎二', '櫻', 'Rider', 'rider', '美杜莎']],
-      ['教會', ['教會', '綺禮', '言峰', '神父', 'Lancer', 'lancer', '庫丘林']],
-      ['柳洞寺', ['柳洞寺', '葛木', '美狄亞', 'Caster', 'caster', '小次郎', 'Assassin', 'assassin']],
-      ['愛因茲貝倫', ['愛因茲貝倫', '伊莉雅', 'Berserker', 'berserker']]
-    ];
-
-    function resolvePhoneFaction(target) {
-      const keys = Object.keys((currentState && currentState.factions) || {});
-      const t = String(target || '').trim();
-      if (!t) return '';
-      const direct = keys.find(k => k === t || k.includes(t));
-      if (direct) return direct;
-      for (const [groupWord, aliases] of PHONE_FACTION_ALIASES) {
-        if (aliases.some(a => t.includes(a))) {
-          const hit = keys.find(k => k.includes(groupWord));
-          if (hit) return hit;
-        }
-      }
-      return '';
-    }
-
-    function parsePhoneCommand(text) {
-      let t = String(text || '').trim();
-      let fake = false;
-      const fakeHead = t.match(/^(?:放)?假(?:消息|情報)\s*[：:，,]?\s*/);
-      if (fakeHead) { fake = true; t = t.slice(fakeHead[0].length); }
-      // 一定要有冒號，避免把一般劇情行動（例如「聯絡士郎後出門」）誤判成手機操作
-      const sms = t.match(/^(?:用手機)?(?:傳簡訊|傳訊息|發簡訊|發訊息|傳訊|簡訊|打電話|聯絡|傳話|寫信)\s*(?:給|跟|向|到)?\s*([^：:\n]{1,20}?)\s*[：:]\s*([\s\S]+)$/)
-        || t.match(/^@\s*([^\s：:]{1,20})\s*[：:]?\s*([\s\S]+)$/);
-      if (sms) return { kind: 'sms', target: sms[1].trim(), body: sms[2].trim(), fake };
-      const forum = t.match(/^(?:在論壇|論壇)?(?:發文|貼文|留言|PO文|po文|發帖)\s*[：:]\s*([\s\S]+)$/);
-      if (forum) {
-        const raw = forum[1].trim();
-        const parts = raw.split(/[｜|\n]/);
-        const title = parts.length > 1 ? parts[0].trim() : raw.slice(0, 18);
-        const body = parts.length > 1 ? parts.slice(1).join(' ').trim() : raw;
-        return { kind: 'forum', title, body, fake };
-      }
-      return null;
-    }
-
-    function runPhoneCommand(cmd, rawText) {
-      appendNovelMessage('user', rawText);
-      if (cmd.kind === 'sms') {
-        const fac = resolvePhoneFaction(cmd.target);
-        if (!fac) {
-          appendNovelMessage('ai', `📱 找不到「${cmd.target}」這個聯絡對象。可以寫陣營或人名，例如：傳簡訊給士郎：今晚見面嗎？`, '系統提示');
-          return;
-        }
-        if (!canSmsTo(fac)) {
-          appendNovelMessage('ai', `📱 你還沒有「${fac}」的聯絡方式。結盟，或在劇情中跟對方交換聯絡方式後才能傳訊。`, '系統提示');
-          return;
-        }
-        isSubmittingTurn = true;
-        syncActionButtonsState();
-        showLoading(`📱 正在聯絡 ${fac}...`);
-        google.script.run
-          .withSuccessHandler(updatedStatus => {
-            hideLoading();
-            isSubmittingTurn = false;
-            syncActionButtonsState();
-            currentState = updatedStatus;
-            refreshStatusUI();
-            const th = ((updatedStatus.phoneState || {}).smsThreads || {})[fac];
-            const msgs = (th && Array.isArray(th.messages)) ? th.messages : [];
-            const last = msgs.length ? msgs[msgs.length - 1] : null;
-            const reply = (last && !last.fromPlayer) ? `${last.sender || fac}：${last.text}` : '（對方沒有回應）';
-            appendNovelMessage('ai', `📱 ${cmd.fake ? '🎭 [假情報] ' : ''}已送出給 ${fac}\n${reply}`, '手機');
-          })
-          .withFailureHandler(err => {
-            hideLoading();
-            isSubmittingTurn = false;
-            syncActionButtonsState();
-            appendNovelMessage('ai', `⚠️ 傳訊失敗：${err.message}`, '系統提示');
-          })
-          .sendAllySmsMessage(currentState.playerName, fac, cmd.body.slice(0, 140), cmd.fake);
-        return;
-      }
-      if (cmd.kind === 'forum') {
-        isSubmittingTurn = true;
-        syncActionButtonsState();
-        showLoading('📱 正在發文到冬木論壇...');
-        google.script.run
-          .withSuccessHandler(updatedStatus => {
-            hideLoading();
-            isSubmittingTurn = false;
-            syncActionButtonsState();
-            currentState = updatedStatus;
-            refreshStatusUI();
-            appendNovelMessage('ai', `📱 ${cmd.fake ? '🎭 [假消息] ' : ''}已在冬木論壇發文：「${cmd.title}」\n效果會在接下來的劇情中慢慢發酵（手機「流言追蹤」可以查看）。`, '手機');
-          })
-          .withFailureHandler(err => {
-            hideLoading();
-            isSubmittingTurn = false;
-            syncActionButtonsState();
-            appendNovelMessage('ai', `⚠️ 發文失敗：${err.message}`, '系統提示');
-          })
-          .postFuyukiForumMessage(currentState.playerName, cmd.title.slice(0, 36), cmd.body.slice(0, 140), cmd.fake);
-      }
-    }
-
-
-    // ==================== 背景音樂：依情境切換，淡入淡出 ====================
-    // 音樂檔放在倉庫 music/ 資料夾，透過公開 CDN 載入；檔案不存在就安靜略過
-    const BGM_BASE = 'https://cdn.jsdelivr.net/gh/calloy520-wq/FATE@main/music/';
-    const BGM_FALLBACK = { home: 'day', ending: 'day', boss: 'battle', tension: 'night', romance: 'home', sad: 'night', dusk: 'night' };
-    const bgm = { on: false, volume: 0.45, mood: '', current: null, missing: {} };
-    try {
-      bgm.on = localStorage.getItem('fate_bgm_on') === '1';
-      const v = Number(localStorage.getItem('fate_bgm_vol'));
-      if (!isNaN(v) && localStorage.getItem('fate_bgm_vol') !== null) bgm.volume = Math.max(0, Math.min(1, v));
-    } catch (e) {}
-
-    function syncBgmUi() {
-      const cap = document.getElementById('cap-bgm');
-      if (cap) cap.classList.toggle('on', bgm.on);
-      const vol = document.getElementById('bgm-volume');
-      if (vol) vol.value = Math.round(bgm.volume * 100);
-    }
-
-    function fadeAudio(audio, to, ms, done) {
-      const from = audio.volume, steps = 15;
-      let i = 0;
-      const timer = setInterval(() => {
-        i++;
-        audio.volume = Math.max(0, Math.min(1, from + (to - from) * (i / steps)));
-        if (i >= steps) { clearInterval(timer); if (done) done(); }
-      }, ms / steps);
-    }
-
-    function playBgmMood(mood) {
-      if (!mood) return;
-      bgm.mood = mood;
-      if (!bgm.on) return;
-      let file = mood;
-      if (bgm.missing[file] && BGM_FALLBACK[file]) file = BGM_FALLBACK[file];
-      if (bgm.current && bgm.current.dataset.file === file) return;
-      const next = new Audio(BGM_BASE + file + '.mp3');
-      next.dataset.file = file;
-      next.loop = file !== 'ending';
-      next.volume = 0;
-      next.onerror = () => {
-        bgm.missing[file] = true;
-        if (bgm.current === next) bgm.current = null;
-        if (BGM_FALLBACK[file] && !bgm.missing[BGM_FALLBACK[file]]) playBgmMood(BGM_FALLBACK[file]);
-      };
-      const prev = bgm.current;
-      bgm.current = next;
-      next.play().then(() => fadeAudio(next, bgm.volume, 1500)).catch(() => {});
-      if (prev) fadeAudio(prev, 0, 1500, () => { prev.pause(); prev.src = ''; });
-    }
-
-    function stopBgm() {
-      if (!bgm.current) return;
-      const a = bgm.current;
-      bgm.current = null;
-      fadeAudio(a, 0, 800, () => { a.pause(); a.src = ''; });
-    }
-
-    function toggleBgm() {
-      bgm.on = !bgm.on;
-      try { localStorage.setItem('fate_bgm_on', bgm.on ? '1' : '0'); } catch (e) {}
-      syncBgmUi();
-      if (bgm.on) playBgmMood(bgm.mood || currentPeriodMood());
-      else stopBgm();
-    }
-
-    function setBgmVolume(v) {
-      bgm.volume = Math.max(0, Math.min(1, Number(v) / 100));
-      try { localStorage.setItem('fate_bgm_vol', String(bgm.volume)); } catch (e) {}
-      if (bgm.current) bgm.current.volume = bgm.volume;
-    }
-
-    function currentPeriodMood() {
-      if (!currentState || !currentState.timePeriod) return 'title';
-      if (currentState.timePeriod === '黃昏') return 'dusk';
-      return currentState.timePeriod === '深夜' ? 'night' : 'day';
-    }
-
-    // 瀏覽器要求使用者先互動才能播放：第一次點擊畫面時補播
-    document.addEventListener('click', () => { if (bgm.on && !bgm.current) playBgmMood(bgm.mood || currentPeriodMood()); }, true);
-    syncBgmUi();
-
     function sendQuickAction(text) {
       if (isWaitingForImage || isSubmittingTurn) return;
       document.getElementById('player-action-input').value = text;
@@ -2392,10 +2064,6 @@
       const actionText = input.value.trim();
       if (!actionText) return;
       input.value = '';
-
-      // 打字直接用手機：「傳簡訊給衛宮：…」「發文：標題｜內容」（前面加「假消息」就是放假情報），不消耗回合
-      const phoneCmd = parsePhoneCommand(actionText);
-      if (phoneCmd) { runPhoneCommand(phoneCmd, actionText); return; }
 
       isSubmittingTurn = true;
       syncActionButtonsState();
@@ -2417,7 +2085,6 @@
 
           const headerMeta = `Day ${currentState.day}・${currentState.timePeriod} (${currentState.location})`;
           appendNovelMessage('ai', res.story, headerMeta);
-          playBgmMood(res.bgmMood || currentPeriodMood());
 
           if (res.outcomeType === 'FATAL_DEATH' || res.outcomeType === 'TRUE_VICTORY') {
             renderEndingBanner(res.outcomeType, res.tigerDojoTip);
@@ -2485,7 +2152,6 @@
       setControlsLocked(true);
       const viewport = document.getElementById('main-cg-viewport');
 
-      viewport.classList.remove('cg-empty');
       const existingOverlay = viewport.querySelector('.cg-async-overlay');
       if (existingOverlay) existingOverlay.remove();
 
@@ -2528,7 +2194,6 @@
       if (imgRes.resolvedPayload) {
         lastImagePayload = imgRes.resolvedPayload;
       }
-      viewport.classList.remove('cg-empty');
       viewport.innerHTML = `<img src="${imgRes.base64}" alt="Scene CG" />`;
       const imgEl = viewport.querySelector('img');
       imgEl.onclick = () => openCgLightbox(imgEl.src);
@@ -2646,68 +2311,13 @@
     function openFactionsModal() {
       const box = document.getElementById('factions-list-content');
       box.innerHTML = '';
-      // 分頁：陣營／隊伍／路線與事件（手機不用一直往下滑）
-      const tabBar = document.createElement('div');
-      tabBar.className = 'modal-tabs';
-      const panes = {};
-      [['f', '🏯 陣營'], ['t', '🤝 隊伍'], ['r', '🧭 路線與事件']].forEach(([key, label]) => {
-        const b = document.createElement('button');
-        b.className = 'btn btn-sm modal-tab';
-        b.innerText = label;
-        b.onclick = () => { Object.keys(panes).forEach(k => panes[k].classList.toggle('hidden', k !== key)); tabBar.querySelectorAll('.modal-tab').forEach(x => x.classList.toggle('active', x === b)); window.__intelTab = key; };
-        tabBar.appendChild(b);
-        const pane = document.createElement('div');
-        pane.style.cssText = 'display:flex; flex-direction:column; gap:8px;';
-        panes[key] = pane;
-      });
-      box.appendChild(tabBar);
-      Object.values(panes).forEach(p => box.appendChild(p));
-      const paneF = panes.f, paneT = panes.t, paneR = panes.r;
-      // 只顯示玩家「知道的」陣營狀況（親眼所見、同盟、聯絡、打聽到），不是幕後真相
-      const intel = currentState.factionIntel || {};
-      const head = document.createElement('div');
-      head.style.cssText = 'font-size:11.5px; color: var(--text-muted);';
-      head.innerText = '🕵️ 這裡是你掌握的情報，不一定是最新的真相。親眼見到、同盟、聯絡或打聽之後才會更新。';
-      paneF.appendChild(head);
-      Object.keys(intel).forEach(k => {
-        const it = intel[k] || {};
+      const f = currentState.factions || {};
+      Object.keys(f).forEach(k => {
         const row = document.createElement('div');
         row.style.cssText = 'padding: 8px 12px; background: var(--bg-card); border: 1px solid var(--border-dim); border-radius: 8px; display:flex; justify-content:space-between; gap:10px;';
-        const unknown = !it.text || it.text === '不明';
-        const favMap = currentState.factionFavor || {};
-        const fav = Number(favMap[k] != null ? favMap[k] : 0);
-        const favLabel = fav >= 60 ? '信任' : fav >= 20 ? '友善' : fav > -20 ? '中立' : fav > -60 ? '戒備' : '敵意';
-        const favColor = fav >= 20 ? '#86efac' : fav > -20 ? '#cbd5e1' : '#fca5a5';
-        const favLine = `<br><span style="font-size:11.5px; color:${favColor};">💗 好感 ${fav}（${favLabel}）</span>`;
-        const gh = currentState.godHand || {};
-        const ghLine = (k.includes('愛因茲貝倫') && Number(gh.lost) > 0)
-          ? `<br><span style="font-size:11.5px; color:#fca5a5;">⚔ 十二試煉：已擊破 ${Number(gh.lost)}／12${(gh.methods || []).length ? `（免疫：${escapeHtml(gh.methods.join('、'))}）` : ''}</span>`
-          : '';
-        row.innerHTML = `<strong>${escapeHtml(k)}</strong><span style="text-align:right;"><span style="color: ${unknown ? 'var(--text-muted)' : 'var(--gold-bright)'};">${escapeHtml(it.text || '不明')}</span>${it.when || it.source ? `<br><span style="font-size:11px; color: var(--text-muted);">${escapeHtml([it.source, it.when].filter(Boolean).join('・'))}</span>` : ''}${favLine}${ghLine}</span>`;
-        paneF.appendChild(row);
+        row.innerHTML = `<strong>${escapeHtml(k)}</strong><span style="color: var(--gold-bright);">${escapeHtml(f[k])}</span>`;
+        box.appendChild(row);
       });
-
-      // 隊伍：主從者、副從者、英靈名冊、同行盟友
-      const s1 = currentState.servant1 || {}, s2 = currentState.servant2 || {};
-      const comps = Array.isArray(currentState.companions) ? currentState.companions : [];
-      const roster = Array.isArray(currentState.servantRoster) ? currentState.servantRoster : [];
-      const team = document.createElement('div');
-      team.style.cssText = 'padding: 10px 12px; background: var(--bg-card); border: 1px solid var(--border-dim); border-radius: 8px; font-size:13px; color:#e2e8f0; line-height:1.9;';
-      team.innerHTML = `<div>⚔️ 主從者：<strong>${escapeHtml(s1.name || '無')}</strong>（${escapeHtml(s1.condition || '-')}）・💖 好感 ${Number(currentState.bondLevel || 0)}</div>` +
-        `<div>✨ 副從者：${s2.id ? `<strong>${escapeHtml(s2.name)}</strong>（${escapeHtml(s2.condition || '靈基穩定')}）` : '無'}</div>` +
-        `<div>📜 英靈名冊（洋館待命）：${roster.length ? roster.map(r => escapeHtml(r.name)).join('、') : '無'}</div>` +
-        `<div>🤝 同行盟友：${comps.length ? comps.map(c => escapeHtml(c.name)).join('、') : '無'}</div>`;
-      paneT.appendChild(team);
-
-      const appts = Array.isArray(currentState.appointments) ? currentState.appointments : [];
-      if (appts.length > 0) {
-        const apBox = document.createElement('div');
-        apBox.style.cssText = 'margin-top: 10px; padding: 10px 12px; background: var(--bg-card); border: 1px dashed var(--border-gold); border-radius: 8px;';
-        apBox.innerHTML = `<div style="font-weight:800; color: var(--gold-bright); margin-bottom: 6px;">📅 約定</div>` +
-          appts.map(a => `<div style="font-size:13px; color:#e2e8f0;">${escapeHtml(a.name)}：Day ${a.day}・${escapeHtml(a.period)} 在${escapeHtml(a.place)}集合</div>`).join('') +
-          `<div style="font-size:11.5px; color: var(--text-muted); margin-top:4px;">準時到約定地點，對方會加入同行；沒去會扣好感。</div>`;
-        paneT.appendChild(apBox);
-      }
 
       const defs = Array.isArray(currentState.routeDefs) ? currentState.routeDefs : [];
       if (defs.length > 0) {
@@ -2724,7 +2334,7 @@
             </div>`;
           }).join('') +
           `<div style="font-size:11.5px; color: var(--text-muted); margin-top:4px;">依你的行動方式累積，達到門檻後劇情會走向對應路線。</div>`;
-        paneR.appendChild(routeBox);
+        box.appendChild(routeBox);
       }
 
       const events = Array.isArray(currentState.keyEvents) ? currentState.keyEvents : [];
@@ -2734,10 +2344,7 @@
         (events.length > 0
           ? events.map((e, i) => `<div style="font-size:13px; color:#e2e8f0;">${i + 1}. ${escapeHtml(e)}</div>`).join('')
           : '<div style="font-size:12.5px; color: var(--text-muted);">目前還沒有記錄的重要事件。</div>');
-      paneR.appendChild(evBox);
-      // 打開時停在上次看的分頁
-      const startTab = ['f', 't', 'r'].includes(window.__intelTab) ? window.__intelTab : 'f';
-      tabBar.querySelectorAll('.modal-tab')[['f', 't', 'r'].indexOf(startTab)].click();
+      box.appendChild(evBox);
       document.getElementById('factions-modal').classList.remove('hidden');
     }
 

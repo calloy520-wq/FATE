@@ -6,13 +6,13 @@ const vm = require('vm');
 
 // GAS 會把所有 .js 檔放在同一個全域空間，這裡照同樣順序載入
 const src = ['GameData.js', 'Lore.js', 'Code.js'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n;\n');
-const ctx = { console, SpreadsheetApp: { getActiveSpreadsheet: () => ({}) } };
+const ctx = { console };
 vm.createContext(ctx);
 vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -168,131 +168,6 @@ eq('全裸從者在據點休息 → 維持全裸', T.autoAdaptSmartOutfit_('scat
 eq('全裸御主出門 → 仍由玩家決定（維持全裸）', T.autoAdaptSmartOutfit_('player_master', 'nude, completely nude, no clothes', { defaultOutfit: 'dress' }, '出發', '', false, '新都商業區'), 'nude, completely nude, no clothes');
 eq('JSON 容錯解析', T.parseJsonLoose_('```json\n{"a":1}\n```'), { a: 1 });
 eq('深夜 → 隔天清晨', T.advanceTimePeriod_(1, '深夜'), { day: 2, period: '清晨' });
-
-// ---- 全裸流程 ----
-const NUDE = 'nude, completely nude, no clothes';
-const scaN = { defaultOutfit: 'scathach battle bodysuit', casualOutfit: 'white sweater' };
-eq('全裸：在據點沒穿衣 → 維持全裸', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '一起泡澡', '熱氣蒸騰', false, '廢棄洋館'), NUDE);
-eq('全裸：從者開戰 → 自動具現戰鬥裝', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '有人闖入', '', true, '廢棄洋館'), 'scathach battle bodysuit');
-eq('全裸：從者離開據點 → 戰鬥裝', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '出門', '', false, '新都'), 'scathach battle bodysuit');
-eq('全裸：從者穿上衣服 → 還原', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '幫她穿上衣服', '', false, '廢棄洋館'), 'scathach battle bodysuit');
-eq('全裸：御主開戰也不會自動穿', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '迎戰', '', true, '新都'), NUDE);
-eq('全裸：御主劇情別人穿衣不算', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '看著她', '斯卡哈穿上衣服', false, '廢棄洋館'), NUDE);
-eq('全裸：御主自己穿上 → 還原', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '我穿上衣服', '', false, '廢棄洋館'), 'coat');
-
-// ---- 戰鬥分量：淘汰要兩步 ----
-eq('滿狀態一回合被淘汰 → 降為重創敗退', T.gateFactionElimination_('存活 (敵對獵殺)', '已淘汰'), '存活 (重創敗退・靈基受損)');
-eq('已負傷 → 可以淘汰', T.gateFactionElimination_('交戰負傷・休整中', '已淘汰'), '已淘汰');
-eq('收服不受限制', T.gateFactionElimination_('存活', '已歸屬第8組'), '已歸屬第8組');
-eq('一般狀態更新不受影響', T.gateFactionElimination_('存活', '存活 (同盟)'), '存活 (同盟)');
-eq('戰局：列出未化解陣營', /尚未化解的陣營：衛宮組/.test(T.describeWarStateForPrompt_({ '衛宮組': '存活', '遠坂組': '同盟' }, 50, 140, 'WAR')), true);
-eq('戰局：全部化解 → 終局提示', /終局/.test(T.describeWarStateForPrompt_({ '衛宮組': '已淘汰', '遠坂組': '同盟' }, 50, 140, 'WAR')), true);
-eq('戰局：魔力枯竭提示', /魔力枯竭/.test(T.describeWarStateForPrompt_({}, 0, 140, 'WAR')), true);
-eq('戰局：日常模式不提示', T.describeWarStateForPrompt_({}, 0, 140, 'SANDBOX'), '');
-
-// ---- 情報檔案：知道與不知道分開 ----
-eq('對外狀態去掉巢狀括號的幕後細節', T.publicIntelText_('交戰負傷・休整中 (曾於愛因茲貝倫森林與 衛宮組 (Saber陣營) 激戰)'), '交戰負傷・休整中');
-eq('對外狀態去掉幕後細節', T.publicIntelText_('已淘汰 (於 Day 3 白天 在愛因茲貝倫森林遭 教會組 擊潰)'), '已淘汰');
-const facsI = { '衛宮組 (Saber陣營)': '存活 (同盟)', '間桐組 (Rider陣營)': '存活 (隱蔽觀察)', '教會組 (Lancer陣營)': '存活 (敵對暗算)', '遠坂組 (Archer陣營)': '存活 (中立試探)' };
-const intel0 = T.initFactionIntel_(facsI, false);
-eq('開局：同盟知道、其他不明', [intel0['衛宮組 (Saber陣營)'].text, intel0['間桐組 (Rider陣營)'].text], ['存活 (同盟)', '不明']);
-eq('開局：教會只知道表面', intel0['教會組 (Lancer陣營)'].text, '監督者據點（表面中立）');
-const metaI = { factionIntel: intel0 };
-const facs2 = Object.assign({}, facsI, { '間桐組 (Rider陣營)': '已淘汰 (於 Day 3 白天 在森林遭 教會組 擊潰)', '遠坂組 (Archer陣營)': '存活 (負傷休整)' });
-let ch = T.updateFactionIntel_(metaI, facs2, { presentIds: ['rin'], when: 'Day 3・夜晚' });
-eq('親眼見到凜 → 遠坂組更新', metaI.factionIntel['遠坂組 (Archer陣營)'].text, '存活 (負傷休整)');
-eq('幕後淘汰沒見到 → 仍不明', metaI.factionIntel['間桐組 (Rider陣營)'].text, '不明');
-ch = T.updateFactionIntel_(metaI, facs2, { aiIntel: { '間桐組': '聽說 Rider 陣營在森林被打敗了' }, when: 'Day 4・白天' });
-eq('劇情中打聽到 → 記錄玩家得知的內容', [metaI.factionIntel['間桐組 (Rider陣營)'].text, metaI.factionIntel['間桐組 (Rider陣營)'].source], ['聽說 Rider 陣營在森林被打敗了', '情報']);
-
-eq('句中短詞引用不當台詞', /斯卡哈：「將自身當作消耗品」/.test(T.formatNovelStoryText_('她的眼中閃過一絲對御主這種「將自身當作消耗品」行為的複雜情緒。', ['斯卡哈'], '', '測試者')), false);
-
-// ---- 結盟分階段 ----
-eq('結盟談判中不算同盟', T.isAllianceStatusText_('存活 (中立・結盟談判中)'), false);
-eq('同盟解除不算同盟', T.isAllianceStatusText_('存活 (同盟解除)'), false);
-eq('盟友也算同盟', T.isAllianceStatusText_('存活 (盟友・戰爭結束)'), true);
-eq('同盟・合作中算同盟', T.isAllianceStatusText_('存活 (同盟・合作中)'), true);
-eq('常理：敵對一回合變同盟 → 降為談判中', T.gateFactionAlliance_('存活 (敵對獵殺)', '存活 (同盟)', 'BALANCED'), '存活 (態度軟化・談判中)');
-eq('常理：中立可以直接結盟', T.gateFactionAlliance_('存活 (中立警戒)', '存活 (同盟)', 'BALANCED'), '存活 (同盟)');
-eq('故事模式：不限制', T.gateFactionAlliance_('存活 (敵對獵殺)', '存活 (同盟)', 'STORY_PLAYER_FIRST'), '存活 (同盟)');
-
-eq('休息意圖：睡覺', T.isRestAction_('我在洋館躺下好好睡一覺'), true);
-eq('休息意圖：冥想調息', T.isRestAction_('在靈脈節點冥想調息'), true);
-eq('一般行動不算休息', T.isRestAction_('前往柳洞寺偵查'), false);
-
-// ---- 十二試煉 ----
-const ghOpt = { berserkerPresent: true, isCombat: true, npUsed: false };
-let gh = T.applyGodHandHits_({ lost: 0, methods: [] }, { count: 3, method: '寶石炸藥' }, ghOpt);
-eq('一般手段一回合最多 1 條', [gh.killed, gh.godHand.lost], [1, 1]);
-gh = T.applyGodHandHits_(gh.godHand, { count: 1, method: '寶石炸藥' }, ghOpt);
-eq('同一手段第二次無效', [gh.killed, gh.blocked], [0, '寶石炸藥']);
-gh = T.applyGodHandHits_(gh.godHand, { count: 3, method: '死棘之槍' }, Object.assign({}, ghOpt, { npUsed: true }));
-eq('寶具最多 2 條', [gh.killed, gh.godHand.lost], [2, 3]);
-eq('沒開戰不算', T.applyGodHandHits_({ lost: 0 }, { count: 1, method: 'x' }, { berserkerPresent: true, isCombat: false }).killed, 0);
-eq('命數未歸零 → 不淘汰', T.gateGodHandElimination_('愛因茲貝倫組 (Berserker陣營)', '存活 (重創)', '已淘汰', { lost: 3 }), '存活 (重創・十二試煉尚存 9 條)');
-eq('伊莉雅被打倒 → 可以淘汰', T.gateGodHandElimination_('愛因茲貝倫組 (Berserker陣營)', '存活 (重創)', '已淘汰 (御主伊莉雅昏迷被俘)', { lost: 3 }), '已淘汰 (御主伊莉雅昏迷被俘)');
-eq('命數歸零 → 可以淘汰', T.gateGodHandElimination_('愛因茲貝倫組 (Berserker陣營)', '存活 (重創)', '已淘汰', { lost: 12 }), '已淘汰');
-eq('其他陣營不受影響', T.gateGodHandElimination_('遠坂組 (Archer陣營)', '存活 (重創)', '已淘汰', { lost: 0 }), '已淘汰');
-
-// ---- 戰力判定 ----
-const baseSt = () => ({ factions: { '柳洞寺組 (Caster/Assassin陣營)': '存活 (敵對防備)', '遠坂組 (Archer陣營)': '存活 (同盟)', '愛因茲貝倫組 (Berserker陣營)': '存活 (敵對獵殺)' },
-  locationKey: '廢棄洋館', master: { mp: 140, maxMp: 140, commandSpells: 3 }, servant1: { id: 'scathach', condition: '靈基穩定' }, servant2: { id: '' } });
-let ca = T.assessCombat_(baseSt(), {}, '直接衝上柳洞寺砍了 Caster');
-eq('硬闖柳洞寺 → 劣勢', [ca.level, ca.target], ['劣勢', '柳洞寺組 (Caster/Assassin陣營)']);
-ca = T.assessCombat_(baseSt(), { factionIntel: { '柳洞寺組 (Caster/Assassin陣營)': { text: '查到 Caster 真名是美狄亞' } } }, '在冬木大橋設下陷阱引誘 Caster，跟凜和 Archer 一起伏擊');
-eq('情報＋陷阱＋盟友＋選戰場 → 大優勢', ca.level, '大優勢');
-eq('沒提到敵人就不判定', T.assessCombat_(baseSt(), {}, '在洋館睡覺'), null);
-ca = T.assessCombat_(Object.assign(baseSt(), { master: { mp: 0, maxMp: 140, commandSpells: 3 } }), {}, '正面挑戰 Berserker');
-eq('魔力枯竭正面打 Berserker → 絕望', ca.level, '絕望');
-eq('同盟不會被當成對手', T.assessCombat_(baseSt(), {}, '跟凜一起吃飯'), null);
-// ---- 最終 Boss ----
-const metaB = {};
-const boss = T.maybeSummonFinalBoss_({ '教會組 (Lancer陣營)': '已淘汰', '遠坂組 (Archer陣營)': '存活 (同盟)' }, metaB, 'TRUE_VICTORY');
-eq('全部化解 → 英雄王現身', [Boolean(boss), /吉爾伽美什/.test(boss && boss.factions['教會組 (Lancer陣營)']), metaB.gilFinal], [true, true, true]);
-eq('英雄王只出現一次', T.maybeSummonFinalBoss_({ '教會組 (Lancer陣營)': '已淘汰' }, metaB, 'CONTINUE'), null);
-eq('還有敵人時不出現', T.maybeSummonFinalBoss_({ '教會組 (Lancer陣營)': '已淘汰', '間桐組': '存活 (敵對)' }, {}, 'CONTINUE'), null);
-
-// ---- 同行盟友 ----
-const facC = { '遠坂組 (Archer陣營)': '存活 (同盟)', '衛宮組 (Saber陣營)': '存活 (中立警戒)', '間桐組 (Rider陣營)': '存活 (同盟・簡訊支援待命中)' };
-const metaC = {};
-let cr = T.updateCompanions_(metaC, facC, '凜，跟我一起去大橋偵查', 8, []);
-eq('邀請同盟 → 加入同行', cr.joined, ['遠坂組 (Archer陣營)']);
-cr = T.updateCompanions_(metaC, facC, '士郎，跟我一起來', 8, []);
-eq('非同盟不能邀請', cr.joined, []);
-cr = T.updateCompanions_(metaC, facC, '前往柳洞寺', 9, ['rider']);
-eq('簡訊支援的盟友趕到 → 加入同行', cr.joined, ['間桐組 (Rider陣營)']);
-cr = T.updateCompanions_(metaC, Object.assign({}, facC, { '遠坂組 (Archer陣營)': '存活 (同盟解除)' }), '繼續偵查', 10, []);
-eq('不再同盟 → 離開', cr.left.map(x => x.fk), ['遠坂組 (Archer陣營)']);
-cr = T.updateCompanions_(metaC, facC, '繼續偵查', 13, []);
-eq('同行滿 4 個時段 → 回去', cr.left.map(x => x.fk), ['間桐組 (Rider陣營)']);
-
-// ---- 陣營好感與約定 ----
-const metaF = {};
-const facF = { '遠坂組 (Archer陣營)': '存活 (同盟)', '愛因茲貝倫組 (Berserker陣營)': '存活 (敵對獵殺)' };
-eq('開局好感照原作', [T.getFactionFavor_(metaF, '遠坂組 (Archer陣營)'), T.getFactionFavor_(metaF, '愛因茲貝倫組 (Berserker陣營)')], [10, -30]);
-T.applyFactionFavor_(metaF, facF, { '凜': 40 });
-eq('好感每回合最多 +15', T.getFactionFavor_(metaF, '遠坂組 (Archer陣營)'), 25);
-eq('好感不夠不能結盟', T.gateFactionAlliance_('存活 (中立)', '存活 (同盟)', 'BALANCED', 25), '存活 (態度軟化・談判中)');
-eq('好感夠了可以結盟', T.gateFactionAlliance_('存活 (中立)', '存活 (同盟)', 'BALANCED', 45), '存活 (同盟)');
-const now = T.timeIndex_(2, '黃昏');
-const ad = T.addAppointments_(metaF, facF, [{ faction: '遠坂', day: 2, period: '深夜', place: '冬木大橋' }, { faction: '伊莉雅', day: 3, period: '清晨', place: '柳洞寺' }], now);
-eq('只能和同盟約定', ad.map(a => a.fk), ['遠坂組 (Archer陣營)']);
-let rs = T.resolveAppointments_(metaF, facF, T.timeIndex_(2, '深夜'), '冬木大橋');
-eq('準時到約定地點 → 對方出現', rs.due.map(a => a.fk), ['遠坂組 (Archer陣營)']);
-T.addAppointments_(metaF, facF, [{ faction: '遠坂', day: 3, period: '白天', place: '遠坂邸' }], T.timeIndex_(2, '深夜'));
-const favBefore = T.getFactionFavor_(metaF, '遠坂組 (Archer陣營)');
-rs = T.resolveAppointments_(metaF, facF, T.timeIndex_(3, '黃昏'), '廢棄洋館');
-eq('放鴿子 → 好感 −10', [rs.missed.length, T.getFactionFavor_(metaF, '遠坂組 (Archer陣營)')], [1, favBefore - 10]);
-
-eq('JSON 後面多一段文字也能解析', T.parseJsonLoose_('{"a":"x}y","b":{"c":1}}\n{"extra":2} 多餘說明'), { a: 'x}y', b: { c: 1 } });
-
-// ---- 英靈名冊 ----
-const dbR = { rider: { triggers: '美杜莎,Rider' }, caster: { triggers: '美狄亞,Caster' } };
-const rosterR = [{ id: 'rider', name: '美杜莎' }, { id: 'caster', name: '美狄亞' }];
-eq('在洋館叫 Rider 上場', T.findRosterSwapTarget_('讓 Rider 上場', rosterR, dbR, '廢棄洋館'), 'rider');
-eq('用名字也可以', T.findRosterSwapTarget_('今天帶美狄亞出門', rosterR, dbR, '廢棄洋館'), 'caster');
-eq('不在洋館不能換', T.findRosterSwapTarget_('讓 Rider 上場', rosterR, dbR, '新都商業區'), '');
-eq('只是提到名字不算換人', T.findRosterSwapTarget_('問 Rider 今天吃什麼', rosterR, dbR, '廢棄洋館'), '');
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

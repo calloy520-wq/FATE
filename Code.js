@@ -91,14 +91,14 @@ const GAME_TONE_PRESETS_ = {
     directive: '寫成搞笑鬧劇：用誇張的動作、漫畫式的反應、角色之間的吐槽製造笑點；荒唐的計畫可以歪打正著或以好笑的方式失敗；玩家幾乎不會受重傷，事後大家多半一臉無奈或爆笑。'
   },
   'STORY_PLAYER_FIRST': {
-    label: '🐉 龍傲天模式（玩家無敵）',
-    desc: '玩家就是主角：不管想做什麼都能實現，計畫一定成功、敵人被碾壓、眾人震驚折服，爽快至上。',
-    directive: '龍傲天爽文：玩家想做的事一定成功，而且成功得漂亮——強敵被碾壓或折服、旁人震驚讚嘆、美人傾心、局勢一面倒；就算再荒唐，也找出型月風格的理由讓它實現（隱藏血統、覺醒、奇蹟、對手輕敵）。玩家與從者幾乎不受傷，結盟一談就成。'
+    label: '📖 故事模式（玩家為主）',
+    desc: '完全依照並順從玩家輸入的話語、意圖與劇情方向自然延伸發展，不刻意唱反調或刁難，順著玩家想要的戲劇張力推進。',
+    directive: '以玩家想要的結果為優先：玩家的行動原則上成功（就算對手很強，也找出合理的理由讓計畫奏效），代價輕微，劇情朝玩家期待的戲劇張力發展；只有完全違反世界觀的要求才婉轉改寫。'
   },
   'HARDCORE_WAR': {
     label: '⚔️ 鐵血嚴重戰場風',
     desc: '戰場肅殺務實，敵人與隊友不會被無關玩笑或偷吃小動作輕易唬住，分心或鬧場會招來冷靜反制與真實戰場後果，勝負與傷勢結算更嚴峻。',
-    directive: '嚴峻寫實：強敵會冷靜反制，失誤與莽撞要付出真實的傷勢、魔力或陣營代價（master_condition／servant_condition 確實惡化），不留情面。傷勢會累積：輕傷沒休養又上戰場就惡化成重傷；正面硬碰 Berserker、吉爾伽美什這類強敵幾乎必敗；御主暴露在從者戰場上隨時可能喪命。'
+    directive: '嚴峻寫實：強敵會冷靜反制，失誤與莽撞要付出真實的傷勢、魔力或陣營代價（master_condition／servant_condition 確實惡化），不留情面。'
   }
 };
 
@@ -298,23 +298,10 @@ function parseJsonLoose_(text) {
     return JSON.parse(t);
   } catch (e) {
     const s = t.indexOf('{');
-    if (s < 0) throw e;
-    // 找出第一個完整的 JSON 物件（AI 有時在後面多吐一段文字或第二個物件）
-    let depth = 0, inStr = false, esc = false;
-    for (let i = s; i < t.length; i++) {
-      const ch = t[i];
-      if (inStr) {
-        if (esc) esc = false;
-        else if (ch === '\\') esc = true;
-        else if (ch === '"') inStr = false;
-        continue;
-      }
-      if (ch === '"') inStr = true;
-      else if (ch === '{') depth++;
-      else if (ch === '}') { depth--; if (depth === 0) { try { return JSON.parse(t.slice(s, i + 1)); } catch (e3) { break; } } }
-    }
     const e2 = t.lastIndexOf('}');
-    if (e2 > s) return JSON.parse(t.slice(s, e2 + 1));
+    if (s >= 0 && e2 > s) {
+      return JSON.parse(t.slice(s, e2 + 1));
+    }
     throw e;
   }
 }
@@ -629,16 +616,12 @@ function sendAllySmsMessage(playerName, factionName, messageText, isDeception) {
       const facPre = safeJsonParse_(rowPre[29], {});
       const metaPre = safeJsonParse_(rowPre[31], {});
       const stPre = String(facPre[targetFac] || '');
-      if (metaPre.companions && metaPre.companions[targetFac]) {
-        throw new Error(`${companionDisplayName_(targetFac)} 就在你身邊，直接在行動欄跟對方說話吧！`);
-      }
       if (canSmsFaction_(metaPre, targetFac, stPre)) {
         const thread = (metaPre.phoneState && metaPre.phoneState.smsThreads && metaPre.phoneState.smsThreads[targetFac]) || {};
         aiResult = generateAllySmsReply_(cleanName, targetFac, stPre, Array.isArray(thread.messages) ? thread.messages : [], msg, rowPre, deceive);
       }
     }
   } catch (e) {
-    if (/就在你身邊/.test(String(e && e.message))) throw e;
     aiResult = null;
   }
 
@@ -705,9 +688,6 @@ function sendAllySmsMessage(playerName, factionName, messageText, isDeception) {
     const note = `玩家用手機${deceive ? '對' : '聯絡'}「${targetFac}」（對方管道：${ch.label}）${deceive ? '放出假情報' : ''}：${msg}${reaction}`;
     meta.pendingSmsNote = [meta.pendingSmsNote, note].filter(Boolean).join('\n').slice(-600);
 
-    if (answeredCall) {
-      updateFactionIntel_(meta, factionsObj, { contactFacs: [targetFac], when: `Day ${row[6]}・${row[7]}` });
-    }
     if (deceive && answeredCall) {
       meta.rumors = addRumor_(meta.rumors, {
         text: msg,
@@ -952,483 +932,12 @@ function markPhoneMessagesRead(playerName) {
 
 function isAllianceStatusText_(statusStr) {
   const s = String(statusStr || '');
-  // 「結盟談判中」「初步結盟意向」「同盟解除」這類還沒成立或已破裂的不算
-  return /同盟|結盟|盟友|停戰|互助|合作|友方/.test(s) && !/談判|意向|考慮|提議|拒絕|破裂|解除|背叛|假意|觀望|中止|撕毀|試探|尚未/.test(s);
-}
-
-// 結盟要分階段：敵對陣營不會一回合就變同盟，先軟化成談判中（符合常理與鐵血；搞笑、故事模式不限）
-function gateFactionAlliance_(prevStatus, newStatus, toneKey, favor) {
-  const prev = String(prevStatus || ''), next = String(newStatus || '');
-  if (toneKey !== 'BALANCED' && toneKey !== 'HARDCORE_WAR') return next;
-  if (!isAllianceStatusText_(next) || isAllianceStatusText_(prev)) return next;
-  if (/敵對|獵殺|暗算|防備|追殺|報復|敵意/.test(prev)) return '存活 (態度軟化・談判中)';
-  if (favor != null && Number(favor) < 40) return '存活 (態度軟化・談判中)';
-  return next;
+  return /同盟|結盟|停戰|互助|合作|友方/.test(s);
 }
 
 function isCapturedOrDefeatedStatusText_(statusStr) {
   const s = String(statusStr || '');
-  return /淘汰|消滅|陣亡|擊潰|覆滅|收服|戰敗|已死|已歸屬第8組|原御主已退場|投降|降伏|被俘/.test(s);
-}
-
-// 已被削弱（負傷、重創、劣勢…）的陣營才可能在下一步被淘汰
-function isWeakenedStatusText_(statusStr) {
-  return /負傷|重傷|重創|瀕|劣勢|休整|受創|受損|敗退|撤退|虛弱|殘存|苟延|潰散|窮途|殘破|崩解/.test(String(statusStr || ''));
-}
-
-// 淘汰要分兩步：滿狀態的陣營一回合內最多被打成「重創敗退」，之後的回合才能淘汰（收服、歸屬第8組不受影響）
-function gateFactionElimination_(prevStatus, newStatus) {
-  const next = String(newStatus || '');
-  const isKill = /淘汰|消滅|陣亡|擊潰|覆滅|戰敗|已死/.test(next) && !/收服|已歸屬第8組|原御主已退場/.test(next);
-  if (!isKill) return next;
-  if (isCapturedOrDefeatedStatusText_(prevStatus) || isWeakenedStatusText_(prevStatus)) return next;
-  return '存活 (重創敗退・靈基受損)';
-}
-
-// ==================== 情報檔案：玩家「知道的」陣營狀態，與真相分開記錄 ====================
-// 角色 ID 對應到陣營名稱中的關鍵字（看到這些人就等於親眼得知該陣營現況）
-const CHAR_FACTION_MARKERS_ = {
-  shirou: '衛宮', saber: '衛宮', saber_alter: '衛宮',
-  rin: '遠坂', archer: '遠坂',
-  kirei: '教會', lancer: '教會', gilgamesh: '教會',
-  sakura: '間桐', rider: '間桐', dark_sakura: '間桐',
-  souichirou: '柳洞寺', caster: '柳洞寺', assassin: '柳洞寺',
-  illya: '愛因茲貝倫', berserker: '愛因茲貝倫',
-  hassan: '臟硯'
-};
-
-// 對外看得到的狀態：去掉幕後細節（例如「曾於某地與某組激戰」「遭某組擊潰」）
-function publicIntelText_(statusStr) {
-  // 幕後細節括號裡常有巢狀括號（例如「(曾於森林與 衛宮組 (Saber陣營) 激戰)」），從開頭一路刪到結尾
-  return String(statusStr || '').replace(/\s*\((曾於|於\s*Day|於|遭)[\s\S]*$/, '').trim() || '不明';
-}
-
-function initFactionIntel_(factionsObj, fromTruth) {
-  const intel = {};
-  Object.keys(factionsObj || {}).forEach(k => {
-    const st = String(factionsObj[k] || '');
-    let text = '不明';
-    if (fromTruth || isAllianceStatusText_(st)) text = publicIntelText_(st);
-    else if (k.includes('教會')) text = '監督者據點（表面中立）';
-    intel[k] = { text: text, when: '開局', source: fromTruth ? '舊存檔' : '初始' };
-  });
-  return intel;
-}
-
-// 依本回合實際接觸更新情報；回傳有變動的陣營清單
-function updateFactionIntel_(meta, factionsObj, opts) {
-  const o = opts || {};
-  if (!meta.factionIntel || typeof meta.factionIntel !== 'object') meta.factionIntel = initFactionIntel_(factionsObj, true);
-  const intel = meta.factionIntel;
-  const presentMarkers = new Set((o.presentIds || []).map(id => CHAR_FACTION_MARKERS_[id]).filter(Boolean));
-  const contactSet = new Set(o.contactFacs || []);
-  const changes = [];
-  const setIntel = (fk, text, source) => {
-    const t = String(text || '').trim().slice(0, 60);
-    if (!t) return;
-    const prev = intel[fk];
-    if (prev && prev.text === t) return;
-    intel[fk] = { text: t, when: o.when || '', source: source };
-    changes.push({ fk: fk, text: t, source: source, isNew: !prev });
-  };
-  // AI 回報的情報比自動判斷詳細，同一陣營有 AI 情報時以它為準
-  const aiKeys = new Set(Object.keys(o.aiIntel || {}).map(n => resolveFactionKey_(n, factionsObj)).filter(Boolean));
-  Object.keys(factionsObj || {}).forEach(fk => {
-    if (aiKeys.has(fk) && !isAllianceStatusText_(factionsObj[fk])) return;
-    const st = String(factionsObj[fk] || '');
-    const marker = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m)) || '';
-    if (isAllianceStatusText_(st)) setIntel(fk, publicIntelText_(st), '同盟');
-    else if (marker && presentMarkers.has(marker)) setIntel(fk, publicIntelText_(st), '親眼所見');
-    else if (contactSet.has(fk)) setIntel(fk, publicIntelText_(st), '聯絡');
-  });
-  Object.keys(o.aiIntel || {}).forEach(name => {
-    const fk = resolveFactionKey_(name, factionsObj);
-    if (fk) setIntel(fk, o.aiIntel[name], '情報');
-  });
-  return changes;
-}
-
-function describeIntelForPrompt_(meta) {
-  const intel = (meta && meta.factionIntel) || {};
-  const keys = Object.keys(intel);
-  if (keys.length === 0) return '';
-  return '【玩家目前掌握的情報（角色對話只能引用這些；其餘真相要等玩家查到）】\n' +
-    keys.map(k => `- ${k}：${intel[k].text}（${intel[k].source}${intel[k].when ? '・' + intel[k].when : ''}）`).join('\n');
-}
-
-// ==================== Berserker 十二試煉：命數與已無效的手段 ====================
-const GOD_HAND_LIVES_ = 12;
-
-// 依 AI 回報結算本回合擊破的命數：一般最多 1 條、寶具最多 2 條；殺過他的同一種手段不再有效
-function applyGodHandHits_(godHand, report, opts) {
-  const gh = { lost: Number((godHand && godHand.lost) || 0), methods: Array.isArray(godHand && godHand.methods) ? godHand.methods.slice() : [] };
-  const o = opts || {};
-  const res = { godHand: gh, killed: 0, method: '', blocked: '' };
-  if (!report || !o.berserkerPresent || !o.isCombat) return res;
-  let count = Math.max(0, Math.floor(Number(report.count) || 0));
-  const method = String(report.method || '').trim().slice(0, 20);
-  if (count <= 0) return res;
-  const norm = t => String(t || '').replace(/[\s「」『』（）()・，,。]/g, '');
-  if (method && gh.methods.some(m => norm(m) && (norm(m).includes(norm(method)) || norm(method).includes(norm(m))))) {
-    res.blocked = method;
-    return res;
-  }
-  count = Math.min(count, o.npUsed || /寶具/.test(method) ? 2 : 1, GOD_HAND_LIVES_ - gh.lost);
-  if (count <= 0) return res;
-  gh.lost += count;
-  if (method) gh.methods.push(method);
-  if (gh.methods.length > 12) gh.methods = gh.methods.slice(-12);
-  res.killed = count;
-  res.method = method;
-  return res;
-}
-
-// 命數還沒歸零時，愛因茲貝倫組不會因戰鬥淘汰（御主伊莉雅被打倒、投降、收服或結盟除外）
-function gateGodHandElimination_(factionKey, prevStatus, nextStatus, godHand) {
-  const next = String(nextStatus || '');
-  if (!String(factionKey || '').includes('愛因茲貝倫')) return next;
-  const lost = Number((godHand && godHand.lost) || 0);
-  if (lost >= GOD_HAND_LIVES_) return next;
-  const isKill = /淘汰|消滅|陣亡|擊潰|覆滅|戰敗|已死/.test(next) && !/收服|已歸屬第8組|原御主已退場/.test(next);
-  if (!isKill) return next;
-  if (/伊莉雅.*(死|俘|投降|退場|放棄|昏迷|失去)|御主.*(死|俘|投降|退場)/.test(next)) return next;
-  return `存活 (重創・十二試煉尚存 ${GOD_HAND_LIVES_ - lost} 條)`;
-}
-
-function describeGodHandForPrompt_(godHand, factionsObj) {
-  const fk = Object.keys(factionsObj || {}).find(k => k.includes('愛因茲貝倫'));
-  if (!fk || isCapturedOrDefeatedStatusText_(factionsObj[fk])) return '';
-  const lost = Number((godHand && godHand.lost) || 0);
-  const methods = (godHand && Array.isArray(godHand.methods)) ? godHand.methods : [];
-  return `【十二試煉】Berserker 目前還剩 ${GOD_HAND_LIVES_ - lost}/${GOD_HAND_LIVES_} 條命（以這個數字為準）。${methods.length ? `以下手段已經殺過他，對他**完全無效**（要寫成攻擊被肉體彈開、毫髮無傷，不算擊破）：${methods.join('、')}。` : ''}每回合最多擊破 1 條（A 級以上寶具最多 2 條），同一種手段不能殺他兩次；命數歸零前不會退場，除非御主伊莉雅被打倒、投降或放棄。玩家這邊確實殺死他一次時，填 berserker_lives_lost。`;
-}
-
-// ==================== 英靈名冊：副從者位置滿了，收服的英靈在據點待命，可以換上場 ====================
-const MAX_SERVANT_ROSTER_ = 3;
-
-// 玩家這回合想讓名冊裡的哪一騎上場（只能在據點換）；回傳該英靈 id 或 ''
-function findRosterSwapTarget_(userAction, roster, charDb, locationKey) {
-  if (locationKey !== '廢棄洋館') return '';
-  const text = String(userAction || '');
-  if (!/上場|出門|跟我|跟著我|同行|出戰|換成|換.{0,6}(來|上)|帶.{0,4}(去|走|出)/.test(text)) return '';
-  const hit = (Array.isArray(roster) ? roster : []).find(r => {
-    const names = String((charDb[r.id] && charDb[r.id].triggers) || r.name || '').split(',').map(x => x.trim()).filter(x => x.length >= 1);
-    return names.some(n => text.includes(n));
-  });
-  return hit ? hit.id : '';
-}
-
-function describeRosterForPrompt_(roster) {
-  const list = Array.isArray(roster) ? roster : [];
-  if (list.length === 0) return '';
-  return `【英靈名冊（已締約、在廢棄洋館待命，這回合不在玩家身邊）】${list.map(r => `${r.name}（${r.id}・${r.condition || '靈基穩定'}）`).join('、')}。玩家回到洋館時他們在那裡；不要寫他們跟著出門。`;
-}
-
-// ==================== 陣營好感（−100～100）與約定集合 ====================
-const FACTION_FAVOR_START_ = { '衛宮': 20, '遠坂': 10, '間桐': 0, '教會': -10, '柳洞寺': -20, '愛因茲貝倫': -30, '臟硯': -50 };
-const ALLIANCE_FAVOR_MIN_ = 40; // 好感到 40 才可能正式結盟（常理與鐵血）
-
-function getFactionFavor_(meta, factionKey) {
-  const fav = (meta && meta.factionFavor) || {};
-  if (fav[factionKey] != null) return Number(fav[factionKey]) || 0;
-  const m = Object.keys(FACTION_FAVOR_START_).find(k => String(factionKey || '').includes(k));
-  return m ? FACTION_FAVOR_START_[m] : 0;
-}
-
-function favorLabel_(v) {
-  return v >= 60 ? '信任' : v >= 20 ? '友善' : v > -20 ? '中立' : v > -60 ? '戒備' : '敵意';
-}
-
-// 套用 AI 回報的好感變化（每個陣營每回合最多 ±15）；回傳變動清單
-function applyFactionFavor_(meta, factionsObj, deltas) {
-  meta.factionFavor = Object.assign({}, meta.factionFavor || {});
-  const changes = [];
-  Object.keys(deltas || {}).forEach(name => {
-    const fk = resolveFactionKey_(name, factionsObj);
-    if (!fk) return;
-    const d = Math.max(-15, Math.min(15, Math.round(Number(deltas[name]) || 0)));
-    if (!d) return;
-    const before = getFactionFavor_(meta, fk);
-    const after = Math.max(-100, Math.min(100, before + d));
-    meta.factionFavor[fk] = after;
-    changes.push({ fk, before, after });
-  });
-  return changes;
-}
-
-function describeFavorForPrompt_(meta, factionsObj) {
-  const keys = Object.keys(factionsObj || {}).filter(k => !isCapturedOrDefeatedStatusText_(factionsObj[k]));
-  if (keys.length === 0) return '';
-  return `【各陣營對玩家的好感（−100～100）】${keys.map(k => `${k.replace(/\\s*\\(.*\\)$/, '')} ${getFactionFavor_(meta, k)}（${favorLabel_(getFactionFavor_(meta, k))}）`).join('、')}。只有本回合和該陣營真的有互動時，才用 faction_favor_delta 加減（幫忙、守約、分享情報加分；欺騙被識破、放鴿子、攻擊扣分，每次 ±15 內）；沒互動就不要填；好感 ${ALLIANCE_FAVOR_MIN_} 以上才可能正式結盟。`;
-}
-
-// 約定：只和同盟約；到了約定時段人在約定地點 → 對方依約加入同行；錯過 → 好感 −10
-function addAppointments_(meta, factionsObj, list, nowIdx) {
-  meta.appointments = Array.isArray(meta.appointments) ? meta.appointments.slice() : [];
-  const added = [];
-  (Array.isArray(list) ? list : []).slice(0, 2).forEach(a => {
-    const fk = resolveFactionKey_(a && a.faction, factionsObj);
-    if (!fk || !isAllianceStatusText_(factionsObj[fk])) return;
-    const loc = matchFuyukiLocation_(a.place);
-    const day = Math.round(Number(a.day) || 0);
-    const period = TIME_PERIODS_.includes(a.period) ? a.period : '深夜';
-    if (!loc || !day || timeIndex_(day, period) <= nowIdx) return;
-    meta.appointments = meta.appointments.filter(x => x.fk !== fk);
-    const ap = { fk, day, period, place: loc.key };
-    meta.appointments.push(ap);
-    added.push(ap);
-  });
-  if (meta.appointments.length > 3) meta.appointments = meta.appointments.slice(-3);
-  return added;
-}
-
-function resolveAppointments_(meta, factionsObj, nowIdx, locationKey) {
-  const due = [], missed = [], cancelled = [];
-  meta.appointments = (Array.isArray(meta.appointments) ? meta.appointments : []).filter(a => {
-    const idx = timeIndex_(a.day, a.period);
-    const st = String((factionsObj || {})[a.fk] || '');
-    if (!isAllianceStatusText_(st) || /重傷|重創|瀕/.test(st)) { if (idx <= nowIdx) { cancelled.push(a); return false; } return true; }
-    if (idx === nowIdx && locationKey === a.place) { due.push(a); return false; }
-    if (idx < nowIdx) { missed.push(a); return false; }
-    return true;
-  });
-  missed.forEach(a => {
-    meta.factionFavor = Object.assign({}, meta.factionFavor || {});
-    meta.factionFavor[a.fk] = Math.max(-100, getFactionFavor_(meta, a.fk) - 10);
-  });
-  return { due, missed, cancelled };
-}
-
-function describeAppointmentsForPrompt_(meta, nowIdx) {
-  const list = Array.isArray(meta && meta.appointments) ? meta.appointments : [];
-  if (list.length === 0) return '';
-  return '【約定】' + list.map(a => `${companionDisplayName_(a.fk)} 約在 Day ${a.day}・${a.period} 於${a.place}集合${timeIndex_(a.day, a.period) === nowIdx ? '（就是現在！玩家在那裡的話對方準時出現）' : ''}`).join('；') + '。玩家和同盟約新的集合時，填 appointments_add。';
-}
-
-// ==================== 同行盟友：邀請同盟一起行動，之後每回合都跟在身邊 ====================
-const COMPANION_NAMES_ = { '衛宮': '士郎＋Saber', '遠坂': '凜＋Archer', '教會': '綺禮', '間桐': '慎二＋Rider', '柳洞寺': '葛木＋Caster', '愛因茲貝倫': '伊莉雅＋Berserker', '臟硯': '哈桑' };
-const MAX_COMPANIONS_ = 2;
-
-function companionDisplayName_(factionKey) {
-  const m = Object.keys(COMPANION_NAMES_).find(k => String(factionKey || '').includes(k));
-  return m ? COMPANION_NAMES_[m] : String(factionKey || '').replace(/\s*\(.*\)$/, '');
-}
-
-function factionMentioned_(factionKey, text) {
-  const t = String(text || '');
-  const entry = COMBAT_TARGET_ALIASES_.find(([mk]) => String(factionKey || '').includes(mk));
-  return Boolean(entry && entry[1].some(a => t.includes(a)));
-}
-
-const TIME_PERIODS_ = ['清晨', '白天', '黃昏', '深夜'];
-// 把「第幾天＋時段」換成連續的時段編號，方便算經過幾個時段
-function timeIndex_(day, period) {
-  return (Number(day) || 0) * 4 + Math.max(0, TIME_PERIODS_.indexOf(String(period || '')));
-}
-const COMPANION_PERIODS_ = 4; // 同行固定維持 4 個時段（一整天）
-
-// 依本回合行動與局勢更新同行名單；回傳加入與離開的陣營（nowIdx 為 timeIndex_）
-function updateCompanions_(meta, factionsObj, userAction, nowIdx, presentIds, forceJoin, ownedServantIds) {
-  // 英靈已經是玩家的從者（主、副、名冊），該陣營就不再當「同行盟友」
-  const ownedMarkers = new Set((ownedServantIds || []).map(id => CHAR_FACTION_MARKERS_[id]).filter(Boolean));
-  const f = factionsObj || {};
-  const text = String(userAction || '');
-  const comp = Object.assign({}, (meta.companions && typeof meta.companions === 'object') ? meta.companions : {});
-  const joined = [], left = [];
-  const leaveAll = /解散|各自行動|分頭行動|大家先回去|你們先回去|你們回去/.test(text);
-  Object.keys(comp).forEach(fk => {
-    const st = String(f[fk] || '');
-    let reason = '';
-    if (!st || isCapturedOrDefeatedStatusText_(st)) reason = '已退出戰局';
-    else if (!isAllianceStatusText_(st)) reason = '不再是同盟';
-    else if (/重傷|重創|瀕/.test(st)) reason = '傷勢太重，先回去休養';
-    else if (Number(nowIdx) - Number(comp[fk].t != null ? comp[fk].t : (Number(comp[fk].day) || 0) * 4) >= COMPANION_PERIODS_) reason = '同行了一整天，先回去了';
-    else if (leaveAll || (/分頭|先回去|回去吧|不用跟|分開|留在|各自/.test(text) && factionMentioned_(fk, text))) reason = '依你的安排分開行動';
-    if (reason) { left.push({ fk, reason }); delete comp[fk]; }
-  });
-  const present = new Set((presentIds || []).map(id => CHAR_FACTION_MARKERS_[id]).filter(Boolean));
-  const wantsJoin = /帶著|帶上|一起|跟我|同行|隨行|陪我|跟著我|一同|會合|聯手/.test(text);
-  Object.keys(comp).forEach(fk => {
-    const mk = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m));
-    if (mk && ownedMarkers.has(mk)) { delete comp[fk]; }
-  });
-  Object.keys(f).forEach(fk => {
-    if (comp[fk] || Object.keys(comp).length >= MAX_COMPANIONS_) return;
-    const ownMk = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m));
-    if (ownMk && ownedMarkers.has(ownMk)) return;
-    const st = String(f[fk] || '');
-    if (!isAllianceStatusText_(st) || /重傷|重創|瀕/.test(st)) return;
-    const marker = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m));
-    const invited = wantsJoin && factionMentioned_(fk, text);
-    const arrived = /支援待命/.test(st) && marker && present.has(marker);
-    const appointed = Array.isArray(forceJoin) && forceJoin.includes(fk);
-    if (invited || arrived || appointed) { comp[fk] = { t: Number(nowIdx) || 0 }; joined.push(fk); }
-  });
-  meta.companions = comp;
-  return { joined, left };
-}
-
-function describeCompanionsForPrompt_(meta) {
-  const keys = Object.keys((meta && meta.companions) || {});
-  if (keys.length === 0) return '';
-  return `【同行盟友】${keys.map(k => `${companionDisplayName_(k)}（${k}）`).join('、')} 正跟在玩家身邊：本回合一定在場（填進 present_chars），會對話、會依性格行動、開戰時一起出手；不要寫他們出現在別處或從遠方傳訊。`;
-}
-
-// ==================== 戰力判定：依準備、情報、地利、盟友、魔力、令咒算出優劣勢 ====================
-// 從者強度等級（依原作大致排序）
-const SERVANT_TIER_ = {
-  gilgamesh: 5, berserker: 5, saber_alter: 5, dark_sakura: 5, karna: 5,
-  saber: 4, scathach: 4, jeanne: 4, jalter: 4, mordred: 4, ereshkigal: 4,
-  lancer: 3, archer: 3, rider: 3, caster: 3, assassin: 3, okita: 3, tamamo: 3,
-  hassan: 2
-};
-// 玩家行動中提到誰 → 對手陣營（臟硯放最前面，避免 Assassin 被當成柳洞寺）
-const COMBAT_TARGET_ALIASES_ = [
-  ['臟硯', ['臟硯', '哈桑', '真Assassin', '咒腕']],
-  ['教會', ['綺禮', '言峰', 'Lancer', 'lancer', '庫丘林', '庫夫林', '吉爾伽美什', '金閃閃', '英雄王', 'Gilgamesh', '教會']],
-  ['愛因茲貝倫', ['伊莉雅', 'Berserker', 'berserker', '海克力士', '愛因茲貝倫']],
-  ['柳洞寺', ['葛木', '美狄亞', 'Caster', 'caster', '小次郎', 'Assassin', 'assassin', '柳洞寺']],
-  ['間桐', ['間桐', '慎二', 'Rider', 'rider', '美杜莎', '櫻']],
-  ['遠坂', ['遠坂', '凜', 'Archer', 'archer']],
-  ['衛宮', ['衛宮', '士郎', 'Saber', 'saber', '阿爾托莉雅']]
-];
-const FACTION_HOME_ = { '柳洞寺': '柳洞寺', '遠坂邸': '遠坂', '衛宮邸': '衛宮', '聖堂教會': '教會', '愛因茲貝倫森林': '愛因茲貝倫' };
-
-function findCombatTarget_(userAction, factionsObj, locationKey) {
-  const f = factionsObj || {};
-  const text = String(userAction || '');
-  const isOpen = k => k && !isCapturedOrDefeatedStatusText_(f[k]) && !isAllianceStatusText_(f[k]);
-  for (const [marker, aliases] of COMBAT_TARGET_ALIASES_) {
-    if (!aliases.some(a => text.includes(a))) continue;
-    const fk = Object.keys(f).find(k => k.includes(marker));
-    if (isOpen(fk)) return fk;
-  }
-  const homeMarker = FACTION_HOME_[locationKey];
-  const homeKey = homeMarker ? Object.keys(f).find(k => k.includes(homeMarker)) : '';
-  return isOpen(homeKey) ? homeKey : '';
-}
-
-function assessCombat_(statusObj, meta, userAction) {
-  const f = statusObj.factions || {};
-  const text = String(userAction || '');
-  // 行動裡提到要去的地點也算戰場
-  const dest = matchFuyukiLocation_(text);
-  const battleLoc = dest ? dest.key : statusObj.locationKey;
-  const target = findCombatTarget_(text, f, battleLoc);
-  if (!target) return null;
-  const reasons = [];
-  let score = 0;
-  // 從者相剋
-  const canon = CANONICAL_7_FACTIONS_.find(r => target.includes(r[0].replace(/組.*$/, '')));
-  let enemyServant = canon ? canon[2] : (target.includes('臟硯') ? 'hassan' : '');
-  if (target.includes('教會') && (meta.churchRevived || meta.gilFinal || /吉爾伽美什|金閃閃|英雄王/.test(text + f[target]))) enemyServant = 'gilgamesh';
-  const mine = statusObj.servant1.id ? (SERVANT_TIER_[statusObj.servant1.id] || 3) : 0;
-  const theirs = SERVANT_TIER_[enemyServant] || 3;
-  const tierDiff = mine + (statusObj.servant2.id ? 1 : 0) - theirs;
-  score += tierDiff;
-  if (!statusObj.servant1.id) reasons.push('沒有從者');
-  else if (tierDiff > 0) reasons.push('從者戰力佔優');
-  else if (tierDiff < 0) reasons.push(`對手從者更強（${enemyServant}）`);
-  // 情報
-  const intel = ((meta.factionIntel || {})[target] || {}).text || '';
-  if (/真名|弱點|寶具|底牌|破綻|傲慢|試煉/.test(intel)) { score += 1; reasons.push('掌握對方情報'); }
-  // 事前準備與奇襲
-  if (/埋伏|陷阱|伏擊|偷襲|奇襲|設下|佈置|佈下|預先|事先|誘餌|引誘/.test(text)) { score += 1; reasons.push('事前準備／奇襲'); }
-  // 地利：在對方陣地作戰吃虧
-  const homeMarker = FACTION_HOME_[battleLoc];
-  if (homeMarker && target.includes(homeMarker)) {
-    const penalty = target.includes('柳洞寺') ? 2 : 1;
-    score -= penalty; reasons.push('在對方陣地作戰');
-  }
-  // 盟友參戰
-  const allies = Object.keys(f).filter(k => isAllianceStatusText_(f[k]));
-  const allyHelp = allies.some(k => {
-    const m = COMBAT_TARGET_ALIASES_.find(([mk]) => k.includes(mk));
-    return m && m[1].some(a => text.includes(a));
-  });
-  const hasCompanion = Object.keys(meta.companions || {}).some(k => isAllianceStatusText_(f[k]));
-  if (allyHelp || hasCompanion) { score += 1; reasons.push(hasCompanion ? '同行盟友參戰' : '盟友參戰'); }
-  // 令咒
-  if (/令咒/.test(text) && Number(statusObj.master.commandSpells) > 0) { score += 2; reasons.push('動用令咒'); }
-  // 魔力
-  const mp = Number(statusObj.master.mp) || 0, mx = Math.max(1, Number(statusObj.master.maxMp) || 1);
-  if (mp <= 0) { score -= 2; reasons.push('魔力枯竭'); }
-  else if (mp / mx < 0.25) { score -= 1; reasons.push('魔力不足'); }
-  // 雙方狀態
-  if (/受創|重傷|瀕|受損/.test(String(statusObj.servant1.condition || ''))) { score -= 1; reasons.push('我方從者帶傷'); }
-  if (isWeakenedStatusText_(f[target])) { score += 1; reasons.push('對方帶傷'); }
-  const level = score >= 3 ? '大優勢' : score >= 1 ? '小優勢' : score === 0 ? '均勢' : score >= -2 ? '劣勢' : '絕望';
-  const guide = {
-    '大優勢': '計畫大致成功，對方重創或被逼退，玩家代價輕微。',
-    '小優勢': '玩家佔上風、能削弱對方，但要付出一些代價。',
-    '均勢': '互有損傷、勝負未分，關鍵在玩家臨場的判斷。',
-    '劣勢': '玩家吃虧，多半要撤退或付出明顯代價；除非行動中有真正的奇策。',
-    '絕望': '正面打不贏，硬打會重傷甚至死亡；只有撤退、令咒或真正的奇策能扭轉。'
-  }[level];
-  return { target, level, score, reasons, guide };
-}
-
-function describeCombatAssessForPrompt_(a) {
-  if (!a) return '';
-  return `【戰力判定（若本回合與 ${a.target} 交戰）】${a.level}（${a.reasons.join('、') || '條件相當'}）：${a.guide}結果的輕重再依本局基調調整。`;
-}
-
-// 終局：其他陣營都化解後，教會的英雄王若還沒亮相，就在大聖杯前現身擋路
-function maybeSummonFinalBoss_(factionsObj, meta, outcome) {
-  if (meta.churchRevived || meta.gilFinal || meta.gilDefeated) return null;
-  if (!areAllRivalFactionsResolved_(factionsObj)) return null;
-  const ck = Object.keys(factionsObj).find(k => k.includes('教會'));
-  if (!ck || /收服|已歸屬第8組/.test(String(factionsObj[ck] || ''))) return null;
-  meta.gilFinal = true;
-  meta.churchRevived = true;
-  const updated = Object.assign({}, factionsObj, { [ck]: '存活 (敵對・英雄王吉爾伽美什現身・大聖杯守門者)' });
-  return {
-    factions: updated,
-    text: '【終局異變】就在大聖杯即將顯現之際，圓藏山上空亮起無數金色的漣漪。言峰教會藏了十年的王牌——英雄王吉爾伽美什，正站在通往大聖杯的石階上俯視著你。要贏得聖杯，必須先跨過這位最古老的王。'
-  };
-}
-
-function describeFinalBossForPrompt_(meta, factionsObj) {
-  if (!meta.gilFinal) return '';
-  const ck = Object.keys(factionsObj || {}).find(k => k.includes('教會'));
-  if (!ck || isCapturedOrDefeatedStatusText_(factionsObj[ck])) return '';
-  return '【最終決戰】英雄王吉爾伽美什守在大聖杯前，是最後的敵人。他的王之財寶近乎無窮、乖離劍是對界寶具，正面硬拚幾乎必敗；但他極度傲慢、輕視對手、一開始不會認真，這就是破綻。情報、盟友（Saber、Archer 等）、令咒與奇策都能提高勝算。打倒或化解他之後，玩家抵達大聖杯許願即可 TRUE_VICTORY。';
-}
-
-// 背景音樂情境：依本回合結果挑一種（前端依此切換曲目）
-function pickBgmMood_(turnJson, st, story, outcome, assess) {
-  if (outcome === 'FATAL_DEATH' || /失去從者|解約離去/.test(String(story || ''))) return 'sad';
-  if (outcome === 'TRUE_VICTORY') return 'ending';
-  const body = String(story || '').replace(/【本回合結算】[\s\S]*/, '');
-  if (turnJson && turnJson.is_combat) {
-    const strong = /吉爾伽美什|英雄王|Berserker|海克力士|黑Saber|黑櫻/.test(body) || (assess && /劣勢|絕望/.test(assess.level));
-    return strong ? 'boss' : 'battle';
-  }
-  if (/親吻|吻了|吻上|擁抱|相擁|告白|臉紅|心跳|依偎/.test(body)) return 'romance';
-  if (Number(st && st.threatLevel) >= 70 || /潛入|跟蹤|埋伏|殺氣|窺視/.test(body)) return 'tension';
-  if (st && st.locationKey === '廢棄洋館' && /休息|睡|泡澡|吃飯|晚餐|聊天/.test(body)) return 'home';
-  if (st && st.timePeriod === '黃昏') return 'dusk';
-  return (st && st.timePeriod === '深夜') ? 'night' : 'day';
-}
-
-// 玩家本回合是不是在休息（睡覺、冥想、調息…）
-function isRestAction_(text) {
-  return /休息|睡覺|睡一覺|補眠|小睡|就寢|冥想|調息|靜養|休養|養傷|打坐|恢復魔力|回復魔力|回魔/.test(String(text || ''));
-}
-
-// 戰局提示：還有哪些陣營未化解、魔力是否見底（每回合放進 statePrompt）
-function describeWarStateForPrompt_(factionsObj, mp, maxMp, gameMode) {
-  if (gameMode !== 'WAR') return '';
-  const f = factionsObj || {};
-  const open = Object.keys(f).filter(k => !isCapturedOrDefeatedStatusText_(f[k]) && !isAllianceStatusText_(f[k]));
-  const lines = [];
-  lines.push(open.length > 0
-    ? `【戰局】尚未化解的陣營：${open.join('、')}（全部擊敗、收服或結盟後才能迎來終局）。擊敗滿狀態的從者需要多回合：先削弱（負傷、重創、劣勢），之後的回合才能淘汰；系統只接受已被削弱的陣營改為淘汰。`
-    : '【終局】所有陣營都已擊敗、收服或結盟，戰爭的勝負已定。不要再製造新的敵對勢力或背叛；讓大聖杯在圓藏山（柳洞寺地下）顯現，劇情引導玩家前往（若英雄王還沒現身，系統會讓他在大聖杯前擋路）。玩家抵達大聖杯、許下願望（或選擇破壞聖杯）時，判定 `TRUE_VICTORY`。');
-  const m = Number(mp) || 0, mx = Math.max(1, Number(maxMp) || 1);
-  if (m <= 0) lines.push('【魔力枯竭】御主魔力見底：從者無法解放寶具、戰力大幅下降，御主頭暈虛弱；強行作戰或施展魔術必須付出實際代價（靈基受損、昏倒、被迫撤退），並反映在 master_condition／servant_condition。');
-  else if (m / mx < 0.25) lines.push(`【魔力不足】御主魔力只剩 ${m}/${mx}：寶具最多勉強發動一次且代價沉重，大型魔術難以施展。`);
-  return lines.join('\n');
+  return /淘汰|消滅|陣亡|擊潰|覆滅|收服|戰敗|已死|已歸屬第8組|原御主已退場/.test(s);
 }
 
 function isDefeatedOrCapturedFaction_(factionsObj, keyword) {
@@ -1794,11 +1303,10 @@ function simulateOffscreenFactionWar_(factionsObj, day, period, ownedServantIds)
 
   const facA = aliveFactions[idxA];
   const facB = aliveFactions[idxB];
-  const facBWeakened = isWeakenedStatusText_(factionsObj[facB]);
   const battleSite = ['冬木大橋', '柳洞寺', '新都商業區', '衛宮邸', '遠坂邸', '愛因茲貝倫森林'][Math.floor(Math.random() * 6)];
 
   // 淘汰機率下調，且至少要剩 4 組以上才可能被後台淘汰，避免七組被後台打光
-  const isElimination = (Number(day) >= 3 && facBWeakened && Math.random() < 0.12 && aliveFactions.length > 3);
+  const isElimination = (Number(day) >= 3 && Math.random() < 0.12 && aliveFactions.length > 3);
   const updated = Object.assign({}, factionsObj);
   let report = '';
 
@@ -1812,19 +1320,8 @@ function simulateOffscreenFactionWar_(factionsObj, day, period, ownedServantIds)
     report = `【戰況速報】${facA} 與 ${facB} 在${battleSite}深夜交鋒，雙方各自負傷後撤退！`;
   }
 
-  // 玩家看到的只有市民也看得到的異象（不寫陣營名稱與勝負）；完整戰況只給 GM 當幕後真相
-  const publicSigns = {
-    '冬木大橋': ['大橋上傳出爆炸般的巨響', '有人說看到兩道光在大橋鋼梁上高速交錯，隔天橋面多了好幾道裂痕'],
-    '柳洞寺': ['圓藏山半夜一直有閃光', '山門那邊傳出像打雷一樣的聲音，寺裡的人說什麼都沒發生'],
-    '新都商業區': ['新都大樓之間有怪光', '凌晨有好幾棟大樓的玻璃同時碎掉，新聞說是瓦斯氣爆'],
-    '衛宮邸': ['深山町那棟日式老宅好吵', '半夜聽到金屬撞擊的聲音，圍牆好像塌了一角'],
-    '遠坂邸': ['坡上的洋館附近有怪聲', '半夜有紅光跟爆炸聲，早上去看庭院樹倒了好幾棵'],
-    '愛因茲貝倫森林': ['郊外森林半夜在震動', '開車經過郊外的時候看到森林裡一整片樹倒下，還有像巨人吼叫的聲音']
-  }[battleSite] || ['半夜的怪聲', '昨晚好像有什麼東西爆炸了'];
   return {
     report: report,
-    publicReport: `【遠方異象】${battleSite}一帶昨夜傳出巨響與閃光${isElimination ? '，之後魔力反應突然消失了一股' : ''}（冬木論壇已有目擊）。`,
-    forumPost: { board: '冬木都市怪談板', author: '匿名目擊者', title: publicSigns[0], body: publicSigns[1] },
     hotspotKey: battleSite,
     updatedFactions: updated
   };
@@ -1921,8 +1418,6 @@ function segmentDialogue_(par, names, playerName) {
   };
   const isSpeech = (q, prevChar, nextChar) => {
     if (/^[的之般似]$/.test(nextChar || '')) return false; // 「……」的警告意味 → 句中引用
-    // 夾在句子中間的短詞引用（前後都是一般文字、裡面沒有句末標點），例如「這種「將自身當作消耗品」行為」
-    if (q.length <= 12 && !/[。！？…]/.test(q) && /[\u4e00-\u9fff]/.test(prevChar || '') && /[\u4e00-\u9fff]/.test(nextChar || '')) return false;
     return /[，。！？…、～—]/.test(q) || q.length >= 8 || prevChar === '：' || prevChar === ':';
   };
 
@@ -2113,7 +1608,6 @@ function resetCurrentRunKeepCareer(playerName) {
       inventory: [],
       mapHotspot: '冬木大橋',
       warTicker: '本輪進度已清空，等待重新展開聖杯戰爭。',
-      factionIntel: initFactionIntel_(defaultFactions, false),
       bondLevel: 25,
       turnCount: 0,
       customLocationNotes: {},
@@ -2210,7 +1704,6 @@ function startNewGame(playerName) {
       inventory: [],
       mapHotspot: '冬木大橋',
       warTicker: '第五次聖杯戰爭剛剛拉開序幕，七組陣營與獨立第 8 組正暗中偵察冬木市靈脈。',
-      factionIntel: initFactionIntel_(defaultFactions, false),
       bondLevel: 25,
       turnCount: 0,
       customLocationNotes: {},
@@ -2297,13 +1790,12 @@ function loadExistingGame(playerName) {
 
   const logs = getPlayerChatLogs_(ss, cleanName, 12);
 
-  // 轉成純 JSON 再回傳：試算表讀出的日期物件、NaN 等無法傳給網頁，會讓前端收到 null 而卡在登入畫面
-  return JSON.parse(JSON.stringify({
+  return {
     status: statusObj,
     logs: logs,
     summonPool: getSummonableServantsList_(charDb),
     mapLocations: statusObj.dynamicLocations
-  }));
+  };
 }
 
 function startNextLoopReincarnation(playerName) {
@@ -2347,7 +1839,6 @@ function startNextLoopReincarnation(playerName) {
       inventory: [],
       mapHotspot: '冬木大橋',
       warTicker: '新輪迴開啟，冬木市七組陣營重新降臨。',
-      factionIntel: initFactionIntel_(defaultFactions, false),
       bondLevel: 25,
       turnCount: 0,
       routeFlags: { medeaOut: false, kojirouOut: false, trueAssassin: 'NONE' },
@@ -2616,7 +2107,6 @@ function completeCreationTextOnly(params) {
       inventory: starterInv,
       mapHotspot: '冬木大橋',
       warTicker: '第一夜深夜，冬木大橋方向隱約傳來各陣營試探的魔力火花。',
-      factionIntel: initFactionIntel_(defaultFactions, false),
       bondLevel: 25,
       customLocationNotes: {},
       phoneState: {
@@ -2725,7 +2215,7 @@ const PROACTIVE_DECK_ = {
   ],
   neutral: [
     '親自登門拜訪，試探玩家的底細與意圖',
-    '派使魔在玩家附近現身，當面提出情報交換或交易',
+    '派人或使魔捎來口信，提出情報交換或交易',
     '在路上與玩家「偶遇」，藉機觀察或搭話'
   ],
   allied: [
@@ -2736,7 +2226,7 @@ const PROACTIVE_DECK_ = {
   ],
   church: [
     '言峰綺禮以監督者身分親自來訪，表面關心、實則試探',
-    '在路上遇到教會的人，被提醒神秘隱匿、或聽到某陣營的動向'
+    '教會送來通知：提醒神秘隱匿、或通報某陣營的動向'
   ]
 };
 
@@ -2745,8 +2235,8 @@ function drawProactiveEvent_(statusObj, meta, turnNum) {
   const f = statusObj.factions || {};
   const last = Number(meta.lastProactiveTurn) || 0;
   const gap = turnNum - last;
-  if (last && gap < 3) return null;
-  const chance = Math.min(0.45, 0.15 + (Number(statusObj.threatLevel) || 0) / 400 + Math.min(0.15, gap * 0.03));
+  if (last && gap < 2) return null;
+  const chance = Math.min(0.75, 0.25 + (Number(statusObj.threatLevel) || 0) / 250 + Math.min(0.3, gap * 0.06));
   if (Math.random() > chance) return null;
 
   const candidates = [];
@@ -2760,7 +2250,6 @@ function drawProactiveEvent_(statusObj, meta, turnNum) {
     if (resting) deck = deck.filter(e => !/突襲|設下|決鬥/.test(e));
     if (deck.length === 0) return;
     const weight = kind === 'hostile' ? 1 + (Number(statusObj.threatLevel) || 0) / 50 : 1;
-    if (meta && meta.companions && meta.companions[name]) return; // 同行中的盟友就在身邊，不會從遠方主動找上門
     candidates.push({ name, kind, deck, weight });
   });
   if (candidates.length === 0) return null;
@@ -2780,7 +2269,7 @@ function drawWorldDirectorEvent_(statusObj, meta, turnNum) {
   if (!p) return { text: '', proactive: null };
   const ch = getContactChannel_(p.faction);
   return {
-    text: `【陣營主動行動（本回合一定要發生，融入玩家的行動之中）】${p.faction}：${p.action}。依該陣營目前狀態與性格演出，留給玩家回應的空間。${p.kind === 'allied' ? `若是傳訊，透過「${ch.label}」送達，並填入 incoming_messages。` : '非同盟陣營不會傳訊到玩家手機，要在劇情中當面發生。'}`,
+    text: `【陣營主動行動（本回合一定要發生，融入玩家的行動之中）】${p.faction}：${p.action}。依該陣營目前狀態與性格演出，留給玩家回應的空間。若是傳訊，透過「${ch.label}」送達，並填入 incoming_messages。`,
     proactive: p
   };
 }
@@ -2928,12 +2417,11 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '',
   '## 一、裁定原則：自由，但合乎邏輯',
   '1. 先接受再演出：玩家可以嘗試任何行動或說任何話，不要直接拒絕或說「做不到」。依型月世界邏輯、御主固定能力等階、從者性格與當下局勢，決定結果是「漂亮成功／成功但付出代價／失敗並承受後果」。',
-  '8. 東西要有來源：玩家拿出背包（物品欄）裡沒有的東西時，符合常理與鐵血模式下，只能是身邊隨手可得的普通物品或簡陋的臨時替代品，特別的道具要先去買、做或偷；搞笑與龍傲天模式可以順著演。',
   '2. 獎勵創意：合理的奇招、話術、情報運用、利用地形與時機，都應該得到實質回報；明顯不合理或作死的行為，則讓世界給出真實後果。',
   '3. 每個行動都要有確實的結果並留下紀錄：數值、陣營狀態、流言、道具、關係變化都要反映在對應的 JSON 欄位，不能只寫在劇情裡。',
   '4. 只控制玩家輸入的部分：不替玩家寫出沒輸入的行動或台詞，也不替玩家做決定；從者、NPC、敵對陣營依各自性格與目的主動行動。',
   '5. 世界是活的：各陣營有自己的計畫，會依情報、流言與局勢變化而行動；在場人物一定會對玩家的言行有所反應，不會無視或憑空消失。',
-  '7. 寫作基調（在狀態資料的【寫作基調】）決定結果的輕重與筆調，必須照做：符合常理＝依型月邏輯公平裁定；搞笑鬧劇＝誇張好笑、在場角色吐槽反應，非極端作死不重創不致死；龍傲天＝玩家想做的事一定成功而且碾壓、旁人震驚折服，不受伺服器的戰鬥與結盟門檻限制；鐵血戰場＝嚴峻寫實，敵人冷靜反制，失誤會付出真實的傷勢與代價。',
+  '7. 寫作基調（在狀態資料的【寫作基調】）決定結果的輕重與筆調，必須照做：符合常理＝依型月邏輯公平裁定；搞笑鬧劇＝誇張好笑、在場角色吐槽反應，非極端作死不重創不致死；故事模式＝順著玩家想要的方向發展，盡量讓玩家的意圖成功、代價輕；鐵血戰場＝嚴峻寫實，敵人冷靜反制，失誤會付出真實的傷勢與代價。',
   '6. 只寫本回合的新發展：前幾回合是已確定的歷史，開頭不要重複或改寫上一回合的結尾。劇情停在玩家這次行動自然結束的那一刻，不要自己替玩家移動到別的地方、跳過時間或安排下一步（例如玩家只說去遠坂邸談判，就停在遠坂邸，不要寫「之後回到洋館」）。',
   '',
   '## 二、型月世界邏輯（判斷結果時的常識，不是禁止清單）',
@@ -2946,10 +2434,6 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 御主是最大破綻：攻擊御主是正當戰術。失去御主的從者靠單獨行動技能撐一段時間，會尋找新御主或消失。',
   '- 魔術必須隱匿：在人多的地方或白天公開交戰，會引來聖堂教會善後、警方與其他陣營的注意（論壇也會出現目擊）。聖杯戰爭主要在夜間進行，白天是日常、調查與佈局。',
   '- 陣地優勢：在敵方工房、結界或陣地內作戰極為不利；Caster 的陣地與山門結界尤其危險。',
-  '- 陣營好感與約定：狀態資料有各陣營對玩家的好感，玩家的行為要用 `faction_favor_delta` 反映；玩家和同盟約定之後的集合時間地點時，填 `appointments_add`（day 用數字，period 用清晨／白天／黃昏／深夜）。',
-  '- 結盟看立場與利益：對方要有理由才會合作（共同的敵人、情報、救命之恩、交換條件），敵對陣營要經過多次互動才可能從敵意轉為談判、停戰、結盟；言峰綺禮表面合作、暗中利用，伊莉雅的態度取決於能否打動她、她與士郎的關係，Caster 只信任葛木。一次談話通常只能讓態度軟化，不會直接結盟。',
-  '- 從者戰力依原作：每騎都是傳說級英雄，打倒一騎要靠情報、弱點、地利、寶具與犧牲累積，通常要好幾回合（偵查→削弱→決戰）；Berserker 的十二試煉要多次致命傷或高階寶具才能突破，吉爾伽美什的王之財寶近乎無窮。一次漂亮的行動可以重創對手、逼退對手，但不會讓滿狀態的從者當場退場。',
-  '- 不硬塞情報：吃飯、休息、閒聊等日常場景就好好寫日常，不要讓從者主動報告戰況；角色只會提到確實得知的事（親眼所見、使魔回報、論壇、聯絡），而且只知道得到的那部分。玩家主動問起或去打聽時，才依情報來源回答。',
   '- 感知有極限：從者的氣息感知大約只到數百公尺，只能察覺「附近有從者、魔力大概多強、是否有敵意」，無法隔著整座城市辨認其他陣營在哪、是誰、什麼職階。遠方的事只能透過使魔、目擊、情報、論壇風聲得知；Assassin 的氣息遮斷甚至能完全避開感知。',
   '- 隱藏真相（大聖杯的汙染、此世之惡、言峰綺禮的真面目等）只在玩家深入調查時逐步揭露，不要一次說破。',
   '- 時代是 2004 年的日本冬木市：手機是翻蓋手機（只能通話、簡訊、手機郵件、低畫質相機），沒有智慧型手機、LINE、社群網站或觸控螢幕；網路論壇用電腦或手機網頁瀏覽。',
@@ -2967,13 +2451,12 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '## 四、活的冬木市與反饋機制',
   '- 論壇：玩家做了引人注目的事（公開交戰、怪事、流言擴散），用 `forum_posts` 寫 0～2 則冬木市民的 2004 年留言板貼文（每則是含 board／author／title／body 的物件）；路人只知道自己看得到的部分。',
   '- 流言：依各陣營的情報能力與性格，判斷誰相信、誰識破狀態資料中的流言，用 `rumor_updates` 記錄；被相信的流言會實際改變該陣營行動（寫進 `faction_updates`），被識破的假消息可能引來報復。',
-  '- 只有**同盟陣營**會主動傳訊到玩家手機（求援、情報、邀約），填入 `incoming_messages`；非同盟陣營的接觸（挑戰書、交易、試探）要在劇情中當面發生，不要填 `incoming_messages`。',
-  '- 情報：玩家這回合透過偵查、使魔、他人告知、論壇推敲等方式**確實得知**某陣營的狀況時，用 `intel_updates` 寫下玩家得知的內容（30 字內，只寫玩家知道的部分）；親眼見到的陣營與同盟由系統自動記錄。',
+  '- 其他陣營主動傳訊給玩家時（求援、情報、挑釁、邀約），填入 `incoming_messages`，會出現在玩家手機的聯絡頁。',
   '- 通訊錄：只有劇情中**明確寫出**玩家與某陣營交換手機號碼、拿到名片或聯絡方式時，才把陣營名稱填入 `new_contacts`；只是見面、交談、談判都不算。',
   '- 路線傾向：依玩家本回合的行動方式，在 `route_tendency_delta` 為各路線加減分（-3～+3）；已確立路線時，劇情重心照狀態資料中的路線說明發展。',
   '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
   '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。',
-  '- 陣營更新：`faction_updates` 的鍵必須用狀態資料中既有的陣營完整名稱；值寫該陣營的存亡與對玩家的態度（例如「存活 (同盟)」「存活 (敵對・負傷休整)」），不要寫一時的動作（例如「發送訊息中」）。',
+  '- 陣營更新：`faction_updates` 的鍵必須用狀態資料中既有的陣營完整名稱。',
   '- 場地會留下痕跡：劇情確實改變了某個地標的樣子（戰鬥破壞、佈置房間、設下結界、教會修復等），在 `location_changes` 用地標名稱寫下戰鬥或事件結束後**留下來的樣子**（60 字內，例如「石階佈滿劍痕、山門一側崩塌」，不要寫「兩人正在交戰」這種進行中的事）。這個狀態會一直保留，之後回到那裡要照現況描寫，直到劇情再次改變它；只是路過、沒有改變就不要填。',
   '',
   '## 五、死亡與勝利',
@@ -3009,10 +2492,6 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '  "forum_posts": [],',
   '  "rumor_updates": [{ "id": "既有流言ID（新傳聞留空）", "text": "新傳聞才填：傳聞內容", "status": "擴散中 / 已被識破 / 已被證實 / 已平息", "believers": [], "doubters": [], "effect": "30字內影響" }],',
   '  "new_contacts": [],',
-  '  "intel_updates": {},',
-  '  "berserker_lives_lost": { "count": 0, "method": "殺死他的手段（10字內）" },',
-  '  "faction_favor_delta": {},',
-  '  "appointments_add": [{ "faction": "陣營名稱", "day": 3, "period": "清晨／白天／黃昏／深夜", "place": "地標名稱" }],',
   '  "route_tendency_delta": { "fate": 0, "ubw": 0, "hf": 0, "shadow": 0, "conquest": 0 },',
   '  "location_changes": {},',
   '  "incoming_messages": [{ "faction": "陣營名稱", "text": "其他陣營主動傳給玩家的訊息（80字內）" }],',
@@ -3136,24 +2615,12 @@ function processFateTurnTextOnly(params) {
       `【物品欄 (上限 ${MAX_INVENTORY_SLOTS} 格)】\n${invSummary}`,
       isSandboxMode
         ? '日常模式：不發放戰鬥道具（`gained_items` 為 `[]`）。'
-        : '消耗背包道具請填入 `consumed_item_ids`（填背包裡的 id）；只要拾取、收納或取得物品，務必填入 `gained_items`（階級 1～3）。\n固定道具 id：魔力結晶(小)=`mana_gem_s`、高純度魔力寶石(中)=`mana_gem_m`、煙霧魔術彈=`smoke_bomb`、對魔術防禦禮裝(保命符)=`aegis_charm`、未充能天然寶石媒介=`empty_gem`、基礎黑鍵套組=`black_keys`；煉成或取得這些道具時務必沿用同一個 id。\n魔力寶石／結晶的 MP 回復、休息回魔與煙霧彈降低警戒度由系統自動結算，`master_mp_delta` 與 `threat_delta` 不要重複計入。'
+        : '消耗背包道具請填入 `consumed_item_ids`（填背包裡的 id）；只要拾取、收納或取得物品，務必填入 `gained_items`（階級 1～3）。\n固定道具 id：魔力結晶(小)=`mana_gem_s`、高純度魔力寶石(中)=`mana_gem_m`、煙霧魔術彈=`smoke_bomb`、對魔術防禦禮裝(保命符)=`aegis_charm`、未充能天然寶石媒介=`empty_gem`、基礎黑鍵套組=`black_keys`；煉成或取得這些道具時務必沿用同一個 id。\n魔力寶石／結晶的 MP 回復與煙霧彈降低警戒度由系統自動結算，`master_mp_delta` 與 `threat_delta` 不要重複計入。'
     ].join('\n');
 
     const worldEvent = drawWorldDirectorEvent_(statusObj, metaBefore, turnNum);
-    const combatAssess = (statusObj.gameMode === 'WAR' && normalizeGameToneKey_(statusObj.gameTone) !== 'STORY_PLAYER_FIRST') ? assessCombat_(statusObj, metaBefore, userAction) : null;
     const worldEventHint = worldEvent.text;
-    // 英靈名冊：在據點打字「讓某某上場」→ 本回合起換成副從者（先讓提示詞知道新陣容，寫回時才真正換）
-    const rosterBefore = Array.isArray(metaBefore.servantRoster) ? metaBefore.servantRoster : [];
-    // 人在洋館、或這回合行動是回洋館，都可以換人
-    const swapLoc = (matchFuyukiLocation_(userAction) || {}).key === '廢棄洋館' ? '廢棄洋館' : statusObj.locationKey;
-    const swapId = findRosterSwapTarget_(userAction, rosterBefore, charDb, swapLoc);
-    if (swapId) {
-      const inc = rosterBefore.find(r => r.id === swapId);
-      statusObj.servant2 = { id: swapId, class: '契約從者', name: inc.name, condition: inc.condition || '靈基穩定' };
-    }
-    const rosterFull = rosterBefore.length >= MAX_SERVANT_ROSTER_;
-    const isDragonTone = normalizeGameToneKey_(statusObj.gameTone) === 'STORY_PLAYER_FIRST';
-    const canFormSecondContract = (!statusObj.servant1.id) || ((isDragonTone || (statusObj.master.commandSpells >= 1 && statusObj.master.mp >= 80)) && (!statusObj.servant2.id || !rosterFull));
+    const canFormSecondContract = (!statusObj.servant1.id) || (statusObj.master.commandSpells >= 1 && statusObj.master.mp >= 80 && !statusObj.servant2.id);
 
     // 系統提示詞：固定不變的規則與型月世界觀（每回合相同，模型端可快取）；每回合變動的資料一律放在 statePrompt
     const systemPrompt = FATE_GM_SYSTEM_PROMPT_;
@@ -3162,12 +2629,11 @@ function processFateTurnTextOnly(params) {
       `【玩家】名號「${cleanName}」（劇情中稱呼玩家用這個名字、「御主」或角色習慣的叫法）｜聖杯願望：「${statusObj.master.wish}」`,
       `【寫作基調：${tonePreset.label}】${tonePreset.desc}`,
       rankCheckHint,
-      `【主從者好感】${statusObj.bondLevel}/100${statusObj.bondLevel <= 10 && toneKey !== 'COMEDY_CHAOS' && toneKey !== 'STORY_PLAYER_FIRST' ? '（主從關係緊張：從者可能拒絕危險或荒唐的命令，令咒可以強制但會再扣好感；好感歸零還一直惹她會解約離去）' : ''}。bond_delta 每回合 ±10 內，依從者在意的事判斷（道歉、認真修行、並肩作戰、尊重、好好相處會加分）`,
+      `【主從者好感】${statusObj.bondLevel}/100`,
       inventoryRuleHint,
       !statusObj.servant1.id
         ? '【失去從者】御主目前沒有從者，非常危險。若劇情中與失去御主的從者達成協議，可填 `new_servant2_id` 締結新契約（成為主從者）。'
-        : (canFormSecondContract ? `【副契約】條件已滿足：若劇情中合理收服敵方英靈，可填 \`new_servant2_id\`${statusObj.servant2.id ? '（副從者位置已滿，新收服的會進英靈名冊、回洋館待命）' : ''}。` : '【副契約】目前條件不足，不可新增副從者。'),
-      describeRosterForPrompt_(swapId ? rosterBefore.filter(r => r.id !== swapId).concat(row[23] ? [{ id: String(row[23]), name: String(row[25]), condition: String(metaBefore.servant2Condition || '靈基穩定') }] : []) : rosterBefore),
+        : (canFormSecondContract ? '【副契約】條件已滿足：若劇情中合理收服敵方英靈，可填 `new_servant2_id`。' : '【副契約】目前條件不足，不可新增副從者。'),
       worldEventHint,
       phoneBridgeHints,
       `【冬木市地標】\n${locCatalogText}`,
@@ -3179,21 +2645,13 @@ function processFateTurnTextOnly(params) {
       turnSettingsBlock,
       `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}% | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
       `【當前場地現況】${statusObj.locationInfo.desc}`,
-      `【幕後戰況（只有 GM 知道；玩家與從者不知道哪些陣營交手、誰勝誰負，只能透過論壇目擊、使魔、聯絡或親自調查慢慢得知）】${statusObj.warTicker}`,
+      `【近期戰況速報】${statusObj.warTicker}`,
       `【御主(${cleanName})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
       `【御主固定六維等階】魔術迴路:${p.circuit} | 近戰體術:${p.combat} | 隱藏氣息:${p.stealth} | 幸運:${p.luck}`,
       `【主從者】ID:${statusObj.servant1.id} (${statusObj.servant1.class}・${statusObj.servant1.name}) | 羈絆好感:${statusObj.bondLevel}/100 | 靈基狀態:${statusObj.servant1.condition}`,
       statusObj.servant2.id ? `【副從者】ID:${statusObj.servant2.id} (${statusObj.servant2.class}・${statusObj.servant2.name}) | 靈基狀態:${statusObj.servant2.condition || '靈基穩定'}` : '【副從者】無',
       `【相關角色目前穿著（未列出者為預設服裝）】${JSON.stringify(relevantOutfits)}`,
-      `【七組陣營狀態（幕後真相，推演前必先對照，同盟陣營須彼此照應；角色只知道自己見過或打聽到的部分）】${JSON.stringify(statusObj.factions)}`,
-      describeWarStateForPrompt_(statusObj.factions, statusObj.master.mp, statusObj.master.maxMp, statusObj.gameMode),
-      describeIntelForPrompt_({ factionIntel: metaBefore.factionIntel || initFactionIntel_(statusObj.factions, true) }),
-      describeGodHandForPrompt_(metaBefore.godHand, statusObj.factions),
-      describeCompanionsForPrompt_(metaBefore),
-      statusObj.gameMode === 'WAR' ? describeFavorForPrompt_(metaBefore, statusObj.factions) : '',
-      statusObj.gameMode === 'WAR' ? describeAppointmentsForPrompt_(metaBefore, timeIndex_(statusObj.day, statusObj.timePeriod)) : '',
-      describeCombatAssessForPrompt_(combatAssess),
-      describeFinalBossForPrompt_(metaBefore, statusObj.factions),
+      `【七組陣營狀態（推演前必先對照，同盟陣營須彼此照應）】${JSON.stringify(statusObj.factions)}`,
       describeRyuudouRoute_(metaBefore),
       `【長期記憶前情提要】${statusObj.memorySummary}`,
       `【重要事件與伏筆清單（約定、結盟原因、恩怨、未解之謎；請保持連貫）】\n${keyEventsText}`,
@@ -3253,34 +2711,12 @@ function processFateTurnTextOnly(params) {
     }
 
     let currentFactions = safeJsonParse_(row[29], {});
-    // 十二試煉：先結算本回合擊破的命數，再讓陣營更新經過命數把關
-    const ghRes = applyGodHandHits_(meta.godHand, turnJson.berserker_lives_lost, {
-      berserkerPresent: (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).some(c => c && c.id === 'berserker'),
-      isCombat: Boolean(turnJson.is_combat),
-      npUsed: (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).some(c => c && c.use_np && c.id !== 'berserker')
-    });
-    meta.godHand = ghRes.godHand;
-    // 陣營好感先結算（結盟門檻要用本回合的新好感）
-    const favorChanges = applyFactionFavor_(meta, currentFactions, (turnJson.faction_favor_delta && typeof turnJson.faction_favor_delta === 'object') ? turnJson.faction_favor_delta : {});
     if (turnJson.faction_updates && typeof turnJson.faction_updates === 'object') {
       Object.keys(turnJson.faction_updates).forEach(fname => {
         const val = String(turnJson.faction_updates[fname] || '').trim();
         const realKey = resolveFactionKey_(fname, currentFactions);
         if (val && realKey) {
-          const prevSt = String(currentFactions[realKey] || '');
-          // 龍傲天模式：不套用淘汰兩步、十二試煉與結盟門檻，想做的都能實現
-          const isDragon = toneKey === 'STORY_PLAYER_FIRST';
-          const nextSt = isDragon ? val.slice(0, 120) : gateGodHandElimination_(realKey, prevSt, gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val.slice(0, 120)), toneKey, getFactionFavor_(meta, realKey)), meta.godHand);
-          // 已淘汰的陣營不會復活；唯一例外是教會亮出隱藏王牌吉爾伽美什（只有一次）
-          const wasOut = isCapturedOrDefeatedStatusText_(prevSt) && !/收服|已歸屬第8組/.test(prevSt);
-          if (wasOut && !isCapturedOrDefeatedStatusText_(nextSt)) {
-            if (realKey.includes('教會') && !meta.churchRevived) {
-              meta.churchRevived = true;
-              currentFactions[realKey] = nextSt;
-            }
-          } else {
-            currentFactions[realKey] = nextSt;
-          }
+          currentFactions[realKey] = val.slice(0, 120);
         }
       });
     }
@@ -3292,45 +2728,12 @@ function processFateTurnTextOnly(params) {
     }
 
     const nonServants = new Set(['player_master', 'shirou', 'rin', 'sakura', 'dark_sakura', 'illya', 'kirei', 'souichirou']);
-    // 套用英靈名冊的換人（以寫回時的最新存檔為準）
-    let rosterSwap = null;
-    meta.servantRoster = Array.isArray(meta.servantRoster) ? meta.servantRoster.slice() : [];
-    if (swapId) {
-      const incIdx = meta.servantRoster.findIndex(r => r.id === swapId);
-      if (incIdx !== -1) {
-        const inc = meta.servantRoster.splice(incIdx, 1)[0];
-        const outgoing = row[23] ? { id: String(row[23]), name: String(row[25]), condition: String(meta.servant2Condition || '靈基穩定') } : null;
-        if (outgoing) meta.servantRoster.push(outgoing);
-        row[23] = inc.id; row[24] = '契約從者'; row[25] = inc.name; row[26] = 1000; row[27] = 0;
-        meta.servant2Condition = inc.condition || '靈基穩定';
-        rosterSwap = { inName: inc.name, outName: outgoing ? outgoing.name : '' };
-      }
-    }
-    let rosterAdded = '';
     let capturedServantId = '';
     if (
       turnJson.new_servant2_id &&
       charDb[turnJson.new_servant2_id] &&
       !nonServants.has(turnJson.new_servant2_id) &&
       String(turnJson.new_servant2_id) !== String(row[17]) &&
-      String(turnJson.new_servant2_id) !== String(row[23]) &&
-      !meta.servantRoster.some(r => r.id === turnJson.new_servant2_id) &&
-      canFormSecondContract &&
-      row[23] && row[17] && meta.servantRoster.length < MAX_SERVANT_ROSTER_
-    ) {
-      // 副從者位置已滿 → 收進英靈名冊，回洋館待命
-      const sInfo = charDb[turnJson.new_servant2_id];
-      row[15] = Math.max(0, Number(row[15]) - 80);
-      meta.servantRoster.push({ id: turnJson.new_servant2_id, name: sInfo.triggers.split(',')[0], condition: '靈基穩定' });
-      rosterAdded = sInfo.triggers.split(',')[0];
-      capturedServantId = String(turnJson.new_servant2_id);
-      currentFactions = syncCapturedServantFaction_(currentFactions, turnJson.new_servant2_id, '');
-    } else if (
-      turnJson.new_servant2_id &&
-      charDb[turnJson.new_servant2_id] &&
-      !nonServants.has(turnJson.new_servant2_id) &&
-      String(turnJson.new_servant2_id) !== String(row[17]) &&
-      !row[23] &&
       canFormSecondContract
     ) {
       const s2Info = charDb[turnJson.new_servant2_id];
@@ -3349,30 +2752,14 @@ function processFateTurnTextOnly(params) {
     const isCombatTurn = Boolean(turnJson.is_combat);
     currentFactions = applyRouteAndHiddenServantEvolution_(currentFactions, turnJson, charDb, isCombatTurn);
     const presentIdSet = new Set((turnJson.present_chars || []).map(c => String((c && c.id) || '').trim()));
-    // 英靈退場也要先被削弱：所屬陣營在本回合開始前還是滿狀態時，不接受退場
-    const servantFactionMarker_ = sid => ({ caster: '柳洞寺', assassin: '柳洞寺', hassan: '臟硯', gilgamesh: '教會' })[sid]
-      || ((CANONICAL_7_FACTIONS_.find(r => r[2] === sid) || [])[0] || '').replace(/組.*$/, '');
-    const servantsOutList = (Array.isArray(turnJson.servants_out) ? turnJson.servants_out : []).filter(sid => {
-      const marker = servantFactionMarker_(String(sid || ''));
-      const fk = marker ? Object.keys(statusObj.factions || {}).find(k => k.includes(marker)) : '';
-      if (!fk) return true;
-      const prev = String(statusObj.factions[fk] || '');
-      return toneKey === 'STORY_PLAYER_FIRST' || isCapturedOrDefeatedStatusText_(prev) || isWeakenedStatusText_(prev) || String(sid) === capturedServantId;
-    });
+    const servantsOutList = Array.isArray(turnJson.servants_out) ? turnJson.servants_out : [];
     let routeRes = updateRyuudouRoute_(meta, currentFactions, servantsOutList, capturedServantId, presentIdSet);
     currentFactions = routeRes.factions;
     const routeReports = routeRes.report ? [routeRes.report] : [];
 
     let mpDelta = Number(turnJson.master_mp_delta) || 0;
-    // 休息回魔由系統結算：玩家本回合要休息／睡覺／冥想且沒有開戰 → 回復 20 + 所在地靈脈量
-    let restRecovered = 0;
-    if (statusObj.gameMode === 'WAR' && !turnJson.is_combat && isRestAction_(userAction)) {
-      restRecovered = 20 + (Number(resolvedLoc && resolvedLoc.info && resolvedLoc.info.manaRegen) || 10);
-      mpDelta = Math.min(mpDelta, 0) + restRecovered; // AI 自己加的回魔不重複計入
-    }
     let periodAdvancedNotice = '';
     let latestWarReport = '';
-    const offscreenForumPosts = [];
 
     if (statusObj.gameMode === 'WAR') {
       const apCost = Math.max(0, Math.min(3, Number(turnJson.ap_cost) || 0));
@@ -3391,7 +2778,6 @@ function processFateTurnTextOnly(params) {
 
         // 玩家的第8組是獨立陣營，不再以「持有英靈ID」排除原敵對陣營；已收服者已由狀態文字排除
         const warSim = simulateOffscreenFactionWar_(currentFactions, nextTime.day, nextTime.period, []);
-        // （offscreenForumPosts 在下方論壇段落寫入手機）
         currentFactions = warSim.updatedFactions;
         routeRes = updateRyuudouRoute_(meta, currentFactions, [], '', new Set());
         currentFactions = routeRes.factions;
@@ -3400,9 +2786,7 @@ function processFateTurnTextOnly(params) {
         if (warSim.report) {
           latestWarReport = warSim.report;
           meta.warTicker = warSim.report;
-          meta.warTickerPublic = warSim.publicReport || warSim.report;
-          periodAdvancedNotice += `\n${warSim.publicReport || warSim.report}`;
-          if (warSim.forumPost) offscreenForumPosts.push(warSim.forumPost);
+          periodAdvancedNotice += `\n${warSim.report}`;
         }
       }
       row[8] = newAp;
@@ -3426,13 +2810,8 @@ function processFateTurnTextOnly(params) {
     row[15] = Math.max(0, Math.min(maxMp, Number(row[15]) + mpDelta));
 
     const curBond = Number(meta.bondLevel != null ? meta.bondLevel : (row[21] || 25));
-    const bondDelta = Math.max(-10, Math.min(10, Math.round(Number(turnJson.bond_delta) || 0))); // 每回合最多 ±10
-    let nextBond = Math.max(0, Math.min(100, curBond + bondDelta));
-    // 好感歸零還一直惹她：連續 3 回合就解約離去（常理、鐵血；有回升就重新計算）
-    if (nextBond === 0 && bondDelta < 0) meta.bondZeroStreak = (Number(meta.bondZeroStreak) || 0) + 1;
-    else if (bondDelta > 0 || nextBond > 0) meta.bondZeroStreak = 0;
-    const bondLeave = Boolean(row[17]) && (toneKey === 'BALANCED' || toneKey === 'HARDCORE_WAR') && Number(meta.bondZeroStreak) >= 3;
-    const bondLeaverName = String(row[19] || '');
+    const bondDelta = Number(turnJson.bond_delta) || 0;
+    const nextBond = Math.max(0, Math.min(100, curBond + bondDelta));
     meta.bondLevel = nextBond;
     row[21] = nextBond;
 
@@ -3477,12 +2856,6 @@ function processFateTurnTextOnly(params) {
 
     if (turnJson.master_condition) meta.masterCondition = String(turnJson.master_condition);
     if (turnJson.servant_condition) meta.servantCondition = String(turnJson.servant_condition);
-    // 魔力枯竭還開戰：從者至少靈基受創（符合常理與鐵血；搞笑與故事模式不強制）
-    if (statusObj.gameMode === 'WAR' && Number(statusObj.master.mp) <= 0 && Boolean(turnJson.is_combat)
-        && (tonePreset === GAME_TONE_PRESETS_.BALANCED || tonePreset === GAME_TONE_PRESETS_.HARDCORE_WAR)
-        && /^(靈基穩定|完好|穩定|)$/.test(String(meta.servantCondition || '靈基穩定').trim())) {
-      meta.servantCondition = '靈基受創 (魔力枯竭下強行作戰)';
-    }
     if (turnJson.servant2_condition) meta.servant2Condition = String(turnJson.servant2_condition);
     if (row[23] && /消滅/.test(String(meta.servant2Condition || ''))) {
       formattedStory += `\n\n【副契約解除】副從者「${row[25]}」的靈基已經消滅，契約之線就此斷絕。`;
@@ -3494,11 +2867,8 @@ function processFateTurnTextOnly(params) {
       meta.servant2Condition = '靈基穩定';
     }
 
-    if (bondLeave) meta.servantCondition = '契約斷絕 (好感歸零，解約離去)';
-    if (row[17] && /消滅|解約離去/.test(String(meta.servantCondition || ''))) {
+    if (row[17] && /消滅/.test(String(meta.servantCondition || ''))) {
       const lostName = row[19];
-      const lostWord = /解約離去/.test(String(meta.servantCondition || '')) ? '對你徹底失望，解約離去' : '消滅';
-      if (bondLeave) { meta.bondLevel = 25; row[21] = 25; meta.bondZeroStreak = 0; }
       if (row[23]) {
         row[17] = row[23];
         row[18] = row[24] === '契約從者' ? '從者' : row[24];
@@ -3507,12 +2877,12 @@ function processFateTurnTextOnly(params) {
         meta.servantCondition = meta.servant2Condition || '靈基穩定';
         row[23] = ''; row[24] = ''; row[25] = ''; row[26] = 0; row[27] = 0;
         meta.servant2Condition = '靈基穩定';
-        formattedStory += `\n\n【契約遞補】主從者「${lostName}」${lostWord}了。副從者「${row[19]}」成為你的主從者。`;
+        formattedStory += `\n\n【契約遞補】主從者「${lostName}」消滅了。副從者「${row[19]}」成為你的主從者。`;
       } else {
         row[17] = ''; row[18] = '無'; row[19] = '（失去從者）';
         meta.servantCondition = '契約斷絕';
         meta.servantLost = true;
-        formattedStory += `\n\n【失去從者】「${lostName}」${lostWord}了，契約之線斷絕。你可以尋找失去御主的從者重新締約，或前往教會尋求監督者的保護。`;
+        formattedStory += `\n\n【失去從者】「${lostName}」消滅了，契約之線斷絕。你可以尋找失去御主的從者重新締約，或前往教會尋求監督者的保護。`;
       }
     }
     // 失去從者後重新締約：新契約的從者直接成為主從者
@@ -3588,28 +2958,6 @@ function processFateTurnTextOnly(params) {
       outcome = 'FATAL_DEATH';
     }
 
-    // 終局：其他陣營都化解後，英雄王若還沒亮相就在大聖杯前現身（本回合不能直接通關）
-    let finalBossText = '';
-    if (!isSandboxMode && outcome !== 'FATAL_DEATH') {
-      const boss = maybeSummonFinalBoss_(currentFactions, meta, outcome);
-      if (boss) {
-        currentFactions = boss.factions;
-        finalBossText = boss.text;
-        row[29] = JSON.stringify(currentFactions);
-        // 英雄王是當面現身，玩家當然知道
-        const ck = Object.keys(currentFactions).find(k => k.includes('教會'));
-        if (ck) {
-          meta.factionIntel = meta.factionIntel || {};
-          meta.factionIntel[ck] = { text: '英雄王吉爾伽美什現身，擋在大聖杯前', when: `Day ${row[6]}・${row[7]}`, source: '親眼所見' };
-        }
-      }
-    }
-    // 打倒最終 Boss 後記錄，避免再出現
-    if (meta.gilFinal) {
-      const ck = Object.keys(currentFactions).find(k => k.includes('教會'));
-      if (ck && isCapturedOrDefeatedStatusText_(currentFactions[ck])) meta.gilDefeated = true;
-    }
-
     // 伺服器端驗證：日常模式不會通關；仍有未化解的敵對陣營時，不接受 TRUE_VICTORY
     if (outcome === 'TRUE_VICTORY' && (isSandboxMode || !areAllRivalFactionsResolved_(currentFactions))) {
       outcome = 'CONTINUE';
@@ -3644,7 +2992,6 @@ function processFateTurnTextOnly(params) {
     if (routeAnnounce && outcome === 'CONTINUE') {
       formattedStory += `\n\n${routeAnnounce}`;
     }
-    if (finalBossText) formattedStory += `\n\n${finalBossText}`;
     if (routeReports.length > 0) {
       const routeText = routeReports.join(' ');
       if (outcome === 'CONTINUE') formattedStory += `\n\n${routeText}`;
@@ -3662,10 +3009,6 @@ function processFateTurnTextOnly(params) {
       .map(fp => Object.assign({}, fp, { body: String(fp.body || fp.content || fp.text || '').trim().slice(0, 160) }))
       .filter(fp => fp.body)
       .slice(0, MAX_FORUM_POSTS_PER_TURN);
-    offscreenForumPosts.forEach((fp, i) => {
-      meta.phoneState.forumPosts.unshift({ id: `war_${turnNum}_${i}`, board: fp.board, author: fp.author, time: `Day ${row[6]}・${row[7]}`, title: fp.title, body: fp.body, isPlayer: false });
-      meta.phoneState.unreadCount = (Number(meta.phoneState.unreadCount) || 0) + 1;
-    });
     aiPosts.forEach((fp, i) => {
       const body = fp.body;
       meta.phoneState.forumPosts.unshift({
@@ -3687,8 +3030,6 @@ function processFateTurnTextOnly(params) {
       const fk = resolveFactionKey_(im && im.faction, currentFactions);
       const text = String((im && im.text) || '').trim().slice(0, 160);
       if (!fk || !text) return;
-      // 只有同盟陣營會主動傳訊到手機
-      if (!isAllianceStatusText_(currentFactions[fk])) return;
       const ch = getContactChannel_(fk);
       meta.phoneState.smsThreads = meta.phoneState.smsThreads || {};
       const th = meta.phoneState.smsThreads[fk] || (meta.phoneState.smsThreads[fk] = { factionName: fk, allied: isAllianceStatusText_(currentFactions[fk]), statusText: currentFactions[fk], lastDistressStatus: '', messages: [] });
@@ -3698,62 +3039,23 @@ function processFateTurnTextOnly(params) {
       // 主動傳訊等於給了聯絡管道，之後可以回覆
       meta.smsContacts = Object.assign({}, meta.smsContacts || {});
       if (!meta.smsContacts[fk]) meta.smsContacts[fk] = { addedTurn: turnNum };
-      incomingFrom.push({ fk, text, label: ch.label });
+      incomingFrom.push(fk);
     });
     meta.turnCount = turnNum;
 
     meta.inventory = updatedInventory;
 
-    const nowIdx = timeIndex_(row[6], row[7]);
-    const apptAdded = addAppointments_(meta, currentFactions, turnJson.appointments_add, nowIdx);
-    const apptRes = resolveAppointments_(meta, currentFactions, nowIdx, resolvedLoc.key);
-    const compRes = updateCompanions_(meta, currentFactions, apptAdded.length ? userAction.replace(/一起|跟我|同行|聯手|會合/g, '') : userAction, nowIdx,
-      (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => String((c && c.id) || '')),
-      apptRes.due.map(a => a.fk),
-      // 只看收服來的（副從者與名冊）；開局召喚的主從者可能和其他陣營同一個英靈 ID，不能算
-      [String(row[23] || '')].concat((meta.servantRoster || []).map(r => r.id)).filter(Boolean));
-
-    // AI 寫的情報裡若提到十二試煉的命數，一律改成伺服器的正確數字
-    if (turnJson.intel_updates && typeof turnJson.intel_updates === 'object' && meta.godHand) {
-      Object.keys(turnJson.intel_updates).forEach(k => {
-        if (!resolveFactionKey_(k, currentFactions) || !resolveFactionKey_(k, currentFactions).includes('愛因茲貝倫')) return;
-        turnJson.intel_updates[k] = String(turnJson.intel_updates[k] || '')
-          .replace(/(剩餘?|還剩|尚存)\s*\d+\s*條/g, `$1 ${GOD_HAND_LIVES_ - meta.godHand.lost} 條`)
-          .replace(/(失去|擊破|死了)\s*\d+\s*條/g, `$1 ${meta.godHand.lost} 條`);
-      });
-    }
-    const intelChanges = updateFactionIntel_(meta, currentFactions, {
-      presentIds: (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => String((c && c.id) || '')),
-      contactFacs: incomingFrom.map(m => m.fk),
-      aiIntel: (turnJson.intel_updates && typeof turnJson.intel_updates === 'object') ? turnJson.intel_updates : {},
-      when: `Day ${row[6]}・${row[7]}`
-    });
-
     // 每回合結算：把本回合造成的確實變化列出來，讓玩家看到行動的反饋（也存進紀錄）
     const summaryParts = [];
     const mpAfter = Number(row[15]);
     if (mpAfter !== statusObj.master.mp) summaryParts.push(`MP ${statusObj.master.mp}→${mpAfter}`);
-    favorChanges.forEach(c => summaryParts.push(`💗 ${c.fk.replace(/\s*\(.*\)$/, '')} 好感 ${c.before}→${c.after}（${favorLabel_(c.after)}）`));
-    apptAdded.forEach(a => summaryParts.push(`📅 約定：${companionDisplayName_(a.fk)} Day ${a.day}・${a.period} 在${a.place}集合`));
-    apptRes.missed.forEach(a => summaryParts.push(`😠 你沒有赴約，${a.fk.replace(/\s*\(.*\)$/, '')} 好感 −10`));
-    apptRes.cancelled.forEach(a => summaryParts.push(`📅 ${companionDisplayName_(a.fk)} 無法赴約（不再同盟或傷勢太重）`));
-    compRes.joined.forEach(k => summaryParts.push(apptRes.due.some(a => a.fk === k) ? `🤝 ${companionDisplayName_(k)} 依約前來，加入同行` : `🤝 ${companionDisplayName_(k)} 加入同行`));
-    compRes.left.forEach(c => summaryParts.push(`👋 ${companionDisplayName_(c.fk)} 離開隊伍（${c.reason}）`));
-    if (combatAssess && turnJson.is_combat) summaryParts.push(`⚔ 戰力判定：${combatAssess.level}（${combatAssess.reasons.join('、') || '條件相當'}）`);
-    if (ghRes.killed > 0) summaryParts.push(`⚔ 十二試煉：擊破 ${ghRes.killed} 條（${ghRes.method || '戰鬥'}），還剩 ${GOD_HAND_LIVES_ - meta.godHand.lost} 條`);
-    if (ghRes.blocked) summaryParts.push(`🛡 「${ghRes.blocked}」已經殺過 Berserker 一次，十二試煉讓他對這招免疫`);
-    if (restRecovered > 0) summaryParts.push(`💤 休息回復 +${restRecovered} MP（${resolvedLoc.key}）`);
     if (statusObj.gameMode === 'WAR' && Number(row[9]) !== statusObj.threatLevel) summaryParts.push(`警戒 ${statusObj.threatLevel}%→${row[9]}%`);
     if (nextBond !== statusObj.bondLevel) summaryParts.push(`好感 ${statusObj.bondLevel}→${nextBond}`);
-    if (bondLeave) summaryParts.push(`💔 ${bondLeaverName} 對你徹底失望，解約離去`);
-    else if (nextBond === 0 && row[17] && (toneKey === 'BALANCED' || toneKey === 'HARDCORE_WAR')) summaryParts.push(`⚠ ${row[19]} 的忍耐快到極限了（好感 0，再惹她 ${Math.max(1, 3 - (Number(meta.bondZeroStreak) || 0))} 回合就會解約；道歉、認真修行、好好相處可以挽回）`);
     if (Number(row[16]) !== statusObj.master.commandSpells) summaryParts.push(`令咒 ${statusObj.master.commandSpells}→${row[16]}`);
     if (String(row[10]) !== String(statusObj.location)) summaryParts.push(`移動至 ${resolvedLoc.key}`);
     if (String(meta.masterCondition) !== String(statusObj.master.condition)) summaryParts.push(`御主：${meta.masterCondition}`);
     if (String(meta.servantCondition) !== String(statusObj.servant1.condition)) summaryParts.push(`${statusObj.servant1.name}：${meta.servantCondition}`);
-    if (rosterSwap) summaryParts.push(rosterSwap.outName ? `🔄 ${rosterSwap.inName} 上場，${rosterSwap.outName} 回洋館待命` : `🔄 ${rosterSwap.inName} 上場`);
-    if (rosterAdded) summaryParts.push(`📜 ${rosterAdded} 收入英靈名冊（回洋館待命，在洋館說「讓${rosterAdded}上場」就能換）`);
-    else if (capturedServantId) summaryParts.push(`締結副契約：${row[25]}`);
+    if (capturedServantId) summaryParts.push(`締結副契約：${row[25]}`);
     (invResult.consumedIds || []).forEach(cid => {
       const it = (statusObj.inventory || []).find(x => x.id === cid);
       summaryParts.push(`使用 ${it ? it.name : cid}`);
@@ -3761,23 +3063,18 @@ function processFateTurnTextOnly(params) {
     if (invResult.addedCount > 0) {
       mergedGainedItems.forEach(g => { if (g && g.name) summaryParts.push(`獲得 ${g.name}`); });
     }
-    // 結算只列玩家「得知」的陣營變化（親眼所見、同盟、聯絡、劇情中打聽到），幕後變化不顯示
-    intelChanges.forEach(c => {
-      const nm = c.fk.replace(/\s*\(.*\)$/, '');
-      summaryParts.push(c.isNew ? `新勢力：${c.fk}（${c.text}）` : `${nm}→${c.text.slice(0, 24)}（${c.source}）`);
+    Object.keys(currentFactions).forEach(k => {
+      const before = statusObj.factions ? statusObj.factions[k] : undefined;
+      if (before !== currentFactions[k]) {
+        summaryParts.push(before === undefined ? `新勢力：${k}` : `${k.replace(/\s*\(.*\)$/, '')}→${String(currentFactions[k]).slice(0, 24)}`);
+      }
     });
     newContactNames.forEach(k => summaryParts.push(`📇 取得聯絡方式：${k.replace(/\s*\(.*\)$/, '')}`));
     changedLocations.forEach(k => summaryParts.push(`🏚 ${k} 現況改變：${String(meta.customLocationNotes[k]).slice(0, 30)}`));
     rumorRes.changes.forEach(c => summaryParts.push(`📢 流言${c}`));
     if (aiPosts.length > 0) summaryParts.push(`📱 論壇新增 ${aiPosts.length} 則目擊`);
-    const shortFac = k => k.replace(/\s*\(.*\)$/, '');
-    incomingFrom.forEach(m => summaryParts.push(`✉ ${shortFac(m.fk)}（${m.label}）：「${m.text.slice(0, 60)}${m.text.length > 60 ? '…' : ''}」→ 可在行動欄輸入「傳簡訊給${shortFac(m.fk).replace(/組$/, '')}：…」回覆`));
-    if (worldEvent.proactive && !incomingFrom.some(m => m.fk === worldEvent.proactive.faction)) {
-      summaryParts.push(`⚡ ${shortFac(worldEvent.proactive.faction)} 主動找上你（${worldEvent.proactive.action}），詳見上方劇情`);
-    }
-    if (statusObj.gameMode === 'WAR' && outcome === 'CONTINUE' && areAllRivalFactionsResolved_(currentFactions)) {
-      summaryParts.push('🏆 所有陣營都已擊敗、收服或結盟！前往圓藏山（柳洞寺）的大聖杯許下願望，就能迎來結局');
-    }
+    incomingFrom.forEach(k => summaryParts.push(`✉ ${k.replace(/\s*\(.*\)$/, '')} 傳來訊息（${getContactChannel_(k).label}）`));
+    if (worldEvent.proactive) summaryParts.push(`⚡ ${worldEvent.proactive.faction.replace(/\s*\(.*\)$/, '')} 主動行動`);
     if (summaryParts.length > 0 && outcome !== 'FATAL_DEATH') {
       formattedStory += `\n\n【本回合結算】${summaryParts.join('｜')}`;
     }
@@ -3837,8 +3134,7 @@ function processFateTurnTextOnly(params) {
       outcomeType: outcome,
       tigerDojoTip: turnJson.tiger_dojo_tip || '',
       imagePayload: imgPayload,
-      needImage: updatedStatus.autoImage,
-      bgmMood: pickBgmMood_(turnJson, updatedStatus, formattedStory, outcome, combatAssess)
+      needImage: updatedStatus.autoImage
     };
   } finally {
     if (lockHeld) lock.releaseLock();
@@ -4680,12 +3976,6 @@ function parseSaveRow_(row) {
     dynamicLocations: dynamicLocations,
     mapHotspot: mapHotspot,
     warTicker: String(meta.warTicker || ''),
-    warTickerPublic: String(meta.warTickerPublic || ''),
-    factionFavor: Object.fromEntries(Object.keys(safeJsonParse_(row[29], {})).map(k => [k, getFactionFavor_(meta, k)])),
-    appointments: Array.isArray(meta.appointments) ? meta.appointments.map(a => ({ name: companionDisplayName_(a.fk), day: a.day, period: a.period, place: a.place })) : [],
-    companions: Object.keys((meta.companions && typeof meta.companions === 'object') ? meta.companions : {}).map(k => ({ faction: k, name: companionDisplayName_(k) })),
-    godHand: (meta.godHand && typeof meta.godHand === 'object') ? meta.godHand : { lost: 0, methods: [] },
-    factionIntel: (meta.factionIntel && typeof meta.factionIntel === 'object') ? meta.factionIntel : initFactionIntel_(safeJsonParse_(row[29], {}), true),
     inventory: Array.isArray(meta.inventory) ? meta.inventory : [],
     phoneState: syncedPhone,
     master: {
@@ -4712,7 +4002,6 @@ function parseSaveRow_(row) {
       name: String(row[25]),
       condition: String(meta.servant2Condition || '靈基穩定')
     },
-    servantRoster: Array.isArray(meta.servantRoster) ? meta.servantRoster : [],
     outfits: parsedOutfits,
     factions: parsedFactions,
     memorySummary: String(row[30])
