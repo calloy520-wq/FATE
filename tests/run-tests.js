@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -233,6 +233,20 @@ eq('故事模式：不限制', T.gateFactionAlliance_('存活 (敵對獵殺)', '
 eq('休息意圖：睡覺', T.isRestAction_('我在洋館躺下好好睡一覺'), true);
 eq('休息意圖：冥想調息', T.isRestAction_('在靈脈節點冥想調息'), true);
 eq('一般行動不算休息', T.isRestAction_('前往柳洞寺偵查'), false);
+
+// ---- 十二試煉 ----
+const ghOpt = { berserkerPresent: true, isCombat: true, npUsed: false };
+let gh = T.applyGodHandHits_({ lost: 0, methods: [] }, { count: 3, method: '寶石炸藥' }, ghOpt);
+eq('一般手段一回合最多 1 條', [gh.killed, gh.godHand.lost], [1, 1]);
+gh = T.applyGodHandHits_(gh.godHand, { count: 1, method: '寶石炸藥' }, ghOpt);
+eq('同一手段第二次無效', [gh.killed, gh.blocked], [0, '寶石炸藥']);
+gh = T.applyGodHandHits_(gh.godHand, { count: 3, method: '死棘之槍' }, Object.assign({}, ghOpt, { npUsed: true }));
+eq('寶具最多 2 條', [gh.killed, gh.godHand.lost], [2, 3]);
+eq('沒開戰不算', T.applyGodHandHits_({ lost: 0 }, { count: 1, method: 'x' }, { berserkerPresent: true, isCombat: false }).killed, 0);
+eq('命數未歸零 → 不淘汰', T.gateGodHandElimination_('愛因茲貝倫組 (Berserker陣營)', '存活 (重創)', '已淘汰', { lost: 3 }), '存活 (重創・十二試煉尚存 9 條)');
+eq('伊莉雅被打倒 → 可以淘汰', T.gateGodHandElimination_('愛因茲貝倫組 (Berserker陣營)', '存活 (重創)', '已淘汰 (御主伊莉雅昏迷被俘)', { lost: 3 }), '已淘汰 (御主伊莉雅昏迷被俘)');
+eq('命數歸零 → 可以淘汰', T.gateGodHandElimination_('愛因茲貝倫組 (Berserker陣營)', '存活 (重創)', '已淘汰', { lost: 12 }), '已淘汰');
+eq('其他陣營不受影響', T.gateGodHandElimination_('遠坂組 (Archer陣營)', '存活 (重創)', '已淘汰', { lost: 0 }), '已淘汰');
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

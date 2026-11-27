@@ -1049,6 +1049,53 @@ function describeIntelForPrompt_(meta) {
     keys.map(k => `- ${k}：${intel[k].text}（${intel[k].source}${intel[k].when ? '・' + intel[k].when : ''}）`).join('\n');
 }
 
+// ==================== Berserker 十二試煉：命數與已無效的手段 ====================
+const GOD_HAND_LIVES_ = 12;
+
+// 依 AI 回報結算本回合擊破的命數：一般最多 1 條、寶具最多 2 條；殺過他的同一種手段不再有效
+function applyGodHandHits_(godHand, report, opts) {
+  const gh = { lost: Number((godHand && godHand.lost) || 0), methods: Array.isArray(godHand && godHand.methods) ? godHand.methods.slice() : [] };
+  const o = opts || {};
+  const res = { godHand: gh, killed: 0, method: '', blocked: '' };
+  if (!report || !o.berserkerPresent || !o.isCombat) return res;
+  let count = Math.max(0, Math.floor(Number(report.count) || 0));
+  const method = String(report.method || '').trim().slice(0, 20);
+  if (count <= 0) return res;
+  const norm = t => String(t || '').replace(/[\s「」『』（）()・，,。]/g, '');
+  if (method && gh.methods.some(m => norm(m) && (norm(m).includes(norm(method)) || norm(method).includes(norm(m))))) {
+    res.blocked = method;
+    return res;
+  }
+  count = Math.min(count, o.npUsed || /寶具/.test(method) ? 2 : 1, GOD_HAND_LIVES_ - gh.lost);
+  if (count <= 0) return res;
+  gh.lost += count;
+  if (method) gh.methods.push(method);
+  if (gh.methods.length > 12) gh.methods = gh.methods.slice(-12);
+  res.killed = count;
+  res.method = method;
+  return res;
+}
+
+// 命數還沒歸零時，愛因茲貝倫組不會因戰鬥淘汰（御主伊莉雅被打倒、投降、收服或結盟除外）
+function gateGodHandElimination_(factionKey, prevStatus, nextStatus, godHand) {
+  const next = String(nextStatus || '');
+  if (!String(factionKey || '').includes('愛因茲貝倫')) return next;
+  const lost = Number((godHand && godHand.lost) || 0);
+  if (lost >= GOD_HAND_LIVES_) return next;
+  const isKill = /淘汰|消滅|陣亡|擊潰|覆滅|戰敗|已死/.test(next) && !/收服|已歸屬第8組|原御主已退場/.test(next);
+  if (!isKill) return next;
+  if (/伊莉雅.*(死|俘|投降|退場|放棄|昏迷|失去)|御主.*(死|俘|投降|退場)/.test(next)) return next;
+  return `存活 (重創・十二試煉尚存 ${GOD_HAND_LIVES_ - lost} 條)`;
+}
+
+function describeGodHandForPrompt_(godHand, factionsObj) {
+  const fk = Object.keys(factionsObj || {}).find(k => k.includes('愛因茲貝倫'));
+  if (!fk || isCapturedOrDefeatedStatusText_(factionsObj[fk])) return '';
+  const lost = Number((godHand && godHand.lost) || 0);
+  const methods = (godHand && Array.isArray(godHand.methods)) ? godHand.methods : [];
+  return `【十二試煉】Berserker 還剩 ${GOD_HAND_LIVES_ - lost}/${GOD_HAND_LIVES_} 條命${methods.length ? `；已殺過他、對他不再有效的手段：${methods.join('、')}` : ''}。每回合最多擊破 1 條（A 級以上寶具最多 2 條），同一種手段不能殺他兩次；命數歸零前不會退場，除非御主伊莉雅被打倒、投降或放棄。玩家這邊確實殺死他一次時，填 berserker_lives_lost。`;
+}
+
 // 玩家本回合是不是在休息（睡覺、冥想、調息…）
 function isRestAction_(text) {
   return /休息|睡覺|睡一覺|補眠|小睡|就寢|冥想|調息|靜養|休養|養傷|打坐|恢復魔力|回復魔力|回魔/.test(String(text || ''));
@@ -2644,6 +2691,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '  "rumor_updates": [{ "id": "既有流言ID（新傳聞留空）", "text": "新傳聞才填：傳聞內容", "status": "擴散中 / 已被識破 / 已被證實 / 已平息", "believers": [], "doubters": [], "effect": "30字內影響" }],',
   '  "new_contacts": [],',
   '  "intel_updates": {},',
+  '  "berserker_lives_lost": { "count": 0, "method": "殺死他的手段（10字內）" },',
   '  "route_tendency_delta": { "fate": 0, "ubw": 0, "hf": 0, "shadow": 0, "conquest": 0 },',
   '  "location_changes": {},',
   '  "incoming_messages": [{ "faction": "陣營名稱", "text": "其他陣營主動傳給玩家的訊息（80字內）" }],',
@@ -2806,6 +2854,7 @@ function processFateTurnTextOnly(params) {
       `【七組陣營狀態（幕後真相，推演前必先對照，同盟陣營須彼此照應；角色只知道自己見過或打聽到的部分）】${JSON.stringify(statusObj.factions)}`,
       describeWarStateForPrompt_(statusObj.factions, statusObj.master.mp, statusObj.master.maxMp, statusObj.gameMode),
       describeIntelForPrompt_({ factionIntel: metaBefore.factionIntel || initFactionIntel_(statusObj.factions, true) }),
+      describeGodHandForPrompt_(metaBefore.godHand, statusObj.factions),
       describeRyuudouRoute_(metaBefore),
       `【長期記憶前情提要】${statusObj.memorySummary}`,
       `【重要事件與伏筆清單（約定、結盟原因、恩怨、未解之謎；請保持連貫）】\n${keyEventsText}`,
@@ -2865,13 +2914,20 @@ function processFateTurnTextOnly(params) {
     }
 
     let currentFactions = safeJsonParse_(row[29], {});
+    // 十二試煉：先結算本回合擊破的命數，再讓陣營更新經過命數把關
+    const ghRes = applyGodHandHits_(meta.godHand, turnJson.berserker_lives_lost, {
+      berserkerPresent: (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).some(c => c && c.id === 'berserker'),
+      isCombat: Boolean(turnJson.is_combat),
+      npUsed: (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).some(c => c && c.use_np && c.id !== 'berserker')
+    });
+    meta.godHand = ghRes.godHand;
     if (turnJson.faction_updates && typeof turnJson.faction_updates === 'object') {
       Object.keys(turnJson.faction_updates).forEach(fname => {
         const val = String(turnJson.faction_updates[fname] || '').trim();
         const realKey = resolveFactionKey_(fname, currentFactions);
         if (val && realKey) {
           const prevSt = String(currentFactions[realKey] || '');
-          const nextSt = gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val.slice(0, 120)), toneKey);
+          const nextSt = gateGodHandElimination_(realKey, prevSt, gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val.slice(0, 120)), toneKey), meta.godHand);
           // 已淘汰的陣營不會復活；唯一例外是教會亮出隱藏王牌吉爾伽美什（只有一次）
           const wasOut = isCapturedOrDefeatedStatusText_(prevSt) && !/收服|已歸屬第8組/.test(prevSt);
           if (wasOut && !isCapturedOrDefeatedStatusText_(nextSt)) {
@@ -3252,6 +3308,8 @@ function processFateTurnTextOnly(params) {
     const summaryParts = [];
     const mpAfter = Number(row[15]);
     if (mpAfter !== statusObj.master.mp) summaryParts.push(`MP ${statusObj.master.mp}→${mpAfter}`);
+    if (ghRes.killed > 0) summaryParts.push(`⚔ 十二試煉：擊破 ${ghRes.killed} 條（${ghRes.method || '戰鬥'}），還剩 ${GOD_HAND_LIVES_ - meta.godHand.lost} 條`);
+    if (ghRes.blocked) summaryParts.push(`🛡 「${ghRes.blocked}」已經殺過 Berserker 一次，十二試煉讓他對這招免疫`);
     if (restRecovered > 0) summaryParts.push(`💤 休息回復 +${restRecovered} MP（${resolvedLoc.key}）`);
     if (statusObj.gameMode === 'WAR' && Number(row[9]) !== statusObj.threatLevel) summaryParts.push(`警戒 ${statusObj.threatLevel}%→${row[9]}%`);
     if (nextBond !== statusObj.bondLevel) summaryParts.push(`好感 ${statusObj.bondLevel}→${nextBond}`);
@@ -4204,6 +4262,7 @@ function parseSaveRow_(row) {
     mapHotspot: mapHotspot,
     warTicker: String(meta.warTicker || ''),
     warTickerPublic: String(meta.warTickerPublic || ''),
+    godHand: (meta.godHand && typeof meta.godHand === 'object') ? meta.godHand : { lost: 0, methods: [] },
     factionIntel: (meta.factionIntel && typeof meta.factionIntel === 'object') ? meta.factionIntel : initFactionIntel_(safeJsonParse_(row[29], {}), true),
     inventory: Array.isArray(meta.inventory) ? meta.inventory : [],
     phoneState: syncedPhone,

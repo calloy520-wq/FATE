@@ -2469,7 +2469,11 @@
         const row = document.createElement('div');
         row.style.cssText = 'padding: 8px 12px; background: var(--bg-card); border: 1px solid var(--border-dim); border-radius: 8px; display:flex; justify-content:space-between; gap:10px;';
         const unknown = !it.text || it.text === '不明';
-        row.innerHTML = `<strong>${escapeHtml(k)}</strong><span style="text-align:right;"><span style="color: ${unknown ? 'var(--text-muted)' : 'var(--gold-bright)'};">${escapeHtml(it.text || '不明')}</span>${it.when || it.source ? `<br><span style="font-size:11px; color: var(--text-muted);">${escapeHtml([it.source, it.when].filter(Boolean).join('・'))}</span>` : ''}</span>`;
+        const gh = currentState.godHand || {};
+        const ghLine = (k.includes('愛因茲貝倫') && Number(gh.lost) > 0)
+          ? `<br><span style="font-size:11.5px; color:#fca5a5;">⚔ 十二試煉：已擊破 ${Number(gh.lost)}／12${(gh.methods || []).length ? `（免疫：${escapeHtml(gh.methods.join('、'))}）` : ''}</span>`
+          : '';
+        row.innerHTML = `<strong>${escapeHtml(k)}</strong><span style="text-align:right;"><span style="color: ${unknown ? 'var(--text-muted)' : 'var(--gold-bright)'};">${escapeHtml(it.text || '不明')}</span>${it.when || it.source ? `<br><span style="font-size:11px; color: var(--text-muted);">${escapeHtml([it.source, it.when].filter(Boolean).join('・'))}</span>` : ''}${ghLine}</span>`;
         box.appendChild(row);
       });
 
