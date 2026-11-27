@@ -206,6 +206,7 @@ eq('戰局：魔力枯竭提示', /魔力枯竭/.test(T.describeWarStateForPromp
 eq('戰局：日常模式不提示', T.describeWarStateForPrompt_({}, 0, 140, 'SANDBOX'), '');
 
 // ---- 情報檔案：知道與不知道分開 ----
+eq('對外狀態去掉巢狀括號的幕後細節', T.publicIntelText_('交戰負傷・休整中 (曾於愛因茲貝倫森林與 衛宮組 (Saber陣營) 激戰)'), '交戰負傷・休整中');
 eq('對外狀態去掉幕後細節', T.publicIntelText_('已淘汰 (於 Day 3 白天 在愛因茲貝倫森林遭 教會組 擊潰)'), '已淘汰');
 const facsI = { '衛宮組 (Saber陣營)': '存活 (同盟)', '間桐組 (Rider陣營)': '存活 (隱蔽觀察)', '教會組 (Lancer陣營)': '存活 (敵對暗算)', '遠坂組 (Archer陣營)': '存活 (中立試探)' };
 const intel0 = T.initFactionIntel_(facsI, false);

@@ -982,7 +982,8 @@ const CHAR_FACTION_MARKERS_ = {
 
 // 對外看得到的狀態：去掉幕後細節（例如「曾於某地與某組激戰」「遭某組擊潰」）
 function publicIntelText_(statusStr) {
-  return String(statusStr || '').replace(/\s*\((曾於|於\s*Day|於)[^)]*\)/g, '').trim() || '不明';
+  // 幕後細節括號裡常有巢狀括號（例如「(曾於森林與 衛宮組 (Saber陣營) 激戰)」），從開頭一路刪到結尾
+  return String(statusStr || '').replace(/\s*\((曾於|於\s*Day|於|遭)[\s\S]*$/, '').trim() || '不明';
 }
 
 function initFactionIntel_(factionsObj, fromTruth) {
