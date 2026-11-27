@@ -39,7 +39,7 @@
 
 ## NovelAI 繪圖
 - 主提示詞放人數標籤（`2girls, 1boy, multiple characters`）；角色欄位一律以 `girl`／`boy` 開頭，不放 `1girl`、`solo`（`normalizeCharCoreForNai_`）。
-- 成人模式（`Players_Save` F 欄、設定視窗開關）開啟且畫面有裸露時，主提示詞加 `nsfw`；關閉時維持原本行為。
+- 成人模式（`Players_Save` F 欄、設定視窗開關）**預設開啟**（新角色預設 TRUE；既有存檔已一次性設為 TRUE，記錄在指令碼屬性 `FATE_ADULT_DEFAULT_APPLIED`，不會再覆蓋玩家之後的選擇）。只有畫面有裸露時才加 `nsfw`，普通場面不加；關閉時不加。
 - 視覺導演取劇情「開頭＋結尾」摘錄，以結尾（最新畫面）為準；服裝欄不得含髮色、瞳色、體型。
 
 ## 讀取與快取

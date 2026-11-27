@@ -38,7 +38,7 @@ const MAX_FORUM_POSTS = 25;
 const META_JSON_SOFT_LIMIT = 45000;
 
 // 試算表結構版本：只有版本號變動時才會執行一次「試算表自動升級」，不再每回合檢查
-const SCHEMA_VERSION_ = '2026-11-27-headers';
+const SCHEMA_VERSION_ = '2026-11-27-adult-on';
 const MAX_KEY_EVENTS = 15;
 const CHATLOG_PAYLOAD_KEEP = 6;
 // 設定類分頁（角色／世界書／陣營）快取秒數；CacheService 上限 6 小時
@@ -933,6 +933,12 @@ function ensureFactionsAndPoolUpgraded_(ss) {
       32: '遊戲狀態meta JSON (勝敗/背包/手機/回合數/路線/重要事件)'
     };
     Object.keys(headerFixes).forEach(col => saveSheetH.getRange(1, Number(col)).setValue(headerFixes[col]));
+    const lastSaveRow = saveSheetH.getLastRow();
+    if (lastSaveRow >= 2 && PropertiesService.getScriptProperties().getProperty('FATE_ADULT_DEFAULT_APPLIED') !== 'TRUE') {
+      const fCol = saveSheetH.getRange(2, 6, lastSaveRow - 1, 1);
+      fCol.setValues(fCol.getValues().map(() => ['TRUE']));
+      PropertiesService.getScriptProperties().setProperty('FATE_ADULT_DEFAULT_APPLIED', 'TRUE');
+    }
   }
 
   const charSheet = ss.getSheetByName('Char_Appearance');
@@ -1514,7 +1520,7 @@ function startNewGame(playerName) {
       'CHAR_CREATION',
       'WAR',
       'TRUE',
-      'FALSE',
+      'TRUE',
       1,
       '深夜',
       3,
