@@ -309,5 +309,14 @@ eq('用名字也可以', T.findRosterSwapTarget_('今天帶美狄亞出門', ros
 eq('不在洋館不能換', T.findRosterSwapTarget_('讓 Rider 上場', rosterR, dbR, '新都商業區'), '');
 eq('只是提到名字不算換人', T.findRosterSwapTarget_('問 Rider 今天吃什麼', rosterR, dbR, '廢棄洋館'), '');
 
+// ---- GAS 會把網頁 JS 裡的雙斜線（含字串內）當註解刪掉：模擬刪除後仍要能正常解析 ----
+{
+  const html = fs.readFileSync(path.join(__dirname, '..', 'Index.html'), 'utf8');
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+  let okParse = true, why = '';
+  scripts.forEach((code, i) => { try { new Function(code.replace(/\/\/.*$/gm, '')); } catch (e) { okParse = false; why = `script ${i}: ${e.message}`; } });
+  eq('Index.html 在 GAS 刪除雙斜線註解後仍能解析' + (why ? `（${why}）` : ''), okParse, true);
+}
+
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);
