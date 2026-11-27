@@ -1541,6 +1541,8 @@ function segmentDialogue_(par, names, playerName) {
   };
   const isSpeech = (q, prevChar, nextChar) => {
     if (/^[的之般似]$/.test(nextChar || '')) return false; // 「……」的警告意味 → 句中引用
+    // 夾在句子中間的短詞引用（前後都是一般文字、裡面沒有句末標點），例如「這種「將自身當作消耗品」行為」
+    if (q.length <= 12 && !/[。！？…]/.test(q) && /[\u4e00-\u9fff]/.test(prevChar || '') && /[\u4e00-\u9fff]/.test(nextChar || '')) return false;
     return /[，。！？…、～—]/.test(q) || q.length >= 8 || prevChar === '：' || prevChar === ':';
   };
 

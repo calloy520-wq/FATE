@@ -220,5 +220,7 @@ eq('幕後淘汰沒見到 → 仍不明', metaI.factionIntel['間桐組 (Rider�
 ch = T.updateFactionIntel_(metaI, facs2, { aiIntel: { '間桐組': '聽說 Rider 陣營在森林被打敗了' }, when: 'Day 4・白天' });
 eq('劇情中打聽到 → 記錄玩家得知的內容', [metaI.factionIntel['間桐組 (Rider陣營)'].text, metaI.factionIntel['間桐組 (Rider陣營)'].source], ['聽說 Rider 陣營在森林被打敗了', '情報']);
 
+eq('句中短詞引用不當台詞', /斯卡哈：「將自身當作消耗品」/.test(T.formatNovelStoryText_('她的眼中閃過一絲對御主這種「將自身當作消耗品」行為的複雜情緒。', ['斯卡哈'], '', '測試者')), false);
+
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);
