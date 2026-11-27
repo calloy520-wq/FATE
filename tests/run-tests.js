@@ -225,6 +225,7 @@ eq('句中短詞引用不當台詞', /斯卡哈：「將自身當作消耗品」
 // ---- 結盟分階段 ----
 eq('結盟談判中不算同盟', T.isAllianceStatusText_('存活 (中立・結盟談判中)'), false);
 eq('同盟解除不算同盟', T.isAllianceStatusText_('存活 (同盟解除)'), false);
+eq('結盟嘗試中不算同盟', T.isAllianceStatusText_('存活 (態度軟化・結盟嘗試中)'), false);
 eq('盟友也算同盟', T.isAllianceStatusText_('存活 (盟友・戰爭結束)'), true);
 eq('同盟・合作中算同盟', T.isAllianceStatusText_('存活 (同盟・合作中)'), true);
 eq('常理：敵對一回合變同盟 → 降為談判中', T.gateFactionAlliance_('存活 (敵對獵殺)', '存活 (同盟)', 'BALANCED'), '存活 (態度軟化・談判中)');
