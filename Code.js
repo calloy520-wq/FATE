@@ -1361,8 +1361,19 @@ function simulateOffscreenFactionWar_(factionsObj, day, period, ownedServantIds)
     report = `【戰況速報】${facA} 與 ${facB} 在${battleSite}深夜交鋒，雙方各自負傷後撤退！`;
   }
 
+  // 玩家看到的只有市民也看得到的異象（不寫陣營名稱與勝負）；完整戰況只給 GM 當幕後真相
+  const publicSigns = {
+    '冬木大橋': ['大橋上傳出爆炸般的巨響', '有人說看到兩道光在大橋鋼梁上高速交錯，隔天橋面多了好幾道裂痕'],
+    '柳洞寺': ['圓藏山半夜一直有閃光', '山門那邊傳出像打雷一樣的聲音，寺裡的人說什麼都沒發生'],
+    '新都商業區': ['新都大樓之間有怪光', '凌晨有好幾棟大樓的玻璃同時碎掉，新聞說是瓦斯氣爆'],
+    '衛宮邸': ['深山町那棟日式老宅好吵', '半夜聽到金屬撞擊的聲音，圍牆好像塌了一角'],
+    '遠坂邸': ['坡上的洋館附近有怪聲', '半夜有紅光跟爆炸聲，早上去看庭院樹倒了好幾棵'],
+    '愛因茲貝倫森林': ['郊外森林半夜在震動', '開車經過郊外的時候看到森林裡一整片樹倒下，還有像巨人吼叫的聲音']
+  }[battleSite] || ['半夜的怪聲', '昨晚好像有什麼東西爆炸了'];
   return {
     report: report,
+    publicReport: `【遠方異象】${battleSite}一帶昨夜傳出巨響與閃光${isElimination ? '，之後魔力反應突然消失了一股' : ''}（冬木論壇已有目擊）。`,
+    forumPost: { board: '冬木都市怪談板', author: '匿名目擊者', title: publicSigns[0], body: publicSigns[1] },
     hotspotKey: battleSite,
     updatedFactions: updated
   };
@@ -2476,6 +2487,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 魔術必須隱匿：在人多的地方或白天公開交戰，會引來聖堂教會善後、警方與其他陣營的注意（論壇也會出現目擊）。聖杯戰爭主要在夜間進行，白天是日常、調查與佈局。',
   '- 陣地優勢：在敵方工房、結界或陣地內作戰極為不利；Caster 的陣地與山門結界尤其危險。',
   '- 從者戰力依原作：每騎都是傳說級英雄，打倒一騎要靠情報、弱點、地利、寶具與犧牲累積，通常要好幾回合（偵查→削弱→決戰）；Berserker 的十二試煉要多次致命傷或高階寶具才能突破，吉爾伽美什的王之財寶近乎無窮。一次漂亮的行動可以重創對手、逼退對手，但不會讓滿狀態的從者當場退場。',
+  '- 不硬塞情報：吃飯、休息、閒聊等日常場景就好好寫日常，不要讓從者主動報告戰況；角色只會提到確實得知的事（親眼所見、使魔回報、論壇、聯絡），而且只知道得到的那部分。玩家主動問起或去打聽時，才依情報來源回答。',
   '- 感知有極限：從者的氣息感知大約只到數百公尺，只能察覺「附近有從者、魔力大概多強、是否有敵意」，無法隔著整座城市辨認其他陣營在哪、是誰、什麼職階。遠方的事只能透過使魔、目擊、情報、論壇風聲得知；Assassin 的氣息遮斷甚至能完全避開感知。',
   '- 隱藏真相（大聖杯的汙染、此世之惡、言峰綺禮的真面目等）只在玩家深入調查時逐步揭露，不要一次說破。',
   '- 時代是 2004 年的日本冬木市：手機是翻蓋手機（只能通話、簡訊、手機郵件、低畫質相機），沒有智慧型手機、LINE、社群網站或觸控螢幕；網路論壇用電腦或手機網頁瀏覽。',
@@ -2687,13 +2699,13 @@ function processFateTurnTextOnly(params) {
       turnSettingsBlock,
       `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}% | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
       `【當前場地現況】${statusObj.locationInfo.desc}`,
-      `【近期戰況速報】${statusObj.warTicker}`,
+      `【幕後戰況（只有 GM 知道；玩家與從者不知道哪些陣營交手、誰勝誰負，只能透過論壇目擊、使魔、聯絡或親自調查慢慢得知）】${statusObj.warTicker}`,
       `【御主(${cleanName})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
       `【御主固定六維等階】魔術迴路:${p.circuit} | 近戰體術:${p.combat} | 隱藏氣息:${p.stealth} | 幸運:${p.luck}`,
       `【主從者】ID:${statusObj.servant1.id} (${statusObj.servant1.class}・${statusObj.servant1.name}) | 羈絆好感:${statusObj.bondLevel}/100 | 靈基狀態:${statusObj.servant1.condition}`,
       statusObj.servant2.id ? `【副從者】ID:${statusObj.servant2.id} (${statusObj.servant2.class}・${statusObj.servant2.name}) | 靈基狀態:${statusObj.servant2.condition || '靈基穩定'}` : '【副從者】無',
       `【相關角色目前穿著（未列出者為預設服裝）】${JSON.stringify(relevantOutfits)}`,
-      `【七組陣營狀態（推演前必先對照，同盟陣營須彼此照應）】${JSON.stringify(statusObj.factions)}`,
+      `【七組陣營狀態（幕後真相，推演前必先對照，同盟陣營須彼此照應；角色只知道自己見過或打聽到的部分）】${JSON.stringify(statusObj.factions)}`,
       describeWarStateForPrompt_(statusObj.factions, statusObj.master.mp, statusObj.master.maxMp, statusObj.gameMode),
       describeRyuudouRoute_(metaBefore),
       `【長期記憶前情提要】${statusObj.memorySummary}`,
@@ -2823,6 +2835,7 @@ function processFateTurnTextOnly(params) {
     let mpDelta = Number(turnJson.master_mp_delta) || 0;
     let periodAdvancedNotice = '';
     let latestWarReport = '';
+    const offscreenForumPosts = [];
 
     if (statusObj.gameMode === 'WAR') {
       const apCost = Math.max(0, Math.min(3, Number(turnJson.ap_cost) || 0));
@@ -2841,6 +2854,7 @@ function processFateTurnTextOnly(params) {
 
         // 玩家的第8組是獨立陣營，不再以「持有英靈ID」排除原敵對陣營；已收服者已由狀態文字排除
         const warSim = simulateOffscreenFactionWar_(currentFactions, nextTime.day, nextTime.period, []);
+        // （offscreenForumPosts 在下方論壇段落寫入手機）
         currentFactions = warSim.updatedFactions;
         routeRes = updateRyuudouRoute_(meta, currentFactions, [], '', new Set());
         currentFactions = routeRes.factions;
@@ -2849,7 +2863,9 @@ function processFateTurnTextOnly(params) {
         if (warSim.report) {
           latestWarReport = warSim.report;
           meta.warTicker = warSim.report;
-          periodAdvancedNotice += `\n${warSim.report}`;
+          meta.warTickerPublic = warSim.publicReport || warSim.report;
+          periodAdvancedNotice += `\n${warSim.publicReport || warSim.report}`;
+          if (warSim.forumPost) offscreenForumPosts.push(warSim.forumPost);
         }
       }
       row[8] = newAp;
@@ -3078,6 +3094,10 @@ function processFateTurnTextOnly(params) {
       .map(fp => Object.assign({}, fp, { body: String(fp.body || fp.content || fp.text || '').trim().slice(0, 160) }))
       .filter(fp => fp.body)
       .slice(0, MAX_FORUM_POSTS_PER_TURN);
+    offscreenForumPosts.forEach((fp, i) => {
+      meta.phoneState.forumPosts.unshift({ id: `war_${turnNum}_${i}`, board: fp.board, author: fp.author, time: `Day ${row[6]}・${row[7]}`, title: fp.title, body: fp.body, isPlayer: false });
+      meta.phoneState.unreadCount = (Number(meta.phoneState.unreadCount) || 0) + 1;
+    });
     aiPosts.forEach((fp, i) => {
       const body = fp.body;
       meta.phoneState.forumPosts.unshift({
@@ -4069,6 +4089,7 @@ function parseSaveRow_(row) {
     dynamicLocations: dynamicLocations,
     mapHotspot: mapHotspot,
     warTicker: String(meta.warTicker || ''),
+    warTickerPublic: String(meta.warTickerPublic || ''),
     inventory: Array.isArray(meta.inventory) ? meta.inventory : [],
     phoneState: syncedPhone,
     master: {

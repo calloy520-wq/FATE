@@ -1911,7 +1911,7 @@
       if (currentState && currentState.dynamicLocations) {
         mapLocationsCache = currentState.dynamicLocations;
       }
-      document.getElementById('map-war-ticker').innerText = `📡 ${currentState.warTicker || '冬木市結界監測正常。'}`;
+      document.getElementById('map-war-ticker').innerText = `📡 ${currentState.warTickerPublic || '冬木市目前沒有聽到什麼異狀。'}`;
       selectedMapKey = currentState.locationKey || '廢棄洋館';
       renderFuyukiMapNodes();
       selectMapNode(selectedMapKey);
