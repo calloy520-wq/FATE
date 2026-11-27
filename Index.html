@@ -548,6 +548,38 @@
       font-weight: 500;
     }
 
+    .novel-summary {
+      margin-top: 6px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px dashed rgba(56, 189, 248, 0.45);
+      color: #bae6fd;
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .novel-system {
+      margin-bottom: 13px;
+      color: #fca5a5;
+      font-size: 14px;
+    }
+    .rumor-item {
+      background: #121a22;
+      border: 1px solid #2b3d50;
+      border-radius: 8px;
+      padding: 7px 10px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: #e2e8f0;
+    }
+    .rumor-tag {
+      display: inline-block;
+      font-size: 10.5px;
+      padding: 0 6px;
+      border-radius: 4px;
+      margin-right: 4px;
+      border: 1px solid #475569;
+    }
     .ending-banner {
       background: linear-gradient(135deg, rgba(153, 27, 27, 0.25) 0%, rgba(19, 21, 32, 0.95) 100%);
       border: 1px solid var(--crimson);
@@ -1018,14 +1050,18 @@
               <input type="text" id="bbs-body-input" maxlength="140" placeholder="在 2004 留言板留下風聲或試探消息..." style="padding:7px 10px; font-size:12.5px;" onkeydown="if(event.key==='Enter') submitForumPost()" />
               <button class="btn btn-sm btn-crimson" type="button" onclick="submitForumPost()">發帖</button>
             </div>
+            <label style="font-size:12px; color:#fca5a5; display:flex; align-items:center; gap:6px; cursor:pointer;">
+              <input type="checkbox" id="bbs-fake-check" /> 🎭 這是我刻意放出的假消息（會追蹤誰相信、誰識破）
+            </label>
           </div>
+          <div id="phone-rumor-list" style="margin-bottom:10px;"></div>
           <div id="phone-forum-list" style="max-height: 290px; overflow-y: auto;"></div>
         </div>
 
         <!-- 分頁 2：結盟簡訊 -->
         <div id="phone-view-sms" class="hidden">
           <div style="font-size: 12px; color: #7dd3fc; margin-bottom: 8px;">
-            ※ 僅與「同盟／結盟／合作／互助」陣營可建立穩定簡訊聯絡；傳訊求援或協同會連動至陣營動向與劇情。
+            ※ 同盟陣營，以及在劇情中交換過聯絡方式的陣營（📇）可以傳簡訊。簡訊內容與對方反應會連動到下一回合的劇情與陣營動向。
           </div>
           <div class="form-group" style="margin-bottom: 8px;">
             <select id="sms-ally-select" onchange="renderSmsThread()" style="padding: 7px 10px; font-size: 12.5px;"></select>
@@ -1035,6 +1071,9 @@
             <input type="text" id="sms-message-input" maxlength="140" placeholder="輸入簡訊（例如：我們這邊準備支援，你們撐住！）" style="padding: 7px 10px; font-size: 12.5px;" onkeydown="if(event.key==='Enter') submitSmsMessage()" />
             <button class="btn btn-sm btn-crimson" type="button" onclick="submitSmsMessage()">傳送</button>
           </div>
+          <label style="font-size:12px; color:#fca5a5; display:flex; align-items:center; gap:6px; cursor:pointer; margin-top:6px;">
+            <input type="checkbox" id="sms-fake-check" /> 🎭 假情報（對方不知情，會依角色精明程度決定信不信）
+          </label>
         </div>
       </div>
     </div>
@@ -1630,7 +1669,25 @@
       document.getElementById('tab-phone-sms').className = !isForum ? 'btn btn-sm btn-crimson' : 'btn btn-sm';
     }
 
+    function renderRumorTracker() {
+      const box = document.getElementById('phone-rumor-list');
+      if (!box || !currentState) return;
+      const rumors = Array.isArray(currentState.rumors) ? currentState.rumors.slice().reverse() : [];
+      if (rumors.length === 0) { box.innerHTML = ''; return; }
+      const stColor = { '擴散中': '#fde047', '已被識破': '#fca5a5', '已被證實': '#6ee7b7', '已平息': '#94a3b8' };
+      const short = k => String(k || '').replace(/\s*\(.*\)$/, '');
+      box.innerHTML = `<div style="font-size:12px; font-weight:800; color:#fde047; margin-bottom:5px;">📢 流言追蹤</div>` + rumors.map(r => `
+        <div class="rumor-item">
+          <span class="rumor-tag" style="color:${stColor[r.status] || '#e2e8f0'}; border-color:${stColor[r.status] || '#475569'};">${escapeHtml(r.status)}</span>
+          ${r.isFake ? '<span class="rumor-tag" style="color:#fca5a5; border-color:#fca5a5;">🎭 假消息</span>' : ''}
+          <span style="color:#7dd3fc;">[${escapeHtml(r.channel)}]</span> ${escapeHtml(r.text)}
+          <div style="margin-top:3px; color:#94a3b8;">相信：${escapeHtml((r.believers || []).map(short).join('、') || '—')} ｜ 懷疑／識破：${escapeHtml((r.doubters || []).map(short).join('、') || '—')}</div>
+          ${r.effect ? `<div style="color:#bae6fd;">影響：${escapeHtml(r.effect)}</div>` : ''}
+        </div>`).join('');
+    }
+
     function renderPhoneForum() {
+      renderRumorTracker();
       const listEl = document.getElementById('phone-forum-list');
       if (!listEl) return;
       const posts = (currentState && currentState.phoneState && Array.isArray(currentState.phoneState.forumPosts))
@@ -1643,7 +1700,7 @@
       listEl.innerHTML = posts.map(p => `
         <div class="bbs-post">
           <div class="bbs-post-head">
-            <span><strong>[${escapeHtml(p.board || '冬木論壇')}]</strong> ${escapeHtml(p.author || '匿名')}</span>
+            <span><strong>[${escapeHtml(p.board || '冬木論壇')}]</strong> ${escapeHtml(p.author || '匿名')}${p.fake ? ' <span style="color:#fca5a5;">🎭</span>' : ''}</span>
             <span>${escapeHtml(p.time || '')}</span>
           </div>
           <div style="font-weight:700; color:#fde047; font-size:13px; margin-bottom:3px;">${escapeHtml(p.title || '')}</div>
@@ -1656,6 +1713,7 @@
       if (!currentState) return;
       const titleVal = document.getElementById('bbs-title-input').value.trim();
       const bodyVal = document.getElementById('bbs-body-input').value.trim();
+      const isFake = document.getElementById('bbs-fake-check').checked;
       if (!bodyVal) {
         showNotice('phone-notice-box', '請先輸入留言內容再發帖！', true);
         return;
@@ -1668,6 +1726,7 @@
           currentState = updatedStatus;
           document.getElementById('bbs-title-input').value = '';
           document.getElementById('bbs-body-input').value = '';
+          document.getElementById('bbs-fake-check').checked = false;
           refreshStatusUI();
           renderPhoneForum();
         })
@@ -1675,7 +1734,7 @@
           hideLoading();
           showNotice('phone-notice-box', err.message, true);
         })
-        .postFuyukiForumMessage(currentState.playerName, titleVal, bodyVal);
+        .postFuyukiForumMessage(currentState.playerName, titleVal, bodyVal, isFake);
     }
 
     function renderSmsSelectorAndThread() {
@@ -1690,19 +1749,25 @@
       allKeys.forEach(facName => {
         const stText = String(factions[facName] || '');
         const isAllied = /同盟|結盟|停戰|互助|合作|友方/.test(stText);
+        const isContact = Boolean((currentState.smsContacts || {})[facName]);
         const opt = document.createElement('option');
         opt.value = facName;
-        opt.textContent = isAllied ? `🤝 [已結盟] ${facName}` : `🔒 [未結盟] ${facName}`;
+        opt.textContent = isAllied ? `🤝 [同盟] ${facName}` : (isContact ? `📇 [聯絡人] ${facName}` : `🔒 [無聯絡方式] ${facName}`);
         sel.appendChild(opt);
       });
 
       if (prevVal && allKeys.includes(prevVal)) {
         sel.value = prevVal;
       } else {
-        const firstAllied = allKeys.find(k => /同盟|結盟|停戰|互助|合作|友方/.test(String(factions[k] || '')));
-        if (firstAllied) sel.value = firstAllied;
+        const firstOk = allKeys.find(k => canSmsTo(k));
+        if (firstOk) sel.value = firstOk;
       }
       renderSmsThread();
+    }
+
+    function canSmsTo(facName) {
+      const stText = String((currentState.factions || {})[facName] || '');
+      return /同盟|結盟|停戰|互助|合作|友方/.test(stText) || Boolean((currentState.smsContacts || {})[facName]);
     }
 
     function renderSmsThread() {
@@ -1712,12 +1777,11 @@
       const facName = sel.value;
       const factions = currentState.factions || {};
       const stText = String(factions[facName] || '');
-      const isAllied = /同盟|結盟|停戰|互助|合作|友方/.test(stText);
       const threads = (currentState.phoneState && currentState.phoneState.smsThreads) || {};
       const msgs = (threads[facName] && Array.isArray(threads[facName].messages)) ? threads[facName].messages : [];
 
-      if (!isAllied) {
-        box.innerHTML = `<div style="color:#fca5a5; font-size:12.5px; padding:10px;">⚠️ 「${escapeHtml(facName)}」目前尚未與第8組結盟（狀態：${escapeHtml(stText || '未知')}），無法建立穩定簡訊聯絡。</div>`;
+      if (!canSmsTo(facName)) {
+        box.innerHTML = `<div style="color:#fca5a5; font-size:12.5px; padding:10px;">🔒 還沒有「${escapeHtml(facName)}」的聯絡方式（狀態：${escapeHtml(stText || '未知')}）。結盟，或在劇情中跟對方交換手機號碼後就能傳訊。</div>`;
         return;
       }
       if (msgs.length === 0) {
@@ -1728,7 +1792,7 @@
       box.innerHTML = msgs.map(m => `
         <div class="sms-msg ${m.fromPlayer ? 'outgoing' : 'incoming'}">
           <div style="font-size:10.5px; opacity:0.8; margin-bottom:2px;">${escapeHtml(m.sender || '')}・${escapeHtml(m.time || '')}</div>
-          <div>${escapeHtml(m.text || '')}</div>
+          <div>${m.deception ? '🎭 ' : ''}${escapeHtml(m.text || '')}</div>
         </div>
       `).join('');
       box.scrollTop = box.scrollHeight;
@@ -1738,6 +1802,7 @@
       if (!currentState) return;
       const facName = document.getElementById('sms-ally-select').value;
       const msgVal = document.getElementById('sms-message-input').value.trim();
+      const isFakeSms = document.getElementById('sms-fake-check').checked;
       if (!msgVal) {
         showNotice('phone-notice-box', '請先輸入簡訊內容！', true);
         return;
@@ -1749,6 +1814,7 @@
           hideLoading();
           currentState = updatedStatus;
           document.getElementById('sms-message-input').value = '';
+          document.getElementById('sms-fake-check').checked = false;
           refreshStatusUI();
           renderSmsSelectorAndThread();
         })
@@ -1756,7 +1822,7 @@
           hideLoading();
           showNotice('phone-notice-box', err.message, true);
         })
-        .sendAllySmsMessage(currentState.playerName, facName, msgVal);
+        .sendAllySmsMessage(currentState.playerName, facName, msgVal, isFakeSms);
     }
 
     // ==================== 互動式冬木市戰略地圖 SVG 沙盤 ====================
@@ -2062,6 +2128,12 @@
         div.className = 'msg-ai';
         const paragraphs = String(text || '').split(/\n+/).map(p => p.trim()).filter(Boolean);
         const htmlParas = paragraphs.map(p => {
+          if (p.startsWith('【本回合結算】')) {
+            return `<div class="novel-summary">📋 ${escapeHtml(p.replace('【本回合結算】', '本回合結算：')).replace(/｜/g, '<br>・')}</div>`;
+          }
+          if (/^【(路線確立|路線轉折|異變|戰況速報|遠方魔力動向|時段推進|禮裝碎裂|副契約解除|道具欄已滿)/.test(p)) {
+            return `<p class="novel-system">${escapeHtml(p)}</p>`;
+          }
           const isDialogue = p.startsWith('「') || p.startsWith('『') || /^[^「『\n]{1,12}[:：]\s*[「『]/.test(p);
           return `<p class="${isDialogue ? 'novel-dialogue' : 'novel-p'}">${escapeHtml(p)}</p>`;
         }).join('');
@@ -2138,6 +2210,24 @@
         row.innerHTML = `<strong>${escapeHtml(k)}</strong><span style="color: var(--gold-bright);">${escapeHtml(f[k])}</span>`;
         box.appendChild(row);
       });
+
+      const defs = Array.isArray(currentState.routeDefs) ? currentState.routeDefs : [];
+      if (defs.length > 0) {
+        const tend = currentState.routeTendency || {};
+        const active = defs.find(d => d.key === currentState.activeRoute);
+        const routeBox = document.createElement('div');
+        routeBox.style.cssText = 'margin-top: 10px; padding: 10px 12px; background: var(--bg-card); border: 1px dashed var(--border-gold); border-radius: 8px;';
+        routeBox.innerHTML = `<div style="font-weight:800; color: var(--gold-bright); margin-bottom: 6px;">🧭 路線傾向${active ? `：目前走在 <span style="color:#fff;">${escapeHtml(active.name)}</span>` : '（尚未確立）'}</div>` +
+          defs.map(d => {
+            const v = Math.max(0, Math.min(100, Number(tend[d.key]) || 0));
+            return `<div style="font-size:12px; margin-bottom:5px;" title="${escapeHtml(d.hint)}">
+              <div style="display:flex; justify-content:space-between;"><span>${escapeHtml(d.name)}</span><span style="color:var(--text-muted);">${v}</span></div>
+              <div class="bar-wrap" style="margin:2px 0 0;"><div class="bar-fill" style="width:${v}%; background:${d.key === currentState.activeRoute ? 'linear-gradient(90deg,#d97706,#fde047)' : 'linear-gradient(90deg,#475569,#94a3b8)'};"></div></div>
+            </div>`;
+          }).join('') +
+          `<div style="font-size:11.5px; color: var(--text-muted); margin-top:4px;">依你的行動方式累積，達到門檻後劇情會走向對應路線。</div>`;
+        box.appendChild(routeBox);
+      }
 
       const events = Array.isArray(currentState.keyEvents) ? currentState.keyEvents : [];
       const evBox = document.createElement('div');

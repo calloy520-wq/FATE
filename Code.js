@@ -39,6 +39,19 @@ const META_JSON_SOFT_LIMIT = 45000;
 
 // 試算表結構版本：只有版本號變動時才會執行一次「試算表自動升級」，不再每回合檢查
 const SCHEMA_VERSION_ = '2026-11-27-adult-on';
+const MAX_RUMORS = 10;
+const MAX_FORUM_POSTS_PER_TURN = 2;
+
+// 路線傾向：玩家的行動方式會累積傾向，達門檻後進入對應路線，劇情走向隨之偏移
+const ROUTE_DEFS_ = {
+  'fate': { name: '⚔️ 騎士王・正義同盟線', hint: '與衛宮組並肩、保護普通人、以騎士道與正面對決為主', guide: '劇情重心放在衛宮組與 Saber 的騎士道、保護無辜與正面決戰；言峰教會與吉爾伽美什是最終威脅。' },
+  'ubw': { name: '🗡️ 無限劍製・遠坂魔術線', hint: '與遠坂組合作、魔術研究與情報交換、Archer 的真相', guide: '劇情重心放在遠坂組、魔術師之間的交易與對抗，以及 Archer 真實身分與理想的衝突；Caster 的契約奪取是中盤大敵。' },
+  'hf': { name: '🖤 天之杯・黑影深淵線', hint: '調查黑影與間桐家、接近間桐櫻、觸及大聖杯汙染', guide: '劇情重心放在間桐家、黑影事件與大聖杯汙染；黑櫻覺醒、黑 Saber 反轉、間桐臟硯與真 Assassin 的陰謀逐步浮現。' },
+  'shadow': { name: '🎭 暗影謀略線', hint: '散布假消息、暗殺、挑撥離間、利用情報操弄各陣營', guide: '劇情重心放在情報戰：流言、背叛、各陣營互相猜忌；被識破的謊言會引來報復，成功的佈局能讓敵人自相殘殺。' },
+  'conquest': { name: '👑 霸道征服線', hint: '主動襲擊、收服敵方從者、以力量壓制各陣營', guide: '劇情重心放在正面征服：各陣營聯手戒備或圍剿第8組，收服的從者帶來新的羈絆與內部矛盾。' }
+};
+const ROUTE_LOCK_SCORE = 40;
+const ROUTE_LOCK_LEAD = 12;
 const MAX_KEY_EVENTS = 15;
 const CHATLOG_PAYLOAD_KEEP = 6;
 // 設定類分頁（角色／世界書／陣營）快取秒數；CacheService 上限 6 小時
@@ -532,7 +545,7 @@ function syncPhoneStateWithFactions_(phoneState, factionsObj, day, period, warRe
   return p;
 }
 
-function postFuyukiForumMessage(playerName, titleText, bodyText) {
+function postFuyukiForumMessage(playerName, titleText, bodyText, isFakeNews) {
   const cleanName = validatePlayerName_(playerName);
   const cleanBody = String(bodyText || '').trim().slice(0, 140);
   const cleanTitle = (String(titleText || '').trim() || '匿名目擊與風聲').slice(0, 36);
@@ -553,6 +566,7 @@ function postFuyukiForumMessage(playerName, titleText, bodyText) {
 
     const newPost = {
       id: 'player_post_' + Date.now(),
+      fake: Boolean(isFakeNews) || undefined,
       board: '冬木匿名留言板',
       author: `${cleanName} (2004端末)`,
       time: `Day ${row[6]}・${row[7]}`,
@@ -564,7 +578,13 @@ function postFuyukiForumMessage(playerName, titleText, bodyText) {
     if (phone.forumPosts.length > MAX_FORUM_POSTS) phone.forumPosts.length = MAX_FORUM_POSTS;
 
     meta.phoneState = phone;
-    meta.pendingForumNote = `玩家在冬木論壇發布了貼文【${cleanTitle}】：${cleanBody}`;
+    meta.pendingForumNote = `玩家在冬木論壇${isFakeNews ? '刻意散布假消息' : '發布了貼文'}【${cleanTitle}】：${cleanBody}`;
+    meta.rumors = addRumor_(meta.rumors, {
+      text: `${cleanTitle}：${cleanBody}`,
+      channel: '冬木論壇',
+      isFake: Boolean(isFakeNews),
+      turn: Number(meta.turnCount) || 0
+    });
     row[31] = serializeMeta_(meta);
     saveSheet.getRange(rowIndex, 1, 1, 32).setValues([row]);
     SpreadsheetApp.flush();
@@ -575,14 +595,15 @@ function postFuyukiForumMessage(playerName, titleText, bodyText) {
   }
 }
 
-function sendAllySmsMessage(playerName, factionName, messageText) {
+function sendAllySmsMessage(playerName, factionName, messageText, isDeception) {
   const cleanName = validatePlayerName_(playerName);
   const targetFac = String(factionName || '').trim();
   const msg = String(messageText || '').trim().slice(0, 140);
+  const deceive = Boolean(isDeception);
   if (!targetFac || !msg) throw new Error('請選擇聯絡對象並輸入簡訊內容！');
 
   // 先在鎖外讀取存檔並請 AI 以該陣營口吻回覆（等待 AI 時不卡住其他玩家）
-  let aiReply = '';
+  let aiResult = null;
   try {
     const ssPre = SpreadsheetApp.getActiveSpreadsheet();
     const sheetPre = ssPre.getSheetByName('Players_Save');
@@ -590,15 +611,15 @@ function sendAllySmsMessage(playerName, factionName, messageText) {
     if (idxPre !== -1) {
       const rowPre = sheetPre.getRange(idxPre, 1, 1, 32).getValues()[0];
       const facPre = safeJsonParse_(rowPre[29], {});
+      const metaPre = safeJsonParse_(rowPre[31], {});
       const stPre = String(facPre[targetFac] || '');
-      if (isAllianceStatusText_(stPre)) {
-        const metaPre = safeJsonParse_(rowPre[31], {});
+      if (canSmsFaction_(metaPre, targetFac, stPre)) {
         const thread = (metaPre.phoneState && metaPre.phoneState.smsThreads && metaPre.phoneState.smsThreads[targetFac]) || {};
-        aiReply = generateAllySmsReply_(cleanName, targetFac, stPre, Array.isArray(thread.messages) ? thread.messages : [], msg, rowPre);
+        aiResult = generateAllySmsReply_(cleanName, targetFac, stPre, Array.isArray(thread.messages) ? thread.messages : [], msg, rowPre, deceive);
       }
     }
   } catch (e) {
-    aiReply = '';
+    aiResult = null;
   }
 
   const lock = LockService.getScriptLock();
@@ -613,37 +634,43 @@ function sendAllySmsMessage(playerName, factionName, messageText) {
     const meta = safeJsonParse_(row[31], {});
     const factionsObj = safeJsonParse_(row[29], {});
     const statusText = String(factionsObj[targetFac] || '');
+    const allied = isAllianceStatusText_(statusText);
 
-    if (!isAllianceStatusText_(statusText)) {
-      throw new Error(`「${targetFac}」目前尚未與第8組結為同盟（目前狀態：${statusText || '未知'}），無法建立穩定簡訊聯絡。`);
+    if (!canSmsFaction_(meta, targetFac, statusText)) {
+      throw new Error(`還沒有「${targetFac}」的聯絡方式（目前狀態：${statusText || '未知'}）。結盟，或在劇情中交換手機號碼後才能傳訊。`);
     }
 
     const phone = syncPhoneStateWithFactions_(meta.phoneState, factionsObj, row[6], row[7], '');
     if (!phone.smsThreads[targetFac]) {
-      phone.smsThreads[targetFac] = { factionName: targetFac, allied: true, statusText: statusText, lastDistressStatus: '', messages: [] };
+      phone.smsThreads[targetFac] = { factionName: targetFac, allied: allied, statusText: statusText, lastDistressStatus: '', messages: [] };
     }
+    const th = phone.smsThreads[targetFac];
 
-    phone.smsThreads[targetFac].messages.push({
+    th.messages.push({
       sender: cleanName,
       fromPlayer: true,
       time: `Day ${row[6]}・${row[7]}`,
-      text: msg
+      text: msg,
+      deception: deceive || undefined
     });
 
-    const isSupportCall = /支援|趕來|幫忙|救|會合|牽制|協同|一起/.test(msg);
-    const replyText = aiReply || (isSupportCall
-      ? `收到！我們已收到第8組的聯絡，會配合目前戰況調整動向與支援路線（${statusText}）。`
-      : `收到簡訊了。目前我們的狀況是「${statusText}」，有最新動向會再通知你。`);
+    const isSupportCall = allied && /支援|趕來|幫忙|救|會合|牽制|協同|一起/.test(msg);
+    const fallback = allied
+      ? (isSupportCall
+        ? `收到！我們會配合目前戰況調整動向與支援路線（${statusText}）。`
+        : `收到簡訊了。目前我們的狀況是「${statusText}」，有最新動向會再通知你。`)
+      : '……（對方已讀，沒有回覆）';
+    const replyText = (aiResult && aiResult.reply) || fallback;
 
-    phone.smsThreads[targetFac].messages.push({
+    th.messages.push({
       sender: targetFac,
       fromPlayer: false,
       time: `Day ${row[6]}・${row[7]}`,
       text: replyText
     });
 
-    if (phone.smsThreads[targetFac].messages.length > MAX_SMS_PER_THREAD) {
-      phone.smsThreads[targetFac].messages = phone.smsThreads[targetFac].messages.slice(-MAX_SMS_PER_THREAD);
+    if (th.messages.length > MAX_SMS_PER_THREAD) {
+      th.messages = th.messages.slice(-MAX_SMS_PER_THREAD);
     }
 
     if (isSupportCall && !isCapturedOrDefeatedStatusText_(statusText)) {
@@ -651,8 +678,23 @@ function sendAllySmsMessage(playerName, factionName, messageText) {
       row[29] = JSON.stringify(factionsObj);
     }
 
+    // 簡訊內容與對方反應交給下一回合推演，讓結果真正落在劇情與陣營狀態上
+    const reaction = aiResult && aiResult.reaction ? `；對方反應：${aiResult.reaction}` : '';
+    const note = `玩家用簡訊${deceive ? '對' : '聯絡'}「${targetFac}」${deceive ? '放出假情報' : ''}：${msg}${reaction}`;
+    meta.pendingSmsNote = [meta.pendingSmsNote, note].filter(Boolean).join('\n').slice(-600);
+
+    if (deceive) {
+      meta.rumors = addRumor_(meta.rumors, {
+        text: msg,
+        channel: `簡訊→${targetFac}`,
+        isFake: true,
+        turn: Number(meta.turnCount) || 0,
+        believers: aiResult && aiResult.believed === 'yes' ? [targetFac] : [],
+        doubters: aiResult && aiResult.believed === 'no' ? [targetFac] : []
+      });
+    }
+
     meta.phoneState = phone;
-    meta.pendingSmsNote = `玩家透過簡訊向同盟陣營「${targetFac}」傳訊：${msg}`;
     row[31] = serializeMeta_(meta);
     saveSheet.getRange(rowIndex, 1, 1, 32).setValues([row]);
     SpreadsheetApp.flush();
@@ -664,16 +706,23 @@ function sendAllySmsMessage(playerName, factionName, messageText) {
 }
 
 // 同盟陣營簡訊：由 AI 以該陣營御主／從者的口吻回覆（2004 年手機簡訊風格），失敗時回傳空字串改用罐頭句
-function generateAllySmsReply_(playerName, factionName, statusText, history, playerMsg, row) {
+function generateAllySmsReply_(playerName, factionName, statusText, history, playerMsg, row, isDeception) {
   try {
     const canon = CANONICAL_7_FACTIONS_.find(r => r[0] === factionName);
     const relation = canon ? canon[5] : '';
+    const allied = isAllianceStatusText_(statusText);
     const recent = (history || []).slice(-6).map(m => `${m.fromPlayer ? playerName : (m.sender || factionName)}：${m.text}`).join('\n');
     const systemPrompt = [
-      '你正在扮演 Fate/stay night 第五次聖杯戰爭中，與玩家（獨立第8組御主）結盟的陣營，透過 2004 年的折疊手機回覆簡訊。',
-      '用該陣營御主（必要時可帶到從者）的個性與口吻，以繁體中文回覆一則 80 字以內的簡訊，像真的手機短訊，不要旁白、不要引號、不要署名。',
-      '回覆要符合陣營目前狀態；被要求支援時，依狀態明確表示能否支援、何時、怎麼配合。不要替玩家做決定，也不要透露你不可能知道的情報。'
-    ].join('\n');
+      '你正在扮演 Fate/stay night 第五次聖杯戰爭中的一個陣營，透過 2004 年的折疊手機回覆玩家（獨立第8組御主）的簡訊。',
+      '用該陣營御主（必要時可帶到從者）的個性與口吻回覆，像真的手機短訊，不要旁白、不要署名。',
+      allied
+        ? '你們目前是同盟：被要求支援時，依陣營狀態明確表示能否支援、何時、怎麼配合。'
+        : '你們不是同盟：依關係與性格回應，可能警戒、試探、挑釁、談條件或冷淡已讀；不要輕易透露自己的弱點。',
+      isDeception
+        ? '注意：玩家這則簡訊其實是想欺騙你，但你的角色並不知情。依角色的精明程度、手上情報與這則訊息的可信度，自然決定相信、半信半疑或識破。'
+        : '',
+      '輸出 JSON：{"reply":"80字內的簡訊回覆（繁體中文）","believed":"yes / unsure / no（玩家訊息內容你信不信；一般聯絡填 yes）","reaction":"20字內，描述你接下來打算怎麼做（給遊戲紀錄用）"}'
+    ].filter(Boolean).join('\n');
     const userMsg = [
       `陣營：${factionName}`,
       `目前狀態：${statusText}`,
@@ -682,11 +731,123 @@ function generateAllySmsReply_(playerName, factionName, statusText, history, pla
       recent ? `最近簡訊：\n${recent}` : '',
       `玩家剛傳來：${playerMsg}`
     ].filter(Boolean).join('\n');
-    const res = callGeminiLite_(systemPrompt, userMsg, 0.8, 300, false);
-    return String(res.text || '').replace(/^["「『]|["」』]$/g, '').trim().slice(0, 140);
+    const res = callGeminiLiteJson_(systemPrompt, userMsg, 0.8, 400);
+    const reply = String((res && res.reply) || '').replace(/^["「『]|["」』]$/g, '').trim().slice(0, 140);
+    if (!reply) return null;
+    const believed = /^(yes|unsure|no)$/.test(String(res.believed || '')) ? String(res.believed) : 'unsure';
+    return { reply: reply, believed: believed, reaction: String(res.reaction || '').trim().slice(0, 40) };
   } catch (e) {
-    return '';
+    return null;
   }
+}
+
+// 能否傳簡訊：同盟陣營，或在劇情中取得了聯絡方式（meta.smsContacts）
+function canSmsFaction_(meta, factionKey, statusText) {
+  if (isAllianceStatusText_(statusText)) return true;
+  const contacts = (meta && meta.smsContacts && typeof meta.smsContacts === 'object') ? meta.smsContacts : {};
+  return Boolean(contacts[factionKey]);
+}
+
+// ==================== 流言系統：論壇貼文與假情報會被記錄、擴散、相信或識破 ====================
+
+function addRumor_(rumors, r) {
+  const list = Array.isArray(rumors) ? rumors.slice() : [];
+  const id = 'R' + Date.now().toString(36).slice(-5) + Math.floor(Math.random() * 36).toString(36);
+  list.push({
+    id: id,
+    text: String(r.text || '').slice(0, 140),
+    channel: String(r.channel || '冬木論壇'),
+    isFake: Boolean(r.isFake),
+    turn: Number(r.turn) || 0,
+    status: '擴散中',
+    believers: Array.isArray(r.believers) ? r.believers : [],
+    doubters: Array.isArray(r.doubters) ? r.doubters : [],
+    effect: ''
+  });
+  // 優先保留擴散中的流言，其餘依新舊裁切
+  const active = list.filter(x => x.status === '擴散中');
+  const settled = list.filter(x => x.status !== '擴散中');
+  const merged = settled.concat(active);
+  return merged.slice(-MAX_RUMORS);
+}
+
+function applyRumorUpdates_(rumors, updates, factionsObj, turnNum) {
+  const list = Array.isArray(rumors) ? rumors.map(x => Object.assign({}, x)) : [];
+  const changes = [];
+  (Array.isArray(updates) ? updates : []).forEach(u => {
+    if (!u || !u.id) return;
+    const r = list.find(x => x.id === String(u.id).trim());
+    if (!r) return;
+    const mapFac = arr => (Array.isArray(arr) ? arr : []).map(n => resolveFactionKey_(n, factionsObj) || '').filter(Boolean);
+    mapFac(u.believers).forEach(k => {
+      if (r.believers.indexOf(k) === -1) r.believers.push(k);
+      r.doubters = r.doubters.filter(d => d !== k);
+    });
+    mapFac(u.doubters).forEach(k => {
+      if (r.doubters.indexOf(k) === -1) r.doubters.push(k);
+      r.believers = r.believers.filter(b => b !== k);
+    });
+    const st = String(u.status || '').trim();
+    if (/識破|揭穿/.test(st)) r.status = '已被識破';
+    else if (/平息|淡去|過時/.test(st)) r.status = '已平息';
+    else if (/證實|成真/.test(st)) r.status = '已被證實';
+    if (u.effect) r.effect = String(u.effect).trim().slice(0, 60);
+    r.updatedTurn = turnNum;
+    changes.push(`「${r.text.slice(0, 12)}…」${r.status}${r.effect ? '：' + r.effect : ''}`);
+  });
+  // 擴散超過 8 回合沒人理會的流言自然平息
+  list.forEach(r => {
+    if (r.status === '擴散中' && turnNum - (Number(r.turn) || 0) > 8 && !r.updatedTurn) r.status = '已平息';
+  });
+  return { rumors: list.slice(-MAX_RUMORS), changes: changes };
+}
+
+function describeRumorsForPrompt_(rumors) {
+  const active = (Array.isArray(rumors) ? rumors : []).filter(r => r.status === '擴散中');
+  if (active.length === 0) return '';
+  return '【冬木流言追蹤（依各陣營情報能力與性格判斷誰會相信、誰會識破，並讓流言實際影響行動；有變化時填 rumor_updates）】\n' +
+    active.map(r => `- [${r.id}] (${r.channel}${r.isFake ? '・玩家刻意放出的假消息' : ''}) ${r.text} ｜相信：${r.believers.join('、') || '無'} ｜懷疑：${r.doubters.join('、') || '無'}`).join('\n');
+}
+
+// ==================== 路線傾向 ====================
+
+function applyRouteTendency_(meta, deltaObj) {
+  const t = Object.assign({}, meta.routeTendency || {});
+  Object.keys(ROUTE_DEFS_).forEach(k => { t[k] = Math.max(0, Math.min(100, Number(t[k]) || 0)); });
+  if (deltaObj && typeof deltaObj === 'object') {
+    Object.keys(deltaObj).forEach(k => {
+      if (!ROUTE_DEFS_[k]) return;
+      const d = Math.max(-3, Math.min(3, Math.round(Number(deltaObj[k]) || 0)));
+      t[k] = Math.max(0, Math.min(100, t[k] + d));
+    });
+  }
+  meta.routeTendency = t;
+
+  const ranked = Object.keys(t).sort((a, b) => t[b] - t[a]);
+  const top = ranked[0];
+  const second = ranked[1];
+  const prev = meta.activeRoute || '';
+  let announce = '';
+  if (t[top] >= ROUTE_LOCK_SCORE && t[top] - t[second] >= ROUTE_LOCK_LEAD) {
+    // 已在某路線時，必須被新路線大幅超越才會轉線
+    if (!prev || (prev !== top && t[top] - (t[prev] || 0) >= ROUTE_LOCK_LEAD * 2)) {
+      meta.activeRoute = top;
+      announce = prev
+        ? `【路線轉折】命運的齒輪偏離了「${ROUTE_DEFS_[prev].name}」，你的抉擇將聖杯戰爭推向「${ROUTE_DEFS_[top].name}」。`
+        : `【路線確立】你一路以來的抉擇，讓這場聖杯戰爭走上了「${ROUTE_DEFS_[top].name}」。`;
+    }
+  }
+  return announce;
+}
+
+function describeRouteForPrompt_(meta) {
+  const t = meta.routeTendency || {};
+  const scores = Object.keys(ROUTE_DEFS_).map(k => `${k}=${Number(t[k]) || 0}`).join(', ');
+  const defs = Object.keys(ROUTE_DEFS_).map(k => `${k}: ${ROUTE_DEFS_[k].hint}`).join('；');
+  const active = meta.activeRoute && ROUTE_DEFS_[meta.activeRoute]
+    ? `【目前路線：${ROUTE_DEFS_[meta.activeRoute].name}】${ROUTE_DEFS_[meta.activeRoute].guide}`
+    : '【目前路線：尚未確立】依玩家行動自然發展。';
+  return `${active}\n【路線傾向分數】${scores}（每回合依玩家本回合的行動方式填 route_tendency_delta，每項 -3～+3；${defs}）`;
 }
 
 function markPhoneMessagesRead(playerName) {
@@ -1642,6 +1803,11 @@ function startNextLoopReincarnation(playerName) {
       bondLevel: 25,
       turnCount: 0,
       routeFlags: { medeaOut: false, kojirouOut: false, trueAssassin: 'NONE' },
+      keyEvents: [],
+      rumors: [],
+      smsContacts: {},
+      routeTendency: {},
+      activeRoute: '',
       customLocationNotes: {},
       phoneState: {
         forumPosts: buildInitialForumPosts_(1, '深夜'),
@@ -2189,6 +2355,92 @@ function applyPendingSettingsToRow_(row, ps) {
   row[31] = serializeMeta_(metaSync);
 }
 
+// ==================== 回合推演用的固定系統提示詞（型月世界觀＋自由但合乎邏輯的裁定原則） ====================
+const FATE_GM_SYSTEM_PROMPT_ = [
+  '你是 TYPE-MOON《Fate/stay night》第五次聖杯戰爭的遊戲主持人（GM），以繁體中文寫出小說級劇情，並輸出 JSON。',
+  '',
+  '## 一、裁定原則：自由，但合乎邏輯',
+  '1. 先接受再演出：玩家可以嘗試任何行動或說任何話，不要直接拒絕或說「做不到」。依型月世界邏輯、御主固定能力等階、從者性格與當下局勢，決定結果是「漂亮成功／成功但付出代價／失敗並承受後果」。',
+  '2. 獎勵創意：合理的奇招、話術、情報運用、利用地形與時機，都應該得到實質回報；明顯不合理或作死的行為，則讓世界給出真實後果。',
+  '3. 每個行動都要有確實的結果並留下紀錄：數值、陣營狀態、流言、道具、關係變化都要反映在對應的 JSON 欄位，不能只寫在劇情裡。',
+  '4. 只控制玩家輸入的部分：不替玩家寫出沒輸入的行動或台詞，也不替玩家做決定；從者、NPC、敵對陣營依各自性格與目的主動行動。',
+  '5. 世界是活的：各陣營有自己的計畫，會依情報、流言與局勢變化而行動；在場人物一定會對玩家的言行有所反應，不會無視或憑空消失。',
+  '6. 只寫本回合的新發展：前幾回合是已確定的歷史，開頭不要重複或改寫上一回合的結尾。',
+  '',
+  '## 二、型月世界邏輯（判斷結果時的常識，不是禁止清單）',
+  '- 神秘法則：神秘只能被更強的神秘壓制。現代武器與普通魔術幾乎傷不了英靈本體，但可以牽制、干擾、爭取時間，或對付御主與使魔。',
+  '- 魔力即代價：寶具、高階魔術、維持從者現界都消耗御主魔力；魔力枯竭時從者會衰弱甚至消失。魔力可從靈脈、魔力寶石、魔力供給（補魔）取得。',
+  '- 令咒：三劃絕對命令，可強制行動、瞬間轉移、短時間強化或硬開寶具；用完即失去約束從者的手段。令咒可以被奪取或轉讓。',
+  '- 從者是有自我意志的英雄：依傳說與性格行事，會評價御主，可以拒絕不合理的命令（除非動用令咒），也會因御主的作為而信任或失望。',
+  '- 真名即弱點：真名曝光代表傳說中的弱點與寶具被看穿；寶具解放常伴隨真名宣告。',
+  '- 御主是最大破綻：攻擊御主是正當戰術。失去御主的從者靠單獨行動技能撐一段時間，會尋找新御主或消失。',
+  '- 魔術必須隱匿：在人多的地方或白天公開交戰，會引來聖堂教會善後、警方與其他陣營的注意（論壇也會出現目擊）。聖杯戰爭主要在夜間進行，白天是日常、調查與佈局。',
+  '- 陣地優勢：在敵方工房、結界或陣地內作戰極為不利；Caster 的陣地與山門結界尤其危險。',
+  '- 隱藏真相（大聖杯的汙染、此世之惡、言峰綺禮的真面目等）只在玩家深入調查時逐步揭露，不要一次說破。',
+  '- 御主六維與從者參數創角後固定，不會因鍛鍊改變；成長體現在情報、羈絆、道具與戰術上。',
+  '',
+  '## 三、本作固定設定',
+  '- 玩家是正規七組之外獨立參戰的「第8組」，不頂替任何陣營或英靈（同職階也只是不同英靈）；只有實際擊敗並收服時，原陣營才歸屬第8組。',
+  '- 同盟陣營（同盟／結盟／合作／互助）彼此照應、不內鬥；已淘汰或重傷休整的陣營不會無故滿血出現。正在交戰時敵人就在眼前，不合時宜的行動要承受後果。',
+  '- 御主 `player_master` 是固定核心人物：除了純粹從者對從者的交鋒，`present_chars` 一定要包含 `player_master`。',
+  '- 隱藏王牌：言峰教會可在深入調查、Lancer 退場或終局時亮出受肉的吉爾伽美什（`gilgamesh`）；間桐的黑影事件可讓間桐櫻覺醒為黑櫻（`dark_sakura`），敗給黑影的 Saber 會反轉為黑 Saber（`saber_alter`），同場不可同時出現原版與黑化版；「臟硯組 (真Assassin陣營)」由系統在柳洞寺有人退場後自動建立，成立後咒腕哈桑（`hassan`）會潛伏暗殺。敵方英靈確實退場時填入 `servants_out`。',
+  '- 服裝以劇情為準：英靈出戰或巡邏時自然換上戰裝；御主刻意選擇的穿著（包括全裸）要尊重並維持，直到玩家主動換裝。換裝時在 `outfit_updates` 填英文 Danbooru 服裝 tags。',
+  '- 補魔與親密：好感未滿 80 時，單純補魔可以用一般接觸或魔力交換；硬要親密會先被拒絕或警告並扣好感，持續騷擾才加重反制，極端失控才可能致命；好感 80 以上可自然發展親密關係。',
+  '- 傷勢分開判定：御主肉身（`master_condition`）與從者靈基（`servant_condition`、`servant2_condition`）各自結算。交戰要分出明確結果（負傷、靈基受損、撤退、淘汰），不能互砍半天卻什麼都沒發生。',
+  '',
+  '## 四、活的冬木市與反饋機制',
+  '- 論壇：玩家做了引人注目的事（公開交戰、怪事、流言擴散），用 `forum_posts` 寫 0～2 則冬木市民的 2004 年留言板貼文；路人只知道自己看得到的部分。',
+  '- 流言：依各陣營的情報能力與性格，判斷誰相信、誰識破狀態資料中的流言，用 `rumor_updates` 記錄；被相信的流言會實際改變該陣營行動（寫進 `faction_updates`），被識破的假消息可能引來報復。',
+  '- 通訊錄：劇情中玩家與某陣營交換手機號碼或取得聯絡方式時，把陣營名稱填入 `new_contacts`。',
+  '- 路線傾向：依玩家本回合的行動方式，在 `route_tendency_delta` 為各路線加減分（-3～+3）；已確立路線時，劇情重心照狀態資料中的路線說明發展。',
+  '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
+  '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。',
+  '- 陣營更新：`faction_updates` 的鍵必須用狀態資料中既有的陣營完整名稱。',
+  '',
+  '## 五、死亡與勝利',
+  '- `FATAL_DEATH`：只在真正致命時使用（例如人類肉身硬吃寶具、魔力枯竭又沒令咒卻強開寶具、極端自殺式挑釁、對低好感從者持續騷擾導致致命反擊）。嘴砲、虛張聲勢、非致命的失誤都不算。死亡時描寫悲劇結局與大聖杯黑泥圍繞玩家願望編織的虛假美夢，並填寫 `tiger_dojo_tip`（老虎道場的吐槽點評）。',
+  '- `TRUE_VICTORY`：只在所有敵對陣營都已擊敗或化解、聖杯願望實現時使用（系統會再驗證）。',
+  '- 其他情況一律 `CONTINUE`。',
+  '',
+  '## 六、寫作格式',
+  '- `story` 分 3～5 段，用 `\\n\\n` 分段；角色說話一律寫成「角色名：「……」」並獨立成段，讓讀者知道是誰在說話。',
+  '- `is_combat` 只在從者之間實際兵刃交鋒時為 true。`present_chars` 最多 4 人，`action_en` 與 `scene_env_en` 只寫簡短英文關鍵字（另有視覺導演負責翻譯繪圖）。',
+  '',
+  '## 輸出：只輸出符合以下格式的 JSON',
+  '{',
+  '  "judge_reason": "50字內的判定理由（行動合理性、局勢、代價）",',
+  '  "outcome_type": "CONTINUE / FATAL_DEATH / TRUE_VICTORY",',
+  '  "tiger_dojo_tip": "FATAL_DEATH 時填寫，否則空字串",',
+  '  "story": "繁體中文小說劇情",',
+  '  "is_combat": false,',
+  '  "ap_cost": 1,',
+  '  "threat_delta": 0,',
+  '  "bond_delta": 0,',
+  '  "location": "本回合結束時所在的冬木市地標名稱",',
+  '  "master_mp_delta": 0,',
+  '  "command_spells_used": 0,',
+  '  "master_condition": "完好無損 / 輕傷 / 重傷 / 瀕死 / 已死亡",',
+  '  "servant_condition": "靈基穩定 / 輕微受損 / 靈基受創 / 靈核重創 / 消滅",',
+  '  "servant2_condition": "有副從者才填，否則空字串",',
+  '  "consumed_item_ids": [],',
+  '  "gained_items": [{ "id": "英文代碼", "name": "繁中名稱", "tier": 1, "type": "material/consumable/equipment", "qty": 1, "desc": "說明" }],',
+  '  "servant_form_morph": "",',
+  '  "outfit_updates": {},',
+  '  "faction_updates": {},',
+  '  "forum_posts": [],',
+  '  "rumor_updates": [{ "id": "流言ID", "status": "擴散中 / 已被識破 / 已被證實 / 已平息", "believers": [], "doubters": [], "effect": "30字內影響" }],',
+  '  "new_contacts": [],',
+  '  "route_tendency_delta": { "fate": 0, "ubw": 0, "hf": 0, "shadow": 0, "conquest": 0 },',
+  '  "servants_out": [],',
+  '  "new_servant2_id": "",',
+  '  "memory_update": "200字內前情提要",',
+  '  "key_events_add": [],',
+  '  "key_events_resolve": [],',
+  '  "present_chars": [{ "id": "角色ID", "use_np": false, "action_en": "brief English pose/expression" }],',
+  '  "scene_env_en": "brief English environment/lighting"',
+  '}'
+].join('\n');
+
 function processFateTurnTextOnly(params) {
   const cleanName = validatePlayerName_(params.playerName);
   const userAction = String(params.userAction || '').trim();
@@ -2241,7 +2493,8 @@ function processFateTurnTextOnly(params) {
       turnNum = totalUserTurns + 1;
     }
 
-    const recentContextText = allRecentLogs.map(l => `玩家: ${l.user}\n劇情: ${l.ai}`).join('\n---\n');
+    const stripSystemLines = t => String(t || '').split('\n').filter(line => !/^【(本回合結算|時段推進|道具欄已滿)/.test(line.trim())).join('\n').trim();
+    const recentContextText = allRecentLogs.map(l => `玩家: ${l.user}\n劇情: ${stripSystemLines(l.ai)}`).join('\n---\n');
     const loreSnippets = searchLorebook_(ss, userAction + ' ' + statusObj.location + ' ' + recentContextText);
     const charDb = getCharAppearanceMap_(ss);
 
@@ -2271,28 +2524,14 @@ function processFateTurnTextOnly(params) {
       ? metaBefore.keyEvents.map((e, i) => `${i + 1}. ${e}`).join('\n')
       : '（尚無）';
 
+    const smsContactKeys = Object.keys((metaBefore.smsContacts && typeof metaBefore.smsContacts === 'object') ? metaBefore.smsContacts : {});
     const phoneBridgeHints = [
-      metaBefore.pendingSmsNote ? `【簡訊通訊連動】${metaBefore.pendingSmsNote}（請讓該同盟陣營的支援／協同動向實際體現在本回合劇情與陣營狀態中）` : '',
+      metaBefore.pendingSmsNote ? `【簡訊通訊連動】${metaBefore.pendingSmsNote}（請讓簡訊的內容與對方反應實際體現在本回合劇情與陣營狀態中：同盟會配合支援；被騙的陣營會依假情報行動，識破的陣營會提高戒心甚至報復）` : '',
+      describeRumorsForPrompt_(metaBefore.rumors),
+      `【玩家手機通訊錄】可傳簡訊的非同盟陣營：${smsContactKeys.join('、') || '無'}（劇情中玩家與某陣營交換手機號碼或取得聯絡方式時，把該陣營名稱填入 new_contacts）`,
+      describeRouteForPrompt_(metaBefore),
       metaBefore.pendingForumNote ? `【冬木論壇風聲連動】${metaBefore.pendingForumNote}（可讓各方對論壇流言做出自然反應或引出對應動靜）` : ''
     ].filter(Boolean).join('\n');
-
-    const corePrinciplesHint = [
-      `【目前難度／寫作基調：${tonePreset.label}】${tonePreset.desc}`,
-      '【核心原則：重劇情、輕卡關、第8組獨立不頂替、同盟照應不內鬥、智能情境服裝、自然稱呼不喊異常御主、只寫本回合最新推進、固定御主必在場、在場人物必有反應、看戰術與嘴砲邏輯、七組狀態與交戰連貫、能力值固定鎖定】',
-      '1. 第8組獨立參戰・不頂替其他陣營或狗哥：玩家是正規七組之外獨立降臨的第8組參戰者（全場共 7 組原陣營＋玩家第 8 組＝8 組），不是頂替任何原陣營或狗哥（庫夫林 / Lancer）；即便玩家召喚的英靈職階與其他陣營相同，也只是「同職階不同英靈」，除非實際擊敗並收服，否則不把原陣營硬改為歸屬第8組。',
-      '2. 尊重同盟關係與簡訊支援：若某陣營目前處於「同盟／結盟／合作／互助」狀態，第8組與同盟陣營彼此照應、聯手或互助，不會莫名翻臉或互相殘殺；若玩家透過簡訊呼叫結盟支援，需讓該同盟陣營在劇情與陣營動態上實際配合支援或調動。',
-      '3. 隱藏王牌與路線變異（金閃閃、黑櫻＋黑Saber、真Assassin）：教會組言峰綺禮在教會深入、Lancer退場或終局混戰時可亮出受肉第八騎「吉爾伽美什 (`gilgamesh`)」；間桐Rider敗退或深挖黑影異變時可覺醒「黑櫻 (`dark_sakura`)」，若衛宮組Saber敗於黑影則吞噬反轉為「黑Saber (`saber_alter`)」並歸入黑櫻陣營（同場絕不出現雙櫻或雙Saber）；柳洞寺小次郎 (`assassin`) 或美狄亞 (`caster`) 退場後，系統會自動讓間桐臟硯召喚「真Assassin・咒腕哈桑 (`hassan`)」成立「臟硯組 (真Assassin陣營)」；敵方英靈確實退場時務必填入 `servants_out`。',
-      '4. 智能情境服裝適配：英靈在交戰、外出巡邏或夜襲時，應自然具現合宜靈衣／戰裝，不卡在睡衣或家居服出戰；在工房／室內休整時可自然切換輕鬆裝扮。御主尊重刻意選擇（如穿睡衣、特定戰裝或全裸），若未刻意指定脫衣，出戰／外出時不會硬把御主扒光；指定全裸則清除衣物干擾並維持全裸狀態直到主動穿衣。',
-      '5. 自然稱呼（不要一直叫「異常御主」）：稱呼玩家時直接用「' + cleanName + '」、「御主」或依角色性格自然稱呼，不要刻意一直叫「異常御主」或「第8組異常御主」。',
-      '6. 只寫本回合最新推進（不重複上一回合尾巴）：先前幾回合都已經是確定的過往歷史，本回合開頭直接接續最新局勢往下發展，絕對不要在開頭重複、複述或重演上一回合結尾的句子、動作或情節！',
-      '7. 固定御主必在場（`player_master` 不可神隱）：「我（御主 `player_master`）」是固定核心人物，只要不是純粹兩位從者正面交鋒，每次劇情與 `present_chars` 都必須包含御主本人（`player_master`），不能把「我」弄不見。',
-      '8. 只控自己：只寫出玩家輸入的御主行動與發言，不替玩家編寫未輸入的後續行動，也不替從者、NPC 或敵對陣營預設行動；讓各方依性格與情境自然互動。',
-      '9. 在場人物即時反應（不無視、不神隱）：只要玩家做出任何動作或發言，當下在場的人物（契約從者、同盟、交戰對手、同場角色）都必須有所察覺與反應，不能當作沒聽見或集體消失。',
-      '10. 七組狀態與交戰連貫：先看七組陣營狀態與前文是否正在交戰。已淘汰、重傷休整或同盟中的陣營不得無故滿血敵對突襲；交戰中敵人就在眼前，不可突然跑去洗澡或鍛鍊，不合時宜的行動會有相應後果，交戰並帶出陣營特殊機制與後續連鎖後果。',
-      '11. 戰鬥勝負與獨立傷勢：依行動合理性、戰術與嘴砲說服力分出實質勝負或明確結果（負傷、靈基受損、被迫撤退或陣營淘汰），御主肉身狀態（`master_condition`）與從者靈基狀態（`servant_condition`、`servant2_condition`）各自獨立判斷，不共用同一傷勢。',
-      '12. 道具取得與背包同步：只要劇情或行動中玩家拾取／收納／奪得道具、寶石、結晶、媒介、禮裝或碎片，就必須在 `gained_items` 填入該物品，讓背包與劇情保持一致！',
-      '13. 補魔與色色分寸：目前好感 ' + statusObj.bondLevel + '/100。未滿 80 時單純補魔可走一般接觸或魔力交換，不會被打死；未滿 80 硬要色色會先被拒絕或警告並扣好感，持續騷擾才加重扣好感或反制，極端失控才致死；80 以上解鎖色色，敘事與畫面自然演進。'
-    ].join('\n');
 
     const rankCheckHint = `【御主出身與固定六維等階（不可變動）】出身：${statusObj.master.origin} ｜ 魔術迴路:${p.circuit} ｜ 近戰體術:${p.combat} ｜ 隱藏氣息:${p.stealth} ｜ 幸運:${p.luck} ｜ 當前魔力:${statusObj.master.mp}/${statusObj.master.maxMp}`;
 
@@ -2306,77 +2545,24 @@ function processFateTurnTextOnly(params) {
     const worldEventHint = drawWorldDirectorEvent_(statusObj);
     const canFormSecondContract = (statusObj.master.commandSpells >= 1 && statusObj.master.mp >= 80 && !statusObj.servant2.id);
 
-    const systemPrompt = [
-      'You are the Game Master of Fate/stay night (TYPE-MOON universe).',
-      'Keep gameplay engaging, responsive, and free-flowing while respecting Type-Moon atmosphere, character personality, and player agency.',
-      'Follow the selected difficulty/writing tone (' + tonePreset.label + ': ' + tonePreset.desc + ') and resolve actions naturally based on tactics, dialogue/persuasion logic, faction states, and situational causality.',
-      'INDEPENDENT 8TH FACTION & ALLIANCE RULE: The player leads the independent 8th faction (7 original factions + 8th faction = 8 factions total)—do NOT replace or overwrite any of the 7 factions or existing Servants just because of matching class/name, and if a faction is allied (`同盟／結盟／合作`), treat them as allies cooperating with the 8th faction rather than enemies.',
-      'HIDDEN ACES & ROUTE VARIATIONS: Kirei/Church can reveal incarnated Gilgamesh (`gilgamesh`) in church depths/Lancer departure/late war; Matou/Shadow events can awaken Dark Sakura (`dark_sakura`) and corrupt defeated Saber into Saber Alter (`saber_alter`) under Dark Sakura\'s faction (never show duplicate Sakura or duplicate Saber together); True Assassin (Hassan of the Cursed Arm, id `hassan`) belongs to the separate faction `臟硯組 (真Assassin陣營)`; the system creates it automatically once Medea (`caster`) or Kojirou (`assassin`) leaves and Matou is still active—when that faction exists, Hassan may stalk and ambush (strongest at Ryuudou-ji gate and Shinto back alleys). Always list enemy Servants that permanently leave this turn in `servants_out`.',
-      'SMART CONTEXTUAL OUTFIT ADAPTATION: Adapt outfits intelligently to context and intent—Servants naturally manifest appropriate battle/outdoor attire during combat, patrol, or night raids, or relaxed attire in a safe workshop/indoors; for the Master, respect intentional choices (such as sleepwear, specific outfits, or nudity), do NOT strip the Master accidentally when going out/fighting unless requested, and keep nudity in `outfit_updates` (`nude, completely nude, no clothes`) until the player asks to put clothes back on.',
-      'ADDRESSING THE PLAYER NATURALLY: Refer to the player naturally by their name `' + cleanName + '` or as `御主`—do NOT keep calling the player `異常御主` or `第8組異常御主`.',
-      'LATEST TURN ONLY — DO NOT REPEAT PREVIOUS ENDING: Previous turns are settled history. Start immediately with what happens NEW in this turn in response to the player\'s action—NEVER repeat, rephrase, or re-enact the ending of the previous turn at the beginning of `story`.',
-      'FIXED MASTER PRESENCE: The player (`player_master`) is a fixed core character on scene; unless it is a pure Servant-vs-Servant clash without the Master, always include `player_master` in `present_chars` and describe the Master\'s presence and reaction.',
-      'Ensure every character currently present on scene reacts realistically to the player\'s action or speech—never ignore the player or vanish mid-scene, and adapt reactions to the active tone (comedy/slapstick vs. story-first vs. hardcore war vs. balanced).',
-      'First check the 7 factions\' current states and whether combat is active: defeated, injured/recovering, or allied factions should behave consistently with their current state; when actively fighting an enemy faction, enemies are right in front of the player—do not let the player suddenly bathe or train mid-fight, punish out-of-place/distracting actions with realistic consequences (without arbitrary instant-death unless truly lethal), apply faction-specific combat traits, and resolve clear winners/losers, independent Master/Servant injury stages, retreats, or faction status consequences.',
-      'Master stats and Servant parameters are permanently locked after creation—never increase or alter stat ranks via training or any other means.',
-      'DIALOGUE SPEAKER RULE: In `story`, whenever a character speaks (`「...」`), clearly indicate who is speaking (e.g. `斯卡哈：「...」`, `遠坂凜：「...」`, `' + cleanName + '：「...」`) on its own paragraph so the reader always knows who is talking.',
-      'LIGHTWEIGHT VISUAL HINTS: Focus your main effort on writing rich, responsive story prose. For `present_chars` and `scene_env_en`, only output brief English keywords (a dedicated visual director will translate the full scene later).',
-      corePrinciplesHint,
-      'DEATH & VICTORY:',
-      '- Set `"outcome_type": "FATAL_DEATH"` ONLY when the player faces truly lethal consequences (e.g., tanking a Noble Phantasm with a human body, casting a Noble Phantasm with depleted mana and no Command Spell, extreme suicidal provocation, or escalating sexual harassment against a low-bond Servant into lethal retaliation). Do NOT mark non-lethal dialogue or bluffing as `FATAL_DEATH`.',
-      '- In `FATAL_DEATH`, depict the tragic end, the Greater Grail\'s dark mud weaving a bittersweet False Dream around the Wish (`' + statusObj.master.wish + '`), and fill `"tiger_dojo_tip"`.',
-      '- Set `"outcome_type": "TRUE_VICTORY"` ONLY when all 7 enemy factions are defeated/neutralized and the Grail Wish is fulfilled.',
-      '- Otherwise set `"outcome_type": "CONTINUE"`.',
-      'FORMATTING & FRAMING:',
-      '- Separate `story` into 3-5 paragraphs using `\\n\\n`, and place dialogue with speaker name (`角色名：「...」`) on its own line.',
-      '- Set `"is_combat": true` ONLY during active Servant-vs-Servant weapon clashes. Include `"player_master"` in `present_chars` whenever the Master is part of the scene (up to 4 present characters).',
-      '',
-      'FUYUKI CITY 8 LANDMARKS:',
-      locCatalogText,
-      '',
+    // 系統提示詞：固定不變的規則與型月世界觀（每回合相同，模型端可快取）；每回合變動的資料一律放在 statePrompt
+    const systemPrompt = FATE_GM_SYSTEM_PROMPT_;
+
+    const turnSettingsBlock = [
+      `【玩家】名號「${cleanName}」（劇情中稱呼玩家用這個名字、「御主」或角色習慣的叫法）｜聖杯願望：「${statusObj.master.wish}」`,
+      `【寫作基調：${tonePreset.label}】${tonePreset.desc}`,
       rankCheckHint,
+      `【主從者好感】${statusObj.bondLevel}/100`,
       inventoryRuleHint,
-      phoneBridgeHints,
-      canFormSecondContract ? '若合理收服敵方英靈，可填入 `new_servant2_id`。' : '不可新增副從者。',
+      canFormSecondContract ? '【副契約】條件已滿足：若劇情中合理收服敵方英靈，可填 `new_servant2_id`。' : '【副契約】目前條件不足，不可新增副從者。',
       worldEventHint,
-      '',
-      'AVAILABLE CHARACTER IDS:',
-      Object.keys(charDb).map(id => `${id}=${charDb[id].triggers.split(',').slice(0, 2).join('/')}`).join('; '),
-      '',
-      'OUTPUT STRICTLY VALID JSON WITH THIS EXACT SCHEMA:',
-      '{',
-      '  "judge_reason": "簡要判定說明（基調、第8組與同盟狀態、隱藏路線/王牌、情境服裝適配、本回合新推進、御主在場與在場人物反應、七組狀態、交戰連貫性、勝負、御主傷勢、從者靈基階段與延伸後果）",',
-      '  "outcome_type": "CONTINUE / FATAL_DEATH / TRUE_VICTORY",',
-      '  "tiger_dojo_tip": "FATAL_DEATH 時填寫老虎道場點評；否則留空字串",',
-      '  "story": "繁體中文小說劇情（直接寫本回合最新發展，不重複上回合尾巴；使用 \\n\\n 分段，對話加上說話者如 角色名：「...」並獨立成行）",',
-      '  "is_combat": false,',
-      '  "ap_cost": 1,',
-      '  "threat_delta": 8,',
-      '  "bond_delta": 2,',
-      '  "location": "移動後或當前所在冬木市地標名稱",',
-      '  "master_mp_delta": -8,',
-      '  "command_spells_used": 0,',
-      '  "master_condition": "完好無損 / 輕傷 / 重傷 / 瀕死 / 已死亡",',
-      '  "servant_condition": "靈基穩定 / 輕微受損 / 靈基受創 / 靈核重創 / 消滅",',
-      '  "servant2_condition": "若有副從者則填 靈基穩定 / 輕微受損 / 靈基受創 / 靈核重創 / 消滅，無則留空",',
-      '  "consumed_item_ids": [],',
-      '  "gained_items": [{ "id": "物品英文代碼", "name": "物品繁中名稱", "tier": 1, "type": "material/consumable/equipment", "qty": 1, "desc": "物品說明" }],',
-      '  "servant_form_morph": "",',
-      '  "outfit_updates": { "角色ID": "英文 Danbooru 服裝 tags（只在換裝時填）" },',
-      '  "faction_updates": { "既有陣營完整名稱": "新狀態（只在狀態改變時填）" },',
-      '  "servants_out": ["本回合確實退場（陣亡／消滅／被收服）的敵方英靈 ID，例如 caster、assassin、hassan；沒有就空陣列"],',
-      '  "new_servant2_id": "",',
-      '  "memory_update": "濃縮截至本回合的200字內前情提要（含當前戰局與陣營動態）",',
-      '  "key_events_add": ["本回合新產生、之後需要記住的重要事件／約定／伏筆（每條40字內，沒有就空陣列）"],',
-      '  "key_events_resolve": ["已經了結、不再需要記住的事件（照抄清單原文，沒有就空陣列）"],',
-      '  "present_chars": [',
-      '    { "id": "character_id", "use_np": false, "action_en": "brief English pose/expression hint" }',
-      '  ],',
-      '  "scene_env_en": "brief English environment/lighting hint"',
-      '}'
-    ].filter(Boolean).join('\n');
+      phoneBridgeHints,
+      `【冬木市地標】\n${locCatalogText}`,
+      `【角色 ID】${Object.keys(charDb).map(id => `${id}=${charDb[id].triggers.split(',').slice(0, 2).join('/')}`).join('; ')}`
+    ].filter(Boolean).join('\n\n');
 
     const statePrompt = [
+      turnSettingsBlock,
       `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}% | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
       `【當前場地現況】${statusObj.locationInfo.desc}`,
       `【近期戰況速報】${statusObj.warTicker}`,
@@ -2612,6 +2798,25 @@ function processFateTurnTextOnly(params) {
     }
     meta.keyEvents = updateKeyEvents_(meta.keyEvents, turnJson.key_events_add, turnJson.key_events_resolve, cleanName);
 
+    const rumorRes = applyRumorUpdates_(meta.rumors, turnJson.rumor_updates, currentFactions, turnNum);
+    meta.rumors = rumorRes.rumors;
+
+    const newContactNames = [];
+    (Array.isArray(turnJson.new_contacts) ? turnJson.new_contacts : []).forEach(n => {
+      const k = resolveFactionKey_(n, currentFactions);
+      if (!k) return;
+      meta.smsContacts = Object.assign({}, meta.smsContacts || {});
+      if (!meta.smsContacts[k]) {
+        meta.smsContacts[k] = { addedTurn: turnNum };
+        newContactNames.push(k);
+      }
+    });
+
+    const routeAnnounce = applyRouteTendency_(meta, turnJson.route_tendency_delta);
+    if (routeAnnounce) {
+      meta.keyEvents = updateKeyEvents_(meta.keyEvents, [routeAnnounce.replace(/^【[^】]+】/, '').slice(0, 60)], [], cleanName);
+    }
+
     let outcome = String(turnJson.outcome_type || 'CONTINUE').toUpperCase();
     if (outcome === 'CONTINUE' && /^已死亡/.test(String(meta.masterCondition || ''))) {
       outcome = 'FATAL_DEATH';
@@ -2648,6 +2853,9 @@ function processFateTurnTextOnly(params) {
     if (outcome === 'CONTINUE' && periodAdvancedNotice) {
       formattedStory += periodAdvancedNotice;
     }
+    if (routeAnnounce && outcome === 'CONTINUE') {
+      formattedStory += `\n\n${routeAnnounce}`;
+    }
     if (routeReports.length > 0) {
       const routeText = routeReports.join(' ');
       if (outcome === 'CONTINUE') formattedStory += `\n\n${routeText}`;
@@ -2659,9 +2867,57 @@ function processFateTurnTextOnly(params) {
     if (meta.pendingSmsNote === metaBefore.pendingSmsNote) delete meta.pendingSmsNote;
     if (meta.pendingForumNote === metaBefore.pendingForumNote) delete meta.pendingForumNote;
     meta.phoneState = syncPhoneStateWithFactions_(meta.phoneState, currentFactions, row[6], row[7], latestWarReport);
+    const aiPosts = (Array.isArray(turnJson.forum_posts) ? turnJson.forum_posts : []).slice(0, MAX_FORUM_POSTS_PER_TURN);
+    aiPosts.forEach((fp, i) => {
+      const body = String((fp && fp.body) || '').trim().slice(0, 160);
+      if (!body) return;
+      meta.phoneState.forumPosts.unshift({
+        id: `ai_${turnNum}_${i}`,
+        board: String(fp.board || '冬木匿名留言板').slice(0, 16),
+        author: String(fp.author || '匿名').slice(0, 16),
+        time: `Day ${row[6]}・${row[7]}`,
+        title: String(fp.title || '目擊情報').slice(0, 36),
+        body: body,
+        isPlayer: false
+      });
+      meta.phoneState.unreadCount = (Number(meta.phoneState.unreadCount) || 0) + 1;
+    });
+    if (meta.phoneState.forumPosts.length > MAX_FORUM_POSTS) meta.phoneState.forumPosts.length = MAX_FORUM_POSTS;
     meta.turnCount = turnNum;
 
     meta.inventory = updatedInventory;
+
+    // 每回合結算：把本回合造成的確實變化列出來，讓玩家看到行動的反饋（也存進紀錄）
+    const summaryParts = [];
+    const mpAfter = Number(row[15]);
+    if (mpAfter !== statusObj.master.mp) summaryParts.push(`MP ${statusObj.master.mp}→${mpAfter}`);
+    if (statusObj.gameMode === 'WAR' && Number(row[9]) !== statusObj.threatLevel) summaryParts.push(`警戒 ${statusObj.threatLevel}%→${row[9]}%`);
+    if (nextBond !== statusObj.bondLevel) summaryParts.push(`好感 ${statusObj.bondLevel}→${nextBond}`);
+    if (Number(row[16]) !== statusObj.master.commandSpells) summaryParts.push(`令咒 ${statusObj.master.commandSpells}→${row[16]}`);
+    if (String(row[10]) !== String(statusObj.location)) summaryParts.push(`移動至 ${resolvedLoc.key}`);
+    if (String(meta.masterCondition) !== String(statusObj.master.condition)) summaryParts.push(`御主：${meta.masterCondition}`);
+    if (String(meta.servantCondition) !== String(statusObj.servant1.condition)) summaryParts.push(`${statusObj.servant1.name}：${meta.servantCondition}`);
+    if (capturedServantId) summaryParts.push(`締結副契約：${row[25]}`);
+    (invResult.consumedIds || []).forEach(cid => {
+      const it = (statusObj.inventory || []).find(x => x.id === cid);
+      summaryParts.push(`使用 ${it ? it.name : cid}`);
+    });
+    if (invResult.addedCount > 0) {
+      mergedGainedItems.forEach(g => { if (g && g.name) summaryParts.push(`獲得 ${g.name}`); });
+    }
+    Object.keys(currentFactions).forEach(k => {
+      const before = statusObj.factions ? statusObj.factions[k] : undefined;
+      if (before !== currentFactions[k]) {
+        summaryParts.push(before === undefined ? `新勢力：${k}` : `${k.replace(/\s*\(.*\)$/, '')}→${String(currentFactions[k]).slice(0, 24)}`);
+      }
+    });
+    newContactNames.forEach(k => summaryParts.push(`📇 取得聯絡方式：${k.replace(/\s*\(.*\)$/, '')}`));
+    rumorRes.changes.forEach(c => summaryParts.push(`📢 流言${c}`));
+    if (aiPosts.length > 0) summaryParts.push(`📱 論壇新增 ${aiPosts.length} 則目擊`);
+    if (summaryParts.length > 0 && outcome !== 'FATAL_DEATH') {
+      formattedStory += `\n\n【本回合結算】${summaryParts.join('｜')}`;
+    }
+
     row[31] = serializeMeta_(meta);
     saveSheet.getRange(rowIndex, 1, 1, 32).setValues([row]);
     SpreadsheetApp.flush();
@@ -3443,6 +3699,11 @@ function parseSaveRow_(row) {
     autoImage: String(row[4]).toUpperCase() === 'TRUE',
     adultMode: String(row[5]).toUpperCase() === 'TRUE',
     keyEvents: Array.isArray(meta.keyEvents) ? meta.keyEvents : [],
+    rumors: Array.isArray(meta.rumors) ? meta.rumors : [],
+    smsContacts: (meta.smsContacts && typeof meta.smsContacts === 'object') ? meta.smsContacts : {},
+    routeTendency: meta.routeTendency || {},
+    activeRoute: meta.activeRoute || '',
+    routeDefs: Object.keys(ROUTE_DEFS_).map(k => ({ key: k, name: ROUTE_DEFS_[k].name, hint: ROUTE_DEFS_[k].hint })),
     artStyle: meta.artStyle || 'official',
     day: Number(row[6]),
     timePeriod: String(row[7]),
