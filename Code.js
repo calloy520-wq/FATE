@@ -3331,7 +3331,17 @@ function processFateTurnTextOnly(params) {
     let finalBossText = '';
     if (!isSandboxMode && outcome !== 'FATAL_DEATH') {
       const boss = maybeSummonFinalBoss_(currentFactions, meta, outcome);
-      if (boss) { currentFactions = boss.factions; finalBossText = boss.text; }
+      if (boss) {
+        currentFactions = boss.factions;
+        finalBossText = boss.text;
+        row[29] = JSON.stringify(currentFactions);
+        // 英雄王是當面現身，玩家當然知道
+        const ck = Object.keys(currentFactions).find(k => k.includes('教會'));
+        if (ck) {
+          meta.factionIntel = meta.factionIntel || {};
+          meta.factionIntel[ck] = { text: '英雄王吉爾伽美什現身，擋在大聖杯前', when: `Day ${row[6]}・${row[7]}`, source: '親眼所見' };
+        }
+      }
     }
     // 打倒最終 Boss 後記錄，避免再出現
     if (meta.gilFinal) {
