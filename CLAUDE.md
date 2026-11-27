@@ -45,6 +45,7 @@
 - 流言：論壇貼文與簡訊假情報記錄在 `meta.rumors`（最多 10 條），AI 以 `rumor_updates` 更新相信／識破的陣營與影響；8 回合沒人理會自然平息。手機論壇頁有「流言追蹤」。
 - 活的論壇：AI 每回合可用 `forum_posts` 產生 0～2 則市民目擊貼文。
 - 路線傾向：`meta.routeTendency`（fate／ubw／hf／shadow／conquest，0～100），AI 每回合以 `route_tendency_delta` 加減；最高分 ≥ 40 且領先 ≥ 12 時確立 `meta.activeRoute`，轉線需領先現路線 24 分。定義在 `ROUTE_DEFS_`，顯示在「📊 情報」。
+- 場地狀態延續：劇情改變地標樣貌（破壞、佈置、結界、修復）時，AI 以 `location_changes` 回報現況，存進 `meta.customLocationNotes`（與地圖上手動編輯「場地現況」是同一份），永久保留直到劇情再改變；地標清單會附上被改變地點的現況，導演會把現況畫進背景。
 - 每回合結算：伺服器比對回合前後狀態，在劇情尾端附上「【本回合結算】」（MP、警戒、好感、移動、傷勢、道具、陣營變化、聯絡人、流言、論壇）。AI 讀歷史時會自動去掉這類系統行。
 
 ## NovelAI 繪圖

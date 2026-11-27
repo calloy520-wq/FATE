@@ -2373,6 +2373,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
   '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。',
   '- 陣營更新：`faction_updates` 的鍵必須用狀態資料中既有的陣營完整名稱。',
+  '- 場地會留下痕跡：劇情確實改變了某個地標的樣子（戰鬥破壞、佈置房間、設下結界、教會修復等），在 `location_changes` 用地標名稱寫下「現在的樣子」（60 字內）。這個狀態會一直保留，之後回到那裡要照現況描寫，直到劇情再次改變它；只是路過、沒有改變就不要填。',
   '',
   '## 五、死亡與勝利',
   '- `FATAL_DEATH`：只在真正致命時使用（例如人類肉身硬吃寶具、魔力枯竭又沒令咒卻強開寶具、極端自殺式挑釁、對低好感從者持續騷擾導致致命反擊）。嘴砲、虛張聲勢、非致命的失誤都不算。死亡時描寫悲劇結局與大聖杯黑泥圍繞玩家願望編織的虛假美夢，並填寫 `tiger_dojo_tip`（老虎道場的吐槽點評）。',
@@ -2408,6 +2409,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '  "rumor_updates": [{ "id": "既有流言ID（新傳聞留空）", "text": "新傳聞才填：傳聞內容", "status": "擴散中 / 已被識破 / 已被證實 / 已平息", "believers": [], "doubters": [], "effect": "30字內影響" }],',
   '  "new_contacts": [],',
   '  "route_tendency_delta": { "fate": 0, "ubw": 0, "hf": 0, "shadow": 0, "conquest": 0 },',
+  '  "location_changes": {},',
   '  "servants_out": [],',
   '  "new_servant2_id": "",',
   '  "memory_update": "200字內前情提要",',
@@ -2493,7 +2495,8 @@ function processFateTurnTextOnly(params) {
 
     const locCatalogText = Object.keys(FUYUKI_LOCATIONS_).map(k => {
       const l = statusObj.dynamicLocations[k] || FUYUKI_LOCATIONS_[k];
-      const descPart = (k === statusObj.locationKey) ? ` | ${l.desc}` : '';
+      const changedNote = (metaBefore.customLocationNotes && metaBefore.customLocationNotes[k]) ? String(metaBefore.customLocationNotes[k]) : '';
+      const descPart = (k === statusObj.locationKey) ? ` | ${l.desc}` : (changedNote ? ` | 現況已改變：${changedNote}` : '');
       return `- ${k}: 靈脈+${l.manaRegen}MP | 危險度=${l.danger}${descPart}`;
     }).join('\n');
 
@@ -2601,6 +2604,21 @@ function processFateTurnTextOnly(params) {
 
     const resolvedLoc = matchFuyukiLocation_(turnJson.location) || resolveFuyukiLocation_(row[10]);
     row[10] = resolvedLoc.info.fullName;
+
+    // 場地狀態：AI 回報的地點改變永久保存（與地圖上手動編輯的「場地現況」是同一份資料）
+    const changedLocations = [];
+    if (turnJson.location_changes && typeof turnJson.location_changes === 'object') {
+      Object.keys(turnJson.location_changes).forEach(name => {
+        const val = String(turnJson.location_changes[name] || '').trim().slice(0, 140);
+        const hit = matchFuyukiLocation_(name);
+        if (!val || !hit) return;
+        meta.customLocationNotes = Object.assign({}, meta.customLocationNotes || {});
+        if (meta.customLocationNotes[hit.key] !== val) {
+          meta.customLocationNotes[hit.key] = val;
+          changedLocations.push(hit.key);
+        }
+      });
+    }
 
     let currentFactions = safeJsonParse_(row[29], {});
     if (turnJson.faction_updates && typeof turnJson.faction_updates === 'object') {
@@ -2910,6 +2928,7 @@ function processFateTurnTextOnly(params) {
       }
     });
     newContactNames.forEach(k => summaryParts.push(`📇 取得聯絡方式：${k.replace(/\s*\(.*\)$/, '')}`));
+    changedLocations.forEach(k => summaryParts.push(`🏚 ${k} 現況改變：${String(meta.customLocationNotes[k]).slice(0, 30)}`));
     rumorRes.changes.forEach(c => summaryParts.push(`📢 流言${c}`));
     if (aiPosts.length > 0) summaryParts.push(`📱 論壇新增 ${aiPosts.length} 則目擊`);
     if (summaryParts.length > 0 && outcome !== 'FATAL_DEATH') {
@@ -3156,6 +3175,7 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - Sleeping / bed / changing clothes: Wear appropriate pajamas/nightwear or whatever the story explicitly describes.',
     '   - Normal scene with no outfit change: Use "reference_outfit" (translate it into clean English Danbooru tags if it is in Chinese).',
     '   - Never put hair color, eye color, body type or character names inside "outfit"; those come from a fixed character sheet.',
+    '   - Reflect "Current Site Appearance/Modifications" in scene_prompt (battle damage, decorations, barriers persist between turns and must be visible).',
     '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event. Only include props, weapons and magic effects that the excerpt explicitly shows in that moment (do not add a character\'s signature item unless it is being used).',
     '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Describe the overall composition in one short natural-language clause (who is where relative to whom, depth and distance). Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
     '5. Characters (char_directions): For each present character output (keep every character\'s tags strictly in its own entry so features do not bleed between characters):',

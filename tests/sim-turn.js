@@ -153,6 +153,19 @@ geminiQueue.push({ outcome_type: 'CONTINUE', story: '你在教會門口跟神父
 const nc = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '跟神父打招呼' });
 check('只是見面不給聯絡方式', !nc.status.smsContacts['教會組 (Lancer陣營)']);
 
+// 8c. 場地狀態延續：破壞大橋 → 存檔保留 → 之後的回合提示詞與繪圖背景都看得到
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '寶具轟碎了大橋的鋼架。', ap_cost: 0, location: '冬木大橋', location_changes: { '冬木大橋': '鋼架扭曲斷裂、橋面焦黑龜裂，護欄崩落' }, present_chars: [], scene_env_en: 'bridge' });
+const lc = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '在大橋解放寶具' });
+check('場地改變寫入存檔', lc.status.dynamicLocations['冬木大橋'].desc.includes('鋼架扭曲斷裂'));
+check('結算顯示場地改變', /🏚 冬木大橋 現況改變/.test(lc.story));
+check('繪圖背景帶入場地現況', lc.imagePayload._directorContext.locationDesc.includes('鋼架扭曲斷裂'));
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '你回到了洋館。', ap_cost: 0, location: '廢棄洋館', present_chars: [], scene_env_en: 'room' });
+ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '回洋館' });
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '你在洋館休息。', ap_cost: 0, location: '廢棄洋館', present_chars: [], scene_env_en: 'room' });
+ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '休息' });
+const promptAway = geminiRequests[geminiRequests.length - 1].messages[1].content;
+check('離開後，地標清單仍記得大橋已被破壞', promptAway.includes('現況已改變：鋼架扭曲斷裂'));
+
 // 9. 第一人稱視角：畫面不畫御主、加上 pov
 ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'pov' });
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '凜瞪著你。', ap_cost: 0, location: '廢棄洋館', present_chars: [{ id: 'player_master', action_en: 'x' }, { id: 'rin', action_en: 'glaring' }], scene_env_en: 'room' });
@@ -163,7 +176,7 @@ ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'third' });
 
 // 10. 讀檔
 const ld = ctx.loadExistingGame('測試者');
-check('讀檔取得最近紀錄', ld.logs.length === 7);
+check('讀檔取得最近紀錄', ld.logs.length === 10);
 
 console.log(`\n${fails === 0 ? '全部通過' : fails + ' 項失敗'}`);
 process.exit(fails ? 1 : 0);
