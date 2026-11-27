@@ -198,6 +198,8 @@ np = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'rin' }], 'bathroom', false, 
   eq('一張圖最多 3 人、先省略御主', crowd.characters.map(c => c.id), ['scathach', 'lancer', 'archer']);
   const own = Object.assign({}, pst(true), { servant1: { id: 'scathach' } });
   const crowd2 = T.buildNaiPayloadFromScene_(own, [{ id: 'rin' }, { id: 'archer' }, { id: 'lancer', use_np: true }, { id: 'scathach' }, { id: 'player_master' }], 'bridge, night', true, '開打', '', 1);
+  const touch = T.buildNaiPayloadFromScene_(Object.assign({}, pst(true), { servant1: { id: 'scathach' } }), [{ id: 'scathach' }, { id: 'shinji' }, { id: 'rider' }, { id: 'player_master' }], 'street', false, '牽著斯卡哈的手逛街', '', 1);
+  eq('超過 3 人但御主在牽手 → 御主留下、省略配角', touch.characters.map(c => c.id), ['scathach', 'player_master', 'shinji']);
   eq('超過 3 人：自己的從者排第一、寶具中的優先', crowd2.characters.map(c => c.id), ['scathach', 'lancer', 'rin']);
 }
 eq('繪圖：只有凜時沒有 nsfw', /nsfw/.test(np.prompt), false);
@@ -365,6 +367,8 @@ eq('能力值文字', T.customServantParamsText_({ str: 'a+', end: 'X', agi: 'B'
   const b = T.formatNovelStoryText_('測驗員沒有猶豫，果斷下達了戰鬥指令：「芙蕾雅，解放寶具。」', ['芙蕾雅', '測驗員'], '', '測驗員');
   eq('冒號前的主詞是說話者', b.split('\n\n')[1], '測驗員：「芙蕾雅，解放寶具。」');
   const c = T.formatNovelStoryText_('風雪捲起。\n\n「芙蕾雅，退後！」\n\n芙蕾雅：「遵命。」', ['芙蕾雅', '測驗員'], '', '測驗員');
+  const d = T.formatNovelStoryText_('小次郎緩緩將長刀抽出，刀鋒在月光下折射出冰冷寒芒，他的姿態無懈可擊，\n\n「能與傳說中的影之國女王交手，亦是劍士的榮耀。」\n\n斯卡哈沒有多餘的言語，將魔槍一轉。', ['斯卡哈', '測驗員', '佐佐木小次郎'], '', '測驗員');
+  eq('簡稱也認得（小次郎 → 佐佐木小次郎）', d.split('\n\n')[1], '佐佐木小次郎：「能與傳說中的影之國女王交手，亦是劍士的榮耀。」');
   eq('判斷不出就不標，不會標成被叫的人', c.split('\n\n')[1], '「芙蕾雅，退後！」');
 }
 

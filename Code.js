@@ -2048,7 +2048,16 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
   text = stripRepeatedPreviousEnding_(text, prevStoryText);
   text = cleanAwkwardMasterTitle_(text, playerName);
 
-  const candidateNames = Array.isArray(contextNames) ? contextNames.filter(Boolean) : [];
+  // 名單裡是全名（佐佐木小次郎、言峰綺禮），劇情常寫簡稱（小次郎、綺禮）→ 加入簡稱，標示時換回全名
+  const baseNames = Array.isArray(contextNames) ? contextNames.filter(Boolean) : [];
+  const aliasToFull = {};
+  baseNames.forEach(n => {
+    if (n === playerName || !/^[\u4e00-\u9fff]+$/.test(n)) return;
+    if (n.length === 4) aliasToFull[n.slice(2)] = aliasToFull[n.slice(2)] || n;
+    if (n.length >= 5) aliasToFull[n.slice(-3)] = aliasToFull[n.slice(-3)] || n;
+  });
+  const candidateNames = Array.from(new Set(baseNames.concat(Object.keys(aliasToFull).filter(a => baseNames.indexOf(a) === -1)))).sort((a, b) => b.length - a.length);
+  const fullOf = n => aliasToFull[n] && baseNames.indexOf(n) === -1 ? aliasToFull[n] : n;
   const paragraphs = text.split('\n\n');
 
   const findNameIn = (str) => {
@@ -2083,7 +2092,9 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
       const nextIsLabeledLine = /^[^「『\n]{1,12}[:：]\s*[「『]/.test(String(nextText || '').trim());
       const nextName = nextIsLabeledLine ? '' : startName(nextText);
       const nextMention = findNameIn(nextText);
-      const ambiguous = (prevName && nextName && prevName !== nextName) || (prevName && nextMention && nextMention !== prevName);
+      // 前一段以逗號或冒號收尾（敘述直接接到這句台詞），說話的就是前一段的主詞
+      const flowsIn = prevName && /[，、：:]\s*$/.test(String(prevText || '').trim());
+      const ambiguous = !flowsIn && ((prevName && nextName && prevName !== nextName) || (prevName && nextMention && nextMention !== prevName));
       let speaker = ambiguous ? '' : (prevName || nextName);
       if (!speaker && !prevName && !nextName && lastSpeaker && /^(她|他)/.test(String(prevText).trim())) speaker = lastSpeaker;
       const calledName = candidateNames.find(n => new RegExp('^「' + n + '[，,！!、…]').test(trimmed));
@@ -2094,6 +2105,7 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
         if (others.length === 1) speaker = others[0];
       }
       if (speaker) {
+        speaker = fullOf(speaker);
         lastSpeaker = speaker;
         return `${speaker}：${trimmed}`;
       }
@@ -4142,8 +4154,10 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
   if (validChars.length > MAX_CG_CHARS) {
     // 保留順序：自己的從者（主／副）→ 正在解放寶具的 → 其他人照 AI 列出的順序；御主最先省略
     const own = new Set([statusObj.servant1 && statusObj.servant1.id, statusObj.servant2 && statusObj.servant2.id].filter(Boolean));
-    const rank = c => (own.has(c.id) ? 0 : (c.use_np ? 1 : 2));
-    validChars = validChars.filter(c => c.id !== 'player_master')
+    // 玩家這回合跟人有肢體接觸（牽手、擁抱、親吻…）時御主要留在畫面，否則牽手會變成跟別人牽（實測斯卡哈牽著慎二）
+    const masterTouching = /牽|抱|吻|親|摸|握|靠|依偎|膝枕|撒嬌|挽|摟|貼/.test(String(userAction || ''));
+    const rank = c => (own.has(c.id) ? 0 : (c.id === 'player_master' ? 0.5 : (c.use_np ? 1 : 2)));
+    validChars = validChars.filter(c => masterTouching || c.id !== 'player_master')
       .map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i).map(x => x.c);
   }
   validChars = validChars.slice(0, MAX_CG_CHARS);
