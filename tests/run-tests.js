@@ -127,7 +127,7 @@ eq('實測台詞說話者：台詞後接主詞／主詞是我／她指回前句'
 eq('敘述中用「」強調名字不會被拆段', T.formatNovelStoryText_('那股屬於「庫・夫林」的魔力特徵很強烈。', [], '', 'x'), '那股屬於「庫・夫林」的魔力特徵很強烈。');
 eq('對話後接敘述會拆段', T.formatNovelStoryText_('斯卡哈：「走吧。」她轉身離開。', ['斯卡哈'], '', 'x').split('\n\n').length, 2);
 eq('互動語法：角色名# 前綴被去掉，source#/target#/mutual# 保留', T.stripBadInteractionPrefix_('rin#facing the player, source#hug, mutual#holding hands, standing'), 'facing the player, source#hug, mutual#holding hands, standing');
-eq('第一人稱：只剩凜 → 1girl, solo, pov', T.buildCountTags_([{ gender: 'girl' }], true), ['1girl', 'solo', 'pov', 'first-person view']);
+eq('第一人稱：只剩凜 → 1girl, solo, pov＋景深', T.buildCountTags_([{ gender: 'girl' }], true), ['1girl', 'solo', 'pov', 'first-person view', 'depth of field']);
 eq('第一人稱：沒人在視野 → 風景', T.buildCountTags_([], true), ['no humans', 'scenery', 'pov', 'first-person view']);
 eq('第三人稱：兩女一男', T.buildCountTags_([{ gender: 'girl' }, { gender: 'girl' }, { gender: 'boy' }], false), ['2girls', '1boy', 'multiple characters']);
 eq('視野：寫了站在身後但標 true → 判為看不到', T.isOutOfPovView_({ action: 'standing behind viewer, arms crossed, in_view: true' }), true);

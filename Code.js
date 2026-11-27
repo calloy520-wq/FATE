@@ -2357,6 +2357,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 陣地優勢：在敵方工房、結界或陣地內作戰極為不利；Caster 的陣地與山門結界尤其危險。',
   '- 感知有極限：從者的氣息感知大約只到數百公尺，只能察覺「附近有從者、魔力大概多強、是否有敵意」，無法隔著整座城市辨認其他陣營在哪、是誰、什麼職階。遠方的事只能透過使魔、目擊、情報、論壇風聲得知；Assassin 的氣息遮斷甚至能完全避開感知。',
   '- 隱藏真相（大聖杯的汙染、此世之惡、言峰綺禮的真面目等）只在玩家深入調查時逐步揭露，不要一次說破。',
+  '- 時代是 2004 年的日本冬木市：手機是翻蓋手機（只能通話、簡訊、手機郵件、低畫質相機），沒有智慧型手機、LINE、社群網站或觸控螢幕；網路論壇用電腦或手機網頁瀏覽。',
   '- 御主六維與從者參數創角後固定，不會因鍛鍊改變；成長體現在情報、羈絆、道具與戰術上。',
   '',
   '## 三、本作固定設定',
@@ -3186,6 +3187,7 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - Normal scene with no outfit change: Use "reference_outfit" (translate it into clean English Danbooru tags if it is in Chinese).',
     '   - Never put hair color, eye color, body type or character names inside "outfit"; those come from a fixed character sheet.',
     '   - Reflect "Current Site Appearance/Modifications" in scene_prompt (battle damage, decorations, barriers persist between turns and must be visible).',
+    '   - The setting is Japan in 2004: any mobile phone must be a "flip phone" (clamshell feature phone with antenna and physical keypad). Never draw smartphones, touchscreens or other post-2004 technology.',
     '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event. Only include props, weapons and magic effects that the excerpt explicitly shows in that moment (do not add a character\'s signature item unless it is being used).',
     '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Describe the overall composition in one short natural-language clause (who is where relative to whom, depth and distance). Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
     '5. Characters (char_directions): For each present character output (keep every character\'s tags strictly in its own entry so features do not bleed between characters):',
@@ -3195,7 +3197,7 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - "action": the character\'s placement and spatial relation FIRST (foreground / background / center, beside / behind / in front of / facing another character, near or far, above or below), then pose, expression, gaze, weapon/prop action, in English (NO hair/eyes color). Do NOT give coordinates or left/right grid positions — NovelAI decides the exact layout from these relations.',
     '   - "interaction": ONLY if 2+ characters directly interact, use NAI V5 syntax ("source#<action>" + "target#<action>", or "mutual#<action>"). Empty string "" otherwise.',
     directorCtx.cameraMode === 'pov'
-      ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. If the player\'s hands are doing something (reaching, holding, touching, casting), add "pov hands" plus that hand action to scene_prompt. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees. Never mention out-of-view characters in scene_prompt. For EVERY character also output "in_view": true/false — false when the character is outside the player\'s field of view (behind the player, beside and out of frame, behind a wall, hidden in darkness); true only if the player would actually see them right now (e.g. "leaning in from over your shoulder" counts as visible).'
+      ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. If the player\'s hands are doing something (reaching, holding, touching, casting), add "pov hands" plus that hand action to scene_prompt. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees. CHARACTER FOCUS: in POV the visible characters are the subject of the picture — frame them close (use "close-up" or "upper body" or "cowboy shot" for one character, "medium shot" for two or three) so they fill most of the frame with clear faces and expressions; keep the background simple and secondary ("depth of field", "blurry background"), showing only enough to identify the place. Use a wide shot only when no character is visible. Never mention out-of-view characters in scene_prompt. For EVERY character also output "in_view": true/false — false when the character is outside the player\'s field of view (behind the player, beside and out of frame, behind a wall, hidden in darkness); true only if the player would actually see them right now (e.g. "leaning in from over your shoulder" counts as visible).'
       : '',
     'Output strictly valid JSON: { "scene_prompt": "...", "char_directions": [{ "id": "...", "is_nude": false, "outfit": "...", "action": "...", "interaction": "" }] }'
   ].join('\n');
@@ -3273,6 +3275,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
   if (povMode) {
     if (girls + boys === 0) countTags.push('no humans', 'scenery');
     countTags.push('pov', 'first-person view');
+    if (girls + boys > 0) countTags.push('depth of field');
   }
 
   const combatEnvTags = (isCombat || anyNpActive)
@@ -3386,6 +3389,7 @@ function buildCountTags_(chars, povMode) {
   if (povMode) {
     if (girls + boys === 0) tags.push('no humans', 'scenery');
     tags.push('pov', 'first-person view');
+    if (girls + boys > 0) tags.push('depth of field');
   }
   return tags;
 }
@@ -3472,7 +3476,7 @@ function generateNovelAIImageSafe_(params) {
   try {
     // V5 品質已經很穩，負面提示詞保持精簡：舊時代那一長串（bad, error, extra, bad hands...）會讓畫面變灰、變保守
     // 只排除品質底線、文字浮水印、馬賽克；角色專屬的負面（GameData.js 的 uc）另外照常套用
-    const defaultUc = 'worst quality, bad quality, lowres, jpeg artifacts, watermark, signature, text, speech bubble, censored, mosaic censoring, bar censor';
+    const defaultUc = 'worst quality, bad quality, lowres, jpeg artifacts, watermark, signature, text, speech bubble, censored, mosaic censoring, bar censor, smartphone';
     const cleanedChars = (Array.isArray(params.characters) ? params.characters : []).filter(c => String(c.prompt || '').trim().length > 0);
 
     const styleKey = params.artStyle || 'official';

@@ -179,7 +179,7 @@ ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'pov' });
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '凜瞪著你。', ap_cost: 0, location: '廢棄洋館', present_chars: [{ id: 'player_master', action_en: 'x' }, { id: 'rin', action_en: 'glaring' }], scene_env_en: 'room' });
 const pv = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '看著凜' });
 check('第一人稱：不畫御主', pv.status.cameraMode === 'pov' && !pv.imagePayload.characters.some(c => c.id === 'player_master'));
-check('第一人稱：主提示詞有 pov、人數只算凜', /^1girl, solo, pov/.test(pv.imagePayload.prompt));
+check('第一人稱：主提示詞有 pov、人數只算凜', /^1girl, solo, pov, first-person view, depth of field/.test(pv.imagePayload.prompt));
 ctx.savePlayerSettingsOnly('測試者', { cameraMode: 'third' });
 
 // 10. 讀檔
