@@ -1024,7 +1024,10 @@ function updateFactionIntel_(meta, factionsObj, opts) {
     intel[fk] = { text: t, when: o.when || '', source: source };
     changes.push({ fk: fk, text: t, source: source, isNew: !prev });
   };
+  // AI 回報的情報比自動判斷詳細，同一陣營有 AI 情報時以它為準
+  const aiKeys = new Set(Object.keys(o.aiIntel || {}).map(n => resolveFactionKey_(n, factionsObj)).filter(Boolean));
   Object.keys(factionsObj || {}).forEach(fk => {
+    if (aiKeys.has(fk) && !isAllianceStatusText_(factionsObj[fk])) return;
     const st = String(factionsObj[fk] || '');
     const marker = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m)) || '';
     if (isAllianceStatusText_(st)) setIntel(fk, publicIntelText_(st), '同盟');
@@ -1044,6 +1047,11 @@ function describeIntelForPrompt_(meta) {
   if (keys.length === 0) return '';
   return '【玩家目前掌握的情報（角色對話只能引用這些；其餘真相要等玩家查到）】\n' +
     keys.map(k => `- ${k}：${intel[k].text}（${intel[k].source}${intel[k].when ? '・' + intel[k].when : ''}）`).join('\n');
+}
+
+// 玩家本回合是不是在休息（睡覺、冥想、調息…）
+function isRestAction_(text) {
+  return /休息|睡覺|睡一覺|補眠|小睡|就寢|冥想|調息|靜養|休養|養傷|打坐|恢復魔力|回復魔力|回魔/.test(String(text || ''));
 }
 
 // 戰局提示：還有哪些陣營未化解、魔力是否見底（每回合放進 statePrompt）
@@ -2759,7 +2767,7 @@ function processFateTurnTextOnly(params) {
       `【物品欄 (上限 ${MAX_INVENTORY_SLOTS} 格)】\n${invSummary}`,
       isSandboxMode
         ? '日常模式：不發放戰鬥道具（`gained_items` 為 `[]`）。'
-        : '消耗背包道具請填入 `consumed_item_ids`（填背包裡的 id）；只要拾取、收納或取得物品，務必填入 `gained_items`（階級 1～3）。\n固定道具 id：魔力結晶(小)=`mana_gem_s`、高純度魔力寶石(中)=`mana_gem_m`、煙霧魔術彈=`smoke_bomb`、對魔術防禦禮裝(保命符)=`aegis_charm`、未充能天然寶石媒介=`empty_gem`、基礎黑鍵套組=`black_keys`；煉成或取得這些道具時務必沿用同一個 id。\n魔力寶石／結晶的 MP 回復與煙霧彈降低警戒度由系統自動結算，`master_mp_delta` 與 `threat_delta` 不要重複計入。'
+        : '消耗背包道具請填入 `consumed_item_ids`（填背包裡的 id）；只要拾取、收納或取得物品，務必填入 `gained_items`（階級 1～3）。\n固定道具 id：魔力結晶(小)=`mana_gem_s`、高純度魔力寶石(中)=`mana_gem_m`、煙霧魔術彈=`smoke_bomb`、對魔術防禦禮裝(保命符)=`aegis_charm`、未充能天然寶石媒介=`empty_gem`、基礎黑鍵套組=`black_keys`；煉成或取得這些道具時務必沿用同一個 id。\n魔力寶石／結晶的 MP 回復、休息回魔與煙霧彈降低警戒度由系統自動結算，`master_mp_delta` 與 `threat_delta` 不要重複計入。'
     ].join('\n');
 
     const worldEvent = drawWorldDirectorEvent_(statusObj, metaBefore, turnNum);
@@ -2924,6 +2932,12 @@ function processFateTurnTextOnly(params) {
     const routeReports = routeRes.report ? [routeRes.report] : [];
 
     let mpDelta = Number(turnJson.master_mp_delta) || 0;
+    // 休息回魔由系統結算：玩家本回合要休息／睡覺／冥想且沒有開戰 → 回復 20 + 所在地靈脈量
+    let restRecovered = 0;
+    if (statusObj.gameMode === 'WAR' && !turnJson.is_combat && isRestAction_(userAction)) {
+      restRecovered = 20 + (Number(resolvedLoc && resolvedLoc.info && resolvedLoc.info.manaRegen) || 10);
+      mpDelta = Math.min(mpDelta, 0) + restRecovered; // AI 自己加的回魔不重複計入
+    }
     let periodAdvancedNotice = '';
     let latestWarReport = '';
     const offscreenForumPosts = [];
@@ -3238,6 +3252,7 @@ function processFateTurnTextOnly(params) {
     const summaryParts = [];
     const mpAfter = Number(row[15]);
     if (mpAfter !== statusObj.master.mp) summaryParts.push(`MP ${statusObj.master.mp}→${mpAfter}`);
+    if (restRecovered > 0) summaryParts.push(`💤 休息回復 +${restRecovered} MP（${resolvedLoc.key}）`);
     if (statusObj.gameMode === 'WAR' && Number(row[9]) !== statusObj.threatLevel) summaryParts.push(`警戒 ${statusObj.threatLevel}%→${row[9]}%`);
     if (nextBond !== statusObj.bondLevel) summaryParts.push(`好感 ${statusObj.bondLevel}→${nextBond}`);
     if (Number(row[16]) !== statusObj.master.commandSpells) summaryParts.push(`令咒 ${statusObj.master.commandSpells}→${row[16]}`);
