@@ -234,6 +234,10 @@
 
     .top-actions-clean { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .cg-viewport.cg-empty { aspect-ratio: auto; min-height: 72px; }
+    .modal-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom: 4px; position: sticky; top: 0; z-index: 2; background: var(--bg-panel); padding-bottom: 6px; }
+    .modal-tabs .btn.modal-tab { border-color: var(--border-dim); color: #cbd5e1; background: var(--bg-card); }
+    .modal-tabs .btn.modal-tab.active { border-color: var(--gold-main); color: var(--gold-bright); background: rgba(226,184,87,0.16); }
+    .settings-section { font-size: 12.5px; font-weight: 800; color: var(--gold-bright); margin: 14px 0 4px; padding-bottom: 4px; border-bottom: 1px solid var(--border-dim); letter-spacing: 1px; }
     /* 手機與平板：順序改成 CG → 劇情 → 角色狀態，劇情不用往下滑很久 */
     @media (max-width: 1024px) {
       #game-screen .game-layout { display: flex; flex-direction: column; }
@@ -1187,11 +1191,7 @@
         <span>⚙️ 設定（切換後自動存檔）</span>
         <button class="btn btn-sm" onclick="closeModal('settings-modal')">✕</button>
       </div>
-      <div style="display:flex; gap:8px; margin-bottom:10px;">
-        <button class="btn btn-sm" onclick="closeModal('settings-modal'); document.getElementById('help-modal').classList.remove('hidden')">❓ 玩法說明</button>
-        <button class="btn btn-sm" onclick="closeModal('settings-modal'); logoutSwitchMaster()">🚪 切換御主</button>
-      </div>
-
+      <div class="settings-section">🎮 遊戲</div>
       <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 6px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div style="font-weight: 700; font-size: 14px;">🎭 難度與寫作基調 (可不選，預設符合常理)</div>
@@ -1207,6 +1207,23 @@
         </div>
       </div>
 
+      <div class="setting-row">
+        <div>
+          <div style="font-weight: 700; font-size: 14px;">🌸 無戰爭日常餐桌模式</div>
+          <div style="font-size: 12px; color: var(--text-muted);">開啟後解除時間與警戒限制，並禁止獲得任何戰鬥道具</div>
+        </div>
+        <div id="cap-sandboxMode" class="capsule-switch" onclick="optimisticToggleMode()"></div>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <div style="font-weight: 700; font-size: 14px;">🐯 戰敗時顯示老虎道場吐槽</div>
+          <div style="font-size: 12px; color: var(--text-muted);">開啟時戰敗會附上藤村大河與伊莉雅的死因分析</div>
+        </div>
+        <div id="cap-tigerDojo" class="capsule-switch on" onclick="this.classList.toggle('on'); showTigerDojo = this.classList.contains('on');"></div>
+      </div>
+
+      <div class="settings-section">🖼️ 畫面</div>
       <div class="setting-row">
         <div>
           <div style="font-weight: 700; font-size: 14px;">🎨 自動繪製場景 CG</div>
@@ -1231,20 +1248,10 @@
         <div id="cap-adultMode" class="capsule-switch" onclick="optimisticToggle('adultMode')"></div>
       </div>
 
-      <div class="setting-row">
-        <div>
-          <div style="font-weight: 700; font-size: 14px;">🌸 無戰爭日常餐桌模式</div>
-          <div style="font-size: 12px; color: var(--text-muted);">開啟後解除時間與警戒限制，並禁止獲得任何戰鬥道具</div>
-        </div>
-        <div id="cap-sandboxMode" class="capsule-switch" onclick="optimisticToggleMode()"></div>
-      </div>
-
-      <div class="setting-row">
-        <div>
-          <div style="font-weight: 700; font-size: 14px;">🐯 戰敗時顯示老虎道場吐槽</div>
-          <div style="font-size: 12px; color: var(--text-muted);">開啟時戰敗會附上藤村大河與伊莉雅的死因分析</div>
-        </div>
-        <div id="cap-tigerDojo" class="capsule-switch on" onclick="this.classList.toggle('on'); showTigerDojo = this.classList.contains('on');"></div>
+      <div class="settings-section">🧭 其他</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-sm" onclick="closeModal('settings-modal'); document.getElementById('help-modal').classList.remove('hidden')">❓ 玩法說明</button>
+        <button class="btn btn-sm" onclick="closeModal('settings-modal'); logoutSwitchMaster()">🚪 切換御主</button>
       </div>
     </div>
   </div>
@@ -1280,7 +1287,7 @@
   <div id="factions-modal" class="modal-backdrop hidden">
     <div class="modal-card">
       <div class="panel-header">
-        <span>📊 第五次聖杯戰爭・七組陣營動態（＋第8組玩家）</span>
+        <span>📊 情報</span>
         <button class="btn btn-sm" onclick="closeModal('factions-modal')">✕</button>
       </div>
       <div id="factions-list-content" style="font-size: 13.5px; display: flex; flex-direction: column; gap: 8px;"></div>
@@ -2513,12 +2520,29 @@
     function openFactionsModal() {
       const box = document.getElementById('factions-list-content');
       box.innerHTML = '';
+      // 分頁：陣營／隊伍／路線與事件（手機不用一直往下滑）
+      const tabBar = document.createElement('div');
+      tabBar.className = 'modal-tabs';
+      const panes = {};
+      [['f', '🏯 陣營'], ['t', '🤝 隊伍'], ['r', '🧭 路線與事件']].forEach(([key, label]) => {
+        const b = document.createElement('button');
+        b.className = 'btn btn-sm modal-tab';
+        b.innerText = label;
+        b.onclick = () => { Object.keys(panes).forEach(k => panes[k].classList.toggle('hidden', k !== key)); tabBar.querySelectorAll('.modal-tab').forEach(x => x.classList.toggle('active', x === b)); window.__intelTab = key; };
+        tabBar.appendChild(b);
+        const pane = document.createElement('div');
+        pane.style.cssText = 'display:flex; flex-direction:column; gap:8px;';
+        panes[key] = pane;
+      });
+      box.appendChild(tabBar);
+      Object.values(panes).forEach(p => box.appendChild(p));
+      const paneF = panes.f, paneT = panes.t, paneR = panes.r;
       // 只顯示玩家「知道的」陣營狀況（親眼所見、同盟、聯絡、打聽到），不是幕後真相
       const intel = currentState.factionIntel || {};
       const head = document.createElement('div');
       head.style.cssText = 'font-size:11.5px; color: var(--text-muted);';
       head.innerText = '🕵️ 這裡是你掌握的情報，不一定是最新的真相。親眼見到、同盟、聯絡或打聽之後才會更新。';
-      box.appendChild(head);
+      paneF.appendChild(head);
       Object.keys(intel).forEach(k => {
         const it = intel[k] || {};
         const row = document.createElement('div');
@@ -2534,8 +2558,20 @@
           ? `<br><span style="font-size:11.5px; color:#fca5a5;">⚔ 十二試煉：已擊破 ${Number(gh.lost)}／12${(gh.methods || []).length ? `（免疫：${escapeHtml(gh.methods.join('、'))}）` : ''}</span>`
           : '';
         row.innerHTML = `<strong>${escapeHtml(k)}</strong><span style="text-align:right;"><span style="color: ${unknown ? 'var(--text-muted)' : 'var(--gold-bright)'};">${escapeHtml(it.text || '不明')}</span>${it.when || it.source ? `<br><span style="font-size:11px; color: var(--text-muted);">${escapeHtml([it.source, it.when].filter(Boolean).join('・'))}</span>` : ''}${favLine}${ghLine}</span>`;
-        box.appendChild(row);
+        paneF.appendChild(row);
       });
+
+      // 隊伍：主從者、副從者、英靈名冊、同行盟友
+      const s1 = currentState.servant1 || {}, s2 = currentState.servant2 || {};
+      const comps = Array.isArray(currentState.companions) ? currentState.companions : [];
+      const roster = Array.isArray(currentState.servantRoster) ? currentState.servantRoster : [];
+      const team = document.createElement('div');
+      team.style.cssText = 'padding: 10px 12px; background: var(--bg-card); border: 1px solid var(--border-dim); border-radius: 8px; font-size:13px; color:#e2e8f0; line-height:1.9;';
+      team.innerHTML = `<div>⚔️ 主從者：<strong>${escapeHtml(s1.name || '無')}</strong>（${escapeHtml(s1.condition || '-')}）・💖 好感 ${Number(currentState.bondLevel || 0)}</div>` +
+        `<div>✨ 副從者：${s2.id ? `<strong>${escapeHtml(s2.name)}</strong>（${escapeHtml(s2.condition || '靈基穩定')}）` : '無'}</div>` +
+        `<div>📜 英靈名冊（洋館待命）：${roster.length ? roster.map(r => escapeHtml(r.name)).join('、') : '無'}</div>` +
+        `<div>🤝 同行盟友：${comps.length ? comps.map(c => escapeHtml(c.name)).join('、') : '無'}</div>`;
+      paneT.appendChild(team);
 
       const appts = Array.isArray(currentState.appointments) ? currentState.appointments : [];
       if (appts.length > 0) {
@@ -2544,7 +2580,7 @@
         apBox.innerHTML = `<div style="font-weight:800; color: var(--gold-bright); margin-bottom: 6px;">📅 約定</div>` +
           appts.map(a => `<div style="font-size:13px; color:#e2e8f0;">${escapeHtml(a.name)}：Day ${a.day}・${escapeHtml(a.period)} 在${escapeHtml(a.place)}集合</div>`).join('') +
           `<div style="font-size:11.5px; color: var(--text-muted); margin-top:4px;">準時到約定地點，對方會加入同行；沒去會扣好感。</div>`;
-        box.appendChild(apBox);
+        paneT.appendChild(apBox);
       }
 
       const defs = Array.isArray(currentState.routeDefs) ? currentState.routeDefs : [];
@@ -2562,7 +2598,7 @@
             </div>`;
           }).join('') +
           `<div style="font-size:11.5px; color: var(--text-muted); margin-top:4px;">依你的行動方式累積，達到門檻後劇情會走向對應路線。</div>`;
-        box.appendChild(routeBox);
+        paneR.appendChild(routeBox);
       }
 
       const events = Array.isArray(currentState.keyEvents) ? currentState.keyEvents : [];
@@ -2572,7 +2608,10 @@
         (events.length > 0
           ? events.map((e, i) => `<div style="font-size:13px; color:#e2e8f0;">${i + 1}. ${escapeHtml(e)}</div>`).join('')
           : '<div style="font-size:12.5px; color: var(--text-muted);">目前還沒有記錄的重要事件。</div>');
-      box.appendChild(evBox);
+      paneR.appendChild(evBox);
+      // 打開時停在上次看的分頁
+      const startTab = ['f', 't', 'r'].includes(window.__intelTab) ? window.__intelTab : 'f';
+      tabBar.querySelectorAll('.modal-tab')[['f', 't', 'r'].indexOf(startTab)].click();
       document.getElementById('factions-modal').classList.remove('hidden');
     }
 
