@@ -964,7 +964,7 @@ function markPhoneMessagesRead(playerName) {
 function isAllianceStatusText_(statusStr) {
   const s = String(statusStr || '');
   // 「結盟談判中」「初步結盟意向」「同盟解除」這類還沒成立或已破裂的不算
-  return /同盟|結盟|停戰|互助|合作|友方/.test(s) && !/談判|意向|考慮|提議|拒絕|破裂|解除|背叛|假意|觀望|中止|撕毀|試探|尚未/.test(s);
+  return /同盟|結盟|盟友|停戰|互助|合作|友方/.test(s) && !/談判|意向|考慮|提議|拒絕|破裂|解除|背叛|假意|觀望|中止|撕毀|試探|尚未/.test(s);
 }
 
 // 結盟要分階段：敵對陣營不會一回合就變同盟，先軟化成談判中（符合常理與鐵血；搞笑、故事模式不限）
