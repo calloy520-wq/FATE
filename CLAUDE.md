@@ -89,6 +89,8 @@
   - 權重檢查（2026-11）：服裝整段 1.15 權重保留（拿掉後士郎的圍裙會消失），拉成全身的問題改用特寫時刪下半身標籤解決；多人髮色 1.25、Archer／小次郎／哈桑角色名 1.2、Rider 眼睛與眼罩負面、黑 Saber 頭盔負面都是修正用，保留。
   - 接吻容錯：第一人稱只要角色欄位出現 kiss／kissing（導演常寫 kissing viewer）就補 `incoming kiss`；第三人稱接吻主提示詞人數後面放 `upper body, kiss, faces close together`，刪掉含 silhouette（剪影）的片段，並刪掉角色欄位的站位／腳部字眼（standing、tiptoes、foreground、in front of…，加權的服裝段不動）——close-up 加上站位字眼曾畫出一人特寫、一人站在遠處背景的怪圖，改後 4 個 seed 都正常。**兩人畫面不可用 face focus**（實測會畫出一張巨臉加一個小全身人）；face focus 只給單人。
   - 單人解放寶具（1 人且有 npBoost、非第一人稱）：主提示詞人數後面固定 `cowboy shot, from below, dynamic pose`，刪 wide／full body，並刪角色欄位的 feet、legs apart、center 等全身字眼（實測貞德、黑貞德原本是遠處小人）。
+  - 掏耳朵：`mimikaki, holding ear pick`；第一人稱用膝枕仰角（`mimikaki, holding ear pick, lap pillow, pov, from below, looking down at viewer, close-up`）。2026-11 正式版實測 14 位女性角色膝枕＋掏耳朵都成功（伊莉雅兩版、小黑、美遊是孩童外觀，這類親密測試不做）。
+  - **負面排除的東西不能出現在該角色自己的服裝與動作裡**（`stripActionTermsInUc_`，用 `removeTagsKeepWeights_` 保住權重語法）：劇情照原作寫 Rider「被眼罩覆蓋的雙眼」，導演把 blindfold 寫進加權 1.15 的服裝，比負面 1.4 還強，就畫出眼罩。現在組 payload 與導演合併時都會刪掉。也順便涵蓋日常場景的武器、別過頭時的 looking at viewer。
   - 黃昏：`addNightFillLight_` 把 orange-hued lighting 換成 warm lighting，並加 `natural skin tone, soft lighting`（避免整張連人物都變橘）。
 - 只有 1 個角色時程式一律改直式（導演選橫式也會被蓋掉）；橫式會把單人畫成小點。
 - 畫面方向由導演決定（`orientation`）：1 人或兩人貼身互動 → 直式；戰鬥、廣角、3 人以上、兩人有距離 → 橫式。導演沒回報時用 `pickNaiSize_`（1 人直式、其他橫式）。點擊 CG 會全螢幕放大（`openCgLightbox`），點擊或 Esc 關閉。

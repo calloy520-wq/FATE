@@ -4176,7 +4176,8 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     const normCore = normalizeCharCoreForNai_(profile.core, profile.gender);
     const core = nudeMode ? stripClothesFromCore_(normCore) : normCore;
     if (nudeMode) anyNude = true;
-    const weightedOutfit = formatCharacterOutfitPrompt_(profile.outfit);
+    // 服裝裡不能有自己負面排除的東西（例如 Rider 的眼罩）
+    const weightedOutfit = stripActionTermsInUc_(formatCharacterOutfitPrompt_(profile.outfit), profile.uc);
     let directAction = String(c.action_en || '').trim();
 
     if (profile.gender === 'boy') boys++;
@@ -4423,9 +4424,9 @@ function detectIntimacyTags_(texts) {
 // 上半身／特寫鏡頭時拿掉下半身衣物標籤：服裝欄位加權寫了長裙、褲襪、靴子時，NovelAI 會為了畫出它們而拉成全身（實測櫻哭泣怎樣都是全身）
 const LOWER_BODY_RE_ = /\b(skirt|miniskirt|pleated skirt|long skirt|hakama|pants|trousers|jeans|shorts|pantyhose|tights|thighhighs|thigh highs|kneehighs|socks|stockings|leggings|garter( belt| straps)?|shoes|boots|heels|high heels|sandals|loafers|sneakers|footwear|geta|zettai ryouiki)\b/i;
 const FOOTWEAR_RE_ = /\b(shoes|boots|armored boots|heels|high heels|sandals|loafers|sneakers|footwear|geta)\b/i;
-function stripLowerBodyForCloseUp_(charPrompt, footwearOnly) {
-  const re = footwearOnly ? FOOTWEAR_RE_ : LOWER_BODY_RE_;
-  const tokens = String(charPrompt || '').split(',');
+// 刪掉符合條件的標籤，同時保住 1.15::…:: 這類權重語法的開頭與結尾
+function removeTagsKeepWeights_(str, shouldRemove) {
+  const tokens = String(str || '').split(',');
   const out = [];
   let carryPrefix = '';
   tokens.forEach(raw => {
@@ -4434,7 +4435,7 @@ function stripLowerBodyForCloseUp_(charPrompt, footwearOnly) {
     const pre = (t.match(/^(-?\d+(\.\d+)?::)/) || [''])[0];
     const suf = /::$/.test(t) && !/^-?\d+(\.\d+)?::$/.test(t) ? '::' : '';
     const core = t.slice(pre.length, suf ? t.length - 2 : t.length).trim();
-    if (re.test(core) && !/\b(hair|eyes)\b/i.test(core)) {
+    if (core && shouldRemove(core)) {
       if (pre) carryPrefix = carryPrefix || pre;
       if (suf) {
         if (carryPrefix) carryPrefix = ''; // 整段加權都被拿掉了
@@ -4446,6 +4447,21 @@ function stripLowerBodyForCloseUp_(charPrompt, footwearOnly) {
     out.push(t);
   });
   return out.join(', ');
+}
+
+function stripLowerBodyForCloseUp_(charPrompt, footwearOnly) {
+  const re = footwearOnly ? FOOTWEAR_RE_ : LOWER_BODY_RE_;
+  return removeTagsKeepWeights_(charPrompt, core => re.test(core) && !/\b(hair|eyes)\b/i.test(core));
+}
+
+// 角色負面裡排除的東西，不能出現在她自己的動作描述裡（實測：劇情照原作寫 Rider「被眼罩覆蓋的雙眼」，導演就把 blindfold 寫進動作，負面擋不住）
+function stripActionTermsInUc_(actionStr, ucStr) {
+  const terms = String(ucStr || '').replace(/-?\d+(\.\d+)?::/g, '').replace(/::/g, '').split(',').map(t => t.trim().toLowerCase()).filter(t => t.length >= 3);
+  if (!terms.length) return String(actionStr || '');
+  return removeTagsKeepWeights_(actionStr, core => {
+    const low = core.toLowerCase();
+    return terms.some(term => new RegExp('(^|[^a-z])' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z]|$)').test(low));
+  });
 }
 
 function generateTurnCgAsync(imgPayload) {
@@ -4543,9 +4559,10 @@ function generateTurnCgAsync(imgPayload) {
           const gaze = refineGazeAction_(stripOtherCharNames_(actionWithExpr, ch.id, presentIds).replace(/\bmutual#embrac(e|ing)\b/gi, 'mutual#hug'));
           // 視線不看鏡頭時，這個角色的負面加 looking at viewer（否則 NovelAI 很容易讓她直視鏡頭）
           const gazeUc = gaze.averted && !/looking at viewer/i.test(String(ch.uc || '')) ? 'looking at viewer' : '';
+          const finalUc = [ch.uc, gazeUc].filter(Boolean).join(', ');
           return Object.assign({}, ch, {
-            prompt: [finalCore, finalOutfit, gaze.action, ch.npBoost].filter(Boolean).join(', '),
-            uc: [ch.uc, gazeUc].filter(Boolean).join(', ')
+            prompt: [finalCore, stripActionTermsInUc_(finalOutfit, finalUc), stripActionTermsInUc_(gaze.action, finalUc), ch.npBoost].filter(Boolean).join(', '),
+            uc: finalUc
           });
         });
       }
