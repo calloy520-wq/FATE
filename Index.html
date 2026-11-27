@@ -1308,6 +1308,23 @@
   </div>
 
   <script>
+    // 錯誤顯示器：網頁程式出錯時在畫面頂端顯示紅條（方便截圖回報）
+    (function () {
+      function showErr(msg) {
+        try {
+          var bar = document.getElementById('fatal-error-bar');
+          if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'fatal-error-bar';
+            bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#7f1d1d;color:#fff;font-size:12px;padding:8px 10px;white-space:pre-wrap;word-break:break-all;';
+            (document.body || document.documentElement).appendChild(bar);
+          }
+          bar.textContent = '⚠️ 程式錯誤（請截圖回報）：' + msg;
+        } catch (e) {}
+      }
+      window.addEventListener('error', function (e) { showErr((e.message || '') + ' @' + (e.lineno || '?') + ':' + (e.colno || '?')); });
+      window.addEventListener('unhandledrejection', function (e) { showErr('Promise：' + (e.reason && e.reason.message ? e.reason.message : String(e.reason))); });
+    })();
     const MASTER_CACHE_KEY = 'fate_hgc_cached_master_name_v1';
     const ORIGIN_NOTES = {
       '冬木市隱居古家族': '魔術迴路:B | 近戰體術:D | 隱藏氣息:C | 幸運:C (自帶高純度魔力寶石(中)×1、未充能天然寶石媒介×2)',
