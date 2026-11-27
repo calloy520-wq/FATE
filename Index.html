@@ -1799,7 +1799,10 @@
         return;
       }
 
-      box.innerHTML = msgs.map(m => `
+      const rinNote = /遠坂/.test(facName)
+        ? '<div style="font-size:11.5px; color:#fde68a; background:rgba(226,184,87,0.08); border:1px dashed rgba(226,184,87,0.4); border-radius:6px; padding:5px 8px;">📜 凜沒有手機：你的簡訊由 Archer 轉達，回覆是使魔捎來的字條。</div>'
+        : '';
+      box.innerHTML = rinNote + msgs.map(m => `
         <div class="sms-msg ${m.fromPlayer ? 'outgoing' : 'incoming'}">
           <div style="font-size:10.5px; opacity:0.8; margin-bottom:2px;">${escapeHtml(m.sender || '')}・${escapeHtml(m.time || '')}</div>
           <div>${m.deception ? '🎭 ' : ''}${escapeHtml(m.text || '')}</div>

@@ -79,7 +79,7 @@ const FATE_CHARACTERS_ = [
   { id: "rin", names: "遠坂凜,凜", gender: "girl",
     core: "tohsaka rin, fate/stay night, long black hair, twintails, blue eyes",
     outfit: "red turtleneck sweater, black pleated skirt, black thighhighs, cross necklace",
-    uc: "blonde hair, ponytail, holding gem, gemstone, holding jewelry, pendant", summonable: false },
+    uc: "blonde hair, ponytail, holding gem, gemstone, holding jewelry, pendant, cellphone, holding phone, flip phone", summonable: false },
   { id: "sakura", names: "間桐櫻,櫻", gender: "girl",
     core: "matou sakura, fate/stay night, purple hair, medium hair, purple eyes",
     outfit: "red hair ribbon, homurahara academy school uniform, brown blazer, white sailor collar, red neckerchief, brown pleated skirt, black pantyhose",

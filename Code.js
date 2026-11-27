@@ -712,6 +712,9 @@ function generateAllySmsReply_(playerName, factionName, statusText, history, pla
       allied
         ? '你們目前是同盟：被要求支援時，依陣營狀態明確表示能否支援、何時、怎麼配合。'
         : '你們不是同盟：依關係與性格回應，可能警戒、試探、挑釁、談條件或冷淡已讀；不要輕易透露自己的弱點。',
+      /遠坂/.test(factionName)
+        ? '遠坂凜沒有手機也不會用（機械白痴）：玩家的簡訊是透過 Archer 或使魔轉達給她的。回覆一律以「（使魔捎來的字條）」開頭，內容是凜親筆寫的字條，用凜的口吻；不要寫成她自己在操作手機。'
+        : '',
       isDeception
         ? '注意：玩家這則簡訊其實是想欺騙你，但你的角色並不知情。依角色的精明程度、手上情報與這則訊息的可信度，自然決定相信、半信半疑或識破。'
         : '',
@@ -1367,7 +1370,10 @@ function segmentDialogue_(par, names, playerName) {
     const found = asSubjectCandidates(clause.length >= 2 ? clause : t);
     return found.length === 1 ? found[0] : '';
   };
-  const isSpeech = (q, prevChar) => /[，。！？…、～—]/.test(q) || q.length >= 8 || prevChar === '：' || prevChar === ':';
+  const isSpeech = (q, prevChar, nextChar) => {
+    if (/^[的之般似]$/.test(nextChar || '')) return false; // 「……」的警告意味 → 句中引用
+    return /[，。！？…、～—]/.test(q) || q.length >= 8 || prevChar === '：' || prevChar === ':';
+  };
 
   const out = [];
   let narration = '';
@@ -1377,7 +1383,7 @@ function segmentDialogue_(par, names, playerName) {
   while ((m = re.exec(p)) !== null) {
     const before = p.slice(lastIdx, m.index);
     const prevChar = before.trim().slice(-1);
-    if (!isSpeech(m[1], prevChar)) {
+    if (!isSpeech(m[1], prevChar, p.charAt(m.index + m[0].length))) {
       narration += before + m[0];
       lastIdx = m.index + m[0].length;
       continue;
@@ -2831,7 +2837,7 @@ function processFateTurnTextOnly(params) {
 
     const newContactNames = [];
     // 伺服器端把關：劇情或玩家輸入裡真的出現交換聯絡方式的字眼才承認（AI 常在剛見面時就給）
-    const contactEvidence = /手機|號碼|電話|名片|聯絡方式|聯繫方式|簡訊|郵件|mail|line/i.test(`${userAction} ${turnJson.story || ''}`);
+    const contactEvidence = /手機|號碼|電話|名片|聯絡方式|聯繫方式|簡訊|郵件|mail|line|使魔|傳話|傳信/i.test(`${userAction} ${turnJson.story || ''}`);
     (contactEvidence && Array.isArray(turnJson.new_contacts) ? turnJson.new_contacts : []).forEach(n => {
       const k = resolveFactionKey_(n, currentFactions);
       if (!k) return;

@@ -124,6 +124,7 @@ eq('前後段各有不同角色時不亂標說話者', T.formatNovelStoryText_('
 const lancerStory = '「真是警覺啊，陌生御主。」Lancer 舔了舔嘴唇，眼神掃過我身邊的斯卡哈時一滯。「等等，那個氣息……師匠？」\n\n感受著魔力流向手背，我對著身旁的斯卡哈發出絕對指令：「斯卡哈，以令咒命令妳——解放寶具！」\n\n斯卡哈微微一怔，隨即露出微笑。她那冷徹的聲音響徹夜空：「既然是御主的命令，那便如你所願。」';
 const lancerLines = T.formatNovelStoryText_(lancerStory, ['斯卡哈', '測試者', 'Lancer', '庫夫林'], '', '測試者').split('\n\n').filter(x => x.includes('「'));
 eq('實測台詞說話者：台詞後接主詞／主詞是我／她指回前句', lancerLines.map(x => x.split('：')[0]), ['Lancer', 'Lancer', '測試者', '斯卡哈']);
+eq('句中引用「……」的 不拆段', T.formatNovelStoryText_('空氣中瀰漫著特有的「既然決定合作就別再耍花招」的警告意味。', ['遠坂凜'], '', 'x'), '空氣中瀰漫著特有的「既然決定合作就別再耍花招」的警告意味。');
 eq('敘述中用「」強調名字不會被拆段', T.formatNovelStoryText_('那股屬於「庫・夫林」的魔力特徵很強烈。', [], '', 'x'), '那股屬於「庫・夫林」的魔力特徵很強烈。');
 eq('對話後接敘述會拆段', T.formatNovelStoryText_('斯卡哈：「走吧。」她轉身離開。', ['斯卡哈'], '', 'x').split('\n\n').length, 2);
 eq('互動語法：角色名# 前綴被去掉，source#/target#/mutual# 保留', T.stripBadInteractionPrefix_('rin#facing the player, source#hug, mutual#holding hands, standing'), 'facing the player, source#hug, mutual#holding hands, standing');
