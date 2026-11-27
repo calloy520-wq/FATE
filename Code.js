@@ -1002,7 +1002,7 @@ const CHAR_FACTION_MARKERS_ = {
   shirou: '衛宮', saber: '衛宮', saber_alter: '衛宮',
   rin: '遠坂', archer: '遠坂',
   kirei: '教會', lancer: '教會', gilgamesh: '教會',
-  sakura: '間桐', rider: '間桐', dark_sakura: '間桐',
+  sakura: '間桐', rider: '間桐', dark_sakura: '間桐', shinji: '間桐',
   souichirou: '柳洞寺', caster: '柳洞寺', assassin: '柳洞寺',
   illya: '愛因茲貝倫', berserker: '愛因茲貝倫',
   hassan: '臟硯'
@@ -3313,7 +3313,7 @@ function processFateTurnTextOnly(params) {
       row[19] = morphInfo.triggers.split(',')[0];
     }
 
-    const nonServants = new Set(['player_master', 'shirou', 'rin', 'sakura', 'dark_sakura', 'illya', 'kirei', 'souichirou']);
+    const nonServants = new Set(['player_master', 'shirou', 'rin', 'sakura', 'dark_sakura', 'illya', 'kirei', 'souichirou', 'shinji']);
     // 套用英靈名冊的換人（以寫回時的最新存檔為準）
     let rosterSwap = null;
     meta.servantRoster = Array.isArray(meta.servantRoster) ? meta.servantRoster.slice() : [];
@@ -4310,6 +4310,11 @@ function generateTurnCgAsync(imgPayload) {
       if (!directedNude && directed.scene_prompt) {
         directed.scene_prompt = String(directed.scene_prompt).split(',').map(t => t.trim())
           .filter(t => t && !isNudeOutfitTags_(t) && !/^(nsfw|bare skin|nipples|pussy|breasts out)$/i.test(t)).join(', ');
+      }
+      // 第一人稱：玩家這回合沒有用手碰角色或接東西時，不畫 pov hands（避免畫面兩側出現一雙大手）
+      const handAction = /握|牽|摸|撫|遞|接過|拿|抓|抱|拍|推|拉|觸|摟|伸手|手/.test(String((working._directorContext || {}).userAction || ''));
+      if (directed.scene_prompt && !handAction) {
+        directed.scene_prompt = String(directed.scene_prompt).split(',').map(t => t.trim()).filter(t => t && !/^pov hands?$/i.test(t)).join(', ');
       }
       if (directed.scene_prompt) {
         working.prompt = [working.countPrefix, ratingTag, stripCountTags_(directed.scene_prompt), working.combatEnvTags].filter(Boolean).join(', ');
