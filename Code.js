@@ -4555,6 +4555,14 @@ function generateTurnCgAsync(imgPayload) {
       // 第一人稱：畫面裡沒有可以當「對象」的角色，source#／target#／mutual# 前綴會讓 incoming kiss 這類動作失效 → 去掉前綴
       if (working.cameraMode === 'pov' && Array.isArray(working.characters)) {
         working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: String(ch.prompt || '').replace(/(^|,\s*)(source|target|mutual)#/gi, '$1') }));
+        // 導演有時寫「kissing viewer」「kiss」而不是 incoming kiss → 統一成 incoming kiss（親臉頰除外）
+        if (!cheekKiss) {
+          working.characters = working.characters.map(ch => {
+            const p0 = String(ch.prompt || '');
+            if (/\bincoming kiss\b/i.test(p0) || !/\bkiss(es|ing)?\b/i.test(p0)) return ch;
+            return Object.assign({}, ch, { prompt: `${p0}, incoming kiss` });
+          });
+        }
         if (!cheekKiss && working.characters.some(ch => /\bincoming kiss\b/i.test(ch.prompt))) {
           // 親吻要看得出來：臉部特寫、閉眼、嘟唇；拿掉會搶戲的「微笑」
           working.characters = working.characters.map(ch => /\bincoming kiss\b/i.test(ch.prompt)
@@ -4581,7 +4589,13 @@ function generateTurnCgAsync(imgPayload) {
       }
       // 擁抱、親吻：鏡頭拉近到上半身，避免 upper body 和 medium shot 同時出現互相抵銷
       if (Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && isRomanticInteraction_(`${d.interaction || ''} ${d.action || ''}`))) {
-        working.prompt = refineRomanceFraming_(working.prompt);
+        working.prompt = refineRomanceFraming_(working.prompt).replace(/,?\s*[^,]*\bsilhouettes?\b[^,]*/gi, '');
+        // 第三人稱接吻：臉部特寫＋Danbooru 的 kiss 標籤放前面（實測只寫 upper body 時偶爾會畫成遠處剪影）
+        const lipKiss = !cheekKiss && working.cameraMode !== 'pov' && directed.char_directions.some(d => d && /\bkiss(es|ing)?\b/i.test(`${d.interaction || ''} ${d.action || ''}`));
+        if (lipKiss) {
+          const rest = stripCountTags_(String(working.prompt).replace(/,?\s*\b(upper body|close-up|kiss)\b/gi, '')).replace(/^,\s*/, '');
+          working.prompt = [working.countPrefix, 'close-up, kiss', rest].filter(Boolean).join(', ');
+        }
       }
       if (/\b(upper body|close-up|portrait|face focus)\b/i.test(String(working.prompt || '')) && Array.isArray(working.characters)) {
         working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: stripLowerBodyForCloseUp_(ch.prompt) }));

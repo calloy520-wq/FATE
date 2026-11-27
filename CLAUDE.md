@@ -87,6 +87,7 @@
   - **重要發現**：角色服裝欄位加權寫了長裙、褲襪、靴子、高跟鞋時，NovelAI 會為了畫出它們把鏡頭拉成全身，導演寫上半身也沒用。`stripLowerBodyForCloseUp_`：鏡頭是 upper body／close-up／portrait／face focus 時拿掉下半身衣物標籤；cowboy shot 時只拿掉鞋類（`FOOTWEAR_RE_`）。實測櫻哭泣從全身變成淚眼特寫、Rider 不再每張都全身。
   - 兩人對打或面對面（2 人、互動含 clash／confront／duel／facing each other）：主提示詞加 `from side`、刪掉角色欄位的 foreground，避免一人站前景背對鏡頭（實測 Saber 背影 → 三次都是側面對峙、雙方臉都看得到）。導演規則也禁止無故背對鏡頭。
   - 權重檢查（2026-11）：服裝整段 1.15 權重保留（拿掉後士郎的圍裙會消失），拉成全身的問題改用特寫時刪下半身標籤解決；多人髮色 1.25、Archer／小次郎／哈桑角色名 1.2、Rider 眼睛與眼罩負面、黑 Saber 頭盔負面都是修正用，保留。
+  - 接吻容錯：第一人稱只要角色欄位出現 kiss／kissing（導演常寫 kissing viewer）就補 `incoming kiss`；第三人稱接吻主提示詞人數後面放 `close-up, kiss`，並刪掉含 silhouette（剪影）的片段。**兩人畫面不可用 face focus**（實測會畫出一張巨臉加一個小全身人）；face focus 只給單人。
   - 黃昏：`addNightFillLight_` 把 orange-hued lighting 換成 warm lighting，並加 `natural skin tone, soft lighting`（避免整張連人物都變橘）。
 - 只有 1 個角色時程式一律改直式（導演選橫式也會被蓋掉）；橫式會把單人畫成小點。
 - 畫面方向由導演決定（`orientation`）：1 人或兩人貼身互動 → 直式；戰鬥、廣角、3 人以上、兩人有距離 → 橫式。導演沒回報時用 `pickNaiSize_`（1 人直式、其他橫式）。點擊 CG 會全螢幕放大（`openCgLightbox`），點擊或 Esc 關閉。
