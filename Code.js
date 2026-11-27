@@ -91,9 +91,9 @@ const GAME_TONE_PRESETS_ = {
     directive: '寫成搞笑鬧劇：用誇張的動作、漫畫式的反應、角色之間的吐槽製造笑點；荒唐的計畫可以歪打正著或以好笑的方式失敗；玩家幾乎不會受重傷，事後大家多半一臉無奈或爆笑。'
   },
   'STORY_PLAYER_FIRST': {
-    label: '📖 故事模式（玩家為主）',
-    desc: '完全依照並順從玩家輸入的話語、意圖與劇情方向自然延伸發展，不刻意唱反調或刁難，順著玩家想要的戲劇張力推進。',
-    directive: '以玩家想要的結果為優先：玩家的行動原則上成功（就算對手很強，也找出合理的理由讓計畫奏效），代價輕微，劇情朝玩家期待的戲劇張力發展；只有完全違反世界觀的要求才婉轉改寫。'
+    label: '🐉 龍傲天模式（玩家無敵）',
+    desc: '玩家就是主角：不管想做什麼都能實現，計畫一定成功、敵人被碾壓、眾人震驚折服，爽快至上。',
+    directive: '龍傲天爽文：玩家想做的事一定成功，而且成功得漂亮——強敵被碾壓或折服、旁人震驚讚嘆、美人傾心、局勢一面倒；就算再荒唐，也找出型月風格的理由讓它實現（隱藏血統、覺醒、奇蹟、對手輕敵）。玩家與從者幾乎不受傷，結盟一談就成。'
   },
   'HARDCORE_WAR': {
     label: '⚔️ 鐵血嚴重戰場風',
@@ -298,10 +298,23 @@ function parseJsonLoose_(text) {
     return JSON.parse(t);
   } catch (e) {
     const s = t.indexOf('{');
-    const e2 = t.lastIndexOf('}');
-    if (s >= 0 && e2 > s) {
-      return JSON.parse(t.slice(s, e2 + 1));
+    if (s < 0) throw e;
+    // 找出第一個完整的 JSON 物件（AI 有時在後面多吐一段文字或第二個物件）
+    let depth = 0, inStr = false, esc = false;
+    for (let i = s; i < t.length; i++) {
+      const ch = t[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') inStr = true;
+      else if (ch === '{') depth++;
+      else if (ch === '}') { depth--; if (depth === 0) { try { return JSON.parse(t.slice(s, i + 1)); } catch (e3) { break; } } }
     }
+    const e2 = t.lastIndexOf('}');
+    if (e2 > s) return JSON.parse(t.slice(s, e2 + 1));
     throw e;
   }
 }
@@ -1136,7 +1149,7 @@ function applyFactionFavor_(meta, factionsObj, deltas) {
 function describeFavorForPrompt_(meta, factionsObj) {
   const keys = Object.keys(factionsObj || {}).filter(k => !isCapturedOrDefeatedStatusText_(factionsObj[k]));
   if (keys.length === 0) return '';
-  return `【各陣營對玩家的好感（−100～100）】${keys.map(k => `${k.replace(/\\s*\\(.*\\)$/, '')} ${getFactionFavor_(meta, k)}（${favorLabel_(getFactionFavor_(meta, k))}）`).join('、')}。依玩家的行為用 faction_favor_delta 加減（幫忙、守約、分享情報加分；欺騙被識破、放鴿子、攻擊扣分，每次 ±15 內）；好感 ${ALLIANCE_FAVOR_MIN_} 以上才可能正式結盟。`;
+  return `【各陣營對玩家的好感（−100～100）】${keys.map(k => `${k.replace(/\\s*\\(.*\\)$/, '')} ${getFactionFavor_(meta, k)}（${favorLabel_(getFactionFavor_(meta, k))}）`).join('、')}。只有本回合和該陣營真的有互動時，才用 faction_favor_delta 加減（幫忙、守約、分享情報加分；欺騙被識破、放鴿子、攻擊扣分，每次 ±15 內）；沒互動就不要填；好感 ${ALLIANCE_FAVOR_MIN_} 以上才可能正式結盟。`;
 }
 
 // 約定：只和同盟約；到了約定時段人在約定地點 → 對方依約加入同行；錯過 → 好感 −10
@@ -1178,7 +1191,7 @@ function resolveAppointments_(meta, factionsObj, nowIdx, locationKey) {
 
 function describeAppointmentsForPrompt_(meta, nowIdx) {
   const list = Array.isArray(meta && meta.appointments) ? meta.appointments : [];
-  if (list.length === 0) return '【約定】目前沒有。玩家和同盟約好時間地點集合時，填 appointments_add。';
+  if (list.length === 0) return '';
   return '【約定】' + list.map(a => `${companionDisplayName_(a.fk)} 約在 Day ${a.day}・${a.period} 於${a.place}集合${timeIndex_(a.day, a.period) === nowIdx ? '（就是現在！玩家在那裡的話對方準時出現）' : ''}`).join('；') + '。玩家和同盟約新的集合時，填 appointments_add。';
 }
 
@@ -2884,7 +2897,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '3. 每個行動都要有確實的結果並留下紀錄：數值、陣營狀態、流言、道具、關係變化都要反映在對應的 JSON 欄位，不能只寫在劇情裡。',
   '4. 只控制玩家輸入的部分：不替玩家寫出沒輸入的行動或台詞，也不替玩家做決定；從者、NPC、敵對陣營依各自性格與目的主動行動。',
   '5. 世界是活的：各陣營有自己的計畫，會依情報、流言與局勢變化而行動；在場人物一定會對玩家的言行有所反應，不會無視或憑空消失。',
-  '7. 寫作基調（在狀態資料的【寫作基調】）決定結果的輕重與筆調，必須照做：符合常理＝依型月邏輯公平裁定；搞笑鬧劇＝誇張好笑、在場角色吐槽反應，非極端作死不重創不致死；故事模式＝順著玩家想要的方向發展，盡量讓玩家的意圖成功、代價輕；鐵血戰場＝嚴峻寫實，敵人冷靜反制，失誤會付出真實的傷勢與代價。',
+  '7. 寫作基調（在狀態資料的【寫作基調】）決定結果的輕重與筆調，必須照做：符合常理＝依型月邏輯公平裁定；搞笑鬧劇＝誇張好笑、在場角色吐槽反應，非極端作死不重創不致死；龍傲天＝玩家想做的事一定成功而且碾壓、旁人震驚折服，不受伺服器的戰鬥與結盟門檻限制；鐵血戰場＝嚴峻寫實，敵人冷靜反制，失誤會付出真實的傷勢與代價。',
   '6. 只寫本回合的新發展：前幾回合是已確定的歷史，開頭不要重複或改寫上一回合的結尾。劇情停在玩家這次行動自然結束的那一刻，不要自己替玩家移動到別的地方、跳過時間或安排下一步（例如玩家只說去遠坂邸談判，就停在遠坂邸，不要寫「之後回到洋館」）。',
   '',
   '## 二、型月世界邏輯（判斷結果時的常識，不是禁止清單）',
@@ -3091,7 +3104,7 @@ function processFateTurnTextOnly(params) {
     ].join('\n');
 
     const worldEvent = drawWorldDirectorEvent_(statusObj, metaBefore, turnNum);
-    const combatAssess = statusObj.gameMode === 'WAR' ? assessCombat_(statusObj, metaBefore, userAction) : null;
+    const combatAssess = (statusObj.gameMode === 'WAR' && normalizeGameToneKey_(statusObj.gameTone) !== 'STORY_PLAYER_FIRST') ? assessCombat_(statusObj, metaBefore, userAction) : null;
     const worldEventHint = worldEvent.text;
     const canFormSecondContract = (!statusObj.servant1.id) || (statusObj.master.commandSpells >= 1 && statusObj.master.mp >= 80 && !statusObj.servant2.id);
 
@@ -3207,7 +3220,9 @@ function processFateTurnTextOnly(params) {
         const realKey = resolveFactionKey_(fname, currentFactions);
         if (val && realKey) {
           const prevSt = String(currentFactions[realKey] || '');
-          const nextSt = gateGodHandElimination_(realKey, prevSt, gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val.slice(0, 120)), toneKey, getFactionFavor_(meta, realKey)), meta.godHand);
+          // 龍傲天模式：不套用淘汰兩步、十二試煉與結盟門檻，想做的都能實現
+          const isDragon = toneKey === 'STORY_PLAYER_FIRST';
+          const nextSt = isDragon ? val.slice(0, 120) : gateGodHandElimination_(realKey, prevSt, gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val.slice(0, 120)), toneKey, getFactionFavor_(meta, realKey)), meta.godHand);
           // 已淘汰的陣營不會復活；唯一例外是教會亮出隱藏王牌吉爾伽美什（只有一次）
           const wasOut = isCapturedOrDefeatedStatusText_(prevSt) && !/收服|已歸屬第8組/.test(prevSt);
           if (wasOut && !isCapturedOrDefeatedStatusText_(nextSt)) {
@@ -3261,7 +3276,7 @@ function processFateTurnTextOnly(params) {
       const fk = marker ? Object.keys(statusObj.factions || {}).find(k => k.includes(marker)) : '';
       if (!fk) return true;
       const prev = String(statusObj.factions[fk] || '');
-      return isCapturedOrDefeatedStatusText_(prev) || isWeakenedStatusText_(prev) || String(sid) === capturedServantId;
+      return toneKey === 'STORY_PLAYER_FIRST' || isCapturedOrDefeatedStatusText_(prev) || isWeakenedStatusText_(prev) || String(sid) === capturedServantId;
     });
     let routeRes = updateRyuudouRoute_(meta, currentFactions, servantsOutList, capturedServantId, presentIdSet);
     currentFactions = routeRes.factions;
@@ -3603,7 +3618,7 @@ function processFateTurnTextOnly(params) {
     const nowIdx = timeIndex_(row[6], row[7]);
     const apptAdded = addAppointments_(meta, currentFactions, turnJson.appointments_add, nowIdx);
     const apptRes = resolveAppointments_(meta, currentFactions, nowIdx, resolvedLoc.key);
-    const compRes = updateCompanions_(meta, currentFactions, userAction, nowIdx,
+    const compRes = updateCompanions_(meta, currentFactions, apptAdded.length ? userAction.replace(/一起|跟我|同行|聯手|會合/g, '') : userAction, nowIdx,
       (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => String((c && c.id) || '')),
       apptRes.due.map(a => a.fk));
 

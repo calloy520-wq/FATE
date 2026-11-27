@@ -298,5 +298,7 @@ const favBefore = T.getFactionFavor_(metaF, '遠坂組 (Archer陣營)');
 rs = T.resolveAppointments_(metaF, facF, T.timeIndex_(3, '黃昏'), '廢棄洋館');
 eq('放鴿子 → 好感 −10', [rs.missed.length, T.getFactionFavor_(metaF, '遠坂組 (Archer陣營)')], [1, favBefore - 10]);
 
+eq('JSON 後面多一段文字也能解析', T.parseJsonLoose_('{"a":"x}y","b":{"c":1}}\n{"extra":2} 多餘說明'), { a: 'x}y', b: { c: 1 } });
+
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);
