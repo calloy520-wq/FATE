@@ -20,3 +20,5 @@ jobs:
           printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
           printf '{"scriptId":"%s","rootDir":"."}' "$SCRIPT_ID" > .clasp.json
       - run: clasp push --force
+      - name: Update web app deployment (same URL)
+        run: clasp deploy -i AKfycbxKyoHTw5qaThD23GWy9K4UaMhUbU6w3LUnB1nYiDrMF3F10eGLmiknXBuCi1HKIDzc -d "GitHub ${{ github.sha }}"
