@@ -1952,8 +1952,13 @@ function segmentDialogue_(par, names, playerName) {
       return lastNamedSubject(prevSentences);
     }
     const found = asSubjectCandidates(clause.length >= 2 ? clause : t);
-    return found.length === 1 ? found[0] : '';
+    if (found.length === 1) return found[0];
+    // 最後一個子句沒有名字時（「測驗員沒有猶豫，果斷下達了指令：」），整句只有一個主詞候選就是他
+    const whole = asSubjectCandidates(t);
+    return (found.length === 0 && whole.length === 1) ? whole[0] : '';
   };
+  // 台詞開頭在叫某人（「芙蕾雅，解放寶具」）→ 說話的不會是被叫的那個人
+  const vocativeOf = q => cands.find(n => new RegExp('^' + n + '[，,！!、…]').test(String(q || '').trim())) || '';
   const isSpeech = (q, prevChar, nextChar) => {
     if (/^[的之般似]$/.test(nextChar || '')) return false; // 「……」的警告意味 → 句中引用
     // 夾在句子中間的短詞引用（前後都是一般文字、裡面沒有句末標點），例如「這種「將自身當作消耗品」行為」
@@ -1990,6 +1995,8 @@ function segmentDialogue_(par, names, playerName) {
         speaker = startsWithName(afterText);
       }
     }
+    const voc = vocativeOf(m[1]);
+    if (speaker && voc && fullNameOf(voc) === fullNameOf(speaker)) speaker = '';
     if (narration.trim()) out.push(narration.trim());
     narration = '';
     out.push(speaker ? `${fullNameOf(speaker)}：「${m[1]}」` : `「${m[1]}」`);
@@ -2061,11 +2068,20 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
       const lastSentenceOf = t => String(t || '').split(/(?<=[。！？…])/).map(x => x.trim()).filter(Boolean).pop() || '';
       const startName = t => { const s2 = String(t || '').trim(); return candidateNames.find(n => s2.startsWith(n)) || ''; };
       const prevName = startName(lastSentenceOf(prevText));
-      const nextName = startName(nextText);
+      // 下一段本身就是「某某：「台詞」」時，那是在回話，不能拿來當這句的說話者
+      const nextIsLabeledLine = /^[^「『\n]{1,12}[:：]\s*[「『]/.test(String(nextText || '').trim());
+      const nextName = nextIsLabeledLine ? '' : startName(nextText);
       const nextMention = findNameIn(nextText);
       const ambiguous = (prevName && nextName && prevName !== nextName) || (prevName && nextMention && nextMention !== prevName);
       let speaker = ambiguous ? '' : (prevName || nextName);
       if (!speaker && !prevName && !nextName && lastSpeaker && /^(她|他)/.test(String(prevText).trim())) speaker = lastSpeaker;
+      const calledName = candidateNames.find(n => new RegExp('^「' + n + '[，,！!、…]').test(trimmed));
+      if (speaker && calledName === speaker) speaker = '';
+      // 在叫某人時，前一段最後一句只提到另一個人 → 就是他在說（「測驗員下達了指令。」「芙蕾雅，解放寶具。」）
+      if (!speaker && calledName) {
+        const others = candidateNames.filter(n => n !== calledName && lastSentenceOf(prevText).includes(n));
+        if (others.length === 1) speaker = others[0];
+      }
       if (speaker) {
         lastSpeaker = speaker;
         return `${speaker}：${trimmed}`;
@@ -4044,7 +4060,7 @@ const CHAR_DEFAULT_EXPRESSION_ = {
   ereshkigal: 'pout, blush', karna: 'calm expression', hassan: 'mask', prisma_illya: 'smile', chloe: 'smirk', miyu: 'shy',
   player_master: 'light smile'
 };
-const EXPRESSION_TAG_RE_ = /\b(smile|smiling|smirk|grin|frown|expression|expressionless|blush|angry|serious|crying|tears|surprised|shocked|open mouth|pout|closed eyes|laughing|laugh|scowl|annoyed|sad|happy|embarrassed|determined|scared|nervous|glare|glaring|worried|kiss|sleeping|mask|wince|panicking|shouting|screaming|teeth|tongue)\b/i;
+const EXPRESSION_TAG_RE_ = /\b(smil|smirk|grin|frown|expression|blush|angry|anger|serious|cry|crie|tear|surprise|shock|open mouth|pout|closed eyes|laugh|scowl|annoy|sad|happy|embarrass|determin|scare|nervous|glar|worr|kiss|sleep|mask|winc|panic|shout|scream|teeth|tongue|focus|calm|smug|sneer|wink|grit|concern|fear|furious|cheerful|gentle|cold|playful|shy|stern|tired|confus)\w*/i;
 
 function defaultExpressionFor_(id, isCombat) {
   if (id === CUSTOM_SERVANT_ID_) return isCombat ? 'determined expression' : ((ACTIVE_CUSTOM_SERVANT_ && ACTIVE_CUSTOM_SERVANT_.expression) || 'light smile');
@@ -4073,7 +4089,11 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
 
   // 第一人稱：鏡頭就是御主的眼睛，畫面中不畫御主本人
   const povMode = statusObj.cameraMode === 'pov';
-  const validChars = presentChars.filter(c => c && charDb[c.id] && !(povMode && c.id === 'player_master')).slice(0, 4);
+  // 一張圖最多 3 人：尺寸固定，4 人以上每張臉太小、容易畫歪或把同一人畫兩次；超過時先省略御主（多半站在後方）
+  const MAX_CG_CHARS = 3;
+  let validChars = presentChars.filter(c => c && charDb[c.id] && !(povMode && c.id === 'player_master'));
+  if (validChars.length > MAX_CG_CHARS) validChars = validChars.filter(c => c.id !== 'player_master');
+  validChars = validChars.slice(0, MAX_CG_CHARS);
   let girls = 0;
   let boys = 0;
   let anyNpActive = false;
@@ -4391,7 +4411,9 @@ function generateNovelAIImageSafe_(params) {
       const qualityTags = (typeof params.qualityTags === 'string') ? params.qualityTags : 'very aesthetic, masterpiece, high complexity, no text';
       if (qualityTags) finalPrompt = finalPrompt ? `${finalPrompt}, ${qualityTags}` : qualityTags;
     }
-    const finalUc = params.uc ? `${defaultUc}, ${params.uc}` : defaultUc;
+    // 3 人以上的畫面偶爾會把同一個角色畫兩次（實測：Archer 被畫成兩個），加 clone 降低機率
+    const cloneUc = cleanedChars.length >= 3 ? 'clone' : '';
+    const finalUc = [defaultUc, cloneUc, params.uc].filter(Boolean).join(', ');
 
     const seed = params.seed && Number(params.seed) > 0 ? Number(params.seed) : Math.floor(Math.random() * 4294967295);
     const useCoords = false;

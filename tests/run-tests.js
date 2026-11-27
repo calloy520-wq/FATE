@@ -179,6 +179,11 @@ eq('全裸：從者穿上衣服 → 還原', T.autoAdaptSmartOutfit_('scathach',
 eq('全裸：御主開戰也不會自動穿', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '迎戰', '', true, '新都'), NUDE);
 eq('全裸：御主劇情別人穿衣不算', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '看著她', '斯卡哈穿上衣服', false, '廢棄洋館'), NUDE);
 eq('全裸：御主自己穿上 → 還原', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '我穿上衣服', '', false, '廢棄洋館'), 'coat');
+{
+  const pst3 = { cameraMode: 'third', adultMode: true, locationKey: '廢棄洋館', master: { gender: 'girl', coreTags: 'black hair' }, outfits: {} };
+  const crowd = T.buildNaiPayloadFromScene_(pst3, [{ id: 'player_master' }, { id: 'scathach' }, { id: 'lancer' }, { id: 'archer' }, { id: 'rin' }], 'bridge, night', true, '開打', '', 1);
+  eq('一張圖最多 3 人、先省略御主', crowd.characters.map(c => c.id), ['scathach', 'lancer', 'archer']);
+}
 
 // ---- 戰鬥分量：淘汰要兩步 ----
 eq('滿狀態一回合被淘汰 → 降為重創敗退', T.gateFactionElimination_('存活 (敵對獵殺)', '已淘汰'), '存活 (重創敗退・靈基受損)');
@@ -316,6 +321,8 @@ eq('洋館屋頂仍是洋館', (T.matchFuyukiLocation_('廢棄洋館的屋頂') 
 // 表情補強、夜景補光、自創英靈
 eq('沒表情 → 補預設表情', T.ensureExpression_('standing, cowboy shot', 'confident smile'), 'standing, cowboy shot, confident smile');
 eq('已有表情 → 不補', T.ensureExpression_('standing, grin', 'confident smile'), 'standing, grin');
+eq('皺眉也算表情 → 不補', T.ensureExpression_('frowning at the blizzard', 'determined expression'), 'frowning at the blizzard');
+eq('shouting 也算表情', T.ensureExpression_('looking shocked and shouting', 'smile'), 'looking shocked and shouting');
 eq('空動作 → 只放表情', T.ensureExpression_('', 'smirk'), 'smirk');
 eq('夜景沒光源 → 補暖光', T.addNightFillLight_('1girl, night, city'), '1girl, night, city, warm ambient light, natural skin tone');
 eq('夜景已有路燈 → 不補', T.addNightFillLight_('1girl, night, street lights'), '1girl, night, street lights');
@@ -327,6 +334,16 @@ eq('能力值文字', T.customServantParamsText_({ str: 'a+', end: 'X', agi: 'B'
 {
   const cs = T.sanitizeCustomServant_({ name: '  斯卡蒂\n', cls: '亂寫', gender: 'boy', core: 'boy, white hair{evil}', stats: {} });
   eq('自創英靈清理：名字、未知職階改 Saber、去掉大括號', [cs.name, cs.cls, cs.gender, cs.core, cs.id], ['斯卡蒂', 'Saber', 'boy', 'boy, white hairevil', 'custom_servant']);
+}
+
+// 說話者判斷：在叫某人的台詞不會標成被叫的人
+{
+  const a = T.formatNovelStoryText_('面對夾擊，測驗員沒有猶豫，果斷下達了戰鬥指令。\n\n「芙蕾雅，解放寶具。」\n\n芙蕾雅：「遵命，契約者。」', ['芙蕾雅', '測驗員'], '', '測驗員');
+  eq('叫名字的命令標成御主', a.split('\n\n')[1], '測驗員：「芙蕾雅，解放寶具。」');
+  const b = T.formatNovelStoryText_('測驗員沒有猶豫，果斷下達了戰鬥指令：「芙蕾雅，解放寶具。」', ['芙蕾雅', '測驗員'], '', '測驗員');
+  eq('冒號前的主詞是說話者', b.split('\n\n')[1], '測驗員：「芙蕾雅，解放寶具。」');
+  const c = T.formatNovelStoryText_('風雪捲起。\n\n「芙蕾雅，退後！」\n\n芙蕾雅：「遵命。」', ['芙蕾雅', '測驗員'], '', '測驗員');
+  eq('判斷不出就不標，不會標成被叫的人', c.split('\n\n')[1], '「芙蕾雅，退後！」');
 }
 
 console.log(`\n${ok} passed, ${bad} failed`);
