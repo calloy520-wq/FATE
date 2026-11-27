@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -269,16 +269,34 @@ eq('還有敵人時不出現', T.maybeSummonFinalBoss_({ '教會組 (Lancer陣�
 // ---- 同行盟友 ----
 const facC = { '遠坂組 (Archer陣營)': '存活 (同盟)', '衛宮組 (Saber陣營)': '存活 (中立警戒)', '間桐組 (Rider陣營)': '存活 (同盟・簡訊支援待命中)' };
 const metaC = {};
-let cr = T.updateCompanions_(metaC, facC, '凜，跟我一起去大橋偵查', 2, []);
+let cr = T.updateCompanions_(metaC, facC, '凜，跟我一起去大橋偵查', 8, []);
 eq('邀請同盟 → 加入同行', cr.joined, ['遠坂組 (Archer陣營)']);
-cr = T.updateCompanions_(metaC, facC, '士郎，跟我一起來', 2, []);
+cr = T.updateCompanions_(metaC, facC, '士郎，跟我一起來', 8, []);
 eq('非同盟不能邀請', cr.joined, []);
-cr = T.updateCompanions_(metaC, facC, '前往柳洞寺', 2, ['rider']);
+cr = T.updateCompanions_(metaC, facC, '前往柳洞寺', 9, ['rider']);
 eq('簡訊支援的盟友趕到 → 加入同行', cr.joined, ['間桐組 (Rider陣營)']);
-cr = T.updateCompanions_(metaC, Object.assign({}, facC, { '遠坂組 (Archer陣營)': '存活 (同盟解除)' }), '繼續偵查', 2, []);
+cr = T.updateCompanions_(metaC, Object.assign({}, facC, { '遠坂組 (Archer陣營)': '存活 (同盟解除)' }), '繼續偵查', 10, []);
 eq('不再同盟 → 離開', cr.left.map(x => x.fk), ['遠坂組 (Archer陣營)']);
-cr = T.updateCompanions_(metaC, facC, '繼續偵查', 4, []);
-eq('過了隔天 → 回去', cr.left.map(x => x.fk), ['間桐組 (Rider陣營)']);
+cr = T.updateCompanions_(metaC, facC, '繼續偵查', 13, []);
+eq('同行滿 4 個時段 → 回去', cr.left.map(x => x.fk), ['間桐組 (Rider陣營)']);
+
+// ---- 陣營好感與約定 ----
+const metaF = {};
+const facF = { '遠坂組 (Archer陣營)': '存活 (同盟)', '愛因茲貝倫組 (Berserker陣營)': '存活 (敵對獵殺)' };
+eq('開局好感照原作', [T.getFactionFavor_(metaF, '遠坂組 (Archer陣營)'), T.getFactionFavor_(metaF, '愛因茲貝倫組 (Berserker陣營)')], [10, -30]);
+T.applyFactionFavor_(metaF, facF, { '凜': 40 });
+eq('好感每回合最多 +15', T.getFactionFavor_(metaF, '遠坂組 (Archer陣營)'), 25);
+eq('好感不夠不能結盟', T.gateFactionAlliance_('存活 (中立)', '存活 (同盟)', 'BALANCED', 25), '存活 (態度軟化・談判中)');
+eq('好感夠了可以結盟', T.gateFactionAlliance_('存活 (中立)', '存活 (同盟)', 'BALANCED', 45), '存活 (同盟)');
+const now = T.timeIndex_(2, '黃昏');
+const ad = T.addAppointments_(metaF, facF, [{ faction: '遠坂', day: 2, period: '深夜', place: '冬木大橋' }, { faction: '伊莉雅', day: 3, period: '清晨', place: '柳洞寺' }], now);
+eq('只能和同盟約定', ad.map(a => a.fk), ['遠坂組 (Archer陣營)']);
+let rs = T.resolveAppointments_(metaF, facF, T.timeIndex_(2, '深夜'), '冬木大橋');
+eq('準時到約定地點 → 對方出現', rs.due.map(a => a.fk), ['遠坂組 (Archer陣營)']);
+T.addAppointments_(metaF, facF, [{ faction: '遠坂', day: 3, period: '白天', place: '遠坂邸' }], T.timeIndex_(2, '深夜'));
+const favBefore = T.getFactionFavor_(metaF, '遠坂組 (Archer陣營)');
+rs = T.resolveAppointments_(metaF, facF, T.timeIndex_(3, '黃昏'), '廢棄洋館');
+eq('放鴿子 → 好感 −10', [rs.missed.length, T.getFactionFavor_(metaF, '遠坂組 (Archer陣營)')], [1, favBefore - 10]);
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

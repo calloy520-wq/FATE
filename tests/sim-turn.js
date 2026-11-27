@@ -96,6 +96,7 @@ geminiQueue.push({
 {
   const row = sheets.Players_Save.data.find(r => r[0] === '測試者');
   const f = JSON.parse(row[29]); f['柳洞寺組 (Caster/Assassin陣營)'] = '存活 (敵對・重創負傷)'; row[29] = JSON.stringify(f);
+  const m = JSON.parse(row[31]); m.factionFavor = { '遠坂組 (Archer陣營)': 50 }; row[31] = JSON.stringify(m);
 }
 const mpBefore = ctx.loadExistingGame('測試者').status.master.mp;
 const t1 = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '捏碎魔力寶石，然後跟凜交換手機號碼' });

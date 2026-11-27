@@ -955,11 +955,12 @@ function isAllianceStatusText_(statusStr) {
 }
 
 // 結盟要分階段：敵對陣營不會一回合就變同盟，先軟化成談判中（符合常理與鐵血；搞笑、故事模式不限）
-function gateFactionAlliance_(prevStatus, newStatus, toneKey) {
+function gateFactionAlliance_(prevStatus, newStatus, toneKey, favor) {
   const prev = String(prevStatus || ''), next = String(newStatus || '');
   if (toneKey !== 'BALANCED' && toneKey !== 'HARDCORE_WAR') return next;
   if (!isAllianceStatusText_(next) || isAllianceStatusText_(prev)) return next;
   if (/敵對|獵殺|暗算|防備|追殺|報復|敵意/.test(prev)) return '存活 (態度軟化・談判中)';
+  if (favor != null && Number(favor) < 40) return '存活 (態度軟化・談判中)';
   return next;
 }
 
@@ -1100,6 +1101,87 @@ function describeGodHandForPrompt_(godHand, factionsObj) {
   return `【十二試煉】Berserker 目前還剩 ${GOD_HAND_LIVES_ - lost}/${GOD_HAND_LIVES_} 條命（以這個數字為準）。${methods.length ? `以下手段已經殺過他，對他**完全無效**（要寫成攻擊被肉體彈開、毫髮無傷，不算擊破）：${methods.join('、')}。` : ''}每回合最多擊破 1 條（A 級以上寶具最多 2 條），同一種手段不能殺他兩次；命數歸零前不會退場，除非御主伊莉雅被打倒、投降或放棄。玩家這邊確實殺死他一次時，填 berserker_lives_lost。`;
 }
 
+// ==================== 陣營好感（−100～100）與約定集合 ====================
+const FACTION_FAVOR_START_ = { '衛宮': 20, '遠坂': 10, '間桐': 0, '教會': -10, '柳洞寺': -20, '愛因茲貝倫': -30, '臟硯': -50 };
+const ALLIANCE_FAVOR_MIN_ = 40; // 好感到 40 才可能正式結盟（常理與鐵血）
+
+function getFactionFavor_(meta, factionKey) {
+  const fav = (meta && meta.factionFavor) || {};
+  if (fav[factionKey] != null) return Number(fav[factionKey]) || 0;
+  const m = Object.keys(FACTION_FAVOR_START_).find(k => String(factionKey || '').includes(k));
+  return m ? FACTION_FAVOR_START_[m] : 0;
+}
+
+function favorLabel_(v) {
+  return v >= 60 ? '信任' : v >= 20 ? '友善' : v > -20 ? '中立' : v > -60 ? '戒備' : '敵意';
+}
+
+// 套用 AI 回報的好感變化（每個陣營每回合最多 ±15）；回傳變動清單
+function applyFactionFavor_(meta, factionsObj, deltas) {
+  meta.factionFavor = Object.assign({}, meta.factionFavor || {});
+  const changes = [];
+  Object.keys(deltas || {}).forEach(name => {
+    const fk = resolveFactionKey_(name, factionsObj);
+    if (!fk) return;
+    const d = Math.max(-15, Math.min(15, Math.round(Number(deltas[name]) || 0)));
+    if (!d) return;
+    const before = getFactionFavor_(meta, fk);
+    const after = Math.max(-100, Math.min(100, before + d));
+    meta.factionFavor[fk] = after;
+    changes.push({ fk, before, after });
+  });
+  return changes;
+}
+
+function describeFavorForPrompt_(meta, factionsObj) {
+  const keys = Object.keys(factionsObj || {}).filter(k => !isCapturedOrDefeatedStatusText_(factionsObj[k]));
+  if (keys.length === 0) return '';
+  return `【各陣營對玩家的好感（−100～100）】${keys.map(k => `${k.replace(/\\s*\\(.*\\)$/, '')} ${getFactionFavor_(meta, k)}（${favorLabel_(getFactionFavor_(meta, k))}）`).join('、')}。依玩家的行為用 faction_favor_delta 加減（幫忙、守約、分享情報加分；欺騙被識破、放鴿子、攻擊扣分，每次 ±15 內）；好感 ${ALLIANCE_FAVOR_MIN_} 以上才可能正式結盟。`;
+}
+
+// 約定：只和同盟約；到了約定時段人在約定地點 → 對方依約加入同行；錯過 → 好感 −10
+function addAppointments_(meta, factionsObj, list, nowIdx) {
+  meta.appointments = Array.isArray(meta.appointments) ? meta.appointments.slice() : [];
+  const added = [];
+  (Array.isArray(list) ? list : []).slice(0, 2).forEach(a => {
+    const fk = resolveFactionKey_(a && a.faction, factionsObj);
+    if (!fk || !isAllianceStatusText_(factionsObj[fk])) return;
+    const loc = matchFuyukiLocation_(a.place);
+    const day = Math.round(Number(a.day) || 0);
+    const period = TIME_PERIODS_.includes(a.period) ? a.period : '深夜';
+    if (!loc || !day || timeIndex_(day, period) <= nowIdx) return;
+    meta.appointments = meta.appointments.filter(x => x.fk !== fk);
+    const ap = { fk, day, period, place: loc.key };
+    meta.appointments.push(ap);
+    added.push(ap);
+  });
+  if (meta.appointments.length > 3) meta.appointments = meta.appointments.slice(-3);
+  return added;
+}
+
+function resolveAppointments_(meta, factionsObj, nowIdx, locationKey) {
+  const due = [], missed = [], cancelled = [];
+  meta.appointments = (Array.isArray(meta.appointments) ? meta.appointments : []).filter(a => {
+    const idx = timeIndex_(a.day, a.period);
+    const st = String((factionsObj || {})[a.fk] || '');
+    if (!isAllianceStatusText_(st) || /重傷|重創|瀕/.test(st)) { if (idx <= nowIdx) { cancelled.push(a); return false; } return true; }
+    if (idx === nowIdx && locationKey === a.place) { due.push(a); return false; }
+    if (idx < nowIdx) { missed.push(a); return false; }
+    return true;
+  });
+  missed.forEach(a => {
+    meta.factionFavor = Object.assign({}, meta.factionFavor || {});
+    meta.factionFavor[a.fk] = Math.max(-100, getFactionFavor_(meta, a.fk) - 10);
+  });
+  return { due, missed, cancelled };
+}
+
+function describeAppointmentsForPrompt_(meta, nowIdx) {
+  const list = Array.isArray(meta && meta.appointments) ? meta.appointments : [];
+  if (list.length === 0) return '【約定】目前沒有。玩家和同盟約好時間地點集合時，填 appointments_add。';
+  return '【約定】' + list.map(a => `${companionDisplayName_(a.fk)} 約在 Day ${a.day}・${a.period} 於${a.place}集合${timeIndex_(a.day, a.period) === nowIdx ? '（就是現在！玩家在那裡的話對方準時出現）' : ''}`).join('；') + '。玩家和同盟約新的集合時，填 appointments_add。';
+}
+
 // ==================== 同行盟友：邀請同盟一起行動，之後每回合都跟在身邊 ====================
 const COMPANION_NAMES_ = { '衛宮': '士郎＋Saber', '遠坂': '凜＋Archer', '教會': '綺禮', '間桐': '慎二＋Rider', '柳洞寺': '葛木＋Caster', '愛因茲貝倫': '伊莉雅＋Berserker', '臟硯': '哈桑' };
 const MAX_COMPANIONS_ = 2;
@@ -1115,8 +1197,15 @@ function factionMentioned_(factionKey, text) {
   return Boolean(entry && entry[1].some(a => t.includes(a)));
 }
 
-// 依本回合行動與局勢更新同行名單；回傳加入與離開的陣營
-function updateCompanions_(meta, factionsObj, userAction, dayNum, presentIds) {
+const TIME_PERIODS_ = ['清晨', '白天', '黃昏', '深夜'];
+// 把「第幾天＋時段」換成連續的時段編號，方便算經過幾個時段
+function timeIndex_(day, period) {
+  return (Number(day) || 0) * 4 + Math.max(0, TIME_PERIODS_.indexOf(String(period || '')));
+}
+const COMPANION_PERIODS_ = 4; // 同行固定維持 4 個時段（一整天）
+
+// 依本回合行動與局勢更新同行名單；回傳加入與離開的陣營（nowIdx 為 timeIndex_）
+function updateCompanions_(meta, factionsObj, userAction, nowIdx, presentIds, forceJoin) {
   const f = factionsObj || {};
   const text = String(userAction || '');
   const comp = Object.assign({}, (meta.companions && typeof meta.companions === 'object') ? meta.companions : {});
@@ -1128,7 +1217,7 @@ function updateCompanions_(meta, factionsObj, userAction, dayNum, presentIds) {
     if (!st || isCapturedOrDefeatedStatusText_(st)) reason = '已退出戰局';
     else if (!isAllianceStatusText_(st)) reason = '不再是同盟';
     else if (/重傷|重創|瀕/.test(st)) reason = '傷勢太重，先回去休養';
-    else if (Number(dayNum) > Number(comp[fk].day || 0) + 1) reason = '有自己的事要處理，先回去了';
+    else if (Number(nowIdx) - Number(comp[fk].t != null ? comp[fk].t : (Number(comp[fk].day) || 0) * 4) >= COMPANION_PERIODS_) reason = '同行了一整天，先回去了';
     else if (leaveAll || (/分頭|先回去|回去吧|不用跟|分開|留在|各自/.test(text) && factionMentioned_(fk, text))) reason = '依你的安排分開行動';
     if (reason) { left.push({ fk, reason }); delete comp[fk]; }
   });
@@ -1141,7 +1230,8 @@ function updateCompanions_(meta, factionsObj, userAction, dayNum, presentIds) {
     const marker = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m));
     const invited = wantsJoin && factionMentioned_(fk, text);
     const arrived = /支援待命/.test(st) && marker && present.has(marker);
-    if (invited || arrived) { comp[fk] = { day: Number(dayNum) || 0 }; joined.push(fk); }
+    const appointed = Array.isArray(forceJoin) && forceJoin.includes(fk);
+    if (invited || arrived || appointed) { comp[fk] = { t: Number(nowIdx) || 0 }; joined.push(fk); }
   });
   meta.companions = comp;
   return { joined, left };
@@ -2807,6 +2897,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 御主是最大破綻：攻擊御主是正當戰術。失去御主的從者靠單獨行動技能撐一段時間，會尋找新御主或消失。',
   '- 魔術必須隱匿：在人多的地方或白天公開交戰，會引來聖堂教會善後、警方與其他陣營的注意（論壇也會出現目擊）。聖杯戰爭主要在夜間進行，白天是日常、調查與佈局。',
   '- 陣地優勢：在敵方工房、結界或陣地內作戰極為不利；Caster 的陣地與山門結界尤其危險。',
+  '- 陣營好感與約定：狀態資料有各陣營對玩家的好感，玩家的行為要用 `faction_favor_delta` 反映；玩家和同盟約定之後的集合時間地點時，填 `appointments_add`（day 用數字，period 用清晨／白天／黃昏／深夜）。',
   '- 結盟看立場與利益：對方要有理由才會合作（共同的敵人、情報、救命之恩、交換條件），敵對陣營要經過多次互動才可能從敵意轉為談判、停戰、結盟；言峰綺禮表面合作、暗中利用，伊莉雅的態度取決於能否打動她、她與士郎的關係，Caster 只信任葛木。一次談話通常只能讓態度軟化，不會直接結盟。',
   '- 從者戰力依原作：每騎都是傳說級英雄，打倒一騎要靠情報、弱點、地利、寶具與犧牲累積，通常要好幾回合（偵查→削弱→決戰）；Berserker 的十二試煉要多次致命傷或高階寶具才能突破，吉爾伽美什的王之財寶近乎無窮。一次漂亮的行動可以重創對手、逼退對手，但不會讓滿狀態的從者當場退場。',
   '- 不硬塞情報：吃飯、休息、閒聊等日常場景就好好寫日常，不要讓從者主動報告戰況；角色只會提到確實得知的事（親眼所見、使魔回報、論壇、聯絡），而且只知道得到的那部分。玩家主動問起或去打聽時，才依情報來源回答。',
@@ -2871,6 +2962,8 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '  "new_contacts": [],',
   '  "intel_updates": {},',
   '  "berserker_lives_lost": { "count": 0, "method": "殺死他的手段（10字內）" },',
+  '  "faction_favor_delta": {},',
+  '  "appointments_add": [{ "faction": "陣營名稱", "day": 3, "period": "清晨／白天／黃昏／深夜", "place": "地標名稱" }],',
   '  "route_tendency_delta": { "fate": 0, "ubw": 0, "hf": 0, "shadow": 0, "conquest": 0 },',
   '  "location_changes": {},',
   '  "incoming_messages": [{ "faction": "陣營名稱", "text": "其他陣營主動傳給玩家的訊息（80字內）" }],',
@@ -3036,6 +3129,8 @@ function processFateTurnTextOnly(params) {
       describeIntelForPrompt_({ factionIntel: metaBefore.factionIntel || initFactionIntel_(statusObj.factions, true) }),
       describeGodHandForPrompt_(metaBefore.godHand, statusObj.factions),
       describeCompanionsForPrompt_(metaBefore),
+      statusObj.gameMode === 'WAR' ? describeFavorForPrompt_(metaBefore, statusObj.factions) : '',
+      statusObj.gameMode === 'WAR' ? describeAppointmentsForPrompt_(metaBefore, timeIndex_(statusObj.day, statusObj.timePeriod)) : '',
       describeCombatAssessForPrompt_(combatAssess),
       describeFinalBossForPrompt_(metaBefore, statusObj.factions),
       describeRyuudouRoute_(metaBefore),
@@ -3104,13 +3199,15 @@ function processFateTurnTextOnly(params) {
       npUsed: (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).some(c => c && c.use_np && c.id !== 'berserker')
     });
     meta.godHand = ghRes.godHand;
+    // 陣營好感先結算（結盟門檻要用本回合的新好感）
+    const favorChanges = applyFactionFavor_(meta, currentFactions, (turnJson.faction_favor_delta && typeof turnJson.faction_favor_delta === 'object') ? turnJson.faction_favor_delta : {});
     if (turnJson.faction_updates && typeof turnJson.faction_updates === 'object') {
       Object.keys(turnJson.faction_updates).forEach(fname => {
         const val = String(turnJson.faction_updates[fname] || '').trim();
         const realKey = resolveFactionKey_(fname, currentFactions);
         if (val && realKey) {
           const prevSt = String(currentFactions[realKey] || '');
-          const nextSt = gateGodHandElimination_(realKey, prevSt, gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val.slice(0, 120)), toneKey), meta.godHand);
+          const nextSt = gateGodHandElimination_(realKey, prevSt, gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val.slice(0, 120)), toneKey, getFactionFavor_(meta, realKey)), meta.godHand);
           // 已淘汰的陣營不會復活；唯一例外是教會亮出隱藏王牌吉爾伽美什（只有一次）
           const wasOut = isCapturedOrDefeatedStatusText_(prevSt) && !/收服|已歸屬第8組/.test(prevSt);
           if (wasOut && !isCapturedOrDefeatedStatusText_(nextSt)) {
@@ -3503,8 +3600,12 @@ function processFateTurnTextOnly(params) {
 
     meta.inventory = updatedInventory;
 
-    const compRes = updateCompanions_(meta, currentFactions, userAction, Number(row[6]),
-      (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => String((c && c.id) || '')));
+    const nowIdx = timeIndex_(row[6], row[7]);
+    const apptAdded = addAppointments_(meta, currentFactions, turnJson.appointments_add, nowIdx);
+    const apptRes = resolveAppointments_(meta, currentFactions, nowIdx, resolvedLoc.key);
+    const compRes = updateCompanions_(meta, currentFactions, userAction, nowIdx,
+      (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => String((c && c.id) || '')),
+      apptRes.due.map(a => a.fk));
 
     // AI 寫的情報裡若提到十二試煉的命數，一律改成伺服器的正確數字
     if (turnJson.intel_updates && typeof turnJson.intel_updates === 'object' && meta.godHand) {
@@ -3526,7 +3627,11 @@ function processFateTurnTextOnly(params) {
     const summaryParts = [];
     const mpAfter = Number(row[15]);
     if (mpAfter !== statusObj.master.mp) summaryParts.push(`MP ${statusObj.master.mp}→${mpAfter}`);
-    compRes.joined.forEach(k => summaryParts.push(`🤝 ${companionDisplayName_(k)} 加入同行`));
+    favorChanges.forEach(c => summaryParts.push(`💗 ${c.fk.replace(/\s*\(.*\)$/, '')} 好感 ${c.before}→${c.after}（${favorLabel_(c.after)}）`));
+    apptAdded.forEach(a => summaryParts.push(`📅 約定：${companionDisplayName_(a.fk)} Day ${a.day}・${a.period} 在${a.place}集合`));
+    apptRes.missed.forEach(a => summaryParts.push(`😠 你沒有赴約，${a.fk.replace(/\s*\(.*\)$/, '')} 好感 −10`));
+    apptRes.cancelled.forEach(a => summaryParts.push(`📅 ${companionDisplayName_(a.fk)} 無法赴約（不再同盟或傷勢太重）`));
+    compRes.joined.forEach(k => summaryParts.push(apptRes.due.some(a => a.fk === k) ? `🤝 ${companionDisplayName_(k)} 依約前來，加入同行` : `🤝 ${companionDisplayName_(k)} 加入同行`));
     compRes.left.forEach(c => summaryParts.push(`👋 ${companionDisplayName_(c.fk)} 離開隊伍（${c.reason}）`));
     if (combatAssess && turnJson.is_combat) summaryParts.push(`⚔ 戰力判定：${combatAssess.level}（${combatAssess.reasons.join('、') || '條件相當'}）`);
     if (ghRes.killed > 0) summaryParts.push(`⚔ 十二試煉：擊破 ${ghRes.killed} 條（${ghRes.method || '戰鬥'}），還剩 ${GOD_HAND_LIVES_ - meta.godHand.lost} 條`);
@@ -4483,6 +4588,8 @@ function parseSaveRow_(row) {
     mapHotspot: mapHotspot,
     warTicker: String(meta.warTicker || ''),
     warTickerPublic: String(meta.warTickerPublic || ''),
+    factionFavor: Object.fromEntries(Object.keys(safeJsonParse_(row[29], {})).map(k => [k, getFactionFavor_(meta, k)])),
+    appointments: Array.isArray(meta.appointments) ? meta.appointments.map(a => ({ name: companionDisplayName_(a.fk), day: a.day, period: a.period, place: a.place })) : [],
     companions: Object.keys((meta.companions && typeof meta.companions === 'object') ? meta.companions : {}).map(k => ({ faction: k, name: companionDisplayName_(k) })),
     godHand: (meta.godHand && typeof meta.godHand === 'object') ? meta.godHand : { lost: 0, methods: [] },
     factionIntel: (meta.factionIntel && typeof meta.factionIntel === 'object') ? meta.factionIntel : initFactionIntel_(safeJsonParse_(row[29], {}), true),
