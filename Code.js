@@ -98,7 +98,7 @@ const GAME_TONE_PRESETS_ = {
   'HARDCORE_WAR': {
     label: '⚔️ 鐵血嚴重戰場風',
     desc: '戰場肅殺務實，敵人與隊友不會被無關玩笑或偷吃小動作輕易唬住，分心或鬧場會招來冷靜反制與真實戰場後果，勝負與傷勢結算更嚴峻。',
-    directive: '嚴峻寫實：強敵會冷靜反制，失誤與莽撞要付出真實的傷勢、魔力或陣營代價（master_condition／servant_condition 確實惡化），不留情面。'
+    directive: '嚴峻寫實：強敵會冷靜反制，失誤與莽撞要付出真實的傷勢、魔力或陣營代價（master_condition／servant_condition 確實惡化），不留情面。傷勢會累積：輕傷沒休養又上戰場就惡化成重傷；正面硬碰 Berserker、吉爾伽美什這類強敵幾乎必敗；御主暴露在從者戰場上隨時可能喪命。'
   }
 };
 
@@ -948,7 +948,7 @@ function isAllianceStatusText_(statusStr) {
 
 function isCapturedOrDefeatedStatusText_(statusStr) {
   const s = String(statusStr || '');
-  return /淘汰|消滅|陣亡|擊潰|覆滅|收服|戰敗|已死|已歸屬第8組|原御主已退場/.test(s);
+  return /淘汰|消滅|陣亡|擊潰|覆滅|收服|戰敗|已死|已歸屬第8組|原御主已退場|投降|降伏|被俘/.test(s);
 }
 
 // 已被削弱（負傷、重創、劣勢…）的陣營才可能在下一步被淘汰
@@ -973,7 +973,7 @@ function describeWarStateForPrompt_(factionsObj, mp, maxMp, gameMode) {
   const lines = [];
   lines.push(open.length > 0
     ? `【戰局】尚未化解的陣營：${open.join('、')}（全部擊敗、收服或結盟後才能迎來終局）。擊敗滿狀態的從者需要多回合：先削弱（負傷、重創、劣勢），之後的回合才能淘汰；系統只接受已被削弱的陣營改為淘汰。`
-    : '【終局】所有陣營都已擊敗、收服或結盟。大聖杯即將在圓藏山（柳洞寺地下）顯現；玩家前往並完成儀式、許下願望時，可判定 `TRUE_VICTORY`。');
+    : '【終局】所有陣營都已擊敗、收服或結盟，戰爭的勝負已定。不要再製造新的敵對勢力或背叛；讓大聖杯在圓藏山（柳洞寺地下）顯現，劇情引導玩家前往。玩家抵達大聖杯、許下願望（或選擇破壞聖杯）時，判定 `TRUE_VICTORY`。');
   const m = Number(mp) || 0, mx = Math.max(1, Number(maxMp) || 1);
   if (m <= 0) lines.push('【魔力枯竭】御主魔力見底：從者無法解放寶具、戰力大幅下降，御主頭暈虛弱；強行作戰或施展魔術必須付出實際代價（靈基受損、昏倒、被迫撤退），並反映在 master_condition／servant_condition。');
   else if (m / mx < 0.25) lines.push(`【魔力不足】御主魔力只剩 ${m}/${mx}：寶具最多勉強發動一次且代價沉重，大型魔術難以施展。`);
@@ -2759,7 +2759,18 @@ function processFateTurnTextOnly(params) {
         const val = String(turnJson.faction_updates[fname] || '').trim();
         const realKey = resolveFactionKey_(fname, currentFactions);
         if (val && realKey) {
-          currentFactions[realKey] = gateFactionElimination_(currentFactions[realKey], val.slice(0, 120));
+          const prevSt = String(currentFactions[realKey] || '');
+          const nextSt = gateFactionElimination_(prevSt, val.slice(0, 120));
+          // 已淘汰的陣營不會復活；唯一例外是教會亮出隱藏王牌吉爾伽美什（只有一次）
+          const wasOut = isCapturedOrDefeatedStatusText_(prevSt) && !/收服|已歸屬第8組/.test(prevSt);
+          if (wasOut && !isCapturedOrDefeatedStatusText_(nextSt)) {
+            if (realKey.includes('教會') && !meta.churchRevived) {
+              meta.churchRevived = true;
+              currentFactions[realKey] = nextSt;
+            }
+          } else {
+            currentFactions[realKey] = nextSt;
+          }
         }
       });
     }
@@ -2908,6 +2919,12 @@ function processFateTurnTextOnly(params) {
 
     if (turnJson.master_condition) meta.masterCondition = String(turnJson.master_condition);
     if (turnJson.servant_condition) meta.servantCondition = String(turnJson.servant_condition);
+    // 魔力枯竭還開戰：從者至少靈基受創（符合常理與鐵血；搞笑與故事模式不強制）
+    if (statusObj.gameMode === 'WAR' && Number(statusObj.master.mp) <= 0 && Boolean(turnJson.is_combat)
+        && (tonePreset === GAME_TONE_PRESETS_.BALANCED || tonePreset === GAME_TONE_PRESETS_.HARDCORE_WAR)
+        && /^(靈基穩定|完好|穩定|)$/.test(String(meta.servantCondition || '靈基穩定').trim())) {
+      meta.servantCondition = '靈基受創 (魔力枯竭下強行作戰)';
+    }
     if (turnJson.servant2_condition) meta.servant2Condition = String(turnJson.servant2_condition);
     if (row[23] && /消滅/.test(String(meta.servant2Condition || ''))) {
       formattedStory += `\n\n【副契約解除】副從者「${row[25]}」的靈基已經消滅，契約之線就此斷絕。`;
@@ -3129,6 +3146,9 @@ function processFateTurnTextOnly(params) {
     incomingFrom.forEach(m => summaryParts.push(`✉ ${shortFac(m.fk)}（${m.label}）：「${m.text.slice(0, 60)}${m.text.length > 60 ? '…' : ''}」→ 可在行動欄輸入「傳簡訊給${shortFac(m.fk).replace(/組$/, '')}：…」回覆`));
     if (worldEvent.proactive && !incomingFrom.some(m => m.fk === worldEvent.proactive.faction)) {
       summaryParts.push(`⚡ ${shortFac(worldEvent.proactive.faction)} 主動找上你（${worldEvent.proactive.action}），詳見上方劇情`);
+    }
+    if (statusObj.gameMode === 'WAR' && outcome === 'CONTINUE' && areAllRivalFactionsResolved_(currentFactions)) {
+      summaryParts.push('🏆 所有陣營都已擊敗、收服或結盟！前往圓藏山（柳洞寺）的大聖杯許下願望，就能迎來結局');
     }
     if (summaryParts.length > 0 && outcome !== 'FATAL_DEATH') {
       formattedStory += `\n\n【本回合結算】${summaryParts.join('｜')}`;
