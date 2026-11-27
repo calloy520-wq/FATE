@@ -1239,7 +1239,9 @@ function timeIndex_(day, period) {
 const COMPANION_PERIODS_ = 4; // 同行固定維持 4 個時段（一整天）
 
 // 依本回合行動與局勢更新同行名單；回傳加入與離開的陣營（nowIdx 為 timeIndex_）
-function updateCompanions_(meta, factionsObj, userAction, nowIdx, presentIds, forceJoin) {
+function updateCompanions_(meta, factionsObj, userAction, nowIdx, presentIds, forceJoin, ownedServantIds) {
+  // 英靈已經是玩家的從者（主、副、名冊），該陣營就不再當「同行盟友」
+  const ownedMarkers = new Set((ownedServantIds || []).map(id => CHAR_FACTION_MARKERS_[id]).filter(Boolean));
   const f = factionsObj || {};
   const text = String(userAction || '');
   const comp = Object.assign({}, (meta.companions && typeof meta.companions === 'object') ? meta.companions : {});
@@ -1257,8 +1259,14 @@ function updateCompanions_(meta, factionsObj, userAction, nowIdx, presentIds, fo
   });
   const present = new Set((presentIds || []).map(id => CHAR_FACTION_MARKERS_[id]).filter(Boolean));
   const wantsJoin = /帶著|帶上|一起|跟我|同行|隨行|陪我|跟著我|一同|會合|聯手/.test(text);
+  Object.keys(comp).forEach(fk => {
+    const mk = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m));
+    if (mk && ownedMarkers.has(mk)) { delete comp[fk]; }
+  });
   Object.keys(f).forEach(fk => {
     if (comp[fk] || Object.keys(comp).length >= MAX_COMPANIONS_) return;
+    const ownMk = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m));
+    if (ownMk && ownedMarkers.has(ownMk)) return;
     const st = String(f[fk] || '');
     if (!isAllianceStatusText_(st) || /重傷|重創|瀕/.test(st)) return;
     const marker = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m));
@@ -3129,13 +3137,16 @@ function processFateTurnTextOnly(params) {
     const worldEventHint = worldEvent.text;
     // 英靈名冊：在據點打字「讓某某上場」→ 本回合起換成副從者（先讓提示詞知道新陣容，寫回時才真正換）
     const rosterBefore = Array.isArray(metaBefore.servantRoster) ? metaBefore.servantRoster : [];
-    const swapId = findRosterSwapTarget_(userAction, rosterBefore, charDb, statusObj.locationKey);
+    // 人在洋館、或這回合行動是回洋館，都可以換人
+    const swapLoc = (matchFuyukiLocation_(userAction) || {}).key === '廢棄洋館' ? '廢棄洋館' : statusObj.locationKey;
+    const swapId = findRosterSwapTarget_(userAction, rosterBefore, charDb, swapLoc);
     if (swapId) {
       const inc = rosterBefore.find(r => r.id === swapId);
       statusObj.servant2 = { id: swapId, class: '契約從者', name: inc.name, condition: inc.condition || '靈基穩定' };
     }
     const rosterFull = rosterBefore.length >= MAX_SERVANT_ROSTER_;
-    const canFormSecondContract = (!statusObj.servant1.id) || (statusObj.master.commandSpells >= 1 && statusObj.master.mp >= 80 && (!statusObj.servant2.id || !rosterFull));
+    const isDragonTone = normalizeGameToneKey_(statusObj.gameTone) === 'STORY_PLAYER_FIRST';
+    const canFormSecondContract = (!statusObj.servant1.id) || ((isDragonTone || (statusObj.master.commandSpells >= 1 && statusObj.master.mp >= 80)) && (!statusObj.servant2.id || !rosterFull));
 
     // 系統提示詞：固定不變的規則與型月世界觀（每回合相同，模型端可快取）；每回合變動的資料一律放在 statePrompt
     const systemPrompt = FATE_GM_SYSTEM_PROMPT_;
@@ -3683,7 +3694,8 @@ function processFateTurnTextOnly(params) {
     const apptRes = resolveAppointments_(meta, currentFactions, nowIdx, resolvedLoc.key);
     const compRes = updateCompanions_(meta, currentFactions, apptAdded.length ? userAction.replace(/一起|跟我|同行|聯手|會合/g, '') : userAction, nowIdx,
       (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => String((c && c.id) || '')),
-      apptRes.due.map(a => a.fk));
+      apptRes.due.map(a => a.fk),
+      [String(row[17] || ''), String(row[23] || '')].concat((meta.servantRoster || []).map(r => r.id)).filter(Boolean));
 
     // AI 寫的情報裡若提到十二試煉的命數，一律改成伺服器的正確數字
     if (turnJson.intel_updates && typeof turnJson.intel_updates === 'object' && meta.godHand) {
