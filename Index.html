@@ -1,0 +1,2149 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FATE・第五次聖杯戰爭 (第8組異常參戰)</title>
+  <style>
+    :root {
+      --bg-void: #0a0b10;
+      --bg-panel: #131520;
+      --bg-card: #1a1d2d;
+      --bg-input: #0e1018;
+      --border-gold: rgba(212, 175, 55, 0.35);
+      --border-dim: #2a2e45;
+      --gold-main: #e2b857;
+      --gold-bright: #fde047;
+      --crimson: #dc2626;
+      --crimson-glow: rgba(220, 38, 38, 0.45);
+      --mana-blue: #38bdf8;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --emerald: #10b981;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Noto Serif TC", "Noto Sans TC", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: radial-gradient(circle at top, #181a2c 0%, var(--bg-void) 75%);
+      color: var(--text-main);
+      min-height: 100vh;
+      line-height: 1.65;
+    }
+
+    .hidden { display: none !important; }
+
+    .btn {
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border-gold);
+      background: linear-gradient(135deg, #1e2235 0%, #141724 100%);
+      color: var(--gold-main);
+      font-weight: 700;
+      font-size: 13.5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      position: relative;
+    }
+    .btn:hover:not(:disabled) {
+      border-color: var(--gold-bright);
+      box-shadow: 0 0 14px rgba(226, 184, 87, 0.3);
+      transform: translateY(-1px);
+    }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+    .btn-crimson {
+      background: linear-gradient(135deg, #991b1b 0%, #450a0a 100%);
+      border-color: #f87171;
+      color: #fff;
+    }
+    .btn-crimson:hover:not(:disabled) {
+      box-shadow: 0 0 16px var(--crimson-glow);
+    }
+    .btn-sm { padding: 6px 11px; font-size: 12.5px; }
+
+    input[type="text"], select, textarea {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+      color: var(--text-main);
+      padding: 10px 12px;
+      font-size: 14px;
+      outline: none;
+      font-family: inherit;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--gold-main); }
+    input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ================= 畫面 1：登入大廳 ================= */
+    #login-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-box {
+      max-width: 460px;
+      width: 100%;
+      background: rgba(19, 21, 32, 0.94);
+      border: 1px solid var(--border-gold);
+      border-radius: 16px;
+      padding: 36px 28px;
+      text-align: center;
+      box-shadow: 0 0 40px rgba(0,0,0,0.7), inset 0 0 25px rgba(226, 184, 87, 0.08);
+    }
+    .magic-ring {
+      width: 78px;
+      height: 78px;
+      margin: 0 auto 16px;
+      border-radius: 50%;
+      border: 2px solid var(--crimson);
+      box-shadow: 0 0 20px var(--crimson-glow), inset 0 0 15px var(--crimson-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 30px;
+      color: var(--gold-bright);
+      animation: pulseRing 3s infinite ease-in-out;
+    }
+    @keyframes pulseRing {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 15px var(--crimson-glow); }
+      50% { transform: scale(1.04); box-shadow: 0 0 28px rgba(220, 38, 38, 0.75); }
+    }
+    .login-title { font-size: 24px; font-weight: 800; color: var(--gold-bright); letter-spacing: 2px; margin-bottom: 6px; }
+    .login-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+    .login-input { text-align: center; font-size: 18px !important; font-weight: 700; letter-spacing: 3px; margin-bottom: 8px; }
+    .login-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+    .cached-badge {
+      display: inline-block;
+      font-size: 12px;
+      color: #6ee7b7;
+      background: rgba(16, 185, 129, 0.14);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+    }
+    .login-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+    .login-clear-btn { width: 100%; font-size: 12.5px; padding: 8px 12px; color: #fca5a5; border-color: rgba(220, 38, 38, 0.45); background: rgba(153, 27, 27, 0.14); }
+    .login-clear-btn:hover:not(:disabled) { border-color: #f87171; background: rgba(153, 27, 27, 0.25); }
+
+    /* ================= 畫面 2：創角與聖杯願望 ================= */
+    #creation-screen { max-width: 1120px; margin: 0 auto; padding: 24px 16px; }
+    .creation-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 20px; }
+    @media (max-width: 860px) { .creation-grid { grid-template-columns: 1fr; } }
+    .panel-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-gold);
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .panel-header {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--gold-bright);
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-dim);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .form-group { margin-bottom: 14px; }
+    .form-label { display: block; font-size: 13px; font-weight: 700; color: #cbd5e1; margin-bottom: 6px; }
+    .origin-preview-note {
+      font-size: 12px;
+      color: #fde047;
+      background: rgba(226, 184, 87, 0.08);
+      border: 1px solid rgba(226, 184, 87, 0.3);
+      padding: 7px 10px;
+      border-radius: 6px;
+      margin-top: 6px;
+    }
+    .advice-box {
+      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12.5px;
+      color: #bae6fd;
+      margin-top: 8px;
+    }
+    .preview-frame {
+      width: 100%;
+      aspect-ratio: 832 / 1216;
+      max-height: 480px;
+      background: #090a0f;
+      border: 1px dashed var(--border-gold);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .preview-frame img { width: 100%; height: 100%; object-fit: contain; }
+
+    /* ================= 畫面 3：極簡作戰終端 ================= */
+    #game-screen { max-width: 1440px; margin: 0 auto; padding: 12px; }
+    .top-bar {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-gold);
+      border-radius: 12px;
+      padding: 10px 16px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .status-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; font-weight: 700; }
+    .badge { padding: 4px 10px; border-radius: 6px; background: var(--bg-card); border: 1px solid var(--border-dim); }
+    .badge-gold { border-color: var(--gold-main); color: var(--gold-bright); }
+    .badge-red { border-color: var(--crimson); color: #fca5a5; }
+    .badge-loc { border-color: var(--mana-blue); color: #7dd3fc; cursor: pointer; }
+    .badge-loc:hover { background: rgba(56, 189, 248, 0.14); }
+    .badge-bond { border-color: #f472b6; color: #f9a8d4; }
+
+    .top-actions-clean { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .command-spells-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(220, 38, 38, 0.14);
+      border: 1px solid rgba(220, 38, 38, 0.5);
+      padding: 5px 12px;
+      border-radius: 8px;
+      cursor: default;
+    }
+    .spell-stroke { width: 14px; height: 20px; fill: var(--crimson); filter: drop-shadow(0 0 5px var(--crimson)); }
+    .spell-stroke.used { fill: #334155; filter: none; }
+
+    .unread-dot {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: var(--crimson);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-dim);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .capsule-switch {
+      position: relative;
+      width: 52px;
+      height: 28px;
+      background: #272b3f;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.2s;
+      border: 1px solid #3f4663;
+      flex-shrink: 0;
+    }
+    .capsule-switch::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      background: #cbd5e1;
+      border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .capsule-switch.on {
+      background: rgba(16, 185, 129, 0.35);
+      border-color: var(--emerald);
+    }
+    .capsule-switch.on::after {
+      transform: translateX(24px);
+      background: #34d399;
+    }
+
+    .game-layout {
+      display: grid;
+      grid-template-columns: 45% 55%;
+      gap: 14px;
+      align-items: start;
+    }
+    @media (max-width: 1024px) {
+      .game-layout { grid-template-columns: 1fr; }
+      .story-panel { height: 72vh; min-height: 460px; }
+    }
+
+    .cg-box {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-gold);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .cg-viewport {
+      width: 100%;
+      aspect-ratio: 1216 / 832;
+      background: #07080c;
+      border-radius: 8px;
+      border: 1px solid var(--border-dim);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+    .cg-viewport img { width: 100%; height: 100%; object-fit: cover; }
+
+    .cg-async-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 11, 16, 0.78);
+      backdrop-filter: blur(3px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .cg-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .style-select-mini {
+      width: auto !important;
+      padding: 5px 9px !important;
+      font-size: 12.5px !important;
+      font-weight: 700;
+      color: var(--gold-main) !important;
+      border-color: var(--border-gold) !important;
+    }
+
+    .stat-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-dim);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .bar-wrap {
+      background: #090b10;
+      height: 10px;
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 5px 0 8px;
+      border: 1px solid #1e293b;
+    }
+    .bar-fill { height: 100%; transition: width 0.3s; }
+    .bar-mp { background: linear-gradient(90deg, #0284c7, #38bdf8); }
+
+    .rank-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      margin: 8px 0;
+    }
+    .rank-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: 6px;
+      padding: 4px 6px;
+      text-align: center;
+      font-size: 12px;
+    }
+    .rank-pill strong { color: var(--gold-bright); font-size: 13px; }
+
+    .np-gate-badge {
+      display: inline-block;
+      font-size: 11.5px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
+    .np-ready { background: rgba(16, 185, 129, 0.16); border: 1px solid var(--emerald); color: #6ee7b7; }
+    .np-low { background: rgba(220, 38, 38, 0.16); border: 1px solid var(--crimson); color: #fca5a5; }
+
+    .inv-slots-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .inv-slot {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: 6px;
+      padding: 5px 8px;
+      font-size: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .inv-slot.empty {
+      color: #475569;
+      border-style: dashed;
+      justify-content: center;
+    }
+    .inv-tier-tag {
+      font-size: 10.5px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: rgba(226, 184, 87, 0.15);
+      color: var(--gold-bright);
+    }
+
+    /* ================= 互動冬木市戰略地圖 SVG 沙盤 ================= */
+    .fuyuki-map-canvas {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      background: radial-gradient(circle at 45% 45%, #161b2e 0%, #090b12 100%);
+      border: 1px solid var(--border-gold);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .map-node {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      z-index: 5;
+      transition: transform 0.2s;
+    }
+    .map-node:hover { transform: translate(-50%, -50%) scale(1.1); }
+    .node-orb {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #1e293b;
+      border: 2px solid #64748b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.8);
+    }
+    .node-orb.high-mana {
+      border-color: #38bdf8;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+    }
+    .node-orb.current-here {
+      background: var(--gold-main);
+      border-color: #fff;
+      color: #000;
+      animation: nodePulseGold 1.8s infinite;
+    }
+    .node-orb.hotspot-alert {
+      border-color: var(--crimson);
+      box-shadow: 0 0 14px var(--crimson);
+      animation: nodePulseRed 1.3s infinite;
+    }
+    @keyframes nodePulseGold {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(253, 224, 71, 0.75); }
+      70% { box-shadow: 0 0 0 11px rgba(253, 224, 71, 0); }
+    }
+    @keyframes nodePulseRed {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.85); }
+      70% { box-shadow: 0 0 0 10px rgba(220, 38, 38, 0); }
+    }
+    .node-label {
+      background: rgba(10, 11, 16, 0.88);
+      border: 1px solid var(--border-dim);
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-size: 11.5px;
+      font-weight: 700;
+      white-space: nowrap;
+      color: #e2e8f0;
+    }
+    .map-node.selected .node-label {
+      border-color: var(--gold-bright);
+      color: var(--gold-bright);
+    }
+
+    /* 小說級閱讀視窗 */
+    .story-panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-gold);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 95px);
+      min-height: 620px;
+    }
+    .story-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .msg-user {
+      align-self: flex-end;
+      max-width: 82%;
+      background: rgba(226, 184, 87, 0.14);
+      border: 1px solid var(--border-gold);
+      border-radius: 12px 12px 2px 12px;
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--gold-bright);
+    }
+    .msg-ai {
+      align-self: flex-start;
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: 12px 12px 12px 2px;
+      padding: 16px 20px;
+      font-size: 15.5px;
+      line-height: 1.85;
+    }
+    .msg-meta {
+      font-size: 12px;
+      color: var(--gold-main);
+      font-weight: 700;
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px dashed var(--border-dim);
+    }
+    .novel-p {
+      margin-bottom: 13px;
+      color: #e2e8f0;
+      text-align: justify;
+    }
+    .novel-p:last-child { margin-bottom: 0; }
+    .novel-dialogue {
+      margin-bottom: 13px;
+      padding-left: 10px;
+      border-left: 3px solid var(--gold-main);
+      color: #fef08a;
+      font-weight: 500;
+    }
+
+    .ending-banner {
+      background: linear-gradient(135deg, rgba(153, 27, 27, 0.25) 0%, rgba(19, 21, 32, 0.95) 100%);
+      border: 1px solid var(--crimson);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+    .ending-banner.victory {
+      background: linear-gradient(135deg, rgba(217, 119, 6, 0.25) 0%, rgba(19, 21, 32, 0.95) 100%);
+      border-color: var(--gold-bright);
+    }
+
+    .action-dock {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border-dim);
+      background: #0f111a;
+      border-radius: 0 0 12px 12px;
+    }
+    .lock-status-bar {
+      font-size: 12px;
+      color: #38bdf8;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .input-row { display: flex; gap: 8px; }
+
+    /* ================= 2004 復古手機小視窗 ================= */
+    .retro-phone-card {
+      background: #101622;
+      border: 2px solid #64748b;
+      box-shadow: 0 0 0 2px #090c14, 0 14px 36px rgba(0,0,0,0.85);
+      border-radius: 18px;
+      max-width: 560px;
+      width: 100%;
+      padding: 16px;
+      max-height: 88vh;
+      overflow-y: auto;
+    }
+    .retro-screen-bezel {
+      background: #0b1218;
+      border: 1px solid #29435c;
+      border-radius: 10px;
+      padding: 12px;
+      font-family: "Courier New", "Noto Sans TC", monospace;
+    }
+    .phone-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .bbs-post {
+      background: #111b26;
+      border: 1px solid #22384d;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .bbs-post-head {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11.5px;
+      color: #7dd3fc;
+      margin-bottom: 4px;
+    }
+    .sms-bubble-box {
+      max-height: 230px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 8px;
+      background: #090e14;
+      border: 1px solid #1e3144;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+    .sms-msg {
+      max-width: 85%;
+      padding: 8px 11px;
+      border-radius: 8px;
+      font-size: 12.5px;
+    }
+    .sms-msg.incoming {
+      align-self: flex-start;
+      background: #172536;
+      border: 1px solid #2d4a69;
+      color: #e2e8f0;
+    }
+    .sms-msg.outgoing {
+      align-self: flex-end;
+      background: rgba(226, 184, 87, 0.18);
+      border: 1px solid rgba(226, 184, 87, 0.5);
+      color: #fde047;
+    }
+
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(7, 8, 12, 0.82);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid rgba(226, 184, 87, 0.2);
+      border-top-color: var(--gold-bright);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.78);
+      z-index: 5000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--gold-main);
+      border-radius: 14px;
+      max-width: 680px;
+      width: 100%;
+      padding: 20px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .inline-notice {
+      font-size: 12.5px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #bae6fd;
+    }
+    .inline-notice.warn {
+      background: rgba(220, 38, 38, 0.14);
+      border-color: rgba(248, 113, 113, 0.5);
+      color: #fecaca;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="loading-overlay" class="hidden">
+    <div class="spinner"></div>
+    <div id="loading-text" style="color: var(--gold-bright); font-weight: 700; letter-spacing: 1px;">正在推演聖杯戰爭因果...</div>
+  </div>
+
+  <!-- ================= 畫面 1：登入大廳 ================= -->
+  <div id="login-screen">
+    <div class="login-box">
+      <div class="magic-ring">✦</div>
+      <div class="login-title">第五次聖杯戰爭</div>
+      <div class="login-sub">第 8 組異常參戰者・多世界線終端</div>
+
+      <div id="cached-user-hint" class="cached-badge hidden">✨ 已自動帶入上次御主名號</div>
+      <div id="login-inline-notice" class="inline-notice warn hidden"></div>
+
+      <div class="form-group">
+        <input type="text" id="login-name-input" class="login-input" maxlength="5" placeholder="輸入御主名號" onkeydown="if(event.key==='Enter') handleLogin('LOAD')" />
+        <div class="login-hint">※ 嚴格限定 1～5 個繁體中文字（含生涯勝敗統計與獨立世界線封存）</div>
+      </div>
+
+      <div class="login-actions">
+        <button class="btn btn-crimson" onclick="handleLogin('NEW')">⚔️ 開始新紀元</button>
+        <button class="btn" onclick="handleLogin('LOAD')">📜 讀取世界線</button>
+      </div>
+      <button id="btn-clear-run" class="btn login-clear-btn" onclick="handleClearCurrentRun()">🧹 清空本輪進度與對話（保留生涯勝敗）</button>
+      <div id="confirm-clear-box" class="inline-notice warn hidden" style="margin-top: 10px; text-align: left;">
+        <div style="margin-bottom: 8px; font-weight: 700;">確定要清空本輪進度與對話嗎？生涯勝敗戰績會完整保留。</div>
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+          <button class="btn btn-sm" onclick="cancelClearRun()">取消</button>
+          <button class="btn btn-crimson btn-sm" onclick="confirmClearCurrentRun()">確認清空本輪</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 畫面 2：精簡創角與聖杯願望 ================= -->
+  <div id="creation-screen" class="hidden">
+    <div class="panel-header" style="border:none; margin-bottom: 12px;">
+      <span style="font-size: 19px;">🔮 御主登錄與英靈召喚陣 — 御主：<strong id="create-player-label" style="color:#fff;"></strong> <span id="create-career-badge" style="font-size:13px; color:var(--gold-main);"></span></span>
+      <button class="btn btn-sm" onclick="logoutSwitchMaster()">返回登入</button>
+    </div>
+
+    <div id="creation-inline-notice" class="inline-notice hidden"></div>
+
+    <div class="creation-grid">
+      <div>
+        <div class="panel-card">
+          <div class="panel-header"><span>Step 1. 御主出身、聖杯願望與召喚設定</span></div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 10px;" class="form-group">
+            <div>
+              <label class="form-label">御主性別</label>
+              <select id="create-gender" onchange="applyGenderDefaultAppearance()">
+                <option value="girl">女性 (1girl・FGO立香預設)</option>
+                <option value="boy">男性 (1boy・FGO立香預設)</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">魔術師出身</label>
+              <select id="create-origin" onchange="updateOriginPreviewNote()">
+                <option value="時鐘塔叛逃魔術師">時鐘塔叛逃魔術師 (均衡暗算型)</option>
+                <option value="冬木市隱居古家族">冬木市隱居古家族 (高魔力名門)</option>
+                <option value="聖堂教會異端代行者">聖堂教會異端代行者 (A級體術硬漢)</option>
+                <option value="被大聖杯強行捲入的普通人">被大聖杯強行捲入的普通人 (E級起手・高難度)</option>
+              </select>
+            </div>
+          </div>
+          <div id="origin-preview-note" class="origin-preview-note" style="margin-bottom: 14px;">
+            魔術迴路:C | 近戰體術:C | 隱藏氣息:B | 幸運:D (自帶魔力結晶(小)×2、煙霧魔術彈×1)
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">🏆 向大聖杯許下的願望</label>
+            <input type="text" id="create-wish" placeholder="例如：抵達魔術的根源、復活已故之人..." value="奪得大聖杯，改寫這場扭曲的儀式" />
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;" class="form-group">
+            <div>
+              <label class="form-label">🎭 行事風格傾向</label>
+              <select id="create-demeanor">
+                <option value="冷靜算計・步步為營">冷靜算計・步步為營</option>
+                <option value="直率果決・正面突破">直率果決・正面突破</option>
+                <option value="隨性吐槽・見招拆招">隨性吐槽・見招拆招</option>
+                <option value="深沉隱忍・暗中布局">深沉隱忍・暗中布局</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">🎲 開局模式</label>
+              <select id="create-mode">
+                <option value="WAR">⚔️ 聖杯戰爭主線</option>
+                <option value="SANDBOX">🌸 無戰爭日常模式</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;" class="form-group">
+            <div>
+              <label class="form-label">✨ 召喚對象</label>
+              <select id="create-servant-select">
+                <option value="RANDOM">🎲 隨機感應召喚</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">🕯️ 聖遺物／共鳴媒介 (可選)</label>
+              <input type="text" id="create-relic" placeholder="留空則由大聖杯共鳴" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">中文外觀描述 (可選・點右側補強)</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="create-zh-desc" placeholder="輸入中文外觀描述..." />
+              <button class="btn btn-sm" type="button" onclick="runEnhanceAppearance()">✨ 補強</button>
+              <label class="btn btn-sm" style="cursor:pointer;">
+                🖼️ 抽詞
+                <input type="file" accept="image/*" class="hidden" onchange="runExtractFromImage(this)" />
+              </label>
+            </div>
+            <div id="create-advice-box" class="advice-box hidden"></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">核心外觀 Tags (英文)</label>
+            <input type="text" id="create-core-tags" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">初始服裝 Tags (英文)</label>
+            <input type="text" id="create-outfit-tags" />
+          </div>
+
+          <button class="btn btn-crimson" style="width: 100%; padding: 13px; font-size: 16px;" onclick="submitCreationAndSummon()">
+            🔮 宣告誓詞・召喚英靈降臨！
+          </button>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-header"><span>御主定裝照預覽</span></div>
+        <div class="preview-frame" id="create-preview-box">
+          <span style="color: var(--text-muted); font-size: 13px; padding: 20px; text-align: center;">
+            調整左側外觀 Tags 後，點擊下方按鈕可生成定裝預覽圖
+          </span>
+        </div>
+        <button class="btn" style="width: 100%;" onclick="runPreviewMaster()">🎨 生成御主定裝預覽圖</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 畫面 3：極簡作戰終端 ================= -->
+  <div id="game-screen" class="hidden">
+    <div class="top-bar">
+      <div class="status-badges">
+        <span class="badge badge-gold" id="ui-player-badge">御主：-</span>
+        <span class="badge" id="ui-career-badge">🏆0勝 💀0敗</span>
+        <span class="badge badge-bond" id="ui-bond-badge">💖 好感: 25/100</span>
+        <span class="badge" id="ui-tone-badge">⚖️ 符合常理</span>
+        <span class="badge" id="ui-time-badge">Day 1・深夜</span>
+        <span class="badge" id="ui-ap-badge">AP: 3/3</span>
+        <span class="badge badge-red" id="ui-threat-badge">警戒度: 10%</span>
+        <span class="badge badge-loc" id="ui-loc-badge" title="點擊開啟冬木市魔術戰略地圖" onclick="openMapModal()">🗺️ 冬木市</span>
+      </div>
+
+      <div class="top-actions-clean">
+        <div class="command-spells-box" title="剩餘令咒數量（僅限透過文字輸入發動，例如：以令咒下令... / 消耗兩劃令咒...）">
+          <span style="font-size: 12px; font-weight: 700; color: #fca5a5;">令咒</span>
+          <svg id="spell-1" class="spell-stroke" viewBox="0 0 24 24"><path d="M12 2L15 10L12 22L9 10Z"/></svg>
+          <svg id="spell-2" class="spell-stroke" viewBox="0 0 24 24"><path d="M12 2L15 10L12 22L9 10Z"/></svg>
+          <svg id="spell-3" class="spell-stroke" viewBox="0 0 24 24"><path d="M12 2L15 10L12 22L9 10Z"/></svg>
+        </div>
+
+        <button class="btn btn-sm" onclick="openPhoneModal()">
+          📱 手機 (2004)
+          <span id="ui-phone-unread" class="unread-dot hidden">0</span>
+        </button>
+        <button class="btn btn-sm" onclick="openFactionsModal()">📊 情報</button>
+        <button class="btn btn-sm" onclick="openSettingsModal()">⚙️ 設定</button>
+        <button class="btn btn-sm" onclick="logoutSwitchMaster()">🚪 切換</button>
+      </div>
+    </div>
+
+    <div class="game-layout">
+      <!-- 左側：即時 CG 畫框 + 純型月狀態與6格物品欄 -->
+      <div>
+        <div class="cg-box">
+          <div class="cg-viewport" id="main-cg-viewport">
+            <span style="color: var(--text-muted); font-size: 13px;">等待劇情觸發或點擊重骰生成畫面...</span>
+          </div>
+          <div class="cg-toolbar">
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+              <select id="sel-art-style" class="style-select-mini" onchange="optimisticChangeArtStyle(this.value)">
+                <option value="official">🎨 官方立繪質感</option>
+                <option value="anime">🎬 動畫電影光影</option>
+                <option value="painterly">🖌️ 厚塗濃郁色彩</option>
+                <option value="flat">✨ 日系清透平塗</option>
+                <option value="manga">📖 黑白漫畫風格</option>
+              </select>
+              <button class="btn btn-sm" id="btn-retry-cg" onclick="handleRetryCg()">🔄 重骰 CG</button>
+            </div>
+            <span id="ui-seed-label" style="font-size: 11.5px; color: var(--text-muted);">Seed: -</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700;">
+            <span>🧙 <span id="ui-master-origin">-</span>・肉身：<span id="ui-master-cond" style="color:#6ee7b7;">完好無損</span></span>
+            <span id="ui-master-mp-text" style="color: var(--mana-blue);">魔力 MP: 110/110</span>
+          </div>
+          <div class="bar-wrap"><div id="bar-master-mp" class="bar-fill bar-mp" style="width:100%"></div></div>
+
+          <div class="rank-grid">
+            <div class="rank-pill">魔術迴路 <strong id="rank-circuit">C</strong></div>
+            <div class="rank-pill">近戰體術 <strong id="rank-combat">C</strong></div>
+            <div class="rank-pill">隱藏氣息 <strong id="rank-stealth">B</strong></div>
+            <div class="rank-pill">幸運 <strong id="rank-luck">D</strong></div>
+          </div>
+
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">
+            🏆 聖杯願望：<span id="ui-master-wish" style="color: #fde047;">-</span>
+          </div>
+
+          <!-- 6格魔術禮裝與道具欄 -->
+          <div style="padding: 8px 0; border-top: 1px solid var(--border-dim);">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; color: #cbd5e1;">
+              <span>🎒 隨身魔術禮裝 / 道具欄 (<span id="ui-inv-count">0</span>/6)</span>
+              <span style="font-size: 11px; color: var(--text-muted);">打字「使用OO」自動扣除</span>
+            </div>
+            <div id="ui-inv-grid" class="inv-slots-grid"></div>
+          </div>
+
+          <div style="padding-top: 8px; border-top: 1px solid var(--border-dim);">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 800; color: var(--gold-bright);">
+              <span id="ui-s1-title">⚔️ 主從者：尚未召喚</span>
+              <span id="ui-np-gate" class="np-gate-badge np-ready">🔥 寶具魔力充足</span>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 3px;" id="ui-s1-params">-</div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-top:4px;">
+              <span id="ui-s1-bond" style="color:#f9a8d4; font-weight:700;">💖 好感 25/100</span>
+              <span>靈基：<strong id="ui-s1-cond" style="color:#fde047;">靈基穩定</strong></span>
+            </div>
+          </div>
+
+          <div id="ui-s2-container" class="hidden" style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-gold);">
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size: 13.5px; font-weight: 800; color: #38bdf8;">
+              <span id="ui-s2-title">✨ 副從者：-</span>
+              <span style="font-size:12px; color:#cbd5e1; font-weight:600;">靈基：<strong id="ui-s2-cond" style="color:#fde047;">靈基穩定</strong></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側：小說閱讀對話窗 -->
+      <div class="story-panel">
+        <div class="story-log" id="story-log-box"></div>
+
+        <div class="action-dock">
+          <div id="async-lock-bar" class="lock-status-bar hidden">
+            <span>🎨 正在為本幕繪製 CG（可先閱讀上方劇情，繪製完成或逾時後自動解鎖操作）...</span>
+            <button class="btn btn-sm" style="padding: 2px 8px; font-size: 11.5px;" onclick="forceUnlockAfterImage('【已略過本幕生圖等待】')">⏭️ 略過等圖</button>
+          </div>
+
+          <div id="active-controls-wrap">
+            <div class="input-row">
+              <input type="text" id="player-action-input" class="lockable-btn" placeholder="輸入行動、前往某地、使用道具、或「以令咒下令...」(按 Enter 送出)" onkeydown="if(event.key==='Enter') submitTurnAction()" />
+              <button class="btn btn-crimson lockable-btn" onclick="submitTurnAction()">送出</button>
+            </div>
+          </div>
+
+          <div id="ended-controls-wrap" class="hidden" style="text-align: center; padding: 6px 0;">
+            <button class="btn btn-crimson" style="width: 100%; padding: 12px; font-size: 15px;" onclick="requestNextLoopConfirm()">
+              🔄 封存本局紀錄・繼承生涯勝敗戰績開啟下一輪迴
+            </button>
+            <div id="confirm-next-loop-box" class="inline-notice hidden" style="margin-top: 8px; text-align: left;">
+              <div style="margin-bottom: 8px; font-weight: 700;">確定要封存本局並開啟【下一輪迴】嗎？（生涯勝敗戰績會完整繼承）</div>
+              <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                <button class="btn btn-sm" onclick="cancelNextLoopConfirm()">取消</button>
+                <button class="btn btn-crimson btn-sm" onclick="triggerNextLoop()">確認開啟下一輪迴</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 彈窗：📱 2004 復古手機（冬木論壇＋結盟簡訊） ================= -->
+  <div id="phone-modal" class="modal-backdrop hidden">
+    <div class="retro-phone-card">
+      <div class="panel-header" style="margin-bottom: 10px;">
+        <span>📱 2004 FUYUKI-KEITAI・冬木通訊終端</span>
+        <button class="btn btn-sm" onclick="closeModal('phone-modal')">✕</button>
+      </div>
+
+      <div class="retro-screen-bezel">
+        <div class="phone-tabs">
+          <button class="btn btn-sm btn-crimson" id="tab-phone-forum" onclick="switchPhoneTab('forum')">🌐 冬木論壇</button>
+          <button class="btn btn-sm" id="tab-phone-sms" onclick="switchPhoneTab('sms')">✉️ 結盟簡訊</button>
+        </div>
+
+        <div id="phone-notice-box" class="inline-notice warn hidden"></div>
+
+        <!-- 分頁 1：冬木論壇留言板 -->
+        <div id="phone-view-forum">
+          <div style="font-size: 12px; color: #7dd3fc; margin-bottom: 8px;">
+            ※ 冬木匿名留言板：同步近期戰況風聲，你發布的貼文也會影響後續局勢反應。
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
+            <input type="text" id="bbs-title-input" maxlength="36" placeholder="貼文標題（例如：大橋那邊有奇怪的魔力波動？）" style="padding:7px 10px; font-size:12.5px;" />
+            <div style="display:flex; gap:6px;">
+              <input type="text" id="bbs-body-input" maxlength="140" placeholder="在 2004 留言板留下風聲或試探消息..." style="padding:7px 10px; font-size:12.5px;" onkeydown="if(event.key==='Enter') submitForumPost()" />
+              <button class="btn btn-sm btn-crimson" type="button" onclick="submitForumPost()">發帖</button>
+            </div>
+          </div>
+          <div id="phone-forum-list" style="max-height: 290px; overflow-y: auto;"></div>
+        </div>
+
+        <!-- 分頁 2：結盟簡訊 -->
+        <div id="phone-view-sms" class="hidden">
+          <div style="font-size: 12px; color: #7dd3fc; margin-bottom: 8px;">
+            ※ 僅與「同盟／結盟／合作／互助」陣營可建立穩定簡訊聯絡；傳訊求援或協同會連動至陣營動向與劇情。
+          </div>
+          <div class="form-group" style="margin-bottom: 8px;">
+            <select id="sms-ally-select" onchange="renderSmsThread()" style="padding: 7px 10px; font-size: 12.5px;"></select>
+          </div>
+          <div id="sms-thread-box" class="sms-bubble-box"></div>
+          <div class="input-row">
+            <input type="text" id="sms-message-input" maxlength="140" placeholder="輸入簡訊（例如：我們這邊準備支援，你們撐住！）" style="padding: 7px 10px; font-size: 12.5px;" onkeydown="if(event.key==='Enter') submitSmsMessage()" />
+            <button class="btn btn-sm btn-crimson" type="button" onclick="submitSmsMessage()">傳送</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 彈窗：🗺️ 冬木市魔術戰略地圖 (互動 SVG 沙盤) ================= -->
+  <div id="map-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="panel-header">
+        <span>🗺️ 冬木市靈脈與戰況沙盤（打字移動也會自動同步座標）</span>
+        <button class="btn btn-sm" onclick="closeModal('map-modal')">✕</button>
+      </div>
+
+      <div id="map-war-ticker" style="font-size: 12.5px; color: #fca5a5; background: rgba(220, 38, 38, 0.12); border: 1px solid rgba(220, 38, 38, 0.4); padding: 7px 10px; border-radius: 8px; margin-bottom: 10px;">
+        📡 戰況偵測中...
+      </div>
+
+      <div class="fuyuki-map-canvas" id="fuyuki-map-box">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
+          <path d="M 46 0 Q 54 35, 50 50 T 58 100 L 66 100 Q 58 50, 62 35 T 54 0 Z" fill="rgba(14, 165, 233, 0.16)" stroke="rgba(56, 189, 248, 0.35)" stroke-width="0.4" />
+          <line x1="15" y1="24" x2="34" y2="34" stroke="rgba(56, 189, 248, 0.55)" stroke-width="0.6" stroke-dasharray="1.5,1" />
+          <line x1="34" y1="34" x2="28" y2="52" stroke="rgba(226, 184, 87, 0.35)" stroke-width="0.4" />
+          <line x1="28" y1="52" x2="24" y2="74" stroke="rgba(226, 184, 87, 0.35)" stroke-width="0.4" />
+          <line x1="28" y1="52" x2="50" y2="48" stroke="rgba(226, 184, 87, 0.35)" stroke-width="0.4" />
+          <line x1="43" y1="66" x2="50" y2="48" stroke="rgba(226, 184, 87, 0.35)" stroke-width="0.4" />
+          <line x1="50" y1="48" x2="76" y2="42" stroke="rgba(226, 184, 87, 0.35)" stroke-width="0.4" />
+          <line x1="76" y1="42" x2="82" y2="76" stroke="rgba(226, 184, 87, 0.35)" stroke-width="0.4" />
+          <text x="12" y="92" fill="rgba(148, 163, 184, 0.35)" font-size="3.6" font-weight="bold">深山町（舊都・靈脈區）</text>
+          <text x="68" y="92" fill="rgba(148, 163, 184, 0.35)" font-size="3.6" font-weight="bold">新都（現代商業・郊外）</text>
+        </svg>
+        <div id="map-nodes-layer"></div>
+      </div>
+
+      <div id="map-selected-detail" style="background: var(--bg-card); border: 1px solid var(--border-dim); border-radius: 10px; padding: 12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <strong id="map-det-title" style="color: var(--gold-bright); font-size: 15px;">-</strong>
+          <span id="map-det-leyline" style="font-size: 12px; color: var(--mana-blue); font-weight: 700;">-</span>
+        </div>
+        <div id="map-det-desc" style="font-size: 13px; color: #cbd5e1; margin-bottom: 8px;">-</div>
+        <div style="margin-bottom: 10px; padding-top: 8px; border-top: 1px dashed var(--border-dim);">
+          <div style="font-size: 12px; color: var(--gold-main); font-weight: 700; margin-bottom: 5px;">✏️ 自訂／覆寫此場地現況說明（留空儲存可還原預設）</div>
+          <div style="display:flex; gap: 6px; flex-wrap: wrap;">
+            <input type="text" id="map-custom-desc-input" maxlength="140" placeholder="輸入此場地目前的環境、結界或戰損描述..." style="flex: 1; min-width: 180px; padding: 7px 10px; font-size: 12.5px;" />
+            <button class="btn btn-sm" type="button" onclick="saveMapLocationDesc()">💾 儲存場地</button>
+            <button class="btn btn-sm" type="button" onclick="resetMapLocationDesc()">↺ 還原</button>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap: 8px; flex-wrap: wrap;">
+          <span id="map-det-danger" style="font-size: 12px; color: #fca5a5;">-</span>
+          <button class="btn btn-crimson btn-sm" id="btn-map-travel" onclick="travelToSelectedMapNode()">🚶 移動前往此地 (1 AP)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 彈窗：⚙️ 系統設定（即時背景靜默存檔） ================= -->
+  <div id="settings-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="panel-header">
+        <span>⚙️ 聖杯戰爭終端設定 (切換後自動背景存檔)</span>
+        <button class="btn btn-sm" onclick="closeModal('settings-modal')">✕</button>
+      </div>
+
+      <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 6px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight: 700; font-size: 14px;">🎭 難度與寫作基調 (可不選，預設符合常理)</div>
+        </div>
+        <select id="sel-game-tone" onchange="optimisticChangeTone(this.value)">
+          <option value="BALANCED">⚖️ 符合常理（預設・在場人物有反應，重劇情輕卡關）</option>
+          <option value="COMEDY_CHAOS">😄 搞笑鬧劇輕鬆向（輕鬆吐槽誇張反應，非極端作死不輕易重創）</option>
+          <option value="STORY_PLAYER_FIRST">📖 故事模式（玩家為主・完全依照並順從玩家的話延伸劇情）</option>
+          <option value="HARDCORE_WAR">⚔️ 鐵血嚴重戰場風（肅殺務實，分心或鬧場招致冷靜反制與硬核代價）</option>
+        </select>
+        <div id="tone-desc-hint" style="font-size: 12px; color: var(--text-muted);">
+          尊重型月常理與在場人物反應，重劇情、輕卡關，不隨意把非致命小動作判死。
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <div style="font-weight: 700; font-size: 14px;">🎨 自動繪製場景 CG</div>
+          <div style="font-size: 12px; color: var(--text-muted);">關閉後每回合僅輸出純文字小說（極速推進）</div>
+        </div>
+        <div id="cap-autoImage" class="capsule-switch" onclick="optimisticToggle('autoImage')"></div>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <div style="font-weight: 700; font-size: 14px;">🌸 無戰爭日常餐桌模式</div>
+          <div style="font-size: 12px; color: var(--text-muted);">開啟後解除時間與警戒限制，並禁止獲得任何戰鬥道具</div>
+        </div>
+        <div id="cap-sandboxMode" class="capsule-switch" onclick="optimisticToggleMode()"></div>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <div style="font-weight: 700; font-size: 14px;">🐯 戰敗時顯示老虎道場吐槽</div>
+          <div style="font-size: 12px; color: var(--text-muted);">開啟時戰敗會附上藤村大河與伊莉雅的死因分析</div>
+        </div>
+        <div id="cap-tigerDojo" class="capsule-switch on" onclick="this.classList.toggle('on'); showTigerDojo = this.classList.contains('on');"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 彈窗：原作七組陣營情報 ================= -->
+  <div id="factions-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="panel-header">
+        <span>📊 第五次聖杯戰爭・七組陣營動態（＋第8組玩家）</span>
+        <button class="btn btn-sm" onclick="closeModal('factions-modal')">✕</button>
+      </div>
+      <div id="factions-list-content" style="font-size: 13.5px; display: flex; flex-direction: column; gap: 8px;"></div>
+    </div>
+  </div>
+
+  <script>
+    const MASTER_CACHE_KEY = 'fate_hgc_cached_master_name_v1';
+    const ORIGIN_NOTES = {
+      '冬木市隱居古家族': '魔術迴路:B | 近戰體術:D | 隱藏氣息:C | 幸運:C (自帶高純度魔力寶石(中)×1、未充能天然寶石媒介×2)',
+      '時鐘塔叛逃魔術師': '魔術迴路:C | 近戰體術:C | 隱藏氣息:B | 幸運:D (自帶魔力結晶(小)×2、煙霧魔術彈×1)',
+      '聖堂教會異端代行者': '魔術迴路:D | 近戰體術:A | 隱藏氣息:C | 幸運:D (自帶基礎黑鍵套組×1、魔力結晶(小)×1)',
+      '被大聖杯強行捲入的普通人': '魔術迴路:E | 近戰體術:E | 隱藏氣息:D | 幸運:EX (開局兩手空空且極度脆弱，必須靠搜刮與戰術起家)'
+    };
+    const FGO_GENDER_PRESETS = {
+      girl: {
+        zhDesc: 'FGO女御主（藤丸立香），橘髮側馬尾、藍眸，迦勒底魔術禮裝',
+        coreTags: '1girl, fujimaru ritsuka (female), orange hair, side ponytail, blue eyes',
+        outfitTags: 'chaldea mystic code uniform, black jacket, white shirt, black miniskirt, black thighhighs'
+      },
+      boy: {
+        zhDesc: 'FGO男御主（藤丸立香），短黑髮、深棕眸，迦勒底魔術禮裝',
+        coreTags: '1boy, fujimaru ritsuka (male), short hair, black hair, brown eyes',
+        outfitTags: 'chaldea mystic code uniform, black jacket, white shirt, black pants, black boots'
+      }
+    };
+    const TONE_META = {
+      BALANCED: { short: '⚖️ 符合常理', desc: '尊重型月常理與在場人物反應，重劇情、輕卡關，不隨意把非致命小動作判死。' },
+      COMEDY_CHAOS: { short: '😄 搞笑鬧劇輕鬆向', desc: '輕鬆幽默、鬧劇吐槽與寬容推進合一；在場角色會對偷吃、香味干擾或荒唐怪招做出生動誇張又好笑的反應（不無視），且非極端作死不輕易重創或判死。' },
+      STORY_PLAYER_FIRST: { short: '📖 故事模式（玩家為主）', desc: '完全依照並順從玩家輸入的話語、意圖與劇情方向自然延伸發展，不刻意唱反調或刁難，順著玩家想要的戲劇張力推進。' },
+      HARDCORE_WAR: { short: '⚔️ 鐵血嚴重戰場風', desc: '戰場肅殺務實，敵人與隊友不會被無關玩笑或偷吃小動作輕易唬住，分心或鬧場會招來冷靜反制與真實戰場後果，勝負與傷勢結算更嚴峻。' }
+    };
+
+    function normalizeToneKey(rawTone) {
+      if (TONE_META[rawTone]) return rawTone;
+      if (rawTone === 'EASY' || rawTone === 'SLAPSTICK' || rawTone === 'COMEDY') return 'COMEDY_CHAOS';
+      if (rawTone === 'UNRESTRICTED' || rawTone === 'STORY' || rawTone === 'PLAYER_FIRST') return 'STORY_PLAYER_FIRST';
+      return 'BALANCED';
+    }
+
+    let currentState = null;
+    let summonPoolCache = [];
+    let mapLocationsCache = {};
+    let selectedMapKey = '廢棄洋館';
+    let lastImagePayload = null;
+    let pendingSettingsPatch = {};
+    let isWaitingForImage = false;
+    let isSubmittingTurn = false;
+    let imageTimeoutTimer = null;
+    let showTigerDojo = true;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        const cachedName = localStorage.getItem(MASTER_CACHE_KEY);
+        if (cachedName && /^[\u4e00-\u9fa5]{1,5}$/.test(cachedName)) {
+          document.getElementById('login-name-input').value = cachedName;
+          document.getElementById('cached-user-hint').classList.remove('hidden');
+        }
+      } catch (e) {}
+      applyGenderDefaultAppearance(true);
+    });
+
+    function showNotice(targetId, msg, isWarn) {
+      const el = document.getElementById(targetId);
+      if (!el) return;
+      el.innerText = msg || '';
+      el.className = isWarn ? 'inline-notice warn' : 'inline-notice';
+      el.classList.toggle('hidden', !msg);
+    }
+
+    function applyGenderDefaultAppearance(silent) {
+      const genderEl = document.getElementById('create-gender');
+      const coreEl = document.getElementById('create-core-tags');
+      const outfitEl = document.getElementById('create-outfit-tags');
+      const zhEl = document.getElementById('create-zh-desc');
+      if (!genderEl || !coreEl || !outfitEl) return;
+
+      const g = genderEl.value === 'boy' ? 'boy' : 'girl';
+      const preset = FGO_GENDER_PRESETS[g];
+      coreEl.value = preset.coreTags;
+      outfitEl.value = preset.outfitTags;
+      if (zhEl && (!zhEl.value.trim() || !silent)) {
+        zhEl.value = preset.zhDesc;
+      }
+    }
+
+    function saveMasterNameCache(name) {
+      try { if (name) localStorage.setItem(MASTER_CACHE_KEY, name); } catch (e) {}
+    }
+
+    function logoutSwitchMaster() {
+      clearImageWaitState();
+      isSubmittingTurn = false;
+      showNotice('login-inline-notice', '', false);
+      document.getElementById('confirm-clear-box').classList.add('hidden');
+      document.getElementById('game-screen').classList.add('hidden');
+      document.getElementById('creation-screen').classList.add('hidden');
+      document.getElementById('login-screen').classList.remove('hidden');
+    }
+
+    function showLoading(msg) {
+      document.getElementById('loading-text').innerText = msg || '正在推演聖杯戰爭因果...';
+      document.getElementById('loading-overlay').classList.remove('hidden');
+    }
+    function hideLoading() {
+      document.getElementById('loading-overlay').classList.add('hidden');
+    }
+
+    function updateOriginPreviewNote() {
+      const val = document.getElementById('create-origin').value;
+      document.getElementById('origin-preview-note').innerText = ORIGIN_NOTES[val] || '';
+    }
+
+    function handleClearCurrentRun() {
+      const name = document.getElementById('login-name-input').value.trim();
+      if (!/^[\u4e00-\u9fa5]{1,5}$/.test(name)) {
+        showNotice('login-inline-notice', '請先輸入 1 到 5 個「繁體中文字」御主名號！', true);
+        return;
+      }
+      showNotice('login-inline-notice', '', false);
+      document.getElementById('confirm-clear-box').classList.remove('hidden');
+    }
+
+    function cancelClearRun() {
+      document.getElementById('confirm-clear-box').classList.add('hidden');
+    }
+
+    function confirmClearCurrentRun() {
+      const name = document.getElementById('login-name-input').value.trim();
+      if (!/^[\u4e00-\u9fa5]{1,5}$/.test(name)) {
+        showNotice('login-inline-notice', '請先輸入 1 到 5 個「繁體中文字」御主名號！', true);
+        return;
+      }
+      document.getElementById('confirm-clear-box').classList.add('hidden');
+      showLoading(`正在清空「${name}」的本輪進度與對話，並保留生涯勝敗戰績...`);
+      google.script.run
+        .withSuccessHandler(res => {
+          hideLoading();
+          saveMasterNameCache(name);
+          currentState = res.status;
+          summonPoolCache = res.summonPool || [];
+          mapLocationsCache = res.mapLocations || {};
+          pendingSettingsPatch = {};
+          document.getElementById('login-screen').classList.add('hidden');
+          document.getElementById('game-screen').classList.add('hidden');
+          initCreationScreen();
+          showNotice('creation-inline-notice', `已清空「${name}」的本輪進度與對話紀錄（生涯戰績 🏆${currentState.wins}勝 / 💀${currentState.losses}敗 已保留）。`, false);
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          showNotice('login-inline-notice', err.message, true);
+        })
+        .resetCurrentRunKeepCareer(name);
+    }
+
+    function handleLogin(mode) {
+      const name = document.getElementById('login-name-input').value.trim();
+      if (!/^[\u4e00-\u9fa5]{1,5}$/.test(name)) {
+        showNotice('login-inline-notice', '請輸入 1 到 5 個「繁體中文字」作為御主名號！', true);
+        return;
+      }
+      showNotice('login-inline-notice', '', false);
+      document.getElementById('confirm-clear-box').classList.add('hidden');
+
+      showLoading(mode === 'NEW' ? '正在開闢獨立聖杯戰爭世界線...' : '正在讀取你的世界線存檔...');
+      const runner = google.script.run
+        .withSuccessHandler(res => {
+          hideLoading();
+          saveMasterNameCache(name);
+          currentState = res.status;
+          summonPoolCache = res.summonPool || [];
+          mapLocationsCache = res.mapLocations || {};
+          pendingSettingsPatch = {};
+
+          document.getElementById('login-screen').classList.add('hidden');
+          if (currentState.gamePhase === 'CHAR_CREATION') {
+            initCreationScreen();
+          } else {
+            initGameScreen(res.logs || []);
+          }
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          showNotice('login-inline-notice', err.message, true);
+        });
+
+      if (mode === 'NEW') runner.startNewGame(name);
+      else runner.loadExistingGame(name);
+    }
+
+    function initCreationScreen() {
+      showNotice('creation-inline-notice', '', false);
+      document.getElementById('creation-screen').classList.remove('hidden');
+      document.getElementById('create-player-label').innerText = currentState.playerName;
+      document.getElementById('create-career-badge').innerText = `(生涯戰績：🏆${currentState.wins}勝 / 💀${currentState.losses}敗)`;
+
+      const sel = document.getElementById('create-servant-select');
+      sel.innerHTML = '<option value="RANDOM">🎲 隨機感應召喚</option>';
+      summonPoolCache.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = `${s.name} (${s.id})`;
+        sel.appendChild(opt);
+      });
+      applyGenderDefaultAppearance(true);
+    }
+
+    function runEnhanceAppearance() {
+      const zh = document.getElementById('create-zh-desc').value.trim();
+      if (!zh) {
+        showNotice('creation-inline-notice', '請先輸入中文外觀描述！', true);
+        return;
+      }
+      const gender = document.getElementById('create-gender').value;
+
+      showLoading('Gemini 正在翻譯並補強 Danbooru 標籤...');
+      google.script.run
+        .withSuccessHandler(res => {
+          hideLoading();
+          if (res.core_tags) document.getElementById('create-core-tags').value = res.core_tags;
+          if (res.outfit_tags) document.getElementById('create-outfit-tags').value = res.outfit_tags;
+          if (res.advice_zh) {
+            const box = document.getElementById('create-advice-box');
+            box.innerText = '💡 AI 調校建議：' + res.advice_zh;
+            box.classList.remove('hidden');
+          }
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          showNotice('creation-inline-notice', err.message, true);
+        })
+        .enhanceMasterAppearance(zh, gender, false);
+    }
+
+    function runExtractFromImage(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        showLoading('Gemini 正在解析圖片角色外觀與服裝...');
+        google.script.run
+          .withSuccessHandler(res => {
+            hideLoading();
+            if (res.gender) document.getElementById('create-gender').value = res.gender;
+            if (res.core_tags) document.getElementById('create-core-tags').value = res.core_tags;
+            if (res.outfit_tags) document.getElementById('create-outfit-tags').value = res.outfit_tags;
+            if (res.advice_zh) {
+              const box = document.getElementById('create-advice-box');
+              box.innerText = '💡 看圖初篩完成：' + res.advice_zh;
+              box.classList.remove('hidden');
+            }
+          })
+          .withFailureHandler(err => {
+            hideLoading();
+            showNotice('creation-inline-notice', err.message, true);
+          })
+          .extractMasterFromImage(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function runPreviewMaster() {
+      const gender = document.getElementById('create-gender').value;
+      const core = document.getElementById('create-core-tags').value.trim();
+      const outfit = document.getElementById('create-outfit-tags').value.trim();
+
+      showLoading('NovelAI V5 正在繪製御主定裝預覽圖...');
+      google.script.run
+        .withSuccessHandler(res => {
+          hideLoading();
+          document.getElementById('create-preview-box').innerHTML = `<img src="${res.base64}" alt="Preview" />`;
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          showNotice('creation-inline-notice', err.message, true);
+        })
+        .previewMasterOutfit(gender, core, outfit);
+    }
+
+    function submitCreationAndSummon() {
+      const demeanorVal = (document.getElementById('create-demeanor') && document.getElementById('create-demeanor').value) || '';
+      const rawWish = document.getElementById('create-wish').value.trim() || '奪得大聖杯，改寫這場扭曲的儀式';
+      const combinedWish = demeanorVal ? `${rawWish}（行事風格：${demeanorVal}）` : rawWish;
+      const params = {
+        playerName: currentState.playerName,
+        masterGender: document.getElementById('create-gender').value,
+        masterOrigin: document.getElementById('create-origin').value,
+        masterWish: combinedWish,
+        masterCoreTags: document.getElementById('create-core-tags').value.trim(),
+        masterOutfitTags: document.getElementById('create-outfit-tags').value.trim(),
+        servantId: document.getElementById('create-servant-select').value,
+        relicNote: document.getElementById('create-relic').value.trim(),
+        gameMode: document.getElementById('create-mode').value
+      };
+
+      showLoading('滿盈吧、滿盈吧、滿盈吧……正在構築召喚陣並締結契約...');
+      google.script.run
+        .withSuccessHandler(res => {
+          hideLoading();
+          currentState = res.status;
+          lastImagePayload = res.imagePayload;
+          document.getElementById('creation-screen').classList.add('hidden');
+          initGameScreen([]);
+          appendNovelMessage('ai', res.story, `Day 1・深夜 (${currentState.location})`);
+          if (res.needImage) {
+            triggerAsyncBgImage(res.imagePayload, false);
+          }
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          showNotice('creation-inline-notice', err.message, true);
+        })
+        .completeCreationAndSummon(params);
+    }
+
+    function initGameScreen(logs) {
+      document.getElementById('game-screen').classList.remove('hidden');
+      document.getElementById('confirm-next-loop-box').classList.add('hidden');
+      refreshStatusUI();
+
+      const logBox = document.getElementById('story-log-box');
+      logBox.innerHTML = '';
+      if (logs.length === 0) {
+        appendNovelMessage('ai', currentState.memorySummary, '世界線載入完成');
+      } else {
+        logs.forEach(l => {
+          if (l.user) appendNovelMessage('user', l.user);
+          if (l.ai) appendNovelMessage('ai', l.ai, l.timeLoc);
+          if (l.imgPayload) {
+            try { lastImagePayload = JSON.parse(l.imgPayload); } catch (e) {}
+          }
+        });
+      }
+
+      if (currentState.runStatus === 'DEAD' || currentState.runStatus === 'CLEARED') {
+        renderEndingBanner(currentState.runStatus === 'DEAD' ? 'FATAL_DEATH' : 'TRUE_VICTORY', '');
+      }
+    }
+
+    function syncActionButtonsState() {
+      const locked = isWaitingForImage || isSubmittingTurn;
+      document.querySelectorAll('.lockable-btn').forEach(el => { el.disabled = locked; });
+      const retryBtn = document.getElementById('btn-retry-cg');
+      if (retryBtn) retryBtn.disabled = locked;
+
+      const lockBar = document.getElementById('async-lock-bar');
+      if (lockBar) lockBar.classList.toggle('hidden', !isWaitingForImage);
+    }
+
+    function refreshStatusUI() {
+      const s = currentState;
+      const bond = Math.max(0, Math.min(100, Number(s.bondLevel != null ? s.bondLevel : 25)));
+      s.bondLevel = bond;
+      const tone = normalizeToneKey(s.gameTone);
+      s.gameTone = tone;
+
+      document.getElementById('ui-player-badge').innerText = `御主：${s.playerName}`;
+      document.getElementById('ui-career-badge').innerText = `🏆${s.wins}勝 💀${s.losses}敗`;
+      document.getElementById('ui-bond-badge').innerText = `💖 好感: ${bond}/100`;
+      document.getElementById('ui-tone-badge').innerText = TONE_META[tone].short;
+      document.getElementById('ui-time-badge').innerText = `Day ${s.day}・${s.timePeriod}`;
+      document.getElementById('ui-ap-badge').innerText = s.gameMode === 'WAR' ? `AP: ${s.ap}/${s.maxAp}` : 'AP: ∞';
+      document.getElementById('ui-threat-badge').innerText = s.gameMode === 'WAR' ? `警戒度: ${s.threatLevel}%` : '日常結界';
+      document.getElementById('ui-loc-badge').innerText = `🗺️ ${s.location}`;
+
+      const unread = Number((s.phoneState && s.phoneState.unreadCount) || 0);
+      const unreadEl = document.getElementById('ui-phone-unread');
+      if (unreadEl) {
+        unreadEl.innerText = String(unread);
+        unreadEl.classList.toggle('hidden', unread <= 0);
+      }
+
+      for (let i = 1; i <= 3; i++) {
+        const el = document.getElementById(`spell-${i}`);
+        if (i <= s.master.commandSpells) el.classList.remove('used');
+        else el.classList.add('used');
+      }
+
+      const styleSel = document.getElementById('sel-art-style');
+      if (styleSel && s.artStyle) styleSel.value = s.artStyle;
+
+      document.getElementById('ui-master-origin').innerText = s.master.origin;
+      document.getElementById('ui-master-cond').innerText = s.master.condition;
+      document.getElementById('ui-master-cond').style.color = s.master.condition.includes('傷') || s.master.condition.includes('死') ? '#fca5a5' : '#6ee7b7';
+      document.getElementById('ui-master-mp-text').innerText = `魔力 MP: ${s.master.mp}/${s.master.maxMp}`;
+      document.getElementById('bar-master-mp').style.width = `${Math.min(100, (s.master.mp / s.master.maxMp) * 100)}%`;
+
+      const p = s.master.params || {};
+      document.getElementById('rank-circuit').innerText = p.circuit || 'C';
+      document.getElementById('rank-combat').innerText = p.combat || 'C';
+      document.getElementById('rank-stealth').innerText = p.stealth || 'B';
+      document.getElementById('rank-luck').innerText = p.luck || 'D';
+      document.getElementById('ui-master-wish').innerText = s.master.wish || '-';
+
+      const inv = Array.isArray(s.inventory) ? s.inventory : [];
+      document.getElementById('ui-inv-count').innerText = inv.length;
+      const invGrid = document.getElementById('ui-inv-grid');
+      invGrid.innerHTML = '';
+      for (let i = 0; i < 6; i++) {
+        const slot = document.createElement('div');
+        if (inv[i]) {
+          slot.className = 'inv-slot';
+          slot.title = inv[i].desc || '';
+          slot.innerHTML = `<span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(inv[i].name)} <strong>×${inv[i].qty}</strong></span><span class="inv-tier-tag">T${inv[i].tier || 1}</span>`;
+        } else {
+          slot.className = 'inv-slot empty';
+          slot.innerText = '— 空位 —';
+        }
+        invGrid.appendChild(slot);
+      }
+
+      document.getElementById('ui-s1-title').innerText = `⚔️ [${s.servant1.class}] ${s.servant1.name}`;
+      document.getElementById('ui-s1-params').innerText = s.servant1.params;
+      document.getElementById('ui-s1-bond').innerText = bond >= 80 ? `💖 好感 ${bond}/100 (已解鎖色色)` : `💖 好感 ${bond}/100`;
+      const s1CondEl = document.getElementById('ui-s1-cond');
+      s1CondEl.innerText = s.servant1.condition;
+      s1CondEl.style.color = /受損|受創|重創|消滅/.test(s.servant1.condition) ? '#fca5a5' : '#fde047';
+
+      const npGate = document.getElementById('ui-np-gate');
+      if (s.master.mp >= 65 || s.master.commandSpells > 0) {
+        npGate.className = 'np-gate-badge np-ready';
+        npGate.innerText = s.master.mp >= 65 ? '🔥 寶具魔力充足' : '⚡ 需令咒強開寶具';
+      } else {
+        npGate.className = 'np-gate-badge np-low';
+        npGate.innerText = '⚠️ 魔力枯竭(禁開寶具)';
+      }
+
+      const s2Box = document.getElementById('ui-s2-container');
+      if (s.servant2 && s.servant2.id) {
+        s2Box.classList.remove('hidden');
+        document.getElementById('ui-s2-title').innerText = `✨ [副契約從者] ${s.servant2.name}`;
+        const s2CondEl = document.getElementById('ui-s2-cond');
+        if (s2CondEl) {
+          const s2c = s.servant2.condition || '靈基穩定';
+          s2CondEl.innerText = s2c;
+          s2CondEl.style.color = /受損|受創|重創|消滅/.test(s2c) ? '#fca5a5' : '#fde047';
+        }
+      } else {
+        s2Box.classList.add('hidden');
+      }
+
+      const isEnded = (s.runStatus === 'DEAD' || s.runStatus === 'CLEARED');
+      document.getElementById('active-controls-wrap').classList.toggle('hidden', isEnded);
+      document.getElementById('ended-controls-wrap').classList.toggle('hidden', !isEnded);
+      if (!isEnded) {
+        document.getElementById('confirm-next-loop-box').classList.add('hidden');
+      }
+
+      syncActionButtonsState();
+    }
+
+    // ==================== 2004 復古手機（冬木論壇＋結盟簡訊） ====================
+
+    function openPhoneModal() {
+      if (!currentState) return;
+      showNotice('phone-notice-box', '', false);
+      switchPhoneTab('forum');
+      renderPhoneForum();
+      renderSmsSelectorAndThread();
+      document.getElementById('phone-modal').classList.remove('hidden');
+
+      if (currentState.phoneState && Number(currentState.phoneState.unreadCount) > 0) {
+        currentState.phoneState.unreadCount = 0;
+        refreshStatusUI();
+        google.script.run
+          .withSuccessHandler(st => { if (st) currentState = st; })
+          .markPhoneMessagesRead(currentState.playerName);
+      }
+    }
+
+    function switchPhoneTab(tabKey) {
+      const isForum = (tabKey !== 'sms');
+      document.getElementById('phone-view-forum').classList.toggle('hidden', !isForum);
+      document.getElementById('phone-view-sms').classList.toggle('hidden', isForum);
+      document.getElementById('tab-phone-forum').className = isForum ? 'btn btn-sm btn-crimson' : 'btn btn-sm';
+      document.getElementById('tab-phone-sms').className = !isForum ? 'btn btn-sm btn-crimson' : 'btn btn-sm';
+    }
+
+    function renderPhoneForum() {
+      const listEl = document.getElementById('phone-forum-list');
+      if (!listEl) return;
+      const posts = (currentState && currentState.phoneState && Array.isArray(currentState.phoneState.forumPosts))
+        ? currentState.phoneState.forumPosts
+        : [];
+      if (posts.length === 0) {
+        listEl.innerHTML = '<div style="color:#64748b; font-size:12.5px; padding:10px;">目前尚無論壇貼文。</div>';
+        return;
+      }
+      listEl.innerHTML = posts.map(p => `
+        <div class="bbs-post">
+          <div class="bbs-post-head">
+            <span><strong>[${escapeHtml(p.board || '冬木論壇')}]</strong> ${escapeHtml(p.author || '匿名')}</span>
+            <span>${escapeHtml(p.time || '')}</span>
+          </div>
+          <div style="font-weight:700; color:#fde047; font-size:13px; margin-bottom:3px;">${escapeHtml(p.title || '')}</div>
+          <div style="font-size:12.5px; color:#e2e8f0; white-space:pre-line;">${escapeHtml(p.body || '')}</div>
+        </div>
+      `).join('');
+    }
+
+    function submitForumPost() {
+      if (!currentState) return;
+      const titleVal = document.getElementById('bbs-title-input').value.trim();
+      const bodyVal = document.getElementById('bbs-body-input').value.trim();
+      if (!bodyVal) {
+        showNotice('phone-notice-box', '請先輸入留言內容再發帖！', true);
+        return;
+      }
+      showNotice('phone-notice-box', '', false);
+      showLoading('正在將留言發佈至 2004 冬木論壇...');
+      google.script.run
+        .withSuccessHandler(updatedStatus => {
+          hideLoading();
+          currentState = updatedStatus;
+          document.getElementById('bbs-title-input').value = '';
+          document.getElementById('bbs-body-input').value = '';
+          refreshStatusUI();
+          renderPhoneForum();
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          showNotice('phone-notice-box', err.message, true);
+        })
+        .postFuyukiForumMessage(currentState.playerName, titleVal, bodyVal);
+    }
+
+    function renderSmsSelectorAndThread() {
+      const sel = document.getElementById('sms-ally-select');
+      if (!sel || !currentState) return;
+      const prevVal = sel.value;
+      const threads = (currentState.phoneState && currentState.phoneState.smsThreads) || {};
+      const factions = currentState.factions || {};
+      const allKeys = Object.keys(factions);
+
+      sel.innerHTML = '';
+      allKeys.forEach(facName => {
+        const stText = String(factions[facName] || '');
+        const isAllied = /同盟|結盟|停戰|互助|合作|友方/.test(stText);
+        const opt = document.createElement('option');
+        opt.value = facName;
+        opt.textContent = isAllied ? `🤝 [已結盟] ${facName}` : `🔒 [未結盟] ${facName}`;
+        sel.appendChild(opt);
+      });
+
+      if (prevVal && allKeys.includes(prevVal)) {
+        sel.value = prevVal;
+      } else {
+        const firstAllied = allKeys.find(k => /同盟|結盟|停戰|互助|合作|友方/.test(String(factions[k] || '')));
+        if (firstAllied) sel.value = firstAllied;
+      }
+      renderSmsThread();
+    }
+
+    function renderSmsThread() {
+      const sel = document.getElementById('sms-ally-select');
+      const box = document.getElementById('sms-thread-box');
+      if (!sel || !box || !currentState) return;
+      const facName = sel.value;
+      const factions = currentState.factions || {};
+      const stText = String(factions[facName] || '');
+      const isAllied = /同盟|結盟|停戰|互助|合作|友方/.test(stText);
+      const threads = (currentState.phoneState && currentState.phoneState.smsThreads) || {};
+      const msgs = (threads[facName] && Array.isArray(threads[facName].messages)) ? threads[facName].messages : [];
+
+      if (!isAllied) {
+        box.innerHTML = `<div style="color:#fca5a5; font-size:12.5px; padding:10px;">⚠️ 「${escapeHtml(facName)}」目前尚未與第8組結盟（狀態：${escapeHtml(stText || '未知')}），無法建立穩定簡訊聯絡。</div>`;
+        return;
+      }
+      if (msgs.length === 0) {
+        box.innerHTML = `<div style="color:#94a3b8; font-size:12.5px; padding:10px;">尚未與「${escapeHtml(facName)}」往來簡訊，可發送支援或聯絡訊息。</div>`;
+        return;
+      }
+
+      box.innerHTML = msgs.map(m => `
+        <div class="sms-msg ${m.fromPlayer ? 'outgoing' : 'incoming'}">
+          <div style="font-size:10.5px; opacity:0.8; margin-bottom:2px;">${escapeHtml(m.sender || '')}・${escapeHtml(m.time || '')}</div>
+          <div>${escapeHtml(m.text || '')}</div>
+        </div>
+      `).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function submitSmsMessage() {
+      if (!currentState) return;
+      const facName = document.getElementById('sms-ally-select').value;
+      const msgVal = document.getElementById('sms-message-input').value.trim();
+      if (!msgVal) {
+        showNotice('phone-notice-box', '請先輸入簡訊內容！', true);
+        return;
+      }
+      showNotice('phone-notice-box', '', false);
+      showLoading(`正在傳送簡訊給 ${facName}...`);
+      google.script.run
+        .withSuccessHandler(updatedStatus => {
+          hideLoading();
+          currentState = updatedStatus;
+          document.getElementById('sms-message-input').value = '';
+          refreshStatusUI();
+          renderSmsSelectorAndThread();
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          showNotice('phone-notice-box', err.message, true);
+        })
+        .sendAllySmsMessage(currentState.playerName, facName, msgVal);
+    }
+
+    // ==================== 互動式冬木市戰略地圖 SVG 沙盤 ====================
+
+    function openMapModal() {
+      if (currentState && currentState.dynamicLocations) {
+        mapLocationsCache = currentState.dynamicLocations;
+      }
+      document.getElementById('map-war-ticker').innerText = `📡 ${currentState.warTicker || '冬木市結界監測正常。'}`;
+      selectedMapKey = currentState.locationKey || '廢棄洋館';
+      renderFuyukiMapNodes();
+      selectMapNode(selectedMapKey);
+      document.getElementById('map-modal').classList.remove('hidden');
+    }
+
+    function openSettingsModal() {
+      if (!currentState) return;
+      syncSettingsModalCapsules();
+      document.getElementById('settings-modal').classList.remove('hidden');
+    }
+
+    function persistSettingsSilently() {
+      if (!currentState || !currentState.playerName) return;
+      const patchToSave = Object.assign({}, pendingSettingsPatch);
+      if (Object.keys(patchToSave).length === 0) return;
+      pendingSettingsPatch = {};
+      google.script.run
+        .withSuccessHandler(updatedStatus => {
+          if (updatedStatus) currentState = updatedStatus;
+        })
+        .withFailureHandler(() => {
+          Object.assign(pendingSettingsPatch, patchToSave);
+        })
+        .savePlayerSettingsOnly(currentState.playerName, patchToSave);
+    }
+
+    function renderFuyukiMapNodes() {
+      const layer = document.getElementById('map-nodes-layer');
+      layer.innerHTML = '';
+      const hereKey = currentState.locationKey || '廢棄洋館';
+      const hotKey = currentState.mapHotspot || '';
+
+      Object.keys(mapLocationsCache).forEach(key => {
+        const loc = mapLocationsCache[key];
+        const node = document.createElement('div');
+        node.className = `map-node ${key === selectedMapKey ? 'selected' : ''}`;
+        node.style.left = loc.x + '%';
+        node.style.top = loc.y + '%';
+        node.onclick = () => selectMapNode(key);
+
+        const isHere = (key === hereKey);
+        const isHot = (key === hotKey && currentState.gameMode === 'WAR');
+        const isHighMana = (loc.manaRegen >= 30);
+
+        let orbClass = 'node-orb';
+        if (isHere) orbClass += ' current-here';
+        else if (isHot) orbClass += ' hotspot-alert';
+        else if (isHighMana) orbClass += ' high-mana';
+
+        const icon = isHere ? '🧙' : (isHot ? '⚔️' : (isHighMana ? '✦' : '•'));
+        node.innerHTML = `<div class="${orbClass}">${icon}</div><div class="node-label">${escapeHtml(key)}</div>`;
+        layer.appendChild(node);
+      });
+    }
+
+    function selectMapNode(key) {
+      selectedMapKey = key;
+      renderFuyukiMapNodes();
+      const loc = mapLocationsCache[key];
+      if (!loc) return;
+
+      const isHere = (key === currentState.locationKey);
+      const isHot = (key === currentState.mapHotspot && currentState.gameMode === 'WAR');
+
+      document.getElementById('map-det-title').innerText = `${loc.fullName}${isHere ? ' 【📍 目前所在位置】' : ''}${isHot ? ' 【🔥 偵測到陣營交鋒波動】' : ''}`;
+      document.getElementById('map-det-leyline').innerText = `${loc.leyline} (+${loc.manaRegen} MP/時段)`;
+      document.getElementById('map-det-desc').innerText = loc.desc;
+      document.getElementById('map-custom-desc-input').value = loc.desc || '';
+      document.getElementById('map-det-danger').innerText = `⚠️ 危險評估：${loc.danger}`;
+
+      const travelBtn = document.getElementById('btn-map-travel');
+      if (isHere) {
+        travelBtn.disabled = true;
+        travelBtn.innerText = '📍 已在此處';
+      } else {
+        travelBtn.disabled = isWaitingForImage || isSubmittingTurn;
+        travelBtn.innerText = `🚶 移動前往 ${key} (1 AP)`;
+      }
+    }
+
+    function travelToSelectedMapNode() {
+      const loc = mapLocationsCache[selectedMapKey];
+      if (!loc) return;
+      closeModal('map-modal');
+      sendQuickAction(`與從者一同啟程移動前往「${loc.fullName}」，抵達後謹慎觀察周圍的靈脈與敵對氣息`);
+    }
+
+    function saveMapLocationDesc() {
+      if (!currentState || !selectedMapKey) return;
+      const nextDesc = document.getElementById('map-custom-desc-input').value.trim();
+      showLoading(`正在更新「${selectedMapKey}」的場地現況說明...`);
+      google.script.run
+        .withSuccessHandler(updatedStatus => {
+          hideLoading();
+          currentState = updatedStatus;
+          mapLocationsCache = updatedStatus.dynamicLocations || {};
+          refreshStatusUI();
+          selectMapNode(selectedMapKey);
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          appendNovelMessage('ai', `⚠️ 更新場地說明失敗：${err.message}`, '系統提示');
+        })
+        .updateCustomLocationDesc(currentState.playerName, selectedMapKey, nextDesc);
+    }
+
+    function resetMapLocationDesc() {
+      document.getElementById('map-custom-desc-input').value = '';
+      saveMapLocationDesc();
+    }
+
+    function syncSettingsModalCapsules() {
+      if (!currentState) return;
+      const tone = normalizeToneKey(currentState.gameTone);
+      const toneSel = document.getElementById('sel-game-tone');
+      if (toneSel) toneSel.value = tone;
+      const toneHint = document.getElementById('tone-desc-hint');
+      if (toneHint) toneHint.innerText = TONE_META[tone].desc;
+      document.getElementById('cap-autoImage').className = `capsule-switch ${currentState.autoImage ? 'on' : ''}`;
+      document.getElementById('cap-sandboxMode').className = `capsule-switch ${currentState.gameMode !== 'WAR' ? 'on' : ''}`;
+    }
+
+    function optimisticChangeTone(toneKey) {
+      const validTone = normalizeToneKey(toneKey);
+      currentState.gameTone = validTone;
+      pendingSettingsPatch.gameTone = validTone;
+      syncSettingsModalCapsules();
+      refreshStatusUI();
+      persistSettingsSilently();
+    }
+
+    function optimisticToggle(key) {
+      currentState[key] = !currentState[key];
+      pendingSettingsPatch[key] = currentState[key];
+      syncSettingsModalCapsules();
+      persistSettingsSilently();
+    }
+
+    function optimisticToggleMode() {
+      const nextMode = currentState.gameMode === 'WAR' ? 'SANDBOX' : 'WAR';
+      currentState.gameMode = nextMode;
+      pendingSettingsPatch.gameMode = nextMode;
+      syncSettingsModalCapsules();
+      refreshStatusUI();
+      persistSettingsSilently();
+    }
+
+    function optimisticChangeArtStyle(styleKey) {
+      currentState.artStyle = styleKey;
+      pendingSettingsPatch.artStyle = styleKey;
+      if (lastImagePayload) lastImagePayload.artStyle = styleKey;
+      persistSettingsSilently();
+    }
+
+    // ==================== 兩段式非同步推演：Step 1 先出字 -> Step 2 背景補圖 ====================
+
+    function sendQuickAction(text) {
+      if (isWaitingForImage || isSubmittingTurn) return;
+      document.getElementById('player-action-input').value = text;
+      submitTurnAction();
+    }
+
+    function submitTurnAction() {
+      if (isWaitingForImage || isSubmittingTurn) return;
+      const input = document.getElementById('player-action-input');
+      const actionText = input.value.trim();
+      if (!actionText) return;
+      input.value = '';
+
+      isSubmittingTurn = true;
+      syncActionButtonsState();
+
+      appendNovelMessage('user', actionText);
+      showLoading('🔮 正在推演本幕劇情...');
+
+      const patchToSend = Object.assign({}, pendingSettingsPatch);
+      pendingSettingsPatch = {};
+
+      google.script.run
+        .withSuccessHandler(res => {
+          hideLoading();
+          isSubmittingTurn = false;
+          currentState = res.status;
+          lastImagePayload = res.imagePayload;
+          refreshStatusUI();
+
+          const headerMeta = `Day ${currentState.day}・${currentState.timePeriod} (${currentState.location})`;
+          appendNovelMessage('ai', res.story, headerMeta);
+
+          if (res.outcomeType === 'FATAL_DEATH' || res.outcomeType === 'TRUE_VICTORY') {
+            renderEndingBanner(res.outcomeType, res.tigerDojoTip);
+          }
+
+          if (res.needImage && res.imagePayload) {
+            triggerAsyncBgImage(res.imagePayload, false);
+          }
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          isSubmittingTurn = false;
+          syncActionButtonsState();
+          appendNovelMessage('ai', `⚠️ 回合執行錯誤：${err.message}`, '系統提示');
+        })
+        .processFateTurnTextOnly({
+          playerName: currentState.playerName,
+          userAction: actionText,
+          pendingSettings: patchToSend
+        });
+    }
+
+    function setControlsLocked(locked) {
+      isWaitingForImage = locked;
+      syncActionButtonsState();
+    }
+
+    function clearImageWaitState() {
+      if (imageTimeoutTimer) {
+        clearTimeout(imageTimeoutTimer);
+        imageTimeoutTimer = null;
+      }
+      setControlsLocked(false);
+    }
+
+    function forceUnlockAfterImage(msg) {
+      clearImageWaitState();
+      const viewport = document.getElementById('main-cg-viewport');
+      const overlay = viewport.querySelector('.cg-async-overlay');
+      if (overlay) {
+        overlay.innerHTML = `<span style="color:#fca5a5; font-size:13px;">${escapeHtml(msg)}</span><button class="btn btn-sm" onclick="handleRetryCg()">🔄 重新嘗試生圖</button>`;
+      }
+    }
+
+    function triggerAsyncBgImage(imgPayload, isRetry) {
+      setControlsLocked(true);
+      const viewport = document.getElementById('main-cg-viewport');
+
+      const existingOverlay = viewport.querySelector('.cg-async-overlay');
+      if (existingOverlay) existingOverlay.remove();
+
+      const overlay = document.createElement('div');
+      overlay.className = 'cg-async-overlay';
+      overlay.innerHTML = `<div class="spinner" style="width:34px; height:34px;"></div><div style="color:var(--gold-bright); font-size:13px; font-weight:700;">${isRetry ? '🎲 NovelAI V5 正在更換 Seed 重新繪製...' : '🎨 視覺導演翻譯中並由 NovelAI V5 繪製本幕 CG...'}</div>`;
+      viewport.appendChild(overlay);
+
+      const timeoutMs = isRetry ? 45000 : 60000;
+      imageTimeoutTimer = setTimeout(() => {
+        if (isWaitingForImage) {
+          forceUnlockAfterImage(`⚠️ 生圖逾時（超過 ${timeoutMs / 1000} 秒），已自動解鎖操作！`);
+        }
+      }, timeoutMs);
+
+      const runner = google.script.run
+        .withSuccessHandler(imgRes => {
+          clearImageWaitState();
+          renderCgResult(imgRes);
+        })
+        .withFailureHandler(err => {
+          forceUnlockAfterImage('⚠️ 生圖失敗：' + err.message);
+        });
+
+      if (isRetry) {
+        runner.retrySceneImage(imgPayload, imgPayload.artStyle);
+      } else {
+        runner.generateTurnCgAsync(imgPayload);
+      }
+    }
+
+    function renderCgResult(imgRes) {
+      const viewport = document.getElementById('main-cg-viewport');
+      if (!imgRes) return;
+
+      if (imgRes.error) {
+        viewport.innerHTML = `<div style="padding:16px; text-align:center;"><div style="color:#fca5a5; font-size:13px; margin-bottom:8px;">⚠️ 生圖失敗：${escapeHtml(imgRes.error)}</div><button class="btn btn-sm" onclick="handleRetryCg()">🔄 重骰 CG</button></div>`;
+        return;
+      }
+      if (imgRes.resolvedPayload) {
+        lastImagePayload = imgRes.resolvedPayload;
+      }
+      viewport.innerHTML = `<img src="${imgRes.base64}" alt="Scene CG" />`;
+      document.getElementById('ui-seed-label').innerText = `Seed: ${imgRes.seed}`;
+    }
+
+    // ==================== 小說級段落渲染 & 終局老虎道場 ====================
+
+    function appendNovelMessage(role, text, metaText) {
+      const box = document.getElementById('story-log-box');
+      const div = document.createElement('div');
+      if (role === 'user') {
+        div.className = 'msg-user';
+        div.innerText = text;
+      } else {
+        div.className = 'msg-ai';
+        const paragraphs = String(text || '').split(/\n+/).map(p => p.trim()).filter(Boolean);
+        const htmlParas = paragraphs.map(p => {
+          const isDialogue = p.startsWith('「') || p.startsWith('『') || /^[^「『\n]{1,12}[:：]\s*[「『]/.test(p);
+          return `<p class="${isDialogue ? 'novel-dialogue' : 'novel-p'}">${escapeHtml(p)}</p>`;
+        }).join('');
+
+        div.innerHTML = `<div class="msg-meta"><span>${escapeHtml(metaText || '聖杯戰爭紀錄')}</span></div>${htmlParas}`;
+      }
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function renderEndingBanner(outcomeType, tigerTip) {
+      const box = document.getElementById('story-log-box');
+      const banner = document.createElement('div');
+      if (outcomeType === 'FATAL_DEATH') {
+        banner.className = 'ending-banner';
+        let html = `<div style="font-size:18px; font-weight:800; color:#fca5a5; margin-bottom:6px;">💀 BAD END・墜入黑泥的虛假美夢（本局已戰敗封存）</div>`;
+        html += `<div style="font-size:13px; color:#cbd5e1; margin-bottom:10px;">在生命消逝的最後一刻，大聖杯的黑泥為你編織了願望成真的幻覺……隨後一切歸於虛無。</div>`;
+        if (showTigerDojo && tigerTip) {
+          html += `<div style="background:rgba(0,0,0,0.45); border:1px dashed #fde047; border-radius:8px; padding:10px; text-align:left; font-size:13px; color:#fef08a;"><strong>🐯 老虎道場（藤村大河＆伊莉雅的死因檢討）：</strong><br>${escapeHtml(tigerTip)}</div>`;
+        }
+        banner.innerHTML = html;
+      } else {
+        banner.className = 'ending-banner victory';
+        banner.innerHTML = `<div style="font-size:18px; font-weight:800; color:var(--gold-bright); margin-bottom:6px;">🏆 TRUE END・大聖杯降臨・夙願達成（殿堂封存）</div><div style="font-size:13px; color:#e2e8f0;">你戰勝了所有敵對陣營，以無上魔力向大聖杯許下了你的願望！本局輝煌紀錄已永久封存。</div>`;
+      }
+      box.appendChild(banner);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function requestNextLoopConfirm() {
+      document.getElementById('confirm-next-loop-box').classList.remove('hidden');
+    }
+
+    function cancelNextLoopConfirm() {
+      document.getElementById('confirm-next-loop-box').classList.add('hidden');
+    }
+
+    function triggerNextLoop() {
+      document.getElementById('confirm-next-loop-box').classList.add('hidden');
+      showLoading('大聖杯正在逆轉時光，開啟下一輪聖杯戰爭輪迴...');
+      google.script.run
+        .withSuccessHandler(res => {
+          hideLoading();
+          currentState = res.status;
+          summonPoolCache = res.summonPool || [];
+          mapLocationsCache = res.mapLocations || {};
+          document.getElementById('game-screen').classList.add('hidden');
+          initCreationScreen();
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          appendNovelMessage('ai', `⚠️ 開啟下一輪迴失敗：${err.message}`, '系統提示');
+        })
+        .startNextLoopReincarnation(currentState.playerName);
+    }
+
+    function handleRetryCg() {
+      if (!lastImagePayload) {
+        appendNovelMessage('ai', '⚠️ 目前還沒有可繪製的場景資料！', '畫面提示');
+        return;
+      }
+      const selectedStyle = document.getElementById('sel-art-style').value;
+      lastImagePayload.artStyle = selectedStyle;
+      triggerAsyncBgImage(lastImagePayload, true);
+    }
+
+    function openFactionsModal() {
+      const box = document.getElementById('factions-list-content');
+      box.innerHTML = '';
+      const f = currentState.factions || {};
+      Object.keys(f).forEach(k => {
+        const row = document.createElement('div');
+        row.style.cssText = 'padding: 8px 12px; background: var(--bg-card); border: 1px solid var(--border-dim); border-radius: 8px; display:flex; justify-content:space-between; gap:10px;';
+        row.innerHTML = `<strong>${escapeHtml(k)}</strong><span style="color: var(--gold-bright);">${escapeHtml(f[k])}</span>`;
+        box.appendChild(row);
+      });
+      document.getElementById('factions-modal').classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+  </script>
+</body>
+</html>
