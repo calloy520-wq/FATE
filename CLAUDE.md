@@ -7,7 +7,9 @@
 - `Index.html`：前端畫面與全部前端 JS，透過 `google.script.run` 呼叫後端函式。
 - `SetupDB.js`：建立試算表分頁的初始化腳本（`initFateDatabase`）。
 - `appsscript.json`：GAS 專案設定。
-- `.github/workflows/deploy.yml`：自動部署流程。
+- `.github/workflows/deploy.yml`：自動部署流程（先跑語法檢查與 `tests/`，失敗就不部署）。
+- `tests/run-tests.js`：Node 測試，載入 `Code.js` 測純邏輯函式。執行 `node tests/run-tests.js`。
+- `.claspignore`：白名單，只推 `Code.js`、`Index.html`、`SetupDB.js`、`appsscript.json` 到 GAS。新增要上 GAS 的檔案時必須加進白名單；**測試或工具腳本絕對不能被推上去**（會在 GAS 造成函式衝突）。
 
 ## 部署流程（重要）
 - **推送到 `main` 會立刻部署到正式遊戲**：GitHub Actions 先 `clasp push`，再 `clasp deploy -i <部署ID>` 更新既有網頁應用程式部署，網址不變。
@@ -22,18 +24,30 @@
 - 不要改變六維能力值鎖定、第8組獨立不頂替等遊戲設計規則（見下方）。
 
 ## 修改程式時的檢查
-- 推送前用 `node --check Code.js` 做語法檢查（GAS 是 V8 環境，不能用 Node 模組）。
+- 推送前用 `node --check Code.js` 做語法檢查，並跑 `node tests/run-tests.js`（GAS 是 V8 環境，`Code.js` 裡不能用 Node 模組）。新增純邏輯函式時順手補測試。
 - 改後端函式名稱或回傳格式前，先全文搜尋 `Index.html`，前後端必須同步。前端呼叫的後端函式包括：`startNewGame`、`loadExistingGame`、`processFateTurnTextOnly`、`completeCreationAndSummon`、`generateTurnCgAsync`、`retrySceneImage`、`savePlayerSettingsOnly`、`updateCustomLocationDesc`、`postFuyukiForumMessage`、`sendAllySmsMessage`、`markPhoneMessagesRead`、`resetCurrentRunKeepCareer`、`startNextLoopReincarnation`、`enhanceMasterAppearance`、`extractMasterFromImage`、`previewMasterOutfit`。
-- 回合推演用 `ScriptLock`，生圖用獨立的 `UserLock`，不要改回共用同一把鎖（會卡住下一回合）。
+- 回合推演用 `ScriptLock`，但**只在讀存檔與寫回時持有**；等待 Gemini 時會放開，寫回前重新讀取並比對 `meta.turnCount`，被別的視窗推進過就放棄寫入。召喚流程、同盟簡訊 AI 回覆同理。不要改回「整個回合都鎖著」（多人同時玩會互相卡住、逾時）。
+- 生圖用獨立的 `UserLock`，不要和回合推演共用同一把鎖。網頁以部署者身分執行，所以這把鎖實際上是全體玩家共用，一次只畫一張（配合 NovelAI 同時只能生成一張）。
 - 前端生圖逾時：一般 60 秒、重骰 45 秒；改後端流程時別讓生圖耗時遠超過這個範圍。
 - 新增或修改「試算表自動升級」內容（補陣營／角色／世界書）時，要把 `SCHEMA_VERSION_` 改成新值，否則不會執行。
 - AI 回傳的 `faction_updates` 會經 `resolveFactionKey_` 對應回既有陣營名稱，對不上的會被丟棄；新增陣營時記得補 `FACTION_ALIAS_GROUPS_`。
+
+## 提示詞與記憶
+- 每回合只送「相關角色」的服裝（御主、契約從者、最近出場者、服裝偏離預設者），角色清單只送 ID 與前兩個名稱；地標只有當前地點附完整描述。
+- 長期記憶：`row[30]` 前情提要（200 字內）＋ `meta.keyEvents` 重要事件清單（最多 15 條，AI 以 `key_events_add`／`key_events_resolve` 增減），會顯示在「📊 情報」視窗。
+- 同盟簡訊由 AI 以陣營口吻回覆（`generateAllySmsReply_`），失敗時退回固定句。
+
+## NovelAI 繪圖
+- 主提示詞放人數標籤（`2girls, 1boy, multiple characters`）；角色欄位一律以 `girl`／`boy` 開頭，不放 `1girl`、`solo`（`normalizeCharCoreForNai_`）。
+- 成人模式（`Players_Save` F 欄、設定視窗開關）開啟且畫面有裸露時，主提示詞加 `nsfw`；關閉時維持原本行為。
+- 視覺導演取劇情「開頭＋結尾」摘錄，以結尾（最新畫面）為準；服裝欄不得含髮色、瞳色、體型。
 
 ## 讀取與快取
 - `Char_Appearance`、`Lorebook`、`Factions_Relations` 是設定資料，讀一次後放進 CacheService（6 小時）＋單次執行內的記憶變數。
 - 在試算表手動編輯這三個分頁時，`onEdit` 簡易觸發器會自動清快取；若沒生效，到 GAS 編輯器執行 `clearFateConfigCache()`。
 - 試算表升級（`ensureSchemaUpgraded_`）只在 `SCHEMA_VERSION_` 變動時跑一次，版本記在指令碼屬性 `FATE_SCHEMA_VERSION`。
 - `Players_Save` 找玩家只讀 A 欄；`ChatLog` 先讀 A 欄定位，再只讀需要的列。不要改回 `getDataRange()` 讀整張表。
+- `ChatLog` 的 H 欄（繪圖 payload）每位玩家只保留最近 6 回合（`CHATLOG_PAYLOAD_KEEP`），更舊的會清空；劇情文字保留。
 
 ## 使用的服務
 - 劇情：OpenRouter，模型 `google/gemini-3.1-flash-lite`。
@@ -43,7 +57,7 @@
 - `Char_Appearance`：A 角色ID／B 觸發名稱／C 性別／D 核心體貌／E 預設服裝／F 負面UC／G 可召喚（TRUE/FALSE）。`saber_alter` 永遠不可開局召喚。
 - `Factions_Relations`：A 陣營名稱／B 御主ID／C 從者ID／D 預設狀態／E 預設態度／F 原作主從關係與人際內幕。共 6 組陣營，另有玩家獨立的第 8 組；真Assassin 路線觸發後，存檔裡會多出「臟硯組 (真Assassin陣營)」（不寫進這個分頁）。
 - `Lorebook`：A 關鍵字／B 類別／C 優先度（≥10 每回合必載入）／D 內容。
-- `Players_Save`：32 欄（程式用 0 起算索引）。`row[28]` 服裝 JSON、`row[29]` 陣營狀態 JSON、`row[31]` meta JSON（回合數、背包、手機簡訊與論壇、傷勢、陣營等）。
+- `Players_Save`：32 欄（程式用 0 起算索引）。`row[5]` 成人模式、`row[21]` 好感度、`row[28]` 服裝 JSON、`row[29]` 陣營狀態 JSON、`row[31]` meta JSON（回合數、背包、手機簡訊與論壇、傷勢、路線旗標、重要事件等）。HP／副從者 NP 欄位未使用但保留，**不可刪欄**（會讓後面所有索引錯位）。
 - `ChatLog`：A 玩家／B 回合／C 時間／D 時間地點／E 玩家行動／F AI劇情／G 出場角色／H 繪圖 payload／I seed。
 
 ## 核心遊戲規則（不要破壞）

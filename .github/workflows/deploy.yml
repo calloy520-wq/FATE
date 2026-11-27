@@ -11,6 +11,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Syntax check & tests (fail = no deploy)
+        run: |
+          node --check Code.js
+          node --check SetupDB.js
+          node tests/run-tests.js
       - run: npm install -g @google/clasp
       - name: Write clasp credentials
         env:

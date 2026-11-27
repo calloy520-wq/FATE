@@ -1123,6 +1123,14 @@
 
       <div class="setting-row">
         <div>
+          <div style="font-weight: 700; font-size: 14px;">🔞 成人模式</div>
+          <div style="font-size: 12px; color: var(--text-muted);">開啟後劇情畫面出現裸露時，CG 會加上 NSFW 標記讓 NovelAI 正常繪製</div>
+        </div>
+        <div id="cap-adultMode" class="capsule-switch" onclick="optimisticToggle('adultMode')"></div>
+      </div>
+
+      <div class="setting-row">
+        <div>
           <div style="font-weight: 700; font-size: 14px;">🌸 無戰爭日常餐桌模式</div>
           <div style="font-size: 12px; color: var(--text-muted);">開啟後解除時間與警戒限制，並禁止獲得任何戰鬥道具</div>
         </div>
@@ -1878,6 +1886,7 @@
       const toneHint = document.getElementById('tone-desc-hint');
       if (toneHint) toneHint.innerText = TONE_META[tone].desc;
       document.getElementById('cap-autoImage').className = `capsule-switch ${currentState.autoImage ? 'on' : ''}`;
+      document.getElementById('cap-adultMode').className = `capsule-switch ${currentState.adultMode ? 'on' : ''}`;
       document.getElementById('cap-sandboxMode').className = `capsule-switch ${currentState.gameMode !== 'WAR' ? 'on' : ''}`;
     }
 
@@ -2129,6 +2138,15 @@
         row.innerHTML = `<strong>${escapeHtml(k)}</strong><span style="color: var(--gold-bright);">${escapeHtml(f[k])}</span>`;
         box.appendChild(row);
       });
+
+      const events = Array.isArray(currentState.keyEvents) ? currentState.keyEvents : [];
+      const evBox = document.createElement('div');
+      evBox.style.cssText = 'margin-top: 10px; padding: 10px 12px; background: var(--bg-card); border: 1px dashed var(--border-gold); border-radius: 8px;';
+      evBox.innerHTML = `<div style="font-weight:800; color: var(--gold-bright); margin-bottom: 6px;">📌 重要事件與伏筆（AI 會持續記住）</div>` +
+        (events.length > 0
+          ? events.map((e, i) => `<div style="font-size:13px; color:#e2e8f0;">${i + 1}. ${escapeHtml(e)}</div>`).join('')
+          : '<div style="font-size:12.5px; color: var(--text-muted);">目前還沒有記錄的重要事件。</div>');
+      box.appendChild(evBox);
       document.getElementById('factions-modal').classList.remove('hidden');
     }
 

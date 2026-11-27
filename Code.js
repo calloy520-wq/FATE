@@ -38,7 +38,9 @@ const MAX_FORUM_POSTS = 25;
 const META_JSON_SOFT_LIMIT = 45000;
 
 // 試算表結構版本：只有版本號變動時才會執行一次「試算表自動升級」，不再每回合檢查
-const SCHEMA_VERSION_ = '2026-11-27-hassan';
+const SCHEMA_VERSION_ = '2026-11-27-headers';
+const MAX_KEY_EVENTS = 15;
+const CHATLOG_PAYLOAD_KEEP = 6;
 // 設定類分頁（角色／世界書／陣營）快取秒數；CacheService 上限 6 小時
 const CONFIG_CACHE_SECONDS_ = 21600;
 const CONFIG_CACHE_KEYS_ = ['fate_cfg_char_v2', 'fate_cfg_lore_v2', 'fate_cfg_fac_v2'];
@@ -579,6 +581,26 @@ function sendAllySmsMessage(playerName, factionName, messageText) {
   const msg = String(messageText || '').trim().slice(0, 140);
   if (!targetFac || !msg) throw new Error('請選擇聯絡對象並輸入簡訊內容！');
 
+  // 先在鎖外讀取存檔並請 AI 以該陣營口吻回覆（等待 AI 時不卡住其他玩家）
+  let aiReply = '';
+  try {
+    const ssPre = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetPre = ssPre.getSheetByName('Players_Save');
+    const idxPre = findPlayerRowIndex_(sheetPre, cleanName);
+    if (idxPre !== -1) {
+      const rowPre = sheetPre.getRange(idxPre, 1, 1, 32).getValues()[0];
+      const facPre = safeJsonParse_(rowPre[29], {});
+      const stPre = String(facPre[targetFac] || '');
+      if (isAllianceStatusText_(stPre)) {
+        const metaPre = safeJsonParse_(rowPre[31], {});
+        const thread = (metaPre.phoneState && metaPre.phoneState.smsThreads && metaPre.phoneState.smsThreads[targetFac]) || {};
+        aiReply = generateAllySmsReply_(cleanName, targetFac, stPre, Array.isArray(thread.messages) ? thread.messages : [], msg, rowPre);
+      }
+    }
+  } catch (e) {
+    aiReply = '';
+  }
+
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
@@ -609,9 +631,9 @@ function sendAllySmsMessage(playerName, factionName, messageText) {
     });
 
     const isSupportCall = /支援|趕來|幫忙|救|會合|牽制|協同|一起/.test(msg);
-    const replyText = isSupportCall
+    const replyText = aiReply || (isSupportCall
       ? `收到！我們已收到第8組的聯絡，會配合目前戰況調整動向與支援路線（${statusText}）。`
-      : `收到簡訊了。目前我們的狀況是「${statusText}」，有最新動向會再通知你。`;
+      : `收到簡訊了。目前我們的狀況是「${statusText}」，有最新動向會再通知你。`);
 
     phone.smsThreads[targetFac].messages.push({
       sender: targetFac,
@@ -638,6 +660,32 @@ function sendAllySmsMessage(playerName, factionName, messageText) {
     return parseSaveRow_(row);
   } finally {
     lock.releaseLock();
+  }
+}
+
+// 同盟陣營簡訊：由 AI 以該陣營御主／從者的口吻回覆（2004 年手機簡訊風格），失敗時回傳空字串改用罐頭句
+function generateAllySmsReply_(playerName, factionName, statusText, history, playerMsg, row) {
+  try {
+    const canon = CANONICAL_7_FACTIONS_.find(r => r[0] === factionName);
+    const relation = canon ? canon[5] : '';
+    const recent = (history || []).slice(-6).map(m => `${m.fromPlayer ? playerName : (m.sender || factionName)}：${m.text}`).join('\n');
+    const systemPrompt = [
+      '你正在扮演 Fate/stay night 第五次聖杯戰爭中，與玩家（獨立第8組御主）結盟的陣營，透過 2004 年的折疊手機回覆簡訊。',
+      '用該陣營御主（必要時可帶到從者）的個性與口吻，以繁體中文回覆一則 80 字以內的簡訊，像真的手機短訊，不要旁白、不要引號、不要署名。',
+      '回覆要符合陣營目前狀態；被要求支援時，依狀態明確表示能否支援、何時、怎麼配合。不要替玩家做決定，也不要透露你不可能知道的情報。'
+    ].join('\n');
+    const userMsg = [
+      `陣營：${factionName}`,
+      `目前狀態：${statusText}`,
+      relation ? `陣營背景：${relation}` : '',
+      `現在時間：Day ${row[6]}・${row[7]}；玩家所在地：${row[10]}`,
+      recent ? `最近簡訊：\n${recent}` : '',
+      `玩家剛傳來：${playerMsg}`
+    ].filter(Boolean).join('\n');
+    const res = callGeminiLite_(systemPrompt, userMsg, 0.8, 300, false);
+    return String(res.text || '').replace(/^["「『]|["」』]$/g, '').trim().slice(0, 140);
+  } catch (e) {
+    return '';
   }
 }
 
@@ -807,6 +855,21 @@ function updateRyuudouRoute_(meta, factionsObj, servantsOut, capturedId, present
   return { factions: f, report: reports.join(' ') };
 }
 
+// 重要事件清單：移除已了結的、加入新的、去重，最多保留 MAX_KEY_EVENTS 條（超過時捨棄最舊的）
+function updateKeyEvents_(current, addList, resolveList, playerName) {
+  let list = Array.isArray(current) ? current.map(x => String(x || '').trim()).filter(Boolean) : [];
+  const resolves = (Array.isArray(resolveList) ? resolveList : []).map(x => String(x || '').trim()).filter(Boolean);
+  if (resolves.length > 0) {
+    list = list.filter(e => !resolves.some(r => e === r || (r.length >= 6 && (e.includes(r) || r.includes(e)))));
+  }
+  (Array.isArray(addList) ? addList : []).forEach(x => {
+    const t = cleanAwkwardMasterTitle_(String(x || '').trim(), playerName).slice(0, 60);
+    if (t && !list.some(e => e === t || e.includes(t) || t.includes(e))) list.push(t);
+  });
+  if (list.length > MAX_KEY_EVENTS) list = list.slice(list.length - MAX_KEY_EVENTS);
+  return list;
+}
+
 function describeRyuudouRoute_(meta) {
   const fl = Object.assign({ medeaOut: false, kojirouOut: false, trueAssassin: 'NONE' }, (meta && meta.routeFlags) || {});
   const ta = fl.trueAssassin === 'ACTIVE' ? '已現身並潛伏（臟硯組，`hassan`）' : (fl.trueAssassin === 'DEFEATED' ? '已退場' : '尚未出現');
@@ -856,6 +919,20 @@ function ensureFactionsAndPoolUpgraded_(ss) {
     if (missingRows.length > 0) {
       facSheet.getRange(facSheet.getLastRow() + 1, 1, missingRows.length, 6).setValues(missingRows);
     }
+  }
+
+  const saveSheetH = ss.getSheetByName('Players_Save');
+  if (saveSheetH && saveSheetH.getLastColumn() >= 32) {
+    const headerFixes = {
+      6: '成人模式 (TRUE=允許裸露/NSFW圖)',
+      15: '御主HP (未使用・保留)',
+      21: '主從者HP (未使用・保留)',
+      22: '主從者好感度 (0-100)',
+      27: '副從者HP (未使用・保留)',
+      28: '副從者NP (未使用・保留)',
+      32: '遊戲狀態meta JSON (勝敗/背包/手機/回合數/路線/重要事件)'
+    };
+    Object.keys(headerFixes).forEach(col => saveSheetH.getRange(1, Number(col)).setValue(headerFixes[col]));
   }
 
   const charSheet = ss.getSheetByName('Char_Appearance');
@@ -1623,6 +1700,7 @@ function savePlayerSettingsOnly(playerName, patch) {
     const row = saveSheet.getRange(rowIndex, 1, 1, 32).getValues()[0];
     if (patch.gameMode) row[3] = (String(patch.gameMode) === 'SANDBOX') ? 'SANDBOX' : 'WAR';
     if (typeof patch.autoImage === 'boolean') row[4] = patch.autoImage ? 'TRUE' : 'FALSE';
+    if (typeof patch.adultMode === 'boolean') row[5] = patch.adultMode ? 'TRUE' : 'FALSE';
 
     const meta = safeJsonParse_(row[31], {});
     if (patch.artStyle && ART_STYLE_PRESETS_[String(patch.artStyle)]) meta.artStyle = String(patch.artStyle);
@@ -1736,7 +1814,8 @@ function extractMasterFromImage(base64DataUrl) {
 
 function previewMasterOutfit(gender, coreTags, outfitTags) {
   const nudeMode = isNudeOutfitTags_(outfitTags);
-  const safeCore = nudeMode ? stripClothesFromCore_(coreTags) : coreTags;
+  const normCore = normalizeCharCoreForNai_(coreTags, gender === 'boy' ? 'boy' : 'girl');
+  const safeCore = nudeMode ? stripClothesFromCore_(normCore) : normCore;
   const outfitPart = formatCharacterOutfitPrompt_(outfitTags);
   const charPrompt = [safeCore, outfitPart, nudeMode ? 'bare skin' : 'standing, confident expression'].filter(Boolean).join(', ');
   const scenePrompt = `${gender === 'boy' ? '1boy' : '1girl'}, solo, magic circle background, dimly lit gothic workshop, dramatic rim lighting`;
@@ -1760,6 +1839,7 @@ function completeCreationTextOnly(params) {
   const cleanName = validatePlayerName_(params.playerName);
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
+  let lockHeld = true;
 
   let statusObj = null;
   let summonData = null;
@@ -1768,7 +1848,7 @@ function completeCreationTextOnly(params) {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     ensureSchemaUpgraded_(ss);
     const saveSheet = ss.getSheetByName('Players_Save');
-    const rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
+    let rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
     if (rowIndex === -1) throw new Error('找不到玩家存檔！');
 
     const row = saveSheet.getRange(rowIndex, 1, 1, 32).getValues()[0];
@@ -1850,7 +1930,19 @@ function completeCreationTextOnly(params) {
 
     const userMsg = `Master Name: ${cleanName}\nOrigin: ${originName} (${originPreset.desc})\nHoly Grail Wish: ${wishText}\nMode: ${row[3]}\nSummoned Servant ID: ${targetServantId} (${servantInfo.triggers})\nRelic/Catalyst used: ${params.relicNote || '大聖杯共鳴'}`;
 
+    lock.releaseLock();
+    lockHeld = false;
+
     summonData = callGeminiLiteJson_(systemPrompt, userMsg, 0.7, 2000);
+
+    lock.waitLock(20000);
+    lockHeld = true;
+    rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
+    if (rowIndex === -1) throw new Error('找不到玩家存檔！');
+    const phaseNow = String(saveSheet.getRange(rowIndex, 3).getValue());
+    if (phaseNow !== 'CHAR_CREATION') {
+      throw new Error('這個御主剛剛已在另一個視窗完成召喚，請重新【讀取世界線】。');
+    }
     const sName = summonData.servant_name || servantInfo.triggers.split(',')[0];
     const formattedStory = formatNovelStoryText_(summonData.story, [sName, cleanName], '', cleanName);
 
@@ -1890,7 +1982,7 @@ function completeCreationTextOnly(params) {
       needImage: statusObj.autoImage
     };
   } finally {
-    lock.releaseLock();
+    if (lockHeld) lock.releaseLock();
   }
 }
 
@@ -2080,32 +2172,36 @@ function applyRouteAndHiddenServantEvolution_(factionsObj, turnJson, charDb, isC
   return nextF;
 }
 
+function applyPendingSettingsToRow_(row, ps) {
+  if (!ps || typeof ps !== 'object') return;
+  if (ps.gameMode) row[3] = (String(ps.gameMode) === 'SANDBOX') ? 'SANDBOX' : 'WAR';
+  if (typeof ps.autoImage === 'boolean') row[4] = ps.autoImage ? 'TRUE' : 'FALSE';
+  if (typeof ps.adultMode === 'boolean') row[5] = ps.adultMode ? 'TRUE' : 'FALSE';
+  const metaSync = safeJsonParse_(row[31], {});
+  if (ps.artStyle && ART_STYLE_PRESETS_[String(ps.artStyle)]) metaSync.artStyle = ps.artStyle;
+  if (ps.gameTone) metaSync.gameTone = normalizeGameToneKey_(ps.gameTone);
+  row[31] = serializeMeta_(metaSync);
+}
+
 function processFateTurnTextOnly(params) {
   const cleanName = validatePlayerName_(params.playerName);
   const userAction = String(params.userAction || '').trim();
   if (!userAction) throw new Error('請輸入行動或對話內容！');
 
+  // 鎖只在「讀存檔」與「寫回存檔」時持有；等待 AI 回應期間放開，其他玩家不必排隊
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
+  let lockHeld = true;
 
   try {
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     ensureSchemaUpgraded_(ss);
     const saveSheet = ss.getSheetByName('Players_Save');
-    const rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
+    let rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
     if (rowIndex === -1) throw new Error('找不到玩家存檔！');
 
     const row = saveSheet.getRange(rowIndex, 1, 1, 32).getValues()[0];
-
-    if (params.pendingSettings && typeof params.pendingSettings === 'object') {
-      const ps = params.pendingSettings;
-      if (ps.gameMode) row[3] = (String(ps.gameMode) === 'SANDBOX') ? 'SANDBOX' : 'WAR';
-      if (typeof ps.autoImage === 'boolean') row[4] = ps.autoImage ? 'TRUE' : 'FALSE';
-      const metaSync = safeJsonParse_(row[31], {});
-      if (ps.artStyle && ART_STYLE_PRESETS_[String(ps.artStyle)]) metaSync.artStyle = ps.artStyle;
-      if (ps.gameTone) metaSync.gameTone = normalizeGameToneKey_(ps.gameTone);
-      row[31] = serializeMeta_(metaSync);
-    }
+    applyPendingSettingsToRow_(row, params.pendingSettings);
 
     const statusObj = parseSaveRow_(row);
     if (statusObj.runStatus === 'DEAD' || statusObj.runStatus === 'CLEARED') {
@@ -2150,8 +2246,24 @@ function processFateTurnTextOnly(params) {
 
     const locCatalogText = Object.keys(FUYUKI_LOCATIONS_).map(k => {
       const l = statusObj.dynamicLocations[k] || FUYUKI_LOCATIONS_[k];
-      return `- ${k} (${l.fullName}): 靈脈=${l.leyline} (時段自動回魔+${l.manaRegen}MP) | 當前危險度=${l.danger} | ${l.desc}`;
+      const descPart = (k === statusObj.locationKey) ? ` | ${l.desc}` : '';
+      return `- ${k}: 靈脈+${l.manaRegen}MP | 危險度=${l.danger}${descPart}`;
     }).join('\n');
+
+    // 只把「可能出場」的角色服裝送給 AI：御主、契約從者、上一回合出場者、以及服裝已偏離預設的角色
+    const relevantIds = new Set(['player_master', statusObj.servant1.id, statusObj.servant2.id].filter(Boolean));
+    allRecentLogs.slice(-2).forEach(l => String(l.chars || '').split(',').forEach(x => { if (x.trim()) relevantIds.add(x.trim()); }));
+    Object.keys(statusObj.outfits || {}).forEach(id => {
+      if (charDb[id] && String(statusObj.outfits[id] || '') !== String(charDb[id].defaultOutfit || '')) relevantIds.add(id);
+    });
+    const relevantOutfits = {};
+    relevantIds.forEach(id => {
+      const o = (statusObj.outfits && statusObj.outfits[id]) || (charDb[id] && charDb[id].defaultOutfit) || '';
+      if (o) relevantOutfits[id] = o;
+    });
+    const keyEventsText = (Array.isArray(metaBefore.keyEvents) && metaBefore.keyEvents.length > 0)
+      ? metaBefore.keyEvents.map((e, i) => `${i + 1}. ${e}`).join('\n')
+      : '（尚無）';
 
     const phoneBridgeHints = [
       metaBefore.pendingSmsNote ? `【簡訊通訊連動】${metaBefore.pendingSmsNote}（請讓該同盟陣營的支援／協同動向實際體現在本回合劇情與陣營狀態中）` : '',
@@ -2223,7 +2335,7 @@ function processFateTurnTextOnly(params) {
       worldEventHint,
       '',
       'AVAILABLE CHARACTER IDS:',
-      Object.keys(charDb).map(id => `- ${id}: ${charDb[id].triggers}`).join('\n'),
+      Object.keys(charDb).map(id => `${id}=${charDb[id].triggers.split(',').slice(0, 2).join('/')}`).join('; '),
       '',
       'OUTPUT STRICTLY VALID JSON WITH THIS EXACT SCHEMA:',
       '{',
@@ -2248,7 +2360,9 @@ function processFateTurnTextOnly(params) {
       '  "faction_updates": { "既有陣營完整名稱": "新狀態（只在狀態改變時填）" },',
       '  "servants_out": ["本回合確實退場（陣亡／消滅／被收服）的敵方英靈 ID，例如 caster、assassin、hassan；沒有就空陣列"],',
       '  "new_servant2_id": "",',
-      '  "memory_update": "濃縮截至本回合的120字內前情提要（含當前戰局與陣營動態）",',
+      '  "memory_update": "濃縮截至本回合的200字內前情提要（含當前戰局與陣營動態）",',
+      '  "key_events_add": ["本回合新產生、之後需要記住的重要事件／約定／伏筆（每條40字內，沒有就空陣列）"],',
+      '  "key_events_resolve": ["已經了結、不再需要記住的事件（照抄清單原文，沒有就空陣列）"],',
       '  "present_chars": [',
       '    { "id": "character_id", "use_np": false, "action_en": "brief English pose/expression hint" }',
       '  ],',
@@ -2264,17 +2378,35 @@ function processFateTurnTextOnly(params) {
       `【御主固定六維等階】魔術迴路:${p.circuit} | 近戰體術:${p.combat} | 隱藏氣息:${p.stealth} | 幸運:${p.luck}`,
       `【主從者】ID:${statusObj.servant1.id} (${statusObj.servant1.class}・${statusObj.servant1.name}) | 羈絆好感:${statusObj.bondLevel}/100 | 靈基狀態:${statusObj.servant1.condition}`,
       statusObj.servant2.id ? `【副從者】ID:${statusObj.servant2.id} (${statusObj.servant2.class}・${statusObj.servant2.name}) | 靈基狀態:${statusObj.servant2.condition || '靈基穩定'}` : '【副從者】無',
-      `【各角色目前穿著狀態】${JSON.stringify(statusObj.outfits)}`,
+      `【相關角色目前穿著（未列出者為預設服裝）】${JSON.stringify(relevantOutfits)}`,
       `【七組陣營狀態（推演前必先對照，同盟陣營須彼此照應）】${JSON.stringify(statusObj.factions)}`,
       describeRyuudouRoute_(metaBefore),
       `【長期記憶前情提要】${statusObj.memorySummary}`,
+      `【重要事件與伏筆清單（約定、結盟原因、恩怨、未解之謎；請保持連貫）】\n${keyEventsText}`,
       loreSnippets ? `【相關世界書設定】\n${loreSnippets}` : '',
       recentContextText ? `【過往歷史脈絡（僅供背景參照，切勿在本次開頭重複上回合尾巴）】\n${recentContextText}` : '',
       `【玩家本回合最新行動】${userAction}`
     ].filter(Boolean).join('\n\n');
 
     // 主回合 token 上限提高到 3000，並具備 JSON 容錯解析與自動重試
+    lock.releaseLock();
+    lockHeld = false;
+
     const turnJson = callGeminiLiteJson_(systemPrompt, statePrompt, 0.75, 3000);
+
+    lock.waitLock(20000);
+    lockHeld = true;
+
+    // 重新讀取最新存檔：若等待 AI 期間這個存檔已被別的視窗推進，放棄本次結果避免互相覆蓋
+    rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
+    if (rowIndex === -1) throw new Error('找不到玩家存檔！');
+    const freshRow = saveSheet.getRange(rowIndex, 1, 1, 32).getValues()[0];
+    const freshMeta = safeJsonParse_(freshRow[31], {});
+    if (Number(freshMeta.turnCount || 0) !== Number(metaBefore.turnCount || 0) || String(freshRow[2]) !== String(row[2])) {
+      throw new Error('這個存檔剛剛在另一個視窗推進了一回合，本次行動未寫入。請重新【讀取世界線】後再行動。');
+    }
+    applyPendingSettingsToRow_(freshRow, params.pendingSettings);
+    for (let ci = 0; ci < 32; ci++) row[ci] = freshRow[ci];
     const speakerHints = [statusObj.servant1.name, statusObj.servant2.name, cleanName, '遠坂凜', '衛宮士郎', '間桐櫻', '言峰綺禮', '伊莉雅', '葛木宗一郎', '吉爾伽美什', '黑櫻', '黑Saber', '咒腕哈桑'].filter(Boolean);
     let formattedStory = formatNovelStoryText_(turnJson.story, speakerHints, prevStoryText, cleanName);
 
@@ -2470,8 +2602,9 @@ function processFateTurnTextOnly(params) {
     row[29] = JSON.stringify(currentFactions);
 
     if (turnJson.memory_update) {
-      row[30] = cleanAwkwardMasterTitle_(String(turnJson.memory_update).trim(), cleanName);
+      row[30] = cleanAwkwardMasterTitle_(String(turnJson.memory_update).trim(), cleanName).slice(0, 400);
     }
+    meta.keyEvents = updateKeyEvents_(meta.keyEvents, turnJson.key_events_add, turnJson.key_events_resolve, cleanName);
 
     let outcome = String(turnJson.outcome_type || 'CONTINUE').toUpperCase();
     if (outcome === 'CONTINUE' && /^已死亡/.test(String(meta.masterCondition || ''))) {
@@ -2516,8 +2649,9 @@ function processFateTurnTextOnly(params) {
       meta.warTicker = latestWarReport;
     }
 
-    delete meta.pendingSmsNote;
-    delete meta.pendingForumNote;
+    // 只清掉本回合已經交給 AI 的通知；等待期間新送出的簡訊／貼文留到下一回合
+    if (meta.pendingSmsNote === metaBefore.pendingSmsNote) delete meta.pendingSmsNote;
+    if (meta.pendingForumNote === metaBefore.pendingForumNote) delete meta.pendingForumNote;
     meta.phoneState = syncPhoneStateWithFactions_(meta.phoneState, currentFactions, row[6], row[7], latestWarReport);
     meta.turnCount = turnNum;
 
@@ -2565,6 +2699,7 @@ function processFateTurnTextOnly(params) {
       JSON.stringify(imgPayload),
       ''
     );
+    pruneOldChatLogPayloads_(ss, cleanName);
 
     return {
       status: updatedStatus,
@@ -2575,7 +2710,7 @@ function processFateTurnTextOnly(params) {
       needImage: updatedStatus.autoImage
     };
   } finally {
-    lock.releaseLock();
+    if (lockHeld) lock.releaseLock();
   }
 }
 
@@ -2689,6 +2824,20 @@ function updateChatLogImagePayload_(ss, playerName, turn, payload) {
 
 // ==================== 5. NAI V5 專職視覺導演 & 純畫面繪圖 ====================
 
+// NAI V4 以後的多角色規則：「1girl / 2girls / solo」這類人數標籤只放在主提示詞，
+// 每個角色欄位改以 girl / boy 開頭，避免人數判斷錯亂與特徵互相污染
+function normalizeCharCoreForNai_(coreStr, gender) {
+  const parts = String(coreStr || '').split(',').map(x => x.trim()).filter(Boolean)
+    .filter(t => !/^\d+\s*(girl|boy)s?$/i.test(t) && !/^(solo|multiple (girls|boys|characters))$/i.test(t) && !/^(girl|boy)$/i.test(t));
+  return [gender === 'boy' ? 'boy' : 'girl'].concat(parts).join(', ');
+}
+
+function stripCountTags_(str) {
+  return String(str || '').split(',').map(x => x.trim()).filter(Boolean)
+    .filter(t => !/^\d+\s*(girl|boy)s?$/i.test(t) && !/^(solo|multiple (girls|boys|characters))$/i.test(t))
+    .join(', ');
+}
+
 function resolveCharacterVisualProfile_(charId, dbInfo, statusObj, userAction, storyText, isCombat) {
   const gender = (charId === 'player_master')
     ? (statusObj.master.gender === 'boy' ? 'boy' : 'girl')
@@ -2724,6 +2873,13 @@ function resolveCharacterVisualProfile_(charId, dbInfo, statusObj, userAction, s
 }
 
 // 專職 NAI V5 視覺導演／翻譯官：劇情優先換裝 + 動態場地背景 + 鏡頭語言 + 多人互動語法（不鎖定座標，交由 AI's Choice 構圖）
+// 劇情摘錄：保留開頭交代與結尾（最新畫面），中間省略，避免最關鍵的結尾被截掉
+function excerptForDirector_(storyText) {
+  const t = String(storyText || '').replace(/【時段推進[\s\S]*$/, '').trim();
+  if (t.length <= 1600) return t;
+  return t.slice(0, 300) + '\n……\n' + t.slice(-1300);
+}
+
 function translateSceneToNaiV5_(directorCtx) {
   const charSummary = (directorCtx.chars || []).map(c =>
     `- id: "${c.id}", name: "${c.name}", gender: "${c.gender}", use_np: ${Boolean(c.use_np)}, reference_outfit: "${c.referenceOutfit || ''}", battle_outfit: "${c.battleOutfit || ''}", hint: "${c.hint || ''}"`
@@ -2739,8 +2895,10 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - Combat / fighting / ambush / night raid: MUST wear combat-ready attire (use "battle_outfit" or appropriate battle gear/armor).',
     '   - Sleeping / bed / changing clothes: Wear appropriate pajamas/nightwear or whatever the story explicitly describes.',
     '   - Normal scene with no outfit change: Use "reference_outfit" (translate it into clean English Danbooru tags if it is in Chinese).',
-    '3. Scene (scene_prompt): Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
-    '4. Characters (char_directions): For each present character output:',
+    '   - Never put hair color, eye color, body type or character names inside "outfit"; those come from a fixed character sheet.',
+    '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event.',
+    '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
+    '5. Characters (char_directions): For each present character output (keep every character\'s tags strictly in its own entry so features do not bleed between characters):',
     '   - "id": exact character id.',
     '   - "is_nude": boolean (true if unclothed/bathing/nude in this scene).',
     '   - "outfit": final English Danbooru clothing tags for THIS EXACT SCENE.',
@@ -2753,9 +2911,10 @@ function translateSceneToNaiV5_(directorCtx) {
     `Location & Time: ${directorCtx.location} (${directorCtx.timePeriod})`,
     directorCtx.locationDesc ? `Current Site Appearance/Modifications: ${directorCtx.locationDesc}` : '',
     `Is Combat: ${Boolean(directorCtx.isCombat)}`,
+    `Adult Mode: ${Boolean(directorCtx.adultMode)}`,
     `Player Action: ${directorCtx.userAction || ''}`,
     `Present Characters:\n${charSummary}`,
-    `Story Excerpt:\n${String(directorCtx.storyText || '').slice(0, 900)}`
+    `Story Excerpt (the END is the current moment):\n${excerptForDirector_(directorCtx.storyText)}`
   ].filter(Boolean).join('\n\n');
 
   try {
@@ -2773,13 +2932,16 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
   let girls = 0;
   let boys = 0;
   let anyNpActive = false;
+  let anyNude = false;
 
   const charSlots = validChars.map((c, idx) => {
     const dbInfo = charDb[c.id] || {};
     const profile = resolveCharacterVisualProfile_(c.id, dbInfo, statusObj, userAction, storyText, isCombat);
 
     const nudeMode = isNudeOutfitTags_(profile.outfit) || /全裸|裸體|沒穿|赤裸|一絲不掛|\b(nude|naked|no clothes|topless)\b/i.test(String(c.action_en || ''));
-    const core = nudeMode ? stripClothesFromCore_(profile.core) : profile.core;
+    const normCore = normalizeCharCoreForNai_(profile.core, profile.gender);
+    const core = nudeMode ? stripClothesFromCore_(normCore) : normCore;
+    if (nudeMode) anyNude = true;
     const weightedOutfit = formatCharacterOutfitPrompt_(nudeMode && !isNudeOutfitTags_(profile.outfit) ? 'nude, completely nude, no clothes' : profile.outfit);
     const directAction = String(c.action_en || '').trim();
 
@@ -2794,7 +2956,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
 
     return {
       id: c.id,
-      baseCore: profile.core,
+      baseCore: normCore,
       weightedOutfit: weightedOutfit,
       npBoost: npBoost,
       prompt: [core, weightedOutfit, directAction, npBoost].filter(Boolean).join(', '),
@@ -2817,11 +2979,15 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     ? 'dynamic action, magic energy sparks, motion blur, dramatic rim lighting'
     : '';
 
-  const finalScenePrompt = [...countTags, sceneEnvEn, combatEnvTags].filter(Boolean).join(', ');
+  // 成人模式開啟且畫面有裸露時，主提示詞補上 nsfw（V4 以後的模型沒有這個標籤時常會自動補衣服或遮擋）
+  const adultMode = Boolean(statusObj.adultMode);
+  const ratingTag = (adultMode && anyNude) ? 'nsfw' : '';
+  const finalScenePrompt = [...countTags, ratingTag, stripCountTags_(sceneEnvEn), combatEnvTags].filter(Boolean).join(', ');
 
   return {
     prompt: finalScenePrompt,
     countPrefix: countTags.join(', '),
+    adultMode: adultMode,
     combatEnvTags: combatEnvTags,
     artStyle: statusObj.artStyle || 'official',
     characters: charSlots,
@@ -2841,6 +3007,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
       locationDesc: (statusObj.locationInfo && statusObj.locationInfo.desc) ? String(statusObj.locationInfo.desc) : '',
       timePeriod: statusObj.timePeriod || '',
       isCombat: Boolean(isCombat || anyNpActive),
+      adultMode: adultMode,
       userAction: String(userAction || ''),
       storyText: String(storyText || ''),
       chars: validChars.map((c, idx) => {
@@ -2869,8 +3036,13 @@ function generateTurnCgAsync(imgPayload) {
     const directed = translateSceneToNaiV5_(working._directorContext);
     if (directed) {
       directedApplied = true;
+      const directedNude = Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && (Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit)));
+      const alreadyNude = /(^|,\s*)nsfw(\s*,|$)/.test(String(working.prompt || ''));
+      const ratingTag = (working.adultMode && (directedNude || alreadyNude)) ? 'nsfw' : '';
       if (directed.scene_prompt) {
-        working.prompt = [working.countPrefix, directed.scene_prompt, working.combatEnvTags].filter(Boolean).join(', ');
+        working.prompt = [working.countPrefix, ratingTag, stripCountTags_(directed.scene_prompt), working.combatEnvTags].filter(Boolean).join(', ');
+      } else if (ratingTag && !alreadyNude) {
+        working.prompt = [working.countPrefix, ratingTag, stripCountTags_(working.prompt)].filter(Boolean).join(', ');
       }
       if (Array.isArray(directed.char_directions) && Array.isArray(working.characters)) {
         const dirMap = {};
@@ -3263,6 +3435,8 @@ function parseSaveRow_(row) {
     gameMode: gameMode,
     gameTone: toneVal,
     autoImage: String(row[4]).toUpperCase() === 'TRUE',
+    adultMode: String(row[5]).toUpperCase() === 'TRUE',
+    keyEvents: Array.isArray(meta.keyEvents) ? meta.keyEvents : [],
     artStyle: meta.artStyle || 'official',
     day: Number(row[6]),
     timePeriod: String(row[7]),
@@ -3334,6 +3508,32 @@ function getPlayerChatLogs_(ss, playerName, limit) {
       imgPayload: d[7]
     };
   });
+}
+
+// 清掉同一玩家較舊回合的繪圖 payload（H 欄），只保留最近 CHATLOG_PAYLOAD_KEEP 回合；劇情文字不動
+function pruneOldChatLogPayloads_(ss, playerName) {
+  try {
+    const sheet = ss.getSheetByName('ChatLog');
+    const last = sheet.getLastRow();
+    if (last < 2) return;
+    const names = sheet.getRange(2, 1, last - 1, 1).getValues();
+    const mine = [];
+    for (let i = 0; i < names.length; i++) {
+      if (String(names[i][0]).trim() === playerName) mine.push(i + 2);
+    }
+    if (mine.length <= CHATLOG_PAYLOAD_KEEP) return;
+    const targets = mine.slice(0, mine.length - CHATLOG_PAYLOAD_KEEP);
+    // 只檢查最近的一段（舊的早就清過了），每次最多處理 40 列
+    const recentTargets = targets.slice(-40);
+    const firstRow = recentTargets[0];
+    const span = recentTargets[recentTargets.length - 1] - firstRow + 1;
+    const hVals = sheet.getRange(firstRow, 8, span, 1).getValues();
+    recentTargets.forEach(r => {
+      if (String(hVals[r - firstRow][0] || '') !== '') sheet.getRange(r, 8).setValue('');
+    });
+  } catch (e) {
+    // 清理失敗不影響遊戲
+  }
 }
 
 function appendPlayerChatLog_(ss, playerName, turn, timeLoc, userAction, aiStory, chars, imgPayloadStr, seed) {
