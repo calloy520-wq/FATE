@@ -1367,6 +1367,10 @@ function assessCombat_(statusObj, meta, userAction) {
   else if (mp / mx < 0.25) { score -= 1; reasons.push('魔力不足'); }
   // 雙方狀態
   if (/受創|重傷|瀕|受損/.test(String(statusObj.servant1.condition || ''))) { score -= 1; reasons.push('我方從者帶傷'); }
+  // 為愛無敵：主從羈絆越深，從者越願意為御主拚命
+  const bondLv = Number(statusObj.bondLevel) || 0;
+  if (statusObj.servant1.id && bondLv >= 100) { score += 2; reasons.push('羈絆・生死與共'); }
+  else if (statusObj.servant1.id && bondLv >= 80) { score += 1; reasons.push('羈絆深厚'); }
   if (isWeakenedStatusText_(f[target])) { score += 1; reasons.push('對方帶傷'); }
   const level = score >= 3 ? '大優勢' : score >= 1 ? '小優勢' : score === 0 ? '均勢' : score >= -2 ? '劣勢' : '絕望';
   const guide = {
@@ -3173,7 +3177,7 @@ function processFateTurnTextOnly(params) {
       `【玩家】名號「${cleanName}」（劇情中稱呼玩家用這個名字、「御主」或角色習慣的叫法）｜聖杯願望：「${statusObj.master.wish}」`,
       `【寫作基調：${tonePreset.label}】${tonePreset.desc}`,
       rankCheckHint,
-      `【主從者好感】${statusObj.bondLevel}/100${statusObj.bondLevel <= 10 && toneKey !== 'COMEDY_CHAOS' && toneKey !== 'STORY_PLAYER_FIRST' ? '（主從關係緊張：從者可能拒絕危險或荒唐的命令，令咒可以強制但會再扣好感；好感歸零還一直惹她會解約離去）' : ''}。bond_delta 每回合 ±10 內，依從者在意的事判斷（道歉、認真修行、並肩作戰、尊重、好好相處會加分）`,
+      `【主從者好感】${statusObj.bondLevel}/100${statusObj.bondLevel <= 10 && toneKey !== 'COMEDY_CHAOS' && toneKey !== 'STORY_PLAYER_FIRST' ? '（主從關係緊張：從者可能拒絕危險或荒唐的命令，令咒可以強制但會再扣好感；好感歸零還一直惹她會解約離去）' : ''}。bond_delta 每回合 ±10 內，依從者在意的事判斷：平常的相處與對話 0～+3，真正打動她的事（真誠道歉、並肩死戰、說中她的心事、重要承諾）才 +5～+10；惹她不快就扣分`,
       inventoryRuleHint,
       !statusObj.servant1.id
         ? '【失去從者】御主目前沒有從者，非常危險。若劇情中與失去御主的從者達成協議，可填 `new_servant2_id` 締結新契約（成為主從者）。'

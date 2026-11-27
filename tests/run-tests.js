@@ -319,5 +319,7 @@ eq('只是提到名字不算換人', T.findRosterSwapTarget_('問 Rider 今天�
   eq('Index.html 在 GAS 刪除雙斜線註解後仍能解析' + (why ? `（${why}）` : ''), okParse, true);
 }
 
+eq('羈絆 100：戰力判定 +2', (() => { const st = baseSt(); st.bondLevel = 100; return T.assessCombat_(st, {}, '直接衝上柳洞寺砍了 Caster').reasons.includes('羈絆・生死與共'); })(), true);
+
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);
