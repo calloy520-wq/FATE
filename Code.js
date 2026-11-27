@@ -70,7 +70,9 @@ const ITEM_EFFECTS_ = {
 };
 
 const ART_STYLE_PRESETS_ = {
-  'official': 'official art, game cg, type-moon style, detailed shading',
+  'official': 'official art, game cg, type-moon, detailed shading',
+  'takeuchi': 'takeuchi takashi, type-moon, official art, game cg',
+  'ufotable': 'ufotable, anime screencap, cinematic lighting, detailed background',
   'anime': 'anime screencap, cinematic lighting, depth of field, soft glow',
   'painterly': 'painterly, impasto, rich colors, high contrast, dramatic lighting',
   'flat': 'anime coloring, clean lineart, vibrant colors, cel shading',
@@ -3639,7 +3641,8 @@ function generateNovelAIImageSafe_(params) {
       finalPrompt = finalPrompt ? `${finalPrompt}, ${styleTags}` : styleTags;
     }
     if (params.autoQuality !== false) {
-      finalPrompt = finalPrompt ? `${finalPrompt}, very aesthetic, masterpiece, high complexity, no text` : 'very aesthetic, masterpiece, high complexity, no text';
+      const qualityTags = (typeof params.qualityTags === 'string') ? params.qualityTags : 'very aesthetic, masterpiece, high complexity, no text';
+      if (qualityTags) finalPrompt = finalPrompt ? `${finalPrompt}, ${qualityTags}` : qualityTags;
     }
     const finalUc = params.uc ? `${defaultUc}, ${params.uc}` : defaultUc;
 
