@@ -1314,22 +1314,98 @@ function stripRepeatedPreviousEnding_(storyText, prevStoryText) {
   return clean;
 }
 
+// 台詞斷段與說話者判斷：
+// - 「台詞」後面緊接「某某…」→ 說話者是某某
+// - 「某某…。」或「某某…：」後面接「台詞」→ 說話者是那句敘述的主詞（主詞是「我」就是玩家）
+// - 只有短名詞、沒有標點的「」（例如「庫・夫林」）視為強調，不拆段
+function segmentDialogue_(par, names, playerName) {
+  const p = String(par || '').trim();
+  if (!p || /^[^「『\n]{1,12}[:：]\s*「[^」]*」$/.test(p)) return p;
+  const cands = (Array.isArray(names) ? names : []).filter(Boolean).slice().sort((a, b) => b.length - a.length);
+  const startsWithName = str => {
+    const t = String(str || '').replace(/^[\s，、]+/, '');
+    if (/^我/.test(t) && playerName) return playerName;
+    return cands.find(n => t.startsWith(n)) || '';
+  };
+  // 名字前面若是「對著／向／看著／身旁的」這類受詞標記，代表他不是主詞
+  const objectMarker = /(對著|對|向|朝|看著|望著|盯著|把|和|跟|與|替|給|身旁的|身邊的|身後的)\s*$/;
+  const asSubjectCandidates = t => cands.filter(n => {
+    let idx = t.indexOf(n);
+    while (idx !== -1) {
+      if (!objectMarker.test(t.slice(0, idx))) return true;
+      idx = t.indexOf(n, idx + 1);
+    }
+    return false;
+  });
+  // 段落中最近一個以名字（或「我」）開頭的句子 → 用來解析「她／他」
+  const lastNamedSubject = text => {
+    const sentences = String(text || '').split(/(?<=[。！？…])/).map(x => x.trim()).filter(Boolean);
+    for (let i = sentences.length - 1; i >= 0; i--) {
+      const h = startsWithName(sentences[i]);
+      if (h) return h;
+    }
+    return '';
+  };
+  const subjectOf = (sentence, narrationSoFar) => {
+    const t = String(sentence || '').trim();
+    const clause = t.split(/[，、；]/).pop().trim();
+    const head = startsWithName(clause) || startsWithName(t);
+    if (head) return head;
+    if (/^(她|他)/.test(clause) || /^(她|他)/.test(t)) {
+      const prevSentences = String(narrationSoFar || '').slice(0, String(narrationSoFar || '').length - t.length);
+      return lastNamedSubject(prevSentences);
+    }
+    const found = asSubjectCandidates(clause.length >= 2 ? clause : t);
+    return found.length === 1 ? found[0] : '';
+  };
+  const isSpeech = (q, prevChar) => /[，。！？…、～—]/.test(q) || q.length >= 8 || prevChar === '：' || prevChar === ':';
+
+  const out = [];
+  let narration = '';
+  let lastIdx = 0;
+  const re = /「([^」]*)」/g;
+  let m;
+  while ((m = re.exec(p)) !== null) {
+    const before = p.slice(lastIdx, m.index);
+    const prevChar = before.trim().slice(-1);
+    if (!isSpeech(m[1], prevChar)) {
+      narration += before + m[0];
+      lastIdx = m.index + m[0].length;
+      continue;
+    }
+    narration += before;
+    // 已經寫成「名字：「台詞」」的保留原樣
+    const labelMatch = narration.match(/([^「『\n。！？，：:]{1,12})[:：]\s*$/);
+    let speaker = '';
+    if (labelMatch && cands.some(n => labelMatch[1].trim() === n || labelMatch[1].trim() === playerName)) {
+      speaker = labelMatch[1].trim();
+      narration = narration.slice(0, narration.length - labelMatch[0].length);
+    } else {
+      const lastSentence = narration.split(/(?<=[。！？…])/).pop();
+      if (lastSentence.trim()) {
+        speaker = subjectOf(lastSentence, (out.join('。') + '。' + narration));
+      } else {
+        const afterText = p.slice(m.index + m[0].length);
+        speaker = startsWithName(afterText);
+      }
+    }
+    if (narration.trim()) out.push(narration.trim());
+    narration = '';
+    out.push(speaker ? `${speaker}：「${m[1]}」` : `「${m[1]}」`);
+    lastIdx = m.index + m[0].length;
+  }
+  narration += p.slice(lastIdx);
+  if (narration.trim()) out.push(narration.trim().replace(/^[，、]/, ''));
+  return out.join('\n\n');
+}
+
 function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName) {
   let text = String(rawStory || '').trim();
   if (!text) return '';
 
   text = text.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
-  text = text.replace(/([。！？…])\s*「/g, '$1\n\n「');
-  text = text.split('\n').map(line => {
-    let out = line;
-    for (let guard = 0; guard < 3; guard++) {
-      const m = out.match(/^((?:[^「『\n]{1,12}[:：]\s*)?「[^」]*」)\s*([^，。！？、」\s][\s\S]*)$/);
-      if (!m) break;
-      out = m[1] + '\n\n' + m[2];
-      break;
-    }
-    return out;
-  }).join('\n');
+  // 把段落中夾帶的台詞拆成獨立段落，並依中文敘事習慣判斷說話者（判斷不出就不標）
+  text = text.split(/\n{2,}/).map(par => segmentDialogue_(par, contextNames, playerName)).join('\n\n');
 
   if (!text.includes('\n\n')) {
     const sentences = text.split(/(?<=[。！？])/);
@@ -2511,7 +2587,11 @@ function processFateTurnTextOnly(params) {
     }
     applyPendingSettingsToRow_(freshRow, params.pendingSettings);
     for (let ci = 0; ci < 32; ci++) row[ci] = freshRow[ci];
-    const speakerHints = [statusObj.servant1.name, statusObj.servant2.name, cleanName, '遠坂凜', '衛宮士郎', '間桐櫻', '言峰綺禮', '伊莉雅', '葛木宗一郎', '吉爾伽美什', '黑櫻', '黑Saber', '咒腕哈桑'].filter(Boolean);
+    const presentAliases = [];
+    (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).forEach(c => {
+      if (c && c.id && charDb[c.id] && c.id !== 'player_master') charDb[c.id].triggers.split(',').forEach(n => { if (n.trim().length >= 1) presentAliases.push(n.trim()); });
+    });
+    const speakerHints = Array.from(new Set([statusObj.servant1.name, statusObj.servant2.name, cleanName, '遠坂凜', '衛宮士郎', '間桐櫻', '言峰綺禮', '伊莉雅', '葛木宗一郎', '吉爾伽美什', '黑櫻', '黑Saber', '咒腕哈桑'].concat(presentAliases).filter(Boolean)));
     let formattedStory = formatNovelStoryText_(turnJson.story, speakerHints, prevStoryText, cleanName);
 
     const meta = safeJsonParse_(row[31], {});
