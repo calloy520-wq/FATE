@@ -379,6 +379,14 @@ function isNudeOutfitTags_(outfitStr) {
   return /\b(nude|naked|completely nude|no clothes|topless|bottomless|undressed)\b/.test(s) || /全裸|裸體|沒穿|赤裸|一絲不掛/.test(s);
 }
 
+// 成人模式關閉時的裸露處理（獨立於角色把關，只在玩家自己關閉成人模式、而且劇情讓角色脫光時作用）
+// 不指定衣物（使用者意見：由程式猜場合選浴巾／被子會更漂移，也和角色習慣不合）→ 用通用的 convenient censoring，
+// 讓 NovelAI 依畫面用蒸氣、頭髮、手臂、毛巾、被子或角度自然遮住；主負面另外排除 nsfw、nude、nipples
+function adultOffOutfit_(outfit, contextText, fallback) {
+  if (!isNudeOutfitTags_(outfit)) return outfit;
+  return 'convenient censoring';
+}
+
 function stripClothesFromCore_(coreStr) {
   let c = String(coreStr || '');
   const clothesNoise = [
@@ -442,7 +450,9 @@ function autoAdaptSmartOutfit_(charId, currentOutfit, dbInfo, userAction, storyT
   if (charId !== 'player_master') {
     const casualOutfit = String((dbInfo && dbInfo.casualOutfit) || '').trim();
     const isCasualOrSleepwear = (casualOutfit && cur === casualOutfit) || /睡衣|家居|浴袍|圍裙|便服|居家服|睡覺|洗澡|\b(pajamas|sleepwear|bathrobe|apron|casual clothes|loungewear)\b/i.test(cur);
-    const isOutdoorCombatOrPatrol = Boolean(isCombat) || /交戰|戰鬥|迎戰|突襲|夜襲|巡邏|警戒|出擊|戰場|寶具|魔槍|聖劍/.test(combinedText) || (locKey && locKey !== '廢棄洋館');
+    // 人在據點且沒開戰時不看劇情字眼（實測劇情寫到斯卡哈「警戒」、提到魔槍，就在洋館廚房被換回戰鬥靈衣）
+    const atHomeCalm = locKey === '廢棄洋館' && !isCombat;
+    const isOutdoorCombatOrPatrol = !atHomeCalm && (Boolean(isCombat) || /交戰|戰鬥|迎戰|突襲|夜襲|巡邏|警戒|出擊|戰場|寶具|魔槍|聖劍/.test(combinedText) || (locKey && locKey !== '廢棄洋館'));
     if (isOutdoorCombatOrPatrol && isCasualOrSleepwear) {
       return defaultOutfit || cur;
     }
@@ -1414,6 +1424,11 @@ function maybeSummonFinalBoss_(factionsObj, meta, outcome) {
 }
 
 function describeFinalBossForPrompt_(meta, factionsObj) {
+  if (!meta.gilFinal && meta.gilRevealedEarly) {
+    const ck0 = Object.keys(factionsObj || {}).find(k => k.includes('教會'));
+    if (ck0 && !isCapturedOrDefeatedStatusText_(factionsObj[ck0])) return '【英雄王已現身】吉爾伽美什已在後台擊潰愛因茲貝倫組，現在以自己的意志在冬木市遊蕩（傲慢、隨興、視他人為雜種）。他可能在任何地方偶遇玩家、挑釁、或介入別人的戰鬥；正面硬拚極危險。這不是最終決戰，其他陣營化解後他才會守在大聖杯前。';
+    return '';
+  }
   if (!meta.gilFinal) return '';
   const ck = Object.keys(factionsObj || {}).find(k => k.includes('教會'));
   if (!ck || isCapturedOrDefeatedStatusText_(factionsObj[ck])) return '';
@@ -1834,6 +1849,23 @@ function simulateOffscreenFactionWar_(factionsObj, day, period, ownedServantIds)
   const isElimination = (Number(day) >= 3 && facBWeakened && Math.random() < 0.12 && aliveFactions.length > 3);
   const updated = Object.assign({}, factionsObj);
   let report = '';
+
+  // 愛因茲貝倫組剛好在後台被淘汰時，改成英雄王出手（原作 UBW 線的發展）：英雄王提早現身、在冬木遊蕩
+  if (isElimination && String(facB).includes('愛因茲貝倫')) {
+    const churchKey = Object.keys(updated).find(k => k.includes('教會'));
+    updated[facB] = `已淘汰 (於 Day ${day} ${period} 在${battleSite}遭英雄王吉爾伽美什擊潰)`;
+    if (churchKey && !isCapturedOrDefeatedStatusText_(updated[churchKey]) && !isAllianceStatusText_(updated[churchKey])) {
+      updated[churchKey] = '存活 (敵對・英雄王吉爾伽美什已現身・遊蕩中)';
+    }
+    return {
+      report: `【戰況速報】英雄王吉爾伽美什突然現身${battleSite}，王之財寶如暴雨般傾瀉，Berserker 的十二試煉被盡數貫穿，愛因茲貝倫組（伊莉雅與 Berserker）退場！`,
+      publicReport: `【遠方異象】${battleSite}一帶昨夜天空出現無數金色漣漪，像流星雨一樣的光落進森林，之後巨人般的吼聲突然停了（冬木論壇已有目擊）。`,
+      forumPost: { board: '冬木都市怪談板', author: '匿名目擊者', title: '昨晚天上下了金色的雨？？', body: '郊外那邊的天空突然出現一大片金色的光圈，裡面好像射出很多閃閃發亮的東西，接著就聽到很恐怖的吼聲……然後一切都安靜了。' },
+      hotspotKey: battleSite,
+      updatedFactions: updated,
+      gilRevealed: true
+    };
+  }
 
   if (isElimination) {
     updated[facB] = `已淘汰 (於 Day ${day} ${period} 在${battleSite}遭 ${facA} 擊潰)`;
@@ -2290,7 +2322,7 @@ function startNewGame(playerName) {
       'CHAR_CREATION',
       'WAR',
       'TRUE',
-      'TRUE',
+      'FALSE', // 成人模式：新角色預設關閉（使用者 2026-11 要求）；既有存檔維持各自的設定
       1,
       '深夜',
       3,
@@ -2647,6 +2679,7 @@ function completeCreationTextOnly(params) {
       warTicker: '第一夜深夜，冬木大橋方向隱約傳來各陣營試探的魔力火花。',
       factionIntel: initFactionIntel_(defaultFactions, false),
       bondLevel: 25,
+      cameraMode: 'third', // 新角色預設第三人稱（召喚那張才看得到御主）；既有存檔沒設定的維持第一人稱，不突然改變朋友們的畫面
       customServant: customServant,
       customLocationNotes: {},
       phoneState: {
@@ -3428,6 +3461,7 @@ function processFateTurnTextOnly(params) {
         currentFactions = routeRes.factions;
         if (routeRes.report) routeReports.push(routeRes.report);
         if (warSim.hotspotKey) meta.mapHotspot = warSim.hotspotKey;
+        if (warSim.gilRevealed) meta.gilRevealedEarly = true;
         if (warSim.report) {
           latestWarReport = warSim.report;
           meta.warTicker = warSim.report;
@@ -4161,6 +4195,8 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
 
     const wantsNude = isNudeOutfitTags_(profile.outfit) || /全裸|裸體|沒穿|赤裸|一絲不掛|\b(nude|naked|no clothes|topless)\b/i.test(String(c.action_en || ''));
     if (wantsNude && !isNudeOutfitTags_(profile.outfit)) profile.outfit = 'nude, completely nude, no clothes';
+    // 成人模式關閉：依場合換成浴巾／被子／便服（獨立於角色把關）
+    if (!statusObj.adultMode) profile.outfit = adultOffOutfit_(profile.outfit, `${userAction || ''} ${storyText || ''} ${sceneEnvEn || ''} ${c.action_en || ''}`, dbInfo.defaultOutfit);
     const nudeMode = isNudeOutfitTags_(profile.outfit);
     const normCore = normalizeCharCoreForNai_(profile.core, profile.gender);
     const core = nudeMode ? stripClothesFromCore_(normCore) : normCore;
@@ -4494,6 +4530,17 @@ function generateTurnCgAsync(imgPayload) {
       } else if (directed.orientation === 'landscape') {
         working.width = 1216; working.height = 832;
       }
+      // 成人模式關閉：導演回報的裸露換成通用遮擋（獨立於角色把關，排在把關之後）
+      if (!working.adultMode && Array.isArray(directed.char_directions)) {
+        const ctxAll = `${(working._directorContext || {}).userAction || ''} ${(working._directorContext || {}).storyText || ''} ${directed.scene_prompt || ''}`;
+        directed.char_directions.forEach(d => {
+          if (!d || !d.id || !(Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit))) return;
+          const ctxC = ((working._directorContext || {}).chars || []).find(x => x.id === d.id) || {};
+          const fb = ctxC.referenceOutfit && !isNudeOutfitTags_(ctxC.referenceOutfit) ? ctxC.referenceOutfit : ctxC.battleOutfit;
+          d.is_nude = false;
+          d.outfit = adultOffOutfit_('nude, completely nude, no clothes', `${ctxAll} ${d.action || ''}`, fb);
+        });
+      }
       const directedNude = Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && (Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit)));
       const alreadyNude = /(^|,\s*)nsfw(\s*,|$)/.test(String(working.prompt || ''));
       const ratingTag = (working.adultMode && (directedNude || alreadyNude)) ? 'nsfw' : '';
@@ -4567,7 +4614,11 @@ function generateTurnCgAsync(imgPayload) {
         if (working.cameraMode === 'pov' && t.tag.indexOf('mimikaki') === 0) tag = MIMIKAKI_POV_TAGS_;
         if (working.cameraMode === 'pov' && t.tag === 'lap pillow') tag = LAP_POV_TAGS_;
         if (working.cameraMode !== 'pov' && t.tag === 'lap pillow') tag = LAP_3RD_TAGS_;
-        if (working.cameraMode === 'pov' && t.tag === 'hug') tag = 'incoming hug, close-up, face focus';
+        // 第一人稱擁抱：站著迎面抱過來才用 incoming hug；躺著／在床上用 incoming hug 會畫出頭和身體斷開的怪圖（實測）
+        if (working.cameraMode === 'pov' && t.tag === 'hug') {
+          const lyingHug = (directed.char_directions || []).some(d => d && /\b(lying|on the bed|in bed|on top of|resting (her|his) (head|face)|face resting|head on (the )?viewer|futon)\b/i.test(`${d.action || ''} ${d.interaction || ''}`)) || /\b(bed|futon|lying)\b/i.test(String(directed.scene_prompt || ''));
+          tag = lyingHug ? 'hug, lying, from above, upper body' : 'incoming hug, close-up, face focus';
+        }
         if (working.cameraMode === 'pov' && t.tag === 'headpat') tag = 'headpat, headpat pov, from below, looking down at viewer, reaching towards viewer';
         if (!new RegExp('\\b' + tag.split(',')[0].replace(/[-]/g, '\\-') + '\\b', 'i').test(working.prompt)) working.prompt = `${working.prompt}, ${tag}`;
       });
@@ -4681,7 +4732,9 @@ function generateNovelAIImageSafe_(params) {
     }
     // 3 人以上的畫面偶爾會把同一個角色畫兩次（實測：Archer 被畫成兩個），加 clone 降低機率
     const cloneUc = cleanedChars.length >= 3 ? 'clone' : '';
-    const finalUc = [defaultUc, cloneUc, params.uc].filter(Boolean).join(', ');
+    // 成人模式關閉：主負面直接排除裸露（只改服裝成浴巾時，浴室場景 NovelAI 仍可能自己畫出裸露）
+    const sfwUc = params.adultMode === false ? 'nsfw, nude, nipples, completely nude, topless' : '';
+    const finalUc = [defaultUc, cloneUc, sfwUc, params.uc].filter(Boolean).join(', ');
 
     const seed = params.seed && Number(params.seed) > 0 ? Number(params.seed) : Math.floor(Math.random() * 4294967295);
     const useCoords = false;

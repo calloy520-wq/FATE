@@ -69,20 +69,20 @@
 
 ## NovelAI 繪圖
 - 主提示詞放人數標籤（`2girls, 1boy, multiple characters`）；角色欄位一律以 `girl`／`boy` 開頭，不放 `1girl`、`solo`（`normalizeCharCoreForNai_`）。
-- 成人模式（`Players_Save` F 欄、設定視窗開關）**預設開啟**（新角色預設 TRUE；既有存檔已一次性設為 TRUE，記錄在指令碼屬性 `FATE_ADULT_DEFAULT_APPLIED`，不會再覆蓋玩家之後的選擇）。只有畫面有裸露時才加 `nsfw`，普通場面不加；關閉時不加。
+- 成人模式（`Players_Save` F 欄、設定視窗開關）：**新角色預設關閉**（2026-11 使用者要求改成 FALSE）；既有存檔維持各自的設定（當年一次性設為 TRUE 的遷移記錄在指令碼屬性 `FATE_ADULT_DEFAULT_APPLIED`，不會再執行）。只有畫面有裸露時才加 `nsfw`，普通場面不加；關閉時不加。
 - 視覺導演取劇情「開頭＋結尾」摘錄，以結尾（最新畫面）為準；服裝欄不得含髮色、瞳色、體型。
 - **角色位置絕對不寫死**：`use_coords: false`、所有角色中心都是 0.5，由 NovelAI 自行構圖（AI's Choice）。導演只用文字描述位置關係（前景／背景、誰在誰身後、面向誰、遠近），不給座標或左右格位。
-- 第一人稱視角（設定開關，`meta.cameraMode` = `pov`／`third`，預設 third）：繪圖時移除 `player_master`、主提示詞加 `pov, first-person view`（沒有其他角色時加 `no humans, scenery`），導演改以「離鏡頭多近、是否看向鏡頭」描述，玩家用手做事時加 `pov hands`。**視野外的角色不畫**：導演回報 `in_view`，程式另用 `isOutOfPovView_` 檢查（寫了 behind viewer／out of frame 等就算看不到，over shoulder／leaning in 仍算看得到），被排除的角色會從角色欄位與場景描述（`removeCharacterMentions_`）移除，並以 `buildCountTags_` 重算人數。不會多生圖。
+- 第一人稱視角（設定開關，`meta.cameraMode` = `pov`／`third`；新角色召喚時寫入 `third`，舊存檔沒設定過的仍是 pov，刻意不改以免朋友們畫面突變）：繪圖時移除 `player_master`、主提示詞加 `pov, first-person view`（沒有其他角色時加 `no humans, scenery`），導演改以「離鏡頭多近、是否看向鏡頭」描述，玩家用手做事時加 `pov hands`。**視野外的角色不畫**：導演回報 `in_view`，程式另用 `isOutOfPovView_` 檢查（寫了 behind viewer／out of frame 等就算看不到，over shoulder／leaning in 仍算看得到），被排除的角色會從角色欄位與場景描述（`removeCharacterMentions_`）移除，並以 `buildCountTags_` 重算人數。不會多生圖。
 - 導演只畫劇情當下明確出現的道具、武器與魔術效果，不自動加角色招牌物品。
 - 畫面方向自動切換（`pickNaiSize_`）：畫面只有 1 個角色 → 直式 832×1216；2 人以上或純風景 → 橫式 1216×832（兩者像素量相同，都在免費範圍）。第一人稱濾掉視野外角色後會重新判斷。前端畫框依圖片比例切換（`.cg-viewport.portrait`，高度上限 78vh），圖片用 contain 不裁切。
-- 便服：`GameData.js` 的 `casual`（目前有斯卡哈、Saber、Rider）。本回合結束時人在據點（廢棄洋館）且沒開戰，就從戰鬥靈衣換成便服；離開據點或開戰換回。導演收到 `At Home Base`，只有在據點才能用便服；導演若把便服改回戰鬥服（`outfitSimilarity_` ≥ 0.5），程式會改回便服。武器只在戰鬥或解放寶具時才畫：系統提示詞要求非戰鬥時武器靈體化，非戰鬥場景的角色負面提示詞自動加入 `holding weapon, weapon, spear, polearm, sword`。
+- 便服：`GameData.js` 的 `casual`（目前有斯卡哈、Saber、Rider）。本回合結束時人在據點（廢棄洋館）且沒開戰，就從戰鬥靈衣換成便服（人在據點沒開戰時不看劇情字眼，避免「警戒」「魔槍」等字誤換回戰鬥服）；離開據點或開戰換回。導演收到 `At Home Base`，只有在據點才能用便服；導演若把便服改回戰鬥服（`outfitSimilarity_` ≥ 0.5），程式會改回便服。武器只在戰鬥或解放寶具時才畫：系統提示詞要求非戰鬥時武器靈體化，非戰鬥場景的角色負面提示詞自動加入 `holding weapon, weapon, spear, polearm, sword`。
 - 鏡頭規則（FRAMING，2026-11 八場景實測後加入）：臉是核心，導演選「能容下所有人的最近鏡頭」——1 人 cowboy shot／upper body（單人寶具 cowboy shot, from below），2～3 人 medium shot，wide shot 只限 4 人以上、兩方遠距離對戰或純風景；浪漫場景 upper body／close-up；鐵絲網、玻璃、人群不可擋在臉前面。實測 8 張有 4 張原本是遠景小人，改後都變成半身清楚。
 - 導演文字的程式修正（`generateTurnCgAsync` 合併導演結果後）：
   - `refineFramingTags_`：medium shot 不是 Danbooru 標籤，1～2 人時換成 `cowboy shot`（實測小次郎從遠景小人變半身、戰鬥時臉也清楚）。
   - `refineGazeAction_`：「looking away from the viewer」裡的 viewer 反而讓角色看鏡頭 → 改成 `looking away, looking to the side`；視線不看鏡頭時該角色負面加 `looking at viewer`。
   - 擁抱／親吻（`isRomanticInteraction_`）：主提示詞改成 upper body 並去掉 medium／wide shot（`refineRomanceFraming_`）；`mutual#embrace` 換成 Danbooru 的 `mutual#hug`。
   - 第一人稱：畫面裡沒有對象，去掉 source#／target#／mutual# 前綴；有 `incoming kiss` 時主提示詞加 `incoming kiss, face focus`，角色加 `closed eyes, puckered lips` 並去掉微笑、半睜眼、看鏡頭。
-  - 親密動作補 Danbooru 標籤（`INTIMACY_TAGS_`、`detectIntimacyTags_`，加在主提示詞）：從背後抱 `hug from behind`、親臉頰 `kissing cheek`（不用 incoming kiss，也不加嘟唇）、膝枕 `lap pillow`、摸頭 `headpat`、額頭相抵 `forehead-to-forehead`、牽手 `holding hands`、擁抱 `hug`。第一人稱另換構圖：膝枕 `LAP_POV_TAGS_`（`lap pillow, pov, lying, from below, looking down at viewer, 0.8::thighs::, face focus, ceiling, close-up`（大腿 1.0 偶爾膝蓋頂到鏡頭前，0.8 較穩）；只有膝枕沒有掏耳朵時負面加 `mimikaki, ear pick`（NovelAI 看到膝枕常自己補耳挖）；日文標籤「膝枕」「見上げる」實測沒有差別，NovelAI 只認英文 Danbooru 標籤；第三人稱膝枕用 `LAP_3RD_TAGS_`（`lap pillow, from above, close-up, upper body, face focus`，使用者在 3 種鏡頭中選了從上往下近景；兩人畫面一般不用 face focus，但膝枕這組 6 張實測都正常）；原本有 breasts，因為這組標籤會套用到所有角色（含孩童外觀角色）而拿掉，比對顯示有無差異很小；比對 12 種寫法：大腿降權到 0.6 時膝枕感消失、只像她低頭看你，upside-down 無效；同一個 seed 構圖大致固定，標籤只能微調）；摸頭 `headpat pov, from below, reaching towards viewer`；擁抱 `incoming hug`；親臉頰改成她從側面湊近閉眼。實測都比自然語言描述準。
+  - 親密動作補 Danbooru 標籤（`INTIMACY_TAGS_`、`detectIntimacyTags_`，加在主提示詞）：從背後抱 `hug from behind`、親臉頰 `kissing cheek`（不用 incoming kiss，也不加嘟唇）、膝枕 `lap pillow`、摸頭 `headpat`、額頭相抵 `forehead-to-forehead`、牽手 `holding hands`、擁抱 `hug`。第一人稱另換構圖：膝枕 `LAP_POV_TAGS_`（`lap pillow, pov, lying, from below, looking down at viewer, 0.8::thighs::, face focus, ceiling, close-up`（大腿 1.0 偶爾膝蓋頂到鏡頭前，0.8 較穩）；只有膝枕沒有掏耳朵時負面加 `mimikaki, ear pick`（NovelAI 看到膝枕常自己補耳挖）；日文標籤「膝枕」「見上げる」實測沒有差別，NovelAI 只認英文 Danbooru 標籤；第三人稱膝枕用 `LAP_3RD_TAGS_`（`lap pillow, from above, close-up, upper body, face focus`，使用者在 3 種鏡頭中選了從上往下近景；兩人畫面一般不用 face focus，但膝枕這組 6 張實測都正常）；原本有 breasts，因為這組標籤會套用到所有角色（含孩童外觀角色）而拿掉，比對顯示有無差異很小；比對 12 種寫法：大腿降權到 0.6 時膝枕感消失、只像她低頭看你，upside-down 無效；同一個 seed 構圖大致固定，標籤只能微調）；摸頭 `headpat pov, from below, reaching towards viewer`；擁抱 `incoming hug`（站著迎面抱過來才用；躺著／在床上改用 `hug, lying, from above, upper body`，否則會畫出頭和身體斷開的怪圖）；親臉頰改成她從側面湊近閉眼。實測都比自然語言描述準。
   - 情緒高點（哭泣、流淚，1～2 人）：主提示詞人數標籤後面直接放 `upper body, face focus, streaming tears`（鏡頭標籤越前面權重越高）。
   - **重要發現**：角色服裝欄位加權寫了長裙、褲襪、靴子、高跟鞋時，NovelAI 會為了畫出它們把鏡頭拉成全身，導演寫上半身也沒用。`stripLowerBodyForCloseUp_`：鏡頭是 upper body／close-up／portrait／face focus 時拿掉下半身衣物標籤；cowboy shot 時只拿掉鞋類（`FOOTWEAR_RE_`）。實測櫻哭泣從全身變成淚眼特寫、Rider 不再每張都全身。
   - 兩人對打或面對面（2 人、互動含 clash／confront／duel／facing each other）：主提示詞加 `from side`、刪掉角色欄位的 foreground，避免一人站前景背對鏡頭（實測 Saber 背影 → 三次都是側面對峙、雙方臉都看得到）。導演規則也禁止無故背對鏡頭。
@@ -105,6 +105,7 @@
 - 時代背景 2004 年：系統提示詞與導演都要求手機是翻蓋手機（flip phone），主負面提示詞含 `smartphone`。
 - 第一人稱「以角色為主」：導演以特寫／上半身／中景框住看得到的角色，背景加景深退到次要；沒有角色時才用廣角。
 - 主負面提示詞（`generateNovelAIImageSafe_` 的 `defaultUc`）刻意保持精簡：只排除品質底線、文字浮水印、馬賽克。不要加回 V1～V3 時代的長串（bad, error, extra, bad hands…），實測會讓 V5 畫面變灰、細節變少。角色專屬負面放在 `GameData.js` 的 uc。
+- 成人模式關閉（`adultOffOutfit_`，獨立於上面的角色把關、可單獨上線；部署腳本不會拿掉它）：只在劇情讓角色脫光時作用，把裸露標籤換成通用的 `convenient censoring`（不指定衣物，由 NovelAI 依畫面用頭髮、手臂、蒸氣、毛巾、被子自然遮住、不露點）；主負面另加 `nsfw, nude, nipples, completely nude, topless`（試過再加 ass, bare buttocks，使用者不要，已拿掉）。平常穿著的場景不受影響。比較過「依場合指定浴巾／被子／背心」，使用者選通用版（較自然、不會猜錯場合、不干擾角色習慣）。
 - 互動語法只允許 `source#`／`target#`／`mutual#` 前綴。導演常寫成「名字#動作#對象」或「動作#對象」，`stripBadInteractionPrefix_` 會轉成 `source#動作`，名字前綴則去掉。
 - 角色名字只出現在該角色自己的欄位：導演規則禁止在別人欄位與主提示詞寫名字；程式另用 `stripOtherCharNames_`（`CHAR_EN_NAMES_` 英文稱呼表）把別人欄位裡的名字換成 another character、主提示詞裡的換成 a figure（自己的名字與 Danbooru 角色標籤不動）。名字寫進別人欄位會讓 NovelAI 多畫一個那個人。
 - NovelAI 免費範圍（Opus）：一次 1 張、不用底圖、尺寸 ≤ 約 1024×1024 像素量（目前 1216×832）、steps ≤ 28。V5 的免費額度是會自動回復的用量條，用完會**自動改扣 Anlas**，所以不要調高尺寸、steps 或一次生多張。
@@ -146,6 +147,7 @@
 - 後台陣營廝殺在第 3 天以前不會淘汰任何陣營。
 - 戰力判定（`assessCombat_`）：回合前從玩家行動找出對手陣營（`COMBAT_TARGET_ALIASES_`、或身處對方據點 `FACTION_HOME_`），依從者等級 `SERVANT_TIER_`、主從羈絆（好感 ≥80 +1、100 +2）、情報（真名／弱點）、事前準備／奇襲、在對方陣地（柳洞寺 −2）、盟友參戰、令咒 +2、魔力、雙方傷勢加總成 大優勢／小優勢／均勢／劣勢／絕望，寫進 statePrompt 要 AI 依等級裁定，開戰時結算顯示。
 - 最終 Boss（`maybeSummonFinalBoss_`）：其他陣營都化解、英雄王還沒亮相時，教會組改為「英雄王吉爾伽美什現身・大聖杯守門者」（`meta.gilFinal`），當回合不能通關；打倒後 `meta.gilDefeated`。
+- 英雄王提早現身（使用者指定只限這個情況）：後台廝殺的低機率淘汰剛好落在愛因茲貝倫組時（第 3 天後、該組已負傷、12%、仍剩 4 組以上），改成「遭英雄王吉爾伽美什擊潰」，教會組狀態改為「英雄王吉爾伽美什已現身・遊蕩中」、`meta.gilRevealedEarly = true`，statePrompt 由 `describeFinalBossForPrompt_` 告知他在冬木遊蕩、可能偶遇或介入；其他陣營被後台淘汰照舊。最終 Boss（`maybeSummonFinalBoss_`）流程不變。
 - Berserker 十二試煉（`meta.godHand` = { lost, methods }）：AI 以 `berserker_lives_lost` 回報玩家這邊殺死他幾次；伺服器限制 Berserker 在場且開戰才算、一般最多 1 條、寶具最多 2 條，殺過他的同一種手段之後無效（`applyGodHandHits_`）。命數未歸零時愛因茲貝倫組不會因戰鬥淘汰，除非御主伊莉雅被打倒／投降（`gateGodHandElimination_`）。後台廝殺不扣命數。情報視窗顯示已擊破數與免疫手段。
 - 狀態資料會告訴 AI 御主性別（她／他）。
 - AI 回傳不認得的地名時維持原地；副從者靈基「消滅」會清空副從者欄位；御主狀態寫「已死亡」視同死亡結局（保命符仍可擋下）。

@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, stripLowerBodyForCloseUp_, stripActionTermsInUc_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -175,6 +175,12 @@ const scaN = { defaultOutfit: 'scathach battle bodysuit', casualOutfit: 'white s
 eq('全裸：在據點沒穿衣 → 維持全裸', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '一起泡澡', '熱氣蒸騰', false, '廢棄洋館'), NUDE);
 eq('全裸：從者開戰 → 自動具現戰鬥裝', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '有人闖入', '', true, '廢棄洋館'), 'scathach battle bodysuit');
 eq('全裸：從者離開據點 → 戰鬥裝', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '出門', '', false, '新都'), 'scathach battle bodysuit');
+{
+  const scaDb = { defaultOutfit: 'purple bodysuit, thighhighs', casualOutfit: 'white sweater, black pantyhose' };
+  eq('在家沒開戰、劇情提到警戒魔槍 → 維持便服', T.autoAdaptSmartOutfit_('scathach', 'white sweater, black pantyhose', scaDb, '煮燉菜', '斯卡哈在陰影處保持警戒，魔槍靠在牆邊', false, '廢棄洋館'), 'white sweater, black pantyhose');
+  eq('在家開戰 → 換回戰鬥服', T.autoAdaptSmartOutfit_('scathach', 'white sweater, black pantyhose', scaDb, '迎戰', '', true, '廢棄洋館'), 'purple bodysuit, thighhighs');
+  eq('出門 → 換回戰鬥服', T.autoAdaptSmartOutfit_('scathach', 'white sweater, black pantyhose', scaDb, '出門', '', false, '新都'), 'purple bodysuit, thighhighs');
+}
 eq('全裸：從者穿上衣服 → 還原', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '幫她穿上衣服', '', false, '廢棄洋館'), 'scathach battle bodysuit');
 eq('全裸：御主開戰也不會自動穿', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '迎戰', '', true, '新都'), NUDE);
 eq('全裸：御主劇情別人穿衣不算', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '看著她', '斯卡哈穿上衣服', false, '廢棄洋館'), NUDE);
@@ -388,6 +394,24 @@ eq('looking away from viewer → looking away', T.refineGazeAction_('blush, look
 eq('別過頭 → 視線不看鏡頭', T.refineGazeAction_('looking at another character, smile').averted, true);
 eq('看鏡頭 → 不算別過頭', T.refineGazeAction_('looking at viewer, smile').averted, false);
 eq('擁抱 → 上半身、去掉 medium shot', T.refineRomanceFraming_('2girls, medium shot, rooftop'), 'upper body, 2girls, rooftop');
+
+// 後台廝殺：只有愛因茲貝倫組被淘汰時，改成英雄王出手並提早現身
+{
+  const withRandom = (seq, fn) => { vm.runInContext('__seq = ' + JSON.stringify(seq) + '; __origRandom = Math.random; Math.random = () => (__seq.length ? __seq.shift() : 0.99);', ctx); try { return fn(); } finally { vm.runInContext('Math.random = __origRandom;', ctx); } };
+  const F = () => ({ '衛宮組 (Saber陣營)': '存活', '愛因茲貝倫組 (Berserker陣營)': '交戰負傷・休整中', '遠坂組 (Archer陣營)': '存活', '教會組 (Lancer陣營)': '存活 (表面中立)' });
+  const g = withRandom([0.1, 0.0, 0.3, 0.0, 0.05], () => T.simulateOffscreenFactionWar_(F(), 3, '深夜', []));
+  eq('愛因茲貝倫被後台淘汰 → 英雄王出手', [/英雄王/.test(g.updatedFactions['愛因茲貝倫組 (Berserker陣營)']), g.gilRevealed, /英雄王.*遊蕩/.test(g.updatedFactions['教會組 (Lancer陣營)'])], [true, true, true]);
+  eq('英雄王出手時衛宮組不會被寫成勝出', g.updatedFactions['衛宮組 (Saber陣營)'], '存活');
+  const F2 = () => ({ '衛宮組 (Saber陣營)': '存活', '遠坂組 (Archer陣營)': '交戰負傷・休整中', '愛因茲貝倫組 (Berserker陣營)': '存活', '教會組 (Lancer陣營)': '存活 (表面中立)' });
+  const n = withRandom([0.1, 0.0, 0.3, 0.0, 0.05], () => T.simulateOffscreenFactionWar_(F2(), 3, '深夜', []));
+  eq('其他陣營被後台淘汰 → 照舊、英雄王不現身', [/已淘汰/.test(n.updatedFactions['遠坂組 (Archer陣營)']), /英雄王/.test(JSON.stringify(n)), Boolean(n.gilRevealed)], [true, false, false]);
+  eq('英雄王提早現身時提示詞告知遊蕩中', /英雄王已現身/.test(T.describeFinalBossForPrompt_({ gilRevealedEarly: true }, g.updatedFactions)), true);
+  eq('沒現身時不提', T.describeFinalBossForPrompt_({}, F()), '');
+}
+
+// 成人模式關閉：依場合替換
+eq('關閉＋裸露 → 通用遮擋', T.adultOffOutfit_('nude, completely nude, no clothes', '幫斯卡哈搓背', 'x'), 'convenient censoring');
+eq('穿著的不替換', T.adultOffOutfit_('white sweater', '泡澡', 'x'), 'white sweater');
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

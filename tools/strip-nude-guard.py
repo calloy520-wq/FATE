@@ -16,7 +16,7 @@ def code(s):
     m = re.search(r"    profile\.outfit = sanitizeNudeOutfitForChar_\([^\n]*\n", s); assert m
     s = s[:m.start()] + "    if (wantsNude && !isNudeOutfitTags_(profile.outfit)) profile.outfit = 'nude, completely nude, no clothes';\n" + s[m.end():]
     a = s.index('      // 導演回報的裸露先經過把關')
-    b = s.index('      const directedNude = ', a)
+    b = s.index('      // 成人模式關閉：導演回報的裸露', a)
     s = s[:a] + s[b:]
     return s
 def tests(s):
