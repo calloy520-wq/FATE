@@ -2447,6 +2447,7 @@ function resetCurrentRunKeepCareer(playerName) {
       artStyle: oldMeta.artStyle || 'official',
       gameTone: normalizeGameToneKey_(oldMeta.gameTone),
       toneLocked: false,
+      sandboxChars: Array.isArray(oldMeta.sandboxChars) ? oldMeta.sandboxChars : undefined, // 自創角色是玩家的設計，砍掉重來也保留
       wish: '抵達根源，改寫這場扭曲的聖杯儀式',
       masterCondition: '完好無損',
       servantCondition: '靈基穩定',
@@ -2877,9 +2878,13 @@ function completeCreationTextOnly(params) {
     const charDb = getCharAppearanceMap_(ss);
     const pool = getSummonableServantsList_(charDb);
 
-    let targetServantId = params.servantId;
+    // 自由沙盒不召喚英靈：直接進入日常，同伴到「👥 同行」挑現有角色或自創
+    const sandboxStart = slotModeOf_(cleanName) === 'SANDBOX';
+    let targetServantId = sandboxStart ? '' : params.servantId;
     let customServant = null;
-    if (targetServantId === 'CUSTOM') {
+    if (sandboxStart) {
+      setActiveCustomServant_(null);
+    } else if (targetServantId === 'CUSTOM') {
       customServant = sanitizeCustomServant_(params.customServant);
       setActiveCustomServant_(customServant);
       targetServantId = CUSTOM_SERVANT_ID_;
@@ -2887,7 +2892,9 @@ function completeCreationTextOnly(params) {
       setActiveCustomServant_(null);
     }
     const charDbNow = getCharAppearanceMap_(ss);
-    if (targetServantId === 'saber_alter') {
+    if (sandboxStart) {
+      // 不需要從者
+    } else if (targetServantId === 'saber_alter') {
       throw new Error('黑 Saber（saber_alter）無法於開局直接召喚，僅能透過櫻線黑泥吞噬原版 Saber 的劇情事件覺醒！');
     }
     if (!targetServantId || targetServantId === 'RANDOM') {
@@ -2896,7 +2903,7 @@ function completeCreationTextOnly(params) {
     } else if (!customServant && !pool.some(p => p.id === targetServantId)) {
       throw new Error('指定的英靈不在可召喚名單中！');
     }
-    const servantInfo = charDbNow[targetServantId];
+    const servantInfo = sandboxStart ? { triggers: '' } : charDbNow[targetServantId];
     if (!servantInfo) throw new Error('指定的英靈不存在於資料庫中！');
 
     const originName = ORIGIN_PRESETS_[params.masterOrigin] ? params.masterOrigin : '時鐘塔叛逃魔術師';
@@ -2933,6 +2940,8 @@ function completeCreationTextOnly(params) {
       bondLevel: 25,
       cameraMode: 'third', // 新角色預設第三人稱（召喚那張才看得到御主）；既有存檔沒設定的維持第一人稱，不突然改變朋友們的畫面
       customServant: customServant,
+      sandboxChars: Array.isArray(oldMeta.sandboxChars) ? oldMeta.sandboxChars : [],
+      sandboxParty: [],
       customLocationNotes: {},
       phoneState: {
         forumPosts: buildInitialForumPosts_(1, '深夜'),
@@ -2965,12 +2974,22 @@ function completeCreationTextOnly(params) {
       '- "scene_env_en": Concise English background/lighting tags ONLY (NO text/speech bubbles, NO character appearance).'
     ].join('\n');
 
+    const sandboxSystemPrompt = [
+      'You are the Game Master of a slice-of-life sandbox set in Fuyuki City (Fate/stay night world, early February 2004). There is NO Holy Grail War in this sandbox and the player has NO Servant yet.',
+      'FORMATTING RULE: Separate `story` into 3 distinct paragraphs using `\\n\\n`; prefix every dialogue line (`「...」`) with the speaker name on its own line.',
+      'Output strictly valid JSON with keys:',
+      '- "story": Traditional Chinese opening (180-260 words): the player starts a peaceful day-to-day life in Fuyuki late at night (their base is an old western-style mansion), reflecting their wish/goal. No summoning, no battle, no Servant.',
+      '- "master_action_en": Concise English pose & expression tags for the player (NO hair/eyes/clothes).',
+      '- "scene_env_en": Concise English background/lighting tags ONLY.'
+    ].join('\n');
     const userMsg = `Master Name: ${displayNameOf_(cleanName)}\nMaster Gender: ${params.masterGender === 'boy' ? 'male（用「他」）' : 'female（用「她」）'}\nOrigin: ${originName} (${originPreset.desc})\nHoly Grail Wish: ${wishText}\nMode: ${row[3]}\nSummoned Servant ID: ${targetServantId} (${servantInfo.triggers})\nRelic/Catalyst used: ${params.relicNote || '大聖杯共鳴'}${customServant ? `\nORIGINAL SERVANT (player-designed; use EXACTLY this name, class and params, invent nothing that contradicts it): name=${customServant.name}, class=${customServant.cls}, params=${customServantParamsText_(customServant.stats)}, noble phantasm=${customServant.npName || 'unrevealed'} ${customServant.npEffect}, personality=${customServant.personality || 'free'}` : ''}`;
 
     lock.releaseLock();
     lockHeld = false;
 
-    summonData = callGeminiLiteJson_(systemPrompt, userMsg, 0.7, 2000);
+    summonData = sandboxStart
+      ? callGeminiLiteJson_(sandboxSystemPrompt, `Player Name: ${displayNameOf_(cleanName)}\nGender: ${params.masterGender === 'boy' ? 'male（用「他」）' : 'female（用「她」）'}\nBackground: ${originName}\nWish / goal: ${wishText}`, 0.7, 1500)
+      : callGeminiLiteJson_(systemPrompt, userMsg, 0.7, 2000);
 
     lock.waitLock(20000);
     lockHeld = true;
@@ -2989,6 +3008,10 @@ function completeCreationTextOnly(params) {
     row[21] = 25;
     row[22] = customServant ? customServantParamsText_(customServant.stats) : (summonData.servant_params || '筋力:A 耐久:B 敏捷:A 魔力:B 幸運:C 寶具:A+');
     row[30] = `第1夜，出身「${originName}」的御主「${displayNameOf_(cleanName)}」懷抱願望【${wishText}】，以獨立第8組身分召喚了【${row[18]}・${row[19]}】參戰。`;
+    if (sandboxStart) {
+      row[17] = ''; row[18] = ''; row[19] = ''; row[22] = '';
+      row[30] = `第1夜，「${displayNameOf_(cleanName)}」懷著【${wishText}】的心願，在冬木市展開日常生活。`;
+    }
 
     newMeta.turnCount = 1;
     row[31] = serializeMeta_(newMeta);
@@ -3002,7 +3025,7 @@ function completeCreationTextOnly(params) {
       [
         { id: 'player_master', action_en: summonData.master_action_en || 'raising hand, surprised expression', use_np: false },
         { id: statusObj.servant1.id, action_en: summonData.servant_action_en || 'standing confidently, slight smirk', use_np: false }
-      ],
+      ].filter(c => c.id),
       summonData.scene_env_en || 'glowing magic circle, dimly lit underground workshop, mana particles, dramatic lighting',
       false,
       '【啟動英靈召喚儀式】',
@@ -3010,7 +3033,7 @@ function completeCreationTextOnly(params) {
       1
     );
 
-    appendPlayerChatLog_(ss, cleanName, 1, `Day 1・深夜 (${statusObj.location})`, '【啟動英靈召喚儀式】', formattedStory, `player_master, ${statusObj.servant1.id}`, JSON.stringify(imgPayload), '');
+    appendPlayerChatLog_(ss, cleanName, 1, `Day 1・深夜 (${statusObj.location})`, sandboxStart ? '【展開日常】' : '【啟動英靈召喚儀式】', formattedStory, ['player_master', statusObj.servant1.id].filter(Boolean).join(', '), JSON.stringify(imgPayload), '');
 
     return {
       status: statusObj,
@@ -3530,7 +3553,7 @@ function processFateTurnTextOnly(params) {
       `【當前場地現況】${statusObj.locationInfo.desc}`,
       `【幕後戰況（只有 GM 知道；玩家與從者不知道哪些陣營交手、誰勝誰負，只能透過論壇目擊、使魔、聯絡或親自調查慢慢得知）】${statusObj.warTicker}`,
       `【御主(${displayNameOf_(cleanName)})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
-      `【主從者】ID:${statusObj.servant1.id} (${statusObj.servant1.class}・${statusObj.servant1.name}) | 羈絆好感:${statusObj.bondLevel}/100 | 靈基狀態:${statusObj.servant1.condition}`,
+      statusObj.servant1.id ? `【主從者】ID:${statusObj.servant1.id} (${statusObj.servant1.class}・${statusObj.servant1.name}) | 羈絆好感:${statusObj.bondLevel}/100 | 靈基狀態:${statusObj.servant1.condition}` : `【主從者】無${isSandboxMode ? '（自由沙盒：沒有契約從者）' : ''}`,
       statusObj.servant2.id ? `【副從者】ID:${statusObj.servant2.id} (${statusObj.servant2.class}・${statusObj.servant2.name}) | 靈基狀態:${statusObj.servant2.condition || '靈基穩定'}` : '【副從者】無',
       `【相關角色目前穿著（未列出者為預設服裝）】${JSON.stringify(relevantOutfits)}`,
       `【七組陣營狀態（幕後真相，推演前必先對照，同盟陣營須彼此照應；角色只知道自己見過或打聽到的部分）】${JSON.stringify(statusObj.factions)}`,
@@ -3538,7 +3561,7 @@ function processFateTurnTextOnly(params) {
       describeIntelForPrompt_({ factionIntel: metaBefore.factionIntel || initFactionIntel_(statusObj.factions, true) }),
       describeGodHandForPrompt_(metaBefore.godHand, statusObj.factions),
       describeCompanionsForPrompt_(metaBefore),
-      isSandboxMode ? describeSandboxCharsForPrompt_(metaBefore) : '',
+      isSandboxMode ? describeSandboxCharsForPrompt_(metaBefore, userAction) : '',
       statusObj.gameMode === 'WAR' ? describeFavorForPrompt_(metaBefore, statusObj.factions) : '',
       statusObj.gameMode === 'WAR' ? describeAppointmentsForPrompt_(metaBefore, timeIndex_(statusObj.day, statusObj.timePeriod)) : '',
       describeCombatAssessForPrompt_(combatAssess),
@@ -4168,12 +4191,13 @@ function processFateTurnTextOnly(params) {
       const sbChars = ACTIVE_SANDBOX_CHARS_ || [];
       const sbParty = sandboxPartyOf_(meta);
       const listed = new Set((Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => c && c.id));
-      sbChars.forEach(c => {
-        if (listed.has(c.id)) return;
-        if (sbParty.indexOf(c.id) >= 0 || String(turnJson.story || '').indexOf(c.name) >= 0) {
-          turnJson.present_chars = (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).concat([{ id: c.id, use_np: false, action_en: 'standing nearby' }]);
-        }
-      });
+      const addPresent = id => {
+        if (listed.has(id)) return;
+        listed.add(id);
+        turnJson.present_chars = (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).concat([{ id: id, use_np: false, action_en: 'standing nearby' }]);
+      };
+      sbParty.forEach(addPresent);
+      sbChars.forEach(c => { if (String(turnJson.story || '').indexOf(c.name) >= 0) addPresent(c.id); });
       const sbNames = sbChars.map(c => c.name);
       const guests = sanitizeGuestChars_(turnJson.guest_chars).filter(g => !sbNames.some(n => n === g.name || g.name.indexOf(n) >= 0 || n.indexOf(g.name) >= 0));
       if (guests.length) {
@@ -5522,7 +5546,7 @@ function previewCustomServant(raw, mode) {
 
 // ==================== 自由沙盒：玩家自創角色（最多 6 位，同行最多 2 位） ====================
 // 只存在沙盒那一列存檔（meta.sandboxChars／meta.sandboxParty）；聖杯戰爭模式不讀、提示詞也不加
-const SANDBOX_CHAR_MAX_ = 6;
+const SANDBOX_CHAR_MAX_ = 5;
 const SANDBOX_PARTY_MAX_ = 2;
 let ACTIVE_SANDBOX_CHARS_ = [];
 
@@ -5553,21 +5577,34 @@ function setActiveSandboxChars_(list) {
   CHAR_DB_MEMO_ = null;
 }
 
-function sandboxPartyOf_(meta) {
+// 同行可以是現有角色（GameData.js 的本作角色）或玩家自創角色
+function sandboxPartyCandidates_(meta) {
   const ids = new Set((Array.isArray(meta && meta.sandboxChars) ? meta.sandboxChars : []).map(c => c && c.id));
+  (typeof FATE_CHARACTERS_ !== 'undefined' ? FATE_CHARACTERS_ : []).forEach(c => { if (c.id !== 'player_master') ids.add(c.id); });
+  return ids;
+}
+function sandboxPartyOf_(meta) {
+  const ids = sandboxPartyCandidates_(meta);
   return (Array.isArray(meta && meta.sandboxParty) ? meta.sandboxParty : []).filter(id => ids.has(id)).slice(0, SANDBOX_PARTY_MAX_);
 }
+function sandboxMemberName_(meta, id) {
+  const own = (Array.isArray(meta && meta.sandboxChars) ? meta.sandboxChars : []).find(c => c && c.id === id);
+  if (own) return own.name;
+  const c = (typeof FATE_CHARACTERS_ !== 'undefined' ? FATE_CHARACTERS_ : []).find(x => x.id === id);
+  return c ? String(c.names || id).split(',')[0].trim() : id;
+}
 
-function describeSandboxCharsForPrompt_(meta) {
+// 沒有同行、也沒提到自創角色時一個字都不加（使用者：沒同行就不用花）
+function describeSandboxCharsForPrompt_(meta, userAction) {
   const list = Array.isArray(meta && meta.sandboxChars) ? meta.sandboxChars : [];
-  if (!list.length) return '';
   const party = sandboxPartyOf_(meta);
-  const desc = c => `${c.name}（ID:${c.id}・${c.gender === 'boy' ? '男' : '女'}${c.relation ? '・' + c.relation : ''}${c.personality ? '・個性:' + c.personality : ''}）`;
-  const inParty = list.filter(c => party.indexOf(c.id) >= 0);
-  const away = list.filter(c => party.indexOf(c.id) < 0);
+  const descOwn = c => `${c.name}（ID:${c.id}・玩家自創・${c.gender === 'boy' ? '男' : '女'}${c.relation ? '・' + c.relation : ''}${c.personality ? '・個性:' + c.personality : ''}）`;
+  const desc = id => { const own = list.find(c => c.id === id); return own ? descOwn(own) : `${sandboxMemberName_(meta, id)}（ID:${id}・依原作個性）`; };
+  const act = String(userAction || '');
+  const called = list.filter(c => party.indexOf(c.id) < 0 && act.indexOf(c.name) >= 0);
   const lines = [];
-  if (inParty.length) lines.push(`【玩家自創角色・同行中】${inParty.map(desc).join('、')}：正跟在玩家身邊，本回合一定在場（用這個 ID 填進 present_chars），依個性說話行動。他們是本作角色，不要放進 guest_chars。`);
-  if (away.length) lines.push(`【玩家自創角色・不在身邊】${away.map(desc).join('、')}：玩家去找、叫來或劇情需要時才登場，登場時用這個 ID 填進 present_chars（不要放進 guest_chars）。`);
+  if (party.length) lines.push(`【同行中】${party.map(desc).join('、')}：正跟在玩家身邊，本回合一定在場（用這個 ID 填進 present_chars），依個性說話行動；不要放進 guest_chars。`);
+  if (called.length) lines.push(`【玩家提到的自創角色（目前不在身邊）】${called.map(descOwn).join('、')}：玩家去找或叫來時登場，用這個 ID 填進 present_chars（不要放進 guest_chars）。`);
   return lines.join('\n');
 }
 
@@ -5622,7 +5659,7 @@ function deleteSandboxCharacter(playerName, id) {
 
 function setSandboxParty(playerName, ids) {
   return updateSandboxMeta_(playerName, meta => {
-    const valid = new Set(meta.sandboxChars.map(c => c && c.id));
+    const valid = sandboxPartyCandidates_(meta);
     const uniq = [];
     (Array.isArray(ids) ? ids : []).forEach(id => { if (valid.has(id) && uniq.indexOf(id) < 0) uniq.push(id); });
     if (uniq.length > SANDBOX_PARTY_MAX_) throw new Error(`同行最多 ${SANDBOX_PARTY_MAX_} 位。`);
@@ -5876,6 +5913,7 @@ function parseSaveRow_(row) {
     appointments: Array.isArray(meta.appointments) ? meta.appointments.map(a => ({ name: companionDisplayName_(a.fk), day: a.day, period: a.period, place: a.place })) : [],
     sandboxChars: isSandboxKey_(row[0]) ? ACTIVE_SANDBOX_CHARS_ : [],
     sandboxParty: isSandboxKey_(row[0]) ? sandboxPartyOf_(meta) : [],
+    sandboxRoster: isSandboxKey_(row[0]) ? FATE_CHARACTERS_.filter(c => c.id !== 'player_master').map(c => ({ id: c.id, name: String(c.names || c.id).split(',')[0].trim() })) : [],
     companions: Object.keys((meta.companions && typeof meta.companions === 'object') ? meta.companions : {}).map(k => ({ faction: k, name: companionDisplayName_(k) })),
     godHand: (meta.godHand && typeof meta.godHand === 'object') ? meta.godHand : { lost: 0, methods: [] },
     factionIntel: (meta.factionIntel && typeof meta.factionIntel === 'object') ? meta.factionIntel : initFactionIntel_(safeJsonParse_(row[29], {}), true),

@@ -340,11 +340,13 @@ check('聖杯戰爭與沙盒各一列存檔', Boolean(slots2.war) && Boolean(slo
 geminiQueue.push({ story: '召喚陣亮起。', servant_class: 'Lancer', servant_name: '斯卡哈', servant_action_en: 'standing', master_action_en: 'calm', scene_env_en: 'magic circle' });
 const crSb = ctx.completeCreationAndSummon({ playerName: '沙盒測・沙盒', servantId: 'scathach', masterOrigin: '冬木市隱居古家族', masterGender: 'girl', masterWish: '悠閒過日子', gameMode: 'WAR', gameTone: 'HARDCORE_WAR', masterCoreTags: '1girl', masterOutfitTags: 'coat' });
 check('沙盒存檔一律是日常模式、鐵血被改成常理', crSb.status.gameMode === 'SANDBOX' && crSb.status.gameTone === 'BALANCED');
+check('沙盒開局不召喚英靈（沒有主從者、CG 只有御主）', !crSb.status.servant1.id && crSb.imagePayload.characters.every(c => c.id === 'player_master'));
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '初音未來在商店街唱歌。', ap_cost: 1, location: '深山町商店街', present_chars: [{ id: 'scathach', action_en: 'listening' }],
   guest_chars: [{ name: '初音未來', tag: 'hatsune miku', gender: 'girl', look: 'aqua hair, twintails, aqua eyes', action: 'singing, holding microphone' }, { name: '沒有外貌的人' }], scene_env_en: 'shopping street' });
 const tSb = ctx.processFateTurnTextOnly({ playerName: '沙盒測・沙盒', userAction: '叫初音未來來唱歌' });
 const guestSlot = tSb.imagePayload.characters.find(c => c.id === 'guest_1');
 check('沙盒的客串角色進入繪圖（用它的 Danbooru 標籤與外貌）', Boolean(guestSlot) && /hatsune miku/.test(guestSlot.prompt) && !tSb.imagePayload.characters.some(c => c.id === 'guest_2'));
+check('沒有同行時提示詞不加同行段落、主從者寫無', !/【同行中】/.test(userText(geminiRequests[geminiRequests.length - 1])) && /【主從者】無（自由沙盒/.test(userText(geminiRequests[geminiRequests.length - 1])));
 check('劇情提示詞只顯示名號、不帶「・沙盒」', /名號「沙盒測」/.test(userText(geminiRequests[geminiRequests.length - 1])) && !/沙盒測・沙盒/.test(userText(geminiRequests[geminiRequests.length - 1])));
 check('沙盒沒有 AP 限制', tSb.status.gameMode === 'SANDBOX');
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '一切如常。', ap_cost: 0, present_chars: [{ id: 'scathach', action_en: 'standing' }], guest_chars: [{ name: '初音未來', tag: 'hatsune miku', gender: 'girl', look: 'aqua hair' }], scene_env_en: 'room' });
@@ -358,6 +360,13 @@ check('聖杯戰爭存檔不能建自創角色', /自由沙盒/.test(sbErr));
 let stSb = ctx.saveSandboxCharacter('沙盒測・沙盒', { name: '莉莉', gender: 'girl', core: 'girl, pink hair, twintails, blue eyes', outfit: 'sailor uniform', personality: '元氣', relation: '學妹' });
 stSb = ctx.saveSandboxCharacter('沙盒測・沙盒', { name: '阿翔', gender: 'boy', core: 'boy, black hair', outfit: 'hoodie' });
 stSb = ctx.saveSandboxCharacter('沙盒測・沙盒', { name: '小雪', gender: 'girl', core: 'girl, white hair', outfit: 'kimono' });
+ctx.saveSandboxCharacter('沙盒測・沙盒', { name: '四號', core: 'girl' });
+ctx.saveSandboxCharacter('沙盒測・沙盒', { name: '五號', core: 'girl' });
+let maxErr = '';
+try { ctx.saveSandboxCharacter('沙盒測・沙盒', { name: '六號', core: 'girl' }); } catch (e) { maxErr = e.message; }
+check('自創角色最多 5 位', /最多 5 位/.test(maxErr));
+ctx.deleteSandboxCharacter('沙盒測・沙盒', 'sbc_4');
+stSb = ctx.deleteSandboxCharacter('沙盒測・沙盒', 'sbc_5');
 check('新角色有空位自動同行，最多 2 位', stSb.sandboxChars.length === 3 && stSb.sandboxParty.join() === 'sbc_1,sbc_2');
 let partyErr = '';
 try { ctx.setSandboxParty('沙盒測・沙盒', ['sbc_1', 'sbc_2', 'sbc_3']); } catch (e) { partyErr = e.message; }
@@ -368,9 +377,22 @@ geminiQueue.push({ outcome_type: 'CONTINUE', story: '莉莉拉著你的手逛街
   guest_chars: [{ name: '莉莉', gender: 'girl', look: 'red hair, short hair' }], scene_env_en: 'street' });
 const tSbc = ctx.processFateTurnTextOnly({ playerName: '沙盒測・沙盒', userAction: '和莉莉逛街' });
 const sbReq = userText(geminiRequests[geminiRequests.length - 1]);
-check('沙盒提示詞列出同行與不在身邊的自創角色', /玩家自創角色・同行中】莉莉（ID:sbc_1/.test(sbReq) && /不在身邊】阿翔/.test(sbReq));
+check('沙盒提示詞列出同行；不在身邊的只在玩家提到時才列', /【同行中】莉莉（ID:sbc_1/.test(sbReq) && /小雪（ID:sbc_3/.test(sbReq) && !/阿翔/.test(sbReq));
 const liliSlot = tSbc.imagePayload.characters.find(c => c.id === 'sbc_1');
 check('同行的自創角色補進繪圖、用存好的外貌（不被 AI 的客串外貌取代）', Boolean(liliSlot) && /pink hair/.test(liliSlot.prompt) && !tSbc.imagePayload.characters.some(c => /^guest_/.test(c.id)));
+stSb = ctx.setSandboxParty('沙盒測・沙盒', ['rin', 'sbc_1']);
+check('同行可以挑現有角色', stSb.sandboxParty.join() === 'rin,sbc_1');
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '凜走在旁邊抱怨天氣。', ap_cost: 0, present_chars: [], scene_env_en: 'street' });
+const tRin = ctx.processFateTurnTextOnly({ playerName: '沙盒測・沙盒', userAction: '打電話叫阿翔出來' });
+const rinReq = userText(geminiRequests[geminiRequests.length - 1]);
+check('現有角色同行進提示詞與繪圖；玩家提到的自創角色列出', /【同行中】.*（ID:rin・依原作個性）/.test(rinReq) && /玩家提到的自創角色.*阿翔/.test(rinReq) && tRin.imagePayload.characters.some(c => c.id === 'rin') && tRin.imagePayload.characters.some(c => c.id === 'sbc_1'));
+ctx.setSandboxParty('沙盒測・沙盒', ['sbc_1', 'sbc_3']);
+ctx.resetCurrentRunKeepCareer('沙盒測・沙盒');
+check('砍掉重來保留自創角色、同行清空', (() => { const st = ctx.loadExistingGame('沙盒測・沙盒').status; return st.sandboxChars.length === 3 && st.sandboxParty.length === 0; })());
+geminiQueue.push({ story: '新的一天。', master_action_en: 'stretching', scene_env_en: 'mansion' });
+ctx.completeCreationAndSummon({ playerName: '沙盒測・沙盒', masterOrigin: '冬木市隱居古家族', masterGender: 'girl', masterWish: '悠閒', gameTone: 'COMEDY_CHAOS', masterCoreTags: '1girl', masterOutfitTags: 'coat' });
+ctx.setSandboxParty('沙盒測・沙盒', ['sbc_1', 'sbc_3']);
+check('重新開局後自創角色還在', ctx.loadExistingGame('沙盒測・沙盒').status.sandboxChars.length === 3);
 stSb = ctx.deleteSandboxCharacter('沙盒測・沙盒', 'sbc_1');
 check('刪除角色也從同行移除', stSb.sandboxChars.length === 2 && stSb.sandboxParty.join() === 'sbc_3');
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '一切如常。', ap_cost: 0, present_chars: [{ id: 'scathach', action_en: 'standing' }], scene_env_en: 'room' });

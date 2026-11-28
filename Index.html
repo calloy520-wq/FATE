@@ -908,7 +908,7 @@
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;" class="form-group">
+          <div id="create-servant-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;" class="form-group">
             <div>
               <label class="form-label">✨ 召喚對象</label>
               <select id="create-servant-select" onchange="toggleCustomServantPanel()">
@@ -991,7 +991,7 @@
             <input type="text" id="create-outfit-tags" />
           </div>
 
-          <button class="btn btn-crimson" style="width: 100%; padding: 13px; font-size: 16px;" onclick="submitCreationAndSummon()">
+          <button class="btn btn-crimson" id="create-submit-btn" style="width: 100%; padding: 13px; font-size: 16px;" onclick="submitCreationAndSummon()">
             🔮 宣告誓詞・召喚英靈降臨！
           </button>
         </div>
@@ -1036,7 +1036,7 @@
           📱 手機
           <span id="ui-phone-unread" class="unread-dot hidden">0</span>
         </button>
-        <button class="btn btn-sm hidden" id="btn-sandbox-chars" onclick="openSandboxCharsModal()">👥 角色</button>
+        <button class="btn btn-sm hidden" id="btn-sandbox-chars" onclick="openSandboxCharsModal()">👥 同行</button>
         <button class="btn btn-sm" onclick="openFactionsModal()">📊 情報</button>
         <button class="btn btn-sm" onclick="openSettingsModal()">⚙️ 設定</button>
       </div>
@@ -1394,10 +1394,17 @@
   <div id="sbchars-modal" class="modal-backdrop hidden">
     <div class="modal-card">
       <div class="panel-header">
-        <span>👥 自創角色（自由沙盒）</span>
+        <span>👥 同行（自由沙盒）</span>
         <button class="btn btn-sm" onclick="closeModal('sbchars-modal')">✕</button>
       </div>
-      <div style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px;">最多 6 位，勾選「同行」的最多 2 位會一直跟在你身邊、每回合都在場；其他人在你去找、叫來時才登場。外貌用存好的標籤畫，長相固定。</div>
+      <div style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px;">同行最多 2 位，會一直跟在你身邊、每回合都在場，隨時可以換人。可以挑現有角色，也可以自創（最多 5 位，外貌用存好的標籤畫，長相固定）。沒有同行就不會多花提示詞。</div>
+      <div class="cs-title">目前同行</div>
+      <div id="sbparty-list" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;"></div>
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <select id="sbparty-roster" style="flex: 1;"></select>
+        <button class="btn btn-sm" type="button" onclick="addRosterToParty()">➕ 加入同行</button>
+      </div>
+      <div class="cs-title">✨ 自創角色</div>
       <div id="sbchars-list" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px;"></div>
       <button class="btn btn-sm" type="button" id="sbc-new-btn" onclick="editSandboxChar('')">➕ 新增角色</button>
       <div id="sbc-form" class="custom-servant-panel hidden" style="margin-top: 10px;">
@@ -1713,6 +1720,11 @@
       customOpt.value = 'CUSTOM';
       customOpt.textContent = '✨ 自創英靈';
       sel.appendChild(customOpt);
+      // 自由沙盒不召喚英靈：直接進入日常，之後到「👥 同行」挑現有角色或自創
+      const sandboxNow = currentState.gameMode === 'SANDBOX';
+      document.getElementById('create-servant-row').classList.toggle('hidden', sandboxNow);
+      document.getElementById('create-submit-btn').innerText = sandboxNow ? '🌸 展開日常生活！' : '🔮 宣告誓詞・召喚英靈降臨！';
+      if (sandboxNow) sel.value = 'RANDOM';
       toggleCustomServantPanel();
       applyGenderDefaultAppearance(true);
     }
@@ -1747,7 +1759,7 @@
     let servantTemplatesCache = null;
     function toggleCustomServantPanel() {
       const isCustom = document.getElementById('create-servant-select').value === 'CUSTOM';
-      document.getElementById('custom-servant-panel').classList.toggle('hidden', !isCustom);
+      document.getElementById('custom-servant-panel').classList.toggle('hidden', !isCustom || (currentState && currentState.gameMode === 'SANDBOX'));
       if (isCustom && !servantTemplatesCache) {
         google.script.run
           .withSuccessHandler(list => {
@@ -1880,7 +1892,7 @@
         gameTone: (document.getElementById('create-tone') || {}).value || 'BALANCED'
       };
 
-      showLoading('滿盈吧、滿盈吧、滿盈吧……正在構築召喚陣並締結契約...');
+      showLoading(params.gameMode === 'SANDBOX' ? '正在展開冬木市的日常...' : '滿盈吧、滿盈吧、滿盈吧……正在構築召喚陣並締結契約...');
       google.script.run
         .withSuccessHandler(res => {
           hideLoading();
@@ -1947,6 +1959,7 @@
 
       document.getElementById('ui-player-badge').innerText = displayPlayerName(s.playerName) + (s.gameMode === 'SANDBOX' ? ' 🌸' : '');
       document.getElementById('btn-sandbox-chars').classList.toggle('hidden', s.gameMode !== 'SANDBOX');
+      document.getElementById('btn-sandbox-chars').innerText = '👥 同行' + ((s.sandboxParty || []).length ? ' ' + s.sandboxParty.length : '');
       document.getElementById('ui-career-badge').innerText = `🏆${s.wins}勝 💀${s.losses}敗`;
       document.getElementById('ui-bond-badge').innerText = `💖 ${bond}`;
       document.getElementById('ui-tone-badge').innerText = TONE_META[tone].short;
@@ -3065,7 +3078,25 @@
           + `<button class="btn btn-sm" type="button" onclick="removeSandboxChar('${c.id}')">🗑️</button>`;
         box.appendChild(row);
       });
-      document.getElementById('sbc-new-btn').classList.toggle('hidden', list.length >= 6);
+      document.getElementById('sbc-new-btn').classList.toggle('hidden', list.length >= 5);
+      // 目前同行（現有角色或自創）
+      const pbox = document.getElementById('sbparty-list');
+      const roster = (currentState && currentState.sandboxRoster) || [];
+      const nameOf = id => { const own = list.find(x => x.id === id); if (own) return '✨ ' + own.name; const r = roster.find(x => x.id === id); return r ? r.name : id; };
+      pbox.innerHTML = party.length ? '' : '<div style="color: var(--text-muted); font-size: 12.5px;">目前沒有同行（一個人行動）。</div>';
+      party.forEach(id => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;border:1px solid var(--border-gold);border-radius:8px;padding:6px 8px;';
+        row.innerHTML = `<strong style="flex:1;">${escapeHtml(nameOf(id))}</strong><button class="btn btn-sm" type="button" onclick="toggleSandboxParty('${id}', false)">離隊</button>`;
+        pbox.appendChild(row);
+      });
+      const rsel = document.getElementById('sbparty-roster');
+      rsel.innerHTML = '<option value="">（挑選現有角色）</option>' + roster.filter(r => party.indexOf(r.id) < 0).map(r => `<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+    }
+    function addRosterToParty() {
+      const id = document.getElementById('sbparty-roster').value;
+      if (!id) { showNotice('sbchars-notice', '請先挑一位角色！', true); return; }
+      toggleSandboxParty(id, true);
     }
     function editSandboxChar(id) {
       const c = ((currentState && currentState.sandboxChars) || []).find(x => x.id === id) || {};
@@ -3092,6 +3123,8 @@
       if (st) currentState = st;
       showNotice('sbchars-notice', '', false);
       renderSandboxChars();
+      const b = document.getElementById('btn-sandbox-chars');
+      if (b) b.innerText = '👥 同行' + ((currentState.sandboxParty || []).length ? ' ' + currentState.sandboxParty.length : '');
     }
     function runEnhanceSandboxChar() {
       const c = collectSandboxChar();
@@ -3128,7 +3161,7 @@
     function toggleSandboxParty(id, on) {
       let party = ((currentState && currentState.sandboxParty) || []).filter(x => x !== id);
       if (on) party = party.concat([id]);
-      if (party.length > 2) { showNotice('sbchars-notice', '同行最多 2 位，請先取消一位。', true); renderSandboxChars(); return; }
+      if (party.length > 2) { showNotice('sbchars-notice', '同行最多 2 位，請先讓一位離隊。', true); renderSandboxChars(); return; }
       sbcCall('正在切換同行...', sbcSaved).setSandboxParty(currentState.playerName, party);
     }
 
