@@ -3587,7 +3587,9 @@ function processFateTurnTextOnly(params) {
       row[9] = Math.max(0, Math.min(100, newThreat));
     }
 
-    const spellsUsed = Math.max(0, Math.min(3, Number(turnJson.command_spells_used) || 0));
+    // 令咒只在玩家本回合提到令咒、或訂下第二契約時才扣（2026-11 實測：上一回合用了令咒，下一回合只是撤退清點，AI 又回報用了一畫）
+    const spellIntent = /令咒/.test(userAction) || Boolean(turnJson.new_servant2_id);
+    const spellsUsed = spellIntent ? Math.max(0, Math.min(3, Number(turnJson.command_spells_used) || 0)) : 0;
     if (spellsUsed > 0 && Number(row[16]) > 0) {
       row[16] = Math.max(0, Number(row[16]) - spellsUsed);
     }
