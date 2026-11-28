@@ -1036,6 +1036,7 @@
           📱 手機
           <span id="ui-phone-unread" class="unread-dot hidden">0</span>
         </button>
+        <button class="btn btn-sm hidden" id="btn-sandbox-chars" onclick="openSandboxCharsModal()">👥 角色</button>
         <button class="btn btn-sm" onclick="openFactionsModal()">📊 情報</button>
         <button class="btn btn-sm" onclick="openSettingsModal()">⚙️ 設定</button>
       </div>
@@ -1387,6 +1388,52 @@
         <button class="btn btn-sm" onclick="closeModal('factions-modal')">✕</button>
       </div>
       <div id="factions-list-content" style="font-size: 13.5px; display: flex; flex-direction: column; gap: 8px;"></div>
+    </div>
+  </div>
+
+  <div id="sbchars-modal" class="modal-backdrop hidden">
+    <div class="modal-card">
+      <div class="panel-header">
+        <span>👥 自創角色（自由沙盒）</span>
+        <button class="btn btn-sm" onclick="closeModal('sbchars-modal')">✕</button>
+      </div>
+      <div style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 8px;">最多 6 位，勾選「同行」的最多 2 位會一直跟在你身邊、每回合都在場；其他人在你去找、叫來時才登場。外貌用存好的標籤畫，長相固定。</div>
+      <div id="sbchars-list" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px;"></div>
+      <button class="btn btn-sm" type="button" id="sbc-new-btn" onclick="editSandboxChar('')">➕ 新增角色</button>
+      <div id="sbc-form" class="custom-servant-panel hidden" style="margin-top: 10px;">
+        <div class="cs-title" id="sbc-form-title">新增角色</div>
+        <input type="hidden" id="sbc-id" />
+        <div class="form-group cs-row cs-row-3">
+          <div><label class="form-label">名字</label><input type="text" id="sbc-name" maxlength="20" placeholder="例如：莉莉" /></div>
+          <div><label class="form-label">性別</label><select id="sbc-gender"><option value="girl">女</option><option value="boy">男</option></select></div>
+          <div><label class="form-label">身形</label><select id="sbc-build"><option value="">不指定</option><option value="petite">嬌小</option><option value="average">普通</option><option value="tall">高挑</option></select></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">中文外觀描述（按「找提示」轉成標籤）</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="sbc-zh" placeholder="例如：粉紅雙馬尾、藍眼睛、水手服的元氣學妹..." />
+            <button class="btn btn-sm" type="button" onclick="runEnhanceSandboxChar()">✨ 找提示</button>
+          </div>
+          <div id="sbc-advice" class="advice-box hidden"></div>
+        </div>
+        <div class="form-group"><label class="form-label">外觀 Tags（髮、瞳、體型）</label><input type="text" id="sbc-core" maxlength="500" /></div>
+        <div class="form-group"><label class="form-label">服裝 Tags</label><input type="text" id="sbc-outfit" maxlength="400" /></div>
+        <div class="form-group cs-row">
+          <div><label class="form-label">負面 Tags（避免畫錯）</label><input type="text" id="sbc-uc" maxlength="300" /></div>
+          <div><label class="form-label">預設表情 Tag</label><input type="text" id="sbc-expression" maxlength="60" placeholder="light smile" /></div>
+        </div>
+        <div class="form-group cs-row">
+          <div><label class="form-label">個性</label><input type="text" id="sbc-personality" maxlength="150" placeholder="例如：元氣、愛吐槽、怕鬼" /></div>
+          <div><label class="form-label">和你的關係</label><input type="text" id="sbc-relation" maxlength="60" placeholder="例如：青梅竹馬" /></div>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px;">
+          <button class="btn btn-sm" type="button" onclick="runPreviewSandboxChar()">🎨 定裝預覽</button>
+          <button class="btn btn-crimson btn-sm" type="button" onclick="submitSandboxChar()">💾 確定存檔</button>
+          <button class="btn btn-sm" type="button" onclick="document.getElementById('sbc-form').classList.add('hidden')">取消</button>
+        </div>
+        <div class="preview-frame" id="sbc-preview" style="max-height: 420px;"><span style="color: var(--text-muted); font-size: 12px;">填好外貌後按「定裝預覽」看看長相，滿意再存檔</span></div>
+      </div>
+      <div id="sbchars-notice" class="inline-notice hidden"></div>
     </div>
   </div>
 
@@ -1899,6 +1946,7 @@
       s.gameTone = tone;
 
       document.getElementById('ui-player-badge').innerText = displayPlayerName(s.playerName) + (s.gameMode === 'SANDBOX' ? ' 🌸' : '');
+      document.getElementById('btn-sandbox-chars').classList.toggle('hidden', s.gameMode !== 'SANDBOX');
       document.getElementById('ui-career-badge').innerText = `🏆${s.wins}勝 💀${s.losses}敗`;
       document.getElementById('ui-bond-badge').innerText = `💖 ${bond}`;
       document.getElementById('ui-tone-badge').innerText = TONE_META[tone].short;
@@ -2992,6 +3040,96 @@
       const startTab = ['f', 't', 'r'].includes(window.__intelTab) ? window.__intelTab : 'f';
       tabBar.querySelectorAll('.modal-tab')[['f', 't', 'r'].indexOf(startTab)].click();
       document.getElementById('factions-modal').classList.remove('hidden');
+    }
+
+    // ===== 自由沙盒：自創角色 =====
+    const SBC_FIELDS = ['name', 'gender', 'build', 'core', 'outfit', 'uc', 'expression', 'personality', 'relation'];
+    function openSandboxCharsModal() {
+      showNotice('sbchars-notice', '', false);
+      document.getElementById('sbc-form').classList.add('hidden');
+      renderSandboxChars();
+      document.getElementById('sbchars-modal').classList.remove('hidden');
+    }
+    function renderSandboxChars() {
+      const list = (currentState && currentState.sandboxChars) || [];
+      const party = (currentState && currentState.sandboxParty) || [];
+      const box = document.getElementById('sbchars-list');
+      box.innerHTML = list.length ? '' : '<div style="color: var(--text-muted); font-size: 12.5px;">還沒有自創角色。</div>';
+      list.forEach(c => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;border:1px solid var(--border-gold);border-radius:8px;padding:6px 8px;';
+        const inParty = party.indexOf(c.id) >= 0;
+        row.innerHTML = `<label style="display:flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${inParty ? 'checked' : ''} onchange="toggleSandboxParty('${c.id}', this.checked)" />同行</label>`
+          + `<strong>${escapeHtml(c.name)}</strong><span style="font-size:12px;color:var(--text-muted);flex:1;">${escapeHtml([c.relation, c.personality].filter(Boolean).join('・'))}</span>`
+          + `<button class="btn btn-sm" type="button" onclick="editSandboxChar('${c.id}')">✏️</button>`
+          + `<button class="btn btn-sm" type="button" onclick="removeSandboxChar('${c.id}')">🗑️</button>`;
+        box.appendChild(row);
+      });
+      document.getElementById('sbc-new-btn').classList.toggle('hidden', list.length >= 6);
+    }
+    function editSandboxChar(id) {
+      const c = ((currentState && currentState.sandboxChars) || []).find(x => x.id === id) || {};
+      document.getElementById('sbc-id').value = c.id || '';
+      SBC_FIELDS.forEach(k => { document.getElementById('sbc-' + k).value = c[k] || (k === 'gender' ? 'girl' : ''); });
+      document.getElementById('sbc-zh').value = '';
+      document.getElementById('sbc-advice').classList.add('hidden');
+      document.getElementById('sbc-form-title').innerText = c.id ? '編輯：' + c.name : '新增角色';
+      document.getElementById('sbc-preview').innerHTML = '<span style="color: var(--text-muted); font-size: 12px;">填好外貌後按「定裝預覽」看看長相，滿意再存檔</span>';
+      document.getElementById('sbc-form').classList.remove('hidden');
+    }
+    function collectSandboxChar() {
+      const c = { id: document.getElementById('sbc-id').value };
+      SBC_FIELDS.forEach(k => { c[k] = document.getElementById('sbc-' + k).value.trim(); });
+      return c;
+    }
+    function sbcCall(loadingMsg, onOk) {
+      showLoading(loadingMsg);
+      return google.script.run
+        .withSuccessHandler(res => { hideLoading(); onOk(res); })
+        .withFailureHandler(err => { hideLoading(); showNotice('sbchars-notice', err.message, true); });
+    }
+    function sbcSaved(st) {
+      if (st) currentState = st;
+      showNotice('sbchars-notice', '', false);
+      renderSandboxChars();
+    }
+    function runEnhanceSandboxChar() {
+      const c = collectSandboxChar();
+      const zh = document.getElementById('sbc-zh').value.trim();
+      if (!zh) { showNotice('sbchars-notice', '請先輸入中文外觀描述！', true); return; }
+      sbcCall('Gemini 正在把外觀翻成標籤...', res => {
+        const put = (k, v) => { if (v) document.getElementById('sbc-' + k).value = v; };
+        put('core', [res.core_tags].filter(Boolean).join(', '));
+        put('outfit', res.outfit_tags);
+        put('uc', res.uc_tags);
+        put('expression', res.expression_tag);
+        if (['petite', 'average', 'tall'].indexOf(res.build) >= 0) document.getElementById('sbc-build').value = res.build;
+        const box = document.getElementById('sbc-advice');
+        box.innerText = res.advice_zh ? '💡 ' + res.advice_zh : '';
+        box.classList.toggle('hidden', !box.innerText.trim());
+      }).enhanceServantAppearance(zh, c.gender, c.name, '', 'sandbox');
+    }
+    function runPreviewSandboxChar() {
+      sbcCall('NovelAI 正在繪製定裝預覽...', res => {
+        document.getElementById('sbc-preview').innerHTML = `<img src="${res.base64}" alt="Preview" />`;
+      }).previewSandboxCharacter(collectSandboxChar());
+    }
+    function submitSandboxChar() {
+      sbcCall('正在存檔...', st => {
+        document.getElementById('sbc-form').classList.add('hidden');
+        sbcSaved(st);
+      }).saveSandboxCharacter(currentState.playerName, collectSandboxChar());
+    }
+    function removeSandboxChar(id) {
+      const c = ((currentState && currentState.sandboxChars) || []).find(x => x.id === id);
+      if (!c || !confirm('確定刪除「' + c.name + '」嗎？')) return;
+      sbcCall('正在刪除...', sbcSaved).deleteSandboxCharacter(currentState.playerName, id);
+    }
+    function toggleSandboxParty(id, on) {
+      let party = ((currentState && currentState.sandboxParty) || []).filter(x => x !== id);
+      if (on) party = party.concat([id]);
+      if (party.length > 2) { showNotice('sbchars-notice', '同行最多 2 位，請先取消一位。', true); renderSandboxChars(); return; }
+      sbcCall('正在切換同行...', sbcSaved).setSandboxParty(currentState.playerName, party);
     }
 
     function closeModal(id) {

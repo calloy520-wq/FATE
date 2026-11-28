@@ -3538,6 +3538,7 @@ function processFateTurnTextOnly(params) {
       describeIntelForPrompt_({ factionIntel: metaBefore.factionIntel || initFactionIntel_(statusObj.factions, true) }),
       describeGodHandForPrompt_(metaBefore.godHand, statusObj.factions),
       describeCompanionsForPrompt_(metaBefore),
+      isSandboxMode ? describeSandboxCharsForPrompt_(metaBefore) : '',
       statusObj.gameMode === 'WAR' ? describeFavorForPrompt_(metaBefore, statusObj.factions) : '',
       statusObj.gameMode === 'WAR' ? describeAppointmentsForPrompt_(metaBefore, timeIndex_(statusObj.day, statusObj.timePeriod)) : '',
       describeCombatAssessForPrompt_(combatAssess),
@@ -4163,7 +4164,18 @@ function processFateTurnTextOnly(params) {
     const updatedStatus = parseSaveRow_(row);
     // 自由沙盒：名單外的客串角色登記成臨時角色（guest_1、guest_2）交給繪圖（使用者選「名單外的也試著畫」）
     if (isSandboxMode) {
-      const guests = sanitizeGuestChars_(turnJson.guest_chars);
+      // 玩家自創角色：AI 把她們誤放進 guest_chars 時丟掉（用存好的外貌）；同行者或劇情點名的自創角色沒列進出場名單時補上
+      const sbChars = ACTIVE_SANDBOX_CHARS_ || [];
+      const sbParty = sandboxPartyOf_(meta);
+      const listed = new Set((Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => c && c.id));
+      sbChars.forEach(c => {
+        if (listed.has(c.id)) return;
+        if (sbParty.indexOf(c.id) >= 0 || String(turnJson.story || '').indexOf(c.name) >= 0) {
+          turnJson.present_chars = (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).concat([{ id: c.id, use_np: false, action_en: 'standing nearby' }]);
+        }
+      });
+      const sbNames = sbChars.map(c => c.name);
+      const guests = sanitizeGuestChars_(turnJson.guest_chars).filter(g => !sbNames.some(n => n === g.name || g.name.indexOf(n) >= 0 || n.indexOf(g.name) >= 0));
       if (guests.length) {
         const dbG = getCharAppearanceMap_(ss);
         guests.forEach((g, i) => {
@@ -5451,8 +5463,9 @@ function getServantTemplates() {
 }
 
 // 「✨ 找提示」：把中文描述翻成 Danbooru 標籤；如果描述的是現有作品角色，推薦正確的官方角色標籤拼法
-function enhanceServantAppearance(zhDesc, gender, name, cls) {
+function enhanceServantAppearance(zhDesc, gender, name, cls, kind) {
   const genderTag = gender === 'boy' ? 'boy' : 'girl';
+  const everyday = kind === 'sandbox'; // 沙盒自創角色：一般人，服裝是日常穿著
   const systemPrompt = [
     'You are an expert NovelAI Diffusion V5 & Danbooru prompt writer for Fate/Type-Moon style characters.',
     'The user is designing an original (or existing) Heroic Spirit. Convert the Traditional Chinese description into precise Danbooru tags.',
@@ -5460,7 +5473,7 @@ function enhanceServantAppearance(zhDesc, gender, name, cls) {
     '- build: body height judged from the description: "petite" (small, childlike, short), "tall" (tall, imposing, mature goddess-like only if the description says tall), otherwise "average". Do NOT put height tags in core_tags.',
     '- official_tag: if the name/description clearly refers to an existing character with a Danbooru character tag, give the EXACT tag spelling (e.g. "scathach (fate)", "sasaki kojirou (fate)", "artoria pendragon (fate)"). Otherwise "".',
     `- core_tags: start with "${genderTag}", then official_tag if any, then permanent physical traits ONLY (hair color, hair length/style, eye color, skin, body, age look). NO clothes, NO style, NO background.`,
-    '- outfit_tags: the default battle outfit (clothes, armor, legwear, footwear, accessories) ONLY. Must be clothed.',
+    everyday ? '- outfit_tags: the everyday outfit described (clothes, legwear, footwear, accessories) ONLY; no armor or weapons unless described. Must be clothed.' : '- outfit_tags: the default battle outfit (clothes, armor, legwear, footwear, accessories) ONLY. Must be clothed.',
     '- uc_tags: 3-6 negative tags that prevent the most likely mistakes (wrong hair color/length, wrong skin, etc.).',
     '- expression_tag: one short default facial expression fitting the personality (e.g. "confident smile").',
     '- np_visual_tags: short English tags for the Noble Phantasm visual effect.',
@@ -5507,6 +5520,134 @@ function previewCustomServant(raw, mode) {
   });
 }
 
+// ==================== 自由沙盒：玩家自創角色（最多 6 位，同行最多 2 位） ====================
+// 只存在沙盒那一列存檔（meta.sandboxChars／meta.sandboxParty）；聖杯戰爭模式不讀、提示詞也不加
+const SANDBOX_CHAR_MAX_ = 6;
+const SANDBOX_PARTY_MAX_ = 2;
+let ACTIVE_SANDBOX_CHARS_ = [];
+
+function sanitizeSandboxChar_(raw, id) {
+  const r = raw || {};
+  const name = cleanTagText_(r.name, 20).replace(/[,，]/g, '');
+  if (!name) throw new Error('請替角色取個名字！');
+  const core = cleanTagText_(r.core, 500);
+  if (!core) throw new Error('請填寫外觀 Tags（可先輸入中文描述再按「✨ 找提示」）。');
+  return {
+    id: id,
+    name: name,
+    gender: r.gender === 'boy' ? 'boy' : 'girl',
+    build: ['petite', 'average', 'tall'].indexOf(String(r.build)) >= 0 ? String(r.build) : '',
+    core: core,
+    outfit: cleanTagText_(r.outfit, 400),
+    uc: cleanTagText_(r.uc, 300),
+    expression: cleanTagText_(r.expression, 60),
+    personality: cleanTagText_(r.personality, 150),
+    relation: cleanTagText_(r.relation, 60)
+  };
+}
+
+function setActiveSandboxChars_(list) {
+  const next = (Array.isArray(list) ? list : []).filter(c => c && /^sbc_\d+$/.test(String(c.id)) && c.name && c.core).slice(0, SANDBOX_CHAR_MAX_);
+  if (JSON.stringify(next) === JSON.stringify(ACTIVE_SANDBOX_CHARS_)) return;
+  ACTIVE_SANDBOX_CHARS_ = next;
+  CHAR_DB_MEMO_ = null;
+}
+
+function sandboxPartyOf_(meta) {
+  const ids = new Set((Array.isArray(meta && meta.sandboxChars) ? meta.sandboxChars : []).map(c => c && c.id));
+  return (Array.isArray(meta && meta.sandboxParty) ? meta.sandboxParty : []).filter(id => ids.has(id)).slice(0, SANDBOX_PARTY_MAX_);
+}
+
+function describeSandboxCharsForPrompt_(meta) {
+  const list = Array.isArray(meta && meta.sandboxChars) ? meta.sandboxChars : [];
+  if (!list.length) return '';
+  const party = sandboxPartyOf_(meta);
+  const desc = c => `${c.name}（ID:${c.id}・${c.gender === 'boy' ? '男' : '女'}${c.relation ? '・' + c.relation : ''}${c.personality ? '・個性:' + c.personality : ''}）`;
+  const inParty = list.filter(c => party.indexOf(c.id) >= 0);
+  const away = list.filter(c => party.indexOf(c.id) < 0);
+  const lines = [];
+  if (inParty.length) lines.push(`【玩家自創角色・同行中】${inParty.map(desc).join('、')}：正跟在玩家身邊，本回合一定在場（用這個 ID 填進 present_chars），依個性說話行動。他們是本作角色，不要放進 guest_chars。`);
+  if (away.length) lines.push(`【玩家自創角色・不在身邊】${away.map(desc).join('、')}：玩家去找、叫來或劇情需要時才登場，登場時用這個 ID 填進 present_chars（不要放進 guest_chars）。`);
+  return lines.join('\n');
+}
+
+// 前端存檔、刪除、切換同行共用：只接受沙盒那一列
+function updateSandboxMeta_(playerName, fn) {
+  const cleanName = validatePlayerName_(playerName);
+  if (!isSandboxKey_(cleanName)) throw new Error('自創角色只能在自由沙盒使用！');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const saveSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Players_Save');
+    const rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
+    if (rowIndex === -1) throw new Error('找不到玩家存檔！');
+    const row = saveSheet.getRange(rowIndex, 1, 1, 32).getValues()[0];
+    const meta = safeJsonParse_(row[31], {});
+    meta.sandboxChars = Array.isArray(meta.sandboxChars) ? meta.sandboxChars : [];
+    fn(meta);
+    meta.sandboxParty = sandboxPartyOf_(meta);
+    row[31] = serializeMeta_(meta);
+    saveSheet.getRange(rowIndex, 1, 1, 32).setValues([row]);
+    SpreadsheetApp.flush();
+    return parseSaveRow_(row);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function saveSandboxCharacter(playerName, raw) {
+  return updateSandboxMeta_(playerName, meta => {
+    const list = meta.sandboxChars;
+    const existing = raw && list.findIndex(c => c && c.id === raw.id);
+    if (existing >= 0) {
+      list[existing] = sanitizeSandboxChar_(raw, list[existing].id);
+      return;
+    }
+    if (list.length >= SANDBOX_CHAR_MAX_) throw new Error(`自創角色最多 ${SANDBOX_CHAR_MAX_} 位，請先刪掉一位。`);
+    let n = 1;
+    while (list.some(c => c && c.id === 'sbc_' + n)) n++;
+    const ch = sanitizeSandboxChar_(raw, 'sbc_' + n);
+    list.push(ch);
+    // 新角色在同行有空位時直接加入同行
+    const party = sandboxPartyOf_(meta);
+    if (party.length < SANDBOX_PARTY_MAX_) meta.sandboxParty = party.concat([ch.id]);
+  });
+}
+
+function deleteSandboxCharacter(playerName, id) {
+  return updateSandboxMeta_(playerName, meta => {
+    meta.sandboxChars = meta.sandboxChars.filter(c => c && c.id !== id);
+  });
+}
+
+function setSandboxParty(playerName, ids) {
+  return updateSandboxMeta_(playerName, meta => {
+    const valid = new Set(meta.sandboxChars.map(c => c && c.id));
+    const uniq = [];
+    (Array.isArray(ids) ? ids : []).forEach(id => { if (valid.has(id) && uniq.indexOf(id) < 0) uniq.push(id); });
+    if (uniq.length > SANDBOX_PARTY_MAX_) throw new Error(`同行最多 ${SANDBOX_PARTY_MAX_} 位。`);
+    meta.sandboxParty = uniq;
+  });
+}
+
+// 定裝預覽：照遊戲實際畫法（同一組外貌、服裝、負面標籤）
+function previewSandboxCharacter(raw) {
+  const ch = sanitizeSandboxChar_(raw, 'sbc_preview');
+  const gTag = ch.gender === 'boy' ? '1boy' : '1girl';
+  const core = normalizeCharCoreForNai_(customServantCore_(ch), ch.gender);
+  const action = ensureExpression_('standing, looking at viewer, cowboy shot, relaxed pose', ch.expression || 'light smile');
+  return generateNovelAIImageSafe_({
+    prompt: `${gTag}, solo, simple background, soft lighting`,
+    artStyle: 'official',
+    characters: [{
+      prompt: [core, formatCharacterOutfitPrompt_(ch.outfit), action].filter(Boolean).join(', '),
+      uc: [ch.uc, 'holding weapon, multiple views'].filter(Boolean).join(', '),
+      gender: ch.gender, x: 0.5, y: 0.5
+    }],
+    width: 832, height: 1216, steps: 28, scale: 5.0, cfgRescale: 0.25
+  });
+}
+
 // 角色資料內建在 GameData.js（FATE_CHARACTERS_），保留原本的資料格式給其他函式使用
 let CHAR_DB_MEMO_ = null;
 function getCharAppearanceMap_(ss) {
@@ -5537,6 +5678,18 @@ function getCharAppearanceMap_(ss) {
       summonable: false
     };
   }
+  (ACTIVE_SANDBOX_CHARS_ || []).forEach(c => {
+    map[c.id] = {
+      id: c.id,
+      triggers: `${c.name},自創角色`,
+      gender: c.gender,
+      coreTraits: customServantCore_(c),
+      defaultOutfit: c.outfit,
+      casualOutfit: '',
+      uc: c.uc || '',
+      summonable: false
+    };
+  });
   CHAR_DB_MEMO_ = map;
   return map;
 }
@@ -5665,6 +5818,8 @@ function parseSaveRow_(row) {
   } catch (e) {}
   // 自創英靈存在玩家自己的存檔裡；讀檔時登記進本次執行的角色資料庫
   setActiveCustomServant_(meta.customServant);
+  // 沙盒的自創角色只在沙盒那一列登記（聖杯戰爭不會出現）
+  setActiveSandboxChars_(isSandboxKey_(row[0]) ? meta.sandboxChars : []);
 
   const parsedFactions = safeJsonParse_(row[29], {});
   const parsedOutfits = safeJsonParse_(row[28], {});
@@ -5719,6 +5874,8 @@ function parseSaveRow_(row) {
     warTickerPublic: String(meta.warTickerPublic || ''),
     factionFavor: Object.fromEntries(Object.keys(safeJsonParse_(row[29], {})).map(k => [k, getFactionFavor_(meta, k)])),
     appointments: Array.isArray(meta.appointments) ? meta.appointments.map(a => ({ name: companionDisplayName_(a.fk), day: a.day, period: a.period, place: a.place })) : [],
+    sandboxChars: isSandboxKey_(row[0]) ? ACTIVE_SANDBOX_CHARS_ : [],
+    sandboxParty: isSandboxKey_(row[0]) ? sandboxPartyOf_(meta) : [],
     companions: Object.keys((meta.companions && typeof meta.companions === 'object') ? meta.companions : {}).map(k => ({ faction: k, name: companionDisplayName_(k) })),
     godHand: (meta.godHand && typeof meta.godHand === 'object') ? meta.godHand : { lost: 0, methods: [] },
     factionIntel: (meta.factionIntel && typeof meta.factionIntel === 'object') ? meta.factionIntel : initFactionIntel_(safeJsonParse_(row[29], {}), true),

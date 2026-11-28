@@ -351,6 +351,33 @@ geminiQueue.push({ outcome_type: 'CONTINUE', story: '一切如常。', ap_cost: 
 const tWar = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '看看四周' });
 check('聖杯戰爭模式不收客串角色', !tWar.imagePayload.characters.some(c => /^guest_/.test(c.id)));
 
+// 沙盒自創角色：存在沙盒那一列、同行者每回合在場並用存好的外貌畫；聖杯戰爭不受影響
+let sbErr = '';
+try { ctx.saveSandboxCharacter('測試者', { name: '莉莉', core: 'girl, pink hair' }); } catch (e) { sbErr = e.message; }
+check('聖杯戰爭存檔不能建自創角色', /自由沙盒/.test(sbErr));
+let stSb = ctx.saveSandboxCharacter('沙盒測・沙盒', { name: '莉莉', gender: 'girl', core: 'girl, pink hair, twintails, blue eyes', outfit: 'sailor uniform', personality: '元氣', relation: '學妹' });
+stSb = ctx.saveSandboxCharacter('沙盒測・沙盒', { name: '阿翔', gender: 'boy', core: 'boy, black hair', outfit: 'hoodie' });
+stSb = ctx.saveSandboxCharacter('沙盒測・沙盒', { name: '小雪', gender: 'girl', core: 'girl, white hair', outfit: 'kimono' });
+check('新角色有空位自動同行，最多 2 位', stSb.sandboxChars.length === 3 && stSb.sandboxParty.join() === 'sbc_1,sbc_2');
+let partyErr = '';
+try { ctx.setSandboxParty('沙盒測・沙盒', ['sbc_1', 'sbc_2', 'sbc_3']); } catch (e) { partyErr = e.message; }
+check('同行超過 2 位被擋', /最多 2 位/.test(partyErr));
+stSb = ctx.setSandboxParty('沙盒測・沙盒', ['sbc_1', 'sbc_3']);
+check('切換同行', stSb.sandboxParty.join() === 'sbc_1,sbc_3');
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '莉莉拉著你的手逛街，小雪在旁邊偷笑。', ap_cost: 0, present_chars: [{ id: 'scathach', action_en: 'walking' }],
+  guest_chars: [{ name: '莉莉', gender: 'girl', look: 'red hair, short hair' }], scene_env_en: 'street' });
+const tSbc = ctx.processFateTurnTextOnly({ playerName: '沙盒測・沙盒', userAction: '和莉莉逛街' });
+const sbReq = userText(geminiRequests[geminiRequests.length - 1]);
+check('沙盒提示詞列出同行與不在身邊的自創角色', /玩家自創角色・同行中】莉莉（ID:sbc_1/.test(sbReq) && /不在身邊】阿翔/.test(sbReq));
+const liliSlot = tSbc.imagePayload.characters.find(c => c.id === 'sbc_1');
+check('同行的自創角色補進繪圖、用存好的外貌（不被 AI 的客串外貌取代）', Boolean(liliSlot) && /pink hair/.test(liliSlot.prompt) && !tSbc.imagePayload.characters.some(c => /^guest_/.test(c.id)));
+stSb = ctx.deleteSandboxCharacter('沙盒測・沙盒', 'sbc_1');
+check('刪除角色也從同行移除', stSb.sandboxChars.length === 2 && stSb.sandboxParty.join() === 'sbc_3');
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '一切如常。', ap_cost: 0, present_chars: [{ id: 'scathach', action_en: 'standing' }], scene_env_en: 'room' });
+ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '看看四周' });
+check('聖杯戰爭的提示詞沒有自創角色段落', !/玩家自創角色/.test(userText(geminiRequests[geminiRequests.length - 1])));
+check('聖杯戰爭讀檔看不到沙盒角色', ctx.loadExistingGame('測試者').status.sandboxChars.length === 0);
+
 const sysMsg = geminiRequests.find(r => Array.isArray(r.messages[0].content));
 const lastTurnReq = geminiRequests.filter(r => Array.isArray(r.messages[1].content)).pop();
 check('玩家固定段標記快取、動態段不標記', Boolean(lastTurnReq) && lastTurnReq.messages[1].content[0].cache_control && !lastTurnReq.messages[1].content[1].cache_control && /本局基調/.test(lastTurnReq.messages[1].content[0].text) && /玩家本回合最新行動/.test(lastTurnReq.messages[1].content[1].text));
