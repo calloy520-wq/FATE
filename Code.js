@@ -1038,6 +1038,21 @@ function isWeakenedStatusText_(statusStr) {
 }
 
 // 淘汰要分兩步：滿狀態的陣營一回合內最多被打成「重創敗退」，之後的回合才能淘汰（收服、歸屬第8組不受影響）
+function isEliminationText_(st) {
+  const s = String(st || '');
+  return /淘汰|消滅|陣亡|擊潰|覆滅|戰敗|已死/.test(s) && !/收服|已歸屬第8組|原御主已退場/.test(s);
+}
+// 這個陣營有沒有參與本回合：該陣營的角色在場，或玩家行動點名了它
+function isFactionInvolved_(fk, presentChars, userAction) {
+  const ids = (Array.isArray(presentChars) ? presentChars : []).map(c => (c && typeof c === 'object') ? c.id : c).filter(Boolean);
+  if (ids.some(id => CHAR_FACTION_MARKERS_[id] && String(fk).includes(CHAR_FACTION_MARKERS_[id]))) return true;
+  const hit = COMBAT_TARGET_ALIASES_.find(([mk]) => String(fk).includes(mk));
+  return Boolean(hit && hit[1].some(a => String(userAction || '').includes(a)));
+}
+function hasContractIntent_(text) {
+  return /契約|收服|締結|簽訂|訂下|成為我的從者|當我的從者|做我的從者|主從|納入|歸順|跟隨我|跟著我戰鬥|收下.{0,4}(她|他)|接受.{0,4}(她|他)的(效忠|提議)/.test(String(text || ''));
+}
+
 function gateFactionElimination_(prevStatus, newStatus) {
   const next = String(newStatus || '');
   const isKill = /淘汰|消滅|陣亡|擊潰|覆滅|戰敗|已死/.test(next) && !/收服|已歸屬第8組|原御主已退場/.test(next);
@@ -3449,7 +3464,10 @@ function processFateTurnTextOnly(params) {
           const prevSt = String(currentFactions[realKey] || '');
           // 龍傲天模式：不套用淘汰兩步、十二試煉與結盟門檻，想做的都能實現
           const isDragon = toneKey === 'STORY_PLAYER_FIRST';
-          const nextSt0 = isDragon ? val.slice(0, 120) : gateGodHandElimination_(realKey, prevSt, gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val.slice(0, 120)), toneKey, getFactionFavor_(meta, realKey)), meta.godHand);
+          // 淘汰只能發生在玩家這回合真的和該陣營交戰時；沒交戰的陣營由伺服器的後台廝殺慢慢推進
+          let val2 = val.slice(0, 120);
+          if (!isDragon && isEliminationText_(val2) && !isCapturedOrDefeatedStatusText_(prevSt) && !(turnJson.is_combat && isFactionInvolved_(realKey, turnJson.present_chars, userAction))) val2 = prevSt;
+          const nextSt0 = isDragon ? val2 : gateGodHandElimination_(realKey, prevSt, gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val2), toneKey, getFactionFavor_(meta, realKey)), meta.godHand);
           const nextSt = preserveAllianceTag_(prevSt, nextSt0);
           // 已淘汰的陣營不會復活；唯一例外是教會亮出隱藏王牌吉爾伽美什（只有一次）
           const wasOut = isCapturedOrDefeatedStatusText_(prevSt) && !/收服|已歸屬第8組/.test(prevSt);
@@ -3488,6 +3506,8 @@ function processFateTurnTextOnly(params) {
     }
     let rosterAdded = '';
     let capturedServantId = '';
+    // 新契約要玩家本回合有締約／收服的意圖（壓力測試：玩家只是「看看四周」，AI 就送上黑 Saber 當副從者）；沒有從者時例外
+    if (turnJson.new_servant2_id && row[17] && !hasContractIntent_(userAction)) turnJson.new_servant2_id = '';
     if (
       turnJson.new_servant2_id &&
       charDb[turnJson.new_servant2_id] &&
