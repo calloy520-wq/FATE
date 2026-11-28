@@ -1050,7 +1050,8 @@ function isFactionInvolved_(fk, presentChars, userAction) {
   return Boolean(hit && hit[1].some(a => String(userAction || '').includes(a)));
 }
 function hasContractIntent_(text) {
-  return /契約|收服|締結|簽訂|訂下|成為我的從者|當我的從者|做我的從者|主從|納入|歸順|跟隨我|跟著我戰鬥|收下.{0,4}(她|他)|接受.{0,4}(她|他)的(效忠|提議)/.test(String(text || ''));
+  // 只當「否決」用（AI 的 new_servant2_id 才是主判斷），所以放寬：「好，妳就跟著我吧」「我接受」「成交」都要對得上
+  return /契約|收服|締結|簽|訂下|從者|servant|跟著我|跟我走|跟隨|加入|歸順|效忠|接受|答應|成交|同意|好啊|好吧|可以|行吧|收下|納入|夥伴|同伴|一起戰鬥|主從|令咒|御主|master|ok/i.test(String(text || ''));
 }
 
 function gateFactionElimination_(prevStatus, newStatus) {
@@ -1535,8 +1536,8 @@ function stripWeaponTags_(str) {
 // 玩家本回合是不是在休息（睡覺、冥想、調息…）
 // 真的睡一覺（不含冥想、小睡）：時間要前進到下一個時段（2026-11 實測「回洋館睡覺」後還停在同一個清晨）
 function isSleepAction_(text) {
-  const t = String(text || '');
-  return /睡覺|睡一覺|就寢|過夜|補眠|上床睡|睡到|一覺/.test(t) && !/不睡|別睡|睡不著|沒睡/.test(t);
+  // 只當「否決」用（AI 的 player_slept 才是主判斷），所以放寬：沾到邊就放行，短輸入「睡」「晚安」「躺平」也要對得上
+  return /睡|眠|晚安|躺|床|被窩|被子|盹|睏|累了|zzz|過夜|就寢|一覺|休息|回房/i.test(String(text || ''));
 }
 
 // 玩家輸入有沒有提到這個道具（名稱或常用叫法）：有使用意圖時也只扣提到的那幾樣
@@ -1551,6 +1552,8 @@ function isItemReferenced_(item, text) {
   const name = String(item.name || '');
   if (name && t.includes(name)) return true;
   if (ITEM_REF_KEYWORDS_[item.id] && ITEM_REF_KEYWORDS_[item.id].test(t)) return true;
+  // 泛稱（「用道具」「把背包裡的東西用掉」）交給 AI 判斷是哪一樣
+  if (/道具|背包|包包|東西|藥|禮裝/.test(t)) return true;
   const core = name.replace(/[（(].*?[)）]/g, '').trim();
   for (let i = 0; i + 3 <= core.length; i++) { if (t.includes(core.slice(i, i + 3))) return true; }
   return false;
@@ -1567,7 +1570,8 @@ function normalizeOutcome_(v) {
 }
 
 function isRestAction_(text) {
-  return /休息|睡覺|睡一覺|補眠|小睡|就寢|冥想|調息|靜養|休養|養傷|打坐|恢復魔力|回復魔力|回魔/.test(String(text || ''));
+  // 只當「否決」用（AI 的 player_rested 才是主判斷），所以放寬
+  return isSleepAction_(text) || /休|歇|喘口氣|喘息|冥想|調息|靜養|養傷|療傷|打坐|魔力|體力|發呆|放空|充電|坐下|窩|放鬆|喝茶|泡澡|洗澡|回復|恢復|補充/.test(String(text || ''));
 }
 
 // 戰局提示：還有哪些陣營未化解、魔力是否見底（每回合放進 statePrompt）
@@ -3623,7 +3627,7 @@ function processFateTurnTextOnly(params) {
     }
 
     // 令咒只在玩家本回合提到令咒、或訂下第二契約時才扣（2026-11 實測：上一回合用了令咒，下一回合只是撤退清點，AI 又回報用了一畫）
-    const spellIntent = /令咒/.test(userAction) || Boolean(turnJson.new_servant2_id);
+    const spellIntent = /令咒|命令|command ?spell/i.test(userAction) || Boolean(turnJson.new_servant2_id);
     const spellsUsed = spellIntent ? Math.max(0, Math.min(3, Number(turnJson.command_spells_used) || 0)) : 0;
     if (spellsUsed > 0 && Number(row[16]) > 0) {
       row[16] = Math.max(0, Number(row[16]) - spellsUsed);

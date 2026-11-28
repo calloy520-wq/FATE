@@ -216,7 +216,8 @@ run('自己的從者被 servants_out', () => {
 });
 
 run('提早淘汰', () => {
-  turn('遠遠觀察柳洞寺', { faction_updates: { '柳洞寺組 (Caster/Assassin陣營)': '已淘汰 (被不明勢力消滅)' } });
+  setFac(f => { f['柳洞寺組 (Caster/Assassin陣營)'] = '存活 (敵對防備)'; }); setMeta(m => { m.routeFlags = {}; }); row()[8] = 3;
+  turn('遠遠觀察柳洞寺', { ap_cost: 0, faction_updates: { '柳洞寺組 (Caster/Assassin陣營)': '已淘汰 (被不明勢力消滅)' } });
   const s = fac()['柳洞寺組 (Caster/Assassin陣營)'];
   check('沒交戰的陣營一回合不會直接淘汰', !S.ctx.isCapturedOrDefeatedStatusText_(s), s);
 });

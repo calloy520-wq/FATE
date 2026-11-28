@@ -318,7 +318,10 @@ eq('戰鬥中不截', T.focusGestureExcerpt_(gStory, '摸摸她的頭', true), g
 eq('不是親密動作不截', T.focusGestureExcerpt_(gStory, '去教會', false), gStory);
 eq('沒有插入威脅就保留全文', T.focusGestureExcerpt_('他抱住她。\n她笑了。', '抱住她', false), '他抱住她。\n她笑了。');
 
-eq('睡覺會讓時間前進', [T.isSleepAction_('回洋館睡覺休息'), T.isSleepAction_('睡到黃昏'), T.isSleepAction_('冥想恢復魔力'), T.isSleepAction_('今晚不睡，守夜')], [true, true, false, false]);
+eq('睡覺字眼放寬（只當否決，主判斷是 AI 的 player_slept）', ['回洋館睡覺休息', '睡', '晚安', '躺平', '洗洗睡', '打個盹', 'zzz', '冥想恢復魔力', '前往柳洞寺'].map(T.isSleepAction_), [true, true, true, true, true, true, true, false, false]);
+eq('休息字眼放寬', ['歇一下', '喘口氣', '補充體力', '窩在沙發', '前往柳洞寺偵查'].map(T.isRestAction_), [true, true, true, true, false]);
+eq('締約字眼放寬', ['好，妳就跟著我吧', '我接受', 'OK成交', '來當我的Servant', '看看四周'].map(T.hasContractIntent_), [true, true, true, true, false]);
+eq('道具泛稱交給 AI 判斷', T.isItemReferenced_({ id: 'mana_gem_m', name: '高純度魔力寶石(中)' }, '用道具'), true);
 
 eq('截短在標點斷句', T.clipText_('該陣營目前因昨夜戰損處於休整狀態，對外界情報極度封鎖且不願與人接觸', 30), '該陣營目前因昨夜戰損處於休整狀態…');
 eq('短的不截', T.clipText_('Rider 負傷', 30), 'Rider 負傷');
