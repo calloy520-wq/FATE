@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { detectTimeMismatch_, isAloneAction_, sanitizeSandboxChar_, updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_, rollWeather_, applyWeatherTags_, normalizeWeather_, indoorWeatherFix_, closeUmbrellaIndoors_, focusGestureExcerpt_, isSleepAction_, clipText_, isItemReferenced_, normalizeOutcome_, hasContractIntent_, isFactionInvolved_, isOtherPersonRest_, mentionsRetired_, revealHiddenStatus_, deathExcerpt_, detectMissingItems_, isSelfInflictedDeath_, deathCgStatus_, isToneLocked_, sanitizeGuestChars_, displayNameOf_, slotModeOf_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_, rollWeather_, applyWeatherTags_, normalizeWeather_, indoorWeatherFix_, closeUmbrellaIndoors_, focusGestureExcerpt_, isSleepAction_, clipText_, isItemReferenced_, normalizeOutcome_, hasContractIntent_, isFactionInvolved_, isOtherPersonRest_, mentionsRetired_, revealHiddenStatus_, deathExcerpt_, detectMissingItems_, isSelfInflictedDeath_, deathCgStatus_, isToneLocked_, sanitizeGuestChars_, displayNameOf_, slotModeOf_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -188,20 +188,15 @@ eq('全裸：從者穿上衣服 → 還原', T.autoAdaptSmartOutfit_('scathach',
 eq('全裸：御主開戰也不會自動穿', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '迎戰', '', true, '新都'), NUDE);
 eq('全裸：御主劇情別人穿衣不算', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '看著她', '斯卡哈穿上衣服', false, '廢棄洋館'), NUDE);
 eq('全裸：御主自己穿上 → 還原', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '我穿上衣服', '', false, '廢棄洋館'), 'coat');
-eq('裸露把關：成人模式成人角色 → 全裸', T.sanitizeNudeOutfitForChar_('scathach', NUDE, true, 'x'), NUDE);
-eq('裸露把關：成人模式關閉不在把關裡處理（交給 adultOffOutfit_）', T.sanitizeNudeOutfitForChar_('scathach', NUDE, false, 'x'), NUDE);
-eq('裸露把關：浴巾不算裸露', T.isNudeOutfitTags_('bath towel, towel wrapped around body'), false);
-['rin', 'sakura', 'illya', 'prisma_illya', 'miyu', 'chloe', 'shirou', 'dark_sakura'].forEach(id =>
-  eq(`裸露把關：${id} 一律穿著`, T.sanitizeNudeOutfitForChar_(id, NUDE, true, 'default'), 'default'));
 const pst = (adult) => ({ cameraMode: 'third', adultMode: adult, locationKey: '廢棄洋館', master: { gender: 'girl', coreTags: 'black hair' }, outfits: { scathach: NUDE, rin: NUDE, player_master: NUDE } });
-let np = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'scathach' }, { id: 'rin' }], 'bathroom, steam', false, '泡澡', '', 1);
+// 正式站沒有全裸把關（NudeGuard.js 不會推上 GAS），這裡測的是正式站的行為；把關另外在 tests/nude-guard.js 測
+eq('裸露：浴巾不算裸露', T.isNudeOutfitTags_('bath towel, towel wrapped around body'), false);
+let np = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'scathach' }], 'bathroom, steam', false, '泡澡', '', 1);
 eq('繪圖：成人模式有 nsfw', /(^|, )nsfw(,|$)/.test(np.prompt), true);
-eq('繪圖：斯卡哈全裸', /nude/.test(np.characters.find(c => c.id === 'scathach').prompt), true);
-eq('繪圖：凜不畫裸', /nude/.test(np.characters.find(c => c.id === 'rin').prompt), false);
+eq('繪圖：成人模式斯卡哈全裸', /nude/.test(np.characters.find(c => c.id === 'scathach').prompt), true);
 np = T.buildNaiPayloadFromScene_(pst(false), [{ id: 'scathach' }], 'bathroom, steam', false, '泡澡', '', 1);
 eq('繪圖：成人模式關閉無 nsfw', /nsfw/.test(np.prompt), false);
 eq('繪圖：成人模式關閉改成通用遮擋', /\bnude\b/.test(np.characters[0].prompt) || !/convenient censoring/.test(np.characters[0].prompt), false);
-np = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'rin' }], 'bathroom', false, '泡澡', '', 1);
 {
   const crowd = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'player_master' }, { id: 'scathach' }, { id: 'lancer' }, { id: 'archer' }, { id: 'rin' }], 'bridge, night', true, '開打', '', 1);
   eq('一張圖最多 3 人、先省略御主', crowd.characters.map(c => c.id), ['scathach', 'lancer', 'archer']);
@@ -215,7 +210,6 @@ np = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'rin' }], 'bathroom', false, 
   eq('掏耳朵也算肢體接觸 → 御主留下', ear.characters.map(c => c.id), ['scathach', 'player_master', 'rin']);
   eq('超過 3 人：自己的從者排第一、寶具中的優先', crowd2.characters.map(c => c.id), ['scathach', 'lancer', 'rin']);
 }
-eq('繪圖：只有凜時沒有 nsfw', /nsfw/.test(np.prompt), false);
 
 // ---- 戰鬥分量：淘汰要兩步 ----
 eq('滿狀態一回合被淘汰 → 降為重創敗退', T.gateFactionElimination_('存活 (敵對獵殺)', '已淘汰'), '存活 (重創敗退・靈基受損)');

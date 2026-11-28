@@ -9,6 +9,9 @@ const src = Object.fromEntries(FILES.map(f => [f, fs.readFileSync(path.join(__di
 const orders = [FILES.slice(), FILES.slice().reverse()];
 FILES.forEach(f => orders.push([f].concat(FILES.filter(x => x !== f))));
 FILES.forEach(f => orders.push(FILES.filter(x => x !== f).concat([f])));
+// NudeGuard.js 不會推上 GAS，但有它時也要不管放哪都能載入
+orders.push(['NudeGuard.js'].concat(FILES), FILES.concat(['NudeGuard.js']), FILES.slice().reverse().concat(['NudeGuard.js']));
+src['NudeGuard.js'] = fs.readFileSync(path.join(__dirname, '..', 'NudeGuard.js'), 'utf8');
 let fails = 0;
 orders.forEach(order => {
   const ctx = { console };

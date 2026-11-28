@@ -16,6 +16,7 @@ jobs:
           node --check Code.js
           node --check Image.js
           node --check Characters.js
+          node --check NudeGuard.js
           node --check SetupDB.js
           node --check GameData.js
           node --check Lore.js
@@ -23,6 +24,7 @@ jobs:
           node tests/run-tests.js
           node tests/sim-turn.js
           node tests/stress-guards.js
+          node tests/nude-guard.js
       - run: npm install -g @google/clasp
       - name: Write clasp credentials
         env:

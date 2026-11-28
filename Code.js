@@ -408,16 +408,6 @@ function adultOffOutfit_(outfit, contextText, fallback) {
   return 'convenient censoring';
 }
 
-// 未成年／孩童外觀的角色：任何情況都不畫裸露（洗澡等劇情照常寫，畫面維持穿著）
-const NO_NUDE_CHAR_IDS_ = new Set(['prisma_illya', 'chloe', 'miyu', 'illya', 'rin', 'sakura', 'dark_sakura', 'shirou']);
-
-// 畫面上的裸露把關：未成年角色一律改回 fallback（預設服裝）（成人模式關閉另由 adultOffOutfit_ 處理）
-function sanitizeNudeOutfitForChar_(charId, outfit, adultMode, fallback) {
-  if (!isNudeOutfitTags_(outfit)) return outfit;
-  if (NO_NUDE_CHAR_IDS_.has(charId)) return String(fallback || '').trim() || 'casual clothes, shirt, pants';
-  return outfit;
-}
-
 function stripClothesFromCore_(coreStr) {
   let c = String(coreStr || '');
   const clothesNoise = [
@@ -3995,8 +3985,9 @@ function processFateTurnTextOnly(params) {
       Object.keys(turnJson.outfit_updates).forEach(cid => {
         const val = String(turnJson.outfit_updates[cid] || '').trim();
         if (val.length >= 2 && charDb[cid]) {
+          // 全裸把關在獨立的 NudeGuard.js（不會推上 GAS）：有那個檔案才套用，沒有就照劇情存
           currentOutfits[cid] = isNudeOutfitTags_(val)
-            ? (NO_NUDE_CHAR_IDS_.has(cid) ? (currentOutfits[cid] || charDb[cid].defaultOutfit) : 'nude, completely nude, no clothes')
+            ? ((typeof isNudeBlockedChar_ === 'function' && isNudeBlockedChar_(cid)) ? (currentOutfits[cid] || charDb[cid].defaultOutfit) : 'nude, completely nude, no clothes')
             : val;
         }
       });

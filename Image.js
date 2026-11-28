@@ -270,7 +270,9 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     const profile = resolveCharacterVisualProfile_(c.id, dbInfo, statusObj, userAction, storyText, isCombat);
 
     const wantsNude = isNudeOutfitTags_(profile.outfit) || /全裸|裸體|沒穿|赤裸|一絲不掛|\b(nude|naked|no clothes|topless)\b/i.test(String(c.action_en || ''));
-    profile.outfit = sanitizeNudeOutfitForChar_(c.id, wantsNude && !isNudeOutfitTags_(profile.outfit) ? 'nude, completely nude, no clothes' : profile.outfit, Boolean(statusObj.adultMode), dbInfo.defaultOutfit);
+    if (wantsNude && !isNudeOutfitTags_(profile.outfit)) profile.outfit = 'nude, completely nude, no clothes';
+    // 全裸把關在獨立的 NudeGuard.js（不會推上 GAS）：有那個檔案才套用
+    if (typeof sanitizeNudeOutfitForChar_ === 'function') profile.outfit = sanitizeNudeOutfitForChar_(c.id, profile.outfit, Boolean(statusObj.adultMode), dbInfo.defaultOutfit);
     // 成人模式關閉：依場合換成浴巾／被子／便服（獨立於角色把關）
     if (!statusObj.adultMode) profile.outfit = adultOffOutfit_(profile.outfit, `${userAction || ''} ${storyText || ''} ${sceneEnvEn || ''} ${c.action_en || ''}`, dbInfo.defaultOutfit);
     const nudeMode = isNudeOutfitTags_(profile.outfit);
@@ -612,8 +614,8 @@ function generateTurnCgAsync(imgPayload) {
       } else if (directed.orientation === 'landscape') {
         working.width = 1216; working.height = 832;
       }
-      // 導演回報的裸露先經過把關（未成年角色）
-      if (Array.isArray(directed.char_directions)) {
+      // 全裸把關在獨立的 NudeGuard.js（不會推上 GAS）：有那個檔案才檢查導演回報的裸露
+      if (typeof sanitizeNudeOutfitForChar_ === 'function' && Array.isArray(directed.char_directions)) {
         directed.char_directions.forEach(d => {
           if (!d || !d.id) return;
           const wants = Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit);

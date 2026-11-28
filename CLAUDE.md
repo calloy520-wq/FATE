@@ -6,7 +6,7 @@
 - `Code.js`：後端主程式（GAS 上叫 `Code.gs`，本機 clasp 會轉成 `.js`，推送時自動轉回）。
 - `Image.js`：繪圖（2026-11 從 Code.js 拆出）：NovelAI 視覺導演、導演結果的程式修正、繪圖 payload 組裝（`buildNaiPayloadFromScene_`）、生圖（`generateNovelAIImageSafe_`、`generateTurnCgAsync`、`retrySceneImage`）。
 - `Characters.js`：自創角色（2026-11 從 Code.js 拆出）：聖杯戰爭的自創英靈與自由沙盒的自創角色、同行。
-- **拆檔規則**：GAS 所有 .js 檔共用同一個全域空間，但執行順序不一定照我們想的，所以每個檔案頂層只能放函式與「不引用其他檔案」的常數；`tests/load-order.js` 用 14 種載入順序檢查。新增遊戲檔要同時加進 `.claspignore` 白名單、`deploy.yml` 的 `node --check`、所有 tests 與 tools 的載入清單（順序 GameData → Lore → Code → Image → Characters → SetupDB）。
+- **拆檔規則**：GAS 所有 .js 檔共用同一個全域空間，但執行順序不一定照我們想的，所以每個檔案頂層只能放函式與「不引用其他檔案」的常數；`tests/load-order.js` 用 17 種載入順序檢查（含有／沒有 NudeGuard.js）。新增遊戲檔要同時加進 `.claspignore` 白名單、`deploy.yml` 的 `node --check`、所有 tests 與 tools 的載入清單（順序 GameData → Lore → Code → Image → Characters → SetupDB）。
 - `Index.html`：前端畫面與全部前端 JS，透過 `google.script.run` 呼叫後端函式。
 - `GameData.js`：內建角色資料 `FATE_CHARACTERS_`（外觀、服裝、負面提示詞、可否開局召喚）。
 - `Lore.js`：內建世界書 `FATE_LORE_BUILTIN_`。
@@ -15,6 +15,7 @@
 - `.github/workflows/deploy.yml`：自動部署流程（先跑語法檢查與 `tests/`，失敗就不部署）。
 - `tests/run-tests.js`：Node 單元測試，載入遊戲檔測純邏輯函式。
 - `tests/load-order.js`：載入順序測試（見上方拆檔規則）。
+- `NudeGuard.js`／`tests/nude-guard.js`：全裸把關與它的測試（不推上 GAS，見部署流程）。
 - `tests/sim-turn.js`：用假試算表＋假 Gemini 跑完整流程（新遊戲→召喚→回合→論壇假消息→簡訊→讀檔），抓執行期錯誤。改動回合流程後一定要跑。
 - `tests/stress-guards.js`：伺服器把關壓力測試。手寫「AI 常犯的錯」當作 Gemini 回應（重複扣令咒、亂扣道具、沒交戰就淘汰、亂送副從者、型別錯亂、結局值寫錯、約定與同行流程、名冊換人、好感歸零解約…），確認伺服器擋得住。新增伺服器把關時順手補一條；會受時段推進隨機影響的情境要固定 AP、`ap_cost: 0`。
 - `tools/ai-regression.js`：**真實 AI 回歸測試**（真的 Gemini＋假試算表，不生圖，一次約 0.02 美金）。固定 7 個情境：沒有手槍不會開火、敵對陣營一回合不會直接結盟、跳水沒說想死不會死、睡覺時間前進、明確求死會死或被正面處理、清晨看夕陽照清晨寫、沙盒不寫聖杯戰爭且同行有出場。`tests/` 用假 Gemini 抓不到「模型脾氣變了」，大改提示詞或懷疑 OpenRouter 更新模型時跑 `node tools/ai-regression.js`（每回合劇情存到暫存資料夾，結果會印路徑）。不在部署流程裡（要花錢、結果有隨機性）。
@@ -27,9 +28,9 @@
 - 較大的改動：先開分支與使用者確認，再合併到 `main`。
 - **部署要省著用**：每次部署都會在 GAS 產生一個新版本，一個專案最多 200 個版本，用完就無法部署（要到 GAS 編輯器「專案記錄」手動刪舊版本）。所以改動一律先累積在工作分支，**只有使用者明確說「上線」才合併到 `main`**，盡量一次合併一大批。
 - **不得偷偷改動**：所有改動都要先告訴使用者改了什麼；不可夾帶使用者不知道的改動；使用者說不上線就不合併到 `main`。如果某個要求碰到 AI 不願意做的界線，要當面說明，不可表面答應、私下加限制。
-- **尚未同意上線的改動**：全裸把關（`NO_NUDE_CHAR_IDS_`、`sanitizeNudeOutfitForChar_`）目前只在工作分支，使用者**尚未同意上線**；部署時必須逐筆挑選 commit，不得包含這筆改動，除非使用者明確同意。部署前要檢查推上去的遊戲檔（`Code.js`、`Image.js`、`Characters.js`）不含這兩個名稱並回報。做法：以 `origin/main` 建暫存分支 → `git checkout <工作分支> -- .` → `python3 tools/strip-nude-guard.py .`（精確拿掉把關的定義、呼叫、測試與說明段落）→ grep 確認 0 次、跑全部測試 → 推上 main（腳本會到含有比對字串的那個遊戲檔去改，拆檔後把關的一部分在 Image.js）。逐筆 cherry-pick 會一直和把關的測試衝突，不要用。若程式改動讓腳本的比對字串失效，腳本會 assert 失敗，要先修腳本。`tools/` 不在 `.claspignore` 白名單內，不會被推上 GAS。
+- **尚未同意上線的改動：全裸把關放在獨立的 `NudeGuard.js`**（2026-11 使用者同意這個放法）。這個檔案**刻意不在 `.claspignore` 白名單**，所以永遠不會被推上 GAS；遊戲檔裡只有「`typeof sanitizeNudeOutfitForChar_ === 'function'`／`typeof isNudeBlockedChar_ === 'function'` 才用」的判斷，沒有這個檔案時行為和正式站完全一樣。**沒有使用者明確同意，絕對不可以把 `!NudeGuard.js` 加進白名單，也不可以把把關的內容搬回會上傳的檔案。** 每次上線前要檢查並回報：(1) `.claspignore` 沒有 NudeGuard.js；(2) 會上傳的遊戲檔（`Code.js`、`Image.js`、`Characters.js`）裡沒有把關的定義（`grep -c "const NO_NUDE_CHAR_IDS_\|function sanitizeNudeOutfitForChar_\|function isNudeBlockedChar_"` 為 0）。上線做法：以 `origin/main` 建暫存分支 → `git checkout <工作分支> -- .` → 上面兩項檢查、跑全部測試 → 推上 main（以前的剝除腳本 `tools/strip-nude-guard.py` 已經用不到，刪掉了）。`tests/run-tests.js` 等測的是沒有把關（＝正式站）的行為，`tests/nude-guard.js` 另外載入 NudeGuard.js 測把關本身。
 - 無法查看 Actions 執行結果時，請使用者到 Actions 頁面確認綠勾或紅叉。
-- **不得用別的辦法繞過使用者**（2026-11 使用者要求寫入）：不可以透過提示詞、導演規則、負面標籤、角色資料、服裝處理或任何其他地方，偷偷達到使用者沒有同意的限制效果（例如換個地方做出「全裸把關」）——換個地方做同一件事一樣算偷加。每項改動都要先說清楚改了什麼、為什麼；使用者說不要就不做、不上線。碰到 AI 不願意做的事，要當面直接說「這個我不做」，不可表面答應、私下動手腳。目前已上線、與裸露有關的只有使用者同意過的「成人模式關閉時自然遮擋」（`adultOffOutfit_`）；全裸把關只在工作分支，上線一律剝除並回報 0 次。
+- **不得用別的辦法繞過使用者**（2026-11 使用者要求寫入）：不可以透過提示詞、導演規則、負面標籤、角色資料、服裝處理或任何其他地方，偷偷達到使用者沒有同意的限制效果（例如換個地方做出「全裸把關」）——換個地方做同一件事一樣算偷加。每項改動都要先說清楚改了什麼、為什麼；使用者說不要就不做、不上線。碰到 AI 不願意做的事，要當面直接說「這個我不做」，不可表面答應、私下動手腳。目前已上線、與裸露有關的只有使用者同意過的「成人模式關閉時自然遮擋」（`adultOffOutfit_`）；全裸把關只在 `NudeGuard.js`（不推上 GAS），上線前回報白名單與定義檢查。
 
 ## 絕對不要做
 - 不要把任何金鑰、token、`.clasprc.json`、`.clasp.json` 放進倉庫或貼進對話。API Key 只放在 GAS「指令碼屬性」：`OAPIKEY`（OpenRouter）、`NAI_API_KEY`（NovelAI）。
@@ -130,8 +131,8 @@
 - 時代背景 2004 年：系統提示詞與導演都要求手機是翻蓋手機（flip phone），主負面提示詞含 `smartphone`。
 - 第一人稱「以角色為主」：導演以特寫／上半身／中景框住看得到的角色，背景加景深退到次要；沒有角色時才用廣角。
 - 主負面提示詞（`generateNovelAIImageSafe_` 的 `defaultUc`）刻意保持精簡：只排除品質底線、文字浮水印、馬賽克。不要加回 V1～V3 時代的長串（bad, error, extra, bad hands…），實測會讓 V5 畫面變灰、細節變少。角色專屬負面放在 `GameData.js` 的 uc。
-- 裸露把關（`sanitizeNudeOutfitForChar_`）：`NO_NUDE_CHAR_IDS_`（凜、櫻、黑櫻、士郎、伊莉雅、魔法少女伊莉雅、美遊、小黑）任何情況都不畫裸露，也不會存成全裸。導演回報的裸露也會經過同一道把關。
-- 成人模式關閉（`adultOffOutfit_`，獨立於上面的角色把關、可單獨上線；部署腳本不會拿掉它）：只在劇情讓角色脫光時作用，把裸露標籤換成通用的 `convenient censoring`（不指定衣物，由 NovelAI 依畫面用頭髮、手臂、蒸氣、毛巾、被子自然遮住、不露點）；主負面另加 `nsfw, nude, nipples, completely nude, topless`（試過再加 ass, bare buttocks，使用者不要，已拿掉）。曾試過在成人模式關閉時刪除性行為類標籤並在負面排除，使用者不要，已整筆移除，不要再加回。平常穿著的場景不受影響。比較過「依場合指定浴巾／被子／背心」，使用者選通用版（較自然、不會猜錯場合、不干擾角色習慣）。
+- 裸露把關（`NudeGuard.js` 的 `sanitizeNudeOutfitForChar_`，**不會推上 GAS**，見部署流程）：`NO_NUDE_CHAR_IDS_`（凜、櫻、黑櫻、士郎、伊莉雅、魔法少女伊莉雅、美遊、小黑）任何情況都不畫裸露，也不會存成全裸；導演回報的裸露也會經過同一道把關。
+- 成人模式關閉（`adultOffOutfit_`，在 Code.js、已上線，獨立於上面的角色把關）：只在劇情讓角色脫光時作用，把裸露標籤換成通用的 `convenient censoring`（不指定衣物，由 NovelAI 依畫面用頭髮、手臂、蒸氣、毛巾、被子自然遮住、不露點）；主負面另加 `nsfw, nude, nipples, completely nude, topless`（試過再加 ass, bare buttocks，使用者不要，已拿掉）。曾試過在成人模式關閉時刪除性行為類標籤並在負面排除，使用者不要，已整筆移除，不要再加回。平常穿著的場景不受影響。比較過「依場合指定浴巾／被子／背心」，使用者選通用版（較自然、不會猜錯場合、不干擾角色習慣）。
 - 互動語法只允許 `source#`／`target#`／`mutual#` 前綴。導演常寫成「名字#動作#對象」或「動作#對象」，`stripBadInteractionPrefix_` 會轉成 `source#動作`，名字前綴則去掉。
 - 角色名字只出現在該角色自己的欄位：導演規則禁止在別人欄位與主提示詞寫名字；程式另用 `stripOtherCharNames_`（`CHAR_EN_NAMES_` 英文稱呼表）把別人欄位裡的名字換成 another character、主提示詞裡的換成 a figure（自己的名字與 Danbooru 角色標籤不動）。名字寫進別人欄位會讓 NovelAI 多畫一個那個人。
 - NovelAI 免費範圍（Opus）：一次 1 張、不用底圖、尺寸 ≤ 約 1024×1024 像素量（目前 1216×832）、steps ≤ 28。V5 的免費額度是會自動回復的用量條，用完會**自動改扣 Anlas**，所以不要調高尺寸、steps 或一次生多張。
