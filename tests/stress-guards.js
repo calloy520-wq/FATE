@@ -342,5 +342,80 @@ run('主從好感歸零解約', () => {
 });
 
 
+// ===== 路線與終局 =====
+const quiet = (o) => Object.assign({ ap_cost: 0 }, o); // 不推進時段，排除後台隨機
+
+run('路線確立與轉線', () => {
+  setMeta(m => { m.routeTendency = {}; m.activeRoute = ''; });
+  turn('保護普通人', quiet({ route_tendency_delta: { fate: 50, ubw: -9, xxx: 3 } }));
+  check('每回合最多 +3、負數不低於 0、不認得的路線忽略', meta().routeTendency.fate === 3 && meta().routeTendency.ubw === 0 && !('xxx' in meta().routeTendency), meta().routeTendency);
+  let lockTurn = 0, t;
+  for (let i = 0; i < 20 && !meta().activeRoute; i++) { t = turn('和 Saber 並肩守護', quiet({ route_tendency_delta: { fate: 3 } })); lockTurn = i + 2; }
+  check('fate 到 40 且領先 12 → 確立', meta().activeRoute === 'fate', [meta().activeRoute, meta().routeTendency]);
+  check('確立時劇情有公告', /路線確立/.test(t.story));
+  check('確立記進重要事件', (meta().keyEvents || []).some(e => /騎士王|fate|路線/i.test(e)), meta().keyEvents);
+  for (let i = 0; i < 16; i++) turn('和凜研究寶石魔術', quiet({ route_tendency_delta: { ubw: 3 } }));
+  check('ubw 追上但沒領先 fate 24 分 → 不轉線', meta().activeRoute === 'fate', meta().routeTendency);
+  for (let i = 0; i < 30 && meta().activeRoute === 'fate'; i++) { t = turn('跟著 Archer 鍛鍊投影', quiet({ route_tendency_delta: { ubw: 3, fate: -3 } })); }
+  check('大幅超越 → 轉線到 ubw', meta().activeRoute === 'ubw', [meta().activeRoute, meta().routeTendency]);
+  check('情報視窗資料帶路線', st().activeRoute === 'ubw' && st().routeDefs.length >= 5);
+});
+
+run('真 Assassin 路線', () => {
+  const ryu = '柳洞寺組 (Caster/Assassin陣營)';
+  setFac(f => { f[ryu] = '存活 (敵對・重創負傷)'; delete f['臟硯組 (真Assassin陣營)']; f['間桐組 (Rider陣營)'] = '存活 (隱蔽觀察)'; });
+  setMeta(m => { m.routeFlags = {}; });
+  const t = turn('沖田在山門擊倒小次郎', quiet({ is_combat: true, servants_out: ['assassin'], present_chars: [{ id: 'okita' }, { id: 'assassin' }] }));
+  check('小次郎退場 → 臟硯組成立', '臟硯組 (真Assassin陣營)' in fac(), Object.keys(fac()));
+  check('柳洞寺剩美狄亞', /美狄亞/.test(fac()[ryu]) && !C.isCapturedOrDefeatedStatusText_(fac()[ryu]), fac()[ryu]);
+  check('異變公告', /異變|白骨面具/.test(t.story));
+  turn('在柳洞寺遭遇哈桑', quiet({ is_combat: true, present_chars: [{ id: 'okita' }, { id: 'hassan' }], faction_updates: { '臟硯': '存活 (敵對・負傷)' } }));
+  check('「臟硯」別名對應回臟硯組', /負傷/.test(fac()['臟硯組 (真Assassin陣營)']), fac()['臟硯組 (真Assassin陣營)']);
+});
+
+run('柳洞寺退場字眼的否定句', () => {
+  const ryu = '柳洞寺組 (Caster/Assassin陣營)';
+  setFac(f => { f[ryu] = '存活 (敵對防備)'; delete f['臟硯組 (真Assassin陣營)']; });
+  setMeta(m => { m.routeFlags = {}; });
+  turn('偵查柳洞寺', quiet({ faction_updates: { [ryu]: '存活 (敵對・小次郎並未被擊敗，仍鎮守山門)' } }));
+  check('「小次郎並未被擊敗」不算退場', !(meta().routeFlags || {}).kojirouOut && !('臟硯組 (真Assassin陣營)' in fac()), [meta().routeFlags, fac()[ryu]]);
+});
+
+run('最終 Boss → 打倒 → 通關', () => {
+  setFac(f => { Object.keys(f).forEach(k => { if (!k.includes('教會')) f[k] = '存活 (同盟)'; }); f['教會組 (Lancer陣營)'] = '已淘汰 (綺禮與 Lancer 退場)'; delete f['臟硯組 (真Assassin陣營)']; });
+  setMeta(m => { m.gilFinal = false; m.gilDefeated = false; m.churchRevived = false; const fv = {}; Object.keys(JSON.parse(row()[29])).forEach(k => { fv[k] = k.includes('教會') ? -90 : 90; }); m.factionFavor = fv; });
+  turn('前往大聖杯', quiet({ outcome_type: 'TRUE_VICTORY', location: '柳洞寺' }));
+  check('其他都化解 → 英雄王現身、本回合不能通關', meta().gilFinal === true && meta().status !== 'CLEARED' && /英雄王/.test(fac()['教會組 (Lancer陣營)']), [meta().gilFinal, meta().status, fac()['教會組 (Lancer陣營)']]);
+  turn('沖田正面挑戰英雄王', quiet({ is_combat: true, present_chars: [{ id: 'okita' }, { id: 'gilgamesh' }], faction_updates: { '教會組': '存活 (英雄王負傷)' } }));
+  turn('以令咒命令沖田使出無明三段突，終結英雄王', quiet({ is_combat: true, command_spells_used: 1, present_chars: [{ id: 'okita', use_np: true }, { id: 'gilgamesh' }], faction_updates: { '教會組': '已淘汰 (英雄王吉爾伽美什被擊敗)' } }));
+  check('真的交戰打倒英雄王 → 淘汰並記錄', C.isCapturedOrDefeatedStatusText_(fac()['教會組 (Lancer陣營)']) && meta().gilDefeated === true, [fac()['教會組 (Lancer陣營)'], meta().gilDefeated]);
+  const t = turn('抵達大聖杯許願', quiet({ outcome_type: 'TRUE_VICTORY' }));
+  check('通關', meta().status === 'CLEARED' || st().runStatus === 'CLEARED', [meta().status, st().runStatus]);
+});
+
+run('轉生下一輪', () => {
+  const winsBefore = Number(meta().wins) || 0;
+  const r = C.startNextLoopReincarnation(P);
+  const m = meta();
+  check('轉生後新一輪、勝場保留', m.status !== 'CLEARED' && (Number(m.wins) || 0) >= winsBefore, [m.status, m.wins, winsBefore]);
+  check('陣營回到開局', !Object.values(JSON.parse(row()[29])).some(v => /同盟/.test(v)), JSON.parse(row()[29]));
+  check('路線與英雄王旗標重置', !m.activeRoute && !m.gilFinal && !m.gilDefeated, [m.activeRoute, m.gilFinal, m.gilDefeated]);
+});
+
+run('清空本輪', () => {
+  const r = C.resetCurrentRunKeepCareer(P);
+  check('清空後可重新創角', Boolean(r), r && Object.keys(r));
+});
+
+run('英雄王提早現身（後台）', () => {
+  const f = { '衛宮組 (Saber陣營)': '存活 (中立)', '遠坂組 (Archer陣營)': '存活 (中立)', '教會組 (Lancer陣營)': '存活 (敵對暗算)', '間桐組 (Rider陣營)': '存活 (隱蔽觀察)', '柳洞寺組 (Caster/Assassin陣營)': '存活 (敵對防備)', '愛因茲貝倫組 (Berserker陣營)': '存活 (敵對・負傷)' };
+  let revealed = null;
+  let others = 0;
+  for (let i = 0; i < 3000 && !revealed; i++) { const r = C.simulateOffscreenFactionWar_(f, 5, '深夜', [], {}); if (r.gilRevealed) revealed = r; else if (Object.values(r.updatedFactions).some(v => /英雄王/.test(v))) others++; }
+  check('別的陣營被淘汰時英雄王不會出現', others === 0, others);
+  check('愛因茲貝倫被後台淘汰時英雄王現身', Boolean(revealed) && /英雄王/.test(revealed.updatedFactions['教會組 (Lancer陣營)']), revealed && revealed.updatedFactions);
+});
+
+
 console.log(`\n${fails === 0 ? '全部通過' : fails + ' 項失敗'}`);
 process.exit(fails ? 1 : 0);

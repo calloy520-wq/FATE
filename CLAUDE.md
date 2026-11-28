@@ -158,6 +158,8 @@
 - 新契約要有意圖（`hasContractIntent_`）：玩家本回合輸入有契約／收服／締結／歸順等字眼才收副從者（壓力測試：只是「看看四周」，AI 就送上黑 Saber）；沒有從者時例外。
 - 後台陣營廝殺在第 3 天以前不會淘汰任何陣營。
 - 戰力判定（`assessCombat_`）：回合前從玩家行動找出對手陣營（`COMBAT_TARGET_ALIASES_`、或身處對方據點 `FACTION_HOME_`），依從者等級 `SERVANT_TIER_`、主從羈絆（好感 ≥80 +1、100 +2）、情報（真名／弱點）、事前準備／奇襲、在對方陣地（柳洞寺 −2）、盟友參戰、令咒 +2、魔力、雙方傷勢加總成 大優勢／小優勢／均勢／劣勢／絕望，寫進 statePrompt 要 AI 依等級裁定，開戰時結算顯示。
+- 隱藏強敵現身（`applyRouteAndHiddenServantEvolution_`）：英雄王、黑櫻、黑 Saber 在場時會改寫所屬陣營狀態，但用 `revealHiddenStatus_`——狀態已經寫到他（例如「英雄王負傷」）就保留，已負傷但沒寫名字就在前面加名字，否則才換成「已現身」。以前每回合整個覆蓋，負傷被洗掉，淘汰兩步永遠過不了，**英雄王、黑櫻、黑 Saber 在場時打不死**（模擬測試發現；克勞德媽那局能結局是因為擊敗英雄王那回合他剛好不在出場名單）。
+- 柳洞寺退場字眼（`mentionsRetired_`）排除否定句：「小次郎並未被擊敗」「差點退場」不算退場（模擬測試：曾直接觸發真Assassin 登場）。
 - 最終 Boss（`maybeSummonFinalBoss_`）：其他陣營都化解、英雄王還沒亮相時，教會組改為「英雄王吉爾伽美什現身・大聖杯守門者」（`meta.gilFinal`），當回合不能通關；打倒後 `meta.gilDefeated`。
 - 英雄王提早現身（使用者指定只限這個情況）：後台廝殺的低機率淘汰剛好落在愛因茲貝倫組時（第 3 天後、該組已負傷、12%、仍剩 4 組以上），改成「遭英雄王吉爾伽美什擊潰」，教會組狀態改為「英雄王吉爾伽美什已現身・遊蕩中」、`meta.gilRevealedEarly = true`，statePrompt 由 `describeFinalBossForPrompt_` 告知他在冬木遊蕩、可能偶遇或介入；其他陣營被後台淘汰照舊。最終 Boss（`maybeSummonFinalBoss_`）流程不變。
 - Berserker 十二試煉（`meta.godHand` = { lost, methods }）：AI 以 `berserker_lives_lost` 回報玩家這邊殺死他幾次；伺服器限制 Berserker 在場且開戰才算、一般最多 1 條、寶具最多 2 條，殺過他的同一種手段之後無效（`applyGodHandHits_`）。命數未歸零時愛因茲貝倫組不會因戰鬥淘汰，除非御主伊莉雅被打倒／投降（`gateGodHandElimination_`）。後台廝殺不扣命數。情報視窗顯示已擊破數與免疫手段。

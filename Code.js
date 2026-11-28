@@ -1670,6 +1670,17 @@ function findRyuudouFactionKey_(factionsObj) {
 
 // 柳洞寺兩位從者的個別退場追蹤＋真Assassin（咒腕哈桑）觸發
 // 觸發條件：美狄亞或小次郎任一退場，且間桐陣營仍未覆滅 → 新增獨立的「臟硯組 (真Assassin陣營)」
+// 退場字眼要排除否定句（模擬測試：「小次郎並未被擊敗，仍鎮守山門」被當成退場，真Assassin 直接登場）
+function mentionsRetired_(text, re) {
+  const t = String(text || '');
+  let m;
+  re.lastIndex = 0;
+  while ((m = re.exec(t)) !== null) {
+    if (!/未|沒|並非|不曾|不是|險些|差點|免於|否認|尚未/.test(m[0])) return true;
+  }
+  return false;
+}
+
 function updateRyuudouRoute_(meta, factionsObj, servantsOut, capturedId, presentIds) {
   const f = Object.assign({}, factionsObj || {});
   const flags = Object.assign({ medeaOut: false, kojirouOut: false, trueAssassin: 'NONE' }, meta.routeFlags || {});
@@ -1688,8 +1699,8 @@ function updateRyuudouRoute_(meta, factionsObj, servantsOut, capturedId, present
     flags.medeaOut = true;
     flags.kojirouOut = true;
   }
-  if (/(美狄亞|Caster|C媽)[^，。；;]{0,10}(退場|陣亡|消滅|消散|擊敗|敗退|戰敗|收服|脫落)/i.test(ryuText)) flags.medeaOut = true;
-  if (/(小次郎|佐佐木|(?<!真)Assassin)[^，。；;]{0,10}(退場|陣亡|消滅|消散|擊敗|敗退|戰敗|收服|脫落|取代)/i.test(ryuText)) flags.kojirouOut = true;
+  if (mentionsRetired_(ryuText, /(美狄亞|Caster|C媽)[^，。；;]{0,10}(退場|陣亡|消滅|消散|擊敗|敗退|戰敗|收服|脫落)/gi)) flags.medeaOut = true;
+  if (mentionsRetired_(ryuText, /(小次郎|佐佐木|(?<!真)Assassin)[^，。；;]{0,10}(退場|陣亡|消滅|消散|擊敗|敗退|戰敗|收服|脫落|取代)/gi)) flags.kojirouOut = true;
 
   // 收服其中一位時，柳洞寺組不整組改為「歸屬第8組」；兩位都離開才算整組結束
   if (ryuKey && !isCapturedOrDefeatedStatusText_(ryuText) && !isAllianceStatusText_(ryuText)) {
@@ -3056,6 +3067,15 @@ function ensureMasterPresentInList_(presentList, isCombatTurn) {
 }
 
 // 路線變異與隱藏強敵（金閃閃、黑櫻＋黑Saber反轉、真Assassin咒腕哈桑）自動同步
+// 隱藏強敵現身時改寫陣營狀態；但狀態已經寫到他（例如「英雄王負傷」）或已經負傷就保留 AI 的描述
+// （模擬測試：每回合整個覆蓋成「已現身・極度危險」，負傷被洗掉，淘汰兩步永遠過不了，英雄王打不死）
+function revealHiddenStatus_(cur, nameRe, label, fresh) {
+  const s = String(cur || '');
+  if (nameRe.test(s)) return s;
+  if (isWeakenedStatusText_(s)) return `${label}・${s}`;
+  return fresh;
+}
+
 function applyRouteAndHiddenServantEvolution_(factionsObj, turnJson, charDb, isCombatTurn) {
   const nextF = Object.assign({}, factionsObj || {});
   const present = Array.isArray(turnJson.present_chars) ? turnJson.present_chars.slice(0, 4) : [];
@@ -3065,7 +3085,7 @@ function applyRouteAndHiddenServantEvolution_(factionsObj, turnJson, charDb, isC
 
   const churchKey = findFacKey(k => k.includes('教會') || k.includes('言峰'));
   if (presentIds.has('gilgamesh') && churchKey && !isCapturedOrDefeatedStatusText_(nextF[churchKey])) {
-    nextF[churchKey] = '言峰組・英雄王吉爾伽美什已現身 (受肉第八騎・極度危險)';
+    nextF[churchKey] = revealHiddenStatus_(nextF[churchKey], /英雄王|吉爾伽美什|金閃閃/, '英雄王吉爾伽美什', '言峰組・英雄王吉爾伽美什已現身 (受肉第八騎・極度危險)');
   }
 
   const matouKey = findMatouFactionKey_(nextF);
@@ -3073,13 +3093,13 @@ function applyRouteAndHiddenServantEvolution_(factionsObj, turnJson, charDb, isC
 
   if (presentIds.has('dark_sakura')) {
     if (matouKey && !isCapturedOrDefeatedStatusText_(nextF[matouKey])) {
-      nextF[matouKey] = '黑櫻・聖杯黑影異變 (間桐櫻覺醒・黑泥擴散中)';
+      nextF[matouKey] = revealHiddenStatus_(nextF[matouKey], /黑櫻|黑影|黑泥/, '黑櫻', '黑櫻・聖杯黑影異變 (間桐櫻覺醒・黑泥擴散中)');
     }
   }
 
   if (presentIds.has('saber_alter')) {
     if (saberKey && !isCapturedOrDefeatedStatusText_(nextF[saberKey])) {
-      nextF[saberKey] = '已遭黑影吞噬・黑化反轉為黑Saber (隸屬黑櫻陣營)';
+      nextF[saberKey] = revealHiddenStatus_(nextF[saberKey], /黑Saber|黑化|黑影/, '黑Saber', '已遭黑影吞噬・黑化反轉為黑Saber (隸屬黑櫻陣營)');
     }
   }
 
