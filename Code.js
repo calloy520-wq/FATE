@@ -4116,7 +4116,7 @@ function focusGestureExcerpt_(storyText, userAction, isCombat) {
   if (STORY_INTERRUPT_RE_.test(paras[start])) return t;
   for (let i = start + 1; i < paras.length; i++) {
     const m = paras[i].match(STORY_INTERRUPT_RE_);
-    if (m) { const head = paras[i].slice(0, m.index).trim(); if (head.length >= 8) kept.push(head); return kept.join('\n'); }
+    if (m) { const head = paras[i].slice(0, m.index).trim(); if (head.length >= 4) kept.push(head); return kept.join('\n'); }
     kept.push(paras[i]);
   }
   return t;
