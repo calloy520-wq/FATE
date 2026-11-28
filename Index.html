@@ -2780,6 +2780,8 @@
           hideLoading();
           isSubmittingTurn = false;
           syncActionButtonsState();
+          // 同一個存檔在另一個視窗先推進了：自動讀取最新進度，把剛剛沒送出的行動放回輸入框
+          if (/另一個視窗推進/.test(String(err && err.message))) { reloadAfterConflict(actionText); return; }
           appendNovelMessage('ai', `⚠️ 回合執行錯誤：${err.message}`, '系統提示');
         })
         .processFateTurnTextOnly({
@@ -2787,6 +2789,25 @@
           userAction: actionText,
           pendingSettings: patchToSend
         });
+    }
+
+    function reloadAfterConflict(actionText) {
+      showLoading('另一個視窗已經推進了這個存檔，正在讀取最新進度...');
+      google.script.run
+        .withSuccessHandler(res => {
+          hideLoading();
+          if (!res || !res.status) { appendNovelMessage('ai', '⚠️ 另一個視窗已經推進了這個存檔，請重新讀取世界線。', '系統提示'); return; }
+          currentState = res.status;
+          initGameScreen(res.logs || []);
+          appendNovelMessage('ai', `🔄 另一個視窗已經推進了這個存檔，已自動讀取最新進度。你剛剛的行動「${actionText}」沒有送出，已放回輸入框，可以修改後再送。`, '系統提示');
+          const input = document.getElementById('player-action-input');
+          if (input && !input.value) input.value = actionText;
+        })
+        .withFailureHandler(e => {
+          hideLoading();
+          appendNovelMessage('ai', `⚠️ 另一個視窗已經推進了這個存檔，自動讀取失敗：${e.message}。請重新讀取世界線。`, '系統提示');
+        })
+        .loadExistingGame(currentState.playerName);
     }
 
     function undoLastTurnUI() {
