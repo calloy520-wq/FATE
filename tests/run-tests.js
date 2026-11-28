@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_, rollWeather_, applyWeatherTags_, normalizeWeather_, indoorWeatherFix_, closeUmbrellaIndoors_, focusGestureExcerpt_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_, rollWeather_, applyWeatherTags_, normalizeWeather_, indoorWeatherFix_, closeUmbrellaIndoors_, focusGestureExcerpt_, isSleepAction_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -317,6 +317,8 @@ eq('摸頭後插入威脅 → 截掉威脅', T.focusGestureExcerpt_(gStory, '摸
 eq('戰鬥中不截', T.focusGestureExcerpt_(gStory, '摸摸她的頭', true), gStory);
 eq('不是親密動作不截', T.focusGestureExcerpt_(gStory, '去教會', false), gStory);
 eq('沒有插入威脅就保留全文', T.focusGestureExcerpt_('他抱住她。\n她笑了。', '抱住她', false), '他抱住她。\n她笑了。');
+
+eq('睡覺會讓時間前進', [T.isSleepAction_('回洋館睡覺休息'), T.isSleepAction_('睡到黃昏'), T.isSleepAction_('冥想恢復魔力'), T.isSleepAction_('今晚不睡，守夜')], [true, true, false, false]);
 
 // ---- 天氣 ----
 eq('天氣不明 → 晴', T.normalizeWeather_('颱風'), '晴');

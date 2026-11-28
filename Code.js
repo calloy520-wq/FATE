@@ -1499,6 +1499,12 @@ function stripWeaponTags_(str) {
 }
 
 // 玩家本回合是不是在休息（睡覺、冥想、調息…）
+// 真的睡一覺（不含冥想、小睡）：時間要前進到下一個時段（2026-11 實測「回洋館睡覺」後還停在同一個清晨）
+function isSleepAction_(text) {
+  const t = String(text || '');
+  return /睡覺|睡一覺|就寢|過夜|補眠|上床睡|睡到|一覺/.test(t) && !/不睡|別睡|睡不著|沒睡/.test(t);
+}
+
 function isRestAction_(text) {
   return /休息|睡覺|睡一覺|補眠|小睡|就寢|冥想|調息|靜養|休養|養傷|打坐|恢復魔力|回復魔力|回魔/.test(String(text || ''));
 }
@@ -3503,7 +3509,8 @@ function processFateTurnTextOnly(params) {
     const offscreenForumPosts = [];
 
     if (statusObj.gameMode === 'WAR') {
-      const apCost = Math.max(0, Math.min(3, Number(turnJson.ap_cost) || 0));
+      let apCost = Math.max(0, Math.min(3, Number(turnJson.ap_cost) || 0));
+      if (!turnJson.is_combat && isSleepAction_(userAction)) apCost = Math.max(apCost, Number(row[8]) || 0);
       let newAp = Number(row[8]) - apCost;
       if (newAp <= 0) {
         const nextTime = advanceTimePeriod_(Number(row[6]), String(row[7]));
