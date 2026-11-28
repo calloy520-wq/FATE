@@ -4408,7 +4408,7 @@ function refineFramingTags_(prompt, nChars) {
 // 膝枕：2026-11 比對 12 種寫法後用「仰角＋大腿＋胸部＋臉＋天花板＋特寫」（使用者的點子，膝枕感最清楚；breasts 已拿掉，因為會套用到孩童外觀角色）；掏耳朵用俯身靠近版（使用者覺得沒問題）
 let LAP_POV_TAGS_ = 'lap pillow, pov, lying, from below, looking down at viewer, 0.8::thighs::, face focus, ceiling, close-up';
 // 第三人稱膝枕（看得到御主躺在她腿上）
-let LAP_3RD_TAGS_ = 'lap pillow';
+let LAP_3RD_TAGS_ = 'lap pillow, from above, close-up, upper body, face focus';
 let MIMIKAKI_POV_TAGS_ = 'mimikaki, holding ear pick, lap pillow, pov, from below, looking down at viewer, leaning over viewer, hair hanging down, face close to viewer, upper body, ceiling, 0.6::thighs::';
 const INTIMACY_TAGS_ = [
   { re: /\b(hug(ging|s|ged)?|embrac(e|ing|ed)|arms wrapped around)\b[^,]*\bfrom behind\b|\bback hug\b|\bbeing hugged from behind\b/i, tag: 'hug from behind' },
