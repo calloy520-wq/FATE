@@ -84,6 +84,9 @@ eq('對不上 → 丟棄', T.resolveFactionKey_('路人甲', f), '');
 eq('未知地名 → null（維持原地）', T.matchFuyukiLocation_('冬木中學屋頂'), null);
 eq('別名', T.matchFuyukiLocation_('前往柳洞寺').key, '柳洞寺');
 eq('完整名稱', T.matchFuyukiLocation_('冬木新都・高樓商業區').key, '新都商業區');
+eq('商店街是地標（不再誤留在洋館）', T.matchFuyukiLocation_('和莫德雷德走在深山町的商店街買可樂餅').key, '深山町商店街');
+eq('中央公園不會被「新都」搶走', T.matchFuyukiLocation_('去新都中央公園散步').key, '新都中央公園');
+eq('新都仍是商業區', T.matchFuyukiLocation_('在新都巡邏').key, '新都商業區');
 
 // ---- 道具 ----
 const ir = T.applyInventoryChanges_([{ id: 'mana_gem_s', name: '魔力結晶(小)', qty: 2, tier: 1, type: 'consumable' }], ['mana_gem_s', 'nope'], [], false);
