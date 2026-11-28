@@ -3490,7 +3490,7 @@ function processFateTurnTextOnly(params) {
       : '（尚無）';
 
     const smsContactKeys = Object.keys((metaBefore.smsContacts && typeof metaBefore.smsContacts === 'object') ? metaBefore.smsContacts : {});
-    const phoneBridgeHints = isSandboxMode ? (metaBefore.pendingSmsNote ? `【簡訊】${metaBefore.pendingSmsNote}` : '') : [
+    const phoneBridgeHints = isSandboxMode ? [metaBefore.pendingSmsNote ? `【簡訊】${metaBefore.pendingSmsNote}` : '', metaBefore.pendingForumNote ? `【論壇】${metaBefore.pendingForumNote}（市民的日常閒聊，可以自然地被身邊的人提起）` : ''].filter(Boolean).join('\n') : [
       metaBefore.pendingSmsNote ? `【簡訊通訊連動】${metaBefore.pendingSmsNote}（請讓簡訊的內容與對方反應實際體現在本回合劇情與陣營狀態中：同盟會配合支援；被騙的陣營會依假情報行動，識破的陣營會提高戒心甚至報復）` : '',
       describeRumorsForPrompt_(metaBefore.rumors),
       `【玩家手機通訊錄】可傳簡訊的非同盟陣營：${smsContactKeys.join('、') || '無'}（劇情中玩家與某陣營交換手機號碼或取得聯絡方式時，把該陣營名稱填入 new_contacts）`,
@@ -3549,9 +3549,11 @@ function processFateTurnTextOnly(params) {
       `【冬木市地標】\n${locCatalogText}`
     ].filter(Boolean).join('\n\n');
 
+    const timeMismatch = detectTimeMismatch_(userAction, statusObj.timePeriod);
     const statePrompt = [
       isSandboxMode ? '【日常故事模式（優先遵守）】本局是冬木市的日常生活故事：英靈與魔術師都以普通居民的身分在冬木生活，彼此沒有敵對、沒有任務。系統規則裡關於戰爭、陣營、情報、令咒、勝利條件的部分全部不適用；不要寫戰況、偵查、陣營、爆炸事件或魔力異常的伏筆，也不要在劇情裡解釋這個設定，直接照玩家的行動寫日常、互動與喜劇。論壇貼文寫市民的日常閒聊。' : '',
       missingItems.length ? `【物品檢查（優先遵守）】玩家提到「${missingItems.join('」「')}」，但他的背包和身上都沒有這東西。除非本回合劇情裡合理地先取得（買、撿、搶、借、偷），否則他手上根本沒有：寫他摸了個空、行動失敗，到此為止。不可以讓它憑空出現，也不可以替玩家改用別的方法去做同一件事。` : '',
+      timeMismatch ? `【時間檢查（優先遵守）】現在是 Day ${statusObj.day}・${statusObj.timePeriod}，玩家提到的「${timeMismatch}」不是現在的時段：照現在的時段寫實際看到的景色與光線（例如${statusObj.timePeriod}去看就是${statusObj.timePeriod}的樣子），不可以跳到那個時段；玩家若是約之後的時間，就當作約定。` : '',
       turnSettingsBlock,
       `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | 天氣: ${describeWeatherForPrompt_(statusObj.weather)}${isSandboxMode ? '' : ` | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}%`} | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
       `【當前場地現況】${statusObj.locationInfo.desc}`,
@@ -5624,6 +5626,27 @@ function sandboxMemberName_(meta, id) {
   if (own) return own.name;
   const c = (typeof FATE_CHARACTERS_ !== 'undefined' ? FATE_CHARACTERS_ : []).find(x => x.id === id);
   return c ? String(c.names || id).split(',')[0].trim() : id;
+}
+
+// 玩家行動寫的時段和現在不同（清晨說要看夕陽、白天說看夜景）：提示詞補一行時間檢查，避免劇情跳時間
+// （系統提示詞已有「時間以狀態列為準」，flash-lite 常不聽；像物品檢查一樣放在動態段前面才有用）
+const TIME_WORDS_ = {
+  '清晨': /早上|清晨|早晨|日出|朝陽|晨光/,
+  '白天': /中午|正午|午後|下午|大白天/,
+  '黃昏': /夕陽|黃昏|傍晚|晚霞|日落/,
+  '深夜': /夜景|深夜|半夜|星空|月光|夜空|午夜/
+};
+function detectTimeMismatch_(userAction, period) {
+  const act = String(userAction || '').replace(/晚安|早安|午安/g, '');
+  const hits = Object.keys(TIME_WORDS_).filter(k => {
+    const m = act.match(TIME_WORDS_[k]);
+    if (!m) return false;
+    // 「明天早上」「等到傍晚」「晚上再去」是約之後的時間，不算
+    const before = act.slice(Math.max(0, m.index - 3), m.index);
+    return !/明天|明早|明晚|等到|之後|待會|再/.test(before);
+  });
+  if (!hits.length || hits.indexOf(period) >= 0) return '';
+  return hits.map(k => act.match(TIME_WORDS_[k])[0]).join('」「');
 }
 
 // 玩家說要一個人行動：同行者這回合不跟
