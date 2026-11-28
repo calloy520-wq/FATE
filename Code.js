@@ -5052,7 +5052,13 @@ function enhanceServantAppearance(zhDesc, gender, name, cls) {
     '- advice_zh: 1-2 short Traditional Chinese tips (e.g. which tag to weight with 1.2::tag:: if the model may get it wrong).'
   ].join('\n');
   const userMsg = `Name: ${String(name || '').slice(0, 40)}\nClass: ${String(cls || '').slice(0, 20)}\nGender: ${genderTag}\nChinese Description: ${String(zhDesc || '').slice(0, 400)}`;
-  return callGeminiLiteJson_(systemPrompt, userMsg, 0.2, 900);
+  const res = callGeminiLiteJson_(systemPrompt, userMsg, 0.2, 900) || {};
+  // Gemini 偶爾把標籤回成陣列、建議裡寫 Stable Diffusion 的 (tag:1.2) 權重寫法 → 統一成字串與 NovelAI 的 1.2::tag::
+  ['official_tag', 'core_tags', 'outfit_tags', 'uc_tags', 'expression_tag', 'np_visual_tags', 'build'].forEach(k => {
+    if (Array.isArray(res[k])) res[k] = res[k].map(x => String(x).trim()).filter(Boolean).join(', ');
+  });
+  if (typeof res.advice_zh === 'string') res.advice_zh = res.advice_zh.replace(/\(([^():]+):\s*([\d.]+)\)/g, '$2::$1::');
+  return res;
 }
 
 // 預覽：mode = 'game'（遊戲實際畫法）或 'official'（模擬 NovelAI 官網預設：只打角色標籤、負面預設「重」、步驟 23、引導 7）
