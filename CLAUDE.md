@@ -164,6 +164,7 @@
 ## 已修正的問題（不要改回去）
 - `servant2_condition` 欄位名稱拼寫已修正。
 - 同職階敵對陣營不會每回合被誤判為歸屬第8組。
+- 結局值容錯（`normalizeOutcome_`）：AI 寫出規定外的 outcome_type（DEAD、DEATH、WIN…）時依字面對應回 FATAL_DEATH／TRUE_VICTORY，其他當 CONTINUE（壓力測試發現寫 DEAD 時御主「已死亡」卻照常行動、保命符也沒觸發）。
 - Gemini JSON 回傳有容錯解析與一次重試；主回合 `max_tokens` 為 3000。
 - 簡訊每串上限 30 則，meta JSON 過長會自動裁切，避免超出儲存格上限。
 - 導演翻譯後的繪圖 payload 會回寫 ChatLog，重新讀檔後重骰 CG 仍保留裸體與戰鬥裝。

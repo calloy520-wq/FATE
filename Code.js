@@ -1541,6 +1541,16 @@ function isItemReferenced_(item, text) {
   return false;
 }
 
+// AI 偶爾寫出規定外的結局值（DEAD、DEATH、WIN…）：不認得時依字面對應，否則當成 CONTINUE
+// （壓力測試：outcome_type 寫 DEAD 時既不判死也不判繼續，御主「已死亡」卻照常行動）
+function normalizeOutcome_(v) {
+  const o = String(v || 'CONTINUE').trim().toUpperCase();
+  if (o === 'CONTINUE' || o === 'FATAL_DEATH' || o === 'TRUE_VICTORY') return o;
+  if (/DEAT|DEAD|DIE|KILL|死/.test(o)) return 'FATAL_DEATH';
+  if (/VICTOR|WIN|CLEAR|勝|通關/.test(o)) return 'TRUE_VICTORY';
+  return 'CONTINUE';
+}
+
 function isRestAction_(text) {
   return /休息|睡覺|睡一覺|補眠|小睡|就寢|冥想|調息|靜養|休養|養傷|打坐|恢復魔力|回復魔力|回魔/.test(String(text || ''));
 }
@@ -3762,7 +3772,7 @@ function processFateTurnTextOnly(params) {
       meta.keyEvents = updateKeyEvents_(meta.keyEvents, [routeAnnounce.replace(/^【[^】]+】/, '').slice(0, 60)], [], cleanName);
     }
 
-    let outcome = String(turnJson.outcome_type || 'CONTINUE').toUpperCase();
+    let outcome = normalizeOutcome_(turnJson.outcome_type);
     if (outcome === 'CONTINUE' && /^已死亡/.test(String(meta.masterCondition || ''))) {
       outcome = 'FATAL_DEATH';
     }
