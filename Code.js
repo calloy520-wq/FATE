@@ -4094,6 +4094,15 @@ function processFateTurnTextOnly(params) {
       const killers = aiList.filter(c => c && c.id && c.id !== 'player_master' && !own.has(c.id)).slice(0, 2).map(c => Object.assign({}, c, { use_np: false }));
       const ownNear = aiList.filter(c => c && own.has(c.id)).slice(0, killers.length >= 2 ? 0 : 1).map(c => ({ id: c.id, use_np: false, action_en: 'reaching out desperately, anguished expression, too late' }));
       presentList = [{ id: 'player_master', use_np: false, action_en: 'collapsed on the ground, dying, blood, half-closed eyes, reaching out weakly' }, ...killers, ...ownNear];
+      // 玩家自己找死（對太陽穴開槍、跳樓…）：主角換成從者呆站原地的錯愕臉（使用者指定的黑色幽默）
+      // 御主一死契約就斷了，updatedStatus 的從者已經是空的 → 用回合開始前的主從者
+      const selfDeathServant = statusObj.servant1.id || updatedStatus.servant1.id;
+      if (isSelfInflictedDeath_(userAction) && selfDeathServant) {
+        presentList = [
+          { id: selfDeathServant, use_np: false, action_en: 'standing frozen in place, utterly dumbfounded, shocked, wide-eyed, mouth agape, speechless, arms hanging limply at sides, sweatdrop, completely failed to react' },
+          { id: 'player_master', use_np: false, action_en: 'lying motionless on the ground in the foreground, face hidden' }
+        ];
+      }
       turnJson.scene_env_en = `${String(turnJson.scene_env_en || '').replace(/dreamscape|surreal|golden light/gi, '')}, dark red sky, black mud creeping on the ground, despair, tragic atmosphere, dramatic lighting`;
     } else if (outcome === 'TRUE_VICTORY') {
       turnJson.scene_env_en = 'golden greater grail in night sky, dawn sunlight piercing clouds, triumphant atmosphere, floating light particles, wide shot';
@@ -4102,7 +4111,7 @@ function processFateTurnTextOnly(params) {
     presentList = ensureMasterPresentInList_(presentList, isCombatTurn);
 
     const imgPayload = buildNaiPayloadFromScene_(
-      Object.assign({}, updatedStatus, { weather: storyWeather }, outcome === 'FATAL_DEATH' ? { cameraMode: 'third', _death: true } : {}),
+      Object.assign({}, updatedStatus, { weather: storyWeather }, outcome === 'FATAL_DEATH' ? { cameraMode: 'third', _death: true, _selfDeath: isSelfInflictedDeath_(userAction) && Boolean(statusObj.servant1.id || updatedStatus.servant1.id) } : {}),
       presentList,
       turnJson.scene_env_en || 'fuyuki city, night, dramatic lighting',
       isCombatTurn,
@@ -4288,6 +4297,11 @@ function focusGestureExcerpt_(storyText, userAction, isCombat) {
 }
 
 // 死亡回合：系統提示詞已不要求寫死後的夢；萬一 AI 還是寫了夢境、幻覺，導演只看結尾會畫成夢境或空廢墟 → 截在夢之前（保險）
+// 玩家自己找死：對自己開槍、自殺、跳樓、割腕、服毒…
+function isSelfInflictedDeath_(text) {
+  return /自殺|自盡|自刎|了結自己|對自己|朝自己|往自己|刺向自己|太陽穴|割腕|上吊|跳樓|跳下去|縱身躍下|咬舌|服毒|喝下毒|引爆自己|抹脖子/.test(String(text || ''));
+}
+
 function deathExcerpt_(storyText) {
   const paras = String(storyText || '').replace(/【[^】]*】[^\n]*/g, '').replace(/🐯[\s\S]*$/, '').split(/\n+/).map(p => p.trim()).filter(Boolean);
   const dreamRe = /夢|幻影|幻覺|虛假|美好的|願望.{0,6}實現|聖杯.{0,6}(實現|賜予|低語)|意識.{0,4}(消散|消逝|沉入)/;
@@ -4376,7 +4390,8 @@ function translateSceneToNaiV5_(directorCtx) {
   ].join('\n');
 
   const userMsg = [
-    directorCtx.isDeath ? 'FATAL DEATH SCENE (CRITICAL): depict the exact moment the player master dies — the player master clearly visible, collapsed on the ground or falling, blood, half-closed eyes, reaching out weakly; the killer (if present) looming over or striking; dark red sky and black mud. Third-person camera. NOT a dream, NOT empty scenery, NOT a peaceful moment. Any present ally of the player looks anguished and too late — never calm or smiling.' : '',
+    directorCtx.isSelfDeath ? 'SELF-INFLICTED DEATH (dark comedy, CRITICAL): the player suddenly killed themself out of nowhere. The SERVANT is the subject: standing frozen in place, utterly dumbfounded — wide eyes, jaw dropped, speechless, arms hanging limply, a sweatdrop; she never saw this coming and cannot react. Frame her with "cowboy shot" or "upper body", face large and clear. The player master lies motionless on the ground in the foreground or at her feet, face hidden, no gore focus. Ignore the normal FATAL DEATH SCENE rule.' : '',
+    directorCtx.isDeath && !directorCtx.isSelfDeath ? 'FATAL DEATH SCENE (CRITICAL): depict the exact moment the player master dies — the player master clearly visible, collapsed on the ground or falling, blood, half-closed eyes, reaching out weakly; the killer (if present) looming over or striking; dark red sky and black mud. Third-person camera. NOT a dream, NOT empty scenery, NOT a peaceful moment. Any present ally of the player looks anguished and too late — never calm or smiling.' : '',
     `Location & Time: ${directorCtx.location} (${directorCtx.timePeriod})`,
     directorCtx.weather && directorCtx.weather !== '晴' ? `Weather: ${WEATHER_TYPES_[normalizeWeather_(directorCtx.weather)].tags} (show it only if the scene is outdoors or a window is visible)` : '',
     directorCtx.locationDesc ? `Current Site Appearance/Modifications: ${directorCtx.locationDesc}` : '',
@@ -4571,6 +4586,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
       weather: normalizeWeather_(statusObj.weather),
       isCombat: Boolean(isCombat || anyNpActive),
       isDeath: Boolean(statusObj._death),
+      isSelfDeath: Boolean(statusObj._selfDeath),
       adultMode: adultMode,
       cameraMode: povMode ? 'pov' : 'third',
       atHomeBase: statusObj.locationKey === '廢棄洋館',
@@ -4928,6 +4944,16 @@ function generateTurnCgAsync(imgPayload) {
         }
       }
       working.prompt = refineFramingTags_(working.prompt, Array.isArray(working.characters) ? working.characters.length : 0);
+      // 玩家自己找死：從者的錯愕臉是主角（導演常把御主放大在前景、從者小小站後面）→ 程式鎖定構圖
+      if (working._directorContext && working._directorContext.isSelfDeath && Array.isArray(working.characters)) {
+        working.characters = working.characters.map(ch => {
+          if (ch.id === 'player_master') {
+            return Object.assign({}, ch, { prompt: removeTagsKeepWeights_(ch.prompt, t => /\b(foreground|close-up|holding|reaching|hand|eyes|face|looking|smile|smiling|grin)\b/i.test(t)) + ', lying face down on the floor, background, small in frame, face not visible' });
+          }
+          return Object.assign({}, ch, { prompt: removeTagsKeepWeights_(ch.prompt, t => /\b(background|anguish|tears|crying|reaching out|outstretched|sad)\b/i.test(t)) + ', foreground, dumbfounded, wide-eyed, jaw drop, open mouth, blank stare, frozen in place, arms at sides, sweatdrop' });
+        });
+        working.prompt = working.prompt.replace(/\b(wide shot|full body|medium shot|cowboy shot)\b,?\s*/gi, '').replace(/^((?:\d+(?:girls?|boys?)|multiple characters|solo)(?:,\s*)?)+/i, m => `${m.replace(/,?\s*$/, '')}, upper body, `);
+      }
       // 兩人對打或面對面：導演常把一人放前景背對鏡頭 → 加 from side，並刪掉「前景」字眼，讓兩人的臉都看得到
       const pairFacing = Array.isArray(working.characters) && working.characters.length === 2 && Array.isArray(directed.char_directions)
         && directed.char_directions.some(d => d && /\b(clash|clashing|facing (each other|another character|the other)|confront|duel|sword fight|parry|parrying|crossed blades)/i.test(`${d.interaction || ''} ${d.action || ''}`));
