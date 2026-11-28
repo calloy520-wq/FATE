@@ -41,7 +41,7 @@
 - AI 回傳的 `faction_updates` 會經 `resolveFactionKey_` 對應回既有陣營名稱，對不上的會被丟棄；新增陣營時記得補 `FACTION_ALIAS_GROUPS_`。
 
 ## 提示詞與記憶
-- 寫作基調（難度）：`GAME_TONE_PRESETS_` 每種有 `directive`（具體裁定指令），放在 statePrompt 最前面「本局基調（優先遵守）」，系統提示詞也有對應規則。實測同一個偷襲行動：搞笑＝滑稽閃開、龍傲天＝偷襲成功、常理＝被閃開、鐵血＝被反擊。`STORY_PLAYER_FIRST` 已改名「🐉 龍傲天模式」（鍵名不變以相容存檔）：玩家想做的都能實現，伺服器的淘汰兩步、十二試煉、英靈退場、結盟門檻與戰力判定都不套用。改基調時要保持這種明顯差異。
+- 寫作基調（難度）：`GAME_TONE_PRESETS_` 每種有 `directive`（具體裁定指令），放在 statePrompt 最前面「本局基調（優先遵守）」，系統提示詞也有對應規則。實測同一個偷襲行動：搞笑＝滑稽閃開、龍傲天＝偷襲成功、常理＝被閃開、鐵血＝被反擊。`STORY_PLAYER_FIRST` 已改名「🐉 龍傲天模式」（鍵名不變以相容存檔）：玩家想做的都能實現，伺服器的淘汰兩步、十二試煉、英靈退場、結盟門檻與戰力判定都不套用。改基調時要保持這種明顯差異。**難度開局決定、本局鎖定**（使用者要求）：創角畫面的「🎚️ 難度」（`#create-tone`）隨 `completeCreationAndSummon` 的 `gameTone` 寫入 `meta.gameTone` 並設 `meta.toneLocked = true`；鎖定後 `savePlayerSettingsOnly`／`applyPendingSettingsToRow_` 忽略難度變更，設定視窗的難度選單變灰並註明；`resetCurrentRunKeepCareer`、`startNextLoopReincarnation` 設 `toneLocked: false`，回創角畫面可重選。舊存檔沒有旗標時，玩過回合（`turnCount > 0`）就視為鎖定（`isToneLocked_`）。
 - 回合推演的規則是固定常數 `FATE_GM_SYSTEM_PROMPT_`（裁定原則、型月世界邏輯、本作固定設定、反饋機制、死亡勝利、格式、JSON 格式）；每回合變動的資料（玩家名、基調、能力、背包、手機、流言、路線、地標、角色 ID、狀態）全部放 `statePrompt`。不要把變動資料塞回系統提示詞（會破壞快取、讓提示詞膨脹）。
 - 設計方針：**自由但合乎邏輯**——玩家可以嘗試任何行動，以型月世界邏輯與能力決定成功程度和代價；規則寫成原則，不要一條條加禁止事項。模型是輕量的 flash-lite，提示詞越短越有條理越穩。
 - 每回合只送「相關角色」的服裝（御主、契約從者、最近出場者、服裝偏離預設者），角色清單只送 ID 與前兩個名稱；地標只有當前地點附完整描述。
@@ -133,6 +133,7 @@
 
 ## 使用的服務
 - 劇情：OpenRouter，模型 `google/gemini-3.1-flash-lite`。
+- 提示詞快取：`callOpenRouterChat_` 把 2000 字以上的系統提示詞包成 `[{ type: 'text', text, cache_control: { type: 'ephemeral' } }]`。Gemini 的自動快取時有時無（2026-11 實測 `cached_tokens` 常是 0），明確標記後每次穩定吃到約 4600 token 快取，輸入成本省約四成、每回合整體省約 15～20%（輸出的小說無法快取）。所以系統提示詞一定要保持固定，變動資料放 statePrompt。OpenRouter 官方說明（2026-11 讀取）：Gemini 要明確 `cache_control` 才會快取、只認最後一個標記、快取讀取 0.25 倍價（帳單反推這個模型約 0.1 倍）、寫入 TTL 5 分鐘且不會延長、**通常要 4096 token 以上才寫入**——目前 `FATE_GM_SYSTEM_PROMPT_` 約 4587 token，剛好過門檻，精簡系統提示詞時不要掉到 4096 以下，否則快取整個失效。（WebFetch 連不上 openrouter.ai，用 curl 可以讀。）快取範圍再擴大（2026-11）：內建角色 ID 清單搬進系統提示詞（`getGmSystemPrompt_`，所有玩家一樣）；同一位玩家每回合不變的段落（本局基調、名號與願望、寫作基調、固定六維、自創英靈設定）組成 `stablePrompt`，以 `{ stable, dynamic }` 傳給 `callOpenRouterChat_`，在 stable 結尾標記快取（只認最後一個標記 → 系統規則＋這段一起快取），動態段（物品檢查、狀態、劇情歷史、本回合行動）放後面不快取。本局基調仍排第一。實測快取 token 從 18348 增到 20428（每回合多省約 3～5%）；手槍 6/6 仍摸空、鐵血買槍舊版 2/6 對新版 1/6（隨機範圍內），行為沒變。
 - 繪圖：NovelAI V5（`nai-diffusion-5-full`），由「視覺導演」先把中文劇情翻成英文 Danbooru 標籤再繪圖。
 
 ## 試算表分頁（只有兩個，欄位順序不可更動）

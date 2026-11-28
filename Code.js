@@ -1881,6 +1881,15 @@ function getNovelAIKey_() {
   return key.trim();
 }
 
+// 系統提示詞＝固定規則＋內建角色 ID 清單（所有玩家都一樣，放這裡跟著一起快取；自創英靈的 ID 在 statePrompt 的設定段）
+let GM_SYSTEM_PROMPT_CACHE_ = '';
+function getGmSystemPrompt_() {
+  if (GM_SYSTEM_PROMPT_CACHE_) return GM_SYSTEM_PROMPT_CACHE_;
+  const ids = (typeof FATE_CHARACTERS_ !== 'undefined' ? FATE_CHARACTERS_ : []).map(c => `${c.id}=${String(c.names || '').split(',').slice(0, 2).join('/')}`).join('; ');
+  GM_SYSTEM_PROMPT_CACHE_ = `${FATE_GM_SYSTEM_PROMPT_}\n\n## 角色 ID（present_chars 與 outfit_updates 用這些 id）\n${ids}`;
+  return GM_SYSTEM_PROMPT_CACHE_;
+}
+
 function callGeminiLite_(systemPrompt, userMessage, temperature, maxTokens, jsonMode) {
   const apiKey = getOpenRouterKey_();
   return callOpenRouterChat_(apiKey, GEMINI_MODEL, systemPrompt, userMessage, temperature, maxTokens, jsonMode);
@@ -2376,6 +2385,7 @@ function resetCurrentRunKeepCareer(playerName) {
       losses: losses,
       artStyle: oldMeta.artStyle || 'official',
       gameTone: normalizeGameToneKey_(oldMeta.gameTone),
+      toneLocked: false,
       wish: '抵達根源，改寫這場扭曲的聖杯儀式',
       masterCondition: '完好無損',
       servantCondition: '靈基穩定',
@@ -2610,6 +2620,7 @@ function startNextLoopReincarnation(playerName) {
       losses: Number(oldMeta.losses) || 0,
       artStyle: oldMeta.artStyle || 'official',
       gameTone: normalizeGameToneKey_(oldMeta.gameTone),
+      toneLocked: false,
       wish: oldMeta.wish || '奪得聖杯實現夙願',
       masterCondition: '完好無損',
       servantCondition: '靈基穩定',
@@ -2696,7 +2707,7 @@ function savePlayerSettingsOnly(playerName, patch) {
 
     const meta = safeJsonParse_(row[31], {});
     if (patch.artStyle && ART_STYLE_PRESETS_[String(patch.artStyle)]) meta.artStyle = String(patch.artStyle);
-    if (patch.gameTone) meta.gameTone = normalizeGameToneKey_(patch.gameTone);
+    if (patch.gameTone && !isToneLocked_(meta)) meta.gameTone = normalizeGameToneKey_(patch.gameTone);
     if (patch.cameraMode) meta.cameraMode = (patch.cameraMode === 'pov') ? 'pov' : 'third';
     row[31] = serializeMeta_(meta);
 
@@ -2844,7 +2855,8 @@ function completeCreationTextOnly(params) {
       wins: Number(oldMeta.wins) || 0,
       losses: Number(oldMeta.losses) || 0,
       artStyle: oldMeta.artStyle || 'official',
-      gameTone: normalizeGameToneKey_(oldMeta.gameTone),
+      gameTone: normalizeGameToneKey_(params.gameTone || oldMeta.gameTone),
+      toneLocked: true,
       wish: wishText,
       masterCondition: '完好無損',
       servantCondition: '靈基穩定',
@@ -3159,6 +3171,15 @@ function applyRouteAndHiddenServantEvolution_(factionsObj, turnJson, charDb, isC
   return nextF;
 }
 
+// 難度開局時決定、召喚後鎖定（使用者要求）：重新開局（清空本輪、轉生）才能再選
+// 舊存檔沒有這個旗標：已經玩過回合的視為鎖定在目前的難度
+function isToneLocked_(meta) {
+  const m = meta || {};
+  if (m.toneLocked === true) return true;
+  if (m.toneLocked === false) return false;
+  return Number(m.turnCount) > 0;
+}
+
 function applyPendingSettingsToRow_(row, ps) {
   if (!ps || typeof ps !== 'object') return;
   if (ps.gameMode) row[3] = (String(ps.gameMode) === 'SANDBOX') ? 'SANDBOX' : 'WAR';
@@ -3166,7 +3187,7 @@ function applyPendingSettingsToRow_(row, ps) {
   if (typeof ps.adultMode === 'boolean') row[5] = ps.adultMode ? 'TRUE' : 'FALSE';
   const metaSync = safeJsonParse_(row[31], {});
   if (ps.artStyle && ART_STYLE_PRESETS_[String(ps.artStyle)]) metaSync.artStyle = ps.artStyle;
-  if (ps.gameTone) metaSync.gameTone = normalizeGameToneKey_(ps.gameTone);
+  if (ps.gameTone && !isToneLocked_(metaSync)) metaSync.gameTone = normalizeGameToneKey_(ps.gameTone);
   if (ps.cameraMode) metaSync.cameraMode = (ps.cameraMode === 'pov') ? 'pov' : 'third';
   row[31] = serializeMeta_(metaSync);
 }
@@ -3413,11 +3434,18 @@ function processFateTurnTextOnly(params) {
     const canFormSecondContract = (!statusObj.servant1.id) || ((isDragonTone || (statusObj.master.commandSpells >= 1 && statusObj.master.mp >= 80)) && (!statusObj.servant2.id || !rosterFull));
 
     // 系統提示詞：固定不變的規則與型月世界觀（每回合相同，模型端可快取）；每回合變動的資料一律放在 statePrompt
-    const systemPrompt = FATE_GM_SYSTEM_PROMPT_;
+    const systemPrompt = getGmSystemPrompt_();
 
-    const turnSettingsBlock = [
+    // 同一位玩家每回合都不變的段落：放在 statePrompt 最前面並標記快取（基調本來就排第一，順序不變）
+    const stablePrompt = [
+      `【本局基調（優先遵守，決定結果的輕重與筆調）】${tonePreset.label}：${tonePreset.directive || tonePreset.desc}`,
       `【玩家】名號「${cleanName}」（劇情中稱呼玩家用這個名字、「御主」或角色習慣的叫法）｜聖杯願望：「${statusObj.master.wish}」`,
       `【寫作基調：${tonePreset.label}】${tonePreset.desc}`,
+      `【御主固定六維等階】魔術迴路:${p.circuit} | 近戰體術:${p.combat} | 隱藏氣息:${p.stealth} | 幸運:${p.luck}`,
+      statusObj.servant1.id === CUSTOM_SERVANT_ID_ ? describeCustomServantForPrompt_(ACTIVE_CUSTOM_SERVANT_) : ''
+    ].filter(Boolean).join('\n\n');
+
+    const turnSettingsBlock = [
       rankCheckHint,
       `【主從者好感】${statusObj.bondLevel}/100${statusObj.bondLevel <= 10 && toneKey !== 'COMEDY_CHAOS' && toneKey !== 'STORY_PLAYER_FIRST' ? '（主從關係緊張：從者可能拒絕危險或荒唐的命令，令咒可以強制但會再扣好感；好感歸零還一直惹她會解約離去）' : ''}${statusObj.bondLevel <= 0 && Number(metaBefore.bondZeroStreak) >= 2 && statusObj.servant1.id && (toneKey === 'BALANCED' || toneKey === 'HARDCORE_WAR') ? `【最後一次機會】${statusObj.servant1.name || '從者'}的忍耐已到極限：本回合玩家若又讓她不快（bond_delta < 0），她會當場解除契約離去，劇情必須寫出她離開的場面；玩家真誠道歉或好好相處（bond_delta ≥ 0）她才會留下。` : ''}。bond_delta 每回合 ±10 內，依從者在意的事判斷：平常的相處與對話 0～+3，真正打動她的事（真誠道歉、並肩死戰、說中她的心事、重要承諾）才 +5～+10；惹她不快就扣分`,
       inventoryRuleHint,
@@ -3427,21 +3455,17 @@ function processFateTurnTextOnly(params) {
       describeRosterForPrompt_(swapId ? rosterBefore.filter(r => r.id !== swapId).concat(row[23] ? [{ id: String(row[23]), name: String(row[25]), condition: String(metaBefore.servant2Condition || '靈基穩定') }] : []) : rosterBefore),
       worldEventHint,
       phoneBridgeHints,
-      `【冬木市地標】\n${locCatalogText}`,
-      `【角色 ID】${Object.keys(charDb).map(id => `${id}=${charDb[id].triggers.split(',').slice(0, 2).join('/')}`).join('; ')}`
+      `【冬木市地標】\n${locCatalogText}`
     ].filter(Boolean).join('\n\n');
 
     const statePrompt = [
-      `【本局基調（優先遵守，決定結果的輕重與筆調）】${tonePreset.label}：${tonePreset.directive || tonePreset.desc}`,
       missingItems.length ? `【物品檢查（優先遵守）】玩家提到「${missingItems.join('」「')}」，但他的背包和身上都沒有這東西。除非本回合劇情裡合理地先取得（買、撿、搶、借、偷），否則他手上根本沒有：寫他摸了個空、行動失敗，到此為止。不可以讓它憑空出現，也不可以替玩家改用別的方法去做同一件事。` : '',
       turnSettingsBlock,
       `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | 天氣: ${describeWeatherForPrompt_(statusObj.weather)} | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}% | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
       `【當前場地現況】${statusObj.locationInfo.desc}`,
       `【幕後戰況（只有 GM 知道；玩家與從者不知道哪些陣營交手、誰勝誰負，只能透過論壇目擊、使魔、聯絡或親自調查慢慢得知）】${statusObj.warTicker}`,
       `【御主(${cleanName})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
-      `【御主固定六維等階】魔術迴路:${p.circuit} | 近戰體術:${p.combat} | 隱藏氣息:${p.stealth} | 幸運:${p.luck}`,
       `【主從者】ID:${statusObj.servant1.id} (${statusObj.servant1.class}・${statusObj.servant1.name}) | 羈絆好感:${statusObj.bondLevel}/100 | 靈基狀態:${statusObj.servant1.condition}`,
-      statusObj.servant1.id === CUSTOM_SERVANT_ID_ ? describeCustomServantForPrompt_(ACTIVE_CUSTOM_SERVANT_) : '',
       statusObj.servant2.id ? `【副從者】ID:${statusObj.servant2.id} (${statusObj.servant2.class}・${statusObj.servant2.name}) | 靈基狀態:${statusObj.servant2.condition || '靈基穩定'}` : '【副從者】無',
       `【相關角色目前穿著（未列出者為預設服裝）】${JSON.stringify(relevantOutfits)}`,
       `【七組陣營狀態（幕後真相，推演前必先對照，同盟陣營須彼此照應；角色只知道自己見過或打聽到的部分）】${JSON.stringify(statusObj.factions)}`,
@@ -3465,7 +3489,7 @@ function processFateTurnTextOnly(params) {
     lock.releaseLock();
     lockHeld = false;
 
-    const turnJson = callGeminiLiteJson_(systemPrompt, statePrompt, 0.75, 3000);
+    const turnJson = callGeminiLiteJson_(systemPrompt, { stable: stablePrompt, dynamic: statePrompt }, 0.75, 3000);
 
     lock.waitLock(20000);
     lockHeld = true;
@@ -5160,11 +5184,17 @@ function generateNovelAIImageSafe_(params) {
 // ==================== 6. 內部資料庫讀取與輔助函式 ====================
 
 function callOpenRouterChat_(apiKey, model, systemPrompt, userMessage, temperature, maxTokens, jsonMode) {
+  // 固定的系統規則標記成可快取：Gemini 的自動快取時有時無（實測 cached_tokens 常是 0），
+  // 明確標記後每次都穩定吃到約 4600 token 的快取，輸入成本省約四成（2026-11 實測）。太短的不值得快取
+  const sys = String(systemPrompt || '');
   const payload = {
     model: model,
     messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: userMessage }
+      { role: 'system', content: sys.length >= 2000 ? [{ type: 'text', text: sys, cache_control: { type: 'ephemeral' } }] : sys },
+      { role: 'user', content: (userMessage && typeof userMessage === 'object' && userMessage.stable)
+        // 只認最後一個快取標記：標在玩家固定段的結尾 → 系統規則＋這段一起快取；之後的動態資料不快取
+        ? [{ type: 'text', text: userMessage.stable, cache_control: { type: 'ephemeral' } }, { type: 'text', text: '\n\n' + String(userMessage.dynamic || '') }]
+        : (userMessage && typeof userMessage === 'object' ? String(userMessage.dynamic || '') : userMessage) }
     ],
     temperature: temperature,
     max_tokens: maxTokens
@@ -5572,6 +5602,7 @@ function parseSaveRow_(row) {
     losses: Number(meta.losses) || 0,
     gameMode: gameMode,
     gameTone: toneVal,
+    toneLocked: isToneLocked_(meta),
     autoImage: String(row[4]).toUpperCase() === 'TRUE',
     adultMode: String(row[5]).toUpperCase() === 'TRUE',
     cameraMode: meta.cameraMode === 'third' ? 'third' : 'pov',

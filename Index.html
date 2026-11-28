@@ -889,6 +889,15 @@
                 <option value="SANDBOX">🌸 無戰爭日常模式</option>
               </select>
             </div>
+            <div>
+              <label class="form-label">🎚️ 難度（召喚後本局鎖定，重新開局才能更換）</label>
+              <select id="create-tone">
+                <option value="BALANCED">⚖️ 符合常理（預設）</option>
+                <option value="COMEDY_CHAOS">😄 搞笑鬧劇輕鬆向</option>
+                <option value="STORY_PLAYER_FIRST">🐉 龍傲天模式</option>
+                <option value="HARDCORE_WAR">⚔️ 鐵血嚴重戰場風</option>
+              </select>
+            </div>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;" class="form-group">
@@ -1779,7 +1788,8 @@
         servantId: document.getElementById('create-servant-select').value,
         customServant: document.getElementById('create-servant-select').value === 'CUSTOM' ? collectCustomServant() : null,
         relicNote: document.getElementById('create-relic').value.trim(),
-        gameMode: document.getElementById('create-mode').value
+        gameMode: document.getElementById('create-mode').value,
+        gameTone: (document.getElementById('create-tone') || {}).value || 'BALANCED'
       };
 
       showLoading('滿盈吧、滿盈吧、滿盈吧……正在構築召喚陣並締結契約...');
@@ -2296,9 +2306,9 @@
       if (!currentState) return;
       const tone = normalizeToneKey(currentState.gameTone);
       const toneSel = document.getElementById('sel-game-tone');
-      if (toneSel) toneSel.value = tone;
+      if (toneSel) { toneSel.value = tone; toneSel.disabled = Boolean(currentState.toneLocked); }
       const toneHint = document.getElementById('tone-desc-hint');
-      if (toneHint) toneHint.innerText = TONE_META[tone].desc;
+      if (toneHint) toneHint.innerText = TONE_META[tone].desc + (currentState.toneLocked ? '　🔒 本局難度已鎖定，清空本輪或轉生後才能更換。' : '');
       document.getElementById('cap-autoImage').className = `capsule-switch ${currentState.autoImage ? 'on' : ''}`;
       document.getElementById('cap-adultMode').className = `capsule-switch ${currentState.adultMode ? 'on' : ''}`;
       document.getElementById('cap-cameraPov').className = `capsule-switch ${currentState.cameraMode === 'pov' ? 'on' : ''}`;
@@ -2306,6 +2316,7 @@
     }
 
     function optimisticChangeTone(toneKey) {
+      if (currentState && currentState.toneLocked) { syncSettingsModalCapsules(); return; }
       const validTone = normalizeToneKey(toneKey);
       currentState.gameTone = validTone;
       pendingSettingsPatch.gameTone = validTone;
