@@ -134,7 +134,7 @@
 
 ## 使用的服務
 - 劇情：OpenRouter，模型 `google/gemini-3.1-flash-lite`。
-- 提示詞快取：`callOpenRouterChat_` 把 2000 字以上的系統提示詞包成 `[{ type: 'text', text, cache_control: { type: 'ephemeral' } }]`。Gemini 的自動快取時有時無（2026-11 實測 `cached_tokens` 常是 0），明確標記後每次穩定吃到約 4600 token 快取，輸入成本省約四成、每回合整體省約 15～20%（輸出的小說無法快取）。所以系統提示詞一定要保持固定，變動資料放 statePrompt。
+- 提示詞快取：`callOpenRouterChat_` 把 2000 字以上的系統提示詞包成 `[{ type: 'text', text, cache_control: { type: 'ephemeral' } }]`。Gemini 的自動快取時有時無（2026-11 實測 `cached_tokens` 常是 0），明確標記後每次穩定吃到約 4600 token 快取，輸入成本省約四成、每回合整體省約 15～20%（輸出的小說無法快取）。所以系統提示詞一定要保持固定，變動資料放 statePrompt。OpenRouter 官方說明（2026-11 讀取）：Gemini 要明確 `cache_control` 才會快取、只認最後一個標記、快取讀取 0.25 倍價（帳單反推這個模型約 0.1 倍）、寫入 TTL 5 分鐘且不會延長、**通常要 4096 token 以上才寫入**——目前 `FATE_GM_SYSTEM_PROMPT_` 約 4587 token，剛好過門檻，精簡系統提示詞時不要掉到 4096 以下，否則快取整個失效。（WebFetch 連不上 openrouter.ai，用 curl 可以讀。）
 - 繪圖：NovelAI V5（`nai-diffusion-5-full`），由「視覺導演」先把中文劇情翻成英文 Danbooru 標籤再繪圖。
 
 ## 試算表分頁（只有兩個，欄位順序不可更動）
