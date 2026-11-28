@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, stripLowerBodyForCloseUp_, stripActionTermsInUc_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -402,6 +402,20 @@ eq('looking away from viewer → looking away', T.refineGazeAction_('blush, look
 eq('別過頭 → 視線不看鏡頭', T.refineGazeAction_('looking at another character, smile').averted, true);
 eq('看鏡頭 → 不算別過頭', T.refineGazeAction_('looking at viewer, smile').averted, false);
 eq('擁抱 → 上半身、去掉 medium shot', T.refineRomanceFraming_('2girls, medium shot, rooftop'), 'upper body, 2girls, rooftop');
+
+// 後台廝殺：只有愛因茲貝倫組被淘汰時，改成英雄王出手並提早現身
+{
+  const withRandom = (seq, fn) => { vm.runInContext('__seq = ' + JSON.stringify(seq) + '; __origRandom = Math.random; Math.random = () => (__seq.length ? __seq.shift() : 0.99);', ctx); try { return fn(); } finally { vm.runInContext('Math.random = __origRandom;', ctx); } };
+  const F = () => ({ '衛宮組 (Saber陣營)': '存活', '愛因茲貝倫組 (Berserker陣營)': '交戰負傷・休整中', '遠坂組 (Archer陣營)': '存活', '教會組 (Lancer陣營)': '存活 (表面中立)' });
+  const g = withRandom([0.1, 0.0, 0.3, 0.0, 0.05], () => T.simulateOffscreenFactionWar_(F(), 3, '深夜', []));
+  eq('愛因茲貝倫被後台淘汰 → 英雄王出手', [/英雄王/.test(g.updatedFactions['愛因茲貝倫組 (Berserker陣營)']), g.gilRevealed, /英雄王.*遊蕩/.test(g.updatedFactions['教會組 (Lancer陣營)'])], [true, true, true]);
+  eq('英雄王出手時衛宮組不會被寫成勝出', g.updatedFactions['衛宮組 (Saber陣營)'], '存活');
+  const F2 = () => ({ '衛宮組 (Saber陣營)': '存活', '遠坂組 (Archer陣營)': '交戰負傷・休整中', '愛因茲貝倫組 (Berserker陣營)': '存活', '教會組 (Lancer陣營)': '存活 (表面中立)' });
+  const n = withRandom([0.1, 0.0, 0.3, 0.0, 0.05], () => T.simulateOffscreenFactionWar_(F2(), 3, '深夜', []));
+  eq('其他陣營被後台淘汰 → 照舊、英雄王不現身', [/已淘汰/.test(n.updatedFactions['遠坂組 (Archer陣營)']), /英雄王/.test(JSON.stringify(n)), Boolean(n.gilRevealed)], [true, false, false]);
+  eq('英雄王提早現身時提示詞告知遊蕩中', /英雄王已現身/.test(T.describeFinalBossForPrompt_({ gilRevealedEarly: true }, g.updatedFactions)), true);
+  eq('沒現身時不提', T.describeFinalBossForPrompt_({}, F()), '');
+}
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

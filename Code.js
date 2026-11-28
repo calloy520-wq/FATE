@@ -1425,6 +1425,11 @@ function maybeSummonFinalBoss_(factionsObj, meta, outcome) {
 }
 
 function describeFinalBossForPrompt_(meta, factionsObj) {
+  if (!meta.gilFinal && meta.gilRevealedEarly) {
+    const ck0 = Object.keys(factionsObj || {}).find(k => k.includes('教會'));
+    if (ck0 && !isCapturedOrDefeatedStatusText_(factionsObj[ck0])) return '【英雄王已現身】吉爾伽美什已在後台擊潰愛因茲貝倫組，現在以自己的意志在冬木市遊蕩（傲慢、隨興、視他人為雜種）。他可能在任何地方偶遇玩家、挑釁、或介入別人的戰鬥；正面硬拚極危險。這不是最終決戰，其他陣營化解後他才會守在大聖杯前。';
+    return '';
+  }
   if (!meta.gilFinal) return '';
   const ck = Object.keys(factionsObj || {}).find(k => k.includes('教會'));
   if (!ck || isCapturedOrDefeatedStatusText_(factionsObj[ck])) return '';
@@ -1845,6 +1850,23 @@ function simulateOffscreenFactionWar_(factionsObj, day, period, ownedServantIds)
   const isElimination = (Number(day) >= 3 && facBWeakened && Math.random() < 0.12 && aliveFactions.length > 3);
   const updated = Object.assign({}, factionsObj);
   let report = '';
+
+  // 愛因茲貝倫組剛好在後台被淘汰時，改成英雄王出手（原作 UBW 線的發展）：英雄王提早現身、在冬木遊蕩
+  if (isElimination && String(facB).includes('愛因茲貝倫')) {
+    const churchKey = Object.keys(updated).find(k => k.includes('教會'));
+    updated[facB] = `已淘汰 (於 Day ${day} ${period} 在${battleSite}遭英雄王吉爾伽美什擊潰)`;
+    if (churchKey && !isCapturedOrDefeatedStatusText_(updated[churchKey]) && !isAllianceStatusText_(updated[churchKey])) {
+      updated[churchKey] = '存活 (敵對・英雄王吉爾伽美什已現身・遊蕩中)';
+    }
+    return {
+      report: `【戰況速報】英雄王吉爾伽美什突然現身${battleSite}，王之財寶如暴雨般傾瀉，Berserker 的十二試煉被盡數貫穿，愛因茲貝倫組（伊莉雅與 Berserker）退場！`,
+      publicReport: `【遠方異象】${battleSite}一帶昨夜天空出現無數金色漣漪，像流星雨一樣的光落進森林，之後巨人般的吼聲突然停了（冬木論壇已有目擊）。`,
+      forumPost: { board: '冬木都市怪談板', author: '匿名目擊者', title: '昨晚天上下了金色的雨？？', body: '郊外那邊的天空突然出現一大片金色的光圈，裡面好像射出很多閃閃發亮的東西，接著就聽到很恐怖的吼聲……然後一切都安靜了。' },
+      hotspotKey: battleSite,
+      updatedFactions: updated,
+      gilRevealed: true
+    };
+  }
 
   if (isElimination) {
     updated[facB] = `已淘汰 (於 Day ${day} ${period} 在${battleSite}遭 ${facA} 擊潰)`;
@@ -3439,6 +3461,7 @@ function processFateTurnTextOnly(params) {
         currentFactions = routeRes.factions;
         if (routeRes.report) routeReports.push(routeRes.report);
         if (warSim.hotspotKey) meta.mapHotspot = warSim.hotspotKey;
+        if (warSim.gilRevealed) meta.gilRevealedEarly = true;
         if (warSim.report) {
           latestWarReport = warSim.report;
           meta.warTicker = warSim.report;

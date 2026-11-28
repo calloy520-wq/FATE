@@ -147,6 +147,7 @@
 - 後台陣營廝殺在第 3 天以前不會淘汰任何陣營。
 - 戰力判定（`assessCombat_`）：回合前從玩家行動找出對手陣營（`COMBAT_TARGET_ALIASES_`、或身處對方據點 `FACTION_HOME_`），依從者等級 `SERVANT_TIER_`、主從羈絆（好感 ≥80 +1、100 +2）、情報（真名／弱點）、事前準備／奇襲、在對方陣地（柳洞寺 −2）、盟友參戰、令咒 +2、魔力、雙方傷勢加總成 大優勢／小優勢／均勢／劣勢／絕望，寫進 statePrompt 要 AI 依等級裁定，開戰時結算顯示。
 - 最終 Boss（`maybeSummonFinalBoss_`）：其他陣營都化解、英雄王還沒亮相時，教會組改為「英雄王吉爾伽美什現身・大聖杯守門者」（`meta.gilFinal`），當回合不能通關；打倒後 `meta.gilDefeated`。
+- 英雄王提早現身（使用者指定只限這個情況）：後台廝殺的低機率淘汰剛好落在愛因茲貝倫組時（第 3 天後、該組已負傷、12%、仍剩 4 組以上），改成「遭英雄王吉爾伽美什擊潰」，教會組狀態改為「英雄王吉爾伽美什已現身・遊蕩中」、`meta.gilRevealedEarly = true`，statePrompt 由 `describeFinalBossForPrompt_` 告知他在冬木遊蕩、可能偶遇或介入；其他陣營被後台淘汰照舊。最終 Boss（`maybeSummonFinalBoss_`）流程不變。
 - Berserker 十二試煉（`meta.godHand` = { lost, methods }）：AI 以 `berserker_lives_lost` 回報玩家這邊殺死他幾次；伺服器限制 Berserker 在場且開戰才算、一般最多 1 條、寶具最多 2 條，殺過他的同一種手段之後無效（`applyGodHandHits_`）。命數未歸零時愛因茲貝倫組不會因戰鬥淘汰，除非御主伊莉雅被打倒／投降（`gateGodHandElimination_`）。後台廝殺不扣命數。情報視窗顯示已擊破數與免疫手段。
 - 狀態資料會告訴 AI 御主性別（她／他）。
 - AI 回傳不認得的地名時維持原地；副從者靈基「消滅」會清空副從者欄位；御主狀態寫「已死亡」視同死亡結局（保命符仍可擋下）。
