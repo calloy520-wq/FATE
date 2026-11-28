@@ -4750,7 +4750,7 @@ function generateNovelAIImageSafe_(params) {
     // 3 人以上的畫面偶爾會把同一個角色畫兩次（實測：Archer 被畫成兩個），加 clone 降低機率
     const cloneUc = cleanedChars.length >= 3 ? 'clone' : '';
     // 成人模式關閉：主負面直接排除裸露（只改服裝成浴巾時，浴室場景 NovelAI 仍可能自己畫出裸露）
-    const sfwUc = params.adultMode === false ? 'nsfw, nude, nipples, completely nude, topless' : '';
+    const sfwUc = params.adultMode === false ? 'nsfw, nude, nipples, completely nude, topless, ass, bare buttocks' : '';
     const finalUc = [defaultUc, cloneUc, sfwUc, params.uc].filter(Boolean).join(', ');
 
     const seed = params.seed && Number(params.seed) > 0 ? Number(params.seed) : Math.floor(Math.random() * 4294967295);

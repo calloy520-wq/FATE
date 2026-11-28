@@ -106,7 +106,7 @@
 - 第一人稱「以角色為主」：導演以特寫／上半身／中景框住看得到的角色，背景加景深退到次要；沒有角色時才用廣角。
 - 主負面提示詞（`generateNovelAIImageSafe_` 的 `defaultUc`）刻意保持精簡：只排除品質底線、文字浮水印、馬賽克。不要加回 V1～V3 時代的長串（bad, error, extra, bad hands…），實測會讓 V5 畫面變灰、細節變少。角色專屬負面放在 `GameData.js` 的 uc。
 - 裸露把關（`sanitizeNudeOutfitForChar_`）：`NO_NUDE_CHAR_IDS_`（凜、櫻、黑櫻、士郎、伊莉雅、魔法少女伊莉雅、美遊、小黑）任何情況都不畫裸露，也不會存成全裸。導演回報的裸露也會經過同一道把關。
-- 成人模式關閉（`adultOffOutfit_`，獨立於上面的角色把關、可單獨上線；部署腳本不會拿掉它）：只在劇情讓角色脫光時作用，把裸露標籤換成通用的 `convenient censoring`（不指定衣物，由 NovelAI 依畫面用頭髮、手臂、蒸氣、毛巾、被子自然遮住、不露點）；主負面另加 `nsfw, nude, nipples, completely nude, topless`。平常穿著的場景不受影響。比較過「依場合指定浴巾／被子／背心」，使用者選通用版（較自然、不會猜錯場合、不干擾角色習慣）。
+- 成人模式關閉（`adultOffOutfit_`，獨立於上面的角色把關、可單獨上線；部署腳本不會拿掉它）：只在劇情讓角色脫光時作用，把裸露標籤換成通用的 `convenient censoring`（不指定衣物，由 NovelAI 依畫面用頭髮、手臂、蒸氣、毛巾、被子自然遮住、不露點）；主負面另加 `nsfw, nude, nipples, completely nude, topless, ass, bare buttocks`（加臀部後換衣服場景改用布料、頭髮、尾巴遮住）。平常穿著的場景不受影響。比較過「依場合指定浴巾／被子／背心」，使用者選通用版（較自然、不會猜錯場合、不干擾角色習慣）。
 - 互動語法只允許 `source#`／`target#`／`mutual#` 前綴。導演常寫成「名字#動作#對象」或「動作#對象」，`stripBadInteractionPrefix_` 會轉成 `source#動作`，名字前綴則去掉。
 - 角色名字只出現在該角色自己的欄位：導演規則禁止在別人欄位與主提示詞寫名字；程式另用 `stripOtherCharNames_`（`CHAR_EN_NAMES_` 英文稱呼表）把別人欄位裡的名字換成 another character、主提示詞裡的換成 a figure（自己的名字與 Danbooru 角色標籤不動）。名字寫進別人欄位會讓 NovelAI 多畫一個那個人。
 - NovelAI 免費範圍（Opus）：一次 1 張、不用底圖、尺寸 ≤ 約 1024×1024 像素量（目前 1216×832）、steps ≤ 28。V5 的免費額度是會自動回復的用量條，用完會**自動改扣 Anlas**，所以不要調高尺寸、steps 或一次生多張。
