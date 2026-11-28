@@ -4322,7 +4322,8 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
           gender: charSlots[idx].gender,
           use_np: Boolean(c.use_np),
           referenceOutfit: refOutfit,
-          battleOutfit: String(dbInfo.defaultOutfit || refOutfit).trim(),
+          // 御主沒有「戰鬥服」：用玩家自己設定的服裝（實測開戰時克勞德被換成 GameData 預設的黑色毛衣）
+          battleOutfit: c.id === 'player_master' ? refOutfit : String(dbInfo.defaultOutfit || refOutfit).trim(),
           casualOutfit: String(dbInfo.casualOutfit || '').trim(),
           hint: String(c.action_en || '')
         };

@@ -202,6 +202,8 @@ np = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'rin' }], 'bathroom', false, 
 {
   const crowd = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'player_master' }, { id: 'scathach' }, { id: 'lancer' }, { id: 'archer' }, { id: 'rin' }], 'bridge, night', true, '開打', '', 1);
   eq('一張圖最多 3 人、先省略御主', crowd.characters.map(c => c.id), ['scathach', 'lancer', 'archer']);
+  const mb = T.buildNaiPayloadFromScene_({ cameraMode: 'third', adultMode: true, locationKey: '新都', master: { gender: 'girl', coreTags: 'auburn hair' }, outfits: { player_master: 'beige knit cardigan, long skirt' } }, [{ id: 'player_master' }, { id: 'scathach' }], 'street', true, '開打', '', 1);
+  eq('御主開戰時的戰鬥服 = 玩家自己的服裝', mb._directorContext.chars.find(c => c.id === 'player_master').battleOutfit, 'beige knit cardigan, long skirt');
   const own = Object.assign({}, pst(true), { servant1: { id: 'scathach' } });
   const crowd2 = T.buildNaiPayloadFromScene_(own, [{ id: 'rin' }, { id: 'archer' }, { id: 'lancer', use_np: true }, { id: 'scathach' }, { id: 'player_master' }], 'bridge, night', true, '開打', '', 1);
   const touch = T.buildNaiPayloadFromScene_(Object.assign({}, pst(true), { servant1: { id: 'scathach' } }), [{ id: 'scathach' }, { id: 'shinji' }, { id: 'rider' }, { id: 'player_master' }], 'street', false, '牽著斯卡哈的手逛街', '', 1);
