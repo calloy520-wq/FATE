@@ -53,7 +53,8 @@ const ctx = {
     fetch: (url, opt) => {
       const body = JSON.parse(opt.payload);
       geminiRequests.push(body);
-      const next = geminiQueue.shift();
+      let next = geminiQueue.shift();
+      if (typeof next === 'function') next = next(); // 模擬「等 AI 期間另一個視窗推進了回合」
       if (!next) throw new Error('unexpected Gemini call: ' + body.messages[0].content.slice(0, 60));
       return { getResponseCode: () => 200, getContentText: () => JSON.stringify({ choices: [{ message: { content: typeof next === 'string' ? next : JSON.stringify(next) } }] }) };
     }
@@ -410,6 +411,20 @@ geminiQueue.push({ outcome_type: 'CONTINUE', story: '一切如常。', ap_cost: 
 ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '看看四周' });
 check('聖杯戰爭的提示詞沒有自創角色段落', !/玩家自創角色/.test(userText(geminiRequests[geminiRequests.length - 1])));
 check('聖杯戰爭讀檔看不到沙盒角色', ctx.loadExistingGame('測試者').status.sandboxChars.length === 0);
+
+// 同一個存檔兩個視窗同時送出：等 AI 期間另一個視窗先寫入 → 這邊必須放棄寫入
+{
+  const tcBefore = JSON.parse(sheets.Players_Save.data.find(r => r[0] === '測試者')[31]).turnCount;
+  geminiQueue.push(() => {
+    geminiQueue.unshift({ outcome_type: 'CONTINUE', story: '另一個視窗的回合。', ap_cost: 0, present_chars: [], scene_env_en: 'room' });
+    ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '另一個視窗：喝茶' });
+    return { outcome_type: 'CONTINUE', story: '這個視窗的回合。', ap_cost: 0, present_chars: [], scene_env_en: 'room' };
+  });
+  let raced = '';
+  try { ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '這個視窗：看書' }); } catch (e) { raced = e.message; }
+  const tcAfter = JSON.parse(sheets.Players_Save.data.find(r => r[0] === '測試者')[31]).turnCount;
+  check('兩個視窗同時推進：後寫的被擋下、只前進一回合', /另一個視窗/.test(raced) && tcAfter === tcBefore + 1);
+}
 
 const sysMsg = geminiRequests.find(r => Array.isArray(r.messages[0].content));
 const lastTurnReq = geminiRequests.filter(r => Array.isArray(r.messages[1].content)).pop();
