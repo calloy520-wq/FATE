@@ -1277,24 +1277,29 @@ function updateCompanions_(meta, factionsObj, userAction, nowIdx, presentIds, fo
   const comp = Object.assign({}, (meta.companions && typeof meta.companions === 'object') ? meta.companions : {});
   const joined = [], left = [];
   const leaveAll = /解散|各自行動|分頭行動|大家先回去|你們先回去|你們回去/.test(text);
+  const wantsJoin = /帶著|帶上|一起|跟我|同行|隨行|陪我|跟著我|一同|會合|聯手/.test(text);
+  const leftThisTurn = new Set();
   Object.keys(comp).forEach(fk => {
     const st = String(f[fk] || '');
     let reason = '';
     if (!st || isCapturedOrDefeatedStatusText_(st)) reason = '已退出戰局';
     else if (!isAllianceStatusText_(st)) reason = '不再是同盟';
     else if (/重傷|重創|瀕/.test(st)) reason = '傷勢太重，先回去休養';
-    else if (Number(nowIdx) - Number(comp[fk].t != null ? comp[fk].t : (Number(comp[fk].day) || 0) * 4) >= COMPANION_PERIODS_) reason = '同行了一整天，先回去了';
     else if (leaveAll || (/分頭|先回去|回去吧|不用跟|分開|留在|各自/.test(text) && factionMentioned_(fk, text))) reason = '依你的安排分開行動';
-    if (reason) { left.push({ fk, reason }); delete comp[fk]; }
+    else if (Number(nowIdx) - Number(comp[fk].t != null ? comp[fk].t : (Number(comp[fk].day) || 0) * 4) >= COMPANION_PERIODS_) {
+      // 到期但玩家本回合又邀請 → 默默延長同行，不顯示「離開又加入」
+      if (wantsJoin && factionMentioned_(fk, text)) comp[fk] = { t: Number(nowIdx) || 0 };
+      else reason = '同行了一整天，先回去了';
+    }
+    if (reason) { left.push({ fk, reason }); leftThisTurn.add(fk); delete comp[fk]; }
   });
   const present = new Set((presentIds || []).map(id => CHAR_FACTION_MARKERS_[id]).filter(Boolean));
-  const wantsJoin = /帶著|帶上|一起|跟我|同行|隨行|陪我|跟著我|一同|會合|聯手/.test(text);
   Object.keys(comp).forEach(fk => {
     const mk = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m));
     if (mk && ownedMarkers.has(mk)) { delete comp[fk]; }
   });
   Object.keys(f).forEach(fk => {
-    if (comp[fk] || Object.keys(comp).length >= MAX_COMPANIONS_) return;
+    if (comp[fk] || leftThisTurn.has(fk) || Object.keys(comp).length >= MAX_COMPANIONS_) return;
     const ownMk = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m));
     if (ownMk && ownedMarkers.has(ownMk)) return;
     const st = String(f[fk] || '');

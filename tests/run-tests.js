@@ -300,6 +300,13 @@ cr = T.updateCompanions_(metaC, Object.assign({}, facC, { '遠坂組 (Archer陣�
 eq('不再同盟 → 離開', cr.left.map(x => x.fk), ['遠坂組 (Archer陣營)']);
 cr = T.updateCompanions_(metaC, facC, '繼續偵查', 13, []);
 eq('同行滿 4 個時段 → 回去', cr.left.map(x => x.fk), ['間桐組 (Rider陣營)']);
+// 2026-11 克勞德媽實玩：同一回合「離開又加入」
+const metaC2 = { companions: { '遠坂組 (Archer陣營)': { t: 0 } } };
+const facC2 = { '遠坂組 (Archer陣營)': '存活 (同盟)' };
+cr = T.updateCompanions_(metaC2, facC2, '凜，我們一起活著走出這裡', 4, []);
+eq('到期但又邀請 → 默默延長，不顯示離開又加入', [cr.joined, cr.left, metaC2.companions['遠坂組 (Archer陣營)'].t], [[], [], 4]);
+cr = T.updateCompanions_(metaC2, facC2, '請凜先留在室內警戒，我與師匠一同去檢查', 5, []);
+eq('請盟友留下 → 離隊且同回合不會被「一同」拉回', [cr.joined, cr.left.map(x => x.fk)], [[], ['遠坂組 (Archer陣營)']]);
 
 // ---- 陣營好感與約定 ----
 const metaF = {};
