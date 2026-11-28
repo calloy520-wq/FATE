@@ -379,14 +379,12 @@ function isNudeOutfitTags_(outfitStr) {
   return /\b(nude|naked|completely nude|no clothes|topless|bottomless|undressed)\b/.test(s) || /全裸|裸體|沒穿|赤裸|一絲不掛/.test(s);
 }
 
-// 成人模式關閉時的裸露替換（獨立於角色把關，只在玩家自己關閉成人模式、而且劇情讓角色脫光時作用）：依場合換成合理的遮蔽
+// 成人模式關閉時的裸露處理（獨立於角色把關，只在玩家自己關閉成人模式、而且劇情讓角色脫光時作用）
+// 不指定衣物（使用者意見：由程式猜場合選浴巾／被子會更漂移，也和角色習慣不合）→ 用通用的 convenient censoring，
+// 讓 NovelAI 依畫面用蒸氣、頭髮、手臂、毛巾、被子或角度自然遮住；主負面另外排除 nsfw、nude、nipples
 function adultOffOutfit_(outfit, contextText, fallback) {
   if (!isNudeOutfitTags_(outfit)) return outfit;
-  const t = String(contextText || '');
-  if (/浴|澡|溫泉|淋浴|泡湯|沖澡|搓背|搓澡|擦背|bath|shower|onsen|hot spring|towel/i.test(t)) return 'bath towel, towel wrapped around body';
-  if (/床|被窩|被子|睡|躺下|就寢|\b(bed|sleep|sleeping|blanket|futon)\b/i.test(t)) return 'under blanket, blanket covering body, bare shoulders';
-  if (/換衣|更衣|換裝|脫衣|穿衣|\b(changing clothes|undressing|dressing)\b/i.test(t)) return 'white camisole, shorts';
-  return String(fallback || '').trim() || 'casual clothes, shirt, pants';
+  return 'convenient censoring';
 }
 
 // 未成年／孩童外觀的角色：任何情況都不畫裸露（洗澡等劇情照常寫，畫面維持穿著）

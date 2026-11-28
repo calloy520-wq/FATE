@@ -197,7 +197,7 @@ eq('繪圖：斯卡哈全裸', /nude/.test(np.characters.find(c => c.id === 'sca
 eq('繪圖：凜不畫裸', /nude/.test(np.characters.find(c => c.id === 'rin').prompt), false);
 np = T.buildNaiPayloadFromScene_(pst(false), [{ id: 'scathach' }], 'bathroom, steam', false, '泡澡', '', 1);
 eq('繪圖：成人模式關閉無 nsfw', /nsfw/.test(np.prompt), false);
-eq('繪圖：成人模式關閉改浴巾', /nude/.test(np.characters[0].prompt) || !/towel/.test(np.characters[0].prompt), false);
+eq('繪圖：成人模式關閉改成通用遮擋', /\bnude\b/.test(np.characters[0].prompt) || !/convenient censoring/.test(np.characters[0].prompt), false);
 np = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'rin' }], 'bathroom', false, '泡澡', '', 1);
 {
   const crowd = T.buildNaiPayloadFromScene_(pst(true), [{ id: 'player_master' }, { id: 'scathach' }, { id: 'lancer' }, { id: 'archer' }, { id: 'rin' }], 'bridge, night', true, '開打', '', 1);
@@ -424,10 +424,7 @@ eq('擁抱 → 上半身、去掉 medium shot', T.refineRomanceFraming_('2girls,
 }
 
 // 成人模式關閉：依場合替換
-eq('關閉＋泡澡 → 浴巾', T.adultOffOutfit_('nude, completely nude, no clothes', '幫斯卡哈搓背', 'x'), 'bath towel, towel wrapped around body');
-eq('關閉＋床上 → 被子', T.adultOffOutfit_('nude, completely nude, no clothes', '兩人躺在床上', 'x'), 'under blanket, blanket covering body, bare shoulders');
-eq('關閉＋換衣服 → 背心短褲', T.adultOffOutfit_('nude, completely nude, no clothes', '她正在換衣服', 'x'), 'white camisole, shorts');
-eq('關閉＋其他 → 原本的衣服', T.adultOffOutfit_('nude, completely nude, no clothes', '在客廳', 'purple bodysuit'), 'purple bodysuit');
+eq('關閉＋裸露 → 通用遮擋', T.adultOffOutfit_('nude, completely nude, no clothes', '幫斯卡哈搓背', 'x'), 'convenient censoring');
 eq('穿著的不替換', T.adultOffOutfit_('white sweater', '泡澡', 'x'), 'white sweater');
 
 console.log(`\n${ok} passed, ${bad} failed`);
