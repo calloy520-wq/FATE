@@ -4800,12 +4800,13 @@ function generateNovelAIImageSafe_(params) {
     // V5 品質已經很穩，負面提示詞保持精簡：舊時代那一長串（bad, error, extra, bad hands...）會讓畫面變灰、變保守
     // 只排除品質底線、文字浮水印、馬賽克；角色專屬的負面（GameData.js 的 uc）另外照常套用
     const defaultUc = (typeof params.baseUc === 'string' && params.baseUc) ? params.baseUc : 'worst quality, bad quality, lowres, jpeg artifacts, watermark, signature, text, speech bubble, censored, mosaic censoring, bar censor, smartphone';
-    const cleanedChars = (Array.isArray(params.characters) ? params.characters : []).filter(c => String(c.prompt || '').trim().length > 0);
+    const cleanedChars = (Array.isArray(params.characters) ? params.characters : []).filter(c => String(c.prompt || '').trim().length > 0)
+      .map(c => Object.assign({}, c, { prompt: closeUmbrellaIndoors_(c.prompt, params.prompt) }));
 
     const styleKey = params.artStyle || 'official';
     const styleTags = params.noStyle ? '' : (ART_STYLE_PRESETS_[styleKey] || ART_STYLE_PRESETS_['official']);
 
-    let finalPrompt = params.noStyle ? String(params.prompt || '').trim() : addNightFillLight_(applyWeatherTags_(String(params.prompt || '').trim(), params.weather));
+    let finalPrompt = params.noStyle ? String(params.prompt || '').trim() : addNightFillLight_(indoorWeatherFix_(applyWeatherTags_(String(params.prompt || '').trim(), params.weather)));
     if (styleTags) {
       finalPrompt = finalPrompt ? `${finalPrompt}, ${styleTags}` : styleTags;
     }
@@ -5494,6 +5495,19 @@ function applyWeatherTags_(prompt, weather) {
   const t = WEATHER_TYPES_[normalizeWeather_(weather)];
   if (!p || !t.tags || INDOOR_SCENE_RE_.test(p) || WEATHER_TAG_RE_.test(p)) return p;
   return `${p}, ${t.tags}`;
+}
+
+// 室內場景：導演寫「門外看得到雨」時 NovelAI 常把雨畫進室內（實測教堂裡下雨、主角室內撐傘）
+// → 沒提到窗戶／玻璃／外面的雨雪片段刪掉；角色手上的傘改成收起來
+function indoorWeatherFix_(prompt) {
+  const p = String(prompt || '');
+  const wet = /\b(rain|raining|rainy|rainfall|snow|snowing|snowy|snowfall)\b/i;
+  if (!INDOOR_SCENE_RE_.test(p) || !wet.test(p)) return p;
+  return p.split(',').filter(seg => !wet.test(seg) || /window|glass|outside/i.test(seg)).join(',').replace(/^\s*,\s*/, '').trim();
+}
+function closeUmbrellaIndoors_(charPrompt, scenePrompt) {
+  if (!INDOOR_SCENE_RE_.test(String(scenePrompt || ''))) return String(charPrompt || '');
+  return String(charPrompt || '').replace(/holding (an? |the )?(open |dark |black |transparent |clear |red |blue |white )*umbrella/gi, 'holding a closed umbrella');
 }
 
 function advanceTimePeriod_(day, currentPeriod) {
