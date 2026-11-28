@@ -1421,7 +1421,7 @@ function describeCombatAssessForPrompt_(a) {
 // 終局：其他陣營都化解後，教會的英雄王若還沒亮相，就在大聖杯前現身擋路
 function maybeSummonFinalBoss_(factionsObj, meta, outcome) {
   if (meta.churchRevived || meta.gilFinal || meta.gilDefeated) return null;
-  if (!areAllRivalFactionsResolved_(factionsObj)) return null;
+  if (!areAllRivalFactionsResolved_(factionsObj, meta.factionFavor)) return null;
   const ck = Object.keys(factionsObj).find(k => k.includes('教會'));
   if (!ck || /收服|已歸屬第8組/.test(String(factionsObj[ck] || ''))) return null;
   meta.gilFinal = true;
@@ -1496,13 +1496,27 @@ function isDefeatedOrCapturedFaction_(factionsObj, keyword) {
 }
 
 // 所有陣營都已「淘汰／收服／結盟」才算全部化解（供 TRUE_VICTORY 伺服器端驗證）
-function areAllRivalFactionsResolved_(factionsObj) {
+// favorMap（可選）：好感 ≥ 80、狀態也沒有敵對字眼的陣營視同已化解（AI 偶爾把「同盟」改寫成「存活 (終局)」之類，實測因此無法通關）
+const HOSTILE_STATUS_RE_ = /敵對|交戰中|激戰中|突襲|追殺|背叛|決裂|反目|破裂/;
+function isFriendlyByFavor_(st, favor) {
+  return Number(favor) >= 80 && !HOSTILE_STATUS_RE_.test(String(st || ''));
+}
+function areAllRivalFactionsResolved_(factionsObj, favorMap) {
   const keys = Object.keys(factionsObj || {});
   if (keys.length === 0) return false;
+  const fav = favorMap || {};
   return keys.every(k => {
     const st = String(factionsObj[k] || '');
-    return isCapturedOrDefeatedStatusText_(st) || isAllianceStatusText_(st);
+    return isCapturedOrDefeatedStatusText_(st) || isAllianceStatusText_(st) || isFriendlyByFavor_(st, fav[k]);
   });
+}
+
+// 原本是同盟、AI 改寫狀態時沒寫破裂／背叛等字眼 → 補回「同盟」（避免盟友被後台廝殺誤選、通關判定失效）
+const ALLIANCE_BREAK_RE_ = /破裂|背叛|解除|決裂|反目|撕毀|敵對|中止/;
+function preserveAllianceTag_(prevSt, nextSt) {
+  const prev = String(prevSt || ''), next = String(nextSt || '');
+  if (!isAllianceStatusText_(prev) || isAllianceStatusText_(next) || ALLIANCE_BREAK_RE_.test(next) || isCapturedOrDefeatedStatusText_(next)) return next;
+  return /\)\s*$/.test(next) ? next.replace(/\)\s*$/, '・同盟)') : `${next} (同盟)`;
 }
 
 // AI 回傳的 faction_updates 陣營名稱常常不完全一致（例如只寫「Saber陣營」「遠坂凜」），
@@ -1819,12 +1833,12 @@ function computeDynamicLocationInfo_(locKey, baseInfo, factionsObj, mapHotspot, 
 
 // ==================== 敵對陣營後台自動廝殺演算法 (Off-screen War Sim) ====================
 
-function simulateOffscreenFactionWar_(factionsObj, day, period, ownedServantIds) {
+function simulateOffscreenFactionWar_(factionsObj, day, period, ownedServantIds, favorMap) {
   const ownedSet = new Set((Array.isArray(ownedServantIds) ? ownedServantIds : []).map(x => String(x).toLowerCase()));
   const aliveFactions = Object.keys(factionsObj).filter(name => {
     const fn = String(name || '').toLowerCase();
     const st = String(factionsObj[name] || '');
-    if (isCapturedOrDefeatedStatusText_(st) || isAllianceStatusText_(st)) return false;
+    if (isCapturedOrDefeatedStatusText_(st) || isAllianceStatusText_(st) || isFriendlyByFavor_(st, (favorMap || {})[name])) return false;
     for (const oid of ownedSet) {
       if (oid && oid !== 'lancer' && fn.includes(oid)) return false;
     }
@@ -3344,7 +3358,8 @@ function processFateTurnTextOnly(params) {
           const prevSt = String(currentFactions[realKey] || '');
           // 龍傲天模式：不套用淘汰兩步、十二試煉與結盟門檻，想做的都能實現
           const isDragon = toneKey === 'STORY_PLAYER_FIRST';
-          const nextSt = isDragon ? val.slice(0, 120) : gateGodHandElimination_(realKey, prevSt, gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val.slice(0, 120)), toneKey, getFactionFavor_(meta, realKey)), meta.godHand);
+          const nextSt0 = isDragon ? val.slice(0, 120) : gateGodHandElimination_(realKey, prevSt, gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val.slice(0, 120)), toneKey, getFactionFavor_(meta, realKey)), meta.godHand);
+          const nextSt = preserveAllianceTag_(prevSt, nextSt0);
           // 已淘汰的陣營不會復活；唯一例外是教會亮出隱藏王牌吉爾伽美什（只有一次）
           const wasOut = isCapturedOrDefeatedStatusText_(prevSt) && !/收服|已歸屬第8組/.test(prevSt);
           if (wasOut && !isCapturedOrDefeatedStatusText_(nextSt)) {
@@ -3464,7 +3479,7 @@ function processFateTurnTextOnly(params) {
         periodAdvancedNotice += `\n\n【時段推進・大源回復】時間進入 Day ${nextTime.day}・${nextTime.period}。受「${activeLocInfo.leyline}」滋養，魔術迴路自然汲取大源回復了 +${leylineRegen} MP。`;
 
         // 玩家的第8組是獨立陣營，不再以「持有英靈ID」排除原敵對陣營；已收服者已由狀態文字排除
-        const warSim = simulateOffscreenFactionWar_(currentFactions, nextTime.day, nextTime.period, []);
+        const warSim = simulateOffscreenFactionWar_(currentFactions, nextTime.day, nextTime.period, [], meta.factionFavor);
         // （offscreenForumPosts 在下方論壇段落寫入手機）
         currentFactions = warSim.updatedFactions;
         routeRes = updateRyuudouRoute_(meta, currentFactions, [], '', new Set());
@@ -3686,7 +3701,7 @@ function processFateTurnTextOnly(params) {
     }
 
     // 伺服器端驗證：日常模式不會通關；仍有未化解的敵對陣營時，不接受 TRUE_VICTORY
-    if (outcome === 'TRUE_VICTORY' && (isSandboxMode || !areAllRivalFactionsResolved_(currentFactions))) {
+    if (outcome === 'TRUE_VICTORY' && (isSandboxMode || !areAllRivalFactionsResolved_(currentFactions, meta.factionFavor))) {
       outcome = 'CONTINUE';
     }
 
@@ -3850,7 +3865,7 @@ function processFateTurnTextOnly(params) {
     if (worldEvent.proactive && !incomingFrom.some(m => m.fk === worldEvent.proactive.faction)) {
       summaryParts.push(`⚡ ${shortFac(worldEvent.proactive.faction)} 主動找上你（${worldEvent.proactive.action}），詳見上方劇情`);
     }
-    if (statusObj.gameMode === 'WAR' && outcome === 'CONTINUE' && areAllRivalFactionsResolved_(currentFactions)) {
+    if (statusObj.gameMode === 'WAR' && outcome === 'CONTINUE' && areAllRivalFactionsResolved_(currentFactions, meta.factionFavor)) {
       summaryParts.push('🏆 所有陣營都已擊敗、收服或結盟！前往圓藏山（柳洞寺）的大聖杯許下願望，就能迎來結局');
     }
     if (summaryParts.length > 0 && outcome !== 'FATAL_DEATH') {

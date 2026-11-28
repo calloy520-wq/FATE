@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -428,6 +428,19 @@ eq('擁抱 → 上半身、去掉 medium shot', T.refineRomanceFraming_('2girls,
 // 成人模式關閉：依場合替換
 eq('關閉＋裸露 → 通用遮擋', T.adultOffOutfit_('nude, completely nude, no clothes', '幫斯卡哈搓背', 'x'), 'convenient censoring');
 eq('穿著的不替換', T.adultOffOutfit_('white sweater', '泡澡', 'x'), 'white sweater');
+
+// 同盟標記保護與好感保險（克勞德媽實玩：AI 把同盟改寫成「存活 (終局)」導致無法通關）
+eq('同盟被改寫成終局 → 補回同盟', T.preserveAllianceTag_('存活 (同盟・合作中)', '存活 (終局)'), '存活 (終局・同盟)');
+eq('明寫破裂 → 不補', T.preserveAllianceTag_('存活 (同盟)', '存活 (同盟破裂・敵對)'), '存活 (同盟破裂・敵對)');
+eq('沒括號 → 後面補', T.preserveAllianceTag_('同盟中', '休整中'), '休整中 (同盟)');
+eq('原本不是同盟 → 不動', T.preserveAllianceTag_('存活 (中立)', '存活 (終局)'), '存活 (終局)');
+{
+  const F = { '柳洞寺組': '交戰負傷・休整中 (曾於間桐邸與 衛宮組 激戰)', '衛宮組': '交戰負傷・休整中 (曾於間桐邸與 柳洞寺組 激戰)', '愛因茲貝倫組': '存活 (終局)', '間桐組': '存活 (終局)', '教會組': '重創 (淘汰)', '遠坂組': '存活 (終局)' };
+  const favor = { '柳洞寺組': 100, '衛宮組': 100, '愛因茲貝倫組': 100, '間桐組': 100, '教會組': -90, '遠坂組': 100 };
+  eq('克勞德媽存檔：沒有好感 → 判定未化解', T.areAllRivalFactionsResolved_(F), false);
+  eq('克勞德媽存檔：好感都 100 → 判定已化解', T.areAllRivalFactionsResolved_(F, favor), true);
+  eq('好感高但狀態敵對 → 不算', T.areAllRivalFactionsResolved_({ a: '存活 (敵對)' }, { a: 100 }), false);
+}
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);
