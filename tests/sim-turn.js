@@ -331,6 +331,26 @@ check('鎖定後在設定裡改難度無效', ctx.loadExistingGame('難度測').
 ctx.resetCurrentRunKeepCareer('難度測');
 check('清空本輪後解鎖，可以重選', ctx.loadExistingGame('難度測').status.toneLocked === false);
 
+// 自由沙盒：和聖杯戰爭分開存、難度只限常理／搞笑、名單外的客串角色會進繪圖
+check('新名號兩邊都沒有存檔', (() => { const sl = ctx.getPlayerSlots('沙盒測'); return sl.war === null && sl.sandbox === null; })());
+ctx.startNewGame('沙盒測');
+ctx.startNewGame('沙盒測・沙盒');
+const slots2 = ctx.getPlayerSlots('沙盒測');
+check('聖杯戰爭與沙盒各一列存檔', Boolean(slots2.war) && Boolean(slots2.sandbox) && slots2.sandbox.key === '沙盒測・沙盒');
+geminiQueue.push({ story: '召喚陣亮起。', servant_class: 'Lancer', servant_name: '斯卡哈', servant_action_en: 'standing', master_action_en: 'calm', scene_env_en: 'magic circle' });
+const crSb = ctx.completeCreationAndSummon({ playerName: '沙盒測・沙盒', servantId: 'scathach', masterOrigin: '冬木市隱居古家族', masterGender: 'girl', masterWish: '悠閒過日子', gameMode: 'WAR', gameTone: 'HARDCORE_WAR', masterCoreTags: '1girl', masterOutfitTags: 'coat' });
+check('沙盒存檔一律是日常模式、鐵血被改成常理', crSb.status.gameMode === 'SANDBOX' && crSb.status.gameTone === 'BALANCED');
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '初音未來在商店街唱歌。', ap_cost: 1, location: '深山町商店街', present_chars: [{ id: 'scathach', action_en: 'listening' }],
+  guest_chars: [{ name: '初音未來', tag: 'hatsune miku', gender: 'girl', look: 'aqua hair, twintails, aqua eyes', action: 'singing, holding microphone' }, { name: '沒有外貌的人' }], scene_env_en: 'shopping street' });
+const tSb = ctx.processFateTurnTextOnly({ playerName: '沙盒測・沙盒', userAction: '叫初音未來來唱歌' });
+const guestSlot = tSb.imagePayload.characters.find(c => c.id === 'guest_1');
+check('沙盒的客串角色進入繪圖（用它的 Danbooru 標籤與外貌）', Boolean(guestSlot) && /hatsune miku/.test(guestSlot.prompt) && !tSb.imagePayload.characters.some(c => c.id === 'guest_2'));
+check('劇情提示詞只顯示名號、不帶「・沙盒」', /名號「沙盒測」/.test(userText(geminiRequests[geminiRequests.length - 1])) && !/沙盒測・沙盒/.test(userText(geminiRequests[geminiRequests.length - 1])));
+check('沙盒沒有 AP 限制', tSb.status.gameMode === 'SANDBOX');
+geminiQueue.push({ outcome_type: 'CONTINUE', story: '一切如常。', ap_cost: 0, present_chars: [{ id: 'scathach', action_en: 'standing' }], guest_chars: [{ name: '初音未來', tag: 'hatsune miku', gender: 'girl', look: 'aqua hair' }], scene_env_en: 'room' });
+const tWar = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '看看四周' });
+check('聖杯戰爭模式不收客串角色', !tWar.imagePayload.characters.some(c => /^guest_/.test(c.id)));
+
 const sysMsg = geminiRequests.find(r => Array.isArray(r.messages[0].content));
 const lastTurnReq = geminiRequests.filter(r => Array.isArray(r.messages[1].content)).pop();
 check('玩家固定段標記快取、動態段不標記', Boolean(lastTurnReq) && lastTurnReq.messages[1].content[0].cache_control && !lastTurnReq.messages[1].content[1].cache_control && /本局基調/.test(lastTurnReq.messages[1].content[0].text) && /玩家本回合最新行動/.test(lastTurnReq.messages[1].content[1].text));

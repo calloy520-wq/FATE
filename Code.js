@@ -645,7 +645,7 @@ function postFuyukiForumMessage(playerName, titleText, bodyText, isFakeNews) {
       id: 'player_post_' + Date.now(),
       fake: Boolean(isFakeNews) || undefined,
       board: '冬木匿名留言板',
-      author: `${cleanName} (2004端末)`,
+      author: `${displayNameOf_(cleanName)} (2004端末)`,
       time: `Day ${row[6]}・${row[7]}`,
       title: cleanTitle,
       body: cleanBody,
@@ -695,7 +695,7 @@ function sendAllySmsMessage(playerName, factionName, messageText, isDeception) {
       }
       if (canSmsFaction_(metaPre, targetFac, stPre)) {
         const thread = (metaPre.phoneState && metaPre.phoneState.smsThreads && metaPre.phoneState.smsThreads[targetFac]) || {};
-        aiResult = generateAllySmsReply_(cleanName, targetFac, stPre, Array.isArray(thread.messages) ? thread.messages : [], msg, rowPre, deceive);
+        aiResult = generateAllySmsReply_(displayNameOf_(cleanName), targetFac, stPre, Array.isArray(thread.messages) ? thread.messages : [], msg, rowPre, deceive);
       }
     }
   } catch (e) {
@@ -728,7 +728,7 @@ function sendAllySmsMessage(playerName, factionName, messageText, isDeception) {
     const th = phone.smsThreads[targetFac];
 
     th.messages.push({
-      sender: cleanName,
+      sender: displayNameOf_(cleanName),
       fromPlayer: true,
       time: `Day ${row[6]}・${row[7]}`,
       text: msg,
@@ -1620,6 +1620,24 @@ function detectMissingItems_(text, inventory) {
   return found;
 }
 
+// 客串角色清理：最多 2 位；標籤與外貌只留英文（NovelAI 只認英文標籤），長度限制
+// 本作角色的 Danbooru 標籤（客串角色不可借用：實測原創角色「莉莉」被猜成 illyasviel_von_einzbern，畫成了伊莉雅）
+let ROSTER_TAGS_MEMO_ = null;
+function rosterCharacterTags_() {
+  if (ROSTER_TAGS_MEMO_) return ROSTER_TAGS_MEMO_;
+  ROSTER_TAGS_MEMO_ = (typeof FATE_CHARACTERS_ !== 'undefined' ? FATE_CHARACTERS_ : []).map(c => String(c.core || '').split(',')[0].trim().toLowerCase().replace(/_/g, ' ').replace(/\s*\(.*\)$/, '')).filter(t => t.length >= 4);
+  return ROSTER_TAGS_MEMO_;
+}
+function sanitizeGuestChars_(list) {
+  const en = v => String(v || '').replace(/[^\x20-\x7E]/g, '').replace(/[{}\[\]<>]/g, '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  const roster = rosterCharacterTags_();
+  return (Array.isArray(list) ? list : []).filter(g => g && typeof g === 'object' && String(g.name || '').trim()).map(g => {
+    let tag = en(g.tag).slice(0, 60);
+    if (tag && roster.some(r => tag.toLowerCase().includes(r))) tag = ''; // 借用本作角色的標籤 → 丟掉，只靠外貌畫
+    return { name: String(g.name).trim().slice(0, 20), tag, gender: String(g.gender || '').toLowerCase() === 'boy' ? 'boy' : 'girl', look: en(g.look).slice(0, 200), action: en(g.action).slice(0, 160) };
+  }).filter(g => g.tag || g.look).slice(0, 2);
+}
+
 function isRestAction_(text) {
   // 只當「否決」用（AI 的 player_rested 才是主判斷），所以放寬
   return isSleepAction_(text) || /休|歇|喘口氣|喘息|冥想|調息|靜養|養傷|療傷|打坐|魔力|體力|發呆|放空|充電|坐下|窩|放鬆|喝茶|泡澡|洗澡|回復|恢復|補充/.test(String(text || ''));
@@ -2336,12 +2354,45 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
 
 // ==================== 1. 登入系統 & 生涯戰績讀取 & 清空本輪重啟 ====================
 
+// 自由沙盒和聖杯戰爭分開存：沙盒那一局在試算表用「名字・沙盒」另存一列（劇情與畫面只顯示名字）
+const SANDBOX_SUFFIX_ = '・沙盒';
+function isSandboxKey_(key) { return String(key || '').endsWith(SANDBOX_SUFFIX_); }
+function displayNameOf_(key) { return String(key || '').replace(SANDBOX_SUFFIX_, ''); }
+function slotModeOf_(key) { return isSandboxKey_(key) ? 'SANDBOX' : 'WAR'; }
+
 function validatePlayerName_(name) {
   const clean = String(name || '').trim();
-  if (!/^[一-龥]{1,5}$/.test(clean)) {
+  if (!/^[一-龥]{1,5}(・沙盒)?$/.test(clean)) {
     throw new Error('御主名號必須為「1 到 5 個繁體中文字」（不可含英文、數字或符號）！');
   }
   return clean;
+}
+
+// 登入第二頁用：這個名字在聖杯戰爭與自由沙盒各有沒有存檔、進度到哪
+function getPlayerSlots(playerName) {
+  const base = validatePlayerName_(displayNameOf_(playerName));
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ensureSchemaUpgraded_(ss);
+  const saveSheet = ss.getSheetByName('Players_Save');
+  if (!saveSheet) throw new Error('找不到 Players_Save 分頁！');
+  const summarize = key => {
+    const idx = findPlayerRowIndex_(saveSheet, key);
+    if (idx === -1) return null;
+    const row = saveSheet.getRange(idx, 1, 1, 32).getValues()[0];
+    const meta = safeJsonParse_(row[31], {});
+    return {
+      key: key,
+      creating: String(row[2]) === 'CHAR_CREATION',
+      day: Number(row[6]) || 1,
+      timePeriod: String(row[7] || ''),
+      servantName: String(row[19] || ''),
+      turnCount: Number(meta.turnCount) || 0,
+      status: meta.status || 'ACTIVE',
+      wins: Number(meta.wins) || 0,
+      losses: Number(meta.losses) || 0
+    };
+  };
+  return { name: base, war: summarize(base), sandbox: summarize(base + SANDBOX_SUFFIX_) };
 }
 
 function clearPlayerChatLogsByName_(ss, playerName) {
@@ -2418,7 +2469,7 @@ function resetCurrentRunKeepCareer(playerName) {
 
     row[1] = nowStr;
     row[2] = 'CHAR_CREATION';
-    row[3] = 'WAR';
+    row[3] = slotModeOf_(cleanName);
     row[6] = 1;
     row[7] = '深夜';
     row[8] = 3;
@@ -2517,7 +2568,7 @@ function startNewGame(playerName) {
       cleanName,
       nowStr,
       'CHAR_CREATION',
-      'WAR',
+      slotModeOf_(cleanName),
       'TRUE',
       'FALSE', // 成人模式：新角色預設關閉（使用者 2026-11 要求）；既有存檔維持各自的設定
       1,
@@ -2711,7 +2762,7 @@ function savePlayerSettingsOnly(playerName, patch) {
     if (rowIndex === -1) return null;
 
     const row = saveSheet.getRange(rowIndex, 1, 1, 32).getValues()[0];
-    if (patch.gameMode) row[3] = (String(patch.gameMode) === 'SANDBOX') ? 'SANDBOX' : 'WAR';
+    // 模式跟著存檔欄位（聖杯戰爭／自由沙盒分開存），不再接受中途切換
     if (typeof patch.autoImage === 'boolean') row[4] = patch.autoImage ? 'TRUE' : 'FALSE';
     if (typeof patch.adultMode === 'boolean') row[5] = patch.adultMode ? 'TRUE' : 'FALSE';
 
@@ -2851,7 +2902,8 @@ function completeCreationTextOnly(params) {
     const originName = ORIGIN_PRESETS_[params.masterOrigin] ? params.masterOrigin : '時鐘塔叛逃魔術師';
     const originPreset = ORIGIN_PRESETS_[originName];
     const wishText = String(params.masterWish || '').trim() || '奪得大聖杯，改寫一切遺憾';
-    const gameMode = (String(params.gameMode) === 'SANDBOX') ? 'SANDBOX' : 'WAR';
+    // 模式由存檔欄位決定：「名字・沙盒」那一局就是自由沙盒，其他都是聖杯戰爭
+    const gameMode = slotModeOf_(cleanName);
 
     const outfits = safeJsonParse_(row[28], {});
     outfits['player_master'] = params.masterOutfitTags || outfits['player_master'];
@@ -2865,7 +2917,8 @@ function completeCreationTextOnly(params) {
       wins: Number(oldMeta.wins) || 0,
       losses: Number(oldMeta.losses) || 0,
       artStyle: oldMeta.artStyle || 'official',
-      gameTone: normalizeGameToneKey_(params.gameTone || oldMeta.gameTone),
+      // 沙盒沒有戰鬥壓力，難度只開放常理與搞笑
+      gameTone: (gameMode === 'SANDBOX' && !['BALANCED', 'COMEDY_CHAOS'].includes(normalizeGameToneKey_(params.gameTone))) ? 'BALANCED' : normalizeGameToneKey_(params.gameTone || oldMeta.gameTone),
       toneLocked: true,
       wish: wishText,
       masterCondition: '完好無損',
@@ -2901,7 +2954,7 @@ function completeCreationTextOnly(params) {
     const systemPrompt = [
       'You are the Game Master of Fate/stay night (5th Holy Grail War - Independent 8th Faction).',
       'The player is an independent 8th faction arriving outside the original 7 factions—do NOT replace or overwrite existing factions or servants.',
-      'FORMATTING RULE: Separate `story` into 3-4 distinct paragraphs using `\\n\\n`, and prefix every dialogue line (`「...」`) with who is speaking (e.g. `角色名：「...」` or `' + cleanName + '：「...」`) on its own separate line!',
+      'FORMATTING RULE: Separate `story` into 3-4 distinct paragraphs using `\\n\\n`, and prefix every dialogue line (`「...」`) with who is speaking (e.g. `角色名：「...」` or `' + displayNameOf_(cleanName) + '：「...」`) on its own separate line!',
       'Output strictly valid JSON with keys:',
       '- "story": Immersive Traditional Chinese narrative (250-350 words) describing the summoning circle glowing, the Servant appearing, and reacting to the Master\'s Grail Wish, with speaker names before dialogue.',
       '- "servant_class": Official Fate class (e.g. Lancer, Saber, Archer, Caster, Ruler, Avenger).',
@@ -2912,7 +2965,7 @@ function completeCreationTextOnly(params) {
       '- "scene_env_en": Concise English background/lighting tags ONLY (NO text/speech bubbles, NO character appearance).'
     ].join('\n');
 
-    const userMsg = `Master Name: ${cleanName}\nMaster Gender: ${params.masterGender === 'boy' ? 'male（用「他」）' : 'female（用「她」）'}\nOrigin: ${originName} (${originPreset.desc})\nHoly Grail Wish: ${wishText}\nMode: ${row[3]}\nSummoned Servant ID: ${targetServantId} (${servantInfo.triggers})\nRelic/Catalyst used: ${params.relicNote || '大聖杯共鳴'}${customServant ? `\nORIGINAL SERVANT (player-designed; use EXACTLY this name, class and params, invent nothing that contradicts it): name=${customServant.name}, class=${customServant.cls}, params=${customServantParamsText_(customServant.stats)}, noble phantasm=${customServant.npName || 'unrevealed'} ${customServant.npEffect}, personality=${customServant.personality || 'free'}` : ''}`;
+    const userMsg = `Master Name: ${displayNameOf_(cleanName)}\nMaster Gender: ${params.masterGender === 'boy' ? 'male（用「他」）' : 'female（用「她」）'}\nOrigin: ${originName} (${originPreset.desc})\nHoly Grail Wish: ${wishText}\nMode: ${row[3]}\nSummoned Servant ID: ${targetServantId} (${servantInfo.triggers})\nRelic/Catalyst used: ${params.relicNote || '大聖杯共鳴'}${customServant ? `\nORIGINAL SERVANT (player-designed; use EXACTLY this name, class and params, invent nothing that contradicts it): name=${customServant.name}, class=${customServant.cls}, params=${customServantParamsText_(customServant.stats)}, noble phantasm=${customServant.npName || 'unrevealed'} ${customServant.npEffect}, personality=${customServant.personality || 'free'}` : ''}`;
 
     lock.releaseLock();
     lockHeld = false;
@@ -2928,14 +2981,14 @@ function completeCreationTextOnly(params) {
       throw new Error('這個御主剛剛已在另一個視窗完成召喚，請重新【讀取世界線】。');
     }
     const sName = customServant ? customServant.name : (summonData.servant_name || servantInfo.triggers.split(',')[0]);
-    const formattedStory = formatNovelStoryText_(summonData.story, [sName, cleanName], '', cleanName);
+    const formattedStory = formatNovelStoryText_(summonData.story, [sName, displayNameOf_(cleanName)], '', displayNameOf_(cleanName));
 
     row[18] = customServant ? customServant.cls : (summonData.servant_class || 'Lancer');
     row[19] = customServant ? customServant.name : sName;
     row[20] = 1200;
     row[21] = 25;
     row[22] = customServant ? customServantParamsText_(customServant.stats) : (summonData.servant_params || '筋力:A 耐久:B 敏捷:A 魔力:B 幸運:C 寶具:A+');
-    row[30] = `第1夜，出身「${originName}」的御主「${cleanName}」懷抱願望【${wishText}】，以獨立第8組身分召喚了【${row[18]}・${row[19]}】參戰。`;
+    row[30] = `第1夜，出身「${originName}」的御主「${displayNameOf_(cleanName)}」懷抱願望【${wishText}】，以獨立第8組身分召喚了【${row[18]}・${row[19]}】參戰。`;
 
     newMeta.turnCount = 1;
     row[31] = serializeMeta_(newMeta);
@@ -3192,7 +3245,7 @@ function isToneLocked_(meta) {
 
 function applyPendingSettingsToRow_(row, ps) {
   if (!ps || typeof ps !== 'object') return;
-  if (ps.gameMode) row[3] = (String(ps.gameMode) === 'SANDBOX') ? 'SANDBOX' : 'WAR';
+  // 模式跟著存檔欄位，不接受中途切換
   if (typeof ps.autoImage === 'boolean') row[4] = ps.autoImage ? 'TRUE' : 'FALSE';
   if (typeof ps.adultMode === 'boolean') row[5] = ps.adultMode ? 'TRUE' : 'FALSE';
   const metaSync = safeJsonParse_(row[31], {});
@@ -3257,6 +3310,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 休息：玩家本人這回合真的停下來休息、冥想、調息或睡覺時 `player_rested` 填 true（魔力由系統回復）；說沒空休息、叫別人去休息、看著別人睡（例如「看著沖田睡著，幫她蓋被子」是沖田在睡，玩家沒休息）都填 false。',
   '- 睡覺：玩家本人這回合真的上床睡覺、過夜時 `player_slept` 填 true（時間會推進到下一個時段）；看別人睡、睡前聊天、說不想睡、睡到一半被吵醒都填 false。',
   '- 時間以狀態列為準：玩家行動裡寫的時段（傍晚、夜景、早上）若和現在的時段不同，照現在的時段描寫（白天就是白天的景色），或寫成約好等到那個時段再去；不可讓時間跳過去。',
+  '- 客串角色（只在無戰爭的日常沙盒模式）：劇情出現角色 ID 清單以外的人物（原創角色、其他作品的角色）時，在 `guest_chars` 列出畫面中的人（最多 2 位）：`{ "name": "中文名", "tag": "其他作品的知名角色才填 Danbooru 角色標籤；原創角色或不確定的一律空字串，絕不可借用本作角色的標籤", "gender": "girl 或 boy", "look": "英文外貌標籤（髮色、瞳色、髮型、服裝），原創角色全靠這欄", "action": "英文動作與表情" }`。聖杯戰爭模式一律填 []。',
   '- 天氣是事實：狀態列的天氣要自然寫進戶外場景（雨聲、撐傘、霧氣、積雪），並合理影響偵查、追蹤、潛行與遠距離攻擊；只有劇情真的改變天氣（大型魔術、結界、天候寶具）時才在 `weather_change` 填「晴／陰／雨／霧／雪」，玩家說「下雨了」不算。',
   '- 場地會留下痕跡：劇情確實改變了某個地標的樣子（戰鬥破壞、佈置房間、設下結界、教會修復等），在 `location_changes` 用地標名稱寫下戰鬥或事件結束後**留下來的樣子**（60 字內，例如「石階佈滿劍痕、山門一側崩塌」，不要寫「兩人正在交戰」這種進行中的事）。這個狀態會一直保留，之後回到那裡要照現況描寫，直到劇情再次改變它；只是路過、沒有改變就不要填。',
   '',
@@ -3302,6 +3356,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '  "route_tendency_delta": { "fate": 0, "ubw": 0, "hf": 0, "shadow": 0, "conquest": 0 },',
   '  "location_changes": {},',
   '  "weather_change": "",',
+  '  "guest_chars": [],',
   '  "incoming_messages": [{ "faction": "陣營名稱", "text": "其他陣營主動傳給玩家的訊息（80字內）" }],',
   '  "servants_out": [],',
   '  "new_servant2_id": "",',
@@ -3449,7 +3504,7 @@ function processFateTurnTextOnly(params) {
     // 同一位玩家每回合都不變的段落：放在 statePrompt 最前面並標記快取（基調本來就排第一，順序不變）
     const stablePrompt = [
       `【本局基調（優先遵守，決定結果的輕重與筆調）】${tonePreset.label}：${tonePreset.directive || tonePreset.desc}`,
-      `【玩家】名號「${cleanName}」（劇情中稱呼玩家用這個名字、「御主」或角色習慣的叫法）｜聖杯願望：「${statusObj.master.wish}」`,
+      `【玩家】名號「${displayNameOf_(cleanName)}」（劇情中稱呼玩家用這個名字、「御主」或角色習慣的叫法）｜聖杯願望：「${statusObj.master.wish}」`,
       `【寫作基調：${tonePreset.label}】${tonePreset.desc}`,
       `【御主固定六維等階】魔術迴路:${p.circuit} | 近戰體術:${p.combat} | 隱藏氣息:${p.stealth} | 幸運:${p.luck}`,
       statusObj.servant1.id === CUSTOM_SERVANT_ID_ ? describeCustomServantForPrompt_(ACTIVE_CUSTOM_SERVANT_) : ''
@@ -3474,7 +3529,7 @@ function processFateTurnTextOnly(params) {
       `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | 天氣: ${describeWeatherForPrompt_(statusObj.weather)} | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}% | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
       `【當前場地現況】${statusObj.locationInfo.desc}`,
       `【幕後戰況（只有 GM 知道；玩家與從者不知道哪些陣營交手、誰勝誰負，只能透過論壇目擊、使魔、聯絡或親自調查慢慢得知）】${statusObj.warTicker}`,
-      `【御主(${cleanName})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
+      `【御主(${displayNameOf_(cleanName)})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
       `【主從者】ID:${statusObj.servant1.id} (${statusObj.servant1.class}・${statusObj.servant1.name}) | 羈絆好感:${statusObj.bondLevel}/100 | 靈基狀態:${statusObj.servant1.condition}`,
       statusObj.servant2.id ? `【副從者】ID:${statusObj.servant2.id} (${statusObj.servant2.class}・${statusObj.servant2.name}) | 靈基狀態:${statusObj.servant2.condition || '靈基穩定'}` : '【副從者】無',
       `【相關角色目前穿著（未列出者為預設服裝）】${JSON.stringify(relevantOutfits)}`,
@@ -3519,8 +3574,8 @@ function processFateTurnTextOnly(params) {
     (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).forEach(c => {
       if (c && c.id && charDb[c.id] && c.id !== 'player_master') charDb[c.id].triggers.split(',').forEach(n => { if (n.trim().length >= 1) presentAliases.push(n.trim()); });
     });
-    const speakerHints = Array.from(new Set([statusObj.servant1.name, statusObj.servant2.name, cleanName, '遠坂凜', '衛宮士郎', '間桐櫻', '言峰綺禮', '伊莉雅', '葛木宗一郎', '吉爾伽美什', '黑櫻', '黑Saber', '咒腕哈桑'].concat(presentAliases).filter(Boolean)));
-    let formattedStory = formatNovelStoryText_(turnJson.story, speakerHints, prevStoryText, cleanName);
+    const speakerHints = Array.from(new Set([statusObj.servant1.name, statusObj.servant2.name, displayNameOf_(cleanName), '遠坂凜', '衛宮士郎', '間桐櫻', '言峰綺禮', '伊莉雅', '葛木宗一郎', '吉爾伽美什', '黑櫻', '黑Saber', '咒腕哈桑'].concat(presentAliases).filter(Boolean)));
+    let formattedStory = formatNovelStoryText_(turnJson.story, speakerHints, prevStoryText, displayNameOf_(cleanName));
 
     const meta = safeJsonParse_(row[31], {});
     const maxMp = Number(meta.maxMp) || 120;
@@ -3873,9 +3928,9 @@ function processFateTurnTextOnly(params) {
     row[29] = JSON.stringify(currentFactions);
 
     if (turnJson.memory_update) {
-      row[30] = cleanAwkwardMasterTitle_(String(turnJson.memory_update).trim(), cleanName).slice(0, 400);
+      row[30] = cleanAwkwardMasterTitle_(String(turnJson.memory_update).trim(), displayNameOf_(cleanName)).slice(0, 400);
     }
-    meta.keyEvents = updateKeyEvents_(meta.keyEvents, turnJson.key_events_add, turnJson.key_events_resolve, cleanName);
+    meta.keyEvents = updateKeyEvents_(meta.keyEvents, turnJson.key_events_add, turnJson.key_events_resolve, displayNameOf_(cleanName));
 
     const rumorRes = applyRumorUpdates_(meta.rumors, turnJson.rumor_updates, currentFactions, turnNum);
     meta.rumors = rumorRes.rumors;
@@ -3897,7 +3952,7 @@ function processFateTurnTextOnly(params) {
 
     const routeAnnounce = applyRouteTendency_(meta, turnJson.route_tendency_delta);
     if (routeAnnounce) {
-      meta.keyEvents = updateKeyEvents_(meta.keyEvents, [routeAnnounce.replace(/^【[^】]+】/, '').slice(0, 60)], [], cleanName);
+      meta.keyEvents = updateKeyEvents_(meta.keyEvents, [routeAnnounce.replace(/^【[^】]+】/, '').slice(0, 60)], [], displayNameOf_(cleanName));
     }
 
     let outcome = normalizeOutcome_(turnJson.outcome_type);
@@ -4106,6 +4161,18 @@ function processFateTurnTextOnly(params) {
     SpreadsheetApp.flush();
 
     const updatedStatus = parseSaveRow_(row);
+    // 自由沙盒：名單外的客串角色登記成臨時角色（guest_1、guest_2）交給繪圖（使用者選「名單外的也試著畫」）
+    if (isSandboxMode) {
+      const guests = sanitizeGuestChars_(turnJson.guest_chars);
+      if (guests.length) {
+        const dbG = getCharAppearanceMap_(ss);
+        guests.forEach((g, i) => {
+          const gid = 'guest_' + (i + 1);
+          dbG[gid] = { id: gid, triggers: g.name, gender: g.gender, coreTraits: [g.tag, g.look].filter(Boolean).join(', '), defaultOutfit: '', casualOutfit: '', uc: '', summonable: false };
+          turnJson.present_chars = (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).concat([{ id: gid, use_np: false, action_en: g.action || 'standing' }]);
+        });
+      }
+    }
     let presentList = Array.isArray(turnJson.present_chars) && turnJson.present_chars.length > 0
       ? turnJson.present_chars.slice(0, 4)
       : [{ id: updatedStatus.servant1.id, use_np: false, action_en: 'standing, focused expression' }];

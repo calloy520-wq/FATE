@@ -33,12 +33,19 @@
 ## 修改程式時的檢查
 - **`Index.html` 的 JavaScript 裡不能出現雙斜線字串**（例如 `'https://...'`）：GAS 送出網頁時會把 JS 的雙斜線註解刪掉，連字串裡的也會被刪，整段程式就壞掉（2026-11 曾因音樂網址讓全員卡在登入畫面）。網址要寫成 `'https:' + '/' + '/...'`。錯誤顯示器放在獨立的第一個 `<script>`，主程式壞掉時畫面頂端會出現紅條。
 - 推送前用 `node --check Code.js` 做語法檢查，並跑 `node tests/run-tests.js`、`node tests/sim-turn.js` 與 `node tests/stress-guards.js`（GAS 是 V8 環境，`Code.js` 裡不能用 Node 模組）。新增純邏輯函式時順手補測試；新增前端呼叫的後端參數時，模擬測試也要跟著補。
-- 改後端函式名稱或回傳格式前，先全文搜尋 `Index.html`，前後端必須同步。前端呼叫的後端函式包括：`startNewGame`、`loadExistingGame`、`processFateTurnTextOnly`、`completeCreationAndSummon`、`generateTurnCgAsync`、`retrySceneImage`、`savePlayerSettingsOnly`、`updateCustomLocationDesc`、`postFuyukiForumMessage`、`sendAllySmsMessage`、`markPhoneMessagesRead`、`resetCurrentRunKeepCareer`、`startNextLoopReincarnation`、`enhanceMasterAppearance`、`previewMasterOutfit`、`getServantTemplates`、`enhanceServantAppearance`、`previewCustomServant`。（上傳圖片抽詞 `extractMasterFromImage` 已依使用者要求移除）
+- 改後端函式名稱或回傳格式前，先全文搜尋 `Index.html`，前後端必須同步。前端呼叫的後端函式包括：`getPlayerSlots`、`startNewGame`、`loadExistingGame`、`processFateTurnTextOnly`、`completeCreationAndSummon`、`generateTurnCgAsync`、`retrySceneImage`、`savePlayerSettingsOnly`、`updateCustomLocationDesc`、`postFuyukiForumMessage`、`sendAllySmsMessage`、`markPhoneMessagesRead`、`resetCurrentRunKeepCareer`、`startNextLoopReincarnation`、`enhanceMasterAppearance`、`previewMasterOutfit`、`getServantTemplates`、`enhanceServantAppearance`、`previewCustomServant`。（上傳圖片抽詞 `extractMasterFromImage` 已依使用者要求移除）
 - 回合推演用 `ScriptLock`，但**只在讀存檔與寫回時持有**；等待 Gemini 時會放開，寫回前重新讀取並比對 `meta.turnCount`，被別的視窗推進過就放棄寫入。召喚流程、同盟簡訊 AI 回覆同理。不要改回「整個回合都鎖著」（多人同時玩會互相卡住、逾時）。
 - 生圖用獨立的 `UserLock`，不要和回合推演共用同一把鎖。網頁以部署者身分執行，所以這把鎖實際上是全體玩家共用，一次只畫一張（配合 NovelAI 同時只能生成一張）。
 - 前端生圖逾時：一般 60 秒、重骰 45 秒；改後端流程時別讓生圖耗時遠超過這個範圍。
 - `ensureSchemaUpgraded_` 只處理 `Players_Save` 的標題修正與成人模式預設；修改它時要把 `SCHEMA_VERSION_` 改成新值，否則不會執行。
 - AI 回傳的 `faction_updates` 會經 `resolveFactionKey_` 對應回既有陣營名稱，對不上的會被丟棄；新增陣營時記得補 `FACTION_ALIAS_GROUPS_`。
+
+## 登入流程與自由沙盒（2026-11 使用者設計）
+- 登入分兩頁：第 1 頁輸入名號（沒用過自動建帳號）→ `getPlayerSlots(name)` 回報兩個存檔欄位的進度；第 2 頁選「⚔️ 聖杯戰爭」或「🌸 自由沙盒」，各有「📜 讀取／開新局」。開新局時那一欄已有進度就先確認「砍掉重來」（走 `resetCurrentRunKeepCareer`，生涯勝敗保留、另一欄不受影響），沒有就 `startNewGame`。舊的「開始新紀元／讀取世界線／清空本輪」按鈕已拿掉。
+- **兩種模式分開存**：自由沙盒那一局在 `Players_Save` 用「名號・沙盒」（`SANDBOX_SUFFIX_`）另存一列，ChatLog 也跟著分開；`validatePlayerName_` 接受這個後綴。模式由存檔欄位決定（`slotModeOf_`：建檔、清空、創角都寫入 `row[3]`），設定視窗的「日常模式」開關已拿掉、後端也不再接受中途切換 `gameMode`。劇情、提示詞、畫面一律用 `displayNameOf_` 顯示名號（不帶後綴）；前端用 `displayPlayerName`，沙盒在名牌加 🌸。
+- 自由沙盒＝原本的 SANDBOX 日常模式（沒有聖杯戰爭、AP 無限、不會通關、不發戰鬥道具），開局一樣創角、選從者；難度只開放常理與搞笑（前端隱藏鐵血、龍傲天，後端也會改回常理）。
+- 創角畫面拿掉「行事風格傾向」（只會接在願望後面，效果很弱）與「開局模式」（改到登入第 2 頁）。
+- **名單外的客串角色（只在沙盒）**：AI 以 `guest_chars`（最多 2 位：name、tag、gender、look、action）回報角色 ID 清單以外的人物；`sanitizeGuestChars_` 只留英文、底線換空格，**借用本作角色標籤的直接丟掉**（`rosterCharacterTags_`；實測原創角色「莉莉」被猜成 illyasviel_von_einzbern、畫成伊莉雅），伺服器登記成臨時角色 `guest_1`／`guest_2` 加進出場名單交給繪圖。聖杯戰爭模式不收。實測初音未來（知名角色標籤）畫得準、原創角色靠外貌描述畫成粉紅雙馬尾魔法少女。
 
 ## 提示詞與記憶
 - 寫作基調（難度）：`GAME_TONE_PRESETS_` 每種有 `directive`（具體裁定指令），放在 statePrompt 最前面「本局基調（優先遵守）」，系統提示詞也有對應規則。實測同一個偷襲行動：搞笑＝滑稽閃開、龍傲天＝偷襲成功、常理＝被閃開、鐵血＝被反擊。`STORY_PLAYER_FIRST` 已改名「🐉 龍傲天模式」（鍵名不變以相容存檔）：玩家想做的都能實現，伺服器的淘汰兩步、十二試煉、英靈退場、結盟門檻與戰力判定都不套用。改基調時要保持這種明顯差異。**難度開局決定、本局鎖定**（使用者要求）：創角畫面的「🎚️ 難度」（`#create-tone`）隨 `completeCreationAndSummon` 的 `gameTone` 寫入 `meta.gameTone` 並設 `meta.toneLocked = true`；鎖定後 `savePlayerSettingsOnly`／`applyPendingSettingsToRow_` 忽略難度變更，設定視窗的難度選單變灰並註明；`resetCurrentRunKeepCareer`、`startNextLoopReincarnation` 設 `toneLocked: false`，回創角畫面可重選。舊存檔沒有旗標時，玩過回合（`turnCount > 0`）就視為鎖定（`isToneLocked_`）。

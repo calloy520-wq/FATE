@@ -811,22 +811,46 @@
       <div id="cached-user-hint" class="cached-badge hidden">✨ 已自動帶入上次御主名號</div>
       <div id="login-inline-notice" class="inline-notice warn hidden"></div>
 
-      <div class="form-group">
-        <input type="text" id="login-name-input" class="login-input" maxlength="5" placeholder="輸入御主名號" onkeydown="if(event.key==='Enter') handleLogin('LOAD')" />
-        <div class="login-hint">※ 嚴格限定 1～5 個繁體中文字（含生涯勝敗統計與獨立世界線封存）</div>
+      <!-- 第 1 頁：輸入名號（登入或建立帳號） -->
+      <div id="login-step-name">
+        <div class="form-group">
+          <input type="text" id="login-name-input" class="login-input" maxlength="5" placeholder="輸入御主名號" onkeydown="if(event.key==='Enter') handleNameEnter()" />
+          <div class="login-hint">※ 1～5 個繁體中文字。沒用過的名號會自動建立新帳號（含生涯勝敗統計）</div>
+        </div>
+        <div class="login-actions">
+          <button class="btn btn-crimson" onclick="handleNameEnter()">✦ 進入冬木市</button>
+        </div>
       </div>
 
-      <div class="login-actions">
-        <button class="btn btn-crimson" onclick="handleLogin('NEW')">⚔️ 開始新紀元</button>
-        <button class="btn" onclick="handleLogin('LOAD')">📜 讀取世界線</button>
-      </div>
-      <button id="btn-clear-run" class="btn login-clear-btn" onclick="handleClearCurrentRun()">🧹 清空本輪進度與對話（保留生涯勝敗）</button>
-      <div id="confirm-clear-box" class="inline-notice warn hidden" style="margin-top: 10px; text-align: left;">
-        <div style="margin-bottom: 8px; font-weight: 700;">確定要清空本輪進度與對話嗎？生涯勝敗戰績會完整保留。</div>
-        <div style="display: flex; gap: 8px; justify-content: flex-end;">
-          <button class="btn btn-sm" onclick="cancelClearRun()">取消</button>
-          <button class="btn btn-crimson btn-sm" onclick="confirmClearCurrentRun()">確認清空本輪</button>
+      <!-- 第 2 頁：選擇聖杯戰爭或自由沙盒（兩邊分開存檔） -->
+      <div id="login-step-slots" class="hidden">
+        <div id="slot-hello" style="font-weight: 700; margin-bottom: 10px;"></div>
+        <div style="border: 1px solid var(--border-gold, #6b5b2e); border-radius: 10px; padding: 12px; margin-bottom: 10px; text-align: left;">
+          <div style="font-weight: 700; font-size: 15px;">⚔️ 聖杯戰爭</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin: 2px 0 6px;">第 8 組御主參戰，以奪得聖杯為目標</div>
+          <div id="slot-war-info" style="font-size: 13px; margin-bottom: 8px;"></div>
+          <div class="login-actions">
+            <button id="btn-war-load" class="btn" onclick="enterSlot('WAR', 'LOAD')">📜 讀取</button>
+            <button class="btn btn-crimson" onclick="enterSlot('WAR', 'NEW')">⚔️ 開新局</button>
+          </div>
         </div>
+        <div style="border: 1px solid var(--border-gold, #6b5b2e); border-radius: 10px; padding: 12px; margin-bottom: 10px; text-align: left;">
+          <div style="font-weight: 700; font-size: 15px;">🌸 自由沙盒</div>
+          <div style="font-size: 12px; color: var(--text-muted); margin: 2px 0 6px;">沒有聖杯戰爭、AP 無限、想見誰都可以（名單外的角色也會試著畫）</div>
+          <div id="slot-sandbox-info" style="font-size: 13px; margin-bottom: 8px;"></div>
+          <div class="login-actions">
+            <button id="btn-sandbox-load" class="btn" onclick="enterSlot('SANDBOX', 'LOAD')">📜 讀取</button>
+            <button class="btn btn-crimson" onclick="enterSlot('SANDBOX', 'NEW')">🌸 開新局</button>
+          </div>
+        </div>
+        <div id="confirm-newrun-box" class="inline-notice warn hidden" style="margin-bottom: 10px; text-align: left;">
+          <div id="confirm-newrun-text" style="margin-bottom: 8px; font-weight: 700;"></div>
+          <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button class="btn btn-sm" onclick="cancelNewRun()">取消</button>
+            <button class="btn btn-crimson btn-sm" onclick="confirmNewRun()">確定砍掉重來</button>
+          </div>
+        </div>
+        <button class="btn btn-sm" onclick="backToNameStep()">← 換一個名號</button>
       </div>
     </div>
   </div>
@@ -872,23 +896,7 @@
             <input type="text" id="create-wish" placeholder="例如：抵達魔術的根源、復活已故之人..." value="奪得大聖杯，改寫這場扭曲的儀式" />
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;" class="form-group">
-            <div>
-              <label class="form-label">🎭 行事風格傾向</label>
-              <select id="create-demeanor">
-                <option value="冷靜算計・步步為營">冷靜算計・步步為營</option>
-                <option value="直率果決・正面突破">直率果決・正面突破</option>
-                <option value="隨性吐槽・見招拆招">隨性吐槽・見招拆招</option>
-                <option value="深沉隱忍・暗中布局">深沉隱忍・暗中布局</option>
-              </select>
-            </div>
-            <div>
-              <label class="form-label">🎲 開局模式</label>
-              <select id="create-mode">
-                <option value="WAR">⚔️ 聖杯戰爭主線</option>
-                <option value="SANDBOX">🌸 無戰爭日常模式</option>
-              </select>
-            </div>
+          <div class="form-group">
             <div>
               <label class="form-label">🎚️ 難度（召喚後本局鎖定，重新開局才能更換）</label>
               <select id="create-tone">
@@ -1273,13 +1281,7 @@
         </div>
       </div>
 
-      <div class="setting-row">
-        <div>
-          <div style="font-weight: 700; font-size: 14px;">🌸 無戰爭日常餐桌模式</div>
-          <div style="font-size: 12px; color: var(--text-muted);">開啟後解除時間與警戒限制，並禁止獲得任何戰鬥道具</div>
-        </div>
-        <div id="cap-sandboxMode" class="capsule-switch" onclick="optimisticToggleMode()"></div>
-      </div>
+
 
       <div class="setting-row">
         <div>
@@ -1498,10 +1500,10 @@
       clearImageWaitState();
       isSubmittingTurn = false;
       showNotice('login-inline-notice', '', false);
-      document.getElementById('confirm-clear-box').classList.add('hidden');
       document.getElementById('game-screen').classList.add('hidden');
       document.getElementById('creation-screen').classList.add('hidden');
       document.getElementById('login-screen').classList.remove('hidden');
+      backToNameStep();
     }
 
     function showLoading(msg) {
@@ -1517,58 +1519,93 @@
       document.getElementById('origin-preview-note').innerText = ORIGIN_NOTES[val] || '';
     }
 
-    function handleClearCurrentRun() {
-      const name = document.getElementById('login-name-input').value.trim();
-      if (!/^[\u4e00-\u9fa5]{1,5}$/.test(name)) {
-        showNotice('login-inline-notice', '請先輸入 1 到 5 個「繁體中文字」御主名號！', true);
-        return;
-      }
-      showNotice('login-inline-notice', '', false);
-      document.getElementById('confirm-clear-box').classList.remove('hidden');
-    }
 
-    function cancelClearRun() {
-      document.getElementById('confirm-clear-box').classList.add('hidden');
-    }
+    // 存檔欄位：聖杯戰爭＝名號本身；自由沙盒＝「名號・沙盒」（後端分開存成兩列）
+    const SANDBOX_SUFFIX = '・沙盒';
+    let slotState = null;
+    let pendingNewSlot = '';
+    function displayPlayerName(key) { return String(key || '').replace(SANDBOX_SUFFIX, ''); }
+    function slotKey(mode) { return slotState.name + (mode === 'SANDBOX' ? SANDBOX_SUFFIX : ''); }
 
-    function confirmClearCurrentRun() {
-      const name = document.getElementById('login-name-input').value.trim();
-      if (!/^[\u4e00-\u9fa5]{1,5}$/.test(name)) {
-        showNotice('login-inline-notice', '請先輸入 1 到 5 個「繁體中文字」御主名號！', true);
-        return;
-      }
-      document.getElementById('confirm-clear-box').classList.add('hidden');
-      showLoading(`正在清空「${name}」的本輪進度與對話，並保留生涯勝敗戰績...`);
-      google.script.run
-        .withSuccessHandler(res => {
-          hideLoading();
-          saveMasterNameCache(name);
-          currentState = res.status;
-          summonPoolCache = res.summonPool || [];
-          mapLocationsCache = res.mapLocations || {};
-          pendingSettingsPatch = {};
-          document.getElementById('login-screen').classList.add('hidden');
-          document.getElementById('game-screen').classList.add('hidden');
-          initCreationScreen();
-          showNotice('creation-inline-notice', `已清空「${name}」的本輪進度與對話紀錄（生涯戰績 🏆${currentState.wins}勝 / 💀${currentState.losses}敗 已保留）。`, false);
-        })
-        .withFailureHandler(err => {
-          hideLoading();
-          showNotice('login-inline-notice', err.message, true);
-        })
-        .resetCurrentRunKeepCareer(name);
-    }
-
-    function handleLogin(mode) {
+    function handleNameEnter() {
       const name = document.getElementById('login-name-input').value.trim();
       if (!/^[\u4e00-\u9fa5]{1,5}$/.test(name)) {
         showNotice('login-inline-notice', '請輸入 1 到 5 個「繁體中文字」作為御主名號！', true);
         return;
       }
       showNotice('login-inline-notice', '', false);
-      document.getElementById('confirm-clear-box').classList.add('hidden');
+      showLoading('正在查詢你的世界線...');
+      google.script.run
+        .withSuccessHandler(res => {
+          hideLoading();
+          slotState = res;
+          saveMasterNameCache(res.name);
+          renderSlots();
+        })
+        .withFailureHandler(err => {
+          hideLoading();
+          showNotice('login-inline-notice', err.message, true);
+        })
+        .getPlayerSlots(name);
+    }
 
-      showLoading(mode === 'NEW' ? '正在開闢獨立聖杯戰爭世界線...' : '正在讀取你的世界線存檔...');
+    function describeSlot(sl) {
+      if (!sl) return '尚無存檔';
+      if (sl.creating) return '創角中（尚未召喚）';
+      const end = sl.status === 'DEAD' ? '（已戰敗）' : (sl.status === 'CLEARED' ? '（已通關）' : '');
+      return `Day ${sl.day}・${sl.timePeriod}｜${sl.servantName || '無從者'}｜第 ${sl.turnCount} 回合${end}`;
+    }
+
+    function renderSlots() {
+      document.getElementById('login-step-name').classList.add('hidden');
+      document.getElementById('login-step-slots').classList.remove('hidden');
+      document.getElementById('confirm-newrun-box').classList.add('hidden');
+      const career = slotState.war ? `（生涯戰績：🏆${slotState.war.wins}勝 / 💀${slotState.war.losses}敗）` : '（新帳號）';
+      document.getElementById('slot-hello').innerText = `御主「${slotState.name}」${career}`;
+      document.getElementById('slot-war-info').innerText = describeSlot(slotState.war);
+      document.getElementById('slot-sandbox-info').innerText = describeSlot(slotState.sandbox);
+      document.getElementById('btn-war-load').disabled = !slotState.war;
+      document.getElementById('btn-sandbox-load').disabled = !slotState.sandbox;
+    }
+
+    function backToNameStep() {
+      slotState = null;
+      document.getElementById('login-step-slots').classList.add('hidden');
+      document.getElementById('login-step-name').classList.remove('hidden');
+      showNotice('login-inline-notice', '', false);
+    }
+
+    function enterSlot(mode, action) {
+      if (!slotState) return;
+      const sl = mode === 'SANDBOX' ? slotState.sandbox : slotState.war;
+      if (action === 'LOAD') {
+        if (!sl) { showNotice('login-inline-notice', '這邊還沒有存檔，請按「開新局」。', true); return; }
+        openSlot(slotKey(mode), 'LOAD');
+        return;
+      }
+      if (sl) {
+        pendingNewSlot = mode;
+        document.getElementById('confirm-newrun-text').innerText = `${mode === 'SANDBOX' ? '🌸 自由沙盒' : '⚔️ 聖杯戰爭'}已經有一局進度（${describeSlot(sl)}）。確定要砍掉重新開始嗎？生涯勝敗會保留，另一邊的存檔不受影響。`;
+        document.getElementById('confirm-newrun-box').classList.remove('hidden');
+        return;
+      }
+      openSlot(slotKey(mode), 'NEW');
+    }
+
+    function cancelNewRun() {
+      pendingNewSlot = '';
+      document.getElementById('confirm-newrun-box').classList.add('hidden');
+    }
+
+    function confirmNewRun() {
+      const mode = pendingNewSlot;
+      document.getElementById('confirm-newrun-box').classList.add('hidden');
+      if (mode) openSlot(slotKey(mode), 'RESET');
+    }
+
+    function openSlot(key, action) {
+      showNotice('login-inline-notice', '', false);
+      showLoading(action === 'LOAD' ? '正在讀取你的世界線存檔...' : '正在開闢新的世界線...');
       const runner = google.script.run
         .withSuccessHandler(res => {
           hideLoading();
@@ -1577,20 +1614,19 @@
             return;
           }
           try {
-          saveMasterNameCache(name);
-          currentState = res.status;
-          summonPoolCache = res.summonPool || [];
-          mapLocationsCache = res.mapLocations || {};
-          pendingSettingsPatch = {};
-
-          document.getElementById('login-screen').classList.add('hidden');
-          if (currentState.gamePhase === 'CHAR_CREATION') {
-            initCreationScreen();
-            playBgmMood('title');
-          } else {
-            initGameScreen(res.logs || []);
-            playBgmMood(currentPeriodMood());
-          }
+            currentState = res.status;
+            summonPoolCache = res.summonPool || [];
+            mapLocationsCache = res.mapLocations || {};
+            pendingSettingsPatch = {};
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+            if (currentState.gamePhase === 'CHAR_CREATION') {
+              initCreationScreen();
+              playBgmMood('title');
+            } else {
+              initGameScreen(res.logs || []);
+              playBgmMood(currentPeriodMood());
+            }
           } catch (e) {
             document.getElementById('login-screen').classList.remove('hidden');
             showNotice('login-inline-notice', '⚠️ 進入遊戲時發生錯誤：' + (e && e.message ? e.message : e) + '（請截圖告訴管理者）', true);
@@ -1600,15 +1636,22 @@
           hideLoading();
           showNotice('login-inline-notice', err.message, true);
         });
-
-      if (mode === 'NEW') runner.startNewGame(name);
-      else runner.loadExistingGame(name);
+      if (action === 'NEW') runner.startNewGame(key);
+      else if (action === 'RESET') runner.resetCurrentRunKeepCareer(key);
+      else runner.loadExistingGame(key);
     }
 
     function initCreationScreen() {
       showNotice('creation-inline-notice', '', false);
       document.getElementById('creation-screen').classList.remove('hidden');
-      document.getElementById('create-player-label').innerText = currentState.playerName;
+      document.getElementById('create-player-label').innerText = displayPlayerName(currentState.playerName) + (currentState.gameMode === 'SANDBOX' ? '（🌸 自由沙盒）' : '');
+      // 自由沙盒沒有戰鬥壓力：難度只開放常理與搞笑
+      const toneSel = document.getElementById('create-tone');
+      if (toneSel) {
+        const sandbox = currentState.gameMode === 'SANDBOX';
+        Array.from(toneSel.options).forEach(o => { o.hidden = sandbox && (o.value === 'STORY_PLAYER_FIRST' || o.value === 'HARDCORE_WAR'); o.disabled = o.hidden; });
+        if (sandbox && (toneSel.value === 'STORY_PLAYER_FIRST' || toneSel.value === 'HARDCORE_WAR')) toneSel.value = 'BALANCED';
+      }
       document.getElementById('create-career-badge').innerText = `(生涯戰績：🏆${currentState.wins}勝 / 💀${currentState.losses}敗)`;
 
       const sel = document.getElementById('create-servant-select');
@@ -1775,9 +1818,7 @@
     }
 
     function submitCreationAndSummon() {
-      const demeanorVal = (document.getElementById('create-demeanor') && document.getElementById('create-demeanor').value) || '';
-      const rawWish = document.getElementById('create-wish').value.trim() || '奪得大聖杯，改寫這場扭曲的儀式';
-      const combinedWish = demeanorVal ? `${rawWish}（行事風格：${demeanorVal}）` : rawWish;
+      const combinedWish = document.getElementById('create-wish').value.trim() || '奪得大聖杯，改寫這場扭曲的儀式';
       const params = {
         playerName: currentState.playerName,
         masterGender: document.getElementById('create-gender').value,
@@ -1788,7 +1829,7 @@
         servantId: document.getElementById('create-servant-select').value,
         customServant: document.getElementById('create-servant-select').value === 'CUSTOM' ? collectCustomServant() : null,
         relicNote: document.getElementById('create-relic').value.trim(),
-        gameMode: document.getElementById('create-mode').value,
+        gameMode: currentState.gameMode === 'SANDBOX' ? 'SANDBOX' : 'WAR',
         gameTone: (document.getElementById('create-tone') || {}).value || 'BALANCED'
       };
 
@@ -1857,7 +1898,7 @@
       const tone = normalizeToneKey(s.gameTone);
       s.gameTone = tone;
 
-      document.getElementById('ui-player-badge').innerText = s.playerName;
+      document.getElementById('ui-player-badge').innerText = displayPlayerName(s.playerName) + (s.gameMode === 'SANDBOX' ? ' 🌸' : '');
       document.getElementById('ui-career-badge').innerText = `🏆${s.wins}勝 💀${s.losses}敗`;
       document.getElementById('ui-bond-badge').innerText = `💖 ${bond}`;
       document.getElementById('ui-tone-badge').innerText = TONE_META[tone].short;
@@ -2312,7 +2353,8 @@
       document.getElementById('cap-autoImage').className = `capsule-switch ${currentState.autoImage ? 'on' : ''}`;
       document.getElementById('cap-adultMode').className = `capsule-switch ${currentState.adultMode ? 'on' : ''}`;
       document.getElementById('cap-cameraPov').className = `capsule-switch ${currentState.cameraMode === 'pov' ? 'on' : ''}`;
-      document.getElementById('cap-sandboxMode').className = `capsule-switch ${currentState.gameMode !== 'WAR' ? 'on' : ''}`;
+      const capSandbox = document.getElementById('cap-sandboxMode');
+      if (capSandbox) capSandbox.className = `capsule-switch ${currentState.gameMode !== 'WAR' ? 'on' : ''}`;
     }
 
     function optimisticChangeTone(toneKey) {
