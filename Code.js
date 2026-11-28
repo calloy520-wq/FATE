@@ -2395,6 +2395,7 @@ function resetCurrentRunKeepCareer(playerName) {
       losses: losses,
       artStyle: oldMeta.artStyle || 'official',
       gameTone: normalizeGameToneKey_(oldMeta.gameTone),
+      toneLocked: false,
       wish: '抵達根源，改寫這場扭曲的聖杯儀式',
       masterCondition: '完好無損',
       servantCondition: '靈基穩定',
@@ -2629,6 +2630,7 @@ function startNextLoopReincarnation(playerName) {
       losses: Number(oldMeta.losses) || 0,
       artStyle: oldMeta.artStyle || 'official',
       gameTone: normalizeGameToneKey_(oldMeta.gameTone),
+      toneLocked: false,
       wish: oldMeta.wish || '奪得聖杯實現夙願',
       masterCondition: '完好無損',
       servantCondition: '靈基穩定',
@@ -2715,7 +2717,7 @@ function savePlayerSettingsOnly(playerName, patch) {
 
     const meta = safeJsonParse_(row[31], {});
     if (patch.artStyle && ART_STYLE_PRESETS_[String(patch.artStyle)]) meta.artStyle = String(patch.artStyle);
-    if (patch.gameTone) meta.gameTone = normalizeGameToneKey_(patch.gameTone);
+    if (patch.gameTone && !isToneLocked_(meta)) meta.gameTone = normalizeGameToneKey_(patch.gameTone);
     if (patch.cameraMode) meta.cameraMode = (patch.cameraMode === 'pov') ? 'pov' : 'third';
     row[31] = serializeMeta_(meta);
 
@@ -2863,7 +2865,8 @@ function completeCreationTextOnly(params) {
       wins: Number(oldMeta.wins) || 0,
       losses: Number(oldMeta.losses) || 0,
       artStyle: oldMeta.artStyle || 'official',
-      gameTone: normalizeGameToneKey_(oldMeta.gameTone),
+      gameTone: normalizeGameToneKey_(params.gameTone || oldMeta.gameTone),
+      toneLocked: true,
       wish: wishText,
       masterCondition: '完好無損',
       servantCondition: '靈基穩定',
@@ -3178,6 +3181,15 @@ function applyRouteAndHiddenServantEvolution_(factionsObj, turnJson, charDb, isC
   return nextF;
 }
 
+// 難度開局時決定、召喚後鎖定（使用者要求）：重新開局（清空本輪、轉生）才能再選
+// 舊存檔沒有這個旗標：已經玩過回合的視為鎖定在目前的難度
+function isToneLocked_(meta) {
+  const m = meta || {};
+  if (m.toneLocked === true) return true;
+  if (m.toneLocked === false) return false;
+  return Number(m.turnCount) > 0;
+}
+
 function applyPendingSettingsToRow_(row, ps) {
   if (!ps || typeof ps !== 'object') return;
   if (ps.gameMode) row[3] = (String(ps.gameMode) === 'SANDBOX') ? 'SANDBOX' : 'WAR';
@@ -3185,7 +3197,7 @@ function applyPendingSettingsToRow_(row, ps) {
   if (typeof ps.adultMode === 'boolean') row[5] = ps.adultMode ? 'TRUE' : 'FALSE';
   const metaSync = safeJsonParse_(row[31], {});
   if (ps.artStyle && ART_STYLE_PRESETS_[String(ps.artStyle)]) metaSync.artStyle = ps.artStyle;
-  if (ps.gameTone) metaSync.gameTone = normalizeGameToneKey_(ps.gameTone);
+  if (ps.gameTone && !isToneLocked_(metaSync)) metaSync.gameTone = normalizeGameToneKey_(ps.gameTone);
   if (ps.cameraMode) metaSync.cameraMode = (ps.cameraMode === 'pov') ? 'pov' : 'third';
   row[31] = serializeMeta_(metaSync);
 }
@@ -5611,6 +5623,7 @@ function parseSaveRow_(row) {
     losses: Number(meta.losses) || 0,
     gameMode: gameMode,
     gameTone: toneVal,
+    toneLocked: isToneLocked_(meta),
     autoImage: String(row[4]).toUpperCase() === 'TRUE',
     adultMode: String(row[5]).toUpperCase() === 'TRUE',
     cameraMode: meta.cameraMode === 'third' ? 'third' : 'pov',

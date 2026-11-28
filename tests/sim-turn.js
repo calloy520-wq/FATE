@@ -321,6 +321,16 @@ check('一般召喚不殘留自創英靈', nc2.status.customServant === null && 
 const ld = ctx.loadExistingGame('測試者');
 check('讀檔取得最近紀錄（最多 12 筆）', ld.logs.length === 12);
 
+// 難度：開局選、召喚後鎖定、重新開局可重選
+ctx.startNewGame('難度測');
+geminiQueue.push({ story: '召喚陣亮起。', servant_class: 'Lancer', servant_name: '斯卡哈', servant_action_en: 'standing', master_action_en: 'calm', scene_env_en: 'magic circle' });
+const crTone = ctx.completeCreationAndSummon({ playerName: '難度測', servantId: 'scathach', masterOrigin: '冬木市隱居古家族', masterGender: 'girl', masterWish: '願望', gameMode: 'WAR', gameTone: 'HARDCORE_WAR', masterCoreTags: '1girl', masterOutfitTags: 'coat' });
+check('開局選的難度生效並鎖定', crTone.status.gameTone === 'HARDCORE_WAR' && crTone.status.toneLocked === true);
+ctx.savePlayerSettingsOnly('難度測', { gameTone: 'STORY_PLAYER_FIRST' });
+check('鎖定後在設定裡改難度無效', ctx.loadExistingGame('難度測').status.gameTone === 'HARDCORE_WAR');
+ctx.resetCurrentRunKeepCareer('難度測');
+check('清空本輪後解鎖，可以重選', ctx.loadExistingGame('難度測').status.toneLocked === false);
+
 const sysMsg = geminiRequests.find(r => Array.isArray(r.messages[0].content));
 const lastTurnReq = geminiRequests.filter(r => Array.isArray(r.messages[1].content)).pop();
 check('玩家固定段標記快取、動態段不標記', Boolean(lastTurnReq) && lastTurnReq.messages[1].content[0].cache_control && !lastTurnReq.messages[1].content[1].cache_control && /本局基調/.test(lastTurnReq.messages[1].content[0].text) && /玩家本回合最新行動/.test(lastTurnReq.messages[1].content[1].text));

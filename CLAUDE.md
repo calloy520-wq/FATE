@@ -41,7 +41,7 @@
 - AI 回傳的 `faction_updates` 會經 `resolveFactionKey_` 對應回既有陣營名稱，對不上的會被丟棄；新增陣營時記得補 `FACTION_ALIAS_GROUPS_`。
 
 ## 提示詞與記憶
-- 寫作基調（難度）：`GAME_TONE_PRESETS_` 每種有 `directive`（具體裁定指令），放在 statePrompt 最前面「本局基調（優先遵守）」，系統提示詞也有對應規則。實測同一個偷襲行動：搞笑＝滑稽閃開、龍傲天＝偷襲成功、常理＝被閃開、鐵血＝被反擊。`STORY_PLAYER_FIRST` 已改名「🐉 龍傲天模式」（鍵名不變以相容存檔）：玩家想做的都能實現，伺服器的淘汰兩步、十二試煉、英靈退場、結盟門檻與戰力判定都不套用。改基調時要保持這種明顯差異。
+- 寫作基調（難度）：`GAME_TONE_PRESETS_` 每種有 `directive`（具體裁定指令），放在 statePrompt 最前面「本局基調（優先遵守）」，系統提示詞也有對應規則。實測同一個偷襲行動：搞笑＝滑稽閃開、龍傲天＝偷襲成功、常理＝被閃開、鐵血＝被反擊。`STORY_PLAYER_FIRST` 已改名「🐉 龍傲天模式」（鍵名不變以相容存檔）：玩家想做的都能實現，伺服器的淘汰兩步、十二試煉、英靈退場、結盟門檻與戰力判定都不套用。改基調時要保持這種明顯差異。**難度開局決定、本局鎖定**（使用者要求）：創角畫面的「🎚️ 難度」（`#create-tone`）隨 `completeCreationAndSummon` 的 `gameTone` 寫入 `meta.gameTone` 並設 `meta.toneLocked = true`；鎖定後 `savePlayerSettingsOnly`／`applyPendingSettingsToRow_` 忽略難度變更，設定視窗的難度選單變灰並註明；`resetCurrentRunKeepCareer`、`startNextLoopReincarnation` 設 `toneLocked: false`，回創角畫面可重選。舊存檔沒有旗標時，玩過回合（`turnCount > 0`）就視為鎖定（`isToneLocked_`）。
 - 回合推演的規則是固定常數 `FATE_GM_SYSTEM_PROMPT_`（裁定原則、型月世界邏輯、本作固定設定、反饋機制、死亡勝利、格式、JSON 格式）；每回合變動的資料（玩家名、基調、能力、背包、手機、流言、路線、地標、角色 ID、狀態）全部放 `statePrompt`。不要把變動資料塞回系統提示詞（會破壞快取、讓提示詞膨脹）。
 - 設計方針：**自由但合乎邏輯**——玩家可以嘗試任何行動，以型月世界邏輯與能力決定成功程度和代價；規則寫成原則，不要一條條加禁止事項。模型是輕量的 flash-lite，提示詞越短越有條理越穩。
 - 每回合只送「相關角色」的服裝（御主、契約從者、最近出場者、服裝偏離預設者），角色清單只送 ID 與前兩個名稱；地標只有當前地點附完整描述。
