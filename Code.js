@@ -1059,6 +1059,15 @@ const CHAR_FACTION_MARKERS_ = {
 };
 
 // 對外看得到的狀態：去掉幕後細節（例如「曾於某地與某組激戰」「遭某組擊潰」）
+// 截短文字：盡量在標點處斷句，真的太長才補「…」（避免結算出現「對外界情報極度」這種斷在半句的文字）
+function clipText_(text, n) {
+  const t = String(text || '').trim();
+  if (t.length <= n) return t;
+  const head = t.slice(0, n);
+  const cut = Math.max(head.lastIndexOf('，'), head.lastIndexOf('。'), head.lastIndexOf('；'), head.lastIndexOf('、'), head.lastIndexOf('！'));
+  return cut >= Math.floor(n * 0.4) ? head.slice(0, cut) + '…' : head + '…';
+}
+
 function publicIntelText_(statusStr) {
   // 幕後細節括號裡常有巢狀括號（例如「(曾於森林與 衛宮組 (Saber陣營) 激戰)」），從開頭一路刪到結尾
   return String(statusStr || '').replace(/\s*\((曾於|於\s*Day|於|遭)[\s\S]*$/, '').trim() || '不明';
@@ -1085,7 +1094,7 @@ function updateFactionIntel_(meta, factionsObj, opts) {
   const contactSet = new Set(o.contactFacs || []);
   const changes = [];
   const setIntel = (fk, text, source) => {
-    const t = String(text || '').trim().slice(0, 60);
+    const t = clipText_(text, 60);
     if (!t) return;
     const prev = intel[fk];
     if (prev && prev.text === t) return;
@@ -3904,10 +3913,10 @@ function processFateTurnTextOnly(params) {
     // 結算只列玩家「得知」的陣營變化（親眼所見、同盟、聯絡、劇情中打聽到），幕後變化不顯示
     intelChanges.forEach(c => {
       const nm = c.fk.replace(/\s*\(.*\)$/, '');
-      summaryParts.push(c.isNew ? `新勢力：${c.fk}（${c.text}）` : `${nm}→${c.text.slice(0, 24)}（${c.source}）`);
+      summaryParts.push(c.isNew ? `新勢力：${c.fk}（${c.text}）` : `${nm}→${clipText_(c.text, 30)}（${c.source}）`);
     });
     newContactNames.forEach(k => summaryParts.push(`📇 取得聯絡方式：${k.replace(/\s*\(.*\)$/, '')}`));
-    changedLocations.forEach(k => summaryParts.push(`🏚 ${k} 現況改變：${String(meta.customLocationNotes[k]).slice(0, 30)}`));
+    changedLocations.forEach(k => summaryParts.push(`🏚 ${k} 現況改變：${clipText_(meta.customLocationNotes[k], 30)}`));
     rumorRes.changes.forEach(c => summaryParts.push(`📢 流言${c}`));
     if (aiPosts.length > 0) summaryParts.push(`📱 論壇新增 ${aiPosts.length} 則目擊`);
     const shortFac = k => k.replace(/\s*\(.*\)$/, '');
