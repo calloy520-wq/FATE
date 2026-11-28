@@ -73,7 +73,7 @@ sheets.Players_Save.data.pop();
 
 // 1. 新遊戲
 const ng = ctx.startNewGame('測試者');
-check('新遊戲建立', ng.status.playerName === '測試者' && ng.status.adultMode === true);
+check('新遊戲建立（成人模式預設關閉）', ng.status.playerName === '測試者' && ng.status.adultMode === false);
 check('召喚池來自內建資料、不含 saber_alter／hassan', ng.summonPool.length > 0 && !ng.summonPool.some(p => p.id === 'saber_alter' || p.id === 'hassan'));
 
 // 2. 召喚

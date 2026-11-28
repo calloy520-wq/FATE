@@ -2332,7 +2332,7 @@ function startNewGame(playerName) {
       'CHAR_CREATION',
       'WAR',
       'TRUE',
-      'TRUE',
+      'FALSE', // 成人模式：新角色預設關閉（使用者 2026-11 要求）；既有存檔維持各自的設定
       1,
       '深夜',
       3,
