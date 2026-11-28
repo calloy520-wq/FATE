@@ -323,6 +323,8 @@ eq('睡覺會讓時間前進', [T.isSleepAction_('回洋館睡覺休息'), T.isS
 eq('截短在標點斷句', T.clipText_('該陣營目前因昨夜戰損處於休整狀態，對外界情報極度封鎖且不願與人接觸', 30), '該陣營目前因昨夜戰損處於休整狀態…');
 eq('短的不截', T.clipText_('Rider 負傷', 30), 'Rider 負傷');
 
+eq('「同盟・交涉中」還不算同盟', T.isAllianceStatusText_('存活 (同盟・交涉中)'), false);
+
 // ---- 天氣 ----
 eq('天氣不明 → 晴', T.normalizeWeather_('颱風'), '晴');
 eq('天氣有延續性', T.rollWeather_('雨', '白天', () => 0.1), '雨');
