@@ -5107,6 +5107,16 @@ function generateTurnCgAsync(imgPayload) {
         if (working.cameraMode === 'pov' && t.tag === 'headpat') tag = 'headpat, headpat pov, from below, looking down at viewer, reaching towards viewer';
         if (!new RegExp('\\b' + tag.split(',')[0].replace(/[-]/g, '\\-') + '\\b', 'i').test(working.prompt)) working.prompt = `${working.prompt}, ${tag}`;
       });
+      // 第一人稱摸頭、畫面裡還有別人：NovelAI 常讓旁邊的人伸手去摸（2026-11 實測 3/3 是凜在摸莉莉）
+      // → 主提示詞加 pov hands，其他角色負面排除摸頭；同 seed 比對改成鏡頭的手在摸
+      if (working.cameraMode === 'pov' && intimacy.some(t => t.tag === 'headpat') && Array.isArray(working.characters) && working.characters.length > 1) {
+        const targets = working.characters.filter(ch => /\bheadpat\b/i.test(String(ch.prompt || '')));
+        if (targets.length >= 1 && targets.length < working.characters.length) {
+          working.characters = working.characters.map(ch => targets.indexOf(ch) >= 0 ? ch
+            : Object.assign({}, ch, { uc: [ch.uc, "headpat, hand on another's head, reaching"].filter(Boolean).join(', ') }));
+          if (!/\bpov hands\b/i.test(working.prompt)) working.prompt = String(working.prompt).replace(/\bheadpat pov\b/i, 'pov hands, headpat pov');
+        }
+      }
       // 第一人稱：畫面裡沒有可以當「對象」的角色，source#／target#／mutual# 前綴會讓 incoming kiss 這類動作失效 → 去掉前綴
       if (working.cameraMode === 'pov' && Array.isArray(working.characters)) {
         working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: String(ch.prompt || '').replace(/(^|,\s*)(source|target|mutual)#/gi, '$1') }));
