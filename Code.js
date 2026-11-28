@@ -3384,7 +3384,7 @@ function processFateTurnTextOnly(params) {
       `【玩家】名號「${cleanName}」（劇情中稱呼玩家用這個名字、「御主」或角色習慣的叫法）｜聖杯願望：「${statusObj.master.wish}」`,
       `【寫作基調：${tonePreset.label}】${tonePreset.desc}`,
       rankCheckHint,
-      `【主從者好感】${statusObj.bondLevel}/100${statusObj.bondLevel <= 10 && toneKey !== 'COMEDY_CHAOS' && toneKey !== 'STORY_PLAYER_FIRST' ? '（主從關係緊張：從者可能拒絕危險或荒唐的命令，令咒可以強制但會再扣好感；好感歸零還一直惹她會解約離去）' : ''}。bond_delta 每回合 ±10 內，依從者在意的事判斷：平常的相處與對話 0～+3，真正打動她的事（真誠道歉、並肩死戰、說中她的心事、重要承諾）才 +5～+10；惹她不快就扣分`,
+      `【主從者好感】${statusObj.bondLevel}/100${statusObj.bondLevel <= 10 && toneKey !== 'COMEDY_CHAOS' && toneKey !== 'STORY_PLAYER_FIRST' ? '（主從關係緊張：從者可能拒絕危險或荒唐的命令，令咒可以強制但會再扣好感；好感歸零還一直惹她會解約離去）' : ''}${statusObj.bondLevel <= 0 && Number(metaBefore.bondZeroStreak) >= 2 && statusObj.servant1.id && (toneKey === 'BALANCED' || toneKey === 'HARDCORE_WAR') ? `【最後一次機會】${statusObj.servant1.name || '從者'}的忍耐已到極限：本回合玩家若又讓她不快（bond_delta < 0），她會當場解除契約離去，劇情必須寫出她離開的場面；玩家真誠道歉或好好相處（bond_delta ≥ 0）她才會留下。` : ''}。bond_delta 每回合 ±10 內，依從者在意的事判斷：平常的相處與對話 0～+3，真正打動她的事（真誠道歉、並肩死戰、說中她的心事、重要承諾）才 +5～+10；惹她不快就扣分`,
       inventoryRuleHint,
       !statusObj.servant1.id
         ? '【失去從者】御主目前沒有從者，非常危險。若劇情中與失去御主的從者達成協議，可填 `new_servant2_id` 締結新契約（成為主從者）。'
@@ -3669,7 +3669,8 @@ function processFateTurnTextOnly(params) {
     row[15] = Math.max(0, Math.min(maxMp, Number(row[15]) + mpDelta));
 
     const curBond = Number(meta.bondLevel != null ? meta.bondLevel : (row[21] || 25));
-    const bondDelta = Math.max(-10, Math.min(10, Math.round(Number(turnJson.bond_delta) || 0))); // 每回合最多 ±10
+    // 每回合最多 ±10；沒有主從者時好感不變（之前解約後好感還會繼續被扣）
+    const bondDelta = row[17] ? Math.max(-10, Math.min(10, Math.round(Number(turnJson.bond_delta) || 0))) : 0;
     let nextBond = Math.max(0, Math.min(100, curBond + bondDelta));
     // 好感歸零還一直惹她：連續 3 回合就解約離去（常理、鐵血；有回升就重新計算）
     if (nextBond === 0 && bondDelta < 0) meta.bondZeroStreak = (Number(meta.bondZeroStreak) || 0) + 1;
@@ -3721,7 +3722,8 @@ function processFateTurnTextOnly(params) {
     }
 
     if (turnJson.master_condition) meta.masterCondition = String(turnJson.master_condition);
-    if (turnJson.servant_condition) meta.servantCondition = String(turnJson.servant_condition);
+    // 沒有主從者時不接受 AI 寫的從者狀態（解約離去後下一回合被改成「消滅」）
+    if (turnJson.servant_condition && row[17]) meta.servantCondition = String(turnJson.servant_condition);
     // 魔力枯竭還開戰：從者至少靈基受創（符合常理與鐵血；搞笑與故事模式不強制）
     if (statusObj.gameMode === 'WAR' && Number(statusObj.master.mp) <= 0 && Boolean(turnJson.is_combat)
         && (tonePreset === GAME_TONE_PRESETS_.BALANCED || tonePreset === GAME_TONE_PRESETS_.HARDCORE_WAR)
