@@ -4589,7 +4589,7 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - "interaction": ONLY if 2+ characters directly interact, use NAI V5 syntax ("source#<action>" + "target#<action>", or "mutual#<action>"). Example: the one touching writes "source#hand on another\'s shoulder", the one being touched writes "target#hand on another\'s shoulder"; both hugging write "mutual#hug". Never put a name before or after "#". Empty string "" otherwise.',
     '   - NAMES STAY OUT (CRITICAL): never write another character\'s name or id inside a character\'s "action", "outfit" or "interaction", and never name characters in scene_prompt. Refer to others only as "another character", "the girl", "the man", "an ally", "the enemy". A name inside someone else\'s entry makes NovelAI draw that person twice. Relations between characters go in "interaction" with source#/target#/mutual#.',
     directorCtx.cameraMode === 'pov'
-      ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. Only add "pov hands" when the player\'s hand directly interacts with a character (holding hands, being handed something by them, touching them); keep the hands small at the edge of the frame. Objects the player holds (phones, papers, weapons) are never the focus — mention them briefly or not at all. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees. CHARACTER FOCUS: in POV the visible characters are the subject of the picture — frame them close (use "close-up" or "upper body" or "cowboy shot" for one character, "medium shot" for two or three) so they fill most of the frame with clear faces and expressions; keep the background simple and secondary ("depth of field", "blurry background"), showing only enough to identify the place. Use a wide shot only when no character is visible. If a character kisses the player, use "incoming kiss" with a close-up of her face (eyes closed or half-closed, blush). Never mention out-of-view characters in scene_prompt. For EVERY character also output "in_view": true/false — false when the character is outside the player\'s field of view (behind the player, beside and out of frame, behind a wall, hidden in darkness); true only if the player would actually see them right now (e.g. "leaning in from over your shoulder" counts as visible).'
+      ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. Never draw the player\'s hands or arms (no "pov hands"): when the player touches someone (headpat, holding hands), show it only through that character\'s natural reaction. Objects the player holds (phones, papers, weapons) are never the focus — mention them briefly or not at all. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees. CHARACTER FOCUS: in POV the visible characters are the subject of the picture — frame them close (use "close-up" or "upper body" or "cowboy shot" for one character, "medium shot" for two or three) so they fill most of the frame with clear faces and expressions; keep the background simple and secondary ("depth of field", "blurry background"), showing only enough to identify the place. Use a wide shot only when no character is visible. If a character kisses the player, use "incoming kiss" with a close-up of her face (eyes closed or half-closed, blush). Never mention out-of-view characters in scene_prompt. For EVERY character also output "in_view": true/false — false when the character is outside the player\'s field of view (behind the player, beside and out of frame, behind a wall, hidden in darkness); true only if the player would actually see them right now (e.g. "leaning in from over your shoulder" counts as visible).'
       : '',
     'ORIENTATION: also output "orientation": "portrait" for one character (always, even in battle) or two characters in close interaction (kiss, embrace, face-to-face, leaning on each other); "landscape" for battles, wide scenery, three or more characters, or two characters apart.',
     'Output strictly valid JSON: { "orientation": "portrait or landscape", "scene_prompt": "...", "char_directions": [{ "id": "...", "is_nude": false, "outfit": "...", "action": "...", "interaction": "" }] }'
@@ -5057,9 +5057,8 @@ function generateTurnCgAsync(imgPayload) {
         directed.scene_prompt = String(directed.scene_prompt).split(',').map(t => t.trim())
           .filter(t => t && !isNudeOutfitTags_(t) && !/^(nsfw|bare skin|nipples|pussy|breasts out)$/i.test(t)).join(', ');
       }
-      // 第一人稱：玩家這回合沒有用手碰角色或接東西時，不畫 pov hands（避免畫面兩側出現一雙大手）
-      const handAction = /握|牽|摸|撫|遞|接過|拿|抓|抱|拍|推|拉|觸|摟|伸手|手/.test(String((working._directorContext || {}).userAction || ''));
-      if (directed.scene_prompt && !handAction) {
+      // 第一人稱一律不畫玩家的手（使用者決定：手每次畫得都不一樣，還會借旁邊角色的袖子；摸頭、牽手交給角色自然反應）
+      if (directed.scene_prompt && working.cameraMode === 'pov') {
         directed.scene_prompt = String(directed.scene_prompt).split(',').map(t => t.trim()).filter(t => t && !/^pov hands?$/i.test(t)).join(', ');
       }
       if (directed.scene_prompt) {
@@ -5127,18 +5126,18 @@ function generateTurnCgAsync(imgPayload) {
           const lyingHug = (directed.char_directions || []).some(d => d && /\b(lying|on the bed|in bed|on top of|resting (her|his) (head|face)|face resting|head on (the )?viewer|futon)\b/i.test(`${d.action || ''} ${d.interaction || ''}`)) || /\b(bed|futon|lying)\b/i.test(String(directed.scene_prompt || ''));
           tag = lyingHug ? 'hug, lying, from above, upper body' : 'incoming hug, close-up, face focus';
         }
-        if (working.cameraMode === 'pov' && t.tag === 'headpat') tag = 'headpat, headpat pov, from below, looking down at viewer, reaching towards viewer';
+        // 第一人稱摸頭、牽手不加標籤：這兩個標籤會讓 NovelAI 畫出一隻手，或改讓旁邊的人去摸（實測 3/3 是凜在摸莉莉）
+        if (working.cameraMode === 'pov' && (t.tag === 'headpat' || t.tag === 'holding hands')) return;
         if (!new RegExp('\\b' + tag.split(',')[0].replace(/[-]/g, '\\-') + '\\b', 'i').test(working.prompt)) working.prompt = `${working.prompt}, ${tag}`;
       });
-      // 第一人稱摸頭、畫面裡還有別人：NovelAI 常讓旁邊的人伸手去摸（2026-11 實測 3/3 是凜在摸莉莉）
-      // → 主提示詞加 pov hands，其他角色負面排除摸頭；同 seed 比對改成鏡頭的手在摸
-      if (working.cameraMode === 'pov' && intimacy.some(t => t.tag === 'headpat') && Array.isArray(working.characters) && working.characters.length > 1) {
-        const targets = working.characters.filter(ch => /\bheadpat\b/i.test(String(ch.prompt || '')));
-        if (targets.length >= 1 && targets.length < working.characters.length) {
-          working.characters = working.characters.map(ch => targets.indexOf(ch) >= 0 ? ch
-            : Object.assign({}, ch, { uc: [ch.uc, "headpat, hand on another's head, reaching"].filter(Boolean).join(', ') }));
-          if (!/\bpov hands\b/i.test(working.prompt)) working.prompt = String(working.prompt).replace(/\bheadpat pov\b/i, 'pov hands, headpat pov');
+      // 第一人稱不畫玩家的手：角色欄位拿掉摸頭、牽手等會生出手的字眼，主負面排除手（使用者在比較圖後選擇「正常發揮比較自然」，不另外補反應標籤）
+      if (working.cameraMode === 'pov') {
+        const handRe = /^(source#|target#|mutual#)?(headpat|patting head|petting|head pat|holding hands|hand holding|pov hands?|hand on (another's )?head|reaching towards viewer)$/i;
+        working.prompt = String(working.prompt || '').split(',').map(x => x.trim()).filter(x => x && !handRe.test(x)).join(', ');
+        if (Array.isArray(working.characters)) {
+          working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: removeTagsKeepWeights_(String(ch.prompt || ''), x => handRe.test(x.trim())) }));
         }
+        working.uc = [working.uc, 'pov hands, disembodied hand, headpat, holding hands'].filter(Boolean).join(', ');
       }
       // 第一人稱：畫面裡沒有可以當「對象」的角色，source#／target#／mutual# 前綴會讓 incoming kiss 這類動作失效 → 去掉前綴
       if (working.cameraMode === 'pov' && Array.isArray(working.characters)) {
