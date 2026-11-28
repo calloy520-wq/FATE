@@ -12,6 +12,7 @@
 - `.github/workflows/deploy.yml`：自動部署流程（先跑語法檢查與 `tests/`，失敗就不部署）。
 - `tests/run-tests.js`：Node 單元測試，載入 `Code.js` 測純邏輯函式。
 - `tests/sim-turn.js`：用假試算表＋假 Gemini 跑完整流程（新遊戲→召喚→回合→論壇假消息→簡訊→讀檔），抓執行期錯誤。改動回合流程後一定要跑。
+- `tests/stress-guards.js`：伺服器把關壓力測試。手寫「AI 常犯的錯」當作 Gemini 回應（重複扣令咒、亂扣道具、沒交戰就淘汰、亂送副從者、型別錯亂、結局值寫錯、約定與同行流程、名冊換人、好感歸零解約…），確認伺服器擋得住。新增伺服器把關時順手補一條；會受時段推進隨機影響的情境要固定 AP、`ap_cost: 0`。
 - `.claspignore`：白名單，只推 `Code.js`、`GameData.js`、`Lore.js`、`Index.html`、`SetupDB.js`、`appsscript.json` 到 GAS。GAS 所有 `.js` 檔共用同一個全域空間（測試也照 GameData → Lore → Code 的順序載入）。新增要上 GAS 的檔案時必須加進白名單；**測試或工具腳本絕對不能被推上去**（會在 GAS 造成函式衝突）。
 
 ## 部署流程（重要）
@@ -31,7 +32,7 @@
 
 ## 修改程式時的檢查
 - **`Index.html` 的 JavaScript 裡不能出現雙斜線字串**（例如 `'https://...'`）：GAS 送出網頁時會把 JS 的雙斜線註解刪掉，連字串裡的也會被刪，整段程式就壞掉（2026-11 曾因音樂網址讓全員卡在登入畫面）。網址要寫成 `'https:' + '/' + '/...'`。錯誤顯示器放在獨立的第一個 `<script>`，主程式壞掉時畫面頂端會出現紅條。
-- 推送前用 `node --check Code.js` 做語法檢查，並跑 `node tests/run-tests.js` 與 `node tests/sim-turn.js`（GAS 是 V8 環境，`Code.js` 裡不能用 Node 模組）。新增純邏輯函式時順手補測試；新增前端呼叫的後端參數時，模擬測試也要跟著補。
+- 推送前用 `node --check Code.js` 做語法檢查，並跑 `node tests/run-tests.js`、`node tests/sim-turn.js` 與 `node tests/stress-guards.js`（GAS 是 V8 環境，`Code.js` 裡不能用 Node 模組）。新增純邏輯函式時順手補測試；新增前端呼叫的後端參數時，模擬測試也要跟著補。
 - 改後端函式名稱或回傳格式前，先全文搜尋 `Index.html`，前後端必須同步。前端呼叫的後端函式包括：`startNewGame`、`loadExistingGame`、`processFateTurnTextOnly`、`completeCreationAndSummon`、`generateTurnCgAsync`、`retrySceneImage`、`savePlayerSettingsOnly`、`updateCustomLocationDesc`、`postFuyukiForumMessage`、`sendAllySmsMessage`、`markPhoneMessagesRead`、`resetCurrentRunKeepCareer`、`startNextLoopReincarnation`、`enhanceMasterAppearance`、`previewMasterOutfit`、`getServantTemplates`、`enhanceServantAppearance`、`previewCustomServant`。（上傳圖片抽詞 `extractMasterFromImage` 已依使用者要求移除）
 - 回合推演用 `ScriptLock`，但**只在讀存檔與寫回時持有**；等待 Gemini 時會放開，寫回前重新讀取並比對 `meta.turnCount`，被別的視窗推進過就放棄寫入。召喚流程、同盟簡訊 AI 回覆同理。不要改回「整個回合都鎖著」（多人同時玩會互相卡住、逾時）。
 - 生圖用獨立的 `UserLock`，不要和回合推演共用同一把鎖。網頁以部署者身分執行，所以這把鎖實際上是全體玩家共用，一次只畫一張（配合 NovelAI 同時只能生成一張）。

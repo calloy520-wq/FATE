@@ -19,6 +19,7 @@ jobs:
           node --check Lore.js
           node tests/run-tests.js
           node tests/sim-turn.js
+          node tests/stress-guards.js
       - run: npm install -g @google/clasp
       - name: Write clasp credentials
         env:
