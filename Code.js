@@ -4540,17 +4540,6 @@ function generateTurnCgAsync(imgPayload) {
       } else if (directed.orientation === 'landscape') {
         working.width = 1216; working.height = 832;
       }
-      // 成人模式關閉：導演回報的裸露依場合換成浴巾／被子／便服（獨立於角色把關）
-      if (!working.adultMode && Array.isArray(directed.char_directions)) {
-        const ctxAll = `${(working._directorContext || {}).userAction || ''} ${(working._directorContext || {}).storyText || ''} ${directed.scene_prompt || ''}`;
-        directed.char_directions.forEach(d => {
-          if (!d || !d.id || !(Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit))) return;
-          const ctxC = ((working._directorContext || {}).chars || []).find(x => x.id === d.id) || {};
-          const fb = ctxC.referenceOutfit && !isNudeOutfitTags_(ctxC.referenceOutfit) ? ctxC.referenceOutfit : ctxC.battleOutfit;
-          d.is_nude = false;
-          d.outfit = adultOffOutfit_('nude, completely nude, no clothes', `${ctxAll} ${d.action || ''}`, fb);
-        });
-      }
       // 導演回報的裸露先經過把關（未成年角色）
       if (Array.isArray(directed.char_directions)) {
         directed.char_directions.forEach(d => {
@@ -4560,6 +4549,17 @@ function generateTurnCgAsync(imgPayload) {
           const ctxC = ((working._directorContext || {}).chars || []).find(x => x.id === d.id) || {};
           const safe = sanitizeNudeOutfitForChar_(d.id, 'nude, completely nude, no clothes', Boolean(working.adultMode), ctxC.referenceOutfit && !isNudeOutfitTags_(ctxC.referenceOutfit) ? ctxC.referenceOutfit : ctxC.battleOutfit);
           if (!isNudeOutfitTags_(safe)) { d.is_nude = false; d.outfit = safe; }
+        });
+      }
+      // 成人模式關閉：導演回報的裸露換成通用遮擋（獨立於角色把關，排在把關之後）
+      if (!working.adultMode && Array.isArray(directed.char_directions)) {
+        const ctxAll = `${(working._directorContext || {}).userAction || ''} ${(working._directorContext || {}).storyText || ''} ${directed.scene_prompt || ''}`;
+        directed.char_directions.forEach(d => {
+          if (!d || !d.id || !(Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit))) return;
+          const ctxC = ((working._directorContext || {}).chars || []).find(x => x.id === d.id) || {};
+          const fb = ctxC.referenceOutfit && !isNudeOutfitTags_(ctxC.referenceOutfit) ? ctxC.referenceOutfit : ctxC.battleOutfit;
+          d.is_nude = false;
+          d.outfit = adultOffOutfit_('nude, completely nude, no clothes', `${ctxAll} ${d.action || ''}`, fb);
         });
       }
       const directedNude = Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && (Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit)));
