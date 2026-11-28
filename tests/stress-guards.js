@@ -339,6 +339,10 @@ run('主從好感歸零解約', () => {
   row()[21] = 0; setMeta(m => { m.bondLevel = 0; m.bondZeroStreak = 0; });
   for (let i = 0; i < 3; i++) turn('命令沖田去偷超商的東西', { bond_delta: -10 });
   check('連續 3 次好感 0 又扣分 → 解約（常理）', st().servant1.id !== 'okita', [st().servant1, meta().bondZeroStreak]);
+  row()[17] = ''; row()[19] = '（失去從者）'; row()[23] = ''; setMeta(m => { m.servantCondition = '契約斷絕'; });
+  const b1 = Number(row()[21]);
+  turn('一個人發呆', { bond_delta: -10, servant_condition: '消滅' });
+  check('沒有從者時好感不變、從者狀態不被改成消滅', Number(row()[21]) === b1 && !/消滅/.test(meta().servantCondition || ''), [b1, row()[21], meta().servantCondition]);
 });
 
 

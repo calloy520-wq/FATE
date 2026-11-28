@@ -98,7 +98,7 @@ const GAME_TONE_PRESETS_ = {
   'HARDCORE_WAR': {
     label: '⚔️ 鐵血嚴重戰場風',
     desc: '戰場肅殺務實，敵人與隊友不會被無關玩笑或偷吃小動作輕易唬住，分心或鬧場會招來冷靜反制與真實戰場後果，勝負與傷勢結算更嚴峻。',
-    directive: '嚴峻寫實：強敵會冷靜反制，失誤與莽撞要付出真實的傷勢、魔力或陣營代價（master_condition／servant_condition 確實惡化），不留情面。傷勢會累積：輕傷沒休養又上戰場就惡化成重傷；正面硬碰 Berserker、吉爾伽美什這類強敵幾乎必敗；御主暴露在從者戰場上隨時可能喪命。'
+    directive: '嚴峻寫實：強敵會冷靜反制，失誤與莽撞要付出真實的傷勢、魔力或陣營代價（master_condition／servant_condition 確實惡化），不留情面。傷勢會累積：輕傷沒休養又上戰場就惡化成重傷；正面硬碰 Berserker、吉爾伽美什這類強敵幾乎必敗；御主暴露在從者戰場上隨時可能喪命。冷酷無情、只認事實：玩家沒有的物品、做不到的能力就是做不到，照實寫他失敗；從者不是保母，玩家執意自殘、送死或亂來時，從者依好感、距離與性格決定要不要管，不會每次都及時出手救；世界不會為玩家放水。'
   }
 };
 
@@ -1564,6 +1564,50 @@ function isOtherPersonRest_(text) {
   const t = String(text || '');
   if (/我也|一起|陪.{0,4}(睡|躺|休息)|跟著.{0,2}睡|自己也/.test(t)) return false;
   return /(看著|幫|讓|哄|守著|望著|替|叫|要|等)[^，。！？、]{0,10}(睡|休息|躺|冥想|歇)/.test(t);
+}
+
+// 玩家行動提到的實體物品，背包裡沒有就在提示詞明講（2026-11 實測：開局說「拿手槍對自己開槍」，4 局都讓手槍憑空出現）
+// 別人的東西（「斯卡哈的槍」）、手機（人人都有翻蓋手機）不算
+const COMMON_ITEM_NOUNS_ = ['狙擊槍', '機關槍', '步槍', '獵槍', '手槍', '散彈槍', '日本刀', '武士刀', '菜刀', '小刀', '匕首', '短刀', '刀子', '手榴彈', '炸彈', '炸藥', '汽油', '打火機', '火柴', '繩子', '毒藥', '安眠藥', '藥水', '治療藥', '魔力寶石', '魔力結晶', '寶石', '符咒', '護符', '卷軸', '魔導書', '聖遺物', '機車', '汽車', '鑰匙', '弓箭', '十字架', '聖水', '黑鍵'];
+// 清單列不完（實測「沙漠之鷹」沒被抓到，沒買到槍下一回合照樣憑空出現）：玩家說「拿／用／掏出 某物」而且真的拿來射、砍、丟、點燃時，
+// 也把那個「某物」拿去對背包（抽象的、身體的、別人的東西排除）
+const ITEM_USE_VERB_RE_ = /射|開槍|扣下扳機|扣扳機|砍|刺|捅|劈|丟|扔|投擲|點燃|點火|炸|引爆|喝下|吞下|灌下|插進|揮舞|瞄準|塞進/;
+const NOT_AN_ITEM_RE_ = /手機|電話|手|拳|腳|頭|身體|魔術|魔力|迴路|令咒|寶具|使魔|全力|盡|力量|勇氣|眼神|聲音|語氣|笑容|方法|辦法|方式|時間|機會|大家|簡訊|論壇|地圖|錢|現金|中文|日文|英文|說|話|槍法|劍技|技巧|盧恩|結界|斯卡哈|師匠|從者|御主/;
+function extractUsedObjects_(text) {
+  const t = String(text || '');
+  if (!ITEM_USE_VERB_RE_.test(t)) return [];
+  const out = [];
+  const re = /(?:拿出|拿起|拿著|拿|用|使用|掏出|拔出|抽出|取出|舉起|握著|端起|架起)(?:一把|一支|一個|一瓶|一顆|那把|這把|那支|我的)?([^\s，。！？、,.!?對朝往向去來把在給並然後再射打砍刺丟扔點炸瞄揮插塞A-Za-z0-9]{2,8})/g;
+  let m;
+  while ((m = re.exec(t)) !== null) {
+    const obj = m[1].replace(/(試射|開槍|射擊|瞄準|揮舞|一槍|一下)$/, '');
+    if (obj.length < 2 || obj.includes('的') || NOT_AN_ITEM_RE_.test(obj)) continue;
+    out.push(obj);
+  }
+  return out;
+}
+
+function detectMissingItems_(text, inventory) {
+  const t = String(text || '');
+  const invList = (Array.isArray(inventory) ? inventory : []).map(it => String((it && it.name) || ''));
+  const inv = (Array.isArray(inventory) ? inventory : []).map(it => String((it && it.name) || '') + ' ' + String((it && it.desc) || '')).join(' ');
+  const found = [];
+  extractUsedObjects_(t).forEach(obj => {
+    const core = n => n.replace(/[（(].*?[)）]/g, '').trim();
+    // 名字不必完全一樣：「煙霧彈」對「煙霧魔術彈」，有兩個字以上連續相符就算有
+    const overlap2 = n => { for (let i = 0; i + 2 <= obj.length; i++) { if (n.includes(obj.slice(i, i + 2))) return true; } return false; };
+    if (inv.includes(obj) || invList.some(n => core(n) && (core(n).includes(obj) || obj.includes(core(n)) || overlap2(core(n))))) return;
+    if (/寶石|結晶/.test(obj) && /寶石|結晶/.test(inv)) return;
+    if (!found.includes(obj)) found.push(obj);
+  });
+  COMMON_ITEM_NOUNS_.forEach(n => {
+    const idx = t.indexOf(n);
+    if (idx < 0 || found.some(f => f.includes(n) || n.includes(f))) return;
+    if (idx > 0 && t[idx - 1] === '的') return;
+    if (inv.includes(n) || (n === '寶石' && /寶石|結晶/.test(inv)) || (n === '魔力寶石' && /寶石|結晶/.test(inv)) || (n === '魔力結晶' && /寶石|結晶/.test(inv))) return;
+    found.push(n);
+  });
+  return found;
 }
 
 function isRestAction_(text) {
@@ -3177,7 +3221,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 通訊錄：只有劇情中**明確寫出**玩家與某陣營交換手機號碼、拿到名片或聯絡方式時，才把陣營名稱填入 `new_contacts`；只是見面、交談、談判都不算。',
   '- 路線傾向：依玩家本回合的行動方式，在 `route_tendency_delta` 為各路線加減分（-3～+3）；已確立路線時，劇情重心照狀態資料中的路線說明發展。',
   '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
-  '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。玩家只能用背包裡真的有的道具與材料：提到沒有的東西（例如背包沒有寶石卻說用寶石煉成），劇情要寫出手邊沒有、做不成，可以改去買或找。當場吃掉的食物、一般日用品不放進 `gained_items`（背包格數有限），只收有遊戲作用的道具、要送人的禮物、證物與魔術材料。',
+  '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。玩家只能用背包裡真的有的道具與材料：提到沒有的東西（例如背包沒有寶石卻說用寶石煉成），劇情要寫出手邊沒有、做不成（停在失敗，不要替玩家改用別的方法完成同一件事，玩家下一回合自己決定），可以改去買或找。當場吃掉的食物、一般日用品不放進 `gained_items`（背包格數有限），只收有遊戲作用的道具、要送人的禮物、證物與魔術材料。',
   '- 陣營更新：`faction_updates` 的鍵必須用狀態資料中既有的陣營完整名稱；值寫該陣營的存亡與對玩家的態度（例如「存活 (同盟)」「存活 (敵對・負傷休整)」），不要寫一時的動作（例如「發送訊息中」）。',
   '- 休息：玩家本人這回合真的停下來休息、冥想、調息或睡覺時 `player_rested` 填 true（魔力由系統回復）；說沒空休息、叫別人去休息、看著別人睡（例如「看著沖田睡著，幫她蓋被子」是沖田在睡，玩家沒休息）都填 false。',
   '- 睡覺：玩家本人這回合真的上床睡覺、過夜時 `player_slept` 填 true（時間會推進到下一個時段）；看別人睡、睡前聊天、說不想睡、睡到一半被吵醒都填 false。',
@@ -3186,7 +3230,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 場地會留下痕跡：劇情確實改變了某個地標的樣子（戰鬥破壞、佈置房間、設下結界、教會修復等），在 `location_changes` 用地標名稱寫下戰鬥或事件結束後**留下來的樣子**（60 字內，例如「石階佈滿劍痕、山門一側崩塌」，不要寫「兩人正在交戰」這種進行中的事）。這個狀態會一直保留，之後回到那裡要照現況描寫，直到劇情再次改變它；只是路過、沒有改變就不要填。',
   '',
   '## 五、死亡與勝利',
-  '- `FATAL_DEATH`：只在真正致命時使用（例如人類肉身硬吃寶具、魔力枯竭又沒令咒卻強開寶具、極端自殺式挑釁、對低好感從者持續騷擾導致致命反擊）。嘴砲、虛張聲勢、非致命的失誤都不算。死亡時描寫悲劇結局與大聖杯黑泥圍繞玩家願望編織的虛假美夢，並填寫 `tiger_dojo_tip`（老虎道場的吐槽點評）。',
+  '- `FATAL_DEATH`：只在真正致命時使用（例如人類肉身硬吃寶具、魔力枯竭又沒令咒卻強開寶具、極端自殺式挑釁、對低好感從者持續騷擾導致致命反擊）。嘴砲、虛張聲勢、非致命的失誤都不算。玩家自己做危險的事（跳橋、跳水、從高處跳下、玩火）先判斷意圖：沒寫想死就當他有自己的打算（游泳、脫逃、抄捷徑），依能力與環境結算受傷、失溫等代價，不直接判死；只有明確求死（自殺、想死、了結自己）或行為本身必死（對太陽穴開槍）才可能 FATAL_DEATH。死亡時把死亡那一刻寫清楚（誰下的手、怎麼死、最後看到的畫面），寫到斷氣就結束，不要接死後的夢境、幻覺或旁白；收尾交給 `tiger_dojo_tip`：老虎道場的藤村大河與伊莉雅用吐槽口吻檢討死因、給下次的建議（80 字內）。',
   '- `TRUE_VICTORY`：只在所有敵對陣營都已擊敗或化解、聖杯願望實現時使用（系統會再驗證）。',
   '- 其他情況一律 `CONTINUE`。',
   '',
@@ -3344,12 +3388,13 @@ function processFateTurnTextOnly(params) {
 
     const rankCheckHint = `【御主出身與固定六維等階（不可變動）】出身：${statusObj.master.origin} ｜ 魔術迴路:${p.circuit} ｜ 近戰體術:${p.combat} ｜ 隱藏氣息:${p.stealth} ｜ 幸運:${p.luck} ｜ 當前魔力:${statusObj.master.mp}/${statusObj.master.maxMp}`;
 
+    const missingItems = detectMissingItems_(userAction, statusObj.inventory || metaBefore.inventory || []);
     const inventoryRuleHint = [
       `【物品欄 (上限 ${MAX_INVENTORY_SLOTS} 格)】\n${invSummary}`,
       isSandboxMode
         ? '日常模式：不發放戰鬥道具（`gained_items` 為 `[]`）。'
         : '消耗背包道具請填入 `consumed_item_ids`（填背包裡的 id）；只要拾取、收納或取得物品，務必填入 `gained_items`（階級 1～3）。\n固定道具 id：魔力結晶(小)=`mana_gem_s`、高純度魔力寶石(中)=`mana_gem_m`、煙霧魔術彈=`smoke_bomb`、對魔術防禦禮裝(保命符)=`aegis_charm`、未充能天然寶石媒介=`empty_gem`、基礎黑鍵套組=`black_keys`；煉成或取得這些道具時務必沿用同一個 id。\n魔力寶石／結晶的 MP 回復、休息回魔與煙霧彈降低警戒度由系統自動結算，`master_mp_delta` 與 `threat_delta` 不要重複計入。'
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     const worldEvent = drawWorldDirectorEvent_(statusObj, metaBefore, turnNum);
     const combatAssess = (statusObj.gameMode === 'WAR' && normalizeGameToneKey_(statusObj.gameTone) !== 'STORY_PLAYER_FIRST') ? assessCombat_(statusObj, metaBefore, userAction) : null;
@@ -3374,7 +3419,7 @@ function processFateTurnTextOnly(params) {
       `【玩家】名號「${cleanName}」（劇情中稱呼玩家用這個名字、「御主」或角色習慣的叫法）｜聖杯願望：「${statusObj.master.wish}」`,
       `【寫作基調：${tonePreset.label}】${tonePreset.desc}`,
       rankCheckHint,
-      `【主從者好感】${statusObj.bondLevel}/100${statusObj.bondLevel <= 10 && toneKey !== 'COMEDY_CHAOS' && toneKey !== 'STORY_PLAYER_FIRST' ? '（主從關係緊張：從者可能拒絕危險或荒唐的命令，令咒可以強制但會再扣好感；好感歸零還一直惹她會解約離去）' : ''}。bond_delta 每回合 ±10 內，依從者在意的事判斷：平常的相處與對話 0～+3，真正打動她的事（真誠道歉、並肩死戰、說中她的心事、重要承諾）才 +5～+10；惹她不快就扣分`,
+      `【主從者好感】${statusObj.bondLevel}/100${statusObj.bondLevel <= 10 && toneKey !== 'COMEDY_CHAOS' && toneKey !== 'STORY_PLAYER_FIRST' ? '（主從關係緊張：從者可能拒絕危險或荒唐的命令，令咒可以強制但會再扣好感；好感歸零還一直惹她會解約離去）' : ''}${statusObj.bondLevel <= 0 && Number(metaBefore.bondZeroStreak) >= 2 && statusObj.servant1.id && (toneKey === 'BALANCED' || toneKey === 'HARDCORE_WAR') ? `【最後一次機會】${statusObj.servant1.name || '從者'}的忍耐已到極限：本回合玩家若又讓她不快（bond_delta < 0），她會當場解除契約離去，劇情必須寫出她離開的場面；玩家真誠道歉或好好相處（bond_delta ≥ 0）她才會留下。` : ''}。bond_delta 每回合 ±10 內，依從者在意的事判斷：平常的相處與對話 0～+3，真正打動她的事（真誠道歉、並肩死戰、說中她的心事、重要承諾）才 +5～+10；惹她不快就扣分`,
       inventoryRuleHint,
       !statusObj.servant1.id
         ? '【失去從者】御主目前沒有從者，非常危險。若劇情中與失去御主的從者達成協議，可填 `new_servant2_id` 締結新契約（成為主從者）。'
@@ -3388,6 +3433,7 @@ function processFateTurnTextOnly(params) {
 
     const statePrompt = [
       `【本局基調（優先遵守，決定結果的輕重與筆調）】${tonePreset.label}：${tonePreset.directive || tonePreset.desc}`,
+      missingItems.length ? `【物品檢查（優先遵守）】玩家提到「${missingItems.join('」「')}」，但他的背包和身上都沒有這東西。除非本回合劇情裡合理地先取得（買、撿、搶、借、偷），否則他手上根本沒有：寫他摸了個空、行動失敗，到此為止。不可以讓它憑空出現，也不可以替玩家改用別的方法去做同一件事。` : '',
       turnSettingsBlock,
       `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | 天氣: ${describeWeatherForPrompt_(statusObj.weather)} | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}% | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
       `【當前場地現況】${statusObj.locationInfo.desc}`,
@@ -3659,7 +3705,8 @@ function processFateTurnTextOnly(params) {
     row[15] = Math.max(0, Math.min(maxMp, Number(row[15]) + mpDelta));
 
     const curBond = Number(meta.bondLevel != null ? meta.bondLevel : (row[21] || 25));
-    const bondDelta = Math.max(-10, Math.min(10, Math.round(Number(turnJson.bond_delta) || 0))); // 每回合最多 ±10
+    // 每回合最多 ±10；沒有主從者時好感不變（之前解約後好感還會繼續被扣）
+    const bondDelta = row[17] ? Math.max(-10, Math.min(10, Math.round(Number(turnJson.bond_delta) || 0))) : 0;
     let nextBond = Math.max(0, Math.min(100, curBond + bondDelta));
     // 好感歸零還一直惹她：連續 3 回合就解約離去（常理、鐵血；有回升就重新計算）
     if (nextBond === 0 && bondDelta < 0) meta.bondZeroStreak = (Number(meta.bondZeroStreak) || 0) + 1;
@@ -3711,7 +3758,8 @@ function processFateTurnTextOnly(params) {
     }
 
     if (turnJson.master_condition) meta.masterCondition = String(turnJson.master_condition);
-    if (turnJson.servant_condition) meta.servantCondition = String(turnJson.servant_condition);
+    // 沒有主從者時不接受 AI 寫的從者狀態（解約離去後下一回合被改成「消滅」）
+    if (turnJson.servant_condition && row[17]) meta.servantCondition = String(turnJson.servant_condition);
     // 魔力枯竭還開戰：從者至少靈基受創（符合常理與鐵血；搞笑與故事模式不強制）
     if (statusObj.gameMode === 'WAR' && Number(statusObj.master.mp) <= 0 && Boolean(turnJson.is_combat)
         && (tonePreset === GAME_TONE_PRESETS_.BALANCED || tonePreset === GAME_TONE_PRESETS_.HARDCORE_WAR)
@@ -4029,19 +4077,35 @@ function processFateTurnTextOnly(params) {
       : [{ id: updatedStatus.servant1.id, use_np: false, action_en: 'standing, focused expression' }];
 
     if (outcome === 'FATAL_DEATH') {
-      presentList = [
-        { id: 'player_master', use_np: false, action_en: 'crying, reaching out hand, bittersweet smile' },
-        { id: updatedStatus.servant1.id, use_np: false, action_en: 'reaching out hand, solemn expression' }
-      ];
-      turnJson.scene_env_en = 'corrupted grail black mud, dark shadow tentacles, ethereal golden light, surreal dreamscape, tragic atmosphere, dramatic lighting';
+      // 死亡回合只有一張 CG：畫死亡那一刻（御主倒下＋兇手），不畫結尾的虛假美夢
+      // （以前寫死成「御主哭著伸手＋自己的從者」，兇手不在畫面、第一人稱還會畫成空廢墟）
+      const aiList = Array.isArray(turnJson.present_chars) ? turnJson.present_chars : [];
+      const own = new Set([updatedStatus.servant1.id, updatedStatus.servant2.id].filter(Boolean));
+      const killers = aiList.filter(c => c && c.id && c.id !== 'player_master' && !own.has(c.id)).slice(0, 2).map(c => Object.assign({}, c, { use_np: false }));
+      const ownNear = aiList.filter(c => c && own.has(c.id)).slice(0, killers.length >= 2 ? 0 : 1).map(c => ({ id: c.id, use_np: false, action_en: 'reaching out desperately, anguished expression, too late' }));
+      presentList = [{ id: 'player_master', use_np: false, action_en: 'collapsed on the ground, dying, blood, half-closed eyes, reaching out weakly' }, ...killers, ...ownNear];
+      // 玩家自己找死（對太陽穴開槍、跳樓…）：主角換成從者呆站原地的錯愕臉（使用者指定的黑色幽默）
+      // 御主一死契約就斷了，updatedStatus 的從者已經是空的 → 用回合開始前的主從者
+      const selfDeathServant = statusObj.servant1.id || updatedStatus.servant1.id;
+      if (isSelfInflictedDeath_(userAction) && selfDeathServant) {
+        // 跳樓、跳橋：人已經掉下去了，畫面不會有御主的身體
+        presentList = isJumpDeath_(userAction)
+          ? [{ id: selfDeathServant, use_np: false, action_en: `${SELF_DEATH_SERVANT_FACE_}, standing at the edge by the railing` }]
+          : [
+            { id: selfDeathServant, use_np: false, action_en: `${SELF_DEATH_SERVANT_FACE_}, standing frozen in place` },
+            { id: 'player_master', use_np: false, action_en: 'lying motionless on the ground in the foreground, face hidden' }
+          ];
+      }
+      turnJson.scene_env_en = `${String(turnJson.scene_env_en || '').replace(/dreamscape|surreal|golden light/gi, '')}, dark red sky, black mud creeping on the ground, despair, tragic atmosphere, dramatic lighting`;
     } else if (outcome === 'TRUE_VICTORY') {
       turnJson.scene_env_en = 'golden greater grail in night sky, dawn sunlight piercing clouds, triumphant atmosphere, floating light particles, wide shot';
     }
 
-    presentList = ensureMasterPresentInList_(presentList, isCombatTurn);
+    // 跳樓自殺：人已經掉下去了，不要再把御主補回畫面
+    if (!(outcome === 'FATAL_DEATH' && deathCgStatus_(statusObj, updatedStatus, userAction)._jumpDeath)) presentList = ensureMasterPresentInList_(presentList, isCombatTurn);
 
     const imgPayload = buildNaiPayloadFromScene_(
-      Object.assign({}, updatedStatus, { weather: storyWeather }),
+      Object.assign({}, updatedStatus, { weather: storyWeather }, outcome === 'FATAL_DEATH' ? deathCgStatus_(statusObj, updatedStatus, userAction) : {}),
       presentList,
       turnJson.scene_env_en || 'fuyuki city, night, dramatic lighting',
       isCombatTurn,
@@ -4226,6 +4290,37 @@ function focusGestureExcerpt_(storyText, userAction, isCombat) {
   return t;
 }
 
+// 死亡回合：系統提示詞已不要求寫死後的夢；萬一 AI 還是寫了夢境、幻覺，導演只看結尾會畫成夢境或空廢墟 → 截在夢之前（保險）
+// 玩家自己找死時從者的表情：冷酷、疑問、驚訝的複雜表情（使用者在 4 種寫法中選定，不要可愛的張嘴驚訝）
+const SELF_DEATH_SERVANT_FACE_ = 'wide-eyed, raised eyebrow, furrowed brow, slightly parted lips, confused, cold expression, frozen mid-gesture, one hand half raised';
+// 玩家自己找死：對自己開槍、自殺、跳樓、割腕、服毒…
+function isSelfInflictedDeath_(text) {
+  const t = String(text || '');
+  if (/毒|安眠藥/.test(t) && /喝|吞|服|吃/.test(t)) return true; // 「把毒藥一口氣喝下去」
+  if (/(炸彈|炸藥|手榴彈)/.test(t) && /抱著|引爆|自爆|拉開/.test(t)) return true;
+  return /自殺|自盡|自刎|了結自己|對自己|朝自己|往自己|刺向自己|太陽穴|割腕|上吊|跳樓|跳橋|跳下去|縱身躍下|咬舌|引爆自己|抹脖子|臥軌|跳河/.test(t);
+}
+
+// 死亡回合的繪圖狀態：一般死亡一律第三人稱（看得到御主倒下）；自己找死時照玩家的鏡頭設定（第一人稱＝正面看著從者的錯愕臉）
+function isJumpDeath_(text) { return /跳樓|跳下|跳橋|跳河|躍下|縱身/.test(String(text || '')); }
+
+function deathCgStatus_(statusBefore, statusAfter, userAction) {
+  const selfDeath = isSelfInflictedDeath_(userAction) && Boolean((statusBefore.servant1 && statusBefore.servant1.id) || (statusAfter.servant1 && statusAfter.servant1.id));
+  return { _death: true, _selfDeath: selfDeath, _jumpDeath: selfDeath && isJumpDeath_(userAction), cameraMode: selfDeath && statusBefore.cameraMode === 'pov' ? 'pov' : 'third' };
+}
+
+function deathExcerpt_(storyText) {
+  const paras = String(storyText || '').replace(/【[^】]*】[^\n]*/g, '').replace(/🐯[\s\S]*$/, '').split(/\n+/).map(p => p.trim()).filter(Boolean);
+  const dreamRe = /夢|幻影|幻覺|虛假|美好的|願望.{0,6}實現|聖杯.{0,6}(實現|賜予|低語)|意識.{0,4}(消散|消逝|沉入)/;
+  const cut = paras.findIndex((p, i) => i > 0 && dreamRe.test(p));
+  if (cut <= 0) return paras.join('\n');
+  // 同一段裡死亡瞬間和美夢常寫在一起：只切掉提到夢的那一句以後
+  const sentences = paras[cut].split(/(?<=[。！？])/);
+  const si = sentences.findIndex(x => dreamRe.test(x));
+  const head = si > 0 ? sentences.slice(0, si).join('') : '';
+  return paras.slice(0, cut).concat(head ? [head] : []).join('\n');
+}
+
 function excerptForDirector_(storyText) {
   const t = String(storyText || '').replace(/【時段推進[\s\S]*$/, '').trim();
   if (t.length <= 1600) return t;
@@ -4302,6 +4397,8 @@ function translateSceneToNaiV5_(directorCtx) {
   ].join('\n');
 
   const userMsg = [
+    directorCtx.isSelfDeath ? `SELF-INFLICTED DEATH (dark comedy, CRITICAL): the player suddenly killed themself out of nowhere. The SERVANT is the subject: frozen in place with a cold, puzzled, shocked, complicated expression (${SELF_DEATH_SERVANT_FACE_}) — she never saw this coming; NOT a cute or cartoonish face, no open-mouthed scream, no sweatdrop. Frame her with "upper body" or "cowboy shot", face large and clear. ${directorCtx.isJumpDeath ? (directorCtx.cameraMode === 'pov' ? 'The player just jumped: first-person view falling away from her — shot from below, she leans over the railing above, looking down at viewer.' : 'The player already jumped off: no body in the frame; she stands alone at the railing edge, turned toward the camera.') : (directorCtx.cameraMode === 'pov' ? 'First-person: she stands in front of the viewer, looking at viewer.' : 'The player master lies motionless on the ground behind her, small in frame, face hidden, no gore focus.')} Ignore the normal FATAL DEATH SCENE rule.` : '',
+    directorCtx.isDeath && !directorCtx.isSelfDeath ? 'FATAL DEATH SCENE (CRITICAL): depict the exact moment the player master dies — the player master clearly visible, collapsed on the ground or falling, blood, half-closed eyes, reaching out weakly; the killer (if present) looming over or striking; dark red sky and black mud. Third-person camera. NOT a dream, NOT empty scenery, NOT a peaceful moment. Any present ally of the player looks anguished and too late — never calm or smiling.' : '',
     `Location & Time: ${directorCtx.location} (${directorCtx.timePeriod})`,
     directorCtx.weather && directorCtx.weather !== '晴' ? `Weather: ${WEATHER_TYPES_[normalizeWeather_(directorCtx.weather)].tags} (show it only if the scene is outdoors or a window is visible)` : '',
     directorCtx.locationDesc ? `Current Site Appearance/Modifications: ${directorCtx.locationDesc}` : '',
@@ -4375,7 +4472,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     // 玩家這回合跟人有肢體接觸（牽手、擁抱、親吻…）時御主要留在畫面，否則牽手會變成跟別人牽（實測斯卡哈牽著慎二）
     const masterTouching = /牽|抱|吻|親|摸|握|靠|依偎|膝枕|撒嬌|挽|摟|貼|掏耳|耳朵|躺|枕|餵|按摩|揉|梳頭|梳髮|擦|背我|揹/.test(String(userAction || ''));
     const rank = c => (own.has(c.id) ? 0 : (c.id === 'player_master' ? 0.5 : (c.use_np ? 1 : 2)));
-    validChars = validChars.filter(c => masterTouching || c.id !== 'player_master')
+    validChars = validChars.filter(c => masterTouching || statusObj._death || c.id !== 'player_master')
       .map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i).map(x => x.c);
   }
   validChars = validChars.slice(0, MAX_CG_CHARS);
@@ -4495,11 +4592,14 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
       timePeriod: statusObj.timePeriod || '',
       weather: normalizeWeather_(statusObj.weather),
       isCombat: Boolean(isCombat || anyNpActive),
+      isDeath: Boolean(statusObj._death),
+      isSelfDeath: Boolean(statusObj._selfDeath),
+      isJumpDeath: Boolean(statusObj._jumpDeath),
       adultMode: adultMode,
       cameraMode: povMode ? 'pov' : 'third',
       atHomeBase: statusObj.locationKey === '廢棄洋館',
       userAction: String(userAction || ''),
-      storyText: String(storyText || ''),
+      storyText: statusObj._death ? deathExcerpt_(storyText) : String(storyText || ''),
       chars: validChars.map((c, idx) => {
         const dbInfo = charDb[c.id] || {};
         const refOutfit = String((statusObj.outfits && statusObj.outfits[c.id]) || dbInfo.defaultOutfit || '').trim();
@@ -4841,6 +4941,25 @@ function generateTurnCgAsync(imgPayload) {
         }
       }
       working.prompt = refineFramingTags_(working.prompt, Array.isArray(working.characters) ? working.characters.length : 0);
+      // 玩家自己找死：從者的錯愕臉是主角（導演常把御主放大在前景、從者小小站後面）→ 程式鎖定構圖
+      if (working._directorContext && working._directorContext.isSelfDeath && Array.isArray(working.characters)) {
+        working.characters = working.characters.map(ch => {
+          if (ch.id === 'player_master') {
+            return Object.assign({}, ch, { prompt: removeTagsKeepWeights_(ch.prompt, t => /\b(foreground|close-up|holding|reaching|hand|eyes|face|looking|smile|smiling|grin)\b/i.test(t)) + ', lying face down on the floor behind her, face not visible, partially visible' });
+          }
+          const pov = working.cameraMode === 'pov';
+          const jump = Boolean(working._directorContext.isJumpDeath);
+          const place = pov ? (jump ? 'leaning over the railing above, looking down at viewer' : 'looking at viewer') : (jump ? 'foreground, standing alone at the railing edge' : 'foreground');
+          return Object.assign({}, ch, {
+            prompt: removeTagsKeepWeights_(ch.prompt, t => /\b(background|anguish|tears|crying|reaching out|outstretched|sad|dumbfounded|jaw|open mouth|mouth agape|sweatdrop|blank stare|screaming|shouting|smile|smiling|grin|looking (down|away))\b/i.test(t)) + `, ${place}, ${SELF_DEATH_SERVANT_FACE_}`,
+            uc: [ch.uc, 'open mouth, jaw drop, sweatdrop, chibi, comedic, smile, tears, blush'].filter(Boolean).join(', ')
+          });
+        });
+        // 第一人稱：上半身看清楚她的臉；第三人稱：牛仔鏡頭才拍得到倒在她身後地上的御主
+        const jumpCg = Boolean(working._directorContext.isJumpDeath);
+        const frame = working.cameraMode === 'pov' ? (jumpCg ? 'upper body, from below, dutch angle' : 'upper body') : (jumpCg ? 'cowboy shot' : 'cowboy shot, from side');
+        working.prompt = working.prompt.replace(/\b(wide shot|full body|medium shot|cowboy shot|upper body|from behind|face focus|close-up)\b,?\s*/gi, '').replace(/^((?:\d+(?:girls?|boys?)|multiple characters|solo)(?:,\s*)?)+/i, m => `${m.replace(/,?\s*$/, '')}, ${frame}, `);
+      }
       // 兩人對打或面對面：導演常把一人放前景背對鏡頭 → 加 from side，並刪掉「前景」字眼，讓兩人的臉都看得到
       const pairFacing = Array.isArray(working.characters) && working.characters.length === 2 && Array.isArray(directed.char_directions)
         && directed.char_directions.some(d => d && /\b(clash|clashing|facing (each other|another character|the other)|confront|duel|sword fight|parry|parrying|crossed blades)/i.test(`${d.interaction || ''} ${d.action || ''}`));
@@ -4858,7 +4977,8 @@ function generateTurnCgAsync(imgPayload) {
       }
       // 情緒高點（哭泣、流淚）：1～2 人時拉成上半身＋臉部特寫，不然全身鏡頭看不到眼淚（實測櫻哭著告白卻畫成站在客廳中間）
       const nNow = Array.isArray(working.characters) ? working.characters.length : 0;
-      if (nNow >= 1 && nNow <= 2 && Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && /\b(crying|tears|tearing up|sobbing|tearful|weeping)\b/i.test(String(d.action || '')))) {
+      const selfDeathCg = Boolean(working._directorContext && working._directorContext.isSelfDeath);
+      if (!selfDeathCg && nNow >= 1 && nNow <= 2 && Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && /\b(crying|tears|tearing up|sobbing|tearful|weeping)\b/i.test(String(d.action || '')))) {
         // 鏡頭標籤放在人數標籤後面（越前面權重越高；放最後會被一大段場景描述蓋過）
         const rest = stripCountTags_(String(working.prompt).replace(/,?\s*\b(cowboy shot|medium shot|wide shot|full body|upper body|close-up)\b/gi, '')).replace(/^,\s*/, '');
         working.prompt = [working.countPrefix, 'upper body, face focus, streaming tears', rest].filter(Boolean).join(', ');
