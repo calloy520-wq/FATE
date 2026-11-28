@@ -391,7 +391,8 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
         const refOutfit = String((statusObj.outfits && statusObj.outfits[c.id]) || dbInfo.defaultOutfit || '').trim();
         return {
           id: c.id,
-          name: dbInfo.triggers ? dbInfo.triggers.split(',')[0] : c.id,
+          // 御主要給導演玩家的名號（劇情寫「克勞德走進來」時，導演才知道那就是 player_master；以前只寫「玩家」）
+          name: c.id === 'player_master' ? `${displayNameOf_(statusObj.playerName || '') || '玩家'}（玩家本人，劇情裡也可能寫成「你／妳」）` : (dbInfo.triggers ? dbInfo.triggers.split(',')[0] : c.id),
           gender: charSlots[idx].gender,
           use_np: Boolean(c.use_np),
           referenceOutfit: refOutfit,
