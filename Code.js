@@ -3158,6 +3158,8 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
   '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。玩家只能用背包裡真的有的道具與材料：提到沒有的東西（例如背包沒有寶石卻說用寶石煉成），劇情要寫出手邊沒有、做不成，可以改去買或找。當場吃掉的食物、一般日用品不放進 `gained_items`（背包格數有限），只收有遊戲作用的道具、要送人的禮物、證物與魔術材料。',
   '- 陣營更新：`faction_updates` 的鍵必須用狀態資料中既有的陣營完整名稱；值寫該陣營的存亡與對玩家的態度（例如「存活 (同盟)」「存活 (敵對・負傷休整)」），不要寫一時的動作（例如「發送訊息中」）。',
+  '- 休息：玩家本人這回合真的停下來休息、冥想、調息或睡覺時 `player_rested` 填 true（魔力由系統回復）；說沒空休息、叫別人去休息都填 false。',
+  '- 睡覺：玩家本人這回合真的上床睡覺、過夜時 `player_slept` 填 true（時間會推進到下一個時段）；看別人睡、睡前聊天、說不想睡、睡到一半被吵醒都填 false。',
   '- 時間以狀態列為準：玩家行動裡寫的時段（傍晚、夜景、早上）若和現在的時段不同，照現在的時段描寫（白天就是白天的景色），或寫成約好等到那個時段再去；不可讓時間跳過去。',
   '- 天氣是事實：狀態列的天氣要自然寫進戶外場景（雨聲、撐傘、霧氣、積雪），並合理影響偵查、追蹤、潛行與遠距離攻擊；只有劇情真的改變天氣（大型魔術、結界、天候寶具）時才在 `weather_change` 填「晴／陰／雨／霧／雪」，玩家說「下雨了」不算。',
   '- 場地會留下痕跡：劇情確實改變了某個地標的樣子（戰鬥破壞、佈置房間、設下結界、教會修復等），在 `location_changes` 用地標名稱寫下戰鬥或事件結束後**留下來的樣子**（60 字內，例如「石階佈滿劍痕、山門一側崩塌」，不要寫「兩人正在交戰」這種進行中的事）。這個狀態會一直保留，之後回到那裡要照現況描寫，直到劇情再次改變它；只是路過、沒有改變就不要填。',
@@ -3179,6 +3181,8 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '  "story": "繁體中文小說劇情",',
   '  "is_combat": false,',
   '  "ap_cost": 1,',
+  '  "player_slept": false,',
+  '  "player_rested": false,',
   '  "threat_delta": 0,',
   '  "bond_delta": 0,',
   '  "location": "本回合結束時所在的冬木市地標名稱",',
@@ -3566,7 +3570,7 @@ function processFateTurnTextOnly(params) {
     let mpDelta = Number(turnJson.master_mp_delta) || 0;
     // 休息回魔由系統結算：玩家本回合要休息／睡覺／冥想且沒有開戰 → 回復 20 + 所在地靈脈量
     let restRecovered = 0;
-    if (statusObj.gameMode === 'WAR' && !turnJson.is_combat && isRestAction_(userAction)) {
+    if (statusObj.gameMode === 'WAR' && !turnJson.is_combat && (turnJson.player_rested === true || turnJson.player_slept === true) && isRestAction_(userAction)) {
       restRecovered = 20 + (Number(resolvedLoc && resolvedLoc.info && resolvedLoc.info.manaRegen) || 10);
       mpDelta = Math.min(mpDelta, 0) + restRecovered; // AI 自己加的回魔不重複計入
     }
@@ -3576,7 +3580,8 @@ function processFateTurnTextOnly(params) {
 
     if (statusObj.gameMode === 'WAR') {
       let apCost = Math.max(0, Math.min(3, Number(turnJson.ap_cost) || 0));
-      if (!turnJson.is_combat && isSleepAction_(userAction)) apCost = Math.max(apCost, Number(row[8]) || 0);
+      // 兩把鑰匙：AI 判斷玩家本人真的睡了（player_slept）＋玩家輸入有睡覺字眼，才推進時段
+      if (!turnJson.is_combat && turnJson.player_slept === true && isSleepAction_(userAction)) apCost = Math.max(apCost, Number(row[8]) || 0);
       let newAp = Number(row[8]) - apCost;
       if (newAp <= 0) {
         const nextTime = advanceTimePeriod_(Number(row[6]), String(row[7]));

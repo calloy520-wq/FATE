@@ -142,8 +142,23 @@ run('天氣', () => {
 
 run('睡覺推進時段', () => {
   row()[8] = 3; const p0 = row()[7], d0 = row()[6];
-  turn('回洋館睡覺', { ap_cost: 1, location: '廢棄洋館' });
-  check('睡一覺 → 時段前進、AP 補滿', (row()[7] !== p0 || row()[6] !== d0) && Number(row()[8]) === 3, [d0, p0, row()[6], row()[7], row()[8]]);
+  turn('回洋館睡覺', { ap_cost: 1, location: '廢棄洋館', player_slept: true });
+  check('睡一覺（AI 確認＋有睡覺字眼）→ 時段前進、AP 補滿', (row()[7] !== p0 || row()[6] !== d0) && Number(row()[8]) === 3, [d0, p0, row()[6], row()[7], row()[8]]);
+  row()[8] = 3; const p1 = row()[7], d1 = row()[6];
+  turn('看著沖田睡覺的樣子，幫她蓋被子', { ap_cost: 1, player_slept: false });
+  check('看別人睡（AI 判斷沒睡）→ 時間不跳', row()[7] === p1 && row()[6] === d1 && Number(row()[8]) === 2, [row()[6], row()[7], row()[8]]);
+  row()[8] = 3; const p2 = row()[7], d2 = row()[6];
+  turn('在洋館整理資料', { ap_cost: 1, player_slept: true });
+  check('玩家沒提睡覺、AI 卻說睡了 → 時間不跳', row()[7] === p2 && row()[6] === d2, [row()[6], row()[7], row()[8]]);
+});
+
+run('休息回魔兩把鑰匙', () => {
+  row()[15] = 10; row()[8] = 3;
+  turn('在洋館冥想調息', { ap_cost: 0, player_rested: true, location: '廢棄洋館' });
+  check('真的休息（AI 確認＋有字眼）→ 回魔', Number(row()[15]) > 10, row()[15]);
+  row()[15] = 10;
+  turn('沒時間休息了，直接衝去柳洞寺', { ap_cost: 0, player_rested: false });
+  check('說沒空休息（AI 判斷沒休息）→ 不回魔', Number(row()[15]) === 10, row()[15]);
 });
 
 run('未知地名', () => {
