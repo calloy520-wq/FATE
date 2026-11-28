@@ -159,6 +159,9 @@ run('休息回魔兩把鑰匙', () => {
   row()[15] = 10;
   turn('沒時間休息了，直接衝去柳洞寺', { ap_cost: 0, player_rested: false });
   check('說沒空休息（AI 判斷沒休息）→ 不回魔', Number(row()[15]) === 10, row()[15]);
+  row()[15] = 10;
+  turn('看著沖田睡著的樣子，幫她蓋上被子', { ap_cost: 0, player_rested: true, player_slept: true });
+  check('看別人睡、AI 卻誤判玩家休息 → GAS 否決，不回魔', Number(row()[15]) === 10, row()[15]);
 });
 
 run('未知地名', () => {
