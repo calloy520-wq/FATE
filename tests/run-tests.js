@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_, rollWeather_, applyWeatherTags_, normalizeWeather_, indoorWeatherFix_, closeUmbrellaIndoors_, focusGestureExcerpt_, isSleepAction_, clipText_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_, rollWeather_, applyWeatherTags_, normalizeWeather_, indoorWeatherFix_, closeUmbrellaIndoors_, focusGestureExcerpt_, isSleepAction_, clipText_, isItemReferenced_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -324,6 +324,11 @@ eq('截短在標點斷句', T.clipText_('該陣營目前因昨夜戰損處於休
 eq('短的不截', T.clipText_('Rider 負傷', 30), 'Rider 負傷');
 
 eq('「同盟・交涉中」還不算同盟', T.isAllianceStatusText_('存活 (同盟・交涉中)'), false);
+
+const gemM = { id: 'mana_gem_m', name: '高純度魔力寶石(中)' }, smoke = { id: 'smoke_bomb', name: '煙霧魔術彈' };
+eq('只說煙霧彈 → 不扣寶石', [T.isItemReferenced_(smoke, '丟出煙霧彈掩護撤退'), T.isItemReferenced_(gemM, '丟出煙霧彈掩護撤退')], [true, false]);
+eq('捏碎寶石 → 扣寶石', T.isItemReferenced_(gemM, '捏碎魔力寶石補充魔力'), true);
+eq('自訂道具用名稱片段比對', T.isItemReferenced_({ id: 'x1', name: '愛因茲貝倫的銀髮人偶' }, '把銀髮人偶送給伊莉雅'), true);
 
 // ---- 天氣 ----
 eq('天氣不明 → 晴', T.normalizeWeather_('颱風'), '晴');

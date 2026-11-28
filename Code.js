@@ -1524,6 +1524,23 @@ function isSleepAction_(text) {
   return /睡覺|睡一覺|就寢|過夜|補眠|上床睡|睡到|一覺/.test(t) && !/不睡|別睡|睡不著|沒睡/.test(t);
 }
 
+// 玩家輸入有沒有提到這個道具（名稱或常用叫法）：有使用意圖時也只扣提到的那幾樣
+// （2026-11 實測：只說「丟出煙霧彈」，AI 連高純度魔力寶石也一起扣掉）
+const ITEM_REF_KEYWORDS_ = {
+  mana_gem_s: /結晶|寶石|魔力石/, mana_gem_m: /寶石|魔力石/, smoke_bomb: /煙霧|煙幕|煙彈/,
+  empty_gem: /寶石|媒介|煉成|灌注/, black_keys: /黑鍵/, aegis_charm: /保命符|護符|禮裝/
+};
+function isItemReferenced_(item, text) {
+  const t = String(text || '');
+  if (!item || !t) return false;
+  const name = String(item.name || '');
+  if (name && t.includes(name)) return true;
+  if (ITEM_REF_KEYWORDS_[item.id] && ITEM_REF_KEYWORDS_[item.id].test(t)) return true;
+  const core = name.replace(/[（(].*?[)）]/g, '').trim();
+  for (let i = 0; i + 3 <= core.length; i++) { if (t.includes(core.slice(i, i + 3))) return true; }
+  return false;
+}
+
 function isRestAction_(text) {
   return /休息|睡覺|睡一覺|補眠|小睡|就寢|冥想|調息|靜養|休養|養傷|打坐|恢復魔力|回復魔力|回魔/.test(String(text || ''));
 }
@@ -3599,10 +3616,12 @@ function processFateTurnTextOnly(params) {
     // 道具只在玩家本回合有「取得／製作」意圖時才入袋，有「使用」意圖時才扣除（AI 常在玩家沒要求時自己煉成或消耗道具）
     const wantsGain = /撿|拾|拿|取|收|奪|搶|買|購|煉成|製作|做|灌注|搜|接過|收下|領|偷|摸走|帶走|裝進|放進|借|討|要|換|交易|請求|拜託|給我|送我|分我/.test(userAction);
     const wantsUse = /使用|用掉|捏碎|消耗|吃|喝|丟|投擲|擲|煉成|灌注|製作|做|發動|啟動|點燃|拔出|揮|射|施放|喝下|服用/.test(userAction);
-    if (!wantsUse) {
-      turnJson.consumed_item_ids = (Array.isArray(turnJson.consumed_item_ids) ? turnJson.consumed_item_ids : [])
-        .filter(cid => { const it = (meta.inventory || []).find(x => x.id === cid); return it && userAction.includes(it.name); });
-    }
+    turnJson.consumed_item_ids = (Array.isArray(turnJson.consumed_item_ids) ? turnJson.consumed_item_ids : [])
+      .filter(cid => {
+        const it = (meta.inventory || []).find(x => x.id === cid);
+        if (!it) return false;
+        return wantsUse ? isItemReferenced_(it, userAction) : userAction.includes(it.name);
+      });
     let mergedGainedItems = (wantsGain || !Array.isArray(turnJson.gained_items)) ? (Array.isArray(turnJson.gained_items) ? turnJson.gained_items.slice() : []) : [];
 
     const invResult = applyInventoryChanges_(
