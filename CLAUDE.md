@@ -75,6 +75,7 @@
 - 第一人稱視角（設定開關，`meta.cameraMode` = `pov`／`third`；新角色召喚時寫入 `third`，舊存檔沒設定過的仍是 pov，刻意不改以免朋友們畫面突變）：繪圖時移除 `player_master`、主提示詞加 `pov, first-person view`（沒有其他角色時加 `no humans, scenery`），導演改以「離鏡頭多近、是否看向鏡頭」描述，玩家用手做事時加 `pov hands`。**視野外的角色不畫**：導演回報 `in_view`，程式另用 `isOutOfPovView_` 檢查（寫了 behind viewer／out of frame 等就算看不到，over shoulder／leaning in 仍算看得到），被排除的角色會從角色欄位與場景描述（`removeCharacterMentions_`）移除，並以 `buildCountTags_` 重算人數。不會多生圖。
 - 導演只畫劇情當下明確出現的道具、武器與魔術效果，不自動加角色招牌物品。
 - 畫面方向自動切換（`pickNaiSize_`）：畫面只有 1 個角色 → 直式 832×1216；2 人以上或純風景 → 橫式 1216×832（兩者像素量相同，都在免費範圍）。第一人稱濾掉視野外角色後會重新判斷。前端畫框依圖片比例切換（`.cg-viewport.portrait`，高度上限 78vh），圖片用 contain 不裁切。
+- 御主沒有戰鬥服：導演收到的 battle_outfit 對御主是玩家自己設定的服裝（之前誤用 GameData 的預設黑色毛衣，開戰時克勞德被換裝）。
 - 便服：`GameData.js` 的 `casual`（目前有斯卡哈、Saber、Rider）。本回合結束時人在據點（廢棄洋館）且沒開戰，就從戰鬥靈衣換成便服（人在據點沒開戰時不看劇情字眼，避免「警戒」「魔槍」等字誤換回戰鬥服）；離開據點或開戰換回。導演收到 `At Home Base`，只有在據點才能用便服；導演若把便服改回戰鬥服（`outfitSimilarity_` ≥ 0.5），程式會改回便服。武器只在戰鬥或解放寶具時才畫：系統提示詞要求非戰鬥時武器靈體化，非戰鬥場景的角色負面提示詞自動加入 `holding weapon, weapon, spear, polearm, sword`。
 - 鏡頭規則（FRAMING，2026-11 八場景實測後加入）：臉是核心，導演選「能容下所有人的最近鏡頭」——1 人 cowboy shot／upper body（單人寶具 cowboy shot, from below），2～3 人 medium shot，wide shot 只限 4 人以上、兩方遠距離對戰或純風景；浪漫場景 upper body／close-up；鐵絲網、玻璃、人群不可擋在臉前面。實測 8 張有 4 張原本是遠景小人，改後都變成半身清楚。
 - 導演文字的程式修正（`generateTurnCgAsync` 合併導演結果後）：
@@ -105,7 +106,7 @@
 - 時代背景 2004 年：系統提示詞與導演都要求手機是翻蓋手機（flip phone），主負面提示詞含 `smartphone`。
 - 第一人稱「以角色為主」：導演以特寫／上半身／中景框住看得到的角色，背景加景深退到次要；沒有角色時才用廣角。
 - 主負面提示詞（`generateNovelAIImageSafe_` 的 `defaultUc`）刻意保持精簡：只排除品質底線、文字浮水印、馬賽克。不要加回 V1～V3 時代的長串（bad, error, extra, bad hands…），實測會讓 V5 畫面變灰、細節變少。角色專屬負面放在 `GameData.js` 的 uc。
-- 成人模式關閉（`adultOffOutfit_`，獨立於上面的角色把關、可單獨上線；部署腳本不會拿掉它）：只在劇情讓角色脫光時作用，把裸露標籤換成通用的 `convenient censoring`（不指定衣物，由 NovelAI 依畫面用頭髮、手臂、蒸氣、毛巾、被子自然遮住、不露點）；主負面另加 `nsfw, nude, nipples, completely nude, topless`（試過再加 ass, bare buttocks，使用者不要，已拿掉）。平常穿著的場景不受影響。比較過「依場合指定浴巾／被子／背心」，使用者選通用版（較自然、不會猜錯場合、不干擾角色習慣）。
+- 成人模式關閉（`adultOffOutfit_`，獨立於上面的角色把關、可單獨上線；部署腳本不會拿掉它）：只在劇情讓角色脫光時作用，把裸露標籤換成通用的 `convenient censoring`（不指定衣物，由 NovelAI 依畫面用頭髮、手臂、蒸氣、毛巾、被子自然遮住、不露點）；主負面另加 `nsfw, nude, nipples, completely nude, topless`（試過再加 ass, bare buttocks，使用者不要，已拿掉）。曾試過在成人模式關閉時刪除性行為類標籤並在負面排除，使用者不要，已整筆移除，不要再加回。平常穿著的場景不受影響。比較過「依場合指定浴巾／被子／背心」，使用者選通用版（較自然、不會猜錯場合、不干擾角色習慣）。
 - 互動語法只允許 `source#`／`target#`／`mutual#` 前綴。導演常寫成「名字#動作#對象」或「動作#對象」，`stripBadInteractionPrefix_` 會轉成 `source#動作`，名字前綴則去掉。
 - 角色名字只出現在該角色自己的欄位：導演規則禁止在別人欄位與主提示詞寫名字；程式另用 `stripOtherCharNames_`（`CHAR_EN_NAMES_` 英文稱呼表）把別人欄位裡的名字換成 another character、主提示詞裡的換成 a figure（自己的名字與 Danbooru 角色標籤不動）。名字寫進別人欄位會讓 NovelAI 多畫一個那個人。
 - NovelAI 免費範圍（Opus）：一次 1 張、不用底圖、尺寸 ≤ 約 1024×1024 像素量（目前 1216×832）、steps ≤ 28。V5 的免費額度是會自動回復的用量條，用完會**自動改扣 Anlas**，所以不要調高尺寸、steps 或一次生多張。
