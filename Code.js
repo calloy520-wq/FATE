@@ -379,14 +379,23 @@ function isNudeOutfitTags_(outfitStr) {
   return /\b(nude|naked|completely nude|no clothes|topless|bottomless|undressed)\b/.test(s) || /全裸|裸體|沒穿|赤裸|一絲不掛/.test(s);
 }
 
+// 成人模式關閉時的裸露替換（獨立於角色把關，只在玩家自己關閉成人模式、而且劇情讓角色脫光時作用）：依場合換成合理的遮蔽
+function adultOffOutfit_(outfit, contextText, fallback) {
+  if (!isNudeOutfitTags_(outfit)) return outfit;
+  const t = String(contextText || '');
+  if (/浴|澡|溫泉|淋浴|泡湯|沖澡|搓背|搓澡|擦背|bath|shower|onsen|hot spring|towel/i.test(t)) return 'bath towel, towel wrapped around body';
+  if (/床|被窩|被子|睡|躺下|就寢|\b(bed|sleep|sleeping|blanket|futon)\b/i.test(t)) return 'under blanket, blanket covering body, bare shoulders';
+  if (/換衣|更衣|換裝|脫衣|穿衣|\b(changing clothes|undressing|dressing)\b/i.test(t)) return 'white camisole, shorts';
+  return String(fallback || '').trim() || 'casual clothes, shirt, pants';
+}
+
 // 未成年／孩童外觀的角色：任何情況都不畫裸露（洗澡等劇情照常寫，畫面維持穿著）
 const NO_NUDE_CHAR_IDS_ = new Set(['prisma_illya', 'chloe', 'miyu', 'illya', 'rin', 'sakura', 'dark_sakura', 'shirou']);
 
-// 畫面上的裸露把關：未成年角色一律改回 fallback（預設服裝）；成人模式關閉時改成浴巾包裹
+// 畫面上的裸露把關：未成年角色一律改回 fallback（預設服裝）（成人模式關閉另由 adultOffOutfit_ 處理）
 function sanitizeNudeOutfitForChar_(charId, outfit, adultMode, fallback) {
   if (!isNudeOutfitTags_(outfit)) return outfit;
   if (NO_NUDE_CHAR_IDS_.has(charId)) return String(fallback || '').trim() || 'casual clothes, shirt, pants';
-  if (!adultMode) return 'bath towel, towel wrapped around body';
   return outfit;
 }
 
@@ -4198,6 +4207,8 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
 
     const wantsNude = isNudeOutfitTags_(profile.outfit) || /全裸|裸體|沒穿|赤裸|一絲不掛|\b(nude|naked|no clothes|topless)\b/i.test(String(c.action_en || ''));
     profile.outfit = sanitizeNudeOutfitForChar_(c.id, wantsNude && !isNudeOutfitTags_(profile.outfit) ? 'nude, completely nude, no clothes' : profile.outfit, Boolean(statusObj.adultMode), dbInfo.defaultOutfit);
+    // 成人模式關閉：依場合換成浴巾／被子／便服（獨立於角色把關）
+    if (!statusObj.adultMode) profile.outfit = adultOffOutfit_(profile.outfit, `${userAction || ''} ${storyText || ''} ${sceneEnvEn || ''} ${c.action_en || ''}`, dbInfo.defaultOutfit);
     const nudeMode = isNudeOutfitTags_(profile.outfit);
     const normCore = normalizeCharCoreForNai_(profile.core, profile.gender);
     const core = nudeMode ? stripClothesFromCore_(normCore) : normCore;
@@ -4531,7 +4542,18 @@ function generateTurnCgAsync(imgPayload) {
       } else if (directed.orientation === 'landscape') {
         working.width = 1216; working.height = 832;
       }
-      // 導演回報的裸露先經過把關（未成年角色、成人模式關閉）
+      // 成人模式關閉：導演回報的裸露依場合換成浴巾／被子／便服（獨立於角色把關）
+      if (!working.adultMode && Array.isArray(directed.char_directions)) {
+        const ctxAll = `${(working._directorContext || {}).userAction || ''} ${(working._directorContext || {}).storyText || ''} ${directed.scene_prompt || ''}`;
+        directed.char_directions.forEach(d => {
+          if (!d || !d.id || !(Boolean(d.is_nude) || isNudeOutfitTags_(d.outfit))) return;
+          const ctxC = ((working._directorContext || {}).chars || []).find(x => x.id === d.id) || {};
+          const fb = ctxC.referenceOutfit && !isNudeOutfitTags_(ctxC.referenceOutfit) ? ctxC.referenceOutfit : ctxC.battleOutfit;
+          d.is_nude = false;
+          d.outfit = adultOffOutfit_('nude, completely nude, no clothes', `${ctxAll} ${d.action || ''}`, fb);
+        });
+      }
+      // 導演回報的裸露先經過把關（未成年角色）
       if (Array.isArray(directed.char_directions)) {
         directed.char_directions.forEach(d => {
           if (!d || !d.id) return;
