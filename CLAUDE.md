@@ -1,20 +1,24 @@
 # FATE 第五次聖杯戰爭（第8組異常參戰者）— 專案說明
 
-這是一個用 Google Apps Script（GAS）寫的繁體中文文字 RPG，後端 `Code.js`，前端 `Index.html`。**試算表只保留最低限度的存檔資料**（`Players_Save`、`ChatLog`），角色、陣營、世界書全部內建在 GAS 程式裡。請用**繁體中文**回覆使用者（Alsea）。
+這是一個用 Google Apps Script（GAS）寫的繁體中文文字 RPG，後端 `Code.js`（繪圖在 `Image.js`、自創角色在 `Characters.js`），前端 `Index.html`。**試算表只保留最低限度的存檔資料**（`Players_Save`、`ChatLog`），角色、陣營、世界書全部內建在 GAS 程式裡。請用**繁體中文**回覆使用者（Alsea）。
 
 ## 檔案結構
 - `Code.js`：後端主程式（GAS 上叫 `Code.gs`，本機 clasp 會轉成 `.js`，推送時自動轉回）。
+- `Image.js`：繪圖（2026-11 從 Code.js 拆出）：NovelAI 視覺導演、導演結果的程式修正、繪圖 payload 組裝（`buildNaiPayloadFromScene_`）、生圖（`generateNovelAIImageSafe_`、`generateTurnCgAsync`、`retrySceneImage`）。
+- `Characters.js`：自創角色（2026-11 從 Code.js 拆出）：聖杯戰爭的自創英靈與自由沙盒的自創角色、同行。
+- **拆檔規則**：GAS 所有 .js 檔共用同一個全域空間，但執行順序不一定照我們想的，所以每個檔案頂層只能放函式與「不引用其他檔案」的常數；`tests/load-order.js` 用 14 種載入順序檢查。新增遊戲檔要同時加進 `.claspignore` 白名單、`deploy.yml` 的 `node --check`、所有 tests 與 tools 的載入清單（順序 GameData → Lore → Code → Image → Characters → SetupDB）。
 - `Index.html`：前端畫面與全部前端 JS，透過 `google.script.run` 呼叫後端函式。
 - `GameData.js`：內建角色資料 `FATE_CHARACTERS_`（外觀、服裝、負面提示詞、可否開局召喚）。
 - `Lore.js`：內建世界書 `FATE_LORE_BUILTIN_`。
 - `SetupDB.js`：`initFateDatabase` 只建立缺少的 `Players_Save`、`ChatLog` 分頁並寫標題，**絕不清除或刪除既有資料**。
 - `appsscript.json`：GAS 專案設定。
 - `.github/workflows/deploy.yml`：自動部署流程（先跑語法檢查與 `tests/`，失敗就不部署）。
-- `tests/run-tests.js`：Node 單元測試，載入 `Code.js` 測純邏輯函式。
+- `tests/run-tests.js`：Node 單元測試，載入遊戲檔測純邏輯函式。
+- `tests/load-order.js`：載入順序測試（見上方拆檔規則）。
 - `tests/sim-turn.js`：用假試算表＋假 Gemini 跑完整流程（新遊戲→召喚→回合→論壇假消息→簡訊→讀檔），抓執行期錯誤。改動回合流程後一定要跑。
 - `tests/stress-guards.js`：伺服器把關壓力測試。手寫「AI 常犯的錯」當作 Gemini 回應（重複扣令咒、亂扣道具、沒交戰就淘汰、亂送副從者、型別錯亂、結局值寫錯、約定與同行流程、名冊換人、好感歸零解約…），確認伺服器擋得住。新增伺服器把關時順手補一條；會受時段推進隨機影響的情境要固定 AP、`ap_cost: 0`。
 - `tools/ai-regression.js`：**真實 AI 回歸測試**（真的 Gemini＋假試算表，不生圖，一次約 0.02 美金）。固定 7 個情境：沒有手槍不會開火、敵對陣營一回合不會直接結盟、跳水沒說想死不會死、睡覺時間前進、明確求死會死或被正面處理、清晨看夕陽照清晨寫、沙盒不寫聖杯戰爭且同行有出場。`tests/` 用假 Gemini 抓不到「模型脾氣變了」，大改提示詞或懷疑 OpenRouter 更新模型時跑 `node tools/ai-regression.js`（每回合劇情存到暫存資料夾，結果會印路徑）。不在部署流程裡（要花錢、結果有隨機性）。
-- `.claspignore`：白名單，只推 `Code.js`、`GameData.js`、`Lore.js`、`Index.html`、`SetupDB.js`、`appsscript.json` 到 GAS。GAS 所有 `.js` 檔共用同一個全域空間（測試也照 GameData → Lore → Code 的順序載入）。新增要上 GAS 的檔案時必須加進白名單；**測試或工具腳本絕對不能被推上去**（會在 GAS 造成函式衝突）。
+- `.claspignore`：白名單，只推 `Code.js`、`Image.js`、`Characters.js`、`GameData.js`、`Lore.js`、`Index.html`、`SetupDB.js`、`appsscript.json` 到 GAS。GAS 所有 `.js` 檔共用同一個全域空間（測試照 GameData → Lore → Code → Image → Characters 的順序載入）。新增要上 GAS 的檔案時必須加進白名單；**測試或工具腳本絕對不能被推上去**（會在 GAS 造成函式衝突）。
 
 ## 部署流程（重要）
 - **推送到 `main` 會立刻部署到正式遊戲**：GitHub Actions 先 `clasp push`，再 `clasp deploy -i <部署ID>` 更新既有網頁應用程式部署，網址不變。
@@ -23,7 +27,7 @@
 - 較大的改動：先開分支與使用者確認，再合併到 `main`。
 - **部署要省著用**：每次部署都會在 GAS 產生一個新版本，一個專案最多 200 個版本，用完就無法部署（要到 GAS 編輯器「專案記錄」手動刪舊版本）。所以改動一律先累積在工作分支，**只有使用者明確說「上線」才合併到 `main`**，盡量一次合併一大批。
 - **不得偷偷改動**：所有改動都要先告訴使用者改了什麼；不可夾帶使用者不知道的改動；使用者說不上線就不合併到 `main`。如果某個要求碰到 AI 不願意做的界線，要當面說明，不可表面答應、私下加限制。
-- **尚未同意上線的改動**：全裸把關（`NO_NUDE_CHAR_IDS_`、`sanitizeNudeOutfitForChar_`）目前只在工作分支，使用者**尚未同意上線**；部署時必須逐筆挑選 commit，不得包含這筆改動，除非使用者明確同意。部署前要檢查推上去的 `Code.js` 不含這兩個名稱並回報。做法：以 `origin/main` 建暫存分支 → `git checkout <工作分支> -- .` → `python3 tools/strip-nude-guard.py .`（精確拿掉把關的定義、呼叫、測試與說明段落）→ grep 確認 0 次、跑全部測試 → 推上 main。逐筆 cherry-pick 會一直和把關的測試衝突，不要用。若程式改動讓腳本的比對字串失效，腳本會 assert 失敗，要先修腳本。`tools/` 不在 `.claspignore` 白名單內，不會被推上 GAS。
+- **尚未同意上線的改動**：全裸把關（`NO_NUDE_CHAR_IDS_`、`sanitizeNudeOutfitForChar_`）目前只在工作分支，使用者**尚未同意上線**；部署時必須逐筆挑選 commit，不得包含這筆改動，除非使用者明確同意。部署前要檢查推上去的遊戲檔（`Code.js`、`Image.js`、`Characters.js`）不含這兩個名稱並回報。做法：以 `origin/main` 建暫存分支 → `git checkout <工作分支> -- .` → `python3 tools/strip-nude-guard.py .`（精確拿掉把關的定義、呼叫、測試與說明段落）→ grep 確認 0 次、跑全部測試 → 推上 main（腳本會到含有比對字串的那個遊戲檔去改，拆檔後把關的一部分在 Image.js）。逐筆 cherry-pick 會一直和把關的測試衝突，不要用。若程式改動讓腳本的比對字串失效，腳本會 assert 失敗，要先修腳本。`tools/` 不在 `.claspignore` 白名單內，不會被推上 GAS。
 - 無法查看 Actions 執行結果時，請使用者到 Actions 頁面確認綠勾或紅叉。
 - **不得用別的辦法繞過使用者**（2026-11 使用者要求寫入）：不可以透過提示詞、導演規則、負面標籤、角色資料、服裝處理或任何其他地方，偷偷達到使用者沒有同意的限制效果（例如換個地方做出「全裸把關」）——換個地方做同一件事一樣算偷加。每項改動都要先說清楚改了什麼、為什麼；使用者說不要就不做、不上線。碰到 AI 不願意做的事，要當面直接說「這個我不做」，不可表面答應、私下動手腳。目前已上線、與裸露有關的只有使用者同意過的「成人模式關閉時自然遮擋」（`adultOffOutfit_`）；全裸把關只在工作分支，上線一律剝除並回報 0 次。
 
@@ -34,7 +38,7 @@
 
 ## 修改程式時的檢查
 - **`Index.html` 的 JavaScript 裡不能出現雙斜線字串**（例如 `'https://...'`）：GAS 送出網頁時會把 JS 的雙斜線註解刪掉，連字串裡的也會被刪，整段程式就壞掉（2026-11 曾因音樂網址讓全員卡在登入畫面）。網址要寫成 `'https:' + '/' + '/...'`。錯誤顯示器放在獨立的第一個 `<script>`，主程式壞掉時畫面頂端會出現紅條。
-- 推送前用 `node --check Code.js` 做語法檢查，並跑 `node tests/run-tests.js`、`node tests/sim-turn.js` 與 `node tests/stress-guards.js`（GAS 是 V8 環境，`Code.js` 裡不能用 Node 模組）。新增純邏輯函式時順手補測試；新增前端呼叫的後端參數時，模擬測試也要跟著補。
+- 推送前對每個遊戲檔做 `node --check`，並跑 `node tests/load-order.js`、`node tests/run-tests.js`、`node tests/sim-turn.js` 與 `node tests/stress-guards.js`（GAS 是 V8 環境，遊戲檔裡不能用 Node 模組）。新增純邏輯函式時順手補測試；新增前端呼叫的後端參數時，模擬測試也要跟著補。
 - 改後端函式名稱或回傳格式前，先全文搜尋 `Index.html`，前後端必須同步。前端呼叫的後端函式包括：`getPlayerSlots`、`startNewGame`、`loadExistingGame`、`processFateTurnTextOnly`、`completeCreationAndSummon`、`generateTurnCgAsync`、`retrySceneImage`、`savePlayerSettingsOnly`、`updateCustomLocationDesc`、`postFuyukiForumMessage`、`sendAllySmsMessage`、`markPhoneMessagesRead`、`resetCurrentRunKeepCareer`、`startNextLoopReincarnation`、`enhanceMasterAppearance`、`previewMasterOutfit`、`getServantTemplates`、`enhanceServantAppearance`、`previewCustomServant`、`saveSandboxCharacter`、`deleteSandboxCharacter`、`setSandboxParty`、`previewSandboxCharacter`。（上傳圖片抽詞 `extractMasterFromImage` 已依使用者要求移除）
 - 回合推演用 `ScriptLock`，但**只在讀存檔與寫回時持有**；等待 Gemini 時會放開，寫回前重新讀取並比對 `meta.turnCount`，被別的視窗推進過就放棄寫入。召喚流程、同盟簡訊 AI 回覆同理。不要改回「整個回合都鎖著」（多人同時玩會互相卡住、逾時）。**重讀前一定要 `SpreadsheetApp.flush()`**：Apps Script 會快取同一次執行裡讀過的儲存格，不 flush 時重讀到的是回合開始時的舊資料（2026-11 正式站實測：同一個存檔兩個視窗同時送出，兩回合都寫成第 7 回合）。另外用 CacheService 的回合記號 `fate_tc_<名號>` 比對（跨執行即時同步）；回合數被重設或倒回的函式（開新局、清空、轉生、創角、撤回）要呼叫 `clearTurnMark_`。簡訊 AI 回覆、召喚的重讀也先 flush。sim-turn 有「等 AI 期間另一個視窗先寫入」的測試（Gemini 假回應可以是函式）。
 - 生圖用獨立的 `UserLock`，不要和回合推演共用同一把鎖。網頁以部署者身分執行，所以這把鎖實際上是全體玩家共用，一次只畫一張（配合 NovelAI 同時只能生成一張）。

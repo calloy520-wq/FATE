@@ -14,9 +14,12 @@ jobs:
       - name: Syntax check & tests (fail = no deploy)
         run: |
           node --check Code.js
+          node --check Image.js
+          node --check Characters.js
           node --check SetupDB.js
           node --check GameData.js
           node --check Lore.js
+          node tests/load-order.js
           node tests/run-tests.js
           node tests/sim-turn.js
           node tests/stress-guards.js

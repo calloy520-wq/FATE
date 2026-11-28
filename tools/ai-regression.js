@@ -50,7 +50,7 @@ const ctx = {
   }
 };
 vm.createContext(ctx);
-vm.runInContext(['GameData.js', 'Lore.js', 'Code.js', 'SetupDB.js'].map(f => fs.readFileSync(path.join(REPO, f), 'utf8')).join('\n;\n'), ctx);
+vm.runInContext(['GameData.js', 'Lore.js', 'Code.js', 'Image.js', 'Characters.js', 'SetupDB.js'].map(f => fs.readFileSync(path.join(REPO, f), 'utf8')).join('\n;\n'), ctx);
 ctx.initFateDatabase();
 
 let fails = 0;

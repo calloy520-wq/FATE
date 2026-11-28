@@ -61,7 +61,7 @@ const ctx = {
   }
 };
 vm.createContext(ctx);
-vm.runInContext(['GameData.js', 'Lore.js', 'Code.js', 'SetupDB.js'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n;\n'), ctx);
+vm.runInContext(['GameData.js', 'Lore.js', 'Code.js', 'Image.js', 'Characters.js', 'SetupDB.js'].map(f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8')).join('\n;\n'), ctx);
 
 let fails = 0;
 const check = (name, cond) => { console.log(`${cond ? 'PASS' : 'FAIL'} ${name}`); if (!cond) fails++; };
