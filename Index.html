@@ -1025,7 +1025,7 @@
       </div>
 
       <div class="top-actions-clean">
-        <div class="command-spells-box" title="剩餘令咒數量（僅限透過文字輸入發動，例如：以令咒下令... / 消耗兩劃令咒...）">
+        <div class="command-spells-box" id="ui-spells-box" title="剩餘令咒數量（僅限透過文字輸入發動，例如：以令咒下令... / 消耗兩劃令咒...）">
           <span style="font-size: 12px; font-weight: 700; color: #fca5a5;">令咒</span>
           <svg id="spell-1" class="spell-stroke" viewBox="0 0 24 24"><path d="M12 2L15 10L12 22L9 10Z"/></svg>
           <svg id="spell-2" class="spell-stroke" viewBox="0 0 24 24"><path d="M12 2L15 10L12 22L9 10Z"/></svg>
@@ -1171,7 +1171,7 @@
 
         <!-- 分頁 1：冬木論壇留言板 -->
         <div id="phone-view-forum">
-          <div style="font-size: 12px; color: #7dd3fc; margin-bottom: 8px;">
+          <div id="bbs-note" style="font-size: 12px; color: #7dd3fc; margin-bottom: 8px;">
             ※ 冬木匿名留言板：同步近期戰況風聲，你發布的貼文也會影響後續局勢反應。
           </div>
           <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
@@ -1180,7 +1180,7 @@
               <input type="text" id="bbs-body-input" maxlength="140" placeholder="在 2004 留言板留下風聲或試探消息..." style="padding:7px 10px; font-size:12.5px;" onkeydown="if(event.key==='Enter') submitForumPost()" />
               <button class="btn btn-sm btn-crimson" type="button" onclick="submitForumPost()">發帖</button>
             </div>
-            <label style="font-size:12px; color:#fca5a5; display:flex; align-items:center; gap:6px; cursor:pointer;">
+            <label id="bbs-fake-label" style="font-size:12px; color:#fca5a5; display:flex; align-items:center; gap:6px; cursor:pointer;">
               <input type="checkbox" id="bbs-fake-check" /> 🎭 這是我刻意放出的假消息（會追蹤誰相信、誰識破）
             </label>
           </div>
@@ -1959,6 +1959,13 @@
 
       document.getElementById('ui-player-badge').innerText = displayPlayerName(s.playerName) + (s.gameMode === 'SANDBOX' ? ' 🌸' : '');
       document.getElementById('btn-sandbox-chars').classList.toggle('hidden', s.gameMode !== 'SANDBOX');
+      // 自由沙盒：沒有令咒；沒有從者就不顯示好感；論壇只是市民閒聊、不追蹤假消息
+      const sbMode = s.gameMode === 'SANDBOX';
+      document.getElementById('ui-spells-box').classList.toggle('hidden', sbMode);
+      document.getElementById('ui-bond-badge').classList.toggle('hidden', sbMode && !(s.servant1 && s.servant1.id));
+      document.getElementById('bbs-fake-label').classList.toggle('hidden', sbMode);
+      if (sbMode) document.getElementById('bbs-fake-check').checked = false;
+      document.getElementById('bbs-note').innerText = sbMode ? '※ 冬木匿名留言板：市民的日常閒聊，你也可以發文。' : '※ 冬木匿名留言板：同步近期戰況風聲，你發布的貼文也會影響後續局勢反應。';
       document.getElementById('btn-sandbox-chars').innerText = '👥 同行' + ((s.sandboxParty || []).length ? ' ' + s.sandboxParty.length : '');
       document.getElementById('ui-career-badge').innerText = `🏆${s.wins}勝 💀${s.losses}敗`;
       document.getElementById('ui-bond-badge').innerText = `💖 ${bond}`;
@@ -2977,6 +2984,13 @@
       box.appendChild(tabBar);
       Object.values(panes).forEach(p => box.appendChild(p));
       const paneF = panes.f, paneT = panes.t, paneR = panes.r;
+      // 自由沙盒沒有陣營與路線：只留重要事件
+      const sandboxIntel = currentState.gameMode === 'SANDBOX';
+      if (sandboxIntel) {
+        const tabs = tabBar.querySelectorAll('.modal-tab');
+        tabs[0].classList.add('hidden'); tabs[1].classList.add('hidden');
+        tabs[2].innerText = '📌 重要事件';
+      }
       // 只顯示玩家「知道的」陣營狀況（親眼所見、同盟、聯絡、打聽到），不是幕後真相
       const intel = currentState.factionIntel || {};
       const head = document.createElement('div');
@@ -3024,7 +3038,7 @@
       }
 
       const defs = Array.isArray(currentState.routeDefs) ? currentState.routeDefs : [];
-      if (defs.length > 0) {
+      if (defs.length > 0 && !sandboxIntel) {
         const tend = currentState.routeTendency || {};
         const active = defs.find(d => d.key === currentState.activeRoute);
         const routeBox = document.createElement('div');
@@ -3050,8 +3064,10 @@
           : '<div style="font-size:12.5px; color: var(--text-muted);">目前還沒有記錄的重要事件。</div>');
       paneR.appendChild(evBox);
       // 打開時停在上次看的分頁
-      const startTab = ['f', 't', 'r'].includes(window.__intelTab) ? window.__intelTab : 'f';
+      const startTab = sandboxIntel ? 'r' : (['f', 't', 'r'].includes(window.__intelTab) ? window.__intelTab : 'f');
+      const keepTab = window.__intelTab;
       tabBar.querySelectorAll('.modal-tab')[['f', 't', 'r'].indexOf(startTab)].click();
+      if (sandboxIntel) window.__intelTab = keepTab; // 不要把聖杯戰爭那邊記住的分頁蓋掉
       document.getElementById('factions-modal').classList.remove('hidden');
     }
 

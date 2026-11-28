@@ -9,7 +9,7 @@ const src = ['GameData.js', 'Lore.js', 'Code.js'].map(f => fs.readFileSync(path.
 const ctx = { console, SpreadsheetApp: { getActiveSpreadsheet: () => ({}) } };
 vm.createContext(ctx);
 vm.runInContext(src + `
-;this.T = { isAloneAction_, sanitizeSandboxChar_, updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
+;this.T = { detectTimeMismatch_, isAloneAction_, sanitizeSandboxChar_, updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
   formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_, rollWeather_, applyWeatherTags_, normalizeWeather_, indoorWeatherFix_, closeUmbrellaIndoors_, focusGestureExcerpt_, isSleepAction_, clipText_, isItemReferenced_, normalizeOutcome_, hasContractIntent_, isFactionInvolved_, isOtherPersonRest_, mentionsRetired_, revealHiddenStatus_, deathExcerpt_, detectMissingItems_, isSelfInflictedDeath_, deathCgStatus_, isToneLocked_, sanitizeGuestChars_, displayNameOf_, slotModeOf_ };`, ctx);
@@ -511,6 +511,11 @@ eq('原本不是同盟 → 不動', T.preserveAllianceTag_('存活 (中立)', '�
 
 // 沙盒：一個人行動時同行者不跟；自創角色清理
 {
+  eq('清晨看夕陽 → 時間不符', T.detectTimeMismatch_('一個人走去冬木大橋看夕陽', '清晨'), '夕陽');
+  eq('黃昏看夕陽 → 沒問題', T.detectTimeMismatch_('去大橋看夕陽', '黃昏'), '');
+  eq('約明天早上 → 不算', T.detectTimeMismatch_('約凜明天早上去買菜', '深夜'), '');
+  eq('晚安不算深夜字眼', T.detectTimeMismatch_('晚安，回家睡覺', '白天'), '');
+  eq('白天看夜景 → 時間不符', T.detectTimeMismatch_('去新都眺望夜景', '白天'), '夜景');
   eq('一個人去 → 單獨行動', T.isAloneAction_('一個人走去冬木大橋看夕陽'), true);
   eq('獨自 → 單獨行動', T.isAloneAction_('獨自去教會'), true);
   eq('和凜一起 → 不是單獨', T.isAloneAction_('和凜一起去商店街'), false);
