@@ -4041,11 +4041,14 @@ function processFateTurnTextOnly(params) {
       : [{ id: updatedStatus.servant1.id, use_np: false, action_en: 'standing, focused expression' }];
 
     if (outcome === 'FATAL_DEATH') {
-      presentList = [
-        { id: 'player_master', use_np: false, action_en: 'crying, reaching out hand, bittersweet smile' },
-        { id: updatedStatus.servant1.id, use_np: false, action_en: 'reaching out hand, solemn expression' }
-      ];
-      turnJson.scene_env_en = 'corrupted grail black mud, dark shadow tentacles, ethereal golden light, surreal dreamscape, tragic atmosphere, dramatic lighting';
+      // 死亡回合只有一張 CG：畫死亡那一刻（御主倒下＋兇手），不畫結尾的虛假美夢
+      // （以前寫死成「御主哭著伸手＋自己的從者」，兇手不在畫面、第一人稱還會畫成空廢墟）
+      const aiList = Array.isArray(turnJson.present_chars) ? turnJson.present_chars : [];
+      const own = new Set([updatedStatus.servant1.id, updatedStatus.servant2.id].filter(Boolean));
+      const killers = aiList.filter(c => c && c.id && c.id !== 'player_master' && !own.has(c.id)).slice(0, 2).map(c => Object.assign({}, c, { use_np: false }));
+      const ownNear = aiList.filter(c => c && own.has(c.id)).slice(0, killers.length >= 2 ? 0 : 1).map(c => ({ id: c.id, use_np: false, action_en: 'reaching out desperately, anguished expression, too late' }));
+      presentList = [{ id: 'player_master', use_np: false, action_en: 'collapsed on the ground, dying, blood, half-closed eyes, reaching out weakly' }, ...killers, ...ownNear];
+      turnJson.scene_env_en = `${String(turnJson.scene_env_en || '').replace(/dreamscape|surreal|golden light/gi, '')}, dark red sky, black mud creeping on the ground, despair, tragic atmosphere, dramatic lighting`;
     } else if (outcome === 'TRUE_VICTORY') {
       turnJson.scene_env_en = 'golden greater grail in night sky, dawn sunlight piercing clouds, triumphant atmosphere, floating light particles, wide shot';
     }
@@ -4053,7 +4056,7 @@ function processFateTurnTextOnly(params) {
     presentList = ensureMasterPresentInList_(presentList, isCombatTurn);
 
     const imgPayload = buildNaiPayloadFromScene_(
-      Object.assign({}, updatedStatus, { weather: storyWeather }),
+      Object.assign({}, updatedStatus, { weather: storyWeather }, outcome === 'FATAL_DEATH' ? { cameraMode: 'third', _death: true } : {}),
       presentList,
       turnJson.scene_env_en || 'fuyuki city, night, dramatic lighting',
       isCombatTurn,
@@ -4238,6 +4241,19 @@ function focusGestureExcerpt_(storyText, userAction, isCombat) {
   return t;
 }
 
+// 死亡回合：劇情結尾常接一段「大聖杯編織的虛假美夢」，導演只看結尾就會畫夢境或空廢墟 → 截在美夢之前
+function deathExcerpt_(storyText) {
+  const paras = String(storyText || '').replace(/【[^】]*】[^\n]*/g, '').replace(/🐯[\s\S]*$/, '').split(/\n+/).map(p => p.trim()).filter(Boolean);
+  const dreamRe = /夢|幻影|幻覺|虛假|美好的|願望.{0,6}實現|聖杯.{0,6}(實現|賜予|低語)|意識.{0,4}(消散|消逝|沉入)/;
+  const cut = paras.findIndex((p, i) => i > 0 && dreamRe.test(p));
+  if (cut <= 0) return paras.join('\n');
+  // 同一段裡死亡瞬間和美夢常寫在一起：只切掉提到夢的那一句以後
+  const sentences = paras[cut].split(/(?<=[。！？])/);
+  const si = sentences.findIndex(x => dreamRe.test(x));
+  const head = si > 0 ? sentences.slice(0, si).join('') : '';
+  return paras.slice(0, cut).concat(head ? [head] : []).join('\n');
+}
+
 function excerptForDirector_(storyText) {
   const t = String(storyText || '').replace(/【時段推進[\s\S]*$/, '').trim();
   if (t.length <= 1600) return t;
@@ -4314,6 +4330,7 @@ function translateSceneToNaiV5_(directorCtx) {
   ].join('\n');
 
   const userMsg = [
+    directorCtx.isDeath ? 'FATAL DEATH SCENE (CRITICAL): depict the exact moment the player master dies — the player master clearly visible, collapsed on the ground or falling, blood, half-closed eyes, reaching out weakly; the killer (if present) looming over or striking; dark red sky and black mud. Third-person camera. NOT a dream, NOT empty scenery, NOT a peaceful moment. Any present ally of the player looks anguished and too late — never calm or smiling.' : '',
     `Location & Time: ${directorCtx.location} (${directorCtx.timePeriod})`,
     directorCtx.weather && directorCtx.weather !== '晴' ? `Weather: ${WEATHER_TYPES_[normalizeWeather_(directorCtx.weather)].tags} (show it only if the scene is outdoors or a window is visible)` : '',
     directorCtx.locationDesc ? `Current Site Appearance/Modifications: ${directorCtx.locationDesc}` : '',
@@ -4387,7 +4404,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     // 玩家這回合跟人有肢體接觸（牽手、擁抱、親吻…）時御主要留在畫面，否則牽手會變成跟別人牽（實測斯卡哈牽著慎二）
     const masterTouching = /牽|抱|吻|親|摸|握|靠|依偎|膝枕|撒嬌|挽|摟|貼|掏耳|耳朵|躺|枕|餵|按摩|揉|梳頭|梳髮|擦|背我|揹/.test(String(userAction || ''));
     const rank = c => (own.has(c.id) ? 0 : (c.id === 'player_master' ? 0.5 : (c.use_np ? 1 : 2)));
-    validChars = validChars.filter(c => masterTouching || c.id !== 'player_master')
+    validChars = validChars.filter(c => masterTouching || statusObj._death || c.id !== 'player_master')
       .map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i).map(x => x.c);
   }
   validChars = validChars.slice(0, MAX_CG_CHARS);
@@ -4507,11 +4524,12 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
       timePeriod: statusObj.timePeriod || '',
       weather: normalizeWeather_(statusObj.weather),
       isCombat: Boolean(isCombat || anyNpActive),
+      isDeath: Boolean(statusObj._death),
       adultMode: adultMode,
       cameraMode: povMode ? 'pov' : 'third',
       atHomeBase: statusObj.locationKey === '廢棄洋館',
       userAction: String(userAction || ''),
-      storyText: String(storyText || ''),
+      storyText: statusObj._death ? deathExcerpt_(storyText) : String(storyText || ''),
       chars: validChars.map((c, idx) => {
         const dbInfo = charDb[c.id] || {};
         const refOutfit = String((statusObj.outfits && statusObj.outfits[c.id]) || dbInfo.defaultOutfit || '').trim();
