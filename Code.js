@@ -2978,7 +2978,7 @@ function completeCreationTextOnly(params) {
       'You are the Game Master of a slice-of-life sandbox set in Fuyuki City (Fate/stay night world, early February 2004). There is NO Holy Grail War in this sandbox and the player has NO Servant yet.',
       'FORMATTING RULE: Separate `story` into 3 distinct paragraphs using `\\n\\n`; prefix every dialogue line (`「...」`) with the speaker name on its own line.',
       'Output strictly valid JSON with keys:',
-      '- "story": Traditional Chinese opening (180-260 words): the player starts a peaceful day-to-day life in Fuyuki late at night (their base is an old western-style mansion), reflecting their wish/goal. No summoning, no battle, no Servant.',
+      '- "story": Traditional Chinese opening (180-260 words): the player wakes up on a peaceful early morning in Fuyuki and starts their day-to-day life (their base is an old western-style mansion), reflecting their wish/goal. No summoning, no battle, no Servant.',
       '- "master_action_en": Concise English pose & expression tags for the player (NO hair/eyes/clothes).',
       '- "scene_env_en": Concise English background/lighting tags ONLY.'
     ].join('\n');
@@ -3009,8 +3009,11 @@ function completeCreationTextOnly(params) {
     row[22] = customServant ? customServantParamsText_(customServant.stats) : (summonData.servant_params || '筋力:A 耐久:B 敏捷:A 魔力:B 幸運:C 寶具:A+');
     row[30] = `第1夜，出身「${originName}」的御主「${displayNameOf_(cleanName)}」懷抱願望【${wishText}】，以獨立第8組身分召喚了【${row[18]}・${row[19]}】參戰。`;
     if (sandboxStart) {
+      row[7] = '清晨';
+      newMeta.warTicker = '';
+      newMeta.phoneState = { forumPosts: [], smsThreads: {}, unreadCount: 0 };
       row[17] = ''; row[18] = ''; row[19] = ''; row[22] = '';
-      row[30] = `第1夜，「${displayNameOf_(cleanName)}」懷著【${wishText}】的心願，在冬木市展開日常生活。`;
+      row[30] = `第1天清晨，「${displayNameOf_(cleanName)}」懷著【${wishText}】的心願，在冬木市展開日常生活。`;
     }
 
     newMeta.turnCount = 1;
@@ -3033,7 +3036,7 @@ function completeCreationTextOnly(params) {
       1
     );
 
-    appendPlayerChatLog_(ss, cleanName, 1, `Day 1・深夜 (${statusObj.location})`, sandboxStart ? '【展開日常】' : '【啟動英靈召喚儀式】', formattedStory, ['player_master', statusObj.servant1.id].filter(Boolean).join(', '), JSON.stringify(imgPayload), '');
+    appendPlayerChatLog_(ss, cleanName, 1, `Day 1・${row[7]} (${statusObj.location})`, sandboxStart ? '【展開日常】' : '【啟動英靈召喚儀式】', formattedStory, ['player_master', statusObj.servant1.id].filter(Boolean).join(', '), JSON.stringify(imgPayload), '');
 
     return {
       status: statusObj,
@@ -3487,7 +3490,7 @@ function processFateTurnTextOnly(params) {
       : '（尚無）';
 
     const smsContactKeys = Object.keys((metaBefore.smsContacts && typeof metaBefore.smsContacts === 'object') ? metaBefore.smsContacts : {});
-    const phoneBridgeHints = [
+    const phoneBridgeHints = isSandboxMode ? (metaBefore.pendingSmsNote ? `【簡訊】${metaBefore.pendingSmsNote}` : '') : [
       metaBefore.pendingSmsNote ? `【簡訊通訊連動】${metaBefore.pendingSmsNote}（請讓簡訊的內容與對方反應實際體現在本回合劇情與陣營狀態中：同盟會配合支援；被騙的陣營會依假情報行動，識破的陣營會提高戒心甚至報復）` : '',
       describeRumorsForPrompt_(metaBefore.rumors),
       `【玩家手機通訊錄】可傳簡訊的非同盟陣營：${smsContactKeys.join('、') || '無'}（劇情中玩家與某陣營交換手機號碼或取得聯絡方式時，把該陣營名稱填入 new_contacts）`,
@@ -3535,38 +3538,41 @@ function processFateTurnTextOnly(params) {
 
     const turnSettingsBlock = [
       rankCheckHint,
-      `【主從者好感】${statusObj.bondLevel}/100${statusObj.bondLevel <= 10 && toneKey !== 'COMEDY_CHAOS' && toneKey !== 'STORY_PLAYER_FIRST' ? '（主從關係緊張：從者可能拒絕危險或荒唐的命令，令咒可以強制但會再扣好感；好感歸零還一直惹她會解約離去）' : ''}${statusObj.bondLevel <= 0 && Number(metaBefore.bondZeroStreak) >= 2 && statusObj.servant1.id && (toneKey === 'BALANCED' || toneKey === 'HARDCORE_WAR') ? `【最後一次機會】${statusObj.servant1.name || '從者'}的忍耐已到極限：本回合玩家若又讓她不快（bond_delta < 0），她會當場解除契約離去，劇情必須寫出她離開的場面；玩家真誠道歉或好好相處（bond_delta ≥ 0）她才會留下。` : ''}。bond_delta 每回合 ±10 內，依從者在意的事判斷：平常的相處與對話 0～+3，真正打動她的事（真誠道歉、並肩死戰、說中她的心事、重要承諾）才 +5～+10；惹她不快就扣分`,
+      (isSandboxMode && !statusObj.servant1.id) ? '' : `【主從者好感】${statusObj.bondLevel}/100${statusObj.bondLevel <= 10 && toneKey !== 'COMEDY_CHAOS' && toneKey !== 'STORY_PLAYER_FIRST' ? '（主從關係緊張：從者可能拒絕危險或荒唐的命令，令咒可以強制但會再扣好感；好感歸零還一直惹她會解約離去）' : ''}${statusObj.bondLevel <= 0 && Number(metaBefore.bondZeroStreak) >= 2 && statusObj.servant1.id && (toneKey === 'BALANCED' || toneKey === 'HARDCORE_WAR') ? `【最後一次機會】${statusObj.servant1.name || '從者'}的忍耐已到極限：本回合玩家若又讓她不快（bond_delta < 0），她會當場解除契約離去，劇情必須寫出她離開的場面；玩家真誠道歉或好好相處（bond_delta ≥ 0）她才會留下。` : ''}。bond_delta 每回合 ±10 內，依從者在意的事判斷：平常的相處與對話 0～+3，真正打動她的事（真誠道歉、並肩死戰、說中她的心事、重要承諾）才 +5～+10；惹她不快就扣分`,
       inventoryRuleHint,
-      !statusObj.servant1.id
+      isSandboxMode ? '' : !statusObj.servant1.id
         ? '【失去從者】御主目前沒有從者，非常危險。若劇情中與失去御主的從者達成協議，可填 `new_servant2_id` 締結新契約（成為主從者）。'
         : (canFormSecondContract ? `【副契約】條件已滿足：若劇情中合理收服敵方英靈，可填 \`new_servant2_id\`${statusObj.servant2.id ? '（副從者位置已滿，新收服的會進英靈名冊、回洋館待命）' : ''}。` : '【副契約】目前條件不足，不可新增副從者。'),
-      describeRosterForPrompt_(swapId ? rosterBefore.filter(r => r.id !== swapId).concat(row[23] ? [{ id: String(row[23]), name: String(row[25]), condition: String(metaBefore.servant2Condition || '靈基穩定') }] : []) : rosterBefore),
+      isSandboxMode ? '' : describeRosterForPrompt_(swapId ? rosterBefore.filter(r => r.id !== swapId).concat(row[23] ? [{ id: String(row[23]), name: String(row[25]), condition: String(metaBefore.servant2Condition || '靈基穩定') }] : []) : rosterBefore),
       worldEventHint,
       phoneBridgeHints,
       `【冬木市地標】\n${locCatalogText}`
     ].filter(Boolean).join('\n\n');
 
     const statePrompt = [
+      isSandboxMode ? '【日常故事模式（優先遵守）】本局是冬木市的日常生活故事：英靈與魔術師都以普通居民的身分在冬木生活，彼此沒有敵對、沒有任務。系統規則裡關於戰爭、陣營、情報、令咒、勝利條件的部分全部不適用；不要寫戰況、偵查、陣營、爆炸事件或魔力異常的伏筆，也不要在劇情裡解釋這個設定，直接照玩家的行動寫日常、互動與喜劇。論壇貼文寫市民的日常閒聊。' : '',
       missingItems.length ? `【物品檢查（優先遵守）】玩家提到「${missingItems.join('」「')}」，但他的背包和身上都沒有這東西。除非本回合劇情裡合理地先取得（買、撿、搶、借、偷），否則他手上根本沒有：寫他摸了個空、行動失敗，到此為止。不可以讓它憑空出現，也不可以替玩家改用別的方法去做同一件事。` : '',
       turnSettingsBlock,
-      `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | 天氣: ${describeWeatherForPrompt_(statusObj.weather)} | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}% | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
+      `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | 天氣: ${describeWeatherForPrompt_(statusObj.weather)}${isSandboxMode ? '' : ` | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}%`} | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
       `【當前場地現況】${statusObj.locationInfo.desc}`,
-      `【幕後戰況（只有 GM 知道；玩家與從者不知道哪些陣營交手、誰勝誰負，只能透過論壇目擊、使魔、聯絡或親自調查慢慢得知）】${statusObj.warTicker}`,
-      `【御主(${displayNameOf_(cleanName)})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
+      isSandboxMode ? '' : `【幕後戰況（只有 GM 知道；玩家與從者不知道哪些陣營交手、誰勝誰負，只能透過論壇目擊、使魔、聯絡或親自調查慢慢得知）】${statusObj.warTicker}`,
+      isSandboxMode
+        ? `【玩家(${displayNameOf_(cleanName)})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:住在冬木的居民（自由沙盒） | 出身:${statusObj.master.origin} | 心願:「${statusObj.master.wish}」 | 肉身狀態:${statusObj.master.condition}`
+        : `【御主(${displayNameOf_(cleanName)})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
       statusObj.servant1.id ? `【主從者】ID:${statusObj.servant1.id} (${statusObj.servant1.class}・${statusObj.servant1.name}) | 羈絆好感:${statusObj.bondLevel}/100 | 靈基狀態:${statusObj.servant1.condition}` : `【主從者】無${isSandboxMode ? '（自由沙盒：沒有契約從者）' : ''}`,
-      statusObj.servant2.id ? `【副從者】ID:${statusObj.servant2.id} (${statusObj.servant2.class}・${statusObj.servant2.name}) | 靈基狀態:${statusObj.servant2.condition || '靈基穩定'}` : '【副從者】無',
+      statusObj.servant2.id ? `【副從者】ID:${statusObj.servant2.id} (${statusObj.servant2.class}・${statusObj.servant2.name}) | 靈基狀態:${statusObj.servant2.condition || '靈基穩定'}` : (isSandboxMode ? '' : '【副從者】無'),
       `【相關角色目前穿著（未列出者為預設服裝）】${JSON.stringify(relevantOutfits)}`,
-      `【七組陣營狀態（幕後真相，推演前必先對照，同盟陣營須彼此照應；角色只知道自己見過或打聽到的部分）】${JSON.stringify(statusObj.factions)}`,
+      isSandboxMode ? '' : `【七組陣營狀態（幕後真相，推演前必先對照，同盟陣營須彼此照應；角色只知道自己見過或打聽到的部分）】${JSON.stringify(statusObj.factions)}`,
       describeWarStateForPrompt_(statusObj.factions, statusObj.master.mp, statusObj.master.maxMp, statusObj.gameMode),
-      describeIntelForPrompt_({ factionIntel: metaBefore.factionIntel || initFactionIntel_(statusObj.factions, true) }),
-      describeGodHandForPrompt_(metaBefore.godHand, statusObj.factions),
-      describeCompanionsForPrompt_(metaBefore),
+      isSandboxMode ? '' : describeIntelForPrompt_({ factionIntel: metaBefore.factionIntel || initFactionIntel_(statusObj.factions, true) }),
+      isSandboxMode ? '' : describeGodHandForPrompt_(metaBefore.godHand, statusObj.factions),
+      isSandboxMode ? '' : describeCompanionsForPrompt_(metaBefore),
       isSandboxMode ? describeSandboxCharsForPrompt_(metaBefore, userAction) : '',
       statusObj.gameMode === 'WAR' ? describeFavorForPrompt_(metaBefore, statusObj.factions) : '',
       statusObj.gameMode === 'WAR' ? describeAppointmentsForPrompt_(metaBefore, timeIndex_(statusObj.day, statusObj.timePeriod)) : '',
       describeCombatAssessForPrompt_(combatAssess),
-      describeFinalBossForPrompt_(metaBefore, statusObj.factions),
-      describeRyuudouRoute_(metaBefore),
+      isSandboxMode ? '' : describeFinalBossForPrompt_(metaBefore, statusObj.factions),
+      isSandboxMode ? '' : describeRyuudouRoute_(metaBefore),
       `【長期記憶前情提要】${statusObj.memorySummary}`,
       `【重要事件與伏筆清單（約定、結盟原因、恩怨、未解之謎；請保持連貫）】\n${keyEventsText}`,
       loreSnippets ? `【相關世界書設定】\n${loreSnippets}` : '',
@@ -3594,6 +3600,12 @@ function processFateTurnTextOnly(params) {
     }
     applyPendingSettingsToRow_(freshRow, params.pendingSettings);
     for (let ci = 0; ci < 32; ci++) row[ci] = freshRow[ci];
+    // 自由沙盒沒有聖杯戰爭：AI 順手寫的陣營、情報、好感、流言、路線、約定、契約一律不收
+    if (isSandboxMode && turnJson && typeof turnJson === 'object') {
+      ['faction_updates', 'intel_updates', 'faction_favor_delta', 'rumor_updates', 'route_tendency_delta', 'appointments_add', 'incoming_messages', 'new_contacts', 'new_servant2_id'].forEach(k => { delete turnJson[k]; });
+      turnJson.berserker_lives_lost = 0;
+      turnJson.command_spells_used = 0;
+    }
     const presentAliases = [];
     (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).forEach(c => {
       if (c && c.id && charDb[c.id] && c.id !== 'player_master') charDb[c.id].triggers.split(',').forEach(n => { if (n.trim().length >= 1) presentAliases.push(n.trim()); });
@@ -3800,6 +3812,26 @@ function processFateTurnTextOnly(params) {
       let newThreat = Number(row[9]) + (Number(turnJson.threat_delta) || 0);
       if (statusObj.timePeriod === '深夜' && statusObj.threatLevel >= 100) newThreat = 20;
       row[9] = Math.max(0, Math.min(100, newThreat));
+    } else {
+      // 自由沙盒：行動不受 AP 限制，但時間照樣流動（每累積 3 點行動推進一個時段；真的睡覺直接到下一個時段）
+      const slept = !turnJson.is_combat && turnJson.player_slept === true && isSleepAction_(userAction) && !isOtherPersonRest_(userAction);
+      let acc = (Number(meta.sandboxClock) || 0) + Math.max(0, Math.min(3, Number(turnJson.ap_cost) || 1));
+      if (slept || acc >= 3) {
+        acc = 0;
+        let nextTime = advanceTimePeriod_(Number(row[6]), String(row[7]));
+        // 上床睡覺就是隔天早上（午覺、小睡只推進一個時段）
+        if (slept && !/午覺|午睡|小睡|瞇|打盹|躺一下/.test(userAction)) {
+          while (nextTime.period !== '清晨') nextTime = advanceTimePeriod_(nextTime.day, nextTime.period);
+        }
+        row[6] = nextTime.day;
+        row[7] = nextTime.period;
+        const prevWeather = normalizeWeather_(meta.weather);
+        meta.weather = rollWeather_(prevWeather, nextTime.period);
+        const wInfo = WEATHER_TYPES_[meta.weather];
+        periodAdvancedNotice += `\n\n【時段推進】時間進入 Day ${nextTime.day}・${nextTime.period}（${wInfo.icon} ${meta.weather}${meta.weather !== prevWeather ? '，天氣變了' : ''}）。`;
+      }
+      meta.sandboxClock = acc;
+      meta.sandboxPartyPrev = sandboxPartyOf_(meta); // 下一回合用來比對玩家有沒有在「👥 同行」換人
     }
 
     // 令咒只在玩家本回合提到令咒、或訂下第二契約時才扣（2026-11 實測：上一回合用了令咒，下一回合只是撤退清點，AI 又回報用了一畫）
@@ -4103,7 +4135,7 @@ function processFateTurnTextOnly(params) {
     const nowIdx = timeIndex_(row[6], row[7]);
     const apptAdded = addAppointments_(meta, currentFactions, turnJson.appointments_add, nowIdx);
     const apptRes = resolveAppointments_(meta, currentFactions, nowIdx, resolvedLoc.key);
-    const compRes = updateCompanions_(meta, currentFactions, apptAdded.length ? userAction.replace(/一起|跟我|同行|聯手|會合/g, '') : userAction, nowIdx,
+    const compRes = isSandboxMode ? { joined: [], left: [] } : updateCompanions_(meta, currentFactions, apptAdded.length ? userAction.replace(/一起|跟我|同行|聯手|會合/g, '') : userAction, nowIdx,
       (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => String((c && c.id) || '')),
       apptRes.due.map(a => a.fk),
       // 只看收服來的（副從者與名冊）；開局召喚的主從者可能和其他陣營同一個英靈 ID，不能算
@@ -4118,7 +4150,7 @@ function processFateTurnTextOnly(params) {
           .replace(/(失去|擊破|死了)\s*\d+\s*條/g, `$1 ${meta.godHand.lost} 條`);
       });
     }
-    const intelChanges = updateFactionIntel_(meta, currentFactions, {
+    const intelChanges = isSandboxMode ? [] : updateFactionIntel_(meta, currentFactions, {
       presentIds: (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).map(c => String((c && c.id) || '')),
       contactFacs: incomingFrom.map(m => m.fk),
       aiIntel: (turnJson.intel_updates && typeof turnJson.intel_updates === 'object') ? turnJson.intel_updates : {},
@@ -4196,7 +4228,7 @@ function processFateTurnTextOnly(params) {
         listed.add(id);
         turnJson.present_chars = (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).concat([{ id: id, use_np: false, action_en: 'standing nearby' }]);
       };
-      sbParty.forEach(addPresent);
+      if (!isAloneAction_(userAction)) sbParty.forEach(addPresent);
       sbChars.forEach(c => { if (String(turnJson.story || '').indexOf(c.name) >= 0) addPresent(c.id); });
       const sbNames = sbChars.map(c => c.name);
       const guests = sanitizeGuestChars_(turnJson.guest_chars).filter(g => !sbNames.some(n => n === g.name || g.name.indexOf(n) >= 0 || n.indexOf(g.name) >= 0));
@@ -5594,16 +5626,30 @@ function sandboxMemberName_(meta, id) {
   return c ? String(c.names || id).split(',')[0].trim() : id;
 }
 
+// 玩家說要一個人行動：同行者這回合不跟
+function isAloneAction_(text) {
+  return /一個人|獨自|單獨|自己一個|隻身|獨行/.test(String(text || ''));
+}
+
 // 沒有同行、也沒提到自創角色時一個字都不加（使用者：沒同行就不用花）
 function describeSandboxCharsForPrompt_(meta, userAction) {
   const list = Array.isArray(meta && meta.sandboxChars) ? meta.sandboxChars : [];
   const party = sandboxPartyOf_(meta);
+  // 玩家在「👥 同行」換了人：告訴 AI 誰離開、誰加入（上一回合的同行存在 sandboxPartyPrev）
+  const prev = Array.isArray(meta && meta.sandboxPartyPrev) ? meta.sandboxPartyPrev : party;
+  const left = prev.filter(id => party.indexOf(id) < 0);
+  const joined = party.filter(id => prev.indexOf(id) < 0);
   const descOwn = c => `${c.name}（ID:${c.id}・玩家自創・${c.gender === 'boy' ? '男' : '女'}${c.relation ? '・' + c.relation : ''}${c.personality ? '・個性:' + c.personality : ''}）`;
   const desc = id => { const own = list.find(c => c.id === id); return own ? descOwn(own) : `${sandboxMemberName_(meta, id)}（ID:${id}・依原作個性）`; };
   const act = String(userAction || '');
+  const alone = isAloneAction_(act);
   const called = list.filter(c => party.indexOf(c.id) < 0 && act.indexOf(c.name) >= 0);
   const lines = [];
-  if (party.length) lines.push(`【同行中】${party.map(desc).join('、')}：正跟在玩家身邊，本回合一定在場（用這個 ID 填進 present_chars），依個性說話行動；不要放進 guest_chars。`);
+  if (left.length) lines.push(`【同行變動】${left.map(id => sandboxMemberName_(meta, id)).join('、')} 已經離開玩家身邊（各自回去了）：本回合不在場，不要寫她們還跟著，也不要填進 present_chars，除非玩家去找她們。`);
+  if (joined.length) lines.push(`【同行變動】${joined.map(id => sandboxMemberName_(meta, id)).join('、')} 剛來到玩家身邊會合：本回合開頭自然地寫她們登場。`);
+  if (party.length) lines.push(alone
+    ? `【同行中】${party.map(desc).join('、')}：玩家本回合說要一個人行動，她們這次不跟（留在原處或各自活動），不要寫她們在場、也不要填進 present_chars。`
+    : `【同行中】${party.map(desc).join('、')}：正跟在玩家身邊，本回合一定在場（用這個 ID 填進 present_chars），依個性說話行動；不要放進 guest_chars。`);
   if (called.length) lines.push(`【玩家提到的自創角色（目前不在身邊）】${called.map(descOwn).join('、')}：玩家去找或叫來時登場，用這個 ID 填進 present_chars（不要放進 guest_chars）。`);
   return lines.join('\n');
 }

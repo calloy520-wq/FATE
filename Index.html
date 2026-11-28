@@ -1901,7 +1901,7 @@
           lastDirectorPayload = res.imagePayload ? JSON.parse(JSON.stringify(res.imagePayload)) : null;
           document.getElementById('creation-screen').classList.add('hidden');
           initGameScreen([]);
-          appendNovelMessage('ai', res.story, `Day 1・深夜 (${currentState.location})`);
+          appendNovelMessage('ai', res.story, `Day 1・${currentState.timePeriod || '深夜'} (${currentState.location})`);
           playBgmMood('night');
           if (res.needImage) {
             triggerAsyncBgImage(res.imagePayload, false);
