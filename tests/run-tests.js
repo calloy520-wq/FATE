@@ -9,10 +9,10 @@ const src = ['GameData.js', 'Lore.js', 'Code.js'].map(f => fs.readFileSync(path.
 const ctx = { console, SpreadsheetApp: { getActiveSpreadsheet: () => ({}) } };
 vm.createContext(ctx);
 vm.runInContext(src + `
-;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
+;this.T = { isAloneAction_, sanitizeSandboxChar_, updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_, rollWeather_, applyWeatherTags_, normalizeWeather_, indoorWeatherFix_, closeUmbrellaIndoors_, focusGestureExcerpt_, isSleepAction_, clipText_, isItemReferenced_, normalizeOutcome_, hasContractIntent_, isFactionInvolved_, isOtherPersonRest_, mentionsRetired_, revealHiddenStatus_, deathExcerpt_, detectMissingItems_, isSelfInflictedDeath_, deathCgStatus_, isToneLocked_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_, rollWeather_, applyWeatherTags_, normalizeWeather_, indoorWeatherFix_, closeUmbrellaIndoors_, focusGestureExcerpt_, isSleepAction_, clipText_, isItemReferenced_, normalizeOutcome_, hasContractIntent_, isFactionInvolved_, isOtherPersonRest_, mentionsRetired_, revealHiddenStatus_, deathExcerpt_, detectMissingItems_, isSelfInflictedDeath_, deathCgStatus_, isToneLocked_, sanitizeGuestChars_, displayNameOf_, slotModeOf_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -341,6 +341,10 @@ eq('自殺 CG 的鏡頭：跟玩家設定、跳樓不畫御主', [T.deathCgStatu
 
 eq('難度鎖定判斷', [T.isToneLocked_({ toneLocked: true }), T.isToneLocked_({ toneLocked: false, turnCount: 9 }), T.isToneLocked_({ turnCount: 3 }), T.isToneLocked_({ turnCount: 0 })], [true, false, true, false]);
 
+eq('存檔欄位：沙盒另存一列、顯示時拿掉後綴', [T.displayNameOf_('克勞德・沙盒'), T.slotModeOf_('克勞德・沙盒'), T.slotModeOf_('克勞德')], ['克勞德', 'SANDBOX', 'WAR']);
+eq('客串角色清理：最多 2 位、只留英文、底線換空格、沒外貌沒標籤的丟掉', T.sanitizeGuestChars_([{ name: '初音未來', tag: 'hatsune_miku（初音）', gender: 'girl', look: 'aqua hair' }, { name: '空的' }, { name: 'X', tag: 'a' }, { name: 'Y', tag: 'b' }]).map(g => g.tag), ['hatsune miku', 'a']);
+eq('原創角色不可借用本作角色的標籤', T.sanitizeGuestChars_([{ name: '莉莉', tag: 'illyasviel_von_einzbern', look: 'pink hair, twintails' }]).map(g => [g.tag, g.look]), [['', 'pink hair, twintails']]);
+
 // ---- 天氣 ----
 eq('天氣不明 → 晴', T.normalizeWeather_('颱風'), '晴');
 eq('天氣有延續性', T.rollWeather_('雨', '白天', () => 0.1), '雨');
@@ -503,6 +507,17 @@ eq('原本不是同盟 → 不動', T.preserveAllianceTag_('存活 (中立)', '�
   eq('克勞德媽存檔：沒有好感 → 判定未化解', T.areAllRivalFactionsResolved_(F), false);
   eq('克勞德媽存檔：好感都 100 → 判定已化解', T.areAllRivalFactionsResolved_(F, favor), true);
   eq('好感高但狀態敵對 → 不算', T.areAllRivalFactionsResolved_({ a: '存活 (敵對)' }, { a: 100 }), false);
+}
+
+// 沙盒：一個人行動時同行者不跟；自創角色清理
+{
+  eq('一個人去 → 單獨行動', T.isAloneAction_('一個人走去冬木大橋看夕陽'), true);
+  eq('獨自 → 單獨行動', T.isAloneAction_('獨自去教會'), true);
+  eq('和凜一起 → 不是單獨', T.isAloneAction_('和凜一起去商店街'), false);
+  eq('自創角色名字去掉逗號', T.sanitizeSandboxChar_({ name: '莉,莉', core: 'girl' }, 'sbc_1').name, '莉莉');
+  let err = '';
+  try { T.sanitizeSandboxChar_({ name: '莉莉', core: '' }, 'sbc_1'); } catch (e) { err = e.message; }
+  eq('沒有外觀標籤不能存', /外觀/.test(err), true);
 }
 
 console.log(`\n${ok} passed, ${bad} failed`);
