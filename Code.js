@@ -3612,7 +3612,12 @@ function processFateTurnTextOnly(params) {
     (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).forEach(c => {
       if (c && c.id && charDb[c.id] && c.id !== 'player_master') charDb[c.id].triggers.split(',').forEach(n => { if (n.trim().length >= 1) presentAliases.push(n.trim()); });
     });
-    const speakerHints = Array.from(new Set([statusObj.servant1.name, statusObj.servant2.name, displayNameOf_(cleanName), '遠坂凜', '衛宮士郎', '間桐櫻', '言峰綺禮', '伊莉雅', '葛木宗一郎', '吉爾伽美什', '黑櫻', '黑Saber', '咒腕哈桑'].concat(presentAliases).filter(Boolean)));
+    const speakerHints = Array.from(new Set([statusObj.servant1.name, statusObj.servant2.name, displayNameOf_(cleanName), '遠坂凜', '衛宮士郎', '間桐櫻', '言峰綺禮', '伊莉雅', '葛木宗一郎', '吉爾伽美什', '黑櫻', '黑Saber', '咒腕哈桑'].concat(presentAliases)
+      // 沙盒：自創角色、同行的現有角色、客串角色也要能被認成說話者（實測莉莉的台詞被標成凜）
+      .concat(isSandboxMode ? (ACTIVE_SANDBOX_CHARS_ || []).map(c => c.name) : [])
+      .concat(isSandboxMode ? sandboxPartyOf_(metaBefore).map(id => sandboxMemberName_(metaBefore, id)) : [])
+      .concat(isSandboxMode && Array.isArray(turnJson.guest_chars) ? turnJson.guest_chars.map(g => String((g && g.name) || '').trim()).filter(n => n && n.length <= 8) : [])
+      .filter(Boolean)));
     let formattedStory = formatNovelStoryText_(turnJson.story, speakerHints, prevStoryText, displayNameOf_(cleanName));
 
     const meta = safeJsonParse_(row[31], {});
