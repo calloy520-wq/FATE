@@ -4098,20 +4098,24 @@ function processFateTurnTextOnly(params) {
       // 御主一死契約就斷了，updatedStatus 的從者已經是空的 → 用回合開始前的主從者
       const selfDeathServant = statusObj.servant1.id || updatedStatus.servant1.id;
       if (isSelfInflictedDeath_(userAction) && selfDeathServant) {
-        presentList = [
-          { id: selfDeathServant, use_np: false, action_en: 'standing frozen in place, utterly dumbfounded, shocked, wide-eyed, mouth agape, speechless, arms hanging limply at sides, sweatdrop, completely failed to react' },
-          { id: 'player_master', use_np: false, action_en: 'lying motionless on the ground in the foreground, face hidden' }
-        ];
+        // 跳樓、跳橋：人已經掉下去了，畫面不會有御主的身體
+        presentList = isJumpDeath_(userAction)
+          ? [{ id: selfDeathServant, use_np: false, action_en: `${SELF_DEATH_SERVANT_FACE_}, standing at the edge by the railing` }]
+          : [
+            { id: selfDeathServant, use_np: false, action_en: `${SELF_DEATH_SERVANT_FACE_}, standing frozen in place` },
+            { id: 'player_master', use_np: false, action_en: 'lying motionless on the ground in the foreground, face hidden' }
+          ];
       }
       turnJson.scene_env_en = `${String(turnJson.scene_env_en || '').replace(/dreamscape|surreal|golden light/gi, '')}, dark red sky, black mud creeping on the ground, despair, tragic atmosphere, dramatic lighting`;
     } else if (outcome === 'TRUE_VICTORY') {
       turnJson.scene_env_en = 'golden greater grail in night sky, dawn sunlight piercing clouds, triumphant atmosphere, floating light particles, wide shot';
     }
 
-    presentList = ensureMasterPresentInList_(presentList, isCombatTurn);
+    // 跳樓自殺：人已經掉下去了，不要再把御主補回畫面
+    if (!(outcome === 'FATAL_DEATH' && deathCgStatus_(statusObj, updatedStatus, userAction)._jumpDeath)) presentList = ensureMasterPresentInList_(presentList, isCombatTurn);
 
     const imgPayload = buildNaiPayloadFromScene_(
-      Object.assign({}, updatedStatus, { weather: storyWeather }, outcome === 'FATAL_DEATH' ? { cameraMode: 'third', _death: true, _selfDeath: isSelfInflictedDeath_(userAction) && Boolean(statusObj.servant1.id || updatedStatus.servant1.id) } : {}),
+      Object.assign({}, updatedStatus, { weather: storyWeather }, outcome === 'FATAL_DEATH' ? deathCgStatus_(statusObj, updatedStatus, userAction) : {}),
       presentList,
       turnJson.scene_env_en || 'fuyuki city, night, dramatic lighting',
       isCombatTurn,
@@ -4297,9 +4301,22 @@ function focusGestureExcerpt_(storyText, userAction, isCombat) {
 }
 
 // 死亡回合：系統提示詞已不要求寫死後的夢；萬一 AI 還是寫了夢境、幻覺，導演只看結尾會畫成夢境或空廢墟 → 截在夢之前（保險）
+// 玩家自己找死時從者的表情：冷酷、疑問、驚訝的複雜表情（使用者在 4 種寫法中選定，不要可愛的張嘴驚訝）
+const SELF_DEATH_SERVANT_FACE_ = 'wide-eyed, raised eyebrow, furrowed brow, slightly parted lips, confused, cold expression, frozen mid-gesture, one hand half raised';
 // 玩家自己找死：對自己開槍、自殺、跳樓、割腕、服毒…
 function isSelfInflictedDeath_(text) {
-  return /自殺|自盡|自刎|了結自己|對自己|朝自己|往自己|刺向自己|太陽穴|割腕|上吊|跳樓|跳下去|縱身躍下|咬舌|服毒|喝下毒|引爆自己|抹脖子/.test(String(text || ''));
+  const t = String(text || '');
+  if (/毒|安眠藥/.test(t) && /喝|吞|服|吃/.test(t)) return true; // 「把毒藥一口氣喝下去」
+  if (/(炸彈|炸藥|手榴彈)/.test(t) && /抱著|引爆|自爆|拉開/.test(t)) return true;
+  return /自殺|自盡|自刎|了結自己|對自己|朝自己|往自己|刺向自己|太陽穴|割腕|上吊|跳樓|跳橋|跳下去|縱身躍下|咬舌|引爆自己|抹脖子|臥軌|跳河/.test(t);
+}
+
+// 死亡回合的繪圖狀態：一般死亡一律第三人稱（看得到御主倒下）；自己找死時照玩家的鏡頭設定（第一人稱＝正面看著從者的錯愕臉）
+function isJumpDeath_(text) { return /跳樓|跳下|跳橋|跳河|躍下|縱身/.test(String(text || '')); }
+
+function deathCgStatus_(statusBefore, statusAfter, userAction) {
+  const selfDeath = isSelfInflictedDeath_(userAction) && Boolean((statusBefore.servant1 && statusBefore.servant1.id) || (statusAfter.servant1 && statusAfter.servant1.id));
+  return { _death: true, _selfDeath: selfDeath, _jumpDeath: selfDeath && isJumpDeath_(userAction), cameraMode: selfDeath && statusBefore.cameraMode === 'pov' ? 'pov' : 'third' };
 }
 
 function deathExcerpt_(storyText) {
@@ -4390,7 +4407,7 @@ function translateSceneToNaiV5_(directorCtx) {
   ].join('\n');
 
   const userMsg = [
-    directorCtx.isSelfDeath ? 'SELF-INFLICTED DEATH (dark comedy, CRITICAL): the player suddenly killed themself out of nowhere. The SERVANT is the subject: standing frozen in place, utterly dumbfounded — wide eyes, jaw dropped, speechless, arms hanging limply, a sweatdrop; she never saw this coming and cannot react. Frame her with "cowboy shot" or "upper body", face large and clear. The player master lies motionless on the ground in the foreground or at her feet, face hidden, no gore focus. Ignore the normal FATAL DEATH SCENE rule.' : '',
+    directorCtx.isSelfDeath ? `SELF-INFLICTED DEATH (dark comedy, CRITICAL): the player suddenly killed themself out of nowhere. The SERVANT is the subject: frozen in place with a cold, puzzled, shocked, complicated expression (${SELF_DEATH_SERVANT_FACE_}) — she never saw this coming; NOT a cute or cartoonish face, no open-mouthed scream, no sweatdrop. Frame her with "upper body" or "cowboy shot", face large and clear. ${directorCtx.isJumpDeath ? (directorCtx.cameraMode === 'pov' ? 'The player just jumped: first-person view falling away from her — shot from below, she leans over the railing above, looking down at viewer.' : 'The player already jumped off: no body in the frame; she stands alone at the railing edge, turned toward the camera.') : (directorCtx.cameraMode === 'pov' ? 'First-person: she stands in front of the viewer, looking at viewer.' : 'The player master lies motionless on the ground behind her, small in frame, face hidden, no gore focus.')} Ignore the normal FATAL DEATH SCENE rule.` : '',
     directorCtx.isDeath && !directorCtx.isSelfDeath ? 'FATAL DEATH SCENE (CRITICAL): depict the exact moment the player master dies — the player master clearly visible, collapsed on the ground or falling, blood, half-closed eyes, reaching out weakly; the killer (if present) looming over or striking; dark red sky and black mud. Third-person camera. NOT a dream, NOT empty scenery, NOT a peaceful moment. Any present ally of the player looks anguished and too late — never calm or smiling.' : '',
     `Location & Time: ${directorCtx.location} (${directorCtx.timePeriod})`,
     directorCtx.weather && directorCtx.weather !== '晴' ? `Weather: ${WEATHER_TYPES_[normalizeWeather_(directorCtx.weather)].tags} (show it only if the scene is outdoors or a window is visible)` : '',
@@ -4587,6 +4604,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
       isCombat: Boolean(isCombat || anyNpActive),
       isDeath: Boolean(statusObj._death),
       isSelfDeath: Boolean(statusObj._selfDeath),
+      isJumpDeath: Boolean(statusObj._jumpDeath),
       adultMode: adultMode,
       cameraMode: povMode ? 'pov' : 'third',
       atHomeBase: statusObj.locationKey === '廢棄洋館',
@@ -4948,11 +4966,20 @@ function generateTurnCgAsync(imgPayload) {
       if (working._directorContext && working._directorContext.isSelfDeath && Array.isArray(working.characters)) {
         working.characters = working.characters.map(ch => {
           if (ch.id === 'player_master') {
-            return Object.assign({}, ch, { prompt: removeTagsKeepWeights_(ch.prompt, t => /\b(foreground|close-up|holding|reaching|hand|eyes|face|looking|smile|smiling|grin)\b/i.test(t)) + ', lying face down on the floor, background, small in frame, face not visible' });
+            return Object.assign({}, ch, { prompt: removeTagsKeepWeights_(ch.prompt, t => /\b(foreground|close-up|holding|reaching|hand|eyes|face|looking|smile|smiling|grin)\b/i.test(t)) + ', lying face down on the floor behind her, face not visible, partially visible' });
           }
-          return Object.assign({}, ch, { prompt: removeTagsKeepWeights_(ch.prompt, t => /\b(background|anguish|tears|crying|reaching out|outstretched|sad)\b/i.test(t)) + ', foreground, dumbfounded, wide-eyed, jaw drop, open mouth, blank stare, frozen in place, arms at sides, sweatdrop' });
+          const pov = working.cameraMode === 'pov';
+          const jump = Boolean(working._directorContext.isJumpDeath);
+          const place = pov ? (jump ? 'leaning over the railing above, looking down at viewer' : 'looking at viewer') : (jump ? 'foreground, standing alone at the railing edge' : 'foreground');
+          return Object.assign({}, ch, {
+            prompt: removeTagsKeepWeights_(ch.prompt, t => /\b(background|anguish|tears|crying|reaching out|outstretched|sad|dumbfounded|jaw|open mouth|mouth agape|sweatdrop|blank stare|screaming|shouting|smile|smiling|grin|looking (down|away))\b/i.test(t)) + `, ${place}, ${SELF_DEATH_SERVANT_FACE_}`,
+            uc: [ch.uc, 'open mouth, jaw drop, sweatdrop, chibi, comedic, smile, tears, blush'].filter(Boolean).join(', ')
+          });
         });
-        working.prompt = working.prompt.replace(/\b(wide shot|full body|medium shot|cowboy shot)\b,?\s*/gi, '').replace(/^((?:\d+(?:girls?|boys?)|multiple characters|solo)(?:,\s*)?)+/i, m => `${m.replace(/,?\s*$/, '')}, upper body, `);
+        // 第一人稱：上半身看清楚她的臉；第三人稱：牛仔鏡頭才拍得到倒在她身後地上的御主
+        const jumpCg = Boolean(working._directorContext.isJumpDeath);
+        const frame = working.cameraMode === 'pov' ? (jumpCg ? 'upper body, from below, dutch angle' : 'upper body') : (jumpCg ? 'cowboy shot' : 'cowboy shot, from side');
+        working.prompt = working.prompt.replace(/\b(wide shot|full body|medium shot|cowboy shot|upper body|from behind|face focus|close-up)\b,?\s*/gi, '').replace(/^((?:\d+(?:girls?|boys?)|multiple characters|solo)(?:,\s*)?)+/i, m => `${m.replace(/,?\s*$/, '')}, ${frame}, `);
       }
       // 兩人對打或面對面：導演常把一人放前景背對鏡頭 → 加 from side，並刪掉「前景」字眼，讓兩人的臉都看得到
       const pairFacing = Array.isArray(working.characters) && working.characters.length === 2 && Array.isArray(directed.char_directions)
@@ -4971,7 +4998,8 @@ function generateTurnCgAsync(imgPayload) {
       }
       // 情緒高點（哭泣、流淚）：1～2 人時拉成上半身＋臉部特寫，不然全身鏡頭看不到眼淚（實測櫻哭著告白卻畫成站在客廳中間）
       const nNow = Array.isArray(working.characters) ? working.characters.length : 0;
-      if (nNow >= 1 && nNow <= 2 && Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && /\b(crying|tears|tearing up|sobbing|tearful|weeping)\b/i.test(String(d.action || '')))) {
+      const selfDeathCg = Boolean(working._directorContext && working._directorContext.isSelfDeath);
+      if (!selfDeathCg && nNow >= 1 && nNow <= 2 && Array.isArray(directed.char_directions) && directed.char_directions.some(d => d && /\b(crying|tears|tearing up|sobbing|tearful|weeping)\b/i.test(String(d.action || '')))) {
         // 鏡頭標籤放在人數標籤後面（越前面權重越高；放最後會被一大段場景描述蓋過）
         const rest = stripCountTags_(String(working.prompt).replace(/,?\s*\b(cowboy shot|medium shot|wide shot|full body|upper body|close-up)\b/gi, '')).replace(/^,\s*/, '');
         working.prompt = [working.countPrefix, 'upper body, face focus, streaming tears', rest].filter(Boolean).join(', ');
