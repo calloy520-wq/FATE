@@ -319,5 +319,8 @@ check('一般召喚不殘留自創英靈', nc2.status.customServant === null && 
 const ld = ctx.loadExistingGame('測試者');
 check('讀檔取得最近紀錄（最多 12 筆）', ld.logs.length === 12);
 
+const sysMsg = geminiRequests.find(r => Array.isArray(r.messages[0].content));
+check('長的系統規則標記成可快取（cache_control）', Boolean(sysMsg) && sysMsg.messages[0].content[0].cache_control.type === 'ephemeral' && sysMsg.messages[0].content[0].text.length >= 2000);
+
 console.log(`\n${fails === 0 ? '全部通過' : fails + ' 項失敗'}`);
 process.exit(fails ? 1 : 0);

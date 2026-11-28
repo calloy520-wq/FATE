@@ -134,6 +134,7 @@
 
 ## 使用的服務
 - 劇情：OpenRouter，模型 `google/gemini-3.1-flash-lite`。
+- 提示詞快取：`callOpenRouterChat_` 把 2000 字以上的系統提示詞包成 `[{ type: 'text', text, cache_control: { type: 'ephemeral' } }]`。Gemini 的自動快取時有時無（2026-11 實測 `cached_tokens` 常是 0），明確標記後每次穩定吃到約 4600 token 快取，輸入成本省約四成、每回合整體省約 15～20%（輸出的小說無法快取）。所以系統提示詞一定要保持固定，變動資料放 statePrompt。
 - 繪圖：NovelAI V5（`nai-diffusion-5-full`），由「視覺導演」先把中文劇情翻成英文 Danbooru 標籤再繪圖。
 
 ## 試算表分頁（只有兩個，欄位順序不可更動）
