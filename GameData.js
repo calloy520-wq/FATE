@@ -117,7 +117,7 @@ const FATE_CHARACTERS_ = [
     core: "mordred (fate), fate/apocrypha, blonde hair, ponytail, ahoge, green eyes",
     outfit: "silver and red armor, armored gauntlets, red cape",
     casual: "red jacket, tube top, short shorts",
-    uc: "blue dress, long hair", summonable: true },
+    uc: "blue dress, long hair, 1.3::helmet, full-face helmet, visor, covered face::", summonable: true },
   { id: "okita", names: "沖田總司,沖田", gender: "girl",
     core: "okita souji (fate), fate/grand order, blonde hair, ponytail, ahoge, teal eyes",
     outfit: "blue haori, white scarf, black kimono, japanese clothes, thighhighs",
