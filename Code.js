@@ -453,7 +453,9 @@ function autoAdaptSmartOutfit_(charId, currentOutfit, dbInfo, userAction, storyT
   if (charId !== 'player_master') {
     const casualOutfit = String((dbInfo && dbInfo.casualOutfit) || '').trim();
     const isCasualOrSleepwear = (casualOutfit && cur === casualOutfit) || /睡衣|家居|浴袍|圍裙|便服|居家服|睡覺|洗澡|\b(pajamas|sleepwear|bathrobe|apron|casual clothes|loungewear)\b/i.test(cur);
-    const isOutdoorCombatOrPatrol = Boolean(isCombat) || /交戰|戰鬥|迎戰|突襲|夜襲|巡邏|警戒|出擊|戰場|寶具|魔槍|聖劍/.test(combinedText) || (locKey && locKey !== '廢棄洋館');
+    // 人在據點且沒開戰時不看劇情字眼（實測劇情寫到斯卡哈「警戒」、提到魔槍，就在洋館廚房被換回戰鬥靈衣）
+    const atHomeCalm = locKey === '廢棄洋館' && !isCombat;
+    const isOutdoorCombatOrPatrol = !atHomeCalm && (Boolean(isCombat) || /交戰|戰鬥|迎戰|突襲|夜襲|巡邏|警戒|出擊|戰場|寶具|魔槍|聖劍/.test(combinedText) || (locKey && locKey !== '廢棄洋館'));
     if (isOutdoorCombatOrPatrol && isCasualOrSleepwear) {
       return defaultOutfit || cur;
     }
@@ -2680,6 +2682,7 @@ function completeCreationTextOnly(params) {
       warTicker: '第一夜深夜，冬木大橋方向隱約傳來各陣營試探的魔力火花。',
       factionIntel: initFactionIntel_(defaultFactions, false),
       bondLevel: 25,
+      cameraMode: 'third', // 新角色預設第三人稱（召喚那張才看得到御主）；既有存檔沒設定的維持第一人稱，不突然改變朋友們的畫面
       customServant: customServant,
       customLocationNotes: {},
       phoneState: {

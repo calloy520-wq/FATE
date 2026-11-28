@@ -175,6 +175,12 @@ const scaN = { defaultOutfit: 'scathach battle bodysuit', casualOutfit: 'white s
 eq('全裸：在據點沒穿衣 → 維持全裸', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '一起泡澡', '熱氣蒸騰', false, '廢棄洋館'), NUDE);
 eq('全裸：從者開戰 → 自動具現戰鬥裝', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '有人闖入', '', true, '廢棄洋館'), 'scathach battle bodysuit');
 eq('全裸：從者離開據點 → 戰鬥裝', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '出門', '', false, '新都'), 'scathach battle bodysuit');
+{
+  const scaDb = { defaultOutfit: 'purple bodysuit, thighhighs', casualOutfit: 'white sweater, black pantyhose' };
+  eq('在家沒開戰、劇情提到警戒魔槍 → 維持便服', T.autoAdaptSmartOutfit_('scathach', 'white sweater, black pantyhose', scaDb, '煮燉菜', '斯卡哈在陰影處保持警戒，魔槍靠在牆邊', false, '廢棄洋館'), 'white sweater, black pantyhose');
+  eq('在家開戰 → 換回戰鬥服', T.autoAdaptSmartOutfit_('scathach', 'white sweater, black pantyhose', scaDb, '迎戰', '', true, '廢棄洋館'), 'purple bodysuit, thighhighs');
+  eq('出門 → 換回戰鬥服', T.autoAdaptSmartOutfit_('scathach', 'white sweater, black pantyhose', scaDb, '出門', '', false, '新都'), 'purple bodysuit, thighhighs');
+}
 eq('全裸：從者穿上衣服 → 還原', T.autoAdaptSmartOutfit_('scathach', NUDE, scaN, '幫她穿上衣服', '', false, '廢棄洋館'), 'scathach battle bodysuit');
 eq('全裸：御主開戰也不會自動穿', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '迎戰', '', true, '新都'), NUDE);
 eq('全裸：御主劇情別人穿衣不算', T.autoAdaptSmartOutfit_('player_master', NUDE, { defaultOutfit: 'coat' }, '看著她', '斯卡哈穿上衣服', false, '廢棄洋館'), NUDE);

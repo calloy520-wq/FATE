@@ -72,10 +72,10 @@
 - 成人模式（`Players_Save` F 欄、設定視窗開關）**預設開啟**（新角色預設 TRUE；既有存檔已一次性設為 TRUE，記錄在指令碼屬性 `FATE_ADULT_DEFAULT_APPLIED`，不會再覆蓋玩家之後的選擇）。只有畫面有裸露時才加 `nsfw`，普通場面不加；關閉時不加。
 - 視覺導演取劇情「開頭＋結尾」摘錄，以結尾（最新畫面）為準；服裝欄不得含髮色、瞳色、體型。
 - **角色位置絕對不寫死**：`use_coords: false`、所有角色中心都是 0.5，由 NovelAI 自行構圖（AI's Choice）。導演只用文字描述位置關係（前景／背景、誰在誰身後、面向誰、遠近），不給座標或左右格位。
-- 第一人稱視角（設定開關，`meta.cameraMode` = `pov`／`third`，預設 third）：繪圖時移除 `player_master`、主提示詞加 `pov, first-person view`（沒有其他角色時加 `no humans, scenery`），導演改以「離鏡頭多近、是否看向鏡頭」描述，玩家用手做事時加 `pov hands`。**視野外的角色不畫**：導演回報 `in_view`，程式另用 `isOutOfPovView_` 檢查（寫了 behind viewer／out of frame 等就算看不到，over shoulder／leaning in 仍算看得到），被排除的角色會從角色欄位與場景描述（`removeCharacterMentions_`）移除，並以 `buildCountTags_` 重算人數。不會多生圖。
+- 第一人稱視角（設定開關，`meta.cameraMode` = `pov`／`third`；新角色召喚時寫入 `third`，舊存檔沒設定過的仍是 pov，刻意不改以免朋友們畫面突變）：繪圖時移除 `player_master`、主提示詞加 `pov, first-person view`（沒有其他角色時加 `no humans, scenery`），導演改以「離鏡頭多近、是否看向鏡頭」描述，玩家用手做事時加 `pov hands`。**視野外的角色不畫**：導演回報 `in_view`，程式另用 `isOutOfPovView_` 檢查（寫了 behind viewer／out of frame 等就算看不到，over shoulder／leaning in 仍算看得到），被排除的角色會從角色欄位與場景描述（`removeCharacterMentions_`）移除，並以 `buildCountTags_` 重算人數。不會多生圖。
 - 導演只畫劇情當下明確出現的道具、武器與魔術效果，不自動加角色招牌物品。
 - 畫面方向自動切換（`pickNaiSize_`）：畫面只有 1 個角色 → 直式 832×1216；2 人以上或純風景 → 橫式 1216×832（兩者像素量相同，都在免費範圍）。第一人稱濾掉視野外角色後會重新判斷。前端畫框依圖片比例切換（`.cg-viewport.portrait`，高度上限 78vh），圖片用 contain 不裁切。
-- 便服：`GameData.js` 的 `casual`（目前有斯卡哈、Saber、Rider）。本回合結束時人在據點（廢棄洋館）且沒開戰，就從戰鬥靈衣換成便服；離開據點或開戰換回。導演收到 `At Home Base`，只有在據點才能用便服；導演若把便服改回戰鬥服（`outfitSimilarity_` ≥ 0.5），程式會改回便服。武器只在戰鬥或解放寶具時才畫：系統提示詞要求非戰鬥時武器靈體化，非戰鬥場景的角色負面提示詞自動加入 `holding weapon, weapon, spear, polearm, sword`。
+- 便服：`GameData.js` 的 `casual`（目前有斯卡哈、Saber、Rider）。本回合結束時人在據點（廢棄洋館）且沒開戰，就從戰鬥靈衣換成便服（人在據點沒開戰時不看劇情字眼，避免「警戒」「魔槍」等字誤換回戰鬥服）；離開據點或開戰換回。導演收到 `At Home Base`，只有在據點才能用便服；導演若把便服改回戰鬥服（`outfitSimilarity_` ≥ 0.5），程式會改回便服。武器只在戰鬥或解放寶具時才畫：系統提示詞要求非戰鬥時武器靈體化，非戰鬥場景的角色負面提示詞自動加入 `holding weapon, weapon, spear, polearm, sword`。
 - 鏡頭規則（FRAMING，2026-11 八場景實測後加入）：臉是核心，導演選「能容下所有人的最近鏡頭」——1 人 cowboy shot／upper body（單人寶具 cowboy shot, from below），2～3 人 medium shot，wide shot 只限 4 人以上、兩方遠距離對戰或純風景；浪漫場景 upper body／close-up；鐵絲網、玻璃、人群不可擋在臉前面。實測 8 張有 4 張原本是遠景小人，改後都變成半身清楚。
 - 導演文字的程式修正（`generateTurnCgAsync` 合併導演結果後）：
   - `refineFramingTags_`：medium shot 不是 Danbooru 標籤，1～2 人時換成 `cowboy shot`（實測小次郎從遠景小人變半身、戰鬥時臉也清楚）。
