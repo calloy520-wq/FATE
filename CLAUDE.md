@@ -21,7 +21,7 @@
 - 較大的改動：先開分支與使用者確認，再合併到 `main`。
 - **部署要省著用**：每次部署都會在 GAS 產生一個新版本，一個專案最多 200 個版本，用完就無法部署（要到 GAS 編輯器「專案記錄」手動刪舊版本）。所以改動一律先累積在工作分支，**只有使用者明確說「上線」才合併到 `main`**，盡量一次合併一大批。
 - **不得偷偷改動**：所有改動都要先告訴使用者改了什麼；不可夾帶使用者不知道的改動；使用者說不上線就不合併到 `main`。如果某個要求碰到 AI 不願意做的界線，要當面說明，不可表面答應、私下加限制。
-- **尚未同意上線的改動**：全裸把關（`NO_NUDE_CHAR_IDS_`、`sanitizeNudeOutfitForChar_`）目前只在工作分支，使用者**尚未同意上線**；部署時必須逐筆挑選 commit，不得包含這筆改動，除非使用者明確同意。部署前要檢查推上去的 `Code.js` 不含這兩個名稱並回報。
+- **尚未同意上線的改動**：全裸把關（`NO_NUDE_CHAR_IDS_`、`sanitizeNudeOutfitForChar_`）目前只在工作分支，使用者**尚未同意上線**；部署時必須逐筆挑選 commit，不得包含這筆改動，除非使用者明確同意。部署前要檢查推上去的 `Code.js` 不含這兩個名稱並回報。做法：以 `origin/main` 建暫存分支 → `git checkout <工作分支> -- .` → `python3 tools/strip-nude-guard.py .`（精確拿掉把關的定義、呼叫、測試與說明段落）→ grep 確認 0 次、跑全部測試 → 推上 main。逐筆 cherry-pick 會一直和把關的測試衝突，不要用。若程式改動讓腳本的比對字串失效，腳本會 assert 失敗，要先修腳本。`tools/` 不在 `.claspignore` 白名單內，不會被推上 GAS。
 - 無法查看 Actions 執行結果時，請使用者到 Actions 頁面確認綠勾或紅叉。
 
 ## 絕對不要做
@@ -82,13 +82,15 @@
   - `refineGazeAction_`：「looking away from the viewer」裡的 viewer 反而讓角色看鏡頭 → 改成 `looking away, looking to the side`；視線不看鏡頭時該角色負面加 `looking at viewer`。
   - 擁抱／親吻（`isRomanticInteraction_`）：主提示詞改成 upper body 並去掉 medium／wide shot（`refineRomanceFraming_`）；`mutual#embrace` 換成 Danbooru 的 `mutual#hug`。
   - 第一人稱：畫面裡沒有對象，去掉 source#／target#／mutual# 前綴；有 `incoming kiss` 時主提示詞加 `incoming kiss, face focus`，角色加 `closed eyes, puckered lips` 並去掉微笑、半睜眼、看鏡頭。
-  - 親密動作補 Danbooru 標籤（`INTIMACY_TAGS_`、`detectIntimacyTags_`，加在主提示詞）：從背後抱 `hug from behind`、親臉頰 `kissing cheek`（不用 incoming kiss，也不加嘟唇）、膝枕 `lap pillow`、摸頭 `headpat`、額頭相抵 `forehead-to-forehead`、牽手 `holding hands`、擁抱 `hug`。第一人稱另換構圖：膝枕 `lap pillow, pov, from below, looking down at viewer, close-up, face focus, ceiling`（躺在腿上往上看）；摸頭 `headpat pov, from below, reaching towards viewer`；擁抱 `incoming hug`；親臉頰改成她從側面湊近閉眼。實測都比自然語言描述準。
+  - 親密動作補 Danbooru 標籤（`INTIMACY_TAGS_`、`detectIntimacyTags_`，加在主提示詞）：從背後抱 `hug from behind`、親臉頰 `kissing cheek`（不用 incoming kiss，也不加嘟唇）、膝枕 `lap pillow`、摸頭 `headpat`、額頭相抵 `forehead-to-forehead`、牽手 `holding hands`、擁抱 `hug`。第一人稱另換構圖：膝枕 `LAP_POV_TAGS_`（`lap pillow, pov, lying, from below, looking down at viewer, 0.8::thighs::, face focus, ceiling, close-up`（大腿 1.0 偶爾膝蓋頂到鏡頭前，0.8 較穩）；只有膝枕沒有掏耳朵時負面加 `mimikaki, ear pick`（NovelAI 看到膝枕常自己補耳挖）；日文標籤「膝枕」「見上げる」實測沒有差別，NovelAI 只認英文 Danbooru 標籤；第三人稱膝枕用 `LAP_3RD_TAGS_`（`lap pillow, from above, close-up, upper body, face focus`，使用者在 3 種鏡頭中選了從上往下近景；兩人畫面一般不用 face focus，但膝枕這組 6 張實測都正常）；原本有 breasts，因為這組標籤會套用到所有角色（含孩童外觀角色）而拿掉，比對顯示有無差異很小；比對 12 種寫法：大腿降權到 0.6 時膝枕感消失、只像她低頭看你，upside-down 無效；同一個 seed 構圖大致固定，標籤只能微調）；摸頭 `headpat pov, from below, reaching towards viewer`；擁抱 `incoming hug`；親臉頰改成她從側面湊近閉眼。實測都比自然語言描述準。
   - 情緒高點（哭泣、流淚，1～2 人）：主提示詞人數標籤後面直接放 `upper body, face focus, streaming tears`（鏡頭標籤越前面權重越高）。
   - **重要發現**：角色服裝欄位加權寫了長裙、褲襪、靴子、高跟鞋時，NovelAI 會為了畫出它們把鏡頭拉成全身，導演寫上半身也沒用。`stripLowerBodyForCloseUp_`：鏡頭是 upper body／close-up／portrait／face focus 時拿掉下半身衣物標籤；cowboy shot 時只拿掉鞋類（`FOOTWEAR_RE_`）。實測櫻哭泣從全身變成淚眼特寫、Rider 不再每張都全身。
   - 兩人對打或面對面（2 人、互動含 clash／confront／duel／facing each other）：主提示詞加 `from side`、刪掉角色欄位的 foreground，避免一人站前景背對鏡頭（實測 Saber 背影 → 三次都是側面對峙、雙方臉都看得到）。導演規則也禁止無故背對鏡頭。
   - 權重檢查（2026-11）：服裝整段 1.15 權重保留（拿掉後士郎的圍裙會消失），拉成全身的問題改用特寫時刪下半身標籤解決；多人髮色 1.25、Archer／小次郎／哈桑角色名 1.2、Rider 眼睛與眼罩負面、黑 Saber 頭盔負面都是修正用，保留。
   - 接吻容錯：第一人稱只要角色欄位出現 kiss／kissing（導演常寫 kissing viewer）就補 `incoming kiss`；第三人稱接吻主提示詞人數後面放 `upper body, kiss, faces close together`，刪掉含 silhouette（剪影）的片段，並刪掉角色欄位的站位／腳部字眼（standing、tiptoes、foreground、in front of…，加權的服裝段不動）——close-up 加上站位字眼曾畫出一人特寫、一人站在遠處背景的怪圖，改後 4 個 seed 都正常。**兩人畫面不可用 face focus**（實測會畫出一張巨臉加一個小全身人）；face focus 只給單人。
   - 單人解放寶具（1 人且有 npBoost、非第一人稱）：主提示詞人數後面固定 `cowboy shot, from below, dynamic pose`，刪 wide／full body，並刪角色欄位的 feet、legs apart、center 等全身字眼（實測貞德、黑貞德原本是遠處小人）。
+  - 掏耳朵：`mimikaki, holding ear pick`；第一人稱用 `MIMIKAKI_POV_TAGS_`（掏耳朵標籤＋同一組膝枕仰角）。2026-11 正式版實測 14 位女性角色膝枕＋掏耳朵都成功（伊莉雅兩版、小黑、美遊是孩童外觀，這類親密測試不做）。
+  - **負面排除的東西不能出現在該角色自己的服裝與動作裡**（`stripActionTermsInUc_`，用 `removeTagsKeepWeights_` 保住權重語法）：劇情照原作寫 Rider「被眼罩覆蓋的雙眼」，導演把 blindfold 寫進加權 1.15 的服裝，比負面 1.4 還強，就畫出眼罩。現在組 payload 與導演合併時都會刪掉。也順便涵蓋日常場景的武器、別過頭時的 looking at viewer。
   - 黃昏：`addNightFillLight_` 把 orange-hued lighting 換成 warm lighting，並加 `natural skin tone, soft lighting`（避免整張連人物都變橘）。
 - 只有 1 個角色時程式一律改直式（導演選橫式也會被蓋掉）；橫式會把單人畫成小點。
 - 畫面方向由導演決定（`orientation`）：1 人或兩人貼身互動 → 直式；戰鬥、廣角、3 人以上、兩人有距離 → 橫式。導演沒回報時用 `pickNaiSize_`（1 人直式、其他橫式）。點擊 CG 會全螢幕放大（`openCgLightbox`），點擊或 Esc 關閉。

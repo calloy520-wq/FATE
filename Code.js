@@ -4165,7 +4165,8 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     const normCore = normalizeCharCoreForNai_(profile.core, profile.gender);
     const core = nudeMode ? stripClothesFromCore_(normCore) : normCore;
     if (nudeMode) anyNude = true;
-    const weightedOutfit = formatCharacterOutfitPrompt_(profile.outfit);
+    // 服裝裡不能有自己負面排除的東西（例如 Rider 的眼罩）
+    const weightedOutfit = stripActionTermsInUc_(formatCharacterOutfitPrompt_(profile.outfit), profile.uc);
     let directAction = String(c.action_en || '').trim();
 
     if (profile.gender === 'boy') boys++;
@@ -4392,6 +4393,12 @@ function refineFramingTags_(prompt, nChars) {
 }
 
 // 親密動作 → NovelAI 熟悉的 Danbooru 標籤（自然語言的「從背後抱」「親臉頰」常被畫成並肩站、親嘴）
+// 第一人稱膝枕／掏耳朵的構圖標籤（躺在她腿上往上看）
+// 膝枕：2026-11 比對 12 種寫法後用「仰角＋大腿＋胸部＋臉＋天花板＋特寫」（使用者的點子，膝枕感最清楚；breasts 已拿掉，因為會套用到孩童外觀角色）；掏耳朵用俯身靠近版（使用者覺得沒問題）
+let LAP_POV_TAGS_ = 'lap pillow, pov, lying, from below, looking down at viewer, 0.8::thighs::, face focus, ceiling, close-up';
+// 第三人稱膝枕（看得到御主躺在她腿上）
+let LAP_3RD_TAGS_ = 'lap pillow, from above, close-up, upper body, face focus';
+let MIMIKAKI_POV_TAGS_ = 'mimikaki, holding ear pick, lap pillow, pov, from below, looking down at viewer, leaning over viewer, hair hanging down, face close to viewer, upper body, ceiling, 0.6::thighs::';
 const INTIMACY_TAGS_ = [
   { re: /\b(hug(ging|s|ged)?|embrac(e|ing|ed)|arms wrapped around)\b[^,]*\bfrom behind\b|\bback hug\b|\bbeing hugged from behind\b/i, tag: 'hug from behind' },
   { re: /\bkiss(ing|es)? (on )?(the |her |his |another character's |the other character's |viewer's |the viewer's )?cheek\b|\bcheek kiss\b|\blips touching [^,]*cheek\b/i, tag: 'kissing cheek', cheek: true },
@@ -4412,9 +4419,9 @@ function detectIntimacyTags_(texts) {
 // 上半身／特寫鏡頭時拿掉下半身衣物標籤：服裝欄位加權寫了長裙、褲襪、靴子時，NovelAI 會為了畫出它們而拉成全身（實測櫻哭泣怎樣都是全身）
 const LOWER_BODY_RE_ = /\b(skirt|miniskirt|pleated skirt|long skirt|hakama|pants|trousers|jeans|shorts|pantyhose|tights|thighhighs|thigh highs|kneehighs|socks|stockings|leggings|garter( belt| straps)?|shoes|boots|heels|high heels|sandals|loafers|sneakers|footwear|geta|zettai ryouiki)\b/i;
 const FOOTWEAR_RE_ = /\b(shoes|boots|armored boots|heels|high heels|sandals|loafers|sneakers|footwear|geta)\b/i;
-function stripLowerBodyForCloseUp_(charPrompt, footwearOnly) {
-  const re = footwearOnly ? FOOTWEAR_RE_ : LOWER_BODY_RE_;
-  const tokens = String(charPrompt || '').split(',');
+// 刪掉符合條件的標籤，同時保住 1.15::…:: 這類權重語法的開頭與結尾
+function removeTagsKeepWeights_(str, shouldRemove) {
+  const tokens = String(str || '').split(',');
   const out = [];
   let carryPrefix = '';
   tokens.forEach(raw => {
@@ -4423,7 +4430,7 @@ function stripLowerBodyForCloseUp_(charPrompt, footwearOnly) {
     const pre = (t.match(/^(-?\d+(\.\d+)?::)/) || [''])[0];
     const suf = /::$/.test(t) && !/^-?\d+(\.\d+)?::$/.test(t) ? '::' : '';
     const core = t.slice(pre.length, suf ? t.length - 2 : t.length).trim();
-    if (re.test(core) && !/\b(hair|eyes)\b/i.test(core)) {
+    if (core && shouldRemove(core)) {
       if (pre) carryPrefix = carryPrefix || pre;
       if (suf) {
         if (carryPrefix) carryPrefix = ''; // 整段加權都被拿掉了
@@ -4435,6 +4442,21 @@ function stripLowerBodyForCloseUp_(charPrompt, footwearOnly) {
     out.push(t);
   });
   return out.join(', ');
+}
+
+function stripLowerBodyForCloseUp_(charPrompt, footwearOnly) {
+  const re = footwearOnly ? FOOTWEAR_RE_ : LOWER_BODY_RE_;
+  return removeTagsKeepWeights_(charPrompt, core => re.test(core) && !/\b(hair|eyes)\b/i.test(core));
+}
+
+// 角色負面裡排除的東西，不能出現在她自己的動作描述裡（實測：劇情照原作寫 Rider「被眼罩覆蓋的雙眼」，導演就把 blindfold 寫進動作，負面擋不住）
+function stripActionTermsInUc_(actionStr, ucStr) {
+  const terms = String(ucStr || '').replace(/-?\d+(\.\d+)?::/g, '').replace(/::/g, '').split(',').map(t => t.trim().toLowerCase()).filter(t => t.length >= 3);
+  if (!terms.length) return String(actionStr || '');
+  return removeTagsKeepWeights_(actionStr, core => {
+    const low = core.toLowerCase();
+    return terms.some(term => new RegExp('(^|[^a-z])' + term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z]|$)').test(low));
+  });
 }
 
 function generateTurnCgAsync(imgPayload) {
@@ -4514,16 +4536,17 @@ function generateTurnCgAsync(imgPayload) {
 
           const calmScene = !((working._directorContext || {}).isCombat) && !d.use_np && ch.id !== 'player_master';
           const actionParts = [sanitizeNaiInteraction_(d.interaction), calmScene ? stripWeaponTags_(stripBadInteractionPrefix_(d.action)) : stripBadInteractionPrefix_(d.action)].filter(Boolean).join(', ')
-            .split(',').map(t => t.trim()).filter(t => t && !/^in_view\s*[:=]/i.test(t)).join(', ');
+            .split(',').map(t => t.trim()).filter(t => t && !/^in[ _]view\s*[:=]/i.test(t)).join(', ');
 
           const actionWithExpr = isNude ? actionParts : ensureExpression_(actionParts, ch.defaultExpression || '');
           const presentIds = working.characters.map(x => x.id).concat(((working._directorContext || {}).chars || []).map(x => x.id));
           const gaze = refineGazeAction_(stripOtherCharNames_(actionWithExpr, ch.id, presentIds).replace(/\bmutual#embrac(e|ing)\b/gi, 'mutual#hug'));
           // 視線不看鏡頭時，這個角色的負面加 looking at viewer（否則 NovelAI 很容易讓她直視鏡頭）
           const gazeUc = gaze.averted && !/looking at viewer/i.test(String(ch.uc || '')) ? 'looking at viewer' : '';
+          const finalUc = [ch.uc, gazeUc].filter(Boolean).join(', ');
           return Object.assign({}, ch, {
-            prompt: [finalCore, finalOutfit, gaze.action, ch.npBoost].filter(Boolean).join(', '),
-            uc: [ch.uc, gazeUc].filter(Boolean).join(', ')
+            prompt: [finalCore, stripActionTermsInUc_(finalOutfit, finalUc), stripActionTermsInUc_(gaze.action, finalUc), ch.npBoost].filter(Boolean).join(', '),
+            uc: finalUc
           });
         });
       }
@@ -4541,8 +4564,9 @@ function generateTurnCgAsync(imgPayload) {
         let tag = (t.cheek && working.cameraMode === 'pov') ? 'from side, face focus, leaning in, closed eyes, blush' : t.tag;
         // 第一人稱膝枕：鏡頭是躺在她腿上的你 → 從下往上看，她低頭看著你；摸頭同理（她的手伸向鏡頭上方）
         // 第一人稱掏耳朵：躺在腿上側著頭，她從上方低頭、手拿耳挖
-        if (working.cameraMode === 'pov' && t.tag.indexOf('mimikaki') === 0) tag = 'mimikaki, holding ear pick, lap pillow, pov, from below, looking down at viewer, close-up';
-        if (working.cameraMode === 'pov' && t.tag === 'lap pillow') tag = 'lap pillow, pov, from below, looking down at viewer, close-up, face focus, ceiling';
+        if (working.cameraMode === 'pov' && t.tag.indexOf('mimikaki') === 0) tag = MIMIKAKI_POV_TAGS_;
+        if (working.cameraMode === 'pov' && t.tag === 'lap pillow') tag = LAP_POV_TAGS_;
+        if (working.cameraMode !== 'pov' && t.tag === 'lap pillow') tag = LAP_3RD_TAGS_;
         if (working.cameraMode === 'pov' && t.tag === 'hug') tag = 'incoming hug, close-up, face focus';
         if (working.cameraMode === 'pov' && t.tag === 'headpat') tag = 'headpat, headpat pov, from below, looking down at viewer, reaching towards viewer';
         if (!new RegExp('\\b' + tag.split(',')[0].replace(/[-]/g, '\\-') + '\\b', 'i').test(working.prompt)) working.prompt = `${working.prompt}, ${tag}`;
@@ -4605,6 +4629,10 @@ function generateTurnCgAsync(imgPayload) {
             return Object.assign({}, ch, { prompt: toks.filter(t => /::/.test(t) || !STANCE_RE.test(t)).join(', ') });
           });
         }
+      }
+      // 只有膝枕、沒有掏耳朵：NovelAI 看到膝枕常自己補上耳挖（實測美狄亞、玉藻前、沖田）→ 負面排除
+      if (/\blap pillow\b/i.test(String(working.prompt || '')) && !/\bmimikaki\b/i.test(String(working.prompt || '')) && Array.isArray(working.characters)) {
+        working.characters = working.characters.map(ch => Object.assign({}, ch, { uc: [ch.uc, 'mimikaki, ear pick, holding ear pick, cotton swab'].filter(Boolean).join(', ') }));
       }
       if (/\b(upper body|close-up|portrait|face focus)\b/i.test(String(working.prompt || '')) && Array.isArray(working.characters)) {
         working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: stripLowerBodyForCloseUp_(ch.prompt) }));
