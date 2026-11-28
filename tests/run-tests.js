@@ -187,6 +187,8 @@ const pst = (adult) => ({ cameraMode: 'third', adultMode: adult, locationKey: '�
   const crowd2 = T.buildNaiPayloadFromScene_(own, [{ id: 'rin' }, { id: 'archer' }, { id: 'lancer', use_np: true }, { id: 'scathach' }, { id: 'player_master' }], 'bridge, night', true, '開打', '', 1);
   const touch = T.buildNaiPayloadFromScene_(Object.assign({}, pst(true), { servant1: { id: 'scathach' } }), [{ id: 'scathach' }, { id: 'shinji' }, { id: 'rider' }, { id: 'player_master' }], 'street', false, '牽著斯卡哈的手逛街', '', 1);
   eq('超過 3 人但御主在牽手 → 御主留下、省略配角', touch.characters.map(c => c.id), ['scathach', 'player_master', 'shinji']);
+  const ear = T.buildNaiPayloadFromScene_(Object.assign({}, pst(true), { servant1: { id: 'scathach' } }), [{ id: 'scathach' }, { id: 'player_master' }, { id: 'rin' }, { id: 'archer' }], 'room', false, '請斯卡哈幫我掏耳朵', '', 1);
+  eq('掏耳朵也算肢體接觸 → 御主留下', ear.characters.map(c => c.id), ['scathach', 'player_master', 'rin']);
   eq('超過 3 人：自己的從者排第一、寶具中的優先', crowd2.characters.map(c => c.id), ['scathach', 'lancer', 'rin']);
 }
 

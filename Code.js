@@ -4144,7 +4144,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
     // 保留順序：自己的從者（主／副）→ 正在解放寶具的 → 其他人照 AI 列出的順序；御主最先省略
     const own = new Set([statusObj.servant1 && statusObj.servant1.id, statusObj.servant2 && statusObj.servant2.id].filter(Boolean));
     // 玩家這回合跟人有肢體接觸（牽手、擁抱、親吻…）時御主要留在畫面，否則牽手會變成跟別人牽（實測斯卡哈牽著慎二）
-    const masterTouching = /牽|抱|吻|親|摸|握|靠|依偎|膝枕|撒嬌|挽|摟|貼/.test(String(userAction || ''));
+    const masterTouching = /牽|抱|吻|親|摸|握|靠|依偎|膝枕|撒嬌|挽|摟|貼|掏耳|耳朵|躺|枕|餵|按摩|揉|梳頭|梳髮|擦|背我|揹/.test(String(userAction || ''));
     const rank = c => (own.has(c.id) ? 0 : (c.id === 'player_master' ? 0.5 : (c.use_np ? 1 : 2)));
     validChars = validChars.filter(c => masterTouching || c.id !== 'player_master')
       .map((c, i) => ({ c, i })).sort((a, b) => rank(a.c) - rank(b.c) || a.i - b.i).map(x => x.c);
