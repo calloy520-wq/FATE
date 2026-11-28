@@ -2256,6 +2256,9 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
   if (!text) return '';
 
   text = text.replace(/\r\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+  // 旁白用第二人稱（使用者指定）：「妳推開門，說道：」裡的「妳」就是玩家 → 當成說話者候選，標示時換回名號
+  // （實測沒加時，玩家的台詞被標成下一段的斯卡哈）
+  if (playerName && Array.isArray(contextNames)) contextNames = contextNames.concat(['妳', '你']);
   // 把段落中夾帶的台詞拆成獨立段落，並依中文敘事習慣判斷說話者（判斷不出就不標）
   text = text.split(/\n{2,}/).map(par => segmentDialogue_(par, contextNames, playerName)).join('\n\n');
 
@@ -2347,7 +2350,8 @@ function formatNovelStoryText_(rawStory, contextNames, prevStoryText, playerName
     return trimmed;
   });
 
-  return labeledParagraphs.filter(Boolean).join('\n\n');
+  const out = labeledParagraphs.filter(Boolean).join('\n\n');
+  return playerName ? out.replace(/(^|\n)(妳|你)：(?=[「『])/g, `$1${playerName}：`) : out;
 }
 
 // ==================== 1. 登入系統 & 生涯戰績讀取 & 清空本輪重啟 ====================
@@ -2984,13 +2988,13 @@ function completeCreationTextOnly(params) {
       '- "master_action_en": Concise English pose & expression tags for the player (NO hair/eyes/clothes).',
       '- "scene_env_en": Concise English background/lighting tags ONLY.'
     ].join('\n');
-    const userMsg = `Master Name: ${displayNameOf_(cleanName)}\nMaster Gender: ${params.masterGender === 'boy' ? 'male（用「他」）' : 'female（用「她」）'}\nOrigin: ${originName} (${originPreset.desc})\nHoly Grail Wish: ${wishText}\nMode: ${row[3]}\nSummoned Servant ID: ${targetServantId} (${servantInfo.triggers})\nRelic/Catalyst used: ${params.relicNote || '大聖杯共鳴'}${customServant ? `\nORIGINAL SERVANT (player-designed; use EXACTLY this name, class and params, invent nothing that contradicts it): name=${customServant.name}, class=${customServant.cls}, params=${customServantParamsText_(customServant.stats)}, noble phantasm=${customServant.npName || 'unrevealed'} ${customServant.npEffect}, personality=${customServant.personality || 'free'}` : ''}`;
+    const userMsg = `Master Name: ${displayNameOf_(cleanName)}\nMaster Gender: ${params.masterGender === 'boy' ? 'male（旁白用第二人稱「你」稱呼玩家）' : 'female（旁白用第二人稱「妳」稱呼玩家）'}\nOrigin: ${originName} (${originPreset.desc})\nHoly Grail Wish: ${wishText}\nMode: ${row[3]}\nSummoned Servant ID: ${targetServantId} (${servantInfo.triggers})\nRelic/Catalyst used: ${params.relicNote || '大聖杯共鳴'}${customServant ? `\nORIGINAL SERVANT (player-designed; use EXACTLY this name, class and params, invent nothing that contradicts it): name=${customServant.name}, class=${customServant.cls}, params=${customServantParamsText_(customServant.stats)}, noble phantasm=${customServant.npName || 'unrevealed'} ${customServant.npEffect}, personality=${customServant.personality || 'free'}` : ''}`;
 
     lock.releaseLock();
     lockHeld = false;
 
     summonData = sandboxStart
-      ? callGeminiLiteJson_(sandboxSystemPrompt, `Player Name: ${displayNameOf_(cleanName)}\nGender: ${params.masterGender === 'boy' ? 'male（用「他」）' : 'female（用「她」）'}\nBackground: ${originName}\nWish / goal: ${wishText}`, 0.7, 1500)
+      ? callGeminiLiteJson_(sandboxSystemPrompt, `Player Name: ${displayNameOf_(cleanName)}\nGender: ${params.masterGender === 'boy' ? 'male（旁白用第二人稱「你」稱呼玩家）' : 'female（旁白用第二人稱「妳」稱呼玩家）'}\nBackground: ${originName}\nWish / goal: ${wishText}`, 0.7, 1500)
       : callGeminiLiteJson_(systemPrompt, userMsg, 0.7, 2000);
 
     lock.waitLock(20000);
@@ -3533,7 +3537,7 @@ function processFateTurnTextOnly(params) {
     // 同一位玩家每回合都不變的段落：放在 statePrompt 最前面並標記快取（基調本來就排第一，順序不變）
     const stablePrompt = [
       `【本局基調（優先遵守，決定結果的輕重與筆調）】${tonePreset.label}：${tonePreset.directive || tonePreset.desc}`,
-      `【玩家】名號「${displayNameOf_(cleanName)}」（劇情中稱呼玩家用這個名字、「御主」或角色習慣的叫法）｜聖杯願望：「${statusObj.master.wish}」`,
+      `【玩家】名號「${displayNameOf_(cleanName)}」｜聖杯願望：「${statusObj.master.wish}」｜敘事人稱（使用者指定）：旁白一律用第二人稱「${statusObj.master.gender === 'boy' ? '你' : '妳'}」稱呼玩家（例如「${statusObj.master.gender === 'boy' ? '你' : '妳'}推開門」），不要用名號或「她／他」當旁白主詞；角色對話裡照常用名號、「御主」或角色習慣的叫法；玩家自己的台詞照格式標成「${displayNameOf_(cleanName)}：「…」」。`,
       `【寫作基調：${tonePreset.label}】${tonePreset.desc}`,
       `【御主固定六維等階】魔術迴路:${p.circuit} | 近戰體術:${p.combat} | 隱藏氣息:${p.stealth} | 幸運:${p.luck}`,
       statusObj.servant1.id === CUSTOM_SERVANT_ID_ ? describeCustomServantForPrompt_(ACTIVE_CUSTOM_SERVANT_) : ''
@@ -3570,8 +3574,8 @@ function processFateTurnTextOnly(params) {
       `【當前場地現況】${statusObj.locationInfo.desc}`,
       isSandboxMode ? '' : `【幕後戰況（只有 GM 知道；玩家與從者不知道哪些陣營交手、誰勝誰負，只能透過論壇目擊、使魔、聯絡或親自調查慢慢得知）】${statusObj.warTicker}`,
       isSandboxMode
-        ? `【玩家(${displayNameOf_(cleanName)})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:住在冬木的居民（自由沙盒） | 出身:${statusObj.master.origin} | 心願:「${statusObj.master.wish}」 | 肉身狀態:${statusObj.master.condition}`
-        : `【御主(${displayNameOf_(cleanName)})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
+        ? `【玩家(${displayNameOf_(cleanName)})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（旁白稱「你」）' : '女（旁白稱「妳」）'} | 身分:住在冬木的居民（自由沙盒） | 出身:${statusObj.master.origin} | 心願:「${statusObj.master.wish}」 | 肉身狀態:${statusObj.master.condition}`
+        : `【御主(${displayNameOf_(cleanName)})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（旁白稱「你」）' : '女（旁白稱「妳」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
       statusObj.servant1.id ? `【主從者】ID:${statusObj.servant1.id} (${statusObj.servant1.class}・${statusObj.servant1.name}) | 羈絆好感:${statusObj.bondLevel}/100 | 靈基狀態:${statusObj.servant1.condition}` : `【主從者】無${isSandboxMode ? '（自由沙盒：沒有契約從者）' : ''}`,
       statusObj.servant2.id ? `【副從者】ID:${statusObj.servant2.id} (${statusObj.servant2.class}・${statusObj.servant2.name}) | 靈基狀態:${statusObj.servant2.condition || '靈基穩定'}` : (isSandboxMode ? '' : '【副從者】無'),
       `【相關角色目前穿著（未列出者為預設服裝）】${JSON.stringify(relevantOutfits)}`,
