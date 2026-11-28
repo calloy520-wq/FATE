@@ -1935,7 +1935,35 @@
 
       if (currentState.runStatus === 'DEAD' || currentState.runStatus === 'CLEARED') {
         renderEndingBanner(currentState.runStatus === 'DEAD' ? 'FATAL_DEATH' : 'TRUE_VICTORY', '');
+      } else if (logs.length > 0) {
+        // 讀檔時先看「上次玩到哪裡」：前情提要、約定與伏筆、身邊的人（隔幾天回來玩比較好接上）
+        const recap = buildRecapText();
+        if (recap) appendNovelMessage('ai', recap, '📜 前情提要');
       }
+    }
+
+    function buildRecapText() {
+      const s = currentState || {};
+      const lines = [];
+      lines.push(`現在：Day ${s.day}・${s.timePeriod}${s.weather ? '（' + s.weather + '）' : ''}，在${s.location || '冬木市'}。`);
+      if (s.memorySummary) lines.push(String(s.memorySummary));
+      const sb = s.gameMode === 'SANDBOX';
+      if (sb) {
+        const roster = s.sandboxRoster || [], own = s.sandboxChars || [];
+        const nameOf = id => { const o = own.find(x => x.id === id); if (o) return o.name; const r = roster.find(x => x.id === id); return r ? r.name : id; };
+        const party = (s.sandboxParty || []).map(nameOf);
+        lines.push(`👥 身邊的人：${party.length ? party.join('、') : '目前一個人'}`);
+      } else {
+        const team = [s.servant1 && s.servant1.name, s.servant2 && s.servant2.id ? s.servant2.name : ''].filter(Boolean);
+        if (team.length) lines.push(`⚔️ 從者：${team.join('、')}`);
+        const comps = (s.companions || []).map(c => c.name);
+        if (comps.length) lines.push(`🤝 同行：${comps.join('、')}`);
+        const appts = (s.appointments || []).map(a => `${a.name}：Day ${a.day}・${a.period} 在${a.place}`);
+        if (appts.length) lines.push(`📅 約定：${appts.join('；')}`);
+      }
+      const ev = Array.isArray(s.keyEvents) ? s.keyEvents : [];
+      if (ev.length) lines.push('📌 約定與伏筆：\n' + ev.slice(-6).map((e, i) => `・${e}`).join('\n'));
+      return lines.join('\n\n');
     }
 
     function syncActionButtonsState() {
