@@ -346,6 +346,7 @@ eq('英雄王現身不洗掉負傷', [T.revealHiddenStatus_('存活 (英雄王�
 eq('死亡摘錄截在美夢之前（同段只切掉夢的那句以後）', T.deathExcerpt_('她衝向 Berserker。\n巨手扼住她的喉嚨，骨骼斷裂。她的視線模糊，聖杯化作一場虛幻夢境。\n在夢中，她的願望實現了。\n【本回合結算】x\n🐯 笨蛋'), '她衝向 Berserker。\n巨手扼住她的喉嚨，骨骼斷裂。');
 
 const invT = [{ name: '魔力結晶(小)' }, { name: '煙霧魔術彈' }];
+eq('物品檢查：清單外的物品也抓得到（拿某物來射、砍、丟）', [T.detectMissingItems_('拿沙漠之鷹對著空地試射一槍', invT), T.detectMissingItems_('舉起格洛克瞄準Archer', invT), T.detectMissingItems_('拿出煙霧彈丟出去', invT), T.detectMissingItems_('用盡全力砍向敵人', invT), T.detectMissingItems_('拿沙漠之鷹對著空地試射一槍', invT.concat([{ name: '沙漠之鷹' }]))], [['沙漠之鷹'], ['格洛克'], [], [], []]);
 eq('物品檢查：背包沒有的東西', [T.detectMissingItems_('我拿手槍對自己開槍', invT), T.detectMissingItems_('把斯卡哈的槍拿去當曬衣桿', invT), T.detectMissingItems_('捏碎魔力寶石', invT), T.detectMissingItems_('傳簡訊給士郎', invT)], [['手槍'], [], [], []]);
 
 // ---- 天氣 ----

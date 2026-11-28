@@ -1579,13 +1579,40 @@ function isOtherPersonRest_(text) {
 // 玩家行動提到的實體物品，背包裡沒有就在提示詞明講（2026-11 實測：開局說「拿手槍對自己開槍」，4 局都讓手槍憑空出現）
 // 別人的東西（「斯卡哈的槍」）、手機（人人都有翻蓋手機）不算
 const COMMON_ITEM_NOUNS_ = ['狙擊槍', '機關槍', '步槍', '獵槍', '手槍', '散彈槍', '日本刀', '武士刀', '菜刀', '小刀', '匕首', '短刀', '刀子', '手榴彈', '炸彈', '炸藥', '汽油', '打火機', '火柴', '繩子', '毒藥', '安眠藥', '藥水', '治療藥', '魔力寶石', '魔力結晶', '寶石', '符咒', '護符', '卷軸', '魔導書', '聖遺物', '機車', '汽車', '鑰匙', '弓箭', '十字架', '聖水', '黑鍵'];
+// 清單列不完（實測「沙漠之鷹」沒被抓到，沒買到槍下一回合照樣憑空出現）：玩家說「拿／用／掏出 某物」而且真的拿來射、砍、丟、點燃時，
+// 也把那個「某物」拿去對背包（抽象的、身體的、別人的東西排除）
+const ITEM_USE_VERB_RE_ = /射|開槍|扣下扳機|扣扳機|砍|刺|捅|劈|丟|扔|投擲|點燃|點火|炸|引爆|喝下|吞下|灌下|插進|揮舞|瞄準|塞進/;
+const NOT_AN_ITEM_RE_ = /手機|電話|手|拳|腳|頭|身體|魔術|魔力|迴路|令咒|寶具|使魔|全力|盡|力量|勇氣|眼神|聲音|語氣|笑容|方法|辦法|方式|時間|機會|大家|簡訊|論壇|地圖|錢|現金|中文|日文|英文|說|話|槍法|劍技|技巧|盧恩|結界|斯卡哈|師匠|從者|御主/;
+function extractUsedObjects_(text) {
+  const t = String(text || '');
+  if (!ITEM_USE_VERB_RE_.test(t)) return [];
+  const out = [];
+  const re = /(?:拿出|拿起|拿著|拿|用|使用|掏出|拔出|抽出|取出|舉起|握著|端起|架起)(?:一把|一支|一個|一瓶|一顆|那把|這把|那支|我的)?([^\s，。！？、,.!?對朝往向去來把在給並然後再射打砍刺丟扔點炸瞄揮插塞A-Za-z0-9]{2,8})/g;
+  let m;
+  while ((m = re.exec(t)) !== null) {
+    const obj = m[1].replace(/(試射|開槍|射擊|瞄準|揮舞|一槍|一下)$/, '');
+    if (obj.length < 2 || obj.includes('的') || NOT_AN_ITEM_RE_.test(obj)) continue;
+    out.push(obj);
+  }
+  return out;
+}
+
 function detectMissingItems_(text, inventory) {
   const t = String(text || '');
+  const invList = (Array.isArray(inventory) ? inventory : []).map(it => String((it && it.name) || ''));
   const inv = (Array.isArray(inventory) ? inventory : []).map(it => String((it && it.name) || '') + ' ' + String((it && it.desc) || '')).join(' ');
   const found = [];
+  extractUsedObjects_(t).forEach(obj => {
+    const core = n => n.replace(/[（(].*?[)）]/g, '').trim();
+    // 名字不必完全一樣：「煙霧彈」對「煙霧魔術彈」，有兩個字以上連續相符就算有
+    const overlap2 = n => { for (let i = 0; i + 2 <= obj.length; i++) { if (n.includes(obj.slice(i, i + 2))) return true; } return false; };
+    if (inv.includes(obj) || invList.some(n => core(n) && (core(n).includes(obj) || obj.includes(core(n)) || overlap2(core(n))))) return;
+    if (/寶石|結晶/.test(obj) && /寶石|結晶/.test(inv)) return;
+    if (!found.includes(obj)) found.push(obj);
+  });
   COMMON_ITEM_NOUNS_.forEach(n => {
     const idx = t.indexOf(n);
-    if (idx < 0 || found.some(f => f.includes(n))) return;
+    if (idx < 0 || found.some(f => f.includes(n) || n.includes(f))) return;
     if (idx > 0 && t[idx - 1] === '的') return;
     if (inv.includes(n) || (n === '寶石' && /寶石|結晶/.test(inv)) || (n === '魔力寶石' && /寶石|結晶/.test(inv)) || (n === '魔力結晶' && /寶石|結晶/.test(inv))) return;
     found.push(n);
