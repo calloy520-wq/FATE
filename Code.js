@@ -387,6 +387,12 @@ function adultOffOutfit_(outfit, contextText, fallback) {
   return 'convenient censoring';
 }
 
+// 成人模式關閉：刪掉性行為類標籤（劇情就算走到那裡，畫面也只留擁抱、接吻這種程度）
+const ADULT_OFF_ACT_RE_ = /\b(sex|sexual|vaginal|anal|oral|fellatio|cunnilingus|paizuri|handjob|footjob|penetration|insertion|intercourse|missionary|cowgirl position|doggystyle|mating press|after sex|cum|cumdrip|ejaculation|orgasm|erection|penis|pussy|vagina|clitoris|masturbation|fingering|groping|breast grab|grabbing (another's )?breast|nipple tweak|spread legs|spread pussy|ahegao|lewd|sex toy|vibrator|aroused|bodily fluids)\b/i;
+function stripAdultActTags_(str) {
+  return removeTagsKeepWeights_(str, core => ADULT_OFF_ACT_RE_.test(core));
+}
+
 // 未成年／孩童外觀的角色：任何情況都不畫裸露（洗澡等劇情照常寫，畫面維持穿著）
 const NO_NUDE_CHAR_IDS_ = new Set(['prisma_illya', 'chloe', 'miyu', 'illya', 'rin', 'sakura', 'dark_sakura', 'shirou']);
 
@@ -4754,9 +4760,14 @@ function generateNovelAIImageSafe_(params) {
     // 3 人以上的畫面偶爾會把同一個角色畫兩次（實測：Archer 被畫成兩個），加 clone 降低機率
     const cloneUc = cleanedChars.length >= 3 ? 'clone' : '';
     // 成人模式關閉：主負面直接排除裸露（只改服裝成浴巾時，浴室場景 NovelAI 仍可能自己畫出裸露）
-    const sfwUc = params.adultMode === false ? 'nsfw, nude, nipples, completely nude, topless' : '';
+    const sfwUc = params.adultMode === false ? 'nsfw, nude, nipples, completely nude, topless, sex, penis, pussy, cum' : '';
     const finalUc = [defaultUc, cloneUc, sfwUc, params.uc].filter(Boolean).join(', ');
 
+    // 成人模式關閉：主提示詞與角色欄位刪掉性行為類標籤
+    if (params.adultMode === false) {
+      finalPrompt = stripAdultActTags_(finalPrompt);
+      cleanedChars.forEach(c => { c.prompt = stripAdultActTags_(c.prompt); });
+    }
     const seed = params.seed && Number(params.seed) > 0 ? Number(params.seed) : Math.floor(Math.random() * 4294967295);
     const useCoords = false;
 
