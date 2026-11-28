@@ -4635,7 +4635,11 @@ function generateTurnCgAsync(imgPayload) {
         if (working.cameraMode === 'pov' && t.tag.indexOf('mimikaki') === 0) tag = MIMIKAKI_POV_TAGS_;
         if (working.cameraMode === 'pov' && t.tag === 'lap pillow') tag = LAP_POV_TAGS_;
         if (working.cameraMode !== 'pov' && t.tag === 'lap pillow') tag = LAP_3RD_TAGS_;
-        if (working.cameraMode === 'pov' && t.tag === 'hug') tag = 'incoming hug, close-up, face focus';
+        // 第一人稱擁抱：站著迎面抱過來才用 incoming hug；躺著／在床上用 incoming hug 會畫出頭和身體斷開的怪圖（實測）
+        if (working.cameraMode === 'pov' && t.tag === 'hug') {
+          const lyingHug = (directed.char_directions || []).some(d => d && /\b(lying|on the bed|in bed|on top of|resting (her|his) (head|face)|face resting|head on (the )?viewer|futon)\b/i.test(`${d.action || ''} ${d.interaction || ''}`)) || /\b(bed|futon|lying)\b/i.test(String(directed.scene_prompt || ''));
+          tag = lyingHug ? 'hug, lying, from above, upper body' : 'incoming hug, close-up, face focus';
+        }
         if (working.cameraMode === 'pov' && t.tag === 'headpat') tag = 'headpat, headpat pov, from below, looking down at viewer, reaching towards viewer';
         if (!new RegExp('\\b' + tag.split(',')[0].replace(/[-]/g, '\\-') + '\\b', 'i').test(working.prompt)) working.prompt = `${working.prompt}, ${tag}`;
       });
