@@ -13,6 +13,7 @@
 - `tests/run-tests.js`：Node 單元測試，載入 `Code.js` 測純邏輯函式。
 - `tests/sim-turn.js`：用假試算表＋假 Gemini 跑完整流程（新遊戲→召喚→回合→論壇假消息→簡訊→讀檔），抓執行期錯誤。改動回合流程後一定要跑。
 - `tests/stress-guards.js`：伺服器把關壓力測試。手寫「AI 常犯的錯」當作 Gemini 回應（重複扣令咒、亂扣道具、沒交戰就淘汰、亂送副從者、型別錯亂、結局值寫錯、約定與同行流程、名冊換人、好感歸零解約…），確認伺服器擋得住。新增伺服器把關時順手補一條；會受時段推進隨機影響的情境要固定 AP、`ap_cost: 0`。
+- `tools/ai-regression.js`：**真實 AI 回歸測試**（真的 Gemini＋假試算表，不生圖，一次約 0.02 美金）。固定 7 個情境：沒有手槍不會開火、敵對陣營一回合不會直接結盟、跳水沒說想死不會死、睡覺時間前進、明確求死會死或被正面處理、清晨看夕陽照清晨寫、沙盒不寫聖杯戰爭且同行有出場。`tests/` 用假 Gemini 抓不到「模型脾氣變了」，大改提示詞或懷疑 OpenRouter 更新模型時跑 `node tools/ai-regression.js`（每回合劇情存到暫存資料夾，結果會印路徑）。不在部署流程裡（要花錢、結果有隨機性）。
 - `.claspignore`：白名單，只推 `Code.js`、`GameData.js`、`Lore.js`、`Index.html`、`SetupDB.js`、`appsscript.json` 到 GAS。GAS 所有 `.js` 檔共用同一個全域空間（測試也照 GameData → Lore → Code 的順序載入）。新增要上 GAS 的檔案時必須加進白名單；**測試或工具腳本絕對不能被推上去**（會在 GAS 造成函式衝突）。
 
 ## 部署流程（重要）
