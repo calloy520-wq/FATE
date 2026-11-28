@@ -1559,6 +1559,13 @@ function normalizeOutcome_(v) {
   return 'CONTINUE';
 }
 
+// 「看著沖田睡著」「讓她休息」是別人在睡：直接否決（2026-11 上線實測：flash-lite 被「睡著」誤導，替玩家回魔）
+function isOtherPersonRest_(text) {
+  const t = String(text || '');
+  if (/我也|一起|陪.{0,4}(睡|躺|休息)|跟著.{0,2}睡|自己也/.test(t)) return false;
+  return /(看著|幫|讓|哄|守著|望著|替|叫|要|等)[^，。！？、]{0,10}(睡|休息|躺|冥想|歇)/.test(t);
+}
+
 function isRestAction_(text) {
   // 只當「否決」用（AI 的 player_rested 才是主判斷），所以放寬
   return isSleepAction_(text) || /休|歇|喘口氣|喘息|冥想|調息|靜養|養傷|療傷|打坐|魔力|體力|發呆|放空|充電|坐下|窩|放鬆|喝茶|泡澡|洗澡|回復|恢復|補充/.test(String(text || ''));
@@ -1653,6 +1660,17 @@ function findRyuudouFactionKey_(factionsObj) {
 
 // 柳洞寺兩位從者的個別退場追蹤＋真Assassin（咒腕哈桑）觸發
 // 觸發條件：美狄亞或小次郎任一退場，且間桐陣營仍未覆滅 → 新增獨立的「臟硯組 (真Assassin陣營)」
+// 退場字眼要排除否定句（模擬測試：「小次郎並未被擊敗，仍鎮守山門」被當成退場，真Assassin 直接登場）
+function mentionsRetired_(text, re) {
+  const t = String(text || '');
+  let m;
+  re.lastIndex = 0;
+  while ((m = re.exec(t)) !== null) {
+    if (!/未|沒|並非|不曾|不是|險些|差點|免於|否認|尚未/.test(m[0])) return true;
+  }
+  return false;
+}
+
 function updateRyuudouRoute_(meta, factionsObj, servantsOut, capturedId, presentIds) {
   const f = Object.assign({}, factionsObj || {});
   const flags = Object.assign({ medeaOut: false, kojirouOut: false, trueAssassin: 'NONE' }, meta.routeFlags || {});
@@ -1671,8 +1689,8 @@ function updateRyuudouRoute_(meta, factionsObj, servantsOut, capturedId, present
     flags.medeaOut = true;
     flags.kojirouOut = true;
   }
-  if (/(美狄亞|Caster|C媽)[^，。；;]{0,10}(退場|陣亡|消滅|消散|擊敗|敗退|戰敗|收服|脫落)/i.test(ryuText)) flags.medeaOut = true;
-  if (/(小次郎|佐佐木|(?<!真)Assassin)[^，。；;]{0,10}(退場|陣亡|消滅|消散|擊敗|敗退|戰敗|收服|脫落|取代)/i.test(ryuText)) flags.kojirouOut = true;
+  if (mentionsRetired_(ryuText, /(美狄亞|Caster|C媽)[^，。；;]{0,10}(退場|陣亡|消滅|消散|擊敗|敗退|戰敗|收服|脫落)/gi)) flags.medeaOut = true;
+  if (mentionsRetired_(ryuText, /(小次郎|佐佐木|(?<!真)Assassin)[^，。；;]{0,10}(退場|陣亡|消滅|消散|擊敗|敗退|戰敗|收服|脫落|取代)/gi)) flags.kojirouOut = true;
 
   // 收服其中一位時，柳洞寺組不整組改為「歸屬第8組」；兩位都離開才算整組結束
   if (ryuKey && !isCapturedOrDefeatedStatusText_(ryuText) && !isAllianceStatusText_(ryuText)) {
@@ -3039,6 +3057,15 @@ function ensureMasterPresentInList_(presentList, isCombatTurn) {
 }
 
 // 路線變異與隱藏強敵（金閃閃、黑櫻＋黑Saber反轉、真Assassin咒腕哈桑）自動同步
+// 隱藏強敵現身時改寫陣營狀態；但狀態已經寫到他（例如「英雄王負傷」）或已經負傷就保留 AI 的描述
+// （模擬測試：每回合整個覆蓋成「已現身・極度危險」，負傷被洗掉，淘汰兩步永遠過不了，英雄王打不死）
+function revealHiddenStatus_(cur, nameRe, label, fresh) {
+  const s = String(cur || '');
+  if (nameRe.test(s)) return s;
+  if (isWeakenedStatusText_(s)) return `${label}・${s}`;
+  return fresh;
+}
+
 function applyRouteAndHiddenServantEvolution_(factionsObj, turnJson, charDb, isCombatTurn) {
   const nextF = Object.assign({}, factionsObj || {});
   const present = Array.isArray(turnJson.present_chars) ? turnJson.present_chars.slice(0, 4) : [];
@@ -3048,7 +3075,7 @@ function applyRouteAndHiddenServantEvolution_(factionsObj, turnJson, charDb, isC
 
   const churchKey = findFacKey(k => k.includes('教會') || k.includes('言峰'));
   if (presentIds.has('gilgamesh') && churchKey && !isCapturedOrDefeatedStatusText_(nextF[churchKey])) {
-    nextF[churchKey] = '言峰組・英雄王吉爾伽美什已現身 (受肉第八騎・極度危險)';
+    nextF[churchKey] = revealHiddenStatus_(nextF[churchKey], /英雄王|吉爾伽美什|金閃閃/, '英雄王吉爾伽美什', '言峰組・英雄王吉爾伽美什已現身 (受肉第八騎・極度危險)');
   }
 
   const matouKey = findMatouFactionKey_(nextF);
@@ -3056,13 +3083,13 @@ function applyRouteAndHiddenServantEvolution_(factionsObj, turnJson, charDb, isC
 
   if (presentIds.has('dark_sakura')) {
     if (matouKey && !isCapturedOrDefeatedStatusText_(nextF[matouKey])) {
-      nextF[matouKey] = '黑櫻・聖杯黑影異變 (間桐櫻覺醒・黑泥擴散中)';
+      nextF[matouKey] = revealHiddenStatus_(nextF[matouKey], /黑櫻|黑影|黑泥/, '黑櫻', '黑櫻・聖杯黑影異變 (間桐櫻覺醒・黑泥擴散中)');
     }
   }
 
   if (presentIds.has('saber_alter')) {
     if (saberKey && !isCapturedOrDefeatedStatusText_(nextF[saberKey])) {
-      nextF[saberKey] = '已遭黑影吞噬・黑化反轉為黑Saber (隸屬黑櫻陣營)';
+      nextF[saberKey] = revealHiddenStatus_(nextF[saberKey], /黑Saber|黑化|黑影/, '黑Saber', '已遭黑影吞噬・黑化反轉為黑Saber (隸屬黑櫻陣營)');
     }
   }
 
@@ -3152,7 +3179,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
   '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。玩家只能用背包裡真的有的道具與材料：提到沒有的東西（例如背包沒有寶石卻說用寶石煉成），劇情要寫出手邊沒有、做不成，可以改去買或找。當場吃掉的食物、一般日用品不放進 `gained_items`（背包格數有限），只收有遊戲作用的道具、要送人的禮物、證物與魔術材料。',
   '- 陣營更新：`faction_updates` 的鍵必須用狀態資料中既有的陣營完整名稱；值寫該陣營的存亡與對玩家的態度（例如「存活 (同盟)」「存活 (敵對・負傷休整)」），不要寫一時的動作（例如「發送訊息中」）。',
-  '- 休息：玩家本人這回合真的停下來休息、冥想、調息或睡覺時 `player_rested` 填 true（魔力由系統回復）；說沒空休息、叫別人去休息都填 false。',
+  '- 休息：玩家本人這回合真的停下來休息、冥想、調息或睡覺時 `player_rested` 填 true（魔力由系統回復）；說沒空休息、叫別人去休息、看著別人睡（例如「看著沖田睡著，幫她蓋被子」是沖田在睡，玩家沒休息）都填 false。',
   '- 睡覺：玩家本人這回合真的上床睡覺、過夜時 `player_slept` 填 true（時間會推進到下一個時段）；看別人睡、睡前聊天、說不想睡、睡到一半被吵醒都填 false。',
   '- 時間以狀態列為準：玩家行動裡寫的時段（傍晚、夜景、早上）若和現在的時段不同，照現在的時段描寫（白天就是白天的景色），或寫成約好等到那個時段再去；不可讓時間跳過去。',
   '- 天氣是事實：狀態列的天氣要自然寫進戶外場景（雨聲、撐傘、霧氣、積雪），並合理影響偵查、追蹤、潛行與遠距離攻擊；只有劇情真的改變天氣（大型魔術、結界、天候寶具）時才在 `weather_change` 填「晴／陰／雨／霧／雪」，玩家說「下雨了」不算。',
@@ -3564,7 +3591,7 @@ function processFateTurnTextOnly(params) {
     let mpDelta = Number(turnJson.master_mp_delta) || 0;
     // 休息回魔由系統結算：玩家本回合要休息／睡覺／冥想且沒有開戰 → 回復 20 + 所在地靈脈量
     let restRecovered = 0;
-    if (statusObj.gameMode === 'WAR' && !turnJson.is_combat && (turnJson.player_rested === true || turnJson.player_slept === true) && isRestAction_(userAction)) {
+    if (statusObj.gameMode === 'WAR' && !turnJson.is_combat && (turnJson.player_rested === true || turnJson.player_slept === true) && isRestAction_(userAction) && !isOtherPersonRest_(userAction)) {
       restRecovered = 20 + (Number(resolvedLoc && resolvedLoc.info && resolvedLoc.info.manaRegen) || 10);
       mpDelta = Math.min(mpDelta, 0) + restRecovered; // AI 自己加的回魔不重複計入
     }
@@ -3575,7 +3602,7 @@ function processFateTurnTextOnly(params) {
     if (statusObj.gameMode === 'WAR') {
       let apCost = Math.max(0, Math.min(3, Number(turnJson.ap_cost) || 0));
       // 兩把鑰匙：AI 判斷玩家本人真的睡了（player_slept）＋玩家輸入有睡覺字眼，才推進時段
-      if (!turnJson.is_combat && turnJson.player_slept === true && isSleepAction_(userAction)) apCost = Math.max(apCost, Number(row[8]) || 0);
+      if (!turnJson.is_combat && turnJson.player_slept === true && isSleepAction_(userAction) && !isOtherPersonRest_(userAction)) apCost = Math.max(apCost, Number(row[8]) || 0);
       let newAp = Number(row[8]) - apCost;
       if (newAp <= 0) {
         const nextTime = advanceTimePeriod_(Number(row[6]), String(row[7]));
