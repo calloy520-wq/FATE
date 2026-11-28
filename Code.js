@@ -228,7 +228,8 @@ const FUYUKI_LOCATIONS_ = {
   '新都商業區': {
     id: 'shinto',
     fullName: '冬木新都・高樓商業區',
-    aliases: ['新都', '商業區', '高樓', '凱悅'],
+    // 遊樂園、電影院、咖啡廳這些日常去處都算在新都（2026-11 沙盒實玩：去遊樂園對不到地標，地點一直停在洋館）
+    aliases: ['新都', '商業區', '高樓', '凱悅', '遊樂園', '遊樂場', '摩天輪', '電影院', '電玩', '遊戲中心', '咖啡廳', '咖啡店', '百貨', '購物中心', '車站', 'KTV', '卡拉OK'],
     leyline: '弱靈脈 (現代都市)',
     manaRegen: 10,
     danger: '中高 (使魔與黑影出沒)',
@@ -1803,18 +1804,24 @@ function updateRyuudouRoute_(meta, factionsObj, servantsOut, capturedId, present
 }
 
 // 重要事件清單：移除已了結的、加入新的、去重，最多保留 MAX_KEY_EVENTS 條（超過時捨棄最舊的）
-function updateKeyEvents_(current, addList, resolveList, playerName) {
+function updateKeyEvents_(current, addList, resolveList, playerName, day) {
   let list = Array.isArray(current) ? current.map(x => String(x || '').trim()).filter(x => x && x !== '[object Object]') : [];
   const resolves = (Array.isArray(resolveList) ? resolveList : []).map(x => String((x && typeof x === 'object') ? (x.text || x.event || x.content || '') : (x || '')).trim()).filter(Boolean);
   if (resolves.length > 0) {
-    list = list.filter(e => !resolves.some(r => e === r || (r.length >= 6 && (e.includes(r) || r.includes(e)))));
+    // 也接受提示詞裡的編號（「2」「#2」「2.」）：AI 常常只寫編號
+    const byIndex = new Set(resolves.map(r => r.match(/^#?\s*(\d{1,2})\s*[.．、]?$/)).filter(Boolean).map(m => Number(m[1]) - 1));
+    const stripDay = t => t.replace(/（Day ?\d+）$/, '');
+    list = list.filter((e, i) => !byIndex.has(i) && !resolves.some(r => e === r || stripDay(e) === stripDay(r) || (r.length >= 6 && (e.includes(stripDay(r)) || stripDay(r).includes(stripDay(e))))));
   }
   const asText = x => (x && typeof x === 'object')
     ? String(x.text || x.event || x.content || x.description || x.summary || Object.values(x).filter(v => typeof v === 'string').join('：') || '')
     : String(x || '');
   (Array.isArray(addList) ? addList : []).forEach(x => {
-    const t = cleanAwkwardMasterTitle_(asText(x).trim(), playerName).slice(0, 60);
-    if (t && !list.some(e => e === t || e.includes(t) || t.includes(e))) list.push(t);
+    let t = cleanAwkwardMasterTitle_(asText(x).trim(), playerName).slice(0, 60);
+    if (!t || list.some(e => e === t || e.includes(t) || t.includes(e))) return;
+    // 「今晚」「明天」「週末」這種相對時間要記下是哪一天說的，不然幾天後還以為是今晚（實測 Day 3 還在說士郎今晚要來吃飯）
+    if (day && /今晚|今天|今夜|明天|明早|明晚|後天|待會|晚上|週末|周末|下週|下周|這週|這周/.test(t) && !/Day ?\d/.test(t)) t = `${t}（Day ${day}）`;
+    list.push(t);
   });
   if (list.length > MAX_KEY_EVENTS) list = list.slice(list.length - MAX_KEY_EVENTS);
   return list;
@@ -3314,7 +3321,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 傷勢分開判定：御主肉身（`master_condition`）與從者靈基（`servant_condition`、`servant2_condition`）各自結算。交戰要分出明確結果（負傷、靈基受損、撤退、淘汰），不能互砍半天卻什麼都沒發生。',
   '',
   '## 四、活的冬木市與反饋機制',
-  '- 論壇：玩家做了引人注目的事（公開交戰、怪事、流言擴散），用 `forum_posts` 寫 0～2 則冬木市民的 2004 年留言板貼文（每則是含 board／author／title／body 的物件）；路人只知道自己看得到的部分。',
+  '- 論壇：玩家做了引人注目的事（公開交戰、怪事、流言擴散），用 `forum_posts` 寫 0～2 則冬木市民的 2004 年留言板貼文（每則是含 board／author／title／body 的物件）；路人只知道自己看得到的部分。論壇是匿名的：玩家發的文不署名，市民和其他角色不知道作者是誰（除非劇情中親眼看到或被玩家說出來）。',
   '- 流言：依各陣營的情報能力與性格，判斷誰相信、誰識破狀態資料中的流言，用 `rumor_updates` 記錄；被相信的流言會實際改變該陣營行動（寫進 `faction_updates`），被識破的假消息可能引來報復。',
   '- 只有**同盟陣營**會主動傳訊到玩家手機（求援、情報、邀約），填入 `incoming_messages`；非同盟陣營的接觸（挑戰書、交易、試探）要在劇情中當面發生，不要填 `incoming_messages`。',
   '- 情報：玩家這回合透過偵查、使魔、他人告知、論壇推敲等方式**確實得知**某陣營的狀況時，用 `intel_updates` 寫下玩家得知的內容（30 字內，只寫玩家知道的部分）；親眼見到的陣營與同盟由系統自動記錄。',
@@ -3540,9 +3547,17 @@ function processFateTurnTextOnly(params) {
     ].filter(Boolean).join('\n\n');
 
     const timeMismatch = detectTimeMismatch_(userAction, statusObj.timePeriod);
+    // 玩家要睡覺：先告訴 AI 醒來是什麼時段（實測聖杯戰爭白天睡覺，劇情寫成睡到隔天清晨，系統卻只推進到黃昏，下一回合劇情與時間對不上）
+    let wakeHint = '';
+    if (isSleepAction_(userAction) && !isOtherPersonRest_(userAction)) {
+      let w = advanceTimePeriod_(Number(statusObj.day), String(statusObj.timePeriod));
+      if (isSandboxMode && !/午覺|午睡|小睡|瞇|打盹|躺一下/.test(userAction)) { while (w.period !== '清晨') w = advanceTimePeriod_(w.day, w.period); }
+      wakeHint = `【睡覺時間】玩家如果真的睡了，醒來時是 Day ${w.day}・${w.period}（系統會把時間推進到這裡）：照這個時段寫入睡與醒來的樣子，不要寫成別的時段。`;
+    }
     const statePrompt = [
       isSandboxMode ? '【日常故事模式（優先遵守）】本局是冬木市的日常生活故事：英靈與魔術師都以普通居民的身分在冬木生活，彼此沒有敵對、沒有任務。系統規則裡關於戰爭、陣營、情報、令咒、勝利條件的部分全部不適用；不要寫戰況、偵查、陣營、爆炸事件或魔力異常的伏筆，也不要在劇情裡解釋這個設定，直接照玩家的行動寫日常、互動與喜劇。論壇貼文寫市民的日常閒聊。' : '',
       missingItems.length ? `【物品檢查（優先遵守）】玩家提到「${missingItems.join('」「')}」，但他的背包和身上都沒有這東西。除非本回合劇情裡合理地先取得（買、撿、搶、借、偷），否則他手上根本沒有：寫他摸了個空、行動失敗，到此為止。不可以讓它憑空出現，也不可以替玩家改用別的方法去做同一件事。` : '',
+      wakeHint,
       timeMismatch ? `【時間檢查（優先遵守）】現在是 Day ${statusObj.day}・${statusObj.timePeriod}，玩家提到的「${timeMismatch}」不是現在的時段：照現在的時段寫實際看到的景色與光線（例如${statusObj.timePeriod}去看就是${statusObj.timePeriod}的樣子），不可以跳到那個時段；玩家若是約之後的時間，就當作約定。` : '',
       turnSettingsBlock,
       `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | 天氣: ${describeWeatherForPrompt_(statusObj.weather)}${isSandboxMode ? '' : ` | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}%`} | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
@@ -3566,7 +3581,7 @@ function processFateTurnTextOnly(params) {
       isSandboxMode ? '' : describeFinalBossForPrompt_(metaBefore, statusObj.factions),
       isSandboxMode ? '' : describeRyuudouRoute_(metaBefore),
       `【長期記憶前情提要】${statusObj.memorySummary}`,
-      `【重要事件與伏筆清單（約定、結盟原因、恩怨、未解之謎；請保持連貫）】\n${keyEventsText}`,
+      `【重要事件與伏筆清單（約定、結盟原因、恩怨、未解之謎；請保持連貫）】\n${keyEventsText}\n（已經發生、完成或過期的項目，本回合一定要填進 key_events_resolve 移除，可以只寫編號；括號裡的 Day 是記下那天，「今晚」指的是那一天的晚上）`,
       loreSnippets ? `【相關世界書設定】\n${loreSnippets}` : '',
       recentContextText ? `【過往歷史脈絡（僅供背景參照，切勿在本次開頭重複上回合尾巴）】\n${recentContextText}` : '',
       `【玩家本回合最新行動】${userAction}`
@@ -3602,7 +3617,12 @@ function processFateTurnTextOnly(params) {
     (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).forEach(c => {
       if (c && c.id && charDb[c.id] && c.id !== 'player_master') charDb[c.id].triggers.split(',').forEach(n => { if (n.trim().length >= 1) presentAliases.push(n.trim()); });
     });
-    const speakerHints = Array.from(new Set([statusObj.servant1.name, statusObj.servant2.name, displayNameOf_(cleanName), '遠坂凜', '衛宮士郎', '間桐櫻', '言峰綺禮', '伊莉雅', '葛木宗一郎', '吉爾伽美什', '黑櫻', '黑Saber', '咒腕哈桑'].concat(presentAliases).filter(Boolean)));
+    const speakerHints = Array.from(new Set([statusObj.servant1.name, statusObj.servant2.name, displayNameOf_(cleanName), '遠坂凜', '衛宮士郎', '間桐櫻', '言峰綺禮', '伊莉雅', '葛木宗一郎', '吉爾伽美什', '黑櫻', '黑Saber', '咒腕哈桑'].concat(presentAliases)
+      // 沙盒：自創角色、同行的現有角色、客串角色也要能被認成說話者（實測莉莉的台詞被標成凜）
+      .concat(isSandboxMode ? (ACTIVE_SANDBOX_CHARS_ || []).map(c => c.name) : [])
+      .concat(isSandboxMode ? sandboxPartyOf_(metaBefore).map(id => sandboxMemberName_(metaBefore, id)) : [])
+      .concat(isSandboxMode && Array.isArray(turnJson.guest_chars) ? turnJson.guest_chars.map(g => String((g && g.name) || '').trim()).filter(n => n && n.length <= 8) : [])
+      .filter(Boolean)));
     let formattedStory = formatNovelStoryText_(turnJson.story, speakerHints, prevStoryText, displayNameOf_(cleanName));
 
     const meta = safeJsonParse_(row[31], {});
@@ -3978,7 +3998,7 @@ function processFateTurnTextOnly(params) {
     if (turnJson.memory_update) {
       row[30] = cleanAwkwardMasterTitle_(String(turnJson.memory_update).trim(), displayNameOf_(cleanName)).slice(0, 400);
     }
-    meta.keyEvents = updateKeyEvents_(meta.keyEvents, turnJson.key_events_add, turnJson.key_events_resolve, displayNameOf_(cleanName));
+    meta.keyEvents = updateKeyEvents_(meta.keyEvents, turnJson.key_events_add, turnJson.key_events_resolve, displayNameOf_(cleanName), statusObj.day);
 
     const rumorRes = applyRumorUpdates_(meta.rumors, turnJson.rumor_updates, currentFactions, turnNum);
     meta.rumors = rumorRes.rumors;
@@ -4194,7 +4214,9 @@ function processFateTurnTextOnly(params) {
     if (aiPosts.length > 0) summaryParts.push(`📱 論壇新增 ${aiPosts.length} 則目擊`);
     const shortFac = k => k.replace(/\s*\(.*\)$/, '');
     incomingFrom.forEach(m => summaryParts.push(`✉ ${shortFac(m.fk)}（${m.label}）：「${m.text.slice(0, 60)}${m.text.length > 60 ? '…' : ''}」→ 可在行動欄輸入「傳簡訊給${shortFac(m.fk).replace(/組$/, '')}：…」回覆`));
-    if (worldEvent.proactive && !incomingFrom.some(m => m.fk === worldEvent.proactive.faction)) {
+    // 劇情真的有寫到那個陣營才提（實測玩家睡覺那回合 AI 沒寫突襲，結算卻說「教會組主動找上你」）
+    const proactiveAliases = worldEvent.proactive ? ((COMBAT_TARGET_ALIASES_.find(([k]) => worldEvent.proactive.faction.includes(k)) || [null, []])[1].concat([shortFac(worldEvent.proactive.faction).replace(/組$/, '')])) : [];
+    if (worldEvent.proactive && !incomingFrom.some(m => m.fk === worldEvent.proactive.faction) && proactiveAliases.some(a => a && String(turnJson.story || '').indexOf(a) >= 0)) {
       summaryParts.push(`⚡ ${shortFac(worldEvent.proactive.faction)} 主動找上你（${worldEvent.proactive.action}），詳見上方劇情`);
     }
     if (statusObj.gameMode === 'WAR' && outcome === 'CONTINUE' && areAllRivalFactionsResolved_(currentFactions, meta.factionFavor)) {
@@ -4220,8 +4242,14 @@ function processFateTurnTextOnly(params) {
         listed.add(id);
         turnJson.present_chars = (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).concat([{ id: id, use_np: false, action_en: 'standing nearby' }]);
       };
-      if (!isAloneAction_(userAction)) sbParty.forEach(addPresent);
-      sbChars.forEach(c => { if (String(turnJson.story || '').indexOf(c.name) >= 0) addPresent(c.id); });
+      const aloneTurn = isAloneAction_(userAction);
+      if (aloneTurn) {
+        // 一個人行動：同行者不在場（劇情裡只是「想起他」也不要畫出來；實測想起阿翔就把阿翔畫進大橋的圖）
+        turnJson.present_chars = (Array.isArray(turnJson.present_chars) ? turnJson.present_chars : []).filter(c => !(c && sbParty.indexOf(c.id) >= 0 && userAction.indexOf(sandboxMemberName_(meta, c.id)) < 0));
+      } else {
+        sbParty.forEach(addPresent);
+        sbChars.forEach(c => { if (String(turnJson.story || '').indexOf(c.name) >= 0) addPresent(c.id); });
+      }
       const sbNames = sbChars.map(c => c.name);
       const guests = sanitizeGuestChars_(turnJson.guest_chars).filter(g => !sbNames.some(n => n === g.name || g.name.indexOf(n) >= 0 || n.indexOf(g.name) >= 0));
       if (guests.length) {
@@ -4551,7 +4579,7 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - "interaction": ONLY if 2+ characters directly interact, use NAI V5 syntax ("source#<action>" + "target#<action>", or "mutual#<action>"). Example: the one touching writes "source#hand on another\'s shoulder", the one being touched writes "target#hand on another\'s shoulder"; both hugging write "mutual#hug". Never put a name before or after "#". Empty string "" otherwise.',
     '   - NAMES STAY OUT (CRITICAL): never write another character\'s name or id inside a character\'s "action", "outfit" or "interaction", and never name characters in scene_prompt. Refer to others only as "another character", "the girl", "the man", "an ally", "the enemy". A name inside someone else\'s entry makes NovelAI draw that person twice. Relations between characters go in "interaction" with source#/target#/mutual#.',
     directorCtx.cameraMode === 'pov'
-      ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. Only add "pov hands" when the player\'s hand directly interacts with a character (holding hands, being handed something by them, touching them); keep the hands small at the edge of the frame. Objects the player holds (phones, papers, weapons) are never the focus — mention them briefly or not at all. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees. CHARACTER FOCUS: in POV the visible characters are the subject of the picture — frame them close (use "close-up" or "upper body" or "cowboy shot" for one character, "medium shot" for two or three) so they fill most of the frame with clear faces and expressions; keep the background simple and secondary ("depth of field", "blurry background"), showing only enough to identify the place. Use a wide shot only when no character is visible. If a character kisses the player, use "incoming kiss" with a close-up of her face (eyes closed or half-closed, blush). Never mention out-of-view characters in scene_prompt. For EVERY character also output "in_view": true/false — false when the character is outside the player\'s field of view (behind the player, beside and out of frame, behind a wall, hidden in darkness); true only if the player would actually see them right now (e.g. "leaning in from over your shoulder" counts as visible).'
+      ? 'FIRST-PERSON POV MODE: The camera IS the player\'s eyes. Never draw the player\'s face or body; the player is not in char_directions. Never draw the player\'s hands or arms (no "pov hands"): when the player touches someone (headpat, holding hands), show it only through that character\'s natural reaction. Objects the player holds (phones, papers, weapons) are never the focus — mention them briefly or not at all. Describe every character\'s placement relative to the viewer (very close to viewer, at arm\'s length, across the room, far away) and use "looking at viewer" when they address or face the player; interactions with the player use phrases like "reaching towards viewer". Frame shots as what the player sees. CHARACTER FOCUS: in POV the visible characters are the subject of the picture — frame them close (use "close-up" or "upper body" or "cowboy shot" for one character, "medium shot" for two or three) so they fill most of the frame with clear faces and expressions; keep the background simple and secondary ("depth of field", "blurry background"), showing only enough to identify the place. Use a wide shot only when no character is visible. If a character kisses the player, use "incoming kiss" with a close-up of her face (eyes closed or half-closed, blush). Never mention out-of-view characters in scene_prompt. For EVERY character also output "in_view": true/false — false when the character is outside the player\'s field of view (behind the player, beside and out of frame, behind a wall, hidden in darkness); true only if the player would actually see them right now (e.g. "leaning in from over your shoulder" counts as visible).'
       : '',
     'ORIENTATION: also output "orientation": "portrait" for one character (always, even in battle) or two characters in close interaction (kiss, embrace, face-to-face, leaning on each other); "landscape" for battles, wide scenery, three or more characters, or two characters apart.',
     'Output strictly valid JSON: { "orientation": "portrait or landscape", "scene_prompt": "...", "char_directions": [{ "id": "...", "is_nude": false, "outfit": "...", "action": "...", "interaction": "" }] }'
@@ -5008,9 +5036,8 @@ function generateTurnCgAsync(imgPayload) {
         directed.scene_prompt = String(directed.scene_prompt).split(',').map(t => t.trim())
           .filter(t => t && !isNudeOutfitTags_(t) && !/^(nsfw|bare skin|nipples|pussy|breasts out)$/i.test(t)).join(', ');
       }
-      // 第一人稱：玩家這回合沒有用手碰角色或接東西時，不畫 pov hands（避免畫面兩側出現一雙大手）
-      const handAction = /握|牽|摸|撫|遞|接過|拿|抓|抱|拍|推|拉|觸|摟|伸手|手/.test(String((working._directorContext || {}).userAction || ''));
-      if (directed.scene_prompt && !handAction) {
+      // 第一人稱一律不畫玩家的手（使用者決定：手每次畫得都不一樣，還會借旁邊角色的袖子；摸頭、牽手交給角色自然反應）
+      if (directed.scene_prompt && working.cameraMode === 'pov') {
         directed.scene_prompt = String(directed.scene_prompt).split(',').map(t => t.trim()).filter(t => t && !/^pov hands?$/i.test(t)).join(', ');
       }
       if (directed.scene_prompt) {
@@ -5078,9 +5105,19 @@ function generateTurnCgAsync(imgPayload) {
           const lyingHug = (directed.char_directions || []).some(d => d && /\b(lying|on the bed|in bed|on top of|resting (her|his) (head|face)|face resting|head on (the )?viewer|futon)\b/i.test(`${d.action || ''} ${d.interaction || ''}`)) || /\b(bed|futon|lying)\b/i.test(String(directed.scene_prompt || ''));
           tag = lyingHug ? 'hug, lying, from above, upper body' : 'incoming hug, close-up, face focus';
         }
-        if (working.cameraMode === 'pov' && t.tag === 'headpat') tag = 'headpat, headpat pov, from below, looking down at viewer, reaching towards viewer';
+        // 第一人稱摸頭、牽手不加標籤：這兩個標籤會讓 NovelAI 畫出一隻手，或改讓旁邊的人去摸（實測 3/3 是凜在摸莉莉）
+        if (working.cameraMode === 'pov' && (t.tag === 'headpat' || t.tag === 'holding hands')) return;
         if (!new RegExp('\\b' + tag.split(',')[0].replace(/[-]/g, '\\-') + '\\b', 'i').test(working.prompt)) working.prompt = `${working.prompt}, ${tag}`;
       });
+      // 第一人稱不畫玩家的手：角色欄位拿掉摸頭、牽手等會生出手的字眼，主負面排除手（使用者在比較圖後選擇「正常發揮比較自然」，不另外補反應標籤）
+      if (working.cameraMode === 'pov') {
+        const handRe = /^(source#|target#|mutual#)?(headpat|patting head|petting|head pat|holding hands|hand holding|pov hands?|hand on (another's )?head|reaching towards viewer)$/i;
+        working.prompt = String(working.prompt || '').split(',').map(x => x.trim()).filter(x => x && !handRe.test(x)).join(', ');
+        if (Array.isArray(working.characters)) {
+          working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: removeTagsKeepWeights_(String(ch.prompt || ''), x => handRe.test(x.trim())) }));
+        }
+        working.uc = [working.uc, 'pov hands, disembodied hand, headpat, holding hands'].filter(Boolean).join(', ');
+      }
       // 第一人稱：畫面裡沒有可以當「對象」的角色，source#／target#／mutual# 前綴會讓 incoming kiss 這類動作失效 → 去掉前綴
       if (working.cameraMode === 'pov' && Array.isArray(working.characters)) {
         working.characters = working.characters.map(ch => Object.assign({}, ch, { prompt: String(ch.prompt || '').replace(/(^|,\s*)(source|target|mutual)#/gi, '$1') }));
@@ -5613,7 +5650,7 @@ const TIME_WORDS_ = {
   '清晨': /早上|清晨|早晨|日出|朝陽|晨光/,
   '白天': /中午|正午|午後|下午|大白天/,
   '黃昏': /夕陽|黃昏|傍晚|晚霞|日落/,
-  '深夜': /夜景|深夜|半夜|星空|月光|夜空|午夜/
+  '深夜': /夜景|深夜|半夜|星空|月光|夜空|午夜|晚上|今晚|夜裡/
 };
 function detectTimeMismatch_(userAction, period) {
   const act = String(userAction || '').replace(/晚安|早安|午安/g, '');
