@@ -4405,8 +4405,8 @@ function refineFramingTags_(prompt, nChars) {
 
 // 親密動作 → NovelAI 熟悉的 Danbooru 標籤（自然語言的「從背後抱」「親臉頰」常被畫成並肩站、親嘴）
 // 第一人稱膝枕／掏耳朵的構圖標籤（躺在她腿上往上看）
-// 膝枕：2026-11 比對 12 種寫法後用「仰角＋大腿＋胸部＋臉＋天花板＋特寫」（使用者的點子，膝枕感最清楚）；掏耳朵用俯身靠近版（使用者覺得沒問題）
-let LAP_POV_TAGS_ = 'lap pillow, pov, lying, from below, looking down at viewer, thighs, breasts, face focus, ceiling, close-up';
+// 膝枕：2026-11 比對 12 種寫法後用「仰角＋大腿＋胸部＋臉＋天花板＋特寫」（使用者的點子，膝枕感最清楚；breasts 已拿掉，因為會套用到孩童外觀角色）；掏耳朵用俯身靠近版（使用者覺得沒問題）
+let LAP_POV_TAGS_ = 'lap pillow, pov, lying, from below, looking down at viewer, thighs, face focus, ceiling, close-up';
 let MIMIKAKI_POV_TAGS_ = 'mimikaki, holding ear pick, lap pillow, pov, from below, looking down at viewer, leaning over viewer, hair hanging down, face close to viewer, upper body, ceiling, 0.6::thighs::';
 const INTIMACY_TAGS_ = [
   { re: /\b(hug(ging|s|ged)?|embrac(e|ing|ed)|arms wrapped around)\b[^,]*\bfrom behind\b|\bback hug\b|\bbeing hugged from behind\b/i, tag: 'hug from behind' },
