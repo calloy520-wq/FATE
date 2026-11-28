@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_, rollWeather_, applyWeatherTags_, normalizeWeather_, indoorWeatherFix_, closeUmbrellaIndoors_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_, rollWeather_, applyWeatherTags_, normalizeWeather_, indoorWeatherFix_, closeUmbrellaIndoors_, focusGestureExcerpt_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -310,6 +310,13 @@ cr = T.updateCompanions_(metaC2, facC2, '凜，我們一起活著走出這裡', 
 eq('到期但又邀請 → 默默延長，不顯示離開又加入', [cr.joined, cr.left, metaC2.companions['遠坂組 (Archer陣營)'].t], [[], [], 4]);
 cr = T.updateCompanions_(metaC2, facC2, '請凜先留在室內警戒，我與師匠一同去檢查', 5, []);
 eq('請盟友留下 → 離隊且同回合不會被「一同」拉回', [cr.joined, cr.left.map(x => x.fk)], [[], ['遠坂組 (Archer陣營)']]);
+
+// ---- 親密動作優先：摘錄截到動作與反應為止 ----
+const gStory = '他伸手摸了摸她的頭。\n莫德雷德：「別摸我的頭！」\n她臉紅撇開臉。就在這時，結界傳來擾動，使魔在窺探。\n莫德雷德戴上頭盔：「有人在監視！」';
+eq('摸頭後插入威脅 → 截掉威脅', T.focusGestureExcerpt_(gStory, '摸摸她的頭', false), '他伸手摸了摸她的頭。\n莫德雷德：「別摸我的頭！」\n她臉紅撇開臉。');
+eq('戰鬥中不截', T.focusGestureExcerpt_(gStory, '摸摸她的頭', true), gStory);
+eq('不是親密動作不截', T.focusGestureExcerpt_(gStory, '去教會', false), gStory);
+eq('沒有插入威脅就保留全文', T.focusGestureExcerpt_('他抱住她。\n她笑了。', '抱住她', false), '他抱住她。\n她笑了。');
 
 // ---- 天氣 ----
 eq('天氣不明 → 晴', T.normalizeWeather_('颱風'), '晴');

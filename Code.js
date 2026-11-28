@@ -4101,6 +4101,27 @@ function resolveCharacterVisualProfile_(charId, dbInfo, statusObj, userAction, s
 
 // 專職 NAI V5 視覺導演／翻譯官：劇情優先換裝 + 動態場地背景 + 鏡頭語言 + 多人互動語法（不鎖定座標，交由 AI's Choice 構圖）
 // 劇情摘錄：保留開頭交代與結尾（最新畫面），中間省略，避免最關鍵的結尾被截掉
+// 玩家做親密動作（摸頭、擁抱、親吻…）而劇情尾端才插進威脅時，導演只看到結尾就會畫成警戒畫面、漏掉玩家的動作
+// （2026-11 實測：摸頭後使魔窺探 → CG 變戴頭盔警戒，光改導演規則 flash-lite 不聽）→ 摘錄截到動作與反應為止
+const GESTURE_ACTION_RE_ = /摸.{0,3}頭|摸摸|抱|擁|吻|親.{0,2}(臉|額|嘴|唇|她|他|一下)|牽.{0,2}手|膝枕|掏耳|依偎|靠在.{0,6}(肩|懷|身上)|餵/;
+const GESTURE_STORY_RE_ = /摸|撫|抱|擁|吻|親|牽|膝|掏耳|依偎|靠|餵/;
+const STORY_INTERRUPT_RE_ = /就在這時|就在此時|正當|突然|忽然|驀地|下一刻|使魔|殺氣|敵意|警報|窺探|偷窺|襲擊|結界傳來|結界.{0,4}擾動/;
+function focusGestureExcerpt_(storyText, userAction, isCombat) {
+  const t = String(storyText || '');
+  if (isCombat || !GESTURE_ACTION_RE_.test(String(userAction || ''))) return t;
+  const paras = t.split(/\n+/);
+  const start = paras.findIndex(p => GESTURE_STORY_RE_.test(p));
+  if (start < 0) return t;
+  const kept = paras.slice(0, start + 1);
+  if (STORY_INTERRUPT_RE_.test(paras[start])) return t;
+  for (let i = start + 1; i < paras.length; i++) {
+    const m = paras[i].match(STORY_INTERRUPT_RE_);
+    if (m) { const head = paras[i].slice(0, m.index).trim(); if (head.length >= 8) kept.push(head); return kept.join('\n'); }
+    kept.push(paras[i]);
+  }
+  return t;
+}
+
 function excerptForDirector_(storyText) {
   const t = String(storyText || '').replace(/【時段推進[\s\S]*$/, '').trim();
   if (t.length <= 1600) return t;
@@ -4186,7 +4207,7 @@ function translateSceneToNaiV5_(directorCtx) {
     `At Home Base: ${directorCtx.atHomeBase ? 'yes' : 'no'}`,
     `Player Action: ${directorCtx.userAction || ''}`,
     `Present Characters:\n${charSummary}`,
-    `Story Excerpt (the END is the current moment):\n${excerptForDirector_(directorCtx.storyText)}`
+    `Story Excerpt (the END is the current moment):\n${excerptForDirector_(focusGestureExcerpt_(directorCtx.storyText, directorCtx.userAction, directorCtx.isCombat))}`
   ].filter(Boolean).join('\n\n');
 
   try {
