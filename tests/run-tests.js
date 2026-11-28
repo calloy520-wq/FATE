@@ -352,6 +352,11 @@ eq('好感夠了可以結盟', T.gateFactionAlliance_('存活 (中立)', '存活
 const now = T.timeIndex_(2, '黃昏');
 const ad = T.addAppointments_(metaF, facF, [{ faction: '遠坂', day: 2, period: '深夜', place: '冬木大橋' }, { faction: '伊莉雅', day: 3, period: '清晨', place: '柳洞寺' }], now);
 eq('只能和同盟約定', ad.map(a => a.fk), ['遠坂組 (Archer陣營)']);
+const metaAp = { smsContacts: { '衛宮組 (Saber陣營)': true } };
+const adFriendly = T.addAppointments_(metaAp, { '衛宮組 (Saber陣營)': '存活 (互不侵犯)' }, [{ faction: '士郎', day: 3, period: '黃昏', place: '冬木大橋' }], T.timeIndex_(2, '黃昏'));
+eq('有聯絡方式的友善陣營也能約', adFriendly.map(a => a.fk), ['衛宮組 (Saber陣營)']);
+const rsF = T.resolveAppointments_(metaAp, { '衛宮組 (Saber陣營)': '存活 (互不侵犯)' }, T.timeIndex_(3, '黃昏'), '冬木大橋');
+eq('友善陣營依約前來', rsF.due.map(a => a.fk), ['衛宮組 (Saber陣營)']);
 let rs = T.resolveAppointments_(metaF, facF, T.timeIndex_(2, '深夜'), '冬木大橋');
 eq('準時到約定地點 → 對方出現', rs.due.map(a => a.fk), ['遠坂組 (Archer陣營)']);
 T.addAppointments_(metaF, facF, [{ faction: '遠坂', day: 3, period: '白天', place: '遠坂邸' }], T.timeIndex_(2, '深夜'));

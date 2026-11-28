@@ -1233,12 +1233,22 @@ function describeFavorForPrompt_(meta, factionsObj) {
 }
 
 // 約定：只和同盟約；到了約定時段人在約定地點 → 對方依約加入同行；錯過 → 好感 −10
+// 能約碰面的對象：同盟，或已有聯絡方式／好感 ≥ 20 且沒有敵對的陣營（2026-11 實測：和互不侵犯的士郎約好碰面，系統卻丟掉約定）
+function canMakeAppointment_(meta, fk, st) {
+  const s = String(st || '');
+  if (!s || isCapturedOrDefeatedStatusText_(s) || /重傷|重創|瀕/.test(s)) return false;
+  if (isAllianceStatusText_(s)) return true;
+  if (HOSTILE_STATUS_RE_.test(s)) return false;
+  const contacts = (meta && meta.smsContacts && typeof meta.smsContacts === 'object') ? meta.smsContacts : {};
+  return Boolean(contacts[fk]) || getFactionFavor_(meta || {}, fk) >= 20;
+}
+
 function addAppointments_(meta, factionsObj, list, nowIdx) {
   meta.appointments = Array.isArray(meta.appointments) ? meta.appointments.slice() : [];
   const added = [];
   (Array.isArray(list) ? list : []).slice(0, 2).forEach(a => {
     const fk = resolveFactionKey_(a && a.faction, factionsObj);
-    if (!fk || !isAllianceStatusText_(factionsObj[fk])) return;
+    if (!fk || !canMakeAppointment_(meta, fk, factionsObj[fk])) return;
     const loc = matchFuyukiLocation_(a.place);
     const day = Math.round(Number(a.day) || 0);
     const period = TIME_PERIODS_.includes(a.period) ? a.period : '深夜';
@@ -1257,7 +1267,7 @@ function resolveAppointments_(meta, factionsObj, nowIdx, locationKey) {
   meta.appointments = (Array.isArray(meta.appointments) ? meta.appointments : []).filter(a => {
     const idx = timeIndex_(a.day, a.period);
     const st = String((factionsObj || {})[a.fk] || '');
-    if (!isAllianceStatusText_(st) || /重傷|重創|瀕/.test(st)) { if (idx <= nowIdx) { cancelled.push(a); return false; } return true; }
+    if (!canMakeAppointment_(meta, a.fk, st)) { if (idx <= nowIdx) { cancelled.push(a); return false; } return true; }
     if (idx === nowIdx && locationKey === a.place) { due.push(a); return false; }
     if (idx < nowIdx) { missed.push(a); return false; }
     return true;
@@ -1272,7 +1282,7 @@ function resolveAppointments_(meta, factionsObj, nowIdx, locationKey) {
 function describeAppointmentsForPrompt_(meta, nowIdx) {
   const list = Array.isArray(meta && meta.appointments) ? meta.appointments : [];
   if (list.length === 0) return '';
-  return '【約定】' + list.map(a => `${companionDisplayName_(a.fk)} 約在 Day ${a.day}・${a.period} 於${a.place}集合${timeIndex_(a.day, a.period) === nowIdx ? '（就是現在！玩家在那裡的話對方準時出現）' : ''}`).join('；') + '。玩家和同盟約新的集合時，填 appointments_add。';
+  return '【約定】' + list.map(a => `${companionDisplayName_(a.fk)} 約在 Day ${a.day}・${a.period} 於${a.place}集合${timeIndex_(a.day, a.period) === nowIdx ? '（就是現在！玩家在那裡的話對方準時出現）' : ''}`).join('；') + '。玩家和同盟或友善的陣營約新的碰面時，填 appointments_add。';
 }
 
 // ==================== 同行盟友：邀請同盟一起行動，之後每回合都跟在身邊 ====================
@@ -3078,7 +3088,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 御主是最大破綻：攻擊御主是正當戰術。失去御主的從者靠單獨行動技能撐一段時間，會尋找新御主或消失。',
   '- 魔術必須隱匿：在人多的地方或白天公開交戰，會引來聖堂教會善後、警方與其他陣營的注意（論壇也會出現目擊）。聖杯戰爭主要在夜間進行，白天是日常、調查與佈局。',
   '- 陣地優勢：在敵方工房、結界或陣地內作戰極為不利；Caster 的陣地與山門結界尤其危險。',
-  '- 陣營好感與約定：狀態資料有各陣營對玩家的好感，玩家的行為要用 `faction_favor_delta` 反映；玩家和同盟約定之後的集合時間地點時，填 `appointments_add`（day 用數字，period 用清晨／白天／黃昏／深夜）。',
+  '- 陣營好感與約定：狀態資料有各陣營對玩家的好感，玩家的行為要用 `faction_favor_delta` 反映；玩家和同盟或友善的陣營約好之後的碰面時間地點時，填 `appointments_add`（day 用數字，period 用清晨／白天／黃昏／深夜）。',
   '- 結盟看立場與利益：對方要有理由才會合作（共同的敵人、情報、救命之恩、交換條件），敵對陣營要經過多次互動才可能從敵意轉為談判、停戰、結盟；言峰綺禮表面合作、暗中利用，伊莉雅的態度取決於能否打動她、她與士郎的關係，Caster 只信任葛木。一次談話通常只能讓態度軟化，不會直接結盟。',
   '- 從者戰力依原作：每騎都是傳說級英雄，打倒一騎要靠情報、弱點、地利、寶具與犧牲累積，通常要好幾回合（偵查→削弱→決戰）；Berserker 的十二試煉要多次致命傷或高階寶具才能突破，吉爾伽美什的王之財寶近乎無窮。一次漂亮的行動可以重創對手、逼退對手，但不會讓滿狀態的從者當場退場。',
   '- 不硬塞情報：吃飯、休息、閒聊等日常場景就好好寫日常，不要讓從者主動報告戰況；角色只會提到確實得知的事（親眼所見、使魔回報、論壇、聯絡），而且只知道得到的那部分。玩家主動問起或去打聽時，才依情報來源回答。',
@@ -3885,7 +3895,8 @@ function processFateTurnTextOnly(params) {
     favorChanges.forEach(c => summaryParts.push(`💗 ${c.fk.replace(/\s*\(.*\)$/, '')} 好感 ${c.before}→${c.after}（${favorLabel_(c.after)}）`));
     apptAdded.forEach(a => summaryParts.push(`📅 約定：${companionDisplayName_(a.fk)} Day ${a.day}・${a.period} 在${a.place}集合`));
     apptRes.missed.forEach(a => summaryParts.push(`😠 你沒有赴約，${a.fk.replace(/\s*\(.*\)$/, '')} 好感 −10`));
-    apptRes.cancelled.forEach(a => summaryParts.push(`📅 ${companionDisplayName_(a.fk)} 無法赴約（不再同盟或傷勢太重）`));
+    apptRes.cancelled.forEach(a => summaryParts.push(`📅 ${companionDisplayName_(a.fk)} 無法赴約（關係惡化或傷勢太重）`));
+    apptRes.due.filter(a => !compRes.joined.includes(a.fk)).forEach(a => summaryParts.push(`📅 ${companionDisplayName_(a.fk)} 依約前來碰面`));
     compRes.joined.forEach(k => summaryParts.push(apptRes.due.some(a => a.fk === k) ? `🤝 ${companionDisplayName_(k)} 依約前來，加入同行` : `🤝 ${companionDisplayName_(k)} 加入同行`));
     compRes.left.forEach(c => summaryParts.push(`👋 ${companionDisplayName_(c.fk)} 離開隊伍（${c.reason}）`));
     if (combatAssess && turnJson.is_combat) summaryParts.push(`⚔ 戰力判定：${combatAssess.level}（${combatAssess.reasons.join('、') || '條件相當'}）`);
