@@ -12,6 +12,7 @@
 - `.github/workflows/deploy.yml`：自動部署流程（先跑語法檢查與 `tests/`，失敗就不部署）。
 - `tests/run-tests.js`：Node 單元測試，載入 `Code.js` 測純邏輯函式。
 - `tests/sim-turn.js`：用假試算表＋假 Gemini 跑完整流程（新遊戲→召喚→回合→論壇假消息→簡訊→讀檔），抓執行期錯誤。改動回合流程後一定要跑。
+- `tests/stress-guards.js`：伺服器把關壓力測試。手寫「AI 常犯的錯」當作 Gemini 回應（重複扣令咒、亂扣道具、沒交戰就淘汰、亂送副從者、型別錯亂、結局值寫錯、約定與同行流程、名冊換人、好感歸零解約…），確認伺服器擋得住。新增伺服器把關時順手補一條；會受時段推進隨機影響的情境要固定 AP、`ap_cost: 0`。
 - `.claspignore`：白名單，只推 `Code.js`、`GameData.js`、`Lore.js`、`Index.html`、`SetupDB.js`、`appsscript.json` 到 GAS。GAS 所有 `.js` 檔共用同一個全域空間（測試也照 GameData → Lore → Code 的順序載入）。新增要上 GAS 的檔案時必須加進白名單；**測試或工具腳本絕對不能被推上去**（會在 GAS 造成函式衝突）。
 
 ## 部署流程（重要）
@@ -31,7 +32,7 @@
 
 ## 修改程式時的檢查
 - **`Index.html` 的 JavaScript 裡不能出現雙斜線字串**（例如 `'https://...'`）：GAS 送出網頁時會把 JS 的雙斜線註解刪掉，連字串裡的也會被刪，整段程式就壞掉（2026-11 曾因音樂網址讓全員卡在登入畫面）。網址要寫成 `'https:' + '/' + '/...'`。錯誤顯示器放在獨立的第一個 `<script>`，主程式壞掉時畫面頂端會出現紅條。
-- 推送前用 `node --check Code.js` 做語法檢查，並跑 `node tests/run-tests.js` 與 `node tests/sim-turn.js`（GAS 是 V8 環境，`Code.js` 裡不能用 Node 模組）。新增純邏輯函式時順手補測試；新增前端呼叫的後端參數時，模擬測試也要跟著補。
+- 推送前用 `node --check Code.js` 做語法檢查，並跑 `node tests/run-tests.js`、`node tests/sim-turn.js` 與 `node tests/stress-guards.js`（GAS 是 V8 環境，`Code.js` 裡不能用 Node 模組）。新增純邏輯函式時順手補測試；新增前端呼叫的後端參數時，模擬測試也要跟著補。
 - 改後端函式名稱或回傳格式前，先全文搜尋 `Index.html`，前後端必須同步。前端呼叫的後端函式包括：`startNewGame`、`loadExistingGame`、`processFateTurnTextOnly`、`completeCreationAndSummon`、`generateTurnCgAsync`、`retrySceneImage`、`savePlayerSettingsOnly`、`updateCustomLocationDesc`、`postFuyukiForumMessage`、`sendAllySmsMessage`、`markPhoneMessagesRead`、`resetCurrentRunKeepCareer`、`startNextLoopReincarnation`、`enhanceMasterAppearance`、`previewMasterOutfit`、`getServantTemplates`、`enhanceServantAppearance`、`previewCustomServant`。（上傳圖片抽詞 `extractMasterFromImage` 已依使用者要求移除）
 - 回合推演用 `ScriptLock`，但**只在讀存檔與寫回時持有**；等待 Gemini 時會放開，寫回前重新讀取並比對 `meta.turnCount`，被別的視窗推進過就放棄寫入。召喚流程、同盟簡訊 AI 回覆同理。不要改回「整個回合都鎖著」（多人同時玩會互相卡住、逾時）。
 - 生圖用獨立的 `UserLock`，不要和回合推演共用同一把鎖。網頁以部署者身分執行，所以這把鎖實際上是全體玩家共用，一次只畫一張（配合 NovelAI 同時只能生成一張）。
@@ -53,10 +54,12 @@
 - 活的論壇：AI 每回合可用 `forum_posts` 產生 0～2 則市民目擊貼文。
 - 路線傾向：`meta.routeTendency`（fate／ubw／hf／shadow／conquest，0～100），AI 每回合以 `route_tendency_delta` 加減；最高分 ≥ 40 且領先 ≥ 12 時確立 `meta.activeRoute`，轉線需領先現路線 24 分。定義在 `ROUTE_DEFS_`，顯示在「📊 情報」。
 - 場地狀態延續：劇情改變地標樣貌（破壞、佈置、結界、修復）時，AI 以 `location_changes` 回報現況，存進 `meta.customLocationNotes`（與地圖上手動編輯「場地現況」是同一份），永久保留直到劇情再改變；地標清單會附上被改變地點的現況，導演會把現況畫進背景。
-- 陣營主動行動（`drawProactiveEvent_`）：每回合機率 15%～45%（警戒度越高、越久沒事越高；發生後至少隔 3 回合），挑一個未淘汰的陣營依態度主動行動（敵對：窺探／突襲／挑戰書／陷阱；中立：拜訪／交易／偶遇；同盟：情報／求援／商量／邀約；教會：綺禮來訪／通知），寫進提示詞要求本回合一定發生。重傷休整的不會突襲。只有**同盟陣營**會主動傳訊（`incoming_messages`，伺服器擋掉非同盟的），寫入手機聯絡頁；非同盟的接觸一律在劇情中當面發生。結盟分階段（`gateFactionAlliance_`）：常理與鐵血模式下，敵對陣營一回合最多軟化成「談判中」；`isAllianceStatusText_` 不把談判中、意向、解除、破裂當同盟（前端 `isAlliedText` 同步）。
+- 時間以狀態列為準（系統提示詞）：玩家行動寫的時段（傍晚、夜景）和現在不同時照實際時段描寫，不可跳時間（2026-11 實測：白天寫「眺望夜景」劇情就變晚上，清晨被寫成夕陽，標題、劇情、CG 對不上）。
+- 天氣（`meta.weather`，`WEATHER_TYPES_`：晴／陰／雨／霧／雪，原作 2 月初的冬木）：每次時段推進用 `rollWeather_` 變化（60% 維持、霧只在清晨與深夜），時段推進訊息與頂部時間徽章顯示天氣。statePrompt 寫天氣與影響（雨沖刷痕跡、霧利於潛行、雪留足跡），系統提示詞要求戶外描寫天氣；只有劇情真的改變天氣（大型魔術、天候寶具）時 AI 才回報 `weather_change`，結算顯示。繪圖：導演收到 Weather 行，`generateNovelAIImageSafe_` 用 `applyWeatherTags_` 在戶外場景補天氣標籤（室內字眼或已寫天氣就不加）；CG 用本回合劇情寫作時的天氣（`storyWeather`），不用時段推進後的新天氣。室內場景（`INDOOR_SCENE_RE_`）：`indoorWeatherFix_` 刪掉沒提到窗戶／玻璃／外面的雨雪片段，`closeUmbrellaIndoors_` 把角色手上的傘改成收起來（實測導演寫「門外看得到雨」，結果教堂裡下雨、主角室內撐傘）。戰力判定：霧中奇襲／潛行 +1、雨霧雪對遠坂組（Archer 狙擊）+1。
+- 陣營主動行動（`drawProactiveEvent_`）：每回合機率 15%～45%（警戒度越高、越久沒事越高；發生後至少隔 3 回合），挑一個未淘汰的陣營依態度主動行動（敵對：窺探／突襲／挑戰書／陷阱；中立：拜訪／交易／偶遇；同盟：情報／求援／商量／邀約；教會：綺禮來訪／通知），寫進提示詞要求本回合一定發生。重傷休整的不會突襲。只有**同盟陣營**會主動傳訊（`incoming_messages`，伺服器擋掉非同盟的），寫入手機聯絡頁；非同盟的接觸一律在劇情中當面發生。結盟分階段（`gateFactionAlliance_`）：常理與鐵血模式下，敵對陣營一回合最多軟化成「談判中」；`isAllianceStatusText_` 不把談判中、交涉中、協商中、意向、解除、破裂當同盟（前端 `isAlliedText` 同步）。
 - 教會是公開據點，手機上隨時聯絡得到。
-- 陣營好感（`meta.factionFavor`，−100～100，開局值 `FACTION_FAVOR_START_`）：AI 以 `faction_favor_delta` 加減，每回合每組最多 ±15；常理與鐵血下好感 < 40 不能正式結盟。約定（`meta.appointments`，最多 3 筆）：AI 以 `appointments_add` 記錄和同盟約好的時間地點；到了那個時段人在約定地點 → 對方加入同行，錯過 → 好感 −10，對方不再同盟或重傷 → 取消。都顯示在「📊 情報」。
-- 同行盟友（`meta.companions`，`updateCompanions_`）：玩家行動有「帶著／一起／跟我…」加上同盟陣營的人名，或「簡訊支援待命中」的盟友出現在劇情，就加入同行（最多 2 組）。同行者每回合寫進 statePrompt 要求在場；戰力判定算盟友參戰；不會被抽成主動行動；不能傳簡訊給同行者（直接當面說）。離開條件：解散／分頭、不再同盟、重傷、或同行滿 4 個時段（`timeIndex_`）。頂部狀態列顯示「🤝 同行」。後台廝殺本來就排除同盟。
+- 陣營好感（`meta.factionFavor`，−100～100，開局值 `FACTION_FAVOR_START_`）：AI 以 `faction_favor_delta` 加減，每回合每組最多 ±15；常理與鐵血下好感 < 40 不能正式結盟。約定（`meta.appointments`，最多 3 筆）：AI 以 `appointments_add` 記錄和同盟或友善陣營（`canMakeAppointment_`：有聯絡方式或好感 ≥ 20、沒有敵對）約好的時間地點；到了那個時段人在約定地點 → 同盟加入同行、非同盟依約前來碰面（結算「📅 依約前來碰面」），錯過 → 好感 −10，對方不再同盟或重傷 → 取消。都顯示在「📊 情報」。
+- 同行盟友（`meta.companions`，`updateCompanions_`）：玩家行動有「帶著／一起／跟我…」加上同盟陣營的人名，或「簡訊支援待命中」的盟友出現在劇情，就加入同行（最多 2 組）。同行者每回合寫進 statePrompt 要求在場；戰力判定算盟友參戰；不會被抽成主動行動；不能傳簡訊給同行者（直接當面說）。離開條件：解散／分頭、不再同盟、重傷、或同行滿 4 個時段（`timeIndex_`）。頂部狀態列顯示「🤝 同行」。同一回合不會「離開又加入」：到期當回合玩家又邀請 → 默默延長；被請留下／分頭的同回合不會因句中其他「一起／一同」被拉回。後台廝殺本來就排除同盟。
 - 情報檔案（`meta.factionIntel`）：玩家「知道的」陣營狀態，和真相 `row[29]` 分開。只有親眼見到該陣營角色（`CHAR_FACTION_MARKERS_`）、同盟、聯絡接通、或 AI 回報 `intel_updates` 時才更新；幕後細節（「曾於…激戰」「遭…擊潰」）用 `publicIntelText_` 去掉。「📊 情報」視窗、手機聯絡頁、回合結算的陣營變化都只用情報；statePrompt 同時給真相（標明 GM 專用）與玩家情報。後台戰況（`meta.warTicker`）只給 GM，玩家只看到 `warTickerPublic` 異象與自動論壇目擊。
 - 每回合結算：伺服器比對回合前後狀態，在劇情尾端附上「【本回合結算】」（MP、警戒、好感、移動、傷勢、道具、陣營變化、聯絡人、流言、論壇）。AI 讀歷史時會自動去掉這類系統行。
 
@@ -73,10 +76,11 @@
 - 視覺導演取劇情「開頭＋結尾」摘錄，以結尾（最新畫面）為準；服裝欄不得含髮色、瞳色、體型。
 - **角色位置絕對不寫死**：`use_coords: false`、所有角色中心都是 0.5，由 NovelAI 自行構圖（AI's Choice）。導演只用文字描述位置關係（前景／背景、誰在誰身後、面向誰、遠近），不給座標或左右格位。
 - 第一人稱視角（設定開關，`meta.cameraMode` = `pov`／`third`；新角色召喚時寫入 `third`，舊存檔沒設定過的仍是 pov，刻意不改以免朋友們畫面突變）：繪圖時移除 `player_master`、主提示詞加 `pov, first-person view`（沒有其他角色時加 `no humans, scenery`），導演改以「離鏡頭多近、是否看向鏡頭」描述，玩家用手做事時加 `pov hands`。**視野外的角色不畫**：導演回報 `in_view`，程式另用 `isOutOfPovView_` 檢查（寫了 behind viewer／out of frame 等就算看不到，over shoulder／leaning in 仍算看得到），被排除的角色會從角色欄位與場景描述（`removeCharacterMentions_`）移除，並以 `buildCountTags_` 重算人數。不會多生圖。
+- 玩家的親密動作優先（2026-11 實測：摸頭後劇情尾端插入使魔窺探，CG 變成戴頭盔警戒、摸頭沒畫到）：玩家行動是摸頭、擁抱、親吻、牽手、膝枕、掏耳朵、安慰、餵食且劇情確實發生時，導演畫那個動作；結尾只是察覺威脅、傳話、電話不取代它，只有攻擊真的打到那個場面才改畫戰鬥。光改導演規則 flash-lite 不聽，所以程式另用 `focusGestureExcerpt_`：玩家行動是親密動作且非戰鬥時，交給導演的劇情摘錄截到動作與反應為止（遇到「就在這時／突然／使魔／窺探／結界擾動」等插入就停）；實測從警戒畫面變成摸頭臉紅。導演規則 0：沒有 Weather 行就是晴天，不可自己加雨、雪、濕地、霧。
 - 導演只畫劇情當下明確出現的道具、武器與魔術效果，不自動加角色招牌物品。
 - 畫面方向自動切換（`pickNaiSize_`）：畫面只有 1 個角色 → 直式 832×1216；2 人以上或純風景 → 橫式 1216×832（兩者像素量相同，都在免費範圍）。第一人稱濾掉視野外角色後會重新判斷。前端畫框依圖片比例切換（`.cg-viewport.portrait`，高度上限 78vh），圖片用 contain 不裁切。
 - 御主沒有戰鬥服：導演收到的 battle_outfit 對御主是玩家自己設定的服裝（之前誤用 GameData 的預設黑色毛衣，開戰時克勞德被換裝）。
-- 便服：`GameData.js` 的 `casual`（目前有斯卡哈、Saber、Rider）。本回合結束時人在據點（廢棄洋館）且沒開戰，就從戰鬥靈衣換成便服（人在據點沒開戰時不看劇情字眼，避免「警戒」「魔槍」等字誤換回戰鬥服）；離開據點或開戰換回。導演收到 `At Home Base`，只有在據點才能用便服；導演若把便服改回戰鬥服（`outfitSimilarity_` ≥ 0.5），程式會改回便服。武器只在戰鬥或解放寶具時才畫：系統提示詞要求非戰鬥時武器靈體化，非戰鬥場景的角色負面提示詞自動加入 `holding weapon, weapon, spear, polearm, sword`。
+- 莫德雷德的全罩頭盔會把臉遮住，負面加 `helmet, full-face helmet, visor, covered face`（同黑貞德）。便服：`GameData.js` 的 `casual`（目前有斯卡哈、Saber、Rider）。本回合結束時人在據點（廢棄洋館）且沒開戰，就從戰鬥靈衣換成便服（人在據點沒開戰時不看劇情字眼，避免「警戒」「魔槍」等字誤換回戰鬥服）；離開據點或開戰換回。導演收到 `At Home Base`，只有在據點才能用便服；導演若把便服改回戰鬥服（`outfitSimilarity_` ≥ 0.5），程式會改回便服。武器只在戰鬥或解放寶具時才畫：系統提示詞要求非戰鬥時武器靈體化，非戰鬥場景的角色負面提示詞自動加入 `holding weapon, weapon, spear, polearm, sword`。
 - 鏡頭規則（FRAMING，2026-11 八場景實測後加入）：臉是核心，導演選「能容下所有人的最近鏡頭」——1 人 cowboy shot／upper body（單人寶具 cowboy shot, from below），2～3 人 medium shot，wide shot 只限 4 人以上、兩方遠距離對戰或純風景；浪漫場景 upper body／close-up；鐵絲網、玻璃、人群不可擋在臉前面。實測 8 張有 4 張原本是遠景小人，改後都變成半身清楚。
 - 導演文字的程式修正（`generateTurnCgAsync` 合併導演結果後）：
   - `refineFramingTags_`：medium shot 不是 Danbooru 標籤，1～2 人時換成 `cowboy shot`（實測小次郎從遠景小人變半身、戰鬥時臉也清楚）。
@@ -119,6 +123,8 @@
   - 已寫進系統提示詞的核心規則不要再寫成世界書。標示「隱藏真相」的條目要提醒 AI 只在深入調查時揭露。
 - 這些資料在單次執行內以記憶變數快取，不需要 CacheService。
 
+- 地標（`FUYUKI_LOCATIONS_`）：2026-11 新增「深山町商店街」與「新都中央公園」（十年前大火遺址）。原因：玩家去商店街時對不到地標、地點停在洋館，便服判斷以為人在據點。中央公園必須排在新都商業區前面（別名比對照順序，「新都」會先被搶走）。
+
 ## 讀取與寫入（試算表）
 - `Players_Save` 找玩家只讀 A 欄；`ChatLog` 先讀 A 欄定位，再只讀需要的列。不要改回 `getDataRange()` 讀整張表。
 - `ChatLog` 的 H 欄（繪圖 payload）每位玩家只保留最近 6 回合（`CHATLOG_PAYLOAD_KEEP`），更舊的會清空；劇情文字保留。
@@ -136,15 +142,19 @@
 - 玩家是正規陣營之外獨立參戰的第 8 組，不頂替任何陣營；只有真正收服副從者時，原陣營才改為「已歸屬第8組」。
 - 御主六維與從者參數創角後固定鎖定，不因鍛鍊改變。
 - 同盟陣營彼此照應、不內鬥；後台陣營廝殺要慢，不可輕易把七組打光。
-- `TRUE_VICTORY` 由伺服器驗證：仍有未化解的敵對陣營，或在日常模式，一律降回 `CONTINUE`。
+- `TRUE_VICTORY` 由伺服器驗證：仍有未化解的敵對陣營，或在日常模式，一律降回 `CONTINUE`。同盟標記保護（`preserveAllianceTag_`）：原本同盟的陣營被 AI 改寫狀態時，沒寫破裂／背叛／解除等字眼就自動補回「同盟」；通關判定與後台廝殺另有好感保險（`isFriendlyByFavor_`：好感 ≥ 80 且狀態沒有敵對字眼視同已化解、不會被抽去後台互打）。2026-11 克勞德媽實玩 191 回合劇情已結局，卻因 AI 把同盟改寫成「存活 (終局)」而無法判定通關，因此加上。
 - 服裝以劇情為準：洗澡自動脫衣、開打自動換戰鬥裝，全裸後主動穿衣才還原。例外：從者全裸時一旦開戰或離開據點，會自動具現回戰鬥裝；御主的全裸一律由玩家決定。
 - 黑櫻、黑 Saber 出現時，同場不得再出現原版櫻或 Saber。
 - 真Assassin 路線：`meta.routeFlags` 個別記錄美狄亞（`caster`）與小次郎（`assassin`）是否退場；任一退場且間桐陣營仍在時，自動新增「臟硯組 (真Assassin陣營)」並由咒腕哈桑（`hassan`）接替山門。收服柳洞寺其中一騎時不會整組改為歸屬第8組。
-- 休息回魔由伺服器結算（`isRestAction_`）：玩家輸入休息／睡覺／冥想等且沒開戰 → 回復 20＋所在地靈脈 `manaRegen`，AI 自己加的正數 `master_mp_delta` 不重複計入；結算顯示「💤 休息回復」。時段推進另有靈脈回魔。
+- 休息回魔由伺服器結算（`isRestAction_`）：玩家輸入休息／睡覺／冥想等、AI 也回報 `player_rested`（或 `player_slept`）為 true，且沒開戰 → 回復 20＋所在地靈脈 `manaRegen`（兩把鑰匙：「沒時間休息了，衝！」不會回魔），AI 自己加的正數 `master_mp_delta` 不重複計入；結算顯示「💤 休息回復」。真的睡一覺時直接用完本時段剩下的 AP、時間前進到下一個時段。採「兩把鑰匙」：AI 回報 `player_slept: true`（玩家本人真的睡了；看別人睡、睡前聊天、睡到一半被吵醒都是 false）**而且**玩家輸入有睡覺字眼（`isSleepAction_`），且沒開戰，才推進。原則：意圖交給 AI 判斷，GAS 的字詞比對只用來否決「玩家完全沒提卻發生」的事，不要讓 GAS 看到字就強制執行（以前這樣做常把「不想睡」「她抱怨」誤判）。否決用的字詞清單要**放寬**（`isSleepAction_`、`isRestAction_`、`hasContractIntent_`、道具泛稱「道具／背包／東西」、令咒「命令」）：沾到邊就放行，因為主判斷是 AI；短輸入「睡」「晚安」「躺平」「我接受」「成交」都要對得上，誤放行沒關係，漏掉才會讓 AI 讀懂的事被擋掉。時段推進另有靈脈回魔。
 - 英靈名冊（`meta.servantRoster`，最多 3 騎）：副從者位置已滿還收服（`new_servant2_id`）時收進名冊、回洋館待命（扣 80 MP、原陣營歸屬第8組）；玩家在廢棄洋館輸入「讓某某上場／帶某某出門」（`findRosterSwapTarget_`）就和副從者互換。主從者固定不換。名冊寫進 statePrompt 標明不在身邊。
 - 主從好感：`bond_delta` 每回合限 ±10；好感 ≤10 時提示詞告知從者可能拒絕荒唐命令；好感 0 且本回合又扣分時 `meta.bondZeroStreak` +1（回升就歸零），結算顯示「⚠ 忍耐快到極限」，連續 3 次（常理、鐵血）主從者解約離去，走和靈基消滅相同的遞補／失去從者流程，好感重設 25。
 - 道具固定效果由伺服器結算：`mana_gem_s` +35 MP、`mana_gem_m` +65 MP、`smoke_bomb` 警戒度 −15（`ITEM_EFFECTS_`）；保命符的 id 必須是 `aegis_charm`。
-- 道具防越權：玩家本回合輸入沒有「取得／製作」意圖（撿、拿、買、煉成…）時不收 `gained_items`；沒有「使用」意圖（用、捏碎、投擲…）時不扣道具（除非輸入直接提到該道具名稱）。
+- 道具只能用背包裡真的有的（系統提示詞）：玩家提到沒有的道具或材料時，劇情寫出手邊沒有、做不成（2026-11 實測：時鐘塔出身沒有未充能寶石，卻照樣煉成中魔力寶石）。當場吃掉的食物、日用品不收進背包（實測買鯛魚燒被收成道具佔格子）。
+- 道具防越權：玩家本回合輸入沒有「取得／製作」意圖（撿、拿、買、煉成…）時不收 `gained_items`；沒有「使用」意圖（用、捏碎、投擲…）時不扣道具（除非輸入直接提到該道具名稱）。有使用意圖時也只扣輸入有提到的道具（`isItemReferenced_`：名稱、`ITEM_REF_KEYWORDS_` 常用叫法、或名稱的三字片段；實測只說「丟出煙霧彈」，AI 連魔力寶石也扣掉）。
+- 令咒防越權：玩家本回合輸入提到「令咒」或訂下第二契約（`new_servant2_id`）時才扣令咒（實測上一回合用過令咒，下一回合只是撤退清點，AI 又回報用了一畫）。
+- 淘汰要真的交戰（`isFactionInvolved_`）：AI 回報某陣營淘汰時，本回合必須開戰且該陣營角色在場或被玩家點名，否則維持原狀；沒交戰的陣營交給伺服器後台廝殺慢慢推進（壓力測試：玩家只是「遠遠觀察」，AI 連報兩回合就淘汰了柳洞寺）。龍傲天模式不限。
+- 新契約要有意圖（`hasContractIntent_`）：玩家本回合輸入有契約／收服／締結／歸順等字眼才收副從者（壓力測試：只是「看看四周」，AI 就送上黑 Saber）；沒有從者時例外。
 - 後台陣營廝殺在第 3 天以前不會淘汰任何陣營。
 - 戰力判定（`assessCombat_`）：回合前從玩家行動找出對手陣營（`COMBAT_TARGET_ALIASES_`、或身處對方據點 `FACTION_HOME_`），依從者等級 `SERVANT_TIER_`、主從羈絆（好感 ≥80 +1、100 +2）、情報（真名／弱點）、事前準備／奇襲、在對方陣地（柳洞寺 −2）、盟友參戰、令咒 +2、魔力、雙方傷勢加總成 大優勢／小優勢／均勢／劣勢／絕望，寫進 statePrompt 要 AI 依等級裁定，開戰時結算顯示。
 - 最終 Boss（`maybeSummonFinalBoss_`）：其他陣營都化解、英雄王還沒亮相時，教會組改為「英雄王吉爾伽美什現身・大聖杯守門者」（`meta.gilFinal`），當回合不能通關；打倒後 `meta.gilDefeated`。
@@ -156,6 +166,7 @@
 ## 已修正的問題（不要改回去）
 - `servant2_condition` 欄位名稱拼寫已修正。
 - 同職階敵對陣營不會每回合被誤判為歸屬第8組。
+- 結局值容錯（`normalizeOutcome_`）：AI 寫出規定外的 outcome_type（DEAD、DEATH、WIN…）時依字面對應回 FATAL_DEATH／TRUE_VICTORY，其他當 CONTINUE（壓力測試發現寫 DEAD 時御主「已死亡」卻照常行動、保命符也沒觸發）。
 - Gemini JSON 回傳有容錯解析與一次重試；主回合 `max_tokens` 為 3000。
 - 簡訊每串上限 30 則，meta JSON 過長會自動裁切，避免超出儲存格上限。
 - 導演翻譯後的繪圖 payload 會回寫 ChatLog，重新讀檔後重骰 CG 仍保留裸體與戰鬥裝。

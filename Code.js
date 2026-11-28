@@ -205,6 +205,26 @@ const FUYUKI_LOCATIONS_ = {
     x: 34, y: 34,
     desc: '坐落於冬木第二靈脈上的西洋大宅，內部設有頂級防禦魔術陷阱，地下工房藏有大量魔力寶石儲備。'
   },
+  '深山町商店街': {
+    id: 'shopping',
+    fullName: '深山町・商店街',
+    aliases: ['深山町商店街', '商店街', '可樂餅', '鯛魚燒', '江戶前屋'],
+    leyline: '弱靈脈 (下町日常)',
+    manaRegen: 5,
+    danger: '低 (白天人多・魔術師多半避開)',
+    x: 19, y: 50,
+    desc: '深山町的老商店街，可樂餅店、鯛魚燒攤與蔬果店林立，白天人聲熱鬧；入夜後鐵捲門拉下、路燈昏黃，偶爾有人在這裡偶遇。'
+  },
+  '新都中央公園': {
+    id: 'park',
+    fullName: '冬木新都・中央公園',
+    aliases: ['中央公園', '新都公園', '公園'],
+    leyline: '✨ 中靈脈 (十年前大火遺址・怨念殘留)',
+    manaRegen: 15,
+    danger: '中 (陰氣重・夜間人煙稀少)',
+    x: 64, y: 58,
+    desc: '十年前第四次聖杯戰爭大火的遺址改建的廣闊公園，草坪與長椅之間總有說不出的寒意，白天有人散步，夜裡幾乎無人靠近。'
+  },
   '新都商業區': {
     id: 'shinto',
     fullName: '冬木新都・高樓商業區',
@@ -984,7 +1004,7 @@ function markPhoneMessagesRead(playerName) {
 function isAllianceStatusText_(statusStr) {
   const s = String(statusStr || '');
   // 「結盟談判中」「初步結盟意向」「同盟解除」這類還沒成立或已破裂的不算
-  return /同盟|結盟|盟友|停戰|互助|合作|友方/.test(s) && !/談判|意向|考慮|提議|拒絕|破裂|解除|背叛|假意|觀望|中止|撕毀|試探|尚未|嘗試|軟化/.test(s);
+  return /同盟|結盟|盟友|停戰|互助|合作|友方/.test(s) && !/談判|交涉|協商|洽談|磋商|意向|考慮|提議|拒絕|破裂|解除|背叛|假意|觀望|中止|撕毀|試探|尚未|嘗試|軟化/.test(s);
 }
 
 // 結盟要分階段：敵對陣營不會一回合就變同盟，先軟化成談判中（符合常理與鐵血；搞笑、故事模式不限）
@@ -1008,6 +1028,22 @@ function isWeakenedStatusText_(statusStr) {
 }
 
 // 淘汰要分兩步：滿狀態的陣營一回合內最多被打成「重創敗退」，之後的回合才能淘汰（收服、歸屬第8組不受影響）
+function isEliminationText_(st) {
+  const s = String(st || '');
+  return /淘汰|消滅|陣亡|擊潰|覆滅|戰敗|已死/.test(s) && !/收服|已歸屬第8組|原御主已退場/.test(s);
+}
+// 這個陣營有沒有參與本回合：該陣營的角色在場，或玩家行動點名了它
+function isFactionInvolved_(fk, presentChars, userAction) {
+  const ids = (Array.isArray(presentChars) ? presentChars : []).map(c => (c && typeof c === 'object') ? c.id : c).filter(Boolean);
+  if (ids.some(id => CHAR_FACTION_MARKERS_[id] && String(fk).includes(CHAR_FACTION_MARKERS_[id]))) return true;
+  const hit = COMBAT_TARGET_ALIASES_.find(([mk]) => String(fk).includes(mk));
+  return Boolean(hit && hit[1].some(a => String(userAction || '').includes(a)));
+}
+function hasContractIntent_(text) {
+  // 只當「否決」用（AI 的 new_servant2_id 才是主判斷），所以放寬：「好，妳就跟著我吧」「我接受」「成交」都要對得上
+  return /契約|收服|締結|簽|訂下|從者|servant|跟著我|跟我走|跟隨|加入|歸順|效忠|接受|答應|成交|同意|好啊|好吧|可以|行吧|收下|納入|夥伴|同伴|一起戰鬥|主從|令咒|御主|master|ok/i.test(String(text || ''));
+}
+
 function gateFactionElimination_(prevStatus, newStatus) {
   const next = String(newStatus || '');
   const isKill = /淘汰|消滅|陣亡|擊潰|覆滅|戰敗|已死/.test(next) && !/收服|已歸屬第8組|原御主已退場/.test(next);
@@ -1029,6 +1065,15 @@ const CHAR_FACTION_MARKERS_ = {
 };
 
 // 對外看得到的狀態：去掉幕後細節（例如「曾於某地與某組激戰」「遭某組擊潰」）
+// 截短文字：盡量在標點處斷句，真的太長才補「…」（避免結算出現「對外界情報極度」這種斷在半句的文字）
+function clipText_(text, n) {
+  const t = String(text || '').trim();
+  if (t.length <= n) return t;
+  const head = t.slice(0, n);
+  const cut = Math.max(head.lastIndexOf('，'), head.lastIndexOf('。'), head.lastIndexOf('；'), head.lastIndexOf('、'), head.lastIndexOf('！'));
+  return cut >= Math.floor(n * 0.4) ? head.slice(0, cut) + '…' : head + '…';
+}
+
 function publicIntelText_(statusStr) {
   // 幕後細節括號裡常有巢狀括號（例如「(曾於森林與 衛宮組 (Saber陣營) 激戰)」），從開頭一路刪到結尾
   return String(statusStr || '').replace(/\s*\((曾於|於\s*Day|於|遭)[\s\S]*$/, '').trim() || '不明';
@@ -1055,7 +1100,7 @@ function updateFactionIntel_(meta, factionsObj, opts) {
   const contactSet = new Set(o.contactFacs || []);
   const changes = [];
   const setIntel = (fk, text, source) => {
-    const t = String(text || '').trim().slice(0, 60);
+    const t = clipText_(text, 60);
     if (!t) return;
     const prev = intel[fk];
     if (prev && prev.text === t) return;
@@ -1194,12 +1239,22 @@ function describeFavorForPrompt_(meta, factionsObj) {
 }
 
 // 約定：只和同盟約；到了約定時段人在約定地點 → 對方依約加入同行；錯過 → 好感 −10
+// 能約碰面的對象：同盟，或已有聯絡方式／好感 ≥ 20 且沒有敵對的陣營（2026-11 實測：和互不侵犯的士郎約好碰面，系統卻丟掉約定）
+function canMakeAppointment_(meta, fk, st) {
+  const s = String(st || '');
+  if (!s || isCapturedOrDefeatedStatusText_(s) || /重傷|重創|瀕/.test(s)) return false;
+  if (isAllianceStatusText_(s)) return true;
+  if (HOSTILE_STATUS_RE_.test(s)) return false;
+  const contacts = (meta && meta.smsContacts && typeof meta.smsContacts === 'object') ? meta.smsContacts : {};
+  return Boolean(contacts[fk]) || getFactionFavor_(meta || {}, fk) >= 20;
+}
+
 function addAppointments_(meta, factionsObj, list, nowIdx) {
   meta.appointments = Array.isArray(meta.appointments) ? meta.appointments.slice() : [];
   const added = [];
   (Array.isArray(list) ? list : []).slice(0, 2).forEach(a => {
     const fk = resolveFactionKey_(a && a.faction, factionsObj);
-    if (!fk || !isAllianceStatusText_(factionsObj[fk])) return;
+    if (!fk || !canMakeAppointment_(meta, fk, factionsObj[fk])) return;
     const loc = matchFuyukiLocation_(a.place);
     const day = Math.round(Number(a.day) || 0);
     const period = TIME_PERIODS_.includes(a.period) ? a.period : '深夜';
@@ -1218,7 +1273,7 @@ function resolveAppointments_(meta, factionsObj, nowIdx, locationKey) {
   meta.appointments = (Array.isArray(meta.appointments) ? meta.appointments : []).filter(a => {
     const idx = timeIndex_(a.day, a.period);
     const st = String((factionsObj || {})[a.fk] || '');
-    if (!isAllianceStatusText_(st) || /重傷|重創|瀕/.test(st)) { if (idx <= nowIdx) { cancelled.push(a); return false; } return true; }
+    if (!canMakeAppointment_(meta, a.fk, st)) { if (idx <= nowIdx) { cancelled.push(a); return false; } return true; }
     if (idx === nowIdx && locationKey === a.place) { due.push(a); return false; }
     if (idx < nowIdx) { missed.push(a); return false; }
     return true;
@@ -1233,7 +1288,7 @@ function resolveAppointments_(meta, factionsObj, nowIdx, locationKey) {
 function describeAppointmentsForPrompt_(meta, nowIdx) {
   const list = Array.isArray(meta && meta.appointments) ? meta.appointments : [];
   if (list.length === 0) return '';
-  return '【約定】' + list.map(a => `${companionDisplayName_(a.fk)} 約在 Day ${a.day}・${a.period} 於${a.place}集合${timeIndex_(a.day, a.period) === nowIdx ? '（就是現在！玩家在那裡的話對方準時出現）' : ''}`).join('；') + '。玩家和同盟約新的集合時，填 appointments_add。';
+  return '【約定】' + list.map(a => `${companionDisplayName_(a.fk)} 約在 Day ${a.day}・${a.period} 於${a.place}集合${timeIndex_(a.day, a.period) === nowIdx ? '（就是現在！玩家在那裡的話對方準時出現）' : ''}`).join('；') + '。玩家和同盟或友善的陣營約新的碰面時，填 appointments_add。';
 }
 
 // ==================== 同行盟友：邀請同盟一起行動，之後每回合都跟在身邊 ====================
@@ -1267,24 +1322,29 @@ function updateCompanions_(meta, factionsObj, userAction, nowIdx, presentIds, fo
   const comp = Object.assign({}, (meta.companions && typeof meta.companions === 'object') ? meta.companions : {});
   const joined = [], left = [];
   const leaveAll = /解散|各自行動|分頭行動|大家先回去|你們先回去|你們回去/.test(text);
+  const wantsJoin = /帶著|帶上|一起|跟我|同行|隨行|陪我|跟著我|一同|會合|聯手/.test(text);
+  const leftThisTurn = new Set();
   Object.keys(comp).forEach(fk => {
     const st = String(f[fk] || '');
     let reason = '';
     if (!st || isCapturedOrDefeatedStatusText_(st)) reason = '已退出戰局';
     else if (!isAllianceStatusText_(st)) reason = '不再是同盟';
     else if (/重傷|重創|瀕/.test(st)) reason = '傷勢太重，先回去休養';
-    else if (Number(nowIdx) - Number(comp[fk].t != null ? comp[fk].t : (Number(comp[fk].day) || 0) * 4) >= COMPANION_PERIODS_) reason = '同行了一整天，先回去了';
     else if (leaveAll || (/分頭|先回去|回去吧|不用跟|分開|留在|各自/.test(text) && factionMentioned_(fk, text))) reason = '依你的安排分開行動';
-    if (reason) { left.push({ fk, reason }); delete comp[fk]; }
+    else if (Number(nowIdx) - Number(comp[fk].t != null ? comp[fk].t : (Number(comp[fk].day) || 0) * 4) >= COMPANION_PERIODS_) {
+      // 到期但玩家本回合又邀請 → 默默延長同行，不顯示「離開又加入」
+      if (wantsJoin && factionMentioned_(fk, text)) comp[fk] = { t: Number(nowIdx) || 0 };
+      else reason = '同行了一整天，先回去了';
+    }
+    if (reason) { left.push({ fk, reason }); leftThisTurn.add(fk); delete comp[fk]; }
   });
   const present = new Set((presentIds || []).map(id => CHAR_FACTION_MARKERS_[id]).filter(Boolean));
-  const wantsJoin = /帶著|帶上|一起|跟我|同行|隨行|陪我|跟著我|一同|會合|聯手/.test(text);
   Object.keys(comp).forEach(fk => {
     const mk = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m));
     if (mk && ownedMarkers.has(mk)) { delete comp[fk]; }
   });
   Object.keys(f).forEach(fk => {
-    if (comp[fk] || Object.keys(comp).length >= MAX_COMPANIONS_) return;
+    if (comp[fk] || leftThisTurn.has(fk) || Object.keys(comp).length >= MAX_COMPANIONS_) return;
     const ownMk = Object.values(CHAR_FACTION_MARKERS_).find(m => fk.includes(m));
     if (ownMk && ownedMarkers.has(ownMk)) return;
     const st = String(f[fk] || '');
@@ -1364,7 +1424,12 @@ function assessCombat_(statusObj, meta, userAction) {
   const intel = ((meta.factionIntel || {})[target] || {}).text || '';
   if (/真名|弱點|寶具|底牌|破綻|傲慢|試煉/.test(intel)) { score += 1; reasons.push('掌握對方情報'); }
   // 事前準備與奇襲
-  if (/埋伏|陷阱|伏擊|偷襲|奇襲|設下|佈置|佈下|預先|事先|誘餌|引誘/.test(text)) { score += 1; reasons.push('事前準備／奇襲'); }
+  const ambush = /埋伏|陷阱|伏擊|偷襲|奇襲|設下|佈置|佈下|預先|事先|誘餌|引誘/.test(text);
+  if (ambush) { score += 1; reasons.push('事前準備／奇襲'); }
+  // 天氣：霧中奇襲更容易；雨霧雪削弱 Archer 的遠距離狙擊
+  const weather = normalizeWeather_(statusObj.weather || meta.weather);
+  if (weather === '霧' && (ambush || /潛行|潛入|躲|隱匿|悄悄/.test(text))) { score += 1; reasons.push('濃霧掩護'); }
+  if (/雨|霧|雪/.test(weather) && target.includes('遠坂')) { score += 1; reasons.push('天候削弱遠程狙擊'); }
   // 地利：在對方陣地作戰吃虧
   const homeMarker = FACTION_HOME_[battleLoc];
   if (homeMarker && target.includes(homeMarker)) {
@@ -1411,7 +1476,7 @@ function describeCombatAssessForPrompt_(a) {
 // 終局：其他陣營都化解後，教會的英雄王若還沒亮相，就在大聖杯前現身擋路
 function maybeSummonFinalBoss_(factionsObj, meta, outcome) {
   if (meta.churchRevived || meta.gilFinal || meta.gilDefeated) return null;
-  if (!areAllRivalFactionsResolved_(factionsObj)) return null;
+  if (!areAllRivalFactionsResolved_(factionsObj, meta.factionFavor)) return null;
   const ck = Object.keys(factionsObj).find(k => k.includes('教會'));
   if (!ck || /收服|已歸屬第8組/.test(String(factionsObj[ck] || ''))) return null;
   meta.gilFinal = true;
@@ -1459,8 +1524,44 @@ function stripWeaponTags_(str) {
 }
 
 // 玩家本回合是不是在休息（睡覺、冥想、調息…）
+// 真的睡一覺（不含冥想、小睡）：時間要前進到下一個時段（2026-11 實測「回洋館睡覺」後還停在同一個清晨）
+function isSleepAction_(text) {
+  // 只當「否決」用（AI 的 player_slept 才是主判斷），所以放寬：沾到邊就放行，短輸入「睡」「晚安」「躺平」也要對得上
+  return /睡|眠|晚安|躺|床|被窩|被子|盹|睏|累了|zzz|過夜|就寢|一覺|休息|回房/i.test(String(text || ''));
+}
+
+// 玩家輸入有沒有提到這個道具（名稱或常用叫法）：有使用意圖時也只扣提到的那幾樣
+// （2026-11 實測：只說「丟出煙霧彈」，AI 連高純度魔力寶石也一起扣掉）
+const ITEM_REF_KEYWORDS_ = {
+  mana_gem_s: /結晶|寶石|魔力石/, mana_gem_m: /寶石|魔力石/, smoke_bomb: /煙霧|煙幕|煙彈/,
+  empty_gem: /寶石|媒介|煉成|灌注/, black_keys: /黑鍵/, aegis_charm: /保命符|護符|禮裝/
+};
+function isItemReferenced_(item, text) {
+  const t = String(text || '');
+  if (!item || !t) return false;
+  const name = String(item.name || '');
+  if (name && t.includes(name)) return true;
+  if (ITEM_REF_KEYWORDS_[item.id] && ITEM_REF_KEYWORDS_[item.id].test(t)) return true;
+  // 泛稱（「用道具」「把背包裡的東西用掉」）交給 AI 判斷是哪一樣
+  if (/道具|背包|包包|東西|藥|禮裝/.test(t)) return true;
+  const core = name.replace(/[（(].*?[)）]/g, '').trim();
+  for (let i = 0; i + 3 <= core.length; i++) { if (t.includes(core.slice(i, i + 3))) return true; }
+  return false;
+}
+
+// AI 偶爾寫出規定外的結局值（DEAD、DEATH、WIN…）：不認得時依字面對應，否則當成 CONTINUE
+// （壓力測試：outcome_type 寫 DEAD 時既不判死也不判繼續，御主「已死亡」卻照常行動）
+function normalizeOutcome_(v) {
+  const o = String(v || 'CONTINUE').trim().toUpperCase();
+  if (o === 'CONTINUE' || o === 'FATAL_DEATH' || o === 'TRUE_VICTORY') return o;
+  if (/DEAT|DEAD|DIE|KILL|死/.test(o)) return 'FATAL_DEATH';
+  if (/VICTOR|WIN|CLEAR|勝|通關/.test(o)) return 'TRUE_VICTORY';
+  return 'CONTINUE';
+}
+
 function isRestAction_(text) {
-  return /休息|睡覺|睡一覺|補眠|小睡|就寢|冥想|調息|靜養|休養|養傷|打坐|恢復魔力|回復魔力|回魔/.test(String(text || ''));
+  // 只當「否決」用（AI 的 player_rested 才是主判斷），所以放寬
+  return isSleepAction_(text) || /休|歇|喘口氣|喘息|冥想|調息|靜養|養傷|療傷|打坐|魔力|體力|發呆|放空|充電|坐下|窩|放鬆|喝茶|泡澡|洗澡|回復|恢復|補充/.test(String(text || ''));
 }
 
 // 戰局提示：還有哪些陣營未化解、魔力是否見底（每回合放進 statePrompt）
@@ -1486,13 +1587,27 @@ function isDefeatedOrCapturedFaction_(factionsObj, keyword) {
 }
 
 // 所有陣營都已「淘汰／收服／結盟」才算全部化解（供 TRUE_VICTORY 伺服器端驗證）
-function areAllRivalFactionsResolved_(factionsObj) {
+// favorMap（可選）：好感 ≥ 80、狀態也沒有敵對字眼的陣營視同已化解（AI 偶爾把「同盟」改寫成「存活 (終局)」之類，實測因此無法通關）
+const HOSTILE_STATUS_RE_ = /敵對|交戰中|激戰中|突襲|追殺|背叛|決裂|反目|破裂/;
+function isFriendlyByFavor_(st, favor) {
+  return Number(favor) >= 80 && !HOSTILE_STATUS_RE_.test(String(st || ''));
+}
+function areAllRivalFactionsResolved_(factionsObj, favorMap) {
   const keys = Object.keys(factionsObj || {});
   if (keys.length === 0) return false;
+  const fav = favorMap || {};
   return keys.every(k => {
     const st = String(factionsObj[k] || '');
-    return isCapturedOrDefeatedStatusText_(st) || isAllianceStatusText_(st);
+    return isCapturedOrDefeatedStatusText_(st) || isAllianceStatusText_(st) || isFriendlyByFavor_(st, fav[k]);
   });
+}
+
+// 原本是同盟、AI 改寫狀態時沒寫破裂／背叛等字眼 → 補回「同盟」（避免盟友被後台廝殺誤選、通關判定失效）
+const ALLIANCE_BREAK_RE_ = /破裂|背叛|解除|決裂|反目|撕毀|敵對|中止/;
+function preserveAllianceTag_(prevSt, nextSt) {
+  const prev = String(prevSt || ''), next = String(nextSt || '');
+  if (!isAllianceStatusText_(prev) || isAllianceStatusText_(next) || ALLIANCE_BREAK_RE_.test(next) || isCapturedOrDefeatedStatusText_(next)) return next;
+  return /\)\s*$/.test(next) ? next.replace(/\)\s*$/, '・同盟)') : `${next} (同盟)`;
 }
 
 // AI 回傳的 faction_updates 陣營名稱常常不完全一致（例如只寫「Saber陣營」「遠坂凜」），
@@ -1809,12 +1924,12 @@ function computeDynamicLocationInfo_(locKey, baseInfo, factionsObj, mapHotspot, 
 
 // ==================== 敵對陣營後台自動廝殺演算法 (Off-screen War Sim) ====================
 
-function simulateOffscreenFactionWar_(factionsObj, day, period, ownedServantIds) {
+function simulateOffscreenFactionWar_(factionsObj, day, period, ownedServantIds, favorMap) {
   const ownedSet = new Set((Array.isArray(ownedServantIds) ? ownedServantIds : []).map(x => String(x).toLowerCase()));
   const aliveFactions = Object.keys(factionsObj).filter(name => {
     const fn = String(name || '').toLowerCase();
     const st = String(factionsObj[name] || '');
-    if (isCapturedOrDefeatedStatusText_(st) || isAllianceStatusText_(st)) return false;
+    if (isCapturedOrDefeatedStatusText_(st) || isAllianceStatusText_(st) || isFriendlyByFavor_(st, (favorMap || {})[name])) return false;
     for (const oid of ownedSet) {
       if (oid && oid !== 'lancer' && fn.includes(oid)) return false;
     }
@@ -3009,7 +3124,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 御主是最大破綻：攻擊御主是正當戰術。失去御主的從者靠單獨行動技能撐一段時間，會尋找新御主或消失。',
   '- 魔術必須隱匿：在人多的地方或白天公開交戰，會引來聖堂教會善後、警方與其他陣營的注意（論壇也會出現目擊）。聖杯戰爭主要在夜間進行，白天是日常、調查與佈局。',
   '- 陣地優勢：在敵方工房、結界或陣地內作戰極為不利；Caster 的陣地與山門結界尤其危險。',
-  '- 陣營好感與約定：狀態資料有各陣營對玩家的好感，玩家的行為要用 `faction_favor_delta` 反映；玩家和同盟約定之後的集合時間地點時，填 `appointments_add`（day 用數字，period 用清晨／白天／黃昏／深夜）。',
+  '- 陣營好感與約定：狀態資料有各陣營對玩家的好感，玩家的行為要用 `faction_favor_delta` 反映；玩家和同盟或友善的陣營約好之後的碰面時間地點時，填 `appointments_add`（day 用數字，period 用清晨／白天／黃昏／深夜）。',
   '- 結盟看立場與利益：對方要有理由才會合作（共同的敵人、情報、救命之恩、交換條件），敵對陣營要經過多次互動才可能從敵意轉為談判、停戰、結盟；言峰綺禮表面合作、暗中利用，伊莉雅的態度取決於能否打動她、她與士郎的關係，Caster 只信任葛木。一次談話通常只能讓態度軟化，不會直接結盟。',
   '- 從者戰力依原作：每騎都是傳說級英雄，打倒一騎要靠情報、弱點、地利、寶具與犧牲累積，通常要好幾回合（偵查→削弱→決戰）；Berserker 的十二試煉要多次致命傷或高階寶具才能突破，吉爾伽美什的王之財寶近乎無窮。一次漂亮的行動可以重創對手、逼退對手，但不會讓滿狀態的從者當場退場。',
   '- 不硬塞情報：吃飯、休息、閒聊等日常場景就好好寫日常，不要讓從者主動報告戰況；角色只會提到確實得知的事（親眼所見、使魔回報、論壇、聯絡），而且只知道得到的那部分。玩家主動問起或去打聽時，才依情報來源回答。',
@@ -3035,8 +3150,12 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 通訊錄：只有劇情中**明確寫出**玩家與某陣營交換手機號碼、拿到名片或聯絡方式時，才把陣營名稱填入 `new_contacts`；只是見面、交談、談判都不算。',
   '- 路線傾向：依玩家本回合的行動方式，在 `route_tendency_delta` 為各路線加減分（-3～+3）；已確立路線時，劇情重心照狀態資料中的路線說明發展。',
   '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
-  '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。',
+  '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。玩家只能用背包裡真的有的道具與材料：提到沒有的東西（例如背包沒有寶石卻說用寶石煉成），劇情要寫出手邊沒有、做不成，可以改去買或找。當場吃掉的食物、一般日用品不放進 `gained_items`（背包格數有限），只收有遊戲作用的道具、要送人的禮物、證物與魔術材料。',
   '- 陣營更新：`faction_updates` 的鍵必須用狀態資料中既有的陣營完整名稱；值寫該陣營的存亡與對玩家的態度（例如「存活 (同盟)」「存活 (敵對・負傷休整)」），不要寫一時的動作（例如「發送訊息中」）。',
+  '- 休息：玩家本人這回合真的停下來休息、冥想、調息或睡覺時 `player_rested` 填 true（魔力由系統回復）；說沒空休息、叫別人去休息都填 false。',
+  '- 睡覺：玩家本人這回合真的上床睡覺、過夜時 `player_slept` 填 true（時間會推進到下一個時段）；看別人睡、睡前聊天、說不想睡、睡到一半被吵醒都填 false。',
+  '- 時間以狀態列為準：玩家行動裡寫的時段（傍晚、夜景、早上）若和現在的時段不同，照現在的時段描寫（白天就是白天的景色），或寫成約好等到那個時段再去；不可讓時間跳過去。',
+  '- 天氣是事實：狀態列的天氣要自然寫進戶外場景（雨聲、撐傘、霧氣、積雪），並合理影響偵查、追蹤、潛行與遠距離攻擊；只有劇情真的改變天氣（大型魔術、結界、天候寶具）時才在 `weather_change` 填「晴／陰／雨／霧／雪」，玩家說「下雨了」不算。',
   '- 場地會留下痕跡：劇情確實改變了某個地標的樣子（戰鬥破壞、佈置房間、設下結界、教會修復等），在 `location_changes` 用地標名稱寫下戰鬥或事件結束後**留下來的樣子**（60 字內，例如「石階佈滿劍痕、山門一側崩塌」，不要寫「兩人正在交戰」這種進行中的事）。這個狀態會一直保留，之後回到那裡要照現況描寫，直到劇情再次改變它；只是路過、沒有改變就不要填。',
   '',
   '## 五、死亡與勝利',
@@ -3056,6 +3175,8 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '  "story": "繁體中文小說劇情",',
   '  "is_combat": false,',
   '  "ap_cost": 1,',
+  '  "player_slept": false,',
+  '  "player_rested": false,',
   '  "threat_delta": 0,',
   '  "bond_delta": 0,',
   '  "location": "本回合結束時所在的冬木市地標名稱",',
@@ -3078,6 +3199,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '  "appointments_add": [{ "faction": "陣營名稱", "day": 3, "period": "清晨／白天／黃昏／深夜", "place": "地標名稱" }],',
   '  "route_tendency_delta": { "fate": 0, "ubw": 0, "hf": 0, "shadow": 0, "conquest": 0 },',
   '  "location_changes": {},',
+  '  "weather_change": "",',
   '  "incoming_messages": [{ "faction": "陣營名稱", "text": "其他陣營主動傳給玩家的訊息（80字內）" }],',
   '  "servants_out": [],',
   '  "new_servant2_id": "",',
@@ -3240,7 +3362,7 @@ function processFateTurnTextOnly(params) {
     const statePrompt = [
       `【本局基調（優先遵守，決定結果的輕重與筆調）】${tonePreset.label}：${tonePreset.directive || tonePreset.desc}`,
       turnSettingsBlock,
-      `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}% | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
+      `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | 天氣: ${describeWeatherForPrompt_(statusObj.weather)} | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}% | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
       `【當前場地現況】${statusObj.locationInfo.desc}`,
       `【幕後戰況（只有 GM 知道；玩家與從者不知道哪些陣營交手、誰勝誰負，只能透過論壇目擊、使魔、聯絡或親自調查慢慢得知）】${statusObj.warTicker}`,
       `【御主(${cleanName})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
@@ -3301,6 +3423,12 @@ function processFateTurnTextOnly(params) {
     const resolvedLoc = matchFuyukiLocation_(turnJson.location) || resolveFuyukiLocation_(row[10]);
     row[10] = resolvedLoc.info.fullName;
 
+    // 天氣：只有劇情真的改變天氣時 AI 才回報
+    let weatherNote = '';
+    const wc = String(turnJson.weather_change || '').trim();
+    if (WEATHER_TYPES_[wc] && wc !== normalizeWeather_(meta.weather)) { meta.weather = wc; weatherNote = `${WEATHER_TYPES_[wc].icon} 天氣轉為${wc}`; }
+    // 本回合劇情是在這個天氣下寫的：時段推進換天氣後，這張 CG 仍照劇情的天氣畫
+    const storyWeather = normalizeWeather_(meta.weather);
     // 場地狀態：AI 回報的地點改變永久保存（與地圖上手動編輯的「場地現況」是同一份資料）
     const changedLocations = [];
     if (turnJson.location_changes && typeof turnJson.location_changes === 'object') {
@@ -3334,7 +3462,11 @@ function processFateTurnTextOnly(params) {
           const prevSt = String(currentFactions[realKey] || '');
           // 龍傲天模式：不套用淘汰兩步、十二試煉與結盟門檻，想做的都能實現
           const isDragon = toneKey === 'STORY_PLAYER_FIRST';
-          const nextSt = isDragon ? val.slice(0, 120) : gateGodHandElimination_(realKey, prevSt, gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val.slice(0, 120)), toneKey, getFactionFavor_(meta, realKey)), meta.godHand);
+          // 淘汰只能發生在玩家這回合真的和該陣營交戰時；沒交戰的陣營由伺服器的後台廝殺慢慢推進
+          let val2 = val.slice(0, 120);
+          if (!isDragon && isEliminationText_(val2) && !isCapturedOrDefeatedStatusText_(prevSt) && !(turnJson.is_combat && isFactionInvolved_(realKey, turnJson.present_chars, userAction))) val2 = prevSt;
+          const nextSt0 = isDragon ? val2 : gateGodHandElimination_(realKey, prevSt, gateFactionAlliance_(prevSt, gateFactionElimination_(prevSt, val2), toneKey, getFactionFavor_(meta, realKey)), meta.godHand);
+          const nextSt = preserveAllianceTag_(prevSt, nextSt0);
           // 已淘汰的陣營不會復活；唯一例外是教會亮出隱藏王牌吉爾伽美什（只有一次）
           const wasOut = isCapturedOrDefeatedStatusText_(prevSt) && !/收服|已歸屬第8組/.test(prevSt);
           if (wasOut && !isCapturedOrDefeatedStatusText_(nextSt)) {
@@ -3372,6 +3504,8 @@ function processFateTurnTextOnly(params) {
     }
     let rosterAdded = '';
     let capturedServantId = '';
+    // 新契約要玩家本回合有締約／收服的意圖（壓力測試：玩家只是「看看四周」，AI 就送上黑 Saber 當副從者）；沒有從者時例外
+    if (turnJson.new_servant2_id && row[17] && !hasContractIntent_(userAction)) turnJson.new_servant2_id = '';
     if (
       turnJson.new_servant2_id &&
       charDb[turnJson.new_servant2_id] &&
@@ -3430,7 +3564,7 @@ function processFateTurnTextOnly(params) {
     let mpDelta = Number(turnJson.master_mp_delta) || 0;
     // 休息回魔由系統結算：玩家本回合要休息／睡覺／冥想且沒有開戰 → 回復 20 + 所在地靈脈量
     let restRecovered = 0;
-    if (statusObj.gameMode === 'WAR' && !turnJson.is_combat && isRestAction_(userAction)) {
+    if (statusObj.gameMode === 'WAR' && !turnJson.is_combat && (turnJson.player_rested === true || turnJson.player_slept === true) && isRestAction_(userAction)) {
       restRecovered = 20 + (Number(resolvedLoc && resolvedLoc.info && resolvedLoc.info.manaRegen) || 10);
       mpDelta = Math.min(mpDelta, 0) + restRecovered; // AI 自己加的回魔不重複計入
     }
@@ -3439,7 +3573,9 @@ function processFateTurnTextOnly(params) {
     const offscreenForumPosts = [];
 
     if (statusObj.gameMode === 'WAR') {
-      const apCost = Math.max(0, Math.min(3, Number(turnJson.ap_cost) || 0));
+      let apCost = Math.max(0, Math.min(3, Number(turnJson.ap_cost) || 0));
+      // 兩把鑰匙：AI 判斷玩家本人真的睡了（player_slept）＋玩家輸入有睡覺字眼，才推進時段
+      if (!turnJson.is_combat && turnJson.player_slept === true && isSleepAction_(userAction)) apCost = Math.max(apCost, Number(row[8]) || 0);
       let newAp = Number(row[8]) - apCost;
       if (newAp <= 0) {
         const nextTime = advanceTimePeriod_(Number(row[6]), String(row[7]));
@@ -3451,10 +3587,13 @@ function processFateTurnTextOnly(params) {
         const activeLocInfo = computeDynamicLocationInfo_(resolvedLoc.key, resolvedLoc.info, currentFactions, meta.mapHotspot || '冬木大橋', statusObj.gameMode, customNotes);
         const leylineRegen = activeLocInfo.manaRegen;
         mpDelta += leylineRegen;
-        periodAdvancedNotice += `\n\n【時段推進・大源回復】時間進入 Day ${nextTime.day}・${nextTime.period}。受「${activeLocInfo.leyline}」滋養，魔術迴路自然汲取大源回復了 +${leylineRegen} MP。`;
+        const prevWeather = normalizeWeather_(meta.weather);
+        meta.weather = rollWeather_(prevWeather, nextTime.period);
+        const wInfo = WEATHER_TYPES_[meta.weather];
+        periodAdvancedNotice += `\n\n【時段推進・大源回復】時間進入 Day ${nextTime.day}・${nextTime.period}（${wInfo.icon} ${meta.weather}${meta.weather !== prevWeather ? '，天氣變了' : ''}）。受「${activeLocInfo.leyline}」滋養，魔術迴路自然汲取大源回復了 +${leylineRegen} MP。`;
 
         // 玩家的第8組是獨立陣營，不再以「持有英靈ID」排除原敵對陣營；已收服者已由狀態文字排除
-        const warSim = simulateOffscreenFactionWar_(currentFactions, nextTime.day, nextTime.period, []);
+        const warSim = simulateOffscreenFactionWar_(currentFactions, nextTime.day, nextTime.period, [], meta.factionFavor);
         // （offscreenForumPosts 在下方論壇段落寫入手機）
         currentFactions = warSim.updatedFactions;
         routeRes = updateRyuudouRoute_(meta, currentFactions, [], '', new Set());
@@ -3477,7 +3616,9 @@ function processFateTurnTextOnly(params) {
       row[9] = Math.max(0, Math.min(100, newThreat));
     }
 
-    const spellsUsed = Math.max(0, Math.min(3, Number(turnJson.command_spells_used) || 0));
+    // 令咒只在玩家本回合提到令咒、或訂下第二契約時才扣（2026-11 實測：上一回合用了令咒，下一回合只是撤退清點，AI 又回報用了一畫）
+    const spellIntent = /令咒|命令|command ?spell/i.test(userAction) || Boolean(turnJson.new_servant2_id);
+    const spellsUsed = spellIntent ? Math.max(0, Math.min(3, Number(turnJson.command_spells_used) || 0)) : 0;
     if (spellsUsed > 0 && Number(row[16]) > 0) {
       row[16] = Math.max(0, Number(row[16]) - spellsUsed);
     }
@@ -3506,10 +3647,12 @@ function processFateTurnTextOnly(params) {
     // 道具只在玩家本回合有「取得／製作」意圖時才入袋，有「使用」意圖時才扣除（AI 常在玩家沒要求時自己煉成或消耗道具）
     const wantsGain = /撿|拾|拿|取|收|奪|搶|買|購|煉成|製作|做|灌注|搜|接過|收下|領|偷|摸走|帶走|裝進|放進|借|討|要|換|交易|請求|拜託|給我|送我|分我/.test(userAction);
     const wantsUse = /使用|用掉|捏碎|消耗|吃|喝|丟|投擲|擲|煉成|灌注|製作|做|發動|啟動|點燃|拔出|揮|射|施放|喝下|服用/.test(userAction);
-    if (!wantsUse) {
-      turnJson.consumed_item_ids = (Array.isArray(turnJson.consumed_item_ids) ? turnJson.consumed_item_ids : [])
-        .filter(cid => { const it = (meta.inventory || []).find(x => x.id === cid); return it && userAction.includes(it.name); });
-    }
+    turnJson.consumed_item_ids = (Array.isArray(turnJson.consumed_item_ids) ? turnJson.consumed_item_ids : [])
+      .filter(cid => {
+        const it = (meta.inventory || []).find(x => x.id === cid);
+        if (!it) return false;
+        return wantsUse ? isItemReferenced_(it, userAction) : userAction.includes(it.name);
+      });
     let mergedGainedItems = (wantsGain || !Array.isArray(turnJson.gained_items)) ? (Array.isArray(turnJson.gained_items) ? turnJson.gained_items.slice() : []) : [];
 
     const invResult = applyInventoryChanges_(
@@ -3648,7 +3791,7 @@ function processFateTurnTextOnly(params) {
       meta.keyEvents = updateKeyEvents_(meta.keyEvents, [routeAnnounce.replace(/^【[^】]+】/, '').slice(0, 60)], [], cleanName);
     }
 
-    let outcome = String(turnJson.outcome_type || 'CONTINUE').toUpperCase();
+    let outcome = normalizeOutcome_(turnJson.outcome_type);
     if (outcome === 'CONTINUE' && /^已死亡/.test(String(meta.masterCondition || ''))) {
       outcome = 'FATAL_DEATH';
     }
@@ -3676,7 +3819,7 @@ function processFateTurnTextOnly(params) {
     }
 
     // 伺服器端驗證：日常模式不會通關；仍有未化解的敵對陣營時，不接受 TRUE_VICTORY
-    if (outcome === 'TRUE_VICTORY' && (isSandboxMode || !areAllRivalFactionsResolved_(currentFactions))) {
+    if (outcome === 'TRUE_VICTORY' && (isSandboxMode || !areAllRivalFactionsResolved_(currentFactions, meta.factionFavor))) {
       outcome = 'CONTINUE';
     }
 
@@ -3796,12 +3939,14 @@ function processFateTurnTextOnly(params) {
 
     // 每回合結算：把本回合造成的確實變化列出來，讓玩家看到行動的反饋（也存進紀錄）
     const summaryParts = [];
+    if (weatherNote) summaryParts.push(weatherNote);
     const mpAfter = Number(row[15]);
     if (mpAfter !== statusObj.master.mp) summaryParts.push(`MP ${statusObj.master.mp}→${mpAfter}`);
     favorChanges.forEach(c => summaryParts.push(`💗 ${c.fk.replace(/\s*\(.*\)$/, '')} 好感 ${c.before}→${c.after}（${favorLabel_(c.after)}）`));
     apptAdded.forEach(a => summaryParts.push(`📅 約定：${companionDisplayName_(a.fk)} Day ${a.day}・${a.period} 在${a.place}集合`));
     apptRes.missed.forEach(a => summaryParts.push(`😠 你沒有赴約，${a.fk.replace(/\s*\(.*\)$/, '')} 好感 −10`));
-    apptRes.cancelled.forEach(a => summaryParts.push(`📅 ${companionDisplayName_(a.fk)} 無法赴約（不再同盟或傷勢太重）`));
+    apptRes.cancelled.forEach(a => summaryParts.push(`📅 ${companionDisplayName_(a.fk)} 無法赴約（關係惡化或傷勢太重）`));
+    apptRes.due.filter(a => !compRes.joined.includes(a.fk)).forEach(a => summaryParts.push(`📅 ${companionDisplayName_(a.fk)} 依約前來碰面`));
     compRes.joined.forEach(k => summaryParts.push(apptRes.due.some(a => a.fk === k) ? `🤝 ${companionDisplayName_(k)} 依約前來，加入同行` : `🤝 ${companionDisplayName_(k)} 加入同行`));
     compRes.left.forEach(c => summaryParts.push(`👋 ${companionDisplayName_(c.fk)} 離開隊伍（${c.reason}）`));
     if (combatAssess && turnJson.is_combat) summaryParts.push(`⚔ 戰力判定：${combatAssess.level}（${combatAssess.reasons.join('、') || '條件相當'}）`);
@@ -3829,10 +3974,10 @@ function processFateTurnTextOnly(params) {
     // 結算只列玩家「得知」的陣營變化（親眼所見、同盟、聯絡、劇情中打聽到），幕後變化不顯示
     intelChanges.forEach(c => {
       const nm = c.fk.replace(/\s*\(.*\)$/, '');
-      summaryParts.push(c.isNew ? `新勢力：${c.fk}（${c.text}）` : `${nm}→${c.text.slice(0, 24)}（${c.source}）`);
+      summaryParts.push(c.isNew ? `新勢力：${c.fk}（${c.text}）` : `${nm}→${clipText_(c.text, 30)}（${c.source}）`);
     });
     newContactNames.forEach(k => summaryParts.push(`📇 取得聯絡方式：${k.replace(/\s*\(.*\)$/, '')}`));
-    changedLocations.forEach(k => summaryParts.push(`🏚 ${k} 現況改變：${String(meta.customLocationNotes[k]).slice(0, 30)}`));
+    changedLocations.forEach(k => summaryParts.push(`🏚 ${k} 現況改變：${clipText_(meta.customLocationNotes[k], 30)}`));
     rumorRes.changes.forEach(c => summaryParts.push(`📢 流言${c}`));
     if (aiPosts.length > 0) summaryParts.push(`📱 論壇新增 ${aiPosts.length} 則目擊`);
     const shortFac = k => k.replace(/\s*\(.*\)$/, '');
@@ -3840,7 +3985,7 @@ function processFateTurnTextOnly(params) {
     if (worldEvent.proactive && !incomingFrom.some(m => m.fk === worldEvent.proactive.faction)) {
       summaryParts.push(`⚡ ${shortFac(worldEvent.proactive.faction)} 主動找上你（${worldEvent.proactive.action}），詳見上方劇情`);
     }
-    if (statusObj.gameMode === 'WAR' && outcome === 'CONTINUE' && areAllRivalFactionsResolved_(currentFactions)) {
+    if (statusObj.gameMode === 'WAR' && outcome === 'CONTINUE' && areAllRivalFactionsResolved_(currentFactions, meta.factionFavor)) {
       summaryParts.push('🏆 所有陣營都已擊敗、收服或結盟！前往圓藏山（柳洞寺）的大聖杯許下願望，就能迎來結局');
     }
     if (summaryParts.length > 0 && outcome !== 'FATAL_DEATH') {
@@ -3869,7 +4014,7 @@ function processFateTurnTextOnly(params) {
     presentList = ensureMasterPresentInList_(presentList, isCombatTurn);
 
     const imgPayload = buildNaiPayloadFromScene_(
-      updatedStatus,
+      Object.assign({}, updatedStatus, { weather: storyWeather }),
       presentList,
       turnJson.scene_env_en || 'fuyuki city, night, dramatic lighting',
       isCombatTurn,
@@ -4033,6 +4178,27 @@ function resolveCharacterVisualProfile_(charId, dbInfo, statusObj, userAction, s
 
 // 專職 NAI V5 視覺導演／翻譯官：劇情優先換裝 + 動態場地背景 + 鏡頭語言 + 多人互動語法（不鎖定座標，交由 AI's Choice 構圖）
 // 劇情摘錄：保留開頭交代與結尾（最新畫面），中間省略，避免最關鍵的結尾被截掉
+// 玩家做親密動作（摸頭、擁抱、親吻…）而劇情尾端才插進威脅時，導演只看到結尾就會畫成警戒畫面、漏掉玩家的動作
+// （2026-11 實測：摸頭後使魔窺探 → CG 變戴頭盔警戒，光改導演規則 flash-lite 不聽）→ 摘錄截到動作與反應為止
+const GESTURE_ACTION_RE_ = /摸.{0,3}頭|摸摸|抱|擁|吻|親.{0,2}(臉|額|嘴|唇|她|他|一下)|牽.{0,2}手|膝枕|掏耳|依偎|靠在.{0,6}(肩|懷|身上)|餵/;
+const GESTURE_STORY_RE_ = /摸|撫|抱|擁|吻|親|牽|膝|掏耳|依偎|靠|餵/;
+const STORY_INTERRUPT_RE_ = /就在這時|就在此時|正當|突然|忽然|驀地|下一刻|使魔|殺氣|敵意|警報|窺探|偷窺|襲擊|結界傳來|結界.{0,4}擾動/;
+function focusGestureExcerpt_(storyText, userAction, isCombat) {
+  const t = String(storyText || '');
+  if (isCombat || !GESTURE_ACTION_RE_.test(String(userAction || ''))) return t;
+  const paras = t.split(/\n+/);
+  const start = paras.findIndex(p => GESTURE_STORY_RE_.test(p));
+  if (start < 0) return t;
+  const kept = paras.slice(0, start + 1);
+  if (STORY_INTERRUPT_RE_.test(paras[start])) return t;
+  for (let i = start + 1; i < paras.length; i++) {
+    const m = paras[i].match(STORY_INTERRUPT_RE_);
+    if (m) { const head = paras[i].slice(0, m.index).trim(); if (head.length >= 4) kept.push(head); return kept.join('\n'); }
+    kept.push(paras[i]);
+  }
+  return t;
+}
+
 function excerptForDirector_(storyText) {
   const t = String(storyText || '').replace(/【時段推進[\s\S]*$/, '').trim();
   if (t.length <= 1600) return t;
@@ -4076,6 +4242,7 @@ function translateSceneToNaiV5_(directorCtx) {
     'You are an elite Visual Director & NovelAI Diffusion V5 Prompt Translator.',
     'Read the Traditional Chinese RPG story excerpt and translate the single most cinematic moment into a NovelAI V5 hybrid English prompt.',
     'RULES FOR NOVELAI V5:',
+    '0. WEATHER: if a "Weather" line is given and the scene is outdoors, show it (rain, snow, fog). If no Weather line is given the sky is clear — never invent rain, snow, wet pavement or fog.',
     '1. Language: 100% ENGLISH ONLY. Combine crisp Danbooru tags with 1 short vivid English natural-language clause for mood, spatial relation, or lighting.',
     '2. OUTFIT FOLLOWS STORY FIRST (CRITICAL): "reference_outfit" is ONLY a fallback default. Always override it based on the actual scene:',
     '   - Bathing / showering / hot spring / undressing / nude scene: MUST set "is_nude": true and "outfit": "nude, completely nude, no clothes" (add "wet skin, steam" if bathing).',
@@ -4091,7 +4258,7 @@ function translateSceneToNaiV5_(directorCtx) {
     '   - NATURAL, ALIVE POSES: never a stiff, symmetrical, straight-on standing pose. Give each character specific body language that fits the moment and their personality — weight on one leg (contrapposto), head tilt, hand on hip or chin, arms behind back, leaning on something, looking over shoulder, mid-step, sitting casually; add motion (hair blowing, sway). Prefer three-quarter view or from the side, and a camera angle that adds life (slightly from below, from above, dutch angle for tension). Show a clear facial expression (smirk, gentle smile, raised eyebrow, pout, determined glare) rather than a blank stare.',
     '   - ROMANTIC MOMENTS (kiss, embrace, confession, tender touch): make it beautiful and intimate — close-up or upper body framing, the kiss must actually be visible (lips touching or about to touch), closed or half-closed eyes, blush, gentle expressions; soft lighting, warm color tone, bokeh, floating light particles, background softly blurred. Third-person kisses use "kiss" with mutual#kiss; POV uses "incoming kiss" (lips only). Use Danbooru tags for intimacy: "mimikaki" (ear cleaning), "hug from behind", "kissing cheek" (never incoming kiss for a cheek kiss), "lap pillow", "headpat", "holding hands", "forehead-to-forehead". Only make it comedic or shocked if the story clearly says so.',
     '   - FRAMING (faces are the heart of this game): pick the closest shot that still fits everyone. One character: "cowboy shot" or "upper body" (a solo Noble Phantasm: "cowboy shot, from below" with the effect filling the background). Two or three characters: "medium shot" or "cowboy shot" with faces large and clear. Use "wide shot" ONLY for four or more people, a battle where two fighters are far apart, or pure scenery with no character. Romantic or tender moments: "upper body" or "close-up". Nothing (fences, bars, glass, crowds, weapons) may stand between the camera and a face. Never put a character with their back to the camera unless the story says they turn away: two people fighting or facing each other are shot from the side ("from side", both in profile or three-quarter view) so both faces are visible — do not stack one in the foreground facing away from the camera toward the other.',
-    '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event. Only include props, weapons and magic effects that the excerpt explicitly shows in that moment (do not add a character\'s signature item unless it is being used).',
+    '3. Depict the moment described at the END of the excerpt (the current state), not an earlier event. EXCEPTION — the player\'s gesture wins: if the Player Action is an intimate or emotional gesture (headpat, hug, kiss, holding hands, lap pillow, ear cleaning, comforting, feeding) and the excerpt shows it actually happening, depict THAT gesture with its reactions (blush, flustered, smiling); a threat that is only sensed, a messenger, a phone call or a closing line at the end does not replace it — only an attack actually landing in that scene does. Only include props, weapons and magic effects that the excerpt explicitly shows in that moment (do not add a character\'s signature item unless it is being used).',
     '4. Scene (scene_prompt): Do NOT include count tags (1girl, 2girls, solo, multiple characters) — they are added automatically. Describe the overall layout in one short natural-language clause WITHOUT any character name (e.g. "two figures facing off across the bridge", "a group gathered around a table"). Camera framing ("close-up", "medium shot", "wide shot", "over-the-shoulder shot", "low angle", "dutch angle") + setting + current site modifications/atmosphere + lighting. NO hair/eyes/clothes, NO text/speech bubbles.',
     '5. Characters (char_directions): For each present character output (keep every character\'s tags strictly in its own entry so features do not bleed between characters):',
     '   - "id": exact character id.',
@@ -4109,6 +4276,7 @@ function translateSceneToNaiV5_(directorCtx) {
 
   const userMsg = [
     `Location & Time: ${directorCtx.location} (${directorCtx.timePeriod})`,
+    directorCtx.weather && directorCtx.weather !== '晴' ? `Weather: ${WEATHER_TYPES_[normalizeWeather_(directorCtx.weather)].tags} (show it only if the scene is outdoors or a window is visible)` : '',
     directorCtx.locationDesc ? `Current Site Appearance/Modifications: ${directorCtx.locationDesc}` : '',
     `Is Combat: ${Boolean(directorCtx.isCombat)}`,
     `Adult Mode: ${Boolean(directorCtx.adultMode)}`,
@@ -4116,7 +4284,7 @@ function translateSceneToNaiV5_(directorCtx) {
     `At Home Base: ${directorCtx.atHomeBase ? 'yes' : 'no'}`,
     `Player Action: ${directorCtx.userAction || ''}`,
     `Present Characters:\n${charSummary}`,
-    `Story Excerpt (the END is the current moment):\n${excerptForDirector_(directorCtx.storyText)}`
+    `Story Excerpt (the END is the current moment):\n${excerptForDirector_(focusGestureExcerpt_(directorCtx.storyText, directorCtx.userAction, directorCtx.isCombat))}`
   ].filter(Boolean).join('\n\n');
 
   try {
@@ -4277,6 +4445,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
   return {
     prompt: finalScenePrompt,
     countPrefix: countTags.join(', '),
+    weather: normalizeWeather_(statusObj.weather),
     adultMode: adultMode,
     cameraMode: povMode ? 'pov' : 'third',
     combatEnvTags: combatEnvTags,
@@ -4297,6 +4466,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
       location: statusObj.location || '',
       locationDesc: (statusObj.locationInfo && statusObj.locationInfo.desc) ? String(statusObj.locationInfo.desc) : '',
       timePeriod: statusObj.timePeriod || '',
+      weather: normalizeWeather_(statusObj.weather),
       isCombat: Boolean(isCombat || anyNpActive),
       adultMode: adultMode,
       cameraMode: povMode ? 'pov' : 'third',
@@ -4718,12 +4888,13 @@ function generateNovelAIImageSafe_(params) {
     // V5 品質已經很穩，負面提示詞保持精簡：舊時代那一長串（bad, error, extra, bad hands...）會讓畫面變灰、變保守
     // 只排除品質底線、文字浮水印、馬賽克；角色專屬的負面（GameData.js 的 uc）另外照常套用
     const defaultUc = (typeof params.baseUc === 'string' && params.baseUc) ? params.baseUc : 'worst quality, bad quality, lowres, jpeg artifacts, watermark, signature, text, speech bubble, censored, mosaic censoring, bar censor, smartphone';
-    const cleanedChars = (Array.isArray(params.characters) ? params.characters : []).filter(c => String(c.prompt || '').trim().length > 0);
+    const cleanedChars = (Array.isArray(params.characters) ? params.characters : []).filter(c => String(c.prompt || '').trim().length > 0)
+      .map(c => Object.assign({}, c, { prompt: closeUmbrellaIndoors_(c.prompt, params.prompt) }));
 
     const styleKey = params.artStyle || 'official';
     const styleTags = params.noStyle ? '' : (ART_STYLE_PRESETS_[styleKey] || ART_STYLE_PRESETS_['official']);
 
-    let finalPrompt = params.noStyle ? String(params.prompt || '').trim() : addNightFillLight_(String(params.prompt || '').trim());
+    let finalPrompt = params.noStyle ? String(params.prompt || '').trim() : addNightFillLight_(indoorWeatherFix_(applyWeatherTags_(String(params.prompt || '').trim(), params.weather)));
     if (styleTags) {
       finalPrompt = finalPrompt ? `${finalPrompt}, ${styleTags}` : styleTags;
     }
@@ -5268,6 +5439,7 @@ function parseSaveRow_(row) {
     artStyle: meta.artStyle || 'official',
     day: Number(row[6]),
     timePeriod: String(row[7]),
+    weather: normalizeWeather_(meta.weather),
     ap: Number(row[8]),
     maxAp: 3,
     threatLevel: Number(row[9]),
@@ -5378,6 +5550,52 @@ function appendPlayerChatLog_(ss, playerName, turn, timeLoc, userAction, aiStory
   const safeStory = String(aiStory || '').slice(0, 45000);
   const safePayload = String(imgPayloadStr || '').slice(0, 48000);
   sheet.appendRow([playerName, turn, nowStr, timeLoc, userAction, safeStory, chars, safePayload, seed]);
+}
+
+// ==================== 天氣（原作 2 月初的冬木）：時段推進時變化，劇情與繪圖都會反映 ====================
+const WEATHER_TYPES_ = {
+  '晴': { icon: '☀️', tags: '', hint: '晴朗乾冷的冬日' },
+  '陰': { icon: '☁️', tags: 'overcast, cloudy sky', hint: '灰濛濛的陰天' },
+  '雨': { icon: '🌧️', tags: 'rain, wet ground, puddles', hint: '冬雨：腳印與氣味被沖刷、視野與遠距離射擊變差，路上行人撐傘' },
+  '霧': { icon: '🌫️', tags: 'fog, mist, low visibility', hint: '濃霧：視野很差，利於潛行與奇襲，也容易被伏擊' },
+  '雪': { icon: '❄️', tags: 'snowing, falling snow, snow on ground', hint: '下雪：寒冷、足跡清楚容易被追蹤，行動略受影響' }
+};
+const WEATHER_WEIGHTS_ = { '晴': 35, '陰': 30, '雨': 15, '霧': 10, '雪': 10 };
+function normalizeWeather_(w) { return WEATHER_TYPES_[w] ? w : '晴'; }
+// 天氣有延續性：60% 維持原樣；霧只在清晨與深夜出現
+function rollWeather_(prev, period, rnd) {
+  const r = rnd || Math.random;
+  const cur = normalizeWeather_(prev);
+  const fogOk = period === '清晨' || period === '深夜';
+  if (r() < 0.6 && (cur !== '霧' || fogOk)) return cur;
+  const pool = Object.keys(WEATHER_WEIGHTS_).filter(k => k !== '霧' || fogOk);
+  const total = pool.reduce((a, k) => a + WEATHER_WEIGHTS_[k], 0);
+  let x = r() * total;
+  for (const k of pool) { x -= WEATHER_WEIGHTS_[k]; if (x < 0) return k; }
+  return pool[pool.length - 1];
+}
+function describeWeatherForPrompt_(w) { const t = WEATHER_TYPES_[normalizeWeather_(w)]; return `${normalizeWeather_(w)}（${t.hint}）`; }
+// 繪圖：戶外場景補天氣標籤；室內、或導演已經寫了天氣就不重複
+const INDOOR_SCENE_RE_ = /\b(indoors?|interior|inside|room|basement|kitchen|classroom|cafe|café|restaurant|bedroom|living room|bathroom|bath|onsen|hot spring|hallway|corridor|study|library|workshop|chapel|dining)\b/i;
+const WEATHER_TAG_RE_ = /\b(rain|raining|rainy|snow|snowing|snowy|fog|foggy|mist|misty|overcast|cloudy|storm)\b/i;
+function applyWeatherTags_(prompt, weather) {
+  const p = String(prompt || '');
+  const t = WEATHER_TYPES_[normalizeWeather_(weather)];
+  if (!p || !t.tags || INDOOR_SCENE_RE_.test(p) || WEATHER_TAG_RE_.test(p)) return p;
+  return `${p}, ${t.tags}`;
+}
+
+// 室內場景：導演寫「門外看得到雨」時 NovelAI 常把雨畫進室內（實測教堂裡下雨、主角室內撐傘）
+// → 沒提到窗戶／玻璃／外面的雨雪片段刪掉；角色手上的傘改成收起來
+function indoorWeatherFix_(prompt) {
+  const p = String(prompt || '');
+  const wet = /\b(rain|raining|rainy|rainfall|snow|snowing|snowy|snowfall)\b/i;
+  if (!INDOOR_SCENE_RE_.test(p) || !wet.test(p)) return p;
+  return p.split(',').filter(seg => !wet.test(seg) || /window|glass|outside/i.test(seg)).join(',').replace(/^\s*,\s*/, '').trim();
+}
+function closeUmbrellaIndoors_(charPrompt, scenePrompt) {
+  if (!INDOOR_SCENE_RE_.test(String(scenePrompt || ''))) return String(charPrompt || '');
+  return String(charPrompt || '').replace(/holding (an? |the )?(open |dark |black |transparent |clear |red |blue |white )*umbrella/gi, 'holding a closed umbrella');
 }
 
 function advanceTimePeriod_(day, currentPeriod) {

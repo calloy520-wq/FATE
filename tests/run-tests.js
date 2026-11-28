@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_, rollWeather_, applyWeatherTags_, normalizeWeather_, indoorWeatherFix_, closeUmbrellaIndoors_, focusGestureExcerpt_, isSleepAction_, clipText_, isItemReferenced_, normalizeOutcome_, hasContractIntent_, isFactionInvolved_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -84,6 +84,9 @@ eq('對不上 → 丟棄', T.resolveFactionKey_('路人甲', f), '');
 eq('未知地名 → null（維持原地）', T.matchFuyukiLocation_('冬木中學屋頂'), null);
 eq('別名', T.matchFuyukiLocation_('前往柳洞寺').key, '柳洞寺');
 eq('完整名稱', T.matchFuyukiLocation_('冬木新都・高樓商業區').key, '新都商業區');
+eq('商店街是地標（不再誤留在洋館）', T.matchFuyukiLocation_('和莫德雷德走在深山町的商店街買可樂餅').key, '深山町商店街');
+eq('中央公園不會被「新都」搶走', T.matchFuyukiLocation_('去新都中央公園散步').key, '新都中央公園');
+eq('新都仍是商業區', T.matchFuyukiLocation_('在新都巡邏').key, '新都商業區');
 
 // ---- 道具 ----
 const ir = T.applyInventoryChanges_([{ id: 'mana_gem_s', name: '魔力結晶(小)', qty: 2, tier: 1, type: 'consumable' }], ['mana_gem_s', 'nope'], [], false);
@@ -286,6 +289,58 @@ cr = T.updateCompanions_(metaC, Object.assign({}, facC, { '遠坂組 (Archer陣�
 eq('不再同盟 → 離開', cr.left.map(x => x.fk), ['遠坂組 (Archer陣營)']);
 cr = T.updateCompanions_(metaC, facC, '繼續偵查', 13, []);
 eq('同行滿 4 個時段 → 回去', cr.left.map(x => x.fk), ['間桐組 (Rider陣營)']);
+// 2026-11 克勞德媽實玩：同一回合「離開又加入」
+const metaC2 = { companions: { '遠坂組 (Archer陣營)': { t: 0 } } };
+const facC2 = { '遠坂組 (Archer陣營)': '存活 (同盟)' };
+cr = T.updateCompanions_(metaC2, facC2, '凜，我們一起活著走出這裡', 4, []);
+eq('到期但又邀請 → 默默延長，不顯示離開又加入', [cr.joined, cr.left, metaC2.companions['遠坂組 (Archer陣營)'].t], [[], [], 4]);
+cr = T.updateCompanions_(metaC2, facC2, '請凜先留在室內警戒，我與師匠一同去檢查', 5, []);
+eq('請盟友留下 → 離隊且同回合不會被「一同」拉回', [cr.joined, cr.left.map(x => x.fk)], [[], ['遠坂組 (Archer陣營)']]);
+
+// ---- 親密動作優先：摘錄截到動作與反應為止 ----
+const gStory = '他伸手摸了摸她的頭。\n莫德雷德：「別摸我的頭！」\n她臉紅撇開臉。就在這時，結界傳來擾動，使魔在窺探。\n莫德雷德戴上頭盔：「有人在監視！」';
+eq('摸頭後插入威脅 → 截掉威脅', T.focusGestureExcerpt_(gStory, '摸摸她的頭', false), '他伸手摸了摸她的頭。\n莫德雷德：「別摸我的頭！」\n她臉紅撇開臉。');
+eq('戰鬥中不截', T.focusGestureExcerpt_(gStory, '摸摸她的頭', true), gStory);
+eq('不是親密動作不截', T.focusGestureExcerpt_(gStory, '去教會', false), gStory);
+eq('沒有插入威脅就保留全文', T.focusGestureExcerpt_('他抱住她。\n她笑了。', '抱住她', false), '他抱住她。\n她笑了。');
+
+eq('睡覺字眼放寬（只當否決，主判斷是 AI 的 player_slept）', ['回洋館睡覺休息', '睡', '晚安', '躺平', '洗洗睡', '打個盹', 'zzz', '冥想恢復魔力', '前往柳洞寺'].map(T.isSleepAction_), [true, true, true, true, true, true, true, false, false]);
+eq('休息字眼放寬', ['歇一下', '喘口氣', '補充體力', '窩在沙發', '前往柳洞寺偵查'].map(T.isRestAction_), [true, true, true, true, false]);
+eq('締約字眼放寬', ['好，妳就跟著我吧', '我接受', 'OK成交', '來當我的Servant', '看看四周'].map(T.hasContractIntent_), [true, true, true, true, false]);
+eq('道具泛稱交給 AI 判斷', T.isItemReferenced_({ id: 'mana_gem_m', name: '高純度魔力寶石(中)' }, '用道具'), true);
+
+eq('截短在標點斷句', T.clipText_('該陣營目前因昨夜戰損處於休整狀態，對外界情報極度封鎖且不願與人接觸', 30), '該陣營目前因昨夜戰損處於休整狀態…');
+eq('短的不截', T.clipText_('Rider 負傷', 30), 'Rider 負傷');
+
+eq('「同盟・交涉中」還不算同盟', T.isAllianceStatusText_('存活 (同盟・交涉中)'), false);
+
+const gemM = { id: 'mana_gem_m', name: '高純度魔力寶石(中)' }, smoke = { id: 'smoke_bomb', name: '煙霧魔術彈' };
+eq('只說煙霧彈 → 不扣寶石', [T.isItemReferenced_(smoke, '丟出煙霧彈掩護撤退'), T.isItemReferenced_(gemM, '丟出煙霧彈掩護撤退')], [true, false]);
+eq('捏碎寶石 → 扣寶石', T.isItemReferenced_(gemM, '捏碎魔力寶石補充魔力'), true);
+eq('自訂道具用名稱片段比對', T.isItemReferenced_({ id: 'x1', name: '愛因茲貝倫的銀髮人偶' }, '把銀髮人偶送給伊莉雅'), true);
+
+eq('結局值容錯', ['DEAD', 'death', 'Victory', '???', 'FATAL_DEATH'].map(T.normalizeOutcome_), ['FATAL_DEATH', 'FATAL_DEATH', 'TRUE_VICTORY', 'CONTINUE', 'FATAL_DEATH']);
+
+eq('締約意圖', [T.hasContractIntent_('和 Lancer 訂下契約'), T.hasContractIntent_('收服 Rider'), T.hasContractIntent_('看看四周')], [true, true, false]);
+eq('陣營是否參與本回合', [T.isFactionInvolved_('間桐組 (Rider陣營)', [{ id: 'rider' }], '追擊'), T.isFactionInvolved_('柳洞寺組 (Caster/Assassin陣營)', [], '遠遠觀察'), T.isFactionInvolved_('柳洞寺組 (Caster/Assassin陣營)', [], '攻擊小次郎')], [true, false, true]);
+
+// ---- 天氣 ----
+eq('天氣不明 → 晴', T.normalizeWeather_('颱風'), '晴');
+eq('天氣有延續性', T.rollWeather_('雨', '白天', () => 0.1), '雨');
+eq('霧不會出現在白天', T.rollWeather_('霧', '白天', () => 0.1) !== '霧', true);
+let fogSeen = false; for (let i = 0; i < 200; i++) { if (T.rollWeather_('晴', '白天') === '霧') fogSeen = true; }
+eq('白天抽不到霧', fogSeen, false);
+eq('戶外補雨的標籤', T.applyWeatherTags_('cowboy shot, city street, night', '雨'), 'cowboy shot, city street, night, rain, wet ground, puddles');
+eq('室內不補天氣', T.applyWeatherTags_('upper body, kitchen, warm light', '雪'), 'upper body, kitchen, warm light');
+eq('導演已寫天氣不重複', T.applyWeatherTags_('bridge, heavy rain', '雨'), 'bridge, heavy rain');
+eq('室內：門外的雨刪掉（避免室內下雨）', T.indoorWeatherFix_('medium shot, inside the dim church interior, rain visible through the open doorway, candlelight'), 'medium shot, inside the dim church interior, candlelight');
+eq('室內：窗外的雨保留', T.indoorWeatherFix_('inside a cafe, rain on the window, warm light'), 'inside a cafe, rain on the window, warm light');
+eq('戶外的雨不動', T.indoorWeatherFix_('city street, rain, night'), 'city street, rain, night');
+eq('室內收傘', T.closeUmbrellaIndoors_('standing, holding a dark umbrella, calm', 'inside the church interior'), 'standing, holding a closed umbrella, calm');
+eq('晴天不加標籤', T.applyWeatherTags_('bridge, sunset', '晴'), 'bridge, sunset');
+const wStat = { factions: { '遠坂組 (Archer陣營)': '存活 (敵對)' }, servant1: { id: 'mordred', condition: '' }, servant2: {}, master: { mp: 100, maxMp: 100, commandSpells: 3 }, bondLevel: 30, locationKey: '新都商業區', weather: '霧' };
+const wa = T.assessCombat_(wStat, {}, '在霧中偷襲遠坂凜');
+eq('濃霧奇襲與天候削弱狙擊都算進戰力', [wa.reasons.includes('濃霧掩護'), wa.reasons.includes('天候削弱遠程狙擊')], [true, true]);
 
 // ---- 陣營好感與約定 ----
 const metaF = {};
@@ -298,6 +353,11 @@ eq('好感夠了可以結盟', T.gateFactionAlliance_('存活 (中立)', '存活
 const now = T.timeIndex_(2, '黃昏');
 const ad = T.addAppointments_(metaF, facF, [{ faction: '遠坂', day: 2, period: '深夜', place: '冬木大橋' }, { faction: '伊莉雅', day: 3, period: '清晨', place: '柳洞寺' }], now);
 eq('只能和同盟約定', ad.map(a => a.fk), ['遠坂組 (Archer陣營)']);
+const metaAp = { smsContacts: { '衛宮組 (Saber陣營)': true } };
+const adFriendly = T.addAppointments_(metaAp, { '衛宮組 (Saber陣營)': '存活 (互不侵犯)' }, [{ faction: '士郎', day: 3, period: '黃昏', place: '冬木大橋' }], T.timeIndex_(2, '黃昏'));
+eq('有聯絡方式的友善陣營也能約', adFriendly.map(a => a.fk), ['衛宮組 (Saber陣營)']);
+const rsF = T.resolveAppointments_(metaAp, { '衛宮組 (Saber陣營)': '存活 (互不侵犯)' }, T.timeIndex_(3, '黃昏'), '冬木大橋');
+eq('友善陣營依約前來', rsF.due.map(a => a.fk), ['衛宮組 (Saber陣營)']);
 let rs = T.resolveAppointments_(metaF, facF, T.timeIndex_(2, '深夜'), '冬木大橋');
 eq('準時到約定地點 → 對方出現', rs.due.map(a => a.fk), ['遠坂組 (Archer陣營)']);
 T.addAppointments_(metaF, facF, [{ faction: '遠坂', day: 3, period: '白天', place: '遠坂邸' }], T.timeIndex_(2, '深夜'));
@@ -414,6 +474,19 @@ eq('擁抱 → 上半身、去掉 medium shot', T.refineRomanceFraming_('2girls,
 // 成人模式關閉：依場合替換
 eq('關閉＋裸露 → 通用遮擋', T.adultOffOutfit_('nude, completely nude, no clothes', '幫斯卡哈搓背', 'x'), 'convenient censoring');
 eq('穿著的不替換', T.adultOffOutfit_('white sweater', '泡澡', 'x'), 'white sweater');
+
+// 同盟標記保護與好感保險（克勞德媽實玩：AI 把同盟改寫成「存活 (終局)」導致無法通關）
+eq('同盟被改寫成終局 → 補回同盟', T.preserveAllianceTag_('存活 (同盟・合作中)', '存活 (終局)'), '存活 (終局・同盟)');
+eq('明寫破裂 → 不補', T.preserveAllianceTag_('存活 (同盟)', '存活 (同盟破裂・敵對)'), '存活 (同盟破裂・敵對)');
+eq('沒括號 → 後面補', T.preserveAllianceTag_('同盟中', '休整中'), '休整中 (同盟)');
+eq('原本不是同盟 → 不動', T.preserveAllianceTag_('存活 (中立)', '存活 (終局)'), '存活 (終局)');
+{
+  const F = { '柳洞寺組': '交戰負傷・休整中 (曾於間桐邸與 衛宮組 激戰)', '衛宮組': '交戰負傷・休整中 (曾於間桐邸與 柳洞寺組 激戰)', '愛因茲貝倫組': '存活 (終局)', '間桐組': '存活 (終局)', '教會組': '重創 (淘汰)', '遠坂組': '存活 (終局)' };
+  const favor = { '柳洞寺組': 100, '衛宮組': 100, '愛因茲貝倫組': 100, '間桐組': 100, '教會組': -90, '遠坂組': 100 };
+  eq('克勞德媽存檔：沒有好感 → 判定未化解', T.areAllRivalFactionsResolved_(F), false);
+  eq('克勞德媽存檔：好感都 100 → 判定已化解', T.areAllRivalFactionsResolved_(F, favor), true);
+  eq('好感高但狀態敵對 → 不算', T.areAllRivalFactionsResolved_({ a: '存活 (敵對)' }, { a: 100 }), false);
+}
 
 console.log(`\n${ok} passed, ${bad} failed`);
 process.exit(bad ? 1 : 0);

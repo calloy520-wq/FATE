@@ -1852,7 +1852,7 @@
       document.getElementById('ui-bond-badge').innerText = `💖 ${bond}`;
       document.getElementById('ui-tone-badge').innerText = TONE_META[tone].short;
       const PERIOD_ICON = { '清晨': '🌅', '白天': '☀️', '黃昏': '🌇', '深夜': '🌙' };
-      document.getElementById('ui-time-badge').innerText = `${PERIOD_ICON[s.timePeriod] || ''} Day ${s.day}・${s.timePeriod}｜AP ${s.gameMode === 'WAR' ? `${s.ap}/${s.maxAp}` : '∞'}`;
+      document.getElementById('ui-time-badge').innerText = `${PERIOD_ICON[s.timePeriod] || ''} Day ${s.day}・${s.timePeriod}${s.weather ? '｜' + ({ '晴': '☀️', '陰': '☁️', '雨': '🌧️', '霧': '🌫️', '雪': '❄️' }[s.weather] || '') + s.weather : ''}｜AP ${s.gameMode === 'WAR' ? `${s.ap}/${s.maxAp}` : '∞'}`;
       // 時段一變就換天色，並跳出提示
       const periodKey = `${s.day}-${s.timePeriod}`;
       if (document.body.dataset.period !== s.timePeriod || window.__lastPeriodKey !== periodKey) {
@@ -2101,7 +2101,7 @@
     // 與後端 isAllianceStatusText_ 相同：談判中、意向、解除、破裂都不算同盟
     function isAlliedText(t) {
       const s = String(t || '');
-      return /同盟|結盟|盟友|停戰|互助|合作|友方/.test(s) && !/談判|意向|考慮|提議|拒絕|破裂|解除|背叛|假意|觀望|中止|撕毀|試探|尚未|嘗試|軟化/.test(s);
+      return /同盟|結盟|盟友|停戰|互助|合作|友方/.test(s) && !/談判|交涉|協商|洽談|磋商|意向|考慮|提議|拒絕|破裂|解除|背叛|假意|觀望|中止|撕毀|試探|尚未|嘗試|軟化/.test(s);
     }
 
     function canSmsTo(facName) {
