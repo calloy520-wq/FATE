@@ -12,7 +12,7 @@ vm.runInContext(src + `
 ;this.T = { updateRyuudouRoute_, resolveFactionKey_, matchFuyukiLocation_, applyInventoryChanges_,
   computeDynamicLocationInfo_, FUYUKI_LOCATIONS_, isCapturedOrDefeatedStatusText_, syncCapturedServantFaction_,
   areAllRivalFactionsResolved_, updateKeyEvents_, normalizeCharCoreForNai_, stripCountTags_, excerptForDirector_,
-  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_ };`, ctx);
+  formatCharacterOutfitPrompt_, isNudeOutfitTags_, applyRumorUpdates_, formatNovelStoryText_, FATE_GM_SYSTEM_PROMPT_, stripBadInteractionPrefix_, buildCountTags_, isOutOfPovView_, getContactChannel_, removeCharacterMentions_, pickNaiSize_, outfitSimilarity_, autoAdaptSmartOutfit_, parseJsonLoose_, advanceTimePeriod_, sanitizeNudeOutfitForChar_, buildNaiPayloadFromScene_, gateFactionElimination_, describeWarStateForPrompt_, publicIntelText_, initFactionIntel_, updateFactionIntel_, gateFactionAlliance_, isAllianceStatusText_, isRestAction_, applyGodHandHits_, gateGodHandElimination_, assessCombat_, maybeSummonFinalBoss_, updateCompanions_, applyFactionFavor_, getFactionFavor_, addAppointments_, resolveAppointments_, timeIndex_, findRosterSwapTarget_, stripWeaponTags_, ensureExpression_, addNightFillLight_, customServantTier_, sanitizeCustomServant_, customServantParamsText_, stripOtherCharNames_, customServantCore_, refineFramingTags_, refineGazeAction_, refineRomanceFraming_, detectIntimacyTags_, simulateOffscreenFactionWar_, describeFinalBossForPrompt_, stripLowerBodyForCloseUp_, stripActionTermsInUc_, adultOffOutfit_, preserveAllianceTag_, areAllRivalFactionsResolved_, rollWeather_, applyWeatherTags_, normalizeWeather_ };`, ctx);
 const T = ctx.T;
 
 let ok = 0, bad = 0;
@@ -307,6 +307,20 @@ cr = T.updateCompanions_(metaC2, facC2, '凜，我們一起活著走出這裡', 
 eq('到期但又邀請 → 默默延長，不顯示離開又加入', [cr.joined, cr.left, metaC2.companions['遠坂組 (Archer陣營)'].t], [[], [], 4]);
 cr = T.updateCompanions_(metaC2, facC2, '請凜先留在室內警戒，我與師匠一同去檢查', 5, []);
 eq('請盟友留下 → 離隊且同回合不會被「一同」拉回', [cr.joined, cr.left.map(x => x.fk)], [[], ['遠坂組 (Archer陣營)']]);
+
+// ---- 天氣 ----
+eq('天氣不明 → 晴', T.normalizeWeather_('颱風'), '晴');
+eq('天氣有延續性', T.rollWeather_('雨', '白天', () => 0.1), '雨');
+eq('霧不會出現在白天', T.rollWeather_('霧', '白天', () => 0.1) !== '霧', true);
+let fogSeen = false; for (let i = 0; i < 200; i++) { if (T.rollWeather_('晴', '白天') === '霧') fogSeen = true; }
+eq('白天抽不到霧', fogSeen, false);
+eq('戶外補雨的標籤', T.applyWeatherTags_('cowboy shot, city street, night', '雨'), 'cowboy shot, city street, night, rain, wet ground, puddles');
+eq('室內不補天氣', T.applyWeatherTags_('upper body, kitchen, warm light', '雪'), 'upper body, kitchen, warm light');
+eq('導演已寫天氣不重複', T.applyWeatherTags_('bridge, heavy rain', '雨'), 'bridge, heavy rain');
+eq('晴天不加標籤', T.applyWeatherTags_('bridge, sunset', '晴'), 'bridge, sunset');
+const wStat = { factions: { '遠坂組 (Archer陣營)': '存活 (敵對)' }, servant1: { id: 'mordred', condition: '' }, servant2: {}, master: { mp: 100, maxMp: 100, commandSpells: 3 }, bondLevel: 30, locationKey: '新都商業區', weather: '霧' };
+const wa = T.assessCombat_(wStat, {}, '在霧中偷襲遠坂凜');
+eq('濃霧奇襲與天候削弱狙擊都算進戰力', [wa.reasons.includes('濃霧掩護'), wa.reasons.includes('天候削弱遠程狙擊')], [true, true]);
 
 // ---- 陣營好感與約定 ----
 const metaF = {};

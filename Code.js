@@ -1379,7 +1379,12 @@ function assessCombat_(statusObj, meta, userAction) {
   const intel = ((meta.factionIntel || {})[target] || {}).text || '';
   if (/真名|弱點|寶具|底牌|破綻|傲慢|試煉/.test(intel)) { score += 1; reasons.push('掌握對方情報'); }
   // 事前準備與奇襲
-  if (/埋伏|陷阱|伏擊|偷襲|奇襲|設下|佈置|佈下|預先|事先|誘餌|引誘/.test(text)) { score += 1; reasons.push('事前準備／奇襲'); }
+  const ambush = /埋伏|陷阱|伏擊|偷襲|奇襲|設下|佈置|佈下|預先|事先|誘餌|引誘/.test(text);
+  if (ambush) { score += 1; reasons.push('事前準備／奇襲'); }
+  // 天氣：霧中奇襲更容易；雨霧雪削弱 Archer 的遠距離狙擊
+  const weather = normalizeWeather_(statusObj.weather || meta.weather);
+  if (weather === '霧' && (ambush || /潛行|潛入|躲|隱匿|悄悄/.test(text))) { score += 1; reasons.push('濃霧掩護'); }
+  if (/雨|霧|雪/.test(weather) && target.includes('遠坂')) { score += 1; reasons.push('天候削弱遠程狙擊'); }
   // 地利：在對方陣地作戰吃虧
   const homeMarker = FACTION_HOME_[battleLoc];
   if (homeMarker && target.includes(homeMarker)) {
@@ -3066,6 +3071,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
   '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。',
   '- 陣營更新：`faction_updates` 的鍵必須用狀態資料中既有的陣營完整名稱；值寫該陣營的存亡與對玩家的態度（例如「存活 (同盟)」「存活 (敵對・負傷休整)」），不要寫一時的動作（例如「發送訊息中」）。',
+  '- 天氣是事實：狀態列的天氣要自然寫進戶外場景（雨聲、撐傘、霧氣、積雪），並合理影響偵查、追蹤、潛行與遠距離攻擊；只有劇情真的改變天氣（大型魔術、結界、天候寶具）時才在 `weather_change` 填「晴／陰／雨／霧／雪」，玩家說「下雨了」不算。',
   '- 場地會留下痕跡：劇情確實改變了某個地標的樣子（戰鬥破壞、佈置房間、設下結界、教會修復等），在 `location_changes` 用地標名稱寫下戰鬥或事件結束後**留下來的樣子**（60 字內，例如「石階佈滿劍痕、山門一側崩塌」，不要寫「兩人正在交戰」這種進行中的事）。這個狀態會一直保留，之後回到那裡要照現況描寫，直到劇情再次改變它；只是路過、沒有改變就不要填。',
   '',
   '## 五、死亡與勝利',
@@ -3107,6 +3113,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '  "appointments_add": [{ "faction": "陣營名稱", "day": 3, "period": "清晨／白天／黃昏／深夜", "place": "地標名稱" }],',
   '  "route_tendency_delta": { "fate": 0, "ubw": 0, "hf": 0, "shadow": 0, "conquest": 0 },',
   '  "location_changes": {},',
+  '  "weather_change": "",',
   '  "incoming_messages": [{ "faction": "陣營名稱", "text": "其他陣營主動傳給玩家的訊息（80字內）" }],',
   '  "servants_out": [],',
   '  "new_servant2_id": "",',
@@ -3269,7 +3276,7 @@ function processFateTurnTextOnly(params) {
     const statePrompt = [
       `【本局基調（優先遵守，決定結果的輕重與筆調）】${tonePreset.label}：${tonePreset.directive || tonePreset.desc}`,
       turnSettingsBlock,
-      `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}% | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
+      `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | 天氣: ${describeWeatherForPrompt_(statusObj.weather)} | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}% | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
       `【當前場地現況】${statusObj.locationInfo.desc}`,
       `【幕後戰況（只有 GM 知道；玩家與從者不知道哪些陣營交手、誰勝誰負，只能透過論壇目擊、使魔、聯絡或親自調查慢慢得知）】${statusObj.warTicker}`,
       `【御主(${cleanName})】ID:player_master | 性別:${statusObj.master.gender === 'boy' ? '男（劇情中用「他」）' : '女（劇情中用「她」）'} | 身分:獨立第8組參戰者 | 出身:${statusObj.master.origin} | 願望:「${statusObj.master.wish}」 | 魔力:${statusObj.master.mp}/${statusObj.master.maxMp} | 令咒:${statusObj.master.commandSpells} | 肉身狀態:${statusObj.master.condition}`,
@@ -3330,6 +3337,12 @@ function processFateTurnTextOnly(params) {
     const resolvedLoc = matchFuyukiLocation_(turnJson.location) || resolveFuyukiLocation_(row[10]);
     row[10] = resolvedLoc.info.fullName;
 
+    // 天氣：只有劇情真的改變天氣時 AI 才回報
+    let weatherNote = '';
+    const wc = String(turnJson.weather_change || '').trim();
+    if (WEATHER_TYPES_[wc] && wc !== normalizeWeather_(meta.weather)) { meta.weather = wc; weatherNote = `${WEATHER_TYPES_[wc].icon} 天氣轉為${wc}`; }
+    // 本回合劇情是在這個天氣下寫的：時段推進換天氣後，這張 CG 仍照劇情的天氣畫
+    const storyWeather = normalizeWeather_(meta.weather);
     // 場地狀態：AI 回報的地點改變永久保存（與地圖上手動編輯的「場地現況」是同一份資料）
     const changedLocations = [];
     if (turnJson.location_changes && typeof turnJson.location_changes === 'object') {
@@ -3481,7 +3494,10 @@ function processFateTurnTextOnly(params) {
         const activeLocInfo = computeDynamicLocationInfo_(resolvedLoc.key, resolvedLoc.info, currentFactions, meta.mapHotspot || '冬木大橋', statusObj.gameMode, customNotes);
         const leylineRegen = activeLocInfo.manaRegen;
         mpDelta += leylineRegen;
-        periodAdvancedNotice += `\n\n【時段推進・大源回復】時間進入 Day ${nextTime.day}・${nextTime.period}。受「${activeLocInfo.leyline}」滋養，魔術迴路自然汲取大源回復了 +${leylineRegen} MP。`;
+        const prevWeather = normalizeWeather_(meta.weather);
+        meta.weather = rollWeather_(prevWeather, nextTime.period);
+        const wInfo = WEATHER_TYPES_[meta.weather];
+        periodAdvancedNotice += `\n\n【時段推進・大源回復】時間進入 Day ${nextTime.day}・${nextTime.period}（${wInfo.icon} ${meta.weather}${meta.weather !== prevWeather ? '，天氣變了' : ''}）。受「${activeLocInfo.leyline}」滋養，魔術迴路自然汲取大源回復了 +${leylineRegen} MP。`;
 
         // 玩家的第8組是獨立陣營，不再以「持有英靈ID」排除原敵對陣營；已收服者已由狀態文字排除
         const warSim = simulateOffscreenFactionWar_(currentFactions, nextTime.day, nextTime.period, [], meta.factionFavor);
@@ -3826,6 +3842,7 @@ function processFateTurnTextOnly(params) {
 
     // 每回合結算：把本回合造成的確實變化列出來，讓玩家看到行動的反饋（也存進紀錄）
     const summaryParts = [];
+    if (weatherNote) summaryParts.push(weatherNote);
     const mpAfter = Number(row[15]);
     if (mpAfter !== statusObj.master.mp) summaryParts.push(`MP ${statusObj.master.mp}→${mpAfter}`);
     favorChanges.forEach(c => summaryParts.push(`💗 ${c.fk.replace(/\s*\(.*\)$/, '')} 好感 ${c.before}→${c.after}（${favorLabel_(c.after)}）`));
@@ -3899,7 +3916,7 @@ function processFateTurnTextOnly(params) {
     presentList = ensureMasterPresentInList_(presentList, isCombatTurn);
 
     const imgPayload = buildNaiPayloadFromScene_(
-      updatedStatus,
+      Object.assign({}, updatedStatus, { weather: storyWeather }),
       presentList,
       turnJson.scene_env_en || 'fuyuki city, night, dramatic lighting',
       isCombatTurn,
@@ -4139,6 +4156,7 @@ function translateSceneToNaiV5_(directorCtx) {
 
   const userMsg = [
     `Location & Time: ${directorCtx.location} (${directorCtx.timePeriod})`,
+    directorCtx.weather && directorCtx.weather !== '晴' ? `Weather: ${WEATHER_TYPES_[normalizeWeather_(directorCtx.weather)].tags} (show it only if the scene is outdoors or a window is visible)` : '',
     directorCtx.locationDesc ? `Current Site Appearance/Modifications: ${directorCtx.locationDesc}` : '',
     `Is Combat: ${Boolean(directorCtx.isCombat)}`,
     `Adult Mode: ${Boolean(directorCtx.adultMode)}`,
@@ -4307,6 +4325,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
   return {
     prompt: finalScenePrompt,
     countPrefix: countTags.join(', '),
+    weather: normalizeWeather_(statusObj.weather),
     adultMode: adultMode,
     cameraMode: povMode ? 'pov' : 'third',
     combatEnvTags: combatEnvTags,
@@ -4327,6 +4346,7 @@ function buildNaiPayloadFromScene_(statusObj, presentChars, sceneEnvEn, isCombat
       location: statusObj.location || '',
       locationDesc: (statusObj.locationInfo && statusObj.locationInfo.desc) ? String(statusObj.locationInfo.desc) : '',
       timePeriod: statusObj.timePeriod || '',
+      weather: normalizeWeather_(statusObj.weather),
       isCombat: Boolean(isCombat || anyNpActive),
       adultMode: adultMode,
       cameraMode: povMode ? 'pov' : 'third',
@@ -4764,7 +4784,7 @@ function generateNovelAIImageSafe_(params) {
     const styleKey = params.artStyle || 'official';
     const styleTags = params.noStyle ? '' : (ART_STYLE_PRESETS_[styleKey] || ART_STYLE_PRESETS_['official']);
 
-    let finalPrompt = params.noStyle ? String(params.prompt || '').trim() : addNightFillLight_(String(params.prompt || '').trim());
+    let finalPrompt = params.noStyle ? String(params.prompt || '').trim() : addNightFillLight_(applyWeatherTags_(String(params.prompt || '').trim(), params.weather));
     if (styleTags) {
       finalPrompt = finalPrompt ? `${finalPrompt}, ${styleTags}` : styleTags;
     }
@@ -5309,6 +5329,7 @@ function parseSaveRow_(row) {
     artStyle: meta.artStyle || 'official',
     day: Number(row[6]),
     timePeriod: String(row[7]),
+    weather: normalizeWeather_(meta.weather),
     ap: Number(row[8]),
     maxAp: 3,
     threatLevel: Number(row[9]),
@@ -5419,6 +5440,39 @@ function appendPlayerChatLog_(ss, playerName, turn, timeLoc, userAction, aiStory
   const safeStory = String(aiStory || '').slice(0, 45000);
   const safePayload = String(imgPayloadStr || '').slice(0, 48000);
   sheet.appendRow([playerName, turn, nowStr, timeLoc, userAction, safeStory, chars, safePayload, seed]);
+}
+
+// ==================== 天氣（原作 2 月初的冬木）：時段推進時變化，劇情與繪圖都會反映 ====================
+const WEATHER_TYPES_ = {
+  '晴': { icon: '☀️', tags: '', hint: '晴朗乾冷的冬日' },
+  '陰': { icon: '☁️', tags: 'overcast, cloudy sky', hint: '灰濛濛的陰天' },
+  '雨': { icon: '🌧️', tags: 'rain, wet ground, puddles', hint: '冬雨：腳印與氣味被沖刷、視野與遠距離射擊變差，路上行人撐傘' },
+  '霧': { icon: '🌫️', tags: 'fog, mist, low visibility', hint: '濃霧：視野很差，利於潛行與奇襲，也容易被伏擊' },
+  '雪': { icon: '❄️', tags: 'snowing, falling snow, snow on ground', hint: '下雪：寒冷、足跡清楚容易被追蹤，行動略受影響' }
+};
+const WEATHER_WEIGHTS_ = { '晴': 35, '陰': 30, '雨': 15, '霧': 10, '雪': 10 };
+function normalizeWeather_(w) { return WEATHER_TYPES_[w] ? w : '晴'; }
+// 天氣有延續性：60% 維持原樣；霧只在清晨與深夜出現
+function rollWeather_(prev, period, rnd) {
+  const r = rnd || Math.random;
+  const cur = normalizeWeather_(prev);
+  const fogOk = period === '清晨' || period === '深夜';
+  if (r() < 0.6 && (cur !== '霧' || fogOk)) return cur;
+  const pool = Object.keys(WEATHER_WEIGHTS_).filter(k => k !== '霧' || fogOk);
+  const total = pool.reduce((a, k) => a + WEATHER_WEIGHTS_[k], 0);
+  let x = r() * total;
+  for (const k of pool) { x -= WEATHER_WEIGHTS_[k]; if (x < 0) return k; }
+  return pool[pool.length - 1];
+}
+function describeWeatherForPrompt_(w) { const t = WEATHER_TYPES_[normalizeWeather_(w)]; return `${normalizeWeather_(w)}（${t.hint}）`; }
+// 繪圖：戶外場景補天氣標籤；室內、或導演已經寫了天氣就不重複
+const INDOOR_SCENE_RE_ = /\b(indoors?|interior|inside|room|basement|kitchen|classroom|cafe|café|restaurant|bedroom|living room|bathroom|bath|onsen|hot spring|hallway|corridor|study|library|workshop|chapel|dining)\b/i;
+const WEATHER_TAG_RE_ = /\b(rain|raining|rainy|snow|snowing|snowy|fog|foggy|mist|misty|overcast|cloudy|storm)\b/i;
+function applyWeatherTags_(prompt, weather) {
+  const p = String(prompt || '');
+  const t = WEATHER_TYPES_[normalizeWeather_(weather)];
+  if (!p || !t.tags || INDOOR_SCENE_RE_.test(p) || WEATHER_TAG_RE_.test(p)) return p;
+  return `${p}, ${t.tags}`;
 }
 
 function advanceTimePeriod_(day, currentPeriod) {

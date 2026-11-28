@@ -53,6 +53,7 @@
 - 活的論壇：AI 每回合可用 `forum_posts` 產生 0～2 則市民目擊貼文。
 - 路線傾向：`meta.routeTendency`（fate／ubw／hf／shadow／conquest，0～100），AI 每回合以 `route_tendency_delta` 加減；最高分 ≥ 40 且領先 ≥ 12 時確立 `meta.activeRoute`，轉線需領先現路線 24 分。定義在 `ROUTE_DEFS_`，顯示在「📊 情報」。
 - 場地狀態延續：劇情改變地標樣貌（破壞、佈置、結界、修復）時，AI 以 `location_changes` 回報現況，存進 `meta.customLocationNotes`（與地圖上手動編輯「場地現況」是同一份），永久保留直到劇情再改變；地標清單會附上被改變地點的現況，導演會把現況畫進背景。
+- 天氣（`meta.weather`，`WEATHER_TYPES_`：晴／陰／雨／霧／雪，原作 2 月初的冬木）：每次時段推進用 `rollWeather_` 變化（60% 維持、霧只在清晨與深夜），時段推進訊息與頂部時間徽章顯示天氣。statePrompt 寫天氣與影響（雨沖刷痕跡、霧利於潛行、雪留足跡），系統提示詞要求戶外描寫天氣；只有劇情真的改變天氣（大型魔術、天候寶具）時 AI 才回報 `weather_change`，結算顯示。繪圖：導演收到 Weather 行，`generateNovelAIImageSafe_` 用 `applyWeatherTags_` 在戶外場景補天氣標籤（室內字眼或已寫天氣就不加）；CG 用本回合劇情寫作時的天氣（`storyWeather`），不用時段推進後的新天氣。戰力判定：霧中奇襲／潛行 +1、雨霧雪對遠坂組（Archer 狙擊）+1。
 - 陣營主動行動（`drawProactiveEvent_`）：每回合機率 15%～45%（警戒度越高、越久沒事越高；發生後至少隔 3 回合），挑一個未淘汰的陣營依態度主動行動（敵對：窺探／突襲／挑戰書／陷阱；中立：拜訪／交易／偶遇；同盟：情報／求援／商量／邀約；教會：綺禮來訪／通知），寫進提示詞要求本回合一定發生。重傷休整的不會突襲。只有**同盟陣營**會主動傳訊（`incoming_messages`，伺服器擋掉非同盟的），寫入手機聯絡頁；非同盟的接觸一律在劇情中當面發生。結盟分階段（`gateFactionAlliance_`）：常理與鐵血模式下，敵對陣營一回合最多軟化成「談判中」；`isAllianceStatusText_` 不把談判中、意向、解除、破裂當同盟（前端 `isAlliedText` 同步）。
 - 教會是公開據點，手機上隨時聯絡得到。
 - 陣營好感（`meta.factionFavor`，−100～100，開局值 `FACTION_FAVOR_START_`）：AI 以 `faction_favor_delta` 加減，每回合每組最多 ±15；常理與鐵血下好感 < 40 不能正式結盟。約定（`meta.appointments`，最多 3 筆）：AI 以 `appointments_add` 記錄和同盟約好的時間地點；到了那個時段人在約定地點 → 對方加入同行，錯過 → 好感 −10，對方不再同盟或重傷 → 取消。都顯示在「📊 情報」。
