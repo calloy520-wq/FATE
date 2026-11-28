@@ -37,6 +37,8 @@ const mockSS = {
 
 let geminiQueue = [];
 const geminiRequests = [];
+// 使用者訊息可能分成「玩家固定段（快取）＋動態段」兩段，測試時合併成一整段文字
+const userText = r => { const c = r.messages[1].content; return Array.isArray(c) ? c.map(x => x.text).join('') : String(c); };
 const props = {};
 const cache = {};
 const ctx = {
@@ -162,7 +164,7 @@ check('壞 JSON 自動重試', t3.story.startsWith('平靜的一夜'));
 // 8. 世界書（內建 Lore.js）：不分大小寫命中、無關條目不載入、必載入條目一定在
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '你思考著狂戰士的弱點。', ap_cost: 0, location: '廢棄洋館', present_chars: [], scene_env_en: 'night' });
 ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '我想研究 berserker 的弱點' });
-const lorePrompt = geminiRequests[geminiRequests.length - 1].messages[1].content;
+const lorePrompt = userText(geminiRequests[geminiRequests.length - 1]);
 check('世界書：小寫 berserker 命中 Berserker 條目', lorePrompt.includes('[從者・Berserker]'));
 check('世界書：無關條目不載入', !lorePrompt.includes('[現代禮裝]'));
 check('世界書：優先度 10 必載入', lorePrompt.includes('[角色認知邊界]') && lorePrompt.includes('[世界觀與遭遇]'));
@@ -182,7 +184,7 @@ geminiQueue.push({ outcome_type: 'CONTINUE', story: '你回到了洋館。', ap_
 ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '回洋館' });
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '你在洋館休息。', ap_cost: 0, location: '廢棄洋館', present_chars: [], scene_env_en: 'room' });
 ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '休息' });
-const promptAway = geminiRequests[geminiRequests.length - 1].messages[1].content;
+const promptAway = userText(geminiRequests[geminiRequests.length - 1]);
 check('離開後，地標清單仍記得大橋已被破壞', promptAway.includes('現況已改變：鋼架扭曲斷裂'));
 
 // 8d. 玩家沒有取得或使用意圖時，AI 不能自己做出道具或消耗道具
@@ -191,7 +193,7 @@ geminiQueue.push({ outcome_type: 'CONTINUE', story: '你佈置了房間，順手
 const noOver = ctx.processFateTurnTextOnly({ playerName: '測試者', userAction: '用布幕把地下室隔出休息區' });
 check('沒要求就不會憑空得到保命符', !noOver.status.inventory.some(i => i.id === 'aegis_charm'));
 check('沒要求就不會消耗道具', noOver.status.inventory.map(i => i.id + ':' + i.qty).join(',') === invBefore);
-check('提示詞包含御主性別', geminiRequests[geminiRequests.length - 1].messages[1].content.includes('性別:女'));
+check('提示詞包含御主性別', userText(geminiRequests[geminiRequests.length - 1]).includes('性別:女'));
 
 // 8e. 非同盟陣營不會傳訊到手機
 geminiQueue.push({ outcome_type: 'CONTINUE', story: '一隻白色小鳥停在窗邊。', ap_cost: 0, location: '廢棄洋館', incoming_messages: [{ faction: '伊莉雅', text: '要不要來城堡玩？' }], present_chars: [], scene_env_en: 'room' });
@@ -320,6 +322,9 @@ const ld = ctx.loadExistingGame('測試者');
 check('讀檔取得最近紀錄（最多 12 筆）', ld.logs.length === 12);
 
 const sysMsg = geminiRequests.find(r => Array.isArray(r.messages[0].content));
+const lastTurnReq = geminiRequests.filter(r => Array.isArray(r.messages[1].content)).pop();
+check('玩家固定段標記快取、動態段不標記', Boolean(lastTurnReq) && lastTurnReq.messages[1].content[0].cache_control && !lastTurnReq.messages[1].content[1].cache_control && /本局基調/.test(lastTurnReq.messages[1].content[0].text) && /玩家本回合最新行動/.test(lastTurnReq.messages[1].content[1].text));
+check('角色 ID 清單在系統規則裡', /## 角色 ID/.test(JSON.stringify(lastTurnReq.messages[0].content)) && !/【角色 ID】/.test(userText(lastTurnReq)));
 check('長的系統規則標記成可快取（cache_control）', Boolean(sysMsg) && sysMsg.messages[0].content[0].cache_control.type === 'ephemeral' && sysMsg.messages[0].content[0].text.length >= 2000);
 
 console.log(`\n${fails === 0 ? '全部通過' : fails + ' 項失敗'}`);
