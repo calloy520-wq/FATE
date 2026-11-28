@@ -697,6 +697,7 @@ function sendAllySmsMessage(playerName, factionName, messageText, isDeception) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
+    SpreadsheetApp.flush(); // 等 AI 回覆期間別的視窗可能推進了回合：重讀前先 flush，避免用舊資料把回合結果蓋掉
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const saveSheet = ss.getSheetByName('Players_Save');
     const rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
@@ -2407,6 +2408,7 @@ function clearPlayerChatLogsByName_(ss, playerName) {
 
 function resetCurrentRunKeepCareer(playerName) {
   const cleanName = validatePlayerName_(playerName);
+  clearTurnMark_(cleanName); // 回合數會被重設或倒回：清掉同步用的回合記號
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
 
@@ -2513,6 +2515,7 @@ function resetCurrentRunKeepCareer(playerName) {
 
 function startNewGame(playerName) {
   const cleanName = validatePlayerName_(playerName);
+  clearTurnMark_(cleanName); // 回合數會被重設或倒回：清掉同步用的回合記號
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
 
@@ -2649,6 +2652,7 @@ function loadExistingGame(playerName) {
 
 function startNextLoopReincarnation(playerName) {
   const cleanName = validatePlayerName_(playerName);
+  clearTurnMark_(cleanName); // 回合數會被重設或倒回：清掉同步用的回合記號
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
 
@@ -2857,6 +2861,7 @@ function previewMasterOutfit(gender, coreTags, outfitTags) {
 
 function completeCreationTextOnly(params) {
   const cleanName = validatePlayerName_(params.playerName);
+  clearTurnMark_(cleanName); // 回合數會被重設或倒回：清掉同步用的回合記號
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   let lockHeld = true;
@@ -2990,6 +2995,7 @@ function completeCreationTextOnly(params) {
 
     lock.waitLock(20000);
     lockHeld = true;
+    SpreadsheetApp.flush(); // 重讀前先 flush，避免讀到這次執行開頭快取的舊資料
     rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
     if (rowIndex === -1) throw new Error('找不到玩家存檔！');
     const phaseNow = String(saveSheet.getRange(rowIndex, 3).getValue());
@@ -3595,6 +3601,11 @@ function processFateTurnTextOnly(params) {
 
     lock.waitLock(20000);
     lockHeld = true;
+    // Apps Script 會快取同一次執行裡讀過的儲存格：不先 flush 的話，這裡重讀到的可能還是回合開始時的舊資料，
+    // 偵測不到別的視窗已經寫入（2026-11 正式站實測：同一個存檔兩個視窗同時送出，兩回合都寫成第 7 回合）
+    SpreadsheetApp.flush();
+    const turnMarkKey = 'fate_tc_' + cleanName;
+    const turnMark = CacheService.getScriptCache().get(turnMarkKey);
 
     // 重新讀取最新存檔：若等待 AI 期間這個存檔已被別的視窗推進，放棄本次結果避免互相覆蓋
     rowIndex = findPlayerRowIndex_(saveSheet, cleanName);
@@ -3602,7 +3613,8 @@ function processFateTurnTextOnly(params) {
     const freshRow = saveSheet.getRange(rowIndex, 1, 1, 32).getValues()[0];
     const undoSnapshot = freshRow.slice();
     const freshMeta = safeJsonParse_(freshRow[31], {});
-    if (Number(freshMeta.turnCount || 0) !== Number(metaBefore.turnCount || 0) || String(freshRow[2]) !== String(row[2])) {
+    // 另外比對快取裡的回合數（跨執行即時同步，不受試算表讀取快取影響）
+    if (Number(freshMeta.turnCount || 0) !== Number(metaBefore.turnCount || 0) || String(freshRow[2]) !== String(row[2]) || (turnMark !== null && Number(turnMark) !== Number(metaBefore.turnCount || 0))) {
       throw new Error('這個存檔剛剛在另一個視窗推進了一回合，本次行動未寫入。請重新【讀取世界線】後再行動。');
     }
     applyPendingSettingsToRow_(freshRow, params.pendingSettings);
@@ -4229,6 +4241,7 @@ function processFateTurnTextOnly(params) {
     row[31] = serializeMeta_(meta);
     saveSheet.getRange(rowIndex, 1, 1, 32).setValues([row]);
     SpreadsheetApp.flush();
+    CacheService.getScriptCache().put(turnMarkKey, String(turnNum), 21600);
 
     const updatedStatus = parseSaveRow_(row);
     // 自由沙盒：名單外的客串角色登記成臨時角色（guest_1、guest_2）交給繪圖（使用者選「名單外的也試著畫」）
@@ -4338,8 +4351,14 @@ function processFateTurnTextOnly(params) {
 // ==================== 4. 快捷操作：一鍵換裝、消耗令咒急充、重骰CG ====================
 
 // ↩ 撤回上一回合：存檔還原到上一回合開始前，刪掉那一回合的對話紀錄，並回傳當時的行動讓玩家修改或重新推演
+// 回合同步記號（CacheService）：只用來偵測「兩個視窗同時推進同一個存檔」，回合數被重設時要清掉
+function clearTurnMark_(cleanName) {
+  try { CacheService.getScriptCache().remove('fate_tc_' + cleanName); } catch (e) {}
+}
+
 function undoLastTurn(playerName) {
   const cleanName = validatePlayerName_(playerName);
+  clearTurnMark_(cleanName); // 回合數會被重設或倒回：清掉同步用的回合記號
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
   try {
