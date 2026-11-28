@@ -98,7 +98,7 @@ const GAME_TONE_PRESETS_ = {
   'HARDCORE_WAR': {
     label: '⚔️ 鐵血嚴重戰場風',
     desc: '戰場肅殺務實，敵人與隊友不會被無關玩笑或偷吃小動作輕易唬住，分心或鬧場會招來冷靜反制與真實戰場後果，勝負與傷勢結算更嚴峻。',
-    directive: '嚴峻寫實：強敵會冷靜反制，失誤與莽撞要付出真實的傷勢、魔力或陣營代價（master_condition／servant_condition 確實惡化），不留情面。傷勢會累積：輕傷沒休養又上戰場就惡化成重傷；正面硬碰 Berserker、吉爾伽美什這類強敵幾乎必敗；御主暴露在從者戰場上隨時可能喪命。'
+    directive: '嚴峻寫實：強敵會冷靜反制，失誤與莽撞要付出真實的傷勢、魔力或陣營代價（master_condition／servant_condition 確實惡化），不留情面。傷勢會累積：輕傷沒休養又上戰場就惡化成重傷；正面硬碰 Berserker、吉爾伽美什這類強敵幾乎必敗；御主暴露在從者戰場上隨時可能喪命。冷酷無情、只認事實：玩家沒有的物品、做不到的能力就是做不到，照實寫他失敗；從者不是保母，玩家執意自殘、送死或亂來時，從者依好感、距離與性格決定要不要管，不會每次都及時出手救；世界不會為玩家放水。'
   }
 };
 
@@ -1574,6 +1574,23 @@ function isOtherPersonRest_(text) {
   const t = String(text || '');
   if (/我也|一起|陪.{0,4}(睡|躺|休息)|跟著.{0,2}睡|自己也/.test(t)) return false;
   return /(看著|幫|讓|哄|守著|望著|替|叫|要|等)[^，。！？、]{0,10}(睡|休息|躺|冥想|歇)/.test(t);
+}
+
+// 玩家行動提到的實體物品，背包裡沒有就在提示詞明講（2026-11 實測：開局說「拿手槍對自己開槍」，4 局都讓手槍憑空出現）
+// 別人的東西（「斯卡哈的槍」）、手機（人人都有翻蓋手機）不算
+const COMMON_ITEM_NOUNS_ = ['狙擊槍', '機關槍', '步槍', '獵槍', '手槍', '散彈槍', '日本刀', '武士刀', '菜刀', '小刀', '匕首', '短刀', '刀子', '手榴彈', '炸彈', '炸藥', '汽油', '打火機', '火柴', '繩子', '毒藥', '安眠藥', '藥水', '治療藥', '魔力寶石', '魔力結晶', '寶石', '符咒', '護符', '卷軸', '魔導書', '聖遺物', '機車', '汽車', '鑰匙', '弓箭', '十字架', '聖水', '黑鍵'];
+function detectMissingItems_(text, inventory) {
+  const t = String(text || '');
+  const inv = (Array.isArray(inventory) ? inventory : []).map(it => String((it && it.name) || '') + ' ' + String((it && it.desc) || '')).join(' ');
+  const found = [];
+  COMMON_ITEM_NOUNS_.forEach(n => {
+    const idx = t.indexOf(n);
+    if (idx < 0 || found.some(f => f.includes(n))) return;
+    if (idx > 0 && t[idx - 1] === '的') return;
+    if (inv.includes(n) || (n === '寶石' && /寶石|結晶/.test(inv)) || (n === '魔力寶石' && /寶石|結晶/.test(inv)) || (n === '魔力結晶' && /寶石|結晶/.test(inv))) return;
+    found.push(n);
+  });
+  return found;
 }
 
 function isRestAction_(text) {
@@ -3187,7 +3204,7 @@ const FATE_GM_SYSTEM_PROMPT_ = [
   '- 通訊錄：只有劇情中**明確寫出**玩家與某陣營交換手機號碼、拿到名片或聯絡方式時，才把陣營名稱填入 `new_contacts`；只是見面、交談、談判都不算。',
   '- 路線傾向：依玩家本回合的行動方式，在 `route_tendency_delta` 為各路線加減分（-3～+3）；已確立路線時，劇情重心照狀態資料中的路線說明發展。',
   '- 記憶：`memory_update` 寫 200 字內前情提要；之後必須記住的約定、恩怨、伏筆用 `key_events_add` 新增，了結的用 `key_events_resolve` 移除。',
-  '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。玩家只能用背包裡真的有的道具與材料：提到沒有的東西（例如背包沒有寶石卻說用寶石煉成），劇情要寫出手邊沒有、做不成，可以改去買或找。當場吃掉的食物、一般日用品不放進 `gained_items`（背包格數有限），只收有遊戲作用的道具、要送人的禮物、證物與魔術材料。',
+  '- 道具：消耗時填 `consumed_item_ids`，取得時填 `gained_items`；固定道具的 id 與效果見狀態資料，系統自動結算的部分不要重複計入數值。玩家只能用背包裡真的有的道具與材料：提到沒有的東西（例如背包沒有寶石卻說用寶石煉成），劇情要寫出手邊沒有、做不成（停在失敗，不要替玩家改用別的方法完成同一件事，玩家下一回合自己決定），可以改去買或找。當場吃掉的食物、一般日用品不放進 `gained_items`（背包格數有限），只收有遊戲作用的道具、要送人的禮物、證物與魔術材料。',
   '- 陣營更新：`faction_updates` 的鍵必須用狀態資料中既有的陣營完整名稱；值寫該陣營的存亡與對玩家的態度（例如「存活 (同盟)」「存活 (敵對・負傷休整)」），不要寫一時的動作（例如「發送訊息中」）。',
   '- 休息：玩家本人這回合真的停下來休息、冥想、調息或睡覺時 `player_rested` 填 true（魔力由系統回復）；說沒空休息、叫別人去休息、看著別人睡（例如「看著沖田睡著，幫她蓋被子」是沖田在睡，玩家沒休息）都填 false。',
   '- 睡覺：玩家本人這回合真的上床睡覺、過夜時 `player_slept` 填 true（時間會推進到下一個時段）；看別人睡、睡前聊天、說不想睡、睡到一半被吵醒都填 false。',
@@ -3354,12 +3371,13 @@ function processFateTurnTextOnly(params) {
 
     const rankCheckHint = `【御主出身與固定六維等階（不可變動）】出身：${statusObj.master.origin} ｜ 魔術迴路:${p.circuit} ｜ 近戰體術:${p.combat} ｜ 隱藏氣息:${p.stealth} ｜ 幸運:${p.luck} ｜ 當前魔力:${statusObj.master.mp}/${statusObj.master.maxMp}`;
 
+    const missingItems = detectMissingItems_(userAction, statusObj.inventory || metaBefore.inventory || []);
     const inventoryRuleHint = [
       `【物品欄 (上限 ${MAX_INVENTORY_SLOTS} 格)】\n${invSummary}`,
       isSandboxMode
         ? '日常模式：不發放戰鬥道具（`gained_items` 為 `[]`）。'
         : '消耗背包道具請填入 `consumed_item_ids`（填背包裡的 id）；只要拾取、收納或取得物品，務必填入 `gained_items`（階級 1～3）。\n固定道具 id：魔力結晶(小)=`mana_gem_s`、高純度魔力寶石(中)=`mana_gem_m`、煙霧魔術彈=`smoke_bomb`、對魔術防禦禮裝(保命符)=`aegis_charm`、未充能天然寶石媒介=`empty_gem`、基礎黑鍵套組=`black_keys`；煉成或取得這些道具時務必沿用同一個 id。\n魔力寶石／結晶的 MP 回復、休息回魔與煙霧彈降低警戒度由系統自動結算，`master_mp_delta` 與 `threat_delta` 不要重複計入。'
-    ].join('\n');
+    ].filter(Boolean).join('\n');
 
     const worldEvent = drawWorldDirectorEvent_(statusObj, metaBefore, turnNum);
     const combatAssess = (statusObj.gameMode === 'WAR' && normalizeGameToneKey_(statusObj.gameTone) !== 'STORY_PLAYER_FIRST') ? assessCombat_(statusObj, metaBefore, userAction) : null;
@@ -3398,6 +3416,7 @@ function processFateTurnTextOnly(params) {
 
     const statePrompt = [
       `【本局基調（優先遵守，決定結果的輕重與筆調）】${tonePreset.label}：${tonePreset.directive || tonePreset.desc}`,
+      missingItems.length ? `【物品檢查（優先遵守）】玩家提到「${missingItems.join('」「')}」，但他的背包和身上都沒有這東西。除非本回合劇情裡合理地先取得（買、撿、搶、借、偷），否則他手上根本沒有：寫他摸了個空、行動失敗，到此為止。不可以讓它憑空出現，也不可以替玩家改用別的方法去做同一件事。` : '',
       turnSettingsBlock,
       `【當前狀態】模式: ${statusObj.gameMode} | 基調: ${tonePreset.label} | Day ${statusObj.day} ${statusObj.timePeriod} | 天氣: ${describeWeatherForPrompt_(statusObj.weather)} | AP: ${statusObj.ap}/${statusObj.maxAp} | 警戒度: ${statusObj.threatLevel}% | 當前地標: ${statusObj.location} (${statusObj.locationInfo.leyline} | ${statusObj.locationInfo.danger})`,
       `【當前場地現況】${statusObj.locationInfo.desc}`,
